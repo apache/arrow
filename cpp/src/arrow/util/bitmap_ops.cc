@@ -399,10 +399,12 @@ Result<std::shared_ptr<Buffer>> OptionalBitmapAnd(MemoryPool* pool, const uint8_
                                                   const uint8_t* right,
                                                   int64_t right_offset, int64_t length,
                                                   int64_t out_offset) {
-  if (left == nullptr || right == nullptr) {
-    const int64_t phys_bits = length + out_offset;
-    ARROW_ASSIGN_OR_RAISE(auto out_buffer, AllocateEmptyBitmap(phys_bits, pool));
-    return out_buffer;
+  if (left == nullptr && right == nullptr) {
+    return nullptr;
+  } else if (left == nullptr) {
+    return CopyBitmap(pool, right, right_offset, length, out_offset);
+  } else if (right == nullptr) {
+    return CopyBitmap(pool, left, left_offset, length, out_offset);
   } else {
     return BitmapOp<std::bit_and>(pool, left, left_offset, right, right_offset, length,
                                   out_offset);
@@ -412,8 +414,15 @@ Result<std::shared_ptr<Buffer>> OptionalBitmapAnd(MemoryPool* pool, const uint8_
 void OptionalBitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                        int64_t right_offset, int64_t length, int64_t out_offset,
                        uint8_t* out) {
-  if (left == nullptr || right == nullptr) {
-    bit_util::ClearBitmap(out, out_offset, length);
+  if (left == nullptr && right == nullptr) {
+    return;
+  } else if (left == nullptr) {
+    // TODO(raulcd) this is obviously wrong. Investigate how to copy right to out.
+    BitmapOp<std::bit_and>(right, right_offset, right, right_offset, length, out_offset,
+                           out);
+  } else if (right == nullptr) {
+    // TODO(raulcd) this is obviously wrong. Investigate how to copy left to out.
+    BitmapOp<std::bit_and>(left, left_offset, left, left_offset, length, out_offset, out);
   } else {
     BitmapOp<std::bit_and>(left, left_offset, right, right_offset, length, out_offset,
                            out);

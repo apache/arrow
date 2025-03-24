@@ -1382,15 +1382,19 @@ class BitmapOp : public ::testing::Test {
           ASSERT_OK_AND_ASSIGN(
               out, op.Call(default_memory_pool(), left_buffer, left_offset, right_buffer,
                            right_offset, length, out_offset));
-          auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
-          ASSERT_READER_VALUES(reader, result_bits);
-
-          // Clear out buffer and try non-allocating version
-          std::memset(out->mutable_data(), 0, out->size());
-          ASSERT_OK(op.Call(left_buffer, left_offset, right_buffer, right_offset, length,
-                            out_offset, out->mutable_data()));
-          reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
-          ASSERT_READER_VALUES(reader, result_bits);
+          if (out == nullptr) {
+            ASSERT_EQ(std::vector<int>{}, result_bits);
+            // TODO(raulcd) This has to test the case of non-allocating buffer
+          } else {
+            auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
+            ASSERT_READER_VALUES(reader, result_bits);
+            // Clear out buffer and try non-allocating version
+            std::memset(out->mutable_data(), 0, out->size());
+            ASSERT_OK(op.Call(left_buffer, left_offset, right_buffer, right_offset,
+                              length, out_offset, out->mutable_data()));
+            reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
+            ASSERT_READER_VALUES(reader, result_bits);
+          }
         }
       }
     }
@@ -1423,15 +1427,20 @@ class BitmapOp : public ::testing::Test {
           ASSERT_OK_AND_ASSIGN(
               out, op.Call(default_memory_pool(), left_buffer, left_offset, right_buffer,
                            right_offset, length, out_offset));
-          auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
-          ASSERT_READER_VALUES(reader, result_bits);
+          if (out == nullptr) {
+            ASSERT_EQ(std::vector<int>{}, result_bits);
+            // TODO: This has to test the case of non-allocating buffer
+          } else {
+            auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
+            ASSERT_READER_VALUES(reader, result_bits);
 
-          // Clear out buffer and try non-allocating version
-          std::memset(out->mutable_data(), 0, out->size());
-          ASSERT_OK(op.Call(left_buffer, left_offset, right_buffer, right_offset, length,
-                            out_offset, out->mutable_data()));
-          reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
-          ASSERT_READER_VALUES(reader, result_bits);
+            // Clear out buffer and try non-allocating version
+            std::memset(out->mutable_data(), 0, out->size());
+            ASSERT_OK(op.Call(left_buffer, left_offset, right_buffer, right_offset,
+                              length, out_offset, out->mutable_data()));
+            reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
+            ASSERT_READER_VALUES(reader, result_bits);
+          }
         }
       }
     }
@@ -1448,10 +1457,10 @@ TEST_F(BitmapOp, OptionalAnd) {
   TestUnaligned(op, left, right, result);
 
   result = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-  TestAligned(op, {}, right, result);
-  TestUnaligned(op, {}, right, result);
-  TestAligned(op, left, {}, result);
-  TestUnaligned(op, left, {}, result);
+  TestAligned(op, {}, right, right);
+  TestUnaligned(op, {}, right, right);
+  TestAligned(op, left, {}, left);
+  TestUnaligned(op, left, {}, left);
   TestAligned(op, {}, {}, {});
   TestUnaligned(op, {}, {}, {});
 }
