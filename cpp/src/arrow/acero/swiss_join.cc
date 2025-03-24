@@ -2224,12 +2224,13 @@ Result<ExecBatch> JoinResidualFilter::MaterializeFilterInput(
   return out;
 }
 
-void JoinProbeProcessor::Init(int num_key_columns, JoinType join_type,
+void JoinProbeProcessor::Init(QueryContext* ctx, int num_key_columns, JoinType join_type,
                               SwissTableForJoin* hash_table,
                               JoinResidualFilter* residual_filter,
                               std::vector<JoinResultMaterialize*> materialize,
                               const std::vector<JoinKeyCmp>* cmp,
                               OutputBatchFn output_batch_fn) {
+  ctx_ = ctx;
   num_key_columns_ = num_key_columns;
   join_type_ = join_type;
   hash_table_ = hash_table;
@@ -2414,11 +2415,23 @@ Status JoinProbeProcessor::OnFinished() {
   // Flush all instances of materialize that have non-zero accumulated output
   // rows.
   //
-  for (size_t i = 0; i < materialize_.size(); ++i) {
-    JoinResultMaterialize& materialize = *materialize_[i];
-    RETURN_NOT_OK(materialize.Flush(
-        [&](ExecBatch batch) { return output_batch_fn_(i, std::move(batch)); }));
-  }
+  // for (size_t i = 0; i < materialize_.size(); ++i) {
+  //   JoinResultMaterialize& materialize = *materialize_[i];
+  //   RETURN_NOT_OK(materialize.Flush(
+  //       [&](ExecBatch batch) { return output_batch_fn_(i, std::move(batch)); }));
+  // }
+
+  auto task_group_id = ctx_->RegisterTaskGroup(
+      [this](size_t thread_index, int64_t task_id) -> Status {
+        JoinResultMaterialize& materialize = *materialize_[task_id];
+        RETURN_NOT_OK(materialize.Flush([&](ExecBatch batch) {
+          return output_batch_fn_(task_id, std::move(batch));
+        }));
+        return Status::OK();
+      },
+      [](size_t thread_index) -> Status { return Status::OK(); });
+
+  ARROW_RETURN_NOT_OK(ctx_->StartTaskGroup(task_group_id, materialize_.size()));
 
   return Status::OK();
 }
@@ -2483,9 +2496,9 @@ class SwissJoin : public HashJoinImpl {
     residual_filter_.Init(std::move(filter), ctx_, pool_, hardware_flags_, proj_map_left,
                           proj_map_right, &hash_table_);
 
-    probe_processor_.Init(proj_map_left->num_cols(HashJoinProjection::KEY), join_type_,
-                          &hash_table_, &residual_filter_, materialize, &key_cmp_,
-                          output_batch_callback_);
+    probe_processor_.Init(ctx_, proj_map_left->num_cols(HashJoinProjection::KEY),
+                          join_type_, &hash_table_, &residual_filter_, materialize,
+                          &key_cmp_, output_batch_callback_);
 
     InitTaskGroups();
 

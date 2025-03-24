@@ -1006,8 +1006,8 @@ class JoinProbeProcessor {
  public:
   using OutputBatchFn = std::function<Status(int64_t, ExecBatch)>;
 
-  void Init(int num_key_columns, JoinType join_type, SwissTableForJoin* hash_table,
-            JoinResidualFilter* residual_filter,
+  void Init(QueryContext* ctx, int num_key_columns, JoinType join_type,
+            SwissTableForJoin* hash_table, JoinResidualFilter* residual_filter,
             std::vector<JoinResultMaterialize*> materialize,
             const std::vector<JoinKeyCmp>* cmp, OutputBatchFn output_batch_fn);
   Status OnNextBatch(int64_t thread_id, const ExecBatch& keypayload_batch,
@@ -1020,6 +1020,7 @@ class JoinProbeProcessor {
   Status OnFinished();
 
  private:
+  QueryContext* ctx_;
   int num_key_columns_;
   JoinType join_type_;
 
