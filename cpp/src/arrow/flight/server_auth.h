@@ -61,8 +61,7 @@ class ARROW_FLIGHT_EXPORT ServerAuthHandler {
   /// \param[in] incoming The reader for messages from the client.
   /// \return Status OK if this authentication is succeeded.
   virtual Status Authenticate(const ServerCallContext& context,
-                              ServerAuthSender* outgoing,
-                              ServerAuthReader* incoming) = 0;
+                              ServerAuthSender* outgoing, ServerAuthReader* incoming) = 0;
   /// \brief Validate a per-call client token.
   /// \param[in] context The call context.
   /// \param[in] token The client token. May be the empty string if
