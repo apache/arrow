@@ -600,11 +600,11 @@ Parquet metadata encryption is configured via ``parquet::encryption::EncryptionC
    :end-before: encryption_config->column_keys
    :dedent: 2
 
-All columns are encrypted with the same key as the Parquet metadata when above
-``encryption_config->uniform_encryption`` is set ``true``.
-
-Individual columns are encrypted with individual keys as configured via ``encryption_config->column_keys``.
-This field expects a string of the format ``"columnKeyID:colName,colName;columnKeyID:colName..."``.
+If ``encryption_config->uniform_encryption`` is set to ``true``, then all columns are
+encrypted with the same key as the Parquet metadata. Otherwise, individual
+columns are encrypted with individual keys as configured via
+``encryption_config->column_keys``. This field expects a string of the format
+``"columnKeyID1:colName1,colName2;columnKeyID3:colName3..."``.
 
 .. literalinclude:: ../../../cpp/examples/arrow/parquet_column_encryption.cc
    :language: cpp
@@ -625,9 +625,9 @@ See the full `Parquet column encryption example <examples/parquet_column_encrypt
 
       OSError: Encrypted column col not in file schema
 
-   The key and value fields of a map column ``m`` has the names ``m.key_value.key``
-   and  ``m.key_value.value``, respectively. The inner field of a list column ``l``
-   has the name ``l.list.element``. An inner field ``f`` of a struct column ``s`` has
+   Conventionally, the key and value fields of a map column ``m`` have the names
+   ``m.key_value.key`` and  ``m.key_value.value``, respectively. The inner field of a
+   list column ``l`` has the name ``l.list.element``. An inner field ``f`` of a struct column ``s`` has
    the name ``s.f``.
 
 Miscellaneous
