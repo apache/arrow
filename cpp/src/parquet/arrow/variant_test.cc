@@ -28,9 +28,7 @@ namespace parquet::arrow {
 using ::arrow::binary;
 using ::arrow::struct_;
 
-class TestVariantExtensionType : public ::testing::Test {};
-
-TEST_F(TestVariantExtensionType, StorageTypeValidation) {
+TEST(TestVariantExtensionType, StorageTypeValidation) {
   auto variant1 =
       variant(struct_({field("metadata", binary()), field("value", binary())}));
   auto variant2 =
