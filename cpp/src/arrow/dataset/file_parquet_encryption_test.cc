@@ -90,7 +90,7 @@ class DatasetEncryptionTestBase : public ::testing::Test {
         std::make_shared<parquet::encryption::EncryptionConfiguration>(
             std::string(kFooterKeyName));
     std::stringstream column_key;
-    column_key << kColumnMasterKeyId << ": " << ColumnKey();
+    column_key << kColumnMasterKeyId << ": " << ColumnName();
     encryption_config->column_keys = column_key.str();
     auto parquet_encryption_config = std::make_shared<ParquetEncryptionConfig>();
     // Directly assign shared_ptr objects to ParquetEncryptionConfig members
@@ -119,7 +119,7 @@ class DatasetEncryptionTestBase : public ::testing::Test {
   }
 
   virtual void PrepareTableAndPartitioning() = 0;
-  virtual std::string_view ColumnKey() { return kColumnName; }
+  virtual std::string_view ColumnName() { return kColumnName; }
 
   void TestScanDataset() {
     // Create decryption properties.
@@ -256,7 +256,7 @@ class NestedFieldsEncryptionTest : public DatasetEncryptionTestBase,
     partitioning_ = std::make_shared<dataset::DirectoryPartitioning>(arrow::schema({}));
   }
 
-  std::string_view ColumnKey() override { return GetParam(); }
+  std::string_view ColumnName() override { return GetParam(); }
 
  protected:
   std::shared_ptr<DataType> column_type_;
