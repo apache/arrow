@@ -38,8 +38,6 @@ from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         copy_files)
 from pyarrow.util import find_free_port
 
-pytest.skip("module fails with segfaults", allow_module_level=True)
-
 
 here = os.path.dirname(os.path.abspath(__file__))
 

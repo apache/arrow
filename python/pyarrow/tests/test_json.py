@@ -33,8 +33,6 @@ import pytest
 import pyarrow as pa
 from pyarrow.json import read_json, open_json, ReadOptions, ParseOptions
 
-pytest.skip("module fails with segfaults", allow_module_level=True)
-
 
 def generate_col_names():
     # 'a', 'b'... 'z', then 'aa', 'ab'...
