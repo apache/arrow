@@ -34,6 +34,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
 #include "arrow/util/tracing_internal.h"
@@ -42,6 +43,7 @@
 #include "parquet/arrow/writer.h"
 #include "parquet/encryption/crypto_factory.h"
 #include "parquet/encryption/encryption.h"
+#include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/encryption/kms_client.h"
 #include "parquet/file_reader.h"
 #include "parquet/properties.h"
@@ -1089,9 +1091,18 @@ Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
 
   std::vector<std::pair<std::string, std::vector<int>>> paths_with_row_group_ids;
   std::unordered_map<std::string, int> paths_to_index;
+  const bool metadata_only_file = metadata_source.path() == "_metadata" &&
+                                  metadata->key_value_metadata();
 
   for (int i = 0; i < metadata->num_row_groups(); i++) {
-    auto row_group = metadata->RowGroup(i);
+    std::unique_ptr<parquet::RowGroupMetaData> row_group;
+
+    if (metadata_only_file) {
+      PARQUET_ASSIGN_OR_THROW(auto aad,
+        metadata->key_value_metadata()->Get("row_group_aad_" + std::to_string(i)));
+      metadata->set_file_decryptor_aad(aad);
+    }
+    row_group = metadata->RowGroup(i);
     ARROW_ASSIGN_OR_RAISE(auto path,
                           FileFromRowGroup(filesystem.get(), base_path, *row_group,
                                            options.validate_column_chunk_paths));
