@@ -201,10 +201,14 @@ void ConcurrentQueueBasicTest(Queue& queue) {
   queue.Push(2);
   queue.Push(3);
   queue.Push(4);
-  fut_pop.wait();
+  // A long enough timeout to prevent test from hanging forever once the code is broken.
+  // Though theoretically the readiness of the future is not guaranteed, in practice it
+  // is.
+  ASSERT_EQ(fut_pop.wait_for(std::chrono::seconds(5)), std::future_status::ready);
   ASSERT_EQ(fut_pop.get(), 2);
   fut_pop = std::async(std::launch::async, [&]() { return queue.WaitAndPop(); });
-  fut_pop.wait();
+  // Ditto.
+  ASSERT_EQ(fut_pop.wait_for(std::chrono::seconds(5)), std::future_status::ready);
   ASSERT_EQ(fut_pop.get(), 3);
   ASSERT_FALSE(queue.Empty());
   ASSERT_EQ(queue.TryPop(), std::make_optional(4));
