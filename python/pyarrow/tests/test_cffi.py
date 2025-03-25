@@ -28,8 +28,6 @@ except ImportError:
 
 import pytest
 
-pytest.skip("module fails with segfaults", allow_module_level=True)
-
 try:
     import pandas as pd
     import pandas.testing as tm

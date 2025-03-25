@@ -87,11 +87,13 @@ cython_generated_headers = custom_target(
 
 cython_generated_dep = declare_dependency(sources: cython_generated_headers)
 
-arrow_python_lib = static_library(
+arrow_python_lib = shared_library(
     'arrow_python',
     sources: pyarrow_srcs,
     include_directories: ['src'],
     dependencies: [arrow_dep, numpy_dep, cython_generated_dep, py.dependency()],
+    override_options: ['b_lundef=false'],
+    install: true,
 )
 
 cython_module_names = [

@@ -47,8 +47,6 @@ try:
 except ImportError:
     pas = None
 
-pytest.skip("module fails with segfaults", allow_module_level=True)
-
 exported_functions = [
     func for (name, func) in sorted(pc.__dict__.items())
     if hasattr(func, '__arrow_compute_function__')]
