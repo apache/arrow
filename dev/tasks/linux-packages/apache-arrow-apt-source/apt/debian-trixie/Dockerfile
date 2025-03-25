@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM debian:trixie
+FROM debian:trixie-20250224
 
 RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
