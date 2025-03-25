@@ -2242,8 +2242,8 @@ void JoinProbeProcessor::Init(QueryContext* ctx, int num_key_columns, JoinType j
   cmp_ = cmp;
   output_batch_fn_ = output_batch_fn;
 
-  is_parallel_ =
-      ctx_->exec_context()->use_threads() && ctx_->executor()->GetCapacity() > 1;
+  is_parallel_ = ctx_->exec_context()->use_threads() &&
+                 (ctx_->executor() && ctx_->executor()->GetCapacity() > 1);
 
   if (is_parallel_) {
     task_group_finished_ = false;
