@@ -138,7 +138,7 @@ TEST(TestColumnPath, FromNode) {
   ASSERT_EQ(ColumnPath::FromNode(*key, true)->ToDotString(), "a.key");
 
   ASSERT_EQ(ColumnPath::FromNode(*element)->ToDotString(), "b.list.element");
-  ASSERT_EQ(ColumnPath::FromNode(*element, true)->ToDotString(), "b.element");
+  ASSERT_EQ(ColumnPath::FromNode(*element, true)->ToDotString(), "b");
 
   ASSERT_EQ(ColumnPath::FromNode(*f1)->ToDotString(), "c.f1");
   ASSERT_EQ(ColumnPath::FromNode(*f1, true)->ToDotString(), "c.f1");

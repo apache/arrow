@@ -81,7 +81,9 @@ std::shared_ptr<ColumnPath> ColumnPath::FromNode(const Node& node, bool schema_p
         (
             // nested fields in arrow schema do not know these intermediate nodes
             cursor->parent()->converted_type() == ConvertedType::MAP ||
-            cursor->parent()->converted_type() == ConvertedType::LIST)) {
+            cursor->parent()->converted_type() == ConvertedType::LIST ||
+            (cursor->parent()->parent() &&
+             cursor->parent()->parent()->converted_type() == ConvertedType::LIST))) {
       cursor = cursor->parent();
       continue;
     }
