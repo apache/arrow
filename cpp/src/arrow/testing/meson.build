@@ -54,9 +54,9 @@ foreach key, val : testing_tests
 endforeach
 
 if needs_tests and needs_filesystem
-    library(
+    shared_module(
         'arrow-filesystem-example',
         sources: ['examplefs.cc'],
-        dependencies: [arrow_dep, gtest_main_dep],
+        dependencies: [arrow_dep, gtest_dep],
     )
 endif

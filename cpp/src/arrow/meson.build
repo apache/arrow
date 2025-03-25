@@ -390,10 +390,12 @@ if needs_testing
         filesystem_dep = boost_proj.dependency('boost_filesystem')
     endif
 
+    gtest_dep = dependency('gtest')
     gtest_main_dep = dependency('gtest_main')
     gmock_dep = dependency('gmock')
 else
     filesystem_dep = disabler()
+    gtest_dep = disabler()
     gtest_main_dep = disabler()
     gmock_dep = disabler()
 endif
@@ -473,14 +475,14 @@ foreach key, val : arrow_tests
 endforeach
 
 if needs_benchmarks
-    benchmark_dep = dependency(
-        'benchmark',
+    benchmark_main_dep = dependency(
+        'benchmark-main',
         default_options: {'tests': 'disabled'},
     )
 
     arrow_benchmark_dep = declare_dependency(
         link_with: [arrow_test_lib],
-        dependencies: [arrow_dep, gtest_main_dep, benchmark_dep],
+        dependencies: [arrow_dep, benchmark_main_dep, gtest_dep],
     )
 else
     arrow_benchmark_dep = disabler()
