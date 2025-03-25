@@ -1085,7 +1085,7 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
       // Potential schema mismatch.
       //
       // Arrow extensions are ENABLED in Parquet.
-      // origin_type is arrow::extension::variant(...)
+      // origin_type is parquet::arrow::variant(...)
       // inferred_type is
       // arrow::extension::variant(struct(arrow::binary(),arrow::binary()))
       auto origin_storage_field = origin_field.WithType(ex_type.storage_type());
