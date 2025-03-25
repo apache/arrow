@@ -130,7 +130,7 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<EncryptionTestPa
       encryption_config->uniform_encryption = GetParam().uniform_encryption;
       if (!GetParam().uniform_encryption) {
         std::stringstream column_key;
-        column_key << kColumnMasterKeyId << ": " << ColumnKey();
+        column_key << kColumnMasterKeyId << ": " << ColumnName();
         encryption_config->column_keys = column_key.str();
       }
 
@@ -194,7 +194,7 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<EncryptionTestPa
   }
 
   virtual void PrepareTableAndPartitioning() = 0;
-  virtual std::string_view ColumnKey() { return kColumnName; }
+  virtual std::string_view ColumnName() { return kColumnName; }
 
   Result<std::shared_ptr<Dataset>> OpenDataset(
       std::string_view base_dir, const std::shared_ptr<ParquetFileFormat>& file_format) {
@@ -410,7 +410,7 @@ class NestedFieldsEncryptionTest : public DatasetEncryptionTestBase,
     partitioning_ = std::make_shared<dataset::DirectoryPartitioning>(arrow::schema({}));
   }
 
-  std::string_view ColumnKey() override { return GetParam(); }
+  std::string_view ColumnName() override { return GetParam(); }
 
  protected:
   std::shared_ptr<DataType> column_type_;
