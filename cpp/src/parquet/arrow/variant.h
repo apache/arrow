@@ -50,7 +50,7 @@ class PARQUET_EXPORT VariantExtensionType : public ExtensionType {
 
   static Result<std::shared_ptr<DataType>> Make(std::shared_ptr<DataType> storage_type);
 
-  static bool IsSupportedStorageType(std::shared_ptr<DataType> storage_type);
+  static bool IsSupportedStorageType(const std::shared_ptr<DataType>& storage_type);
 
   std::shared_ptr<::arrow::Field> metadata_field() const { return children_.at(0); }
 
