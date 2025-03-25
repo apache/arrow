@@ -25,42 +25,41 @@
 
 namespace parquet::arrow {
 
-using ::arrow::Array;
-using ::arrow::ArrayData;
-using ::arrow::DataType;
-using ::arrow::ExtensionType;
-using ::arrow::Result;
-
-class PARQUET_EXPORT VariantExtensionType : public ExtensionType {
+/// EXPERIMENTAL: Variant is not yet fully supported.
+class PARQUET_EXPORT VariantExtensionType : public ::arrow::ExtensionType {
  public:
-  explicit VariantExtensionType(const std::shared_ptr<DataType>& storage_type)
-      : ExtensionType(storage_type), storage_type_(storage_type) {}
+  explicit VariantExtensionType(const std::shared_ptr<::arrow::DataType>& storage_type)
+      : ::arrow::ExtensionType(storage_type), storage_type_(storage_type) {}
 
   std::string extension_name() const override { return "parquet.variant"; }
 
-  bool ExtensionEquals(const ExtensionType& other) const override;
+  bool ExtensionEquals(const ::arrow::ExtensionType& other) const override;
 
-  Result<std::shared_ptr<DataType>> Deserialize(
-      std::shared_ptr<DataType> storage_type,
+  ::arrow::Result<std::shared_ptr<::arrow::DataType>> Deserialize(
+      std::shared_ptr<::arrow::DataType> storage_type,
       const std::string& serialized_data) const override;
 
   std::string Serialize() const override;
 
-  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
+  std::shared_ptr<::arrow::Array> MakeArray(
+      std::shared_ptr<::arrow::ArrayData> data) const override;
 
-  static Result<std::shared_ptr<DataType>> Make(std::shared_ptr<DataType> storage_type);
+  static ::arrow::Result<std::shared_ptr<::arrow::DataType>> Make(
+      std::shared_ptr<::arrow::DataType> storage_type);
 
-  static bool IsSupportedStorageType(const std::shared_ptr<DataType>& storage_type);
+  static bool IsSupportedStorageType(
+      const std::shared_ptr<::arrow::DataType>& storage_type);
 
   std::shared_ptr<::arrow::Field> metadata_field() const { return children_.at(0); }
 
   std::shared_ptr<::arrow::Field> value_field() const { return children_.at(1); }
 
  private:
-  std::shared_ptr<DataType> storage_type_;
+  std::shared_ptr<::arrow::DataType> storage_type_;
 };
 
 /// \brief Return a VariantExtensionType instance.
-PARQUET_EXPORT std::shared_ptr<DataType> variant(std::shared_ptr<DataType> storage_type);
+PARQUET_EXPORT std::shared_ptr<::arrow::DataType> variant(
+    std::shared_ptr<::arrow::DataType> storage_type);
 
 }  // namespace parquet::arrow

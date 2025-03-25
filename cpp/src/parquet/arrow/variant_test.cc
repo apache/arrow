@@ -28,6 +28,8 @@ namespace parquet::arrow {
 using ::arrow::binary;
 using ::arrow::struct_;
 
+class TestVariantExtensionType : public ::testing::Test {};
+
 TEST(TestVariantExtensionType, StorageTypeValidation) {
   auto variant1 =
       variant(struct_({field("metadata", binary()), field("value", binary())}));
@@ -44,7 +46,7 @@ TEST(TestVariantExtensionType, StorageTypeValidation) {
       {field("metadata", binary()), field("value", binary()), field("extra", binary())});
 
   for (const auto& storage_type :
-       {missingValue, missingMetadata, badValueType, extraField}) {
+       {missing_value, missing_metadata, bad_value_type, extra_field}) {
     ASSERT_RAISES_WITH_MESSAGE(
         Invalid,
         "Invalid: Invalid storage type for VariantExtensionType: " +

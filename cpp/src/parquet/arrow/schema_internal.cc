@@ -16,7 +16,6 @@
 // under the License.
 
 #include "parquet/arrow/schema_internal.h"
-#include "parquet/arrow/variant.h"
 
 #include "arrow/extension/json.h"
 #include "arrow/type.h"

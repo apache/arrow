@@ -27,6 +27,11 @@
 
 namespace parquet::arrow {
 
+using ::arrow::Array;
+using ::arrow::ArrayData;
+using ::arrow::DataType;
+using ::arrow::ExtensionType;
+using ::arrow::Result;
 using ::arrow::Type;
 
 bool VariantExtensionType::ExtensionEquals(const ExtensionType& other) const {
@@ -51,7 +56,7 @@ std::shared_ptr<Array> VariantExtensionType::MakeArray(
 }
 
 bool VariantExtensionType::IsSupportedStorageType(
-    std::shared_ptr<DataType> storage_type) {
+    const std::shared_ptr<DataType>& storage_type) {
   // For now we only supported unshredded variants. Unshredded variant storage
   // type should be a struct with a binary metadata and binary value.
   //
