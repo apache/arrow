@@ -40,8 +40,6 @@ try:
 except ImportError:
     pass
 
-pytest.skip("module fails with segfaults", allow_module_level=True)
-
 
 @pytest.fixture(scope="module")
 def datadir(base_datadir):

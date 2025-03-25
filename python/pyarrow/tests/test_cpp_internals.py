@@ -44,6 +44,7 @@ def inject_cpp_tests(ns):
 inject_cpp_tests(globals())
 
 
+@pytest.mark.skip("Assumes source tree modifications which Meson does not allow")
 def test_pyarrow_include():
     # We need to make sure that pyarrow/include is always
     # created. Either with PyArrow C++ header files or with
