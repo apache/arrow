@@ -15,21 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/util/logging.h>
-
+#include "arrow/api.h"
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/parquet_encryption_config.h"
 #include "arrow/filesystem//localfs.h"
 #include "parquet/encryption/crypto_factory.h"
 #include "parquet/encryption/test_in_memory_kms.h"
 
-#include "arrow/api.h"
-#include "arrow/result.h"
-#include "parquet/arrow/reader.h"
-
-#include <arrow/filesystem/path_util.h>
 #include <iostream>
-#include <utility>
 
 namespace fs = arrow::fs;
 
@@ -169,8 +162,7 @@ arrow::Status WriteEncryptedFile(const std::string& path_to_file) {
   write_options.base_dir = path_to_file;
   write_options.partitioning = partitioning;
   write_options.basename_template = "part{i}.parquet";
-  ARROW_CHECK_OK(ds::FileSystemDataset::Write(write_options, std::move(scanner)));
-  return arrow::Status::OK();
+  return ds::FileSystemDataset::Write(write_options, std::move(scanner));
 }
 
 arrow::Status ReadEncryptedFile(const std::string& path_to_file) {
