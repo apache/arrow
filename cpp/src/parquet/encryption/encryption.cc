@@ -169,7 +169,7 @@ void FileEncryptionProperties::encrypt_schema(const SchemaDescriptor& schema) {
   auto encrypted_columns = ColumnPathToEncryptionPropertiesMap(encrypted_columns_);
   // if columnEncryptionProperties is empty, every column in file schema will be
   // encrypted with footer key.
-  if (encrypted_columns.size() != 0) {
+  if (!encrypted_columns.empty()) {
     std::vector<std::pair<std::string, std::string>> column_path_vec;
     // First, memorize all column or schema paths of the schema as dot-strings.
     for (int i = 0; i < schema.num_columns(); i++) {
@@ -209,7 +209,7 @@ void FileEncryptionProperties::encrypt_schema(const SchemaDescriptor& schema) {
            // C++20: can be replaced with it->first.starts_with(encrypted_column_prefix)
            it->first.compare(0, encrypted_column_prefix_len, encrypted_column_prefix) ==
                0)) {
-        // count columns encrypted by encrypted_column
+        // there are columns encrypted by encrypted_column
         matches = true;
 
         // add column 'it' to file_encryption_properties.encrypted_columns

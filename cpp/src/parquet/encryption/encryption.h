@@ -432,7 +432,7 @@ class PARQUET_EXPORT FileEncryptionProperties {
   /// All columns in encrypted_columns must refer to columns in the given schema.
   /// They can also refer to parent fields if schema contains nested fields. Then
   /// all those nested fields of a matching parent field are encrypted by the same key.
-  /// This modifies encrypted_columns to reflect this.
+  /// This method modifies encrypted_columns to reflect this.
   ///
   /// Columns in encrypted_columns can refer to the parquet column paths as well as the
   /// schema paths of columns. Those are usually identical, except for nested fields of

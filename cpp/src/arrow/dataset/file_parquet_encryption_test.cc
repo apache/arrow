@@ -15,10 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/array/builder_binary.h>
-#include <arrow/array/builder_nested.h>
-#include <arrow/array/builder_primitive.h>
-#include <arrow/util/logging.h>
 #include <boost/container/container_fwd.hpp>
 #include <string_view>
 
@@ -42,7 +38,6 @@
 #include "arrow/util/thread_pool.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/encryption/crypto_factory.h"
-#include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/kms_client.h"
 #include "parquet/encryption/test_in_memory_kms.h"
 
@@ -426,137 +421,47 @@ class NestedFieldsEncryptionTest : public DatasetEncryptionTestBase,
 class ListFieldEncryptionTest : public NestedFieldsEncryptionTest {
  public:
   ListFieldEncryptionTest() {
-    arrow::MemoryPool* pool = arrow::default_memory_pool();
-    auto value_builder = std::make_shared<arrow::Int32Builder>(pool);
-    arrow::ListBuilder list_builder = arrow::ListBuilder(pool, value_builder);
-    ARROW_CHECK_OK(list_builder.Append());
-    ARROW_CHECK_OK(value_builder->Append(1));
-    ARROW_CHECK_OK(value_builder->Append(2));
-    ARROW_CHECK_OK(value_builder->Append(3));
-    ARROW_CHECK_OK(list_builder.Append());
-    ARROW_CHECK_OK(value_builder->Append(4));
-    ARROW_CHECK_OK(value_builder->Append(5));
-    ARROW_CHECK_OK(list_builder.Append());
-    ARROW_CHECK_OK(value_builder->Append(6));
-
-    std::shared_ptr<arrow::Array> list_array;
-    arrow::Status status = list_builder.Finish(&list_array);
-
     column_type_ = list(int32());
-    column_data_ = list_array;
+    column_data_ = ArrayFromJSON(column_type_, "[[1, 2, 3], [4, 5], [6]]");
   }
 };
 
 class MapFieldEncryptionTest : public NestedFieldsEncryptionTest {
  public:
   MapFieldEncryptionTest() : NestedFieldsEncryptionTest() {
-    arrow::MemoryPool* pool = arrow::default_memory_pool();
-    auto map_type = map(utf8(), int32());
-    auto key_builder = std::make_shared<arrow::StringBuilder>(pool);
-    auto item_builder = std::make_shared<arrow::Int32Builder>(pool);
-    auto map_builder =
-        std::make_shared<arrow::MapBuilder>(pool, key_builder, item_builder, map_type);
-    ARROW_CHECK_OK(map_builder->Append());
-    ARROW_CHECK_OK(key_builder->Append("one"));
-    ARROW_CHECK_OK(item_builder->Append(1));
-    ARROW_CHECK_OK(map_builder->Append());
-    ARROW_CHECK_OK(key_builder->Append("two"));
-    ARROW_CHECK_OK(item_builder->Append(2));
-    ARROW_CHECK_OK(map_builder->Append());
-    ARROW_CHECK_OK(key_builder->Append("three"));
-    ARROW_CHECK_OK(item_builder->Append(3));
-
-    std::shared_ptr<arrow::Array> map_array;
-    ARROW_CHECK_OK(map_builder->Finish(&map_array));
-
-    column_type_ = map_type;
-    column_data_ = map_array;
+    column_type_ = map(utf8(), int32());
+    column_data_ =
+        ArrayFromJSON(column_type_, R"([[["one", 1]], [["two", 2]], [["three", 3]]])");
   }
 };
 
 class StructFieldEncryptionTest : public NestedFieldsEncryptionTest {
  public:
   StructFieldEncryptionTest() : NestedFieldsEncryptionTest() {
-    arrow::MemoryPool* pool = arrow::default_memory_pool();
-    auto struct_type = struct_({field("f1", int32()), field("f2", utf8())});
-    auto f1_builder = std::make_shared<arrow::Int32Builder>(pool);
-    auto f2_builder = std::make_shared<arrow::StringBuilder>(pool);
-    std::vector<std::shared_ptr<ArrayBuilder>> value_builders = {f1_builder, f2_builder};
-    auto struct_builder = std::make_shared<arrow::StructBuilder>(std::move(struct_type),
-                                                                 pool, value_builders);
-    ARROW_CHECK_OK(struct_builder->Append());
-    ARROW_CHECK_OK(f1_builder->Append(1));
-    ARROW_CHECK_OK(f2_builder->Append("one"));
-    ARROW_CHECK_OK(struct_builder->Append());
-    ARROW_CHECK_OK(f1_builder->Append(2));
-    ARROW_CHECK_OK(f2_builder->Append("two"));
-    ARROW_CHECK_OK(struct_builder->Append());
-    ARROW_CHECK_OK(f1_builder->Append(3));
-    ARROW_CHECK_OK(f2_builder->Append("three"));
-
-    std::shared_ptr<arrow::Array> struct_array;
-    ARROW_CHECK_OK(struct_builder->Finish(&struct_array));
-
-    column_type_ = struct_type;
-    column_data_ = struct_array;
+    column_type_ = struct_({field("f1", int32()), field("f2", utf8())});
+    column_data_ = ArrayFromJSON(
+        column_type_,
+        R"([{"f1":1, "f2":"one"}, {"f1":2, "f2":"two"}, {"f1":3, "f2":"three"}])");
   }
 };
 
 class DeepNestedFieldEncryptionTest : public NestedFieldsEncryptionTest {
  public:
   DeepNestedFieldEncryptionTest() : NestedFieldsEncryptionTest() {
-    arrow::MemoryPool* pool = arrow::default_memory_pool();
-
     auto struct_type = struct_({field("f1", int32()), field("f2", utf8())});
-    auto f1_builder = std::make_shared<arrow::Int32Builder>(pool);
-    auto f2_builder = std::make_shared<arrow::StringBuilder>(pool);
-    std::vector<std::shared_ptr<ArrayBuilder>> value_builders = {f1_builder, f2_builder};
-    auto struct_builder = std::make_shared<arrow::StructBuilder>(std::move(struct_type),
-                                                                 pool, value_builders);
-
     auto map_type = map(int32(), struct_type);
-    auto key_builder = std::make_shared<arrow::Int32Builder>(pool);
-    auto item_builder = struct_builder;
-    auto map_builder =
-        std::make_shared<arrow::MapBuilder>(pool, key_builder, item_builder, map_type);
-
     auto list_type = list(map_type);
-    auto value_builder = map_builder;
-    arrow::ListBuilder list_builder = arrow::ListBuilder(pool, value_builder);
-
-    ARROW_CHECK_OK(list_builder.Append());
-    ARROW_CHECK_OK(value_builder->Append());
-
-    ARROW_CHECK_OK(key_builder->Append(1));
-    ARROW_CHECK_OK(item_builder->Append());
-    ARROW_CHECK_OK(f1_builder->Append(1));
-    ARROW_CHECK_OK(f2_builder->Append("one"));
-
-    ARROW_CHECK_OK(key_builder->Append(1));
-    ARROW_CHECK_OK(item_builder->Append());
-    ARROW_CHECK_OK(f1_builder->Append(2));
-    ARROW_CHECK_OK(f2_builder->Append("two"));
-
-    ARROW_CHECK_OK(value_builder->Append());
-
-    ARROW_CHECK_OK(key_builder->Append(3));
-    ARROW_CHECK_OK(item_builder->Append());
-    ARROW_CHECK_OK(f1_builder->Append(3));
-    ARROW_CHECK_OK(f2_builder->Append("three"));
-
-    ARROW_CHECK_OK(list_builder.Append());
-    ARROW_CHECK_OK(value_builder->Append());
-
-    ARROW_CHECK_OK(key_builder->Append(4));
-    ARROW_CHECK_OK(item_builder->Append());
-    ARROW_CHECK_OK(f1_builder->Append(4));
-    ARROW_CHECK_OK(f2_builder->Append("four"));
-
-    std::shared_ptr<arrow::Array> list_array;
-    arrow::Status status = list_builder.Finish(&list_array);
 
     column_type_ = list_type;
-    column_data_ = list_array;
+    column_data_ = ArrayFromJSON(column_type_, R"([
+      [
+        [[1, {"f1":1, "f2":"one"}], [2, {"f1":2, "f2":"two"}]],
+        [[3, {"f1":3, "f2":"three"}]]
+      ],
+      [
+        [[4, {"f1":4, "f2":"fur"}]]
+      ]
+    ])");
   }
 };
 
