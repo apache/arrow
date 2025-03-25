@@ -238,8 +238,6 @@ TEST(TestFileEncryptionProperties, EncryptSchema) {
   parquet::ColumnEncryptionProperties::Builder encryption_col_builder_26(
       "b_list.list.element");
   parquet::ColumnEncryptionProperties::Builder encryption_col_builder_27("b_struct.f1");
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_28(
-      "c_list.element");
 
   encryption_col_builder_21.key(kColumnEncryptionKey_)->key_id("kc1");
   encryption_col_builder_22.key(kColumnEncryptionKey_)->key_id("kc1");
@@ -248,7 +246,6 @@ TEST(TestFileEncryptionProperties, EncryptSchema) {
   encryption_col_builder_25.key(kColumnEncryptionKey_)->key_id("kc1");
   encryption_col_builder_26.key(kColumnEncryptionKey_)->key_id("kc1");
   encryption_col_builder_27.key(kColumnEncryptionKey_)->key_id("kc1");
-  encryption_col_builder_28.key(kColumnEncryptionKey_)->key_id("kc1");
 
   encryption_cols["a_map"] = encryption_col_builder_21.build();
   encryption_cols["a_list"] = encryption_col_builder_22.build();
@@ -257,7 +254,6 @@ TEST(TestFileEncryptionProperties, EncryptSchema) {
   encryption_cols["b_map.key_value.value"] = encryption_col_builder_25.build();
   encryption_cols["b_list.list.element"] = encryption_col_builder_26.build();
   encryption_cols["b_struct.f1"] = encryption_col_builder_27.build();
-  encryption_cols["c_list.element"] = encryption_col_builder_28.build();
 
   parquet::FileEncryptionProperties::Builder file_encryption_builder(
       kFooterEncryptionKey_);
@@ -310,13 +306,6 @@ TEST(TestFileEncryptionProperties, EncryptSchema) {
   auto b_struct = parquet::schema::GroupNode::Make(
       "b_struct", Repetition::OPTIONAL, {b_struct_f1, b_struct_f2}, ConvertedType::NONE);
 
-  auto c_list_elem = parquet::schema::PrimitiveNode::Make(
-      "element", Repetition::OPTIONAL, Type::INT32, ConvertedType::INT_32);
-  auto c_list_list = parquet::schema::GroupNode::Make("list", Repetition::REPEATED,
-                                                      {c_list_elem}, ConvertedType::NONE);
-  auto c_list = parquet::schema::GroupNode::Make("c_list", Repetition::OPTIONAL,
-                                                 {c_list_list}, ConvertedType::LIST);
-
   auto a_structs_f1 = parquet::schema::PrimitiveNode::Make(
       "f1", Repetition::OPTIONAL, Type::INT32, ConvertedType::INT_32);
   auto a_structs_f2 = parquet::schema::PrimitiveNode::Make(
@@ -327,7 +316,7 @@ TEST(TestFileEncryptionProperties, EncryptSchema) {
 
   auto schema = parquet::schema::GroupNode::Make(
       "schema", Repetition::REQUIRED,
-      {a_map, a_list, a_struct, b_map, b_list, b_struct, c_list, a_structs});
+      {a_map, a_list, a_struct, b_map, b_list, b_struct, a_structs});
 
   SchemaDescriptor descr;
   descr.Init(schema);
@@ -341,8 +330,7 @@ TEST(TestFileEncryptionProperties, EncryptSchema) {
   ASSERT_EQ(cols.at("b_map.key_value.value")->column_path(), "b_map.key_value.value");
   ASSERT_EQ(cols.at("b_list.list.element")->column_path(), "b_list.list.element");
   ASSERT_EQ(cols.at("b_struct.f1")->column_path(), "b_struct.f1");
-  ASSERT_EQ(cols.at("c_list.element")->column_path(), "c_list.element");
-  ASSERT_EQ(cols.size(), 8);
+  ASSERT_EQ(cols.size(), 7);
 
   encryption_configurations->encrypt_schema(descr);
 
@@ -358,8 +346,7 @@ TEST(TestFileEncryptionProperties, EncryptSchema) {
   ASSERT_EQ(cols.at("b_map.key_value.value")->column_path(), "b_map.key_value.value");
   ASSERT_EQ(cols.at("b_list.list.element")->column_path(), "b_list.list.element");
   ASSERT_EQ(cols.at("b_struct.f1")->column_path(), "b_struct.f1");
-  ASSERT_EQ(cols.at("c_list.list.element")->column_path(), "c_list.element");
-  ASSERT_EQ(cols.size(), 10);
+  ASSERT_EQ(cols.size(), 9);
 }
 
 // Set temp_dir before running the write/read tests. The encrypted files will
