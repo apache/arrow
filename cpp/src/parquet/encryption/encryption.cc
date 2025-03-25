@@ -203,11 +203,12 @@ void FileEncryptionProperties::encrypt_schema(const SchemaDescriptor& schema) {
       // encrypted_column encrypts column 'it' when 'it' is either equal to
       // encrypted_column, or 'it' starts with encrypted_column_prefix,
       // i.e. encrypted_column followed by a '.'
-      while (it != column_path_vec.end() &&
-             (it->first == encrypted_column ||
-               // C++20: can be replaced with it->first.starts_with(encrypted_column_prefix)
-              it->first.compare(0, encrypted_column_prefix_len,
-                                encrypted_column_prefix) == 0)) {
+      while (
+          it != column_path_vec.end() &&
+          (it->first == encrypted_column ||
+           // C++20: can be replaced with it->first.starts_with(encrypted_column_prefix)
+           it->first.compare(0, encrypted_column_prefix_len, encrypted_column_prefix) ==
+               0)) {
         // count columns encrypted by encrypted_column
         matches = true;
 
