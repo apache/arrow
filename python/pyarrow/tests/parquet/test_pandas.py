@@ -41,7 +41,8 @@ try:
     import pandas as pd
     import pandas.testing as tm
 
-    from pyarrow.tests.parquet.common import alltypes_sample
+    from pyarrow.tests.parquet.common import (_roundtrip_pandas_dataframe,
+                                              alltypes_sample)
 except ImportError:
     pd = tm = None
 
@@ -269,14 +270,12 @@ def test_pandas_parquet_configuration_options(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.filterwarnings("ignore:Parquet format '2.0':FutureWarning")
 def test_spark_flavor_preserves_pandas_metadata():
     df = _test_dataframe(size=100)
     df.index = np.arange(0, 10 * len(df), 10)
     df.index.name = 'foo'
 
-    result = _roundtrip_pandas_dataframe(df, {'version': '2.0',
-                                              'flavor': 'spark'})
+    result = _roundtrip_pandas_dataframe(df, {'flavor': 'spark'})
     tm.assert_frame_equal(result, df)
 
 

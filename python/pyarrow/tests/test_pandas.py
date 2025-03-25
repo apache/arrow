@@ -48,6 +48,11 @@ from pyarrow.vendored.version import Version
 
 import pyarrow as pa
 try:
+    from pyarrow import parquet as pq
+except ImportError:
+    pass
+
+try:
     import pandas as pd
     import pandas.testing as tm
     from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
@@ -4887,14 +4892,13 @@ def make_df_with_timestamps():
 
 
 @pytest.mark.parquet
-@pytest.mark.filterwarnings("ignore:Parquet format '2.0':FutureWarning")
 def test_timestamp_as_object_parquet(tempdir):
     # Timestamps can be stored as Parquet and reloaded into Pandas with no loss
     # of information if the timestamp_as_object option is True.
     df = make_df_with_timestamps()
     table = pa.Table.from_pandas(df)
     filename = tempdir / "timestamps_from_pandas.parquet"
-    pq.write_table(table, filename, version="2.0")
+    pq.write_table(table, filename)
     result = pq.read_table(filename)
     df2 = result.to_pandas(timestamp_as_object=True)
     tm.assert_frame_equal(df, df2)
