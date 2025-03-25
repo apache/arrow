@@ -36,11 +36,11 @@ TEST(TestVariantExtensionType, StorageTypeValidation) {
 
   ASSERT_TRUE(variant1->Equals(variant2));
 
-  auto missingValue = struct_({field("metadata", binary())});
-  auto missingMetadata = struct_({field("value", binary())});
-  auto badValueType =
+  auto missing_value = struct_({field("metadata", binary())});
+  auto missing_metadata = struct_({field("value", binary())});
+  auto bad_value_type =
       struct_({field("metadata", binary()), field("value", ::arrow::int32())});
-  auto extraField = struct_(
+  auto extra_field = struct_(
       {field("metadata", binary()), field("value", binary()), field("extra", binary())});
 
   for (const auto& storage_type :
