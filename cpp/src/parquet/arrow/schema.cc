@@ -127,7 +127,7 @@ Status VariantToNode(const std::shared_ptr<VariantExtensionType>& type,
   RETURN_NOT_OK(FieldToNode("value", type->value_field(), properties, arrow_properties,
                             &value_node));
 
-  NodePtr variant_node = *out =
+  *out =
       GroupNode::Make("variant", RepetitionFromNullable(nullable), {metadata_node, value_node});
 
   return Status::OK();
