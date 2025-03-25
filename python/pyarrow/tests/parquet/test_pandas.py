@@ -41,8 +41,7 @@ try:
     import pandas as pd
     import pandas.testing as tm
 
-    from pyarrow.tests.parquet.common import (_roundtrip_pandas_dataframe,
-                                              alltypes_sample)
+    from pyarrow.tests.parquet.common import alltypes_sample
 except ImportError:
     pd = tm = None
 

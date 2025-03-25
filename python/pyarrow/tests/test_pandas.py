@@ -48,11 +48,6 @@ from pyarrow.vendored.version import Version
 
 import pyarrow as pa
 try:
-    from pyarrow import parquet as pq
-except ImportError:
-    pass
-
-try:
     import pandas as pd
     import pandas.testing as tm
     from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
