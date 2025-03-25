@@ -931,7 +931,7 @@ services:
         clang_tools: ${CLANG_TOOLS}
         llvm: ${LLVM}
         pyodide_version: "0.26.0"
-        chrome_version: "122"
+        chrome_version: "134"
         selenium_version: "4.15.2"
         required_python_min: "(3,12)"
         python: ${PYTHON}
