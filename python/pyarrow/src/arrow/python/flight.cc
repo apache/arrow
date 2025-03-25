@@ -272,7 +272,7 @@ Status PyServerMiddlewareFactory::StartCall(
     std::shared_ptr<arrow::flight::ServerMiddleware>* middleware) {
   return SafeCallIntoPython([&] {
     const Status status =
-      start_call_(factory_.obj(), info, context.incoming_headers(), middleware);
+        start_call_(factory_.obj(), info, context.incoming_headers(), middleware);
     RETURN_NOT_OK(CheckPyError());
     return status;
   });

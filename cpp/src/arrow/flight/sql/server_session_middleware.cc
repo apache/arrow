@@ -135,7 +135,7 @@ ServerSessionMiddlewareFactory::ParseCookieString(const std::string_view& s) {
 }
 
 Status ServerSessionMiddlewareFactory::StartCall(
-    const CallInfo&, const const ServerCallContext& context,
+    const CallInfo&, const ServerCallContext& context,
     std::shared_ptr<ServerMiddleware>* middleware) {
   std::string session_id;
 
@@ -159,8 +159,8 @@ Status ServerSessionMiddlewareFactory::StartCall(
     // No cookie was found
     // Temporary workaround until middleware handling fixed
     auto [id, s] = CreateNewSession();
-    *middleware = std::make_shared<ServerSessionMiddlewareImpl>(this, context.incoming_headers(),
-                                                                std::move(s), id, false);
+    *middleware = std::make_shared<ServerSessionMiddlewareImpl>(
+        this, context.incoming_headers(), std::move(s), id, false);
   } else {
     const std::shared_lock<std::shared_mutex> l(session_store_lock_);
     if (auto it = session_store_.find(session_id); it == session_store_.end()) {
