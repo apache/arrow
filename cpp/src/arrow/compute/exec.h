@@ -276,7 +276,7 @@ struct ExecValue {
   ArraySpan array = {};
   const Scalar* scalar = NULLPTR;
 
-  ExecValue(Scalar* scalar)  // NOLINT implicit conversion
+  ExecValue(const Scalar* scalar)  // NOLINT implicit conversion
       : scalar(scalar) {}
 
   ExecValue(ArraySpan array)  // NOLINT implicit conversion
