@@ -26,17 +26,17 @@ if not numpy_dep.found()
         [
             '-c',
             '''
-            import os
-            import numpy as np
-            try:
-                # Check if include directory is inside the pyarrow dir
-                # e.g. a venv created inside the pyarrow dir
-                # If so, convert it to a relative path
-                incdir = os.path.relpath(np.get_include())
-            except Exception:
-                incdir = np.get_include()
-            print(incdir)
-            ''',
+import os
+import numpy as np
+try:
+    # Check if include directory is inside the pyarrow dir
+    # e.g. a venv created inside the pyarrow dir
+    # If so, convert it to a relative path
+    incdir = os.path.relpath(np.get_include())
+except Exception:
+    incdir = np.get_include()
+print(incdir)
+''',
         ],
         check: true,
     ).stdout().strip()
@@ -96,39 +96,169 @@ arrow_python_lib = shared_library(
     install: true,
 )
 
-cython_module_names = [
-    'lib',
-    '_fs',
-    '_csv',
-    '_json',
-    '_compute',
-    #'_cuda',
-    #'_flight',
-    '_dataset',
-    '_dataset_orc',
-    '_dataset_parquet',
-    '_acero',
-    '_feather',
-    '_parquet',
-    '_parquet_encryption',
-    '_pyarrow_cpp_tests',
-    '_orc',
-    '_azurefs',
-    #'_gcsfs',
-    '_s3fs',
-    #'_substrait',
-    '_hdfs',
-    'gandiva',
-]
+cython_modules = {
+    'lib': {},
+    '_compute': {},
+    '_csv': {},
+    '_feather': {},
+    '_fs': {},
+    '_json': {},
+    '_pyarrow_cpp_tests': {},
+}
 
-foreach cython_module_name : cython_module_names
+if get_option('azure').enabled()
+    cython_modules += {'_azurefs': {}}
+endif
+
+if get_option('gcs').enabled()
+    cython_modules += {'_gcsfs': {}}
+endif
+
+if get_option('s3').enabled()
+    cython_modules += {'_s3fs': {}}
+endif
+
+if get_option('hdfs').enabled()
+    cython_modules += {'_hdfs': {}}
+endif
+
+if get_option('cuda').enabled()
+    cuda_dep = dependency(
+        'arrow-cuda',
+        'ArrowCUDA',
+        modules: ['ArrowCUDA::arrow_cuda_shared'],
+    )
+    cython_modules += {'_cuda': {'dependencies': cuda_dep}}
+endif
+
+if get_option('acero').enabled()
+    acero_dep = dependency(
+        'arrow-acero',
+        'ArrowAcero',
+        modules: ['ArrowAcero::arrow_acero_shared'],
+    )
+
+    cython_modules += {'_acero': {'dependencies': acero_dep}}
+endif
+
+if get_option('dataset').enabled()
+    dataset_dep = dependency(
+        'arrow-dataset',
+        'ArrowDataset',
+        modules: ['ArrowDataset::arrow_dataset_shared'],
+    )
+
+    cython_modules += {'_dataset': {'dependencies': dataset_dep}}
+endif
+
+if get_option('parquet').enabled()
+    parquet_dep = dependency(
+        'parquet',
+        'Parquet',
+        modules: ['Parquet::parquet_shared'],
+    )
+
+    cython_modules += {'_parquet': {'dependencies': parquet_dep}}
+
+    if get_option('parquet_encryption').enabled()
+        arrow_encryption_lib = shared_library(
+            'arrow-python-parquet-encryption',
+            sources: ['src/arrow/python/parquet_encryption.cc'],
+            include_directories: ['src'],
+            link_with: [arrow_python_lib],
+            dependencies: [parquet_dep, py.dependency()],
+            install: true,
+            override_options: ['b_lundef=false'],
+        )
+
+        arrow_encryption_dep = declare_dependency(
+            link_with: arrow_encryption_lib,
+        )
+
+        cython_modules += {
+            '_parquet_encryption': {
+                'dependencies': [parquet_dep, arrow_encryption_dep],
+            },
+        }
+    endif
+
+    if get_option('dataset').enabled()
+        cython_modules += {
+            '_dataset_parquet': {'dependencies': [dataset_dep, parquet_dep]},
+        }
+
+        if get_option('parquet_encryption').enabled()
+            cython_modules += {
+                '_dataset_parquet_encryption': {
+                    'dependencies': [dataset_dep, parquet_dep],
+                },
+            }
+        endif
+    endif
+endif
+
+if get_option('parquet_encryption').enabled() and not get_option('parquet').enabled()
+    warning(
+        'Building PyArrow with Parquet Encryption is requested, but Parquet itself is not enabled. Ignoring the Parquet Encryption setting.',
+    )
+endif
+
+if get_option('orc').enabled()
+    cython_modules += {'_orc': {}}
+
+    if get_option('dataset').enabled()
+        cython_modules += {'_dataset_orc': {'dependencies': [dataset_dep]}}
+    endif
+endif
+
+if get_option('flight').enabled()
+    flight_dep = dependency(
+        'arrow-flight',
+        'ArrowFlight',
+        modules: ['ArrowFlight::arrow_flight_shared'],
+    )
+
+    flight_lib = shared_library(
+        'arrow-flight-lib',
+        sources: ['src/arrow/python/flight.cc'],
+        dependencies: [flight_dep, py.dependency()],
+        include_directories: ['src'],
+        install: true,
+        override_options: ['b_lundef=false'],
+    )
+
+    arrow_flight_dep = declare_dependency(link_with: flight_lib)
+    cython_modules += {'_flight': {'dependencies': arrow_flight_dep}}
+endif
+
+if get_option('substrait').enabled()
+    substrait_dep = dependency(
+        'arrow-substrait',
+        'ArrowSubstrait',
+        modules: ['ArrowSubstrait::arrow_substrait_shared'],
+    )
+
+    cython_modules += {'_substrait': {'dependencies': substrait_dep}}
+endif
+
+if get_option('gandiva').enabled()
+    gandiva_dep = dependency(
+        'gandiva',
+        'Gandiva',
+        modules: ['Gandiva::gandiva_shared'],
+    )
+
+    cython_modules += {'gandiva': {'dependencies': gandiva_dep}}
+endif
+
+foreach key, val : cython_modules
     py.extension_module(
-        cython_module_name,
-        sources: ['@0@.pyx'.format(cython_module_name)],
+        key,
+        sources: ['@0@.pyx'.format(key)],
         include_directories: ['src'],
         link_with: arrow_python_lib,
         cython_args: cython_args,
-        dependencies: [arrow_dep, numpy_dep],
+        dependencies: [arrow_dep, numpy_dep] + val.get('dependencies', []),
         override_options: ['cython_language=cpp'],
         subdir: 'pyarrow',
         install: true,
