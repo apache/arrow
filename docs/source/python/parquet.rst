@@ -753,13 +753,15 @@ all columns will be encrypted with the same key identified by ``column_key_id``:
 
 .. code-block:: python
 
+   import pyarrow.parquet.encryption as pe
+
    schema = pa.schema([
      ("ListColumn", pa.list_(pa.int32())),
      ("MapColumn", pa.map_(pa.string(), pa.int32())),
      ("StructColumn", pa.struct([("f1", pa.int32()), ("f2", pa.string())])),
    ])
 
-   encryption_config = pq.EncryptionConfiguration(
+   encryption_config = pe.EncryptionConfiguration(
       footer_key="footer_key_name",
       column_keys={
          "column_key_id": [
