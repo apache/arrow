@@ -55,24 +55,66 @@ if [ ! -z "${CONDA_PREFIX}" ]; then
   conda list
 fi
 
-export PYARROW_CMAKE_GENERATOR=${CMAKE_GENERATOR:-Ninja}
-export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE:-debug}
-
-export PYARROW_WITH_ACERO=${ARROW_ACERO:-OFF}
-export PYARROW_WITH_AZURE=${ARROW_AZURE:-OFF}
-export PYARROW_WITH_CUDA=${ARROW_CUDA:-OFF}
-export PYARROW_WITH_DATASET=${ARROW_DATASET:-ON}
-export PYARROW_WITH_FLIGHT=${ARROW_FLIGHT:-OFF}
-export PYARROW_WITH_GANDIVA=${ARROW_GANDIVA:-OFF}
-export PYARROW_WITH_GCS=${ARROW_GCS:-OFF}
-export PYARROW_WITH_HDFS=${ARROW_HDFS:-ON}
-export PYARROW_WITH_ORC=${ARROW_ORC:-OFF}
-export PYARROW_WITH_PARQUET=${ARROW_PARQUET:-OFF}
-export PYARROW_WITH_PARQUET_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION:-ON}
-export PYARROW_WITH_S3=${ARROW_S3:-OFF}
-export PYARROW_WITH_SUBSTRAIT=${ARROW_SUBSTRAIT:-OFF}
-
-export PYARROW_PARALLEL=${n_jobs}
+PYARROW_WITH_ACERO=$(case "$ARROW_ACERO" in
+                         ON) echo "enabled" ;;
+                         OFF) echo "disabled" ;;
+                         *) echo "auto" ;;
+                     esac)
+PYARROW_WITH_AZURE=$(case "$ARROW_AZURE" in
+                         ON) echo "enabled" ;;
+                         OFF) echo "disabled" ;;
+                         *) echo "auto" ;;
+                     esac)
+PYARROW_WITH_CUDA=$(case "$ARROW_CUDA" in
+                         ON) echo "enabled" ;;
+                         OFF) echo "disabled" ;;
+                         *) echo "auto" ;;
+                    esac)
+PYARROW_WITH_DATASET=$(case "$ARROW_DATASET" in
+                         ON) echo "enabled" ;;
+                         OFF) echo "disabled" ;;
+                         *) echo "enabled" ;;
+                       esac)
+PYARROW_WITH_FLIGHT=$(case "$ARROW_FLIGHT" in
+                         ON) echo "enabled" ;;
+                         OFF) echo "disabled" ;;
+                         *) echo "auto" ;;
+                      esac)
+PYARROW_WITH_GANDIVA=$(case "$ARROW_GANDIVA" in
+                         ON) echo "enabled" ;;
+                         OFF) echo "disabled" ;;
+                         *) echo "auto" ;;
+                       esac)
+PYARROW_WITH_GCS=$(case "$ARROW_GCS" in
+                         ON) echo "enabled" ;;
+                         OFF) echo "disabled" ;;
+                         *) echo "auto" ;;
+                   esac)
+PYARROW_WITH_HDFS=$(case "$ARROW_HDFS" in
+                         ON) echo "enabled" ;;
+                         OFF) echo "disabled" ;;
+                         *) echo "enabled" ;;
+                    esac)
+PYARROW_WITH_ORC=$(case "$ARROW_ORC" in
+                         ON) echo "enabled" ;;
+                         OFF) echo "disabled" ;;
+                         *) echo "auto" ;;
+                   esac)
+PYARROW_WITH_PARQUET=$(case "$ARROW_PARQUET" in
+                         ON) echo "enabled" ;;
+                         OFF) echo "disabled" ;;
+                         *) echo "auto" ;;
+                       esac)
+PYARROW_WITH_PARQUET_ENCRYPTION=$(case "$PARQUET_REQUIRE_ENCRYPTION" in
+                         ON) echo "enabled" ;;
+                         OFF) echo "disabled" ;;
+                         *) echo "enabled" ;;
+                                  esac)
+PYARROW_WITH_S3=$(case "$ARROW_S3" in
+                         ON) echo "enabled" ;;
+                         OFF) echo "disabled" ;;
+                         *) echo "auto" ;;
+                    esac)
 
 : ${CMAKE_PREFIX_PATH:=${ARROW_HOME}}
 export CMAKE_PREFIX_PATH
@@ -89,7 +131,19 @@ pushd ${python_build_dir}
 #   on Debian/Ubuntu (ARROW-15243).
 # - Cannot use build isolation as we want to use specific dependency versions
 #   (e.g. Numpy, Pandas) on some CI jobs.
-${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv .
+${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv . \
+                  -Csetup-args="-Dacero=${PYARROW_WITH_ACERO}" \
+                  -Csetup-args="-Dazure=${PYARROW_WITH_AZURE}" \
+                  -Csetup-args="-Dcuda=${PYARROW_WITH_CUDA}" \
+                  -Csetup-args="-Ddataset=${PYARROW_WITH_DATASET}" \
+                  -Csetup-args="-Dflight=${PYARROW_WITH_FLIGHT}" \
+                  -Csetup-args="-Dgandiva=${PYARROW_WITH_GANDIVA}" \
+                  -Csetup-args="-Dgcs=${PYARROW_WITH_GCS}" \
+                  -Csetup-args="-Dhdfs=${PYARROW_WITH_HDFS}" \
+                  -Csetup-args="-Dorc=${PYARROW_WITH_ORC}" \
+                  -Csetup-args="-Dparquet=${PYARROW_WITH_PARQUET}" \
+                  -Csetup-args="-Dparquet_encryption=${PYARROW_WITH_PARQUET_ENCRYPTION}" \
+                  -Csetup-args="-Ds3=${PYARROW_WITH_S3}"
 popd
 
 if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then
