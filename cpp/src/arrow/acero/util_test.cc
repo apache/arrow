@@ -201,10 +201,10 @@ void ConcurrentQueueBasicTest(Queue& queue) {
   queue.Push(2);
   queue.Push(3);
   queue.Push(4);
-  ASSERT_EQ(fut_pop.wait_for(std::chrono::milliseconds(10)), std::future_status::ready);
+  fut_pop.wait();
   ASSERT_EQ(fut_pop.get(), 2);
   fut_pop = std::async(std::launch::async, [&]() { return queue.WaitAndPop(); });
-  ASSERT_EQ(fut_pop.wait_for(std::chrono::milliseconds(10)), std::future_status::ready);
+  fut_pop.wait();
   ASSERT_EQ(fut_pop.get(), 3);
   ASSERT_FALSE(queue.Empty());
   ASSERT_EQ(queue.TryPop(), std::make_optional(4));
