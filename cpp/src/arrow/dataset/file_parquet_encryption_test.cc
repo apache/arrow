@@ -65,22 +65,22 @@ class DatasetEncryptionTestBase : public ::testing::Test {
 #endif
 
     // Creates a mock file system using the current time point.
-    EXPECT_OK_AND_ASSIGN(file_system_, fs::internal::MockFileSystem::Make(
-                                           std::chrono::system_clock::now(), {}));
-    ASSERT_OK(file_system_->CreateDir(std::string(kBaseDir)));
+    EXPECT_OK_AND_ASSIGN(
+        file_system_,
+        fs::internal::MockFileSystem::Make(
+            std::chrono::system_clock::now(),
+            {fs::FileInfo(std::string(kBaseDir), fs::FileType::Directory)}));
 
     // Init dataset and partitioning.
     ASSERT_NO_FATAL_FAILURE(PrepareTableAndPartitioning());
 
     // Prepare encryption properties.
-    std::unordered_map<std::string, std::string> key_map;
-    key_map.emplace(kColumnMasterKeyId, kColumnMasterKey);
-    key_map.emplace(kFooterKeyMasterKeyId, kFooterKeyMasterKey);
-
+    key_map_.emplace(kColumnMasterKeyId, kColumnMasterKey);
+    key_map_.emplace(kFooterKeyMasterKeyId, kFooterKeyMasterKey);
     crypto_factory_ = std::make_shared<parquet::encryption::CryptoFactory>();
     auto kms_client_factory =
         std::make_shared<parquet::encryption::TestOnlyInMemoryKmsClientFactory>(
-            /*wrap_locally=*/true, key_map);
+            /*wrap_locally=*/true, key_map_);
     crypto_factory_->RegisterKmsClientFactory(std::move(kms_client_factory));
     kms_connection_config_ = std::make_shared<parquet::encryption::KmsConnectionConfig>();
 
@@ -120,12 +120,18 @@ class DatasetEncryptionTestBase : public ::testing::Test {
   virtual void PrepareTableAndPartitioning() = 0;
   virtual std::string_view ColumnName() { return kColumnName; }
 
-  void TestScanDataset() {
+  Result<std::shared_ptr<Dataset>> ReadDataset(
+      const std::shared_ptr<parquet::encryption::CryptoFactory>& crypto_factory,
+      const std::unordered_map<std::string, std::string>& key_map) const {
+    // make sure these keys are served by the KMS
+    parquet::encryption::TestOnlyLocalWrapInMemoryKms::InitializeMasterKeys(key_map);
+    parquet::encryption::TestOnlyInServerWrapKms::InitializeMasterKeys(key_map);
+
     // Create decryption properties.
     auto decryption_config =
         std::make_shared<parquet::encryption::DecryptionConfiguration>();
     auto parquet_decryption_config = std::make_shared<ParquetDecryptionConfig>();
-    parquet_decryption_config->crypto_factory = crypto_factory_;
+    parquet_decryption_config->crypto_factory = crypto_factory;
     parquet_decryption_config->kms_connection_config = kms_connection_config_;
     parquet_decryption_config->decryption_config = std::move(decryption_config);
 
@@ -145,12 +151,17 @@ class DatasetEncryptionTestBase : public ::testing::Test {
     FileSystemFactoryOptions factory_options;
     factory_options.partitioning = partitioning_;
     factory_options.partition_base_dir = kBaseDir;
-    ASSERT_OK_AND_ASSIGN(auto dataset_factory,
-                         FileSystemDatasetFactory::Make(file_system_, selector,
-                                                        file_format, factory_options));
+    ARROW_ASSIGN_OR_RAISE(auto dataset_factory,
+                          FileSystemDatasetFactory::Make(file_system_, selector,
+                                                         file_format, factory_options));
 
     // Create the dataset
-    ASSERT_OK_AND_ASSIGN(auto dataset, dataset_factory->Finish());
+    return dataset_factory->Finish();
+  }
+
+  void TestScanDataset() {
+    // Read the dataset
+    ASSERT_OK_AND_ASSIGN(auto dataset, ReadDataset(crypto_factory_, key_map_));
 
     // Reuse the dataset above to scan it twice to make sure decryption works correctly.
     for (size_t i = 0; i < 2; ++i) {
@@ -173,6 +184,7 @@ class DatasetEncryptionTestBase : public ::testing::Test {
   std::shared_ptr<Partitioning> partitioning_;
   std::shared_ptr<parquet::encryption::CryptoFactory> crypto_factory_;
   std::shared_ptr<parquet::encryption::KmsConnectionConfig> kms_connection_config_;
+  std::unordered_map<std::string, std::string> key_map_;
 };
 
 class DatasetEncryptionTest : public DatasetEncryptionTestBase {
@@ -245,22 +257,69 @@ TEST_F(DatasetEncryptionTest, ReadSingleFile) {
 class NestedFieldsEncryptionTest : public DatasetEncryptionTestBase,
                                    public ::testing::WithParamInterface<std::string> {
  public:
-  NestedFieldsEncryptionTest() : rand_gen(0) {}
+  NestedFieldsEncryptionTest() : id_data_(ArrayFromJSON(int8(), "[1,2,3]")) {}
 
-  // The dataset is partitioned using a Hive partitioning scheme.
+  void SetUp() override {
+    DatasetEncryptionTestBase::SetUp();
+
+    // deliberately mis-configured column key
+    key_map_with_wrong_column_key_.emplace(kColumnMasterKeyId, kFooterKeyMasterKey);
+    key_map_with_wrong_column_key_.emplace(kFooterKeyMasterKeyId, kFooterKeyMasterKey);
+
+    crypto_factory_with_wrong_column_key_ =
+        std::make_shared<parquet::encryption::CryptoFactory>();
+    auto kms_client_factory =
+        std::make_shared<parquet::encryption::TestOnlyInMemoryKmsClientFactory>(
+            /*wrap_locally=*/true, key_map_with_wrong_column_key_);
+    crypto_factory_with_wrong_column_key_->RegisterKmsClientFactory(
+        std::move(kms_client_factory));
+  }
+
+  // The dataset is partitioned using a directory partitioning scheme.
   void PrepareTableAndPartitioning() override {
     // Prepare table and partitioning.
-    auto table_schema = schema({field("a", std::move(column_type_))});
-    table_ = arrow::Table::Make(table_schema, {column_data_});
+    auto table_schema = schema({field("id", int8()), field("a", column_type_)});
+    table_ = arrow::Table::Make(table_schema, {id_data_, column_data_});
     partitioning_ = std::make_shared<dataset::DirectoryPartitioning>(arrow::schema({}));
   }
 
   std::string_view ColumnName() override { return GetParam(); }
 
+  void TestDatasetColumnEncryption() {
+    // Read the dataset with wrong column key
+    ASSERT_OK_AND_ASSIGN(auto dataset, ReadDataset(crypto_factory_with_wrong_column_key_,
+                                                   key_map_with_wrong_column_key_));
+
+    // Reuse the dataset above to scan it twice to make sure decryption works correctly.
+    for (size_t i = 0; i < 2; ++i) {
+      // Read the non-encrypted id column into table
+      ASSERT_OK_AND_ASSIGN(auto id_scanner_builder, dataset->NewScan());
+      ASSERT_OK(id_scanner_builder->Project({"id"}));
+      ASSERT_OK_AND_ASSIGN(auto id_scanner, id_scanner_builder->Finish());
+      ASSERT_OK_AND_ASSIGN(auto read_table, id_scanner->ToTable());
+
+      // Verify the column was read correctly
+      ASSERT_OK_AND_ASSIGN(auto combined_table, read_table->CombineChunks());
+      ASSERT_OK(combined_table->ValidateFull());
+      ASSERT_OK_AND_ASSIGN(auto expected_table, table_->RemoveColumn(1));
+      AssertTablesEqual(*combined_table, *expected_table);
+
+      // Read the encrypted column 'a' into table
+      ASSERT_OK_AND_ASSIGN(auto a_scanner_builder, dataset->NewScan());
+      ASSERT_OK(a_scanner_builder->Project({"a"}));
+      ASSERT_OK_AND_ASSIGN(auto a_scanner, a_scanner_builder->Finish());
+      ASSERT_RAISES_WITH_MESSAGE(IOError, "IOError: Failed decryption finalization",
+                                 a_scanner->ToTable());
+    }
+  }
+
  protected:
   std::shared_ptr<DataType> column_type_;
+  std::shared_ptr<Array> id_data_;
   std::shared_ptr<Array> column_data_;
-  arrow::random::RandomArrayGenerator rand_gen;
+  std::shared_ptr<parquet::encryption::CryptoFactory>
+      crypto_factory_with_wrong_column_key_;
+  std::unordered_map<std::string, std::string> key_map_with_wrong_column_key_;
 };
 
 class ListFieldEncryptionTest : public NestedFieldsEncryptionTest {
@@ -305,7 +364,8 @@ class DeepNestedFieldEncryptionTest : public NestedFieldsEncryptionTest {
       ],
       [
         [[4, {"f1":4, "f2":"fur"}]]
-      ]
+      ],
+      []
     ])");
   }
 };
@@ -326,13 +386,25 @@ INSTANTIATE_TEST_SUITE_P(DeepNested, DeepNestedFieldEncryptionTest,
                                            "a.list.element.key_value.value.f1",
                                            "a.list.element.key_value.value.f2"));
 
-TEST_P(ListFieldEncryptionTest, ColumnKeys) { TestScanDataset(); }
+TEST_P(ListFieldEncryptionTest, ColumnKeys) {
+  TestScanDataset();
+  TestDatasetColumnEncryption();
+}
 
-TEST_P(MapFieldEncryptionTest, ColumnKeys) { TestScanDataset(); }
+TEST_P(MapFieldEncryptionTest, ColumnKeys) {
+  TestScanDataset();
+  TestDatasetColumnEncryption();
+}
 
-TEST_P(StructFieldEncryptionTest, ColumnKeys) { TestScanDataset(); }
+TEST_P(StructFieldEncryptionTest, ColumnKeys) {
+  TestScanDataset();
+  TestDatasetColumnEncryption();
+}
 
-TEST_P(DeepNestedFieldEncryptionTest, ColumnKeys) { TestScanDataset(); }
+TEST_P(DeepNestedFieldEncryptionTest, ColumnKeys) {
+  TestScanDataset();
+  TestDatasetColumnEncryption();
+}
 
 // GH-39444: This test covers the case where parquet dataset scanner crashes when
 // processing encrypted datasets over 2^15 rows in multi-threaded mode.
