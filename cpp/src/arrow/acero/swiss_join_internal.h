@@ -1014,11 +1014,6 @@ class JoinProbeProcessor {
                      arrow::util::TempVectorStack* temp_stack,
                      std::vector<KeyColumnArray>* temp_column_arrays);
 
-  // Must be called by a single-thread having exclusive access to the instance
-  // of this class. The caller is responsible for ensuring that.
-  //
-  Status OnFinished();
-
  private:
   int num_key_columns_;
   JoinType join_type_;
