@@ -131,7 +131,17 @@ pushd ${python_build_dir}
 #   on Debian/Ubuntu (ARROW-15243).
 # - Cannot use build isolation as we want to use specific dependency versions
 #   (e.g. Numpy, Pandas) on some CI jobs.
+
+# The conda compilers package may mess with C{XX}_FLAGS in a way that interferes
+# with the compiler
+OLD_CFLAGS=$CFLAGS
+OLD_CPPFLAGS=$CPPFLAGS
+OLD_CXXFLAGS=$CXXFLAGS
+export CFLAGS=
+export CPPFLAGS=
+export CXXFLAGS=
 ${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv . \
+                  -Csetup-args="-Dbuildtype=${ARROW_BUILD_TYPE:-debug}" \
                   -Csetup-args="-Dacero=${PYARROW_WITH_ACERO}" \
                   -Csetup-args="-Dazure=${PYARROW_WITH_AZURE}" \
                   -Csetup-args="-Dcuda=${PYARROW_WITH_CUDA}" \
@@ -143,7 +153,11 @@ ${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv . \
                   -Csetup-args="-Dorc=${PYARROW_WITH_ORC}" \
                   -Csetup-args="-Dparquet=${PYARROW_WITH_PARQUET}" \
                   -Csetup-args="-Dparquet_encryption=${PYARROW_WITH_PARQUET_ENCRYPTION}" \
-                  -Csetup-args="-Ds3=${PYARROW_WITH_S3}"
+                  -Csetup-args="-Ds3=${PYARROW_WITH_S3}" \
+                  -Ccompile-args="-v"
+export CFLAGS=$OLD_CFLAGS
+export CPPFLAGS=$OLD_CPPFLAGS
+export CXXFLAGS=$OLD_CXXFLAGS
 popd
 
 if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then
