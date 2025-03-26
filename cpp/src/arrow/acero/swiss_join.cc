@@ -2841,18 +2841,10 @@ class SwissJoin : public HashJoinImpl {
     // Flush all instances of materialize that have non-zero accumulated output
     // rows.
     //
-    RETURN_NOT_OK(CancelIfNotOK(OnProbeProcessorFinished()));
-
-    int64_t num_produced_batches = 0;
-    for (size_t i = 0; i < local_states_.size(); ++i) {
-      JoinResultMaterialize& materialize = local_states_[i].materialize;
-      num_produced_batches += materialize.num_produced_batches();
-    }
-
-    return finished_callback_(num_produced_batches);
+    return start_task_group_callback_(task_group_flush_, local_states_.size());
   }
 
-  Status FlushTask(size_t thread_id, int64_t task_id) {
+  Status FlushTask(size_t /*thread_id*/, int64_t task_id) {
     JoinResultMaterialize& materialize = local_states_[task_id].materialize;
     RETURN_NOT_OK(materialize.Flush([&](ExecBatch batch) {
       return output_batch_callback_(task_id, std::move(batch));
@@ -2865,35 +2857,13 @@ class SwissJoin : public HashJoinImpl {
       return status();
     }
 
-    {
-      auto guard = std::lock_guard{flush_mutex_};
-      flush_task_group_finished_ = true;
-    }
-    flush_cv_.notify_one();
-    return Status::OK();
-  }
-
-  Status OnProbeProcessorFinished() {
-    if (IsCancelled()) {
-      return status();
+    int64_t num_produced_batches = 0;
+    for (size_t i = 0; i < local_states_.size(); ++i) {
+      JoinResultMaterialize& materialize = local_states_[i].materialize;
+      num_produced_batches += materialize.num_produced_batches();
     }
 
-    if (!flush_is_parallel_) {
-      for (size_t i = 0; i < local_states_.size(); ++i) {
-        JoinResultMaterialize& materialize = local_states_[i].materialize;
-        RETURN_NOT_OK(materialize.Flush([&](ExecBatch batch) {
-          return output_batch_callback_(i, std::move(batch));
-        }));
-      }
-      return Status::OK();
-    }
-
-    ARROW_RETURN_NOT_OK(ctx_->StartTaskGroup(task_group_flush_, local_states_.size()));
-    {
-      auto lock = std::unique_lock{flush_mutex_};
-      flush_cv_.wait(lock, [this]() { return flush_task_group_finished_; });
-    }
-    return Status::OK();
+    return finished_callback_(num_produced_batches);
   }
 
   Result<ExecBatch> KeyPayloadFromInput(int side, ExecBatch* input) {
@@ -2971,12 +2941,6 @@ class SwissJoin : public HashJoinImpl {
   int task_group_merge_;
   int task_group_scan_;
   int task_group_flush_;
-
-  // flush task
-  bool flush_is_parallel_;
-  bool flush_task_group_finished_;
-  std::condition_variable flush_cv_;
-  std::mutex flush_mutex_;
 
   // Callbacks
   RegisterTaskGroupCallback register_task_group_callback_;

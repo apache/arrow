@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <condition_variable>
 #include <cstdint>
 #include "arrow/acero/options.h"
 #include "arrow/acero/partition_util.h"
