@@ -118,7 +118,7 @@ jobs:
         with:
           python-version: 3.12
       - name: Setup Archery
-        run: pip install -e dev/archery[docker] meson-python cmake
+        run: pip install -e dev/archery[docker] meson-python
       - name: Execute Docker Build
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}

@@ -6,7 +6,7 @@
 # "License"); you may not use this file except in compliance
 # with the License.  You may obtain a copy of the License at
 #
-#   http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing,
 # software distributed under the License is distributed on an
@@ -15,29 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-project(
-    'pyarrow',
-    'cython',
-    'cpp',
-    version: run_command(
-        'python',
-        '-m',
-        'setuptools_scm',
-        '--force-write-version-files',
-        check: true,
-    ).stdout().strip(),
-    license: 'Apache-2.0',
-    meson_version: '>=1.4.0',
-    default_options: ['buildtype=release', 'cpp_std=c++17'],
+cython_generated_headers = custom_target(
+    'lib-pyx-headers',
+    input: ['../../../lib.pyx'],
+    output: ['lib.h', 'lib_api.h'],
+    command: ['cython', '--cplus', '@INPUT@', '-o', '@OUTPUT0@'],
+    install: true,
+    install_dir: py.get_install_dir() / 'pyarrow',
 )
 
-arrow_dep = dependency(
-    'arrow',
-    'Arrow',
-    modules: ['Arrow::arrow_shared'],
-    required: false,  # optional so sdist will work without finding
-)
+cython_generated_dep = declare_dependency(sources: cython_generated_headers)
 
-cc = meson.get_compiler('cpp')
-
-subdir('pyarrow')

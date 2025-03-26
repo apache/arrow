@@ -1,4 +1,3 @@
-cmake
 cython>=3
 oldest-supported-numpy>=0.14; python_version<'3.9'
 numpy>=1.25; python_version>='3.9'

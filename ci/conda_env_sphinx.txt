@@ -17,7 +17,6 @@
 
 # Requirements for building the documentation
 breathe
-cmake
 doxygen
 ipython
 linkify-it-py
@@ -27,7 +26,6 @@ meson-python
 # linuxdoc
 myst-parser
 numpydoc
-patchelf
 pydata-sphinx-theme=0.14
 sphinx-autobuild
 sphinx-design

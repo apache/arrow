@@ -78,22 +78,19 @@ pyarrow_srcs += files('src/arrow/python/csv.cc')
 pyarrow_srcs += files('src/arrow/python/filesystem.cc')
 #endif
 
-cython_generated_headers = custom_target(
-    'lib-pyx-headers',
-    input: ['lib.pyx'],
-    output: ['lib.h', 'lib_api.h'],
-    command: ['cythonize', '@INPUT@'],
-)
-
-cython_generated_dep = declare_dependency(sources: cython_generated_headers)
+subdir('src/arrow/python')
 
 arrow_python_lib = shared_library(
     'arrow_python',
     sources: pyarrow_srcs,
     include_directories: ['src'],
     dependencies: [arrow_dep, numpy_dep, cython_generated_dep, py.dependency()],
+    cpp_args: cc.get_supported_arguments(
+        ['-DARROW_PYTHON_EXPORTING', '/DARROW_PYTHON_EXPORTING'],
+    ),
     override_options: ['b_lundef=false'],
     install: true,
+    install_dir: py.get_install_dir() / 'pyarrow',
 )
 
 cython_modules = {
@@ -105,6 +102,11 @@ cython_modules = {
     '_json': {},
     '_pyarrow_cpp_tests': {},
 }
+
+# enforce module dependencies
+needs_substrait = get_option('substrait').enabled()
+needs_dataset = get_option('dataset').enabled() or needs_substrait
+needs_acero = get_option('acero').enabled() or needs_dataset
 
 if get_option('azure').enabled()
     cython_modules += {'_azurefs': {}}
@@ -131,7 +133,7 @@ if get_option('cuda').enabled()
     cython_modules += {'_cuda': {'dependencies': cuda_dep}}
 endif
 
-if get_option('acero').enabled()
+if needs_acero
     acero_dep = dependency(
         'arrow-acero',
         'ArrowAcero',
@@ -141,7 +143,7 @@ if get_option('acero').enabled()
     cython_modules += {'_acero': {'dependencies': acero_dep}}
 endif
 
-if get_option('dataset').enabled()
+if needs_dataset
     dataset_dep = dependency(
         'arrow-dataset',
         'ArrowDataset',
@@ -162,13 +164,20 @@ if get_option('parquet').enabled()
 
     if get_option('parquet_encryption').enabled()
         arrow_encryption_lib = shared_library(
-            'arrow-python-parquet-encryption',
+            'arrow_python_parquet_encryption',
             sources: ['src/arrow/python/parquet_encryption.cc'],
             include_directories: ['src'],
             link_with: [arrow_python_lib],
             dependencies: [parquet_dep, py.dependency()],
-            install: true,
+            cpp_args: cc.get_supported_arguments(
+                [
+                    '-DARROW_PYTHON_PARQUET_ENCRYPTION_EXPORTING',
+                    '/DARROW_PYTHON_PARQUET_ENCRYPTION_EXPORTING',
+                ],
+            ),
             override_options: ['b_lundef=false'],
+            install: true,
+            install_dir: py.get_install_dir() / 'pyarrow',
         )
 
         arrow_encryption_dep = declare_dependency(
@@ -182,7 +191,7 @@ if get_option('parquet').enabled()
         }
     endif
 
-    if get_option('dataset').enabled()
+    if needs_dataset
         cython_modules += {
             '_dataset_parquet': {'dependencies': [dataset_dep, parquet_dep]},
         }
@@ -206,7 +215,7 @@ endif
 if get_option('orc').enabled()
     cython_modules += {'_orc': {}}
 
-    if get_option('dataset').enabled()
+    if needs_dataset
         cython_modules += {'_dataset_orc': {'dependencies': [dataset_dep]}}
     endif
 endif
@@ -219,19 +228,27 @@ if get_option('flight').enabled()
     )
 
     flight_lib = shared_library(
-        'arrow-flight-lib',
+        'arrow_flight_lib',
         sources: ['src/arrow/python/flight.cc'],
+        link_with: [arrow_python_lib],
         dependencies: [flight_dep, py.dependency()],
         include_directories: ['src'],
-        install: true,
+        cpp_args: cc.get_supported_arguments(
+            ['-DARROW_PYFLIGHT_EXPORTING', '/DARROW_PYFLIGHT_EXPORTING'],
+        ),
         override_options: ['b_lundef=false'],
+        install: true,
+        install_dir: py.get_install_dir() / 'pyarrow',
     )
 
-    arrow_flight_dep = declare_dependency(link_with: flight_lib)
+    arrow_flight_dep = declare_dependency(
+        link_with: flight_lib,
+        dependencies: [flight_dep],
+    )
     cython_modules += {'_flight': {'dependencies': arrow_flight_dep}}
 endif
 
-if get_option('substrait').enabled()
+if needs_substrait
     substrait_dep = dependency(
         'arrow-substrait',
         'ArrowSubstrait',
@@ -252,18 +269,64 @@ if get_option('gandiva').enabled()
 endif
 
 foreach key, val : cython_modules
+    cython_mod_name = '@0@.pyx'.format(key)
     py.extension_module(
         key,
-        sources: ['@0@.pyx'.format(key)],
+        sources: [cython_mod_name],
         include_directories: ['src'],
         link_with: arrow_python_lib,
         cython_args: cython_args,
         dependencies: [arrow_dep, numpy_dep] + val.get('dependencies', []),
         override_options: ['cython_language=cpp'],
-        subdir: 'pyarrow',
         install: true,
+        subdir: 'pyarrow',
     )
+
+    install_data(cython_mod_name, install_dir: py.get_install_dir() / 'pyarrow')
 endforeach
+
+cython_headers = [
+    '_acero.pxd',
+    'array.pxi',
+    'benchmark.pxi',
+    'builder.pxi',
+    'compat.pxi',
+    '_compute.pxd',
+    'config.pxi',
+    '_csv.pxd',
+    '_cuda.pxd',
+    '_dataset_parquet.pxd',
+    '_dataset.pxd',
+    'device.pxi',
+    '_dlpack.pxi',
+    'error.pxi',
+    '_fs.pxd',
+    '__init__.pxd',
+    'io.pxi',
+    'ipc.pxi',
+    '_json.pxd',
+    'lib.pxd',
+    'memory.pxi',
+    '_orc.pxd',
+    'pandas-shim.pxi',
+    '_parquet_encryption.pxd',
+    '_parquet.pxd',
+    'public-api.pxi',
+    '_pyarrow_cpp_tests.pxd',
+    'scalar.pxi',
+    'table.pxi',
+    'tensor.pxi',
+    'types.pxi',
+]
+
+install_data(cython_headers, install_dir: py.get_install_dir() / 'pyarrow')
+
+install_subdir('includes', install_dir: py.get_install_dir() / 'pyarrow')
+
+install_subdir(
+    'src/arrow/python',
+    install_dir: py.get_install_dir() / 'pyarrow/src/arrow',
+)
 
 pysources = [
     'acero.py',
@@ -290,6 +353,62 @@ pysources = [
     'util.py',
 ]
 py.install_sources(pysources, subdir: 'pyarrow')
+
+py.install_sources(
+    files(
+        'src/arrow/python/api.h',
+        'src/arrow/python/arrow_to_pandas.h',
+        'src/arrow/python/async.h',
+        'src/arrow/python/benchmark.h',
+        'src/arrow/python/common.h',
+        'src/arrow/python/csv.h',
+        'src/arrow/python/datetime.h',
+        'src/arrow/python/decimal.h',
+        'src/arrow/python/extension_type.h',
+        'src/arrow/python/filesystem.h',
+        'src/arrow/python/flight.h',
+        'src/arrow/python/gdb.h',
+        'src/arrow/python/helpers.h',
+        'src/arrow/python/inference.h',
+        'src/arrow/python/io.h',
+        'src/arrow/python/ipc.h',
+        'src/arrow/python/iterators.h',
+        'src/arrow/python/numpy_convert.h',
+        'src/arrow/python/numpy_init.h',
+        'src/arrow/python/numpy_interop.h',
+        'src/arrow/python/numpy_to_arrow.h',
+        'src/arrow/python/parquet_encryption.h',
+        'src/arrow/python/pch.h',
+        'src/arrow/python/platform.h',
+        'src/arrow/python/pyarrow.h',
+        'src/arrow/python/pyarrow_lib.h',
+        'src/arrow/python/python_test.h',
+        'src/arrow/python/python_to_arrow.h',
+        'src/arrow/python/type_traits.h',
+        'src/arrow/python/udf.h',
+        'src/arrow/python/visibility.h',
+    ),
+    subdir: 'pyarrow/include/arrow/python',
+)
+
+if arrow_dep.found()
+    arrow_header_dir = arrow_dep.get_variable(
+# CMake has a local variable for ARROW_INCLUDE_DIR which is not
+# detectable from Meson
+# cmake: 'ARROW_INCLUDE_DIR',
+        pkgconfig: 'includedir',
+    ) / 'arrow'
+
+    install_subdir(
+        arrow_header_dir,
+        install_dir: py.get_install_dir() / 'pyarrow/include',
+    )
+endif
+
+py.install_sources(
+    files('src/arrow/python/vendored/pythoncapi_compat.h'),
+    subdir: 'pyarrow/include/arrow/python/vendored',
+)
 
 subdirs = ['interchange', 'parquet', 'tests', 'vendored']
 
