@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <boost/container/container_fwd.hpp>
 #include <string_view>
 
 #include "gtest/gtest.h"
