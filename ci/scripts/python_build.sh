@@ -114,6 +114,11 @@ PYARROW_WITH_S3=$(case "$ARROW_S3" in
                          ON) echo "enabled" ;;
                          OFF) echo "disabled" ;;
                          *) echo "auto" ;;
+                  esac)
+PYARROW_WITH_SUBSTRAIT=$(case "$ARROW_SUBSTRAIT" in
+                         ON) echo "enabled" ;;
+                         OFF) echo "disabled" ;;
+                         *) echo "auto" ;;
                     esac)
 
 : ${CMAKE_PREFIX_PATH:=${ARROW_HOME}}
@@ -155,6 +160,7 @@ ${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv . \
                   -Csetup-args="-Dparquet=${PYARROW_WITH_PARQUET}" \
                   -Csetup-args="-Dparquet_encryption=${PYARROW_WITH_PARQUET_ENCRYPTION}" \
                   -Csetup-args="-Ds3=${PYARROW_WITH_S3}" \
+                  -Csetup-args="-Dsubstrait=${PYARROW_WITH_SUBSTRAIT}" \
                   -Ccompile-args="-v" \
                   -Csetup-args="--pkg-config-path=${ARROW_HOME}/lib/pkgconfig"
 
