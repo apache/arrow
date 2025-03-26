@@ -35,11 +35,6 @@ using testing::SizeIs;
 
 namespace arrow {
 
-using compute::ComputeKernelEnvironment;
-
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 namespace dataset {
 
 void AssertSchemasAre(std::vector<std::shared_ptr<Schema>> actual,

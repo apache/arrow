@@ -34,11 +34,6 @@
 #include "arrow/testing/util.h"
 
 namespace arrow {
-using compute::ComputeKernelEnvironment;
-
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 namespace dataset {
 
 class OrcFormatHelper {

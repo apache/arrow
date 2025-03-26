@@ -43,11 +43,6 @@
 namespace cp = arrow::compute;
 
 namespace arrow {
-using compute::ComputeKernelEnvironment;
-
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 using compute::ExecBatchFromJSON;
 using internal::TemporaryDir;

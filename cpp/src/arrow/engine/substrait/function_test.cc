@@ -49,11 +49,6 @@
 #include "arrow/type_fwd.h"
 
 namespace arrow {
-using compute::ComputeKernelEnvironment;
-
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 namespace engine {
 struct FunctionTestCase {

@@ -42,7 +42,6 @@
 // in the current directory
 
 arrow::Status RunMain(int argc, char** argv) {
-  ARROW_RETURN_NOT_OK(arrow::compute::RegisterComputeKernels());
   // Make Arrays
   arrow::NumericBuilder<arrow::Int64Type> int64_builder;
   arrow::BooleanBuilder boolean_builder;

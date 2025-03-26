@@ -48,7 +48,6 @@ using arrow::random::kSeedMax;
 using arrow::random::RandomArrayGenerator;
 using compute::and_;
 using compute::call;
-using compute::ComputeKernelEnvironment;
 using compute::default_exec_context;
 using compute::ExecBatchBuilder;
 using compute::ExecBatchFromJSON;
@@ -58,10 +57,6 @@ using compute::SortIndices;
 using compute::SortKey;
 using compute::Take;
 using compute::internal::RowEncoder;
-
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 namespace acero {
 

@@ -33,13 +33,8 @@ namespace arrow {
 
 using internal::checked_pointer_cast;
 
-using compute::ComputeKernelEnvironment;
 using compute::SortKey;
 using compute::SortOrder;
-
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 namespace acero {
 

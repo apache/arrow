@@ -48,10 +48,6 @@ using internal::checked_pointer_cast;
 
 namespace compute {
 
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
-
 const std::shared_ptr<Schema> kBoringSchema = schema({
     field("bool", boolean()),
     field("i8", int8()),

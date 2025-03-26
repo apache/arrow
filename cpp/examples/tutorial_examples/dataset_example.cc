@@ -76,8 +76,6 @@ arrow::Result<std::string> CreateExampleParquetDataset(
 }
 
 arrow::Status PrepareEnv() {
-  // Register required compute kernels for Dataset
-  ARROW_RETURN_NOT_OK(arrow::compute::RegisterComputeKernels());
   // Get our environment prepared for reading, by setting up some quick writing.
   ARROW_ASSIGN_OR_RAISE(auto src_table, CreateTable())
   std::shared_ptr<arrow::fs::FileSystem> setup_fs;
