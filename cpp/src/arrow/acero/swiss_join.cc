@@ -2224,13 +2224,12 @@ Result<ExecBatch> JoinResidualFilter::MaterializeFilterInput(
   return out;
 }
 
-void JoinProbeProcessor::Init(QueryContext* ctx, int num_key_columns, JoinType join_type,
+void JoinProbeProcessor::Init(int num_key_columns, JoinType join_type,
                               SwissTableForJoin* hash_table,
                               JoinResidualFilter* residual_filter,
                               std::vector<JoinResultMaterialize*> materialize,
                               const std::vector<JoinKeyCmp>* cmp,
                               OutputBatchFn output_batch_fn) {
-  ctx_ = ctx;
   num_key_columns_ = num_key_columns;
   join_type_ = join_type;
   hash_table_ = hash_table;
@@ -2241,29 +2240,6 @@ void JoinProbeProcessor::Init(QueryContext* ctx, int num_key_columns, JoinType j
   }
   cmp_ = cmp;
   output_batch_fn_ = output_batch_fn;
-
-  is_parallel_ = ctx_->exec_context()->use_threads() &&
-                 (ctx_->executor() && ctx_->executor()->GetCapacity() > 1);
-
-  if (is_parallel_) {
-    task_group_finished_ = false;
-    flush_task_group_id_ = ctx_->RegisterTaskGroup(
-        [this](size_t /*thread_index*/, int64_t task_id) -> Status {
-          JoinResultMaterialize& materialize = *materialize_[task_id];
-          RETURN_NOT_OK(materialize.Flush([&](ExecBatch batch) {
-            return output_batch_fn_(task_id, std::move(batch));
-          }));
-          return Status::OK();
-        },
-        [this](size_t thread_index) -> Status {
-          {
-            auto guard = std::lock_guard{mutex_};
-            task_group_finished_ = true;
-          }
-          cv_.notify_one();
-          return Status::OK();
-        });
-  }
 }
 
 Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
@@ -2434,27 +2410,6 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
   return Status::OK();
 }
 
-Status JoinProbeProcessor::OnFinished() {
-  // Flush all instances of materialize that have non-zero accumulated output
-  // rows.
-  //
-  if (!is_parallel_) {
-    for (size_t i = 0; i < materialize_.size(); ++i) {
-      JoinResultMaterialize& materialize = *materialize_[i];
-      RETURN_NOT_OK(materialize.Flush(
-          [&](ExecBatch batch) { return output_batch_fn_(i, std::move(batch)); }));
-    }
-    return Status::OK();
-  }
-
-  ARROW_RETURN_NOT_OK(ctx_->StartTaskGroup(flush_task_group_id_, materialize_.size()));
-  {
-    auto lock = std::unique_lock{mutex_};
-    cv_.wait(lock, [this]() { return task_group_finished_; });
-  }
-  return Status::OK();
-}
-
 class SwissJoin : public HashJoinImpl {
  public:
   static constexpr auto kTempStackUsage = 64 * arrow::util::MiniBatch::kMiniBatchLength;
@@ -2515,9 +2470,9 @@ class SwissJoin : public HashJoinImpl {
     residual_filter_.Init(std::move(filter), ctx_, pool_, hardware_flags_, proj_map_left,
                           proj_map_right, &hash_table_);
 
-    probe_processor_.Init(ctx_, proj_map_left->num_cols(HashJoinProjection::KEY),
-                          join_type_, &hash_table_, &residual_filter_, materialize,
-                          &key_cmp_, output_batch_callback_);
+    probe_processor_.Init(proj_map_left->num_cols(HashJoinProjection::KEY), join_type_,
+                          &hash_table_, &residual_filter_, materialize, &key_cmp_,
+                          output_batch_callback_);
 
     InitTaskGroups();
 
@@ -2547,6 +2502,11 @@ class SwissJoin : public HashJoinImpl {
           return ScanTask(thread_index, task_id);
         },
         [this](size_t thread_index) -> Status { return ScanFinished(thread_index); });
+    task_group_flush_ = register_task_group_callback_(
+        [this](size_t thread_index, int64_t task_id) -> Status {
+          return FlushTask(thread_index, task_id);
+        },
+        [this](size_t thread_index) -> Status { return FlushFinished(thread_index); });
   }
 
   Status ProbeSingleBatch(size_t thread_index, ExecBatch batch) override {
@@ -2881,7 +2841,7 @@ class SwissJoin : public HashJoinImpl {
     // Flush all instances of materialize that have non-zero accumulated output
     // rows.
     //
-    RETURN_NOT_OK(CancelIfNotOK(probe_processor_.OnFinished()));
+    RETURN_NOT_OK(CancelIfNotOK(OnProbeProcessorFinished()));
 
     int64_t num_produced_batches = 0;
     for (size_t i = 0; i < local_states_.size(); ++i) {
@@ -2890,6 +2850,50 @@ class SwissJoin : public HashJoinImpl {
     }
 
     return finished_callback_(num_produced_batches);
+  }
+
+  Status FlushTask(size_t thread_id, int64_t task_id) {
+    JoinResultMaterialize& materialize = local_states_[task_id].materialize;
+    RETURN_NOT_OK(materialize.Flush([&](ExecBatch batch) {
+      return output_batch_callback_(task_id, std::move(batch));
+    }));
+    return Status::OK();
+  }
+
+  Status FlushFinished(size_t thread_id) {
+    if (IsCancelled()) {
+      return status();
+    }
+
+    {
+      auto guard = std::lock_guard{flush_mutex_};
+      flush_task_group_finished_ = true;
+    }
+    flush_cv_.notify_one();
+    return Status::OK();
+  }
+
+  Status OnProbeProcessorFinished() {
+    if (IsCancelled()) {
+      return status();
+    }
+
+    if (!flush_is_parallel_) {
+      for (size_t i = 0; i < local_states_.size(); ++i) {
+        JoinResultMaterialize& materialize = local_states_[i].materialize;
+        RETURN_NOT_OK(materialize.Flush([&](ExecBatch batch) {
+          return output_batch_callback_(i, std::move(batch));
+        }));
+      }
+      return Status::OK();
+    }
+
+    ARROW_RETURN_NOT_OK(ctx_->StartTaskGroup(task_group_flush_, local_states_.size()));
+    {
+      auto lock = std::unique_lock{flush_mutex_};
+      flush_cv_.wait(lock, [this]() { return flush_task_group_finished_; });
+    }
+    return Status::OK();
   }
 
   Result<ExecBatch> KeyPayloadFromInput(int side, ExecBatch* input) {
@@ -2966,6 +2970,13 @@ class SwissJoin : public HashJoinImpl {
   int task_group_build_;
   int task_group_merge_;
   int task_group_scan_;
+  int task_group_flush_;
+
+  // flush task
+  bool flush_is_parallel_;
+  bool flush_task_group_finished_;
+  std::condition_variable flush_cv_;
+  std::mutex flush_mutex_;
 
   // Callbacks
   RegisterTaskGroupCallback register_task_group_callback_;

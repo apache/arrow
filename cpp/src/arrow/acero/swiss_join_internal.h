@@ -1007,21 +1007,15 @@ class JoinProbeProcessor {
  public:
   using OutputBatchFn = std::function<Status(int64_t, ExecBatch)>;
 
-  void Init(QueryContext* ctx, int num_key_columns, JoinType join_type,
-            SwissTableForJoin* hash_table, JoinResidualFilter* residual_filter,
+  void Init(int num_key_columns, JoinType join_type, SwissTableForJoin* hash_table,
+            JoinResidualFilter* residual_filter,
             std::vector<JoinResultMaterialize*> materialize,
             const std::vector<JoinKeyCmp>* cmp, OutputBatchFn output_batch_fn);
   Status OnNextBatch(int64_t thread_id, const ExecBatch& keypayload_batch,
                      arrow::util::TempVectorStack* temp_stack,
                      std::vector<KeyColumnArray>* temp_column_arrays);
 
-  // Must be called by a single-thread having exclusive access to the instance
-  // of this class. The caller is responsible for ensuring that.
-  //
-  Status OnFinished();
-
  private:
-  QueryContext* ctx_;
   int num_key_columns_;
   JoinType join_type_;
 
@@ -1032,12 +1026,6 @@ class JoinProbeProcessor {
   std::vector<JoinResultMaterialize*> materialize_;
   const std::vector<JoinKeyCmp>* cmp_;
   OutputBatchFn output_batch_fn_;
-
-  bool is_parallel_;
-  bool task_group_finished_;
-  int flush_task_group_id_;
-  std::condition_variable cv_;
-  std::mutex mutex_;
 };
 
 }  // namespace acero
