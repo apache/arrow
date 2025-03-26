@@ -14,6 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+#pragma once
 #include "arrow/compute/registry.h"
 
 #include "arrow/compute/visibility.h"
@@ -22,5 +23,7 @@
 namespace arrow::compute {
 
 ARROW_COMPUTE_EXPORT Status RegisterComputeKernels();
+
+static Status g_kernels_registered = arrow::compute::RegisterComputeKernels();
 
 }  // namespace arrow::compute

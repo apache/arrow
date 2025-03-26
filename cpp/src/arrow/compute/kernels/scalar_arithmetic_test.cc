@@ -45,10 +45,6 @@
 namespace arrow {
 namespace compute {
 
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
-
 namespace {
 
 // 2.718281828459045090795598298427648842334747314453125
