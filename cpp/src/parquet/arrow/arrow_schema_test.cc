@@ -1666,6 +1666,28 @@ TEST(TestFromParquetSchema, CorruptMetadata) {
   ASSERT_RAISES(IOError, FromParquetSchema(parquet_schema, props, &arrow_schema));
 }
 
+TEST(TestFromParquetSchema, UndefinedLogicalType) {
+  // Arrow GH-45522
+  auto path = test::get_data_file("unknown-logical-type.parquet");
+
+  std::unique_ptr<parquet::ParquetFileReader> reader =
+      parquet::ParquetFileReader::OpenFile(path);
+  const auto parquet_schema = reader->metadata()->schema();
+  std::shared_ptr<::arrow::Schema> arrow_schema;
+  ArrowReaderProperties props;
+
+  // With the default reader properties, attempting to read a file with an undefined
+  // logical type will error
+  ASSERT_RAISES(NotImplemented, FromParquetSchema(parquet_schema, props, &arrow_schema));
+
+  // With the appropriate reader option set, the underlying physical type is used for
+  // conversion to the Arrow type
+  props.set_convert_undefined_logical_types(true);
+  ASSERT_OK(FromParquetSchema(parquet_schema, props, &arrow_schema));
+  ASSERT_EQ(*arrow_schema->field(1),
+            *::arrow::field("column with unknown type", ::arrow::binary()));
+}
+
 //
 // Test LevelInfo computation from a Parquet schema
 // (for Parquet -> Arrow reading).
