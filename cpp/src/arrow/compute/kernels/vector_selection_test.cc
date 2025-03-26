@@ -27,6 +27,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/kernels/api.h"
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/scalar.h"
 #include "arrow/table.h"
@@ -44,10 +45,6 @@ using internal::checked_pointer_cast;
 using std::string_view;
 
 namespace compute {
-
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 namespace {
 

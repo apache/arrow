@@ -20,6 +20,7 @@
 from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_compute cimport *
 
 cdef class UdfContext(_Weakrefable):
     cdef:

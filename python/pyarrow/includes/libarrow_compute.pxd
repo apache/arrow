@@ -15,14 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-prefix=@CMAKE_INSTALL_PREFIX@
-includedir=@ARROW_PKG_CONFIG_INCLUDEDIR@
-libdir=@ARROW_PKG_CONFIG_LIBDIR@
+# distutils: language = c++
 
-Name: Apache Arrow Compute Kernels
-Description: Apache Arrow's Compute Kernels.
-Version: @ARROW_VERSION@
-Requires: arrow
-Libs: -L${libdir} -larrow_compute
-Cflags:@ARROW_COMPUTE_PC_CFLAGS@
-Cflags.private:@ARROW_COMPUTE_PC_CFLAGS_PRIVATE@
+from pyarrow.includes.libarrow cimport *
+
+
+cdef extern from "arrow/compute/kernels/api.h" namespace "arrow::compute" nogil:
+
+    CStatus RegisterComputeKernels()

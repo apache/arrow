@@ -729,6 +729,14 @@ set(ARROW_COMPUTE_SRCS
     compute/kernels/vector_selection_take_internal.cc)
 
 if(ARROW_COMPUTE)
+  # If libarrow_compute.a is only built, "pkg-config --cflags --libs
+  # arrow-compute" outputs build flags for static linking not shared
+  # linking. ARROW_COMPUTE_PC_* except ARROW_COMPUTE_PC_*_PRIVATE are for
+  # the static linking case.
+  if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+    string(APPEND ARROW_COMPUTE_PC_CFLAGS "${ARROW_COMPUTE_PC_CFLAGS_PRIVATE}")
+    set(ARROW_COMPUTE_PC_CFLAGS_PRIVATE "")
+  endif()
   # Include the remaining kernels
   list(APPEND
        ARROW_COMPUTE_LIB_SRCS

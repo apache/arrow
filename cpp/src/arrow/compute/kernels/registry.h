@@ -14,6 +14,8 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+#pragma once
+
 #include "arrow/compute/registry.h"
 
 #include "arrow/compute/visibility.h"

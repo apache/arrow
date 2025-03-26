@@ -29,6 +29,7 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/kernels/api.h"
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/datum.h"
 #include "arrow/type.h"
@@ -44,10 +45,6 @@
 
 namespace arrow {
 namespace compute {
-
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 namespace {
 

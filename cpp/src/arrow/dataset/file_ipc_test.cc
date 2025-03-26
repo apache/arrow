@@ -21,7 +21,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/compute/kernels/test_util_internal.h"
+#include "arrow/compute/kernels/api.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
@@ -37,13 +37,6 @@
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
-
-using compute::ComputeKernelEnvironment;
-using internal::checked_pointer_cast;
-
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 namespace dataset {
 

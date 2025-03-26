@@ -23,7 +23,7 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/compute/kernels/test_util_internal.h"
+#include "arrow/compute/kernels/api.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/test_util.h"
@@ -35,11 +35,6 @@ using testing::SizeIs;
 
 namespace arrow {
 
-using compute::ComputeKernelEnvironment;
-
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 namespace dataset {
 
 void AssertSchemasAre(std::vector<std::shared_ptr<Schema>> actual,

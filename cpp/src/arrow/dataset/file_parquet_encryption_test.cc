@@ -21,7 +21,7 @@
 
 #include "arrow/array.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/kernels/test_util_internal.h"
+#include "arrow/compute/kernels/api.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_parquet.h"
@@ -53,13 +53,6 @@ constexpr std::string_view kBaseDir = "";
 using arrow::internal::checked_pointer_cast;
 
 namespace arrow {
-
-using compute::ComputeKernelEnvironment;
-
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
-
 namespace dataset {
 
 struct EncryptionTestParam {

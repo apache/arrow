@@ -28,6 +28,7 @@ from pyarrow.lib import frombytes, tobytes, ArrowInvalid
 from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_compute cimport *
 import pyarrow.lib as lib
 from pyarrow.util import _DEPR_MSG
 from libcpp cimport bool as c_bool
@@ -72,10 +73,6 @@ def _forbid_instantiation(klass, subclasses_instead=True):
             ', '.join(subclasses)
         )
     raise TypeError(msg)
-
-
-# Call to Register the compute Kernels on import
-RegisterComputeKernels()
 
 
 cdef vector[CSortKey] unwrap_sort_keys(sort_keys, allow_str=True):

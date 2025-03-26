@@ -23,6 +23,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
+#include "arrow/compute/kernels/api.h"
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
@@ -33,10 +34,6 @@ namespace arrow {
 using internal::checked_pointer_cast;
 
 namespace compute {
-
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 // Helper that combines a dictionary and the value type so it can
 // later be used with DictArrayFromJSON

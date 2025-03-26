@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/compute/api.h"
+#include "arrow/compute/kernels/api.h"
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/thread_pool.h"
@@ -27,10 +28,6 @@ namespace arrow {
 using internal::ThreadPool;
 
 namespace compute {
-
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 namespace {
 

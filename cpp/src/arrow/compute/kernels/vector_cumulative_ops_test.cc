@@ -31,15 +31,12 @@
 
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/kernels/api.h"
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/type_fwd.h"
 
 namespace arrow {
 namespace compute {
-
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 static const std::vector<std::string> kCumulativeFunctionNames{
     "cumulative_sum",          "cumulative_sum_checked", "cumulative_prod",

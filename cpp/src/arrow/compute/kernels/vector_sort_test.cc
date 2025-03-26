@@ -29,6 +29,7 @@
 #include "arrow/array/array_decimal.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/kernels/api.h"
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
@@ -44,10 +45,6 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 namespace compute {
-
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 #ifdef ARROW_VALGRIND
 using RealArrowTypes = ::testing::Types<FloatType>;
