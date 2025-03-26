@@ -25,6 +25,7 @@
 
 #include "arrow/table.h"
 #include "arrow/testing/extension_type.h"
+#include "arrow/testing/generator.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/float16.h"
 #include "parquet/arrow/reader.h"
@@ -702,7 +703,7 @@ void AssertChunkSizes(const std::shared_ptr<::arrow::DataType>& dtype,
     ASSERT_EQ(base_info.has_dictionary_page, enable_dictionary);
     ASSERT_EQ(modified_info.has_dictionary_page, enable_dictionary);
   }
-  if (::arrow::is_fixed_width(dtype->id()) && !nullable) {
+  if (::arrow::is_fixed_width(dtype->id())) {
     // for nullable types we cannot calculate the exact number of elements because
     // not all elements are fed through the chunker (null elements are skipped)
     auto byte_width = (dtype->id() == ::arrow::Type::BOOL) ? 1 : dtype->byte_width();
@@ -710,8 +711,7 @@ void AssertChunkSizes(const std::shared_ptr<::arrow::DataType>& dtype,
     auto max_length = ElementCount(max_chunk_size, byte_width, nullable);
     AssertAllBetween(base_info.page_lengths, min_length, max_length);
     AssertAllBetween(modified_info.page_lengths, min_length, max_length);
-  } else if (::arrow::is_base_binary_like(dtype->id()) && !nullable &&
-             !enable_dictionary) {
+  } else if (::arrow::is_base_binary_like(dtype->id()) && !enable_dictionary) {
     AssertAllBetween(base_info.page_sizes, min_chunk_size, max_chunk_size);
     AssertAllBetween(modified_info.page_sizes, min_chunk_size, max_chunk_size);
   }
@@ -808,6 +808,49 @@ TEST_F(TestCDC, WriteSingleColumnParquetFile) {
   EXPECT_THROW(int_column_writer.WriteBatchSpaced(numbers.size(), nullptr, nullptr,
                                                   valid_bits.data(), 0, numbers.data()),
                ParquetException);
+}
+
+TEST_F(TestCDC, LastChunkDoesntTriggerAddDataPage) {
+  // Define the schema with a single column "number"
+  auto schema = std::dynamic_pointer_cast<schema::GroupNode>(schema::GroupNode::Make(
+      "root", Repetition::REQUIRED,
+      {schema::PrimitiveNode::Make("number", Repetition::REQUIRED, Type::INT32)}));
+
+  auto sink = CreateOutputStream();
+  auto builder = WriterProperties::Builder();
+  auto props = builder.enable_content_defined_chunking()
+                   ->content_defined_chunking_options(kMinChunkSize, kMaxChunkSize, 0)
+                   ->disable_dictionary()
+                   ->build();
+
+  auto writer = ParquetFileWriter::Open(sink, schema, props);
+  auto row_group_writer = writer->AppendRowGroup();
+
+  // Create a column writer for the "number" column
+  auto column_writer = row_group_writer->NextColumn();
+  auto& int_column_writer = dynamic_cast<Int32Writer&>(*column_writer);
+
+  ASSERT_OK_AND_ASSIGN(auto array, ::arrow::gen::Step()->Generate(8000));
+  auto arrow_props = default_arrow_writer_properties();
+  auto arrow_ctx = ArrowWriteContext(default_memory_pool(), arrow_props.get());
+
+  // Calling WriteArrow twice, we expect that the first call doesn't add a new data page
+  // at the end allowing subsequent calls to append to the same page
+  ASSERT_OK(int_column_writer.WriteArrow(nullptr, nullptr, array->length(), *array,
+                                         &arrow_ctx, false));
+  ASSERT_OK(int_column_writer.WriteArrow(nullptr, nullptr, array->length(), *array,
+                                         &arrow_ctx, false));
+
+  int_column_writer.Close();
+  writer->Close();
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  auto info = GetColumnParquetInfo(buffer);
+  ASSERT_EQ(info.size(), 1);
+
+  // AssertAllBetween allow the last chunk size to be smaller than the min_chunk_size
+  AssertAllBetween(info[0].page_sizes, kMinChunkSize, kMaxChunkSize);
+  AssertAllBetween(info[0].page_lengths, 3000, 5000);
 }
 
 TEST_F(TestCDC, ChunkSizeParameterValidation) {
