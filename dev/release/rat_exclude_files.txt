@@ -88,6 +88,7 @@ js/yarn.lock
 js/.eslintignore
 python/cmake_modules
 python/cmake_modules/FindPythonLibsNew.cmake
+python/dummy.git/*
 python/MANIFEST.in
 python/manylinux1/.dockerignore
 python/pyarrow/includes/__init__.pxd
