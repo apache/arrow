@@ -42,8 +42,7 @@
 #include "arrow/util/bitmap_visit.h"
 #include "arrow/util/bitmap_writer.h"
 
-namespace arrow {
-namespace bit_util {
+namespace arrow::bit_util::benchmarks {
 
 constexpr int64_t kBufferSize = 1024 * 8;
 
@@ -435,7 +434,7 @@ static void SetBitsTo(benchmark::State& state) {
   std::shared_ptr<Buffer> buffer = CreateRandomBuffer(nbytes);
 
   for (auto _ : state) {
-    bit_util::SetBitsTo(buffer->mutable_data(), /*offset=*/0, nbytes * 8, true);
+    ::arrow::bit_util::SetBitsTo(buffer->mutable_data(), /*offset=*/0, nbytes * 8, true);
   }
   state.SetBytesProcessed(state.iterations() * nbytes);
 }
@@ -551,5 +550,4 @@ BENCHMARK(BenchmarkBitmapVisitBitsetAnd)->Ranges(AND_BENCHMARK_RANGES);
 BENCHMARK(BenchmarkBitmapVisitUInt8And)->Ranges(AND_BENCHMARK_RANGES);
 BENCHMARK(BenchmarkBitmapVisitUInt64And)->Ranges(AND_BENCHMARK_RANGES);
 
-}  // namespace bit_util
-}  // namespace arrow
+}  // namespace arrow::bit_util::benchmarks
