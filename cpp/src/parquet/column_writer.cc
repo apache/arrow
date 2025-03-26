@@ -1387,9 +1387,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     }
 
     if (properties_->content_defined_chunking_enabled()) {
-      auto boundaries = content_defined_chunker_.GetChunks(def_levels, rep_levels,
-                                                           num_levels, leaf_array);
-      for (auto chunk : boundaries) {
+      auto chunks = content_defined_chunker_.GetChunks(def_levels, rep_levels, num_levels,
+                                                       leaf_array);
+      for (size_t i = 0; i < chunks.size(); i++) {
+        auto chunk = chunks[i];
         auto chunk_array = leaf_array.Slice(chunk.value_offset);
         auto chunk_def_levels = AddIfNotNull(def_levels, chunk.level_offset);
         auto chunk_rep_levels = AddIfNotNull(rep_levels, chunk.level_offset);
@@ -1402,11 +1403,15 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
                                          chunk.levels_to_write, *chunk_array, ctx,
                                          maybe_parent_nulls));
         }
-        if (num_buffered_values_ > 0) {
+        bool is_last_chunk = i == chunks.size() - 1;
+        if (num_buffered_values_ > 0 && !is_last_chunk) {
           // Explicitly add a new data page according to the content-defined chunk
           // boundaries. This way the same chunks will have the same byte-sequence
           // in the resulting file, which can be identified by content addressible
           // storage.
+          // Note that the last chunk doesn't trigger a new data page in order to
+          // allow subsequent WriteArrow() calls to continue writing to the same
+          // data page, the chunker's state is not being reset after the last chunk.
           AddDataPage();
         }
       }
