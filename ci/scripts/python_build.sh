@@ -140,6 +140,7 @@ OLD_CXXFLAGS=$CXXFLAGS
 export CFLAGS=
 export CPPFLAGS=
 export CXXFLAGS=
+
 ${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv . \
                   -Csetup-args="-Dbuildtype=${ARROW_BUILD_TYPE:-debug}" \
                   -Csetup-args="-Dacero=${PYARROW_WITH_ACERO}" \
@@ -154,7 +155,9 @@ ${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv . \
                   -Csetup-args="-Dparquet=${PYARROW_WITH_PARQUET}" \
                   -Csetup-args="-Dparquet_encryption=${PYARROW_WITH_PARQUET_ENCRYPTION}" \
                   -Csetup-args="-Ds3=${PYARROW_WITH_S3}" \
-                  -Ccompile-args="-v"
+                  -Ccompile-args="-v" \
+                  -Csetup-args="--pkg-config-path=${ARROW_HOME}/lib/pkgconfig"
+
 export CFLAGS=$OLD_CFLAGS
 export CPPFLAGS=$OLD_CPPFLAGS
 export CXXFLAGS=$OLD_CXXFLAGS
