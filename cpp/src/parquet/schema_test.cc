@@ -1688,7 +1688,7 @@ TEST(TestSchemaNodeCreation, FactoryEquivalence) {
   ConfirmGroupNodeFactoryEquivalence("list", LogicalType::List(), ConvertedType::LIST);
 }
 
-TEST(TestSchemaNodeCreation, FactoryUnknownLogicalType) {
+TEST(TestSchemaNodeCreation, FactoryUndefinedLogicalType) {
   auto node = PrimitiveNode::Make("string", Repetition::REQUIRED,
                                   StringLogicalType::Make(), Type::BYTE_ARRAY);
 
