@@ -90,7 +90,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
     /// @{
     std::unordered_set<std::string> dict_columns;
     arrow::TimeUnit::type coerce_int96_timestamp_unit = arrow::TimeUnit::NANO;
-    bool convert_unknown_logical_types = false;
+    bool convert_undefined_logical_types = false;
     /// @}
   } reader_options;
 
