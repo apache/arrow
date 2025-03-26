@@ -144,8 +144,8 @@ cdef class ParquetFileFormat(FileFormat):
                 options.dict_columns.insert(tobytes(column))
         options.coerce_int96_timestamp_unit = \
             read_options._coerce_int96_timestamp_unit
-        options.convert_unknown_logical_types = \
-            read_options.convert_unknown_logical_types
+        options.convert_undefined_logical_types = \
+            read_options.convert_undefined_logical_types
 
         self.init(<shared_ptr[CFileFormat]> wrapped)
         self.default_fragment_scan_options = default_fragment_scan_options
@@ -186,8 +186,8 @@ cdef class ParquetFileFormat(FileFormat):
         # the private property which uses the C Type
         parquet_read_options._coerce_int96_timestamp_unit = \
             options.coerce_int96_timestamp_unit
-        parquet_read_options.convert_unknown_logical_types = \
-            options.convert_unknown_logical_types
+        parquet_read_options.convert_undefined_logical_types = \
+            options.convert_undefined_logical_types
 
         return parquet_read_options
 
@@ -515,7 +515,7 @@ cdef class ParquetReadOptions(_Weakrefable):
         resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
         and therefore INT96 timestamps will be inferred as timestamps
         in nanoseconds
-    convert_unknown_logical_types : bool, default false
+    convert_undefined_logical_types : bool, default false
         When enabled, the Arrow reader will use the underlying physical type
         of a logical type that it does not recognize (e.g., one that was added
         to the spec but not implemented in Parquet C++).
@@ -524,15 +524,15 @@ cdef class ParquetReadOptions(_Weakrefable):
     cdef public:
         set dictionary_columns
         TimeUnit _coerce_int96_timestamp_unit
-        bint convert_unknown_logical_types
+        bint convert_undefined_logical_types
 
     # Also see _PARQUET_READ_OPTIONS
     def __init__(self, dictionary_columns=None,
                  coerce_int96_timestamp_unit=None,
-                 convert_unknown_logical_types=False):
+                 convert_undefined_logical_types=False):
         self.dictionary_columns = set(dictionary_columns or set())
         self.coerce_int96_timestamp_unit = coerce_int96_timestamp_unit
-        self.convert_unknown_logical_types = convert_unknown_logical_types
+        self.convert_undefined_logical_types = convert_undefined_logical_types
 
     @property
     def coerce_int96_timestamp_unit(self):
@@ -558,8 +558,8 @@ cdef class ParquetReadOptions(_Weakrefable):
         return (self.dictionary_columns == other.dictionary_columns and
                 self.coerce_int96_timestamp_unit ==
                 other.coerce_int96_timestamp_unit and
-                self.convert_unknown_logical_types ==
-                other.convert_unknown_logical_types)
+                self.convert_undefined_logical_types ==
+                other.convert_undefined_logical_types)
 
     def __eq__(self, other):
         try:
@@ -572,7 +572,7 @@ cdef class ParquetReadOptions(_Weakrefable):
             f"<ParquetReadOptions"
             f" dictionary_columns={self.dictionary_columns}"
             f" coerce_int96_timestamp_unit={self.coerce_int96_timestamp_unit}"
-            f" convert_unknown_logical_types={self.convert_unknown_logical_types}>"
+            f" convert_undefined_logical_types={self.convert_undefined_logical_types}>"
         )
 
 
@@ -692,7 +692,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
 
 
 cdef set _PARQUET_READ_OPTIONS = {
-    'dictionary_columns', 'coerce_int96_timestamp_unit', 'convert_unknown_logical_types'
+    'dictionary_columns', 'coerce_int96_timestamp_unit', 'convert_undefined_logical_types'
 }
 
 

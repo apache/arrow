@@ -760,7 +760,7 @@ TEST_F(TestConvertParquetSchema, ParquetUndefinedType) {
 
   // With an opt-in, the field should be converted according to its storage
   ArrowReaderProperties props;
-  props.set_convert_unknown_logical_types(true);
+  props.set_convert_undefined_logical_types(true);
   ASSERT_OK(ConvertSchema(parquet_fields, nullptr, props));
 
   std::vector<std::shared_ptr<Field>> arrow_fields;
