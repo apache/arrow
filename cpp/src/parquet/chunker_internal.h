@@ -17,16 +17,13 @@
 
 #pragma once
 
-#include <cmath>
-#include <string>
+#include <cstdint>
 #include <vector>
+
 #include "arrow/array.h"
 #include "parquet/level_conversion.h"
-#include "parquet/properties.h"
 
 namespace parquet::internal {
-
-class TestPina;
 
 // Represents a chunk of data with level offsets and value offsets due to the
 // record shredding for nested data.
@@ -51,14 +48,14 @@ struct Chunk {
 ///            new-chunk  chunk2   chunk3
 ///
 /// The chunking process will adjust to maintain stable boundaries across data
-/// modifications. Each chunk defines a new parquet data page which are contiguously
+/// modifications. Each chunk defines a new parquet data page which is contiguously
 /// written out to the file. Since each page compressed independently, the files' contents
 /// would look like the following with unique page identifiers:
 ///
 /// File1:     [Page1][Page2][Page3]...
 /// File2:     [Page4][Page2][Page3]...
 ///
-/// Then the parquet file is being uploaded to a content addressable storage system (CAS)
+/// Then the parquet file is being uploaded to a content addressable storage (CAS) system
 /// which splits the bytes stream into content defined blobs. The CAS system will
 /// calculate a unique identifier for each blob, then store the blob in a key-value store.
 /// If the same blob is encountered again, the system can refer to the hash instead of
