@@ -685,28 +685,11 @@ uint64_t ElementCount(int64_t size, int32_t byte_width, bool nullable) {
   return size / byte_width;
 }
 
-void AssertAllBetween(const ChunkList& chunks, int64_t min, int64_t max,
-                      bool expect_dictionary_fallback = false) {
-  // expect the last chunk since it is not guaranteed to be within the range
-  if (expect_dictionary_fallback) {
-    // if dictionary encoding is enabled, the writer can fallback to plain
-    // encoding splitting within a content defined chunk, so we can't
-    // guarantee that all chunks are within the range in this case, but we
-    // know that there can be at most 2 pages smaller than the min_chunk_size
-    size_t smaller_count = 0;
-    for (size_t i = 0; i < chunks.size() - 1; i++) {
-      if (chunks[i] < min) {
-        smaller_count++;
-      } else {
-        ASSERT_LE(chunks[i], max);
-      }
-    }
-    ASSERT_LE(smaller_count, 2);
-  } else {
-    for (size_t i = 0; i < chunks.size() - 1; i++) {
-      ASSERT_GE(chunks[i], min);
-      ASSERT_LE(chunks[i], max);
-    }
+void AssertAllBetween(const ChunkList& chunks, int64_t min, int64_t max) {
+  // except the last chunk since it is not guaranteed to be within the range
+  for (size_t i = 0; i < chunks.size() - 1; i++) {
+    ASSERT_GE(chunks[i], min);
+    ASSERT_LE(chunks[i], max);
   }
   ASSERT_LE(chunks.back(), max);
 }
@@ -725,10 +708,8 @@ void AssertChunkSizes(const std::shared_ptr<::arrow::DataType>& dtype,
     auto byte_width = (dtype->id() == ::arrow::Type::BOOL) ? 1 : dtype->byte_width();
     auto min_length = ElementCount(min_chunk_size, byte_width, nullable);
     auto max_length = ElementCount(max_chunk_size, byte_width, nullable);
-    AssertAllBetween(base_info.page_lengths, min_length, max_length,
-                     /*expect_dictionary_fallback=*/enable_dictionary);
-    AssertAllBetween(modified_info.page_lengths, min_length, max_length,
-                     /*expect_dictionary_fallback=*/enable_dictionary);
+    AssertAllBetween(base_info.page_lengths, min_length, max_length);
+    AssertAllBetween(modified_info.page_lengths, min_length, max_length);
   } else if (::arrow::is_base_binary_like(dtype->id()) && !nullable &&
              !enable_dictionary) {
     AssertAllBetween(base_info.page_sizes, min_chunk_size, max_chunk_size);
