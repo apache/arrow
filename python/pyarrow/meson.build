@@ -83,6 +83,10 @@ cython_generated_headers = custom_target(
     input: ['lib.pyx'],
     output: ['lib.h', 'lib_api.h'],
     command: ['cythonize', '@INPUT@'],
+    # TODO: FileNotFoundError: [Errno 2] No such file or directory:
+    # '/arrow/python/.mesonpy-afk_k0fp/pyarrow/lib.h'
+    #install: true,
+    #install_dir: py.get_install_dir() / 'include/arrow/python',
 )
 
 cython_generated_dep = declare_dependency(sources: cython_generated_headers)
@@ -290,6 +294,48 @@ pysources = [
     'util.py',
 ]
 py.install_sources(pysources, subdir: 'pyarrow')
+
+install_headers(
+    files(
+        'src/arrow/python/api.h',
+        'src/arrow/python/arrow_to_pandas.h',
+        'src/arrow/python/async.h',
+        'src/arrow/python/benchmark.h',
+        'src/arrow/python/common.h',
+        'src/arrow/python/csv.h',
+        'src/arrow/python/datetime.h',
+        'src/arrow/python/decimal.h',
+        'src/arrow/python/extension_type.h',
+        'src/arrow/python/filesystem.h',
+        'src/arrow/python/flight.h',
+        'src/arrow/python/gdb.h',
+        'src/arrow/python/helpers.h',
+        'src/arrow/python/inference.h',
+        'src/arrow/python/io.h',
+        'src/arrow/python/ipc.h',
+        'src/arrow/python/iterators.h',
+        'src/arrow/python/numpy_convert.h',
+        'src/arrow/python/numpy_init.h',
+        'src/arrow/python/numpy_interop.h',
+        'src/arrow/python/numpy_to_arrow.h',
+        'src/arrow/python/parquet_encryption.h',
+        'src/arrow/python/pch.h',
+        'src/arrow/python/platform.h',
+        'src/arrow/python/pyarrow.h',
+        'src/arrow/python/pyarrow_lib.h',
+        'src/arrow/python/python_test.h',
+        'src/arrow/python/python_to_arrow.h',
+        'src/arrow/python/type_traits.h',
+        'src/arrow/python/udf.h',
+        'src/arrow/python/visibility.h',
+    ),
+    subdir: 'include/arrow/python',
+)
+
+install_headers(
+    files('src/arrow/python/vendored/pythoncapi_compat.h'),
+    subdir: 'include/arrow/python/vendored',
+)
 
 subdirs = ['interchange', 'parquet', 'tests', 'vendored']
 
