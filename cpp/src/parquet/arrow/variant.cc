@@ -60,7 +60,7 @@ bool VariantExtensionType::IsSupportedStorageType(
   // For now we only supported unshredded variants. Unshredded variant storage
   // type should be a struct with a binary metadata and binary value.
   //
-  // TODO(neilechao) In shredded variants, the binary value field can be replaced
+  // GH-45948: In shredded variants, the binary value field can be replaced
   // with one or more of the following: object, array, typed_value, and
   // variant_value.
   if (storage_type->id() == Type::STRUCT) {

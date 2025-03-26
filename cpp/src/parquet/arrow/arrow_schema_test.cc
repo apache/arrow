@@ -670,7 +670,7 @@ TEST_F(TestConvertParquetSchema, ParquetVariant) {
   //  required binary value;
   // }
 
-  // TODO(neilechao) add shredded variants
+  // GH-45948: add shredded variants
   {
     auto metadata =
         PrimitiveNode::Make("metadata", Repetition::REQUIRED, ParquetType::BYTE_ARRAY);
@@ -1345,7 +1345,7 @@ TEST_F(TestConvertArrowSchema, ParquetVariant) {
   //  required binary value;
   // }
 
-  // TODO(neilechao) add shredded variants
+  // GH-45948: add shredded variants
   {
     auto metadata =
         PrimitiveNode::Make("metadata", Repetition::REQUIRED, ParquetType::BYTE_ARRAY);
