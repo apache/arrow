@@ -17,6 +17,7 @@
 
 import decimal
 import io
+import os
 import random
 
 try:
@@ -523,8 +524,11 @@ def test_json_extension_type(storage_type):
     _simple_table_roundtrip(table)
 
 
-def test_unknown_logical_type(parquet_test_datadir):
+def test_undefined_logical_type(parquet_test_datadir):
     test_file = f"{parquet_test_datadir}/data/unknown-logical-type.parquet"
+    if not os.path.exists(test_file):
+        pytest.skip("submodule not yet updated")
+
     with pytest.raises(pa.lib.ArrowNotImplementedError, match="logical type Undefined"):
         _read_table(test_file)
 
