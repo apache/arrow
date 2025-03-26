@@ -58,7 +58,6 @@ repository_id = maven.create_staging_repository
           BinaryTask::ThreadPool.new(:maven_repository) do |source, destination|
           maven_pool.pull do |maven|
             maven.upload(source.path, destination)
-            pp [:done, destination]
           end
           progress_reporter.advance
           source.close!
