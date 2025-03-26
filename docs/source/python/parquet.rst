@@ -740,9 +740,11 @@ An example encryption configuration:
    )
 
 .. note::
-   Encrypting columns that have nested fields (for instance struct, map, or even list data types)
-   require configuring column keys for the inner fields, not the column itself.
-   Configuring a column key for the column itself causes this error (here column name is ``col``):
+
+   Encrypting columns that have nested fields (struct, map or list data types)
+   requires column keys for the inner fields, not the outer column itself.
+   Configuring a column key for the outer column causes
+   this error (here the column name is ``col``):
 
    .. code-block::
 

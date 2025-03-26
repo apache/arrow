@@ -18,7 +18,7 @@
 #include "arrow/api.h"
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/parquet_encryption_config.h"
-#include "arrow/filesystem//localfs.h"
+#include "arrow/filesystem/localfs.h"
 #include "parquet/encryption/crypto_factory.h"
 #include "parquet/encryption/test_in_memory_kms.h"
 
