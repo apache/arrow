@@ -31,6 +31,16 @@ project(
     default_options: ['buildtype=release', 'warning_level=0', 'cpp_std=c++17'],
 )
 
+arrow_dep = dependency(
+    'arrow',
+    'Arrow',
+    modules: ['Arrow::arrow_shared'],
+    required: false,  # optional so sdist will work without finding
+)
+
+# TODO: uncomment and fix below implementation to allow the Python subproject
+# to build Arrow from source, if not detected on system
+'''
 arrow_dep = dependency('', required: false)
 
 if get_option('wrap_mode') != 'forcefallback'
@@ -86,5 +96,6 @@ if not arrow_dep.found()
     # 'lib.cpython-312-x86_64-linux-gnu'. Use the 'pic' option to static_library to build with PIC.
     arrow_dep = arrow_proj.dependency('arrow_shared')
 endif
+'''
 
 subdir('pyarrow')
