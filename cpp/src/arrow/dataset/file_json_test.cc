@@ -34,12 +34,6 @@ namespace arrow {
 
 using internal::checked_cast;
 
-using compute::ComputeKernelEnvironment;
-
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
-
 namespace dataset {
 
 namespace rj = arrow::rapidjson;

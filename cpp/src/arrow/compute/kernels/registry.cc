@@ -35,7 +35,10 @@ namespace compute {
 
 Status RegisterComputeKernels() {
   auto registry = GetFunctionRegistry();
-
+  // TODO: Do we have a different way to avoid double registration?
+  if (registry->GetFunction("abs").ok()) {
+    return Status::OK();
+  }
   // Register additional kernels on libarrow_compute
   // Scalar functions
   internal::RegisterScalarArithmetic(registry);

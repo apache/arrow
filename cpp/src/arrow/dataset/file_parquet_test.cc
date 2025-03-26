@@ -48,12 +48,6 @@
 #include "parquet/types.h"
 
 namespace arrow {
-
-using compute::ComputeKernelEnvironment;
-
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 

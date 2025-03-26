@@ -68,7 +68,6 @@ using internal::ToChars;
 
 using compute::ArgShape;
 using compute::CallFunction;
-using compute::ComputeKernelEnvironment;
 using compute::CountOptions;
 using compute::default_exec_context;
 using compute::ExecBatchFromJSON;
@@ -87,10 +86,6 @@ using compute::Take;
 using compute::TDigestOptions;
 using compute::ValidateOutput;
 using compute::VarianceOptions;
-
-// Register the compute kernels
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 namespace acero {
 
