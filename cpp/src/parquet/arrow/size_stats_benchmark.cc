@@ -33,7 +33,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 
-namespace parquet::benchmark {
+namespace parquet::benchmarks {
 
 // This should result in multiple pages for most primitive types
 constexpr int64_t kBenchmarkSize = 1024 * 1024;
@@ -176,4 +176,4 @@ BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::ColumnChunk,
 BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::PageAndColumnChunk,
                    ::arrow::StringType, /*enable_page_index=*/true);
 
-}  // namespace parquet::benchmark
+}  // namespace parquet::benchmarks

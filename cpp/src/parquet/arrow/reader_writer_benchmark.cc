@@ -64,7 +64,7 @@ using arrow::FileReader;
 using arrow::WriteTable;
 using schema::PrimitiveNode;
 
-namespace benchmark {
+namespace benchmarks {
 
 // This should result in multiple pages for most primitive types
 constexpr int64_t BENCHMARK_SIZE = 10 * 1024 * 1024;
@@ -738,6 +738,5 @@ static void BM_ReadMultipleRowGroupsGenerator(::benchmark::State& state) {
 
 BENCHMARK(BM_ReadMultipleRowGroupsGenerator);
 
-}  // namespace benchmark
-
+}  // namespace benchmarks
 }  // namespace parquet
