@@ -40,6 +40,7 @@ from pyarrow._compute import (  # noqa
     RunEndEncodeOptions,
     ElementWiseAggregateOptions,
     ExtractRegexOptions,
+    ExtractRegexSpanOptions,
     FilterOptions,
     IndexOptions,
     JoinOptions,
@@ -81,6 +82,7 @@ from pyarrow._compute import (  # noqa
     Utf8NormalizeOptions,
     VarianceOptions,
     WeekOptions,
+    WinsorizeOptions,
     # Functions
     call_function,
     function_registry,

@@ -683,8 +683,7 @@ void AddNumberToStringCasts(CastFunction* func) {
 template <typename OutType>
 void AddDecimalToStringCasts(CastFunction* func) {
   auto out_ty = TypeTraits<OutType>::type_singleton();
-  for (const auto& in_tid : std::vector<Type::type>{Type::DECIMAL32, Type::DECIMAL64,
-                                                    Type::DECIMAL128, Type::DECIMAL256}) {
+  for (const auto& in_tid : DecimalTypeIds()) {
     DCHECK_OK(
         func->AddKernel(in_tid, {in_tid}, out_ty,
                         GenerateDecimal<DecimalToStringCastFunctor, OutType>(in_tid),

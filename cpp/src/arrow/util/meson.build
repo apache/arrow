@@ -22,7 +22,6 @@ conf_data.set('ARROW_VERSION_MINOR', version_minor)
 conf_data.set('ARROW_VERSION_PATCH', version_patch)
 
 conf_data.set('ARROW_VERSION', arrow_version)
-conf_data.set('ARROW_VERSION_STRING', arrow_version)
 
 conf_data.set('ARROW_SO_VERSION', arrow_so_version)
 conf_data.set('ARROW_FULL_SO_VERSION', arrow_full_so_version)

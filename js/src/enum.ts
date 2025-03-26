@@ -60,7 +60,7 @@ export enum Type {
     Date = 8, /** int32_t days or int64_t milliseconds since the UNIX epoch */
     Time = 9, /** Time as signed 32 or 64-bit integer, representing either seconds, milliseconds, microseconds, or nanoseconds since midnight since midnight */
     Timestamp = 10, /** Exact timestamp encoded with int64 since UNIX epoch (Default unit millisecond) */
-    Interval = 11, /** YEAR_MONTH or DAY_TIME interval in SQL style */
+    Interval = 11, /** YEAR_MONTH or DAY_TIME or MONTH_DAY_NANO interval */
     List = 12, /** A list of some logical data type */
     Struct = 13, /** Struct of logical types */
     Union = 14, /** Union of logical types */
@@ -101,6 +101,7 @@ export enum Type {
     DurationMillisecond = -28,
     DurationMicrosecond = -29,
     DurationNanosecond = -30,
+    IntervalMonthDayNano = -31,
 }
 
 export enum BufferType {

@@ -1128,16 +1128,25 @@ when a positive ``max_splits`` is given.
 String component extraction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-+---------------+-------+------------------------+-------------+-------------------------------+-------+
-| Function name | Arity | Input types            | Output type | Options class                 | Notes |
-+===============+=======+========================+=============+===============================+=======+
-| extract_regex | Unary | Binary- or String-like | Struct      | :struct:`ExtractRegexOptions` | \(1)  |
-+---------------+-------+------------------------+-------------+-------------------------------+-------+
++--------------------+-------+------------------------+-------------+-----------------------------------+-------+
+| Function name      | Arity | Input types            | Output type | Options class                     | Notes |
++====================+=======+========================+=============+===================================+=======+
+| extract_regex      | Unary | Binary- or String-like | Struct      | :struct:`ExtractRegexOptions`     | \(1)  |
++--------------------+-------+------------------------+-------------+-----------------------------------+-------+
+| extract_regex_span | Unary | Binary- or String-like | Struct      | :struct:`ExtractRegexSpanOptions` | \(2)  |
++--------------------+-------+------------------------+-------------+-----------------------------------+-------+
 
 * \(1) Extract substrings defined by a regular expression using the Google RE2
   library.  The output struct field names refer to the named capture groups,
   e.g. 'letter' and 'digit' for the regular expression
   ``(?P<letter>[ab])(?P<digit>\\d)``.
+
+* \(2) Extract the offset and length of substrings defined by a regular expression
+  using the Google RE2 library.  The output struct field names refer to the named
+  capture groups, e.g. 'letter' and 'digit' for the regular expression
+  ``(?P<letter>[ab])(?P<digit>\\d)``. Each output struct field is a fixed size list
+  of two integers: the index to the start of the captured group and the length
+  of the captured group, respectively.
 
 String joining
 ~~~~~~~~~~~~~~
@@ -1718,6 +1727,18 @@ overflow is detected.
   doesn't affect the accumulation forward.
 
 * \(2) :member:`CumulativeOptions::start` is ignored.
+
+Statistical functions
+~~~~~~~~~~~~~~~~~~~~~
+
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| Function name           | Arity | Input types | Output type | Options class                  | Notes     |
++=========================+=======+=============+=============+================================+===========+
+| winsorize               | Unary | Numeric     | Numeric     | :struct:`WinsorizeOptions`     | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+
+* \(1) Clamp values in the lower and upper quantiles to reduce the statistical
+  influence of outliers. The quantiles can be configured in :struct:`WinsorizeOptions`.
 
 Associative transforms
 ~~~~~~~~~~~~~~~~~~~~~~

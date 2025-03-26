@@ -115,7 +115,7 @@ Docker container.
 
 .. code-block:: shell
 
-  archery docker run -v "${PWD}/docs:/build/docs" ubuntu-docs
+  archery docker run -v "${PWD}/docs:/build/docs" debian-docs
 
 The final output is located under the ``${PWD}/docs`` directory.
 
