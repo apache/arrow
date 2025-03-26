@@ -110,9 +110,18 @@ if [ "${ARROW_OFFLINE}" = "ON" ]; then
 fi
 
 if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
+  function meson_boolean() {
+    if [ "${1}" = "ON" ]; then
+      echo "true"
+    else
+      echo "false"
+    fi
+  }
+
   meson setup \
     --prefix=${MESON_PREFIX:-${ARROW_HOME}} \
     --buildtype=${ARROW_BUILD_TYPE:-debug} \
+    -Dtests=$(meson_boolean ${ARROW_BUILD_TESTS:-OFF}) \
     . \
     ${source_dir}
 elif [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
@@ -147,7 +156,6 @@ else
     -DARROW_BUILD_BENCHMARKS=${ARROW_BUILD_BENCHMARKS:-OFF} \
     -DARROW_BUILD_EXAMPLES=${ARROW_BUILD_EXAMPLES:-OFF} \
     -DARROW_BUILD_INTEGRATION=${ARROW_BUILD_INTEGRATION:-OFF} \
-    -DARROW_BUILD_OPENMP_BENCHMARKS=${ARROW_BUILD_OPENMP_BENCHMARKS:-OFF} \
     -DARROW_BUILD_SHARED=${ARROW_BUILD_SHARED:-ON} \
     -DARROW_BUILD_STATIC=${ARROW_BUILD_STATIC:-ON} \
     -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS:-OFF} \
@@ -207,7 +215,6 @@ else
     -DARROW_WITH_OPENTELEMETRY=${ARROW_WITH_OPENTELEMETRY:-OFF} \
     -DARROW_WITH_MUSL=${ARROW_WITH_MUSL:-OFF} \
     -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY:-OFF} \
-    -DARROW_WITH_UCX=${ARROW_WITH_UCX:-OFF} \
     -DARROW_WITH_UTF8PROC=${ARROW_WITH_UTF8PROC:-ON} \
     -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB:-OFF} \
     -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD:-OFF} \

@@ -753,10 +753,14 @@ if(ARROW_COMPUTE)
        ARROW_COMPUTE_SRCS
        compute/kernels/aggregate_basic.cc
        compute/kernels/aggregate_mode.cc
+       compute/kernels/aggregate_pivot.cc
        compute/kernels/aggregate_quantile.cc
        compute/kernels/aggregate_tdigest.cc
        compute/kernels/aggregate_var_std.cc
        compute/kernels/hash_aggregate.cc
+       compute/kernels/hash_aggregate_numeric.cc
+       compute/kernels/hash_aggregate_pivot.cc
+       compute/kernels/pivot_internal.cc
        compute/kernels/scalar_arithmetic.cc
        compute/kernels/scalar_boolean.cc
        compute/kernels/scalar_compare.cc
@@ -779,6 +783,7 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_run_end_encode.cc
        compute/kernels/vector_select_k.cc
        compute/kernels/vector_sort.cc
+       compute/kernels/vector_statistics.cc
        compute/kernels/vector_swizzle.cc
        compute/key_hash_internal.cc
        compute/key_map_internal.cc

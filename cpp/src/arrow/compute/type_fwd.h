@@ -40,6 +40,7 @@ class CastOptions;
 
 struct ExecBatch;
 class ExecContext;
+struct ExecValue;
 class KernelContext;
 
 struct Kernel;

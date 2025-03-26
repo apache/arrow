@@ -23,7 +23,7 @@ class TestTake < Test::Unit::TestCase
     def test_no_null
       indices = build_int16_array([1, 0, 2])
       assert_equal(build_int16_array([0, 1, 2]),
-                   build_int16_array([1, 0 ,2]).take(indices))
+                   build_int16_array([1, 0, 2]).take(indices))
     end
 
     def test_null

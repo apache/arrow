@@ -142,7 +142,7 @@ class ArrayTest < Test::Unit::TestCase
 
   sub_test_case("#take") do
     def setup
-      values = [1, 0 ,2]
+      values = [1, 0, 2]
       @array = Arrow::Int16Array.new(values)
     end
 
@@ -205,14 +205,14 @@ class ArrayTest < Test::Unit::TestCase
 
   sub_test_case("#concatenate") do
     test("Arrow::Array: same") do
-      assert_equal(Arrow::Int32Array.new([1, 2, nil, 4 ,5, 6]),
+      assert_equal(Arrow::Int32Array.new([1, 2, nil, 4, 5, 6]),
                    Arrow::Int32Array.new([1, 2, nil]).
                      concatenate(Arrow::Int32Array.new([4, 5]),
                                  Arrow::Int32Array.new([6])))
     end
 
     test("Arrow::Array: castable") do
-      assert_equal(Arrow::Int32Array.new([1, 2, nil, 4 ,5, 6]),
+      assert_equal(Arrow::Int32Array.new([1, 2, nil, 4, 5, 6]),
                    Arrow::Int32Array.new([1, 2, nil]).
                      concatenate(Arrow::Int8Array.new([4, 5]),
                                  Arrow::UInt32Array.new([6])))
@@ -226,7 +226,7 @@ class ArrayTest < Test::Unit::TestCase
     end
 
     test("Array") do
-      assert_equal(Arrow::Int32Array.new([1, 2, nil, 4 ,nil, 6]),
+      assert_equal(Arrow::Int32Array.new([1, 2, nil, 4, nil, 6]),
                    Arrow::Int32Array.new([1, 2, nil]).
                      concatenate([4, nil],
                                  [6]))
@@ -243,13 +243,13 @@ class ArrayTest < Test::Unit::TestCase
 
   sub_test_case("#+") do
     test("Arrow::Array: same") do
-      assert_equal(Arrow::Int32Array.new([1, 2, nil, 4 ,5, 6]),
+      assert_equal(Arrow::Int32Array.new([1, 2, nil, 4, 5, 6]),
                    Arrow::Int32Array.new([1, 2, nil]) +
                    Arrow::Int32Array.new([4, 5, 6]))
     end
 
     test("Arrow::Array: castable") do
-      assert_equal(Arrow::Int32Array.new([1, 2, nil, 4 ,5, 6]),
+      assert_equal(Arrow::Int32Array.new([1, 2, nil, 4, 5, 6]),
                    Arrow::Int32Array.new([1, 2, nil]) +
                    Arrow::Int8Array.new([4, 5, 6]))
     end
@@ -262,7 +262,7 @@ class ArrayTest < Test::Unit::TestCase
     end
 
     test("Array") do
-      assert_equal(Arrow::Int32Array.new([1, 2, nil, 4 ,nil, 6]),
+      assert_equal(Arrow::Int32Array.new([1, 2, nil, 4, nil, 6]),
                    Arrow::Int32Array.new([1, 2, nil]) +
                    [4, nil, 6])
     end

@@ -44,17 +44,10 @@
 #ifdef ARROW_CUDA
 #  include "arrow/gpu/cuda_api.h"
 #endif
-#ifdef ARROW_WITH_UCX
-#  include "arrow/flight/transport/ucx/ucx.h"
-#endif
 
 DEFINE_bool(cuda, false, "Allocate results in CUDA memory");
 DEFINE_string(transport, "grpc",
-              "The network transport to use. Supported: \"grpc\" (default)"
-#ifdef ARROW_WITH_UCX
-              ", \"ucx\""
-#endif  // ARROW_WITH_UCX
-              ".");
+              "The network transport to use. Supported: \"grpc\" (default).");
 DEFINE_string(server_host, "localhost", "Host where the server is running on");
 DEFINE_int32(port, 31337, "Server port to listen on");
 DEFINE_string(server_unix, "", "Unix socket path where the server is running on");
@@ -280,29 +273,6 @@ int main(int argc, char** argv) {
       ARROW_CHECK_OK(arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix)
                          .Value(&connect_location));
     }
-  } else if (FLAGS_transport == "ucx") {
-#ifdef ARROW_WITH_UCX
-    arrow::flight::transport::ucx::InitializeFlightUcx();
-    if (FLAGS_server_unix.empty()) {
-      if (!FLAGS_cert_file.empty() || !FLAGS_key_file.empty()) {
-        std::cerr << "Transport does not support TLS: " << FLAGS_transport << std::endl;
-        return EXIT_FAILURE;
-      }
-      ARROW_CHECK_OK(arrow::flight::Location::Parse("ucx://" + FLAGS_server_host + ":" +
-                                                    std::to_string(FLAGS_port))
-                         .Value(&bind_location));
-      ARROW_CHECK_OK(arrow::flight::Location::Parse("ucx://" + FLAGS_server_host + ":" +
-                                                    std::to_string(FLAGS_port))
-                         .Value(&connect_location));
-    } else {
-      std::cerr << "Transport does not support domain sockets: " << FLAGS_transport
-                << std::endl;
-      return EXIT_FAILURE;
-    }
-#else
-    std::cerr << "Not built with transport: " << FLAGS_transport << std::endl;
-    return EXIT_FAILURE;
-#endif
   } else {
     std::cerr << "Unknown transport: " << FLAGS_transport << std::endl;
     return EXIT_FAILURE;

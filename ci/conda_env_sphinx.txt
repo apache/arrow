@@ -20,6 +20,9 @@ breathe
 doxygen
 ipython
 linkify-it-py
+# We can't install linuxdoc by conda. We install linuxdoc by pip in
+# ci/dockerfiles/conda-python-pandas.dockerfile.
+# linuxdoc
 myst-parser
 numpydoc
 pydata-sphinx-theme=0.14

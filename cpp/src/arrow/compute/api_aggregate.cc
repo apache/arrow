@@ -24,8 +24,8 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
-
 namespace internal {
+
 template <>
 struct EnumTraits<compute::CountOptions::CountMode>
     : BasicEnumTraits<compute::CountOptions::CountMode, compute::CountOptions::ONLY_VALID,
@@ -67,6 +67,24 @@ struct EnumTraits<compute::QuantileOptions::Interpolation>
     return "<INVALID>";
   }
 };
+
+template <>
+struct EnumTraits<compute::PivotWiderOptions::UnexpectedKeyBehavior>
+    : BasicEnumTraits<compute::PivotWiderOptions::UnexpectedKeyBehavior,
+                      compute::PivotWiderOptions::kIgnore,
+                      compute::PivotWiderOptions::kRaise> {
+  static std::string name() { return "PivotWiderOptions::UnexpectedKeyBehavior"; }
+  static std::string value_name(compute::PivotWiderOptions::UnexpectedKeyBehavior value) {
+    switch (value) {
+      case compute::PivotWiderOptions::kIgnore:
+        return "kIgnore";
+      case compute::PivotWiderOptions::kRaise:
+        return "kRaise";
+    }
+    return "<INVALID>";
+  }
+};
+
 }  // namespace internal
 
 namespace compute {
@@ -91,6 +109,10 @@ static auto kVarianceOptionsType = GetFunctionOptionsType<VarianceOptions>(
     DataMember("ddof", &VarianceOptions::ddof),
     DataMember("skip_nulls", &VarianceOptions::skip_nulls),
     DataMember("min_count", &VarianceOptions::min_count));
+static auto kSkewOptionsType = GetFunctionOptionsType<SkewOptions>(
+    DataMember("skip_nulls", &SkewOptions::skip_nulls),
+    DataMember("biased", &SkewOptions::biased),
+    DataMember("min_count", &SkewOptions::min_count));
 static auto kQuantileOptionsType = GetFunctionOptionsType<QuantileOptions>(
     DataMember("q", &QuantileOptions::q),
     DataMember("interpolation", &QuantileOptions::interpolation),
@@ -101,6 +123,9 @@ static auto kTDigestOptionsType = GetFunctionOptionsType<TDigestOptions>(
     DataMember("buffer_size", &TDigestOptions::buffer_size),
     DataMember("skip_nulls", &TDigestOptions::skip_nulls),
     DataMember("min_count", &TDigestOptions::min_count));
+static auto kPivotOptionsType = GetFunctionOptionsType<PivotWiderOptions>(
+    DataMember("key_names", &PivotWiderOptions::key_names),
+    DataMember("unexpected_key_behavior", &PivotWiderOptions::unexpected_key_behavior));
 static auto kIndexOptionsType =
     GetFunctionOptionsType<IndexOptions>(DataMember("value", &IndexOptions::value));
 }  // namespace
@@ -129,6 +154,12 @@ VarianceOptions::VarianceOptions(int ddof, bool skip_nulls, uint32_t min_count)
       skip_nulls(skip_nulls),
       min_count(min_count) {}
 constexpr char VarianceOptions::kTypeName[];
+
+SkewOptions::SkewOptions(bool skip_nulls, bool biased, uint32_t min_count)
+    : FunctionOptions(internal::kSkewOptionsType),
+      skip_nulls(skip_nulls),
+      biased(biased),
+      min_count(min_count) {}
 
 QuantileOptions::QuantileOptions(double q, enum Interpolation interpolation,
                                  bool skip_nulls, uint32_t min_count)
@@ -164,6 +195,13 @@ TDigestOptions::TDigestOptions(std::vector<double> q, uint32_t delta,
       min_count{min_count} {}
 constexpr char TDigestOptions::kTypeName[];
 
+PivotWiderOptions::PivotWiderOptions(std::vector<std::string> key_names,
+                                     UnexpectedKeyBehavior unexpected_key_behavior)
+    : FunctionOptions(internal::kPivotOptionsType),
+      key_names(std::move(key_names)),
+      unexpected_key_behavior(unexpected_key_behavior) {}
+PivotWiderOptions::PivotWiderOptions() : FunctionOptions(internal::kPivotOptionsType) {}
+
 IndexOptions::IndexOptions(std::shared_ptr<Scalar> value)
     : FunctionOptions(internal::kIndexOptionsType), value{std::move(value)} {}
 IndexOptions::IndexOptions() : IndexOptions(std::make_shared<NullScalar>()) {}
@@ -175,8 +213,10 @@ void RegisterAggregateOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kCountOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kModeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kVarianceOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kSkewOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kQuantileOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kTDigestOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kPivotOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kIndexOptionsType));
 }
 }  // namespace internal
@@ -240,6 +280,14 @@ Result<Datum> Stddev(const Datum& value, const VarianceOptions& options,
 Result<Datum> Variance(const Datum& value, const VarianceOptions& options,
                        ExecContext* ctx) {
   return CallFunction("variance", {value}, &options, ctx);
+}
+
+Result<Datum> Skew(const Datum& value, const SkewOptions& options, ExecContext* ctx) {
+  return CallFunction("skew", {value}, &options, ctx);
+}
+
+Result<Datum> Kurtosis(const Datum& value, const SkewOptions& options, ExecContext* ctx) {
+  return CallFunction("kurtosis", {value}, &options, ctx);
 }
 
 Result<Datum> Quantile(const Datum& value, const QuantileOptions& options,

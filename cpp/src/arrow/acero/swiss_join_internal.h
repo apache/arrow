@@ -175,7 +175,7 @@ class RowArrayAccessor {
 // Read operations (row comparison, column decoding)
 // can be called by multiple threads concurrently.
 //
-struct RowArray {
+struct ARROW_ACERO_EXPORT RowArray {
   RowArray() : is_initialized_(false), hardware_flags_(0) {}
 
   Status InitIfNeeded(MemoryPool* pool, int64_t hardware_flags, const ExecBatch& batch);
@@ -261,7 +261,7 @@ class RowArrayMerge {
   // caller can pass in nullptr to indicate that it is not needed.
   //
   static Status PrepareForMerge(RowArray* target, const std::vector<RowArray*>& sources,
-                                std::vector<int64_t>* first_target_row_id,
+                                std::vector<uint32_t>* first_target_row_id,
                                 MemoryPool* pool, int64_t hardware_flags);
 
   // Copy rows from source array to target array.
@@ -286,8 +286,8 @@ class RowArrayMerge {
   // initializes boundary offsets for target row ranges for each source).
   //
   static void MergeSingle(RowArray* target, const RowArray& source,
-                          int64_t first_target_row_id,
-                          const int64_t* source_rows_permutation);
+                          uint32_t first_target_row_id,
+                          const uint32_t* source_rows_permutation);
 
  private:
   // Copy rows from source array to a region of the target array.
@@ -295,24 +295,24 @@ class RowArrayMerge {
   // Null information needs to be handled separately.
   //
   static void CopyFixedLength(RowTableImpl* target, const RowTableImpl& source,
-                              int64_t first_target_row_id,
-                              const int64_t* source_rows_permutation);
+                              uint32_t first_target_row_id,
+                              const uint32_t* source_rows_permutation);
 
   // Copy rows from source array to a region of the target array.
   // This implementation is for varying length rows.
   // Null information needs to be handled separately.
   //
   static void CopyVaryingLength(RowTableImpl* target, const RowTableImpl& source,
-                                int64_t first_target_row_id,
+                                uint32_t first_target_row_id,
                                 int64_t first_target_row_offset,
-                                const int64_t* source_rows_permutation);
+                                const uint32_t* source_rows_permutation);
 
   // Copy null information from rows from source array to a region of the target
   // array.
   //
   static void CopyNulls(RowTableImpl* target, const RowTableImpl& source,
-                        int64_t first_target_row_id,
-                        const int64_t* source_rows_permutation);
+                        uint32_t first_target_row_id,
+                        const uint32_t* source_rows_permutation);
 };
 
 // Implements merging of multiple SwissTables into a single one, using
@@ -523,19 +523,27 @@ class SwissTableForJoin {
 //
 class SwissTableForJoinBuild {
  public:
-  Status Init(SwissTableForJoin* target, int dop, int64_t num_rows,
+  Status Init(SwissTableForJoin* target, int dop, int64_t num_rows, int64_t num_batches,
               bool reject_duplicate_keys, bool no_payload,
               const std::vector<KeyColumnMetadata>& key_types,
               const std::vector<KeyColumnMetadata>& payload_types, MemoryPool* pool,
               int64_t hardware_flags);
 
-  // In the first phase of parallel hash table build, threads pick unprocessed
-  // exec batches, partition the rows based on hash, and update all of the
-  // partitions with information related to that batch of rows.
+  // In the first phase of parallel hash table build, each thread picks unprocessed exec
+  // batches, hashes the batches and preserve the hashes, then partition the rows based on
+  // hashes.
   //
-  Status PushNextBatch(int64_t thread_id, const ExecBatch& key_batch,
-                       const ExecBatch* payload_batch_maybe_null,
-                       arrow::util::TempVectorStack* temp_stack);
+  Status PartitionBatch(size_t thread_id, int64_t batch_id, const ExecBatch& key_batch,
+                        arrow::util::TempVectorStack* temp_stack);
+
+  // In the second phase of parallel hash table build, each thread picks the given
+  // partition of all batches, and updates that particular partition with information
+  // related to that batch of rows.
+  //
+  Status ProcessPartition(size_t thread_id, int64_t batch_id, int prtn_id,
+                          const ExecBatch& key_batch,
+                          const ExecBatch* payload_batch_maybe_null,
+                          arrow::util::TempVectorStack* temp_stack);
 
   // Allocate memory and initialize counters required for parallel merging of
   // hash table partitions.
@@ -543,7 +551,7 @@ class SwissTableForJoinBuild {
   //
   Status PreparePrtnMerge();
 
-  // Second phase of parallel hash table build.
+  // Third phase of parallel hash table build.
   // Each partition can be processed by a different thread.
   // Parallel step.
   //
@@ -564,9 +572,6 @@ class SwissTableForJoinBuild {
 
  private:
   void InitRowArray();
-  Status ProcessPartition(int64_t thread_id, const ExecBatch& key_batch,
-                          const ExecBatch* payload_batch_maybe_null,
-                          arrow::util::TempVectorStack* temp_stack, int prtn_id);
 
   SwissTableForJoin* target_;
   // DOP stands for Degree Of Parallelism - the maximum number of participating
@@ -604,6 +609,22 @@ class SwissTableForJoinBuild {
   MemoryPool* pool_;
   int64_t hardware_flags_;
 
+  // One per batch.
+  //
+  // Informations like hashes and partitions of each batch gathered in the partition phase
+  // and used in the build phase.
+  //
+  struct BatchState {
+    // Hashes for the batch, preserved in the partition phase to avoid recomputation in
+    // the build phase. One element per row in the batch.
+    std::vector<uint32_t> hashes;
+    // Accumulative number of rows in each partition for the batch. `num_prtns_` + 1
+    // elements.
+    std::vector<uint16_t> prtn_ranges;
+    // Row ids after partition sorting the batch. One element per row in the batch.
+    std::vector<uint16_t> prtn_row_ids;
+  };
+
   // One per partition.
   //
   struct PartitionState {
@@ -620,20 +641,16 @@ class SwissTableForJoinBuild {
   // batches.
   //
   struct ThreadState {
-    std::vector<uint32_t> batch_hashes;
-    std::vector<uint16_t> batch_prtn_ranges;
-    std::vector<uint16_t> batch_prtn_row_ids;
-    std::vector<int> temp_prtn_ids;
     std::vector<uint32_t> temp_group_ids;
     std::vector<KeyColumnArray> temp_column_arrays;
   };
 
+  std::vector<BatchState> batch_states_;
   std::vector<PartitionState> prtn_states_;
   std::vector<ThreadState> thread_states_;
-  PartitionLocks prtn_locks_;
 
-  std::vector<int64_t> partition_keys_first_row_id_;
-  std::vector<int64_t> partition_payloads_first_row_id_;
+  std::vector<uint32_t> partition_keys_first_row_id_;
+  std::vector<uint32_t> partition_payloads_first_row_id_;
 };
 
 class JoinResultMaterialize {
