@@ -49,11 +49,11 @@ Type::type GetTypeForBuffers(const ArrayData& array) {
   if (type_id == Type::DICTIONARY) {
     // return index type id, provided by the DictionaryType array.type or
     // array.type->storage_type() if array.type is an ExtensionType
-    std::shared_ptr<DataType> dict_type = array.type;
+    DataType* dict_type = array.type.get();
     if (array.type->id() == Type::EXTENSION) {
-      dict_type = checked_pointer_cast<ExtensionType>(array.type)->storage_type();
+      dict_type = dynamic_cast<ExtensionType*>(dict_type)->storage_type().get();
     }
-    return checked_pointer_cast<DictionaryType>(dict_type)->index_type()->id();
+    return dynamic_cast<DictionaryType*>(dict_type)->index_type()->id();
   }
   return type_id;
 }
