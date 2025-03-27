@@ -78,18 +78,7 @@ pyarrow_srcs += files('src/arrow/python/csv.cc')
 pyarrow_srcs += files('src/arrow/python/filesystem.cc')
 #endif
 
-cython_generated_headers = custom_target(
-    'lib-pyx-headers',
-    input: ['lib.pyx'],
-    output: ['lib.h', 'lib_api.h'],
-    command: ['cythonize', '@INPUT@'],
-    # TODO: FileNotFoundError: [Errno 2] No such file or directory:
-    # '/arrow/python/.mesonpy-afk_k0fp/pyarrow/lib.h'
-    #install: true,
-    #install_dir: py.get_install_dir() / 'include/arrow/python',
-)
-
-cython_generated_dep = declare_dependency(sources: cython_generated_headers)
+subdir('src/arrow/python')
 
 arrow_python_lib = shared_library(
     'arrow_python',
