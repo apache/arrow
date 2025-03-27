@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <string>
+#include <string_view>
 
 #include "arrow/util/key_value_metadata.h"
 
@@ -31,7 +31,7 @@ namespace parquet {
 /// Returns the appropriate LogicalType, SerializationError if the metadata was invalid,
 /// or NotImplemented if Parquet was not built with ARROW_JSON.
 ::arrow::Result<std::shared_ptr<const LogicalType>> LogicalTypeFromGeoArrowMetadata(
-    const std::string& serialized_data);
+    std::string_view serialized_data);
 
 /// \brief Compute a suitable DataType into which a GEOMETRY or GEOGRAPHY type should be
 /// read
