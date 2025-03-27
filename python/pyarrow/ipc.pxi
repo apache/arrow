@@ -51,6 +51,7 @@ cdef CMetadataVersion _unwrap_metadata_version(
 cpdef enum Alignment:
     Any = <int8_t> CAlignment_Any
     DataTypeSpecific = <int8_t> CAlignment_DataTypeSpecific
+    At64Byte = <int8_t> CAlignment_64Byte
 
 
 cdef object _wrap_alignment(CAlignment alignment):
@@ -62,6 +63,8 @@ cdef CAlignment _unwrap_alignment(Alignment alignment) except *:
         return CAlignment_Any
     elif alignment == Alignment.DataTypeSpecific:
         return CAlignment_DataTypeSpecific
+    elif alignment == Alignment.At64Byte:
+        return CAlignment_64Byte
     raise ValueError("Not an alignment: " + repr(alignment))
 
 
@@ -139,7 +142,7 @@ cdef class IpcReadOptions(_Weakrefable):
         Whether to convert incoming data to platform-native endianness.
     ensure_alignment : Alignment, default Alignment.Any
         Data is copied to aligned memory locations if mis-aligned.
-        Some use cases might require data to have data type-specific alignment, for example,
+        Some use cases might require data to have a specific alignment, for example,
         for the data buffer of an int32 array to be aligned on a 4-byte boundary.
     use_threads : bool
         Whether to use the global CPU thread pool to parallelize any

@@ -370,7 +370,8 @@ class AlignmentScenario : public Scenario {
 
   Status RunClient(std::unique_ptr<FlightClient> client) override {
     for (ipc::Alignment ensure_alignment :
-         {ipc::Alignment::kAnyAlignment, ipc::Alignment::kDataTypeSpecificAlignment}) {
+         {ipc::Alignment::kAnyAlignment, ipc::Alignment::kDataTypeSpecificAlignment,
+          ipc::Alignment::k64ByteAlignment}) {
       auto call_options = FlightCallOptions();
       call_options.read_options.ensure_alignment = ensure_alignment;
       ARROW_ASSIGN_OR_RAISE(auto table, GetTable(client.get(), call_options));
@@ -389,13 +390,7 @@ class AlignmentScenario : public Scenario {
       }
       // Check data alignment
       std::vector<bool> needs_alignment;
-      if (ensure_alignment == ipc::Alignment::kDataTypeSpecificAlignment) {
-        // with ensure_alignment=true, we require data to be aligned
-        if (!util::CheckAlignment(*table, arrow::util::kValueAlignment,
-                                  &needs_alignment)) {
-          return Status::Invalid("Read table has unaligned data");
-        }
-      } else {
+      if (ensure_alignment == ipc::Alignment::kAnyAlignment) {
         // this is not a requirement but merely an observation:
         // with ensure_alignment=false, flight client returns mis-aligned data
         // if this is not the case any more, feel free to remove this assertion
@@ -403,6 +398,13 @@ class AlignmentScenario : public Scenario {
                                  &needs_alignment)) {
           return Status::Invalid(
               "Read table has aligned data, which is good, but unprecedented");
+        }
+      } else {
+        // with ensure_alignment != kValueAlignment, we require data to be aligned
+        // the value of the Alignment enum provides us with the byte alignment value
+        if (!util::CheckAlignment(*table, static_cast<int64_t>(ensure_alignment),
+                                  &needs_alignment)) {
+          return Status::Invalid("Read table has unaligned data");
         }
       }
     }

@@ -544,6 +544,8 @@ def test_read_options():
 
     options.ensure_alignment = pa.ipc.Alignment.DataTypeSpecific
     assert options.ensure_alignment == pa.ipc.Alignment.DataTypeSpecific
+    options.ensure_alignment = pa.ipc.Alignment.At64Byte
+    assert options.ensure_alignment == pa.ipc.Alignment.At64Byte
 
     options.use_threads = False
     assert options.use_threads is False
