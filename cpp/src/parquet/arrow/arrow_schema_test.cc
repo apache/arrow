@@ -763,9 +763,7 @@ TEST_F(TestConvertParquetSchema, ParquetUndefinedType) {
   props.set_convert_undefined_logical_types(true);
   ASSERT_OK(ConvertSchema(parquet_fields, nullptr, props));
 
-  std::vector<std::shared_ptr<Field>> arrow_fields;
-  arrow_fields.push_back(::arrow::field("undefined", BINARY));
-  auto arrow_schema = ::arrow::schema(arrow_fields);
+  auto arrow_schema = ::arrow::schema({"undefined", BINARY});
 
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
 }
