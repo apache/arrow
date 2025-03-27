@@ -258,7 +258,7 @@ std::optional<std::pair<double, double>> GetWKBPointCoordinateXY(const ByteArray
   std::memcpy(&out_x, &value.ptr[5], 8);
   std::memcpy(&out_y, &value.ptr[13], 8);
 
-  return std::pair<double, double>{out_x, out_y};
+  return {{out_x, out_y}};
 }
 
 std::shared_ptr<::arrow::DataType> geoarrow_wkb(
