@@ -750,7 +750,7 @@ class ReadaheadGenerator {
         [state](const T& result) -> Future<T> {
           bool mark_finished = false;
           {
-            auto guard = state->mu.Lock();
+            auto guard = state->mutex.Lock();
             state->MarkFinishedIfDone(result);
             --state->num_running;
             if (state->finished) {
@@ -767,7 +767,7 @@ class ReadaheadGenerator {
           // tasks finish before we return the error.
           bool mark_finished = false;
           {
-            auto guard = state->mu.Lock();
+            auto guard = state->mutex.Lock();
             state->finished = true;
             --state->num_running;
             mark_finished = state->num_running == 0;
@@ -783,7 +783,7 @@ class ReadaheadGenerator {
     if (state_->readahead_queue.empty()) {
       // This is the first request, let's pump the underlying queue
       {
-        auto guard = state_->mu.Lock();
+        auto guard = state_->mutex.Lock();
         state_->num_running = state_->max_readahead;
       }
       for (int i = 0; i < state_->max_readahead; i++) {
@@ -795,7 +795,7 @@ class ReadaheadGenerator {
     // Pop one and add one
     auto result = std::move(state_->readahead_queue.front());
     state_->readahead_queue.pop();
-    auto guard = state_->mu.Lock();
+    auto guard = state_->mutex.Lock();
     if (state_->finished) {
       guard.Unlock();
       state_->readahead_queue.push(AsyncGeneratorEnd<T>());
@@ -816,7 +816,7 @@ class ReadaheadGenerator {
         : source_generator(std::move(source_generator)), max_readahead(max_readahead) {}
 
     void MarkFinishedIfDone(const T& next_result) {
-      // ASSERT_HELD(mu)
+      // ASSERT_HELD(mutex)
       if (IsIterationEnd(next_result)) {
         finished = true;
       }
@@ -825,9 +825,9 @@ class ReadaheadGenerator {
     AsyncGenerator<T> source_generator;
     int max_readahead;
     Future<> final_future = Future<>::Make();
-    int num_running{0};    // GUARDED_BY(mu)
-    bool finished{false};  // GUARDED_BY(mu)
-    arrow::util::Mutex mu;
+    int num_running{0};    // GUARDED_BY(mutex)
+    bool finished{false};  // GUARDED_BY(mutex)
+    arrow::util::Mutex mutex;
     std::queue<Future<T>> readahead_queue;
   };
 
