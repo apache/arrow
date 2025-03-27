@@ -34,7 +34,7 @@ namespace parquet::geometry {
 /// multiplied by the number of dimensions).
 class WKBBuffer {
  public:
-  WKBBuffer() : data_(NULLPTR), size_(0) {}
+  WKBBuffer() : data_(nullptr), size_(0) {}
   WKBBuffer(const uint8_t* data, int64_t size) : data_(data), size_(size) {}
 
   ::arrow::Result<uint8_t> ReadUInt8() { return ReadChecked<uint8_t>(); }
