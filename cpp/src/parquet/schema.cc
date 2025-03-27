@@ -28,6 +28,7 @@
 #include "parquet/exception.h"
 #include "parquet/schema_internal.h"
 #include "parquet/thrift_internal.h"
+#include "parquet/windows_fixup.h"  // for OPTIONAL
 
 using parquet::format::SchemaElement;
 
