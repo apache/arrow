@@ -202,7 +202,8 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
     }
 
     return Status::NotImplemented(
-        "logical type Undefined with allow_undefined_logical_types=false");
+        "undefined logical type with allow_undefined_logical_types=false or "
+        "corrupt  Parquet footer");
   }
 
   switch (physical_type) {

@@ -529,7 +529,7 @@ def test_undefined_logical_type(parquet_test_datadir):
     if not os.path.exists(test_file):
         pytest.skip("submodule not yet updated")
 
-    with pytest.raises(pa.lib.ArrowNotImplementedError, match="logical type Undefined"):
+    with pytest.raises(pa.lib.ArrowNotImplementedError, match="undefined logical type"):
         _read_table(test_file)
 
     table = _read_table(test_file, allow_undefined_logical_types=True)
