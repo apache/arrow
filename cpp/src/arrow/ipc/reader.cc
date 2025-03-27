@@ -640,12 +640,14 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
   auto batch = RecordBatch::Make(std::move(filtered_schema), metadata->length(),
                                  std::move(filtered_columns));
 
-  if (context.options.ensure_alignment == Alignment::kAnyAlignment) {
-    return batch;
+  if (ARROW_PREDICT_FALSE(context.options.ensure_alignment != Alignment::kAnyAlignment)) {
+    return util::EnsureAlignment(batch,
+                                 // the numerical value of ensure_alignment enum is taken
+                                 // literally as byte alignment
+                                 static_cast<int64_t>(context.options.ensure_alignment),
+                                 context.options.memory_pool);
   }
-  return util::EnsureAlignment(batch,
-                               static_cast<int64_t>(context.options.ensure_alignment),
-                               context.options.memory_pool);
+  return batch;
 }
 
 Result<std::shared_ptr<RecordBatch>> LoadRecordBatch(

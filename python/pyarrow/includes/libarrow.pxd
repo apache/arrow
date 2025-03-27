@@ -1877,6 +1877,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     ctypedef enum CAlignment" arrow::ipc::Alignment":
         CAlignment_Any" arrow::ipc::Alignment::kAnyAlignment"
         CAlignment_DataTypeSpecific" arrow::ipc::Alignment::kDataTypeSpecificAlignment"
+        CAlignment_64Byte" arrow::ipc::Alignment::k64ByteAlignment"
 
     cdef cppclass CIpcReadOptions" arrow::ipc::IpcReadOptions":
         int max_recursion_depth
