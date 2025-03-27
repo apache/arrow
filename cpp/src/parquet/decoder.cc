@@ -1699,11 +1699,17 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
       }
       accum_length += length_ptr[i];
     }
-    if (ARROW_PREDICT_FALSE(accum_length > std::numeric_limits<int32_t>::max())) {
-      return Status::Invalid("excess expansion in DELTA_BYTE_ARRAY");
-    }
-    if (ARROW_PREDICT_FALSE(decoder_->bytes_left() < accum_length)) {
-      return Status::Invalid("Binary data is too short");
+    {
+      // Actually these checks would not happen since DecodeArrowDenseFastPath
+      // would be called only when helper.CanFit(decoder_->bytes_left()),
+      // so, accum_length <= decoder_->bytes_left() << chunk_space_remaining_
+      // <= std::numeric_limits<int32_t>::max().
+      if (ARROW_PREDICT_FALSE(accum_length > std::numeric_limits<int32_t>::max())) {
+        return Status::Invalid("excess expansion in DELTA_BYTE_ARRAY");
+      }
+      if (ARROW_PREDICT_FALSE(decoder_->bytes_left() < accum_length)) {
+        return Status::Invalid("Binary data is too short");
+      }
     }
     RETURN_NOT_OK(out->builder->ValidateOverflow(accum_length));
     // Append the binary data
