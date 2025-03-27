@@ -223,19 +223,21 @@ tasks:
 
 {############################## Wheel Linux ##################################}
 
-
-{% for arch, manylinux_version, platform_tag in [("amd64", "2014", "manylinux_2_17_x86_64.manylinux2014_x86_64"),
-                                                 ("amd64", "2-28", "manylinux_2_28_x86_64"),
-                                                 ("arm64", "2014", "manylinux_2_17_aarch64.manylinux2014_aarch64"),
-                                                 ("arm64", "2-28", "manylinux_2_28_aarch64")] %}
-  wheel-manylinux-{{ manylinux_version }}-{{ python_tag }}-{{ abi_tag }}-{{ arch }}:
+{% for wheel_kind, arch, version, platform_tag in [("manylinux", "amd64", "2014", "manylinux_2_17_x86_64.manylinux2014_x86_64"),
+                                                   ("manylinux", "amd64", "2-28", "manylinux_2_28_x86_64"),
+                                                   ("manylinux", "arm64", "2014", "manylinux_2_17_aarch64.manylinux2014_aarch64"),
+                                                   ("manylinux", "arm64", "2-28", "manylinux_2_28_aarch64"),
+                                                   ("musllinux", "amd64", "1-2", "musllinux_1_2_x86_64"),
+                                                   ("musllinux", "arm64", "1-2", "musllinux_1_2_aarch64")] %}
+  wheel-{{ wheel_kind }}-{{ version }}-{{ python_tag }}-{{ abi_tag }}-{{ arch }}:
     ci: github
     template: python-wheels/github.linux.yml
     params:
       arch: "{{ arch }}"
-      python_version: "{{ python_version }}"
+      linux_wheel_kind: "{{ wheel_kind }}"
+      linux_wheel_version: "{{ version }}"
       python_abi_tag: "{{ abi_tag }}"
-      manylinux_version: "{{ manylinux_version }}"
+      python_version: "{{ python_version }}"
       wheel_platform_tag: "{{ platform_tag }}"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
