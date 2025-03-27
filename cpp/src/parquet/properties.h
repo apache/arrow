@@ -1010,9 +1010,9 @@ class PARQUET_EXPORT ArrowReaderProperties {
 
   /// Convert undefined logical types as their underlying physical type
   ///
-  /// When enabled, the Arrow reader will use the underlying physical type
-  /// of a logical type that it does not recognize (e.g., one that was added
-  /// to the spec but not implemented in Parquet C++).
+  /// When enabled, the Arrow reader will use the underlying physical type to deduce the
+  /// Arrow type when the logical type is not recognized (e.g., one that was added to the
+  /// spec but not implemented in Parquet C++).
   void set_convert_undefined_logical_types(bool convert_undefined_logical_types) {
     convert_undefined_logical_types_ = convert_undefined_logical_types;
   }
