@@ -54,8 +54,8 @@ class WKBBuffer {
 
   ::arrow::Result<uint32_t> ReadUInt32(bool swap) {
     ARROW_ASSIGN_OR_RAISE(auto value, ReadChecked<uint32_t>());
-    if (ARROW_PREDICT_FALSE(swap)) {
-      return ByteSwap(value);
+    if (swap) {
+      return ::arrow::bit_util::ByteSwap(value);
     } else {
       return value;
     }
@@ -70,12 +70,12 @@ class WKBBuffer {
           " bytes from WKBBuffer with ", size_, " remaining");
     }
 
-    if (ARROW_PREDICT_FALSE(swap)) {
+    if (swap) {
       Coord coord;
       for (uint32_t i = 0; i < n_coords; i++) {
         coord = ReadUnchecked<Coord>();
         for (auto& c : coord) {
-          c = ByteSwap(c);
+          c = ::arrow::bit_util::ByteSwap(c);
         }
 
         visit(coord);
@@ -111,11 +111,6 @@ class WKBBuffer {
     data_ += sizeof(T);
     size_ -= sizeof(T);
     return out;
-  }
-
-  template <typename T>
-  T ByteSwap(T value) {
-    return ::arrow::bit_util::ByteSwap(value);
   }
 };
 
