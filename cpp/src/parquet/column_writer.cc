@@ -1403,7 +1403,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
                                          chunk.levels_to_write, *chunk_array, ctx,
                                          maybe_parent_nulls));
         }
-        bool is_last_chunk = i == chunks.size() - 1;
+        bool is_last_chunk = i == (chunks.size() - 1);
         if (num_buffered_values_ > 0 && !is_last_chunk) {
           // Explicitly add a new data page according to the content-defined chunk
           // boundaries. This way the same chunks will have the same byte-sequence

@@ -237,6 +237,7 @@ jobs:
       ARROW_CMAKE_ARGS: >-
         -DARROW_PACKAGE_PREFIX=/ucrt${{ matrix.mingw-n-bits }}
         -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON
+      CMAKE_UNITY_BUILD: ON
     steps:
       - name: Disable Crash Dialogs
         run: |

@@ -17,7 +17,7 @@
 
 #include "parquet/chunker_internal.h"
 
-#include <cmath>
+#include <cstdint>
 #include <string>
 #include <vector>
 
