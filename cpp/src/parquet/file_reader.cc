@@ -923,6 +923,16 @@ void ParquetFileReader::PreBuffer(const std::vector<int>& row_groups,
   file->PreBuffer(row_groups, column_indices, ctx, options);
 }
 
+::arrow::Result<std::vector<::arrow::io::ReadRange>> ParquetFileReader::GetReadRanges(
+    const std::vector<int>& row_groups, const std::vector<int>& column_indices,
+    int64_t hole_size_limit, int64_t range_size_limit) {
+  // Access private methods here
+  SerializedFile* file =
+      ::arrow::internal::checked_cast<SerializedFile*>(contents_.get());
+  return file->GetReadRanges(row_groups, column_indices, hole_size_limit,
+                             range_size_limit);
+}
+
 ::arrow::Future<> ParquetFileReader::WhenBuffered(
     const std::vector<int>& row_groups, const std::vector<int>& column_indices) const {
   // Access private methods here

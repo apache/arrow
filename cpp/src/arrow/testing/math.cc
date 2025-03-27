@@ -53,7 +53,13 @@ bool WithinUlpOneWay(Float left, Float right, int n_ulps) {
 
 template <typename Float>
 bool WithinUlpGeneric(Float left, Float right, int n_ulps) {
+  if (std::isnan(left) || std::isnan(right)) {
+    return std::isnan(left) == std::isnan(right);
+  }
   if (!std::isfinite(left) || !std::isfinite(right)) {
+    return left == right;
+  }
+  if (n_ulps == 0) {
     return left == right;
   }
   return (std::abs(left) <= std::abs(right)) ? WithinUlpOneWay(left, right, n_ulps)

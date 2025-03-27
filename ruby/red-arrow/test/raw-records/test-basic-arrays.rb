@@ -24,7 +24,7 @@ module RawRecordsBasicArraysTests
       [nil],
     ]
     target = build({column: :null}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_boolean
@@ -34,7 +34,7 @@ module RawRecordsBasicArraysTests
       [false],
     ]
     target = build({column: :boolean}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_int8
@@ -44,7 +44,7 @@ module RawRecordsBasicArraysTests
       [(2 ** 7) - 1],
     ]
     target = build({column: :int8}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_uint8
@@ -54,7 +54,7 @@ module RawRecordsBasicArraysTests
       [(2 ** 8) - 1],
     ]
     target = build({column: :uint8}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_int16
@@ -64,7 +64,7 @@ module RawRecordsBasicArraysTests
       [(2 ** 15) - 1],
     ]
     target = build({column: :int16}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_uint16
@@ -74,7 +74,7 @@ module RawRecordsBasicArraysTests
       [(2 ** 16) - 1],
     ]
     target = build({column: :uint16}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_int32
@@ -84,7 +84,7 @@ module RawRecordsBasicArraysTests
       [(2 ** 31) - 1],
     ]
     target = build({column: :int32}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_uint32
@@ -94,7 +94,7 @@ module RawRecordsBasicArraysTests
       [(2 ** 32) - 1],
     ]
     target = build({column: :uint32}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_int64
@@ -104,7 +104,7 @@ module RawRecordsBasicArraysTests
       [(2 ** 63) - 1],
     ]
     target = build({column: :int64}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_uint64
@@ -114,7 +114,7 @@ module RawRecordsBasicArraysTests
       [(2 ** 64) - 1],
     ]
     target = build({column: :uint64}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_half_float
@@ -124,7 +124,7 @@ module RawRecordsBasicArraysTests
       [1.5],
     ]
     target = build({column: :half_float}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_float
@@ -134,7 +134,7 @@ module RawRecordsBasicArraysTests
       [1.0],
     ]
     target = build({column: :float}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_double
@@ -144,7 +144,7 @@ module RawRecordsBasicArraysTests
       [1.0],
     ]
     target = build({column: :double}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_binary
@@ -154,7 +154,7 @@ module RawRecordsBasicArraysTests
       ["\xff".b],
     ]
     target = build({column: :binary}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_string
@@ -164,7 +164,7 @@ module RawRecordsBasicArraysTests
       ["\u3042"], # U+3042 HIRAGANA LETTER A
     ]
     target = build({column: :string}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_date32
@@ -174,7 +174,7 @@ module RawRecordsBasicArraysTests
       [Date.new(2017, 8, 23)],
     ]
     target = build({column: :date32}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_date64
@@ -184,7 +184,7 @@ module RawRecordsBasicArraysTests
       [DateTime.new(2017, 8, 23, 14, 57, 2)],
     ]
     target = build({column: :date64}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_timestamp_second
@@ -200,7 +200,7 @@ module RawRecordsBasicArraysTests
                      }
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_timestamp_milli
@@ -216,7 +216,7 @@ module RawRecordsBasicArraysTests
                      }
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_timestamp_micro
@@ -232,7 +232,7 @@ module RawRecordsBasicArraysTests
                      }
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_timestamp_nano
@@ -248,7 +248,7 @@ module RawRecordsBasicArraysTests
                      }
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_time32_second
@@ -265,7 +265,7 @@ module RawRecordsBasicArraysTests
                      }
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_time32_milli
@@ -282,7 +282,7 @@ module RawRecordsBasicArraysTests
                      }
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_time64_micro
@@ -301,7 +301,7 @@ module RawRecordsBasicArraysTests
                      }
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_time64_nano
@@ -320,7 +320,7 @@ module RawRecordsBasicArraysTests
                      }
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_decimal128
@@ -337,7 +337,7 @@ module RawRecordsBasicArraysTests
                      }
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_decimal256
@@ -354,7 +354,7 @@ module RawRecordsBasicArraysTests
                      }
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_month_interval
@@ -364,7 +364,7 @@ module RawRecordsBasicArraysTests
       [12],
     ]
     target = build({column: :month_interval}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_day_time_interval
@@ -374,7 +374,7 @@ module RawRecordsBasicArraysTests
       [{day: 2, millisecond: 300}],
     ]
     target = build({column: :day_time_interval}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_month_day_nano_interval
@@ -384,7 +384,38 @@ module RawRecordsBasicArraysTests
       [{month: 2, day: 3, nanosecond: 400}],
     ]
     target = build({column: :month_day_nano_interval}, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
+  end
+end
+
+class EachRawRecordRecordBatchBasicArraysTest < Test::Unit::TestCase
+  include RawRecordsBasicArraysTests
+
+  def build(schema, records)
+    Arrow::RecordBatch.new(schema, records)
+  end
+
+  def actual_records(target)
+    target.each_raw_record.to_a
+  end
+end
+
+class EachRawRecordTableBasicArraysTest < Test::Unit::TestCase
+  include RawRecordsBasicArraysTests
+
+  def build(schema, records)
+    record_batch = Arrow::RecordBatch.new(schema, records)
+    # Multiple chunks
+    record_batches = [
+      record_batch.slice(0, 2),
+      record_batch.slice(2, 0), # Empty chunk
+      record_batch.slice(2, record_batch.length - 2),
+    ]
+    Arrow::Table.new(schema, record_batches)
+  end
+
+  def actual_records(target)
+    target.each_raw_record.to_a
   end
 end
 
@@ -394,6 +425,10 @@ class RawRecordsRecordBatchBasicArraysTest < Test::Unit::TestCase
   def build(schema, records)
     Arrow::RecordBatch.new(schema, records)
   end
+
+  def actual_records(target)
+    target.raw_records
+  end
 end
 
 class RawRecordsTableBasicArraysTest < Test::Unit::TestCase
@@ -401,5 +436,9 @@ class RawRecordsTableBasicArraysTest < Test::Unit::TestCase
 
   def build(schema, records)
     Arrow::Table.new(schema, records)
+  end
+
+  def actual_records(target)
+    target.raw_records
   end
 end

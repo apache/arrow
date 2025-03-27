@@ -182,9 +182,8 @@ Status ExtractSegmenterValues(std::vector<Datum>* values_ptr,
                               const std::vector<int>& field_ids) {
   DCHECK_GT(input_batch.length, 0);
   std::vector<Datum>& values = *values_ptr;
+  DCHECK_EQ(values.size(), field_ids.size());
   int64_t row = input_batch.length - 1;
-  values.clear();
-  values.resize(field_ids.size());
   for (size_t i = 0; i < field_ids.size(); i++) {
     const Datum& value = input_batch.values[field_ids[i]];
     if (value.is_scalar()) {

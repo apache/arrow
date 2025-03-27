@@ -988,9 +988,9 @@ struct FailFunctor<VectorKernel::ChunkedExec> {
 };
 
 // GD for numeric types (integer and floating point)
-template <template <typename...> class Generator, typename Type0,
-          typename KernelType = ArrayKernelExec, typename... Args>
-KernelType GenerateNumeric(detail::GetTypeId get_id) {
+template <template <typename...> class Generator, typename Type0, typename... Args>
+auto GenerateNumeric(detail::GetTypeId get_id) {
+  using KernelType = decltype(&Generator<Type0, Int8Type, Args...>::Exec);
   switch (get_id.id) {
     case Type::INT8:
       return Generator<Type0, Int8Type, Args...>::Exec;
@@ -1367,7 +1367,8 @@ ArrayKernelExec GenerateTemporal(detail::GetTypeId get_id) {
 //
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec GenerateDecimal(detail::GetTypeId get_id) {
+auto GenerateDecimal(detail::GetTypeId get_id) {
+  using KernelType = decltype(&Generator<Type0, Decimal256Type, Args...>::Exec);
   switch (get_id.id) {
     case Type::DECIMAL32:
       return Generator<Type0, Decimal32Type, Args...>::Exec;
@@ -1379,7 +1380,7 @@ ArrayKernelExec GenerateDecimal(detail::GetTypeId get_id) {
       return Generator<Type0, Decimal256Type, Args...>::Exec;
     default:
       DCHECK(false);
-      return nullptr;
+      return KernelType(nullptr);
   }
 }
 

@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cmath>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -77,6 +78,38 @@ TEST(NormalPPF, Basics) {
     ARROW_SCOPED_TRACE("p = ", test_case.input);
     EXPECT_DOUBLE_EQ(NormalPPF(test_case.input), test_case.expected);
   }
+}
+
+TEST(NeumaierSum, Basics) {
+  ASSERT_EQ(0.0, NeumaierSum(std::vector<double>{}));
+  ASSERT_EQ(2.0, NeumaierSum({1., -2., 3.}));
+  ASSERT_EQ(HUGE_VAL, NeumaierSum({1., HUGE_VAL, 1.}));
+  ASSERT_EQ(-HUGE_VAL, NeumaierSum({1., -HUGE_VAL, 1.}));
+  ASSERT_TRUE(std::isnan(NeumaierSum({1., -HUGE_VAL, 1., HUGE_VAL})));
+  ASSERT_TRUE(std::isnan(NeumaierSum({1., NAN, 1.})));
+}
+
+TEST(NeumaierSum, Precision) {
+  // Test cases that would fail with a naive sum
+  ASSERT_EQ(2.0, NeumaierSum({1., 1e100, 1., -1e100}));
+  ASSERT_EQ(2.0, NeumaierSum({1., 1., 1e100, -1e100}));
+  ASSERT_EQ(2.0, NeumaierSum({1e100, -1e100, 1., 1.}));
+  ASSERT_EQ(2.0, NeumaierSum({-1e100, 1e100, 1., 1.}));
+  ASSERT_EQ(2.0, NeumaierSum({1., -1e100, 1e100, 1.}));
+  ASSERT_EQ(2.0, NeumaierSum({1., 1e100, -1e100, 1.}));
+
+  // NumPy code:
+  //   array = np.arange(321000, dtype='float64')
+  //   array -= np.mean(array)
+  //   array *= array
+  constexpr int N = 321000;
+  std::vector<double> values(N);
+  for (int i = 0; i < N; ++i) {
+    values[i] = (i - 160499.5) * (i - 160499.5);
+  }
+  // This is the exact result (as computed using np.sum,
+  // math.fsum or fractions.Fraction).
+  ASSERT_EQ(2756346749973250, NeumaierSum(values));
 }
 
 }  // namespace arrow::internal

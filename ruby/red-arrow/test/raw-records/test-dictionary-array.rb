@@ -30,7 +30,7 @@ module RawRecordsDictionaryArrayTests
       [nil],
     ]
     target = build(Arrow::NullArray.new(records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_boolean
@@ -40,7 +40,7 @@ module RawRecordsDictionaryArrayTests
       [false],
     ]
     target = build(Arrow::BooleanArray.new(records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_int8
@@ -50,7 +50,7 @@ module RawRecordsDictionaryArrayTests
       [(2 ** 7) - 1],
     ]
     target = build(Arrow::Int8Array.new(records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_uint8
@@ -60,7 +60,7 @@ module RawRecordsDictionaryArrayTests
       [(2 ** 8) - 1],
     ]
     target = build(Arrow::UInt8Array.new(records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_int16
@@ -70,7 +70,7 @@ module RawRecordsDictionaryArrayTests
       [(2 ** 15) - 1],
     ]
     target = build(Arrow::Int16Array.new(records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_uint16
@@ -80,7 +80,7 @@ module RawRecordsDictionaryArrayTests
       [(2 ** 16) - 1],
     ]
     target = build(Arrow::UInt16Array.new(records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_int32
@@ -90,7 +90,7 @@ module RawRecordsDictionaryArrayTests
       [(2 ** 31) - 1],
     ]
     target = build(Arrow::Int32Array.new(records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_uint32
@@ -100,7 +100,7 @@ module RawRecordsDictionaryArrayTests
       [(2 ** 32) - 1],
     ]
     target = build(Arrow::UInt32Array.new(records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_int64
@@ -110,7 +110,7 @@ module RawRecordsDictionaryArrayTests
       [(2 ** 63) - 1],
     ]
     target = build(Arrow::Int64Array.new(records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_uint64
@@ -120,7 +120,7 @@ module RawRecordsDictionaryArrayTests
       [(2 ** 64) - 1],
     ]
     target = build(Arrow::UInt64Array.new(records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_float
@@ -130,7 +130,7 @@ module RawRecordsDictionaryArrayTests
       [1.0],
     ]
     target = build(Arrow::FloatArray.new(records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_double
@@ -140,7 +140,7 @@ module RawRecordsDictionaryArrayTests
       [1.0],
     ]
     target = build(Arrow::DoubleArray.new(records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_binary
@@ -150,7 +150,7 @@ module RawRecordsDictionaryArrayTests
       ["\xff".b],
     ]
     target = build(Arrow::BinaryArray.new(records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_string
@@ -160,7 +160,7 @@ module RawRecordsDictionaryArrayTests
       ["\u3042"], # U+3042 HIRAGANA LETTER A
     ]
     target = build(Arrow::StringArray.new(records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_date32
@@ -170,7 +170,7 @@ module RawRecordsDictionaryArrayTests
       [Date.new(2017, 8, 23)],
     ]
     target = build(Arrow::Date32Array.new(records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_date64
@@ -180,7 +180,7 @@ module RawRecordsDictionaryArrayTests
       [DateTime.new(2017, 8, 23, 14, 57, 2)],
     ]
     target = build(Arrow::Date64Array.new(records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_timestamp_second
@@ -190,7 +190,7 @@ module RawRecordsDictionaryArrayTests
       [Time.parse("2017-08-23T14:57:02Z")],
     ]
     target = build(Arrow::TimestampArray.new(:second, records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_timestamp_milli
@@ -200,7 +200,7 @@ module RawRecordsDictionaryArrayTests
       [Time.parse("2017-08-23T14:57:02.987Z")],
     ]
     target = build(Arrow::TimestampArray.new(:milli, records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_timestamp_micro
@@ -210,7 +210,7 @@ module RawRecordsDictionaryArrayTests
       [Time.parse("2017-08-23T14:57:02.987654Z")],
     ]
     target = build(Arrow::TimestampArray.new(:micro, records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_timestamp_nano
@@ -220,7 +220,7 @@ module RawRecordsDictionaryArrayTests
       [Time.parse("2017-08-23T14:57:02.987654321Z")],
     ]
     target = build(Arrow::TimestampArray.new(:nano, records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_time32_second
@@ -231,7 +231,7 @@ module RawRecordsDictionaryArrayTests
       [Arrow::Time.new(unit, 60 * 60 * 2 + 9)], # 02:00:09
     ]
     target = build(Arrow::Time32Array.new(unit, records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_time32_milli
@@ -242,7 +242,7 @@ module RawRecordsDictionaryArrayTests
       [Arrow::Time.new(unit, (60 * 60 * 2 + 9) * 1000 + 987)], # 02:00:09.987
     ]
     target = build(Arrow::Time32Array.new(unit, records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_time64_micro
@@ -255,7 +255,7 @@ module RawRecordsDictionaryArrayTests
       [Arrow::Time.new(unit, (60 * 60 * 2 + 9) * 1_000_000 + 987_654)],
     ]
     target = build(Arrow::Time64Array.new(unit, records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_time64_nano
@@ -268,7 +268,7 @@ module RawRecordsDictionaryArrayTests
       [Arrow::Time.new(unit, (60 * 60 * 2 + 9) * 1_000_000_000 + 987_654_321)],
     ]
     target = build(Arrow::Time64Array.new(unit, records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_decimal128
@@ -279,7 +279,7 @@ module RawRecordsDictionaryArrayTests
     ]
     data_type = Arrow::Decimal128DataType.new(8, 2)
     target = build(Arrow::Decimal128Array.new(data_type, records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_decimal256
@@ -290,7 +290,7 @@ module RawRecordsDictionaryArrayTests
     ]
     data_type = Arrow::Decimal256DataType.new(38, 2)
     target = build(Arrow::Decimal256Array.new(data_type, records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_month_interval
@@ -300,7 +300,7 @@ module RawRecordsDictionaryArrayTests
       [12],
     ]
     target = build(Arrow::MonthIntervalArray.new(records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_day_time_interval
@@ -310,7 +310,7 @@ module RawRecordsDictionaryArrayTests
       [{day: 2, millisecond: 300}],
     ]
     target = build(Arrow::DayTimeIntervalArray.new(records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_month_day_nano_interval
@@ -320,7 +320,31 @@ module RawRecordsDictionaryArrayTests
       [{month: 2, day: 3, nanosecond: 400}],
     ]
     target = build(Arrow::MonthDayNanoIntervalArray.new(records.collect(&:first)))
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
+  end
+end
+
+class EachRawRecordRecordBatchDictionaryArraysTest < Test::Unit::TestCase
+  include RawRecordsDictionaryArrayTests
+
+  def build(array)
+    build_record_batch(array)
+  end
+
+  def actual_records(target)
+    target.each_raw_record.to_a
+  end
+end
+
+class EachRawRecordTableDictionaryArraysTest < Test::Unit::TestCase
+  include RawRecordsDictionaryArrayTests
+
+  def build(array)
+    build_record_batch(array).to_table
+  end
+
+  def actual_records(target)
+    target.each_raw_record.to_a
   end
 end
 
@@ -330,6 +354,10 @@ class RawRecordsRecordBatchDictionaryArraysTest < Test::Unit::TestCase
   def build(array)
     build_record_batch(array)
   end
+
+  def actual_records(target)
+    target.raw_records
+  end
 end
 
 class RawRecordsTableDictionaryArraysTest < Test::Unit::TestCase
@@ -337,5 +365,9 @@ class RawRecordsTableDictionaryArraysTest < Test::Unit::TestCase
 
   def build(array)
     build_record_batch(array).to_table
+  end
+
+  def actual_records(target)
+    target.raw_records
   end
 end
