@@ -294,7 +294,8 @@ class AlignmentServer : public FlightServerBase {
                        const FlightDescriptor& descriptor,
                        std::unique_ptr<FlightInfo>* result) override {
     auto schema = BuildSchema();
-    std::vector<FlightEndpoint> endpoints{FlightEndpoint{{"foo"}, {}, std::nullopt, ""}};
+    std::vector<FlightEndpoint> endpoints{
+        FlightEndpoint{{"align-data"}, {}, std::nullopt, ""}};
     ARROW_ASSIGN_OR_RAISE(
         auto info, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
     *result = std::make_unique<FlightInfo>(info);
@@ -303,7 +304,7 @@ class AlignmentServer : public FlightServerBase {
 
   Status DoGet(const ServerCallContext& context, const Ticket& request,
                std::unique_ptr<FlightDataStream>* stream) override {
-    if (request.ticket != "foo") {
+    if (request.ticket != "align-data") {
       return Status::KeyError("Could not find flight: ", request.ticket);
     }
     auto record_batch = RecordBatchFromJSON(BuildSchema(), R"([
