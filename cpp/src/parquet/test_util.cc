@@ -248,7 +248,7 @@ std::optional<std::pair<double, double>> GetWKBPointCoordinateXY(const ByteArray
   }
 
   uint32_t expected_geom_type =
-      GeometryTypeToWKB(geometry::GeometryType::kPoint, false, false);
+      GeometryTypeToWKB(geometry::GeometryType::kPoint, /*has_z=*/false, /*has_m=*/false);
   uint32_t geom_type = 0;
   std::memcpy(&geom_type, &value.ptr[1], 4);
   if (geom_type != expected_geom_type) {
