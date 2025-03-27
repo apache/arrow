@@ -24,7 +24,6 @@
 #include "arrow/array.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/unreachable.h"
 #include "arrow/visit_type_inline.h"
 #include "parquet/chunker_internal_generated.h"
 #include "parquet/exception.h"
@@ -331,10 +330,7 @@ class ContentDefinedChunker::Impl {
                                int64_t num_levels, const ::arrow::Array& values) {
     auto handle_type = [&](auto&& type) -> std::vector<Chunk> {
       using ArrowType = std::decay_t<decltype(type)>;
-      if constexpr (std::is_same<::arrow::DataType, ArrowType>::value) {
-        // TODO(kszucs): this branch should be removed once #45816 is resolved
-        ::arrow::Unreachable("DataType is not a concrete type");
-      } else if constexpr (ArrowType::type_id == ::arrow::Type::NA) {
+      if constexpr (ArrowType::type_id == ::arrow::Type::NA) {
         return Calculate(def_levels, rep_levels, num_levels, [](int64_t) {});
       } else if constexpr (ArrowType::type_id == ::arrow::Type::BOOL) {
         const auto& array = static_cast<const ::arrow::BooleanArray&>(values);
