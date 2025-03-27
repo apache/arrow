@@ -88,6 +88,7 @@ arrow_python_lib = shared_library(
     cpp_args: '-DARROW_PYTHON_EXPORTING',
     override_options: ['b_lundef=false'],
     install: true,
+    install_dir: py.get_install_dir() / 'pyarrow',
 )
 
 cython_modules = {
@@ -164,6 +165,7 @@ if get_option('parquet').enabled()
             cpp_args: '-DARROW_PYTHON_PARQUET_ENCRYPTION_EXPORTING',
             override_options: ['b_lundef=false'],
             install: true,
+            install_dir: py.get_install_dir() / 'pyarrow',
         )
 
         arrow_encryption_dep = declare_dependency(
@@ -221,6 +223,7 @@ if get_option('flight').enabled()
         cpp_args: '-DARROW_PYFLIGHT_EXPORTING',
         override_options: ['b_lundef=false'],
         install: true,
+        install_dir: py.get_install_dir() / 'pyarrow',
     )
 
     arrow_flight_dep = declare_dependency(link_with: flight_lib)
