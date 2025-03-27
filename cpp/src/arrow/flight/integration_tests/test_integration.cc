@@ -303,25 +303,14 @@ class AlignmentServer : public FlightServerBase {
 
   Status DoGet(const ServerCallContext& context, const Ticket& request,
                std::unique_ptr<FlightDataStream>* stream) override {
-    ARROW_ASSIGN_OR_RAISE(auto builder, RecordBatchBuilder::Make(
-                                            BuildSchema(), arrow::default_memory_pool()));
-    if (request.ticket == "foo") {
-      auto int32_builder = builder->GetFieldAs<Int32Builder>(0);
-      ARROW_RETURN_NOT_OK(int32_builder->Append(1));
-      ARROW_RETURN_NOT_OK(int32_builder->Append(2));
-      ARROW_RETURN_NOT_OK(int32_builder->Append(3));
-      auto int64_builder = builder->GetFieldAs<Int64Builder>(1);
-      ARROW_RETURN_NOT_OK(int64_builder->Append(1l));
-      ARROW_RETURN_NOT_OK(int64_builder->Append(2l));
-      ARROW_RETURN_NOT_OK(int64_builder->Append(3l));
-      auto bool_builder = builder->GetFieldAs<BooleanBuilder>(2);
-      ARROW_RETURN_NOT_OK(bool_builder->Append(false));
-      ARROW_RETURN_NOT_OK(bool_builder->Append(true));
-      ARROW_RETURN_NOT_OK(bool_builder->Append(false));
-    } else {
+    if (request.ticket != "foo") {
       return Status::KeyError("Could not find flight: ", request.ticket);
     }
-    ARROW_ASSIGN_OR_RAISE(auto record_batch, builder->Flush());
+    auto record_batch = RecordBatchFromJSON(BuildSchema(), R"([
+      [1, 1, false],
+      [2, 2, true],
+      [3, 3, false]
+    ])");
     std::vector<std::shared_ptr<RecordBatch>> record_batches{record_batch};
     ARROW_ASSIGN_OR_RAISE(auto record_batch_reader,
                           RecordBatchReader::Make(record_batches));
@@ -455,25 +444,16 @@ class OrderedServer : public FlightServerBase {
 
   Status DoGet(const ServerCallContext& context, const Ticket& request,
                std::unique_ptr<FlightDataStream>* stream) override {
-    ARROW_ASSIGN_OR_RAISE(auto builder, RecordBatchBuilder::Make(
-                                            BuildSchema(), arrow::default_memory_pool()));
-    auto number_builder = builder->GetFieldAs<Int32Builder>(0);
+    std::shared_ptr<RecordBatch> record_batch;
     if (request.ticket == "1") {
-      ARROW_RETURN_NOT_OK(number_builder->Append(1));
-      ARROW_RETURN_NOT_OK(number_builder->Append(2));
-      ARROW_RETURN_NOT_OK(number_builder->Append(3));
+      record_batch = RecordBatchFromJSON(BuildSchema(), "[[1], [2], [3]]");
     } else if (request.ticket == "2") {
-      ARROW_RETURN_NOT_OK(number_builder->Append(10));
-      ARROW_RETURN_NOT_OK(number_builder->Append(20));
-      ARROW_RETURN_NOT_OK(number_builder->Append(30));
+      record_batch = RecordBatchFromJSON(BuildSchema(), "[[10], [20], [30]]");
     } else if (request.ticket == "3") {
-      ARROW_RETURN_NOT_OK(number_builder->Append(100));
-      ARROW_RETURN_NOT_OK(number_builder->Append(200));
-      ARROW_RETURN_NOT_OK(number_builder->Append(300));
+      record_batch = RecordBatchFromJSON(BuildSchema(), "[[100], [200], [300]]");
     } else {
       return Status::KeyError("Could not find flight: ", request.ticket);
     }
-    ARROW_ASSIGN_OR_RAISE(auto record_batch, builder->Flush());
     std::vector<std::shared_ptr<RecordBatch>> record_batches{record_batch};
     ARROW_ASSIGN_OR_RAISE(auto record_batch_reader,
                           RecordBatchReader::Make(record_batches));
@@ -529,19 +509,9 @@ class OrderedScenario : public Scenario {
 
     // Build expected table
     auto schema = arrow::schema({arrow::field("number", arrow::int32(), false)});
-    ARROW_ASSIGN_OR_RAISE(auto builder,
-                          RecordBatchBuilder::Make(schema, arrow::default_memory_pool()));
-    auto number_builder = builder->GetFieldAs<Int32Builder>(0);
-    ARROW_RETURN_NOT_OK(number_builder->Append(1));
-    ARROW_RETURN_NOT_OK(number_builder->Append(2));
-    ARROW_RETURN_NOT_OK(number_builder->Append(3));
-    ARROW_RETURN_NOT_OK(number_builder->Append(10));
-    ARROW_RETURN_NOT_OK(number_builder->Append(20));
-    ARROW_RETURN_NOT_OK(number_builder->Append(30));
-    ARROW_RETURN_NOT_OK(number_builder->Append(100));
-    ARROW_RETURN_NOT_OK(number_builder->Append(200));
-    ARROW_RETURN_NOT_OK(number_builder->Append(300));
-    ARROW_ASSIGN_OR_RAISE(auto expected_record_batch, builder->Flush());
+    auto expected_record_batch = RecordBatchFromJSON(schema, R"([
+      [1], [2], [3], [10], [20], [30], [100], [200], [300]
+    ])");
     std::vector<std::shared_ptr<RecordBatch>> expected_record_batches{
         expected_record_batch};
     ARROW_ASSIGN_OR_RAISE(auto expected_table,
@@ -629,11 +599,8 @@ class ExpirationTimeServer : public FlightServerBase {
       }
     }
     status.num_gets++;
-    ARROW_ASSIGN_OR_RAISE(auto builder, RecordBatchBuilder::Make(
-                                            BuildSchema(), arrow::default_memory_pool()));
-    auto number_builder = builder->GetFieldAs<UInt32Builder>(0);
-    ARROW_RETURN_NOT_OK(number_builder->Append(index));
-    ARROW_ASSIGN_OR_RAISE(auto record_batch, builder->Flush());
+    auto record_batch =
+        RecordBatchFromJSON(BuildSchema(), "[[" + std::to_string(index) + "]]");
     std::vector<std::shared_ptr<RecordBatch>> record_batches{record_batch};
     ARROW_ASSIGN_OR_RAISE(auto record_batch_reader,
                           RecordBatchReader::Make(record_batches));
@@ -760,13 +727,7 @@ class ExpirationTimeDoGetScenario : public Scenario {
 
     // Build expected table
     auto schema = arrow::schema({arrow::field("number", arrow::uint32(), false)});
-    ARROW_ASSIGN_OR_RAISE(auto builder,
-                          RecordBatchBuilder::Make(schema, arrow::default_memory_pool()));
-    auto number_builder = builder->GetFieldAs<UInt32Builder>(0);
-    ARROW_RETURN_NOT_OK(number_builder->Append(0));
-    ARROW_RETURN_NOT_OK(number_builder->Append(1));
-    ARROW_RETURN_NOT_OK(number_builder->Append(2));
-    ARROW_ASSIGN_OR_RAISE(auto expected_record_batch, builder->Flush());
+    auto expected_record_batch = RecordBatchFromJSON(schema, "[[0], [1], [2]]");
     std::vector<std::shared_ptr<RecordBatch>> expected_record_batches{
         expected_record_batch};
     ARROW_ASSIGN_OR_RAISE(auto expected_table,
