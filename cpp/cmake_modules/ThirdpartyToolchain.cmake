@@ -5512,6 +5512,9 @@ function(build_azure_sdk)
   set(BUILD_WINDOWS_UWP TRUE)
   # ICU 75.1 or later requires C++17 but Azure SDK for C++ still uses
   # C++14. So we disable C++ API in ICU.
+  #
+  # We can remove this after
+  # https://github.com/Azure/azure-sdk-for-cpp/pull/6486 is merged.
   string(APPEND CMAKE_CXX_FLAGS " -DU_SHOW_CPLUSPLUS_API=0")
   set(CMAKE_UNITY_BUILD FALSE)
   set(DISABLE_AZURE_CORE_OPENTELEMETRY TRUE)
