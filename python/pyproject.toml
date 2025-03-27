@@ -29,7 +29,7 @@ requires = [
     "meson-python",
     # configuring setuptools_scm in pyproject.toml requires
     # versions released after 2022
-    "setuptools_scm[toml]>=8",    
+    "setuptools_scm[toml]>=8",
 ]
 build-backend = "mesonpy"
 
