@@ -1922,6 +1922,10 @@ TEST_F(TestGeometryValuesWriter, TestWriteAndRead) {
     EXPECT_EQ(*xy, (std::pair<double, double>(expected_x, expected_y)));
   }
 
+  // Statistics are unset because the sort order is unknown
+  ASSERT_FALSE(metadata_accessor()->is_stats_set());
+  ASSERT_EQ(metadata_accessor()->statistics(), nullptr);
+
   ASSERT_TRUE(metadata_accessor()->is_geo_stats_set());
   std::shared_ptr<GeoStatistics> geospatial_statistics = metadata_geo_stats();
   ASSERT_TRUE(geospatial_statistics != nullptr);
