@@ -28,6 +28,7 @@ from pyarrow.lib import frombytes, tobytes, ArrowInvalid
 from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_compute cimport *
 import pyarrow.lib as lib
 from pyarrow.util import _DEPR_MSG
 from libcpp cimport bool as c_bool
