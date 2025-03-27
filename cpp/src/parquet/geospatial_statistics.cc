@@ -16,6 +16,7 @@
 // under the License.
 
 #include "parquet/geospatial_statistics.h"
+
 #include <cmath>
 #include <memory>
 
