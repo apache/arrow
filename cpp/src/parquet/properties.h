@@ -915,7 +915,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
         coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO),
         arrow_extensions_enabled_(false),
         should_load_statistics_(false),
-        convert_undefined_logical_types_(false) {}
+        allow_undefined_logical_types_(false) {}
 
   /// \brief Set whether to use the IO thread pool to parse columns in parallel.
   ///
@@ -1013,13 +1013,11 @@ class PARQUET_EXPORT ArrowReaderProperties {
   /// When enabled, the Arrow reader will use the underlying physical type to deduce the
   /// Arrow type when the logical type is not recognized (e.g., one that was added to the
   /// spec but not implemented in Parquet C++).
-  void set_convert_undefined_logical_types(bool convert_undefined_logical_types) {
-    convert_undefined_logical_types_ = convert_undefined_logical_types;
+  void set_allow_undefined_logical_types(bool allow_undefined_logical_types) {
+    allow_undefined_logical_types_ = allow_undefined_logical_types;
   }
   /// Return whether undefined logical types should be interpreted as their physical type
-  bool convert_undefined_logical_types() const {
-    return convert_undefined_logical_types_;
-  }
+  bool allow_undefined_logical_types() const { return allow_undefined_logical_types_; }
 
  private:
   bool use_threads_;
@@ -1031,7 +1029,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   ::arrow::TimeUnit::type coerce_int96_timestamp_unit_;
   bool arrow_extensions_enabled_;
   bool should_load_statistics_;
-  bool convert_undefined_logical_types_;
+  bool allow_undefined_logical_types_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties

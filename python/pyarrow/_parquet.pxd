@@ -404,8 +404,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         CCacheOptions cache_options() const
         void set_coerce_int96_timestamp_unit(TimeUnit unit)
         TimeUnit coerce_int96_timestamp_unit() const
-        void set_convert_undefined_logical_types(c_bool convert_undefined_logical_types)
-        c_bool convert_undefined_logical_types() const
+        void set_allow_undefined_logical_types(c_bool allow_undefined_logical_types)
+        c_bool allow_undefined_logical_types() const
 
     ArrowReaderProperties default_arrow_reader_properties()
 

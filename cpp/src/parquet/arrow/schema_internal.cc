@@ -196,13 +196,13 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
   }
 
   if (logical_type.is_invalid()) {
-    if (reader_properties.convert_undefined_logical_types()) {
+    if (reader_properties.allow_undefined_logical_types()) {
       return GetArrowType(physical_type, *NoLogicalType::Make(), type_length,
                           reader_properties);
     }
 
     return Status::NotImplemented(
-        "logical type Undefined with convert_undefined_logical_types=false");
+        "logical type Undefined with allow_undefined_logical_types=false");
   }
 
   switch (physical_type) {
