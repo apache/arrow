@@ -14,12 +14,13 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-from archery.utils.source import ArrowSources
-from archery.crossbow import Config, Queue
+from __future__ import annotations
 
 import pathlib
 from unittest import mock
+
+from archery.crossbow import Config, Queue
+from archery.utils.source import ArrowSources
 
 
 def test_config():
@@ -29,8 +30,9 @@ def test_config():
 
 
 def test_task_select(request):
-    conf = Config.load_yaml(pathlib.Path(
-        request.node.fspath).parent / "fixtures" / "tasks.yaml")
+    conf = Config.load_yaml(
+        pathlib.Path(request.node.fspath).parent / "fixtures" / "tasks.yaml"
+    )
     conf.validate()
 
     test_out = conf.select(tasks=["test-a-test-two"])
@@ -38,8 +40,9 @@ def test_task_select(request):
 
 
 def test_group_select(request):
-    conf = Config.load_yaml(pathlib.Path(
-        request.node.fspath).parent / "fixtures" / "tasks.yaml")
+    conf = Config.load_yaml(
+        pathlib.Path(request.node.fspath).parent / "fixtures" / "tasks.yaml"
+    )
     conf.validate()
 
     test_out = conf.select(groups=["test"])
@@ -47,8 +50,9 @@ def test_group_select(request):
 
 
 def test_group_select_blocklist(request):
-    conf = Config.load_yaml(pathlib.Path(
-        request.node.fspath).parent / "fixtures" / "tasks.yaml")
+    conf = Config.load_yaml(
+        pathlib.Path(request.node.fspath).parent / "fixtures" / "tasks.yaml"
+    )
     conf.validate()
 
     # we respect the nightly blocklist
@@ -57,19 +61,22 @@ def test_group_select_blocklist(request):
 
     # but if a task is not blocked in both groups, it shows up at least once
     test_nightly_out = conf.select(groups=["nightly", "test"])
-    assert test_nightly_out.keys() >= {
-        "test-a-test-two", "test-a-test", "nightly-fine"}
+    assert test_nightly_out.keys() >= {"test-a-test-two", "test-a-test", "nightly-fine"}
 
     # but can then over-ride by requesting the task
     test_nightly_out = conf.select(
-        tasks=["nightly-not-fine", "nightly-fine"], groups=["nightly", "test"])
+        tasks=["nightly-not-fine", "nightly-fine"], groups=["nightly", "test"]
+    )
     assert test_nightly_out.keys() >= {
-        "test-a-test-two", "test-a-test", "nightly-fine", "nightly-not-fine"}
+        "test-a-test-two",
+        "test-a-test",
+        "nightly-fine",
+        "nightly-not-fine",
+    }
 
     # and we can glob with the blocklist too!
     test_nightly_no_test_out = conf.select(groups=["nightly-no-test"])
-    assert test_nightly_no_test_out.keys(
-    ) >= {"nightly-fine", "nightly-not-fine"}
+    assert test_nightly_no_test_out.keys() >= {"nightly-fine", "nightly-not-fine"}
 
 
 def test_latest_for_prefix(request):
@@ -81,8 +88,7 @@ def test_latest_for_prefix(request):
         ]
         with mock.patch("archery.crossbow.core.Queue.get") as mocked_get:
             queue.latest_for_prefix("nightly-packaging-2022-04-10")
-            mocked_get.assert_called_once_with(
-                "nightly-packaging-2022-04-10-0")
+            mocked_get.assert_called_once_with("nightly-packaging-2022-04-10-0")
 
     with mock.patch("archery.crossbow.core.Repo.repo") as mocked_repo:
         mocked_repo.branches = [
@@ -91,5 +97,4 @@ def test_latest_for_prefix(request):
         ]
         with mock.patch("archery.crossbow.core.Queue.get") as mocked_get:
             queue.latest_for_prefix("nightly-packaging")
-            mocked_get.assert_called_once_with(
-                "nightly-packaging-2022-04-11-0")
+            mocked_get.assert_called_once_with("nightly-packaging-2022-04-11-0")

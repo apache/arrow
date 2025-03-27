@@ -14,17 +14,14 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import json
 
 from archery.benchmark.codec import JsonEncoder
+from archery.benchmark.compare import BenchmarkComparator, RunnerComparator
 from archery.benchmark.core import Benchmark, median
-from archery.benchmark.compare import (
-    BenchmarkComparator, RunnerComparator
-)
-from archery.benchmark.google import (
-    GoogleBenchmark, GoogleBenchmarkObservation
-)
+from archery.benchmark.google import GoogleBenchmark, GoogleBenchmarkObservation
 from archery.benchmark.runner import StaticBenchmarkRunner
 
 
@@ -62,15 +59,11 @@ def test_static_runner_from_json_not_a_regression():
                         "name": "FloatParsing<DoubleType>",
                         "unit": "items_per_second",
                         "less_is_better": False,
-                        "values": [
-                            109941112.87296811
-                        ],
+                        "values": [109941112.87296811],
                         "time_unit": "ns",
-                        "times": [
-                            9095.800104330105
-                        ]
-                    },
-                ]
+                        "times": [9095.800104330105],
+                    }
+                ],
             }
         ]
     }
@@ -97,7 +90,7 @@ def test_static_runner_from_json_multiple_values_not_a_regression():
                             94873831.3818328,
                             95593675.20810866,
                             95797325.6543961,
-                            96134728.05794072
+                            96134728.05794072,
                         ],
                         "time_unit": "ns",
                         "times": [
@@ -105,7 +98,7 @@ def test_static_runner_from_json_multiple_values_not_a_regression():
                             10575.162068480413,
                             10599.271208720838,
                             10679.028059166194,
-                            10827.995119861762
+                            10827.995119861762,
                         ],
                         "counters": {
                             "family_index": 0,
@@ -114,10 +107,10 @@ def test_static_runner_from_json_multiple_values_not_a_regression():
                             "repetitions": 5,
                             "repetition_index": 0,
                             "threads": 1,
-                            "iterations": 10656
-                        }
+                            "iterations": 10656,
+                        },
                     }
-                ]
+                ],
             }
         ]
     }
@@ -138,15 +131,11 @@ def test_static_runner_from_json_regression():
                         "name": "FloatParsing<DoubleType>",
                         "unit": "items_per_second",
                         "less_is_better": False,
-                        "values": [
-                            109941112.87296811
-                        ],
+                        "values": [109941112.87296811],
                         "time_unit": "ns",
-                        "times": [
-                            9095.800104330105
-                        ]
-                    },
-                ]
+                        "times": [9095.800104330105],
+                    }
+                ],
             }
         ]
     }
@@ -154,7 +143,7 @@ def test_static_runner_from_json_regression():
     contender = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
 
     # introduce artificial regression
-    archery_result['suites'][0]['benchmarks'][0]['values'][0] *= 2
+    archery_result["suites"][0]["benchmarks"][0]["values"][0] *= 2
     baseline = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
 
     [comparison] = RunnerComparator(contender, baseline).comparisons
@@ -177,7 +166,7 @@ def test_static_runner_from_json_multiple_values_regression():
                             94873831.3818328,
                             95593675.20810866,
                             95797325.6543961,
-                            96134728.05794072
+                            96134728.05794072,
                         ],
                         "time_unit": "ns",
                         "times": [
@@ -185,7 +174,7 @@ def test_static_runner_from_json_multiple_values_regression():
                             10575.162068480413,
                             10599.271208720838,
                             10679.028059166194,
-                            10827.995119861762
+                            10827.995119861762,
                         ],
                         "counters": {
                             "family_index": 0,
@@ -194,10 +183,10 @@ def test_static_runner_from_json_multiple_values_regression():
                             "repetitions": 5,
                             "repetition_index": 0,
                             "threads": 1,
-                            "iterations": 10656
-                        }
+                            "iterations": 10656,
+                        },
                     }
-                ]
+                ],
             }
         ]
     }
@@ -205,7 +194,7 @@ def test_static_runner_from_json_multiple_values_regression():
     contender = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
 
     # introduce artificial regression
-    values = archery_result['suites'][0]['benchmarks'][0]['values']
+    values = archery_result["suites"][0]["benchmarks"][0]["values"]
     values[:] = [v * 2 for v in values]
     baseline = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
 
@@ -221,7 +210,7 @@ def test_benchmark_median():
     assert median([1, 1, 1, 1]) == 1
     try:
         median([])
-        assert False
+        raise AssertionError()
     except ValueError:
         pass
 
@@ -251,12 +240,14 @@ def test_items_per_second():
         "time_unit": "ns",
     }
     archery_result = {
-        "counters": {"iterations": 5964,
-                     "null_percent": 0.0,
-                     "repetition_index": 0,
-                     "repetitions": 0,
-                     "run_name": name,
-                     "threads": 1},
+        "counters": {
+            "iterations": 5964,
+            "null_percent": 0.0,
+            "repetition_index": 0,
+            "repetitions": 0,
+            "run_name": name,
+            "threads": 1,
+        },
         "name": name,
         "unit": "items_per_second",
         "less_is_better": False,
@@ -285,11 +276,13 @@ def test_bytes_per_second():
         "time_unit": "ns",
     }
     archery_result = {
-        "counters": {"iterations": 47,
-                     "repetition_index": 1,
-                     "repetitions": 0,
-                     "run_name": name,
-                     "threads": 1},
+        "counters": {
+            "iterations": 47,
+            "repetition_index": 1,
+            "repetitions": 0,
+            "run_name": name,
+            "threads": 1,
+        },
         "name": name,
         "unit": "bytes_per_second",
         "less_is_better": False,
@@ -322,12 +315,14 @@ def test_both_items_and_bytes_per_second():
     }
     # Note that bytes_per_second trumps items_per_second
     archery_result = {
-        "counters": {"iterations": 5964,
-                     "null_percent": 0.0,
-                     "repetition_index": 0,
-                     "repetitions": 0,
-                     "run_name": name,
-                     "threads": 1},
+        "counters": {
+            "iterations": 5964,
+            "null_percent": 0.0,
+            "repetition_index": 0,
+            "repetitions": 0,
+            "run_name": name,
+            "threads": 1,
+        },
         "name": name,
         "unit": "bytes_per_second",
         "less_is_better": False,
@@ -355,11 +350,13 @@ def test_neither_items_nor_bytes_per_second():
         "time_unit": "ns",
     }
     archery_result = {
-        "counters": {"iterations": 352765,
-                     "repetition_index": 0,
-                     "repetitions": 0,
-                     "run_name": name,
-                     "threads": 1},
+        "counters": {
+            "iterations": 352765,
+            "repetition_index": 0,
+            "repetitions": 0,
+            "run_name": name,
+            "threads": 1,
+        },
         "name": name,
         "unit": "ns",
         "less_is_better": True,
@@ -387,11 +384,13 @@ def test_prefer_real_time():
         "time_unit": "ns",
     }
     archery_result = {
-        "counters": {"iterations": 352765,
-                     "repetition_index": 0,
-                     "repetitions": 0,
-                     "run_name": name,
-                     "threads": 1},
+        "counters": {
+            "iterations": 352765,
+            "repetition_index": 0,
+            "repetitions": 0,
+            "run_name": name,
+            "threads": 1,
+        },
         "name": name,
         "unit": "ns",
         "less_is_better": True,
@@ -418,11 +417,13 @@ def test_prefer_cpu_time():
         "time_unit": "ns",
     }
     archery_result = {
-        "counters": {"iterations": 352765,
-                     "repetition_index": 0,
-                     "repetitions": 0,
-                     "run_name": name,
-                     "threads": 1},
+        "counters": {
+            "iterations": 352765,
+            "repetition_index": 0,
+            "repetitions": 0,
+            "run_name": name,
+            "threads": 1,
+        },
         "name": name,
         "unit": "ns",
         "less_is_better": True,
@@ -461,11 +462,13 @@ def test_omits_aggregates():
         "time_unit": "ns",
     }
     archery_result = {
-        "counters": {"iterations": 352765,
-                     "repetition_index": 0,
-                     "repetitions": 0,
-                     "run_name": name,
-                     "threads": 1},
+        "counters": {
+            "iterations": 352765,
+            "repetition_index": 0,
+            "repetitions": 0,
+            "run_name": name,
+            "threads": 1,
+        },
         "name": name,
         "unit": "ns",
         "less_is_better": True,
@@ -486,68 +489,68 @@ def test_multiple_observations():
     name = "FloatParsing<DoubleType>"
     google_results = [
         {
-            'cpu_time': 10627.38199641615,
-            'family_index': 0,
-            'items_per_second': 94096551.75067839,
-            'iterations': 9487,
-            'name': 'FloatParsing<DoubleType>',
-            'per_family_instance_index': 0,
-            'real_time': 10628.84905663701,
-            'repetition_index': 0,
-            'repetitions': 3,
-            'run_name': 'FloatParsing<DoubleType>',
-            'run_type': 'iteration',
-            'threads': 1,
-            'time_unit': 'ns'
+            "cpu_time": 10627.38199641615,
+            "family_index": 0,
+            "items_per_second": 94096551.75067839,
+            "iterations": 9487,
+            "name": "FloatParsing<DoubleType>",
+            "per_family_instance_index": 0,
+            "real_time": 10628.84905663701,
+            "repetition_index": 0,
+            "repetitions": 3,
+            "run_name": "FloatParsing<DoubleType>",
+            "run_type": "iteration",
+            "threads": 1,
+            "time_unit": "ns",
         },
         {
-            'cpu_time': 10633.318014124594,
-            'family_index': 0,
-            'items_per_second': 94044022.63448404,
-            'iterations': 9487,
-            'name': 'FloatParsing<DoubleType>',
-            'per_family_instance_index': 0,
-            'real_time': 10634.858754122948,
-            'repetition_index': 1,
-            'repetitions': 3,
-            'run_name': 'FloatParsing<DoubleType>',
-            'run_type': 'iteration',
-            'threads': 1,
-            'time_unit': 'ns'
+            "cpu_time": 10633.318014124594,
+            "family_index": 0,
+            "items_per_second": 94044022.63448404,
+            "iterations": 9487,
+            "name": "FloatParsing<DoubleType>",
+            "per_family_instance_index": 0,
+            "real_time": 10634.858754122948,
+            "repetition_index": 1,
+            "repetitions": 3,
+            "run_name": "FloatParsing<DoubleType>",
+            "run_type": "iteration",
+            "threads": 1,
+            "time_unit": "ns",
         },
         {
-            'cpu_time': 10664.315484347,
-            'family_index': 0,
-            'items_per_second': 93770669.24434038,
-            'iterations': 9487,
-            'name': 'FloatParsing<DoubleType>',
-            'per_family_instance_index': 0,
-            'real_time': 10665.584589337563,
-            'repetition_index': 2,
-            'repetitions': 3,
-            'run_name': 'FloatParsing<DoubleType>',
-            'run_type': 'iteration',
-            'threads': 1,
-            'time_unit': 'ns'
-        }
+            "cpu_time": 10664.315484347,
+            "family_index": 0,
+            "items_per_second": 93770669.24434038,
+            "iterations": 9487,
+            "name": "FloatParsing<DoubleType>",
+            "per_family_instance_index": 0,
+            "real_time": 10665.584589337563,
+            "repetition_index": 2,
+            "repetitions": 3,
+            "run_name": "FloatParsing<DoubleType>",
+            "run_type": "iteration",
+            "threads": 1,
+            "time_unit": "ns",
+        },
     ]
 
     archery_result = {
-        'counters': {
-            'family_index': 0,
-            'iterations': 9487,
-            'per_family_instance_index': 0,
-            'repetition_index': 2,
-            'repetitions': 3,
-            'run_name': 'FloatParsing<DoubleType>',
-            'threads': 1
+        "counters": {
+            "family_index": 0,
+            "iterations": 9487,
+            "per_family_instance_index": 0,
+            "repetition_index": 2,
+            "repetitions": 3,
+            "run_name": "FloatParsing<DoubleType>",
+            "threads": 1,
         },
-        'less_is_better': False,
-        'name': 'FloatParsing<DoubleType>',
-        'time_unit': 'ns',
-        'times': [10628.84905663701, 10634.858754122948, 10665.584589337563],
-        'unit': 'items_per_second',
-        'values': [93770669.24434038, 94044022.63448404, 94096551.75067839]
+        "less_is_better": False,
+        "name": "FloatParsing<DoubleType>",
+        "time_unit": "ns",
+        "times": [10628.84905663701, 10634.858754122948, 10665.584589337563],
+        "unit": "items_per_second",
+        "values": [93770669.24434038, 94044022.63448404, 94096551.75067839],
     }
 
     observations = [GoogleBenchmarkObservation(**g) for g in google_results]

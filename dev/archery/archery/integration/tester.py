@@ -16,25 +16,24 @@
 # under the License.
 
 # Base class for language-specific integration test harnesses
+from __future__ import annotations
 
-from abc import ABC, abstractmethod
-import os
 import subprocess
 import typing
+from abc import ABC, abstractmethod
 
 from .util import log
 
+if typing.TYPE_CHECKING:
+    import os
 
 _Predicate = typing.Callable[[], bool]
 
 
 class CDataExporter(ABC):
-
     @abstractmethod
-    def export_schema_from_json(self, json_path: os.PathLike,
-                                c_schema_ptr: object):
-        """
-        Read a JSON integration file and export its schema.
+    def export_schema_from_json(self, json_path: os.PathLike, c_schema_ptr: object):
+        """Read a JSON integration file and export its schema.
 
         Parameters
         ----------
@@ -45,11 +44,10 @@ class CDataExporter(ABC):
         """
 
     @abstractmethod
-    def export_batch_from_json(self, json_path: os.PathLike,
-                               num_batch: int,
-                               c_array_ptr: object):
-        """
-        Read a JSON integration file and export one of its batches.
+    def export_batch_from_json(
+        self, json_path: os.PathLike, num_batch: int, c_array_ptr: object
+    ):
+        """Read a JSON integration file and export one of its batches.
 
         Parameters
         ----------
@@ -64,8 +62,7 @@ class CDataExporter(ABC):
     @property
     @abstractmethod
     def supports_releasing_memory(self) -> bool:
-        """
-        Whether the implementation is able to release memory deterministically.
+        """Whether the implementation is able to release memory deterministically.
 
         Here, "release memory" means that, after the `release` callback of
         a C Data Interface export is called, `run_gc` is able to trigger
@@ -76,8 +73,7 @@ class CDataExporter(ABC):
         """
 
     def record_allocation_state(self) -> object:
-        """
-        Return the current memory allocation state.
+        """Return the current memory allocation state.
 
         Returns
         -------
@@ -88,8 +84,7 @@ class CDataExporter(ABC):
         raise NotImplementedError
 
     def run_gc(self):
-        """
-        Run the GC if necessary.
+        """Run the GC if necessary.
 
         This should ensure that any temporary objects and data created by
         previous exporter calls are collected.
@@ -97,17 +92,14 @@ class CDataExporter(ABC):
 
     @property
     def required_gc_runs(self):
-        """
-        The maximum number of calls to `run_gc` that need to be issued to
+        """The maximum number of calls to `run_gc` that need to be issued to
         ensure proper deallocation. Some implementations may require this
         to be greater than one.
         """
         return 1
 
     def close(self):
-        """
-        Final cleanup after usage.
-        """
+        """Final cleanup after usage."""
 
     def __enter__(self):
         return self
@@ -117,12 +109,11 @@ class CDataExporter(ABC):
 
 
 class CDataImporter(ABC):
-
     @abstractmethod
-    def import_schema_and_compare_to_json(self, json_path: os.PathLike,
-                                          c_schema_ptr: object):
-        """
-        Import schema and compare it to the schema of a JSON integration file.
+    def import_schema_and_compare_to_json(
+        self, json_path: os.PathLike, c_schema_ptr: object
+    ):
+        """Import schema and compare it to the schema of a JSON integration file.
 
         An error is raised if importing fails or the schemas differ.
 
@@ -135,11 +126,10 @@ class CDataImporter(ABC):
         """
 
     @abstractmethod
-    def import_batch_and_compare_to_json(self, json_path: os.PathLike,
-                                         num_batch: int,
-                                         c_array_ptr: object):
-        """
-        Import record batch and compare it to one of the batches
+    def import_batch_and_compare_to_json(
+        self, json_path: os.PathLike, num_batch: int, c_array_ptr: object
+    ):
+        """Import record batch and compare it to one of the batches
         from a JSON integration file.
 
         The schema used for importing the record batch is the one from
@@ -160,8 +150,7 @@ class CDataImporter(ABC):
     @property
     @abstractmethod
     def supports_releasing_memory(self) -> bool:
-        """
-        Whether the implementation is able to release memory deterministically.
+        """Whether the implementation is able to release memory deterministically.
 
         Here, "release memory" means `run_gc()` is able to trigger the
         `release` callback of a C Data Interface export (which would then
@@ -169,40 +158,35 @@ class CDataImporter(ABC):
         """
 
     def run_gc(self):
-        """
-        Run the GC if necessary.
+        """Run the GC if necessary.
 
         This should ensure that any imported data has its release callback called.
         """
 
     @property
     def required_gc_runs(self):
-        """
-        The maximum number of calls to `run_gc` that need to be issued to
+        """The maximum number of calls to `run_gc` that need to be issued to
         ensure release callbacks are triggered. Some implementations may
         require this to be greater than one.
         """
         return 1
 
     def close(self):
-        """
-        Final cleanup after usage.
-        """
+        """Final cleanup after usage."""
 
     def __enter__(self):
         return self
 
     def __exit__(self, *exc):
         # Make sure any exported data is released.
-        for i in range(self.required_gc_runs):
+        for _i in range(self.required_gc_runs):
             self.run_gc()
         self.close()
 
 
 class Tester:
-    """
-    The interface to declare a tester to run integration tests against.
-    """
+    """The interface to declare a tester to run integration tests against."""
+
     # whether the language supports producing / writing IPC
     PRODUCER = False
     # whether the language supports consuming / reading IPC
@@ -226,35 +210,30 @@ class Tester:
         self.debug = debug
 
     def run_shell_command(self, cmd, **kwargs):
-        cmd = ' '.join(cmd)
+        cmd = " ".join(cmd)
         if self.debug:
             log(cmd)
-        kwargs.update(shell=True)
+        kwargs.update(shell=True)  # noqa: S604
         subprocess.check_call(cmd, **kwargs)
 
     def json_to_file(self, json_path, arrow_path):
-        """
-        Run the conversion of an Arrow JSON integration file
+        """Run the conversion of an Arrow JSON integration file
         to an Arrow IPC file
         """
         raise NotImplementedError
 
     def stream_to_file(self, stream_path, file_path):
-        """
-        Run the conversion of an Arrow IPC stream to an
+        """Run the conversion of an Arrow IPC stream to an
         Arrow IPC file
         """
         raise NotImplementedError
 
     def file_to_stream(self, file_path, stream_path):
-        """
-        Run the conversion of an Arrow IPC file to an Arrow IPC stream
-        """
+        """Run the conversion of an Arrow IPC file to an Arrow IPC stream"""
         raise NotImplementedError
 
     def validate(self, json_path, arrow_path, quirks=None):
-        """
-        Validate that the Arrow IPC file is equal to the corresponding
+        """Validate that the Arrow IPC file is equal to the corresponding
         Arrow JSON integration file
         """
         raise NotImplementedError

@@ -14,12 +14,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import platform
 import subprocess
 
 from .utils.command import Command
-
 
 _ldd = Command("ldd")
 _otool = Command("otool")
@@ -30,14 +30,11 @@ class DependencyError(Exception):
 
 
 class DynamicLibrary:
-
     def __init__(self, path):
         self.path = path
 
     def list_dependencies(self):
-        """
-        List the full name of the library dependencies.
-        """
+        """List the full name of the library dependencies."""
         system = platform.system()
         if system == "Linux":
             result = _ldd.run(self.path, stdout=subprocess.PIPE)
@@ -51,9 +48,7 @@ class DynamicLibrary:
             raise ValueError(f"{platform} is not supported")
 
     def list_dependency_names(self):
-        """
-        List the truncated names of the dynamic library dependencies.
-        """
+        """List the truncated names of the dynamic library dependencies."""
         names = []
         for dependency in self.list_dependencies():
             *_, library = dependency.rsplit("/", 1)

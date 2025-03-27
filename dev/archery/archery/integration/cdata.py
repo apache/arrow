@@ -14,14 +14,18 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-import cffi
-from contextlib import contextmanager
 import functools
 import os
 import sys
+from contextlib import contextmanager
+from typing import TYPE_CHECKING
 
-from .tester import CDataExporter, CDataImporter
+import cffi
+
+if TYPE_CHECKING:
+    from .tester import CDataExporter, CDataImporter
 
 
 if sys.platform == "darwin":
@@ -81,9 +85,7 @@ _c_data_decls = """
 
 @functools.lru_cache
 def ffi() -> cffi.FFI:
-    """
-    Return a FFI object supporting C Data Interface types.
-    """
+    """Return a FFI object supporting C Data Interface types."""
     ffi = cffi.FFI()
     ffi.cdef(_c_data_decls)
     return ffi
@@ -91,7 +93,7 @@ def ffi() -> cffi.FFI:
 
 def _release_memory_steps(exporter: CDataExporter, importer: CDataImporter):
     yield
-    for i in range(max(exporter.required_gc_runs, importer.required_gc_runs)):
+    for _i in range(max(exporter.required_gc_runs, importer.required_gc_runs)):
         importer.run_gc()
         yield
         exporter.run_gc()
@@ -100,8 +102,7 @@ def _release_memory_steps(exporter: CDataExporter, importer: CDataImporter):
 
 @contextmanager
 def check_memory_released(exporter: CDataExporter, importer: CDataImporter):
-    """
-    A context manager for memory release checks.
+    """A context manager for memory release checks.
 
     The context manager arranges cooperation between the exporter and importer
     to try and release memory at the end of the enclosed block.
@@ -109,8 +110,7 @@ def check_memory_released(exporter: CDataExporter, importer: CDataImporter):
     However, if either the exporter or importer doesn't support deterministic
     memory release, no memory check is performed.
     """
-    do_check = (exporter.supports_releasing_memory and
-                importer.supports_releasing_memory)
+    do_check = exporter.supports_releasing_memory and importer.supports_releasing_memory
     if do_check:
         before = exporter.record_allocation_state()
     yield
@@ -123,4 +123,5 @@ def check_memory_released(exporter: CDataExporter, importer: CDataImporter):
         if after != before:
             raise RuntimeError(
                 f"Memory was not released correctly after roundtrip: "
-                f"before = {before}, after = {after} (should have been equal)")
+                f"before = {before}, after = {after} (should have been equal)"
+            )

@@ -14,28 +14,25 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import functools
 import os
 
-from . import cdata
-from .tester import Tester, CDataExporter, CDataImporter
-from .util import run_cmd, log
 from ..utils.source import ARROW_ROOT_DEFAULT
-
+from . import cdata
+from .tester import CDataExporter, CDataImporter, Tester
+from .util import log, run_cmd
 
 _NANOARROW_PATH = os.environ.get(
-    "ARROW_NANOARROW_PATH",
-    os.path.join(ARROW_ROOT_DEFAULT, "nanoarrow/cdata"),
+    "ARROW_NANOARROW_PATH", os.path.join(ARROW_ROOT_DEFAULT, "nanoarrow/cdata")
 )
 
 _INTEGRATION_DLL = os.path.join(
     _NANOARROW_PATH, "libnanoarrow_c_data_integration" + cdata.dll_suffix
 )
 
-_INTEGRATION_EXE = os.path.join(
-    _NANOARROW_PATH, "nanoarrow_ipc_integration"
-)
+_INTEGRATION_EXE = os.path.join(_NANOARROW_PATH, "nanoarrow_ipc_integration")
 
 
 class NanoarrowTester(Tester):
@@ -52,37 +49,34 @@ class NanoarrowTester(Tester):
 
     def _run(self, arrow_path, json_path, command, quirks):
         env = {
-            'ARROW_PATH': arrow_path,
-            'JSON_PATH': json_path,
-            'COMMAND': command,
-            **{
-                f'QUIRK_{q}': "1"
-                for q in quirks or ()
-            },
+            "ARROW_PATH": arrow_path,
+            "JSON_PATH": json_path,
+            "COMMAND": command,
+            **{f"QUIRK_{q}": "1" for q in quirks or ()},
         }
 
         if self.debug:
-            log(f'{_INTEGRATION_EXE} {env}')
+            log(f"{_INTEGRATION_EXE} {env}")
 
         run_cmd([_INTEGRATION_EXE], env=env)
 
     def validate(self, json_path, arrow_path, quirks=None):
-        return self._run(arrow_path, json_path, 'VALIDATE', quirks)
+        return self._run(arrow_path, json_path, "VALIDATE", quirks)
 
     def json_to_file(self, json_path, arrow_path):
-        return self._run(arrow_path, json_path, 'JSON_TO_ARROW', quirks=None)
+        return self._run(arrow_path, json_path, "JSON_TO_ARROW", quirks=None)
 
     def stream_to_file(self, stream_path, file_path):
-        self.run_shell_command([_INTEGRATION_EXE, '<', stream_path], env={
-            'COMMAND': 'STREAM_TO_FILE',
-            'ARROW_PATH': file_path,
-        })
+        self.run_shell_command(
+            [_INTEGRATION_EXE, "<", stream_path],
+            env={"COMMAND": "STREAM_TO_FILE", "ARROW_PATH": file_path},
+        )
 
     def file_to_stream(self, file_path, stream_path):
-        self.run_shell_command([_INTEGRATION_EXE, '>', stream_path], env={
-            'COMMAND': 'FILE_TO_STREAM',
-            'ARROW_PATH': file_path,
-        })
+        self.run_shell_command(
+            [_INTEGRATION_EXE, ">", stream_path],
+            env={"COMMAND": "FILE_TO_STREAM", "ARROW_PATH": file_path},
+        )
 
     def make_c_data_exporter(self):
         return NanoarrowCDataExporter(self.debug, self.args)
@@ -123,8 +117,7 @@ class _CDataBase:
         self.dll = _load_ffi(self.ffi)
 
     def _check_nanoarrow_error(self, na_error):
-        """
-        Check a `const char*` error return from an integration entrypoint.
+        """Check a `const char*` error return from an integration entrypoint.
 
         A null means success, a non-empty string is an error message.
         The string is statically allocated on the nanoarrow side and does not

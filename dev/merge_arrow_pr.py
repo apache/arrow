@@ -33,23 +33,25 @@
 #   - ARROW_GITHUB_API_TOKEN: a GitHub API token to use for API requests
 #   - ARROW_GITHUB_ORG: the GitHub organisation ('apache' by default)
 #   - DEBUG: use for testing to avoid pushing to apache (0 by default)
+from __future__ import annotations
 
 import configparser
+import getpass
 import os
 import pprint
 import re
 import subprocess
 import sys
+
 import requests
-import getpass
 
 # Remote name which points to the GitHub site
 ORG_NAME = (
-    os.environ.get("ARROW_GITHUB_ORG") or
-    os.environ.get("PR_REMOTE_NAME") or  # backward compatibility
-    "apache"
+    os.environ.get("ARROW_GITHUB_ORG")
+    or os.environ.get("PR_REMOTE_NAME")  # backward compatibility
+    or "apache"
 )
-PROJECT_NAME = os.environ.get('ARROW_PROJECT_NAME') or "arrow"
+PROJECT_NAME = os.environ.get("ARROW_PROJECT_NAME") or "arrow"
 
 # For testing to avoid accidentally pushing to apache
 DEBUG = bool(int(os.environ.get("DEBUG", 0)))
@@ -67,7 +69,7 @@ def get_json(url, headers=None):
     # https://docs.github.com/en/rest/guides/using-pagination-in-the-rest-api#using-link-headers
     next_responses = None
     if "link" in response.headers:
-        links = response.headers['link'].split(', ')
+        links = response.headers["link"].split(", ")
         for link in links:
             if 'rel="next"' in link:
                 # Format: '<url>; rel="next"'
@@ -78,37 +80,37 @@ def get_json(url, headers=None):
         if isinstance(responses, list):
             responses.extend(next_responses)
         else:
-            raise ValueError('GitHub response was paginated and is not a list')
+            raise ValueError("GitHub response was paginated and is not a list")
     return responses
 
 
 def run_cmd(cmd):
     if isinstance(cmd, str):
-        cmd = cmd.split(' ')
+        cmd = cmd.split(" ")
 
     try:
         output = subprocess.check_output(cmd)
     except subprocess.CalledProcessError as e:
         # this avoids hiding the stdout / stderr of failed processes
-        print('Command failed: %s' % cmd)
-        print('With output:')
-        print('--------------')
+        print(f"Command failed: {cmd}")
+        print("With output:")
+        print("--------------")
         print(e.output)
-        print('--------------')
+        print("--------------")
         raise e
 
     if isinstance(output, bytes):
-        output = output.decode('utf-8')
+        output = output.decode("utf-8")
     return output
 
 
-_REGEX_CI_DIRECTIVE = re.compile(r'\[[^\]]*\]')
+_REGEX_CI_DIRECTIVE = re.compile(r"\[[^\]]*\]")
 
 
 def strip_ci_directives(commit_message):
     # Remove things like '[force ci]', '[skip appveyor]' from the assembled
     # commit message
-    return _REGEX_CI_DIRECTIVE.sub('', commit_message)
+    return _REGEX_CI_DIRECTIVE.sub("", commit_message)
 
 
 def fix_version_from_branch(versions):
@@ -122,8 +124,7 @@ MIGRATION_COMMENT_REGEX = re.compile(
 )
 
 
-class GitHubIssue(object):
-
+class GitHubIssue:
     def __init__(self, github_api, github_id, cmd):
         self.github_api = github_api
         self.github_id = github_id
@@ -132,13 +133,14 @@ class GitHubIssue(object):
         try:
             self.issue = self.github_api.get_issue_data(github_id)
         except Exception as e:
-            self.cmd.fail("GitHub could not find %s\n%s" % (github_id, e))
+            self.cmd.fail(f"GitHub could not find {github_id}\n{e}")
 
     def get_label(self, prefix):
         prefix = f"{prefix}:"
         return [
-            lbl["name"][len(prefix):].strip()
-            for lbl in self.issue["labels"] if lbl["name"].startswith(prefix)
+            lbl["name"][len(prefix) :].strip()
+            for lbl in self.issue["labels"]
+            if lbl["name"].startswith(prefix)
         ]
 
     @property
@@ -169,190 +171,186 @@ class GitHubIssue(object):
         cur_status = self.issue["state"]
 
         if cur_status == "closed":
-            self.cmd.fail("GitHub issue %s already has status '%s'"
-                          % (self.github_id, cur_status))
+            self.cmd.fail(
+                f"GitHub issue {self.github_id} already has status '{cur_status}'"
+            )
 
         if DEBUG:
-            print("GitHub issue %s untouched -> %s" %
-                  (self.github_id, fix_version))
+            print(f"GitHub issue {self.github_id} untouched -> {fix_version}")
         else:
             self.github_api.assign_milestone(self.github_id, fix_version)
             if f"Closes: #{self.github_id}" not in pr_body:
                 self.github_api.close_issue(self.github_id, comment)
-            print("Successfully resolved %s!" % (self.github_id))
+            print(f"Successfully resolved {self.github_id}!")
 
         self.issue = self.github_api.get_issue_data(self.github_id)
         self.show()
 
     def show(self):
         issue = self.issue
-        print(format_issue_output("github", self.github_id, issue["state"],
-                                  issue["title"], ', '.join(self.assignees),
-                                  self.components))
+        print(
+            format_issue_output(
+                "github",
+                self.github_id,
+                issue["state"],
+                issue["title"],
+                ", ".join(self.assignees),
+                self.components,
+            )
+        )
 
 
-def get_candidate_fix_version(mainline_versions,
-                              maintenance_branches=()):
-
+def get_candidate_fix_version(mainline_versions, maintenance_branches=()):
     all_versions = [getattr(v, "name", v) for v in mainline_versions]
 
     def version_tuple(x):
         # Parquet versions are something like cpp-1.2.0
         numeric_version = getattr(x, "name", x).split("-", 1)[-1]
         return tuple(int(_) for _ in numeric_version.split("."))
+
     all_versions = sorted(all_versions, key=version_tuple, reverse=True)
 
     # Only suggest versions starting with a number, like 0.x but not JS-0.x
     mainline_versions = all_versions
-    major_versions = [v for v in mainline_versions if v.endswith('.0.0')]
+    major_versions = [v for v in mainline_versions if v.endswith(".0.0")]
 
     if len(mainline_versions) > len(major_versions):
         # If there is a future major release, suggest that
         mainline_versions = major_versions
 
-    mainline_versions = [v for v in mainline_versions
-                         if f"maint-{v}" not in maintenance_branches]
+    mainline_versions = [
+        v for v in mainline_versions if f"maint-{v}" not in maintenance_branches
+    ]
     default_fix_versions = fix_version_from_branch(mainline_versions)
 
     return default_fix_versions
 
 
-def format_issue_output(issue_type, issue_id, status,
-                        summary, assignee, components):
+def format_issue_output(issue_type, issue_id, status, summary, assignee, components):
     if not assignee:
         assignee = "NOT ASSIGNED!!!"
     else:
         assignee = getattr(assignee, "displayName", assignee)
 
     if len(components) == 0:
-        components = 'NO COMPONENTS!!!'
+        components = "NO COMPONENTS!!!"
     else:
-        components = ', '.join((getattr(x, "name", x) for x in components))
+        components = ", ".join(getattr(x, "name", x) for x in components)
 
     url_id = issue_id
     if "GH" in issue_id:
         url_id = issue_id.replace("GH-", "")
 
-    url = f'https://github.com/{ORG_NAME}/{PROJECT_NAME}/issues/{url_id}'
+    url = f"https://github.com/{ORG_NAME}/{PROJECT_NAME}/issues/{url_id}"
 
-    return """=== {} {} ===
-Summary\t\t{}
-Assignee\t{}
-Components\t{}
-Status\t\t{}
-URL\t\t{}""".format(issue_type.upper(), issue_id, summary, assignee,
-                    components, status, url)
+    return f"""=== {issue_type.upper()} {issue_id} ===
+Summary\t\t{summary}
+Assignee\t{assignee}
+Components\t{components}
+Status\t\t{status}
+URL\t\t{url}"""
 
 
-class GitHubAPI(object):
-
+class GitHubAPI:
     def __init__(self, project_name, cmd):
-        self.github_api = (
-            f"https://api.github.com/repos/{ORG_NAME}/{project_name}"
-        )
+        self.github_api = f"https://api.github.com/repos/{ORG_NAME}/{project_name}"
 
         token = None
         config = load_configuration()
         if "github" in config.sections():
             token = config["github"]["api_token"]
         if not token:
-            token = os.environ.get('ARROW_GITHUB_API_TOKEN')
+            token = os.environ.get("ARROW_GITHUB_API_TOKEN")
         if not token:
-            token = cmd.prompt('Env ARROW_GITHUB_API_TOKEN not set, '
-                               'please enter your GitHub API token '
-                               '(GitHub personal access token):')
+            token = cmd.prompt(
+                "Env ARROW_GITHUB_API_TOKEN not set, "
+                "please enter your GitHub API token "
+                "(GitHub personal access token):"
+            )
         headers = {
-            'Accept': 'application/vnd.github.v3+json',
-            'Authorization': 'token {0}'.format(token),
+            "Accept": "application/vnd.github.v3+json",
+            "Authorization": f"token {token}",
         }
         self.headers = headers
 
     def get_milestones(self):
-        return get_json("%s/milestones" % (self.github_api, ),
-                        headers=self.headers)
+        return get_json(f"{self.github_api}/milestones", headers=self.headers)
 
     def get_milestone_number(self, version):
-        return next((
-            m["number"] for m in self.get_milestones() if m["title"] == version
-        ), None)
+        return next(
+            (m["number"] for m in self.get_milestones() if m["title"] == version), None
+        )
 
     def get_issue_data(self, number):
-        return get_json("%s/issues/%s" % (self.github_api, number),
-                        headers=self.headers)
+        return get_json(f"{self.github_api}/issues/{number}", headers=self.headers)
 
     def get_pr_data(self, number):
-        return get_json("%s/pulls/%s" % (self.github_api, number),
-                        headers=self.headers)
+        return get_json(f"{self.github_api}/pulls/{number}", headers=self.headers)
 
     def get_pr_commits(self, number):
-        return get_json("%s/pulls/%s/commits" % (self.github_api, number),
-                        headers=self.headers)
+        return get_json(
+            f"{self.github_api}/pulls/{number}/commits", headers=self.headers
+        )
 
     def get_branches(self):
-        return get_json("%s/branches" % (self.github_api),
-                        headers=self.headers)
+        return get_json(f"{self.github_api}/branches", headers=self.headers)
 
     def close_issue(self, number, comment):
-        issue_url = f'{self.github_api}/issues/{number}'
-        comment_url = f'{self.github_api}/issues/{number}/comments'
+        issue_url = f"{self.github_api}/issues/{number}"
+        comment_url = f"{self.github_api}/issues/{number}/comments"
 
-        r = requests.post(comment_url, json={
-                          "body": comment}, headers=self.headers)
+        r = requests.post(comment_url, json={"body": comment}, headers=self.headers)
         if not r.ok:
             raise ValueError(
-                f"Failed request: {comment_url}:{r.status_code} -> {r.json()}")
+                f"Failed request: {comment_url}:{r.status_code} -> {r.json()}"
+            )
 
-        r = requests.patch(
-            issue_url, json={"state": "closed"}, headers=self.headers)
+        r = requests.patch(issue_url, json={"state": "closed"}, headers=self.headers)
         if not r.ok:
             raise ValueError(
-                f"Failed request: {issue_url}:{r.status_code} -> {r.json()}")
+                f"Failed request: {issue_url}:{r.status_code} -> {r.json()}"
+            )
 
     def assign_milestone(self, number, version):
-        url = f'{self.github_api}/issues/{number}'
+        url = f"{self.github_api}/issues/{number}"
         milestone_number = self.get_milestone_number(version)
         if not milestone_number:
             raise ValueError(f"Invalid version {version}, milestone not found")
-        payload = {
-            'milestone': milestone_number
-        }
+        payload = {"milestone": milestone_number}
         r = requests.patch(url, headers=self.headers, json=payload)
         if not r.ok:
-            raise ValueError(
-                f"Failed request: {url}:{r.status_code} -> {r.json()}")
+            raise ValueError(f"Failed request: {url}:{r.status_code} -> {r.json()}")
         return r.json()
 
     def merge_pr(self, number, commit_title, commit_message):
-        url = f'{self.github_api}/pulls/{number}/merge'
+        url = f"{self.github_api}/pulls/{number}/merge"
         payload = {
-            'commit_title': commit_title,
-            'commit_message': commit_message,
-            'merge_method': 'squash',
+            "commit_title": commit_title,
+            "commit_message": commit_message,
+            "merge_method": "squash",
         }
         response = requests.put(url, headers=self.headers, json=payload)
         result = response.json()
-        if response.status_code == 200 and 'merged' in result:
+        if response.status_code == 200 and "merged" in result:
             self.clear_pr_state_labels(number)
         else:
-            result['merged'] = False
-            result['message'] += f': {url}'
+            result["merged"] = False
+            result["message"] += f": {url}"
         return result
 
     def clear_pr_state_labels(self, number):
-        url = f'{self.github_api}/issues/{number}/labels'
+        url = f"{self.github_api}/issues/{number}/labels"
         response = requests.get(url, headers=self.headers)
         labels = response.json()
         for label in labels:
             # All PR workflow state labels starts with "awaiting"
-            if label['name'].startswith('awaiting'):
+            if label["name"].startswith("awaiting"):
                 label_url = f"{url}/{label['name']}"
                 requests.delete(label_url, headers=self.headers)
 
 
-class CommandInput(object):
-    """
-    Interface to input(...) to enable unit test mocks to be created
-    """
+class CommandInput:
+    """Interface to input(...) to enable unit test mocks to be created"""
 
     def fail(self, msg):
         raise Exception(msg)
@@ -365,7 +363,7 @@ class CommandInput(object):
 
     def continue_maybe(self, prompt):
         while True:
-            result = input("\n%s (y/n): " % prompt)
+            result = input(f"\n{prompt} (y/n): ")
             if result.lower() == "y":
                 return
             elif result.lower() == "n":
@@ -374,8 +372,8 @@ class CommandInput(object):
                 prompt = "Please input 'y' or 'n'"
 
 
-class PullRequest(object):
-    GITHUB_PR_TITLE_PATTERN = re.compile(r'^GH-([0-9]+)\b.*$')
+class PullRequest:
+    GITHUB_PR_TITLE_PATTERN = re.compile(r"^GH-([0-9]+)\b.*$")
 
     def __init__(self, cmd, github_api, git_remote, number):
         self.cmd = cmd
@@ -393,14 +391,18 @@ class PullRequest(object):
         except KeyError:
             pprint.pprint(self._pr_data)
             raise
-        self.description = "%s/%s" % (self.user_login, self.base_ref)
+        self.description = f"{self.user_login}/{self.base_ref}"
 
         self.issue = self._get_issue()
 
     def show(self):
-        print("\n=== Pull Request #%s ===" % self.number)
-        print("title\t%s\nsource\t%s\ntarget\t%s\nurl\t%s"
-              % (self.title, self.description, self.target_ref, self.url))
+        print(f"\n=== Pull Request #{self.number} ===")
+        print(
+            f"title\t{self.title}\n"
+            f"source\t{self.description}\n"
+            f"target\t{self.target_ref}\n"
+            f"url\t{self.url}"
+        )
         if self.issue is not None:
             self.issue.show()
         else:
@@ -416,8 +418,11 @@ class PullRequest(object):
 
     @property
     def maintenance_branches(self):
-        return [x["name"] for x in self._github_api.get_branches()
-                if x["name"].startswith("maint-")]
+        return [
+            x["name"]
+            for x in self._github_api.get_branches()
+            if x["name"].startswith("maint-")
+        ]
 
     def _get_issue(self):
         if self.title.startswith("MINOR:"):
@@ -428,48 +433,50 @@ class PullRequest(object):
             github_id = m.group(1)
             return GitHubIssue(self._github_api, github_id, self.cmd)
 
-        self.cmd.fail("PR title should be prefixed by a GitHub ID, like: "
-                      "GH-XXX, but found {0}".format(self.title))
+        self.cmd.fail(
+            "PR title should be prefixed by a GitHub ID, like: "
+            f"GH-XXX, but found {self.title}"
+        )
 
     def merge(self):
-        """
-        merge the requested PR and return the merge hash
-        """
+        """Merge the requested PR and return the merge hash"""
         commits = self._github_api.get_pr_commits(self.number)
 
         def format_commit_author(commit):
-            author = commit['commit']['author']
-            name = author['name']
-            email = author['email']
-            return f'{name} <{email}>'
+            author = commit["commit"]["author"]
+            name = author["name"]
+            email = author["email"]
+            return f"{name} <{email}>"
+
         commit_authors = [format_commit_author(commit) for commit in commits]
-        co_authored_by_re = re.compile(
-            r'^Co-authored-by:\s*(.*)', re.MULTILINE)
+        co_authored_by_re = re.compile(r"^Co-authored-by:\s*(.*)", re.MULTILINE)
 
         def extract_co_authors(commit):
-            message = commit['commit']['message']
+            message = commit["commit"]["message"]
             return co_authored_by_re.findall(message)
+
         commit_co_authors = []
         for commit in commits:
             commit_co_authors.extend(extract_co_authors(commit))
 
         all_commit_authors = commit_authors + commit_co_authors
-        distinct_authors = sorted(set(all_commit_authors),
-                                  key=lambda x: commit_authors.count(x),
-                                  reverse=True)
+        distinct_authors = sorted(
+            set(all_commit_authors), key=lambda x: commit_authors.count(x), reverse=True
+        )
 
         for i, author in enumerate(distinct_authors):
-            print("Author {}: {}".format(i + 1, author))
+            print(f"Author {i + 1}: {author}")
 
         if len(distinct_authors) > 1:
             primary_author, distinct_other_authors = get_primary_author(
-                self.cmd, distinct_authors)
+                self.cmd, distinct_authors
+            )
         else:
             # If there is only one author, do not prompt for a lead author
             primary_author = distinct_authors.pop()
             distinct_other_authors = []
 
-        commit_title = f'{self.title} (#{self.number})'
+        commit_title = f"{self.title} (#{self.number})"
         commit_message_chunks = []
         if self.body is not None:
             # Remove comments (i.e. <-- comment -->) from the PR description.
@@ -481,14 +488,15 @@ class PullRequest(object):
         committer_name = run_cmd("git config --get user.name").strip()
         committer_email = run_cmd("git config --get user.email").strip()
 
-        authors = ("Authored-by:" if len(distinct_other_authors) == 0
-                   else "Lead-authored-by:")
-        authors += " %s" % primary_author
+        authors = (
+            "Authored-by:" if len(distinct_other_authors) == 0 else "Lead-authored-by:"
+        )
+        authors += f" {primary_author}"
         if len(distinct_authors) > 0:
-            authors += "\n" + "\n".join(["Co-authored-by: %s" % a
-                                         for a in distinct_other_authors])
-        authors += "\n" + "Signed-off-by: %s <%s>" % (committer_name,
-                                                      committer_email)
+            authors += "\n" + "\n".join(
+                [f"Co-authored-by: {a}" for a in distinct_other_authors]
+            )
+        authors += "\n" + f"Signed-off-by: {committer_name} <{committer_email}>"
         commit_message_chunks.append(authors)
 
         commit_message = "\n\n".join(commit_message_chunks)
@@ -508,61 +516,59 @@ class PullRequest(object):
         if DEBUG:
             merge_hash = None
         else:
-            result = self._github_api.merge_pr(self.number,
-                                               commit_title,
-                                               commit_message)
-            if not result['merged']:
-                message = result['message']
-                self.cmd.fail(f'Failed to merge pull request: {message}')
-            merge_hash = result['sha']
+            result = self._github_api.merge_pr(
+                self.number, commit_title, commit_message
+            )
+            if not result["merged"]:
+                message = result["message"]
+                self.cmd.fail(f"Failed to merge pull request: {message}")
+            merge_hash = result["sha"]
 
-        print("Pull request #%s merged!" % self.number)
-        print("Merge hash: %s" % merge_hash)
+        print(f"Pull request #{self.number} merged!")
+        print(f"Merge hash: {merge_hash}")
 
 
 def get_primary_author(cmd, distinct_authors):
-    author_pat = re.compile(r'(.*) <(.*)>')
+    author_pat = re.compile(r"(.*) <(.*)>")
 
     while True:
         primary_author = cmd.prompt(
             "Enter primary author in the format of "
-            "\"name <email>\" [%s]: " % distinct_authors[0])
+            f'"name <email>" [{distinct_authors[0]}]: '
+        )
 
         if primary_author == "":
             return distinct_authors[0], distinct_authors[1:]
 
         if author_pat.match(primary_author):
             break
-        print('Bad author "{}", please try again'.format(primary_author))
+        print(f'Bad author "{primary_author}", please try again')
 
     # When primary author is specified manually, de-dup it from
     # author list and put it at the head of author list.
-    distinct_other_authors = [x for x in distinct_authors
-                              if x != primary_author]
+    distinct_other_authors = [x for x in distinct_authors if x != primary_author]
     return primary_author, distinct_other_authors
 
 
 def prompt_for_fix_version(cmd, issue, maintenance_branches=()):
     default_fix_version = get_candidate_fix_version(
         mainline_versions=issue.current_versions,
-        maintenance_branches=maintenance_branches
+        maintenance_branches=maintenance_branches,
     )
 
     current_fix_versions = issue.current_fix_versions
-    if (current_fix_versions and
-            current_fix_versions != default_fix_version):
+    if current_fix_versions and current_fix_versions != default_fix_version:
         print("\n=== The assigned milestone is not the default ===")
         print(f"Assigned milestone: {current_fix_versions}")
         print(f"Current milestone: {default_fix_version}")
-        if issue.issue["milestone"].get("state") == 'closed':
+        if issue.issue["milestone"].get("state") == "closed":
             print("The assigned milestone state is closed. Contact the ")
             print("Release Manager if it has to be added to a closed Release")
         print("Please ensure to assign the correct milestone.")
         # Default to existing assigned milestone
         default_fix_version = current_fix_versions
 
-    issue_fix_version = cmd.prompt("Enter fix version [%s]: "
-                                   % default_fix_version)
+    issue_fix_version = cmd.prompt(f"Enter fix version [{default_fix_version}]: ")
     if issue_fix_version == "":
         issue_fix_version = default_fix_version
     issue_fix_version = issue_fix_version.strip()
@@ -602,16 +608,16 @@ def cli():
     pr = PullRequest(cmd, github_api, ORG_NAME, pr_num)
 
     if pr.is_merged:
-        print("Pull request %s has already been merged" % pr_num)
+        print(f"Pull request {pr_num} has already been merged")
         sys.exit(0)
 
     if not pr.is_mergeable:
-        print("Pull request %s is not mergeable in its current form" % pr_num)
+        print(f"Pull request {pr_num} is not mergeable in its current form")
         sys.exit(1)
 
     pr.show()
 
-    cmd.continue_maybe("Proceed with merging pull request #%s?" % pr_num)
+    cmd.continue_maybe(f"Proceed with merging pull request #{pr_num}?")
 
     pr.merge()
 
@@ -620,17 +626,14 @@ def cli():
         return
 
     cmd.continue_maybe("Would you like to update the associated issue?")
-    issue_comment = (
-        "Issue resolved by pull request %s\n%s"
-        % (pr_num,
-           f"https://github.com/{ORG_NAME}/{PROJECT_NAME}/pull/{pr_num}")
+    issue_comment = "Issue resolved by pull request {}\n{}".format(
+        pr_num, f"https://github.com/{ORG_NAME}/{PROJECT_NAME}/pull/{pr_num}"
     )
-    fix_version = prompt_for_fix_version(cmd, pr.issue,
-                                         pr.maintenance_branches)
+    fix_version = prompt_for_fix_version(cmd, pr.issue, pr.maintenance_branches)
     pr.issue.resolve(fix_version, issue_comment, pr.body)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         cli()
     except Exception:

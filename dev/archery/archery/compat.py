@@ -14,13 +14,14 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import pathlib
 import sys
 
 
 def _is_path_like(path):
-    return isinstance(path, str) or hasattr(path, '__fspath__')
+    return isinstance(path, str) or hasattr(path, "__fspath__")
 
 
 def _ensure_path(path):
@@ -31,9 +32,7 @@ def _ensure_path(path):
 
 
 def _stringify_path(path):
-    """
-    Convert *path* to a string or unicode path if possible.
-    """
+    """Convert *path* to a string or unicode path if possible."""
     if isinstance(path, str):
         return path
 
@@ -48,15 +47,14 @@ def _stringify_path(path):
 
 def _import_pandas():
     # ARROW-13425: avoid importing PyArrow from Pandas
-    sys.modules['pyarrow'] = None
+    sys.modules["pyarrow"] = None
     import pandas as pd
+
     return pd
 
 
 def _get_module(obj, *, default=None):
-    """
-    Try to find the name of the module *obj* is defined on.
-    """
+    """Try to find the name of the module *obj* is defined on."""
     try:
         return obj.__module__
     except AttributeError:

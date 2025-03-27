@@ -1,0 +1,159 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+line-length = 88
+indent-width = 4
+
+# Assume Python 3.9
+target-version = "py39"
+
+[format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = true
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+# Enable auto-formatting of code examples in docstrings. Markdown,
+# reStructuredText code/literal blocks and doctests are all supported.
+#
+# This is currently disabled by default, but it is planned for this
+# to be opt-out in the future.
+docstring-code-format = true
+
+# Set the line length limit used when formatting code snippets in
+# docstrings.
+#
+# This only has an effect when the `docstring-code-format` setting is
+# enabled.
+docstring-code-line-length = 88
+
+[lint]
+select = [
+  "B",   # flake8-bugbear
+  "BLE", # flake8-blind-except
+  "C4",  # comprehensions
+  "D",   # pydocstyle
+  "E",   # pycodestyle
+  "EXE", # flake8-executable
+  "F",   # pyflakes
+  "FA",  # flake8-future-annotations
+  "FLY", # flynt (format string conversion)
+  "G",   # flake8-logging-format
+  "I",   # isort
+  "ICN", # flake8-import-conventions
+  "INP", # flake8-no-pep420 (implicit namespace packages)
+  "ISC", # flake8-implicit-str-concat
+  "PGH", # pygrep-hooks
+  "PIE", # flake8-pie
+  "PL",  # pylint
+  "RET", # flake8-return
+  "RUF", # ruff-specific rules
+  "S",   # flake8-bandit
+  "SIM", # flake8-simplify
+  "T10", # flake8-debugger
+  "T20", # flake8-print
+  "TCH", # flake8-type-checking
+  "TID", # flake8-tidy-imports
+  "UP",  # pyupgrade
+  "W",   # pycodestyle
+  "YTT", # flake8-2020
+]
+ignore = [
+  "B003",    # Assigning to `os.environ` doesn't clear the environment
+  "B017",    # `pytest.raises(Exception)` should be considered evil
+  "B019",    # Use of `functools.lru_cache` or `functools.cache` on methods can lead to memory leaks
+  "B027",    # `CDataExporter.run_gc` is an empty method in an abstract base class, but has no abstract decorator
+  "B904",    # raise from e or raise from None in exception handlers
+  "BLE001",  # Do not catch blind exception: `Exception`
+  "C408",    # Unnecessary `dict()` call (rewrite as a literal)
+  "D100",    # public module
+  "D101",    # public class
+  "D102",    # public method
+  "D103",    # public function
+  "D104",    # public package
+  "D105",    # magic methods
+  "D106",    # nested class
+  "D107",    # init
+  "D200",    # One-line docstring should fit on one line
+  "D203",    # blank line before class docstring
+  "D205",    # 1 blank line required between summary line and description
+  "D210",    # No whitespaces allowed surrounding docstring text
+  "D213",    # Multi-line docstring summary should start at the second line
+  "D301",    # Use `r"""` if any backslashes in a docstring
+  "D400",    # First line should end with a period
+  "D401",    # Imperative mood
+  "D402",    # First line should not be the function's signature
+  "D413",    # Blank line required after last section
+  "D415",    # First line should end with a period, question mark, or exclamation point
+  "D417",    # Missing argument descriptions in the docstring
+  "FLY002",  # Consider `f"{}.{}"` instead of string join"
+  "G004",    # Logging statement uses f-string
+  "ICN001",  # `xml.etree.ElementTree` should be imported as `ET`
+  "INP001",  # implicit-namespace-package
+  "ISC001",  # single line implicit string concat, handled by ruff format
+  "PLR0911", # too many return statements
+  "PLR0912", # too many branches
+  "PLR0913", # too many arguments
+  "PLR0915", # too many statements
+  "PLR2004", # forces everything to be a constant
+  "PLW0603", # Using the global statement to update `variable` is discouraged
+  "PLW1510", # `subprocess.run` without explicit `check` argument
+  "PLW2901", # overwriting loop variable
+  "RET503",  # Missing explicit `return` at the end of function able to return non-`None` value
+  "RET504",  # unnecessary-assign, these are useful for debugging
+  "RET505",  # superfluous-else-return, stylistic choice
+  "RET506",  # superfluous-else-raise, stylistic choice
+  "RET507",  # superfluous-else-continue, stylistic choice
+  "RET508",  # superfluous-else-break, stylistic choice
+  "RUF005",  # splat instead of concat
+  "RUF012",  # Mutable class attributes should be annotated with `typing.ClassVar`
+  "S101",    # ignore "Use of `assert` detected"
+  "S113",    # Probable use of `requests` call without timeout
+  "S310",    # Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
+  "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
+  "S314",    # Using `xml` to parse untrusted data is known to be vulnerable to XML attacks; use `defusedxml` equivalents
+  "S603",    # `subprocess` call: check for execution of untrusted input
+  "S607",    # Starting a process with a partial executable path
+  "S701",    # By default, jinja2 sets `autoescape` to `False`. Consider using `autoescape=True` or the `select_autoescape` function to mitigate XSS vulnerabilities.
+  "SIM108",  # convert everything to ternary operator
+  "SIM112",  # Use capitalized environment variable `DOTNET_GCHEAPHARDLIMIT` instead of `DOTNET_GCHeapHardLimit`
+  "SIM117",  # Use a single `with` statement with multiple contexts instead of nested `with` statements
+  "T201",    # `print` found
+  "T203",    # `pprint` found
+  "TID252",  # Prefer absolute imports over relative imports from parent modules
+  "UP006",   # Use `list` instead of `List` for type annotation
+  "UP007",   # Optional[str] -> str | None
+  "UP035",   # `typing.List` is deprecated, use `list` instead
+]
+# none of these codes will be automatically fixed by ruff
+unfixable = [
+  "T201",   # print statements
+  "F401",   # unused imports
+  "RUF100", # unused noqa comments
+  "F841",   # unused variables
+]
+
+[lint.isort]
+required-imports = ["from __future__ import annotations"]
+split-on-trailing-comma = false

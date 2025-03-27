@@ -14,15 +14,15 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-from contextlib import contextmanager
 import os
-from unittest import mock
 import re
+from contextlib import contextmanager
+from unittest import mock
 
 
 class PartialEnv(dict):
-
     def __eq__(self, other):
         return self.items() <= other.items()
 
@@ -43,7 +43,6 @@ def _ensure_mock_call_object(obj, **kwargs):
 
 
 class SuccessfulSubprocessResult:
-
     def check_returncode(self):
         return
 
@@ -51,10 +50,9 @@ class SuccessfulSubprocessResult:
 @contextmanager
 def assert_subprocess_calls(expected_commands_or_calls, **kwargs):
     calls = [
-        _ensure_mock_call_object(obj, **kwargs)
-        for obj in expected_commands_or_calls
+        _ensure_mock_call_object(obj, **kwargs) for obj in expected_commands_or_calls
     ]
-    with mock.patch('subprocess.run', autospec=True) as run:
+    with mock.patch("subprocess.run", autospec=True) as run:
         run.return_value = SuccessfulSubprocessResult()
         yield run
         run.assert_has_calls(calls)

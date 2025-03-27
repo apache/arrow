@@ -14,11 +14,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-from contextlib import contextmanager
-from enum import EnumMeta
 import inspect
 import tokenize
+from contextlib import contextmanager
+from enum import EnumMeta
 
 try:
     from numpydoc.validate import Docstring, validate
@@ -28,8 +29,8 @@ else:
     have_numpydoc = True
 
 from ..compat import _get_module
-from ..utils.logger import logger
 from ..utils.command import Command, capture_stdout, default_bin
+from ..utils.logger import logger
 
 
 class PythonCommand(Command):
@@ -57,7 +58,7 @@ class Autopep8(Command):
 
 
 def _tokenize_signature(s):
-    lines = s.encode('ascii').splitlines()
+    lines = s.encode("ascii").splitlines()
     generator = iter(lines).__next__
     return tokenize.tokenize(generator)
 
@@ -68,7 +69,7 @@ def _convert_typehint(tokens):
     for token in tokens:
         # omit the tokens before the opening bracket
         if not opening_bracket_reached:
-            if token.string == '(':
+            if token.string == "(":
                 opening_bracket_reached = True
             else:
                 continue
@@ -85,14 +86,13 @@ def _convert_typehint(tokens):
                 # are not supported by _signature_fromstr
                 yield (names[1].type, names[1].string)
             elif len(names) > 2:
-                raise ValueError('More than two NAME tokens follow each other')
+                raise ValueError("More than two NAME tokens follow each other")
             names = []
             yield (token.type, token.string)
 
 
 def inspect_signature(obj):
-    """
-    Custom signature inspection primarily for cython generated callables.
+    """Custom signature inspection primarily for cython generated callables.
 
     Cython puts the signatures to the first line of the docstrings, which we
     can reuse to parse the python signature from, but some gymnastics are
@@ -121,10 +121,10 @@ class NumpyDoc:
     def __init__(self, symbols=None):
         if not have_numpydoc:
             raise RuntimeError(
-                'Numpydoc is not available, install with command: '
-                'pip install numpydoc==1.1.0'
+                "Numpydoc is not available, install with command: "
+                "pip install numpydoc==1.1.0"
             )
-        self.symbols = set(symbols or {'pyarrow'})
+        self.symbols = set(symbols or {"pyarrow"})
 
     def traverse(self, fn, obj, from_package):
         """Apply a function on publicly exposed API components.
@@ -154,7 +154,7 @@ class NumpyDoc:
             fn(obj)
 
             for name in dir(obj):
-                if name.startswith('_'):
+                if name.startswith("_"):
                     continue
 
                 member = getattr(obj, name)
@@ -166,19 +166,17 @@ class NumpyDoc:
                 # and no user-defined docstring following it.
                 # The generated docstring would lack description of method
                 # parameters and therefore fail Numpydoc validation.
-                if hasattr(member, '__objclass__'):
-                    doc = getattr(member, '__doc__', None)
+                if hasattr(member, "__objclass__"):
+                    doc = getattr(member, "__doc__", None)
                     # The Cython-generated docstring would be a one-liner,
                     # such as "ReadOptions.equals(self, ReadOptions other)".
-                    if (doc and '\n' not in doc and f'.{name}(' in doc):
+                    if doc and "\n" not in doc and f".{name}(" in doc:
                         continue
                 todo.append(member)
 
     @contextmanager
     def _apply_patches(self):
-        """
-        Patch Docstring class to bypass loading already loaded python objects.
-        """
+        """Patch Docstring class to bypass loading already loaded python objects."""
         orig_load_obj = Docstring._load_obj
         orig_signature = inspect.signature
 
@@ -216,8 +214,13 @@ class NumpyDoc:
             Docstring._load_obj = orig_load_obj
             inspect.signature = orig_signature
 
-    def validate(self, from_package='', allow_rules=None,
-                 disallow_rules=None):
+    def _should_ignore_error(self, obj, errcode):
+        for obj_type, errcode_list in self.IGNORE_VALIDATION_ERRORS_FOR_TYPE.items():
+            if isinstance(obj, obj_type) and errcode in errcode_list:
+                return True
+        return False
+
+    def validate(self, from_package="", allow_rules=None, disallow_rules=None):
         results = []
 
         def callback(obj):
@@ -229,19 +232,17 @@ class NumpyDoc:
                 return
 
             errors = []
-            for errcode, errmsg in result.get('errors', []):
+            for errcode, errmsg in result.get("errors", []):
                 if allow_rules and errcode not in allow_rules:
                     continue
                 if disallow_rules and errcode in disallow_rules:
                     continue
-                if any(isinstance(obj, obj_type) and errcode in errcode_list
-                       for obj_type, errcode_list
-                       in NumpyDoc.IGNORE_VALIDATION_ERRORS_FOR_TYPE.items()):
+                if self._should_ignore_error(obj, errcode):
                     continue
                 errors.append((errcode, errmsg))
 
             if len(errors):
-                result['errors'] = errors
+                result["errors"] = errors
                 results.append((obj, result))
 
         with self._apply_patches():
@@ -249,7 +250,7 @@ class NumpyDoc:
                 try:
                     obj = Docstring._load_obj(symbol)
                 except (ImportError, AttributeError):
-                    print('{} is not available for import'.format(symbol))
+                    print(f"{symbol} is not available for import")
                 else:
                     self.traverse(callback, obj, from_package=from_package)
 
