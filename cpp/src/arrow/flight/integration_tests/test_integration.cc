@@ -369,9 +369,10 @@ class AlignmentScenario : public Scenario {
   }
 
   Status RunClient(std::unique_ptr<FlightClient> client) override {
-    for (bool ensure_alignment : {true, false}) {
+    for (ipc::Alignment ensure_alignment :
+         {ipc::Alignment::kAnyAlignment, ipc::Alignment::kDataTypeSpecificAlignment}) {
       auto call_options = FlightCallOptions();
-      call_options.read_options.ensure_memory_alignment = ensure_alignment;
+      call_options.read_options.ensure_alignment = ensure_alignment;
       ARROW_ASSIGN_OR_RAISE(auto table, GetTable(client.get(), call_options));
 
       // Check read data
@@ -388,7 +389,7 @@ class AlignmentScenario : public Scenario {
       }
       // Check data alignment
       std::vector<bool> needs_alignment;
-      if (ensure_alignment) {
+      if (ensure_alignment == ipc::Alignment::kDataTypeSpecificAlignment) {
         // with ensure_alignment=true, we require data to be aligned
         if (!util::CheckAlignment(*table, arrow::util::kValueAlignment,
                                   &needs_alignment)) {
