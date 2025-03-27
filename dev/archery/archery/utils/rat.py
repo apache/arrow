@@ -58,12 +58,12 @@ class RatReport:
         return f"RatReport({self.xml})"
 
     def validate(self, exclusion=None):
-        for r in self.tree.findall('resource'):
-            approvals = r.findall('license-approval')
-            if not approvals or approvals[0].attrib['name'] == 'true':
+        for r in self.tree.findall("resource"):
+            approvals = r.findall("license-approval")
+            if not approvals or approvals[0].attrib["name"] == "true":
                 continue
 
-            clean_name = re.sub('^[^/]+/', '', r.attrib['name'])
+            clean_name = re.sub("^[^/]+/", "", r.attrib["name"])
 
             if exclusion and exclusion(clean_name):
                 continue

@@ -58,7 +58,7 @@ class Autopep8(Command):
 
 
 def _tokenize_signature(s):
-    lines = s.encode('ascii').splitlines()
+    lines = s.encode("ascii").splitlines()
     generator = iter(lines).__next__
     return tokenize.tokenize(generator)
 
@@ -69,7 +69,7 @@ def _convert_typehint(tokens):
     for token in tokens:
         # omit the tokens before the opening bracket
         if not opening_bracket_reached:
-            if token.string == '(':
+            if token.string == "(":
                 opening_bracket_reached = True
             else:
                 continue
@@ -86,7 +86,7 @@ def _convert_typehint(tokens):
                 # are not supported by _signature_fromstr
                 yield (names[1].type, names[1].string)
             elif len(names) > 2:
-                raise ValueError('More than two NAME tokens follow each other')
+                raise ValueError("More than two NAME tokens follow each other")
             names = []
             yield (token.type, token.string)
 
@@ -121,10 +121,10 @@ class NumpyDoc:
     def __init__(self, symbols=None):
         if not have_numpydoc:
             raise RuntimeError(
-                'Numpydoc is not available, install with command: '
-                'pip install numpydoc==1.1.0'
+                "Numpydoc is not available, install with command: "
+                "pip install numpydoc==1.1.0"
             )
-        self.symbols = set(symbols or {'pyarrow'})
+        self.symbols = set(symbols or {"pyarrow"})
 
     def traverse(self, fn, obj, from_package):
         """Apply a function on publicly exposed API components.
@@ -154,7 +154,7 @@ class NumpyDoc:
             fn(obj)
 
             for name in dir(obj):
-                if name.startswith('_'):
+                if name.startswith("_"):
                     continue
 
                 member = getattr(obj, name)
@@ -166,18 +166,17 @@ class NumpyDoc:
                 # and no user-defined docstring following it.
                 # The generated docstring would lack description of method
                 # parameters and therefore fail Numpydoc validation.
-                if hasattr(member, '__objclass__'):
-                    doc = getattr(member, '__doc__', None)
+                if hasattr(member, "__objclass__"):
+                    doc = getattr(member, "__doc__", None)
                     # The Cython-generated docstring would be a one-liner,
                     # such as "ReadOptions.equals(self, ReadOptions other)".
-                    if (doc and '\n' not in doc and f'.{name}(' in doc):
+                    if doc and "\n" not in doc and f".{name}(" in doc:
                         continue
                 todo.append(member)
 
     @contextmanager
     def _apply_patches(self):
-        """Patch Docstring class to bypass loading already loaded python objects.
-        """
+        """Patch Docstring class to bypass loading already loaded python objects."""
         orig_load_obj = Docstring._load_obj
         orig_signature = inspect.signature
 
@@ -233,7 +232,7 @@ class NumpyDoc:
                 return
 
             errors = []
-            for errcode, errmsg in result.get('errors', []):
+            for errcode, errmsg in result.get("errors", []):
                 if allow_rules and errcode not in allow_rules:
                     continue
                 if disallow_rules and errcode in disallow_rules:
@@ -243,7 +242,7 @@ class NumpyDoc:
                 errors.append((errcode, errmsg))
 
             if len(errors):
-                result['errors'] = errors
+                result["errors"] = errors
                 results.append((obj, result))
 
         with self._apply_patches():
@@ -251,7 +250,7 @@ class NumpyDoc:
                 try:
                     obj = Docstring._load_obj(symbol)
                 except (ImportError, AttributeError):
-                    print(f'{symbol} is not available for import')
+                    print(f"{symbol} is not available for import")
                 else:
                     self.traverse(callback, obj, from_package=from_package)
 

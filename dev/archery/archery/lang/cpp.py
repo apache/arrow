@@ -37,36 +37,62 @@ LLVM_VERSION = 7
 
 
 class CppConfiguration:
-    def __init__(self,
-
-                 # toolchain
-                 cc=None, cxx=None, cxx_flags=None,
-                 build_type=None, warn_level=None,
-                 cpp_package_prefix=None, install_prefix=None, use_conda=None,
-                 build_static=True, build_shared=True, build_unity=True,
-                 # tests & examples
-                 with_tests=None, with_benchmarks=None, with_examples=None,
-                 with_integration=None,
-                 # static checks
-                 use_asan=None, use_tsan=None, use_ubsan=None,
-                 with_fuzzing=None,
-                 # Components
-                 with_compute=None, with_csv=None, with_cuda=None,
-                 with_dataset=None, with_filesystem=None, with_flight=None,
-                 with_gandiva=None, with_gcs=None, with_hdfs=None,
-                 with_hiveserver2=None,
-                 with_ipc=True, with_json=None,
-                 with_mimalloc=None, with_jemalloc=None,
-                 with_parquet=None, with_python=True,
-                 with_r=None, with_s3=None,
-                 # Compressions
-                 with_brotli=None, with_bz2=None, with_lz4=None,
-                 with_snappy=None, with_zlib=None, with_zstd=None,
-                 # extras
-                 with_lint_only=False,
-                 use_gold_linker=True,
-                 simd_level="DEFAULT",
-                 cmake_extras=None):
+    def __init__(
+        self,
+        # toolchain
+        cc=None,
+        cxx=None,
+        cxx_flags=None,
+        build_type=None,
+        warn_level=None,
+        cpp_package_prefix=None,
+        install_prefix=None,
+        use_conda=None,
+        build_static=True,
+        build_shared=True,
+        build_unity=True,
+        # tests & examples
+        with_tests=None,
+        with_benchmarks=None,
+        with_examples=None,
+        with_integration=None,
+        # static checks
+        use_asan=None,
+        use_tsan=None,
+        use_ubsan=None,
+        with_fuzzing=None,
+        # Components
+        with_compute=None,
+        with_csv=None,
+        with_cuda=None,
+        with_dataset=None,
+        with_filesystem=None,
+        with_flight=None,
+        with_gandiva=None,
+        with_gcs=None,
+        with_hdfs=None,
+        with_hiveserver2=None,
+        with_ipc=True,
+        with_json=None,
+        with_mimalloc=None,
+        with_jemalloc=None,
+        with_parquet=None,
+        with_python=True,
+        with_r=None,
+        with_s3=None,
+        # Compressions
+        with_brotli=None,
+        with_bz2=None,
+        with_lz4=None,
+        with_snappy=None,
+        with_zlib=None,
+        with_zstd=None,
+        # extras
+        with_lint_only=False,
+        use_gold_linker=True,
+        simd_level="DEFAULT",
+        cmake_extras=None,
+    ):
         self._cc = cc
         self._cxx = cxx
         self.cxx_flags = cxx_flags
@@ -187,8 +213,7 @@ class CppConfiguration:
         yield ("CMAKE_BUILD_TYPE", self.build_type)
 
         if not self.with_lint_only:
-            yield ("BUILD_WARNING_LEVEL",
-                   or_else(self.warn_level, "production"))
+            yield ("BUILD_WARNING_LEVEL", or_else(self.warn_level, "production"))
 
         # if not ctx.quiet:
         #   yield ("ARROW_VERBOSE_THIRDPARTY_BUILD", "ON")
@@ -252,7 +277,7 @@ class CppConfiguration:
 
         # Detect custom conda toolchain
         if self.use_conda:
-            for d, v in [('CMAKE_AR', 'AR'), ('CMAKE_RANLIB', 'RANLIB')]:
+            for d, v in [("CMAKE_AR", "AR"), ("CMAKE_RANLIB", "RANLIB")]:
                 v = os.environ.get(v)
                 if v:
                     yield (d, v)
@@ -297,6 +322,10 @@ class CppConfiguration:
 class CppCMakeDefinition(CMakeDefinition):
     def __init__(self, source, conf, **kwargs):
         self.configuration = conf
-        super().__init__(source, **kwargs,
-                         definitions=conf.definitions, env=conf.environment,
-                         build_type=conf.build_type)
+        super().__init__(
+            source,
+            **kwargs,
+            definitions=conf.definitions,
+            env=conf.environment,
+            build_type=conf.build_type,
+        )

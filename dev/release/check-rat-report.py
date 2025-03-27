@@ -35,26 +35,29 @@ with open(exclude_globs_filename) as f:
 
 tree = ET.parse(xml_filename)
 root = tree.getroot()
-resources = root.findall('resource')
+resources = root.findall("resource")
 
 all_ok = True
 for r in resources:
-    approvals = r.findall('license-approval')
-    if not approvals or approvals[0].attrib['name'] == 'true':
+    approvals = r.findall("license-approval")
+    if not approvals or approvals[0].attrib["name"] == "true":
         continue
-    clean_name = re.sub('^[^/]+/', '', r.attrib['name'])
+    clean_name = re.sub("^[^/]+/", "", r.attrib["name"])
     excluded = False
     for g in globs:
         if fnmatch.fnmatch(clean_name, g):
             excluded = True
             break
     if not excluded:
-        sys.stdout.write("NOT APPROVED: {} ({}): {}\n".format(
-            clean_name, r.attrib['name'], approvals[0].attrib['name']))
+        sys.stdout.write(
+            "NOT APPROVED: {} ({}): {}\n".format(
+                clean_name, r.attrib["name"], approvals[0].attrib["name"]
+            )
+        )
         all_ok = False
 
 if not all_ok:
     sys.exit(1)
 
-print('OK')
+print("OK")
 sys.exit(0)

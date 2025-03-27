@@ -32,9 +32,7 @@ _INTEGRATION_DLL = os.path.join(
     _NANOARROW_PATH, "libnanoarrow_c_data_integration" + cdata.dll_suffix
 )
 
-_INTEGRATION_EXE = os.path.join(
-    _NANOARROW_PATH, "nanoarrow_ipc_integration"
-)
+_INTEGRATION_EXE = os.path.join(_NANOARROW_PATH, "nanoarrow_ipc_integration")
 
 
 class NanoarrowTester(Tester):
@@ -51,37 +49,34 @@ class NanoarrowTester(Tester):
 
     def _run(self, arrow_path, json_path, command, quirks):
         env = {
-            'ARROW_PATH': arrow_path,
-            'JSON_PATH': json_path,
-            'COMMAND': command,
-            **{
-                f'QUIRK_{q}': "1"
-                for q in quirks or ()
-            },
+            "ARROW_PATH": arrow_path,
+            "JSON_PATH": json_path,
+            "COMMAND": command,
+            **{f"QUIRK_{q}": "1" for q in quirks or ()},
         }
 
         if self.debug:
-            log(f'{_INTEGRATION_EXE} {env}')
+            log(f"{_INTEGRATION_EXE} {env}")
 
         run_cmd([_INTEGRATION_EXE], env=env)
 
     def validate(self, json_path, arrow_path, quirks=None):
-        return self._run(arrow_path, json_path, 'VALIDATE', quirks)
+        return self._run(arrow_path, json_path, "VALIDATE", quirks)
 
     def json_to_file(self, json_path, arrow_path):
-        return self._run(arrow_path, json_path, 'JSON_TO_ARROW', quirks=None)
+        return self._run(arrow_path, json_path, "JSON_TO_ARROW", quirks=None)
 
     def stream_to_file(self, stream_path, file_path):
-        self.run_shell_command([_INTEGRATION_EXE, '<', stream_path], env={
-            'COMMAND': 'STREAM_TO_FILE',
-            'ARROW_PATH': file_path,
-        })
+        self.run_shell_command(
+            [_INTEGRATION_EXE, "<", stream_path],
+            env={"COMMAND": "STREAM_TO_FILE", "ARROW_PATH": file_path},
+        )
 
     def file_to_stream(self, file_path, stream_path):
-        self.run_shell_command([_INTEGRATION_EXE, '>', stream_path], env={
-            'COMMAND': 'FILE_TO_STREAM',
-            'ARROW_PATH': file_path,
-        })
+        self.run_shell_command(
+            [_INTEGRATION_EXE, ">", stream_path],
+            env={"COMMAND": "FILE_TO_STREAM", "ARROW_PATH": file_path},
+        )
 
     def make_c_data_exporter(self):
         return NanoarrowCDataExporter(self.debug, self.args)

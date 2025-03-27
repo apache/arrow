@@ -40,17 +40,16 @@ class EventError(Exception):
 
 
 class CommandError(Exception):
-
     def __init__(self, message):
         self.message = message
 
 
 class _CommandMixin:
-
     def get_help_option(self, ctx):
         def show_help(ctx, param, value):
             if value and not ctx.resilient_parsing:
                 raise click.UsageError(ctx.get_help())
+
         option = super().get_help_option(ctx)
         option.callback = show_help
         return option
@@ -69,13 +68,12 @@ class Command(_CommandMixin, click.Command):
 
 
 class Group(_CommandMixin, click.Group):
-
     def command(self, *args, **kwargs):
-        kwargs.setdefault('cls', Command)
+        kwargs.setdefault("cls", Command)
         return super().command(*args, **kwargs)
 
     def group(self, *args, **kwargs):
-        kwargs.setdefault('cls', Group)
+        kwargs.setdefault("cls", Group)
         return super().group(*args, **kwargs)
 
     def parse_args(self, ctx, args):
@@ -102,11 +100,10 @@ class PullRequestState(enum.Enum):
     merge = f"{LABEL_PREFIX} merge"
 
 
-COMMITTER_ROLES = {'OWNER', 'MEMBER'}
+COMMITTER_ROLES = {"OWNER", "MEMBER"}
 
 
 class PullRequestWorkflowBot:
-
     def __init__(self, event_name, event_payload, token=None, committers=None):
         kwargs = {}
         if token is not None:
@@ -118,13 +115,12 @@ class PullRequestWorkflowBot:
 
     @cached_property
     def pull(self):
-        """Returns a github.PullRequest object associated with the event.
-        """
-        return self.repo.get_pull(self.event_payload['pull_request']['number'])
+        """Returns a github.PullRequest object associated with the event."""
+        return self.repo.get_pull(self.event_payload["pull_request"]["number"])
 
     @cached_property
     def repo(self):
-        return self.github.get_repo(self.event_payload['repository']['id'], lazy=True)
+        return self.github.get_repo(self.event_payload["repository"]["id"], lazy=True)
 
     def is_committer(self, action):
         """Returns whether the author of the action is a committer or not.
@@ -132,10 +128,8 @@ class PullRequestWorkflowBot:
         author_association as a fallback mechanism.
         """
         if self.committers:
-            return (self.event_payload[action]['user']['login'] in
-                    self.committers)
-        return (self.event_payload[action]['author_association'] in
-                COMMITTER_ROLES)
+            return self.event_payload[action]["user"]["login"] in self.committers
+        return self.event_payload[action]["author_association"] in COMMITTER_ROLES
 
     def handle(self):
         current_state = None
@@ -157,16 +151,18 @@ class PullRequestWorkflowBot:
         If more than one label is found raises EventError.
         If no label is found returns None.
         """
-        states = [label.name for label in self.pull.get_labels()
-                  if label.name.startswith(LABEL_PREFIX)]
+        states = [
+            label.name
+            for label in self.pull.get_labels()
+            if label.name.startswith(LABEL_PREFIX)
+        ]
         if len(states) > 1:
             raise EventError(f"PR cannot be on more than one states - {states}")
         elif states:
             return PullRequestState(states[0])
 
     def clear_current_state(self):
-        """Removes all existing labels starting with LABEL_PREFIX
-        """
+        """Removes all existing labels starting with LABEL_PREFIX"""
         for label in self.pull.get_labels():
             if label.name.startswith(LABEL_PREFIX):
                 self.pull.remove_from_labels(label)
@@ -175,32 +171,39 @@ class PullRequestWorkflowBot:
         """Returns the expected next state based on the event and
         the current state.
         """
-        if (self.event_name == "pull_request_target" and
-                self.event_payload['action'] == 'opened'):
-            if self.is_committer('pull_request'):
+        if (
+            self.event_name == "pull_request_target"
+            and self.event_payload["action"] == "opened"
+        ):
+            if self.is_committer("pull_request"):
                 return PullRequestState.committer_review
             else:
                 return PullRequestState.review
-        elif (self.event_name == "pull_request_review" and
-                self.event_payload["action"] == "submitted"):
+        elif (
+            self.event_name == "pull_request_review"
+            and self.event_payload["action"] == "submitted"
+        ):
             review_state = self.event_payload["review"]["state"].lower()
-            if not self.is_committer('review'):
+            if not self.is_committer("review"):
                 # Non-committer reviews cannot change state once committer has already
                 # reviewed, requested changes or approved
                 if current_state in (
-                        PullRequestState.change_review,
-                        PullRequestState.changes,
-                        PullRequestState.merge):
+                    PullRequestState.change_review,
+                    PullRequestState.changes,
+                    PullRequestState.merge,
+                ):
                     return current_state
                 else:
                     return PullRequestState.committer_review
-            if review_state == 'approved':
+            if review_state == "approved":
                 return PullRequestState.merge
             else:
                 return PullRequestState.changes
-        elif (self.event_name == "pull_request_target" and
-              self.event_payload['action'] == 'synchronize' and
-              current_state == PullRequestState.changes):
+        elif (
+            self.event_name == "pull_request_target"
+            and self.event_payload["action"] == "synchronize"
+            and current_state == PullRequestState.changes
+        ):
             return PullRequestState.change_review
         # Default already opened PRs to Review state.
         if current_state is None:
@@ -213,7 +216,6 @@ class PullRequestWorkflowBot:
 
 
 class CommentBot:
-
     def __init__(self, name, handler, token=None):
         # TODO(kszucs): validate
         assert isinstance(name, str)
@@ -226,19 +228,19 @@ class CommentBot:
         self.github = github.Github(**kwargs)
 
     def parse_command(self, payload):
-        mention = f'@{self.name}'
-        comment = payload['comment']
+        mention = f"@{self.name}"
+        comment = payload["comment"]
 
-        if payload['sender']['login'] == self.name:
+        if payload["sender"]["login"] == self.name:
             raise EventError("Don't respond to itself")
-        elif payload['action'] not in {'created', 'edited'}:
+        elif payload["action"] not in {"created", "edited"}:
             raise EventError("Don't respond to comment deletion")
-        elif not comment['body'].lstrip().startswith(mention):
+        elif not comment["body"].lstrip().startswith(mention):
             raise EventError("The bot is not mentioned")
 
         # Parse the comment, removing the bot mentioned (and everything
         # before it)
-        command = payload['comment']['body'].split(mention)[-1]
+        command = payload["comment"]["body"].split(mention)[-1]
 
         # then split on newlines and keep only the first line
         # (ignoring all other lines)
@@ -252,16 +254,16 @@ class CommentBot:
             # see the possible reasons in the validate method
             return None
 
-        if event == 'issue_comment':
+        if event == "issue_comment":
             return self.handle_issue_comment(command, payload)
-        elif event == 'pull_request_review_comment':
+        elif event == "pull_request_review_comment":
             return self.handle_review_comment(command, payload)
         else:
             raise ValueError(f"Unexpected event type {event}")
 
     def handle_issue_comment(self, command, payload):
-        repo = self.github.get_repo(payload['repository']['id'], lazy=True)
-        issue = repo.get_issue(payload['issue']['number'])
+        repo = self.github.get_repo(payload["repository"]["id"], lazy=True)
+        issue = repo.get_issue(payload["issue"]["number"])
 
         try:
             pull = issue.as_pull_request()
@@ -270,21 +272,20 @@ class CommentBot:
                 "The comment bot only listens to pull request comments!"
             )
 
-        comment = pull.get_issue_comment(payload['comment']['id'])
+        comment = pull.get_issue_comment(payload["comment"]["id"])
         try:
             # Only allow users of apache org to submit commands, for more see
             # https://developer.github.com/v4/enum/commentauthorassociation/
             # Checking  privileges here enables the bot to respond
             # without relying on the handler.
-            allowed_roles = {'OWNER', 'MEMBER', 'COLLABORATOR'}
-            if payload['comment']['author_association'] not in allowed_roles:
+            allowed_roles = {"OWNER", "MEMBER", "COLLABORATOR"}
+            if payload["comment"]["author_association"] not in allowed_roles:
                 raise EventError(
                     "Only contributors can submit requests to this bot. "
                     "Please ask someone from the community for help with "
                     "getting the first commit in."
                 )
-            self.handler(command, issue=issue, pull_request=pull,
-                         comment=comment)
+            self.handler(command, issue=issue, pull_request=pull, comment=comment)
         except Exception as e:
             logger.exception(e)
             url = "{server}/{repo}/actions/runs/{run_id}".format(
@@ -293,16 +294,17 @@ class CommentBot:
                 run_id=os.environ["GITHUB_RUN_ID"],
             )
             pull.create_issue_comment(
-                f"```\n{e}\nThe Archery job run can be found at: {url}\n```")
-            comment.create_reaction('-1')
+                f"```\n{e}\nThe Archery job run can be found at: {url}\n```"
+            )
+            comment.create_reaction("-1")
         else:
-            comment.create_reaction('+1')
+            comment.create_reaction("+1")
 
     def handle_review_comment(self, payload):
         raise NotImplementedError()
 
 
-@group(name='@github-actions')
+@group(name="@github-actions")
 @click.pass_context
 def actions(ctx):
     """Ursabot"""
@@ -310,13 +312,16 @@ def actions(ctx):
 
 
 @actions.group()
-@click.option('--crossbow', '-c', default='ursacomputing/crossbow',
-              help='Crossbow repository on github to use')
+@click.option(
+    "--crossbow",
+    "-c",
+    default="ursacomputing/crossbow",
+    help="Crossbow repository on github to use",
+)
 @click.pass_obj
 def crossbow(obj, crossbow):
-    """Trigger crossbow builds for this pull request
-    """
-    obj['crossbow_repo'] = crossbow
+    """Trigger crossbow builds for this pull request"""
+    obj["crossbow_repo"] = crossbow
 
 
 def _clone_arrow_and_crossbow(dest, crossbow_repo, arrow_repo_url, pr_number):
@@ -334,26 +339,26 @@ def _clone_arrow_and_crossbow(dest, crossbow_repo, arrow_repo_url, pr_number):
     pr_number : int
         Target PR number.
     """
-    arrow_path = dest / 'arrow'
-    queue_path = dest / 'crossbow'
+    arrow_path = dest / "arrow"
+    queue_path = dest / "crossbow"
 
     # we use unique branch name instead of fork's branch name to avoid
     # branch name conflict such as 'main' (GH-39996)
-    local_branch = f'archery/pr-{pr_number}'
+    local_branch = f"archery/pr-{pr_number}"
     # 1. clone arrow and checkout the PR's branch
-    pr_ref = f'pull/{pr_number}/head:{local_branch}'
-    git.clone('--no-checkout', arrow_repo_url, str(arrow_path))
+    pr_ref = f"pull/{pr_number}/head:{local_branch}"
+    git.clone("--no-checkout", arrow_repo_url, str(arrow_path))
     # fetch the PR's branch into the clone
-    git.fetch('origin', pr_ref, git_dir=arrow_path)
+    git.fetch("origin", pr_ref, git_dir=arrow_path)
     # checkout the PR's branch into the clone
     git.checkout(local_branch, git_dir=arrow_path)
 
     # 2. clone crossbow repository
-    crossbow_url = f'https://github.com/{crossbow_repo}'
+    crossbow_url = f"https://github.com/{crossbow_repo}"
     git.clone(crossbow_url, str(queue_path))
 
     # 3. initialize crossbow objects
-    github_token = os.environ['CROSSBOW_GITHUB_TOKEN']
+    github_token = os.environ["CROSSBOW_GITHUB_TOKEN"]
     arrow = Repo(arrow_path)
     queue = Queue(queue_path, github_token=github_token, require_https=True)
 
@@ -361,25 +366,36 @@ def _clone_arrow_and_crossbow(dest, crossbow_repo, arrow_repo_url, pr_number):
 
 
 @crossbow.command()
-@click.argument('tasks', nargs=-1, required=False)
-@click.option('--group', '-g', 'groups', multiple=True,
-              help='Submit task groups as defined in tests.yml')
-@click.option('--param', '-p', 'params', multiple=True,
-              help='Additional task parameters for rendering the CI templates')
-@click.option('--arrow-version', '-v', default=None,
-              help='Set target version explicitly.')
-@click.option('--wait', default=60,
-              help='Wait the specified seconds before generating a report.')
-@click.option('--prefix', default='actions',
-              help='Prefix for job IDs.')
+@click.argument("tasks", nargs=-1, required=False)
+@click.option(
+    "--group",
+    "-g",
+    "groups",
+    multiple=True,
+    help="Submit task groups as defined in tests.yml",
+)
+@click.option(
+    "--param",
+    "-p",
+    "params",
+    multiple=True,
+    help="Additional task parameters for rendering the CI templates",
+)
+@click.option(
+    "--arrow-version", "-v", default=None, help="Set target version explicitly."
+)
+@click.option(
+    "--wait", default=60, help="Wait the specified seconds before generating a report."
+)
+@click.option("--prefix", default="actions", help="Prefix for job IDs.")
 @click.pass_obj
 def submit(obj, tasks, groups, params, arrow_version, wait, prefix):
     """Submit crossbow testing tasks.
 
     See groups defined in arrow/dev/tasks/tasks.yml
     """
-    crossbow_repo = obj['crossbow_repo']
-    pull_request = obj['pull_request']
+    crossbow_repo = obj["crossbow_repo"]
+    pull_request = obj["pull_request"]
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         arrow, queue = _clone_arrow_and_crossbow(
@@ -393,25 +409,28 @@ def submit(obj, tasks, groups, params, arrow_version, wait, prefix):
         config.validate()
 
         # initialize the crossbow build's target repository
-        target = Target.from_repo(arrow, version=arrow_version,
-                                  remote=pull_request.head.repo.clone_url,
-                                  branch=pull_request.head.ref)
+        target = Target.from_repo(
+            arrow,
+            version=arrow_version,
+            remote=pull_request.head.repo.clone_url,
+            branch=pull_request.head.ref,
+        )
 
         # parse additional job parameters
         params = dict([p.split("=") for p in params])
-        params['pr_number'] = pull_request.number
+        params["pr_number"] = pull_request.number
 
         # instantiate the job object
-        job = Job.from_config(config=config, target=target, tasks=tasks,
-                              groups=groups, params=params)
+        job = Job.from_config(
+            config=config, target=target, tasks=tasks, groups=groups, params=params
+        )
 
         # add the job to the crossbow queue and push to the remote repository
         queue.put(job, prefix=prefix, increment_job_id=False)
         queue.push()
 
         # render the response comment's content
-        report = CommentReport(job, crossbow_repo=crossbow_repo,
-                               wait_for_task=wait)
+        report = CommentReport(job, crossbow_repo=crossbow_repo, wait_for_task=wait)
 
         # send the response
         pull_request.create_issue_comment(report.show())

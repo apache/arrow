@@ -41,12 +41,13 @@ class capture_stdout:
             return x.strip() if self.strip else x
 
         def list_it(x):
-            return x.decode('utf-8').splitlines() if self.listify else x
+            return x.decode("utf-8").splitlines() if self.listify else x
 
         def wrapper(*argv, **kwargs):
             # Ensure stdout is captured
             kwargs["stdout"] = subprocess.PIPE
             return list_it(strip_it(f(*argv, **kwargs).stdout))
+
         return wrapper
 
 
@@ -79,8 +80,7 @@ class Command:
 
     @property
     def available(self):
-        """Indicate if the command binary is found in PATH.
-        """
+        """Indicate if the command binary is found in PATH."""
         binary = shlex.split(self.bin)[0]
         return shutil.which(binary) is not None
 

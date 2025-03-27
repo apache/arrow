@@ -33,14 +33,8 @@ def test_docker_run_with_custom_command(run, build, pull):
     result = CliRunner().invoke(docker, args)
 
     assert result.exit_code == 0
-    pull.assert_called_once_with(
-        "ubuntu-cpp", pull_leaf=True,
-    )
-    build.assert_called_once_with(
-        "ubuntu-cpp",
-        use_cache=True,
-        use_leaf_cache=True,
-    )
+    pull.assert_called_once_with("ubuntu-cpp", pull_leaf=True)
+    build.assert_called_once_with("ubuntu-cpp", use_cache=True, use_leaf_cache=True)
     run.assert_called_once_with(
         "ubuntu-cpp", command="bash", env={}, resource_limit=None, user=None, volumes=()
     )
@@ -67,14 +61,8 @@ def test_docker_run_options(run, build, pull):
     ]
     result = CliRunner().invoke(docker, args)
     assert result.exit_code == 0
-    pull.assert_called_once_with(
-        "ubuntu-cpp", pull_leaf=True,
-    )
-    build.assert_called_once_with(
-        "ubuntu-cpp",
-        use_cache=True,
-        use_leaf_cache=True,
-    )
+    pull.assert_called_once_with("ubuntu-cpp", pull_leaf=True)
+    build.assert_called_once_with("ubuntu-cpp", use_cache=True, use_leaf_cache=True)
     run.assert_called_once_with(
         "ubuntu-cpp",
         command=None,
@@ -133,14 +121,8 @@ def test_docker_run_only_pulling_and_building(build, pull):
     args = ["run", "ubuntu-cpp", "--build-only"]
     result = CliRunner().invoke(docker, args)
     assert result.exit_code == 0
-    pull.assert_called_once_with(
-        "ubuntu-cpp", pull_leaf=True,
-    )
-    build.assert_called_once_with(
-        "ubuntu-cpp",
-        use_cache=True,
-        use_leaf_cache=True,
-    )
+    pull.assert_called_once_with("ubuntu-cpp", pull_leaf=True)
+    build.assert_called_once_with("ubuntu-cpp", use_cache=True, use_leaf_cache=True)
 
 
 @patch.object(DockerCompose, "build")

@@ -85,8 +85,7 @@ _c_data_decls = """
 
 @functools.lru_cache
 def ffi() -> cffi.FFI:
-    """Return a FFI object supporting C Data Interface types.
-    """
+    """Return a FFI object supporting C Data Interface types."""
     ffi = cffi.FFI()
     ffi.cdef(_c_data_decls)
     return ffi
@@ -111,8 +110,7 @@ def check_memory_released(exporter: CDataExporter, importer: CDataImporter):
     However, if either the exporter or importer doesn't support deterministic
     memory release, no memory check is performed.
     """
-    do_check = (exporter.supports_releasing_memory and
-                importer.supports_releasing_memory)
+    do_check = exporter.supports_releasing_memory and importer.supports_releasing_memory
     if do_check:
         before = exporter.record_allocation_state()
     yield
@@ -125,4 +123,5 @@ def check_memory_released(exporter: CDataExporter, importer: CDataImporter):
         if after != before:
             raise RuntimeError(
                 f"Memory was not released correctly after roundtrip: "
-                f"before = {before}, after = {after} (should have been equal)")
+                f"before = {before}, after = {after} (should have been equal)"
+            )

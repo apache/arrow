@@ -33,10 +33,10 @@ def guid():
 
 
 # SKIP categories
-SKIP_C_ARRAY = 'c_array'
-SKIP_C_SCHEMA = 'c_schema'
-SKIP_FLIGHT = 'flight'
-SKIP_IPC = 'ipc'
+SKIP_C_ARRAY = "c_array"
+SKIP_C_SCHEMA = "c_schema"
+SKIP_FLIGHT = "flight"
+SKIP_IPC = "ipc"
 
 
 class _Printer:
@@ -56,8 +56,7 @@ class _Printer:
             return self._tls.stdout
 
     def print(self, *args, **kwargs):
-        """A variant of print() that writes to a thread-local stream.
-        """
+        """A variant of print() that writes to a thread-local stream."""
         print(*args, file=self._get_stdout(), **kwargs)
 
     @property
@@ -94,37 +93,34 @@ _RAND_CHARS = np.array(list("abcdefghijklmnop123456Ârrôwµ£°€矢"), dtype=
 
 
 def random_utf8(nchars):
-    """Generate one random UTF8 string.
-    """
-    return ''.join(np.random.choice(_RAND_CHARS, nchars))
+    """Generate one random UTF8 string."""
+    return "".join(np.random.choice(_RAND_CHARS, nchars))
 
 
 def random_bytes(nbytes):
-    """Generate one random binary string.
-    """
+    """Generate one random binary string."""
     # NOTE getrandbits(0) fails
     if nbytes > 0:
-        return random.getrandbits(nbytes * 8).to_bytes(nbytes,
-                                                       byteorder='little')
+        return random.getrandbits(nbytes * 8).to_bytes(nbytes, byteorder="little")
     else:
         return b""
 
 
 def tobytes(o):
     if isinstance(o, str):
-        return o.encode('utf8')
+        return o.encode("utf8")
     return o
 
 
 def frombytes(o):
     if isinstance(o, bytes):
-        return o.decode('utf8')
+        return o.decode("utf8")
     return o
 
 
 def run_cmd(cmd, **kwargs):
     if isinstance(cmd, str):
-        cmd = cmd.split(' ')
+        cmd = cmd.split(" ")
 
     try:
         kwargs.update(stderr=subprocess.STDOUT)
@@ -132,11 +128,11 @@ def run_cmd(cmd, **kwargs):
     except subprocess.CalledProcessError as e:
         # this avoids hiding the stdout / stderr of failed processes
         sio = io.StringIO()
-        print('Command failed:', " ".join(cmd), file=sio)
-        print('With output:', file=sio)
-        print('--------------', file=sio)
+        print("Command failed:", " ".join(cmd), file=sio)
+        print("With output:", file=sio)
+        print("--------------", file=sio)
         print(frombytes(e.output), file=sio)
-        print('--------------', file=sio)
+        print("--------------", file=sio)
         raise RuntimeError(sio.getvalue())
 
     return frombytes(output)
@@ -152,7 +148,7 @@ def find_unused_port(family=socket.AF_INET, socktype=socket.SOCK_STREAM):
     then closed and deleted, and the ephemeral port is returned.
     """
     with socket.socket(family, socktype) as tempsock:
-        tempsock.bind(('', 0))
+        tempsock.bind(("", 0))
         port = tempsock.getsockname()[1]
     del tempsock
     return port

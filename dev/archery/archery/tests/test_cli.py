@@ -29,12 +29,14 @@ def test_linking_check_dependencies(fn):
     args = [
         "linking",
         "check-dependencies",
-        "-a", "libarrow",
-        "-d", "libcurl",
-        "somelib.so"
+        "-a",
+        "libarrow",
+        "-d",
+        "libcurl",
+        "somelib.so",
     ]
     result = CliRunner().invoke(archery, args)
     assert result.exit_code == 0
     fn.assert_called_once_with(
-        Path('somelib.so'), allowed={'libarrow'}, disallowed={'libcurl'}
+        Path("somelib.so"), allowed={"libarrow"}, disallowed={"libcurl"}
     )

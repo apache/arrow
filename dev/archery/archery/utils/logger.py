@@ -57,8 +57,10 @@ def group(name, output=None):
     This does nothing in non GitHub Actions environment for now.
     """
     if output is None:
+
         def output(message):
             print(message, flush=True)
+
     if in_github_actions():
         output(f"::group::{name}")
     try:

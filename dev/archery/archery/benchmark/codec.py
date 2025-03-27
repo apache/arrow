@@ -63,13 +63,12 @@ class BenchmarkSuiteCodec:
     def encode(bs):
         return {
             "name": bs.name,
-            "benchmarks": [BenchmarkCodec.encode(b) for b in bs.benchmarks]
+            "benchmarks": [BenchmarkCodec.encode(b) for b in bs.benchmarks],
         }
 
     @staticmethod
     def decode(dct, **kwargs):
-        benchmarks = [BenchmarkCodec.decode(b)
-                      for b in dct.pop("benchmarks", [])]
+        benchmarks = [BenchmarkCodec.decode(b) for b in dct.pop("benchmarks", [])]
         return BenchmarkSuite(benchmarks=benchmarks, **dct, **kwargs)
 
 
@@ -80,8 +79,7 @@ class BenchmarkRunnerCodec:
 
     @staticmethod
     def decode(dct, **kwargs):
-        suites = [BenchmarkSuiteCodec.decode(s)
-                  for s in dct.pop("suites", [])]
+        suites = [BenchmarkSuiteCodec.decode(s) for s in dct.pop("suites", [])]
         return StaticBenchmarkRunner(suites=suites, **dct, **kwargs)
 
 

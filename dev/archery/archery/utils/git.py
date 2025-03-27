@@ -28,6 +28,7 @@ def git_cmd(fn):
 
     def wrapper(self, *argv, **kwargs):
         return fn(self, sub_cmd, *argv, **kwargs)
+
     return wrapper
 
 
@@ -36,7 +37,7 @@ class Git(Command):
         self.bin = default_bin(git_bin, "git")
 
     def run_cmd(self, cmd, *argv, git_dir=None, **kwargs):
-        """ Inject flags before sub-command in argv. """
+        """Inject flags before sub-command in argv."""
         opts = []
         if git_dir is not None:
             opts.extend(["-C", _stringify_path(git_dir)])
@@ -85,7 +86,7 @@ class Git(Command):
 
     @capture_stdout(strip=True)
     def head(self, **kwargs):
-        """ Return commit pointed by HEAD. """
+        """Return commit pointed by HEAD."""
         return self.rev_parse("HEAD", **kwargs)
 
     @capture_stdout(strip=True)
@@ -93,9 +94,9 @@ class Git(Command):
         return self.rev_parse("--abbrev-ref", "HEAD", **kwargs)
 
     def repository_root(self, git_dir=None, **kwargs):
-        """ Locates the repository's root path from a subdirectory. """
+        """Locates the repository's root path from a subdirectory."""
         stdout = self.rev_parse("--show-toplevel", git_dir=git_dir, **kwargs)
-        return stdout.decode('utf-8')
+        return stdout.decode("utf-8")
 
 
 git = Git()

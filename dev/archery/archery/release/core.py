@@ -38,8 +38,7 @@ def cached_property(fn):
 
 
 class Version(SemVer):
-
-    __slots__ = ('release_date', 'released')
+    __slots__ = ("release_date", "released")
 
     def __init__(self, released=False, release_date=None, **kwargs):
         super().__init__(**kwargs)
@@ -55,12 +54,11 @@ class Version(SemVer):
         return cls.parse(
             milestone.title,
             released=milestone.state == "closed",
-            release_date=milestone.due_on
+            release_date=milestone.due_on,
         )
 
 
 class Issue:
-
     def __init__(self, key, type, summary, github_issue=None):
         self.key = key
         self.type = type
@@ -75,24 +73,27 @@ class Issue:
             type=next(
                 iter(
                     [
-                        label.name for label in github_issue.labels
+                        label.name
+                        for label in github_issue.labels
                         if label.name.startswith("Type:")
                     ]
-                ), None),
+                ),
+                None,
+            ),
             summary=github_issue.title,
-            github_issue=github_issue
+            github_issue=github_issue,
         )
 
     @property
     def project(self):
         if isinstance(self.key, int):
-            return 'GH'
-        return self.key.split('-')[0]
+            return "GH"
+        return self.key.split("-")[0]
 
     @property
     def number(self):
         if isinstance(self.key, str):
-            return int(self.key.split('-')[1])
+            return int(self.key.split("-")[1])
         else:
             return self.key
 
@@ -102,10 +103,9 @@ class Issue:
 
 
 class IssueTracker:
-
     def __init__(self, github_token=None):
         github = Github(github_token)
-        self.github_repo = github.get_repo('apache/arrow')
+        self.github_repo = github.get_repo("apache/arrow")
 
     def project_version(self, version_string):
         for milestone in self.project_versions():
@@ -135,8 +135,8 @@ class IssueTracker:
 
     def project_issues(self, version):
         issues = self.github_repo.get_issues(
-            milestone=self._milestone_from_semver(version),
-            state="all")
+            milestone=self._milestone_from_semver(version), state="all"
+        )
         return list(map(Issue.from_github, issues))
 
     def issue(self, key):
@@ -152,9 +152,15 @@ _COMPONENT_REGEX = re.compile(r"\[([^\[\]]+)\]")
 
 
 class CommitTitle:
-
-    def __init__(self, summary, project=None, issue=None, minor=None,
-                 components=None, issue_id=None):
+    def __init__(
+        self,
+        summary,
+        project=None,
+        issue=None,
+        minor=None,
+        components=None,
+        issue_id=None,
+    ):
         self.project = project
         self.issue = issue
         self.issue_id = issue_id
@@ -167,17 +173,15 @@ class CommitTitle:
 
     def __eq__(self, other):
         return (
-            self.summary == other.summary and
-            self.project == other.project and
-            self.issue == other.issue and
-            self.minor == other.minor and
-            self.components == other.components
+            self.summary == other.summary
+            and self.project == other.project
+            and self.issue == other.issue
+            and self.minor == other.minor
+            and self.components == other.components
         )
 
     def __hash__(self):
-        return hash(
-            (self.summary, self.project, self.issue, tuple(self.components))
-        )
+        return hash((self.summary, self.project, self.issue, tuple(self.components)))
 
     @classmethod
     def parse(cls, headline):
@@ -187,16 +191,16 @@ class CommitTitle:
             return CommitTitle(headline)
 
         values = matches.groupdict()
-        components = values.get('components') or ''
+        components = values.get("components") or ""
         components = _COMPONENT_REGEX.findall(components)
 
         return CommitTitle(
-            values['summary'],
-            project=values.get('project'),
-            issue=values.get('issue'),
-            issue_id=values.get('issue_id'),
-            minor=values.get('minor'),
-            components=components
+            values["summary"],
+            project=values.get("project"),
+            issue=values.get("issue"),
+            issue_id=values.get("issue_id"),
+            minor=values.get("minor"),
+            components=components,
         )
 
     def to_string(self, with_issue=True, with_components=True):
@@ -212,7 +216,6 @@ class CommitTitle:
 
 
 class Commit:
-
     def __init__(self, wrapped):
         self._title = CommitTitle.parse(wrapped.summary)
         self._wrapped = wrapped
@@ -224,13 +227,12 @@ class Commit:
             return getattr(self._wrapped, attr)
 
     def __repr__(self):
-        template = '<Commit sha={!r} issue={!r} components={!r} summary={!r}>'
-        return template.format(self.hexsha, self.issue, self.components,
-                               self.summary)
+        template = "<Commit sha={!r} issue={!r} components={!r} summary={!r}>"
+        return template.format(self.hexsha, self.issue, self.components, self.summary)
 
     @property
     def url(self):
-        return f'https://github.com/apache/arrow/commit/{self.hexsha}'
+        return f"https://github.com/apache/arrow/commit/{self.hexsha}"
 
     @property
     def title(self):
@@ -238,9 +240,7 @@ class Commit:
 
 
 class Release:
-
-    def __new__(self, version, repo=None, github_token=None,
-                issue_tracker=None):
+    def __new__(self, version, repo=None, github_token=None, issue_tracker=None):
         if isinstance(version, str):
             version = Version.parse(version)
         elif not isinstance(version, Version):
@@ -267,8 +267,7 @@ class Release:
         elif isinstance(repo, (str, pathlib.Path)):
             repo = Repo(repo)
         elif not isinstance(repo, Repo):
-            raise TypeError("`repo` argument must be a path or a valid Repo "
-                            "instance")
+            raise TypeError("`repo` argument must be a path or a valid Repo instance")
 
         if isinstance(version, str):
             version = issue_tracker.project_version(version)
@@ -298,15 +297,13 @@ class Release:
     @property
     @abstractmethod
     def branch(self):
-        """Target branch that serves as the base for the release.
-        """
+        """Target branch that serves as the base for the release."""
         ...
 
     @property
     @abstractmethod
     def siblings(self):
-        """Releases to consider when calculating previous and next releases.
-        """
+        """Releases to consider when calculating previous and next releases."""
         ...
 
     @cached_property
@@ -319,39 +316,34 @@ class Release:
             # first release doesn't have a previous one
             return None
         else:
-            return Release(previous, repo=self.repo,
-                           issue_tracker=self.issue_tracker)
+            return Release(previous, repo=self.repo, issue_tracker=self.issue_tracker)
 
     @cached_property
     def next(self):
         # select all non-patch releases
         position = self.siblings.index(self.version)
         if position <= 0:
-            raise ValueError("There is no upcoming release set in JIRA after "
-                             f"version {self.version}")
+            raise ValueError(
+                f"There is no upcoming release set in JIRA after version {self.version}"
+            )
         upcoming = self.siblings[position - 1]
-        return Release(upcoming, repo=self.repo,
-                       issue_tracker=self.issue_tracker)
+        return Release(upcoming, repo=self.repo, issue_tracker=self.issue_tracker)
 
     @cached_property
     def issues(self):
-        issues = self.issue_tracker.project_issues(
-            self.version
-        )
+        issues = self.issue_tracker.project_issues(self.version)
         return {i.key: i for i in issues}
 
     @cached_property
     def github_issue_ids(self):
-        return {v.github_issue_id for v in self.issues.values()
-                if v.github_issue_id}
+        return {v.github_issue_id for v in self.issues.values() if v.github_issue_id}
 
     @cached_property
     def commits(self):
-        """All commits applied between two versions.
-        """
+        """All commits applied between two versions."""
         if self.previous is None:
             # first release
-            lower = ''
+            lower = ""
         else:
             lower = self.repo.tags[self.previous.tag]
 
@@ -424,12 +416,11 @@ class Release:
                     minor.append(c)
                 else:
                     noissue.append(c)
-            elif c.project == 'GH':
+            elif c.project == "GH":
                 if int(c.issue_id) in release_issues:
                     within.append((release_issues[int(c.issue_id)], c))
                 else:
-                    outside.append(
-                        (self.issue_tracker.issue(int(c.issue_id)), c))
+                    outside.append((self.issue_tracker.issue(int(c.issue_id)), c))
             else:
                 warnings.warn(f"Issue {c.issue} does not pertain to GH", stacklevel=2)
                 outside.append((c.issue, c))
@@ -437,12 +428,22 @@ class Release:
         # remaining tickets
         within_keys = {i.key for i, c in within}
         # Take into account that some issues milestoned are prs
-        nopatch = [issue for key, issue in release_issues.items()
-                   if key not in within_keys and issue.is_pr is False]
+        nopatch = [
+            issue
+            for key, issue in release_issues.items()
+            if key not in within_keys and issue.is_pr is False
+        ]
 
-        return ReleaseCuration(release=self, within=within, outside=outside,
-                               noissue=noissue, parquet=parquet,
-                               nopatch=nopatch, minimal=minimal, minor=minor)
+        return ReleaseCuration(
+            release=self,
+            within=within,
+            outside=outside,
+            noissue=noissue,
+            parquet=parquet,
+            nopatch=nopatch,
+            minimal=minimal,
+            minor=minor,
+        )
 
     def changelog(self):
         issue_commit_pairs = []
@@ -459,18 +460,18 @@ class Release:
 
         # organize issues into categories
         issue_types = {
-            'Bug': 'Bug Fixes',
-            'Improvement': 'New Features and Improvements',
-            'New Feature': 'New Features and Improvements',
-            'Sub-task': 'New Features and Improvements',
-            'Task': 'New Features and Improvements',
-            'Test': 'Bug Fixes',
-            'Wish': 'New Features and Improvements',
-            'Type: bug': 'Bug Fixes',
-            'Type: enhancement': 'New Features and Improvements',
-            'Type: task': 'New Features and Improvements',
-            'Type: test': 'Bug Fixes',
-            'Type: usage': 'New Features and Improvements',
+            "Bug": "Bug Fixes",
+            "Improvement": "New Features and Improvements",
+            "New Feature": "New Features and Improvements",
+            "Sub-task": "New Features and Improvements",
+            "Task": "New Features and Improvements",
+            "Test": "Bug Fixes",
+            "Wish": "New Features and Improvements",
+            "Type: bug": "Bug Fixes",
+            "Type: enhancement": "New Features and Improvements",
+            "Type: task": "New Features and Improvements",
+            "Type: test": "Bug Fixes",
+            "Type: usage": "New Features and Improvements",
         }
         categories = defaultdict(list)
         for issue, commit in issue_commit_pairs:
@@ -479,7 +480,7 @@ class Release:
             except KeyError:
                 # If issue or pr don't have a type assume task.
                 # Currently the label for type is not mandatory on GitHub.
-                categories[issue_types['Type: task']].append((issue, commit))
+                categories[issue_types["Type: task"]].append((issue, commit))
 
         # sort issues by the issue key in ascending order
         for issues in categories.values():
@@ -515,8 +516,9 @@ class Release:
             # issues. This is only to correct the mapping for migrated issues.
             if c.issue and c.issue.startswith("GH-"):
                 key = int(c.issue_id)
-            if ((key in self.github_issue_ids or key in self.issues) and
-                    c.title not in already_applied):
+            if (
+                key in self.github_issue_ids or key in self.issues
+            ) and c.title not in already_applied:
                 patches_to_pick.append(c)
         return reversed(patches_to_pick)
 
@@ -526,10 +528,8 @@ class Release:
             # the previous tag
             if self.branch in self.repo.branches:
                 logger.info(f"Deleting branch {self.branch}")
-                self.repo.git.branch('-D', self.branch)
-            logger.info(
-                f"Creating branch {self.branch} from {self.base_branch} branch"
-            )
+                self.repo.git.branch("-D", self.branch)
+            logger.info(f"Creating branch {self.branch} from {self.base_branch} branch")
             self.repo.git.checkout(self.base_branch, b=self.branch)
         else:
             # just checkout the already existing maintenance branch
@@ -543,7 +543,6 @@ class Release:
 
 
 class MajorRelease(Release):
-
     @property
     def branch(self):
         return f"maint-{self.version}"
@@ -554,15 +553,16 @@ class MajorRelease(Release):
 
     @cached_property
     def siblings(self):
-        """Filter only the major releases.
-        """
+        """Filter only the major releases."""
         # handle minor releases before 1.0 as major releases
-        return [v for v in self.issue_tracker.project_versions()
-                if v.patch == 0 and (v.major == 0 or v.minor == 0)]
+        return [
+            v
+            for v in self.issue_tracker.project_versions()
+            if v.patch == 0 and (v.major == 0 or v.minor == 0)
+        ]
 
 
 class MinorRelease(Release):
-
     @property
     def branch(self):
         return f"maint-{self.version.major}.x.x"
@@ -573,14 +573,11 @@ class MinorRelease(Release):
 
     @cached_property
     def siblings(self):
-        """Filter the major and minor releases.
-        """
-        return [v for v in self.issue_tracker.project_versions()
-                if v.patch == 0]
+        """Filter the major and minor releases."""
+        return [v for v in self.issue_tracker.project_versions() if v.patch == 0]
 
 
 class PatchRelease(Release):
-
     @property
     def branch(self):
         return f"maint-{self.version.major}.{self.version.minor}.x"
@@ -591,6 +588,5 @@ class PatchRelease(Release):
 
     @cached_property
     def siblings(self):
-        """No filtering, consider all releases.
-        """
+        """No filtering, consider all releases."""
         return self.issue_tracker.project_versions()

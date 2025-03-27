@@ -29,7 +29,7 @@ class CMake(Command):
 
     @staticmethod
     def default_generator():
-        """ Infer default generator.
+        """Infer default generator.
 
         Gives precedence to ninja if there exists an executable named `ninja`
         in the search path.
@@ -42,7 +42,7 @@ cmake = CMake()
 
 
 class CMakeDefinition:
-    """ CMakeDefinition captures the cmake invocation arguments.
+    """CMakeDefinition captures the cmake invocation arguments.
 
     It allows creating build directories with the same definition, e.g.
     ```
@@ -56,9 +56,10 @@ class CMakeDefinition:
     ```
     """
 
-    def __init__(self, source, build_type="release", generator=None,
-                 definitions=None, env=None):
-        """ Initialize a CMakeDefinition
+    def __init__(
+        self, source, build_type="release", generator=None, definitions=None, env=None
+    ):
+        """Initialize a CMakeDefinition
 
         Parameters
         ----------
@@ -84,7 +85,7 @@ class CMakeDefinition:
         return arguments
 
     def build(self, build_dir, force=False, cmd_kwargs=None, **kwargs):
-        """ Invoke cmake into a build directory.
+        """Invoke cmake into a build directory.
 
         Parameters
         ----------
@@ -97,21 +98,16 @@ class CMakeDefinition:
         if os.path.exists(build_dir):
             # Extra safety to ensure we're deleting a build folder.
             if not CMakeBuild.is_build_dir(build_dir):
-                raise FileExistsError(
-                    f"{build_dir} is not a cmake build"
-                )
+                raise FileExistsError(f"{build_dir} is not a cmake build")
             if not force:
-                raise FileExistsError(
-                    f"{build_dir} exists use force=True"
-                )
+                raise FileExistsError(f"{build_dir} exists use force=True")
             rmtree(build_dir)
 
         os.mkdir(build_dir)
 
         cmd_kwargs = cmd_kwargs if cmd_kwargs else {}
         cmake(*self.arguments, cwd=build_dir, env=self.env, **cmd_kwargs)
-        return CMakeBuild(build_dir, self.build_type, definition=self,
-                          **kwargs)
+        return CMakeBuild(build_dir, self.build_type, definition=self, **kwargs)
 
     def __repr__(self):
         return f"CMakeDefinition[source={self.source}]"
@@ -121,14 +117,14 @@ CMAKE_BUILD_TYPE_RE = re.compile("CMAKE_BUILD_TYPE:STRING=([a-zA-Z]+)")
 
 
 class CMakeBuild(CMake):
-    """ CMakeBuild represents a build directory initialized by cmake.
+    """CMakeBuild represents a build directory initialized by cmake.
 
     The build instance can be used to build/test/install. It alleviates the
     user to know which generator is used.
     """
 
     def __init__(self, build_dir, build_type, definition=None):
-        """ Initialize a CMakeBuild.
+        """Initialize a CMakeBuild.
 
         The caller must ensure that cmake was invoked in the build directory.
 
@@ -155,8 +151,7 @@ class CMakeBuild(CMake):
         if verbose:
             extra.append("-v" if self.bin.endswith("ninja") else "VERBOSE=1")
         # Commands must be ran under the build directory
-        return super().run(*cmake_args, *extra,
-                           *argv, **kwargs, cwd=self.build_dir)
+        return super().run(*cmake_args, *extra, *argv, **kwargs, cwd=self.build_dir)
 
     def all(self):
         return self.run("all")
@@ -172,7 +167,7 @@ class CMakeBuild(CMake):
 
     @staticmethod
     def is_build_dir(path):
-        """ Indicate if a path is CMake build directory.
+        """Indicate if a path is CMake build directory.
 
         This method only checks for the existence of paths and does not do any
         validation whatsoever.
@@ -183,7 +178,7 @@ class CMakeBuild(CMake):
 
     @staticmethod
     def from_path(path):
-        """ Instantiate a CMakeBuild from a path.
+        """Instantiate a CMakeBuild from a path.
 
         This is used to recover from an existing physical directory (created
         with or without CMakeBuild).
@@ -205,7 +200,9 @@ class CMakeBuild(CMake):
         return CMakeBuild(path, build_type)
 
     def __repr__(self):
-        return ("CMakeBuild["
-                f"build = {self.build_dir},"
-                f"build_type = {self.build_type},"
-                f"definition = {self.definition}]")
+        return (
+            "CMakeBuild["
+            f"build = {self.build_dir},"
+            f"build_type = {self.build_type},"
+            f"definition = {self.definition}]"
+        )

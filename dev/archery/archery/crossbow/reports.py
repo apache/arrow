@@ -31,7 +31,6 @@ from archery.utils.report import JinjaReport
 
 # TODO(kszucs): use archery.report.JinjaReport instead
 class Report:
-
     ROW_HEADERS = [
         "task_name",
         "task_status",
@@ -60,13 +59,13 @@ class Report:
     @property
     def repo_url(self):
         url = self.job.queue.remote_url
-        return url[:-4] if url.endswith('.git') else url
+        return url[:-4] if url.endswith(".git") else url
 
     def url(self, query):
-        return f'{self.repo_url}/branches/all?query={query}'
+        return f"{self.repo_url}/branches/all?query={query}"
 
     def branch_url(self, branch):
-        return f'{self.repo_url}/tree/{branch}'
+        return f"{self.repo_url}/tree/{branch}"
 
     def task_url(self, task):
         build_links = task.status().build_links
@@ -94,8 +93,7 @@ class Report:
 
     @property
     def contains_failures(self):
-        return any(self.tasks_by_state[state] for state in (
-            "error", "failure"))
+        return any(self.tasks_by_state[state] for state in ("error", "failure"))
 
     @property
     def tasks(self):
@@ -123,7 +121,7 @@ class Report:
                 dict(task.params.items()),
                 task.template,
                 # Arrow repository commit
-                self.job.target.head
+                self.job.target.head,
             ]
             yield row
 
@@ -132,54 +130,51 @@ class ConsoleReport(Report):
     """Report the status of a Job to the console using click"""
 
     # output table's header template
-    HEADER = '[{state:>7}] {branch:<52} {content:>16}'
-    DETAILS = ' └ {url}'
+    HEADER = "[{state:>7}] {branch:<52} {content:>16}"
+    DETAILS = " └ {url}"
 
     # output table's row template for assets
-    ARTIFACT_NAME = '{artifact:>69} '
-    ARTIFACT_STATE = '[{state:>7}]'
+    ARTIFACT_NAME = "{artifact:>69} "
+    ARTIFACT_STATE = "[{state:>7}]"
 
     # state color mapping to highlight console output
     COLORS = {
         # from CombinedStatus
-        'error': 'red',
-        'failure': 'red',
-        'pending': 'yellow',
-        'success': 'green',
+        "error": "red",
+        "failure": "red",
+        "pending": "yellow",
+        "success": "green",
         # custom state messages
-        'ok': 'green',
-        'missing': 'red'
+        "ok": "green",
+        "missing": "red",
     }
 
     def lead(self, state, branch, n_uploaded, n_expected):
         line = self.HEADER.format(
             state=state.upper(),
             branch=branch,
-            content=f'uploaded {n_uploaded} / {n_expected}'
+            content=f"uploaded {n_uploaded} / {n_expected}",
         )
         return click.style(line, fg=self.COLORS[state.lower()])
 
     def header(self):
         header = self.HEADER.format(
-            state='state',
-            branch='Task / Branch',
-            content='Artifacts'
+            state="state", branch="Task / Branch", content="Artifacts"
         )
-        delimiter = '-' * len(header)
-        return f'{header}\n{delimiter}'
+        delimiter = "-" * len(header)
+        return f"{header}\n{delimiter}"
 
     def artifact(self, state, pattern, asset):
         if asset is None:
             artifact = pattern
-            state = 'pending' if state == 'pending' else 'missing'
+            state = "pending" if state == "pending" else "missing"
         else:
             artifact = asset.name
-            state = 'ok'
+            state = "ok"
 
         name_ = self.ARTIFACT_NAME.format(artifact=artifact)
         state_ = click.style(
-            self.ARTIFACT_STATE.format(state=state.upper()),
-            self.COLORS[state]
+            self.ARTIFACT_STATE.format(state=state.upper()), self.COLORS[state]
         )
         return name_ + state_
 
@@ -198,8 +193,7 @@ class ConsoleReport(Report):
             # mapping of artifact pattern to asset or None of not uploaded
             n_expected = len(task.artifacts)
             n_uploaded = len(assets.uploaded_assets())
-            echo(self.lead(status.combined_state, task_name, n_uploaded,
-                           n_expected))
+            echo(self.lead(status.combined_state, task_name, n_uploaded, n_expected))
 
             # show link to the actual build, some of the CI providers implement
             # the statuses API others implement the checks API, so display both
@@ -210,42 +204,31 @@ class ConsoleReport(Report):
             for artifact_pattern, asset in assets.items():
                 if asset_callback is not None:
                     asset_callback(task_name, task, asset)
-                echo(self.artifact(status.combined_state, artifact_pattern,
-                                   asset))
+                echo(self.artifact(status.combined_state, artifact_pattern, asset))
 
 
 class ChatReport(JinjaReport):
-    templates = {
-        'text': 'chat_nightly_report.txt.j2',
-    }
-    fields = [
-        'report',
-        'extra_message_success',
-        'extra_message_failure',
-    ]
+    templates = {"text": "chat_nightly_report.txt.j2"}
+    fields = ["report", "extra_message_success", "extra_message_failure"]
 
 
 class ReportUtils:
-
     @classmethod
     def send_message(cls, webhook, message):
-        resp = requests.post(webhook, json={
-            "blocks": [
-                {
-                    "type": "section",
-                    "text": {
-                            "type": "mrkdwn",
-                            "text": message
-                    }
-                }
-            ]
-        }
+        resp = requests.post(
+            webhook,
+            json={
+                "blocks": [
+                    {"type": "section", "text": {"type": "mrkdwn", "text": message}}
+                ]
+            },
         )
         return resp
 
     @classmethod
-    def send_email(cls, smtp_user, smtp_password, smtp_server, smtp_port,
-                   recipient_email, message):
+    def send_email(
+        cls, smtp_user, smtp_password, smtp_server, smtp_port, recipient_email, message
+    ):
         import smtplib
 
         server = smtplib.SMTP_SSL(smtp_server, smtp_port)
@@ -256,7 +239,7 @@ class ReportUtils:
 
     @classmethod
     def write_csv(cls, report, add_headers=True):
-        with open(f'{report.job.branch}.csv', 'w') as csvfile:
+        with open(f"{report.job.branch}.csv", "w") as csvfile:
             task_writer = csv.writer(csvfile)
             if add_headers:
                 task_writer.writerow(report.ROW_HEADERS)
@@ -265,54 +248,44 @@ class ReportUtils:
 
 class EmailReport(JinjaReport):
     templates = {
-        'nightly_report': 'email_nightly_report.txt.j2',
-        'token_expiration': 'email_token_expiration.txt.j2',
+        "nightly_report": "email_nightly_report.txt.j2",
+        "token_expiration": "email_token_expiration.txt.j2",
     }
-    fields = [
-        'report',
-        'sender_name',
-        'sender_email',
-        'recipient_email',
-    ]
+    fields = ["report", "sender_name", "sender_email", "recipient_email"]
 
 
 class CommentReport(Report):
-
-    _markdown_badge = '[![{title}]({badge})]({{url}})'
+    _markdown_badge = "[![{title}]({badge})]({{url}})"
 
     badges = {
-        'github': _markdown_badge.format(
-            title='GitHub Actions',
+        "github": _markdown_badge.format(
+            title="GitHub Actions",
             badge=(
-                'https://github.com/{repo}/actions/workflows/crossbow.yml/'
-                'badge.svg?branch={branch}'
+                "https://github.com/{repo}/actions/workflows/crossbow.yml/"
+                "badge.svg?branch={branch}"
             ),
         ),
-        'azure': _markdown_badge.format(
-            title='Azure',
+        "azure": _markdown_badge.format(
+            title="Azure",
             badge=(
-                'https://dev.azure.com/{repo}/_apis/build/status/'
-                '{repo_dotted}?branchName={branch}'
-            )
+                "https://dev.azure.com/{repo}/_apis/build/status/"
+                "{repo_dotted}?branchName={branch}"
+            ),
         ),
-        'travis': _markdown_badge.format(
-            title='Travis CI',
-            badge='https://img.shields.io/travis/{repo}/{branch}.svg'
+        "travis": _markdown_badge.format(
+            title="Travis CI", badge="https://img.shields.io/travis/{repo}/{branch}.svg"
         ),
-        'circle': _markdown_badge.format(
-            title='CircleCI',
-            badge=(
-                'https://img.shields.io/circleci/build/github'
-                '/{repo}/{branch}.svg'
-            )
+        "circle": _markdown_badge.format(
+            title="CircleCI",
+            badge=("https://img.shields.io/circleci/build/github/{repo}/{branch}.svg"),
         ),
-        'appveyor': _markdown_badge.format(
-            title='AppVeyor',
-            badge='https://img.shields.io/appveyor/ci/{repo}/{branch}.svg'
+        "appveyor": _markdown_badge.format(
+            title="AppVeyor",
+            badge="https://img.shields.io/appveyor/ci/{repo}/{branch}.svg",
         ),
-        'drone': _markdown_badge.format(
-            title='Drone',
-            badge='https://img.shields.io/drone/build/{repo}/{branch}.svg'
+        "drone": _markdown_badge.format(
+            title="Drone",
+            badge="https://img.shields.io/drone/build/{repo}/{branch}.svg",
         ),
     }
 
@@ -321,13 +294,13 @@ class CommentReport(Report):
         super().__init__(job, wait_for_task=wait_for_task)
 
     def show(self):
-        url = 'https://github.com/{repo}/branches/all?query={branch}'
+        url = "https://github.com/{repo}/branches/all?query={branch}"
         sha = self.job.target.head
 
-        msg = f'Revision: {sha}\n\n'
-        msg += 'Submitted crossbow builds: [{repo} @ {branch}]'
-        msg += f'({url})\n'
-        msg += '\n|Task|Status|\n|----|------|'
+        msg = f"Revision: {sha}\n\n"
+        msg += "Submitted crossbow builds: [{repo} @ {branch}]"
+        msg += f"({url})\n"
+        msg += "\n|Task|Status|\n|----|------|"
 
         tasks = sorted(self.job.tasks.items(), key=operator.itemgetter(0))
         for key, task in tasks:
@@ -337,13 +310,13 @@ class CommentReport(Report):
                 template = self.badges[task.ci]
                 badge = template.format(
                     repo=self.crossbow_repo,
-                    repo_dotted=self.crossbow_repo.replace('/', '.'),
+                    repo_dotted=self.crossbow_repo.replace("/", "."),
                     branch=branch,
-                    url=self.task_url(task)
+                    url=self.task_url(task),
                 )
             except KeyError:
-                badge = f'unsupported CI service `{task.ci}`'
+                badge = f"unsupported CI service `{task.ci}`"
 
-            msg += f'\n|{key}|{badge}|'
+            msg += f"\n|{key}|{badge}|"
 
         return msg.format(repo=self.crossbow_repo, branch=self.job.branch)

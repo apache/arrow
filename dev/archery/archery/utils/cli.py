@@ -43,8 +43,7 @@ class ArrowBool(click.types.BoolParamType):
 
 
 def validate_arrow_sources(ctx, param, src):
-    """Ensure a directory contains Arrow cpp sources.
-    """
+    """Ensure a directory contains Arrow cpp sources."""
     try:
         return ArrowSources.find(src)
     except InvalidArrowSource as e:
@@ -60,10 +59,7 @@ def add_optional_command(name, module, function, parent):
 
         @parent.command(
             name,
-            context_settings={
-                "allow_extra_args": True,
-                "ignore_unknown_options": True,
-            }
+            context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
         )
         def command():
             raise click.ClickException(

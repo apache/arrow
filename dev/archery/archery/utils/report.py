@@ -23,17 +23,16 @@ import jinja2
 
 
 def markdown_escape(s):
-    for char in ('*', '#', '_', '~', '`', '>'):
-        s = s.replace(char, '\\' + char)
+    for char in ("*", "#", "_", "~", "`", ">"):
+        s = s.replace(char, "\\" + char)
     return s
 
 
 class Report(metaclass=ABCMeta):
-
     def __init__(self, **kwargs):
         for field in self.fields:
             if field not in kwargs:
-                raise ValueError(f'Missing keyword argument {field}')
+                raise ValueError(f"Missing keyword argument {field}")
         self._data = kwargs
 
     def __getattr__(self, key):
@@ -50,13 +49,12 @@ class Report(metaclass=ABCMeta):
 
 
 class JinjaReport(Report):
-
     def __init__(self, **kwargs):
         self.env = jinja2.Environment(
-            loader=jinja2.PackageLoader('archery', 'templates')
+            loader=jinja2.PackageLoader("archery", "templates")
         )
-        self.env.filters['md'] = markdown_escape
-        self.env.globals['today'] = datetime.date.today
+        self.env.filters["md"] = markdown_escape
+        self.env.globals["today"] = datetime.date.today
         super().__init__(**kwargs)
 
     def render(self, template_name):

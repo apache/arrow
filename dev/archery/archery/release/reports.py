@@ -20,27 +20,22 @@ from ..utils.report import JinjaReport
 
 
 class ReleaseCuration(JinjaReport):
-    templates = {
-        'console': 'release_curation.txt.j2'
-    }
+    templates = {"console": "release_curation.txt.j2"}
     fields = [
-        'release',
-        'within',
-        'outside',
-        'noissue',
-        'parquet',
-        'nopatch',
-        'minimal',
-        'minor'
+        "release",
+        "within",
+        "outside",
+        "noissue",
+        "parquet",
+        "nopatch",
+        "minimal",
+        "minor",
     ]
 
 
 class ReleaseChangelog(JinjaReport):
     templates = {
-        'markdown': 'release_changelog.md.j2',
-        'html': 'release_changelog.html.j2'
+        "markdown": "release_changelog.md.j2",
+        "html": "release_changelog.html.j2",
     }
-    fields = [
-        'release',
-        'categories'
-    ]
+    fields = ["release", "categories"]

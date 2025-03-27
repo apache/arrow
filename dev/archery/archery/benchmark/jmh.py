@@ -33,7 +33,7 @@ def partition(pred, iterable):
 
 
 class JavaMicrobenchmarkHarnessCommand(Command):
-    """ Run a Java Micro Benchmark Harness
+    """Run a Java Micro Benchmark Harness
 
     This assumes the binary supports the standard command line options,
     notably `-Dbenchmark_filter`
@@ -60,8 +60,7 @@ class JavaMicrobenchmarkHarnessCommand(Command):
         argv = []
         if self.benchmark_filter:
             argv.append(f"-Dbenchmark.filter={self.benchmark_filter}")
-        result = self.build.list(
-            *argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = self.build.list(*argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         lists = []
         benchmarks = False
@@ -78,24 +77,30 @@ class JavaMicrobenchmarkHarnessCommand(Command):
 
     def results(self, repetitions):
         with NamedTemporaryFile(suffix=".json") as out:
-            argv = [f"-Dbenchmark.runs={repetitions}",
-                    f"-Dbenchmark.resultfile={out.name}",
-                    "-Dbenchmark.resultformat=json"]
+            argv = [
+                f"-Dbenchmark.runs={repetitions}",
+                f"-Dbenchmark.resultfile={out.name}",
+                "-Dbenchmark.resultformat=json",
+            ]
             if self.benchmark_filter:
-                argv.append(
-                    f"-Dbenchmark.filter={self.benchmark_filter}"
-                )
+                argv.append(f"-Dbenchmark.filter={self.benchmark_filter}")
 
             self.build.benchmark(*argv, check=True)
             return json.load(out)
 
 
 class JavaMicrobenchmarkHarnessObservation:
-    """ Represents one run of a single Java Microbenchmark Harness
-    """
+    """Represents one run of a single Java Microbenchmark Harness"""
 
-    def __init__(self, benchmark, primaryMetric,
-                 forks, warmupIterations, measurementIterations, **counters):
+    def __init__(
+        self,
+        benchmark,
+        primaryMetric,
+        forks,
+        warmupIterations,
+        measurementIterations,
+        **counters,
+    ):
         self.name = benchmark
         self.primaryMetric = primaryMetric
         self.score = primaryMetric["score"]
@@ -110,7 +115,7 @@ class JavaMicrobenchmarkHarnessObservation:
             "warmupTime": counters["warmupTime"],
             "measurements": measurementIterations,
             "measurementTime": counters["measurementTime"],
-            "jvmArgs": counters["jvmArgs"]
+            "jvmArgs": counters["jvmArgs"],
         }
         self.reciprocal_value = bool(self.score_unit.endswith("/op"))
         if self.score_unit.startswith("ops/"):
@@ -124,7 +129,7 @@ class JavaMicrobenchmarkHarnessObservation:
 
     @property
     def value(self):
-        """ Return the benchmark value."""
+        """Return the benchmark value."""
         val = 1 / self.score if self.reciprocal_value else self.score
         return val * self.normalizeFactor
 
@@ -156,10 +161,10 @@ class JavaMicrobenchmarkHarnessObservation:
 
 
 class JavaMicrobenchmarkHarness(Benchmark):
-    """ A set of JavaMicrobenchmarkHarnessObservations. """
+    """A set of JavaMicrobenchmarkHarnessObservations."""
 
     def __init__(self, name, runs):
-        """ Initialize a JavaMicrobenchmarkHarness.
+        """Initialize a JavaMicrobenchmarkHarness.
 
         Parameters
         ----------
@@ -181,8 +186,7 @@ class JavaMicrobenchmarkHarness(Benchmark):
         times = []
         # Slight kludge to extract the UserCounters for each benchmark
         counters = self.runs[0].counters
-        super().__init__(name, unit, less_is_better, values, time_unit, times,
-                         counters)
+        super().__init__(name, unit, less_is_better, values, time_unit, times, counters)
 
     def __repr__(self):
         return f"JavaMicrobenchmark[name={self.name},runs={self.runs}]"

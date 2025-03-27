@@ -31,10 +31,8 @@ _Predicate = typing.Callable[[], bool]
 
 
 class CDataExporter(ABC):
-
     @abstractmethod
-    def export_schema_from_json(self, json_path: os.PathLike,
-                                c_schema_ptr: object):
+    def export_schema_from_json(self, json_path: os.PathLike, c_schema_ptr: object):
         """Read a JSON integration file and export its schema.
 
         Parameters
@@ -46,9 +44,9 @@ class CDataExporter(ABC):
         """
 
     @abstractmethod
-    def export_batch_from_json(self, json_path: os.PathLike,
-                               num_batch: int,
-                               c_array_ptr: object):
+    def export_batch_from_json(
+        self, json_path: os.PathLike, num_batch: int, c_array_ptr: object
+    ):
         """Read a JSON integration file and export one of its batches.
 
         Parameters
@@ -101,8 +99,7 @@ class CDataExporter(ABC):
         return 1
 
     def close(self):
-        """Final cleanup after usage.
-        """
+        """Final cleanup after usage."""
 
     def __enter__(self):
         return self
@@ -112,10 +109,10 @@ class CDataExporter(ABC):
 
 
 class CDataImporter(ABC):
-
     @abstractmethod
-    def import_schema_and_compare_to_json(self, json_path: os.PathLike,
-                                          c_schema_ptr: object):
+    def import_schema_and_compare_to_json(
+        self, json_path: os.PathLike, c_schema_ptr: object
+    ):
         """Import schema and compare it to the schema of a JSON integration file.
 
         An error is raised if importing fails or the schemas differ.
@@ -129,9 +126,9 @@ class CDataImporter(ABC):
         """
 
     @abstractmethod
-    def import_batch_and_compare_to_json(self, json_path: os.PathLike,
-                                         num_batch: int,
-                                         c_array_ptr: object):
+    def import_batch_and_compare_to_json(
+        self, json_path: os.PathLike, num_batch: int, c_array_ptr: object
+    ):
         """Import record batch and compare it to one of the batches
         from a JSON integration file.
 
@@ -175,8 +172,7 @@ class CDataImporter(ABC):
         return 1
 
     def close(self):
-        """Final cleanup after usage.
-        """
+        """Final cleanup after usage."""
 
     def __enter__(self):
         return self
@@ -189,8 +185,7 @@ class CDataImporter(ABC):
 
 
 class Tester:
-    """The interface to declare a tester to run integration tests against.
-    """
+    """The interface to declare a tester to run integration tests against."""
 
     # whether the language supports producing / writing IPC
     PRODUCER = False
@@ -215,7 +210,7 @@ class Tester:
         self.debug = debug
 
     def run_shell_command(self, cmd, **kwargs):
-        cmd = ' '.join(cmd)
+        cmd = " ".join(cmd)
         if self.debug:
             log(cmd)
         kwargs.update(shell=True)  # noqa: S604
@@ -234,8 +229,7 @@ class Tester:
         raise NotImplementedError
 
     def file_to_stream(self, file_path, stream_path):
-        """Run the conversion of an Arrow IPC file to an Arrow IPC stream
-        """
+        """Run the conversion of an Arrow IPC file to an Arrow IPC stream"""
         raise NotImplementedError
 
     def validate(self, json_path, arrow_path, quirks=None):

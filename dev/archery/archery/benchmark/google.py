@@ -32,7 +32,7 @@ def partition(pred, iterable):
 
 
 class GoogleBenchmarkCommand(Command):
-    """ Run a google benchmark binary.
+    """Run a google benchmark binary.
 
     This assumes the binary supports the standard command line options,
     notably `--benchmark_filter`, `--benchmark_format`, etc...
@@ -47,15 +47,16 @@ class GoogleBenchmarkCommand(Command):
         argv = ["--benchmark_list_tests"]
         if self.benchmark_filter:
             argv.append(f"--benchmark_filter={self.benchmark_filter}")
-        result = self.run(*argv, stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE)
+        result = self.run(*argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return str.splitlines(result.stdout.decode("utf-8"))
 
     def results(self, repetitions=1, repetition_min_time=None):
         with NamedTemporaryFile() as out:
-            argv = [f"--benchmark_repetitions={repetitions}",
-                    f"--benchmark_out={out.name}",
-                    "--benchmark_out_format=json"]
+            argv = [
+                f"--benchmark_repetitions={repetitions}",
+                f"--benchmark_out={out.name}",
+                "--benchmark_out_format=json",
+            ]
 
             if repetition_min_time is not None:
                 argv.append(f"--benchmark_min_time={repetition_min_time:.6f}s")
@@ -70,7 +71,7 @@ class GoogleBenchmarkCommand(Command):
 
 
 class GoogleBenchmarkObservation:
-    """ Represents one run of a single (google c++) benchmark.
+    """Represents one run of a single (google c++) benchmark.
 
     Aggregates are reported by Google Benchmark executables alongside
     other observations whenever repetitions are specified (with
@@ -88,9 +89,18 @@ class GoogleBenchmarkObservation:
     RegressionSumKernel/32768/0_stddev          0 us          0 us  288.046MB/s
     """
 
-    def __init__(self, name, real_time, cpu_time, time_unit, run_type,
-                 size=None, bytes_per_second=None, items_per_second=None,
-                 **counters):
+    def __init__(
+        self,
+        name,
+        real_time,
+        cpu_time,
+        time_unit,
+        run_type,
+        size=None,
+        bytes_per_second=None,
+        items_per_second=None,
+        **counters,
+    ):
         self._name = name
         self.real_time = real_time
         self.cpu_time = cpu_time
@@ -103,12 +113,12 @@ class GoogleBenchmarkObservation:
 
     @property
     def is_aggregate(self):
-        """ Indicate if the observation is a run or an aggregate. """
+        """Indicate if the observation is a run or an aggregate."""
         return self.run_type == "aggregate"
 
     @property
     def is_realtime(self):
-        """ Indicate if the preferred value is realtime instead of cputime. """
+        """Indicate if the preferred value is realtime instead of cputime."""
         return self.name.find("/real_time") != -1
 
     @property
@@ -122,7 +132,7 @@ class GoogleBenchmarkObservation:
 
     @property
     def value(self):
-        """ Return the benchmark value."""
+        """Return the benchmark value."""
         return self.bytes_per_second or self.items_per_second or self.time
 
     @property
@@ -139,10 +149,10 @@ class GoogleBenchmarkObservation:
 
 
 class GoogleBenchmark(Benchmark):
-    """ A set of GoogleBenchmarkObservations. """
+    """A set of GoogleBenchmarkObservations."""
 
     def __init__(self, name, runs):
-        """ Initialize a GoogleBenchmark.
+        """Initialize a GoogleBenchmark.
 
         Parameters
         ----------
@@ -163,8 +173,7 @@ class GoogleBenchmark(Benchmark):
         times = [b.real_time for b in self.runs]
         # Slight kludge to extract the UserCounters for each benchmark
         counters = self.runs[0].counters
-        super().__init__(name, unit, less_is_better, values, time_unit, times,
-                         counters)
+        super().__init__(name, unit, less_is_better, values, time_unit, times, counters)
 
     def __repr__(self):
         return f"GoogleBenchmark[name={self.names},runs={self.runs}]"
