@@ -17,12 +17,25 @@
 
 #include "parquet/geospatial_util_internal.h"
 
+#include <sstream>
+
 #include "arrow/result.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
 
 namespace parquet::geometry {
+
+std::string BoundingBox::ToString() const {
+  std::stringstream ss;
+  ss << "BoundingBox" << std::endl;
+  ss << "  x: [" << min[0] << ", " << max[0] << "]" << std::endl;
+  ss << "  y: [" << min[1] << ", " << max[1] << "]" << std::endl;
+  ss << "  z: [" << min[2] << ", " << max[2] << "]" << std::endl;
+  ss << "  m: [" << min[3] << ", " << max[3] << "]" << std::endl;
+
+  return ss.str();
+}
 
 /// \brief Object to keep track of the low-level consumption of a well-known binary
 /// geometry
@@ -61,7 +74,7 @@ class WKBBuffer {
       Coord coord;
       for (uint32_t i = 0; i < n_coords; i++) {
         coord = ReadUnchecked<Coord>();
-        for (auto& c: coord) {
+        for (auto& c : coord) {
           c = ByteSwap(c);
         }
 

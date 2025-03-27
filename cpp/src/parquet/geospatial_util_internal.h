@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include <sstream>
 #include <string>
 #include <unordered_set>
 
@@ -80,7 +79,7 @@ enum class GeometryType {
 /// contained NaN values. This definition ensures that NaN bounds obtained via
 /// EncodedGeoStatistics (which may have been written by some other writer that generated
 /// NaNs, either on purpose or by accident) are not silently overwritten.
-struct BoundingBox {
+struct PARQUET_EXPORT BoundingBox {
   using XY = std::array<double, 2>;
   using XYZ = std::array<double, 3>;
   using XYM = std::array<double, 3>;
@@ -143,16 +142,7 @@ struct BoundingBox {
     }
   }
 
-  std::string ToString() const {
-    std::stringstream ss;
-    ss << "BoundingBox" << std::endl;
-    ss << "  x: [" << min[0] << ", " << max[0] << "]" << std::endl;
-    ss << "  y: [" << min[1] << ", " << max[1] << "]" << std::endl;
-    ss << "  z: [" << min[2] << ", " << max[2] << "]" << std::endl;
-    ss << "  m: [" << min[3] << ", " << max[3] << "]" << std::endl;
-
-    return ss.str();
-  }
+  std::string ToString() const;
 
   XYZM min;
   XYZM max;
