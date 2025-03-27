@@ -165,6 +165,8 @@ struct ARROW_EXPORT IpcReadOptions {
   ///
   /// Received mis-aligned data is copied to aligned memory locations allocated via the
   /// MemoryPool configured as \ref arrow::ipc::IpcReadOptions::memory_pool.
+  /// Some use cases might require data to have data type-specific alignment, for example,
+  /// for the data buffer of an Int32 array to be aligned on a 4-byte boundary.
   bool ensure_memory_alignment = false;
 
   /// \brief Options to control caching behavior when pre-buffering is requested

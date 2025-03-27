@@ -121,7 +121,9 @@ cdef class IpcReadOptions(_Weakrefable):
     ensure_native_endian : bool, default True
         Whether to convert incoming data to platform-native endianness.
     ensure_memory_alignment : bool, default True
-        Whether to align incoming data if mis-aligned.
+        Whether to align incoming data to data type-specific alignment, if mis-aligned.
+        Some use cases might require data to have data type-specific alignment, for example,
+        for the data buffer of an int32 array to be aligned on a 4-byte boundary.
     use_threads : bool
         Whether to use the global CPU thread pool to parallelize any
         computational tasks like decompression
