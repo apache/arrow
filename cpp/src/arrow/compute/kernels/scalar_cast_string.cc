@@ -345,20 +345,18 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
       input.GetValues<BinaryViewType::c_type>(1), input.length);
   DataBuilder data_builder(ctx->memory_pool());
   RETURN_NOT_OK(data_builder.Reserve(sum_of_binary_view_sizes));
-  RETURN_NOT_OK(VisitArraySpanInline<I>(
+  VisitArraySpanInline<I>(
       input,
       [&](std::string_view s) {
         // for non-null value, append string view to buffer and calculate offset
         data_builder.UnsafeAppend(reinterpret_cast<const uint8_t*>(s.data()),
                                   static_cast<int64_t>(s.size()));
         offset_builder.UnsafeAppend(static_cast<offset_type>(data_builder.length()));
-        return Status::OK();
       },
       [&]() {
         // for null value, no need to update data buffer
         offset_builder.UnsafeAppend(static_cast<offset_type>(data_builder.length()));
-        return Status::OK();
-      }));
+      });
   RETURN_NOT_OK(offset_builder.Finish(&output->buffers[1]));
   RETURN_NOT_OK(data_builder.Finish(&output->buffers[2]));
   return Status::OK();
