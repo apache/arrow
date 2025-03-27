@@ -1012,7 +1012,8 @@ class PARQUET_EXPORT ArrowReaderProperties {
   ///
   /// When enabled, the Arrow reader will use the underlying physical type to deduce the
   /// Arrow type when the logical type is not recognized (e.g., one that was added to the
-  /// spec but not implemented in Parquet C++).
+  /// spec but not implemented in Parquet C++). When false (the default), such an attempt
+  /// will error.
   void set_allow_undefined_logical_types(bool allow_undefined_logical_types) {
     allow_undefined_logical_types_ = allow_undefined_logical_types;
   }

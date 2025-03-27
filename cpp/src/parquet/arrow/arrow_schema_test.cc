@@ -744,7 +744,7 @@ TEST_F(TestConvertParquetSchema, ParquetUndefinedType) {
   std::vector<NodePtr> parquet_fields;
 
   // Make a node and intentionally modify it such that it comes back
-  // as NoLogicalType::Make()
+  // as UndefinedLogicalType::Make()
   NodePtr node = PrimitiveNode::Make("undefined", Repetition::OPTIONAL,
                                      StringLogicalType::Make(), Type::BYTE_ARRAY);
 
@@ -758,7 +758,7 @@ TEST_F(TestConvertParquetSchema, ParquetUndefinedType) {
   // With default options, this should error
   ASSERT_RAISES(NotImplemented, ConvertSchema(parquet_fields));
 
-  // With an opt-in, the field should be converted according to its storage
+  // With an opt-in, the field should be interpreted according to its storage
   ArrowReaderProperties props;
   props.set_allow_undefined_logical_types(true);
   ASSERT_OK(ConvertSchema(parquet_fields, nullptr, props));
