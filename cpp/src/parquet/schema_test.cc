@@ -1688,6 +1688,24 @@ TEST(TestSchemaNodeCreation, FactoryEquivalence) {
   ConfirmGroupNodeFactoryEquivalence("list", LogicalType::List(), ConvertedType::LIST);
 }
 
+TEST(TestSchemaNodeCreation, FactoryUndefinedLogicalType) {
+  auto node = PrimitiveNode::Make("string", Repetition::REQUIRED,
+                                  StringLogicalType::Make(), Type::BYTE_ARRAY);
+
+  format::SchemaElement string_intermediary;
+  node->ToParquet(&string_intermediary);
+
+  string_intermediary.logicalType.__isset.STRING = false;
+  node = PrimitiveNode::FromParquet(&string_intermediary);
+  ASSERT_FALSE(node->logical_type()->is_valid());
+  ASSERT_EQ(node->logical_type()->ToString(), "Undefined");
+
+  auto primitive_node =
+      ::arrow::internal::checked_pointer_cast<PrimitiveNode, Node>(node);
+  ASSERT_EQ(GetSortOrder(node->logical_type(), primitive_node->physical_type()),
+            SortOrder::UNKNOWN);
+}
+
 TEST(TestSchemaNodeCreation, FactoryExceptions) {
   // Ensure that the Node factory method that accepts a logical type refuses to create
   // an object if compatibility conditions are not met
@@ -1764,11 +1782,6 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   ASSERT_EQ(node->logical_type()->type(), LogicalType::Type::STRING);
   ASSERT_TRUE(node->logical_type()->is_valid());
   ASSERT_TRUE(node->logical_type()->is_serialized());
-  format::SchemaElement string_intermediary;
-  node->ToParquet(&string_intermediary);
-  // ... corrupt the Thrift intermediary ....
-  string_intermediary.logicalType.__isset.STRING = false;
-  ASSERT_ANY_THROW(node = PrimitiveNode::FromParquet(&string_intermediary));
 
   // Invalid TimeUnit in deserialized TimeLogicalType ...
   node = PrimitiveNode::Make("time", Repetition::REQUIRED,

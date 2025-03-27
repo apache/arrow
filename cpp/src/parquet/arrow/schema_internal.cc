@@ -191,8 +191,19 @@ Result<std::shared_ptr<ArrowType>> FromInt64(const LogicalType& logical_type) {
 Result<std::shared_ptr<ArrowType>> GetArrowType(
     Type::type physical_type, const LogicalType& logical_type, int type_length,
     const ArrowReaderProperties& reader_properties) {
-  if (logical_type.is_invalid() || logical_type.is_null()) {
+  if (logical_type.is_null()) {
     return ::arrow::null();
+  }
+
+  if (logical_type.is_invalid()) {
+    if (reader_properties.allow_undefined_logical_types()) {
+      return GetArrowType(physical_type, *NoLogicalType::Make(), type_length,
+                          reader_properties);
+    }
+
+    return Status::NotImplemented(
+        "undefined logical type with allow_undefined_logical_types=false or "
+        "corrupt Parquet footer");
   }
 
   switch (physical_type) {
