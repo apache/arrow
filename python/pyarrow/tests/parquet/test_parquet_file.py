@@ -356,7 +356,7 @@ def test_read_statistics():
 
 
 def test_read_undefined_logical_type(parquet_test_datadir):
-    test_file = f"{parquet_test_datadir}/data/unknown-logical-type.parquet"
+    test_file = f"{parquet_test_datadir}/unknown-logical-type.parquet"
 
     with pytest.raises(pa.lib.ArrowNotImplementedError, match="undefined logical type"):
         pq.ParquetFile(test_file)
