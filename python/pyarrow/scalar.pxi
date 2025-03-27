@@ -240,6 +240,10 @@ cdef class UInt8Scalar(Scalar):
         cdef CUInt8Scalar* sp = <CUInt8Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
+    def __int__(self):
+
+        return (self.as_py())
+
 
 cdef class Int8Scalar(Scalar):
     """
@@ -258,6 +262,10 @@ cdef class Int8Scalar(Scalar):
         """
         cdef CInt8Scalar* sp = <CInt8Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
+
+    def __int__(self):
+
+        return (self.as_py())
 
 
 cdef class UInt16Scalar(Scalar):
@@ -278,6 +286,10 @@ cdef class UInt16Scalar(Scalar):
         cdef CUInt16Scalar* sp = <CUInt16Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
+    def __int__(self):
+
+        return (self.as_py())
+
 
 cdef class Int16Scalar(Scalar):
     """
@@ -296,6 +308,10 @@ cdef class Int16Scalar(Scalar):
         """
         cdef CInt16Scalar* sp = <CInt16Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
+
+    def __int__(self):
+
+        return (self.as_py())
 
 
 cdef class UInt32Scalar(Scalar):
@@ -316,6 +332,10 @@ cdef class UInt32Scalar(Scalar):
         cdef CUInt32Scalar* sp = <CUInt32Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
+    def __int__(self):
+
+        return (self.as_py())
+
 
 cdef class Int32Scalar(Scalar):
     """
@@ -334,6 +354,10 @@ cdef class Int32Scalar(Scalar):
         """
         cdef CInt32Scalar* sp = <CInt32Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
+
+    def __int__(self):
+
+        return (self.as_py())
 
 
 cdef class UInt64Scalar(Scalar):
@@ -354,6 +378,10 @@ cdef class UInt64Scalar(Scalar):
         cdef CUInt64Scalar* sp = <CUInt64Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
+    def __int__(self):
+
+        return (self.as_py())
+
 
 cdef class Int64Scalar(Scalar):
     """
@@ -372,6 +400,10 @@ cdef class Int64Scalar(Scalar):
         """
         cdef CInt64Scalar* sp = <CInt64Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
+
+    def __int__(self):
+
+        return (self.as_py())
 
 
 cdef class HalfFloatScalar(Scalar):
