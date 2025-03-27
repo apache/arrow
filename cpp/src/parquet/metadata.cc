@@ -116,7 +116,7 @@ static std::shared_ptr<GeoStatistics> MakeColumnGeometryStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
   if (metadata.__isset.geospatial_statistics) {
     EncodedGeoStatistics encoded_geo_stats = FromThrift(metadata.geospatial_statistics);
-    return std::make_shared<GeoStatistics>(encoded_geo_stats);
+    return std::make_shared<GeoStatistics>(std::move(encoded_geo_stats));
   } else {
     return nullptr;
   }
