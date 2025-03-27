@@ -22,7 +22,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/string.h"
 
-#include "parquet/geospatial_util_internal_json.h"
+#include "parquet/geospatial_util_json_internal.h"
 #include "parquet/properties.h"
 
 using ArrowType = ::arrow::DataType;
