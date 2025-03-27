@@ -335,6 +335,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         double mmax
         vector[int32_t] geospatial_types
 
+        c_bool has_x() const
+        c_bool has_y() const
         c_bool has_z() const
         c_bool has_m() const
 

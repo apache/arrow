@@ -320,7 +320,7 @@ cdef _box_flba(ParquetFLBA val, uint32_t len):
 
 
 cdef class GeoStatistics(_Weakrefable):
-    """Statistics for columns with geospatial data types"""
+    """Statistics for columns with geospatial data types (experimental)"""
 
     def __cinit__(self):
         pass
@@ -354,31 +354,43 @@ cdef class GeoStatistics(_Weakrefable):
 
     @property
     def xmin(self):
-        return self.statistics.xmin
+        if self.statistics.has_x():
+            return self.statistics.xmin
+        else:
+            return None
 
     @property
     def xmax(self):
-        return self.statistics.xmax
+        if self.statistics.has_x():
+            return self.statistics.xmax
+        else:
+            return None
 
     @property
     def ymin(self):
-        return self.statistics.ymin
+        if self.statistics.has_y():
+            return self.statistics.ymin
+        else:
+            return None
 
     @property
     def ymax(self):
-        return self.statistics.ymax
+        if self.statistics.has_y():
+            return self.statistics.ymax
+        else:
+            return None
 
     @property
     def zmin(self):
         if self.statistics.has_z():
-            return self.statistics.xmin
+            return self.statistics.zmin
         else:
             return None
 
     @property
     def zmax(self):
         if self.statistics.has_z():
-            return self.statistics.xmax
+            return self.statistics.zmax
         else:
             return None
 
