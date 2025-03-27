@@ -1659,21 +1659,30 @@ class LogicalType::Impl::Float16 final : public LogicalType::Impl::Incompatible,
 GENERATE_MAKE(Float16)
 
 namespace {
+std::string EscapeControl(char c) {
+  std::stringstream ss;
+  ss << R"(\u00)";
+  ss.flags(ss.hex);
+  ss.width(2);
+  ss.fill('0');
+  ss << static_cast<int>(c);
+  return ss.str();
+}
+
 void WriteCrsKeyAndValue(const std::string& crs, std::ostream& json) {
   // There is no restriction on the crs value here, and it may contain quotes
   // or backslashes that would result in invalid JSON if unescaped.
   json << R"(, "crs": ")";
+  json.flags(json.hex);
   for (char c : crs) {
-    switch (c) {
-      case '"':
-        json << R"(\")";
-        break;
-      case '\\':
-        json << R"(\\)";
-        break;
-      default:
-        json << c;
-        break;
+    if (c == '"') {
+      json << R"(\")";
+    } else if (c == '\\') {
+      json << R"(\\)";
+    } else if (c >= 0 && c < 32) {
+      json << EscapeControl(c);
+    } else {
+      json << c;
     }
   }
   json << R"(")";
