@@ -84,7 +84,7 @@ class WKBBuffer {
 
   template <typename T>
   ::arrow::Result<T> ReadChecked() {
-    if (size_ < sizeof(T)) {
+    if (ARROW_PREDICT_FALSE(size_ < sizeof(T))) {
       return ::arrow::Status::SerializationError(
           "Can't read ", sizeof(T), " bytes from WKBBuffer with ", size_, " remaining");
     }
