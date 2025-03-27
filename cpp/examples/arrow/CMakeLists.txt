@@ -166,6 +166,15 @@ if(ARROW_PARQUET AND ARROW_DATASET)
                     ${DATASET_EXAMPLES_LINK_LIBS})
   add_dependencies(execution-plan-documentation-examples parquet)
 
+  if(PARQUET_REQUIRE_ENCRYPTION)
+    add_arrow_example(parquet_column_encryption
+                      EXTRA_SOURCES
+                      ${PROJECT_SOURCE_DIR}/src/parquet/encryption/test_in_memory_kms.cc
+                      EXTRA_LINK_LIBS
+                      ${DATASET_EXAMPLES_LINK_LIBS})
+    add_dependencies(parquet-column-encryption parquet)
+  endif()
+
   if(ARROW_CSV)
     add_arrow_example(join_example EXTRA_LINK_LIBS ${DATASET_EXAMPLES_LINK_LIBS})
     add_dependencies(join-example parquet)

@@ -812,14 +812,14 @@ struct GrouperFastImpl : public Grouper {
     ARROW_ASSIGN_OR_RAISE(
         std::shared_ptr<Buffer> buf,
         AllocateBitmap(length + kBitmapPaddingForSIMD, ctx_->memory_pool()));
-    return SliceMutableBuffer(buf, 0, bit_util::BytesForBits(length));
+    return SliceMutableBuffer(std::move(buf), 0, bit_util::BytesForBits(length));
   }
 
   Result<std::shared_ptr<Buffer>> AllocatePaddedBuffer(int64_t size) {
     ARROW_ASSIGN_OR_RAISE(
         std::shared_ptr<Buffer> buf,
         AllocateBuffer(size + kBitmapPaddingForSIMD, ctx_->memory_pool()));
-    return SliceMutableBuffer(buf, 0, size);
+    return SliceMutableBuffer(std::move(buf), 0, size);
   }
 
   Result<ExecBatch> GetUniques() override {
