@@ -48,6 +48,23 @@ cdef CMetadataVersion _unwrap_metadata_version(
     raise ValueError("Not a metadata version: " + repr(version))
 
 
+cpdef enum Alignment:
+    Any = <int8_t> CAlignment_Any
+    DataTypeSpecific = <int8_t> CAlignment_DataTypeSpecific
+
+
+cdef object _wrap_alignment(CAlignment alignment):
+    return Alignment(<char> alignment)
+
+
+cdef CAlignment _unwrap_alignment(Alignment alignment) except *:
+    if alignment == Alignment.Any:
+        return CAlignment_Any
+    elif alignment == Alignment.DataTypeSpecific:
+        return CAlignment_DataTypeSpecific
+    raise ValueError("Not an alignment: " + repr(alignment))
+
+
 _WriteStats = namedtuple(
     'WriteStats',
     ('num_messages', 'num_record_batches', 'num_dictionary_batches',
@@ -120,8 +137,8 @@ cdef class IpcReadOptions(_Weakrefable):
     ----------
     ensure_native_endian : bool, default True
         Whether to convert incoming data to platform-native endianness.
-    ensure_memory_alignment : bool, default False
-        Whether to align incoming data to data type-specific alignment, if mis-aligned.
+    ensure_alignment : Alignment, default Alignment.Any
+        Data is copied to aligned memory locations if mis-aligned.
         Some use cases might require data to have data type-specific alignment, for example,
         for the data buffer of an int32 array to be aligned on a 4-byte boundary.
     use_threads : bool
@@ -137,11 +154,11 @@ cdef class IpcReadOptions(_Weakrefable):
     # cdef block is in lib.pxd
 
     def __init__(self, *, bint ensure_native_endian=True,
-                 bint ensure_memory_alignment=False,
+                 Alignment ensure_alignment=Alignment.Any,
                  bint use_threads=True, list included_fields=None):
         self.c_options = CIpcReadOptions.Defaults()
         self.ensure_native_endian = ensure_native_endian
-        self.ensure_memory_alignment = ensure_memory_alignment
+        self.ensure_alignment = ensure_alignment
         self.use_threads = use_threads
         if included_fields is not None:
             self.included_fields = included_fields
@@ -155,12 +172,12 @@ cdef class IpcReadOptions(_Weakrefable):
         self.c_options.ensure_native_endian = value
 
     @property
-    def ensure_memory_alignment(self):
-        return self.c_options.ensure_memory_alignment
+    def ensure_alignment(self):
+        return _wrap_alignment(self.c_options.ensure_alignment)
 
-    @ensure_memory_alignment.setter
-    def ensure_memory_alignment(self, bint value):
-        self.c_options.ensure_memory_alignment = value
+    @ensure_alignment.setter
+    def ensure_alignment(self, Alignment value):
+        self.c_options.ensure_alignment = _unwrap_alignment(value)
 
     @property
     def use_threads(self):

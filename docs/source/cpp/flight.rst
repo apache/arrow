@@ -243,8 +243,9 @@ data copies. However, experience shows that such data is frequently
 misaligned. Some use cases might require data to have data type-specific
 alignment (for example, for the data buffer of an Int32 array to be aligned
 on a 4-byte boundary), which can be enforced
-by setting :member:`arrow::ipc::IpcReadOptions::ensure_memory_alignment`
-to ``true``. This uses the :member:`arrow::ipc::IpcReadOptions::memory_pool`
+by setting :member:`arrow::ipc::IpcReadOptions::ensure_alignment`
+to :member:`arrow::ipc::Alignment::kDataTypeSpecificAlignment`.
+This uses the :member:`arrow::ipc::IpcReadOptions::memory_pool`
 to a allocate memory with aligned addresses, but only for mis-alligned data.
 However, this creates data copies of your data recieved via Flight.
 

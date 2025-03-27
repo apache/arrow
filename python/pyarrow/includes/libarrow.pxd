@@ -1874,13 +1874,17 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         @staticmethod
         CIpcWriteOptions Defaults()
 
+    ctypedef enum CAlignment" arrow::ipc::Alignment":
+        CAlignment_Any" arrow::ipc::Alignment::kAnyAlignment"
+        CAlignment_DataTypeSpecific" arrow::ipc::Alignment::kDataTypeSpecificAlignment"
+
     cdef cppclass CIpcReadOptions" arrow::ipc::IpcReadOptions":
         int max_recursion_depth
         CMemoryPool* memory_pool
         vector[int] included_fields
         c_bool use_threads
         c_bool ensure_native_endian
-        c_bool ensure_memory_alignment
+        CAlignment ensure_alignment
 
         @staticmethod
         CIpcReadOptions Defaults()

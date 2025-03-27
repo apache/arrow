@@ -639,11 +639,13 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
   }
   auto batch = RecordBatch::Make(std::move(filtered_schema), metadata->length(),
                                  std::move(filtered_columns));
-  if (context.options.ensure_memory_alignment) {
-    return util::EnsureAlignment(batch, arrow::util::kValueAlignment,
-                                 context.options.memory_pool);
+
+  if (context.options.ensure_alignment == Alignment::kAnyAlignment) {
+    return batch;
   }
-  return batch;
+  return util::EnsureAlignment(batch,
+                               static_cast<int64_t>(context.options.ensure_alignment),
+                               context.options.memory_pool);
 }
 
 Result<std::shared_ptr<RecordBatch>> LoadRecordBatch(
