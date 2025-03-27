@@ -788,7 +788,7 @@ def test_write_metadata_fs_file_combinations(tempdir, s3_example_s3fs):
 
 
 def test_column_chunk_key_value_metadata(parquet_test_datadir):
-    metadata = pq.read_metadata(parquet_test_datadir /
+    metadata = pq.read_metadata(parquet_test_datadir / 'data' /
                                 'column_chunk_key_value_metadata.parquet')
     key_value_metadata1 = metadata.row_group(0).column(0).metadata
     assert key_value_metadata1 == {b'foo': b'bar', b'thisiskeywithoutvalue': b''}

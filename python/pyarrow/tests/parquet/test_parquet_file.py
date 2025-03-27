@@ -357,8 +357,6 @@ def test_read_statistics():
 
 def test_read_undefined_logical_type(parquet_test_datadir):
     test_file = f"{parquet_test_datadir}/data/unknown-logical-type.parquet"
-    if not os.path.exists(test_file):
-        pytest.skip("submodule not yet updated")
 
     with pytest.raises(pa.lib.ArrowNotImplementedError, match="undefined logical type"):
         pq.ParquetFile(test_file)
