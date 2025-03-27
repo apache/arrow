@@ -100,7 +100,6 @@ if arrow_cpp_build_lib_dir == ''
     arrow = dependency('arrow', version: ['>=' + version])
     # They are just for checking required modules are enabled. They are built into
     # libarrow.so. So we don't need additional build flags for them.
-    dependency('arrow-compute', version: ['>=' + version])
     dependency('arrow-csv', version: ['>=' + version])
     dependency('arrow-filesystem', version: ['>=' + version])
     dependency('arrow-json', version: ['>=' + version])
@@ -115,7 +114,12 @@ if arrow_cpp_build_lib_dir == ''
         required: false,
         version: ['>=' + version],
     )
-    # we do not support compiling glib without acero engine
+    # we do not support compiling glib without compute and acero engine
+    arrow_compute = dependency(
+        'arrow-compute',
+        required: true,
+        version: ['>=' + version],
+    )
     arrow_acero = dependency(
         'arrow-acero',
         required: true,
@@ -167,6 +171,11 @@ main(void)
     )
     arrow_acero = cpp_compiler.find_library(
         'arrow_acero',
+        dirs: [arrow_cpp_build_lib_dir],
+        required: true,
+    )
+    arrow_compute = cpp_compiler.find_library(
+        'arrow_compute',
         dirs: [arrow_cpp_build_lib_dir],
         required: true,
     )
