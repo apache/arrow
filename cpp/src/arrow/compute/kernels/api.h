@@ -25,3 +25,5 @@
 /// @}
 
 #include "arrow/compute/kernels/registry.h"  // IWYU pragma: export
+
+static arrow::Status g_kernels_registered = arrow::compute::RegisterComputeKernels();
