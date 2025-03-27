@@ -88,7 +88,6 @@ js/yarn.lock
 js/.eslintignore
 python/cmake_modules
 python/cmake_modules/FindPythonLibsNew.cmake
-python/dummy.git/*
 python/MANIFEST.in
 python/manylinux1/.dockerignore
 python/pyarrow/includes/__init__.pxd
@@ -96,7 +95,6 @@ python/pyarrow/tests/__init__.py
 python/pyarrow/vendored/*
 python/pyarrow/src/arrow/python/vendored/*
 python/requirements*.txt
-python/subprojects/arrow/*
 pax_global_header
 MANIFEST.in
 __init__.pxd
