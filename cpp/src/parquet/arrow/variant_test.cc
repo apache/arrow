@@ -31,22 +31,27 @@ using ::arrow::struct_;
 class TestVariantExtensionType : public ::testing::Test {};
 
 TEST(TestVariantExtensionType, StorageTypeValidation) {
-  auto variant1 =
-      variant(struct_({field("metadata", binary()), field("value", binary())}));
-  auto variant2 =
-      variant(struct_({field("metadata", binary()), field("value", binary())}));
+  auto variant1 = variant(struct_({field("metadata", binary())->WithNullable(false),
+                                   field("value", binary())->WithNullable(false)}));
+  auto variant2 = variant(struct_({field("metadata", binary())->WithNullable(false),
+                                   field("value", binary())->WithNullable(false)}));
 
   ASSERT_TRUE(variant1->Equals(variant2));
 
-  auto missing_value = struct_({field("metadata", binary())});
-  auto missing_metadata = struct_({field("value", binary())});
-  auto bad_value_type =
-      struct_({field("metadata", binary()), field("value", ::arrow::int32())});
-  auto extra_field = struct_(
-      {field("metadata", binary()), field("value", binary()), field("extra", binary())});
+  auto missing_value = struct_({field("metadata", binary())->WithNullable(false)});
+  auto missing_metadata = struct_({field("value", binary())->WithNullable(false)});
+  auto bad_value_type = struct_({field("metadata", binary())->WithNullable(false),
+                                 field("value", ::arrow::int32())->WithNullable(false)});
+  auto extra_field = struct_({field("metadata", binary())->WithNullable(false),
+                              field("value", binary())->WithNullable(false),
+                              field("extra", binary())->WithNullable(false)});
+  auto nullable_metadata = struct_(
+      {field("metadata", binary()), field("value", binary())->WithNullable(false)});
+  auto nullable_value = struct_(
+      {field("metadata", binary())->WithNullable(false), field("value", binary())});
 
-  for (const auto& storage_type :
-       {missing_value, missing_metadata, bad_value_type, extra_field}) {
+  for (const auto& storage_type : {missing_value, missing_metadata, bad_value_type,
+                                   extra_field, nullable_metadata, nullable_value}) {
     ASSERT_RAISES_WITH_MESSAGE(
         Invalid,
         "Invalid: Invalid storage type for VariantExtensionType: " +

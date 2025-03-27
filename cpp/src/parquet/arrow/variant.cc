@@ -65,8 +65,13 @@ bool VariantExtensionType::IsSupportedStorageType(
   // variant_value.
   if (storage_type->id() == Type::STRUCT) {
     if (storage_type->num_fields() == 2) {
-      return storage_type->field(0)->type()->storage_id() == Type::BINARY &&
-             storage_type->field(1)->type()->storage_id() == Type::BINARY;
+      const auto& metadata_field = storage_type->field(0);
+      const auto& value_field = storage_type->field(1);
+
+      // Metadata and value both must be non-nullable binary types
+      return metadata_field->type()->storage_id() == Type::BINARY &&
+             value_field->type()->storage_id() == Type::BINARY &&
+             !metadata_field->nullable() && !value_field->nullable();
     }
   }
 

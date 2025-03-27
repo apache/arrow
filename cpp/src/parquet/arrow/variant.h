@@ -29,7 +29,7 @@ namespace parquet::arrow {
 class PARQUET_EXPORT VariantExtensionType : public ::arrow::ExtensionType {
  public:
   explicit VariantExtensionType(const std::shared_ptr<::arrow::DataType>& storage_type)
-      : ::arrow::ExtensionType(storage_type), storage_type_(storage_type) {}
+      : ::arrow::ExtensionType(std::move(storage_type)) {}
 
   std::string extension_name() const override { return "parquet.variant"; }
 
@@ -53,9 +53,6 @@ class PARQUET_EXPORT VariantExtensionType : public ::arrow::ExtensionType {
   std::shared_ptr<::arrow::Field> metadata_field() const { return children_.at(0); }
 
   std::shared_ptr<::arrow::Field> value_field() const { return children_.at(1); }
-
- private:
-  std::shared_ptr<::arrow::DataType> storage_type_;
 };
 
 /// \brief Return a VariantExtensionType instance.
