@@ -233,7 +233,9 @@ std::string MakeWKBPoint(const std::vector<double>& xyzm, bool has_z, bool has_m
 
   if (has_m) {
     std::memcpy(ptr, &xyzm[3], 8);
+    ptr += 8;
   }
+  DCHECK_EQ(ptr - wkb.data(), wkb.length());
 
   return wkb;
 }
