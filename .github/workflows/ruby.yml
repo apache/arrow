@@ -237,8 +237,6 @@ jobs:
       ARROW_CMAKE_ARGS: >-
         -DARROW_PACKAGE_PREFIX=/ucrt${{ matrix.mingw-n-bits }}
         -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON
-      # Disabled unity build because of https://github.com/apache/arrow/pull/45360#issuecomment-2739878882
-      CMAKE_UNITY_BUILD: OFF
     steps:
       - name: Disable Crash Dialogs
         run: |
