@@ -61,8 +61,8 @@ class WKBBuffer {
       Coord coord;
       for (uint32_t i = 0; i < n_coords; i++) {
         coord = ReadUnchecked<Coord>();
-        for (uint32_t j = 0; j < coord.size(); j++) {
-          coord[j] = ByteSwap(coord[j]);
+        for (auto& c: coord) {
+          c = ByteSwap(c);
         }
 
         visit(coord);
