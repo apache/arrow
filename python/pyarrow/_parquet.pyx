@@ -322,6 +322,9 @@ cdef _box_flba(ParquetFLBA val, uint32_t len):
 cdef class GeoStatistics(_Weakrefable):
     """Statistics for columns with geospatial data types (experimental)"""
 
+    def __init__(self):
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
+
     def __cinit__(self):
         pass
 
@@ -560,7 +563,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         """Statistics for column chunk (:class:`GeoStatistics`)."""
         if not self.metadata.is_geo_stats_set():
             return None
-        geo_statistics = GeoStatistics()
+        cdef GeoStatistics geo_statistics = GeoStatistics.__new__(GeoStatistics)
         geo_statistics.init(self.metadata.geo_statistics(), self)
         return geo_statistics
 
