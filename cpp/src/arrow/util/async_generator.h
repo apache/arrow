@@ -22,7 +22,6 @@
 #include <cstring>
 #include <deque>
 #include <limits>
-#include <mutex>
 #include <optional>
 #include <queue>
 
@@ -751,7 +750,7 @@ class ReadaheadGenerator {
         [state](const T& result) -> Future<T> {
           bool mark_finished = false;
           {
-            std::unique_lock<std::mutex> lock(state->mu);
+            auto guard = state->mu.Lock();
             state->MarkFinishedIfDone(result);
             --state->num_running;
             if (state->finished) {
@@ -768,7 +767,7 @@ class ReadaheadGenerator {
           // tasks finish before we return the error.
           bool mark_finished = false;
           {
-            std::lock_guard<std::mutex> lock(state->mu);
+            auto guard = state->mu.Lock();
             state->finished = true;
             --state->num_running;
             mark_finished = state->num_running == 0;
@@ -784,7 +783,7 @@ class ReadaheadGenerator {
     if (state_->readahead_queue.empty()) {
       // This is the first request, let's pump the underlying queue
       {
-        std::lock_guard<std::mutex> lock(state_->mu);
+        auto guard = state_->mu.Lock();
         state_->num_running = state_->max_readahead;
       }
       for (int i = 0; i < state_->max_readahead; i++) {
@@ -796,13 +795,13 @@ class ReadaheadGenerator {
     // Pop one and add one
     auto result = std::move(state_->readahead_queue.front());
     state_->readahead_queue.pop();
-    std::unique_lock<std::mutex> lock(state_->mu);
+    auto guard = state_->mu.Lock();
     if (state_->finished) {
-      lock.unlock();
+      guard.Unlock();
       state_->readahead_queue.push(AsyncGeneratorEnd<T>());
     } else {
       ++state_->num_running;
-      lock.unlock();
+      guard.Unlock();
       auto back_of_queue = state_->source_generator();
       auto back_of_queue_after_check =
           AddMarkFinishedContinuation(std::move(back_of_queue));
@@ -828,7 +827,7 @@ class ReadaheadGenerator {
     Future<> final_future = Future<>::Make();
     int num_running{0};    // GUARDED_BY(mu)
     bool finished{false};  // GUARDED_BY(mu)
-    std::mutex mu;
+    arrow::util::Mutex mu;
     std::queue<Future<T>> readahead_queue;
   };
 
@@ -1432,9 +1431,8 @@ class MergedGenerator {
             immediate_inner(next_item.result());
             if (immediate_inner.was_empty) {
               Future<AsyncGenerator<T>> next_source = state->PullSource();
-              if (next_source.TryAddCallback([this] {
-                    return OuterCallback{state, index};
-                  })) {
+              if (next_source.TryAddCallback(
+                      [this] { return OuterCallback{state, index}; })) {
                 // We hit an unfinished future so we can stop looping
                 return;
               }
