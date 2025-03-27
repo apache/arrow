@@ -120,7 +120,7 @@ cdef class IpcReadOptions(_Weakrefable):
     ----------
     ensure_native_endian : bool, default True
         Whether to convert incoming data to platform-native endianness.
-    ensure_memory_alignment : bool, default True
+    ensure_memory_alignment : bool, default False
         Whether to align incoming data to data type-specific alignment, if mis-aligned.
         Some use cases might require data to have data type-specific alignment, for example,
         for the data buffer of an int32 array to be aligned on a 4-byte boundary.
@@ -137,7 +137,7 @@ cdef class IpcReadOptions(_Weakrefable):
     # cdef block is in lib.pxd
 
     def __init__(self, *, bint ensure_native_endian=True,
-                 bint ensure_memory_alignment=True,
+                 bint ensure_memory_alignment=False,
                  bint use_threads=True, list included_fields=None):
         self.c_options = CIpcReadOptions.Defaults()
         self.ensure_native_endian = ensure_native_endian
