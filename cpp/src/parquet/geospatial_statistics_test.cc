@@ -25,6 +25,8 @@
 #include "parquet/geospatial_statistics.h"
 #include "parquet/test_util.h"
 
+static constexpr double kInf = std::numeric_limits<double>::infinity();
+
 namespace parquet::geometry {
 
 TEST(TestGeoStatistics, TestDefaults) {

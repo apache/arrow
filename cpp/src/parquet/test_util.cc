@@ -22,19 +22,13 @@
 #include "parquet/test_util.h"
 
 #include <algorithm>
-#include <chrono>
-#include <limits>
 #include <memory>
 #include <random>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "arrow/testing/uniform_real.h"
-#include "parquet/column_page.h"
-#include "parquet/column_reader.h"
-#include "parquet/column_writer.h"
-#include "parquet/encoding.h"
+#include "parquet/geospatial_util_internal.h"
 #include "parquet/platform.h"
 
 namespace parquet {
