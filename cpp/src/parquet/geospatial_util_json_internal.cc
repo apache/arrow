@@ -160,8 +160,7 @@ namespace {
   namespace rj = ::arrow::rapidjson;
   rj::Document document;
   if (document.Parse(serialized_data.data(), serialized_data.length()).HasParseError()) {
-    return ::arrow::Status::SerializationError("Invalid serialized JSON data: ",
-                                               serialized_data);
+    return ::arrow::Status::Invalid("Invalid serialized JSON data: ", serialized_data);
   }
 
   ARROW_ASSIGN_OR_RAISE(std::string crs, GeospatialGeoArrowCrsToParquetCrs(document));
@@ -172,8 +171,7 @@ namespace {
     return LogicalType::Geography(crs,
                                   LogicalType::EdgeInterpolationAlgorithm::SPHERICAL);
   } else if (document.HasMember("edges")) {
-    return ::arrow::Status::SerializationError("Unsupported GeoArrow edge type: ",
-                                               serialized_data);
+    return ::arrow::Status::Invalid("Unsupported GeoArrow edge type: ", serialized_data);
   }
 
   return LogicalType::Geometry(crs);
