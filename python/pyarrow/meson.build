@@ -256,8 +256,8 @@ foreach key, val : cython_modules
         cython_args: cython_args,
         dependencies: [arrow_dep, numpy_dep] + val.get('dependencies', []),
         override_options: ['cython_language=cpp'],
-        subdir: 'pyarrow',
         install: true,
+        subdir: 'pyarrow',
     )
 endforeach
 
@@ -287,7 +287,7 @@ pysources = [
 ]
 py.install_sources(pysources, subdir: 'pyarrow')
 
-install_headers(
+py.install_sources(
     files(
         'src/arrow/python/api.h',
         'src/arrow/python/arrow_to_pandas.h',
@@ -321,12 +321,12 @@ install_headers(
         'src/arrow/python/udf.h',
         'src/arrow/python/visibility.h',
     ),
-    subdir: 'include/arrow/python',
+    subdir: 'pyarrow/include/arrow/python',
 )
 
-install_headers(
+py.install_sources(
     files('src/arrow/python/vendored/pythoncapi_compat.h'),
-    subdir: 'include/arrow/python/vendored',
+    subdir: 'pyarrow/include/arrow/python/vendored',
 )
 
 subdirs = ['interchange', 'parquet', 'tests', 'vendored']

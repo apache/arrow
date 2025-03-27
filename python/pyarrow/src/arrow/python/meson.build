@@ -18,13 +18,11 @@
 cython_generated_headers = custom_target(
     'lib-pyx-headers',
     input: ['../../../lib.pyx'],
-    output: ['lib.cc', 'lib.h', 'lib_api.h'],
+    output: ['lib.h', 'lib_api.h'],
     command: ['cython', '--cplus', '@INPUT@', '-o', '@OUTPUT0@'],
     install: true,
-    install_dir: py.get_install_dir() / 'include/arrow/python',
+    install_dir: py.get_install_dir() / 'pyarrow/include/arrow/python',
 )
 
-cython_generated_dep = declare_dependency(
-    sources: [cython_generated_headers[1], cython_generated_headers[2]],
-)
+cython_generated_dep = declare_dependency(sources: cython_generated_headers)
 
