@@ -756,7 +756,7 @@ TEST_F(TestConvertParquetSchema, ParquetUndefinedType) {
   parquet_fields.push_back(std::move(node));
 
   // With default options, this should error
-  ASSERT_NOT_OK(ConvertSchema(parquet_fields));
+  ASSERT_RAISES(NotImplemented, ConvertSchema(parquet_fields));
 
   // With an opt-in, the field should be converted according to its storage
   ArrowReaderProperties props;
