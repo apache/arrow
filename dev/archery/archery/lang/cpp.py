@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import os
 
@@ -164,7 +165,7 @@ class CppConfiguration:
             return self._cc
 
         if self.with_fuzzing:
-            return "clang-{}".format(LLVM_VERSION)
+            return f"clang-{LLVM_VERSION}"
 
         return None
 
@@ -174,7 +175,7 @@ class CppConfiguration:
             return self._cxx
 
         if self.with_fuzzing:
-            return "clang++-{}".format(LLVM_VERSION)
+            return f"clang++-{LLVM_VERSION}"
 
         return None
 
@@ -277,7 +278,7 @@ class CppConfiguration:
     @property
     def definitions(self):
         extras = list(self.cmake_extras) if self.cmake_extras else []
-        definitions = ["-D{}={}".format(d[0], d[1]) for d in self._gen_defs()]
+        definitions = [f"-D{d[0]}={d[1]}" for d in self._gen_defs()]
         return definitions + extras
 
     @property

@@ -14,9 +14,10 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-from .command import Command, capture_stdout, default_bin
 from ..compat import _stringify_path
+from .command import Command, capture_stdout, default_bin
 
 
 # Decorator prepending argv with the git sub-command found with the method

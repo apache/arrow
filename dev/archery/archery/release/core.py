@@ -14,22 +14,23 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-from abc import abstractmethod
-from collections import defaultdict
 import functools
 import os
 import pathlib
 import re
 import warnings
+from abc import abstractmethod
+from collections import defaultdict
 
 from git import Repo
 from github import Github
 from semver import VersionInfo as SemVer
 
-from ..utils.source import ArrowSources
 from ..utils.logger import logger
-from .reports import ReleaseCuration, ReleaseChangelog
+from ..utils.source import ArrowSources
+from .reports import ReleaseChangelog, ReleaseCuration
 
 
 def cached_property(fn):
@@ -38,7 +39,7 @@ def cached_property(fn):
 
 class Version(SemVer):
 
-    __slots__ = ('released', 'release_date')
+    __slots__ = ('release_date', 'released')
 
     def __init__(self, released=False, release_date=None, **kwargs):
         super().__init__(**kwargs)
@@ -201,10 +202,10 @@ class CommitTitle:
     def to_string(self, with_issue=True, with_components=True):
         out = ""
         if with_issue and self.issue:
-            out += "{}: ".format(self.issue)
+            out += f"{self.issue}: "
         if with_components and self.components:
             for component in self.components:
-                out += "[{}]".format(component)
+                out += f"[{component}]"
             out += " "
         out += self.summary
         return out
@@ -229,7 +230,7 @@ class Commit:
 
     @property
     def url(self):
-        return 'https://github.com/apache/arrow/commit/{}'.format(self.hexsha)
+        return f'https://github.com/apache/arrow/commit/{self.hexsha}'
 
     @property
     def title(self):
@@ -297,16 +298,14 @@ class Release:
     @property
     @abstractmethod
     def branch(self):
-        """
-        Target branch that serves as the base for the release.
+        """Target branch that serves as the base for the release.
         """
         ...
 
     @property
     @abstractmethod
     def siblings(self):
-        """
-        Releases to consider when calculating previous and next releases.
+        """Releases to consider when calculating previous and next releases.
         """
         ...
 
@@ -348,8 +347,7 @@ class Release:
 
     @cached_property
     def commits(self):
-        """
-        All commits applied between two versions.
+        """All commits applied between two versions.
         """
         if self.previous is None:
             # first release
@@ -556,8 +554,7 @@ class MajorRelease(Release):
 
     @cached_property
     def siblings(self):
-        """
-        Filter only the major releases.
+        """Filter only the major releases.
         """
         # handle minor releases before 1.0 as major releases
         return [v for v in self.issue_tracker.project_versions()
@@ -576,8 +573,7 @@ class MinorRelease(Release):
 
     @cached_property
     def siblings(self):
-        """
-        Filter the major and minor releases.
+        """Filter the major and minor releases.
         """
         return [v for v in self.issue_tracker.project_versions()
                 if v.patch == 0]
@@ -595,7 +591,6 @@ class PatchRelease(Release):
 
     @cached_property
     def siblings(self):
-        """
-        No filtering, consider all releases.
+        """No filtering, consider all releases.
         """
         return self.issue_tracker.project_versions()

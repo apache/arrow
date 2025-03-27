@@ -15,11 +15,13 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import functools
 import operator
 import sys
-from setuptools import setup, find_packages
+
+from setuptools import find_packages, setup
 
 if sys.version_info < (3, 9):  # noqa: UP036
     sys.exit("Python < 3.9 is not supported")

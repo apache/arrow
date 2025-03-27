@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import os
 import re
@@ -97,11 +98,11 @@ class CMakeDefinition:
             # Extra safety to ensure we're deleting a build folder.
             if not CMakeBuild.is_build_dir(build_dir):
                 raise FileExistsError(
-                    "{} is not a cmake build".format(build_dir)
+                    f"{build_dir} is not a cmake build"
                 )
             if not force:
                 raise FileExistsError(
-                    "{} exists use force=True".format(build_dir)
+                    f"{build_dir} exists use force=True"
                 )
             rmtree(build_dir)
 
@@ -113,7 +114,7 @@ class CMakeDefinition:
                           **kwargs)
 
     def __repr__(self):
-        return "CMakeDefinition[source={}]".format(self.source)
+        return f"CMakeDefinition[source={self.source}]"
 
 
 CMAKE_BUILD_TYPE_RE = re.compile("CMAKE_BUILD_TYPE:STRING=([a-zA-Z]+)")
@@ -191,13 +192,13 @@ class CMakeBuild(CMake):
         be lost. Only build_type is recovered.
         """
         if not CMakeBuild.is_build_dir(path):
-            raise ValueError("Not a valid CMakeBuild path: {}".format(path))
+            raise ValueError(f"Not a valid CMakeBuild path: {path}")
 
         build_type = None
         # Infer build_type by looking at CMakeCache.txt and looking for a magic
         # definition
         cmake_cache_path = os.path.join(path, "CMakeCache.txt")
-        with open(cmake_cache_path, "r") as cmake_cache:
+        with open(cmake_cache_path) as cmake_cache:
             candidates = CMAKE_BUILD_TYPE_RE.findall(cmake_cache.read())
             build_type = candidates[0].lower() if candidates else "release"
 
@@ -205,8 +206,6 @@ class CMakeBuild(CMake):
 
     def __repr__(self):
         return ("CMakeBuild["
-                "build = {},"
-                "build_type = {},"
-                "definition = {}]".format(self.build_dir,
-                                          self.build_type,
-                                          self.definition))
+                f"build = {self.build_dir},"
+                f"build_type = {self.build_type},"
+                f"definition = {self.definition}]")

@@ -14,11 +14,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-from contextlib import contextmanager
-from enum import EnumMeta
 import inspect
 import tokenize
+from contextlib import contextmanager
+from enum import EnumMeta
 
 try:
     from numpydoc.validate import Docstring, validate
@@ -28,8 +29,8 @@ else:
     have_numpydoc = True
 
 from ..compat import _get_module
-from ..utils.logger import logger
 from ..utils.command import Command, capture_stdout, default_bin
+from ..utils.logger import logger
 
 
 class PythonCommand(Command):
@@ -91,8 +92,7 @@ def _convert_typehint(tokens):
 
 
 def inspect_signature(obj):
-    """
-    Custom signature inspection primarily for cython generated callables.
+    """Custom signature inspection primarily for cython generated callables.
 
     Cython puts the signatures to the first line of the docstrings, which we
     can reuse to parse the python signature from, but some gymnastics are
@@ -176,8 +176,7 @@ class NumpyDoc:
 
     @contextmanager
     def _apply_patches(self):
-        """
-        Patch Docstring class to bypass loading already loaded python objects.
+        """Patch Docstring class to bypass loading already loaded python objects.
         """
         orig_load_obj = Docstring._load_obj
         orig_signature = inspect.signature
@@ -252,7 +251,7 @@ class NumpyDoc:
                 try:
                     obj = Docstring._load_obj(symbol)
                 except (ImportError, AttributeError):
-                    print('{} is not available for import'.format(symbol))
+                    print(f'{symbol} is not available for import')
                 else:
                     self.traverse(callback, obj, from_package=from_package)
 

@@ -14,25 +14,33 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-from collections import namedtuple, OrderedDict
 import binascii
 import json
 import os
 import random
 import tempfile
+from collections import OrderedDict, namedtuple
 
 import numpy as np
 
-from .util import frombytes, tobytes, random_bytes, random_utf8
-from .util import SKIP_C_SCHEMA, SKIP_C_ARRAY, SKIP_FLIGHT
+from .util import (
+    SKIP_C_ARRAY,
+    SKIP_C_SCHEMA,
+    SKIP_FLIGHT,
+    frombytes,
+    random_bytes,
+    random_utf8,
+    tobytes,
+)
 
 
 def metadata_key_values(pairs):
     return [{'key': k, 'value': v} for k, v in pairs]
 
 
-class Field(object):
+class Field:
 
     def __init__(self, name, *, nullable=True, metadata=None):
         self.name = name
@@ -67,7 +75,7 @@ class Field(object):
             return np.ones(size, dtype=np.int8)
 
 
-class Column(object):
+class Column:
 
     def __init__(self, name, count):
         self.name = name
@@ -577,7 +585,7 @@ class FixedSizeBinaryField(PrimitiveField):
         is_valid = self._make_is_valid(size)
         values = []
 
-        for i in range(size):
+        for _i in range(size):
             values.append(random_bytes(self.byte_width))
 
         if name is None:
@@ -683,7 +691,7 @@ class StringViewField(StringField):
         return OrderedDict([('name', 'utf8view')])
 
 
-class Schema(object):
+class Schema:
 
     def __init__(self, fields, metadata=None):
         self.fields = fields
@@ -837,7 +845,7 @@ class FixedSizeBinaryColumn(PrimitiveColumn):
 
     def _get_buffers(self):
         data = []
-        for i, v in enumerate(self.values):
+        for _i, v in enumerate(self.values):
             data.append(self._encode_value(v))
 
         return [
@@ -1227,7 +1235,7 @@ class DenseUnionField(_BaseUnionField):
                                 field_values)
 
 
-class Dictionary(object):
+class Dictionary:
 
     def __init__(self, id_, field, size, name=None, ordered=False):
         self.id_ = id_
@@ -1372,7 +1380,7 @@ class DenseUnionColumn(Column):
         return [field.get_json() for field in self.field_values]
 
 
-class RecordBatch(object):
+class RecordBatch:
 
     def __init__(self, count, columns):
         self.count = count
@@ -1385,7 +1393,7 @@ class RecordBatch(object):
         ])
 
 
-class File(object):
+class File:
 
     def __init__(self, name, schema, batches, dictionaries=None,
                  skip_testers=None, path=None, quirks=None):
@@ -1590,7 +1598,7 @@ def generate_null_trivial_case(batch_sizes):
 
 def generate_decimal32_case():
     fields = [
-        DecimalField(name='f{}'.format(i), precision=precision, scale=2,
+        DecimalField(name=f'f{i}', precision=precision, scale=2,
                      bit_width=32)
         for i, precision in enumerate(range(3, 10))
     ]
@@ -1601,7 +1609,7 @@ def generate_decimal32_case():
 
 def generate_decimal64_case():
     fields = [
-        DecimalField(name='f{}'.format(i), precision=precision, scale=2,
+        DecimalField(name=f'f{i}', precision=precision, scale=2,
                      bit_width=64)
         for i, precision in enumerate(range(3, 19))
     ]
@@ -1612,7 +1620,7 @@ def generate_decimal64_case():
 
 def generate_decimal128_case():
     fields = [
-        DecimalField(name='f{}'.format(i), precision=precision, scale=2,
+        DecimalField(name=f'f{i}', precision=precision, scale=2,
                      bit_width=128)
         for i, precision in enumerate(range(3, 39))
     ]
@@ -1626,7 +1634,7 @@ def generate_decimal128_case():
 
 def generate_decimal256_case():
     fields = [
-        DecimalField(name='f{}'.format(i), precision=precision, scale=5,
+        DecimalField(name=f'f{i}', precision=precision, scale=5,
                      bit_width=256)
         for i, precision in enumerate(range(37, 70))
     ]

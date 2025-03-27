@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import pathlib
 
@@ -33,7 +34,6 @@ from .core import IssueTracker, Release
 @click.pass_obj
 def release(obj, src, github_token):
     """Release related commands."""
-
     obj['issue_tracker'] = IssueTracker(github_token=github_token)
     obj['repo'] = src.path
 
@@ -55,7 +55,6 @@ def release_curate(obj, version, minimal):
 @release.group('changelog')
 def release_changelog():
     """Release changelog."""
-    pass
 
 
 @release_changelog.command('add')
@@ -108,7 +107,7 @@ def release_changelog_regenerate(obj):
             continue
         release = Release(version, repo=repo,
                           issue_tracker=issue_tracker)
-        click.echo('Querying changelog for version: {}'.format(version))
+        click.echo(f'Querying changelog for version: {version}')
         changelogs.append(release.changelog())
 
     click.echo('Rendering new CHANGELOG.md file...')
@@ -127,8 +126,7 @@ def release_changelog_regenerate(obj):
                    "patches.")
 @click.pass_obj
 def release_cherry_pick(obj, version, dry_run, recreate):
-    """
-    Cherry pick commits.
+    """Cherry pick commits.
     """
     issue_tracker = obj['issue_tracker']
     release = Release(version,
@@ -139,4 +137,4 @@ def release_cherry_pick(obj, version, dry_run, recreate):
     else:
         click.echo(f'git checkout -b {release.branch} {release.base_branch}')
         for commit in release.commits_to_pick():
-            click.echo('git cherry-pick {}'.format(commit.hexsha))
+            click.echo(f'git cherry-pick {commit.hexsha}')

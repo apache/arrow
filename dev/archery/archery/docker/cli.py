@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import os
 import sys
@@ -26,8 +27,8 @@ from .core import DockerCompose, UndefinedImage
 
 
 def _mock_compose_calls(compose):
-    from types import MethodType
     from subprocess import CompletedProcess
+    from types import MethodType
 
     def _mock(compose, command_tuple):
         def _execute(self, *args, **kwargs):
@@ -66,16 +67,15 @@ def _mock_compose_calls(compose):
 @click.pass_context
 def docker(ctx, src, dry_run, using_legacy_docker_compose, using_docker_cli,
            using_docker_buildx):
-    """
-    Interact with Docker Compose based builds.
+    """Interact with Docker Compose based builds.
     """
     ctx.ensure_object(dict)
 
     config_path = src.path / 'docker-compose.yml'
     if not config_path.exists():
         raise click.ClickException(
-            "Docker compose configuration cannot be found in directory {}, "
-            "try to pass the arrow source directory explicitly.".format(src)
+            f"Docker compose configuration cannot be found in directory {src}, "
+            "try to pass the arrow source directory explicitly."
         )
 
     # take the Docker Compose parameters like PYTHON, PANDAS, UBUNTU from the
@@ -97,8 +97,7 @@ def docker(ctx, src, dry_run, using_legacy_docker_compose, using_docker_cli,
 @docker.command("check-config")
 @click.pass_obj
 def check_config(obj):
-    """
-    Validate Docker Compose configuration.
+    """Validate Docker Compose configuration.
     """
     # executes the body of the docker function above which does the validation
     # during the configuration loading
@@ -112,8 +111,7 @@ def check_config(obj):
               help="Whether to ignore pull failures.")
 @click.pass_obj
 def docker_pull(obj, image, *, pull_leaf, ignore_pull_failures):
-    """
-    Execute docker compose pull.
+    """Execute docker compose pull.
     """
     compose = obj['compose']
 
@@ -123,7 +121,7 @@ def docker_pull(obj, image, *, pull_leaf, ignore_pull_failures):
     except UndefinedImage as e:
         raise click.ClickException(
             "There is no service/image defined in docker-compose.yml with "
-            "name: {}".format(str(e))
+            f"name: {e!s}"
         )
     except RuntimeError as e:
         raise click.ClickException(str(e))
@@ -142,8 +140,7 @@ def docker_pull(obj, image, *, pull_leaf, ignore_pull_failures):
                    "image and its ancestors use --no-cache option.")
 @click.pass_obj
 def docker_build(obj, image, *, force_pull, use_cache, use_leaf_cache):
-    """
-    Execute Docker Compose builds.
+    """Execute Docker Compose builds.
     """
     compose = obj['compose']
 
@@ -156,7 +153,7 @@ def docker_build(obj, image, *, force_pull, use_cache, use_leaf_cache):
     except UndefinedImage as e:
         raise click.ClickException(
             "There is no service/image defined in docker-compose.yml with "
-            "name: {}".format(str(e))
+            f"name: {e!s}"
         )
     except RuntimeError as e:
         raise click.ClickException(str(e))
@@ -194,13 +191,11 @@ def docker_build(obj, image, *, force_pull, use_cache, use_leaf_cache):
 def docker_run(obj, image, command, *, env, user, force_pull, force_build,
                build_only, use_cache, use_leaf_cache, resource_limit,
                volume):
-    """
-    Execute Docker Compose builds.
+    """Execute Docker Compose builds.
 
     To see the available builds run `archery docker images`.
 
     Examples:
-
     # execute a single build
     archery docker run conda-python
 
@@ -250,7 +245,7 @@ def docker_run(obj, image, command, *, env, user, force_pull, force_build,
     except UndefinedImage as e:
         raise click.ClickException(
             "There is no service/image defined in docker-compose.yml with "
-            "name: {}".format(str(e))
+            f"name: {e!s}"
         )
     except RuntimeError as e:
         raise click.ClickException(str(e))

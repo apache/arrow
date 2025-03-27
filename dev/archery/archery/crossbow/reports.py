@@ -14,12 +14,13 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import collections
 import csv
-import operator
 import fnmatch
 import functools
+import operator
 import time
 
 import click
@@ -62,10 +63,10 @@ class Report:
         return url[:-4] if url.endswith('.git') else url
 
     def url(self, query):
-        return '{}/branches/all?query={}'.format(self.repo_url, query)
+        return f'{self.repo_url}/branches/all?query={query}'
 
     def branch_url(self, branch):
-        return '{}/tree/{}'.format(self.repo_url, branch)
+        return f'{self.repo_url}/tree/{branch}'
 
     def task_url(self, task):
         build_links = task.status().build_links
@@ -105,8 +106,7 @@ class Report:
 
     @property
     def rows(self):
-        """
-        Produces a generator that allow us to iterate over
+        """Produces a generator that allow us to iterate over
         the job tasks as a list of rows.
         Row headers are defined at Report.ROW_HEADERS.
         """
@@ -155,7 +155,7 @@ class ConsoleReport(Report):
         line = self.HEADER.format(
             state=state.upper(),
             branch=branch,
-            content='uploaded {} / {}'.format(n_uploaded, n_expected)
+            content=f'uploaded {n_uploaded} / {n_expected}'
         )
         return click.style(line, fg=self.COLORS[state.lower()])
 
@@ -166,7 +166,7 @@ class ConsoleReport(Report):
             content='Artifacts'
         )
         delimiter = '-' * len(header)
-        return '{}\n{}'.format(header, delimiter)
+        return f'{header}\n{delimiter}'
 
     def artifact(self, state, pattern, asset):
         if asset is None:
@@ -324,9 +324,9 @@ class CommentReport(Report):
         url = 'https://github.com/{repo}/branches/all?query={branch}'
         sha = self.job.target.head
 
-        msg = 'Revision: {}\n\n'.format(sha)
+        msg = f'Revision: {sha}\n\n'
         msg += 'Submitted crossbow builds: [{repo} @ {branch}]'
-        msg += '({})\n'.format(url)
+        msg += f'({url})\n'
         msg += '\n|Task|Status|\n|----|------|'
 
         tasks = sorted(self.job.tasks.items(), key=operator.itemgetter(0))
@@ -342,8 +342,8 @@ class CommentReport(Report):
                     url=self.task_url(task)
                 )
             except KeyError:
-                badge = 'unsupported CI service `{}`'.format(task.ci)
+                badge = f'unsupported CI service `{task.ci}`'
 
-            msg += '\n|{}|{}|'.format(key, badge)
+            msg += f'\n|{key}|{badge}|'
 
         return msg.format(repo=self.crossbow_repo, branch=self.job.branch)

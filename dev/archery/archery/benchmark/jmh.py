@@ -14,15 +14,16 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-from itertools import filterfalse, groupby, tee
 import json
 import subprocess
+from itertools import filterfalse, groupby, tee
 from tempfile import NamedTemporaryFile
 
-from .core import Benchmark
 from ..utils.command import Command
 from ..utils.maven import Maven
+from .core import Benchmark
 
 
 def partition(pred, iterable):
@@ -58,7 +59,7 @@ class JavaMicrobenchmarkHarnessCommand(Command):
     def list_benchmarks(self):
         argv = []
         if self.benchmark_filter:
-            argv.append("-Dbenchmark.filter={}".format(self.benchmark_filter))
+            argv.append(f"-Dbenchmark.filter={self.benchmark_filter}")
         result = self.build.list(
             *argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -77,12 +78,12 @@ class JavaMicrobenchmarkHarnessCommand(Command):
 
     def results(self, repetitions):
         with NamedTemporaryFile(suffix=".json") as out:
-            argv = ["-Dbenchmark.runs={}".format(repetitions),
-                    "-Dbenchmark.resultfile={}".format(out.name),
+            argv = [f"-Dbenchmark.runs={repetitions}",
+                    f"-Dbenchmark.resultfile={out.name}",
                     "-Dbenchmark.resultformat=json"]
             if self.benchmark_filter:
                 argv.append(
-                    "-Dbenchmark.filter={}".format(self.benchmark_filter)
+                    f"-Dbenchmark.filter={self.benchmark_filter}"
                 )
 
             self.build.benchmark(*argv, check=True)
@@ -145,9 +146,7 @@ class JavaMicrobenchmarkHarnessObservation:
 
     @property
     def unit(self):
-        if self.score_unit.startswith("ops/"):
-            return "items_per_second"
-        elif self.score_unit.endswith("/op"):
+        if self.score_unit.startswith("ops/") or self.score_unit.endswith("/op"):
             return "items_per_second"
         else:
             return "?"
@@ -186,8 +185,7 @@ class JavaMicrobenchmarkHarness(Benchmark):
                          counters)
 
     def __repr__(self):
-        return "JavaMicrobenchmark[name={},runs={}]".format(
-            self.name, self.runs)
+        return f"JavaMicrobenchmark[name={self.name},runs={self.runs}]"
 
     @classmethod
     def from_json(cls, payload):

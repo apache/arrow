@@ -16,13 +16,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
 
 from collections import namedtuple
 
 import pytest
 
 import merge_arrow_pr
-
 
 FakeIssue = namedtuple('issue', ['fields'])
 FakeFields = namedtuple(
@@ -67,7 +67,7 @@ class FakeGitHub:
     @property
     def current_versions(self):
         return [
-            v.title for v in self._project_versions if not v.state == 'closed'
+            v.title for v in self._project_versions if v.state != 'closed'
         ]
 
     @property

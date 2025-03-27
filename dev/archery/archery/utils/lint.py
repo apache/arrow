@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import fnmatch
 import gzip
@@ -22,16 +23,15 @@ from pathlib import Path
 
 import click
 
-from .command import Bash, Command, default_bin
 from ..compat import _get_module
+from ..lang.cpp import CppCMakeDefinition, CppConfiguration
+from ..lang.python import Autopep8, CythonLint, Flake8, NumpyDoc, PythonCommand
 from .cmake import CMake
+from .command import Bash, Command, default_bin
 from .git import git
 from .logger import logger
-from ..lang.cpp import CppCMakeDefinition, CppConfiguration
-from ..lang.python import Autopep8, Flake8, CythonLint, NumpyDoc, PythonCommand
 from .rat import Rat, exclusion_from_globs
 from .tmpdir import tmpdir
-
 
 _archery_install_msg = (
     "Please install archery using: `pip install -e dev/archery[lint]`. "
@@ -139,8 +139,7 @@ class CMakeFormat(Command):
 
 
 def cmake_linter(src, fix=False):
-    """
-    Run cmake-format on all CMakeFiles.txt
+    """Run cmake-format on all CMakeFiles.txt
     """
     logger.info("Running cmake-format linters")
 
@@ -173,7 +172,8 @@ def cmake_linter(src, fix=False):
 
 def python_linter(src, fix=False):
     """Run Python linters on python/pyarrow, python/examples, setup.py
-    and dev/. """
+    and dev/.
+    """
     setup_py = os.path.join(src.python, "setup.py")
     setup_cfg = os.path.join(src.python, "setup.cfg")
 
@@ -355,7 +355,7 @@ def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
             qualname_with_signature = '.'.join([module, cython_signature])
             click.echo(
                 click.style(
-                    '-> {}'.format(qualname_with_signature),
+                    f'-> {qualname_with_signature}',
                     fg='yellow'
                 )
             )
@@ -364,9 +364,7 @@ def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
             number_of_violations += 1
             click.echo('{}: {}'.format(*error))
 
-    msg = 'Total number of docstring violations: {}'.format(
-        number_of_violations
-    )
+    msg = f'Total number of docstring violations: {number_of_violations}'
     click.echo()
     click.echo(click.style(msg, fg='red'))
 
@@ -392,7 +390,7 @@ def rat_linter(src, root):
 
     violations = list(report.validate(exclusion=exclusion))
     for violation in violations:
-        print("apache-rat license violation: {}".format(violation))
+        print(f"apache-rat license violation: {violation}")
 
     yield LintResult(len(violations) == 0)
 

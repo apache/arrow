@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import collections
 import os
@@ -24,8 +25,7 @@ from unittest import mock
 import pytest
 
 from archery.docker import DockerCompose
-from archery.testing import assert_subprocess_calls, override_env, PartialEnv
-
+from archery.testing import PartialEnv, assert_subprocess_calls, override_env
 
 missing_service_compose_yml = """
 version: '3.5'
@@ -199,7 +199,7 @@ def create_config(directory, yml_content, env_content=None):
     if env_content is not None:
         with env_path.open('w') as fp:
             for k, v in env_content.items():
-                fp.write("{}={}\n".format(k, v))
+                fp.write(f"{k}={v}\n")
 
     return config_path
 

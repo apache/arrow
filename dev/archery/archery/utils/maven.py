@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import os
 
@@ -111,7 +112,7 @@ class MavenDefinition:
         return arguments
 
     def __repr__(self):
-        return "MavenDefinition[source={}]".format(self.source)
+        return f"MavenDefinition[source={self.source}]"
 
 
 class MavenBuild(Maven):
@@ -191,12 +192,11 @@ class MavenBuild(Maven):
         be lost.
         """
         if not MavenBuild.is_build_dir(path):
-            raise ValueError("Not a valid MavenBuild path: {}".format(path))
+            raise ValueError(f"Not a valid MavenBuild path: {path}")
 
         return MavenBuild(path, definition=None)
 
     def __repr__(self):
         return ("MavenBuild["
-                "build = {},"
-                "definition = {}]".format(self.build_dir,
-                                          self.definition))
+                f"build = {self.build_dir},"
+                f"definition = {self.definition}]")

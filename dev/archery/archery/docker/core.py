@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import os
 import shlex
@@ -23,10 +24,10 @@ from io import StringIO
 from dotenv import dotenv_values
 from ruamel.yaml import YAML
 
+from ..compat import _ensure_path
 from ..utils.command import Command, default_bin
 from ..utils.logger import running_in_ci
 from ..utils.source import arrow_path
-from ..compat import _ensure_path
 
 
 def flatten(node, parents=None):
@@ -78,8 +79,7 @@ class ComposeConfig:
         self._read_config(config_path, compose_bin)
 
     def _read_env(self, dotenv_path, params):
-        """
-        Read .env and merge it with explicitly passed parameters.
+        """Read .env and merge it with explicitly passed parameters.
         """
         self.dotenv = dotenv_values(str(dotenv_path))
         if params is None:
@@ -100,8 +100,7 @@ class ComposeConfig:
         self.env['ARCH_SHORT'] = _arch_short_mapping.get(arch, arch)
 
     def _read_config(self, config_path, compose_bin):
-        """
-        Validate and read the docker-compose.yml
+        """Validate and read the docker-compose.yml
         """
         yaml = YAML()
         with config_path.open() as fp:
@@ -117,18 +116,18 @@ class ComposeConfig:
         for name in self.with_gpus:
             if name not in services:
                 errors.append(
-                    'Service `{}` defined in `x-with-gpus` bot not in '
-                    '`services`'.format(name)
+                    f'Service `{name}` defined in `x-with-gpus` bot not in '
+                    '`services`'
                 )
         for name in nodes - services:
             errors.append(
-                'Service `{}` is defined in `x-hierarchy` bot not in '
-                '`services`'.format(name)
+                f'Service `{name}` is defined in `x-hierarchy` bot not in '
+                '`services`'
             )
         for name in services - nodes:
             errors.append(
-                'Service `{}` is defined in `services` but not in '
-                '`x-hierarchy`'.format(name)
+                f'Service `{name}` is defined in `services` but not in '
+                '`x-hierarchy`'
             )
 
         # trigger Docker Compose's own validation
@@ -147,9 +146,9 @@ class ComposeConfig:
             errors += result.stderr.decode().splitlines()
 
         if errors:
-            msg = '\n'.join([' - {}'.format(msg) for msg in errors])
+            msg = '\n'.join([f' - {msg}' for msg in errors])
             raise ValueError(
-                'Found errors with docker-compose:\n{}'.format(msg)
+                f'Found errors with docker-compose:\n{msg}'
             )
 
         rendered_config = StringIO(result.stdout.decode())
@@ -294,13 +293,13 @@ class DockerCompose(Command):
 
             if self.config.using_buildx:
                 for k, v in service['build'].get('args', {}).items():
-                    args.extend(['--build-arg', '{}={}'.format(k, v)])
+                    args.extend(['--build-arg', f'{k}={v}'])
 
                 if use_cache:
                     cache_ref = '{}-cache'.format(service['image'])
-                    cache_from = 'type=registry,ref={}'.format(cache_ref)
+                    cache_from = f'type=registry,ref={cache_ref}'
                     cache_to = (
-                        'type=registry,ref={},mode=max'.format(cache_ref)
+                        f'type=registry,ref={cache_ref},mode=max'
                     )
                     args.extend([
                         '--cache-from', cache_from,
@@ -319,9 +318,9 @@ class DockerCompose(Command):
                 if self.config.debug and os.name != "nt":
                     args.append("--progress=plain")
                 for k, v in service['build'].get('args', {}).items():
-                    args.extend(['--build-arg', '{}={}'.format(k, v)])
+                    args.extend(['--build-arg', f'{k}={v}'])
                 for img in cache_from:
-                    args.append('--cache-from="{}"'.format(img))
+                    args.append(f'--cache-from="{img}"')
                 args.extend([
                     '-f', arrow_path(service['build']['dockerfile']),
                     '-t', service['image'],
@@ -358,7 +357,7 @@ class DockerCompose(Command):
             # append env variables from the compose conf
             for k, v in service.get('environment', {}).items():
                 if v is not None:
-                    args.extend(['-e', '{}={}'.format(k, v)])
+                    args.extend(['-e', f'{k}={v}'])
 
             # append volumes from the compose conf
             for v in service.get('volumes', []):
@@ -393,7 +392,7 @@ class DockerCompose(Command):
 
         if env is not None:
             for k, v in env.items():
-                args.extend(['-e', '{}={}'.format(k, v)])
+                args.extend(['-e', f'{k}={v}'])
 
         if volumes is not None:
             for volume in volumes:
@@ -443,8 +442,8 @@ class DockerCompose(Command):
                 self._execute_docker('login', '-u', user, '-p', password)
             except subprocess.CalledProcessError:
                 # hide credentials
-                msg = ('Failed to push `{}`, check the passed credentials'
-                       .format(service_name))
+                msg = (f'Failed to push `{service_name}`, check the passed credentials'
+                       )
                 raise RuntimeError(msg) from None
 
         service = self.config.get(service_name)
@@ -466,9 +465,8 @@ class DockerCompose(Command):
                     # as parent matched filter
                     temp_filters = None
                 output.extend(self.info(value, temp_filters, prefix + "  "))
-            else:
-                if key == filters or filters is None:
-                    output.append(
-                        f'{prefix} {key}: {value if value is not None else "<inherited>"}'
-                    )
+            elif key == filters or filters is None:
+                output.append(
+                    f'{prefix} {key}: {value if value is not None else "<inherited>"}'
+                )
         return output

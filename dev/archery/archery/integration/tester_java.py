@@ -14,18 +14,18 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import contextlib
 import functools
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
-from . import cdata
-from .tester import Tester, CDataExporter, CDataImporter
-from .util import run_cmd, log
 from ..utils.source import ARROW_ROOT_DEFAULT
-
+from . import cdata
+from .tester import CDataExporter, CDataImporter, Tester
+from .util import log, run_cmd
 
 ARROW_BUILD_ROOT = os.environ.get(
     'ARROW_BUILD_ROOT',
@@ -340,9 +340,7 @@ class JavaTester(Tester):
                 out, err = server.communicate()
                 raise RuntimeError(
                     'Flight-Java server did not start properly, '
-                    'stdout:\n{}\n\nstderr:\n{}\n'.format(
-                        output + out.decode(), err.decode()
-                    )
+                    f'stdout:\n{output + out.decode()}\n\nstderr:\n{err.decode()}\n'
                 )
             port = int(output.split(':')[1])
             yield port

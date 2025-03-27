@@ -14,9 +14,10 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-from abc import ABCMeta, abstractmethod
 import datetime
+from abc import ABCMeta, abstractmethod
 
 import jinja2
 
@@ -32,7 +33,7 @@ class Report(metaclass=ABCMeta):
     def __init__(self, **kwargs):
         for field in self.fields:
             if field not in kwargs:
-                raise ValueError('Missing keyword argument {}'.format(field))
+                raise ValueError(f'Missing keyword argument {field}')
         self._data = kwargs
 
     def __getattr__(self, key):

@@ -16,6 +16,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import fnmatch
 import re
@@ -23,8 +24,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 if len(sys.argv) != 3:
-    sys.stderr.write("Usage: %s exclude_globs.lst rat_report.xml\n" %
-                     sys.argv[0])
+    sys.stderr.write(f"Usage: {sys.argv[0]} exclude_globs.lst rat_report.xml\n")
     sys.exit(1)
 
 exclude_globs_filename = sys.argv[1]
@@ -49,7 +49,7 @@ for r in resources:
             excluded = True
             break
     if not excluded:
-        sys.stdout.write("NOT APPROVED: %s (%s): %s\n" % (
+        sys.stdout.write("NOT APPROVED: {} ({}): {}\n".format(
             clean_name, r.attrib['name'], approvals[0].attrib['name']))
         all_ok = False
 

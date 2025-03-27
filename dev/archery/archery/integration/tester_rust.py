@@ -14,17 +14,17 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import contextlib
 import functools
 import os
 import subprocess
 
-from . import cdata
-from .tester import Tester, CDataExporter, CDataImporter
-from .util import run_cmd, log
 from ..utils.source import ARROW_ROOT_DEFAULT
-
+from . import cdata
+from .tester import CDataExporter, CDataImporter, Tester
+from .util import log, run_cmd
 
 _EXE_PATH = os.environ.get(
     "ARROW_RUST_EXE_PATH", os.path.join(ARROW_ROOT_DEFAULT, "rust/target/debug")
@@ -106,9 +106,7 @@ class RustTester(Tester):
                 out, err = server.communicate()
                 raise RuntimeError(
                     'Flight-Rust server did not start properly, '
-                    'stdout:\n{}\n\nstderr:\n{}\n'.format(
-                        output + out.decode(), err.decode()
-                    )
+                    f'stdout:\n{output + out.decode()}\n\nstderr:\n{err.decode()}\n'
                 )
             port = int(output.split(':')[1])
             yield port
@@ -170,8 +168,7 @@ class _CDataBase:
         return self.ffi.cast('uintptr_t', c_ptr)
 
     def _check_rust_error(self, rs_error):
-        """
-        Check a `const char*` error return from an integration entrypoint.
+        """Check a `const char*` error return from an integration entrypoint.
 
         A null means success, a non-empty string is an error message.
         The string is dynamically allocated on the Rust side.

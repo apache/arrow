@@ -18,35 +18,37 @@
 
 # Define a global regression threshold as 5%. This is purely subjective and
 # flawed. This does not track cumulative regression.
+from __future__ import annotations
+
 DEFAULT_THRESHOLD = 0.05
 
 
 def items_per_seconds_fmt(value):
     if value < 1000:
-        return "{} items/sec".format(value)
+        return f"{value} items/sec"
     if value < 1000**2:
-        return "{:.3f}K items/sec".format(value / 1000)
+        return f"{value / 1000:.3f}K items/sec"
     if value < 1000**3:
-        return "{:.3f}M items/sec".format(value / 1000**2)
+        return f"{value / 1000**2:.3f}M items/sec"
     else:
-        return "{:.3f}G items/sec".format(value / 1000**3)
+        return f"{value / 1000**3:.3f}G items/sec"
 
 
 def bytes_per_seconds_fmt(value):
     if value < 1024:
-        return "{} bytes/sec".format(value)
+        return f"{value} bytes/sec"
     if value < 1024**2:
-        return "{:.3f} KiB/sec".format(value / 1024)
+        return f"{value / 1024:.3f} KiB/sec"
     if value < 1024**3:
-        return "{:.3f} MiB/sec".format(value / 1024**2)
+        return f"{value / 1024**2:.3f} MiB/sec"
     if value < 1024**4:
-        return "{:.3f} GiB/sec".format(value / 1024**3)
+        return f"{value / 1024**3:.3f} GiB/sec"
     else:
-        return "{:.3f} TiB/sec".format(value / 1024**4)
+        return f"{value / 1024**4:.3f} TiB/sec"
 
 
 def change_fmt(value):
-    return "{:.3%}".format(value)
+    return f"{value:.3%}"
 
 
 def formatter_for_unit(unit):

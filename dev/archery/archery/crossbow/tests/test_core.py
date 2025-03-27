@@ -14,12 +14,13 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-from archery.utils.source import ArrowSources
-from archery.crossbow import Config, Queue
+from __future__ import annotations
 
 import pathlib
 from unittest import mock
+
+from archery.crossbow import Config, Queue
+from archery.utils.source import ArrowSources
 
 
 def test_config():

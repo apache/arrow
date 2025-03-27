@@ -14,17 +14,14 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import json
 
 from archery.benchmark.codec import JsonEncoder
+from archery.benchmark.compare import BenchmarkComparator, RunnerComparator
 from archery.benchmark.core import Benchmark, median
-from archery.benchmark.compare import (
-    BenchmarkComparator, RunnerComparator
-)
-from archery.benchmark.google import (
-    GoogleBenchmark, GoogleBenchmarkObservation
-)
+from archery.benchmark.google import GoogleBenchmark, GoogleBenchmarkObservation
 from archery.benchmark.runner import StaticBenchmarkRunner
 
 
@@ -221,7 +218,7 @@ def test_benchmark_median():
     assert median([1, 1, 1, 1]) == 1
     try:
         median([])
-        assert False
+        raise AssertionError()
     except ValueError:
         pass
 

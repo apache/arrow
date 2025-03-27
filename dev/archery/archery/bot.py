@@ -14,20 +14,21 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import enum
 import os
 import shlex
-from pathlib import Path
-from functools import lru_cache, partial
 import tempfile
+from functools import lru_cache, partial
+from pathlib import Path
 
 import click
 import github
 
+from .crossbow import CommentReport, Config, Job, Queue, Repo, Target
 from .utils.git import git
 from .utils.logger import logger
-from .crossbow import Repo, Queue, Config, Target, Job, CommentReport
 
 
 def cached_property(fn):
@@ -117,8 +118,7 @@ class PullRequestWorkflowBot:
 
     @cached_property
     def pull(self):
-        """
-        Returns a github.PullRequest object associated with the event.
+        """Returns a github.PullRequest object associated with the event.
         """
         return self.repo.get_pull(self.event_payload['pull_request']['number'])
 
@@ -127,8 +127,7 @@ class PullRequestWorkflowBot:
         return self.github.get_repo(self.event_payload['repository']['id'], lazy=True)
 
     def is_committer(self, action):
-        """
-        Returns whether the author of the action is a committer or not.
+        """Returns whether the author of the action is a committer or not.
         If the list of committer usernames is not available it will use the
         author_association as a fallback mechanism.
         """
@@ -153,8 +152,7 @@ class PullRequestWorkflowBot:
             self.set_state(next_state)
 
     def get_current_state(self):
-        """
-        Returns a PullRequestState with the current PR state label
+        """Returns a PullRequestState with the current PR state label
         based on label starting with LABEL_PREFIX.
         If more than one label is found raises EventError.
         If no label is found returns None.
@@ -167,16 +165,14 @@ class PullRequestWorkflowBot:
             return PullRequestState(states[0])
 
     def clear_current_state(self):
-        """
-        Removes all existing labels starting with LABEL_PREFIX
+        """Removes all existing labels starting with LABEL_PREFIX
         """
         for label in self.pull.get_labels():
             if label.name.startswith(LABEL_PREFIX):
                 self.pull.remove_from_labels(label)
 
     def compute_next_state(self, current_state):
-        """
-        Returns the expected next state based on the event and
+        """Returns the expected next state based on the event and
         the current state.
         """
         if (self.event_name == "pull_request_target" and
@@ -230,7 +226,7 @@ class CommentBot:
         self.github = github.Github(**kwargs)
 
     def parse_command(self, payload):
-        mention = '@{}'.format(self.name)
+        mention = f'@{self.name}'
         comment = payload['comment']
 
         if payload['sender']['login'] == self.name:
@@ -254,14 +250,14 @@ class CommentBot:
         except EventError as e:
             logger.error(e)
             # see the possible reasons in the validate method
-            return
+            return None
 
         if event == 'issue_comment':
             return self.handle_issue_comment(command, payload)
         elif event == 'pull_request_review_comment':
             return self.handle_review_comment(command, payload)
         else:
-            raise ValueError("Unexpected event type {}".format(event))
+            raise ValueError(f"Unexpected event type {event}")
 
     def handle_issue_comment(self, command, payload):
         repo = self.github.get_repo(payload['repository']['id'], lazy=True)
@@ -318,15 +314,13 @@ def actions(ctx):
               help='Crossbow repository on github to use')
 @click.pass_obj
 def crossbow(obj, crossbow):
-    """
-    Trigger crossbow builds for this pull request
+    """Trigger crossbow builds for this pull request
     """
     obj['crossbow_repo'] = crossbow
 
 
 def _clone_arrow_and_crossbow(dest, crossbow_repo, arrow_repo_url, pr_number):
-    """
-    Clone the repositories and initialize crossbow objects.
+    """Clone the repositories and initialize crossbow objects.
 
     Parameters
     ----------
@@ -355,7 +349,7 @@ def _clone_arrow_and_crossbow(dest, crossbow_repo, arrow_repo_url, pr_number):
     git.checkout(local_branch, git_dir=arrow_path)
 
     # 2. clone crossbow repository
-    crossbow_url = 'https://github.com/{}'.format(crossbow_repo)
+    crossbow_url = f'https://github.com/{crossbow_repo}'
     git.clone(crossbow_url, str(queue_path))
 
     # 3. initialize crossbow objects
@@ -380,8 +374,7 @@ def _clone_arrow_and_crossbow(dest, crossbow_repo, arrow_repo_url, pr_number):
               help='Prefix for job IDs.')
 @click.pass_obj
 def submit(obj, tasks, groups, params, arrow_version, wait, prefix):
-    """
-    Submit crossbow testing tasks.
+    """Submit crossbow testing tasks.
 
     See groups defined in arrow/dev/tasks/tasks.yml
     """

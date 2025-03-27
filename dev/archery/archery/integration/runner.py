@@ -14,11 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-from collections import namedtuple
-from concurrent.futures import ThreadPoolExecutor
 import contextlib
-from functools import partial
 import glob
 import gzip
 import itertools
@@ -31,11 +29,6 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from typing import TYPE_CHECKING, Callable, List, Optional
 
-from . import cdata
-from .scenario import Scenario
-from .tester import Tester, CDataExporter, CDataImporter
-from .util import guid, printer
-from .util import SKIP_C_ARRAY, SKIP_C_SCHEMA, SKIP_FLIGHT, SKIP_IPC
 from ..utils.logger import group as group_raw
 from ..utils.source import ARROW_ROOT_DEFAULT
 from . import cdata, datagen
@@ -62,7 +55,7 @@ class Outcome:
         self.skipped = False
 
 
-class IntegrationRunner(object):
+class IntegrationRunner:
 
     def __init__(self, json_files,
                  flight_scenarios: List[Scenario],
@@ -83,14 +76,13 @@ class IntegrationRunner(object):
         self.match = match
 
         if self.match is not None:
-            print("-- Only running tests with {} in their name"
-                  .format(self.match))
+            print(f"-- Only running tests with {self.match} in their name"
+                  )
             self.json_files = [json_file for json_file in self.json_files
                                if self.match in json_file.name]
 
     def run_ipc(self):
-        """
-        Run Arrow IPC integration tests for the matrix of enabled
+        """Run Arrow IPC integration tests for the matrix of enabled
         implementations.
         """
         for producer, consumer in itertools.product(
@@ -121,7 +113,7 @@ class IntegrationRunner(object):
                 with group(f"Integration: Test: IPC: Gold: {consumer.name}"):
                     log('\n')
                     log('******************************************************')
-                    log('Tests against golden files in {}'.format(gold_dir))
+                    log(f'Tests against golden files in {gold_dir}')
                     log('******************************************************')
 
                     def run_gold(
@@ -134,8 +126,7 @@ class IntegrationRunner(object):
         log('\n')
 
     def run_flight(self):
-        """
-        Run Arrow Flight integration tests for the matrix of enabled
+        """Run Arrow Flight integration tests for the matrix of enabled
         implementations.
         """
 
@@ -160,8 +151,7 @@ class IntegrationRunner(object):
         log('\n')
 
     def run_c_data(self):
-        """
-        Run Arrow C Data interface integration tests for the matrix of
+        """Run Arrow C Data interface integration tests for the matrix of
         enabled implementations.
         """
         for producer, consumer in itertools.product(
@@ -241,8 +231,7 @@ class IntegrationRunner(object):
                         case_runner: Callable[[datagen.File], Outcome],
                         test_cases: List[datagen.File],
                         *, serial: Optional[bool] = None) -> None:
-        """
-        Populate self.failures with the outcomes of the
+        """Populate self.failures with the outcomes of the
         ``case_runner`` ran against ``test_cases``
         """
         def case_wrapper(test_case):
@@ -283,13 +272,12 @@ class IntegrationRunner(object):
         run_binaries: Callable[[Tester, Tester, datagen.File], None],
         test_cases: List[datagen.File]
     ):
-        """
-        Compare Arrow IPC for two implementations (one producer, one consumer).
+        """Compare Arrow IPC for two implementations (one producer, one consumer).
         """
         with group(f"Integration: Test: IPC: {producer.name} -> {consumer.name}"):
             log('##########################################################')
-            log('IPC: {0} producing, {1} consuming'
-                .format(producer.name, consumer.name))
+            log(f'IPC: {producer.name} producing, {consumer.name} consuming'
+                )
             log('##########################################################')
 
             case_runner = partial(self._run_ipc_test_case,
@@ -303,14 +291,13 @@ class IntegrationRunner(object):
         run_binaries: Callable[[Tester, Tester, datagen.File], None],
         test_case: datagen.File,
     ) -> Outcome:
-        """
-        Run one IPC test case.
+        """Run one IPC test case.
         """
         outcome = Outcome()
 
         json_path = test_case.path
         log('=' * 70)
-        log('Testing file {0}'.format(json_path))
+        log(f'Testing file {json_path}')
 
         if test_case.should_skip(producer.name, SKIP_IPC):
             log(f'-- Skipping test because producer {producer.name} does '
@@ -339,8 +326,7 @@ class IntegrationRunner(object):
                          consumer: Tester,
                          test_case: datagen.File
                          ) -> None:
-        """
-        Given a producer and a consumer, run different combination of
+        """Given a producer and a consumer, run different combination of
         tests for the ``test_case``
         * read and write are consistent
         * stream to file is consistent
@@ -373,8 +359,7 @@ class IntegrationRunner(object):
                   gold_dir: str,
                   consumer: Tester,
                   test_case: datagen.File) -> None:
-        """
-        Given a directory with:
+        """Given a directory with:
         * an ``.arrow_file``
         * a ``.stream``
         associated to the json integration file at ``test_case.path``
@@ -413,8 +398,8 @@ class IntegrationRunner(object):
     ):
         with group(f"Integration: Test: Flight: {producer.name} -> {consumer.name}"):
             log('##########################################################')
-            log('Flight: {0} serving, {1} requesting'
-                .format(producer.name, consumer.name))
+            log(f'Flight: {producer.name} serving, {consumer.name} requesting'
+                )
             log('##########################################################')
 
             case_runner = partial(self._run_flight_test_case, producer, consumer)
@@ -425,13 +410,12 @@ class IntegrationRunner(object):
                               producer: Tester,
                               consumer: Tester,
                               test_case: datagen.File) -> Outcome:
-        """
-        Run one Flight test case.
+        """Run one Flight test case.
         """
         outcome = Outcome()
 
         log('=' * 70)
-        log('Testing file {0}'.format(test_case.name))
+        log(f'Testing file {test_case.name}')
 
         if test_case.should_skip(producer.name, SKIP_FLIGHT):
             log(f'-- Skipping test because producer {producer.name} does '
@@ -501,8 +485,7 @@ class IntegrationRunner(object):
                                 exporter: CDataExporter,
                                 importer: CDataImporter,
                                 test_case: datagen.File) -> Outcome:
-        """
-        Run one C ArrowSchema test case.
+        """Run one C ArrowSchema test case.
         """
         outcome = Outcome()
 
@@ -544,8 +527,7 @@ class IntegrationRunner(object):
                                 exporter: CDataExporter,
                                 importer: CDataImporter,
                                 test_case: datagen.File) -> Outcome:
-        """
-        Run one set C ArrowArray test cases.
+        """Run one set C ArrowArray test cases.
         """
         outcome = Outcome()
 

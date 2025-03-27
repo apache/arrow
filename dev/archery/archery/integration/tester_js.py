@@ -14,13 +14,13 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import os
 from pathlib import Path
 
 from .tester import Tester
-from .util import run_cmd, log
-
+from .util import log, run_cmd
 
 ARROW_BUILD_ROOT = os.environ.get(
     'ARROW_BUILD_ROOT',

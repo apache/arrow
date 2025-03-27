@@ -14,16 +14,16 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-from contextlib import contextmanager
 import os
 import subprocess
+from contextlib import contextmanager
 
-from . import cdata
-from .tester import Tester, CDataExporter, CDataImporter
-from .util import run_cmd, log
 from ..utils.source import ARROW_ROOT_DEFAULT
-
+from . import cdata
+from .tester import CDataExporter, CDataImporter, Tester
+from .util import log, run_cmd
 
 _ARTIFACTS_PATH = os.path.join(ARROW_ROOT_DEFAULT, "csharp/artifacts")
 _BUILD_SUBDIR = "Debug/net8.0"
@@ -64,8 +64,7 @@ def _load_clr():
 
 @contextmanager
 def _disposing(disposable):
-    """
-    Ensure the IDisposable object is disposed of when the enclosed block exits.
+    """Ensure the IDisposable object is disposed of when the enclosed block exits.
     """
     try:
         yield disposable
@@ -234,9 +233,7 @@ class CSharpTester(Tester):
                 out, err = server.communicate()
                 raise RuntimeError(
                     '.NET Flight server did not start properly, '
-                    'stdout: \n{}\n\nstderr:\n{}\n'.format(
-                        output + out.decode(), err.decode()
-                    )
+                    f'stdout: \n{output + out.decode()}\n\nstderr:\n{err.decode()}\n'
                 )
             port = int(output.split(':')[-1])
             yield port

@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import contextlib
 import io
@@ -39,8 +40,7 @@ SKIP_IPC = 'ipc'
 
 
 class _Printer:
-    """
-    A print()-providing object that can override the stream output on
+    """A print()-providing object that can override the stream output on
     a per-thread basis.
     """
 
@@ -56,23 +56,20 @@ class _Printer:
             return self._tls.stdout
 
     def print(self, *args, **kwargs):
-        """
-        A variant of print() that writes to a thread-local stream.
+        """A variant of print() that writes to a thread-local stream.
         """
         print(*args, file=self._get_stdout(), **kwargs)
 
     @property
     def stdout(self):
-        """
-        A thread-local stdout wrapper that may be temporarily buffered
+        """A thread-local stdout wrapper that may be temporarily buffered
         using `cork()`.
         """
         return self._get_stdout()
 
     @contextlib.contextmanager
     def cork(self):
-        """
-        Temporarily buffer this thread's stream and write out its contents
+        """Temporarily buffer this thread's stream and write out its contents
         at the end of the context manager.  Useful to avoid interleaved
         output when multiple threads output progress information.
         """
@@ -97,15 +94,13 @@ _RAND_CHARS = np.array(list("abcdefghijklmnop123456Ârrôwµ£°€矢"), dtype=
 
 
 def random_utf8(nchars):
-    """
-    Generate one random UTF8 string.
+    """Generate one random UTF8 string.
     """
     return ''.join(np.random.choice(_RAND_CHARS, nchars))
 
 
 def random_bytes(nbytes):
-    """
-    Generate one random binary string.
+    """Generate one random binary string.
     """
     # NOTE getrandbits(0) fails
     if nbytes > 0:

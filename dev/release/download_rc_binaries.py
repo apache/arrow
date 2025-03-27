@@ -16,6 +16,7 @@
 # limitations under the License.
 
 """Download release binaries."""
+from __future__ import annotations
 
 import argparse
 import concurrent.futures as cf
@@ -28,7 +29,6 @@ import re
 import subprocess
 import time
 import urllib.request
-
 
 DEFAULT_PARALLEL_DOWNLOADS = 8
 
@@ -64,8 +64,7 @@ class Downloader:
 
     def download_files(self, files, dest=None, num_parallel=None,
                        re_match=None):
-        """
-        Download files from Bintray in parallel. If file already exists, will
+        """Download files from Bintray in parallel. If file already exists, will
         overwrite if the checksum does not match what Bintray says it should be
 
         Parameters
@@ -105,7 +104,7 @@ class Downloader:
 
         dest_path = os.path.join(dest_dir, filename)
 
-        print("Downloading {} to {}".format(path, dest_path))
+        print(f"Downloading {path} to {dest_path}")
 
         url = f'{self.URL_ROOT}/{path}'
         self._download_url(url, dest_path)
@@ -254,7 +253,7 @@ ARROW_PACKAGE_TYPES = \
 def download_rc_binaries(version, rc_number, re_match=None, dest=None,
                          num_parallel=None, target_package_type=None,
                          repository=None, tag=None):
-    version_string = '{}-rc{}'.format(version, rc_number)
+    version_string = f'{version}-rc{rc_number}'
     version_pattern = re.compile(r'\d+\.\d+\.\d+')
     if target_package_type:
         package_types = [target_package_type]

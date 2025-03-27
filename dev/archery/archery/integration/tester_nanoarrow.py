@@ -14,15 +14,15 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import functools
 import os
 
-from . import cdata
-from .tester import Tester, CDataExporter, CDataImporter
-from .util import run_cmd, log
 from ..utils.source import ARROW_ROOT_DEFAULT
-
+from . import cdata
+from .tester import CDataExporter, CDataImporter, Tester
+from .util import log, run_cmd
 
 _NANOARROW_PATH = os.environ.get(
     "ARROW_NANOARROW_PATH", os.path.join(ARROW_ROOT_DEFAULT, "nanoarrow/cdata")
@@ -122,8 +122,7 @@ class _CDataBase:
         self.dll = _load_ffi(self.ffi)
 
     def _check_nanoarrow_error(self, na_error):
-        """
-        Check a `const char*` error return from an integration entrypoint.
+        """Check a `const char*` error return from an integration entrypoint.
 
         A null means success, a non-empty string is an error message.
         The string is statically allocated on the nanoarrow side and does not

@@ -14,24 +14,27 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-from collections import namedtuple
-from io import StringIO
-import click
 import json
 import logging
 import os
 import pathlib
 import sys
+from collections import namedtuple
+from io import StringIO
+
+import click
 
 from .benchmark.codec import JsonEncoder
-from .benchmark.compare import RunnerComparator, DEFAULT_THRESHOLD
+from .benchmark.compare import DEFAULT_THRESHOLD, RunnerComparator
 from .benchmark.runner import CppBenchmarkRunner, JavaBenchmarkRunner
 from .compat import _import_pandas
 from .lang.cpp import CppCMakeDefinition, CppConfiguration
-from .utils.cli import ArrowBool, validate_arrow_sources, add_optional_command
-from .utils.lint import linter, python_numpydoc, LintValidationException
-from .utils.logger import logger, ctx as log_ctx
+from .utils.cli import ArrowBool, add_optional_command, validate_arrow_sources
+from .utils.lint import LintValidationException, linter, python_numpydoc
+from .utils.logger import ctx as log_ctx
+from .utils.logger import logger
 from .utils.source import ArrowSources
 from .utils.tmpdir import tmpdir
 
@@ -225,7 +228,6 @@ def build(ctx, src, build_dir, force, targets, **kwargs):
     existing directory.
 
     Examples:
-
     \b
     # Initialize build with clang8 and avx2 support in directory `clang8-build`
     \b
@@ -267,11 +269,10 @@ lint_checks = [
 
 
 def decorate_lint_command(cmd):
-    """
-    Decorate the lint() command function to add individual per-check options.
+    """Decorate the lint() command function to add individual per-check options.
     """
     for check in lint_checks:
-        option = click.option("--{0}/--no-{0}".format(check.option_name),
+        option = click.option(f"--{check.option_name}/--no-{check.option_name}",
                               default=None, help=check.help)
         cmd = option(cmd)
     return cmd
@@ -322,8 +323,7 @@ def _flatten_numpydoc_rules(rules):
 @click.option("--disallow-rule", "-d", multiple=True,
               help="Disallow these rules (can be comma-separated)")
 def numpydoc(src, symbols, allow_rule, disallow_rule):
-    """
-    Pass list of modules or symbols as arguments to restrict the validation.
+    """Pass list of modules or symbols as arguments to restrict the validation.
 
     By default all modules of pyarrow are tried to be validated.
 
@@ -351,7 +351,6 @@ def benchmark(ctx):
 
     Use the diff sub-command to benchmark revisions, and/or build directories.
     """
-    pass
 
 
 def benchmark_common_options(cmd):
@@ -415,7 +414,7 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
     """ List benchmark suite.
     """
     with tmpdir(preserve=preserve) as root:
-        logger.debug("Running benchmark {}".format(rev_or_path))
+        logger.debug(f"Running benchmark {rev_or_path}")
 
         if language == "cpp":
             conf = CppBenchmarkRunner.default_configuration(
@@ -426,7 +425,7 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
                 benchmark_extras=cpp_benchmark_extras)
 
         elif language == "java":
-            for key in {'cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'}:
+            for key in ('cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'):
                 del kwargs[key]
             conf = JavaBenchmarkRunner.default_configuration(
                 java_home=java_home, java_options=java_options,
@@ -474,7 +473,6 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
     workspace. This imply that no clone will be performed.
 
     Examples:
-
     \b
     # Run the benchmarks on current git workspace
     \b
@@ -496,7 +494,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
     archery benchmark run --output=run.json
     """
     with tmpdir(preserve=preserve) as root:
-        logger.debug("Running benchmark {}".format(rev_or_path))
+        logger.debug(f"Running benchmark {rev_or_path}")
 
         if language == "cpp":
             conf = CppBenchmarkRunner.default_configuration(
@@ -510,7 +508,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
                 benchmark_extras=cpp_benchmark_extras)
 
         elif language == "java":
-            for key in {'cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'}:
+            for key in ('cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'):
                 del kwargs[key]
             conf = JavaBenchmarkRunner.default_configuration(
                 java_home=java_home, java_options=java_options,
@@ -575,7 +573,6 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
     workspace. This imply that no clone will be performed.
 
     Examples:
-
     \b
     # Compare workspace (contender) against the mainline development branch
     # (baseline)
@@ -627,8 +624,8 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
     archery --quiet benchmark diff WORKSPACE run.json > result.json
     """
     with tmpdir(preserve=preserve) as root:
-        logger.debug("Comparing {} (contender) with {} (baseline)"
-                     .format(contender, baseline))
+        logger.debug(f"Comparing {contender} (contender) with {baseline} (baseline)"
+                     )
 
         if language == "cpp":
             conf = CppBenchmarkRunner.default_configuration(
@@ -649,7 +646,7 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
                 benchmark_extras=cpp_benchmark_extras)
 
         elif language == "java":
-            for key in {'cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'}:
+            for key in ('cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'):
                 del kwargs[key]
             conf = JavaBenchmarkRunner.default_configuration(
                 java_home=java_home, java_options=java_options,
@@ -705,7 +702,7 @@ def _format_comparisons_with_pandas(comparisons_json, no_counters,
     def labelled(title, df):
         if len(df) == 0:
             return ''
-        title += ': ({})'.format(len(df))
+        title += f': ({len(df)})'
         df_str = df.to_string(index=False)
         bar = '-' * df_str.index('\n')
         return '\n'.join([bar, title, bar, df_str])
@@ -831,9 +828,9 @@ def integration(with_all=False, random_seed=12345, **args):
     | Java     | Rust     |
 
     """
-
-    from .integration.runner import write_js_test_json, run_all_tests
     import numpy as np
+
+    from .integration.runner import run_all_tests, write_js_test_json
 
     # FIXME(bkietz) Include help strings for individual testers.
     # For example, CPPTester's ARROW_CPP_EXE_PATH environment variable.
@@ -882,8 +879,9 @@ def integration(with_all=False, random_seed=12345, **args):
 @click.option('--event-payload', '-p', type=click.File('r', encoding='utf8'),
               default='-', required=True)
 def trigger_bot(arrow_token, committers_file, event_name, event_payload):
-    from .bot import CommentBot, PullRequestWorkflowBot, actions
     from ruamel.yaml import YAML
+
+    from .bot import CommentBot, PullRequestWorkflowBot, actions
 
     event_payload = json.loads(event_payload.read())
     if 'comment' in event_name:
@@ -902,10 +900,8 @@ def trigger_bot(arrow_token, committers_file, event_name, event_payload):
 @archery.group("linking")
 @click.pass_obj
 def linking(obj):
+    """Quick and dirty utilities for checking library linkage.
     """
-    Quick and dirty utilities for checking library linkage.
-    """
-    pass
 
 
 @linking.command("check-dependencies")
@@ -916,7 +912,7 @@ def linking(obj):
               help="Name of the disallowed libraries")
 @click.pass_obj
 def linking_check_dependencies(obj, allowed, disallowed, paths):
-    from .linking import check_dynamic_library_dependencies, DependencyError
+    from .linking import DependencyError, check_dynamic_library_dependencies
 
     allowed, disallowed = set(allowed), set(disallowed)
     try:

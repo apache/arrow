@@ -14,13 +14,15 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-import cffi
-from contextlib import contextmanager
 import functools
 import os
 import sys
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
+
+import cffi
 
 if TYPE_CHECKING:
     from .tester import CDataExporter, CDataImporter
@@ -83,8 +85,7 @@ _c_data_decls = """
 
 @functools.lru_cache
 def ffi() -> cffi.FFI:
-    """
-    Return a FFI object supporting C Data Interface types.
+    """Return a FFI object supporting C Data Interface types.
     """
     ffi = cffi.FFI()
     ffi.cdef(_c_data_decls)
@@ -93,7 +94,7 @@ def ffi() -> cffi.FFI:
 
 def _release_memory_steps(exporter: CDataExporter, importer: CDataImporter):
     yield
-    for i in range(max(exporter.required_gc_runs, importer.required_gc_runs)):
+    for _i in range(max(exporter.required_gc_runs, importer.required_gc_runs)):
         importer.run_gc()
         yield
         exporter.run_gc()
@@ -102,8 +103,7 @@ def _release_memory_steps(exporter: CDataExporter, importer: CDataImporter):
 
 @contextmanager
 def check_memory_released(exporter: CDataExporter, importer: CDataImporter):
-    """
-    A context manager for memory release checks.
+    """A context manager for memory release checks.
 
     The context manager arranges cooperation between the exporter and importer
     to try and release memory at the end of the enclosed block.

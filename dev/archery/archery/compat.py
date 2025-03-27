@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import pathlib
 import sys
@@ -31,8 +32,7 @@ def _ensure_path(path):
 
 
 def _stringify_path(path):
-    """
-    Convert *path* to a string or unicode path if possible.
+    """Convert *path* to a string or unicode path if possible.
     """
     if isinstance(path, str):
         return path
@@ -54,8 +54,7 @@ def _import_pandas():
 
 
 def _get_module(obj, *, default=None):
-    """
-    Try to find the name of the module *obj* is defined on.
+    """Try to find the name of the module *obj* is defined on.
     """
     try:
         return obj.__module__

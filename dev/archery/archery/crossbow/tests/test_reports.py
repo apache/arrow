@@ -14,12 +14,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import textwrap
 
 from archery.crossbow.core import yaml
-from archery.crossbow.reports import (ChatReport, CommentReport, EmailReport,
-                                      Report)
+from archery.crossbow.reports import ChatReport, CommentReport, EmailReport, Report
 
 
 def test_crossbow_comment_formatter(load_fixture):

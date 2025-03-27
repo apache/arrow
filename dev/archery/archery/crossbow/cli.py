@@ -14,19 +14,25 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
+import sys
+import time
 from datetime import date
 from pathlib import Path
-import time
-import sys
 
 import click
 
-from .core import Config, Repo, Queue, Target, Job, CrossbowError
-from .reports import (ChatReport, Report, ReportUtils, ConsoleReport,
-                      EmailReport, CommentReport)
 from ..utils.source import ArrowSources
-
+from .core import Config, CrossbowError, Job, Queue, Repo, Target
+from .reports import (
+    ChatReport,
+    CommentReport,
+    ConsoleReport,
+    EmailReport,
+    Report,
+    ReportUtils,
+)
 
 _default_arrow_path = ArrowSources.find().path
 _default_queue_path = _default_arrow_path.parent / "crossbow"
@@ -54,8 +60,7 @@ _default_config_path = _default_arrow_path / "dev" / "tasks" / "tasks.yml"
 @click.pass_context
 def crossbow(ctx, github_token, arrow_path, queue_path, queue_remote,
              output_file):
-    """
-    Schedule packaging tasks or nightly builds on CI services.
+    """Schedule packaging tasks or nightly builds on CI services.
     """
     ctx.ensure_object(dict)
     ctx.obj['output'] = output_file
@@ -150,11 +155,11 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
     queue.put(job, prefix=job_prefix)
 
     if no_push:
-        click.echo('Branches and commits created but not pushed: `{}`'
-                   .format(job.branch))
+        click.echo(f'Branches and commits created but not pushed: `{job.branch}`'
+                   )
     else:
         queue.push()
-        click.echo('Pushed job identifier is: `{}`'.format(job.branch))
+        click.echo(f'Pushed job identifier is: `{job.branch}`')
 
 
 @crossbow.command()
@@ -235,16 +240,15 @@ def verify_release_candidate(obj, base_branch, create_pr,
 @click.pass_obj
 def render(obj, task, config_path, arrow_version, arrow_remote, arrow_branch,
            arrow_sha, params):
-    """
-    Utility command to check the rendered CI templates.
+    """Utility command to check the rendered CI templates.
     """
     from .core import _flatten
 
     def highlight(code):
         try:
             from pygments import highlight
-            from pygments.lexers import YamlLexer
             from pygments.formatters import TerminalFormatter
+            from pygments.lexers import YamlLexer
             return highlight(code, YamlLexer(), TerminalFormatter())
         except ImportError:
             return code
@@ -259,7 +263,7 @@ def render(obj, task, config_path, arrow_version, arrow_remote, arrow_branch,
     job = Job.from_config(config=config, target=target, tasks=[task],
                           params=params)
 
-    for task_name, rendered_files in job.render_tasks().items():
+    for _task_name, rendered_files in job.render_tasks().items():
         for path, content in _flatten(rendered_files).items():
             click.echo('#' * 80)
             click.echo('### {:^72} ###'.format("/".join(path)))
@@ -373,8 +377,7 @@ def latest_prefix(obj, prefix, fetch):
 def report(obj, job_name, sender_name, sender_email, recipient_email,
            smtp_user, smtp_password, smtp_server, smtp_port, poll,
            poll_max_minutes, poll_interval_minutes, send, fetch):
-    """
-    Send an e-mail report showing success/failure of tasks in a Crossbow run
+    """Send an e-mail report showing success/failure of tasks in a Crossbow run
     """
     output = obj['output']
     queue = obj['queue']
@@ -423,8 +426,7 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
 @click.pass_obj
 def report_chat(obj, job_name, send, webhook, extra_message_success,
                 extra_message_failure, fetch):
-    """
-    Send a chat report to a webhook showing success/failure
+    """Send a chat report to a webhook showing success/failure
     of tasks in a Crossbow run.
     """
     output = obj['output']
@@ -450,8 +452,7 @@ def report_chat(obj, job_name, send, webhook, extra_message_success,
               help='Fetch references (branches and tags) from the remote')
 @click.pass_obj
 def report_csv(obj, job_name, save, fetch):
-    """
-    Generates a CSV report with the different tasks information
+    """Generates a CSV report with the different tasks information
     from a Crossbow run.
     """
     output = obj['output']
@@ -531,8 +532,8 @@ def download_artifacts(obj, job_name, target_dir, dry_run, fetch,
                     else:
                         break
 
-    click.echo('Downloading {}\'s artifacts.'.format(job_name))
-    click.echo('Destination directory is {}'.format(target_dir))
+    click.echo(f'Downloading {job_name}\'s artifacts.')
+    click.echo(f'Destination directory is {target_dir}')
     click.echo()
 
     report = ConsoleReport(job, task_filters=task_filters)
@@ -565,8 +566,7 @@ def upload_artifacts(obj, tag, sha, patterns, method):
               help='Maximum limit of branches to delete for a single run')
 @click.pass_obj
 def delete_old_branches(obj, dry_run, days, maximum):
-    """
-    Deletes branches on queue repository (crossbow) that are older than number
+    """Deletes branches on queue repository (crossbow) that are older than number
     of days.
     With a maximum number of branches to be deleted. This is required to avoid
     triggering GitHub protection limits.
@@ -623,8 +623,7 @@ def delete_old_branches(obj, dry_run, days, maximum):
 def notify_token_expiration(obj, days, sender_name, sender_email,
                             recipient_email, smtp_user, smtp_password,
                             smtp_server, smtp_port, send):
-    """
-    Check if token is close to expiration and send email notifying.
+    """Check if token is close to expiration and send email notifying.
     """
     output = obj['output']
     queue = obj['queue']
