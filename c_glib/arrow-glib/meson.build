@@ -248,7 +248,7 @@ pkgconfig.generate(
     description: 'C API for Apache Arrow based on GLib',
     filebase: meson.project_name(),
     name: 'Apache Arrow GLib',
-    requires: ['gobject-2.0', 'arrow'],
+    requires: ['gobject-2.0', 'arrow', 'arrow_compute'],
     variables: pkgconfig_variables,
     version: version,
 )
