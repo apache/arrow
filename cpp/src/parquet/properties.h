@@ -1008,7 +1008,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   /// Return whether loading statistics as much as possible.
   bool should_load_statistics() const { return should_load_statistics_; }
 
-  /// Convert undefined logical types as their underlying physical type
+  /// Read undefined logical types as their underlying physical type
   ///
   /// When enabled, the Arrow reader will use the underlying physical type to deduce the
   /// Arrow type when the logical type is not recognized (e.g., one that was added to the
