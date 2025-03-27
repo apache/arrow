@@ -53,8 +53,8 @@ class WKBBuffer {
     size_t total_bytes = n_coords * sizeof(Coord);
     if (size_ < total_bytes) {
       return ::arrow::Status::SerializationError(
-          "Can't coordinate sequence of ", total_bytes, " bytes from WKBBuffer with ",
-          size_, " remaining");
+          "Can't read coordinate sequence of ", total_bytes,
+          " bytes from WKBBuffer with ", size_, " remaining");
     }
 
     if (ARROW_PREDICT_FALSE(swap)) {
