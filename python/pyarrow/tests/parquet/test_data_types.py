@@ -532,7 +532,7 @@ def test_undefined_logical_type(parquet_test_datadir):
     with pytest.raises(pa.lib.ArrowNotImplementedError, match="logical type Undefined"):
         _read_table(test_file)
 
-    table = _read_table(test_file, convert_undefined_logical_types=True)
+    table = _read_table(test_file, allow_undefined_logical_types=True)
     assert table.column_names == ["column with known type", "column with unknown type"]
     assert table["column with unknown type"].to_pylist() == [
         b"unknown string 1",

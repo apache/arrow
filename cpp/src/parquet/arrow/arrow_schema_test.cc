@@ -760,7 +760,7 @@ TEST_F(TestConvertParquetSchema, ParquetUndefinedType) {
 
   // With an opt-in, the field should be converted according to its storage
   ArrowReaderProperties props;
-  props.set_convert_undefined_logical_types(true);
+  props.set_allow_undefined_logical_types(true);
   ASSERT_OK(ConvertSchema(parquet_fields, nullptr, props));
 
   auto arrow_schema = ::arrow::schema({"undefined", BINARY});
@@ -1680,7 +1680,7 @@ TEST(TestFromParquetSchema, UndefinedLogicalType) {
 
   // With the appropriate reader option set, the underlying physical type is used for
   // conversion to the Arrow type
-  props.set_convert_undefined_logical_types(true);
+  props.set_allow_undefined_logical_types(true);
   ASSERT_OK(FromParquetSchema(parquet_schema, props, &arrow_schema));
   ASSERT_EQ(*arrow_schema->field(1),
             *::arrow::field("column with unknown type", ::arrow::binary()));
