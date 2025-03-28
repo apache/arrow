@@ -23,6 +23,8 @@
 #include <vector>
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/util.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/visibility.h"
@@ -301,12 +303,48 @@ ARROW_TESTING_EXPORT std::shared_ptr<DataGenerator> Gen(
 /// make a generator that returns a constant value
 ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Constant(
     std::shared_ptr<Scalar> value);
+
 /// make a generator that returns an incrementing value
 ///
 /// Note: overflow is not prevented standard unsigned integer overflow applies
-ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Step(uint32_t start = 0,
-                                                          uint32_t step = 1,
-                                                          bool signed_int = false);
+template <typename T = uint32_t>
+std::shared_ptr<ArrayGenerator> Step(T start = 0, T step = 1) {
+  class StepGenerator : public ArrayGenerator {
+   public:
+    // Use [[maybe_unused]] to avoid a compiler warning in Clang versions before 15 that
+    // incorrectly reports 'unused type alias'.
+    using ArrowType [[maybe_unused]] = typename CTypeTraits<T>::ArrowType;
+    static_assert(is_number_type<ArrowType>::value,
+                  "Step generator only supports numeric types");
+
+    StepGenerator(T start, T step) : start_(start), step_(step) {}
+
+    Result<std::shared_ptr<Array>> Generate(int64_t num_rows) override {
+      TypedBufferBuilder<T> builder;
+      ARROW_RETURN_NOT_OK(builder.Reserve(num_rows));
+      T val = start_;
+      for (int64_t i = 0; i < num_rows; i++) {
+        builder.UnsafeAppend(val);
+        val += step_;
+      }
+      start_ = val;
+      ARROW_ASSIGN_OR_RAISE(auto buf, builder.Finish());
+      return MakeArray(ArrayData::Make(TypeTraits<ArrowType>::type_singleton(), num_rows,
+                                       {NULLPTR, std::move(buf)}, /*null_count=*/0));
+    }
+
+    std::shared_ptr<DataType> type() const override {
+      return TypeTraits<ArrowType>::type_singleton();
+    }
+
+   private:
+    T start_;
+    T step_;
+  };
+
+  return std::make_shared<StepGenerator>(start, step);
+}
+
 /// make a generator that returns a random value
 ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Random(
     std::shared_ptr<DataType> type);

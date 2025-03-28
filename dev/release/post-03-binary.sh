@@ -50,7 +50,6 @@ fi
 : ${DEPLOY_CENTOS:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_DEBIAN:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_DOCS:=${DEPLOY_DEFAULT}}
-: ${DEPLOY_NUGET:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_PYTHON:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_R:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_UBUNTU:=${DEPLOY_DEFAULT}}
@@ -59,26 +58,23 @@ rake_tasks=()
 apt_targets=()
 yum_targets=()
 if [ ${DEPLOY_ALMALINUX} -gt 0 ]; then
-  rake_tasks+=(yum:release)
+  rake_tasks+=(yum:artifactory:release)
   yum_targets+=(almalinux)
 fi
 if [ ${DEPLOY_AMAZON_LINUX} -gt 0 ]; then
-  rake_tasks+=(yum:release)
+  rake_tasks+=(yum:artifactory:release)
   yum_targets+=(amazon-linux)
 fi
 if [ ${DEPLOY_CENTOS} -gt 0 ]; then
-  rake_tasks+=(yum:release)
+  rake_tasks+=(yum:artifactory:release)
   yum_targets+=(centos)
 fi
 if [ ${DEPLOY_DEBIAN} -gt 0 ]; then
-  rake_tasks+=(apt:release)
+  rake_tasks+=(apt:artifactory:release)
   apt_targets+=(debian)
 fi
 if [ ${DEPLOY_DOCS} -gt 0 ]; then
   rake_tasks+=(docs:release)
-fi
-if [ ${DEPLOY_NUGET} -gt 0 ]; then
-  rake_tasks+=(nuget:release)
 fi
 if [ ${DEPLOY_PYTHON} -gt 0 ]; then
   rake_tasks+=(python:release)
@@ -87,7 +83,7 @@ if [ ${DEPLOY_R} -gt 0 ]; then
   rake_tasks+=(r:release)
 fi
 if [ ${DEPLOY_UBUNTU} -gt 0 ]; then
-  rake_tasks+=(apt:release)
+  rake_tasks+=(apt:artifactory:release)
   apt_targets+=(ubuntu)
 fi
 rake_tasks+=(summary:release)

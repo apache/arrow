@@ -22,8 +22,8 @@
 jobs:
 
   ubuntu:
-    name: AMD64 Ubuntu 20.04 MATLAB
-    runs-on: ubuntu-20.04
+    name: AMD64 Ubuntu 22.04 MATLAB
+    runs-on: ubuntu-22.04
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Install ninja-build
@@ -37,13 +37,13 @@ jobs:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: arrow/ci/scripts/matlab_build.sh $(pwd)/arrow
       - name: Change shared library dependency name
-        # MATLAB's programmatic packaging interface does not properly 
+        # MATLAB's programmatic packaging interface does not properly
         # include symbolic link files in the package MLTBX - this is a
-        # bug. As a temporary workaround, change the expected name of the 
+        # bug. As a temporary workaround, change the expected name of the
         # Arrow C++ library which libarrowproxy.so depends on. For example,
         # change libarrow.so.1500 to libarrow.so.1500.0.0.
         run: |
-          pushd arrow/matlab/install/arrow_matlab/+libmexclass/+proxy/ 
+          pushd arrow/matlab/install/arrow_matlab/+libmexclass/+proxy/
           SYMLINK_ARROW_LIB="$(find . -name 'libarrow.so.*' -type l | xargs basename)"
           REGULAR_ARROW_LIB="$(echo libarrow.so.*.*)"
           echo "SYMLINK_ARROW_LIB = ${SYMLINK_ARROW_LIB}"
@@ -139,7 +139,7 @@ jobs:
           tar -xzvf matlab-arrow-macos-x64.tar.gz
           tar -xzvf matlab-arrow-macos-arm64.tar.gz
           tar -xzvf matlab-arrow-windows.tar.gz
-      - name: Copy LICENSE.txt and NOTICE.txt for packaging 
+      - name: Copy LICENSE.txt and NOTICE.txt for packaging
         run: |
           cp arrow/LICENSE.txt arrow/matlab/install/arrow_matlab/LICENSE.txt
           cp arrow/NOTICE.txt arrow/matlab/install/arrow_matlab/NOTICE.txt

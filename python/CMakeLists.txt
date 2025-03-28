@@ -18,7 +18,7 @@
 # Includes code assembled from BSD/MIT/Apache-licensed code from some 3rd-party
 # projects, including Kudu, Impala, and libdynd. See python/LICENSE.txt
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.25)
 project(pyarrow)
 
 # This is needed for 3.13 free-threading. CMake used to add Python
@@ -356,7 +356,6 @@ set(PYARROW_CPP_SRCS
     ${PYARROW_CPP_SOURCE_DIR}/common.cc
     ${PYARROW_CPP_SOURCE_DIR}/datetime.cc
     ${PYARROW_CPP_SOURCE_DIR}/decimal.cc
-    ${PYARROW_CPP_SOURCE_DIR}/deserialize.cc
     ${PYARROW_CPP_SOURCE_DIR}/extension_type.cc
     ${PYARROW_CPP_SOURCE_DIR}/gdb.cc
     ${PYARROW_CPP_SOURCE_DIR}/helpers.cc
@@ -369,7 +368,6 @@ set(PYARROW_CPP_SRCS
     ${PYARROW_CPP_SOURCE_DIR}/python_test.cc
     ${PYARROW_CPP_SOURCE_DIR}/python_to_arrow.cc
     ${PYARROW_CPP_SOURCE_DIR}/pyarrow.cc
-    ${PYARROW_CPP_SOURCE_DIR}/serialize.cc
     ${PYARROW_CPP_SOURCE_DIR}/udf.cc)
 set_source_files_properties(${PYARROW_CPP_SOURCE_DIR}/numpy_init.cc
                             PROPERTIES SKIP_PRECOMPILE_HEADERS ON

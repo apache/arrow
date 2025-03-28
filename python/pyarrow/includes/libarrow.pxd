@@ -101,6 +101,16 @@ cdef extern from "arrow/util/future.h" namespace "arrow" nogil:
         CStatus status()
 
 
+cdef extern from "<variant>" namespace "std" nogil:
+    cdef cppclass CArrayStatisticsValueType" std::variant<bool, int64_t, uint64_t, double, std::string>":
+        CArrayStatisticsValueType()
+        CArrayStatisticsValueType(c_bool)
+        CArrayStatisticsValueType(int64_t)
+        CArrayStatisticsValueType(uint64_t)
+        CArrayStatisticsValueType(double)
+        CArrayStatisticsValueType(c_string)
+
+
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef enum Type" arrow::Type::type":
         _Type_NA" arrow::Type::NA"
@@ -188,6 +198,16 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     c_bool is_primitive(Type type)
     c_bool is_numeric(Type type)
 
+    cdef cppclass CArrayStatistics" arrow::ArrayStatistics":
+        optional[int64_t] null_count
+        optional[int64_t] distinct_count
+        optional[CArrayStatisticsValueType] min
+        c_bool is_min_exact
+        optional[CArrayStatisticsValueType] max
+        c_bool is_max_exact
+
+        c_bool Equals(const CArrayStatistics& statistics) const
+
     cdef cppclass CArrayData" arrow::ArrayData":
         shared_ptr[CDataType] type
         int64_t length
@@ -250,6 +270,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         CDeviceAllocationType device_type()
         CResult[shared_ptr[CArray]] CopyTo(const shared_ptr[CMemoryManager]& to) const
+
+        const shared_ptr[CArrayStatistics]& statistics() const
 
     shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
     CResult[shared_ptr[CArray]] MakeArrayOfNull(
@@ -323,8 +345,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CMemoryPool" arrow::MemoryPool":
         int64_t bytes_allocated()
         int64_t max_memory()
+        int64_t total_bytes_allocated()
+        int64_t num_allocations()
         c_string backend_name()
         void ReleaseUnused()
+        void PrintStats()
 
     cdef cppclass CLoggingMemoryPool" arrow::LoggingMemoryPool"(CMemoryPool):
         CLoggingMemoryPool(CMemoryPool*)
@@ -1075,7 +1100,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CRecordBatch] batch
         # The struct in C++ does not actually have these two `const` qualifiers, but
         # adding `const` gets Cython to not complain
-        const shared_ptr[const CKeyValueMetadata] custom_metadata
+        shared_ptr[const CKeyValueMetadata] custom_metadata
 
     cdef cppclass CTable" arrow::Table":
         CTable(const shared_ptr[CSchema]& schema,
@@ -2173,6 +2198,13 @@ cdef extern from "arrow/json/reader.h" namespace "arrow::json" nogil:
 
         CResult[shared_ptr[CTable]] Read()
 
+    cdef cppclass CJSONStreamingReader" arrow::json::StreamingReader"(
+            CRecordBatchReader):
+        @staticmethod
+        CResult[shared_ptr[CJSONStreamingReader]] Make(
+            shared_ptr[CInputStream],
+            CJSONReadOptions, CJSONParseOptions, CIOContext)
+
 
 cdef extern from "arrow/util/thread_pool.h" namespace "arrow::internal" nogil:
 
@@ -2468,6 +2500,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CExtractRegexOptions(c_string pattern)
         c_string pattern
 
+    cdef cppclass CExtractRegexSpanOptions \
+            "arrow::compute::ExtractRegexSpanOptions"(CFunctionOptions):
+        CExtractRegexSpanOptions(c_string pattern)
+        c_string pattern
+
     cdef cppclass CCastOptions" arrow::compute::CastOptions"(CFunctionOptions):
         CCastOptions()
         CCastOptions(c_bool safe)
@@ -2589,6 +2626,13 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool skip_nulls
         uint32_t min_count
 
+    cdef cppclass CSkewOptions \
+            "arrow::compute::SkewOptions"(CFunctionOptions):
+        CSkewOptions(c_bool skip_nulls, c_bool biased, uint32_t min_count)
+        c_bool skip_nulls
+        c_bool biased
+        uint32_t min_count
+
     cdef cppclass CScalarAggregateOptions \
             "arrow::compute::ScalarAggregateOptions"(CFunctionOptions):
         CScalarAggregateOptions(c_bool skip_nulls, uint32_t min_count)
@@ -2670,6 +2714,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CPartitionNthOptions(int64_t pivot, CNullPlacement)
         int64_t pivot
         CNullPlacement null_placement
+
+    cdef cppclass CWinsorizeOptions \
+            "arrow::compute::WinsorizeOptions"(CFunctionOptions):
+        CWinsorizeOptions(double lower_limit, double upper_limit)
 
     cdef cppclass CCumulativeOptions \
             "arrow::compute::CumulativeOptions"(CFunctionOptions):
@@ -2784,6 +2832,22 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         vector[CSortKey] sort_keys
         CNullPlacement null_placement
         CRankOptionsTiebreaker tiebreaker
+
+    cdef cppclass CRankQuantileOptions \
+            "arrow::compute::RankQuantileOptions"(CFunctionOptions):
+        CRankQuantileOptions(vector[CSortKey] sort_keys, CNullPlacement)
+        vector[CSortKey] sort_keys
+        CNullPlacement null_placement
+
+    cdef enum PivotWiderUnexpectedKeyBehavior \
+            "arrow::compute::PivotWiderOptions::UnexpectedKeyBehavior":
+        PivotWiderUnexpectedKeyBehavior_Ignore "arrow::compute::PivotWiderOptions::kIgnore"
+        PivotWiderUnexpectedKeyBehavior_Raise "arrow::compute::PivotWiderOptions::kRaise"
+
+    cdef cppclass CPivotWiderOptions \
+            "arrow::compute::PivotWiderOptions"(CFunctionOptions):
+        CPivotWiderOptions(vector[c_string] key_names,
+                           PivotWiderUnexpectedKeyBehavior)
 
     cdef enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"

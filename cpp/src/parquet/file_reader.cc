@@ -266,13 +266,17 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     ARROW_DCHECK_NE(meta_decryptor, nullptr);
     ARROW_DCHECK_NE(data_decryptor, nullptr);
 
-    constexpr auto kEncryptedRowGroupsLimit = 32767;
-    if (i > kEncryptedRowGroupsLimit) {
+    constexpr auto kEncryptedOrdinalLimit = 32767;
+    if (ARROW_PREDICT_FALSE(row_group_ordinal_ > kEncryptedOrdinalLimit)) {
       throw ParquetException("Encrypted files cannot contain more than 32767 row groups");
     }
+    if (ARROW_PREDICT_FALSE(i > kEncryptedOrdinalLimit)) {
+      throw ParquetException("Encrypted files cannot contain more than 32767 columns");
+    }
 
-    CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
-                      static_cast<int16_t>(i), meta_decryptor, data_decryptor);
+    CryptoContext ctx(col->has_dictionary_page(),
+                      static_cast<int16_t>(row_group_ordinal_), static_cast<int16_t>(i),
+                      meta_decryptor, data_decryptor);
     return PageReader::Open(stream, col->num_values(), col->compression(), properties_,
                             always_compressed, &ctx);
   }
@@ -917,6 +921,16 @@ void ParquetFileReader::PreBuffer(const std::vector<int>& row_groups,
   SerializedFile* file =
       ::arrow::internal::checked_cast<SerializedFile*>(contents_.get());
   file->PreBuffer(row_groups, column_indices, ctx, options);
+}
+
+::arrow::Result<std::vector<::arrow::io::ReadRange>> ParquetFileReader::GetReadRanges(
+    const std::vector<int>& row_groups, const std::vector<int>& column_indices,
+    int64_t hole_size_limit, int64_t range_size_limit) {
+  // Access private methods here
+  SerializedFile* file =
+      ::arrow::internal::checked_cast<SerializedFile*>(contents_.get());
+  return file->GetReadRanges(row_groups, column_indices, hole_size_limit,
+                             range_size_limit);
 }
 
 ::arrow::Future<> ParquetFileReader::WhenBuffered(

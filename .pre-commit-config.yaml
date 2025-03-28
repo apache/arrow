@@ -39,7 +39,7 @@ repos:
         files: >-
           (
           ?^ci/docker/conda-python-emscripten\.dockerfile$|
-          ?^ci/docker/python-.*-wheel-windows-test-vs2019.*\.dockerfile$|
+          ?^ci/docker/python-.*-wheel-windows-test-vs2022.*\.dockerfile$|
           )
         types: []
   - repo: https://github.com/pycqa/flake8
@@ -141,6 +141,18 @@ repos:
           (
           ?^r/src/arrowExports\.cpp$|
           )
+  - repo: https://github.com/rubocop/rubocop
+    rev: "v1.71.0"
+    hooks:
+      - id: rubocop
+        name: Ruby Format
+        alias: ruby-format
+        args:
+          - "--autocorrect"
+        exclude: >-
+          (
+          ?^dev/tasks/homebrew-formulae/.*\.rb$|
+          )
   - repo: https://github.com/cheshirekow/cmake-format-precommit
     rev: v0.6.13
     hooks:
@@ -183,4 +195,11 @@ repos:
           ?^ci/scripts/c_glib_build\.sh$|
           ?^ci/scripts/c_glib_test\.sh$|
           ?^c_glib/test/run-test\.sh$|
+          ?^dev/release/07-binary-verify\.sh$|
+          ?^dev/release/utils-generate-checksum\.sh$|
           )
+  - repo: https://github.com/trim21/pre-commit-mirror-meson
+    rev: v1.6.1
+    hooks:
+      - id: meson-fmt
+        args: ['--inplace']

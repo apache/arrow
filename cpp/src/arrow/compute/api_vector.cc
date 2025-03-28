@@ -48,6 +48,7 @@ using compute::DictionaryEncodeOptions;
 using compute::FilterOptions;
 using compute::NullPlacement;
 using compute::RankOptions;
+using compute::RankQuantileOptions;
 
 template <>
 struct EnumTraits<FilterOptions::NullSelectionBehavior>
@@ -141,6 +142,9 @@ static auto kSortOptionsType = GetFunctionOptionsType<SortOptions>(
 static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOptions>(
     DataMember("pivot", &PartitionNthOptions::pivot),
     DataMember("null_placement", &PartitionNthOptions::null_placement));
+static auto kWinsorizeOptionsType = GetFunctionOptionsType<WinsorizeOptions>(
+    DataMember("lower_limit", &WinsorizeOptions::lower_limit),
+    DataMember("upper_limit", &WinsorizeOptions::upper_limit));
 static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
     DataMember("k", &SelectKOptions::k),
     DataMember("sort_keys", &SelectKOptions::sort_keys));
@@ -151,6 +155,9 @@ static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
     DataMember("sort_keys", &RankOptions::sort_keys),
     DataMember("null_placement", &RankOptions::null_placement),
     DataMember("tiebreaker", &RankOptions::tiebreaker));
+static auto kRankQuantileOptionsType = GetFunctionOptionsType<RankQuantileOptions>(
+    DataMember("sort_keys", &RankQuantileOptions::sort_keys),
+    DataMember("null_placement", &RankQuantileOptions::null_placement));
 static auto kPairwiseOptionsType = GetFunctionOptionsType<PairwiseOptions>(
     DataMember("periods", &PairwiseOptions::periods));
 static auto kListFlattenOptionsType = GetFunctionOptionsType<ListFlattenOptions>(
@@ -204,6 +211,11 @@ PartitionNthOptions::PartitionNthOptions(int64_t pivot, NullPlacement null_place
       null_placement(null_placement) {}
 constexpr char PartitionNthOptions::kTypeName[];
 
+WinsorizeOptions::WinsorizeOptions(double lower_limit, double upper_limit)
+    : FunctionOptions(internal::kWinsorizeOptionsType),
+      lower_limit(lower_limit),
+      upper_limit(upper_limit) {}
+
 SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
     : FunctionOptions(internal::kSelectKOptionsType),
       k(k),
@@ -227,6 +239,13 @@ RankOptions::RankOptions(std::vector<SortKey> sort_keys, NullPlacement null_plac
       null_placement(null_placement),
       tiebreaker(tiebreaker) {}
 constexpr char RankOptions::kTypeName[];
+
+RankQuantileOptions::RankQuantileOptions(std::vector<SortKey> sort_keys,
+                                         NullPlacement null_placement)
+    : FunctionOptions(internal::kRankQuantileOptionsType),
+      sort_keys(std::move(sort_keys)),
+      null_placement(null_placement) {}
+constexpr char RankQuantileOptions::kTypeName[];
 
 PairwiseOptions::PairwiseOptions(int64_t periods)
     : FunctionOptions(internal::kPairwiseOptionsType), periods(periods) {}
@@ -259,10 +278,12 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kCumulativeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRankOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRankQuantileOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPairwiseOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kListFlattenOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kInversePermutationOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kScatterOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kWinsorizeOptionsType));
 }
 }  // namespace internal
 

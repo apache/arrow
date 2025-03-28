@@ -1264,7 +1264,7 @@ TEST_F(TestInt96ParquetIO, ReadIntoTimestamp) {
 
 using TestUInt32ParquetIO = TestParquetIO<::arrow::UInt32Type>;
 
-TEST_F(TestUInt32ParquetIO, Parquet_2_0_Compatibility) {
+TEST_F(TestUInt32ParquetIO, Parquet_2_6_Compatibility) {
   // This also tests max_definition_level = 1
   std::shared_ptr<Array> values;
 
@@ -2055,10 +2055,6 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
                                           .version(ParquetVersion::PARQUET_1_0)
                                           ->build();
   ARROW_SUPPRESS_DEPRECATION_WARNING
-  auto parquet_version_2_0_properties = ::parquet::WriterProperties::Builder()
-                                            .version(ParquetVersion::PARQUET_2_0)
-                                            ->build();
-  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   auto parquet_version_2_4_properties = ::parquet::WriterProperties::Builder()
                                             .version(ParquetVersion::PARQUET_2_4)
                                             ->build();
@@ -2066,8 +2062,8 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
                                             .version(ParquetVersion::PARQUET_2_6)
                                             ->build();
   const std::vector<std::shared_ptr<WriterProperties>> all_properties = {
-      parquet_version_1_properties, parquet_version_2_0_properties,
-      parquet_version_2_4_properties, parquet_version_2_6_properties};
+      parquet_version_1_properties, parquet_version_2_4_properties,
+      parquet_version_2_6_properties};
 
   {
     // Using Parquet version 1.0 and 2.4 defaults, seconds should be coerced to
@@ -2081,13 +2077,11 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
                                                      parquet_version_2_4_properties));
   }
   {
-    // Using Parquet version 2.0 and 2.6 defaults, seconds should be coerced to
+    // Using Parquet version 2.6 defaults, seconds should be coerced to
     // milliseconds and nanoseconds should be retained
     auto expected_schema = schema({field("ts:s", t_ms), field("ts:ms", t_ms),
                                    field("ts:us", t_us), field("ts:ns", t_ns)});
     auto expected_table = Table::Make(expected_schema, {a_ms, a_ms, a_us, a_ns});
-    ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
-                                                     parquet_version_2_0_properties));
     ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
                                                      parquet_version_2_6_properties));
   }
@@ -2133,9 +2127,8 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
                              CreateOutputStream(), input_table->num_rows(), properties,
                              arrow_coerce_to_nanos_properties));
   }
-  // Using Parquet versions "2.0" and 2.6, coercing to (int64) nanoseconds is allowed
-  for (const auto& properties :
-       {parquet_version_2_0_properties, parquet_version_2_6_properties}) {
+  // Using Parquet version 2.6, coercing to (int64) nanoseconds is allowed
+  for (const auto& properties : {parquet_version_2_6_properties}) {
     ARROW_SCOPED_TRACE("format = ", ParquetVersionToString(properties->version()));
     auto expected_schema = schema({field("ts:s", t_ns), field("ts:ms", t_ns),
                                    field("ts:us", t_ns), field("ts:ns", t_ns)});
@@ -3336,6 +3329,28 @@ TEST(TestArrowReadWrite, NonUniqueDictionaryValues) {
   }
 }
 
+TEST(TestArrowReadWrite, DictionaryIndexBitwidthRoundtrip) {
+  // GH-30302: the bitwidth of Arrow dictionary indices should be preserved
+  for (const auto& index_type :
+       {::arrow::int8(), ::arrow::int16(), ::arrow::int32(), ::arrow::int64()}) {
+    ARROW_SCOPED_TRACE("index_type = ", *index_type);
+    auto dict_type = ::arrow::dictionary(index_type, ::arrow::utf8());
+    auto schema = ::arrow::schema({field("dictionary", dict_type)});
+
+    ::arrow::ArrayVector dict_arrays = {
+        DictArrayFromJSON(dict_type, R"([0, 1, 0, 2, 1])",
+                          R"(["first", "second", "third"])"),
+        DictArrayFromJSON(dict_type, R"([2, 0, 1, 0, 2])",
+                          R"(["first", "second", "third"])"),
+    };
+    auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(dict_arrays)});
+    auto arrow_writer_props =
+        parquet::ArrowWriterProperties::Builder().store_schema()->build();
+
+    CheckSimpleRoundtrip(table, table->num_rows(), arrow_writer_props);
+  }
+}
+
 TEST(TestArrowWrite, CheckChunkSize) {
   const int num_columns = 2;
   const int num_rows = 128;
@@ -4310,6 +4325,108 @@ TEST(TestArrowReaderAdHoc, ReadFloat16Files) {
   }
 }
 
+TEST(TestArrowFileReader, RecordBatchReaderEmptyRowGroups) {
+  const int num_columns = 1;
+  const int num_rows = 3;
+  const int num_chunks = 1;
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, num_chunks, &table));
+
+  const int64_t row_group_size = num_rows;
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  std::unique_ptr<FileReader> file_reader;
+  ASSERT_OK(
+      FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  // This is the important part in this test.
+  std::vector<int> row_group_indices = {};
+  ASSERT_OK_AND_ASSIGN(auto record_batch_reader,
+                       file_reader->GetRecordBatchReader(row_group_indices));
+  std::shared_ptr<::arrow::RecordBatch> record_batch;
+  ASSERT_OK(record_batch_reader->ReadNext(&record_batch));
+  // No read record batch for empty row groups request.
+  ASSERT_FALSE(record_batch);
+}
+
+TEST(TestArrowFileReader, RecordBatchReaderEmptyInput) {
+  const int num_columns = 1;
+  // This is the important part in this test.
+  const int num_rows = 0;
+  const int num_chunks = 1;
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, num_chunks, &table));
+
+  const int64_t row_group_size = num_rows;
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  std::unique_ptr<FileReader> file_reader;
+  ASSERT_OK(
+      FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  ASSERT_OK_AND_ASSIGN(auto record_batch_reader, file_reader->GetRecordBatchReader());
+  std::shared_ptr<::arrow::RecordBatch> record_batch;
+  ASSERT_OK(record_batch_reader->ReadNext(&record_batch));
+  // No read record batch for empty data.
+  ASSERT_FALSE(record_batch);
+}
+
+TEST(TestArrowColumnReader, NextBatchZeroBatchSize) {
+  const int num_columns = 1;
+  const int num_rows = 3;
+  const int num_chunks = 1;
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, num_chunks, &table));
+
+  const int64_t row_group_size = num_rows;
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  std::unique_ptr<FileReader> file_reader;
+  ASSERT_OK(
+      FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  std::unique_ptr<arrow::ColumnReader> column_reader;
+  ASSERT_OK(file_reader->GetColumn(0, &column_reader));
+  std::shared_ptr<ChunkedArray> chunked_array;
+  // This is the important part in this test.
+  ASSERT_OK(column_reader->NextBatch(0, &chunked_array));
+  ASSERT_EQ(0, chunked_array->length());
+}
+
+TEST(TestArrowColumnReader, NextBatchEmptyInput) {
+  const int num_columns = 1;
+  // This is the important part in this test.
+  const int num_rows = 0;
+  const int num_chunks = 1;
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, num_chunks, &table));
+
+  const int64_t row_group_size = num_rows;
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  std::unique_ptr<FileReader> file_reader;
+  ASSERT_OK(
+      FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  std::unique_ptr<arrow::ColumnReader> column_reader;
+  ASSERT_OK(file_reader->GetColumn(0, &column_reader));
+  std::shared_ptr<ChunkedArray> chunked_array;
+  ASSERT_OK(column_reader->NextBatch(10, &chunked_array));
+  ASSERT_EQ(0, chunked_array->length());
+}
+
 // direct-as-possible translation of
 // pyarrow/tests/test_parquet.py::test_validate_schema_write_table
 TEST(TestArrowWriterAdHoc, SchemaMismatch) {
@@ -4385,6 +4502,7 @@ TEST_P(TestArrowWriteDictionary, Statistics) {
             ->data_page_version(this->GetParquetDataPageVersion())
             ->write_batch_size(2)
             ->data_pagesize(2)
+            ->disable_write_page_index()
             ->build();
     std::unique_ptr<FileWriter> writer;
     ASSERT_OK_AND_ASSIGN(
@@ -4490,6 +4608,7 @@ TEST_P(TestArrowWriteDictionary, StatisticsUnifiedDictionary) {
             ->data_page_version(this->GetParquetDataPageVersion())
             ->write_batch_size(3)
             ->data_pagesize(3)
+            ->disable_write_page_index()
             ->build();
     std::unique_ptr<FileWriter> writer;
     ASSERT_OK_AND_ASSIGN(
@@ -5304,7 +5423,10 @@ TEST(TestArrowReadWrite, WriteAndReadRecordBatch) {
   auto pool = ::arrow::default_memory_pool();
   auto sink = CreateOutputStream();
   // Limit the max number of rows in a row group to 10
-  auto writer_properties = WriterProperties::Builder().max_row_group_length(10)->build();
+  auto writer_properties = WriterProperties::Builder()
+                               .max_row_group_length(10)
+                               ->disable_write_page_index()
+                               ->build();
   auto arrow_writer_properties = default_arrow_writer_properties();
 
   // Prepare schema
@@ -5360,7 +5482,7 @@ TEST(TestArrowReadWrite, WriteAndReadRecordBatch) {
   ASSERT_EQ(10, file_metadata->RowGroup(0)->num_rows());
   ASSERT_EQ(2, file_metadata->RowGroup(1)->num_rows());
 
-  // Verify that page index is not written by default.
+  // Verify that page index is not written.
   for (int i = 0; i < num_row_groups; ++i) {
     auto row_group_metadata = file_metadata->RowGroup(i);
     for (int j = 0; j < row_group_metadata->num_columns(); ++j) {

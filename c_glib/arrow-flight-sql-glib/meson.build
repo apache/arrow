@@ -17,27 +17,27 @@
 # specific language governing permissions and limitations
 # under the License.
 
-sources = files(
-  'client.cpp',
-  'server.cpp',
-)
+sources = files('client.cpp', 'server.cpp')
 
-c_headers = files(
-  'arrow-flight-sql-glib.h',
-  'client.h',
-  'server.h',
-)
+c_headers = files('arrow-flight-sql-glib.h', 'client.h', 'server.h')
 
-cpp_headers = files(
-  'arrow-flight-sql-glib.hpp',
-  'client.hpp',
-  'server.hpp',
-)
+cpp_headers = files('arrow-flight-sql-glib.hpp', 'client.hpp', 'server.hpp')
 
 version_h = configure_file(
-  input: 'version.h.in',
-  output: 'version.h',
-  command: [python3, generate_version_header_py, '--library', 'GAFLIGHTSQL', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
+    input: 'version.h.in',
+    output: 'version.h',
+    command: [
+        python3,
+        generate_version_header_py,
+        '--library',
+        'GAFLIGHTSQL',
+        '--version',
+        version,
+        '--input',
+        '@INPUT@',
+        '--output',
+        '@OUTPUT@',
+    ],
 )
 
 c_headers += version_h
@@ -45,63 +45,62 @@ c_headers += version_h
 headers = c_headers + cpp_headers
 install_headers(headers, subdir: 'arrow-flight-sql-glib')
 
-dependencies = [
-  arrow_flight_sql,
-  arrow_flight_glib,
-]
-libarrow_flight_sql_glib = library('arrow-flight-sql-glib',
-                                   sources: sources,
-                                   install: true,
-                                   dependencies: dependencies,
-                                   implicit_include_directories: false,
-                                   include_directories: base_include_directories,
-                                   cpp_args: ['-DGAFLIGHTSQL_COMPILATION'],
-                                   soversion: so_version,
-                                   version: library_version)
-arrow_flight_sql_glib = \
-  declare_dependency(link_with: libarrow_flight_sql_glib,
-                     include_directories: base_include_directories,
-                     dependencies: dependencies)
+dependencies = [arrow_flight_sql, arrow_flight_glib]
+libarrow_flight_sql_glib = library(
+    'arrow-flight-sql-glib',
+    sources: sources,
+    install: true,
+    dependencies: dependencies,
+    implicit_include_directories: false,
+    include_directories: base_include_directories,
+    cpp_args: ['-DGAFLIGHTSQL_COMPILATION'],
+    soversion: so_version,
+    version: library_version,
+)
+arrow_flight_sql_glib = declare_dependency(
+    link_with: libarrow_flight_sql_glib,
+    include_directories: base_include_directories,
+    dependencies: dependencies,
+)
 
-pkgconfig.generate(libarrow_flight_sql_glib,
-                   description: 'C API for Apache Arrow Flight SQL based on GLib',
-                   filebase: 'arrow-flight-sql-glib',
-                   name: 'Apache Arrow Flight SQL GLib',
-                   requires: ['arrow-flight-glib', 'arrow-flight-sql'],
-                   variables: pkgconfig_variables,
-                   version: version)
+pkgconfig.generate(
+    libarrow_flight_sql_glib,
+    description: 'C API for Apache Arrow Flight SQL based on GLib',
+    filebase: 'arrow-flight-sql-glib',
+    name: 'Apache Arrow Flight SQL GLib',
+    requires: ['arrow-flight-glib', 'arrow-flight-sql'],
+    variables: pkgconfig_variables,
+    version: version,
+)
 
 if have_gi
-  arrow_flight_sql_glib_gir_dependencies = \
-    declare_dependency(sources: [arrow_glib_gir, arrow_flight_glib_gir])
-  arrow_flight_sql_glib_gir = \
-    gnome.generate_gir(libarrow_flight_sql_glib,
-                       dependencies: arrow_flight_sql_glib_gir_dependencies,
-                       export_packages: 'arrow-flight-sql-glib',
-                       extra_args: [
-                         '--warn-all',
-                         '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
-                         '--include-uninstalled=./arrow-flight-glib/ArrowFlight-1.0.gir',
-                       ],
-                       header: 'arrow-flight-sql-glib/arrow-flight-sql-glib.h',
-                       identifier_prefix: 'GAFlightSQL',
-                       includes: [
-                         'Arrow-1.0',
-                         'ArrowFlight-1.0',
-                       ],
-                       kwargs: generate_gi_common_args,
-                       namespace: 'ArrowFlightSQL',
-                       sources: sources + c_headers,
-                       symbol_prefix: 'gaflightsql')
+    arrow_flight_sql_glib_gir_dependencies = declare_dependency(
+        sources: [arrow_glib_gir, arrow_flight_glib_gir],
+    )
+    arrow_flight_sql_glib_gir = gnome.generate_gir(
+        libarrow_flight_sql_glib,
+        dependencies: arrow_flight_sql_glib_gir_dependencies,
+        export_packages: 'arrow-flight-sql-glib',
+        extra_args: [
+            '--warn-all',
+            '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
+            '--include-uninstalled=./arrow-flight-glib/ArrowFlight-1.0.gir',
+        ],
+        header: 'arrow-flight-sql-glib/arrow-flight-sql-glib.h',
+        identifier_prefix: 'GAFlightSQL',
+        includes: ['Arrow-1.0', 'ArrowFlight-1.0'],
+        kwargs: generate_gi_common_args,
+        namespace: 'ArrowFlightSQL',
+        sources: sources + c_headers,
+        symbol_prefix: 'gaflightsql',
+    )
 
-  if generate_vapi
-    gnome.generate_vapi('arrow-flight-sql-glib',
-                        install: true,
-                        packages: [
-                          arrow_flight_glib_vapi,
-                          arrow_glib_vapi,
-                          'gio-2.0',
-                        ],
-                        sources: [arrow_flight_sql_glib_gir[0]])
-  endif
+    if generate_vapi
+        gnome.generate_vapi(
+            'arrow-flight-sql-glib',
+            install: true,
+            packages: [arrow_flight_glib_vapi, arrow_glib_vapi, 'gio-2.0'],
+            sources: [arrow_flight_sql_glib_gir[0]],
+        )
+    endif
 endif

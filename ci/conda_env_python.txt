@@ -18,8 +18,7 @@
 # Don't add pandas here, because it is not a mandatory test dependency
 
 # Not a direct dependency of s3fs, but needed for our s3fs fixture
-# (temporary upper bound because of GH-45305)
-boto3<1.36
+boto3
 cffi
 cython>=3
 cloudpickle

@@ -72,7 +72,6 @@ fi
 : ${UPLOAD_CENTOS:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_DEBIAN:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_DOCS:=${UPLOAD_DEFAULT}}
-: ${UPLOAD_NUGET:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_PYTHON:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_R:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_UBUNTU:=${UPLOAD_DEFAULT}}
@@ -81,26 +80,23 @@ rake_tasks=()
 apt_targets=()
 yum_targets=()
 if [ ${UPLOAD_ALMALINUX} -gt 0 ]; then
-  rake_tasks+=(yum:rc)
+  rake_tasks+=(yum:rc:artifactory yum:rc)
   yum_targets+=(almalinux)
 fi
 if [ ${UPLOAD_AMAZON_LINUX} -gt 0 ]; then
-  rake_tasks+=(yum:rc)
+  rake_tasks+=(yum:rc:artifactory yum:rc)
   yum_targets+=(amazon-linux)
 fi
 if [ ${UPLOAD_CENTOS} -gt 0 ]; then
-  rake_tasks+=(yum:rc)
+  rake_tasks+=(yum:rc:artifactory yum:rc)
   yum_targets+=(centos)
 fi
 if [ ${UPLOAD_DEBIAN} -gt 0 ]; then
-  rake_tasks+=(apt:rc)
+  rake_tasks+=(apt:rc:artifactory apt:rc)
   apt_targets+=(debian)
 fi
 if [ ${UPLOAD_DOCS} -gt 0 ]; then
   rake_tasks+=(docs:rc)
-fi
-if [ ${UPLOAD_NUGET} -gt 0 ]; then
-  rake_tasks+=(nuget:rc)
 fi
 if [ ${UPLOAD_PYTHON} -gt 0 ]; then
   rake_tasks+=(python:rc)
@@ -109,7 +105,7 @@ if [ ${UPLOAD_R} -gt 0 ]; then
   rake_tasks+=(r:rc)
 fi
 if [ ${UPLOAD_UBUNTU} -gt 0 ]; then
-  rake_tasks+=(apt:rc)
+  rake_tasks+=(apt:rc:artifactory apt:rc)
   apt_targets+=(ubuntu)
 fi
 rake_tasks+=(summary:rc)
@@ -127,6 +123,8 @@ docker_run \
     APT_TARGETS=$(IFS=,; echo "${apt_targets[*]}") \
     ARTIFACTORY_API_KEY="${ARTIFACTORY_API_KEY}" \
     ARTIFACTS_DIR="${tmp_dir}/artifacts" \
+    ASF_PASSWORD="${ASF_PASSWORD}" \
+    ASF_USER="${ASF_USER}" \
     DEB_PACKAGE_NAME=${DEB_PACKAGE_NAME:-} \
     DRY_RUN=${DRY_RUN:-no} \
     GPG_KEY_ID="${GPG_KEY_ID}" \

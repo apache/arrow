@@ -20,8 +20,13 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <utility>
 #include <vector>
 
 #include "arrow/array/array_base.h"
@@ -31,6 +36,7 @@
 #include "arrow/array/util.h"
 #include "arrow/c/abi.h"
 #include "arrow/chunked_array.h"
+#include "arrow/config.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/tensor.h"
@@ -38,6 +44,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/key_value_metadata.h"
@@ -391,6 +398,37 @@ TEST_F(TestRecordBatch, RemoveColumnEmpty) {
 
   ASSERT_OK_AND_ASSIGN(auto added, empty->AddColumn(0, field1, array1));
   AssertBatchesEqual(*added, *batch1);
+}
+
+TEST_F(TestRecordBatch, ColumnsThreadSafety) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+  constexpr int kNumThreads = 10;
+  constexpr int kLength = 10;
+
+  random::RandomArrayGenerator gen(42);
+  std::shared_ptr<ArrayData> array_data = gen.ArrayOf(utf8(), kLength)->data();
+  auto schema = ::arrow::schema({field("f1", utf8())});
+  auto record_batch = RecordBatch::Make(schema, kLength, {array_data});
+  std::mutex mutex;
+  std::vector<std::thread> threads;
+  std::vector<Array*> all_columns;
+  for (int i = 0; i < kNumThreads; i++) {
+    threads.emplace_back([&]() {
+      auto columns = record_batch->columns();
+      mutex.lock();
+      all_columns.push_back(columns[0].get());
+      mutex.unlock();
+    });
+  }
+  for (auto& thread : threads) {
+    thread.join();
+  }
+  // assert that all calls to columns() return the same arrays
+  for (const auto& col : all_columns) {
+    ASSERT_EQ(col, all_columns[0]);
+  }
 }
 
 TEST_F(TestRecordBatch, ToFromEmptyStructArray) {
@@ -1360,7 +1398,7 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayMaxApproximate) {
   auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
   auto float64_array_data = ArrayFromJSON(float64(), "[1.0, null, -1.0]")->data()->Copy();
   float64_array_data->statistics = std::make_shared<ArrayStatistics>();
-  float64_array_data->statistics->min = -1.0;
+  float64_array_data->statistics->max = 1.0;
   auto float64_array = MakeArray(std::move(float64_array_data));
   auto batch = RecordBatch::Make(schema, float64_array->length(),
                                  {no_statistics_array, float64_array});
@@ -1374,13 +1412,13 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayMaxApproximate) {
                                ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
                            },
                            {
-                               ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE,
+                               ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE,
                            }},
                           {{
                                ArrayStatistics::ValueType{int64_t{3}},
                            },
                            {
-                               ArrayStatistics::ValueType{-1.0},
+                               ArrayStatistics::ValueType{1.0},
                            }}));
   AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
 }

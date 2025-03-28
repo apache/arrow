@@ -598,6 +598,20 @@ class TestConvertMetadata:
         assert data_column['numpy_type'] == 'object'
         assert data_column['metadata'] == {'precision': 26, 'scale': 11}
 
+    @pytest.mark.parametrize('typ', [
+        pa.decimal32,
+        pa.decimal64,
+        pa.decimal128,
+        pa.decimal256,
+    ])
+    def test_decimal_other_bitwidts(self, typ):
+        df = pd.DataFrame({'a': [decimal.Decimal('3.14')]})
+        schema = pa.schema([pa.field('a', type=typ(4, 2))])
+        table = pa.Table.from_pandas(df, schema=schema)
+        col_meta = table.schema.pandas_metadata['columns'][0]
+        assert col_meta['pandas_type'] == 'decimal'
+        assert col_meta['metadata'] == {'precision': 4, 'scale': 2}
+
     def test_table_column_subset_metadata(self):
         # ARROW-1883
         # non-default index
@@ -2040,6 +2054,19 @@ class TestConvertDecimalTypes:
         # This yields strided objects
         df = pd.DataFrame.from_dict(data)
         _check_pandas_roundtrip(df)
+
+    @pytest.mark.parametrize("typ", [
+        pa.decimal32,
+        pa.decimal64,
+        pa.decimal128,
+        pa.decimal256,
+    ])
+    def test_decimal_array_to_pandas(self, typ):
+        data = [decimal.Decimal('3.14'), None]
+        arr = pa.array(data, type=typ(3, 2))
+        result = arr.to_pandas()
+        expected = pd.Series(data)
+        tm.assert_series_equal(result, expected)
 
 
 class TestConvertListTypes:
@@ -4865,14 +4892,13 @@ def make_df_with_timestamps():
 
 
 @pytest.mark.parquet
-@pytest.mark.filterwarnings("ignore:Parquet format '2.0':FutureWarning")
 def test_timestamp_as_object_parquet(tempdir):
     # Timestamps can be stored as Parquet and reloaded into Pandas with no loss
     # of information if the timestamp_as_object option is True.
     df = make_df_with_timestamps()
     table = pa.Table.from_pandas(df)
     filename = tempdir / "timestamps_from_pandas.parquet"
-    pq.write_table(table, filename, version="2.0")
+    pq.write_table(table, filename)
     result = pq.read_table(filename)
     df2 = result.to_pandas(timestamp_as_object=True)
     tm.assert_frame_equal(df, df2)
@@ -5226,6 +5252,13 @@ def test_nested_chunking_valid():
     schema = pa.schema([("maps", map_type)])
     roundtrip(pd.DataFrame({"maps": [map_of_los, map_of_los, map_of_los]}),
               schema=schema)
+
+
+def test_bytes_column_name_to_pandas():
+    df = pd.DataFrame([[0.1, 0.2], [0.3, 0.4]], columns=[b'col1', b'col2'])
+    table = pa.Table.from_pandas(df)
+    assert table.column_names == ['col1', 'col2']
+    assert table.to_pandas().equals(df)
 
 
 @pytest.mark.processes

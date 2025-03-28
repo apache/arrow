@@ -256,6 +256,22 @@ Status ByteArrayStatisticsAsScalars(const Statistics& statistics,
   return Status::OK();
 }
 
+Result<std::shared_ptr<ChunkedArray>> ViewOrCastChunkedArray(
+    const std::shared_ptr<ChunkedArray>& array, MemoryPool* pool,
+    const std::shared_ptr<DataType>& logical_value_type) {
+  auto view_result = array->View(logical_value_type);
+  if (view_result.ok()) {
+    return view_result.ValueOrDie();
+  } else {
+    ::arrow::compute::ExecContext exec_context(pool);
+    ARROW_ASSIGN_OR_RAISE(
+        auto casted_datum,
+        ::arrow::compute::Cast(Datum(array), logical_value_type,
+                               ::arrow::compute::CastOptions(), &exec_context));
+    return casted_datum.chunked_array();
+  }
+}
+
 }  // namespace
 
 Status StatisticsAsScalars(const Statistics& statistics,
@@ -322,6 +338,10 @@ template <typename ArrowType, typename ParquetType>
 void AttachStatistics(::arrow::ArrayData* data,
                       std::unique_ptr<::parquet::ColumnChunkMetaData> metadata,
                       const ReaderContext* ctx) {
+  if (!metadata) {
+    return;
+  }
+
   using ArrowCType = typename ArrowType::c_type;
 
   auto statistics = metadata->statistics().get();
@@ -521,14 +541,14 @@ Status TransferDate64(RecordReader* reader, MemoryPool* pool,
 // ----------------------------------------------------------------------
 // Binary, direct to dictionary-encoded
 
-Status TransferDictionary(RecordReader* reader,
+Status TransferDictionary(RecordReader* reader, MemoryPool* pool,
                           const std::shared_ptr<DataType>& logical_value_type,
                           bool nullable, std::shared_ptr<ChunkedArray>* out) {
   auto dict_reader = dynamic_cast<DictionaryRecordReader*>(reader);
   DCHECK(dict_reader);
   *out = dict_reader->GetResult();
   if (!logical_value_type->Equals(*(*out)->type())) {
-    ARROW_ASSIGN_OR_RAISE(*out, (*out)->View(logical_value_type));
+    ARROW_ASSIGN_OR_RAISE(*out, ViewOrCastChunkedArray(*out, pool, logical_value_type));
   }
   if (!nullable) {
     ::arrow::ArrayVector chunks = (*out)->chunks();
@@ -543,7 +563,7 @@ Status TransferBinary(RecordReader* reader, MemoryPool* pool,
                       std::shared_ptr<ChunkedArray>* out) {
   if (reader->read_dictionary()) {
     return TransferDictionary(
-        reader, ::arrow::dictionary(::arrow::int32(), logical_type_field->type()),
+        reader, pool, ::arrow::dictionary(::arrow::int32(), logical_type_field->type()),
         logical_type_field->nullable(), out);
   }
   ::arrow::compute::ExecContext ctx(pool);
@@ -819,7 +839,7 @@ Status TransferColumnData(RecordReader* reader,
   std::shared_ptr<ChunkedArray> chunked_result;
   switch (value_field->type()->id()) {
     case ::arrow::Type::DICTIONARY: {
-      RETURN_NOT_OK(TransferDictionary(reader, value_field->type(),
+      RETURN_NOT_OK(TransferDictionary(reader, pool, value_field->type(),
                                        value_field->nullable(), &chunked_result));
       result = chunked_result;
     } break;

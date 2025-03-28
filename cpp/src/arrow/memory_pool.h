@@ -151,6 +151,12 @@ class ARROW_EXPORT MemoryPool {
   /// unable to fulfill the request due to fragmentation.
   virtual void ReleaseUnused() {}
 
+  /// Print statistics
+  ///
+  /// Print allocation statistics on stderr. The output format is
+  /// implementation-specific. Not all memory pools implement this method.
+  virtual void PrintStats() {}
+
   /// The number of bytes that were allocated and not yet free'd through
   /// this allocator.
   virtual int64_t bytes_allocated() const = 0;
@@ -187,6 +193,8 @@ class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
   Status Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
                     uint8_t** ptr) override;
   void Free(uint8_t* buffer, int64_t size, int64_t alignment) override;
+  void ReleaseUnused() override;
+  void PrintStats() override;
 
   int64_t bytes_allocated() const override;
 
@@ -219,6 +227,8 @@ class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
   Status Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
                     uint8_t** ptr) override;
   void Free(uint8_t* buffer, int64_t size, int64_t alignment) override;
+  void ReleaseUnused() override;
+  void PrintStats() override;
 
   int64_t bytes_allocated() const override;
 

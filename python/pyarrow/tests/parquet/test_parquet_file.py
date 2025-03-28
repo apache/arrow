@@ -334,3 +334,22 @@ def test_parquet_file_with_filesystem(s3_example_fs, use_uri):
         assert f.read() == table
         assert not f.closed
     assert f.closed
+
+
+def test_read_statistics():
+    table = pa.table({"value": pa.array([-1, None, 3])})
+    buf = io.BytesIO()
+    _write_table(table, buf)
+    buf.seek(0)
+
+    statistics = pq.ParquetFile(buf).read().columns[0].chunks[0].statistics
+    assert statistics.null_count == 1
+    assert statistics.distinct_count is None
+    assert statistics.min == -1
+    assert statistics.is_min_exact
+    assert statistics.max == 3
+    assert statistics.is_max_exact
+    assert repr(statistics) == ("arrow.ArrayStatistics<"
+                                "null_count=1, distinct_count=None, "
+                                "min=-1, is_min_exact=True, "
+                                "max=3, is_max_exact=True>")

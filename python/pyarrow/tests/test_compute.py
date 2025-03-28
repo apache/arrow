@@ -145,12 +145,14 @@ def test_option_class_equality(request):
         pc.ArraySortOptions(),
         pc.AssumeTimezoneOptions("UTC"),
         pc.CastOptions.safe(pa.int8()),
+        pc.CumulativeOptions(start=None, skip_nulls=False),
         pc.CountOptions(),
         pc.DayOfWeekOptions(count_from_zero=False, week_start=0),
         pc.DictionaryEncodeOptions(),
         pc.RunEndEncodeOptions(),
         pc.ElementWiseAggregateOptions(skip_nulls=True),
         pc.ExtractRegexOptions("pattern"),
+        pc.ExtractRegexSpanOptions("pattern"),
         pc.FilterOptions(),
         pc.IndexOptions(pa.scalar(1)),
         pc.JoinOptions(),
@@ -167,11 +169,13 @@ def test_option_class_equality(request):
         pc.PadOptions(5),
         pc.PairwiseOptions(period=1),
         pc.PartitionNthOptions(1, null_placement="at_start"),
-        pc.CumulativeOptions(start=None, skip_nulls=False),
+        pc.PivotWiderOptions(["height"], unexpected_key_behavior="raise"),
         pc.QuantileOptions(),
         pc.RandomOptions(),
         pc.RankOptions(sort_keys="ascending",
                        null_placement="at_start", tiebreaker="max"),
+        pc.RankQuantileOptions(sort_keys="ascending",
+                               null_placement="at_start"),
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
@@ -181,6 +185,7 @@ def test_option_class_equality(request):
         pc.ScalarAggregateOptions(),
         pc.SelectKOptions(0, sort_keys=[("b", "ascending")]),
         pc.SetLookupOptions(pa.array([1])),
+        pc.SkewOptions(min_count=2),
         pc.SliceOptions(0, 1, 1),
         pc.SortOptions([("dummy", "descending")], null_placement="at_start"),
         pc.SplitOptions(),
@@ -193,6 +198,7 @@ def test_option_class_equality(request):
         pc.TrimOptions(" "),
         pc.Utf8NormalizeOptions("NFKC"),
         pc.VarianceOptions(),
+        pc.WinsorizeOptions(0.05, 0.9),
         pc.WeekOptions(week_starts_monday=True, count_from_zero=False,
                        first_week_is_fully_in_year=False),
     ]
@@ -436,6 +442,36 @@ def test_variance():
     assert pc.variance(data).as_py() == 5.25
     assert pc.variance(data, ddof=0).as_py() == 5.25
     assert pc.variance(data, ddof=1).as_py() == 6.0
+
+
+def test_skew():
+    data = [1, 1, None, 2]
+    assert pc.skew(data).as_py() == pytest.approx(0.707106781186548, rel=1e-10)
+    assert pc.skew(data, skip_nulls=False).as_py() is None
+    assert pc.skew(data, min_count=4).as_py() is None
+
+
+def test_kurtosis():
+    data = [1, 1, None, 2]
+    assert pc.kurtosis(data).as_py() == pytest.approx(-1.5, rel=1e-10)
+    assert pc.kurtosis(data, skip_nulls=False).as_py() is None
+    assert pc.kurtosis(data, min_count=4).as_py() is None
+
+
+@pytest.mark.parametrize("input, expected", (
+    (
+        [1.0, 2.0, 3.0, 40.0, None],
+        {'skew': pytest.approx(1.988947740397821),
+         'kurtosis': pytest.approx(3.9631931024230695)}
+    ),
+    ([1, 2, 40], {'skew': pytest.approx(1.7281098503730385), 'kurtosis': None}),
+    ([1, 40], {'skew': None, 'kurtosis': None}),
+))
+def test_unbiased_skew_and_kurtosis(input, expected):
+    arrow_skew = pc.skew(input, skip_nulls=True, biased=False)
+    arrow_kurtosis = pc.kurtosis(input, skip_nulls=True, biased=False)
+    assert arrow_skew.as_py() == expected['skew']
+    assert arrow_kurtosis.as_py() == expected['kurtosis']
 
 
 def test_count_substring():
@@ -1071,6 +1107,16 @@ def test_extract_regex():
     struct = pc.extract_regex(ar, pattern=r'(?P<letter>[ab])(?P<digit>\d)')
     assert struct.tolist() == expected
     struct = pc.extract_regex(ar, r'(?P<letter>[ab])(?P<digit>\d)')
+    assert struct.tolist() == expected
+
+
+def test_extract_regex_span():
+    ar = pa.array(['a1', 'zb234z'])
+    expected = [{'letter': [0, 1], 'digit': [1, 1]},
+                {'letter': [1, 1], 'digit': [2, 3]}]
+    struct = pc.extract_regex_span(ar, pattern=r'(?P<letter>[ab])(?P<digit>\d+)')
+    assert struct.tolist() == expected
+    struct = pc.extract_regex_span(ar, r'(?P<letter>[ab])(?P<digit>\d+)')
     assert struct.tolist() == expected
 
 
@@ -3360,6 +3406,60 @@ def test_rank_options():
                        tiebreaker="NonExisting")
 
 
+def test_rank_quantile_options():
+    arr = pa.array([None, 1, None, 2, None])
+    expected = pa.array([0.7, 0.1, 0.7, 0.3, 0.7], type=pa.float64())
+
+    # Ensure rank_quantile can be called without specifying options
+    result = pc.rank_quantile(arr)
+    assert result.equals(expected)
+
+    # Ensure default RankOptions
+    result = pc.rank_quantile(arr, options=pc.RankQuantileOptions())
+    assert result.equals(expected)
+
+    # Ensure sort_keys tuple usage
+    result = pc.rank_quantile(arr, options=pc.RankQuantileOptions(
+        sort_keys=[("b", "ascending")])
+    )
+    assert result.equals(expected)
+
+    result = pc.rank_quantile(arr, null_placement="at_start")
+    expected_at_start = pa.array([0.3, 0.7, 0.3, 0.9, 0.3], type=pa.float64())
+    assert result.equals(expected_at_start)
+
+    result = pc.rank_quantile(arr, sort_keys="descending")
+    expected_descending = pa.array([0.7, 0.3, 0.7, 0.1, 0.7], type=pa.float64())
+    assert result.equals(expected_descending)
+
+    with pytest.raises(ValueError, match="not a valid sort order"):
+        pc.rank_quantile(arr, sort_keys="XXX")
+
+
+def test_rank_normal_options():
+    arr = pa.array([None, 1, None, 2, None])
+
+    expected = pytest.approx(
+        [0.5244005127080407, -1.2815515655446004, 0.5244005127080407,
+         -0.5244005127080409, 0.5244005127080407])
+    result = pc.rank_normal(arr)
+    assert result.to_pylist() == expected
+    result = pc.rank_normal(arr, null_placement="at_end", sort_keys="ascending")
+    assert result.to_pylist() == expected
+    result = pc.rank_normal(arr, options=pc.RankQuantileOptions())
+    assert result.to_pylist() == expected
+
+    expected = pytest.approx(
+        [-0.5244005127080409, 1.2815515655446004, -0.5244005127080409,
+         0.5244005127080407, -0.5244005127080409])
+    result = pc.rank_normal(arr, null_placement="at_start", sort_keys="descending")
+    assert result.to_pylist() == expected
+    result = pc.rank_normal(arr,
+                            options=pc.RankQuantileOptions(null_placement="at_start",
+                                                           sort_keys="descending"))
+    assert result.to_pylist() == expected
+
+
 def create_sample_expressions():
     # We need a schema for substrait conversion
     schema = pa.schema([pa.field("i64", pa.int64()), pa.field(
@@ -3729,3 +3829,40 @@ def test_pairwise_diff():
     with pytest.raises(pa.ArrowInvalid,
                        match="overflow"):
         pa.compute.pairwise_diff_checked(arr, period=-1)
+
+
+def test_pivot_wider():
+    key_names = ["width", "height"]
+
+    result = pc.pivot_wider(["height", "width", "depth"], [10, None, 11])
+    assert result.as_py() == {}
+
+    result = pc.pivot_wider(["height", "width", "depth"], [10, None, 11],
+                            key_names)
+    assert result.as_py() == {"width": None, "height": 10}
+    # check key order
+    assert list(result.as_py()) == ["width", "height"]
+
+    result = pc.pivot_wider(["height", "width", "depth"], [10, None, 11],
+                            key_names=key_names)
+    assert result.as_py() == {"width": None, "height": 10}
+
+    with pytest.raises(KeyError, match="Unexpected pivot key: depth"):
+        result = pc.pivot_wider(["height", "width", "depth"], [10, None, 11],
+                                key_names=key_names,
+                                unexpected_key_behavior="raise")
+
+    with pytest.raises(ValueError, match="Encountered more than one non-null value"):
+        result = pc.pivot_wider(["height", "width", "height"], [10, None, 11],
+                                key_names=key_names)
+
+
+def test_winsorize():
+    arr = pa.array([10, 4, 9, 8, 5, 3, 7, 2, 1, 6])
+
+    result = pc.winsorize(arr, 0.1, 0.8)
+    assert result.to_pylist() == [8, 4, 8, 8, 5, 3, 7, 2, 2, 6]
+
+    result = pc.winsorize(
+        arr, options=pc.WinsorizeOptions(lower_limit=0.1, upper_limit=0.8))
+    assert result.to_pylist() == [8, 4, 8, 8, 5, 3, 7, 2, 2, 6]

@@ -58,14 +58,7 @@ except ImportError:
     except ImportError:
         __version__ = None
 
-# ARROW-8684: Disable GC while initializing Cython extension module,
-# to workaround Cython bug in https://github.com/cython/cython/issues/3603
-_gc_enabled = _gc.isenabled()
-_gc.disable()
 import pyarrow.lib as _lib
-if _gc_enabled:
-    _gc.enable()
-
 from pyarrow.lib import (BuildInfo, RuntimeInfo, set_timezone_db_path,
                          MonthDayNano, VersionInfo, cpp_build_info,
                          cpp_version, cpp_version_info, runtime_info,
@@ -426,6 +419,14 @@ def get_library_dirs():
 
         if _os.path.exists(_os.path.join(library_dir, 'arrow.lib')):
             append_library_dir(library_dir)
+
+        # GH-45530: Add pyarrow.libs dir containing delvewheel-mangled
+        # msvcp140.dll
+        pyarrow_libs_dir = _os.path.abspath(
+            _os.path.join(_os.path.dirname(__file__), _os.pardir, "pyarrow.libs")
+        )
+        if _os.path.exists(pyarrow_libs_dir):
+            append_library_dir(pyarrow_libs_dir)
 
     # ARROW-4074: Allow for ARROW_HOME to be set to some other directory
     if _os.environ.get('ARROW_HOME'):

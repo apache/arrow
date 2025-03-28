@@ -126,12 +126,12 @@ class CSVBufferIterator {
     }
 
     trailing_cr_ = (buf->data()[buf->size() - 1] == '\r');
-    buf = SliceBuffer(buf, offset);
+    buf = SliceBuffer(std::move(buf), offset);
     if (buf->size() == 0) {
       // EOF
       return TransformFinish();
     } else {
-      return TransformYield(buf);
+      return TransformYield(std::move(buf));
     }
   }
 

@@ -1489,19 +1489,6 @@ AsyncGenerator<T> MakeConcatenatedGenerator(AsyncGenerator<AsyncGenerator<T>> so
   return MergedGenerator<T>(std::move(source), 1);
 }
 
-template <typename T>
-struct Enumerated {
-  T value;
-  int index;
-  bool last;
-};
-
-template <typename T>
-struct IterationTraits<Enumerated<T>> {
-  static Enumerated<T> End() { return Enumerated<T>{IterationEnd<T>(), -1, false}; }
-  static bool IsEnd(const Enumerated<T>& val) { return val.index < 0; }
-};
-
 /// \see MakeEnumeratedGenerator
 template <typename T>
 class EnumeratingGenerator {

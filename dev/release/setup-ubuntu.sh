@@ -26,11 +26,6 @@ version=$(. /etc/os-release && echo ${VERSION_ID})
 
 apt-get update -y -q
 
-if [ ${version} \> "20.04" ]; then
-  apt-get install -y -q --no-install-recommends \
-    libxsimd-dev
-fi
-
 if [ ${version} \> "22.04" ]; then
   # Some tests rely on legacy timezone aliases such as "US/Pacific"
   apt-get install -y -q --no-install-recommends \
@@ -50,6 +45,7 @@ apt-get install -y -q --no-install-recommends \
   libglib2.0-dev \
   libsqlite3-dev \
   libssl-dev \
+  libxsimd-dev \
   llvm-dev \
   ninja-build \
   nlohmann-json3-dev \

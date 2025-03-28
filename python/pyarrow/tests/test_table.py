@@ -1888,6 +1888,26 @@ def test_table_unify_dictionaries():
     assert table.schema.metadata == {b"key1": b"value1"}
 
 
+def test_table_maps_as_pydicts():
+    arrays = [
+        pa.array(
+            [{'x': 1, 'y': 2}, {'z': 3}],
+            type=pa.map_(pa.string(), pa.int32())
+        )
+    ]
+    table = pa.Table.from_arrays(arrays, names=['a'])
+
+    table_dict = table.to_pydict(maps_as_pydicts="strict")
+    assert 'a' in table_dict
+    column_list = table_dict['a']
+    assert len(column_list) == 2
+    assert column_list == [{'x': 1, 'y': 2}, {'z': 3}]
+
+    table_list = table.to_pylist(maps_as_pydicts="strict")
+    assert len(table_list) == 2
+    assert table_list == [{'a': {'x': 1, 'y': 2}}, {'a': {'z': 3}}]
+
+
 def test_concat_tables():
     data = [
         list(range(5)),
@@ -2952,6 +2972,32 @@ def test_table_group_by_first():
 
     result = table.group_by("b", use_threads=False).aggregate([("a", "first")])
     expected = pa.table({"b": ["a", "b"], "a_first": [1, 2]})
+    assert result.equals(expected)
+
+
+@pytest.mark.acero
+def test_table_group_by_pivot_wider():
+    table = pa.table({'group': [1, 2, 3, 1, 2, 3],
+                      'key': ['h', 'h', 'h', 'w', 'w', 'w'],
+                      'value': [10, 20, 30, 40, 50, 60]})
+
+    with pytest.raises(ValueError, match='accepts 3 arguments but 2 passed'):
+        table.group_by("group").aggregate([("key", "pivot_wider")])
+
+    # GH-45739: calling hash_pivot_wider without options shouldn't crash
+    # (even though it's not very useful as key_names=[])
+    result = table.group_by("group").aggregate([(("key", "value"), "pivot_wider")])
+    expected = pa.table({'group': [1, 2, 3],
+                         'key_value_pivot_wider': [{}, {}, {}]})
+    assert result.equals(expected)
+
+    options = pc.PivotWiderOptions(key_names=('h', 'w'))
+    result = table.group_by("group").aggregate(
+        [(("key", "value"), "pivot_wider", options)])
+    expected = pa.table(
+        {'group': [1, 2, 3],
+         'key_value_pivot_wider': [
+             {'h': 10, 'w': 40}, {'h': 20, 'w': 50}, {'h': 30, 'w': 60}]})
     assert result.equals(expected)
 
 

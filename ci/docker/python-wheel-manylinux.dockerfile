@@ -22,10 +22,11 @@ ARG arch
 ARG arch_short
 ARG manylinux
 
-ENV MANYLINUX_VERSION=${manylinux}
+ENV LINUX_WHEEL_KIND='manylinux'
+ENV LINUX_WHEEL_VERSION=${manylinux}
 
 # Ensure dnf is installed, especially for the manylinux2014 base
-RUN if [ "${MANYLINUX_VERSION}" = "2014" ]; then \
+RUN if [ "${LINUX_WHEEL_VERSION}" = "2014" ]; then \
       sed -i \
         -e 's/^mirrorlist/#mirrorlist/' \
         -e 's/^#baseurl/baseurl/' \
@@ -53,7 +54,7 @@ ENV PATH=/opt/python/${CPYTHON_VERSION}-${CPYTHON_VERSION}/bin:${PATH}
 # Install CMake
 ARG cmake=3.29.2
 COPY ci/scripts/install_cmake.sh arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_cmake.sh ${arch} linux ${cmake} /usr/local
+RUN /arrow/ci/scripts/install_cmake.sh ${cmake} /usr/local
 
 # Install Ninja
 ARG ninja=1.10.2

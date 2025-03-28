@@ -42,7 +42,8 @@ class TestStructFieldOptions < Test::Unit::TestCase
   end
 
   def test_set_invalid
-    message = "[struct-field-options][set-field-ref]: Invalid: Dot path '[foo]' contained an unterminated index"
+    message = "[struct-field-options][set-field-ref]: " +
+              "Invalid: Dot path '[foo]' contained an unterminated index"
     assert_raise(Arrow::Error::Invalid.new(message)) do
       @options.field_ref = "[foo]"
     end

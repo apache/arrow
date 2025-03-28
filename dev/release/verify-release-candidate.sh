@@ -175,102 +175,129 @@ test_binary() {
   mkdir -p ${download_dir}
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
-         --dest=${download_dir}
+         --dest=${download_dir} \
+         --repository=${GITHUB_REPOSITORY:-apache/arrow}
 
   verify_dir_artifact_signatures ${download_dir}
+}
+
+check_verification_result_on_github() {
+  pushd ${ARROW_TMPDIR}
+  curl \
+    --get \
+    --data "branch=apache-arrow-${VERSION}-rc${RC_NUMBER}" \
+    "https://api.github.com/repos/apache/arrow/actions/workflows/verify_rc.yml/runs" | \
+    jq '.workflow_runs[0]' > latest_verify_rc.json
+  conclusion="$(jq -r '.conclusion' latest_verify_rc.json)"
+  if [ "${conclusion}" != "success" ]; then
+    html_url="$(jq -r '.html_url' latest_verify_rc.json)"
+    echo "Verification on GitHub wasn't successful: ${conclusion}: ${html_url}"
+    exit 1
+  fi
+  popd
 }
 
 test_apt() {
   show_header "Testing APT packages"
 
-  if [ "$(arch)" = "x86_64" ]; then
-    for target in "debian:bookworm" \
-                  "debian:trixie" \
-                  "ubuntu:focal" \
-                  "ubuntu:jammy" \
-                  "ubuntu:noble"; do \
-      if ! docker run \
-             --platform=linux/x86_64 \
-             --rm \
-             --security-opt="seccomp=unconfined" \
-             --volume "${ARROW_DIR}":/arrow:delegated \
-             "${target}" \
-             /arrow/dev/release/verify-apt.sh \
-             "${VERSION}" \
-             "rc"; then
-        echo "Failed to verify the APT repository for ${target} on x86_64"
-        exit 1
-      fi
-    done
+  if [ "${GITHUB_ACTIONS}" != "true" ]; then
+    check_verification_result_on_github
+    return 0
   fi
 
-  if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
-    for target in "arm64v8/debian:bookworm" \
-                  "arm64v8/debian:trixie" \
-                  "arm64v8/ubuntu:focal" \
-                  "arm64v8/ubuntu:jammy" \
-                  "arm64v8/ubuntu:noble"; do \
-      if ! docker run \
-             --platform=linux/arm64 \
-             --rm \
-             --security-opt="seccomp=unconfined" \
-             --volume "${ARROW_DIR}":/arrow:delegated \
-             "${target}" \
-             /arrow/dev/release/verify-apt.sh \
-             "${VERSION}" \
-             "rc"; then
-        echo "Failed to verify the APT repository for ${target} on arm64"
-        exit 1
-      fi
-    done
-  fi
+  case "$(arch)" in
+    "x86_64")
+      for target in "debian:bookworm" \
+                    "debian:trixie" \
+                    "ubuntu:jammy" \
+                    "ubuntu:noble"; do \
+        if ! docker run \
+               --platform=linux/x86_64 \
+               --rm \
+               --security-opt="seccomp=unconfined" \
+               --volume "${ARROW_DIR}":/arrow:delegated \
+               "${target}" \
+               /arrow/dev/release/verify-apt.sh \
+               "${VERSION}" \
+               "rc"; then
+          echo "Failed to verify the APT repository for ${target} on x86_64"
+          exit 1
+        fi
+      done
+      ;;
+    "aarch64")
+      for target in "arm64v8/debian:bookworm" \
+                    "arm64v8/debian:trixie" \
+                    "arm64v8/ubuntu:jammy" \
+                    "arm64v8/ubuntu:noble"; do \
+        if ! docker run \
+               --platform=linux/arm64 \
+               --rm \
+               --security-opt="seccomp=unconfined" \
+               --volume "${ARROW_DIR}":/arrow:delegated \
+               "${target}" \
+               /arrow/dev/release/verify-apt.sh \
+               "${VERSION}" \
+               "rc"; then
+          echo "Failed to verify the APT repository for ${target} on arm64"
+          exit 1
+        fi
+      done
+      ;;
+  esac
 }
 
 test_yum() {
   show_header "Testing Yum packages"
 
-  if [ "$(arch)" = "x86_64" ]; then
-    for target in "almalinux:9" \
-                  "almalinux:8" \
-                  "amazonlinux:2023" \
-                  "quay.io/centos/centos:stream9" \
-                  "quay.io/centos/centos:stream8" \
-                  "centos:7"; do
-      if ! docker run \
-             --platform linux/x86_64 \
-             --rm \
-             --security-opt="seccomp=unconfined" \
-             --volume "${ARROW_DIR}":/arrow:delegated \
-             "${target}" \
-             /arrow/dev/release/verify-yum.sh \
-             "${VERSION}" \
-             "rc"; then
-        echo "Failed to verify the Yum repository for ${target} on x86_64"
-        exit 1
-      fi
-    done
+  if [ "${GITHUB_ACTIONS}" != "true" ]; then
+    check_verification_result_on_github
+    return 0
   fi
 
-  if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
-    for target in "arm64v8/almalinux:9" \
-                  "arm64v8/almalinux:8" \
-                  "arm64v8/amazonlinux:2023" \
-                  "quay.io/centos/centos:stream9" \
-                  "quay.io/centos/centos:stream8"; do
-      if ! docker run \
-             --platform linux/arm64 \
-             --rm \
-             --security-opt="seccomp=unconfined" \
-             --volume "${ARROW_DIR}":/arrow:delegated \
-             "${target}" \
-             /arrow/dev/release/verify-yum.sh \
-             "${VERSION}" \
-             "rc"; then
-        echo "Failed to verify the Yum repository for ${target} on arm64"
-        exit 1
-      fi
-    done
-  fi
+  case "$(arch)" in
+    "x86_64")
+      for target in "almalinux:9" \
+                    "almalinux:8" \
+                    "amazonlinux:2023" \
+                    "quay.io/centos/centos:stream9" \
+                    "quay.io/centos/centos:stream8" \
+                    "centos:7"; do
+        if ! docker run \
+               --platform linux/x86_64 \
+               --rm \
+               --security-opt="seccomp=unconfined" \
+               --volume "${ARROW_DIR}":/arrow:delegated \
+               "${target}" \
+               /arrow/dev/release/verify-yum.sh \
+               "${VERSION}" \
+               "rc"; then
+          echo "Failed to verify the Yum repository for ${target} on x86_64"
+          exit 1
+        fi
+      done
+      ;;
+    "aarch64")
+      for target in "arm64v8/almalinux:9" \
+                    "arm64v8/almalinux:8" \
+                    "arm64v8/amazonlinux:2023" \
+                    "quay.io/centos/centos:stream9" \
+                    "quay.io/centos/centos:stream8"; do
+        if ! docker run \
+               --platform linux/arm64 \
+               --rm \
+               --security-opt="seccomp=unconfined" \
+               --volume "${ARROW_DIR}":/arrow:delegated \
+               "${target}" \
+               /arrow/dev/release/verify-yum.sh \
+               "${VERSION}" \
+               "rc"; then
+          echo "Failed to verify the Yum repository for ${target} on arm64"
+          exit 1
+        fi
+      done
+      ;;
+  esac
 }
 
 setup_tempdir() {
@@ -363,16 +390,6 @@ install_csharp() {
       tar xzf - -C ${csharp_bin}
     PATH=${csharp_bin}:${PATH}
     show_info "Installed C# at $(which csharp) (.NET $(dotnet --version))"
-  fi
-
-  # Ensure to have sourcelink installed
-  if ! dotnet tool list | grep sourcelink > /dev/null 2>&1; then
-    dotnet new tool-manifest
-    dotnet tool install --local sourcelink
-    PATH=${csharp_bin}:${PATH}
-    if ! dotnet tool run sourcelink --help > /dev/null 2>&1; then
-      export DOTNET_ROOT=${csharp_bin}
-    fi
   fi
 
   CSHARP_ALREADY_INSTALLED=1
@@ -748,13 +765,6 @@ test_csharp() {
     mv dummy.git ../.git
     dotnet pack -c Release
     mv ../.git dummy.git
-  fi
-
-  if [ "${SOURCE_KIND}" = "local" ]; then
-    echo "Skipping sourcelink verification on local build"
-  else
-    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netstandard2.0/Apache.Arrow.pdb
-    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/net6.0/Apache.Arrow.pdb
   fi
 
   popd
