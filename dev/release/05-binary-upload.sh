@@ -109,6 +109,10 @@ if [ "${UPLOAD_PYTHON}" -gt 0 ]; then
   upload_to_github_release python \
     "${ARROW_ARTIFACTS_DIR}"/{python-sdist,wheel-*}/*
 fi
+if [ "${UPLOAD_R}" -gt 0 ]; then
+  upload_to_github_release r \
+    "${ARROW_ARTIFACTS_DIR}"/r-binary-packages/r-lib*
+fi
 
 rake_tasks=()
 apt_targets=()
@@ -128,9 +132,6 @@ fi
 if [ "${UPLOAD_DEBIAN}" -gt 0 ]; then
   rake_tasks+=(apt:rc)
   apt_targets+=(debian)
-fi
-if [ "${UPLOAD_R}" -gt 0 ]; then
-  rake_tasks+=(r:rc)
 fi
 if [ "${UPLOAD_UBUNTU}" -gt 0 ]; then
   rake_tasks+=(apt:rc)
