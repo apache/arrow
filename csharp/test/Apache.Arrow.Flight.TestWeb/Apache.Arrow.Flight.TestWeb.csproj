@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Apache.Arrow.Flight.AspNetCore\Apache.Arrow.Flight.AspNetCore.csproj" />
+    <ProjectReference Include="..\..\src\Apache.Arrow.Flight.Sql\Apache.Arrow.Flight.Sql.csproj" />
   </ItemGroup>
 
 </Project>
