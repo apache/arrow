@@ -192,10 +192,9 @@ class RBuffer : public MutableBuffer {
     } else if (TYPEOF(vec) == CPLXSXP) {
       return COMPLEX(vec);
     } else if (TYPEOF(vec) == STRSXP) {
-      return STRING_PTR(vec);
-    } else if (TYPEOF(vec) == RAWSXP) {
-      return RAW(vec);
+      return STRING_ELT(vec, 0);
     } else {
+      // raw
       return RAW(vec);
     }
   }
