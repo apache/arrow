@@ -1867,12 +1867,11 @@ class TestGeometryLogicalType : public ::testing::Test {
  public:
   const int kNumRows = 1000;
 
-  void WriteTestData(bool write_arrow) {
+  void WriteTestData(std::shared_ptr<const LogicalType> type, bool write_arrow) {
     // Make schema
     schema::NodeVector fields;
-    fields.push_back(PrimitiveNode::Make("g", Repetition::REQUIRED,
-                                         GeometryLogicalType::Make("srid:1234"),
-                                         Type::BYTE_ARRAY));
+    fields.push_back(
+        PrimitiveNode::Make("g", Repetition::REQUIRED, type, Type::BYTE_ARRAY));
     auto schema = std::static_pointer_cast<GroupNode>(
         GroupNode::Make("schema", Repetition::REQUIRED, fields));
 
@@ -1936,8 +1935,8 @@ class TestGeometryLogicalType : public ::testing::Test {
                                  /*leaf_field_nullable=*/true));
   }
 
-  void TestWriteAndRead(bool write_arrow) {
-    WriteTestData(write_arrow);
+  void TestWriteAndRead(std::shared_ptr<const LogicalType> type, bool write_arrow) {
+    ASSERT_NO_FATAL_FAILURE(WriteTestData(type, write_arrow));
 
     auto in_file = std::make_shared<::arrow::io::BufferReader>(file_buf);
 
@@ -1948,6 +1947,8 @@ class TestGeometryLogicalType : public ::testing::Test {
 
     // Check that the geometry statistics are correctly written and read
     auto metadata = file_reader->metadata();
+    ASSERT_TRUE(type->Equals(*metadata->schema()->Column(0)->logical_type()));
+
     auto page_index_reader = file_reader->GetPageIndexReader();
     int num_row_groups = metadata->num_row_groups();
     int64_t start_index = 0;
@@ -1955,7 +1956,8 @@ class TestGeometryLogicalType : public ::testing::Test {
       auto row_group_metadata = metadata->RowGroup(i);
       auto column_chunk_metadata = row_group_metadata->ColumnChunk(0);
       auto geo_stats = column_chunk_metadata->geo_statistics();
-      CheckGeoStatistics(geo_stats, start_index, row_group_metadata->num_rows());
+      ASSERT_NO_FATAL_FAILURE(CheckGeoStatistics(type, geo_stats, start_index,
+                                                 row_group_metadata->num_rows()));
       start_index += row_group_metadata->num_rows();
     }
 
@@ -1989,9 +1991,16 @@ class TestGeometryLogicalType : public ::testing::Test {
     EXPECT_EQ(kNumRows, total_values_read);
   }
 
-  void CheckGeoStatistics(std::shared_ptr<GeoStatistics> geom_stats, int64_t start_index,
+  void CheckGeoStatistics(std::shared_ptr<const LogicalType> type,
+                          std::shared_ptr<GeoStatistics> geom_stats, int64_t start_index,
                           int64_t num_rows) {
-    ASSERT_TRUE(geom_stats != nullptr);
+    // We don't yet generate statistics for Geography
+    if (type->is_geography()) {
+      ASSERT_EQ(geom_stats, nullptr);
+      return;
+    }
+
+    ASSERT_NE(geom_stats, nullptr);
     // We wrote exactly one geometry type (POINT, which has code 1)
     std::vector<int32_t> geospatial_types = geom_stats->geometry_types();
     EXPECT_THAT(geospatial_types, ::testing::ElementsAre(1));
@@ -2013,10 +2022,16 @@ class TestGeometryLogicalType : public ::testing::Test {
   std::shared_ptr<Buffer> file_buf;
 };
 
-TEST_F(TestGeometryLogicalType, TestWrite) { TestWriteAndRead(/*write_arrow=*/false); }
+TEST_F(TestGeometryLogicalType, TestWriteGeometry) {
+  TestWriteAndRead(GeometryLogicalType::Make("srid:1234"), /*write_arrow=*/false);
+}
 
-TEST_F(TestGeometryLogicalType, TestWriteArrowAndRead) {
-  TestWriteAndRead(/*write_arrow=*/true);
+TEST_F(TestGeometryLogicalType, TestWriteArrowAndReadGeometry) {
+  TestWriteAndRead(GeometryLogicalType::Make("srid:1234"), /*write_arrow=*/true);
+}
+
+TEST_F(TestGeometryLogicalType, TestWriteGeography) {
+  TestWriteAndRead(GeographyLogicalType::Make("srid:1234"), /*write_arrow=*/false);
 }
 
 }  // namespace parquet
