@@ -157,7 +157,7 @@ if get_option('parquet').enabled()
 
     if get_option('parquet_encryption').enabled()
         arrow_encryption_lib = shared_library(
-            'arrow-python-parquet-encryption',
+            'arrow_python_parquet_encryption',
             sources: ['src/arrow/python/parquet_encryption.cc'],
             include_directories: ['src'],
             link_with: [arrow_python_lib],
@@ -216,7 +216,7 @@ if get_option('flight').enabled()
     )
 
     flight_lib = shared_library(
-        'arrow-flight-lib',
+        'arrow_flight_lib',
         sources: ['src/arrow/python/flight.cc'],
         dependencies: [flight_dep, py.dependency()],
         include_directories: ['src'],
@@ -251,9 +251,10 @@ if get_option('gandiva').enabled()
 endif
 
 foreach key, val : cython_modules
+    cython_mod_name = '@0@.pyx'.format(key)
     py.extension_module(
         key,
-        sources: ['@0@.pyx'.format(key)],
+        sources: [cython_mod_name],
         include_directories: ['src'],
         link_with: arrow_python_lib,
         cython_args: cython_args,
@@ -262,7 +263,52 @@ foreach key, val : cython_modules
         install: true,
         subdir: 'pyarrow',
     )
+
+    install_data(cython_mod_name, install_dir: py.get_install_dir() / 'pyarrow')
 endforeach
+
+cython_headers = [
+    '_acero.pxd',
+    'array.pxi',
+    'benchmark.pxi',
+    'builder.pxi',
+    'compat.pxi',
+    '_compute.pxd',
+    'config.pxi',
+    '_csv.pxd',
+    '_cuda.pxd',
+    '_dataset_parquet.pxd',
+    '_dataset.pxd',
+    'device.pxi',
+    '_dlpack.pxi',
+    'error.pxi',
+    '_fs.pxd',
+    '__init__.pxd',
+    'io.pxi',
+    'ipc.pxi',
+    '_json.pxd',
+    'lib.pxd',
+    'memory.pxi',
+    '_orc.pxd',
+    'pandas-shim.pxi',
+    '_parquet_encryption.pxd',
+    '_parquet.pxd',
+    'public-api.pxi',
+    '_pyarrow_cpp_tests.pxd',
+    'scalar.pxi',
+    'table.pxi',
+    'tensor.pxi',
+    'types.pxi',
+]
+
+install_data(cython_headers, install_dir: py.get_install_dir() / 'pyarrow')
+
+install_subdir('includes', install_dir: py.get_install_dir() / 'pyarrow')
+
+install_subdir(
+    'src/arrow/python',
+    install_dir: py.get_install_dir() / 'pyarrow/src/arrow',
+)
 
 pysources = [
     'acero.py',
@@ -326,6 +372,18 @@ py.install_sources(
     ),
     subdir: 'pyarrow/include/arrow/python',
 )
+
+if arrow_dep.found()
+    arrow_header_dir = arrow_dep.get_variable(
+        cmake: 'ARROW_INCLUDE_DIR',
+        pkgconfig: 'includedir',
+    ) / 'arrow'
+
+    install_subdir(
+        arrow_header_dir,
+        install_dir: py.get_install_dir() / 'pyarrow/include',
+    )
+endif
 
 py.install_sources(
     files('src/arrow/python/vendored/pythoncapi_compat.h'),
