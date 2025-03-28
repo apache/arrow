@@ -26,6 +26,14 @@
 namespace parquet::arrow {
 
 /// EXPERIMENTAL: Variant is not yet fully supported.
+///
+/// Variant supports semi-structured objects that can be composed of
+/// primitives, arrays, and objects, which can be queried by path.
+/// An unshredded variant contains two binaries, one for the metadata and
+/// one for the value.
+///
+/// To read more about variant encoding, see the variant encoding spec at
+/// https://github.com/apache/parquet-format/blob/master/VariantEncoding.md
 class PARQUET_EXPORT VariantExtensionType : public ::arrow::ExtensionType {
  public:
   explicit VariantExtensionType(const std::shared_ptr<::arrow::DataType>& storage_type)
