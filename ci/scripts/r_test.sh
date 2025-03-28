@@ -90,6 +90,7 @@ export TEXMFVAR=/tmp/texmf-var
 # Make sure we aren't writing to the home dir (CRAN _hates_ this but there is no official check)
 BEFORE=$(ls -alh ~/)
 
+export RETICULATE_PYTHON="$(which python3)"
 SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
   # generally will be false, but we can override it by setting SKIP_VIGNETTES=true
   skip_vignettes <- identical(tolower(Sys.getenv('SKIP_VIGNETTES')), 'true')
