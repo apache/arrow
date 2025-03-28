@@ -892,8 +892,8 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     return s;
   }
 
-  static void* Dataptr(SEXP alt, Rboolean writeable) { 
-    return STRING_PTR(Materialize(alt)); 
+  static void* Dataptr(SEXP alt, Rboolean writeable) {
+    return STRING_PTR(Materialize(alt));
   }
 
   static SEXP Materialize(SEXP alt) {
