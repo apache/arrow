@@ -293,16 +293,44 @@ class PARQUET_EXPORT WriterProperties {
 
     virtual ~Builder() {}
 
+    /// \brief EXPERIMENTAL: Use content-defined page chunking for all columns.
+    ///
+    /// Optimize parquet files for content addressable storage (CAS) systems by writing
+    /// data pages according to content-defined chunk boundaries. This allows for more
+    /// efficient deduplication of data across files, hence more efficient network
+    /// transfers and storage. The chunking is based on a rolling hash algorithm that
+    /// identifies chunk boundaries based on the actual content of the data.
     Builder* enable_content_defined_chunking() {
       content_defined_chunking_enabled_ = true;
       return this;
     }
 
+    /// \brief EXPERIMENTAL: Disable content-defined page chunking for all columns.
     Builder* disable_content_defined_chunking() {
       content_defined_chunking_enabled_ = false;
       return this;
     }
 
+    /// \brief EXPERIMENTAL: Specify content-defined chunking options.
+    ///
+    /// \param min_chunk_size Minimum chunk size in bytes, default 256 KiB
+    /// The rolling hash will not be updated until this size is reached for each chunk.
+    /// Note that all data sent through the hash function is counted towards the chunk
+    /// size, including definition and repetition levels if present.
+    /// \param max_chunk_size Maximum chunk size in bytes, default is 1024 KiB
+    /// The chunker will create a new chunk whenever the chunk size exceeds this value.
+    /// Note that the parquet writer has a related `pagesize` property that controls
+    /// the maximum size of a parquet data page after encoding. While setting
+    /// `pagesize` to a smaller value than `max_chunk_size` doesn't affect the
+    /// chunking effectiveness, it results in more small parquet data pages.
+    /// \param norm_factor Normalization factor to center the chunk size around the
+    /// average size more aggressively, default 0
+    /// Increasing the normalization factor increases the probability of finding a chunk,
+    /// improving the deduplication ratio, but also increasing the number of small chunks
+    /// resulting in many small parquet data pages. The default value provides a good
+    /// balance between deduplication ratio and fragmentation. Use norm_factor=1 or
+    /// norm_factor=2 to reach a higher deduplication ratio at the expense of
+    /// fragmentation.
     Builder* content_defined_chunking_options(
         int64_t min_chunk_size, int64_t max_chunk_size,
         int8_t norm_factor = kDefaultCdcOptions.norm_factor) {
