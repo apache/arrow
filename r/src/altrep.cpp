@@ -531,7 +531,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
       SEXP copy = PROTECT(Rf_allocVector(INTSXP, size));
 
       // copy the data from the array, through Get_region
-      Get_region(alt, 0, size, reinterpret_cast<int*>(DATAPTR(copy)));
+      Get_region(alt, 0, size, reinterpret_cast<int*>(INTEGER(copy)));
 
       // store as data2, this is now considered materialized
       SetRepresentation(alt, copy);
@@ -892,7 +892,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     return s;
   }
 
-  static void* Dataptr(SEXP alt, Rboolean writeable) { return DATAPTR(Materialize(alt)); }
+  static void* Dataptr(SEXP alt, Rboolean writeable) { return STRING_PTR(Materialize(alt)); }
 
   static SEXP Materialize(SEXP alt) {
     if (Base::IsMaterialized(alt)) {
@@ -931,7 +931,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
   }
 
   static const void* Dataptr_or_null(SEXP alt) {
-    if (Base::IsMaterialized(alt)) return DATAPTR(Representation(alt));
+    if (Base::IsMaterialized(alt)) return STRING_PTR(Representation(alt));
 
     // otherwise give up
     return nullptr;
@@ -1267,21 +1267,21 @@ sexp test_arrow_altrep_copy_by_dataptr(sexp x) {
 
   if (TYPEOF(x) == INTSXP) {
     cpp11::writable::integers out(Rf_xlength(x));
-    int* ptr = reinterpret_cast<int*>(DATAPTR(x));
+    int* ptr = reinterpret_cast<int*>(INTEGER(x));
     for (R_xlen_t i = 0; i < n; i++) {
       out[i] = ptr[i];
     }
     return out;
   } else if (TYPEOF(x) == REALSXP) {
     cpp11::writable::doubles out(Rf_xlength(x));
-    double* ptr = reinterpret_cast<double*>(DATAPTR(x));
+    double* ptr = reinterpret_cast<double*>(REAL(x));
     for (R_xlen_t i = 0; i < n; i++) {
       out[i] = ptr[i];
     }
     return out;
   } else if (TYPEOF(x) == STRSXP) {
     cpp11::writable::strings out(Rf_xlength(x));
-    SEXP* ptr = reinterpret_cast<SEXP*>(DATAPTR(x));
+    SEXP* ptr = reinterpret_cast<SEXP*>(STRING_PTR(x));
     for (R_xlen_t i = 0; i < n; i++) {
       out[i] = ptr[i];
     }
