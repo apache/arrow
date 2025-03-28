@@ -103,6 +103,20 @@ cython_modules = {
     '_pyarrow_cpp_tests': {},
 }
 
+# enforce module dependencies
+needs_substrait = get_option('substrait').enabled()
+if needs_substrait
+    needs_dataset = true
+else
+    needs_dataset = get_option('dataset').enabled()
+endif
+
+if needs_dataset
+    needs_acero = true
+else
+    needs_acero = get_option('acero').enabled()
+endif
+
 if get_option('azure').enabled()
     cython_modules += {'_azurefs': {}}
 endif
@@ -128,7 +142,7 @@ if get_option('cuda').enabled()
     cython_modules += {'_cuda': {'dependencies': cuda_dep}}
 endif
 
-if get_option('acero').enabled()
+if needs_acero
     acero_dep = dependency(
         'arrow-acero',
         'ArrowAcero',
@@ -138,7 +152,7 @@ if get_option('acero').enabled()
     cython_modules += {'_acero': {'dependencies': acero_dep}}
 endif
 
-if get_option('dataset').enabled()
+if needs_dataset
     dataset_dep = dependency(
         'arrow-dataset',
         'ArrowDataset',
@@ -186,7 +200,7 @@ if get_option('parquet').enabled()
         }
     endif
 
-    if get_option('dataset').enabled()
+    if needs_dataset
         cython_modules += {
             '_dataset_parquet': {'dependencies': [dataset_dep, parquet_dep]},
         }
@@ -210,7 +224,7 @@ endif
 if get_option('orc').enabled()
     cython_modules += {'_orc': {}}
 
-    if get_option('dataset').enabled()
+    if needs_dataset
         cython_modules += {'_dataset_orc': {'dependencies': [dataset_dep]}}
     endif
 endif
@@ -243,7 +257,7 @@ if get_option('flight').enabled()
     cython_modules += {'_flight': {'dependencies': arrow_flight_dep}}
 endif
 
-if get_option('substrait').enabled()
+if needs_substrait
     substrait_dep = dependency(
         'arrow-substrait',
         'ArrowSubstrait',
