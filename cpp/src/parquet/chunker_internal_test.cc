@@ -165,6 +165,8 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
                     std::string("str_") + std::to_string(val))
       GENERATE_CASE(BINARY, ::arrow::BinaryBuilder,
                     std::string("bin_") + std::to_string(val))
+      GENERATE_CASE(LARGE_BINARY, ::arrow::LargeBinaryBuilder,
+                    std::string("bin_") + std::to_string(val))
     case ::arrow::Type::FIXED_SIZE_BINARY: {
       auto size = static_cast<::arrow::FixedSizeBinaryType*>(type.get())->byte_width();
       auto value_func = [size](uint64_t val) {
@@ -269,16 +271,16 @@ Result<std::shared_ptr<Table>> ConcatAndCombine(
   return table->CombineChunks();
 }
 
-Result<std::shared_ptr<Buffer>> WriteTableToBuffer(const std::shared_ptr<Table>& table,
-                                                   int64_t min_chunk_size,
-                                                   int64_t max_chunk_size,
-                                                   bool enable_dictionary = false,
-                                                   int64_t row_group_size = 1024 * 1024) {
+Result<std::shared_ptr<Buffer>> WriteTableToBuffer(
+    const std::shared_ptr<Table>& table, int64_t min_chunk_size, int64_t max_chunk_size,
+    bool enable_dictionary = false, int64_t row_group_size = 1024 * 1024,
+    ParquetDataPageVersion data_page_version = ParquetDataPageVersion::V1) {
   auto sink = CreateOutputStream();
 
   auto builder = WriterProperties::Builder();
   builder.enable_content_defined_chunking()->content_defined_chunking_options(
       min_chunk_size, max_chunk_size, /*norm_factor=*/0);
+  builder.data_page_version(data_page_version);
   if (enable_dictionary) {
     builder.enable_dictionary();
   } else {
@@ -345,16 +347,18 @@ ParquetInfo GetColumnParquetInfo(const std::shared_ptr<Buffer>& data,
   return result;
 }
 
-Result<ParquetInfo> WriteAndGetParquetInfo(const std::shared_ptr<Table>& table,
-                                           uint64_t min_chunk_size,
-                                           uint64_t max_chunk_size,
-                                           bool enable_dictionary = false,
-                                           int64_t row_group_size = 1024 * 1024,
-                                           int column_index = 0) {
+Result<ParquetInfo> WriteAndGetParquetInfo(
+    const std::shared_ptr<Table>& table, uint64_t min_chunk_size, uint64_t max_chunk_size,
+    bool enable_dictionary = false,
+    ParquetDataPageVersion data_page_version = ParquetDataPageVersion::V1,
+    int64_t row_group_size = 1024 * 1024,
+
+    int column_index = 0) {
   // Write the table to a buffer and read it back to get the page sizes
-  ARROW_ASSIGN_OR_RAISE(auto buffer,
-                        WriteTableToBuffer(table, min_chunk_size, max_chunk_size,
-                                           enable_dictionary, row_group_size));
+  ARROW_ASSIGN_OR_RAISE(
+      auto buffer,
+      WriteTableToBuffer(table, min_chunk_size, max_chunk_size, enable_dictionary,
+                         row_group_size, data_page_version));
   ARROW_ASSIGN_OR_RAISE(auto readback, ReadTableFromBuffer(buffer));
 
   RETURN_NOT_OK(readback->ValidateFull());
@@ -730,6 +734,8 @@ struct CaseConfig {
   // Approximate number of bytes per record to calculate the number of elements to
   // generate
   size_t bytes_per_record;
+  // Data page version to use
+  ParquetDataPageVersion data_page_version = ParquetDataPageVersion::V1;
 };
 
 // Define PrintTo for MyStruct
@@ -933,12 +939,13 @@ TEST_P(TestCDCSingleRowGroup, DeleteOnce) {
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
+    ASSERT_OK_AND_ASSIGN(auto base_info, WriteAndGetParquetInfo(
+                                             base, kMinChunkSize, kMaxChunkSize,
+                                             enable_dictionary, param.data_page_version));
     ASSERT_OK_AND_ASSIGN(
-        auto base_info,
-        WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(auto modified_info,
-                         WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize,
-                                                enable_dictionary));
+        auto modified_info,
+        WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary,
+                               param.data_page_version));
 
     // assert that there is only one row group
     ASSERT_EQ(base_info.size(), 1);
@@ -966,12 +973,13 @@ TEST_P(TestCDCSingleRowGroup, DeleteTwice) {
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
+    ASSERT_OK_AND_ASSIGN(auto base_info, WriteAndGetParquetInfo(
+                                             base, kMinChunkSize, kMaxChunkSize,
+                                             enable_dictionary, param.data_page_version));
     ASSERT_OK_AND_ASSIGN(
-        auto base_info,
-        WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(auto modified_info,
-                         WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize,
-                                                enable_dictionary));
+        auto modified_info,
+        WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary,
+                               param.data_page_version));
 
     // assert that there is only one row group
     ASSERT_EQ(base_info.size(), 1);
@@ -998,12 +1006,13 @@ TEST_P(TestCDCSingleRowGroup, UpdateOnce) {
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
+    ASSERT_OK_AND_ASSIGN(auto base_info, WriteAndGetParquetInfo(
+                                             base, kMinChunkSize, kMaxChunkSize,
+                                             enable_dictionary, param.data_page_version));
     ASSERT_OK_AND_ASSIGN(
-        auto base_info,
-        WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(auto modified_info,
-                         WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize,
-                                                enable_dictionary));
+        auto modified_info,
+        WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary,
+                               param.data_page_version));
     // assert that there is only one row group
     ASSERT_EQ(base_info.size(), 1);
     ASSERT_EQ(modified_info.size(), 1);
@@ -1024,12 +1033,13 @@ TEST_P(TestCDCSingleRowGroup, UpdateTwice) {
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
+    ASSERT_OK_AND_ASSIGN(auto base_info, WriteAndGetParquetInfo(
+                                             base, kMinChunkSize, kMaxChunkSize,
+                                             enable_dictionary, param.data_page_version));
     ASSERT_OK_AND_ASSIGN(
-        auto base_info,
-        WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(auto modified_info,
-                         WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize,
-                                                enable_dictionary));
+        auto modified_info,
+        WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary,
+                               param.data_page_version));
     // assert that there is only one row group
     ASSERT_EQ(base_info.size(), 1);
     ASSERT_EQ(modified_info.size(), 1);
@@ -1048,12 +1058,13 @@ TEST_P(TestCDCSingleRowGroup, InsertOnce) {
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
+    ASSERT_OK_AND_ASSIGN(auto base_info, WriteAndGetParquetInfo(
+                                             base, kMinChunkSize, kMaxChunkSize,
+                                             enable_dictionary, param.data_page_version));
     ASSERT_OK_AND_ASSIGN(
-        auto base_info,
-        WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(auto modified_info,
-                         WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize,
-                                                enable_dictionary));
+        auto modified_info,
+        WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary,
+                               param.data_page_version));
     // assert that there is only one row group
     ASSERT_EQ(base_info.size(), 1);
     ASSERT_EQ(modified_info.size(), 1);
@@ -1080,12 +1091,13 @@ TEST_P(TestCDCSingleRowGroup, InsertTwice) {
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
+    ASSERT_OK_AND_ASSIGN(auto base_info, WriteAndGetParquetInfo(
+                                             base, kMinChunkSize, kMaxChunkSize,
+                                             enable_dictionary, param.data_page_version));
     ASSERT_OK_AND_ASSIGN(
-        auto base_info,
-        WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(auto modified_info,
-                         WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize,
-                                                enable_dictionary));
+        auto modified_info,
+        WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary,
+                               param.data_page_version));
     // assert that there is only one row group
     ASSERT_EQ(base_info.size(), 1);
     ASSERT_EQ(modified_info.size(), 1);
@@ -1111,12 +1123,13 @@ TEST_P(TestCDCSingleRowGroup, Append) {
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
+    ASSERT_OK_AND_ASSIGN(auto base_info, WriteAndGetParquetInfo(
+                                             base, kMinChunkSize, kMaxChunkSize,
+                                             enable_dictionary, param.data_page_version));
     ASSERT_OK_AND_ASSIGN(
-        auto base_info,
-        WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(auto modified_info,
-                         WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize,
-                                                enable_dictionary));
+        auto modified_info,
+        WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary,
+                               param.data_page_version));
     // assert that there is only one row group
     ASSERT_EQ(base_info.size(), 1);
     ASSERT_EQ(modified_info.size(), 1);
@@ -1141,9 +1154,9 @@ TEST_P(TestCDCSingleRowGroup, EmptyTable) {
   ASSERT_EQ(empty_table->num_rows(), 0);
 
   for (bool enable_dictionary : {false, true}) {
-    ASSERT_OK_AND_ASSIGN(auto result,
-                         WriteAndGetParquetInfo(empty_table, kMinChunkSize, kMaxChunkSize,
-                                                enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(
+        auto result, WriteAndGetParquetInfo(empty_table, kMinChunkSize, kMaxChunkSize,
+                                            enable_dictionary, param.data_page_version));
 
     // An empty table should result in no data pages
     ASSERT_EQ(result.size(), 1);
@@ -1153,6 +1166,7 @@ TEST_P(TestCDCSingleRowGroup, EmptyTable) {
 }
 
 TEST_P(TestCDCSingleRowGroup, ArrayOffsets) {
+  const auto& param = GetParam();
   ASSERT_OK_AND_ASSIGN(auto table, ConcatAndCombine({part1_, part2_, part3_}));
 
   for (auto offset : {0, 512, 1024}) {
@@ -1164,7 +1178,8 @@ TEST_P(TestCDCSingleRowGroup, ArrayOffsets) {
     ASSERT_EQ(first_chunk->offset(), offset);
 
     // write out the sliced table, read it back and compare
-    ASSERT_OK(WriteAndGetParquetInfo(sliced_table, kMinChunkSize, kMaxChunkSize, true));
+    ASSERT_OK(WriteAndGetParquetInfo(sliced_table, kMinChunkSize, kMaxChunkSize, true,
+                                     param.data_page_version));
   }
 }
 
@@ -1198,8 +1213,15 @@ INSTANTIATE_TEST_SUITE_P(
         CaseConfig{::arrow::struct_({::arrow::field("f0", ::arrow::int32())}), false, 8},
         CaseConfig{::arrow::struct_({::arrow::field("f0", ::arrow::float64())}), true,
                    10},
+        CaseConfig{
+            ::arrow::list(::arrow::struct_({::arrow::field("f0", ::arrow::int32())})),
+            false, 16},
         // Extension type
-        CaseConfig{::arrow::uuid(), true, 16}));
+        CaseConfig{::arrow::uuid(), true, 16},
+        // Use ParquetDataPageVersion::V2
+        CaseConfig{::arrow::large_binary(), false, 16, ParquetDataPageVersion::V2},
+        CaseConfig{::arrow::list(::arrow::utf8()), true, 18,
+                   ParquetDataPageVersion::V2}));
 
 class TestCDCMultipleRowGroups : public ::testing::Test {
  protected:
@@ -1238,12 +1260,14 @@ TEST_F(TestCDCMultipleRowGroups, InsertOnce) {
   ASSERT_FALSE(base->Equals(*inserted));
   ASSERT_EQ(inserted->num_rows(), base->num_rows() + edit2_->num_rows());
 
-  ASSERT_OK_AND_ASSIGN(auto base_info,
-                       WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize,
-                                              kEnableDictionary, kRowGroupLength));
-  ASSERT_OK_AND_ASSIGN(auto inserted_info,
-                       WriteAndGetParquetInfo(inserted, kMinChunkSize, kMaxChunkSize,
-                                              kEnableDictionary, kRowGroupLength));
+  ASSERT_OK_AND_ASSIGN(
+      auto base_info,
+      WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize, kEnableDictionary,
+                             ParquetDataPageVersion::V1, kRowGroupLength));
+  ASSERT_OK_AND_ASSIGN(
+      auto inserted_info,
+      WriteAndGetParquetInfo(inserted, kMinChunkSize, kMaxChunkSize, kEnableDictionary,
+                             ParquetDataPageVersion::V1, kRowGroupLength));
 
   ASSERT_EQ(base_info.size(), 7);
   ASSERT_EQ(inserted_info.size(), 7);
@@ -1274,12 +1298,14 @@ TEST_F(TestCDCMultipleRowGroups, DeleteOnce) {
   ASSERT_FALSE(base->Equals(*deleted));
   ASSERT_EQ(deleted->num_rows(), base->num_rows() - edit1_->num_rows());
 
-  ASSERT_OK_AND_ASSIGN(auto base_info,
-                       WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize,
-                                              kEnableDictionary, kRowGroupLength));
-  ASSERT_OK_AND_ASSIGN(auto deleted_info,
-                       WriteAndGetParquetInfo(deleted, kMinChunkSize, kMaxChunkSize,
-                                              kEnableDictionary, kRowGroupLength));
+  ASSERT_OK_AND_ASSIGN(
+      auto base_info,
+      WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize, kEnableDictionary,
+                             ParquetDataPageVersion::V1, kRowGroupLength));
+  ASSERT_OK_AND_ASSIGN(
+      auto deleted_info,
+      WriteAndGetParquetInfo(deleted, kMinChunkSize, kMaxChunkSize, kEnableDictionary,
+                             ParquetDataPageVersion::V1, kRowGroupLength));
 
   ASSERT_EQ(base_info.size(), 7);
   ASSERT_EQ(deleted_info.size(), 7);
@@ -1310,12 +1336,14 @@ TEST_F(TestCDCMultipleRowGroups, UpdateOnce) {
                        ConcatAndCombine({part1_, edit3_, part2_, part3_, edit2_}));
   ASSERT_FALSE(base->Equals(*updated));
 
-  ASSERT_OK_AND_ASSIGN(auto base_info,
-                       WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize,
-                                              kEnableDictionary, kRowGroupLength));
-  ASSERT_OK_AND_ASSIGN(auto updated_info,
-                       WriteAndGetParquetInfo(updated, kMinChunkSize, kMaxChunkSize,
-                                              kEnableDictionary, kRowGroupLength));
+  ASSERT_OK_AND_ASSIGN(
+      auto base_info,
+      WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize, kEnableDictionary,
+                             ParquetDataPageVersion::V1, kRowGroupLength));
+  ASSERT_OK_AND_ASSIGN(
+      auto updated_info,
+      WriteAndGetParquetInfo(updated, kMinChunkSize, kMaxChunkSize, kEnableDictionary,
+                             ParquetDataPageVersion::V1, kRowGroupLength));
 
   ASSERT_EQ(base_info.size(), 7);
   ASSERT_EQ(updated_info.size(), 7);
@@ -1341,12 +1369,14 @@ TEST_F(TestCDCMultipleRowGroups, Append) {
   ASSERT_FALSE(base->Equals(*appended));
   ASSERT_EQ(appended->num_rows(), base->num_rows() + edit2_->num_rows());
 
-  ASSERT_OK_AND_ASSIGN(auto base_info,
-                       WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize,
-                                              kEnableDictionary, kRowGroupLength));
-  ASSERT_OK_AND_ASSIGN(auto appended_info,
-                       WriteAndGetParquetInfo(appended, kMinChunkSize, kMaxChunkSize,
-                                              kEnableDictionary, kRowGroupLength));
+  ASSERT_OK_AND_ASSIGN(
+      auto base_info,
+      WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize, kEnableDictionary,
+                             ParquetDataPageVersion::V1, kRowGroupLength));
+  ASSERT_OK_AND_ASSIGN(
+      auto appended_info,
+      WriteAndGetParquetInfo(appended, kMinChunkSize, kMaxChunkSize, kEnableDictionary,
+                             ParquetDataPageVersion::V1, kRowGroupLength));
 
   ASSERT_EQ(base_info.size(), 7);
   ASSERT_EQ(appended_info.size(), 7);
