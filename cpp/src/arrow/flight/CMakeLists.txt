@@ -146,7 +146,6 @@ set(ARROW_FLIGHT_SRCS
     serialization_internal.cc
     server.cc
     server_auth.cc
-    server_middleware.cc
     server_tracing_middleware.cc
     transport.cc
     transport_server.cc

@@ -17,6 +17,7 @@
 
 #include <mutex>
 
+#include "arrow/flight/server.h"
 #include "arrow/flight/sql/server_session_middleware.h"
 #include "arrow/flight/sql/server_session_middleware_factory.h"
 
@@ -134,12 +135,12 @@ ServerSessionMiddlewareFactory::ParseCookieString(const std::string_view& s) {
 }
 
 Status ServerSessionMiddlewareFactory::StartCall(
-    const CallInfo&, const CallHeaders& incoming_headers,
+    const CallInfo&, const ServerCallContext& context,
     std::shared_ptr<ServerMiddleware>* middleware) {
   std::string session_id;
 
   const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>&
-      headers_it_pr = incoming_headers.equal_range("cookie");
+      headers_it_pr = context.incoming_headers().equal_range("cookie");
   for (auto itr = headers_it_pr.first; itr != headers_it_pr.second; ++itr) {
     const std::string_view& cookie_header = itr->second;
     const std::vector<std::pair<std::string, std::string>> cookies =
@@ -158,8 +159,8 @@ Status ServerSessionMiddlewareFactory::StartCall(
     // No cookie was found
     // Temporary workaround until middleware handling fixed
     auto [id, s] = CreateNewSession();
-    *middleware = std::make_shared<ServerSessionMiddlewareImpl>(this, incoming_headers,
-                                                                std::move(s), id, false);
+    *middleware = std::make_shared<ServerSessionMiddlewareImpl>(
+        this, context.incoming_headers(), std::move(s), id, false);
   } else {
     const std::shared_lock<std::shared_mutex> l(session_store_lock_);
     if (auto it = session_store_.find(session_id); it == session_store_.end()) {
@@ -167,7 +168,7 @@ Status ServerSessionMiddlewareFactory::StartCall(
     } else {
       auto session = it->second;
       *middleware = std::make_shared<ServerSessionMiddlewareImpl>(
-          this, incoming_headers, std::move(session), session_id);
+          this, context.incoming_headers(), std::move(session), session_id);
     }
   }
 
