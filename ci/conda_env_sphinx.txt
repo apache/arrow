@@ -17,7 +17,7 @@
 
 # Requirements for building the documentation
 breathe
-cmake
+cmake<4
 doxygen
 ipython
 linkify-it-py

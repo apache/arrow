@@ -20,7 +20,7 @@
 # Not a direct dependency of s3fs, but needed for our s3fs fixture
 boto3
 cffi
-cmake
+cmake<4
 cython>=3
 cloudpickle
 fsspec
