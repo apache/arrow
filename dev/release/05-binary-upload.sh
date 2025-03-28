@@ -82,11 +82,15 @@ tmp_dir=binary/tmp
 rm -rf "${tmp_dir}"
 mkdir -p "${tmp_dir}"
 
-if [ "${UPLOAD_PYTHON}" -gt 0 ]; then
-  dist_dir="${tmp_dir}/dist"
+upload_to_github_release() {
+  local id="$1"
+  shift
+  local dist_dir="${tmp_dir}/${id}"
   mkdir -p "${dist_dir}"
-  for target in "${ARROW_ARTIFACTS_DIR}"/python-sdist/* \
-    "${ARROW_ARTIFACTS_DIR}"/wheel-*/*; do
+  while [ $# -gt 0 ]; do
+    local target="$1"
+    shift
+    local base_name
     base_name="$(basename "${target}")"
     cp -a "${target}" "${dist_dir}/${base_name}"
     gpg \
@@ -103,6 +107,14 @@ if [ "${UPLOAD_PYTHON}" -gt 0 ]; then
     --repo apache/arrow \
     "apache-arrow-${version}-rc${rc}" \
     "${dist_dir}"/*
+}
+
+if [ "${UPLOAD_DOCS}" -gt 0 ]; then
+  upload_to_github_release docs "${ARROW_ARTIFACTS_DIR}"/*-docs/*
+fi
+if [ "${UPLOAD_PYTHON}" -gt 0 ]; then
+  upload_to_github_release python \
+    "${ARROW_ARTIFACTS_DIR}"/{python-sdist,wheel-*}/*
 fi
 
 rake_tasks=()
