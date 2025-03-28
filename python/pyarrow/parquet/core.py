@@ -899,6 +899,8 @@ use_content_defined_chunking : bool or dict, default False
     transfers and storage. The chunking is based on a rolling hash algorithm that
     identifies chunk boundaries based on the actual content of the data.
 
+    Note that it is an experimental feature and the API may change in the future.
+
     If set to ``True``, a default configuration is used with `min_chunk_size=256 KiB`
     and `max_chunk_size=1024 KiB`. The chunk size distribution approximates a normal
     distribution between `min_chunk_size` and `max_chunk_size` (sizes are accounted
