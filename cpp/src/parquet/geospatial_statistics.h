@@ -177,6 +177,10 @@ class PARQUET_EXPORT GeoStatistics {
   /// \brief Returns true if any non-NaN M values were encountered or false otherwise
   bool has_m() const;
 
+  /// \brief Returns true if any non-NaN values were encountered in the given dimension
+  /// in XYZM order
+  std::array<bool, 4> has_dimension() const;
+
   /// \brief Return the geometry type codes from the well-known binary encountered
   ///
   /// This implementation always returns sorted output with no duplicates.

@@ -34,10 +34,7 @@ TEST(TestGeoStatistics, TestDefaults) {
   EXPECT_EQ(stats.geometry_types().size(), 0);
   EXPECT_TRUE(stats.is_valid());
   EXPECT_TRUE(stats.is_empty());
-  EXPECT_FALSE(stats.has_x());
-  EXPECT_FALSE(stats.has_y());
-  EXPECT_FALSE(stats.has_z());
-  EXPECT_FALSE(stats.has_m());
+  EXPECT_THAT(stats.has_dimension(), ::testing::ElementsAre(false, false, false, false));
   EXPECT_EQ(stats.xmax() - stats.xmin(), -kInf);
   EXPECT_EQ(stats.ymax() - stats.ymin(), -kInf);
   EXPECT_EQ(stats.zmax() - stats.zmin(), -kInf);
@@ -73,10 +70,7 @@ TEST(TestGeoStatistics, TestImportEncodedWithNaN) {
   encoded_with_nan.mmax = nan_dbl;
 
   GeoStatistics stats(encoded_with_nan);
-  EXPECT_TRUE(stats.has_x());
-  EXPECT_TRUE(stats.has_y());
-  EXPECT_TRUE(stats.has_z());
-  EXPECT_TRUE(stats.has_m());
+  EXPECT_THAT(stats.has_dimension(), ::testing::ElementsAre(true, true, true, true));
 
   EXPECT_TRUE(std::isnan(stats.xmin()));
   EXPECT_TRUE(std::isnan(stats.xmax()));
@@ -139,10 +133,7 @@ TEST(TestGeoStatistics, TestUpdateByteArray) {
   EXPECT_THAT(stats.lower_bound(), ::testing::ElementsAre(10, 11, 12, 13));
   EXPECT_THAT(stats.upper_bound(), ::testing::ElementsAre(10, 11, 12, 13));
   EXPECT_THAT(stats.geometry_types(), ::testing::ElementsAre(3001));
-  EXPECT_TRUE(stats.has_x());
-  EXPECT_TRUE(stats.has_y());
-  EXPECT_TRUE(stats.has_z());
-  EXPECT_TRUE(stats.has_m());
+  EXPECT_THAT(stats.has_dimension(), ::testing::ElementsAre(true, true, true, true));
 
   std::string xyzm1 = test::MakeWKBPoint({20, 21, 22, 23}, true, true);
   ByteArray item1{xyzm1};
@@ -223,30 +214,21 @@ TEST(TestGeoStatistics, TestUpdateXYZM) {
   EXPECT_THAT(stats.lower_bound(), ::testing::ElementsAre(10, 11, kInf, kInf));
   EXPECT_THAT(stats.upper_bound(), ::testing::ElementsAre(10, 11, -kInf, -kInf));
   EXPECT_THAT(stats.geometry_types(), ::testing::ElementsAre(1));
-  EXPECT_TRUE(stats.has_x());
-  EXPECT_TRUE(stats.has_y());
-  EXPECT_FALSE(stats.has_z());
-  EXPECT_FALSE(stats.has_m());
+  EXPECT_THAT(stats.has_dimension(), ::testing::ElementsAre(true, true, false, false));
 
   ByteArray item_xyz{xyz};
   stats.Update(&item_xyz, /*num_values=*/1);
   EXPECT_THAT(stats.lower_bound(), ::testing::ElementsAre(10, 11, 12, kInf));
   EXPECT_THAT(stats.upper_bound(), ::testing::ElementsAre(10, 11, 12, -kInf));
   EXPECT_THAT(stats.geometry_types(), ::testing::ElementsAre(1, 1001));
-  EXPECT_TRUE(stats.has_x());
-  EXPECT_TRUE(stats.has_y());
-  EXPECT_TRUE(stats.has_z());
-  EXPECT_FALSE(stats.has_m());
+  EXPECT_THAT(stats.has_dimension(), ::testing::ElementsAre(true, true, true, false));
 
   ByteArray item_xym{xym};
   stats.Update(&item_xym, /*num_values=*/1);
   EXPECT_THAT(stats.lower_bound(), ::testing::ElementsAre(10, 11, 12, 13));
   EXPECT_THAT(stats.upper_bound(), ::testing::ElementsAre(10, 11, 12, 13));
   EXPECT_THAT(stats.geometry_types(), ::testing::ElementsAre(1, 1001, 2001));
-  EXPECT_TRUE(stats.has_x());
-  EXPECT_TRUE(stats.has_y());
-  EXPECT_TRUE(stats.has_z());
-  EXPECT_TRUE(stats.has_m());
+  EXPECT_THAT(stats.has_dimension(), ::testing::ElementsAre(true, true, true, true));
 }
 
 TEST(TestGeoStatistics, TestUpdateArray) {

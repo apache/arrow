@@ -325,6 +325,10 @@ bool GeoStatistics::has_z() const { return !impl_->bound_empty(2); }
 
 bool GeoStatistics::has_m() const { return !impl_->bound_empty(3); }
 
+std::array<bool, 4> GeoStatistics::has_dimension() const {
+  return {has_x(), has_y(), has_z(), has_m()};
+}
+
 std::vector<int32_t> GeoStatistics::geometry_types() const {
   return impl_->geometry_types();
 }
