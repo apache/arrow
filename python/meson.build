@@ -38,4 +38,6 @@ arrow_dep = dependency(
     required: false,  # optional so sdist will work without finding
 )
 
+cc = meson.get_compiler('cpp')
+
 subdir('pyarrow')
