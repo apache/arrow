@@ -198,6 +198,7 @@ repos:
           ?^dev/release/05-binary-upload\.sh$|
           ?^dev/release/07-binary-verify\.sh$|
           ?^dev/release/post-03-binary\.sh$|
+          ?^dev/release/post-10-docs\.sh$|
           ?^dev/release/post-11-python\.sh$|
           ?^dev/release/utils-generate-checksum\.sh$|
           )
@@ -214,6 +215,7 @@ repos:
           (
           ?^dev/release/05-binary-upload\.sh$|
           ?^dev/release/post-03-binary\.sh$|
+          ?^dev/release/post-10-docs\.sh$|
           ?^dev/release/post-11-python\.sh$|
           )
   - repo: https://github.com/trim21/pre-commit-mirror-meson
