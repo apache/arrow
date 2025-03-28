@@ -150,6 +150,8 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
   ColumnEncryptionProperties(const ColumnEncryptionProperties& other) = default;
   ColumnEncryptionProperties(ColumnEncryptionProperties&& other) = default;
 
+  ~ColumnEncryptionProperties() { key_.clear(); }
+
  private:
   const std::string column_path_;
   bool encrypted_;
@@ -186,6 +188,8 @@ class PARQUET_EXPORT ColumnDecryptionProperties {
   ColumnDecryptionProperties() = default;
   ColumnDecryptionProperties(const ColumnDecryptionProperties& other) = default;
   ColumnDecryptionProperties(ColumnDecryptionProperties&& other) = default;
+
+  ~ColumnDecryptionProperties() { key_.clear(); }
 
   std::string column_path() const { return column_path_; }
   std::string key() const { return key_; }
@@ -300,6 +304,8 @@ class PARQUET_EXPORT FileDecryptionProperties {
     bool plaintext_files_allowed_;
   };
 
+  ~FileDecryptionProperties() { footer_key_.clear(); }
+
   std::string column_key(const std::string& column_path) const;
 
   std::string footer_key() const { return footer_key_; }
@@ -403,6 +409,9 @@ class PARQUET_EXPORT FileEncryptionProperties {
     bool store_aad_prefix_in_file_;
     ColumnPathToEncryptionPropertiesMap encrypted_columns_;
   };
+
+  ~FileEncryptionProperties() { footer_key_.clear(); }
+
   bool encrypted_footer() const { return encrypted_footer_; }
 
   EncryptionAlgorithm algorithm() const { return algorithm_; }
