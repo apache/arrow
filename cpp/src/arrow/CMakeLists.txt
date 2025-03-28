@@ -126,9 +126,7 @@ if(ARROW_WITH_RE2)
   endif()
 endif()
 
-# This should be done after if(ARROW_ORC) and if(ARROW_WITH_OPENTELEMETRY)
-# because they depend on Protobuf.
-if(ARROW_WITH_PROTOBUF)
+if(ARROW_PROTOBUF_ARROW_CMAKE_PACKAGE_NAME STREQUAL "Arrow")
   if(Protobuf_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
   endif()
