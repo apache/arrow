@@ -200,6 +200,7 @@ TEST(TestGeoStatistics, TestUpdateByteArray) {
 
 TEST(TestGeoStatistics, TestUpdateXYZM) {
   GeoStatistics stats;
+  GeoStatistics stats_not_equal;
 
   // Test existence of x, y, z, and m by ingesting an XY, an XYZ, then an XYM
   // and check that the has_(xyzm)() methods are working as expected and that
@@ -215,6 +216,8 @@ TEST(TestGeoStatistics, TestUpdateXYZM) {
   EXPECT_THAT(stats.upper_bound(), ::testing::ElementsAre(10, 11, -kInf, -kInf));
   EXPECT_THAT(stats.geometry_types(), ::testing::ElementsAre(1));
   EXPECT_THAT(stats.has_dimension(), ::testing::ElementsAre(true, true, false, false));
+  EXPECT_FALSE(stats.Equals(stats_not_equal));
+  stats_not_equal.Merge(stats);
 
   ByteArray item_xyz{xyz};
   stats.Update(&item_xyz, /*num_values=*/1);
@@ -222,6 +225,8 @@ TEST(TestGeoStatistics, TestUpdateXYZM) {
   EXPECT_THAT(stats.upper_bound(), ::testing::ElementsAre(10, 11, 12, -kInf));
   EXPECT_THAT(stats.geometry_types(), ::testing::ElementsAre(1, 1001));
   EXPECT_THAT(stats.has_dimension(), ::testing::ElementsAre(true, true, true, false));
+  EXPECT_FALSE(stats.Equals(stats_not_equal));
+  stats_not_equal.Merge(stats);
 
   ByteArray item_xym{xym};
   stats.Update(&item_xym, /*num_values=*/1);
@@ -229,6 +234,7 @@ TEST(TestGeoStatistics, TestUpdateXYZM) {
   EXPECT_THAT(stats.upper_bound(), ::testing::ElementsAre(10, 11, 12, 13));
   EXPECT_THAT(stats.geometry_types(), ::testing::ElementsAre(1, 1001, 2001));
   EXPECT_THAT(stats.has_dimension(), ::testing::ElementsAre(true, true, true, true));
+  EXPECT_FALSE(stats.Equals(stats_not_equal));
 }
 
 TEST(TestGeoStatistics, TestUpdateArray) {
