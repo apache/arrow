@@ -195,6 +195,8 @@ class RBuffer : public MutableBuffer {
       return STRING_PTR(vec);
     } else if (TYPEOF(vec) == RAWSXP) {
       return RAW(vec);
+    } else {
+      return RAW(vec);
     }
   }
 };
