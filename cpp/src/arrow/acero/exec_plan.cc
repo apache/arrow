@@ -621,7 +621,6 @@ Result<ExecNode*> EnsureSink(ExecNode* last_node, ExecPlan* plan) {
   return last_node;
 }
 
-}  // namespace
 
 Result<std::shared_ptr<Schema>> DeclarationToSchema(const Declaration& declaration,
                                                     FunctionRegistry* function_registry) {
