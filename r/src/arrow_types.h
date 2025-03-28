@@ -182,7 +182,7 @@ class RBuffer : public MutableBuffer {
   // vec_ holds the memory
   RVector vec_;
 
-  static void* getDataPointer(RVector& vec) {    
+  static void* getDataPointer(RVector& vec) {
     if (TYPEOF(vec) == LGLSXP) {
       return LOGICAL(vec);
     } else if (TYPEOF(vec) == INTSXP) {
