@@ -38,9 +38,10 @@ version_with_rc="${version}-rc${rc}"
 crossbow_job_prefix="release-${version_with_rc}"
 crossbow_package_dir="${SOURCE_DIR}/../../packages"
 
-: ${CROSSBOW_JOB_NUMBER:="0"}
-: ${CROSSBOW_JOB_ID:="${crossbow_job_prefix}-${CROSSBOW_JOB_NUMBER}"}
-: ${ARROW_ARTIFACTS_DIR:="${crossbow_package_dir}/${CROSSBOW_JOB_ID}"}
+: "${CROSSBOW_JOB_NUMBER:=0}"
+: "${CROSSBOW_JOB_ID:=${crossbow_job_prefix}-${CROSSBOW_JOB_NUMBER}}"
+: "${ARROW_ARTIFACTS_DIR:=${crossbow_package_dir}/${CROSSBOW_JOB_ID}}"
+: "${GITHUB_REPOSITORY:=apache/arrow}"
 
 if [ ! -e "${ARROW_ARTIFACTS_DIR}" ]; then
   echo "${ARROW_ARTIFACTS_DIR} does not exist"
@@ -59,6 +60,7 @@ if [ ! -f .env ]; then
   echo "You can use $(pwd)/.env.example as template"
   exit 1
 fi
+# shellcheck source=SCRIPTDIR/.env.example
 . .env
 
 . utils-binary.sh
@@ -66,52 +68,74 @@ fi
 # By default upload all artifacts.
 # To deactivate one category, deactivate the category and all of its dependents.
 # To explicitly select one category, set UPLOAD_DEFAULT=0 UPLOAD_X=1.
-: ${UPLOAD_DEFAULT:=1}
-: ${UPLOAD_ALMALINUX:=${UPLOAD_DEFAULT}}
-: ${UPLOAD_AMAZON_LINUX:=${UPLOAD_DEFAULT}}
-: ${UPLOAD_CENTOS:=${UPLOAD_DEFAULT}}
-: ${UPLOAD_DEBIAN:=${UPLOAD_DEFAULT}}
-: ${UPLOAD_DOCS:=${UPLOAD_DEFAULT}}
-: ${UPLOAD_PYTHON:=${UPLOAD_DEFAULT}}
-: ${UPLOAD_R:=${UPLOAD_DEFAULT}}
-: ${UPLOAD_UBUNTU:=${UPLOAD_DEFAULT}}
+: "${UPLOAD_DEFAULT:=1}"
+: "${UPLOAD_ALMALINUX:=${UPLOAD_DEFAULT}}"
+: "${UPLOAD_AMAZON_LINUX:=${UPLOAD_DEFAULT}}"
+: "${UPLOAD_CENTOS:=${UPLOAD_DEFAULT}}"
+: "${UPLOAD_DEBIAN:=${UPLOAD_DEFAULT}}"
+: "${UPLOAD_DOCS:=${UPLOAD_DEFAULT}}"
+: "${UPLOAD_PYTHON:=${UPLOAD_DEFAULT}}"
+: "${UPLOAD_R:=${UPLOAD_DEFAULT}}"
+: "${UPLOAD_UBUNTU:=${UPLOAD_DEFAULT}}"
+
+tmp_dir=binary/tmp
+rm -rf "${tmp_dir}"
+mkdir -p "${tmp_dir}"
+
+if [ "${UPLOAD_PYTHON}" -gt 0 ]; then
+  dist_dir="${tmp_dir}/dist"
+  mkdir -p "${dist_dir}"
+  for target in "${ARROW_ARTIFACTS_DIR}"/python-sdist/* \
+    "${ARROW_ARTIFACTS_DIR}"/wheel-*/*; do
+    base_name="$(basename "${target}")"
+    cp -a "${target}" "${dist_dir}/${base_name}"
+    gpg \
+      --armor \
+      --detach-sign \
+      --local-user "${GPG_KEY_ID}" \
+      --output "${dist_dir}/${base_name}.asc" \
+      "${target}"
+    pushd "${dist_dir}"
+    shasum -a 512 "${base_name}" >"${base_name}.sha512"
+    popd
+  done
+  gh release upload \
+    --repo apache/arrow \
+    "apache-arrow-${version}-rc${rc}" \
+    "${dist_dir}"/*
+fi
 
 rake_tasks=()
 apt_targets=()
 yum_targets=()
-if [ ${UPLOAD_ALMALINUX} -gt 0 ]; then
+if [ "${UPLOAD_ALMALINUX}" -gt 0 ]; then
   rake_tasks+=(yum:rc:artifactory yum:rc)
   yum_targets+=(almalinux)
 fi
-if [ ${UPLOAD_AMAZON_LINUX} -gt 0 ]; then
+if [ "${UPLOAD_AMAZON_LINUX}" -gt 0 ]; then
   rake_tasks+=(yum:rc:artifactory yum:rc)
   yum_targets+=(amazon-linux)
 fi
-if [ ${UPLOAD_CENTOS} -gt 0 ]; then
+if [ "${UPLOAD_CENTOS}" -gt 0 ]; then
   rake_tasks+=(yum:rc:artifactory yum:rc)
   yum_targets+=(centos)
 fi
-if [ ${UPLOAD_DEBIAN} -gt 0 ]; then
+if [ "${UPLOAD_DEBIAN}" -gt 0 ]; then
   rake_tasks+=(apt:rc:artifactory apt:rc)
   apt_targets+=(debian)
 fi
-if [ ${UPLOAD_DOCS} -gt 0 ]; then
+if [ "${UPLOAD_DOCS}" -gt 0 ]; then
   rake_tasks+=(docs:rc)
 fi
-if [ ${UPLOAD_PYTHON} -gt 0 ]; then
-  rake_tasks+=(python:rc)
-fi
-if [ ${UPLOAD_R} -gt 0 ]; then
+if [ "${UPLOAD_R}" -gt 0 ]; then
   rake_tasks+=(r:rc)
 fi
-if [ ${UPLOAD_UBUNTU} -gt 0 ]; then
+if [ "${UPLOAD_UBUNTU}" -gt 0 ]; then
   rake_tasks+=(apt:rc:artifactory apt:rc)
   apt_targets+=(ubuntu)
 fi
 rake_tasks+=(summary:rc)
 
-tmp_dir=binary/tmp
-mkdir -p "${tmp_dir}"
 source_artifacts_dir="${tmp_dir}/artifacts"
 rm -rf "${source_artifacts_dir}"
 cp -a "${ARROW_ARTIFACTS_DIR}" "${source_artifacts_dir}"
@@ -119,17 +143,23 @@ cp -a "${ARROW_ARTIFACTS_DIR}" "${source_artifacts_dir}"
 docker_run \
   ./runner.sh \
   rake \
-    "${rake_tasks[@]}" \
-    APT_TARGETS=$(IFS=,; echo "${apt_targets[*]}") \
-    ARTIFACTORY_API_KEY="${ARTIFACTORY_API_KEY}" \
-    ARTIFACTS_DIR="${tmp_dir}/artifacts" \
-    ASF_PASSWORD="${ASF_PASSWORD}" \
-    ASF_USER="${ASF_USER}" \
-    DEB_PACKAGE_NAME=${DEB_PACKAGE_NAME:-} \
-    DRY_RUN=${DRY_RUN:-no} \
-    GPG_KEY_ID="${GPG_KEY_ID}" \
-    RC=${rc} \
-    STAGING=${STAGING:-no} \
-    VERBOSE=${VERBOSE:-no} \
-    VERSION=${version} \
-    YUM_TARGETS=$(IFS=,; echo "${yum_targets[*]}")
+  "${rake_tasks[@]}" \
+  APT_TARGETS="$(
+    IFS=,
+    echo "${apt_targets[*]}"
+  )" \
+  ARTIFACTORY_API_KEY="${ARTIFACTORY_API_KEY}" \
+  ARTIFACTS_DIR="${tmp_dir}/artifacts" \
+  ASF_PASSWORD="${ASF_PASSWORD}" \
+  ASF_USER="${ASF_USER}" \
+  DEB_PACKAGE_NAME="${DEB_PACKAGE_NAME:-}" \
+  DRY_RUN="${DRY_RUN:-no}" \
+  GPG_KEY_ID="${GPG_KEY_ID}" \
+  RC="${rc}" \
+  STAGING="${STAGING:-no}" \
+  VERBOSE="${VERBOSE:-no}" \
+  VERSION="${version}" \
+  YUM_TARGETS="$(
+    IFS=,
+    echo "${yum_targets[*]}"
+  )"
