@@ -445,6 +445,11 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* disable_write_page_index()
             Builder* enable_page_checksum()
             Builder* disable_page_checksum()
+            Builder* enable_content_defined_chunking()
+            Builder* disable_content_defined_chunking()
+            Builder* content_defined_chunking_options(int64_t min_size,
+                                                      int64_t max_size,
+                                                      int8_t norm_factor)
             shared_ptr[WriterProperties] build()
 
     cdef cppclass ArrowWriterProperties:
@@ -461,7 +466,6 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* set_engine_version(ArrowWriterEngineVersion version)
             shared_ptr[ArrowWriterProperties] build()
         c_bool support_deprecated_int96_timestamps()
-
 
 cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
     cdef cppclass FileReader:
@@ -596,6 +600,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     write_page_checksum=*,
     sorting_columns=*,
     store_decimal_as_integer=*,
+    use_content_defined_chunking=*
 ) except *
 
 
