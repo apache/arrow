@@ -118,25 +118,59 @@ pushd python
 @rem Build and install pyarrow
 @rem
 
-set PYARROW_CMAKE_GENERATOR=%GENERATOR%
-set PYARROW_CXXFLAGS=%ARROW_CXXFLAGS%
-set PYARROW_PARALLEL=2
-set PYARROW_WITH_ACERO=ON
-set PYARROW_WITH_DATASET=ON
-set PYARROW_WITH_FLIGHT=%ARROW_BUILD_FLIGHT%
-set PYARROW_WITH_GANDIVA=%ARROW_BUILD_GANDIVA%
-set PYARROW_WITH_GCS=%ARROW_GCS%
-set PYARROW_WITH_ORC=%ARROW_ORC%
-set PYARROW_WITH_PARQUET=ON
-set PYARROW_WITH_PARQUET_ENCRYPTION=ON
-set PYARROW_WITH_S3=%ARROW_S3%
-set PYARROW_WITH_SUBSTRAIT=ON
+set PYARROW_WITH_ACERO=enabled
+set PYARROW_WITH_DATASET=enabled
+
+if /i "%ARROW_BUILD_FLIGHT%" == "ON" (
+    set PYARROW_WITH_FLIGHT=enabled
+) else (
+    set PYARROW_WITH_FLIGHT=auto
+)
+
+if /i "%ARROW_BUILD_GANDIVA%" == "ON" (
+    set PYARROW_WITH_GANDIVA=enabled
+) else (
+    set PYARROW_WITH_GANDIVA=auto
+)
+
+if /i "%ARROW_BUILD_GCS%" == "ON" (
+    set PYARROW_WITH_GCS=enabled
+) else (
+    set PYARROW_WITH_GCS=auto
+)
+
+if /i "%ARROW_BUILD_ORC%" == "ON" (
+    set PYARROW_WITH_ORC=enabled
+) else (
+    set PYARROW_WITH_ORC=auto
+)
+
+set PYARROW_WITH_PARQUET=enabled
+set PYARROW_WITH_PARQUET_ENCRYPTION=enabled
+
+if /i "%ARROW_BUILD_S3%" == "ON" (
+    set PYARROW_WITH_S3=enabled
+) else (
+    set PYARROW_WITH_S3=auto
+)
+
+set PYARROW_WITH_SUBSTRAIT=enabled
 
 set ARROW_HOME=%CONDA_PREFIX%\Library
 @rem ARROW-3075; pkgconfig is broken for Parquet for now
 set PARQUET_HOME=%CONDA_PREFIX%\Library
 
-pip install --no-deps --no-build-isolation -vv --editable .
+pip install --no-deps --no-build-isolation -vv . ^
+    -Csetup-args="-Dacero=%PYARROW_WITH_ACERO%" ^
+    -Csetup-args="-Ddataset=%PYARROW_WITH_DATASET%" ^
+    -Csetup-args="-Dflight=%PYARROW_WITH_FLIGHT%" ^
+    -Csetup-args="-Dgandiva=%PYARROW_WITH_GANDIVA%" ^
+    -Csetup-args="-Dgcs=%PYARROW_WITH_GCS%" ^
+    -Csetup-args="-Dorc=%PYARROW_WITH_ORC%" ^
+    -Csetup-args="-Dparquet=%PYARROW_WITH_PARQUET%" ^
+    -Csetup-args="-Dparquet_encryption=%PYARROW_WITH_PARQUET_ENCRYPTION%" ^
+    -Csetup-args="-Ds3=%PYARROW_WITH_S3%" ^
+    -Csetup-args="-Dsubstrait=%PYARROW_WITH_SUBSTRAIT%"
 
 @rem
 @rem Run pyarrow tests
