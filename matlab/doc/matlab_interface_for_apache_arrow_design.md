@@ -179,21 +179,27 @@ Roughly speaking, local memory sharing workflows can be divided into two categor
 
 To share a MATLAB `arrow.Array` with PyArrow efficiently, a user could use the `exportToCDataInterface` method to export the Arrow memory wrapped by an `arrow.Array` to the C Data Interface format, consisting of two C-style structs, [`ArrowArray`] and [`ArrowSchema`], which represent the Arrow data and associated metadata. 
 
-Memory addresses to the `ArrowArray` and `ArrowSchema` structs are returned by the call to `exportToCDataInterface`. These addresses can be passed to Python directly, without having to make any copies of the underlying Arrow data structures that they refer to. A user can then wrap the underlying data pointed to by the `ArrowArray` struct (which is already in the [Arrow Columnar Format]), as well as extract the necessary metadata from the `ArrowSchema` struct, to create a `pyarrow.Array` by using the static method `py.pyarrow.Array._import_from_c`. 
+Memory addresses to the `ArrowArray` and `ArrowSchema` structs are returned by the call to `export`. These addresses can be passed to Python directly, without having to make any copies of the underlying Arrow data structures that they refer to. A user can then wrap the underlying data pointed to by the `ArrowArray` struct (which is already in the [Arrow Columnar Format]), as well as extract the necessary metadata from the `ArrowSchema` struct, to create a `pyarrow.Array` by using the static method `pyarrow.Array._import_from_c`. 
 
 ###### Example Code: 
 ``` matlab
 % Create a MATLAB arrow.Array. 
 >> AA = arrow.array([1, 2, 3, 4, 5]); 
 
+% create C Data Interface for array values and schema
+>> cArray = arrow.c.Array();
+>> cSchema = arrow.c.Schema();
+
 % Export the MATLAB arrow.Array to the C Data Interface format, returning the 
 % memory addresses of the required ArrowArray and ArrowSchema C-style structs. 
->> [arrayMemoryAddress, schemaMemoryAddress] = AA.exportToCDataInterface(); 
+>> AA.export(cArray.Address, cSchema.Address); 
 
 % Import the memory addresses of the C Data Interface format structs to create a pyarrow.Array. 
->> PA = py.pyarrow.Array._import_from_c(arrayMemoryAddress, schemaMemoryAddress); 
+>> PA = pyrun("import pyarrow as pa; array = pa.Array._import_from_c(arrayMemoryAddress, schemaMemoryAddress)", "array", arrayMemoryAddress=cArray.Address, schemaMemoryAddress=cSchema.Address);
 ```
 Conversely, a user can create an Arrow array using PyArrow and share it with MATLAB. To do this, they can call the method `_export_to_c` to export a `pyarrow.Array` to the C Data Interface format. 
+
+Since the python calls to `_export_to_c` and `_import_from_c` have underscores at the beginning, they cannot be called in MATLAB. MATLAB member functions or variables are not allowed to start with an underscore shown [in the "variable names" syntax page on the Mathworks website](https://www.mathworks.com/help/matlab/matlab_prog/variable-names.html). Instead, to initialize your Python pyarrow array, you must use MATLAB's built-in `pyrun` to execute code in Python, which allows for variables and functions to start with underscore.
 
 The memory addresses to the `ArrowArray` and `ArrowSchema` structs populated by the call to `_export_to_c` can be passed to the static method `arrow.Array.importFromCDataInterface` to construct a MATLAB `arrow.Array` with zero copies. 
 
@@ -205,20 +211,17 @@ The example code below is adapted from the [`test_cffi.py` test cases for PyArro
 >> PA = py.pyarrow.array([1, 2, 3, 4, 5]); 
 
 % Create ArrowArray and ArrowSchema C-style structs adhering to the Arrow C Data Interface format. 
->> array = py.pyarrow.cffi.ffi.new("struct ArrowArray*") 
-
->> arrayMemoryAddress = py.int(py.pyarrow.cffi.ffi.cast("uintptr_t", array)); 
-
->> schema = py.pyarrow.cffi.ffi.new("struct ArrowSchema*") 
-
->> schemaMemoryAddress = py.int(py.pyarrow.cffi.ffi.cast("uintptr_t", schema)); 
+>> cArray = arrow.c.Array();
+>> cSchema = arrow.c.Schema();
 
 % Export the pyarrow.Array to the C Data Interface format, populating the required ArrowArray and ArrowShema structs. 
->> PA.export_to_c(arrayMemoryAddress, schemaMemoryAddress) 
+>> pyrun("import pyarrow as pa; PA._export_to_c(arrayMemoryAddress, schemaMemoryAddress)", PA=PA, arrayMemoryAddress=cArray.Address, schemaMemoryAddress=cSchema.Address);
 
 % Import the C Data Interface structs to create a MATLAB arrow.Array. 
->> AA = arrow.Array.importFromCDataInterface(arrayMemoryAddress, schemaMemoryAddress); 
+>> AA = arrow.array.Array.import(cArray, cSchema);
 ```
+
+For the same reasons as mentioned above in the export from MATLAB to Python example, we must also run the export command inside of the `pyrun` function.
 
 #### Out-of-Process Memory Sharing 
 
