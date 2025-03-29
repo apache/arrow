@@ -109,19 +109,7 @@ ans =
 
 To serialize MATLAB data to a file on disk (e.g. Feather, Parquet), a MATLAB developer could start by constructing an `arrow.Table` using one of several different approaches. 
 
-They could individually compose the table from a set of `arrow.Array` objects (one for each table variable). 
-
-###### Example Code: 
-``` matlab
->> Var1 = arrow.array(["foo"; "bar"; "baz"]); 
-
->> Var2 = arrow.array([today; today + 1; today + 2]); 
-
->> Var3 = arrow.array([10; 20; 30]); 
-
->> AT = arrow.Table(Var1, Var2, Var3); 
-```
-Alternatively, they could directly convert from an existing MATLAB `table` to an `arrow.Table` using a function like `arrow.matlab2arrow` to convert between an existing MATLAB `table` and an `arrow.Table`. 
+They could directly convert from an existing MATLAB `table` to an `arrow.Table` using a function like `arrow.table` to convert between an existing MATLAB `table` and an `arrow.Table`. 
 
 ###### Example Code: 
 ``` matlab
@@ -133,23 +121,26 @@ Alternatively, they could directly convert from an existing MATLAB `table` to an
 
 >> T = table(Weight, Radius, Density); % Create a MATLAB table 
 
->> AT = arrow.matlab2arrow(T); % Create an arrow.Table 
+>> AT = arrow.table(T); % Create an arrow.Table 
 ```
-To serialize the `arrow.Table`, `AT`, to a file (e.g. Feather) on disk, the user could then instantiate an `arrow.FeatherTableWriter`. 
+To serialize the `arrow.Table`, `AT`, to a file (e.g. Feather) on disk, the user could then instantiate an `arrow.internal.io.feather.Writer`. 
 
 ###### Example Code: 
 ``` matlab
->> featherTableWriter = arrow.FeatherTableWriter(); 
+>> recordBatchWrite = arrow.recordBatch(AT);
 
->> featherTableWriter.write(AT, "data.feather"); 
+>> filename = fullfile(pwd, "temp.feather");
+>> writer = arrow.internal.io.feather.Writer(filename);
+>> writer.write(recordBatchWrite);
 ```
-The Feather file could then be read and operated on by an external process like Rust or Go. To read it back into MATLAB after modification by another process, the user could instantiate an `arrow.FeatherTableReader`. 
+The Feather file could then be read and operated on by an external process like Rust or Go. To read it back into MATLAB after modification by another process, the user could instantiate an `arrow.internal.io.feather.Reader`. 
 
 ###### Example Code: 
 ``` matlab
->> featherTableReader = arrow.FeatherTableReader("data.feather"); 
+>> reader = arrow.internal.io.feather.Reader(filename);
+>> recordBatchRead = reader.read();
 
->> AT = featherTableReader.read(); 
+>> AT = table(recordBatchRead);
 ```
 #### Advanced MATLAB User Workflow for Implementing Support for Writing to Feather Files 
 
