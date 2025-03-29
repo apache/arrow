@@ -24,6 +24,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/engine/substrait/util.h"
 #include "arrow/flight/server.h"
 #include "arrow/flight/sql/client.h"

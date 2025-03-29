@@ -30,6 +30,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/expression_internal.h"
 #include "arrow/compute/function_internal.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"

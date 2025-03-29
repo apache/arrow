@@ -20,6 +20,7 @@
 #include "gtest/gtest.h"
 
 #include "arrow/array.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_parquet.h"

@@ -17,6 +17,7 @@
 
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
+#include <arrow/compute/kernels/api.h>
 #include <arrow/csv/api.h>
 #include <arrow/csv/writer.h>
 #include <arrow/io/api.h>

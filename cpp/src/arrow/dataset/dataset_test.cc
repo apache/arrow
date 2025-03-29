@@ -19,6 +19,7 @@
 
 #include <optional>
 
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/partition.h"
@@ -29,6 +30,7 @@
 #include "arrow/testing/generator.h"
 
 namespace arrow {
+
 namespace dataset {
 
 class TestInMemoryFragment : public DatasetFixtureMixin {};
