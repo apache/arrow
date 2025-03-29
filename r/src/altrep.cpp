@@ -220,7 +220,11 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
       SEXP copy = PROTECT(Rf_allocVector(sexp_type, size));
 
       // copy the data from the array, through Get_region
-      Get_region(alt, 0, size, reinterpret_cast<c_type*>(DATAPTR(copy)));
+      if constexpr (std::is_same_v<c_type, double>) {
+        Get_region(alt, 0, size, reinterpret_cast<double*>(REAL(copy)));
+      } else {
+        Get_region(alt, 0, size, reinterpret_cast<int*>(INTEGER(copy)));
+      }
 
       // store as data2, this is now considered materialized
       SetRepresentation(alt, copy);
@@ -269,13 +273,21 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     }
 
     // Otherwise we have to materialize and hand the pointer to data2
-    return DATAPTR(Materialize(alt));
+    if constexpr (std::is_same_v<c_type, double>) {
+      return REAL(Materialize(alt));
+    } else {
+      return INTEGER(Materialize(alt));
+    }
   }
 
   // The value at position i
   static c_type Elt(SEXP alt, R_xlen_t i) {
     if (IsMaterialized(alt)) {
-      return reinterpret_cast<c_type*>(DATAPTR(Representation(alt)))[i];
+      if constexpr (std::is_same_v<c_type, double>) {
+        return reinterpret_cast<c_type*>(REAL(Representation(alt)))[i];
+      } else {
+        return reinterpret_cast<c_type*>(INTEGER(Representation(alt)))[i];
+      }
     }
 
     auto altrep_data =
@@ -552,7 +564,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
     return nullptr;
   }
 
-  static void* Dataptr(SEXP alt, Rboolean writeable) { return DATAPTR(Materialize(alt)); }
+  static void* Dataptr(SEXP alt, Rboolean writeable) { return INTEGER(Materialize(alt)); }
 
   static SEXP Duplicate(SEXP alt, Rboolean /* deep */) {
     // the representation integer vector
