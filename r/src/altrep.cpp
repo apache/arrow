@@ -959,10 +959,10 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
 
       R_xlen_t len = XLENGTH(materialized);
       void** str_array =
-          (void**) R_alloc(len, sizeof(void*)); // Allocate array (R's memory allocator)
+          (void**)R_alloc(len, sizeof(void*));  // Allocate array (R's memory allocator)
 
       for (R_xlen_t i = 0; i < len; i++) {
-          str_array[i] = (void*)STRING_ELT(materialized, i);
+        str_array[i] = (void*)STRING_ELT(materialized, i);
       }
 
       return str_array;  // Pointer to array of SEXP elements
