@@ -109,7 +109,7 @@ ans =
 
 To serialize MATLAB data to a file on disk (e.g. Feather, Parquet), a MATLAB developer could start by constructing an `arrow.Table` using one of several different approaches. 
 
-They could directly convert from an existing MATLAB `table` to an `arrow.Table` using a function like `arrow.table` to convert between an existing MATLAB `table` and an `arrow.Table`. 
+They could directly convert from an existing MATLAB `table` to an `arrow.Table` using a function like `arrow.table`.
 
 ###### Example Code: 
 ``` matlab
