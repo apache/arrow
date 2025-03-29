@@ -660,6 +660,42 @@ TEST_F(TestConvertParquetSchema, ParquetLists) {
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
 }
 
+TEST_F(TestConvertParquetSchema, ParquetVariant) {
+  std::vector<NodePtr> parquet_fields;
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+
+  // Unshredded variant
+  // optional group variant_col {
+  //  required binary metadata;
+  //  required binary value;
+  // }
+
+  // GH-45948: add shredded variants
+  {
+    auto metadata =
+        PrimitiveNode::Make("metadata", Repetition::REQUIRED, ParquetType::BYTE_ARRAY);
+    auto value =
+        PrimitiveNode::Make("value", Repetition::REQUIRED, ParquetType::BYTE_ARRAY);
+
+    auto variant =
+        GroupNode::Make("variant_unshredded", Repetition::OPTIONAL, {metadata, value});
+    parquet_fields.push_back(variant);
+
+    auto arrow_metadata =
+        ::arrow::field("metadata", ::arrow::binary(), /*nullable=*/false);
+    auto arrow_value = ::arrow::field("value", ::arrow::binary(), /*nullable=*/false);
+    auto arrow_variant = ::arrow::struct_({arrow_metadata, arrow_value});
+    arrow_fields.push_back(
+        ::arrow::field("variant_unshredded", arrow_variant, /*nullable=*/true));
+  }
+
+  auto arrow_schema = ::arrow::schema(arrow_fields);
+
+  ASSERT_OK(ConvertSchema(parquet_fields));
+
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
+}
+
 TEST_F(TestConvertParquetSchema, UnsupportedThings) {
   std::vector<NodePtr> unsupported_nodes;
 
@@ -1292,6 +1328,40 @@ TEST_F(TestConvertArrowSchema, ParquetMaps) {
     auto arrow_value = ::arrow::field("other_string", UTF8, /*nullable=*/false);
     auto arrow_map = ::arrow::map(arrow_key->type(), arrow_value);
     arrow_fields.push_back(::arrow::field("my_map", arrow_map, /*nullable=*/false));
+  }
+
+  ASSERT_OK(ConvertSchema(arrow_fields));
+
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
+}
+
+TEST_F(TestConvertArrowSchema, ParquetVariant) {
+  std::vector<NodePtr> parquet_fields;
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+
+  // Unshredded variant
+  // optional group variant_col {
+  //  required binary metadata;
+  //  required binary value;
+  // }
+
+  // GH-45948: add shredded variants
+  {
+    auto metadata =
+        PrimitiveNode::Make("metadata", Repetition::REQUIRED, ParquetType::BYTE_ARRAY);
+    auto value =
+        PrimitiveNode::Make("value", Repetition::REQUIRED, ParquetType::BYTE_ARRAY);
+
+    auto variant =
+        GroupNode::Make("variant_unshredded", Repetition::OPTIONAL, {metadata, value});
+    parquet_fields.push_back(variant);
+
+    auto arrow_metadata =
+        ::arrow::field("metadata", ::arrow::binary(), /*nullable=*/false);
+    auto arrow_value = ::arrow::field("value", ::arrow::binary(), /*nullable=*/false);
+    auto arrow_variant = ::arrow::struct_({arrow_metadata, arrow_value});
+    arrow_fields.push_back(
+        ::arrow::field("variant_unshredded", arrow_variant, /*nullable=*/true));
   }
 
   ASSERT_OK(ConvertSchema(arrow_fields));
