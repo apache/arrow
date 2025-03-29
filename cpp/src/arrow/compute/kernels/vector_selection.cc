@@ -308,7 +308,8 @@ std::shared_ptr<VectorFunction> MakeIndicesNonZeroFunction(std::string name,
   AddKernels(NumericTypes());
   AddKernels({boolean()});
 
-  for (const auto& ty : {Type::DECIMAL128, Type::DECIMAL256}) {
+  for (const auto& ty :
+       {Type::DECIMAL32, Type::DECIMAL64, Type::DECIMAL128, Type::DECIMAL256}) {
     kernel.signature = KernelSignature::Make({ty}, uint64());
     DCHECK_OK(func->AddKernel(kernel));
   }

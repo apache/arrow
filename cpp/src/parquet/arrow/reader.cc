@@ -362,6 +362,10 @@ class FileReaderImpl : public FileReader {
     reader_properties_.set_batch_size(batch_size);
   }
 
+  void set_smallest_decimal_enabled(bool smallest_decimal_enabled) override {
+    reader_properties_.set_smallest_decimal_enabled(smallest_decimal_enabled);
+  }
+
   const ArrowReaderProperties& properties() const override { return reader_properties_; }
 
   const SchemaManifest& manifest() const override { return manifest_; }
@@ -1401,10 +1405,11 @@ Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool*
 }
 
 Result<std::unique_ptr<FileReader>> OpenFile(
-    std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool* pool) {
+    std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool* pool,
+    const ArrowReaderProperties& reader_properties) {
   FileReaderBuilder builder;
   RETURN_NOT_OK(builder.Open(std::move(file)));
-  return builder.memory_pool(pool)->Build();
+  return builder.memory_pool(pool)->properties(reader_properties)->Build();
 }
 
 namespace internal {
