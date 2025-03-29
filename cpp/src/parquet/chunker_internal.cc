@@ -85,7 +85,7 @@ static uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size,
   // the mask, forcing the distribution closer to the average size; norm_factor is 0 by
   // default
   if (norm_factor < -3 || norm_factor > 3) {
-    ARROW_LOG(WARNING) << "norm_factor=" << std::to_string(norm_factor)
+    ARROW_LOG(WARNING) << "norm_factor=" << norm_factor
                        << " is outside the recommended range [-3, 3]";
   }
 
@@ -120,7 +120,7 @@ class ContentDefinedChunker::Impl {
   uint64_t GetRollingHashMask() const { return rolling_hash_mask_; }
 
   void Roll(const bool value) {
-    if (chunk_size_++ < min_chunk_size_) {
+    if (++chunk_size_ < min_chunk_size_) {
       // short-circuit if we haven't reached the minimum chunk size, this speeds up the
       // chunking process since the gearhash doesn't need to be updated
       return;
