@@ -173,7 +173,7 @@ template <typename RVector>
 class RBuffer : public MutableBuffer {
  public:
   explicit RBuffer(RVector vec)
-      : MutableBuffer(reinterpret_cast<uint8_t*>(DATAPTR(vec)),
+      : MutableBuffer(reinterpret_cast<uint8_t*>(getDataPointer(vec)),
                       vec.size() * sizeof(typename RVector::value_type),
                       arrow::CPUDevice::memory_manager(gc_memory_pool())),
         vec_(vec) {}
@@ -181,6 +181,31 @@ class RBuffer : public MutableBuffer {
  private:
   // vec_ holds the memory
   RVector vec_;
+
+  static void* getDataPointer(RVector& vec) {
+    if (TYPEOF(vec) == LGLSXP) {
+      return LOGICAL(vec);
+    } else if (TYPEOF(vec) == INTSXP) {
+      return INTEGER(vec);
+    } else if (TYPEOF(vec) == REALSXP) {
+      return REAL(vec);
+    } else if (TYPEOF(vec) == CPLXSXP) {
+      return COMPLEX(vec);
+    } else if (TYPEOF(vec) == STRSXP) {
+      cpp11::writable::strings out(Rf_xlength(vec));
+      R_xlen_t len = Rf_xlength(vec);
+
+      for (R_xlen_t i = 0; i < len; i++) {
+        SEXP str_elt = reinterpret_cast<SEXP>(STRING_ELT(vec, i));
+        out[i] = str_elt;
+      }
+
+      return out;
+    } else {
+      // raw
+      return RAW(vec);
+    }
+  }
 };
 
 std::shared_ptr<arrow::DataType> InferArrowTypeFromFactor(SEXP);
