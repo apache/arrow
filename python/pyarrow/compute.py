@@ -745,7 +745,7 @@ def scalar(value):
 
     Notes
     -----
-    This function is different from ``pyarrow.scalar()``:
+    This function differs from ``pyarrow.scalar()`` in the following way:
 
     * ``pyarrow.scalar()`` creates a ``pyarrow.Scalar`` object that represents
       a single value in Arrow's memory model.
