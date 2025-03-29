@@ -33,7 +33,7 @@ namespace parquet {
 
 using schema::PrimitiveNode;
 
-namespace benchmark {
+namespace benchmarks {
 
 std::shared_ptr<Int64Writer> BuildWriter(int64_t output_size,
                                          const std::shared_ptr<ArrowOutputStream>& dst,
@@ -334,6 +334,5 @@ static void BM_RleDecoding(::benchmark::State& state) {
 
 BENCHMARK(BM_RleDecoding)->RangePair(1024, 65536, 1, 16);
 
-}  // namespace benchmark
-
+}  // namespace benchmarks
 }  // namespace parquet

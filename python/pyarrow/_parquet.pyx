@@ -991,8 +991,6 @@ cdef class FileMetaData(_Weakrefable):
         cdef ParquetVersion version = self._metadata.version()
         if version == ParquetVersion_V1:
             return '1.0'
-        elif version == ParquetVersion_V2_0:
-            return 'pseudo-2.0'
         elif version == ParquetVersion_V2_4:
             return '2.4'
         elif version == ParquetVersion_V2_6:
@@ -1888,12 +1886,6 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     if version is not None:
         if version == "1.0":
             props.version(ParquetVersion_V1)
-        elif version in ("2.0", "pseudo-2.0"):
-            warnings.warn(
-                "Parquet format '2.0' pseudo version is deprecated, use "
-                "'2.4' or '2.6' for fine-grained feature selection",
-                FutureWarning, stacklevel=2)
-            props.version(ParquetVersion_V2_0)
         elif version == "2.4":
             props.version(ParquetVersion_V2_4)
         elif version == "2.6":
@@ -2139,28 +2131,6 @@ cdef class ParquetWriter(_Weakrefable):
         unique_ptr[FileWriter] writer
         shared_ptr[COutputStream] sink
         bint own_sink
-
-    cdef readonly:
-        object use_dictionary
-        object use_deprecated_int96_timestamps
-        object use_byte_stream_split
-        object column_encoding
-        object coerce_timestamps
-        object allow_truncated_timestamps
-        object compression
-        object compression_level
-        object data_page_version
-        object use_compliant_nested_type
-        object version
-        object write_statistics
-        object writer_engine_version
-        int row_group_size
-        int64_t data_page_size
-        FileEncryptionProperties encryption_properties
-        int64_t write_batch_size
-        int64_t dictionary_pagesize_limit
-        object store_schema
-        object store_decimal_as_integer
 
     def __cinit__(self, where, Schema schema not None, use_dictionary=None,
                   compression=None, version=None,

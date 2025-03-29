@@ -68,6 +68,10 @@ class BinaryTask
       when :artifactory
         # Too many workers cause Artifactory error.
         6
+      when :maven_repository
+        # Too many workers break ASF policy:
+        # https://infra.apache.org/infra-ban.html
+        4
       when :gpg
         # Too many workers cause gpg-agent error.
         2
@@ -251,7 +255,7 @@ class BinaryTask
     end
   end
 
-  class ArtifactoryClient
+  class HTTPClient
     class Error < StandardError
       attr_reader :request
       attr_reader :response
@@ -262,16 +266,8 @@ class BinaryTask
       end
     end
 
-    def initialize(prefix, api_key)
-      @prefix = prefix
-      @api_key = api_key
+    def initialize
       @http = nil
-      restart
-    end
-
-    def restart
-      close
-      @http = start_http(build_url(""))
     end
 
     private def start_http(url, &block)
@@ -301,6 +297,7 @@ class BinaryTask
           return
         end
       end
+      @http ||= start_http(url)
       request_internal(@http, request, &block)
     end
 
@@ -334,45 +331,8 @@ class BinaryTask
       end
     end
 
-    def files
-      _files = []
-      directories = [""]
-      until directories.empty?
-        directory = directories.shift
-        list(directory).each do |path|
-          resolved_path = "#{directory}#{path}"
-          case path
-          when "../"
-          when /\/\z/
-            directories << resolved_path
-          else
-            _files << resolved_path
-          end
-        end
-      end
-      _files
-    end
-
-    def list(path)
-      url = build_url(path)
-      with_retry(3, url) do
-        begin
-          request(:get, {}, url) do |response|
-            response.body.scan(/<a href="(.+?)"/).flatten
-          end
-        rescue Error => error
-          case error.response
-          when Net::HTTPNotFound
-            return []
-          else
-            raise
-          end
-        end
-      end
-    end
-
     def head(path)
-      url = build_url(path)
+      url = build_read_url(path)
       with_retry(3, url) do
         request(:head, {}, url)
       end
@@ -392,27 +352,8 @@ class BinaryTask
       end
     end
 
-    def upload(path, destination_path)
-      destination_url = build_url(destination_path)
-      with_retry(3, destination_url) do
-        sha1 = Digest::SHA1.file(path).hexdigest
-        sha256 = Digest::SHA256.file(path).hexdigest
-        headers = {
-          "X-Artifactory-Last-Modified" => File.mtime(path).rfc2822,
-          "X-Checksum-Deploy" => "false",
-          "X-Checksum-Sha1" => sha1,
-          "X-Checksum-Sha256" => sha256,
-          "Content-Length" => File.size(path).to_s,
-          "Content-Type" => "application/octet-stream",
-        }
-        File.open(path, "rb") do |input|
-          request(:put, headers, destination_url, body: input)
-        end
-      end
-    end
-
     def download(path, output_path=nil)
-      url = build_url(path)
+      url = build_read_url(path)
       with_retry(5, url) do
         begin
           begin
@@ -457,42 +398,13 @@ class BinaryTask
     end
 
     def delete(path)
-      url = build_url(path)
+      url = build_write_url(path)
       with_retry(3, url) do
         request(:delete, {}, url)
       end
     end
 
-    def copy(source, destination)
-      url = build_api_url("copy/arrow/#{source}",
-                          "to" => "/arrow/#{destination}")
-      with_retry(3, url) do
-        with_read_timeout(300) do
-          request(:post, {}, url)
-        end
-      end
-    end
-
     private
-    def build_url(path)
-      uri_string = "https://apache.jfrog.io/artifactory/arrow"
-      uri_string << "/#{@prefix}" unless @prefix.nil?
-      uri_string << "/#{path}"
-      URI(uri_string)
-    end
-
-    def build_api_url(path, parameters)
-      uri_string = "https://apache.jfrog.io/artifactory/api/#{path}"
-      unless parameters.empty?
-        uri_string << "?"
-        escaped_parameters = parameters.collect do |key, value|
-          "#{CGI.escape(key)}=#{CGI.escape(value)}"
-        end
-        uri_string << escaped_parameters.join("&")
-      end
-      URI(uri_string)
-    end
-
     def build_request(method, url, headers, body: nil)
       need_auth = false
       case method
@@ -513,7 +425,7 @@ class BinaryTask
         raise "unsupported HTTP method: #{method.inspect}"
       end
       request["Connection"] = "Keep-Alive"
-      request["X-JFrog-Art-Api"] = @api_key if need_auth
+      setup_auth(request) if need_auth
       if body
         if body.is_a?(String)
           request.body = body
@@ -539,7 +451,7 @@ class BinaryTask
           $stderr.puts
           $stderr.puts("Retry #{n_retries}: #{target}: " +
                        "#{error.class}: #{error.message}")
-          restart
+          close
           retry
         else
           raise
@@ -558,10 +470,256 @@ class BinaryTask
     end
   end
 
-  class ArtifactoryClientPool
+  # See also the REST API document:
+  # https://support.sonatype.com/hc/en-us/articles/213465868-Uploading-to-a-Nexus-Repository-2-Staging-Repository-via-REST-API
+  class MavenRepositoryClient < HTTPClient
+    PRODUCTION_DEPLOYED_BASE_URL =
+      "https://repo1.maven.org/maven2/org/apache/arrow"
+    STAGING_BASE_URL = "https://repository.apache.org"
+    STAGING_DEPLOYED_BASE_URL =
+      "#{STAGING_BASE_URL}/content/repositories/staging/org/apache/arrow"
+    STAGING_API_BASE_URL = "#{STAGING_BASE_URL}/service/local/staging"
+
+    def initialize(prefix, repository_id, asf_user, asf_password)
+      @prefix = prefix
+      @repository_id = repository_id
+      @asf_user = asf_user
+      @asf_password = asf_password
+      super()
+    end
+
+    def create_staging_repository(description="")
+      # The profile ID of "org.apache.arrow".
+      # See also: https://issues.apache.org/jira/browse/INFRA-26626
+      profile_id = "2653a12a1cbe8b"
+      url_string = "#{STAGING_API_BASE_URL}/profiles/#{profile_id}/start"
+      url = URI(url_string)
+      headers = {"Content-Type" => "application/xml"}
+      response = request(:post, headers, url, body: <<-REQUEST)
+<promoteRequest>
+  <data>
+    <description>#{CGI.escape_html(description)}</description>
+  </data>
+</promoteRequest>
+      REQUEST
+      response.body[/<stagedRepositoryId>(.+?)<\/stagedRepositoryId>/, 1]
+    end
+
+    def close_staging_repository(description="")
+      # The profile ID of "org.apache.arrow".
+      # See also: https://issues.apache.org/jira/browse/INFRA-26626
+      profile_id = "2653a12a1cbe8b"
+      url_string = "#{STAGING_API_BASE_URL}/profiles/#{profile_id}/finish"
+      url = URI(url_string)
+      headers = {"Content-Type" => "application/xml"}
+      response = request(:post, headers, url, body: <<-REQUEST)
+<promoteRequest>
+  <data>
+    <stagedRepositoryId>#{CGI.escape_html(@repository_id)}</stagedRepositoryId>
+    <description>#{CGI.escape_html(description)}</description>
+  </data>
+</promoteRequest>
+      REQUEST
+      response.body
+    end
+
+    def files
+      _files = []
+      directories = [""]
+      until directories.empty?
+        directory = directories.shift
+        list(directory).each do |path|
+          resolved_path = "#{directory}#{path}"
+          case path
+          when "../"
+          when /\/\z/
+            directories << resolved_path
+          else
+            _files << resolved_path
+          end
+        end
+      end
+      _files
+    end
+
+    def list(path)
+      url = build_deployed_url(path)
+      with_retry(3, url) do
+        begin
+          request(:get, {}, url) do |response|
+            response.body.scan(/<a href="(.+?)"/).flatten.collect do |href|
+              href.delete_prefix(url.to_s)
+            end
+          end
+        rescue Error => error
+          case error.response
+          when Net::HTTPNotFound
+            return []
+          else
+            raise
+          end
+        end
+      end
+    end
+
+    def upload(path, destination_path)
+      destination_url = build_api_url(destination_path)
+      with_retry(3, destination_url) do
+        headers = {
+          "Content-Length" => File.size(path).to_s,
+          "Content-Type" => content_type(path),
+        }
+        File.open(path, "rb") do |input|
+          request(:put, headers, destination_url, body: input)
+        end
+      end
+    end
+
+    private
+    def build_read_url(path)
+      build_deployed_url(path)
+    end
+
+    def build_write_url(path)
+      build_api_url(path)
+    end
+
+    def build_api_url(path)
+      url_string = STAGING_API_BASE_URL +
+                   "/deployByRepositoryId/#{@repository_id}/org/apache/arrow" +
+                   "/#{@prefix}/#{path}"
+      URI(url_string)
+    end
+
+    def build_deployed_url(path)
+      url_string = "#{PRODUCTION_DEPLOYED_BASE_URL}/#{@prefix}/#{path}"
+      URI(url_string)
+    end
+
+    def setup_auth(request)
+      request.basic_auth(@asf_user, @asf_password)
+    end
+
+    def content_type(path)
+      case File.extname(path)
+      when ".rpm"
+        "application/x-redhat-package-manager"
+      else
+        "application/octet-stream"
+      end
+    end
+  end
+
+  class ArtifactoryClient < HTTPClient
+    def initialize(prefix, api_key)
+      @prefix = prefix
+      @api_key = api_key
+      super()
+    end
+
+    def files
+      _files = []
+      directories = [""]
+      until directories.empty?
+        directory = directories.shift
+        list(directory).each do |path|
+          resolved_path = "#{directory}#{path}"
+          case path
+          when "../"
+          when /\/\z/
+            directories << resolved_path
+          else
+            _files << resolved_path
+          end
+        end
+      end
+      _files
+    end
+
+    def list(path)
+      url = build_deployed_url(path)
+      with_retry(3, url) do
+        begin
+          request(:get, {}, url) do |response|
+            response.body.scan(/<a href="(.+?)"/).flatten
+          end
+        rescue Error => error
+          case error.response
+          when Net::HTTPNotFound
+            return []
+          else
+            raise
+          end
+        end
+      end
+    end
+
+    def upload(path, destination_path)
+      destination_url = build_deployed_url(destination_path)
+      with_retry(3, destination_url) do
+        sha1 = Digest::SHA1.file(path).hexdigest
+        sha256 = Digest::SHA256.file(path).hexdigest
+        headers = {
+          "X-Artifactory-Last-Modified" => File.mtime(path).rfc2822,
+          "X-Checksum-Deploy" => "false",
+          "X-Checksum-Sha1" => sha1,
+          "X-Checksum-Sha256" => sha256,
+          "Content-Length" => File.size(path).to_s,
+          "Content-Type" => "application/octet-stream",
+        }
+        File.open(path, "rb") do |input|
+          request(:put, headers, destination_url, body: input)
+        end
+      end
+    end
+
+    def copy(source, destination)
+      url = build_api_url("copy/arrow/#{source}",
+                          "to" => "/arrow/#{destination}")
+      with_retry(3, url) do
+        with_read_timeout(300) do
+          request(:post, {}, url)
+        end
+      end
+    end
+
+    private
+    def build_read_url(path)
+      build_deployed_url(path)
+    end
+
+    def build_write_url(path)
+      build_api_url(path, {})
+    end
+
+    def build_api_url(path, parameters)
+      uri_string = "https://apache.jfrog.io/artifactory/api/#{path}"
+      unless parameters.empty?
+        uri_string << "?"
+        escaped_parameters = parameters.collect do |key, value|
+          "#{CGI.escape(key)}=#{CGI.escape(value)}"
+        end
+        uri_string << escaped_parameters.join("&")
+      end
+      URI(uri_string)
+    end
+
+    def build_deployed_url(path)
+      uri_string = "https://apache.jfrog.io/artifactory/arrow"
+      uri_string << "/#{@prefix}" unless @prefix.nil?
+      uri_string << "/#{path}"
+      URI(uri_string)
+    end
+
+    def setup_auth(request)
+      request["X-JFrog-Art-Api"] = @api_key
+    end
+  end
+
+  class HTTPClientPool
     class << self
-      def open(prefix, api_key)
-        pool = new(prefix, api_key)
+      def open(*args)
+        pool = new(*args)
         begin
           yield(pool)
         ensure
@@ -570,9 +728,8 @@ class BinaryTask
       end
     end
 
-    def initialize(prefix, api_key)
-      @prefix = prefix
-      @api_key = api_key
+    def initialize(*args)
+      @args = args
       @mutex = Thread::Mutex.new
       @clients = []
     end
@@ -580,7 +737,7 @@ class BinaryTask
     def pull
       client = @mutex.synchronize do
         if @clients.empty?
-          ArtifactoryClient.new(@prefix, @api_key)
+          create_client
         else
           @clients.pop
         end
@@ -600,6 +757,125 @@ class BinaryTask
 
     def close
       @clients.each(&:close)
+    end
+  end
+
+  class MavenRepositoryClientPool < HTTPClientPool
+    private
+    def create_client
+      MavenRepositoryClient.new(*@args)
+    end
+  end
+
+  class ArtifactoryClientPool < HTTPClientPool
+    private
+    def create_client
+      ArtifactoryClient.new(*@args)
+    end
+  end
+
+  class Downloader
+    def download
+      progress_label = "Downloading: #{target_base_path}"
+      progress_reporter = ProgressReporter.new(progress_label)
+      prefix = [target_base_path, @prefix].compact.join("/")
+      open_client_pool(prefix) do |client_pool|
+        thread_pool = ThreadPool.new(thread_pool_use_case) do |path, output_path|
+          client_pool.pull do |client|
+            client.download(path, output_path)
+          end
+          progress_reporter.advance
+        end
+        files = client_pool.pull do |client|
+          client.files
+        end
+        if @target == :base and yum_repository?
+          # Download Yum repository metadata efficiently. We have many
+          # old unused repodata/*-.{sqlite,xml} files because we don't
+          # remove old unused repodata/*-.{sqlite,xml}. We want to
+          # download only used Yum repository metadata. We can find it
+          # by checking <location href="..."/> in repomd.xml.
+          dynamic_paths = []
+          files.each do |path|
+            next unless File.basename(path) == "repomd.xml"
+            output_path = "#{@destination}/#{path}"
+            yield(output_path)
+            output_dir = File.dirname(output_path)
+            FileUtils.mkdir_p(output_dir)
+            progress_reporter.increment_max
+            client_pool.pull do |client|
+              client.download(path, output_path)
+            end
+            progress_reporter.advance
+            base_dir = File.dirname(File.dirname(path))
+            File.read(output_path).scan(/<location\s+href="(.+?)"/) do |href,|
+              dynamic_paths << "#{base_dir}/#{href}"
+            end
+          end
+        else
+          dynamic_paths = nil
+        end
+        files.each do |path|
+          if @pattern
+            next unless @pattern.match?(path)
+          end
+          if dynamic_paths
+            next unless dynamic_paths.include?(path)
+          end
+          output_path = "#{@destination}/#{path}"
+          yield(output_path)
+          output_dir = File.dirname(output_path)
+          FileUtils.mkdir_p(output_dir)
+          progress_reporter.increment_max
+          thread_pool << [path, output_path]
+        end
+        thread_pool.join
+      end
+      progress_reporter.finish
+    end
+
+    private
+    def yum_repository?
+      case @distribution
+      when "almalinux", "amazon-linux", "centos"
+        true
+      else
+        false
+      end
+    end
+  end
+
+  class MavenRepositoryDownloader < Downloader
+    def initialize(asf_user:,
+                   asf_password:,
+                   destination:,
+                   distribution:,
+                   pattern: nil,
+                   prefix: nil,
+                   target: nil,
+                   rc: nil)
+      @asf_user = asf_user
+      @asf_password = asf_password
+      @destination = destination
+      @distribution = distribution
+      @pattern = pattern
+      @prefix = prefix
+      @target = target
+      @rc = rc
+    end
+
+    private
+    def target_base_path
+      @distribution
+    end
+
+    def open_client_pool(prefix, &block)
+      args = [prefix, nil, @asf_user, @asf_password]
+      MavenRepositoryClientPool.open(*args, &block)
+    end
+
+    def thread_pool_use_case
+      :maven_repository
     end
   end
 
@@ -628,7 +904,7 @@ class BinaryTask
     end
   end
 
-  class ArtifactoryDownloader
+  class ArtifactoryDownloader < Downloader
     include ArtifactoryPath
 
     def initialize(api_key:,
@@ -636,6 +912,7 @@ class BinaryTask
                    distribution:,
                    pattern: nil,
                    prefix: nil,
+                   target: nil,
                    rc: nil,
                    staging: false)
       @api_key = api_key
@@ -643,42 +920,127 @@ class BinaryTask
       @distribution = distribution
       @pattern = pattern
       @prefix = prefix
-      @rc = rc
+      @target = target
+      if @target == :rc
+        @rc = rc
+      else
+        @rc = nil
+      end
       @staging = staging
     end
 
-    def download
-      progress_label = "Downloading: #{target_base_path}"
+    private
+    def open_client_pool(prefix, &block)
+      args = [prefix, @api_key]
+      ArtifactoryClientPool.open(*args, &block)
+    end
+
+    def thread_pool_use_case
+      :artifactory
+    end
+  end
+
+  class Uploader
+    def upload
+      progress_label = "Uploading: #{target_base_path}"
       progress_reporter = ProgressReporter.new(progress_label)
-      prefix = [target_base_path, @prefix].compact.join("/")
-      ArtifactoryClientPool.open(prefix, @api_key) do |client_pool|
-        thread_pool = ThreadPool.new(:artifactory) do |path, output_path|
+      prefix = target_base_path
+      prefix += "/#{@destination_prefix}" if @destination_prefix
+      open_client_pool(prefix) do |client_pool|
+        if @sync
+          existing_files = client_pool.pull do |client|
+            client.files
+          end
+        else
+          existing_files = []
+        end
+
+        thread_pool = ThreadPool.new(thread_pool_use_case) do |path, relative_path|
           client_pool.pull do |client|
-            client.download(path, output_path)
+            client.upload(path, relative_path)
           end
           progress_reporter.advance
         end
-        files = client_pool.pull do |client|
-          client.files
-        end
-        files.each do |path|
-          output_path = "#{@destination}/#{path}"
-          if @pattern
-            next unless @pattern.match?(path)
-          end
-          yield(output_path)
-          output_dir = File.dirname(output_path)
-          FileUtils.mkdir_p(output_dir)
+
+        source = Pathname(@source)
+        source.glob("**/*") do |path|
+          next if path.directory?
+          destination_path = path.relative_path_from(source)
           progress_reporter.increment_max
-          thread_pool << [path, output_path]
+          existing_files.delete(destination_path.to_s)
+          thread_pool << [path, destination_path]
         end
         thread_pool.join
+
+        if @sync
+          thread_pool = ThreadPool.new(thread_pool_use_case) do |path|
+            client_pool.pull do |client|
+              client.delete(path)
+            end
+            progress_reporter.advance
+          end
+          existing_files.each do |path|
+            if @sync_pattern
+              next unless @sync_pattern.match?(path)
+            end
+            progress_reporter.increment_max
+            thread_pool << path
+          end
+          thread_pool.join
+        end
       end
       progress_reporter.finish
     end
   end
 
-  class ArtifactoryUploader
+  class MavenRepositoryUploader < Uploader
+    def initialize(asf_user:,
+                   asf_password:,
+                   destination_prefix: nil,
+                   distribution:,
+                   rc: nil,
+                   source:,
+                   staging: false,
+                   sync: false,
+                   sync_pattern: nil)
+      @asf_user = asf_user
+      @asf_password = asf_password
+      @destination_prefix = destination_prefix
+      @distribution = distribution
+      @rc = rc
+      @source = source
+      @staging = staging
+      @sync = sync
+      @sync_pattern = sync_pattern
+    end
+
+    def upload
+      client = MavenRepositoryClient.new(nil, nil, @asf_user, @asf_password)
+      @repository_id = client.create_staging_repository
+      super
+      client = MavenRepositoryClient.new(nil,
+                                         @repository_id,
+                                         @asf_user,
+                                         @asf_password)
+      client.close_staging_repository
+    end
+
+    private
+    def target_base_path
+      @distribution
+    end
+
+    def open_client_pool(prefix, &block)
+      args = [prefix, @repository_id, @asf_user, @asf_password]
+      MavenRepositoryClientPool.open(*args, &block)
+    end
+
+    def thread_pool_use_case
+      :maven_repository
+    end
+  end
+
+  class ArtifactoryUploader < Uploader
     include ArtifactoryPath
 
     def initialize(api_key:,
@@ -699,55 +1061,14 @@ class BinaryTask
       @sync_pattern = sync_pattern
     end
 
-    def upload
-      progress_label = "Uploading: #{target_base_path}"
-      progress_reporter = ProgressReporter.new(progress_label)
-      prefix = target_base_path
-      prefix += "/#{@destination_prefix}" if @destination_prefix
-      ArtifactoryClientPool.open(prefix, @api_key) do |client_pool|
-        if @sync
-          existing_files = client_pool.pull do |client|
-            client.files
-          end
-        else
-          existing_files = []
-        end
+    private
+    def open_client_pool(prefix, &block)
+      args = [prefix, @api_key]
+      ArtifactoryClientPool.open(*args, &block)
+    end
 
-        thread_pool = ThreadPool.new(:artifactory) do |path, relative_path|
-          client_pool.pull do |client|
-            client.upload(path, relative_path)
-          end
-          progress_reporter.advance
-        end
-
-        source = Pathname(@source)
-        source.glob("**/*") do |path|
-          next if path.directory?
-          destination_path = path.relative_path_from(source)
-          progress_reporter.increment_max
-          existing_files.delete(destination_path.to_s)
-          thread_pool << [path, destination_path]
-        end
-        thread_pool.join
-
-        if @sync
-          thread_pool = ThreadPool.new(:artifactory) do |path|
-            client_pool.pull do |client|
-              client.delete(path)
-            end
-            progress_reporter.advance
-          end
-          existing_files.each do |path|
-            if @sync_pattern
-              next unless @sync_pattern.match?(path)
-            end
-            progress_reporter.increment_max
-            thread_pool << path
-          end
-          thread_pool.join
-        end
-      end
-      progress_reporter.finish
+    def thread_pool_use_case
+      :artifactory
     end
   end
 
@@ -844,6 +1165,14 @@ class BinaryTask
     env_value("ARTIFACTORY_API_KEY")
   end
 
+  def asf_user
+    env_value("ASF_USER")
+  end
+
+  def asf_password
+    env_value("ASF_PASSWORD")
+  end
+
   def artifacts_dir
     env_value("ARTIFACTS_DIR")
   end
@@ -935,7 +1264,8 @@ class BinaryTask
     progress_reporter.finish
   end
 
-  def download_distribution(distribution,
+  def download_distribution(type,
+                            distribution,
                             destination,
                             target,
                             pattern: nil,
@@ -947,15 +1277,22 @@ class BinaryTask
       existing_paths[path.to_s] = true
     end
     options = {
-      api_key: artifactory_api_key,
       destination: destination,
       distribution: distribution,
       pattern: pattern,
       prefix: prefix,
-      staging: staging?,
+      target: target,
     }
     options[:rc] = rc if target == :rc
-    downloader = ArtifactoryDownloader.new(**options)
+    if type == :artifactory
+      options[:api_key] = artifactory_api_key
+      options[:staging] = staging?
+      downloader = ArtifactoryDownloader.new(**options)
+    else
+      options[:asf_user] = asf_user
+      options[:asf_password] = asf_password
+      downloader = MavenRepositoryDownloader.new(**options)
+    end
     downloader.download do |output_path|
       existing_paths.delete(output_path)
     end
@@ -1288,6 +1625,139 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         merged_dir = "#{apt_rc_repositories_dir}/merged"
         upload_dir = "#{apt_rc_repositories_dir}/upload"
 
+        namespace :artifactory do
+          desc "Copy .deb packages"
+          task :copy do
+            apt_targets.each do |distribution, code_name, component|
+              progress_label = "Copying: #{distribution} #{code_name}"
+              progress_reporter = ProgressReporter.new(progress_label)
+
+              distribution_dir = "#{incoming_dir}/#{distribution}"
+              pool_dir = "#{distribution_dir}/pool/#{code_name}"
+              rm_rf(pool_dir, verbose: verbose?)
+              mkdir_p(pool_dir, verbose: verbose?)
+              source_dir_prefix = "#{artifacts_dir}/#{distribution}-#{code_name}"
+              Dir.glob("#{source_dir_prefix}-*/apache-arrow-apt-source*") do |path|
+                base_name = File.basename(path)
+                package_name = "apache-arrow-apt-source"
+                destination_path = [
+                  pool_dir,
+                  component,
+                  package_name[0],
+                  package_name,
+                  base_name,
+                ].join("/")
+                copy_artifact(path,
+                              destination_path,
+                              progress_reporter)
+                if base_name.end_with?(".deb")
+                  latest_apt_source_package_path = [
+                    distribution_dir,
+                    "#{package_name}-latest-#{code_name}.deb"
+                  ].join("/")
+                  copy_artifact(path,
+                                latest_apt_source_package_path,
+                                progress_reporter)
+                end
+              end
+              progress_reporter.finish
+            end
+          end
+
+          desc "Download dists/ for RC APT repositories"
+          task :download do
+            apt_distributions.each do |distribution|
+              not_checksum_pattern = /.+(?<!\.asc|\.sha512)\z/
+              base_distribution_dir = "#{base_dir}/#{distribution}"
+              pattern = not_checksum_pattern
+              download_distribution(:artifactory,
+                                    distribution,
+                                    base_distribution_dir,
+                                    :base,
+                                    pattern: pattern,
+                                    prefix: "dists")
+            end
+          end
+
+          desc "Sign .deb packages"
+          task :sign do
+            apt_distributions.each do |distribution|
+              distribution_dir = "#{incoming_dir}/#{distribution}"
+              Dir.glob("#{distribution_dir}/**/*.dsc") do |path|
+                begin
+                  sh({"LANG" => "C"},
+                     "gpg",
+                     "--verify",
+                     path,
+                     out: IO::NULL,
+                     err: IO::NULL,
+                     verbose: false)
+                rescue
+                  sh("debsign",
+                     "--no-re-sign",
+                     "-k#{gpg_key_id}",
+                     path,
+                     out: default_output,
+                     verbose: verbose?)
+                end
+              end
+              sign_dir(distribution, distribution_dir)
+            end
+          end
+
+          desc "Update RC APT repositories"
+          task :update do
+            apt_update(base_dir, incoming_dir, merged_dir)
+            apt_targets.each do |distribution, code_name, component|
+              dists_dir = "#{merged_dir}/#{distribution}/dists/#{code_name}"
+              next unless File.exist?(dists_dir)
+              sign_dir("#{distribution} #{code_name}",
+                       dists_dir)
+            end
+          end
+
+          desc "Upload .deb packages and RC APT repositories"
+          task :upload do
+            apt_distributions.each do |distribution|
+              upload_distribution_dir = "#{upload_dir}/#{distribution}"
+              incoming_distribution_dir = "#{incoming_dir}/#{distribution}"
+              merged_dists_dir = "#{merged_dir}/#{distribution}/dists"
+
+              rm_rf(upload_distribution_dir, verbose: verbose?)
+              mkdir_p(upload_distribution_dir, verbose: verbose?)
+              Dir.glob("#{incoming_distribution_dir}/*") do |path|
+                next if File.basename(path) == "dists"
+                cp_r(path,
+                     upload_distribution_dir,
+                     preserve: true,
+                     verbose: verbose?)
+              end
+              cp_r(merged_dists_dir,
+                   upload_distribution_dir,
+                   preserve: true,
+                   verbose: verbose?)
+              write_uploaded_files(upload_distribution_dir)
+              uploader = ArtifactoryUploader.new(api_key: artifactory_api_key,
+                                                 distribution: distribution,
+                                                 rc: rc,
+                                                 source: upload_distribution_dir,
+                                                 staging: staging?)
+              uploader.upload
+            end
+          end
+        end
+
+        desc "Release RC APT repositories to Artifactory"
+        apt_rc_artifactory_tasks = [
+          "apt:rc:artifactory:copy",
+          "apt:rc:artifactory:download",
+          "apt:rc:artifactory:sign",
+          "apt:rc:artifactory:update",
+          "apt:rc:artifactory:upload",
+        ]
+        apt_rc_artifactory_tasks.unshift("apt:staging:prepare") if staging?
+        task :artifactory => apt_rc_artifactory_tasks
+
         desc "Copy .deb packages"
         task :copy do
           apt_targets.each do |distribution, code_name, component|
@@ -1340,11 +1810,13 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
           apt_distributions.each do |distribution|
             not_checksum_pattern = /.+(?<!\.asc|\.sha512)\z/
             base_distribution_dir = "#{base_dir}/#{distribution}"
-            pattern = /\Adists\/#{not_checksum_pattern}/
-            download_distribution(distribution,
+            pattern = not_checksum_pattern
+            download_distribution(:maven_repository,
+                                  distribution,
                                   base_distribution_dir,
                                   :base,
-                                  pattern: pattern)
+                                  pattern: pattern,
+                                  prefix: "dists")
           end
         end
 
@@ -1406,11 +1878,13 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                  preserve: true,
                  verbose: verbose?)
             write_uploaded_files(upload_distribution_dir)
-            uploader = ArtifactoryUploader.new(api_key: artifactory_api_key,
-                                               distribution: distribution,
-                                               rc: rc,
-                                               source: upload_distribution_dir,
-                                               staging: staging?)
+            uploader =
+              MavenRepositoryUploader.new(asf_user: asf_user,
+                                          asf_password: asf_password,
+                                          distribution: distribution,
+                                          rc: rc,
+                                          source: upload_distribution_dir,
+                                          staging: staging?)
             uploader.upload
           end
         end
@@ -1424,7 +1898,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         "apt:rc:update",
         "apt:rc:upload",
       ]
-      apt_rc_tasks.unshift("apt:staging:prepare") if staging?
       task :rc => apt_rc_tasks
     end
   end
@@ -1433,10 +1906,13 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     directory apt_release_repositories_dir
 
     namespace :apt do
-      task :release do
-        apt_distributions.each do |distribution|
-          release_distribution(distribution,
-                               list: uploaded_files_name)
+      namespace :artifactory do
+        desc "Release APT repository on Artifactory"
+        task :release do
+          apt_distributions.each do |distribution|
+            release_distribution(distribution,
+                                 list: uploaded_files_name)
+          end
         end
       end
     end
@@ -1598,18 +2074,20 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
   def define_yum_staging_tasks
     namespace :yum do
-      namespace :staging do
-        desc "Prepare staging environment for Yum repositories"
-        task :prepare do
-          yum_distributions.each do |distribution|
-            prepare_staging(distribution)
+      namespace :artifactory do
+        namespace :staging do
+          desc "Prepare staging environment for Yum repositories on Artifactory"
+          task :prepare do
+            yum_distributions.each do |distribution|
+              prepare_staging(distribution)
+            end
           end
-        end
 
-        desc "Delete staging environment for Yum repositories"
-        task :delete do
-          yum_distributions.each do |distribution|
-            delete_staging(distribution)
+          desc "Delete staging environment for Yum repositories on Artifactory"
+          task :delete do
+            yum_distributions.each do |distribution|
+              delete_staging(distribution)
+            end
           end
         end
       end
@@ -1622,6 +2100,156 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         base_dir = "#{yum_rc_repositories_dir}/base"
         incoming_dir = "#{yum_rc_repositories_dir}/incoming"
         upload_dir = "#{yum_rc_repositories_dir}/upload"
+
+        namespace :artifactory do
+          desc "Copy RPM packages"
+          task :copy do
+            yum_targets.each do |distribution, distribution_version|
+              progress_label = "Copying: #{distribution} #{distribution_version}"
+              progress_reporter = ProgressReporter.new(progress_label)
+
+              destination_prefix = [
+                incoming_dir,
+                distribution,
+                distribution_version,
+              ].join("/")
+              rm_rf(destination_prefix, verbose: verbose?)
+              source_dir_prefix =
+                "#{artifacts_dir}/#{distribution}-#{distribution_version}"
+              Dir.glob("#{source_dir_prefix}*/apache-arrow-release-*") do |path|
+                base_name = File.basename(path)
+                type = base_name.split(".")[-2]
+                destination_paths = []
+                case type
+                when "src"
+                  destination_paths << [
+                    destination_prefix,
+                    "Source",
+                    "SPackages",
+                    base_name,
+                  ].join("/")
+                when "noarch"
+                  yum_architectures.each do |architecture|
+                    destination_paths << [
+                      destination_prefix,
+                      architecture,
+                      "Packages",
+                      base_name,
+                    ].join("/")
+                  end
+                else
+                  destination_paths << [
+                    destination_prefix,
+                    type,
+                    "Packages",
+                    base_name,
+                  ].join("/")
+                end
+                destination_paths.each do |destination_path|
+                  copy_artifact(path,
+                                destination_path,
+                                progress_reporter)
+                end
+                case base_name
+                when /\A(apache-arrow-release)-.*\.noarch\.rpm\z/
+                  package_name = $1
+                  latest_release_package_path = [
+                    destination_prefix,
+                    "#{package_name}-latest.rpm"
+                  ].join("/")
+                  copy_artifact(path,
+                                latest_release_package_path,
+                                progress_reporter)
+                end
+              end
+
+              progress_reporter.finish
+            end
+          end
+
+          desc "Download repodata for RC Yum repositories"
+          task :download do
+            yum_distributions.each do |distribution|
+              distribution_dir = "#{base_dir}/#{distribution}"
+              download_distribution(:artifactory,
+                                    distribution,
+                                    distribution_dir,
+                                    :base,
+                                    pattern: /\/repodata\//)
+            end
+          end
+
+          desc "Sign RPM packages"
+          task :sign do
+            rpm_sign(incoming_dir)
+            yum_targets.each do |distribution, distribution_version|
+              source_dir = [
+                incoming_dir,
+                distribution,
+                distribution_version,
+              ].join("/")
+              sign_dir("#{distribution}-#{distribution_version}",
+                       source_dir)
+            end
+          end
+
+          desc "Update RC Yum repositories"
+          task :update do
+            yum_update(base_dir, incoming_dir)
+            yum_targets.each do |distribution, distribution_version|
+              target_dir = [
+                incoming_dir,
+                distribution,
+                distribution_version,
+              ].join("/")
+              target_dir = Pathname(target_dir)
+              next unless target_dir.directory?
+              target_dir.glob("*") do |arch_dir|
+                next unless arch_dir.directory?
+                sign_label =
+                  "#{distribution}-#{distribution_version} #{arch_dir.basename}"
+                sign_dir(sign_label,
+                         arch_dir.to_s)
+              end
+            end
+          end
+
+          desc "Upload RC Yum repositories on Artifactory"
+          task :upload => yum_rc_repositories_dir do
+            yum_distributions.each do |distribution|
+              incoming_target_dir = "#{incoming_dir}/#{distribution}"
+              upload_target_dir = "#{upload_dir}/#{distribution}"
+
+              rm_rf(upload_target_dir, verbose: verbose?)
+              mkdir_p(upload_target_dir, verbose: verbose?)
+              cp_r(Dir.glob("#{incoming_target_dir}/*"),
+                   upload_target_dir.to_s,
+                   preserve: true,
+                   verbose: verbose?)
+              write_uploaded_files(upload_target_dir)
+
+              uploader = ArtifactoryUploader.new(api_key: artifactory_api_key,
+                                                 distribution: distribution,
+                                                 rc: rc,
+                                                 source: upload_target_dir,
+                                                 staging: staging?,
+                                                 sync: true,
+                                                 sync_pattern: /\/repodata\//)
+              uploader.upload
+            end
+          end
+        end
+
+        desc "Release RC Yum packages on Artifactory"
+        yum_rc_artifactory_tasks = [
+          "yum:rc:artifactory:copy",
+          "yum:rc:artifactory:download",
+          "yum:rc:artifactory:sign",
+          "yum:rc:artifactory:update",
+          "yum:rc:artifactory:upload",
+        ]
+        yum_rc_artifactory_tasks.unshift("yum:staging:prepare") if staging?
+        task :artifactory => yum_rc_artifactory_tasks
 
         desc "Copy RPM packages"
         task :copy do
@@ -1693,7 +2321,8 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         task :download do
           yum_distributions.each do |distribution|
             distribution_dir = "#{base_dir}/#{distribution}"
-            download_distribution(distribution,
+            download_distribution(:maven_repository,
+                                  distribution,
                                   distribution_dir,
                                   :base,
                                   pattern: /\/repodata\//)
@@ -1749,13 +2378,13 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                  verbose: verbose?)
             write_uploaded_files(upload_target_dir)
 
-            uploader = ArtifactoryUploader.new(api_key: artifactory_api_key,
-                                               distribution: distribution,
-                                               rc: rc,
-                                               source: upload_target_dir,
-                                               staging: staging?,
-                                               sync: true,
-                                               sync_pattern: /\/repodata\//)
+            uploader = MavenRepositoryUploader.new(asf_user: asf_user,
+                                                   asf_password: asf_password,
+                                                   distribution: distribution,
+                                                   rc: rc,
+                                                   source: upload_target_dir,
+                                                   sync: true,
+                                                   sync_pattern: /\/repodata\//)
             uploader.upload
           end
         end
@@ -1769,7 +2398,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         "yum:rc:update",
         "yum:rc:upload",
       ]
-      yum_rc_tasks.unshift("yum:staging:prepare") if staging?
       task :rc => yum_rc_tasks
     end
   end
@@ -1778,31 +2406,33 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     directory yum_release_repositories_dir
 
     namespace :yum do
-      desc "Release Yum packages"
-      task :release => yum_release_repositories_dir do
-        yum_distributions.each do |distribution|
-          release_distribution(distribution,
-                               list: uploaded_files_name)
+      namespace :artifactory do
+        desc "Release Yum packages on Artifactory"
+        task :release => yum_release_repositories_dir do
+          yum_distributions.each do |distribution|
+            release_distribution(distribution,
+                                 list: uploaded_files_name)
 
-          distribution_dir = "#{yum_release_repositories_dir}/#{distribution}"
-          download_distribution(distribution,
-                                distribution_dir,
-                                :rc,
-                                pattern: /\/repodata\//)
-          uploader = ArtifactoryUploader.new(api_key: artifactory_api_key,
-                                             distribution: distribution,
-                                             source: distribution_dir,
-                                             staging: staging?,
-                                             # Don't remove old repodata for
-                                             # unsupported distribution version
-                                             # such as Amazon Linux 2.
-                                             # This keeps garbage in repodata/
-                                             # for currently available
-                                             # distribution versions but we
-                                             # accept it for easy to implement.
-                                             sync: false,
-                                             sync_pattern: /\/repodata\//)
-          uploader.upload
+            distribution_dir = "#{yum_release_repositories_dir}/#{distribution}"
+            download_distribution(distribution,
+                                  distribution_dir,
+                                  :rc,
+                                  pattern: /\/repodata\//)
+            uploader = ArtifactoryUploader.new(api_key: artifactory_api_key,
+                                               distribution: distribution,
+                                               source: distribution_dir,
+                                               staging: staging?,
+                                               # Don't remove old repodata for
+                                               # unsupported distribution version
+                                               # such as Amazon Linux 2.
+                                               # This keeps garbage in repodata/
+                                               # for currently available
+                                               # distribution versions but we
+                                               # accept it for easy to implement.
+                                               sync: false,
+                                               sync_pattern: /\/repodata\//)
+            uploader.upload
+          end
         end
       end
     end
@@ -1974,13 +2604,16 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         suffix << "-staging" if staging?
         puts(<<-SUMMARY)
 Success! The release candidate binaries are available here:
+  https://repository.apache.org/content/repositories/staging/org/apache/arrow/almalinux/
+  https://repository.apache.org/content/repositories/staging/org/apache/arrow/amazon-linux/
+  https://repository.apache.org/content/repositories/staging/org/apache/arrow/centos/
+  https://repository.apache.org/content/repositories/staging/org/apache/arrow/debian/
+  https://repository.apache.org/content/repositories/staging/org/apache/arrow/ubuntu/
+
   https://apache.jfrog.io/artifactory/arrow/almalinux#{suffix}-rc/
   https://apache.jfrog.io/artifactory/arrow/amazon-linux#{suffix}-rc/
   https://apache.jfrog.io/artifactory/arrow/centos#{suffix}-rc/
   https://apache.jfrog.io/artifactory/arrow/debian#{suffix}-rc/
-  https://apache.jfrog.io/artifactory/arrow/docs#{suffix}-rc/
-  https://apache.jfrog.io/artifactory/arrow/python#{suffix}-rc/#{full_version}
-  https://apache.jfrog.io/artifactory/arrow/r#{suffix}-rc/#{full_version}
   https://apache.jfrog.io/artifactory/arrow/ubuntu#{suffix}-rc/
         SUMMARY
       end
@@ -1990,14 +2623,20 @@ Success! The release candidate binaries are available here:
         suffix = ""
         suffix << "-staging" if staging?
         puts(<<-SUMMARY)
+Click the "release" button manually at
+https://repository.apache.org/#stagingRepositories .
+
 Success! The release binaries are available here:
+  https://repo1.maven.org/maven2/org/apache/arrow/almalinux/
+  https://repo1.maven.org/maven2/org/apache/arrow/amazon-linux/
+  https://repo1.maven.org/maven2/org/apache/arrow/centos/
+  https://repo1.maven.org/maven2/org/apache/arrow/debian/
+  https://repo1.maven.org/maven2/org/apache/arrow/ubuntu/
+
   https://apache.jfrog.io/artifactory/arrow/almalinux#{suffix}/
   https://apache.jfrog.io/artifactory/arrow/amazon-linux#{suffix}/
   https://apache.jfrog.io/artifactory/arrow/centos#{suffix}/
   https://apache.jfrog.io/artifactory/arrow/debian#{suffix}/
-  https://apache.jfrog.io/artifactory/arrow/docs#{suffix}/
-  https://apache.jfrog.io/artifactory/arrow/python#{suffix}/#{version}
-  https://apache.jfrog.io/artifactory/arrow/r#{suffix}/#{version}
   https://apache.jfrog.io/artifactory/arrow/ubuntu#{suffix}/
         SUMMARY
       end

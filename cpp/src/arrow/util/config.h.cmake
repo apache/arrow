@@ -63,7 +63,6 @@
 #cmakedefine ARROW_WITH_OPENTELEMETRY
 #cmakedefine ARROW_WITH_RE2
 #cmakedefine ARROW_WITH_SNAPPY
-#cmakedefine ARROW_WITH_UCX
 #cmakedefine ARROW_WITH_UTF8PROC
 #cmakedefine ARROW_WITH_ZLIB
 #cmakedefine ARROW_WITH_ZSTD

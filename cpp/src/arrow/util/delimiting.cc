@@ -160,10 +160,10 @@ Status Chunker::ProcessFinal(std::shared_ptr<Buffer> partial,
   if (first_pos == BoundaryFinder::kNoDelimiterFound) {
     // No delimiter in block => it's entirely a completion of partial
     *completion = block;
-    *rest = SliceBuffer(block, 0, 0);
+    *rest = SliceBuffer(std::move(block), 0, 0);
   } else {
     *completion = SliceBuffer(block, 0, first_pos);
-    *rest = SliceBuffer(block, first_pos);
+    *rest = SliceBuffer(std::move(block), first_pos);
   }
   return Status::OK();
 }
@@ -182,9 +182,9 @@ Status Chunker::ProcessSkip(std::shared_ptr<Buffer> partial,
   if (ARROW_PREDICT_FALSE(final && *count > num_found && block->size() != pos)) {
     // Skip the last row in the final block which does not have a delimiter
     ++num_found;
-    *rest = SliceBuffer(block, 0, 0);
+    *rest = SliceBuffer(std::move(block), 0, 0);
   } else {
-    *rest = SliceBuffer(block, pos);
+    *rest = SliceBuffer(std::move(block), pos);
   }
   *count -= num_found;
   return Status::OK();
