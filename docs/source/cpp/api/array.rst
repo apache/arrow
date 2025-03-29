@@ -110,3 +110,10 @@ Utilities
    :project: arrow_cpp
    :members:
    :undoc-members:
+
+Statistics options
+==================
+
+.. doxygenstruct:: arrow::StatisticsArrayTOptions
+   :project: arrow_cpp
+   :members:
