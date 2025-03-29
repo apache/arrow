@@ -259,12 +259,11 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     }
 
     // The column is encrypted
-    std::shared_ptr<Decryptor> meta_decryptor = GetColumnMetaDecryptor(
-        crypto_metadata.get(), file_metadata_->file_decryptor().get());
-    std::shared_ptr<Decryptor> data_decryptor = GetColumnDataDecryptor(
-        crypto_metadata.get(), file_metadata_->file_decryptor().get());
-    ARROW_DCHECK_NE(meta_decryptor, nullptr);
-    ARROW_DCHECK_NE(data_decryptor, nullptr);
+    auto* file_decryptor = file_metadata_->file_decryptor().get();
+    auto meta_decryptor_factory = InternalFileDecryptor::GetColumnMetaDecryptorFactory(
+        file_decryptor, crypto_metadata.get());
+    auto data_decryptor_factory = InternalFileDecryptor::GetColumnDataDecryptorFactory(
+        file_decryptor, crypto_metadata.get());
 
     constexpr auto kEncryptedOrdinalLimit = 32767;
     if (ARROW_PREDICT_FALSE(row_group_ordinal_ > kEncryptedOrdinalLimit)) {
@@ -274,9 +273,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       throw ParquetException("Encrypted files cannot contain more than 32767 columns");
     }
 
-    CryptoContext ctx(col->has_dictionary_page(),
+    CryptoContext ctx{col->has_dictionary_page(),
                       static_cast<int16_t>(row_group_ordinal_), static_cast<int16_t>(i),
-                      meta_decryptor, data_decryptor);
+                      std::move(meta_decryptor_factory),
+                      std::move(data_decryptor_factory)};
     return PageReader::Open(stream, col->num_values(), col->compression(), properties_,
                             always_compressed, &ctx);
   }
@@ -314,11 +314,7 @@ class SerializedFile : public ParquetFileReader::Contents {
     }
   }
 
-  void Close() override {
-    if (file_metadata_ && file_metadata_->file_decryptor()) {
-      file_metadata_->file_decryptor()->WipeOutDecryptionKeys();
-    }
-  }
+  void Close() override {}
 
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
     std::shared_ptr<Buffer> prebuffered_column_chunks_bitmap;
@@ -474,7 +470,7 @@ class SerializedFile : public ParquetFileReader::Contents {
 
     const uint32_t read_metadata_len = ParseUnencryptedFileMetadata(
         metadata_buffer, metadata_len, std::move(file_decryptor));
-    auto file_decryption_properties = properties_.file_decryption_properties().get();
+    auto file_decryption_properties = properties_.file_decryption_properties();
     if (is_encrypted_footer) {
       // Nothing else to do here.
       return;
@@ -583,7 +579,8 @@ class SerializedFile : public ParquetFileReader::Contents {
       int64_t metadata_start = read_size.first;
       metadata_len = read_size.second;
       return source_->ReadAsync(metadata_start, metadata_len)
-          .Then([this, metadata_len, is_encrypted_footer, file_decryptor](
+          .Then([this, metadata_len, is_encrypted_footer,
+                 file_decryptor = std::move(file_decryptor)](
                     const std::shared_ptr<::arrow::Buffer>& metadata_buffer) {
             // Continue and read the file footer
             return ParseMetaDataFinal(metadata_buffer, metadata_len, is_encrypted_footer,
@@ -602,7 +599,7 @@ class SerializedFile : public ParquetFileReader::Contents {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
     const uint32_t read_metadata_len = ParseUnencryptedFileMetadata(
         metadata_buffer, metadata_len, std::move(file_decryptor));
-    auto file_decryption_properties = properties_.file_decryption_properties().get();
+    auto file_decryption_properties = properties_.file_decryption_properties();
     if (is_encrypted_footer) {
       // Nothing else to do here.
       return ::arrow::Status::OK();
@@ -638,11 +635,12 @@ class SerializedFile : public ParquetFileReader::Contents {
       const std::shared_ptr<Buffer>& footer_buffer, const uint32_t metadata_len,
       std::shared_ptr<InternalFileDecryptor> file_decryptor);
 
-  std::string HandleAadPrefix(FileDecryptionProperties* file_decryption_properties,
-                              EncryptionAlgorithm& algo);
+  std::string HandleAadPrefix(
+      const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties,
+      EncryptionAlgorithm& algo);
 
   void ParseMetaDataOfEncryptedFileWithPlaintextFooter(
-      FileDecryptionProperties* file_decryption_properties,
+      const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties,
       const std::shared_ptr<Buffer>& metadata_buffer, uint32_t metadata_len,
       uint32_t read_metadata_len);
 
@@ -679,7 +677,7 @@ SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
                            std::to_string(footer_len) + " bytes but got " +
                            std::to_string(crypto_metadata_buffer->size()) + " bytes)");
   }
-  auto file_decryption_properties = properties_.file_decryption_properties().get();
+  auto file_decryption_properties = properties_.file_decryption_properties();
   if (file_decryption_properties == nullptr) {
     throw ParquetException(
         "Could not read encrypted metadata, no decryption found in reader's properties");
@@ -700,7 +698,7 @@ SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
 }
 
 void SerializedFile::ParseMetaDataOfEncryptedFileWithPlaintextFooter(
-    FileDecryptionProperties* file_decryption_properties,
+    const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties,
     const std::shared_ptr<Buffer>& metadata_buffer, uint32_t metadata_len,
     uint32_t read_metadata_len) {
   // Providing decryption properties in plaintext footer mode is not mandatory, for
@@ -734,7 +732,8 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithPlaintextFooter(
 }
 
 std::string SerializedFile::HandleAadPrefix(
-    FileDecryptionProperties* file_decryption_properties, EncryptionAlgorithm& algo) {
+    const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties,
+    EncryptionAlgorithm& algo) {
   std::string aad_prefix_in_properties = file_decryption_properties->aad_prefix();
   std::string aad_prefix = aad_prefix_in_properties;
   bool file_has_aad_prefix = algo.aad.aad_prefix.empty() ? false : true;

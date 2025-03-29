@@ -429,7 +429,7 @@ void InteropTestReadEncryptedParquetFiles(std::string root_path) {
 
         // Add the current decryption configuration to ReaderProperties.
         reader_properties.file_decryption_properties(
-            vector_of_decryption_configurations[example_id]->DeepClone());
+            vector_of_decryption_configurations[example_id]);
 
         // Create a ParquetReader instance
         std::unique_ptr<parquet::ParquetFileReader> parquet_reader =

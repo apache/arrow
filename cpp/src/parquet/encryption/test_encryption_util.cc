@@ -24,6 +24,7 @@
 
 #include "arrow/io/file.h"
 #include "arrow/testing/future_util.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/unreachable.h"
 
 #include "parquet/encryption/test_encryption_util.h"
@@ -346,10 +347,11 @@ void ReadAndVerifyColumn(RowGroupReader* rg_reader, RowGroupMetadata* rg_md,
 void FileDecryptor::DecryptFile(
     const std::string& file,
     const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties) {
+  ARROW_LOG(INFO) << ".. DecryptFile 1";
   std::string exception_msg;
   parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
   if (file_decryption_properties) {
-    reader_properties.file_decryption_properties(file_decryption_properties->DeepClone());
+    reader_properties.file_decryption_properties(file_decryption_properties);
   }
 
   std::shared_ptr<::arrow::io::RandomAccessFile> source;
@@ -357,18 +359,23 @@ void FileDecryptor::DecryptFile(
       source, ::arrow::io::ReadableFile::Open(file, reader_properties.memory_pool()));
 
   auto file_reader = parquet::ParquetFileReader::Open(source, reader_properties);
+  ARROW_LOG(INFO) << ".. DecryptFile 2";
   CheckFile(file_reader.get(), file_decryption_properties);
+  ARROW_LOG(INFO) << ".. DecryptFile 3";
 
   if (file_decryption_properties) {
-    reader_properties.file_decryption_properties(file_decryption_properties->DeepClone());
+    reader_properties.file_decryption_properties(file_decryption_properties);
   }
   auto fut = parquet::ParquetFileReader::OpenAsync(source, reader_properties);
   ASSERT_FINISHES_OK(fut);
+  ARROW_LOG(INFO) << ".. DecryptFile 4";
   ASSERT_OK_AND_ASSIGN(file_reader, fut.MoveResult());
   CheckFile(file_reader.get(), file_decryption_properties);
+  ARROW_LOG(INFO) << ".. DecryptFile 5";
 
   file_reader->Close();
   PARQUET_THROW_NOT_OK(source->Close());
+  ARROW_LOG(INFO) << ".. DecryptFile 6";
 }
 
 void FileDecryptor::CheckFile(
@@ -517,10 +524,11 @@ void FileDecryptor::CheckFile(
 void FileDecryptor::DecryptPageIndex(
     const std::string& file,
     const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties) {
+  ARROW_LOG(INFO) << ".. DecryptPageIndex 1";
   std::string exception_msg;
   parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
   if (file_decryption_properties) {
-    reader_properties.file_decryption_properties(file_decryption_properties->DeepClone());
+    reader_properties.file_decryption_properties(file_decryption_properties);
   }
 
   std::shared_ptr<::arrow::io::RandomAccessFile> source;
@@ -528,10 +536,13 @@ void FileDecryptor::DecryptPageIndex(
       source, ::arrow::io::ReadableFile::Open(file, reader_properties.memory_pool()));
 
   auto file_reader = parquet::ParquetFileReader::Open(source, reader_properties);
+  ARROW_LOG(INFO) << ".. DecryptPageIndex 2";
   CheckPageIndex(file_reader.get(), file_decryption_properties);
+  ARROW_LOG(INFO) << ".. DecryptPageIndex 3";
 
   ASSERT_NO_FATAL_FAILURE(file_reader->Close());
   PARQUET_THROW_NOT_OK(source->Close());
+  ARROW_LOG(INFO) << ".. DecryptPageIndex 4";
 }
 
 template <typename DType, typename c_type = typename DType::c_type>
