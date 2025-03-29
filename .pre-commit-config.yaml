@@ -195,8 +195,26 @@ repos:
           ?^ci/scripts/c_glib_build\.sh$|
           ?^ci/scripts/c_glib_test\.sh$|
           ?^c_glib/test/run-test\.sh$|
+          ?^dev/release/05-binary-upload\.sh$|
           ?^dev/release/07-binary-verify\.sh$|
+          ?^dev/release/post-03-binary\.sh$|
+          ?^dev/release/post-11-python\.sh$|
           ?^dev/release/utils-generate-checksum\.sh$|
+          )
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.11.0-1
+    hooks:
+      - id: shfmt
+        args:
+          # The default args is "--write --simplify" but we don't use
+          # "--simplify". Because it's conflicted will ShellCheck.
+          - "--write"
+        # TODO: Remove this when we fix all lint failures
+        files: >-
+          (
+          ?^dev/release/05-binary-upload\.sh$|
+          ?^dev/release/post-03-binary\.sh$|
+          ?^dev/release/post-11-python\.sh$|
           )
   - repo: https://github.com/trim21/pre-commit-mirror-meson
     rev: v1.6.1

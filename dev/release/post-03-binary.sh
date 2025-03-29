@@ -37,6 +37,7 @@ if [ ! -f .env ]; then
   echo "You can use $(pwd)/.env.example as template"
   exit 1
 fi
+# shellcheck source=SCRIPTDIR/.env.example
 . .env
 
 . utils-binary.sh
@@ -44,45 +45,41 @@ fi
 # By default deploy all artifacts.
 # To deactivate one category, deactivate the category and all of its dependents.
 # To explicitly select one category, set DEPLOY_DEFAULT=0 DEPLOY_X=1.
-: ${DEPLOY_DEFAULT:=1}
-: ${DEPLOY_ALMALINUX:=${DEPLOY_DEFAULT}}
-: ${DEPLOY_AMAZON_LINUX:=${DEPLOY_DEFAULT}}
-: ${DEPLOY_CENTOS:=${DEPLOY_DEFAULT}}
-: ${DEPLOY_DEBIAN:=${DEPLOY_DEFAULT}}
-: ${DEPLOY_DOCS:=${DEPLOY_DEFAULT}}
-: ${DEPLOY_PYTHON:=${DEPLOY_DEFAULT}}
-: ${DEPLOY_R:=${DEPLOY_DEFAULT}}
-: ${DEPLOY_UBUNTU:=${DEPLOY_DEFAULT}}
+: "${DEPLOY_DEFAULT:=1}"
+: "${DEPLOY_ALMALINUX:=${DEPLOY_DEFAULT}}"
+: "${DEPLOY_AMAZON_LINUX:=${DEPLOY_DEFAULT}}"
+: "${DEPLOY_CENTOS:=${DEPLOY_DEFAULT}}"
+: "${DEPLOY_DEBIAN:=${DEPLOY_DEFAULT}}"
+: "${DEPLOY_DOCS:=${DEPLOY_DEFAULT}}"
+: "${DEPLOY_R:=${DEPLOY_DEFAULT}}"
+: "${DEPLOY_UBUNTU:=${DEPLOY_DEFAULT}}"
 
 rake_tasks=()
 apt_targets=()
 yum_targets=()
-if [ ${DEPLOY_ALMALINUX} -gt 0 ]; then
+if [ "${DEPLOY_ALMALINUX}" -gt 0 ]; then
   rake_tasks+=(yum:artifactory:release)
   yum_targets+=(almalinux)
 fi
-if [ ${DEPLOY_AMAZON_LINUX} -gt 0 ]; then
+if [ "${DEPLOY_AMAZON_LINUX}" -gt 0 ]; then
   rake_tasks+=(yum:artifactory:release)
   yum_targets+=(amazon-linux)
 fi
-if [ ${DEPLOY_CENTOS} -gt 0 ]; then
+if [ "${DEPLOY_CENTOS}" -gt 0 ]; then
   rake_tasks+=(yum:artifactory:release)
   yum_targets+=(centos)
 fi
-if [ ${DEPLOY_DEBIAN} -gt 0 ]; then
+if [ "${DEPLOY_DEBIAN}" -gt 0 ]; then
   rake_tasks+=(apt:artifactory:release)
   apt_targets+=(debian)
 fi
-if [ ${DEPLOY_DOCS} -gt 0 ]; then
+if [ "${DEPLOY_DOCS}" -gt 0 ]; then
   rake_tasks+=(docs:release)
 fi
-if [ ${DEPLOY_PYTHON} -gt 0 ]; then
-  rake_tasks+=(python:release)
-fi
-if [ ${DEPLOY_R} -gt 0 ]; then
+if [ "${DEPLOY_R}" -gt 0 ]; then
   rake_tasks+=(r:release)
 fi
-if [ ${DEPLOY_UBUNTU} -gt 0 ]; then
+if [ "${DEPLOY_UBUNTU}" -gt 0 ]; then
   rake_tasks+=(apt:artifactory:release)
   apt_targets+=(ubuntu)
 fi
@@ -94,13 +91,19 @@ mkdir -p "${tmp_dir}"
 docker_run \
   ./runner.sh \
   rake \
-    --trace \
-    "${rake_tasks[@]}" \
-    APT_TARGETS=$(IFS=,; echo "${apt_targets[*]}") \
-    ARTIFACTORY_API_KEY="${ARTIFACTORY_API_KEY}" \
-    ARTIFACTS_DIR="${tmp_dir}/artifacts" \
-    RC=${rc} \
-    STAGING=${STAGING:-no} \
-    VERBOSE=${VERBOSE:-no} \
-    VERSION=${version} \
-    YUM_TARGETS=$(IFS=,; echo "${yum_targets[*]}")
+  --trace \
+  "${rake_tasks[@]}" \
+  APT_TARGETS="$(
+    IFS=,
+    echo "${apt_targets[*]}"
+  )" \
+  ARTIFACTORY_API_KEY="${ARTIFACTORY_API_KEY}" \
+  ARTIFACTS_DIR="${tmp_dir}/artifacts" \
+  RC="${rc}" \
+  STAGING="${STAGING:-no}" \
+  VERBOSE="${VERBOSE:-no}" \
+  VERSION="${version}" \
+  YUM_TARGETS="$(
+    IFS=,
+    echo "${yum_targets[*]}"
+  )"
