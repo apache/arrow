@@ -126,9 +126,7 @@ if(ARROW_WITH_RE2)
   endif()
 endif()
 
-# This should be done after if(ARROW_ORC) and if(ARROW_WITH_OPENTELEMETRY)
-# because they depend on Protobuf.
-if(ARROW_WITH_PROTOBUF)
+if(ARROW_PROTOBUF_ARROW_CMAKE_PACKAGE_NAME STREQUAL "Arrow")
   if(Protobuf_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
   endif()
@@ -783,6 +781,7 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_run_end_encode.cc
        compute/kernels/vector_select_k.cc
        compute/kernels/vector_sort.cc
+       compute/kernels/vector_statistics.cc
        compute/kernels/vector_swizzle.cc
        compute/key_hash_internal.cc
        compute/key_map_internal.cc

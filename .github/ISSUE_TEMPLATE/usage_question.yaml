@@ -23,12 +23,14 @@ body:
   - type: markdown
     attributes:
       value: >
-        While we enable issues as a mechanism for new contributors and
+        While we enable Issues as a mechanism for new contributors and
         passers-by who are unfamiliar with Apache Software Foundation projects
         to ask questions and interact with the project, we encourage users to
-        ask such questions on the [public mailing
-        lists](https://arrow.apache.org/community/) as these provide higher
-        visibility than GitHub issues:
+        ask such questions using either [GitHub
+        Discussions](https://github.com/apache/arrow/discussions) or the mailing
+        lists.
+
+        If you prefer to use the mailing lists,
 
         * For usage questions, please email user@arrow.apache.org (first
         subscribe by sending an e-mail to user-subscribe@arrow.apache.org).
@@ -41,7 +43,8 @@ body:
         page](https://arrow.apache.org/community/) for more information on the
         mailing lists as well as for a link to the searchable archives.
 
-        Do not be surprised by responses to issues raised here directing you to those
+        Do not be surprised by responses to Issues raised here directing you to
+        [Discussions](https://github.com/apache/arrow/discussions) or the
         mailing lists, or to report a bug or feature request here.
 
         Thank you!

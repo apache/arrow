@@ -120,6 +120,15 @@ class ARROW_EXPORT Grouper {
   virtual Result<Datum> Consume(const ExecSpan& batch, int64_t offset = 0,
                                 int64_t length = -1) = 0;
 
+  /// Like Consume, but groups not already encountered emit null instead of
+  /// generating a new group id.
+  virtual Result<Datum> Lookup(const ExecSpan& batch, int64_t offset = 0,
+                               int64_t length = -1) = 0;
+
+  /// Like Consume, but only populates the Grouper without returning the group ids.
+  virtual Status Populate(const ExecSpan& batch, int64_t offset = 0,
+                          int64_t length = -1) = 0;
+
   /// Get current unique keys. May be called multiple times.
   virtual Result<ExecBatch> GetUniques() = 0;
 

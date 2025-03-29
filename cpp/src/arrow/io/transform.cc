@@ -125,12 +125,12 @@ Result<int64_t> TransformInputStream::Read(int64_t nbytes, void* out) {
   }
   {
     // Last buffer: splice into `out` and `pending_`
-    const auto buf = std::move(avail.back());
+    auto buf = std::move(avail.back());
     const int64_t to_copy = std::min(buf->size(), nbytes);
     memcpy(out_data, buf->data(), static_cast<size_t>(to_copy));
     copied_bytes += to_copy;
     if (buf->size() > to_copy) {
-      impl_->pending_ = SliceBuffer(buf, to_copy);
+      impl_->pending_ = SliceBuffer(std::move(buf), to_copy);
     } else {
       impl_->pending_.reset();
     }
