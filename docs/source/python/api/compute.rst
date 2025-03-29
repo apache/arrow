@@ -597,4 +597,5 @@ Expression Functions
 .. autosummary::
    :toctree: ../generated/
 
+   field
    scalar
