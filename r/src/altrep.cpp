@@ -115,7 +115,7 @@ const std::shared_ptr<ChunkedArray>& GetChunkedArray(SEXP alt) {
 //        materialization is needed.
 // data2: starts as NULL, and becomes a standard R vector with the same
 //        data if necessary: if materialization is needed, e.g. if we need
-//        to access its data pointer, with DATAPTR().
+//        to access its data pointer, with INTEGER(), REAL(), etc.
 template <typename Impl>
 struct AltrepVectorBase {
   // store the Array as an external pointer in data1, mark as immutable
@@ -905,7 +905,19 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
   }
 
   static void* Dataptr(SEXP alt, Rboolean writeable) {
-    return STRING_PTR(Materialize(alt));
+      SEXP materialized = Materialize(alt);
+      // if (!isString(materialized)) {
+      //     error("Expected a character vector");
+      // }
+
+      R_xlen_t len = XLENGTH(materialized);
+      void** str_array = (void**) R_alloc(len, sizeof(void*)); // Allocate array (R's memory allocator)
+
+      for (R_xlen_t i = 0; i < len; i++) {
+          str_array[i] = (void*) STRING_ELT(materialized, i);
+      }
+
+      return str_array; // Pointer to array of SEXP elements
   }
 
   static SEXP Materialize(SEXP alt) {
@@ -945,7 +957,18 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
   }
 
   static const void* Dataptr_or_null(SEXP alt) {
-    if (Base::IsMaterialized(alt)) return STRING_PTR(Representation(alt));
+    if (Base::IsMaterialized(alt)) {
+      SEXP materialized = Materialize(alt);
+
+      R_xlen_t len = XLENGTH(materialized);
+      void** str_array = (void**) R_alloc(len, sizeof(void*)); // Allocate array (R's memory allocator)
+
+      for (R_xlen_t i = 0; i < len; i++) {
+          str_array[i] = (void*) STRING_ELT(materialized, i);
+      }
+
+      return str_array; // Pointer to array of SEXP elements
+    }
 
     // otherwise give up
     return nullptr;
@@ -1295,10 +1318,13 @@ sexp test_arrow_altrep_copy_by_dataptr(sexp x) {
     return out;
   } else if (TYPEOF(x) == STRSXP) {
     cpp11::writable::strings out(Rf_xlength(x));
-    SEXP* ptr = reinterpret_cast<SEXP*>(STRING_PTR(x));
-    for (R_xlen_t i = 0; i < n; i++) {
-      out[i] = ptr[i];
+    R_xlen_t len = Rf_xlength(x);
+
+    for (R_xlen_t i = 0; i < len; i++) {
+      SEXP str_elt = reinterpret_cast<SEXP>(STRING_ELT(x, i));
+      out[i] = str_elt;
     }
+
     return out;
   } else {
     return R_NilValue;
