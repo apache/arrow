@@ -272,8 +272,7 @@ class build_ext(_build_ext):
             ]
 
             def append_cmake_bool(value, varname):
-                cmake_options.append('-D{0}={1}'.format(
-                    varname, 'on' if value else 'off'))
+                cmake_options.append(f'-D{varname}={"on" if value else "off"}')
 
             def append_cmake_component(flag, varname):
                 # only pass this to cmake if the user pass the --with-component

@@ -204,7 +204,7 @@ def main(compilation_db_path, source_files, verbose, formatter, iwyu_args):
             if matches:
                 entries.extend(matches)
             else:
-                print("{} not in compilation database".format(source))
+                print(f"{source} not in compilation database")
                 # TODO: As long as there is no complete compilation database available this check cannot be performed
                 pass
                 #print('WARNING: \'%s\' not found in compilation database.', source)
