@@ -192,7 +192,15 @@ class RBuffer : public MutableBuffer {
     } else if (TYPEOF(vec) == CPLXSXP) {
       return COMPLEX(vec);
     } else if (TYPEOF(vec) == STRSXP) {
-      return STRING_ELT(vec, 0);
+      cpp11::writable::strings out(Rf_xlength(vec));
+      R_xlen_t len = Rf_xlength(vec);
+
+      for (R_xlen_t i = 0; i < len; i++) {
+        SEXP str_elt = reinterpret_cast<SEXP>(STRING_ELT(vec, i));
+        out[i] = str_elt;
+      }
+
+      return out;
     } else {
       // raw
       return RAW(vec);
