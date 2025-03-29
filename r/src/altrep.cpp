@@ -905,19 +905,16 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
   }
 
   static void* Dataptr(SEXP alt, Rboolean writeable) {
-      SEXP materialized = Materialize(alt);
-      // if (!isString(materialized)) {
-      //     error("Expected a character vector");
-      // }
+    SEXP materialized = Materialize(alt);
 
-      R_xlen_t len = XLENGTH(materialized);
-      void** str_array = (void**) R_alloc(len, sizeof(void*)); // Allocate array (R's memory allocator)
+    R_xlen_t len = XLENGTH(materialized);
+    void** str_array =
+        (void**)R_alloc(len, sizeof(void*));  // Allocate array (R's memory allocator)
+    for (R_xlen_t i = 0; i < len; i++) {
+      str_array[i] = (void*) STRING_ELT(materialized, i);
+    }
 
-      for (R_xlen_t i = 0; i < len; i++) {
-          str_array[i] = (void*) STRING_ELT(materialized, i);
-      }
-
-      return str_array; // Pointer to array of SEXP elements
+    return str_array;  // Pointer to array of SEXP elements
   }
 
   static SEXP Materialize(SEXP alt) {
