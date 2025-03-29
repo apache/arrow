@@ -537,3 +537,8 @@ subdir('util')
 if needs_csv
     subdir('csv')
 endif
+
+if needs_json
+    subdir('json')
+endif
+
