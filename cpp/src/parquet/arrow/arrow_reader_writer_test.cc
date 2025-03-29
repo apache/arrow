@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/type_fwd.h"
 #ifdef _MSC_VER
 #  pragma warning(push)
 // Disable forcing value to bool warnings
@@ -459,9 +460,12 @@ void DoSimpleRoundtrip(
   ASSERT_NO_FATAL_FAILURE(
       WriteTableToBuffer(table, row_group_size, arrow_properties, &buffer));
 
-  ASSERT_OK_AND_ASSIGN(auto reader,
-                       OpenFile(std::make_shared<BufferReader>(buffer),
-                                ::arrow::default_memory_pool(), reader_properties));
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(builder.properties(reader_properties)
+                ->memory_pool(::arrow::default_memory_pool())
+                ->Build(&reader));
 
   reader->set_use_threads(use_threads);
   if (column_subset.size() > 0) {
@@ -1234,8 +1238,13 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredChunkedWriteArrowIO) {
 
   auto source = std::make_shared<BufferReader>(pbuffer);
   std::shared_ptr<::arrow::Table> out;
-  ASSERT_OK_AND_ASSIGN(
-      auto reader, OpenFile(source, ::arrow::default_memory_pool(), reader_properties));
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ASSERT_OK(builder.Open(source));
+  ASSERT_OK(builder.properties(reader_properties)
+                ->memory_pool(::arrow::default_memory_pool())
+                ->Build(&reader));
+
   ASSERT_NO_FATAL_FAILURE(this->ReadTableFromFile(std::move(reader), &out));
   ASSERT_EQ(1, out->num_columns());
   ASSERT_EQ(values->length(), out->num_rows());
