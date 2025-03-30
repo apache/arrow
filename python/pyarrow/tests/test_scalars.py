@@ -228,6 +228,7 @@ def test_numerics():
     assert repr(s) == "<pyarrow.Int64Scalar: 1>"
     assert str(s) == "1"
     assert s.as_py() == 1
+    assert int(s) == 1
 
     with pytest.raises(OverflowError):
         pa.scalar(-1, type='uint8')
