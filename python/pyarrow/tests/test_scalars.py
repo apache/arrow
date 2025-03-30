@@ -555,6 +555,7 @@ def test_binary(value, ty, scalar_typ):
     assert str(s) == str(value)
     assert repr(value) in repr(s)
     assert s.as_py() == value
+    assert bytes(s) == value
     assert s != b'xxxxx'
 
     buf = s.as_buffer()
@@ -566,6 +567,7 @@ def test_fixed_size_binary():
     s = pa.scalar(b'foof', type=pa.binary(4))
     assert isinstance(s, pa.FixedSizeBinaryScalar)
     assert s.as_py() == b'foof'
+    assert bytes(s) == b'foof'
 
     with pytest.raises(pa.ArrowInvalid):
         pa.scalar(b'foof5', type=pa.binary(4))
