@@ -241,7 +241,6 @@ cdef class UInt8Scalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __int__(self):
-
         return (self.as_py())
 
 
@@ -264,7 +263,6 @@ cdef class Int8Scalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __int__(self):
-
         return (self.as_py())
 
 
@@ -287,7 +285,6 @@ cdef class UInt16Scalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __int__(self):
-
         return (self.as_py())
 
 
@@ -310,7 +307,6 @@ cdef class Int16Scalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __int__(self):
-
         return (self.as_py())
 
 
@@ -333,7 +329,6 @@ cdef class UInt32Scalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __int__(self):
-
         return (self.as_py())
 
 
@@ -356,7 +351,6 @@ cdef class Int32Scalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __int__(self):
-
         return (self.as_py())
 
 
@@ -379,7 +373,6 @@ cdef class UInt64Scalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __int__(self):
-
         return (self.as_py())
 
 
@@ -402,7 +395,6 @@ cdef class Int64Scalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __int__(self):
-
         return (self.as_py())
 
 
