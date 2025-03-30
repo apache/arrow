@@ -238,6 +238,7 @@ def test_numerics():
     assert repr(s) == "<pyarrow.DoubleScalar: 1.5>"
     assert str(s) == "1.5"
     assert s.as_py() == 1.5
+    assert float(s) == 1.5
 
     if np is not None:
         # float16
