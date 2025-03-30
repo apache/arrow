@@ -2410,19 +2410,6 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
   return Status::OK();
 }
 
-Status JoinProbeProcessor::OnFinished() {
-  // Flush all instances of materialize that have non-zero accumulated output
-  // rows.
-  //
-  for (size_t i = 0; i < materialize_.size(); ++i) {
-    JoinResultMaterialize& materialize = *materialize_[i];
-    RETURN_NOT_OK(materialize.Flush(
-        [&](ExecBatch batch) { return output_batch_fn_(i, std::move(batch)); }));
-  }
-
-  return Status::OK();
-}
-
 class SwissJoin : public HashJoinImpl {
  public:
   static constexpr auto kTempStackUsage = 64 * arrow::util::MiniBatch::kMiniBatchLength;
@@ -2515,6 +2502,11 @@ class SwissJoin : public HashJoinImpl {
           return ScanTask(thread_index, task_id);
         },
         [this](size_t thread_index) -> Status { return ScanFinished(thread_index); });
+    task_group_flush_ = register_task_group_callback_(
+        [this](size_t thread_index, int64_t task_id) -> Status {
+          return FlushTask(thread_index, task_id);
+        },
+        [this](size_t thread_index) -> Status { return FlushFinished(thread_index); });
   }
 
   Status ProbeSingleBatch(size_t thread_index, ExecBatch batch) override {
@@ -2849,7 +2841,21 @@ class SwissJoin : public HashJoinImpl {
     // Flush all instances of materialize that have non-zero accumulated output
     // rows.
     //
-    RETURN_NOT_OK(CancelIfNotOK(probe_processor_.OnFinished()));
+    return start_task_group_callback_(task_group_flush_, local_states_.size());
+  }
+
+  Status FlushTask(size_t /*thread_id*/, int64_t task_id) {
+    JoinResultMaterialize& materialize = local_states_[task_id].materialize;
+    RETURN_NOT_OK(materialize.Flush([&](ExecBatch batch) {
+      return output_batch_callback_(task_id, std::move(batch));
+    }));
+    return Status::OK();
+  }
+
+  Status FlushFinished(size_t thread_id) {
+    if (IsCancelled()) {
+      return status();
+    }
 
     int64_t num_produced_batches = 0;
     for (size_t i = 0; i < local_states_.size(); ++i) {
@@ -2934,6 +2940,7 @@ class SwissJoin : public HashJoinImpl {
   int task_group_build_;
   int task_group_merge_;
   int task_group_scan_;
+  int task_group_flush_;
 
   // Callbacks
   RegisterTaskGroupCallback register_task_group_callback_;

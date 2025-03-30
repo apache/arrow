@@ -2021,6 +2021,27 @@ class PartitionNthOptions(_PartitionNthOptions):
         self._set_options(pivot, null_placement)
 
 
+cdef class _WinsorizeOptions(FunctionOptions):
+    def _set_options(self, lower_limit, upper_limit):
+        self.wrapped.reset(new CWinsorizeOptions(lower_limit, upper_limit))
+
+
+class WinsorizeOptions(_WinsorizeOptions):
+    """
+    Options for the `winsorize` function.
+
+    Parameters
+    ----------
+    lower_limit : float, between 0 and 1
+        The quantile below which all values are replaced with the quantile's value.
+    upper_limit : float, between 0 and 1
+        The quantile above which all values are replaced with the quantile's value.
+    """
+
+    def __init__(self, lower_limit, upper_limit):
+        self._set_options(lower_limit, upper_limit)
+
+
 cdef class _CumulativeOptions(FunctionOptions):
     def _set_options(self, start, skip_nulls):
         if start is None:
