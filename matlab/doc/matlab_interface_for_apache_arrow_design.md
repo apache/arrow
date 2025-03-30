@@ -123,24 +123,34 @@ They could directly convert from an existing MATLAB `table` to an `arrow.Table` 
 
 >> AT = arrow.table(T); % Create an arrow.Table 
 ```
-To serialize the `arrow.Table`, `AT`, to a file (e.g. Feather) on disk, the user could then instantiate an `arrow.internal.io.feather.Writer`. 
+
+To serialize the `arrow.Table`, `AT`, to a file (e.g. Feather) on disk, the user could then instantiate an `arrow.io.ipc.RecordBatchFileWriter`. 
 
 ###### Example Code: 
 ``` matlab
->> recordBatchWrite = arrow.recordBatch(AT);
+% create a RecordBatch out of the table from the previous example
+>> recordBatch = arrow.recordBatch(AT);
+>> filename = fullfile(pwd, "data.arrow");
 
->> filename = fullfile(pwd, "temp.feather");
->> writer = arrow.internal.io.feather.Writer(filename);
->> writer.write(recordBatchWrite);
+% write the RecordBatch schema and the RecordBatch itself
+>> writer = arrow.io.ipc.RecordBatchFileWriter(filename, recordBatch.Schema);
+>> writer.writeRecordBatch(recordBatch);
+
+% close the writer to enable reading 
+>> writer.close();
 ```
-The Feather file could then be read and operated on by an external process like Rust or Go. To read it back into MATLAB after modification by another process, the user could instantiate an `arrow.internal.io.feather.Reader`. 
+The Feather file could then be read and operated on by an external process like Rust or Go. To read it back into MATLAB after modification by another process, the user could instantiate an `arrow.io.ipc.RecordBatchFileReader`. 
 
 ###### Example Code: 
 ``` matlab
->> reader = arrow.internal.io.feather.Reader(filename);
->> recordBatchRead = reader.read();
+% open record batch file reader
+>> reader = arrow.io.ipc.RecordBatchFileReader(filename);
 
->> AT = table(recordBatchRead);
+% read in the first RecordBatch
+>> newBatch = reader.read(1);
+
+% create a table that matches AT before it was written to data.arrow from the RecordBatch
+>> AT = table(newBatch);
 ```
 #### Advanced MATLAB User Workflow for Implementing Support for Writing to Feather Files 
 
