@@ -1124,7 +1124,6 @@ class BinaryTask
     define_apt_tasks
     define_yum_tasks
     define_docs_tasks
-    define_python_tasks
     define_r_tasks
     define_summary_tasks
   end
@@ -2525,14 +2524,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                               "#{rc_dir}/docs/#{full_version}",
                               "#{release_dir}/docs/#{full_version}",
                               "test-debian-12-docs/**/*")
-  end
-
-  def define_python_tasks
-    define_generic_data_tasks("Python",
-                              :python,
-                              "#{rc_dir}/python/#{full_version}",
-                              "#{release_dir}/python/#{full_version}",
-                              "{python-sdist,wheel-*}/**/*")
   end
 
   def define_r_rc_tasks(label, id, rc_dir)
