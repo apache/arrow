@@ -530,11 +530,11 @@ class EachRawRecordTableStructArrayTest < Test::Unit::TestCase
   def build(type, records)
     Arrow::Table.new(build_schema(type), records)
   end
+
   def actual_records(target)
     target.each_raw_record.to_a
   end
 end
-
 
 class RawRecordsRecordBatchStructArrayTest < Test::Unit::TestCase
   include RawRecordsStructArrayTests
