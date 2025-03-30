@@ -239,6 +239,7 @@ def test_numerics():
     assert repr(s) == "<pyarrow.DoubleScalar: 1.5>"
     assert str(s) == "1.5"
     assert s.as_py() == 1.5
+    assert float(s) == 1.5
 
     # float16
     s = pa.scalar(0.5, type='float16')

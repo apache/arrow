@@ -414,6 +414,9 @@ cdef class HalfFloatScalar(Scalar):
         cdef CHalfFloatScalar* sp = <CHalfFloatScalar*> self.wrapped.get()
         return PyFloat_FromHalf(sp.value) if sp.is_valid else None
 
+    def __float__(self):
+        return (self.as_py())
+
 
 cdef class FloatScalar(Scalar):
     """
@@ -433,6 +436,9 @@ cdef class FloatScalar(Scalar):
         cdef CFloatScalar* sp = <CFloatScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
+    def __float__(self):
+        return (self.as_py())
+
 
 cdef class DoubleScalar(Scalar):
     """
@@ -451,6 +457,9 @@ cdef class DoubleScalar(Scalar):
         """
         cdef CDoubleScalar* sp = <CDoubleScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
+
+    def __float__(self):
+        return (self.as_py())
 
 
 cdef class Decimal32Scalar(Scalar):
