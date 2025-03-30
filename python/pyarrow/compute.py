@@ -742,7 +742,7 @@ def scalar(value):
     ----------
     value : bool, int, float or string
         Python value of the scalar. This function accepts any value that can be
-        converted to a pyarrow.Scalar using pa.scalar().
+        converted to a ``pyarrow.Scalar`` using ``pa.scalar()``.
 
     Notes
     -----
