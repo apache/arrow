@@ -784,6 +784,8 @@ class ReadaheadGenerator {
       // This is the first request, let's pump the underlying queue
       {
         auto guard = state_->mutex.Lock();
+        // We're going to push to the queue below, but we need
+        // to update `num_running` while we're holding the lock.
         state_->num_running = state_->max_readahead;
       }
       for (int i = 0; i < state_->max_readahead; i++) {
@@ -800,6 +802,8 @@ class ReadaheadGenerator {
       auto guard = state_->mutex.Lock();
       is_finished = state_->finished;
       if (!is_finished) {
+        // We're going to push to the queue below, but we need
+        // to update `num_running` while we're holding the lock.
         ++state_->num_running;
       }
     }
