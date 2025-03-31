@@ -18,24 +18,26 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <string>
-#include <variant>
 #include <vector>
 
 #include "arrow/array/statistics.h"
+#include "arrow/array/statistics_option.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/visibility.h"
-
 #include "arrow/type_fwd.h"
 
 namespace arrow {
-struct StatisticsArrayTOptions;
-namespace test {
 
+namespace detail {
 ARROW_TESTING_EXPORT Result<std::shared_ptr<Array>> MakeMockStatisticsArray(
     const std::string& columns_json,
     const std::vector<std::vector<std::string>>& nested_statistics_keys,
-    const std::vector<std::vector<ArrayStatistics::ValueType>>& nested_statistics_values);
+    const std::vector<std::vector<ArrayStatistics::ValueType>>& nested_statistics_values,
+    const std::vector<std::shared_ptr<DataType>>& string_type = {});
+}  // namespace detail
 
 /// \brief Create a nested struct array with a specified depth.
 ///
@@ -45,16 +47,32 @@ ARROW_TESTING_EXPORT Result<std::shared_ptr<Array>> MakeMockStatisticsArray(
 ARROW_TESTING_EXPORT
 Result<std::shared_ptr<Array>> MakeNestedStruct(int32_t depth);
 
-/// \brief Check whether it's possible to create a statistics array with the given
-/// options.
-///
-/// \param[in] value object for calling its Make Statistics Array
-/// \param[in] options options for creating statistics array
-///
-/// \return Whether \ref Status::OK or \ref Status::Invalid("Max recursion depth reached")
-ARROW_TESTING_EXPORT
-Status CheckDepth(
-    std::variant<std::shared_ptr<RecordBatch>, std::shared_ptr<Array>> value,
-    const StatisticsArrayTOptions& options);
-}  // namespace test
+template <typename Type>
+class TestStatisticsArray {
+ public:
+  void CheckStatStatisticsArray(
+      const std::shared_ptr<Type>& value, const std::string& columns_json,
+      const std::vector<std::vector<std::string>>& nested_statistics_keys,
+      const std::vector<std::vector<ArrayStatistics::ValueType>>&
+          nested_statistics_values,
+      const std::vector<std::shared_ptr<DataType>>& string_type = {}) const {
+    ASSERT_OK_AND_ASSIGN(auto statistics_array, value->MakeStatisticsArray(options_));
+    ASSERT_OK_AND_ASSIGN(
+        auto expected_statistics_array,
+        detail::MakeMockStatisticsArray(columns_json, nested_statistics_keys,
+                                        nested_statistics_values, string_type));
+    AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+  }
+
+  void CheckDepth(const std::shared_ptr<Type>& value, bool is_error) const {
+    if (!is_error) {
+      ASSERT_OK(value->MakeStatisticsArray(options_).status());
+    } else {
+      ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Max recursion depth reached",
+                                 value->MakeStatisticsArray(options_).status());
+    }
+  }
+
+  StatisticsArrayTOptions options_;
+};
 }  // namespace arrow

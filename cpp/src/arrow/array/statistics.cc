@@ -38,10 +38,13 @@
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/macros.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
-const std::shared_ptr<DataType>& ArrayStatistics::ValueToArrowType(
+Result<std::shared_ptr<DataType>> ArrayStatistics::ValueToArrowType(
     const std::optional<ArrayStatistics::ValueType>& value,
     const std::shared_ptr<DataType>& array_type) {
   if (!value.has_value()) {
@@ -51,24 +54,25 @@ const std::shared_ptr<DataType>& ArrayStatistics::ValueToArrowType(
   struct Visitor {
     const std::shared_ptr<DataType>& array_type;
 
-    const std::shared_ptr<DataType>& operator()(const bool&) { return boolean(); }
-    const std::shared_ptr<DataType>& operator()(const int64_t&) { return int64(); }
-    const std::shared_ptr<DataType>& operator()(const uint64_t&) { return uint64(); }
-    const std::shared_ptr<DataType>& operator()(const double&) { return float64(); }
-    const std::shared_ptr<DataType>& operator()(const std::shared_ptr<Scalar>& value) {
+    Result<std::shared_ptr<DataType>> operator()(const bool&) { return boolean(); }
+    Result<std::shared_ptr<DataType>> operator()(const int64_t&) { return int64(); }
+    Result<std::shared_ptr<DataType>> operator()(const uint64_t&) { return uint64(); }
+    Result<std::shared_ptr<DataType>> operator()(const double&) { return float64(); }
+    Result<std::shared_ptr<DataType>> operator()(const std::shared_ptr<Scalar>& value) {
       return value->type;
     }
-    const std::shared_ptr<DataType>& operator()(const std::string&) {
+    Result<std::shared_ptr<DataType>> operator()(const std::string&) {
       switch (array_type->id()) {
-        // TODO Add StringView and BinaryView to ArrayStatistics (GH-45664)
         case Type::STRING:
         case Type::BINARY:
         case Type::FIXED_SIZE_BINARY:
         case Type::LARGE_STRING:
         case Type::LARGE_BINARY:
+        case Type::STRING_VIEW:
+        case Type::BINARY_VIEW:
           return array_type;
         default:
-          return utf8();
+          return Status::Invalid("type should be specified for string");
       }
     }
   } visitor{array_type};
@@ -110,10 +114,10 @@ bool ArrayStatistics::Equals(const ArrayStatistics& other,
          ValueTypeEquality(this->min, other.min, options);
 }
 namespace internal {
-// Perform a depth-first search (DFS) on the given array to extract
-// all nested arrays up to the specified maximum nesting depth.
-Result<ArrayDataVector> ExtractColumnsToArrayData(const std::shared_ptr<Array>& array,
-                                                  const int32_t& max_nesting_depth) {
+// Perform a depth-first search (DFS) on the given array data to extract
+// all nested array data up to the specified maximum nesting depth.
+Result<ArrayDataVector> ExtractColumnsToArrayData(
+    const std::shared_ptr<ArrayData>& array_data, const int32_t& max_nesting_depth) {
   ArrayDataVector traverse;
   ArrayDataVector result;
 
@@ -121,17 +125,17 @@ Result<ArrayDataVector> ExtractColumnsToArrayData(const std::shared_ptr<Array>& 
   if (remaining_nested_depth <= 0) {
     return Status::Invalid("Max recursion depth reached");
   }
-  result.push_back(array->data());
-  if (!array->data()->child_data.empty()) {
+  result.push_back(array_data);
+  if (!array_data->child_data.empty()) {
     // depth delimiter
     traverse.emplace_back(nullptr);
-    traverse.insert(traverse.end(), array->data()->child_data.crbegin(),
-                    array->data()->child_data.crend());
+    traverse.insert(traverse.end(), array_data->child_data.crbegin(),
+                    array_data->child_data.crend());
     remaining_nested_depth--;
   }
 
   while (!traverse.empty()) {
-    if (remaining_nested_depth <= 0) {
+    if (ARROW_PREDICT_FALSE(remaining_nested_depth <= 0)) {
       return Status::Invalid("Max recursion depth reached");
     }
 
@@ -177,13 +181,17 @@ Status EnumerateStatistics(const ArrayDataVector& extracted_array_data,
   statistics.type = int64();
   statistics.value = ArrayStatistics::ValueType{int64_t{0}};
   if (num_rows.has_value()) {
+    // handle Record Batch
     statistics.value = ArrayStatistics::ValueType{num_rows.value()};
+    RETURN_NOT_OK(on_statistics(statistics));
+    statistics.start_new_column = false;
   } else if (!extracted_array_data.empty()) {
+    // handle parent array
     statistics.value =
         ArrayStatistics::ValueType{int64_t{extracted_array_data[0]->length}};
+    statistics.nth_column = int32_t{0};
+    RETURN_NOT_OK(on_statistics(statistics));
   }
-  RETURN_NOT_OK(on_statistics(statistics));
-  statistics.start_new_column = false;
 
   auto num_fields = static_cast<int64_t>(extracted_array_data.size());
   for (int64_t nth_column = 0; nth_column < num_fields; ++nth_column) {
@@ -192,9 +200,13 @@ Status EnumerateStatistics(const ArrayDataVector& extracted_array_data,
     if (!column_statistics) {
       continue;
     }
-
     statistics.start_new_column = true;
     statistics.nth_column = static_cast<int32_t>(nth_column);
+    if (nth_column == 0 && !num_rows.has_value()) {
+      // handle parent array
+      statistics.start_new_column = false;
+    }
+
     if (column_statistics->null_count.has_value()) {
       statistics.nth_statistics++;
       statistics.key = ARROW_STATISTICS_KEY_NULL_COUNT_EXACT;
@@ -220,7 +232,7 @@ Status EnumerateStatistics(const ArrayDataVector& extracted_array_data,
       } else {
         statistics.key = ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE;
       }
-      statistics.type = column_statistics->MinArrowType(type);
+      ARROW_ASSIGN_OR_RAISE(statistics.type, column_statistics->MinArrowType(type));
       statistics.value = column_statistics->min.value();
       RETURN_NOT_OK(on_statistics(statistics));
       statistics.start_new_column = false;
@@ -233,7 +245,7 @@ Status EnumerateStatistics(const ArrayDataVector& extracted_array_data,
       } else {
         statistics.key = ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE;
       }
-      statistics.type = column_statistics->MaxArrowType(type);
+      ARROW_ASSIGN_OR_RAISE(statistics.type, column_statistics->MaxArrowType(type));
       statistics.value = column_statistics->max.value();
       RETURN_NOT_OK(on_statistics(statistics));
       statistics.start_new_column = false;
@@ -241,6 +253,23 @@ Status EnumerateStatistics(const ArrayDataVector& extracted_array_data,
   }
   return Status::OK();
 }
+
+struct StringVisitorBuilder {
+  template <typename DataType,
+            typename Builder = typename TypeTraits<DataType>::BuilderType>
+  enable_if_t<is_base_binary_type<DataType>::value ||
+                  is_binary_view_like_type<DataType>::value ||
+                  std::is_same_v<DataType, FixedSizeBinaryType>,
+              Status>
+  Visit(const DataType&, ArrayBuilder* raw_builder, const std::string& value) {
+    auto* builder = static_cast<Builder*>(raw_builder);
+    return builder->Append(value);
+  }
+  Status Visit(const DataType& type, ArrayBuilder* raw_builder,
+               const std::string& value) {
+    return Status::Invalid("The type is ", type.ToString());
+  }
+};
 }  // namespace
 
 Result<std::shared_ptr<Array>> MakeStatisticsArray(
@@ -355,7 +384,7 @@ Result<std::shared_ptr<Array>> MakeStatisticsArray(
         RETURN_NOT_OK(items_builder->Append(values_type_index));
         struct Visitor {
           ArrayBuilder* builder;
-
+          DataType* type;
           Status operator()(const bool& value) {
             return static_cast<BooleanBuilder*>(builder)->Append(value);
           }
@@ -369,14 +398,15 @@ Result<std::shared_ptr<Array>> MakeStatisticsArray(
             return static_cast<DoubleBuilder*>(builder)->Append(value);
           }
           Status operator()(const std::string& value) {
-            return static_cast<StringBuilder*>(builder)->Append(
-                value.data(), static_cast<int32_t>(value.size()));
+            auto string_visitor_builder = StringVisitorBuilder();
+            return VisitTypeInline(*type, &string_visitor_builder, builder, value);
           }
           Status operator()(const std::shared_ptr<Scalar>& value) {
             return builder->AppendScalar(*value);
           }
         } visitor;
         visitor.builder = values_builders[values_type_index].get();
+        visitor.type = statistics.type.get();
         RETURN_NOT_OK(std::visit(visitor, statistics.value));
         return Status::OK();
       }));

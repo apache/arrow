@@ -28,10 +28,6 @@
 #include <utility>
 
 #include "arrow/array.h"
-#include "arrow/array/builder_binary.h"
-#include "arrow/array/builder_dict.h"
-#include "arrow/array/builder_nested.h"
-#include "arrow/array/builder_union.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/array/statistics.h"
 #include "arrow/array/statistics_option.h"
@@ -480,15 +476,16 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::ViewOrCopyTo(
 
 Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
     const StatisticsArrayTOptions& options) const {
-  ArrayDataVector vector;
+  ArrayDataVector collected_columns;
   for (int i = 0; i < this->num_columns(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(
-        auto extracted_columns,
-        internal::ExtractColumnsToArrayData(column(i), options.max_recursion_depth));
-    vector.insert(vector.end(), std::make_move_iterator(extracted_columns.begin()),
-                  std::make_move_iterator(extracted_columns.end()));
+    ARROW_ASSIGN_OR_RAISE(auto extracted_columns,
+                          internal::ExtractColumnsToArrayData(
+                              column(i)->data(), options.max_recursion_depth));
+    collected_columns.insert(collected_columns.end(),
+                             std::make_move_iterator(extracted_columns.begin()),
+                             std::make_move_iterator(extracted_columns.end()));
   }
-  return internal::MakeStatisticsArray(options.memory_pool, std::move(vector),
+  return internal::MakeStatisticsArray(options.memory_pool, std::move(collected_columns),
                                        this->num_rows());
 }
 

@@ -285,7 +285,7 @@ class ARROW_EXPORT RecordBatch {
 
   /// \brief Create a statistics array of this record batch
   ///
-  /// The created array follows the C data interface statistics
+  /// The created array follows the Statistics Schema
   /// specification. See
   /// https://arrow.apache.org/docs/format/StatisticsSchema.html
   /// for details.

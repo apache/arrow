@@ -18,11 +18,13 @@
 
 #include "arrow/array/statistics_test_util.h"
 
-#include <arrow/record_batch.h>
-
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <utility>
+#include <variant>
 #include <vector>
 
 #include "arrow/array/array_base.h"
@@ -32,12 +34,14 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/array/data.h"
 #include "arrow/array/statistics.h"
-#include "arrow/array/statistics_option.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 namespace {
@@ -54,14 +58,43 @@ Result<std::shared_ptr<Array>> BuildArray(
   return builder.Finish();
 }
 
-template <typename ArrowType, typename = enable_if_string<ArrowType>>
-Result<std::shared_ptr<Array>> BuildArray(const std::vector<std::string>& values) {
-  using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
-  BuilderType builder;
-  for (const auto& value : values) {
-    ARROW_RETURN_NOT_OK(builder.Append(value));
+struct StringVisitorBuilder {
+  template <typename DataType,
+            typename Builder = typename TypeTraits<DataType>::BuilderType>
+  enable_if_t<is_base_binary_type<DataType>::value, Status> Visit(
+      const DataType&, ArrayBuilder* raw_builder,
+      const std::vector<std::string>& strings) {
+    auto* builder = static_cast<Builder*>(raw_builder);
+    ARROW_RETURN_NOT_OK(builder->AppendValues(strings));
+    return Status::OK();
   }
-  return builder.Finish();
+
+  template <typename DataType,
+            typename Builder = typename TypeTraits<DataType>::BuilderType>
+  enable_if_t<is_binary_view_like_type<DataType>::value ||
+                  std::is_same_v<DataType, FixedSizeBinaryType>,
+              Status>
+  Visit(const DataType&, ArrayBuilder* raw_builder,
+        const std::vector<std::string>& strings) {
+    auto* builder = static_cast<Builder*>(raw_builder);
+    for (const auto& string : strings) {
+      ARROW_RETURN_NOT_OK(builder->Append(string));
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const DataType& type, ArrayBuilder*, const std::vector<std::string>&) {
+    return Status::Invalid("the type is ", type.ToString());
+  }
+};
+
+Result<std::shared_ptr<Array>> BuildArray(const std::vector<std::string>& values,
+                                          const std::shared_ptr<DataType>& type) {
+  std::unique_ptr<ArrayBuilder> builder;
+  ARROW_RETURN_NOT_OK(MakeBuilder(default_memory_pool(), type, &builder));
+  StringVisitorBuilder visitor;
+  ARROW_RETURN_NOT_OK(VisitTypeInline(*type, &visitor, builder.get(), values));
+  return builder->Finish();
 }
 
 template <typename RawType>
@@ -76,11 +109,14 @@ std::vector<RawType> StatisticsValuesToRawValues(
 
 template <typename ValueType, typename = std::enable_if_t<std::is_same<
                                   ArrayStatistics::ValueType, ValueType>::value>>
-Result<std::shared_ptr<Array>> BuildArray(const std::vector<ValueType>& values) {
+Result<std::shared_ptr<Array>> BuildArray(const std::vector<ValueType>& values,
+                                          const std::shared_ptr<DataType>& string_type) {
   struct Builder {
     const std::vector<ArrayStatistics::ValueType>& values_;
-    explicit Builder(const std::vector<ArrayStatistics::ValueType>& values)
-        : values_(values) {}
+    const std::shared_ptr<DataType>& type;
+    explicit Builder(const std::vector<ArrayStatistics::ValueType>& values,
+                     const std::shared_ptr<DataType>& type)
+        : values_(values), type(type) {}
 
     Result<std::shared_ptr<Array>> operator()(const bool&) {
       auto values = StatisticsValuesToRawValues<bool>(values_);
@@ -100,7 +136,7 @@ Result<std::shared_ptr<Array>> BuildArray(const std::vector<ValueType>& values) 
     }
     Result<std::shared_ptr<Array>> operator()(const std::string&) {
       auto values = StatisticsValuesToRawValues<std::string>(values_);
-      return BuildArray<StringType>(values);
+      return BuildArray(values, type);
     }
     Result<std::shared_ptr<Array>> operator()(const std::shared_ptr<Scalar>& scalar) {
       auto values = StatisticsValuesToRawValues<std::shared_ptr<Scalar>>(values_);
@@ -109,16 +145,16 @@ Result<std::shared_ptr<Array>> BuildArray(const std::vector<ValueType>& values) 
       ARROW_RETURN_NOT_OK(builder->AppendScalars(values));
       return builder->Finish();
     }
-  } builder(values);
+  } builder(values, string_type);
   return std::visit(builder, values[0]);
 }
 }  // namespace
-namespace test {
-Result<std::shared_ptr<Array>> MakeMockStatisticsArray(
+
+Result<std::shared_ptr<Array>> detail::MakeMockStatisticsArray(
     const std::string& columns_json,
     const std::vector<std::vector<std::string>>& nested_statistics_keys,
-    const std::vector<std::vector<ArrayStatistics::ValueType>>&
-        nested_statistics_values) {
+    const std::vector<std::vector<ArrayStatistics::ValueType>>& nested_statistics_values,
+    const std::vector<std::shared_ptr<DataType>>& string_types) {
   const auto& columns_type = int32();
   auto columns_array = ArrayFromJSON(columns_type, columns_json);
   const auto n_columns = columns_array->length();
@@ -165,6 +201,11 @@ Result<std::shared_ptr<Array>> MakeMockStatisticsArray(
   for (size_t i = 0; i < nested_statistics_keys.size(); ++i) {
     const auto& statistics_keys = nested_statistics_keys[i];
     const auto& statistics_values = nested_statistics_values[i];
+    std::shared_ptr<DataType> string_type = utf8();
+    if (!string_types.empty() && string_types[i]) {
+      string_type = string_types[i];
+    }
+
     statistics_offsets.push_back(offset);
     for (size_t j = 0; j < statistics_keys.size(); ++j) {
       const auto& key = statistics_keys[j];
@@ -182,7 +223,8 @@ Result<std::shared_ptr<Array>> MakeMockStatisticsArray(
       }
       keys_indices.push_back(key_index);
 
-      auto values_type = ArrayStatistics::ValueToArrowType(value, arrow::null());
+      ARROW_ASSIGN_OR_RAISE(auto values_type,
+                            ArrayStatistics::ValueToArrowType(value, string_type));
       int8_t values_type_code = 0;
       for (; values_type_code < static_cast<int32_t>(values_types.size());
            ++values_type_code) {
@@ -214,16 +256,21 @@ Result<std::shared_ptr<Array>> MakeMockStatisticsArray(
       struct_({field("column", columns_type), field("statistics", statistics_type)});
 
   ARROW_ASSIGN_OR_RAISE(auto keys_indices_array, BuildArray<Int32Type>(keys_indices));
-  ARROW_ASSIGN_OR_RAISE(auto keys_dictionary_array,
-                        BuildArray<StringType>(keys_dictionary));
+  ARROW_ASSIGN_OR_RAISE(auto keys_dictionary_array, BuildArray(keys_dictionary, utf8()));
   ARROW_ASSIGN_OR_RAISE(
       auto keys_array,
       DictionaryArray::FromArrays(keys_type, keys_indices_array, keys_dictionary_array));
 
   std::vector<std::shared_ptr<Array>> values_arrays;
-  for (const auto& values : values_values) {
+  for (uint32_t i = 0; i < values_values.size(); ++i) {
+    const auto& values = values_values[i];
+    std::shared_ptr<DataType> string_type = utf8();
+    if (!string_types.empty() && string_types[i]) {
+      string_type = string_types[i];
+    }
+
     ARROW_ASSIGN_OR_RAISE(auto values_array,
-                          BuildArray<ArrayStatistics::ValueType>(values));
+                          BuildArray<ArrayStatistics::ValueType>(values, string_type));
     values_arrays.push_back(values_array);
   }
   ARROW_ASSIGN_OR_RAISE(auto values_value_type_ids_array,
@@ -266,21 +313,4 @@ Result<std::shared_ptr<Array>> MakeNestedStruct(const int32_t depth) {
   }
   return parent_struct;
 }
-Status CheckDepth(
-    std::variant<std::shared_ptr<RecordBatch>, std::shared_ptr<Array>> value,
-    const StatisticsArrayTOptions& options) {
-  struct {
-    StatisticsArrayTOptions options;
-    Status operator()(const std::shared_ptr<RecordBatch>& batch) const {
-      return batch->MakeStatisticsArray(options).status();
-    }
-    Status operator()(const std::shared_ptr<Array>& array) const {
-      // TODO  Lack of method for creating statistics array for Array(GH-45804)
-      return Status::NotImplemented("MakeStatisticsArray not implemented for Array");
-    }
-  } visitor;
-  visitor.options = options;
-  return std::visit(visitor, value);
-}
-};  // namespace test
 }  // namespace arrow

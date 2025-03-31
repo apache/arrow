@@ -24,22 +24,24 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_dict.h"
 #include "arrow/array/array_nested.h"
 #include "arrow/array/data.h"
+#include "arrow/array/statistics.h"
 #include "arrow/array/statistics_option.h"
 #include "arrow/array/statistics_test_util.h"
 #include "arrow/array/util.h"
 #include "arrow/c/abi.h"
 #include "arrow/chunked_array.h"
 #include "arrow/config.h"
-#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/tensor.h"
@@ -1022,127 +1024,103 @@ TEST_F(TestRecordBatch, ToTensorUnsupportedMixedFloat16) {
       NotImplemented, "NotImplemented: Casting from or to halffloat is not supported.",
       batch1->ToTensor());
 }
-namespace test {
+class TestRecordBatchStatisticsArray : public TestStatisticsArray<RecordBatch>,
+                                       public ::testing::Test {};
 
-TEST_F(TestRecordBatch, MakeStatisticsArrayNesting) {
+TEST_F(TestRecordBatchStatisticsArray, MakeStatisticsArrayNesting) {
   auto schema = ::arrow::schema({field("f0", int32())});
   ASSERT_OK_AND_ASSIGN(auto batch, RecordBatch::MakeEmpty(schema));
-  auto options = StatisticsArrayTOptions::Default();
-  options.max_recursion_depth = 1;
-  ASSERT_OK(CheckDepth(batch, options));
-  options.max_recursion_depth = 0;
-  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Max recursion depth reached",
-                             CheckDepth(batch, options));
+  options_.max_recursion_depth = 1;
+  CheckDepth(batch, false);
+  options_.max_recursion_depth = 0;
+  CheckDepth(batch, true);
 
   schema = ::arrow::schema({field("f0", int64()), field("f1", int64())});
   batch = RecordBatchFromJSON(
       schema, R"([{"f0": 1, "f1": 4},{"f0": 2, "f1": 5},{"f0": 3, "f1": 6}])");
-  options = StatisticsArrayTOptions::Default();
-  options.max_recursion_depth = 1;
-  ASSERT_OK(CheckDepth(batch, options));
-  options.max_recursion_depth = 0;
-  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Max recursion depth reached",
-                             CheckDepth(batch, options));
+  options_.max_recursion_depth = 1;
+  CheckDepth(batch, false);
+  options_.max_recursion_depth = 0;
+  CheckDepth(batch, true);
 
-  options.max_recursion_depth = 2;
+  options_.max_recursion_depth = 2;
   ASSERT_OK_AND_ASSIGN(auto multi_children_struct,
-                       MakeNestedStruct(options.max_recursion_depth));
+                       MakeNestedStruct(options_.max_recursion_depth));
   schema =
       ::arrow::schema({field("multi_children_struct", multi_children_struct->type())});
   batch =
       RecordBatch::Make(schema, multi_children_struct->length(), {multi_children_struct});
-
-  options.max_recursion_depth = 1;
-  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Max recursion depth reached",
-                             CheckDepth(batch, options));
-
-  options.max_recursion_depth = 2;
-  ASSERT_OK(CheckDepth(batch, options));
+  options_.max_recursion_depth = 1;
+  CheckDepth(batch, true);
+  options_.max_recursion_depth = 2;
+  CheckDepth(batch, false);
 
   auto array_a = ArrayFromJSON(int64(), R"([1,2,3])");
   schema = ::arrow::schema({field("a", int64()), field("multi_children_struct",
                                                        multi_children_struct->type())});
   batch = RecordBatch::Make(schema, 3, {array_a, multi_children_struct});
-
-  options.max_recursion_depth = 1;
-  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Max recursion depth reached",
-                             CheckDepth(batch, options));
-
-  options.max_recursion_depth = 2;
-  ASSERT_OK(CheckDepth(batch, options));
+  options_.max_recursion_depth = 1;
+  CheckDepth(batch, true);
+  options_.max_recursion_depth = 2;
+  CheckDepth(batch, false);
 }
 
-TEST_F(TestRecordBatch, MakeStatisticsArrayNestingStressTest) {
+TEST_F(TestRecordBatchStatisticsArray, MakeStatisticsArrayNestingStressTest) {
   ASSERT_OK_AND_ASSIGN(auto deep_children_struct, MakeNestedStruct(100));
   auto schema = ::arrow::schema({field("struct", deep_children_struct->type())});
   auto batch =
       RecordBatch::Make(schema, deep_children_struct->length(), {deep_children_struct});
-  StatisticsArrayTOptions options;
-  options.max_recursion_depth = 100;
-  ASSERT_OK(CheckDepth(batch, options));
-  options.max_recursion_depth = 99;
-  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Max recursion depth reached",
-                             batch->MakeStatisticsArray(options));
+  options_.max_recursion_depth = 100;
+  CheckDepth(batch, false);
+  options_.max_recursion_depth = 99;
+  CheckDepth(batch, true);
 
 #if !defined(ARROW_VALGRIND)
-  ASSERT_OK_AND_ASSIGN(deep_children_struct, MakeNestedStruct(500));
+  ASSERT_OK_AND_ASSIGN(deep_children_struct, MakeNestedStruct(5000));
   schema = ::arrow::schema({field("struct", deep_children_struct->type())});
   batch =
       RecordBatch::Make(schema, deep_children_struct->length(), {deep_children_struct});
-  options.max_recursion_depth = 500;
-  ASSERT_OK(CheckDepth(batch, options));
-  options.max_recursion_depth = 499;
-  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Max recursion depth reached",
-                             batch->MakeStatisticsArray(options));
+  options_.max_recursion_depth = 5000;
+  CheckDepth(batch, false);
+  options_.max_recursion_depth = 4999;
+  CheckDepth(batch, true);
+
 #endif
 }
 
-TEST_F(TestRecordBatch, MakeStatisticsArrayRowCount) {
+TEST_F(TestRecordBatchStatisticsArray, MakeStatisticsArrayRowCount) {
   auto schema = ::arrow::schema({field("int32", int32())});
   auto int32_array = ArrayFromJSON(int32(), "[1, null, -1]");
   auto batch = RecordBatch::Make(schema, int32_array->length(), {int32_array});
-
-  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
-
-  ASSERT_OK_AND_ASSIGN(auto expected_statistics_array,
-                       MakeMockStatisticsArray("[null]",
-                                               {{
-                                                   ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
-                                               }},
-                                               {{
-                                                   ArrayStatistics::ValueType{int64_t{3}},
-                                               }}));
-  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+  CheckStatStatisticsArray(batch, "[null]",
+                           {{
+                               ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                           }},
+                           {{
+                               ArrayStatistics::ValueType{int64_t{3}},
+                           }});
 
   // I'm not sure whether the following states are valid
   batch = RecordBatch::Make(schema, 1, {int32_array});
-  ASSERT_OK_AND_ASSIGN(statistics_array, batch->MakeStatisticsArray());
-
-  ASSERT_OK_AND_ASSIGN(expected_statistics_array,
-                       MakeMockStatisticsArray("[null]",
-                                               {{
-                                                   ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
-                                               }},
-                                               {{
-                                                   ArrayStatistics::ValueType{int64_t{1}},
-                                               }}));
-  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+  CheckStatStatisticsArray(batch, "[null]",
+                           {{
+                               ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                           }},
+                           {{
+                               ArrayStatistics::ValueType{int64_t{1}},
+                           }});
 
   batch = RecordBatch::Make(schema, 10, {int32_array});
-  ASSERT_OK_AND_ASSIGN(statistics_array, batch->MakeStatisticsArray());
-  ASSERT_OK_AND_ASSIGN(
-      expected_statistics_array,
-      MakeMockStatisticsArray("[null]",
-                              {{
-                                  ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
-                              }},
-                              {{
-                                  ArrayStatistics::ValueType{int64_t{10}},
-                              }}));
-  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+  CheckStatStatisticsArray(batch, "[null]",
+                           {{
+                               ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                           }},
+                           {{
+                               ArrayStatistics::ValueType{int64_t{10}},
+                           }});
 }
 
-TEST_F(TestRecordBatch, MakeStatisticsArrayNullCount) {
+TEST_F(TestRecordBatchStatisticsArray, MakeStatisticsArrayNullCount) {
   auto schema =
       ::arrow::schema({field("no-statistics", boolean()), field("int32", int32())});
   auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
@@ -1153,27 +1131,22 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayNullCount) {
   auto batch = RecordBatch::Make(schema, int32_array->length(),
                                  {no_statistics_array, int32_array});
 
-  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
-
-  ASSERT_OK_AND_ASSIGN(
-      auto expected_statistics_array,
-      MakeMockStatisticsArray("[null, 1]",
-                              {{
-                                   ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
-                               },
-                               {
-                                   ARROW_STATISTICS_KEY_NULL_COUNT_EXACT,
-                               }},
-                              {{
-                                   ArrayStatistics::ValueType{int64_t{3}},
-                               },
-                               {
-                                   ArrayStatistics::ValueType{int64_t{1}},
-                               }}));
-  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+  CheckStatStatisticsArray(batch, "[null, 1]",
+                           {{
+                                ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                            },
+                            {
+                                ARROW_STATISTICS_KEY_NULL_COUNT_EXACT,
+                            }},
+                           {{
+                                ArrayStatistics::ValueType{int64_t{3}},
+                            },
+                            {
+                                ArrayStatistics::ValueType{int64_t{1}},
+                            }});
 }
 
-TEST_F(TestRecordBatch, MakeStatisticsArrayDistinctCount) {
+TEST_F(TestRecordBatchStatisticsArray, MakeStatisticsArrayDistinctCount) {
   auto schema =
       ::arrow::schema({field("no-statistics", boolean()), field("int32", int32())});
   auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
@@ -1185,29 +1158,24 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayDistinctCount) {
   auto batch = RecordBatch::Make(schema, int32_array->length(),
                                  {no_statistics_array, int32_array});
 
-  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
-
-  ASSERT_OK_AND_ASSIGN(
-      auto expected_statistics_array,
-      MakeMockStatisticsArray("[null, 1]",
-                              {{
-                                   ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
-                               },
-                               {
-                                   ARROW_STATISTICS_KEY_NULL_COUNT_EXACT,
-                                   ARROW_STATISTICS_KEY_DISTINCT_COUNT_EXACT,
-                               }},
-                              {{
-                                   ArrayStatistics::ValueType{int64_t{3}},
-                               },
-                               {
-                                   ArrayStatistics::ValueType{int64_t{1}},
-                                   ArrayStatistics::ValueType{int64_t{2}},
-                               }}));
-  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+  CheckStatStatisticsArray(batch, "[null, 1]",
+                           {{
+                                ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                            },
+                            {
+                                ARROW_STATISTICS_KEY_NULL_COUNT_EXACT,
+                                ARROW_STATISTICS_KEY_DISTINCT_COUNT_EXACT,
+                            }},
+                           {{
+                                ArrayStatistics::ValueType{int64_t{3}},
+                            },
+                            {
+                                ArrayStatistics::ValueType{int64_t{1}},
+                                ArrayStatistics::ValueType{int64_t{2}},
+                            }});
 }
 
-TEST_F(TestRecordBatch, MakeStatisticsArrayMinExact) {
+TEST_F(TestRecordBatchStatisticsArray, MakeStatisticsArrayMinExact) {
   auto schema =
       ::arrow::schema({field("no-statistics", boolean()), field("uint32", uint32())});
   auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
@@ -1219,27 +1187,22 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayMinExact) {
   auto batch = RecordBatch::Make(schema, uint32_array->length(),
                                  {no_statistics_array, uint32_array});
 
-  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
-
-  ASSERT_OK_AND_ASSIGN(
-      auto expected_statistics_array,
-      MakeMockStatisticsArray("[null, 1]",
-                              {{
-                                   ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
-                               },
-                               {
-                                   ARROW_STATISTICS_KEY_MIN_VALUE_EXACT,
-                               }},
-                              {{
-                                   ArrayStatistics::ValueType{int64_t{3}},
-                               },
-                               {
-                                   ArrayStatistics::ValueType{uint64_t{1}},
-                               }}));
-  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+  CheckStatStatisticsArray(batch, "[null, 1]",
+                           {{
+                                ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                            },
+                            {
+                                ARROW_STATISTICS_KEY_MIN_VALUE_EXACT,
+                            }},
+                           {{
+                                ArrayStatistics::ValueType{int64_t{3}},
+                            },
+                            {
+                                ArrayStatistics::ValueType{uint64_t{1}},
+                            }});
 }
 
-TEST_F(TestRecordBatch, MakeStatisticsArrayMinApproximate) {
+TEST_F(TestRecordBatchStatisticsArray, MakeStatisticsArrayMinApproximate) {
   auto schema =
       ::arrow::schema({field("no-statistics", boolean()), field("int32", int32())});
   auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
@@ -1250,27 +1213,22 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayMinApproximate) {
   auto batch = RecordBatch::Make(schema, int32_array->length(),
                                  {no_statistics_array, int32_array});
 
-  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
-
-  ASSERT_OK_AND_ASSIGN(
-      auto expected_statistics_array,
-      MakeMockStatisticsArray("[null, 1]",
-                              {{
-                                   ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
-                               },
-                               {
-                                   ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE,
-                               }},
-                              {{
-                                   ArrayStatistics::ValueType{int64_t{3}},
-                               },
-                               {
-                                   ArrayStatistics::ValueType{-1.0},
-                               }}));
-  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+  CheckStatStatisticsArray(batch, "[null, 1]",
+                           {{
+                                ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                            },
+                            {
+                                ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE,
+                            }},
+                           {{
+                                ArrayStatistics::ValueType{int64_t{3}},
+                            },
+                            {
+                                ArrayStatistics::ValueType{-1.0},
+                            }});
 }
 
-TEST_F(TestRecordBatch, MakeStatisticsArrayMaxExact) {
+TEST_F(TestRecordBatchStatisticsArray, MakeStatisticsArrayMaxExact) {
   auto schema =
       ::arrow::schema({field("no-statistics", boolean()), field("boolean", boolean())});
   auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
@@ -1283,27 +1241,22 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayMaxExact) {
   auto batch = RecordBatch::Make(schema, boolean_array->length(),
                                  {no_statistics_array, boolean_array});
 
-  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
-
-  ASSERT_OK_AND_ASSIGN(
-      auto expected_statistics_array,
-      MakeMockStatisticsArray("[null, 1]",
-                              {{
-                                   ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
-                               },
-                               {
-                                   ARROW_STATISTICS_KEY_MAX_VALUE_EXACT,
-                               }},
-                              {{
-                                   ArrayStatistics::ValueType{int64_t{3}},
-                               },
-                               {
-                                   ArrayStatistics::ValueType{true},
-                               }}));
-  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+  CheckStatStatisticsArray(batch, "[null, 1]",
+                           {{
+                                ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                            },
+                            {
+                                ARROW_STATISTICS_KEY_MAX_VALUE_EXACT,
+                            }},
+                           {{
+                                ArrayStatistics::ValueType{int64_t{3}},
+                            },
+                            {
+                                ArrayStatistics::ValueType{true},
+                            }});
 }
 
-TEST_F(TestRecordBatch, MakeStatisticsArrayMaxApproximate) {
+TEST_F(TestRecordBatchStatisticsArray, MakeStatisticsArrayMaxApproximate) {
   auto schema =
       ::arrow::schema({field("no-statistics", boolean()), field("float64", float64())});
   auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
@@ -1314,56 +1267,94 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayMaxApproximate) {
   auto batch = RecordBatch::Make(schema, float64_array->length(),
                                  {no_statistics_array, float64_array});
 
-  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
-
-  ASSERT_OK_AND_ASSIGN(
-      auto expected_statistics_array,
-      MakeMockStatisticsArray("[null, 1]",
-                              {{
-                                   ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
-                               },
-                               {
-                                   ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE,
-                               }},
-                              {{
-                                   ArrayStatistics::ValueType{int64_t{3}},
-                               },
-                               {
-                                   ArrayStatistics::ValueType{1.0},
-                               }}));
-  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+  CheckStatStatisticsArray(batch, "[null, 1]",
+                           {{
+                                ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                            },
+                            {
+                                ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE,
+                            }},
+                           {{
+                                ArrayStatistics::ValueType{int64_t{3}},
+                            },
+                            {
+                                ArrayStatistics::ValueType{1.0},
+                            }});
 }
 
-TEST_F(TestRecordBatch, MakeStatisticsArrayString) {
-  auto schema =
-      ::arrow::schema({field("no-statistics", boolean()), field("string", utf8())});
-  auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
-  auto string_array_data = ArrayFromJSON(utf8(), "[\"a\", null, \"c\"]")->data()->Copy();
-  string_array_data->statistics = std::make_shared<ArrayStatistics>();
-  string_array_data->statistics->is_max_exact = true;
-  string_array_data->statistics->max = "c";
-  auto string_array = MakeArray(std::move(string_array_data));
-  auto batch = RecordBatch::Make(schema, string_array->length(),
-                                 {no_statistics_array, string_array});
+TEST_F(TestRecordBatchStatisticsArray, MakeStatisticsArrayString) {
+  // Check each string type
+  auto CheckString = [&](const std::shared_ptr<DataType>& type) {
+    auto schema =
+        ::arrow::schema({field("no-statistics", boolean()), field("string", type)});
+    auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
+    auto string_array_data = ArrayFromJSON(type, R"(["a", null, "c"])")->data()->Copy();
+    string_array_data->statistics = std::make_shared<ArrayStatistics>();
+    string_array_data->statistics->is_max_exact = true;
+    string_array_data->statistics->max = "c";
+    auto string_array = MakeArray(std::move(string_array_data));
+    auto batch = RecordBatch::Make(schema, string_array->length(),
+                                   {no_statistics_array, string_array});
+    CheckStatStatisticsArray(batch, "[null, 1]",
+                             {{
+                                  ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                              },
+                              {
+                                  ARROW_STATISTICS_KEY_MAX_VALUE_EXACT,
+                              }},
+                             {{
+                                  ArrayStatistics::ValueType{int64_t{3}},
+                              },
+                              {
+                                  ArrayStatistics::ValueType{"c"},
+                              }},
+                             {nullptr, type});
+  };
 
-  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
+  CheckString(binary());
+  CheckString(large_binary());
+  CheckString(utf8());
+  CheckString(large_utf8());
+  CheckString(binary_view());
+  CheckString(utf8_view());
+  CheckString(fixed_size_binary(1));
 
-  ASSERT_OK_AND_ASSIGN(
-      auto expected_statistics_array,
-      MakeMockStatisticsArray("[null, 1]",
-                              {{
-                                   ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
-                               },
-                               {
-                                   ARROW_STATISTICS_KEY_MAX_VALUE_EXACT,
-                               }},
-                              {{
-                                   ArrayStatistics::ValueType{int64_t{3}},
-                               },
-                               {
-                                   ArrayStatistics::ValueType{"c"},
-                               }}));
-  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+  // Check the combination of various string types
+
+  auto f0 = ArrayFromJSON(utf8(), R"(["a", "b", "c"])");
+  f0->data()->statistics = std::make_shared<ArrayStatistics>();
+  f0->data()->statistics->max = "c";
+
+  auto f1 = ArrayFromJSON(int64(), R"([1, 2, 3])");
+
+  auto f2 = ArrayFromJSON(large_binary(), R"(["a", "b", "c"])");
+  f2->data()->statistics = std::make_shared<ArrayStatistics>();
+  f2->data()->statistics->max = "c";
+
+  auto schema = ::arrow::schema(
+      {field("f0", utf8()), field("f1", int64()), field("f2", utf8_view())});
+  auto batch = RecordBatch::Make(schema, f0->length(), {f0, f1, f2});
+
+  CheckStatStatisticsArray(batch, "[null, 0, 2]",
+                           {{
+                                ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                            },
+                            {
+                                ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE,
+                            },
+                            {
+                                ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE,
+                            }},
+                           {{
+                                ArrayStatistics::ValueType{int64_t{3}},
+                            },
+                            {
+                                ArrayStatistics::ValueType{"c"},
+                            },
+                            {
+                                ArrayStatistics::ValueType{"c"},
+                            }},
+                           {nullptr, utf8(), large_binary()});
 }
 // Schema:
 //   struct_a_b: struct {a: int64, b: int64}
@@ -1393,7 +1384,7 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayString) {
 //   struct_e_f.e:
 //     max_exact: 30
 
-TEST_F(TestRecordBatch, MakeStatisticsArrayNestedType) {
+TEST_F(TestRecordBatchStatisticsArray, MakeStatisticsArrayNestedType) {
   const auto struct_a_b_type = struct_({field("a", int64()), field("b", int64())});
   const auto struct_a_b = ArrayFromJSON(
       struct_a_b_type,
@@ -1418,32 +1409,27 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayNestedType) {
   struct_e_f_child_e_statistics->statistics->max = int64_t{30};
   struct_e_f_child_e_statistics->statistics->is_max_exact = true;
 
-  const auto expected_scalar = ScalarFromJSON(struct_a_b_type, R"([5 ,10])");
-
-  ASSERT_OK_AND_ASSIGN(
-      const auto expected_array_statistics,
-      MakeMockStatisticsArray("[null , 0, 1, 3, 6]",
-                              {{ARROW_STATISTICS_KEY_ROW_COUNT_EXACT},
-                               {ARROW_STATISTICS_KEY_NULL_COUNT_EXACT,
-                                ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE},
-                               {ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE},
-                               {ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE},
-                               {ARROW_STATISTICS_KEY_MAX_VALUE_EXACT}},
-                              {{ArrayStatistics::ValueType{int64_t{5}}},
-                               {ArrayStatistics::ValueType{int64_t{0}},
-                                ArrayStatistics::ValueType{expected_scalar}},
-                               {ArrayStatistics::ValueType{int64_t{1}}},
-                               {ArrayStatistics::ValueType{int64_t{15}}},
-                               {ArrayStatistics::ValueType{int64_t{30}}}}));
-
   const auto schema =
       ::arrow::schema({field("struct_a_b", struct_a_b_type), field("c", int64()),
                        field("d", int64()), field("struct_e_f", struct_e_f->type())});
   const auto batch =
       RecordBatch::Make(schema, 5, {struct_a_b, array_c, array_d, struct_e_f});
-  ASSERT_OK_AND_ASSIGN(auto batch_statistics, batch->MakeStatisticsArray());
 
-  AssertArraysEqual(*expected_array_statistics, *batch_statistics, true);
+  const auto expected_scalar = ScalarFromJSON(struct_a_b_type, R"([5 ,10])");
+
+  CheckStatStatisticsArray(batch, "[null , 0, 1, 3, 6]",
+                           {{ARROW_STATISTICS_KEY_ROW_COUNT_EXACT},
+                            {ARROW_STATISTICS_KEY_NULL_COUNT_EXACT,
+                             ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE},
+                            {ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE},
+                            {ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE},
+                            {ARROW_STATISTICS_KEY_MAX_VALUE_EXACT}},
+                           {{ArrayStatistics::ValueType{int64_t{5}}},
+                            {ArrayStatistics::ValueType{int64_t{0}},
+                             ArrayStatistics::ValueType{expected_scalar}},
+                            {ArrayStatistics::ValueType{int64_t{1}}},
+                            {ArrayStatistics::ValueType{int64_t{15}}},
+                            {ArrayStatistics::ValueType{int64_t{30}}}});
 }
 
 // Schema
@@ -1478,7 +1464,7 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayNestedType) {
 //   struct_nested_2:
 //     min_exact: {a:5, b: 4}
 //
-TEST_F(TestRecordBatch, MakeStatisticsArrayNestedNestedType) {
+TEST_F(TestRecordBatchStatisticsArray, MakeStatisticsArrayNestedNestedType) {
   const auto struct_nested_0_type = struct_({field("a", int32()), field("b", int32())});
   const auto struct_nested_0 = ArrayFromJSON(
       struct_nested_0_type,
@@ -1514,6 +1500,9 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayNestedNestedType) {
   ASSERT_OK_AND_ASSIGN(struct_parant->data()->statistics->min,
                        struct_parant->GetScalar(0));
 
+  const auto schema = ::arrow::schema({field("struct", struct_parant->type())});
+  const auto batch = RecordBatch::Make(schema, 5, {struct_parant});
+
   const auto expected_scalar_parent =
       ScalarFromJSON(struct_parant->type(), R"([[1 ,6], [1, 6], [1, 6]])");
 
@@ -1525,28 +1514,18 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayNestedNestedType) {
 
   const auto expected_scalar_nested_2 = ScalarFromJSON(struct_nested_2_type, R"([1, 6])");
 
-  ASSERT_OK_AND_ASSIGN(
-      const auto expected_array_statistics,
-      MakeMockStatisticsArray(R"([null, 0, 1, 4, 7])",
-                              {{ARROW_STATISTICS_KEY_ROW_COUNT_EXACT},
-                               {ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE},
-                               {ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE},
-                               {ARROW_STATISTICS_KEY_MAX_VALUE_EXACT},
-                               {ARROW_STATISTICS_KEY_MIN_VALUE_EXACT}},
-                              {{ArrayStatistics::ValueType{int64_t{5}}},
-                               {ArrayStatistics::ValueType{expected_scalar_parent}},
-                               {ArrayStatistics::ValueType{expected_scalar_nested_0}},
-                               {ArrayStatistics::ValueType{expected_scalar_nested_1}},
-                               {expected_scalar_nested_2}}));
-
-  const auto schema = ::arrow::schema({field("struct", struct_parant->type())});
-  const auto batch = RecordBatch::Make(schema, 5, {struct_parant});
-  ASSERT_OK_AND_ASSIGN(const auto batch_statistics, batch->MakeStatisticsArray());
-
-  AssertArraysEqual(*expected_array_statistics, *batch_statistics, true);
+  CheckStatStatisticsArray(batch, R"([null, 0, 1, 4, 7])",
+                           {{ARROW_STATISTICS_KEY_ROW_COUNT_EXACT},
+                            {ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE},
+                            {ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE},
+                            {ARROW_STATISTICS_KEY_MAX_VALUE_EXACT},
+                            {ARROW_STATISTICS_KEY_MIN_VALUE_EXACT}},
+                           {{ArrayStatistics::ValueType{int64_t{5}}},
+                            {ArrayStatistics::ValueType{expected_scalar_parent}},
+                            {ArrayStatistics::ValueType{expected_scalar_nested_0}},
+                            {ArrayStatistics::ValueType{expected_scalar_nested_1}},
+                            {expected_scalar_nested_2}});
 }
-
-}  // namespace test
 
 template <typename DataType>
 class TestBatchToTensorColumnMajor : public ::testing::Test {};

@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array/statistics.h"
+#include "arrow/compare.h"
 #include "arrow/scalar.h"
 #include "arrow/testing/gtest_util.h"
 
