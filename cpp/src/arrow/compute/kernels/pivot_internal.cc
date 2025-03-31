@@ -96,6 +96,7 @@ struct ConcretePivotWiderKeyMapper : public PivotWiderKeyMapper {
     if (group_id_array->GetNullCount() == 0) {
       return group_id_array->GetValues<uint32_t>(1)[0];
     } else {
+      // For UnexpectedKeyBehavior::kIgnore
       return std::nullopt;
     }
   }
@@ -107,7 +108,8 @@ struct ConcretePivotWiderKeyMapper : public PivotWiderKeyMapper {
     DCHECK(result.is_array());
     DCHECK_EQ(result.type()->id(), Type::UINT32);
     auto group_id_array = result.array();
-    if (ARROW_PREDICT_FALSE(group_id_array->GetNullCount() != 0) &&
+    const bool has_nulls = (group_id_array->GetNullCount() != 0);
+    if (ARROW_PREDICT_FALSE(has_nulls) &&
         unexpected_key_behavior_ == PivotWiderOptions::kRaise) {
       // Extract unexpected key name, to emit a nicer error message
       int64_t null_pos = 0;

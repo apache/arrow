@@ -4748,7 +4748,7 @@ TEST_F(TestPivotKernel, InvalidKeyName) {
 
   auto keys = ArrayFromJSON(key_type, "[]");
   auto values = ArrayFromJSON(value_type, "[]");
-  auto options = PivotWiderOptions(/*key_names=*/{"height", "width"});
+  auto options = PivotWiderOptions(/*key_names=*/{"123", "width"});
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr("Failed to parse string: 'width' as a scalar of type int32"),

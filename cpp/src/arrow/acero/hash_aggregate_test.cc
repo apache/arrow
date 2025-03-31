@@ -4797,7 +4797,7 @@ TEST_P(GroupBy, PivotInvalidKeys) {
   auto key_type = int32();
   auto value_type = float32();
   std::vector<std::string> table_json = {R"([])"};
-  PivotWiderOptions options(/*key_names=*/{"height", "width"});
+  PivotWiderOptions options(/*key_names=*/{"123", "width"});
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, HasSubstr("Failed to parse string: 'width' as a scalar of type int32"),
       RunPivot(key_type, value_type, options, table_json));
