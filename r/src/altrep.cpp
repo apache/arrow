@@ -275,8 +275,10 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     // Otherwise we have to materialize and hand the pointer to data2
     if constexpr (std::is_same_v<c_type, double>) {
       return REAL(Materialize(alt));
-    } else {
+    } else if constexpr (std::is_same_v<c_type, int>) {
       return INTEGER(Materialize(alt));
+    } else {
+      static_assert(false, "ALTREP not implemented for c_type");
     }
   }
 
