@@ -307,13 +307,6 @@ class SerializedFile : public ParquetFileReader::Contents {
     PARQUET_ASSIGN_OR_THROW(source_size_, source_->GetSize());
   }
 
-  ~SerializedFile() override {
-    try {
-      Close();
-    } catch (...) {
-    }
-  }
-
   void Close() override {}
 
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {

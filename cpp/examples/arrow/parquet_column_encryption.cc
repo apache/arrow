@@ -106,9 +106,9 @@ arrow::Result<std::shared_ptr<arrow::Table>> GetTable() {
 
 std::shared_ptr<parquet::encryption::CryptoFactory> GetCryptoFactory() {
   // Configure KMS.
-  std::unordered_map<std::string, std::string> key_map;
-  key_map.emplace("footerKeyId", "0123456789012345");
-  key_map.emplace("columnKeyId", "1234567890123456");
+  std::unordered_map<std::string, parquet::encryption::SecureString> key_map;
+  key_map.emplace("footerKeyId", parquet::encryption::SecureString("0123456789012345"));
+  key_map.emplace("columnKeyId", parquet::encryption::SecureString("1234567890123456"));
 
   auto crypto_factory = std::make_shared<parquet::encryption::CryptoFactory>();
   auto kms_client_factory =

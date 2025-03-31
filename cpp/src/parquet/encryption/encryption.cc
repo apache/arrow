@@ -29,11 +29,11 @@
 namespace parquet {
 
 // integer key retriever
-void IntegerKeyIdRetriever::PutKey(uint32_t key_id, const std::string& key) {
+void IntegerKeyIdRetriever::PutKey(uint32_t key_id, const encryption::SecureString& key) {
   key_map_.insert({key_id, key});
 }
 
-std::string IntegerKeyIdRetriever::GetKey(const std::string& key_metadata) {
+encryption::SecureString IntegerKeyIdRetriever::GetKey(const std::string& key_metadata) {
   uint32_t key_id;
   memcpy(reinterpret_cast<uint8_t*>(&key_id), key_metadata.c_str(), 4);
 
@@ -41,16 +41,17 @@ std::string IntegerKeyIdRetriever::GetKey(const std::string& key_metadata) {
 }
 
 // string key retriever
-void StringKeyIdRetriever::PutKey(const std::string& key_id, const std::string& key) {
+void StringKeyIdRetriever::PutKey(const std::string& key_id,
+                                  const encryption::SecureString& key) {
   key_map_.insert({key_id, key});
 }
 
-std::string StringKeyIdRetriever::GetKey(const std::string& key_id) {
+encryption::SecureString StringKeyIdRetriever::GetKey(const std::string& key_id) {
   return key_map_.at(key_id);
 }
 
 ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key(
-    std::string column_key) {
+    encryption::SecureString column_key) {
   if (column_key.empty()) return this;
 
   DCHECK(key_.empty());
@@ -92,7 +93,7 @@ FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::column_key
 }
 
 FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::footer_key(
-    const std::string footer_key) {
+    const encryption::SecureString footer_key) {
   if (footer_key.empty()) {
     return this;
   }
@@ -130,7 +131,7 @@ FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::aad_prefix
 }
 
 ColumnDecryptionProperties::Builder* ColumnDecryptionProperties::Builder::key(
-    const std::string& key) {
+    const encryption::SecureString& key) {
   if (key.empty()) return this;
 
   DCHECK(!key.empty());
@@ -181,10 +182,9 @@ FileEncryptionProperties::Builder::disable_aad_prefix_storage() {
   return this;
 }
 
-ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted,
-                                                       const std::string& column_path,
-                                                       const std::string& key,
-                                                       const std::string& key_metadata)
+ColumnEncryptionProperties::ColumnEncryptionProperties(
+    bool encrypted, const std::string& column_path, const encryption::SecureString& key,
+    const std::string& key_metadata)
     : column_path_(column_path) {
   DCHECK(!column_path.empty());
   if (!encrypted) {
@@ -205,8 +205,8 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted,
   key_ = key;
 }
 
-ColumnDecryptionProperties::ColumnDecryptionProperties(const std::string& column_path,
-                                                       const std::string& key)
+ColumnDecryptionProperties::ColumnDecryptionProperties(
+    const std::string& column_path, const encryption::SecureString& key)
     : column_path_(column_path) {
   DCHECK(!column_path.empty());
 
@@ -217,7 +217,8 @@ ColumnDecryptionProperties::ColumnDecryptionProperties(const std::string& column
   key_ = key;
 }
 
-std::string FileDecryptionProperties::column_key(const std::string& column_path) const {
+encryption::SecureString FileDecryptionProperties::column_key(
+    const std::string& column_path) const {
   if (column_decryption_properties_.find(column_path) !=
       column_decryption_properties_.end()) {
     auto column_prop = column_decryption_properties_.at(column_path);
@@ -225,11 +226,12 @@ std::string FileDecryptionProperties::column_key(const std::string& column_path)
       return column_prop->key();
     }
   }
-  return empty_string_;
+  return no_key_;
 }
 
 FileDecryptionProperties::FileDecryptionProperties(
-    const std::string& footer_key, std::shared_ptr<DecryptionKeyRetriever> key_retriever,
+    const encryption::SecureString& footer_key,
+    std::shared_ptr<DecryptionKeyRetriever> key_retriever,
     bool check_plaintext_footer_integrity, const std::string& aad_prefix,
     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
     const ColumnPathToDecryptionPropertiesMap& column_decryption_properties,
@@ -283,7 +285,7 @@ FileEncryptionProperties::column_encryption_properties(const std::string& column
 }
 
 FileEncryptionProperties::FileEncryptionProperties(
-    ParquetCipher::type cipher, const std::string& footer_key,
+    ParquetCipher::type cipher, const encryption::SecureString& footer_key,
     const std::string& footer_key_metadata, bool encrypted_footer,
     const std::string& aad_prefix, bool store_aad_prefix_in_file,
     const ColumnPathToEncryptionPropertiesMap& encrypted_columns)

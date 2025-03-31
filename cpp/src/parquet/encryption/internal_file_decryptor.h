@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "parquet/encryption/secure_string.h"
 #include "parquet/schema.h"
 
 namespace parquet {
@@ -39,9 +40,9 @@ class FileDecryptionProperties;
 // CAUTION: Decryptor objects are not thread-safe.
 class PARQUET_EXPORT Decryptor {
  public:
-  Decryptor(std::unique_ptr<encryption::AesDecryptor> decryptor, const std::string& key,
-            const std::string& file_aad, const std::string& aad,
-            ::arrow::MemoryPool* pool);
+  Decryptor(std::unique_ptr<encryption::AesDecryptor> decryptor,
+            const encryption::SecureString& key, const std::string& file_aad,
+            const std::string& aad, ::arrow::MemoryPool* pool);
   ~Decryptor();
 
   const std::string& file_aad() const { return file_aad_; }
@@ -55,7 +56,7 @@ class PARQUET_EXPORT Decryptor {
 
  private:
   std::unique_ptr<encryption::AesDecryptor> aes_decryptor_;
-  std::string key_;
+  encryption::SecureString key_;
   std::string file_aad_;
   std::string aad_;
   ::arrow::MemoryPool* pool_;
@@ -71,7 +72,7 @@ class InternalFileDecryptor {
 
   const std::string& file_aad() const { return file_aad_; }
 
-  std::string GetFooterKey();
+  encryption::SecureString GetFooterKey();
 
   ParquetCipher::type algorithm() const { return algorithm_; }
 
@@ -127,10 +128,10 @@ class InternalFileDecryptor {
 
   // Protects footer_key_ updates
   std::mutex mutex_;
-  std::string footer_key_;
+  encryption::SecureString footer_key_;
 
-  std::string GetColumnKey(const std::string& column_path,
-                           const std::string& column_key_metadata);
+  encryption::SecureString GetColumnKey(const std::string& column_path,
+                                        const std::string& column_key_metadata);
 
   std::unique_ptr<Decryptor> GetFooterDecryptor(const std::string& aad, bool metadata);
 

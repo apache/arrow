@@ -49,17 +49,21 @@ std::string data_file(const char* file) {
   return ss.str();
 }
 
-std::unordered_map<std::string, std::string> BuildKeyMap(const char* const* column_ids,
-                                                         const char* const* column_keys,
-                                                         const char* footer_id,
-                                                         const char* footer_key) {
-  std::unordered_map<std::string, std::string> key_map;
+std::unordered_map<std::string, SecureString> BuildKeyMap(const char* const* column_ids,
+                                                          const char* const* column_keys,
+                                                          const char* footer_id,
+                                                          const char* footer_key) {
+  std::unordered_map<std::string, SecureString> key_map;
   // add column keys
   for (int i = 0; i < 6; i++) {
-    key_map.insert({column_ids[i], column_keys[i]});
+    // this is not safe to do as column_keys[i] is not protected by SecureString
+    // do not do outside test code
+    key_map.insert({column_ids[i], SecureString(column_keys[i])});
   }
   // add footer key
-  key_map.insert({footer_id, footer_key});
+  // this is not safe to do as footer_key[i] is not protected by SecureString
+  // do not do outside test code
+  key_map.insert({footer_id, SecureString(footer_key)});
 
   return key_map;
 }

@@ -22,9 +22,9 @@
 namespace parquet {
 
 // Encryptor
-Encryptor::Encryptor(encryption::AesEncryptor* aes_encryptor, const std::string& key,
-                     const std::string& file_aad, const std::string& aad,
-                     ::arrow::MemoryPool* pool)
+Encryptor::Encryptor(encryption::AesEncryptor* aes_encryptor,
+                     const encryption::SecureString& key, const std::string& file_aad,
+                     const std::string& aad, ::arrow::MemoryPool* pool)
     : aes_encryptor_(aes_encryptor),
       key_(key),
       file_aad_(file_aad),
@@ -37,7 +37,7 @@ int32_t Encryptor::CiphertextLength(int64_t plaintext_len) const {
 
 int32_t Encryptor::Encrypt(::arrow::util::span<const uint8_t> plaintext,
                            ::arrow::util::span<uint8_t> ciphertext) {
-  return aes_encryptor_->Encrypt(plaintext, str2span(key_), str2span(aad_), ciphertext);
+  return aes_encryptor_->Encrypt(plaintext, key_.as_span(), str2span(aad_), ciphertext);
 }
 
 // InternalFileEncryptor
@@ -52,7 +52,7 @@ std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterEncryptor() {
 
   ParquetCipher::type algorithm = properties_->algorithm().algorithm;
   std::string footer_aad = encryption::CreateFooterAad(properties_->file_aad());
-  std::string footer_key = properties_->footer_key();
+  encryption::SecureString footer_key = properties_->footer_key();
   auto aes_encryptor = GetMetaAesEncryptor(algorithm, footer_key.size());
   footer_encryptor_ = std::make_shared<Encryptor>(
       aes_encryptor, footer_key, properties_->file_aad(), footer_aad, pool_);
@@ -66,7 +66,7 @@ std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterSigningEncryptor() {
 
   ParquetCipher::type algorithm = properties_->algorithm().algorithm;
   std::string footer_aad = encryption::CreateFooterAad(properties_->file_aad());
-  std::string footer_signing_key = properties_->footer_key();
+  encryption::SecureString footer_signing_key = properties_->footer_key();
   auto aes_encryptor = GetMetaAesEncryptor(algorithm, footer_signing_key.size());
   footer_signing_encryptor_ = std::make_shared<Encryptor>(
       aes_encryptor, footer_signing_key, properties_->file_aad(), footer_aad, pool_);
@@ -101,7 +101,7 @@ InternalFileEncryptor::InternalFileEncryptor::GetColumnEncryptor(
     return nullptr;
   }
 
-  std::string key;
+  encryption::SecureString key;
   if (column_prop->is_encrypted_with_footer_key()) {
     key = properties_->footer_key();
   } else {

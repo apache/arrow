@@ -26,8 +26,8 @@ namespace parquet::encryption::internal {
 // configured by users and the master key lengths fetched from KMS server.
 static constexpr const int32_t kAcceptableDataKeyLengths[] = {128, 192, 256};
 
-std::string EncryptKeyLocally(const std::string& key_bytes, const std::string& master_key,
-                              const std::string& aad) {
+std::string EncryptKeyLocally(const SecureString& key_bytes,
+                              const SecureString& master_key, const std::string& aad) {
   AesEncryptor key_encryptor(ParquetCipher::AES_GCM_V1,
                              static_cast<int>(master_key.size()), false,
                              false /*write_length*/);
@@ -38,15 +38,15 @@ std::string EncryptKeyLocally(const std::string& key_bytes, const std::string& m
   ::arrow::util::span<uint8_t> encrypted_key_span(
       reinterpret_cast<uint8_t*>(&encrypted_key[0]), encrypted_key_len);
 
-  encrypted_key_len = key_encryptor.Encrypt(str2span(key_bytes), str2span(master_key),
+  encrypted_key_len = key_encryptor.Encrypt(key_bytes.as_span(), master_key.as_span(),
                                             str2span(aad), encrypted_key_span);
 
   return ::arrow::util::base64_encode(
       ::std::string_view(encrypted_key.data(), encrypted_key_len));
 }
 
-std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
-                              const std::string& master_key, const std::string& aad) {
+SecureString DecryptKeyLocally(const std::string& encoded_encrypted_key,
+                               const SecureString& master_key, const std::string& aad) {
   std::string encrypted_key = ::arrow::util::base64_decode(encoded_encrypted_key);
 
   AesDecryptor key_decryptor(ParquetCipher::AES_GCM_V1,
@@ -59,10 +59,10 @@ std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
   ::arrow::util::span<uint8_t> decrypted_key_span(
       reinterpret_cast<uint8_t*>(&decrypted_key[0]), decrypted_key_len);
 
-  decrypted_key_len = key_decryptor.Decrypt(str2span(encrypted_key), str2span(master_key),
+  decrypted_key_len = key_decryptor.Decrypt(str2span(encrypted_key), master_key.as_span(),
                                             str2span(aad), decrypted_key_span);
 
-  return decrypted_key;
+  return SecureString(std::move(decrypted_key));
 }
 
 bool ValidateKeyLength(int32_t key_length_bits) {
