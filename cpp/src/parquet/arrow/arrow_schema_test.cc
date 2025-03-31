@@ -980,7 +980,7 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowUuidExtension) {
 
   {
     // Parquet file contains Arrow schema.
-    // uuid will be interpreted as uuid() field
+    // uuid will be interpreted as uuid() field even though extensions are not enabled.
     ArrowReaderProperties props;
     props.set_arrow_extensions_enabled(false);
     std::shared_ptr<KeyValueMetadata> field_metadata =
@@ -996,7 +996,7 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowUuidExtension) {
 
   {
     // Parquet file contains Arrow schema.
-    // uuid will be interpreted as uuid() field even though extensions are not enabled.
+    // uuid will be interpreted as uuid() field also when extensions *are* enabled
     ArrowReaderProperties props;
     props.set_arrow_extensions_enabled(true);
     std::shared_ptr<KeyValueMetadata> field_metadata =
