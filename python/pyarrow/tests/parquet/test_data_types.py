@@ -529,7 +529,7 @@ def test_json_extension_type(storage_type):
         pa.table({"ext": pa.array(data, pa.string())}),
         store_schema=False)
 
-    # With arrow_extensions_enabled=True on read, we get a arrow.uuid back
+    # With arrow_extensions_enabled=True on read, we get a arrow.json back
     # (but with string() storage)
     _check_roundtrip(
         table,
