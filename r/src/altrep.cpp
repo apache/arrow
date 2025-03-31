@@ -221,9 +221,9 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
 
       // copy the data from the array, through Get_region
       if constexpr (std::is_same_v<c_type, double>) {
-        Get_region(alt, 0, size, reinterpret_cast<double*>(REAL(copy)));
+        Get_region(alt, 0, size, REAL(copy));
       } else {
-        Get_region(alt, 0, size, reinterpret_cast<int*>(INTEGER(copy)));
+        Get_region(alt, 0, size, INTEGER(copy));
       }
 
       // store as data2, this is now considered materialized
@@ -907,17 +907,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
   }
 
   static void* Dataptr(SEXP alt, Rboolean writeable) {
-    // DATAPTR(Materialize(alt)) is disallowed by CRAN, so we need to createt the array of
-    // string and place the SEXPs in it ourselves with STRING_ELT()
-    SEXP materialized = Materialize(alt);
-
-    R_xlen_t len = XLENGTH(materialized);
-    void** str_array = (void**)R_alloc(len, sizeof(void*));
-    for (R_xlen_t i = 0; i < len; i++) {
-      str_array[i] = (void*)STRING_ELT(materialized, i);
-    }
-
-    return str_array;
+    return const_cast<void*>(DATAPTR_RO(Materialize(alt)));
   }
 
   static SEXP Materialize(SEXP alt) {
