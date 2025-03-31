@@ -103,9 +103,9 @@ class TestDecryptionConfiguration
   // This vector will hold various decryption configurations.
   std::vector<std::shared_ptr<parquet::FileDecryptionProperties>>
       vector_of_decryption_configurations_;
-  std::string kFooterEncryptionKey_ = std::string(kFooterEncryptionKey);
-  std::string kColumnEncryptionKey1_ = std::string(kColumnEncryptionKey1);
-  std::string kColumnEncryptionKey2_ = std::string(kColumnEncryptionKey2);
+  SecureString kFooterEncryptionKey_ = kFooterEncryptionKey;
+  SecureString kColumnEncryptionKey1_ = kColumnEncryptionKey1;
+  SecureString kColumnEncryptionKey2_ = kColumnEncryptionKey2;
   std::string kFileName_ = std::string(kFileName);
 
   void CreateDecryptionConfigurations() {

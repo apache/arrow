@@ -43,9 +43,9 @@ using ::arrow::internal::TemporaryDir;
 
 constexpr int kFixedLength = 10;
 
-const char kFooterEncryptionKey[] = "0123456789012345";  // 128bit/16
-const char kColumnEncryptionKey1[] = "1234567890123450";
-const char kColumnEncryptionKey2[] = "1234567890123451";
+inline SecureString kFooterEncryptionKey(std::string("0123456789012345"));
+inline SecureString kColumnEncryptionKey1(std::string("1234567890123450"));
+inline SecureString kColumnEncryptionKey2(std::string("1234567890123451"));
 const char kFileName[] = "tester";
 
 // Get the path of file inside parquet test data directory
@@ -82,10 +82,10 @@ const char* const kNewColumnMasterKeys[] = {"9234567890123450", "923456789012345
 
 // The result of this function will be used to set into TestOnlyInMemoryKmsClientFactory
 // as the key mapping to look at.
-std::unordered_map<std::string, std::string> BuildKeyMap(const char* const* column_ids,
-                                                         const char* const* column_keys,
-                                                         const char* footer_id,
-                                                         const char* footer_key);
+std::unordered_map<std::string, SecureString> BuildKeyMap(const char* const* column_ids,
+                                                          const char* const* column_keys,
+                                                          const char* footer_id,
+                                                          const char* footer_key);
 
 // The result of this function will be used to set into EncryptionConfiguration
 // as column keys.

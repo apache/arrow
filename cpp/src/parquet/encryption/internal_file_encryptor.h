@@ -36,7 +36,7 @@ class ColumnEncryptionProperties;
 
 class PARQUET_EXPORT Encryptor {
  public:
-  Encryptor(encryption::AesEncryptor* aes_encryptor, const std::string& key,
+  Encryptor(encryption::AesEncryptor* aes_encryptor, const encryption::SecureString& key,
             const std::string& file_aad, const std::string& aad,
             ::arrow::MemoryPool* pool);
   const std::string& file_aad() { return file_aad_; }
@@ -62,7 +62,7 @@ class PARQUET_EXPORT Encryptor {
 
  private:
   encryption::AesEncryptor* aes_encryptor_;
-  std::string key_;
+  encryption::SecureString key_;
   std::string file_aad_;
   std::string aad_;
   ::arrow::MemoryPool* pool_;
