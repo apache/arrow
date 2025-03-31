@@ -219,6 +219,8 @@ cdef class BooleanScalar(Scalar):
         cdef CBooleanScalar* sp = <CBooleanScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
+    def __bool__(self):
+        return (self.as_py())
 
 cdef class UInt8Scalar(Scalar):
     """
