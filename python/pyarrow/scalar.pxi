@@ -875,7 +875,7 @@ cdef class BinaryScalar(Scalar):
         """
         buffer = self.as_buffer()
         return None if buffer is None else buffer.to_pybytes()
-    
+
     def __bytes__(self):
         return (self.as_py())
 
