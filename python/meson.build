@@ -28,7 +28,7 @@ project(
     ).stdout().strip(),
     license: 'Apache-2.0',
     meson_version: '>=1.4.0',
-    default_options: ['buildtype=release', 'warning_level=0', 'cpp_std=c++17'],
+    default_options: ['buildtype=release', 'cpp_std=c++17'],
 )
 
 arrow_dep = dependency(
