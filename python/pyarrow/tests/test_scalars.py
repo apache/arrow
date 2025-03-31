@@ -220,6 +220,9 @@ def test_bool():
     assert true.as_py() is True
     assert false.as_py() is False
 
+    assert bool(true) is True
+    assert bool(false) is False
+
 
 def test_numerics():
     # int64
