@@ -1307,13 +1307,10 @@ sexp test_arrow_altrep_copy_by_dataptr(sexp x) {
     return out;
   } else if (TYPEOF(x) == STRSXP) {
     cpp11::writable::strings out(Rf_xlength(x));
-    R_xlen_t len = Rf_xlength(x);
-
-    for (R_xlen_t i = 0; i < len; i++) {
+    for (R_xlen_t i = 0; i < n; i++) {
       SEXP str_elt = reinterpret_cast<SEXP>(STRING_ELT(x, i));
       out[i] = str_elt;
     }
-
     return out;
   } else {
     return R_NilValue;

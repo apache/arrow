@@ -192,15 +192,9 @@ class RBuffer : public MutableBuffer {
     } else if (TYPEOF(vec) == CPLXSXP) {
       return COMPLEX(vec);
     } else if (TYPEOF(vec) == STRSXP) {
-      cpp11::writable::strings out(Rf_xlength(vec));
-      R_xlen_t len = Rf_xlength(vec);
-
-      for (R_xlen_t i = 0; i < len; i++) {
-        SEXP str_elt = reinterpret_cast<SEXP>(STRING_ELT(vec, i));
-        out[i] = str_elt;
-      }
-
-      return out;
+      // Technically this returns the address to the first element of the string vector
+      // which is similar to what we would get with DATAPTR() before it was removed
+      return STRING_ELT(vec, 0);
     } else {
       // raw
       return RAW(vec);
