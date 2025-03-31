@@ -22,7 +22,7 @@
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/test_nodes.h"
-#include "arrow/compute/kernels/test_util_internal.h"
+#include "arrow/compute/kernels/api.h"
 #include "arrow/table.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
