@@ -27,6 +27,7 @@ RUN dnf update -y && \
         make \
         cmake \
         ninja-build \
+        pkg-config \
         python3-devel && \
     dnf clean all
 

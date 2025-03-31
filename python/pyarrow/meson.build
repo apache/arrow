@@ -402,7 +402,9 @@ py.install_sources(
 
 if arrow_dep.found()
     arrow_header_dir = arrow_dep.get_variable(
-        cmake: 'ARROW_INCLUDE_DIR',
+# CMake has a local variable for ARROW_INCLUDE_DIR which is not
+# detectable from Meson
+# cmake: 'ARROW_INCLUDE_DIR',
         pkgconfig: 'includedir',
     ) / 'arrow'
 
