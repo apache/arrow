@@ -35,6 +35,7 @@ export ARROW_GDB_SCRIPT=${arrow_dir}/cpp/gdb_arrow.py
 
 # Enable some checks inside Python itself
 export PYTHONDEVMODE=1
+export PYTHONFAULTHANDLER=1
 
 # Enable memory debug checks if the env is not set already
 if [ -z "${ARROW_DEBUG_MEMORY_POOL}" ]; then
@@ -69,4 +70,4 @@ export PYARROW_TEST_PARQUET_ENCRYPTION
 export PYARROW_TEST_S3
 
 # Testing PyArrow
-pytest -r s ${PYTEST_ARGS} --pyargs pyarrow
+pytest -r s -vs ${PYTEST_ARGS} --pyargs pyarrow
