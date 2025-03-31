@@ -147,7 +147,7 @@ Result<std::shared_ptr<ArrowType>> FromFLBA(
     case LogicalType::Type::INTERVAL:
       return ::arrow::fixed_size_binary(physical_length);
     case LogicalType::Type::UUID:
-      if (reader_properties.get_arrow_extensions_enabled()) {
+      if (physical_length == 16 && reader_properties.get_arrow_extensions_enabled()) {
         return ::arrow::extension::uuid();
       }
 
