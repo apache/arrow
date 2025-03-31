@@ -795,13 +795,17 @@ class ReadaheadGenerator {
     // Pop one and add one
     auto result = std::move(state_->readahead_queue.front());
     state_->readahead_queue.pop();
-    auto guard = state_->mutex.Lock();
-    if (state_->finished) {
-      guard.Unlock();
+    bool is_finished = false;
+    {
+      auto guard = state_->mutex.Lock();
+      is_finished = state_->finished;
+      if (!is_finished) {
+        ++state_->num_running;
+      }
+    }
+    if (is_finished) {
       state_->readahead_queue.push(AsyncGeneratorEnd<T>());
     } else {
-      ++state_->num_running;
-      guard.Unlock();
       auto back_of_queue = state_->source_generator();
       auto back_of_queue_after_check =
           AddMarkFinishedContinuation(std::move(back_of_queue));
