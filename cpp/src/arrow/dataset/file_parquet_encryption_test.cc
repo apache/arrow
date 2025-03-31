@@ -27,7 +27,6 @@
 #include "arrow/dataset/parquet_encryption_config.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/filesystem/mockfs.h"
-#include "arrow/io/api.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
@@ -38,7 +37,6 @@
 #include "arrow/util/thread_pool.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/encryption/crypto_factory.h"
-#include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/kms_client.h"
 #include "parquet/encryption/test_in_memory_kms.h"
 
@@ -58,18 +56,22 @@ namespace dataset {
 struct EncryptionTestParam {
   bool uniform_encryption;  // false is using per-column keys
   bool concurrently;
+  bool crypto_factory;
 };
 
 std::string PrintParam(const testing::TestParamInfo<EncryptionTestParam>& info) {
   std::string out;
   out += info.param.uniform_encryption ? "UniformEncryption" : "ColumnKeys";
   out += info.param.concurrently ? "Threaded" : "Serial";
+  out += info.param.crypto_factory ? "CryptoFactory" : "PropertyKeys";
   return out;
 }
 
-const auto kAllParamValues =
-    ::testing::Values(EncryptionTestParam{false, false}, EncryptionTestParam{true, false},
-                      EncryptionTestParam{false, true}, EncryptionTestParam{true, true});
+const auto kAllParamValues = ::testing::Values(
+    // non-uniform encryption not supported for property keys by test
+    EncryptionTestParam{true, false, false}, EncryptionTestParam{true, true, false},
+    EncryptionTestParam{false, false, true}, EncryptionTestParam{true, false, true},
+    EncryptionTestParam{false, true, true}, EncryptionTestParam{true, true, true});
 
 // Base class to test writing and reading encrypted dataset.
 class DatasetEncryptionTestBase : public testing::TestWithParam<EncryptionTestParam> {
@@ -107,33 +109,49 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<EncryptionTestPa
     key_map.emplace(kColumnMasterKeyId, kColumnMasterKey);
     key_map.emplace(kFooterKeyMasterKeyId, kFooterKeyMasterKey);
 
-    crypto_factory_ = std::make_shared<parquet::encryption::CryptoFactory>();
-    auto kms_client_factory =
-        std::make_shared<parquet::encryption::TestOnlyInMemoryKmsClientFactory>(
-            /*wrap_locally=*/true, key_map);
-    crypto_factory_->RegisterKmsClientFactory(std::move(kms_client_factory));
-    kms_connection_config_ = std::make_shared<parquet::encryption::KmsConnectionConfig>();
-
-    // Set write options with encryption configuration.
-    auto encryption_config =
-        std::make_shared<parquet::encryption::EncryptionConfiguration>(
-            std::string(kFooterKeyName));
-    encryption_config->uniform_encryption = GetParam().uniform_encryption;
-    if (!GetParam().uniform_encryption) {
-      encryption_config->column_keys = kColumnKeyMapping;
-    }
-
-    auto parquet_encryption_config = std::make_shared<ParquetEncryptionConfig>();
-    // Directly assign shared_ptr objects to ParquetEncryptionConfig members
-    parquet_encryption_config->crypto_factory = crypto_factory_;
-    parquet_encryption_config->kms_connection_config = kms_connection_config_;
-    parquet_encryption_config->encryption_config = std::move(encryption_config);
-
     auto file_format = std::make_shared<ParquetFileFormat>();
     auto parquet_file_write_options =
         checked_pointer_cast<ParquetFileWriteOptions>(file_format->DefaultWriteOptions());
-    parquet_file_write_options->parquet_encryption_config =
-        std::move(parquet_encryption_config);
+
+    if (GetParam().crypto_factory) {
+      // Configure encryption keys via crypto factory.
+      crypto_factory_ = std::make_shared<parquet::encryption::CryptoFactory>();
+      auto kms_client_factory =
+          std::make_shared<parquet::encryption::TestOnlyInMemoryKmsClientFactory>(
+              /*wrap_locally=*/true, key_map);
+      crypto_factory_->RegisterKmsClientFactory(std::move(kms_client_factory));
+      kms_connection_config_ =
+          std::make_shared<parquet::encryption::KmsConnectionConfig>();
+
+      // Set write options with encryption configuration.
+      auto encryption_config =
+          std::make_shared<parquet::encryption::EncryptionConfiguration>(
+              std::string(kFooterKeyName));
+      encryption_config->uniform_encryption = GetParam().uniform_encryption;
+      if (!GetParam().uniform_encryption) {
+        encryption_config->column_keys = kColumnKeyMapping;
+      }
+
+      auto parquet_encryption_config = std::make_shared<ParquetEncryptionConfig>();
+      // Directly assign shared_ptr objects to ParquetEncryptionConfig members
+      parquet_encryption_config->crypto_factory = crypto_factory_;
+      parquet_encryption_config->kms_connection_config = kms_connection_config_;
+      parquet_encryption_config->encryption_config = std::move(encryption_config);
+      parquet_file_write_options->parquet_encryption_config =
+          std::move(parquet_encryption_config);
+    } else {
+      // Configure encryption keys via writer options / file encryption properties.
+      // non-uniform encryption not support by test
+      ASSERT_TRUE(GetParam().uniform_encryption);
+      auto file_encryption_properties =
+          std::make_unique<parquet::FileEncryptionProperties::Builder>(
+              std::string(kFooterKeyMasterKey))
+              ->build();
+      auto writer_properties = std::make_unique<parquet::WriterProperties::Builder>()
+                                   ->encryption(file_encryption_properties)
+                                   ->build();
+      parquet_file_write_options->writer_properties = writer_properties;
+    }
 
     // Write dataset.
     auto dataset = std::make_shared<InMemoryDataset>(table_);
@@ -194,18 +212,29 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<EncryptionTestPa
   }
 
   void TestScanDataset() {
-    // Create decryption properties.
-    auto decryption_config =
-        std::make_shared<parquet::encryption::DecryptionConfiguration>();
-    auto parquet_decryption_config = std::make_shared<ParquetDecryptionConfig>();
-    parquet_decryption_config->crypto_factory = crypto_factory_;
-    parquet_decryption_config->kms_connection_config = kms_connection_config_;
-    parquet_decryption_config->decryption_config = std::move(decryption_config);
-
     // Set scan options.
     auto parquet_scan_options = std::make_shared<ParquetFragmentScanOptions>();
-    parquet_scan_options->parquet_decryption_config =
-        std::move(parquet_decryption_config);
+
+    if (GetParam().crypto_factory) {
+      // Configure decryption keys via crypto factory.
+      auto decryption_config =
+          std::make_shared<parquet::encryption::DecryptionConfiguration>();
+      auto parquet_decryption_config = std::make_shared<ParquetDecryptionConfig>();
+      parquet_decryption_config->crypto_factory = crypto_factory_;
+      parquet_decryption_config->kms_connection_config = kms_connection_config_;
+      parquet_decryption_config->decryption_config = std::move(decryption_config);
+
+      parquet_scan_options->parquet_decryption_config =
+          std::move(parquet_decryption_config);
+    } else {
+      // Configure decryption keys via reader properties / file decryption properties.
+      auto file_decryption_properties =
+          std::make_unique<parquet::FileDecryptionProperties::Builder>()
+              ->footer_key(std::string(kFooterKeyMasterKey))
+              ->build();
+      parquet_scan_options->reader_properties->file_decryption_properties(
+          file_decryption_properties);
+    }
 
     auto file_format = std::make_shared<ParquetFileFormat>();
     file_format->default_fragment_scan_options = std::move(parquet_scan_options);
@@ -331,8 +360,19 @@ TEST_P(DatasetEncryptionTest, ReadSingleFile) {
   // Create the ReaderProperties object using the FileDecryptionProperties object
   auto decryption_config =
       std::make_shared<parquet::encryption::DecryptionConfiguration>();
-  auto file_decryption_properties = crypto_factory_->GetFileDecryptionProperties(
-      *kms_connection_config_, *decryption_config);
+  std::shared_ptr<parquet::FileDecryptionProperties> file_decryption_properties;
+  if (GetParam().crypto_factory) {
+    // Configure decryption keys via file decryption properties with crypto factory key
+    // retriever.
+    file_decryption_properties = crypto_factory_->GetFileDecryptionProperties(
+        *kms_connection_config_, *decryption_config);
+  } else {
+    // Configure decryption keys via file decryption properties with static footer key.
+    file_decryption_properties =
+        std::make_unique<parquet::FileDecryptionProperties::Builder>()
+            ->footer_key(std::string(kFooterKeyMasterKey))
+            ->build();
+  }
   auto reader_properties = parquet::default_reader_properties();
   reader_properties.file_decryption_properties(file_decryption_properties);
 
