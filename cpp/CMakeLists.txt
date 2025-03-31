@@ -768,4 +768,3 @@ config_summary_message()
 if(${ARROW_BUILD_CONFIG_SUMMARY_JSON})
   config_summary_json()
 endif()
-
