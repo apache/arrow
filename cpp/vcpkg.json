@@ -15,6 +15,7 @@
       ]
     },
     "benchmark",
+    "boost-cmake",
     "boost-crc",
     "boost-filesystem",
     "boost-multiprecision",
@@ -51,8 +52,6 @@
     "zlib",
     "zstd"
   ],
-  "overrides": [
-    { "name": "gtest", "version": "1.10.0", "port-version": 4 }
-  ],
-  "builtin-baseline": "3d8f78171a2a37d461077bf8d063256b63e25a4f"
+  "$comment": "2025.02.14",
+  "builtin-baseline": "d5ec528843d29e3a52d745a64b469f810b2cedbf"
 }
