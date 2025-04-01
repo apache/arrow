@@ -1068,19 +1068,14 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
           origin_extension_type.storage_type()->Equals(*inferred_type);
     }
 
-    if (arrow_extension_inferred && extension_supports_inferred_storage) {
-      // e.g., arrow_extensions_enabled is true
+    if (arrow_extension_inferred || extension_supports_inferred_storage) {
+      // i.e., arrow_extensions_enabled is true or arrow_extensions_enabled is false but
+      // we still restore the extension type because Arrow is the source of truth if we
+      // are asked to apply the original metadata
       auto origin_storage_field =
           origin_field.WithType(origin_extension_type.storage_type());
       RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
       inferred->field = inferred->field->WithType(origin_type);
-    } else if (extension_supports_inferred_storage) {
-      // e.g., arrow_extensions_enabled is false but we still restore the extension type
-      // because Arrow is the source of truth if we are asked to apply the original
-      // metadata
-
-      inferred->field = inferred->field->WithType(origin_type);
-      RETURN_NOT_OK(ApplyOriginalStorageMetadata(origin_field, inferred));
     } else {
       // If we are here, we still *might* be able to restore the extension type
       // if we first apply metadata to children (e.g., if the extension type
