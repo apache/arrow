@@ -5106,27 +5106,27 @@ function(build_awssdk)
       # S2N_INTERN_LIBCRYPTO but S2N_LIBCRYPTO_SUPPORTS_ENGINE.c may
       # refer system OpenSSL. So s2n-tls may mix aws-lc and OpenSSL
       # configurations.
-      if(CMAKE_VERSION VERSION_LESS 3.17)
-        set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
-            ${CMAKE_COMMAND} -E remove tests/features/S2N_LIBCRYPTO_SUPPORTS_ENGINE.c)
-      else()
-        set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
-            ${CMAKE_COMMAND} -E rm tests/features/S2N_LIBCRYPTO_SUPPORTS_ENGINE.c)
-      endif()
-      # We can use released archive when v1.15.12 is released.
+      set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
+          ${CMAKE_COMMAND} -E rm tests/features/S2N_LIBCRYPTO_SUPPORTS_ENGINE.c)
       fetchcontent_declare(${AWSSDK_PRODUCT}
                            ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
                            PATCH_COMMAND ${${BASE_VARIABLE_NAME}_PATCH_COMMAND}
-                           URL https://github.com/aws/s2n-tls/archive/7c0291809ad58b3b818b128d97c19c71ff3e10e1.zip
+                           URL ${${BASE_VARIABLE_NAME}_SOURCE_URL
                            URL_HASH "SHA256=1ca1fb0a82642a93ab7c95c5a6c9ff80e3388e387fba03153186426b98d8b9e0"
       )
-    else()
-      fetchcontent_declare(${AWSSDK_PRODUCT}
-                           ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
-                           URL ${${BASE_VARIABLE_NAME}_SOURCE_URL}
-                           URL_HASH "SHA256=${ARROW_${BASE_VARIABLE_NAME}_BUILD_SHA256_CHECKSUM}"
-      )
+    elseif(AWSSDK_PRODUCT_NAME STREQUAL "aws-sdk-cpp" AND WINDOWS AND NOT MSVC)
+      # We can remove this once
+      # https://github.com/aws/aws-sdk-cpp/issues/3315 is resolved.
+      find_program(PATCH patch REQUIRED)
+      set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
+          patch --input=${CMAKE_CURRENT_SOURCE_DIR}/aws-sdk-cpp-pr-1333.patch --strip=1)
     endif()
+    fetchcontent_declare(${AWSSDK_PRODUCT}
+                         ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                         PATCH_COMMAND ${${BASE_VARIABLE_NAME}_PATCH_COMMAND}
+                         URL ${${BASE_VARIABLE_NAME}_SOURCE_URL}
+                         URL_HASH "SHA256=${ARROW_${BASE_VARIABLE_NAME}_BUILD_SHA256_CHECKSUM}"
+    )
   endforeach()
 
   prepare_fetchcontent()
