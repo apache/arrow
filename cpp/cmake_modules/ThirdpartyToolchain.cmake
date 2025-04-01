@@ -958,6 +958,9 @@ set(EP_COMMON_CMAKE_ARGS
     -DCMAKE_INSTALL_LIBDIR=lib
     -DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT}
     -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE}
+    # We set CMAKE_POLICY_VERSION_MINIMUM temporarily due to failures with CMake 4
+    # We should remove it once we have updated the dependencies:
+    # https://github.com/apache/arrow/issues/45985
     -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
 
 # if building with a toolchain file, pass that through
@@ -1026,6 +1029,9 @@ macro(prepare_fetchcontent)
   set(CMAKE_COMPILE_WARNING_AS_ERROR FALSE)
   set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
   set(CMAKE_MACOSX_RPATH ${ARROW_INSTALL_NAME_RPATH})
+  # We set CMAKE_POLICY_VERSION_MINIMUM temporarily due to failures with CMake 4
+  # We should remove it once we have updated the dependencies:
+  # https://github.com/apache/arrow/issues/45985
   set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
   if(MSVC)
