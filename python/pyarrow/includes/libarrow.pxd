@@ -1574,10 +1574,6 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         FileMode_WRITE" arrow::io::FileMode::WRITE"
         FileMode_READWRITE" arrow::io::FileMode::READWRITE"
 
-    cdef enum ObjectType" arrow::io::ObjectType::type":
-        ObjectType_FILE" arrow::io::ObjectType::FILE"
-        ObjectType_DIRECTORY" arrow::io::ObjectType::DIRECTORY"
-
     cdef cppclass CIOContext" arrow::io::IOContext":
         CIOContext()
         CIOContext(CStopToken)
@@ -1587,10 +1583,6 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     CIOContext c_default_io_context "arrow::io::default_io_context"()
     int GetIOThreadPoolCapacity()
     CStatus SetIOThreadPoolCapacity(int threads)
-
-    cdef cppclass FileStatistics:
-        int64_t size
-        ObjectType kind
 
     cdef cppclass FileInterface:
         CStatus Close()
@@ -1660,7 +1652,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         pass
 
     cdef cppclass CIOFileSystem" arrow::io::FileSystem":
-        CStatus Stat(const c_string& path, FileStatistics* stat)
+        CStatus Stat(const c_string& path, FileInfo* stat)
 
     cdef cppclass FileOutputStream(COutputStream):
         @staticmethod
@@ -1763,7 +1755,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         HdfsDriver driver
 
     cdef cppclass HdfsPathInfo:
-        ObjectType kind
+        FileType kind
         c_string name
         c_string owner
         c_string group
