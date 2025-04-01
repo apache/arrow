@@ -1668,8 +1668,7 @@ TEST(TestFromParquetSchema, UndefinedLogicalType) {
   const auto parquet_schema = reader->metadata()->schema();
   std::shared_ptr<::arrow::Schema> arrow_schema;
 
-  // With the appropriate reader option set, the underlying physical type is used for
-  // conversion to the Arrow type
+  // The underlying physical type is used for conversion to the Arrow type
   ASSERT_OK(FromParquetSchema(parquet_schema, &arrow_schema));
   ASSERT_EQ(*arrow_schema->field(1),
             *::arrow::field("column with unknown type", ::arrow::binary()));
