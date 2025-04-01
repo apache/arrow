@@ -113,22 +113,13 @@ Result<std::vector<std::shared_ptr<ArrayVector>>> ToArrayVectors(
     const BatchesWithSchema& batches_with_schema);
 
 Result<std::vector<std::shared_ptr<ExecBatch>>> ToExecBatches(
-    const BatchesWithSchema& batches);
+    const BatchesWithSchema& batches_with_schema);
 
 Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches(
-    const BatchesWithSchema& batches);
+    const BatchesWithSchema& batches_with_schema);
 
 Result<std::shared_ptr<RecordBatchReader>> ToRecordBatchReader(
     const BatchesWithSchema& batches_with_schema);
-
-Result<std::vector<std::shared_ptr<ArrayVector>>> ToArrayVectors(
-    const BatchesWithSchema& batches_with_schema);
-
-Result<std::vector<std::shared_ptr<ExecBatch>>> ToExecBatches(
-    const BatchesWithSchema& batches);
-
-Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches(
-    const BatchesWithSchema& batches);
 
 Result<std::shared_ptr<Table>> SortTableOnAllFields(const std::shared_ptr<Table>& tab);
 
