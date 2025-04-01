@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "arrow/extension/json.h"
-#include "arrow/extension/uuid.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
