@@ -2269,6 +2269,9 @@ if(ARROW_MIMALLOC)
   # We only use a vendored mimalloc as we want to control its build options.
 
   set(MIMALLOC_LIB_BASE_NAME "mimalloc")
+  if(WIN32)
+    set(MIMALLOC_LIB_BASE_NAME "${MIMALLOC_LIB_BASE_NAME}-static")
+  endif()
   if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
     set(MIMALLOC_LIB_BASE_NAME "${MIMALLOC_LIB_BASE_NAME}-${LOWERCASE_BUILD_TYPE}")
   endif()
@@ -2295,10 +2298,14 @@ if(ARROW_MIMALLOC)
       -DMI_BUILD_SHARED=OFF
       -DMI_BUILD_TESTS=OFF)
 
+  find_program(PATCH patch REQUIRED)
+  set(MIMALLOC_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/mimalloc.diff)
+
   externalproject_add(mimalloc_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${MIMALLOC_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_MIMALLOC_BUILD_SHA256_CHECKSUM}"
+                      PATCH_COMMAND "${MIMALLOC_PATCH_COMMAND}"
                       CMAKE_ARGS ${MIMALLOC_CMAKE_ARGS}
                       BUILD_BYPRODUCTS "${MIMALLOC_STATIC_LIB}")
 
