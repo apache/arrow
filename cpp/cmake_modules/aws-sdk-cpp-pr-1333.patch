@@ -1,0 +1,218 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# This is a copy of
+# https://github.com/msys2/MINGW-packages/blob/master/mingw-w64-aws-sdk-cpp/aws-sdk-cpp-pr-1333.patch
+# . This is based on https://github.com/aws/aws-sdk-cpp/pull/1333 .
+
+From f9b4499ccb63ef02d8c9de462fbbcf301eb1907a Mon Sep 17 00:00:00 2001
+From: Daniel Schulte <daniel.schulte@picture-instruments.com>
+Date: Tue, 3 Mar 2020 11:09:15 +0100
+Subject: [PATCH] Add support for building with MinGW
+
+---
+ .../include/aws/core/utils/crypto/bcrypt/CryptoImpl.h  |  7 +++++++
+ .../include/aws/core/utils/event/EventHeader.h         | 10 ++++++++++
+ .../source/http/windows/WinHttpSyncHttpClient.cpp      |  4 ++--
+ .../source/http/windows/WinINetSyncHttpClient.cpp      |  2 +-
+ .../source/http/windows/WinSyncHttpClient.cpp          |  2 +-
+ .../source/platform/windows/Environment.cpp            |  5 +++++
+ .../source/platform/windows/FileSystem.cpp             |  7 ++++++-
+ .../source/platform/windows/OSVersionInfo.cpp          |  2 ++
+ .../source/utils/crypto/factory/Factories.cpp          |  4 ++--
+ .../BucketAndObjectOperationTest.cpp                   |  4 ++--
+ cmake/compiler_settings.cmake                          |  6 ++++++
+ .../source/platform/windows/PlatformTesting.cpp        |  2 ++
+ 12 files changed, 46 insertions(+), 9 deletions(-)
+
+diff --git a/src/aws-cpp-sdk-core/include/aws/core/utils/event/EventHeader.h b/src/aws-cpp-sdk-core/include/aws/core/utils/event/EventHeader.h
+index 2041b208da..6fb333bff7 100644
+--- a/src/aws-cpp-sdk-core/include/aws/core/utils/event/EventHeader.h
++++ b/src/aws-cpp-sdk-core/include/aws/core/utils/event/EventHeader.h
+@@ -14,6 +14,12 @@
+ #include <aws/event-stream/event_stream.h>
+ #include <cassert>
+
++#ifdef __MINGW32__
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
++#pragma GCC diagnostic ignored "-Wuninitialized"
++#endif
++
+ namespace Aws
+ {
+     namespace Utils
+@@ -318,3 +324,7 @@ namespace Aws
+         }
+     }
+ }
++
++#ifdef __MINGW32__
++#pragma GCC diagnostic pop
++#endif
+diff --git a/src/aws-cpp-sdk-core/source/http/windows/WinHttpSyncHttpClient.cpp b/src/aws-cpp-sdk-core/source/http/windows/WinHttpSyncHttpClient.cpp
+index 4a0f80a161..a98635f706 100644
+--- a/src/aws-cpp-sdk-core/source/http/windows/WinHttpSyncHttpClient.cpp
++++ b/src/aws-cpp-sdk-core/source/http/windows/WinHttpSyncHttpClient.cpp
+@@ -17,7 +17,7 @@
+ #include <aws/core/utils/ratelimiter/RateLimiterInterface.h>
+ #include <aws/core/utils/UnreferencedParam.h>
+
+-#include <Windows.h>
++#include <winsock2.h>
+ #include <winhttp.h>
+ #include <mstcpip.h> // for tcp_keepalive
+ #include <sstream>
+@@ -686,7 +686,7 @@
+     wmemset(contentTypeStr, 0, static_cast<size_t>(dwSize / sizeof(wchar_t)));
+
+     WinHttpQueryHeaders(hHttpRequest, WINHTTP_QUERY_CONTENT_TYPE, nullptr, &contentTypeStr, &dwSize, 0);
+-    if (contentTypeStr[0] != NULL)
++    if (contentTypeStr[0])
+     {
+         Aws::String contentStr = StringUtils::FromWString(contentTypeStr);
+         response->SetContentType(contentStr);
+@@ -717,7 +717,7 @@
+
+ bool WinHttpSyncHttpClient::DoSendRequest(void* hHttpRequest) const
+ {
+-    bool success = WinHttpSendRequest(hHttpRequest, NULL, NULL, 0, 0, 0, NULL) != 0;
++    bool success = WinHttpSendRequest(hHttpRequest, NULL, 0, NULL, 0, 0, 0) != 0;
+     if (!success)
+     {
+         AzWinHttpLogLastError("WinHttpSendRequest");
+diff --git a/src/aws-cpp-sdk-core/source/http/windows/WinINetSyncHttpClient.cpp b/src/aws-cpp-sdk-core/source/http/windows/WinINetSyncHttpClient.cpp
+index 8b42c64dab..ef1fd99975 100644
+--- a/src/aws-cpp-sdk-core/source/http/windows/WinINetSyncHttpClient.cpp
++++ b/src/aws-cpp-sdk-core/source/http/windows/WinINetSyncHttpClient.cpp
+@@ -223,7 +223,7 @@ bool WinINetSyncHttpClient::DoQueryHeaders(void* hHttpRequest, std::shared_ptr<H
+     char contentTypeStr[1024];
+     dwSize = sizeof(contentTypeStr);
+     HttpQueryInfoA(hHttpRequest, HTTP_QUERY_CONTENT_TYPE, &contentTypeStr, &dwSize, 0);
+-    if (contentTypeStr[0] != NULL)
++    if (contentTypeStr[0])
+     {
+         response->SetContentType(contentTypeStr);
+         AWS_LOGSTREAM_DEBUG(GetLogTag(), "Received content type " << contentTypeStr);
+diff --git a/src/aws-cpp-sdk-core/source/platform/windows/FileSystem.cpp b/src/aws-cpp-sdk-core/source/platform/windows/FileSystem.cpp
+index 49af3c1f79..f427fa9233 100644
+--- a/src/aws-cpp-sdk-core/source/platform/windows/FileSystem.cpp
++++ b/src/aws-cpp-sdk-core/source/platform/windows/FileSystem.cpp
+@@ -11,7 +11,9 @@
+ #include <iostream>
+ #include <Userenv.h>
+
+-#pragma warning( disable : 4996)
++#ifdef _MSC_VER
++#    pragma warning( disable : 4996)
++#endif
+
+ using namespace Aws::Utils;
+ namespace Aws
+@@ -304,6 +306,9 @@ Aws::String CreateTempFilePath()
+ {
+ #ifdef _MSC_VER
+ #pragma warning(disable: 4996) // _CRT_SECURE_NO_WARNINGS
++#elif !defined(L_tmpnam_s)
++    // Definition from the MSVC stdio.h
++    #define L_tmpnam_s (sizeof("\\") + 16)
+ #endif
+     char s_tempName[L_tmpnam_s+1];
+
+diff --git a/src/aws-cpp-sdk-core/source/platform/windows/OSVersionInfo.cpp b/src/aws-cpp-sdk-core/source/platform/windows/OSVersionInfo.cpp
+index 23f395f6bb..18bd5836da 100644
+--- a/src/aws-cpp-sdk-core/source/platform/windows/OSVersionInfo.cpp
++++ b/src/aws-cpp-sdk-core/source/platform/windows/OSVersionInfo.cpp
+@@ -9,7 +9,9 @@
+
+ #include <iomanip>
+
++#ifdef _MSC_VER
+ #pragma warning(disable: 4996)
++#endif
+ #include <windows.h>
+ #include <stdio.h>
+ namespace Aws
+diff --git a/src/aws-cpp-sdk-core/source/utils/crypto/factory/Factories.cpp b/src/aws-cpp-sdk-core/source/utils/crypto/factory/Factories.cpp
+index d7cb481d5c..3b34d7fc62 100644
+--- a/src/aws-cpp-sdk-core/source/utils/crypto/factory/Factories.cpp
++++ b/src/aws-cpp-sdk-core/source/utils/crypto/factory/Factories.cpp
+@@ -939,7 +939,7 @@ std::shared_ptr<Aws::Utils::Crypto::HMAC> Aws::Utils::Crypto::CreateSha256HMACIm
+     return s_Sha256HMACFactory->CreateImplementation();
+ }
+
+-#ifdef _WIN32
++#ifdef _MSC_VER
+ #pragma warning( push )
+ #pragma warning( disable : 4702 )
+ #endif
+@@ -1032,7 +1032,7 @@ std::shared_ptr<SymmetricCipher> Aws::Utils::Crypto::CreateAES_KeyWrapImplementa
+     return s_AES_KeyWrapFactory->CreateImplementation(key);
+ }
+
+-#ifdef _WIN32
++#ifdef _MSC_VER
+ #pragma warning(pop)
+ #endif
+
+diff --git a/tests/aws-cpp-sdk-s3-integration-tests/BucketAndObjectOperationTest.cpp b/tests/aws-cpp-sdk-s3-integration-tests/BucketAndObjectOperationTest.cpp
+index 0f31fcd061..586303e044 100644
+--- a/tests/aws-cpp-sdk-s3-integration-tests/BucketAndObjectOperationTest.cpp
++++ b/tests/aws-cpp-sdk-s3-integration-tests/BucketAndObjectOperationTest.cpp
+@@ -49,8 +49,9 @@
+ #include <aws/testing/mocks/monitoring/TestingMonitoring.h>
+ #include <fstream>
+
+-#ifdef _WIN32
++#ifdef _MSC_VER
+ #pragma warning(disable: 4127)
++#endif
+ #ifdef GetObject
+ #undef GetObject
+ #endif
+diff --git a/cmake/compiler_settings.cmake b/cmake/compiler_settings.cmake
+index db054b2c1b..e1d6dce55e 100644
+--- a/cmake/compiler_settings.cmake
++++ b/cmake/compiler_settings.cmake
+@@ -11,6 +11,9 @@ else()
+         set(COMPILER_CLANG 1)
+     else()
+         set(COMPILER_GCC 1)
++        if(MINGW)
++            set(COMPILER_MINGW 1)
++        endif()
+     endif()
+     set(USE_GCC_FLAGS 1)
+ endif()
+@@ -34,6 +37,9 @@ endfunction()
+
+ macro(set_gcc_flags)
+     list(APPEND AWS_COMPILER_FLAGS "-fno-exceptions" "-std=c++${CPP_STANDARD}")
++    if(COMPILER_IS_MINGW)
++        list(APPEND AWS_COMPILER_FLAGS -D__USE_MINGW_ANSI_STDIO=1)
++    endif()
+
+     if(NOT BUILD_SHARED_LIBS)
+         list(APPEND AWS_COMPILER_FLAGS "-fPIC")
+diff --git a/tests/testing-resources/source/platform/windows/PlatformTesting.cpp b/tests/testing-resources/source/platform/windows/PlatformTesting.cpp
+index 2b0a04c0b4..2a27710557 100644
+--- a/tests/testing-resources/source/platform/windows/PlatformTesting.cpp
++++ b/tests/testing-resources/source/platform/windows/PlatformTesting.cpp
+@@ -5,7 +5,9 @@
+
+ #include <aws/testing/platform/PlatformTesting.h>
+
++#ifdef _MSC_VER
+ #pragma warning(disable: 4996)
++#endif
+ #include <windows.h>
+ #include <aws/core/utils/memory/stl/AWSStringStream.h>
