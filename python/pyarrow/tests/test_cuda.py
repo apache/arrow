@@ -119,6 +119,25 @@ def make_random_buffer(size, target='host'):
     raise ValueError('invalid target value')
 
 
+def test_copy_from_buffer():
+    arr, buf = make_random_buffer(128)
+    cudabuf = global_context.buffer_from_data(buf)
+
+    mm2 = global_context1.memory_manager
+    for dest in [mm2, mm2.device]:
+        buf2 = cudabuf.copy(dest)
+        assert buf2.device_type == pa.DeviceAllocationType.CUDA
+        assert buf2.copy(pa.default_cpu_memory_manager()).equals(buf)
+        cudabuf2 = cuda.CudaBuffer.from_buffer(buf2)
+        assert cudabuf2.size == cudabuf.size
+        assert not cudabuf2.is_cpu
+        assert cudabuf2.device_type == pa.DeviceAllocationType.CUDA
+
+        assert cudabuf2.copy_to_host().equals(buf)
+
+        assert cudabuf2.device == mm2.device
+
+
 @pytest.mark.parametrize("size", [0, 1, 1000])
 def test_context_device_buffer(size):
     # Creating device buffer from host buffer;
