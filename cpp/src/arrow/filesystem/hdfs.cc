@@ -194,7 +194,7 @@ class HadoopFileSystem::Impl {
     // Check existence of path, and that it's a directory
     io::HdfsPathInfo info;
     RETURN_NOT_OK(client_->GetPathInfo(path, &info));
-    if (info.kind != io::ObjectType::DIRECTORY) {
+    if (info.kind != FileType::Directory) {
       return Status::IOError("Cannot ", action, " directory '", path,
                              "': not a directory");
     }
@@ -275,10 +275,10 @@ class HadoopFileSystem::Impl {
   std::shared_ptr<::arrow::io::HadoopFileSystem> client_;
 
   void PathInfoToFileInfo(const io::HdfsPathInfo& info, FileInfo* out) {
-    if (info.kind == io::ObjectType::DIRECTORY) {
+    if (info.kind == FileType::Directory) {
       out->set_type(FileType::Directory);
       out->set_size(kNoSize);
-    } else if (info.kind == io::ObjectType::FILE) {
+    } else if (info.kind == FileType::File) {
       out->set_type(FileType::File);
       out->set_size(info.size);
     }
@@ -297,12 +297,12 @@ class HadoopFileSystem::Impl {
 
   bool IsDirectory(const std::string& path) {
     io::HdfsPathInfo info;
-    return GetPathInfo(path, &info) && info.kind == io::ObjectType::DIRECTORY;
+    return GetPathInfo(path, &info) && info.kind == FileType::Directory;
   }
 
   bool IsFile(const std::string& path) {
     io::HdfsPathInfo info;
-    return GetPathInfo(path, &info) && info.kind == io::ObjectType::FILE;
+    return GetPathInfo(path, &info) && info.kind == FileType::File;
   }
 
   bool GetPathInfo(const std::string& path, io::HdfsPathInfo* info) {
