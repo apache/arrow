@@ -202,7 +202,6 @@ CsvFileFormat$create <- function(..., partitioning = NULL) {
 
 # Check all arguments are valid
 check_csv_file_format_args <- function(args, partitioning = NULL) {
-
   options <- list(
     parse_options = args$parse_options,
     convert_options = args$convert_options,
@@ -222,6 +221,10 @@ check_csv_file_format_args <- function(args, partitioning = NULL) {
 
   # Set up read_options before convert_options since convert_options needs column names
   if (is.null(args$read_options)) {
+    # If col_names is provided, add it to read_options
+    if ("col_names" %in% names(args)) {
+      args$read_options <- list(col_names = args$col_names)
+    }
     options$read_options <- do.call(csv_file_format_read_opts, c(args, list(partitioning = partitioning)))
   } else if (is.list(args$read_options)) {
     options$read_options <- do.call(csv_read_options, args$read_options)
