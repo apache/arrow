@@ -35,6 +35,7 @@ import {
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
     Duration, DurationSecond, DurationMillisecond, DurationMicrosecond, DurationNanosecond,
     Union, DenseUnion, SparseUnion,
+    IntervalMonthDayNano,
 } from '../type.js';
 
 /** @ignore */
@@ -86,6 +87,7 @@ export interface SetVisitor extends Visitor {
     visitInterval<T extends Interval>(data: Data<T>, index: number, value: T['TValue']): void;
     visitIntervalDayTime<T extends IntervalDayTime>(data: Data<T>, index: number, value: T['TValue']): void;
     visitIntervalYearMonth<T extends IntervalYearMonth>(data: Data<T>, index: number, value: T['TValue']): void;
+    visitIntervalMonthDayNano<T extends IntervalMonthDayNano>(data: Data<T>, index: number, value: T['TValue']): void;
     visitDuration<T extends Duration>(data: Data<T>, index: number, value: T['TValue']): void;
     visitDurationSecond<T extends DurationSecond>(data: Data<T>, index: number, value: T['TValue']): void;
     visitDurationMillisecond<T extends DurationMillisecond>(data: Data<T>, index: number, value: T['TValue']): void;
@@ -291,15 +293,19 @@ const setDictionary = <T extends Dictionary>(data: Data<T>, index: number, value
 /* istanbul ignore next */
 /** @ignore */
 export const setIntervalValue = <T extends Interval>(data: Data<T>, index: number, value: T['TValue']): void => {
-    (data.type.unit === IntervalUnit.DAY_TIME)
-        ? setIntervalDayTime(data as Data<IntervalDayTime>, index, value)
-        : setIntervalYearMonth(data as Data<IntervalYearMonth>, index, value);
+    switch (data.type.unit) {
+        case IntervalUnit.YEAR_MONTH: return setIntervalYearMonth(data as Data<IntervalYearMonth>, index, value as IntervalYearMonth['TValue']);
+        case IntervalUnit.DAY_TIME: return setIntervalDayTime(data as Data<IntervalDayTime>, index, value as IntervalDayTime['TValue']);
+        case IntervalUnit.MONTH_DAY_NANO: return setIntervalMonthDayNano(data as Data<IntervalMonthDayNano>, index, value as IntervalMonthDayNano['TValue']);
+    }
 };
 
 /** @ignore */
 export const setIntervalDayTime = <T extends IntervalDayTime>({ values }: Data<T>, index: number, value: T['TValue']): void => { values.set(value.subarray(0, 2), 2 * index); };
 /** @ignore */
 export const setIntervalYearMonth = <T extends IntervalYearMonth>({ values }: Data<T>, index: number, value: T['TValue']): void => { values[index] = (value[0] * 12) + (value[1] % 12); };
+/** @ignore */
+export const setIntervalMonthDayNano = <T extends IntervalMonthDayNano>({ values, stride }: Data<T>, index: number, value: T['TValue']): void => { values.set(value.subarray(0, stride), stride * index); };
 
 /** @ignore */
 export const setDurationSecond = <T extends DurationSecond>({ values }: Data<T>, index: number, value: T['TValue']): void => { values[index] = value; };
@@ -379,6 +385,7 @@ SetVisitor.prototype.visitDictionary = wrapSet(setDictionary);
 SetVisitor.prototype.visitInterval = wrapSet(setIntervalValue);
 SetVisitor.prototype.visitIntervalDayTime = wrapSet(setIntervalDayTime);
 SetVisitor.prototype.visitIntervalYearMonth = wrapSet(setIntervalYearMonth);
+SetVisitor.prototype.visitIntervalMonthDayNano = wrapSet(setIntervalMonthDayNano);
 SetVisitor.prototype.visitDuration = wrapSet(setDuration);
 SetVisitor.prototype.visitDurationSecond = wrapSet(setDurationSecond);
 SetVisitor.prototype.visitDurationMillisecond = wrapSet(setDurationMillisecond);

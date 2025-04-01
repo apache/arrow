@@ -155,7 +155,7 @@ jobs:
             ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
             ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
       - name: Setup Python
-        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
         with:
           python-version: 3.12
       - name: Setup Archery
@@ -177,7 +177,7 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: test-output-${{ matrix.ubuntu }}-${{ matrix.r }}
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
@@ -214,7 +214,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
         with:
           python-version: 3.12
       - name: Setup Archery
@@ -237,7 +237,7 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: test-output-bundled
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
@@ -299,7 +299,7 @@ jobs:
         # So that they're unique when multiple are downloaded in the next step
         shell: bash
         run: mv libarrow.zip libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
-      - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
           path: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
@@ -337,7 +337,7 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - run: mkdir r/windows
       - name: Download artifacts
-        uses: actions/download-artifact@v4.1.9
+        uses: actions/download-artifact@v4.2.1
         with:
           name: libarrow-rtools40-ucrt64.zip
           path: r/windows

@@ -37,6 +37,7 @@ import {
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
     Duration, DurationSecond, DurationMillisecond, DurationMicrosecond, DurationNanosecond,
     Union, DenseUnion, SparseUnion,
+    IntervalMonthDayNano,
 } from '../type.js';
 
 /** @ignore */
@@ -88,6 +89,7 @@ export interface GetVisitor extends Visitor {
     visitInterval<T extends Interval>(data: Data<T>, index: number): T['TValue'] | null;
     visitIntervalDayTime<T extends IntervalDayTime>(data: Data<T>, index: number): T['TValue'] | null;
     visitIntervalYearMonth<T extends IntervalYearMonth>(data: Data<T>, index: number): T['TValue'] | null;
+    visitIntervalMonthDayNano<T extends IntervalMonthDayNano>(data: Data<T>, index: number): T['TValue'] | null;
     visitDuration<T extends Duration>(data: Data<T>, index: number): T['TValue'] | null;
     visitDurationSecond<T extends DurationSecond>(data: Data<T>, index: number): T['TValue'] | null;
     visitDurationMillisecond<T extends DurationMillisecond>(data: Data<T>, index: number): T['TValue'] | null;
@@ -265,9 +267,11 @@ const getDictionary = <T extends Dictionary>(data: Data<T>, index: number): T['T
 /* istanbul ignore next */
 /** @ignore */
 const getInterval = <T extends Interval>(data: Data<T>, index: number): T['TValue'] =>
-    (data.type.unit === IntervalUnit.DAY_TIME)
-        ? getIntervalDayTime(data as Data<IntervalDayTime>, index)
-        : getIntervalYearMonth(data as Data<IntervalYearMonth>, index);
+    (data.type.unit === IntervalUnit.MONTH_DAY_NANO)
+        ? getIntervalMonthDayNano(data as Data<IntervalMonthDayNano>, index)
+        : (data.type.unit === IntervalUnit.DAY_TIME)
+            ? getIntervalDayTime(data as Data<IntervalDayTime>, index)
+            : getIntervalYearMonth(data as Data<IntervalYearMonth>, index);
 
 /** @ignore */
 const getIntervalDayTime = <T extends IntervalDayTime>({ values }: Data<T>, index: number): T['TValue'] => values.subarray(2 * index, 2 * (index + 1));
@@ -280,6 +284,9 @@ const getIntervalYearMonth = <T extends IntervalYearMonth>({ values }: Data<T>, 
     int32s[1] = Math.trunc(interval % 12); /* months */
     return int32s;
 };
+
+/** @ignore */
+const getIntervalMonthDayNano = <T extends IntervalMonthDayNano>({ values }: Data<T>, index: number): T['TValue'] => values.subarray(4 * index, 4 * (index + 1));
 
 /** @ignore */
 const getDurationSecond = <T extends DurationSecond>({ values }: Data<T>, index: number): T['TValue'] => values[index];
@@ -351,6 +358,7 @@ GetVisitor.prototype.visitDictionary = wrapGet(getDictionary);
 GetVisitor.prototype.visitInterval = wrapGet(getInterval);
 GetVisitor.prototype.visitIntervalDayTime = wrapGet(getIntervalDayTime);
 GetVisitor.prototype.visitIntervalYearMonth = wrapGet(getIntervalYearMonth);
+GetVisitor.prototype.visitIntervalMonthDayNano = wrapGet(getIntervalMonthDayNano);
 GetVisitor.prototype.visitDuration = wrapGet(getDuration);
 GetVisitor.prototype.visitDurationSecond = wrapGet(getDurationSecond);
 GetVisitor.prototype.visitDurationMillisecond = wrapGet(getDurationMillisecond);

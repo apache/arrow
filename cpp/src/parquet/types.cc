@@ -502,7 +502,8 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
 
     return GeographyLogicalType::Make(crs, algorithm);
   } else {
-    throw ParquetException("Metadata contains Thrift LogicalType that is not recognized");
+    // Sentinel type for one we do not recognize
+    return UndefinedLogicalType::Make();
   }
 }
 

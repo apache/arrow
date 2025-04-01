@@ -24,13 +24,16 @@ permissions:
 
 jobs:
   build:
-    name: "Build wheel for manylinux {{ manylinux_version }}"
+    name: "Build wheel for {{ linux_wheel_kind }} {{ linux_wheel_version }}"
     {% if arch == "amd64" %}
     runs-on: ubuntu-latest
     {% else %}
     runs-on: ubuntu-24.04-arm
     {% endif %}
     env:
+      {% if linux_wheel_kind == "musllinux" and linux_wheel_version == "1-2" %}
+      ALPINE_LINUX: "3.21"
+      {% endif %}
       # archery uses these environment variables
       {% if arch == "amd64" %}
       ARCH: amd64
@@ -60,15 +63,18 @@ jobs:
         env:
           GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
         run: |
-          if [ "{{ manylinux_version }}" = "2014" ] && [ "{{ arch }}" = "arm64" ]; then
+          if [ "{{ linux_wheel_version }}" = "2014" ] && [ "{{ arch }}" = "arm64" ]; then
             # We can't use NuGet on manylinux2014_aarch64 because Mono is old.
+            :
+          elif [ "{{ linux_wheel_kind }}" = "musllinux" ] && [ "{{ arch }}" = "arm64" ]; then
+            # We can't use NuGet on musl arm systems because the official NuGet binary for arm doesn't exist.
             :
           else
             export VCPKG_BINARY_SOURCES="clear;nuget,GitHub,readwrite"
           fi
           archery docker run \
             -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} \
-            python-wheel-manylinux-{{ manylinux_version }}
+            python-wheel-{{ linux_wheel_kind }}-{{ linux_wheel_version }}
 
       - uses: actions/upload-artifact@v4
         with:
@@ -80,13 +86,13 @@ jobs:
         shell: bash
         run: |
           source arrow/ci/scripts/util_enable_core_dumps.sh
-          archery docker run ${TEST_IMAGE_PREFIX}-wheel-manylinux-test-imports
-          archery docker run ${TEST_IMAGE_PREFIX}-wheel-manylinux-test-unittests
+          archery docker run ${TEST_IMAGE_PREFIX}-wheel-{{ linux_wheel_kind }}-test-imports
+          archery docker run ${TEST_IMAGE_PREFIX}-wheel-{{ linux_wheel_kind }}-test-unittests
 
       - name: Test wheel on AlmaLinux 8
         shell: bash
         if: |
-          '{{ python_version }}' == '3.9'
+          '{{ python_version }}' == '3.9' && '{{ linux_wheel_kind }}' == 'manylinux'
         env:
           ALMALINUX: "8"
         run: |
@@ -102,7 +108,7 @@ jobs:
       - name: Test wheel on Ubuntu 22.04
         shell: bash
         if: |
-          '{{ python_version }}' == '3.10'
+          '{{ python_version }}' == '3.10' && '{{ linux_wheel_kind }}' == 'manylinux'
         env:
           UBUNTU: "22.04"
         run: |
@@ -117,7 +123,7 @@ jobs:
       - name: Test wheel on Ubuntu 24.04
         shell: bash
         if: |
-          '{{ python_version }}' == '3.12'
+          '{{ python_version }}' == '3.12' && '{{ linux_wheel_kind }}' == 'manylinux'
         env:
           UBUNTU: "24.04"
         run: |
@@ -137,6 +143,6 @@ jobs:
       - name: Push Docker images
         shell: bash
         run: |
-          archery docker push python-wheel-manylinux-{{ manylinux_version }}
-          archery docker push ${TEST_IMAGE_PREFIX}-wheel-manylinux-test-unittests
+          archery docker push python-wheel-{{ linux_wheel_kind }}-{{ linux_wheel_version }}
+          archery docker push ${TEST_IMAGE_PREFIX}-wheel-{{ linux_wheel_kind }}-test-unittests
       {% endif %}

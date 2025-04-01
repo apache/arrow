@@ -957,7 +957,8 @@ set(EP_COMMON_CMAKE_ARGS
     -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=${CMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY}
     -DCMAKE_INSTALL_LIBDIR=lib
     -DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT}
-    -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE})
+    -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE}
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
 
 # if building with a toolchain file, pass that through
 if(CMAKE_TOOLCHAIN_FILE)
@@ -1025,6 +1026,8 @@ macro(prepare_fetchcontent)
   set(CMAKE_COMPILE_WARNING_AS_ERROR FALSE)
   set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
   set(CMAKE_MACOSX_RPATH ${ARROW_INSTALL_NAME_RPATH})
+  set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
   if(MSVC)
     string(REPLACE "/WX" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
     string(REPLACE "/WX" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
@@ -2742,6 +2745,10 @@ if(ARROW_WITH_ZSTD)
       set(ARROW_ZSTD_LIBZSTD zstd::libzstd_shared)
     else()
       set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
+    endif()
+    # vcpkg uses zstd::libzstd
+    if(NOT TARGET ${ARROW_ZSTD_LIBZSTD} AND TARGET zstd::libzstd)
+      set(ARROW_ZSTD_LIBZSTD zstd::libzstd)
     endif()
     if(NOT TARGET ${ARROW_ZSTD_LIBZSTD})
       message(FATAL_ERROR "Zstandard target doesn't exist: ${ARROW_ZSTD_LIBZSTD}")
@@ -5510,6 +5517,12 @@ function(build_azure_sdk)
   set(BUILD_SAMPLES FALSE)
   set(BUILD_TESTING FALSE)
   set(BUILD_WINDOWS_UWP TRUE)
+  # ICU 75.1 or later requires C++17 but Azure SDK for C++ still uses
+  # C++14. So we disable C++ API in ICU.
+  #
+  # We can remove this after
+  # https://github.com/Azure/azure-sdk-for-cpp/pull/6486 is merged.
+  string(APPEND CMAKE_CXX_FLAGS " -DU_SHOW_CPLUSPLUS_API=0")
   set(CMAKE_UNITY_BUILD FALSE)
   set(DISABLE_AZURE_CORE_OPENTELEMETRY TRUE)
   set(ENV{AZURE_SDK_DISABLE_AUTO_VCPKG} TRUE)

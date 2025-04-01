@@ -208,8 +208,13 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
     Type::type physical_type, const LogicalType& logical_type, int type_length,
     const ArrowReaderProperties& reader_properties,
     const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
-  if (logical_type.is_invalid() || logical_type.is_null()) {
+  if (logical_type.is_null()) {
     return ::arrow::null();
+  }
+
+  if (logical_type.is_invalid()) {
+    return GetArrowType(physical_type, *NoLogicalType::Make(), type_length,
+                        reader_properties);
   }
 
   switch (physical_type) {
