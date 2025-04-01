@@ -457,12 +457,12 @@ class HadoopFileSystem::HadoopFileSystemImpl {
     return Status::OK();
   }
 
-  Status Stat(const std::string& path, FileStatistics* stat) {
+  Status Stat(const std::string& path, arrow::fs::FileInfo* file_info) {
     HdfsPathInfo info;
     RETURN_NOT_OK(GetPathInfo(path, &info));
 
-    stat->size = info.size;
-    stat->kind = info.kind;
+    file_info->set_size(info.size);
+    file_info->set_type(info.kind);
     return Status::OK();
   }
 
@@ -627,8 +627,8 @@ Status HadoopFileSystem::GetPathInfo(const std::string& path, HdfsPathInfo* info
   return impl_->GetPathInfo(path, info);
 }
 
-Status HadoopFileSystem::Stat(const std::string& path, FileStatistics* stat) {
-  return impl_->Stat(path, stat);
+Status HadoopFileSystem::Stat(const std::string& path, arrow::fs::FileInfo* file_info) {
+  return impl_->Stat(path, file_info);
 }
 
 Status HadoopFileSystem::GetCapacity(int64_t* nbytes) {
