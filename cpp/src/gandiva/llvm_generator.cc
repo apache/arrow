@@ -723,7 +723,7 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
     case arrow::Type::BINARY: {
       const std::string& str = std::get<std::string>(dex.holder());
 
-      value = ir_builder()->CreateGlobalStringPtr(str.c_str());
+      value = CreateGlobalStringPtr(str);
       len = types->i32_constant(static_cast<int32_t>(str.length()));
       break;
     }

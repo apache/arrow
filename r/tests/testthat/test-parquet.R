@@ -134,12 +134,6 @@ test_that("make_valid_parquet_version()", {
     make_valid_parquet_version("1.0"),
     ParquetVersionType$PARQUET_1_0
   )
-  expect_deprecated(
-    expect_equal(
-      make_valid_parquet_version("2.0"),
-      ParquetVersionType$PARQUET_2_0
-    )
-  )
   expect_equal(
     make_valid_parquet_version("2.4"),
     ParquetVersionType$PARQUET_2_4
@@ -154,9 +148,6 @@ test_that("make_valid_parquet_version()", {
   )
 
   expect_equal(make_valid_parquet_version(1), ParquetVersionType$PARQUET_1_0)
-  expect_deprecated(
-    expect_equal(make_valid_parquet_version(2), ParquetVersionType$PARQUET_2_0)
-  )
   expect_equal(make_valid_parquet_version(1.0), ParquetVersionType$PARQUET_1_0)
   expect_equal(make_valid_parquet_version(2.4), ParquetVersionType$PARQUET_2_4)
 })

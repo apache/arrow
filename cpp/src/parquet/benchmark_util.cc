@@ -19,7 +19,7 @@
 
 #include <random>
 
-namespace parquet::benchmark {
+namespace parquet::benchmarks {
 
 namespace {
 
@@ -123,4 +123,4 @@ void GenerateBenchmarkData(uint32_t size, uint32_t seed, ByteArray* data,
   }
 }
 
-}  // namespace parquet::benchmark
+}  // namespace parquet::benchmarks

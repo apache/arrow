@@ -123,7 +123,7 @@ RVectorType GetVectorType(SEXP x) {
         return POSIXLT;
       }
 
-      if (Rf_inherits(x, "arrow_binary")) {
+      if (Rf_inherits(x, "arrow_binary") || Rf_inherits(x, "blob")) {
         return BINARY;
       }
 

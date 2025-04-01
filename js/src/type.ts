@@ -461,7 +461,7 @@ export class TimestampMicrosecond extends Timestamp_<Type.TimestampMicrosecond> 
 export class TimestampNanosecond extends Timestamp_<Type.TimestampNanosecond> { constructor(timezone?: string | null) { super(TimeUnit.NANOSECOND, timezone); } }
 
 /** @ignore */
-type Intervals = Type.Interval | Type.IntervalDayTime | Type.IntervalYearMonth;
+type Intervals = Type.Interval | Type.IntervalDayTime | Type.IntervalYearMonth | Type.IntervalMonthDayNano;
 /** @ignore */
 interface Interval_<T extends Intervals = Intervals> extends DataType<T> {
     TArray: Int32Array;
@@ -488,6 +488,8 @@ export { Interval_ as Interval };
 export class IntervalDayTime extends Interval_<Type.IntervalDayTime> { constructor() { super(IntervalUnit.DAY_TIME); } }
 /** @ignore */
 export class IntervalYearMonth extends Interval_<Type.IntervalYearMonth> { constructor() { super(IntervalUnit.YEAR_MONTH); } }
+/** @ignore */
+export class IntervalMonthDayNano extends Interval_<Type.IntervalMonthDayNano> { constructor() { super(IntervalUnit.MONTH_DAY_NANO); } }
 
 /** @ignore */
 type Durations = Type.Duration | Type.DurationSecond | Type.DurationMillisecond | Type.DurationMicrosecond | Type.DurationNanosecond;
@@ -749,7 +751,12 @@ export function strideForType(type: DataType) {
     const t: any = type;
     switch (type.typeId) {
         case Type.Decimal: return (type as Decimal).bitWidth / 32;
-        case Type.Interval: return 1 + (t as Interval_).unit;
+        case Type.Interval: {
+            if ((t as Interval_).unit === IntervalUnit.MONTH_DAY_NANO) {
+                return 4;
+            }
+            return 1 + (t as Interval_).unit;
+        }
         // case Type.Int: return 1 + +((t as Int_).bitWidth > 32);
         // case Type.Time: return 1 + +((t as Time_).bitWidth > 32);
         case Type.FixedSizeList: return (t as FixedSizeList).listSize;

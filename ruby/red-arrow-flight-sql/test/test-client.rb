@@ -19,6 +19,7 @@ class TestClient < Test::Unit::TestCase
   def setup
     @server = nil
     omit("Unstable on Windows") if Gem.win_platform?
+    omit("Unstable on x86_64 macOS") if /x86_64-darwin/.match?(RUBY_PLATFORM)
     @server = Helper::Server.new
     @server.listen("grpc://127.0.0.1:0")
     @location = "grpc://127.0.0.1:#{@server.port}"

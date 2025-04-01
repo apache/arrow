@@ -1193,7 +1193,7 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
   PARQUET_THROW_NOT_OK(sink_.Advance(kMaxPageHeaderWriterSize));
 
   // Excess bytes at the beginning are sliced off and ignored.
-  return SliceBuffer(buffer, offset_bytes);
+  return SliceBuffer(std::move(buffer), offset_bytes);
 }
 
 template <>

@@ -30,6 +30,7 @@ import {
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
     Duration, DurationSecond, DurationMillisecond, DurationMicrosecond, DurationNanosecond,
     Union, DenseUnion, SparseUnion,
+    IntervalMonthDayNano,
 } from '../type.js';
 
 /** @ignore */
@@ -80,6 +81,7 @@ export interface TypeComparator extends Visitor {
     visitInterval<T extends Interval>(type: T, other?: DataType | null): other is T;
     visitIntervalDayTime<T extends IntervalDayTime>(type: T, other?: DataType | null): other is T;
     visitIntervalYearMonth<T extends IntervalYearMonth>(type: T, other?: DataType | null): other is T;
+    visitIntervalMonthDayNano<T extends IntervalMonthDayNano>(type: T, other?: DataType | null): other is T;
     visitDuration<T extends Duration>(type: T, other?: DataType | null): other is T;
     visitDurationSecond<T extends DurationSecond>(type: T, other?: DataType | null): other is T;
     visitDurationMillisecond<T extends DurationMillisecond>(type: T, other?: DataType | null): other is T;
@@ -278,6 +280,7 @@ TypeComparator.prototype.visitDictionary = compareDictionary;
 TypeComparator.prototype.visitInterval = compareInterval;
 TypeComparator.prototype.visitIntervalDayTime = compareInterval;
 TypeComparator.prototype.visitIntervalYearMonth = compareInterval;
+TypeComparator.prototype.visitIntervalMonthDayNano = compareInterval;
 TypeComparator.prototype.visitDuration = compareDuration;
 TypeComparator.prototype.visitDurationSecond = compareDuration;
 TypeComparator.prototype.visitDurationMillisecond = compareDuration;

@@ -31,7 +31,7 @@ using parquet::internal::RecordReader;
 using parquet::test::MakePages;
 using schema::NodePtr;
 
-namespace benchmark {
+namespace benchmarks {
 
 class BenchmarkHelper {
  public:
@@ -368,5 +368,5 @@ static void ReadLevelsArguments(::benchmark::internal::Benchmark* b) {
 BENCHMARK(ReadLevels_Rle)->Apply(ReadLevelsArguments);
 BENCHMARK(ReadLevels_BitPack)->Apply(ReadLevelsArguments);
 
-}  // namespace benchmark
+}  // namespace benchmarks
 }  // namespace parquet

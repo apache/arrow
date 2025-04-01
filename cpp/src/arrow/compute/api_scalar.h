@@ -265,6 +265,16 @@ class ARROW_EXPORT ExtractRegexOptions : public FunctionOptions {
   std::string pattern;
 };
 
+class ARROW_EXPORT ExtractRegexSpanOptions : public FunctionOptions {
+ public:
+  explicit ExtractRegexSpanOptions(std::string pattern);
+  ExtractRegexSpanOptions();
+  static constexpr char const kTypeName[] = "ExtractRegexSpanOptions";
+
+  /// Regular expression with named capture fields
+  std::string pattern;
+};
+
 /// Options for IsIn and IndexIn functions
 class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
  public:

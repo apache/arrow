@@ -3547,4 +3547,10 @@ const std::vector<TimeUnit::type>& TimeUnit::values() {
   return units;
 }
 
+const std::vector<Type::type>& DecimalTypeIds() {
+  static std::vector<Type::type> type_ids = {Type::DECIMAL32, Type::DECIMAL64,
+                                             Type::DECIMAL128, Type::DECIMAL256};
+  return type_ids;
+}
+
 }  // namespace arrow

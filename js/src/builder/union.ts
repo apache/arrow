@@ -56,6 +56,7 @@ export abstract class UnionBuilder<T extends Union, TNull = any> extends Builder
         const childIndex = this.type.typeIdToChildIndex[childTypeId!];
         const child = this.children[childIndex];
         child?.set(index, value);
+        this.length = Math.max(index + 1, this.length);
     }
 
     public addChild(child: Builder, name = `${this.children.length}`) {
@@ -93,5 +94,6 @@ export class DenseUnionBuilder<T extends DenseUnion, TNull = any> extends UnionB
         const child = this.getChildAt(this.type.typeIdToChildIndex[id])!;
         const denseIndex = this._offsets.set(index, child.length).buffer[index];
         child?.set(denseIndex, value);
+        this.length = Math.max(index + 1, this.length);
     }
 }

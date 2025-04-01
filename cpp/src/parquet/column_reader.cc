@@ -1611,7 +1611,12 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // another record start or exhausting the ColumnChunk
     int64_t level = levels_position_;
     if (at_record_start_) {
-      ARROW_DCHECK_EQ(0, rep_levels[levels_position_]);
+      if (ARROW_PREDICT_FALSE(rep_levels[levels_position_] != 0)) {
+        std::stringstream ss;
+        ss << "The repetition level at the start of a record must be 0 but got "
+           << rep_levels[levels_position_];
+        throw ParquetException(ss.str());
+      }
       ++levels_position_;
       // We have decided to consume the level at this position; therefore we
       // must advance until we find another record boundary

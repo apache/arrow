@@ -325,6 +325,9 @@ static auto kElementWiseAggregateOptionsType =
         DataMember("skip_nulls", &ElementWiseAggregateOptions::skip_nulls));
 static auto kExtractRegexOptionsType = GetFunctionOptionsType<ExtractRegexOptions>(
     DataMember("pattern", &ExtractRegexOptions::pattern));
+static auto kExtractRegexSpanOptionsType =
+    GetFunctionOptionsType<ExtractRegexSpanOptions>(
+        DataMember("pattern", &ExtractRegexSpanOptions::pattern));
 static auto kJoinOptionsType = GetFunctionOptionsType<JoinOptions>(
     DataMember("null_handling", &JoinOptions::null_handling),
     DataMember("null_replacement", &JoinOptions::null_replacement));
@@ -437,6 +440,12 @@ ExtractRegexOptions::ExtractRegexOptions(std::string pattern)
     : FunctionOptions(internal::kExtractRegexOptionsType), pattern(std::move(pattern)) {}
 ExtractRegexOptions::ExtractRegexOptions() : ExtractRegexOptions("") {}
 constexpr char ExtractRegexOptions::kTypeName[];
+
+ExtractRegexSpanOptions::ExtractRegexSpanOptions(std::string pattern)
+    : FunctionOptions(internal::kExtractRegexSpanOptionsType),
+      pattern(std::move(pattern)) {}
+ExtractRegexSpanOptions::ExtractRegexSpanOptions() : ExtractRegexSpanOptions("") {}
+constexpr char ExtractRegexSpanOptions::kTypeName[];
 
 JoinOptions::JoinOptions(NullHandlingBehavior null_handling, std::string null_replacement)
     : FunctionOptions(internal::kJoinOptionsType),
@@ -684,6 +693,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kDayOfWeekOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kElementWiseAggregateOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kExtractRegexOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kExtractRegexSpanOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kJoinOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kListSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMakeStructOptionsType));

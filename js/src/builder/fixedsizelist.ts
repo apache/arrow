@@ -24,9 +24,15 @@ export class FixedSizeListBuilder<T extends DataType = any, TNull = any> extends
     public setValue(index: number, value: T['TValue']) {
         const [child] = this.children;
         const start = index * this.stride;
-        for (let i = -1, n = value.length; ++i < n;) {
+        for (let i = -1, n = this.stride; ++i < n;) {
             child.set(start + i, value[i]);
         }
+    }
+    public setValid(index: number, valid: boolean) {
+        if (!super.setValid(index, valid)) {
+            this.children[0].setValid((index + 1) * this.stride - 1, false);
+        }
+        return valid;
     }
     public addChild(child: Builder<T>, name = '0') {
         if (this.numChildren > 0) {

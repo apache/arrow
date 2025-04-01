@@ -134,7 +134,6 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
 
     enum ParquetVersion" parquet::ParquetVersion::type":
         ParquetVersion_V1" parquet::ParquetVersion::PARQUET_1_0"
-        ParquetVersion_V2_0" parquet::ParquetVersion::PARQUET_2_0"
         ParquetVersion_V2_4" parquet::ParquetVersion::PARQUET_2_4"
         ParquetVersion_V2_6" parquet::ParquetVersion::PARQUET_2_6"
 
@@ -630,6 +629,15 @@ cdef class RowGroupMetaData(_Weakrefable):
         unique_ptr[CRowGroupMetaData] up_metadata
         CRowGroupMetaData* metadata
         FileMetaData parent
+
+    cdef inline init(self, FileMetaData parent, int index):
+        if index < 0 or index >= parent.num_row_groups:
+            raise IndexError('{0} out of bounds'.format(index))
+        self.up_metadata = parent._metadata.RowGroup(index)
+        self.metadata = self.up_metadata.get()
+        self.parent = parent
+        self.index = index
+
 
 cdef class ColumnChunkMetaData(_Weakrefable):
     cdef:

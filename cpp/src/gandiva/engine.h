@@ -90,6 +90,9 @@ class GANDIVA_EXPORT Engine {
   /// Load the function IRs that can be accessed in the module.
   Status LoadFunctionIRs();
 
+  // Create a global string as a pointer with "i8*" type.
+  llvm::Constant* CreateGlobalStringPtr(const std::string& string);
+
  private:
   Engine(const std::shared_ptr<Configuration>& conf,
          std::unique_ptr<llvm::orc::LLJIT> lljit,

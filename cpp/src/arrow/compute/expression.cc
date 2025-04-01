@@ -221,6 +221,8 @@ void PrintTo(const Expression& expr, std::ostream* os) {
 bool Expression::Equals(const Expression& other) const {
   if (Identical(*this, other)) return true;
 
+  if (impl_ == nullptr || other.impl_ == nullptr) return false;
+
   if (impl_->index() != other.impl_->index()) {
     return false;
   }

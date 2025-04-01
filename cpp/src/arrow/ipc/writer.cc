@@ -444,7 +444,7 @@ class RecordBatchSerializer {
       const int64_t buffer_length =
           std::min(bit_util::RoundUpToMultipleOf8(array.length() * type_width),
                    data->size() - byte_offset);
-      data = SliceBuffer(data, byte_offset, buffer_length);
+      data = SliceBuffer(std::move(data), byte_offset, buffer_length);
     }
     out_->body_buffers.emplace_back(std::move(data));
     return Status::OK();
@@ -473,7 +473,7 @@ class RecordBatchSerializer {
       const int64_t start_offset = array.value_offset(0);
       const int64_t slice_length =
           std::min(PaddedLength(total_data_bytes), data->size() - start_offset);
-      data = SliceBuffer(data, start_offset, slice_length);
+      data = SliceBuffer(std::move(data), start_offset, slice_length);
     }
 
     out_->body_buffers.emplace_back(std::move(value_offsets));

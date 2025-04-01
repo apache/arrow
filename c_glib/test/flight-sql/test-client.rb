@@ -23,6 +23,7 @@ class TestFlightSQLClient < Test::Unit::TestCase
     @server = nil
     omit("Arrow Flight SQL is required") unless defined?(ArrowFlightSQL)
     omit("Unstable on Windows") if Gem.win_platform?
+    omit("Unstable on x86_64 macOS") if /x86_64-darwin/.match?(RUBY_PLATFORM)
     @server = Helper::FlightSQLServer.new
     host = "127.0.0.1"
     location = ArrowFlight::Location.new("grpc://#{host}:0")

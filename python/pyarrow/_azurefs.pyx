@@ -47,7 +47,9 @@ cdef class AzureFileSystem(FileSystem):
         Azure Blob Storage account name. This is the globally unique identifier for the 
         storage account.
     account_key : str, default None
-        Account key of the storage account. Pass None to use default credential. 
+        Account key of the storage account. If sas_token and account_key are None the 
+        default credential will be used. The parameters account_key and sas_token are
+        mutually exclusive.
     blob_storage_authority : str, default None
         hostname[:port] of the Blob Service. Defaults to `.blob.core.windows.net`. Useful
         for connecting to a local emulator, like Azurite.
@@ -60,6 +62,10 @@ cdef class AzureFileSystem(FileSystem):
     dfs_storage_scheme : str, default None
         Either `http` or `https`. Defaults to `https`. Useful for connecting to a local 
         emulator, like Azurite.
+    sas_token : str, default None
+        SAS token for the storage account, used as an alternative to account_key. If sas_token
+        and account_key are None the default credential will be used. The parameters 
+        account_key and sas_token are mutually exclusive.
 
     Examples
     --------
@@ -79,10 +85,11 @@ cdef class AzureFileSystem(FileSystem):
     cdef:
         CAzureFileSystem* azurefs
         c_string account_key
+        c_string sas_token
 
     def __init__(self, account_name, *, account_key=None, blob_storage_authority=None,
                  dfs_storage_authority=None, blob_storage_scheme=None,
-                 dfs_storage_scheme=None):
+                 dfs_storage_scheme=None, sas_token=None):
         cdef:
             CAzureOptions options
             shared_ptr[CAzureFileSystem] wrapped
@@ -97,9 +104,15 @@ cdef class AzureFileSystem(FileSystem):
         if dfs_storage_scheme:
             options.dfs_storage_scheme = tobytes(dfs_storage_scheme)
 
+        if account_key and sas_token:
+            raise ValueError("Cannot specify both account_key and sas_token.")
+
         if account_key:
             options.ConfigureAccountKeyCredential(tobytes(account_key))
             self.account_key = tobytes(account_key)
+        elif sas_token:
+            options.ConfigureSASCredential(tobytes(sas_token))
+            self.sas_token = tobytes(sas_token)
         else:
             options.ConfigureDefaultCredential()
 
@@ -127,5 +140,6 @@ cdef class AzureFileSystem(FileSystem):
                 blob_storage_authority=frombytes(opts.blob_storage_authority),
                 dfs_storage_authority=frombytes(opts.dfs_storage_authority),
                 blob_storage_scheme=frombytes(opts.blob_storage_scheme),
-                dfs_storage_scheme=frombytes(opts.dfs_storage_scheme)
+                dfs_storage_scheme=frombytes(opts.dfs_storage_scheme),
+                sas_token=frombytes(self.sas_token)
             ),))

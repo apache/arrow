@@ -8,9 +8,9 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 23 &&
-              FLATBUFFERS_VERSION_MINOR == 5 &&
-              FLATBUFFERS_VERSION_REVISION == 26,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 24 &&
+              FLATBUFFERS_VERSION_MINOR == 3 &&
+              FLATBUFFERS_VERSION_REVISION == 6,
              "Non-compatible flatbuffers version included");
 
 #include "Schema_generated.h"
@@ -36,17 +36,17 @@ struct DictionaryBatchBuilder;
 struct Message;
 struct MessageBuilder;
 
-enum class CompressionType : int8_t {
-  LZ4_FRAME = 0,
-  ZSTD = 1,
-  MIN = LZ4_FRAME,
-  MAX = ZSTD
+enum CompressionType : int8_t {
+  CompressionType_LZ4_FRAME = 0,
+  CompressionType_ZSTD = 1,
+  CompressionType_MIN = CompressionType_LZ4_FRAME,
+  CompressionType_MAX = CompressionType_ZSTD
 };
 
 inline const CompressionType (&EnumValuesCompressionType())[2] {
   static const CompressionType values[] = {
-    CompressionType::LZ4_FRAME,
-    CompressionType::ZSTD
+    CompressionType_LZ4_FRAME,
+    CompressionType_ZSTD
   };
   return values;
 }
@@ -61,7 +61,7 @@ inline const char * const *EnumNamesCompressionType() {
 }
 
 inline const char *EnumNameCompressionType(CompressionType e) {
-  if (::flatbuffers::IsOutRange(e, CompressionType::LZ4_FRAME, CompressionType::ZSTD)) return "";
+  if (::flatbuffers::IsOutRange(e, CompressionType_LZ4_FRAME, CompressionType_ZSTD)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCompressionType()[index];
 }
@@ -69,7 +69,7 @@ inline const char *EnumNameCompressionType(CompressionType e) {
 /// Provided for forward compatibility in case we need to support different
 /// strategies for compressing the IPC message body (like whole-body
 /// compression rather than buffer-level) in the future
-enum class BodyCompressionMethod : int8_t {
+enum BodyCompressionMethod : int8_t {
   /// Each constituent buffer is first compressed with the indicated
   /// compressor, and then written with the uncompressed length in the first 8
   /// bytes as a 64-bit little-endian signed integer followed by the compressed
@@ -77,14 +77,14 @@ enum class BodyCompressionMethod : int8_t {
   /// uncompressed length may be set to -1 to indicate that the data that
   /// follows is not compressed, which can be useful for cases where
   /// compression does not yield appreciable savings.
-  BUFFER = 0,
-  MIN = BUFFER,
-  MAX = BUFFER
+  BodyCompressionMethod_BUFFER = 0,
+  BodyCompressionMethod_MIN = BodyCompressionMethod_BUFFER,
+  BodyCompressionMethod_MAX = BodyCompressionMethod_BUFFER
 };
 
 inline const BodyCompressionMethod (&EnumValuesBodyCompressionMethod())[1] {
   static const BodyCompressionMethod values[] = {
-    BodyCompressionMethod::BUFFER
+    BodyCompressionMethod_BUFFER
   };
   return values;
 }
@@ -98,7 +98,7 @@ inline const char * const *EnumNamesBodyCompressionMethod() {
 }
 
 inline const char *EnumNameBodyCompressionMethod(BodyCompressionMethod e) {
-  if (::flatbuffers::IsOutRange(e, BodyCompressionMethod::BUFFER, BodyCompressionMethod::BUFFER)) return "";
+  if (::flatbuffers::IsOutRange(e, BodyCompressionMethod_BUFFER, BodyCompressionMethod_BUFFER)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesBodyCompressionMethod()[index];
 }
@@ -111,25 +111,25 @@ inline const char *EnumNameBodyCompressionMethod(BodyCompressionMethod e) {
 /// Arrow implementations do not need to implement all of the message types,
 /// which may include experimental metadata types. For maximum compatibility,
 /// it is best to send data using RecordBatch
-enum class MessageHeader : uint8_t {
-  NONE = 0,
-  Schema = 1,
-  DictionaryBatch = 2,
-  RecordBatch = 3,
-  Tensor = 4,
-  SparseTensor = 5,
-  MIN = NONE,
-  MAX = SparseTensor
+enum MessageHeader : uint8_t {
+  MessageHeader_NONE = 0,
+  MessageHeader_Schema = 1,
+  MessageHeader_DictionaryBatch = 2,
+  MessageHeader_RecordBatch = 3,
+  MessageHeader_Tensor = 4,
+  MessageHeader_SparseTensor = 5,
+  MessageHeader_MIN = MessageHeader_NONE,
+  MessageHeader_MAX = MessageHeader_SparseTensor
 };
 
 inline const MessageHeader (&EnumValuesMessageHeader())[6] {
   static const MessageHeader values[] = {
-    MessageHeader::NONE,
-    MessageHeader::Schema,
-    MessageHeader::DictionaryBatch,
-    MessageHeader::RecordBatch,
-    MessageHeader::Tensor,
-    MessageHeader::SparseTensor
+    MessageHeader_NONE,
+    MessageHeader_Schema,
+    MessageHeader_DictionaryBatch,
+    MessageHeader_RecordBatch,
+    MessageHeader_Tensor,
+    MessageHeader_SparseTensor
   };
   return values;
 }
@@ -148,37 +148,37 @@ inline const char * const *EnumNamesMessageHeader() {
 }
 
 inline const char *EnumNameMessageHeader(MessageHeader e) {
-  if (::flatbuffers::IsOutRange(e, MessageHeader::NONE, MessageHeader::SparseTensor)) return "";
+  if (::flatbuffers::IsOutRange(e, MessageHeader_NONE, MessageHeader_SparseTensor)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesMessageHeader()[index];
 }
 
 template<typename T> struct MessageHeaderTraits {
-  static const MessageHeader enum_value = MessageHeader::NONE;
+  static const MessageHeader enum_value = MessageHeader_NONE;
 };
 
 template<> struct MessageHeaderTraits<org::apache::arrow::flatbuf::Schema> {
-  static const MessageHeader enum_value = MessageHeader::Schema;
+  static const MessageHeader enum_value = MessageHeader_Schema;
 };
 
 template<> struct MessageHeaderTraits<org::apache::arrow::flatbuf::DictionaryBatch> {
-  static const MessageHeader enum_value = MessageHeader::DictionaryBatch;
+  static const MessageHeader enum_value = MessageHeader_DictionaryBatch;
 };
 
 template<> struct MessageHeaderTraits<org::apache::arrow::flatbuf::RecordBatch> {
-  static const MessageHeader enum_value = MessageHeader::RecordBatch;
+  static const MessageHeader enum_value = MessageHeader_RecordBatch;
 };
 
 template<> struct MessageHeaderTraits<org::apache::arrow::flatbuf::Tensor> {
-  static const MessageHeader enum_value = MessageHeader::Tensor;
+  static const MessageHeader enum_value = MessageHeader_Tensor;
 };
 
 template<> struct MessageHeaderTraits<org::apache::arrow::flatbuf::SparseTensor> {
-  static const MessageHeader enum_value = MessageHeader::SparseTensor;
+  static const MessageHeader enum_value = MessageHeader_SparseTensor;
 };
 
 bool VerifyMessageHeader(::flatbuffers::Verifier &verifier, const void *obj, MessageHeader type);
-bool VerifyMessageHeaderVector(::flatbuffers::Verifier &verifier, const ::flatbuffers::Vector<::flatbuffers::Offset<void>> *values, const ::flatbuffers::Vector<MessageHeader> *types);
+bool VerifyMessageHeaderVector(::flatbuffers::Verifier &verifier, const ::flatbuffers::Vector<::flatbuffers::Offset<void>> *values, const ::flatbuffers::Vector<uint8_t> *types);
 
 /// ----------------------------------------------------------------------
 /// Data structures for describing a table row batch (a collection of
@@ -266,8 +266,8 @@ struct BodyCompressionBuilder {
 
 inline ::flatbuffers::Offset<BodyCompression> CreateBodyCompression(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::CompressionType codec = org::apache::arrow::flatbuf::CompressionType::LZ4_FRAME,
-    org::apache::arrow::flatbuf::BodyCompressionMethod method = org::apache::arrow::flatbuf::BodyCompressionMethod::BUFFER) {
+    org::apache::arrow::flatbuf::CompressionType codec = org::apache::arrow::flatbuf::CompressionType_LZ4_FRAME,
+    org::apache::arrow::flatbuf::BodyCompressionMethod method = org::apache::arrow::flatbuf::BodyCompressionMethod_BUFFER) {
   BodyCompressionBuilder builder_(_fbb);
   builder_.add_method(method);
   builder_.add_codec(codec);
@@ -496,19 +496,19 @@ struct Message FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   template<typename T> const T *header_as() const;
   const org::apache::arrow::flatbuf::Schema *header_as_Schema() const {
-    return header_type() == org::apache::arrow::flatbuf::MessageHeader::Schema ? static_cast<const org::apache::arrow::flatbuf::Schema *>(header()) : nullptr;
+    return header_type() == org::apache::arrow::flatbuf::MessageHeader_Schema ? static_cast<const org::apache::arrow::flatbuf::Schema *>(header()) : nullptr;
   }
   const org::apache::arrow::flatbuf::DictionaryBatch *header_as_DictionaryBatch() const {
-    return header_type() == org::apache::arrow::flatbuf::MessageHeader::DictionaryBatch ? static_cast<const org::apache::arrow::flatbuf::DictionaryBatch *>(header()) : nullptr;
+    return header_type() == org::apache::arrow::flatbuf::MessageHeader_DictionaryBatch ? static_cast<const org::apache::arrow::flatbuf::DictionaryBatch *>(header()) : nullptr;
   }
   const org::apache::arrow::flatbuf::RecordBatch *header_as_RecordBatch() const {
-    return header_type() == org::apache::arrow::flatbuf::MessageHeader::RecordBatch ? static_cast<const org::apache::arrow::flatbuf::RecordBatch *>(header()) : nullptr;
+    return header_type() == org::apache::arrow::flatbuf::MessageHeader_RecordBatch ? static_cast<const org::apache::arrow::flatbuf::RecordBatch *>(header()) : nullptr;
   }
   const org::apache::arrow::flatbuf::Tensor *header_as_Tensor() const {
-    return header_type() == org::apache::arrow::flatbuf::MessageHeader::Tensor ? static_cast<const org::apache::arrow::flatbuf::Tensor *>(header()) : nullptr;
+    return header_type() == org::apache::arrow::flatbuf::MessageHeader_Tensor ? static_cast<const org::apache::arrow::flatbuf::Tensor *>(header()) : nullptr;
   }
   const org::apache::arrow::flatbuf::SparseTensor *header_as_SparseTensor() const {
-    return header_type() == org::apache::arrow::flatbuf::MessageHeader::SparseTensor ? static_cast<const org::apache::arrow::flatbuf::SparseTensor *>(header()) : nullptr;
+    return header_type() == org::apache::arrow::flatbuf::MessageHeader_SparseTensor ? static_cast<const org::apache::arrow::flatbuf::SparseTensor *>(header()) : nullptr;
   }
   int64_t bodyLength() const {
     return GetField<int64_t>(VT_BODYLENGTH, 0);
@@ -582,8 +582,8 @@ struct MessageBuilder {
 
 inline ::flatbuffers::Offset<Message> CreateMessage(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::MetadataVersion version = org::apache::arrow::flatbuf::MetadataVersion::V1,
-    org::apache::arrow::flatbuf::MessageHeader header_type = org::apache::arrow::flatbuf::MessageHeader::NONE,
+    org::apache::arrow::flatbuf::MetadataVersion version = org::apache::arrow::flatbuf::MetadataVersion_V1,
+    org::apache::arrow::flatbuf::MessageHeader header_type = org::apache::arrow::flatbuf::MessageHeader_NONE,
     ::flatbuffers::Offset<void> header = 0,
     int64_t bodyLength = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>> custom_metadata = 0) {
@@ -598,8 +598,8 @@ inline ::flatbuffers::Offset<Message> CreateMessage(
 
 inline ::flatbuffers::Offset<Message> CreateMessageDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::MetadataVersion version = org::apache::arrow::flatbuf::MetadataVersion::V1,
-    org::apache::arrow::flatbuf::MessageHeader header_type = org::apache::arrow::flatbuf::MessageHeader::NONE,
+    org::apache::arrow::flatbuf::MetadataVersion version = org::apache::arrow::flatbuf::MetadataVersion_V1,
+    org::apache::arrow::flatbuf::MessageHeader header_type = org::apache::arrow::flatbuf::MessageHeader_NONE,
     ::flatbuffers::Offset<void> header = 0,
     int64_t bodyLength = 0,
     const std::vector<::flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *custom_metadata = nullptr) {
@@ -615,26 +615,26 @@ inline ::flatbuffers::Offset<Message> CreateMessageDirect(
 
 inline bool VerifyMessageHeader(::flatbuffers::Verifier &verifier, const void *obj, MessageHeader type) {
   switch (type) {
-    case MessageHeader::NONE: {
+    case MessageHeader_NONE: {
       return true;
     }
-    case MessageHeader::Schema: {
+    case MessageHeader_Schema: {
       auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Schema *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case MessageHeader::DictionaryBatch: {
+    case MessageHeader_DictionaryBatch: {
       auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::DictionaryBatch *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case MessageHeader::RecordBatch: {
+    case MessageHeader_RecordBatch: {
       auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::RecordBatch *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case MessageHeader::Tensor: {
+    case MessageHeader_Tensor: {
       auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Tensor *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case MessageHeader::SparseTensor: {
+    case MessageHeader_SparseTensor: {
       auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::SparseTensor *>(obj);
       return verifier.VerifyTable(ptr);
     }
@@ -642,7 +642,7 @@ inline bool VerifyMessageHeader(::flatbuffers::Verifier &verifier, const void *o
   }
 }
 
-inline bool VerifyMessageHeaderVector(::flatbuffers::Verifier &verifier, const ::flatbuffers::Vector<::flatbuffers::Offset<void>> *values, const ::flatbuffers::Vector<MessageHeader> *types) {
+inline bool VerifyMessageHeaderVector(::flatbuffers::Verifier &verifier, const ::flatbuffers::Vector<::flatbuffers::Offset<void>> *values, const ::flatbuffers::Vector<uint8_t> *types) {
   if (!values || !types) return !values && !types;
   if (values->size() != types->size()) return false;
   for (::flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {

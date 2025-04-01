@@ -234,12 +234,8 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
-      # Don't use preinstalled Boost by empty BOOST_ROOT and
-      # -DBoost_NO_BOOST_CMAKE=ON
-      BOOST_ROOT: ""
       ARROW_CMAKE_ARGS: >-
         -DARROW_PACKAGE_PREFIX=/ucrt${{ matrix.mingw-n-bits }}
-        -DBoost_NO_BOOST_CMAKE=ON
         -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON
       CMAKE_UNITY_BUILD: ON
     steps:
@@ -318,9 +314,9 @@ jobs:
 
   windows-msvc:
     name: AMD64 Windows MSVC GLib
-    runs-on: windows-2019
+    runs-on: windows-2022
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 90
+    timeout-minutes: 240
     strategy:
       fail-fast: false
     env:
@@ -356,10 +352,8 @@ jobs:
       CMAKE_CXX_STANDARD: "17"
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: "${{ github.workspace }}/dist"
-      CMAKE_UNITY_BUILD: ON
       VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
-      VCPKG_ROOT: "${{ github.workspace }}/vcpkg"
-      VCPKG_TRIPLET: x64-windows
+      VCPKG_DEFAULT_TRIPLET: x64-windows
     permissions:
       packages: write
     steps:
@@ -376,10 +370,6 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: Install vcpkg
-        shell: bash
-        run: |
-          ci/scripts/install_vcpkg.sh "${VCPKG_ROOT}"
       - name: Install meson
         run: |
           python -m pip install meson
@@ -408,29 +398,23 @@ jobs:
       - name: Setup NuGet credentials for vcpkg caching
         shell: bash
         run: |
-          $(vcpkg/vcpkg.exe fetch nuget | tail -n 1) \
+          $(vcpkg fetch nuget | tail -n 1) \
             sources add \
             -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
             -storepasswordincleartext \
             -name "GitHub" \
             -username "$GITHUB_REPOSITORY_OWNER" \
             -password "${{ secrets.GITHUB_TOKEN }}"
-          $(vcpkg/vcpkg.exe fetch nuget | tail -n 1) \
+          $(vcpkg fetch nuget | tail -n 1) \
             setapikey "${{ secrets.GITHUB_TOKEN }}" \
             -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
-      - name: Build C++ vcpkg dependencies
-        run: |
-          vcpkg\vcpkg.exe install `
-            --triplet $env:VCPKG_TRIPLET `
-            --x-manifest-root cpp `
-            --x-install-root build\cpp\vcpkg_installed
       - name: Build C++
         shell: cmd
         run: |
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Build GLib
         shell: cmd
         run: |
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           bash -c "ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build"

@@ -33,6 +33,13 @@ if(APPLE AND ARROW_USE_OPENSSL)
   list(APPEND ARROW_FLIGHT_LINK_LIBS ${ARROW_OPENSSL_LIBS})
 endif()
 
+set(ARROW_FLIGHT_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
+if(ARROW_PROTOBUF_ARROW_CMAKE_PACKAGE_NAME STREQUAL "ArrowFlight")
+  if(Protobuf_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_FLIGHT_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
+  endif()
+endif()
+
 set(ARROW_FLIGHT_TEST_LINKAGE "${ARROW_TEST_LINKAGE}")
 if(Protobuf_USE_STATIC_LIBS)
   message(STATUS "Linking Arrow Flight tests statically due to static Protobuf")
@@ -146,7 +153,6 @@ set(ARROW_FLIGHT_SRCS
     serialization_internal.cc
     server.cc
     server_auth.cc
-    server_middleware.cc
     server_tracing_middleware.cc
     transport.cc
     transport_server.cc
@@ -204,7 +210,7 @@ add_arrow_lib(arrow_flight
               ${ARROW_FLIGHT_LINK_LIBS}
               arrow_static
               STATIC_INSTALL_INTERFACE_LIBS
-              Arrow::arrow_static)
+              ${ARROW_FLIGHT_STATIC_INSTALL_INTERFACE_LIBS})
 
 if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_flight_static PUBLIC ARROW_FLIGHT_STATIC)
@@ -332,20 +338,7 @@ if(ARROW_BUILD_BENCHMARKS)
 
   add_dependencies(arrow_flight arrow-flight-benchmark)
 
-  if(ARROW_WITH_UCX)
-    if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
-      target_link_libraries(arrow-flight-benchmark arrow_flight_transport_ucx_static)
-      target_link_libraries(arrow-flight-perf-server arrow_flight_transport_ucx_static)
-    else()
-      target_link_libraries(arrow-flight-benchmark arrow_flight_transport_ucx_shared)
-      target_link_libraries(arrow-flight-perf-server arrow_flight_transport_ucx_shared)
-    endif()
-  endif()
 endif(ARROW_BUILD_BENCHMARKS)
-
-if(ARROW_WITH_UCX)
-  add_subdirectory(transport/ucx)
-endif()
 
 if(ARROW_FLIGHT_SQL)
   add_subdirectory(sql)

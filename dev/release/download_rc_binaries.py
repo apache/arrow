@@ -152,10 +152,6 @@ class Downloader:
         return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
 
 
-class Artifactory(Downloader):
-    URL_ROOT = "https://apache.jfrog.io/artifactory/arrow"
-
-
 class Maven(Downloader):
     URL_ROOT = "https://repository.apache.org" + \
         "/content/repositories/staging/org/apache/arrow"
@@ -277,19 +273,16 @@ def download_rc_binaries(version, rc_number, re_match=None, dest=None,
             return match[0] == version
         filter = is_target
 
-        if package_type == 'jars':
-            downloader = Maven()
-            prefix = ''
-        elif package_type == 'github' or package_type == 'nuget':
+        if package_type == 'github' or package_type == 'nuget':
             downloader = GitHub(repository, tag)
             prefix = ''
             filter = None
         elif package_type in ARROW_REPOSITORY_PACKAGE_TYPES:
-            downloader = Artifactory()
-            prefix = f'{package_type}-rc'
+            downloader = Maven()
+            prefix = package_type
         else:
-            downloader = Artifactory()
-            prefix = f'{package_type}-rc/{version_string}'
+            downloader = Maven()
+            prefix = f'{package_type}/{version_string}'
             filter = None
         files = downloader.get_file_list(prefix, filter=filter)
         downloader.download_files(files, re_match=re_match, dest=dest,

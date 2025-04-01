@@ -21,14 +21,10 @@ set -exu
 
 if [ $# -lt 2 ]; then
   echo "Usage: $0 VERSION rc"
-  echo "       $0 VERSION staging-rc"
   echo "       $0 VERSION release"
-  echo "       $0 VERSION staging-release"
   echo "       $0 VERSION local"
   echo " e.g.: $0 0.13.0 rc                # Verify 0.13.0 RC"
-  echo " e.g.: $0 0.13.0 staging-rc        # Verify 0.13.0 RC on staging"
   echo " e.g.: $0 0.13.0 release           # Verify 0.13.0"
-  echo " e.g.: $0 0.13.0 staging-release   # Verify 0.13.0 on staging"
   echo " e.g.: $0 0.13.0-dev20210203 local # Verify 0.13.0-dev20210203 on local"
   exit 1
 fi
@@ -40,7 +36,12 @@ SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOP_SOURCE_DIR="${SOURCE_DIR}/../.."
 local_prefix="${TOP_SOURCE_DIR}/dev/tasks/linux-packages"
 
-artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
+production_repository_base_url="https://repo1.maven.org/maven2/org/apache/arrow"
+staging_repository_base_url="https://repository.apache.org/content/repositories/staging/org/apache/arrow"
+repository_base_url="${production_repository_base_url}"
+if [ "${TYPE}" = "rc" ]; then
+  repository_base_url="${staging_repository_base_url}"
+fi
 
 distribution=$(. /etc/os-release && echo "${ID}")
 distribution_version=$(. /etc/os-release && echo "${VERSION_ID}" | grep -o "^[0-9]*")
@@ -161,20 +162,14 @@ if [ "${TYPE}" = "local" ]; then
   ${install_command} "${release_path}"
 else
   package_version="${VERSION}"
-  case "${TYPE}" in
-    rc|staging-rc|staging-release)
-      suffix=${TYPE%-release}
-      distribution_prefix+="-${suffix}"
-      ;;
-  esac
   ${install_command} \
-    ${artifactory_base_url}/${distribution_prefix}/${repository_version}/apache-arrow-release-latest.rpm
+    ${repository_base_url}/${distribution_prefix}/${repository_version}/apache-arrow-release-latest.rpm
 fi
 
 if [ "${TYPE}" = "local" ]; then
   sed \
     -i"" \
-    -e "s,baseurl=https://apache\.jfrog\.io/artifactory/arrow/,baseurl=file://${local_prefix}/yum/repositories/,g" \
+    -e "s,baseurl=${production_repository_base_url}/,baseurl=file://${local_prefix}/yum/repositories/,g" \
     /etc/yum.repos.d/Apache-Arrow.repo
   keys="${local_prefix}/KEYS"
   if [ -f "${keys}" ]; then
@@ -182,13 +177,11 @@ if [ "${TYPE}" = "local" ]; then
   fi
 else
   case "${TYPE}" in
-    rc|staging-rc|staging-release)
+    rc)
       suffix=${TYPE%-release}
       sed \
         -i"" \
-        -e "s,/almalinux/,/almalinux-${suffix}/,g" \
-        -e "s,/centos/,/centos-${suffix}/,g" \
-        -e "s,/amazon-linux/,/amazon-linux-${suffix}/,g" \
+        -e "s,baseurl=${production_repository_base_url},baseurl=${staging_repository_base_url},g" \
         /etc/yum.repos.d/Apache-Arrow.repo
       ;;
   esac
@@ -306,15 +299,16 @@ fi
 echo "::group::Test coexistence with old library"
 ${uninstall_command} apache-arrow-release
 if ${install_command} \
-     https://apache.jfrog.io/artifactory/arrow/${distribution_prefix}/${repository_version}/apache-arrow-release-latest.rpm; then
+     ${repository_base_url}/${distribution_prefix}/${repository_version}/apache-arrow-release-latest.rpm; then
   ${clean_command} all
   if [ "${have_arrow_libs}" = "yes" ]; then
     ${install_command} ${enablerepo_epel} arrow-libs
   else
     major_version=$(echo ${VERSION} | grep -E -o '^[0-9]+')
     previous_major_version="$((${major_version} - 1))"
-    if ${info_command} ${enablerepo_epel} arrow${previous_major_version}-libs; then
-      ${install_command} ${enablerepo_epel} arrow${previous_major_version}-libs
+    previous_so_version="${previous_major_version}00"
+    if ${info_command} ${enablerepo_epel} arrow${previous_so_version}-libs; then
+      ${install_command} ${enablerepo_epel} arrow${previous_so_version}-libs
     fi
   fi
 fi

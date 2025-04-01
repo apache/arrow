@@ -16,6 +16,41 @@
 # under the License.
 
 option(
+    'benchmarks',
+    type: 'boolean',
+    description: 'Build the Arrow micro benchmarks',
+    value: false,
+)
+
+option(
+    'csv',
+    type: 'boolean',
+    description: 'Build the Arrow CSV Parser Module',
+    value: false,
+)
+
+option(
+    'hdfs',
+    type: 'boolean',
+    description: 'Build the Arrow HDFS bridge',
+    value: false,
+)
+
+option(
+    'ipc',
+    type: 'boolean',
+    description: 'Build the Arrow IPC extensions',
+    value: false,
+)
+
+option(
+    'json',
+    type: 'boolean',
+    description: 'Build Arrow with JSON support',
+    value: false,
+)
+
+option(
     'git_id',
     type: 'string',
 )
@@ -29,4 +64,18 @@ option(
     'package_kind',
     type: 'string',
     description: 'Arbitrary string that identifies the kind of package (for informational purposes)',
+)
+
+option(
+    'testing',
+    type: 'boolean',
+    description: 'Build the Arrow testing libraries',
+    value: false,
+)
+
+option(
+    'tests',
+    type: 'boolean',
+    description: 'Build the Arrow googletest unit tests',
+    value: false,
 )

@@ -20,6 +20,7 @@
 #include "arrow/extension_type.h"
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/visitor_generate.h"
 
 namespace arrow {
@@ -83,9 +84,8 @@ inline auto VisitType(const DataType& type, VISITOR&& visitor, ARGS&&... args)
   switch (type.id()) {
     ARROW_GENERATE_FOR_ALL_TYPES(TYPE_VISIT_INLINE);
     default:
-      break;
+      Unreachable("Type not implemented");
   }
-  return std::forward<VISITOR>(visitor)(type, std::forward<ARGS>(args)...);
 }
 
 #undef TYPE_VISIT_INLINE

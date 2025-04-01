@@ -176,6 +176,7 @@ struct StatisticImpl : public ScalarAggregator {
       : out_type(out_type),
         stat_type(stat_type),
         skip_nulls(options.skip_nulls),
+        biased(options.biased),
         min_count(options.min_count),
         ddof(0),
         state(moments_level_for_statistic(stat_type), decimal_scale, skip_nulls) {}
@@ -197,7 +198,9 @@ struct StatisticImpl : public ScalarAggregator {
 
   Status Finalize(KernelContext*, Datum* out) override {
     if (state.count() <= ddof || state.count() < min_count ||
-        (!state.all_valid && !skip_nulls)) {
+        (!state.all_valid && !skip_nulls) ||
+        (stat_type == StatisticType::Skew && !biased && state.count() < 3) ||
+        (stat_type == StatisticType::Kurtosis && !biased && state.count() < 4)) {
       out->value = std::make_shared<DoubleScalar>();
     } else {
       switch (stat_type) {
@@ -208,10 +211,10 @@ struct StatisticImpl : public ScalarAggregator {
           out->value = std::make_shared<DoubleScalar>(state.moments.Variance(ddof));
           break;
         case StatisticType::Skew:
-          out->value = std::make_shared<DoubleScalar>(state.moments.Skew());
+          out->value = std::make_shared<DoubleScalar>(state.moments.Skew(biased));
           break;
         case StatisticType::Kurtosis:
-          out->value = std::make_shared<DoubleScalar>(state.moments.Kurtosis());
+          out->value = std::make_shared<DoubleScalar>(state.moments.Kurtosis(biased));
           break;
         default:
           return Status::NotImplemented("Unsupported statistic type ",
@@ -224,6 +227,7 @@ struct StatisticImpl : public ScalarAggregator {
   std::shared_ptr<DataType> out_type;
   StatisticType stat_type;
   bool skip_nulls;
+  bool biased;
   uint32_t min_count;
   int ddof = 0;
   MomentsState<ArrowType> state;

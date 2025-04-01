@@ -71,6 +71,13 @@ if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
 
+# https://cmake.org/cmake/help/latest/policy/CMP0167.html
+#
+# Use Boost's CMake packages instead of FindBoost.cmake in CMake.
+if(POLICY CMP0167)
+  cmake_policy(SET CMP0167 NEW)
+endif()
+
 # https://cmake.org/cmake/help/latest/policy/CMP0170.html
 #
 # CMP0170 is for enforcing dependency populations by users with
@@ -160,6 +167,7 @@ set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
 set(ARROW_LLVM_VERSIONS
+    "20.1"
     "19.1"
     "18.1"
     "17.0"

@@ -59,6 +59,8 @@ if [ -n "${GITHUB_TOKEN:-}" ] && \
   if type dnf 2>/dev/null; then
     dnf install -y epel-release
     dnf install -y mono-complete
+  fi
+  if type mono 2>/dev/null; then
     curl \
       --location \
       --output "${vcpkg_destination}/nuget" \

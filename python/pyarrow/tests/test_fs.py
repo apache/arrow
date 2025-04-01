@@ -30,7 +30,8 @@ import weakref
 import pyarrow as pa
 from pyarrow.tests.test_io import assert_file_not_found
 from pyarrow.tests.util import (_filesystem_uri, ProxyHandler,
-                                _configure_s3_limited_user)
+                                _configure_s3_limited_user,
+                                running_on_musllinux)
 
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
@@ -1463,6 +1464,16 @@ def test_azurefs_options(pickle_module):
     assert pickle_module.loads(pickle_module.dumps(fs3)) == fs3
     assert fs3 != fs2
 
+    fs4 = AzureFileSystem(account_name='fake-account-name',
+                          sas_token='fakesastoken')
+    assert isinstance(fs4, AzureFileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs4)) == fs4
+    assert fs4 != fs3
+
+    with pytest.raises(ValueError):
+        AzureFileSystem(account_name='fake-account-name', account_key='fakeaccount',
+                        sas_token='fakesastoken')
+
     with pytest.raises(TypeError):
         AzureFileSystem()
 
@@ -2020,6 +2031,8 @@ def test_concurrent_s3fs_init():
 
 
 @pytest.mark.s3
+@pytest.mark.skipif(running_on_musllinux(), reason="Leaking S3ClientFinalizer causes "
+                                                   "segfault on musl based systems")
 def test_uwsgi_integration():
     # GH-44071: using S3FileSystem under uwsgi shouldn't lead to a crash at shutdown
     try:

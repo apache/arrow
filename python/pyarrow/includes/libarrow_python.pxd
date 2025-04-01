@@ -199,41 +199,6 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         unordered_set[c_string] extension_columns
         c_bool to_numpy
 
-    cdef cppclass CSerializedPyObject" arrow::py::SerializedPyObject":
-        shared_ptr[CRecordBatch] batch
-        vector[shared_ptr[CTensor]] tensors
-
-        CStatus WriteTo(COutputStream* dst)
-        CStatus GetComponents(CMemoryPool* pool, PyObject** dst)
-
-    CStatus SerializeObject(object context, object sequence,
-                            CSerializedPyObject* out)
-
-    CStatus DeserializeObject(object context,
-                              const CSerializedPyObject& obj,
-                              PyObject* base, PyObject** out)
-
-    CStatus ReadSerializedObject(CRandomAccessFile* src,
-                                 CSerializedPyObject* out)
-
-    cdef cppclass SparseTensorCounts:
-        SparseTensorCounts()
-        int coo
-        int csr
-        int csc
-        int csf
-        int ndim_csf
-        int num_total_tensors() const
-        int num_total_buffers() const
-
-    CStatus GetSerializedFromComponents(
-        int num_tensors,
-        const SparseTensorCounts& num_sparse_tensors,
-        int num_ndarrays,
-        int num_buffers,
-        object buffers,
-        CSerializedPyObject* out)
-
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
     cdef cppclass CTimePoint "arrow::py::internal::TimePoint":

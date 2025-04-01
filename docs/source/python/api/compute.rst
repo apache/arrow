@@ -590,3 +590,12 @@ User-Defined Functions
 
    register_scalar_function
    UdfContext
+
+Expression Functions
+--------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   field
+   scalar

@@ -1504,11 +1504,15 @@ TEST_P(GroupBy, VarianceOptionsAndSkewOptions) {
       /*ddof=*/0, /*skip_nulls=*/false, /*min_count=*/3);
 
   auto skew_keep_nulls = std::make_shared<SkewOptions>(/*skip_nulls=*/false,
+                                                       /*biased=*/true,
                                                        /*min_count=*/0);
-  auto skew_min_count =
-      std::make_shared<SkewOptions>(/*skip_nulls=*/true, /*min_count=*/3);
+  auto skew_min_count = std::make_shared<SkewOptions>(/*skip_nulls=*/true,
+                                                      /*biased=*/true, /*min_count=*/3);
   auto skew_keep_nulls_min_count = std::make_shared<SkewOptions>(
-      /*skip_nulls=*/false, /*min_count=*/3);
+      /*skip_nulls=*/false, /*biased=*/true, /*min_count=*/3);
+
+  auto skew_unbiased = std::make_shared<SkewOptions>(
+      /*skip_nulls=*/false, /*biased=*/false, /*min_count=*/0);
 
   for (std::string value_column : {"argument", "argument1"}) {
     for (bool use_threads : {false}) {
@@ -1553,10 +1557,12 @@ TEST_P(GroupBy, VarianceOptionsAndSkewOptions) {
                   {"hash_skew", skew_keep_nulls, value_column, "hash_skew"},
                   {"hash_skew", skew_min_count, value_column, "hash_skew"},
                   {"hash_skew", skew_keep_nulls_min_count, value_column, "hash_skew"},
+                  {"hash_skew", skew_unbiased, value_column, "hash_skew"},
                   {"hash_kurtosis", skew_keep_nulls, value_column, "hash_kurtosis"},
                   {"hash_kurtosis", skew_min_count, value_column, "hash_kurtosis"},
                   {"hash_kurtosis", skew_keep_nulls_min_count, value_column,
                    "hash_kurtosis"},
+                  {"hash_kurtosis", skew_unbiased, value_column, "hash_kurtosis"},
               },
               use_threads));
       expected = ArrayFromJSON(struct_({
@@ -1564,15 +1570,17 @@ TEST_P(GroupBy, VarianceOptionsAndSkewOptions) {
                                    field("hash_skew", float64()),
                                    field("hash_skew", float64()),
                                    field("hash_skew", float64()),
+                                   field("hash_skew", float64()),
+                                   field("hash_kurtosis", float64()),
                                    field("hash_kurtosis", float64()),
                                    field("hash_kurtosis", float64()),
                                    field("hash_kurtosis", float64()),
                                }),
                                R"([
-         [1, null,      0.707106,  null,     null,      -1.5,      null     ],
-         [2, 0.213833,  0.213833,  0.213833, -1.720164, -1.720164, -1.720164],
-         [3, 0.0,       null,      null,     -2.0,       null,     null     ],
-         [4, null,      0.707106,  null,     null,      -1.5,      null     ]
+         [1, null,      0.707106,  null,     null,    null,      -1.5,      null,      null    ],
+         [2, 0.213833,  0.213833,  0.213833, 0.37037, -1.720164, -1.720164, -1.720164, -3.90123],
+         [3, 0.0,       null,      null,     null,    -2.0,       null,     null,      null    ],
+         [4, null,      0.707106,  null,     null,    null,      -1.5,      null,      null    ]
          ])");
       ValidateOutput(actual);
       AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);

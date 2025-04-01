@@ -16,8 +16,8 @@
 // under the License.
 
 import { FixedWidthBuilder } from '../builder.js';
-import { Interval, IntervalDayTime, IntervalYearMonth } from '../type.js';
-import { setIntervalValue, setIntervalDayTime, setIntervalYearMonth } from '../visitor/set.js';
+import { Interval, IntervalDayTime, IntervalYearMonth, IntervalMonthDayNano } from '../type.js';
+import { setIntervalValue, setIntervalDayTime, setIntervalYearMonth, setIntervalMonthDayNano } from '../visitor/set.js';
 
 /** @ignore */
 export class IntervalBuilder<T extends Interval = Interval, TNull = any> extends FixedWidthBuilder<T, TNull> { }
@@ -33,3 +33,8 @@ export class IntervalDayTimeBuilder<TNull = any> extends IntervalBuilder<Interva
 export class IntervalYearMonthBuilder<TNull = any> extends IntervalBuilder<IntervalYearMonth, TNull> { }
 
 (IntervalYearMonthBuilder.prototype as any)._setValue = setIntervalYearMonth;
+
+/** @ignore */
+export class IntervalMonthDayNanoBuilder<TNull = any> extends IntervalBuilder<IntervalMonthDayNano, TNull> { }
+
+(IntervalMonthDayNanoBuilder.prototype as any)._setValue = setIntervalMonthDayNano;

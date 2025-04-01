@@ -539,10 +539,6 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_WITH_ZLIB "Build with zlib compression" OFF)
   define_option(ARROW_WITH_ZSTD "Build with zstd compression" OFF)
 
-  define_option(ARROW_WITH_UCX
-                "Build with UCX transport for Arrow Flight;(only used if ARROW_FLIGHT is ON)"
-                OFF)
-
   define_option(ARROW_WITH_UTF8PROC
                 "Build with support for Unicode properties using the utf8proc library;(only used if ARROW_COMPUTE is ON or ARROW_GANDIVA is ON)"
                 ON)
