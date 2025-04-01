@@ -1082,9 +1082,15 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
       inferred->field = inferred->field->WithType(origin_type);
       RETURN_NOT_OK(ApplyOriginalStorageMetadata(origin_field, inferred));
     } else {
-      // Applying the original extension type to the given storage may cause an invalid
-      // extension type instance, so we do not restore the original extension type
-      RETURN_NOT_OK(ApplyOriginalStorageMetadata(origin_field, inferred));
+      // If we are here, we still *might* be able to restore the extension type
+      // if we first apply metadata to children (e.g., if the extension type
+      // is nested and its children are extension type).
+      auto origin_storage_field =
+          origin_field.WithType(origin_extension_type.storage_type());
+      RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
+      if (origin_extension_type.storage_type()->Equals(*inferred->field->type())) {
+        inferred->field = inferred->field->WithType(origin_type);
+      }
     }
 
     modified = true;
