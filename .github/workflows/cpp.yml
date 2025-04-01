@@ -210,7 +210,6 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
-      GTest_SOURCE: BUNDLED
     steps:
       - name: CPU Info
         run: |
@@ -406,7 +405,6 @@ jobs:
       # We can't use unity build because we don't have enough memory on
       # GitHub Actions.
       # CMAKE_UNITY_BUILD: ON
-      GTest_SOURCE: BUNDLED
     steps:
       - name: Disable Crash Dialogs
         run: |
