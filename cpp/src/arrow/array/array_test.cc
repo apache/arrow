@@ -894,6 +894,27 @@ TEST_F(TestArray, TestConcurrentFillFromScalar) {
   }
 }
 
+TEST_F(TestArray, TestMakeMaskArray) {
+  ASSERT_OK_AND_ASSIGN(auto mask_array_from_vector, MakeMaskArray({5, 8}, 10));
+  ASSERT_OK(mask_array_from_vector->ValidateFull());
+  ASSERT_EQ(mask_array_from_vector->length(), 10);
+
+  // Only values at index 5 and 8 should be true.
+  auto expected = ArrayFromJSON(
+      boolean(), "[false, false, false, false, false, true, false, false, true, false]");
+  AssertArraysEqual(*mask_array_from_vector, *expected);
+
+  auto array_indices = ArrayFromJSON(int64(), "[5, 8]");
+  ASSERT_OK_AND_ASSIGN(auto mask_array_from_array, MakeMaskArray(array_indices, 10));
+  ASSERT_OK(mask_array_from_array->ValidateFull());
+  ASSERT_EQ(mask_array_from_array->length(), 10);
+  AssertArraysEqual(*mask_array_from_array, *expected);
+
+  // Test out of bounds indices
+  ASSERT_RAISES(IndexError, MakeMaskArray({5, 10}, 8));
+  ASSERT_RAISES(IndexError, MakeMaskArray(ArrayFromJSON(int64(), "[5, 10]"), 8));
+}
+
 TEST_F(TestArray, ExtensionSpanRoundTrip) {
   // Other types are checked in MakeEmptyArray but MakeEmptyArray doesn't
   // work for extension types so we check that here
