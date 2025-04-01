@@ -17,7 +17,7 @@
 
 import Foundation
 
-func fromProto( // swiftlint:disable:this cyclomatic_complexity
+func fromProto( // swiftlint:disable:this cyclomatic_complexity function_body_length
     field: org_apache_arrow_flatbuf_Field
 ) -> ArrowField {
     let type = field.typeType
@@ -64,6 +64,14 @@ func fromProto( // swiftlint:disable:this cyclomatic_complexity
             let arrowUnit: ArrowTime64Unit = timeType.unit == .microsecond ? .microseconds : .nanoseconds
             arrowType = ArrowTypeTime64(arrowUnit)
         }
+    case .struct_:
+        var children = [ArrowField]()
+        for index in 0..<field.childrenCount {
+            let childField = field.children(at: index)!
+            children.append(fromProto(field: childField))
+        }
+
+        arrowType = ArrowNestedType(ArrowType.ArrowStruct, fields: children)
     default:
         arrowType = ArrowType(ArrowType.ArrowUnknown)
     }
