@@ -548,10 +548,17 @@ def test_read_options():
     options = pa.ipc.IpcReadOptions()
     assert options.use_threads is True
     assert options.ensure_native_endian is True
+    assert options.ensure_alignment == pa.ipc.Alignment.Any
     assert options.included_fields == []
+    pa.ipc.MetadataVersion
 
     options.ensure_native_endian = False
     assert options.ensure_native_endian is False
+
+    options.ensure_alignment = pa.ipc.Alignment.DataTypeSpecific
+    assert options.ensure_alignment == pa.ipc.Alignment.DataTypeSpecific
+    options.ensure_alignment = pa.ipc.Alignment.At64Byte
+    assert options.ensure_alignment == pa.ipc.Alignment.At64Byte
 
     options.use_threads = False
     assert options.use_threads is False
@@ -564,10 +571,11 @@ def test_read_options():
 
     options = pa.ipc.IpcReadOptions(
         use_threads=False, ensure_native_endian=False,
-        included_fields=[1]
+        ensure_alignment=pa.ipc.Alignment.DataTypeSpecific, included_fields=[1]
     )
     assert options.use_threads is False
     assert options.ensure_native_endian is False
+    assert options.ensure_alignment == pa.ipc.Alignment.DataTypeSpecific
     assert options.included_fields == [1]
 
 

@@ -128,6 +128,18 @@ struct ARROW_EXPORT IpcWriteOptions {
   static IpcWriteOptions Defaults();
 };
 
+/// \brief Alignment of data in memory
+/// Alignment values larger than 0 are taken directly as byte alignment value
+/// See util::EnsureAlignment(..., int64_t alignment, ...)
+enum class Alignment {
+  /// \brief data is aligned depending on the actual data type
+  kDataTypeSpecificAlignment = -3,  /// arrow::util::kValueAlignment
+  /// \brief no particular alignment enforced
+  kAnyAlignment = 0,
+  /// \brief data is aligned to 64-byte boundary
+  k64ByteAlignment = 64
+};
+
 /// \brief Options for reading Arrow IPC messages
 struct ARROW_EXPORT IpcReadOptions {
   /// \brief The maximum permitted schema nesting depth.
@@ -160,6 +172,16 @@ struct ARROW_EXPORT IpcReadOptions {
   /// Endianness conversion is achieved by the RecordBatchFileReader,
   /// RecordBatchStreamReader and StreamDecoder classes.
   bool ensure_native_endian = true;
+
+  /// \brief How to align data if mis-aligned
+  ///
+  /// Data is copied to aligned memory locations allocated via the
+  /// MemoryPool configured as \ref arrow::ipc::IpcReadOptions::memory_pool.
+  /// Some use cases might require data to have a specific alignment, for example,
+  /// for the data buffer of an Int32 array to be aligned on a 4-byte boundary.
+  ///
+  /// Default (kAnyAlignment) keeps the alignment as is, so no copy of data occurs.
+  Alignment ensure_alignment = Alignment::kAnyAlignment;
 
   /// \brief Options to control caching behavior when pre-buffering is requested
   ///
