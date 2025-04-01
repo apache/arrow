@@ -662,3 +662,130 @@ test_that("open_dataset() with `decimal_point` argument", {
     tibble(x = 1.2, y = "c")
   )
 })
+
+test_that("open_csv_dataset(col_types = <Schema>)", {
+  tbl <- example_data[, "int"]
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write.csv(tbl, tf, row.names = FALSE)
+
+  df <- open_csv_dataset(tf, col_types = schema(int = float64()))
+  expect_identical(dplyr::collect(df), tibble::tibble(int = as.numeric(tbl$int)))
+})
+
+test_that("open_tsv/delim_dataset(col_types = <Schema>)", {
+  tbl <- example_data[, "int"]
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write.table(tbl, tf, sep = "\t", row.names = FALSE)
+
+  df <- open_tsv_dataset(tf, col_types = schema(int = float64()))
+  df_delim <- open_delim_dataset(tf, delim = "\t", col_types = schema(int = float64()))
+
+  expect_identical(dplyr::collect(df), tibble::tibble(int = as.numeric(tbl$int)))
+  expect_identical(dplyr::collect(df), dplyr::collect(df_delim))
+})
+
+test_that("open_*_dataset(col_types=string, col_names)", {
+  # Test data setup
+  tbl <- example_data[, "int"]
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write.csv(tbl, tf, row.names = FALSE)
+
+  # Basic tests with float64 type
+  df <- open_csv_dataset(tf, col_names = "int", col_types = "d", skip = 1)
+  df_delim <- open_delim_dataset(tf, col_names = "int", col_types = "d", skip = 1, delim = ",")
+  df_general <- open_dataset(tf, col_names = "int", col_types = "d", skip = 1, format = "csv")
+
+  expect_identical(dplyr::collect(df), tibble::tibble(int = as.numeric(tbl$int)))
+  expect_identical(dplyr::collect(df_delim), tibble::tibble(int = as.numeric(tbl$int)))
+  expect_identical(dplyr::collect(df_general), tibble::tibble(int = as.numeric(tbl$int)))
+
+  # Test with compact string representation
+  expect_identical(
+    tibble::tibble(int = as.numeric(tbl$int)),
+    open_dataset(tf, col_names = "int", col_types = "d", skip = 1, format = "csv") |> 
+      dplyr::collect()
+  )
+
+  # Error cases
+  expect_error(open_csv_dataset(tf, col_types = c("i", "d")))
+  expect_error(open_csv_dataset(tf, col_types = "d"))
+  expect_error(open_csv_dataset(tf, col_types = "i", col_names = c("a", "b")))
+  expect_error(open_csv_dataset(tf, col_types = "y", col_names = "a"))
+})
+
+test_that("open_*_dataset with various column types", {
+  # Test data setup
+  tbl <- tibble::tibble(
+    int = 1:3,
+    dbl = c(1.1, 2.2, 3.3),
+    chr = c("a", "b", "c"),
+    lgl = c(TRUE, FALSE, TRUE),
+    dt = as.Date(c("2023-01-01", "2023-01-02", "2023-01-03"))
+  )
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write.csv(tbl, tf, row.names = FALSE)
+
+  # Test with compact string representation
+  df <- open_csv_dataset(tf, 
+    col_names = c("int", "dbl", "chr", "lgl", "dt"),
+    col_types = "idclD",
+    skip = 1
+  )
+  expect_identical(dplyr::collect(df), tbl, ignore_attr = "tzone")
+})
+
+test_that("open_*_dataset with various delimiters", {
+  # Test data setup
+  tbl <- tibble::tibble(x = 1:3, y = c("a", "b", "c"))
+  
+  # Test comma delimiter
+  tf_csv <- tempfile()
+  on.exit(unlink(tf_csv))
+  write.csv(tbl, tf_csv, row.names = FALSE)
+  
+  # Test tab delimiter
+  tf_tsv <- tempfile()
+  on.exit(unlink(tf_tsv))
+  write.table(tbl, tf_tsv, sep = "\t", row.names = FALSE)
+  
+  # Test semicolon delimiter
+  tf_semi <- tempfile()
+  on.exit(unlink(tf_semi))
+  write.table(tbl, tf_semi, sep = ";", row.names = FALSE)
+
+  # Test with open_csv_dataset
+  df_csv <- open_csv_dataset(tf_csv, col_names = c("x", "y"), col_types = "ic", skip = 1)
+  expect_identical(dplyr::collect(df_csv), tbl)
+
+  # Test with open_tsv_dataset
+  df_tsv <- open_tsv_dataset(tf_tsv, col_names = c("x", "y"), col_types = "ic", skip = 1)
+  expect_identical(dplyr::collect(df_tsv), tbl)
+
+  # Test with open_delim_dataset
+  df_delim <- open_delim_dataset(tf_semi, col_names = c("x", "y"), col_types = "ic", skip = 1, delim = ";")
+  expect_identical(dplyr::collect(df_delim), tbl)
+
+  # Test with open_dataset
+  df_general_csv <- open_dataset(tf_csv, col_names = c("x", "y"), col_types = "ic", skip = 1, format = "csv")
+  df_general_tsv <- open_dataset(tf_tsv, col_names = c("x", "y"), col_types = "ic", skip = 1, format = "tsv")
+  df_general_semi <- open_dataset(tf_semi, col_names = c("x", "y"), col_types = "ic", skip = 1, format = "csv", delimiter = ";")
+
+  expect_identical(dplyr::collect(df_general_csv), tbl)
+  expect_identical(dplyr::collect(df_general_tsv), tbl)
+  expect_identical(dplyr::collect(df_general_semi), tbl)
+})
+
+test_that("open_csv_dataset() can read timestamps", {
+  tbl <- tibble::tibble(time = as.POSIXct("2020-07-20 16:20", tz = "UTC"))
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write.csv(tbl, tf, row.names = FALSE)
+
+  df <- open_csv_dataset(tf, col_names = "time", col_types = "T", skip = 1)
+  # time zones are being read in as time zone-naive, hence ignore_attr = "tzone"
+  expect_equal(tbl, dplyr::collect(df), ignore_attr = "tzone")
+})
