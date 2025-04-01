@@ -105,12 +105,12 @@ Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
   return Status::OK();
 }
 
-Status BooleanBuilder::AppendValues(const std::vector<uint8_t>& values,
+Status BooleanBuilder::AppendValues(const util::span<uint8_t> values,
                                     const std::vector<bool>& is_valid) {
   return AppendValues(values.data(), static_cast<int64_t>(values.size()), is_valid);
 }
 
-Status BooleanBuilder::AppendValues(const std::vector<uint8_t>& values) {
+Status BooleanBuilder::AppendValues(const util::span<uint8_t> values) {
   return AppendValues(values.data(), static_cast<int64_t>(values.size()));
 }
 
