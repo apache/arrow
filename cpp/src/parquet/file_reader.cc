@@ -637,7 +637,7 @@ class SerializedFile : public ParquetFileReader::Contents {
 
   std::string HandleAadPrefix(
       const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties,
-      EncryptionAlgorithm& algo);
+      const EncryptionAlgorithm& algo);
 
   void ParseMetaDataOfEncryptedFileWithPlaintextFooter(
       const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties,
@@ -733,7 +733,7 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithPlaintextFooter(
 
 std::string SerializedFile::HandleAadPrefix(
     const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties,
-    EncryptionAlgorithm& algo) {
+    const EncryptionAlgorithm& algo) {
   std::string aad_prefix_in_properties = file_decryption_properties->aad_prefix();
   std::string aad_prefix = aad_prefix_in_properties;
   bool file_has_aad_prefix = algo.aad.aad_prefix.empty() ? false : true;

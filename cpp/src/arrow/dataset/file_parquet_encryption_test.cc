@@ -56,13 +56,13 @@ namespace dataset {
 struct EncryptionTestParam {
   bool uniform_encryption;  // false is using per-column keys
   bool concurrently;
-  bool crypto_factory;
+  bool use_crypto_factory;
 };
 
 std::ostream& operator<<(std::ostream& os, const EncryptionTestParam& param) {
   os << (param.uniform_encryption ? "UniformEncryption" : "ColumnKeys") << " ";
   os << (param.concurrently ? "Threaded" : "Serial") << " ";
-  os << (param.crypto_factory ? "CryptoFactory" : "PropertyKeys");
+  os << (param.use_crypto_factory ? "CryptoFactory" : "PropertyKeys");
   return os;
 }
 
@@ -112,7 +112,7 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<EncryptionTestPa
     auto parquet_file_write_options =
         checked_pointer_cast<ParquetFileWriteOptions>(file_format->DefaultWriteOptions());
 
-    if (GetParam().crypto_factory) {
+    if (GetParam().use_crypto_factory) {
       // Configure encryption keys via crypto factory.
       crypto_factory_ = std::make_shared<parquet::encryption::CryptoFactory>();
       auto kms_client_factory =
@@ -214,7 +214,7 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<EncryptionTestPa
     // Set scan options.
     auto parquet_scan_options = std::make_shared<ParquetFragmentScanOptions>();
 
-    if (GetParam().crypto_factory) {
+    if (GetParam().use_crypto_factory) {
       // Configure decryption keys via crypto factory.
       auto decryption_config =
           std::make_shared<parquet::encryption::DecryptionConfiguration>();
@@ -360,7 +360,7 @@ TEST_P(DatasetEncryptionTest, ReadSingleFile) {
   auto decryption_config =
       std::make_shared<parquet::encryption::DecryptionConfiguration>();
   std::shared_ptr<parquet::FileDecryptionProperties> file_decryption_properties;
-  if (GetParam().crypto_factory) {
+  if (GetParam().use_crypto_factory) {
     // Configure decryption keys via file decryption properties with crypto factory key
     // retriever.
     file_decryption_properties = crypto_factory_->GetFileDecryptionProperties(
