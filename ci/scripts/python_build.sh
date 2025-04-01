@@ -146,8 +146,11 @@ export CFLAGS=
 export CPPFLAGS=
 export CXXFLAGS=
 
+BUILD_TYPE=${CMAKE_BUILD_TYPE:-debug}
+BUILD_TYPE=${BUILD_TYPE,,}  # Meson requires lowercase values
+
 ${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv . \
-                  -Csetup-args="-Dbuildtype=${ARROW_BUILD_TYPE:-debug}" \
+                  -Csetup-args="-Dbuildtype=${BUILD_TYPE}" \
                   -Csetup-args="-Dacero=${PYARROW_WITH_ACERO}" \
                   -Csetup-args="-Dazure=${PYARROW_WITH_AZURE}" \
                   -Csetup-args="-Dcuda=${PYARROW_WITH_CUDA}" \
