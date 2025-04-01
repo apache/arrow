@@ -30,6 +30,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/buffer.h"
+#include "arrow/filesystem/type_fwd.h"
 #include "arrow/io/hdfs.h"
 #include "arrow/io/hdfs_internal.h"
 #include "arrow/io/interfaces.h"
@@ -209,7 +210,7 @@ TEST_F(TestHadoopFileSystem, GetPathInfo) {
 
   // Directory info
   ASSERT_OK(this->client_->GetPathInfo(this->scratch_dir_, &info));
-  ASSERT_EQ(ObjectType::DIRECTORY, info.kind);
+  ASSERT_EQ(arrow::fs::FileType::Directory, info.kind);
   ASSERT_EQ(this->HdfsAbsPath(this->scratch_dir_), info.name);
   ASSERT_EQ(this->conf_.user, info.owner);
 
@@ -224,7 +225,7 @@ TEST_F(TestHadoopFileSystem, GetPathInfo) {
   ASSERT_OK(this->WriteDummyFile(path, buffer.data(), size));
   ASSERT_OK(this->client_->GetPathInfo(path, &info));
 
-  ASSERT_EQ(ObjectType::FILE, info.kind);
+  ASSERT_EQ(arrow::fs::FileType::File, info.kind);
   ASSERT_EQ(this->HdfsAbsPath(path), info.name);
   ASSERT_EQ(this->conf_.user, info.owner);
   ASSERT_EQ(size, info.size);
@@ -293,13 +294,13 @@ TEST_F(TestHadoopFileSystem, ListDirectory) {
   for (size_t i = 0; i < listing.size(); ++i) {
     const HdfsPathInfo& info = listing[i];
     if (info.name == this->HdfsAbsPath(p1)) {
-      ASSERT_EQ(ObjectType::FILE, info.kind);
+      ASSERT_EQ(arrow::fs::FileType::File, info.kind);
       ASSERT_EQ(size, info.size);
     } else if (info.name == this->HdfsAbsPath(p2)) {
-      ASSERT_EQ(ObjectType::FILE, info.kind);
+      ASSERT_EQ(arrow::fs::FileType::File, info.kind);
       ASSERT_EQ(size / 2, info.size);
     } else if (info.name == this->HdfsAbsPath(d1)) {
-      ASSERT_EQ(ObjectType::DIRECTORY, info.kind);
+      ASSERT_EQ(arrow::fs::FileType::Directory, info.kind);
     } else {
       FAIL() << "Unexpected path: " << info.name;
     }
