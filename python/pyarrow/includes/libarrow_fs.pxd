@@ -362,3 +362,55 @@ cdef extern from "arrow/python/filesystem.h" namespace "arrow::py::fs" nogil:
                                        CPyFileSystemVtable vtable)
 
         PyObject* handler()
+
+cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
+    cdef cppclass CIOFileSystem" arrow::io::FileSystem":
+        CStatus Stat(const c_string& path, CFileInfo* stat)
+
+    cdef cppclass HdfsPathInfo:
+        CFileType kind
+        c_string name
+        c_string owner
+        c_string group
+        int32_t last_modified_time
+        int32_t last_access_time
+        int64_t size
+        int16_t replication
+        int64_t block_size
+        int16_t permissions
+
+    CStatus ListDirectory(const c_string& path,
+                          vector[HdfsPathInfo]* listing)
+
+    CStatus GetPathInfo(const c_string& path, HdfsPathInfo* info)
+
+    cdef cppclass CIOHadoopFileSystem \
+            "arrow::io::HadoopFileSystem"(CIOFileSystem):
+        @staticmethod
+        CStatus Connect(const HdfsConnectionConfig* config,
+                        shared_ptr[CIOHadoopFileSystem]* client)
+
+        CStatus MakeDirectory(const c_string& path)
+
+        CStatus Delete(const c_string& path, c_bool recursive)
+
+        CStatus Disconnect()
+
+        c_bool Exists(const c_string& path)
+
+        CStatus Chmod(const c_string& path, int mode)
+        CStatus Chown(const c_string& path, const char* owner,
+                      const char* group)
+
+        CStatus GetCapacity(int64_t* nbytes)
+        CStatus GetUsed(int64_t* nbytes)
+
+        CStatus Rename(const c_string& src, const c_string& dst)
+
+        CStatus OpenReadable(const c_string& path,
+                             shared_ptr[HdfsReadableFile]* handle)
+
+        CStatus OpenWritable(const c_string& path, c_bool append,
+                             int32_t buffer_size, int16_t replication,
+                             int64_t default_block_size,
+                             shared_ptr[HdfsOutputStream]* handle)
