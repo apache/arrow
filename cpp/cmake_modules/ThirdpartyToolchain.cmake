@@ -5108,12 +5108,6 @@ function(build_awssdk)
       # configurations.
       set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
           ${CMAKE_COMMAND} -E rm tests/features/S2N_LIBCRYPTO_SUPPORTS_ENGINE.c)
-      fetchcontent_declare(${AWSSDK_PRODUCT}
-                           ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
-                           PATCH_COMMAND ${${BASE_VARIABLE_NAME}_PATCH_COMMAND}
-                           URL ${${BASE_VARIABLE_NAME}_SOURCE_URL
-                           URL_HASH "SHA256=1ca1fb0a82642a93ab7c95c5a6c9ff80e3388e387fba03153186426b98d8b9e0"
-      )
     elseif(AWSSDK_PRODUCT_NAME STREQUAL "aws-sdk-cpp" AND WINDOWS AND NOT MSVC)
       # We can remove this once
       # https://github.com/aws/aws-sdk-cpp/issues/3315 is resolved.
