@@ -526,10 +526,7 @@ def test_json_extension_type(storage_type):
 def test_undefined_logical_type(parquet_test_datadir):
     test_file = f"{parquet_test_datadir}/unknown-logical-type.parquet"
 
-    with pytest.raises(pa.lib.ArrowNotImplementedError, match="undefined logical type"):
-        _read_table(test_file)
-
-    table = _read_table(test_file, allow_undefined_logical_types=True)
+    table = _read_table(test_file)
     assert table.column_names == ["column with known type", "column with unknown type"]
     assert table["column with unknown type"].to_pylist() == [
         b"unknown string 1",

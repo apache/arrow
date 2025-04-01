@@ -1452,8 +1452,7 @@ cdef class ParquetReader(_Weakrefable):
              FileDecryptionProperties decryption_properties=None,
              thrift_string_size_limit=None,
              thrift_container_size_limit=None,
-             page_checksum_verification=False,
-             allow_undefined_logical_types=False):
+             page_checksum_verification=False):
         """
         Open a parquet file for reading.
 
@@ -1470,7 +1469,6 @@ cdef class ParquetReader(_Weakrefable):
         thrift_string_size_limit : int, optional
         thrift_container_size_limit : int, optional
         page_checksum_verification : bool, default False
-        allow_undefined_logical_types : bool, default False
         """
         cdef:
             shared_ptr[CFileMetaData] c_metadata
@@ -1519,8 +1517,6 @@ cdef class ParquetReader(_Weakrefable):
         else:
             arrow_props.set_coerce_int96_timestamp_unit(
                 string_to_timeunit(coerce_int96_timestamp_unit))
-
-        arrow_props.set_allow_undefined_logical_types(allow_undefined_logical_types)
 
         self.source = source
         get_reader(source, use_memory_map, &self.rd_handle)

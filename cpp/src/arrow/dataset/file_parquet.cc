@@ -117,10 +117,6 @@ parquet::ArrowReaderProperties MakeArrowReaderProperties(
   }
   properties.set_coerce_int96_timestamp_unit(
       format.reader_options.coerce_int96_timestamp_unit);
-
-  properties.set_allow_undefined_logical_types(
-      format.reader_options.allow_undefined_logical_types);
-
   return properties;
 }
 
@@ -446,9 +442,7 @@ bool ParquetFileFormat::Equals(const FileFormat& other) const {
   // FIXME implement comparison for decryption options
   return (reader_options.dict_columns == other_reader_options.dict_columns &&
           reader_options.coerce_int96_timestamp_unit ==
-              other_reader_options.coerce_int96_timestamp_unit &&
-          reader_options.allow_undefined_logical_types ==
-              other_reader_options.allow_undefined_logical_types);
+              other_reader_options.coerce_int96_timestamp_unit);
 }
 
 ParquetFileFormat::ParquetFileFormat(const parquet::ReaderProperties& reader_properties)

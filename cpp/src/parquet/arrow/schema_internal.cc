@@ -196,14 +196,8 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
   }
 
   if (logical_type.is_invalid()) {
-    if (reader_properties.allow_undefined_logical_types()) {
-      return GetArrowType(physical_type, *NoLogicalType::Make(), type_length,
-                          reader_properties);
-    }
-
-    return Status::NotImplemented(
-        "undefined logical type with allow_undefined_logical_types=false or "
-        "corrupt Parquet footer");
+    return GetArrowType(physical_type, *NoLogicalType::Make(), type_length,
+                        reader_properties);
   }
 
   switch (physical_type) {

@@ -755,13 +755,8 @@ TEST_F(TestConvertParquetSchema, ParquetUndefinedType) {
   node = PrimitiveNode::FromParquet(&string_intermediary);
   parquet_fields.push_back(std::move(node));
 
-  // With default options, this should error
-  ASSERT_RAISES(NotImplemented, ConvertSchema(parquet_fields));
-
-  // With an opt-in, the field should be interpreted according to its storage
-  ArrowReaderProperties props;
-  props.set_allow_undefined_logical_types(true);
-  ASSERT_OK(ConvertSchema(parquet_fields, nullptr, props));
+  // With default options, the field should be interpreted according to its physical type
+  ASSERT_OK(ConvertSchema(parquet_fields, nullptr));
 
   auto arrow_schema = ::arrow::schema({{"undefined", BINARY}});
 
@@ -1672,16 +1667,10 @@ TEST(TestFromParquetSchema, UndefinedLogicalType) {
       parquet::ParquetFileReader::OpenFile(path);
   const auto parquet_schema = reader->metadata()->schema();
   std::shared_ptr<::arrow::Schema> arrow_schema;
-  ArrowReaderProperties props;
-
-  // With the default reader properties, attempting to read a file with an undefined
-  // logical type will error
-  ASSERT_RAISES(NotImplemented, FromParquetSchema(parquet_schema, props, &arrow_schema));
 
   // With the appropriate reader option set, the underlying physical type is used for
   // conversion to the Arrow type
-  props.set_allow_undefined_logical_types(true);
-  ASSERT_OK(FromParquetSchema(parquet_schema, props, &arrow_schema));
+  ASSERT_OK(FromParquetSchema(parquet_schema, &arrow_schema));
   ASSERT_EQ(*arrow_schema->field(1),
             *::arrow::field("column with unknown type", ::arrow::binary()));
 }
