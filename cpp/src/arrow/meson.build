@@ -128,6 +128,7 @@ arrow_components = {
             'util/logger.cc',
             'util/logging.cc',
             'util/key_value_metadata.cc',
+            'util/math_internal.cc',
             'util/memory.cc',
             'util/mutex.cc',
             'util/ree_util.cc',
@@ -390,10 +391,12 @@ if needs_testing
         filesystem_dep = boost_proj.dependency('boost_filesystem')
     endif
 
+    gtest_dep = dependency('gtest')
     gtest_main_dep = dependency('gtest_main')
     gmock_dep = dependency('gmock')
 else
     filesystem_dep = disabler()
+    gtest_dep = disabler()
     gtest_main_dep = disabler()
     gmock_dep = disabler()
 endif
