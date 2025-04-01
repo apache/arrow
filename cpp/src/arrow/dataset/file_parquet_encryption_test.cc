@@ -59,12 +59,11 @@ struct EncryptionTestParam {
   bool crypto_factory;
 };
 
-std::string PrintParam(const testing::TestParamInfo<EncryptionTestParam>& info) {
-  std::string out;
-  out += info.param.uniform_encryption ? "UniformEncryption" : "ColumnKeys";
-  out += info.param.concurrently ? "Threaded" : "Serial";
-  out += info.param.crypto_factory ? "CryptoFactory" : "PropertyKeys";
-  return out;
+std::ostream& operator<<(std::ostream& os, const EncryptionTestParam& param) {
+  os << (param.uniform_encryption ? "UniformEncryption" : "ColumnKeys") << " ";
+  os << (param.concurrently ? "Threaded" : "Serial") << " ";
+  os << (param.crypto_factory ? "CryptoFactory" : "PropertyKeys");
+  return os;
 }
 
 const auto kAllParamValues = ::testing::Values(
@@ -391,8 +390,7 @@ TEST_P(DatasetEncryptionTest, ReadSingleFile) {
   ASSERT_EQ(checked_pointer_cast<Int64Array>(table->column(2)->chunk(0))->GetView(0), 1);
 }
 
-INSTANTIATE_TEST_SUITE_P(DatasetEncryptionTest, DatasetEncryptionTest, kAllParamValues,
-                         PrintParam);
+INSTANTIATE_TEST_SUITE_P(DatasetEncryptionTest, DatasetEncryptionTest, kAllParamValues);
 
 // GH-39444: This test covers the case where parquet dataset scanner crashes when
 // processing encrypted datasets over 2^15 rows in multi-threaded mode.
@@ -426,7 +424,7 @@ TEST_P(LargeRowCountEncryptionTest, ReadEncryptLargeRowCount) {
 }
 
 INSTANTIATE_TEST_SUITE_P(LargeRowCountEncryptionTest, LargeRowCountEncryptionTest,
-                         kAllParamValues, PrintParam);
+                         kAllParamValues);
 
 }  // namespace dataset
 }  // namespace arrow
