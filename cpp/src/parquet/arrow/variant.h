@@ -29,6 +29,7 @@ namespace parquet::arrow {
 ///
 /// Variant supports semi-structured objects that can be composed of
 /// primitives, arrays, and objects, which can be queried by path.
+///
 /// An unshredded variant contains two binaries, one for the metadata and
 /// one for the value.
 ///
