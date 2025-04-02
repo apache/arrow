@@ -1393,6 +1393,9 @@ macro(build_snappy)
   set(SNAPPY_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS} -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF
       "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
+  # We can remove this once we remove -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+  # from EP_COMMON_CMAKE_ARGS.
+  list(REMOVE_ITEM SNAPPY_CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
   # Snappy unconditionally enables -Werror when building with clang this can lead
   # to build failures by way of new compiler warnings. This adds a flag to disable
   # -Werror to the very end of the invocation to override the snappy internal setting.
