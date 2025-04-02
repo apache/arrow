@@ -367,6 +367,7 @@ endif()
 add_subdirectory(api)
 add_subdirectory(arrow)
 add_subdirectory(encryption)
+add_subdirectory(geospatial)
 
 arrow_install_all_headers("parquet")
 
