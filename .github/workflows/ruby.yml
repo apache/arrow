@@ -413,8 +413,16 @@ jobs:
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          path: |
+            build/cpp/vcpkg_installed/vcpkg/blds/gflags/*.log
+            build/cpp/vcpkg*.log
+          name: vcpkg-log
       - name: Build GLib
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          set PATH=%VCPKG_ROOT%;%PATH%
           bash -c "ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build"
