@@ -753,11 +753,7 @@ class ColumnWriterImpl {
         closed_(false),
         fallback_(false),
         definition_levels_sink_(allocator_),
-        repetition_levels_sink_(allocator_),
-        content_defined_chunker_(
-            level_info_, properties->content_defined_chunking_options().min_chunk_size,
-            properties->content_defined_chunking_options().max_chunk_size,
-            properties->content_defined_chunking_options().norm_factor) {
+        repetition_levels_sink_(allocator_) {
     definition_levels_rle_ =
         std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
     repetition_levels_rle_ =
@@ -768,6 +764,12 @@ class ColumnWriterImpl {
     if (pager_->has_compressor()) {
       compressor_temp_buffer_ =
           std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
+    }
+    if (properties_->content_defined_chunking_enabled()) {
+      auto cdc_options = properties_->content_defined_chunking_options();
+      content_defined_chunker_.emplace(level_info_, cdc_options.min_chunk_size,
+                                       cdc_options.max_chunk_size,
+                                       cdc_options.norm_factor);
     }
   }
 
@@ -900,7 +902,7 @@ class ColumnWriterImpl {
 
   std::vector<std::unique_ptr<DataPage>> data_pages_;
 
-  internal::ContentDefinedChunker content_defined_chunker_;
+  std::optional<internal::ContentDefinedChunker> content_defined_chunker_;
 
  private:
   void InitSinks() {
@@ -1387,8 +1389,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     }
 
     if (properties_->content_defined_chunking_enabled()) {
-      auto chunks = content_defined_chunker_.GetChunks(def_levels, rep_levels, num_levels,
-                                                       leaf_array);
+      DCHECK(content_defined_chunker_.has_value());
+      auto chunks = content_defined_chunker_->GetChunks(def_levels, rep_levels,
+                                                        num_levels, leaf_array);
       for (size_t i = 0; i < chunks.size(); i++) {
         auto chunk = chunks[i];
         auto chunk_array = leaf_array.Slice(chunk.value_offset);
