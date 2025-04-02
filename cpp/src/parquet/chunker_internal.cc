@@ -194,7 +194,7 @@ class ContentDefinedChunker::Impl {
     return false;
   }
 
-  void ValidateChunks(const std::vector<Chunk>& chunks, int64_t num_levels) {
+  void ValidateChunks(const std::vector<Chunk>& chunks, int64_t num_levels) const {
     // chunks must be non-empty and monotonic increasing
     DCHECK(!chunks.empty());
 
@@ -409,6 +409,8 @@ std::vector<Chunk> ContentDefinedChunker::GetChunks(const int16_t* def_levels,
   return impl_->GetChunks(def_levels, rep_levels, num_levels, values);
 }
 
-uint64_t ContentDefinedChunker::GetMask() const { return impl_->GetRollingHashMask(); }
+uint64_t ContentDefinedChunker::GetRollingHashMask() const {
+  return impl_->GetRollingHashMask();
+}
 
 }  // namespace parquet::internal
