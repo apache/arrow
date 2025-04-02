@@ -19,20 +19,16 @@
 
 #include <string>
 
-#include "arrow/config.h"
 #include "arrow/extension_type.h"
+#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/result.h"
 #include "arrow/util/string.h"
 
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
+
 #include "parquet/exception.h"
 #include "parquet/types.h"
-
-#ifdef ARROW_JSON
-#  include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
-
-#  include <rapidjson/document.h>
-#  include <rapidjson/writer.h>
-#endif
 
 namespace parquet {
 
@@ -59,7 +55,6 @@ namespace {
   }
 }
 
-#ifdef ARROW_JSON
 namespace {
 ::arrow::Result<std::string> GeospatialGeoArrowCrsToParquetCrs(
     const ::arrow::rapidjson::Document& document) {
@@ -178,15 +173,6 @@ namespace {
 }
 
 }  // namespace
-
-#else
-namespace {
-::arrow::Result<std::shared_ptr<const LogicalType>> ParseGeoArrowJSON(
-    std::string_view serialized_data) {
-  return ::arrow::Status::NotImplemented("ParseGeoArrowJSON requires ARROW_JSON");
-}
-}  // namespace
-#endif
 
 ::arrow::Result<std::shared_ptr<::arrow::DataType>> GeoArrowTypeFromLogicalType(
     const LogicalType& logical_type,
