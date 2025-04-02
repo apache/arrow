@@ -20,8 +20,6 @@
 #include <cmath>
 #include <cstring>
 
-#include "arrow/testing/gtest_util.h"
-
 #include "parquet/geospatial/util_internal.h"
 #include "parquet/test_util.h"
 
@@ -116,7 +114,7 @@ TEST_P(WKBTestFixture, TestWKBBounderBounds) {
   WKBGeometryBounder bounder;
   EXPECT_EQ(bounder.Bounds(), BoundingBox());
 
-  ASSERT_OK(bounder.MergeGeometry(
+  ASSERT_NO_THROW(bounder.MergeGeometry(
       {reinterpret_cast<const char*>(item.wkb.data()), item.wkb.size()}));
 
   EXPECT_EQ(bounder.Bounds(), item.box);
@@ -136,9 +134,9 @@ TEST_P(WKBTestFixture, TestWKBBounderErrorForTruncatedInput) {
   // Make sure an error occurs for any version of truncated input to the bounder
   for (size_t i = 0; i < item.wkb.size(); i++) {
     SCOPED_TRACE(i);
-    ::arrow::Status status =
-        bounder.MergeGeometry({reinterpret_cast<const char*>(item.wkb.data()), i});
-    ASSERT_TRUE(status.IsSerializationError()) << status;
+    ASSERT_THROW(
+        bounder.MergeGeometry({reinterpret_cast<const char*>(item.wkb.data()), i}),
+        ParquetException);
   }
 }
 
@@ -493,7 +491,7 @@ TEST_P(MakeWKBPointTestFixture, MakeWKBPoint) {
   auto param = GetParam();
   std::string wkb = test::MakeWKBPoint(param.xyzm, param.has_z, param.has_m);
   WKBGeometryBounder bounder;
-  ASSERT_OK(bounder.MergeGeometry(wkb));
+  ASSERT_NO_THROW(bounder.MergeGeometry(wkb));
   const BoundingBox::XYZM& mins = bounder.Bounds().min;
   EXPECT_DOUBLE_EQ(param.xyzm[0], mins[0]);
   EXPECT_DOUBLE_EQ(param.xyzm[1], mins[1]);

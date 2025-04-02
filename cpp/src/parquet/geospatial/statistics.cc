@@ -65,9 +65,9 @@ class GeoStatisticsImpl {
 
     for (int64_t i = 0; i < num_values; i++) {
       const ByteArray& item = values[i];
-      ::arrow::Status status =
-          bounder_.MergeGeometry({reinterpret_cast<const char*>(item.ptr), item.len});
-      if (!status.ok()) {
+      try {
+        bounder_.MergeGeometry({reinterpret_cast<const char*>(item.ptr), item.len});
+      } catch (ParquetException& e) {
         is_valid_ = false;
         return;
       }
@@ -92,7 +92,7 @@ class GeoStatisticsImpl {
         [&](int64_t position, int64_t length) {
           for (int64_t i = 0; i < length; i++) {
             ByteArray item = SafeLoad(values + i + position);
-            ARROW_RETURN_NOT_OK(bounder_.MergeGeometry(
+            PARQUET_CATCH_NOT_OK(bounder_.MergeGeometry(
                 {reinterpret_cast<const char*>(item.ptr), item.len}));
           }
 
@@ -241,8 +241,9 @@ class GeoStatisticsImpl {
     const auto& binary_array = static_cast<const ArrayType&>(values);
     for (int64_t i = 0; i < binary_array.length(); ++i) {
       if (!binary_array.IsNull(i)) {
-        ::arrow::Status status = bounder_.MergeGeometry(binary_array.GetView(i));
-        if (!status.ok()) {
+        try {
+          bounder_.MergeGeometry(binary_array.GetView(i));
+        } catch (ParquetException& e) {
           is_valid_ = false;
           return;
         }

@@ -178,10 +178,10 @@ class PARQUET_EXPORT WKBGeometryBounder {
  public:
   /// \brief Accumulate the bounds of a serialized well-known binary geometry
   ///
-  /// Returns SerializationError for any parse errors encountered. Bounds for
+  /// Throws ParquetException for any parse errors encountered. Bounds for
   /// any encountered coordinates are accumulated and the geometry type of
   /// the geometry is added to the internal geometry type list.
-  ::arrow::Status MergeGeometry(std::string_view bytes_wkb);
+  void MergeGeometry(std::string_view bytes_wkb);
 
   /// \brief Accumulate the bounds of a previously-calculated BoundingBox
   void MergeBox(const BoundingBox& box) { box_.Merge(box); }
@@ -207,10 +207,9 @@ class PARQUET_EXPORT WKBGeometryBounder {
   BoundingBox box_;
   std::unordered_set<int32_t> geospatial_types_;
 
-  ::arrow::Status MergeGeometryInternal(WKBBuffer* src, bool record_wkb_type);
+  void MergeGeometryInternal(WKBBuffer* src, bool record_wkb_type);
 
-  ::arrow::Status MergeSequence(WKBBuffer* src, Dimensions dimensions, uint32_t n_coords,
-                                bool swap);
+  void MergeSequence(WKBBuffer* src, Dimensions dimensions, uint32_t n_coords, bool swap);
 };
 
 }  // namespace parquet::geometry
