@@ -183,9 +183,8 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
       auto struct_type = checked_cast<const ::arrow::StructType*>(type.get());
       std::vector<std::shared_ptr<Array>> child_arrays;
       for (auto i = 0; i < struct_type->num_fields(); i++) {
-        ARROW_ASSIGN_OR_RAISE(auto child_array,
-                              GenerateArray(struct_type->field(i), length,
-                                            seed + static_cast<uint64_t>(i + 300)));
+        ARROW_ASSIGN_OR_RAISE(auto child_array, GenerateArray(struct_type->field(i),
+                                                              length, seed + i * 10));
         child_arrays.push_back(child_array);
       }
       auto struct_array =
@@ -260,7 +259,7 @@ Result<std::shared_ptr<Table>> GenerateTable(
     const std::shared_ptr<::arrow::Schema>& schema, int64_t size, int64_t seed = 0) {
   std::vector<std::shared_ptr<Array>> arrays;
   for (const auto& field : schema->fields()) {
-    ARROW_ASSIGN_OR_RAISE(auto array, GenerateArray(field, size, seed));
+    ARROW_ASSIGN_OR_RAISE(auto array, GenerateArray(field, size, ++seed));
     arrays.push_back(array);
   }
   return Table::Make(schema, arrays, size);
@@ -351,7 +350,7 @@ ParquetInfo GetColumnParquetInfo(const std::shared_ptr<Buffer>& data,
 }
 
 Result<ParquetInfo> WriteAndGetParquetInfo(
-    const std::shared_ptr<Table>& table, uint64_t min_chunk_size, uint64_t max_chunk_size,
+    const std::shared_ptr<Table>& table, int64_t min_chunk_size, int64_t max_chunk_size,
     bool enable_dictionary = false,
     ParquetDataPageVersion data_page_version = ParquetDataPageVersion::V1,
     int64_t row_group_size = 1024 * 1024,
@@ -452,11 +451,8 @@ std::vector<ChunkDiff> FindDifferences(const ChunkList& first, const ChunkList& 
     if (!merged.empty()) {
       auto& prev = merged.back();
       // Check if we can merge with the previous diff
-      bool can_merge_a = prev.first.empty() && !prev.second.empty() &&
-                         !diff.first.empty() && diff.second.empty();
-      bool can_merge_b = prev.second.empty() && !prev.first.empty() &&
-                         !diff.second.empty() && diff.first.empty();
-
+      bool can_merge_a = prev.first.empty() && diff.second.empty();
+      bool can_merge_b = prev.second.empty() && diff.first.empty();
       if (can_merge_a) {
         // Combine into one diff: keep prev's second, use diff's first
         prev.first = std::move(diff.first);
@@ -724,35 +720,13 @@ void AssertChunkSizes(const std::shared_ptr<::arrow::DataType>& dtype,
   }
 }
 
-constexpr int64_t kMinChunkSize = 8 * 1024;
-constexpr int64_t kMaxChunkSize = 32 * 1024;
-constexpr int64_t kPartSize = 128 * 1024;
-constexpr int64_t kEditSize = 128;
-
-struct CaseConfig {
-  // Arrow data type to generate the testing data for
-  std::shared_ptr<::arrow::DataType> dtype;
-  // Whether the data type is nullable
-  bool is_nullable;
-  // Approximate number of bytes per record to calculate the number of elements to
-  // generate
-  size_t bytes_per_record;
-  // Data page version to use
-  ParquetDataPageVersion data_page_version = ParquetDataPageVersion::V1;
-};
-
-// Define PrintTo for MyStruct
-void PrintTo(const CaseConfig& param, std::ostream* os) {
-  *os << "{ " << param.dtype->ToString();
-  if (param.is_nullable) {
-    *os << " nullable";
-  }
-  *os << " }";
-}
-
 class TestCDC : public ::testing::Test {
- public:
-  uint64_t GetMask(const ContentDefinedChunker& cdc) const { return cdc.GetMask(); }
+ protected:
+  static constexpr int64_t kMinChunkSize = 8 * 1024;
+  static constexpr int64_t kMaxChunkSize = 32 * 1024;
+  uint64_t GetRollingHashMask(const ContentDefinedChunker& cdc) const {
+    return cdc.GetRollingHashMask();
+  }
 };
 
 TEST_F(TestCDC, RollingHashMaskCalculation) {
@@ -761,35 +735,35 @@ TEST_F(TestCDC, RollingHashMaskCalculation) {
   auto max_size = 1024 * 1024;
 
   auto cdc0 = ContentDefinedChunker(le, min_size, max_size, 0);
-  ASSERT_EQ(GetMask(cdc0), 0xFFFE000000000000);
+  ASSERT_EQ(GetRollingHashMask(cdc0), 0xFFFE000000000000);
 
   auto cdc1 = ContentDefinedChunker(le, min_size, max_size, 1);
-  ASSERT_EQ(GetMask(cdc1), 0xFFFC000000000000);
+  ASSERT_EQ(GetRollingHashMask(cdc1), 0xFFFC000000000000);
 
   auto cdc2 = ContentDefinedChunker(le, min_size, max_size, 2);
-  ASSERT_EQ(GetMask(cdc2), 0xFFF8000000000000);
+  ASSERT_EQ(GetRollingHashMask(cdc2), 0xFFF8000000000000);
 
   auto cdc3 = ContentDefinedChunker(le, min_size, max_size, 3);
-  ASSERT_EQ(GetMask(cdc3), 0xFFF0000000000000);
+  ASSERT_EQ(GetRollingHashMask(cdc3), 0xFFF0000000000000);
 
   auto cdc4 = ContentDefinedChunker(le, min_size, max_size, -1);
-  ASSERT_EQ(GetMask(cdc4), 0xFFFF000000000000);
+  ASSERT_EQ(GetRollingHashMask(cdc4), 0xFFFF000000000000);
 
   // this is the smallest possible mask always matching, by using 8 hashtables
   // we are going to have a match every 8 bytes; this is an unrealistic case
   // but checking for the correctness of the mask calculation
   auto cdc5 = ContentDefinedChunker(le, 0, 16, 0);
-  ASSERT_EQ(GetMask(cdc5), 0x0000000000000000);
+  ASSERT_EQ(GetRollingHashMask(cdc5), 0x0000000000000000);
 
   auto cdc6 = ContentDefinedChunker(le, 0, 32, 1);
-  ASSERT_EQ(GetMask(cdc6), 0x0000000000000000);
+  ASSERT_EQ(GetRollingHashMask(cdc6), 0x0000000000000000);
 
   auto cdc7 = ContentDefinedChunker(le, 0, 16, -1);
-  ASSERT_EQ(GetMask(cdc7), 0x8000000000000000);
+  ASSERT_EQ(GetRollingHashMask(cdc7), 0x8000000000000000);
 
   // another unrealistic case, checking for the validation
   auto cdc8 = ContentDefinedChunker(le, 128, 384, -60);
-  ASSERT_EQ(GetMask(cdc8), 0xFFFFFFFFFFFFFFFF);
+  ASSERT_EQ(GetRollingHashMask(cdc8), 0xFFFFFFFFFFFFFFFF);
 }
 
 TEST_F(TestCDC, WriteSingleColumnParquetFile) {
@@ -911,8 +885,33 @@ TEST_F(TestCDC, ChunkSizeParameterValidation) {
   ASSERT_NO_THROW(ContentDefinedChunker(li, 0, std::numeric_limits<int64_t>::max(), 58));
 }
 
+struct CaseConfig {
+  // Arrow data type to generate the testing data for
+  std::shared_ptr<::arrow::DataType> dtype;
+  // Whether the data type is nullable
+  bool is_nullable;
+  // Approximate number of bytes per record to calculate the number of elements to
+  // generate
+  int64_t bytes_per_record;
+  // Data page version to use
+  ParquetDataPageVersion data_page_version = ParquetDataPageVersion::V1;
+};
+
+// Define PrintTo for MyStruct
+void PrintTo(const CaseConfig& param, std::ostream* os) {
+  *os << "{ " << param.dtype->ToString();
+  if (param.is_nullable) {
+    *os << " nullable";
+  }
+  *os << " }";
+}
+
 class TestCDCSingleRowGroup : public ::testing::TestWithParam<CaseConfig> {
  protected:
+  static constexpr int64_t kPartSize = 128 * 1024;
+  static constexpr int64_t kEditSize = 128;
+  static constexpr int64_t kMinChunkSize = 8 * 1024;
+  static constexpr int64_t kMaxChunkSize = 32 * 1024;
   // Column random table parts for testing
   std::shared_ptr<Field> field_;
   std::shared_ptr<Table> part1_, part2_, part3_, part4_, part5_, part6_, part7_;
@@ -924,13 +923,15 @@ class TestCDCSingleRowGroup : public ::testing::TestWithParam<CaseConfig> {
 
     auto part_length = kPartSize / param.bytes_per_record;
     auto edit_length = kEditSize / param.bytes_per_record;
-    ASSERT_OK_AND_ASSIGN(part1_, GenerateTable(schema, part_length, 0));
-    ASSERT_OK_AND_ASSIGN(part2_, GenerateTable(schema, edit_length, 1));
-    ASSERT_OK_AND_ASSIGN(part3_, GenerateTable(schema, part_length, part_length));
-    ASSERT_OK_AND_ASSIGN(part4_, GenerateTable(schema, edit_length, 2));
-    ASSERT_OK_AND_ASSIGN(part5_, GenerateTable(schema, part_length, 2 * part_length));
-    ASSERT_OK_AND_ASSIGN(part6_, GenerateTable(schema, edit_length, 3));
-    ASSERT_OK_AND_ASSIGN(part7_, GenerateTable(schema, edit_length, 4));
+    ASSERT_OK_AND_ASSIGN(part1_, GenerateTable(schema, part_length, /*seed=*/0));
+    ASSERT_OK_AND_ASSIGN(part2_, GenerateTable(schema, edit_length, /*seed=*/1));
+    ASSERT_OK_AND_ASSIGN(part3_,
+                         GenerateTable(schema, part_length, /*seed=*/part_length));
+    ASSERT_OK_AND_ASSIGN(part4_, GenerateTable(schema, edit_length, /*seed=*/2));
+    ASSERT_OK_AND_ASSIGN(part5_,
+                         GenerateTable(schema, part_length, /*seed=*/2 * part_length));
+    ASSERT_OK_AND_ASSIGN(part6_, GenerateTable(schema, edit_length, /*seed=*/3));
+    ASSERT_OK_AND_ASSIGN(part7_, GenerateTable(schema, edit_length, /*seed=*/4));
   }
 };
 
@@ -1153,7 +1154,7 @@ TEST_P(TestCDCSingleRowGroup, EmptyTable) {
   const auto& param = GetParam();
 
   auto schema = ::arrow::schema({::arrow::field("f0", param.dtype, param.is_nullable)});
-  ASSERT_OK_AND_ASSIGN(auto empty_table, GenerateTable(schema, 0, 0));
+  ASSERT_OK_AND_ASSIGN(auto empty_table, GenerateTable(schema, 0, /*seed=*/0));
   ASSERT_EQ(empty_table->num_rows(), 0);
 
   for (bool enable_dictionary : {false, true}) {
@@ -1241,13 +1242,13 @@ class TestCDCMultipleRowGroups : public ::testing::Test {
     auto field = ::arrow::field("f0", dtype_, true);
     auto schema = ::arrow::schema({field});
 
-    ASSERT_OK_AND_ASSIGN(part1_, GenerateTable(schema, kPartLength, 0));
-    ASSERT_OK_AND_ASSIGN(part2_, GenerateTable(schema, kPartLength, 2));
-    ASSERT_OK_AND_ASSIGN(part3_, GenerateTable(schema, kPartLength, 4));
+    ASSERT_OK_AND_ASSIGN(part1_, GenerateTable(schema, kPartLength, /*seed=*/0));
+    ASSERT_OK_AND_ASSIGN(part2_, GenerateTable(schema, kPartLength, /*seed=*/2));
+    ASSERT_OK_AND_ASSIGN(part3_, GenerateTable(schema, kPartLength, /*seed=*/4));
 
-    ASSERT_OK_AND_ASSIGN(edit1_, GenerateTable(schema, kEditLength, 1));
-    ASSERT_OK_AND_ASSIGN(edit2_, GenerateTable(schema, kEditLength, 3));
-    ASSERT_OK_AND_ASSIGN(edit3_, GenerateTable(schema, kEditLength, 5));
+    ASSERT_OK_AND_ASSIGN(edit1_, GenerateTable(schema, kEditLength, /*seed=*/1));
+    ASSERT_OK_AND_ASSIGN(edit2_, GenerateTable(schema, kEditLength, /*seed=*/3));
+    ASSERT_OK_AND_ASSIGN(edit3_, GenerateTable(schema, kEditLength, /*seed=*/5));
   }
 };
 
