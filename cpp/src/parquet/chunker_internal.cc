@@ -18,6 +18,7 @@
 #include "parquet/chunker_internal.h"
 
 #include <cstdint>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -32,6 +33,11 @@
 namespace parquet::internal {
 
 using ::arrow::internal::checked_cast;
+
+static_assert(std::size(kGearhashTable) == 8,
+              "should update CDC code to reflect number of generated hash tables");
+static_assert(sizeof(kGearhashTable) == 8 * 256 * 8,
+              "each table should have 256 entries of 64 bit values");
 
 /// Calculate the mask to use for the rolling hash, the mask is used to determine if a
 /// new chunk should be created based on the rolling hash value. The mask is calculated
@@ -79,16 +85,11 @@ static uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size,
   // by taking the floor(log2(target_size))
   int mask_bits = std::max(0, ::arrow::bit_util::NumRequiredBits(target_size) - 1);
 
-  // 3 because we are using 8 hash tables to have more gaussian-like distribution,
   // a user defined `norm_factor` can be used to adjust the mask size, hence the matching
   // probability, by increasing the norm_factor we increase the probability of matching
   // the mask, forcing the distribution closer to the average size; norm_factor is 0 by
   // default
-  if (norm_factor < -3 || norm_factor > 3) {
-    ARROW_LOG(WARNING) << "norm_factor=" << norm_factor
-                       << " is outside the recommended range [-3, 3]";
-  }
-
+  // adding 3 because we are using 8 hash tables to have more gaussian-like distribution
   int mask_adjustement = 3 + norm_factor;
   int effective_bits = mask_bits - mask_adjustement;
   if (effective_bits == 0) {
@@ -103,7 +104,7 @@ static uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size,
         " is too small for the given norm_factor=" + std::to_string(norm_factor) +
         ", either increase the size range or decrease the norm_factor.");
   } else {
-    // create the mask by setting the top mask_bits bits
+    // create the mask by setting the top bits
     return std::numeric_limits<uint64_t>::max() << (64 - effective_bits);
   }
 }
@@ -111,7 +112,7 @@ static uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size,
 class ContentDefinedChunker::Impl {
  public:
   Impl(const LevelInfo& level_info, int64_t min_chunk_size, int64_t max_chunk_size,
-       int8_t norm_factor)
+       int norm_factor)
       : level_info_(level_info),
         min_chunk_size_(min_chunk_size),
         max_chunk_size_(max_chunk_size),
@@ -129,18 +130,18 @@ class ContentDefinedChunker::Impl {
     has_matched_ = has_matched_ || ((rolling_hash_ & rolling_hash_mask_) == 0);
   }
 
-  template <int ByteWidth>
+  template <int kByteWidth>
   void Roll(const uint8_t* value) {
     // Update the rolling hash with a compile-time known sized value, set has_matched_ to
     // true if the hash matches the mask.
 
-    chunk_size_ += ByteWidth;
+    chunk_size_ += kByteWidth;
     if (chunk_size_ < min_chunk_size_) {
       // short-circuit if we haven't reached the minimum chunk size, this speeds up the
       // chunking process since the gearhash doesn't need to be updated
       return;
     }
-    for (size_t i = 0; i < ByteWidth; ++i) {
+    for (size_t i = 0; i < kByteWidth; ++i) {
       rolling_hash_ = (rolling_hash_ << 1) + kGearhashTable[nth_run_][value[i]];
       has_matched_ = has_matched_ || ((rolling_hash_ & rolling_hash_mask_) == 0);
     }
@@ -396,7 +397,7 @@ class ContentDefinedChunker::Impl {
 
 ContentDefinedChunker::ContentDefinedChunker(const LevelInfo& level_info,
                                              int64_t min_chunk_size,
-                                             int64_t max_chunk_size, int8_t norm_factor)
+                                             int64_t max_chunk_size, int norm_factor)
     : impl_(new Impl(level_info, min_chunk_size, max_chunk_size, norm_factor)) {}
 
 ContentDefinedChunker::~ContentDefinedChunker() = default;

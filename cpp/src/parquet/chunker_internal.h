@@ -28,8 +28,11 @@ namespace parquet::internal {
 // Represents a chunk of data with level offsets and value offsets due to the
 // record shredding for nested data.
 struct Chunk {
+  // The start offset of this chunk inside the given levels
   int64_t level_offset;
+  // The start offset of this chunk inside the given values array
   int64_t value_offset;
+  // The length of the chunk in levels
   int64_t levels_to_write;
 };
 
@@ -114,7 +117,7 @@ class PARQUET_EXPORT ContentDefinedChunker {
   ///   Use norm_factor=1 or norm_factor=2 to reach a higher deduplication ratio at the
   ///   expense of fragmentation.
   ContentDefinedChunker(const LevelInfo& level_info, int64_t min_chunk_size,
-                        int64_t max_chunk_size, int8_t norm_factor = 0);
+                        int64_t max_chunk_size, int norm_factor = 0);
   ~ContentDefinedChunker();
 
   /// Get the chunk boundaries for the given column data
