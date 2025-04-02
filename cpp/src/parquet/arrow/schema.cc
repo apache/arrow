@@ -120,15 +120,16 @@ Status VariantToNode(const std::shared_ptr<VariantExtensionType>& type,
                      const WriterProperties& properties,
                      const ArrowWriterProperties& arrow_properties, NodePtr* out) {
   NodePtr metadata_node;
-  RETURN_NOT_OK(FieldToNode("metadata", type->metadata_field(), properties,
-                            arrow_properties, &metadata_node));
+  RETURN_NOT_OK(FieldToNode("metadata", type->metadata(), properties, arrow_properties,
+                            &metadata_node));
 
   NodePtr value_node;
-  RETURN_NOT_OK(FieldToNode("value", type->value_field(), properties, arrow_properties,
-                            &value_node));
+  RETURN_NOT_OK(
+      FieldToNode("value", type->value(), properties, arrow_properties, &value_node));
 
-  *out =
-      GroupNode::Make("variant", RepetitionFromNullable(nullable), {std::move(metadata_node), std::move(value_node)});
+  *out = GroupNode::Make(name, RepetitionFromNullable(nullable),
+                         {std::move(metadata_node), std::move(value_node)},
+                         LogicalType::Variant(), field_id);
 
   return Status::OK();
 }

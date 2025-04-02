@@ -25,6 +25,11 @@
 
 namespace parquet::arrow {
 
+class PARQUET_EXPORT VariantArray : public ::arrow::ExtensionArray {
+ public:
+  using ::arrow::ExtensionArray::ExtensionArray;
+};
+
 /// EXPERIMENTAL: Variant is not yet fully supported.
 ///
 /// Variant supports semi-structured objects that can be composed of
@@ -38,7 +43,11 @@ namespace parquet::arrow {
 class PARQUET_EXPORT VariantExtensionType : public ::arrow::ExtensionType {
  public:
   explicit VariantExtensionType(const std::shared_ptr<::arrow::DataType>& storage_type)
-      : ::arrow::ExtensionType(std::move(storage_type)) {}
+      : ::arrow::ExtensionType(std::move(storage_type)),
+        // GH-45948: Shredded variants will need to handle an optional shredded_value as
+        // well as value_ becoming optional.
+        metadata_(storage_type->field(0)),
+        value_(storage_type->field(1)) {}
 
   std::string extension_name() const override { return "parquet.variant"; }
 
@@ -59,9 +68,14 @@ class PARQUET_EXPORT VariantExtensionType : public ::arrow::ExtensionType {
   static bool IsSupportedStorageType(
       const std::shared_ptr<::arrow::DataType>& storage_type);
 
-  std::shared_ptr<::arrow::Field> metadata_field() const { return children_.at(0); }
+  std::shared_ptr<::arrow::Field> metadata() const { return metadata_; }
 
-  std::shared_ptr<::arrow::Field> value_field() const { return children_.at(1); }
+  std::shared_ptr<::arrow::Field> value() const { return value_; }
+
+ private:
+  // TODO GH-45948 added shredded_value
+  std::shared_ptr<::arrow::Field> metadata_;
+  std::shared_ptr<::arrow::Field> value_;
 };
 
 /// \brief Return a VariantExtensionType instance.

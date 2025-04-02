@@ -36,7 +36,7 @@ using ::arrow::Type;
 
 bool VariantExtensionType::ExtensionEquals(const ExtensionType& other) const {
   return other.extension_name() == this->extension_name() &&
-         other.storage_type()->Equals(this->storage_type_);
+         other.storage_type()->Equals(this->storage_type());
 }
 
 Result<std::shared_ptr<DataType>> VariantExtensionType::Deserialize(
@@ -52,7 +52,7 @@ std::shared_ptr<Array> VariantExtensionType::MakeArray(
   DCHECK_EQ("parquet.variant",
             ::arrow::internal::checked_cast<const ExtensionType&>(*data->type)
                 .extension_name());
-  return std::make_shared<::arrow::ExtensionArray>(data);
+  return std::make_shared<VariantArray>(data);
 }
 
 bool VariantExtensionType::IsSupportedStorageType(
@@ -84,9 +84,13 @@ Result<std::shared_ptr<DataType>> VariantExtensionType::Make(
     return ::arrow::Status::Invalid("Invalid storage type for VariantExtensionType: ",
                                     storage_type->ToString());
   }
+
   return std::make_shared<VariantExtensionType>(std::move(storage_type));
 }
 
+/// NOTE: this is still experimental. GH-45948 will add shredding support, at which point
+/// we need to separate this into unshredded_variant and shredded_variant helper
+/// functions.
 std::shared_ptr<DataType> variant(std::shared_ptr<DataType> storage_type) {
   return VariantExtensionType::Make(std::move(storage_type)).ValueOrDie();
 }
