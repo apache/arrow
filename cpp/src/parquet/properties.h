@@ -245,13 +245,33 @@ class PARQUET_EXPORT ColumnProperties {
   bool page_index_enabled_;
 };
 
-struct CDCOptions {
+// EXPERIMENTAL: Options for content-defined chunking.
+struct PARQUET_EXPORT CDCOptions {
+  /// Minimum chunk size in bytes, default 256 KiB
+  /// The rolling hash will not be updated until this size is reached for each chunk.
+  /// Note that all data sent through the hash function is counted towards the chunk
+  /// size, including definition and repetition levels if present.
   int64_t min_chunk_size;
+  /// Maximum chunk size in bytes, default is 1024 KiB
+  /// The chunker will create a new chunk whenever the chunk size exceeds this value.
+  /// Note that the parquet writer has a related `pagesize` property that controls
+  /// the maximum size of a parquet data page after encoding. While setting
+  /// `pagesize` to a smaller value than `max_chunk_size` doesn't affect the
+  /// chunking effectiveness, it results in more small parquet data pages.
   int64_t max_chunk_size;
-  int8_t norm_factor;
+  /// Number of bit adjustement to the gearhash mask in order to
+  /// center the chunk size around the average size more aggressively, default 0
+  /// Increasing the normalization factor increases the probability of finding a chunk,
+  /// improving the deduplication ratio, but also increasing the number of small chunks
+  /// resulting in many small parquet data pages. The default value provides a good
+  /// balance between deduplication ratio and fragmentation. Use norm_factor=1 or
+  /// norm_factor=2 to reach a higher deduplication ratio at the expense of
+  /// fragmentation. Negative values can also be used to reduce the probability of
+  /// finding a chunk, resulting in larger chunks and fewer data pages.
+  int norm_factor = 0;
 };
 
-static constexpr CDCOptions kDefaultCdcOptions = CDCOptions{256 * 1024, 1024 * 1024, 0};
+static constexpr CDCOptions kDefaultCDCOptions = CDCOptions{256 * 1024, 1024 * 1024, 0};
 
 class PARQUET_EXPORT WriterProperties {
  public:
@@ -270,7 +290,7 @@ class PARQUET_EXPORT WriterProperties {
           page_checksum_enabled_(false),
           size_statistics_level_(DEFAULT_SIZE_STATISTICS_LEVEL),
           content_defined_chunking_enabled_(false),
-          content_defined_chunking_options_(kDefaultCdcOptions) {}
+          content_defined_chunking_options_(kDefaultCDCOptions) {}
 
     explicit Builder(const WriterProperties& properties)
         : pool_(properties.memory_pool()),
@@ -311,32 +331,9 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// \brief EXPERIMENTAL: Specify content-defined chunking options.
-    ///
-    /// \param min_chunk_size Minimum chunk size in bytes, default 256 KiB
-    /// The rolling hash will not be updated until this size is reached for each chunk.
-    /// Note that all data sent through the hash function is counted towards the chunk
-    /// size, including definition and repetition levels if present.
-    /// \param max_chunk_size Maximum chunk size in bytes, default is 1024 KiB
-    /// The chunker will create a new chunk whenever the chunk size exceeds this value.
-    /// Note that the parquet writer has a related `pagesize` property that controls
-    /// the maximum size of a parquet data page after encoding. While setting
-    /// `pagesize` to a smaller value than `max_chunk_size` doesn't affect the
-    /// chunking effectiveness, it results in more small parquet data pages.
-    /// \param norm_factor Number of bit adjustement to the gearhash mask in order to
-    /// center the chunk size around the average size more aggressively, default 0
-    /// Increasing the normalization factor increases the probability of finding a chunk,
-    /// improving the deduplication ratio, but also increasing the number of small chunks
-    /// resulting in many small parquet data pages. The default value provides a good
-    /// balance between deduplication ratio and fragmentation. Use norm_factor=1 or
-    /// norm_factor=2 to reach a higher deduplication ratio at the expense of
-    /// fragmentation. Negative values can also be used to reduce the probability of
-    /// finding a chunk, resulting in larger chunks and fewer data pages.
-    Builder* content_defined_chunking_options(
-        int64_t min_chunk_size, int64_t max_chunk_size,
-        int8_t norm_factor = kDefaultCdcOptions.norm_factor) {
-      content_defined_chunking_options_ =
-          CDCOptions{min_chunk_size, max_chunk_size, norm_factor};
+    /// \brief EXPERIMENTAL: Specify content-defined chunking options, see CDCOptions.
+    Builder* content_defined_chunking_options(const CDCOptions options) {
+      content_defined_chunking_options_ = options;
       return this;
     }
 

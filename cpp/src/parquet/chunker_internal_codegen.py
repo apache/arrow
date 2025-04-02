@@ -72,7 +72,7 @@ template = """\
 
 namespace parquet::internal {{
 
-constexpr uint64_t kGearhashTable[8][256] = {{
+constexpr uint64_t kGearhashTable[{ntables}][256] = {{
 {content}}};
 
 }}  // namespace parquet::internal
@@ -112,7 +112,8 @@ def generate_header(ntables=8, relative_path="chunker_internal_generated.h"):
     """Generate a header file with multiple gearhash tables."""
     path = pathlib.Path(__file__).parent / relative_path
     tables = [generate_hashtable(seed) for seed in range(ntables)]
-    text = template.format(content=",\n".join(tables))
+    content = ",\n".join(tables)
+    text = template.format(ntables=ntables, content=content)
     path.write_text(text)
 
 
