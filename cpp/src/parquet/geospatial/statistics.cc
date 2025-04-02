@@ -67,7 +67,7 @@ class GeoStatisticsImpl {
       const ByteArray& item = values[i];
       try {
         bounder_.MergeGeometry({reinterpret_cast<const char*>(item.ptr), item.len});
-      } catch (ParquetException& e) {
+      } catch (ParquetException&) {
         is_valid_ = false;
         return;
       }
@@ -243,7 +243,7 @@ class GeoStatisticsImpl {
       if (!binary_array.IsNull(i)) {
         try {
           bounder_.MergeGeometry(binary_array.GetView(i));
-        } catch (ParquetException& e) {
+        } catch (ParquetException&) {
           is_valid_ = false;
           return;
         }
