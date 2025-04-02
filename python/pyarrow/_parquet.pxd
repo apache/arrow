@@ -462,6 +462,11 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
 
 
 cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
+    cdef cppclass CDCOptions:
+        int64_t min_chunk_size
+        int64_t max_chunk_size
+        int norm_factor
+
     cdef cppclass WriterProperties:
         cppclass Builder:
             Builder* data_page_version(ParquetDataPageVersion version)
@@ -497,9 +502,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* disable_page_checksum()
             Builder* enable_content_defined_chunking()
             Builder* disable_content_defined_chunking()
-            Builder* content_defined_chunking_options(int64_t min_size,
-                                                      int64_t max_size,
-                                                      int8_t norm_factor)
+            Builder* content_defined_chunking_options(const CDCOptions options)
             shared_ptr[WriterProperties] build()
 
     cdef cppclass ArrowWriterProperties:

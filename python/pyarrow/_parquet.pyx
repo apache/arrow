@@ -1979,6 +1979,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     cdef:
         shared_ptr[WriterProperties] properties
         WriterProperties.Builder props
+        CDCOptions cdc_options
 
     # data_page_version
 
@@ -2130,12 +2131,11 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         if missing_keys:
             raise ValueError(
                 f"Missing options in 'use_content_defined_chunking': {missing_keys}")
+        cdc_options.min_chunk_size = use_content_defined_chunking["min_chunk_size"]
+        cdc_options.max_chunk_size = use_content_defined_chunking["max_chunk_size"]
+        cdc_options.norm_factor = use_content_defined_chunking.get("norm_factor", 0)
         props.enable_content_defined_chunking()
-        props.content_defined_chunking_options(
-            use_content_defined_chunking["min_chunk_size"],
-            use_content_defined_chunking["max_chunk_size"],
-            use_content_defined_chunking.get("norm_factor", 0)
-        )
+        props.content_defined_chunking_options(cdc_options)
     else:
         raise TypeError(
             "'use_content_defined_chunking' should be either boolean or a dictionary")

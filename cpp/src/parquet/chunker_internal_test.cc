@@ -279,7 +279,7 @@ Result<std::shared_ptr<Buffer>> WriteTableToBuffer(
 
   auto builder = WriterProperties::Builder();
   builder.enable_content_defined_chunking()->content_defined_chunking_options(
-      min_chunk_size, max_chunk_size, /*norm_factor=*/0);
+      {min_chunk_size, max_chunk_size, /*norm_factor=*/0});
   builder.data_page_version(data_page_version);
   if (enable_dictionary) {
     builder.enable_dictionary();
@@ -825,7 +825,7 @@ TEST_F(TestCDC, LastChunkDoesntTriggerAddDataPage) {
   auto sink = CreateOutputStream();
   auto builder = WriterProperties::Builder();
   auto props = builder.enable_content_defined_chunking()
-                   ->content_defined_chunking_options(kMinChunkSize, kMaxChunkSize, 0)
+                   ->content_defined_chunking_options({kMinChunkSize, kMaxChunkSize, 0})
                    ->disable_dictionary()
                    ->build();
 
