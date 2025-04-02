@@ -131,7 +131,9 @@ class PARQUET_EXPORT ContentDefinedChunker {
                                int64_t num_levels, const ::arrow::Array& values);
 
  private:
-  uint64_t GetMask() const;
+  /// @brief Get the rolling hash mask used to determine chunk boundaries, used for
+  /// testing the mask calculation.
+  uint64_t GetRollingHashMask() const;
 
   class Impl;
   std::unique_ptr<Impl> impl_;
