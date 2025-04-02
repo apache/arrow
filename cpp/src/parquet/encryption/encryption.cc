@@ -87,48 +87,8 @@ FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::column_key
   if (column_decryption_properties_.size() != 0)
     throw ParquetException("Column properties already set");
 
-  for (const auto& element : column_decryption_properties) {
-    if (element.second->is_utilized()) {
-      throw ParquetException("Column properties utilized in another file");
-    }
-    element.second->set_utilized();
-  }
-
   column_decryption_properties_ = column_decryption_properties;
   return this;
-}
-
-void FileDecryptionProperties::WipeOutDecryptionKeys() {
-  footer_key_.clear();
-
-  for (const auto& element : column_decryption_properties_) {
-    element.second->WipeOutDecryptionKey();
-  }
-}
-
-bool FileDecryptionProperties::is_utilized() {
-  if (footer_key_.empty() && column_decryption_properties_.size() == 0 &&
-      aad_prefix_.empty())
-    return false;
-
-  return utilized_;
-}
-
-std::shared_ptr<FileDecryptionProperties> FileDecryptionProperties::DeepClone(
-    std::string new_aad_prefix) {
-  std::string footer_key_copy = footer_key_;
-  ColumnPathToDecryptionPropertiesMap column_decryption_properties_map_copy;
-
-  for (const auto& element : column_decryption_properties_) {
-    column_decryption_properties_map_copy.insert(
-        {element.second->column_path(), element.second->DeepClone()});
-  }
-
-  if (new_aad_prefix.empty()) new_aad_prefix = aad_prefix_;
-  return std::shared_ptr<FileDecryptionProperties>(new FileDecryptionProperties(
-      footer_key_copy, key_retriever_, check_plaintext_footer_integrity_, new_aad_prefix,
-      aad_prefix_verifier_, column_decryption_properties_map_copy,
-      plaintext_files_allowed_));
 }
 
 FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::footer_key(
@@ -183,14 +143,6 @@ std::shared_ptr<ColumnDecryptionProperties> ColumnDecryptionProperties::Builder:
       new ColumnDecryptionProperties(column_path_, key_));
 }
 
-void ColumnDecryptionProperties::WipeOutDecryptionKey() { key_.clear(); }
-
-std::shared_ptr<ColumnDecryptionProperties> ColumnDecryptionProperties::DeepClone() {
-  std::string key_copy = key_;
-  return std::shared_ptr<ColumnDecryptionProperties>(
-      new ColumnDecryptionProperties(column_path_, key_copy));
-}
-
 FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key_metadata(
     const std::string& footer_key_metadata) {
   if (footer_key_metadata.empty()) return this;
@@ -207,37 +159,8 @@ FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::encrypted_
   if (encrypted_columns_.size() != 0)
     throw ParquetException("Column properties already set");
 
-  for (const auto& element : encrypted_columns) {
-    if (element.second->is_utilized()) {
-      throw ParquetException("Column properties utilized in another file");
-    }
-    element.second->set_utilized();
-  }
   encrypted_columns_ = encrypted_columns;
   return this;
-}
-
-void FileEncryptionProperties::WipeOutEncryptionKeys() {
-  footer_key_.clear();
-  for (const auto& element : encrypted_columns_) {
-    element.second->WipeOutEncryptionKey();
-  }
-}
-
-std::shared_ptr<FileEncryptionProperties> FileEncryptionProperties::DeepClone(
-    std::string new_aad_prefix) {
-  std::string footer_key_copy = footer_key_;
-  ColumnPathToEncryptionPropertiesMap encrypted_columns_map_copy;
-
-  for (const auto& element : encrypted_columns_) {
-    encrypted_columns_map_copy.insert(
-        {element.second->column_path(), element.second->DeepClone()});
-  }
-
-  if (new_aad_prefix.empty()) new_aad_prefix = aad_prefix_;
-  return std::shared_ptr<FileEncryptionProperties>(new FileEncryptionProperties(
-      algorithm_.algorithm, footer_key_copy, footer_key_metadata_, encrypted_footer_,
-      new_aad_prefix, store_aad_prefix_in_file_, encrypted_columns_map_copy));
 }
 
 FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::aad_prefix(
@@ -263,12 +186,6 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted,
                                                        const std::string& key,
                                                        const std::string& key_metadata)
     : column_path_(column_path) {
-  // column encryption properties object (with a column key) can be used for writing only
-  // one file.
-  // Upon completion of file writing, the encryption keys in the properties will be wiped
-  // out (set to 0 in memory).
-  utilized_ = false;
-
   DCHECK(!column_path.empty());
   if (!encrypted) {
     DCHECK(key.empty() && key_metadata.empty());
@@ -291,7 +208,6 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted,
 ColumnDecryptionProperties::ColumnDecryptionProperties(const std::string& column_path,
                                                        const std::string& key)
     : column_path_(column_path) {
-  utilized_ = false;
   DCHECK(!column_path.empty());
 
   if (!key.empty()) {
@@ -335,7 +251,6 @@ FileDecryptionProperties::FileDecryptionProperties(
   aad_prefix_ = aad_prefix;
   column_decryption_properties_ = column_decryption_properties;
   plaintext_files_allowed_ = plaintext_files_allowed;
-  utilized_ = false;
 }
 
 FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key_id(
@@ -378,11 +293,6 @@ FileEncryptionProperties::FileEncryptionProperties(
       aad_prefix_(aad_prefix),
       store_aad_prefix_in_file_(store_aad_prefix_in_file),
       encrypted_columns_(encrypted_columns) {
-  // file encryption properties object can be used for writing only one file.
-  // Upon completion of file writing, the encryption keys in the properties will be wiped
-  // out (set to 0 in memory).
-  utilized_ = false;
-
   DCHECK(!footer_key.empty());
   // footer_key must be either 16, 24 or 32 bytes.
   DCHECK(footer_key.length() == 16 || footer_key.length() == 24 ||
@@ -398,12 +308,12 @@ FileEncryptionProperties::FileEncryptionProperties(
     file_aad_ = aad_file_unique_str;
   } else {
     file_aad_ = aad_prefix + aad_file_unique_str;
-    if (!store_aad_prefix_in_file) supply_aad_prefix = true;
+    if (!store_aad_prefix_in_file_) supply_aad_prefix = true;
   }
   algorithm_.algorithm = cipher;
   algorithm_.aad.aad_file_unique = aad_file_unique_str;
   algorithm_.aad.supply_aad_prefix = supply_aad_prefix;
-  if (!aad_prefix.empty() && store_aad_prefix_in_file) {
+  if (!aad_prefix.empty() && store_aad_prefix_in_file_) {
     algorithm_.aad.aad_prefix = aad_prefix;
   }
 }

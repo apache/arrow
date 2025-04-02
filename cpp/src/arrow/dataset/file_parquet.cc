@@ -76,17 +76,17 @@ parquet::ReaderProperties MakeReaderProperties(
   }
   properties.set_buffer_size(parquet_scan_options->reader_properties->buffer_size());
 
+  auto file_decryption_prop =
+      parquet_scan_options->reader_properties->file_decryption_properties();
+
 #ifdef PARQUET_REQUIRE_ENCRYPTION
   auto parquet_decrypt_config = parquet_scan_options->parquet_decryption_config;
 
   if (parquet_decrypt_config != nullptr) {
-    auto file_decryption_prop =
+    file_decryption_prop =
         parquet_decrypt_config->crypto_factory->GetFileDecryptionProperties(
             *parquet_decrypt_config->kms_connection_config,
             *parquet_decrypt_config->decryption_config, path, filesystem);
-
-    parquet_scan_options->reader_properties->file_decryption_properties(
-        std::move(file_decryption_prop));
   }
 #else
   if (parquet_scan_options->parquet_decryption_config != nullptr) {
@@ -94,8 +94,7 @@ parquet::ReaderProperties MakeReaderProperties(
   }
 #endif
 
-  properties.file_decryption_properties(
-      parquet_scan_options->reader_properties->file_decryption_properties());
+  properties.file_decryption_properties(file_decryption_prop);
 
   properties.set_thrift_string_size_limit(
       parquet_scan_options->reader_properties->thrift_string_size_limit());
@@ -527,9 +526,11 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
   auto self = checked_pointer_cast<const ParquetFileFormat>(shared_from_this());
 
   return source.OpenAsync().Then(
-      [=](const std::shared_ptr<io::RandomAccessFile>& input) mutable {
-        return parquet::ParquetFileReader::OpenAsync(input, std::move(properties),
-                                                     metadata)
+      [self = self, properties = std::move(properties), source = source,
+       options = options, metadata = metadata,
+       parquet_scan_options = parquet_scan_options](
+          const std::shared_ptr<io::RandomAccessFile>& input) mutable {
+        return parquet::ParquetFileReader::OpenAsync(input, properties, metadata)
             .Then(
                 [=](const std::unique_ptr<parquet::ParquetFileReader>& reader) mutable
                 -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
@@ -544,7 +545,7 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
                       // here we know there are no other waiters on the reader.
                       std::move(const_cast<std::unique_ptr<parquet::ParquetFileReader>&>(
                           reader)),
-                      std::move(arrow_properties), &arrow_reader));
+                      arrow_properties, &arrow_reader));
 
                   // R build with openSUSE155 requires an explicit shared_ptr construction
                   return std::shared_ptr<parquet::arrow::FileReader>(
