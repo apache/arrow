@@ -15,13 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
 #include <algorithm>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include <gtest/gtest.h>
 
 #include "arrow/table.h"
 #include "arrow/testing/extension_type.h"
@@ -47,6 +48,7 @@ using ::arrow::Field;
 using ::arrow::Result;
 using ::arrow::Schema;
 using ::arrow::Table;
+using ::arrow::internal::checked_cast;
 using ::arrow::io::BufferReader;
 using ::parquet::arrow::FileReader;
 using ::parquet::arrow::FileReaderBuilder;
@@ -126,7 +128,7 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
     GENERATE_CASE(DOUBLE, ::arrow::DoubleBuilder,
                   static_cast<double>(val % 100000) / 1000.0)
     case ::arrow::Type::DECIMAL128: {
-      const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(*type);
+      const auto& decimal_type = checked_cast<const ::arrow::Decimal128Type&>(*type);
       // Limit the value to fit within the specified precision
       int32_t max_exponent = decimal_type.precision() - decimal_type.scale();
       int64_t max_value = static_cast<int64_t>(std::pow(10, max_exponent) - 1);
@@ -137,7 +139,7 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
                                                        value_func);
     }
     case ::arrow::Type::DECIMAL256: {
-      const auto& decimal_type = static_cast<const ::arrow::Decimal256Type&>(*type);
+      const auto& decimal_type = checked_cast<const ::arrow::Decimal256Type&>(*type);
       // Limit the value to fit within the specified precision, capped at 9 to avoid
       // int64_t overflow
       int32_t max_exponent = std::min(9, decimal_type.precision() - decimal_type.scale());
@@ -168,7 +170,8 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
       GENERATE_CASE(LARGE_BINARY, ::arrow::LargeBinaryBuilder,
                     std::string("bin_") + std::to_string(val))
     case ::arrow::Type::FIXED_SIZE_BINARY: {
-      auto size = static_cast<::arrow::FixedSizeBinaryType*>(type.get())->byte_width();
+      auto size =
+          checked_cast<const ::arrow::FixedSizeBinaryType*>(type.get())->byte_width();
       auto value_func = [size](uint64_t val) {
         return std::string("bin_") + std::to_string(val).substr(0, size - 4);
       };
@@ -177,7 +180,7 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
     }
 
     case ::arrow::Type::STRUCT: {
-      auto struct_type = static_cast<::arrow::StructType*>(type.get());
+      auto struct_type = checked_cast<const ::arrow::StructType*>(type.get());
       std::vector<std::shared_ptr<Array>> child_arrays;
       for (auto i = 0; i < struct_type->num_fields(); i++) {
         ARROW_ASSIGN_OR_RAISE(auto child_array,
@@ -191,7 +194,7 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
     }
 
     case ::arrow::Type::LIST: {
-      auto list_type = static_cast<::arrow::ListType*>(type.get());
+      auto list_type = checked_cast<const ::arrow::ListType*>(type.get());
       auto value_field = ::arrow::field("item", list_type->value_type());
       ARROW_ASSIGN_OR_RAISE(auto values_array, GenerateArray(value_field, length, seed));
       auto offset_builder = ::arrow::Int32Builder();
@@ -199,7 +202,7 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
 
       int32_t num_nulls = 0;
       int32_t num_elements = 0;
-      uint8_t element_size = 0;
+      int32_t element_size = 0;
       int32_t current_offset = 0;
       RETURN_NOT_OK(offset_builder.Append(current_offset));
       while (current_offset < length) {
@@ -240,7 +243,7 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
     }
 
     case ::arrow::Type::EXTENSION: {
-      auto extension_type = dynamic_cast<::arrow::ExtensionType*>(type.get());
+      auto extension_type = checked_cast<const ::arrow::ExtensionType*>(type.get());
       auto storage_type = extension_type->storage_type();
       auto storage_field = ::arrow::field("storage", storage_type, true);
       ARROW_ASSIGN_OR_RAISE(auto storage_array,
@@ -471,7 +474,7 @@ std::vector<ChunkDiff> FindDifferences(const ChunkList& first, const ChunkList& 
 }
 
 void PrintDifferences(const ChunkList& original, const ChunkList& modified,
-                      std::vector<ChunkDiff>& diffs) {
+                      const std::vector<ChunkDiff>& diffs) {
   // Utility function to print the original and modified sequences, and the diffs
   // between them. Used in case of failing assertions to display the differences.
   std::cout << "Original: ";
@@ -604,9 +607,9 @@ TEST(TestFindDifferences, AdditionalCase) {
 
 void AssertPageLengthDifferences(const RowGroupInfo& original,
                                  const RowGroupInfo& modified,
-                                 int8_t exact_number_of_equal_diffs,
-                                 int8_t exact_number_of_larger_diffs,
-                                 int8_t exact_number_of_smaller_diffs,
+                                 int32_t exact_number_of_equal_diffs,
+                                 int32_t exact_number_of_larger_diffs,
+                                 int32_t exact_number_of_smaller_diffs,
                                  int64_t edit_length = 0) {
   // Asserts that the differences between the original and modified page lengths
   // are as expected. A longest common subsequence diff is calculated on the original
@@ -628,11 +631,11 @@ void AssertPageLengthDifferences(const RowGroupInfo& original,
   }
   ASSERT_EQ(diffs.size(), expected_number_of_diffs);
 
-  uint8_t equal_diffs = 0;
-  int8_t larger_diffs = 0;
-  int8_t smaller_diffs = 0;
+  int32_t equal_diffs = 0;
+  int32_t larger_diffs = 0;
+  int32_t smaller_diffs = 0;
   for (const auto& diff : diffs) {
-    uint64_t original_sum = 0, modified_sum = 0;
+    int64_t original_sum = 0, modified_sum = 0;
     for (const auto& val : diff.first) original_sum += val;
     for (const auto& val : diff.second) modified_sum += val;
 
@@ -656,17 +659,17 @@ void AssertPageLengthDifferences(const RowGroupInfo& original,
 
 void AssertPageLengthDifferences(const RowGroupInfo& original,
                                  const RowGroupInfo& modified,
-                                 uint8_t max_number_of_equal_diffs) {
+                                 int32_t max_number_of_equal_diffs) {
   // A less restrictive version of the above assertion function mainly used to
   // assert the update case.
   auto diffs = FindDifferences(original.page_lengths, modified.page_lengths);
-  if (diffs.size() > max_number_of_equal_diffs) {
+  if (diffs.size() > static_cast<size_t>(max_number_of_equal_diffs)) {
     PrintDifferences(original.page_lengths, modified.page_lengths, diffs);
   }
-  ASSERT_LE(diffs.size(), max_number_of_equal_diffs);
+  ASSERT_LE(diffs.size(), static_cast<size_t>(max_number_of_equal_diffs));
 
   for (const auto& diff : diffs) {
-    uint64_t left_sum = 0, right_sum = 0;
+    int64_t left_sum = 0, right_sum = 0;
     for (const auto& val : diff.first) left_sum += val;
     for (const auto& val : diff.second) right_sum += val;
     ASSERT_EQ(left_sum, right_sum);
@@ -680,12 +683,12 @@ void AssertPageLengthDifferences(const RowGroupInfo& original,
   }
 }
 
-uint64_t ElementCount(int64_t size, int32_t byte_width, bool nullable) {
+int64_t ElementCount(int64_t size, int32_t byte_width, bool nullable) {
   if (nullable) {
     // in case of nullable types the def_levels are also fed through the chunker
     // to identify changes in the null bitmap, this will increase the byte width
     // and decrease the number of elements per chunk
-    byte_width += 2;
+    byte_width += sizeof(uint16_t);
   }
   return size / byte_width;
 }
