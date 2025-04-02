@@ -31,6 +31,7 @@
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/visibility.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
@@ -473,8 +474,6 @@ static void VisitTwoArrayValuesInline(const ArraySpan& arr0, const ArraySpan& ar
 
 // ----------------------------------------------------------------------
 // Reusable type resolvers
-
-Result<TypeHolder> FirstType(KernelContext*, const std::vector<TypeHolder>& types);
 Result<TypeHolder> LastType(KernelContext*, const std::vector<TypeHolder>& types);
 Result<TypeHolder> ListValuesType(KernelContext* ctx,
                                   const std::vector<TypeHolder>& types);
@@ -1387,41 +1386,30 @@ auto GenerateDecimal(detail::GetTypeId get_id) {
 // END of kernel generator-dispatchers
 // ----------------------------------------------------------------------
 // BEGIN of DispatchBest helpers
-ARROW_EXPORT
 void EnsureDictionaryDecoded(std::vector<TypeHolder>* types);
 
-ARROW_EXPORT
 void EnsureDictionaryDecoded(TypeHolder* begin, size_t count);
 
-ARROW_EXPORT
 void ReplaceNullWithOtherType(std::vector<TypeHolder>* types);
 
-ARROW_EXPORT
 void ReplaceNullWithOtherType(TypeHolder* begin, size_t count);
 
-ARROW_EXPORT
 void ReplaceTypes(const TypeHolder& replacement, std::vector<TypeHolder>* types);
 
-ARROW_EXPORT
 void ReplaceTypes(const TypeHolder& replacement, TypeHolder* types, size_t count);
 
-ARROW_EXPORT
-void ReplaceTemporalTypes(TimeUnit::type unit, std::vector<TypeHolder>* types);
+ARROW_COMPUTE_EXPORT void ReplaceTemporalTypes(TimeUnit::type unit,
+                                               std::vector<TypeHolder>* types);
 
-ARROW_EXPORT
 TypeHolder CommonNumeric(const std::vector<TypeHolder>& types);
 
-ARROW_EXPORT
 TypeHolder CommonNumeric(const TypeHolder* begin, size_t count);
 
-ARROW_EXPORT
-TypeHolder CommonTemporal(const TypeHolder* begin, size_t count);
+ARROW_COMPUTE_EXPORT TypeHolder CommonTemporal(const TypeHolder* begin, size_t count);
 
-ARROW_EXPORT
-bool CommonTemporalResolution(const TypeHolder* begin, size_t count,
-                              TimeUnit::type* finest_unit);
+ARROW_COMPUTE_EXPORT bool CommonTemporalResolution(const TypeHolder* begin, size_t count,
+                                                   TimeUnit::type* finest_unit);
 
-ARROW_EXPORT
 TypeHolder CommonBinary(const TypeHolder* begin, size_t count);
 
 /// How to promote decimal precision/scale in CastBinaryDecimalArgs.
@@ -1434,18 +1422,15 @@ enum class DecimalPromotion : uint8_t {
 /// Given two arguments, at least one of which is decimal, promote all
 /// to not necessarily identical types, but types which are compatible
 /// for the given operator (add/multiply/divide).
-ARROW_EXPORT
-Status CastBinaryDecimalArgs(DecimalPromotion promotion, std::vector<TypeHolder>* types);
+ARROW_COMPUTE_EXPORT Status CastBinaryDecimalArgs(DecimalPromotion promotion,
+                                                  std::vector<TypeHolder>* types);
 
 /// Given one or more arguments, at least one of which is decimal,
 /// promote all to an identical type.
-ARROW_EXPORT
-Status CastDecimalArgs(TypeHolder* begin, size_t count);
+ARROW_COMPUTE_EXPORT Status CastDecimalArgs(TypeHolder* begin, size_t count);
 
-ARROW_EXPORT
 bool HasDecimal(const std::vector<TypeHolder>& types);
 
-ARROW_EXPORT
 void PromoteIntegerForDurationArithmetic(std::vector<TypeHolder>* types);
 
 // END of DispatchBest helpers
