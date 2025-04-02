@@ -28,7 +28,7 @@
 #include <utility>
 #include <vector>
 
-#include "parquet/geospatial_util_internal.h"
+#include "parquet/geospatial/util_internal.h"
 #include "parquet/platform.h"
 
 namespace parquet {

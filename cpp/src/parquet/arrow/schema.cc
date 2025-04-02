@@ -36,7 +36,7 @@
 
 #include "parquet/arrow/schema_internal.h"
 #include "parquet/exception.h"
-#include "parquet/geospatial_util_json_internal.h"
+#include "parquet/geospatial/util_json_internal.h"
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
 #include "parquet/types.h"

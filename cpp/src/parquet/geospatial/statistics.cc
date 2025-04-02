@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/geospatial_statistics.h"
+#include "parquet/geospatial/statistics.h"
 
 #include <cmath>
 #include <memory>
@@ -25,7 +25,7 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/logging.h"
 #include "parquet/exception.h"
-#include "parquet/geospatial_util_internal.h"
+#include "parquet/geospatial/util_internal.h"
 
 using arrow::util::SafeLoad;
 

@@ -41,7 +41,7 @@
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"
-#include "parquet/geospatial_statistics.h"
+#include "parquet/geospatial/statistics.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/size_statistics.h"

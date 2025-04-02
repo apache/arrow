@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/geospatial_util_json_internal.h"
+#include "parquet/geospatial/util_json_internal.h"
 
 #include <string>
 

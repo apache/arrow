@@ -22,7 +22,7 @@
 #include "arrow/compute/api.h"
 #include "arrow/testing/gtest_util.h"
 
-#include "parquet/geospatial_statistics.h"
+#include "parquet/geospatial/statistics.h"
 #include "parquet/test_util.h"
 
 static constexpr double kInf = std::numeric_limits<double>::infinity();
