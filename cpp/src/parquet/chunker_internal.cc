@@ -336,7 +336,7 @@ class ContentDefinedChunker::Impl {
       } else if constexpr (ArrowType::type_id == ::arrow::Type::BOOL) {
         const auto& array = static_cast<const ::arrow::BooleanArray&>(values);
         return Calculate(def_levels, rep_levels, num_levels,
-                         [&](int64_t i) { return Roll(array.Value(i)); });
+                         [&](int64_t i) { Roll(array.Value(i)); });
       } else if constexpr (ArrowType::type_id == ::arrow::Type::FIXED_SIZE_BINARY) {
         const auto& array = static_cast<const ::arrow::FixedSizeBinaryArray&>(values);
         const auto byte_width = array.byte_width();
