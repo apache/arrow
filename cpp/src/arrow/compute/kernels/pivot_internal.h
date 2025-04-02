@@ -42,7 +42,7 @@ struct PivotWiderKeyMapper {
   virtual Result<std::optional<PivotWiderKeyIndex>> MapKey(const Scalar&) = 0;
 
   static Result<std::unique_ptr<PivotWiderKeyMapper>> Make(
-      const DataType& key_type, const PivotWiderOptions* options, ExecContext*);
+      const DataType& key_type, const PivotWiderOptions* options, ExecContext* ctx);
 };
 
 }  // namespace arrow::compute::internal

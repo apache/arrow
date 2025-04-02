@@ -53,6 +53,7 @@ struct PivotImpl : public ScalarAggregator {
     DCHECK_EQ(batch.num_values(), 2);
     if (batch[0].is_array()) {
       ARROW_ASSIGN_OR_RAISE(auto keys_array, key_mapper_->MapKeys(batch[0].array));
+      DCHECK_EQ(keys_array->type->id(), Type::UINT32);
       ArraySpan keys_span(*keys_array);
       if (batch[1].is_array()) {
         // Array keys, array values
