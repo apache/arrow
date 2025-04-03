@@ -656,6 +656,9 @@ void AssertPageLengthDifferences(const ColumnInfo& original, const ColumnInfo& m
   // lenght differences are exactly equal to the edit_length.
   auto diffs = FindDifferences(original.page_lengths, modified.page_lengths);
 
+  // Note, the assertion function assumes that all edits are made using the same edit
+  // array, this could be improved by passing a list of edit arrays to the function
+  // and calculating the edit length for each edit array.
   int64_t edit_length = edit_array->length();
   if (::arrow::is_list_like(edit_array->type()->id())) {
     // add null and empty lists to the edit length because the page length corresponds to
@@ -720,6 +723,9 @@ void AssertPageLengthDifferences(const ColumnInfo& original, const ColumnInfo& m
     int64_t left_sum = 0, right_sum = 0;
     for (const auto& val : diff.first) left_sum += val;
     for (const auto& val : diff.second) right_sum += val;
+    // This is only used from the UpdateOnce and UpdateTwice test cases where the edit(s)
+    // don't change the length of the original array, only update the value. This happens
+    // to apply to the list types as well because of the consistent array data generation.
     ASSERT_EQ(left_sum, right_sum);
   }
 
@@ -822,7 +828,9 @@ void AssertContentDefinedChunkSizes(const std::shared_ptr<::arrow::ChunkedArray>
     ASSERT_EQ(offset, array->length());
   }
 
-  // TODO(kszucs): have approximate size assertions for variable length types
+  // TODO(kszucs): have approximate size assertions for variable length types because
+  // we cannot calculate accurate CDC chunk sizes for list-like types without actually
+  // scanning the data and reimplementing the logic from the CDC chunker
 }
 
 class TestCDC : public ::testing::Test {
