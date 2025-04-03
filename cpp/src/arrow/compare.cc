@@ -46,7 +46,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/memory.h"
 #include "arrow/util/ree_util.h"

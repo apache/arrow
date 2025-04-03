@@ -33,6 +33,7 @@
 #include "arrow/result.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/unreachable.h"
 
 namespace arrow {

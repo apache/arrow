@@ -17,7 +17,7 @@
 
 #include "gandiva/hash_utils.h"
 #include <cstring>
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "gandiva/gdv_function_stubs.h"
 #include "openssl/evp.h"
 

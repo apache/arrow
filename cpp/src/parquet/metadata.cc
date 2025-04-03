@@ -30,7 +30,7 @@
 
 #include "arrow/io/memory.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/pcg_random.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"

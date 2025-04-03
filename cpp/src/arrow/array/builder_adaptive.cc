@@ -27,7 +27,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/int_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 

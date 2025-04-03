@@ -31,6 +31,7 @@
 #include "arrow/compute/row/grouper.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/span.h"
 #include "arrow/visit_type_inline.h"
 

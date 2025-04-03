@@ -26,6 +26,7 @@
 #include "arrow/compute/kernels/scalar_string_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/config.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"

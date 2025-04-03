@@ -37,6 +37,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
 
 #include "parquet/arrow/writer.h"

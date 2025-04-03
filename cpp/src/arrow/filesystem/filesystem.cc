@@ -47,7 +47,7 @@
 #include "arrow/status.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/parallel.h"
 #include "arrow/util/string.h"

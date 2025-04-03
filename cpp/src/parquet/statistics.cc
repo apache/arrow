@@ -31,7 +31,7 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/float16.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 #include "parquet/encoding.h"
