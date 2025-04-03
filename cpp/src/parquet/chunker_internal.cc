@@ -34,9 +34,9 @@ namespace parquet::internal {
 
 using ::arrow::internal::checked_cast;
 
-static_assert(std::size(kGearhashTable) == 8,
+static_assert(std::size(kGearhashTable) == kNumGearhashTables,
               "should update CDC code to reflect number of generated hash tables");
-static_assert(sizeof(kGearhashTable) == 8 * 256 * 8,
+static_assert(sizeof(kGearhashTable) == kNumGearhashTables * 256 * 8,
               "each table should have 256 entries of 64 bit values");
 
 /// Calculate the mask to use for the rolling hash, the mask is used to determine if a
@@ -66,7 +66,7 @@ static_assert(sizeof(kGearhashTable) == 8 * 256 * 8,
 // @param norm_factor Normalization factor (default 0)
 // @return The mask used to compare against the rolling hash
 static uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size,
-                              int8_t norm_factor) {
+                              int norm_factor) {
   if (min_chunk_size < 0) {
     throw ParquetException("min_chunk_size must be positive");
   }
@@ -78,8 +78,9 @@ static uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size,
   int64_t avg_chunk_size = (min_chunk_size + max_chunk_size) / 2;
   // since we are skipping the first `min_chunk_size` bytes for each chunk, we need to
   // target a smaller chunk size to reach the average size after skipping the first
-  // `min_chunk_size` bytes
-  int64_t target_size = avg_chunk_size - min_chunk_size;
+  // `min_chunk_size` bytes; also divide by the number of gearhash tables to have a
+  // a more gaussian-like distribution
+  int64_t target_size = (avg_chunk_size - min_chunk_size) / kNumGearhashTables;
 
   // assuming that the gear hash has a uniform distribution, we can calculate the mask
   // by taking the floor(log2(target_size))
@@ -89,20 +90,12 @@ static uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size,
   // probability, by increasing the norm_factor we increase the probability of matching
   // the mask, forcing the distribution closer to the average size; norm_factor is 0 by
   // default
-  // adding 3 because we are using 8 hash tables to have more gaussian-like distribution
-  int mask_adjustement = 3 + norm_factor;
-  int effective_bits = mask_bits - mask_adjustement;
-  if (effective_bits == 0) {
-    return 0;
-  } else if (effective_bits > 64) {
-    throw ParquetException("The number of bits in the mask cannot exceed 64, got " +
-                           std::to_string(effective_bits));
-  } else if (effective_bits < 0) {
+  int effective_bits = mask_bits - norm_factor;
+
+  if (effective_bits < 1 || effective_bits > 63) {
     throw ParquetException(
-        "The difference between min_chunk_size=" + std::to_string(min_chunk_size) +
-        " and max_chunk_size=" + std::to_string(max_chunk_size) +
-        " is too small for the given norm_factor=" + std::to_string(norm_factor) +
-        ", either increase the size range or decrease the norm_factor.");
+        "The number of bits in the CDC mask must be between 1 and 63, got " +
+        std::to_string(effective_bits));
   } else {
     // create the mask by setting the top bits
     return std::numeric_limits<uint64_t>::max() << (64 - effective_bits);
@@ -178,7 +171,7 @@ class ContentDefinedChunker::Impl {
       // different gearhash table (gearhash's chunk size has geometric distribution, and
       // we use central limit theorem to approximate normal distribution, see
       // section 6.2.1 in paper https://www.cidrdb.org/cidr2023/papers/p43-low.pdf)
-      if (ARROW_PREDICT_FALSE(++nth_run_ >= 7)) {
+      if (ARROW_PREDICT_FALSE(++nth_run_ >= kNumGearhashTables)) {
         nth_run_ = 0;
         chunk_size_ = 0;
         return true;
