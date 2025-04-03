@@ -171,6 +171,20 @@ TEST(StructArray, FromFields) {
   ASSERT_RAISES(Invalid, res);
 }
 
+TEST(StructArray, ValidateFullNullable) {
+  auto type = struct_({field("a", int32(), /*nullable=*/false),
+                       field("b", utf8(), /*nullable=*/false),
+                       field("c", list(boolean()), /*nullable=*/false)});
+
+  auto struct_arr = ArrayFromJSON(
+      type, R"([1, "a", [null, false]], [null, "bc", []], [2, null, null]])");
+  auto struct_arr_nonull = ArrayFromJSON(
+      type, R"([[1, "a"], [true, false], [6, "bc", []], [2, "bcj", [true, true]]])");
+
+  ASSERT_RAISES(Invalid, struct_arr->ValidateFull());
+  ASSERT_OK(struct_arr_nonull->ValidateFull());
+}
+
 TEST(StructArray, Validate) {
   auto a = ArrayFromJSON(int32(), "[4, 5]");
   auto type = struct_({field("a", int32())});
