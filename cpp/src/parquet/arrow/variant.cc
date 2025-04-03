@@ -36,7 +36,7 @@ using ::arrow::Type;
 
 VariantExtensionType::VariantExtensionType(
     const std::shared_ptr<::arrow::DataType>& storage_type)
-    : ::arrow::ExtensionType(std::move(storage_type)) {
+    : ::arrow::ExtensionType(storage_type) {
   // GH-45948: Shredded variants will need to handle an optional shredded_value as
   // well as value_ becoming optional.
 
