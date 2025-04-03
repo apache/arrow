@@ -316,12 +316,14 @@ TYPED_TEST(TestBinaryKernels, NonUtf8Regex) {
   }
   {
     ExtractRegexOptions options("(?P<letter>[\xfc])(?P<digit>\\d+)");
-    auto output = StructArray::Make(
-        {this->MakeArray({"\xfc", "\xfc"}), this->MakeArray({"14", "2"})},
-        {field("letter", this->type()), field("digit", this->type())});
+    ASSERT_OK_AND_ASSIGN(
+        auto output,
+        StructArray::Make(
+            {this->MakeArray({"\xfc", "\xfc"}), this->MakeArray({"14", "2"})},
+            {field("letter", this->type()), field("digit", this->type())}));
     this->CheckUnary("extract_regex",
-                     this->MakeArray({"foo\xfc\x31\x34 bar", "\x02\xfc\x32"}),
-                     std::static_pointer_cast<Array>(*output), &options);
+                     this->MakeArray({"foo\xfc\x31\x34 bar", "\x02\xfc\x32"}), output,
+                     &options);
   }
   {
     ExtractRegexSpanOptions options("(?P<letter>[\xfc])(?P<digit>\\d+)");
@@ -383,14 +385,16 @@ TYPED_TEST(TestBinaryKernels, NonUtf8WithNullRegex) {
   }
   {
     ExtractRegexOptions options(std::string("(?P<null>[\x00])(?P<digit>\\d+)", 27));
-    auto output = StructArray::Make(
-        {this->template MakeArray<std::string>({{"\x00", 1}, {"\x00", 1}}),
-         this->template MakeArray<std::string>({"14", "2"})},
-        {field("null", this->type()), field("digit", this->type())});
+    ASSERT_OK_AND_ASSIGN(
+        auto output,
+        StructArray::Make(
+            {this->template MakeArray<std::string>({{"\x00", 1}, {"\x00", 1}}),
+             this->template MakeArray<std::string>({"14", "2"})},
+            {field("null", this->type()), field("digit", this->type())}));
     this->CheckUnary("extract_regex",
                      this->template MakeArray<std::string>(
                          {{"foo\x00\x31\x34 bar", 10}, {"\x02\x00\x32", 3}}),
-                     std::static_pointer_cast<Array>(*output), &options);
+                     output, &options);
   }
   {
     ExtractRegexSpanOptions options(std::string("(?P<null>[\x00])(?P<digit>\\d+)", 27));
