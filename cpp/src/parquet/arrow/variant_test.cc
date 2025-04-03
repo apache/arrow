@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/arrow/variant.h"
+#include "parquet/arrow/variant_internal.h"
 
 #include "arrow/array/validate.h"
 #include "arrow/ipc/test_common.h"

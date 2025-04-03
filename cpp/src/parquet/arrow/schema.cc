@@ -35,7 +35,7 @@
 #include "arrow/util/value_parsing.h"
 
 #include "parquet/arrow/schema_internal.h"
-#include "parquet/arrow/variant.h"
+#include "parquet/arrow/variant_internal.h"
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
