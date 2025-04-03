@@ -419,6 +419,8 @@ jobs:
           path: |
             build/cpp/vcpkg_installed/vcpkg/blds/gflags/*.log
             build/cpp/vcpkg*.log
+            build/cpp/vcpkg/buildtrees/gflags/
+            ${{ env.VCPKG_ROOT }}/buildtrees/gflags/
           name: vcpkg-log
       - name: Build GLib
         shell: cmd
