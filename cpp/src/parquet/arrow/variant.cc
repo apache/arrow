@@ -34,6 +34,23 @@ using ::arrow::ExtensionType;
 using ::arrow::Result;
 using ::arrow::Type;
 
+VariantExtensionType::VariantExtensionType(
+    const std::shared_ptr<::arrow::DataType>& storage_type)
+    : ::arrow::ExtensionType(std::move(storage_type)) {
+  // GH-45948: Shredded variants will need to handle an optional shredded_value as
+  // well as value_ becoming optional.
+
+  // IsSupportedStorageType should have been called already, asserting that both
+  // metadata and value are present.
+  if (storage_type->field(0)->name() == "metadata") {
+    metadata_ = storage_type->field(0);
+    value_ = storage_type->field(1);
+  } else {
+    value_ = storage_type->field(0);
+    metadata_ = storage_type->field(1);
+  }
+}
+
 bool VariantExtensionType::ExtensionEquals(const ExtensionType& other) const {
   return other.extension_name() == this->extension_name() &&
          other.storage_type()->Equals(this->storage_type());
@@ -65,13 +82,25 @@ bool VariantExtensionType::IsSupportedStorageType(
   // variant_value.
   if (storage_type->id() == Type::STRUCT) {
     if (storage_type->num_fields() == 2) {
-      const auto& metadata_field = storage_type->field(0);
-      const auto& value_field = storage_type->field(1);
+      // Ordering of metadata and value fields does not matter, as we will assign
+      // these to the VariantExtensionType's member shared_ptrs in the constructor.
+      // Here we just need to check that they are both present.
 
-      // Metadata and value both must be non-nullable binary types
-      return metadata_field->type()->storage_id() == Type::BINARY &&
-             value_field->type()->storage_id() == Type::BINARY &&
-             !metadata_field->nullable() && !value_field->nullable();
+      const auto& field0 = storage_type->field(0);
+      const auto& field1 = storage_type->field(1);
+
+      bool metadata_and_value_present =
+          (field0->name() == "metadata" && field1->name() == "value") ||
+          (field1->name() == "metadata" && field0->name() == "value");
+
+      if (metadata_and_value_present) {
+        // Both metadata and value must be non-nullable binary types for unshredded
+        // variants. This will change in GH-46948, when we will require a Visitor
+        // to traverse the structure of the variant.
+        return field0->type()->storage_id() == Type::BINARY &&
+               field1->type()->storage_id() == Type::BINARY && !field0->nullable() &&
+               !field1->nullable();
+      }
     }
   }
 

@@ -28,7 +28,6 @@ namespace parquet::arrow {
 using ::arrow::binary;
 using ::arrow::struct_;
 
-
 TEST(TestVariantExtensionType, StorageTypeValidation) {
   auto variant1 = variant(struct_({field("metadata", binary(), /*nullable=*/false),
                                    field("value", binary(), /*nullable=*/false)}));
@@ -36,6 +35,14 @@ TEST(TestVariantExtensionType, StorageTypeValidation) {
                                    field("value", binary(), /*nullable=*/false)}));
 
   ASSERT_TRUE(variant1->Equals(variant2));
+
+  // Metadata and value fields can be provided in either order
+  auto variantFieldsFlipped = std::dynamic_pointer_cast<VariantExtensionType>(
+      variant(struct_({field("value", binary(), /*nullable=*/false),
+                       field("metadata", binary(), /*nullable=*/false)})));
+
+  ASSERT_EQ("metadata", variantFieldsFlipped->metadata()->name());
+  ASSERT_EQ("value", variantFieldsFlipped->value()->name());
 
   auto missing_value = struct_({field("metadata", binary(), /*nullable=*/false)});
   auto missing_metadata = struct_({field("value", binary(), /*nullable=*/false)});

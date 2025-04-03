@@ -42,12 +42,7 @@ class PARQUET_EXPORT VariantArray : public ::arrow::ExtensionArray {
 /// https://github.com/apache/parquet-format/blob/master/VariantEncoding.md
 class PARQUET_EXPORT VariantExtensionType : public ::arrow::ExtensionType {
  public:
-  explicit VariantExtensionType(const std::shared_ptr<::arrow::DataType>& storage_type)
-      : ::arrow::ExtensionType(std::move(storage_type)),
-        // GH-45948: Shredded variants will need to handle an optional shredded_value as
-        // well as value_ becoming optional.
-        metadata_(storage_type->field(0)),
-        value_(storage_type->field(1)) {}
+  explicit VariantExtensionType(const std::shared_ptr<::arrow::DataType>& storage_type);
 
   std::string extension_name() const override { return "parquet.variant"; }
 
