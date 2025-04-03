@@ -411,6 +411,8 @@ jobs:
       - name: Setup NuGet credentials for vcpkg caching
         shell: bash
         run: |
+          echo $PATH
+          which vcpkg
           $(vcpkg fetch nuget | tail -n 1) \
             sources add \
             -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
