@@ -429,15 +429,6 @@ jobs:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: failure()
-        with:
-          path: |
-            build/cpp/vcpkg_installed/vcpkg/blds/gflags/*.log
-            build/cpp/vcpkg*.log
-            build/cpp/vcpkg/buildtrees/gflags/
-            ${{ env.VCPKG_ROOT }}/buildtrees/gflags/
-          name: vcpkg-log
       - name: Build GLib
         shell: cmd
         run: |
