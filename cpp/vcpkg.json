@@ -1,7 +1,6 @@
 {
   "name": "arrow",
   "version-string": "20.0.0-SNAPSHOT",
-  "$comment:dependencies": "We can enable gflags and glog once gflags' CMake 4 support is applied",
   "dependencies": [
     "abseil",
     {
@@ -27,6 +26,8 @@
     "c-ares",
     "curl",
     "flatbuffers",
+    "gflags",
+    "glog",
     {
       "name": "google-cloud-cpp",
       "default-features": false,
@@ -56,5 +57,5 @@
     "zstd"
   ],
   "$comment": "You can update builtin-baseline by 'vcpkg x-update-baseline'",
-  "builtin-baseline": "460551b0ec06be1ba6b918448bf3b0f44add813d"
+  "builtin-baseline": "db1ddd074bd51bf01baf4c4672b82de9680835ca"
 }
