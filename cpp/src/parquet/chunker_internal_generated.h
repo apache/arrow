@@ -20,6 +20,8 @@
 
 namespace parquet::internal {
 
+constexpr int64_t kNumGearhashTables = 8;
+
 constexpr uint64_t kGearhashTable[8][256] = {
     {// seed = 0
      0xf09f35a563783945, 0x0dcc5b3bc5ae410a, 0x63f1ea8d22554270, 0xfbe5ee7bd05a7b61,

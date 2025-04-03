@@ -72,6 +72,8 @@ template = """\
 
 namespace parquet::internal {{
 
+constexpr int64_t kNumGearhashTables = {ntables};
+
 constexpr uint64_t kGearhashTable[{ntables}][256] = {{
 {content}}};
 
