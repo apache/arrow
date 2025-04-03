@@ -264,7 +264,8 @@ inline void set_numpy_metadata(int type, const DataType* datatype, PyArray_Descr
       const auto& timestamp_type = checked_cast<const TimestampType&>(*datatype);
       metadata->meta.base = internal::NumPyFrequency(timestamp_type.unit());
     } else {
-      ARROW_DCHECK(false) << "NPY_DATETIME views only supported for Arrow TIMESTAMP types";
+      ARROW_DCHECK(false)
+          << "NPY_DATETIME views only supported for Arrow TIMESTAMP types";
     }
   } else if (type == NPY_TIMEDELTA) {
     ARROW_DCHECK_EQ(datatype->id(), Type::DURATION);
@@ -1589,7 +1590,7 @@ class DatetimeWriter : public TypedPandasWriter<NPY_DATETIME> {
   Status CopyInto(std::shared_ptr<ChunkedArray> data, int64_t rel_placement) override {
     const auto& ts_type = checked_cast<const TimestampType&>(*data->type());
     ARROW_DCHECK_EQ(UNIT, ts_type.unit()) << "Should only call instances of this writer "
-                                    << "with arrays of the correct unit";
+                                          << "with arrays of the correct unit";
     ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull,
                                     this->GetBlockColumnStart(rel_placement));
     return Status::OK();
@@ -1727,7 +1728,7 @@ class TimedeltaWriter : public TypedPandasWriter<NPY_TIMEDELTA> {
   Status CopyInto(std::shared_ptr<ChunkedArray> data, int64_t rel_placement) override {
     const auto& type = checked_cast<const DurationType&>(*data->type());
     ARROW_DCHECK_EQ(UNIT, type.unit()) << "Should only call instances of this writer "
-                                 << "with arrays of the correct unit";
+                                       << "with arrays of the correct unit";
     ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull,
                                     this->GetBlockColumnStart(rel_placement));
     return Status::OK();

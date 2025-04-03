@@ -52,7 +52,8 @@ static Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int32_t* p
   ARROW_DCHECK_NE(precision, NULLPTR);
   ARROW_DCHECK_NE(scale, NULLPTR);
 
-  // TODO(phillipc): Make sure we perform PyDecimal_Check(python_decimal) as a ARROW_DCHECK
+  // TODO(phillipc): Make sure we perform PyDecimal_Check(python_decimal) as a
+  // ARROW_DCHECK
   OwnedRef as_tuple(PyObject_CallMethod(python_decimal, const_cast<char*>("as_tuple"),
                                         const_cast<char*>("")));
   RETURN_IF_PYERROR();
