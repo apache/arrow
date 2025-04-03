@@ -396,6 +396,7 @@ jobs:
           # We can invalidate the current cache by updating this.
           CACHE_VERSION: "2024-05-09"
       - name: Detect vcpkg commit ID
+        shell: bash
         run: |
           baseline=$(jq -r '.["builtin-baseline"]' cpp/vcpkg.json)
           echo "VCPKG_BASELINE=${baseline}" >> ${GITHUB_ENV}
