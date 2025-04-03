@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/filesystem/type_fwd.h"
 #include "arrow/io/hdfs.h"
 #include "arrow/io/hdfs_internal.h"
 #include "arrow/io/interfaces.h"
@@ -340,7 +341,8 @@ Result<int64_t> HdfsOutputStream::Tell() const { return impl_->Tell(); }
 // TODO(wesm): this could throw std::bad_alloc in the course of copying strings
 // into the path info object
 static void SetPathInfo(const hdfsFileInfo* input, HdfsPathInfo* out) {
-  out->kind = input->mKind == kObjectKindFile ? ObjectType::FILE : ObjectType::DIRECTORY;
+  out->kind = input->mKind == kObjectKindFile ? arrow::fs::FileType::File
+                                              : arrow::fs::FileType::Directory;
   out->name = std::string(input->mName);
   out->owner = std::string(input->mOwner);
   out->group = std::string(input->mGroup);
@@ -456,12 +458,12 @@ class HadoopFileSystem::HadoopFileSystemImpl {
     return Status::OK();
   }
 
-  Status Stat(const std::string& path, FileStatistics* stat) {
+  Status Stat(const std::string& path, arrow::fs::FileInfo* file_info) {
     HdfsPathInfo info;
     RETURN_NOT_OK(GetPathInfo(path, &info));
 
-    stat->size = info.size;
-    stat->kind = info.kind;
+    file_info->set_size(info.size);
+    file_info->set_type(info.kind);
     return Status::OK();
   }
 
@@ -626,8 +628,8 @@ Status HadoopFileSystem::GetPathInfo(const std::string& path, HdfsPathInfo* info
   return impl_->GetPathInfo(path, info);
 }
 
-Status HadoopFileSystem::Stat(const std::string& path, FileStatistics* stat) {
-  return impl_->Stat(path, stat);
+Status HadoopFileSystem::Stat(const std::string& path, arrow::fs::FileInfo* file_info) {
+  return impl_->Stat(path, file_info);
 }
 
 Status HadoopFileSystem::GetCapacity(int64_t* nbytes) {
