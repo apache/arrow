@@ -1120,7 +1120,7 @@ garrow_int_array_builder_new(void)
 {
   auto memory_pool = arrow::default_memory_pool();
   auto arrow_builder = std::static_pointer_cast<arrow::ArrayBuilder>(
-    std::make_shared<arrow::AdaptiveIntBuilder>(sizeof(int8_t), memory_pool));
+    std::make_shared<arrow::AdaptiveIntBuilder>(memory_pool));
   auto builder =
     garrow_array_builder_new_raw(&arrow_builder, GARROW_TYPE_INT_ARRAY_BUILDER);
   return GARROW_INT_ARRAY_BUILDER(builder);
@@ -1274,7 +1274,7 @@ garrow_uint_array_builder_new(void)
 {
   auto memory_pool = arrow::default_memory_pool();
   auto arrow_builder = std::static_pointer_cast<arrow::ArrayBuilder>(
-    std::make_shared<arrow::AdaptiveUIntBuilder>(sizeof(uint8_t), memory_pool));
+    std::make_shared<arrow::AdaptiveUIntBuilder>(memory_pool));
   auto builder =
     garrow_array_builder_new_raw(&arrow_builder, GARROW_TYPE_UINT_ARRAY_BUILDER);
   return GARROW_UINT_ARRAY_BUILDER(builder);
