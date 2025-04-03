@@ -793,7 +793,7 @@ void AssertContentDefinedChunkSizes(const std::shared_ptr<::arrow::ChunkedArray>
   }
 
   if (::arrow::is_fixed_width(type_id) || ::arrow::is_base_binary_like(type_id)) {
-    auto offset = 0;
+    int64_t offset = 0;
 
     auto page_lengths = column_info.page_lengths;
     for (size_t i = 0; i < page_lengths.size() - 1; i++) {
@@ -1272,6 +1272,50 @@ TEST_P(TestCDCSingleRowGroup, InsertTwice) {
                                 /*exact_number_of_equal_diffs=*/0,
                                 /*exact_number_of_larger_diffs=*/2,
                                 /*exact_number_of_smaller_diffs=*/0, part2_->column(0));
+  }
+}
+
+TEST_P(TestCDCSingleRowGroup, Prepend) {
+  const auto& param = GetParam();
+
+  ASSERT_OK_AND_ASSIGN(auto base, ConcatAndCombine({part1_, part2_, part3_}));
+  ASSERT_OK_AND_ASSIGN(auto modified, ConcatAndCombine({part4_, part1_, part2_, part3_}));
+  ASSERT_FALSE(base->Equals(*modified));
+
+  for (bool enable_dictionary : {false, true}) {
+    ASSERT_OK_AND_ASSIGN(
+        auto base_parquet,
+        WriteTableToBuffer(base, kMinChunkSize, kMaxChunkSize, kRowGroupLength,
+                           enable_dictionary, param.data_page_version));
+    ASSERT_OK_AND_ASSIGN(
+        auto modified_parquet,
+        WriteTableToBuffer(modified, kMinChunkSize, kMaxChunkSize, kRowGroupLength,
+                           enable_dictionary, param.data_page_version));
+
+    auto base_info = GetColumnParquetInfo(base_parquet, /*column_index=*/0);
+    auto modified_info = GetColumnParquetInfo(modified_parquet, /*column_index=*/0);
+
+    // assert that there is only one row group
+    ASSERT_EQ(base_info.size(), 1);
+    ASSERT_EQ(modified_info.size(), 1);
+
+    AssertContentDefinedChunkSizes(base->column(0), base_info.front(), param.is_nullable,
+                                   kMinChunkSize, kMaxChunkSize,
+                                   /*expect_dictionary_page=*/enable_dictionary);
+    AssertContentDefinedChunkSizes(modified->column(0), modified_info.front(),
+                                   param.is_nullable, kMinChunkSize, kMaxChunkSize,
+                                   /*expect_dictionary_page=*/enable_dictionary);
+
+    auto original_page_lengths = base_info.front().page_lengths;
+    auto modified_page_lengths = modified_info.front().page_lengths;
+
+    // we expect to have the same number or more pages at the beginning of the
+    // modified file without increasing the size of any subsequent page
+    ASSERT_LE(original_page_lengths.size(), modified_page_lengths.size());
+    AssertPageLengthDifferences(base_info.front(), modified_info.front(),
+                                /*exact_number_of_equal_diffs=*/0,
+                                /*exact_number_of_larger_diffs=*/1,
+                                /*exact_number_of_smaller_diffs=*/0, part4_->column(0));
   }
 }
 
