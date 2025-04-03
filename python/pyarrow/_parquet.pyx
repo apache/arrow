@@ -1979,7 +1979,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     cdef:
         shared_ptr[WriterProperties] properties
         WriterProperties.Builder props
-        CDCOptions cdc_options
+        CdcOptions cdc_options
 
     # data_page_version
 

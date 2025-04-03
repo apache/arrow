@@ -246,7 +246,7 @@ class PARQUET_EXPORT ColumnProperties {
 };
 
 // EXPERIMENTAL: Options for content-defined chunking.
-struct PARQUET_EXPORT CDCOptions {
+struct PARQUET_EXPORT CdcOptions {
   /// Minimum chunk size in bytes, default 256 KiB
   /// The rolling hash will not be updated until this size is reached for each chunk.
   /// Note that all data sent through the hash function is counted towards the chunk
@@ -271,7 +271,7 @@ struct PARQUET_EXPORT CDCOptions {
   int norm_factor = 0;
 };
 
-static constexpr CDCOptions kDefaultCDCOptions = CDCOptions{256 * 1024, 1024 * 1024, 0};
+static constexpr CdcOptions kDefaultCdcOptions = CdcOptions{256 * 1024, 1024 * 1024, 0};
 
 class PARQUET_EXPORT WriterProperties {
  public:
@@ -290,7 +290,7 @@ class PARQUET_EXPORT WriterProperties {
           page_checksum_enabled_(false),
           size_statistics_level_(DEFAULT_SIZE_STATISTICS_LEVEL),
           content_defined_chunking_enabled_(false),
-          content_defined_chunking_options_(kDefaultCDCOptions) {}
+          content_defined_chunking_options_(kDefaultCdcOptions) {}
 
     explicit Builder(const WriterProperties& properties)
         : pool_(properties.memory_pool()),
@@ -331,8 +331,8 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// \brief EXPERIMENTAL: Specify content-defined chunking options, see CDCOptions.
-    Builder* content_defined_chunking_options(const CDCOptions options) {
+    /// \brief EXPERIMENTAL: Specify content-defined chunking options, see CdcOptions.
+    Builder* content_defined_chunking_options(const CdcOptions options) {
       content_defined_chunking_options_ = options;
       return this;
     }
@@ -791,7 +791,7 @@ class PARQUET_EXPORT WriterProperties {
     std::unordered_map<std::string, bool> page_index_enabled_;
 
     bool content_defined_chunking_enabled_;
-    CDCOptions content_defined_chunking_options_;
+    CdcOptions content_defined_chunking_options_;
   };
 
   inline MemoryPool* memory_pool() const { return pool_; }
@@ -819,7 +819,7 @@ class PARQUET_EXPORT WriterProperties {
   inline bool content_defined_chunking_enabled() const {
     return content_defined_chunking_enabled_;
   }
-  inline CDCOptions content_defined_chunking_options() const {
+  inline CdcOptions content_defined_chunking_options() const {
     return content_defined_chunking_options_;
   }
 
@@ -926,7 +926,7 @@ class PARQUET_EXPORT WriterProperties {
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
       ParquetDataPageVersion data_page_version, bool store_short_decimal_as_integer,
       std::vector<SortingColumn> sorting_columns, bool content_defined_chunking_enabled,
-      CDCOptions content_defined_chunking_options)
+      CdcOptions content_defined_chunking_options)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
@@ -965,7 +965,7 @@ class PARQUET_EXPORT WriterProperties {
   std::unordered_map<std::string, ColumnProperties> column_properties_;
 
   bool content_defined_chunking_enabled_;
-  CDCOptions content_defined_chunking_options_;
+  CdcOptions content_defined_chunking_options_;
 };
 
 PARQUET_EXPORT const std::shared_ptr<WriterProperties>& default_writer_properties();
