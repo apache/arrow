@@ -45,7 +45,7 @@ TEST(TestGeoStatistics, TestDefaults) {
             "GeoStatistics \n  x: [inf, -inf]\n  y: [inf, -inf]\n  geometry_types:\n");
 
   auto encoded = stats.Encode();
-  EXPECT_FALSE(encoded.is_set());
+  EXPECT_FALSE(encoded.is_empty());
   EXPECT_FALSE(encoded.has_x());
   EXPECT_FALSE(encoded.has_y());
   EXPECT_FALSE(encoded.has_z());
@@ -184,18 +184,18 @@ TEST(TestGeoStatistics, TestUpdateByteArray) {
   ByteArray invalid;
   stats.Update(&invalid, /*num_values=*/1);
   EXPECT_FALSE(stats.is_valid());
-  EXPECT_FALSE(stats.Encode().is_set());
+  EXPECT_FALSE(stats.Encode().is_empty());
 
   // This should be true even after ingesting more values
   stats.Update(&item0, /*num_values=*/1);
   EXPECT_FALSE(stats.is_valid());
-  EXPECT_FALSE(stats.Encode().is_set());
+  EXPECT_FALSE(stats.Encode().is_empty());
   EXPECT_EQ(stats.ToString(), "GeoStatistics <invalid>\n");
 
   // And should cause other statistics to become invalid when merged with them
   stats_spaced.Merge(stats);
   EXPECT_FALSE(stats_spaced.is_valid());
-  EXPECT_FALSE(stats_spaced.Encode().is_set());
+  EXPECT_FALSE(stats_spaced.Encode().is_empty());
 }
 
 TEST(TestGeoStatistics, TestUpdateXYZM) {
@@ -282,7 +282,7 @@ TEST(TestGeoStatistics, TestUpdateArrayInvalid) {
   GeoStatistics invalid;
   invalid.Update(*invalid_wkb);
   EXPECT_FALSE(invalid.is_valid());
-  EXPECT_FALSE(invalid.Encode().is_set());
+  EXPECT_FALSE(invalid.Encode().is_empty());
 
   // Make some valid statistics
   EncodedGeoStatistics encoded_valid;

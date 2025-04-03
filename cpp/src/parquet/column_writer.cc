@@ -789,7 +789,7 @@ class ColumnWriterImpl {
   virtual StatisticsPair GetChunkStatistics() = 0;
 
   // Plain-encoded geometry statistics of the whole chunk
-  virtual EncodedGeoStatistics GetChunkGeoStatistics() = 0;
+  virtual std::optional<EncodedGeoStatistics> GetChunkGeoStatistics() = 0;
 
   // Merges page statistics into chunk statistics, then resets the values
   virtual void ResetPageStatistics() = 0;
@@ -1113,9 +1113,9 @@ int64_t ColumnWriterImpl::Close() {
     }
 
     if (descr_->logical_type() != nullptr && descr_->logical_type()->is_geometry()) {
-      EncodedGeoStatistics geo_stats = GetChunkGeoStatistics();
-      if (geo_stats.is_set()) {
-        metadata_->SetGeoStatistics(std::move(geo_stats));
+      std::optional<EncodedGeoStatistics> geo_stats = GetChunkGeoStatistics();
+      if (geo_stats) {
+        metadata_->SetGeoStatistics(std::move(*geo_stats));
       }
     }
 
@@ -1450,9 +1450,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     return result;
   }
 
-  EncodedGeoStatistics GetChunkGeoStatistics() override {
-    return chunk_geospatial_statistics_ ? chunk_geospatial_statistics_->Encode()
-                                        : EncodedGeoStatistics{};
+  std::optional<EncodedGeoStatistics> GetChunkGeoStatistics() override {
+    if (chunk_geospatial_statistics_ && chunk_geospatial_statistics_->is_valid()) {
+      return chunk_geospatial_statistics_->Encode();
+    } else {
+      return std::nullopt;
+    }
   }
 
   void ResetPageStatistics() override {

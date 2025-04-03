@@ -1996,5 +1996,32 @@ TEST_F(TestGeometryValuesWriter, TestWriteAndReadSpaced) {
   EXPECT_FALSE(geospatial_statistics->has_m());
 }
 
+TEST_F(TestGeometryValuesWriter, TestWriteAndReadAllNull) {
+  this->SetUpSchema(Repetition::OPTIONAL, 1);
+  this->values_.resize(SMALL_SIZE);
+  std::fill(this->values_.begin(), this->values_.end(), ByteArray{0, nullptr});
+  this->def_levels_.resize(SMALL_SIZE);
+  std::fill(this->def_levels_.begin(), this->def_levels_.end(), 0);
+  auto writer = this->BuildWriter(SMALL_SIZE);
+  writer->WriteBatch(this->values_.size(), this->def_levels_.data(), nullptr,
+                     this->values_ptr_);
+
+  writer->Close();
+  this->ReadColumn();
+  for (int i = 0; i < SMALL_SIZE; i++) {
+    EXPECT_EQ(this->definition_levels_out_[i], 0);
+  }
+
+  // Statistics are unset because the sort order is unknown
+  ASSERT_FALSE(metadata_accessor()->is_stats_set());
+  ASSERT_EQ(metadata_accessor()->statistics(), nullptr);
+
+  // GeoStatistics should exist but be empty
+  ASSERT_TRUE(metadata_accessor()->is_geo_stats_set());
+  std::shared_ptr<GeoStatistics> geospatial_statistics = metadata_geo_stats();
+  ASSERT_TRUE(geospatial_statistics != nullptr);
+  ASSERT_TRUE(geospatial_statistics->is_empty());
+}
+
 }  // namespace test
 }  // namespace parquet
