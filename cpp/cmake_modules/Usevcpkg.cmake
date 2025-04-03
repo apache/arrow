@@ -40,6 +40,7 @@ endmacro()
 # Get VCPKG_ROOT
 
 if(DEFINED CMAKE_TOOLCHAIN_FILE)
+  message("CMAKE_TOOLCHAIN_FILE is defined: ${CMAKE_TOOLCHAIN_FILE}")
   # Get it from the CMake variable CMAKE_TOOLCHAIN_FILE
   get_filename_component(_VCPKG_DOT_CMAKE "${CMAKE_TOOLCHAIN_FILE}" NAME)
   if(EXISTS "${CMAKE_TOOLCHAIN_FILE}" AND _VCPKG_DOT_CMAKE STREQUAL "vcpkg.cmake")
@@ -51,6 +52,7 @@ if(DEFINED CMAKE_TOOLCHAIN_FILE)
   endif()
 else()
   if(DEFINED VCPKG_ROOT)
+    message("VCPKG_ROOT is defined: ${VCPKG_ROOT}")
     # Get it from the CMake variable VCPKG_ROOT
     find_program(_VCPKG_BIN vcpkg
                  PATHS "${VCPKG_ROOT}"
@@ -59,6 +61,7 @@ else()
       message(FATAL_ERROR "vcpkg not found in directory specified in -DVCPKG_ROOT")
     endif()
   elseif(DEFINED ENV{VCPKG_ROOT})
+    message("ENV{VCPKG_ROOT} is defined: $ENV{VCPKG_ROOT}")
     # Get it from the environment variable VCPKG_ROOT
     set(VCPKG_ROOT $ENV{VCPKG_ROOT})
     find_program(_VCPKG_BIN vcpkg
@@ -69,6 +72,7 @@ else()
       )
     endif()
   else()
+    message("else")
     # Get it from the file vcpkg.path.txt
     find_program(_VCPKG_BIN vcpkg)
     if(_VCPKG_BIN)
