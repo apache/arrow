@@ -395,10 +395,15 @@ jobs:
         env:
           # We can invalidate the current cache by updating this.
           CACHE_VERSION: "2024-05-09"
+      - name: Detect vcpkg commit ID
+        run: |
+          baseline=$(jq -r '.["builtin-baseline"]' cpp/vcpkg.json)
+          echo "VCPKG_BASELINE=${baseline}" >> ${GITHUB_ENV}
       - name: Checkout vcpkg
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           path: vcpkg
+          ref: ${{ env.VCPKG_BASELINE }}
           repository: microsoft/vcpkg
       - name: Bootstrap vcpkg
         run: |
