@@ -31,24 +31,24 @@ using ::arrow::struct_;
 class TestVariantExtensionType : public ::testing::Test {};
 
 TEST(TestVariantExtensionType, StorageTypeValidation) {
-  auto variant1 = variant(struct_({field("metadata", binary())->WithNullable(false),
-                                   field("value", binary())->WithNullable(false)}));
-  auto variant2 = variant(struct_({field("metadata", binary())->WithNullable(false),
-                                   field("value", binary())->WithNullable(false)}));
+  auto variant1 = variant(struct_({field("metadata", binary(), /*nullable=*/false),
+                                   field("value", binary(), /*nullable=*/false)}));
+  auto variant2 = variant(struct_({field("metadata", binary(), /*nullable=*/false),
+                                   field("value", binary(), /*nullable=*/false)}));
 
   ASSERT_TRUE(variant1->Equals(variant2));
 
-  auto missing_value = struct_({field("metadata", binary())->WithNullable(false)});
-  auto missing_metadata = struct_({field("value", binary())->WithNullable(false)});
-  auto bad_value_type = struct_({field("metadata", binary())->WithNullable(false),
-                                 field("value", ::arrow::int32())->WithNullable(false)});
-  auto extra_field = struct_({field("metadata", binary())->WithNullable(false),
-                              field("value", binary())->WithNullable(false),
-                              field("extra", binary())->WithNullable(false)});
+  auto missing_value = struct_({field("metadata", binary(), /*nullable=*/false)});
+  auto missing_metadata = struct_({field("value", binary(), /*nullable=*/false)});
+  auto bad_value_type = struct_({field("metadata", binary(), /*nullable=*/false),
+                                 field("value", ::arrow::int32(), /*nullable=*/false)});
+  auto extra_field = struct_({field("metadata", binary(), /*nullable=*/false),
+                              field("value", binary(), /*nullable=*/false),
+                              field("extra", binary(), /*nullable=*/false)});
   auto nullable_metadata = struct_(
-      {field("metadata", binary()), field("value", binary())->WithNullable(false)});
+      {field("metadata", binary()), field("value", binary(), /*nullable=*/false)});
   auto nullable_value = struct_(
-      {field("metadata", binary())->WithNullable(false), field("value", binary())});
+      {field("metadata", binary(), /*nullable=*/false), field("value", binary())});
 
   for (const auto& storage_type : {missing_value, missing_metadata, bad_value_type,
                                    extra_field, nullable_metadata, nullable_value}) {
