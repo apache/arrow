@@ -3961,9 +3961,6 @@ macro(build_grpc)
                       IMPORTED_LOCATION)
   get_target_property(GRPC_CARES_INCLUDE_DIR c-ares::cares INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(GRPC_CARES_ROOT "${GRPC_CARES_INCLUDE_DIR}" DIRECTORY)
-  get_target_property(GRPC_GFLAGS_INCLUDE_DIR ${GFLAGS_LIBRARIES}
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(GRPC_GFLAGS_ROOT "${GRPC_GFLAGS_INCLUDE_DIR}" DIRECTORY)
   get_target_property(GRPC_RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(GRPC_RE2_ROOT "${GRPC_RE2_INCLUDE_DIR}" DIRECTORY)
 
@@ -3971,7 +3968,6 @@ macro(build_grpc)
   # before (what are likely) system directories
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ABSL_PREFIX}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_PB_ROOT}")
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_GFLAGS_ROOT}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_CARES_ROOT}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_RE2_ROOT}")
 
@@ -4021,7 +4017,6 @@ macro(build_grpc)
       -DgRPC_BUILD_GRPC_RUBY_PLUGIN=OFF
       -DgRPC_BUILD_TESTS=OFF
       -DgRPC_CARES_PROVIDER=package
-      -DgRPC_GFLAGS_PROVIDER=package
       -DgRPC_MSVC_STATIC_RUNTIME=${ARROW_USE_STATIC_CRT}
       -DgRPC_PROTOBUF_PROVIDER=package
       -DgRPC_RE2_PROVIDER=package
