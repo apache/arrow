@@ -314,15 +314,27 @@ TYPED_TEST(TestBinaryKernels, NonUtf8Regex) {
                      this->MakeArray({"\xfc\x40", "this \xfc\x40 that \xfc\x40"}),
                      this->MakeArray({"bazz", "this bazz that \xfc\x40"}), &options);
   }
-  // TODO the following test is broken (GH-45735)
   {
-    ExtractRegexOptions options("(?P<letter>[\\xfc])(?P<digit>\\d)");
-    auto null_bitmap = std::make_shared<Buffer>("0");
-    auto output = StructArray::Make(
-        {this->MakeArray({"\xfc", "1"}), this->MakeArray({"\xfc", "2"})},
-        {field("letter", this->type()), field("digit", this->type())}, null_bitmap);
-    this->CheckUnary("extract_regex", this->MakeArray({"foo\xfc 1bar", "\x02\xfc\x40"}),
-                     std::static_pointer_cast<Array>(*output), &options);
+    ExtractRegexOptions options("(?P<letter>[\xfc])(?P<digit>\\d+)");
+    ASSERT_OK_AND_ASSIGN(
+        auto output,
+        StructArray::Make(
+            {this->MakeArray({"\xfc", "\xfc"}), this->MakeArray({"14", "2"})},
+            {field("letter", this->type()), field("digit", this->type())}));
+    this->CheckUnary("extract_regex",
+                     this->MakeArray({"foo\xfc\x31\x34 bar", "\x02\xfc\x32"}), output,
+                     &options);
+  }
+  {
+    ExtractRegexSpanOptions options("(?P<letter>[\xfc])(?P<digit>\\d+)");
+    auto offset_type = is_binary_like(this->type()->id()) ? int32() : int64();
+    auto out_type = struct_({field("letter", fixed_size_list(offset_type, 2)),
+                             field("digit", fixed_size_list(offset_type, 2))});
+    this->CheckUnary("extract_regex_span",
+                     this->MakeArray({"foo\xfc\x31\x34 bar", "\x02\xfc\x32"}), out_type,
+                     R"([{"letter": [3, 1], "digit": [4, 2]},
+                         {"letter": [1, 1], "digit": [2, 1]}])",
+                     &options);
   }
 }
 
@@ -371,18 +383,30 @@ TYPED_TEST(TestBinaryKernels, NonUtf8WithNullRegex) {
                      this->template MakeArray<std::string>({{"\x00\x40", 2}}),
                      this->type(), R"(["bazz"])", &options);
   }
-  // TODO the following test is broken (GH-45735)
   {
-    ExtractRegexOptions options("(?P<null>[\\x00])(?P<digit>\\d)");
-    auto null_bitmap = std::make_shared<Buffer>("0");
-    auto output = StructArray::Make(
-        {this->template MakeArray<std::string>({{"\x00", 1}, {"1", 1}}),
-         this->template MakeArray<std::string>({{"\x00", 1}, {"2", 1}})},
-        {field("null", this->type()), field("digit", this->type())}, null_bitmap);
-    this->CheckUnary(
-        "extract_regex",
-        this->template MakeArray<std::string>({{"foo\x00 1bar", 9}, {"\x02\x00\x40", 3}}),
-        std::static_pointer_cast<Array>(*output), &options);
+    ExtractRegexOptions options(std::string("(?P<null>[\x00])(?P<digit>\\d+)", 27));
+    ASSERT_OK_AND_ASSIGN(
+        auto output,
+        StructArray::Make(
+            {this->template MakeArray<std::string>({{"\x00", 1}, {"\x00", 1}}),
+             this->template MakeArray<std::string>({"14", "2"})},
+            {field("null", this->type()), field("digit", this->type())}));
+    this->CheckUnary("extract_regex",
+                     this->template MakeArray<std::string>(
+                         {{"foo\x00\x31\x34 bar", 10}, {"\x02\x00\x32", 3}}),
+                     output, &options);
+  }
+  {
+    ExtractRegexSpanOptions options(std::string("(?P<null>[\x00])(?P<digit>\\d+)", 27));
+    auto offset_type = is_binary_like(this->type()->id()) ? int32() : int64();
+    auto out_type = struct_({field("null", fixed_size_list(offset_type, 2)),
+                             field("digit", fixed_size_list(offset_type, 2))});
+    this->CheckUnary("extract_regex_span",
+                     this->template MakeArray<std::string>(
+                         {{"foo\x00\x31\x34 bar", 10}, {"\x02\x00\x32", 3}}),
+                     out_type, R"([{"null": [3, 1], "digit": [4, 2]},
+                                   {"null": [1, 1], "digit": [2, 1]}])",
+                     &options);
   }
   {
     ReplaceSliceOptions options(1, 2, std::string("\x00\x40", 2));

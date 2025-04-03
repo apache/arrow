@@ -38,32 +38,28 @@ checking_for(checking_message("Homebrew")) do
   end
 end
 
-unless required_pkg_config_package([
-                                     "arrow",
-                                     Arrow::Version::MAJOR,
-                                   ],
-                                   conda: "libarrow",
-                                   debian: "libarrow-dev",
-                                   fedora: "libarrow-devel",
-                                   homebrew: "apache-arrow",
-                                   msys2: "arrow",
-                                   redhat: "arrow-devel")
-  exit(false)
+unless PKGConfig.have_package("arrow", Arrow::Version::MAJOR)
+  raise <<-MESSAGE
+Apache Arrow C++ >= #{Arrow::Version::MAJOR} isn't found.
+You can install it automatically by enabling rubygems-requirements-system.
+See https://github.com/ruby-gnome/rubygems-requirements-system/ how to enable it.
+  MESSAGE
 end
 
-unless required_pkg_config_package([
-                                     "arrow-glib",
-                                     Arrow::Version::MAJOR,
-                                     Arrow::Version::MINOR,
-                                     Arrow::Version::MICRO,
-                                   ],
-                                   conda: "arrow-c-glib",
-                                   debian: "libarrow-glib-dev",
-                                   fedora: "libarrow-glib-devel",
-                                   homebrew: "apache-arrow-glib",
-                                   msys2: "arrow",
-                                   redhat: "arrow-glib-devel")
-  exit(false)
+unless PKGConfig.have_package("arrow-glib",
+                              Arrow::Version::MAJOR,
+                              Arrow::Version::MINOR,
+                              Arrow::Version::MICRO)
+  verison = [
+    Arrow::Version::MAJOR,
+    Arrow::Version::MINOR,
+    Arrow::Version::MICRO,
+  ].join(".")
+  raise <<-MESSAGE
+Apache Arrow GLib >= #{version} isn't found.
+You can install it automatically by enabling rubygems-requirements-system.
+See https://github.com/ruby-gnome/rubygems-requirements-system/ how to enable it.
+  MESSAGE
 end
 
 # Old re2.pc (e.g. re2.pc on Ubuntu 20.04) may add -std=c++11. It

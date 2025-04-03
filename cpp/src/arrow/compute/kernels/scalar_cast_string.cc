@@ -314,7 +314,9 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 template <typename O, typename I>
 enable_if_t<is_binary_view_like_type<I>::value && is_base_binary_type<O>::value, Status>
 BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  using OutputBuilderType = typename TypeTraits<O>::BuilderType;
+  using offset_type = typename O::offset_type;
+  using DataBuilder = TypedBufferBuilder<uint8_t>;
+  using OffsetBuilder = TypedBufferBuilder<offset_type>;
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
   const ArraySpan& input = batch[0].array;
 
@@ -327,31 +329,36 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
     }
   }
 
+  ArrayData* output = out->array_data().get();
+  output->length = input.length;
+  output->SetNullCount(input.null_count);
+
+  // Set up validity bitmap
+  ARROW_ASSIGN_OR_RAISE(output->buffers[0],
+                        GetOrCopyNullBitmapBuffer(input, ctx->memory_pool()));
+
+  // Set up offset and data buffer
+  OffsetBuilder offset_builder(ctx->memory_pool());
+  RETURN_NOT_OK(offset_builder.Reserve(input.length + 1));
+  offset_builder.UnsafeAppend(0);  // offsets start at 0
   const int64_t sum_of_binary_view_sizes = util::SumOfBinaryViewSizes(
       input.GetValues<BinaryViewType::c_type>(1), input.length);
-
-  // TODO(GH-43573): A more efficient implementation that copies the validity
-  // bitmap all at once is possible, but would mean we don't delegate all the
-  // building logic to the ArrayBuilder implementation for the output type.
-  OutputBuilderType builder(options.to_type.GetSharedPtr(), ctx->memory_pool());
-  RETURN_NOT_OK(builder.Resize(input.length));
-  RETURN_NOT_OK(builder.ReserveData(sum_of_binary_view_sizes));
-  arrow::internal::ArraySpanInlineVisitor<I> visitor;
-  RETURN_NOT_OK(visitor.VisitStatus(
+  DataBuilder data_builder(ctx->memory_pool());
+  RETURN_NOT_OK(data_builder.Reserve(sum_of_binary_view_sizes));
+  VisitArraySpanInline<I>(
       input,
-      [&](std::string_view v) {
-        // Append valid string view
-        return builder.Append(v);
+      [&](std::string_view s) {
+        // for non-null value, append string view to buffer and calculate offset
+        data_builder.UnsafeAppend(reinterpret_cast<const uint8_t*>(s.data()),
+                                  static_cast<int64_t>(s.size()));
+        offset_builder.UnsafeAppend(static_cast<offset_type>(data_builder.length()));
       },
       [&]() {
-        // Append null
-        builder.UnsafeAppendNull();
-        return Status::OK();
-      }));
-
-  std::shared_ptr<ArrayData> output_array;
-  RETURN_NOT_OK(builder.FinishInternal(&output_array));
-  out->value = std::move(output_array);
+        // for null value, no need to update data buffer
+        offset_builder.UnsafeAppend(static_cast<offset_type>(data_builder.length()));
+      });
+  RETURN_NOT_OK(offset_builder.Finish(&output->buffers[1]));
+  RETURN_NOT_OK(data_builder.Finish(&output->buffers[2]));
   return Status::OK();
 }
 

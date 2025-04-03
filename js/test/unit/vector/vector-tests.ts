@@ -16,7 +16,7 @@
 // under the License.
 
 import {
-    Bool, DateDay, DateMillisecond, Dictionary, Float64, Int32, List, makeVector, Struct, Utf8, LargeUtf8, util, Vector, vectorFromArray, makeData
+    Bool, DateDay, DateMillisecond, Dictionary, Float64, Int32, List, makeVector, Struct, Utf8, LargeUtf8, util, Vector, vectorFromArray, makeData, FixedSizeList, Field,
 } from 'apache-arrow';
 
 describe(`makeVectorFromArray`, () => {
@@ -323,3 +323,40 @@ function basicVectorTests(vector: Vector, values: any[], extras: any[]) {
         }
     });
 }
+
+// GH-45862: Make sure vectorFromArray produces the correct result for
+// FixedSizeList with null slots
+describe(`vecorFromArray() with FixedSizeList<T> and null slots`, () => {
+    test(`correct child length with null slot first`, () => {
+        let vector = vectorFromArray(
+            [null, [1, 2, 3]],
+            new FixedSizeList(3, new Field('item', new Int32())),
+        );
+        let child = vector.getChildAt(0);
+
+        expect(child).toHaveLength(6);
+        expect(child?.nullCount).toBe(3);
+    });
+
+    test(`correct child length with null slot last`, () => {
+        let vector = vectorFromArray(
+            [[1, 2, 3], null],
+            new FixedSizeList(3, new Field('item', new Int32())),
+        );
+        let child = vector.getChildAt(0);
+
+        expect(child).toHaveLength(6);
+        expect(child?.nullCount).toBe(3);
+    });
+
+    test(`correct child length with null in the middle`, () => {
+        let vector = vectorFromArray(
+            [[1, 2, 3], null, [7, 8, 9]],
+            new FixedSizeList(3, new Field('item', new Int32())),
+        );
+        let child = vector.getChildAt(0);
+
+        expect(child).toHaveLength(9);
+        expect(child?.nullCount).toBe(3);
+    });
+});

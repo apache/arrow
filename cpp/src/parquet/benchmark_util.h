@@ -23,7 +23,7 @@
 
 #include "parquet/types.h"
 
-namespace parquet::benchmark {
+namespace parquet::benchmarks {
 
 template <typename T>
 void GenerateBenchmarkData(uint32_t size, uint32_t seed, T* data,
@@ -44,4 +44,4 @@ _GENERATE_BENCHMARK_DATA_DECL(Int96)
 
 #undef _GENERATE_BENCHMARK_DATA_DECL
 
-}  // namespace parquet::benchmark
+}  // namespace parquet::benchmarks

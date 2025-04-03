@@ -58,7 +58,7 @@ pytestmark = pytest.mark.parquet
 
 @pytest.mark.pandas
 @pytest.mark.parametrize('chunk_size', [None, 1000])
-def test_parquet_2_0_roundtrip(tempdir, chunk_size):
+def test_parquet_2_6_roundtrip(tempdir, chunk_size):
     df = alltypes_sample(size=10000, categorical=True)
 
     filename = tempdir / 'pandas_roundtrip.parquet'
@@ -521,3 +521,15 @@ def test_json_extension_type(storage_type):
     table = pa.table([arr], names=["ext"])
 
     _simple_table_roundtrip(table)
+
+
+def test_undefined_logical_type(parquet_test_datadir):
+    test_file = f"{parquet_test_datadir}/unknown-logical-type.parquet"
+
+    table = _read_table(test_file)
+    assert table.column_names == ["column with known type", "column with unknown type"]
+    assert table["column with unknown type"].to_pylist() == [
+        b"unknown string 1",
+        b"unknown string 2",
+        b"unknown string 3"
+    ]

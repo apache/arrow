@@ -482,7 +482,8 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
   } else if (type.__isset.VARIANT) {
     return VariantLogicalType::Make();
   } else {
-    throw ParquetException("Metadata contains Thrift LogicalType that is not recognized");
+    // Sentinel type for one we do not recognize
+    return UndefinedLogicalType::Make();
   }
 }
 
