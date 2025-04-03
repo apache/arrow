@@ -6,6 +6,6 @@
     "glib",
     "pkgconf"
   ],
-  "$comment": "You can update builtin-baseline by 'vcpkg x-update-baseline'",
-  "builtin-baseline": "1852c473a9d8dbb632693f533d7c7c550cb7a07a"
+  "$comment": "We can update builtin-baseline by 'vcpkg x-update-baseline'",
+  "builtin-baseline": "09f6a4ef2f08252f7f4d924fd9c2d42165fb21c9"
 }
