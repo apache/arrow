@@ -411,8 +411,6 @@ jobs:
       - name: Setup NuGet credentials for vcpkg caching
         shell: bash
         run: |
-          echo $PATH
-          which vcpkg
           $(vcpkg fetch nuget | tail -n 1) \
             sources add \
             -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
@@ -426,7 +424,9 @@ jobs:
       - name: Build C++
         shell: cmd
         run: |
+          set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
@@ -440,6 +440,7 @@ jobs:
       - name: Build GLib
         shell: cmd
         run: |
+          set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          set PATH=%VCPKG_ROOT%;%PATH%
+          set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
           bash -c "ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build"
