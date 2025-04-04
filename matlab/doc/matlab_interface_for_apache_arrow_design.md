@@ -119,37 +119,37 @@ They could directly convert from an existing MATLAB `table` to an `arrow.Table` 
 
 >> Density = [10.2; 20.5; 11.2; 13.7; 17.8]; 
 
->> T = table(Weight, Radius, Density); % Create a MATLAB table 
+% Create a MATLAB `table`
+>> T = table(Weight, Radius, Density);
 
->> AT = arrow.table(T); % Create an arrow.Table 
+% Create an `arrow.tabular.Table` from the MATLAB `table`
+>> AT = arrow.table(T);
 ```
 
 To serialize the `arrow.Table`, `AT`, to a file (e.g. Feather) on disk, the user could then instantiate an `arrow.io.ipc.RecordBatchFileWriter`. 
 
 ###### Example Code: 
 ``` matlab
-% create a RecordBatch out of the table from the previous example
+% Make an `arrow.tabular.RecordBatch` from the `arrow.tabular.Table` created in the previous step
 >> recordBatch = arrow.recordBatch(AT);
->> filename = fullfile(pwd, "data.arrow");
+>> filename = "data.arrow";
 
-% write the RecordBatch schema and the RecordBatch itself
 >> writer = arrow.io.ipc.RecordBatchFileWriter(filename, recordBatch.Schema);
 >> writer.writeRecordBatch(recordBatch);
 
-% close the writer to enable reading 
+% Close the writer to finalize writing
 >> writer.close();
 ```
 The Feather file could then be read and operated on by an external process like Rust or Go. To read it back into MATLAB after modification by another process, the user could instantiate an `arrow.io.ipc.RecordBatchFileReader`. 
 
 ###### Example Code: 
 ``` matlab
-% open record batch file reader
 >> reader = arrow.io.ipc.RecordBatchFileReader(filename);
 
-% read in the first RecordBatch
+% Read in the first RecordBatch
 >> newBatch = reader.read(1);
 
-% create a table that matches AT before it was written to data.arrow from the RecordBatch
+% Create a MATLAB `table` from the `arrow.tabular.RecordBatch`
 >> AT = table(newBatch);
 ```
 #### Advanced MATLAB User Workflow for Implementing Support for Writing to Feather Files 
@@ -187,7 +187,7 @@ Memory addresses to the `ArrowArray` and `ArrowSchema` structs are returned by t
 % Create a MATLAB arrow.Array. 
 >> AA = arrow.array([1, 2, 3, 4, 5]); 
 
-% create C Data Interface for array values and schema
+% Export C Data Interface C-style structs for `arrow.array.Array` values and schema
 >> cArray = arrow.c.Array();
 >> cSchema = arrow.c.Schema();
 
@@ -200,7 +200,9 @@ Memory addresses to the `ArrowArray` and `ArrowSchema` structs are returned by t
 ```
 Conversely, a user can create an Arrow array using PyArrow and share it with MATLAB. To do this, they can call the method `_export_to_c` to export a `pyarrow.Array` to the C Data Interface format. 
 
-Since the python calls to `_export_to_c` and `_import_from_c` have underscores at the beginning, they cannot be called in MATLAB. MATLAB member functions or variables are not allowed to start with an underscore shown [in the "variable names" syntax page on the Mathworks website](https://www.mathworks.com/help/matlab/matlab_prog/variable-names.html). Instead, to initialize your Python pyarrow array, you must use MATLAB's built-in `pyrun` to execute code in Python, which allows for variables and functions to start with underscore.
+**NOTE:** Since the python calls to `_export_to_c` and `_import_from_c` have underscores at the beginning of their names, they cannot be called directly in MATLAB. MATLAB member functions or variables are [not allowed to start with an underscore](https://www.mathworks.com/help/matlab/matlab_prog/variable-names.html). 
+
+To initialize a Python `pyarrow` array, the MATLAB `pyrunfile` command can be used, which supports the execution of Python code containing variables and functions with names that start with an underscore. 
 
 The memory addresses to the `ArrowArray` and `ArrowSchema` structs populated by the call to `_export_to_c` can be passed to the static method `arrow.Array.importFromCDataInterface` to construct a MATLAB `arrow.Array` with zero copies. 
 
@@ -222,7 +224,6 @@ The example code below is adapted from the [`test_cffi.py` test cases for PyArro
 >> AA = arrow.array.Array.import(cArray, cSchema);
 ```
 
-For the same reasons as mentioned above in the export from MATLAB to Python example, we must also run the export command inside of the `pyrun` function.
 
 #### Out-of-Process Memory Sharing 
 
