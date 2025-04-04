@@ -25,3 +25,4 @@ Version: @ARROW_VERSION@
 Requires: arrow cuda
 Libs: -L${libdir} -larrow_cuda
 Cflags: -I${includedir}
+Cflags.private: -DARROW_CUDA_STATIC
