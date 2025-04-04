@@ -817,6 +817,12 @@ Note that the chunk size is calculated on the logical values before applying any
 or compression. The actual size of the data pages may vary based on the encoding and
 compression used.
 
+.. note::
+   Ensure that Parquet write options remain consistent across writes and files.
+   Using different write options (like compression, encoding, or row group size)
+   for different files may prevent proper deduplication and lead to suboptimal
+   storage efficiency.
+
 .. code-block:: python
 
    import pyarrow as pa
