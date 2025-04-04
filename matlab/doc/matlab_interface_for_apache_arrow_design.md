@@ -132,12 +132,12 @@ To serialize the `arrow.Table`, `AT`, to a file (e.g. Feather) on disk, the user
 ``` matlab
 % Make an `arrow.tabular.RecordBatch` from the `arrow.tabular.Table` created in the previous step
 >> recordBatch = arrow.recordBatch(AT);
->> filename = "data.arrow";
-% Write the `arrow.tabular.RecordBatch` using Feather locally to `data.arrow`
+>> filename = "data.feather";
+% Write the `arrow.tabular.RecordBatch` to disk as a Feather V1 file named `data.feather`
 >> writer = arrow.internal.io.feather.Writer(filename);
 >> writer.write(recordBatch);
 ```
-The Feather file could then be read and operated on by an external process like Rust or Go. To read it back into MATLAB after modification by another process, the user could instantiate an `arrow.internal.io.feather.Reader`. 
+The Feather V1 file could then be read and operated on by an external process like Rust or Go. To read it back into MATLAB, the user could instantiate an `arrow.internal.io.feather.Reader`. 
 
 ###### Example Code: 
 ``` matlab
@@ -151,11 +151,11 @@ The Feather file could then be read and operated on by an external process like 
 ```
 #### Advanced MATLAB User Workflow for Implementing Support for Writing to Feather Files 
 
-To add support for writing to Feather files, an advanced MATLAB user could use the MATLAB and C++ APIs offered by the MATLAB Interface for Apache Arrow to create `arrow.internal.io.feather.Writer`. 
+To add support for writing to Feather V1 files, an advanced MATLAB user could use the MATLAB and C++ APIs offered by the MATLAB Interface for Apache Arrow to create `arrow.internal.io.feather.Writer`. 
 
 They would need to author a [MEX function] (e.g. `featherwriteMEX`), which can be called directly by MATLAB code. Within their MEX function, they could use `arrow::matlab::unwrap_table` to convert between the MATLAB representation of the Arrow memory (`arrow.Table`) and the equivalent C++ representation (`arrow::Table`). Once the `arrow.Table` has been "unwrapped" into a C++ `arrow::Table`, it can be passed to the appropriate Arrow C++ library API for writing to a Feather file (`arrow::ipc::feather::WriteTable`). 
 
-An analogous workflow could be followed to create `arrow.internal.io.feather.Reader` to enable reading from Feather files. 
+An analogous workflow could be followed to create `arrow.internal.io.feather.Reader` to enable reading from Feather V1 files. 
 
 #### Enabling High-Level Workflows 
 
@@ -177,14 +177,15 @@ Roughly speaking, local memory sharing workflows can be divided into two categor
 
 To share a MATLAB `arrow.Array` with PyArrow efficiently, a user could use the `exportToCDataInterface` method to export the Arrow memory wrapped by an `arrow.Array` to the C Data Interface format, consisting of two C-style structs, [`ArrowArray`] and [`ArrowSchema`], which represent the Arrow data and associated metadata. 
 
-Memory addresses to the `ArrowArray` and `ArrowSchema` structs are returned by the call to `export`. These addresses can be passed to Python directly, without having to make any copies of the underlying Arrow data structures that they refer to. A user can then wrap the underlying data pointed to by the `ArrowArray` struct (which is already in the [Arrow Columnar Format]), as well as extract the necessary metadata from the `ArrowSchema` struct, to create a `pyarrow.Array` by using the static method `pyarrow.Array._import_from_c`. 
+Memory addresses for the `ArrowArray` and `ArrowSchema` structs are returned by the call to `export`. These addresses can be passed to Python directly, without having to make any copies of the underlying Arrow data structures that they refer to. A user can then wrap the underlying data pointed to by the `ArrowArray` struct (which is already in the [Arrow Columnar Format]), as well as extract the necessary metadata from the `ArrowSchema` struct, to create a `pyarrow.Array` by using the static method `pyarrow.Array._import_from_c`. 
 
-Since we require multiple lines to import our matlab Arrow array into python, we'll use a function called `pyrunfile`, which allows us to [execute Python statements in a file supplied as an argument to the function](https://www.mathworks.com/help/matlab/ref/pyrunfile.html).
+Multiple lines of Python are required to import the Arrow array from MATLAB. Therefore, the function [`pyrunfile`]((https://www.mathworks.com/help/matlab/ref/pyrunfile.html)) can be used when can run Python scripts defined in an external file.
 
 ###### Example Code: 
 
 ```python
-# file located in same directory as the matlab file, named import_from_c.py
+# Filename: import_from_c.py
+# Note: This file is located in same directory as the MATLAB file.
 import pyarrow as pa
 array = pa.Array._import_from_c(arrayMemoryAddress, schemaMemoryAddress)
 ```
@@ -208,14 +209,15 @@ Conversely, a user can create an Arrow array using PyArrow and share it with MAT
 
 **NOTE:** Since the python calls to `_export_to_c` and `_import_from_c` have underscores at the beginning of their names, they cannot be called directly in MATLAB. MATLAB member functions or variables are [not allowed to start with an underscore](https://www.mathworks.com/help/matlab/matlab_prog/variable-names.html). 
 
-To initialize a Python `pyarrow` array, the MATLAB `pyrunfile` command can be used, which supports the execution of Python code containing variables and functions with names that start with an underscore. 
+To initialize a Python `pyarrow` array, `pyrunfile` can (again) be used to execute a Python script containing variables and functions with names that start with an underscore. 
 
 The memory addresses to the `ArrowArray` and `ArrowSchema` structs populated by the call to `_export_to_c` can be passed to the static method `arrow.Array.importFromCDataInterface` to construct a MATLAB `arrow.Array` with zero copies. 
 
 ###### Example Code: 
 
 ```python
-# file located in same directory as the matlab file, named export_to_c.py
+# Filename: export_to_c.py
+# Note: This file is located in same directory as the MATLAB file.
 import pyarrow as pa
 PA._export_to_c(arrayMemoryAddress, schemaMemoryAddress)
 ```
@@ -260,10 +262,10 @@ For large tables used in a multi-process "data processing pipeline", a user coul
 
 >> filename = "data.arrow"
 
-% open `data.arrow` as an IPC file
+% Open `data.arrow` as an IPC file
 >> writer = arrow.io.ipc.RecordBatchFileWriter(filename, recordBatch.Schema);
 
-% write the `RecordBatch` to `data.arrow`
+% Write the `RecordBatch` to `data.arrow`
 >> writer.writeRecordBatch(recordBatch);
 
 % Close the writer -- don't forget this step!
