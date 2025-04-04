@@ -48,17 +48,17 @@ class PARQUET_EXPORT SecureString {
   bool operator==(const SecureString&) const;
   bool operator!=(const SecureString&) const;
 
-  ~SecureString() { dispose(); }
+  ~SecureString() { Dispose(); }
 
   [[nodiscard]] bool empty() const;
   [[nodiscard]] std::size_t size() const;
   [[nodiscard]] std::size_t length() const;
   [[nodiscard]] ::arrow::util::span<const uint8_t> as_span() const;
 
-  void dispose();
+  void Dispose();
 
-  static void secure_clear(std::string&);
-  static void secure_clear(uint8_t* data, size_t size);
+  static void SecureClear(std::string&);
+  static void SecureClear(uint8_t* data, size_t size);
 
  private:
   std::string secret_;

@@ -37,7 +37,7 @@ TEST(TestSecureString, SecureClearString) {
   // short string
   {
     std::string tiny("abc");
-    SecureString::secure_clear(tiny);
+    SecureString::SecureClear(tiny);
     assert_securely_cleared(tiny);
   }
 
@@ -45,7 +45,7 @@ TEST(TestSecureString, SecureClearString) {
   {
     std::string large(1024, 'x');
     large.resize(1024, 'y');
-    SecureString::secure_clear(large);
+    SecureString::SecureClear(large);
     assert_securely_cleared(large);
   }
 
@@ -55,7 +55,7 @@ TEST(TestSecureString, SecureClearString) {
     // we test that all those characters are securely cleared
     std::string empty("abcdef");
     empty.resize(0);
-    SecureString::secure_clear(empty);
+    SecureString::SecureClear(empty);
     assert_securely_cleared(empty);
   }
 }
