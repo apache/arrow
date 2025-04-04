@@ -127,7 +127,6 @@ class ContentDefinedChunker::Impl {
   void Roll(const uint8_t* value) {
     // Update the rolling hash with a compile-time known sized value, set has_matched_ to
     // true if the hash matches the mask.
-
     chunk_size_ += kByteWidth;
     if (chunk_size_ < min_chunk_size_) {
       // short-circuit if we haven't reached the minimum chunk size, this speeds up the
@@ -148,7 +147,6 @@ class ContentDefinedChunker::Impl {
   void Roll(const uint8_t* value, int64_t length) {
     // Update the rolling hash with a binary-like value, set has_matched_ to true if the
     // hash matches the mask.
-
     chunk_size_ += length;
     if (chunk_size_ < min_chunk_size_) {
       // short-circuit if we haven't reached the minimum chunk size, this speeds up the
@@ -172,6 +170,8 @@ class ContentDefinedChunker::Impl {
       // we use central limit theorem to approximate normal distribution, see
       // section 6.2.1 in paper https://www.cidrdb.org/cidr2023/papers/p43-low.pdf)
       if (ARROW_PREDICT_FALSE(++nth_run_ >= kNumGearhashTables)) {
+        // note that we choose not to reset the rolling hash state here, nor anywhere else
+        // in the code, in practice this doesn't seem to affect the chunking effectiveness
         nth_run_ = 0;
         chunk_size_ = 0;
         return true;
