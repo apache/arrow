@@ -79,7 +79,7 @@ add_arrow_lib(arrow_cuda
 add_dependencies(arrow_cuda ${ARROW_CUDA_LIBRARIES})
 
 foreach(LIB_TARGET ${ARROW_CUDA_LIBRARIES})
-  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
+  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_CUDA_EXPORTING)
 endforeach()
 
 # CUDA build version
