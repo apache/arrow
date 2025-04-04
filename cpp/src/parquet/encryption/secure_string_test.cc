@@ -22,31 +22,38 @@
 
 namespace parquet::encryption::test {
 
-void assert_securely_cleared(const std::string& string) {
-  // the entire buffer of the string is filled with zeros
-  std::vector<char> zeros(string.capacity());
-  ::arrow::util::span actual(string.data(), string.capacity());
-  ::arrow::util::span expected(zeros.data(), zeros.size());
-  ASSERT_EQ(actual, expected);
+std::string_view StringArea(const std::string& string) {
+  return {string.data(), string.capacity()};
+}
 
-  // the string is empty
-  ASSERT_TRUE(string.empty());
+void AssertSecurelyCleared(std::string_view area) {
+  // the entire area is filled with zeros
+  std::string zeros(area.size(), '\0');
+  ASSERT_EQ(area, std::string_view(zeros));
+}
+
+void AssertSecurelyCleared(const std::string& string) {
+  AssertSecurelyCleared(StringArea(string));
 }
 
 TEST(TestSecureString, SecureClearString) {
   // short string
   {
     std::string tiny("abc");
+    auto old_area = StringArea(tiny);
     SecureString::SecureClear(tiny);
-    assert_securely_cleared(tiny);
+    AssertSecurelyCleared(tiny);
+    AssertSecurelyCleared(old_area);
   }
 
   // long string
   {
     std::string large(1024, 'x');
-    large.resize(1024, 'y');
+    large.resize(512, 'y');
+    auto old_area = StringArea(large);
     SecureString::SecureClear(large);
-    assert_securely_cleared(large);
+    AssertSecurelyCleared(large);
+    AssertSecurelyCleared(old_area);
   }
 
   // empty string
@@ -55,8 +62,10 @@ TEST(TestSecureString, SecureClearString) {
     // we test that all those characters are securely cleared
     std::string empty("abcdef");
     empty.resize(0);
+    auto old_area = StringArea(empty);
     SecureString::SecureClear(empty);
-    assert_securely_cleared(empty);
+    AssertSecurelyCleared(empty);
+    AssertSecurelyCleared(old_area);
   }
 }
 
@@ -64,7 +73,7 @@ TEST(TestSecureString, Construct) {
   // move constructing from a string securely clears that string
   std::string string("hello world");
   SecureString secret_from_string(std::move(string));
-  assert_securely_cleared(string);
+  AssertSecurelyCleared(string);
   ASSERT_FALSE(secret_from_string.empty());
 
   // move constructing from a secure string securely clears that secure string
@@ -85,7 +94,7 @@ TEST(TestSecureString, Assign) {
   std::string string("hello world");
   SecureString secret_from_string;
   secret_from_string = std::move(string);
-  assert_securely_cleared(string);
+  AssertSecurelyCleared(string);
   ASSERT_FALSE(secret_from_string.empty());
 
   // move assigning from a secure string securely clears that secure string
@@ -101,6 +110,27 @@ TEST(TestSecureString, Assign) {
   ASSERT_FALSE(secret_from_move_secret.empty());
   ASSERT_FALSE(secret_from_secret.empty());
   ASSERT_EQ(secret_from_secret, secret_from_move_secret);
+}
+
+TEST(TestSecureString, Compare) {
+  ASSERT_TRUE(SecureString("") == SecureString(""));
+  ASSERT_FALSE(SecureString("") != SecureString(""));
+
+  ASSERT_TRUE(SecureString("hello world") == SecureString("hello world"));
+  ASSERT_FALSE(SecureString("hello world") != SecureString("hello world"));
+
+  ASSERT_FALSE(SecureString("hello world") == SecureString("hello worlds"));
+  ASSERT_TRUE(SecureString("hello world") != SecureString("hello worlds"));
+}
+
+TEST(TestSecureString, Cardinality) {
+  ASSERT_TRUE(SecureString("").empty());
+  ASSERT_EQ(SecureString("").size(), 0);
+  ASSERT_EQ(SecureString("").length(), 0);
+
+  ASSERT_FALSE(SecureString("hello world").empty());
+  ASSERT_EQ(SecureString("hello world").size(), 11);
+  ASSERT_EQ(SecureString("hello world").length(), 11);
 }
 
 TEST(TestSecureString, AsSpan) {
