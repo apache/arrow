@@ -312,10 +312,9 @@ class ContentDefinedChunker::Impl {
                                          const int16_t* rep_levels, int64_t num_levels,
                                          const ::arrow::Array& values) {
     const auto& array = checked_cast<const ArrayType&>(values);
-    const uint8_t* value;
-    typename ArrayType::offset_type length;
     return Calculate(def_levels, rep_levels, num_levels, [&](int64_t i) {
-      value = array.GetValue(i, &length);
+      typename ArrayType::offset_type length;
+      const uint8_t* value = array.GetValue(i, &length);
       Roll(value, length);
     });
   }
