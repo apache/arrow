@@ -46,6 +46,7 @@
 #include <thread>
 
 #include "arrow/result.h"
+#include "arrow/util/affinity.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
@@ -513,7 +514,7 @@ struct CpuInfo::Impl {
     OsRetrieveCacheSize(&cache_sizes);
     OsRetrieveCpuInfo(&hardware_flags, &vendor, &model_name);
     original_hardware_flags = hardware_flags;
-    num_cores = std::max(static_cast<int>(std::thread::hardware_concurrency()), 1);
+    num_cores = std::max(GetAffinityCpuCount(), 1);
 
     // parse user simd level
     auto maybe_env_var = GetEnvVar("ARROW_USER_SIMD_LEVEL");
