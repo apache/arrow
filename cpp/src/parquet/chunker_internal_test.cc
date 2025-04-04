@@ -579,6 +579,22 @@ TEST(TestFindDifferences, DifferentLengths) {
   ASSERT_EQ(diffs[0].second, ChunkList({4, 5}));
 }
 
+TEST(TestFindDifferences, ChangesAtBothEnds) {
+  ChunkList first = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+  ChunkList second = {0, 0, 2, 3, 4, 5, 7, 7, 8};
+  auto diffs = FindDifferences(first, second);
+
+  ASSERT_EQ(diffs.size(), 3);
+  ASSERT_EQ(diffs[0].first, ChunkList({1}));
+  ASSERT_EQ(diffs[0].second, ChunkList({0, 0}));
+
+  ASSERT_EQ(diffs[1].first, ChunkList({6}));
+  ASSERT_EQ(diffs[1].second, ChunkList({7}));
+
+  ASSERT_EQ(diffs[2].first, ChunkList({9}));
+  ASSERT_EQ(diffs[2].second, ChunkList({}));
+}
+
 TEST(TestFindDifferences, EmptyArrays) {
   ChunkList first = {};
   ChunkList second = {};
@@ -596,11 +612,6 @@ TEST(TestFindDifferences, LongSequenceWithSingleDifference) {
   ASSERT_EQ(diffs.size(), 1);
   ASSERT_EQ(diffs[0].first, ChunkList({1994, 2193}));
   ASSERT_EQ(diffs[0].second, ChunkList({2048, 43, 2080}));
-
-  // Verify that elements after the difference are identical
-  for (size_t i = 3; i < second.size(); i++) {
-    ASSERT_EQ(first[i - 1], second[i]);
-  }
 }
 
 TEST(TestFindDifferences, LongSequenceWithMiddleChanges) {
@@ -613,14 +624,6 @@ TEST(TestFindDifferences, LongSequenceWithMiddleChanges) {
   ASSERT_EQ(diffs.size(), 1);
   ASSERT_EQ(diffs[0].first, ChunkList({1934, 1772, 1914, 2075, 2154}));
   ASSERT_EQ(diffs[0].second, ChunkList({2265, 1804, 1717, 1925, 2122}));
-
-  // Verify elements before and after the difference are identical
-  for (size_t i = 0; i < 4; i++) {
-    ASSERT_EQ(first[i], second[i]);
-  }
-  for (size_t i = 9; i < first.size(); i++) {
-    ASSERT_EQ(first[i], second[i]);
-  }
 }
 
 TEST(TestFindDifferences, AdditionalCase) {
@@ -632,14 +635,6 @@ TEST(TestFindDifferences, AdditionalCase) {
 
   ASSERT_EQ(diffs[0].first, ChunkList({401}));
   ASSERT_EQ(diffs[0].second, ChunkList({393}));
-
-  // Verify elements before and after the difference are identical
-  for (size_t i = 0; i < 3; i++) {
-    ASSERT_EQ(original[i], modified[i]);
-  }
-  for (size_t i = 4; i < original.size(); i++) {
-    ASSERT_EQ(original[i], modified[i]);
-  }
 }
 
 void AssertPageLengthDifferences(const ColumnInfo& original, const ColumnInfo& modified,
