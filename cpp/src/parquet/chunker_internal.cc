@@ -24,7 +24,7 @@
 
 #include "arrow/array.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/visit_type_inline.h"
 #include "parquet/chunker_internal_generated.h"
 #include "parquet/exception.h"
@@ -189,12 +189,12 @@ class ContentDefinedChunker::Impl {
 
   void ValidateChunks(const std::vector<Chunk>& chunks, int64_t num_levels) const {
     // chunks must be non-empty and monotonic increasing
-    DCHECK(!chunks.empty());
+    ARROW_DCHECK(!chunks.empty());
 
     // the first chunk must start at the first level
     auto first_chunk = chunks.front();
-    DCHECK_EQ(first_chunk.level_offset, 0);
-    DCHECK_EQ(first_chunk.value_offset, 0);
+    ARROW_DCHECK_EQ(first_chunk.level_offset, 0);
+    ARROW_DCHECK_EQ(first_chunk.value_offset, 0);
 
     // the following chunks must be contiguous, non-overlapping and monotonically
     // increasing
@@ -202,16 +202,17 @@ class ContentDefinedChunker::Impl {
     for (size_t i = 1; i < chunks.size(); ++i) {
       auto chunk = chunks[i];
       auto prev_chunk = chunks[i - 1];
-      DCHECK_GT(chunk.levels_to_write, 0);
-      DCHECK_GE(chunk.value_offset, prev_chunk.value_offset);
-      DCHECK_EQ(chunk.level_offset, prev_chunk.level_offset + prev_chunk.levels_to_write);
+      ARROW_DCHECK_GT(chunk.levels_to_write, 0);
+      ARROW_DCHECK_GE(chunk.value_offset, prev_chunk.value_offset);
+      ARROW_DCHECK_EQ(chunk.level_offset,
+                      prev_chunk.level_offset + prev_chunk.levels_to_write);
       sum_levels += chunk.levels_to_write;
     }
-    DCHECK_EQ(sum_levels, num_levels);
+    ARROW_DCHECK_EQ(sum_levels, num_levels);
 
     // the last chunk must end at the last level
     auto last_chunk = chunks.back();
-    DCHECK_EQ(last_chunk.level_offset + last_chunk.levels_to_write, num_levels);
+    ARROW_DCHECK_EQ(last_chunk.level_offset + last_chunk.levels_to_write, num_levels);
   }
 
   template <typename RollFunc>
