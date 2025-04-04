@@ -126,39 +126,36 @@ They could directly convert from an existing MATLAB `table` to an `arrow.tabular
 >> AT = arrow.table(T);
 ```
 
-To serialize the `arrow.Table`, `AT`, to a file (e.g. Feather) on disk, the user could then instantiate an `arrow.io.ipc.RecordBatchFileWriter`. 
+To serialize the `arrow.Table`, `AT`, to a file (e.g. Feather) on disk, the user could then instantiate an `arrow.internal.io.feather.Writer`. 
 
 ###### Example Code: 
 ``` matlab
 % Make an `arrow.tabular.RecordBatch` from the `arrow.tabular.Table` created in the previous step
 >> recordBatch = arrow.recordBatch(AT);
 >> filename = "data.arrow";
-
->> writer = arrow.io.ipc.RecordBatchFileWriter(filename, recordBatch.Schema);
->> writer.writeRecordBatch(recordBatch);
-
-% Close the writer to finalize writing
->> writer.close();
+% Write the `arrow.tabular.RecordBatch` using Feather locally to `data.arrow`
+>> writer = arrow.internal.io.feather.Writer(filename);
+>> writer.write(recordBatch);
 ```
-The Feather file could then be read and operated on by an external process like Rust or Go. To read it back into MATLAB after modification by another process, the user could instantiate an `arrow.io.ipc.RecordBatchFileReader`. 
+The Feather file could then be read and operated on by an external process like Rust or Go. To read it back into MATLAB after modification by another process, the user could instantiate an `arrow.internal.io.feather.Reader`. 
 
 ###### Example Code: 
 ``` matlab
->> reader = arrow.io.ipc.RecordBatchFileReader(filename);
+>> reader = arrow.internal.io.feather.Reader(filename);
 
 % Read in the first RecordBatch
->> newBatch = reader.read(1);
+>> newBatch = reader.read();
 
 % Create a MATLAB `table` from the `arrow.tabular.RecordBatch`
 >> AT = table(newBatch);
 ```
 #### Advanced MATLAB User Workflow for Implementing Support for Writing to Feather Files 
 
-To add support for writing to Feather files, an advanced MATLAB user could use the MATLAB and C++ APIs offered by the MATLAB Interface for Apache Arrow to create `arrow.FeatherTableWriter`. 
+To add support for writing to Feather files, an advanced MATLAB user could use the MATLAB and C++ APIs offered by the MATLAB Interface for Apache Arrow to create `arrow.internal.io.feather.Writer`. 
 
 They would need to author a [MEX function] (e.g. `featherwriteMEX`), which can be called directly by MATLAB code. Within their MEX function, they could use `arrow::matlab::unwrap_table` to convert between the MATLAB representation of the Arrow memory (`arrow.Table`) and the equivalent C++ representation (`arrow::Table`). Once the `arrow.Table` has been "unwrapped" into a C++ `arrow::Table`, it can be passed to the appropriate Arrow C++ library API for writing to a Feather file (`arrow::ipc::feather::WriteTable`). 
 
-An analogous workflow could be followed to create `arrow.FeatherTableReader` to enable reading from Feather files. 
+An analogous workflow could be followed to create `arrow.internal.io.feather.Reader` to enable reading from Feather files. 
 
 #### Enabling High-Level Workflows 
 
@@ -182,7 +179,16 @@ To share a MATLAB `arrow.Array` with PyArrow efficiently, a user could use the `
 
 Memory addresses to the `ArrowArray` and `ArrowSchema` structs are returned by the call to `export`. These addresses can be passed to Python directly, without having to make any copies of the underlying Arrow data structures that they refer to. A user can then wrap the underlying data pointed to by the `ArrowArray` struct (which is already in the [Arrow Columnar Format]), as well as extract the necessary metadata from the `ArrowSchema` struct, to create a `pyarrow.Array` by using the static method `pyarrow.Array._import_from_c`. 
 
+Since we require multiple lines to import our matlab Arrow array into python, we'll use a function called `pyrunfile`, which allows us to [execute Python statements in a file supplied as an argument to the function](https://www.mathworks.com/help/matlab/ref/pyrunfile.html).
+
 ###### Example Code: 
+
+```python
+# file located in same directory as the matlab file, named import_from_c.py
+import pyarrow as pa
+array = pa.Array._import_from_c(arrayMemoryAddress, schemaMemoryAddress)
+```
+
 ``` matlab
 % Create a MATLAB arrow.Array. 
 >> AA = arrow.array([1, 2, 3, 4, 5]); 
@@ -196,7 +202,7 @@ Memory addresses to the `ArrowArray` and `ArrowSchema` structs are returned by t
 >> AA.export(cArray.Address, cSchema.Address); 
 
 % Import the memory addresses of the C Data Interface format structs to create a pyarrow.Array. 
->> PA = pyrun("import pyarrow as pa; array = pa.Array._import_from_c(arrayMemoryAddress, schemaMemoryAddress)", "array", arrayMemoryAddress=cArray.Address, schemaMemoryAddress=cSchema.Address);
+>> PA = pyrunfile("import_from_c.py", "array", arrayMemoryAddress=cArray.Address, schemaMemoryAddress=cSchema.Address);
 ```
 Conversely, a user can create an Arrow array using PyArrow and share it with MATLAB. To do this, they can call the method `_export_to_c` to export a `pyarrow.Array` to the C Data Interface format. 
 
@@ -206,9 +212,14 @@ To initialize a Python `pyarrow` array, the MATLAB `pyrunfile` command can be us
 
 The memory addresses to the `ArrowArray` and `ArrowSchema` structs populated by the call to `_export_to_c` can be passed to the static method `arrow.Array.importFromCDataInterface` to construct a MATLAB `arrow.Array` with zero copies. 
 
-The example code below is adapted from the [`test_cffi.py` test cases for PyArrow]. 
-
 ###### Example Code: 
+
+```python
+# file located in same directory as the matlab file, named export_to_c.py
+import pyarrow as pa
+PA._export_to_c(arrayMemoryAddress, schemaMemoryAddress)
+```
+
 ``` matlab
 % Make a pyarrow.Array. 
 >> PA = py.pyarrow.array([1, 2, 3, 4, 5]); 
@@ -218,7 +229,7 @@ The example code below is adapted from the [`test_cffi.py` test cases for PyArro
 >> cSchema = arrow.c.Schema();
 
 % Export the pyarrow.Array to the C Data Interface format, populating the required ArrowArray and ArrowShema structs. 
->> pyrun("import pyarrow as pa; PA._export_to_c(arrayMemoryAddress, schemaMemoryAddress)", PA=PA, arrayMemoryAddress=cArray.Address, schemaMemoryAddress=cSchema.Address);
+>> pyrunfile("export_to_c.py", PA=PA, arrayMemoryAddress=cArray.Address, schemaMemoryAddress=cSchema.Address);
 
 % Import the C Data Interface structs to create a MATLAB arrow.Array. 
 >> AA = arrow.array.Array.import(cArray, cSchema);
@@ -245,7 +256,18 @@ For large tables used in a multi-process "data processing pipeline", a user coul
 >> AT = arrow.Table(Var1, Var2, Var3); 
 
 % Write the MATLAB arrow.Table to the Arrow IPC File Format on disk. 
->> arrow.ipcwrite(AT, "data.arrow"); 
+>> recordBatch = arrow.recordBatch(AT);
+
+>> filename = "data.arrow"
+
+% open `data.arrow` as an IPC file
+>> writer = arrow.io.ipc.RecordBatchFileWriter(filename, recordBatch.Schema);
+
+% write the `RecordBatch` to `data.arrow`
+>> writer.writeRecordBatch(recordBatch);
+
+% Close the writer -- don't forget this step!
+>> writer.close()
 
 % Run Python in a separate process. 
 >> pyenv("ExecutionMode", "OutOfProcess");  
