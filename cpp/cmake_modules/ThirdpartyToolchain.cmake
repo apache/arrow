@@ -2285,24 +2285,35 @@ if(ARROW_MIMALLOC)
   endif()
 
   set(MIMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/mimalloc_ep/src/mimalloc_ep")
-  set(MIMALLOC_INCLUDE_DIR "${MIMALLOC_PREFIX}/include/mimalloc-2.0")
+  set(MIMALLOC_INCLUDE_DIR "${MIMALLOC_PREFIX}/include/mimalloc-2.1")
   set(MIMALLOC_STATIC_LIB
-      "${MIMALLOC_PREFIX}/lib/mimalloc-2.0/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${MIMALLOC_PREFIX}/lib/mimalloc-2.1/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
+
+  set(MIMALLOC_C_FLAGS)
+  if(WIN32)
+    # Workaround https://github.com/microsoft/mimalloc/issues/910 on RTools40
+    set(MIMALLOC_C_FLAGS "${MIMALLOC_C_FLAGS} -DERROR_COMMITMENT_MINIMUM=635")
+  endif()
 
   set(MIMALLOC_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_INSTALL_PREFIX=${MIMALLOC_PREFIX}"
+      "-DCMAKE_C_FLAGS=${MIMALLOC_C_FLAGS}"
       -DMI_OVERRIDE=OFF
       -DMI_LOCAL_DYNAMIC_TLS=ON
       -DMI_BUILD_OBJECT=OFF
       -DMI_BUILD_SHARED=OFF
       -DMI_BUILD_TESTS=OFF)
 
+  find_program(PATCH patch REQUIRED)
+  set(MIMALLOC_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/mimalloc.diff)
+
   externalproject_add(mimalloc_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${MIMALLOC_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_MIMALLOC_BUILD_SHA256_CHECKSUM}"
+                      PATCH_COMMAND "${MIMALLOC_PATCH_COMMAND}"
                       CMAKE_ARGS ${MIMALLOC_CMAKE_ARGS}
                       BUILD_BYPRODUCTS "${MIMALLOC_STATIC_LIB}")
 
