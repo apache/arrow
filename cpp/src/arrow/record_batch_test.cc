@@ -26,13 +26,17 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_dict.h"
 #include "arrow/array/array_nested.h"
+#include "arrow/array/builder_base.h"
+#include "arrow/array/builder_binary.h"
 #include "arrow/array/data.h"
+#include "arrow/array/statistics.h"
 #include "arrow/array/util.h"
 #include "arrow/c/abi.h"
 #include "arrow/chunked_array.h"
@@ -45,9 +49,11 @@
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
@@ -1033,15 +1039,44 @@ Result<std::shared_ptr<Array>> BuildArray(
   }
   return builder.Finish();
 }
-
-template <typename ArrowType, typename = enable_if_string<ArrowType>>
-Result<std::shared_ptr<Array>> BuildArray(const std::vector<std::string>& values) {
-  using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
-  BuilderType builder;
-  for (const auto& value : values) {
-    ARROW_RETURN_NOT_OK(builder.Append(value));
+struct StringBuilderVisitor {
+  template <typename DataType,
+            typename Builder = typename TypeTraits<DataType>::BuilderType>
+  enable_if_t<is_base_binary_type<DataType>::value, Status> Visit(
+      const DataType&, ArrayBuilder* raw_builder,
+      const std::vector<std::string>& values) {
+    Builder* builder = static_cast<Builder*>(raw_builder);
+    ARROW_RETURN_NOT_OK(builder->AppendValues(values));
+    return Status::OK();
   }
-  return builder.Finish();
+
+  template <typename DataType,
+            typename Builder = typename TypeTraits<DataType>::BuilderType>
+  enable_if_t<is_binary_view_like_type<DataType>::value ||
+                  std::is_same_v<DataType, FixedSizeBinaryType>,
+              Status>
+  Visit(const DataType&, ArrayBuilder* raw_builder,
+        const std::vector<std::string>& values) {
+    Builder* builder = static_cast<Builder*>(raw_builder);
+    // FixedSizeBinary, StringView, BinaryView do not have AppendValues method
+    for (const auto& value : values) {
+      ARROW_RETURN_NOT_OK(builder->Append(value));
+    }
+    return Status::OK();
+  }
+  Status Visit(const DataType& type, ArrayBuilder*, const std::vector<std::string>&) {
+    return Status::NotImplemented(
+        "Only string types are supported and the current type is", type.ToString());
+  }
+};
+Result<std::shared_ptr<Array>> BuildArray(const std::shared_ptr<DataType>& string_type,
+                                          const std::vector<std::string>& values) {
+  std::unique_ptr<ArrayBuilder> array_builder;
+  ARROW_RETURN_NOT_OK(MakeBuilder(default_memory_pool(), string_type, &array_builder));
+  StringBuilderVisitor visitor;
+  ARROW_RETURN_NOT_OK(
+      VisitTypeInline(*string_type, &visitor, array_builder.get(), values));
+  return array_builder->Finish();
 }
 
 template <typename RawType>
@@ -1056,11 +1091,14 @@ std::vector<RawType> StatisticsValuesToRawValues(
 
 template <typename ValueType, typename = std::enable_if_t<std::is_same<
                                   ArrayStatistics::ValueType, ValueType>::value>>
-Result<std::shared_ptr<Array>> BuildArray(const std::vector<ValueType>& values) {
+Result<std::shared_ptr<Array>> BuildArray(const std::vector<ValueType>& values,
+                                          const std::shared_ptr<DataType>& string_type) {
   struct Builder {
     const std::vector<ArrayStatistics::ValueType>& values_;
-    explicit Builder(const std::vector<ArrayStatistics::ValueType>& values)
-        : values_(values) {}
+    const std::shared_ptr<DataType>& string_type;
+    explicit Builder(const std::vector<ArrayStatistics::ValueType>& values,
+                     const std::shared_ptr<DataType>& string_type)
+        : values_(values), string_type(string_type) {}
 
     Result<std::shared_ptr<Array>> operator()(const bool&) {
       auto values = StatisticsValuesToRawValues<bool>(values_);
@@ -1080,17 +1118,17 @@ Result<std::shared_ptr<Array>> BuildArray(const std::vector<ValueType>& values) 
     }
     Result<std::shared_ptr<Array>> operator()(const std::string&) {
       auto values = StatisticsValuesToRawValues<std::string>(values_);
-      return BuildArray<StringType>(values);
+      return BuildArray(string_type, values);
     }
-  } builder(values);
+  } builder(values, string_type);
   return std::visit(builder, values[0]);
 }
 
 Result<std::shared_ptr<Array>> MakeStatisticsArray(
     const std::string& columns_json,
     const std::vector<std::vector<std::string>>& nested_statistics_keys,
-    const std::vector<std::vector<ArrayStatistics::ValueType>>&
-        nested_statistics_values) {
+    const std::vector<std::vector<ArrayStatistics::ValueType>>& nested_statistics_values,
+    std::vector<std::shared_ptr<DataType>> string_types = {}) {
   auto columns_type = int32();
   auto columns_array = ArrayFromJSON(columns_type, columns_json);
   const auto n_columns = columns_array->length();
@@ -1137,6 +1175,10 @@ Result<std::shared_ptr<Array>> MakeStatisticsArray(
   for (size_t i = 0; i < nested_statistics_keys.size(); ++i) {
     const auto& statistics_keys = nested_statistics_keys[i];
     const auto& statistics_values = nested_statistics_values[i];
+    auto string_type = std::shared_ptr<DataType>(nullptr);
+    if (!string_types.empty()) {
+      string_type = string_types[i];
+    }
     statistics_offsets.push_back(offset);
     for (size_t j = 0; j < statistics_keys.size(); ++j) {
       const auto& key = statistics_keys[j];
@@ -1154,7 +1196,7 @@ Result<std::shared_ptr<Array>> MakeStatisticsArray(
       }
       keys_indices.push_back(key_index);
 
-      auto values_type = ArrayStatistics::ValueToArrowType(value, arrow::null());
+      auto values_type = ArrayStatistics::ValueToArrowType(value, string_type);
       int8_t values_type_code = 0;
       for (; values_type_code < static_cast<int32_t>(values_types.size());
            ++values_type_code) {
@@ -1186,16 +1228,21 @@ Result<std::shared_ptr<Array>> MakeStatisticsArray(
       struct_({field("column", columns_type), field("statistics", statistics_type)});
 
   ARROW_ASSIGN_OR_RAISE(auto keys_indices_array, BuildArray<Int32Type>(keys_indices));
-  ARROW_ASSIGN_OR_RAISE(auto keys_dictionary_array,
-                        BuildArray<StringType>(keys_dictionary));
+  // The statistics schema specifies the type of dictionary key is utf8(StringType)
+  ARROW_ASSIGN_OR_RAISE(auto keys_dictionary_array, BuildArray(utf8(), keys_dictionary));
   ARROW_ASSIGN_OR_RAISE(
       auto keys_array,
       DictionaryArray::FromArrays(keys_type, keys_indices_array, keys_dictionary_array));
 
   std::vector<std::shared_ptr<Array>> values_arrays;
-  for (const auto& values : values_values) {
+  for (size_t i = 0; i < values_values.size(); ++i) {
+    const auto& values = values_values[i];
+    auto string_type = std::shared_ptr<DataType>(nullptr);
+    if (!string_types.empty()) {
+      string_type = string_types[i];
+    }
     ARROW_ASSIGN_OR_RAISE(auto values_array,
-                          BuildArray<ArrayStatistics::ValueType>(values));
+                          BuildArray<ArrayStatistics::ValueType>(values, string_type));
     values_arrays.push_back(values_array);
   }
   ARROW_ASSIGN_OR_RAISE(auto values_value_type_ids_array,
@@ -1424,33 +1471,86 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayMaxApproximate) {
 }
 
 TEST_F(TestRecordBatch, MakeStatisticsArrayString) {
-  auto schema =
-      ::arrow::schema({field("no-statistics", boolean()), field("string", utf8())});
-  auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
-  auto string_array_data = ArrayFromJSON(utf8(), "[\"a\", null, \"c\"]")->data()->Copy();
-  string_array_data->statistics = std::make_shared<ArrayStatistics>();
-  string_array_data->statistics->is_max_exact = true;
-  string_array_data->statistics->max = "c";
-  auto string_array = MakeArray(std::move(string_array_data));
-  auto batch = RecordBatch::Make(schema, string_array->length(),
-                                 {no_statistics_array, string_array});
+  auto CheckString = [](const std::shared_ptr<DataType>& type) {
+    auto schema =
+        ::arrow::schema({field("no-statistics", boolean()), field("string", type)});
+    auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
+    auto string_array_data = ArrayFromJSON(type, "[\"a\", null, \"c\"]")->data()->Copy();
+    string_array_data->statistics = std::make_shared<ArrayStatistics>();
+    string_array_data->statistics->is_max_exact = true;
+    string_array_data->statistics->max = "c";
+    auto string_array = MakeArray(std::move(string_array_data));
+    auto batch = RecordBatch::Make(schema, string_array->length(),
+                                   {no_statistics_array, string_array});
 
+    ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
+
+    ASSERT_OK_AND_ASSIGN(auto expected_statistics_array,
+                         MakeStatisticsArray("[null, 1]",
+                                             {{
+                                                  ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                                              },
+                                              {
+                                                  ARROW_STATISTICS_KEY_MAX_VALUE_EXACT,
+                                              }},
+                                             {{
+                                                  ArrayStatistics::ValueType{int64_t{3}},
+                                              },
+                                              {
+                                                  ArrayStatistics::ValueType{"c"},
+                                              }},
+                                             {nullptr, type}));
+    AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+  };
+
+  // Check each type
+  CheckString(binary());
+  CheckString(utf8());
+  CheckString(large_binary());
+  CheckString(large_utf8());
+  CheckString(binary_view());
+  CheckString(utf8_view());
+  CheckString(fixed_size_binary(1));
+
+  // Check the combination of various string types
+  auto f0 = ArrayFromJSON(utf8(), R"(["a", "b", "c"])");
+  f0->data()->statistics = std::make_shared<ArrayStatistics>();
+  f0->data()->statistics->max = "c";
+
+  auto f1 = ArrayFromJSON(int64(), R"([1, 2, 3])");
+
+  auto f2 = ArrayFromJSON(utf8_view(), R"(["a", "b", "c"])");
+  f2->data()->statistics = std::make_shared<ArrayStatistics>();
+  f2->data()->statistics->max = "c";
+
+  auto schema = ::arrow::schema(
+      {field("f0", utf8()), field("f1", int64()), field("f2", utf8_view())});
+  auto batch = RecordBatch::Make(schema, f0->length(), {f0, f1, f2});
   ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
 
-  ASSERT_OK_AND_ASSIGN(auto expected_statistics_array,
-                       MakeStatisticsArray("[null, 1]",
-                                           {{
-                                                ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
-                                            },
-                                            {
-                                                ARROW_STATISTICS_KEY_MAX_VALUE_EXACT,
-                                            }},
-                                           {{
-                                                ArrayStatistics::ValueType{int64_t{3}},
-                                            },
-                                            {
-                                                ArrayStatistics::ValueType{"c"},
-                                            }}));
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_statistics_array,
+      MakeStatisticsArray("[null, 0, 2]",
+                          {{
+                               ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                           },
+                           {
+                               ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE,
+                           },
+                           {
+                               ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE,
+                           }},
+                          {{
+                               ArrayStatistics::ValueType{int64_t{3}},
+                           },
+                           {
+                               ArrayStatistics::ValueType{"c"},
+                           },
+                           {
+                               ArrayStatistics::ValueType{"c"},
+                           }},
+                          {nullptr, utf8(), utf8_view()}));
+
   AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
 }
 

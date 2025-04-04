@@ -60,6 +60,8 @@ struct ARROW_EXPORT ArrayStatistics {
           case Type::FIXED_SIZE_BINARY:
           case Type::LARGE_STRING:
           case Type::LARGE_BINARY:
+          case Type::BINARY_VIEW:
+          case Type::STRING_VIEW:
             return array_type;
           default:
             return utf8();

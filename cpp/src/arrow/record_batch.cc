@@ -32,6 +32,7 @@
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_union.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/array/statistics.h"
 #include "arrow/array/validate.h"
 #include "arrow/c/abi.h"
 #include "arrow/pretty_print.h"
@@ -39,6 +40,7 @@
 #include "arrow/table.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/vector.h"
@@ -556,6 +558,21 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
   }
   return Status::OK();
 }
+struct StringVisitorBuilder {
+  template <typename DataType,
+            typename Builder = typename TypeTraits<DataType>::BuilderType>
+  enable_if_has_string_view<DataType, Status> Visit(const DataType&,
+                                                    ArrayBuilder* raw_builder,
+                                                    const std::string& value) {
+    Builder* builder = static_cast<Builder*>(raw_builder);
+    return builder->Append(value);
+  }
+
+  Status Visit(const DataType& type, ArrayBuilder*, const std::string&) {
+    return Status::NotImplemented(
+        "Only string types are supported and the current type is ", type.ToString());
+  }
+};
 }  // namespace
 
 Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
@@ -680,8 +697,8 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
         return static_cast<DoubleBuilder*>(builder)->Append(value);
       }
       Status operator()(const std::string& value) {
-        return static_cast<StringBuilder*>(builder)->Append(
-            value.data(), static_cast<int32_t>(value.size()));
+        StringVisitorBuilder visitor_builder;
+        return VisitTypeInline(*builder->type(), &visitor_builder, builder, value);
       }
     } visitor;
     visitor.builder = values_builders[values_type_index].get();
