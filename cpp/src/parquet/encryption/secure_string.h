@@ -53,7 +53,10 @@ class PARQUET_EXPORT SecureString {
   [[nodiscard]] bool empty() const;
   [[nodiscard]] std::size_t size() const;
   [[nodiscard]] std::size_t length() const;
+
+  [[nodiscard]] ::arrow::util::span<uint8_t> as_span();
   [[nodiscard]] ::arrow::util::span<const uint8_t> as_span() const;
+  [[nodiscard]] std::string_view as_view() const;
 
   void Dispose();
 

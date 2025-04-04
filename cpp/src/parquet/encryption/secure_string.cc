@@ -70,9 +70,17 @@ bool SecureString::operator!=(const SecureString& other) const {
 bool SecureString::empty() const { return secret_.empty(); }
 std::size_t SecureString::size() const { return secret_.size(); }
 std::size_t SecureString::length() const { return secret_.length(); }
-::arrow::util::span<const uint8_t> SecureString::as_span() const {
-  return str2span(secret_);
+
+::arrow::util::span<uint8_t> SecureString::as_span() {
+  return {reinterpret_cast<uint8_t*>(secret_.data()), secret_.size()};
 }
+::arrow::util::span<const uint8_t> SecureString::as_span() const {
+  return {reinterpret_cast<const uint8_t*>(secret_.data()), secret_.size()};
+}
+std::string_view SecureString::as_view() const {
+  return {secret_.data(), secret_.size()};
+}
+
 void SecureString::Dispose() { SecureClear(secret_); }
 void SecureString::SecureClear(std::string& secret) {
   secret.clear();
