@@ -366,10 +366,18 @@ def test_parquet_writer_append_key_value_metadata(tempdir):
 def test_parquet_content_defined_chunking(tempdir):
     table = pa.table({'a': range(100_000)})
 
-    pq.write_table(table, tempdir / 'unchunked.parquet')
+    # use PLAIN encoding because we compare the overall size of the row groups
+    # which would vary depending on the encoding making the assertions wrong
+    pq.write_table(table, tempdir / 'unchunked.parquet',
+                   use_dictionary=False,
+                   column_encoding="PLAIN")
     pq.write_table(table, tempdir / 'chunked-default.parquet',
+                   use_dictionary=False,
+                   column_encoding="PLAIN",
                    use_content_defined_chunking=True)
     pq.write_table(table, tempdir / 'chunked-custom.parquet',
+                   use_dictionary=False,
+                   column_encoding="PLAIN",
                    use_content_defined_chunking={"min_chunk_size": 32_768,
                                                  "max_chunk_size": 65_536})
 
@@ -394,11 +402,11 @@ def test_parquet_content_defined_chunking(tempdir):
         rg_chunked_custom = chunked_custom_metadata.row_group(i)
         assert rg_unchunked.num_rows == rg_chunked_default.num_rows
         assert rg_unchunked.num_rows == rg_chunked_custom.num_rows
-        # since PageReader is not exposed we don't cannot inspect the page sizes
+        # since PageReader is not exposed we cannot inspect the page sizes
         # so just check that the total byte size is different
-        assert rg_unchunked.total_byte_size != rg_chunked_default.total_byte_size
-        assert rg_unchunked.total_byte_size != rg_chunked_custom.total_byte_size
-        assert rg_chunked_default.total_byte_size != rg_chunked_custom.total_byte_size
+        assert rg_unchunked.total_byte_size < rg_chunked_default.total_byte_size
+        assert rg_unchunked.total_byte_size < rg_chunked_custom.total_byte_size
+        assert rg_chunked_default.total_byte_size < rg_chunked_custom.total_byte_size
 
 
 def test_parquet_content_defined_chunking_parameters(tempdir):
