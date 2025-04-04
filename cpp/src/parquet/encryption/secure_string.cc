@@ -31,7 +31,7 @@ namespace parquet::encryption {
 SecureString::SecureString(SecureString&& secret) noexcept
     : secret_(std::move(secret.secret_)) {}
 SecureString::SecureString(std::string&& secret) noexcept : secret_(std::move(secret)) {
-  secure_clear(secret);
+  SecureClear(secret);
 }
 
 SecureString& SecureString::operator=(SecureString&& secret) noexcept {
@@ -39,7 +39,7 @@ SecureString& SecureString::operator=(SecureString&& secret) noexcept {
     // self-assignment
     return *this;
   }
-  dispose();
+  Dispose();
   secret_ = std::move(secret.secret_);
   return *this;
 }
@@ -48,14 +48,14 @@ SecureString& SecureString::operator=(const SecureString& secret) noexcept {
     // self-assignment
     return *this;
   }
-  dispose();
+  Dispose();
   secret_ = secret.secret_;
   return *this;
 }
 SecureString& SecureString::operator=(std::string&& secret) noexcept {
-  dispose();
+  Dispose();
   secret_ = std::move(secret);
-  secure_clear(secret);
+  SecureClear(secret);
   return *this;
 }
 
@@ -73,12 +73,12 @@ std::size_t SecureString::length() const { return secret_.length(); }
 ::arrow::util::span<const uint8_t> SecureString::as_span() const {
   return str2span(secret_);
 }
-void SecureString::dispose() { secure_clear(secret_); }
-void SecureString::secure_clear(std::string& secret) {
+void SecureString::Dispose() { SecureClear(secret_); }
+void SecureString::SecureClear(std::string& secret) {
   secret.clear();
-  secure_clear(reinterpret_cast<uint8_t*>(secret.data()), secret.capacity());
+  SecureClear(reinterpret_cast<uint8_t*>(secret.data()), secret.capacity());
 }
-inline void SecureString::secure_clear(uint8_t* data, size_t size) {
+inline void SecureString::SecureClear(uint8_t* data, size_t size) {
   // Heavily borrowed from libb2's `secure_zero_memory` at
   // https://github.com/BLAKE2/libb2/blob/master/src/blake2-impl.h
 #if defined(_WIN32)
