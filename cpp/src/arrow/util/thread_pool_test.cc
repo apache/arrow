@@ -38,6 +38,7 @@
 #include "arrow/testing/executor_util.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/affinity.h"
 #include "arrow/util/config.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
@@ -1039,35 +1040,63 @@ TEST(TestGlobalThreadPool, Capacity) {
   // Exercise default capacity heuristic
   ASSERT_OK(DelEnvVar("OMP_NUM_THREADS"));
   ASSERT_OK(DelEnvVar("OMP_THREAD_LIMIT"));
+
+#ifdef __linux__
+  int expected_capacity = arrow::internal::GetAffinityCpuCount();
+#else
   int hw_capacity = std::thread::hardware_concurrency();
-  ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+  int expected_capacity = hw_capacity;
+#endif
+
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), expected_capacity);
+
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "13"));
   ASSERT_EQ(ThreadPool::DefaultCapacity(), 13);
+
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "7,5,13"));
   ASSERT_EQ(ThreadPool::DefaultCapacity(), 7);
   ASSERT_OK(DelEnvVar("OMP_NUM_THREADS"));
 
   ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "1"));
   ASSERT_EQ(ThreadPool::DefaultCapacity(), 1);
+
   ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "999"));
-  if (hw_capacity <= 999) {
-    ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
-  }
+#ifdef __linux__
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), std::min(999, arrow::internal::GetAffinityCpuCount()));
+#else
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), std::min(999, hw_capacity));
+#endif
+
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "6,5,13"));
   ASSERT_EQ(ThreadPool::DefaultCapacity(), 6);
+
   ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "2"));
   ASSERT_EQ(ThreadPool::DefaultCapacity(), 2);
 
   // Invalid env values
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "0"));
   ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "0"));
+#ifdef __linux__
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), arrow::internal::GetAffinityCpuCount());
+#else
   ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+#endif
+
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "zzz"));
   ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "x"));
+#ifdef __linux__
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), arrow::internal::GetAffinityCpuCount());
+#else
   ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+#endif
+
   ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "-1"));
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "99999999999999999999999999"));
+#ifdef __linux__
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), arrow::internal::GetAffinityCpuCount());
+#else
   ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+#endif
 
   ASSERT_OK(DelEnvVar("OMP_NUM_THREADS"));
   ASSERT_OK(DelEnvVar("OMP_THREAD_LIMIT"));
