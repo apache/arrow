@@ -21,6 +21,7 @@
 #include <string>
 
 #include "arrow/util/span.h"
+#include "parquet/platform.h"
 
 namespace parquet::encryption {
 /**
@@ -33,7 +34,7 @@ namespace parquet::encryption {
  * not noticing the need to securely erasing the argument after invoking the constructor /
  * calling the assignment operator.
  */
-class SecureString {
+class PARQUET_EXPORT SecureString {
  public:
   SecureString() noexcept = default;
   SecureString(SecureString&&) noexcept;
