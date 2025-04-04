@@ -20,7 +20,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace bit_util {

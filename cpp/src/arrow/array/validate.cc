@@ -28,7 +28,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/int_util_overflow.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/ree_util.h"
 #include "arrow/util/sort.h"
 #include "arrow/util/string.h"

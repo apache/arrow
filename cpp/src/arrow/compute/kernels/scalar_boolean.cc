@@ -21,6 +21,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 

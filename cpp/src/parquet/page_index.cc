@@ -27,6 +27,7 @@
 #include "parquet/thrift_internal.h"
 
 #include "arrow/util/int_util_overflow.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/unreachable.h"
 
 #include <limits>

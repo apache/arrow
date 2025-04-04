@@ -27,6 +27,7 @@
 #include "arrow/result.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow::compute::internal {

@@ -24,7 +24,7 @@
 #include "arrow/datum.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/ree_util.h"
 
 namespace arrow {
