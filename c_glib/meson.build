@@ -99,13 +99,6 @@ endif
 
 if arrow_cpp_build_lib_dir == ''
     common_args = {'version': [f'>=@version_no_snapshot@']}
-    if build_machine.system() == 'windows'
-        # pkgconf uses "--static" by default on Windows. It doesn't work
-        # for arrow*.pc because arrow*.pc use "Cflags.private:
-        # -DARROW*_STATIC". Shared libraries don't work with
-        # "-DARROW*_STATIC". So we always use CMake on Windows.
-        common_args += {'method': 'cmake'}
-    endif
     arrow = dependency(
         'arrow',
         'Arrow',

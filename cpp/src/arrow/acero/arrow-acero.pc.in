@@ -24,4 +24,5 @@ Description: Apache Arrow's Acero Engine.
 Version: @ARROW_VERSION@
 Requires: arrow
 Libs: -L${libdir} -larrow_acero
-Cflags.private: -DARROW_ACERO_STATIC
+Cflags:@ARROW_ACERO_PC_CFLAGS@
+Cflags.private:@ARROW_ACERO_PC_CFLAGS_PRIVATE@
