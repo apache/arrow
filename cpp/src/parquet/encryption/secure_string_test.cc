@@ -41,7 +41,7 @@ TEST(TestSecureString, SecureClearString) {
   {
     std::string tiny("abc");
     auto old_area = StringArea(tiny);
-    SecureString::SecureClear(tiny);
+    SecureString::SecureClear(&tiny);
     AssertSecurelyCleared(tiny);
     AssertSecurelyCleared(old_area);
   }
@@ -51,7 +51,7 @@ TEST(TestSecureString, SecureClearString) {
     std::string large(1024, 'x');
     large.resize(512, 'y');
     auto old_area = StringArea(large);
-    SecureString::SecureClear(large);
+    SecureString::SecureClear(&large);
     AssertSecurelyCleared(large);
     AssertSecurelyCleared(old_area);
   }
@@ -63,7 +63,7 @@ TEST(TestSecureString, SecureClearString) {
     std::string empty("abcdef");
     empty.resize(0);
     auto old_area = StringArea(empty);
-    SecureString::SecureClear(empty);
+    SecureString::SecureClear(&empty);
     AssertSecurelyCleared(empty);
     AssertSecurelyCleared(old_area);
   }

@@ -31,7 +31,7 @@ namespace parquet::encryption {
 SecureString::SecureString(SecureString&& secret) noexcept
     : secret_(std::move(secret.secret_)) {}
 SecureString::SecureString(std::string&& secret) noexcept : secret_(std::move(secret)) {
-  SecureClear(secret);
+  SecureClear(&secret);
 }
 
 SecureString& SecureString::operator=(SecureString&& secret) noexcept {
@@ -55,7 +55,7 @@ SecureString& SecureString::operator=(const SecureString& secret) noexcept {
 SecureString& SecureString::operator=(std::string&& secret) noexcept {
   Dispose();
   secret_ = std::move(secret);
-  SecureClear(secret);
+  SecureClear(&secret);
   return *this;
 }
 
@@ -81,10 +81,10 @@ std::string_view SecureString::as_view() const {
   return {secret_.data(), secret_.size()};
 }
 
-void SecureString::Dispose() { SecureClear(secret_); }
-void SecureString::SecureClear(std::string& secret) {
-  secret.clear();
-  SecureClear(reinterpret_cast<uint8_t*>(secret.data()), secret.capacity());
+void SecureString::Dispose() { SecureClear(&secret_); }
+void SecureString::SecureClear(std::string* secret) {
+  secret->clear();
+  SecureClear(reinterpret_cast<uint8_t*>(secret->data()), secret->capacity());
 }
 inline void SecureString::SecureClear(uint8_t* data, size_t size) {
   // Heavily borrowed from libb2's `secure_zero_memory` at
