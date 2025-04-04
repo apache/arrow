@@ -179,7 +179,7 @@ To share a MATLAB `arrow.Array` with PyArrow efficiently, a user could use the `
 
 Memory addresses for the `ArrowArray` and `ArrowSchema` structs are returned by the call to `export`. These addresses can be passed to Python directly, without having to make any copies of the underlying Arrow data structures that they refer to. A user can then wrap the underlying data pointed to by the `ArrowArray` struct (which is already in the [Arrow Columnar Format]), as well as extract the necessary metadata from the `ArrowSchema` struct, to create a `pyarrow.Array` by using the static method `pyarrow.Array._import_from_c`. 
 
-Multiple lines of Python are required to import the Arrow array from MATLAB. Therefore, the function [`pyrunfile`]((https://www.mathworks.com/help/matlab/ref/pyrunfile.html)) can be used when can run Python scripts defined in an external file.
+Multiple lines of Python are required to import the Arrow array from MATLAB. Therefore, the function [`pyrunfile`]((https://www.mathworks.com/help/matlab/ref/pyrunfile.html)) can be used which can run Python scripts defined in an external file.
 
 ###### Example Code: 
 
