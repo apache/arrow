@@ -2404,6 +2404,8 @@ struct SerializeFunctor<
     int64_t non_null_count = array.length() - array.null_count();
     int64_t size = non_null_count * ArrowType::kByteWidth;
     scratch_buffer = AllocateBuffer(ctx->memory_pool, size);
+    scratch_i32 = reinterpret_cast<int32_t*>(scratch_buffer->mutable_data());
+    scratch_i64 = reinterpret_cast<int64_t*>(scratch_buffer->mutable_data());
   }
 
   template <int byte_width>
@@ -2415,32 +2417,32 @@ struct SerializeFunctor<
                   "only 4/8/16/32 byte Decimals supported");
 
     if constexpr (byte_width == ::arrow::Decimal32Type::kByteWidth) {
-      int32_t* scratch = reinterpret_cast<int32_t*>(scratch_buffer->mutable_data());
       const auto* u32_in = reinterpret_cast<const int32_t*>(in);
-      auto out = reinterpret_cast<const uint8_t*>(scratch) + offset;
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u32_in[0]);
+      auto out = reinterpret_cast<const uint8_t*>(scratch_i32) + offset;
+      *scratch_i32++ = ::arrow::bit_util::ToBigEndian(u32_in[0]);
       return FixedLenByteArray(out);
     }
 
-    int64_t* scratch = reinterpret_cast<int64_t*>(scratch_buffer->mutable_data());
     const auto* u64_in = reinterpret_cast<const int64_t*>(in);
-    auto out = reinterpret_cast<const uint8_t*>(scratch) + offset;
+    auto out = reinterpret_cast<const uint8_t*>(scratch_i64) + offset;
     if constexpr (byte_width == ::arrow::Decimal64Type::kByteWidth) {
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+      *scratch_i64++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
     } else if constexpr (byte_width == ::arrow::Decimal128Type::kByteWidth) {
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+      *scratch_i64++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
+      *scratch_i64++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
     } else {
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[3]);
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[2]);
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+      *scratch_i64++ = ::arrow::bit_util::ToBigEndian(u64_in[3]);
+      *scratch_i64++ = ::arrow::bit_util::ToBigEndian(u64_in[2]);
+      *scratch_i64++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
+      *scratch_i64++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
     }
 
     return FixedLenByteArray(out);
   }
 
   std::shared_ptr<ResizableBuffer> scratch_buffer;
+  int32_t* scratch_i32;
+  int64_t* scratch_i64;
 };
 
 // ----------------------------------------------------------------------
