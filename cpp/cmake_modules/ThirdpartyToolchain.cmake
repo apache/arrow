@@ -694,8 +694,7 @@ if(DEFINED ENV{ARROW_GTEST_URL})
   set(GTEST_SOURCE_URL "$ENV{ARROW_GTEST_URL}")
 else()
   set_urls(GTEST_SOURCE_URL
-           "https://github.com/google/googletest/archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
-           "https://chromium.googlesource.com/external/github.com/google/googletest/+archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
+           "https://github.com/google/googletest/releases/download/v${ARROW_GTEST_BUILD_VERSION}/googletest-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz")
 endif()
 
@@ -957,7 +956,11 @@ set(EP_COMMON_CMAKE_ARGS
     -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=${CMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY}
     -DCMAKE_INSTALL_LIBDIR=lib
     -DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT}
-    -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE})
+    -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE}
+    # We set CMAKE_POLICY_VERSION_MINIMUM temporarily due to failures with CMake 4
+    # We should remove it once we have updated the dependencies:
+    # https://github.com/apache/arrow/issues/45985
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
 
 # if building with a toolchain file, pass that through
 if(CMAKE_TOOLCHAIN_FILE)
@@ -1025,6 +1028,11 @@ macro(prepare_fetchcontent)
   set(CMAKE_COMPILE_WARNING_AS_ERROR FALSE)
   set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
   set(CMAKE_MACOSX_RPATH ${ARROW_INSTALL_NAME_RPATH})
+  # We set CMAKE_POLICY_VERSION_MINIMUM temporarily due to failures with CMake 4
+  # We should remove it once we have updated the dependencies:
+  # https://github.com/apache/arrow/issues/45985
+  set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
   if(MSVC)
     string(REPLACE "/WX" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
     string(REPLACE "/WX" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
@@ -1384,6 +1392,9 @@ macro(build_snappy)
   set(SNAPPY_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS} -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF
       "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
+  # We can remove this once we remove -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+  # from EP_COMMON_CMAKE_ARGS.
+  list(REMOVE_ITEM SNAPPY_CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
   # Snappy unconditionally enables -Werror when building with clang this can lead
   # to build failures by way of new compiler warnings. This adds a flag to disable
   # -Werror to the very end of the invocation to override the snappy internal setting.
@@ -2326,6 +2337,9 @@ function(build_gtest)
                        URL ${GTEST_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_GTEST_BUILD_SHA256_CHECKSUM}")
   prepare_fetchcontent()
+  # We can remove this once we remove set(CMAKE_POLICY_VERSION_MINIMUM
+  # 3.5) from prepare_fetchcontent().
+  unset(CMAKE_POLICY_VERSION_MINIMUM)
   if(APPLE)
     string(APPEND CMAKE_CXX_FLAGS " -Wno-unused-value" " -Wno-ignored-attributes")
   endif()
@@ -2742,6 +2756,10 @@ if(ARROW_WITH_ZSTD)
       set(ARROW_ZSTD_LIBZSTD zstd::libzstd_shared)
     else()
       set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
+    endif()
+    # vcpkg uses zstd::libzstd
+    if(NOT TARGET ${ARROW_ZSTD_LIBZSTD} AND TARGET zstd::libzstd)
+      set(ARROW_ZSTD_LIBZSTD zstd::libzstd)
     endif()
     if(NOT TARGET ${ARROW_ZSTD_LIBZSTD})
       message(FATAL_ERROR "Zstandard target doesn't exist: ${ARROW_ZSTD_LIBZSTD}")

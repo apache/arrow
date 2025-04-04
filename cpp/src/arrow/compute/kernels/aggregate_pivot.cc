@@ -21,7 +21,8 @@
 #include "arrow/compute/kernels/pivot_internal.h"
 #include "arrow/scalar.h"
 #include "arrow/util/bit_run_reader.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
+#include "arrow/visit_data_inline.h"
 
 namespace arrow::compute::internal {
 namespace {
@@ -30,7 +31,8 @@ using arrow::internal::VisitSetBitRunsVoid;
 using arrow::util::span;
 
 struct PivotImpl : public ScalarAggregator {
-  Status Init(const PivotWiderOptions& options, const std::vector<TypeHolder>& in_types) {
+  Status Init(const PivotWiderOptions& options, const std::vector<TypeHolder>& in_types,
+              ExecContext* ctx) {
     options_ = &options;
     key_type_ = in_types[0].GetSharedPtr();
     auto value_type = in_types[1].GetSharedPtr();
@@ -42,47 +44,57 @@ struct PivotImpl : public ScalarAggregator {
       values_.push_back(MakeNullScalar(value_type));
     }
     out_type_ = struct_(std::move(fields));
-    ARROW_ASSIGN_OR_RAISE(key_mapper_, PivotWiderKeyMapper::Make(*key_type_, options_));
+    ARROW_ASSIGN_OR_RAISE(key_mapper_,
+                          PivotWiderKeyMapper::Make(*key_type_, options_, ctx));
     return Status::OK();
   }
 
   Status Consume(KernelContext*, const ExecSpan& batch) override {
     DCHECK_EQ(batch.num_values(), 2);
     if (batch[0].is_array()) {
-      ARROW_ASSIGN_OR_RAISE(span<const PivotWiderKeyIndex> keys,
-                            key_mapper_->MapKeys(batch[0].array));
+      ARROW_ASSIGN_OR_RAISE(auto keys_array, key_mapper_->MapKeys(batch[0].array));
+      DCHECK_EQ(keys_array->type->id(), Type::UINT32);
+      ArraySpan keys_span(*keys_array);
       if (batch[1].is_array()) {
         // Array keys, array values
         auto values = batch[1].array.ToArray();
-        for (int64_t i = 0; i < batch.length; ++i) {
-          PivotWiderKeyIndex key = keys[i];
-          if (key != kNullPivotKey && !values->IsNull(i)) {
-            if (ARROW_PREDICT_FALSE(values_[key]->is_valid)) {
-              return DuplicateValue();
-            }
-            ARROW_ASSIGN_OR_RAISE(values_[key], values->GetScalar(i));
-            DCHECK(values_[key]->is_valid);
-          }
-        }
+        int64_t i = 0;
+        RETURN_NOT_OK(VisitArraySpanInline<UInt32Type>(
+            keys_span,
+            [&](uint32_t key) {
+              if (!values->IsNull(i)) {
+                if (ARROW_PREDICT_FALSE(values_[key]->is_valid)) {
+                  return DuplicateValue();
+                }
+                ARROW_ASSIGN_OR_RAISE(values_[key], values->GetScalar(i));
+              }
+              ++i;
+              return Status::OK();
+            },
+            [&]() {
+              ++i;
+              return Status::OK();
+            }));
       } else {
         // Array keys, scalar value
         const Scalar* value = batch[1].scalar;
         if (value->is_valid) {
-          for (int64_t i = 0; i < batch.length; ++i) {
-            PivotWiderKeyIndex key = keys[i];
-            if (key != kNullPivotKey) {
-              if (ARROW_PREDICT_FALSE(values_[key]->is_valid)) {
-                return DuplicateValue();
-              }
-              values_[key] = value->GetSharedPtr();
-            }
-          }
+          RETURN_NOT_OK(VisitArraySpanInline<UInt32Type>(
+              keys_span,
+              [&](uint32_t key) {
+                if (ARROW_PREDICT_FALSE(values_[key]->is_valid)) {
+                  return DuplicateValue();
+                }
+                values_[key] = value->GetSharedPtr();
+                return Status::OK();
+              },
+              [] { return Status::OK(); }));
         }
       }
     } else {
-      ARROW_ASSIGN_OR_RAISE(PivotWiderKeyIndex key,
-                            key_mapper_->MapKey(*batch[0].scalar));
-      if (key != kNullPivotKey) {
+      ARROW_ASSIGN_OR_RAISE(auto maybe_key, key_mapper_->MapKey(*batch[0].scalar));
+      if (maybe_key.has_value()) {
+        PivotWiderKeyIndex key = maybe_key.value();
         if (batch[1].is_array()) {
           // Scalar key, array values
           auto values = batch[1].array.ToArray();
@@ -145,10 +157,8 @@ struct PivotImpl : public ScalarAggregator {
 Result<std::unique_ptr<KernelState>> PivotInit(KernelContext* ctx,
                                                const KernelInitArgs& args) {
   const auto& options = checked_cast<const PivotWiderOptions&>(*args.options);
-  DCHECK_EQ(args.inputs.size(), 2);
-  DCHECK(is_base_binary_like(args.inputs[0].id()));
   auto state = std::make_unique<PivotImpl>();
-  RETURN_NOT_OK(state->Init(options, args.inputs));
+  RETURN_NOT_OK(state->Init(options, args.inputs, ctx->exec_context()));
   // GH-45718: This can be simplified once we drop the R openSUSE155 crossbow
   // job
   // R build with openSUSE155 requires an explicit shared_ptr construction
@@ -167,6 +177,8 @@ const FunctionDoc pivot_doc{
      "is emitted. If a pivot key doesn't appear, null is emitted.\n"
      "If more than one non-null value is encountered for a given pivot key,\n"
      "Invalid is raised.\n"
+     "The pivot key column can be string, binary or integer. The `key_names`\n"
+     "will be cast to the pivot key column type for matching.\n"
      "Behavior of unexpected pivot keys is controlled by `unexpected_key_behavior`\n"
      "in PivotWiderOptions."),
     {"pivot_keys", "pivot_values"},
@@ -179,12 +191,19 @@ void RegisterScalarAggregatePivot(FunctionRegistry* registry) {
 
   auto func = std::make_shared<ScalarAggregateFunction>(
       "pivot_wider", Arity::Binary(), pivot_doc, &default_pivot_options);
-
-  for (auto key_type : BaseBinaryTypes()) {
-    auto sig = KernelSignature::Make({key_type->id(), InputType::Any()},
+  auto add_kernel = [&](InputType key_type) {
+    auto sig = KernelSignature::Make({key_type, InputType::Any()},
                                      OutputType(ResolveOutputType));
     AddAggKernel(std::move(sig), PivotInit, func.get());
+  };
+
+  for (const auto& key_type : BaseBinaryTypes()) {
+    add_kernel(key_type->id());
   }
+  for (const auto& key_type : IntTypes()) {
+    add_kernel(key_type->id());
+  }
+  add_kernel(Type::FIXED_SIZE_BINARY);
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 

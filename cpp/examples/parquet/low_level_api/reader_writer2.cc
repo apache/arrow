@@ -187,7 +187,7 @@ int main(int argc, char** argv) {
     file_writer->Close();
 
     // Write the bytes to file
-    DCHECK(out_file->Close().ok());
+    ARROW_DCHECK(out_file->Close().ok());
   } catch (const std::exception& e) {
     std::cerr << "Parquet write error: " << e.what() << std::endl;
     return -1;

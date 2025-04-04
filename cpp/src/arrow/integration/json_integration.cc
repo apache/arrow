@@ -31,7 +31,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 using arrow::ipc::DictionaryFieldMapper;
 using arrow::ipc::DictionaryMemo;

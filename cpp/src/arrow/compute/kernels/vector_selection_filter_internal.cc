@@ -42,6 +42,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/fixed_width_internal.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 

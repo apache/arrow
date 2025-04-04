@@ -16,7 +16,7 @@
 // under the License.
 
 #include "gandiva/decimal_type_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace gandiva {
 

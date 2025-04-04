@@ -29,7 +29,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/sort.h"
 
 using std::size_t;

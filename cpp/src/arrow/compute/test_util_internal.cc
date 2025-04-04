@@ -26,7 +26,7 @@
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/vector.h"
 
 namespace arrow::compute {

@@ -376,7 +376,7 @@ struct UnboxScalar<Type, enable_if_has_c_type<Type>> {
   static T Unbox(const Scalar& val) {
     std::string_view view =
         checked_cast<const ::arrow::internal::PrimitiveScalarBase&>(val).view();
-    DCHECK_EQ(view.size(), sizeof(T));
+    ARROW_DCHECK_EQ(view.size(), sizeof(T));
     return *reinterpret_cast<const T*>(view.data());
   }
 };
@@ -532,7 +532,7 @@ static Status SimpleBinary(KernelContext* ctx, const ExecSpan& batch, ExecResult
     if (batch[1].is_array()) {
       return Operator::Call(ctx, *batch[0].scalar, batch[1].array, out);
     } else {
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return Status::Invalid("Should be unreachable");
     }
   }
@@ -602,7 +602,7 @@ struct ScalarUnary {
   using Arg0Value = typename GetViewType<Arg0Type>::T;
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    DCHECK(batch[0].is_array());
+    ARROW_DCHECK(batch[0].is_array());
     const ArraySpan& arg0 = batch[0].array;
     Status st = Status::OK();
     ArrayIterator<Arg0Type> arg0_it(arg0);
@@ -705,7 +705,7 @@ struct ScalarUnaryNotNullStateful {
   };
 
   Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    DCHECK(batch[0].is_array());
+    ARROW_DCHECK(batch[0].is_array());
     return ArrayExec<OutType>::Exec(*this, ctx, batch[0].array, out);
   }
 };
@@ -800,7 +800,7 @@ struct ScalarBinary {
       if (batch[1].is_array()) {
         return ScalarArray(ctx, *batch[0].scalar, batch[1].array, out);
       } else {
-        DCHECK(false);
+        ARROW_DCHECK(false);
         return Status::Invalid("Should be unreachable");
       }
     }
@@ -885,7 +885,7 @@ struct ScalarBinaryNotNullStateful {
       if (batch[1].is_array()) {
         return ScalarArray(ctx, *batch[0].scalar, batch[1].array, out);
       } else {
-        DCHECK(false);
+        ARROW_DCHECK(false);
         return Status::Invalid("Should be unreachable");
       }
     }
@@ -1013,7 +1013,7 @@ auto GenerateNumeric(detail::GetTypeId get_id) {
     case Type::DOUBLE:
       return Generator<Type0, DoubleType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return FailFunctor<KernelType>::Exec;
   }
 }
@@ -1029,7 +1029,7 @@ ArrayKernelExec GenerateFloatingPoint(detail::GetTypeId get_id) {
     case Type::DOUBLE:
       return Generator<Type0, DoubleType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1058,7 +1058,7 @@ KernelType GenerateInteger(detail::GetTypeId get_id) {
     case Type::UINT64:
       return Generator<Type0, UInt64Type, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1089,7 +1089,7 @@ ArrayKernelExec GeneratePhysicalInteger(detail::GetTypeId get_id) {
     case Type::UINT64:
       return Generator<Type0, UInt64Type, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1121,7 +1121,7 @@ KernelType ArithmeticExecFromOp(detail::GetTypeId get_id) {
     case Type::DOUBLE:
       return KernelGenerator<DoubleType, DoubleType, Op, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return FailFunctor<KernelType>::Exec;
   }
 }
@@ -1157,7 +1157,7 @@ ReturnType GeneratePhysicalNumericGeneric(detail::GetTypeId get_id) {
     case Type::DOUBLE:
       return Generator<DoubleType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1179,7 +1179,7 @@ ArrayKernelExec GenerateDecimalToDecimal(detail::GetTypeId get_id) {
     case Type::DECIMAL256:
       return Generator<Decimal256Type, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1199,7 +1199,7 @@ ArrayKernelExec GenerateSignedInteger(detail::GetTypeId get_id) {
     case Type::INT64:
       return Generator<Type0, Int64Type, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1244,7 +1244,7 @@ KernelType GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
     case Type::INTERVAL_MONTH_DAY_NANO:
       return Generator<MonthDayNanoIntervalType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return FailFunctor<KernelType>::Exec;
   }
 }
@@ -1261,7 +1261,7 @@ KernelType GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
     case Type::LARGE_STRING:
       return Generator<LargeBinaryType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return FailFunctor<KernelType>::Exec;
   }
 }
@@ -1279,7 +1279,7 @@ ArrayKernelExec GenerateVarBinaryToVarBinary(detail::GetTypeId get_id) {
     case Type::LARGE_STRING:
       return Generator<LargeStringType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1300,7 +1300,7 @@ ArrayKernelExec GenerateVarBinaryBase(detail::GetTypeId get_id) {
     case Type::LARGE_STRING:
       return Generator<Type0, LargeBinaryType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1318,7 +1318,7 @@ ArrayKernelExec GenerateVarBinary(detail::GetTypeId get_id) {
     case Type::LARGE_STRING:
       return Generator<Type0, LargeStringType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1334,7 +1334,7 @@ ArrayKernelExec GenerateVarBinaryViewBase(detail::GetTypeId get_id) {
     case Type::STRING_VIEW:
       return Generator<Type0, BinaryViewType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1358,7 +1358,7 @@ ArrayKernelExec GenerateTemporal(detail::GetTypeId get_id) {
     case Type::TIMESTAMP:
       return Generator<Type0, TimestampType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1379,7 +1379,7 @@ auto GenerateDecimal(detail::GetTypeId get_id) {
     case Type::DECIMAL256:
       return Generator<Type0, Decimal256Type, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return KernelType(nullptr);
   }
 }
