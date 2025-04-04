@@ -25,6 +25,7 @@
 #include <cuda.h>
 
 #include "arrow/gpu/cuda_context.h"
+#include "arrow/gpu/visibility.h"
 #include "arrow/status.h"
 
 namespace arrow {
@@ -33,7 +34,7 @@ namespace internal {
 
 std::string CudaErrorDescription(CUresult err);
 
-ARROW_EXPORT
+ARROW_CUDA_EXPORT
 Status StatusFromCuda(CUresult res, const char* function_name = nullptr);
 
 #define CU_RETURN_NOT_OK(FUNC_NAME, STMT)                               \
