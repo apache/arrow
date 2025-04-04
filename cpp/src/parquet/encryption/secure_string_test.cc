@@ -103,4 +103,29 @@ TEST(TestSecureString, Assign) {
   ASSERT_EQ(secret_from_secret, secret_from_move_secret);
 }
 
+TEST(TestSecureString, AsSpan) {
+  SecureString secret("hello world");
+  const SecureString& const_secret(secret);
+  auto const_span = const_secret.as_span();
+  auto mutual_span = secret.as_span();
+
+  std::string expected = "hello world";
+  ::arrow::util::span expected_span = {reinterpret_cast<uint8_t*>(expected.data()), expected.size()};
+  ASSERT_EQ(const_span, expected_span);
+  ASSERT_EQ(mutual_span, expected_span);
+
+  // modify secret through mutual span
+  // the const span shares the same secret, so it is changed as well
+  mutual_span[0] = 'H';
+  expected_span[0] = 'H';
+  ASSERT_EQ(const_span, expected_span);
+  ASSERT_EQ(mutual_span, expected_span);
+}
+
+TEST(TestSecureString, AsView) {
+  const SecureString secret = SecureString("hello world");
+  const std::string_view view = secret.as_view();
+  ASSERT_EQ(view, "hello world");
+}
+
 }  // namespace parquet::encryption::test
