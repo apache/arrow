@@ -25,7 +25,7 @@
 
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hash_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 
 using arrow::internal::AsciiEqualsCaseInsensitive;

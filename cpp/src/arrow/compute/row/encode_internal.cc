@@ -17,6 +17,7 @@
 
 #include "arrow/compute/row/encode_internal.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace compute {

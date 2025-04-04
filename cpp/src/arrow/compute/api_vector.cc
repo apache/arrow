@@ -34,7 +34,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/reflection_internal.h"
 
 namespace arrow {

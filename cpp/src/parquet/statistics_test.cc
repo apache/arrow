@@ -35,6 +35,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/float16.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/ubsan.h"
 
 #include "parquet/column_reader.h"

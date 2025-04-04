@@ -147,7 +147,7 @@ ArrayKernelExec GenerateArithmeticFloatingPoint(detail::GetTypeId get_id) {
     case Type::DOUBLE:
       return KernelGenerator<DoubleType, DoubleType, Op>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }

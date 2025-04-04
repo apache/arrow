@@ -20,7 +20,7 @@
 #include <memory>
 
 #include "arrow/result.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 
 #include "generated/parquet_types.h"

@@ -24,7 +24,7 @@
 
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 #include "parquet/exception.h"
 #include "parquet/types.h"

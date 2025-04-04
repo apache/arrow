@@ -22,7 +22,7 @@
 #include <map>
 #include <utility>
 
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/utf8.h"
 #include "parquet/encryption/encryption_internal.h"
 

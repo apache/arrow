@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/util/logging_internal.h"
 #include "gandiva/bitmap_accumulator.h"
 #include "gandiva/decimal_ir.h"
 #include "gandiva/dex.h"

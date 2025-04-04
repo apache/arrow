@@ -18,7 +18,7 @@
 #include <sstream>
 
 #include "arrow/extension_type.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 #include "arrow/extension/uuid.h"
 
