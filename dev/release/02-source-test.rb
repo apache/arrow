@@ -84,7 +84,12 @@ class SourceTest < Test::Unit::TestCase
   def test_python_version
     source
     Dir.chdir("#{@tag_name_no_rc}/python") do
-      sh("python3", "setup.py", "sdist")
+      # Meson dist must be run from a VCS, so initiate a dummy repo
+      sh("git", "init", ".")
+      sh("git", "add", "--all", ".")
+      sh("git", "commit", "-m", "dummy commit for meson dist")
+      sh("python3", "-m", "pip", "install", "build")
+      sh("python3", "-m", "build", "--sdist", ".")
       if on_release_branch?
         pyarrow_source_archive = "dist/pyarrow-#{@release_version}.tar.gz"
       else

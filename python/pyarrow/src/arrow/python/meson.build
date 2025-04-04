@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -8,7 +6,7 @@
 # "License"); you may not use this file except in compliance
 # with the License.  You may obtain a copy of the License at
 #
-#   http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing,
 # software distributed under the License is distributed on an
@@ -17,11 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -eux
+cython_generated_headers = custom_target(
+    'lib-pyx-headers',
+    input: ['../../../lib.pyx'],
+    output: ['lib.h', 'lib_api.h'],
+    command: ['cython', '--cplus', '@INPUT@', '-o', '@OUTPUT0@'],
+    install: true,
+    install_dir: py.get_install_dir() / 'pyarrow',
+)
 
-source_dir=${1}/python
+cython_generated_dep = declare_dependency(sources: cython_generated_headers)
 
-pushd ${source_dir}
-export SETUPTOOLS_SCM_PRETEND_VERSION=${PYARROW_VERSION:-}
-${PYTHON:-python} -m build --sdist .
-popd

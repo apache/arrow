@@ -17,6 +17,7 @@
 
 [build-system]
 requires = [
+    "cmake < 4",
     "cython >= 3",
     # Starting with NumPy 1.25, NumPy is (by default) as far back compatible
     # as oldest-support-numpy was (customizable with a NPY_TARGET_VERSION
@@ -24,12 +25,13 @@ requires = [
     # continue using oldest-support-numpy.
     "oldest-supported-numpy>=0.14; python_version<'3.9'",
     "numpy>=1.25; python_version>='3.9'",
+    "meson>=1.3.0",
+    "meson-python",
     # configuring setuptools_scm in pyproject.toml requires
     # versions released after 2022
     "setuptools_scm[toml]>=8",
-    "setuptools>=64",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "mesonpy"
 
 [project]
 name = "pyarrow"
@@ -64,17 +66,6 @@ test = [
     'pytz',
     'pandas'
 ]
-
-[tool.setuptools]
-zip-safe=false
-include-package-data=true
-
-[tool.setuptools.packages.find]
-include = ["pyarrow"]
-namespaces = false
-
-[tool.setuptools.package-data]
-pyarrow = ["*.pxd", "*.pyx", "includes/*.pxd"]
 
 [tool.setuptools_scm]
 root = '..'

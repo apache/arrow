@@ -34,3 +34,5 @@ RUN mamba install -q -y --file arrow/ci/conda_env_sphinx.txt && \
 COPY ci/scripts/install_pandas.sh /arrow/ci/scripts/
 RUN mamba uninstall -q -y numpy && \
     /arrow/ci/scripts/install_pandas.sh ${pandas} ${numpy}
+
+RUN apt-get update && apt-get install -y patchelf
