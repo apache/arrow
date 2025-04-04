@@ -35,8 +35,11 @@ class PARQUET_EXPORT VariantArray : public ::arrow::ExtensionArray {
 /// Variant supports semi-structured objects that can be composed of
 /// primitives, arrays, and objects, which can be queried by path.
 ///
-/// An unshredded variant contains two binaries, one for the metadata and
-/// one for the value.
+/// Unshredded variant representation:
+/// optional group variant_name (VARIANT) {
+///   required binary metadata;
+///   required binary value;
+/// }
 ///
 /// To read more about variant encoding, see the variant encoding spec at
 /// https://github.com/apache/parquet-format/blob/master/VariantEncoding.md
