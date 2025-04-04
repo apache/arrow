@@ -1079,6 +1079,7 @@ TEST_P(TestCDCSingleRowGroup, DeleteOnce) {
     ASSERT_EQ(base_info.size(), 1);
     ASSERT_EQ(modified_info.size(), 1);
 
+    // check that the chunk sizes are within the expected range
     AssertContentDefinedChunkSizes(base->column(0), base_info.front(), param.is_nullable,
                                    kMinChunkSize, kMaxChunkSize,
                                    /*expect_dictionary_page=*/enable_dictionary);
@@ -1086,6 +1087,11 @@ TEST_P(TestCDCSingleRowGroup, DeleteOnce) {
                                    param.is_nullable, kMinChunkSize, kMaxChunkSize,
                                    /*expect_dictionary_page=*/enable_dictionary);
 
+    // check that there is a single "diff" between the two page length sequences
+    // and that the diff removes edit_length number of values, there should be no
+    // other differences because we deal with a single row group (in case of multiple
+    // row groups the first page of each subsequent row group would be different due
+    // to shifting caused by the fixed sized row group length)
     AssertPageLengthDifferences(base_info.front(), modified_info.front(),
                                 /*exact_number_of_equal_diffs=*/0,
                                 /*exact_number_of_larger_diffs=*/0,
@@ -1118,6 +1124,7 @@ TEST_P(TestCDCSingleRowGroup, DeleteTwice) {
     ASSERT_EQ(base_info.size(), 1);
     ASSERT_EQ(modified_info.size(), 1);
 
+    // check that the chunk sizes are within the expected range
     AssertContentDefinedChunkSizes(base->column(0), base_info.front(), param.is_nullable,
                                    kMinChunkSize, kMaxChunkSize,
                                    /*expect_dictionary_page=*/enable_dictionary);
@@ -1125,6 +1132,10 @@ TEST_P(TestCDCSingleRowGroup, DeleteTwice) {
                                    param.is_nullable, kMinChunkSize, kMaxChunkSize,
                                    /*expect_dictionary_page=*/enable_dictionary);
 
+    // check that there are exactly two "diffs" between the two page length sequences
+    // and those diffs remove edit_length number of values (part2 and part4 have the
+    // same number of values), there should be no other differences because we have
+    // a single row group
     AssertPageLengthDifferences(base_info.front(), modified_info.front(),
                                 /*exact_number_of_equal_diffs=*/0,
                                 /*exact_number_of_larger_diffs=*/0,
@@ -1156,6 +1167,7 @@ TEST_P(TestCDCSingleRowGroup, UpdateOnce) {
     ASSERT_EQ(base_info.size(), 1);
     ASSERT_EQ(modified_info.size(), 1);
 
+    // check that the chunk sizes are within the expected range
     AssertContentDefinedChunkSizes(base->column(0), base_info.front(), param.is_nullable,
                                    kMinChunkSize, kMaxChunkSize,
                                    /*expect_dictionary_page=*/enable_dictionary);
@@ -1163,6 +1175,9 @@ TEST_P(TestCDCSingleRowGroup, UpdateOnce) {
                                    param.is_nullable, kMinChunkSize, kMaxChunkSize,
                                    /*expect_dictionary_page=*/enable_dictionary);
 
+    // check that there is a single "diff" between the two page length sequences
+    // which doesn't change the length of the array, only the values are updated
+    // there should be no other differences because we deal with a single row group
     AssertPageLengthDifferences(base_info.front(), modified_info.front(),
                                 /*max_number_of_equal_diffs=*/1);
   }
@@ -1194,6 +1209,7 @@ TEST_P(TestCDCSingleRowGroup, UpdateTwice) {
     ASSERT_EQ(base_info.size(), 1);
     ASSERT_EQ(modified_info.size(), 1);
 
+    // check that the chunk sizes are within the expected range
     AssertContentDefinedChunkSizes(base->column(0), base_info.front(), param.is_nullable,
                                    kMinChunkSize, kMaxChunkSize,
                                    /*expect_dictionary_page=*/enable_dictionary);
@@ -1201,6 +1217,8 @@ TEST_P(TestCDCSingleRowGroup, UpdateTwice) {
                                    param.is_nullable, kMinChunkSize, kMaxChunkSize,
                                    /*expect_dictionary_page=*/enable_dictionary);
 
+    // check that there are exactly two "diffs" between the two page length sequences
+    // which don't change the length of the array, only the values are updated
     AssertPageLengthDifferences(base_info.front(), modified_info.front(),
                                 /*max_number_of_equal_diffs=*/2);
   }
@@ -1230,6 +1248,7 @@ TEST_P(TestCDCSingleRowGroup, InsertOnce) {
     ASSERT_EQ(base_info.size(), 1);
     ASSERT_EQ(modified_info.size(), 1);
 
+    // check that the chunk sizes are within the expected range
     AssertContentDefinedChunkSizes(base->column(0), base_info.front(), param.is_nullable,
                                    kMinChunkSize, kMaxChunkSize,
                                    /*expect_dictionary_page=*/enable_dictionary);
@@ -1237,6 +1256,9 @@ TEST_P(TestCDCSingleRowGroup, InsertOnce) {
                                    param.is_nullable, kMinChunkSize, kMaxChunkSize,
                                    /*expect_dictionary_page=*/enable_dictionary);
 
+    // check that there is a single "diff" between the two page length sequences
+    // adding edit_length number of values, there should be no other differences
+    // because we deal with a single row group and made a single modification
     AssertPageLengthDifferences(base_info.front(), modified_info.front(),
                                 /*exact_number_of_equal_diffs=*/0,
                                 /*exact_number_of_larger_diffs=*/1,
@@ -1269,6 +1291,7 @@ TEST_P(TestCDCSingleRowGroup, InsertTwice) {
     ASSERT_EQ(base_info.size(), 1);
     ASSERT_EQ(modified_info.size(), 1);
 
+    // check that the chunk sizes are within the expected range
     AssertContentDefinedChunkSizes(base->column(0), base_info.front(), param.is_nullable,
                                    kMinChunkSize, kMaxChunkSize,
                                    /*expect_dictionary_page=*/enable_dictionary);
@@ -1276,6 +1299,8 @@ TEST_P(TestCDCSingleRowGroup, InsertTwice) {
                                    param.is_nullable, kMinChunkSize, kMaxChunkSize,
                                    /*expect_dictionary_page=*/enable_dictionary);
 
+    // check that there are exactly two "diffs" between the two page length sequences
+    // which add edit_length number of values, there should be no other differences
     AssertPageLengthDifferences(base_info.front(), modified_info.front(),
                                 /*exact_number_of_equal_diffs=*/0,
                                 /*exact_number_of_larger_diffs=*/2,
@@ -1307,6 +1332,7 @@ TEST_P(TestCDCSingleRowGroup, Prepend) {
     ASSERT_EQ(base_info.size(), 1);
     ASSERT_EQ(modified_info.size(), 1);
 
+    // check that the chunk sizes are within the expected range
     AssertContentDefinedChunkSizes(base->column(0), base_info.front(), param.is_nullable,
                                    kMinChunkSize, kMaxChunkSize,
                                    /*expect_dictionary_page=*/enable_dictionary);
@@ -1351,6 +1377,7 @@ TEST_P(TestCDCSingleRowGroup, Append) {
     ASSERT_EQ(base_info.size(), 1);
     ASSERT_EQ(modified_info.size(), 1);
 
+    // check that the chunk sizes are within the expected range
     AssertContentDefinedChunkSizes(base->column(0), base_info.front(), param.is_nullable,
                                    kMinChunkSize, kMaxChunkSize,
                                    /*expect_dictionary_page=*/enable_dictionary);
@@ -1361,7 +1388,10 @@ TEST_P(TestCDCSingleRowGroup, Append) {
     auto original_page_lengths = base_info.front().page_lengths;
     auto modified_page_lengths = modified_info.front().page_lengths;
 
+    // there are either additional pages and/or the last page is larger in the modified
+    // than in the original file
     ASSERT_LE(original_page_lengths.size(), modified_page_lengths.size());
+    // all pages must be identical except for the last one which can be larger
     for (size_t i = 0; i < original_page_lengths.size() - 1; i++) {
       ASSERT_EQ(original_page_lengths[i], modified_page_lengths[i]);
     }
@@ -1395,6 +1425,7 @@ TEST_P(TestCDCSingleRowGroup, EmptyTable) {
 }
 
 TEST_P(TestCDCSingleRowGroup, ArrayOffsets) {
+  // check that the array offsets are respected in the chunker
   const auto& param = GetParam();
   ASSERT_OK_AND_ASSIGN(auto table, ConcatAndCombine({part1_, part2_, part3_}));
 
@@ -1507,14 +1538,21 @@ TEST_F(TestCDCMultipleRowGroups, InsertOnce) {
   ASSERT_EQ(base_info.size(), 7);
   ASSERT_EQ(modified_info.size(), 7);
 
+  // the first two row groups should be identical, each part contains two row groups and
+  // the first part is not modified
   ASSERT_EQ(base_info.at(0).page_lengths, modified_info.at(0).page_lengths);
   ASSERT_EQ(base_info.at(1).page_lengths, modified_info.at(1).page_lengths);
+  // then there is an insertion which causes a larger "diff" somewhere in the row group
+  // and a smaller "diff" at the end of the row group because the row group length is
+  // fixed; this rule applies to the subsequent row groups as well because the values
+  // are shifted by the insertion
   for (size_t i = 2; i < modified_info.size() - 1; i++) {
     AssertPageLengthDifferences(base_info.at(i), modified_info.at(i),
                                 /*exact_number_of_equal_diffs=*/0,
                                 /*exact_number_of_larger_diffs=*/1,
                                 /*exact_number_of_smaller_diffs=*/1, edit2_->column(0));
   }
+  // the last row group will simply be larger because of the insertion
   AssertPageLengthDifferences(base_info.back(), modified_info.back(),
                               /*exact_number_of_equal_diffs=*/0,
                               /*exact_number_of_larger_diffs=*/1,
@@ -1540,17 +1578,24 @@ TEST_F(TestCDCMultipleRowGroups, DeleteOnce) {
   auto base_info = GetColumnParquetInfo(base_parquet, /*column_index=*/0);
   auto modified_info = GetColumnParquetInfo(modified_parquet, /*column_index=*/0);
 
+  // assert that there are 7 row groups
   ASSERT_EQ(base_info.size(), 7);
   ASSERT_EQ(modified_info.size(), 7);
 
+  // the first two row groups should be identical, each part contains two row groups and
+  // the first part is not modified
   ASSERT_EQ(base_info.at(0).page_lengths, modified_info.at(0).page_lengths);
   ASSERT_EQ(base_info.at(1).page_lengths, modified_info.at(1).page_lengths);
   for (size_t i = 2; i < modified_info.size() - 1; i++) {
+    // because of the deletion values are shifted in the row group, we expect a smaller
+    // "diff" at the beginning of the row group and a larger "diff" at the end of the
+    // row group
     AssertPageLengthDifferences(base_info.at(i), modified_info.at(i),
                                 /*exact_number_of_equal_diffs=*/0,
                                 /*exact_number_of_larger_diffs=*/1,
                                 /*exact_number_of_smaller_diffs=*/1, edit1_->column(0));
   }
+  // the last row group will simply be smaller because of the deletion
   AssertPageLengthDifferences(base_info.back(), modified_info.back(),
                               /*exact_number_of_equal_diffs=*/0,
                               /*exact_number_of_larger_diffs=*/0,
@@ -1580,11 +1625,16 @@ TEST_F(TestCDCMultipleRowGroups, UpdateOnce) {
   ASSERT_EQ(base_info.size(), 7);
   ASSERT_EQ(modified_info.size(), 7);
 
+  // the first two row groups should be identical, each part contains two row groups and
+  // the first part is not modified
   ASSERT_EQ(base_info.at(0).page_lengths, modified_info.at(0).page_lengths);
   ASSERT_EQ(base_info.at(1).page_lengths, modified_info.at(1).page_lengths);
+  // then there is an update (without insertion or deletion so no shifting occurs) which
+  // causes a "diff" with both sides having the same number of values but different ones
   AssertPageLengthDifferences(base_info.at(2), modified_info.at(2),
                               /*max_number_of_equal_diffs=*/1);
   for (size_t i = 2; i < modified_info.size(); i++) {
+    // the rest of the row groups should be identical
     ASSERT_EQ(base_info.at(i).page_lengths, modified_info.at(i).page_lengths);
   }
 }
@@ -1618,7 +1668,10 @@ TEST_F(TestCDCMultipleRowGroups, Append) {
   // only the last row group should have more or equal number of pages
   auto original_page_lengths = base_info.back().page_lengths;
   auto modified_page_lengths = modified_info.back().page_lengths;
+
+  // the last row group should be larger or equal in size
   ASSERT_GE(original_page_lengths.size(), modified_page_lengths.size());
+  // all pages must be identical except for the last one which can be larger
   for (size_t i = 0; i < original_page_lengths.size() - 1; i++) {
     ASSERT_EQ(original_page_lengths[i], modified_page_lengths[i]);
   }
