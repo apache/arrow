@@ -202,9 +202,10 @@ class ARROW_EXPORT TDigestOptions : public FunctionOptions {
 /// - The corresponding `Aggregate::target` must have two FieldRef elements;
 ///   the first one points to the pivot key column, the second points to the
 ///   pivoted data column.
-/// - The pivot key column must be string-like; its values will be matched
-///   against `key_names` in order to dispatch the pivoted data into the
-///   output.
+/// - The pivot key column can be string, binary or integer; its values will be
+///   matched against `key_names` in order to dispatch the pivoted data into
+///   the output. If the pivot key column is not string-like, the `key_names`
+///   will be cast to the pivot key type.
 ///
 /// "pivot_wider" example
 /// ---------------------

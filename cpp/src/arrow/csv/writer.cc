@@ -24,7 +24,7 @@
 #include "arrow/result.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
 

@@ -17,6 +17,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/util/logging_internal.h"
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/testing.h"
 #include "gandiva/precompiled/time_constants.h"

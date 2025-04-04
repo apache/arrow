@@ -2715,6 +2715,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         int64_t pivot
         CNullPlacement null_placement
 
+    cdef cppclass CWinsorizeOptions \
+            "arrow::compute::WinsorizeOptions"(CFunctionOptions):
+        CWinsorizeOptions(double lower_limit, double upper_limit)
+
     cdef cppclass CCumulativeOptions \
             "arrow::compute::CumulativeOptions"(CFunctionOptions):
         CCumulativeOptions(c_bool skip_nulls)

@@ -96,9 +96,9 @@ class SimpleExtensionType : public ExtensionType {
   }
 
   std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override {
-    DCHECK_EQ(data->type->id(), Type::EXTENSION);
-    DCHECK_EQ(static_cast<const ExtensionType&>(*data->type).extension_name(),
-              kExtensionName);
+    ARROW_DCHECK_EQ(data->type->id(), Type::EXTENSION);
+    ARROW_DCHECK_EQ(static_cast<const ExtensionType&>(*data->type).extension_name(),
+                    kExtensionName);
     return std::make_shared<ExtensionArray>(data);
   }
 

@@ -26,6 +26,7 @@
 #include "arrow/buffer.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 

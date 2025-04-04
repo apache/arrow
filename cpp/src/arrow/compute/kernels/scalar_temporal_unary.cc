@@ -24,6 +24,7 @@
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/time.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/vendored/datetime.h"

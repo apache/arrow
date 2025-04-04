@@ -30,6 +30,7 @@
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -38,20 +39,6 @@ using internal::CopyBitmap;
 namespace compute::internal {
 
 namespace {
-
-Result<std::shared_ptr<Buffer>> GetNullBitmapBuffer(const ArraySpan& in_array,
-                                                    MemoryPool* pool) {
-  if (in_array.buffers[0].data == nullptr) {
-    return nullptr;
-  }
-
-  if (in_array.offset == 0) {
-    return in_array.GetBuffer(0);
-  }
-
-  // If a non-zero offset, we need to shift the bitmap
-  return CopyBitmap(pool, in_array.buffers[0].data, in_array.offset, in_array.length);
-}
 
 // (Large)List<T> -> (Large)List<U>
 
@@ -127,7 +114,7 @@ struct CastList {
 
     ArrayData* out_array = out->array_data().get();
     ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
-                          GetNullBitmapBuffer(in_array, ctx->memory_pool()));
+                          GetOrCopyNullBitmapBuffer(in_array, ctx->memory_pool()));
     out_array->buffers[1] = in_array.GetBuffer(1);
 
     std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
@@ -167,7 +154,7 @@ struct CastFixedToVarList {
 
     ArrayData* out_array = out->array_data().get();
     ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
-                          GetNullBitmapBuffer(in_array, ctx->memory_pool()));
+                          GetOrCopyNullBitmapBuffer(in_array, ctx->memory_pool()));
 
     const auto& in_type = checked_cast<const FixedSizeListType&>(*in_array.type);
     const int32_t list_size = in_type.list_size();
@@ -278,7 +265,7 @@ struct CastVarToFixedList {
 
     ArrayData* out_array = out->array_data().get();
     ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
-                          GetNullBitmapBuffer(in_array, ctx->memory_pool()));
+                          GetOrCopyNullBitmapBuffer(in_array, ctx->memory_pool()));
 
     // Handle values
     std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();

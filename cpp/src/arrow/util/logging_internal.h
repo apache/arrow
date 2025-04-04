@@ -15,21 +15,32 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/server_middleware.h"
-#include "arrow/flight/server.h"
+#include "arrow/util/logging.h"
 
-namespace arrow {
-namespace flight {
+#pragma once
 
-Status ServerMiddlewareFactory::StartCall(const CallInfo& info,
-                                          const ServerCallContext& context,
-                                          std::shared_ptr<ServerMiddleware>* middleware) {
-  // TODO: We can make this pure virtual function when we remove
-  // the deprecated version.
-  ARROW_SUPPRESS_DEPRECATION_WARNING
-  return StartCall(info, context.incoming_headers(), middleware);
-  ARROW_UNSUPPRESS_DEPRECATION_WARNING
-}
-
-}  // namespace flight
-}  // namespace arrow
+// These are internal-use macros and should not be used in public headers.
+#ifndef DCHECK
+#  define DCHECK ARROW_DCHECK
+#endif
+#ifndef DCHECK_OK
+#  define DCHECK_OK ARROW_DCHECK_OK
+#endif
+#ifndef DCHECK_EQ
+#  define DCHECK_EQ ARROW_DCHECK_EQ
+#endif
+#ifndef DCHECK_NE
+#  define DCHECK_NE ARROW_DCHECK_NE
+#endif
+#ifndef DCHECK_LE
+#  define DCHECK_LE ARROW_DCHECK_LE
+#endif
+#ifndef DCHECK_LT
+#  define DCHECK_LT ARROW_DCHECK_LT
+#endif
+#ifndef DCHECK_GE
+#  define DCHECK_GE ARROW_DCHECK_GE
+#endif
+#ifndef DCHECK_GT
+#  define DCHECK_GT ARROW_DCHECK_GT
+#endif
