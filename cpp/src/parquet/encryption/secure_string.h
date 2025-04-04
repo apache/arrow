@@ -60,7 +60,7 @@ class PARQUET_EXPORT SecureString {
 
   void Dispose();
 
-  static void SecureClear(std::string&);
+  static void SecureClear(std::string*);
   static void SecureClear(uint8_t* data, size_t size);
 
  private:
