@@ -3099,7 +3099,7 @@ Result<std::string> S3FileSystem::MakeUri(std::string path) const {
   uri += "?";
   uri += "region=" + util::UriEscape(options().region);
   uri += "&";
-  uri += "scheme=" + options().scheme;
+  uri += "scheme=" + util::UriEscape(options().scheme);
   uri += "&";
   uri += "endpoint_override=" + util::UriEscape(options().endpoint_override);
   uri += "&";
