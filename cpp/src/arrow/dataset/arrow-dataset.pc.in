@@ -24,4 +24,5 @@ Description: Apache Arrow Dataset provides an API to read and write semantic dat
 Version: @ARROW_VERSION@
 Requires: @ARROW_DATASET_PKG_CONFIG_REQUIRES@
 Libs: -L${libdir} -larrow_dataset
-Cflags.private: -DARROW_DS_STATIC
+Cflags:@ARROW_DATASET_PC_CFLAGS@
+Cflags.private:@ARROW_DATASET_PC_CFLAGS_PRIVATE@

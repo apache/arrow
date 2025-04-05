@@ -24,5 +24,5 @@ Description: Gandiva is a toolset for compiling and evaluating expressions on Ar
 Version: @GANDIVA_VERSION@
 Requires: arrow
 Libs: -L${libdir} -lgandiva
-Cflags: -I${includedir}
-Cflags.private: -DGANDIVA_STATIC
+Cflags: -I${includedir}@GANDIVA_PC_CFLAGS@
+Cflags.private:@GANDIVA_PC_CFLAGS_PRIVATE@

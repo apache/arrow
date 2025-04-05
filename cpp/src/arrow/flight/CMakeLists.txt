@@ -19,6 +19,15 @@ add_custom_target(arrow_flight)
 
 arrow_install_all_headers("arrow/flight")
 
+# If libarrow_flight.a is only built, "pkg-config --cflags --libs
+# arrow-flight" outputs build flags for static linking not shared
+# linking. ARROW_FLIGHT_PC_* except ARROW_FLIGHT_PC_*_PRIVATE are for
+# the static linking case.
+if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+  string(APPEND ARROW_FLIGHT_PC_CFLAGS "${ARROW_FLIGHT_PC_CFLAGS_PRIVATE}")
+  set(ARROW_FLIGHT_PC_CFLAGS_PRIVATE "")
+endif()
+
 set(ARROW_FLIGHT_LINK_LIBS gRPC::grpc++ ${ARROW_PROTOBUF_LIBPROTOBUF})
 if(ARROW_WITH_OPENTELEMETRY)
   list(APPEND ARROW_FLIGHT_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})

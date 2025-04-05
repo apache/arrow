@@ -25,4 +25,5 @@ Version: @ARROW_VERSION@
 Requires: arrow
 Requires.private:@ARROW_FLIGHT_PC_REQUIRES_PRIVATE@
 Libs: -L${libdir} -larrow_flight
-Cflags.private: -DARROW_FLIGHT_STATIC
+Cflags:@ARROW_FLIGHT_PC_CFLAGS@
+Cflags.private:@ARROW_FLIGHT_PC_CFLAGS_PRIVATE@

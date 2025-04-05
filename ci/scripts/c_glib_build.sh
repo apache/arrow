@@ -37,6 +37,7 @@ fi
 
 PATH="${ARROW_HOME}/bin:${PATH}"
 
+meson_cmake_prefix_path="${ARROW_HOME}"
 meson_pkg_config_path="${ARROW_HOME}/lib/pkgconfig"
 
 mkdir -p "${build_dir}"
@@ -46,6 +47,7 @@ if [ -n "${VCPKG_DEFAULT_TRIPLET:-}" ]; then
   vcpkg install \
     --x-manifest-root="${source_dir}" \
     --x-install-root="${vcpkg_install_root}"
+  meson_cmake_prefix_path="${vcpkg_install_root}/${VCPKG_DEFAULT_TRIPLET}:${meson_cmake_prefix_path}"
   PKG_CONFIG="${vcpkg_install_root}/${VCPKG_DEFAULT_TRIPLET}/tools/pkgconf/pkgconf.exe"
   export PKG_CONFIG
   meson_pkg_config_path="${vcpkg_install_root}/${VCPKG_DEFAULT_TRIPLET}/lib/pkgconfig:${meson_pkg_config_path}"
@@ -65,9 +67,10 @@ fi
 # Build with Meson
 meson setup \
       --backend=ninja \
-      --prefix="${ARROW_HOME}" \
+      --cmake-prefix-path="${meson_cmake_prefix_path}" \
       --libdir=lib \
       --pkg-config-path="${meson_pkg_config_path}" \
+      --prefix="${ARROW_HOME}" \
       -Ddoc="${with_doc}" \
       -Dvapi="${ARROW_GLIB_VAPI}" \
       -Dwerror="${ARROW_GLIB_WERROR}" \
