@@ -288,7 +288,14 @@ Result<std::string> LocalFileSystem::PathFromUri(const std::string& uri_string) 
 
 Result<std::string> LocalFileSystem::MakeUri(std::string path) const {
   ARROW_ASSIGN_OR_RAISE(path, DoNormalizePath(std::move(path)));
-  return "file://" + path + (options_.use_mmap ? "?use_mmap" : "");
+  if (!internal::DetectAbsolutePath(path)) {
+    return Status::Invalid("MakeUri requires an absolute path, got ", path);
+  }
+  ARROW_ASSIGN_OR_RAISE(auto uri, util::UriFromAbsolutePath(path));
+  if (uri[0] == '/') {
+    uri = "file://" + uri;
+  }
+  return uri + (options_.use_mmap ? "?use_mmap" : "");
 }
 
 bool LocalFileSystem::Equals(const FileSystem& other) const {

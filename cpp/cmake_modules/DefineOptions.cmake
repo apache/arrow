@@ -397,6 +397,12 @@ takes precedence over ccache if a storage backend is configured" ON)
                 DEPENDS
                 ARROW_FILESYSTEM)
 
+  define_option(ARROW_S3_MODULE
+                "Build the Arrow S3 filesystem as a dynamic module"
+                OFF
+                DEPENDS
+                ARROW_S3)
+
   define_option(ARROW_SKYHOOK
                 "Build the Skyhook libraries"
                 OFF

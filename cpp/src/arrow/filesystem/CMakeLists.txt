@@ -121,6 +121,24 @@ if(ARROW_S3)
       target_link_libraries(arrow-filesystem-s3fs-benchmark PRIVATE parquet_shared)
     endif()
   endif()
+
+  if(ARROW_S3_MODULE)
+    add_arrow_test(s3fs_module_test
+                   SOURCES
+                   s3fs_module_test.cc
+                   s3_test_util.cc
+                   EXTRA_LABELS
+                   filesystem
+                   DEFINITIONS
+                   ARROW_S3_LIBPATH="$<TARGET_FILE:arrow_s3fs>"
+                   EXTRA_LINK_LIBS
+                   Boost::filesystem
+                   Boost::system)
+    target_compile_definitions(arrow-filesystem-test
+                               PUBLIC ARROW_S3_LIBPATH="$<TARGET_FILE:arrow_s3fs>")
+    target_sources(arrow-filesystem-test PUBLIC s3fs_module_test.cc s3_test_util.cc)
+    target_link_libraries(arrow-filesystem-test PUBLIC Boost::filesystem Boost::system)
+  endif()
 endif()
 
 if(ARROW_HDFS)

@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/filesystem/filesystem.h"
@@ -428,9 +429,15 @@ TYPED_TEST(TestLocalFS, FileSystemFromUriFile) {
 
   this->TestLocalUri("file:///_?use_mmap", "/_");
   if (this->path_formatter_.supports_uri()) {
+    EXPECT_THAT(this->fs_->MakeUri(""), Raises(StatusCode::Invalid));
+    EXPECT_THAT(this->fs_->MakeUri("a/b"), Raises(StatusCode::Invalid));
+
     ASSERT_TRUE(this->local_fs_->options().use_mmap);
     ASSERT_OK_AND_ASSIGN(auto uri, this->fs_->MakeUri("/_"));
     EXPECT_EQ(uri, "file:///_?use_mmap");
+
+    ASSERT_OK_AND_ASSIGN(uri, this->fs_->MakeUri("/hello world/b/c"));
+    EXPECT_EQ(uri, "file:///hello%20world/b/c?use_mmap");
   }
 
 #ifdef _WIN32
