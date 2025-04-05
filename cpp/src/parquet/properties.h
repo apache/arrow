@@ -245,6 +245,34 @@ class PARQUET_EXPORT ColumnProperties {
   bool page_index_enabled_;
 };
 
+// EXPERIMENTAL: Options for content-defined chunking.
+struct PARQUET_EXPORT CdcOptions {
+  /// Minimum chunk size in bytes, default 256 KiB
+  /// The rolling hash will not be updated until this size is reached for each chunk.
+  /// Note that all data sent through the hash function is counted towards the chunk
+  /// size, including definition and repetition levels if present.
+  int64_t min_chunk_size;
+  /// Maximum chunk size in bytes, default is 1024 KiB
+  /// The chunker will create a new chunk whenever the chunk size exceeds this value.
+  /// Note that the parquet writer has a related `pagesize` property that controls
+  /// the maximum size of a parquet data page after encoding. While setting
+  /// `pagesize` to a smaller value than `max_chunk_size` doesn't affect the
+  /// chunking effectiveness, it results in more small parquet data pages.
+  int64_t max_chunk_size;
+  /// Number of bit adjustement to the gearhash mask in order to
+  /// center the chunk size around the average size more aggressively, default 0
+  /// Increasing the normalization factor increases the probability of finding a chunk,
+  /// improving the deduplication ratio, but also increasing the number of small chunks
+  /// resulting in many small parquet data pages. The default value provides a good
+  /// balance between deduplication ratio and fragmentation. Use norm_factor=1 or
+  /// norm_factor=2 to reach a higher deduplication ratio at the expense of
+  /// fragmentation. Negative values can also be used to reduce the probability of
+  /// finding a chunk, resulting in larger chunks and fewer data pages.
+  int norm_factor = 0;
+};
+
+static constexpr CdcOptions kDefaultCdcOptions = CdcOptions{256 * 1024, 1024 * 1024, 0};
+
 class PARQUET_EXPORT WriterProperties {
  public:
   class Builder {
@@ -260,7 +288,9 @@ class PARQUET_EXPORT WriterProperties {
           created_by_(DEFAULT_CREATED_BY),
           store_decimal_as_integer_(false),
           page_checksum_enabled_(false),
-          size_statistics_level_(DEFAULT_SIZE_STATISTICS_LEVEL) {}
+          size_statistics_level_(DEFAULT_SIZE_STATISTICS_LEVEL),
+          content_defined_chunking_enabled_(false),
+          content_defined_chunking_options_(kDefaultCdcOptions) {}
 
     explicit Builder(const WriterProperties& properties)
         : pool_(properties.memory_pool()),
@@ -275,9 +305,37 @@ class PARQUET_EXPORT WriterProperties {
           page_checksum_enabled_(properties.page_checksum_enabled()),
           size_statistics_level_(properties.size_statistics_level()),
           sorting_columns_(properties.sorting_columns()),
-          default_column_properties_(properties.default_column_properties()) {}
+          default_column_properties_(properties.default_column_properties()),
+          content_defined_chunking_enabled_(
+              properties.content_defined_chunking_enabled()),
+          content_defined_chunking_options_(
+              properties.content_defined_chunking_options()) {}
 
     virtual ~Builder() {}
+
+    /// \brief EXPERIMENTAL: Use content-defined page chunking for all columns.
+    ///
+    /// Optimize parquet files for content addressable storage (CAS) systems by writing
+    /// data pages according to content-defined chunk boundaries. This allows for more
+    /// efficient deduplication of data across files, hence more efficient network
+    /// transfers and storage. The chunking is based on a rolling hash algorithm that
+    /// identifies chunk boundaries based on the actual content of the data.
+    Builder* enable_content_defined_chunking() {
+      content_defined_chunking_enabled_ = true;
+      return this;
+    }
+
+    /// \brief EXPERIMENTAL: Disable content-defined page chunking for all columns.
+    Builder* disable_content_defined_chunking() {
+      content_defined_chunking_enabled_ = false;
+      return this;
+    }
+
+    /// \brief EXPERIMENTAL: Specify content-defined chunking options, see CdcOptions.
+    Builder* content_defined_chunking_options(const CdcOptions options) {
+      content_defined_chunking_options_ = options;
+      return this;
+    }
 
     /// Specify the memory pool for the writer. Default default_memory_pool.
     Builder* memory_pool(MemoryPool* pool) {
@@ -701,7 +759,8 @@ class PARQUET_EXPORT WriterProperties {
           pagesize_, version_, created_by_, page_checksum_enabled_,
           size_statistics_level_, std::move(file_encryption_properties_),
           default_column_properties_, column_properties, data_page_version_,
-          store_decimal_as_integer_, std::move(sorting_columns_)));
+          store_decimal_as_integer_, std::move(sorting_columns_),
+          content_defined_chunking_enabled_, content_defined_chunking_options_));
     }
 
    private:
@@ -730,6 +789,9 @@ class PARQUET_EXPORT WriterProperties {
     std::unordered_map<std::string, bool> dictionary_enabled_;
     std::unordered_map<std::string, bool> statistics_enabled_;
     std::unordered_map<std::string, bool> page_index_enabled_;
+
+    bool content_defined_chunking_enabled_;
+    CdcOptions content_defined_chunking_options_;
   };
 
   inline MemoryPool* memory_pool() const { return pool_; }
@@ -753,6 +815,13 @@ class PARQUET_EXPORT WriterProperties {
   inline bool store_decimal_as_integer() const { return store_decimal_as_integer_; }
 
   inline bool page_checksum_enabled() const { return page_checksum_enabled_; }
+
+  inline bool content_defined_chunking_enabled() const {
+    return content_defined_chunking_enabled_;
+  }
+  inline CdcOptions content_defined_chunking_options() const {
+    return content_defined_chunking_options_;
+  }
 
   inline SizeStatisticsLevel size_statistics_level() const {
     return size_statistics_level_;
@@ -856,7 +925,8 @@ class PARQUET_EXPORT WriterProperties {
       const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
       ParquetDataPageVersion data_page_version, bool store_short_decimal_as_integer,
-      std::vector<SortingColumn> sorting_columns)
+      std::vector<SortingColumn> sorting_columns, bool content_defined_chunking_enabled,
+      CdcOptions content_defined_chunking_options)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
@@ -871,7 +941,9 @@ class PARQUET_EXPORT WriterProperties {
         file_encryption_properties_(file_encryption_properties),
         sorting_columns_(std::move(sorting_columns)),
         default_column_properties_(default_column_properties),
-        column_properties_(column_properties) {}
+        column_properties_(column_properties),
+        content_defined_chunking_enabled_(content_defined_chunking_enabled),
+        content_defined_chunking_options_(content_defined_chunking_options) {}
 
   MemoryPool* pool_;
   int64_t dictionary_pagesize_limit_;
@@ -891,6 +963,9 @@ class PARQUET_EXPORT WriterProperties {
 
   ColumnProperties default_column_properties_;
   std::unordered_map<std::string, ColumnProperties> column_properties_;
+
+  bool content_defined_chunking_enabled_;
+  CdcOptions content_defined_chunking_options_;
 };
 
 PARQUET_EXPORT const std::shared_ptr<WriterProperties>& default_writer_properties();
