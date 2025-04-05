@@ -108,7 +108,7 @@ def release_changelog_regenerate(obj):
             continue
         release = Release(version, repo=repo,
                           issue_tracker=issue_tracker)
-        click.echo('Querying changelog for version: {}'.format(version))
+        click.echo(f'Querying changelog for version: {version}')
         changelogs.append(release.changelog())
 
     click.echo('Rendering new CHANGELOG.md file...')
@@ -139,4 +139,4 @@ def release_cherry_pick(obj, version, dry_run, recreate):
     else:
         click.echo(f'git checkout -b {release.branch} {release.base_branch}')
         for commit in release.commits_to_pick():
-            click.echo('git cherry-pick {}'.format(commit.hexsha))
+            click.echo(f'git cherry-pick {commit.hexsha}')

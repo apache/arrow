@@ -33,7 +33,7 @@ class DemoFlightServer(pyarrow.flight.FlightServerBase):
         if isinstance(port, float):
             # Because R is looser with integer vs. float
             port = int(port)
-        location = "grpc+tcp://{}:{}".format(host, port)
+        location = f"grpc+tcp://{host}:{port}"
         super(DemoFlightServer, self).__init__(location)
         self.flights = {}
         self.host = host
@@ -101,8 +101,7 @@ class DemoFlightServer(pyarrow.flight.FlightServerBase):
     def do_action(self, context, action):
         print("do_action")
         if action.type == "clear":
-            raise NotImplementedError(
-                "{} is not implemented.".format(action.type))
+            raise NotImplementedError(f"{action.type} is not implemented.")
         elif action.type == "healthcheck":
             pass
         elif action.type == "shutdown":
@@ -111,7 +110,7 @@ class DemoFlightServer(pyarrow.flight.FlightServerBase):
             # request
             threading.Thread(target=self._shutdown).start()
         else:
-            raise KeyError("Unknown action {!r}".format(action.type))
+            raise KeyError(f"Unknown action {action.type!r}")
 
     def _shutdown(self):
         """Shut down after a delay."""
