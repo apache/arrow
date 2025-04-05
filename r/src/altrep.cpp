@@ -225,7 +225,8 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
       } else if constexpr (std::is_same_v<c_type, int>) {
         Get_region(alt, 0, size, INTEGER(copy));
       } else {
-        static_assert(false, "ALTREP not implemented for c_type");
+        static_assert(std::is_same_v<c_type, double> || std::is_same_v<c_type, int>,
+                      "ALTREP not implemented for this c_type");
       }
 
       // store as data2, this is now considered materialized
@@ -280,7 +281,8 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     } else if constexpr (std::is_same_v<c_type, int>) {
       return INTEGER(Materialize(alt));
     } else {
-      static_assert(false, "ALTREP not implemented for c_type");
+      static_assert(std::is_same_v<c_type, double> || std::is_same_v<c_type, int>,
+                    "ALTREP not implemented for this c_type");
     }
   }
 
@@ -292,7 +294,8 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
       } else if constexpr (std::is_same_v<c_type, int>) {
         return reinterpret_cast<c_type*>(INTEGER(Representation(alt)))[i];
       } else {
-        static_assert(false, "ALTREP not implemented for c_type");
+        static_assert(std::is_same_v<c_type, double> || std::is_same_v<c_type, int>,
+                      "ALTREP not implemented for this c_type");
       }
     }
 
