@@ -150,7 +150,9 @@ Result<std::unique_ptr<PivotWiderKeyMapper>> PivotWiderKeyMapper::Make(
     const DataType& key_type, const PivotWiderOptions* options, ExecContext* ctx) {
   auto instance = std::make_unique<ConcretePivotWiderKeyMapper>();
   RETURN_NOT_OK(instance->Init(key_type, options, ctx));
-  return instance;
+  // We can remove this static_cast() once we drop support for g++
+  // 7.5.0 (we require C++20).
+  return static_cast<std::unique_ptr<PivotWiderKeyMapper>>(std::move(instance));
 }
 
 }  // namespace arrow::compute::internal
