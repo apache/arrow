@@ -171,6 +171,9 @@ set(PARQUET_SRCS
     exception.cc
     file_reader.cc
     file_writer.cc
+    geospatial/statistics.cc
+    geospatial/util_internal.cc
+    geospatial/util_json_internal.cc
     level_comparison.cc
     level_conversion.cc
     metadata.cc
@@ -258,6 +261,14 @@ endif()
 
 if(NOT PARQUET_MINIMAL_DEPENDENCY)
   list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
+
+  # Add RapidJSON libraries
+  if(NOT ARROW_JSON)
+    message(FATAL_ERROR "Building Parquet with Arrow support requires ARROW_JSON=ON")
+  endif()
+
+  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS RapidJSON)
+  list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON)
 
   # These are libraries that we will link privately with parquet_shared (as they
   # do not need to be linked transitively by other linkers)
@@ -356,6 +367,7 @@ endif()
 add_subdirectory(api)
 add_subdirectory(arrow)
 add_subdirectory(encryption)
+add_subdirectory(geospatial)
 
 arrow_install_all_headers("parquet")
 
@@ -372,6 +384,8 @@ add_parquet_test(internals-test
                  statistics_test.cc
                  encoding_test.cc
                  metadata_test.cc
+                 geospatial/statistics_test.cc
+                 geospatial/util_internal_test.cc
                  page_index_test.cc
                  public_api_test.cc
                  size_statistics_test.cc
