@@ -81,7 +81,7 @@ class SimpleRecordBatch : public RecordBatch {
     }
   }
 
-  SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
+  SimpleRecordBatch(std::shared_ptr<Schema> schema, int64_t num_rows,
                     std::vector<std::shared_ptr<ArrayData>> columns,
                     DeviceAllocationType device_type = DeviceAllocationType::kCPU,
                     std::shared_ptr<Device::SyncEvent> sync_event = nullptr)
@@ -216,8 +216,8 @@ class SimpleRecordBatch : public RecordBatch {
   std::shared_ptr<Device::SyncEvent> sync_event_;
 };
 
-RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows)
-    : schema_(schema), num_rows_(num_rows) {}
+RecordBatch::RecordBatch(std::shared_ptr<Schema> schema, int64_t num_rows)
+    : schema_(std::move(schema)), num_rows_(num_rows) {}
 
 std::shared_ptr<RecordBatch> RecordBatch::Make(
     std::shared_ptr<Schema> schema, int64_t num_rows,
