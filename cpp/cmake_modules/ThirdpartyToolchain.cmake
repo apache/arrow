@@ -2885,6 +2885,10 @@ macro(build_utf8proc)
   set(UTF8PROC_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
                           "-DCMAKE_INSTALL_PREFIX=${UTF8PROC_PREFIX}")
 
+  # We can remove this once we remove -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+  # from EP_COMMON_CMAKE_ARGS.
+  list(REMOVE_ITEM UTF8PROC_CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
+
   externalproject_add(utf8proc_ep
                       ${EP_COMMON_OPTIONS}
                       CMAKE_ARGS ${UTF8PROC_CMAKE_ARGS}
