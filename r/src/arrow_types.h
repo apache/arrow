@@ -192,9 +192,8 @@ class RBuffer : public MutableBuffer {
     } else if (TYPEOF(vec) == CPLXSXP) {
       return COMPLEX(vec);
     } else if (TYPEOF(vec) == STRSXP) {
-      // Technically this returns the address to the first element of the string vector
-      // which is similar to what we would get with DATAPTR() before it was removed
-      return STRING_ELT(vec, 0);
+      // We don't want to expose the string data here, so we error
+      cpp11::stop("Operation not supported for string vectors.");
     } else {
       // raw
       return RAW(vec);

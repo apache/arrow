@@ -244,15 +244,13 @@ test_that("element access methods for character ALTREP", {
   expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
   expect_false(test_arrow_altrep_is_materialized(altrep))
 
-  # DATAPTR() does not materialize
-  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
-  expect_false(test_arrow_altrep_is_materialized(altrep))
+  # match() calls DATAPTR() internally which materializes the vector
+  match(altrep, c("1", "40", "999"))
+  expect_true(test_arrow_altrep_is_materialized(altrep))
 
   # test element access after materialization
-  test_arrow_altrep_force_materialize(altrep)
   expect_true(test_arrow_altrep_is_materialized(altrep))
   expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
-  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
 })
 
 test_that("element access methods for character ALTREP from large_utf8()", {
@@ -266,15 +264,13 @@ test_that("element access methods for character ALTREP from large_utf8()", {
   expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
   expect_false(test_arrow_altrep_is_materialized(altrep))
 
-  # DATAPTR() sdoes not materialize
-  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
-  expect_false(test_arrow_altrep_is_materialized(altrep))
+  # match() calls DATAPTR() internally which materializes the vector
+  match(altrep, c("1", "40", "999"))
+  expect_true(test_arrow_altrep_is_materialized(altrep))
 
   # test element access after materialization
-  test_arrow_altrep_force_materialize(altrep)
   expect_true(test_arrow_altrep_is_materialized(altrep))
   expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
-  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
 })
 
 test_that("empty vectors are not altrep", {

@@ -222,8 +222,10 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
       // copy the data from the array, through Get_region
       if constexpr (std::is_same_v<c_type, double>) {
         Get_region(alt, 0, size, REAL(copy));
-      } else {
+      } else if constexpr (std::is_same_v<c_type, int>) {
         Get_region(alt, 0, size, INTEGER(copy));
+      } else {
+        static_assert(false, "ALTREP not implemented for c_type");
       }
 
       // store as data2, this is now considered materialized
@@ -287,8 +289,10 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     if (IsMaterialized(alt)) {
       if constexpr (std::is_same_v<c_type, double>) {
         return reinterpret_cast<c_type*>(REAL(Representation(alt)))[i];
-      } else {
+      } else if constexpr (std::is_same_v<c_type, int>) {
         return reinterpret_cast<c_type*>(INTEGER(Representation(alt)))[i];
+      } else {
+        static_assert(false, "ALTREP not implemented for c_type");
       }
     }
 
@@ -1285,23 +1289,16 @@ sexp test_arrow_altrep_copy_by_dataptr(sexp x) {
 
   if (TYPEOF(x) == INTSXP) {
     cpp11::writable::integers out(Rf_xlength(x));
-    int* ptr = reinterpret_cast<int*>(INTEGER(x));
+    int* ptr = INTEGER(x);
     for (R_xlen_t i = 0; i < n; i++) {
       out[i] = ptr[i];
     }
     return out;
   } else if (TYPEOF(x) == REALSXP) {
     cpp11::writable::doubles out(Rf_xlength(x));
-    double* ptr = reinterpret_cast<double*>(REAL(x));
+    double* ptr = REAL(x);
     for (R_xlen_t i = 0; i < n; i++) {
       out[i] = ptr[i];
-    }
-    return out;
-  } else if (TYPEOF(x) == STRSXP) {
-    cpp11::writable::strings out(Rf_xlength(x));
-    for (R_xlen_t i = 0; i < n; i++) {
-      SEXP str_elt = reinterpret_cast<SEXP>(STRING_ELT(x, i));
-      out[i] = str_elt;
     }
     return out;
   } else {
