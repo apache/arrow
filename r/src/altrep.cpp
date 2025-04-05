@@ -290,9 +290,9 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
   static c_type Elt(SEXP alt, R_xlen_t i) {
     if (IsMaterialized(alt)) {
       if constexpr (std::is_same_v<c_type, double>) {
-        return reinterpret_cast<c_type*>(REAL(Representation(alt)))[i];
+        return REAL(Representation(alt))[i];
       } else if constexpr (std::is_same_v<c_type, int>) {
-        return reinterpret_cast<c_type*>(INTEGER(Representation(alt)))[i];
+        return INTEGER(Representation(alt))[i];
       } else {
         static_assert(std::is_same_v<c_type, double> || std::is_same_v<c_type, int>,
                       "ALTREP not implemented for this c_type");
@@ -552,7 +552,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
       SEXP copy = PROTECT(Rf_allocVector(INTSXP, size));
 
       // copy the data from the array, through Get_region
-      Get_region(alt, 0, size, reinterpret_cast<int*>(INTEGER(copy)));
+      Get_region(alt, 0, size, INTEGER(copy));
 
       // store as data2, this is now considered materialized
       SetRepresentation(alt, copy);
