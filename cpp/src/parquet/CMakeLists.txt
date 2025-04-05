@@ -157,6 +157,7 @@ set(PARQUET_SRCS
     arrow/reader_internal.cc
     arrow/schema.cc
     arrow/schema_internal.cc
+    arrow/variant_internal.cc
     arrow/writer.cc
     bloom_filter.cc
     bloom_filter_reader.cc
@@ -399,7 +400,8 @@ add_parquet_test(arrow-test
                  arrow/arrow_metadata_test.cc
                  arrow/arrow_reader_writer_test.cc
                  arrow/arrow_schema_test.cc
-                 arrow/arrow_statistics_test.cc)
+                 arrow/arrow_statistics_test.cc
+                 arrow/variant_test.cc)
 
 add_parquet_test(arrow-internals-test SOURCES arrow/path_internal_test.cc
                  arrow/reconstruct_internal_test.cc)

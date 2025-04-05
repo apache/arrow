@@ -479,6 +479,8 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
     return UUIDLogicalType::Make();
   } else if (type.__isset.FLOAT16) {
     return Float16LogicalType::Make();
+  } else if (type.__isset.VARIANT) {
+    return VariantLogicalType::Make();
   } else {
     // Sentinel type for one we do not recognize
     return UndefinedLogicalType::Make();
@@ -535,6 +537,10 @@ std::shared_ptr<const LogicalType> LogicalType::UUID() { return UUIDLogicalType:
 
 std::shared_ptr<const LogicalType> LogicalType::Float16() {
   return Float16LogicalType::Make();
+}
+
+std::shared_ptr<const LogicalType> LogicalType::Variant() {
+  return VariantLogicalType::Make();
 }
 
 std::shared_ptr<const LogicalType> LogicalType::None() { return NoLogicalType::Make(); }
@@ -619,6 +625,7 @@ class LogicalType::Impl {
   class BSON;
   class UUID;
   class Float16;
+  class Variant;
   class No;
   class Undefined;
 
@@ -690,6 +697,9 @@ bool LogicalType::is_BSON() const { return impl_->type() == LogicalType::Type::B
 bool LogicalType::is_UUID() const { return impl_->type() == LogicalType::Type::UUID; }
 bool LogicalType::is_float16() const {
   return impl_->type() == LogicalType::Type::FLOAT16;
+}
+bool LogicalType::is_variant() const {
+  return impl_->type() == LogicalType::Type::VARIANT;
 }
 bool LogicalType::is_none() const { return impl_->type() == LogicalType::Type::NONE; }
 bool LogicalType::is_valid() const {
@@ -1619,6 +1629,22 @@ class LogicalType::Impl::Float16 final : public LogicalType::Impl::Incompatible,
 };
 
 GENERATE_MAKE(Float16)
+
+class LogicalType::Impl::Variant final : public LogicalType::Impl::Incompatible,
+                                         public LogicalType::Impl::Inapplicable {
+ public:
+  friend class VariantLogicalType;
+
+  OVERRIDE_TOSTRING(Variant)
+  OVERRIDE_TOTHRIFT(VariantType, VARIANT)
+
+ private:
+  Variant()
+      : LogicalType::Impl(LogicalType::Type::VARIANT, SortOrder::UNKNOWN),
+        LogicalType::Impl::Inapplicable() {}
+};
+
+GENERATE_MAKE(Variant)
 
 class LogicalType::Impl::No final : public LogicalType::Impl::SimpleCompatible,
                                     public LogicalType::Impl::UniversalApplicable {
