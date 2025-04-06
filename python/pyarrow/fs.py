@@ -73,7 +73,7 @@ else:
 def __getattr__(name):
     if name in _not_imported:
         raise ImportError(
-            f"The pyarrow installation is not built with support for "
+            "The pyarrow installation is not built with support for "
             f"'{name}'"
         )
 
@@ -92,7 +92,7 @@ def _filesystem_from_str(uri):
         prefix_info = filesystem.get_file_info([prefix])[0]
         if prefix_info.type != FileType.Directory:
             raise ValueError(
-                f"The path component of the filesystem URI must point to a "
+                "The path component of the filesystem URI must point to a "
                 f"directory but it has a type: `{prefix_info.type.name}`. The path "
                 f"component is `{prefix_info.path}` and the given filesystem URI is "
                 f"`{uri}`"

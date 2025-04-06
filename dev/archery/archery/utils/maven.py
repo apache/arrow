@@ -198,6 +198,6 @@ class MavenBuild(Maven):
         return MavenBuild(path, definition=None)
 
     def __repr__(self):
-        return (f"MavenBuild["
+        return ("MavenBuild["
                 f"build = {self.build_dir},"
                 f"definition = {self.definition}]")

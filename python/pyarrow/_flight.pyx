@@ -727,7 +727,7 @@ cdef class FlightEndpoint(_Weakrefable):
         elif isinstance(ticket, (str, bytes)):
             self.endpoint.ticket.ticket = tobytes(ticket)
         else:
-            raise TypeError(f"Argument ticket must be a Ticket instance, string or bytes, "
+            raise TypeError("Argument ticket must be a Ticket instance, string or bytes, "
                             f"not '{type(ticket)}'")
 
         for location in locations:
@@ -738,7 +738,7 @@ cdef class FlightEndpoint(_Weakrefable):
                 check_flight_status(
                     CLocation.Parse(tobytes(location)).Value(&c_location))
             else:
-                raise TypeError(f"Argument locations must contain Location instances, strings or bytes, "
+                raise TypeError("Argument locations must contain Location instances, strings or bytes, "
                                 f"not '{type(location)}'")
             self.endpoint.locations.push_back(c_location)
 
@@ -747,11 +747,11 @@ cdef class FlightEndpoint(_Weakrefable):
                 self.endpoint.expiration_time = TimePoint_from_ns(
                     expiration_time.cast(timestamp("ns")).value)
             else:
-                raise TypeError(f"Argument expiration_time must be a TimestampScalar, "
+                raise TypeError("Argument expiration_time must be a TimestampScalar, "
                                 f"not '{type(expiration_time)}'")
 
         if not isinstance(app_metadata, (str, bytes)):
-            raise TypeError(f"Argument app_metadata must be a string or bytes, "
+            raise TypeError("Argument app_metadata must be a string or bytes, "
                             f"not '{type(app_metadata)}'")
         self.endpoint.app_metadata = tobytes(app_metadata)
 
@@ -1823,7 +1823,7 @@ cdef class RecordBatchStream(FlightDataStream):
         """
         if (not isinstance(data_source, RecordBatchReader) and
                 not isinstance(data_source, lib.Table)):
-            raise TypeError(f"Expected RecordBatchReader or Table, "
+            raise TypeError("Expected RecordBatchReader or Table, "
                             f"but got: {type(data_source)}")
         self.data_source = data_source
         self.write_options = _get_options(options).c_options
@@ -2117,9 +2117,9 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
                 (<FlightDataStream> result).to_stream())
             substream_schema = pyarrow_wrap_schema(data_stream.get().schema())
             if substream_schema != stream_schema:
-                raise ValueError(f"Got a FlightDataStream whose schema "
-                                 f"does not match the declared schema of this "
-                                 f"GeneratorStream. "
+                raise ValueError("Got a FlightDataStream whose schema "
+                                 "does not match the declared schema of this "
+                                 "GeneratorStream. "
                                  f"Got: {substream_schema}\nExpected: {stream_schema}")
             stream.current_stream.reset(
                 new CPyFlightDataStream(result, move(data_stream)))
@@ -2128,9 +2128,9 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
         elif isinstance(result, RecordBatch):
             batch = <RecordBatch> result
             if batch.schema != stream_schema:
-                raise ValueError(f"Got a RecordBatch whose schema does not "
-                                 f"match the declared schema of this "
-                                 f"GeneratorStream. "
+                raise ValueError("Got a RecordBatch whose schema does not "
+                                 "match the declared schema of this "
+                                 "GeneratorStream. "
                                  f"Got: {batch.schema}\nExpected: {stream_schema}")
             check_flight_status(GetRecordBatchPayload(
                 deref(batch.batch),
@@ -2140,9 +2140,9 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
                 payload.app_metadata = pyarrow_unwrap_buffer(
                     as_buffer(metadata))
         else:
-            raise TypeError(f"GeneratorStream must be initialized with "
-                            f"an iterator of FlightDataStream, Table, "
-                            f"RecordBatch, or RecordBatchStreamReader objects, "
+            raise TypeError("GeneratorStream must be initialized with "
+                            "an iterator of FlightDataStream, Table, "
+                            "RecordBatch, or RecordBatchStreamReader objects, "
                             f"not {type(result)}.")
         # Don't loop around
         return CStatus_OK()
@@ -2164,7 +2164,7 @@ cdef CStatus _list_flights(void* self, const CServerCallContext& context,
                                               c_criteria.expression)
         for info in result:
             if not isinstance(info, FlightInfo):
-                raise TypeError(f"FlightServerBase.list_flights must return "
+                raise TypeError("FlightServerBase.list_flights must return "
                                 f"FlightInfo instances, but got {type(info)}")
             flights.push_back(deref((<FlightInfo> info).info.get()))
         listing.reset(new CSimpleFlightListing(flights))
@@ -2188,7 +2188,7 @@ cdef CStatus _get_flight_info(void* self, const CServerCallContext& context,
     except FlightError as flight_error:
         return (<FlightError> flight_error).to_status()
     if not isinstance(result, FlightInfo):
-        raise TypeError(f"FlightServerBase.get_flight_info must return "
+        raise TypeError("FlightServerBase.get_flight_info must return "
                         f"a FlightInfo instance, but got {type(result)}")
     info.reset(new CFlightInfo(deref((<FlightInfo> result).info.get())))
     return CStatus_OK()
@@ -2204,7 +2204,7 @@ cdef CStatus _get_schema(void* self, const CServerCallContext& context,
     result = (<object> self).get_schema(ServerCallContext.wrap(context),
                                         py_descriptor)
     if not isinstance(result, SchemaResult):
-        raise TypeError(f"FlightServerBase.get_schema_info must return "
+        raise TypeError("FlightServerBase.get_schema_info must return "
                         f"a SchemaResult instance, but got {type(result)}")
     info.reset(new CSchemaResult(deref((<SchemaResult> result).result.get())))
     return CStatus_OK()
@@ -2930,7 +2930,7 @@ cdef class FlightServerBase(_Weakrefable):
 
         if auth_handler:
             if not isinstance(auth_handler, ServerAuthHandler):
-                raise TypeError(f"auth_handler must be a ServerAuthHandler, "
+                raise TypeError("auth_handler must be a ServerAuthHandler, "
                                 f"not a '{type(auth_handler)}'")
             c_options.get().auth_handler.reset(
                 (<ServerAuthHandler> auth_handler).to_handler())

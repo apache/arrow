@@ -338,11 +338,11 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 # the first array(..) call)
                 if value_type is not None:
                     warnings.warn(
-                        f"The dtype of the 'categories' of the passed "
+                        "The dtype of the 'categories' of the passed "
                         f"categorical values ({values.categories.dtype}) does not match the "
                         f"specified type ({value_type}). For now ignoring the specified "
-                        f"type, but in the future this mismatch will raise a "
-                        f"TypeError",
+                        "type, but in the future this mismatch will raise a "
+                        "TypeError",
                         FutureWarning, stacklevel=2)
                     dictionary = array(
                         values.categories.values, memory_pool=memory_pool)
@@ -1269,17 +1269,17 @@ cdef class Array(_PandasConvertible):
         children = children or []
 
         if type.num_fields != len(children):
-            raise ValueError(f"Type's expected number of children "
+            raise ValueError("Type's expected number of children "
                              f"({type.num_fields}) did not match the passed number "
                              f"({len(children)})")
 
         if type.has_variadic_buffers:
             if type.num_buffers > len(buffers):
-                raise ValueError(f"Type's expected number of buffers is at least "
+                raise ValueError("Type's expected number of buffers is at least "
                                  f"{type.num_buffers}, but the passed number is "
                                  f"{len(buffers)}.")
         elif type.num_buffers != len(buffers):
-            raise ValueError(f"Type's expected number of buffers "
+            raise ValueError("Type's expected number of buffers "
                              f"({type.num_buffers}) did not match the passed number "
                              f"({len(buffers)}).")
 
@@ -4379,7 +4379,7 @@ cdef class RunEndEncodedArray(Array):
         children = children or []
 
         if type.num_fields != len(children):
-            raise ValueError(f"RunEndEncodedType's expected number of children "
+            raise ValueError("RunEndEncodedType's expected number of children "
                              f"({type.num_fields}) did not match the passed number "
                              f"({len(children)})")
 
@@ -4392,13 +4392,13 @@ cdef class RunEndEncodedArray(Array):
             raise ValueError("RunEndEncodedType expects None as validity "
                              "bitmap, buffers[0] is not None")
         if type.num_buffers != len(buffers):
-            raise ValueError(f"RunEndEncodedType's expected number of buffers "
+            raise ValueError("RunEndEncodedType's expected number of buffers "
                              f"({type.num_buffers}) did not match the passed number "
                              f"({len(buffers)}).")
 
         # null_count is also validated as if we needed it
         if null_count != -1 and null_count != 0:
-            raise ValueError(f"RunEndEncodedType's expected null_count (0) "
+            raise ValueError("RunEndEncodedType's expected null_count (0) "
                              f"did not match passed number ({null_count})")
 
         return RunEndEncodedArray._from_arrays(type, False, length, children[0],
@@ -4945,7 +4945,7 @@ def concat_arrays(arrays, MemoryPool memory_pool=None):
 
     for array in arrays:
         if not isinstance(array, Array):
-            raise TypeError(f"Iterable should contain Array objects, "
+            raise TypeError("Iterable should contain Array objects, "
                             f"got {type(array)} instead")
         c_arrays.push_back(pyarrow_unwrap_array(array))
 

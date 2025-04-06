@@ -308,7 +308,7 @@ def _perform_join_asof(left_operand, left_on, left_by,
     if columns_collisions:
         raise ValueError(
             f"Columns {columns_collisions} present in both tables. "
-            f"AsofJoin does not support column collisions."
+            "AsofJoin does not support column collisions."
         )
 
     # Add the join node to the execplan

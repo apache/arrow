@@ -92,16 +92,16 @@ for bit in range(1, 65):
     for k in range(howmanywords(bit)-1):
         print(f"  uint64_t w{k} = util::SafeLoadAs<uint64_t>(in);")
         print(f"  w{k} = arrow::BitUtil::FromLittleEndian(w{k});")
-        print(f"  in += 8;")
+        print("  in += 8;")
     k = howmanywords(bit) - 1
     if (bit % 2 == 0):
         print(f"  uint64_t w{k} = util::SafeLoadAs<uint64_t>(in);")
         print(f"  w{k} = arrow::BitUtil::FromLittleEndian(w{k});")
-        print(f"  in += 8;")
+        print("  in += 8;")
     else:
         print(f"  uint64_t w{k} = util::SafeLoadAs<uint32_t>(in);")
         print(f"  w{k} = arrow::BitUtil::FromLittleEndian(w{k});")
-        print(f"  in += 4;")
+        print("  in += 4;")
 
     for j in range(howmany(bit)):
         firstword = j * bit // 64

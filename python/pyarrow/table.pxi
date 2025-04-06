@@ -3545,7 +3545,7 @@ cdef class RecordBatch(_Tabular):
         c_arrays.reserve(len(arrays))
         for arr in converted_arrays:
             if len(arr) != num_rows:
-                raise ValueError(f'Arrays were not all the same length: '
+                raise ValueError('Arrays were not all the same length: '
                                  f'{len(arr)} vs {num_rows}')
             c_arrays.push_back(arr.sp_array)
 

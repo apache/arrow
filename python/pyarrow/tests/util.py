@@ -155,7 +155,7 @@ def memory_leak_check(f, metric='rss', threshold=1 << 17, iterations=10,
         current_use = _get_use()
         if current_use - baseline_use > threshold:
             raise Exception(
-                f"Memory leak detected. Departure from baseline "
+                "Memory leak detected. Departure from baseline "
                 f"{current_use - baseline_use} after {i} iterations"
             )
 

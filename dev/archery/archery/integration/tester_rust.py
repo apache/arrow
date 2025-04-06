@@ -105,7 +105,7 @@ class RustTester(Tester):
                 server.kill()
                 out, err = server.communicate()
                 raise RuntimeError(
-                    f"Flight-Rust server did not start properly, "
+                    "Flight-Rust server did not start properly, "
                     f"stdout:\n{output + out.decode()}\n\nstderr:\n{err.decode()}\n"
                 )
             port = int(output.split(':')[1])

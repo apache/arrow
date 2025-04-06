@@ -1241,7 +1241,7 @@ class Job(Serializable):
                 raise RuntimeError(msg)
 
             logger.info(f'Waiting {poll_interval_minutes} minutes and then '
-                        f'checking again')
+                        'checking again')
             time.sleep(poll_interval_minutes * 60)
 
 

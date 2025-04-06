@@ -427,7 +427,7 @@ class PullRequest(object):
             github_id = m.group(1)
             return GitHubIssue(self._github_api, github_id, self.cmd)
 
-        self.cmd.fail(f"PR title should be prefixed by a GitHub ID, like: "
+        self.cmd.fail("PR title should be prefixed by a GitHub ID, like: "
                       f"GH-XXX, but found {self.title}")
 
     def merge(self):

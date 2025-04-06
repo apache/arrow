@@ -226,8 +226,8 @@ cdef class DataType(_Weakrefable):
 
     def __init__(self):
         raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use public "
-                        f"functions like pyarrow.int64, pyarrow.list_, etc. "
-                        f"instead.")
+                        "functions like pyarrow.int64, pyarrow.list_, etc. "
+                        "instead.")
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
         assert type != nullptr

@@ -104,7 +104,7 @@ def check_chunked_overflow(name, col):
         # TODO(wesm): Not sure when else this might be reached
         raise ValueError(
             f"Column '{name}' of type {col.type} was chunked on conversion to Arrow "
-            f"and cannot be currently written to Feather format"
+            "and cannot be currently written to Feather format"
         )
 
 
@@ -178,7 +178,7 @@ def write_feather(df, dest, compression=None, compression_level=None,
             compression = 'lz4'
         elif (compression is not None and
               compression not in _FEATHER_SUPPORTED_CODECS):
-            raise ValueError(f'compression="{compression}" not supported, must be '
+            raise ValueError('compression="{compression}" not supported, must be '
                              f'one of {_FEATHER_SUPPORTED_CODECS}')
 
     try:
@@ -260,7 +260,7 @@ def read_table(source, columns=None, memory_map=False, use_threads=True):
         table = reader.read_names(columns)
     else:
         column_type_names = [t.__name__ for t in column_types]
-        raise TypeError(f"Columns must be indices or names. "
+        raise TypeError("Columns must be indices or names. "
                         f"Got columns {columns} of types {column_type_names}")
 
     # Feather v1 already respects the column selection

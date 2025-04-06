@@ -155,7 +155,7 @@ def docker_build(obj, image, *, force_pull, use_cache, use_leaf_cache):
                       pull_parents=force_pull)
     except UndefinedImage as e:
         raise click.ClickException(
-            f"There is no service/image defined in docker-compose.yml with "
+            "There is no service/image defined in docker-compose.yml with "
             f"name: {e}"
         )
     except RuntimeError as e:
@@ -249,7 +249,7 @@ def docker_run(obj, image, command, *, env, user, force_pull, force_build,
         )
     except UndefinedImage as e:
         raise click.ClickException(
-            f"There is no service/image defined in docker-compose.yml with "
+            "There is no service/image defined in docker-compose.yml with "
             f"name: {e}"
         )
     except RuntimeError as e:

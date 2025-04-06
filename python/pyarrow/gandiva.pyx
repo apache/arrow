@@ -81,7 +81,7 @@ cdef class Node(_Weakrefable):
 
     def __init__(self):
         raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use the "
-                        f"TreeExprBuilder API directly")
+                        "TreeExprBuilder API directly")
 
     @staticmethod
     cdef create(shared_ptr[CNode] node):
@@ -127,7 +127,7 @@ cdef class Condition(_Weakrefable):
 
     def __init__(self):
         raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use the "
-                        f"TreeExprBuilder API instead")
+                        "TreeExprBuilder API instead")
 
     @staticmethod
     cdef create(shared_ptr[CCondition] condition):

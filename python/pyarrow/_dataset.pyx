@@ -1127,7 +1127,7 @@ cdef class FileSystemDataset(Dataset):
             root_partition = _true
         elif not isinstance(root_partition, Expression):
             raise TypeError(
-                f"Argument 'root_partition' has incorrect type (expected "
+                "Argument 'root_partition' has incorrect type (expected "
                 f"Expression, got {type(root_partition)})"
             )
 
@@ -3382,7 +3382,7 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
                         c_options
                     )
         else:
-            raise TypeError(f'Must pass either paths or a FileSelector, but '
+            raise TypeError('Must pass either paths or a FileSelector, but '
                             f'passed {type(paths_or_selector)}')
 
         self.init(GetResultValue(result))
@@ -3525,7 +3525,7 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
             for expr in columns.values():
                 if not isinstance(expr, Expression):
                     raise TypeError(
-                        f"Expected an Expression for a 'column' dictionary "
+                        "Expected an Expression for a 'column' dictionary "
                         f"value, got {type(expr)} instead"
                     )
                 c_exprs.push_back((<Expression> expr).unwrap())
@@ -3537,7 +3537,7 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
             check_status(builder.ProjectColumns([tobytes(c) for c in columns]))
         else:
             raise ValueError(
-                f"Expected a list or a dict for 'columns', "
+                "Expected a list or a dict for 'columns', "
                 f"got {type(columns)} instead."
             )
 

@@ -233,7 +233,7 @@ class CSharpTester(Tester):
                 server.kill()
                 out, err = server.communicate()
                 raise RuntimeError(
-                    f".NET Flight server did not start properly, "
+                    ".NET Flight server did not start properly, "
                     f"stdout: \n{output + out.decode()}\n\nstderr:\n{err.decode()}\n"
                 )
             port = int(output.split(':')[-1])

@@ -1106,7 +1106,7 @@ Examples
 
         if not table.schema.equals(self.schema, check_metadata=False):
             msg = (
-                f"Table schema does not match schema used to create file: \n"
+                "Table schema does not match schema used to create file: \n"
                 f"table:\n{table.schema!s} vs. \nfile:\n{self.schema!s}"
             )
             raise ValueError(msg)
