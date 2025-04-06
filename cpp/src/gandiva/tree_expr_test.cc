@@ -18,6 +18,7 @@
 #include "gandiva/tree_expr_builder.h"
 
 #include <gtest/gtest.h>
+#include "arrow/util/logging_internal.h"
 #include "gandiva/annotator.h"
 #include "gandiva/dex.h"
 #include "gandiva/expr_decomposer.h"

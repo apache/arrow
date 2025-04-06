@@ -35,7 +35,7 @@ static inline gdv_timestamp StringToTimestamp(const std::string& s) {
   bool success = ::arrow::internal::ParseTimestampStrptime(
       s.c_str(), s.length(), "%Y-%m-%d %H:%M:%S", /*ignore_time_in_day=*/false,
       /*allow_trailing_chars=*/false, ::arrow::TimeUnit::SECOND, &out);
-  DCHECK(success);
+  ARROW_DCHECK(success);
   ARROW_UNUSED(success);
   return out * 1000;
 }

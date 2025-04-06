@@ -172,34 +172,27 @@ class TestDecryptionConfiguration
       std::function<void(const std::string& file,
                          const std::shared_ptr<FileDecryptionProperties>&)>
           decrypt_func) {
-    std::string exception_msg;
     std::shared_ptr<FileDecryptionProperties> file_decryption_properties;
-    // if we get decryption_config_num = x then it means the actual number is x+1
-    // and since we want decryption_config_num=4 we set the condition to 3
-    if (decryption_config_num != 3) {
+    if (vector_of_decryption_configurations_[decryption_config_num]) {
       file_decryption_properties =
-          vector_of_decryption_configurations_[decryption_config_num]->DeepClone();
+          vector_of_decryption_configurations_[decryption_config_num];
     }
 
     decrypt_func(std::move(file), std::move(file_decryption_properties));
   }
 
+  std::shared_ptr<FileDecryptionProperties> GetDecryptionProperties(
+      int decryption_config_num) {
+    const auto props = vector_of_decryption_configurations_[decryption_config_num];
+    return props;
+  }
+
   void DecryptFile(const std::string& file, int decryption_config_num) {
-    DecryptFileInternal(
-        file, decryption_config_num,
-        [&](const std::string& file,
-            const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties) {
-          decryptor_.DecryptFile(file, file_decryption_properties);
-        });
+    decryptor_.DecryptFile(file, GetDecryptionProperties(decryption_config_num));
   }
 
   void DecryptPageIndex(const std::string& file, int decryption_config_num) {
-    DecryptFileInternal(
-        file, decryption_config_num,
-        [&](const std::string& file,
-            const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties) {
-          decryptor_.DecryptPageIndex(file, file_decryption_properties);
-        });
+    decryptor_.DecryptPageIndex(file, GetDecryptionProperties(decryption_config_num));
   }
 
   // Check that the decryption result is as expected.

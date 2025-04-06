@@ -837,7 +837,7 @@ Status NumPyConverter::Visit(const StructType& type) {
       }
       PyArray_Descr* sub_dtype =
           reinterpret_cast<PyArray_Descr*>(PyTuple_GET_ITEM(tup, 0));
-      DCHECK(PyObject_TypeCheck(sub_dtype, &PyArrayDescr_Type));
+      ARROW_DCHECK(PyObject_TypeCheck(sub_dtype, &PyArrayDescr_Type));
       int offset = static_cast<int>(PyLong_AsLong(PyTuple_GET_ITEM(tup, 1)));
       RETURN_IF_PYERROR();
       Py_INCREF(sub_dtype); /* PyArray_GetField() steals ref */
@@ -877,8 +877,8 @@ Status NumPyConverter::Visit(const StructType& type) {
   for (size_t chunk = 0; chunk < nchunks; chunk++) {
     // First group has the null bitmaps as Boolean Arrays
     const auto& null_data = groups[0][chunk]->data();
-    DCHECK_EQ(null_data->type->id(), Type::BOOL);
-    DCHECK_EQ(null_data->buffers.size(), 2);
+    ARROW_DCHECK_EQ(null_data->type->id(), Type::BOOL);
+    ARROW_DCHECK_EQ(null_data->buffers.size(), 2);
     const auto& null_buffer = null_data->buffers[1];
     // Careful: the rechunked null bitmap may have a non-zero offset
     // to its buffer, and it may not even start on a byte boundary
@@ -930,7 +930,7 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pa
   NumPyConverter converter(pool, ao, mo, type, from_pandas, cast_options);
   RETURN_NOT_OK(converter.Convert());
   const auto& output_arrays = converter.result();
-  DCHECK_GT(output_arrays.size(), 0);
+  ARROW_DCHECK_GT(output_arrays.size(), 0);
   *out = std::make_shared<ChunkedArray>(output_arrays);
   return Status::OK();
 }

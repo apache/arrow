@@ -30,6 +30,7 @@
 #include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/tracing_internal.h"
 
 namespace arrow {
@@ -392,7 +393,7 @@ void RowArray::DecodeNulls(ResizableArrayData* output, int output_start_row,
 
 Status RowArrayMerge::PrepareForMerge(RowArray* target,
                                       const std::vector<RowArray*>& sources,
-                                      std::vector<int64_t>* first_target_row_id,
+                                      std::vector<uint32_t>* first_target_row_id,
                                       MemoryPool* pool, int64_t hardware_flags) {
   ARROW_DCHECK(!sources.empty());
 
@@ -404,7 +405,7 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
   // Sum the number of rows from all input sources and calculate their total
   // size.
   //
-  int64_t num_rows = 0;
+  uint32_t num_rows = 0;
   int64_t num_bytes = 0;
   if (first_target_row_id) {
     first_target_row_id->resize(sources.size() + 1);
@@ -417,7 +418,9 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
     if (first_target_row_id) {
       (*first_target_row_id)[i] = num_rows;
     }
-    num_rows += sources[i]->rows_.length();
+    DCHECK_LE(num_rows + sources[i]->rows_.length(),
+              std::numeric_limits<uint32_t>::max());
+    num_rows += static_cast<uint32_t>(sources[i]->rows_.length());
     if (!metadata.is_fixed_length) {
       num_bytes += sources[i]->rows_.offsets()[sources[i]->rows_.length()];
     }
@@ -429,7 +432,7 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
   // Allocate target memory
   //
   target->rows_.Clean();
-  RETURN_NOT_OK(target->rows_.AppendEmpty(static_cast<uint32_t>(num_rows), num_bytes));
+  RETURN_NOT_OK(target->rows_.AppendEmpty(num_rows, num_bytes));
 
   // In case of varying length rows,
   // initialize the first row offset for each range of rows corresponding to a
@@ -440,7 +443,9 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
     num_bytes = 0;
     for (size_t i = 0; i < sources.size(); ++i) {
       target->rows_.mutable_offsets()[num_rows] = num_bytes;
-      num_rows += sources[i]->rows_.length();
+      DCHECK_LE(num_rows + sources[i]->rows_.length(),
+                std::numeric_limits<uint32_t>::max());
+      num_rows += static_cast<uint32_t>(sources[i]->rows_.length());
       num_bytes += sources[i]->rows_.offsets()[sources[i]->rows_.length()];
     }
     target->rows_.mutable_offsets()[num_rows] = num_bytes;
@@ -450,8 +455,8 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
 }
 
 void RowArrayMerge::MergeSingle(RowArray* target, const RowArray& source,
-                                int64_t first_target_row_id,
-                                const int64_t* source_rows_permutation) {
+                                uint32_t first_target_row_id,
+                                const uint32_t* source_rows_permutation) {
   // Source and target must:
   // - be initialized
   // - use the same row format
@@ -473,8 +478,8 @@ void RowArrayMerge::MergeSingle(RowArray* target, const RowArray& source,
 }
 
 void RowArrayMerge::CopyFixedLength(RowTableImpl* target, const RowTableImpl& source,
-                                    int64_t first_target_row_id,
-                                    const int64_t* source_rows_permutation) {
+                                    uint32_t first_target_row_id,
+                                    const uint32_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();
 
   uint32_t fixed_length = target->metadata().fixed_length;
@@ -483,8 +488,7 @@ void RowArrayMerge::CopyFixedLength(RowTableImpl* target, const RowTableImpl& so
   // needed is memcpy.
   //
   if (!source_rows_permutation) {
-    DCHECK_LE(first_target_row_id, std::numeric_limits<uint32_t>::max());
-    memcpy(target->mutable_fixed_length_rows(static_cast<uint32_t>(first_target_row_id)),
+    memcpy(target->mutable_fixed_length_rows(first_target_row_id),
            source.fixed_length_rows(/*row_id=*/0), fixed_length * num_source_rows);
   } else {
     // Row length must be a multiple of 64-bits due to enforced alignment.
@@ -493,15 +497,13 @@ void RowArrayMerge::CopyFixedLength(RowTableImpl* target, const RowTableImpl& so
     ARROW_DCHECK(fixed_length % sizeof(uint64_t) == 0);
 
     int64_t num_words_per_row = fixed_length / sizeof(uint64_t);
-    for (int64_t i = 0; i < num_source_rows; ++i) {
-      int64_t source_row_id = source_rows_permutation[i];
-      DCHECK_LE(source_row_id, std::numeric_limits<uint32_t>::max());
-      const uint64_t* source_row_ptr = reinterpret_cast<const uint64_t*>(
-          source.fixed_length_rows(static_cast<uint32_t>(source_row_id)));
-      int64_t target_row_id = first_target_row_id + i;
-      DCHECK_LE(target_row_id, std::numeric_limits<uint32_t>::max());
-      uint64_t* target_row_ptr = reinterpret_cast<uint64_t*>(
-          target->mutable_fixed_length_rows(static_cast<uint32_t>(target_row_id)));
+    for (uint32_t i = 0; i < num_source_rows; ++i) {
+      uint32_t source_row_id = source_rows_permutation[i];
+      const uint64_t* source_row_ptr =
+          reinterpret_cast<const uint64_t*>(source.fixed_length_rows(source_row_id));
+      uint32_t target_row_id = first_target_row_id + i;
+      uint64_t* target_row_ptr =
+          reinterpret_cast<uint64_t*>(target->mutable_fixed_length_rows(target_row_id));
 
       for (int64_t word = 0; word < num_words_per_row; ++word) {
         target_row_ptr[word] = source_row_ptr[word];
@@ -511,9 +513,9 @@ void RowArrayMerge::CopyFixedLength(RowTableImpl* target, const RowTableImpl& so
 }
 
 void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& source,
-                                      int64_t first_target_row_id,
+                                      uint32_t first_target_row_id,
                                       int64_t first_target_row_offset,
-                                      const int64_t* source_rows_permutation) {
+                                      const uint32_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();
   RowTableImpl::offset_type* target_offsets = target->mutable_offsets();
   const RowTableImpl::offset_type* source_offsets = source.offsets();
@@ -540,7 +542,7 @@ void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& 
     uint64_t* target_row_ptr = reinterpret_cast<uint64_t*>(
         target->mutable_var_length_rows() + target_row_offset);
     for (int64_t i = 0; i < num_source_rows; ++i) {
-      int64_t source_row_id = source_rows_permutation[i];
+      uint32_t source_row_id = source_rows_permutation[i];
       const uint64_t* source_row_ptr = reinterpret_cast<const uint64_t*>(
           source.var_length_rows() + source_offsets[source_row_id]);
       int64_t length = source_offsets[source_row_id + 1] - source_offsets[source_row_id];
@@ -564,22 +566,18 @@ void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& 
 }
 
 void RowArrayMerge::CopyNulls(RowTableImpl* target, const RowTableImpl& source,
-                              int64_t first_target_row_id,
-                              const int64_t* source_rows_permutation) {
+                              uint32_t first_target_row_id,
+                              const uint32_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();
   int num_bytes_per_row = target->metadata().null_masks_bytes_per_row;
-  DCHECK_LE(first_target_row_id, std::numeric_limits<uint32_t>::max());
-  uint8_t* target_nulls =
-      target->mutable_null_masks(static_cast<uint32_t>(first_target_row_id));
+  uint8_t* target_nulls = target->mutable_null_masks(first_target_row_id);
   if (!source_rows_permutation) {
     memcpy(target_nulls, source.null_masks(/*row_id=*/0),
            num_bytes_per_row * num_source_rows);
   } else {
     for (uint32_t i = 0; i < num_source_rows; ++i) {
-      int64_t source_row_id = source_rows_permutation[i];
-      DCHECK_LE(source_row_id, std::numeric_limits<uint32_t>::max());
-      const uint8_t* source_nulls =
-          source.null_masks(static_cast<uint32_t>(source_row_id));
+      uint32_t source_row_id = source_rows_permutation[i];
+      const uint8_t* source_nulls = source.null_masks(source_row_id);
       for (int64_t byte = 0; byte < num_bytes_per_row; ++byte) {
         *target_nulls++ = *source_nulls++;
       }
@@ -1301,10 +1299,12 @@ Status SwissTableForJoinBuild::PreparePrtnMerge() {
 
   // Check if we have duplicate keys
   //
-  int64_t num_keys = partition_keys_first_row_id_[num_prtns_];
-  int64_t num_rows = 0;
+  uint32_t num_keys = partition_keys_first_row_id_[num_prtns_];
+  uint32_t num_rows = 0;
   for (int i = 0; i < num_prtns_; ++i) {
-    num_rows += static_cast<int64_t>(prtn_states_[i].key_ids.size());
+    DCHECK_LE(num_rows + prtn_states_[i].key_ids.size(),
+              std::numeric_limits<uint32_t>::max());
+    num_rows += static_cast<uint32_t>(prtn_states_[i].key_ids.size());
   }
   bool no_duplicate_keys = reject_duplicate_keys_ || num_keys == num_rows;
 
@@ -1313,13 +1313,15 @@ Status SwissTableForJoinBuild::PreparePrtnMerge() {
   target_->no_duplicate_keys_ = no_duplicate_keys;
   if (!no_duplicate_keys) {
     target_->row_offset_for_key_.resize(num_keys + 1);
-    int64_t num_rows = 0;
+    uint32_t num_rows = 0;
     for (int i = 0; i < num_prtns_; ++i) {
-      int64_t first_key = partition_keys_first_row_id_[i];
-      target_->row_offset_for_key_[first_key] = static_cast<uint32_t>(num_rows);
-      num_rows += static_cast<int64_t>(prtn_states_[i].key_ids.size());
+      uint32_t first_key = partition_keys_first_row_id_[i];
+      target_->row_offset_for_key_[first_key] = num_rows;
+      DCHECK_LE(num_rows + prtn_states_[i].key_ids.size(),
+                std::numeric_limits<uint32_t>::max());
+      num_rows += static_cast<uint32_t>(prtn_states_[i].key_ids.size());
     }
-    target_->row_offset_for_key_[num_keys] = static_cast<uint32_t>(num_rows);
+    target_->row_offset_for_key_[num_keys] = num_rows;
   }
 
   return Status::OK();
@@ -1327,6 +1329,10 @@ Status SwissTableForJoinBuild::PreparePrtnMerge() {
 
 void SwissTableForJoinBuild::PrtnMerge(int prtn_id) {
   PartitionState& prtn_state = prtn_states_[prtn_id];
+  // Emscripten has size_t as unsigned long thus warns about this comparison being always
+  // true. We explicit cast to unsigned long long.
+  DCHECK_LE(static_cast<uint64_t>(prtn_state.key_ids.size()),
+            std::numeric_limits<uint32_t>::max() + 1ull);
 
   // There are 4 data structures that require partition merging:
   // 1. array of key rows
@@ -1346,10 +1352,10 @@ void SwissTableForJoinBuild::PrtnMerge(int prtn_id) {
   //
   SwissTableMerge::MergePartition(
       target_->map_.swiss_table(), prtn_state.keys.swiss_table(), prtn_id, log_num_prtns_,
-      static_cast<uint32_t>(partition_keys_first_row_id_[prtn_id]),
-      &prtn_state.overflow_key_ids, &prtn_state.overflow_hashes);
+      partition_keys_first_row_id_[prtn_id], &prtn_state.overflow_key_ids,
+      &prtn_state.overflow_hashes);
 
-  std::vector<int64_t> source_payload_ids;
+  std::vector<uint32_t> source_payload_ids;
 
   // 3. mapping from key id to first payload id
   //
@@ -1360,11 +1366,11 @@ void SwissTableForJoinBuild::PrtnMerge(int prtn_id) {
     // For convenience, we use an array in merged hash table mapping key ids to
     // first payload ids to collect the counters.
     //
-    int64_t first_key = partition_keys_first_row_id_[prtn_id];
-    int64_t num_keys = partition_keys_first_row_id_[prtn_id + 1] - first_key;
+    uint32_t first_key = partition_keys_first_row_id_[prtn_id];
+    uint32_t num_keys = partition_keys_first_row_id_[prtn_id + 1] - first_key;
     uint32_t* counters = target_->row_offset_for_key_.data() + first_key;
     uint32_t first_payload = counters[0];
-    for (int64_t i = 0; i < num_keys; ++i) {
+    for (uint32_t i = 0; i < num_keys; ++i) {
       counters[i] = 0;
     }
     for (size_t i = 0; i < prtn_state.key_ids.size(); ++i) {
@@ -1378,7 +1384,7 @@ void SwissTableForJoinBuild::PrtnMerge(int prtn_id) {
       // Start by computing inclusive cumulative sum of counters.
       //
       uint32_t sum = 0;
-      for (int64_t i = 0; i < num_keys; ++i) {
+      for (uint32_t i = 0; i < num_keys; ++i) {
         sum += counters[i];
         counters[i] = sum;
       }
@@ -1388,14 +1394,14 @@ void SwissTableForJoinBuild::PrtnMerge(int prtn_id) {
       // there at the beginning).
       //
       source_payload_ids.resize(prtn_state.key_ids.size());
-      for (size_t i = 0; i < prtn_state.key_ids.size(); ++i) {
+      for (uint32_t i = 0; i < prtn_state.key_ids.size(); ++i) {
         uint32_t key_id = prtn_state.key_ids[i];
-        int64_t position = --counters[key_id];
-        source_payload_ids[position] = static_cast<int64_t>(i);
+        uint32_t position = --counters[key_id];
+        source_payload_ids[position] = i;
       }
       // Add base payload id to all of the counters.
       //
-      for (int64_t i = 0; i < num_keys; ++i) {
+      for (uint32_t i = 0; i < num_keys; ++i) {
         counters[i] += first_payload;
       }
     } else {
@@ -1403,7 +1409,7 @@ void SwissTableForJoinBuild::PrtnMerge(int prtn_id) {
       // cumulative sum of counters and add the base payload id to all of them.
       //
       uint32_t sum = 0;
-      for (int64_t i = 0; i < num_keys; ++i) {
+      for (uint32_t i = 0; i < num_keys; ++i) {
         uint32_t sum_next = sum + counters[i];
         counters[i] = sum + first_payload;
         sum = sum_next;
@@ -1419,9 +1425,9 @@ void SwissTableForJoinBuild::PrtnMerge(int prtn_id) {
     //
     if (target_->no_duplicate_keys_) {
       source_payload_ids.resize(prtn_state.key_ids.size());
-      for (size_t i = 0; i < prtn_state.key_ids.size(); ++i) {
+      for (uint32_t i = 0; i < prtn_state.key_ids.size(); ++i) {
         uint32_t key_id = prtn_state.key_ids[i];
-        source_payload_ids[key_id] = static_cast<int64_t>(i);
+        source_payload_ids[key_id] = i;
       }
     }
     // Merge partition payloads into target array using the permutation.
@@ -2405,19 +2411,6 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
   return Status::OK();
 }
 
-Status JoinProbeProcessor::OnFinished() {
-  // Flush all instances of materialize that have non-zero accumulated output
-  // rows.
-  //
-  for (size_t i = 0; i < materialize_.size(); ++i) {
-    JoinResultMaterialize& materialize = *materialize_[i];
-    RETURN_NOT_OK(materialize.Flush(
-        [&](ExecBatch batch) { return output_batch_fn_(i, std::move(batch)); }));
-  }
-
-  return Status::OK();
-}
-
 class SwissJoin : public HashJoinImpl {
  public:
   static constexpr auto kTempStackUsage = 64 * arrow::util::MiniBatch::kMiniBatchLength;
@@ -2510,6 +2503,11 @@ class SwissJoin : public HashJoinImpl {
           return ScanTask(thread_index, task_id);
         },
         [this](size_t thread_index) -> Status { return ScanFinished(thread_index); });
+    task_group_flush_ = register_task_group_callback_(
+        [this](size_t thread_index, int64_t task_id) -> Status {
+          return FlushTask(thread_index, task_id);
+        },
+        [this](size_t thread_index) -> Status { return FlushFinished(thread_index); });
   }
 
   Status ProbeSingleBatch(size_t thread_index, ExecBatch batch) override {
@@ -2844,7 +2842,21 @@ class SwissJoin : public HashJoinImpl {
     // Flush all instances of materialize that have non-zero accumulated output
     // rows.
     //
-    RETURN_NOT_OK(CancelIfNotOK(probe_processor_.OnFinished()));
+    return start_task_group_callback_(task_group_flush_, local_states_.size());
+  }
+
+  Status FlushTask(size_t /*thread_id*/, int64_t task_id) {
+    JoinResultMaterialize& materialize = local_states_[task_id].materialize;
+    RETURN_NOT_OK(materialize.Flush([&](ExecBatch batch) {
+      return output_batch_callback_(task_id, std::move(batch));
+    }));
+    return Status::OK();
+  }
+
+  Status FlushFinished(size_t thread_id) {
+    if (IsCancelled()) {
+      return status();
+    }
 
     int64_t num_produced_batches = 0;
     for (size_t i = 0; i < local_states_.size(); ++i) {
@@ -2929,6 +2941,7 @@ class SwissJoin : public HashJoinImpl {
   int task_group_build_;
   int task_group_merge_;
   int task_group_scan_;
+  int task_group_flush_;
 
   // Callbacks
   RegisterTaskGroupCallback register_task_group_callback_;

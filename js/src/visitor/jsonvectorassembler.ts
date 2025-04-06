@@ -20,10 +20,11 @@ import { Data } from '../data.js';
 import { Field } from '../schema.js';
 import { Vector } from '../vector.js';
 import { Visitor } from '../visitor.js';
-import { BufferType } from '../enum.js';
+import { BufferType, IntervalUnit } from '../enum.js';
 import { RecordBatch } from '../recordbatch.js';
 import { UnionMode, DateUnit, TimeUnit } from '../enum.js';
 import { BitIterator, getBit, getBool } from '../util/bit.js';
+import { toIntervalDayTimeObjects, toIntervalMonthDayNanoObjects } from '../util/interval.js';
 import {
     DataType,
     Float, Int, Date_, Interval, Time, Timestamp, Union, Duration,
@@ -153,7 +154,14 @@ export class JSONVectorAssembler extends Visitor {
         };
     }
     public visitInterval<T extends Interval>(data: Data<T>) {
-        return { 'DATA': [...data.values] };
+        switch (data.type.unit) {
+            case IntervalUnit.YEAR_MONTH:
+                return { 'DATA': [...data.values] };
+            case IntervalUnit.DAY_TIME:
+                return { 'DATA': toIntervalDayTimeObjects(data.values) };
+            case IntervalUnit.MONTH_DAY_NANO:
+                return { 'DATA': toIntervalMonthDayNanoObjects(data.values, true) };
+        }
     }
     public visitDuration<T extends Duration>(data: Data<T>) {
         return { 'DATA': [...bigNumsToStrings(data.values, 2)] };

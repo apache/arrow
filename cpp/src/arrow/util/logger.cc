@@ -21,6 +21,7 @@
 #include <unordered_map>
 
 #include "arrow/util/logger.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace util {

@@ -17,6 +17,10 @@
 
 #include "benchmark/benchmark.h"
 
+#include <cassert>
+#include <cmath>
+#include <iostream>
+#include <random>
 #include <vector>
 
 #include "arrow/acero/exec_plan.h"
@@ -31,6 +35,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/byte_size.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 
 namespace arrow {
@@ -45,11 +50,6 @@ using compute::TDigestOptions;
 using compute::VarianceOptions;
 
 namespace acero {
-
-#include <cassert>
-#include <cmath>
-#include <iostream>
-#include <random>
 
 using arrow::internal::ToChars;
 using arrow::util::TotalBufferSize;
@@ -908,8 +908,7 @@ static void BenchmarkSegmentedAggregate(
   BenchmarkAggregate(state, std::move(aggregates), arguments, keys, segment_keys);
 }
 
-template <typename... Args>
-static void CountScalarSegmentedByInts(benchmark::State& state, Args&&...) {
+static void CountScalarSegmentedByInts(benchmark::State& state) {
   constexpr int64_t num_rows = 32 * 1024;
 
   // A trivial column to count from.
@@ -922,8 +921,7 @@ BENCHMARK(CountScalarSegmentedByInts)
     ->ArgNames({"SegmentKeys", "Segments"})
     ->ArgsProduct({{0, 1, 2}, benchmark::CreateRange(1, 256, 8)});
 
-template <typename... Args>
-static void CountGroupByIntsSegmentedByInts(benchmark::State& state, Args&&...) {
+static void CountGroupByIntsSegmentedByInts(benchmark::State& state) {
   constexpr int64_t num_rows = 32 * 1024;
 
   // A trivial column to count from.

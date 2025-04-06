@@ -28,7 +28,7 @@
 #include "arrow/type.h"
 #include "arrow/util/key_value_metadata.h"
 
-namespace arrow {
+namespace arrow::benchmarks {
 
 std::shared_ptr<Schema> ExampleSchema() {
   auto f0 = field("f0", utf8());
@@ -60,7 +60,7 @@ static void ExportType(benchmark::State& state) {  // NOLINT non-const reference
   auto type = utf8();
 
   for (auto _ : state) {
-    ABORT_NOT_OK(ExportType(*type, &c_export));
+    ABORT_NOT_OK(::arrow::ExportType(*type, &c_export));
     ArrowSchemaRelease(&c_export);
   }
   state.SetItemsProcessed(state.iterations());
@@ -71,7 +71,7 @@ static void ExportSchema(benchmark::State& state) {  // NOLINT non-const referen
   auto schema = ExampleSchema();
 
   for (auto _ : state) {
-    ABORT_NOT_OK(ExportSchema(*schema, &c_export));
+    ABORT_NOT_OK(::arrow::ExportSchema(*schema, &c_export));
     ArrowSchemaRelease(&c_export);
   }
   state.SetItemsProcessed(state.iterations());
@@ -82,7 +82,7 @@ static void ExportArray(benchmark::State& state) {  // NOLINT non-const referenc
   auto array = ArrayFromJSON(utf8(), R"(["foo", "bar", null])");
 
   for (auto _ : state) {
-    ABORT_NOT_OK(ExportArray(*array, &c_export));
+    ABORT_NOT_OK(::arrow::ExportArray(*array, &c_export));
     ArrowArrayRelease(&c_export);
   }
   state.SetItemsProcessed(state.iterations());
@@ -93,7 +93,7 @@ static void ExportRecordBatch(benchmark::State& state) {  // NOLINT non-const re
   auto batch = ExampleRecordBatch();
 
   for (auto _ : state) {
-    ABORT_NOT_OK(ExportRecordBatch(*batch, &c_export));
+    ABORT_NOT_OK(::arrow::ExportRecordBatch(*batch, &c_export));
     ArrowArrayRelease(&c_export);
   }
   state.SetItemsProcessed(state.iterations());
@@ -104,7 +104,7 @@ static void ExportImportType(benchmark::State& state) {  // NOLINT non-const ref
   auto type = utf8();
 
   for (auto _ : state) {
-    ABORT_NOT_OK(ExportType(*type, &c_export));
+    ABORT_NOT_OK(::arrow::ExportType(*type, &c_export));
     ImportType(&c_export).ValueOrDie();
   }
   state.SetItemsProcessed(state.iterations());
@@ -115,7 +115,7 @@ static void ExportImportSchema(benchmark::State& state) {  // NOLINT non-const r
   auto schema = ExampleSchema();
 
   for (auto _ : state) {
-    ABORT_NOT_OK(ExportSchema(*schema, &c_export));
+    ABORT_NOT_OK(::arrow::ExportSchema(*schema, &c_export));
     ImportSchema(&c_export).ValueOrDie();
   }
   state.SetItemsProcessed(state.iterations());
@@ -127,7 +127,7 @@ static void ExportImportArray(benchmark::State& state) {  // NOLINT non-const re
   auto type = array->type();
 
   for (auto _ : state) {
-    ABORT_NOT_OK(ExportArray(*array, &c_export));
+    ABORT_NOT_OK(::arrow::ExportArray(*array, &c_export));
     ImportArray(&c_export, type).ValueOrDie();
   }
   state.SetItemsProcessed(state.iterations());
@@ -140,7 +140,7 @@ static void ExportImportRecordBatch(
   auto schema = batch->schema();
 
   for (auto _ : state) {
-    ABORT_NOT_OK(ExportRecordBatch(*batch, &c_export));
+    ABORT_NOT_OK(::arrow::ExportRecordBatch(*batch, &c_export));
     ImportRecordBatch(&c_export, schema).ValueOrDie();
   }
   state.SetItemsProcessed(state.iterations());
@@ -156,4 +156,4 @@ BENCHMARK(ExportImportSchema);
 BENCHMARK(ExportImportArray);
 BENCHMARK(ExportImportRecordBatch);
 
-}  // namespace arrow
+}  // namespace arrow::benchmarks

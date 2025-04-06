@@ -117,13 +117,18 @@ class ARROW_EXPORT VarianceOptions : public FunctionOptions {
 /// \brief Control Skew and Kurtosis kernel behavior
 class ARROW_EXPORT SkewOptions : public FunctionOptions {
  public:
-  explicit SkewOptions(bool skip_nulls = true, uint32_t min_count = 0);
+  explicit SkewOptions(bool skip_nulls = true, bool biased = true,
+                       uint32_t min_count = 0);
   static constexpr char const kTypeName[] = "SkewOptions";
   static SkewOptions Defaults() { return SkewOptions{}; }
 
   /// If true (the default), null values are ignored. Otherwise, if any value is null,
   /// emit null.
   bool skip_nulls;
+  /// If true (the default), the calculated value is biased. If false, the calculated
+  /// value includes a correction factor to reduce bias, making it more accurate for
+  /// small sample sizes.
+  bool biased;
   /// If less than this many non-null values are observed, emit null.
   uint32_t min_count;
 };
@@ -197,9 +202,10 @@ class ARROW_EXPORT TDigestOptions : public FunctionOptions {
 /// - The corresponding `Aggregate::target` must have two FieldRef elements;
 ///   the first one points to the pivot key column, the second points to the
 ///   pivoted data column.
-/// - The pivot key column must be string-like; its values will be matched
-///   against `key_names` in order to dispatch the pivoted data into the
-///   output.
+/// - The pivot key column can be string, binary or integer; its values will be
+///   matched against `key_names` in order to dispatch the pivoted data into
+///   the output. If the pivot key column is not string-like, the `key_names`
+///   will be cast to the pivot key type.
 ///
 /// "pivot_wider" example
 /// ---------------------

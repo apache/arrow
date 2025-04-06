@@ -24,7 +24,7 @@
 
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 #include "parquet/exception.h"
 #include "parquet/types.h"
@@ -480,7 +480,8 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
   } else if (type.__isset.FLOAT16) {
     return Float16LogicalType::Make();
   } else {
-    throw ParquetException("Metadata contains Thrift LogicalType that is not recognized");
+    // Sentinel type for one we do not recognize
+    return UndefinedLogicalType::Make();
   }
 }
 

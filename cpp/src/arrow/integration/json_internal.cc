@@ -46,7 +46,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
 #include "arrow/util/span.h"
 #include "arrow/util/string.h"

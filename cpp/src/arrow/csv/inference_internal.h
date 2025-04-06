@@ -53,7 +53,7 @@ class InferStatus {
   bool can_loosen_type() const { return can_loosen_type_; }
 
   void LoosenType(const Status& conversion_error) {
-    DCHECK(can_loosen_type_);
+    ARROW_DCHECK(can_loosen_type_);
 
     switch (kind_) {
       case InferKind::Null:

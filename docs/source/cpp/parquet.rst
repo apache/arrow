@@ -585,6 +585,52 @@ More specifically, Parquet C++ supports:
 * EncryptionWithFooterKey and EncryptionWithColumnKey modes.
 * Encrypted Footer and Plaintext Footer modes.
 
+Configuration
+~~~~~~~~~~~~~
+
+Parquet encryption uses a ``parquet::encryption::CryptoFactory`` that has access to a
+Key Management System (KMS), which stores actual encryption keys, referenced by key ids.
+The Parquet encryption configuration only uses key ids, no actual keys.
+
+Parquet metadata encryption is configured via ``parquet::encryption::EncryptionConfiguration``:
+
+.. literalinclude:: ../../../cpp/examples/arrow/parquet_column_encryption.cc
+   :language: cpp
+   :start-at: // Set write options with encryption configuration
+   :end-before: encryption_config->column_keys
+   :dedent: 2
+
+If ``encryption_config->uniform_encryption`` is set to ``true``, then all columns are
+encrypted with the same key as the Parquet metadata. Otherwise, individual
+columns are encrypted with individual keys as configured via
+``encryption_config->column_keys``. This field expects a string of the format
+``"columnKeyID1:colName1,colName2;columnKeyID3:colName3..."``.
+
+.. literalinclude:: ../../../cpp/examples/arrow/parquet_column_encryption.cc
+   :language: cpp
+   :start-at: // Set write options with encryption configuration
+   :end-before: auto parquet_encryption_config
+   :emphasize-lines: 4-5
+   :dedent: 2
+
+See the full `Parquet column encryption example <examples/parquet_column_encryption.html>`_.
+
+.. note::
+
+   Encrypting columns that have nested fields (struct, map or list data types)
+   requires column keys for the inner fields, not the outer column itself.
+   Configuring a column key for the outer column causes
+   this error (here the column name is ``col``):
+
+   .. code-block::
+
+      OSError: Encrypted column col not in file schema
+
+   Conventionally, the key and value fields of a map column ``m`` have the names
+   ``m.key_value.key`` and  ``m.key_value.value``, respectively. The inner field of a
+   list column ``l`` has the name ``l.list.element``. An inner field ``f`` of a struct column ``s`` has
+   the name ``s.f``.
+
 Miscellaneous
 -------------
 

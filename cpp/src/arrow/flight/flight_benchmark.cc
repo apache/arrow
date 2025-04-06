@@ -43,17 +43,10 @@
 #  include <cuda.h>
 #  include "arrow/gpu/cuda_api.h"
 #endif
-#ifdef ARROW_WITH_UCX
-#  include "arrow/flight/transport/ucx/ucx.h"
-#endif
 
 DEFINE_bool(cuda, false, "Allocate results in CUDA memory");
 DEFINE_string(transport, "grpc",
-              "The network transport to use. Supported: \"grpc\" (default)"
-#ifdef ARROW_WITH_UCX
-              ", \"ucx\""
-#endif  // ARROW_WITH_UCX
-              ".");
+              "The network transport to use. Supported: \"grpc\" (default).");
 DEFINE_string(server_host, "",
               "An existing performance server to benchmark against (leave blank to spawn "
               "one automatically)");
@@ -506,21 +499,6 @@ int main(int argc, char** argv) {
         options.disable_server_verification = true;
       }
     }
-  } else if (FLAGS_transport == "ucx") {
-#ifdef ARROW_WITH_UCX
-    arrow::flight::transport::ucx::InitializeFlightUcx();
-    if (FLAGS_test_unix || !FLAGS_server_unix.empty()) {
-      std::cerr << "Transport does not support domain sockets: " << FLAGS_transport
-                << std::endl;
-      return EXIT_FAILURE;
-    }
-    ARROW_CHECK_OK(arrow::flight::Location::Parse("ucx://" + FLAGS_server_host + ":" +
-                                                  std::to_string(FLAGS_server_port))
-                       .Value(&location));
-#else
-    std::cerr << "Not built with transport: " << FLAGS_transport << std::endl;
-    return EXIT_FAILURE;
-#endif
   } else {
     std::cerr << "Unknown transport: " << FLAGS_transport << std::endl;
     return EXIT_FAILURE;

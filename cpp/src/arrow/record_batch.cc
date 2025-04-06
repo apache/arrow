@@ -40,7 +40,7 @@
 #include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/vector.h"
 #include "arrow/visit_type_inline.h"
 
