@@ -178,7 +178,7 @@ def write_feather(df, dest, compression=None, compression_level=None,
             compression = 'lz4'
         elif (compression is not None and
               compression not in _FEATHER_SUPPORTED_CODECS):
-            raise ValueError('compression="{compression}" not supported, must be '
+            raise ValueError(f'compression="{compression}" not supported, must be '
                              f'one of {_FEATHER_SUPPORTED_CODECS}')
 
     try:
