@@ -291,9 +291,11 @@ class CommentBot:
                          comment=comment)
         except Exception as e:
             logger.exception(e)
-            url = (f"{os.environ['GITHUB_SERVER_URL']}/"
-                   f"{os.environ['GITHUB_REPOSITORY']}/"
-                   f"actions/runs/{os.environ['GITHUB_RUN_ID']}")
+            url = "{server}/{repo}/actions/runs/{run_id}".format(
+                server=os.environ["GITHUB_SERVER_URL"],
+                repo=os.environ["GITHUB_REPOSITORY"],
+                run_id=os.environ["GITHUB_RUN_ID"],
+            )
             pull.create_issue_comment(
                 f"```\n{e}\nThe Archery job run can be found at: {url}\n```")
             comment.create_reaction('-1')
