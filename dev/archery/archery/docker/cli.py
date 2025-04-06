@@ -122,7 +122,7 @@ def docker_pull(obj, image, *, pull_leaf, ignore_pull_failures):
                      ignore_pull_failures=ignore_pull_failures)
     except UndefinedImage as e:
         raise click.ClickException(
-            f"There is no service/image defined in docker-compose.yml with "
+            "There is no service/image defined in docker-compose.yml with "
             f"name: {e}"
         )
     except RuntimeError as e:

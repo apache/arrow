@@ -299,7 +299,7 @@ class Repo:
         try:
             self.origin.push(refs + self._updated_refs, callbacks=callbacks)
         except pygit2.GitError:
-            raise RuntimeError(f"Failed to push updated references, "
+            raise RuntimeError("Failed to push updated references, "
                                "potentially because of credential issues: "
                                f"{self._updated_refs}")
         else:
@@ -329,9 +329,9 @@ class Repo:
             return self.repo.remotes[self.branch.upstream.remote_name]
         except (AttributeError, KeyError):
             raise CrossbowError(
-                f"Cannot determine git remote for the Arrow repository to "
+                "Cannot determine git remote for the Arrow repository to "
                 f"clone or push to, try to push the `{self.branch.name}` "
-                f"branch first to have a remote tracking counterpart."
+                "branch first to have a remote tracking counterpart."
             )
 
     @property
@@ -1342,7 +1342,7 @@ class Config(dict):
                     raise CrossbowError(
                         f"The pattern `{pattern}` defined for task group "
                         f"`{group_name}` is not matching any of the tasks "
-                        f"defined in the configuration file."
+                        "defined in the configuration file."
                     )
 
         # validate that the tasks are constructible
@@ -1351,7 +1351,7 @@ class Config(dict):
                 Task(task_name, **task)
             except Exception as e:
                 raise CrossbowError(
-                    f"Unable to construct a task object from the "
+                    "Unable to construct a task object from the "
                     f"definition of task `{task_name}`. The original error "
                     f"message is: `{str(e)}`"
                 )
@@ -1387,7 +1387,7 @@ class Config(dict):
                 )
             )
             if not files:
-                raise CrossbowError(f"No files have been rendered for task "
+                raise CrossbowError("No files have been rendered for task "
                                     f"`{task_name}`")
 
 
