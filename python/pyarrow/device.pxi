@@ -137,7 +137,8 @@ cdef class MemoryManager(_Weakrefable):
         return self.memory_manager
 
     def __repr__(self):
-        return f"<pyarrow.MemoryManager device: {frombytes(self.memory_manager.get().device().get().ToString())}>"
+        device_str = frombytes(self.memory_manager.get().device().get().ToString())
+        return f"<pyarrow.MemoryManager device: {device_str}>"
 
     @property
     def device(self):
