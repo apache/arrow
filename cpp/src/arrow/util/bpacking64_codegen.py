@@ -73,7 +73,7 @@ namespace internal {
 
 
 print("inline const uint8_t* unpack0_64(const uint8_t* in, uint64_t* out) {")
-print(f"  for(int k = 0; k < {howmany(0)} ; k += 1) {{{{")
+print(f"  for(int k = 0; k < {howmany(0)} ; k += 1) {{")
 print("    out[k] = 0;")
 print("  }")
 print("  return in;")
@@ -81,7 +81,7 @@ print("}")
 
 for bit in range(1, 65):
     print("")
-    print(f"inline const uint8_t* unpack{bit}_64(const uint8_t* in, uint64_t* out) {{{{")
+    print(f"inline const uint8_t* unpack{bit}_64(const uint8_t* in, uint64_t* out) {{")
 
     if(bit < 64):
         print(f"  const uint64_t mask = {((1 << bit)-1)}ULL;")
