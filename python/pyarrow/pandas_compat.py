@@ -621,7 +621,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
                 pa.ArrowNotImplementedError,
                 pa.ArrowTypeError) as e:
             e.args += (
-                f"Conversion failed for column {col.name!s} with type {col.dtype!s}",)
+                f"Conversion failed for column {col.name} with type {col.dtype}",)
             raise e
         if not field_nullable and result.null_count > 0:
             raise ValueError(f"Field {field} was non-nullable but pandas column "

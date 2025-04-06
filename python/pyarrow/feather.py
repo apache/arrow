@@ -69,8 +69,8 @@ class FeatherDataset:
 
     def validate_schemas(self, piece, table):
         if not self.schema.equals(table.schema):
-            raise ValueError(f'Schema in {piece!s} was different. \n'
-                             f'{self.schema!s}\n\nvs\n\n{table.schema!s}')
+            raise ValueError(f'Schema in {piece} was different. \n'
+                             f'{self.schema}\n\nvs\n\n{table.schema}')
 
     def read_pandas(self, columns=None, use_threads=True):
         """
