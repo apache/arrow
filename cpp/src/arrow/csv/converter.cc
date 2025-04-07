@@ -491,7 +491,7 @@ struct DurationValueDecoder : public ValueDecoder {
     return Status::OK();
   }
 
-protected:
+ protected:
   const DurationType& concrete_type_;
   arrow::internal::StringConverter<DurationType> string_converter_;
 };
