@@ -48,6 +48,7 @@ endif
 version_major = version_numbers[0].to_int()
 version_minor = version_numbers[1].to_int()
 version_micro = version_numbers[2].to_int()
+version_no_snapshot = '.'.join(version_numbers)
 
 api_version = '1.0'
 so_version = version_major * 100 + version_minor
@@ -81,7 +82,7 @@ endif
 generate_vapi = have_gi and get_option('vapi')
 if generate_vapi
     pkgconfig_variables += ['vapidir=@0@'.format(vapi_dir)]
-    add_languages('vala')
+    add_languages('vala', native: false)
 endif
 
 arrow_cpp_build_dir = get_option('arrow_cpp_build_dir')
@@ -97,47 +98,96 @@ else
 endif
 
 if arrow_cpp_build_lib_dir == ''
-    arrow = dependency('arrow', version: ['>=' + version])
+    common_args = {'version': [f'>=@version_no_snapshot@']}
+    arrow = dependency(
+        'arrow',
+        'Arrow',
+        kwargs: common_args,
+        modules: ['Arrow::arrow_shared'],
+    )
     # They are just for checking required modules are enabled. They are built into
     # libarrow.so. So we don't need additional build flags for them.
-    dependency('arrow-compute', version: ['>=' + version])
-    dependency('arrow-csv', version: ['>=' + version])
-    dependency('arrow-filesystem', version: ['>=' + version])
-    dependency('arrow-json', version: ['>=' + version])
+    if arrow.type_name() == 'cmake'
+        assert(
+            arrow.get_variable('ARROW_COMPUTE', default_value: 'OFF') == 'ON',
+            'compute module must be enabled',
+        )
+        assert(
+            arrow.get_variable('ARROW_CSV', default_value: 'OFF') == 'ON',
+            'CSV module must be enabled',
+        )
+        assert(
+            arrow.get_variable('ARROW_FILESYSTEM', default_value: 'OFF') == 'ON',
+            'filesystem module must be enabled',
+        )
+        assert(
+            arrow.get_variable('ARROW_JSON', default_value: 'OFF') == 'ON',
+            'JSON module must be enabled',
+        )
+    else
+        dependency('arrow-compute', kwargs: common_args)
+        dependency('arrow-csv', kwargs: common_args)
+        dependency('arrow-filesystem', kwargs: common_args)
+        dependency('arrow-json', kwargs: common_args)
+    endif
 
-    have_arrow_orc = dependency(
-        'arrow-orc',
-        required: false,
-        version: ['>=' + version],
-    ).found()
+    if arrow.type_name() == 'cmake'
+        have_arrow_orc = (arrow.get_variable('ARROW_ORC', default_value: 'OFF') == 'ON')
+    else
+        have_arrow_orc = dependency(
+            'arrow-orc',
+            kwargs: common_args,
+            required: false,
+        ).found()
+    endif
     arrow_cuda = dependency(
         'arrow-cuda',
+        'ArrowCUDA',
+        kwargs: common_args,
+        modules: ['ArrowCUDA::arrow_cuda_shared'],
         required: false,
-        version: ['>=' + version],
     )
-    # we do not support compiling glib without acero engine
+    # we do not support compiling GLib without Acero engine
     arrow_acero = dependency(
         'arrow-acero',
-        required: true,
-        version: ['>=' + version],
+        'ArrowAcero',
+        kwargs: common_args,
+        modules: ['ArrowAcero::arrow_acero_shared'],
     )
     arrow_dataset = dependency(
         'arrow-dataset',
+        'ArrowDataset',
+        kwargs: common_args,
+        modules: ['ArrowDataset::arrow_dataset_shared'],
         required: false,
-        version: ['>=' + version],
     )
     arrow_flight = dependency(
         'arrow-flight',
+        'ArrowFlight',
+        kwargs: common_args,
+        modules: ['ArrowFlight::arrow_flight_shared'],
         required: false,
-        version: ['>=' + version],
     )
     arrow_flight_sql = dependency(
         'arrow-flight-sql',
+        'ArrowFlightSql',
+        kwargs: common_args,
+        modules: ['ArrowFlightSql::arrow_flight_sql_shared'],
         required: false,
-        version: ['>=' + version],
     )
-    gandiva = dependency('gandiva', required: false, version: ['>=' + version])
-    parquet = dependency('parquet', required: false, version: ['>=' + version])
+    gandiva = dependency(
+        'gandiva',
+        'Gandiva',
+        kwargs: common_args,
+        modules: ['Gandiva::gandiva_shared'],
+        required: false,
+    )
+    parquet = dependency(
+        'parquet',
+        'Parquet',
+        kwargs: common_args,
+        modules: ['Parquet::parquet_shared'],
+    )
 else
     base_include_directories += [
         include_directories(join_paths(arrow_cpp_build_dir, 'src')),
