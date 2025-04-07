@@ -33,6 +33,7 @@ SecureString::SecureString(SecureString&& secret) noexcept
 SecureString::SecureString(std::string&& secret) noexcept : secret_(std::move(secret)) {
   SecureClear(&secret);
 }
+SecureString::SecureString(size_t n, char c) noexcept : secret_(n, c) {}
 
 SecureString& SecureString::operator=(SecureString&& secret) noexcept {
   if (this == &secret) {

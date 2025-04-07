@@ -55,14 +55,12 @@ SecureString DecryptKeyLocally(const std::string& encoded_encrypted_key,
 
   int32_t decrypted_key_len =
       key_decryptor.PlaintextLength(static_cast<int>(encrypted_key.size()));
-  std::string decrypted_key(decrypted_key_len, '\0');
-  ::arrow::util::span<uint8_t> decrypted_key_span(
-      reinterpret_cast<uint8_t*>(&decrypted_key[0]), decrypted_key_len);
+  SecureString decrypted_key(decrypted_key_len, '\0');
 
   decrypted_key_len = key_decryptor.Decrypt(str2span(encrypted_key), master_key.as_span(),
-                                            str2span(aad), decrypted_key_span);
+                                            str2span(aad), decrypted_key.as_span());
 
-  return SecureString(std::move(decrypted_key));
+  return decrypted_key;
 }
 
 bool ValidateKeyLength(int32_t key_length_bits) {

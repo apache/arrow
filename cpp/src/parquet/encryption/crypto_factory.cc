@@ -71,15 +71,14 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
 
   int dek_length = dek_length_bits / 8;
 
-  std::string footer_key(dek_length, '\0');
-  RandBytes(reinterpret_cast<uint8_t*>(footer_key.data()), footer_key.size());
-  SecureString secure_footer_key(std::move(footer_key));
+  SecureString footer_key(dek_length, '\0');
+  RandBytes(footer_key.as_span().data(), footer_key.size());
 
   std::string footer_key_metadata =
-      key_wrapper.GetEncryptionKeyMetadata(secure_footer_key, footer_key_id, true);
+      key_wrapper.GetEncryptionKeyMetadata(footer_key, footer_key_id, true);
 
   FileEncryptionProperties::Builder properties_builder =
-      FileEncryptionProperties::Builder(secure_footer_key);
+      FileEncryptionProperties::Builder(footer_key);
   properties_builder.footer_key_metadata(footer_key_metadata);
   properties_builder.algorithm(encryption_config.encryption_algorithm);
 
@@ -147,16 +146,15 @@ ColumnPathToEncryptionPropertiesMap CryptoFactory::GetColumnEncryptionProperties
                                column_name);
       }
 
-      std::string column_key(dek_length, '\0');
-      RandBytes(reinterpret_cast<uint8_t*>(column_key.data()), column_key.size());
-      SecureString secure_column_key(std::move(column_key));
+      SecureString column_key(dek_length, '\0');
+      RandBytes(column_key.as_span().data(), column_key.size());
 
       std::string column_key_key_metadata =
-          key_wrapper->GetEncryptionKeyMetadata(secure_column_key, column_key_id, false);
+          key_wrapper->GetEncryptionKeyMetadata(column_key, column_key_id, false);
 
       std::shared_ptr<ColumnEncryptionProperties> cmd =
           ColumnEncryptionProperties::Builder(column_name)
-              .key(secure_column_key)
+              .key(column_key)
               ->key_metadata(column_key_key_metadata)
               ->build();
       encrypted_columns.insert({column_name, cmd});
