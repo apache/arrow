@@ -43,6 +43,9 @@ class PARQUET_EXPORT VariantArray : public ::arrow::ExtensionArray {
 ///
 /// To read more about variant encoding, see the variant encoding spec at
 /// https://github.com/apache/parquet-format/blob/master/VariantEncoding.md
+///
+/// To read more about variant shredding, see the variant shredding spec at
+/// https://github.com/apache/parquet-format/blob/master/VariantShredding.md
 class PARQUET_EXPORT VariantExtensionType : public ::arrow::ExtensionType {
  public:
   explicit VariantExtensionType(const std::shared_ptr<::arrow::DataType>& storage_type);
