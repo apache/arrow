@@ -23,6 +23,7 @@ namespace Apache.Arrow.Memory
     public class NativeMemoryManager : MemoryManager<byte>, IOwnableAllocation
     {
         private IntPtr _ptr;
+        private int _pinCount;
         private readonly int _offset;
         private readonly int _length;
         private readonly INativeAllocationOwner _owner;
@@ -58,6 +59,7 @@ namespace Apache.Arrow.Memory
             // NOTE: Unmanaged memory doesn't require GC pinning because by definition it's not
             // managed by the garbage collector.
 
+            Interlocked.Increment(ref _pinCount);
             void* ptr = CalculatePointer(elementIndex);
             return new MemoryHandle(ptr, default, this);
         }
@@ -65,7 +67,7 @@ namespace Apache.Arrow.Memory
         public override void Unpin()
         {
             // SEE: Pin implementation
-            return;
+            Interlocked.Decrement(ref _pinCount);
         }
 
         protected override void Dispose(bool disposing)
@@ -74,6 +76,17 @@ namespace Apache.Arrow.Memory
             IntPtr ptr = Interlocked.Exchange(ref _ptr, IntPtr.Zero);
             if (ptr != IntPtr.Zero)
             {
+                if (disposing)
+                {
+                    // Only need to check for pinned data when disposing.
+                    // If disposed from the finalizer, that means there can be no MemoryHandles to this memory.
+                    if (_pinCount > 0)
+                    {
+                        _ptr = ptr;
+                        throw new InvalidOperationException("Cannot free native memory while it is pinned");
+                    }
+                }
+
                 _owner.Release(ptr, _offset, _length);
             }
         }
