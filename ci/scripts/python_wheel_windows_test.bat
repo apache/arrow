@@ -25,6 +25,8 @@ set PYARROW_TEST_GANDIVA=OFF
 set PYARROW_TEST_GCS=ON
 set PYARROW_TEST_HDFS=ON
 set PYARROW_TEST_ORC=ON
+@REM Temporarily skip pandas for free-threaded tests.
+@REM See https://github.com/apache/arrow/issues/46041
 if "%PYTHON_CMD%" neq "py -3.13t" (
     set PYARROW_TEST_PANDAS=ON
 ) else (
