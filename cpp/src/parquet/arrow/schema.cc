@@ -342,11 +342,13 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
       break;
     case ArrowTypeId::LARGE_STRING:
     case ArrowTypeId::STRING:
+    case ArrowTypeId::STRING_VIEW:
       type = ParquetType::BYTE_ARRAY;
       logical_type = LogicalType::String();
       break;
     case ArrowTypeId::LARGE_BINARY:
     case ArrowTypeId::BINARY:
+    case ArrowTypeId::BINARY_VIEW:
       type = ParquetType::BYTE_ARRAY;
       break;
     case ArrowTypeId::FIXED_SIZE_BINARY: {
