@@ -805,8 +805,7 @@ def test_read_column_duplicated_in_file(tempdir):
         read_table(path, columns=['a', 'b'])
 
 
-def test_read_column_wrong_column_type(tempdir, version):
-    # duplicated columns in the column selection
+def test_read_column_with_generator(tempdir, version):
     table = pa.table([[1, 2, 3], [4, 5, 6], [7, 8, 9]], names=['a', 'b', 'c'])
     path = str(tempdir / "data.feather")
     write_feather(table, path, version=version)
