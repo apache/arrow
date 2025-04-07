@@ -39,7 +39,7 @@ RUN %PYTHON_CMD% -m pip install -U pip setuptools
 
 COPY python/requirements-wheel-test.txt C:/arrow/python/
 # Temporarily remove pandas from the requirements, see https://github.com/apache/arrow/issues/46041
-RUN findstr /V "pandas" C:/arrow/python/requirements-wheel-test.txt > C:/arrow/python/filtered-requirements-wheel-test.txt
+RUN findstr /V "pandas" C:\arrow\python\requirements-wheel-test.txt > C:\arrow\python\filtered-requirements-wheel-test.txt
 # Cython and Pandas wheels for 3.13 free-threaded are not released yet
 # hadolint ignore=DL3059
 RUN %PYTHON_CMD% -m pip install \
