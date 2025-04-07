@@ -99,8 +99,8 @@ class PARQUET_EXPORT KeyWithMasterId {
   const std::string& master_id() const { return master_id_; }
 
  private:
-  const SecureString key_bytes_;
-  const std::string master_id_;
+  SecureString key_bytes_;
+  std::string master_id_;
 };
 
 }  // namespace parquet::encryption
