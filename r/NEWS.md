@@ -17,6 +17,13 @@
   under the License.
 -->
 
+# arrow 19.0.1.1
+
+## Minor improvements and fixes
+
+- Updated internal code to comply with new CRAN requirements on non-API calls ([#45949](https://github.com/apache/arrow/issues/45949))
+- Enable building the bundled third-party libraries under CMake 4.0 ([#45987](https://github.com/apache/arrow/issues/45987))
+
 # arrow 19.0.1
 
 This release primarily updates the underlying Arrow C++ version used by the
