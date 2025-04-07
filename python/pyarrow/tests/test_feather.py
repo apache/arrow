@@ -811,7 +811,7 @@ def test_read_column_wrong_column_type(tempdir, version):
     path = str(tempdir / "data.feather")
     write_feather(table, path, version=version)
     columns_gen = (x for x in ['a', 'b', 'c'])
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="Columns must be a sequence"):
         read_table(path, columns=columns_gen)
 
 
