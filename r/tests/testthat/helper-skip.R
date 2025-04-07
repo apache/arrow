@@ -57,6 +57,7 @@ skip_if_no_pyarrow <- function() {
     return()
   }
 
+  skip_on_cran()
   skip_on_linux_devel()
   skip_on_os("windows")
 

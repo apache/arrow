@@ -29,7 +29,7 @@
 #include "arrow/status.h"
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/memory.h"
 
@@ -267,15 +267,6 @@ BufferReader::BufferReader(std::shared_ptr<Buffer> buffer)
       size_(buffer_ ? buffer_->size() : 0),
       position_(0),
       is_open_(true) {}
-
-BufferReader::BufferReader(const uint8_t* data, int64_t size)
-    : BufferReader(std::make_shared<Buffer>(data, size)) {}
-
-BufferReader::BufferReader(const Buffer& buffer)
-    : BufferReader(std::make_shared<Buffer>(buffer.data(), buffer.size())) {}
-
-BufferReader::BufferReader(std::string_view data)
-    : BufferReader(std::make_shared<Buffer>(data)) {}
 
 std::unique_ptr<BufferReader> BufferReader::FromString(std::string data) {
   return std::make_unique<BufferReader>(Buffer::FromString(std::move(data)));

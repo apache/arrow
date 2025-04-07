@@ -52,7 +52,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/future.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
 
 #ifdef ARROW_CSV

@@ -30,6 +30,7 @@
 #include "arrow/compute/key_hash_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 

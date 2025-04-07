@@ -24,7 +24,7 @@
 #include <string_view>
 #include <vector>
 
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 

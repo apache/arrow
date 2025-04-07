@@ -41,7 +41,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/visit_array_inline.h"

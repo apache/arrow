@@ -19,6 +19,7 @@
 #include <cmath>
 
 #include "arrow/memory_pool.h"
+#include "arrow/util/logging_internal.h"
 #include "gandiva/filter.h"
 #include "gandiva/function_registry_common.h"
 #include "gandiva/tests/test_util.h"

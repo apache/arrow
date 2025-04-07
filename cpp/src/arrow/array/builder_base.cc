@@ -29,7 +29,7 @@
 #include "arrow/builder.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {

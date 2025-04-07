@@ -142,16 +142,16 @@ struct GenericNullPartitionResult {
   static GenericNullPartitionResult NullsAtEnd(IndexType* indices_begin,
                                                IndexType* indices_end,
                                                IndexType* midpoint) {
-    DCHECK_GE(midpoint, indices_begin);
-    DCHECK_LE(midpoint, indices_end);
+    ARROW_DCHECK_GE(midpoint, indices_begin);
+    ARROW_DCHECK_LE(midpoint, indices_end);
     return {indices_begin, midpoint, midpoint, indices_end};
   }
 
   static GenericNullPartitionResult NullsAtStart(IndexType* indices_begin,
                                                  IndexType* indices_end,
                                                  IndexType* midpoint) {
-    DCHECK_GE(midpoint, indices_begin);
-    DCHECK_LE(midpoint, indices_end);
+    ARROW_DCHECK_GE(midpoint, indices_begin);
+    ARROW_DCHECK_LE(midpoint, indices_end);
     return {midpoint, indices_end, indices_begin, midpoint};
   }
 
@@ -379,9 +379,9 @@ struct GenericMergeImpl {
                                             int64_t null_count) const {
     // Input layout:
     // [left nulls .... left non-nulls .... right nulls .... right non-nulls]
-    DCHECK_EQ(left.nulls_end, left.non_nulls_begin);
-    DCHECK_EQ(left.non_nulls_end, right.nulls_begin);
-    DCHECK_EQ(right.nulls_end, right.non_nulls_begin);
+    ARROW_DCHECK_EQ(left.nulls_end, left.non_nulls_begin);
+    ARROW_DCHECK_EQ(left.non_nulls_end, right.nulls_begin);
+    ARROW_DCHECK_EQ(right.nulls_end, right.non_nulls_begin);
 
     // Mutate the input, stably, to obtain the following layout:
     // [left nulls .... right nulls .... left non-nulls .... right non-nulls]
@@ -400,8 +400,8 @@ struct GenericMergeImpl {
     }
 
     // Merge the non-null values into temp area
-    DCHECK_EQ(right.non_nulls_begin - p.non_nulls_begin, left.non_null_count());
-    DCHECK_EQ(p.non_nulls_end - right.non_nulls_begin, right.non_null_count());
+    ARROW_DCHECK_EQ(right.non_nulls_begin - p.non_nulls_begin, left.non_null_count());
+    ARROW_DCHECK_EQ(p.non_nulls_end - right.non_nulls_begin, right.non_null_count());
     if (p.non_null_count()) {
       merge_non_nulls_(p.non_nulls_begin, right.non_nulls_begin, p.non_nulls_end,
                        temp_indices_);
@@ -414,9 +414,9 @@ struct GenericMergeImpl {
                                           int64_t null_count) const {
     // Input layout:
     // [left non-nulls .... left nulls .... right non-nulls .... right nulls]
-    DCHECK_EQ(left.non_nulls_end, left.nulls_begin);
-    DCHECK_EQ(left.nulls_end, right.non_nulls_begin);
-    DCHECK_EQ(right.non_nulls_end, right.nulls_begin);
+    ARROW_DCHECK_EQ(left.non_nulls_end, left.nulls_begin);
+    ARROW_DCHECK_EQ(left.nulls_end, right.non_nulls_begin);
+    ARROW_DCHECK_EQ(right.non_nulls_end, right.nulls_begin);
 
     // Mutate the input, stably, to obtain the following layout:
     // [left non-nulls .... right non-nulls .... left nulls .... right nulls]
@@ -435,8 +435,8 @@ struct GenericMergeImpl {
     }
 
     // Merge the non-null values into temp area
-    DCHECK_EQ(left.non_nulls_end - p.non_nulls_begin, left.non_null_count());
-    DCHECK_EQ(p.non_nulls_end - left.non_nulls_end, right.non_null_count());
+    ARROW_DCHECK_EQ(left.non_nulls_end - p.non_nulls_begin, left.non_null_count());
+    ARROW_DCHECK_EQ(p.non_nulls_end - left.non_nulls_end, right.non_null_count());
     if (p.non_null_count()) {
       merge_non_nulls_(p.non_nulls_begin, left.non_nulls_end, p.non_nulls_end,
                        temp_indices_);
