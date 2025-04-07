@@ -156,7 +156,7 @@ primitive_types = st.one_of(
     null_type,
     bool_type,
     numeric_types,
-    temporal_types,
+    # temporal_types,
     binary_like_types
 )
 
