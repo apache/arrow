@@ -72,9 +72,11 @@ std::shared_ptr<Array> VariantExtensionType::MakeArray(
   return std::make_shared<VariantArray>(data);
 }
 
-bool isBinaryField(const std::shared_ptr<::arrow::Field> field) {
+namespace {
+bool IsBinaryField(const std::shared_ptr<::arrow::Field> field) {
   return field->type()->storage_id() == Type::BINARY ||
          field->type()->storage_id() == Type::LARGE_BINARY;
+}
 }
 
 bool VariantExtensionType::IsSupportedStorageType(
