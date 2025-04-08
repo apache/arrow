@@ -22,7 +22,7 @@
 # distutils: language = c++
 # cython: language_level = 3
 
-from pyarrow.lib import Table, RecordBatch
+from pyarrow.lib import Table, RecordBatch, array
 from pyarrow.compute import Expression, field
 
 try:
@@ -347,6 +347,28 @@ def _perform_join_asof(left_operand, left_on, left_by,
         raise TypeError("Unsupported output type")
 
 
+
+def _empty_record_batch_from_schema(schema):
+    """Create an empty RecordBatch based on the provided schema.
+
+    This function constructs a RecordBatch with zero rows,
+    ensuring that each field in the schema is represented
+    by an empty array of the correct type.
+
+    Parameters
+    ----------
+    schema : Schema
+        The schema defining the structure and types of the RecordBatch.
+
+    Returns
+    -------
+    RecordBatch
+        An empty RecordBatch matching the provided schema.
+    """
+    arrays = [array([], type=field.type) for field in schema]
+    return RecordBatch.from_arrays(arrays, schema=schema)
+
+
 def _filter_table(table, expression):
     """Filter rows of a table based on the provided expression.
 
@@ -375,7 +397,9 @@ def _filter_table(table, expression):
     ])
     result = decl.to_table(use_threads=True)
     if is_batch:
-        result = result.combine_chunks().to_batches()[0]
+        batches = result.combine_chunks().to_batches()
+        result = batches[0] if batches else _empty_record_batch_from_schema(result.schema)
+
     return result
 
 
