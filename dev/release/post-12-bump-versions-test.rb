@@ -263,13 +263,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           ],
         },
         {
-          path: "python/CMakeLists.txt",
-          hunks: [
-            ["-set(PYARROW_VERSION \"#{@snapshot_version}\")",
-             "+set(PYARROW_VERSION \"#{@next_snapshot_version}\")"],
-          ],
-        },
-        {
           path: "python/pyproject.toml",
           hunks: [
             ["-fallback_version = '#{@release_version}a0'",
