@@ -347,7 +347,6 @@ def _perform_join_asof(left_operand, left_on, left_by,
         raise TypeError("Unsupported output type")
 
 
-
 def _empty_record_batch_from_schema(schema):
     """Create an empty RecordBatch based on the provided schema.
 
@@ -398,7 +397,11 @@ def _filter_table(table, expression):
     result = decl.to_table(use_threads=True)
     if is_batch:
         batches = result.combine_chunks().to_batches()
-        result = batches[0] if batches else _empty_record_batch_from_schema(result.schema)
+        result = (
+            batches[0]
+            if batches
+            else _empty_record_batch_from_schema(result.schema)
+        )
 
     return result
 

@@ -21,4 +21,8 @@ import pyarrow as pa
 import pyarrow.compute as pc
 
 if __name__ == "__main__":
-    assert pa.record_batch({"number": [1, 2, 3]}).filter(pc.field("number") < 0).num_rows == 0
+    assert (
+        pa.record_batch({"number": [1, 2, 3]})
+        .filter(pc.field("number") < 0)
+        .num_rows == 0
+    )
