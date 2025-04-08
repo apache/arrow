@@ -172,9 +172,7 @@ def cmake_linter(src, fix=False):
 
 
 def python_linter(src, fix=False):
-    """Run Python linters on python/pyarrow, python/examples, setup.py
-    and dev/. """
-    setup_py = os.path.join(src.python, "setup.py")
+    """Run Python linters on python/pyarrow, python/examples, and dev/. """
     setup_cfg = os.path.join(src.python, "setup.cfg")
 
     logger.info("Running Python formatter (autopep8)")
@@ -196,7 +194,7 @@ def python_linter(src, fix=False):
                 "dev/*.py",
                 "dev/archery/**/*.py",
                 "dev/release/**/*.py"]
-    files = [setup_py]
+    files = []
     for pattern in patterns:
         files += list(map(str, Path(src.path).glob(pattern)))
 
@@ -233,7 +231,7 @@ def python_linter(src, fix=False):
     yield LintResult.from_cmd(
         flake8("--extend-exclude=" + ','.join(flake8_exclude),
                "--config=" + os.path.join(src.python, "setup.cfg"),
-               setup_py, src.pyarrow, os.path.join(src.python, "benchmarks"),
+               src.pyarrow, os.path.join(src.python, "benchmarks"),
                os.path.join(src.python, "examples"), src.dev, check=False))
 
     logger.info("Running Cython linter (cython-lint)")
