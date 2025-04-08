@@ -1,11 +1,15 @@
 [
     {
-        "name": "19.0.1.9000 (dev)",
+        "name": "20.0.0.9000 (dev)",
         "version": "dev/"
     },
     {
-        "name": "19.0.1 (release)",
+        "name": "20.0.0 (release)",
         "version": ""
+    },
+    {
+        "name": "19.0.1",
+        "version": "19.0/"
     },
     {
         "name": "18.1.0",
