@@ -1086,8 +1086,8 @@ Result<std::shared_ptr<Array>> BuildArray(const std::vector<ValueType>& values,
     const std::vector<ArrayStatistics::ValueType>& values_;
     const std::shared_ptr<DataType>& array_type;
     explicit Builder(const std::vector<ArrayStatistics::ValueType>& values,
-                     const std::shared_ptr<DataType>& string_type)
-        : values_(values), array_type(string_type) {}
+                     const std::shared_ptr<DataType>& array_type)
+        : values_(values), array_type(array_type) {}
 
     Result<std::shared_ptr<Array>> operator()(const bool&) {
       auto values = StatisticsValuesToRawValues<bool>(values_);
@@ -1579,6 +1579,10 @@ TEST_P(TestRecordBatchMakeStatisticsArrayFixedSizeBinaryCombination,
        FixedSizeBinaryCombination) {
   this->TestCombination();
 }
+
+// tuple(1, 2) tests whether RecordBatch::MakeStatistics can handle cases involving
+// different fixed_size_binary types.
+// tuple(2, 2) verifies if a single union array is created to include both values.
 INSTANTIATE_TEST_SUITE_P(FixedSizeBinaryCombination,
                          TestRecordBatchMakeStatisticsArrayFixedSizeBinaryCombination,
                          ::testing::Values(std::make_tuple(1, 2), std::make_tuple(2, 2)));
