@@ -35,6 +35,7 @@
 #include "arrow/util/value_parsing.h"
 
 #include "parquet/arrow/schema_internal.h"
+#include "parquet/arrow/variant_internal.h"
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
@@ -111,6 +112,25 @@ Status MapToNode(const std::shared_ptr<::arrow::MapType>& type, const std::strin
       GroupNode::Make("key_value", Repetition::REPEATED, {key_node, value_node});
   *out = GroupNode::Make(name, RepetitionFromNullable(nullable), {key_value},
                          LogicalType::Map(), field_id);
+  return Status::OK();
+}
+
+Status VariantToNode(const std::shared_ptr<VariantExtensionType>& type,
+                     const std::string& name, bool nullable, int field_id,
+                     const WriterProperties& properties,
+                     const ArrowWriterProperties& arrow_properties, NodePtr* out) {
+  NodePtr metadata_node;
+  RETURN_NOT_OK(FieldToNode("metadata", type->metadata(), properties, arrow_properties,
+                            &metadata_node));
+
+  NodePtr value_node;
+  RETURN_NOT_OK(
+      FieldToNode("value", type->value(), properties, arrow_properties, &value_node));
+
+  *out = GroupNode::Make(name, RepetitionFromNullable(nullable),
+                         {std::move(metadata_node), std::move(value_node)},
+                         LogicalType::Variant(), field_id);
+
   return Status::OK();
 }
 
@@ -434,6 +454,11 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
         type = ParquetType::BYTE_ARRAY;
         logical_type = LogicalType::JSON();
         break;
+      } else if (ext_type->extension_name() == std::string("parquet.variant")) {
+        auto variant_type = std::static_pointer_cast<VariantExtensionType>(field->type());
+
+        return VariantToNode(variant_type, name, field->nullable(), field_id, properties,
+                             arrow_properties, out);
       }
       std::shared_ptr<::arrow::Field> storage_field = ::arrow::field(
           name, ext_type->storage_type(), field->nullable(), field->metadata());
@@ -1051,6 +1076,19 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
       // Arrow extensions are ENABLED in Parquet.
       // origin_type is arrow::extension::json(...)
       // inferred_type is arrow::extension::json(arrow::utf8())
+      auto origin_storage_field = origin_field.WithType(ex_type.storage_type());
+
+      // Apply metadata recursively to storage type
+      RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
+      inferred->field = inferred->field->WithType(origin_type);
+    } else if (inferred_type->id() == ::arrow::Type::EXTENSION &&
+               ex_type.extension_name() == std::string("parquet.variant")) {
+      // Potential schema mismatch.
+      //
+      // Arrow extensions are ENABLED in Parquet.
+      // origin_type is parquet::arrow::variant(...)
+      // inferred_type is
+      // parquet::arrow::variant(struct(arrow::binary(),arrow::binary()))
       auto origin_storage_field = origin_field.WithType(ex_type.storage_type());
 
       // Apply metadata recursively to storage type

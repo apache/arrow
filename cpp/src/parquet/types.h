@@ -158,6 +158,7 @@ class PARQUET_EXPORT LogicalType {
       BSON,
       UUID,
       FLOAT16,
+      VARIANT,
       NONE  // Not a real logical type; should always be last element
     };
   };
@@ -212,6 +213,7 @@ class PARQUET_EXPORT LogicalType {
   static std::shared_ptr<const LogicalType> BSON();
   static std::shared_ptr<const LogicalType> UUID();
   static std::shared_ptr<const LogicalType> Float16();
+  static std::shared_ptr<const LogicalType> Variant();
 
   /// \brief Create a placeholder for when no logical type is specified
   static std::shared_ptr<const LogicalType> None();
@@ -266,6 +268,7 @@ class PARQUET_EXPORT LogicalType {
   bool is_BSON() const;
   bool is_UUID() const;
   bool is_float16() const;
+  bool is_variant() const;
   bool is_none() const;
   /// \brief Return true if this logical type is of a known type.
   bool is_valid() const;
@@ -444,6 +447,15 @@ class PARQUET_EXPORT Float16LogicalType : public LogicalType {
 
  private:
   Float16LogicalType() = default;
+};
+
+/// \brief Allowed for group nodes only.
+class PARQUET_EXPORT VariantLogicalType : public LogicalType {
+ public:
+  static std::shared_ptr<const LogicalType> Make();
+
+ private:
+  VariantLogicalType() = default;
 };
 
 /// \brief Allowed for any physical type.

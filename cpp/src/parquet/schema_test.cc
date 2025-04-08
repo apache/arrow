@@ -1150,6 +1150,9 @@ TEST(TestLogicalTypeConstruction, NewTypeIncompatibility) {
   auto check_is_float16 = [](const std::shared_ptr<const LogicalType>& logical_type) {
     return logical_type->is_float16();
   };
+  auto check_is_variant = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_variant();
+  };
   auto check_is_null = [](const std::shared_ptr<const LogicalType>& logical_type) {
     return logical_type->is_null();
   };
@@ -1163,6 +1166,7 @@ TEST(TestLogicalTypeConstruction, NewTypeIncompatibility) {
   std::vector<ConfirmNewTypeIncompatibilityArguments> cases = {
       {LogicalType::UUID(), check_is_UUID},
       {LogicalType::Float16(), check_is_float16},
+      {LogicalType::Variant(), check_is_variant},
       {LogicalType::Null(), check_is_null},
       {LogicalType::Time(false, LogicalType::TimeUnit::MILLIS), check_is_time},
       {LogicalType::Time(false, LogicalType::TimeUnit::MICROS), check_is_time},
@@ -1247,6 +1251,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeProperties) {
       {BSONLogicalType::Make(), false, true, true},
       {UUIDLogicalType::Make(), false, true, true},
       {Float16LogicalType::Make(), false, true, true},
+      {VariantLogicalType::Make(), false, true, true},
       {NoLogicalType::Make(), false, false, true},
   };
 
@@ -1544,6 +1549,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeRepresentation) {
       {LogicalType::BSON(), "BSON", R"({"Type": "BSON"})"},
       {LogicalType::UUID(), "UUID", R"({"Type": "UUID"})"},
       {LogicalType::Float16(), "Float16", R"({"Type": "Float16"})"},
+      {LogicalType::Variant(), "Variant", R"({"Type": "Variant"})"},
       {LogicalType::None(), "None", R"({"Type": "None"})"},
   };
 
@@ -1594,6 +1600,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeSortOrder) {
       {LogicalType::BSON(), SortOrder::UNSIGNED},
       {LogicalType::UUID(), SortOrder::UNSIGNED},
       {LogicalType::Float16(), SortOrder::SIGNED},
+      {LogicalType::Variant(), SortOrder::UNKNOWN},
       {LogicalType::None(), SortOrder::UNKNOWN}};
 
   for (const ExpectedSortOrder& c : cases) {
@@ -1752,6 +1759,14 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   ASSERT_ANY_THROW(PrimitiveNode::Make("float16", Repetition::REQUIRED,
                                        Float16LogicalType::Make(),
                                        Type::FIXED_LEN_BYTE_ARRAY, 3));
+
+  // Incompatible primitive type ...
+  ASSERT_ANY_THROW(PrimitiveNode::Make("variant", Repetition::REQUIRED,
+                                       VariantLogicalType::Make(), Type::DOUBLE));
+  // Incompatible primitive type ...
+  ASSERT_ANY_THROW(PrimitiveNode::Make("variant", Repetition::REQUIRED,
+                                       VariantLogicalType::Make(),
+                                       Type::FIXED_LEN_BYTE_ARRAY, 2));
 
   // Non-positive length argument for fixed length binary ...
   ASSERT_ANY_THROW(PrimitiveNode::Make("negative_length", Repetition::REQUIRED,

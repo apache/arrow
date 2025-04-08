@@ -889,6 +889,62 @@ Status ArrowSchemaToParquetMetadata(std::shared_ptr<::arrow::Schema>& arrow_sche
   return Status::OK();
 }
 
+TEST_F(TestConvertParquetSchema, ParquetVariant) {
+  // Unshredded variant
+  // optional group variant_col {
+  //  required binary metadata;
+  //  required binary value;
+  // }
+  //
+  // GH-45948: add shredded variants
+  std::vector<NodePtr> parquet_fields;
+  auto metadata =
+      PrimitiveNode::Make("metadata", Repetition::REQUIRED, ParquetType::BYTE_ARRAY);
+  auto value =
+      PrimitiveNode::Make("value", Repetition::REQUIRED, ParquetType::BYTE_ARRAY);
+
+  auto variant =
+      GroupNode::Make("variant_unshredded", Repetition::OPTIONAL, {metadata, value});
+  parquet_fields.push_back(variant);
+
+  {
+    // Test converting from parquet schema to arrow schema.
+    std::vector<std::shared_ptr<Field>> arrow_fields;
+    auto arrow_metadata =
+        ::arrow::field("metadata", ::arrow::binary(), /*nullable=*/false);
+    auto arrow_value = ::arrow::field("value", ::arrow::binary(), /*nullable=*/false);
+    auto arrow_variant = ::arrow::struct_({arrow_metadata, arrow_value});
+    arrow_fields.push_back(
+        ::arrow::field("variant_unshredded", arrow_variant, /*nullable=*/true));
+    auto arrow_schema = ::arrow::schema(arrow_fields);
+
+    ASSERT_OK(ConvertSchema(parquet_fields));
+    ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
+  }
+
+  {
+    // Test converting from parquet schema to arrow schema even though
+    // extensions are not enabled.
+    ArrowReaderProperties props;
+    props.set_arrow_extensions_enabled(false);
+
+    // Test converting from parquet schema to arrow schema.
+    std::vector<std::shared_ptr<Field>> arrow_fields;
+    auto arrow_metadata =
+        ::arrow::field("metadata", ::arrow::binary(), /*nullable=*/false);
+    auto arrow_value = ::arrow::field("value", ::arrow::binary(), /*nullable=*/false);
+    auto arrow_variant = ::arrow::struct_({arrow_metadata, arrow_value});
+    arrow_fields.push_back(
+        ::arrow::field("variant_unshredded", arrow_variant, /*nullable=*/true));
+    auto arrow_schema = ::arrow::schema(arrow_fields);
+
+    std::shared_ptr<KeyValueMetadata> metadata;
+    ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
+    CheckFlatSchema(arrow_schema, true /* check_metadata */);
+  }
+}
+
 TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
   std::vector<NodePtr> parquet_fields;
   parquet_fields.push_back(PrimitiveNode::Make(
