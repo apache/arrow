@@ -881,6 +881,9 @@ cdef class BinaryScalar(Scalar):
     def __bytes__(self):
         return (self.as_py())
 
+    def __buffer__(self):
+        return(memoryview(self.as_buffer()))
+
 
 cdef class LargeBinaryScalar(BinaryScalar):
     pass

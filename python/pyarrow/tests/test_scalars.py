@@ -565,6 +565,10 @@ def test_binary(value, ty, scalar_typ):
     assert isinstance(buf, pa.Buffer)
     assert buf.to_pybytes() == value
 
+    memview = memoryview(s)
+    assert isinstance(memview, memoryview)
+    assert memview.tobytes() == value
+
 
 def test_fixed_size_binary():
     s = pa.scalar(b'foof', type=pa.binary(4))
