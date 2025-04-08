@@ -21,10 +21,10 @@
 #include <utility>
 
 #include "arrow/filesystem/hdfs.h"
+#include "arrow/filesystem/hdfs_internal.h"
+#include "arrow/filesystem/hdfs_io.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/util_internal.h"
-#include "arrow/io/hdfs.h"
-#include "arrow/io/hdfs_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
