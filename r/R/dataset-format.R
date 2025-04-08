@@ -221,13 +221,14 @@ check_csv_file_format_args <- function(args, partitioning = NULL) {
 
   # Set up read_options before convert_options since convert_options needs column names
   if (is.null(args$read_options)) {
-    # If col_names is provided, add it to read_options
-    if ("col_names" %in% names(args)) {
-      args$read_options <- list(col_names = args$col_names)
-    }
     options$read_options <- do.call(csv_file_format_read_opts, c(args, list(partitioning = partitioning)))
   } else if (is.list(args$read_options)) {
     options$read_options <- do.call(csv_read_options, args$read_options)
+  }
+
+  # If col_names is provided, add it to read_options
+  if ("col_names" %in% names(args)) {
+    args$read_options <- list(col_names = args$col_names)
   }
 
   if (is.null(args$convert_options)) {
@@ -464,12 +465,6 @@ csv_file_format_convert_opts <- function(...) {
 
   # Handle readr-style col_types specification
   if ("col_types" %in% names(opts) && is.character(opts[["col_types"]])) {
-    if (length(opts[["col_types"]]) != 1L) {
-      abort("`col_types` is a character vector that is not of size 1")
-    }
-    n <- nchar(opts[["col_types"]])
-    specs <- substring(opts[["col_types"]], seq_len(n), seq_len(n))
-    
     # Get column names from read_options if available
     col_names <- if (!is.null(opts[["read_options"]])) {
       if (!is.null(opts[["read_options"]]$column_names)) {
@@ -485,30 +480,7 @@ csv_file_format_convert_opts <- function(...) {
       abort("Compact specification for `col_types` requires column names")
     }
 
-    if (!is_bare_character(col_names, n)) {
-      abort("Compact specification for `col_types` requires `col_names`")
-    }
-
-    col_types <- set_names(nm = col_names, map2(specs, col_names, ~ {
-      switch(.x,
-        "c" = utf8(),
-        "i" = int32(),
-        "n" = float64(),
-        "d" = float64(),
-        "l" = bool(),
-        "f" = dictionary(),
-        "D" = date32(),
-        "T" = timestamp(unit = "ns"),
-        "t" = time32(),
-        "_" = null(),
-        "-" = null(),
-        "?" = NULL,
-        abort("Unsupported compact specification: '", .x, "' for column '", .y, "'")
-      )
-    }))
-    # To "guess" types, omit them from col_types
-    col_types <- keep(col_types, ~ !is.null(.x))
-    opts[["col_types"]] <- schema(col_types)
+    opts[["col_types"]] <- parse_compact_col_spec(opts[["col_types"]], col_names)
   }
 
   # Remove read_options from opts before calling csv_convert_options

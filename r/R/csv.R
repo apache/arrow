@@ -842,35 +842,7 @@ readr_to_csv_convert_options <- function(na,
   include_columns <- character()
 
   if (is.character(col_types)) {
-    if (length(col_types) != 1L) {
-      abort("`col_types` is a character vector that is not of size 1")
-    }
-    n <- nchar(col_types)
-    specs <- substring(col_types, seq_len(n), seq_len(n))
-    if (!is_bare_character(col_names, n)) {
-      abort("Compact specification for `col_types` requires `col_names`")
-    }
-
-    col_types <- set_names(nm = col_names, map2(specs, col_names, ~ {
-      switch(.x,
-        "c" = utf8(),
-        "i" = int32(),
-        "n" = float64(),
-        "d" = float64(),
-        "l" = bool(),
-        "f" = dictionary(),
-        "D" = date32(),
-        "T" = timestamp(unit = "ns"),
-        "t" = time32(),
-        "_" = null(),
-        "-" = null(),
-        "?" = NULL,
-        abort("Unsupported compact specification: '", .x, "' for column '", .y, "'")
-      )
-    }))
-    # To "guess" types, omit them from col_types
-    col_types <- keep(col_types, ~ !is.null(.x))
-    col_types <- schema(col_types)
+    col_types <- parse_compact_col_spec(col_types, col_names)
   }
 
   if (!is.null(col_types)) {
