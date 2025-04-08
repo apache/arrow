@@ -28,7 +28,14 @@
 
 # arrow 19.0.1
 
-# arrow 19.0.0
+This release primarily updates the underlying Arrow C++ version used by the
+package to version 19.0.1 and includes all changes from the 19.0.0 and 19.0.1
+releases. For what's changed in Arrow C++ 19.0.0, please see the [blog
+post](https://arrow.apache.org/blog/2025/01/16/19.0.0-release/) and
+[changelog](https://arrow.apache.org/release/19.0.0.html#changelog).
+For what's changed in Arrow C++ 19.0.1, please see the [blog
+post](https://arrow.apache.org/blog/2025/02/16/19.0.1-release/) and
+[changelog](https://arrow.apache.org/release/19.0.1.html#changelog).
 
 # arrow 18.1.0
 
