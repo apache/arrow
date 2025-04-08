@@ -77,7 +77,7 @@ bool IsBinaryField(const std::shared_ptr<::arrow::Field> field) {
   return field->type()->storage_id() == Type::BINARY ||
          field->type()->storage_id() == Type::LARGE_BINARY;
 }
-}
+}  // namespace
 
 bool VariantExtensionType::IsSupportedStorageType(
     const std::shared_ptr<DataType>& storage_type) {
@@ -104,7 +104,7 @@ bool VariantExtensionType::IsSupportedStorageType(
         // Both metadata and value must be non-nullable binary types for unshredded
         // variants. This will change in GH-46948, when we will require a Visitor
         // to traverse the structure of the variant.
-        return isBinaryField(field0) && isBinaryField(field1) && !field0->nullable() &&
+        return IsBinaryField(field0) && IsBinaryField(field1) && !field0->nullable() &&
                !field1->nullable();
       }
     }
