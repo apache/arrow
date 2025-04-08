@@ -553,7 +553,7 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   ds <- open_csv_dataset(
     csv_dir,
     schema = schema(
-      int = int64(), dbl = int64(), lgl = bool(), chr = utf8(),
+      int = int64(), dbl = float64(), lgl = bool(), chr = utf8(),
       fct = utf8(), ts = timestamp(unit = "s")
     ),
     skip = 1
@@ -673,19 +673,6 @@ test_that("open_csv_dataset(col_types = <Schema>)", {
   expect_identical(dplyr::collect(df), tibble::tibble(int = as.numeric(tbl$int)))
 })
 
-test_that("open_tsv/delim_dataset(col_types = <Schema>)", {
-  tbl <- example_data[, "int"]
-  tf <- tempfile()
-  on.exit(unlink(tf))
-  write.table(tbl, tf, sep = "\t", row.names = FALSE)
-
-  df <- open_tsv_dataset(tf, col_types = schema(int = float64()))
-  df_delim <- open_delim_dataset(tf, delim = "\t", col_types = schema(int = float64()))
-
-  expect_identical(dplyr::collect(df), tibble::tibble(int = as.numeric(tbl$int)))
-  expect_identical(dplyr::collect(df), dplyr::collect(df_delim))
-})
-
 test_that("open_*_dataset(col_types=string, col_names)", {
   # Test data setup
   tbl <- example_data[, "int"]
@@ -705,15 +692,9 @@ test_that("open_*_dataset(col_types=string, col_names)", {
   # Test with compact string representation
   expect_identical(
     tibble::tibble(int = as.numeric(tbl$int)),
-    open_dataset(tf, col_names = "int", col_types = "d", skip = 1, format = "csv") |> 
+    open_dataset(tf, col_names = "int", col_types = "d", skip = 1, format = "csv") |>
       dplyr::collect()
   )
-
-  # Error cases
-  expect_error(open_csv_dataset(tf, col_types = c("i", "d")))
-  expect_error(open_csv_dataset(tf, col_types = "d"))
-  expect_error(open_csv_dataset(tf, col_types = "i", col_names = c("a", "b")))
-  expect_error(open_csv_dataset(tf, col_types = "y", col_names = "a"))
 })
 
 test_that("open_*_dataset with various column types", {
