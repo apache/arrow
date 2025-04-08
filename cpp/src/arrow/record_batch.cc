@@ -558,19 +558,19 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
   }
   return Status::OK();
 }
-struct StringVisitorBuilder {
-  template <typename DataType,
-            typename Builder = typename TypeTraits<DataType>::BuilderType>
+struct StringBuilderVisitor {
+  template <typename DataType>
   enable_if_has_string_view<DataType, Status> Visit(const DataType&,
                                                     ArrayBuilder* raw_builder,
                                                     const std::string& value) {
+    using Builder = typename TypeTraits<DataType>::BuilderType;
     Builder* builder = static_cast<Builder*>(raw_builder);
     return builder->Append(value);
   }
 
   Status Visit(const DataType& type, ArrayBuilder*, const std::string&) {
-    return Status::NotImplemented(
-        "Only string types are supported and the current type is ", type.ToString());
+    return Status::Invalid("Only string types are supported and the current type is ",
+                           type.ToString());
   }
 };
 }  // namespace
@@ -597,7 +597,7 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
   RETURN_NOT_OK(EnumerateStatistics(*this, [&](const EnumeratedStatistics& statistics) {
     int8_t i = 0;
     for (const auto& field : values_types) {
-      if (field->type()->id() == statistics.type->id()) {
+      if (field->type()->Equals(statistics.type)) {
         break;
       }
       i++;
@@ -697,7 +697,7 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
         return static_cast<DoubleBuilder*>(builder)->Append(value);
       }
       Status operator()(const std::string& value) {
-        StringVisitorBuilder visitor_builder;
+        StringBuilderVisitor visitor_builder;
         return VisitTypeInline(*builder->type(), &visitor_builder, builder, value);
       }
     } visitor;
