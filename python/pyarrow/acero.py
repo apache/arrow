@@ -376,7 +376,6 @@ def _filter_table(table, expression):
     result = decl.to_table(use_threads=True)
     if is_batch and result.num_rows > 0:
         result = result.combine_chunks().to_batches()[0]
-
     return result
 
 
