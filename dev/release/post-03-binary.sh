@@ -50,7 +50,6 @@ fi
 : "${DEPLOY_AMAZON_LINUX:=${DEPLOY_DEFAULT}}"
 : "${DEPLOY_CENTOS:=${DEPLOY_DEFAULT}}"
 : "${DEPLOY_DEBIAN:=${DEPLOY_DEFAULT}}"
-: "${DEPLOY_R:=${DEPLOY_DEFAULT}}"
 : "${DEPLOY_UBUNTU:=${DEPLOY_DEFAULT}}"
 
 rake_tasks=()
@@ -71,9 +70,6 @@ fi
 if [ "${DEPLOY_DEBIAN}" -gt 0 ]; then
   rake_tasks+=(apt:artifactory:release)
   apt_targets+=(debian)
-fi
-if [ "${DEPLOY_R}" -gt 0 ]; then
-  rake_tasks+=(r:release)
 fi
 if [ "${DEPLOY_UBUNTU}" -gt 0 ]; then
   rake_tasks+=(apt:artifactory:release)
