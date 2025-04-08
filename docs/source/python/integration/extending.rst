@@ -450,7 +450,7 @@ Compile the extension:
 
 .. code-block:: bash
 
-    python setup.py build_ext --inplace
+    python -m pip install -e .
 
 Building Extensions against PyPI Wheels
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
