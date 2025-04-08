@@ -115,6 +115,14 @@ def test_filter(table_source):
         FilterNodeOptions(None)
 
 
+def test_filter_all_rows():
+    assert (
+        pa.record_batch({"number": [1, 2, 3]})
+        .filter(pc.field("number") < 0)
+        .num_rows == 0
+    )
+
+
 def test_project(table_source):
     # default name from expression
     decl = Declaration.from_sequence([
