@@ -14,10 +14,14 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+#include <memory>
 
 #include <gtest/gtest.h>
 
 #include "arrow/array/statistics.h"
+#include "arrow/compare.h"
+#include "arrow/scalar.h"
+#include "arrow/testing/gtest_util.h"
 
 namespace arrow {
 
@@ -66,7 +70,6 @@ TEST(ArrayStatisticsTest, TestEquality) {
   ArrayStatistics statistics2;
 
   ASSERT_EQ(statistics1, statistics2);
-
   statistics1.null_count = 29;
   ASSERT_NE(statistics1, statistics2);
   statistics2.null_count = 29;
@@ -91,11 +94,45 @@ TEST(ArrayStatisticsTest, TestEquality) {
   ASSERT_NE(statistics1, statistics2);
   statistics2.max = static_cast<int64_t>(-29);
   ASSERT_EQ(statistics1, statistics2);
+  statistics2.max = static_cast<int64_t>(2);
+  ASSERT_NE(statistics1, statistics2);
+
+  statistics1.max = std::nullopt;
+  statistics2.max = std::nullopt;
+  // the state of both of them are std::nullopt
+  ASSERT_EQ(statistics1.max, statistics2.max);
+  // the state of one of them is std::nullopt
+  statistics1.max = std::shared_ptr<Scalar>();
+  ASSERT_NE(statistics1, statistics2);
+  // the state of both of them are empty shared_ptr
+  statistics2.max = std::shared_ptr<Scalar>();
+  ASSERT_EQ(statistics1, statistics2);
+  ASSERT_OK_AND_ASSIGN(statistics1.max, MakeScalar(int64(), 5));
+  // the state of one of them is empty shared_ptr
+  ASSERT_NE(statistics1, statistics2);
+  // the state of one of them has different type
+  statistics2.max = static_cast<int64_t>(10);
+  ASSERT_NE(statistics1.max, statistics2.max);
+  ASSERT_OK_AND_ASSIGN(statistics2.max, MakeScalar(int64(), 5));
+  // the state of both of them are equal
+  ASSERT_EQ(statistics1, statistics2);
 
   statistics1.is_max_exact = true;
   ASSERT_NE(statistics1, statistics2);
   statistics2.is_max_exact = true;
   ASSERT_EQ(statistics1, statistics2);
+}
+TEST(ArrayStatisticsTest, EqualOptions) {
+  auto list_nan_1 = std::make_shared<ListScalar>(
+      ArrayFromJSON(float32(), R"([0,null,NaN])"), list(float32()));
+  auto list_nan_2 = std::make_shared<ListScalar>(
+      ArrayFromJSON(float32(), R"([0,null,NaN])"), list(float32()));
+  ArrayStatistics statistics1;
+  ArrayStatistics statistics2;
+  statistics1.max = list_nan_1;
+  statistics2.max = list_nan_2;
+  ASSERT_FALSE(statistics1.Equals(statistics2));
+  ASSERT_TRUE(statistics1.Equals(statistics2, EqualOptions::Defaults().nans_equal(true)));
 }
 
 }  // namespace arrow
