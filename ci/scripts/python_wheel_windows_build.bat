@@ -129,7 +129,7 @@ set CMAKE_PREFIX_PATH=C:\arrow-dist
 pushd C:\arrow\python
 
 @REM Build wheel
-%PYTHON_CMD% setup.py bdist_wheel || exit /B 1
+%PYTHON_CMD% -m build . --wheel || exit /B 1
 
 @REM Repair the wheel with delvewheel
 @REM
