@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
-#include "arrow/io/hdfs.h"
+#include "arrow/filesystem/hdfs_io.h"
 #include "arrow/util/uri.h"
 
 namespace arrow::fs {

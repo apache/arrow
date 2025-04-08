@@ -408,15 +408,12 @@ arrow_add_object_library(ARROW_IO
                          io/caching.cc
                          io/compressed.cc
                          io/file.cc
-                         io/hdfs.cc
-                         io/hdfs_internal.cc
                          io/interfaces.cc
                          io/memory.cc
                          io/slow.cc
                          io/stdio.cc
                          io/transform.cc)
 foreach(ARROW_IO_TARGET ${ARROW_IO_TARGETS})
-  target_link_libraries(${ARROW_IO_TARGET} PRIVATE arrow::hadoop)
   if(NOT MSVC)
     target_link_libraries(${ARROW_IO_TARGET} PRIVATE ${CMAKE_DL_LIBS})
   endif()
@@ -906,7 +903,7 @@ if(ARROW_FILESYSTEM)
                                 PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
   endif()
   if(ARROW_HDFS)
-    list(APPEND ARROW_FILESYSTEM_SRCS filesystem/hdfs.cc)
+    list(APPEND ARROW_FILESYSTEM_SRCS filesystem/hdfs.cc filesystem/hdfs_io.cc filesystem/hdfs_internal.cc)
   endif()
   if(ARROW_S3)
     list(APPEND ARROW_FILESYSTEM_SRCS filesystem/s3fs.cc)

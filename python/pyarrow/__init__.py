@@ -110,6 +110,13 @@ def _filesystem_is_available(fs):
     else:
         return True
 
+def have_libhdfs():
+    try:
+        from pyarrow._hdfs import _have_libhdfs  # noqa
+        return _have_libhdfs()
+    except ImportError:
+        return False
+
 
 def show_info():
     """
@@ -260,8 +267,7 @@ from pyarrow.lib import (NativeFile, PythonFile,
                          BufferReader, BufferOutputStream,
                          OSFile, MemoryMappedFile, memory_map,
                          create_memory_map, MockOutputStream,
-                         input_stream, output_stream,
-                         have_libhdfs)
+                         input_stream, output_stream)
 
 from pyarrow.lib import (ChunkedArray, RecordBatch, Table, table,
                          concat_arrays, concat_tables, TableGroupBy,

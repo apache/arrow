@@ -1744,30 +1744,6 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CTransformInputStreamVTable vtable,
         object method_arg)
 
-    # ----------------------------------------------------------------------
-    # HDFS
-
-    CStatus HaveLibHdfs()
-    CStatus HaveLibHdfs3()
-
-    cdef enum HdfsDriver" arrow::io::HdfsDriver":
-        HdfsDriver_LIBHDFS" arrow::io::HdfsDriver::LIBHDFS"
-        HdfsDriver_LIBHDFS3" arrow::io::HdfsDriver::LIBHDFS3"
-
-    cdef cppclass HdfsConnectionConfig:
-        c_string host
-        int port
-        c_string user
-        c_string kerb_ticket
-        unordered_map[c_string, c_string] extra_conf
-        HdfsDriver driver
-
-    cdef cppclass HdfsReadableFile(CRandomAccessFile):
-        pass
-
-    cdef cppclass HdfsOutputStream(COutputStream):
-        pass
-
     cdef cppclass CBufferReader \
             " arrow::io::BufferReader"(CRandomAccessFile):
         CBufferReader(const shared_ptr[CBuffer]& buffer)

@@ -23,7 +23,20 @@ from pyarrow.includes.libarrow_fs cimport *
 from pyarrow._fs cimport FileSystem
 
 from pyarrow.lib import frombytes, tobytes
+from pyarrow.lib cimport check_status
 from pyarrow.util import _stringify_path
+
+
+def _have_libhdfs():
+    """
+    Return true if HDFS (HadoopFileSystem) library is set up correctly.
+    """
+    try:
+        with nogil:
+            check_status(HaveLibHdfs())
+        return True
+    except Exception:
+        return False
 
 
 cdef class HadoopFileSystem(FileSystem):

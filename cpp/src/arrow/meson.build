@@ -84,8 +84,6 @@ arrow_components = {
             'io/caching.cc',
             'io/compressed.cc',
             'io/file.cc',
-            'io/hdfs.cc',
-            'io/hdfs_internal.cc',
             'io/interfaces.cc',
             'io/memory.cc',
             'io/slow.cc',
