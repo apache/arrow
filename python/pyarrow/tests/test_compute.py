@@ -1415,6 +1415,17 @@ def test_filter_record_batch():
     expected = pa.record_batch([pa.array(["a", None, "e"])], names=["a'"])
     assert result.equals(expected)
 
+    # GH-46057: filtering all rows should return empty RecordBatch with same schema
+    mask_empty_result = batch.filter(pa.array([False] * batch.num_rows))
+    assert mask_empty_result.num_rows == 0
+    assert isinstance(mask_empty_result, pa.RecordBatch)
+    assert mask_empty_result.schema.equals(batch.schema)
+
+    expr_empty_result = batch.filter(pc.field("a'") == "zzz")
+    assert expr_empty_result.num_rows == 0
+    assert isinstance(expr_empty_result, pa.RecordBatch)
+    assert expr_empty_result.schema.equals(batch.schema)
+
 
 def test_filter_table():
     table = pa.table([pa.array(["a", None, "c", "d", "e"])], names=["a"])
@@ -1433,6 +1444,17 @@ def test_filter_table():
         assert result.equals(expected_drop)
         result = table.filter(mask, null_selection_behavior="emit_null")
         assert result.equals(expected_null)
+
+    # GH-46057: filtering all rows should return empty table with same schema
+    mask_empty_result = table.filter(pa.array([False] * table.num_rows))
+    assert mask_empty_result.num_rows == 0
+    assert isinstance(mask_empty_result, pa.Table)
+    assert mask_empty_result.schema.equals(table.schema)
+
+    expr_empty_result = table.filter(pc.field("a") == "zzz")
+    assert expr_empty_result.num_rows == 0
+    assert isinstance(expr_empty_result, pa.Table)
+    assert expr_empty_result.schema.equals(table.schema)
 
 
 def test_filter_errors():
