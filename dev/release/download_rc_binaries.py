@@ -274,6 +274,7 @@ def download_rc_binaries(
 ):
     version_string = "{}-rc{}".format(version, rc_number)
     version_pattern = re.compile(r"\d+\.\d+\.\d+")
+    print(target_package_type)
     if target_package_type:
         package_types = [target_package_type]
     else:
