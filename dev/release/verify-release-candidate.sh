@@ -1050,7 +1050,8 @@ test_wheels() {
       --package_type python \
       --regex=${filter_regex} \
       --dest=${download_dir} \
-      --repository=${GITHUB_REPOSITORY:-apache/arrow}
+      --repository=${GITHUB_REPOSITORY:-apache/arrow} \
+      --tag="apache-arrow-$VERSION-rc$RC_NUMBER"
 
     verify_dir_artifact_signatures ${download_dir}
 
