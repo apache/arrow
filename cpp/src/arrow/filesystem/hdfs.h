@@ -57,7 +57,8 @@ struct ARROW_EXPORT HdfsOptions {
 /// HDFS-backed FileSystem implementation.
 ///
 /// implementation notes:
-/// - This is a wrapper of arrow/filesystem/hdfs_io, so we can use FileSystem API to handle hdfs.
+/// - This is a wrapper of arrow/filesystem/hdfs_io, so we can use FileSystem API to
+/// handle hdfs.
 class ARROW_EXPORT HadoopFileSystem : public FileSystem {
  public:
   ~HadoopFileSystem() override;
