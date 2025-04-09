@@ -49,7 +49,7 @@ set ARROW_VERSION=%1
 set RC_NUMBER=%2
 
 python arrow\dev\release\download_rc_binaries.py %ARROW_VERSION% %RC_NUMBER% ^
-    --package_type python ^
+    --package_type="python" ^
     --repository="apache/arrow" ^
     --tag="apache-arrow-%ARROW_VERSION%-rc%RC_NUMBER%" ^
     --regex=".*win_amd64.*" || EXIT /B 1
