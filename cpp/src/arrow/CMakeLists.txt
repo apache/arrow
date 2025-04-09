@@ -955,7 +955,11 @@ if(ARROW_FILESYSTEM)
     endif()
   endif()
   if(ARROW_HDFS)
-    list(APPEND ARROW_FILESYSTEM_SRCS filesystem/hdfs.cc filesystem/hdfs_io.cc filesystem/hdfs_internal.cc)
+    list(APPEND
+         ARROW_FILESYSTEM_SRCS
+         filesystem/hdfs.cc
+         filesystem/hdfs_io.cc
+         filesystem/hdfs_internal.cc)
   endif()
   if(ARROW_S3)
     list(APPEND ARROW_FILESYSTEM_SRCS filesystem/s3fs.cc)
