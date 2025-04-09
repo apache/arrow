@@ -113,6 +113,8 @@ jobs:
             echo "$(echo ${os} | tr a-z A-Z)=${version}" >> ${GITHUB_ENV}
           fi
       - name: Run
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           archery docker run \
             -e TEST_DEFAULT="${TEST_DEFAULT}" \
@@ -120,6 +122,7 @@ jobs:
             -e VERBOSE="${VERBOSE}" \
             -e VERIFY_RC="${RC}" \
             -e VERIFY_VERSION="${VERSION}" \
+            -e GH_TOKEN="$GH_TOKEN" \
             ${SERVICE}
 
   wheels-macos:
@@ -137,6 +140,8 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Run
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           package_id=${RC_TAG%-rc*}
           version=${package_id#apache-arrow-}
@@ -167,6 +172,8 @@ jobs:
         shell: bash
         run: ci/scripts/download_tz_database.sh
       - name: Run verification
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: cmd
         run: |
           dev/release/verify-release-candidate-wheels.bat %VERSION% %RC%
