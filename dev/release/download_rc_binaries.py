@@ -83,8 +83,7 @@ class Downloader:
             num_parallel = DEFAULT_PARALLEL_DOWNLOADS
 
         if re_match is not None:
-            regex = re.compile(re_match)
-            files = [x for x in files if regex.match(x)]
+            files = self._filter_files(files, re_match)
 
         if num_parallel == 1:
             for path in files:
@@ -95,6 +94,10 @@ class Downloader:
                 files,
                 num_parallel
             )
+
+    def _filter_files(self, files, re_match):
+        regex = re.compile(re_match)
+        return [x for x in files if regex.match(x)]
 
     def _download_file(self, dest, path):
         base, filename = os.path.split(path)
@@ -203,6 +206,10 @@ class GitHub(Downloader):
             )
             files.append((asset["name"], url))
         return files
+
+    def _filter_files(self, files, re_match):
+        regex = re.compile(re_match)
+        return [x for x in files if regex.match(x[0])]
 
     def _download_file(self, dest, asset):
         name, url = asset
