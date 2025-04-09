@@ -1055,7 +1055,7 @@ test_wheels() {
 
     verify_dir_artifact_signatures ${download_dir}
 
-    wheels_dir=${download_dir}/python-rc/${VERSION}-rc${RC_NUMBER}
+    wheels_dir=${download_dir}
   fi
 
   pushd ${wheels_dir}
