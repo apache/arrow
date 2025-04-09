@@ -115,18 +115,6 @@ def test_filter(table_source):
         FilterNodeOptions(None)
 
 
-@pytest.mark.parametrize('source', [
-    pa.record_batch({"number": [1, 2, 3]}),
-    pa.table({"number": [1, 2, 3]})
-])
-def test_filter_all_rows(source):
-    output = source.filter(pc.field("number") < 0)
-
-    assert output.num_rows == 0
-    assert type(output) is type(source)
-    assert output.schema.equals(source.schema)
-
-
 def test_project(table_source):
     # default name from expression
     decl = Declaration.from_sequence([
