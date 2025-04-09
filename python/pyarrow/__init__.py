@@ -111,6 +111,9 @@ def _filesystem_is_available(fs):
         return True
 
 def have_libhdfs():
+    """
+    Return true if HDFS (HadoopFileSystem) library is set up correctly.
+    """
     try:
         from pyarrow._hdfs import _have_libhdfs  # noqa
         return _have_libhdfs()
