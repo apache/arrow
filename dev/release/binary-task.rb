@@ -2231,7 +2231,10 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                                                  rc: rc,
                                                  source: upload_target_dir,
                                                  staging: staging?,
-                                                 sync: true,
+                                                 # Don't remove old repodata
+                                                 # because our implementation
+                                                 # doesn't support it.
+                                                 sync: false,
                                                  sync_pattern: /\/repodata\//)
               uploader.upload
             end
@@ -2381,7 +2384,12 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                                                    distribution: distribution,
                                                    rc: rc,
                                                    source: upload_target_dir,
-                                                   sync: true,
+                                                   # Don't remove old
+                                                   # repodata. Because
+                                                   # removing files
+                                                   # aren't supported
+                                                   # on Maven repository.
+                                                   sync: false,
                                                    sync_pattern: /\/repodata\//)
             uploader.upload
           end
