@@ -805,6 +805,15 @@ def test_read_column_duplicated_in_file(tempdir):
         read_table(path, columns=['a', 'b'])
 
 
+def test_read_column_with_generator(tempdir, version):
+    table = pa.table([[1, 2, 3], [4, 5, 6], [7, 8, 9]], names=['a', 'b', 'c'])
+    path = str(tempdir / "data.feather")
+    write_feather(table, path, version=version)
+    columns_gen = (x for x in ['a', 'b', 'c'])
+    with pytest.raises(TypeError, match="Columns must be a sequence"):
+        read_table(path, columns=columns_gen)
+
+
 def test_nested_types(compression):
     # https://issues.apache.org/jira/browse/ARROW-8860
     table = pa.table({'col': pa.StructArray.from_arrays(

@@ -16,6 +16,7 @@
 # under the License.
 
 
+from collections.abc import Sequence
 import os
 
 from pyarrow.pandas_compat import _pandas_api  # noqa
@@ -254,6 +255,10 @@ def read_table(source, columns=None, memory_map=False, use_threads=True):
 
     if columns is None:
         return reader.read()
+
+    if not isinstance(columns, Sequence):
+        raise TypeError("Columns must be a sequence but, got {}"
+                        .format(type(columns).__name__))
 
     column_types = [type(column) for column in columns]
     if all(map(lambda t: t == int, column_types)):
