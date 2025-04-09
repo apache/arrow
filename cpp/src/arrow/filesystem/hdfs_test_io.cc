@@ -30,16 +30,16 @@
 #include <gtest/gtest.h>
 
 #include "arrow/buffer.h"
-#include "arrow/filesystem/type_fwd.h"
 #include "arrow/filesystem/hdfs_internal.h"
 #include "arrow/filesystem/hdfs_io.h"
+#include "arrow/filesystem/type_fwd.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
 namespace arrow {
-namespace fs {
+namespace io {
 
 std::vector<uint8_t> RandomData(int64_t size) {
   std::vector<uint8_t> buffer(size);
@@ -59,7 +59,7 @@ class TestHadoopFileSystem : public ::testing::Test {
   Status WriteDummyFile(const std::string& path, const uint8_t* buffer, int64_t size,
                         bool append = false, int buffer_size = 0, int16_t replication = 0,
                         int default_block_size = 0) {
-    std::shared_ptr<io::HdfsOutputStream> file;
+    std::shared_ptr<HdfsOutputStream> file;
     RETURN_NOT_OK(client_->OpenWritable(path, append, buffer_size, replication,
                                         default_block_size, &file));
 
@@ -83,7 +83,7 @@ class TestHadoopFileSystem : public ::testing::Test {
 
   // Set up shared state between unit tests
   void SetUp() {
-    io::internal::LibHdfsShim* driver_shim;
+    internal::LibHdfsShim* driver_shim;
 
     client_ = nullptr;
     scratch_dir_ =
@@ -119,7 +119,7 @@ class TestHadoopFileSystem : public ::testing::Test {
     conf_.user = user;
     conf_.port = port == nullptr ? 20500 : atoi(port);
 
-    ASSERT_OK(io::HadoopFileSystem::Connect(&conf_, &client_));
+    ASSERT_OK(HadoopFileSystem::Connect(&conf_, &client_));
   }
 
   void TearDown() {
@@ -131,12 +131,12 @@ class TestHadoopFileSystem : public ::testing::Test {
     }
   }
 
-  io::HdfsConnectionConfig conf_;
+  HdfsConnectionConfig conf_;
   bool loaded_driver_;
 
   // Resources shared amongst unit tests
   std::string scratch_dir_;
-  std::shared_ptr<io::HadoopFileSystem> client_;
+  std::shared_ptr<HadoopFileSystem> client_;
 };
 
 #define SKIP_IF_NO_DRIVER()                        \
@@ -147,8 +147,8 @@ class TestHadoopFileSystem : public ::testing::Test {
 TEST_F(TestHadoopFileSystem, ConnectsAgain) {
   SKIP_IF_NO_DRIVER();
 
-  std::shared_ptr<io::HadoopFileSystem> client;
-  ASSERT_OK(io::HadoopFileSystem::Connect(&this->conf_, &client));
+  std::shared_ptr<HadoopFileSystem> client;
+  ASSERT_OK(HadoopFileSystem::Connect(&this->conf_, &client));
   ASSERT_OK(client->Disconnect());
 }
 
@@ -157,14 +157,14 @@ TEST_F(TestHadoopFileSystem, MultipleClients) {
 
   ASSERT_OK(this->MakeScratchDir());
 
-  std::shared_ptr<io::HadoopFileSystem> client1;
-  std::shared_ptr<io::HadoopFileSystem> client2;
-  ASSERT_OK(io::HadoopFileSystem::Connect(&this->conf_, &client1));
-  ASSERT_OK(io::HadoopFileSystem::Connect(&this->conf_, &client2));
+  std::shared_ptr<HadoopFileSystem> client1;
+  std::shared_ptr<HadoopFileSystem> client2;
+  ASSERT_OK(HadoopFileSystem::Connect(&this->conf_, &client1));
+  ASSERT_OK(HadoopFileSystem::Connect(&this->conf_, &client2));
   ASSERT_OK(client1->Disconnect());
 
   // client2 continues to function after equivalent client1 has shutdown
-  std::vector<io::HdfsPathInfo> listing;
+  std::vector<HdfsPathInfo> listing;
   ASSERT_OK(client2->ListDirectory(this->scratch_dir_, &listing));
   ASSERT_OK(client2->Disconnect());
 }
@@ -180,7 +180,7 @@ TEST_F(TestHadoopFileSystem, MakeDirectory) {
 
   ASSERT_OK(this->client_->MakeDirectory(path));
   ASSERT_TRUE(this->client_->Exists(path));
-  std::vector<io::HdfsPathInfo> listing;
+  std::vector<HdfsPathInfo> listing;
   ARROW_EXPECT_OK(this->client_->ListDirectory(path, &listing));
   ASSERT_EQ(0, listing.size());
   ARROW_EXPECT_OK(this->client_->Delete(path, true));
@@ -204,7 +204,7 @@ TEST_F(TestHadoopFileSystem, GetCapacityUsed) {
 TEST_F(TestHadoopFileSystem, GetPathInfo) {
   SKIP_IF_NO_DRIVER();
 
-  io::HdfsPathInfo info;
+  HdfsPathInfo info;
 
   ASSERT_OK(this->MakeScratchDir());
 
@@ -238,7 +238,7 @@ TEST_F(TestHadoopFileSystem, GetPathInfoNotExist) {
   ASSERT_OK(this->MakeScratchDir());
   auto path = this->ScratchPath("path-does-not-exist");
 
-  io::HdfsPathInfo info;
+  HdfsPathInfo info;
   Status s = this->client_->GetPathInfo(path, &info);
   ASSERT_TRUE(s.IsIOError());
 
@@ -262,7 +262,7 @@ TEST_F(TestHadoopFileSystem, AppendToFile) {
   // now append
   ASSERT_OK(this->WriteDummyFile(path, buffer.data(), size, true));
 
-  io::HdfsPathInfo info;
+  HdfsPathInfo info;
   ASSERT_OK(this->client_->GetPathInfo(path, &info));
   ASSERT_EQ(size * 2, info.size);
 }
@@ -282,7 +282,7 @@ TEST_F(TestHadoopFileSystem, ListDirectory) {
   ASSERT_OK(this->WriteDummyFile(p2, data.data(), size / 2));
   ASSERT_OK(this->client_->MakeDirectory(d1));
 
-  std::vector<io::HdfsPathInfo> listing;
+  std::vector<HdfsPathInfo> listing;
   ASSERT_OK(this->client_->ListDirectory(this->scratch_dir_, &listing));
 
   // Do it again, appends!
@@ -292,7 +292,7 @@ TEST_F(TestHadoopFileSystem, ListDirectory) {
 
   // Argh, well, shouldn't expect the listing to be in any particular order
   for (size_t i = 0; i < listing.size(); ++i) {
-    const io::HdfsPathInfo& info = listing[i];
+    const HdfsPathInfo& info = listing[i];
     if (info.name == this->HdfsAbsPath(p1)) {
       ASSERT_EQ(arrow::fs::FileType::File, info.kind);
       ASSERT_EQ(size, info.size);
@@ -318,7 +318,7 @@ TEST_F(TestHadoopFileSystem, ReadableMethods) {
   std::vector<uint8_t> data = RandomData(size);
   ASSERT_OK(this->WriteDummyFile(path, data.data(), size));
 
-  std::shared_ptr<io::HdfsReadableFile> file;
+  std::shared_ptr<HdfsReadableFile> file;
   ASSERT_OK(this->client_->OpenReadable(path, &file));
 
   // Test GetSize -- move this into its own unit test if ever needed
@@ -355,7 +355,7 @@ TEST_F(TestHadoopFileSystem, LargeFile) {
   std::vector<uint8_t> data = RandomData(size);
   ASSERT_OK(this->WriteDummyFile(path, data.data(), size));
 
-  std::shared_ptr<io::HdfsReadableFile> file;
+  std::shared_ptr<HdfsReadableFile> file;
   ASSERT_OK(this->client_->OpenReadable(path, &file));
 
   ASSERT_FALSE(file->closed());
@@ -366,7 +366,7 @@ TEST_F(TestHadoopFileSystem, LargeFile) {
   ASSERT_EQ(0, std::memcmp(buffer->data(), data.data(), size));
 
   // explicit buffer size
-  std::shared_ptr<io::HdfsReadableFile> file2;
+  std::shared_ptr<HdfsReadableFile> file2;
   ASSERT_OK(this->client_->OpenReadable(path, 1 << 18, &file2));
 
   ASSERT_OK_AND_ASSIGN(auto buffer2, AllocateBuffer(size));
@@ -404,7 +404,7 @@ TEST_F(TestHadoopFileSystem, ChmodChown) {
   std::vector<uint8_t> data = RandomData(size);
   ASSERT_OK(this->WriteDummyFile(path, data.data(), size));
 
-  io::HdfsPathInfo info;
+  HdfsPathInfo info;
   ASSERT_OK(this->client_->Chmod(path, mode));
   ASSERT_OK(this->client_->GetPathInfo(path, &info));
   ASSERT_EQ(mode, info.permissions);
@@ -427,7 +427,7 @@ TEST_F(TestHadoopFileSystem, ThreadSafety) {
   ASSERT_OK(this->WriteDummyFile(src_path, reinterpret_cast<const uint8_t*>(data.c_str()),
                                  static_cast<int64_t>(data.size())));
 
-  std::shared_ptr<io::HdfsReadableFile> file;
+  std::shared_ptr<HdfsReadableFile> file;
   ASSERT_OK(this->client_->OpenReadable(src_path, &file));
 
   std::atomic<int> correct_count(0);
@@ -463,5 +463,5 @@ TEST_F(TestHadoopFileSystem, ThreadSafety) {
   ASSERT_EQ(niter * 4, correct_count);
 }
 
-}  // namespace fs
+}  // namespace io
 }  // namespace arrow
