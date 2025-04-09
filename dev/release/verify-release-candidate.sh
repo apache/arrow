@@ -1049,7 +1049,8 @@ test_wheels() {
       $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
       --package_type python \
       --regex=${filter_regex} \
-      --dest=${download_dir}
+      --dest=${download_dir} \
+      --repository=${GITHUB_REPOSITORY:-apache/arrow}
 
     verify_dir_artifact_signatures ${download_dir}
 
