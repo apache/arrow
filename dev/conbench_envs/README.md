@@ -161,13 +161,13 @@ Verify that you have at least these versions of `node` and `yarn`:
     pushd conbench
     pip install -r requirements-cli.txt
     pip install -U PyYAML
-    python -m pip install .
+    python -m pip install --no-build-isolation .
     popd
 
 ### 8. Setup benchmarks repo
     git clone https://github.com/ursacomputing/benchmarks.git
     pushd benchmarks
-    python -m pip install --editable .
+    python -m pip install --editable --no-build-isolation .
     popd
     
 ### 9. Setup conbench credentials

@@ -450,7 +450,7 @@ Compile the extension:
 
 .. code-block:: bash
 
-    python -m pip install -e .
+    python -m pip install --no-build-isolation -e .
 
 Building Extensions against PyPI Wheels
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
