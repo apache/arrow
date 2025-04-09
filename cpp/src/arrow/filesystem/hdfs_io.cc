@@ -30,8 +30,8 @@
 
 #include "arrow/buffer.h"
 #include "arrow/filesystem/type_fwd.h"
-#include "arrow/io/hdfs.h"
-#include "arrow/io/hdfs_internal.h"
+#include "arrow/filesystem/hdfs_io.h"
+#include "arrow/filesystem/hdfs_internal.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
