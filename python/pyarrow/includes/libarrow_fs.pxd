@@ -155,6 +155,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_string endpoint_override
         c_string scheme
         c_bool background_writes
+        c_bool allow_delayed_open
         c_bool allow_bucket_creation
         c_bool allow_bucket_deletion
         c_bool check_directory_existence_before_creation

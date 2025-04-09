@@ -401,6 +401,9 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
       options.scheme = kv.second;
     } else if (kv.first == "endpoint_override") {
       options.endpoint_override = kv.second;
+    } else if (kv.first == "allow_delayed_open") {
+      ARROW_ASSIGN_OR_RAISE(options.allow_delayed_open,
+                            ::arrow::internal::ParseBoolean(kv.second));
     } else if (kv.first == "allow_bucket_creation") {
       ARROW_ASSIGN_OR_RAISE(options.allow_bucket_creation,
                             ::arrow::internal::ParseBoolean(kv.second));
@@ -448,6 +451,7 @@ bool S3Options::Equals(const S3Options& other) const {
           proxy_options.Equals(other.proxy_options) &&
           credentials_kind == other.credentials_kind &&
           background_writes == other.background_writes &&
+          allow_delayed_open == other.allow_delayed_open &&
           allow_bucket_creation == other.allow_bucket_creation &&
           allow_bucket_deletion == other.allow_bucket_deletion &&
           tls_ca_file_path == other.tls_ca_file_path &&
