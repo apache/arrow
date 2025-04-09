@@ -434,8 +434,8 @@ libraries), you can set ``--bundle-arrow-cpp``:
 .. code-block::
 
    $ pip install wheel  # if not installed
-   $ python -m build . -C--build-type=$ARROW_BUILD_TYPE \
-            -C--bundle-arrow-cpp --wheel
+   $ python -m build --wheel --config-settings=--build-type=$ARROW_BUILD_TYPE \
+            --config-settings=--bundle-arrow-cpp .
 
 .. note::
    To install an editable PyArrow build run ``pip install -e . --no-build-isolation``

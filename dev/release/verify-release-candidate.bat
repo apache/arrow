@@ -140,7 +140,7 @@ set PYARROW_WITH_PARQUET=1
 set PYARROW_WITH_PARQUET_ENCRYPTION=1
 set PYARROW_WITH_DATASET=1
 set PYARROW_TEST_CYTHON=OFF
-python -m build -C--bundle-arrow-cpp . --wheel || exit /B 1
+python -m build --wheel --config-settings=--bundle-arrow-cpp . || exit /B 1
 pytest pyarrow -v -s --enable-parquet || exit /B 1
 
 popd
