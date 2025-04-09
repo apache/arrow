@@ -71,4 +71,4 @@ export PYARROW_WITH_ORC=1
 export PYARROW_WITH_PARQUET=1
 
 find pyarrow -name "*.so" -delete
-python -m pip install --editable .
+python -m pip install --no-build-isolation -e .
