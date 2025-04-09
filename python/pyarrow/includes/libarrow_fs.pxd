@@ -366,7 +366,7 @@ cdef extern from "arrow/filesystem/hdfs_io.h" namespace "arrow::io" nogil:
         CStatus GetUsed(int64_t* nbytes)
 
         CStatus ListDirectory(const c_string& path,
-                            vector[HdfsPathInfo]* listing)
+                              vector[HdfsPathInfo]* listing)
 
         CStatus GetPathInfo(const c_string& path, HdfsPathInfo* info)
 

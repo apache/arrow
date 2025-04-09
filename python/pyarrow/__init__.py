@@ -110,6 +110,7 @@ def _filesystem_is_available(fs):
     else:
         return True
 
+
 def have_libhdfs():
     """
     Return true if HDFS (HadoopFileSystem) library is set up correctly.
