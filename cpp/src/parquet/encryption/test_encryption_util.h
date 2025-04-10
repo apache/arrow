@@ -43,9 +43,9 @@ using ::arrow::internal::TemporaryDir;
 
 constexpr int kFixedLength = 10;
 
-inline SecureString kFooterEncryptionKey(std::string("0123456789012345"));
-inline SecureString kColumnEncryptionKey1(std::string("1234567890123450"));
-inline SecureString kColumnEncryptionKey2(std::string("1234567890123451"));
+inline SecureString kFooterEncryptionKey("0123456789012345");
+inline SecureString kColumnEncryptionKey1("1234567890123450");
+inline SecureString kColumnEncryptionKey2("1234567890123451");
 const char kFileName[] = "tester";
 
 // Get the path of file inside parquet test data directory
