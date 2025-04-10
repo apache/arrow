@@ -581,7 +581,6 @@ bool IsForbidden(const Storage::StorageException& e) {
   return false;
 }
 
-
 const auto kHierarchicalNamespaceIsDirectoryMetadataKey = "hdi_isFolder";
 const auto kFlatNamespaceIsDirectoryMetadataKey = "is_directory";
 
@@ -1455,11 +1454,11 @@ Result<FileInfo> GetContainerPropsAsFileInfo(const AzureLocation& location,
     }
 
     if (IsForbidden(exception)) {
-      // User delegated sas tokens don't allow for getting container properties. Assume the container exists
+      // User delegated sas tokens don't allow for getting container properties. Assume
+      // the container exists
       info.set_type(FileType::Directory);
       info.set_mtime(std::chrono::system_clock::now());
       return info;
-
     }
     return ExceptionToStatus(exception, "GetProperties for '", container_client.GetUrl(),
                              "' failed.");
