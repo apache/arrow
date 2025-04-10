@@ -77,6 +77,7 @@ jobs:
       - name: Run verification
         shell: bash
         env:
+          CMAKE_GENERATOR: Ninja
           TEST_DEFAULT: 0
           TEST_{{ target|upper }}: 1
         {% if use_conda %}
