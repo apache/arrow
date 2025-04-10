@@ -37,6 +37,13 @@ option(
 )
 
 option(
+    'integration',
+    type: 'boolean',
+    description: 'Build the Arrow integration test executables',
+    value: false,
+)
+
+option(
     'ipc',
     type: 'boolean',
     description: 'Build the Arrow IPC extensions',
