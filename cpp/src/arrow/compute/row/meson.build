@@ -23,5 +23,5 @@ install_headers(['grouper.h'], subdir: 'arrow/compute/row')
 exc = executable(
     'arrow-compute-grouper-benchmark',
     sources: ['grouper_benchmark.cc'],
-    dependencies: [arrow_test_dep, benchmark_dep],
+    dependencies: [arrow_benchmark_dep],
 )

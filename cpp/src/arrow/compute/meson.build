@@ -110,7 +110,7 @@ endif
 exc = executable(
     'arrow-compute-function-benchmark',
     sources: ['function_benchmark.cc'],
-    dependencies: [arrow_test_dep, benchmark_dep],
+    dependencies: [arrow_benchmark_dep],
 )
 benchmark('arrow-compute-function-benchmark', exc)
 

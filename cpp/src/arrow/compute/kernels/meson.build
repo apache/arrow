@@ -91,7 +91,7 @@ foreach benchmark : scalar_kernel_benchmarks
     exc = executable(
         benchmark_name,
         sources: '@0@.cc'.format(benchmark),
-        dependencies: [arrow_test_dep, benchmark_dep],
+        dependencies: [arrow_benchmark_dep],
     )
     benchmark(benchmark_name, exc)
 endforeach
@@ -143,7 +143,7 @@ foreach benchmark : vector_kernel_benchmarks
     exc = executable(
         benchmark_name,
         sources: '@0@.cc'.format(benchmark),
-        dependencies: [arrow_test_dep, benchmark_dep],
+        dependencies: [arrow_benchmark_dep],
     )
     benchmark(benchmark_name, exc)
 endforeach
