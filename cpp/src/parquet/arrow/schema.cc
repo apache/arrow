@@ -1086,6 +1086,10 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
           (inferred_type->id() == ::arrow::Type::FIXED_SIZE_BINARY &&
            checked_cast<const ::arrow::FixedSizeBinaryType&>(*inferred_type)
                    .byte_width() == 16);
+    } else if (origin_extension_name == "parquet.variant") {
+      extension_supports_inferred_storage =
+          arrow_extension_inferred ||
+          VariantExtensionType::IsSupportedStorageType(inferred_type);
     } else if (arrow_extension_inferred) {
       extension_supports_inferred_storage = origin_extension_type.Equals(*inferred_type);
     } else {
@@ -1099,19 +1103,6 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
       // are asked to apply the original metadata
       auto origin_storage_field =
           origin_field.WithType(origin_extension_type.storage_type());
-      RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
-      inferred->field = inferred->field->WithType(origin_type);
-    } else if (inferred_type->id() == ::arrow::Type::EXTENSION &&
-               ex_type.extension_name() == std::string("parquet.variant")) {
-      // Potential schema mismatch.
-      //
-      // Arrow extensions are ENABLED in Parquet.
-      // origin_type is parquet::arrow::variant(...)
-      // inferred_type is
-      // parquet::arrow::variant(struct(arrow::binary(),arrow::binary()))
-      auto origin_storage_field = origin_field.WithType(ex_type.storage_type());
-
-      // Apply metadata recursively to storage type
       RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
       inferred->field = inferred->field->WithType(origin_type);
     } else {
