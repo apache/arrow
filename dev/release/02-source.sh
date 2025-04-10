@@ -95,7 +95,6 @@ if [ ${SOURCE_UPLOAD} -gt 0 ]; then
   # Upload signed tarballs to GitHub Release
   gh release upload ${tag} \
      --repo "${GITHUB_REPOSITORY}" \
-     --verify-tag \
      signed-artifacts/*
 
   # check out the arrow RC folder

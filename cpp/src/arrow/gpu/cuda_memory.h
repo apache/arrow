@@ -22,6 +22,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/c/abi.h"
+#include "arrow/gpu/visibility.h"
 #include "arrow/io/concurrency.h"
 #include "arrow/type_fwd.h"
 
@@ -35,7 +36,7 @@ class CudaIpcMemHandle;
 /// \brief An Arrow buffer located on a GPU device
 ///
 /// Be careful using this in any Arrow code which may not be GPU-aware
-class ARROW_EXPORT CudaBuffer : public Buffer {
+class ARROW_CUDA_EXPORT CudaBuffer : public Buffer {
  public:
   // XXX deprecate?
   CudaBuffer(uint8_t* data, int64_t size, const std::shared_ptr<CudaContext>& context,
@@ -109,7 +110,7 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
 
 /// \class CudaHostBuffer
 /// \brief Device-accessible CPU memory created using cudaHostAlloc
-class ARROW_EXPORT CudaHostBuffer : public MutableBuffer {
+class ARROW_CUDA_EXPORT CudaHostBuffer : public MutableBuffer {
  public:
   CudaHostBuffer(uint8_t* data, const int64_t size);
 
@@ -121,7 +122,7 @@ class ARROW_EXPORT CudaHostBuffer : public MutableBuffer {
 
 /// \class CudaIpcHandle
 /// \brief A container for a CUDA IPC handle
-class ARROW_EXPORT CudaIpcMemHandle {
+class ARROW_CUDA_EXPORT CudaIpcMemHandle {
  public:
   ~CudaIpcMemHandle();
 
@@ -158,7 +159,7 @@ class ARROW_EXPORT CudaIpcMemHandle {
 /// pointing to CPU memory.
 /// Reading to a raw pointer, though, copies device memory into the host
 /// memory pointed to.
-class ARROW_EXPORT CudaBufferReader
+class ARROW_CUDA_EXPORT CudaBufferReader
     : public ::arrow::io::internal::RandomAccessFileConcurrencyWrapper<CudaBufferReader> {
  public:
   explicit CudaBufferReader(const std::shared_ptr<Buffer>& buffer);
@@ -200,7 +201,7 @@ class ARROW_EXPORT CudaBufferReader
 
 /// \class CudaBufferWriter
 /// \brief File interface for writing to CUDA buffers, with optional buffering
-class ARROW_EXPORT CudaBufferWriter : public io::WritableFile {
+class ARROW_CUDA_EXPORT CudaBufferWriter : public io::WritableFile {
  public:
   explicit CudaBufferWriter(const std::shared_ptr<CudaBuffer>& buffer);
   ~CudaBufferWriter() override;
@@ -247,17 +248,17 @@ class ARROW_EXPORT CudaBufferWriter : public io::WritableFile {
 /// \param[in] device_number device to expose host memory
 /// \param[in] size number of bytes
 /// \return Host buffer or Status
-ARROW_EXPORT
+ARROW_CUDA_EXPORT
 Result<std::shared_ptr<CudaHostBuffer>> AllocateCudaHostBuffer(int device_number,
                                                                const int64_t size);
 
 /// Low-level: get a device address through which the CPU data be accessed.
-ARROW_EXPORT
+ARROW_CUDA_EXPORT
 Result<uintptr_t> GetDeviceAddress(const uint8_t* cpu_data,
                                    const std::shared_ptr<CudaContext>& ctx);
 
 /// Low-level: get a CPU address through which the device data be accessed.
-ARROW_EXPORT
+ARROW_CUDA_EXPORT
 Result<uint8_t*> GetHostAddress(uintptr_t device_ptr);
 
 ARROW_DEPRECATED(

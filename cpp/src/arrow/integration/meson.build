@@ -15,14 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-prefix=@CMAKE_INSTALL_PREFIX@
-includedir=@ARROW_PKG_CONFIG_INCLUDEDIR@
-libdir=@ARROW_PKG_CONFIG_LIBDIR@
+install_headers(['json_integration.h'])
 
-Name: Apache Arrow Dataset
-Description: Apache Arrow Dataset provides an API to read and write semantic datasets stored in different locations and formats.
-Version: @ARROW_VERSION@
-Requires: @ARROW_DATASET_PKG_CONFIG_REQUIRES@
-Libs: -L${libdir} -larrow_dataset
-Cflags:@ARROW_DATASET_PC_CFLAGS@
-Cflags.private:@ARROW_DATASET_PC_CFLAGS_PRIVATE@
+exc = executable(
+    'arrow-json-integration-test',
+    sources: ['json_integration_test.cc'],
+    dependencies: [arrow_dep, rapidjson_dep, gflags_dep, gtest_dep],
+    link_with: [arrow_test_lib],
+)
+
+if needs_tests
+    test('arrow-json-integration-test', exc)
+endif

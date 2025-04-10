@@ -15,14 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-prefix=@CMAKE_INSTALL_PREFIX@
-includedir=@ARROW_PKG_CONFIG_INCLUDEDIR@
-libdir=@ARROW_PKG_CONFIG_LIBDIR@
+[wrap-file]
+source_url = https://github.com/gflags/gflags/archive/refs/tags/v2.2.2.tar.gz
+source_filename = gflags-2.2.2.tar.gz
+source_hash = 34af2f15cf7367513b352bdcd2493ab14ce43692d2dcd9dfc499492966c64dcf
+directory = gflags-2.2.2
+method = cmake
 
-Name: Apache Arrow Dataset
-Description: Apache Arrow Dataset provides an API to read and write semantic datasets stored in different locations and formats.
-Version: @ARROW_VERSION@
-Requires: @ARROW_DATASET_PKG_CONFIG_REQUIRES@
-Libs: -L${libdir} -larrow_dataset
-Cflags:@ARROW_DATASET_PC_CFLAGS@
-Cflags.private:@ARROW_DATASET_PC_CFLAGS_PRIVATE@
+[provide]
+gflags = gflags_static_dep

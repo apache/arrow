@@ -47,7 +47,7 @@ foreach io_benchmark : io_benchmarks
     exc = executable(
         benchmark_name,
         sources: '@0@.cc'.format(io_benchmark),
-        dependencies: [arrow_test_dep, benchmark_dep],
+        dependencies: [arrow_benchmark_dep],
         implicit_include_directories: false,
     )
     benchmark(benchmark_name, exc)

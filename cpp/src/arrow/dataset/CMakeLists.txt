@@ -19,6 +19,15 @@ add_custom_target(arrow_dataset)
 
 arrow_install_all_headers("arrow/dataset")
 
+# If libarrow_dataset.a is only built, "pkg-config --cflags --libs
+# arrow-dataset" outputs build flags for static linking not shared
+# linking. ARROW_DATASET_PC_* except ARROW_DATASET_PC_*_PRIVATE are for
+# the static linking case.
+if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+  string(APPEND ARROW_DATASET_PC_CFLAGS "${ARROW_DATASET_PC_CFLAGS_PRIVATE}")
+  set(ARROW_DATASET_PC_CFLAGS_PRIVATE "")
+endif()
+
 set(ARROW_DATASET_SRCS
     dataset.cc
     dataset_writer.cc

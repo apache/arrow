@@ -25,20 +25,16 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/uri.h"
 
-namespace Aws {
-namespace Auth {
-
+namespace Aws::Auth {
 class AWSCredentialsProvider;
 class STSAssumeRoleCredentialsProvider;
+}  // namespace Aws::Auth
 
-}  // namespace Auth
-namespace STS {
+namespace Aws::STS {
 class STSClient;
-}
-}  // namespace Aws
+}  // namespace Aws::STS
 
-namespace arrow {
-namespace fs {
+namespace arrow::fs {
 
 /// Options for using a proxy for S3
 struct ARROW_EXPORT S3ProxyOptions {
@@ -308,6 +304,7 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
 
   bool Equals(const FileSystem& other) const override;
   Result<std::string> PathFromUri(const std::string& uri_string) const override;
+  Result<std::string> MakeUri(std::string path) const override;
 
   /// \cond FALSE
   using FileSystem::CreateDir;
@@ -461,5 +458,4 @@ Status EnsureS3Finalized();
 ARROW_EXPORT
 Result<std::string> ResolveS3BucketRegion(const std::string& bucket);
 
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs
