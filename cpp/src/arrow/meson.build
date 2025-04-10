@@ -258,7 +258,7 @@ if needs_csv
     arrow_testing_srcs += ['csv/test_common.cc']
 endif
 
-if needs_json
+if needs_json or needs_integration
     rapidjson_dep = dependency('rapidjson', include_type: 'system')
 else
     rapidjson_dep = disabler()
@@ -393,11 +393,13 @@ if needs_testing
 
     gtest_dep = dependency('gtest')
     gtest_main_dep = dependency('gtest_main')
+    gtest_dep = dependency('gtest')
     gmock_dep = dependency('gmock')
 else
     filesystem_dep = disabler()
     gtest_dep = disabler()
     gtest_main_dep = disabler()
+    gtest_dep = disabler()
     gmock_dep = disabler()
 endif
 
@@ -543,6 +545,11 @@ subdir('testing')
 subdir('c')
 subdir('io')
 subdir('util')
+
+gflags_dep = dependency('gflags', include_type: 'system')
+if needs_integration or needs_tests
+    subdir('integration')
+endif
 
 if needs_csv
     subdir('csv')
