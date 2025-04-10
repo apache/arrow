@@ -711,7 +711,7 @@ test_that("open_*_dataset with various column types", {
   write.csv(tbl, tf, row.names = FALSE)
 
   # Test with compact string representation
-  df <- open_csv_dataset(tf, 
+  df <- open_csv_dataset(tf,
     col_names = c("int", "dbl", "chr", "lgl", "dt"),
     col_types = "idclD",
     skip = 1
@@ -722,17 +722,17 @@ test_that("open_*_dataset with various column types", {
 test_that("open_*_dataset with various delimiters", {
   # Test data setup
   tbl <- tibble::tibble(x = 1:3, y = c("a", "b", "c"))
-  
+
   # Test comma delimiter
   tf_csv <- tempfile()
   on.exit(unlink(tf_csv))
   write.csv(tbl, tf_csv, row.names = FALSE)
-  
+
   # Test tab delimiter
   tf_tsv <- tempfile()
   on.exit(unlink(tf_tsv))
   write.table(tbl, tf_tsv, sep = "\t", row.names = FALSE)
-  
+
   # Test semicolon delimiter
   tf_semi <- tempfile()
   on.exit(unlink(tf_semi))
