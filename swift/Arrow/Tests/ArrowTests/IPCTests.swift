@@ -167,10 +167,10 @@ final class IPCFileReaderTests: XCTestCase {
         let arrowWriter = ArrowWriter()
         // write data from file to a stream
         let writerInfo = ArrowWriter.Info(.recordbatch, schema: fileRBs[0].schema, batches: fileRBs)
-        switch arrowWriter.toStream(writerInfo) {
+        switch arrowWriter.toFileStream(writerInfo) {
         case .success(let writeData):
             // read stream back into recordbatches
-            try checkBoolRecordBatch(arrowReader.fromStream(writeData))
+            try checkBoolRecordBatch(arrowReader.fromFileStream(writeData))
         case .failure(let error):
             throw error
         }
@@ -190,10 +190,10 @@ final class IPCFileReaderTests: XCTestCase {
         let recordBatch = try makeRecordBatch()
         let arrowWriter = ArrowWriter()
         let writerInfo = ArrowWriter.Info(.recordbatch, schema: schema, batches: [recordBatch])
-        switch arrowWriter.toStream(writerInfo) {
+        switch arrowWriter.toFileStream(writerInfo) {
         case .success(let writeData):
             let arrowReader = ArrowReader()
-            switch arrowReader.fromStream(writeData) {
+            switch arrowReader.fromFileStream(writeData) {
             case .success(let result):
                 let recordBatches = result.batches
                 XCTAssertEqual(recordBatches.count, 1)
@@ -242,10 +242,10 @@ final class IPCFileReaderTests: XCTestCase {
         let schema = makeSchema()
         let arrowWriter = ArrowWriter()
         let writerInfo = ArrowWriter.Info(.schema, schema: schema)
-        switch arrowWriter.toStream(writerInfo) {
+        switch arrowWriter.toFileStream(writerInfo) {
         case .success(let writeData):
             let arrowReader = ArrowReader()
-            switch arrowReader.fromStream(writeData) {
+            switch arrowReader.fromFileStream(writeData) {
             case .success(let result):
                 XCTAssertNotNil(result.schema)
                 let schema  = result.schema!
@@ -325,10 +325,10 @@ final class IPCFileReaderTests: XCTestCase {
         let dataset = try makeBinaryDataset()
         let writerInfo = ArrowWriter.Info(.recordbatch, schema: dataset.0, batches: [dataset.1])
         let arrowWriter = ArrowWriter()
-        switch arrowWriter.toStream(writerInfo) {
+        switch arrowWriter.toFileStream(writerInfo) {
         case .success(let writeData):
             let arrowReader = ArrowReader()
-            switch arrowReader.fromStream(writeData) {
+            switch arrowReader.fromFileStream(writeData) {
             case .success(let result):
                 XCTAssertNotNil(result.schema)
                 let schema  = result.schema!
@@ -354,10 +354,10 @@ final class IPCFileReaderTests: XCTestCase {
         let dataset = try makeTimeDataset()
         let writerInfo = ArrowWriter.Info(.recordbatch, schema: dataset.0, batches: [dataset.1])
         let arrowWriter = ArrowWriter()
-        switch arrowWriter.toStream(writerInfo) {
+        switch arrowWriter.toFileStream(writerInfo) {
         case .success(let writeData):
             let arrowReader = ArrowReader()
-            switch arrowReader.fromStream(writeData) {
+            switch arrowReader.fromFileStream(writeData) {
             case .success(let result):
                 XCTAssertNotNil(result.schema)
                 let schema  = result.schema!

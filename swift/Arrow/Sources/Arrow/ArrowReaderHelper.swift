@@ -289,3 +289,10 @@ func validateFileData(_ data: Data) -> Bool {
     let endString = String(decoding: data[(data.count - markerLength)...], as: UTF8.self)
     return startString == FILEMARKER && endString == FILEMARKER
 }
+
+func getUInt32(_ data: Data, offset: Int) -> UInt32 {
+    let token = data.withUnsafeBytes { rawBuffer in
+        rawBuffer.loadUnaligned(fromByteOffset: offset, as: UInt32.self)
+    }
+    return token
+}
