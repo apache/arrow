@@ -72,31 +72,32 @@ test_that("all_funs() identifies namespace-qualified and unqualified functions",
 })
 
 test_that("parse_compact_col_spec() converts string specs to schema", {
-  # Test valid inputs
-  schema <- parse_compact_col_spec("idc", c("int_col", "double_col", "string_col"))
-  expect_s3_class(schema, "Schema")
-  expect_equal(schema$fields[[1]]$type$ToString(), "int32")
-  expect_equal(schema$fields[[2]]$type$ToString(), "double")
-  expect_equal(schema$fields[[3]]$type$ToString(), "string")
-  
-  # Test all supported types
-  schema <- parse_compact_col_spec("cidlDTtf_-?", 
-                                  c("c", "i", "d", "l", "D", "T", "t", "f", "_", "-", "?"))
-  expect_equal(schema$fields[[1]]$type$ToString(), "string")
-  expect_equal(schema$fields[[2]]$type$ToString(), "int32")
-  expect_equal(schema$fields[[3]]$type$ToString(), "double")
-  expect_equal(schema$fields[[4]]$type$ToString(), "bool")
-  expect_equal(schema$fields[[5]]$type$ToString(), "date32[day]")
-  expect_equal(schema$fields[[6]]$type$ToString(), "timestamp[ns]")
-  expect_equal(schema$fields[[7]]$type$ToString(), "time32[ms]")
-  expect_equal(schema$fields[[8]]$type$ToString(), "dictionary<values=string, indices=int32>")
-  
-  # Count all fields (null types are included in actual implementation)
-  expect_equal(length(schema$fields), 10)
-  
-  # Test error conditions
-  expect_error(parse_compact_col_spec(c("i", "d"), c("a", "b")))
-  expect_error(parse_compact_col_spec("idc", c("a", "b")))
-  expect_error(parse_compact_col_spec("y", "a"))
-})
+  compact_schema <- parse_compact_col_spec(
+    col_types = "cidlDTtf_-?",
+    col_names = c("c", "i", "d", "l", "D", "T", "t", "f", "_", "-", "?")
+  )
 
+  expect_equal(
+    compact_schema,
+    schema(
+      c = utf8(), i = int32(), d = float64(), l = bool(), D = date32(),
+      T = timestamp(unit = "ns"), t = time32(unit = "ms"), f = dictionary(),
+      `_` = null(), `-` = null()
+    )
+  )
+
+  expect_error(
+    parse_compact_col_spec(c("i", "d"), c("a", "b")),
+    "`col_types` must be a character vector of size 1"
+  )
+
+  expect_error(
+    parse_compact_col_spec("idc", c("a", "b")),
+    "Compact specification for `col_types` requires `col_names` of matching length"
+  )
+
+  expect_error(
+    parse_compact_col_spec("y", "a"),
+    "Unsupported compact specification: 'y' for column 'a'"
+  )
+})
