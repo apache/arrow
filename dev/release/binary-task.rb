@@ -1875,7 +1875,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                  upload_distribution_dir,
                  preserve: true,
                  verbose: verbose?)
-            write_uploaded_files(upload_distribution_dir)
             uploader =
               MavenRepositoryUploader.new(asf_user: asf_user,
                                           asf_password: asf_password,
@@ -2377,7 +2376,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                  upload_target_dir.to_s,
                  preserve: true,
                  verbose: verbose?)
-            write_uploaded_files(upload_target_dir)
 
             uploader = MavenRepositoryUploader.new(asf_user: asf_user,
                                                    asf_password: asf_password,
