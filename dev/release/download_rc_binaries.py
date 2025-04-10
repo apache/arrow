@@ -353,6 +353,9 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    print(f"tag: {args.tag}")
+    print(f"repo: {args.repository}")
+    print(f"type: {args.package_type}")
     download_rc_binaries(
         args.version,
         args.rc_number,
