@@ -23,7 +23,7 @@
 #include <string>
 #include <unordered_set>
 
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "parquet/platform.h"
 
 namespace parquet::geometry {
