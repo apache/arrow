@@ -17,7 +17,7 @@
 
 #include "arrow/util/delimiting.h"
 #include "arrow/buffer.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 

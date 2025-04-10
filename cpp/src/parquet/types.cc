@@ -24,7 +24,7 @@
 
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 #include "parquet/exception.h"
 #include "parquet/thrift_internal.h"
@@ -501,6 +501,8 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
     }
 
     return GeographyLogicalType::Make(crs, algorithm);
+  } else if (type.__isset.VARIANT) {
+    return VariantLogicalType::Make();
   } else {
     // Sentinel type for one we do not recognize
     return UndefinedLogicalType::Make();
@@ -566,6 +568,10 @@ std::shared_ptr<const LogicalType> LogicalType::Geometry(std::string crs) {
 std::shared_ptr<const LogicalType> LogicalType::Geography(
     std::string crs, LogicalType::EdgeInterpolationAlgorithm algorithm) {
   return GeographyLogicalType::Make(std::move(crs), algorithm);
+}
+
+std::shared_ptr<const LogicalType> LogicalType::Variant() {
+  return VariantLogicalType::Make();
 }
 
 std::shared_ptr<const LogicalType> LogicalType::None() { return NoLogicalType::Make(); }
@@ -652,6 +658,7 @@ class LogicalType::Impl {
   class Float16;
   class Geometry;
   class Geography;
+  class Variant;
   class No;
   class Undefined;
 
@@ -729,6 +736,9 @@ bool LogicalType::is_geometry() const {
 }
 bool LogicalType::is_geography() const {
   return impl_->type() == LogicalType::Type::GEOGRAPHY;
+}
+bool LogicalType::is_variant() const {
+  return impl_->type() == LogicalType::Type::VARIANT;
 }
 bool LogicalType::is_none() const { return impl_->type() == LogicalType::Type::NONE; }
 bool LogicalType::is_valid() const {
@@ -1870,6 +1880,21 @@ std::shared_ptr<const LogicalType> GeographyLogicalType::Make(
   logical_type->impl_.reset(new LogicalType::Impl::Geography(std::move(crs), algorithm));
   return logical_type;
 }
+class LogicalType::Impl::Variant final : public LogicalType::Impl::Incompatible,
+                                         public LogicalType::Impl::Inapplicable {
+ public:
+  friend class VariantLogicalType;
+
+  OVERRIDE_TOSTRING(Variant)
+  OVERRIDE_TOTHRIFT(VariantType, VARIANT)
+
+ private:
+  Variant()
+      : LogicalType::Impl(LogicalType::Type::VARIANT, SortOrder::UNKNOWN),
+        LogicalType::Impl::Inapplicable() {}
+};
+
+GENERATE_MAKE(Variant)
 
 class LogicalType::Impl::No final : public LogicalType::Impl::SimpleCompatible,
                                     public LogicalType::Impl::UniversalApplicable {

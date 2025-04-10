@@ -25,7 +25,7 @@
 
 #include "arrow/csv/lexing_internal.h"
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace csv {

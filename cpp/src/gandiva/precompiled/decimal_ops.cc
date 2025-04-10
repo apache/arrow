@@ -23,7 +23,7 @@
 #include <cmath>
 #include <limits>
 
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "gandiva/decimal_type_util.h"
 #include "gandiva/decimal_xlarge.h"
 #include "gandiva/gdv_function_stubs.h"

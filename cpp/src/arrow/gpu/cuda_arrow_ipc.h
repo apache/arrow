@@ -22,9 +22,9 @@
 
 #include "arrow/buffer.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/visibility.h"
 
 #include "arrow/gpu/cuda_memory.h"
+#include "arrow/gpu/visibility.h"
 
 namespace arrow {
 
@@ -49,7 +49,7 @@ namespace cuda {
 /// \param[in] batch record batch to write
 /// \param[in] ctx CudaContext to allocate device memory from
 /// \return CudaBuffer or Status
-ARROW_EXPORT
+ARROW_CUDA_EXPORT
 Result<std::shared_ptr<CudaBuffer>> SerializeRecordBatch(const RecordBatch& batch,
                                                          CudaContext* ctx);
 
@@ -61,7 +61,7 @@ Result<std::shared_ptr<CudaBuffer>> SerializeRecordBatch(const RecordBatch& batc
 /// \param[in] buffer a CudaBuffer containing the complete IPC message
 /// \param[in] pool a MemoryPool to use for allocating space for the metadata
 /// \return RecordBatch or Status
-ARROW_EXPORT
+ARROW_CUDA_EXPORT
 Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
     const std::shared_ptr<Schema>& schema, const ipc::DictionaryMemo* dictionary_memo,
     const std::shared_ptr<CudaBuffer>& buffer, MemoryPool* pool = default_memory_pool());

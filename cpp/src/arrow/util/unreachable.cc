@@ -17,7 +17,7 @@
 
 #include "arrow/util/unreachable.h"
 
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 #include <string_view>
 

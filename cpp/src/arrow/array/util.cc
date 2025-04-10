@@ -42,7 +42,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/endian.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/sort.h"
 #include "arrow/util/span.h"
 #include "arrow/visit_data_inline.h"

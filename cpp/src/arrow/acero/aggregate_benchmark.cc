@@ -35,6 +35,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/byte_size.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 
 namespace arrow {

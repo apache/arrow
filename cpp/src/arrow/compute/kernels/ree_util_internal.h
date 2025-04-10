@@ -97,9 +97,9 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
 
   /// \brief Ensure padding is zeroed in validity bitmap.
   void ZeroValidityPadding(int64_t length) const {
-    DCHECK(output_values_);
+    ARROW_DCHECK(output_values_);
     if constexpr (out_has_validity_buffer) {
-      DCHECK(output_validity_);
+      ARROW_DCHECK(output_validity_);
       const int64_t validity_buffer_size = bit_util::BytesForBits(length);
       output_validity_[validity_buffer_size - 1] = 0;
     }
@@ -185,9 +185,9 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
 
   /// \brief Ensure padding is zeroed in validity bitmap.
   void ZeroValidityPadding(int64_t length) const {
-    DCHECK(output_values_);
+    ARROW_DCHECK(output_values_);
     if constexpr (out_has_validity_buffer) {
-      DCHECK(output_validity_);
+      ARROW_DCHECK(output_validity_);
       const int64_t validity_buffer_size = bit_util::BytesForBits(length);
       output_validity_[validity_buffer_size - 1] = 0;
     }
@@ -280,9 +280,9 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
 
   /// \brief Ensure padding is zeroed in validity bitmap.
   void ZeroValidityPadding(int64_t length) const {
-    DCHECK(output_values_);
+    ARROW_DCHECK(output_values_);
     if constexpr (out_has_validity_buffer) {
-      DCHECK(output_validity_);
+      ARROW_DCHECK(output_validity_);
       const int64_t validity_buffer_size = bit_util::BytesForBits(length);
       output_validity_[validity_buffer_size - 1] = 0;
     }

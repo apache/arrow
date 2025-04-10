@@ -30,7 +30,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/int_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/utf8_internal.h"
 #include "arrow/visit_data_inline.h"
 

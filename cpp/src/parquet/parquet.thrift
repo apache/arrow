@@ -408,6 +408,9 @@ struct BsonType {
  * Embedded Variant logical type annotation
  */
 struct VariantType {
+  // The version of the variant specification that the variant was
+  // written with.
+  1: optional i8 specification_version
 }
 
 /** Edge interpolation algorithm for Geography logical type */

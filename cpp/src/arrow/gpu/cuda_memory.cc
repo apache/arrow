@@ -31,7 +31,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 #include "arrow/gpu/cuda_context.h"
 #include "arrow/gpu/cuda_internal.h"

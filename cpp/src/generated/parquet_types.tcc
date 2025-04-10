@@ -1456,7 +1456,20 @@ uint32_t VariantType::read(Protocol_* iprot) {
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    xfer += iprot->skip(ftype);
+    switch (fid)
+    {
+      case 1:
+        if (ftype == ::apache::thrift::protocol::T_BYTE) {
+          xfer += iprot->readByte(this->specification_version);
+          this->__isset.specification_version = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
+      default:
+        xfer += iprot->skip(ftype);
+        break;
+    }
     xfer += iprot->readFieldEnd();
   }
 
@@ -1471,6 +1484,11 @@ uint32_t VariantType::write(Protocol_* oprot) const {
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("VariantType");
 
+  if (this->__isset.specification_version) {
+    xfer += oprot->writeFieldBegin("specification_version", ::apache::thrift::protocol::T_BYTE, 1);
+    xfer += oprot->writeByte(this->specification_version);
+    xfer += oprot->writeFieldEnd();
+  }
   xfer += oprot->writeFieldStop();
   xfer += oprot->writeStructEnd();
   return xfer;

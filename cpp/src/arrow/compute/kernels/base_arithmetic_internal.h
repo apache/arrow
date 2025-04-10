@@ -505,8 +505,8 @@ struct NegateChecked {
   static enable_if_unsigned_integer_value<Arg, T> Call(KernelContext* ctx, Arg arg,
                                                        Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
-    DCHECK(false) << "This is included only for the purposes of instantiability from the "
-                     "arithmetic kernel generator";
+    ARROW_DCHECK(false) << "This is included only for the purposes of instantiability "
+                           "from the arithmetic kernel generator";
     return 0;
   }
 
