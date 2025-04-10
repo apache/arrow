@@ -44,7 +44,7 @@ class PARQUET_EXPORT LocalWrapKmsClient : public KmsClient {
  protected:
   /// Get master key from the remote KMS server.
   /// Note: this function might be called by multiple threads
-  virtual SecureString GetMasterKeyFromServer(
+  virtual const SecureString& GetMasterKeyFromServer(
       const std::string& master_key_identifier) = 0;
 
  private:
@@ -84,7 +84,7 @@ class PARQUET_EXPORT LocalWrapKmsClient : public KmsClient {
     std::string master_key_version_;
   };
 
-  SecureString GetKeyFromServer(const std::string& key_identifier);
+  const SecureString& GetKeyFromServer(const std::string& key_identifier);
 
  protected:
   KmsConnectionConfig kms_connection_config_;

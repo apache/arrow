@@ -91,8 +91,8 @@ SecureString LocalWrapKmsClient::UnwrapKey(const std::string& wrapped_key,
                            master_key_version);
   }
   const std::string& encrypted_encoded_key = key_wrap.encrypted_encoded_key();
-  const SecureString master_key = master_key_cache_.GetOrInsert(
-      master_key_identifier, [this, master_key_identifier]() -> SecureString {
+  const SecureString& master_key = master_key_cache_.GetOrInsert(
+      master_key_identifier, [this, master_key_identifier]() -> const SecureString& {
         return this->GetKeyFromServer(master_key_identifier);
       });
   const std::string& aad = master_key_identifier;
@@ -100,8 +100,9 @@ SecureString LocalWrapKmsClient::UnwrapKey(const std::string& wrapped_key,
   return internal::DecryptKeyLocally(encrypted_encoded_key, master_key, aad);
 }
 
-SecureString LocalWrapKmsClient::GetKeyFromServer(const std::string& key_identifier) {
-  SecureString master_key = GetMasterKeyFromServer(key_identifier);
+const SecureString& LocalWrapKmsClient::GetKeyFromServer(
+    const std::string& key_identifier) {
+  const SecureString& master_key = GetMasterKeyFromServer(key_identifier);
   int32_t key_length_bits = static_cast<int32_t>(master_key.size() * 8);
   if (!internal::ValidateKeyLength(key_length_bits)) {
     std::ostringstream ss;

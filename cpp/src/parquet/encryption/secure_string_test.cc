@@ -140,7 +140,8 @@ TEST(TestSecureString, AsSpan) {
   auto mutual_span = secret.as_span();
 
   std::string expected = "hello world";
-  ::arrow::util::span expected_span = {reinterpret_cast<uint8_t*>(expected.data()), expected.size()};
+  ::arrow::util::span expected_span = {reinterpret_cast<uint8_t*>(expected.data()),
+                                       expected.size()};
   ASSERT_EQ(const_span, expected_span);
   ASSERT_EQ(mutual_span, expected_span);
 

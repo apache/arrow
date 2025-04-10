@@ -36,9 +36,8 @@ class ColumnEncryptionProperties;
 
 class PARQUET_EXPORT Encryptor {
  public:
-  Encryptor(encryption::AesEncryptor* aes_encryptor, const encryption::SecureString& key,
-            const std::string& file_aad, const std::string& aad,
-            ::arrow::MemoryPool* pool);
+  Encryptor(encryption::AesEncryptor* aes_encryptor, encryption::SecureString key,
+            std::string file_aad, std::string aad, ::arrow::MemoryPool* pool);
   const std::string& file_aad() { return file_aad_; }
   void UpdateAad(const std::string& aad) { aad_ = aad; }
   ::arrow::MemoryPool* pool() { return pool_; }

@@ -37,7 +37,8 @@ class TestOnlyLocalWrapInMemoryKms : public LocalWrapKmsClient {
       const std::unordered_map<std::string, SecureString>& master_keys_map);
 
  protected:
-  SecureString GetMasterKeyFromServer(const std::string& master_key_identifier) override;
+  const SecureString& GetMasterKeyFromServer(
+      const std::string& master_key_identifier) override;
 
  private:
   static std::unordered_map<std::string, SecureString> master_key_map_;

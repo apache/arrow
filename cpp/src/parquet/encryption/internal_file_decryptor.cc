@@ -26,12 +26,12 @@ namespace parquet {
 
 // Decryptor
 Decryptor::Decryptor(std::unique_ptr<encryption::AesDecryptor> aes_decryptor,
-                     const encryption::SecureString& key, const std::string& file_aad,
-                     const std::string& aad, ::arrow::MemoryPool* pool)
+                     encryption::SecureString key, std::string file_aad, std::string aad,
+                     ::arrow::MemoryPool* pool)
     : aes_decryptor_(std::move(aes_decryptor)),
-      key_(key),
-      file_aad_(file_aad),
-      aad_(aad),
+      key_(std::move(key)),
+      file_aad_(std::move(file_aad)),
+      aad_(std::move(aad)),
       pool_(pool) {}
 
 Decryptor::~Decryptor() = default;
@@ -60,36 +60,35 @@ InternalFileDecryptor::InternalFileDecryptor(
       footer_key_metadata_(footer_key_metadata),
       pool_(pool) {}
 
-encryption::SecureString InternalFileDecryptor::GetFooterKey() {
+const encryption::SecureString& InternalFileDecryptor::GetFooterKey() {
   std::unique_lock lock(mutex_);
   if (!footer_key_.empty()) {
     return footer_key_;
   }
 
-  encryption::SecureString footer_key = properties_->footer_key();
+  // cache footer key to avoid repeated retrieval of key from the key_retriever
+  footer_key_ = properties_->footer_key();
   // ignore footer key metadata if footer key is explicitly set via API
-  if (footer_key.empty()) {
+  if (footer_key_.empty()) {
     if (footer_key_metadata_.empty())
       throw ParquetException("No footer key or key metadata");
     if (properties_->key_retriever() == nullptr)
       throw ParquetException("No footer key or key retriever");
     try {
-      footer_key = properties_->key_retriever()->GetKey(footer_key_metadata_);
+      footer_key_ = properties_->key_retriever()->GetKey(footer_key_metadata_);
     } catch (KeyAccessDeniedException& e) {
       std::stringstream ss;
       ss << "Footer key: access denied " << e.what() << "\n";
       throw ParquetException(ss.str());
     }
   }
-  if (footer_key.empty()) {
+  if (footer_key_.empty()) {
     throw ParquetException(
         "Footer key unavailable. Could not verify "
         "plaintext footer metadata");
   }
 
-  // cache footer key to avoid repeated retrieval of key from the key_retriever
-  footer_key_ = footer_key;
-  return footer_key;
+  return footer_key_;
 }
 
 std::unique_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor() {
@@ -99,7 +98,7 @@ std::unique_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor() {
 
 std::unique_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
     const std::string& aad, bool metadata) {
-  encryption::SecureString footer_key = GetFooterKey();
+  const encryption::SecureString& footer_key = GetFooterKey();
 
   auto key_len = static_cast<int32_t>(footer_key.size());
   auto aes_decryptor = encryption::AesDecryptor::Make(algorithm_, key_len, metadata);
@@ -109,21 +108,27 @@ std::unique_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
 
 encryption::SecureString InternalFileDecryptor::GetColumnKey(
     const std::string& column_path, const std::string& column_key_metadata) {
-  encryption::SecureString column_key = properties_->column_key(column_path);
-
-  // No explicit column key given via API. Retrieve via key metadata.
-  if (column_key.empty() && !column_key_metadata.empty() &&
-      properties_->key_retriever() != nullptr) {
-    try {
-      column_key = properties_->key_retriever()->GetKey(column_key_metadata);
-    } catch (KeyAccessDeniedException& e) {
-      std::stringstream ss;
-      ss << "HiddenColumnException, path=" + column_path + " " << e.what() << "\n";
-      throw HiddenColumnException(ss.str());
+  try {
+    encryption::SecureString column_key =
+        RetrieveColumnKeyIfEmpty(properties_->column_key(column_path),
+                                 column_key_metadata, properties_->key_retriever());
+    if (column_key.empty()) {
+      throw HiddenColumnException("HiddenColumnException, path=" + column_path);
     }
+    return column_key;
+  } catch (KeyAccessDeniedException& e) {
+    std::stringstream ss;
+    ss << "HiddenColumnException, path=" + column_path + " " << e.what() << "\n";
+    throw HiddenColumnException(ss.str());
   }
-  if (column_key.empty()) {
-    throw HiddenColumnException("HiddenColumnException, path=" + column_path);
+}
+
+encryption::SecureString InternalFileDecryptor::RetrieveColumnKeyIfEmpty(
+    encryption::SecureString column_key, const std::string& column_key_metadata,
+    const std::shared_ptr<DecryptionKeyRetriever>& key_retriever) {
+  if (column_key.empty() && !column_key_metadata.empty() && key_retriever != nullptr) {
+    // No explicit column key given via API. Retrieve via key metadata.
+    return key_retriever->GetKey(column_key_metadata);
   }
   return column_key;
 }
@@ -131,7 +136,8 @@ encryption::SecureString InternalFileDecryptor::GetColumnKey(
 std::unique_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
     const std::string& column_path, const std::string& column_key_metadata,
     const std::string& aad, bool metadata) {
-  encryption::SecureString column_key = GetColumnKey(column_path, column_key_metadata);
+  const encryption::SecureString& column_key =
+      GetColumnKey(column_path, column_key_metadata);
   auto key_len = static_cast<int32_t>(column_key.size());
   auto aes_decryptor = encryption::AesDecryptor::Make(algorithm_, key_len, metadata);
   return std::make_unique<Decryptor>(std::move(aes_decryptor), column_key, file_aad_, aad,
@@ -148,9 +154,10 @@ InternalFileDecryptor::GetColumnDecryptorFactory(
   // The column is encrypted with its own key
   const std::string& column_key_metadata = crypto_metadata->key_metadata();
   const std::string column_path = crypto_metadata->path_in_schema()->ToDotString();
-  encryption::SecureString column_key = GetColumnKey(column_path, column_key_metadata);
+  const encryption::SecureString& column_key =
+      GetColumnKey(column_path, column_key_metadata);
 
-  return [this, aad, metadata, column_key = std::move(column_key)]() {
+  return [this, aad, metadata, column_key = column_key]() {
     auto key_len = static_cast<int32_t>(column_key.size());
     auto aes_decryptor = encryption::AesDecryptor::Make(algorithm_, key_len, metadata);
     return std::make_unique<Decryptor>(std::move(aes_decryptor), column_key, file_aad_,

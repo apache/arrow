@@ -39,7 +39,7 @@ TestOnlyLocalWrapInMemoryKms::TestOnlyLocalWrapInMemoryKms(
     const KmsConnectionConfig& kms_connection_config)
     : LocalWrapKmsClient(kms_connection_config) {}
 
-SecureString TestOnlyLocalWrapInMemoryKms::GetMasterKeyFromServer(
+const SecureString& TestOnlyLocalWrapInMemoryKms::GetMasterKeyFromServer(
     const std::string& master_key_identifier) {
   // Always return the latest key version
   return master_key_map_.at(master_key_identifier);

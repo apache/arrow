@@ -33,6 +33,7 @@ class AesEncryptor;
 }  // namespace encryption
 
 class ColumnCryptoMetaData;
+class DecryptionKeyRetriever;
 class FileDecryptionProperties;
 
 // An object handling decryption using well-known encryption parameters
@@ -41,8 +42,8 @@ class FileDecryptionProperties;
 class PARQUET_EXPORT Decryptor {
  public:
   Decryptor(std::unique_ptr<encryption::AesDecryptor> decryptor,
-            const encryption::SecureString& key, const std::string& file_aad,
-            const std::string& aad, ::arrow::MemoryPool* pool);
+            encryption::SecureString key, std::string file_aad, std::string aad,
+            ::arrow::MemoryPool* pool);
   ~Decryptor();
 
   const std::string& file_aad() const { return file_aad_; }
@@ -72,7 +73,7 @@ class InternalFileDecryptor {
 
   const std::string& file_aad() const { return file_aad_; }
 
-  encryption::SecureString GetFooterKey();
+  const encryption::SecureString& GetFooterKey();
 
   ParquetCipher::type algorithm() const { return algorithm_; }
 
@@ -132,6 +133,10 @@ class InternalFileDecryptor {
 
   encryption::SecureString GetColumnKey(const std::string& column_path,
                                         const std::string& column_key_metadata);
+
+  static encryption::SecureString RetrieveColumnKeyIfEmpty(
+      encryption::SecureString column_key, const std::string& column_key_metadata,
+      const std::shared_ptr<DecryptionKeyRetriever>& key_retriever);
 
   std::unique_ptr<Decryptor> GetFooterDecryptor(const std::string& aad, bool metadata);
 
