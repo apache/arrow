@@ -15,18 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if needs_tests
-    array_tests = ['concatenate_test', 'diff_test']
-    foreach array_test : array_tests
-        test_name = 'arrow-@0@'.format(array_test.replace('_', '-'))
-        exc = executable(
-            test_name,
-            sources: '@0@.cc'.format(array_test),
-            dependencies: [arrow_test_dep],
-        )
-        test(test_name, exc)
-    endforeach
-endif
+array_tests = ['concatenate_test', 'diff_test']
+foreach array_test : array_tests
+    test_name = 'arrow-@0@'.format(array_test.replace('_', '-'))
+    exc = executable(
+        test_name,
+        sources: '@0@.cc'.format(array_test),
+        dependencies: [arrow_test_dep],
+    )
+    test(test_name, exc)
+endforeach
 
 install_headers(
     [
