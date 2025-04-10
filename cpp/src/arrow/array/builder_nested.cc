@@ -204,6 +204,10 @@ Status FixedSizeListBuilder::Append() {
   return Status::OK();
 }
 
+void FixedSizeListBuilder::UnsafeAppend() {
+   UnsafeAppendToBitmap(true);
+}
+
 Status FixedSizeListBuilder::AppendValues(int64_t length, const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(valid_bytes, length);
@@ -216,10 +220,19 @@ Status FixedSizeListBuilder::AppendNull() {
   return value_builder_->AppendNulls(list_size_);
 }
 
+void FixedSizeListBuilder::UnsafeAppendNull() {
+   UnsafeAppendToBitmap(false);
+}
+
 Status FixedSizeListBuilder::AppendNulls(int64_t length) {
   RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(length, false);
   return value_builder_->AppendNulls(list_size_ * length);
+}
+
+void FixedSizeListBuilder::UnsafeAppendNulls(int64_t length) {
+   UnsafeAppendToBitmap(length, false);
+   value_builder_->AppendNulls(list_size_ * length);
 }
 
 Status FixedSizeListBuilder::ValidateOverflow(int64_t new_elements) {
