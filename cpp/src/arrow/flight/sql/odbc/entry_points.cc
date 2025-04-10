@@ -21,6 +21,7 @@
 
 #include <sql.h>
 #include <sqltypes.h>
+#include <sqlext.h>
 #include <sqlucode.h>
 
 #include "arrow/flight/sql/odbc/odbc_api.h"
@@ -29,6 +30,10 @@
 SQLRETURN SQL_API SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent,
   SQLHANDLE* result) {
   return arrow::SQLAllocHandle(type, parent, result);
+}
+
+SQLRETURN SQL_API SQLAllocEnv(SQLHENV* env) {
+  return arrow::SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, env);
 }
 
 SQLRETURN SQL_API SQLDriverConnect(SQLHDBC conn, SQLHWND windowHandle,

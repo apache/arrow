@@ -32,6 +32,4 @@
 namespace arrow
 {
   SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result);
-
-  SQLRETURN SQLAllocEnv(SQLHENV* env);
 } //arrow

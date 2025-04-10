@@ -20,37 +20,30 @@
 namespace arrow
 {
   SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) {
-    // TODO: implement SQLAllocHandle by linking to `odbc_impl` //-AL- TODO: create GitHub issue for SQLAllocHandle implementation
+    // TODO: implement SQLAllocHandle by linking to `odbc_impl`
     *result = 0;
 
     switch (type)
     {
-        case SQL_HANDLE_ENV:
-            return SQLAllocEnv(result);
+      case SQL_HANDLE_ENV:
+        
+        // TODO: uncomment below code after flightsqlodbc is fixed
+        // using ODBCEnvironment;
+        // *result = reinterpret_cast< SQLHENV >(new ODBCEnvironment());
+    
+        // return SQL_SUCCESS
+        return SQL_INVALID_HANDLE;
 
-        case SQL_HANDLE_DBC:
-            return SQL_INVALID_HANDLE;
+      case SQL_HANDLE_DBC:
+        return SQL_INVALID_HANDLE;
 
-        case SQL_HANDLE_STMT:
-            return SQL_INVALID_HANDLE;
+      case SQL_HANDLE_STMT:
+        return SQL_INVALID_HANDLE;
 
-        default:
-            break;
+      default:
+        break;
     }
 
     return SQL_ERROR;
-  }
-
-  SQLRETURN SQLAllocEnv(SQLHENV* env) {
-    // -AL- todo implement
-    /*
-    // DRAFT Code:
-
-    using ODBCEnvironment;
-    *env = reinterpret_cast< SQLHENV >(new ODBCEnvironment());
-
-    return SQL_SUCCESS
-    */
-    return SQL_INVALID_HANDLE;
   }
 }  // namespace arrow
