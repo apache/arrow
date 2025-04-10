@@ -588,7 +588,7 @@ def test_dataset_read_pandas_common_metadata(
             np.arange(i * size, (i + 1) * size, dtype="int64"), name='index'
         )
 
-        path = dirpath / '{}.parquet'.format(i)
+        path = dirpath / f'{i}.parquet'
 
         table = pa.Table.from_pandas(df, preserve_index=preserve_index)
 

@@ -1128,7 +1128,7 @@ cdef class FileSystemDataset(Dataset):
         elif not isinstance(root_partition, Expression):
             raise TypeError(
                 "Argument 'root_partition' has incorrect type (expected "
-                "Expression, got {0})".format(type(root_partition))
+                f"Expression, got {type(root_partition)})"
             )
 
         for fragment in fragments:
@@ -1220,8 +1220,8 @@ cdef class FileSystemDataset(Dataset):
         ]:
             if not isinstance(arg, class_):
                 raise TypeError(
-                    "Argument '{0}' has incorrect type (expected {1}, "
-                    "got {2})".format(name, class_.__name__, type(arg))
+                    f"Argument '{name}' has incorrect type (expected {class_.__name__}, "
+                    f"got {type(arg)})"
                 )
 
         partitions = partitions or [_true] * len(paths)
@@ -1988,9 +1988,7 @@ cdef class FileFragment(Fragment):
         )
         if partition:
             partition = f" partition=[{partition}]"
-        return "<pyarrow.dataset.{0}{1} path={2}{3}>".format(
-            self.__class__.__name__, typ, self.path, partition
-        )
+        return f"<pyarrow.dataset.{self.__class__.__name__}{typ} path={self.path}{partition}>"
 
     def __reduce__(self):
         buffer = self.buffer
@@ -3385,7 +3383,7 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
                     )
         else:
             raise TypeError('Must pass either paths or a FileSelector, but '
-                            'passed {}'.format(type(paths_or_selector)))
+                            f'passed {type(paths_or_selector)}')
 
         self.init(GetResultValue(result))
 
@@ -3528,7 +3526,7 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
                 if not isinstance(expr, Expression):
                     raise TypeError(
                         "Expected an Expression for a 'column' dictionary "
-                        "value, got {} instead".format(type(expr))
+                        f"value, got {type(expr)} instead"
                     )
                 c_exprs.push_back((<Expression> expr).unwrap())
 
@@ -3540,7 +3538,7 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
         else:
             raise ValueError(
                 "Expected a list or a dict for 'columns', "
-                "got {} instead.".format(type(columns))
+                f"got {type(columns)} instead."
             )
 
     check_status(builder.BatchSize(batch_size))

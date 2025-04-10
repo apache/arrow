@@ -230,7 +230,7 @@ class CommentBot:
         self.github = github.Github(**kwargs)
 
     def parse_command(self, payload):
-        mention = '@{}'.format(self.name)
+        mention = f'@{self.name}'
         comment = payload['comment']
 
         if payload['sender']['login'] == self.name:
@@ -261,7 +261,7 @@ class CommentBot:
         elif event == 'pull_request_review_comment':
             return self.handle_review_comment(command, payload)
         else:
-            raise ValueError("Unexpected event type {}".format(event))
+            raise ValueError(f"Unexpected event type {event}")
 
     def handle_issue_comment(self, command, payload):
         repo = self.github.get_repo(payload['repository']['id'], lazy=True)
@@ -355,7 +355,7 @@ def _clone_arrow_and_crossbow(dest, crossbow_repo, arrow_repo_url, pr_number):
     git.checkout(local_branch, git_dir=arrow_path)
 
     # 2. clone crossbow repository
-    crossbow_url = 'https://github.com/{}'.format(crossbow_repo)
+    crossbow_url = f'https://github.com/{crossbow_repo}'
     git.clone(crossbow_url, str(queue_path))
 
     # 3. initialize crossbow objects
