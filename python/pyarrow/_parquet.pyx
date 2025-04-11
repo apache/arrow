@@ -356,57 +356,69 @@ cdef class GeoStatistics(_Weakrefable):
         return list(self.statistics.geospatial_types)
 
     @property
+    def has_xy(self):
+        return self.statistics.has_xy
+
+    @property
+    def has_z(self):
+        return self.statistics.has_z
+
+    @property
+    def has_m(self):
+        return self.statistics.has_m
+
+    @property
     def xmin(self):
-        if self.statistics.has_x():
+        if self.statistics.has_xy:
             return self.statistics.xmin
         else:
             return None
 
     @property
     def xmax(self):
-        if self.statistics.has_x():
+        if self.statistics.has_xy:
             return self.statistics.xmax
         else:
             return None
 
     @property
     def ymin(self):
-        if self.statistics.has_y():
+        if self.statistics.has_xy:
             return self.statistics.ymin
         else:
             return None
 
     @property
     def ymax(self):
-        if self.statistics.has_y():
+        if self.statistics.has_xy:
             return self.statistics.ymax
         else:
             return None
 
     @property
     def zmin(self):
-        if self.statistics.has_z():
+        if self.statistics.has_z:
             return self.statistics.zmin
         else:
             return None
 
     @property
     def zmax(self):
-        if self.statistics.has_z():
+        if self.statistics.has_z:
             return self.statistics.zmax
         else:
             return None
 
     @property
     def mmin(self):
-        if self.statistics.has_m():
+        if self.statistics.has_m:
             return self.statistics.mmin
         else:
             return None
 
     @property
     def mmax(self):
-        if self.statistics.has_m():
+        if self.statistics.has_m:
             return self.statistics.mmax
         else:
             return None

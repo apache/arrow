@@ -324,20 +324,21 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int32_t length
 
     cdef cppclass CParquetEncodedGeoStatistics" parquet::geospatial::EncodedGeoStatistics":
+        c_bool has_xy
         double xmin
         double xmax
         double ymin
         double ymax
+
+        c_bool has_z
         double zmin
         double zmax
+
+        c_bool has_m
         double mmin
         double mmax
-        vector[int32_t] geospatial_types
 
-        c_bool has_x() const
-        c_bool has_y() const
-        c_bool has_z() const
-        c_bool has_m() const
+        vector[int32_t] geospatial_types
 
     cdef cppclass CParquetGeoStatistics" parquet::geospatial::GeoStatistics":
         CParquetEncodedGeoStatistics Encode() const

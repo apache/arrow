@@ -153,10 +153,10 @@ class PARQUET_EXPORT GeoStatistics {
   double mmax() const;
 
   /// \brief All minimum values in XYZM order
-  std::array<double, 4> lower_bound() const;
+  std::array<double, kMaxDimensions> lower_bound() const;
 
   /// \brief All maximum values in XYZM order
-  std::array<double, 4> upper_bound() const;
+  std::array<double, kMaxDimensions> upper_bound() const;
 
   /// \brief Returns true if zero finite coordinates or geometry types were encountered
   ///
@@ -180,7 +180,7 @@ class PARQUET_EXPORT GeoStatistics {
 
   /// \brief Returns true if any non-NaN values were encountered in the given dimension
   /// in XYZM order
-  std::array<bool, 4> has_dimension() const;
+  std::array<bool, kMaxDimensions> has_dimension() const;
 
   /// \brief Return the geometry type codes from the well-known binary encountered
   ///
