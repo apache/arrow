@@ -190,7 +190,8 @@ void prefixed_random_byte_array(int n, uint32_t seed, uint8_t* buf, int len, FLB
 
 namespace {
 
-uint32_t GeometryTypeToWKB(geometry::GeometryType geometry_type, bool has_z, bool has_m) {
+uint32_t GeometryTypeToWKB(geospatial::GeometryType geometry_type, bool has_z,
+                           bool has_m) {
   auto wkb_geom_type = static_cast<uint32_t>(geometry_type);
 
   if (has_z) {
@@ -214,7 +215,7 @@ std::string MakeWKBPoint(const std::vector<double>& xyzm, bool has_z, bool has_m
   char* ptr = wkb.data();
 
   ptr[0] = kWkbNativeEndianness;
-  uint32_t geom_type = GeometryTypeToWKB(geometry::GeometryType::kPoint, has_z, has_m);
+  uint32_t geom_type = GeometryTypeToWKB(geospatial::GeometryType::kPoint, has_z, has_m);
   std::memcpy(&ptr[1], &geom_type, 4);
   std::memcpy(&ptr[5], &xyzm[0], 8);
   std::memcpy(&ptr[13], &xyzm[1], 8);
@@ -243,8 +244,8 @@ std::optional<std::pair<double, double>> GetWKBPointCoordinateXY(const ByteArray
     return std::nullopt;
   }
 
-  uint32_t expected_geom_type =
-      GeometryTypeToWKB(geometry::GeometryType::kPoint, /*has_z=*/false, /*has_m=*/false);
+  uint32_t expected_geom_type = GeometryTypeToWKB(geospatial::GeometryType::kPoint,
+                                                  /*has_z=*/false, /*has_m=*/false);
   uint32_t geom_type = 0;
   std::memcpy(&geom_type, &value.ptr[1], 4);
   if (geom_type != expected_geom_type) {

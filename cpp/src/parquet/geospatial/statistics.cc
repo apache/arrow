@@ -28,7 +28,7 @@
 
 using arrow::util::SafeLoad;
 
-namespace parquet::geometry {
+namespace parquet::geospatial {
 
 class GeoStatisticsImpl {
  public:
@@ -137,8 +137,8 @@ class GeoStatisticsImpl {
       return {};
     }
 
-    const geometry::BoundingBox::XYZM& mins = bounder_.Bounds().min;
-    const geometry::BoundingBox::XYZM& maxes = bounder_.Bounds().max;
+    const geospatial::BoundingBox::XYZM& mins = bounder_.Bounds().min;
+    const geospatial::BoundingBox::XYZM& maxes = bounder_.Bounds().max;
 
     EncodedGeoStatistics out;
     out.geospatial_types = bounder_.GeometryTypes();
@@ -178,7 +178,7 @@ class GeoStatisticsImpl {
       throw ParquetException("Wraparound X is not suppored by GeoStatistics::Update()");
     }
 
-    geometry::BoundingBox box;
+    geospatial::BoundingBox box;
 
     if (encoded.has_x()) {
       box.min[0] = encoded.xmin;
@@ -231,7 +231,7 @@ class GeoStatisticsImpl {
   std::vector<int32_t> geometry_types() const { return bounder_.GeometryTypes(); }
 
  private:
-  geometry::WKBGeometryBounder bounder_;
+  geospatial::WKBGeometryBounder bounder_;
   bool is_valid_ = true;
 
   template <typename ArrayType>
@@ -364,4 +364,4 @@ std::string GeoStatistics::ToString() const {
   return ss.str();
 }
 
-}  // namespace parquet::geometry
+}  // namespace parquet::geospatial

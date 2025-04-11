@@ -27,7 +27,7 @@
 #include "arrow/util/logging_internal.h"
 #include "parquet/platform.h"
 
-namespace parquet::geometry {
+namespace parquet::geospatial {
 
 /// \brief Infinity, used to define bounds of empty bounding boxes
 constexpr double kInf = std::numeric_limits<double>::infinity();
@@ -213,4 +213,4 @@ class PARQUET_EXPORT WKBGeometryBounder {
   void MergeSequence(WKBBuffer* src, Dimensions dimensions, uint32_t n_coords, bool swap);
 };
 
-}  // namespace parquet::geometry
+}  // namespace parquet::geospatial

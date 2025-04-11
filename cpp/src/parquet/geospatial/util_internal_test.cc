@@ -23,7 +23,7 @@
 #include "parquet/geospatial/util_internal.h"
 #include "parquet/test_util.h"
 
-namespace parquet::geometry {
+namespace parquet::geospatial {
 
 TEST(TestGeometryUtil, TestBoundingBox) {
   BoundingBox box;
@@ -514,4 +514,4 @@ INSTANTIATE_TEST_SUITE_P(
                       MakeWKBPointTestCase{{30, 10, 40, 300}, false, true},
                       MakeWKBPointTestCase{{30, 10, 40, 300}, true, true}));
 
-}  // namespace parquet::geometry
+}  // namespace parquet::geospatial

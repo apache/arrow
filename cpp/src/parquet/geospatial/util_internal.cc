@@ -19,13 +19,12 @@
 
 #include <sstream>
 
-#include "arrow/result.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
 #include "parquet/exception.h"
 
-namespace parquet::geometry {
+namespace parquet::geospatial {
 
 std::string BoundingBox::ToString() const {
   std::stringstream ss;
@@ -236,4 +235,4 @@ void WKBGeometryBounder::MergeSequence(WKBBuffer* src, Dimensions dimensions,
   }
 }
 
-}  // namespace parquet::geometry
+}  // namespace parquet::geospatial

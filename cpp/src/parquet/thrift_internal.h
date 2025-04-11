@@ -233,9 +233,9 @@ static inline AadMetadata FromThrift(format::AesGcmCtrV1 aesGcmCtrV1) {
                      aesGcmCtrV1.supply_aad_prefix};
 }
 
-static inline geometry::EncodedGeoStatistics FromThrift(
+static inline geospatial::EncodedGeoStatistics FromThrift(
     const format::GeospatialStatistics& geo_stats) {
-  geometry::EncodedGeoStatistics out;
+  geospatial::EncodedGeoStatistics out;
 
   out.geospatial_types = geo_stats.geospatial_types;
   out.xmin = geo_stats.bbox.xmin;
@@ -395,7 +395,7 @@ static inline format::SortingColumn ToThrift(SortingColumn sorting_column) {
 }
 
 static inline format::GeospatialStatistics ToThrift(
-    const geometry::EncodedGeoStatistics& encoded_geo_stats) {
+    const geospatial::EncodedGeoStatistics& encoded_geo_stats) {
   format::GeospatialStatistics geospatial_statistics;
   geospatial_statistics.__set_geospatial_types(encoded_geo_stats.geospatial_types);
   format::BoundingBox bbox;

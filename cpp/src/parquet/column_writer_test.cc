@@ -414,7 +414,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     return metadata_accessor()->statistics();
   }
 
-  std::shared_ptr<geometry::GeoStatistics> metadata_geo_stats() {
+  std::shared_ptr<geospatial::GeoStatistics> metadata_geo_stats() {
     return metadata_accessor()->geo_statistics();
   }
 
@@ -1927,7 +1927,7 @@ TEST_F(TestGeometryValuesWriter, TestWriteAndRead) {
   ASSERT_EQ(metadata_accessor()->statistics(), nullptr);
 
   ASSERT_TRUE(metadata_accessor()->is_geo_stats_set());
-  std::shared_ptr<geometry::GeoStatistics> geospatial_statistics = metadata_geo_stats();
+  std::shared_ptr<geospatial::GeoStatistics> geospatial_statistics = metadata_geo_stats();
   ASSERT_TRUE(geospatial_statistics != nullptr);
   std::vector<int32_t> geospatial_types = geospatial_statistics->geometry_types();
   EXPECT_EQ(1, geospatial_types.size());
@@ -1983,7 +1983,7 @@ TEST_F(TestGeometryValuesWriter, TestWriteAndReadSpaced) {
     EXPECT_EQ(*xy, (std::pair<double, double>(expected_x, expected_y)));
   }
 
-  std::shared_ptr<geometry::GeoStatistics> geospatial_statistics = metadata_geo_stats();
+  std::shared_ptr<geospatial::GeoStatistics> geospatial_statistics = metadata_geo_stats();
   ASSERT_TRUE(geospatial_statistics != nullptr);
   std::vector<int32_t> geospatial_types = geospatial_statistics->geometry_types();
   EXPECT_EQ(1, geospatial_types.size());
@@ -2018,7 +2018,7 @@ TEST_F(TestGeometryValuesWriter, TestWriteAndReadAllNull) {
 
   // GeoStatistics should exist but be empty
   ASSERT_TRUE(metadata_accessor()->is_geo_stats_set());
-  std::shared_ptr<geometry::GeoStatistics> geospatial_statistics = metadata_geo_stats();
+  std::shared_ptr<geospatial::GeoStatistics> geospatial_statistics = metadata_geo_stats();
   ASSERT_TRUE(geospatial_statistics != nullptr);
   ASSERT_TRUE(geospatial_statistics->is_empty());
 }

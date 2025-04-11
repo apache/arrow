@@ -27,7 +27,7 @@
 
 static constexpr double kInf = std::numeric_limits<double>::infinity();
 
-namespace parquet::geometry {
+namespace parquet::geospatial {
 
 TEST(TestGeoStatistics, TestDefaults) {
   GeoStatistics stats;
@@ -304,4 +304,4 @@ TEST(TestGeoStatistics, TestUpdateArrayInvalid) {
   EXPECT_THROW(unsupported.Merge(valid), ParquetException);
 }
 
-}  // namespace parquet::geometry
+}  // namespace parquet::geospatial

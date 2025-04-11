@@ -323,7 +323,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t offset
         int32_t length
 
-    cdef cppclass CParquetEncodedGeoStatistics" parquet::geometry::EncodedGeoStatistics":
+    cdef cppclass CParquetEncodedGeoStatistics" parquet::geospatial::EncodedGeoStatistics":
         double xmin
         double xmax
         double ymin
@@ -339,7 +339,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         c_bool has_z() const
         c_bool has_m() const
 
-    cdef cppclass CParquetGeoStatistics" parquet::geometry::GeoStatistics":
+    cdef cppclass CParquetGeoStatistics" parquet::geospatial::GeoStatistics":
         CParquetEncodedGeoStatistics Encode() const
 
     cdef cppclass CColumnChunkMetaData" parquet::ColumnChunkMetaData":

@@ -83,10 +83,10 @@ class EncodedStatistics;
 class Statistics;
 struct SizeStatistics;
 
-namespace geometry {
+namespace geospatial {
 class GeoStatistics;
 struct EncodedGeoStatistics;
-}  // namespace geometry
+}  // namespace geospatial
 
 class ColumnIndex;
 class OffsetIndex;
