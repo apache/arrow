@@ -337,6 +337,8 @@ class PARQUET_EXPORT FileDecryptionProperties {
   std::string aad_prefix_;
   std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier_;
 
+  // any empty SecureString key is interpreted as if no key is given
+  // this instance is used if a SecureString reference is returned
   const encryption::SecureString no_key_ = encryption::SecureString();
   ColumnPathToDecryptionPropertiesMap column_decryption_properties_;
 
