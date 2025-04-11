@@ -73,10 +73,6 @@ exc = executable(
 )
 test('arrow-azurefs-test', exc)
 
-
-if needs_s3
-endif
-
 if needs_hdfs
     exc = executable(
         'arrow-hdfs-test',

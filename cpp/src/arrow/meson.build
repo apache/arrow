@@ -289,8 +289,7 @@ if needs_filesystem
             {'BUILD_WINDOWS_UWP': 'TRUE'},
             {'CMAKE_UNITY_BUILD': 'FALSE'},
             {'DISABLE_AZURE_CORE_OPENTELEMETRY': 'TRUE'},
-            # TODO: couldn't find any usage of this in Arrow - do we need?
-            # set(ENV{AZURE_SDK_DISABLE_AUTO_VCPKG} TRUE)
+            {'ENV{AZURE_SDK_DISABLE_AUTO_VCPKG}': 'TRUE'},
             {'WARNINGS_AS_ERRORS': 'FALSE'},
         )
         azure_opt.append_compile_args('cpp', '-fPIC')
@@ -310,12 +309,6 @@ if needs_filesystem
 
     if needs_gcs
         error('gcs filesystem support is not yet implemented in Meson')
-        arrow_filesystem_srcs += [
-            'filesystem/gcsfs.cc',
-            'filesystem/gcsfs_internal.cc',
-        ]
-        gcs_dep = dependency('google-cloud-cpp')
-        arrow_filesystem_deps += [gcs_dep]
     endif
 
     if needs_hdfs
@@ -324,7 +317,6 @@ if needs_filesystem
 
     if needs_s3
         error('s3 filesystem support is not yet implemented in Meson')
-        arrow_filesystem_srcs += ['filesystem/s3fs.cc']
     endif
 
     arrow_components += {

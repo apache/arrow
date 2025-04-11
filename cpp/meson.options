@@ -46,7 +46,7 @@ option(
 option(
     'gcs',
     type: 'boolean',
-    description: 'Build Arrow with GCS support (requires the GCloud SDK for C++)',
+    description: 'Build Arrow with GCS support (requires the Google Cloud Platform C++ Client Libraries)',
     value: false,
 )
 
