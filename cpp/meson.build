@@ -57,6 +57,7 @@ if git_description == ''
 endif
 
 needs_benchmarks = get_option('benchmarks')
+needs_compute = get_option('compute')
 needs_csv = get_option('csv')
 needs_hdfs = get_option('hdfs')
 needs_filesystem = false or needs_hdfs
