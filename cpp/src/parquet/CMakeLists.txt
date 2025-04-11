@@ -379,17 +379,17 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
 
 add_parquet_test(internals-test
                  SOURCES
-                 bloom_filter_test.cc
                  bloom_filter_reader_test.cc
-                 properties_test.cc
-                 statistics_test.cc
+                 bloom_filter_test.cc
                  encoding_test.cc
-                 metadata_test.cc
                  geospatial/statistics_test.cc
                  geospatial/util_internal_test.cc
+                 metadata_test.cc
                  page_index_test.cc
+                 properties_test.cc
                  public_api_test.cc
                  size_statistics_test.cc
+                 statistics_test.cc
                  types_test.cc)
 
 set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
