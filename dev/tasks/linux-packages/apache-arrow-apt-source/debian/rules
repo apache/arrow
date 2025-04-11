@@ -24,7 +24,7 @@ override_dh_auto_build:
 	  distribution=$$(lsb_release --id --short | tr 'A-Z' 'a-z'); \
 	  code_name=$$(lsb_release --codename --short); \
 	  echo "Types: deb deb-src"; \
-	  echo "URIs: https://repo1.maven.org/maven2/org/apache/arrow/$${distribution}/"; \
+	  echo "URIs: https://packages.apache.org/artifactory/arrow/$${distribution}/"; \
 	  echo "Suites: $${code_name}"; \
 	  echo "Components: main"; \
 	  echo "Signed-By: /usr/share/keyrings/apache-arrow-apt-source.asc"; \
