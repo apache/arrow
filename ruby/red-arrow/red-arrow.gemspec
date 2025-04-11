@@ -62,7 +62,7 @@ Gem::Specification.new do |spec|
     spec.add_runtime_dependency("gio2", ">= 4.2.3")
     spec.add_runtime_dependency("pkg-config")
 
-    repository_url_prefix = "https://repo1.maven.org/maven2/org/apache/arrow"
+    repository_url_prefix = "https://packages.apache.org/artifactory/arrow"
     [
       # Try without additional repository
       ["amazon_linux", "arrow-glib-devel"],

@@ -36,12 +36,7 @@ SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOP_SOURCE_DIR="${SOURCE_DIR}/../.."
 local_prefix="${TOP_SOURCE_DIR}/dev/tasks/linux-packages"
 
-production_repository_base_url="https://repo1.maven.org/maven2/org/apache/arrow"
-staging_repository_base_url="https://repository.apache.org/content/repositories/staging/org/apache/arrow"
-repository_base_url="${production_repository_base_url}"
-if [ "${TYPE}" = "rc" ]; then
-  repository_base_url="${staging_repository_base_url}"
-fi
+artifactory_base_url="https://packages.apache.org/artifactory/arrow"
 
 distribution=$(. /etc/os-release && echo "${ID}")
 distribution_version=$(. /etc/os-release && echo "${VERSION_ID}" | grep -o "^[0-9]*")
@@ -162,29 +157,33 @@ if [ "${TYPE}" = "local" ]; then
   ${install_command} "${release_path}"
 else
   package_version="${VERSION}"
+  if [ "${TYPE}" = "rc" ]; then
+    suffix=${TYPE%-release}
+    distribution_prefix+="-${suffix}"
+  fi
   ${install_command} \
-    ${repository_base_url}/${distribution_prefix}/${repository_version}/apache-arrow-release-latest.rpm
+    ${artifactory_base_url}/${distribution_prefix}/${repository_version}/apache-arrow-release-latest.rpm
 fi
 
 if [ "${TYPE}" = "local" ]; then
   sed \
     -i"" \
-    -e "s,baseurl=${production_repository_base_url}/,baseurl=file://${local_prefix}/yum/repositories/,g" \
+    -e "s,baseurl=https://packages\.apache\.org/artifactory/arrow/,baseurl=file://${local_prefix}/yum/repositories/,g" \
     /etc/yum.repos.d/Apache-Arrow.repo
   keys="${local_prefix}/KEYS"
   if [ -f "${keys}" ]; then
     cp "${keys}" /etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
   fi
 else
-  case "${TYPE}" in
-    rc)
-      suffix=${TYPE%-release}
-      sed \
-        -i"" \
-        -e "s,baseurl=${production_repository_base_url},baseurl=${staging_repository_base_url},g" \
-        /etc/yum.repos.d/Apache-Arrow.repo
-      ;;
-  esac
+  if [ "${TYPE}" = "rc" ]; then
+    suffix=${TYPE%-release}
+    sed \
+      -i"" \
+      -e "s,/almalinux/,/almalinux-${suffix}/,g" \
+      -e "s,/centos/,/centos-${suffix}/,g" \
+      -e "s,/amazon-linux/,/amazon-linux-${suffix}/,g" \
+      /etc/yum.repos.d/Apache-Arrow.repo
+  fi
 fi
 
 echo "::endgroup::"
@@ -299,7 +298,7 @@ fi
 echo "::group::Test coexistence with old library"
 ${uninstall_command} apache-arrow-release
 if ${install_command} \
-     ${repository_base_url}/${distribution_prefix}/${repository_version}/apache-arrow-release-latest.rpm; then
+     ${artifactory_base_url}/${distribution_prefix}/${repository_version}/apache-arrow-release-latest.rpm; then
   ${clean_command} all
   if [ "${have_arrow_libs}" = "yes" ]; then
     ${install_command} ${enablerepo_epel} arrow-libs
