@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <odbcabstraction/exceptions.h>
-#include <odbcabstraction/platform.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h>
 #include <utility>
 
 namespace driver {

@@ -19,7 +19,7 @@
 #include <sstream>
 
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_ssl_config.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/exceptions.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
 
 namespace driver {
 namespace flight_sql {

@@ -64,7 +64,7 @@ class FlightSqlStatement : public odbcabstraction::Statement {
 
   std::shared_ptr<odbcabstraction::ResultSet> GetResultSet() override;
 
-  int64 GetUpdateCount() override;
+  long GetUpdateCount() override;
 
   std::shared_ptr<odbcabstraction::ResultSet> GetTables_V2(
       const std::string* catalog_name, const std::string* schema_name,

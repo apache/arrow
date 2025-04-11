@@ -17,16 +17,16 @@
 
 #pragma once
 
-#include "arrow/flight/sql/odbc/flight_sql/types.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/diagnostics.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/types.h"
+#include "arrow/flight/sql/odbc/flight_sql/accessors/types.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 #include "arrow/type_fwd.h"
 
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
-namespace odbcabstraction {
+using namespace arrow;
+using namespace odbcabstraction;
 
 template <CDataType TARGET_TYPE>
 class BooleanArrayFlightSqlAccessor
@@ -42,7 +42,5 @@ class BooleanArrayFlightSqlAccessor
   size_t GetCellLength_impl(ColumnBinding* binding) const;
 };
 
-}  // namespace odbcabstraction
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

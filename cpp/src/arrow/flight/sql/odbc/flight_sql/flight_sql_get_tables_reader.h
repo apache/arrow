@@ -21,7 +21,7 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
+using namespace arrow;
 using std::optional;
 
 class GetTablesReader {
@@ -45,6 +45,5 @@ class GetTablesReader {
   std::shared_ptr<Schema> GetSchema();
 };
 
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

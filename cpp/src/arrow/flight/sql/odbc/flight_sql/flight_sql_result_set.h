@@ -22,10 +22,10 @@
 #include "arrow/flight/sql/odbc/flight_sql/record_batch_transformer.h"
 #include "arrow/flight/sql/odbc/flight_sql/utils.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/includeodbcabstraction/diagnostics.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/includeodbcabstraction/exceptions.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/includeodbcabstraction/platform.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/includeodbcabstraction/spi/result_set.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/result_set.h"
 #include "arrow/flight/types.h"
 
 namespace driver {

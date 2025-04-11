@@ -23,7 +23,7 @@
 
 namespace {
 
-namespace arrow {
+using namespace arrow;
 namespace driver::odbcabstraction {
 
 using driver::flight_sql::ThrowIfNotOK;
@@ -121,5 +121,4 @@ TEST(DecimalArrayFlightSqlAccessor,
 
 }  // namespace flight_sql
 }  // namespace driver
-}  // namespace arrow
 }  // namespace

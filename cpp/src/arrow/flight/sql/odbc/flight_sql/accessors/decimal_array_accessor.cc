@@ -23,8 +23,8 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
-namespace odbcabstraction {
+using namespace arrow;
+using namespace odbcabstraction;
 
 template <typename ARROW_ARRAY, CDataType TARGET_TYPE>
 DecimalArrayFlightSqlAccessor<ARROW_ARRAY, TARGET_TYPE>::DecimalArrayFlightSqlAccessor(
@@ -83,7 +83,5 @@ size_t DecimalArrayFlightSqlAccessor<ARROW_ARRAY, TARGET_TYPE>::GetCellLength_im
 template class DecimalArrayFlightSqlAccessor<Decimal128Array,
                                              odbcabstraction::CDataType_NUMERIC>;
 
-}  // namespace odbcabstraction
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

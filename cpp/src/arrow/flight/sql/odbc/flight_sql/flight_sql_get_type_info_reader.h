@@ -21,7 +21,7 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
+using namespace arrow;
 
 using std::optional;
 
@@ -74,6 +74,5 @@ class GetTypeInfoReader {
   optional<int32_t> GetIntervalPrecision();
 };
 
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

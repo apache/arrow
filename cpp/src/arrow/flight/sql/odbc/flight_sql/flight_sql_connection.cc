@@ -20,13 +20,14 @@
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/utils.h"
 
+#include "arrow/flight/types.h"
 #include "arrow/flight/client_cookie_middleware.h"
 #include "arrow/flight/sql/odbc/flight_sql/address_info.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_auth_method.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_ssl_config.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_statement.h"
 #include "arrow/flight/sql/odbc/flight_sql/utils.h"
-#include "arrow/flight/types.h"
+
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/join.hpp>
@@ -38,7 +39,8 @@
 #include <sql.h>
 #include <sqlext.h>
 
-#include "arrow/flight/sql/odbc/flight_sql/system_trust_store.h"
+// TODO - fix build issues from system_trust_store
+// #include "arrow/flight/sql/odbc/flight_sql/system_trust_store.h"
 
 #ifndef NI_MAXHOST
 #  define NI_MAXHOST 1025
@@ -62,24 +64,23 @@ using driver::odbcabstraction::DriverException;
 using driver::odbcabstraction::OdbcVersion;
 using driver::odbcabstraction::Statement;
 
-const char FlightSqlConnection::DSN[] = "dsn";
-const char FlightSqlConnection::DRIVER[] = "driver";
-const char FlightSqlConnection::HOST[] = "host";
-const char FlightSqlConnection::PORT[] = "port";
-const char FlightSqlConnection::USER[] = "user";
-const char FlightSqlConnection::USER_ID[] = "user id";
-const char FlightSqlConnection::UID[] = "uid";
-const char FlightSqlConnection::PASSWORD[] = "password";
-const char FlightSqlConnection::PWD[] = "pwd";
-const char FlightSqlConnection::TOKEN[] = "token";
-const char FlightSqlConnection::USE_ENCRYPTION[] = "useEncryption";
-const char FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION[] =
-    "disableCertificateVerification";
-const char FlightSqlConnection::TRUSTED_CERTS[] = "trustedCerts";
-const char FlightSqlConnection::USE_SYSTEM_TRUST_STORE[] = "useSystemTrustStore";
-const char FlightSqlConnection::STRING_COLUMN_LENGTH[] = "StringColumnLength";
-const char FlightSqlConnection::USE_WIDE_CHAR[] = "UseWideChar";
-const char FlightSqlConnection::CHUNK_BUFFER_CAPACITY[] = "ChunkBufferCapacity";
+const std::string FlightSqlConnection::DSN = "dsn";
+const std::string FlightSqlConnection::DRIVER = "driver";
+const std::string FlightSqlConnection::HOST = "host";
+const std::string FlightSqlConnection::PORT = "port";
+const std::string FlightSqlConnection::USER = "user";
+const std::string FlightSqlConnection::USER_ID = "user id";
+const std::string FlightSqlConnection::UID = "uid";
+const std::string FlightSqlConnection::PASSWORD = "password";
+const std::string FlightSqlConnection::PWD = "pwd";
+const std::string FlightSqlConnection::TOKEN = "token";
+const std::string FlightSqlConnection::USE_ENCRYPTION = "useEncryption";
+const std::string FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION = "disableCertificateVerification";
+const std::string FlightSqlConnection::TRUSTED_CERTS = "trustedCerts";
+const std::string FlightSqlConnection::USE_SYSTEM_TRUST_STORE = "useSystemTrustStore";
+const std::string FlightSqlConnection::STRING_COLUMN_LENGTH = "StringColumnLength";
+const std::string FlightSqlConnection::USE_WIDE_CHAR = "UseWideChar";
+const std::string FlightSqlConnection::CHUNK_BUFFER_CAPACITY = "ChunkBufferCapacity";
 
 const std::vector<std::string> FlightSqlConnection::ALL_KEYS = {
     FlightSqlConnection::DSN,
@@ -105,6 +106,9 @@ constexpr auto SYSTEM_TRUST_STORE_DEFAULT = true;
 constexpr auto STORES = {"CA", "MY", "ROOT", "SPC"};
 
 inline std::string GetCerts() {
+  // TODO - fix build issues from system_trust_store and return proper value
+  return "";
+  /*
   std::string certs;
 
   for (auto store : STORES) {
@@ -121,6 +125,7 @@ inline std::string GetCerts() {
   }
 
   return certs;
+  */
 }
 
 #else
@@ -191,7 +196,7 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
     client_options.middleware.push_back(cookie_factory);
 
     std::unique_ptr<FlightClient> flight_client;
-    ThrowIfNotOK(FlightClient::Connect(location, client_options, &flight_client));
+    ThrowIfNotOK(FlightClient::Connect(location, client_options).Value(&flight_client));
 
     std::unique_ptr<FlightSqlAuthMethod> auth_method =
         FlightSqlAuthMethod::FromProperties(flight_client, properties);
@@ -203,7 +208,9 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
     // Note: This should likely come from Flight instead of being from the
     // connection properties to allow reporting a user for other auth mechanisms
     // and also decouple the database user from user credentials.
-    info_.SetProperty(SQL_USER_NAME, auth_method->GetUser());
+
+    // TODO - fix build issues from get_info_cache
+    // info_.SetProperty(SQL_USER_NAME, auth_method->GetUser());
     attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_FALSE);
 
     PopulateMetadataSettings(properties);
@@ -362,7 +369,7 @@ Location FlightSqlConnection::BuildLocation(
       if (ip_address.is_v4() || ip_address.is_v6()) {
         operation_result = address_info.GetAddressInfo(host, host_name_info, NI_MAXHOST);
         if (operation_result) {
-          ThrowIfNotOK(Location::ForGrpcTls(host_name_info, port, &location));
+          ThrowIfNotOK(Location::ForGrpcTls(host_name_info, port).Value(&location));
           return location;
         }
         // TODO: We should log that we could not convert an IP to hostname here.
@@ -372,11 +379,11 @@ Location FlightSqlConnection::BuildLocation(
       // throw if it is not an IP.
     }
 
-    ThrowIfNotOK(Location::ForGrpcTls(host, port, &location));
+    ThrowIfNotOK(Location::ForGrpcTls(host, port).Value(&location));
     return location;
   }
 
-  ThrowIfNotOK(Location::ForGrpcTcp(host, port, &location));
+  ThrowIfNotOK(Location::ForGrpcTcp(host, port).Value(&location));
   return location;
 }
 
@@ -425,6 +432,10 @@ boost::optional<Connection::Attribute> FlightSqlConnection::GetAttribute(
 }
 
 Connection::Info FlightSqlConnection::GetInfo(uint16_t info_type) {
+  // TODO - fix build issues from get_info_cache and return proper value.
+  uint16_t result = 0;
+  return result;
+  /*
   auto result = info_.GetInfo(info_type);
   if (info_type == SQL_DBMS_NAME || info_type == SQL_SERVER_NAME) {
     // Update the database component reported in error messages.
@@ -432,13 +443,15 @@ Connection::Info FlightSqlConnection::GetInfo(uint16_t info_type) {
     diagnostics_.SetDataSourceComponent(boost::get<std::string>(result));
   }
   return result;
+  */
 }
 
 FlightSqlConnection::FlightSqlConnection(OdbcVersion odbc_version,
                                          const std::string& driver_version)
     : diagnostics_("Apache Arrow", "Flight SQL", odbc_version),
       odbc_version_(odbc_version),
-      info_(call_options_, sql_client_, driver_version),
+      // TODO - fix build issues from get_info_cache and set proper value.
+      // info_(call_options_, sql_client_, driver_version),
       closed_(true) {
   attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_TRUE);
   attribute_[LOGIN_TIMEOUT] = static_cast<uint32_t>(0);

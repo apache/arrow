@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <odbcabstraction/encoding.h>
-#include <odbcabstraction/platform.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/encoding.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h>
 #include <sql.h>
 #include <sqlext.h>
 #include <algorithm>
@@ -31,7 +31,7 @@
 #define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
 
 namespace ODBC {
-namespace driver::odbcabstraction {
+  using namespace driver::odbcabstraction;
 
 // Return the number of bytes required for the conversion.
 template <typename CHAR_TYPE>
@@ -46,7 +46,7 @@ inline size_t ConvertToSqlWChar(const std::string& str, SQLWCHAR* buffer,
            std::min(static_cast<SQLLEN>(wstr.size()), bufferSizeInBytes));
 
     // Write a NUL terminator
-    if (bufferSizeInBytes >= valueLengthInBytes + GetSqlWCharSize()) {
+    if (bufferSizeInBytes >= valueLengthInBytes + static_cast<SQLLEN>(GetSqlWCharSize())) {
       reinterpret_cast<CHAR_TYPE*>(buffer)[valueLengthInBytes / GetSqlWCharSize()] = '\0';
     } else {
       SQLLEN numCharsWritten = bufferSizeInBytes / GetSqlWCharSize();
@@ -74,5 +74,4 @@ inline size_t ConvertToSqlWChar(const std::string& str, SQLWCHAR* buffer,
   }
 }
 
-}  // namespace driver::odbcabstraction
 }  // namespace ODBC

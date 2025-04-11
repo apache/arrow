@@ -18,7 +18,7 @@
 #include <Windowsx.h>
 #include <commctrl.h>
 #include <string>
-#include "arrow/flight/sql/odbc/flight_sql/winuser.h"
+#include <winuser.h>
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 
 #include <boost/algorithm/string/trim.hpp>

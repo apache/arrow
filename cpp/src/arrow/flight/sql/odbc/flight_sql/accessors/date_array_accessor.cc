@@ -16,11 +16,11 @@
 // under the License.
 
 #include "arrow/flight/sql/odbc/flight_sql/accessors/date_array_accessor.h"
+#include <time.h>
 #include "arrow/compute/api.h"
-#include "arrow/flight/sql/odbc/flight_sql/accessors/time.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/calendar_utils.h"
 
-namespace arrow {
+using namespace arrow;
 
 namespace {
 template <typename T>
@@ -48,7 +48,7 @@ int64_t convertDate<Date32Array>(int32_t value) {
 namespace driver {
 namespace flight_sql {
 
-namespace odbcabstraction {
+using namespace odbcabstraction;
 
 template <CDataType TARGET_TYPE, typename ARROW_ARRAY>
 DateArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY>::DateArrayFlightSqlAccessor(
@@ -88,7 +88,5 @@ size_t DateArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY>::GetCellLength_impl(
 template class DateArrayFlightSqlAccessor<odbcabstraction::CDataType_DATE, Date32Array>;
 template class DateArrayFlightSqlAccessor<odbcabstraction::CDataType_DATE, Date64Array>;
 
-}  // namespace odbcabstraction
 }  // namespace flight_sql
 }  // namespace driver
-}  // namespace arrow

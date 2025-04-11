@@ -15,16 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <odbcabstraction/odbc_impl/odbc_statement.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_statement.h>
 
-#include <odbcabstraction/exceptions.h>
-#include <odbcabstraction/odbc_impl/attribute_utils.h>
-#include <odbcabstraction/odbc_impl/odbc_connection.h>
-#include <odbcabstraction/odbc_impl/odbc_descriptor.h>
-#include <odbcabstraction/spi/result_set.h>
-#include <odbcabstraction/spi/result_set_metadata.h>
-#include <odbcabstraction/spi/statement.h>
-#include <odbcabstraction/types.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/attribute_utils.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_descriptor.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/result_set.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/result_set_metadata.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/statement.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h>
 #include <sql.h>
 #include <sqlext.h>
 #include <sqltypes.h>
@@ -32,8 +32,8 @@
 #include <boost/variant.hpp>
 #include <utility>
 
-namespace ODBC {
-namespace driver::odbcabstraction {
+using namespace ODBC;
+using namespace driver::odbcabstraction;
 
 namespace {
 void DescriptorToHandle(SQLPOINTER output, ODBCDescriptor* descriptor,
@@ -777,6 +777,3 @@ void ODBCStatement::GetTypeInfo(SQLSMALLINT dataType) {
 }
 
 void ODBCStatement::Cancel() { m_spiStatement->Cancel(); }
-
-}  // namespace driver::odbcabstraction
-}  // namespace ODBC

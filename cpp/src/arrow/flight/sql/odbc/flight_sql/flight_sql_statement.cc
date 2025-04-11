@@ -151,7 +151,7 @@ std::shared_ptr<ResultSet> FlightSqlStatement::GetResultSet() {
   return current_result_set_;
 }
 
-int64 FlightSqlStatement::GetUpdateCount() { return -1; }
+long FlightSqlStatement::GetUpdateCount() { return -1; }
 
 std::shared_ptr<odbcabstraction::ResultSet> FlightSqlStatement::GetTables(
     const std::string* catalog_name, const std::string* schema_name,

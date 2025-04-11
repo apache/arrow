@@ -21,7 +21,7 @@
 #include <Windowsx.h>
 #include <commctrl.h>
 #include <commdlg.h>
-#include <odbcabstraction/utils.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/utils.h>
 #include <sql.h>
 #include <sstream>
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_connection.h"

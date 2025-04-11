@@ -20,8 +20,8 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
-namespace odbcabstraction {
+using namespace arrow;
+using namespace odbcabstraction;
 
 template <CDataType TARGET_TYPE>
 BooleanArrayFlightSqlAccessor<TARGET_TYPE>::BooleanArrayFlightSqlAccessor(Array* array)
@@ -53,7 +53,5 @@ size_t BooleanArrayFlightSqlAccessor<TARGET_TYPE>::GetCellLength_impl(
 
 template class BooleanArrayFlightSqlAccessor<odbcabstraction::CDataType_BIT>;
 
-}  // namespace odbcabstraction
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

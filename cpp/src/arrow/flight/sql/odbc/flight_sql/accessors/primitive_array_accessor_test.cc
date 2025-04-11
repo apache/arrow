@@ -16,16 +16,12 @@
 // under the License.
 
 #include "arrow/flight/sql/odbc/flight_sql/accessors/primitive_array_accessor.h"
-#include <odbcabstraction/diagnostics.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h>
 #include "arrow/testing/builder.h"
 #include "gtest/gtest.h"
 
 namespace driver {
 namespace flight_sql {
-
-namespace arrow {
-
-namespace odbcabstraction {
 
 template <typename ARROW_ARRAY, CDataType TARGET_TYPE>
 void TestPrimitiveArraySqlAccessor() {
@@ -97,7 +93,5 @@ TEST(PrimitiveArrayFlightSqlAccessor, Test_DoubleArray_CDataType_DOUBLE) {
   TestPrimitiveArraySqlAccessor<DoubleArray, CDataType_DOUBLE>();
 }
 
-}  // namespace odbcabstraction
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

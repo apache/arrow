@@ -15,15 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/sql/odbc/odbcabstraction/odbc_impl/odbc_connection.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h"
 
-#include "arrow/flight/sql/odbc/odbcabstraction/exceptions.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/odbc_impl/attribute_utils.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/odbc_impl/odbc_descriptor.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/odbc_impl/odbc_environment.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/odbc_impl/odbc_statement.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/spi/connection.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/spi/statement.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/attribute_utils.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_descriptor.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_environment.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_statement.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/statement.h"
 
 #include <odbcinst.h>
 #include <sql.h>
@@ -34,8 +34,8 @@
 #include <memory>
 #include <utility>
 
-namespace ODBC {
-namespace driver::odbcabstraction {
+using namespace ODBC;
+using namespace driver::odbcabstraction;
 
 using driver::odbcabstraction::Connection;
 using driver::odbcabstraction::DriverException;
@@ -769,5 +769,3 @@ std::string ODBCConnection::getPropertiesFromConnString(
   return dsn;
 }
 
-}  // namespace driver::odbcabstraction
-}  // namespace ODBC

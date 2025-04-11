@@ -24,8 +24,8 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
-namespace odbcabstraction {
+using namespace arrow;
+using namespace odbcabstraction;
 
 TEST(DateArrayAccessor, Test_Date32Array_CDataType_DATE) {
   std::vector<int32_t> values = {7589, 12320, 18980, 19095};
@@ -92,7 +92,5 @@ TEST(DateArrayAccessor, Test_Date64Array_CDataType_DATE) {
   }
 }
 
-}  // namespace odbcabstraction
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

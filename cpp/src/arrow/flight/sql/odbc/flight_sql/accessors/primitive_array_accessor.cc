@@ -20,8 +20,8 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
-namespace odbcabstraction {
+using namespace arrow;
+using namespace odbcabstraction;
 
 template <typename ARROW_ARRAY, CDataType TARGET_TYPE>
 PrimitiveArrayFlightSqlAccessor<
@@ -66,7 +66,5 @@ template class PrimitiveArrayFlightSqlAccessor<DoubleArray,
 template class PrimitiveArrayFlightSqlAccessor<FloatArray,
                                                odbcabstraction::CDataType_FLOAT>;
 
-}  // namespace odbcabstraction
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

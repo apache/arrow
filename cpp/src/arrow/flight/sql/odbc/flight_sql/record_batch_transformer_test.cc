@@ -16,12 +16,12 @@
 // under the License.
 
 #include "arrow/flight/sql/odbc/flight_sql/record_batch_transformer.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/platform.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/builder.h"
 #include "gtest/gtest.h"
 
-namespace arrow {
+using namespace arrow;
 
 namespace {
 std::shared_ptr<RecordBatch> CreateOriginalRecordBatch() {
@@ -155,4 +155,3 @@ TEST(Transformer, TransformerChangingOrderOfArrayTest) {
 }
 }  // namespace flight_sql
 }  // namespace driver
-}  // namespace arrow

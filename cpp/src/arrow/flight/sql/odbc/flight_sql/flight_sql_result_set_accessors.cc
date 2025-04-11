@@ -19,7 +19,7 @@
 #include "arrow/flight/sql/odbc/flight_sql/accessors/main.h"
 
 #include <boost/functional/hash.hpp>
-#include "arrow/flight/sql/oddbc/odbcabstraction/include/odbcabstraction/platform.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 
 namespace driver {
 namespace flight_sql {

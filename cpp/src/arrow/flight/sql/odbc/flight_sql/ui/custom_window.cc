@@ -17,11 +17,11 @@
 
 #include <Windowsx.h>
 #include <commctrl.h>
-#include <odbcabstraction/platform.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h>
 #include <wtypes.h>
 #include <sstream>
 
-#include <odbcabstraction/exceptions.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h>
 #include "ui/custom_window.h"
 
 namespace driver {

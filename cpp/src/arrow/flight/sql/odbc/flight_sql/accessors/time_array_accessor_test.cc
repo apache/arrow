@@ -24,8 +24,8 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
-namespace odbcabstraction {
+using namespace arrow;
+using namespace odbcabstraction;
 
 TEST(TEST_TIME32, TIME_WITH_SECONDS) {
   auto value_field = field("f0", time32(TimeUnit::SECOND));
@@ -170,7 +170,5 @@ TEST(TEST_TIME64, TIME_WITH_NANO) {
   }
 }
 
-}  // namespace odbcabstraction
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

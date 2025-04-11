@@ -28,11 +28,11 @@
 namespace driver {
 namespace odbcabstraction {
 
-const char SPDLogger::LOG_LEVEL[] = "LogLevel";
-const char SPDLogger::LOG_PATH[] = "LogPath";
-const char SPDLogger::MAXIMUM_FILE_SIZE[] = "MaximumFileSize";
-const char SPDLogger::FILE_QUANTITY[] = "FileQuantity";
-const char SPDLogger::LOG_ENABLED[] = "LogEnabled";
+const std::string SPDLogger::LOG_LEVEL = "LogLevel";
+const std::string SPDLogger::LOG_PATH = "LogPath";
+const std::string SPDLogger::MAXIMUM_FILE_SIZE = "MaximumFileSize";
+const std::string SPDLogger::FILE_QUANTITY = "FileQuantity";
+const std::string SPDLogger::LOG_ENABLED= "LogEnabled";
 
 namespace {
 inline spdlog::level::level_enum ToSpdLogLevel(LogLevel level) {

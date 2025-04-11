@@ -15,6 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_environment.h"
+
+// odbc_api includes windows.h, which needs to be put behind winsock2.h.
+// odbc_environment.h includes winsock2.h
 #include "arrow/flight/sql/odbc/odbc_api.h"
 
 namespace arrow

@@ -19,10 +19,11 @@
 
 #include <stdint.h>
 #include <string>
-#include "arrow/flight/sql/odbc/flight_sql/winuser.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h"
 
+// winuser.h needs to be included after windows.h, which is defined in platform.h
+#include <winuser.h>
 namespace driver {
 namespace flight_sql {
 namespace config {

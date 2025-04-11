@@ -22,7 +22,7 @@
 #include <string>
 #include "arrow/flight/client.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_connection.h"
-#include "arrow/flight/sql/odbc/flight_sql/odbcabstraction/include/odbcabstraction/spi/connection.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h"
 
 namespace driver {
 namespace flight_sql {

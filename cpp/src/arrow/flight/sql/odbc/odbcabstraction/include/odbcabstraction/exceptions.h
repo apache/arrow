@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <odbcabstraction/error_codes.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/error_codes.h>
 #include <cstdint>
 #include <exception>
 #include <string>

@@ -179,15 +179,15 @@ uint32_t GetCvtBitForArrowConvertEntry(int32_t convert_entry) {
 }
 
 inline int32_t ScalarToInt32(arrow::UnionScalar* scalar) {
-  return reinterpret_cast<arrow::Int32Scalar*>(scalar->value.get())->value;
+  return reinterpret_cast<arrow::Int32Scalar*>(scalar->child_value().get())->value;
 }
 
 inline int64_t ScalarToInt64(arrow::UnionScalar* scalar) {
-  return reinterpret_cast<arrow::Int64Scalar*>(scalar->value.get())->value;
+  return reinterpret_cast<arrow::Int64Scalar*>(scalar->child_value().get())->value;
 }
 
 inline std::string ScalarToBoolString(arrow::UnionScalar* scalar) {
-  return reinterpret_cast<arrow::BooleanScalar*>(scalar->value.get())->value ? "Y" : "N";
+  return reinterpret_cast<arrow::BooleanScalar*>(scalar->child_value().get())->value ? "Y" : "N";
 }
 
 inline void SetDefaultIfMissing(
@@ -201,9 +201,9 @@ inline void SetDefaultIfMissing(
 
 namespace driver {
 namespace flight_sql {
-namespace arrow::flight::sql {
-namespace arrow::flight {
-namespace driver::odbcabstraction {
+using namespace arrow::flight::sql;
+using namespace arrow::flight;
+using namespace driver::odbcabstraction;
 
 GetInfoCache::GetInfoCache(FlightCallOptions& call_options,
                            std::unique_ptr<FlightSqlClient>& client,
@@ -1311,8 +1311,5 @@ void GetInfoCache::LoadDefaultsForMissingEntries() {
                       static_cast<uint16_t>(SQL_OSCC_COMPLIANT));
 }
 
-}  // namespace driver::odbcabstraction
-}  // namespace arrow::flight
-}  // namespace arrow::flight::sql
 }  // namespace flight_sql
 }  // namespace driver

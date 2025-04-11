@@ -26,9 +26,9 @@ namespace driver {
 namespace flight_sql {
 
 using arrow::flight::sql::ColumnMetadata;
-using arrow::util::make_optional;
-using arrow::util::nullopt;
-using arrow::util::optional;
+using std::make_optional;
+using std::nullopt;
+using std::optional;
 
 namespace {
 std::shared_ptr<Schema> GetColumns_V3_Schema() {

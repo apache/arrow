@@ -24,7 +24,7 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
+using namespace arrow;
 
 TEST(ConvertToJson, String) {
   ASSERT_EQ("\"\"", ConvertToJson(StringScalar("")));
@@ -198,6 +198,5 @@ TEST(ConvertToJson, Struct) {
   ASSERT_EQ("{\"i\":1,\"f\":2.5,\"s\":\"yo\",\"null\":null}", ConvertToJson(*scalar));
 }
 
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

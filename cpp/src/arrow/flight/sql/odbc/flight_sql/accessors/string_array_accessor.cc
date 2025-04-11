@@ -24,8 +24,8 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
-namespace odbcabstraction {
+using namespace arrow;
+using namespace odbcabstraction;
 
 namespace {
 
@@ -150,7 +150,5 @@ template class StringArrayFlightSqlAccessor<odbcabstraction::CDataType_CHAR, cha
 template class StringArrayFlightSqlAccessor<odbcabstraction::CDataType_WCHAR, char16_t>;
 template class StringArrayFlightSqlAccessor<odbcabstraction::CDataType_WCHAR, char32_t>;
 
-}  // namespace odbcabstraction
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

@@ -15,18 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <odbcabstraction/odbc_impl/odbc_environment.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_environment.h>
 
-#include <odbcabstraction/odbc_impl/odbc_connection.h>
-#include <odbcabstraction/spi/connection.h>
-#include <odbcabstraction/spi/driver.h>
-#include <odbcabstraction/types.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/driver.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h>
 #include <sqlext.h>
 #include <algorithm>
 #include <utility>
 
-namespace ODBC {
-namespace driver::odbcabstraction {
+using namespace ODBC;
+using namespace driver::odbcabstraction;
 
 // Public
 // =========================================================================================
@@ -75,6 +75,3 @@ void ODBCEnvironment::DropConnection(ODBCConnection* conn) {
     m_connections.erase(it);
   }
 }
-
-}  // namespace driver::odbcabstraction
-}  // namespace ODBC

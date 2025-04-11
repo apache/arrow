@@ -18,7 +18,7 @@
 #include "arrow/flight/sql/odbc/flight_sql/accessors/timestamp_array_accessor.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/calendar_utils.h"
 
-namespace arrow {
+using namespace arrow;
 
 namespace {
 int64_t GetConversionToSecondsDivisor(TimeUnit::type unit) {
@@ -65,11 +65,11 @@ uint32_t CalculateFraction(TimeUnit::type unit, uint64_t units_since_epoch) {
   return 0;
 }
 }  // namespace
-}  // namespace arrow
 
 namespace driver {
 namespace flight_sql {
-namespace odbcabstraction {
+
+using namespace odbcabstraction;
 
 template <CDataType TARGET_TYPE, TimeUnit::type UNIT>
 TimestampArrayFlightSqlAccessor<TARGET_TYPE, UNIT>::TimestampArrayFlightSqlAccessor(
@@ -122,6 +122,5 @@ template class TimestampArrayFlightSqlAccessor<odbcabstraction::CDataType_TIMEST
 template class TimestampArrayFlightSqlAccessor<odbcabstraction::CDataType_TIMESTAMP,
                                                TimeUnit::NANO>;
 
-}  // namespace odbcabstraction
 }  // namespace flight_sql
 }  // namespace driver

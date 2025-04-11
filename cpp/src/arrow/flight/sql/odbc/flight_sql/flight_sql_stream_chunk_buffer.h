@@ -19,7 +19,7 @@
 
 #include <arrow/flight/client.h>
 #include <arrow/flight/sql/client.h>
-#include <odbcabstraction/blocking_queue.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/blocking_queue.h>
 
 namespace driver {
 namespace flight_sql {

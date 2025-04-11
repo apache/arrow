@@ -25,8 +25,8 @@
 #include "arrow/scalar.h"
 #include "arrow/visitor.h"
 
-namespace arrow {
-namespace boost::beast::detail {
+using namespace arrow;
+using namespace boost::beast::detail;
 using driver::flight_sql::ThrowIfNotOK;
 
 namespace {
@@ -276,11 +276,11 @@ class ScalarToJson : public arrow::ScalarVisitor {
   }
 
   Status Visit(const SparseUnionScalar& scalar) override {
-    return scalar.value->Accept(this);
+    return scalar.child_value().get()->Accept(this);
   }
 
   Status Visit(const DenseUnionScalar& scalar) override {
-    return scalar.value->Accept(this);
+    return scalar.child_value().get()->Accept(this);
   }
 
   Status Visit(const ExtensionScalar& scalar) override {
@@ -320,5 +320,3 @@ arrow::Result<std::shared_ptr<arrow::Array>> ConvertToJson(
 
 }  // namespace flight_sql
 }  // namespace driver
-}  // namespace boost::beast::detail
-}  // namespace arrow

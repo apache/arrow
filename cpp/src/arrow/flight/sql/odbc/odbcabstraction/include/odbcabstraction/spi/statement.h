@@ -101,7 +101,7 @@ class Statement {
   /// \brief Retrieves the current result as an update count;
   /// if the result is a ResultSet object or there are no more results, -1 is
   /// returned.
-  virtual int64 GetUpdateCount() = 0;
+  virtual long GetUpdateCount() = 0;
 
   /// \brief Returns the list of table, catalog, or schema names, and table
   /// types, stored in a specific data source. The driver returns the

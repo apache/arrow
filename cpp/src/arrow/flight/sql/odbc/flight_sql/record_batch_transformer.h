@@ -24,7 +24,7 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
+using namespace arrow;
 
 typedef std::function<std::shared_ptr<Array>(
     const std::shared_ptr<RecordBatch>& original_record_batch,
@@ -79,6 +79,5 @@ class RecordBatchTransformerWithTasksBuilder {
   explicit RecordBatchTransformerWithTasksBuilder(std::shared_ptr<Schema> schema);
 };
 
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

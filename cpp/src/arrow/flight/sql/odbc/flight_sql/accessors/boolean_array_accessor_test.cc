@@ -22,8 +22,8 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
-namespace odbcabstraction {
+using namespace arrow;
+using namespace odbcabstraction;
 
 TEST(BooleanArrayFlightSqlAccessor, Test_BooleanArray_CDataType_BIT) {
   const std::vector<bool> values = {true, false, true};
@@ -49,7 +49,5 @@ TEST(BooleanArrayFlightSqlAccessor, Test_BooleanArray_CDataType_BIT) {
   }
 }
 
-}  // namespace odbcabstraction
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

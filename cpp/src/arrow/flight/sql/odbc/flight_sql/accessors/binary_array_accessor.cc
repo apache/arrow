@@ -24,8 +24,8 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
-namespace odbcabstraction {
+using namespace arrow;
+using namespace odbcabstraction;
 
 namespace {
 
@@ -86,7 +86,5 @@ size_t BinaryArrayFlightSqlAccessor<TARGET_TYPE>::GetCellLength_impl(
 
 template class BinaryArrayFlightSqlAccessor<odbcabstraction::CDataType_BINARY>;
 
-}  // namespace odbcabstraction
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

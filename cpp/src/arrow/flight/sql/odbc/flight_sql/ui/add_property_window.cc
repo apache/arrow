@@ -22,7 +22,7 @@
 #include <commctrl.h>
 #include <sstream>
 
-#include <odbcabstraction/exceptions.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h>
 #include "ui/custom_window.h"
 #include "ui/window.h"
 

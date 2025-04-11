@@ -24,8 +24,8 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
-namespace odbcabstraction {
+using namespace arrow;
+using namespace odbcabstraction;
 
 Accessor* CreateTimeAccessor(arrow::Array* array, arrow::Type::type type);
 
@@ -45,7 +45,5 @@ class TimeArrayFlightSqlAccessor
   size_t GetCellLength_impl(ColumnBinding* binding) const;
 };
 
-}  // namespace odbcabstraction
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

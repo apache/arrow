@@ -16,7 +16,7 @@
 // under the License.
 
 #include "arrow/flight/sql/odbc/flight_sql/timestamp_array_accessor.h"
-#include "arrow/flight/sql/odbc/flight_sql/accessors/utils.h"
+#include "arrow/flight/sql/odbc/flight_sql/utils.h"
 #include "arrow/testing/builder.h"
 #include "gtest/gtest.h"
 #include "odbcabstraction/calendar_utils.h"
@@ -24,8 +24,8 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
-namespace odbcabstraction {
+using namespace arrow;
+using namespace odbcabstraction;
 
 TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_MILLI) {
   std::vector<int64_t> values = {86400370,  172800000, 259200000, 1649793238110LL,
@@ -199,7 +199,5 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_NANO) {
   }
 }
 
-}  // namespace odbcabstraction
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

@@ -28,8 +28,8 @@
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/result_set_metadata.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/statement.h"
 
-namespace ODBC {
-namespace driver::odbcabstraction {
+using namespace ODBC;
+using namespace driver::odbcabstraction;
 
 namespace {
 SQLSMALLINT CalculateHighestBoundRecord(const std::vector<DescriptorRecord>& records) {
@@ -568,5 +568,3 @@ void DescriptorRecord::CheckConsistency() {
   // TODO
 }
 
-}  // namespace driver::odbcabstraction
-}  // namespace ODBC

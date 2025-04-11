@@ -23,8 +23,8 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
-namespace odbcabstraction {
+using namespace arrow;
+using namespace odbcabstraction;
 
 TEST(StringArrayAccessor, Test_CDataType_CHAR_Basic) {
   std::vector<std::string> values = {"foo", "barx", "baz123"};
@@ -159,7 +159,5 @@ TEST(StringArrayAccessor, Test_CDataType_WCHAR_Truncation) {
   ASSERT_EQ(expected, finalStr);
 }
 
-}  // namespace odbcabstraction
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

@@ -16,7 +16,7 @@
 // under the License.
 
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_connection.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/platform.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 #include "arrow/flight/types.h"
 #include "gtest/gtest.h"
 
@@ -155,7 +155,7 @@ TEST(BuildLocationTests, ForTls) {
       FlightSqlConnection::BuildLocation(second_properties, missing_attr, ssl_config);
 
   Location expected_location;
-  ASSERT_TRUE(Location::ForGrpcTls("localhost", 32010, &expected_location).ok());
+  ASSERT_TRUE(Location::ForGrpcTls("localhost", 32010).Value(&expected_location).ok());
   ASSERT_EQ(expected_location, actual_location1);
   ASSERT_NE(expected_location, actual_location2);
 }

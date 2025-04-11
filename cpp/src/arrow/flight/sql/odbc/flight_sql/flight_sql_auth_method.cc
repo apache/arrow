@@ -28,7 +28,7 @@
 
 #include <utility>
 
-namespace driver::flight_sql {
+using namespace driver::flight_sql; //-AL- todo see if this is needed.
 
 namespace driver {
 namespace flight_sql {
@@ -189,4 +189,3 @@ std::unique_ptr<FlightSqlAuthMethod> FlightSqlAuthMethod::FromProperties(
 
 }  // namespace flight_sql
 }  // namespace driver
-}  // namespace driver::flight_sql

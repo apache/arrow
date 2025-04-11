@@ -29,7 +29,7 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
+using namespace arrow;
 
 namespace {
 Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
@@ -143,6 +143,5 @@ RecordBatchTransformerWithTasksBuilder::RecordBatchTransformerWithTasksBuilder(
     std::shared_ptr<Schema> schema)
     : schema_(std::move(schema)) {}
 
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

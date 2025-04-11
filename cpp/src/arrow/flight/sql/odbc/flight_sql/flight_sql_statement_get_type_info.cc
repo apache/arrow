@@ -20,14 +20,14 @@
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_connection.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_get_type_info_reader.h"
 #include "arrow/flight/sql/odbc/flight_sql/utils.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/platform.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 
 namespace driver {
 namespace flight_sql {
 
-using arrow::util::make_optional;
-using arrow::util::nullopt;
-using arrow::util::optional;
+using std::make_optional;
+using std::nullopt;
+using std::optional;
 
 namespace {
 std::shared_ptr<Schema> GetTypeInfo_V3_Schema() {

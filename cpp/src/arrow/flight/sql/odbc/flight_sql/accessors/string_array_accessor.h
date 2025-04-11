@@ -19,7 +19,7 @@
 
 #include <locale>
 #include "arrow/flight/sql/odbc/flight_sql/accessors/types.h"
-#include "arrow/flight/sql/odbc/flight_sql/accessors/utils.h"
+#include "arrow/flight/sql/odbc/flight_sql/utils.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/encoding.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 #include "arrow/type_fwd.h"
@@ -27,8 +27,8 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
-namespace odbcabstraction {
+using namespace arrow;
+using namespace odbcabstraction;
 
 template <CDataType TARGET_TYPE, typename CHAR_TYPE>
 class StringArrayFlightSqlAccessor
@@ -64,7 +64,5 @@ inline Accessor* CreateWCharStringArrayAccessor(arrow::Array* array) {
   }
 }
 
-}  // namespace odbcabstraction
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver
