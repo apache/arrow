@@ -110,10 +110,10 @@ class ARROW_ACERO_EXPORT Pipe {
   // backpressure
   std::unordered_map<PipeSource*, bool> paused_;
   std::mutex mutex_;
-  std::atomic_size_t paused_count_;
+  std::atomic_size_t paused_count_{0};
   std::unique_ptr<BackpressureControl> ctrl_;
   // stopProducing
-  std::atomic_size_t stopped_count_;
+  std::atomic_size_t stopped_count_{0};
   std::function<Status()> stopProducing_;
 
   const bool pause_on_any_;
