@@ -1330,7 +1330,6 @@ TEST_F(TestConvertArrowSchema, ParquetFlatPrimitivesAsDictionaries) {
 }
 
 TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsLonLat) {
-#ifdef ARROW_JSON
   // All the Arrow Schemas below should convert to the type defaults for GEOMETRY
   // and GEOGRAPHY when GeoArrow extension types are registered and the appropriate
   // writer option is set.
@@ -1368,13 +1367,9 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsLonLat) {
     ASSERT_OK(ConvertSchema(arrow_fields));
     ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
   }
-#else
-  GTEST_SKIP() << "non-default CRS testing requires ARROW_JSON";
-#endif
 }
 
 TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsSrid) {
-#ifdef ARROW_JSON
   // Checks that it is possible to write the srid:xxxx reccomendation from GeoArrow
   ::arrow::ExtensionTypeGuard guard(test::geoarrow_wkb());
 
@@ -1394,13 +1389,9 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsSrid) {
 
   ASSERT_OK(ConvertSchema(arrow_fields));
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
-#else
-  GTEST_SKIP() << "non-default CRS testing requires ARROW_JSON";
-#endif
 }
 
 TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsProjjson) {
-#ifdef ARROW_JSON
   // Checks the conversion between GeoArrow that contains non-lon/lat PROJJSON
   // to Parquet. Almost all GeoArrow types that arrive at the Parquet reader
   // will have their CRS expressed in this way.
@@ -1426,9 +1417,6 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsProjjson) {
       ParquetType::BYTE_ARRAY));
 
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
-#else
-  GTEST_SKIP() << "non-default CRS testing requires ARROW_JSON";
-#endif
 }
 
 TEST_F(TestConvertArrowSchema, ParquetLists) {

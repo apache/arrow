@@ -33,29 +33,6 @@
 namespace parquet {
 
 namespace {
-::arrow::Result<std::shared_ptr<const LogicalType>> ParseGeoArrowJSON(
-    std::string_view serialized_data);
-}
-
-::arrow::Result<std::shared_ptr<const LogicalType>> LogicalTypeFromGeoArrowMetadata(
-    std::string_view serialized_data) {
-  // Handle a few hard-coded cases so that the tests can run/users can write the default
-  // LogicalType::Geometry() even if ARROW_JSON is not defined.
-  if (serialized_data.empty() || serialized_data == "{}") {
-    return LogicalType::Geometry();
-  } else if (
-      serialized_data ==
-      R"({"edges": "spherical", "crs": "OGC:CRS84", "crs_type": "authority_code"})") {
-    return LogicalType::Geography();
-  } else if (serialized_data == R"({"crs": "OGC:CRS84", "crs_type": "authority_code"})") {
-    return LogicalType::Geometry();
-  } else {
-    // This will return an error status if ARROW_JSON is not defined
-    return ParseGeoArrowJSON(serialized_data);
-  }
-}
-
-namespace {
 ::arrow::Result<std::string> GeospatialGeoArrowCrsToParquetCrs(
     const ::arrow::rapidjson::Document& document) {
   namespace rj = ::arrow::rapidjson;
@@ -144,7 +121,9 @@ namespace {
   }
 }
 
-::arrow::Result<std::shared_ptr<const LogicalType>> ParseGeoArrowJSON(
+}  // namespace
+
+::arrow::Result<std::shared_ptr<const LogicalType>> LogicalTypeFromGeoArrowMetadata(
     std::string_view serialized_data) {
   // Parquet has no way to interpret a null or missing CRS, so we choose the most likely
   // intent here (that the user meant to use the default Parquet CRS)
@@ -171,8 +150,6 @@ namespace {
 
   return LogicalType::Geometry(crs);
 }
-
-}  // namespace
 
 ::arrow::Result<std::shared_ptr<::arrow::DataType>> GeoArrowTypeFromLogicalType(
     const LogicalType& logical_type,
