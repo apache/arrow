@@ -222,6 +222,7 @@ Status FixedSizeListBuilder::AppendNull() {
 
 void FixedSizeListBuilder::UnsafeAppendNull() {
    UnsafeAppendToBitmap(false);
+   (void) value_builder_->AppendNulls(list_size_);
 }
 
 Status FixedSizeListBuilder::AppendNulls(int64_t length) {
