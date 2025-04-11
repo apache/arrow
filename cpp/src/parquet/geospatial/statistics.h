@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 #include "parquet/platform.h"
 #include "parquet/types.h"
@@ -105,11 +106,12 @@ class PARQUET_EXPORT GeoStatistics {
 
   /// \brief Encode the statistics for serializing to Thrift
   ///
-  /// If invalid WKB was encountered, empty encoded statistics are returned
-  /// (such that is_set() returns false and they should not be written).
-  EncodedGeoStatistics Encode() const;
+  /// If invalid WKB was encountered or if the statistics contain NaN
+  /// for any reason, Encode() will return nullopt to indicate that
+  /// statistics should not be written to thrift.
+  std::optional<EncodedGeoStatistics> Encode() const;
 
-  /// \brief Returns true if all WKB encountered was valid or false otherwise
+  /// \brief Returns false if invalid WKB was encountered or any statistics are NaN
   bool is_valid() const;
 
   /// \brief Reset existing statistics and populate them from previously-encoded ones

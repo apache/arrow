@@ -1451,7 +1451,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   }
 
   std::optional<geospatial::EncodedGeoStatistics> GetChunkGeoStatistics() override {
-    if (chunk_geospatial_statistics_ && chunk_geospatial_statistics_->is_valid()) {
+    if (chunk_geospatial_statistics_) {
       return chunk_geospatial_statistics_->Encode();
     } else {
       return std::nullopt;

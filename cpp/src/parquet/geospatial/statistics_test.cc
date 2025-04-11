@@ -45,26 +45,29 @@ TEST(TestGeoStatistics, TestDefaults) {
             "GeoStatistics \n  x: [inf, -inf]\n  y: [inf, -inf]\n  geometry_types:\n");
 
   auto encoded = stats.Encode();
-  EXPECT_FALSE(encoded.is_empty());
-  EXPECT_FALSE(encoded.has_xy);
-  EXPECT_FALSE(encoded.has_z);
-  EXPECT_FALSE(encoded.has_m);
-  EXPECT_TRUE(GeoStatistics(encoded).Equals(stats));
+  EXPECT_TRUE(encoded->is_empty());
+  EXPECT_FALSE(encoded->has_xy);
+  EXPECT_FALSE(encoded->has_z);
+  EXPECT_FALSE(encoded->has_m);
+  EXPECT_TRUE(GeoStatistics(*encoded).Equals(stats));
 
   stats.Merge(GeoStatistics());
-  EXPECT_TRUE(GeoStatistics(encoded).Equals(stats));
+  EXPECT_TRUE(GeoStatistics(*encoded).Equals(stats));
 }
 
 TEST(TestGeoStatistics, TestImportEncodedWithNaN) {
   double nan_dbl = std::numeric_limits<double>::quiet_NaN();
 
   EncodedGeoStatistics encoded_with_nan;
+  encoded_with_nan.has_xy = true;
   encoded_with_nan.xmin = nan_dbl;
   encoded_with_nan.xmax = nan_dbl;
   encoded_with_nan.ymin = nan_dbl;
   encoded_with_nan.ymax = nan_dbl;
+  encoded_with_nan.has_z = true;
   encoded_with_nan.zmin = nan_dbl;
   encoded_with_nan.zmax = nan_dbl;
+  encoded_with_nan.has_m = true;
   encoded_with_nan.mmin = nan_dbl;
   encoded_with_nan.mmax = nan_dbl;
 
@@ -107,16 +110,8 @@ TEST(TestGeoStatistics, TestImportEncodedWithNaN) {
   EXPECT_TRUE(std::isnan(stats_finite.mmin()));
   EXPECT_TRUE(std::isnan(stats_finite.mmax()));
 
-  // Ensure that if we decode nans, we also encode nans
-  EncodedGeoStatistics stats_encoded = stats.Encode();
-  EXPECT_TRUE(std::isnan(stats_encoded.xmin));
-  EXPECT_TRUE(std::isnan(stats_encoded.xmax));
-  EXPECT_TRUE(std::isnan(stats_encoded.ymin));
-  EXPECT_TRUE(std::isnan(stats_encoded.ymax));
-  EXPECT_TRUE(std::isnan(stats_encoded.zmin));
-  EXPECT_TRUE(std::isnan(stats_encoded.zmax));
-  EXPECT_TRUE(std::isnan(stats_encoded.mmin));
-  EXPECT_TRUE(std::isnan(stats_encoded.mmax));
+  // Ensure that if we decode nans, we mark the stats as invalid and don't encode anything
+  EXPECT_EQ(stats.Encode(), std::nullopt);
 }
 
 TEST(TestGeoStatistics, TestUpdateByteArray) {
@@ -145,7 +140,7 @@ TEST(TestGeoStatistics, TestUpdateByteArray) {
 
   // Check recreating the statistics with actual values
   auto encoded = stats.Encode();
-  EXPECT_TRUE(GeoStatistics(encoded).Equals(stats));
+  EXPECT_TRUE(GeoStatistics(*encoded).Equals(stats));
   EXPECT_EQ(stats.ToString(),
             "GeoStatistics \n  x: [10, 20]\n  y: [11, 21]\n  z: [12, 22]\n  m: "
             "[13, 23]\n  geometry_types: 3001\n");
@@ -183,18 +178,18 @@ TEST(TestGeoStatistics, TestUpdateByteArray) {
   ByteArray invalid;
   stats.Update(&invalid, /*num_values=*/1);
   EXPECT_FALSE(stats.is_valid());
-  EXPECT_FALSE(stats.Encode().is_empty());
+  EXPECT_EQ(stats.Encode(), std::nullopt);
 
   // This should be true even after ingesting more values
   stats.Update(&item0, /*num_values=*/1);
   EXPECT_FALSE(stats.is_valid());
-  EXPECT_FALSE(stats.Encode().is_empty());
+  EXPECT_EQ(stats.Encode(), std::nullopt);
   EXPECT_EQ(stats.ToString(), "GeoStatistics <invalid>\n");
 
   // And should cause other statistics to become invalid when merged with them
   stats_spaced.Merge(stats);
   EXPECT_FALSE(stats_spaced.is_valid());
-  EXPECT_FALSE(stats_spaced.Encode().is_empty());
+  EXPECT_EQ(stats_spaced.Encode(), std::nullopt);
 }
 
 TEST(TestGeoStatistics, TestUpdateXYZM) {
@@ -281,10 +276,11 @@ TEST(TestGeoStatistics, TestUpdateArrayInvalid) {
   GeoStatistics invalid;
   invalid.Update(*invalid_wkb);
   EXPECT_FALSE(invalid.is_valid());
-  EXPECT_FALSE(invalid.Encode().is_empty());
+  EXPECT_EQ(invalid.Encode(), std::nullopt);
 
   // Make some valid statistics
   EncodedGeoStatistics encoded_valid;
+  encoded_valid.has_xy = true;
   encoded_valid.xmin = 0;
   encoded_valid.xmax = 10;
   encoded_valid.ymin = 20;
@@ -293,6 +289,7 @@ TEST(TestGeoStatistics, TestUpdateArrayInvalid) {
 
   // Make some statistics with unsupported wraparound
   EncodedGeoStatistics encoded_unsupported;
+  encoded_unsupported.has_xy = true;
   encoded_unsupported.xmin = 10;
   encoded_unsupported.xmax = 0;
   encoded_unsupported.ymin = 20;

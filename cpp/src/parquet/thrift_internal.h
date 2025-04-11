@@ -256,6 +256,8 @@ static inline geospatial::EncodedGeoStatistics FromThrift(
       out.zmin = geo_stats.bbox.zmin;
       out.zmax = geo_stats.bbox.zmax;
       out.has_z = true;
+    } else {
+      out.has_z = false;
     }
 
     // The mmin and mmax members are set if and only if there was at least one
@@ -264,7 +266,13 @@ static inline geospatial::EncodedGeoStatistics FromThrift(
       out.mmin = geo_stats.bbox.mmin;
       out.mmax = geo_stats.bbox.mmax;
       out.has_m = true;
+    } else {
+      out.has_m = false;
     }
+  } else {
+    out.has_xy = false;
+    out.has_z = false;
+    out.has_m = false;
   }
 
   return out;

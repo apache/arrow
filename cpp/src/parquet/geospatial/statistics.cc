@@ -19,6 +19,7 @@
 
 #include <cmath>
 #include <memory>
+#include <optional>
 
 #include "arrow/array.h"
 #include "arrow/type.h"
@@ -205,7 +206,19 @@ class GeoStatisticsImpl {
     return is_wraparound(lower_bound()[0], upper_bound()[0]);
   }
 
-  bool is_valid() const { return is_valid_; }
+  bool is_valid() const {
+    if (!is_valid_) {
+      return false;
+    }
+
+    for (int i = 0; i < kMaxDimensions; i++) {
+      if (std::isnan(lower_bound()[i]) || std::isnan(upper_bound()[i])) {
+        return false;
+      }
+    }
+
+    return true;
+  }
 
   bool bounds_empty() const {
     for (int i = 0; i < kMaxDimensions; i++) {
@@ -286,7 +299,13 @@ void GeoStatistics::Reset() { impl_->Reset(); }
 
 bool GeoStatistics::is_valid() const { return impl_->is_valid(); }
 
-EncodedGeoStatistics GeoStatistics::Encode() const { return impl_->Encode(); }
+std::optional<EncodedGeoStatistics> GeoStatistics::Encode() const {
+  if (is_valid()) {
+    return impl_->Encode();
+  } else {
+    return std::nullopt;
+  }
+}
 
 void GeoStatistics::Decode(const EncodedGeoStatistics& encoded) {
   impl_->Reset();
