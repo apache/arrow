@@ -481,7 +481,7 @@ Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
   std::vector<std::shared_ptr<Field>> encoded_fields;
   encoded_fields.reserve(num_columns);
   for (int i = 0; i < num_columns; i++) {
-    auto field = table.schema()->field(i);
+    const auto& field = table.schema()->field(i);
     if (std::find(column_indices.begin(), column_indices.end(), i) !=
         column_indices.end()) {
       ARROW_ASSIGN_OR_RAISE(auto run_end_encoded, compute::RunEndEncode(table.column(i)));
@@ -494,8 +494,8 @@ Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
       encoded_fields.push_back(field);
     }
   }
-  auto updated_schema = arrow::schema(encoded_fields);
-  return Table::Make(updated_schema, std::move(encoded_columns));
+  auto updated_schema = arrow::schema(std::move(encoded_fields));
+  return Table::Make(std::move(updated_schema), std::move(encoded_columns));
 }
 
 Result<std::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,
