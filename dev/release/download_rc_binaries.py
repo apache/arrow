@@ -285,7 +285,7 @@ def download_rc_binaries(version, rc_number, re_match=None, dest=None,
             downloader = Artifactory()
             prefix = f'{package_type}-rc'
         else:
-            downloader = Atifactory()
+            downloader = Artifactory()
             prefix = f'{package_type}-rc/{version_string}'
             filter = None
         files = downloader.get_file_list(prefix, filter=filter)
