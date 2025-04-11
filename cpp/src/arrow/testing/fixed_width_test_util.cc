@@ -137,7 +137,7 @@ Status NestedListGenerator::AppendNestedList(ArrayBuilder* nested_builder,
     if (type->id() == Type::FIXED_SIZE_LIST) {
       auto* fsl_builder = checked_cast<FixedSizeListBuilder*>(builder);
       assert(list_size == checked_cast<FixedSizeListType&>(*type).list_size());
-      RETURN_NOT_OK(fsl_builder->Append());
+      fsl_builder->UnsafeAppend();
       builder = fsl_builder->value_builder();
     } else {  // type->id() == Type::LIST)
       auto* list_builder = checked_cast<ListBuilder*>(builder);
