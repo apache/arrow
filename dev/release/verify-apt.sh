@@ -70,7 +70,7 @@ artifactory_base_url="https://packages.apache.org/artifactory/arrow/${distributi
 if [ "${TYPE}" = "rc" ]; then
   suffix=${TYPE%-release}
   artifactory_base_url+="-${suffix}"
-esac
+fi
 
 workaround_missing_packages=()
 case "${distribution}-${code_name}" in
