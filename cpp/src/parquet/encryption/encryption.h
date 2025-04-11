@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <map>
 #include <memory>
 #include <string>
@@ -55,7 +56,17 @@ class PARQUET_EXPORT DecryptionKeyRetriever {
 class PARQUET_EXPORT IntegerKeyIdRetriever : public DecryptionKeyRetriever {
  public:
   void PutKey(uint32_t key_id, encryption::SecureString key);
-  encryption::SecureString GetKey(const std::string& key_metadata) override;
+  encryption::SecureString GetKey(const std::string& key_metadata) override {
+    // key_metadata is string but for IntegerKeyIdRetriever it encodes
+    // a native-endian 32 bit unsigned integer key_id
+    uint32_t key_id;
+    assert(key_metadata.size() == sizeof(key_id));
+    memcpy(&key_id, key_metadata.data(), sizeof(key_id));
+
+    return GetKey(key_id);
+  }
+
+  encryption::SecureString GetKey(uint32_t key_id) { return key_map_.at(key_id); }
 
  private:
   std::map<uint32_t, encryption::SecureString> key_map_;

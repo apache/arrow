@@ -33,13 +33,6 @@ void IntegerKeyIdRetriever::PutKey(uint32_t key_id, encryption::SecureString key
   key_map_.insert({key_id, std::move(key)});
 }
 
-encryption::SecureString IntegerKeyIdRetriever::GetKey(const std::string& key_metadata) {
-  uint32_t key_id;
-  memcpy(reinterpret_cast<uint8_t*>(&key_id), key_metadata.c_str(), 4);
-
-  return key_map_.at(key_id);
-}
-
 // string key retriever
 void StringKeyIdRetriever::PutKey(std::string key_id, encryption::SecureString key) {
   key_map_.insert({std::move(key_id), std::move(key)});
