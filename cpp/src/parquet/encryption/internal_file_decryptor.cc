@@ -108,27 +108,21 @@ std::unique_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
 
 encryption::SecureString InternalFileDecryptor::GetColumnKey(
     const std::string& column_path, const std::string& column_key_metadata) {
-  try {
-    encryption::SecureString column_key =
-        RetrieveColumnKeyIfEmpty(properties_->column_key(column_path),
-                                 column_key_metadata, properties_->key_retriever());
+  encryption::SecureString column_key = properties_->column_key(column_path);
+
+  // No explicit column key given via API. Retrieve via key metadata.
+  if (column_key.empty() && !column_key_metadata.empty() &&
+      properties_->key_retriever() != nullptr) {
+    try {
+      column_key = properties_->key_retriever()->GetKey(column_key_metadata);
+    } catch (KeyAccessDeniedException& e) {
+      std::stringstream ss;
+      ss << "HiddenColumnException, path=" + column_path + " " << e.what() << "\n";
+      throw HiddenColumnException(ss.str());
+    }
     if (column_key.empty()) {
       throw HiddenColumnException("HiddenColumnException, path=" + column_path);
     }
-    return column_key;
-  } catch (KeyAccessDeniedException& e) {
-    std::stringstream ss;
-    ss << "HiddenColumnException, path=" + column_path + " " << e.what() << "\n";
-    throw HiddenColumnException(ss.str());
-  }
-}
-
-encryption::SecureString InternalFileDecryptor::RetrieveColumnKeyIfEmpty(
-    encryption::SecureString column_key, const std::string& column_key_metadata,
-    const std::shared_ptr<DecryptionKeyRetriever>& key_retriever) {
-  if (column_key.empty() && !column_key_metadata.empty() && key_retriever != nullptr) {
-    // No explicit column key given via API. Retrieve via key metadata.
-    return key_retriever->GetKey(column_key_metadata);
   }
   return column_key;
 }
