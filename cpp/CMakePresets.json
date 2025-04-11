@@ -123,6 +123,14 @@
       }
     },
     {
+      "name": "features-flight-sql-odbc",
+      "inherits": "features-flight-sql",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_FLIGHT_SQL_ODBC": "ON"
+      }
+    },
+    {
       "name": "features-gandiva",
       "inherits": "features-basic",
       "hidden": true,
@@ -499,6 +507,15 @@
         "base-release"
       ],
       "displayName": "Release build with Flight SQL",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-flight-sql-odbc",
+      "inherits": [
+        "features-flight-sql-odbc",
+        "base-release"
+      ],
+      "displayName": "Release build with Flight SQL ODBC",
       "cacheVariables": {}
     },
     {
