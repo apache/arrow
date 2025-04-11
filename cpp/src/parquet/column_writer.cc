@@ -789,7 +789,7 @@ class ColumnWriterImpl {
   virtual StatisticsPair GetChunkStatistics() = 0;
 
   // Geospatial statistics of the whole chunk
-  virtual std::optional<EncodedGeoStatistics> GetChunkGeoStatistics() = 0;
+  virtual std::optional<geometry::EncodedGeoStatistics> GetChunkGeoStatistics() = 0;
 
   // Merges page statistics into chunk statistics, then resets the values
   virtual void ResetPageStatistics() = 0;
@@ -1113,7 +1113,7 @@ int64_t ColumnWriterImpl::Close() {
     }
 
     if (descr_->logical_type() != nullptr && descr_->logical_type()->is_geometry()) {
-      std::optional<EncodedGeoStatistics> geo_stats = GetChunkGeoStatistics();
+      std::optional<geometry::EncodedGeoStatistics> geo_stats = GetChunkGeoStatistics();
       if (geo_stats) {
         metadata_->SetGeoStatistics(std::move(*geo_stats));
       }
@@ -1245,14 +1245,14 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     // Geometry/Geography are the first non-nested logical types to have a
     // SortOrder::UNKNOWN. Currently, the presence of statistics is tied to
     // having a known sort order and so null counts will be missing.
-    if (properties->statistics_enabled(descr_->path()) &&
-        (SortOrder::UNKNOWN != descr_->sort_order())) {
-      page_statistics_ = MakeStatistics<ParquetType>(descr_, allocator_);
-      chunk_statistics_ = MakeStatistics<ParquetType>(descr_, allocator_);
-    } else if (properties->statistics_enabled(descr_->path()) &&
-               descr_->logical_type() != nullptr &&
-               descr_->logical_type()->is_geometry()) {
-      chunk_geospatial_statistics_ = std::make_shared<GeoStatistics>();
+    if (properties->statistics_enabled(descr_->path())) {
+      if (SortOrder::UNKNOWN != descr_->sort_order()) {
+        page_statistics_ = MakeStatistics<ParquetType>(descr_, allocator_);
+        chunk_statistics_ = MakeStatistics<ParquetType>(descr_, allocator_);
+      }
+      if (descr_->logical_type() != nullptr && descr_->logical_type()->is_geometry()) {
+        chunk_geospatial_statistics_ = std::make_shared<geometry::GeoStatistics>();
+      }
     }
 
     if (properties->size_statistics_level() == SizeStatisticsLevel::ColumnChunk ||
@@ -1450,7 +1450,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     return result;
   }
 
-  std::optional<EncodedGeoStatistics> GetChunkGeoStatistics() override {
+  std::optional<geometry::EncodedGeoStatistics> GetChunkGeoStatistics() override {
     if (chunk_geospatial_statistics_ && chunk_geospatial_statistics_->is_valid()) {
       return chunk_geospatial_statistics_->Encode();
     } else {
@@ -1522,7 +1522,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   std::shared_ptr<TypedStats> chunk_statistics_;
   std::unique_ptr<SizeStatistics> page_size_statistics_;
   std::shared_ptr<SizeStatistics> chunk_size_statistics_;
-  std::shared_ptr<GeoStatistics> chunk_geospatial_statistics_;
+  std::shared_ptr<geometry::GeoStatistics> chunk_geospatial_statistics_;
   bool pages_change_on_record_boundaries_;
 
   // If writing a sequence of ::arrow::DictionaryArray to the writer, we keep the

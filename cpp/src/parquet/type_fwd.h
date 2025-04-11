@@ -82,8 +82,11 @@ class ArrowWriterPropertiesBuilder;
 class EncodedStatistics;
 class Statistics;
 struct SizeStatistics;
+
+namespace geometry {
 class GeoStatistics;
 struct EncodedGeoStatistics;
+}  // namespace geometry
 
 class ColumnIndex;
 class OffsetIndex;

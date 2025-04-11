@@ -23,13 +23,12 @@
 #include "arrow/array.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_run_reader.h"
-#include "arrow/util/logging.h"
 #include "parquet/exception.h"
 #include "parquet/geospatial/util_internal.h"
 
 using arrow::util::SafeLoad;
 
-namespace parquet {
+namespace parquet::geometry {
 
 class GeoStatisticsImpl {
  public:
@@ -365,4 +364,4 @@ std::string GeoStatistics::ToString() const {
   return ss.str();
 }
 
-}  // namespace parquet
+}  // namespace parquet::geometry

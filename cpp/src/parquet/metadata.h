@@ -144,7 +144,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   bool is_geo_stats_set() const;
   std::shared_ptr<Statistics> statistics() const;
   std::shared_ptr<SizeStatistics> size_statistics() const;
-  std::shared_ptr<GeoStatistics> geo_statistics() const;
+  std::shared_ptr<geometry::GeoStatistics> geo_statistics() const;
 
   Compression::type compression() const;
   // Indicate if the ColumnChunk compression is supported by the current
@@ -443,7 +443,7 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   void SetSizeStatistics(const SizeStatistics& size_stats);
 
   // column geometry statistics
-  void SetGeoStatistics(const EncodedGeoStatistics& geo_stats);
+  void SetGeoStatistics(const geometry::EncodedGeoStatistics& geo_stats);
 
   void SetKeyValueMetadata(std::shared_ptr<const KeyValueMetadata> key_value_metadata);
 

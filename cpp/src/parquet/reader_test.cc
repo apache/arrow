@@ -1992,8 +1992,8 @@ class TestGeometryLogicalType : public ::testing::Test {
   }
 
   void CheckGeoStatistics(std::shared_ptr<const LogicalType> type,
-                          std::shared_ptr<GeoStatistics> geom_stats, int64_t start_index,
-                          int64_t num_rows) {
+                          std::shared_ptr<geometry::GeoStatistics> geom_stats,
+                          int64_t start_index, int64_t num_rows) {
     // We don't yet generate statistics for Geography
     if (type->is_geography()) {
       ASSERT_EQ(geom_stats, nullptr);

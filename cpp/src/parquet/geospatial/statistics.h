@@ -24,7 +24,7 @@
 #include "parquet/platform.h"
 #include "parquet/types.h"
 
-namespace parquet {
+namespace parquet::geometry {
 
 /// \brief Structure represented encoded statistics to be written to and read from Parquet
 /// serialized metadata.
@@ -193,4 +193,4 @@ class PARQUET_EXPORT GeoStatistics {
   std::unique_ptr<GeoStatisticsImpl> impl_;
 };
 
-}  // namespace parquet
+}  // namespace parquet::geometry
