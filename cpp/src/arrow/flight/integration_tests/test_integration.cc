@@ -1167,6 +1167,7 @@ const std::shared_ptr<Schema>& GetQuerySchema() {
                         .IsSearchable(true)
                         .CatalogName("catalog_test")
                         .Precision(100)
+                        .Remarks("test column")
                         .Build()
                         .metadata_map())});
   return kSchema;
@@ -1187,6 +1188,7 @@ std::shared_ptr<Schema> GetQueryWithTransactionSchema() {
                         .IsSearchable(true)
                         .CatalogName("catalog_test")
                         .Precision(100)
+                        .Remarks("test column")
                         .Build()
                         .metadata_map())});
   return kSchema;
