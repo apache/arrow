@@ -63,7 +63,22 @@ needs_filesystem = false or needs_hdfs
 needs_integration = get_option('integration')
 needs_tests = get_option('tests')
 needs_ipc = get_option('ipc') or needs_tests or needs_benchmarks
-needs_testing = get_option('testing') or needs_tests or needs_benchmarks or needs_integration
+needs_fuzzing = get_option('fuzzing')
+needs_testing = (get_option('testing')
+or needs_tests
+or needs_benchmarks
+or needs_fuzzing
+or needs_integration
+)
 needs_json = get_option('json') or needs_testing
+needs_brotli = get_option('brotli') or needs_fuzzing
+needs_lz4 = get_option('lz4')
+needs_zstd = get_option('zstd')
+needs_utilities = get_option('utilities')
+
+if get_option('brotli') or get_option('lz4') or get_option('zstd')
+    # See GH issue 46115
+    error('Compression options (brotli, lz4, zstd) are not implemented in Meson')
+endif
 
 subdir('src/arrow')

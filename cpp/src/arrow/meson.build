@@ -554,3 +554,7 @@ endif
 if needs_csv
     subdir('csv')
 endif
+
+if needs_ipc
+    subdir('ipc')
+endif
