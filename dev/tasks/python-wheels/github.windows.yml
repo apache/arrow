@@ -69,9 +69,9 @@ jobs:
           @rem pulled caches when build an image.
           echo on
           archery docker pull --no-ignore-pull-failures %TEST_IMAGE_PREFIX%-wheel-windows-vs2022
-          @rem if errorlevel 1 (
+          if errorlevel 1 (
             archery docker build --no-pull %TEST_IMAGE_PREFIX%-wheel-windows-vs2022 || exit /B 1
-          @rem )
+          )
           archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} %TEST_IMAGE_PREFIX%-wheel-windows-vs2022
 
       - uses: actions/upload-artifact@v4
