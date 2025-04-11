@@ -281,7 +281,7 @@ struct Statistics {
     */
    1: optional binary max;
    2: optional binary min;
-   /**
+   /** 
     * Count of null values in the column.
     *
     * Writers SHOULD always write this field even if it is zero (i.e. no null value)
@@ -893,7 +893,7 @@ struct ColumnMetaData {
   /** total byte size of all uncompressed pages in this column chunk (including the headers) **/
   6: required i64 total_uncompressed_size
 
-  /** total byte size of all compressed, and potentially encrypted, pages
+  /** total byte size of all compressed, and potentially encrypted, pages 
    *  in this column chunk (including the headers) **/
   7: required i64 total_compressed_size
 
@@ -1020,10 +1020,10 @@ struct RowGroup {
    * in this row group **/
   5: optional i64 file_offset
 
-  /** Total byte size of all compressed (and potentially encrypted) column data
+  /** Total byte size of all compressed (and potentially encrypted) column data 
    *  in this row group **/
   6: optional i64 total_compressed_size
-
+  
   /** Row group ordinal in the file **/
   7: optional i16 ordinal
 }
@@ -1090,7 +1090,7 @@ union ColumnOrder {
    *     - If the min is +0, the row group may contain -0 values as well.
    *     - If the max is -0, the row group may contain +0 values as well.
    *     - When looking for NaN values, min and max should be ignored.
-   *
+   * 
    *     When writing statistics the following rules should be followed:
    *     - NaNs should not be written to min or max statistics fields.
    *     - If the computed max value is zero (whether negative or positive),
@@ -1183,13 +1183,13 @@ struct ColumnIndex {
   4: required BoundaryOrder boundary_order
 
   /**
-   * A list containing the number of null values for each page
+   * A list containing the number of null values for each page 
    *
    * Writers SHOULD always write this field even if no null values
    * are present or the column is not nullable.
-   * Readers MUST distinguish between null_counts not being present
+   * Readers MUST distinguish between null_counts not being present 
    * and null_count being 0.
-   * If null_counts are not present, readers MUST NOT assume all
+   * If null_counts are not present, readers MUST NOT assume all 
    * null counts are 0.
    */
   5: optional list<i64> null_counts
@@ -1290,30 +1290,30 @@ struct FileMetaData {
    */
   7: optional list<ColumnOrder> column_orders;
 
-  /**
+  /** 
    * Encryption algorithm. This field is set only in encrypted files
    * with plaintext footer. Files with encrypted footer store algorithm id
    * in FileCryptoMetaData structure.
    */
   8: optional EncryptionAlgorithm encryption_algorithm
 
-  /**
-   * Retrieval metadata of key used for signing the footer.
-   * Used only in encrypted files with plaintext footer.
-   */
+  /** 
+   * Retrieval metadata of key used for signing the footer. 
+   * Used only in encrypted files with plaintext footer. 
+   */ 
   9: optional binary footer_signing_key_metadata
 }
 
 /** Crypto metadata for files with encrypted footer **/
 struct FileCryptoMetaData {
-  /**
+  /** 
    * Encryption algorithm. This field is only used for files
    * with encrypted footer. Files with plaintext footer store algorithm id
    * inside footer (FileMetaData structure).
    */
   1: required EncryptionAlgorithm encryption_algorithm
-
-  /** Retrieval metadata of key used for encryption of footer,
+    
+  /** Retrieval metadata of key used for encryption of footer, 
    *  and (possibly) columns **/
   2: optional binary key_metadata
 }
