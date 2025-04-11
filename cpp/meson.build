@@ -58,8 +58,11 @@ endif
 
 needs_benchmarks = get_option('benchmarks')
 needs_csv = get_option('csv')
+needs_azure = get_option('azure')
+needs_gcs = get_option('gcs')
 needs_hdfs = get_option('hdfs')
-needs_filesystem = false or needs_hdfs
+needs_s3 = get_option('s3')
+needs_filesystem = get_option('filesystem') or needs_azure or needs_gcs or needs_hdfs or needs_s3
 needs_integration = get_option('integration')
 needs_tests = get_option('tests')
 needs_ipc = get_option('ipc') or needs_tests or needs_benchmarks

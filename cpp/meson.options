@@ -16,6 +16,13 @@
 # under the License.
 
 option(
+    'azure',
+    type: 'boolean',
+    description: 'Build Arrow with Azure support (requires the Azure SDK for C++)',
+    value: false,
+)
+
+option(
     'benchmarks',
     type: 'boolean',
     description: 'Build the Arrow micro benchmarks',
@@ -26,6 +33,20 @@ option(
     'csv',
     type: 'boolean',
     description: 'Build the Arrow CSV Parser Module',
+    value: false,
+)
+
+option(
+    'filesystem',
+    type: 'boolean',
+    description: 'Build the Arrow Filesystem Layer',
+    value: false,
+)
+
+option(
+    'gcs',
+    type: 'boolean',
+    description: 'Build Arrow with GCS support (requires the Google Cloud Platform C++ Client Libraries)',
     value: false,
 )
 
@@ -71,6 +92,13 @@ option(
     'package_kind',
     type: 'string',
     description: 'Arbitrary string that identifies the kind of package (for informational purposes)',
+)
+
+option(
+    's3',
+    type: 'boolean',
+    description: 'Build Arrow with S3 support (requires the AWS SDK for C++)',
+    value: false,
 )
 
 option(
