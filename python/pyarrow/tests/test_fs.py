@@ -1230,7 +1230,8 @@ def test_s3_options(pickle_module):
     assert pickle_module.loads(pickle_module.dumps(fs2)) == fs2
     assert fs2 != fs
 
-    fs = S3FileSystem(allow_bucket_creation=True, allow_bucket_deletion=True)
+    fs = S3FileSystem(allow_bucket_creation=True, allow_bucket_deletion=True,
+                      allow_delayed_open=True)
     assert isinstance(fs, S3FileSystem)
     assert pickle_module.loads(pickle_module.dumps(fs)) == fs
 
