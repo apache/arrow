@@ -143,24 +143,24 @@ class GeoStatisticsImpl {
     EncodedGeoStatistics out;
     out.geospatial_types = bounder_.GeometryTypes();
 
-    if (!bound_empty(0)) {
+    if (!bound_empty(0) && !bound_empty(1)) {
       out.xmin = mins[0];
       out.xmax = maxes[0];
-    }
-
-    if (!bound_empty(1)) {
       out.ymin = mins[1];
       out.ymax = maxes[1];
+      out.has_xy = true;
     }
 
     if (!bound_empty(2)) {
       out.zmin = mins[2];
       out.zmax = maxes[2];
+      out.has_z = true;
     }
 
     if (!bound_empty(3)) {
       out.mmin = mins[3];
       out.mmax = maxes[3];
+      out.has_m = true;
     }
 
     return out;
@@ -180,22 +180,19 @@ class GeoStatisticsImpl {
 
     geospatial::BoundingBox box;
 
-    if (encoded.has_x()) {
+    if (encoded.has_xy) {
       box.min[0] = encoded.xmin;
       box.max[0] = encoded.xmax;
-    }
-
-    if (encoded.has_y()) {
       box.min[1] = encoded.ymin;
       box.max[1] = encoded.ymax;
     }
 
-    if (encoded.has_z()) {
+    if (encoded.has_z) {
       box.min[2] = encoded.zmin;
       box.max[2] = encoded.zmax;
     }
 
-    if (encoded.has_m()) {
+    if (encoded.has_m) {
       box.min[3] = encoded.mmin;
       box.max[3] = encoded.mmax;
     }
@@ -211,7 +208,7 @@ class GeoStatisticsImpl {
   bool is_valid() const { return is_valid_; }
 
   bool bounds_empty() const {
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < kMaxDimensions; i++) {
       if (!bound_empty(i)) {
         return false;
       }
@@ -224,9 +221,13 @@ class GeoStatisticsImpl {
     return std::isinf(bounder_.Bounds().min[i] - bounder_.Bounds().max[i]);
   }
 
-  const std::array<double, 4>& lower_bound() const { return bounder_.Bounds().min; }
+  const std::array<double, kMaxDimensions>& lower_bound() const {
+    return bounder_.Bounds().min;
+  }
 
-  const std::array<double, 4>& upper_bound() const { return bounder_.Bounds().max; }
+  const std::array<double, kMaxDimensions>& upper_bound() const {
+    return bounder_.Bounds().max;
+  }
 
   std::vector<int32_t> geometry_types() const { return bounder_.GeometryTypes(); }
 

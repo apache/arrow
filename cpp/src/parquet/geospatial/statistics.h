@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <cmath>
 #include <cstdint>
 #include <memory>
 
@@ -26,31 +25,33 @@
 
 namespace parquet::geospatial {
 
+/// \brief The maximum number of dimensions represented by a geospatial type
+/// (i.e., X, Y, Z, and M)
+static constexpr int kMaxDimensions = 4;
+
 /// \brief Structure represented encoded statistics to be written to and read from Parquet
 /// serialized metadata.
 ///
 /// See the Parquet Thrift definition and GeoStatistics for the specific definition
 /// of field values.
 struct PARQUET_EXPORT EncodedGeoStatistics {
-  static constexpr double kInf = std::numeric_limits<double>::infinity();
+  bool has_xy{};
+  double xmin{};
+  double xmax{};
+  double ymin{};
+  double ymax{};
 
-  double xmin{kInf};
-  double xmax{-kInf};
-  double ymin{kInf};
-  double ymax{-kInf};
-  double zmin{kInf};
-  double zmax{-kInf};
-  double mmin{kInf};
-  double mmax{-kInf};
+  bool has_z{};
+  double zmin{};
+  double zmax{};
+
+  bool has_m{};
+  double mmin{};
+  double mmax{};
   std::vector<int32_t> geospatial_types;
 
-  bool has_x() const { return !std::isinf(xmin - xmax); }
-  bool has_y() const { return !std::isinf(ymin - ymax); }
-  bool has_z() const { return !std::isinf(zmin - zmax); }
-  bool has_m() const { return !std::isinf(mmin - mmax); }
-
   bool is_empty() const {
-    return !(!geospatial_types.empty() || has_x() || has_y() || has_z() || has_m());
+    return !(!geospatial_types.empty() || has_xy || has_z || has_m);
   }
 };
 

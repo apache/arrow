@@ -46,10 +46,9 @@ TEST(TestGeoStatistics, TestDefaults) {
 
   auto encoded = stats.Encode();
   EXPECT_FALSE(encoded.is_empty());
-  EXPECT_FALSE(encoded.has_x());
-  EXPECT_FALSE(encoded.has_y());
-  EXPECT_FALSE(encoded.has_z());
-  EXPECT_FALSE(encoded.has_m());
+  EXPECT_FALSE(encoded.has_xy);
+  EXPECT_FALSE(encoded.has_z);
+  EXPECT_FALSE(encoded.has_m);
   EXPECT_TRUE(GeoStatistics(encoded).Equals(stats));
 
   stats.Merge(GeoStatistics());

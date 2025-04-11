@@ -237,20 +237,34 @@ static inline geospatial::EncodedGeoStatistics FromThrift(
     const format::GeospatialStatistics& geo_stats) {
   geospatial::EncodedGeoStatistics out;
 
+  // GeospatialStatistics always contain geospatial_types; however,
+  // this may contain zero values if all values in the row group were null.
   out.geospatial_types = geo_stats.geospatial_types;
-  out.xmin = geo_stats.bbox.xmin;
-  out.xmax = geo_stats.bbox.xmax;
-  out.ymin = geo_stats.bbox.ymin;
-  out.ymax = geo_stats.bbox.ymax;
 
-  if (geo_stats.bbox.__isset.zmin && geo_stats.bbox.__isset.zmax) {
-    out.zmin = geo_stats.bbox.zmin;
-    out.zmax = geo_stats.bbox.zmax;
-  }
+  // The bbox member is set if and only if there was one or more X and Y coordinates
+  // (i.e., at least one non-empty and non-null geometry or geography).
+  if (geo_stats.__isset.bbox) {
+    out.xmin = geo_stats.bbox.xmin;
+    out.xmax = geo_stats.bbox.xmax;
+    out.ymin = geo_stats.bbox.ymin;
+    out.ymax = geo_stats.bbox.ymax;
+    out.has_xy = true;
 
-  if (geo_stats.bbox.__isset.mmin && geo_stats.bbox.__isset.mmax) {
-    out.mmin = geo_stats.bbox.mmin;
-    out.mmax = geo_stats.bbox.mmax;
+    // The zmin and zmax members are set if and only if there was at least one
+    // coordinate with a Z value.
+    if (geo_stats.bbox.__isset.zmin && geo_stats.bbox.__isset.zmax) {
+      out.zmin = geo_stats.bbox.zmin;
+      out.zmax = geo_stats.bbox.zmax;
+      out.has_z = true;
+    }
+
+    // The mmin and mmax members are set if and only if there was at least one
+    // coordinate with an M value.
+    if (geo_stats.bbox.__isset.mmin && geo_stats.bbox.__isset.mmax) {
+      out.mmin = geo_stats.bbox.mmin;
+      out.mmax = geo_stats.bbox.mmax;
+      out.has_m = true;
+    }
   }
 
   return out;
@@ -397,21 +411,41 @@ static inline format::SortingColumn ToThrift(SortingColumn sorting_column) {
 static inline format::GeospatialStatistics ToThrift(
     const geospatial::EncodedGeoStatistics& encoded_geo_stats) {
   format::GeospatialStatistics geospatial_statistics;
+
+  // If we are here, we always set the geospatial types (even if there were
+  // zero geospatial types encountered such as is the case if the entire
+  // row group is null)
   geospatial_statistics.__set_geospatial_types(encoded_geo_stats.geospatial_types);
+
+  // Write the bounding box if-and-only-if the XY ranges both contained at
+  // least one value. This can happen if all values were null or all values
+  // were EMPTY geometries (i.e., geometries with zero coordinates).
   format::BoundingBox bbox;
-  bbox.__set_xmin(encoded_geo_stats.xmin);
-  bbox.__set_xmax(encoded_geo_stats.xmax);
-  bbox.__set_ymin(encoded_geo_stats.ymin);
-  bbox.__set_ymax(encoded_geo_stats.ymax);
-  if (encoded_geo_stats.has_z()) {
-    bbox.__set_zmin(encoded_geo_stats.zmin);
-    bbox.__set_zmax(encoded_geo_stats.zmax);
+  if (encoded_geo_stats.has_xy) {
+    bbox.__set_xmin(encoded_geo_stats.xmin);
+    bbox.__set_xmax(encoded_geo_stats.xmax);
+    bbox.__set_ymin(encoded_geo_stats.ymin);
+    bbox.__set_ymax(encoded_geo_stats.ymax);
+
+    // Write the zmin and zmax values of the bounding box if-and-only-if
+    // any coordinates had Z values. Non-empty geometires always have XY
+    // values but may not have a Z dimension.
+    if (encoded_geo_stats.has_z) {
+      bbox.__set_zmin(encoded_geo_stats.zmin);
+      bbox.__set_zmax(encoded_geo_stats.zmax);
+    }
+
+    // Write the mmin and mmax values of the bounding box if-and-only-if
+    // any coordinates had M values. Non-empty geometires always have XY
+    // values but may not have an M dimension.
+    if (encoded_geo_stats.has_m) {
+      bbox.__set_mmin(encoded_geo_stats.mmin);
+      bbox.__set_mmax(encoded_geo_stats.mmax);
+    }
+
+    geospatial_statistics.__set_bbox(bbox);
   }
-  if (encoded_geo_stats.has_m()) {
-    bbox.__set_mmin(encoded_geo_stats.mmin);
-    bbox.__set_mmax(encoded_geo_stats.mmax);
-  }
-  geospatial_statistics.__set_bbox(bbox);
+
   return geospatial_statistics;
 }
 
