@@ -788,7 +788,7 @@ class ColumnWriterImpl {
   // Plain-encoded statistics of the whole chunk
   virtual StatisticsPair GetChunkStatistics() = 0;
 
-  // Plain-encoded geometry statistics of the whole chunk
+  // Geospatial statistics of the whole chunk
   virtual std::optional<EncodedGeoStatistics> GetChunkGeoStatistics() = 0;
 
   // Merges page statistics into chunk statistics, then resets the values
