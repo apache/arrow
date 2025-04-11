@@ -523,6 +523,21 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   ds_strings <- open_csv_dataset(dst_dir, col_types = data_schema)
   expect_equal(ds_strings$schema, schema(a = string(), b = string()))
 
+  # col_types - as compact schema
+  compact_schema <- schema(
+    int = int32(), dbl = float64(), lgl = bool(), chr = utf8(),
+    fct = dictionary(), ts = timestamp(unit = "ns")
+  )
+
+  ds <- open_csv_dataset(
+    csv_dir,
+    col_names = c("int", "dbl", "lgl", "chr", "fct", "ts"),
+    col_types = "idlcfT",
+    skip = 1
+  )
+
+  expect_equal(schema(ds), compact_schema)
+
   # skip_empty_rows
   tf <- tempfile()
   writeLines('"x"\n"y"\nNA\nNA\n"NULL"\n\n\n', tf)
@@ -553,7 +568,7 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   ds <- open_csv_dataset(
     csv_dir,
     schema = schema(
-      int = int64(), dbl = int64(), lgl = bool(), chr = utf8(),
+      int = int64(), dbl = float64(), lgl = bool(), chr = utf8(),
       fct = utf8(), ts = timestamp(unit = "s")
     ),
     skip = 1
