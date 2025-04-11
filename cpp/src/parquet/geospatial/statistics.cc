@@ -175,8 +175,7 @@ class GeoStatisticsImpl {
     // We can create GeoStatistics from a wraparound bounding box, but we can't
     // update an existing one because the merge logic is not yet implemented.
     if (!bounds_empty() &&
-        (is_wraparound_x() || is_wraparound(encoded.xmin, encoded.xmax) ||
-         is_wraparound(encoded.ymin, encoded.ymax))) {
+        (is_wraparound_x() || is_wraparound(encoded.xmin, encoded.xmax))) {
       throw ParquetException("Wraparound X is not suppored by GeoStatistics::Update()");
     }
 
