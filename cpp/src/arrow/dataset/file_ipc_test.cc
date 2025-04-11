@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/kernels/api.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
@@ -36,8 +37,6 @@
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
-
-using internal::checked_pointer_cast;
 
 namespace dataset {
 

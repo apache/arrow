@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/acero/exec_plan.h"
+#include "arrow/compute/kernels/api.h"
 #include "arrow/csv/writer.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"

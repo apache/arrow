@@ -14,17 +14,25 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+#
+# This config sets the following variables in your project::
+#
+#   ArrowCompute_FOUND - true if Arrow Compute found on the system
+#
+# This config sets the following targets in your project::
+#
+#   ArrowCompute::arrow_compute_shared - for linked as shared library if shared library is built
+#   ArrowCompute::arrow_compute_static - for linked as static library if static library is built
 
-# Contains utilities for working with Arrow data been stored
-# in a row-major order.
+@PACKAGE_INIT@
 
-arrow_install_all_headers("arrow/compute/row")
+include(CMakeFindDependencyMacro)
+find_dependency(Arrow)
 
-if(ARROW_BUILD_BENCHMARKS AND ARROW_COMPUTE)
-  add_arrow_benchmark(grouper_benchmark PREFIX "arrow-compute")
-  if(ARROW_BUILD_STATIC)
-    target_link_libraries(arrow-compute-grouper-benchmark PUBLIC arrow_compute_static)
-  else()
-    target_link_libraries(arrow-compute-grouper-benchmark PUBLIC arrow_compute_shared)
-  endif()
-endif()
+include("${CMAKE_CURRENT_LIST_DIR}/ArrowComputeTargets.cmake")
+
+arrow_keep_backward_compatibility(ArrowCompute arrow_compute)
+
+check_required_components(ArrowCompute)
+
+arrow_show_details(ArrowCompute ARROW_COMPUTE)

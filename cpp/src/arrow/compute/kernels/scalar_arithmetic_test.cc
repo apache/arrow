@@ -29,6 +29,7 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/kernels/api.h"
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/datum.h"
 #include "arrow/type.h"
@@ -44,6 +45,7 @@
 
 namespace arrow {
 namespace compute {
+
 namespace {
 
 // 2.718281828459045090795598298427648842334747314453125

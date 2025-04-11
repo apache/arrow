@@ -21,6 +21,7 @@
 #include <utility>
 
 #include "arrow/adapters/orc/adapter.h"
+#include "arrow/compute/kernels/api.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
