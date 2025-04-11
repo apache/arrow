@@ -312,6 +312,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       return false;
     }
     if (possible_stats_ == nullptr) {
+      // Because we are modifying possible_stats_ in a const method
+      const std::lock_guard<std::mutex> guard(stats_mutex_);
       possible_stats_ = MakeColumnStats(*column_metadata_, descr_);
     }
     EncodedStatistics encodedStatistics = possible_stats_->Encode();
@@ -322,6 +324,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   inline bool is_geo_stats_set() const {
     if (possible_geo_stats_ == nullptr &&
         column_metadata_->__isset.geospatial_statistics) {
+      // Because we are modifying possible_geo_stats_ in a const method
+      const std::lock_guard<std::mutex> guard(stats_mutex_);
       possible_geo_stats_ = MakeColumnGeometryStats(*column_metadata_, descr_);
     }
     return possible_geo_stats_ != nullptr && possible_geo_stats_->is_valid();
@@ -417,6 +421,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     key_value_metadata_ = FromThriftKeyValueMetadata(*column_metadata_);
   }
 
+  mutable std::mutex stats_mutex_;
   mutable std::shared_ptr<Statistics> possible_stats_;
   mutable std::shared_ptr<geospatial::GeoStatistics> possible_geo_stats_;
   std::vector<Encoding::type> encodings_;
