@@ -191,7 +191,6 @@ JsonFileFormat$create <- function(...) {
 #' @export
 CsvFileFormat <- R6Class("CsvFileFormat", inherit = FileFormat)
 CsvFileFormat$create <- function(..., partitioning = NULL) {
-
   dots <- list(...)
 
   options <- check_csv_file_format_args(dots, partitioning = partitioning)
@@ -489,7 +488,6 @@ csv_file_format_convert_opts <- function(...) {
 }
 
 csv_file_format_read_opts <- function(schema = NULL, partitioning = NULL, ...) {
-
   opts <- list(...)
   # Filter out arguments meant for CsvParseOptions/CsvConvertOptions
   arrow_opts <- c(names(formals(csv_parse_options)), "parse_options")

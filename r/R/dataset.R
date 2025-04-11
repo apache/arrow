@@ -234,7 +234,7 @@ open_dataset <- function(sources,
 #' A wrapper around [open_dataset] which explicitly includes parameters mirroring [read_csv_arrow()],
 #' [read_delim_arrow()], and [read_tsv_arrow()] to allow for easy switching between functions
 #' for opening single files and functions for opening datasets.
-#' 
+#'
 #' @inheritParams open_dataset
 #' @inheritParams read_delim_arrow
 #'
