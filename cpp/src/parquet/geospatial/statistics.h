@@ -50,7 +50,7 @@ struct PARQUET_EXPORT EncodedGeoStatistics {
   bool has_m() const { return !std::isinf(mmin - mmax); }
 
   bool is_empty() const {
-    return !geospatial_types.empty() || has_x() || has_y() || has_z() || has_m();
+    return !(!geospatial_types.empty() || has_x() || has_y() || has_z() || has_m());
   }
 };
 
