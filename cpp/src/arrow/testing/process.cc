@@ -56,10 +56,10 @@
 #    ifdef __MINGW32__
 #      define BOOST_USE_WINDOWS_H = 1
 #    endif
-#    ifdef BOOST_PROCESS_HAVE_V1
-#      include <boost/process/v1.hpp>
-#    else
+#    ifdef BOOST_PROCESS_HAVE_V2
 #      include <boost/process.hpp>
+#    else
+#      include <boost/process/v1.hpp>
 #    endif
 #  endif
 
