@@ -2107,6 +2107,47 @@ class ByteArrayChunkedRecordReader final : public TypedRecordReader<ByteArrayTyp
   typename EncodingTraits<ByteArrayType>::Accumulator accumulator_;
 };
 
+class ByteArrayReeRecordReader final : public TypedRecordReader<ByteArrayType>,
+                                       virtual public ReeRecordReader {
+ public:
+  ByteArrayReeRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
+                           ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
+      : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool,
+                                         read_dense_for_nullable) {
+    read_ree_ = true;
+    ARROW_DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
+    PARQUET_THROW_NOT_OK(::arrow::MakeBuilder(
+        ::arrow::default_memory_pool(),
+        ::arrow::run_end_encoded(::arrow::int32(), ::arrow::binary()), &builder_));
+  }
+
+  void ReadValuesDense(int64_t values_to_read) override {
+    int64_t num_decoded = this->current_decoder_->DecodeArrowNonNull(
+        static_cast<int>(values_to_read),
+        checked_cast<::arrow::RunEndEncodedBuilder*>(builder_.get()));
+    CheckNumberDecoded(num_decoded, values_to_read);
+    ResetValues();
+  }
+
+  void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
+    int64_t num_decoded = this->current_decoder_->DecodeArrow(
+        static_cast<int>(values_to_read), static_cast<int>(null_count),
+        valid_bits_->mutable_data(), values_written_,
+        checked_cast<::arrow::RunEndEncodedBuilder*>(builder_.get()));
+    CheckNumberDecoded(num_decoded, values_to_read - null_count);
+    ResetValues();
+  }
+
+  std::shared_ptr<::arrow::Array> GetResult() override {
+    std::shared_ptr<::arrow::Array> result;
+    PARQUET_THROW_NOT_OK(builder_->Finish(&result));
+    return result;
+  }
+
+ private:
+  std::unique_ptr<::arrow::ArrayBuilder> builder_;
+};
+
 /// ByteArrayDictionaryRecordReader reads into ::arrow::dictionary(index: int32,
 /// values: binary).
 ///
@@ -2202,14 +2243,15 @@ void TypedRecordReader<ByteArrayType>::DebugPrintState() {}
 template <>
 void TypedRecordReader<FLBAType>::DebugPrintState() {}
 
-std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* descr,
-                                                        LevelInfo leaf_info,
-                                                        ::arrow::MemoryPool* pool,
-                                                        bool read_dictionary,
-                                                        bool read_dense_for_nullable) {
+std::shared_ptr<RecordReader> MakeByteArrayRecordReader(
+    const ColumnDescriptor* descr, LevelInfo leaf_info, ::arrow::MemoryPool* pool,
+    bool read_dictionary, bool read_dense_for_nullable, bool read_run_end_encoded) {
   if (read_dictionary) {
     return std::make_shared<ByteArrayDictionaryRecordReader>(descr, leaf_info, pool,
                                                              read_dense_for_nullable);
+  } else if (read_run_end_encoded) {
+    return std::make_shared<ByteArrayReeRecordReader>(
+        descr, leaf_info, pool, read_dense_for_nullable);
   } else {
     return std::make_shared<ByteArrayChunkedRecordReader>(descr, leaf_info, pool,
                                                           read_dense_for_nullable);
@@ -2218,10 +2260,10 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* 
 
 }  // namespace
 
-std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
-                                                 LevelInfo leaf_info, MemoryPool* pool,
-                                                 bool read_dictionary,
-                                                 bool read_dense_for_nullable) {
+std::shared_ptr<RecordReader> RecordReader::Make(
+    const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool,
+    bool read_dictionary, bool read_dense_for_nullable,
+    bool read_ree) {
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
       return std::make_shared<TypedRecordReader<BooleanType>>(descr, leaf_info, pool,
@@ -2241,10 +2283,10 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
     case Type::DOUBLE:
       return std::make_shared<TypedRecordReader<DoubleType>>(descr, leaf_info, pool,
                                                              read_dense_for_nullable);
-    case Type::BYTE_ARRAY: {
+    case Type::BYTE_ARRAY:
       return MakeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
-                                       read_dense_for_nullable);
-    }
+                                       read_dense_for_nullable,
+                                       read_ree);
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_shared<FLBARecordReader>(descr, leaf_info, pool,
                                                 read_dense_for_nullable);

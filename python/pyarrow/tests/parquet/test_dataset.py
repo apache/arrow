@@ -1182,6 +1182,27 @@ def test_dataset_read_dictionary(tempdir):
         assert c0.equals(ex_chunks[1])
         assert c1.equals(ex_chunks[0])
 
+def test_dataset_read_run_end_encoded(tempdir):
+    path = tempdir / "ARROW-32339-dataset"
+    t1 = pa.table([[util.rands(10) for i in range(5)] * 10], names=['f0'])
+    t2 = pa.table([[util.rands(10) for i in range(5)] * 10], names=['f0'])
+    pq.write_to_dataset(t1, root_path=str(path))
+    pq.write_to_dataset(t2, root_path=str(path))
+
+    result = pq.ParquetDataset(
+        path, read_ree=['f0']).read()
+
+    # The order of the chunks is non-deterministic
+    ex_chunks = [pc.run_end_encode(t1[0].chunk(0)),
+                 pc.run_end_encode(t2[0].chunk(0))]
+
+    assert result[0].num_chunks == 2
+    c0, c1 = result[0].chunk(0), result[0].chunk(1)
+    if c0.equals(ex_chunks[0]):
+        assert c1.equals(ex_chunks[1])
+    else:
+        assert c0.equals(ex_chunks[1])
+        assert c1.equals(ex_chunks[0])
 
 def test_read_table_schema(tempdir):
     # test that schema keyword is passed through in read_table

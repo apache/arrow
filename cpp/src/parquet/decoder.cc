@@ -31,6 +31,7 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_dict.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/builder.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_stream_utils_internal.h"
@@ -129,6 +130,10 @@ class PlainDecoder : public DecoderImpl, virtual public TypedDecoderImpl<DType> 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<DType>::DictAccumulator* builder) override;
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<ByteArrayType>::ReeAccumulator* out) override;
 };
 
 template <>
@@ -204,6 +209,13 @@ int PlainDecoder<DType>::DecodeArrow(
   num_values_ -= values_decoded;
   len_ -= sizeof(value_type) * values_decoded;
   return values_decoded;
+}
+
+template <typename DType>
+inline int PlainDecoder<DType>::DecodeArrow(
+    int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
+    typename EncodingTraits<ByteArrayType>::ReeAccumulator* out) {
+  ParquetException::NYI("run-end-encoded PlainDecoder");
 }
 
 // Decode routine templated on C++ type rather than type enum
@@ -313,6 +325,10 @@ class PlainBooleanDecoder : public DecoderImpl,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<BooleanType>::DictAccumulator* out) override;
 
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<ByteArrayType>::ReeAccumulator* out) override;
+
  private:
   std::unique_ptr<::arrow::bit_util::BitReader> bit_reader_;
   int total_num_values_{0};
@@ -388,6 +404,12 @@ inline int PlainBooleanDecoder::DecodeArrow(
     int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
     typename EncodingTraits<BooleanType>::DictAccumulator* builder) {
   ParquetException::NYI("dictionaries of BooleanType");
+}
+
+inline int PlainBooleanDecoder::DecodeArrow(
+    int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
+    typename EncodingTraits<ByteArrayType>::ReeAccumulator* out) {
+  ParquetException::NYI("run-end-encoded BooleanType");
 }
 
 int PlainBooleanDecoder::Decode(uint8_t* buffer, int max_values) {
@@ -618,6 +640,44 @@ inline int PlainDecoder<FLBAType>::DecodeArrow(
   return values_decoded;
 }
 
+class ReeBuilderHelper {
+ public:
+  ReeBuilderHelper(typename EncodingTraits<ByteArrayType>::ReeAccumulator* builder)
+      : builder_(builder),
+        arrow_value_dtype_(
+            std::static_pointer_cast<::arrow::RunEndEncodedType>(builder_->type())
+                ->value_type()) {};
+
+  Status flushCurrStateToBuilder() {
+    if (curr_val_.has_value()) {
+      auto str_value = ByteArrayToString(*curr_val_);
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<::arrow::Scalar> scalar,
+                            ::arrow::MakeScalar(arrow_value_dtype_, str_value));
+      RETURN_NOT_OK(builder_->AppendScalar(*scalar, curr_repeats_));
+    } else if (curr_repeats_ > 0) {
+      RETURN_NOT_OK(builder_->AppendNulls(curr_repeats_));
+    }
+    return Status::OK();
+  }
+
+  Status update(std::optional<parquet::ByteArray> val, int num_repeats) {
+    if (val == curr_val_) {
+      curr_repeats_ += num_repeats;
+    } else {
+      RETURN_NOT_OK(flushCurrStateToBuilder());
+      curr_val_ = val;
+      curr_repeats_ = num_repeats;
+    }
+    return Status::OK();
+  }
+
+ private:
+  std::optional<parquet::ByteArray> curr_val_;
+  int curr_repeats_ = 0;
+  typename EncodingTraits<ByteArrayType>::ReeAccumulator* builder_;
+  std::shared_ptr<::arrow::DataType> arrow_value_dtype_;
+};
+
 class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
                               virtual public ByteArrayDecoder {
  public:
@@ -643,6 +703,15 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<ByteArrayType>::Accumulator* out) override {
+    int result = 0;
+    PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
+                                          valid_bits_offset, out, &result));
+    return result;
+  }
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<ByteArrayType>::ReeAccumulator* out) override {
     int result = 0;
     PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
                                           valid_bits_offset, out, &result));
@@ -688,6 +757,46 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
           return Status::OK();
         }));
 
+    num_values_ -= values_decoded;
+    *out_values_decoded = values_decoded;
+    return Status::OK();
+  }
+
+  Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
+                          int64_t valid_bits_offset,
+                          typename EncodingTraits<ByteArrayType>::ReeAccumulator* out,
+                          int* out_values_decoded) {
+    ReeBuilderHelper helper(out);
+    int values_decoded = 0;
+    int i = 0;
+    RETURN_NOT_OK(VisitNullBitmapInline(
+        valid_bits, valid_bits_offset, num_values, null_count,
+        [&]() {
+          if (ARROW_PREDICT_FALSE(len_ < 4)) {
+            ParquetException::EofException();
+          }
+          auto value_len = SafeLoadAs<int32_t>(data_);
+          if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > INT32_MAX - 4)) {
+            return Status::Invalid("Invalid or corrupted value_len '", value_len, "'");
+          }
+          auto increment = value_len + 4;
+          if (ARROW_PREDICT_FALSE(len_ < increment)) {
+            ParquetException::EofException();
+          }
+          parquet::ByteArray byte_array(value_len, data_ + 4);
+          RETURN_NOT_OK(helper.update(byte_array, 1));
+          data_ += increment;
+          len_ -= increment;
+          ++values_decoded;
+          ++i;
+          return Status::OK();
+        },
+        [&]() {
+          RETURN_NOT_OK(helper.update(std::nullopt, 1));
+          ++i;
+          return Status::OK();
+        }));
+    RETURN_NOT_OK(helper.flushCurrStateToBuilder());
     num_values_ -= values_decoded;
     *out_values_decoded = values_decoded;
     return Status::OK();
@@ -802,6 +911,13 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<Type>::DictAccumulator* out) override;
+
+  int DecodeArrow(
+      int num_values, int null_count, const uint8_t* valid_bits,
+      int64_t valid_bits_offset,
+      typename EncodingTraits<ByteArrayType>::ReeAccumulator* builder) override {
+    ParquetException::NYI();
+  }
 
   void InsertDictionary(::arrow::ArrayBuilder* builder) override;
 
@@ -1153,7 +1269,81 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     return result;
   }
 
+  int DecodeArrow(
+      int num_values, int null_count, const uint8_t* valid_bits,
+      int64_t valid_bits_offset,
+      typename EncodingTraits<ByteArrayType>::ReeAccumulator* builder) override {
+    int result = 0;
+    if (null_count == 0) {
+      PARQUET_THROW_NOT_OK(DecodeArrowDenseNonNull(num_values, builder, &result));
+    } else {
+      PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
+                                            valid_bits_offset, builder, &result));
+    }
+    return result;
+  }
+
  private:
+  Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
+                          int64_t valid_bits_offset,
+                          typename EncodingTraits<ByteArrayType>::ReeAccumulator* builder,
+                          int* out_num_values) {
+    int total_values_decoded = 0;
+    int non_null_values_decoded = 0;
+    ReeBuilderHelper helper(builder);
+    const auto* dict_values = dictionary_->data_as<ByteArray>();
+    int64_t valid_bits_index = valid_bits_offset;
+    while (total_values_decoded < num_values) {
+      int32_t idx;
+      bool is_null = false;
+      int num_repeats;
+      bool ok = idx_decoder_.GetNextRunSpaced(&idx, &is_null, &num_repeats,
+                                              num_values - total_values_decoded,
+                                              valid_bits, valid_bits_index);
+      if (ARROW_PREDICT_FALSE(!ok)) {
+        break;
+      }
+      DCHECK_GT(num_repeats, 0);
+      if (is_null) {
+        RETURN_NOT_OK(helper.update(std::nullopt, num_repeats));
+      } else {
+        RETURN_NOT_OK(IndexInBounds(idx));
+        const auto& val = dict_values[idx];
+        RETURN_NOT_OK(helper.update(val, num_repeats));
+        non_null_values_decoded += num_repeats;
+      }
+      valid_bits_index += num_repeats;
+      total_values_decoded += num_repeats;
+    }
+    RETURN_NOT_OK(helper.flushCurrStateToBuilder());
+    *out_num_values = non_null_values_decoded;
+    return Status::OK();
+  }
+
+  Status DecodeArrowDenseNonNull(
+      int num_values, typename EncodingTraits<ByteArrayType>::ReeAccumulator* builder,
+      int* out_num_values) {
+    int values_decoded = 0;
+    ReeBuilderHelper helper(builder);
+    const auto* dict_values = dictionary_->data_as<ByteArray>();
+    while (values_decoded < num_values) {
+      int32_t idx;
+      int num_repeats;
+      bool ok = idx_decoder_.GetNextRun(&idx, &num_repeats, num_values - values_decoded);
+      if (ARROW_PREDICT_FALSE(!ok)) {
+        break;
+      }
+      DCHECK_GT(num_repeats, 0);
+      RETURN_NOT_OK(IndexInBounds(idx));
+      const auto& val = dict_values[idx];
+      RETURN_NOT_OK(helper.update(val, num_repeats));
+      values_decoded += num_repeats;
+    }
+    RETURN_NOT_OK(helper.flushCurrStateToBuilder());
+    *out_num_values = values_decoded;
+    return Status::OK();
+  }
+
   Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
                           typename EncodingTraits<ByteArrayType>::Accumulator* out,
@@ -1415,6 +1605,12 @@ class DeltaBitPackDecoder : public DecoderImpl, public TypedDecoderImpl<DType> {
     return decoded_count;
   }
 
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<ByteArrayType>::ReeAccumulator* out) override {
+    ParquetException::NYI("Run end encoded DeltaBitPackDecoder");
+  }
+
  private:
   static constexpr int kMaxDeltaBitWidth = static_cast<int>(sizeof(T) * 8);
 
@@ -1656,6 +1852,12 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
         "DecodeArrow of DictAccumulator for DeltaLengthByteArrayDecoder");
   }
 
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<ByteArrayType>::ReeAccumulator* out) override {
+    ParquetException::NYI("DecodeArrow of ReeAccumulator for DeltaLengthByteArrayDecoder");
+  }
+
  private:
   // Decode all the encoded lengths. The decoder_ will be at the start of the encoded data
   // after that.
@@ -1830,7 +2032,13 @@ class RleBooleanDecoder : public DecoderImpl,
       int num_values, int null_count, const uint8_t* valid_bits,
       int64_t valid_bits_offset,
       typename EncodingTraits<BooleanType>::DictAccumulator* builder) override {
-    ParquetException::NYI("DecodeArrow for RleBooleanDecoder");
+    ParquetException::NYI("DecodeArrow of DictAccumulator for RleBooleanDecoder");
+  }
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<ByteArrayType>::ReeAccumulator* out) override {
+    ParquetException::NYI("DecodeArrow of ReeAccumulator for RleBooleanDecoder");
   }
 
  private:
@@ -1900,6 +2108,12 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, public TypedDecoderImpl<DT
                   int64_t valid_bits_offset,
                   typename EncodingTraits<DType>::DictAccumulator* builder) override {
     ParquetException::NYI("DecodeArrow of DictAccumulator for DeltaByteArrayDecoder");
+  }
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<ByteArrayType>::ReeAccumulator* out) override {
+    ParquetException::NYI("DecodeArrow of ReeAccumulator for DeltaByteArrayDecoder");
   }
 
  protected:
@@ -2122,6 +2336,12 @@ class ByteStreamSplitDecoderBase : public DecoderImpl, public TypedDecoderImpl<D
                   int64_t valid_bits_offset,
                   typename EncodingTraits<DType>::DictAccumulator* builder) override {
     ParquetException::NYI("DecodeArrow to DictAccumulator for BYTE_STREAM_SPLIT");
+  }
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<ByteArrayType>::ReeAccumulator* out) override {
+    ParquetException::NYI("DecodeArrow to ReeAccumulator for BYTE_STREAM_SPLIT");
   }
 
  protected:

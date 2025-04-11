@@ -115,6 +115,15 @@ class RleDecoder {
   template <typename T>
   bool Get(T* val);
 
+  /// Gets the next run of a single value. Returns false if there are no more.
+  template <typename T>
+  bool GetNextRun(T* val, int* num_repeats, int batch_size);
+
+  /// Like GetNextRun but add spacing for null entries.
+  template <typename T>
+  bool GetNextRunSpaced(T* val, bool* is_null, int* num_repeats, int batch_size,
+                        const uint8_t* valid_bits, int64_t valid_bits_offset);
+
   /// Gets a batch of values.  Returns the number of decoded elements.
   template <typename T>
   int GetBatch(T* values, int batch_size);
@@ -296,6 +305,57 @@ class RleEncoder {
 template <typename T>
 inline bool RleDecoder::Get(T* val) {
   return GetBatch(val, 1) == 1;
+}
+
+template <typename T>
+inline bool RleDecoder::GetNextRun(T* val, int* num_repeats, int batch_size) {
+  DCHECK_GE(bit_width_, 0);
+  int values_read = 0;
+
+  while (values_read == 0) {
+    int remaining = batch_size - values_read;
+
+    if (repeat_count_ > 0) {
+      *val = static_cast<T>(current_value_);
+      *num_repeats = std::min(repeat_count_, remaining);
+      values_read = *num_repeats;
+      repeat_count_ -= *num_repeats;
+    } else if (literal_count_ > 0) {
+      if (!bit_reader_.GetValue(bit_width_, val)) {
+        break;
+      }
+      *num_repeats = 1;
+      values_read = *num_repeats;
+      --literal_count_;
+    } else {
+      if (!NextCounts<T>()) break;
+    }
+  }
+  return values_read != 0;
+}
+
+template <typename T>
+inline bool RleDecoder::GetNextRunSpaced(T* val, bool* is_null, int* num_repeats,
+                                         int batch_size, const uint8_t* valid_bits,
+                                         int64_t valid_bits_offset) {
+  DCHECK_GE(bit_width_, 0);
+  arrow::internal::BitRunReader bit_reader(valid_bits, valid_bits_offset,
+                                           /*length=*/batch_size);
+  arrow::internal::BitRun valid_run = bit_reader.NextRun();
+  while (ARROW_PREDICT_FALSE(valid_run.length == 0)) {
+    valid_run = bit_reader.NextRun();
+  }
+  DCHECK_GT(batch_size, 0);
+  DCHECK_GT(valid_run.length, 0);
+  if (valid_run.set) {
+    return GetNextRun(
+        val, num_repeats,
+        static_cast<int>(std::min(valid_run.length, static_cast<int64_t>(batch_size))));
+  } else {
+    *is_null = true;
+    *num_repeats = static_cast<int>(valid_run.length);
+  }
+  return true;
 }
 
 template <typename T>
