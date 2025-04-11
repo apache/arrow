@@ -47,7 +47,7 @@ option(
     'ipc',
     type: 'boolean',
     description: 'Build the Arrow IPC extensions',
-    value: false,
+    value: true,
 )
 
 option(
