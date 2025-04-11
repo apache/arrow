@@ -152,6 +152,10 @@ class Downloader:
         return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
 
 
+class Artifactory(Downloader):
+    URL_ROOT = "https://packages.apache.org/artifactory/arrow"
+
+
 class Maven(Downloader):
     URL_ROOT = "https://repository.apache.org" + \
         "/content/repositories/staging/org/apache/arrow"
@@ -278,11 +282,11 @@ def download_rc_binaries(version, rc_number, re_match=None, dest=None,
             prefix = ''
             filter = None
         elif package_type in ARROW_REPOSITORY_PACKAGE_TYPES:
-            downloader = Maven()
-            prefix = package_type
+            downloader = Artifactory()
+            prefix = f'{package_type}-rc'
         else:
-            downloader = Maven()
-            prefix = f'{package_type}/{version_string}'
+            downloader = Artifactory()
+            prefix = f'{package_type}-rc/{version_string}'
             filter = None
         files = downloader.get_file_list(prefix, filter=filter)
         downloader.download_files(files, re_match=re_match, dest=dest,
