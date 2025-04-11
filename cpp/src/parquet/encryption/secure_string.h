@@ -38,12 +38,12 @@ class PARQUET_EXPORT SecureString {
  public:
   SecureString() noexcept = default;
   SecureString(SecureString&&) noexcept;
-  SecureString(const SecureString&) noexcept = default;
+  SecureString(const SecureString&) = default;
   explicit SecureString(std::string&&) noexcept;
   explicit SecureString(size_t, char) noexcept;
 
   SecureString& operator=(SecureString&&) noexcept;
-  SecureString& operator=(const SecureString&) noexcept;
+  SecureString& operator=(const SecureString&);
   SecureString& operator=(std::string&& secret) noexcept;
 
   bool operator==(const SecureString&) const;

@@ -44,7 +44,7 @@ SecureString& SecureString::operator=(SecureString&& secret) noexcept {
   secret_ = std::move(secret.secret_);
   return *this;
 }
-SecureString& SecureString::operator=(const SecureString& secret) noexcept {
+SecureString& SecureString::operator=(const SecureString& secret) {
   if (this == &secret) {
     // self-assignment
     return *this;
