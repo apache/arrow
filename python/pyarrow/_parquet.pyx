@@ -353,73 +353,77 @@ cdef class GeoStatistics(_Weakrefable):
 
     @property
     def geospatial_types(self):
-        return list(self.statistics.geospatial_types)
+        return list(self.statistics.get().geometry_types())
 
     @property
-    def has_xy(self):
-        return self.statistics.has_xy
+    def has_x(self):
+        return self.statistics.get().has_x()
+
+    @property
+    def has_y(self):
+        return self.statistics.get().has_y()
 
     @property
     def has_z(self):
-        return self.statistics.has_z
+        return self.statistics.get().has_z()
 
     @property
     def has_m(self):
-        return self.statistics.has_m
+        return self.statistics.get().has_m()
 
     @property
     def xmin(self):
-        if self.statistics.has_xy:
-            return self.statistics.xmin
+        if self.statistics.get().has_x():
+            return self.statistics.get().xmin()
         else:
             return None
 
     @property
     def xmax(self):
-        if self.statistics.has_xy:
-            return self.statistics.xmax
+        if self.statistics.get().has_x():
+            return self.statistics.get().xmax()
         else:
             return None
 
     @property
     def ymin(self):
-        if self.statistics.has_xy:
-            return self.statistics.ymin
+        if self.statistics.get().has_y():
+            return self.statistics.get().ymin()
         else:
             return None
 
     @property
     def ymax(self):
-        if self.statistics.has_xy:
-            return self.statistics.ymax
+        if self.statistics.get().has_y():
+            return self.statistics.get().ymax()
         else:
             return None
 
     @property
     def zmin(self):
-        if self.statistics.has_z:
-            return self.statistics.zmin
+        if self.statistics.get().has_z():
+            return self.statistics.get().zmin()
         else:
             return None
 
     @property
     def zmax(self):
-        if self.statistics.has_z:
-            return self.statistics.zmax
+        if self.statistics.get().has_z():
+            return self.statistics.get().zmax()
         else:
             return None
 
     @property
     def mmin(self):
-        if self.statistics.has_m:
-            return self.statistics.mmin
+        if self.statistics.get().has_m():
+            return self.statistics.get().mmin()
         else:
             return None
 
     @property
     def mmax(self):
-        if self.statistics.has_m:
-            return self.statistics.mmax
+        if self.statistics.get().has_m():
+            return self.statistics.get().mmax()
         else:
             return None
 
