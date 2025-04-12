@@ -341,7 +341,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         vector[int32_t] geospatial_types
 
     cdef cppclass CParquetGeoStatistics" parquet::geospatial::GeoStatistics":
-        CParquetEncodedGeoStatistics Encode() const
+        c_bool is_valid() const
+        optional[CParquetEncodedGeoStatistics] Encode() const
 
     cdef cppclass CColumnChunkMetaData" parquet::ColumnChunkMetaData":
         int64_t file_offset() const
@@ -710,7 +711,7 @@ cdef class GeoStatistics(_Weakrefable):
 
     cdef inline init(self, const shared_ptr[CParquetGeoStatistics]& statistics,
                      ColumnChunkMetaData parent):
-        self.statistics = statistics.get().Encode()
+        self.statistics = statistics.get().Encode().value()
         self.parent = parent
 
 cdef extern from "parquet/encryption/encryption.h" namespace "parquet" nogil:

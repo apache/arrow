@@ -575,6 +575,10 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         """Statistics for column chunk (:class:`GeoStatistics`)."""
         if not self.metadata.is_geo_stats_set():
             return None
+
+        if not self.metadata.geo_statistics().get().is_valid():
+            return None
+
         cdef GeoStatistics geo_statistics = GeoStatistics.__new__(GeoStatistics)
         geo_statistics.init(self.metadata.geo_statistics(), self)
         return geo_statistics
