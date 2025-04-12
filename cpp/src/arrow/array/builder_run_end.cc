@@ -290,7 +290,7 @@ Status RunEndEncodedBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
                         RunEndEncodedArray::Make(length_, run_ends_array, values_array));
   *out = std::move(ree_array->data());
 
-  UpdateDimensions(0, 0);
+  Reset();
 
   return Status::OK();
 }
