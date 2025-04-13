@@ -163,6 +163,7 @@ x-hierarchy:
   - ubuntu-swift
   - ubuntu-verify-rc
   - r-clang-sanitizer
+  - r-clang-ubsan
   - r
   - r-revdepcheck
   # helper services
@@ -1726,6 +1727,34 @@ services:
         - ${REPO}:r-rhub-clang-devel-latest
       args:
         base: rhub/clang-asan
+        cmake: ${CMAKE}
+        r_dev: ${ARROW_R_DEV}
+        r_bin: R
+        tz: ${TZ}
+        r_prune_deps: ${R_PRUNE_DEPS}
+    shm_size: *shm-size
+    environment:
+      <<: *common
+      LIBARROW_DOWNLOAD: "false"
+      ARROW_SOURCE_HOME: "/arrow"
+      ARROW_R_DEV: ${ARROW_R_DEV}
+      # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
+      ARROW_USE_PKG_CONFIG: "false"
+    volumes:
+      - .:/arrow:delegated
+    command: >
+      /bin/bash -c "
+        /arrow/ci/scripts/r_sanitize.sh /arrow"
+
+  r-clang-ubsan:
+    image: ${REPO}:r-rhub-clang-ubsan-devel-latest
+    build:
+      context: .
+      dockerfile: ci/docker/linux-r.dockerfile
+      cache_from:
+        - ${REPO}:r-rhub-clang-ubsan-devel-latest
+      args:
+        base: rhub/clang-ubsan
         cmake: ${CMAKE}
         r_dev: ${ARROW_R_DEV}
         r_bin: R

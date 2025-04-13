@@ -1095,6 +1095,18 @@ tasks:
         R_PRUNE_DEPS: TRUE
       image: r-clang-sanitizer
 
+  test-r-clang-ubsan:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        R_PRUNE_DEPS: TRUE
+      image: r-clang-ubsan
+
+  test-r-m1-san:
+    ci: github
+    template: r/github.macos.m1san.yml
+
   # be sure to update binary-task.rb when upgrading Debian
   test-debian-12-docs:
     ci: github
