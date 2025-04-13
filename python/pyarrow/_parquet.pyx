@@ -1452,7 +1452,8 @@ cdef class ParquetReader(_Weakrefable):
              FileDecryptionProperties decryption_properties=None,
              thrift_string_size_limit=None,
              thrift_container_size_limit=None,
-             page_checksum_verification=False):
+             page_checksum_verification=False,
+             read_ree=None):
         """
         Open a parquet file for reading.
 
@@ -1469,6 +1470,7 @@ cdef class ParquetReader(_Weakrefable):
         thrift_string_size_limit : int, optional
         thrift_container_size_limit : int, optional
         page_checksum_verification : bool, default False
+        read_ree: iterable[int or str], optional
         """
         cdef:
             shared_ptr[CFileMetaData] c_metadata
@@ -1534,6 +1536,9 @@ cdef class ParquetReader(_Weakrefable):
         if read_dictionary is not None:
             self._set_read_dictionary(read_dictionary, &arrow_props)
 
+        if read_ree is not None:
+            self._set_read_ree(read_ree, &arrow_props)
+
         with nogil:
             check_status(builder.memory_pool(self.pool)
                          .properties(arrow_props)
@@ -1545,6 +1550,13 @@ cdef class ParquetReader(_Weakrefable):
             if not isinstance(column, int):
                 column = self.column_name_idx(column)
             props.set_read_dictionary(column, True)
+
+    cdef _set_read_ree(self, read_ree,
+                       ArrowReaderProperties* props):
+        for column in read_ree:
+            if not isinstance(column, int):
+                column = self.column_name_idx(column)
+            props.set_read_ree(column, True)
 
     @property
     def column_paths(self):

@@ -503,6 +503,11 @@ bool IsDictionaryReadSupported(const ArrowType& type) {
   return type.id() == ::arrow::Type::BINARY || type.id() == ::arrow::Type::STRING;
 }
 
+bool IsRunEndEncodedReadSupported(const ArrowType& type) {
+  // Only supported currently for BYTE_ARRAY types
+  return type.id() == ::arrow::Type::BINARY || type.id() == ::arrow::Type::STRING;
+}
+
 // ----------------------------------------------------------------------
 // Schema logic
 
@@ -514,6 +519,9 @@ bool IsDictionaryReadSupported(const ArrowType& type) {
   if (ctx->properties.read_dictionary(column_index) &&
       IsDictionaryReadSupported(*storage_type)) {
     return ::arrow::dictionary(::arrow::int32(), storage_type);
+  } else if (ctx->properties.read_ree(column_index) &&
+             IsRunEndEncodedReadSupported(*storage_type)) {
+    return ::arrow::run_end_encoded(::arrow::int32(), storage_type);
   }
   return storage_type;
 }
@@ -851,8 +859,7 @@ Status NodeToSchemaField(const Node& node, LevelInfo current_levels,
       current_levels.Increment(node);
       // A normal (required/optional) primitive node
       return PopulateLeaf(column_index,
-                          ::arrow::field(node.name(), type, node.is_optional(),
-                                         FieldIdMetadata(node.field_id())),
+                          ::arrow::field(node.name(), type, node.is_optional()),
                           current_levels, ctx, parent, out);
     }
   }

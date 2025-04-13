@@ -452,7 +452,8 @@ class LeafReader : public ColumnReaderImpl {
         input_(std::move(input)),
         descr_(input_->descr()) {
     record_reader_ = RecordReader::Make(
-        descr_, leaf_info, ctx_->pool, field_->type()->id() == ::arrow::Type::DICTIONARY);
+        descr_, leaf_info, ctx_->pool, field_->type()->id() == ::arrow::Type::DICTIONARY,
+        false, field_->type()->id() == ::arrow::Type::RUN_END_ENCODED);
     NextRowGroup();
   }
 

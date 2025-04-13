@@ -26,7 +26,7 @@
 #include "arrow/scalar.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_overflow.h"
-#include "arrow/util/logging_internal.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/ree_util.h"
 
 namespace arrow {
@@ -58,7 +58,7 @@ Status RunCompressorBuilder::AppendNulls(int64_t length) {
   }
   if (ARROW_PREDICT_FALSE(current_run_length_ == 0)) {
     // Open a new NULL run
-    DCHECK_EQ(current_value_, NULLPTR);
+    ARROW_DCHECK_EQ(current_value_, NULLPTR);
     current_run_length_ = length;
   } else if (current_value_ == NULLPTR) {
     // Extend the currently open NULL run
@@ -129,7 +129,7 @@ Status RunCompressorBuilder::AppendScalars(const ScalarVector& scalars) {
 
 Status RunCompressorBuilder::AppendRunCompressedArraySlice(
     const ArraySpan& run_compressed_array, int64_t offset, int64_t length) {
-  DCHECK(!has_open_run());
+  ARROW_DCHECK(!has_open_run());
   RETURN_NOT_OK(inner_builder_->AppendArraySlice(run_compressed_array, offset, length));
   UpdateDimensions();
   return Status::OK();
@@ -197,7 +197,7 @@ Status RunEndEncodedBuilder::AppendNulls(int64_t length) {
 
 Status RunEndEncodedBuilder::AppendEmptyValues(int64_t length) {
   RETURN_NOT_OK(value_run_builder_->AppendEmptyValues(length));
-  DCHECK_EQ(value_run_builder_->open_run_length(), 0);
+  ARROW_DCHECK_EQ(value_run_builder_->open_run_length(), 0);
   UpdateDimensions(committed_logical_length_, 0);
   return Status::OK();
 }
@@ -222,8 +222,8 @@ template <typename RunEndCType>
 Status RunEndEncodedBuilder::DoAppendArraySlice(const ArraySpan& array, int64_t offset,
                                                 int64_t length) {
   ARROW_DCHECK(offset + length <= array.length);
-  DCHECK_GT(length, 0);
-  DCHECK(!value_run_builder_->has_open_run());
+  ARROW_DCHECK_GT(length, 0);
+  ARROW_DCHECK(!value_run_builder_->has_open_run());
 
   ree_util::RunEndEncodedArraySpan<RunEndCType> ree_span(array, array.offset + offset,
                                                          length);
@@ -289,6 +289,9 @@ Status RunEndEncodedBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   ARROW_ASSIGN_OR_RAISE(auto ree_array,
                         RunEndEncodedArray::Make(length_, run_ends_array, values_array));
   *out = std::move(ree_array->data());
+
+  UpdateDimensions(0, 0);
+
   return Status::OK();
 }
 
