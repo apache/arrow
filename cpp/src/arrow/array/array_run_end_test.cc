@@ -362,21 +362,23 @@ TEST_P(TestRunEndEncodedArray, Builder) {
       ASSERT_ARRAYS_EQUAL(*expected_values, *ree_array->values());
       ASSERT_EQ(array->length(), 516);
       ASSERT_EQ(array->offset(), 0);
-      continue;
-    }
-    // Ensure builder->Finish() properly resets the builder state and is idempotent
-    if (step == 14) {
-      ASSERT_EQ(builder->length(), 516);
-      ASSERT_OK(builder->Finish());
-      ASSERT_EQ(builder->length(), 0);
-      ASSERT_EQ(*builder->type(), *run_end_encoded(run_end_type, utf8()));
-
-      ASSERT_OK(builder->Finish());
-      ASSERT_OK(builder->Finish());
-      ASSERT_EQ(builder->length(), 0);
       break;
     }
   }
+}
+
+TEST_P(TestRunEndEncodedArray, BuilderReuseAfterFinish) {
+  // GH-45532: RunEndEncodedBuilder should clear dimensions after a Finish() call
+  auto ree_type = run_end_encoded(run_end_type, utf8());
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ArrayBuilder> builder, MakeBuilder(ree_type));
+  ASSERT_OK(builder->AppendScalar(*MakeScalar("test"), 100));
+  ASSERT_EQ(builder->length(), 100);
+  ASSERT_OK(builder->Finish());
+  ASSERT_EQ(builder->length(), 0);
+  ASSERT_EQ(*builder->type(), *run_end_encoded(run_end_type, utf8()));
+  ASSERT_OK(builder->Finish());
+  ASSERT_OK(builder->Finish());
+  ASSERT_EQ(builder->length(), 0);
 }
 
 TEST_P(TestRunEndEncodedArray, Validate) {
