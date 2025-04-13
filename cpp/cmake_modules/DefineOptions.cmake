@@ -346,7 +346,8 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_WITH_UTF8PROC)
 
   define_option(ARROW_GCS
-                "Build Arrow with GCS support (requires the GCloud SDK for C++)"
+                "Build Arrow with GCS support (requires the Google Cloud Platform "
+                "C++ Client Libraries)"
                 OFF
                 DEPENDS
                 ARROW_FILESYSTEM)
