@@ -31,4 +31,4 @@ PKG_LIBS=@libs@
 all: $(SHLIB) purify
 
 purify: $(SHLIB)
-	@rm -rf ../libarrow || true
+	@rm -rf ../{libarrow,windows} || true

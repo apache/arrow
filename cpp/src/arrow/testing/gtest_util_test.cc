@@ -24,6 +24,7 @@
 #include "arrow/array/builder_decimal.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
+#include "arrow/table.h"
 #include "arrow/tensor.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/math.h"
@@ -291,4 +292,17 @@ TEST(AssertTestWithinUlp, Basics) {
   EXPECT_FATAL_FAILURE(AssertWithinUlp(123.456f, 123.456085f, 10), "not within 10 ulps");
 }
 
+TEST(RunEndEncodeGtestUtilTest, SchemaTypeIsModified) {
+  std::shared_ptr<Table> table =
+      arrow::TableFromJSON(arrow::schema({arrow::field("col", arrow::utf8())}), {R"([
+      {"col": "a"},
+      {"col": "b"},
+      {"col": "c"},
+      {"col": "d"}
+    ])"});
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> ree_table,
+                       RunEndEncodeTableColumns(*table, {0}));
+  ASSERT_TRUE(ree_table->schema()->field(0)->type()->Equals(
+      arrow::run_end_encoded(arrow::int32(), arrow::utf8())));
+}
 }  // namespace arrow

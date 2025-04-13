@@ -128,6 +128,7 @@ arrow_components = {
             'util/logger.cc',
             'util/logging.cc',
             'util/key_value_metadata.cc',
+            'util/math_internal.cc',
             'util/memory.cc',
             'util/mutex.cc',
             'util/ree_util.cc',
@@ -257,7 +258,7 @@ if needs_csv
     arrow_testing_srcs += ['csv/test_common.cc']
 endif
 
-if needs_json
+if needs_json or needs_integration
     rapidjson_dep = dependency('rapidjson', include_type: 'system')
 else
     rapidjson_dep = disabler()
@@ -390,11 +391,15 @@ if needs_testing
         filesystem_dep = boost_proj.dependency('boost_filesystem')
     endif
 
+    gtest_dep = dependency('gtest')
     gtest_main_dep = dependency('gtest_main')
+    gtest_dep = dependency('gtest')
     gmock_dep = dependency('gmock')
 else
     filesystem_dep = disabler()
+    gtest_dep = disabler()
     gtest_main_dep = disabler()
+    gtest_dep = disabler()
     gmock_dep = disabler()
 endif
 
@@ -404,10 +409,14 @@ arrow_test_lib = static_library(
     dependencies: [arrow_dep, filesystem_dep, gtest_main_dep],
 )
 
-arrow_test_dep = declare_dependency(
-    link_with: [arrow_test_lib],
-    dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
-)
+if needs_tests
+    arrow_test_dep = declare_dependency(
+        link_with: [arrow_test_lib],
+        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
+    )
+else
+    arrow_test_dep = disabler()
+endif
 
 arrow_tests = {
     'arrow-array-test': {
@@ -459,24 +468,27 @@ if needs_ipc
     }
 endif
 
-if needs_tests
-    foreach key, val : arrow_tests
-        exc = executable(
-            key,
-            sources: val['sources'],
-            dependencies: [arrow_test_dep, val.get('dependencies', [])],
-        )
-        test(key, exc)
-    endforeach
-endif
+foreach key, val : arrow_tests
+    exc = executable(
+        key,
+        sources: val['sources'],
+        dependencies: [arrow_test_dep, val.get('dependencies', [])],
+    )
+    test(key, exc)
+endforeach
 
 if needs_benchmarks
-    benchmark_dep = dependency(
-        'benchmark',
+    benchmark_main_dep = dependency(
+        'benchmark-main',
         default_options: {'tests': 'disabled'},
     )
+
+    arrow_benchmark_dep = declare_dependency(
+        link_with: [arrow_test_lib],
+        dependencies: [arrow_dep, benchmark_main_dep, gtest_dep],
+    )
 else
-    benchmark_dep = disabler()
+    arrow_benchmark_dep = disabler()
 endif
 
 arrow_benchmarks = [
@@ -493,7 +505,7 @@ foreach benchmark : arrow_benchmarks
     exc = executable(
         benchmark_name,
         sources: '@0@.cc'.format(benchmark),
-        dependencies: [arrow_test_dep, benchmark_dep],
+        dependencies: [arrow_benchmark_dep],
     )
 
     benchmark(benchmark_name, exc)
@@ -533,6 +545,11 @@ subdir('testing')
 subdir('c')
 subdir('io')
 subdir('util')
+
+gflags_dep = dependency('gflags', include_type: 'system')
+if needs_integration or needs_tests
+    subdir('integration')
+endif
 
 if needs_csv
     subdir('csv')

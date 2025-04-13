@@ -255,6 +255,8 @@ open_dataset <- function(sources,
 #'
 #' read_csv_arrow(file_path, na = c("", "NA", "NULL"), col_names = "y", skip = 1)
 #' open_csv_dataset(file_path, na = c("", "NA", "NULL"), col_names = "y", skip = 1)
+#' open_csv_dataset(file_path, na = c("", "NA", "NULL"), col_types = schema(list(x = int32())))
+#' open_csv_dataset(file_path, na = c("", "NA", "NULL"), col_types = "i", col_names = "y", skip = 1)
 #'
 #' unlink(tf)
 #' @seealso [open_dataset()]

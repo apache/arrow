@@ -881,6 +881,19 @@ if(ARROW_FILESYSTEM)
     foreach(ARROW_FILESYSTEM_TARGET ${ARROW_FILESYSTEM_TARGETS})
       target_link_libraries(${ARROW_FILESYSTEM_TARGET} PRIVATE ${AWSSDK_LINK_LIBRARIES})
     endforeach()
+
+    if(ARROW_S3_MODULE)
+      if(NOT ARROW_BUILD_SHARED)
+        message(FATAL_ERROR "ARROW_S3_MODULE without shared libarrow (-DARROW_BUILD_SHARED=ON) is not supported"
+        )
+      endif()
+
+      add_library(arrow_s3fs MODULE filesystem/s3fs_module.cc filesystem/s3fs.cc)
+      target_link_libraries(arrow_s3fs PRIVATE ${AWSSDK_LINK_LIBRARIES} arrow_shared)
+      set_source_files_properties(filesystem/s3fs.cc filesystem/s3fs_module.cc
+                                  PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+                                             SKIP_UNITY_BUILD_INCLUSION ON)
+    endif()
   endif()
 
   list(APPEND ARROW_TESTING_SHARED_LINK_LIBS ${ARROW_GTEST_GMOCK})

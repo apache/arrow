@@ -15,33 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-brew "aws-sdk-cpp"
-brew "bash"
-brew "boost"
-brew "brotli"
-brew "bzip2"
-brew "c-ares"
-brew "curl"
-brew "ccache"
-brew "cmake"
-brew "git"
-brew "glog"
-brew "googletest"
-brew "grpc"
-brew "llvm"
-brew "lz4"
-brew "mimalloc"
-brew "ninja"
-brew "node"
-brew "openssl"
-brew "pkgconf"
-brew "protobuf"
-brew "python"
-brew "rapidjson"
-brew "re2"
-brew "snappy"
-brew "thrift"
-brew "utf8proc"
-brew "wget"
-brew "xsimd"
-brew "zstd"
+install_headers(['json_integration.h'])
+
+exc = executable(
+    'arrow-json-integration-test',
+    sources: ['json_integration_test.cc'],
+    dependencies: [arrow_dep, rapidjson_dep, gflags_dep, gtest_dep],
+    link_with: [arrow_test_lib],
+)
+
+if needs_tests
+    test('arrow-json-integration-test', exc)
+endif

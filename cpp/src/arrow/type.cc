@@ -826,7 +826,7 @@ Result<std::shared_ptr<Field>> Field::MergeWith(const Field& other,
                                other.nullable());
     }
 
-    return std::make_shared<Field>(name_, promoted_type, nullable, metadata_);
+    return std::make_shared<Field>(name_, std::move(promoted_type), nullable, metadata_);
   }
   return Status::TypeError("Unable to merge: Field ", name(),
                            " has incompatible types: ", type()->ToString(), " vs ",
