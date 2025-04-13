@@ -255,6 +255,19 @@ jobs:
           restore-keys: cpp-ccache-macos-${{ matrix.macos-version }}-
       - name: Build
         run: |
+          if [ "${{ matrix.macos-version }}" = "13" ]; then
+            # This is a workaround.
+            #
+            # Homebrew uses /usr/local as prefix. So packages
+            # installed by Homebrew also use /usr/local/include. We
+            # want to include headers for packages installed by
+            # Homebrew as system headers to ignore warnings in them.
+            # But "-isystem /usr/local/include" isn't used by CMake
+            # because /usr/local/include is marked as the default
+            # include path. So we disable -Werror to avoid build error
+            # by warnings from packages installed by Homebrew.
+            export BUILD_WARNING_LEVEL=PRODUCTION
+          fi
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
