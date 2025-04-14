@@ -23,6 +23,12 @@ include(CheckCXXSourceCompiles)
 
 message(STATUS "System processor: ${CMAKE_SYSTEM_PROCESSOR}")
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  if(NOT CMAKE_CXX_COMPILER_ID STREQUAL CMAKE_C_COMPILER_ID)
+    message(FATAL_ERROR "When using clang++ you must also use clang")
+  endif()
+endif()
+
 if(NOT DEFINED ARROW_CPU_FLAG)
   if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     set(ARROW_CPU_FLAG "emscripten")
@@ -429,14 +435,6 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
                                                       "Clang")
   # Clang options for all builds
-
-  # Using Clang with ccache causes a bunch of spurious warnings that are
-  # purportedly fixed in the next version of ccache. See the following for details:
-  #
-  #   http://petereisentraut.blogspot.com/2011/05/ccache-and-clang.html
-  #   http://petereisentraut.blogspot.com/2011/09/ccache-and-clang-part-2.html
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Qunused-arguments")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Qunused-arguments")
 
   # Avoid error when an unknown warning flag is passed
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option")
