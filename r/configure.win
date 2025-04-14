@@ -276,6 +276,11 @@ function configure_dev() {
     PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES parquet"
   fi
 
+  if [ $(cmake_option ARROW_COMPUTE) -eq 1 ]; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_COMPUTE"
+    PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES arrow-compute"
+  fi
+
   if [ $(cmake_option ARROW_ACERO) -eq 1 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ACERO"
     PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES arrow-acero"
