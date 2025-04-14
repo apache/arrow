@@ -179,6 +179,7 @@ else
     suffix=${TYPE%-release}
     sed \
       -i"" \
+      -e "s,https://repo1.maven.org/maven2/org/apache/arrow,${artifactory_base_url},g" \
       -e "s,/almalinux/,/almalinux-${suffix}/,g" \
       -e "s,/centos/,/centos-${suffix}/,g" \
       -e "s,/amazon-linux/,/amazon-linux-${suffix}/,g" \
