@@ -20,7 +20,6 @@
 #include <string>
 
 #include "arrow/array.h"
-#include "arrow/array/array_nested.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_union.h"
 // TODO ipc shouldn't be included here
@@ -29,7 +28,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
-#include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {

@@ -187,6 +187,9 @@ class SimpleTable : public Table {
         ss << "Column " << i << ": " << st.message();
         return st.WithMessage(ss.str());
       }
+      if (schema_->field(i)->nullable() && col->null_count() > 0) {
+        return Status::Invalid("In column ", i, ": Null found but field is not nullable");
+      }
     }
     return Status::OK();
   }

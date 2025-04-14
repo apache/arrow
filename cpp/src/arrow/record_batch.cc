@@ -441,6 +441,11 @@ Status ValidateBatch(const RecordBatch& batch, bool full_validation) {
                              " type not match schema: ", array.type()->ToString(), " vs ",
                              schema_type->ToString());
     }
+    if (full_validation && !batch.schema()->field(i)->nullable() &&
+        array.null_count() > 0) {
+      return Status::Invalid("In column ", i, ": Null found but field is not nullable");
+    }
+
     const auto st = full_validation ? internal::ValidateArrayFull(array)
                                     : internal::ValidateArray(array);
     if (!st.ok()) {
