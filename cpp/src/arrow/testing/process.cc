@@ -55,34 +55,28 @@
 // https://github.com/boostorg/process/blob/develop/include/boost/process/detail/windows/handle_workaround.hpp
 #    ifdef __MINGW32__
 #      define BOOST_USE_WINDOWS_H = 1
-#      ifdef BOOST_PROCESS_HAVE_V2
-#        include <boost/process/v1/args.hpp>
-#        include <boost/process/v1/async.hpp>
-#        include <boost/process/v1/async_system.hpp>
-#        include <boost/process/v1/child.hpp>
-#        include <boost/process/v1/cmd.hpp>
-#        include <boost/process/v1/env.hpp>
-#        include <boost/process/v1/environment.hpp>
-#        include <boost/process/v1/error.hpp>
-#        include <boost/process/v1/exe.hpp>
-#        include <boost/process/v1/group.hpp>
-#        include <boost/process/v1/handles.hpp>
-#        include <boost/process/v1/io.hpp>
-#        include <boost/process/v1/pipe.hpp>
-#        include <boost/process/v1/search_path.hpp>
-#        include <boost/process/v1/shell.hpp>
-#        include <boost/process/v1/spawn.hpp>
-#        include <boost/process/v1/start_dir.hpp>
-#        include <boost/process/v1/system.hpp>
-#      else
-#        include <boost/process/v1.hpp>
-#      endif
+#    endif
+#    ifdef BOOST_PROCESS_HAVE_V1
+#      include <boost/process/v1/args.hpp>
+#      include <boost/process/v1/async.hpp>
+#      include <boost/process/v1/async_system.hpp>
+#      include <boost/process/v1/child.hpp>
+#      include <boost/process/v1/cmd.hpp>
+#      include <boost/process/v1/env.hpp>
+#      include <boost/process/v1/environment.hpp>
+#      include <boost/process/v1/error.hpp>
+#      include <boost/process/v1/exe.hpp>
+#      include <boost/process/v1/group.hpp>
+#      include <boost/process/v1/handles.hpp>
+#      include <boost/process/v1/io.hpp>
+#      include <boost/process/v1/pipe.hpp>
+#      include <boost/process/v1/search_path.hpp>
+#      include <boost/process/v1/shell.hpp>
+#      include <boost/process/v1/spawn.hpp>
+#      include <boost/process/v1/start_dir.hpp>
+#      include <boost/process/v1/system.hpp>
 #    else
-#      ifdef BOOST_PROCESS_HAVE_V1
-#        include <boost/process/v1.hpp>
-#      else
-#        include <boost/process.hpp>
-#      endif
+#      include <boost/process.hpp>
 #    endif
 #  endif
 
