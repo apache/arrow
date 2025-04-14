@@ -883,7 +883,7 @@ cdef class BinaryScalar(Scalar):
 
     def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
         cdef Buffer buf = self.as_buffer()
-        buf.__getbuffer__(buffer, flags)
+        PyObject_GetBuffer(<object>buf, buffer, flags)
 
 
 cdef class LargeBinaryScalar(BinaryScalar):
