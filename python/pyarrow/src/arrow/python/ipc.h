@@ -19,6 +19,7 @@
 
 #include <memory>
 
+#include "arrow/ipc/reader.h"
 #include "arrow/python/common.h"
 #include "arrow/python/visibility.h"
 #include "arrow/record_batch.h"
@@ -47,6 +48,19 @@ class ARROW_PYTHON_EXPORT PyRecordBatchReader : public RecordBatchReader {
   std::shared_ptr<Schema> schema_;
   OwnedRefNoGIL iterator_;
 };
+
+  
+class ARROW_PYTHON_EXPORT PyStreamListenerProxy : public ::arrow::ipc::Listener {
+ public:
+  PyStreamListenerProxy(PyObject*);
+  Status OnEOS() override;
+  Status OnRecordBatchDecoded(std::shared_ptr<RecordBatch> batch) override;
+  Status OnSchemaDecoded(std::shared_ptr<Schema> schema) override;
+
+ private:
+  OwnedRefNoGIL impl_;
+};
+  
 
 class ARROW_PYTHON_EXPORT CastingRecordBatchReader : public RecordBatchReader {
  public:
