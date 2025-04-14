@@ -133,6 +133,12 @@ namespace Apache.Arrow
             return this as TBuilder;
         }
 
+        public TBuilder SetNull(int index)
+        {
+            InnerBuilder.SetNull(index);
+            return this as TBuilder;
+        }
+
         /// <summary>
         /// Swap the values of the times at the specified indices.
         /// </summary>
