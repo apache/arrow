@@ -1875,7 +1875,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                  upload_distribution_dir,
                  preserve: true,
                  verbose: verbose?)
-            write_uploaded_files(upload_distribution_dir)
             uploader =
               MavenRepositoryUploader.new(asf_user: asf_user,
                                           asf_password: asf_password,
@@ -2231,7 +2230,10 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                                                  rc: rc,
                                                  source: upload_target_dir,
                                                  staging: staging?,
-                                                 sync: true,
+                                                 # Don't remove old repodata
+                                                 # because our implementation
+                                                 # doesn't support it.
+                                                 sync: false,
                                                  sync_pattern: /\/repodata\//)
               uploader.upload
             end
@@ -2374,14 +2376,18 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                  upload_target_dir.to_s,
                  preserve: true,
                  verbose: verbose?)
-            write_uploaded_files(upload_target_dir)
 
             uploader = MavenRepositoryUploader.new(asf_user: asf_user,
                                                    asf_password: asf_password,
                                                    distribution: distribution,
                                                    rc: rc,
                                                    source: upload_target_dir,
-                                                   sync: true,
+                                                   # Don't remove old
+                                                   # repodata. Because
+                                                   # removing files
+                                                   # aren't supported
+                                                   # on Maven repository.
+                                                   sync: false,
                                                    sync_pattern: /\/repodata\//)
             uploader.upload
           end

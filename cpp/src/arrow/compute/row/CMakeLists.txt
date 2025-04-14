@@ -20,4 +20,6 @@
 
 arrow_install_all_headers("arrow/compute/row")
 
-add_arrow_benchmark(grouper_benchmark PREFIX "arrow-compute")
+if(ARROW_COMPUTE)
+  add_arrow_benchmark(grouper_benchmark PREFIX "arrow-compute")
+endif()

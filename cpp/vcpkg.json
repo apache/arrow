@@ -29,15 +29,19 @@
     "gflags",
     "glog",
     {
-      "name":"google-cloud-cpp",
-      "version>=": "1.32.1",
+      "name": "google-cloud-cpp",
       "default-features": false,
       "features": [
         "storage"
       ]
     },
     "grpc",
-    "gtest",
+    {
+      "name": "gtest",
+      "features": [
+        "cxx17"
+      ]
+    },
     "lz4",
     "openssl",
     "orc",
@@ -52,6 +56,6 @@
     "zlib",
     "zstd"
   ],
-  "$comment": "2025.02.14",
-  "builtin-baseline": "d5ec528843d29e3a52d745a64b469f810b2cedbf"
+  "$comment": "We can update builtin-baseline by 'vcpkg x-update-baseline'",
+  "builtin-baseline": "09f6a4ef2f08252f7f4d924fd9c2d42165fb21c9"
 }

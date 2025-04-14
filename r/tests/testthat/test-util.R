@@ -70,3 +70,34 @@ test_that("all_funs() identifies namespace-qualified and unqualified functions",
     c("other_fun", "fun", "sum", "base::log")
   )
 })
+
+test_that("parse_compact_col_spec() converts string specs to schema", {
+  compact_schema <- parse_compact_col_spec(
+    col_types = "cidlDTtf_-?",
+    col_names = c("c", "i", "d", "l", "D", "T", "t", "f", "_", "-", "?")
+  )
+
+  expect_equal(
+    compact_schema,
+    schema(
+      c = utf8(), i = int32(), d = float64(), l = bool(), D = date32(),
+      T = timestamp(unit = "ns"), t = time32(unit = "ms"), f = dictionary(),
+      `_` = null(), `-` = null()
+    )
+  )
+
+  expect_error(
+    parse_compact_col_spec(c("i", "d"), c("a", "b")),
+    "`col_types` must be a character vector of size 1"
+  )
+
+  expect_error(
+    parse_compact_col_spec("idc", c("a", "b")),
+    "Compact specification for `col_types` requires `col_names` of matching length"
+  )
+
+  expect_error(
+    parse_compact_col_spec("y", "a"),
+    "Unsupported compact specification: 'y' for column 'a'"
+  )
+})

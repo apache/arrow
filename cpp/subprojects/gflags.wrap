@@ -15,33 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-brew "aws-sdk-cpp"
-brew "bash"
-brew "boost"
-brew "brotli"
-brew "bzip2"
-brew "c-ares"
-brew "curl"
-brew "ccache"
-brew "cmake"
-brew "git"
-brew "glog"
-brew "googletest"
-brew "grpc"
-brew "llvm"
-brew "lz4"
-brew "mimalloc"
-brew "ninja"
-brew "node"
-brew "openssl"
-brew "pkgconf"
-brew "protobuf"
-brew "python"
-brew "rapidjson"
-brew "re2"
-brew "snappy"
-brew "thrift"
-brew "utf8proc"
-brew "wget"
-brew "xsimd"
-brew "zstd"
+[wrap-file]
+source_url = https://github.com/gflags/gflags/archive/refs/tags/v2.2.2.tar.gz
+source_filename = gflags-2.2.2.tar.gz
+source_hash = 34af2f15cf7367513b352bdcd2493ab14ce43692d2dcd9dfc499492966c64dcf
+directory = gflags-2.2.2
+method = cmake
+
+[provide]
+gflags = gflags_static_dep

@@ -79,7 +79,7 @@ jobs:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           submodules: recursive
@@ -148,7 +148,7 @@ jobs:
       ARROW_WITH_ZSTD: ON
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           submodules: recursive
@@ -248,7 +248,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           submodules: recursive
@@ -366,7 +366,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           submodules: recursive
@@ -395,6 +395,20 @@ jobs:
         env:
           # We can invalidate the current cache by updating this.
           CACHE_VERSION: "2024-05-09"
+      - name: Checkout vcpkg
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          path: vcpkg
+          repository: microsoft/vcpkg
+      - name: Bootstrap vcpkg
+        run: |
+          vcpkg\bootstrap-vcpkg.bat
+          $VCPKG_ROOT = $(Resolve-Path -LiteralPath "vcpkg").ToString()
+          Write-Output ${VCPKG_ROOT} | `
+            Out-File -FilePath ${Env:GITHUB_PATH} -Encoding utf8 -Append
+          Write-Output "VCPKG_ROOT=${VCPKG_ROOT}" | `
+            Out-File -FilePath ${Env:GITHUB_ENV} -Encoding utf8 -Append
       - name: Setup NuGet credentials for vcpkg caching
         shell: bash
         run: |
@@ -411,10 +425,14 @@ jobs:
       - name: Build C++
         shell: cmd
         run: |
+          set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Build GLib
         shell: cmd
         run: |
+          set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
           bash -c "ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build"

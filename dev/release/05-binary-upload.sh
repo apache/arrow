@@ -136,9 +136,6 @@ if [ "${UPLOAD_DEBIAN}" -gt 0 ]; then
   rake_tasks+=(apt:rc:artifactory apt:rc)
   apt_targets+=(debian)
 fi
-if [ "${UPLOAD_DOCS}" -gt 0 ]; then
-  rake_tasks+=(docs:rc)
-fi
 if [ "${UPLOAD_R}" -gt 0 ]; then
   rake_tasks+=(r:rc)
 fi

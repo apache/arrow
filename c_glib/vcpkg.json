@@ -1,23 +1,11 @@
 {
   "name": "arrow-glib",
   "version-string": "20.0.0-SNAPSHOT",
+  "$comment:dependencies": "We can enable gobject-introspection again once it's updated",
   "dependencies": [
     "glib",
-    "gobject-introspection",
     "pkgconf"
   ],
-  "$comment": "2025.02.14",
-  "builtin-baseline": "d5ec528843d29e3a52d745a64b469f810b2cedbf",
-  "overrides": [
-    {
-      "$comment":
-        "We need gobject-introspection 1.80.0 or later for GLib 2.80.0 but vcpkg doesn't provide it yet.",
-      "name": "glib",
-      "version": "2.78.4"
-    },
-    {
-      "name": "vcpkg-tool-meson",
-      "version": "1.3.2"
-    }
-  ]
+  "$comment": "We can update builtin-baseline by 'vcpkg x-update-baseline'",
+  "builtin-baseline": "09f6a4ef2f08252f7f4d924fd9c2d42165fb21c9"
 }
