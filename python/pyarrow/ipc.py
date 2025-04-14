@@ -74,7 +74,7 @@ class RecordBatchStreamWriter(lib._RecordBatchStreamWriter):
 
 {}""".format(_ipc_writer_class_doc)
 
-    def __init__(self, sink, schema, *,  options=None):
+    def __init__(self, sink, schema, *, options=None):
         options = _get_legacy_format_default(options)
         self._open(sink, schema, options=options)
 
