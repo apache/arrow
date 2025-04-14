@@ -124,9 +124,12 @@ def _get_legacy_format_default(options):
         return options
 
     metadata_version = MetadataVersion.V5
+    use_legacy_format = \
+        bool(int(os.environ.get('ARROW_PRE_0_15_IPC_FORMAT', '0')))
     if bool(int(os.environ.get('ARROW_PRE_1_0_METADATA_VERSION', '0'))):
         metadata_version = MetadataVersion.V4
-    return IpcWriteOptions(metadata_version=metadata_version)
+    return IpcWriteOptions(use_legacy_format=use_legacy_format,
+                           metadata_version=metadata_version)
 
 
 def _ensure_default_ipc_read_options(options):
