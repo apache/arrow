@@ -52,10 +52,13 @@ const boost::xpressive::sregex CONNECTION_STR_REGEX(
 // entries in the properties.
 void loadPropertiesFromDSN(const std::string& dsn,
                            Connection::ConnPropertyMap& properties) {
+  // TODO - fix build errors with configuration window
+  /*
   const size_t BUFFER_SIZE = 1024 * 10;
   std::vector<char> outputBuffer;
   outputBuffer.resize(BUFFER_SIZE, '\0');
   SQLSetConfigMode(ODBC_BOTH_DSN);
+
   SQLGetPrivateProfileString(dsn.c_str(), NULL, "", &outputBuffer[0], BUFFER_SIZE,
                              "odbc.ini");
 
@@ -81,14 +84,17 @@ void loadPropertiesFromDSN(const std::string& dsn,
   for (auto& key : keys) {
     outputBuffer.clear();
     outputBuffer.resize(BUFFER_SIZE, '\0');
+    
     SQLGetPrivateProfileString(dsn.c_str(), key.c_str(), "", &outputBuffer[0],
                                BUFFER_SIZE, "odbc.ini");
+
     std::string value = std::string(&outputBuffer[0]);
     auto propIter = properties.find(key);
     if (propIter == properties.end()) {
       properties.emplace(std::make_pair(std::move(key), std::move(value)));
     }
   }
+  */
 }
 
 }  // namespace

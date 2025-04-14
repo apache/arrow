@@ -16,11 +16,12 @@
 // under the License.
 
 
-#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_environment.h"
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_environment.h>
+#include <arrow/flight/sql/odbc/flight_sql/include/flight_sql/flight_sql_driver.h>
 
 // odbc_api includes windows.h, which needs to be put behind winsock2.h.
 // odbc_environment.h includes winsock2.h
-#include "arrow/flight/sql/odbc/odbc_api.h"
+#include <arrow/flight/sql/odbc/odbc_api.h>
 
 namespace arrow
 {
@@ -30,20 +31,23 @@ namespace arrow
 
     switch (type)
     {
-      case SQL_HANDLE_ENV:
-        
-        // TODO: uncomment below code after flightsqlodbc is fixed
-        // using ODBCEnvironment;
-        // *result = reinterpret_cast< SQLHENV >(new ODBCEnvironment());
+      case SQL_HANDLE_ENV: {
+        using ODBC::ODBCEnvironment;
+        using driver::flight_sql::FlightSqlDriver;
     
-        // return SQL_SUCCESS
+        std::shared_ptr< FlightSqlDriver > odbc_driver = std::shared_ptr< FlightSqlDriver >();
+        *result = reinterpret_cast< SQLHENV >(new ODBCEnvironment(odbc_driver));
+    
+        return SQL_SUCCESS;
+      }
+      
+      case SQL_HANDLE_DBC: {
         return SQL_INVALID_HANDLE;
+      }
 
-      case SQL_HANDLE_DBC:
+      case SQL_HANDLE_STMT: {
         return SQL_INVALID_HANDLE;
-
-      case SQL_HANDLE_STMT:
-        return SQL_INVALID_HANDLE;
+      }
 
       default:
         break;

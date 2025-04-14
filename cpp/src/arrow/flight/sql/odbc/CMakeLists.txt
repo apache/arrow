@@ -54,7 +54,7 @@ add_arrow_lib(arrow_flight_sql_odbc
               SHARED_INSTALL_INTERFACE_LIBS ArrowFlight::arrow_flight_sql_shared
               STATIC_LINK_LIBS arrow_flight_sql_static
               STATIC_INSTALL_INTERFACE_LIBS ArrowFlight::arrow_flight_sql_static
-              SHARED_PRIVATE_LINK_LIBS ODBC::ODBC)
+              SHARED_PRIVATE_LINK_LIBS ODBC::ODBC odbcabstraction arrow_odbc_spi_impl)
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_ODBC_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_SQL_ODBC_EXPORTING)
