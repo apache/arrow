@@ -23,9 +23,23 @@ option(
 )
 
 option(
+    'brotli',
+    type: 'boolean',
+    description: 'Build with Brotli compression',
+    value: false,
+)
+
+option(
     'csv',
     type: 'boolean',
     description: 'Build the Arrow CSV Parser Module',
+    value: false,
+)
+
+option(
+    'fuzzing',
+    type: 'boolean',
+    description: 'Build Arrow Fuzzing executables',
     value: false,
 )
 
@@ -68,6 +82,13 @@ option(
 )
 
 option(
+    'lz4',
+    type: 'boolean',
+    description: 'Build with lz4 compression',
+    value: false,
+)
+
+option(
     'package_kind',
     type: 'string',
     description: 'Arbitrary string that identifies the kind of package (for informational purposes)',
@@ -84,5 +105,19 @@ option(
     'tests',
     type: 'boolean',
     description: 'Build the Arrow googletest unit tests',
+    value: false,
+)
+
+option(
+    'utilities',
+    type: 'boolean',
+    description: 'Build Arrow commandline utilities',
+    value: false,
+)
+
+option(
+    'zstd',
+    type: 'boolean',
+    description: 'Build with zstd compression',
     value: false,
 )
