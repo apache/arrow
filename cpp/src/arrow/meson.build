@@ -544,6 +544,7 @@ subdir('testing')
 
 subdir('c')
 subdir('io')
+subdir('tensor')
 subdir('util')
 
 gflags_dep = dependency('gflags', include_type: 'system')
