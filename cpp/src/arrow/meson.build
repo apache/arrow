@@ -264,6 +264,71 @@ else
     rapidjson_dep = disabler()
 endif
 
+azure_dep = disabler()
+gcs_dep = disabler()
+s3_dep = disabler()
+if needs_filesystem
+    arrow_filesystem_srcs = [
+        'filesystem/filesystem.cc',
+        'filesystem/localfs.cc',
+        'filesystem/mockfs.cc',
+        'filesystem/path_util.cc',
+        'filesystem/util_internal.cc',
+    ]
+
+    arrow_filesystem_deps = []
+
+    if needs_azure
+        arrow_filesystem_srcs += ['filesystem/azurefs.cc']
+        cmake = import('cmake')
+        azure_opt = cmake.subproject_options()
+        azure_opt.add_cmake_defines(
+            {'BUILD_PERFORMANCE_TESTS': 'FALSE'},
+            {'BUILD_SAMPLES': 'FALSE'},
+            {'BUILD_TESTING': 'FALSE'},
+            {'BUILD_WINDOWS_UWP': 'TRUE'},
+            {'CMAKE_UNITY_BUILD': 'FALSE'},
+            {'DISABLE_AZURE_CORE_OPENTELEMETRY': 'TRUE'},
+            {'ENV{AZURE_SDK_DISABLE_AUTO_VCPKG}': 'TRUE'},
+            {'WARNINGS_AS_ERRORS': 'FALSE'},
+        )
+        azure_opt.append_compile_args('cpp', '-fPIC')
+        azure_proj = cmake.subproject('azure', options: azure_opt)
+
+        azure_dep = declare_dependency(
+            dependencies: [
+                azure_proj.dependency('azure-core'),
+                azure_proj.dependency('azure-identity'),
+                azure_proj.dependency('azure-storage-blobs'),
+                azure_proj.dependency('azure-storage-common'),
+                azure_proj.dependency('azure-storage-files-datalake'),
+            ],
+        )
+        arrow_filesystem_deps += [azure_dep]
+    endif
+
+    if needs_gcs
+        error('gcs filesystem support is not yet implemented in Meson')
+    endif
+
+    if needs_hdfs
+        arrow_filesystem_srcs += ['filesystem/hdfs.cc']
+    endif
+
+    if needs_s3
+        error('s3 filesystem support is not yet implemented in Meson')
+    endif
+
+    arrow_components += {
+        'arrow_filesystem': {
+            'sources': arrow_filesystem_srcs,
+            'dependencies': arrow_filesystem_deps,
+        },
+    }
+
+    arrow_testing_srcs += ['filesystem/test_util.cc']
+endif
+
 if needs_ipc
     arrow_ipc_srcs = [
         'ipc/dictionary.cc',
@@ -406,7 +471,7 @@ endif
 arrow_test_lib = static_library(
     'arrow_testing',
     sources: arrow_testing_srcs,
-    dependencies: [arrow_dep, filesystem_dep, gtest_main_dep],
+    dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
 )
 
 if needs_tests
@@ -554,4 +619,8 @@ endif
 
 if needs_csv
     subdir('csv')
+endif
+
+if needs_filesystem
+    subdir('filesystem')
 endif
