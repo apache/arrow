@@ -60,7 +60,6 @@ find ${base_name} -mindepth 1 -maxdepth 1 -type d | \
   grep -v toolchains | \
   grep -v aws-cpp-sdk-cognito-identity | \
   grep -v aws-cpp-sdk-core | \
-  grep -v aws-cpp-sdk-config | \
   grep -v aws-cpp-sdk-s3 | \
   grep -v aws-cpp-sdk-transfer | \
   grep -v aws-cpp-sdk-identity-management | \
