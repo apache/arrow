@@ -162,7 +162,7 @@ else
     distribution_prefix+="-${suffix}"
   fi
   ${install_command} \
-    ${repository_base_url}/${distribution_prefix}/${repository_version}/apache-arrow-release-latest.rpm
+    ${artifactory_base_url}/${distribution_prefix}/${repository_version}/apache-arrow-release-latest.rpm
 fi
 
 if [ "${TYPE}" = "local" ]; then
