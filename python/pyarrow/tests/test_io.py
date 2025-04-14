@@ -710,6 +710,15 @@ def test_non_cpu_buffer(pickle_module):
     # Sliced buffers with same address
     assert buf_on_gpu_sliced.equals(cuda_buf[2:4])
 
+    # Testing copying buffer
+    mm = ctx.memory_manager
+    for dest in [mm, mm.device]:
+        buf2 = buf_on_gpu.copy(dest)
+        cuda_buf2 = cuda.CudaBuffer.from_buffer(buf2)
+        assert cuda_buf2.size == cuda_buf.size
+        assert cuda_buf2.to_pybytes() == b'testing'
+        assert buf2.device == mm.device
+
     # Buffers on different devices
     msg_device = "Device on which the data resides differs between buffers"
     with pytest.raises(ValueError, match=msg_device):
