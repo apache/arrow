@@ -142,7 +142,7 @@ std::string EnumToString(int value, const google::protobuf::EnumDescriptor* desc
   if (value_desc == nullptr) {
     return "unknown";
   }
-  return value_desc->name();
+  return std::string(value_desc->name());
 }
 
 Result<compute::Expression> FromProto(const substrait::Expression::ReferenceSegment* ref,
