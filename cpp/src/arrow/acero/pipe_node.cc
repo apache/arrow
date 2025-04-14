@@ -274,16 +274,19 @@ const Ordering& Pipe::ordering() const { return ordering_; }
 
 void Pipe::Pause(PipeSource* output, int counter) {
   std::lock_guard<std::mutex> lg(mutex_);
-  if (!paused_[output]) {
-    paused_[output] = true;
-    size_t paused_count = ++paused_count_;
-    if (pause_on_any_) {
-      if (paused_count == 1) {
-        ctrl_->Pause();
-      }
-    } else {
-      if (paused_count == CountSources()) {
-        ctrl_->Pause();
+  auto& state = state_[output];
+  if (state.backpressure_counter < counter) {
+    if (!state.paused && !state.stopped) {
+      state.paused = true;
+      size_t paused_count = ++paused_count_;
+      if (pause_on_any_) {
+        if (paused_count == 1) {
+          ctrl_->Pause();
+        }
+      } else {
+        if (paused_count == CountSources() - stopped_count_) {
+          ctrl_->Pause();
+        }
       }
     }
   }
@@ -291,16 +294,23 @@ void Pipe::Pause(PipeSource* output, int counter) {
 
 void Pipe::Resume(PipeSource* output, int counter) {
   std::lock_guard<std::mutex> lg(mutex_);
-  if (paused_[output]) {
-    paused_[output] = false;
+  auto& state = state_[output];
+  if (state.backpressure_counter < counter) {
+    state.backpressure_counter = counter;
+    DoResume(state);
+  }
+}
 
+void Pipe::DoResume(SourceState& state) {
+  if (state.paused && !state.stopped) {
+    state.paused = false;
     size_t paused_count = --paused_count_;
     if (pause_on_any_) {
       if (paused_count == 0) {
         ctrl_->Resume();
       }
     } else {
-      if (paused_count == CountSources() - 1) {
+      if (paused_count == CountSources() - stopped_count_ - 1) {
         ctrl_->Resume();
       }
     }
@@ -309,6 +319,10 @@ void Pipe::Resume(PipeSource* output, int counter) {
 
 Status Pipe::StopProducing(PipeSource* output) {
   std::lock_guard<std::mutex> lg(mutex_);
+  auto& state = state_[output];
+  DCHECK(!state.stopped);
+  DoResume(state);
+  state.stopped = true;
   size_t stopped_count = ++stopped_count_;
   if (stop_on_any_) {
     if (stopped_count == 1) {
@@ -324,6 +338,10 @@ Status Pipe::StopProducing(PipeSource* output) {
 
 Status Pipe::InputReceived(ExecBatch batch) {
   for (auto& source_node : async_nodes_) {
+    {
+      std::lock_guard<std::mutex> lg(mutex_);
+      if (state_[source_node].stopped) continue;
+    }
     plan_->query_context()->ScheduleTask(
         [source_node, batch]() mutable {
           return source_node->HandleInputReceived(batch);

@@ -94,10 +94,18 @@ class ARROW_ACERO_EXPORT Pipe {
 
  private:
   friend class PipeSource;
+
+  struct SourceState {
+    bool paused{false};
+    bool stopped{false};
+    int backpressure_counter{0};
+  };
+
   // Backpresurre interface for PipeSource
   void Pause(PipeSource* output, int counter);
   // Backpresurre interface for PipeSource
   void Resume(PipeSource* output, int counter);
+  void DoResume(SourceState& state);
   //
   Status StopProducing(PipeSource* output);
 
@@ -108,7 +116,7 @@ class ARROW_ACERO_EXPORT Pipe {
   std::vector<PipeSource*> async_nodes_;
   PipeSource* sync_node_{nullptr};
   // backpressure
-  std::unordered_map<PipeSource*, bool> paused_;
+  std::unordered_map<PipeSource*, SourceState> state_;
   std::mutex mutex_;
   std::atomic_size_t paused_count_{0};
   std::unique_ptr<BackpressureControl> ctrl_;
