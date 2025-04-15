@@ -20,6 +20,6 @@
 from pyarrow.includes.libarrow cimport *
 
 
-cdef extern from "arrow/compute/kernels/api.h" namespace "arrow::compute" nogil:
+cdef extern from "arrow/compute/kernels/registry.h" namespace "arrow::compute" nogil:
 
-    CStatus RegisterComputeKernels()
+    void RegisterComputeKernels()

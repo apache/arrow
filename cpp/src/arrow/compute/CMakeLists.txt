@@ -85,9 +85,16 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
   else()
     set(LABELS ${ARROW_COMPUTE_TEST_LABELS})
   endif()
-  if(WIN32 AND NOT MSVC)
-    set(EXTRA_LINK_LIBS "-Wl,--whole-archive" arrow_compute_shared
-                        "-Wl,--no-whole-archive")
+  if(WIN32)
+    if(MSVC)
+      set(EXTRA_LINK_LIBS "/WHOLEARCHIVE:arrow_compute_shared")
+    else()
+      set(EXTRA_LINK_LIBS
+          "-Wl,--exclude-libs,__NULL_IMPORT_DESCRIPTOR" "-Wl,--whole-archive"
+          arrow_compute_shared "-Wl,--no-whole-archive")
+    endif()
+  elseif(APPLE)
+    set(EXTRA_LINK_LIBS "-Wl,-force_load" arrow_compute_shared)
   else()
     set(EXTRA_LINK_LIBS "-Wl,--push-state,--no-as-needed" arrow_compute_shared
                         "-Wl,--pop-state")
