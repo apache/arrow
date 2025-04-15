@@ -113,8 +113,9 @@ class SourceTest < Test::Unit::TestCase
                               "Content-Type" => "application/json",
                               "Authorization" => "Bearer #{github_token}")
     n_resolved_issues = JSON.parse(response.body)["data"]["search"]["issueCount"]
+    github_repository = ENV["GITHUB_REPOSITORY"] || "apache/arrow"
     github_api_url = "https://api.github.com"
-    verify_prs = URI("#{github_api_url}/repos/apache/arrow/pulls" +
+    verify_prs = URI("#{github_api_url}/repos/#{github_repository}/pulls" +
                      "?state=open" +
                      "&head=apache:release-#{@release_version}-rc0")
     verify_pr_url = nil
