@@ -26,7 +26,6 @@
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/acero/util.h"
 #include "arrow/api.h"
-#include "arrow/compute/kernels/api.h"
 #include "arrow/compute/light_array_internal.h"
 #include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/compute/test_util_internal.h"

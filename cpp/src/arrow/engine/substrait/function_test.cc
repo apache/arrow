@@ -34,7 +34,6 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
-#include "arrow/compute/kernels/api.h"
 #include "arrow/datum.h"
 #include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/options.h"

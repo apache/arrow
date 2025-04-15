@@ -19,10 +19,14 @@
 #include "arrow/compute/registry.h"
 
 #include "arrow/compute/visibility.h"
-#include "arrow/status.h"
 
 namespace arrow::compute {
 
-ARROW_COMPUTE_EXPORT Status RegisterComputeKernels();
+ARROW_COMPUTE_EXPORT void RegisterComputeKernels();
+class ARROW_COMPUTE_EXPORT RegistryInitializer {
+ public:
+  RegistryInitializer();
+  static RegistryInitializer instance;
+};
 
 }  // namespace arrow::compute

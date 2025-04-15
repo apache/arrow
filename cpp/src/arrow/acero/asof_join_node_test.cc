@@ -42,7 +42,6 @@
 #include "arrow/api.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
-#include "arrow/compute/kernels/api.h"
 #include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/compute/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"

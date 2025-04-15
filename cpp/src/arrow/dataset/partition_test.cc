@@ -29,7 +29,6 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
-#include "arrow/compute/kernels/api.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/test_util_internal.h"

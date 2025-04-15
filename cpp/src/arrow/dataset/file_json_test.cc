@@ -17,7 +17,6 @@
 
 #include "arrow/dataset/file_json.h"
 
-#include "arrow/compute/kernels/api.h"
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/mockfs.h"

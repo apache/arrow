@@ -30,7 +30,6 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/expression_internal.h"
-#include "arrow/compute/kernels/api.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/test_util_internal.h"

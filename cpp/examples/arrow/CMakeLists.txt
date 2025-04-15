@@ -43,7 +43,8 @@ endif()
 
 if(ARROW_COMPUTE AND ARROW_CSV)
   if(ARROW_BUILD_SHARED)
-    set(COMPUTE_KERNELS_LINK_LIBS arrow_compute_shared)
+    set(COMPUTE_KERNELS_LINK_LIBS "-Wl,--push-state,--no-as-needed" arrow_compute_shared
+                                  "-Wl,--pop-state")
   else()
     set(COMPUTE_KERNELS_LINK_LIBS arrow_compute_static)
   endif()

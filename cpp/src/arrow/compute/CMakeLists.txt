@@ -67,7 +67,7 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
   endif()
 
   set(one_value_args PREFIX)
-  set(multi_value_args LABELS)
+  set(multi_value_args LABELS EXTRA_LINK_LIBS)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -85,6 +85,11 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
   else()
     set(LABELS ${ARROW_COMPUTE_TEST_LABELS})
   endif()
+  set(EXTRA_LINK_LIBS "-Wl,--push-state,--no-as-needed" arrow_compute_shared
+                      "-Wl,--pop-state")
+  if(ARG_EXTRA_LINK_LIBS)
+    list(APPEND EXTRA_LINK_LIBS ${ARG_EXTRA_LINK_LIBS})
+  endif()
 
   add_arrow_test(${REL_TEST_NAME}
                  PREFIX
@@ -93,6 +98,8 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
                  ${LABELS}
                  STATIC_LINK_LIBS
                  ${ARROW_COMPUTE_TEST_LINK_LIBS}
+                 EXTRA_LINK_LIBS
+                 ${EXTRA_LINK_LIBS}
                  ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
