@@ -276,12 +276,13 @@ void KeyCompare::CompareVarBinaryColumnToRowHelper(
       int32_t tail_length = length - j * 8;
       uint64_t tail_mask = ~0ULL >> (64 - 8 * tail_length);
       uint64_t key_left = 0;
-      std::memcpy(&key_left, key_left_ptr + j, tail_length);
+      const uint8_t* src_bytes = reinterpret_cast<const uint8_t*>(key_left_ptr + j);
+      std::memcpy(&key_left, src_bytes, tail_length);
       uint64_t key_right = key_right_ptr[j];
       result_or |= tail_mask & (key_left ^ key_right);
     }
     int result = result_or == 0 ? 0xff : 0;
-    result *= (length_left == length_right ? 1 : 0);
+    result = (length_left == length_right) ? result : 0;
     match_bytevector[i] = result;
   }
 }

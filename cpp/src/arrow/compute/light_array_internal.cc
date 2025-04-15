@@ -615,7 +615,9 @@ Status ExecBatchBuilder::AppendSelected(const std::shared_ptr<ArrayData>& source
                 target->mutable_data(2) +
                 offsets[num_rows_before + num_rows_to_process + i]);
             const uint64_t* src = reinterpret_cast<const uint64_t*>(ptr);
-            memcpy(dst, src, num_bytes);
+            uint8_t* dst_bytes = reinterpret_cast<uint8_t*>(dst);
+            const uint8_t* src_bytes = reinterpret_cast<const uint8_t*>(src);
+            memcpy(dst_bytes, src_bytes, num_bytes);
           });
   }
 
