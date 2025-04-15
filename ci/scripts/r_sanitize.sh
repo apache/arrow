@@ -49,7 +49,7 @@ export UBSAN_OPTIONS="print_stacktrace=1,suppressions=${SUPPRESSION_FILE}"
 # From the old rhub image https://github.com/r-hub/rhub-linux-builders/blob/master/fedora-clang-devel-san/Dockerfile
 export ASAN_OPTIONS="alloc_dealloc_mismatch=0:detect_leaks=0:detect_odr_violation=0"
 
-${R_BIN} CMD CHECK --no-manual --no-vignettes --no-build-vignettes arrow*.tar.gz
+${R_BIN} CMD check --no-manual --no-vignettes --no-build-vignettes arrow*.tar.gz
 
 # Find sanitizer issues, print the file(s) they are part of, and fail the job
 find . -type f -name "*Rout" -exec grep -l "runtime error\|SUMMARY: UndefinedBehaviorSanitizer" {} \; > sanitizer_errors.txt

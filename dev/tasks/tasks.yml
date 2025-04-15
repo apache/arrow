@@ -1087,13 +1087,13 @@ tasks:
       image: ubuntu-r-sanitizer
       timeout: 120
 
-  test-r-clang-sanitizer:
+  test-r-clang-asan:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         R_PRUNE_DEPS: TRUE
-      image: r-clang-sanitizer
+      image: r-clang-asan
 
   test-r-clang-ubsan:
     ci: github
