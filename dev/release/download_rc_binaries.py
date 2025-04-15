@@ -274,7 +274,6 @@ def download_rc_binaries(
 ):
     version_string = "{}-rc{}".format(version, rc_number)
     version_pattern = re.compile(r"\d+\.\d+\.\d+")
-    print(target_package_type)
     if target_package_type:
         package_types = [target_package_type]
     else:
@@ -290,16 +289,13 @@ def download_rc_binaries(
         filter = is_target
 
         if package_type == "github" or package_type in ARROW_STANDALONE_PACKAGE_TYPES:
-            print("github downloader")
             downloader = GitHub(repository, tag)
             prefix = ""
             filter = None
         elif package_type in ARROW_REPOSITORY_PACKAGE_TYPES:
-            print("wrong downloader 1")
             downloader = Artifactory()
             prefix = f'{package_type}-rc'
         else:
-            print("wrong downloader 2")
             downloader = Artifactory()
             prefix = f'{package_type}-rc/{version_string}'
             filter = None
@@ -356,9 +352,6 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    print(f"tag: {args.tag}")
-    print(f"repo: {args.repository}")
-    print(f"type: {args.package_type}")
     download_rc_binaries(
         args.version,
         args.rc_number,

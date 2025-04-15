@@ -36,7 +36,7 @@ cd %_VERIFICATION_DIR%
 set ARROW_VERSION=%1
 set RC_NUMBER=%2
 
-python -u dev\release\download_rc_binaries.py %ARROW_VERSION% %RC_NUMBER% ^
+python dev\release\download_rc_binaries.py %ARROW_VERSION% %RC_NUMBER% ^
     --package_type="python" ^
     --repository="apache/arrow" ^
     --dest="%_VERIFICATION_DIR%" ^
