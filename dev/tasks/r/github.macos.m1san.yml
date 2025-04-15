@@ -89,7 +89,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-output
-          retention-days: 7
           path: |
             arrow/r/tests/
             arrow/r/arrow.Rcheck/
