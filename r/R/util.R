@@ -251,10 +251,7 @@ check_named_cols <- function(df) {
 
 #' Parse a compact column type specification into Arrow schema
 #'
-#' @param col_types A single character string where each character represents
-#' a column type, like in readr
-#' @param col_names Character vector of column names (must match the length of
-#' col_types characters)
+#' @inheritParams read_delim_arrow
 #' @return A Schema object
 #'
 #' @examples
