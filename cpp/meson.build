@@ -19,7 +19,7 @@ project(
     'arrow',
     'cpp',
     'c',
-    version: '20.0.0-SNAPSHOT',
+    version: '20.0.0',
     license: 'Apache-2.0',
     meson_version: '>=1.3.0',
     default_options: [
