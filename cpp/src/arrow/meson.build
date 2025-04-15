@@ -727,3 +727,7 @@ endif
 if needs_ipc
     subdir('ipc')
 endif
+
+if get_option('tensorflow').enabled()
+    subdir('adapters/tensorflow')
+endif
