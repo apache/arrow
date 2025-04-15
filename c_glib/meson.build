@@ -34,7 +34,7 @@ project(
     #   * 22.04: 0.61.2
     #   * 24.04: 1.3.2
     meson_version: '>=0.61.2',
-    version: '20.0.0-SNAPSHOT',
+    version: '20.0.0',
 )
 
 version = meson.project_version()
