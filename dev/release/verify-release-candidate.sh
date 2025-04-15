@@ -168,6 +168,7 @@ verify_dir_artifact_signatures() {
 }
 
 test_binary() {
+  # this downloads all artifacts and verifies their checksums and signatures
   show_header "Testing binary artifacts"
   maybe_setup_conda
 
@@ -176,7 +177,8 @@ test_binary() {
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
          --dest=${download_dir} \
-         --repository=${GITHUB_REPOSITORY:-apache/arrow}
+         --repository=${GITHUB_REPOSITORY:-apache/arrow} \
+         --tag="apache-arrow-$VERSION-rc$RC_NUMBER"
 
   verify_dir_artifact_signatures ${download_dir}
 }
