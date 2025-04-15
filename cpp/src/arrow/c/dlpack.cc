@@ -134,6 +134,7 @@ Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr) {
 struct TensorManagerCtx {
   std::shared_ptr<Tensor> t;
   std::vector<int64_t> strides;
+  std::vector<int64_t> shape;
   DLManagedTensor tensor;
 };
 
@@ -159,15 +160,22 @@ Result<DLManagedTensor*> ExportTensor(const std::shared_ptr<Tensor>& t) {
   ctx->tensor.dl_tensor.device = device;
   ctx->tensor.dl_tensor.ndim = t->ndim();
   ctx->tensor.dl_tensor.dtype = dlpack_type;
-
-  ctx->tensor.dl_tensor.shape = const_cast<int64_t*>(t->shape().data());
-  std::vector<int64_t>* strides_arr = &ctx->strides;
-  strides_arr->resize(t->ndim());
-  for (int i = 0; i < t->ndim(); i++) {
-    (*strides_arr)[i] = t->strides().data()[i] / t->type()->byte_width();
-  }
-  ctx->tensor.dl_tensor.strides = strides_arr->data();
   ctx->tensor.dl_tensor.byte_offset = 0;
+
+  std::vector<int64_t>& shape_arr = ctx->shape;
+  shape_arr.reserve(t->ndim());
+  for (auto i : t->shape()) {
+      shape_arr.emplace_back(i);
+    }
+  ctx->tensor.dl_tensor.shape = shape_arr.data();
+
+  std::vector<int64_t>& strides_arr = ctx->strides;
+  strides_arr.reserve(t->ndim());
+  auto byte_width = t->type()->byte_width();
+  for (auto i : t->strides()) {
+      strides_arr.emplace_back(i/ byte_width);
+    }
+  ctx->tensor.dl_tensor.strides = strides_arr.data();
 
   ctx->t = std::move(t);
   ctx->tensor.manager_ctx = ctx.get();
