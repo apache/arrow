@@ -221,4 +221,19 @@ MAKE_IN(Double, double, float64());
 MAKE_IN(String, std::string, utf8());
 MAKE_IN(Binary, std::string, binary());
 
+NodePtr TreeExprBuilder::MakePreEvalInExpression(NodePtr eval_expr,
+                                                 NodeVector condition_eval_exprs) {
+  NodeVector equal_nodes;
+  equal_nodes.reserve(condition_eval_exprs.size());
+  auto read_proxy_node =
+      std::make_shared<ReadProxyNode>(eval_expr->return_type(), eval_expr->ToString());
+  for (const auto& expr : condition_eval_exprs) {
+    auto equal_func =
+        TreeExprBuilder::MakeFunction("equal", {expr, read_proxy_node}, boolean());
+    equal_nodes.push_back(equal_func);
+  }
+  auto or_expr = TreeExprBuilder::MakeOr(equal_nodes);
+  return std::make_shared<PreEvalInExpressionNode>(eval_expr, or_expr, boolean());
+}
+
 }  // namespace gandiva
