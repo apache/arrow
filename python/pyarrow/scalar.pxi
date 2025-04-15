@@ -911,7 +911,6 @@ cdef class BinaryScalar(Scalar):
         buffer.suboffsets = NULL
 
 
-
 cdef class LargeBinaryScalar(BinaryScalar):
     pass
 
