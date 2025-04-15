@@ -27,7 +27,6 @@
 #include "arrow/acero/util.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/expression.h"
-#include "arrow/compute/kernels/api.h"
 #include "arrow/compute/test_util_internal.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/record_batch.h"

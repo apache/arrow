@@ -27,7 +27,6 @@
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/array/array_primitive.h"
-#include "arrow/compute/kernels/api.h"
 #include "arrow/compute/test_util_internal.h"
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/partition.h"

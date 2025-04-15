@@ -20,7 +20,6 @@
 
 #include <arrow/array/util.h>
 #include <arrow/compute/api.h>
-#include <arrow/compute/kernels/api.h>
 #include <arrow/record_batch.h>
 #include <arrow/table.h>
 

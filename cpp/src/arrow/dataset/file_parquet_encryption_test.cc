@@ -21,7 +21,6 @@
 
 #include "arrow/array.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/kernels/api.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_parquet.h"

@@ -67,7 +67,7 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
   endif()
 
   set(one_value_args PREFIX)
-  set(multi_value_args LABELS)
+  set(multi_value_args LABELS EXTRA_LINK_LIBS)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -86,6 +86,25 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
     set(LABELS ${ARROW_COMPUTE_TEST_LABELS})
   endif()
 
+  if(WIN32)
+    if(MSVC)
+      set(EXTRA_LINK_LIBS arrow_compute_shared)
+      set(EXTRA_LINK_OPTIONS "/WHOLEARCHIVE:arrow_compute" arrow_compute_shared)
+    else()
+      set(EXTRA_LINK_LIBS "-Wl,--whole-archive" arrow_compute_shared
+                          "-Wl,--allow-multiple-definition" "-Wl,--no-whole-archive")
+    endif()
+  elseif(APPLE)
+    set(EXTRA_LINK_LIBS "-Wl,-force_load" arrow_compute_shared)
+  else()
+    set(EXTRA_LINK_LIBS "-Wl,--push-state,--no-as-needed" arrow_compute_shared
+                        "-Wl,--pop-state")
+  endif()
+
+  if(ARG_EXTRA_LINK_LIBS)
+    list(APPEND EXTRA_LINK_LIBS ${ARG_EXTRA_LINK_LIBS})
+  endif()
+
   add_arrow_test(${REL_TEST_NAME}
                  PREFIX
                  ${PREFIX}
@@ -93,6 +112,10 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
                  ${LABELS}
                  STATIC_LINK_LIBS
                  ${ARROW_COMPUTE_TEST_LINK_LIBS}
+                 EXTRA_LINK_LIBS
+                 ${EXTRA_LINK_LIBS}
+                 EXTRA_LINK_OPTIONS
+                 ${EXTRA_LINK_OPTIONS}
                  ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 

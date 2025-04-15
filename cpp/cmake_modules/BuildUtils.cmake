@@ -649,6 +649,7 @@ function(ADD_TEST_CASE REL_TEST_NAME)
       SOURCES
       STATIC_LINK_LIBS
       EXTRA_LINK_LIBS
+      EXTRA_LINK_OPTIONS
       EXTRA_INCLUDES
       EXTRA_DEPENDENCIES
       LABELS
@@ -802,7 +803,13 @@ endfunction()
 function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
   set(options)
   set(one_value_args PREFIX)
-  set(multi_value_args EXTRA_INCLUDES EXTRA_LINK_LIBS EXTRA_SOURCES DEPENDENCIES)
+  set(multi_value_args
+      EXTRA_INCLUDES
+      EXTRA_LINK_OPTIONS
+      EXTRA_LINK_LIBS
+      EXTRA_SOURCES
+      DEPENDENCIES)
+
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"

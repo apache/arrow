@@ -20,7 +20,6 @@
 // (Doc section: Includes)
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
-#include <arrow/compute/kernels/api.h>
 
 #include <iostream>
 // (Doc section: Includes)

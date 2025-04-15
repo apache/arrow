@@ -23,7 +23,6 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/compute/kernels/api.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/test_util.h"

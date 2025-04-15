@@ -26,18 +26,17 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry_internal.h"
-#include "arrow/status.h"
 #include "arrow/util/config.h"  // For ARROW_COMPUTE
 #include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {
 
-Status RegisterComputeKernels() {
+void RegisterComputeKernels() {
   auto registry = GetFunctionRegistry();
   // TODO: Do we have a different way to avoid double registration?
   if (registry->GetFunction("abs").ok()) {
-    return Status::OK();
+    return;
   }
   // Register additional kernels on libarrow_compute
   // Scalar functions
@@ -77,8 +76,9 @@ Status RegisterComputeKernels() {
   internal::RegisterScalarAggregateQuantile(registry);
   internal::RegisterScalarAggregateTDigest(registry);
   internal::RegisterScalarAggregateVariance(registry);
-
-  return Status::OK();
 }
+RegistryInitializer::RegistryInitializer() { RegisterComputeKernels(); }
+
+RegistryInitializer RegistryInitializer::instance;
 }  // namespace compute
 }  // namespace arrow
