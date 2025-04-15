@@ -66,7 +66,8 @@ needs_s3 = get_option('s3').enabled()
 needs_filesystem = get_option('filesystem').enabled() or needs_azure or needs_gcs or needs_hdfs or needs_s3
 needs_integration = get_option('integration').enabled()
 needs_tests = get_option('tests').enabled()
-needs_ipc = get_option('ipc').enabled() or needs_tests or needs_benchmarks
+needs_acero = get_option('acero').enabled()
+needs_ipc = get_option('ipc').enabled() or needs_tests or needs_acero or needs_benchmarks
 needs_testing = get_option('testing').enabled() or needs_tests or needs_benchmarks or needs_integration
 needs_json = get_option('json').enabled() or needs_testing
 
