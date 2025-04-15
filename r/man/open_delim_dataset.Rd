@@ -212,8 +212,10 @@ for opening single files and functions for opening datasets.
 \examples{
 \dontshow{if (arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 # Set up directory for examples
+tf <- tempfile()
+dir.create(tf)
 on.exit(unlink(tf))
-
+df <- data.frame(x = c("1", "2", "NULL"))
 file_path <- file.path(tf, "file1.txt")
 write.table(df, file_path, sep = ",", row.names = FALSE)
 
