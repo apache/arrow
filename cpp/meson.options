@@ -16,6 +16,13 @@
 # under the License.
 
 option(
+    'acero',
+    type: 'boolean',
+    description: 'Build the Arrow Acero Engine Module',
+    value: false,
+)
+
+option(
     'azure',
     type: 'boolean',
     description: 'Build Arrow with Azure support (requires the Azure SDK for C++)',
