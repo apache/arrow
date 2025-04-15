@@ -227,7 +227,7 @@ on.exit(unlink(tf2))
 write_csv_dataset(cars, tf2)
 
 open_csv_dataset(tf2, col_types = schema(speed = int32(), dist = int32()))
-open_csv_dataset(tf2, col_types = schema(speed = int32())
+open_csv_dataset(tf2, col_types = schema(speed = int32()))
 open_csv_dataset(tf2, col_types = "ii", col_names = c("speed", "dist"), skip = 1)
 \dontshow{\}) # examplesIf}
 }

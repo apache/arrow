@@ -264,7 +264,7 @@ open_dataset <- function(sources,
 #' write_csv_dataset(cars, tf2)
 #'
 #' open_csv_dataset(tf2, col_types = schema(speed = int32(), dist = int32()))
-#' open_csv_dataset(tf2, col_types = schema(speed = int32())
+#' open_csv_dataset(tf2, col_types = schema(speed = int32()))
 #' open_csv_dataset(tf2, col_types = "ii", col_names = c("speed", "dist"), skip = 1)
 #'
 #' @seealso [open_dataset()]
