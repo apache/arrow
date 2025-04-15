@@ -76,8 +76,6 @@ EXIT /B 1
 @rem a batch function to verify a single wheel
 :verify_wheel
 
-cd %_VERIFICATION_DIR%
-
 set PY_VERSION=%1
 set ABI_TAG=%2
 set PY_VERSION_NO_PERIOD=%PY_VERSION:.=%
@@ -90,7 +88,7 @@ call activate %CONDA_ENV_PATH%
 
 set WHEEL_FILENAME=pyarrow-%ARROW_VERSION%-cp%PY_VERSION_NO_PERIOD%-cp%PY_VERSION_NO_PERIOD%%ABI_TAG%-win_amd64.whl
 
-pip install %WHEEL_FILENAME% || EXIT /B 1
+pip install %_VERIFICATION_DIR%\%WHEEL_FILENAME% || EXIT /B 1
 python -c "import pyarrow" || EXIT /B 1
 python -c "import pyarrow.parquet" || EXIT /B 1
 python -c "import pyarrow.flight" || EXIT /B 1
