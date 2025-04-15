@@ -894,7 +894,6 @@ cdef class BinaryScalar(Scalar):
         buffer.buf = <char *>buf.buffer.get().data()
         buffer.len = buf.size
         if buffer.buf == NULL:
-            # ARROW-16048: Ensure we don't export a NULL address.
             assert buffer.len == 0
             buffer.buf = cp.PyBytes_AS_STRING(b"")
         buffer.format = 'b'
