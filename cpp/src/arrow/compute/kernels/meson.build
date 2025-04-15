@@ -31,6 +31,12 @@ exc = executable(
 )
 test('arrow-scalar-cast-test', exc)
 
+if needs_compute
+    arrow_compute_test_dep = declare_dependency(dependencies: [arrow_test_dep])
+else
+    arrow_compute_test_dep = disabler()
+endif
+
 # ----------------------------------------------------------------------
 # Scalar kernels
 
@@ -62,16 +68,14 @@ scalar_kernel_tests = {
     },
 }
 
-if needs_compute
-    foreach key, val : scalar_kernel_tests
-        exc = executable(
-            key,
-            sources: val['sources'] + arrow_compute_testing_srcs + kernel_testing_srcs,
-            dependencies: [arrow_test_dep],
-        )
-        test(key, exc)
-    endforeach
-endif
+foreach key, val : scalar_kernel_tests
+    exc = executable(
+        key,
+        sources: val['sources'] + arrow_compute_testing_srcs + kernel_testing_srcs,
+        dependencies: [arrow_compute_test_dep],
+    )
+    test(key, exc)
+endforeach
 
 scalar_kernel_benchmarks = [
     'scalar_arithmetic_benchmark',
@@ -91,7 +95,7 @@ foreach benchmark : scalar_kernel_benchmarks
     exc = executable(
         benchmark_name,
         sources: '@0@.cc'.format(benchmark),
-        dependencies: [arrow_benchmark_dep],
+        dependencies: [arrow_benchmark_dep, gmock_dep],
     )
     benchmark(benchmark_name, exc)
 endforeach
@@ -119,16 +123,14 @@ vector_kernel_tests = {
     'arrow-compute-vector-swizzle-test': {'sources': ['vector_swizzle_test.cc']},
 }
 
-if needs_compute
-    foreach key, val : vector_kernel_tests
-        exc = executable(
-            key,
-            sources: val['sources'] + arrow_compute_testing_srcs + kernel_testing_srcs,
-            dependencies: [arrow_test_dep],
-        )
-        test(key, exc)
-    endforeach
-endif
+foreach key, val : vector_kernel_tests
+    exc = executable(
+        key,
+        sources: val['sources'] + arrow_compute_testing_srcs + kernel_testing_srcs,
+        dependencies: [arrow_compute_test_dep],
+    )
+    test(key, exc)
+endforeach
 
 vector_kernel_benchmarks = [
     'vector_hash_benchmark',
@@ -153,11 +155,10 @@ endforeach
 # Aggregate kernels
 
 # Aggregates
-
 exc = executable(
     'arrow-compute-aggregate-test',
     sources: ['aggregate_test.cc'] + arrow_compute_testing_srcs + kernel_testing_srcs,
-    dependencies: [arrow_test_dep, filesystem_dep],
+    dependencies: [arrow_compute_test_dep, filesystem_dep],
 )
 test('arrow-compute-aggregate-test', exc)
 
@@ -167,6 +168,6 @@ test('arrow-compute-aggregate-test', exc)
 exc = executable(
     'arrow-compute-kernel-utility-test',
     sources: ['codegen_internal_test.cc'],
-    dependencies: [arrow_test_dep],
+    dependencies: [arrow_compute_test_dep],
 )
 test('arrow-compute-kernel-utility-test', exc)
