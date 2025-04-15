@@ -162,7 +162,7 @@ x-hierarchy:
   - ubuntu-r-valgrind
   - ubuntu-swift
   - ubuntu-verify-rc
-  - r-clang-sanitizer
+  - r-clang-asan
   - r-clang-ubsan
   - r
   - r-revdepcheck
@@ -1718,7 +1718,7 @@ services:
       /bin/bash -c "
         /arrow/ci/scripts/r_sanitize.sh /arrow"
 
-  r-clang-sanitizer:
+  r-clang-asan:
     image: ${REPO}:r-rhub-clang-devel-latest
     build:
       context: .
