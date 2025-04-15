@@ -76,6 +76,8 @@ EXIT /B 1
 @rem a batch function to verify a single wheel
 :verify_wheel
 
+cd %_VERIFICATION_DIR%
+
 set PY_VERSION=%1
 set ABI_TAG=%2
 set PY_VERSION_NO_PERIOD=%PY_VERSION:.=%
@@ -94,7 +96,7 @@ python -c "import pyarrow.parquet" || EXIT /B 1
 python -c "import pyarrow.flight" || EXIT /B 1
 python -c "import pyarrow.dataset" || EXIT /B 1
 
-pip install -r arrow\python\requirements-test.txt || EXIT /B 1
+pip install -r %_CURRENT_DIR%\python\requirements-test.txt || EXIT /B 1
 
 set PYARROW_TEST_CYTHON=OFF
 set TZDIR=%CONDA_ENV_PATH%\share\zoneinfo
@@ -102,6 +104,6 @@ pytest %CONDA_ENV_PATH%\Lib\site-packages\pyarrow --pdb -v || EXIT /B 1
 
 :done
 
-call deactivate
+call conda deactivate
 
 EXIT /B 0
