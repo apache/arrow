@@ -43,6 +43,8 @@ unset ARROW_R_DEV
 
 # Set the testthat output to be verbose for easier debugging
 export ARROW_R_VERBOSE_TEST=TRUE
+
+# We prune dependencies for these, so we need to disable forcing suggests
 export _R_CHECK_FORCE_SUGGESTS_=FALSE
 
 export SUPPRESSION_FILE=$(readlink -f "tools/ubsan.supp")
