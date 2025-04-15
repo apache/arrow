@@ -21,6 +21,16 @@ on:
   push:
     tags:
       - "*-rc*"
+  pull_request:
+    paths:
+      - ".github/workflows/verify_rc.yml"
+  workflow_dispatch:
+    inputs:
+      rc_tag:
+        description: "Tag of the rc to verify"
+        type: string
+        required: true
+
 
 permissions:
   contents: read
@@ -28,6 +38,7 @@ permissions:
 env:
   TEST_DEFAULT: "0"
   VERBOSE: "1"
+  RC_TAG: "${{ inputs.rc_tag || github.event_name == 'pull_request' && 'apache-arrow-20.0.0-rc0' || github.ref_name }}"
 
 jobs:
   apt:
@@ -46,9 +57,9 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Run
         run: |
-          package_id=${GITHUB_REF_NAME%-rc*}
+          package_id=${RC_TAG%-rc*}
           version=${package_id#apache-arrow-}
-          rc=${GITHUB_REF_NAME#*-rc}
+          rc=${RC_TAG#*-rc}
           dev/release/verify-release-candidate.sh ${version} ${rc}
 
   binary:
@@ -61,9 +72,9 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Run
         run: |
-          package_id=${GITHUB_REF_NAME%-rc*}
+          package_id=${RC_TAG%-rc*}
           version=${package_id#apache-arrow-}
-          rc=${GITHUB_REF_NAME#*-rc}
+          rc=${RC_TAG#*-rc}
           dev/release/verify-release-candidate.sh ${version} ${rc}
 
   wheels-linux:
@@ -89,9 +100,9 @@ jobs:
         run: python -m pip install -e dev/archery[docker]
       - name: Prepare
         run: |
-          package_id=${GITHUB_REF_NAME%-rc*}
+          package_id=${RC_TAG%-rc*}
           echo "VERSION=${package_id#apache-arrow-}" >> ${GITHUB_ENV}
-          echo "RC=${GITHUB_REF_NAME#*-rc}" >> ${GITHUB_ENV}
+          echo "RC=${RC_TAG#*-rc}" >> ${GITHUB_ENV}
           distro=${{ matrix.distro }}
           if [ "${distro}" = "conda" ]; then
             echo "SERVICE=${distro}-verify-rc" >> ${GITHUB_ENV}
@@ -102,6 +113,8 @@ jobs:
             echo "$(echo ${os} | tr a-z A-Z)=${version}" >> ${GITHUB_ENV}
           fi
       - name: Run
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           archery docker run \
             -e TEST_DEFAULT="${TEST_DEFAULT}" \
@@ -109,6 +122,7 @@ jobs:
             -e VERBOSE="${VERBOSE}" \
             -e VERIFY_RC="${RC}" \
             -e VERIFY_VERSION="${VERSION}" \
+            -e GH_TOKEN="$GH_TOKEN" \
             ${SERVICE}
 
   wheels-macos:
@@ -126,10 +140,12 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Run
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          package_id=${GITHUB_REF_NAME%-rc*}
+          package_id=${RC_TAG%-rc*}
           version=${package_id#apache-arrow-}
-          rc=${GITHUB_REF_NAME#*-rc}
+          rc=${RC_TAG#*-rc}
           dev/release/verify-release-candidate.sh ${version} ${rc}
 
   wheels-windows:
@@ -141,12 +157,14 @@ jobs:
       TEST_WHEELS: "1"
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          submodules: recursive
       - name: Prepare
         shell: bash
         run: |
-          package_id=${GITHUB_REF_NAME%-rc*}
+          package_id=${RC_TAG%-rc*}
           echo "VERSION=${package_id#apache-arrow-}" >> ${GITHUB_ENV}
-          echo "RC=${GITHUB_REF_NAME#*-rc}" >> ${GITHUB_ENV}
+          echo "RC=${RC_TAG#*-rc}" >> ${GITHUB_ENV}
       - uses: conda-incubator/setup-miniconda@505e6394dae86d6a5c7fbb6e3fb8938e3e863830 # v3.1.1
       - name: Install System Dependencies
         run: |
@@ -156,6 +174,8 @@ jobs:
         shell: bash
         run: ci/scripts/download_tz_database.sh
       - name: Run verification
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: cmd
         run: |
           dev/release/verify-release-candidate-wheels.bat %VERSION% %RC%
@@ -176,7 +196,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Run
         run: |
-          package_id=${GITHUB_REF_NAME%-rc*}
+          package_id=${RC_TAG%-rc*}
           version=${package_id#apache-arrow-}
-          rc=${GITHUB_REF_NAME#*-rc}
+          rc=${RC_TAG#*-rc}
           dev/release/verify-release-candidate.sh ${version} ${rc}
