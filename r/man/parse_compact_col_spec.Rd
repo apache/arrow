@@ -22,7 +22,7 @@ A Schema object
 Parse a compact column type specification into Arrow schema
 }
 \examples{
-parse_compact_col_spec("ci", colnames = c("x", "y"))
+parse_compact_col_spec(col_types = "ci", colnames = c("x", "y"))
 
 }
 \keyword{internal}

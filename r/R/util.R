@@ -255,7 +255,7 @@ check_named_cols <- function(df) {
 #' @return A Schema object
 #'
 #' @examples
-#' parse_compact_col_spec("ci", colnames = c("x", "y"))
+#' parse_compact_col_spec(col_types = "ci", colnames = c("x", "y"))
 #'
 #' @keywords internal
 parse_compact_col_spec <- function(col_types, col_names) {
