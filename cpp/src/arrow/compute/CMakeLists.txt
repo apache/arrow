@@ -85,8 +85,13 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
   else()
     set(LABELS ${ARROW_COMPUTE_TEST_LABELS})
   endif()
-  set(EXTRA_LINK_LIBS "-Wl,--push-state,--no-as-needed" arrow_compute_shared
-                      "-Wl,--pop-state")
+  if(WIN32 AND NOT MSVC)
+    set(EXTRA_LINK_LIBS "-Wl,--whole-archive" arrow_compute_shared
+                        "-Wl,--no-whole-archive")
+  else()
+    set(EXTRA_LINK_LIBS "-Wl,--push-state,--no-as-needed" arrow_compute_shared
+                        "-Wl,--pop-state")
+  endif()
   if(ARG_EXTRA_LINK_LIBS)
     list(APPEND EXTRA_LINK_LIBS ${ARG_EXTRA_LINK_LIBS})
   endif()
