@@ -290,13 +290,16 @@ def download_rc_binaries(
         filter = is_target
 
         if package_type == "github" or package_type in ARROW_STANDALONE_PACKAGE_TYPES:
+            print("github downloader")
             downloader = GitHub(repository, tag)
             prefix = ""
             filter = None
         elif package_type in ARROW_REPOSITORY_PACKAGE_TYPES:
+            print("wrong downloader 1")
             downloader = Artifactory()
             prefix = f'{package_type}-rc'
         else:
+            print("wrong downloader 2")
             downloader = Artifactory()
             prefix = f'{package_type}-rc/{version_string}'
             filter = None
