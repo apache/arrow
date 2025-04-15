@@ -37,8 +37,8 @@ def apply_template(template, data):
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
-        raise ValueError("Usage: {0} <template file> <data file> "
-                         "<output file>".format(sys.argv[0]))
+        raise ValueError(f"Usage: {sys.argv[0]} <template file> <data file> "
+                         "<output file>")
     with open(sys.argv[1], "rb") as f:
         template = f.read()
     with open(sys.argv[2], "rb") as f:

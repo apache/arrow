@@ -73,7 +73,7 @@ namespace internal {
 
 
 print("inline const uint8_t* unpack0_64(const uint8_t* in, uint64_t* out) {")
-print("  for(int k = 0; k < {0} ; k += 1) {{".format(howmany(0)))
+print(f"  for(int k = 0; k < {howmany(0)} ; k += 1) {{")
 print("    out[k] = 0;")
 print("  }")
 print("  return in;")
@@ -81,47 +81,44 @@ print("}")
 
 for bit in range(1, 65):
     print("")
-    print(
-        "inline const uint8_t* unpack{0}_64(const uint8_t* in, uint64_t* out) {{".format(bit))
+    print(f"inline const uint8_t* unpack{bit}_64(const uint8_t* in, uint64_t* out) {{")
 
     if(bit < 64):
-        print("  const uint64_t mask = {0}ULL;".format((1 << bit)-1))
+        print(f"  const uint64_t mask = {((1 << bit)-1)}ULL;")
     maskstr = " & mask"
     if (bit == 64):
         maskstr = ""  # no need
 
     for k in range(howmanywords(bit)-1):
-        print("  uint64_t w{0} = util::SafeLoadAs<uint64_t>(in);".format(k))
-        print("  w{0} = arrow::BitUtil::FromLittleEndian(w{0});".format(k))
-        print("  in += 8;".format(k))
+        print(f"  uint64_t w{k} = util::SafeLoadAs<uint64_t>(in);")
+        print(f"  w{k} = arrow::BitUtil::FromLittleEndian(w{k});")
+        print("  in += 8;")
     k = howmanywords(bit) - 1
     if (bit % 2 == 0):
-        print("  uint64_t w{0} = util::SafeLoadAs<uint64_t>(in);".format(k))
-        print("  w{0} = arrow::BitUtil::FromLittleEndian(w{0});".format(k))
-        print("  in += 8;".format(k))
+        print(f"  uint64_t w{k} = util::SafeLoadAs<uint64_t>(in);")
+        print(f"  w{k} = arrow::BitUtil::FromLittleEndian(w{k});")
+        print("  in += 8;")
     else:
-        print("  uint64_t w{0} = util::SafeLoadAs<uint32_t>(in);".format(k))
-        print("  w{0} = arrow::BitUtil::FromLittleEndian(w{0});".format(k))
-        print("  in += 4;".format(k))
+        print(f"  uint64_t w{k} = util::SafeLoadAs<uint32_t>(in);")
+        print(f"  w{k} = arrow::BitUtil::FromLittleEndian(w{k});")
+        print("  in += 4;")
 
     for j in range(howmany(bit)):
         firstword = j * bit // 64
         secondword = (j * bit + bit - 1)//64
         firstshift = (j*bit) % 64
-        firstshiftstr = " >> {0}".format(firstshift)
+        firstshiftstr = f" >> {firstshift}"
         if(firstshift == 0):
             firstshiftstr = ""  # no need
         if(firstword == secondword):
             if(firstshift + bit == 64):
-                print("  out[{0}] = w{1}{2};".format(
-                    j, firstword, firstshiftstr, firstshift))
+                print(f"  out[{j}] = w{firstword}{firstshiftstr};")
             else:
-                print("  out[{0}] = (w{1}{2}){3};".format(
-                    j, firstword, firstshiftstr, maskstr))
+                print(f"  out[{j}] = (w{firstword}{firstshiftstr}){maskstr};")
         else:
             secondshift = (64-firstshift)
-            print("  out[{0}] = ((w{1}{2}) | (w{3} << {4})){5};".format(
-                j, firstword, firstshiftstr, firstword+1, secondshift, maskstr))
+            print(f"  out[{j}] = ((w{firstword}{firstshiftstr}) | "
+                  f"(w{firstword+1} << {secondshift})){maskstr};")
     print("")
     print("  return in;")
     print("}")
