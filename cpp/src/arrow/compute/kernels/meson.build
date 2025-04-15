@@ -108,6 +108,7 @@ vector_kernel_tests = {
             'vector_nested_test.cc',
             'vector_replace_test.cc',
             'vector_run_end_encode_test.cc',
+            'vector_statistics_test.cc',
             'select_k_test.cc',
         ],
     },
