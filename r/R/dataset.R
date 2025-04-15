@@ -246,19 +246,27 @@ open_dataset <- function(sources,
 #'
 #' @examplesIf arrow_with_dataset()
 #' # Set up directory for examples
-#' tf <- tempfile()
-#' dir.create(tf)
-#' df <- data.frame(x = c("1", "2", "NULL"))
+#  tf <- tempfile()
+#  dir.create(tf)
+#  df <- data.frame(x = c("1", "2", "NULL"))
+#' on.exit(unlink(tf))
 #'
 #' file_path <- file.path(tf, "file1.txt")
 #' write.table(df, file_path, sep = ",", row.names = FALSE)
 #'
+#' # Use readr-style params identically in both `read_csv_dataset()` and `open_csv_dataset()`
 #' read_csv_arrow(file_path, na = c("", "NA", "NULL"), col_names = "y", skip = 1)
 #' open_csv_dataset(file_path, na = c("", "NA", "NULL"), col_names = "y", skip = 1)
-#' open_csv_dataset(file_path, na = c("", "NA", "NULL"), col_types = schema(list(x = int32())))
-#' open_csv_dataset(file_path, na = c("", "NA", "NULL"), col_types = "i", col_names = "y", skip = 1)
 #'
-#' unlink(tf)
+#' # Use `col_types` to specify a schema, partial schema, or compact representation
+#' tf2 <- tempfile()
+#' on.exit(unlink(tf2))
+#' write_csv_dataset(cars, tf2)
+#'
+#' open_csv_dataset(tf2, col_types = schema(speed = int32(), dist = int32()))
+#' open_csv_dataset(tf2, col_types = schema(speed = int32())
+#' open_csv_dataset(tf2, col_types = "ii", col_names = c("speed", "dist"), skip = 1)
+#'
 #' @seealso [open_dataset()]
 #' @export
 open_delim_dataset <- function(sources,
