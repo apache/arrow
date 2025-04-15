@@ -196,6 +196,8 @@ class PipeTeeNode : public PipeSource, public PipeSinkNode {
   static const char kKindName[];
   const char* kind_name() const override { return kKindName; }
 
+  const Ordering& ordering() const override { return inputs_[0]->ordering(); }
+
   Status StartProducing() override {
     auto st = PipeSource::Validate(ordering());
     if (!st.ok()) {
