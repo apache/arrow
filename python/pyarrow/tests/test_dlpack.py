@@ -20,18 +20,13 @@ from functools import wraps
 import gc
 import pytest
 
-try:
-    import numpy as np
-except ImportError:
-    pytestmark = pytest.mark.numpy
-
 import pyarrow as pa
 from pyarrow.vendored.version import Version
-
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not numpy'
 pytestmark = pytest.mark.numpy
+np = pytest.importorskip("numpy")
 
 
 def PyCapsule_IsValid(capsule, name):
