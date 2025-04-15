@@ -13,7 +13,8 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\src\Apache.Arrow.Flight.Sql\Apache.Arrow.Flight.Sql.csproj" />
+        <ProjectReference Include="..\..\src\Apache.Arrow.Flight.Sql\Apache.Arrow.Flight.Sql.csproj"/>
+        <ProjectReference Include="..\Apache.Arrow.Flight.Tests\Apache.Arrow.Flight.Tests.csproj" />
     </ItemGroup>
 
 </Project>
