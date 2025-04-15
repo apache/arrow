@@ -131,7 +131,7 @@ else
     rc)
       sed \
         -i"" \
-        -e "s,^URIs: https://repo1.maven.org/maven2/org/apache/arrow/${distribution},URIs: ${artifactory_base_url}/,g" \
+        -e "s,^URIs: \\(.*\\)/,URIs: \\1-${suffix}/,g" \
         /etc/apt/sources.list.d/apache-arrow.sources
       ;;
   esac
