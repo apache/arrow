@@ -3628,7 +3628,7 @@ cdef class FixedSizeListArray(BaseListArray):
     def values(self):
         """
         Return the underlying array of values which backs the
-        FixedSizeListArray.
+        FixedSizeListArray ignoring the array's offset.
 
         Note even null elements are included.
 
