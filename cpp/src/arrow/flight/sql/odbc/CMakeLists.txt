@@ -28,22 +28,12 @@ endif()
 find_package(Boost REQUIRED)
 find_package(ODBC REQUIRED)
 
-# Fetch and include GTest
-# Adapted from Google's documentation: https://google.github.io/googletest/quickstart-cmake.html#set-up-a-project
-include(FetchContent)
-fetchcontent_declare(googletest
-                     URL https://github.com/google/googletest/archive/v1.14.0.zip)
-# For Windows: Prevent overriding the parent project's compiler/linker settings
-set(gtest_force_shared_crt
-    ON
-    CACHE BOOL "" FORCE)
-fetchcontent_makeavailable(googletest)
-
 add_subdirectory(flight_sql)
 add_subdirectory(odbcabstraction)
+add_subdirectory(tests)
 
 arrow_install_all_headers("arrow/flight/sql/odbc")
-                    
+
 set(ARROW_FLIGHT_SQL_ODBC_SRCS
     entry_points.cc
     odbc_api.cc
