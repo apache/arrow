@@ -102,6 +102,13 @@ option(
 )
 
 option(
+    'tensorflow',
+    type: 'boolean',
+    description: 'Build Arrow with TensorFlow support enabled',
+    value: false,
+)
+
+option(
     'testing',
     type: 'boolean',
     description: 'Build the Arrow testing libraries',
