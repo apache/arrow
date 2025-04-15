@@ -43,6 +43,7 @@ unset ARROW_R_DEV
 
 # Set the testthat output to be verbose for easier debugging
 export ARROW_R_VERBOSE_TEST=TRUE
+export _R_CHECK_FORCE_SUGGESTS_=FALSE
 
 export SUPPRESSION_FILE=$(readlink -f "tools/ubsan.supp")
 export UBSAN_OPTIONS="print_stacktrace=1,suppressions=${SUPPRESSION_FILE}"

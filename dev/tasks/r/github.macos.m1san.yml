@@ -44,7 +44,7 @@ jobs:
           extra-packages: |
             any::rcmdcheck
             any::sys
-      - name: Compile with sanitizers
+      - name: Setup the sanitizer
         run: |
           # From rhub/rhub's m1-san:
           # https://github.com/r-hub/actions/blob/ab9b2fb5021f43bfd0ee977932e0a14d25f6e59e/run-check/scripts/mac-asan.sh
