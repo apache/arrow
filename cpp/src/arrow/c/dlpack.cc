@@ -165,16 +165,16 @@ Result<DLManagedTensor*> ExportTensor(const std::shared_ptr<Tensor>& t) {
   std::vector<int64_t>& shape_arr = ctx->shape;
   shape_arr.reserve(t->ndim());
   for (auto i : t->shape()) {
-      shape_arr.emplace_back(i);
-    }
+    shape_arr.emplace_back(i);
+  }
   ctx->tensor.dl_tensor.shape = shape_arr.data();
 
   std::vector<int64_t>& strides_arr = ctx->strides;
   strides_arr.reserve(t->ndim());
   auto byte_width = t->type()->byte_width();
   for (auto i : t->strides()) {
-      strides_arr.emplace_back(i/ byte_width);
-    }
+    strides_arr.emplace_back(i / byte_width);
+  }
   ctx->tensor.dl_tensor.strides = strides_arr.data();
 
   ctx->t = std::move(t);
