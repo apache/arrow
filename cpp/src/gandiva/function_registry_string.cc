@@ -541,7 +541,13 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "mask_utf8_utf8", NativeFunction::kNeedsContext),
 
       NativeFunction("mask", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
-                     "mask_utf8", NativeFunction::kNeedsContext)};
+                     "mask_utf8", NativeFunction::kNeedsContext),
+      NativeFunction("regexp_like", {}, DataTypeVector{utf8(), utf8()}, boolean(),
+                     kResultNullIfNull, "gdv_fn_regexp_like_utf8_utf8",
+                     NativeFunction::kNeedsFunctionHolder),
+      NativeFunction("regexp_like", {}, DataTypeVector{utf8(), utf8(), utf8()}, boolean(),
+                     kResultNullIfNull, "gdv_fn_regexp_like_utf8_utf8_utf8",
+                     NativeFunction::kNeedsFunctionHolder)};
   return string_fn_registry_;
 }
 
