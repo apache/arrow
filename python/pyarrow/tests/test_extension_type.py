@@ -1569,6 +1569,22 @@ def test_tensor_array_from_numpy(np_type_str):
     with pytest.raises(ValueError, match="Expected a non-empty ndarray"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr.reshape((3, 0, 2)))
 
+    arr = np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]],
+                   dtype=np.dtype(np_type_str), order="C")
+    dim_names = ["a", "b"]
+    tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(
+        arr, dim_names=dim_names)
+    assert tensor_array_from_numpy.type.dim_names == dim_names
+
+    with pytest.raises(ValueError, match="The length of dim_names"):
+        pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=['only_one'])
+
+    with pytest.raises(TypeError, match="dim_names must be an iterable"):
+        pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=123)
+
+    with pytest.raises(TypeError, match="Each element of dim_names must be a string"):
+        pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=[0, 1])
+
 
 @pytest.mark.numpy
 @pytest.mark.parametrize("tensor_type", (
