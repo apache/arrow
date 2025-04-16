@@ -611,6 +611,7 @@ subdir('c')
 subdir('io')
 subdir('tensor')
 subdir('util')
+subdir('vendored')
 
 gflags_dep = dependency('gflags', include_type: 'system')
 if needs_integration or needs_tests
