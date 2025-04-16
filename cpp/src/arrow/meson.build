@@ -18,6 +18,9 @@
 dl_dep = dependency('dl')
 threads_dep = dependency('threads')
 
+include_dir = include_directories('..')
+arrow_includes = [include_dir]
+
 arrow_components = {
     'arrow_array': {
         'sources': [
@@ -227,6 +230,26 @@ arrow_testing_srcs = [
     'testing/util.cc',
 ]
 
+simd = import('unstable-simd')
+rval = simd.check(
+    'simd-modules',
+    avx2: 'util/bpacking_avx2.cc',
+    # TODO: Meson has not yet implemented avx512
+    #avx512: 'util/bpacking_avx512.cc',
+    neon: 'util/bpacking_neon.cc',
+    compiler: cpp_compiler,
+    include_directories: arrow_includes,
+)
+simd_libraries = rval[0]
+simd_configuration = rval[1]
+arrow_simd_defines = []
+
+if simd_configuration.has('HAVE_AVX2')
+    arrow_simd_defines += ['-DARROW_HAVE_RUNTIME_AVX2']
+elif simd_configuration.has('HAVE_NEON')
+    arrow_simd_defines += ['-DARROW_HAVE_NEON']
+endif
+
 if needs_integration or needs_tests
     arrow_components += {
         'arrow_integration': {
@@ -374,8 +397,6 @@ if needs_json
 endif
 
 arrow_srcs = []
-include_dir = include_directories('..')
-arrow_includes = [include_dir]
 arrow_deps = []
 foreach key, val : arrow_components
     arrow_srcs += val['sources']
@@ -388,7 +409,9 @@ arrow_lib = library(
     sources: arrow_srcs,
     include_directories: arrow_includes,
     dependencies: arrow_deps,
+    link_with: simd_libraries,
     install: true,
+    cpp_args: arrow_simd_defines,
 )
 
 arrow_dep = declare_dependency(
