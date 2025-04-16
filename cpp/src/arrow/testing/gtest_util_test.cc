@@ -292,6 +292,7 @@ TEST(AssertTestWithinUlp, Basics) {
   EXPECT_FATAL_FAILURE(AssertWithinUlp(123.456f, 123.456085f, 10), "not within 10 ulps");
 }
 
+#ifdef ARROW_COMPUTE
 TEST(RunEndEncodeGtestUtilTest, SchemaTypeIsModified) {
   std::shared_ptr<Table> table =
       arrow::TableFromJSON(arrow::schema({arrow::field("col", arrow::utf8())}), {R"([
@@ -305,4 +306,5 @@ TEST(RunEndEncodeGtestUtilTest, SchemaTypeIsModified) {
   ASSERT_TRUE(ree_table->schema()->field(0)->type()->Equals(
       arrow::run_end_encoded(arrow::int32(), arrow::utf8())));
 }
+#endif
 }  // namespace arrow
