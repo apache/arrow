@@ -842,6 +842,7 @@ function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
   set(one_value_args)
   set(multi_value_args
       EXTRA_INCLUDES
+      EXTRA_LINK_OPTIONS
       EXTRA_LINK_LIBS
       EXTRA_SOURCES
       DEPENDENCIES
