@@ -39,6 +39,7 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec_internal.h"
+#include "arrow/compute/kernels/test_util.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/row/grouper.h"
 #include "arrow/table.h"
@@ -773,8 +774,9 @@ TEST_P(GroupBy, CountOnly) {
 
         auto transformed_table = table;
         if (!re_encode_cols.empty()) {
-          ASSERT_OK_AND_ASSIGN(transformed_table,
-                               RunEndEncodeTableColumns(*table, re_encode_cols));
+          ASSERT_OK_AND_ASSIGN(
+              transformed_table,
+              arrow::compute::RunEndEncodeTableColumns(*table, re_encode_cols));
         }
 
         ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,

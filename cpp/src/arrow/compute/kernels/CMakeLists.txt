@@ -34,6 +34,8 @@ add_arrow_test(scalar_cast_test
                arrow_compute_kernels_testing
                arrow_compute_testing)
 
+add_arrow_compute_test(test_util_test SOURCES test_util_test.cc)
+
 # ----------------------------------------------------------------------
 # Scalar kernels
 
