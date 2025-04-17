@@ -21,7 +21,3 @@ source_filename = boost-1.87.0-cmake.tar.gz
 source_hash = 78fbf579e3caf0f47517d3fb4d9301852c3154bfecdc5eeebd9b2b0292366f5b
 directory = boost-1.87.0
 method = cmake
-
-[provide]
-boost_filesystem = boost_filesystem_dep
-boost_system = boost_system_dep

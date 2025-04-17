@@ -441,19 +441,53 @@ install_headers(
 )
 
 if needs_testing
+    boost_dep = dependency('boost', include_type: 'system', required: false)
+
+    asio_dep = dependency(
+        'boost',
+        include_type: 'system',
+        modules: ['asio'],
+        required: false,
+    )
+
     filesystem_dep = dependency(
         'boost',
+        include_type: 'system',
         modules: ['filesystem'],
         required: false,
     )
-    if not filesystem_dep.found()
+
+    process_dep = dependency(
+        'boost',
+        include_type: 'system',
+        modules: ['process'],
+        required: false,
+    )
+
+    if not (boost_dep.found()
+and asio_dep.found()
+and filesystem_dep.found()
+and process_dep.found()
+)
         cmake = import('cmake')
         boost_opt = cmake.subproject_options()
         boost_opt.add_cmake_defines(
-            {'BOOST_INCLUDE_LIBRARIES': 'filesystem;system'},
+            {'BOOST_INCLUDE_LIBRARIES': 'asio;filesystem;process'},
         )
         boost_proj = cmake.subproject('boost', options: boost_opt)
-        filesystem_dep = boost_proj.dependency('boost_filesystem')
+        boost_dep = boost_proj.dependency(
+            'boost_headers',
+            include_type: 'system',
+        )
+        asio_dep = boost_proj.dependency('boost_asio', include_type: 'system')
+        filesystem_dep = boost_proj.dependency(
+            'boost_filesystem',
+            include_type: 'system',
+        )
+        process_dep = boost_proj.dependency(
+            'boost_process',
+            include_type: 'system',
+        )
     endif
 
     gtest_dep = dependency('gtest')
@@ -461,17 +495,28 @@ if needs_testing
     gtest_dep = dependency('gtest')
     gmock_dep = dependency('gmock')
 else
+    asio_dep = disabler()
+    boost_dep = disabler()
     filesystem_dep = disabler()
     gtest_dep = disabler()
     gtest_main_dep = disabler()
     gtest_dep = disabler()
     gmock_dep = disabler()
+    process_dep = disabler()
 endif
 
 arrow_test_lib = static_library(
     'arrow_testing',
     sources: arrow_testing_srcs,
-    dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
+    dependencies: [
+        arrow_dep,
+        asio_dep,
+        boost_dep,
+        filesystem_dep,
+        gmock_dep,
+        gtest_main_dep,
+        process_dep,
+    ],
 )
 
 if needs_tests
