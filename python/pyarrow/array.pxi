@@ -17,6 +17,7 @@
 
 from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCapsule_New
 
+from collections.abc import Sequence
 import os
 import warnings
 from cython import sizeof
@@ -4658,8 +4659,8 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         if np.prod(obj.shape) == 0:
             raise ValueError("Expected a non-empty ndarray")
         if dim_names is not None:
-            if not hasattr(dim_names, '__iter__'):
-                raise TypeError("dim_names must be an iterable (e.g., list or tuple)")
+            if not isinstance(dim_names, Sequence):
+                raise TypeError("dim_names must be a tuple or list")
             if len(dim_names) != len(obj.shape[1:]):
                 raise ValueError(
                     (f"The length of dim_names ({len(dim_names)}) does not match"
