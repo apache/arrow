@@ -36,24 +36,22 @@ static constexpr int kMaxDimensions = 4;
 /// See the Parquet Thrift definition and GeoStatistics for the specific definition
 /// of field values.
 struct PARQUET_EXPORT EncodedGeoStatistics {
-  bool has_xy{};
+  bool writer_calculated_xy_bounds{};
   double xmin{};
   double xmax{};
   double ymin{};
   double ymax{};
 
-  bool has_z{};
+  bool writer_calculated_z_bounds{};
   double zmin{};
   double zmax{};
 
-  bool has_m{};
+  bool writer_calculated_m_bounds{};
   double mmin{};
   double mmax{};
-  std::vector<int32_t> geospatial_types;
 
-  bool is_empty() const {
-    return !(!geospatial_types.empty() || has_xy || has_z || has_m);
-  }
+  bool writer_calculated_geospatial_types() const { return !geospatial_types.empty(); }
+  std::vector<int32_t> geospatial_types;
 };
 
 class GeoStatisticsImpl;
@@ -111,83 +109,51 @@ class PARQUET_EXPORT GeoStatistics {
   /// statistics should not be written to thrift.
   std::optional<EncodedGeoStatistics> Encode() const;
 
-  /// \brief Returns false if invalid WKB was encountered or any statistics are NaN
+  /// \brief Returns false if invalid WKB was encountered
   bool is_valid() const;
 
   /// \brief Reset existing statistics and populate them from previously-encoded ones
   void Decode(const EncodedGeoStatistics& encoded);
 
-  /// \brief The minimum encountered value in the X dimension, or Inf if no non-NaN X
-  /// values were encountered.
+  /// \brief All minimum values in XYZM order
   ///
-  /// The Parquet definition allows for "wrap around" bounds where xmin > xmax. In this
+  /// For dimensions where dimension_valid() is false, the value will be NaN. For
+  /// dimensions where dimension_empty() is true, the value will be +Inf.
+  ///
+  /// For the first dimension (X) only, wraparound bounds apply where xmin > xmax. In this
   /// case, these bounds represent the union of the intervals [xmax, Inf] and [-Inf,
   /// xmin]. This implementation does not yet generate these types of bounds but they may
-  /// be encountered in files written by other writers.
-  double xmin() const;
-
-  /// \brief The maximum encountered value in the X dimension, or -Inf if no non-NaN X
-  /// values were encountered, subject to "wrap around" bounds (see xmin()).
-  double xmax() const;
-
-  /// \brief The minimum encountered value in the Y dimension, or Inf if no non-NaN Y
-  /// values were encountered. Wrap around bounds are not permitted in the Y dimension.
-  double ymin() const;
-
-  /// \brief The maximum encountered value in the Y dimension, or -Inf if no non-NaN Y
-  /// values were encountered. Wrap around bounds are not permitted in the Y dimension.
-  double ymax() const;
-
-  /// \brief The minimum encountered value in the Z dimension, or Inf if no non-NaN Z
-  /// values were encountered. Wrap around bounds are not permitted in the Z dimension.
-  double zmin() const;
-
-  /// \brief The maximum encountered value in the Z dimension, or -Inf if no non-NaN Z
-  /// values were encountered. Wrap around bounds are not permitted in the Z dimension.
-  double zmax() const;
-
-  /// \brief The minimum encountered value in the M dimension, or Inf if no non-NaN M
-  /// values were encountered.  Wrap around bounds are not permitted in the M dimension.
-  double mmin() const;
-
-  /// \brief The maximum encountered value in the M dimension, or -Inf if no non-NaN M
-  /// values were encountered.  Wrap around bounds are not permitted in the M dimension.
-  double mmax() const;
-
-  /// \brief All minimum values in XYZM order
+  /// be encountered in statistics imported from Thrift.
   std::array<double, kMaxDimensions> lower_bound() const;
 
   /// \brief All maximum values in XYZM order
+  ///
+  /// For dimensions where dimension_valid() is false, the value will be NaN. For
+  /// dimensions where dimension_empty() is true, the value will be -Inf.
+  ///
+  /// For the first dimension (X) only, wraparound bounds apply where xmin > xmax. In this
+  /// case, these bounds represent the union of the intervals [xmax, Inf] and [-Inf,
+  /// xmin]. This implementation does not yet generate these types of bounds but they may
+  /// be encountered in statistics imported from Thrift.
   std::array<double, kMaxDimensions> upper_bound() const;
 
-  /// \brief Returns true if zero finite coordinates or geometry types were encountered
+  /// \brief Returns true if the dimension is valid and any non-NaN values were
+  /// encountered in the given dimension in XYZM order
+  std::array<bool, kMaxDimensions> dimension_empty() const;
+
+  /// \brief Returns false if a bound was explicitly not calculated by a writer when
+  /// importing statistics from thrift
   ///
-  /// This will occur, for example, if all encountered values were null. If all
-  /// encountered values were EMPTY (e.g., all values were POINT EMPTY, LINESTRING EMPTY,
-  /// etc.), is_empty() will still return false because the geometry types list will
-  /// contain values.
-  bool is_empty() const;
-
-  /// \brief Returns true if any non-NaN X values were encountered or false otherwise
-  bool has_x() const;
-
-  /// \brief Returns true if any non-NaN Y values were encountered or false otherwise
-  bool has_y() const;
-
-  /// \brief Returns true if any non-NaN Z values were encountered or false otherwise
-  bool has_z() const;
-
-  /// \brief Returns true if any non-NaN M values were encountered or false otherwise
-  bool has_m() const;
-
-  /// \brief Returns true if any non-NaN values were encountered in the given dimension
-  /// in XYZM order
-  std::array<bool, kMaxDimensions> has_dimension() const;
+  /// When calculating statistics, this will always be true because this implementation
+  /// calculates statistics for all dimensions.
+  std::array<bool, kMaxDimensions> dimension_valid() const;
 
   /// \brief Return the geometry type codes from the well-known binary encountered
   ///
-  /// This implementation always returns sorted output with no duplicates.
-  std::vector<int32_t> geometry_types() const;
+  /// This implementation always returns sorted output with no duplicates. Returns
+  /// std::nullopt if the writer did not calculate geometry types for statistics
+  /// imported from Thrift.
+  std::optional<std::vector<int32_t>> geometry_types() const;
 
   /// \brief Return a string representation of these statistics
   std::string ToString() const;

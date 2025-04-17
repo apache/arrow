@@ -142,26 +142,34 @@ class GeoStatisticsImpl {
     const geospatial::BoundingBox::XYZM& maxes = bounder_.Bounds().max;
 
     EncodedGeoStatistics out;
-    out.geospatial_types = bounder_.GeometryTypes();
 
-    if (!bound_empty(0) && !bound_empty(1)) {
+    if (has_geometry_types_) {
+      out.geospatial_types = bounder_.GeometryTypes();
+    }
+
+    bool write_x = !bound_empty(0) && bound_valid(0);
+    bool write_y = !bound_empty(1) && bound_valid(1);
+    bool write_z = !bound_empty(2) && bound_valid(2);
+    bool write_m = !bound_empty(3) && bound_valid(3);
+
+    if (write_x && write_y) {
       out.xmin = mins[0];
       out.xmax = maxes[0];
       out.ymin = mins[1];
       out.ymax = maxes[1];
-      out.has_xy = true;
+      out.writer_calculated_xy_bounds = true;
     }
 
-    if (!bound_empty(2)) {
+    if (write_z) {
       out.zmin = mins[2];
       out.zmax = maxes[2];
-      out.has_z = true;
+      out.writer_calculated_z_bounds = true;
     }
 
-    if (!bound_empty(3)) {
+    if (write_m) {
       out.mmin = mins[3];
       out.mmax = maxes[3];
-      out.has_m = true;
+      out.writer_calculated_m_bounds = true;
     }
 
     return out;
@@ -181,44 +189,45 @@ class GeoStatisticsImpl {
 
     geospatial::BoundingBox box;
 
-    if (encoded.has_xy) {
+    if (encoded.writer_calculated_xy_bounds) {
       box.min[0] = encoded.xmin;
       box.max[0] = encoded.xmax;
       box.min[1] = encoded.ymin;
       box.max[1] = encoded.ymax;
+    } else {
+      box.min[0] = kNaN;
+      box.max[0] = kNaN;
+      box.min[1] = kNaN;
+      box.max[1] = kNaN;
     }
 
-    if (encoded.has_z) {
+    if (encoded.writer_calculated_z_bounds) {
       box.min[2] = encoded.zmin;
       box.max[2] = encoded.zmax;
+    } else {
+      box.min[2] = kNaN;
+      box.max[2] = kNaN;
     }
 
-    if (encoded.has_m) {
+    if (encoded.writer_calculated_m_bounds) {
       box.min[3] = encoded.mmin;
       box.max[3] = encoded.mmax;
+    } else {
+      box.min[3] = kNaN;
+      box.max[3] = kNaN;
     }
 
     bounder_.MergeBox(box);
     bounder_.MergeGeometryTypes(encoded.geospatial_types);
+    has_geometry_types_ =
+        has_geometry_types_ && encoded.writer_calculated_geospatial_types();
   }
 
   bool is_wraparound_x() const {
     return is_wraparound(lower_bound()[0], upper_bound()[0]);
   }
 
-  bool is_valid() const {
-    if (!is_valid_) {
-      return false;
-    }
-
-    for (int i = 0; i < kMaxDimensions; i++) {
-      if (std::isnan(lower_bound()[i]) || std::isnan(upper_bound()[i])) {
-        return false;
-      }
-    }
-
-    return true;
-  }
+  bool is_valid() const { return is_valid_; }
 
   bool bounds_empty() const {
     for (int i = 0; i < kMaxDimensions; i++) {
@@ -234,6 +243,10 @@ class GeoStatisticsImpl {
     return std::isinf(bounder_.Bounds().min[i] - bounder_.Bounds().max[i]);
   }
 
+  bool bound_valid(int i) const {
+    return !std::isnan(bounder_.Bounds().min[i]) && !std::isnan(bounder_.Bounds().max[i]);
+  }
+
   const std::array<double, kMaxDimensions>& lower_bound() const {
     return bounder_.Bounds().min;
   }
@@ -242,11 +255,18 @@ class GeoStatisticsImpl {
     return bounder_.Bounds().max;
   }
 
-  std::vector<int32_t> geometry_types() const { return bounder_.GeometryTypes(); }
+  std::optional<std::vector<int32_t>> geometry_types() const {
+    if (has_geometry_types_) {
+      return bounder_.GeometryTypes();
+    } else {
+      return std::nullopt;
+    }
+  }
 
  private:
   geospatial::WKBGeometryBounder bounder_;
   bool is_valid_ = true;
+  bool has_geometry_types_ = true;
 
   template <typename ArrayType>
   void UpdateArrayImpl(const ::arrow::Array& values) {
@@ -312,43 +332,21 @@ void GeoStatistics::Decode(const EncodedGeoStatistics& encoded) {
   impl_->Update(encoded);
 }
 
-double GeoStatistics::xmin() const { return impl_->lower_bound()[0]; }
-
-double GeoStatistics::xmax() const { return impl_->upper_bound()[0]; }
-
-double GeoStatistics::ymin() const { return impl_->lower_bound()[1]; }
-
-double GeoStatistics::ymax() const { return impl_->upper_bound()[1]; }
-
-double GeoStatistics::zmin() const { return impl_->lower_bound()[2]; }
-
-double GeoStatistics::zmax() const { return impl_->upper_bound()[2]; }
-
-double GeoStatistics::mmin() const { return impl_->lower_bound()[3]; }
-
-double GeoStatistics::mmax() const { return impl_->upper_bound()[3]; }
-
 std::array<double, 4> GeoStatistics::lower_bound() const { return impl_->lower_bound(); }
 
 std::array<double, 4> GeoStatistics::upper_bound() const { return impl_->upper_bound(); }
 
-bool GeoStatistics::is_empty() const {
-  return impl_->geometry_types().empty() && impl_->bounds_empty();
+std::array<bool, 4> GeoStatistics::dimension_empty() const {
+  return {impl_->bound_empty(0), impl_->bound_empty(1), impl_->bound_empty(2),
+          impl_->bound_empty(3)};
 }
 
-bool GeoStatistics::has_x() const { return !impl_->bound_empty(0); }
-
-bool GeoStatistics::has_y() const { return !impl_->bound_empty(1); }
-
-bool GeoStatistics::has_z() const { return !impl_->bound_empty(2); }
-
-bool GeoStatistics::has_m() const { return !impl_->bound_empty(3); }
-
-std::array<bool, 4> GeoStatistics::has_dimension() const {
-  return {has_x(), has_y(), has_z(), has_m()};
+std::array<bool, 4> GeoStatistics::dimension_valid() const {
+  return {impl_->bound_valid(0), impl_->bound_valid(1), impl_->bound_valid(2),
+          impl_->bound_valid(3)};
 }
 
-std::vector<int32_t> GeoStatistics::geometry_types() const {
+std::optional<std::vector<int32_t>> GeoStatistics::geometry_types() const {
   return impl_->geometry_types();
 }
 
@@ -359,24 +357,32 @@ std::string GeoStatistics::ToString() const {
 
   std::stringstream ss;
   ss << "GeoStatistics " << std::endl;
-  ss << "  x: "
-     << "[" << xmin() << ", " << xmax() << "]" << std::endl;
-  ss << "  y: "
-     << "[" << ymin() << ", " << ymax() << "]" << std::endl;
 
-  if (has_z()) {
-    ss << "  z: "
-       << "[" << zmin() << ", " << zmax() << "]" << std::endl;
+  std::string dim_label("xyzm");
+  auto dim_valid = dimension_valid();
+  auto dim_empty = dimension_empty();
+  auto lower = lower_bound();
+  auto upper = upper_bound();
+
+  for (int i = 0; i < kMaxDimensions; i++) {
+    ss << "  " << dim_label[i] << ": ";
+    if (!dim_valid[i]) {
+      ss << "invalid" << std::endl;
+    } else if (dim_empty[i]) {
+      ss << "empty" << std::endl;
+    } else {
+      ss << "[" << lower[i] << ", " << upper[i] << "]" << std::endl;
+    }
   }
 
-  if (has_m()) {
-    ss << "  m: "
-       << "[" << mmin() << ", " << mmax() << "]" << std::endl;
-  }
-
-  ss << "  geometry_types:";
-  for (int32_t geometry_type : geometry_types()) {
-    ss << " " << geometry_type;
+  std::optional<std::vector<int32_t>> maybe_geometry_types = geometry_types();
+  if (maybe_geometry_types.has_value()) {
+    ss << "  geometry_types:";
+    for (int32_t geometry_type : *maybe_geometry_types) {
+      ss << " " << geometry_type;
+    }
+  } else {
+    ss << "  invalid";
   }
 
   ss << std::endl;

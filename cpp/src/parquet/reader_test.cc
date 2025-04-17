@@ -2002,20 +2002,19 @@ class TestGeometryLogicalType : public ::testing::Test {
 
     ASSERT_NE(geom_stats, nullptr);
     // We wrote exactly one geometry type (POINT, which has code 1)
-    std::vector<int32_t> geospatial_types = geom_stats->geometry_types();
-    EXPECT_THAT(geospatial_types, ::testing::ElementsAre(1));
+    EXPECT_THAT(*geom_stats->geometry_types(), ::testing::ElementsAre(1));
 
     double expected_xmin = static_cast<double>(start_index);
     double expected_xmax = expected_xmin + num_rows - 1;
     double expected_ymin = expected_xmin + 1;
     double expected_ymax = expected_xmax + 1;
 
-    EXPECT_EQ(geom_stats->xmin(), expected_xmin);
-    EXPECT_EQ(geom_stats->xmax(), expected_xmax);
-    EXPECT_EQ(geom_stats->ymin(), expected_ymin);
-    EXPECT_EQ(geom_stats->ymax(), expected_ymax);
-    EXPECT_FALSE(geom_stats->has_z());
-    EXPECT_FALSE(geom_stats->has_m());
+    EXPECT_EQ(geom_stats->lower_bound()[0], expected_xmin);
+    EXPECT_EQ(geom_stats->upper_bound()[0], expected_xmax);
+    EXPECT_EQ(geom_stats->lower_bound()[1], expected_ymin);
+    EXPECT_EQ(geom_stats->upper_bound()[1], expected_ymax);
+    EXPECT_THAT(geom_stats->dimension_valid(),
+                ::testing::ElementsAre(true, true, false, false));
   }
 
  protected:

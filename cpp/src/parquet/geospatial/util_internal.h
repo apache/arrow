@@ -32,6 +32,10 @@ namespace parquet::geospatial {
 /// \brief Infinity, used to define bounds of empty bounding boxes
 constexpr double kInf = std::numeric_limits<double>::infinity();
 
+/// \brief NaN, used internally to represent bounds for which predicate pushdown cannnot
+/// be applied (e.g., because a writer did not provide bounds for a given dimension)
+constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
+
 /// \brief Valid combinations of dimensions allowed by ISO well-known binary
 ///
 /// These values correspond to the 0, 1000, 2000, 3000 component of the WKB integer
@@ -134,8 +138,8 @@ struct PARQUET_EXPORT BoundingBox {
     for (int i = 0; i < 4; i++) {
       if (std::isnan(min[i]) || std::isnan(max[i]) || std::isnan(other.min[i]) ||
           std::isnan(other.max[i])) {
-        min[i] = std::numeric_limits<double>::quiet_NaN();
-        max[i] = std::numeric_limits<double>::quiet_NaN();
+        min[i] = kNaN;
+        max[i] = kNaN;
       } else {
         min[i] = std::min(min[i], other.min[i]);
         max[i] = std::max(max[i], other.max[i]);

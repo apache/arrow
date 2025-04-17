@@ -1929,15 +1929,13 @@ TEST_F(TestGeometryValuesWriter, TestWriteAndRead) {
   ASSERT_TRUE(metadata_accessor()->is_geo_stats_set());
   std::shared_ptr<geospatial::GeoStatistics> geospatial_statistics = metadata_geo_stats();
   ASSERT_TRUE(geospatial_statistics != nullptr);
-  std::vector<int32_t> geospatial_types = geospatial_statistics->geometry_types();
-  EXPECT_EQ(1, geospatial_types.size());
-  EXPECT_EQ(1, geospatial_types[0]);
-  EXPECT_DOUBLE_EQ(0, geospatial_statistics->xmin());
-  EXPECT_DOUBLE_EQ(1, geospatial_statistics->ymin());
-  EXPECT_DOUBLE_EQ(99, geospatial_statistics->xmax());
-  EXPECT_DOUBLE_EQ(100, geospatial_statistics->ymax());
-  EXPECT_FALSE(geospatial_statistics->has_z());
-  EXPECT_FALSE(geospatial_statistics->has_m());
+  EXPECT_THAT(*geospatial_statistics->geometry_types(), ::testing::ElementsAre(1));
+  EXPECT_DOUBLE_EQ(0, geospatial_statistics->lower_bound()[0]);
+  EXPECT_DOUBLE_EQ(1, geospatial_statistics->lower_bound()[1]);
+  EXPECT_DOUBLE_EQ(99, geospatial_statistics->upper_bound()[0]);
+  EXPECT_DOUBLE_EQ(100, geospatial_statistics->upper_bound()[1]);
+  EXPECT_THAT(geospatial_statistics->dimension_valid(),
+              ::testing::ElementsAre(true, true, false, false));
 }
 
 TEST_F(TestGeometryValuesWriter, TestWriteAndReadSpaced) {
@@ -1985,15 +1983,12 @@ TEST_F(TestGeometryValuesWriter, TestWriteAndReadSpaced) {
 
   std::shared_ptr<geospatial::GeoStatistics> geospatial_statistics = metadata_geo_stats();
   ASSERT_TRUE(geospatial_statistics != nullptr);
-  std::vector<int32_t> geospatial_types = geospatial_statistics->geometry_types();
-  EXPECT_EQ(1, geospatial_types.size());
-  EXPECT_EQ(1, geospatial_types[0]);
-  EXPECT_DOUBLE_EQ(1, geospatial_statistics->xmin());
-  EXPECT_DOUBLE_EQ(2, geospatial_statistics->ymin());
-  EXPECT_DOUBLE_EQ(98, geospatial_statistics->xmax());
-  EXPECT_DOUBLE_EQ(99, geospatial_statistics->ymax());
-  EXPECT_FALSE(geospatial_statistics->has_z());
-  EXPECT_FALSE(geospatial_statistics->has_m());
+  EXPECT_DOUBLE_EQ(1, geospatial_statistics->lower_bound()[0]);
+  EXPECT_DOUBLE_EQ(2, geospatial_statistics->lower_bound()[1]);
+  EXPECT_DOUBLE_EQ(98, geospatial_statistics->upper_bound()[0]);
+  EXPECT_DOUBLE_EQ(99, geospatial_statistics->upper_bound()[1]);
+  EXPECT_THAT(geospatial_statistics->dimension_valid(),
+              ::testing::ElementsAre(true, true, false, false));
 }
 
 TEST_F(TestGeometryValuesWriter, TestWriteAndReadAllNull) {
@@ -2016,11 +2011,13 @@ TEST_F(TestGeometryValuesWriter, TestWriteAndReadAllNull) {
   ASSERT_FALSE(metadata_accessor()->is_stats_set());
   ASSERT_EQ(metadata_accessor()->statistics(), nullptr);
 
-  // GeoStatistics should exist but be empty
+  // GeoStatistics should exist but all components should be marked as uncalculated
   ASSERT_TRUE(metadata_accessor()->is_geo_stats_set());
   std::shared_ptr<geospatial::GeoStatistics> geospatial_statistics = metadata_geo_stats();
   ASSERT_TRUE(geospatial_statistics != nullptr);
-  ASSERT_TRUE(geospatial_statistics->is_empty());
+  EXPECT_THAT(geospatial_statistics->dimension_valid(),
+              ::testing::ElementsAre(false, false, false, false));
+  EXPECT_EQ(geospatial_statistics->geometry_types(), std::nullopt);
 }
 
 }  // namespace test
