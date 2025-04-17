@@ -1686,7 +1686,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       // Serialize the buffered Dictionary Indices
       FlushBufferedDataPages();
       fallback_ = true;
-      // Only PLAIN encoding is supported for fallback in V1
+      // Only PLAIN encoding is supported for fallback
       current_encoder_ = MakeEncoder(ParquetType::type_num, Encoding::PLAIN, false,
                                      descr_, properties_->memory_pool());
       current_value_encoder_ = dynamic_cast<ValueEncoderType*>(current_encoder_.get());
