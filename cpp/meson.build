@@ -57,6 +57,7 @@ if git_description == ''
 endif
 
 needs_benchmarks = get_option('benchmarks')
+needs_compute = get_option('compute')
 needs_csv = get_option('csv')
 needs_azure = get_option('azure')
 needs_gcs = get_option('gcs')
