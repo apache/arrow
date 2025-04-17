@@ -1579,8 +1579,12 @@ def test_tensor_array_from_numpy(np_type_str):
     with pytest.raises(ValueError, match="The length of dim_names"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=['only_one'])
 
-    with pytest.raises(TypeError, match="dim_names must be an iterable"):
+    with pytest.raises(TypeError, match="dim_names must be a tuple or list"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=123)
+
+    with pytest.raises(TypeError, match="dim_names must be a tuple or list"):
+        pa.FixedShapeTensorArray.from_numpy_ndarray(
+            arr, dim_names=(x for x in range(2)))
 
     with pytest.raises(TypeError, match="Each element of dim_names must be a string"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=[0, 1])
