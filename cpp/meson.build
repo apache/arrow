@@ -65,7 +65,8 @@ needs_s3 = get_option('s3')
 needs_filesystem = get_option('filesystem') or needs_azure or needs_gcs or needs_hdfs or needs_s3
 needs_integration = get_option('integration')
 needs_tests = get_option('tests')
-needs_ipc = get_option('ipc') or needs_tests or needs_benchmarks
+needs_acero = get_option('acero')
+needs_ipc = get_option('ipc') or needs_tests or needs_acero or needs_benchmarks
 needs_testing = get_option('testing') or needs_tests or needs_benchmarks or needs_integration
 needs_json = get_option('json') or needs_testing
 
