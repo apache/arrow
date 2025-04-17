@@ -607,6 +607,7 @@ pkg.generate(
 
 subdir('testing')
 
+subdir('array')
 subdir('c')
 subdir('io')
 subdir('tensor')
