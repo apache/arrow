@@ -114,6 +114,8 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
                  ${ARROW_COMPUTE_TEST_LINK_LIBS}
                  EXTRA_LINK_LIBS
                  ${EXTRA_LINK_LIBS}
+                 EXTRA_LINK_OPTIONS
+                 ${EXTRA_LINK_OPTIONS}
                  ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
