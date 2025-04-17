@@ -115,6 +115,25 @@ def test_filter(table_source):
         FilterNodeOptions(None)
 
 
+@pytest.mark.parametrize('source', [
+    pa.record_batch({"number": [1, 2, 3]}),
+    pa.table({"number": [1, 2, 3]})
+])
+def test_filter_all_rows(source):
+    # GH-46057: filtering all rows should return empty RecordBatch with same schema
+    result_expr = source.filter(pc.field("number") < 0)
+
+    assert result_expr.num_rows == 0
+    assert type(result_expr) is type(source)
+    assert result_expr.schema.equals(source.schema)
+
+    result_mask = source.filter(pa.array([False, False, False]))
+
+    assert result_mask.num_rows == 0
+    assert type(result_mask) is type(source)
+    assert result_mask.schema.equals(source.schema)
+
+
 def test_project(table_source):
     # default name from expression
     decl = Declaration.from_sequence([
