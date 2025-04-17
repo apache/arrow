@@ -566,8 +566,13 @@ def test_binary(value, ty, scalar_typ):
     assert buf.to_pybytes() == value
 
     memview = memoryview(s)
-    assert isinstance(memview, memoryview)
     assert memview.tobytes() == value
+
+    assert memview.format == 'b'
+    assert memview.itemsize == 1
+    assert memview.ndim == 1
+    assert memview.shape == (3,)
+    assert memview.strides == (1,)
 
 
 def test_fixed_size_binary():
