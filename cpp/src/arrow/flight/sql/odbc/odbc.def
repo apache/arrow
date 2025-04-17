@@ -1,0 +1,41 @@
+
+LIBRARY   arrow_flight_sql_odbc
+EXPORTS
+	SQLAllocConnect
+	SQLAllocEnv
+	SQLAllocHandle
+	SQLAllocStmt
+	SQLBindCol
+	SQLCancel
+	SQLCloseCursor
+	SQLColAttributeW
+	SQLColumnsW
+	SQLConnectW
+	SQLDisconnect
+	SQLDriverConnectW
+	SQLErrorW
+	SQLExecDirectW
+	SQLExecute
+	SQLFetch
+	SQLForeignKeysW
+	SQLFreeEnv
+	SQLFreeHandle
+	SQLFreeStmt
+	SQLGetConnectAttrW
+	SQLGetData
+	SQLGetDiagFieldW
+	SQLGetDiagRecW
+	SQLGetEnvAttr
+	SQLGetInfoW
+	SQLGetStmtAttrW
+	SQLGetTypeInfoW
+	SQLMoreResults
+	SQLNativeSqlW
+	SQLNumResultCols
+	SQLPrepareW
+	SQLPrimaryKeysW
+	SQLSetConnectAttrW
+	SQLSetEnvAttr
+	SQLSetStmtAttrW
+	SQLTablesW
+
