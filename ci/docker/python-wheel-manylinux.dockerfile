@@ -101,6 +101,7 @@ RUN --mount=type=secret,id=github_repository_owner \
       export VCPKG_BINARY_SOURCES=$(cat /run/secrets/vcpkg_binary_sources); \
       arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg} && \
       vcpkg install \
+        --debug \
         --clean-after-build \
         --x-install-root=${VCPKG_ROOT}/installed \
         --x-manifest-root=/arrow/ci/vcpkg \
