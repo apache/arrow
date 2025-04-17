@@ -744,10 +744,8 @@ function(ADD_TEST_CASE REL_TEST_NAME)
     target_precompile_headers(${TEST_NAME} PRIVATE ${ARG_PRECOMPILED_HEADERS})
   endif()
 
-  if(ARG_EXTRA_LINK_FLAGS)
-    set_property(TARGET ${TEST_NAME}
-                 APPEND_STRING
-                 PROPERTY LINK_FLAGS ${ARG_EXTRA_LINK_FLAGS})
+  if(ARG_EXTRA_LINK_OPTIONS)
+    target_link_options(${TEST_NAME} PRIVATE ${ARG_EXTRA_LINK_OPTIONS})
   endif()
 
   if(ARG_EXTRA_LINK_LIBS)
