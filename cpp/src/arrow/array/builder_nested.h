@@ -672,6 +672,7 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
   /// using the child array builder.
   Status Append();
 
+  void UnsafeAppend();
   /// \brief Vector append
   ///
   /// If passed, valid_bytes will be read and any zero byte
@@ -687,12 +688,14 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
   /// The child array builder will have the appropriate number of nulls appended
   /// automatically.
   Status AppendNull() final;
+  void UnsafeAppendNull();
 
   /// \brief Append length null fixed length lists.
   ///
   /// The child array builder will have the appropriate number of nulls appended
   /// automatically.
   Status AppendNulls(int64_t length) final;
+  void UnsafeAppendNulls(int64_t length);
 
   Status ValidateOverflow(int64_t new_elements);
 
