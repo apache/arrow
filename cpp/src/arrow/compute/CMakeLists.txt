@@ -89,7 +89,7 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
   if(WIN32)
     if(MSVC)
       set(EXTRA_LINK_LIBS arrow_compute_shared)
-      set(EXTRA_LINK_OPTIONS "/WHOLEARCHIVE:$<TARGET_FILE:arrow_compute_shared>")
+      set(EXTRA_LINK_OPTIONS "/WHOLEARCHIVE:arrow_compute_shared")
     else()
       set(EXTRA_LINK_LIBS "-Wl,--whole-archive" arrow_compute_shared
                           "-Wl,--allow-multiple-definition" "-Wl,--no-whole-archive")
