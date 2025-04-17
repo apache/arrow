@@ -353,77 +353,98 @@ cdef class GeoStatistics(_Weakrefable):
 
     @property
     def geospatial_types(self):
-        return list(self.statistics.get().geometry_types())
+        cdef optional[vector[int32_t]] maybe_geometry_types = \
+            self.statistics.get().geometry_types()
+        if not maybe_geometry_types.has_value():
+            return None
+
+        return list(maybe_geometry_types.value())
+
+    @property
+    def lower_bound(self):
+        return [self.statistics.get().lower_bound()[i] for i in range(4)]
+
+    @property
+    def upper_bound(self):
+        return [self.statistics.get().upper_bound()[i] for i in range(4)]
+
+    @property
+    def dimension_empty(self):
+        return [self.statistics.get().dimension_empty()[i] for i in range(4)]
+
+    @property
+    def dimension_valid(self):
+        return [self.statistics.get().dimension_valid()[i] for i in range(4)]
 
     @property
     def has_x(self):
-        return self.statistics.get().has_x()
+        return self.dimension_valid[0] and not self.dimension_empty[0]
 
     @property
     def has_y(self):
-        return self.statistics.get().has_y()
+        return self.dimension_valid[1] and not self.dimension_empty[1]
 
     @property
     def has_z(self):
-        return self.statistics.get().has_z()
+        return self.dimension_valid[2] and not self.dimension_empty[2]
 
     @property
     def has_m(self):
-        return self.statistics.get().has_m()
+        return self.dimension_valid[3] and not self.dimension_empty[3]
 
     @property
     def xmin(self):
-        if self.statistics.get().has_x():
-            return self.statistics.get().xmin()
+        if self.has_x:
+            return self.lower_bound[0]
         else:
             return None
 
     @property
     def xmax(self):
-        if self.statistics.get().has_x():
-            return self.statistics.get().xmax()
+        if self.has_x:
+            return self.upper_bound[0]
         else:
             return None
 
     @property
     def ymin(self):
-        if self.statistics.get().has_y():
-            return self.statistics.get().ymin()
+        if self.has_y:
+            return self.lower_bound[1]
         else:
             return None
 
     @property
     def ymax(self):
-        if self.statistics.get().has_y():
-            return self.statistics.get().ymax()
+        if self.has_y:
+            return self.upper_bound[1]
         else:
             return None
 
     @property
     def zmin(self):
-        if self.statistics.get().has_z():
-            return self.statistics.get().zmin()
+        if self.has_z:
+            return self.lower_bound[2]
         else:
             return None
 
     @property
     def zmax(self):
-        if self.statistics.get().has_z():
-            return self.statistics.get().zmax()
+        if self.has_z:
+            return self.upper_bound[2]
         else:
             return None
 
     @property
     def mmin(self):
-        if self.statistics.get().has_m():
-            return self.statistics.get().mmin()
+        if self.has_m:
+            return self.lower_bound[3]
         else:
             return None
 
     @property
     def mmax(self):
-        if self.statistics.get().has_m():
-            return self.statistics.get().mmax()
+        if self.has_m:
+            return self.upper_bound[3]
         else:
             return None
 

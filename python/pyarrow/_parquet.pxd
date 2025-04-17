@@ -224,6 +224,18 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetCipher algorithm
         AadMetadata aad
 
+
+# Specific array<> types needed for GeoStatistics
+cdef extern from "<array>" namespace "std" nogil:
+    cdef cppclass double_array4 "std::array<double, 4>":
+        double_array4() except +
+        double& operator[](size_t)
+
+    cdef cppclass bool_array4 "std::array<bool, 4>":
+        bool_array4() except +
+        c_bool& operator[](size_t)
+
+
 cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
     cdef cppclass ColumnReader:
         pass
@@ -326,23 +338,12 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
     cdef cppclass CParquetGeoStatistics" parquet::geospatial::GeoStatistics":
         c_bool is_valid() const
 
-        c_bool has_x() const
-        double xmin() const
-        double xmax() const
+        double_array4 lower_bound() const
+        double_array4 upper_bound() const
+        bool_array4 dimension_valid() const
+        bool_array4 dimension_empty() const
 
-        c_bool has_y() const
-        double ymin() const
-        double ymax() const
-
-        c_bool has_z() const
-        double zmin() const
-        double zmax() const
-
-        c_bool has_m() const
-        double mmin() const
-        double mmax() const
-
-        vector[int32_t] geometry_types() const
+        optional[vector[int32_t]] geometry_types() const
 
         c_string ToString() const
 
