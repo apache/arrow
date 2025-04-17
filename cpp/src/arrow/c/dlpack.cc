@@ -78,7 +78,7 @@ Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
   ARROW_ASSIGN_OR_RAISE(DLDataType dlpack_type, GetDLDataType(type));
 
   // Create ManagerCtx that will serve as the owner of the DLManagedTensor
-  std::unique_ptr<ManagerCtx> ctx(new ManagerCtx);
+  auto ctx = std::make_unique<ManagerCtx>();
 
   // Define the data pointer to the DLTensor
   // If array is of length 0, data pointer should be NULL
@@ -147,7 +147,7 @@ Result<DLManagedTensor*> ExportTensor(const std::shared_ptr<Tensor>& t) {
   ARROW_ASSIGN_OR_RAISE(DLDevice device, ExportDevice(t))
 
   // Create TensorManagerCtx that will serve as the owner of the DLManagedTensor
-  std::unique_ptr<TensorManagerCtx> ctx(new TensorManagerCtx);
+  auto ctx = std::make_unique<TensorManagerCtx>();
 
   // Define the data pointer to the DLTensor
   // If tensor is of length 0, data pointer should be NULL
