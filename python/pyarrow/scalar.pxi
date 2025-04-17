@@ -1120,13 +1120,26 @@ cdef class MapScalar(ListScalar):
 
     def __getitem__(self, i):
         """
-        Return the value at the given index.
+        Return the value at the given index or key.
         """
+
         arr = self.values
         if arr is None:
-            raise IndexError(i)
-        dct = arr[_normalize_index(i, len(arr))]
-        return (dct[self.type.key_field.name], dct[self.type.item_field.name])
+            raise IndexError(i) if isinstance(i, int) else KeyError(i)
+
+        key_field = self.type.key_field.name
+        item_field = self.type.item_field.name
+
+        if isinstance(i, int):
+            if arr is None:
+                raise IndexError(i)
+            dct = arr[_normalize_index(i, len(arr))]
+            return (dct[key_field], dct[item_field])
+        else:
+            for dct in arr:
+                if dct[key_field].as_py() == i:
+                    return dct[item_field]
+            raise KeyError(i)
 
     def __iter__(self):
         """

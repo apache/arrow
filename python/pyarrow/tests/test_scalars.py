@@ -792,10 +792,13 @@ def test_map(pickle_module):
     )
     assert s[-1] == s[1]
     assert s[-2] == s[0]
+    assert s['b'] == pa.scalar(2, type=pa.int8())
     with pytest.raises(IndexError):
         s[-3]
     with pytest.raises(IndexError):
         s[2]
+    with pytest.raises(KeyError):
+        s['fake_key']
 
     restored = pickle_module.loads(pickle_module.dumps(s))
     assert restored.equals(s)
