@@ -282,7 +282,7 @@ void KeyCompare::CompareVarBinaryColumnToRowHelper(
       result_or |= tail_mask & (key_left ^ key_right);
     }
     int result = result_or == 0 ? 0xff : 0;
-    result = (length_left == length_right) ? result : 0;
+    result *= (length_left == length_right ? 1 : 0);
     match_bytevector[i] = result;
   }
 }
