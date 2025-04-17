@@ -322,6 +322,8 @@ jobs:
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
       CMAKE_UNITY_BUILD: ON
+      CMAKE_VERBOSE_MAKEFILE: ON
+      VERBOSE: ON
     steps:
       - name: Disable Crash Dialogs
         run: |
