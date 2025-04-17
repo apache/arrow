@@ -714,6 +714,8 @@ def test_struct():
     assert 'y' in s
     assert isinstance(s['x'], pa.Int16Scalar)
     assert isinstance(s['y'], pa.FloatScalar)
+    assert isinstance(s[0], pa.Int16Scalar)
+    assert isinstance(s[1], pa.FloatScalar)
     assert s['x'].is_valid is False
     assert s['y'].is_valid is False
     assert s['x'].as_py() is None
