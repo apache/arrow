@@ -23,6 +23,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/type_fwd.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -38,18 +40,6 @@ namespace io {
 class HdfsReadableFile;
 class HdfsOutputStream;
 
-/// DEPRECATED.  Use the FileSystem API in arrow::fs instead.
-struct ObjectType {
-  enum type { FILE, DIRECTORY };
-};
-
-/// DEPRECATED.  Use the FileSystem API in arrow::fs instead.
-struct ARROW_EXPORT FileStatistics {
-  /// Size of file, -1 if finding length is unsupported
-  int64_t size;
-  ObjectType::type kind;
-};
-
 class ARROW_EXPORT FileSystem {
  public:
   virtual ~FileSystem() = default;
@@ -63,11 +53,11 @@ class ARROW_EXPORT FileSystem {
 
   virtual Status Rename(const std::string& src, const std::string& dst) = 0;
 
-  virtual Status Stat(const std::string& path, FileStatistics* stat) = 0;
+  virtual Status Stat(const std::string& path, arrow::fs::FileInfo* file_info) = 0;
 };
 
 struct HdfsPathInfo {
-  ObjectType::type kind;
+  arrow::fs::FileType kind;
 
   std::string name;
   std::string owner;
@@ -177,7 +167,7 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
 
   Status Move(const std::string& src, const std::string& dst);
 
-  Status Stat(const std::string& path, FileStatistics* stat) override;
+  Status Stat(const std::string& path, arrow::fs::FileInfo* file_info) override;
 
   // TODO(wesm): GetWorkingDirectory, SetWorkingDirectory
 
