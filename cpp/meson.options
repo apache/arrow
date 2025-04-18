@@ -37,6 +37,13 @@ option(
 )
 
 option(
+    'cuda',
+    type: 'boolean',
+    description: 'Build the Arrow CUDA extensions (requires CUDA toolkit)',
+    value: false,
+)
+
+option(
     'filesystem',
     type: 'boolean',
     description: 'Build the Arrow Filesystem Layer',
