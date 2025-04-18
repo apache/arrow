@@ -1064,8 +1064,8 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowUuidExtension) {
     props.set_arrow_extensions_enabled(false);
     std::shared_ptr<KeyValueMetadata> field_metadata =
         ::arrow::key_value_metadata({"foo", "bar"}, {"biz", "baz"});
-    auto arrow_schema = ::arrow::schema(
-        {::arrow::field("uuid", ::arrow::extension::uuid(), /*nullable=*/true, field_metadata)});
+    auto arrow_schema = ::arrow::schema({::arrow::field(
+        "uuid", ::arrow::extension::uuid(), /*nullable=*/true, field_metadata)});
 
     std::shared_ptr<KeyValueMetadata> metadata;
     ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));
@@ -1080,8 +1080,8 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowUuidExtension) {
     props.set_arrow_extensions_enabled(true);
     std::shared_ptr<KeyValueMetadata> field_metadata =
         ::arrow::key_value_metadata({"foo", "bar"}, {"biz", "baz"});
-    auto arrow_schema = ::arrow::schema(
-        {::arrow::field("uuid", ::arrow::extension::uuid(), /*nullable=*/true, field_metadata)});
+    auto arrow_schema = ::arrow::schema({::arrow::field(
+        "uuid", ::arrow::extension::uuid(), /*nullable=*/true, field_metadata)});
 
     std::shared_ptr<KeyValueMetadata> metadata;
     ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));
