@@ -18,6 +18,8 @@
 library(arrow)
 library(testthat)
 
+source("tests/testthat/helper-skip.R")
+
 pq_file <- "files/ex_data.parquet"
 
 test_that("Can read the file (parquet)", {
@@ -30,7 +32,7 @@ test_that("Can read the file (parquet)", {
 
 ### Parquet
 test_that("Can see the metadata (parquet)", {
-  skip_if_version_less_than("2.0.0", "Version 1.0.1 can't read new version metadata.")
+  skip_if_arrow_version_less_than("2.0.0", "Version 1.0.1 can't read new version metadata.")
 
   df <- read_parquet(pq_file)
   expect_s3_class(df, "tbl")
@@ -74,7 +76,7 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
   })
 
   test_that(paste0("Can see the metadata (feather ", comp, ")"), {
-    skip_if_version_less_than("2.0.0", "Version 1.0.1 can't read new version metadata.")
+    skip_if_arrow_version_less_than("2.0.0", "Version 1.0.1 can't read new version metadata.")
 
     df <- read_feather(feather_file)
     expect_s3_class(df, "tbl")
@@ -132,7 +134,7 @@ test_that("Can read the file (parquet)", {
 })
 
 test_that("Can see the metadata (stream)", {
-  skip_if_version_less_than("2.0.0", "Version 1.0.1 can't read new version metadata.")
+  skip_if_arrow_version_less_than("2.0.0", "Version 1.0.1 can't read new version metadata.")
   df <- read_ipc_stream(stream_file)
 
   expect_s3_class(df, "tbl")
