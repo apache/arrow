@@ -276,6 +276,9 @@ void KeyCompare::CompareVarBinaryColumnToRowHelper(
       int32_t tail_length = length - j * 8;
       uint64_t tail_mask = ~0ULL >> (64 - 8 * tail_length);
       uint64_t key_left = 0;
+      // NOTE: UBSAN may falsely report "misaligned load" in `std::memcpy` on some
+      // platforms when using 64-bit pointers. Cast to an 8-bit pointer to work around
+      // this.
       const uint8_t* src_bytes = reinterpret_cast<const uint8_t*>(key_left_ptr + j);
       std::memcpy(&key_left, src_bytes, tail_length);
       uint64_t key_right = key_right_ptr[j];
