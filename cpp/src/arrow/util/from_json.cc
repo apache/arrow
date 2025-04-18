@@ -31,12 +31,12 @@
 #include "arrow/array/builder_time.h"
 #include "arrow/array/builder_union.h"
 #include "arrow/chunked_array.h"
-#include "arrow/ipc/json_simple.h"
 #include "arrow/scalar.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/float16.h"
+#include "arrow/util/from_json.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/value_parsing.h"
 
@@ -55,9 +55,7 @@ namespace arrow {
 using internal::ParseValue;
 using util::Float16;
 
-namespace ipc {
-namespace internal {
-namespace json {
+namespace util {
 
 using ::arrow::internal::checked_cast;
 using ::arrow::internal::checked_pointer_cast;
@@ -1074,7 +1072,5 @@ Status DictScalarFromJSON(const std::shared_ptr<DataType>& type,
   return Status::OK();
 }
 
-}  // namespace json
-}  // namespace internal
-}  // namespace ipc
+}  // namespace util
 }  // namespace arrow

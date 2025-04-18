@@ -35,7 +35,6 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_time.h"
 #include "arrow/chunked_array.h"
-#include "arrow/ipc/json_simple.h"
 #include "arrow/scalar.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
@@ -45,6 +44,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/float16.h"
+#include "arrow/util/from_json.h"
 
 #if defined(_MSC_VER)
 // "warning C4307: '+': integral constant overflow"
@@ -55,9 +55,7 @@ namespace arrow {
 
 using util::Float16;
 
-namespace ipc {
-namespace internal {
-namespace json {
+namespace util {
 
 using ::arrow::internal::BytesToBits;
 using ::arrow::internal::checked_cast;
@@ -916,7 +914,8 @@ TEST(TestMap, IntegerMapToStringList) {
   auto& key_key_builder = checked_cast<Int16Builder&>(*key_builder.key_builder());
   auto& key_item_builder = checked_cast<Int16Builder&>(*key_builder.item_builder());
   auto& item_builder = checked_cast<ListBuilder&>(*map_builder.item_builder());
-  auto& item_value_builder = checked_cast<StringBuilder&>(*item_builder.value_builder());
+  auto& item_value_builder =
+      checked_cast<class StringBuilder&>(*item_builder.value_builder());
 
   ASSERT_OK(map_builder.Append());
   ASSERT_OK(key_builder.Append());
@@ -1535,7 +1534,5 @@ TEST(TestDictScalarFromJSON, Errors) {
                                             &scalar));  // dict value isn't string
 }
 
-}  // namespace json
-}  // namespace internal
-}  // namespace ipc
+}  // namespace util
 }  // namespace arrow
