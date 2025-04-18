@@ -1051,7 +1051,7 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowUuidExtension) {
     ArrowReaderProperties props;
     props.set_arrow_extensions_enabled(true);
     auto arrow_schema =
-        ::arrow::schema({::arrow::field("uuid", ::arrow::extension::uuid(), true)});
+        ::arrow::schema({::arrow::field("uuid", ::arrow::extension::uuid())});
     std::shared_ptr<KeyValueMetadata> metadata{};
     ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
     CheckFlatSchema(arrow_schema);
