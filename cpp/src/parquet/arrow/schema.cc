@@ -1059,23 +1059,37 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
   bool modified = false;
 
   auto& origin_type = origin_field.type();
-  const auto& inferred_type = inferred->field->type();
 
+  // The origin was an extension type. This occurs when the ARROW:extension:name field
+  // was present when the schema was written and that extension is registered when
+  // the schema is read.
   if (origin_type->id() == ::arrow::Type::EXTENSION) {
     const auto& origin_extension_type =
         checked_cast<const ::arrow::ExtensionType&>(*origin_type);
-    std::string origin_extension_name = origin_extension_type.extension_name();
 
-    // Whether or not the inferred type is also an extension type. This can occur because
-    // arrow_extensions_enabled is true in the ArrowReaderProperties or because
-    // the field contained an ARROW:extension:name metadata field and that extension name
-    // is registered.
+    // (Recursively) Apply the original storage metadata from the original storage field
+    // This applies extension types to child elements, if any.
+    auto origin_storage_field =
+        origin_field.WithType(origin_extension_type.storage_type());
+    RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
+
+    // Use the inferred type after child updates for below checks to see if
+    // we can restore an extension type on the output.
+    const auto& inferred_type = inferred->field->type();
+
+    // Whether or not the inferred type is also an extension type. This can occur when
+    // arrow_extensions_enabled is true in the ArrowReaderProperties. Extension types
+    // are not currently inferred for any other reason.
     bool arrow_extension_inferred = inferred_type->id() == ::arrow::Type::EXTENSION;
 
     // Check if the inferred storage type is compatible with the extension type
-    // we're about to apply. We assume that if an extension type was inferred
-    // that it was constructed with a valid storage type.
+    // we're hoping to apply. We assume that if an extension type was inferred
+    // that it was constructed with a valid storage type. Otherwise, we check with
+    // extension types that we know about for valid storage, falling back to
+    // storage type equality for extension types that we don't know about.
+    std::string origin_extension_name = origin_extension_type.extension_name();
     bool extension_supports_inferred_storage;
+
     if (origin_extension_name == "arrow.json") {
       extension_supports_inferred_storage =
           arrow_extension_inferred ||
@@ -1089,30 +1103,16 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
       extension_supports_inferred_storage =
           arrow_extension_inferred ||
           VariantExtensionType::IsSupportedStorageType(inferred_type);
-    } else if (arrow_extension_inferred) {
-      extension_supports_inferred_storage = origin_extension_type.Equals(*inferred_type);
     } else {
       extension_supports_inferred_storage =
           origin_extension_type.storage_type()->Equals(*inferred_type);
     }
 
-    // Apply the original storage metadata from the original storage field
-    auto origin_storage_field =
-        origin_field.WithType(origin_extension_type.storage_type());
-    RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
-
-    if (arrow_extension_inferred || extension_supports_inferred_storage) {
-      // i.e., arrow_extensions_enabled is true or arrow_extensions_enabled is false but
-      // we still restore the extension type because Arrow is the source of truth if we
-      // are asked to apply the original metadata
+    // If the origin extension of the metadata we are about to apply supports
+    // the Arrow storage type we would otherwise return, we restore the extension
+    // type to the output.
+    if (extension_supports_inferred_storage) {
       inferred->field = inferred->field->WithType(origin_type);
-    } else {
-      // If we are here, we still *might* be able to restore the extension type
-      // if we first apply metadata to children (e.g., if the extension type
-      // is nested and one or more of its children are an extension type).
-      if (origin_extension_type.storage_type()->Equals(*inferred_type)) {
-        inferred->field = inferred->field->WithType(origin_type);
-      }
     }
 
     modified = true;
