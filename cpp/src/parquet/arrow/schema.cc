@@ -1112,7 +1112,7 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
       auto origin_storage_field =
           origin_field.WithType(origin_extension_type.storage_type());
       RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
-      if (origin_extension_type.storage_type()->Equals(*inferred->field->type())) {
+      if (origin_extension_type.storage_type()->Equals(*inferred_type)) {
         inferred->field = inferred->field->WithType(origin_type);
       }
     }
