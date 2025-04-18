@@ -209,10 +209,22 @@ test_that("read_csv_arrow(col_types=string, col_names)", {
   df <- read_csv_arrow(tf, col_names = "int", col_types = "d", skip = 1)
   expect_identical(df, tibble::tibble(int = as.numeric(tbl$int)))
 
-  expect_error(read_csv_arrow(tf, col_types = c("i", "d")))
-  expect_error(read_csv_arrow(tf, col_types = "d"))
-  expect_error(read_csv_arrow(tf, col_types = "i", col_names = c("a", "b")))
-  expect_error(read_csv_arrow(tf, col_types = "y", col_names = "a"))
+  expect_error(
+    read_csv_arrow(tf, col_types = c("i", "d")),
+    "`col_types` must be a character vector of size 1"
+  )
+  expect_error(
+    read_csv_arrow(tf, col_types = "d"),
+    "Compact specification for `col_types` requires `col_names` of matching length"
+  )
+  expect_error(
+    read_csv_arrow(tf, col_types = "i", col_names = c("a", "b")),
+    "Compact specification for `col_types` requires `col_names` of matching length"
+  )
+  expect_error(
+    read_csv_arrow(tf, col_types = "y", col_names = "a"),
+    "Unsupported compact specification: 'y' for column 'a'"
+  )
 })
 
 test_that("read_csv_arrow() can read timestamps", {
