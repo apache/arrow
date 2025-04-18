@@ -324,12 +324,13 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   }
 
   inline bool is_geo_stats_set() const {
+    // Because we are modifying possible_geo_stats_ in a const method
+    const std::lock_guard<std::mutex> guard(stats_mutex_);
     if (possible_geo_stats_ == nullptr &&
         column_metadata_->__isset.geospatial_statistics) {
-      // Because we are modifying possible_geo_stats_ in a const method
-      const std::lock_guard<std::mutex> guard(stats_mutex_);
       possible_geo_stats_ = MakeColumnGeometryStats(*column_metadata_, descr_);
     }
+
     return possible_geo_stats_ != nullptr && possible_geo_stats_->is_valid();
   }
 
