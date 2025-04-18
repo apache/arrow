@@ -311,10 +311,12 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
         descr_->sort_order() == SortOrder::UNKNOWN) {
       return false;
     }
-    if (possible_stats_ == nullptr) {
+    {
       // Because we are modifying possible_stats_ in a const method
       const std::lock_guard<std::mutex> guard(stats_mutex_);
-      possible_stats_ = MakeColumnStats(*column_metadata_, descr_);
+      if (possible_stats_ == nullptr) {
+        possible_stats_ = MakeColumnStats(*column_metadata_, descr_);
+      }
     }
     EncodedStatistics encodedStatistics = possible_stats_->Encode();
     return writer_version_->HasCorrectStatistics(type(), encodedStatistics,
