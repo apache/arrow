@@ -415,7 +415,7 @@ DataEqMatcher DataEq(Data&& dat) {
 /// Constructs an array with ArrayFromJSON against which arguments are matched
 inline DataEqMatcher DataEqArray(const std::shared_ptr<DataType>& type,
                                  std::string_view json) {
-  return DataEq(ArrayFromJSON(type, json));
+  return DataEq(arrow::ArrayFromJSON(type, json));
 }
 
 /// Constructs an array from a vector of optionals against which arguments are matched
