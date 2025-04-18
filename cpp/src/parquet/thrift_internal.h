@@ -244,27 +244,27 @@ static inline geospatial::EncodedGeoStatistics FromThrift(
     out.xmax = geo_stats.bbox.xmax;
     out.ymin = geo_stats.bbox.ymin;
     out.ymax = geo_stats.bbox.ymax;
-    out.xy_present = true;
+    out.xy_bounds_present = true;
 
     if (geo_stats.bbox.__isset.zmin && geo_stats.bbox.__isset.zmax) {
       out.zmin = geo_stats.bbox.zmin;
       out.zmax = geo_stats.bbox.zmax;
-      out.z_present = true;
+      out.z_bounds_present = true;
     } else {
-      out.z_present = false;
+      out.z_bounds_present = false;
     }
 
     if (geo_stats.bbox.__isset.mmin && geo_stats.bbox.__isset.mmax) {
       out.mmin = geo_stats.bbox.mmin;
       out.mmax = geo_stats.bbox.mmax;
-      out.m_present = true;
+      out.m_bounds_present = true;
     } else {
-      out.m_present = false;
+      out.m_bounds_present = false;
     }
   } else {
-    out.xy_present = false;
-    out.z_present = false;
-    out.m_present = false;
+    out.xy_bounds_present = false;
+    out.z_bounds_present = false;
+    out.m_bounds_present = false;
   }
 
   return out;
@@ -415,18 +415,18 @@ static inline format::GeospatialStatistics ToThrift(
   geospatial_statistics.__set_geospatial_types(encoded_geo_stats.geospatial_types);
 
   format::BoundingBox bbox;
-  if (encoded_geo_stats.xy_present) {
+  if (encoded_geo_stats.xy_bounds_present) {
     bbox.__set_xmin(encoded_geo_stats.xmin);
     bbox.__set_xmax(encoded_geo_stats.xmax);
     bbox.__set_ymin(encoded_geo_stats.ymin);
     bbox.__set_ymax(encoded_geo_stats.ymax);
 
-    if (encoded_geo_stats.z_present) {
+    if (encoded_geo_stats.z_bounds_present) {
       bbox.__set_zmin(encoded_geo_stats.zmin);
       bbox.__set_zmax(encoded_geo_stats.zmax);
     }
 
-    if (encoded_geo_stats.m_present) {
+    if (encoded_geo_stats.m_bounds_present) {
       bbox.__set_mmin(encoded_geo_stats.mmin);
       bbox.__set_mmax(encoded_geo_stats.mmax);
     }
