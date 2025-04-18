@@ -18,6 +18,7 @@
 #include "parquet/arrow/schema_internal.h"
 
 #include "arrow/extension/json.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/type.h"
 
 #include "parquet/properties.h"
@@ -134,8 +135,9 @@ Result<std::shared_ptr<ArrowType>> FromByteArray(
   }
 }
 
-Result<std::shared_ptr<ArrowType>> FromFLBA(const LogicalType& logical_type,
-                                            int32_t physical_length) {
+Result<std::shared_ptr<ArrowType>> FromFLBA(
+    const LogicalType& logical_type, int32_t physical_length,
+    const ArrowReaderProperties& reader_properties) {
   switch (logical_type.type()) {
     case LogicalType::Type::DECIMAL:
       return MakeArrowDecimal(logical_type);
@@ -143,11 +145,15 @@ Result<std::shared_ptr<ArrowType>> FromFLBA(const LogicalType& logical_type,
       return ::arrow::float16();
     case LogicalType::Type::NONE:
     case LogicalType::Type::INTERVAL:
+      return ::arrow::fixed_size_binary(physical_length);
     case LogicalType::Type::UUID:
+      if (physical_length == 16 && reader_properties.get_arrow_extensions_enabled()) {
+        return ::arrow::extension::uuid();
+      }
+
       return ::arrow::fixed_size_binary(physical_length);
     default:
-      return Status::NotImplemented("Unhandled logical logical_type ",
-                                    logical_type.ToString(),
+      return Status::NotImplemented("Unhandled logical_type ", logical_type.ToString(),
                                     " for fixed-length binary array");
   }
 }
@@ -216,7 +222,7 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
     case ParquetType::BYTE_ARRAY:
       return FromByteArray(logical_type, reader_properties);
     case ParquetType::FIXED_LEN_BYTE_ARRAY:
-      return FromFLBA(logical_type, type_length);
+      return FromFLBA(logical_type, type_length, reader_properties);
     default: {
       // PARQUET-1565: This can occur if the file is corrupt
       return Status::IOError("Invalid physical column type: ",
