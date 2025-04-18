@@ -46,8 +46,8 @@ class TestEncryptionKeyManagement : public ::testing::Test {
   FileEncryptor encryptor_;
   FileDecryptor decryptor_;
 
-  std::unordered_map<std::string, std::string> key_list_;
-  std::unordered_map<std::string, std::string> new_key_list_;
+  std::unordered_map<std::string, SecureString> key_list_;
+  std::unordered_map<std::string, SecureString> new_key_list_;
   std::string column_key_mapping_;
   KmsConnectionConfig kms_connection_config_;
   CryptoFactory crypto_factory_;
