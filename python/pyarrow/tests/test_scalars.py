@@ -219,6 +219,9 @@ def test_bool():
     assert true.as_py() is True
     assert false.as_py() is False
 
+    assert bool(true) is True
+    assert bool(false) is False
+
 
 def test_numerics():
     # int64
@@ -227,6 +230,7 @@ def test_numerics():
     assert repr(s) == "<pyarrow.Int64Scalar: 1>"
     assert str(s) == "1"
     assert s.as_py() == 1
+    assert int(s) == 1
 
     with pytest.raises(OverflowError):
         pa.scalar(-1, type='uint8')
@@ -237,6 +241,7 @@ def test_numerics():
     assert repr(s) == "<pyarrow.DoubleScalar: 1.5>"
     assert str(s) == "1.5"
     assert s.as_py() == 1.5
+    assert float(s) == 1.5
 
     if np is not None:
         # float16
@@ -555,17 +560,28 @@ def test_binary(value, ty, scalar_typ):
     assert str(s) == str(value)
     assert repr(value) in repr(s)
     assert s.as_py() == value
+    assert bytes(s) == value
     assert s != b'xxxxx'
 
     buf = s.as_buffer()
     assert isinstance(buf, pa.Buffer)
     assert buf.to_pybytes() == value
 
+    memview = memoryview(s)
+    assert memview.tobytes() == value
+
+    assert memview.format == 'b'
+    assert memview.itemsize == 1
+    assert memview.ndim == 1
+    assert memview.shape == (3,)
+    assert memview.strides == (1,)
+
 
 def test_fixed_size_binary():
     s = pa.scalar(b'foof', type=pa.binary(4))
     assert isinstance(s, pa.FixedSizeBinaryScalar)
     assert s.as_py() == b'foof'
+    assert bytes(s) == b'foof'
 
     with pytest.raises(pa.ArrowInvalid):
         pa.scalar(b'foof5', type=pa.binary(4))
@@ -700,6 +716,8 @@ def test_struct():
     assert 'y' in s
     assert isinstance(s['x'], pa.Int16Scalar)
     assert isinstance(s['y'], pa.FloatScalar)
+    assert isinstance(s[0], pa.Int16Scalar)
+    assert isinstance(s[1], pa.FloatScalar)
     assert s['x'].is_valid is False
     assert s['y'].is_valid is False
     assert s['x'].as_py() is None
@@ -778,10 +796,13 @@ def test_map(pickle_module):
     )
     assert s[-1] == s[1]
     assert s[-2] == s[0]
+    assert s['b'] == pa.scalar(2, type=pa.int8())
     with pytest.raises(IndexError):
         s[-3]
     with pytest.raises(IndexError):
         s[2]
+    with pytest.raises(KeyError):
+        s['fake_key']
 
     restored = pickle_module.loads(pickle_module.dumps(s))
     assert restored.equals(s)
