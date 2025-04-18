@@ -33,6 +33,7 @@
 using testing::SizeIs;
 
 namespace arrow {
+
 namespace dataset {
 
 void AssertSchemasAre(std::vector<std::shared_ptr<Schema>> actual,

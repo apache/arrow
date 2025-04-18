@@ -29,6 +29,7 @@
 #include "arrow/testing/generator.h"
 
 namespace arrow {
+
 namespace dataset {
 
 class TestInMemoryFragment : public DatasetFixtureMixin {};

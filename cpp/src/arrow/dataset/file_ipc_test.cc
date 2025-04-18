@@ -37,8 +37,6 @@
 
 namespace arrow {
 
-using internal::checked_pointer_cast;
-
 namespace dataset {
 
 class IpcFormatHelper {

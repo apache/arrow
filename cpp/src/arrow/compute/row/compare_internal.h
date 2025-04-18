@@ -23,6 +23,7 @@
 #include "arrow/compute/row/encode_internal.h"
 #include "arrow/compute/row/row_internal.h"
 #include "arrow/compute/util.h"
+#include "arrow/compute/visibility.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -30,7 +31,7 @@
 namespace arrow {
 namespace compute {
 
-class ARROW_EXPORT KeyCompare {
+class ARROW_COMPUTE_EXPORT KeyCompare {
  public:
   // Clarify the max temp stack usage for CompareColumnsToRows, which might be necessary
   // for the caller to be aware of (possibly at compile time) to reserve enough stack size
