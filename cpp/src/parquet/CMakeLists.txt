@@ -172,6 +172,9 @@ set(PARQUET_SRCS
     exception.cc
     file_reader.cc
     file_writer.cc
+    geospatial/statistics.cc
+    geospatial/util_internal.cc
+    geospatial/util_json_internal.cc
     level_comparison.cc
     level_conversion.cc
     metadata.cc
@@ -259,6 +262,14 @@ endif()
 
 if(NOT PARQUET_MINIMAL_DEPENDENCY)
   list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
+
+  # Add RapidJSON libraries
+  if(NOT ARROW_JSON)
+    message(FATAL_ERROR "Building Parquet with Arrow support requires ARROW_JSON=ON")
+  endif()
+
+  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS RapidJSON)
+  list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON)
 
   # These are libraries that we will link privately with parquet_shared (as they
   # do not need to be linked transitively by other linkers)
@@ -357,6 +368,7 @@ endif()
 add_subdirectory(api)
 add_subdirectory(arrow)
 add_subdirectory(encryption)
+add_subdirectory(geospatial)
 
 arrow_install_all_headers("parquet")
 
@@ -367,15 +379,17 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
 
 add_parquet_test(internals-test
                  SOURCES
-                 bloom_filter_test.cc
                  bloom_filter_reader_test.cc
-                 properties_test.cc
-                 statistics_test.cc
+                 bloom_filter_test.cc
                  encoding_test.cc
+                 geospatial/statistics_test.cc
+                 geospatial/util_internal_test.cc
                  metadata_test.cc
                  page_index_test.cc
+                 properties_test.cc
                  public_api_test.cc
                  size_statistics_test.cc
+                 statistics_test.cc
                  types_test.cc)
 
 set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON

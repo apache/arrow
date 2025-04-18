@@ -38,6 +38,7 @@
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
 #include "parquet/size_statistics.h"
+#include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"
 
 namespace parquet {
@@ -106,6 +107,17 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
       metadata.statistics.null_count, metadata.statistics.distinct_count,
       metadata.statistics.__isset.max && metadata.statistics.__isset.min,
       metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count);
+}
+
+static std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
+    const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
+  if (metadata.__isset.geospatial_statistics) {
+    geospatial::EncodedGeoStatistics encoded_geo_stats =
+        FromThrift(metadata.geospatial_statistics);
+    return std::make_shared<geospatial::GeoStatistics>(std::move(encoded_geo_stats));
+  } else {
+    return nullptr;
+  }
 }
 
 std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_data,
@@ -268,6 +280,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       size_statistics_->Validate(descr_);
     }
     possible_stats_ = nullptr;
+    possible_geo_stats_ = nullptr;
     InitKeyValueMetadata();
   }
 
@@ -298,12 +311,27 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
         descr_->sort_order() == SortOrder::UNKNOWN) {
       return false;
     }
-    if (possible_stats_ == nullptr) {
-      possible_stats_ = MakeColumnStats(*column_metadata_, descr_);
+    {
+      // Because we are modifying possible_stats_ in a const method
+      const std::lock_guard<std::mutex> guard(stats_mutex_);
+      if (possible_stats_ == nullptr) {
+        possible_stats_ = MakeColumnStats(*column_metadata_, descr_);
+      }
     }
     EncodedStatistics encodedStatistics = possible_stats_->Encode();
     return writer_version_->HasCorrectStatistics(type(), encodedStatistics,
                                                  descr_->sort_order());
+  }
+
+  inline bool is_geo_stats_set() const {
+    // Because we are modifying possible_geo_stats_ in a const method
+    const std::lock_guard<std::mutex> guard(stats_mutex_);
+    if (possible_geo_stats_ == nullptr &&
+        column_metadata_->__isset.geospatial_statistics) {
+      possible_geo_stats_ = MakeColumnGeometryStats(*column_metadata_, descr_);
+    }
+
+    return possible_geo_stats_ != nullptr && possible_geo_stats_->is_valid();
   }
 
   inline std::shared_ptr<Statistics> statistics() const {
@@ -312,6 +340,10 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 
   inline std::shared_ptr<SizeStatistics> size_statistics() const {
     return size_statistics_;
+  }
+
+  inline std::shared_ptr<geospatial::GeoStatistics> geospatial_statistics() const {
+    return is_geo_stats_set() ? possible_geo_stats_ : nullptr;
   }
 
   inline Compression::type compression() const {
@@ -392,7 +424,9 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     key_value_metadata_ = FromThriftKeyValueMetadata(*column_metadata_);
   }
 
+  mutable std::mutex stats_mutex_;
   mutable std::shared_ptr<Statistics> possible_stats_;
+  mutable std::shared_ptr<geospatial::GeoStatistics> possible_geo_stats_;
   std::vector<Encoding::type> encodings_;
   std::vector<PageEncodingStats> encoding_stats_;
   const format::ColumnChunk* column_;
@@ -444,11 +478,17 @@ std::shared_ptr<Statistics> ColumnChunkMetaData::statistics() const {
   return impl_->statistics();
 }
 
+std::shared_ptr<geospatial::GeoStatistics> ColumnChunkMetaData::geo_statistics() const {
+  return impl_->geospatial_statistics();
+}
+
 bool ColumnChunkMetaData::is_stats_set() const { return impl_->is_stats_set(); }
 
 std::shared_ptr<SizeStatistics> ColumnChunkMetaData::size_statistics() const {
   return impl_->size_statistics();
 }
+
+bool ColumnChunkMetaData::is_geo_stats_set() const { return impl_->is_geo_stats_set(); }
 
 std::optional<int64_t> ColumnChunkMetaData::bloom_filter_offset() const {
   return impl_->bloom_filter_offset();
@@ -1558,6 +1598,10 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_->meta_data.__set_size_statistics(ToThrift(size_stats));
   }
 
+  void SetGeoStatistics(const geospatial::EncodedGeoStatistics& val) {
+    column_chunk_->meta_data.__set_geospatial_statistics(ToThrift(val));
+  }
+
   void Finish(int64_t num_values, int64_t dictionary_page_offset,
               int64_t index_page_offset, int64_t data_page_offset,
               int64_t compressed_size, int64_t uncompressed_size, bool has_dictionary,
@@ -1769,6 +1813,11 @@ void ColumnChunkMetaDataBuilder::SetStatistics(const EncodedStatistics& result) 
 
 void ColumnChunkMetaDataBuilder::SetSizeStatistics(const SizeStatistics& size_stats) {
   impl_->SetSizeStatistics(size_stats);
+}
+
+void ColumnChunkMetaDataBuilder::SetGeoStatistics(
+    const geospatial::EncodedGeoStatistics& result) {
+  impl_->SetGeoStatistics(result);
 }
 
 void ColumnChunkMetaDataBuilder::SetKeyValueMetadata(

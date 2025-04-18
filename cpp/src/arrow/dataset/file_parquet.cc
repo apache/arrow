@@ -132,6 +132,8 @@ parquet::ArrowReaderProperties MakeArrowReaderProperties(
   arrow_properties.set_io_context(
       parquet_scan_options.arrow_reader_properties->io_context());
   arrow_properties.set_use_threads(options.use_threads);
+  arrow_properties.set_arrow_extensions_enabled(
+      parquet_scan_options.arrow_reader_properties->get_arrow_extensions_enabled());
   return arrow_properties;
 }
 
