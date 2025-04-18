@@ -157,19 +157,19 @@ class GeoStatisticsImpl {
       out.xmax = maxes[0];
       out.ymin = mins[1];
       out.ymax = maxes[1];
-      out.writer_calculated_xy_bounds = true;
+      out.xy_present = true;
     }
 
     if (write_z) {
       out.zmin = mins[2];
       out.zmax = maxes[2];
-      out.writer_calculated_z_bounds = true;
+      out.z_present = true;
     }
 
     if (write_m) {
       out.mmin = mins[3];
       out.mmax = maxes[3];
-      out.writer_calculated_m_bounds = true;
+      out.m_present = true;
     }
 
     return out;
@@ -189,7 +189,7 @@ class GeoStatisticsImpl {
 
     geospatial::BoundingBox box;
 
-    if (encoded.writer_calculated_xy_bounds) {
+    if (encoded.xy_present) {
       box.min[0] = encoded.xmin;
       box.max[0] = encoded.xmax;
       box.min[1] = encoded.ymin;
@@ -201,7 +201,7 @@ class GeoStatisticsImpl {
       box.max[1] = kNaN;
     }
 
-    if (encoded.writer_calculated_z_bounds) {
+    if (encoded.z_present) {
       box.min[2] = encoded.zmin;
       box.max[2] = encoded.zmax;
     } else {
@@ -209,7 +209,7 @@ class GeoStatisticsImpl {
       box.max[2] = kNaN;
     }
 
-    if (encoded.writer_calculated_m_bounds) {
+    if (encoded.m_present) {
       box.min[3] = encoded.mmin;
       box.max[3] = encoded.mmax;
     } else {

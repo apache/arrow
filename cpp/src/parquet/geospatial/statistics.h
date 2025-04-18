@@ -30,25 +30,29 @@ namespace parquet::geospatial {
 /// (i.e., X, Y, Z, and M)
 static constexpr int kMaxDimensions = 4;
 
+/// \brief NaN, used to represent bounds for which predicate pushdown cannnot
+/// be applied (e.g., because a writer did not provide bounds for a given dimension)
+constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
+
 /// \brief Structure represented encoded statistics to be written to and read from Parquet
 /// serialized metadata.
 ///
 /// See the Parquet Thrift definition and GeoStatistics for the specific definition
 /// of field values.
 struct PARQUET_EXPORT EncodedGeoStatistics {
-  bool writer_calculated_xy_bounds{};
-  double xmin{};
-  double xmax{};
-  double ymin{};
-  double ymax{};
+  bool xy_present{};
+  double xmin{kNaN};
+  double xmax{kNaN};
+  double ymin{kNaN};
+  double ymax{kNaN};
 
-  bool writer_calculated_z_bounds{};
-  double zmin{};
-  double zmax{};
+  bool z_present{};
+  double zmin{kNaN};
+  double zmax{kNaN};
 
-  bool writer_calculated_m_bounds{};
-  double mmin{};
-  double mmax{};
+  bool m_present{};
+  double mmin{kNaN};
+  double mmax{kNaN};
 
   bool writer_calculated_geospatial_types() const { return !geospatial_types.empty(); }
   std::vector<int32_t> geospatial_types;

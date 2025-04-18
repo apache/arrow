@@ -244,27 +244,27 @@ static inline geospatial::EncodedGeoStatistics FromThrift(
     out.xmax = geo_stats.bbox.xmax;
     out.ymin = geo_stats.bbox.ymin;
     out.ymax = geo_stats.bbox.ymax;
-    out.writer_calculated_xy_bounds = true;
+    out.xy_present = true;
 
     if (geo_stats.bbox.__isset.zmin && geo_stats.bbox.__isset.zmax) {
       out.zmin = geo_stats.bbox.zmin;
       out.zmax = geo_stats.bbox.zmax;
-      out.writer_calculated_z_bounds = true;
+      out.z_present = true;
     } else {
-      out.writer_calculated_z_bounds = false;
+      out.z_present = false;
     }
 
     if (geo_stats.bbox.__isset.mmin && geo_stats.bbox.__isset.mmax) {
       out.mmin = geo_stats.bbox.mmin;
       out.mmax = geo_stats.bbox.mmax;
-      out.writer_calculated_m_bounds = true;
+      out.m_present = true;
     } else {
-      out.writer_calculated_m_bounds = false;
+      out.m_present = false;
     }
   } else {
-    out.writer_calculated_xy_bounds = false;
-    out.writer_calculated_z_bounds = false;
-    out.writer_calculated_m_bounds = false;
+    out.xy_present = false;
+    out.z_present = false;
+    out.m_present = false;
   }
 
   return out;
@@ -415,18 +415,18 @@ static inline format::GeospatialStatistics ToThrift(
   geospatial_statistics.__set_geospatial_types(encoded_geo_stats.geospatial_types);
 
   format::BoundingBox bbox;
-  if (encoded_geo_stats.writer_calculated_xy_bounds) {
+  if (encoded_geo_stats.xy_present) {
     bbox.__set_xmin(encoded_geo_stats.xmin);
     bbox.__set_xmax(encoded_geo_stats.xmax);
     bbox.__set_ymin(encoded_geo_stats.ymin);
     bbox.__set_ymax(encoded_geo_stats.ymax);
 
-    if (encoded_geo_stats.writer_calculated_z_bounds) {
+    if (encoded_geo_stats.z_present) {
       bbox.__set_zmin(encoded_geo_stats.zmin);
       bbox.__set_zmax(encoded_geo_stats.zmax);
     }
 
-    if (encoded_geo_stats.writer_calculated_m_bounds) {
+    if (encoded_geo_stats.m_present) {
       bbox.__set_mmin(encoded_geo_stats.mmin);
       bbox.__set_mmax(encoded_geo_stats.mmax);
     }

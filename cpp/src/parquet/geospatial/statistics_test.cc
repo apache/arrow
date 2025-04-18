@@ -53,9 +53,9 @@ TEST(TestGeoStatistics, TestDefaults) {
   // There's no way to encode empty ranges in Thrift, so we pretend that we
   // didn't calculate them.
   auto encoded = stats.Encode();
-  EXPECT_FALSE(encoded->writer_calculated_xy_bounds);
-  EXPECT_FALSE(encoded->writer_calculated_z_bounds);
-  EXPECT_FALSE(encoded->writer_calculated_m_bounds);
+  EXPECT_FALSE(encoded->xy_present);
+  EXPECT_FALSE(encoded->z_present);
+  EXPECT_FALSE(encoded->m_present);
   EXPECT_FALSE(encoded->writer_calculated_geospatial_types());
 
   // When imported, the statistics marked with everything uncalculated should
@@ -73,15 +73,15 @@ TEST(TestGeoStatistics, TestImportEncodedWithNaN) {
   double nan_dbl = std::numeric_limits<double>::quiet_NaN();
 
   EncodedGeoStatistics encoded_with_nan;
-  encoded_with_nan.writer_calculated_xy_bounds = true;
+  encoded_with_nan.xy_present = true;
   encoded_with_nan.xmin = nan_dbl;
   encoded_with_nan.xmax = nan_dbl;
   encoded_with_nan.ymin = nan_dbl;
   encoded_with_nan.ymax = nan_dbl;
-  encoded_with_nan.writer_calculated_z_bounds = true;
+  encoded_with_nan.z_present = true;
   encoded_with_nan.zmin = nan_dbl;
   encoded_with_nan.zmax = nan_dbl;
-  encoded_with_nan.writer_calculated_m_bounds = true;
+  encoded_with_nan.m_present = true;
   encoded_with_nan.mmin = nan_dbl;
   encoded_with_nan.mmax = nan_dbl;
 
@@ -111,9 +111,9 @@ TEST(TestGeoStatistics, TestImportEncodedWithNaN) {
 
   // Ensure that if we decode nans, we mark the ranges as uncalculated
   auto encoded = stats.Encode();
-  EXPECT_FALSE(encoded->writer_calculated_xy_bounds);
-  EXPECT_FALSE(encoded->writer_calculated_z_bounds);
-  EXPECT_FALSE(encoded->writer_calculated_m_bounds);
+  EXPECT_FALSE(encoded->xy_present);
+  EXPECT_FALSE(encoded->z_present);
+  EXPECT_FALSE(encoded->m_present);
 }
 
 TEST(TestGeoStatistics, TestUpdateByteArray) {
@@ -221,9 +221,9 @@ TEST(TestGeoStatistics, TestUpdateXYZM) {
   // When we encode + decode the statistcs, we should ensure that the non-empty
   // dimensions are kept and that the previously empty dimensions are now invalid
   encoded = *stats.Encode();
-  EXPECT_TRUE(encoded.writer_calculated_xy_bounds);
-  EXPECT_FALSE(encoded.writer_calculated_z_bounds);
-  EXPECT_FALSE(encoded.writer_calculated_m_bounds);
+  EXPECT_TRUE(encoded.xy_present);
+  EXPECT_FALSE(encoded.z_present);
+  EXPECT_FALSE(encoded.m_present);
   from_encoded.Decode(encoded);
   EXPECT_THAT(from_encoded.dimension_empty(),
               ::testing::ElementsAre(false, false, false, false));
@@ -240,9 +240,9 @@ TEST(TestGeoStatistics, TestUpdateXYZM) {
   stats_not_equal.Merge(stats);
 
   encoded = *stats.Encode();
-  EXPECT_TRUE(encoded.writer_calculated_xy_bounds);
-  EXPECT_TRUE(encoded.writer_calculated_z_bounds);
-  EXPECT_FALSE(encoded.writer_calculated_m_bounds);
+  EXPECT_TRUE(encoded.xy_present);
+  EXPECT_TRUE(encoded.z_present);
+  EXPECT_FALSE(encoded.m_present);
   from_encoded.Decode(encoded);
   EXPECT_THAT(from_encoded.dimension_empty(),
               ::testing::ElementsAre(false, false, false, false));
@@ -259,9 +259,9 @@ TEST(TestGeoStatistics, TestUpdateXYZM) {
   EXPECT_FALSE(stats.Equals(stats_not_equal));
 
   encoded = *stats.Encode();
-  EXPECT_TRUE(encoded.writer_calculated_xy_bounds);
-  EXPECT_TRUE(encoded.writer_calculated_z_bounds);
-  EXPECT_TRUE(encoded.writer_calculated_m_bounds);
+  EXPECT_TRUE(encoded.xy_present);
+  EXPECT_TRUE(encoded.z_present);
+  EXPECT_TRUE(encoded.m_present);
   from_encoded.Decode(encoded);
   EXPECT_THAT(from_encoded.dimension_empty(),
               ::testing::ElementsAre(false, false, false, false));
@@ -316,7 +316,7 @@ TEST(TestGeoStatistics, TestUpdateArrayInvalid) {
 
   // Make some valid statistics
   EncodedGeoStatistics encoded_valid;
-  encoded_valid.writer_calculated_xy_bounds = true;
+  encoded_valid.xy_present = true;
   encoded_valid.xmin = 0;
   encoded_valid.xmax = 10;
   encoded_valid.ymin = 20;
@@ -325,7 +325,7 @@ TEST(TestGeoStatistics, TestUpdateArrayInvalid) {
 
   // Make some statistics with unsupported wraparound
   EncodedGeoStatistics encoded_unsupported;
-  encoded_unsupported.writer_calculated_xy_bounds = true;
+  encoded_unsupported.xy_present = true;
   encoded_unsupported.xmin = 10;
   encoded_unsupported.xmax = 0;
   encoded_unsupported.ymin = 20;
