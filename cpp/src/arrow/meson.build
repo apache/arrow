@@ -624,3 +624,7 @@ endif
 if needs_filesystem
     subdir('filesystem')
 endif
+
+if get_option('tensorflow')
+    subdir('adapters/tensorflow')
+endif
