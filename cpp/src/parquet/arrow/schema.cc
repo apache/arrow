@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/extension/json.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
@@ -1083,9 +1084,7 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
     } else if (origin_extension_name == "arrow.uuid") {
       extension_supports_inferred_storage =
           arrow_extension_inferred ||
-          (inferred_type->id() == ::arrow::Type::FIXED_SIZE_BINARY &&
-           checked_cast<const ::arrow::FixedSizeBinaryType&>(*inferred_type)
-                   .byte_width() == 16);
+          ::arrow::extension::UuidType::IsSupportedStorageType(inferred_type);
     } else if (origin_extension_name == "parquet.variant") {
       extension_supports_inferred_storage =
           arrow_extension_inferred ||
@@ -1097,21 +1096,20 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
           origin_extension_type.storage_type()->Equals(*inferred_type);
     }
 
+    // Apply the original storage metadata from the original storage field
+    auto origin_storage_field =
+        origin_field.WithType(origin_extension_type.storage_type());
+    RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
+
     if (arrow_extension_inferred || extension_supports_inferred_storage) {
       // i.e., arrow_extensions_enabled is true or arrow_extensions_enabled is false but
       // we still restore the extension type because Arrow is the source of truth if we
       // are asked to apply the original metadata
-      auto origin_storage_field =
-          origin_field.WithType(origin_extension_type.storage_type());
-      RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
       inferred->field = inferred->field->WithType(origin_type);
     } else {
       // If we are here, we still *might* be able to restore the extension type
       // if we first apply metadata to children (e.g., if the extension type
-      // is nested and its children are extension type).
-      auto origin_storage_field =
-          origin_field.WithType(origin_extension_type.storage_type());
-      RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
+      // is nested and one or more of its children are an extension type).
       if (origin_extension_type.storage_type()->Equals(*inferred_type)) {
         inferred->field = inferred->field->WithType(origin_type);
       }
