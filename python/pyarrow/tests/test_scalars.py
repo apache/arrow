@@ -707,6 +707,10 @@ def test_struct():
     with pytest.raises(KeyError):
         s['nonexistent']
 
+    a, b = s
+    assert a == 2
+    assert b == 3.5
+
     s = pa.scalar(None, type=ty)
     assert list(s) == list(s.keys()) == ['x', 'y']
     assert s.as_py() is None
