@@ -1081,7 +1081,7 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowUuidExtension) {
     std::shared_ptr<KeyValueMetadata> field_metadata =
         ::arrow::key_value_metadata({"foo", "bar"}, {"biz", "baz"});
     auto arrow_schema = ::arrow::schema(
-        {::arrow::field("uuid", ::arrow::extension::uuid(), true, field_metadata)});
+        {::arrow::field("uuid", ::arrow::extension::uuid(), /*nullable=*/true, field_metadata)});
 
     std::shared_ptr<KeyValueMetadata> metadata;
     ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));
