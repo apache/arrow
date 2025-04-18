@@ -4,3888 +4,3888 @@
  * DO NOT EDIT UNLESS YOU ARE SURE THAT YOU KNOW WHAT YOU ARE DOING
  *  @generated
  */
- #ifndef parquet_TYPES_H
- #define parquet_TYPES_H
-
- #include <iosfwd>
-
- #include <thrift/Thrift.h>
- #include <thrift/TApplicationException.h>
- #include <thrift/TBase.h>
- #include <thrift/protocol/TProtocol.h>
- #include <thrift/transport/TTransport.h>
-
- #include <functional>
- #include <memory>
-
- #include "parquet/windows_compatibility.h"
-
- namespace parquet { namespace format {
-
- /**
-  * Types supported by Parquet.  These types are intended to be used in combination
-  * with the encodings to control the on disk storage format.
-  * For example INT16 is not included as a type since a good encoding of INT32
-  * would handle this.
-  */
- struct Type {
-   enum type {
-     BOOLEAN = 0,
-     INT32 = 1,
-     INT64 = 2,
-     INT96 = 3,
-     FLOAT = 4,
-     DOUBLE = 5,
-     BYTE_ARRAY = 6,
-     FIXED_LEN_BYTE_ARRAY = 7
-   };
- };
-
- extern const std::map<int, const char*> _Type_VALUES_TO_NAMES;
-
- std::ostream& operator<<(std::ostream& out, const Type::type& val);
-
- std::string to_string(const Type::type& val);
-
- /**
-  * DEPRECATED: Common types used by frameworks(e.g. hive, pig) using parquet.
-  * ConvertedType is superseded by LogicalType.  This enum should not be extended.
-  *
-  * See LogicalTypes.md for conversion between ConvertedType and LogicalType.
-  */
- struct ConvertedType {
-   enum type {
-     /**
-      * a BYTE_ARRAY actually contains UTF8 encoded chars
-      */
-     UTF8 = 0,
-     /**
-      * a map is converted as an optional field containing a repeated key/value pair
-      */
-     MAP = 1,
-     /**
-      * a key/value pair is converted into a group of two fields
-      */
-     MAP_KEY_VALUE = 2,
-     /**
-      * a list is converted into an optional field containing a repeated field for its
-      * values
-      */
-     LIST = 3,
-     /**
-      * an enum is converted into a BYTE_ARRAY field
-      */
-     ENUM = 4,
-     /**
-      * A decimal value.
-      *
-      * This may be used to annotate BYTE_ARRAY or FIXED_LEN_BYTE_ARRAY primitive
-      * types. The underlying byte array stores the unscaled value encoded as two's
-      * complement using big-endian byte order (the most significant byte is the
-      * zeroth element). The value of the decimal is the value * 10^{-scale}.
-      *
-      * This must be accompanied by a (maximum) precision and a scale in the
-      * SchemaElement. The precision specifies the number of digits in the decimal
-      * and the scale stores the location of the decimal point. For example 1.23
-      * would have precision 3 (3 total digits) and scale 2 (the decimal point is
-      * 2 digits over).
-      */
-     DECIMAL = 5,
-     /**
-      * A Date
-      *
-      * Stored as days since Unix epoch, encoded as the INT32 physical type.
-      *
-      */
-     DATE = 6,
-     /**
-      * A time
-      *
-      * The total number of milliseconds since midnight.  The value is stored
-      * as an INT32 physical type.
-      */
-     TIME_MILLIS = 7,
-     /**
-      * A time.
-      *
-      * The total number of microseconds since midnight.  The value is stored as
-      * an INT64 physical type.
-      */
-     TIME_MICROS = 8,
-     /**
-      * A date/time combination
-      *
-      * Date and time recorded as milliseconds since the Unix epoch.  Recorded as
-      * a physical type of INT64.
-      */
-     TIMESTAMP_MILLIS = 9,
-     /**
-      * A date/time combination
-      *
-      * Date and time recorded as microseconds since the Unix epoch.  The value is
-      * stored as an INT64 physical type.
-      */
-     TIMESTAMP_MICROS = 10,
-     /**
-      * An unsigned integer value.
-      *
-      * The number describes the maximum number of meaningful data bits in
-      * the stored value. 8, 16 and 32 bit values are stored using the
-      * INT32 physical type.  64 bit values are stored using the INT64
-      * physical type.
-      *
-      */
-     UINT_8 = 11,
-     UINT_16 = 12,
-     UINT_32 = 13,
-     UINT_64 = 14,
-     /**
-      * A signed integer value.
-      *
-      * The number describes the maximum number of meaningful data bits in
-      * the stored value. 8, 16 and 32 bit values are stored using the
-      * INT32 physical type.  64 bit values are stored using the INT64
-      * physical type.
-      *
-      */
-     INT_8 = 15,
-     INT_16 = 16,
-     INT_32 = 17,
-     INT_64 = 18,
-     /**
-      * An embedded JSON document
-      *
-      * A JSON document embedded within a single UTF8 column.
-      */
-     JSON = 19,
-     /**
-      * An embedded BSON document
-      *
-      * A BSON document embedded within a single BYTE_ARRAY column.
-      */
-     BSON = 20,
-     /**
-      * An interval of time
-      *
-      * This type annotates data stored as a FIXED_LEN_BYTE_ARRAY of length 12
-      * This data is composed of three separate little endian unsigned
-      * integers.  Each stores a component of a duration of time.  The first
-      * integer identifies the number of months associated with the duration,
-      * the second identifies the number of days associated with the duration
-      * and the third identifies the number of milliseconds associated with
-      * the provided duration.  This duration of time is independent of any
-      * particular timezone or date.
-      */
-     INTERVAL = 21
-   };
- };
-
- extern const std::map<int, const char*> _ConvertedType_VALUES_TO_NAMES;
-
- std::ostream& operator<<(std::ostream& out, const ConvertedType::type& val);
-
- std::string to_string(const ConvertedType::type& val);
-
- /**
-  * Representation of Schemas
-  */
- struct FieldRepetitionType {
-   enum type {
-     /**
-      * This field is required (can not be null) and each row has exactly 1 value.
-      */
-     REQUIRED = 0,
-     /**
-      * The field is optional (can be null) and each row has 0 or 1 values.
-      */
-     OPTIONAL = 1,
-     /**
-      * The field is repeated and can contain 0 or more values
-      */
-     REPEATED = 2
-   };
- };
-
- extern const std::map<int, const char*> _FieldRepetitionType_VALUES_TO_NAMES;
-
- std::ostream& operator<<(std::ostream& out, const FieldRepetitionType::type& val);
-
- std::string to_string(const FieldRepetitionType::type& val);
-
- /**
-  * Edge interpolation algorithm for Geography logical type
-  */
- struct EdgeInterpolationAlgorithm {
-   enum type {
-     SPHERICAL = 0,
-     VINCENTY = 1,
-     THOMAS = 2,
-     ANDOYER = 3,
-     KARNEY = 4
-   };
- };
-
- extern const std::map<int, const char*> _EdgeInterpolationAlgorithm_VALUES_TO_NAMES;
-
- std::ostream& operator<<(std::ostream& out, const EdgeInterpolationAlgorithm::type& val);
-
- std::string to_string(const EdgeInterpolationAlgorithm::type& val);
-
- /**
-  * Encodings supported by Parquet.  Not all encodings are valid for all types.  These
-  * enums are also used to specify the encoding of definition and repetition levels.
-  * See the accompanying doc for the details of the more complicated encodings.
-  */
- struct Encoding {
-   enum type {
-     /**
-      * Default encoding.
-      * BOOLEAN - 1 bit per value. 0 is false; 1 is true.
-      * INT32 - 4 bytes per value.  Stored as little-endian.
-      * INT64 - 8 bytes per value.  Stored as little-endian.
-      * FLOAT - 4 bytes per value.  IEEE. Stored as little-endian.
-      * DOUBLE - 8 bytes per value.  IEEE. Stored as little-endian.
-      * BYTE_ARRAY - 4 byte length stored as little endian, followed by bytes.
-      * FIXED_LEN_BYTE_ARRAY - Just the bytes.
-      */
-     PLAIN = 0,
-     /**
-      * Deprecated: Dictionary encoding. The values in the dictionary are encoded in the
-      * plain type.
-      * in a data page use RLE_DICTIONARY instead.
-      * in a Dictionary page use PLAIN instead
-      */
-     PLAIN_DICTIONARY = 2,
-     /**
-      * Group packed run length encoding. Usable for definition/repetition levels
-      * encoding and Booleans (on one bit: 0 is false; 1 is true.)
-      */
-     RLE = 3,
-     /**
-      * Bit packed encoding.  This can only be used if the data has a known max
-      * width.  Usable for definition/repetition levels encoding.
-      */
-     BIT_PACKED = 4,
-     /**
-      * Delta encoding for integers. This can be used for int columns and works best
-      * on sorted data
-      */
-     DELTA_BINARY_PACKED = 5,
-     /**
-      * Encoding for byte arrays to separate the length values and the data. The lengths
-      * are encoded using DELTA_BINARY_PACKED
-      */
-     DELTA_LENGTH_BYTE_ARRAY = 6,
-     /**
-      * Incremental-encoded byte array. Prefix lengths are encoded using DELTA_BINARY_PACKED.
-      * Suffixes are stored as delta length byte arrays.
-      */
-     DELTA_BYTE_ARRAY = 7,
-     /**
-      * Dictionary encoding: the ids are encoded using the RLE encoding
-      */
-     RLE_DICTIONARY = 8,
-     /**
-      * Encoding for fixed-width data (FLOAT, DOUBLE, INT32, INT64, FIXED_LEN_BYTE_ARRAY).
-      * K byte-streams are created where K is the size in bytes of the data type.
-      * The individual bytes of a value are scattered to the corresponding stream and
-      * the streams are concatenated.
-      * This itself does not reduce the size of the data but can lead to better compression
-      * afterwards.
-      *
-      * Added in 2.8 for FLOAT and DOUBLE.
-      * Support for INT32, INT64 and FIXED_LEN_BYTE_ARRAY added in 2.11.
-      */
-     BYTE_STREAM_SPLIT = 9
-   };
- };
-
- extern const std::map<int, const char*> _Encoding_VALUES_TO_NAMES;
-
- std::ostream& operator<<(std::ostream& out, const Encoding::type& val);
-
- std::string to_string(const Encoding::type& val);
-
- /**
-  * Supported compression algorithms.
-  *
-  * Codecs added in format version X.Y can be read by readers based on X.Y and later.
-  * Codec support may vary between readers based on the format version and
-  * libraries available at runtime.
-  *
-  * See Compression.md for a detailed specification of these algorithms.
-  */
- struct CompressionCodec {
-   enum type {
-     UNCOMPRESSED = 0,
-     SNAPPY = 1,
-     GZIP = 2,
-     LZO = 3,
-     BROTLI = 4,
-     LZ4 = 5,
-     ZSTD = 6,
-     LZ4_RAW = 7
-   };
- };
-
- extern const std::map<int, const char*> _CompressionCodec_VALUES_TO_NAMES;
-
- std::ostream& operator<<(std::ostream& out, const CompressionCodec::type& val);
-
- std::string to_string(const CompressionCodec::type& val);
-
- struct PageType {
-   enum type {
-     DATA_PAGE = 0,
-     INDEX_PAGE = 1,
-     DICTIONARY_PAGE = 2,
-     DATA_PAGE_V2 = 3
-   };
- };
-
- extern const std::map<int, const char*> _PageType_VALUES_TO_NAMES;
-
- std::ostream& operator<<(std::ostream& out, const PageType::type& val);
-
- std::string to_string(const PageType::type& val);
-
- /**
-  * Enum to annotate whether lists of min/max elements inside ColumnIndex
-  * are ordered and if so, in which direction.
-  */
- struct BoundaryOrder {
-   enum type {
-     UNORDERED = 0,
-     ASCENDING = 1,
-     DESCENDING = 2
-   };
- };
-
- extern const std::map<int, const char*> _BoundaryOrder_VALUES_TO_NAMES;
-
- std::ostream& operator<<(std::ostream& out, const BoundaryOrder::type& val);
-
- std::string to_string(const BoundaryOrder::type& val);
-
- class SizeStatistics;
-
- class BoundingBox;
-
- class GeospatialStatistics;
-
- class Statistics;
-
- class StringType;
-
- class UUIDType;
-
- class MapType;
-
- class ListType;
-
- class EnumType;
-
- class DateType;
-
- class Float16Type;
-
- class NullType;
-
- class DecimalType;
-
- class MilliSeconds;
-
- class MicroSeconds;
-
- class NanoSeconds;
-
- class TimeUnit;
-
- class TimestampType;
-
- class TimeType;
-
- class IntType;
-
- class JsonType;
-
- class BsonType;
-
- class VariantType;
-
- class GeometryType;
-
- class GeographyType;
-
- class LogicalType;
-
- class SchemaElement;
-
- class DataPageHeader;
-
- class IndexPageHeader;
-
- class DictionaryPageHeader;
-
- class DataPageHeaderV2;
-
- class SplitBlockAlgorithm;
-
- class BloomFilterAlgorithm;
-
- class XxHash;
-
- class BloomFilterHash;
-
- class Uncompressed;
-
- class BloomFilterCompression;
-
- class BloomFilterHeader;
-
- class PageHeader;
-
- class KeyValue;
-
- class SortingColumn;
-
- class PageEncodingStats;
-
- class ColumnMetaData;
-
- class EncryptionWithFooterKey;
-
- class EncryptionWithColumnKey;
-
- class ColumnCryptoMetaData;
-
- class ColumnChunk;
-
- class RowGroup;
-
- class TypeDefinedOrder;
-
- class ColumnOrder;
-
- class PageLocation;
-
- class OffsetIndex;
-
- class ColumnIndex;
-
- class AesGcmV1;
-
- class AesGcmCtrV1;
-
- class EncryptionAlgorithm;
-
- class FileMetaData;
-
- class FileCryptoMetaData;
-
- typedef struct _SizeStatistics__isset {
-   _SizeStatistics__isset() : unencoded_byte_array_data_bytes(false), repetition_level_histogram(false), definition_level_histogram(false) {}
-   bool unencoded_byte_array_data_bytes :1;
-   bool repetition_level_histogram :1;
-   bool definition_level_histogram :1;
- } _SizeStatistics__isset;
-
- /**
-  * A structure for capturing metadata for estimating the unencoded,
-  * uncompressed size of data written. This is useful for readers to estimate
-  * how much memory is needed to reconstruct data in their memory model and for
-  * fine grained filter pushdown on nested structures (the histograms contained
-  * in this structure can help determine the number of nulls at a particular
-  * nesting level and maximum length of lists).
-  */
- class SizeStatistics {
-  public:
-
-   SizeStatistics(const SizeStatistics&);
-   SizeStatistics(SizeStatistics&&) noexcept;
-   SizeStatistics& operator=(const SizeStatistics&);
-   SizeStatistics& operator=(SizeStatistics&&) noexcept;
-   SizeStatistics() noexcept;
-
-   virtual ~SizeStatistics() noexcept;
-   /**
-    * The number of physical bytes stored for BYTE_ARRAY data values assuming
-    * no encoding. This is exclusive of the bytes needed to store the length of
-    * each byte array. In other words, this field is equivalent to the `(size
-    * of PLAIN-ENCODING the byte array values) - (4 bytes * number of values
-    * written)`. To determine unencoded sizes of other types readers can use
-    * schema information multiplied by the number of non-null and null values.
-    * The number of null/non-null values can be inferred from the histograms
-    * below.
-    *
-    * For example, if a column chunk is dictionary-encoded with dictionary
-    * ["a", "bc", "cde"], and a data page contains the indices [0, 0, 1, 2],
-    * then this value for that data page should be 7 (1 + 1 + 2 + 3).
-    *
-    * This field should only be set for types that use BYTE_ARRAY as their
-    * physical type.
-    */
-   int64_t unencoded_byte_array_data_bytes;
-   /**
-    * When present, there is expected to be one element corresponding to each
-    * repetition (i.e. size=max repetition_level+1) where each element
-    * represents the number of times the repetition level was observed in the
-    * data.
-    *
-    * This field may be omitted if max_repetition_level is 0 without loss
-    * of information.
-    *
-    */
-   std::vector<int64_t>  repetition_level_histogram;
-   /**
-    * Same as repetition_level_histogram except for definition levels.
-    *
-    * This field may be omitted if max_definition_level is 0 or 1 without
-    * loss of information.
-    *
-    */
-   std::vector<int64_t>  definition_level_histogram;
-
-   _SizeStatistics__isset __isset;
-
-   void __set_unencoded_byte_array_data_bytes(const int64_t val);
-
-   void __set_repetition_level_histogram(const std::vector<int64_t> & val);
-
-   void __set_definition_level_histogram(const std::vector<int64_t> & val);
-
-   bool operator == (const SizeStatistics & rhs) const;
-   bool operator != (const SizeStatistics &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const SizeStatistics & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(SizeStatistics &a, SizeStatistics &b);
-
- std::ostream& operator<<(std::ostream& out, const SizeStatistics& obj);
-
- typedef struct _BoundingBox__isset {
-   _BoundingBox__isset() : zmin(false), zmax(false), mmin(false), mmax(false) {}
-   bool zmin :1;
-   bool zmax :1;
-   bool mmin :1;
-   bool mmax :1;
- } _BoundingBox__isset;
-
- /**
-  * Bounding box for GEOMETRY or GEOGRAPHY type in the representation of min/max
-  * value pair of coordinates from each axis.
-  */
- class BoundingBox {
-  public:
-
-   BoundingBox(const BoundingBox&) noexcept;
-   BoundingBox(BoundingBox&&) noexcept;
-   BoundingBox& operator=(const BoundingBox&) noexcept;
-   BoundingBox& operator=(BoundingBox&&) noexcept;
-   BoundingBox() noexcept;
-
-   virtual ~BoundingBox() noexcept;
-   double xmin;
-   double xmax;
-   double ymin;
-   double ymax;
-   double zmin;
-   double zmax;
-   double mmin;
-   double mmax;
-
-   _BoundingBox__isset __isset;
-
-   void __set_xmin(const double val);
-
-   void __set_xmax(const double val);
-
-   void __set_ymin(const double val);
-
-   void __set_ymax(const double val);
-
-   void __set_zmin(const double val);
-
-   void __set_zmax(const double val);
-
-   void __set_mmin(const double val);
-
-   void __set_mmax(const double val);
-
-   bool operator == (const BoundingBox & rhs) const;
-   bool operator != (const BoundingBox &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const BoundingBox & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(BoundingBox &a, BoundingBox &b);
-
- std::ostream& operator<<(std::ostream& out, const BoundingBox& obj);
-
- typedef struct _GeospatialStatistics__isset {
-   _GeospatialStatistics__isset() : bbox(false), geospatial_types(false) {}
-   bool bbox :1;
-   bool geospatial_types :1;
- } _GeospatialStatistics__isset;
-
- /**
-  * Statistics specific to Geometry and Geography logical types
-  */
- class GeospatialStatistics {
-  public:
-
-   GeospatialStatistics(const GeospatialStatistics&);
-   GeospatialStatistics(GeospatialStatistics&&) noexcept;
-   GeospatialStatistics& operator=(const GeospatialStatistics&);
-   GeospatialStatistics& operator=(GeospatialStatistics&&) noexcept;
-   GeospatialStatistics() noexcept;
-
-   virtual ~GeospatialStatistics() noexcept;
-   /**
-    * A bounding box of geospatial instances
-    */
-   BoundingBox bbox;
-   /**
-    * Geospatial type codes of all instances, or an empty list if not known
-    */
-   std::vector<int32_t>  geospatial_types;
-
-   _GeospatialStatistics__isset __isset;
-
-   void __set_bbox(const BoundingBox& val);
-
-   void __set_geospatial_types(const std::vector<int32_t> & val);
-
-   bool operator == (const GeospatialStatistics & rhs) const;
-   bool operator != (const GeospatialStatistics &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const GeospatialStatistics & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(GeospatialStatistics &a, GeospatialStatistics &b);
-
- std::ostream& operator<<(std::ostream& out, const GeospatialStatistics& obj);
-
- typedef struct _Statistics__isset {
-   _Statistics__isset() : max(false), min(false), null_count(false), distinct_count(false), max_value(false), min_value(false), is_max_value_exact(false), is_min_value_exact(false) {}
-   bool max :1;
-   bool min :1;
-   bool null_count :1;
-   bool distinct_count :1;
-   bool max_value :1;
-   bool min_value :1;
-   bool is_max_value_exact :1;
-   bool is_min_value_exact :1;
- } _Statistics__isset;
-
- /**
-  * Statistics per row group and per page
-  * All fields are optional.
-  */
- class Statistics {
-  public:
-
-   Statistics(const Statistics&);
-   Statistics(Statistics&&) noexcept;
-   Statistics& operator=(const Statistics&);
-   Statistics& operator=(Statistics&&) noexcept;
-   Statistics() noexcept;
-
-   virtual ~Statistics() noexcept;
-   /**
-    * DEPRECATED: min and max value of the column. Use min_value and max_value.
-    *
-    * Values are encoded using PLAIN encoding, except that variable-length byte
-    * arrays do not include a length prefix.
-    *
-    * These fields encode min and max values determined by signed comparison
-    * only. New files should use the correct order for a column's logical type
-    * and store the values in the min_value and max_value fields.
-    *
-    * To support older readers, these may be set when the column order is
-    * signed.
-    */
-   std::string max;
-   std::string min;
-   /**
-    * Count of null values in the column.
-    *
-    * Writers SHOULD always write this field even if it is zero (i.e. no null value)
-    * or the column is not nullable.
-    * Readers MUST distinguish between null_count not being present and null_count == 0.
-    * If null_count is not present, readers MUST NOT assume null_count == 0.
-    */
-   int64_t null_count;
-   /**
-    * count of distinct values occurring
-    */
-   int64_t distinct_count;
-   /**
-    * Lower and upper bound values for the column, determined by its ColumnOrder.
-    *
-    * These may be the actual minimum and maximum values found on a page or column
-    * chunk, but can also be (more compact) values that do not exist on a page or
-    * column chunk. For example, instead of storing "Blart Versenwald III", a writer
-    * may set min_value="B", max_value="C". Such more compact values must still be
-    * valid values within the column's logical type.
-    *
-    * Values are encoded using PLAIN encoding, except that variable-length byte
-    * arrays do not include a length prefix.
-    */
-   std::string max_value;
-   std::string min_value;
-   /**
-    * If true, max_value is the actual maximum value for a column
-    */
-   bool is_max_value_exact;
-   /**
-    * If true, min_value is the actual minimum value for a column
-    */
-   bool is_min_value_exact;
-
-   _Statistics__isset __isset;
-
-   void __set_max(const std::string& val);
-
-   void __set_min(const std::string& val);
-
-   void __set_null_count(const int64_t val);
-
-   void __set_distinct_count(const int64_t val);
-
-   void __set_max_value(const std::string& val);
-
-   void __set_min_value(const std::string& val);
-
-   void __set_is_max_value_exact(const bool val);
-
-   void __set_is_min_value_exact(const bool val);
-
-   bool operator == (const Statistics & rhs) const;
-   bool operator != (const Statistics &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const Statistics & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(Statistics &a, Statistics &b);
-
- std::ostream& operator<<(std::ostream& out, const Statistics& obj);
-
-
- /**
-  * Empty structs to use as logical type annotations
-  */
- class StringType {
-  public:
-
-   StringType(const StringType&) noexcept;
-   StringType(StringType&&) noexcept;
-   StringType& operator=(const StringType&) noexcept;
-   StringType& operator=(StringType&&) noexcept;
-   StringType() noexcept;
-
-   virtual ~StringType() noexcept;
-
-   bool operator == (const StringType & /* rhs */) const;
-   bool operator != (const StringType &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const StringType & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(StringType &a, StringType &b);
-
- std::ostream& operator<<(std::ostream& out, const StringType& obj);
-
-
- class UUIDType {
-  public:
-
-   UUIDType(const UUIDType&) noexcept;
-   UUIDType(UUIDType&&) noexcept;
-   UUIDType& operator=(const UUIDType&) noexcept;
-   UUIDType& operator=(UUIDType&&) noexcept;
-   UUIDType() noexcept;
-
-   virtual ~UUIDType() noexcept;
-
-   bool operator == (const UUIDType & /* rhs */) const;
-   bool operator != (const UUIDType &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const UUIDType & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(UUIDType &a, UUIDType &b);
-
- std::ostream& operator<<(std::ostream& out, const UUIDType& obj);
-
-
- class MapType {
-  public:
-
-   MapType(const MapType&) noexcept;
-   MapType(MapType&&) noexcept;
-   MapType& operator=(const MapType&) noexcept;
-   MapType& operator=(MapType&&) noexcept;
-   MapType() noexcept;
-
-   virtual ~MapType() noexcept;
-
-   bool operator == (const MapType & /* rhs */) const;
-   bool operator != (const MapType &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const MapType & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(MapType &a, MapType &b);
-
- std::ostream& operator<<(std::ostream& out, const MapType& obj);
-
-
- class ListType {
-  public:
-
-   ListType(const ListType&) noexcept;
-   ListType(ListType&&) noexcept;
-   ListType& operator=(const ListType&) noexcept;
-   ListType& operator=(ListType&&) noexcept;
-   ListType() noexcept;
-
-   virtual ~ListType() noexcept;
-
-   bool operator == (const ListType & /* rhs */) const;
-   bool operator != (const ListType &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const ListType & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(ListType &a, ListType &b);
-
- std::ostream& operator<<(std::ostream& out, const ListType& obj);
-
-
- class EnumType {
-  public:
-
-   EnumType(const EnumType&) noexcept;
-   EnumType(EnumType&&) noexcept;
-   EnumType& operator=(const EnumType&) noexcept;
-   EnumType& operator=(EnumType&&) noexcept;
-   EnumType() noexcept;
-
-   virtual ~EnumType() noexcept;
-
-   bool operator == (const EnumType & /* rhs */) const;
-   bool operator != (const EnumType &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const EnumType & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(EnumType &a, EnumType &b);
-
- std::ostream& operator<<(std::ostream& out, const EnumType& obj);
-
-
- class DateType {
-  public:
-
-   DateType(const DateType&) noexcept;
-   DateType(DateType&&) noexcept;
-   DateType& operator=(const DateType&) noexcept;
-   DateType& operator=(DateType&&) noexcept;
-   DateType() noexcept;
-
-   virtual ~DateType() noexcept;
-
-   bool operator == (const DateType & /* rhs */) const;
-   bool operator != (const DateType &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const DateType & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(DateType &a, DateType &b);
-
- std::ostream& operator<<(std::ostream& out, const DateType& obj);
-
-
- class Float16Type {
-  public:
-
-   Float16Type(const Float16Type&) noexcept;
-   Float16Type(Float16Type&&) noexcept;
-   Float16Type& operator=(const Float16Type&) noexcept;
-   Float16Type& operator=(Float16Type&&) noexcept;
-   Float16Type() noexcept;
-
-   virtual ~Float16Type() noexcept;
-
-   bool operator == (const Float16Type & /* rhs */) const;
-   bool operator != (const Float16Type &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const Float16Type & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(Float16Type &a, Float16Type &b);
-
- std::ostream& operator<<(std::ostream& out, const Float16Type& obj);
-
-
- /**
-  * Logical type to annotate a column that is always null.
-  *
-  * Sometimes when discovering the schema of existing data, values are always
-  * null and the physical type can't be determined. This annotation signals
-  * the case where the physical type was guessed from all null values.
-  */
- class NullType {
-  public:
-
-   NullType(const NullType&) noexcept;
-   NullType(NullType&&) noexcept;
-   NullType& operator=(const NullType&) noexcept;
-   NullType& operator=(NullType&&) noexcept;
-   NullType() noexcept;
-
-   virtual ~NullType() noexcept;
-
-   bool operator == (const NullType & /* rhs */) const;
-   bool operator != (const NullType &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const NullType & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(NullType &a, NullType &b);
-
- std::ostream& operator<<(std::ostream& out, const NullType& obj);
-
-
- /**
-  * Decimal logical type annotation
-  *
-  * Scale must be zero or a positive integer less than or equal to the precision.
-  * Precision must be a non-zero positive integer.
-  *
-  * To maintain forward-compatibility in v1, implementations using this logical
-  * type must also set scale and precision on the annotated SchemaElement.
-  *
-  * Allowed for physical types: INT32, INT64, FIXED_LEN_BYTE_ARRAY, and BYTE_ARRAY.
-  */
- class DecimalType {
-  public:
-
-   DecimalType(const DecimalType&) noexcept;
-   DecimalType(DecimalType&&) noexcept;
-   DecimalType& operator=(const DecimalType&) noexcept;
-   DecimalType& operator=(DecimalType&&) noexcept;
-   DecimalType() noexcept;
-
-   virtual ~DecimalType() noexcept;
-   int32_t scale;
-   int32_t precision;
-
-   void __set_scale(const int32_t val);
-
-   void __set_precision(const int32_t val);
-
-   bool operator == (const DecimalType & rhs) const;
-   bool operator != (const DecimalType &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const DecimalType & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(DecimalType &a, DecimalType &b);
-
- std::ostream& operator<<(std::ostream& out, const DecimalType& obj);
-
-
- /**
-  * Time units for logical types
-  */
- class MilliSeconds {
-  public:
-
-   MilliSeconds(const MilliSeconds&) noexcept;
-   MilliSeconds(MilliSeconds&&) noexcept;
-   MilliSeconds& operator=(const MilliSeconds&) noexcept;
-   MilliSeconds& operator=(MilliSeconds&&) noexcept;
-   MilliSeconds() noexcept;
-
-   virtual ~MilliSeconds() noexcept;
-
-   bool operator == (const MilliSeconds & /* rhs */) const;
-   bool operator != (const MilliSeconds &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const MilliSeconds & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(MilliSeconds &a, MilliSeconds &b);
-
- std::ostream& operator<<(std::ostream& out, const MilliSeconds& obj);
-
-
- class MicroSeconds {
-  public:
-
-   MicroSeconds(const MicroSeconds&) noexcept;
-   MicroSeconds(MicroSeconds&&) noexcept;
-   MicroSeconds& operator=(const MicroSeconds&) noexcept;
-   MicroSeconds& operator=(MicroSeconds&&) noexcept;
-   MicroSeconds() noexcept;
-
-   virtual ~MicroSeconds() noexcept;
-
-   bool operator == (const MicroSeconds & /* rhs */) const;
-   bool operator != (const MicroSeconds &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const MicroSeconds & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(MicroSeconds &a, MicroSeconds &b);
-
- std::ostream& operator<<(std::ostream& out, const MicroSeconds& obj);
-
-
- class NanoSeconds {
-  public:
-
-   NanoSeconds(const NanoSeconds&) noexcept;
-   NanoSeconds(NanoSeconds&&) noexcept;
-   NanoSeconds& operator=(const NanoSeconds&) noexcept;
-   NanoSeconds& operator=(NanoSeconds&&) noexcept;
-   NanoSeconds() noexcept;
-
-   virtual ~NanoSeconds() noexcept;
-
-   bool operator == (const NanoSeconds & /* rhs */) const;
-   bool operator != (const NanoSeconds &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const NanoSeconds & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
+#ifndef parquet_TYPES_H
+#define parquet_TYPES_H
+
+#include <iosfwd>
+
+#include <thrift/Thrift.h>
+#include <thrift/TApplicationException.h>
+#include <thrift/TBase.h>
+#include <thrift/protocol/TProtocol.h>
+#include <thrift/transport/TTransport.h>
+
+#include <functional>
+#include <memory>
+
+#include "parquet/windows_compatibility.h"
+
+namespace parquet { namespace format {
+
+/**
+ * Types supported by Parquet.  These types are intended to be used in combination
+ * with the encodings to control the on disk storage format.
+ * For example INT16 is not included as a type since a good encoding of INT32
+ * would handle this.
+ */
+struct Type {
+  enum type {
+    BOOLEAN = 0,
+    INT32 = 1,
+    INT64 = 2,
+    INT96 = 3,
+    FLOAT = 4,
+    DOUBLE = 5,
+    BYTE_ARRAY = 6,
+    FIXED_LEN_BYTE_ARRAY = 7
+  };
+};
+
+extern const std::map<int, const char*> _Type_VALUES_TO_NAMES;
+
+std::ostream& operator<<(std::ostream& out, const Type::type& val);
+
+std::string to_string(const Type::type& val);
+
+/**
+ * DEPRECATED: Common types used by frameworks(e.g. hive, pig) using parquet.
+ * ConvertedType is superseded by LogicalType.  This enum should not be extended.
+ * 
+ * See LogicalTypes.md for conversion between ConvertedType and LogicalType.
+ */
+struct ConvertedType {
+  enum type {
+    /**
+     * a BYTE_ARRAY actually contains UTF8 encoded chars
+     */
+    UTF8 = 0,
+    /**
+     * a map is converted as an optional field containing a repeated key/value pair
+     */
+    MAP = 1,
+    /**
+     * a key/value pair is converted into a group of two fields
+     */
+    MAP_KEY_VALUE = 2,
+    /**
+     * a list is converted into an optional field containing a repeated field for its
+     * values
+     */
+    LIST = 3,
+    /**
+     * an enum is converted into a BYTE_ARRAY field
+     */
+    ENUM = 4,
+    /**
+     * A decimal value.
+     * 
+     * This may be used to annotate BYTE_ARRAY or FIXED_LEN_BYTE_ARRAY primitive
+     * types. The underlying byte array stores the unscaled value encoded as two's
+     * complement using big-endian byte order (the most significant byte is the
+     * zeroth element). The value of the decimal is the value * 10^{-scale}.
+     * 
+     * This must be accompanied by a (maximum) precision and a scale in the
+     * SchemaElement. The precision specifies the number of digits in the decimal
+     * and the scale stores the location of the decimal point. For example 1.23
+     * would have precision 3 (3 total digits) and scale 2 (the decimal point is
+     * 2 digits over).
+     */
+    DECIMAL = 5,
+    /**
+     * A Date
+     * 
+     * Stored as days since Unix epoch, encoded as the INT32 physical type.
+     * 
+     */
+    DATE = 6,
+    /**
+     * A time
+     * 
+     * The total number of milliseconds since midnight.  The value is stored
+     * as an INT32 physical type.
+     */
+    TIME_MILLIS = 7,
+    /**
+     * A time.
+     * 
+     * The total number of microseconds since midnight.  The value is stored as
+     * an INT64 physical type.
+     */
+    TIME_MICROS = 8,
+    /**
+     * A date/time combination
+     * 
+     * Date and time recorded as milliseconds since the Unix epoch.  Recorded as
+     * a physical type of INT64.
+     */
+    TIMESTAMP_MILLIS = 9,
+    /**
+     * A date/time combination
+     * 
+     * Date and time recorded as microseconds since the Unix epoch.  The value is
+     * stored as an INT64 physical type.
+     */
+    TIMESTAMP_MICROS = 10,
+    /**
+     * An unsigned integer value.
+     * 
+     * The number describes the maximum number of meaningful data bits in
+     * the stored value. 8, 16 and 32 bit values are stored using the
+     * INT32 physical type.  64 bit values are stored using the INT64
+     * physical type.
+     * 
+     */
+    UINT_8 = 11,
+    UINT_16 = 12,
+    UINT_32 = 13,
+    UINT_64 = 14,
+    /**
+     * A signed integer value.
+     * 
+     * The number describes the maximum number of meaningful data bits in
+     * the stored value. 8, 16 and 32 bit values are stored using the
+     * INT32 physical type.  64 bit values are stored using the INT64
+     * physical type.
+     * 
+     */
+    INT_8 = 15,
+    INT_16 = 16,
+    INT_32 = 17,
+    INT_64 = 18,
+    /**
+     * An embedded JSON document
+     * 
+     * A JSON document embedded within a single UTF8 column.
+     */
+    JSON = 19,
+    /**
+     * An embedded BSON document
+     * 
+     * A BSON document embedded within a single BYTE_ARRAY column.
+     */
+    BSON = 20,
+    /**
+     * An interval of time
+     * 
+     * This type annotates data stored as a FIXED_LEN_BYTE_ARRAY of length 12
+     * This data is composed of three separate little endian unsigned
+     * integers.  Each stores a component of a duration of time.  The first
+     * integer identifies the number of months associated with the duration,
+     * the second identifies the number of days associated with the duration
+     * and the third identifies the number of milliseconds associated with
+     * the provided duration.  This duration of time is independent of any
+     * particular timezone or date.
+     */
+    INTERVAL = 21
+  };
+};
+
+extern const std::map<int, const char*> _ConvertedType_VALUES_TO_NAMES;
+
+std::ostream& operator<<(std::ostream& out, const ConvertedType::type& val);
+
+std::string to_string(const ConvertedType::type& val);
+
+/**
+ * Representation of Schemas
+ */
+struct FieldRepetitionType {
+  enum type {
+    /**
+     * This field is required (can not be null) and each row has exactly 1 value.
+     */
+    REQUIRED = 0,
+    /**
+     * The field is optional (can be null) and each row has 0 or 1 values.
+     */
+    OPTIONAL = 1,
+    /**
+     * The field is repeated and can contain 0 or more values
+     */
+    REPEATED = 2
+  };
+};
+
+extern const std::map<int, const char*> _FieldRepetitionType_VALUES_TO_NAMES;
+
+std::ostream& operator<<(std::ostream& out, const FieldRepetitionType::type& val);
+
+std::string to_string(const FieldRepetitionType::type& val);
+
+/**
+ * Edge interpolation algorithm for Geography logical type
+ */
+struct EdgeInterpolationAlgorithm {
+  enum type {
+    SPHERICAL = 0,
+    VINCENTY = 1,
+    THOMAS = 2,
+    ANDOYER = 3,
+    KARNEY = 4
+  };
+};
+
+extern const std::map<int, const char*> _EdgeInterpolationAlgorithm_VALUES_TO_NAMES;
+
+std::ostream& operator<<(std::ostream& out, const EdgeInterpolationAlgorithm::type& val);
+
+std::string to_string(const EdgeInterpolationAlgorithm::type& val);
+
+/**
+ * Encodings supported by Parquet.  Not all encodings are valid for all types.  These
+ * enums are also used to specify the encoding of definition and repetition levels.
+ * See the accompanying doc for the details of the more complicated encodings.
+ */
+struct Encoding {
+  enum type {
+    /**
+     * Default encoding.
+     * BOOLEAN - 1 bit per value. 0 is false; 1 is true.
+     * INT32 - 4 bytes per value.  Stored as little-endian.
+     * INT64 - 8 bytes per value.  Stored as little-endian.
+     * FLOAT - 4 bytes per value.  IEEE. Stored as little-endian.
+     * DOUBLE - 8 bytes per value.  IEEE. Stored as little-endian.
+     * BYTE_ARRAY - 4 byte length stored as little endian, followed by bytes.
+     * FIXED_LEN_BYTE_ARRAY - Just the bytes.
+     */
+    PLAIN = 0,
+    /**
+     * Deprecated: Dictionary encoding. The values in the dictionary are encoded in the
+     * plain type.
+     * in a data page use RLE_DICTIONARY instead.
+     * in a Dictionary page use PLAIN instead
+     */
+    PLAIN_DICTIONARY = 2,
+    /**
+     * Group packed run length encoding. Usable for definition/repetition levels
+     * encoding and Booleans (on one bit: 0 is false; 1 is true.)
+     */
+    RLE = 3,
+    /**
+     * Bit packed encoding.  This can only be used if the data has a known max
+     * width.  Usable for definition/repetition levels encoding.
+     */
+    BIT_PACKED = 4,
+    /**
+     * Delta encoding for integers. This can be used for int columns and works best
+     * on sorted data
+     */
+    DELTA_BINARY_PACKED = 5,
+    /**
+     * Encoding for byte arrays to separate the length values and the data. The lengths
+     * are encoded using DELTA_BINARY_PACKED
+     */
+    DELTA_LENGTH_BYTE_ARRAY = 6,
+    /**
+     * Incremental-encoded byte array. Prefix lengths are encoded using DELTA_BINARY_PACKED.
+     * Suffixes are stored as delta length byte arrays.
+     */
+    DELTA_BYTE_ARRAY = 7,
+    /**
+     * Dictionary encoding: the ids are encoded using the RLE encoding
+     */
+    RLE_DICTIONARY = 8,
+    /**
+     * Encoding for fixed-width data (FLOAT, DOUBLE, INT32, INT64, FIXED_LEN_BYTE_ARRAY).
+     * K byte-streams are created where K is the size in bytes of the data type.
+     * The individual bytes of a value are scattered to the corresponding stream and
+     * the streams are concatenated.
+     * This itself does not reduce the size of the data but can lead to better compression
+     * afterwards.
+     * 
+     * Added in 2.8 for FLOAT and DOUBLE.
+     * Support for INT32, INT64 and FIXED_LEN_BYTE_ARRAY added in 2.11.
+     */
+    BYTE_STREAM_SPLIT = 9
+  };
+};
+
+extern const std::map<int, const char*> _Encoding_VALUES_TO_NAMES;
+
+std::ostream& operator<<(std::ostream& out, const Encoding::type& val);
+
+std::string to_string(const Encoding::type& val);
+
+/**
+ * Supported compression algorithms.
+ * 
+ * Codecs added in format version X.Y can be read by readers based on X.Y and later.
+ * Codec support may vary between readers based on the format version and
+ * libraries available at runtime.
+ * 
+ * See Compression.md for a detailed specification of these algorithms.
+ */
+struct CompressionCodec {
+  enum type {
+    UNCOMPRESSED = 0,
+    SNAPPY = 1,
+    GZIP = 2,
+    LZO = 3,
+    BROTLI = 4,
+    LZ4 = 5,
+    ZSTD = 6,
+    LZ4_RAW = 7
+  };
+};
+
+extern const std::map<int, const char*> _CompressionCodec_VALUES_TO_NAMES;
+
+std::ostream& operator<<(std::ostream& out, const CompressionCodec::type& val);
+
+std::string to_string(const CompressionCodec::type& val);
+
+struct PageType {
+  enum type {
+    DATA_PAGE = 0,
+    INDEX_PAGE = 1,
+    DICTIONARY_PAGE = 2,
+    DATA_PAGE_V2 = 3
+  };
+};
+
+extern const std::map<int, const char*> _PageType_VALUES_TO_NAMES;
+
+std::ostream& operator<<(std::ostream& out, const PageType::type& val);
+
+std::string to_string(const PageType::type& val);
+
+/**
+ * Enum to annotate whether lists of min/max elements inside ColumnIndex
+ * are ordered and if so, in which direction.
+ */
+struct BoundaryOrder {
+  enum type {
+    UNORDERED = 0,
+    ASCENDING = 1,
+    DESCENDING = 2
+  };
+};
+
+extern const std::map<int, const char*> _BoundaryOrder_VALUES_TO_NAMES;
+
+std::ostream& operator<<(std::ostream& out, const BoundaryOrder::type& val);
+
+std::string to_string(const BoundaryOrder::type& val);
+
+class SizeStatistics;
+
+class BoundingBox;
+
+class GeospatialStatistics;
+
+class Statistics;
+
+class StringType;
+
+class UUIDType;
+
+class MapType;
+
+class ListType;
+
+class EnumType;
+
+class DateType;
+
+class Float16Type;
+
+class NullType;
+
+class DecimalType;
+
+class MilliSeconds;
+
+class MicroSeconds;
+
+class NanoSeconds;
+
+class TimeUnit;
+
+class TimestampType;
+
+class TimeType;
+
+class IntType;
+
+class JsonType;
+
+class BsonType;
+
+class VariantType;
+
+class GeometryType;
+
+class GeographyType;
+
+class LogicalType;
+
+class SchemaElement;
+
+class DataPageHeader;
+
+class IndexPageHeader;
+
+class DictionaryPageHeader;
+
+class DataPageHeaderV2;
+
+class SplitBlockAlgorithm;
+
+class BloomFilterAlgorithm;
+
+class XxHash;
+
+class BloomFilterHash;
+
+class Uncompressed;
+
+class BloomFilterCompression;
+
+class BloomFilterHeader;
+
+class PageHeader;
+
+class KeyValue;
+
+class SortingColumn;
+
+class PageEncodingStats;
+
+class ColumnMetaData;
+
+class EncryptionWithFooterKey;
+
+class EncryptionWithColumnKey;
+
+class ColumnCryptoMetaData;
+
+class ColumnChunk;
+
+class RowGroup;
+
+class TypeDefinedOrder;
+
+class ColumnOrder;
+
+class PageLocation;
+
+class OffsetIndex;
+
+class ColumnIndex;
+
+class AesGcmV1;
+
+class AesGcmCtrV1;
+
+class EncryptionAlgorithm;
+
+class FileMetaData;
+
+class FileCryptoMetaData;
+
+typedef struct _SizeStatistics__isset {
+  _SizeStatistics__isset() : unencoded_byte_array_data_bytes(false), repetition_level_histogram(false), definition_level_histogram(false) {}
+  bool unencoded_byte_array_data_bytes :1;
+  bool repetition_level_histogram :1;
+  bool definition_level_histogram :1;
+} _SizeStatistics__isset;
+
+/**
+ * A structure for capturing metadata for estimating the unencoded,
+ * uncompressed size of data written. This is useful for readers to estimate
+ * how much memory is needed to reconstruct data in their memory model and for
+ * fine grained filter pushdown on nested structures (the histograms contained
+ * in this structure can help determine the number of nulls at a particular
+ * nesting level and maximum length of lists).
+ */
+class SizeStatistics {
+ public:
+
+  SizeStatistics(const SizeStatistics&);
+  SizeStatistics(SizeStatistics&&) noexcept;
+  SizeStatistics& operator=(const SizeStatistics&);
+  SizeStatistics& operator=(SizeStatistics&&) noexcept;
+  SizeStatistics() noexcept;
+
+  virtual ~SizeStatistics() noexcept;
+  /**
+   * The number of physical bytes stored for BYTE_ARRAY data values assuming
+   * no encoding. This is exclusive of the bytes needed to store the length of
+   * each byte array. In other words, this field is equivalent to the `(size
+   * of PLAIN-ENCODING the byte array values) - (4 bytes * number of values
+   * written)`. To determine unencoded sizes of other types readers can use
+   * schema information multiplied by the number of non-null and null values.
+   * The number of null/non-null values can be inferred from the histograms
+   * below.
+   * 
+   * For example, if a column chunk is dictionary-encoded with dictionary
+   * ["a", "bc", "cde"], and a data page contains the indices [0, 0, 1, 2],
+   * then this value for that data page should be 7 (1 + 1 + 2 + 3).
+   * 
+   * This field should only be set for types that use BYTE_ARRAY as their
+   * physical type.
+   */
+  int64_t unencoded_byte_array_data_bytes;
+  /**
+   * When present, there is expected to be one element corresponding to each
+   * repetition (i.e. size=max repetition_level+1) where each element
+   * represents the number of times the repetition level was observed in the
+   * data.
+   * 
+   * This field may be omitted if max_repetition_level is 0 without loss
+   * of information.
+   * 
+   */
+  std::vector<int64_t>  repetition_level_histogram;
+  /**
+   * Same as repetition_level_histogram except for definition levels.
+   * 
+   * This field may be omitted if max_definition_level is 0 or 1 without
+   * loss of information.
+   * 
+   */
+  std::vector<int64_t>  definition_level_histogram;
+
+  _SizeStatistics__isset __isset;
+
+  void __set_unencoded_byte_array_data_bytes(const int64_t val);
+
+  void __set_repetition_level_histogram(const std::vector<int64_t> & val);
+
+  void __set_definition_level_histogram(const std::vector<int64_t> & val);
+
+  bool operator == (const SizeStatistics & rhs) const;
+  bool operator != (const SizeStatistics &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const SizeStatistics & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(SizeStatistics &a, SizeStatistics &b);
+
+std::ostream& operator<<(std::ostream& out, const SizeStatistics& obj);
+
+typedef struct _BoundingBox__isset {
+  _BoundingBox__isset() : zmin(false), zmax(false), mmin(false), mmax(false) {}
+  bool zmin :1;
+  bool zmax :1;
+  bool mmin :1;
+  bool mmax :1;
+} _BoundingBox__isset;
+
+/**
+ * Bounding box for GEOMETRY or GEOGRAPHY type in the representation of min/max
+ * value pair of coordinates from each axis.
+ */
+class BoundingBox {
+ public:
+
+  BoundingBox(const BoundingBox&) noexcept;
+  BoundingBox(BoundingBox&&) noexcept;
+  BoundingBox& operator=(const BoundingBox&) noexcept;
+  BoundingBox& operator=(BoundingBox&&) noexcept;
+  BoundingBox() noexcept;
+
+  virtual ~BoundingBox() noexcept;
+  double xmin;
+  double xmax;
+  double ymin;
+  double ymax;
+  double zmin;
+  double zmax;
+  double mmin;
+  double mmax;
+
+  _BoundingBox__isset __isset;
+
+  void __set_xmin(const double val);
+
+  void __set_xmax(const double val);
+
+  void __set_ymin(const double val);
+
+  void __set_ymax(const double val);
+
+  void __set_zmin(const double val);
+
+  void __set_zmax(const double val);
+
+  void __set_mmin(const double val);
+
+  void __set_mmax(const double val);
+
+  bool operator == (const BoundingBox & rhs) const;
+  bool operator != (const BoundingBox &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const BoundingBox & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(BoundingBox &a, BoundingBox &b);
+
+std::ostream& operator<<(std::ostream& out, const BoundingBox& obj);
+
+typedef struct _GeospatialStatistics__isset {
+  _GeospatialStatistics__isset() : bbox(false), geospatial_types(false) {}
+  bool bbox :1;
+  bool geospatial_types :1;
+} _GeospatialStatistics__isset;
+
+/**
+ * Statistics specific to Geometry and Geography logical types
+ */
+class GeospatialStatistics {
+ public:
+
+  GeospatialStatistics(const GeospatialStatistics&);
+  GeospatialStatistics(GeospatialStatistics&&) noexcept;
+  GeospatialStatistics& operator=(const GeospatialStatistics&);
+  GeospatialStatistics& operator=(GeospatialStatistics&&) noexcept;
+  GeospatialStatistics() noexcept;
+
+  virtual ~GeospatialStatistics() noexcept;
+  /**
+   * A bounding box of geospatial instances
+   */
+  BoundingBox bbox;
+  /**
+   * Geospatial type codes of all instances, or an empty list if not known
+   */
+  std::vector<int32_t>  geospatial_types;
+
+  _GeospatialStatistics__isset __isset;
+
+  void __set_bbox(const BoundingBox& val);
+
+  void __set_geospatial_types(const std::vector<int32_t> & val);
+
+  bool operator == (const GeospatialStatistics & rhs) const;
+  bool operator != (const GeospatialStatistics &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const GeospatialStatistics & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(GeospatialStatistics &a, GeospatialStatistics &b);
+
+std::ostream& operator<<(std::ostream& out, const GeospatialStatistics& obj);
+
+typedef struct _Statistics__isset {
+  _Statistics__isset() : max(false), min(false), null_count(false), distinct_count(false), max_value(false), min_value(false), is_max_value_exact(false), is_min_value_exact(false) {}
+  bool max :1;
+  bool min :1;
+  bool null_count :1;
+  bool distinct_count :1;
+  bool max_value :1;
+  bool min_value :1;
+  bool is_max_value_exact :1;
+  bool is_min_value_exact :1;
+} _Statistics__isset;
+
+/**
+ * Statistics per row group and per page
+ * All fields are optional.
+ */
+class Statistics {
+ public:
+
+  Statistics(const Statistics&);
+  Statistics(Statistics&&) noexcept;
+  Statistics& operator=(const Statistics&);
+  Statistics& operator=(Statistics&&) noexcept;
+  Statistics() noexcept;
+
+  virtual ~Statistics() noexcept;
+  /**
+   * DEPRECATED: min and max value of the column. Use min_value and max_value.
+   * 
+   * Values are encoded using PLAIN encoding, except that variable-length byte
+   * arrays do not include a length prefix.
+   * 
+   * These fields encode min and max values determined by signed comparison
+   * only. New files should use the correct order for a column's logical type
+   * and store the values in the min_value and max_value fields.
+   * 
+   * To support older readers, these may be set when the column order is
+   * signed.
+   */
+  std::string max;
+  std::string min;
+  /**
+   * Count of null values in the column.
+   * 
+   * Writers SHOULD always write this field even if it is zero (i.e. no null value)
+   * or the column is not nullable.
+   * Readers MUST distinguish between null_count not being present and null_count == 0.
+   * If null_count is not present, readers MUST NOT assume null_count == 0.
+   */
+  int64_t null_count;
+  /**
+   * count of distinct values occurring
+   */
+  int64_t distinct_count;
+  /**
+   * Lower and upper bound values for the column, determined by its ColumnOrder.
+   * 
+   * These may be the actual minimum and maximum values found on a page or column
+   * chunk, but can also be (more compact) values that do not exist on a page or
+   * column chunk. For example, instead of storing "Blart Versenwald III", a writer
+   * may set min_value="B", max_value="C". Such more compact values must still be
+   * valid values within the column's logical type.
+   * 
+   * Values are encoded using PLAIN encoding, except that variable-length byte
+   * arrays do not include a length prefix.
+   */
+  std::string max_value;
+  std::string min_value;
+  /**
+   * If true, max_value is the actual maximum value for a column
+   */
+  bool is_max_value_exact;
+  /**
+   * If true, min_value is the actual minimum value for a column
+   */
+  bool is_min_value_exact;
+
+  _Statistics__isset __isset;
+
+  void __set_max(const std::string& val);
+
+  void __set_min(const std::string& val);
+
+  void __set_null_count(const int64_t val);
+
+  void __set_distinct_count(const int64_t val);
+
+  void __set_max_value(const std::string& val);
+
+  void __set_min_value(const std::string& val);
+
+  void __set_is_max_value_exact(const bool val);
+
+  void __set_is_min_value_exact(const bool val);
+
+  bool operator == (const Statistics & rhs) const;
+  bool operator != (const Statistics &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const Statistics & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(Statistics &a, Statistics &b);
+
+std::ostream& operator<<(std::ostream& out, const Statistics& obj);
+
+
+/**
+ * Empty structs to use as logical type annotations
+ */
+class StringType {
+ public:
+
+  StringType(const StringType&) noexcept;
+  StringType(StringType&&) noexcept;
+  StringType& operator=(const StringType&) noexcept;
+  StringType& operator=(StringType&&) noexcept;
+  StringType() noexcept;
+
+  virtual ~StringType() noexcept;
+
+  bool operator == (const StringType & /* rhs */) const;
+  bool operator != (const StringType &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const StringType & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(StringType &a, StringType &b);
+
+std::ostream& operator<<(std::ostream& out, const StringType& obj);
+
+
+class UUIDType {
+ public:
+
+  UUIDType(const UUIDType&) noexcept;
+  UUIDType(UUIDType&&) noexcept;
+  UUIDType& operator=(const UUIDType&) noexcept;
+  UUIDType& operator=(UUIDType&&) noexcept;
+  UUIDType() noexcept;
+
+  virtual ~UUIDType() noexcept;
+
+  bool operator == (const UUIDType & /* rhs */) const;
+  bool operator != (const UUIDType &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const UUIDType & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(UUIDType &a, UUIDType &b);
+
+std::ostream& operator<<(std::ostream& out, const UUIDType& obj);
+
+
+class MapType {
+ public:
+
+  MapType(const MapType&) noexcept;
+  MapType(MapType&&) noexcept;
+  MapType& operator=(const MapType&) noexcept;
+  MapType& operator=(MapType&&) noexcept;
+  MapType() noexcept;
+
+  virtual ~MapType() noexcept;
+
+  bool operator == (const MapType & /* rhs */) const;
+  bool operator != (const MapType &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const MapType & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(MapType &a, MapType &b);
+
+std::ostream& operator<<(std::ostream& out, const MapType& obj);
+
+
+class ListType {
+ public:
+
+  ListType(const ListType&) noexcept;
+  ListType(ListType&&) noexcept;
+  ListType& operator=(const ListType&) noexcept;
+  ListType& operator=(ListType&&) noexcept;
+  ListType() noexcept;
+
+  virtual ~ListType() noexcept;
+
+  bool operator == (const ListType & /* rhs */) const;
+  bool operator != (const ListType &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const ListType & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(ListType &a, ListType &b);
+
+std::ostream& operator<<(std::ostream& out, const ListType& obj);
+
+
+class EnumType {
+ public:
+
+  EnumType(const EnumType&) noexcept;
+  EnumType(EnumType&&) noexcept;
+  EnumType& operator=(const EnumType&) noexcept;
+  EnumType& operator=(EnumType&&) noexcept;
+  EnumType() noexcept;
+
+  virtual ~EnumType() noexcept;
+
+  bool operator == (const EnumType & /* rhs */) const;
+  bool operator != (const EnumType &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const EnumType & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(EnumType &a, EnumType &b);
+
+std::ostream& operator<<(std::ostream& out, const EnumType& obj);
+
+
+class DateType {
+ public:
+
+  DateType(const DateType&) noexcept;
+  DateType(DateType&&) noexcept;
+  DateType& operator=(const DateType&) noexcept;
+  DateType& operator=(DateType&&) noexcept;
+  DateType() noexcept;
+
+  virtual ~DateType() noexcept;
+
+  bool operator == (const DateType & /* rhs */) const;
+  bool operator != (const DateType &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const DateType & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(DateType &a, DateType &b);
+
+std::ostream& operator<<(std::ostream& out, const DateType& obj);
+
+
+class Float16Type {
+ public:
+
+  Float16Type(const Float16Type&) noexcept;
+  Float16Type(Float16Type&&) noexcept;
+  Float16Type& operator=(const Float16Type&) noexcept;
+  Float16Type& operator=(Float16Type&&) noexcept;
+  Float16Type() noexcept;
+
+  virtual ~Float16Type() noexcept;
+
+  bool operator == (const Float16Type & /* rhs */) const;
+  bool operator != (const Float16Type &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const Float16Type & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(Float16Type &a, Float16Type &b);
+
+std::ostream& operator<<(std::ostream& out, const Float16Type& obj);
+
+
+/**
+ * Logical type to annotate a column that is always null.
+ * 
+ * Sometimes when discovering the schema of existing data, values are always
+ * null and the physical type can't be determined. This annotation signals
+ * the case where the physical type was guessed from all null values.
+ */
+class NullType {
+ public:
+
+  NullType(const NullType&) noexcept;
+  NullType(NullType&&) noexcept;
+  NullType& operator=(const NullType&) noexcept;
+  NullType& operator=(NullType&&) noexcept;
+  NullType() noexcept;
+
+  virtual ~NullType() noexcept;
+
+  bool operator == (const NullType & /* rhs */) const;
+  bool operator != (const NullType &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const NullType & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(NullType &a, NullType &b);
+
+std::ostream& operator<<(std::ostream& out, const NullType& obj);
+
+
+/**
+ * Decimal logical type annotation
+ * 
+ * Scale must be zero or a positive integer less than or equal to the precision.
+ * Precision must be a non-zero positive integer.
+ * 
+ * To maintain forward-compatibility in v1, implementations using this logical
+ * type must also set scale and precision on the annotated SchemaElement.
+ * 
+ * Allowed for physical types: INT32, INT64, FIXED_LEN_BYTE_ARRAY, and BYTE_ARRAY.
+ */
+class DecimalType {
+ public:
+
+  DecimalType(const DecimalType&) noexcept;
+  DecimalType(DecimalType&&) noexcept;
+  DecimalType& operator=(const DecimalType&) noexcept;
+  DecimalType& operator=(DecimalType&&) noexcept;
+  DecimalType() noexcept;
+
+  virtual ~DecimalType() noexcept;
+  int32_t scale;
+  int32_t precision;
+
+  void __set_scale(const int32_t val);
+
+  void __set_precision(const int32_t val);
+
+  bool operator == (const DecimalType & rhs) const;
+  bool operator != (const DecimalType &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const DecimalType & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(DecimalType &a, DecimalType &b);
+
+std::ostream& operator<<(std::ostream& out, const DecimalType& obj);
+
+
+/**
+ * Time units for logical types
+ */
+class MilliSeconds {
+ public:
+
+  MilliSeconds(const MilliSeconds&) noexcept;
+  MilliSeconds(MilliSeconds&&) noexcept;
+  MilliSeconds& operator=(const MilliSeconds&) noexcept;
+  MilliSeconds& operator=(MilliSeconds&&) noexcept;
+  MilliSeconds() noexcept;
+
+  virtual ~MilliSeconds() noexcept;
+
+  bool operator == (const MilliSeconds & /* rhs */) const;
+  bool operator != (const MilliSeconds &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const MilliSeconds & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(MilliSeconds &a, MilliSeconds &b);
+
+std::ostream& operator<<(std::ostream& out, const MilliSeconds& obj);
+
+
+class MicroSeconds {
+ public:
+
+  MicroSeconds(const MicroSeconds&) noexcept;
+  MicroSeconds(MicroSeconds&&) noexcept;
+  MicroSeconds& operator=(const MicroSeconds&) noexcept;
+  MicroSeconds& operator=(MicroSeconds&&) noexcept;
+  MicroSeconds() noexcept;
+
+  virtual ~MicroSeconds() noexcept;
+
+  bool operator == (const MicroSeconds & /* rhs */) const;
+  bool operator != (const MicroSeconds &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const MicroSeconds & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(MicroSeconds &a, MicroSeconds &b);
+
+std::ostream& operator<<(std::ostream& out, const MicroSeconds& obj);
+
+
+class NanoSeconds {
+ public:
+
+  NanoSeconds(const NanoSeconds&) noexcept;
+  NanoSeconds(NanoSeconds&&) noexcept;
+  NanoSeconds& operator=(const NanoSeconds&) noexcept;
+  NanoSeconds& operator=(NanoSeconds&&) noexcept;
+  NanoSeconds() noexcept;
+
+  virtual ~NanoSeconds() noexcept;
+
+  bool operator == (const NanoSeconds & /* rhs */) const;
+  bool operator != (const NanoSeconds &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const NanoSeconds & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
 
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(NanoSeconds &a, NanoSeconds &b);
-
- std::ostream& operator<<(std::ostream& out, const NanoSeconds& obj);
-
- typedef struct _TimeUnit__isset {
-   _TimeUnit__isset() : MILLIS(false), MICROS(false), NANOS(false) {}
-   bool MILLIS :1;
-   bool MICROS :1;
-   bool NANOS :1;
- } _TimeUnit__isset;
-
- class TimeUnit {
-  public:
-
-   TimeUnit(const TimeUnit&) noexcept;
-   TimeUnit(TimeUnit&&) noexcept;
-   TimeUnit& operator=(const TimeUnit&) noexcept;
-   TimeUnit& operator=(TimeUnit&&) noexcept;
-   TimeUnit() noexcept;
-
-   virtual ~TimeUnit() noexcept;
-   MilliSeconds MILLIS;
-   MicroSeconds MICROS;
-   NanoSeconds NANOS;
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(NanoSeconds &a, NanoSeconds &b);
+
+std::ostream& operator<<(std::ostream& out, const NanoSeconds& obj);
+
+typedef struct _TimeUnit__isset {
+  _TimeUnit__isset() : MILLIS(false), MICROS(false), NANOS(false) {}
+  bool MILLIS :1;
+  bool MICROS :1;
+  bool NANOS :1;
+} _TimeUnit__isset;
+
+class TimeUnit {
+ public:
+
+  TimeUnit(const TimeUnit&) noexcept;
+  TimeUnit(TimeUnit&&) noexcept;
+  TimeUnit& operator=(const TimeUnit&) noexcept;
+  TimeUnit& operator=(TimeUnit&&) noexcept;
+  TimeUnit() noexcept;
+
+  virtual ~TimeUnit() noexcept;
+  MilliSeconds MILLIS;
+  MicroSeconds MICROS;
+  NanoSeconds NANOS;
 
-   _TimeUnit__isset __isset;
+  _TimeUnit__isset __isset;
 
-   void __set_MILLIS(const MilliSeconds& val);
-
-   void __set_MICROS(const MicroSeconds& val);
+  void __set_MILLIS(const MilliSeconds& val);
+
+  void __set_MICROS(const MicroSeconds& val);
 
-   void __set_NANOS(const NanoSeconds& val);
+  void __set_NANOS(const NanoSeconds& val);
 
-   bool operator == (const TimeUnit & rhs) const;
-   bool operator != (const TimeUnit &rhs) const {
-     return !(*this == rhs);
-   }
+  bool operator == (const TimeUnit & rhs) const;
+  bool operator != (const TimeUnit &rhs) const {
+    return !(*this == rhs);
+  }
 
-   bool operator < (const TimeUnit & ) const;
+  bool operator < (const TimeUnit & ) const;
 
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
 
-   virtual void printTo(std::ostream& out) const;
- };
+  virtual void printTo(std::ostream& out) const;
+};
 
- void swap(TimeUnit &a, TimeUnit &b);
+void swap(TimeUnit &a, TimeUnit &b);
 
- std::ostream& operator<<(std::ostream& out, const TimeUnit& obj);
-
-
- /**
-  * Timestamp logical type annotation
-  *
-  * Allowed for physical types: INT64
-  */
- class TimestampType {
-  public:
+std::ostream& operator<<(std::ostream& out, const TimeUnit& obj);
+
+
+/**
+ * Timestamp logical type annotation
+ * 
+ * Allowed for physical types: INT64
+ */
+class TimestampType {
+ public:
 
-   TimestampType(const TimestampType&) noexcept;
-   TimestampType(TimestampType&&) noexcept;
-   TimestampType& operator=(const TimestampType&) noexcept;
-   TimestampType& operator=(TimestampType&&) noexcept;
-   TimestampType() noexcept;
+  TimestampType(const TimestampType&) noexcept;
+  TimestampType(TimestampType&&) noexcept;
+  TimestampType& operator=(const TimestampType&) noexcept;
+  TimestampType& operator=(TimestampType&&) noexcept;
+  TimestampType() noexcept;
 
-   virtual ~TimestampType() noexcept;
-   bool isAdjustedToUTC;
-   TimeUnit unit;
+  virtual ~TimestampType() noexcept;
+  bool isAdjustedToUTC;
+  TimeUnit unit;
 
-   void __set_isAdjustedToUTC(const bool val);
+  void __set_isAdjustedToUTC(const bool val);
 
-   void __set_unit(const TimeUnit& val);
+  void __set_unit(const TimeUnit& val);
 
-   bool operator == (const TimestampType & rhs) const;
-   bool operator != (const TimestampType &rhs) const {
-     return !(*this == rhs);
-   }
+  bool operator == (const TimestampType & rhs) const;
+  bool operator != (const TimestampType &rhs) const {
+    return !(*this == rhs);
+  }
 
-   bool operator < (const TimestampType & ) const;
+  bool operator < (const TimestampType & ) const;
 
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
 
-   virtual void printTo(std::ostream& out) const;
- };
+  virtual void printTo(std::ostream& out) const;
+};
 
- void swap(TimestampType &a, TimestampType &b);
+void swap(TimestampType &a, TimestampType &b);
 
- std::ostream& operator<<(std::ostream& out, const TimestampType& obj);
+std::ostream& operator<<(std::ostream& out, const TimestampType& obj);
 
 
- /**
-  * Time logical type annotation
-  *
-  * Allowed for physical types: INT32 (millis), INT64 (micros, nanos)
-  */
- class TimeType {
-  public:
+/**
+ * Time logical type annotation
+ * 
+ * Allowed for physical types: INT32 (millis), INT64 (micros, nanos)
+ */
+class TimeType {
+ public:
 
-   TimeType(const TimeType&) noexcept;
-   TimeType(TimeType&&) noexcept;
-   TimeType& operator=(const TimeType&) noexcept;
-   TimeType& operator=(TimeType&&) noexcept;
-   TimeType() noexcept;
+  TimeType(const TimeType&) noexcept;
+  TimeType(TimeType&&) noexcept;
+  TimeType& operator=(const TimeType&) noexcept;
+  TimeType& operator=(TimeType&&) noexcept;
+  TimeType() noexcept;
 
-   virtual ~TimeType() noexcept;
-   bool isAdjustedToUTC;
-   TimeUnit unit;
+  virtual ~TimeType() noexcept;
+  bool isAdjustedToUTC;
+  TimeUnit unit;
 
-   void __set_isAdjustedToUTC(const bool val);
+  void __set_isAdjustedToUTC(const bool val);
 
-   void __set_unit(const TimeUnit& val);
+  void __set_unit(const TimeUnit& val);
 
-   bool operator == (const TimeType & rhs) const;
-   bool operator != (const TimeType &rhs) const {
-     return !(*this == rhs);
-   }
+  bool operator == (const TimeType & rhs) const;
+  bool operator != (const TimeType &rhs) const {
+    return !(*this == rhs);
+  }
 
-   bool operator < (const TimeType & ) const;
+  bool operator < (const TimeType & ) const;
 
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
 
-   virtual void printTo(std::ostream& out) const;
- };
+  virtual void printTo(std::ostream& out) const;
+};
 
- void swap(TimeType &a, TimeType &b);
+void swap(TimeType &a, TimeType &b);
 
- std::ostream& operator<<(std::ostream& out, const TimeType& obj);
+std::ostream& operator<<(std::ostream& out, const TimeType& obj);
 
 
- /**
-  * Integer logical type annotation
-  *
-  * bitWidth must be 8, 16, 32, or 64.
-  *
-  * Allowed for physical types: INT32, INT64
-  */
- class IntType {
-  public:
+/**
+ * Integer logical type annotation
+ * 
+ * bitWidth must be 8, 16, 32, or 64.
+ * 
+ * Allowed for physical types: INT32, INT64
+ */
+class IntType {
+ public:
 
-   IntType(const IntType&) noexcept;
-   IntType(IntType&&) noexcept;
-   IntType& operator=(const IntType&) noexcept;
-   IntType& operator=(IntType&&) noexcept;
-   IntType() noexcept;
+  IntType(const IntType&) noexcept;
+  IntType(IntType&&) noexcept;
+  IntType& operator=(const IntType&) noexcept;
+  IntType& operator=(IntType&&) noexcept;
+  IntType() noexcept;
 
-   virtual ~IntType() noexcept;
-   int8_t bitWidth;
-   bool isSigned;
+  virtual ~IntType() noexcept;
+  int8_t bitWidth;
+  bool isSigned;
 
-   void __set_bitWidth(const int8_t val);
+  void __set_bitWidth(const int8_t val);
 
-   void __set_isSigned(const bool val);
+  void __set_isSigned(const bool val);
 
-   bool operator == (const IntType & rhs) const;
-   bool operator != (const IntType &rhs) const {
-     return !(*this == rhs);
-   }
+  bool operator == (const IntType & rhs) const;
+  bool operator != (const IntType &rhs) const {
+    return !(*this == rhs);
+  }
 
-   bool operator < (const IntType & ) const;
+  bool operator < (const IntType & ) const;
 
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
 
-   virtual void printTo(std::ostream& out) const;
- };
+  virtual void printTo(std::ostream& out) const;
+};
 
- void swap(IntType &a, IntType &b);
+void swap(IntType &a, IntType &b);
 
- std::ostream& operator<<(std::ostream& out, const IntType& obj);
+std::ostream& operator<<(std::ostream& out, const IntType& obj);
 
 
- /**
-  * Embedded JSON logical type annotation
-  *
-  * Allowed for physical types: BYTE_ARRAY
-  */
- class JsonType {
-  public:
+/**
+ * Embedded JSON logical type annotation
+ * 
+ * Allowed for physical types: BYTE_ARRAY
+ */
+class JsonType {
+ public:
 
-   JsonType(const JsonType&) noexcept;
-   JsonType(JsonType&&) noexcept;
-   JsonType& operator=(const JsonType&) noexcept;
-   JsonType& operator=(JsonType&&) noexcept;
-   JsonType() noexcept;
+  JsonType(const JsonType&) noexcept;
+  JsonType(JsonType&&) noexcept;
+  JsonType& operator=(const JsonType&) noexcept;
+  JsonType& operator=(JsonType&&) noexcept;
+  JsonType() noexcept;
 
-   virtual ~JsonType() noexcept;
+  virtual ~JsonType() noexcept;
 
-   bool operator == (const JsonType & /* rhs */) const;
-   bool operator != (const JsonType &rhs) const {
-     return !(*this == rhs);
-   }
+  bool operator == (const JsonType & /* rhs */) const;
+  bool operator != (const JsonType &rhs) const {
+    return !(*this == rhs);
+  }
 
-   bool operator < (const JsonType & ) const;
+  bool operator < (const JsonType & ) const;
 
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
 
-   virtual void printTo(std::ostream& out) const;
- };
+  virtual void printTo(std::ostream& out) const;
+};
 
- void swap(JsonType &a, JsonType &b);
+void swap(JsonType &a, JsonType &b);
 
- std::ostream& operator<<(std::ostream& out, const JsonType& obj);
+std::ostream& operator<<(std::ostream& out, const JsonType& obj);
 
 
- /**
-  * Embedded BSON logical type annotation
-  *
-  * Allowed for physical types: BYTE_ARRAY
-  */
- class BsonType {
-  public:
+/**
+ * Embedded BSON logical type annotation
+ * 
+ * Allowed for physical types: BYTE_ARRAY
+ */
+class BsonType {
+ public:
 
-   BsonType(const BsonType&) noexcept;
-   BsonType(BsonType&&) noexcept;
-   BsonType& operator=(const BsonType&) noexcept;
-   BsonType& operator=(BsonType&&) noexcept;
-   BsonType() noexcept;
+  BsonType(const BsonType&) noexcept;
+  BsonType(BsonType&&) noexcept;
+  BsonType& operator=(const BsonType&) noexcept;
+  BsonType& operator=(BsonType&&) noexcept;
+  BsonType() noexcept;
 
-   virtual ~BsonType() noexcept;
+  virtual ~BsonType() noexcept;
 
-   bool operator == (const BsonType & /* rhs */) const;
-   bool operator != (const BsonType &rhs) const {
-     return !(*this == rhs);
-   }
+  bool operator == (const BsonType & /* rhs */) const;
+  bool operator != (const BsonType &rhs) const {
+    return !(*this == rhs);
+  }
 
-   bool operator < (const BsonType & ) const;
+  bool operator < (const BsonType & ) const;
 
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
 
-   virtual void printTo(std::ostream& out) const;
- };
+  virtual void printTo(std::ostream& out) const;
+};
 
- void swap(BsonType &a, BsonType &b);
+void swap(BsonType &a, BsonType &b);
 
- std::ostream& operator<<(std::ostream& out, const BsonType& obj);
+std::ostream& operator<<(std::ostream& out, const BsonType& obj);
 
- typedef struct _VariantType__isset {
-   _VariantType__isset() : specification_version(false) {}
-   bool specification_version :1;
- } _VariantType__isset;
+typedef struct _VariantType__isset {
+  _VariantType__isset() : specification_version(false) {}
+  bool specification_version :1;
+} _VariantType__isset;
 
- /**
-  * Embedded Variant logical type annotation
-  */
- class VariantType {
-  public:
+/**
+ * Embedded Variant logical type annotation
+ */
+class VariantType {
+ public:
 
-   VariantType(const VariantType&) noexcept;
-   VariantType(VariantType&&) noexcept;
-   VariantType& operator=(const VariantType&) noexcept;
-   VariantType& operator=(VariantType&&) noexcept;
-   VariantType() noexcept;
+  VariantType(const VariantType&) noexcept;
+  VariantType(VariantType&&) noexcept;
+  VariantType& operator=(const VariantType&) noexcept;
+  VariantType& operator=(VariantType&&) noexcept;
+  VariantType() noexcept;
 
-   virtual ~VariantType() noexcept;
-   int8_t specification_version;
-
-   _VariantType__isset __isset;
-
-   void __set_specification_version(const int8_t val);
-
-   bool operator == (const VariantType & rhs) const;
-   bool operator != (const VariantType &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const VariantType & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(VariantType &a, VariantType &b);
-
- std::ostream& operator<<(std::ostream& out, const VariantType& obj);
-
- typedef struct _GeometryType__isset {
-   _GeometryType__isset() : crs(false) {}
-   bool crs :1;
- } _GeometryType__isset;
-
- /**
-  * Embedded Geometry logical type annotation
-  *
-  * Geospatial features in the Well-Known Binary (WKB) format and edges interpolation
-  * is always linear/planar.
-  *
-  * A custom CRS can be set by the crs field. If unset, it defaults to "OGC:CRS84",
-  * which means that the geometries must be stored in longitude, latitude based on
-  * the WGS84 datum.
-  *
-  * Allowed for physical type: BYTE_ARRAY.
-  *
-  * See Geospatial.md for details.
-  */
- class GeometryType {
-  public:
+  virtual ~VariantType() noexcept;
+  int8_t specification_version;
+
+  _VariantType__isset __isset;
+
+  void __set_specification_version(const int8_t val);
+
+  bool operator == (const VariantType & rhs) const;
+  bool operator != (const VariantType &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const VariantType & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(VariantType &a, VariantType &b);
+
+std::ostream& operator<<(std::ostream& out, const VariantType& obj);
+
+typedef struct _GeometryType__isset {
+  _GeometryType__isset() : crs(false) {}
+  bool crs :1;
+} _GeometryType__isset;
+
+/**
+ * Embedded Geometry logical type annotation
+ * 
+ * Geospatial features in the Well-Known Binary (WKB) format and edges interpolation
+ * is always linear/planar.
+ * 
+ * A custom CRS can be set by the crs field. If unset, it defaults to "OGC:CRS84",
+ * which means that the geometries must be stored in longitude, latitude based on
+ * the WGS84 datum.
+ * 
+ * Allowed for physical type: BYTE_ARRAY.
+ * 
+ * See Geospatial.md for details.
+ */
+class GeometryType {
+ public:
 
-   GeometryType(const GeometryType&);
-   GeometryType(GeometryType&&) noexcept;
-   GeometryType& operator=(const GeometryType&);
-   GeometryType& operator=(GeometryType&&) noexcept;
-   GeometryType() noexcept;
-
-   virtual ~GeometryType() noexcept;
-   std::string crs;
-
-   _GeometryType__isset __isset;
-
-   void __set_crs(const std::string& val);
-
-   bool operator == (const GeometryType & rhs) const;
-   bool operator != (const GeometryType &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const GeometryType & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(GeometryType &a, GeometryType &b);
-
- std::ostream& operator<<(std::ostream& out, const GeometryType& obj);
-
- typedef struct _GeographyType__isset {
-   _GeographyType__isset() : crs(false), algorithm(false) {}
-   bool crs :1;
-   bool algorithm :1;
- } _GeographyType__isset;
-
- /**
-  * Embedded Geography logical type annotation
-  *
-  * Geospatial features in the WKB format with an explicit (non-linear/non-planar)
-  * edges interpolation algorithm.
-  *
-  * A custom geographic CRS can be set by the crs field, where longitudes are
-  * bound by [-180, 180] and latitudes are bound by [-90, 90]. If unset, the CRS
-  * defaults to "OGC:CRS84".
-  *
-  * An optional algorithm can be set to correctly interpret edges interpolation
-  * of the geometries. If unset, the algorithm defaults to SPHERICAL.
-  *
-  * Allowed for physical type: BYTE_ARRAY.
-  *
-  * See Geospatial.md for details.
-  */
- class GeographyType {
-  public:
-
-   GeographyType(const GeographyType&);
-   GeographyType(GeographyType&&) noexcept;
-   GeographyType& operator=(const GeographyType&);
-   GeographyType& operator=(GeographyType&&) noexcept;
-   GeographyType() noexcept;
-
-   virtual ~GeographyType() noexcept;
-   std::string crs;
-   /**
-    *
-    * @see EdgeInterpolationAlgorithm
-    */
-   EdgeInterpolationAlgorithm::type algorithm;
-
-   _GeographyType__isset __isset;
-
-   void __set_crs(const std::string& val);
-
-   void __set_algorithm(const EdgeInterpolationAlgorithm::type val);
-
-   bool operator == (const GeographyType & rhs) const;
-   bool operator != (const GeographyType &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const GeographyType & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
+  GeometryType(const GeometryType&);
+  GeometryType(GeometryType&&) noexcept;
+  GeometryType& operator=(const GeometryType&);
+  GeometryType& operator=(GeometryType&&) noexcept;
+  GeometryType() noexcept;
+
+  virtual ~GeometryType() noexcept;
+  std::string crs;
+
+  _GeometryType__isset __isset;
+
+  void __set_crs(const std::string& val);
+
+  bool operator == (const GeometryType & rhs) const;
+  bool operator != (const GeometryType &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const GeometryType & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(GeometryType &a, GeometryType &b);
+
+std::ostream& operator<<(std::ostream& out, const GeometryType& obj);
+
+typedef struct _GeographyType__isset {
+  _GeographyType__isset() : crs(false), algorithm(false) {}
+  bool crs :1;
+  bool algorithm :1;
+} _GeographyType__isset;
+
+/**
+ * Embedded Geography logical type annotation
+ * 
+ * Geospatial features in the WKB format with an explicit (non-linear/non-planar)
+ * edges interpolation algorithm.
+ * 
+ * A custom geographic CRS can be set by the crs field, where longitudes are
+ * bound by [-180, 180] and latitudes are bound by [-90, 90]. If unset, the CRS
+ * defaults to "OGC:CRS84".
+ * 
+ * An optional algorithm can be set to correctly interpret edges interpolation
+ * of the geometries. If unset, the algorithm defaults to SPHERICAL.
+ * 
+ * Allowed for physical type: BYTE_ARRAY.
+ * 
+ * See Geospatial.md for details.
+ */
+class GeographyType {
+ public:
+
+  GeographyType(const GeographyType&);
+  GeographyType(GeographyType&&) noexcept;
+  GeographyType& operator=(const GeographyType&);
+  GeographyType& operator=(GeographyType&&) noexcept;
+  GeographyType() noexcept;
+
+  virtual ~GeographyType() noexcept;
+  std::string crs;
+  /**
+   * 
+   * @see EdgeInterpolationAlgorithm
+   */
+  EdgeInterpolationAlgorithm::type algorithm;
+
+  _GeographyType__isset __isset;
+
+  void __set_crs(const std::string& val);
+
+  void __set_algorithm(const EdgeInterpolationAlgorithm::type val);
+
+  bool operator == (const GeographyType & rhs) const;
+  bool operator != (const GeographyType &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const GeographyType & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
 
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(GeographyType &a, GeographyType &b);
-
- std::ostream& operator<<(std::ostream& out, const GeographyType& obj);
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(GeographyType &a, GeographyType &b);
+
+std::ostream& operator<<(std::ostream& out, const GeographyType& obj);
 
- typedef struct _LogicalType__isset {
-   _LogicalType__isset() : STRING(false), MAP(false), LIST(false), ENUM(false), DECIMAL(false), DATE(false), TIME(false), TIMESTAMP(false), INTEGER(false), UNKNOWN(false), JSON(false), BSON(false), UUID(false), FLOAT16(false), VARIANT(false), GEOMETRY(false), GEOGRAPHY(false) {}
-   bool STRING :1;
-   bool MAP :1;
-   bool LIST :1;
-   bool ENUM :1;
-   bool DECIMAL :1;
-   bool DATE :1;
-   bool TIME :1;
-   bool TIMESTAMP :1;
-   bool INTEGER :1;
-   bool UNKNOWN :1;
-   bool JSON :1;
-   bool BSON :1;
-   bool UUID :1;
-   bool FLOAT16 :1;
-   bool VARIANT :1;
-   bool GEOMETRY :1;
-   bool GEOGRAPHY :1;
- } _LogicalType__isset;
-
- /**
-  * LogicalType annotations to replace ConvertedType.
-  *
-  * To maintain compatibility, implementations using LogicalType for a
-  * SchemaElement must also set the corresponding ConvertedType (if any)
-  * from the following table.
-  */
- class LogicalType {
-  public:
-
-   LogicalType(const LogicalType&);
-   LogicalType(LogicalType&&) noexcept;
-   LogicalType& operator=(const LogicalType&);
-   LogicalType& operator=(LogicalType&&) noexcept;
-   LogicalType() noexcept;
-
-   virtual ~LogicalType() noexcept;
-   StringType STRING;
-   MapType MAP;
-   ListType LIST;
-   EnumType ENUM;
-   DecimalType DECIMAL;
-   DateType DATE;
-   TimeType TIME;
-   TimestampType TIMESTAMP;
-   IntType INTEGER;
-   NullType UNKNOWN;
-   JsonType JSON;
-   BsonType BSON;
-   UUIDType UUID;
-   Float16Type FLOAT16;
-   VariantType VARIANT;
-   GeometryType GEOMETRY;
-   GeographyType GEOGRAPHY;
-
-   _LogicalType__isset __isset;
-
-   void __set_STRING(const StringType& val);
-
-   void __set_MAP(const MapType& val);
-
-   void __set_LIST(const ListType& val);
-
-   void __set_ENUM(const EnumType& val);
-
-   void __set_DECIMAL(const DecimalType& val);
-
-   void __set_DATE(const DateType& val);
-
-   void __set_TIME(const TimeType& val);
-
-   void __set_TIMESTAMP(const TimestampType& val);
-
-   void __set_INTEGER(const IntType& val);
-
-   void __set_UNKNOWN(const NullType& val);
-
-   void __set_JSON(const JsonType& val);
-
-   void __set_BSON(const BsonType& val);
-
-   void __set_UUID(const UUIDType& val);
-
-   void __set_FLOAT16(const Float16Type& val);
-
-   void __set_VARIANT(const VariantType& val);
-
-   void __set_GEOMETRY(const GeometryType& val);
-
-   void __set_GEOGRAPHY(const GeographyType& val);
-
-   bool operator == (const LogicalType & rhs) const;
-   bool operator != (const LogicalType &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const LogicalType & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(LogicalType &a, LogicalType &b);
-
- std::ostream& operator<<(std::ostream& out, const LogicalType& obj);
-
- typedef struct _SchemaElement__isset {
-   _SchemaElement__isset() : type(false), type_length(false), repetition_type(false), num_children(false), converted_type(false), scale(false), precision(false), field_id(false), logicalType(false) {}
-   bool type :1;
-   bool type_length :1;
-   bool repetition_type :1;
-   bool num_children :1;
-   bool converted_type :1;
-   bool scale :1;
-   bool precision :1;
-   bool field_id :1;
-   bool logicalType :1;
- } _SchemaElement__isset;
-
- /**
-  * Represents a element inside a schema definition.
-  *  - if it is a group (inner node) then type is undefined and num_children is defined
-  *  - if it is a primitive type (leaf) then type is defined and num_children is undefined
-  * the nodes are listed in depth first traversal order.
-  */
- class SchemaElement {
-  public:
-
-   SchemaElement(const SchemaElement&);
-   SchemaElement(SchemaElement&&) noexcept;
-   SchemaElement& operator=(const SchemaElement&);
-   SchemaElement& operator=(SchemaElement&&) noexcept;
-   SchemaElement() noexcept;
-
-   virtual ~SchemaElement() noexcept;
-   /**
-    * Data type for this field. Not set if the current element is a non-leaf node
-    *
-    * @see Type
-    */
-   Type::type type;
-   /**
-    * If type is FIXED_LEN_BYTE_ARRAY, this is the byte length of the values.
-    * Otherwise, if specified, this is the maximum bit length to store any of the values.
-    * (e.g. a low cardinality INT col could have this set to 3).  Note that this is
-    * in the schema, and therefore fixed for the entire file.
-    */
-   int32_t type_length;
-   /**
-    * repetition of the field. The root of the schema does not have a repetition_type.
-    * All other nodes must have one
-    *
-    * @see FieldRepetitionType
-    */
-   FieldRepetitionType::type repetition_type;
-   /**
-    * Name of the field in the schema
-    */
-   std::string name;
-   /**
-    * Nested fields.  Since thrift does not support nested fields,
-    * the nesting is flattened to a single list by a depth-first traversal.
-    * The children count is used to construct the nested relationship.
-    * This field is not set when the element is a primitive type
-    */
-   int32_t num_children;
-   /**
-    * DEPRECATED: When the schema is the result of a conversion from another model.
-    * Used to record the original type to help with cross conversion.
-    *
-    * This is superseded by logicalType.
-    *
-    * @see ConvertedType
-    */
-   ConvertedType::type converted_type;
-   /**
-    * DEPRECATED: Used when this column contains decimal data.
-    * See the DECIMAL converted type for more details.
-    *
-    * This is superseded by using the DecimalType annotation in logicalType.
-    */
-   int32_t scale;
-   int32_t precision;
-   /**
-    * When the original schema supports field ids, this will save the
-    * original field id in the parquet schema
-    */
-   int32_t field_id;
-   /**
-    * The logical type of this SchemaElement
-    *
-    * LogicalType replaces ConvertedType, but ConvertedType is still required
-    * for some logical types to ensure forward-compatibility in format v1.
-    */
-   LogicalType logicalType;
-
-   _SchemaElement__isset __isset;
-
-   void __set_type(const Type::type val);
-
-   void __set_type_length(const int32_t val);
-
-   void __set_repetition_type(const FieldRepetitionType::type val);
-
-   void __set_name(const std::string& val);
-
-   void __set_num_children(const int32_t val);
-
-   void __set_converted_type(const ConvertedType::type val);
-
-   void __set_scale(const int32_t val);
-
-   void __set_precision(const int32_t val);
-
-   void __set_field_id(const int32_t val);
-
-   void __set_logicalType(const LogicalType& val);
-
-   bool operator == (const SchemaElement & rhs) const;
-   bool operator != (const SchemaElement &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const SchemaElement & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(SchemaElement &a, SchemaElement &b);
-
- std::ostream& operator<<(std::ostream& out, const SchemaElement& obj);
-
- typedef struct _DataPageHeader__isset {
-   _DataPageHeader__isset() : statistics(false) {}
-   bool statistics :1;
- } _DataPageHeader__isset;
-
- /**
-  * Data page header
-  */
- class DataPageHeader {
-  public:
-
-   DataPageHeader(const DataPageHeader&);
-   DataPageHeader(DataPageHeader&&) noexcept;
-   DataPageHeader& operator=(const DataPageHeader&);
-   DataPageHeader& operator=(DataPageHeader&&) noexcept;
-   DataPageHeader() noexcept;
-
-   virtual ~DataPageHeader() noexcept;
-   /**
-    * Number of values, including NULLs, in this data page.
-    *
-    * If a OffsetIndex is present, a page must begin at a row
-    * boundary (repetition_level = 0). Otherwise, pages may begin
-    * within a row (repetition_level > 0).
-    *
-    */
-   int32_t num_values;
-   /**
-    * Encoding used for this data page *
-    *
-    * @see Encoding
-    */
-   Encoding::type encoding;
-   /**
-    * Encoding used for definition levels *
-    *
-    * @see Encoding
-    */
-   Encoding::type definition_level_encoding;
-   /**
-    * Encoding used for repetition levels *
-    *
-    * @see Encoding
-    */
-   Encoding::type repetition_level_encoding;
-   /**
-    * Optional statistics for the data in this page *
-    */
-   Statistics statistics;
-
-   _DataPageHeader__isset __isset;
-
-   void __set_num_values(const int32_t val);
-
-   void __set_encoding(const Encoding::type val);
-
-   void __set_definition_level_encoding(const Encoding::type val);
-
-   void __set_repetition_level_encoding(const Encoding::type val);
-
-   void __set_statistics(const Statistics& val);
-
-   bool operator == (const DataPageHeader & rhs) const;
-   bool operator != (const DataPageHeader &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const DataPageHeader & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(DataPageHeader &a, DataPageHeader &b);
-
- std::ostream& operator<<(std::ostream& out, const DataPageHeader& obj);
-
-
- class IndexPageHeader {
-  public:
-
-   IndexPageHeader(const IndexPageHeader&) noexcept;
-   IndexPageHeader(IndexPageHeader&&) noexcept;
-   IndexPageHeader& operator=(const IndexPageHeader&) noexcept;
-   IndexPageHeader& operator=(IndexPageHeader&&) noexcept;
-   IndexPageHeader() noexcept;
-
-   virtual ~IndexPageHeader() noexcept;
-
-   bool operator == (const IndexPageHeader & /* rhs */) const;
-   bool operator != (const IndexPageHeader &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const IndexPageHeader & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(IndexPageHeader &a, IndexPageHeader &b);
-
- std::ostream& operator<<(std::ostream& out, const IndexPageHeader& obj);
-
- typedef struct _DictionaryPageHeader__isset {
-   _DictionaryPageHeader__isset() : is_sorted(false) {}
-   bool is_sorted :1;
- } _DictionaryPageHeader__isset;
-
- /**
-  * The dictionary page must be placed at the first position of the column chunk
-  * if it is partly or completely dictionary encoded. At most one dictionary page
-  * can be placed in a column chunk.
-  *
-  */
- class DictionaryPageHeader {
-  public:
-
-   DictionaryPageHeader(const DictionaryPageHeader&) noexcept;
-   DictionaryPageHeader(DictionaryPageHeader&&) noexcept;
-   DictionaryPageHeader& operator=(const DictionaryPageHeader&) noexcept;
-   DictionaryPageHeader& operator=(DictionaryPageHeader&&) noexcept;
-   DictionaryPageHeader() noexcept;
-
-   virtual ~DictionaryPageHeader() noexcept;
-   /**
-    * Number of values in the dictionary *
-    */
-   int32_t num_values;
-   /**
-    * Encoding using this dictionary page *
-    *
-    * @see Encoding
-    */
-   Encoding::type encoding;
-   /**
-    * If true, the entries in the dictionary are sorted in ascending order *
-    */
-   bool is_sorted;
-
-   _DictionaryPageHeader__isset __isset;
-
-   void __set_num_values(const int32_t val);
-
-   void __set_encoding(const Encoding::type val);
-
-   void __set_is_sorted(const bool val);
-
-   bool operator == (const DictionaryPageHeader & rhs) const;
-   bool operator != (const DictionaryPageHeader &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const DictionaryPageHeader & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(DictionaryPageHeader &a, DictionaryPageHeader &b);
-
- std::ostream& operator<<(std::ostream& out, const DictionaryPageHeader& obj);
-
- typedef struct _DataPageHeaderV2__isset {
-   _DataPageHeaderV2__isset() : is_compressed(true), statistics(false) {}
-   bool is_compressed :1;
-   bool statistics :1;
- } _DataPageHeaderV2__isset;
-
- /**
-  * New page format allowing reading levels without decompressing the data
-  * Repetition and definition levels are uncompressed
-  * The remaining section containing the data is compressed if is_compressed is true
-  *
-  */
- class DataPageHeaderV2 {
-  public:
-
-   DataPageHeaderV2(const DataPageHeaderV2&);
-   DataPageHeaderV2(DataPageHeaderV2&&) noexcept;
-   DataPageHeaderV2& operator=(const DataPageHeaderV2&);
-   DataPageHeaderV2& operator=(DataPageHeaderV2&&) noexcept;
-   DataPageHeaderV2() noexcept;
-
-   virtual ~DataPageHeaderV2() noexcept;
-   /**
-    * Number of values, including NULLs, in this data page. *
-    */
-   int32_t num_values;
-   /**
-    * Number of NULL values, in this data page.
-    * Number of non-null = num_values - num_nulls which is also the number of values in the data section *
-    */
-   int32_t num_nulls;
-   /**
-    * Number of rows in this data page. Every page must begin at a
-    * row boundary (repetition_level = 0): rows must **not** be
-    * split across page boundaries when using V2 data pages.
-    *
-    */
-   int32_t num_rows;
-   /**
-    * Encoding used for data in this page *
-    *
-    * @see Encoding
-    */
-   Encoding::type encoding;
-   /**
-    * Length of the definition levels
-    */
-   int32_t definition_levels_byte_length;
-   /**
-    * Length of the repetition levels
-    */
-   int32_t repetition_levels_byte_length;
-   /**
-    * Whether the values are compressed.
-    * Which means the section of the page between
-    * definition_levels_byte_length + repetition_levels_byte_length + 1 and compressed_page_size (included)
-    * is compressed with the compression_codec.
-    * If missing it is considered compressed
-    */
-   bool is_compressed;
-   /**
-    * Optional statistics for the data in this page *
-    */
-   Statistics statistics;
-
-   _DataPageHeaderV2__isset __isset;
-
-   void __set_num_values(const int32_t val);
-
-   void __set_num_nulls(const int32_t val);
-
-   void __set_num_rows(const int32_t val);
-
-   void __set_encoding(const Encoding::type val);
-
-   void __set_definition_levels_byte_length(const int32_t val);
-
-   void __set_repetition_levels_byte_length(const int32_t val);
-
-   void __set_is_compressed(const bool val);
-
-   void __set_statistics(const Statistics& val);
-
-   bool operator == (const DataPageHeaderV2 & rhs) const;
-   bool operator != (const DataPageHeaderV2 &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const DataPageHeaderV2 & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(DataPageHeaderV2 &a, DataPageHeaderV2 &b);
-
- std::ostream& operator<<(std::ostream& out, const DataPageHeaderV2& obj);
-
-
- /**
-  * Block-based algorithm type annotation. *
-  */
- class SplitBlockAlgorithm {
-  public:
-
-   SplitBlockAlgorithm(const SplitBlockAlgorithm&) noexcept;
-   SplitBlockAlgorithm(SplitBlockAlgorithm&&) noexcept;
-   SplitBlockAlgorithm& operator=(const SplitBlockAlgorithm&) noexcept;
-   SplitBlockAlgorithm& operator=(SplitBlockAlgorithm&&) noexcept;
-   SplitBlockAlgorithm() noexcept;
-
-   virtual ~SplitBlockAlgorithm() noexcept;
-
-   bool operator == (const SplitBlockAlgorithm & /* rhs */) const;
-   bool operator != (const SplitBlockAlgorithm &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const SplitBlockAlgorithm & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(SplitBlockAlgorithm &a, SplitBlockAlgorithm &b);
-
- std::ostream& operator<<(std::ostream& out, const SplitBlockAlgorithm& obj);
-
- typedef struct _BloomFilterAlgorithm__isset {
-   _BloomFilterAlgorithm__isset() : BLOCK(false) {}
-   bool BLOCK :1;
- } _BloomFilterAlgorithm__isset;
-
- /**
-  * The algorithm used in Bloom filter. *
-  */
- class BloomFilterAlgorithm {
-  public:
-
-   BloomFilterAlgorithm(const BloomFilterAlgorithm&) noexcept;
-   BloomFilterAlgorithm(BloomFilterAlgorithm&&) noexcept;
-   BloomFilterAlgorithm& operator=(const BloomFilterAlgorithm&) noexcept;
-   BloomFilterAlgorithm& operator=(BloomFilterAlgorithm&&) noexcept;
-   BloomFilterAlgorithm() noexcept;
-
-   virtual ~BloomFilterAlgorithm() noexcept;
-   /**
-    * Block-based Bloom filter. *
-    */
-   SplitBlockAlgorithm BLOCK;
-
-   _BloomFilterAlgorithm__isset __isset;
-
-   void __set_BLOCK(const SplitBlockAlgorithm& val);
-
-   bool operator == (const BloomFilterAlgorithm & rhs) const;
-   bool operator != (const BloomFilterAlgorithm &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const BloomFilterAlgorithm & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(BloomFilterAlgorithm &a, BloomFilterAlgorithm &b);
-
- std::ostream& operator<<(std::ostream& out, const BloomFilterAlgorithm& obj);
-
-
- /**
-  * Hash strategy type annotation. xxHash is an extremely fast non-cryptographic hash
-  * algorithm. It uses 64 bits version of xxHash.
-  *
-  */
- class XxHash {
-  public:
-
-   XxHash(const XxHash&) noexcept;
-   XxHash(XxHash&&) noexcept;
-   XxHash& operator=(const XxHash&) noexcept;
-   XxHash& operator=(XxHash&&) noexcept;
-   XxHash() noexcept;
-
-   virtual ~XxHash() noexcept;
-
-   bool operator == (const XxHash & /* rhs */) const;
-   bool operator != (const XxHash &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const XxHash & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(XxHash &a, XxHash &b);
-
- std::ostream& operator<<(std::ostream& out, const XxHash& obj);
-
- typedef struct _BloomFilterHash__isset {
-   _BloomFilterHash__isset() : XXHASH(false) {}
-   bool XXHASH :1;
- } _BloomFilterHash__isset;
-
- /**
-  * The hash function used in Bloom filter. This function takes the hash of a column value
-  * using plain encoding.
-  *
-  */
- class BloomFilterHash {
-  public:
-
-   BloomFilterHash(const BloomFilterHash&) noexcept;
-   BloomFilterHash(BloomFilterHash&&) noexcept;
-   BloomFilterHash& operator=(const BloomFilterHash&) noexcept;
-   BloomFilterHash& operator=(BloomFilterHash&&) noexcept;
-   BloomFilterHash() noexcept;
-
-   virtual ~BloomFilterHash() noexcept;
-   /**
-    * xxHash Strategy. *
-    */
-   XxHash XXHASH;
-
-   _BloomFilterHash__isset __isset;
-
-   void __set_XXHASH(const XxHash& val);
-
-   bool operator == (const BloomFilterHash & rhs) const;
-   bool operator != (const BloomFilterHash &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const BloomFilterHash & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(BloomFilterHash &a, BloomFilterHash &b);
-
- std::ostream& operator<<(std::ostream& out, const BloomFilterHash& obj);
-
-
- /**
-  * The compression used in the Bloom filter.
-  *
-  */
- class Uncompressed {
-  public:
-
-   Uncompressed(const Uncompressed&) noexcept;
-   Uncompressed(Uncompressed&&) noexcept;
-   Uncompressed& operator=(const Uncompressed&) noexcept;
-   Uncompressed& operator=(Uncompressed&&) noexcept;
-   Uncompressed() noexcept;
-
-   virtual ~Uncompressed() noexcept;
-
-   bool operator == (const Uncompressed & /* rhs */) const;
-   bool operator != (const Uncompressed &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const Uncompressed & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(Uncompressed &a, Uncompressed &b);
-
- std::ostream& operator<<(std::ostream& out, const Uncompressed& obj);
-
- typedef struct _BloomFilterCompression__isset {
-   _BloomFilterCompression__isset() : UNCOMPRESSED(false) {}
-   bool UNCOMPRESSED :1;
- } _BloomFilterCompression__isset;
-
- class BloomFilterCompression {
-  public:
-
-   BloomFilterCompression(const BloomFilterCompression&) noexcept;
-   BloomFilterCompression(BloomFilterCompression&&) noexcept;
-   BloomFilterCompression& operator=(const BloomFilterCompression&) noexcept;
-   BloomFilterCompression& operator=(BloomFilterCompression&&) noexcept;
-   BloomFilterCompression() noexcept;
-
-   virtual ~BloomFilterCompression() noexcept;
-   Uncompressed UNCOMPRESSED;
-
-   _BloomFilterCompression__isset __isset;
-
-   void __set_UNCOMPRESSED(const Uncompressed& val);
-
-   bool operator == (const BloomFilterCompression & rhs) const;
-   bool operator != (const BloomFilterCompression &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const BloomFilterCompression & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(BloomFilterCompression &a, BloomFilterCompression &b);
-
- std::ostream& operator<<(std::ostream& out, const BloomFilterCompression& obj);
-
-
- /**
-  * Bloom filter header is stored at beginning of Bloom filter data of each column
-  * and followed by its bitset.
-  *
-  */
- class BloomFilterHeader {
-  public:
-
-   BloomFilterHeader(const BloomFilterHeader&) noexcept;
-   BloomFilterHeader(BloomFilterHeader&&) noexcept;
-   BloomFilterHeader& operator=(const BloomFilterHeader&) noexcept;
-   BloomFilterHeader& operator=(BloomFilterHeader&&) noexcept;
-   BloomFilterHeader() noexcept;
-
-   virtual ~BloomFilterHeader() noexcept;
-   /**
-    * The size of bitset in bytes *
-    */
-   int32_t numBytes;
-   /**
-    * The algorithm for setting bits. *
-    */
-   BloomFilterAlgorithm algorithm;
-   /**
-    * The hash function used for Bloom filter. *
-    */
-   BloomFilterHash hash;
-   /**
-    * The compression used in the Bloom filter *
-    */
-   BloomFilterCompression compression;
-
-   void __set_numBytes(const int32_t val);
-
-   void __set_algorithm(const BloomFilterAlgorithm& val);
-
-   void __set_hash(const BloomFilterHash& val);
-
-   void __set_compression(const BloomFilterCompression& val);
-
-   bool operator == (const BloomFilterHeader & rhs) const;
-   bool operator != (const BloomFilterHeader &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const BloomFilterHeader & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(BloomFilterHeader &a, BloomFilterHeader &b);
-
- std::ostream& operator<<(std::ostream& out, const BloomFilterHeader& obj);
-
- typedef struct _PageHeader__isset {
-   _PageHeader__isset() : crc(false), data_page_header(false), index_page_header(false), dictionary_page_header(false), data_page_header_v2(false) {}
-   bool crc :1;
-   bool data_page_header :1;
-   bool index_page_header :1;
-   bool dictionary_page_header :1;
-   bool data_page_header_v2 :1;
- } _PageHeader__isset;
-
- class PageHeader {
-  public:
-
-   PageHeader(const PageHeader&);
-   PageHeader(PageHeader&&) noexcept;
-   PageHeader& operator=(const PageHeader&);
-   PageHeader& operator=(PageHeader&&) noexcept;
-   PageHeader() noexcept;
-
-   virtual ~PageHeader() noexcept;
-   /**
-    * the type of the page: indicates which of the *_header fields is set *
-    *
-    * @see PageType
-    */
-   PageType::type type;
-   /**
-    * Uncompressed page size in bytes (not including this header) *
-    */
-   int32_t uncompressed_page_size;
-   /**
-    * Compressed (and potentially encrypted) page size in bytes, not including this header *
-    */
-   int32_t compressed_page_size;
-   /**
-    * The 32-bit CRC checksum for the page, to be be calculated as follows:
-    *
-    * - The standard CRC32 algorithm is used (with polynomial 0x04C11DB7,
-    *   the same as in e.g. GZip).
-    * - All page types can have a CRC (v1 and v2 data pages, dictionary pages,
-    *   etc.).
-    * - The CRC is computed on the serialization binary representation of the page
-    *   (as written to disk), excluding the page header. For example, for v1
-    *   data pages, the CRC is computed on the concatenation of repetition levels,
-    *   definition levels and column values (optionally compressed, optionally
-    *   encrypted).
-    * - The CRC computation therefore takes place after any compression
-    *   and encryption steps, if any.
-    *
-    * If enabled, this allows for disabling checksumming in HDFS if only a few
-    * pages need to be read.
-    */
-   int32_t crc;
-   DataPageHeader data_page_header;
-   IndexPageHeader index_page_header;
-   DictionaryPageHeader dictionary_page_header;
-   DataPageHeaderV2 data_page_header_v2;
-
-   _PageHeader__isset __isset;
-
-   void __set_type(const PageType::type val);
-
-   void __set_uncompressed_page_size(const int32_t val);
-
-   void __set_compressed_page_size(const int32_t val);
-
-   void __set_crc(const int32_t val);
-
-   void __set_data_page_header(const DataPageHeader& val);
-
-   void __set_index_page_header(const IndexPageHeader& val);
-
-   void __set_dictionary_page_header(const DictionaryPageHeader& val);
-
-   void __set_data_page_header_v2(const DataPageHeaderV2& val);
-
-   bool operator == (const PageHeader & rhs) const;
-   bool operator != (const PageHeader &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const PageHeader & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(PageHeader &a, PageHeader &b);
-
- std::ostream& operator<<(std::ostream& out, const PageHeader& obj);
-
- typedef struct _KeyValue__isset {
-   _KeyValue__isset() : value(false) {}
-   bool value :1;
- } _KeyValue__isset;
-
- /**
-  * Wrapper struct to store key values
-  */
- class KeyValue {
-  public:
-
-   KeyValue(const KeyValue&);
-   KeyValue(KeyValue&&) noexcept;
-   KeyValue& operator=(const KeyValue&);
-   KeyValue& operator=(KeyValue&&) noexcept;
-   KeyValue() noexcept;
-
-   virtual ~KeyValue() noexcept;
-   std::string key;
-   std::string value;
-
-   _KeyValue__isset __isset;
-
-   void __set_key(const std::string& val);
-
-   void __set_value(const std::string& val);
-
-   bool operator == (const KeyValue & rhs) const;
-   bool operator != (const KeyValue &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const KeyValue & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(KeyValue &a, KeyValue &b);
-
- std::ostream& operator<<(std::ostream& out, const KeyValue& obj);
-
-
- /**
-  * Sort order within a RowGroup of a leaf column
-  */
- class SortingColumn {
-  public:
-
-   SortingColumn(const SortingColumn&) noexcept;
-   SortingColumn(SortingColumn&&) noexcept;
-   SortingColumn& operator=(const SortingColumn&) noexcept;
-   SortingColumn& operator=(SortingColumn&&) noexcept;
-   SortingColumn() noexcept;
-
-   virtual ~SortingColumn() noexcept;
-   /**
-    * The ordinal position of the column (in this row group) *
-    */
-   int32_t column_idx;
-   /**
-    * If true, indicates this column is sorted in descending order. *
-    */
-   bool descending;
-   /**
-    * If true, nulls will come before non-null values, otherwise,
-    * nulls go at the end.
-    */
-   bool nulls_first;
-
-   void __set_column_idx(const int32_t val);
-
-   void __set_descending(const bool val);
-
-   void __set_nulls_first(const bool val);
-
-   bool operator == (const SortingColumn & rhs) const;
-   bool operator != (const SortingColumn &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const SortingColumn & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(SortingColumn &a, SortingColumn &b);
-
- std::ostream& operator<<(std::ostream& out, const SortingColumn& obj);
-
-
- /**
-  * statistics of a given page type and encoding
-  */
- class PageEncodingStats {
-  public:
-
-   PageEncodingStats(const PageEncodingStats&) noexcept;
-   PageEncodingStats(PageEncodingStats&&) noexcept;
-   PageEncodingStats& operator=(const PageEncodingStats&) noexcept;
-   PageEncodingStats& operator=(PageEncodingStats&&) noexcept;
-   PageEncodingStats() noexcept;
-
-   virtual ~PageEncodingStats() noexcept;
-   /**
-    * the page type (data/dic/...) *
-    *
-    * @see PageType
-    */
-   PageType::type page_type;
-   /**
-    * encoding of the page *
-    *
-    * @see Encoding
-    */
-   Encoding::type encoding;
-   /**
-    * number of pages of this type with this encoding *
-    */
-   int32_t count;
-
-   void __set_page_type(const PageType::type val);
-
-   void __set_encoding(const Encoding::type val);
-
-   void __set_count(const int32_t val);
-
-   bool operator == (const PageEncodingStats & rhs) const;
-   bool operator != (const PageEncodingStats &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const PageEncodingStats & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(PageEncodingStats &a, PageEncodingStats &b);
-
- std::ostream& operator<<(std::ostream& out, const PageEncodingStats& obj);
-
- typedef struct _ColumnMetaData__isset {
-   _ColumnMetaData__isset() : key_value_metadata(false), index_page_offset(false), dictionary_page_offset(false), statistics(false), encoding_stats(false), bloom_filter_offset(false), bloom_filter_length(false), size_statistics(false), geospatial_statistics(false) {}
-   bool key_value_metadata :1;
-   bool index_page_offset :1;
-   bool dictionary_page_offset :1;
-   bool statistics :1;
-   bool encoding_stats :1;
-   bool bloom_filter_offset :1;
-   bool bloom_filter_length :1;
-   bool size_statistics :1;
-   bool geospatial_statistics :1;
- } _ColumnMetaData__isset;
-
- /**
-  * Description for column metadata
-  */
- class ColumnMetaData {
-  public:
-
-   ColumnMetaData(const ColumnMetaData&);
-   ColumnMetaData(ColumnMetaData&&) noexcept;
-   ColumnMetaData& operator=(const ColumnMetaData&);
-   ColumnMetaData& operator=(ColumnMetaData&&) noexcept;
-   ColumnMetaData() noexcept;
-
-   virtual ~ColumnMetaData() noexcept;
-   /**
-    * Type of this column *
-    *
-    * @see Type
-    */
-   Type::type type;
-   /**
-    * Set of all encodings used for this column. The purpose is to validate
-    * whether we can decode those pages. *
-    */
-   std::vector<Encoding::type>  encodings;
-   /**
-    * Path in schema *
-    */
-   std::vector<std::string>  path_in_schema;
-   /**
-    * Compression codec *
-    *
-    * @see CompressionCodec
-    */
-   CompressionCodec::type codec;
-   /**
-    * Number of values in this column *
-    */
-   int64_t num_values;
-   /**
-    * total byte size of all uncompressed pages in this column chunk (including the headers) *
-    */
-   int64_t total_uncompressed_size;
-   /**
-    * total byte size of all compressed, and potentially encrypted, pages
-    * in this column chunk (including the headers) *
-    */
-   int64_t total_compressed_size;
-   /**
-    * Optional key/value metadata *
-    */
-   std::vector<KeyValue>  key_value_metadata;
-   /**
-    * Byte offset from beginning of file to first data page *
-    */
-   int64_t data_page_offset;
-   /**
-    * Byte offset from beginning of file to root index page *
-    */
-   int64_t index_page_offset;
-   /**
-    * Byte offset from the beginning of file to first (only) dictionary page *
-    */
-   int64_t dictionary_page_offset;
-   /**
-    * optional statistics for this column chunk
-    */
-   Statistics statistics;
-   /**
-    * Set of all encodings used for pages in this column chunk.
-    * This information can be used to determine if all data pages are
-    * dictionary encoded for example *
-    */
-   std::vector<PageEncodingStats>  encoding_stats;
-   /**
-    * Byte offset from beginning of file to Bloom filter data. *
-    */
-   int64_t bloom_filter_offset;
-   /**
-    * Size of Bloom filter data including the serialized header, in bytes.
-    * Added in 2.10 so readers may not read this field from old files and
-    * it can be obtained after the BloomFilterHeader has been deserialized.
-    * Writers should write this field so readers can read the bloom filter
-    * in a single I/O.
-    */
-   int32_t bloom_filter_length;
-   /**
-    * Optional statistics to help estimate total memory when converted to in-memory
-    * representations. The histograms contained in these statistics can
-    * also be useful in some cases for more fine-grained nullability/list length
-    * filter pushdown.
-    */
-   SizeStatistics size_statistics;
-   /**
-    * Optional statistics specific for Geometry and Geography logical types
-    */
-   GeospatialStatistics geospatial_statistics;
-
-   _ColumnMetaData__isset __isset;
-
-   void __set_type(const Type::type val);
-
-   void __set_encodings(const std::vector<Encoding::type> & val);
-
-   void __set_path_in_schema(const std::vector<std::string> & val);
-
-   void __set_codec(const CompressionCodec::type val);
-
-   void __set_num_values(const int64_t val);
-
-   void __set_total_uncompressed_size(const int64_t val);
-
-   void __set_total_compressed_size(const int64_t val);
-
-   void __set_key_value_metadata(const std::vector<KeyValue> & val);
-
-   void __set_data_page_offset(const int64_t val);
-
-   void __set_index_page_offset(const int64_t val);
-
-   void __set_dictionary_page_offset(const int64_t val);
-
-   void __set_statistics(const Statistics& val);
-
-   void __set_encoding_stats(const std::vector<PageEncodingStats> & val);
-
-   void __set_bloom_filter_offset(const int64_t val);
-
-   void __set_bloom_filter_length(const int32_t val);
-
-   void __set_size_statistics(const SizeStatistics& val);
-
-   void __set_geospatial_statistics(const GeospatialStatistics& val);
-
-   bool operator == (const ColumnMetaData & rhs) const;
-   bool operator != (const ColumnMetaData &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const ColumnMetaData & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(ColumnMetaData &a, ColumnMetaData &b);
-
- std::ostream& operator<<(std::ostream& out, const ColumnMetaData& obj);
-
-
- class EncryptionWithFooterKey {
-  public:
-
-   EncryptionWithFooterKey(const EncryptionWithFooterKey&) noexcept;
-   EncryptionWithFooterKey(EncryptionWithFooterKey&&) noexcept;
-   EncryptionWithFooterKey& operator=(const EncryptionWithFooterKey&) noexcept;
-   EncryptionWithFooterKey& operator=(EncryptionWithFooterKey&&) noexcept;
-   EncryptionWithFooterKey() noexcept;
-
-   virtual ~EncryptionWithFooterKey() noexcept;
-
-   bool operator == (const EncryptionWithFooterKey & /* rhs */) const;
-   bool operator != (const EncryptionWithFooterKey &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const EncryptionWithFooterKey & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(EncryptionWithFooterKey &a, EncryptionWithFooterKey &b);
-
- std::ostream& operator<<(std::ostream& out, const EncryptionWithFooterKey& obj);
-
- typedef struct _EncryptionWithColumnKey__isset {
-   _EncryptionWithColumnKey__isset() : key_metadata(false) {}
-   bool key_metadata :1;
- } _EncryptionWithColumnKey__isset;
-
- class EncryptionWithColumnKey {
-  public:
-
-   EncryptionWithColumnKey(const EncryptionWithColumnKey&);
-   EncryptionWithColumnKey(EncryptionWithColumnKey&&) noexcept;
-   EncryptionWithColumnKey& operator=(const EncryptionWithColumnKey&);
-   EncryptionWithColumnKey& operator=(EncryptionWithColumnKey&&) noexcept;
-   EncryptionWithColumnKey() noexcept;
-
-   virtual ~EncryptionWithColumnKey() noexcept;
-   /**
-    * Column path in schema *
-    */
-   std::vector<std::string>  path_in_schema;
-   /**
-    * Retrieval metadata of column encryption key *
-    */
-   std::string key_metadata;
-
-   _EncryptionWithColumnKey__isset __isset;
-
-   void __set_path_in_schema(const std::vector<std::string> & val);
-
-   void __set_key_metadata(const std::string& val);
-
-   bool operator == (const EncryptionWithColumnKey & rhs) const;
-   bool operator != (const EncryptionWithColumnKey &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const EncryptionWithColumnKey & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(EncryptionWithColumnKey &a, EncryptionWithColumnKey &b);
-
- std::ostream& operator<<(std::ostream& out, const EncryptionWithColumnKey& obj);
-
- typedef struct _ColumnCryptoMetaData__isset {
-   _ColumnCryptoMetaData__isset() : ENCRYPTION_WITH_FOOTER_KEY(false), ENCRYPTION_WITH_COLUMN_KEY(false) {}
-   bool ENCRYPTION_WITH_FOOTER_KEY :1;
-   bool ENCRYPTION_WITH_COLUMN_KEY :1;
- } _ColumnCryptoMetaData__isset;
-
- class ColumnCryptoMetaData {
-  public:
-
-   ColumnCryptoMetaData(const ColumnCryptoMetaData&);
-   ColumnCryptoMetaData(ColumnCryptoMetaData&&) noexcept;
-   ColumnCryptoMetaData& operator=(const ColumnCryptoMetaData&);
-   ColumnCryptoMetaData& operator=(ColumnCryptoMetaData&&) noexcept;
-   ColumnCryptoMetaData() noexcept;
-
-   virtual ~ColumnCryptoMetaData() noexcept;
-   EncryptionWithFooterKey ENCRYPTION_WITH_FOOTER_KEY;
-   EncryptionWithColumnKey ENCRYPTION_WITH_COLUMN_KEY;
-
-   _ColumnCryptoMetaData__isset __isset;
-
-   void __set_ENCRYPTION_WITH_FOOTER_KEY(const EncryptionWithFooterKey& val);
-
-   void __set_ENCRYPTION_WITH_COLUMN_KEY(const EncryptionWithColumnKey& val);
-
-   bool operator == (const ColumnCryptoMetaData & rhs) const;
-   bool operator != (const ColumnCryptoMetaData &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const ColumnCryptoMetaData & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(ColumnCryptoMetaData &a, ColumnCryptoMetaData &b);
-
- std::ostream& operator<<(std::ostream& out, const ColumnCryptoMetaData& obj);
-
- typedef struct _ColumnChunk__isset {
-   _ColumnChunk__isset() : file_path(false), meta_data(false), offset_index_offset(false), offset_index_length(false), column_index_offset(false), column_index_length(false), crypto_metadata(false), encrypted_column_metadata(false) {}
-   bool file_path :1;
-   bool meta_data :1;
-   bool offset_index_offset :1;
-   bool offset_index_length :1;
-   bool column_index_offset :1;
-   bool column_index_length :1;
-   bool crypto_metadata :1;
-   bool encrypted_column_metadata :1;
- } _ColumnChunk__isset;
-
- class ColumnChunk {
-  public:
-
-   ColumnChunk(const ColumnChunk&);
-   ColumnChunk(ColumnChunk&&) noexcept;
-   ColumnChunk& operator=(const ColumnChunk&);
-   ColumnChunk& operator=(ColumnChunk&&) noexcept;
-   ColumnChunk() noexcept;
-
-   virtual ~ColumnChunk() noexcept;
-   /**
-    * File where column data is stored.  If not set, assumed to be same file as
-    * metadata.  This path is relative to the current file.
-    *
-    */
-   std::string file_path;
-   /**
-    * Deprecated: Byte offset in file_path to the ColumnMetaData
-    *
-    * Past use of this field has been inconsistent, with some implementations
-    * using it to point to the ColumnMetaData and some using it to point to
-    * the first page in the column chunk. In many cases, the ColumnMetaData at this
-    * location is wrong. This field is now deprecated and should not be used.
-    * Writers should set this field to 0 if no ColumnMetaData has been written outside
-    * the footer.
-    */
-   int64_t file_offset;
-   /**
-    * Column metadata for this chunk. Some writers may also replicate this at the
-    * location pointed to by file_path/file_offset.
-    * Note: while marked as optional, this field is in fact required by most major
-    * Parquet implementations. As such, writers MUST populate this field.
-    *
-    */
-   ColumnMetaData meta_data;
-   /**
-    * File offset of ColumnChunk's OffsetIndex *
-    */
-   int64_t offset_index_offset;
-   /**
-    * Size of ColumnChunk's OffsetIndex, in bytes *
-    */
-   int32_t offset_index_length;
-   /**
-    * File offset of ColumnChunk's ColumnIndex *
-    */
-   int64_t column_index_offset;
-   /**
-    * Size of ColumnChunk's ColumnIndex, in bytes *
-    */
-   int32_t column_index_length;
-   /**
-    * Crypto metadata of encrypted columns *
-    */
-   ColumnCryptoMetaData crypto_metadata;
-   /**
-    * Encrypted column metadata for this chunk *
-    */
-   std::string encrypted_column_metadata;
-
-   _ColumnChunk__isset __isset;
-
-   void __set_file_path(const std::string& val);
-
-   void __set_file_offset(const int64_t val);
-
-   void __set_meta_data(const ColumnMetaData& val);
-
-   void __set_offset_index_offset(const int64_t val);
-
-   void __set_offset_index_length(const int32_t val);
-
-   void __set_column_index_offset(const int64_t val);
-
-   void __set_column_index_length(const int32_t val);
-
-   void __set_crypto_metadata(const ColumnCryptoMetaData& val);
-
-   void __set_encrypted_column_metadata(const std::string& val);
-
-   bool operator == (const ColumnChunk & rhs) const;
-   bool operator != (const ColumnChunk &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const ColumnChunk & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(ColumnChunk &a, ColumnChunk &b);
-
- std::ostream& operator<<(std::ostream& out, const ColumnChunk& obj);
-
- typedef struct _RowGroup__isset {
-   _RowGroup__isset() : sorting_columns(false), file_offset(false), total_compressed_size(false), ordinal(false) {}
-   bool sorting_columns :1;
-   bool file_offset :1;
-   bool total_compressed_size :1;
-   bool ordinal :1;
- } _RowGroup__isset;
-
- class RowGroup {
-  public:
-
-   RowGroup(const RowGroup&);
-   RowGroup(RowGroup&&) noexcept;
-   RowGroup& operator=(const RowGroup&);
-   RowGroup& operator=(RowGroup&&) noexcept;
-   RowGroup() noexcept;
-
-   virtual ~RowGroup() noexcept;
-   /**
-    * Metadata for each column chunk in this row group.
-    * This list must have the same order as the SchemaElement list in FileMetaData.
-    *
-    */
-   std::vector<ColumnChunk>  columns;
-   /**
-    * Total byte size of all the uncompressed column data in this row group *
-    */
-   int64_t total_byte_size;
-   /**
-    * Number of rows in this row group *
-    */
-   int64_t num_rows;
-   /**
-    * If set, specifies a sort ordering of the rows in this RowGroup.
-    * The sorting columns can be a subset of all the columns.
-    */
-   std::vector<SortingColumn>  sorting_columns;
-   /**
-    * Byte offset from beginning of file to first page (data or dictionary)
-    * in this row group *
-    */
-   int64_t file_offset;
-   /**
-    * Total byte size of all compressed (and potentially encrypted) column data
-    * in this row group *
-    */
-   int64_t total_compressed_size;
-   /**
-    * Row group ordinal in the file *
-    */
-   int16_t ordinal;
-
-   _RowGroup__isset __isset;
-
-   void __set_columns(const std::vector<ColumnChunk> & val);
-
-   void __set_total_byte_size(const int64_t val);
-
-   void __set_num_rows(const int64_t val);
-
-   void __set_sorting_columns(const std::vector<SortingColumn> & val);
-
-   void __set_file_offset(const int64_t val);
-
-   void __set_total_compressed_size(const int64_t val);
-
-   void __set_ordinal(const int16_t val);
-
-   bool operator == (const RowGroup & rhs) const;
-   bool operator != (const RowGroup &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const RowGroup & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(RowGroup &a, RowGroup &b);
-
- std::ostream& operator<<(std::ostream& out, const RowGroup& obj);
-
-
- /**
-  * Empty struct to signal the order defined by the physical or logical type
-  */
- class TypeDefinedOrder {
-  public:
-
-   TypeDefinedOrder(const TypeDefinedOrder&) noexcept;
-   TypeDefinedOrder(TypeDefinedOrder&&) noexcept;
-   TypeDefinedOrder& operator=(const TypeDefinedOrder&) noexcept;
-   TypeDefinedOrder& operator=(TypeDefinedOrder&&) noexcept;
-   TypeDefinedOrder() noexcept;
-
-   virtual ~TypeDefinedOrder() noexcept;
-
-   bool operator == (const TypeDefinedOrder & /* rhs */) const;
-   bool operator != (const TypeDefinedOrder &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const TypeDefinedOrder & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(TypeDefinedOrder &a, TypeDefinedOrder &b);
-
- std::ostream& operator<<(std::ostream& out, const TypeDefinedOrder& obj);
-
- typedef struct _ColumnOrder__isset {
-   _ColumnOrder__isset() : TYPE_ORDER(false) {}
-   bool TYPE_ORDER :1;
- } _ColumnOrder__isset;
-
- /**
-  * Union to specify the order used for the min_value and max_value fields for a
-  * column. This union takes the role of an enhanced enum that allows rich
-  * elements (which will be needed for a collation-based ordering in the future).
-  *
-  * Possible values are:
-  * * TypeDefinedOrder - the column uses the order defined by its logical or
-  *                      physical type (if there is no logical type).
-  *
-  * If the reader does not support the value of this union, min and max stats
-  * for this column should be ignored.
-  */
- class ColumnOrder {
-  public:
-
-   ColumnOrder(const ColumnOrder&) noexcept;
-   ColumnOrder(ColumnOrder&&) noexcept;
-   ColumnOrder& operator=(const ColumnOrder&) noexcept;
-   ColumnOrder& operator=(ColumnOrder&&) noexcept;
-   ColumnOrder() noexcept;
-
-   virtual ~ColumnOrder() noexcept;
-   /**
-    * The sort orders for logical types are:
-    *   UTF8 - unsigned byte-wise comparison
-    *   INT8 - signed comparison
-    *   INT16 - signed comparison
-    *   INT32 - signed comparison
-    *   INT64 - signed comparison
-    *   UINT8 - unsigned comparison
-    *   UINT16 - unsigned comparison
-    *   UINT32 - unsigned comparison
-    *   UINT64 - unsigned comparison
-    *   DECIMAL - signed comparison of the represented value
-    *   DATE - signed comparison
-    *   TIME_MILLIS - signed comparison
-    *   TIME_MICROS - signed comparison
-    *   TIMESTAMP_MILLIS - signed comparison
-    *   TIMESTAMP_MICROS - signed comparison
-    *   INTERVAL - undefined
-    *   JSON - unsigned byte-wise comparison
-    *   BSON - unsigned byte-wise comparison
-    *   ENUM - unsigned byte-wise comparison
-    *   LIST - undefined
-    *   MAP - undefined
-    *   VARIANT - undefined
-    *   GEOMETRY - undefined
-    *   GEOGRAPHY - undefined
-    *
-    * In the absence of logical types, the sort order is determined by the physical type:
-    *   BOOLEAN - false, true
-    *   INT32 - signed comparison
-    *   INT64 - signed comparison
-    *   INT96 (only used for legacy timestamps) - undefined
-    *   FLOAT - signed comparison of the represented value (*)
-    *   DOUBLE - signed comparison of the represented value (*)
-    *   BYTE_ARRAY - unsigned byte-wise comparison
-    *   FIXED_LEN_BYTE_ARRAY - unsigned byte-wise comparison
-    *
-    * (*) Because the sorting order is not specified properly for floating
-    *     point values (relations vs. total ordering) the following
-    *     compatibility rules should be applied when reading statistics:
-    *     - If the min is a NaN, it should be ignored.
-    *     - If the max is a NaN, it should be ignored.
-    *     - If the min is +0, the row group may contain -0 values as well.
-    *     - If the max is -0, the row group may contain +0 values as well.
-    *     - When looking for NaN values, min and max should be ignored.
-    *
-    *     When writing statistics the following rules should be followed:
-    *     - NaNs should not be written to min or max statistics fields.
-    *     - If the computed max value is zero (whether negative or positive),
-    *       `+0.0` should be written into the max statistics field.
-    *     - If the computed min value is zero (whether negative or positive),
-    *       `-0.0` should be written into the min statistics field.
-    */
-   TypeDefinedOrder TYPE_ORDER;
-
-   _ColumnOrder__isset __isset;
-
-   void __set_TYPE_ORDER(const TypeDefinedOrder& val);
-
-   bool operator == (const ColumnOrder & rhs) const;
-   bool operator != (const ColumnOrder &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const ColumnOrder & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(ColumnOrder &a, ColumnOrder &b);
-
- std::ostream& operator<<(std::ostream& out, const ColumnOrder& obj);
-
-
- class PageLocation {
-  public:
-
-   PageLocation(const PageLocation&) noexcept;
-   PageLocation(PageLocation&&) noexcept;
-   PageLocation& operator=(const PageLocation&) noexcept;
-   PageLocation& operator=(PageLocation&&) noexcept;
-   PageLocation() noexcept;
-
-   virtual ~PageLocation() noexcept;
-   /**
-    * Offset of the page in the file *
-    */
-   int64_t offset;
-   /**
-    * Size of the page, including header. Sum of compressed_page_size and header
-    * length
-    */
-   int32_t compressed_page_size;
-   /**
-    * Index within the RowGroup of the first row of the page. When an
-    * OffsetIndex is present, pages must begin on row boundaries
-    * (repetition_level = 0).
-    */
-   int64_t first_row_index;
-
-   void __set_offset(const int64_t val);
-
-   void __set_compressed_page_size(const int32_t val);
-
-   void __set_first_row_index(const int64_t val);
-
-   bool operator == (const PageLocation & rhs) const;
-   bool operator != (const PageLocation &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const PageLocation & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(PageLocation &a, PageLocation &b);
-
- std::ostream& operator<<(std::ostream& out, const PageLocation& obj);
-
- typedef struct _OffsetIndex__isset {
-   _OffsetIndex__isset() : unencoded_byte_array_data_bytes(false) {}
-   bool unencoded_byte_array_data_bytes :1;
- } _OffsetIndex__isset;
-
- /**
-  * Optional offsets for each data page in a ColumnChunk.
-  *
-  * Forms part of the page index, along with ColumnIndex.
-  *
-  * OffsetIndex may be present even if ColumnIndex is not.
-  */
- class OffsetIndex {
-  public:
-
-   OffsetIndex(const OffsetIndex&);
-   OffsetIndex(OffsetIndex&&) noexcept;
-   OffsetIndex& operator=(const OffsetIndex&);
-   OffsetIndex& operator=(OffsetIndex&&) noexcept;
-   OffsetIndex() noexcept;
-
-   virtual ~OffsetIndex() noexcept;
-   /**
-    * PageLocations, ordered by increasing PageLocation.offset. It is required
-    * that page_locations[i].first_row_index < page_locations[i+1].first_row_index.
-    */
-   std::vector<PageLocation>  page_locations;
-   /**
-    * Unencoded/uncompressed size for BYTE_ARRAY types.
-    *
-    * See documention for unencoded_byte_array_data_bytes in SizeStatistics for
-    * more details on this field.
-    */
-   std::vector<int64_t>  unencoded_byte_array_data_bytes;
-
-   _OffsetIndex__isset __isset;
-
-   void __set_page_locations(const std::vector<PageLocation> & val);
-
-   void __set_unencoded_byte_array_data_bytes(const std::vector<int64_t> & val);
-
-   bool operator == (const OffsetIndex & rhs) const;
-   bool operator != (const OffsetIndex &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const OffsetIndex & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(OffsetIndex &a, OffsetIndex &b);
-
- std::ostream& operator<<(std::ostream& out, const OffsetIndex& obj);
-
- typedef struct _ColumnIndex__isset {
-   _ColumnIndex__isset() : null_counts(false), repetition_level_histograms(false), definition_level_histograms(false) {}
-   bool null_counts :1;
-   bool repetition_level_histograms :1;
-   bool definition_level_histograms :1;
- } _ColumnIndex__isset;
-
- /**
-  * Optional statistics for each data page in a ColumnChunk.
-  *
-  * Forms part the page index, along with OffsetIndex.
-  *
-  * If this structure is present, OffsetIndex must also be present.
-  *
-  * For each field in this structure, <field>[i] refers to the page at
-  * OffsetIndex.page_locations[i]
-  */
- class ColumnIndex {
-  public:
-
-   ColumnIndex(const ColumnIndex&);
-   ColumnIndex(ColumnIndex&&) noexcept;
-   ColumnIndex& operator=(const ColumnIndex&);
-   ColumnIndex& operator=(ColumnIndex&&) noexcept;
-   ColumnIndex() noexcept;
-
-   virtual ~ColumnIndex() noexcept;
-   /**
-    * A list of Boolean values to determine the validity of the corresponding
-    * min and max values. If true, a page contains only null values, and writers
-    * have to set the corresponding entries in min_values and max_values to
-    * byte[0], so that all lists have the same length. If false, the
-    * corresponding entries in min_values and max_values must be valid.
-    */
-   std::vector<bool>  null_pages;
-   /**
-    * Two lists containing lower and upper bounds for the values of each page
-    * determined by the ColumnOrder of the column. These may be the actual
-    * minimum and maximum values found on a page, but can also be (more compact)
-    * values that do not exist on a page. For example, instead of storing ""Blart
-    * Versenwald III", a writer may set min_values[i]="B", max_values[i]="C".
-    * Such more compact values must still be valid values within the column's
-    * logical type. Readers must make sure that list entries are populated before
-    * using them by inspecting null_pages.
-    */
-   std::vector<std::string>  min_values;
-   std::vector<std::string>  max_values;
-   /**
-    * Stores whether both min_values and max_values are ordered and if so, in
-    * which direction. This allows readers to perform binary searches in both
-    * lists. Readers cannot assume that max_values[i] <= min_values[i+1], even
-    * if the lists are ordered.
-    *
-    * @see BoundaryOrder
-    */
-   BoundaryOrder::type boundary_order;
-   /**
-    * A list containing the number of null values for each page
-    *
-    * Writers SHOULD always write this field even if no null values
-    * are present or the column is not nullable.
-    * Readers MUST distinguish between null_counts not being present
-    * and null_count being 0.
-    * If null_counts are not present, readers MUST NOT assume all
-    * null counts are 0.
-    */
-   std::vector<int64_t>  null_counts;
-   /**
-    * Contains repetition level histograms for each page
-    * concatenated together.  The repetition_level_histogram field on
-    * SizeStatistics contains more details.
-    *
-    * When present the length should always be (number of pages *
-    * (max_repetition_level + 1)) elements.
-    *
-    * Element 0 is the first element of the histogram for the first page.
-    * Element (max_repetition_level + 1) is the first element of the histogram
-    * for the second page.
-    *
-    */
-   std::vector<int64_t>  repetition_level_histograms;
-   /**
-    * Same as repetition_level_histograms except for definitions levels.
-    *
-    */
-   std::vector<int64_t>  definition_level_histograms;
-
-   _ColumnIndex__isset __isset;
-
-   void __set_null_pages(const std::vector<bool> & val);
-
-   void __set_min_values(const std::vector<std::string> & val);
-
-   void __set_max_values(const std::vector<std::string> & val);
-
-   void __set_boundary_order(const BoundaryOrder::type val);
-
-   void __set_null_counts(const std::vector<int64_t> & val);
-
-   void __set_repetition_level_histograms(const std::vector<int64_t> & val);
-
-   void __set_definition_level_histograms(const std::vector<int64_t> & val);
-
-   bool operator == (const ColumnIndex & rhs) const;
-   bool operator != (const ColumnIndex &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const ColumnIndex & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(ColumnIndex &a, ColumnIndex &b);
-
- std::ostream& operator<<(std::ostream& out, const ColumnIndex& obj);
-
- typedef struct _AesGcmV1__isset {
-   _AesGcmV1__isset() : aad_prefix(false), aad_file_unique(false), supply_aad_prefix(false) {}
-   bool aad_prefix :1;
-   bool aad_file_unique :1;
-   bool supply_aad_prefix :1;
- } _AesGcmV1__isset;
-
- class AesGcmV1 {
-  public:
-
-   AesGcmV1(const AesGcmV1&);
-   AesGcmV1(AesGcmV1&&) noexcept;
-   AesGcmV1& operator=(const AesGcmV1&);
-   AesGcmV1& operator=(AesGcmV1&&) noexcept;
-   AesGcmV1() noexcept;
-
-   virtual ~AesGcmV1() noexcept;
-   /**
-    * AAD prefix *
-    */
-   std::string aad_prefix;
-   /**
-    * Unique file identifier part of AAD suffix *
-    */
-   std::string aad_file_unique;
-   /**
-    * In files encrypted with AAD prefix without storing it,
-    * readers must supply the prefix *
-    */
-   bool supply_aad_prefix;
-
-   _AesGcmV1__isset __isset;
-
-   void __set_aad_prefix(const std::string& val);
-
-   void __set_aad_file_unique(const std::string& val);
-
-   void __set_supply_aad_prefix(const bool val);
-
-   bool operator == (const AesGcmV1 & rhs) const;
-   bool operator != (const AesGcmV1 &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const AesGcmV1 & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(AesGcmV1 &a, AesGcmV1 &b);
-
- std::ostream& operator<<(std::ostream& out, const AesGcmV1& obj);
-
- typedef struct _AesGcmCtrV1__isset {
-   _AesGcmCtrV1__isset() : aad_prefix(false), aad_file_unique(false), supply_aad_prefix(false) {}
-   bool aad_prefix :1;
-   bool aad_file_unique :1;
-   bool supply_aad_prefix :1;
- } _AesGcmCtrV1__isset;
-
- class AesGcmCtrV1 {
-  public:
-
-   AesGcmCtrV1(const AesGcmCtrV1&);
-   AesGcmCtrV1(AesGcmCtrV1&&) noexcept;
-   AesGcmCtrV1& operator=(const AesGcmCtrV1&);
-   AesGcmCtrV1& operator=(AesGcmCtrV1&&) noexcept;
-   AesGcmCtrV1() noexcept;
-
-   virtual ~AesGcmCtrV1() noexcept;
-   /**
-    * AAD prefix *
-    */
-   std::string aad_prefix;
-   /**
-    * Unique file identifier part of AAD suffix *
-    */
-   std::string aad_file_unique;
-   /**
-    * In files encrypted with AAD prefix without storing it,
-    * readers must supply the prefix *
-    */
-   bool supply_aad_prefix;
-
-   _AesGcmCtrV1__isset __isset;
-
-   void __set_aad_prefix(const std::string& val);
-
-   void __set_aad_file_unique(const std::string& val);
-
-   void __set_supply_aad_prefix(const bool val);
-
-   bool operator == (const AesGcmCtrV1 & rhs) const;
-   bool operator != (const AesGcmCtrV1 &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const AesGcmCtrV1 & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(AesGcmCtrV1 &a, AesGcmCtrV1 &b);
-
- std::ostream& operator<<(std::ostream& out, const AesGcmCtrV1& obj);
-
- typedef struct _EncryptionAlgorithm__isset {
-   _EncryptionAlgorithm__isset() : AES_GCM_V1(false), AES_GCM_CTR_V1(false) {}
-   bool AES_GCM_V1 :1;
-   bool AES_GCM_CTR_V1 :1;
- } _EncryptionAlgorithm__isset;
-
- class EncryptionAlgorithm {
-  public:
-
-   EncryptionAlgorithm(const EncryptionAlgorithm&);
-   EncryptionAlgorithm(EncryptionAlgorithm&&) noexcept;
-   EncryptionAlgorithm& operator=(const EncryptionAlgorithm&);
-   EncryptionAlgorithm& operator=(EncryptionAlgorithm&&) noexcept;
-   EncryptionAlgorithm() noexcept;
-
-   virtual ~EncryptionAlgorithm() noexcept;
-   AesGcmV1 AES_GCM_V1;
-   AesGcmCtrV1 AES_GCM_CTR_V1;
-
-   _EncryptionAlgorithm__isset __isset;
-
-   void __set_AES_GCM_V1(const AesGcmV1& val);
-
-   void __set_AES_GCM_CTR_V1(const AesGcmCtrV1& val);
-
-   bool operator == (const EncryptionAlgorithm & rhs) const;
-   bool operator != (const EncryptionAlgorithm &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const EncryptionAlgorithm & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(EncryptionAlgorithm &a, EncryptionAlgorithm &b);
-
- std::ostream& operator<<(std::ostream& out, const EncryptionAlgorithm& obj);
-
- typedef struct _FileMetaData__isset {
-   _FileMetaData__isset() : key_value_metadata(false), created_by(false), column_orders(false), encryption_algorithm(false), footer_signing_key_metadata(false) {}
-   bool key_value_metadata :1;
-   bool created_by :1;
-   bool column_orders :1;
-   bool encryption_algorithm :1;
-   bool footer_signing_key_metadata :1;
- } _FileMetaData__isset;
-
- /**
-  * Description for file metadata
-  */
- class FileMetaData {
-  public:
-
-   FileMetaData(const FileMetaData&);
-   FileMetaData(FileMetaData&&) noexcept;
-   FileMetaData& operator=(const FileMetaData&);
-   FileMetaData& operator=(FileMetaData&&) noexcept;
-   FileMetaData() noexcept;
-
-   virtual ~FileMetaData() noexcept;
-   /**
-    * Version of this file *
-    */
-   int32_t version;
-   /**
-    * Parquet schema for this file.  This schema contains metadata for all the columns.
-    * The schema is represented as a tree with a single root.  The nodes of the tree
-    * are flattened to a list by doing a depth-first traversal.
-    * The column metadata contains the path in the schema for that column which can be
-    * used to map columns to nodes in the schema.
-    * The first element is the root *
-    */
-   std::vector<SchemaElement>  schema;
-   /**
-    * Number of rows in this file *
-    */
-   int64_t num_rows;
-   /**
-    * Row groups in this file *
-    */
-   std::vector<RowGroup>  row_groups;
-   /**
-    * Optional key/value metadata *
-    */
-   std::vector<KeyValue>  key_value_metadata;
-   /**
-    * String for application that wrote this file.  This should be in the format
-    * <Application> version <App Version> (build <App Build Hash>).
-    * e.g. impala version 1.0 (build 6cf94d29b2b7115df4de2c06e2ab4326d721eb55)
-    *
-    */
-   std::string created_by;
-   /**
-    * Sort order used for the min_value and max_value fields in the Statistics
-    * objects and the min_values and max_values fields in the ColumnIndex
-    * objects of each column in this file. Sort orders are listed in the order
-    * matching the columns in the schema. The indexes are not necessary the same
-    * though, because only leaf nodes of the schema are represented in the list
-    * of sort orders.
-    *
-    * Without column_orders, the meaning of the min_value and max_value fields
-    * in the Statistics object and the ColumnIndex object is undefined. To ensure
-    * well-defined behaviour, if these fields are written to a Parquet file,
-    * column_orders must be written as well.
-    *
-    * The obsolete min and max fields in the Statistics object are always sorted
-    * by signed comparison regardless of column_orders.
-    */
-   std::vector<ColumnOrder>  column_orders;
-   /**
-    * Encryption algorithm. This field is set only in encrypted files
-    * with plaintext footer. Files with encrypted footer store algorithm id
-    * in FileCryptoMetaData structure.
-    */
-   EncryptionAlgorithm encryption_algorithm;
-   /**
-    * Retrieval metadata of key used for signing the footer.
-    * Used only in encrypted files with plaintext footer.
-    */
-   std::string footer_signing_key_metadata;
-
-   _FileMetaData__isset __isset;
-
-   void __set_version(const int32_t val);
-
-   void __set_schema(const std::vector<SchemaElement> & val);
-
-   void __set_num_rows(const int64_t val);
-
-   void __set_row_groups(const std::vector<RowGroup> & val);
-
-   void __set_key_value_metadata(const std::vector<KeyValue> & val);
-
-   void __set_created_by(const std::string& val);
-
-   void __set_column_orders(const std::vector<ColumnOrder> & val);
-
-   void __set_encryption_algorithm(const EncryptionAlgorithm& val);
-
-   void __set_footer_signing_key_metadata(const std::string& val);
-
-   bool operator == (const FileMetaData & rhs) const;
-   bool operator != (const FileMetaData &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const FileMetaData & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(FileMetaData &a, FileMetaData &b);
-
- std::ostream& operator<<(std::ostream& out, const FileMetaData& obj);
-
- typedef struct _FileCryptoMetaData__isset {
-   _FileCryptoMetaData__isset() : key_metadata(false) {}
-   bool key_metadata :1;
- } _FileCryptoMetaData__isset;
-
- /**
-  * Crypto metadata for files with encrypted footer *
-  */
- class FileCryptoMetaData {
-  public:
-
-   FileCryptoMetaData(const FileCryptoMetaData&);
-   FileCryptoMetaData(FileCryptoMetaData&&) noexcept;
-   FileCryptoMetaData& operator=(const FileCryptoMetaData&);
-   FileCryptoMetaData& operator=(FileCryptoMetaData&&) noexcept;
-   FileCryptoMetaData() noexcept;
-
-   virtual ~FileCryptoMetaData() noexcept;
-   /**
-    * Encryption algorithm. This field is only used for files
-    * with encrypted footer. Files with plaintext footer store algorithm id
-    * inside footer (FileMetaData structure).
-    */
-   EncryptionAlgorithm encryption_algorithm;
-   /**
-    * Retrieval metadata of key used for encryption of footer,
-    * and (possibly) columns *
-    */
-   std::string key_metadata;
-
-   _FileCryptoMetaData__isset __isset;
-
-   void __set_encryption_algorithm(const EncryptionAlgorithm& val);
-
-   void __set_key_metadata(const std::string& val);
-
-   bool operator == (const FileCryptoMetaData & rhs) const;
-   bool operator != (const FileCryptoMetaData &rhs) const {
-     return !(*this == rhs);
-   }
-
-   bool operator < (const FileCryptoMetaData & ) const;
-
-   template <class Protocol_>
-   uint32_t read(Protocol_* iprot);
-   template <class Protocol_>
-   uint32_t write(Protocol_* oprot) const;
-
-   virtual void printTo(std::ostream& out) const;
- };
-
- void swap(FileCryptoMetaData &a, FileCryptoMetaData &b);
-
- std::ostream& operator<<(std::ostream& out, const FileCryptoMetaData& obj);
-
- }} // namespace
-
- #include "parquet_types.tcc"
-
- #endif
+typedef struct _LogicalType__isset {
+  _LogicalType__isset() : STRING(false), MAP(false), LIST(false), ENUM(false), DECIMAL(false), DATE(false), TIME(false), TIMESTAMP(false), INTEGER(false), UNKNOWN(false), JSON(false), BSON(false), UUID(false), FLOAT16(false), VARIANT(false), GEOMETRY(false), GEOGRAPHY(false) {}
+  bool STRING :1;
+  bool MAP :1;
+  bool LIST :1;
+  bool ENUM :1;
+  bool DECIMAL :1;
+  bool DATE :1;
+  bool TIME :1;
+  bool TIMESTAMP :1;
+  bool INTEGER :1;
+  bool UNKNOWN :1;
+  bool JSON :1;
+  bool BSON :1;
+  bool UUID :1;
+  bool FLOAT16 :1;
+  bool VARIANT :1;
+  bool GEOMETRY :1;
+  bool GEOGRAPHY :1;
+} _LogicalType__isset;
+
+/**
+ * LogicalType annotations to replace ConvertedType.
+ * 
+ * To maintain compatibility, implementations using LogicalType for a
+ * SchemaElement must also set the corresponding ConvertedType (if any)
+ * from the following table.
+ */
+class LogicalType {
+ public:
+
+  LogicalType(const LogicalType&);
+  LogicalType(LogicalType&&) noexcept;
+  LogicalType& operator=(const LogicalType&);
+  LogicalType& operator=(LogicalType&&) noexcept;
+  LogicalType() noexcept;
+
+  virtual ~LogicalType() noexcept;
+  StringType STRING;
+  MapType MAP;
+  ListType LIST;
+  EnumType ENUM;
+  DecimalType DECIMAL;
+  DateType DATE;
+  TimeType TIME;
+  TimestampType TIMESTAMP;
+  IntType INTEGER;
+  NullType UNKNOWN;
+  JsonType JSON;
+  BsonType BSON;
+  UUIDType UUID;
+  Float16Type FLOAT16;
+  VariantType VARIANT;
+  GeometryType GEOMETRY;
+  GeographyType GEOGRAPHY;
+
+  _LogicalType__isset __isset;
+
+  void __set_STRING(const StringType& val);
+
+  void __set_MAP(const MapType& val);
+
+  void __set_LIST(const ListType& val);
+
+  void __set_ENUM(const EnumType& val);
+
+  void __set_DECIMAL(const DecimalType& val);
+
+  void __set_DATE(const DateType& val);
+
+  void __set_TIME(const TimeType& val);
+
+  void __set_TIMESTAMP(const TimestampType& val);
+
+  void __set_INTEGER(const IntType& val);
+
+  void __set_UNKNOWN(const NullType& val);
+
+  void __set_JSON(const JsonType& val);
+
+  void __set_BSON(const BsonType& val);
+
+  void __set_UUID(const UUIDType& val);
+
+  void __set_FLOAT16(const Float16Type& val);
+
+  void __set_VARIANT(const VariantType& val);
+
+  void __set_GEOMETRY(const GeometryType& val);
+
+  void __set_GEOGRAPHY(const GeographyType& val);
+
+  bool operator == (const LogicalType & rhs) const;
+  bool operator != (const LogicalType &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const LogicalType & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(LogicalType &a, LogicalType &b);
+
+std::ostream& operator<<(std::ostream& out, const LogicalType& obj);
+
+typedef struct _SchemaElement__isset {
+  _SchemaElement__isset() : type(false), type_length(false), repetition_type(false), num_children(false), converted_type(false), scale(false), precision(false), field_id(false), logicalType(false) {}
+  bool type :1;
+  bool type_length :1;
+  bool repetition_type :1;
+  bool num_children :1;
+  bool converted_type :1;
+  bool scale :1;
+  bool precision :1;
+  bool field_id :1;
+  bool logicalType :1;
+} _SchemaElement__isset;
+
+/**
+ * Represents a element inside a schema definition.
+ *  - if it is a group (inner node) then type is undefined and num_children is defined
+ *  - if it is a primitive type (leaf) then type is defined and num_children is undefined
+ * the nodes are listed in depth first traversal order.
+ */
+class SchemaElement {
+ public:
+
+  SchemaElement(const SchemaElement&);
+  SchemaElement(SchemaElement&&) noexcept;
+  SchemaElement& operator=(const SchemaElement&);
+  SchemaElement& operator=(SchemaElement&&) noexcept;
+  SchemaElement() noexcept;
+
+  virtual ~SchemaElement() noexcept;
+  /**
+   * Data type for this field. Not set if the current element is a non-leaf node
+   * 
+   * @see Type
+   */
+  Type::type type;
+  /**
+   * If type is FIXED_LEN_BYTE_ARRAY, this is the byte length of the values.
+   * Otherwise, if specified, this is the maximum bit length to store any of the values.
+   * (e.g. a low cardinality INT col could have this set to 3).  Note that this is
+   * in the schema, and therefore fixed for the entire file.
+   */
+  int32_t type_length;
+  /**
+   * repetition of the field. The root of the schema does not have a repetition_type.
+   * All other nodes must have one
+   * 
+   * @see FieldRepetitionType
+   */
+  FieldRepetitionType::type repetition_type;
+  /**
+   * Name of the field in the schema
+   */
+  std::string name;
+  /**
+   * Nested fields.  Since thrift does not support nested fields,
+   * the nesting is flattened to a single list by a depth-first traversal.
+   * The children count is used to construct the nested relationship.
+   * This field is not set when the element is a primitive type
+   */
+  int32_t num_children;
+  /**
+   * DEPRECATED: When the schema is the result of a conversion from another model.
+   * Used to record the original type to help with cross conversion.
+   * 
+   * This is superseded by logicalType.
+   * 
+   * @see ConvertedType
+   */
+  ConvertedType::type converted_type;
+  /**
+   * DEPRECATED: Used when this column contains decimal data.
+   * See the DECIMAL converted type for more details.
+   * 
+   * This is superseded by using the DecimalType annotation in logicalType.
+   */
+  int32_t scale;
+  int32_t precision;
+  /**
+   * When the original schema supports field ids, this will save the
+   * original field id in the parquet schema
+   */
+  int32_t field_id;
+  /**
+   * The logical type of this SchemaElement
+   * 
+   * LogicalType replaces ConvertedType, but ConvertedType is still required
+   * for some logical types to ensure forward-compatibility in format v1.
+   */
+  LogicalType logicalType;
+
+  _SchemaElement__isset __isset;
+
+  void __set_type(const Type::type val);
+
+  void __set_type_length(const int32_t val);
+
+  void __set_repetition_type(const FieldRepetitionType::type val);
+
+  void __set_name(const std::string& val);
+
+  void __set_num_children(const int32_t val);
+
+  void __set_converted_type(const ConvertedType::type val);
+
+  void __set_scale(const int32_t val);
+
+  void __set_precision(const int32_t val);
+
+  void __set_field_id(const int32_t val);
+
+  void __set_logicalType(const LogicalType& val);
+
+  bool operator == (const SchemaElement & rhs) const;
+  bool operator != (const SchemaElement &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const SchemaElement & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(SchemaElement &a, SchemaElement &b);
+
+std::ostream& operator<<(std::ostream& out, const SchemaElement& obj);
+
+typedef struct _DataPageHeader__isset {
+  _DataPageHeader__isset() : statistics(false) {}
+  bool statistics :1;
+} _DataPageHeader__isset;
+
+/**
+ * Data page header
+ */
+class DataPageHeader {
+ public:
+
+  DataPageHeader(const DataPageHeader&);
+  DataPageHeader(DataPageHeader&&) noexcept;
+  DataPageHeader& operator=(const DataPageHeader&);
+  DataPageHeader& operator=(DataPageHeader&&) noexcept;
+  DataPageHeader() noexcept;
+
+  virtual ~DataPageHeader() noexcept;
+  /**
+   * Number of values, including NULLs, in this data page.
+   * 
+   * If a OffsetIndex is present, a page must begin at a row
+   * boundary (repetition_level = 0). Otherwise, pages may begin
+   * within a row (repetition_level > 0).
+   * 
+   */
+  int32_t num_values;
+  /**
+   * Encoding used for this data page *
+   * 
+   * @see Encoding
+   */
+  Encoding::type encoding;
+  /**
+   * Encoding used for definition levels *
+   * 
+   * @see Encoding
+   */
+  Encoding::type definition_level_encoding;
+  /**
+   * Encoding used for repetition levels *
+   * 
+   * @see Encoding
+   */
+  Encoding::type repetition_level_encoding;
+  /**
+   * Optional statistics for the data in this page *
+   */
+  Statistics statistics;
+
+  _DataPageHeader__isset __isset;
+
+  void __set_num_values(const int32_t val);
+
+  void __set_encoding(const Encoding::type val);
+
+  void __set_definition_level_encoding(const Encoding::type val);
+
+  void __set_repetition_level_encoding(const Encoding::type val);
+
+  void __set_statistics(const Statistics& val);
+
+  bool operator == (const DataPageHeader & rhs) const;
+  bool operator != (const DataPageHeader &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const DataPageHeader & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(DataPageHeader &a, DataPageHeader &b);
+
+std::ostream& operator<<(std::ostream& out, const DataPageHeader& obj);
+
+
+class IndexPageHeader {
+ public:
+
+  IndexPageHeader(const IndexPageHeader&) noexcept;
+  IndexPageHeader(IndexPageHeader&&) noexcept;
+  IndexPageHeader& operator=(const IndexPageHeader&) noexcept;
+  IndexPageHeader& operator=(IndexPageHeader&&) noexcept;
+  IndexPageHeader() noexcept;
+
+  virtual ~IndexPageHeader() noexcept;
+
+  bool operator == (const IndexPageHeader & /* rhs */) const;
+  bool operator != (const IndexPageHeader &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const IndexPageHeader & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(IndexPageHeader &a, IndexPageHeader &b);
+
+std::ostream& operator<<(std::ostream& out, const IndexPageHeader& obj);
+
+typedef struct _DictionaryPageHeader__isset {
+  _DictionaryPageHeader__isset() : is_sorted(false) {}
+  bool is_sorted :1;
+} _DictionaryPageHeader__isset;
+
+/**
+ * The dictionary page must be placed at the first position of the column chunk
+ * if it is partly or completely dictionary encoded. At most one dictionary page
+ * can be placed in a column chunk.
+ * 
+ */
+class DictionaryPageHeader {
+ public:
+
+  DictionaryPageHeader(const DictionaryPageHeader&) noexcept;
+  DictionaryPageHeader(DictionaryPageHeader&&) noexcept;
+  DictionaryPageHeader& operator=(const DictionaryPageHeader&) noexcept;
+  DictionaryPageHeader& operator=(DictionaryPageHeader&&) noexcept;
+  DictionaryPageHeader() noexcept;
+
+  virtual ~DictionaryPageHeader() noexcept;
+  /**
+   * Number of values in the dictionary *
+   */
+  int32_t num_values;
+  /**
+   * Encoding using this dictionary page *
+   * 
+   * @see Encoding
+   */
+  Encoding::type encoding;
+  /**
+   * If true, the entries in the dictionary are sorted in ascending order *
+   */
+  bool is_sorted;
+
+  _DictionaryPageHeader__isset __isset;
+
+  void __set_num_values(const int32_t val);
+
+  void __set_encoding(const Encoding::type val);
+
+  void __set_is_sorted(const bool val);
+
+  bool operator == (const DictionaryPageHeader & rhs) const;
+  bool operator != (const DictionaryPageHeader &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const DictionaryPageHeader & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(DictionaryPageHeader &a, DictionaryPageHeader &b);
+
+std::ostream& operator<<(std::ostream& out, const DictionaryPageHeader& obj);
+
+typedef struct _DataPageHeaderV2__isset {
+  _DataPageHeaderV2__isset() : is_compressed(true), statistics(false) {}
+  bool is_compressed :1;
+  bool statistics :1;
+} _DataPageHeaderV2__isset;
+
+/**
+ * New page format allowing reading levels without decompressing the data
+ * Repetition and definition levels are uncompressed
+ * The remaining section containing the data is compressed if is_compressed is true
+ * 
+ */
+class DataPageHeaderV2 {
+ public:
+
+  DataPageHeaderV2(const DataPageHeaderV2&);
+  DataPageHeaderV2(DataPageHeaderV2&&) noexcept;
+  DataPageHeaderV2& operator=(const DataPageHeaderV2&);
+  DataPageHeaderV2& operator=(DataPageHeaderV2&&) noexcept;
+  DataPageHeaderV2() noexcept;
+
+  virtual ~DataPageHeaderV2() noexcept;
+  /**
+   * Number of values, including NULLs, in this data page. *
+   */
+  int32_t num_values;
+  /**
+   * Number of NULL values, in this data page.
+   * Number of non-null = num_values - num_nulls which is also the number of values in the data section *
+   */
+  int32_t num_nulls;
+  /**
+   * Number of rows in this data page. Every page must begin at a
+   * row boundary (repetition_level = 0): rows must **not** be
+   * split across page boundaries when using V2 data pages.
+   * 
+   */
+  int32_t num_rows;
+  /**
+   * Encoding used for data in this page *
+   * 
+   * @see Encoding
+   */
+  Encoding::type encoding;
+  /**
+   * Length of the definition levels
+   */
+  int32_t definition_levels_byte_length;
+  /**
+   * Length of the repetition levels
+   */
+  int32_t repetition_levels_byte_length;
+  /**
+   * Whether the values are compressed.
+   * Which means the section of the page between
+   * definition_levels_byte_length + repetition_levels_byte_length + 1 and compressed_page_size (included)
+   * is compressed with the compression_codec.
+   * If missing it is considered compressed
+   */
+  bool is_compressed;
+  /**
+   * Optional statistics for the data in this page *
+   */
+  Statistics statistics;
+
+  _DataPageHeaderV2__isset __isset;
+
+  void __set_num_values(const int32_t val);
+
+  void __set_num_nulls(const int32_t val);
+
+  void __set_num_rows(const int32_t val);
+
+  void __set_encoding(const Encoding::type val);
+
+  void __set_definition_levels_byte_length(const int32_t val);
+
+  void __set_repetition_levels_byte_length(const int32_t val);
+
+  void __set_is_compressed(const bool val);
+
+  void __set_statistics(const Statistics& val);
+
+  bool operator == (const DataPageHeaderV2 & rhs) const;
+  bool operator != (const DataPageHeaderV2 &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const DataPageHeaderV2 & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(DataPageHeaderV2 &a, DataPageHeaderV2 &b);
+
+std::ostream& operator<<(std::ostream& out, const DataPageHeaderV2& obj);
+
+
+/**
+ * Block-based algorithm type annotation. *
+ */
+class SplitBlockAlgorithm {
+ public:
+
+  SplitBlockAlgorithm(const SplitBlockAlgorithm&) noexcept;
+  SplitBlockAlgorithm(SplitBlockAlgorithm&&) noexcept;
+  SplitBlockAlgorithm& operator=(const SplitBlockAlgorithm&) noexcept;
+  SplitBlockAlgorithm& operator=(SplitBlockAlgorithm&&) noexcept;
+  SplitBlockAlgorithm() noexcept;
+
+  virtual ~SplitBlockAlgorithm() noexcept;
+
+  bool operator == (const SplitBlockAlgorithm & /* rhs */) const;
+  bool operator != (const SplitBlockAlgorithm &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const SplitBlockAlgorithm & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(SplitBlockAlgorithm &a, SplitBlockAlgorithm &b);
+
+std::ostream& operator<<(std::ostream& out, const SplitBlockAlgorithm& obj);
+
+typedef struct _BloomFilterAlgorithm__isset {
+  _BloomFilterAlgorithm__isset() : BLOCK(false) {}
+  bool BLOCK :1;
+} _BloomFilterAlgorithm__isset;
+
+/**
+ * The algorithm used in Bloom filter. *
+ */
+class BloomFilterAlgorithm {
+ public:
+
+  BloomFilterAlgorithm(const BloomFilterAlgorithm&) noexcept;
+  BloomFilterAlgorithm(BloomFilterAlgorithm&&) noexcept;
+  BloomFilterAlgorithm& operator=(const BloomFilterAlgorithm&) noexcept;
+  BloomFilterAlgorithm& operator=(BloomFilterAlgorithm&&) noexcept;
+  BloomFilterAlgorithm() noexcept;
+
+  virtual ~BloomFilterAlgorithm() noexcept;
+  /**
+   * Block-based Bloom filter. *
+   */
+  SplitBlockAlgorithm BLOCK;
+
+  _BloomFilterAlgorithm__isset __isset;
+
+  void __set_BLOCK(const SplitBlockAlgorithm& val);
+
+  bool operator == (const BloomFilterAlgorithm & rhs) const;
+  bool operator != (const BloomFilterAlgorithm &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const BloomFilterAlgorithm & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(BloomFilterAlgorithm &a, BloomFilterAlgorithm &b);
+
+std::ostream& operator<<(std::ostream& out, const BloomFilterAlgorithm& obj);
+
+
+/**
+ * Hash strategy type annotation. xxHash is an extremely fast non-cryptographic hash
+ * algorithm. It uses 64 bits version of xxHash.
+ * 
+ */
+class XxHash {
+ public:
+
+  XxHash(const XxHash&) noexcept;
+  XxHash(XxHash&&) noexcept;
+  XxHash& operator=(const XxHash&) noexcept;
+  XxHash& operator=(XxHash&&) noexcept;
+  XxHash() noexcept;
+
+  virtual ~XxHash() noexcept;
+
+  bool operator == (const XxHash & /* rhs */) const;
+  bool operator != (const XxHash &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const XxHash & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(XxHash &a, XxHash &b);
+
+std::ostream& operator<<(std::ostream& out, const XxHash& obj);
+
+typedef struct _BloomFilterHash__isset {
+  _BloomFilterHash__isset() : XXHASH(false) {}
+  bool XXHASH :1;
+} _BloomFilterHash__isset;
+
+/**
+ * The hash function used in Bloom filter. This function takes the hash of a column value
+ * using plain encoding.
+ * 
+ */
+class BloomFilterHash {
+ public:
+
+  BloomFilterHash(const BloomFilterHash&) noexcept;
+  BloomFilterHash(BloomFilterHash&&) noexcept;
+  BloomFilterHash& operator=(const BloomFilterHash&) noexcept;
+  BloomFilterHash& operator=(BloomFilterHash&&) noexcept;
+  BloomFilterHash() noexcept;
+
+  virtual ~BloomFilterHash() noexcept;
+  /**
+   * xxHash Strategy. *
+   */
+  XxHash XXHASH;
+
+  _BloomFilterHash__isset __isset;
+
+  void __set_XXHASH(const XxHash& val);
+
+  bool operator == (const BloomFilterHash & rhs) const;
+  bool operator != (const BloomFilterHash &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const BloomFilterHash & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(BloomFilterHash &a, BloomFilterHash &b);
+
+std::ostream& operator<<(std::ostream& out, const BloomFilterHash& obj);
+
+
+/**
+ * The compression used in the Bloom filter.
+ * 
+ */
+class Uncompressed {
+ public:
+
+  Uncompressed(const Uncompressed&) noexcept;
+  Uncompressed(Uncompressed&&) noexcept;
+  Uncompressed& operator=(const Uncompressed&) noexcept;
+  Uncompressed& operator=(Uncompressed&&) noexcept;
+  Uncompressed() noexcept;
+
+  virtual ~Uncompressed() noexcept;
+
+  bool operator == (const Uncompressed & /* rhs */) const;
+  bool operator != (const Uncompressed &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const Uncompressed & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(Uncompressed &a, Uncompressed &b);
+
+std::ostream& operator<<(std::ostream& out, const Uncompressed& obj);
+
+typedef struct _BloomFilterCompression__isset {
+  _BloomFilterCompression__isset() : UNCOMPRESSED(false) {}
+  bool UNCOMPRESSED :1;
+} _BloomFilterCompression__isset;
+
+class BloomFilterCompression {
+ public:
+
+  BloomFilterCompression(const BloomFilterCompression&) noexcept;
+  BloomFilterCompression(BloomFilterCompression&&) noexcept;
+  BloomFilterCompression& operator=(const BloomFilterCompression&) noexcept;
+  BloomFilterCompression& operator=(BloomFilterCompression&&) noexcept;
+  BloomFilterCompression() noexcept;
+
+  virtual ~BloomFilterCompression() noexcept;
+  Uncompressed UNCOMPRESSED;
+
+  _BloomFilterCompression__isset __isset;
+
+  void __set_UNCOMPRESSED(const Uncompressed& val);
+
+  bool operator == (const BloomFilterCompression & rhs) const;
+  bool operator != (const BloomFilterCompression &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const BloomFilterCompression & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(BloomFilterCompression &a, BloomFilterCompression &b);
+
+std::ostream& operator<<(std::ostream& out, const BloomFilterCompression& obj);
+
+
+/**
+ * Bloom filter header is stored at beginning of Bloom filter data of each column
+ * and followed by its bitset.
+ * 
+ */
+class BloomFilterHeader {
+ public:
+
+  BloomFilterHeader(const BloomFilterHeader&) noexcept;
+  BloomFilterHeader(BloomFilterHeader&&) noexcept;
+  BloomFilterHeader& operator=(const BloomFilterHeader&) noexcept;
+  BloomFilterHeader& operator=(BloomFilterHeader&&) noexcept;
+  BloomFilterHeader() noexcept;
+
+  virtual ~BloomFilterHeader() noexcept;
+  /**
+   * The size of bitset in bytes *
+   */
+  int32_t numBytes;
+  /**
+   * The algorithm for setting bits. *
+   */
+  BloomFilterAlgorithm algorithm;
+  /**
+   * The hash function used for Bloom filter. *
+   */
+  BloomFilterHash hash;
+  /**
+   * The compression used in the Bloom filter *
+   */
+  BloomFilterCompression compression;
+
+  void __set_numBytes(const int32_t val);
+
+  void __set_algorithm(const BloomFilterAlgorithm& val);
+
+  void __set_hash(const BloomFilterHash& val);
+
+  void __set_compression(const BloomFilterCompression& val);
+
+  bool operator == (const BloomFilterHeader & rhs) const;
+  bool operator != (const BloomFilterHeader &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const BloomFilterHeader & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(BloomFilterHeader &a, BloomFilterHeader &b);
+
+std::ostream& operator<<(std::ostream& out, const BloomFilterHeader& obj);
+
+typedef struct _PageHeader__isset {
+  _PageHeader__isset() : crc(false), data_page_header(false), index_page_header(false), dictionary_page_header(false), data_page_header_v2(false) {}
+  bool crc :1;
+  bool data_page_header :1;
+  bool index_page_header :1;
+  bool dictionary_page_header :1;
+  bool data_page_header_v2 :1;
+} _PageHeader__isset;
+
+class PageHeader {
+ public:
+
+  PageHeader(const PageHeader&);
+  PageHeader(PageHeader&&) noexcept;
+  PageHeader& operator=(const PageHeader&);
+  PageHeader& operator=(PageHeader&&) noexcept;
+  PageHeader() noexcept;
+
+  virtual ~PageHeader() noexcept;
+  /**
+   * the type of the page: indicates which of the *_header fields is set *
+   * 
+   * @see PageType
+   */
+  PageType::type type;
+  /**
+   * Uncompressed page size in bytes (not including this header) *
+   */
+  int32_t uncompressed_page_size;
+  /**
+   * Compressed (and potentially encrypted) page size in bytes, not including this header *
+   */
+  int32_t compressed_page_size;
+  /**
+   * The 32-bit CRC checksum for the page, to be be calculated as follows:
+   * 
+   * - The standard CRC32 algorithm is used (with polynomial 0x04C11DB7,
+   *   the same as in e.g. GZip).
+   * - All page types can have a CRC (v1 and v2 data pages, dictionary pages,
+   *   etc.).
+   * - The CRC is computed on the serialization binary representation of the page
+   *   (as written to disk), excluding the page header. For example, for v1
+   *   data pages, the CRC is computed on the concatenation of repetition levels,
+   *   definition levels and column values (optionally compressed, optionally
+   *   encrypted).
+   * - The CRC computation therefore takes place after any compression
+   *   and encryption steps, if any.
+   * 
+   * If enabled, this allows for disabling checksumming in HDFS if only a few
+   * pages need to be read.
+   */
+  int32_t crc;
+  DataPageHeader data_page_header;
+  IndexPageHeader index_page_header;
+  DictionaryPageHeader dictionary_page_header;
+  DataPageHeaderV2 data_page_header_v2;
+
+  _PageHeader__isset __isset;
+
+  void __set_type(const PageType::type val);
+
+  void __set_uncompressed_page_size(const int32_t val);
+
+  void __set_compressed_page_size(const int32_t val);
+
+  void __set_crc(const int32_t val);
+
+  void __set_data_page_header(const DataPageHeader& val);
+
+  void __set_index_page_header(const IndexPageHeader& val);
+
+  void __set_dictionary_page_header(const DictionaryPageHeader& val);
+
+  void __set_data_page_header_v2(const DataPageHeaderV2& val);
+
+  bool operator == (const PageHeader & rhs) const;
+  bool operator != (const PageHeader &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const PageHeader & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(PageHeader &a, PageHeader &b);
+
+std::ostream& operator<<(std::ostream& out, const PageHeader& obj);
+
+typedef struct _KeyValue__isset {
+  _KeyValue__isset() : value(false) {}
+  bool value :1;
+} _KeyValue__isset;
+
+/**
+ * Wrapper struct to store key values
+ */
+class KeyValue {
+ public:
+
+  KeyValue(const KeyValue&);
+  KeyValue(KeyValue&&) noexcept;
+  KeyValue& operator=(const KeyValue&);
+  KeyValue& operator=(KeyValue&&) noexcept;
+  KeyValue() noexcept;
+
+  virtual ~KeyValue() noexcept;
+  std::string key;
+  std::string value;
+
+  _KeyValue__isset __isset;
+
+  void __set_key(const std::string& val);
+
+  void __set_value(const std::string& val);
+
+  bool operator == (const KeyValue & rhs) const;
+  bool operator != (const KeyValue &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const KeyValue & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(KeyValue &a, KeyValue &b);
+
+std::ostream& operator<<(std::ostream& out, const KeyValue& obj);
+
+
+/**
+ * Sort order within a RowGroup of a leaf column
+ */
+class SortingColumn {
+ public:
+
+  SortingColumn(const SortingColumn&) noexcept;
+  SortingColumn(SortingColumn&&) noexcept;
+  SortingColumn& operator=(const SortingColumn&) noexcept;
+  SortingColumn& operator=(SortingColumn&&) noexcept;
+  SortingColumn() noexcept;
+
+  virtual ~SortingColumn() noexcept;
+  /**
+   * The ordinal position of the column (in this row group) *
+   */
+  int32_t column_idx;
+  /**
+   * If true, indicates this column is sorted in descending order. *
+   */
+  bool descending;
+  /**
+   * If true, nulls will come before non-null values, otherwise,
+   * nulls go at the end.
+   */
+  bool nulls_first;
+
+  void __set_column_idx(const int32_t val);
+
+  void __set_descending(const bool val);
+
+  void __set_nulls_first(const bool val);
+
+  bool operator == (const SortingColumn & rhs) const;
+  bool operator != (const SortingColumn &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const SortingColumn & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(SortingColumn &a, SortingColumn &b);
+
+std::ostream& operator<<(std::ostream& out, const SortingColumn& obj);
+
+
+/**
+ * statistics of a given page type and encoding
+ */
+class PageEncodingStats {
+ public:
+
+  PageEncodingStats(const PageEncodingStats&) noexcept;
+  PageEncodingStats(PageEncodingStats&&) noexcept;
+  PageEncodingStats& operator=(const PageEncodingStats&) noexcept;
+  PageEncodingStats& operator=(PageEncodingStats&&) noexcept;
+  PageEncodingStats() noexcept;
+
+  virtual ~PageEncodingStats() noexcept;
+  /**
+   * the page type (data/dic/...) *
+   * 
+   * @see PageType
+   */
+  PageType::type page_type;
+  /**
+   * encoding of the page *
+   * 
+   * @see Encoding
+   */
+  Encoding::type encoding;
+  /**
+   * number of pages of this type with this encoding *
+   */
+  int32_t count;
+
+  void __set_page_type(const PageType::type val);
+
+  void __set_encoding(const Encoding::type val);
+
+  void __set_count(const int32_t val);
+
+  bool operator == (const PageEncodingStats & rhs) const;
+  bool operator != (const PageEncodingStats &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const PageEncodingStats & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(PageEncodingStats &a, PageEncodingStats &b);
+
+std::ostream& operator<<(std::ostream& out, const PageEncodingStats& obj);
+
+typedef struct _ColumnMetaData__isset {
+  _ColumnMetaData__isset() : key_value_metadata(false), index_page_offset(false), dictionary_page_offset(false), statistics(false), encoding_stats(false), bloom_filter_offset(false), bloom_filter_length(false), size_statistics(false), geospatial_statistics(false) {}
+  bool key_value_metadata :1;
+  bool index_page_offset :1;
+  bool dictionary_page_offset :1;
+  bool statistics :1;
+  bool encoding_stats :1;
+  bool bloom_filter_offset :1;
+  bool bloom_filter_length :1;
+  bool size_statistics :1;
+  bool geospatial_statistics :1;
+} _ColumnMetaData__isset;
+
+/**
+ * Description for column metadata
+ */
+class ColumnMetaData {
+ public:
+
+  ColumnMetaData(const ColumnMetaData&);
+  ColumnMetaData(ColumnMetaData&&) noexcept;
+  ColumnMetaData& operator=(const ColumnMetaData&);
+  ColumnMetaData& operator=(ColumnMetaData&&) noexcept;
+  ColumnMetaData() noexcept;
+
+  virtual ~ColumnMetaData() noexcept;
+  /**
+   * Type of this column *
+   * 
+   * @see Type
+   */
+  Type::type type;
+  /**
+   * Set of all encodings used for this column. The purpose is to validate
+   * whether we can decode those pages. *
+   */
+  std::vector<Encoding::type>  encodings;
+  /**
+   * Path in schema *
+   */
+  std::vector<std::string>  path_in_schema;
+  /**
+   * Compression codec *
+   * 
+   * @see CompressionCodec
+   */
+  CompressionCodec::type codec;
+  /**
+   * Number of values in this column *
+   */
+  int64_t num_values;
+  /**
+   * total byte size of all uncompressed pages in this column chunk (including the headers) *
+   */
+  int64_t total_uncompressed_size;
+  /**
+   * total byte size of all compressed, and potentially encrypted, pages
+   * in this column chunk (including the headers) *
+   */
+  int64_t total_compressed_size;
+  /**
+   * Optional key/value metadata *
+   */
+  std::vector<KeyValue>  key_value_metadata;
+  /**
+   * Byte offset from beginning of file to first data page *
+   */
+  int64_t data_page_offset;
+  /**
+   * Byte offset from beginning of file to root index page *
+   */
+  int64_t index_page_offset;
+  /**
+   * Byte offset from the beginning of file to first (only) dictionary page *
+   */
+  int64_t dictionary_page_offset;
+  /**
+   * optional statistics for this column chunk
+   */
+  Statistics statistics;
+  /**
+   * Set of all encodings used for pages in this column chunk.
+   * This information can be used to determine if all data pages are
+   * dictionary encoded for example *
+   */
+  std::vector<PageEncodingStats>  encoding_stats;
+  /**
+   * Byte offset from beginning of file to Bloom filter data. *
+   */
+  int64_t bloom_filter_offset;
+  /**
+   * Size of Bloom filter data including the serialized header, in bytes.
+   * Added in 2.10 so readers may not read this field from old files and
+   * it can be obtained after the BloomFilterHeader has been deserialized.
+   * Writers should write this field so readers can read the bloom filter
+   * in a single I/O.
+   */
+  int32_t bloom_filter_length;
+  /**
+   * Optional statistics to help estimate total memory when converted to in-memory
+   * representations. The histograms contained in these statistics can
+   * also be useful in some cases for more fine-grained nullability/list length
+   * filter pushdown.
+   */
+  SizeStatistics size_statistics;
+  /**
+   * Optional statistics specific for Geometry and Geography logical types
+   */
+  GeospatialStatistics geospatial_statistics;
+
+  _ColumnMetaData__isset __isset;
+
+  void __set_type(const Type::type val);
+
+  void __set_encodings(const std::vector<Encoding::type> & val);
+
+  void __set_path_in_schema(const std::vector<std::string> & val);
+
+  void __set_codec(const CompressionCodec::type val);
+
+  void __set_num_values(const int64_t val);
+
+  void __set_total_uncompressed_size(const int64_t val);
+
+  void __set_total_compressed_size(const int64_t val);
+
+  void __set_key_value_metadata(const std::vector<KeyValue> & val);
+
+  void __set_data_page_offset(const int64_t val);
+
+  void __set_index_page_offset(const int64_t val);
+
+  void __set_dictionary_page_offset(const int64_t val);
+
+  void __set_statistics(const Statistics& val);
+
+  void __set_encoding_stats(const std::vector<PageEncodingStats> & val);
+
+  void __set_bloom_filter_offset(const int64_t val);
+
+  void __set_bloom_filter_length(const int32_t val);
+
+  void __set_size_statistics(const SizeStatistics& val);
+
+  void __set_geospatial_statistics(const GeospatialStatistics& val);
+
+  bool operator == (const ColumnMetaData & rhs) const;
+  bool operator != (const ColumnMetaData &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const ColumnMetaData & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(ColumnMetaData &a, ColumnMetaData &b);
+
+std::ostream& operator<<(std::ostream& out, const ColumnMetaData& obj);
+
+
+class EncryptionWithFooterKey {
+ public:
+
+  EncryptionWithFooterKey(const EncryptionWithFooterKey&) noexcept;
+  EncryptionWithFooterKey(EncryptionWithFooterKey&&) noexcept;
+  EncryptionWithFooterKey& operator=(const EncryptionWithFooterKey&) noexcept;
+  EncryptionWithFooterKey& operator=(EncryptionWithFooterKey&&) noexcept;
+  EncryptionWithFooterKey() noexcept;
+
+  virtual ~EncryptionWithFooterKey() noexcept;
+
+  bool operator == (const EncryptionWithFooterKey & /* rhs */) const;
+  bool operator != (const EncryptionWithFooterKey &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const EncryptionWithFooterKey & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(EncryptionWithFooterKey &a, EncryptionWithFooterKey &b);
+
+std::ostream& operator<<(std::ostream& out, const EncryptionWithFooterKey& obj);
+
+typedef struct _EncryptionWithColumnKey__isset {
+  _EncryptionWithColumnKey__isset() : key_metadata(false) {}
+  bool key_metadata :1;
+} _EncryptionWithColumnKey__isset;
+
+class EncryptionWithColumnKey {
+ public:
+
+  EncryptionWithColumnKey(const EncryptionWithColumnKey&);
+  EncryptionWithColumnKey(EncryptionWithColumnKey&&) noexcept;
+  EncryptionWithColumnKey& operator=(const EncryptionWithColumnKey&);
+  EncryptionWithColumnKey& operator=(EncryptionWithColumnKey&&) noexcept;
+  EncryptionWithColumnKey() noexcept;
+
+  virtual ~EncryptionWithColumnKey() noexcept;
+  /**
+   * Column path in schema *
+   */
+  std::vector<std::string>  path_in_schema;
+  /**
+   * Retrieval metadata of column encryption key *
+   */
+  std::string key_metadata;
+
+  _EncryptionWithColumnKey__isset __isset;
+
+  void __set_path_in_schema(const std::vector<std::string> & val);
+
+  void __set_key_metadata(const std::string& val);
+
+  bool operator == (const EncryptionWithColumnKey & rhs) const;
+  bool operator != (const EncryptionWithColumnKey &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const EncryptionWithColumnKey & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(EncryptionWithColumnKey &a, EncryptionWithColumnKey &b);
+
+std::ostream& operator<<(std::ostream& out, const EncryptionWithColumnKey& obj);
+
+typedef struct _ColumnCryptoMetaData__isset {
+  _ColumnCryptoMetaData__isset() : ENCRYPTION_WITH_FOOTER_KEY(false), ENCRYPTION_WITH_COLUMN_KEY(false) {}
+  bool ENCRYPTION_WITH_FOOTER_KEY :1;
+  bool ENCRYPTION_WITH_COLUMN_KEY :1;
+} _ColumnCryptoMetaData__isset;
+
+class ColumnCryptoMetaData {
+ public:
+
+  ColumnCryptoMetaData(const ColumnCryptoMetaData&);
+  ColumnCryptoMetaData(ColumnCryptoMetaData&&) noexcept;
+  ColumnCryptoMetaData& operator=(const ColumnCryptoMetaData&);
+  ColumnCryptoMetaData& operator=(ColumnCryptoMetaData&&) noexcept;
+  ColumnCryptoMetaData() noexcept;
+
+  virtual ~ColumnCryptoMetaData() noexcept;
+  EncryptionWithFooterKey ENCRYPTION_WITH_FOOTER_KEY;
+  EncryptionWithColumnKey ENCRYPTION_WITH_COLUMN_KEY;
+
+  _ColumnCryptoMetaData__isset __isset;
+
+  void __set_ENCRYPTION_WITH_FOOTER_KEY(const EncryptionWithFooterKey& val);
+
+  void __set_ENCRYPTION_WITH_COLUMN_KEY(const EncryptionWithColumnKey& val);
+
+  bool operator == (const ColumnCryptoMetaData & rhs) const;
+  bool operator != (const ColumnCryptoMetaData &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const ColumnCryptoMetaData & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(ColumnCryptoMetaData &a, ColumnCryptoMetaData &b);
+
+std::ostream& operator<<(std::ostream& out, const ColumnCryptoMetaData& obj);
+
+typedef struct _ColumnChunk__isset {
+  _ColumnChunk__isset() : file_path(false), meta_data(false), offset_index_offset(false), offset_index_length(false), column_index_offset(false), column_index_length(false), crypto_metadata(false), encrypted_column_metadata(false) {}
+  bool file_path :1;
+  bool meta_data :1;
+  bool offset_index_offset :1;
+  bool offset_index_length :1;
+  bool column_index_offset :1;
+  bool column_index_length :1;
+  bool crypto_metadata :1;
+  bool encrypted_column_metadata :1;
+} _ColumnChunk__isset;
+
+class ColumnChunk {
+ public:
+
+  ColumnChunk(const ColumnChunk&);
+  ColumnChunk(ColumnChunk&&) noexcept;
+  ColumnChunk& operator=(const ColumnChunk&);
+  ColumnChunk& operator=(ColumnChunk&&) noexcept;
+  ColumnChunk() noexcept;
+
+  virtual ~ColumnChunk() noexcept;
+  /**
+   * File where column data is stored.  If not set, assumed to be same file as
+   * metadata.  This path is relative to the current file.
+   * 
+   */
+  std::string file_path;
+  /**
+   * Deprecated: Byte offset in file_path to the ColumnMetaData
+   * 
+   * Past use of this field has been inconsistent, with some implementations
+   * using it to point to the ColumnMetaData and some using it to point to
+   * the first page in the column chunk. In many cases, the ColumnMetaData at this
+   * location is wrong. This field is now deprecated and should not be used.
+   * Writers should set this field to 0 if no ColumnMetaData has been written outside
+   * the footer.
+   */
+  int64_t file_offset;
+  /**
+   * Column metadata for this chunk. Some writers may also replicate this at the
+   * location pointed to by file_path/file_offset.
+   * Note: while marked as optional, this field is in fact required by most major
+   * Parquet implementations. As such, writers MUST populate this field.
+   * 
+   */
+  ColumnMetaData meta_data;
+  /**
+   * File offset of ColumnChunk's OffsetIndex *
+   */
+  int64_t offset_index_offset;
+  /**
+   * Size of ColumnChunk's OffsetIndex, in bytes *
+   */
+  int32_t offset_index_length;
+  /**
+   * File offset of ColumnChunk's ColumnIndex *
+   */
+  int64_t column_index_offset;
+  /**
+   * Size of ColumnChunk's ColumnIndex, in bytes *
+   */
+  int32_t column_index_length;
+  /**
+   * Crypto metadata of encrypted columns *
+   */
+  ColumnCryptoMetaData crypto_metadata;
+  /**
+   * Encrypted column metadata for this chunk *
+   */
+  std::string encrypted_column_metadata;
+
+  _ColumnChunk__isset __isset;
+
+  void __set_file_path(const std::string& val);
+
+  void __set_file_offset(const int64_t val);
+
+  void __set_meta_data(const ColumnMetaData& val);
+
+  void __set_offset_index_offset(const int64_t val);
+
+  void __set_offset_index_length(const int32_t val);
+
+  void __set_column_index_offset(const int64_t val);
+
+  void __set_column_index_length(const int32_t val);
+
+  void __set_crypto_metadata(const ColumnCryptoMetaData& val);
+
+  void __set_encrypted_column_metadata(const std::string& val);
+
+  bool operator == (const ColumnChunk & rhs) const;
+  bool operator != (const ColumnChunk &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const ColumnChunk & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(ColumnChunk &a, ColumnChunk &b);
+
+std::ostream& operator<<(std::ostream& out, const ColumnChunk& obj);
+
+typedef struct _RowGroup__isset {
+  _RowGroup__isset() : sorting_columns(false), file_offset(false), total_compressed_size(false), ordinal(false) {}
+  bool sorting_columns :1;
+  bool file_offset :1;
+  bool total_compressed_size :1;
+  bool ordinal :1;
+} _RowGroup__isset;
+
+class RowGroup {
+ public:
+
+  RowGroup(const RowGroup&);
+  RowGroup(RowGroup&&) noexcept;
+  RowGroup& operator=(const RowGroup&);
+  RowGroup& operator=(RowGroup&&) noexcept;
+  RowGroup() noexcept;
+
+  virtual ~RowGroup() noexcept;
+  /**
+   * Metadata for each column chunk in this row group.
+   * This list must have the same order as the SchemaElement list in FileMetaData.
+   * 
+   */
+  std::vector<ColumnChunk>  columns;
+  /**
+   * Total byte size of all the uncompressed column data in this row group *
+   */
+  int64_t total_byte_size;
+  /**
+   * Number of rows in this row group *
+   */
+  int64_t num_rows;
+  /**
+   * If set, specifies a sort ordering of the rows in this RowGroup.
+   * The sorting columns can be a subset of all the columns.
+   */
+  std::vector<SortingColumn>  sorting_columns;
+  /**
+   * Byte offset from beginning of file to first page (data or dictionary)
+   * in this row group *
+   */
+  int64_t file_offset;
+  /**
+   * Total byte size of all compressed (and potentially encrypted) column data
+   * in this row group *
+   */
+  int64_t total_compressed_size;
+  /**
+   * Row group ordinal in the file *
+   */
+  int16_t ordinal;
+
+  _RowGroup__isset __isset;
+
+  void __set_columns(const std::vector<ColumnChunk> & val);
+
+  void __set_total_byte_size(const int64_t val);
+
+  void __set_num_rows(const int64_t val);
+
+  void __set_sorting_columns(const std::vector<SortingColumn> & val);
+
+  void __set_file_offset(const int64_t val);
+
+  void __set_total_compressed_size(const int64_t val);
+
+  void __set_ordinal(const int16_t val);
+
+  bool operator == (const RowGroup & rhs) const;
+  bool operator != (const RowGroup &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const RowGroup & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(RowGroup &a, RowGroup &b);
+
+std::ostream& operator<<(std::ostream& out, const RowGroup& obj);
+
+
+/**
+ * Empty struct to signal the order defined by the physical or logical type
+ */
+class TypeDefinedOrder {
+ public:
+
+  TypeDefinedOrder(const TypeDefinedOrder&) noexcept;
+  TypeDefinedOrder(TypeDefinedOrder&&) noexcept;
+  TypeDefinedOrder& operator=(const TypeDefinedOrder&) noexcept;
+  TypeDefinedOrder& operator=(TypeDefinedOrder&&) noexcept;
+  TypeDefinedOrder() noexcept;
+
+  virtual ~TypeDefinedOrder() noexcept;
+
+  bool operator == (const TypeDefinedOrder & /* rhs */) const;
+  bool operator != (const TypeDefinedOrder &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const TypeDefinedOrder & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(TypeDefinedOrder &a, TypeDefinedOrder &b);
+
+std::ostream& operator<<(std::ostream& out, const TypeDefinedOrder& obj);
+
+typedef struct _ColumnOrder__isset {
+  _ColumnOrder__isset() : TYPE_ORDER(false) {}
+  bool TYPE_ORDER :1;
+} _ColumnOrder__isset;
+
+/**
+ * Union to specify the order used for the min_value and max_value fields for a
+ * column. This union takes the role of an enhanced enum that allows rich
+ * elements (which will be needed for a collation-based ordering in the future).
+ * 
+ * Possible values are:
+ * * TypeDefinedOrder - the column uses the order defined by its logical or
+ *                      physical type (if there is no logical type).
+ * 
+ * If the reader does not support the value of this union, min and max stats
+ * for this column should be ignored.
+ */
+class ColumnOrder {
+ public:
+
+  ColumnOrder(const ColumnOrder&) noexcept;
+  ColumnOrder(ColumnOrder&&) noexcept;
+  ColumnOrder& operator=(const ColumnOrder&) noexcept;
+  ColumnOrder& operator=(ColumnOrder&&) noexcept;
+  ColumnOrder() noexcept;
+
+  virtual ~ColumnOrder() noexcept;
+  /**
+   * The sort orders for logical types are:
+   *   UTF8 - unsigned byte-wise comparison
+   *   INT8 - signed comparison
+   *   INT16 - signed comparison
+   *   INT32 - signed comparison
+   *   INT64 - signed comparison
+   *   UINT8 - unsigned comparison
+   *   UINT16 - unsigned comparison
+   *   UINT32 - unsigned comparison
+   *   UINT64 - unsigned comparison
+   *   DECIMAL - signed comparison of the represented value
+   *   DATE - signed comparison
+   *   TIME_MILLIS - signed comparison
+   *   TIME_MICROS - signed comparison
+   *   TIMESTAMP_MILLIS - signed comparison
+   *   TIMESTAMP_MICROS - signed comparison
+   *   INTERVAL - undefined
+   *   JSON - unsigned byte-wise comparison
+   *   BSON - unsigned byte-wise comparison
+   *   ENUM - unsigned byte-wise comparison
+   *   LIST - undefined
+   *   MAP - undefined
+   *   VARIANT - undefined
+   *   GEOMETRY - undefined
+   *   GEOGRAPHY - undefined
+   * 
+   * In the absence of logical types, the sort order is determined by the physical type:
+   *   BOOLEAN - false, true
+   *   INT32 - signed comparison
+   *   INT64 - signed comparison
+   *   INT96 (only used for legacy timestamps) - undefined
+   *   FLOAT - signed comparison of the represented value (*)
+   *   DOUBLE - signed comparison of the represented value (*)
+   *   BYTE_ARRAY - unsigned byte-wise comparison
+   *   FIXED_LEN_BYTE_ARRAY - unsigned byte-wise comparison
+   * 
+   * (*) Because the sorting order is not specified properly for floating
+   *     point values (relations vs. total ordering) the following
+   *     compatibility rules should be applied when reading statistics:
+   *     - If the min is a NaN, it should be ignored.
+   *     - If the max is a NaN, it should be ignored.
+   *     - If the min is +0, the row group may contain -0 values as well.
+   *     - If the max is -0, the row group may contain +0 values as well.
+   *     - When looking for NaN values, min and max should be ignored.
+   * 
+   *     When writing statistics the following rules should be followed:
+   *     - NaNs should not be written to min or max statistics fields.
+   *     - If the computed max value is zero (whether negative or positive),
+   *       `+0.0` should be written into the max statistics field.
+   *     - If the computed min value is zero (whether negative or positive),
+   *       `-0.0` should be written into the min statistics field.
+   */
+  TypeDefinedOrder TYPE_ORDER;
+
+  _ColumnOrder__isset __isset;
+
+  void __set_TYPE_ORDER(const TypeDefinedOrder& val);
+
+  bool operator == (const ColumnOrder & rhs) const;
+  bool operator != (const ColumnOrder &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const ColumnOrder & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(ColumnOrder &a, ColumnOrder &b);
+
+std::ostream& operator<<(std::ostream& out, const ColumnOrder& obj);
+
+
+class PageLocation {
+ public:
+
+  PageLocation(const PageLocation&) noexcept;
+  PageLocation(PageLocation&&) noexcept;
+  PageLocation& operator=(const PageLocation&) noexcept;
+  PageLocation& operator=(PageLocation&&) noexcept;
+  PageLocation() noexcept;
+
+  virtual ~PageLocation() noexcept;
+  /**
+   * Offset of the page in the file *
+   */
+  int64_t offset;
+  /**
+   * Size of the page, including header. Sum of compressed_page_size and header
+   * length
+   */
+  int32_t compressed_page_size;
+  /**
+   * Index within the RowGroup of the first row of the page. When an
+   * OffsetIndex is present, pages must begin on row boundaries
+   * (repetition_level = 0).
+   */
+  int64_t first_row_index;
+
+  void __set_offset(const int64_t val);
+
+  void __set_compressed_page_size(const int32_t val);
+
+  void __set_first_row_index(const int64_t val);
+
+  bool operator == (const PageLocation & rhs) const;
+  bool operator != (const PageLocation &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const PageLocation & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(PageLocation &a, PageLocation &b);
+
+std::ostream& operator<<(std::ostream& out, const PageLocation& obj);
+
+typedef struct _OffsetIndex__isset {
+  _OffsetIndex__isset() : unencoded_byte_array_data_bytes(false) {}
+  bool unencoded_byte_array_data_bytes :1;
+} _OffsetIndex__isset;
+
+/**
+ * Optional offsets for each data page in a ColumnChunk.
+ * 
+ * Forms part of the page index, along with ColumnIndex.
+ * 
+ * OffsetIndex may be present even if ColumnIndex is not.
+ */
+class OffsetIndex {
+ public:
+
+  OffsetIndex(const OffsetIndex&);
+  OffsetIndex(OffsetIndex&&) noexcept;
+  OffsetIndex& operator=(const OffsetIndex&);
+  OffsetIndex& operator=(OffsetIndex&&) noexcept;
+  OffsetIndex() noexcept;
+
+  virtual ~OffsetIndex() noexcept;
+  /**
+   * PageLocations, ordered by increasing PageLocation.offset. It is required
+   * that page_locations[i].first_row_index < page_locations[i+1].first_row_index.
+   */
+  std::vector<PageLocation>  page_locations;
+  /**
+   * Unencoded/uncompressed size for BYTE_ARRAY types.
+   * 
+   * See documention for unencoded_byte_array_data_bytes in SizeStatistics for
+   * more details on this field.
+   */
+  std::vector<int64_t>  unencoded_byte_array_data_bytes;
+
+  _OffsetIndex__isset __isset;
+
+  void __set_page_locations(const std::vector<PageLocation> & val);
+
+  void __set_unencoded_byte_array_data_bytes(const std::vector<int64_t> & val);
+
+  bool operator == (const OffsetIndex & rhs) const;
+  bool operator != (const OffsetIndex &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const OffsetIndex & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(OffsetIndex &a, OffsetIndex &b);
+
+std::ostream& operator<<(std::ostream& out, const OffsetIndex& obj);
+
+typedef struct _ColumnIndex__isset {
+  _ColumnIndex__isset() : null_counts(false), repetition_level_histograms(false), definition_level_histograms(false) {}
+  bool null_counts :1;
+  bool repetition_level_histograms :1;
+  bool definition_level_histograms :1;
+} _ColumnIndex__isset;
+
+/**
+ * Optional statistics for each data page in a ColumnChunk.
+ * 
+ * Forms part the page index, along with OffsetIndex.
+ * 
+ * If this structure is present, OffsetIndex must also be present.
+ * 
+ * For each field in this structure, <field>[i] refers to the page at
+ * OffsetIndex.page_locations[i]
+ */
+class ColumnIndex {
+ public:
+
+  ColumnIndex(const ColumnIndex&);
+  ColumnIndex(ColumnIndex&&) noexcept;
+  ColumnIndex& operator=(const ColumnIndex&);
+  ColumnIndex& operator=(ColumnIndex&&) noexcept;
+  ColumnIndex() noexcept;
+
+  virtual ~ColumnIndex() noexcept;
+  /**
+   * A list of Boolean values to determine the validity of the corresponding
+   * min and max values. If true, a page contains only null values, and writers
+   * have to set the corresponding entries in min_values and max_values to
+   * byte[0], so that all lists have the same length. If false, the
+   * corresponding entries in min_values and max_values must be valid.
+   */
+  std::vector<bool>  null_pages;
+  /**
+   * Two lists containing lower and upper bounds for the values of each page
+   * determined by the ColumnOrder of the column. These may be the actual
+   * minimum and maximum values found on a page, but can also be (more compact)
+   * values that do not exist on a page. For example, instead of storing ""Blart
+   * Versenwald III", a writer may set min_values[i]="B", max_values[i]="C".
+   * Such more compact values must still be valid values within the column's
+   * logical type. Readers must make sure that list entries are populated before
+   * using them by inspecting null_pages.
+   */
+  std::vector<std::string>  min_values;
+  std::vector<std::string>  max_values;
+  /**
+   * Stores whether both min_values and max_values are ordered and if so, in
+   * which direction. This allows readers to perform binary searches in both
+   * lists. Readers cannot assume that max_values[i] <= min_values[i+1], even
+   * if the lists are ordered.
+   * 
+   * @see BoundaryOrder
+   */
+  BoundaryOrder::type boundary_order;
+  /**
+   * A list containing the number of null values for each page
+   * 
+   * Writers SHOULD always write this field even if no null values
+   * are present or the column is not nullable.
+   * Readers MUST distinguish between null_counts not being present
+   * and null_count being 0.
+   * If null_counts are not present, readers MUST NOT assume all
+   * null counts are 0.
+   */
+  std::vector<int64_t>  null_counts;
+  /**
+   * Contains repetition level histograms for each page
+   * concatenated together.  The repetition_level_histogram field on
+   * SizeStatistics contains more details.
+   * 
+   * When present the length should always be (number of pages *
+   * (max_repetition_level + 1)) elements.
+   * 
+   * Element 0 is the first element of the histogram for the first page.
+   * Element (max_repetition_level + 1) is the first element of the histogram
+   * for the second page.
+   * 
+   */
+  std::vector<int64_t>  repetition_level_histograms;
+  /**
+   * Same as repetition_level_histograms except for definitions levels.
+   * 
+   */
+  std::vector<int64_t>  definition_level_histograms;
+
+  _ColumnIndex__isset __isset;
+
+  void __set_null_pages(const std::vector<bool> & val);
+
+  void __set_min_values(const std::vector<std::string> & val);
+
+  void __set_max_values(const std::vector<std::string> & val);
+
+  void __set_boundary_order(const BoundaryOrder::type val);
+
+  void __set_null_counts(const std::vector<int64_t> & val);
+
+  void __set_repetition_level_histograms(const std::vector<int64_t> & val);
+
+  void __set_definition_level_histograms(const std::vector<int64_t> & val);
+
+  bool operator == (const ColumnIndex & rhs) const;
+  bool operator != (const ColumnIndex &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const ColumnIndex & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(ColumnIndex &a, ColumnIndex &b);
+
+std::ostream& operator<<(std::ostream& out, const ColumnIndex& obj);
+
+typedef struct _AesGcmV1__isset {
+  _AesGcmV1__isset() : aad_prefix(false), aad_file_unique(false), supply_aad_prefix(false) {}
+  bool aad_prefix :1;
+  bool aad_file_unique :1;
+  bool supply_aad_prefix :1;
+} _AesGcmV1__isset;
+
+class AesGcmV1 {
+ public:
+
+  AesGcmV1(const AesGcmV1&);
+  AesGcmV1(AesGcmV1&&) noexcept;
+  AesGcmV1& operator=(const AesGcmV1&);
+  AesGcmV1& operator=(AesGcmV1&&) noexcept;
+  AesGcmV1() noexcept;
+
+  virtual ~AesGcmV1() noexcept;
+  /**
+   * AAD prefix *
+   */
+  std::string aad_prefix;
+  /**
+   * Unique file identifier part of AAD suffix *
+   */
+  std::string aad_file_unique;
+  /**
+   * In files encrypted with AAD prefix without storing it,
+   * readers must supply the prefix *
+   */
+  bool supply_aad_prefix;
+
+  _AesGcmV1__isset __isset;
+
+  void __set_aad_prefix(const std::string& val);
+
+  void __set_aad_file_unique(const std::string& val);
+
+  void __set_supply_aad_prefix(const bool val);
+
+  bool operator == (const AesGcmV1 & rhs) const;
+  bool operator != (const AesGcmV1 &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const AesGcmV1 & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(AesGcmV1 &a, AesGcmV1 &b);
+
+std::ostream& operator<<(std::ostream& out, const AesGcmV1& obj);
+
+typedef struct _AesGcmCtrV1__isset {
+  _AesGcmCtrV1__isset() : aad_prefix(false), aad_file_unique(false), supply_aad_prefix(false) {}
+  bool aad_prefix :1;
+  bool aad_file_unique :1;
+  bool supply_aad_prefix :1;
+} _AesGcmCtrV1__isset;
+
+class AesGcmCtrV1 {
+ public:
+
+  AesGcmCtrV1(const AesGcmCtrV1&);
+  AesGcmCtrV1(AesGcmCtrV1&&) noexcept;
+  AesGcmCtrV1& operator=(const AesGcmCtrV1&);
+  AesGcmCtrV1& operator=(AesGcmCtrV1&&) noexcept;
+  AesGcmCtrV1() noexcept;
+
+  virtual ~AesGcmCtrV1() noexcept;
+  /**
+   * AAD prefix *
+   */
+  std::string aad_prefix;
+  /**
+   * Unique file identifier part of AAD suffix *
+   */
+  std::string aad_file_unique;
+  /**
+   * In files encrypted with AAD prefix without storing it,
+   * readers must supply the prefix *
+   */
+  bool supply_aad_prefix;
+
+  _AesGcmCtrV1__isset __isset;
+
+  void __set_aad_prefix(const std::string& val);
+
+  void __set_aad_file_unique(const std::string& val);
+
+  void __set_supply_aad_prefix(const bool val);
+
+  bool operator == (const AesGcmCtrV1 & rhs) const;
+  bool operator != (const AesGcmCtrV1 &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const AesGcmCtrV1 & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(AesGcmCtrV1 &a, AesGcmCtrV1 &b);
+
+std::ostream& operator<<(std::ostream& out, const AesGcmCtrV1& obj);
+
+typedef struct _EncryptionAlgorithm__isset {
+  _EncryptionAlgorithm__isset() : AES_GCM_V1(false), AES_GCM_CTR_V1(false) {}
+  bool AES_GCM_V1 :1;
+  bool AES_GCM_CTR_V1 :1;
+} _EncryptionAlgorithm__isset;
+
+class EncryptionAlgorithm {
+ public:
+
+  EncryptionAlgorithm(const EncryptionAlgorithm&);
+  EncryptionAlgorithm(EncryptionAlgorithm&&) noexcept;
+  EncryptionAlgorithm& operator=(const EncryptionAlgorithm&);
+  EncryptionAlgorithm& operator=(EncryptionAlgorithm&&) noexcept;
+  EncryptionAlgorithm() noexcept;
+
+  virtual ~EncryptionAlgorithm() noexcept;
+  AesGcmV1 AES_GCM_V1;
+  AesGcmCtrV1 AES_GCM_CTR_V1;
+
+  _EncryptionAlgorithm__isset __isset;
+
+  void __set_AES_GCM_V1(const AesGcmV1& val);
+
+  void __set_AES_GCM_CTR_V1(const AesGcmCtrV1& val);
+
+  bool operator == (const EncryptionAlgorithm & rhs) const;
+  bool operator != (const EncryptionAlgorithm &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const EncryptionAlgorithm & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(EncryptionAlgorithm &a, EncryptionAlgorithm &b);
+
+std::ostream& operator<<(std::ostream& out, const EncryptionAlgorithm& obj);
+
+typedef struct _FileMetaData__isset {
+  _FileMetaData__isset() : key_value_metadata(false), created_by(false), column_orders(false), encryption_algorithm(false), footer_signing_key_metadata(false) {}
+  bool key_value_metadata :1;
+  bool created_by :1;
+  bool column_orders :1;
+  bool encryption_algorithm :1;
+  bool footer_signing_key_metadata :1;
+} _FileMetaData__isset;
+
+/**
+ * Description for file metadata
+ */
+class FileMetaData {
+ public:
+
+  FileMetaData(const FileMetaData&);
+  FileMetaData(FileMetaData&&) noexcept;
+  FileMetaData& operator=(const FileMetaData&);
+  FileMetaData& operator=(FileMetaData&&) noexcept;
+  FileMetaData() noexcept;
+
+  virtual ~FileMetaData() noexcept;
+  /**
+   * Version of this file *
+   */
+  int32_t version;
+  /**
+   * Parquet schema for this file.  This schema contains metadata for all the columns.
+   * The schema is represented as a tree with a single root.  The nodes of the tree
+   * are flattened to a list by doing a depth-first traversal.
+   * The column metadata contains the path in the schema for that column which can be
+   * used to map columns to nodes in the schema.
+   * The first element is the root *
+   */
+  std::vector<SchemaElement>  schema;
+  /**
+   * Number of rows in this file *
+   */
+  int64_t num_rows;
+  /**
+   * Row groups in this file *
+   */
+  std::vector<RowGroup>  row_groups;
+  /**
+   * Optional key/value metadata *
+   */
+  std::vector<KeyValue>  key_value_metadata;
+  /**
+   * String for application that wrote this file.  This should be in the format
+   * <Application> version <App Version> (build <App Build Hash>).
+   * e.g. impala version 1.0 (build 6cf94d29b2b7115df4de2c06e2ab4326d721eb55)
+   * 
+   */
+  std::string created_by;
+  /**
+   * Sort order used for the min_value and max_value fields in the Statistics
+   * objects and the min_values and max_values fields in the ColumnIndex
+   * objects of each column in this file. Sort orders are listed in the order
+   * matching the columns in the schema. The indexes are not necessary the same
+   * though, because only leaf nodes of the schema are represented in the list
+   * of sort orders.
+   * 
+   * Without column_orders, the meaning of the min_value and max_value fields
+   * in the Statistics object and the ColumnIndex object is undefined. To ensure
+   * well-defined behaviour, if these fields are written to a Parquet file,
+   * column_orders must be written as well.
+   * 
+   * The obsolete min and max fields in the Statistics object are always sorted
+   * by signed comparison regardless of column_orders.
+   */
+  std::vector<ColumnOrder>  column_orders;
+  /**
+   * Encryption algorithm. This field is set only in encrypted files
+   * with plaintext footer. Files with encrypted footer store algorithm id
+   * in FileCryptoMetaData structure.
+   */
+  EncryptionAlgorithm encryption_algorithm;
+  /**
+   * Retrieval metadata of key used for signing the footer.
+   * Used only in encrypted files with plaintext footer.
+   */
+  std::string footer_signing_key_metadata;
+
+  _FileMetaData__isset __isset;
+
+  void __set_version(const int32_t val);
+
+  void __set_schema(const std::vector<SchemaElement> & val);
+
+  void __set_num_rows(const int64_t val);
+
+  void __set_row_groups(const std::vector<RowGroup> & val);
+
+  void __set_key_value_metadata(const std::vector<KeyValue> & val);
+
+  void __set_created_by(const std::string& val);
+
+  void __set_column_orders(const std::vector<ColumnOrder> & val);
+
+  void __set_encryption_algorithm(const EncryptionAlgorithm& val);
+
+  void __set_footer_signing_key_metadata(const std::string& val);
+
+  bool operator == (const FileMetaData & rhs) const;
+  bool operator != (const FileMetaData &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const FileMetaData & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(FileMetaData &a, FileMetaData &b);
+
+std::ostream& operator<<(std::ostream& out, const FileMetaData& obj);
+
+typedef struct _FileCryptoMetaData__isset {
+  _FileCryptoMetaData__isset() : key_metadata(false) {}
+  bool key_metadata :1;
+} _FileCryptoMetaData__isset;
+
+/**
+ * Crypto metadata for files with encrypted footer *
+ */
+class FileCryptoMetaData {
+ public:
+
+  FileCryptoMetaData(const FileCryptoMetaData&);
+  FileCryptoMetaData(FileCryptoMetaData&&) noexcept;
+  FileCryptoMetaData& operator=(const FileCryptoMetaData&);
+  FileCryptoMetaData& operator=(FileCryptoMetaData&&) noexcept;
+  FileCryptoMetaData() noexcept;
+
+  virtual ~FileCryptoMetaData() noexcept;
+  /**
+   * Encryption algorithm. This field is only used for files
+   * with encrypted footer. Files with plaintext footer store algorithm id
+   * inside footer (FileMetaData structure).
+   */
+  EncryptionAlgorithm encryption_algorithm;
+  /**
+   * Retrieval metadata of key used for encryption of footer,
+   * and (possibly) columns *
+   */
+  std::string key_metadata;
+
+  _FileCryptoMetaData__isset __isset;
+
+  void __set_encryption_algorithm(const EncryptionAlgorithm& val);
+
+  void __set_key_metadata(const std::string& val);
+
+  bool operator == (const FileCryptoMetaData & rhs) const;
+  bool operator != (const FileCryptoMetaData &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const FileCryptoMetaData & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(FileCryptoMetaData &a, FileCryptoMetaData &b);
+
+std::ostream& operator<<(std::ostream& out, const FileCryptoMetaData& obj);
+
+}} // namespace
+
+#include "parquet_types.tcc"
+
+#endif
