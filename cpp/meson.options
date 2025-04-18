@@ -79,6 +79,13 @@ option(
 )
 
 option(
+    'flight',
+    type: 'boolean',
+    description: 'Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)',
+    value: false,
+)
+
+option(
     'git_id',
     type: 'string',
 )
