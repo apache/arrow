@@ -149,8 +149,8 @@ class GeoStatisticsImpl {
 
     bool write_x = !bound_empty(0) && bound_valid(0);
     bool write_y = !bound_empty(1) && bound_valid(1);
-    bool write_z = !bound_empty(2) && bound_valid(2);
-    bool write_m = !bound_empty(3) && bound_valid(3);
+    bool write_z = write_x && write_y && !bound_empty(2) && bound_valid(2);
+    bool write_m = write_x && write_y && !bound_empty(3) && bound_valid(3);
 
     if (write_x && write_y) {
       out.xmin = mins[0];
