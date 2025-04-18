@@ -1038,7 +1038,7 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowUuidExtension) {
     // Parquet file does not contain Arrow schema.
     // By default, field should be treated as fixed_size_binary(16) in Arrow.
     auto arrow_schema =
-        ::arrow::schema({::arrow::field("uuid", ::arrow::fixed_size_binary(16), true)});
+        ::arrow::schema({::arrow::field("uuid", ::arrow::fixed_size_binary(16))});
     std::shared_ptr<KeyValueMetadata> metadata{};
     ASSERT_OK(ConvertSchema(parquet_fields, metadata));
     CheckFlatSchema(arrow_schema);
