@@ -27,6 +27,7 @@
 
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
+#include "arrow/util/from_json.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
@@ -41,7 +42,7 @@ namespace arrow::ipc {
 
 using ::arrow::internal::CreateDir;
 using ::arrow::internal::PlatformFilename;
-using internal::json::ArrayFromJSON;
+using ::arrow::util::ArrayFromJSON;
 
 Result<std::shared_ptr<RecordBatch>> MakeExtensionBatch() {
   auto array = ExampleUuid();
