@@ -24,7 +24,7 @@ cdef extern from * namespace "arrow::py" nogil:
     """
     #include "arrow/status.h"
     #include "arrow/extension_type.h"
-    #include "arrow/ipc/json_simple.h"
+    #include "arrow/util/from_json.h"
 
     namespace arrow {
     namespace py {
