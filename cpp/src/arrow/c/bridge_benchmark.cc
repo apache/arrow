@@ -22,10 +22,10 @@
 #include "arrow/array.h"
 #include "arrow/c/bridge.h"
 #include "arrow/c/helpers.h"
-#include "arrow/ipc/json_simple.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/util/from_json.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow::benchmarks {
@@ -79,7 +79,7 @@ static void ExportSchema(benchmark::State& state) {  // NOLINT non-const referen
 
 static void ExportArray(benchmark::State& state) {  // NOLINT non-const reference
   struct ArrowArray c_export;
-  auto array = ArrayFromJSON(utf8(), R"(["foo", "bar", null])");
+  auto array = arrow::ArrayFromJSON(utf8(), R"(["foo", "bar", null])");
 
   for (auto _ : state) {
     ABORT_NOT_OK(::arrow::ExportArray(*array, &c_export));
@@ -123,7 +123,7 @@ static void ExportImportSchema(benchmark::State& state) {  // NOLINT non-const r
 
 static void ExportImportArray(benchmark::State& state) {  // NOLINT non-const reference
   struct ArrowArray c_export;
-  auto array = ArrayFromJSON(utf8(), R"(["foo", "bar", null])");
+  auto array = arrow::ArrayFromJSON(utf8(), R"(["foo", "bar", null])");
   auto type = array->type();
 
   for (auto _ : state) {

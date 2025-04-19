@@ -75,7 +75,7 @@ class AnyOfJSONMatcher {
                     "AnyOfJSON only supported for std::shared_ptr<Scalar>");
       Impl(std::shared_ptr<DataType> type, std::string array_json)
           : type_(std::move(type)), array_json_(std::move(array_json)) {
-        array = ArrayFromJSON(type_, array_json_);
+        array = arrow::ArrayFromJSON(type_, array_json_);
       }
       void DescribeTo(std::ostream* os) const override {
         *os << "matches at least one scalar from ";
@@ -415,7 +415,7 @@ DataEqMatcher DataEq(Data&& dat) {
 /// Constructs an array with ArrayFromJSON against which arguments are matched
 inline DataEqMatcher DataEqArray(const std::shared_ptr<DataType>& type,
                                  std::string_view json) {
-  return DataEq(ArrayFromJSON(type, json));
+  return DataEq(arrow::ArrayFromJSON(type, json));
 }
 
 /// Constructs an array from a vector of optionals against which arguments are matched

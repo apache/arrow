@@ -23,7 +23,6 @@
 #include "arrow/chunked_array.h"
 #include "arrow/datum.h"
 #include "arrow/extension/uuid.h"
-#include "arrow/ipc/json_simple.h"
 #include "arrow/python/gdb.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
@@ -31,6 +30,7 @@
 #include "arrow/type.h"
 #include "arrow/util/debug.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/from_json.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -39,9 +39,9 @@ namespace arrow {
 
 using extension::uuid;
 using extension::UuidType;
-using ipc::internal::json::ArrayFromJSON;
-using ipc::internal::json::ChunkedArrayFromJSON;
-using ipc::internal::json::ScalarFromJSON;
+using util::ArrayFromJSON;
+using util::ChunkedArrayFromJSON;
+using util::ScalarFromJSON;
 
 namespace gdb {
 
