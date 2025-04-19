@@ -52,7 +52,7 @@ import { tableFromIPC } from 'apache-arrow';
 const arrow = readFileSync('simple.arrow');
 const table = tableFromIPC(arrow);
 
-console.table(table.toArray());
+console.table([...table]);
 
 /*
  foo,  bar,  baz
@@ -62,6 +62,20 @@ null, null, null
    4,    4,  bbb
    5,    5, cccc
 */
+```
+
+The most efficient way to work with an Arrow `Table` is to access the column Vectors (which you can get with `getChild` and `getChildAt`).
+
+```js
+table.getChildAt(0).get(0); // 1
+```
+
+If you need to access the rows, you can iterate over the table and access a row proxy.
+
+```js
+for (const row of table) {
+    console.log(row);
+}
 ```
 
 ### Create a Table when the Arrow file is split across buffers
