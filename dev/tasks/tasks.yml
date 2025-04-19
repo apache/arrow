@@ -866,6 +866,7 @@ tasks:
         PYARROW_TEST_HYPOTHESIS: ON
         # limit to execute hypothesis tests only
         PYTEST_ARGS: "-m hypothesis -W error"
+        CMAKE_BUILD_TYPE: Release
       image: conda-python-pandas
 
   test-ubuntu-22.04-python-313-freethreading:

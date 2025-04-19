@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,15 +15,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -eux
+project(
+    'pyarrow',
+    'cython',
+    'cpp',
+    version: run_command(
+        'python',
+        '-m',
+        'setuptools_scm',
+        '--force-write-version-files',
+        check: true,
+    ).stdout().strip(),
+    license: 'Apache-2.0',
+    meson_version: '>=1.4.0',
+    default_options: ['buildtype=release', 'cpp_std=c++17'],
+)
 
-source_dir=${1}/python
+arrow_dep = dependency(
+    'arrow',
+    'Arrow',
+    modules: ['Arrow::arrow_shared'],
+    required: false,  # optional so sdist will work without finding
+)
 
-pushd ${source_dir}
-export SETUPTOOLS_SCM_PRETEND_VERSION=${PYARROW_VERSION:-}
-# Meson dist must be run from a VCS, so initiate a dummy repo
-git init .
-git add --all .
-git commit -m "dummy commit for meson dist"
-${PYTHON:-python} -m build --sdist .
-popd
+cc = meson.get_compiler('cpp')
+
+subdir('pyarrow')

@@ -24,12 +24,12 @@ requires = [
     # continue using oldest-support-numpy.
     "oldest-supported-numpy>=0.14; python_version<'3.9'",
     "numpy>=1.25; python_version>='3.9'",
+    "meson-python",
     # configuring setuptools_scm in pyproject.toml requires
     # versions released after 2022
     "setuptools_scm[toml]>=8",
-    "setuptools>=64",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "mesonpy"
 
 [project]
 name = "pyarrow"
@@ -64,17 +64,6 @@ test = [
     'pytz',
     'pandas'
 ]
-
-[tool.setuptools]
-zip-safe=false
-include-package-data=true
-
-[tool.setuptools.packages.find]
-include = ["pyarrow"]
-namespaces = false
-
-[tool.setuptools.package-data]
-pyarrow = ["*.pxd", "*.pyx", "includes/*.pxd"]
 
 [tool.setuptools_scm]
 root = '..'

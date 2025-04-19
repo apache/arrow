@@ -133,11 +133,6 @@ update_versions() {
     pyproject.toml
   rm -f pyproject.toml.bak
   git add pyproject.toml
-  sed -i.bak -E -e \
-    "s/^set\(PYARROW_VERSION \".+\"\)/set(PYARROW_VERSION \"${version}\")/" \
-    CMakeLists.txt
-  rm -f CMakeLists.txt.bak
-  git add CMakeLists.txt
   popd
 
   pushd "${ARROW_DIR}/r"
