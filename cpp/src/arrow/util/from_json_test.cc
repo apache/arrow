@@ -914,7 +914,8 @@ TEST(TestMap, IntegerMapToStringList) {
   auto& key_key_builder = checked_cast<Int16Builder&>(*key_builder.key_builder());
   auto& key_item_builder = checked_cast<Int16Builder&>(*key_builder.item_builder());
   auto& item_builder = checked_cast<ListBuilder&>(*map_builder.item_builder());
-  auto& item_value_builder = checked_cast<class StringBuilder&>(*item_builder.value_builder());
+  auto& item_value_builder =
+      checked_cast<class StringBuilder&>(*item_builder.value_builder());
 
   ASSERT_OK(map_builder.Append());
   ASSERT_OK(key_builder.Append());

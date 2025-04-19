@@ -27,7 +27,6 @@
 
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
-#include "arrow/util/from_json.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
