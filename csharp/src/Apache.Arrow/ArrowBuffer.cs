@@ -89,6 +89,13 @@ namespace Apache.Arrow
                 return true;
             }
 
+            if (_memoryOwner == null)
+            {
+                var handle = _memory.Pin();
+                ptr = newOwner.Reference(handle);
+                return true;
+            }
+
             ptr = IntPtr.Zero;
             return false;
         }
