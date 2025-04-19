@@ -115,9 +115,7 @@ add_arrow_test(crc32-test
                Boost::headers)
 
 if(ARROW_JSON)
-  add_arrow_test(from_json_test
-                 SOURCES
-                 from_json_test.cc)
+  add_arrow_test(from_json_test SOURCES from_json_test.cc)
 endif()
 
 add_arrow_benchmark(bit_block_counter_benchmark)

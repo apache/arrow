@@ -389,8 +389,7 @@ std::shared_ptr<Array> DictArrayFromJSON(const std::shared_ptr<DataType>& type,
                                          std::string_view indices_json,
                                          std::string_view dictionary_json) {
   std::shared_ptr<Array> out;
-  ABORT_NOT_OK(
-      util::DictArrayFromJSON(type, indices_json, dictionary_json, &out));
+  ABORT_NOT_OK(util::DictArrayFromJSON(type, indices_json, dictionary_json, &out));
   return out;
 }
 
@@ -422,8 +421,7 @@ std::shared_ptr<Scalar> DictScalarFromJSON(const std::shared_ptr<DataType>& type
                                            std::string_view index_json,
                                            std::string_view dictionary_json) {
   std::shared_ptr<Scalar> out;
-  ABORT_NOT_OK(
-      util::DictScalarFromJSON(type, index_json, dictionary_json, &out));
+  ABORT_NOT_OK(util::DictScalarFromJSON(type, index_json, dictionary_json, &out));
   return out;
 }
 
@@ -1044,7 +1042,7 @@ std::shared_ptr<Array> ExampleDictExtension() {
 
 std::shared_ptr<Array> ExampleComplex128() {
   auto arr = arrow::ArrayFromJSON(struct_({field("", float64()), field("", float64())}),
-                           "[[1.0, -2.5], null, [3.0, -4.5]]");
+                                  "[[1.0, -2.5], null, [3.0, -4.5]]");
   return ExtensionType::WrapArray(complex128(), arr);
 }
 

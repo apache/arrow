@@ -1421,14 +1421,15 @@ TEST(HashJoin, Dictionary) {
           auto l_key_dict_type = dict_types[rng.from_range(0, 7)];
           auto r_key_dict_type = dict_types[rng.from_range(0, 7)];
 
-          auto l_key = l_key_dict ? DictArrayFromJSON(l_key_dict_type, R"([2, 2, 0, 1])",
-                                                      R"(["b", null, "a"])")
-                                  : arrow::ArrayFromJSON(utf8(), R"(["a", "a", "b", null])");
+          auto l_key = l_key_dict
+                           ? DictArrayFromJSON(l_key_dict_type, R"([2, 2, 0, 1])",
+                                               R"(["b", null, "a"])")
+                           : arrow::ArrayFromJSON(utf8(), R"(["a", "a", "b", null])");
           auto l_payload = arrow::ArrayFromJSON(utf8(), R"(["x", "y", "z", "y"])");
-          auto r_key = r_key_dict
-                           ? DictArrayFromJSON(int16_utf8, R"([1, 0, null, 1, 2])",
-                                               R"([null, "b", "c"])")
-                           : arrow::ArrayFromJSON(utf8(), R"(["b", null, null, "b", "c"])");
+          auto r_key =
+              r_key_dict ? DictArrayFromJSON(int16_utf8, R"([1, 0, null, 1, 2])",
+                                             R"([null, "b", "c"])")
+                         : arrow::ArrayFromJSON(utf8(), R"(["b", null, null, "b", "c"])");
           auto r_payload = arrow::ArrayFromJSON(utf8(), R"(["p", "r", "p", "q", "s"])");
 
           // IS comparison function (null is equal to null when matching keys)
@@ -1437,17 +1438,19 @@ TEST(HashJoin, Dictionary) {
               // Input
               l_key, l_payload, r_key, r_payload,
               // Expected
-              l_key_dict ? DictArrayFromJSON(l_key_dict_type, R"([2, 2, 0, 0, 1, 1,
+              l_key_dict
+                  ? DictArrayFromJSON(l_key_dict_type, R"([2, 2, 0, 0, 1, 1,
             null])",
-                                             R"(["b", null, "a"])")
-                         : arrow::ArrayFromJSON(utf8(), R"(["a", "a", "b", "b", null, null,
+                                      R"(["b", null, "a"])")
+                  : arrow::ArrayFromJSON(utf8(), R"(["a", "a", "b", "b", null, null,
                        null])"),
               arrow::ArrayFromJSON(utf8(), R"(["x", "y", "z", "z", "y", "y", null])"),
               r_key_dict
                   ? DictArrayFromJSON(r_key_dict_type, R"([null, null, 0, 0, null, null,
                 1])",
                                       R"(["b", "c"])")
-                  : arrow::ArrayFromJSON(utf8(), R"([null, null, "b", "b", null, null, "c"])"),
+                  : arrow::ArrayFromJSON(utf8(),
+                                         R"([null, null, "b", "b", null, null, "c"])"),
               arrow::ArrayFromJSON(utf8(), R"([null, null, "p", "q", "r", "p", "s"])"), 1,
               swap_sides);
 
@@ -1462,15 +1465,17 @@ TEST(HashJoin, Dictionary) {
                                              R"(["b", null, "a"])")
                          : arrow::ArrayFromJSON(
                                utf8(), R"(["a", "a", "b", "b", null, null, null, null])"),
-              arrow::ArrayFromJSON(utf8(), R"(["x", "y", "z", "z", "y", null, null, null])"),
+              arrow::ArrayFromJSON(utf8(),
+                                   R"(["x", "y", "z", "z", "y", null, null, null])"),
               r_key_dict
                   ? DictArrayFromJSON(r_key_dict_type,
                                       R"([null, null, 0, 0, null, null, null, 1])",
                                       R"(["b", "c"])")
-                  : arrow::ArrayFromJSON(utf8(),
-                                  R"([null, null, "b", "b", null, null, null, "c"])"),
-              arrow::ArrayFromJSON(utf8(), R"([null, null, "p", "q", null, "r", "p", "s"])"), 3,
-              swap_sides);
+                  : arrow::ArrayFromJSON(
+                        utf8(), R"([null, null, "b", "b", null, null, null, "c"])"),
+              arrow::ArrayFromJSON(utf8(),
+                                   R"([null, null, "p", "q", null, "r", "p", "s"])"),
+              3, swap_sides);
         }
       }
     }
@@ -1630,10 +1635,11 @@ TEST(HashJoin, Scalars) {
           // Input
           use_scalar_dict ? DictScalarFromJSON(int8_utf8, "1", R"(["b", "a", "c"])")
                           : ScalarFromJSON(utf8(), "\"a\""),
-          arrow::ArrayFromJSON(utf8(), R"(["x", "y"])"), arrow::ArrayFromJSON(utf8(), R"([])"),
-          arrow::ArrayFromJSON(utf8(), R"([])"),
+          arrow::ArrayFromJSON(utf8(), R"(["x", "y"])"),
+          arrow::ArrayFromJSON(utf8(), R"([])"), arrow::ArrayFromJSON(utf8(), R"([])"),
           // Expected output
-          arrow::ArrayFromJSON(utf8(), R"(["a", "a"])"), arrow::ArrayFromJSON(utf8(), R"(["x", "y"])"),
+          arrow::ArrayFromJSON(utf8(), R"(["a", "a"])"),
+          arrow::ArrayFromJSON(utf8(), R"(["x", "y"])"),
           arrow::ArrayFromJSON(utf8(), R"([null, null])"),
           arrow::ArrayFromJSON(utf8(), R"([null, null])"), 0, swap_sides);
     }
@@ -1670,9 +1676,10 @@ TEST(HashJoin, Scalars) {
           arrow::ArrayFromJSON(utf8(), R"(["a", null, "b"])"),
           arrow::ArrayFromJSON(utf8(), R"(["p", "q", "r"])"),
           // Expected output
-          arrow::ArrayFromJSON(utf8(), R"(["a", "a"])"), arrow::ArrayFromJSON(utf8(), R"(["x", "y"])"),
-          arrow::ArrayFromJSON(utf8(), R"(["a", "a"])"), arrow::ArrayFromJSON(utf8(), R"(["p", "p"])"),
-          2, swap_sides);
+          arrow::ArrayFromJSON(utf8(), R"(["a", "a"])"),
+          arrow::ArrayFromJSON(utf8(), R"(["x", "y"])"),
+          arrow::ArrayFromJSON(utf8(), R"(["a", "a"])"),
+          arrow::ArrayFromJSON(utf8(), R"(["p", "p"])"), 2, swap_sides);
     }
   }
 }
@@ -1684,12 +1691,12 @@ TEST(HashJoin, DictNegative) {
   const auto dictA = arrow::ArrayFromJSON(utf8(), R"(["ex", "why", "zee", null])");
   const auto dictB = arrow::ArrayFromJSON(utf8(), R"(["different", "dictionary"])");
 
-  Datum datumFirst = Datum(
-      *DictionaryArray::FromArrays(arrow::ArrayFromJSON(int32(), R"([0, 1, 2, 3])"), dictA));
-  Datum datumSecondA = Datum(
-      *DictionaryArray::FromArrays(arrow::ArrayFromJSON(int32(), R"([3, 2, 2, 3])"), dictA));
-  Datum datumSecondB = Datum(
-      *DictionaryArray::FromArrays(arrow::ArrayFromJSON(int32(), R"([0, 1, 1, 0])"), dictB));
+  Datum datumFirst = Datum(*DictionaryArray::FromArrays(
+      arrow::ArrayFromJSON(int32(), R"([0, 1, 2, 3])"), dictA));
+  Datum datumSecondA = Datum(*DictionaryArray::FromArrays(
+      arrow::ArrayFromJSON(int32(), R"([3, 2, 2, 3])"), dictA));
+  Datum datumSecondB = Datum(*DictionaryArray::FromArrays(
+      arrow::ArrayFromJSON(int32(), R"([0, 1, 1, 0])"), dictB));
 
   for (int i = 0; i < 4; ++i) {
     BatchesWithSchema l, r;

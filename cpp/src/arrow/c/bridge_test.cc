@@ -923,7 +923,9 @@ TEST_F(TestArrayExport, Primitive) {
 }
 
 TEST_F(TestArrayExport, PrimitiveSliced) {
-  auto factory = []() { return arrow::ArrayFromJSON(int16(), "[1, 2, null, -3]")->Slice(1, 2); };
+  auto factory = []() {
+    return arrow::ArrayFromJSON(int16(), "[1, 2, null, -3]")->Slice(1, 2);
+  };
 
   TestPrimitive(factory);
 }
@@ -1011,7 +1013,8 @@ TEST_F(TestArrayExport, ListSliced) {
   }
   {
     auto factory = []() {
-      auto values = arrow::ArrayFromJSON(int16(), "[1, 2, 3, 4, null, 5, 6, 7, 8]")->Slice(1, 6);
+      auto values =
+          arrow::ArrayFromJSON(int16(), "[1, 2, 3, 4, null, 5, 6, 7, 8]")->Slice(1, 6);
       auto offsets = arrow::ArrayFromJSON(int32(), "[0, 2, 3, 5, 6]")->Slice(2, 4);
       return ListArray::FromArrays(*offsets, *values);
     };
@@ -1030,14 +1033,16 @@ TEST_F(TestArrayExport, ListView) {
 TEST_F(TestArrayExport, ListViewSliced) {
   {
     auto factory = []() {
-      return arrow::ArrayFromJSON(list_view(int8()), "[[1, 2], [3, null], [4, 5, 6], null]")
+      return arrow::ArrayFromJSON(list_view(int8()),
+                                  "[[1, 2], [3, null], [4, 5, 6], null]")
           ->Slice(1, 2);
     };
     TestNested(factory);
   }
   {
     auto factory = []() {
-      auto values = arrow::ArrayFromJSON(int16(), "[1, 2, 3, 4, null, 5, 6, 7, 8]")->Slice(1, 6);
+      auto values =
+          arrow::ArrayFromJSON(int16(), "[1, 2, 3, 4, null, 5, 6, 7, 8]")->Slice(1, 6);
       auto offsets = arrow::ArrayFromJSON(int32(), "[5, 2, 0, 3]")->Slice(1, 2);
       auto sizes = arrow::ArrayFromJSON(int32(), "[2, 3, 6, 1]")->Slice(1, 2);
       return ListViewArray::FromArrays(*offsets, *sizes, *values);
@@ -1114,7 +1119,8 @@ TEST_F(TestArrayExport, Dictionary) {
   }
   {
     auto factory = []() {
-      auto values = arrow::ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
+      auto values =
+          arrow::ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = arrow::ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       return DictionaryArray::FromArrays(
           dictionary(indices->type(), values->type(), /*ordered=*/true), indices, values);
@@ -1123,7 +1129,8 @@ TEST_F(TestArrayExport, Dictionary) {
   }
   {
     auto factory = []() -> Result<std::shared_ptr<Array>> {
-      auto values = arrow::ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
+      auto values =
+          arrow::ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = arrow::ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       ARROW_ASSIGN_OR_RAISE(
           auto dict_array,
@@ -1169,7 +1176,8 @@ TEST_F(TestArrayExport, MoveDictionary) {
   }
   {
     auto factory = []() -> Result<std::shared_ptr<Array>> {
-      auto values = arrow::ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
+      auto values =
+          arrow::ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = arrow::ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       ARROW_ASSIGN_OR_RAISE(
           auto dict_array,
@@ -1196,7 +1204,8 @@ TEST_F(TestArrayExport, MoveChild) {
                 /*child_id=*/1);
   {
     auto factory = []() -> Result<std::shared_ptr<Array>> {
-      auto values = arrow::ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
+      auto values =
+          arrow::ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = arrow::ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       ARROW_ASSIGN_OR_RAISE(
           auto dict_array,
@@ -1577,9 +1586,9 @@ TEST_F(TestDeviceArrayExport, ListSliced) {
 
   {
     auto factory = [=]() {
-      return (*ToDevice(
-                  mm, *arrow::ArrayFromJSON(list(int8()), "[[1, 2], [3, null], [4, 5, 6], null]")
-                           ->data()))
+      return (*ToDevice(mm, *arrow::ArrayFromJSON(list(int8()),
+                                                  "[[1, 2], [3, null], [4, 5, 6], null]")
+                                 ->data()))
           ->Slice(1, 2);
     };
     TestNested(factory);
@@ -1587,11 +1596,13 @@ TEST_F(TestDeviceArrayExport, ListSliced) {
   {
     auto factory = [=]() {
       auto values =
-          (*ToDevice(mm,
-                     *arrow::ArrayFromJSON(int16(), "[1, 2, 3, 4, null, 5, 6, 7, 8]")->data()))
+          (*ToDevice(
+               mm,
+               *arrow::ArrayFromJSON(int16(), "[1, 2, 3, 4, null, 5, 6, 7, 8]")->data()))
               ->Slice(1, 6);
-      auto offsets = (*ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[0, 2, 3, 5, 6]")->data()))
-                         ->Slice(2, 4);
+      auto offsets =
+          (*ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[0, 2, 3, 5, 6]")->data()))
+              ->Slice(2, 4);
       return ListArray::FromArrays(*offsets, *values);
     };
     TestNested(factory);
@@ -1615,7 +1626,7 @@ TEST_F(TestDeviceArrayExport, ListViewSliced) {
   {
     auto factory = [=]() {
       return (*ToDevice(mm, *arrow::ArrayFromJSON(list_view(int8()),
-                                           "[[1, 2], [3, null], [4, 5, 6], null]")
+                                                  "[[1, 2], [3, null], [4, 5, 6], null]")
                                  ->data()))
           ->Slice(1, 2);
     };
@@ -1624,13 +1635,15 @@ TEST_F(TestDeviceArrayExport, ListViewSliced) {
   {
     auto factory = [=]() {
       auto values =
-          (*ToDevice(mm,
-                     *arrow::ArrayFromJSON(int16(), "[1, 2, 3, 4, null, 5, 6, 7, 8]")->data()))
+          (*ToDevice(
+               mm,
+               *arrow::ArrayFromJSON(int16(), "[1, 2, 3, 4, null, 5, 6, 7, 8]")->data()))
               ->Slice(1, 6);
       auto offsets =
-          (*ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[5, 2, 0, 3]")->data()))->Slice(1, 2);
-      auto sizes =
-          (*ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[2, 3, 6, 1]")->data()))->Slice(1, 2);
+          (*ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[5, 2, 0, 3]")->data()))
+              ->Slice(1, 2);
+      auto sizes = (*ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[2, 3, 6, 1]")->data()))
+                       ->Slice(1, 2);
       return ListViewArray::FromArrays(*offsets, *sizes, *values);
     };
     TestNested(factory);
@@ -1701,7 +1714,8 @@ TEST_F(TestDeviceArrayExport, ExportArrayAndType) {
   SchemaExportGuard schema_guard(&c_schema);
   ArrayExportGuard array_guard(&c_array.array);
 
-  auto array = ToDevice(mm, *arrow::ArrayFromJSON(int8(), "[1, 2, 3]")->data()).ValueOrDie();
+  auto array =
+      ToDevice(mm, *arrow::ArrayFromJSON(int8(), "[1, 2, 3]")->data()).ValueOrDie();
   auto sync = mm->MakeDeviceSyncEvent().ValueOrDie();
   ASSERT_OK(ExportDeviceArray(*array, sync, &c_array, &c_schema));
   const ArrayData& data = *array->data();
@@ -1724,9 +1738,11 @@ TEST_F(TestDeviceArrayExport, ExportRecordBatch) {
   auto schema = ::arrow::schema(
       {field("ints", int16()), field("bools", boolean(), /*nullable=*/false)});
   schema = schema->WithMetadata(key_value_metadata(kMetadataKeys2, kMetadataValues2));
-  auto arr0 = ToDevice(mm, *arrow::ArrayFromJSON(int16(), "[1, 2, null]")->data()).ValueOrDie();
-  auto arr1 = ToDevice(mm, *arrow::ArrayFromJSON(boolean(), "[false, true, false]")->data())
-                  .ValueOrDie();
+  auto arr0 =
+      ToDevice(mm, *arrow::ArrayFromJSON(int16(), "[1, 2, null]")->data()).ValueOrDie();
+  auto arr1 =
+      ToDevice(mm, *arrow::ArrayFromJSON(boolean(), "[false, true, false]")->data())
+          .ValueOrDie();
 
   auto batch_factory = [&]() { return RecordBatch::Make(schema, 3, {arr0, arr1}); };
   auto sync = mm->MakeDeviceSyncEvent().ValueOrDie();
@@ -2814,7 +2830,8 @@ TEST_F(TestArrayImport, Primitive) {
   FillPrimitive(2, 0, 0, primitive_buffers_no_nulls1_64);
   CheckImport(arrow::ArrayFromJSON(int64(), "[578437695752307201, 1157159078456920585]"));
   FillPrimitive(2, 0, 0, primitive_buffers_no_nulls1_64);
-  CheckImport(arrow::ArrayFromJSON(uint64(), "[578437695752307201, 1157159078456920585]"));
+  CheckImport(
+      arrow::ArrayFromJSON(uint64(), "[578437695752307201, 1157159078456920585]"));
 
   FillPrimitive(3, 0, 0, primitive_buffers_no_nulls1_8);
   CheckImport(arrow::ArrayFromJSON(boolean(), "[true, false, false]"));
@@ -2896,7 +2913,7 @@ TEST_F(TestArrayImport, Temporal) {
   CheckImport(arrow::ArrayFromJSON(day_time_interval(), "[[1234, 5678], null]"));
   FillPrimitive(3, -1, 0, timestamp_buffers_nulls1);
   CheckImport(arrow::ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC+2"),
-                            R"(["1970-01-01",null,"1900-02-28"])"));
+                                   R"(["1970-01-01",null,"1900-02-28"])"));
 }
 
 TEST_F(TestArrayImport, Null) {
@@ -3002,7 +3019,8 @@ TEST_F(TestArrayImport, List) {
   CheckImport(arrow::ArrayFromJSON(list(int8()), "[[1, 2], [], [3, 4, 5], [6], [7, 8]]"));
   FillPrimitive(AddChild(), 5, 0, 0, primitive_buffers_no_nulls1_16);
   FillListLike(3, 1, 0, list_buffers_nulls1);
-  CheckImport(arrow::ArrayFromJSON(list(int16()), "[[513, 1027], null, [1541, 2055, 2569]]"));
+  CheckImport(
+      arrow::ArrayFromJSON(list(int16()), "[[513, 1027], null, [1541, 2055, 2569]]"));
 
   // Large list
   FillPrimitive(AddChild(), 5, 0, 0, primitive_buffers_no_nulls1_16);
@@ -3013,8 +3031,8 @@ TEST_F(TestArrayImport, List) {
   // Fixed-size list
   FillPrimitive(AddChild(), 9, 0, 0, primitive_buffers_no_nulls1_8);
   FillFixedSizeListLike(3, 0, 0, buffers_no_nulls_no_data);
-  CheckImport(
-      arrow::ArrayFromJSON(fixed_size_list(int8(), 3), "[[1, 2, 3], [4, 5, 6], [7, 8, 9]]"));
+  CheckImport(arrow::ArrayFromJSON(fixed_size_list(int8(), 3),
+                                   "[[1, 2, 3], [4, 5, 6], [7, 8, 9]]"));
 
   // Empty child array with null data pointers
   FillPrimitive(AddChild(), 0, 0, 0, all_buffers_omitted);
@@ -3027,13 +3045,13 @@ TEST_F(TestArrayImport, NestedList) {
   FillListLike(AddChild(), 5, 0, 0, list_buffers_no_nulls1);
   FillListLike(3, 0, 0, large_list_buffers_no_nulls1);
   CheckImport(arrow::ArrayFromJSON(large_list(list(int8())),
-                            "[[[1, 2], []], [], [[3, 4, 5], [6], [7, 8]]]"));
+                                   "[[[1, 2], []], [], [[3, 4, 5], [6], [7, 8]]]"));
 
   FillPrimitive(AddChild(), 6, 0, 0, primitive_buffers_no_nulls1_8);
   FillFixedSizeListLike(AddChild(), 2, 0, 0, buffers_no_nulls_no_data);
   FillListLike(2, 0, 0, list_buffers_no_nulls1);
-  CheckImport(
-      arrow::ArrayFromJSON(list(fixed_size_list(int8(), 3)), "[[[1, 2, 3], [4, 5, 6]], []]"));
+  CheckImport(arrow::ArrayFromJSON(list(fixed_size_list(int8(), 3)),
+                                   "[[[1, 2, 3], [4, 5, 6]], []]"));
 }
 
 TEST_F(TestArrayImport, ListWithOffset) {
@@ -3044,8 +3062,8 @@ TEST_F(TestArrayImport, ListWithOffset) {
 
   FillPrimitive(AddChild(), 9, 0, 1, primitive_buffers_no_nulls1_8);
   FillFixedSizeListLike(3, 0, 0, buffers_no_nulls_no_data);
-  CheckImport(
-      arrow::ArrayFromJSON(fixed_size_list(int8(), 3), "[[2, 3, 4], [5, 6, 7], [8, 9, 10]]"));
+  CheckImport(arrow::ArrayFromJSON(fixed_size_list(int8(), 3),
+                                   "[[2, 3, 4], [5, 6, 7], [8, 9, 10]]"));
 
   // Offset in parent
   FillPrimitive(AddChild(), 8, 0, 0, primitive_buffers_no_nulls1_8);
@@ -3054,8 +3072,8 @@ TEST_F(TestArrayImport, ListWithOffset) {
 
   FillPrimitive(AddChild(), 9, 0, 0, primitive_buffers_no_nulls1_8);
   FillFixedSizeListLike(3, 0, 1, buffers_no_nulls_no_data);
-  CheckImport(
-      arrow::ArrayFromJSON(fixed_size_list(int8(), 3), "[[4, 5, 6], [7, 8, 9], [10, 11, 12]]"));
+  CheckImport(arrow::ArrayFromJSON(fixed_size_list(int8(), 3),
+                                   "[[4, 5, 6], [7, 8, 9], [10, 11, 12]]"));
 
   // Both
   FillPrimitive(AddChild(), 8, 0, 2, primitive_buffers_no_nulls1_8);
@@ -3065,23 +3083,24 @@ TEST_F(TestArrayImport, ListWithOffset) {
   FillPrimitive(AddChild(), 9, 0, 2, primitive_buffers_no_nulls1_8);
   FillFixedSizeListLike(3, 0, 1, buffers_no_nulls_no_data);
   CheckImport(arrow::ArrayFromJSON(fixed_size_list(int8(), 3),
-                            "[[6, 7, 8], [9, 10, 11], [12, 13, 14]]"));
+                                   "[[6, 7, 8], [9, 10, 11], [12, 13, 14]]"));
 }
 
 TEST_F(TestArrayImport, ListView) {
   FillPrimitive(AddChild(), 8, 0, 0, primitive_buffers_no_nulls1_8);
   FillListView(5, 0, 0, list_view_buffers_no_nulls1);
-  CheckImport(arrow::ArrayFromJSON(list_view(int8()), "[[1, 2], [], [3, 4, 5], [6], [7, 8]]"));
+  CheckImport(
+      arrow::ArrayFromJSON(list_view(int8()), "[[1, 2], [], [3, 4, 5], [6], [7, 8]]"));
   FillPrimitive(AddChild(), 5, 0, 0, primitive_buffers_no_nulls1_16);
   FillListView(3, 1, 0, list_view_buffers_nulls1);
-  CheckImport(
-      arrow::ArrayFromJSON(list_view(int16()), "[[513, 1027], null, [1541, 2055, 2569]]"));
+  CheckImport(arrow::ArrayFromJSON(list_view(int16()),
+                                   "[[513, 1027], null, [1541, 2055, 2569]]"));
 
   // Large list-view
   FillPrimitive(AddChild(), 5, 0, 0, primitive_buffers_no_nulls1_16);
   FillListView(3, 0, 0, large_list_view_buffers_no_nulls1);
-  CheckImport(
-      arrow::ArrayFromJSON(large_list_view(int16()), "[[513, 1027], [], [1541, 2055, 2569]]"));
+  CheckImport(arrow::ArrayFromJSON(large_list_view(int16()),
+                                   "[[513, 1027], [], [1541, 2055, 2569]]"));
 }
 
 TEST_F(TestArrayImport, NestedListView) {
@@ -3089,20 +3108,21 @@ TEST_F(TestArrayImport, NestedListView) {
   FillListView(AddChild(), 5, 0, 0, list_view_buffers_no_nulls1);
   FillListView(3, 0, 0, large_list_view_buffers_no_nulls1);
   CheckImport(arrow::ArrayFromJSON(large_list_view(list_view(int8())),
-                            "[[[1, 2], []], [], [[3, 4, 5], [6], [7, 8]]]"));
+                                   "[[[1, 2], []], [], [[3, 4, 5], [6], [7, 8]]]"));
 
   FillPrimitive(AddChild(), 6, 0, 0, primitive_buffers_no_nulls1_8);
   FillFixedSizeListLike(AddChild(), 2, 0, 0, buffers_no_nulls_no_data);
   FillListView(2, 0, 0, list_view_buffers_no_nulls1);
   CheckImport(arrow::ArrayFromJSON(list_view(fixed_size_list(int8(), 3)),
-                            "[[[1, 2, 3], [4, 5, 6]], []]"));
+                                   "[[[1, 2, 3], [4, 5, 6]], []]"));
 }
 
 TEST_F(TestArrayImport, ListViewWithOffset) {
   // Offset in child
   FillPrimitive(AddChild(), 8, 0, 1, primitive_buffers_no_nulls1_8);
   FillListView(5, 0, 0, list_view_buffers_no_nulls1);
-  CheckImport(arrow::ArrayFromJSON(list_view(int8()), "[[2, 3], [], [4, 5, 6], [7], [8, 9]]"));
+  CheckImport(
+      arrow::ArrayFromJSON(list_view(int8()), "[[2, 3], [], [4, 5, 6], [7], [8, 9]]"));
 
   // Offset in parent
   FillPrimitive(AddChild(), 8, 0, 0, primitive_buffers_no_nulls1_8);
@@ -3119,14 +3139,16 @@ TEST_F(TestArrayImport, Struct) {
   FillStringLike(AddChild(), 3, 0, 0, string_buffers_no_nulls1);
   FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1_16);
   FillStructLike(3, 0, 0, 2, buffers_no_nulls_no_data);
-  auto expected = arrow::ArrayFromJSON(struct_({field("strs", utf8()), field("ints", uint16())}),
-                                R"([["foo", 513], ["", null], ["bar", 1541]])");
+  auto expected =
+      arrow::ArrayFromJSON(struct_({field("strs", utf8()), field("ints", uint16())}),
+                           R"([["foo", 513], ["", null], ["bar", 1541]])");
   CheckImport(expected);
 
   FillStringLike(AddChild(), 3, 0, 0, string_buffers_no_nulls1);
   FillPrimitive(AddChild(), 3, 0, 0, primitive_buffers_no_nulls1_16);
   FillStructLike(3, -1, 0, 2, buffers_nulls_no_data1);
-  expected = arrow::ArrayFromJSON(struct_({field("strs", utf8()), field("ints", uint16())}),
+  expected =
+      arrow::ArrayFromJSON(struct_({field("strs", utf8()), field("ints", uint16())}),
                            R"([["foo", 513], null, ["bar", 1541]])");
   CheckImport(expected);
 
@@ -3213,8 +3235,8 @@ TEST_F(TestArrayImport, SparseUnion) {
 
 TEST_F(TestArrayImport, DenseUnion) {
   auto type = dense_union({field("strs", utf8()), field("ints", int8())}, {43, 42});
-  auto expected =
-      arrow::ArrayFromJSON(type, R"([[42, 1], [42, null], [43, "foo"], [43, ""], [42, 3]])");
+  auto expected = arrow::ArrayFromJSON(
+      type, R"([[42, 1], [42, null], [43, "foo"], [43, ""], [42, 3]])");
 
   FillStringLike(AddChild(), 2, 0, 0, string_buffers_no_nulls1);
   FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1_8);
@@ -3243,8 +3265,9 @@ TEST_F(TestArrayImport, StructWithOffset) {
   FillStringLike(AddChild(), 3, 0, 1, string_buffers_no_nulls1);
   FillPrimitive(AddChild(), 3, 0, 2, primitive_buffers_no_nulls1_8);
   FillStructLike(3, 0, 0, 2, buffers_no_nulls_no_data);
-  auto expected = arrow::ArrayFromJSON(struct_({field("strs", utf8()), field("ints", int8())}),
-                                R"([["", 3], ["bar", 4], ["quux", 5]])");
+  auto expected =
+      arrow::ArrayFromJSON(struct_({field("strs", utf8()), field("ints", int8())}),
+                           R"([["", 3], ["bar", 4], ["quux", 5]])");
   CheckImport(expected);
 
   // Parent and child
@@ -3252,7 +3275,7 @@ TEST_F(TestArrayImport, StructWithOffset) {
   FillPrimitive(AddChild(), 4, 0, 2, primitive_buffers_no_nulls1_8);
   FillStructLike(3, 0, 1, 2, buffers_no_nulls_no_data);
   expected = arrow::ArrayFromJSON(struct_({field("strs", utf8()), field("ints", int8())}),
-                           R"([["", 4], ["bar", 5], ["quux", 6]])");
+                                  R"([["", 4], ["bar", 5], ["quux", 6]])");
   CheckImport(expected);
 }
 
@@ -3323,7 +3346,7 @@ TEST_F(TestArrayImport, DictionaryWithOffset) {
   FillDictionary();
 
   auto expected = arrow::DictArrayFromJSON(dictionary(int8(), utf8()), "[1, 2, 0]",
-                                    R"(["", "bar", "quux"])");
+                                           R"(["", "bar", "quux"])");
   CheckImport(expected);
 
   FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
@@ -3331,7 +3354,7 @@ TEST_F(TestArrayImport, DictionaryWithOffset) {
   FillDictionary();
 
   expected = arrow::DictArrayFromJSON(dictionary(int8(), utf8()), "[0, 1, 3, 0]",
-                               R"(["foo", "", "bar", "quux"])");
+                                      R"(["foo", "", "bar", "quux"])");
   CheckImport(expected);
 }
 
@@ -3340,8 +3363,8 @@ TEST_F(TestArrayImport, RegisteredExtension) {
 
   // smallint
   FillPrimitive(3, 0, 0, primitive_buffers_no_nulls1_16);
-  auto expected =
-      ExtensionType::WrapArray(smallint(), arrow::ArrayFromJSON(int16(), "[513, 1027, 1541]"));
+  auto expected = ExtensionType::WrapArray(
+      smallint(), arrow::ArrayFromJSON(int16(), "[513, 1027, 1541]"));
   CheckImport(expected);
 
   // dict_extension_type
@@ -3349,8 +3372,8 @@ TEST_F(TestArrayImport, RegisteredExtension) {
   FillPrimitive(6, 0, 0, primitive_buffers_no_nulls4);
   FillDictionary();
 
-  auto storage = arrow::DictArrayFromJSON(dictionary(int8(), utf8()), "[1, 2, 0, 1, 3, 0]",
-                                   R"(["foo", "", "bar", "quux"])");
+  auto storage = arrow::DictArrayFromJSON(
+      dictionary(int8(), utf8()), "[1, 2, 0, 1, 3, 0]", R"(["foo", "", "bar", "quux"])");
   expected = ExtensionType::WrapArray(dict_extension_type(), storage);
   CheckImport(expected);
 
@@ -4086,8 +4109,9 @@ TEST_F(TestArrayRoundtrip, RunEndEncoded) {
           RunEndEncodedArray::Make(
               run_end_encoded(int64(), list(utf8())), 8,
               arrow::ArrayFromJSON(int64(), "[1, 3, 4, 7, 8]"),
-              arrow::ArrayFromJSON(list(utf8()),
-                            R"([["abc", "def"], ["efg"], [], null, ["efg", "hij"]])")));
+              arrow::ArrayFromJSON(
+                  list(utf8()),
+                  R"([["abc", "def"], ["efg"], [], null, ["efg", "hij"]])")));
       RETURN_NOT_OK(ree_array->ValidateFull());
       return ree_array;
     };
@@ -4109,7 +4133,8 @@ TEST_F(TestArrayRoundtrip, Dictionary) {
   }
   {
     auto factory = []() {
-      auto values = arrow::ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
+      auto values =
+          arrow::ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = arrow::ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       return DictionaryArray::FromArrays(
           dictionary(indices->type(), values->type(), /*ordered=*/true), indices, values);
@@ -4490,8 +4515,8 @@ TEST_F(TestArrayStreamExport, Empty) {
 
 TEST_F(TestArrayStreamExport, Simple) {
   auto schema = arrow::schema({field("ints", int32())});
-  auto batches = MakeBatches(
-      schema, {arrow::ArrayFromJSON(int32(), "[1, 2]"), arrow::ArrayFromJSON(int32(), "[4, 5, null]")});
+  auto batches = MakeBatches(schema, {arrow::ArrayFromJSON(int32(), "[1, 2]"),
+                                      arrow::ArrayFromJSON(int32(), "[4, 5, null]")});
   ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make(batches, schema));
 
   struct ArrowArrayStream c_stream;
@@ -4509,8 +4534,8 @@ TEST_F(TestArrayStreamExport, Simple) {
 
 TEST_F(TestArrayStreamExport, ArrayLifetime) {
   auto schema = arrow::schema({field("ints", int32())});
-  auto batches = MakeBatches(
-      schema, {arrow::ArrayFromJSON(int32(), "[1, 2]"), arrow::ArrayFromJSON(int32(), "[4, 5, null]")});
+  auto batches = MakeBatches(schema, {arrow::ArrayFromJSON(int32(), "[1, 2]"),
+                                      arrow::ArrayFromJSON(int32(), "[4, 5, null]")});
   ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make(batches, schema));
 
   struct ArrowArrayStream c_stream;
@@ -4590,9 +4615,10 @@ TEST_F(TestArrayStreamExport, ChunkedArrayExportEmpty) {
 }
 
 TEST_F(TestArrayStreamExport, ChunkedArrayExport) {
-  ASSERT_OK_AND_ASSIGN(auto chunked_array,
-                       ChunkedArray::Make({arrow::ArrayFromJSON(int32(), "[1, 2]"),
-                                           arrow::ArrayFromJSON(int32(), "[4, 5, null]")}));
+  ASSERT_OK_AND_ASSIGN(
+      auto chunked_array,
+      ChunkedArray::Make({arrow::ArrayFromJSON(int32(), "[1, 2]"),
+                          arrow::ArrayFromJSON(int32(), "[4, 5, null]")}));
 
   struct ArrowArrayStream c_stream;
   struct ArrowSchema c_schema;
@@ -4713,8 +4739,9 @@ class TestArrayStreamRoundtrip : public BaseArrayStreamTest {
 
 TEST_F(TestArrayStreamRoundtrip, Simple) {
   auto orig_schema = arrow::schema({field("ints", int32())});
-  auto batches = MakeBatches(orig_schema, {arrow::ArrayFromJSON(int32(), "[1, 2]"),
-                                           arrow::ArrayFromJSON(int32(), "[4, 5, null]")});
+  auto batches =
+      MakeBatches(orig_schema, {arrow::ArrayFromJSON(int32(), "[1, 2]"),
+                                arrow::ArrayFromJSON(int32(), "[4, 5, null]")});
 
   ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make(batches, orig_schema));
 
@@ -4730,8 +4757,9 @@ TEST_F(TestArrayStreamRoundtrip, Simple) {
 
 TEST_F(TestArrayStreamRoundtrip, CloseEarly) {
   auto orig_schema = arrow::schema({field("ints", int32())});
-  auto batches = MakeBatches(orig_schema, {arrow::ArrayFromJSON(int32(), "[1, 2]"),
-                                           arrow::ArrayFromJSON(int32(), "[4, 5, null]")});
+  auto batches =
+      MakeBatches(orig_schema, {arrow::ArrayFromJSON(int32(), "[1, 2]"),
+                                arrow::ArrayFromJSON(int32(), "[4, 5, null]")});
 
   ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make(batches, orig_schema));
 
@@ -4786,9 +4814,9 @@ TEST_F(TestArrayStreamRoundtrip, SchemaError) {
 }
 
 TEST_F(TestArrayStreamRoundtrip, ChunkedArrayRoundtrip) {
-  ASSERT_OK_AND_ASSIGN(auto src,
-                       ChunkedArray::Make({arrow::ArrayFromJSON(int32(), "[1, 2]"),
-                                           arrow::ArrayFromJSON(int32(), "[4, 5, null]")}));
+  ASSERT_OK_AND_ASSIGN(
+      auto src, ChunkedArray::Make({arrow::ArrayFromJSON(int32(), "[1, 2]"),
+                                    arrow::ArrayFromJSON(int32(), "[4, 5, null]")}));
 
   Roundtrip(src, [&](const std::shared_ptr<ChunkedArray>& dst) {
     AssertTypeEqual(*dst->type(), *src->type());
@@ -4911,8 +4939,8 @@ TEST_F(TestArrayDeviceStreamExport, Simple) {
   ASSERT_OK_AND_ASSIGN(auto arr1,
                        ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[1, 2]")->data()));
   ASSERT_EQ(device->device_type(), arr1->device_type());
-  ASSERT_OK_AND_ASSIGN(auto arr2,
-                       ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[4, 5, null]")->data()));
+  ASSERT_OK_AND_ASSIGN(
+      auto arr2, ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[4, 5, null]")->data()));
   ASSERT_EQ(device->device_type(), arr2->device_type());
   auto schema = arrow::schema({field("ints", int32())});
   auto batches = MakeBatches(schema, {arr1, arr2});
@@ -4940,8 +4968,8 @@ TEST_F(TestArrayDeviceStreamExport, ArrayLifetime) {
   ASSERT_OK_AND_ASSIGN(auto arr1,
                        ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[1, 2]")->data()));
   ASSERT_EQ(device->device_type(), arr1->device_type());
-  ASSERT_OK_AND_ASSIGN(auto arr2,
-                       ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[4, 5, null]")->data()));
+  ASSERT_OK_AND_ASSIGN(
+      auto arr2, ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[4, 5, null]")->data()));
   ASSERT_EQ(device->device_type(), arr2->device_type());
   auto schema = arrow::schema({field("ints", int32())});
   auto batches = MakeBatches(schema, {arr1, arr2});
@@ -5043,8 +5071,8 @@ TEST_F(TestArrayDeviceStreamExport, ChunkedArrayExport) {
   ASSERT_OK_AND_ASSIGN(auto arr1,
                        ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[1, 2]")->data()));
   ASSERT_EQ(device->device_type(), arr1->device_type());
-  ASSERT_OK_AND_ASSIGN(auto arr2,
-                       ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[4, 5, null]")->data()));
+  ASSERT_OK_AND_ASSIGN(
+      auto arr2, ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[4, 5, null]")->data()));
   ASSERT_EQ(device->device_type(), arr2->device_type());
 
   ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make({arr1, arr2}));
@@ -5219,8 +5247,8 @@ TEST_F(TestArrayDeviceStreamRoundtrip, Simple) {
   ASSERT_OK_AND_ASSIGN(auto arr1,
                        ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[1, 2]")->data()));
   ASSERT_EQ(device->device_type(), arr1->device_type());
-  ASSERT_OK_AND_ASSIGN(auto arr2,
-                       ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[4, 5, null]")->data()));
+  ASSERT_OK_AND_ASSIGN(
+      auto arr2, ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[4, 5, null]")->data()));
   ASSERT_EQ(device->device_type(), arr2->device_type());
   auto orig_schema = arrow::schema({field("ints", int32())});
   auto batches = MakeBatches(orig_schema, {arr1, arr2});
@@ -5244,8 +5272,8 @@ TEST_F(TestArrayDeviceStreamRoundtrip, CloseEarly) {
   ASSERT_OK_AND_ASSIGN(auto arr1,
                        ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[1, 2]")->data()));
   ASSERT_EQ(device->device_type(), arr1->device_type());
-  ASSERT_OK_AND_ASSIGN(auto arr2,
-                       ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[4, 5, null]")->data()));
+  ASSERT_OK_AND_ASSIGN(
+      auto arr2, ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[4, 5, null]")->data()));
   ASSERT_EQ(device->device_type(), arr2->device_type());
   auto orig_schema = arrow::schema({field("ints", int32())});
   auto batches = MakeBatches(orig_schema, {arr1, arr2});
@@ -5296,8 +5324,8 @@ TEST_F(TestArrayDeviceStreamRoundtrip, ChunkedArrayRoundtrip) {
   ASSERT_OK_AND_ASSIGN(auto arr1,
                        ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[1, 2]")->data()));
   ASSERT_EQ(device->device_type(), arr1->device_type());
-  ASSERT_OK_AND_ASSIGN(auto arr2,
-                       ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[4, 5, null]")->data()));
+  ASSERT_OK_AND_ASSIGN(
+      auto arr2, ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[4, 5, null]")->data()));
   ASSERT_EQ(device->device_type(), arr2->device_type());
 
   ASSERT_OK_AND_ASSIGN(auto src, ChunkedArray::Make({arr1, arr2}));
@@ -5362,8 +5390,8 @@ TEST_F(TestAsyncDeviceArrayStreamRoundTrip, Simple) {
   ASSERT_OK_AND_ASSIGN(auto arr1,
                        ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[1, 2]")->data()));
   ASSERT_EQ(device->device_type(), arr1->device_type());
-  ASSERT_OK_AND_ASSIGN(auto arr2,
-                       ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[4, 5, null]")->data()));
+  ASSERT_OK_AND_ASSIGN(
+      auto arr2, ToDevice(mm, *arrow::ArrayFromJSON(int32(), "[4, 5, null]")->data()));
   ASSERT_EQ(device->device_type(), arr2->device_type());
   auto orig_schema = arrow::schema({field("ints", int32())});
   auto batches = MakeBatches(orig_schema, {arr1, arr2});
