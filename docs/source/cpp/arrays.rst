@@ -57,6 +57,10 @@ example a ``std::vector``.  Instead, several strategies can be used:
   subclasses help building up array data incrementally, without having to
   deal with details of the Arrow format yourself.
 
+.. note:: For cases where performance isn't important such as examples or tests,
+          you may prefer to use the ``*FromJSON`` helpers which can create
+          Arrays using a JSON text shorthand. See :ref:`fromjson_helpers`.
+
 Using ArrayBuilder and its subclasses
 -------------------------------------
 
@@ -223,3 +227,53 @@ to some logical subsequence of the data.  This is done by calling the
 :func:`arrow::Array::Slice` and :func:`arrow::ChunkedArray::Slice` methods,
 respectively.
 
+.. _fromjson_helpers:
+
+FromJSON Helpers
+================
+
+A set of helper functions is provided for concisely creating Arrays and Scalars
+from JSON_ text. These helpers are intended to be used in examples, tests, or
+for quick prototyping and are not intended to be used where performance matters.
+
+.. _JSON: https://en.wikipedia.org/wiki/JSON
+
+Examples for ``ArrayFromJSON``, ``ChunkedArrayFromJSON``, ``DictArrayFromJSON``
+are shown below::
+
+   // Simple types
+   auto int32_array = ArrayFromJSON(int32(), "[1, 2, 3]");
+   auto float64_array = ArrayFromJSON(float64(), "[4.0, 5.0, 6.0]")
+   auto bool_array = ArrayFromJSON(boolean(), "[true, false, true]");
+   auto string_array = ArrayFromJSON(utf8(), R"(["Hello", "World", null])");
+
+   // Timestamps can be used from string representations
+   auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND),
+                            R"(["1970-01-01","2000-02-29","3989-07-14","1900-02-28"])");
+
+   // List, Map, Struct
+   auto list_array = ArrayFromJSON(
+      list(int64()),
+      "[[null], [], null, [4, 5, 6, 7, 8], [2, 3]]"
+   );
+   auto map_array = ArrayFromJSON(
+      map(boolean(), int32()),
+      R"([[["joe", 0], ["mark", null]], null, [["cap", 8]], []])"
+   );
+   auto struct_array = ArrayFromJSON(
+      struct_({field("one", int32()), field("two", int32())}),
+      "[[11, 22], null, [null, 33]]"
+   );
+
+    // ChunkedArrayFromJSON
+   ChunkedArrayFromJSON(int32(), {R"([5, 10])", R"([null])", R"([16])"});
+
+   // DictArrayFromJSON
+   auto key_array = DictArrayFromJSON(
+      dictionary(int32(), utf8()),
+      "[0, 1, 0, 2, 0, 3]",
+      R"(["k1", "k2", "k3", "k4"])"
+   );
+
+Please see the :ref:`FromJSON API listing <api-array-from-json>` for the
+complete set of helpers.

@@ -34,34 +34,50 @@ class DataType;
 
 namespace util {
 
+/// \defgroup array-from-json Helpers for constructing Arrays from JSON text
+///
+/// These helpers are intended to be used in examples, tests, or for quick
+/// prototyping and are not intended to be used where performance matters.
+///
+/// @{
+
+/// \brief Create an Array from a JSON string
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> ArrayFromJSON(const std::shared_ptr<DataType>&,
                                              const std::string& json);
 
+/// \brief Create an Array from a JSON string
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> ArrayFromJSON(const std::shared_ptr<DataType>&,
                                              std::string_view json);
 
+/// \brief Create an Array from a JSON string
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> ArrayFromJSON(const std::shared_ptr<DataType>&,
                                              const char* json);
 
+/// \brief Create an ChunkedArray from a JSON string
 ARROW_EXPORT
 Status ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
                             const std::vector<std::string>& json_strings,
                             std::shared_ptr<ChunkedArray>* out);
 
+/// \brief Create an DictionaryArray from a JSON string
 ARROW_EXPORT
 Status DictArrayFromJSON(const std::shared_ptr<DataType>&, std::string_view indices_json,
                          std::string_view dictionary_json, std::shared_ptr<Array>* out);
 
+/// \brief Create an Scalar from a JSON string
 ARROW_EXPORT
 Status ScalarFromJSON(const std::shared_ptr<DataType>&, std::string_view json,
                       std::shared_ptr<Scalar>* out);
 
+/// \brief Create an DictScalar from a JSON string
 ARROW_EXPORT
 Status DictScalarFromJSON(const std::shared_ptr<DataType>&, std::string_view index_json,
                           std::string_view dictionary_json, std::shared_ptr<Scalar>* out);
+
+/// @}
 
 }  // namespace util
 }  // namespace arrow

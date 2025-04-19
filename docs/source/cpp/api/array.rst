@@ -110,3 +110,9 @@ Utilities
    :project: arrow_cpp
    :members:
    :undoc-members:
+
+.. _api-array-from-json:
+
+.. doxygengroup:: array-from-json
+   :project: arrow_cpp
+   :members:
