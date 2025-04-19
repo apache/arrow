@@ -153,6 +153,12 @@ PARQUET_EXPORT
 ::arrow::Status WriteMetaDataFile(const FileMetaData& file_metadata,
                                   ::arrow::io::OutputStream* sink);
 
+/// \brief Write encrypted metadata-only Parquet file to indicated Arrow OutputStream
+PARQUET_EXPORT
+::arrow::Status WriteEncryptedMetadataFile(
+    const FileMetaData& file_metadata, std::shared_ptr<::arrow::io::OutputStream> sink,
+    std::shared_ptr<FileEncryptionProperties> file_encryption_properties);
+
 /// \brief Write a Table to Parquet.
 ///
 /// This writes one table in a single shot. To write a Parquet file with
