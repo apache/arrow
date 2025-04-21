@@ -236,7 +236,7 @@ A set of helper functions is provided for concisely creating Arrays and Scalars
 from JSON_ text. These helpers are intended to be used in examples, tests, or
 for quick prototyping and are not intended to be used where performance matters.
 
-.. _JSON: https://en.wikipedia.org/wiki/JSON
+.. _JSON: https://datatracker.ietf.org/doc/html/rfc8259
 
 Examples for ``ArrayFromJSON``, ``ChunkedArrayFromJSON``, ``DictArrayFromJSON``
 are shown below::
