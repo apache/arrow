@@ -1425,9 +1425,9 @@ services:
       dockerfile: ci/docker/python-free-threaded-wheel-windows-vs2022.dockerfile
       # This should make the pushed images reusable, but the image gets rebuilt.
       # Uncomment if no local cache is available.
-      cache_from:
-        - mcr.microsoft.com/windows/servercore:ltsc2022
-        - ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+      # cache_from:
+      #   - mcr.microsoft.com/windows/servercore:ltsc2022
+      #   - ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     volumes: *python-wheel-windows-vs2022-volumes
     command: arrow\\ci\\scripts\\python_wheel_windows_build.bat
 
