@@ -113,6 +113,9 @@ Utilities
 
 .. _api-array-from-json:
 
+FromJSON Helpers
+----------------
+
 .. doxygengroup:: array-from-json
-   :project: arrow_cpp
+   :content-only:
    :members:
