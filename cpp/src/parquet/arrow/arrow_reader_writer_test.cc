@@ -1515,21 +1515,26 @@ TEST_F(TestGeoArrowParquetIO, GeoArrowExtension) {
   // When the original Arrow schema isn't stored and Arrow extensions are disabled,
   // LogicalType::GEOMETRY is read as utf8.
   auto writer_properties = default_arrow_writer_properties();
-  this->RoundTripSingleColumn(wkb_array, binary_array, writer_properties);
-  this->RoundTripSingleColumn(large_wkb_array, binary_array, writer_properties);
+  ASSERT_NO_FATAL_FAILURE(
+      this->RoundTripSingleColumn(wkb_array, binary_array, writer_properties));
+  ASSERT_NO_FATAL_FAILURE(
+      this->RoundTripSingleColumn(large_wkb_array, binary_array, writer_properties));
 
   // When the original Arrow schema isn't stored and Arrow extensions are enabled,
   // LogicalType::GEOMETRY is read as geoarrow.wkb with binary storage.
   ::parquet::ArrowReaderProperties reader_properties;
   reader_properties.set_arrow_extensions_enabled(true);
-  this->RoundTripSingleColumn(wkb_array, wkb_array, writer_properties, reader_properties);
-  this->RoundTripSingleColumn(large_wkb_array, wkb_array, writer_properties,
-                              reader_properties);
+  ASSERT_NO_FATAL_FAILURE(this->RoundTripSingleColumn(
+      wkb_array, wkb_array, writer_properties, reader_properties));
+  ASSERT_NO_FATAL_FAILURE(this->RoundTripSingleColumn(
+      large_wkb_array, wkb_array, writer_properties, reader_properties));
 
   // When the original Arrow schema is stored, the stored Arrow type is respected.
   writer_properties = ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
-  this->RoundTripSingleColumn(wkb_array, wkb_array, writer_properties);
-  this->RoundTripSingleColumn(large_wkb_array, large_wkb_array, writer_properties);
+  ASSERT_NO_FATAL_FAILURE(
+      this->RoundTripSingleColumn(wkb_array, wkb_array, writer_properties));
+  ASSERT_NO_FATAL_FAILURE(
+      this->RoundTripSingleColumn(large_wkb_array, large_wkb_array, writer_properties));
 }
 
 using TestNullParquetIO = TestParquetIO<::arrow::NullType>;
