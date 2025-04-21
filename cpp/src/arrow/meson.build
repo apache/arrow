@@ -367,7 +367,7 @@ if needs_json
         },
     }
 
-    arrow_util_srcs += 'ipc/json_simple.cc'
+    arrow_util_srcs += 'util/from_json.cc'
     arrow_util_deps += rapidjson_dep
 endif
 
