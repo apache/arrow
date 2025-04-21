@@ -53,6 +53,8 @@ class ARROW_EXPORT UuidType : public ExtensionType {
 
   /// \brief Create a UuidType instance
   static Result<std::shared_ptr<DataType>> Make() { return std::make_shared<UuidType>(); }
+
+  static bool IsSupportedStorageType(const std::shared_ptr<DataType>& storage_type);
 };
 
 /// \brief Return a UuidType instance.

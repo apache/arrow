@@ -1513,6 +1513,7 @@ def test_tensor_array_from_numpy(np_type_str):
     assert isinstance(tensor_array_from_numpy.type, pa.FixedShapeTensorType)
     assert tensor_array_from_numpy.type.value_type == arrow_type
     assert tensor_array_from_numpy.type.shape == [2, 3]
+    assert tensor_array_from_numpy.type.dim_names is None
 
     arr = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]],
                    dtype=np.dtype(np_type_str), order="F")
@@ -1527,6 +1528,7 @@ def test_tensor_array_from_numpy(np_type_str):
     tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
     assert tensor_array_from_numpy.type.shape == [3, 4]
     assert tensor_array_from_numpy.type.permutation == [0, 1]
+    assert tensor_array_from_numpy.type.dim_names is None
     assert tensor_array_from_numpy.to_tensor() == pa.Tensor.from_numpy(arr)
 
     arr = as_strided(flat_arr, shape=(1, 2, 3, 2),
@@ -1534,6 +1536,7 @@ def test_tensor_array_from_numpy(np_type_str):
     tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
     assert tensor_array_from_numpy.type.shape == [2, 2, 3]
     assert tensor_array_from_numpy.type.permutation == [0, 2, 1]
+    assert tensor_array_from_numpy.type.dim_names is None
     assert tensor_array_from_numpy.to_tensor() == pa.Tensor.from_numpy(arr)
 
     arr = flat_arr.reshape(1, 2, 3, 2)
@@ -1568,6 +1571,28 @@ def test_tensor_array_from_numpy(np_type_str):
 
     with pytest.raises(ValueError, match="Expected a non-empty ndarray"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr.reshape((3, 0, 2)))
+
+    arr = np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]],
+                   dtype=np.dtype(np_type_str), order="C")
+    dim_names = ["a", "b"]
+    tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(
+        arr, dim_names=dim_names)
+    assert tensor_array_from_numpy.type.value_type == arrow_type
+    assert tensor_array_from_numpy.type.shape == [2, 3]
+    assert tensor_array_from_numpy.type.dim_names == dim_names
+
+    with pytest.raises(ValueError, match="The length of dim_names"):
+        pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=['only_one'])
+
+    with pytest.raises(TypeError, match="dim_names must be a tuple or list"):
+        pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=123)
+
+    with pytest.raises(TypeError, match="dim_names must be a tuple or list"):
+        pa.FixedShapeTensorArray.from_numpy_ndarray(
+            arr, dim_names=(x for x in range(2)))
+
+    with pytest.raises(TypeError, match="Each element of dim_names must be a string"):
+        pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=[0, 1])
 
 
 @pytest.mark.numpy

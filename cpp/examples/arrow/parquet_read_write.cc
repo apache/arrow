@@ -67,7 +67,7 @@ arrow::Status ReadInBatches(std::string path_to_file) {
   ARROW_ASSIGN_OR_RAISE(arrow_reader, reader_builder.Build());
 
   std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
-  ARROW_RETURN_NOT_OK(arrow_reader->GetRecordBatchReader(&rb_reader));
+  ARROW_ASSIGN_OR_RAISE(rb_reader, arrow_reader->GetRecordBatchReader());
 
   for (arrow::Result<std::shared_ptr<arrow::RecordBatch>> maybe_batch : *rb_reader) {
     // Operate on each batch...

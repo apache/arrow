@@ -1,0 +1,97 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+{% import 'macros.jinja' as macros with context %}
+
+{{ macros.github_header() }}
+
+jobs:
+  macos-cran:
+    name: "m1-san on macOS"
+    runs-on: macOS-15
+    strategy:
+      fail-fast: false
+
+    steps:
+      {{ macros.github_checkout_arrow()|indent }}
+
+      - name: Configure dependencies (macos)
+        run: |
+          brew install openssl
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+          r-version: devel
+      - name: Install dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          cache: false # cache does not work on across branches
+          working-directory: arrow/r
+          extra-packages: |
+            any::rcmdcheck
+            any::sys
+      - name: Setup the sanitizer
+        run: |
+          # From rhub/rhub's m1-san:
+          # https://github.com/r-hub/actions/blob/ab9b2fb5021f43bfd0ee977932e0a14d25f6e59e/run-check/scripts/mac-asan.sh
+          # Use XCode 16.3 ------------------------------------------------
+          sudo rm -f /Applications/Xcode.app
+          sudo ln -sfF /Applications/Xcode_16.3.app /Applications/Xcode.app
+          sudo xcode-select -s /Applications/Xcode.app
+
+          # Compile with sanitizers ---------------------------------------
+          mkdir -p ~/.R
+          cat >> ~/.R/Makevars <<EOF
+          CC+=-mmacos-version-min=15 -fsanitize=address,undefined
+          CXX+=-mmacos-version-min=15 -fsanitize=address,undefined
+          CXX11+=-mmacos-version-min=15 -fsanitize=address,undefined
+          CXX14+=-mmacos-version-min=15 -fsanitize=address,undefined
+          CXX17+=-mmacos-version-min=15 -fsanitize=address,undefined
+          CXX20+=-mmacos-version-min=15 -fsanitize=address,undefined
+          CXX23+=-mmacos-version-min=15 -fsanitize=address,undefined
+          REC_INSTALL_OPT=--dsym
+          EOF
+
+          # Need to patch the shell script, because these env vars --------
+          # do not go through a shell because of Apple security.
+          R=$(readlink `which R`)
+          head -1 ${R} >> /tmp/R
+          cat >> /tmp/R <<EOF
+          export DYLD_FORCE_FLAT_NAMESPACE=1
+          export DYLD_INSERT_LIBRARIES=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/17/lib/darwin/libclang_rt.asan_osx_dynamic.dylib
+          EOF
+          cat ${R} >> /tmp/R
+          chmod +x /tmp/R
+          sudo mv /tmp/R ${R}
+      - name: Install and check
+        env:
+          R_BIN: R
+          LIBARROW_BINARY: FALSE
+        run: |
+          export ARROW_SOURCE_HOME=$(pwd)/arrow
+          export INSTALL_ARGS="--no-test-load"
+          arrow/ci/scripts/r_sanitize.sh arrow
+      - name: Save the test output
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: |
+            arrow/r/tests/
+            arrow/r/arrow.Rcheck/
+            !arrow/r/arrow.Rcheck/00_pkg_src/
+            !arrow/r/arrow.Rcheck/arrow/
+        if: always()

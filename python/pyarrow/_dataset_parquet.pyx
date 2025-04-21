@@ -722,7 +722,8 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         If True, verify the page checksum for each page read from the file.
     arrow_extensions_enabled : bool, default False
         If True, read Parquet logical types as Arrow extension types where possible,
-        (e.g., read JSON as the canonical `arrow.json` extension type).
+        (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
+        the canonical `arrow.uuid` extension type).
     """
 
     # Avoid mistakingly creating attributes

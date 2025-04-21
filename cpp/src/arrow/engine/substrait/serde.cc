@@ -62,8 +62,8 @@ Status ParseFromBufferImpl(const Buffer& buf, const std::string& full_name,
 template <typename Message>
 Result<Message> ParseFromBuffer(const Buffer& buf) {
   Message message;
-  ARROW_RETURN_NOT_OK(
-      ParseFromBufferImpl(buf, Message::descriptor()->full_name(), &message));
+  ARROW_RETURN_NOT_OK(ParseFromBufferImpl(
+      buf, std::string(Message::descriptor()->full_name()), &message));
   return message;
 }
 

@@ -4324,6 +4324,10 @@ macro(build_nlohmann_json)
       # google-cloud-cpp requires JSON_MultipleHeaders=ON
       -DJSON_BuildTests=OFF -DJSON_MultipleHeaders=ON)
 
+  # We can remove this once we remove -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+  # from EP_COMMON_CMAKE_ARGS.
+  list(REMOVE_ITEM NLOHMANN_JSON_CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
+
   set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/nlohmann/json.hpp)
 
   externalproject_add(nlohmann_json_ep

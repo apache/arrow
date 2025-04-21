@@ -18,7 +18,7 @@
 ARG base
 FROM ${base}
 
-ARG r=4.4
+ARG r=4.5
 
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 

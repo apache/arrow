@@ -119,7 +119,6 @@ class StreamFormatFixture(IpcFixture):
         return pa.ipc.new_stream(
             sink,
             schema,
-            use_legacy_format=self.use_legacy_ipc_format,
             options=self.options,
         )
 
@@ -403,9 +402,7 @@ def test_stream_write_table_batches(stream_fixture):
                                  ignore_index=True))
 
 
-@pytest.mark.parametrize('use_legacy_ipc_format', [False, True])
-def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
-    stream_fixture.use_legacy_ipc_format = use_legacy_ipc_format
+def test_stream_simple_roundtrip(stream_fixture):
     batches = stream_fixture.write_batches()
     file_contents = pa.BufferReader(stream_fixture.get_source())
     reader = pa.ipc.open_stream(file_contents)
@@ -503,15 +500,6 @@ def test_write_options():
         assert options.use_threads is False
 
 
-def test_write_options_legacy_exclusive(stream_fixture):
-    with pytest.raises(
-            ValueError,
-            match="provide at most one of options and use_legacy_format"):
-        stream_fixture.use_legacy_ipc_format = True
-        stream_fixture.options = pa.ipc.IpcWriteOptions()
-        stream_fixture.write_batches()
-
-
 @pytest.mark.parametrize('options', [
     pa.ipc.IpcWriteOptions(),
     pa.ipc.IpcWriteOptions(allow_64bit=True),
@@ -521,7 +509,6 @@ def test_write_options_legacy_exclusive(stream_fixture):
                            metadata_version=pa.ipc.MetadataVersion.V4),
 ])
 def test_stream_options_roundtrip(stream_fixture, options):
-    stream_fixture.use_legacy_ipc_format = None
     stream_fixture.options = options
     batches = stream_fixture.write_batches()
     file_contents = pa.BufferReader(stream_fixture.get_source())
