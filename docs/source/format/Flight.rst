@@ -365,7 +365,7 @@ Extended Location URIs
 
 In addition to alternative transports, a server may also return
 URIs that reference an external service or object storage location.
-This can be useful in cases where intermediate data is cached as 
+This can be useful in cases where intermediate data is cached as
 Apache Parquet files on S3 or is accessible via an HTTP service. In
 these scenarios, it is more efficient to be able to provide a URI
 where the client may simply download the data directly, rather than
@@ -405,13 +405,13 @@ would recognize.
 Finally, the server may also allow the client to choose what format the
 data is returned in by respecting the ``Accept`` header in the request.
 If multiple formats are requested and supported, the choice of which to
-use is server-specific. If none of the requested content-types are 
+use is server-specific. If none of the requested content-types are
 supported, the server may respond with either 406 (Not Acceptable),
 415 (Unsupported Media Type), or successfuly respond with a different
 format that it does support, along with the correct ``Content-Type``
 header.
 
-*Note: new schemes may be proposed in the future to allow for more 
+*Note: new schemes may be proposed in the future to allow for more
 flexibility based on community requests.*
 
 
