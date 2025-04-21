@@ -38,7 +38,6 @@
 #include "arrow/table_builder.h"            // IWYU pragma: export
 #include "arrow/tensor.h"                   // IWYU pragma: export
 #include "arrow/type.h"                     // IWYU pragma: export
-#include "arrow/util/from_json.h"           // IWYU pragma: export
 #include "arrow/util/key_value_metadata.h"  // IWYU pragma: export
 #include "arrow/visit_array_inline.h"       // IWYU pragma: export
 #include "arrow/visit_scalar_inline.h"      // IWYU pragma: export

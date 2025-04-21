@@ -42,7 +42,6 @@ using testing::UnorderedElementsAreArray;
 
 namespace arrow {
 
-using arrow::ArrayFromJSON;
 using arrow::gen::Constant;
 using arrow::random::kSeedMax;
 using arrow::random::RandomArrayGenerator;
