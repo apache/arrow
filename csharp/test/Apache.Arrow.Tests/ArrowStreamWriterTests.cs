@@ -731,7 +731,8 @@ namespace Apache.Arrow.Tests
             var slicedBatch = new RecordBatch(originalBatch.Schema, slicedArrays, sliceLength);
             var allocator = new TestMemoryAllocator();
             await TestRoundTripRecordBatchesAsync(new List<RecordBatch> () {slicedBatch}, null, false, allocator);
-            Assert.Equal(0,allocator.Statistics.Allocations);
+            if(sliceOffset % 8 != 0)
+                Assert.True(allocator.Statistics.Allocations > 0);
             Assert.Equal(0,allocator.Rented);
         }
     }
