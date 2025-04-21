@@ -360,6 +360,61 @@ string, so the obvious candidates are not compatible.  The chosen
 representation can be parsed by both implementations, as well as Go's
 ``net/url`` and Python's ``urllib.parse``.
 
+Extended Location URIs
+----------------------
+
+In addition to alternative transports, a server may also return
+URIs that reference an external service or object storage location.
+This can be useful in cases where intermediate data is cached as 
+Apache Parquet files on S3 or is accessible via an HTTP service. In
+these scenarios, it is more efficient to be able to provide a URI
+where the client may simply download the data directly, rather than
+requiring a Flight service to read it back into memory and serve it
+from a ``DoGet`` request. Servers should use the following URI
+schemes for this situation:
+
++--------------------+------------------------+
+| Location           | URI Scheme             |
++====================+========================+
+| Object storage (1) | s3:, gcs:, abfs:, etc. |
++--------------------+------------------------+
+| HTTP service   (2) | http:, https:          |
++--------------------+------------------------+
+
+Notes:
+
+* \(1) Any auth required should be either negotiated externally to
+   Flight or should use a presigned URI.
+* \(2) The client should make a GET request to the provided URI
+   to retrieve the data.
+
+When using an extended location URI, the client should ignore any
+value in the ``Ticket`` field of the ``FlightEndpoint``. The
+``Ticket`` is only used for identifying data in the context of a
+Flight service, and is not needed when the client is directly
+downloading data from an external service.
+
+Clients should assume that, unless otherwise specified, the data is
+being returned as an Arrow IPC Stream just as it would via a ``DoGet``
+call. If the returned ``Content-Type`` header is a generic media type
+such as ``application/octet-stream``, the client should still assume
+it is an Arrow IPC stream. For other media types, such as Apache Parquet,
+the server should use the appropriate IANA Media Type that a client
+would recognize.
+
+Finally, the server may also allow the client to choose what format the
+data is returned in by respecting the ``Accept`` header in the request.
+If multiple formats are requested and supported, the choice of which to
+use is server-specific. If none of the requested content-types are 
+supported, the server may respond with either 406 (Not Acceptable),
+415 (Unsupported Media Type), or successfuly respond with a different
+format that it does support, along with the correct ``Content-Type``
+header.
+
+*Note: new schemes may be proposed in the future to allow for more 
+flexibility based on community requests.*
+
+
 Error Handling
 ==============
 
