@@ -611,11 +611,9 @@ Status ExecBatchBuilder::AppendSelected(const std::shared_ptr<ArrayData>& source
           });
     Visit(source, num_rows_to_append - num_rows_to_process, row_ids + num_rows_to_process,
           [&](int i, const uint8_t* ptr, int32_t num_bytes) {
-            uint64_t* dst = reinterpret_cast<uint64_t*>(
-                target->mutable_data(2) +
-                offsets[num_rows_before + num_rows_to_process + i]);
-            const uint64_t* src = reinterpret_cast<const uint64_t*>(ptr);
-            memcpy(dst, src, num_bytes);
+            auto dst = target->mutable_data(2) +
+                       offsets[num_rows_before + num_rows_to_process + i];
+            memcpy(dst, ptr, num_bytes);
           });
   }
 

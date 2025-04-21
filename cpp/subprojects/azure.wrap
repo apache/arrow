@@ -15,23 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# The GPG key ID to sign artifacts. The GPG key ID must be registered
-# to both of the followings:
-#
-#   * https://dist.apache.org/repos/dist/dev/arrow/KEYS
-#   * https://dist.apache.org/repos/dist/release/arrow/KEYS
-#
-# See these files how to import your GPG key ID to these files.
-#
-# You must set this.
-#GPG_KEY_ID=08D3564B7C6A9CAFBFF6A66791D18FCF079F8007
-
-# The Artifactory API key to upload artifacts to Artifactory.
-#
-# You must set this.
-#ARTIFACTORY_API_KEY=secret
-
-# The GitHub token to upload artifacts to GitHub Release.
-#
-# You must set this.
-#GH_TOKEN=secret
+[wrap-file]
+source_url = https://github.com/Azure/azure-sdk-for-cpp/archive/azure-identity_1.9.0.tar.gz
+source_filename = azure-sdk-for-cpp-azure-identity_1.9.0.tar.gz
+source_hash = 97065bfc971ac8df450853ce805f820f52b59457bd7556510186a1569502e4a1
+directory = azure-sdk-for-cpp-azure-identity_1.9.0
+method = cmake

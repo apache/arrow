@@ -15,23 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# The GPG key ID to sign artifacts. The GPG key ID must be registered
-# to both of the followings:
-#
-#   * https://dist.apache.org/repos/dist/dev/arrow/KEYS
-#   * https://dist.apache.org/repos/dist/release/arrow/KEYS
-#
-# See these files how to import your GPG key ID to these files.
-#
-# You must set this.
-#GPG_KEY_ID=08D3564B7C6A9CAFBFF6A66791D18FCF079F8007
+install_headers(['converter.h'], subdir: 'arrow/tensor')
 
-# The Artifactory API key to upload artifacts to Artifactory.
-#
-# You must set this.
-#ARTIFACTORY_API_KEY=secret
-
-# The GitHub token to upload artifacts to GitHub Release.
-#
-# You must set this.
-#GH_TOKEN=secret
+exc = executable(
+    'arrow-tensor-conversion-benchmark',
+    sources: ['tensor_conversion_benchmark.cc'],
+    dependencies: [arrow_benchmark_dep],
+)
+benchmark('arrow-tensor-conversion-benchmark', exc)

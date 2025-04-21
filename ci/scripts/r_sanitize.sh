@@ -36,8 +36,7 @@ ncores=$(${R_BIN} -s -e 'cat(parallel::detectCores())')
 echo "MAKEFLAGS=-j${ncores}" >> ${rhome}/etc/Renviron.site
 
 # build first so that any stray compiled files in r/src are ignored
-${R_BIN} CMD build .
-${R_BIN} CMD INSTALL ${INSTALL_ARGS} arrow*.tar.gz
+${R_BIN} CMD build --no-build-vignettes --no-manual .
 
 # But unset the env var so that it doesn't cause us to run extra dev tests
 unset ARROW_R_DEV
@@ -45,25 +44,30 @@ unset ARROW_R_DEV
 # Set the testthat output to be verbose for easier debugging
 export ARROW_R_VERBOSE_TEST=TRUE
 
-export UBSAN_OPTIONS="print_stacktrace=1,suppressions=/arrow/r/tools/ubsan.supp"
+# We prune dependencies for these, so we need to disable forcing suggests
+export _R_CHECK_FORCE_SUGGESTS_=FALSE
+
+export SUPPRESSION_FILE=$(readlink -f "tools/ubsan.supp")
+export UBSAN_OPTIONS="print_stacktrace=1,suppressions=${SUPPRESSION_FILE}"
 # From the old rhub image https://github.com/r-hub/rhub-linux-builders/blob/master/fedora-clang-devel-san/Dockerfile
 export ASAN_OPTIONS="alloc_dealloc_mismatch=0:detect_leaks=0:detect_odr_violation=0"
 
-# run tests
-pushd tests
-${R_BIN} --no-save < testthat.R > testthat.out 2>&1 || { cat testthat.out; exit 1; }
+${R_BIN} CMD check --no-manual --no-vignettes --no-build-vignettes arrow*.tar.gz
 
-cat testthat.out
-if grep -q "runtime error" testthat.out; then
+# Find sanitizer issues, print the file(s) they are part of, and fail the job
+find . -type f -name "*Rout" -exec grep -l "runtime error\|SUMMARY: UndefinedBehaviorSanitizer" {} \; > sanitizer_errors.txt
+if [ -s sanitizer_errors.txt ]; then
+  echo "Sanitizer errors found in the following files:"
+  cat sanitizer_errors.txt
+  
+  # Print the content of files with errors for debugging
+  while read -r file; do
+    echo "=============== $file ==============="
+    cat "$file"
+    echo "========================================="
+  done < sanitizer_errors.txt
+  
   exit 1
 fi
 
-# run examples
-popd
-${R_BIN} --no-save -e 'library(arrow); testthat::test_examples(".")' >> examples.out 2>&1 || { cat examples.out; exit 1; }
-
-cat examples.out
-if grep -q "runtime error" examples.out; then
-  exit 1
-fi
 popd
