@@ -288,6 +288,11 @@
 #' * [`ymd_hms()`][lubridate::ymd_hms()]: `locale` argument not supported
 #' * [`yq()`][lubridate::yq()]: `locale` argument not supported
 #'
+#' ## hms
+#'
+#' * [`hms()`][hms::hms()]: subsecond times not supported
+#' * [`hms()`][hms::as_hms()]: subsecond times not supported
+#'
 #' ## methods
 #'
 #' * [`is()`][methods::is()]

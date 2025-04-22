@@ -27,6 +27,7 @@ register_bindings_datetime <- function() {
   register_bindings_duration_helpers()
   register_bindings_datetime_parsers()
   register_bindings_datetime_rounding()
+  register_bindings_hms()
 }
 
 register_bindings_datetime_utility <- function() {
@@ -823,6 +824,89 @@ register_bindings_datetime_rounding <- function() {
       }
 
       Expression$create("ceil_temporal", x, options = opts)
+    }
+  )
+}
+
+register_bindings_hms <- function(){
+
+  numeric_to_time32 <- function(x){
+    # The only numeric which can be cast to time32 is int32 so double cast to make sure
+    cast(cast(x, int32()), time32(unit = "s"))
+  }
+
+  register_binding(
+    "hms::hms",
+    function(seconds = NULL, minutes = NULL, hours = NULL, days = NULL) {
+
+      sec_expr <- Expression$create(
+        "if_else",
+        call_binding("is.na", seconds),
+        NA_integer_,
+        seconds
+      )
+
+      min_expr <- Expression$create(
+        "if_else",
+        call_binding("is.na", minutes),
+        NA_integer_,
+        Expression$create("multiply_checked", minutes, 60)
+      )
+
+      hours_expr <- Expression$create(
+        "if_else",
+        call_binding("is.na", hours),
+        NA_integer_,
+        Expression$create("multiply_checked", hours, 3600)
+      )
+
+      days_expr <- Expression$create(
+        "if_else",
+        call_binding("is.na", days),
+        NA_integer_,
+        Expression$create("multiply_checked", days, 86400)
+      )
+
+      total_secs <- sec_expr + min_expr + hours_expr + days_expr
+
+      return(numeric_to_time32(total_secs))
+
+    }
+  )
+
+  register_binding(
+    "hms::as_hms",
+    function(x = numeric()) {
+
+      datetime_to_int64 <- function(datetime){
+
+        hour <- call_binding("hour", datetime)
+        min <- call_binding("minute", datetime)
+        sec <- call_binding("second", datetime)
+
+        # Convert to time with origin so we can get integer value in seconds
+        temptime <- call_binding("lubridate::make_datetime", hour = hour, min = min, sec = sec)
+        # Cast to int64 as this is the only thing we can cast a timestamp to
+        cast(temptime, to = int64())
+      }
+
+      # Note: this doesn't work for subseconds and we should document it
+      if (call_binding("is.POSIXct", x)) {
+        integer_time <- datetime_to_int64(x)
+        return(numeric_to_time32(integer_time))
+      }
+
+      if (call_binding("is.numeric", x)) {
+        return(numeric_to_time32(x))
+      }
+
+      if (call_binding("is.character", x)) {
+        as_date_time <- call_binding("str_c", "1970-01-01", x, sep = " ")
+        temp_datetime <- call_binding("strptime", as_date_time)
+        as_int <- datetime_to_int64(temp_datetime)
+        return(numeric_to_time32(as_int))
+      }
+
     }
   )
 }

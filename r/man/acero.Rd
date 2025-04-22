@@ -285,6 +285,13 @@ On Linux and OS X additionally a, A, b, B, Om, p, r are available.
 }
 }
 
+\subsection{hms}{
+\itemize{
+\item \code{\link[hms:hms]{hms()}}: subsecond times not supported
+\item \code{\link[hms:hms]{hms()}}: subsecond times not supported
+}
+}
+
 \subsection{methods}{
 \itemize{
 \item \code{\link[methods:is]{is()}}
