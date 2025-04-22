@@ -235,6 +235,9 @@ FromJSON Helpers
 A set of helper functions is provided for concisely creating Arrays and Scalars
 from JSON_ text. These helpers are intended to be used in examples, tests, or
 for quick prototyping and are not intended to be used where performance matters.
+Most users will want to use the API described in :doc:`json` which provides a
+performant way to create :class:`arrow::Table` and :class:`arrow::RecordBatch`
+objects from line-separated JSON files.
 
 .. _JSON: https://datatracker.ietf.org/doc/html/rfc8259
 
