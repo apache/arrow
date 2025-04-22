@@ -26,7 +26,6 @@
 #include <mutex>
 #include <string>
 #include <thread>
-#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -1046,7 +1045,7 @@ struct StringBuilderVisitor {
       const DataType&, ArrayBuilder* raw_builder,
       const std::vector<std::string>& values) {
     using Builder = typename TypeTraits<DataType>::BuilderType;
-    Builder* builder = static_cast<Builder*>(raw_builder);
+    auto builder = static_cast<Builder*>(raw_builder);
     for (const auto& value : values) {
       ARROW_RETURN_NOT_OK(builder->Append(value));
     }
@@ -1083,31 +1082,31 @@ template <typename ValueType, typename = std::enable_if_t<std::is_same<
 Result<std::shared_ptr<Array>> BuildArray(const std::vector<ValueType>& values,
                                           const std::shared_ptr<DataType>& array_type) {
   struct Builder {
-    const std::vector<ArrayStatistics::ValueType>& values_;
+    const std::vector<ArrayStatistics::ValueType>& values;
     const std::shared_ptr<DataType>& array_type;
     explicit Builder(const std::vector<ArrayStatistics::ValueType>& values,
                      const std::shared_ptr<DataType>& array_type)
-        : values_(values), array_type(array_type) {}
+        : values(values), array_type(array_type) {}
 
     Result<std::shared_ptr<Array>> operator()(const bool&) {
-      auto values = StatisticsValuesToRawValues<bool>(values_);
-      return BuildArray<BooleanType>(values);
+      auto raw_values = StatisticsValuesToRawValues<bool>(values);
+      return BuildArray<BooleanType>(raw_values);
     }
     Result<std::shared_ptr<Array>> operator()(const int64_t&) {
-      auto values = StatisticsValuesToRawValues<int64_t>(values_);
-      return BuildArray<Int64Type>(values);
+      auto raw_values = StatisticsValuesToRawValues<int64_t>(values);
+      return BuildArray<Int64Type>(raw_values);
     }
     Result<std::shared_ptr<Array>> operator()(const uint64_t&) {
-      auto values = StatisticsValuesToRawValues<uint64_t>(values_);
-      return BuildArray<UInt64Type>(values);
+      auto raw_values = StatisticsValuesToRawValues<uint64_t>(values);
+      return BuildArray<UInt64Type>(raw_values);
     }
     Result<std::shared_ptr<Array>> operator()(const double&) {
-      auto values = StatisticsValuesToRawValues<double>(values_);
-      return BuildArray<DoubleType>(values);
+      auto raw_values = StatisticsValuesToRawValues<double>(values);
+      return BuildArray<DoubleType>(raw_values);
     }
     Result<std::shared_ptr<Array>> operator()(const std::string&) {
-      auto values = StatisticsValuesToRawValues<std::string>(values_);
-      return BuildArray(array_type, values);
+      auto raw_values = StatisticsValuesToRawValues<std::string>(values);
+      return BuildArray(array_type, raw_values);
     }
   } builder(values, array_type);
   return std::visit(builder, values[0]);
@@ -1456,7 +1455,7 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayMaxApproximate) {
 template <typename DataType>
 class TestRecordBatchMakeStatisticsArrayStringBase {
  public:
-  std::shared_ptr<::arrow::DataType> type(int byte_width = 1) {
+  std::shared_ptr<::arrow::DataType> type(int32_t byte_width = 1) {
     if constexpr (std::is_same_v<DataType, FixedSizeBinaryType>) {
       return fixed_size_binary(byte_width);
     } else {
@@ -1464,18 +1463,17 @@ class TestRecordBatchMakeStatisticsArrayStringBase {
     }
   }
   std::shared_ptr<Array> GenerateString(
-      const std::shared_ptr<::arrow::DataType>& dataType) {
-    if (dataType->id() == Type::FIXED_SIZE_BINARY) {
-      FixedSizeBinaryType* type = static_cast<FixedSizeBinaryType*>(dataType.get());
-      int byte_width = type->byte_width();
+      const std::shared_ptr<::arrow::DataType>& data_type) {
+    if (data_type->id() == Type::FIXED_SIZE_BINARY) {
+      auto byte_width = data_type->byte_width();
       auto a = std::string(byte_width, 'a');
       auto b = std::string(byte_width, 'b');
       auto c = std::string(byte_width, 'c');
       std::stringstream ss;
       ss << R"([")" << a << R"(",")" << b << R"(",")" << c << R"("])";
-      return ArrayFromJSON(dataType, ss.str());
+      return ArrayFromJSON(data_type, ss.str());
     }
-    return ArrayFromJSON(dataType, R"(["a","b","c"])");
+    return ArrayFromJSON(data_type, R"(["a","b","c"])");
   }
 };
 template <typename DataType>
@@ -1518,10 +1516,9 @@ class TestRecordBatchMakeStatisticsArrayEachStringType
 
 class TestRecordBatchMakeStatisticsArrayFixedSizeBinaryCombination
     : public TestRecordBatchMakeStatisticsArrayStringBase<FixedSizeBinaryType>,
-      public ::testing::TestWithParam<std::tuple<int, int>> {
+      public ::testing::Test {
  public:
-  void TestCombination() {
-    auto [byte_width_1, byte_width_2] = GetParam();
+  void TestCombination(int32_t byte_width_1, int32_t byte_width_2) {
     auto f0 = GenerateString(type(byte_width_1));
     f0->data()->statistics = std::make_shared<ArrayStatistics>();
     f0->data()->statistics->max = std::string(byte_width_1, 'c');
@@ -1564,28 +1561,24 @@ class TestRecordBatchMakeStatisticsArrayFixedSizeBinaryCombination
   }
 };
 
-using BaseBinaryOrBinaryViewOrFixedSizeBinaryLikeArrowTypes =
-    ::testing::Types<BinaryType, LargeBinaryType, BinaryViewType, FixedSizeBinaryType,
-                     StringType, LargeStringType, StringViewType>;
-
 TYPED_TEST_SUITE(TestRecordBatchMakeStatisticsArrayEachStringType,
-                 BaseBinaryOrBinaryViewOrFixedSizeBinaryLikeArrowTypes);
+                 AllBinaryOrBinrayViewLikeArrowTypes);
 
 TYPED_TEST(TestRecordBatchMakeStatisticsArrayEachStringType, EachType) {
   this->TestEachType();
 }
 
-TEST_P(TestRecordBatchMakeStatisticsArrayFixedSizeBinaryCombination,
-       FixedSizeBinaryCombination) {
-  this->TestCombination();
+// Validates that the union array creates two distinct child arrays for two
+// FixedSizeBinaryArrays with unequal byte widths.
+TEST_F(TestRecordBatchMakeStatisticsArrayFixedSizeBinaryCombination, CheckDifferentSize) {
+  this->TestCombination(1, 2);
 }
 
-// tuple(1, 2) tests whether RecordBatch::MakeStatistics can handle cases involving
-// different fixed_size_binary types.
-// tuple(2, 2) verifies if a single union array is created to include both values.
-INSTANTIATE_TEST_SUITE_P(FixedSizeBinaryCombination,
-                         TestRecordBatchMakeStatisticsArrayFixedSizeBinaryCombination,
-                         ::testing::Values(std::make_tuple(1, 2), std::make_tuple(2, 2)));
+// Validates that the union array creates a single child array for two
+// FixedSizeBinaryArrays with equal byte widths.
+TEST_F(TestRecordBatchMakeStatisticsArrayFixedSizeBinaryCombination, CheckSameSize) {
+  this->TestCombination(2, 2);
+}
 
 template <typename DataType>
 class TestBatchToTensorColumnMajor : public ::testing::Test {};

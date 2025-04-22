@@ -564,7 +564,7 @@ struct StringBuilderVisitor {
                                                     ArrayBuilder* raw_builder,
                                                     const std::string& value) {
     using Builder = typename TypeTraits<DataType>::BuilderType;
-    Builder* builder = static_cast<Builder*>(raw_builder);
+    auto builder = static_cast<Builder*>(raw_builder);
     return builder->Append(value);
   }
 
@@ -697,8 +697,8 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
         return static_cast<DoubleBuilder*>(builder)->Append(value);
       }
       Status operator()(const std::string& value) {
-        StringBuilderVisitor visitor_builder;
-        return VisitTypeInline(*builder->type(), &visitor_builder, builder, value);
+        StringBuilderVisitor visitor;
+        return VisitTypeInline(*builder->type(), &visitor, builder, value);
       }
     } visitor;
     visitor.builder = values_builders[values_type_index].get();
