@@ -72,7 +72,7 @@ ARROW_EXPORT
 Status ScalarFromJSON(const std::shared_ptr<DataType>&, std::string_view json,
                       std::shared_ptr<Scalar>* out);
 
-/// \brief Create an DictScalar from a JSON string
+/// \brief Create an DictionaryScalar from a JSON string
 ARROW_EXPORT
 Status DictScalarFromJSON(const std::shared_ptr<DataType>&, std::string_view index_json,
                           std::string_view dictionary_json, std::shared_ptr<Scalar>* out);
