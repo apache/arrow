@@ -247,7 +247,7 @@ are shown below::
    auto bool_array = ArrayFromJSON(boolean(), "[true, false, true]");
    auto string_array = ArrayFromJSON(utf8(), R"(["Hello", "World", null])");
 
-   // Timestamps can be used from string representations
+   // Timestamps can be created from string representations
    auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND),
                             R"(["1970-01-01","2000-02-29","3989-07-14","1900-02-28"])");
 
@@ -257,7 +257,7 @@ are shown below::
       "[[null], [], null, [4, 5, 6, 7, 8], [2, 3]]"
    );
    auto map_array = ArrayFromJSON(
-      map(boolean(), int32()),
+      map(utf8(), int32()),
       R"([[["joe", 0], ["mark", null]], null, [["cap", 8]], []])"
    );
    auto struct_array = ArrayFromJSON(
