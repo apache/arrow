@@ -65,12 +65,6 @@ function(add_thirdparty_lib LIB_NAME LIB_TYPE LIB)
   endif()
 endfunction()
 
-function(REUSE_PRECOMPILED_HEADER_LIB TARGET_NAME LIB_NAME)
-  if(ARROW_USE_PRECOMPILED_HEADERS)
-    target_precompile_headers(${TARGET_NAME} REUSE_FROM ${LIB_NAME})
-  endif()
-endfunction()
-
 # Based on MIT-licensed
 # https://gist.github.com/cristianadam/ef920342939a89fae3e8a85ca9459b49
 function(arrow_create_merged_static_lib output_target)
@@ -273,12 +267,6 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_DEFINITIONS)
       target_compile_definitions(${LIB_NAME}_objlib PRIVATE ${ARG_DEFINITIONS})
     endif()
-    if(ARG_PRECOMPILED_HEADER_LIB)
-      reuse_precompiled_header_lib(${LIB_NAME}_objlib ${ARG_PRECOMPILED_HEADER_LIB})
-    endif()
-    if(ARG_PRECOMPILED_HEADERS AND ARROW_USE_PRECOMPILED_HEADERS)
-      target_precompile_headers(${LIB_NAME}_objlib PRIVATE ${ARG_PRECOMPILED_HEADERS})
-    endif()
     set(LIB_DEPS $<TARGET_OBJECTS:${LIB_NAME}_objlib>)
     set(EXTRA_DEPS)
 
@@ -340,10 +328,6 @@ function(ADD_ARROW_LIB LIB_NAME)
 
     if(ARG_DEFINITIONS)
       target_compile_definitions(${LIB_NAME}_shared PRIVATE ${ARG_DEFINITIONS})
-    endif()
-
-    if(ARG_PRECOMPILED_HEADER_LIB)
-      reuse_precompiled_header_lib(${LIB_NAME}_shared ${ARG_PRECOMPILED_HEADER_LIB})
     endif()
 
     if(ARG_OUTPUTS)
@@ -434,10 +418,6 @@ function(ADD_ARROW_LIB LIB_NAME)
 
     if(ARG_DEFINITIONS)
       target_compile_definitions(${LIB_NAME}_static PRIVATE ${ARG_DEFINITIONS})
-    endif()
-
-    if(ARG_PRECOMPILED_HEADER_LIB)
-      reuse_precompiled_header_lib(${LIB_NAME}_static ${ARG_PRECOMPILED_HEADER_LIB})
     endif()
 
     if(ARG_OUTPUTS)
@@ -734,14 +714,6 @@ function(ADD_TEST_CASE REL_TEST_NAME)
     target_link_libraries(${TEST_NAME} PRIVATE ${ARG_STATIC_LINK_LIBS})
   else()
     target_link_libraries(${TEST_NAME} PRIVATE ${ARROW_TEST_LINK_LIBS})
-  endif()
-
-  if(ARG_PRECOMPILED_HEADER_LIB)
-    reuse_precompiled_header_lib(${TEST_NAME} ${ARG_PRECOMPILED_HEADER_LIB})
-  endif()
-
-  if(ARG_PRECOMPILED_HEADERS AND ARROW_USE_PRECOMPILED_HEADERS)
-    target_precompile_headers(${TEST_NAME} PRIVATE ${ARG_PRECOMPILED_HEADERS})
   endif()
 
   if(ARG_EXTRA_LINK_LIBS)

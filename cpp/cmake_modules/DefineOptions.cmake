@@ -172,9 +172,6 @@ takes precedence over ccache if a storage backend is configured" ON)
 
   define_option(ARROW_USE_MOLD "Use mold for linking on Linux (if available)" OFF)
 
-  define_option(ARROW_USE_PRECOMPILED_HEADERS "Use precompiled headers when compiling"
-                OFF)
-
   define_option_string(ARROW_SIMD_LEVEL
                        "Compile-time SIMD optimization level"
                        "DEFAULT" # default to SSE4_2 on x86, NEON on Arm, NONE otherwise
