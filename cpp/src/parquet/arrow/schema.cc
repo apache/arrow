@@ -461,15 +461,16 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
         logical_type = LogicalType::UUID();
         length = 16;
         break;
+      } else if (ext_type->extension_name() == std::string_view("geoarrow.wkb")) {
+        type = ParquetType::BYTE_ARRAY;
+        ARROW_ASSIGN_OR_RAISE(logical_type,
+                              LogicalTypeFromGeoArrowMetadata(ext_type->Serialize()));
+        break;
       } else if (ext_type->extension_name() == std::string("parquet.variant")) {
         auto variant_type = std::static_pointer_cast<VariantExtensionType>(field->type());
 
         return VariantToNode(variant_type, name, field->nullable(), field_id, properties,
                              arrow_properties, out);
-      } else if (ext_type->extension_name() == std::string_view("geoarrow.wkb")) {
-        type = ParquetType::BYTE_ARRAY;
-        ARROW_ASSIGN_OR_RAISE(logical_type,
-                              LogicalTypeFromGeoArrowMetadata(ext_type->Serialize()));
       }
 
       std::shared_ptr<::arrow::Field> storage_field = ::arrow::field(
