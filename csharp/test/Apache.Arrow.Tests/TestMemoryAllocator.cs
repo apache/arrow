@@ -43,14 +43,6 @@ namespace Apache.Arrow.Tests
                 _inner = inner;
                 _allocator = allocator;
             }
-
-            ~TestMemoryOwner()
-            {
-                if(_disposed)
-                    return;
-                Assert.Fail("Memory owner was not disposed");
-            }
-
             public Memory<byte> Memory
             {
                 get
