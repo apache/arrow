@@ -121,7 +121,9 @@ if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
   meson setup \
     --prefix=${MESON_PREFIX:-${ARROW_HOME}} \
     --buildtype=${ARROW_BUILD_TYPE:-debug} \
-    -Dtests=$(meson_boolean ${ARROW_BUILD_TESTS:-OFF}) \
+    -Dauto_features=enabled \
+    -Dgcs=disabled \
+    -Ds3=disabled \
     . \
     ${source_dir}
 elif [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
