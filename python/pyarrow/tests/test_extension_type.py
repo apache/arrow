@@ -42,15 +42,6 @@ def registered_extension_type(ext_type):
         pa.unregister_extension_type(ext_type.extension_name)
 
 
-@contextlib.contextmanager
-def enabled_auto_load():
-    pa.PyExtensionType.set_auto_load(True)
-    try:
-        yield
-    finally:
-        pa.PyExtensionType.set_auto_load(False)
-
-
 class TinyIntType(pa.ExtensionType):
 
     def __init__(self):
@@ -231,15 +222,6 @@ class AnnotatedType(pa.ExtensionType):
     def __arrow_ext_deserialize__(cls, storage_type, serialized):
         assert serialized == b''
         return cls(storage_type)
-
-
-class LegacyIntType(pa.PyExtensionType):
-
-    def __init__(self):
-        pa.PyExtensionType.__init__(self, pa.int8())
-
-    def __reduce__(self):
-        return LegacyIntType, ()
 
 
 def ipc_write_batch(batch):
@@ -1733,25 +1715,6 @@ def test_tensor_type_is_picklable(pickle_module):
 def test_tensor_type_str(tensor_type, text):
     tensor_type_str = tensor_type.__str__()
     assert text in tensor_type_str
-
-
-def test_legacy_int_type():
-    with pytest.warns(FutureWarning, match="PyExtensionType is deprecated"):
-        ext_ty = LegacyIntType()
-    arr = pa.array([1, 2, 3], type=ext_ty.storage_type)
-    ext_arr = pa.ExtensionArray.from_storage(ext_ty, arr)
-    batch = pa.RecordBatch.from_arrays([ext_arr], names=['ext'])
-    buf = ipc_write_batch(batch)
-
-    with pytest.warns((RuntimeWarning, FutureWarning)):
-        batch = ipc_read_batch(buf)
-        assert isinstance(batch.column(0).type, pa.UnknownExtensionType)
-
-    with enabled_auto_load():
-        with pytest.warns(FutureWarning, match="PyExtensionType is deprecated"):
-            batch = ipc_read_batch(buf)
-            assert isinstance(batch.column(0).type, LegacyIntType)
-            assert batch.column(0) == ext_arr
 
 
 @pytest.mark.parametrize("storage_type,storage", [
