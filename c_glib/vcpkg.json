@@ -1,6 +1,6 @@
 {
   "name": "arrow-glib",
-  "version-string": "20.0.0-SNAPSHOT",
+  "version-string": "20.0.0",
   "$comment:dependencies": "We can enable gobject-introspection again once it's updated",
   "dependencies": [
     "glib",
