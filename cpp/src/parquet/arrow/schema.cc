@@ -453,7 +453,6 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
       // Set physical and logical types and instantiate primitive node
       // for extension types
       if (ext_type->extension_name() == std::string_view("arrow.json")) {
-
         type = ParquetType::BYTE_ARRAY;
         logical_type = LogicalType::JSON();
         break;
