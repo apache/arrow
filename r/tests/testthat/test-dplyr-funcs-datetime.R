@@ -3744,7 +3744,6 @@ test_that("hms::hms", {
       collect(),
     test_df
   )
-
 })
 
 test_that("hms::as_hms", {
@@ -3763,7 +3762,6 @@ test_that("hms::as_hms", {
         x3 = hms::as_hms(int),
         x4 = hms::as_hms(integerish_dbl),
         x6 = hms::as_hms(datetime)
-
       ) %>%
       collect(),
     test_df
@@ -3773,5 +3771,4 @@ test_that("hms::as_hms", {
     arrow_table(test_df) %>% mutate(y = hms::as_hms(dbl)) %>% collect(),
     "was truncated converting to int32"
   )
-
 })

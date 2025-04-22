@@ -828,9 +828,8 @@ register_bindings_datetime_rounding <- function() {
   )
 }
 
-register_bindings_hms <- function(){
-
-  numeric_to_time32 <- function(x){
+register_bindings_hms <- function() {
+  numeric_to_time32 <- function(x) {
     # The only numeric which can be cast to time32 is int32 so double cast to make sure
     cast(cast(x, int32()), time32(unit = "s"))
   }
@@ -838,7 +837,6 @@ register_bindings_hms <- function(){
   register_binding(
     "hms::hms",
     function(seconds = NULL, minutes = NULL, hours = NULL, days = NULL) {
-
       sec_expr <- Expression$create(
         "if_else",
         call_binding("is.na", seconds),
@@ -870,16 +868,13 @@ register_bindings_hms <- function(){
       total_secs <- sec_expr + min_expr + hours_expr + days_expr
 
       return(numeric_to_time32(total_secs))
-
     }
   )
 
   register_binding(
     "hms::as_hms",
     function(x = numeric()) {
-
-      datetime_to_int64 <- function(datetime){
-
+      datetime_to_int64 <- function(datetime) {
         hour <- call_binding("hour", datetime)
         min <- call_binding("minute", datetime)
         sec <- call_binding("second", datetime)
@@ -906,7 +901,6 @@ register_bindings_hms <- function(){
         as_int <- datetime_to_int64(temp_datetime)
         return(numeric_to_time32(as_int))
       }
-
     }
   )
 }
