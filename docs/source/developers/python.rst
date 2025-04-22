@@ -429,13 +429,14 @@ Now you are ready to install test dependencies and run `Unit Testing`_, as
 described above.
 
 If you need to build a self-contained wheel (including the Arrow and Parquet C++
-libraries), you can set ``--bundle-arrow-cpp``:
+libraries), you can set the environment variable ``PYARROW_BUNDLE_ARROW_CPP``:
 
 .. code-block::
 
-   $ pip install wheel  # if not installed
-   $ python -m build --wheel --config-settings=--build-type=$ARROW_BUILD_TYPE \
-            --config-settings=--bundle-arrow-cpp --no-isolation .
+   $ pip install build  # install build frontend
+   $ export PYARROW_BUILD_TYPE=$ARROW_BUILD_TYPE
+   $ export PYARROW_BUNDLE_ARROW_CPP=1
+   $ python -m build --no-isolation .
 
 .. note::
    To install an editable PyArrow build run ``pip install -e . --no-build-isolation``

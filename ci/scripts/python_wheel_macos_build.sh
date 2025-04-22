@@ -176,7 +176,7 @@ export CMAKE_PREFIX_PATH=${build_dir}/install
 export SETUPTOOLS_SCM_PRETEND_VERSION=${PYARROW_VERSION}
 
 pushd ${source_dir}/python
-python -m build --wheel --no-isolation .
+python -m build --no-isolation .
 popd
 
 echo "=== (${PYTHON_VERSION}) Show dynamic libraries the wheel depend on ==="
