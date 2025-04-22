@@ -450,9 +450,10 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     }
     case ArrowTypeId::EXTENSION: {
       auto ext_type = std::static_pointer_cast<::arrow::ExtensionType>(field->type());
-      // Built-in JSON extension and GeoArrow are handled differently.
+      // Set physical and logical types and instantiate primitive node
+      // for extension types
       if (ext_type->extension_name() == std::string_view("arrow.json")) {
-        // Set physical and logical types and instantiate primitive node.
+
         type = ParquetType::BYTE_ARRAY;
         logical_type = LogicalType::JSON();
         break;

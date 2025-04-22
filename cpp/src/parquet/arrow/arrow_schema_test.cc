@@ -31,7 +31,6 @@
 #include "parquet/thrift_internal.h"
 
 #include "arrow/array.h"
-#include "arrow/config.h"
 #include "arrow/extension/json.h"
 #include "arrow/extension/uuid.h"
 #include "arrow/ipc/writer.h"
@@ -1153,8 +1152,7 @@ class TestConvertArrowSchema : public ::testing::Test {
     for (int i = 0; i < expected_schema_node->field_count(); i++) {
       auto lhs = result_schema_node->field(i);
       auto rhs = expected_schema_node->field(i);
-      EXPECT_TRUE(lhs->Equals(rhs.get()))
-          << lhs->logical_type()->ToString() << " != " << rhs->logical_type()->ToString();
+      EXPECT_TRUE(lhs->Equals(rhs.get()));
     }
   }
 

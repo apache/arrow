@@ -1242,7 +1242,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     current_dict_encoder_ =
         dynamic_cast<DictEncoder<ParquetType>*>(current_encoder_.get());
 
-    // Geometry/Geography are the first non-nested logical types to have a
+    // GH-46205: Geometry/Geography are the first non-nested logical types to have a
     // SortOrder::UNKNOWN. Currently, the presence of statistics is tied to
     // having a known sort order and so null counts will be missing.
     if (properties->statistics_enabled(descr_->path())) {
