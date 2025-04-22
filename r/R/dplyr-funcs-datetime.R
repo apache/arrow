@@ -837,35 +837,10 @@ register_bindings_hms <- function() {
   register_binding(
     "hms::hms",
     function(seconds = NULL, minutes = NULL, hours = NULL, days = NULL) {
-      sec_expr <- Expression$create(
-        "if_else",
-        call_binding("is.na", seconds),
-        NA_integer_,
-        seconds
-      )
-
-      min_expr <- Expression$create(
-        "if_else",
-        call_binding("is.na", minutes),
-        NA_integer_,
-        Expression$create("multiply_checked", minutes, 60)
-      )
-
-      hours_expr <- Expression$create(
-        "if_else",
-        call_binding("is.na", hours),
-        NA_integer_,
-        Expression$create("multiply_checked", hours, 3600)
-      )
-
-      days_expr <- Expression$create(
-        "if_else",
-        call_binding("is.na", days),
-        NA_integer_,
+      total_secs <- seconds +
+        Expression$create("multiply_checked", minutes, 60) +
+        Expression$create("multiply_checked", hours, 3600) +
         Expression$create("multiply_checked", days, 86400)
-      )
-
-      total_secs <- sec_expr + min_expr + hours_expr + days_expr
 
       return(numeric_to_time32(total_secs))
     }
