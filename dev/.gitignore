@@ -18,6 +18,3 @@
 # Python virtual environments for dev tools
 .venv*/
 
-# yum-based builds copy a lot of files there
-tasks/linux-packages/apache-arrow/yum/build/
-

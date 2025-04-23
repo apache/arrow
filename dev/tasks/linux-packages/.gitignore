@@ -16,13 +16,15 @@
 # under the License.
 
 /*/*.tar.gz
+/*/apt/build.sh
+/*/apt/build/
+/*/apt/env.sh
 /*/apt/repositories/
 /*/apt/tmp/
-/*/apt/build.sh
-/*/apt/env.sh
+/*/yum/build.sh
+/*/yum/build/
+/*/yum/env.sh
 /*/yum/repositories/
 /*/yum/tmp/
-/*/yum/build.sh
-/*/yum/env.sh
 /apt/repositories/
 /yum/repositories/
