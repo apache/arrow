@@ -3739,7 +3739,11 @@ test_that("hms::hms", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        time = hms::hms(s, m, h, d)
+        time = hms::hms(s),
+        time2 = hms::hms(s, m),
+        time3 = hms::hms(s, m, h),
+        time4 = hms::hms(s, m, h, d),
+        time5 = hms::hms(days = d)
       ) %>%
       collect(),
     test_df

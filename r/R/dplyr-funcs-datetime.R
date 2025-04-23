@@ -836,7 +836,8 @@ register_bindings_hms <- function() {
 
   register_binding(
     "hms::hms",
-    function(seconds = NULL, minutes = NULL, hours = NULL, days = NULL) {
+    function(seconds = 0, minutes = 0, hours = 0, days = 0) {
+
       total_secs <- seconds +
         Expression$create("multiply_checked", minutes, 60) +
         Expression$create("multiply_checked", hours, 3600) +
@@ -849,20 +850,16 @@ register_bindings_hms <- function() {
   register_binding(
     "hms::as_hms",
     function(x = numeric()) {
-      datetime_to_int64 <- function(datetime) {
+      datetime_to_time32 <- function(datetime) {
         hour <- call_binding("hour", datetime)
         min <- call_binding("minute", datetime)
         sec <- call_binding("second", datetime)
 
-        # Convert to time with origin so we can get integer value in seconds
-        temptime <- call_binding("lubridate::make_datetime", hour = hour, min = min, sec = sec)
-        # Cast to int64 as this is the only thing we can cast a timestamp to
-        cast(temptime, to = int64())
+        return(call_binding("hms::hms", seconds = sec, minutes = min, hours = hour))
       }
 
       if (call_binding("is.POSIXct", x)) {
-        integer_time <- datetime_to_int64(x)
-        return(numeric_to_time32(integer_time))
+        return(datetime_to_time32(x))
       }
 
       if (call_binding("is.numeric", x)) {
@@ -870,10 +867,10 @@ register_bindings_hms <- function() {
       }
 
       if (call_binding("is.character", x)) {
-        as_date_time <- call_binding("str_c", "1970-01-01", x, sep = " ")
-        temp_datetime <- call_binding("strptime", as_date_time)
-        as_int <- datetime_to_int64(temp_datetime)
-        return(numeric_to_time32(as_int))
+        dash <- call_binding("gsub", ":", "-", x)
+        as_date_time_string <- call_binding("str_c", "1970-01-01", dash, sep = "-")
+        as_date_time <- Expression$create("strptime", as_date_time_string, options = list(format = "%Y-%m-%d-%H-%M-%S", unit = 0L))
+        return(datetime_to_time32(as_date_time))
       }
     }
   )
