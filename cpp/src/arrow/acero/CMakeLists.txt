@@ -87,8 +87,6 @@ add_arrow_lib(arrow_acero
               ARROW_ACERO_LIBRARIES
               SOURCES
               ${ARROW_ACERO_SRCS}
-              PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:arrow/acero/pch.h>"
               SHARED_LINK_LIBS
               ${ARROW_ACERO_SHARED_LINK_LIBS}
               SHARED_PRIVATE_LINK_LIBS

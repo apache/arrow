@@ -241,7 +241,7 @@ endfunction()
 function(ADD_ARROW_TEST REL_TEST_NAME)
   set(options)
   set(one_value_args PREFIX)
-  set(multi_value_args LABELS PRECOMPILED_HEADERS)
+  set(multi_value_args LABELS)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -260,22 +260,11 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     set(LABELS "arrow-tests")
   endif()
 
-  # Because of https://gitlab.kitware.com/cmake/cmake/issues/20289,
-  # we must generate the precompiled header on an executable target.
-  # Do that on the first unit test target (here "arrow-array-test")
-  # and reuse the PCH for the other tests.
-  if(ARG_PRECOMPILED_HEADERS)
-    set(PCH_ARGS PRECOMPILED_HEADERS ${ARG_PRECOMPILED_HEADERS})
-  else()
-    set(PCH_ARGS PRECOMPILED_HEADER_LIB "arrow-array-test")
-  endif()
-
   add_test_case(${REL_TEST_NAME}
                 PREFIX
                 ${PREFIX}
                 LABELS
                 ${LABELS}
-                ${PCH_ARGS}
                 ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
@@ -333,7 +322,6 @@ endfunction()
 macro(append_runtime_avx2_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_AVX2)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
     set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS ${ARROW_AVX2_FLAG})
   endif()
 endmacro()
@@ -341,7 +329,6 @@ endmacro()
 macro(append_runtime_avx2_bmi2_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_AVX2 AND ARROW_HAVE_RUNTIME_BMI2)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
     set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS
                                                   "${ARROW_AVX2_FLAG} ${ARROW_BMI2_FLAG}")
   endif()
@@ -350,7 +337,6 @@ endmacro()
 macro(append_runtime_avx512_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_AVX512)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
     set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS ${ARROW_AVX512_FLAG})
   endif()
 endmacro()
@@ -440,8 +426,7 @@ set(ARROW_MEMORY_POOL_SRCS memory_pool.cc)
 if(ARROW_JEMALLOC)
   list(APPEND ARROW_MEMORY_POOL_SRCS memory_pool_jemalloc.cc)
   set_source_files_properties(memory_pool_jemalloc.cc
-                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                         SKIP_UNITY_BUILD_INCLUSION ON)
+                              PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 endif()
 arrow_add_object_library(ARROW_MEMORY_POOL ${ARROW_MEMORY_POOL_SRCS})
 if(ARROW_JEMALLOC)
@@ -485,9 +470,8 @@ set(ARROW_VENDORED_SRCS
 if(APPLE)
   list(APPEND ARROW_VENDORED_SRCS vendored/datetime/ios.mm)
 endif()
-set_source_files_properties(vendored/datetime.cpp
-                            PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                       SKIP_UNITY_BUILD_INCLUSION ON)
+set_source_files_properties(vendored/datetime.cpp PROPERTIES SKIP_UNITY_BUILD_INCLUSION
+                                                             ON)
 arrow_add_object_library(ARROW_VENDORED ${ARROW_VENDORED_SRCS})
 # Disable DLL exports in vendored uriparser library
 foreach(ARROW_VENDORED_TARGET ${ARROW_VENDORED_TARGETS})
@@ -841,23 +825,20 @@ if(ARROW_FILESYSTEM)
   if(ARROW_AZURE)
     list(APPEND ARROW_FILESYSTEM_SRCS filesystem/azurefs.cc)
     set_source_files_properties(filesystem/azurefs.cc
-                                PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                           SKIP_UNITY_BUILD_INCLUSION ON)
+                                PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
   endif()
   if(ARROW_GCS)
     list(APPEND ARROW_FILESYSTEM_SRCS filesystem/gcsfs.cc filesystem/gcsfs_internal.cc)
     set_source_files_properties(filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
-                                PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                           SKIP_UNITY_BUILD_INCLUSION ON)
+                                PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
   endif()
   if(ARROW_HDFS)
     list(APPEND ARROW_FILESYSTEM_SRCS filesystem/hdfs.cc)
   endif()
   if(ARROW_S3)
     list(APPEND ARROW_FILESYSTEM_SRCS filesystem/s3fs.cc)
-    set_source_files_properties(filesystem/s3fs.cc
-                                PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                           SKIP_UNITY_BUILD_INCLUSION ON)
+    set_source_files_properties(filesystem/s3fs.cc PROPERTIES SKIP_UNITY_BUILD_INCLUSION
+                                                              ON)
   endif()
 
   arrow_add_object_library(ARROW_FILESYSTEM ${ARROW_FILESYSTEM_SRCS})
@@ -891,8 +872,7 @@ if(ARROW_FILESYSTEM)
       add_library(arrow_s3fs MODULE filesystem/s3fs_module.cc filesystem/s3fs.cc)
       target_link_libraries(arrow_s3fs PRIVATE ${AWSSDK_LINK_LIBRARIES} arrow_shared)
       set_source_files_properties(filesystem/s3fs.cc filesystem/s3fs_module.cc
-                                  PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                             SKIP_UNITY_BUILD_INCLUSION ON)
+                                  PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
     endif()
   endif()
 
@@ -1042,8 +1022,6 @@ add_arrow_lib(arrow
               ${ARROW_SRCS}
               OUTPUTS
               ARROW_LIBRARIES
-              PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:arrow/pch.h>"
               SHARED_LINK_FLAGS
               ${ARROW_SHARED_LINK_FLAGS}
               SHARED_PRIVATE_LINK_LIBS
@@ -1148,8 +1126,6 @@ if(ARROW_TESTING)
                 ${ARROW_TESTING_SRCS}
                 OUTPUTS
                 ARROW_TESTING_LIBRARIES
-                PRECOMPILED_HEADERS
-                "$<$<COMPILE_LANGUAGE:CXX>:arrow/pch.h>"
                 SHARED_LINK_LIBS
                 ${ARROW_TESTING_SHARED_LINK_LIBS}
                 SHARED_PRIVATE_LINK_LIBS
@@ -1197,9 +1173,7 @@ add_arrow_test(array_test
                array/array_struct_test.cc
                array/array_union_test.cc
                array/array_view_test.cc
-               array/statistics_test.cc
-               PRECOMPILED_HEADERS
-               "$<$<COMPILE_LANGUAGE:CXX>:arrow/testing/pch.h>")
+               array/statistics_test.cc)
 
 add_arrow_test(buffer_test)
 
@@ -1217,8 +1191,7 @@ add_arrow_test(misc_test
                status_test.cc)
 
 add_arrow_test(public_api_test)
-set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                                          SKIP_UNITY_BUILD_INCLUSION ON)
+set_source_files_properties(public_api_test.cc PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 
 add_arrow_test(scalar_test)
 add_arrow_test(type_test SOURCES field_ref_test.cc type_test.cc)

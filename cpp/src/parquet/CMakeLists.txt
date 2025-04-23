@@ -140,8 +140,7 @@ set(PARQUET_THRIFT_SOURCE_DIR "${ARROW_SOURCE_DIR}/src/generated/")
 
 set_source_files_properties("${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
                             "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.h"
-                            PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                       SKIP_UNITY_BUILD_INCLUSION ON)
+                            PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 
 if(NOT MSVC)
   set_source_files_properties(src/parquet/parquet_types.cpp
@@ -202,9 +201,8 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   if(NOT MSVC)
     string(APPEND AVX2_FLAGS " ${CMAKE_CXX_FLAGS_RELEASE}")
   endif()
-  set_source_files_properties(level_comparison_avx2.cc
-                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
-                                                                    "${AVX2_FLAGS}")
+  set_source_files_properties(level_comparison_avx2.cc PROPERTIES COMPILE_FLAGS
+                                                                  "${AVX2_FLAGS}")
   # WARNING: DO NOT BLINDLY COPY THIS CODE FOR OTHER BMI2 USE CASES.
   # This code is always guarded by runtime dispatch which verifies
   # BMI2 is present.  For a very small number of CPUs AVX2 does not
@@ -221,9 +219,8 @@ if(ARROW_HAVE_RUNTIME_AVX2)
     # Need to pass ARROW_HAVE_BMI2 for level_conversion_inc.h to compile
     # the BMI2 path.
     set(BMI2_FLAGS "${AVX2_FLAGS} ${ARROW_BMI2_FLAG} -DARROW_HAVE_BMI2")
-    set_source_files_properties(level_conversion_bmi2.cc
-                                PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
-                                                                      "${BMI2_FLAGS}")
+    set_source_files_properties(level_conversion_bmi2.cc PROPERTIES COMPILE_FLAGS
+                                                                    "${BMI2_FLAGS}")
   endif()
 endif()
 
@@ -287,8 +284,6 @@ add_arrow_lib(parquet
               parquet
               SOURCES
               ${PARQUET_SRCS}
-              PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:parquet/pch.h>"
               OUTPUTS
               PARQUET_LIBRARIES
               SHARED_LINK_FLAGS
@@ -378,8 +373,7 @@ add_parquet_test(internals-test
                  size_statistics_test.cc
                  types_test.cc)
 
-set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                                          SKIP_UNITY_BUILD_INCLUSION ON)
+set_source_files_properties(public_api_test.cc PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 
 add_parquet_test(reader-test
                  SOURCES
