@@ -291,7 +291,6 @@ function(ADD_ARROW_LIB LIB_NAME)
     endif()
   else()
     # Prepare arguments for separate compilation of static and shared libs below
-    # TODO: add PCH directives
     set(LIB_DEPS ${ARG_SOURCES})
     set(EXTRA_DEPS ${ARG_DEPENDENCIES})
   endif()
@@ -517,13 +516,12 @@ endfunction()
 # group names must exist
 function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   set(options)
-  set(one_value_args)
+  set(one_value_args PREFIX)
   set(multi_value_args
       EXTRA_LINK_LIBS
       STATIC_LINK_LIBS
       DEPENDENCIES
       SOURCES
-      PREFIX
       LABELS)
   cmake_parse_arguments(ARG
                         "${options}"
@@ -646,6 +644,7 @@ endfunction()
 # names must exist
 function(ADD_TEST_CASE REL_TEST_NAME)
   set(options NO_VALGRIND ENABLED)
+  set(one_value_args PREFIX)
   set(multi_value_args
       SOURCES
       STATIC_LINK_LIBS
@@ -655,7 +654,6 @@ function(ADD_TEST_CASE REL_TEST_NAME)
       LABELS
       EXTRA_LABELS
       TEST_ARGUMENTS
-      PREFIX
       DEFINITIONS)
   cmake_parse_arguments(ARG
                         "${options}"
@@ -803,13 +801,8 @@ endfunction()
 # create test executable foo-bar-example
 function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
   set(options)
-  set(one_value_args)
-  set(multi_value_args
-      EXTRA_INCLUDES
-      EXTRA_LINK_LIBS
-      EXTRA_SOURCES
-      DEPENDENCIES
-      PREFIX)
+  set(one_value_args PREFIX)
+  set(multi_value_args EXTRA_INCLUDES EXTRA_LINK_LIBS EXTRA_SOURCES DEPENDENCIES)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
