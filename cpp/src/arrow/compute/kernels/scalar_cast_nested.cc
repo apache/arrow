@@ -347,11 +347,6 @@ struct CastStruct {
       const auto& out_field = out_type.field(out_field_index);
       auto maybe_in_field_index = in_fields.extract(out_field->name());
       if (!maybe_in_field_index.empty()) {
-        const auto& in_field = in_type.field(maybe_in_field_index.mapped());
-        if (in_field->nullable() && !out_field->nullable()) {
-          return Status::TypeError("cannot cast nullable field to non-nullable field: ",
-                                   in_type.ToString(), " ", out_type.ToString());
-        }
         fields_to_select[out_field_index] = maybe_in_field_index.mapped();
       } else if (out_field->nullable()) {
         fields_to_select[out_field_index] = kFillNullSentinel;
