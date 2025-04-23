@@ -241,7 +241,7 @@ endfunction()
 function(ADD_ARROW_TEST REL_TEST_NAME)
   set(options)
   set(one_value_args PREFIX)
-  set(multi_value_args LABELS PRECOMPILED_HEADERS)
+  set(multi_value_args LABELS)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -264,11 +264,6 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
   # we must generate the precompiled header on an executable target.
   # Do that on the first unit test target (here "arrow-array-test")
   # and reuse the PCH for the other tests.
-  if(ARG_PRECOMPILED_HEADERS)
-    set(PCH_ARGS PRECOMPILED_HEADERS ${ARG_PRECOMPILED_HEADERS})
-  else()
-    set(PCH_ARGS PRECOMPILED_HEADER_LIB "arrow-array-test")
-  endif()
 
   add_test_case(${REL_TEST_NAME}
                 PREFIX
@@ -1042,8 +1037,6 @@ add_arrow_lib(arrow
               ${ARROW_SRCS}
               OUTPUTS
               ARROW_LIBRARIES
-              PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:arrow/pch.h>"
               SHARED_LINK_FLAGS
               ${ARROW_SHARED_LINK_FLAGS}
               SHARED_PRIVATE_LINK_LIBS
@@ -1148,8 +1141,6 @@ if(ARROW_TESTING)
                 ${ARROW_TESTING_SRCS}
                 OUTPUTS
                 ARROW_TESTING_LIBRARIES
-                PRECOMPILED_HEADERS
-                "$<$<COMPILE_LANGUAGE:CXX>:arrow/pch.h>"
                 SHARED_LINK_LIBS
                 ${ARROW_TESTING_SHARED_LINK_LIBS}
                 SHARED_PRIVATE_LINK_LIBS
@@ -1197,9 +1188,7 @@ add_arrow_test(array_test
                array/array_struct_test.cc
                array/array_union_test.cc
                array/array_view_test.cc
-               array/statistics_test.cc
-               PRECOMPILED_HEADERS
-               "$<$<COMPILE_LANGUAGE:CXX>:arrow/testing/pch.h>")
+               array/statistics_test.cc)
 
 add_arrow_test(buffer_test)
 

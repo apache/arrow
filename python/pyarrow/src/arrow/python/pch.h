@@ -20,5 +20,4 @@
 // before checking in.  Adding headers which are not used extremely often
 // may incur a slowdown, since it makes the precompiled header heavier to load.
 
-#include "arrow/pch.h"
 #include "arrow/python/platform.h"

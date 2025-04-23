@@ -197,11 +197,9 @@ function(ADD_ARROW_LIB LIB_NAME)
       INSTALL_LIBRARY_DIR
       INSTALL_RUNTIME_DIR
       PKG_CONFIG_NAME
-      PRECOMPILED_HEADER_LIB
       SHARED_LINK_FLAGS)
   set(multi_value_args
       SOURCES
-      PRECOMPILED_HEADERS
       OUTPUTS
       STATIC_LINK_LIBS
       SHARED_LINK_LIBS
@@ -648,10 +646,8 @@ endfunction()
 # names must exist
 function(ADD_TEST_CASE REL_TEST_NAME)
   set(options NO_VALGRIND ENABLED)
-  set(one_value_args PRECOMPILED_HEADER_LIB)
   set(multi_value_args
       SOURCES
-      PRECOMPILED_HEADERS
       STATIC_LINK_LIBS
       EXTRA_LINK_LIBS
       EXTRA_INCLUDES
