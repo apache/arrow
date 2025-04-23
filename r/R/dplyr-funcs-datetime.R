@@ -837,7 +837,6 @@ register_bindings_hms <- function() {
   register_binding(
     "hms::hms",
     function(seconds = 0, minutes = 0, hours = 0, days = 0) {
-
       total_secs <- seconds +
         Expression$create("multiply_checked", minutes, 60) +
         Expression$create("multiply_checked", hours, 3600) +
