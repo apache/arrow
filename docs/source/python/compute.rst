@@ -63,8 +63,8 @@ Below are a few simple examples::
    >>> pc.multiply(x, y)
    <pyarrow.DoubleScalar: 72.54>
 
-If you are using a compute function which returns more than one value, results 
-will be returned as a StructScalar.  You can extract the individual values by 
+If you are using a compute function which returns more than one value, results
+will be returned as a StructScalar.  You can extract the individual values by
 calling the :meth:`pyarrow.StructScalar.values` method::
 
    >>> import pyarrow as pa
