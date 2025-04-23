@@ -33,13 +33,10 @@
 #include "arrow/datum.h"
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
-#include "arrow/result.h"
-#include "arrow/table.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
-#include "arrow/testing/visibility.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 
@@ -269,10 +266,6 @@ class RandomRange : public RandomImpl {
     return generator_.Numeric<ArrowType>(count, min, max, null_prob);
   }
 };
-
-ARROW_TESTING_EXPORT
-Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
-    const Table& table, const std::vector<int>& column_indices);
 
 }  // namespace compute
 }  // namespace arrow

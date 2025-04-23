@@ -30,6 +30,7 @@
 #include "arrow/acero/exec_plan.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/table.h"
 #include "arrow/testing/visibility.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/pcg_random.h"
@@ -194,5 +195,8 @@ struct TableGenerationProperties {
 /// time_frequency). The table is sorted by time.
 Result<std::shared_ptr<Table>> MakeRandomTimeSeriesTable(
     const TableGenerationProperties& properties);
+
+Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
+    const Table& table, const std::vector<int>& column_indices);
 
 }  // namespace arrow::acero

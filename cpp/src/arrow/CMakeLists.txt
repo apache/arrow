@@ -802,8 +802,6 @@ if(ARROW_COMPUTE)
   append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/row/encode_internal_avx2.cc)
   append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/util_avx2.cc)
 
-  list(APPEND ARROW_TESTING_SRCS compute/kernels/test_util_internal.cc
-       compute/test_util_internal.cc)
 endif()
 
 arrow_add_object_library(ARROW_COMPUTE ${ARROW_COMPUTE_SRCS})

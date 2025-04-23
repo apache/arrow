@@ -17,10 +17,10 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/compute/kernels/test_util_internal.h"
+#include "arrow/acero/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
 
-namespace arrow::compute {
+namespace arrow::acero {
 
 TEST(RunEndEncodeTableColumnsTest, SchemaTypeIsModified) {
   std::shared_ptr<Table> table =
@@ -35,4 +35,4 @@ TEST(RunEndEncodeTableColumnsTest, SchemaTypeIsModified) {
   ASSERT_TRUE(ree_table->schema()->field(0)->type()->Equals(
       arrow::run_end_encoded(arrow::int32(), arrow::utf8())));
 }
-}  // namespace arrow::compute
+}  // namespace arrow::acero
