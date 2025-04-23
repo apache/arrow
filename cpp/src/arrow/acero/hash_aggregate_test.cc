@@ -39,7 +39,7 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec_internal.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/row/grouper.h"
 #include "arrow/table.h"

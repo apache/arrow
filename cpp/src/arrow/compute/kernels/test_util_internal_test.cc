@@ -17,12 +17,12 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
 
 namespace arrow::compute {
 
-TEST(RunEndEncodeGtestUtilTest, SchemaTypeIsModified) {
+TEST(RunEndEncodeTableColumnsTest, SchemaTypeIsModified) {
   std::shared_ptr<Table> table =
       arrow::TableFromJSON(arrow::schema({arrow::field("col", arrow::utf8())}), {R"([
             {"col": "a"},
