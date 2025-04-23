@@ -231,7 +231,7 @@ arrow_testing_srcs = [
 ]
 
 simd = import('unstable-simd')
-rval = simd.check(
+simd_support = simd.check(
     'simd-modules',
     avx2: 'util/bpacking_avx2.cc',
     # TODO: Meson has not yet implemented avx512
@@ -240,11 +240,12 @@ rval = simd.check(
     compiler: cpp_compiler,
     include_directories: arrow_includes,
 )
-simd_libraries = rval[0]
-simd_configuration = rval[1]
+simd_libraries = simd_support[0]
+simd_configuration = simd_support[1]
 arrow_simd_defines = []
 
 if simd_configuration.has('HAVE_AVX2')
+    arrow_simd_defines += ['-DARROW_HAVE_AVX2']
     arrow_simd_defines += ['-DARROW_HAVE_RUNTIME_AVX2']
 elif simd_configuration.has('HAVE_NEON')
     arrow_simd_defines += ['-DARROW_HAVE_NEON']
