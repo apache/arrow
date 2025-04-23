@@ -860,7 +860,6 @@ register_bindings_hms <- function() {
         cast(temptime, to = int64())
       }
 
-      # Note: this doesn't work for subseconds and we should document it
       if (call_binding("is.POSIXct", x)) {
         integer_time <- datetime_to_int64(x)
         return(numeric_to_time32(integer_time))
