@@ -1244,6 +1244,21 @@ Result<std::shared_ptr<Array>> MakeStatisticsArray(
                                                        std::move(statistics_array)};
   return std::make_shared<StructArray>(struct_type, n_columns, struct_arrays);
 }
+
+std::shared_ptr<Array> GenerateString(
+    const std::shared_ptr<::arrow::DataType>& data_type) {
+  if (data_type->id() == Type::FIXED_SIZE_BINARY) {
+    auto byte_width = data_type->byte_width();
+    auto a = std::string(byte_width, 'a');
+    auto b = std::string(byte_width, 'b');
+    auto c = std::string(byte_width, 'c');
+    std::stringstream ss;
+    ss << R"([")" << a << R"(",")" << b << R"(",")" << c << R"("])";
+    return ArrayFromJSON(data_type, ss.str());
+  }
+  return ArrayFromJSON(data_type, R"(["a","b","c"])");
+}
+
 };  // namespace
 
 TEST_F(TestRecordBatch, MakeStatisticsArrayRowCount) {
@@ -1453,131 +1468,148 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayMaxApproximate) {
 }
 
 template <typename DataType>
-class TestRecordBatchMakeStatisticsArrayStringBase {
+class TestRecordBatchMakeStatisticsArrayBinary : public ::testing::Test {
  public:
-  std::shared_ptr<::arrow::DataType> type(int32_t byte_width = 1) {
-    if constexpr (std::is_same_v<DataType, FixedSizeBinaryType>) {
-      return fixed_size_binary(byte_width);
-    } else {
-      return TypeTraits<DataType>::type_singleton();
-    }
-  }
-  std::shared_ptr<Array> GenerateString(
-      const std::shared_ptr<::arrow::DataType>& data_type) {
-    if (data_type->id() == Type::FIXED_SIZE_BINARY) {
-      auto byte_width = data_type->byte_width();
-      auto a = std::string(byte_width, 'a');
-      auto b = std::string(byte_width, 'b');
-      auto c = std::string(byte_width, 'c');
-      std::stringstream ss;
-      ss << R"([")" << a << R"(",")" << b << R"(",")" << c << R"("])";
-      return ArrayFromJSON(data_type, ss.str());
-    }
-    return ArrayFromJSON(data_type, R"(["a","b","c"])");
-  }
-};
-template <typename DataType>
-class TestRecordBatchMakeStatisticsArrayEachStringType
-    : public TestRecordBatchMakeStatisticsArrayStringBase<DataType>,
-      public ::testing::Test {
- public:
-  void TestEachType() {
+  void TestMaxApproximation() {
+    auto max = ArrayStatistics::ValueType{"c"};
     auto schema = ::arrow::schema(
         {field("no-statistics", boolean()), field("string", this->type())});
     auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
-    auto string_array_data = this->GenerateString(this->type())->data()->Copy();
-    string_array_data->statistics = std::make_shared<ArrayStatistics>();
-    string_array_data->statistics->is_max_exact = true;
-    string_array_data->statistics->max = "c";
-    auto string_array = MakeArray(std::move(string_array_data));
+    auto string_array = GenerateString(this->type());
+    string_array->data()->statistics = std::make_shared<ArrayStatistics>();
+    string_array->data()->statistics->max = max;
+
     auto batch = RecordBatch::Make(schema, string_array->length(),
                                    {no_statistics_array, string_array});
 
     ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
 
-    ASSERT_OK_AND_ASSIGN(auto expected_statistics_array,
-                         MakeStatisticsArray("[null, 1]",
-                                             {{
-                                                  ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
-                                              },
-                                              {
-                                                  ARROW_STATISTICS_KEY_MAX_VALUE_EXACT,
-                                              }},
-                                             {{
-                                                  ArrayStatistics::ValueType{int64_t{3}},
-                                              },
-                                              {
-                                                  ArrayStatistics::ValueType{"c"},
-                                              }},
-                                             {null(), this->type()}));
-    AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
-  }
-};
-
-class TestRecordBatchMakeStatisticsArrayFixedSizeBinaryCombination
-    : public TestRecordBatchMakeStatisticsArrayStringBase<FixedSizeBinaryType>,
-      public ::testing::Test {
- public:
-  void TestCombination(int32_t byte_width_1, int32_t byte_width_2) {
-    auto f0 = GenerateString(type(byte_width_1));
-    f0->data()->statistics = std::make_shared<ArrayStatistics>();
-    f0->data()->statistics->max = std::string(byte_width_1, 'c');
-
-    auto f1 = ArrayFromJSON(int64(), R"([1, 2, 3])");
-
-    auto f2 = GenerateString(type(byte_width_2));
-    f2->data()->statistics = std::make_shared<ArrayStatistics>();
-    f2->data()->statistics->max = std::string(byte_width_2, 'c');
-
-    auto schema = ::arrow::schema({field("f0", type(byte_width_1)), field("f1", int64()),
-                                   field("f2", fixed_size_binary(byte_width_2))});
-    auto batch = RecordBatch::Make(schema, f0->length(), {f0, f1, f2});
-    ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
     ASSERT_OK_AND_ASSIGN(
         auto expected_statistics_array,
-        MakeStatisticsArray(
-            "[null, 0, 2]",
-            {{
-                 ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
-             },
-             {
-                 ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE,
-             },
-             {
-                 ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE,
-             }},
-            {{
-                 ArrayStatistics::ValueType{int64_t{3}},
-             },
-             {
-                 ArrayStatistics::ValueType{std::string(byte_width_1, 'c')},
-             },
-             {
-                 ArrayStatistics::ValueType{std::string(byte_width_2, 'c')},
-             }},
-            {null(), type(byte_width_1), fixed_size_binary(byte_width_2)}));
-
+        MakeStatisticsArray("[null, 1]",
+                            {{
+                                 ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                             },
+                             {
+                                 ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE,
+                             }},
+                            {{
+                                 ArrayStatistics::ValueType{int64_t{3}},
+                             },
+                             {
+                                 max,
+                             }},
+                            {null(), this->type()}));
     AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+  }
+
+  std::shared_ptr<::arrow::DataType> type() {
+    if constexpr (std::is_same_v<DataType, FixedSizeBinaryType>) {
+      return fixed_size_binary(1);
+    } else {
+      return TypeTraits<DataType>::type_singleton();
+    }
   }
 };
 
-TYPED_TEST_SUITE(TestRecordBatchMakeStatisticsArrayEachStringType,
+TYPED_TEST_SUITE(TestRecordBatchMakeStatisticsArrayBinary,
                  AllBinaryOrBinrayViewLikeArrowTypes);
 
-TYPED_TEST(TestRecordBatchMakeStatisticsArrayEachStringType, EachType) {
-  this->TestEachType();
+TYPED_TEST(TestRecordBatchMakeStatisticsArrayBinary, MaxApproximation) {
+  this->TestMaxApproximation();
 }
 
 // Validates that the union array creates two distinct child arrays for two
 // FixedSizeBinaryArrays with unequal byte widths.
-TEST_F(TestRecordBatchMakeStatisticsArrayFixedSizeBinaryCombination, CheckDifferentSize) {
-  this->TestCombination(1, 2);
+TEST_F(TestRecordBatch, MakeStatisticsArrayDifferentSizeFixedSizeBinary) {
+  auto fixed_size_type1 = fixed_size_binary(1);
+  auto fixed_size_type2 = fixed_size_binary(2);
+
+  auto fixed_size_array1 = GenerateString(fixed_size_type1);
+  fixed_size_array1->data()->statistics = std::make_shared<ArrayStatistics>();
+  fixed_size_array1->data()->statistics->max =
+      std::string(fixed_size_type1->byte_width(), 'c');
+
+  auto fixed_size_array2 = GenerateString(fixed_size_type2);
+  fixed_size_array2->data()->statistics = std::make_shared<ArrayStatistics>();
+  fixed_size_array2->data()->statistics->max =
+      std::string(fixed_size_type2->byte_width(), 'c');
+
+  auto schema = ::arrow::schema(
+      {field("fixed_size1", fixed_size_type1), field("fixed_size2", fixed_size_type2)});
+  auto batch = RecordBatch::Make(schema, fixed_size_array1->length(),
+                                 {fixed_size_array1, fixed_size_array2});
+  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_statistics_array,
+      MakeStatisticsArray("[null, 0, 1]",
+                          {{
+                               ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                           },
+                           {
+                               ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE,
+                           },
+                           {
+                               ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE,
+                           }},
+                          {{
+                               ArrayStatistics::ValueType{int64_t{3}},
+                           },
+                           {
+                               ArrayStatistics::ValueType{
+                                   std::string(fixed_size_type1->byte_width(), 'c')},
+                           },
+                           {
+                               ArrayStatistics::ValueType{
+                                   std::string(fixed_size_type2->byte_width(), 'c')},
+                           }},
+                          {null(), fixed_size_type1, fixed_size_type2}));
+
+  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
 }
 
 // Validates that the union array creates a single child array for two
 // FixedSizeBinaryArrays with equal byte widths.
-TEST_F(TestRecordBatchMakeStatisticsArrayFixedSizeBinaryCombination, CheckSameSize) {
-  this->TestCombination(2, 2);
+TEST_F(TestRecordBatch, MakeStatisticsArraySameSizeFixedSizeBinary) {
+  auto fixed_size_type = fixed_size_binary(2);
+  auto max = ArrayStatistics::ValueType{std::string(fixed_size_type->byte_width(), 'c')};
+
+  auto fixed_size_array1 = GenerateString(fixed_size_type);
+  fixed_size_array1->data()->statistics = std::make_shared<ArrayStatistics>();
+  fixed_size_array1->data()->statistics->max = max;
+
+  ASSERT_OK_AND_ASSIGN(auto fixed_size_array2,
+                       fixed_size_array1->CopyTo(default_cpu_memory_manager()));
+
+  auto schema = ::arrow::schema(
+      {field("fixed_size1", fixed_size_type), field("fixed_size2", fixed_size_type)});
+  auto batch = RecordBatch::Make(schema, fixed_size_array1->length(),
+                                 {fixed_size_array1, fixed_size_array2});
+  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_statistics_array,
+      MakeStatisticsArray("[null, 0, 1]",
+                          {{
+                               ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                           },
+                           {
+                               ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE,
+                           },
+                           {
+                               ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE,
+                           }},
+                          {{
+                               ArrayStatistics::ValueType{int64_t{3}},
+                           },
+                           {
+                               max,
+                           },
+                           {
+                               max,
+                           }},
+                          {null(), fixed_size_type, fixed_size_type}));
+
+  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
 }
 
 template <typename DataType>
