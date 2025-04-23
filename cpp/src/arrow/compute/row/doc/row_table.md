@@ -21,50 +21,79 @@
 
 ## Overview
 
-The row table in Arrow represents data stored in row-major format. This format is particularly useful for scenarios involving random access to individual rows and where all columns are frequently accessed together. It is especially advantageous for hash-table keys and facilitates efficient operations such as grouping and hash joins by optimizing memory access patterns and data locality.
+The row table in Arrow represents data stored in row-major format. This format
+is particularly useful for scenarios involving random access to individual rows
+and where all columns are frequently accessed together. It is especially
+advantageous for hash-table keys and facilitates efficient operations such as
+grouping and hash joins by optimizing memory access patterns and data locality.
 
 ## Fixed-length vs. Varying-length
 
-A key property of the row table is whether it is fixed-length or varying-length. A fixed-length row table contains only fixed-length columns, while a varying-length row table includes at least one varying-length column. This distinction determines how data is stored and accessed in the row table.
+A key property of the row table is whether it is fixed-length or varying-length.
+A fixed-length row table contains only fixed-length columns, while a
+varying-length row table includes at least one varying-length column. This
+distinction determines how data is stored and accessed in the row table.
 
 ## Buffer Layout
 
 Similar to most Arrow `Array`s, the row table consists of three buffers:
 - **Null Masks Buffer**: Indicates null values for each column in each row.
-- **Fixed-length Buffer**: Stores row data for fixed-length tables or offsets to varying-length data for varying-length tables.
-- **Varying-length Buffer** (Optional): Contains row data for varying-length tables; unused for fixed-length tables.
+- **Fixed-length Buffer**: Stores row data for fixed-length tables or offsets to
+  varying-length data for varying-length tables.
+- **Varying-length Buffer** (Optional): Contains row data for varying-length
+  tables; unused for fixed-length tables.
 
 ## Row Format
 
 ### Null Masks
 
-For each row, a contiguous sequence of bits represents whether each column in that row is null. Each bit corresponds to a specific column. Unlike the convention in Arrow `Array`s, in a row table, a value of `1` indicates that the column is null, and a value of `0` indicates valid data. The null mask for a row occupies `RowTableMetadata::null_masks_bytes_per_row` bytes.
+For each row, a contiguous sequence of bits represents whether each column in
+that row is null. Each bit corresponds to a specific column. Unlike the
+convention in Arrow `Array`s, in a row table, a value of `1` indicates that the
+column is null, and a value of `0` indicates valid data. The null mask for a row
+occupies `RowTableMetadata::null_masks_bytes_per_row` bytes.
 
 ### Fixed-length Row Data
 
-In a fixed-length row table, row data is directly stored in the fixed-length buffer. All columns in each row are stored sequentially. Notably, a `boolean` column is special because, in a normal Arrow `Array`, it is stored using 1 bit, whereas in a row table, it occupies 1 byte. The varying-length buffer is not used in this case.
+In a fixed-length row table, row data is directly stored in the fixed-length
+buffer. All columns in each row are stored sequentially. Notably, a `boolean`
+column is special because, in a normal Arrow `Array`, it is stored using 1 bit,
+whereas in a row table, it occupies 1 byte. The varying-length buffer is not
+used in this case.
 
-For example, a row table with the schema `(int32, boolean)` and rows `[[7, false], [8, true], [9, false], ...]` is stored in the fixed-length buffer as follows:
+For example, a row table with the schema `(int32, boolean)` and rows `[[7,
+false], [8, true], [9, false], ...]` is stored in the fixed-length buffer as
+follows:
 | Row 0                | Row 1                | Row 2                | ... |
 |----------------------|----------------------|----------------------|-----|
 | 7 0 0 0, 0 (padding) | 8 0 0 0, 1 (padding) | 9 0 0 0, 0 (padding) | ... |
 
 ### Offsets for Varying-length Row Data
 
-In a varying-length row table, the fixed-length buffer contains offsets to the varying-length row data, which is stored separately in the optional varying-length buffer. The offsets are of type `RowTableMetadata::offset_type` (fixed as `int64_t`) and indicate the starting position of the row data for each row.
+In a varying-length row table, the fixed-length buffer contains offsets to the
+varying-length row data, which is stored separately in the optional
+varying-length buffer. The offsets are of type `RowTableMetadata::offset_type`
+(fixed as `int64_t`) and indicate the starting position of the row data for each
+row.
 
 ### Varying-length Row Data
 
-In a varying-length row table, the varying-length buffer contains the actual row data, stored contiguously. The offsets in the fixed-length buffer point to the starting position of each row's data.
+In a varying-length row table, the varying-length buffer contains the actual row
+data, stored contiguously. The offsets in the fixed-length buffer point to the
+starting position of each row's data.
 
 #### Row Encoding
 
 A varying-length row is encoded as follows:
 - Fixed-length columns are stored first.
-- A sequence of offsets to each varying-length column follows. Each offset is 32-bit and indicates the **end** position within the row data of the corresponding varying-length column.
+- A sequence of offsets to each varying-length column follows. Each offset is
+  32-bit and indicates the **end** position within the row data of the
+  corresponding varying-length column.
 - Varying-length columns are stored last.
 
-For example, a row table with the schema `(int32, string, string, int32)` and rows `[[7, 'Alice', 'x', 0], [8, 'Bob', 'y', 1], [9, 'Charlotte', 'z', 2], ...]` is stored as follows (assuming 8-byte alignment for varying-length columns):
+For example, a row table with the schema `(int32, string, string, int32)` and
+rows `[[7, 'Alice', 'x', 0], [8, 'Bob', 'y', 1], [9, 'Charlotte', 'z', 2], ...]`
+is stored as follows (assuming 8-byte alignment for varying-length columns):
 
 Fixed-length buffer (row offsets):
 | Row 0           | Row 1            | Row 2            | Row 3             | ... |
@@ -81,4 +110,7 @@ Varying-length buffer (row data):
 
 ### Alignment
 
-Each row in the row table is aligned to `RowTableMetadata::row_alignment` bytes. Fixed-length columns with non-power-of-2 lengths are also aligned to `RowTableMetadata::row_alignment` bytes. Varying-length columns are aligned to `RowTableMetadata::string_alignment` bytes.
+Each row in the row table is aligned to `RowTableMetadata::row_alignment` bytes.
+Fixed-length columns with non-power-of-2 lengths are also aligned to
+`RowTableMetadata::row_alignment` bytes. Varying-length columns are aligned to
+`RowTableMetadata::string_alignment` bytes.
