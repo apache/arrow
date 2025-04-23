@@ -1472,10 +1472,10 @@ class TestRecordBatchMakeStatisticsArrayBinary : public ::testing::Test {
  public:
   void TestMaxApproximation() {
     auto max = ArrayStatistics::ValueType{"c"};
-    auto schema = ::arrow::schema(
-        {field("no-statistics", boolean()), field("string", this->type())});
+    auto schema =
+        ::arrow::schema({field("no-statistics", boolean()), field("string", type())});
     auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
-    auto string_array = GenerateString(this->type());
+    auto string_array = GenerateString(type());
     string_array->data()->statistics = std::make_shared<ArrayStatistics>();
     string_array->data()->statistics->max = max;
 
@@ -1499,7 +1499,7 @@ class TestRecordBatchMakeStatisticsArrayBinary : public ::testing::Test {
                              {
                                  max,
                              }},
-                            {null(), this->type()}));
+                            {null(), type()}));
     AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
   }
 
