@@ -36,7 +36,8 @@ constexpr const char FileSystemKeyMaterialStore::kKeyMaterialFileSuffix[];
 FileSystemKeyMaterialStore::FileSystemKeyMaterialStore(
     std::string key_material_file_path,
     std::shared_ptr<::arrow::fs::FileSystem> file_system)
-    : key_material_file_path_{std::move(key_material_file_path)}, file_system_{std::move(file_system)} {}
+    : key_material_file_path_{std::move(key_material_file_path)},
+      file_system_{std::move(file_system)} {}
 
 std::shared_ptr<FileSystemKeyMaterialStore> FileSystemKeyMaterialStore::Make(
     std::string parquet_file_path,
