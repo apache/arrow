@@ -3847,8 +3847,8 @@ static void CheckStructToStructSubset(
 
       const auto dest10 = arrow::struct_(
           {std::make_shared<Field>("a", int8()), std::make_shared<Field>("c", int16()),
-           std::make_shared<Field>("d", int64()),
-           std::make_shared<Field>("a", int8(), /*nullable=*/false)});
+           std::make_shared<Field>("d", int32()),
+           std::make_shared<Field>("a", int64(), /*nullable=*/false)});
       const auto options10 = CastOptions::Safe(dest10);
       EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError,
                                       ::testing::HasSubstr("struct fields don't match"),
