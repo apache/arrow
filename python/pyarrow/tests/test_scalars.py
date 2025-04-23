@@ -681,7 +681,8 @@ def test_struct():
 
     v = {'x': 2, 'y': 3.5}
     s = pa.scalar(v, type=ty)
-        
+    assert list(s) == list(s.keys()) == ['x', 'y']
+
     assert list(s.values()) == [
         pa.scalar(2, type=pa.int16()),
         pa.scalar(3.5, type=pa.float32())
