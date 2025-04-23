@@ -345,6 +345,9 @@ struct CastStruct {
 
     for (int out_field_index = 0; out_field_index < out_field_count; ++out_field_index) {
       const auto& out_field = out_type.field(out_field_index);
+
+      // Take the first field with matching name, if any. Extract it from the map so it
+      // can't be reused. 
       auto maybe_in_field_index = in_fields.extract(out_field->name());
       if (!maybe_in_field_index.empty()) {
         fields_to_select[out_field_index] = maybe_in_field_index.mapped();
