@@ -842,7 +842,7 @@ static constexpr uint8_t kWkbNativeEndianness = 0x00;
 #endif
 
 /// \brief Number of bytes in a WKB Point with X and Y dimensions (uint8_t endian,
-/// uint32_t geometry type, 2 * double ordinates)
+/// uint32_t geometry type, 2 * double coordinates)
 static constexpr int kWkbPointXYSize = 21;
 
 std::string MakeWKBPoint(const std::vector<double>& xyzm, bool has_z, bool has_m);
