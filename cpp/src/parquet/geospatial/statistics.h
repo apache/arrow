@@ -28,11 +28,11 @@ namespace parquet::geospatial {
 
 /// \brief The maximum number of dimensions represented by a geospatial type
 /// (i.e., X, Y, Z, and M)
-static constexpr int kMaxDimensions = 4;
+inline constexpr int kMaxDimensions = 4;
 
 /// \brief NaN, used to represent bounds for which predicate pushdown cannnot
 /// be applied (e.g., because a writer did not provide bounds for a given dimension)
-constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
+inline constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 
 /// \brief Structure represented encoded statistics to be written to and read from Parquet
 /// serialized metadata.
