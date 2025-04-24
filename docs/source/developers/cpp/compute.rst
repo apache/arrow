@@ -61,8 +61,8 @@ Null Masks
 For each row, a contiguous sequence of bits represents whether each column in
 that row is null. Each bit corresponds to a specific column, with ``1``
 indicating the value is null and ``0`` indicating the value is valid . Note that
-this is the opposite of how the validity bitmap works for Arrays. The null mask
-for a row occupies ``RowTableMetadata::null_masks_bytes_per_row`` bytes.
+this is the opposite of how the validity bitmap works for ``Array``\s. The null
+mask for a row occupies ``RowTableMetadata::null_masks_bytes_per_row`` bytes.
 
 Fixed-length Row Data
 ~~~~~~~~~~~~~~~~~~~~~
