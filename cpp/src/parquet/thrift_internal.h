@@ -250,21 +250,13 @@ static inline geospatial::EncodedGeoStatistics FromThrift(
       out.zmin = geo_stats.bbox.zmin;
       out.zmax = geo_stats.bbox.zmax;
       out.z_bounds_present = true;
-    } else {
-      out.z_bounds_present = false;
     }
 
     if (geo_stats.bbox.__isset.mmin && geo_stats.bbox.__isset.mmax) {
       out.mmin = geo_stats.bbox.mmin;
       out.mmax = geo_stats.bbox.mmax;
       out.m_bounds_present = true;
-    } else {
-      out.m_bounds_present = false;
     }
-  } else {
-    out.xy_bounds_present = false;
-    out.z_bounds_present = false;
-    out.m_bounds_present = false;
   }
 
   return out;
