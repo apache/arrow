@@ -1246,17 +1246,18 @@ Result<std::shared_ptr<Array>> MakeStatisticsArray(
 }
 
 std::shared_ptr<Array> GenerateString(
-    const std::shared_ptr<::arrow::DataType>& data_type) {
+    const std::shared_ptr<DataType>& data_type) {
   if (data_type->id() == Type::FIXED_SIZE_BINARY) {
     auto byte_width = data_type->byte_width();
-    auto a = std::string(byte_width, 'a');
-    auto b = std::string(byte_width, 'b');
-    auto c = std::string(byte_width, 'c');
+    std::string a(byte_width, 'a');
+    std::string b(byte_width, 'b');
+    std::string c(byte_width, 'c');
     std::stringstream ss;
     ss << R"([")" << a << R"(",")" << b << R"(",")" << c << R"("])";
     return ArrayFromJSON(data_type, ss.str());
+  } else {
+    return ArrayFromJSON(data_type, R"(["a","b","c"])");
   }
-  return ArrayFromJSON(data_type, R"(["a","b","c"])");
 }
 
 };  // namespace
@@ -1471,7 +1472,7 @@ template <typename DataType>
 class TestRecordBatchMakeStatisticsArrayBinary : public ::testing::Test {
  public:
   void TestMaxApproximation() {
-    auto max = ArrayStatistics::ValueType{"c"};
+    ArrayStatistics::ValueType max("c");
     auto schema =
         ::arrow::schema({field("no-statistics", boolean()), field("string", type())});
     auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
@@ -1572,7 +1573,7 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayDifferentSizeFixedSizeBinary) {
 // FixedSizeBinaryArrays with equal byte widths.
 TEST_F(TestRecordBatch, MakeStatisticsArraySameSizeFixedSizeBinary) {
   auto fixed_size_type = fixed_size_binary(2);
-  auto max = ArrayStatistics::ValueType{std::string(fixed_size_type->byte_width(), 'c')};
+  ArrayStatistics::ValueType max(std::string(fixed_size_type->byte_width(), 'c'));
 
   auto fixed_size_array1 = GenerateString(fixed_size_type);
   fixed_size_array1->data()->statistics = std::make_shared<ArrayStatistics>();
