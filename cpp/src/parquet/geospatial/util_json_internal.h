@@ -28,8 +28,7 @@ namespace parquet {
 /// \brief Compute a Parquet Logical type (Geometry(...) or Geography(...)) from
 /// GeoArrow `ARROW:extension:metadata` (JSON-encoded extension type metadata)
 ///
-/// Returns the appropriate LogicalType, Invalid if the metadata was invalid,
-/// or NotImplemented if Parquet was not built with ARROW_JSON.
+/// Returns the appropriate LogicalType or Invalid if the metadata was invalid.
 ::arrow::Result<std::shared_ptr<const LogicalType>> LogicalTypeFromGeoArrowMetadata(
     std::string_view serialized_data);
 
