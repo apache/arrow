@@ -282,8 +282,13 @@ class GeoStatisticsImpl {
     }
   }
 
-  static bool is_wraparound(double dmin, double dmax) {
-    return !std::isinf(dmin - dmax) && dmin > dmax;
+  // The Parquet specification allows X bounds to be "wraparound" to allow for
+  // more compact bounding boxes when a geometry happens to include components
+  // on both sides of the antimeridian (e.g., the nation of Fiji). This function
+  // checks for that case (see GeoStatistics::lower_bound/upper_bound for more
+  // details).
+  static bool is_wraparound(double xmin, double xmax) {
+    return !std::isinf(xmin - xmax) && xmin > xmax;
   }
 };
 
