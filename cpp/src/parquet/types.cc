@@ -486,7 +486,7 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
       crs = type.GEOMETRY.crs;
     }
 
-    return GeometryLogicalType::Make(crs);
+    return GeometryLogicalType::Make(std::move(crs));
   } else if (type.__isset.GEOGRAPHY) {
     std::string crs;
     if (type.GEOGRAPHY.__isset.crs) {
