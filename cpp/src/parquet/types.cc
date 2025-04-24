@@ -500,7 +500,7 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
       algorithm = ::parquet::FromThrift(type.GEOGRAPHY.algorithm);
     }
 
-    return GeographyLogicalType::Make(crs, algorithm);
+    return GeographyLogicalType::Make(std::move(crs), algorithm);
   } else if (type.__isset.VARIANT) {
     return VariantLogicalType::Make();
   } else {
