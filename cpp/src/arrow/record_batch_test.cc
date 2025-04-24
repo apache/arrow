@@ -1245,8 +1245,7 @@ Result<std::shared_ptr<Array>> MakeStatisticsArray(
   return std::make_shared<StructArray>(struct_type, n_columns, struct_arrays);
 }
 
-std::shared_ptr<Array> GenerateString(
-    const std::shared_ptr<DataType>& data_type) {
+std::shared_ptr<Array> GenerateString(const std::shared_ptr<DataType>& data_type) {
   if (data_type->id() == Type::FIXED_SIZE_BINARY) {
     auto byte_width = data_type->byte_width();
     std::string a(byte_width, 'a');
