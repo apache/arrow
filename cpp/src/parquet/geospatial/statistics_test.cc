@@ -313,6 +313,7 @@ TEST(TestGeoStatistics, TestUpdateArrayInvalid) {
   invalid.Update(*invalid_wkb);
   EXPECT_FALSE(invalid.is_valid());
   EXPECT_EQ(invalid.Encode(), std::nullopt);
+  EXPECT_FALSE(invalid.Equals(GeoStatistics()));
 
   // Make some valid statistics
   EncodedGeoStatistics encoded_valid;
@@ -334,6 +335,63 @@ TEST(TestGeoStatistics, TestUpdateArrayInvalid) {
 
   EXPECT_THROW(valid.Merge(unsupported), ParquetException);
   EXPECT_THROW(unsupported.Merge(valid), ParquetException);
+}
+
+TEST(TestGeoStatistics, TestEquals) {
+  GeoStatistics stats_a;
+  GeoStatistics stats_b;
+
+  std::string wkb_empty = test::MakeWKBPoint({kNaN, kNaN, kNaN, kNaN}, true, true);
+  ByteArray pt_empty{wkb_empty};
+  std::string wkb_pt = test::MakeWKBPoint({10, 11, 12, 13}, true, true);
+  ByteArray pt{wkb_pt};
+  std::string wkb_pt2 = test::MakeWKBPoint({14, 15, 16, 17}, true, true);
+  ByteArray pt2{wkb_pt2};
+  ByteArray invalid;
+
+  // Both empty
+  EXPECT_TRUE(stats_a.Equals(stats_b));
+
+  // Both empty but one has different geometry types
+  stats_b.Update(&pt_empty, 1);
+  EXPECT_EQ(stats_a.is_valid(), stats_b.is_valid());
+  EXPECT_EQ(stats_a.upper_bound(), stats_b.upper_bound());
+  EXPECT_EQ(stats_a.lower_bound(), stats_b.lower_bound());
+  EXPECT_NE(stats_a.geometry_types(), stats_b.geometry_types());
+  EXPECT_FALSE(stats_a.Equals(stats_b));
+
+  // Both empty
+  stats_b.Reset();
+  EXPECT_TRUE(stats_a.Equals(stats_b));
+
+  // Geometry types equal but bounds not equal
+  stats_a.Update(&pt, 1);
+  stats_b.Update(&pt2, 1);
+  EXPECT_EQ(stats_a.is_valid(), stats_b.is_valid());
+  EXPECT_NE(stats_a.upper_bound(), stats_b.upper_bound());
+  EXPECT_NE(stats_a.lower_bound(), stats_b.lower_bound());
+  EXPECT_EQ(stats_a.geometry_types(), stats_b.geometry_types());
+  EXPECT_FALSE(stats_a.Equals(stats_b));
+
+  // Both empty
+  stats_a.Reset();
+  stats_b.Reset();
+  EXPECT_TRUE(stats_a.Equals(stats_b));
+
+  // Only validity is different
+  stats_b.Update(&invalid, 1);
+  EXPECT_NE(stats_a.is_valid(), stats_b.is_valid());
+  EXPECT_EQ(stats_a.upper_bound(), stats_b.upper_bound());
+  EXPECT_EQ(stats_a.lower_bound(), stats_b.lower_bound());
+  EXPECT_EQ(stats_a.geometry_types(), stats_b.geometry_types());
+  EXPECT_FALSE(stats_a.Equals(stats_b));
+
+  // Everything equal for a non-empty case
+  stats_a.Reset();
+  stats_b.Reset();
+  stats_a.Update(&pt, 1);
+  stats_b.Update(&pt, 1);
+  EXPECT_TRUE(stats_a.Equals(stats_b));
 }
 
 }  // namespace parquet::geospatial

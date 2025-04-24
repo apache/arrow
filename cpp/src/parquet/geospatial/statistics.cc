@@ -131,6 +131,7 @@ class GeoStatisticsImpl {
   void Reset() {
     bounder_.Reset();
     is_valid_ = true;
+    has_geometry_types_ = true;
   }
 
   EncodedGeoStatistics Encode() const {
