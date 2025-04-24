@@ -428,8 +428,8 @@ similarly.
 Now you are ready to install test dependencies and run `Unit Testing`_, as
 described above.
 
-To build a self-contained wheel (including the Arrow and Parquet C++
-libraries), one can set ``--bundle-arrow-cpp``:
+If you need to build a self-contained wheel (including the Arrow and Parquet C++
+libraries), you can set ``--bundle-arrow-cpp``:
 
 .. code-block::
 
