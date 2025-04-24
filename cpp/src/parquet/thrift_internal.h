@@ -431,7 +431,7 @@ static inline format::GeospatialStatistics ToThrift(
       bbox.__set_mmax(encoded_geo_stats.mmax);
     }
 
-    geospatial_statistics.__set_bbox(bbox);
+    geospatial_statistics.__set_bbox(std::move(bbox));
   }
 
   return geospatial_statistics;
