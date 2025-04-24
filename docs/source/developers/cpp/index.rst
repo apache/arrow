@@ -30,3 +30,4 @@ C++ Development
    emscripten
    conventions
    fuzzing
+   compute
