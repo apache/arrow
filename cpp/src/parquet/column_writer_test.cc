@@ -1919,7 +1919,7 @@ TEST_F(TestGeometryValuesWriter, TestWriteAndRead) {
     EXPECT_TRUE(xy.has_value());
     auto expected_x = static_cast<double>(i);
     auto expected_y = static_cast<double>(i + 1);
-    EXPECT_EQ(*xy, (std::pair<double, double>(expected_x, expected_y)));
+    EXPECT_EQ(*xy, std::make_pair(expected_x, expected_y));
   }
 
   // Statistics are unset because the sort order is unknown
