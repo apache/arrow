@@ -2033,4 +2033,8 @@ TEST_F(TestGeometryLogicalType, TestWriteGeography) {
   TestWriteAndRead(GeographyLogicalType::Make("srid:1234"), /*write_arrow=*/false);
 }
 
+TEST_F(TestGeometryLogicalType, TestWriteGeographyArrow) {
+  TestWriteAndRead(GeographyLogicalType::Make("srid:1234"), /*write_arrow=*/true);
+}
+
 }  // namespace parquet
