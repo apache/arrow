@@ -1766,7 +1766,7 @@ const std::string& GeometryLogicalType::crs() const {
 }
 
 std::shared_ptr<const LogicalType> GeometryLogicalType::Make(std::string crs) {
-  auto logical_type = std::make_shared<GeometryLogicalType>();
+  auto logical_type = std::shared_ptr<GeometryLogicalType>(new GeometryLogicalType());
   logical_type->impl_.reset(new LogicalType::Impl::Geometry(std::move(crs)));
   return logical_type;
 }
