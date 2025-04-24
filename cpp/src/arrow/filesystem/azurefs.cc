@@ -576,9 +576,8 @@ bool IsForbidden(const Storage::StorageException& e) {
   if (e.ErrorCode == "AuthorizationFailure" ||
       e.ReasonPhrase == "This request is not authorized to perform this operation.") {
     DCHECK_EQ(e.StatusCode, Http::HttpStatusCode::Forbidden);
-    return true;
   }
-  return false;
+  return e.StatusCode == Http::HttpStatusCode::Forbidden;
 }
 
 const auto kHierarchicalNamespaceIsDirectoryMetadataKey = "hdi_isFolder";
