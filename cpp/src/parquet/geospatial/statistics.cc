@@ -356,11 +356,11 @@ std::optional<std::vector<int32_t>> GeoStatistics::geometry_types() const {
 
 std::string GeoStatistics::ToString() const {
   if (!is_valid()) {
-    return "GeoStatistics <invalid>\n";
+    return "<GeoStatistics> invalid";
   }
 
   std::stringstream ss;
-  ss << "GeoStatistics " << std::endl;
+  ss << "<GeoStatistics>";
 
   std::string dim_label("xyzm");
   auto dim_valid = dimension_valid();
@@ -369,27 +369,29 @@ std::string GeoStatistics::ToString() const {
   auto upper = upper_bound();
 
   for (int i = 0; i < kMaxDimensions; i++) {
-    ss << "  " << dim_label[i] << ": ";
+    ss << " " << dim_label[i] << ": ";
     if (!dim_valid[i]) {
-      ss << "invalid" << std::endl;
+      ss << "invalid";
     } else if (dim_empty[i]) {
-      ss << "empty" << std::endl;
+      ss << "empty";
     } else {
-      ss << "[" << lower[i] << ", " << upper[i] << "]" << std::endl;
+      ss << "[" << lower[i] << ", " << upper[i] << "]";
     }
   }
 
   std::optional<std::vector<int32_t>> maybe_geometry_types = geometry_types();
+  ss << " geometry_types: ";
   if (maybe_geometry_types.has_value()) {
-    ss << "  geometry_types:";
+    ss << "[";
+    std::string sep("");
     for (int32_t geometry_type : *maybe_geometry_types) {
-      ss << " " << geometry_type;
+      ss << sep << geometry_type;
+      sep = ", ";
     }
+    ss << "]";
   } else {
-    ss << "  invalid";
+    ss << "invalid";
   }
-
-  ss << std::endl;
 
   return ss.str();
 }

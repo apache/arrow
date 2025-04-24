@@ -43,8 +43,8 @@ TEST(TestGeoStatistics, TestDefaults) {
 
   EXPECT_TRUE(stats.Equals(GeoStatistics()));
   EXPECT_EQ(stats.ToString(),
-            "GeoStatistics \n  x: empty\n  y: empty\n  z: empty\n  m: empty\n  "
-            "geometry_types:\n");
+            "<GeoStatistics> x: empty y: empty z: empty m: empty "
+            "geometry_types: []");
 
   // Merging empty with empty should equal empty
   stats.Merge(GeoStatistics());
@@ -145,8 +145,8 @@ TEST(TestGeoStatistics, TestUpdateByteArray) {
   auto encoded = stats.Encode();
   EXPECT_TRUE(GeoStatistics(*encoded).Equals(stats));
   EXPECT_EQ(stats.ToString(),
-            "GeoStatistics \n  x: [10, 20]\n  y: [11, 21]\n  z: [12, 22]\n  m: "
-            "[13, 23]\n  geometry_types: 3001\n");
+            "<GeoStatistics> x: [10, 20] y: [11, 21] z: [12, 22] m: "
+            "[13, 23] geometry_types: [3001]");
 
   // Check resetting to the original state
   stats.Reset();
@@ -187,7 +187,7 @@ TEST(TestGeoStatistics, TestUpdateByteArray) {
   stats.Update(&item0, /*num_values=*/1);
   EXPECT_FALSE(stats.is_valid());
   EXPECT_EQ(stats.Encode(), std::nullopt);
-  EXPECT_EQ(stats.ToString(), "GeoStatistics <invalid>\n");
+  EXPECT_EQ(stats.ToString(), "<GeoStatistics> invalid");
 
   // And should cause other statistics to become invalid when merged with them
   stats_spaced.Merge(stats);
