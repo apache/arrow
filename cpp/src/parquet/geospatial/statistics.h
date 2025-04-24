@@ -40,17 +40,17 @@ inline constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 /// See the Parquet Thrift definition and GeoStatistics for the specific definition
 /// of field values.
 struct PARQUET_EXPORT EncodedGeoStatistics {
-  bool xy_bounds_present{};
+  bool xy_bounds_present{false};
   double xmin{kNaN};
   double xmax{kNaN};
   double ymin{kNaN};
   double ymax{kNaN};
 
-  bool z_bounds_present{};
+  bool z_bounds_present{false};
   double zmin{kNaN};
   double zmax{kNaN};
 
-  bool m_bounds_present{};
+  bool m_bounds_present{false};
   double mmin{kNaN};
   double mmax{kNaN};
 
