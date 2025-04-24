@@ -141,4 +141,5 @@ Welcome to the Apache Arrow C++ implementation documentation!
    user_guide
    Examples <examples/index>
    api
-   C++ cookbook <https://arrow.apache.org/cookbook/cpp/>
+   C++ Development <../developers/cpp/index>
+   C++ Cookbook <https://arrow.apache.org/cookbook/cpp/>
