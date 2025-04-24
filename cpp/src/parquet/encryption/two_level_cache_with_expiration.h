@@ -118,8 +118,7 @@ class TwoLevelCacheWithExpiration {
     if (now > (last_cache_cleanup_timestamp_ +
                std::chrono::duration<double>(cache_cleanup_period_seconds))) {
       RemoveExpiredEntriesNoMutex();
-      last_cache_cleanup_timestamp_ =
-          now + std::chrono::duration<double>(cache_cleanup_period_seconds);
+      last_cache_cleanup_timestamp_ = now;
     }
   }
 
