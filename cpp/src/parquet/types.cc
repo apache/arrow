@@ -22,9 +22,13 @@
 #include <sstream>
 #include <string>
 
+#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/logging_internal.h"
+
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
 
 #include "parquet/exception.h"
 #include "parquet/thrift_internal.h"
@@ -768,8 +772,10 @@ class LogicalType::Impl::Compatible : public virtual LogicalType::Impl {
     }                                                \
   }
 
-#define reset_decimal_metadata(m___) \
-  { set_decimal_metadata(m___, false, -1, -1); }
+#define reset_decimal_metadata(m___)           \
+  {                                            \
+    set_decimal_metadata(m___, false, -1, -1); \
+  }
 
 // For logical types that always translate to the same converted type
 class LogicalType::Impl::SimpleCompatible : public virtual LogicalType::Impl::Compatible {
@@ -1670,33 +1676,16 @@ class LogicalType::Impl::Float16 final : public LogicalType::Impl::Incompatible,
 GENERATE_MAKE(Float16)
 
 namespace {
-std::string EscapeControl(char c) {
-  std::stringstream ss;
-  ss << R"(\u00)";
-  ss.flags(ss.hex);
-  ss.width(2);
-  ss.fill('0');
-  ss << static_cast<int>(c);
-  return ss.str();
-}
-
-void WriteCrsKeyAndValue(const std::string& crs, std::ostream& json) {
+void WriteCrsKeyAndValue(const std::string_view crs, std::ostream& json) {
   // There is no restriction on the crs value here, and it may contain quotes
   // or backslashes that would result in invalid JSON if unescaped.
-  json << R"(, "crs": ")";
-  json.flags(json.hex);
-  for (char c : crs) {
-    if (c == '"') {
-      json << R"(\")";
-    } else if (c == '\\') {
-      json << R"(\\)";
-    } else if (c >= 0 && c < 32) {
-      json << EscapeControl(c);
-    } else {
-      json << c;
-    }
-  }
-  json << R"(")";
+  namespace rj = ::arrow::rapidjson;
+  rj::StringBuffer buffer;
+  rj::Writer<rj::StringBuffer> writer(buffer);
+  rj::Value v;
+  v.SetString(crs.data(), static_cast<int32_t>(crs.size()));
+  v.Accept(writer);
+  json << R"(, "crs": )" << buffer.GetString();
 }
 }  // namespace
 

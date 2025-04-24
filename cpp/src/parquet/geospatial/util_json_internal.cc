@@ -129,6 +129,9 @@ std::string EscapeCrsAsJsonIfRequired(std::string_view crs) {
   if (document.Parse(crs.data(), crs.length()).HasParseError()) {
     rj::StringBuffer buffer;
     rj::Writer<rj::StringBuffer> writer(buffer);
+    rj::Value v;
+    v.SetString(crs.data(), static_cast<int32_t>(crs.size()));
+    v.Accept(writer);
     return std::string(buffer.GetString());
   } else {
     return std::string(crs);
