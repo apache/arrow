@@ -22,7 +22,7 @@
 Developing Arrow C++ Compute
 ============================
 
-This section provides information for developers of Arrow C++ Compute module.
+This section provides information for developers of the Arrow C++ Compute module.
 
 Row Table
 =========
