@@ -84,7 +84,7 @@ namespace {
   const std::string kSridPrefix{"srid:"};
   const std::string kProjjsonPrefix{"projjson:"};
 
-  // Two reccomendataions are explicitly mentioned in the Parquet format for the
+  // Two recommendations are explicitly mentioned in the Parquet format for the
   // LogicalType crs:
   //
   // - "srid:XXXX" as a way to encode an application-specific integer identifier
