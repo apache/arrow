@@ -62,6 +62,29 @@ TEST(TestGeometryUtil, TestBoundingBox) {
   EXPECT_EQ(box_xyzm, BoundingBox());
 }
 
+TEST(TestGeometryUtil, TestBoundingBoxEquals) {
+  BoundingBox box_a({-1, -2, -3, -4}, {1, 2, 3, 4});
+  BoundingBox box_b({-1, -2, -3, -4}, {1, 2, 3, 4});
+
+  for (int i = 0; i < 4; i++) {
+    // Set one min component to another value and ensure inequality
+    box_b.min[i] = -1000;
+    EXPECT_NE(box_a, box_b);
+
+    // Reset the min component and ensure equality
+    box_b.min = box_a.min;
+    EXPECT_EQ(box_a, box_b);
+
+    // Set one max component to another value and ensure inequality
+    box_b.max[i] = -1000;
+    EXPECT_NE(box_a, box_b);
+
+    // Reset the max component and ensure equality
+    box_b.max = box_a.max;
+    EXPECT_EQ(box_a, box_b);
+  }
+}
+
 struct WKBTestCase {
   WKBTestCase() = default;
   WKBTestCase(GeometryType geometry_type, Dimensions dimensions,
