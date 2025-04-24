@@ -78,6 +78,11 @@ namespace {
   }
 }
 
+// Utility for ensuring that a Parquet CRS is valid JSON when written to
+// GeoArrow metadata (without escaping it if it is already valid JSON such as
+// a PROJJSON string)
+std::string EscapeCrsAsJsonIfRequired(std::string_view crs);
+
 ::arrow::Result<std::string> MakeGeoArrowCrsMetadata(
     std::string_view crs,
     const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
@@ -103,22 +108,28 @@ namespace {
     std::string_view metadata_field = crs.substr(kProjjsonPrefix.size());
     if (metadata && metadata->Contains(metadata_field)) {
       ARROW_ASSIGN_OR_RAISE(std::string projjson_value, metadata->Get(metadata_field));
-      return R"("crs": )" + projjson_value + R"(, "crs_type": "projjson")";
+      // This value should be valid JSON, but if it is not, we escape it as a string such
+      // that it can be inspected by the consumer of GeoArrow.
+      return R"("crs": )" + EscapeCrsAsJsonIfRequired(projjson_value) +
+             R"(, "crs_type": "projjson")";
     }
   }
 
   // Pass on the string directly to GeoArrow. If the string is already valid JSON,
   // insert it directly into GeoArrow's "crs" field. Otherwise, escape it and pass it as a
   // string value.
+  return R"("crs": )" + EscapeCrsAsJsonIfRequired(crs);
+}
+
+std::string EscapeCrsAsJsonIfRequired(std::string_view crs) {
   namespace rj = ::arrow::rapidjson;
   rj::Document document;
   if (document.Parse(crs.data(), crs.length()).HasParseError()) {
     rj::StringBuffer buffer;
     rj::Writer<rj::StringBuffer> writer(buffer);
-    writer.String(std::string(crs));
-    return R"("crs": )" + std::string(buffer.GetString());
+    return std::string(buffer.GetString());
   } else {
-    return R"("crs": )" + std::string(crs);
+    return std::string(crs);
   }
 }
 
