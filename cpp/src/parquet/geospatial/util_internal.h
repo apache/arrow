@@ -184,6 +184,8 @@ class PARQUET_EXPORT WKBGeometryBounder {
   /// the geometry is added to the internal geometry type list.
   void MergeGeometry(std::string_view bytes_wkb);
 
+  void MergeGeometry(::arrow::util::span<const uint8_t> bytes_wkb);
+
   /// \brief Accumulate the bounds of a previously-calculated BoundingBox
   void MergeBox(const BoundingBox& box) { box_.Merge(box); }
 
