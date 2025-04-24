@@ -1978,7 +1978,7 @@ TEST_F(TestGeometryValuesWriter, TestWriteAndReadSpaced) {
     EXPECT_TRUE(xy.has_value());
     auto expected_x = static_cast<double>(non_null_indices[i]);
     auto expected_y = static_cast<double>(non_null_indices[i] + 1);
-    EXPECT_EQ(*xy, (std::pair<double, double>(expected_x, expected_y)));
+    EXPECT_EQ(*xy, std::make_pair(expected_x, expected_y));
   }
 
   std::shared_ptr<geospatial::GeoStatistics> geospatial_statistics = metadata_geo_stats();
