@@ -54,7 +54,7 @@ struct PARQUET_EXPORT EncodedGeoStatistics {
   double mmin{kNaN};
   double mmax{kNaN};
 
-  bool writer_calculated_geospatial_types() const { return !geospatial_types.empty(); }
+  bool geospatial_types_present() const { return !geospatial_types.empty(); }
   std::vector<int32_t> geospatial_types;
 };
 

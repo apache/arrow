@@ -56,7 +56,7 @@ TEST(TestGeoStatistics, TestDefaults) {
   EXPECT_FALSE(encoded->xy_bounds_present);
   EXPECT_FALSE(encoded->z_bounds_present);
   EXPECT_FALSE(encoded->m_bounds_present);
-  EXPECT_FALSE(encoded->writer_calculated_geospatial_types());
+  EXPECT_FALSE(encoded->geospatial_types_present());
 
   // When imported, the statistics marked with everything uncalculated should
   // be "valid" but should have individual components marked as invalid.

@@ -219,8 +219,7 @@ class GeoStatisticsImpl {
 
     bounder_.MergeBox(box);
     bounder_.MergeGeometryTypes(encoded.geospatial_types);
-    has_geometry_types_ =
-        has_geometry_types_ && encoded.writer_calculated_geospatial_types();
+    has_geometry_types_ = has_geometry_types_ && encoded.geospatial_types_present();
   }
 
   bool is_wraparound_x() const {
