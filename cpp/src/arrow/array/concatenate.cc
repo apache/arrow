@@ -703,7 +703,6 @@ class ConcatenateImpl {
           RETURN_NOT_OK(ConcatenateImpl(child_data, pool_)
                             .Concatenate(&out_->child_data[i], /*hints=*/nullptr));
         }
-
         break;
       }
       case UnionMode::DENSE: {

@@ -42,6 +42,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/list_util.h"
 #include "arrow/util/unreachable.h"
 
@@ -763,7 +764,7 @@ TEST_F(ConcatenateTest, OffsetOverflow) {
 
   auto struct_ty = struct_({field("a", int32()), field("b", list(utf8()))});
   auto fake_long_struct = ArrayFromJSON(struct_ty, "[[0, [\"Hello\"]]]");
-  std::dynamic_pointer_cast<StructArray>(fake_long_struct)
+  internal::checked_pointer_cast<StructArray>(fake_long_struct)
       ->field(1)
       ->data()
       ->GetMutableValues<int32_t>(1)[1] = std::numeric_limits<int32_t>::max();
