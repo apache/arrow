@@ -29,7 +29,7 @@ namespace flight {
 namespace odbc {
 namespace integration_tests {
 
-TEST(connection_test, TestSQLAllocHandle) {
+TEST(SQLAllocHandle, TestSQLAllocHandleEnv) {
 
   // ODBC Environment
   SQLHENV env;
@@ -38,6 +38,43 @@ TEST(connection_test, TestSQLAllocHandle) {
   SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &env);
 
   EXPECT_TRUE(env != NULL);
+}
+
+TEST(SQLAllocEnv, TestSQLAllocEnv) {
+
+  // ODBC Environment
+  SQLHENV env;
+
+  // Allocate an environment handle
+  SQLRETURN return_value = SQLAllocEnv(&env);
+
+  EXPECT_TRUE(return_value == SQL_SUCCESS);
+}
+
+TEST(SQLFreeHandle, TestSQLFreeHandleEnv) {
+  // ODBC Environment
+  SQLHENV env;
+
+  // Allocate an environment handle
+  SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &env);
+
+  // Free an environment handle
+  SQLRETURN return_value = SQLFreeHandle(SQL_HANDLE_ENV, env);
+
+  EXPECT_TRUE(return_value == SQL_SUCCESS);
+}
+
+TEST(SQLFreeEnv, TestSQLFreeEnv) {
+  // ODBC Environment
+  SQLHENV env;
+
+  // Allocate an environment handle
+  SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &env);
+
+  // Free an environment handle
+  SQLRETURN return_value = SQLFreeEnv(env);
+
+  EXPECT_TRUE(return_value == SQL_SUCCESS);
 }
 
 }  // namespace integration_tests

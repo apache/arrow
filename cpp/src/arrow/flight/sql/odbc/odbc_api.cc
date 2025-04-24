@@ -34,13 +34,13 @@ namespace arrow
       case SQL_HANDLE_ENV: {
         using ODBC::ODBCEnvironment;
         using driver::flight_sql::FlightSqlDriver;
-    
-        std::shared_ptr< FlightSqlDriver > odbc_driver = std::shared_ptr< FlightSqlDriver >();
-        *result = reinterpret_cast< SQLHENV >(new ODBCEnvironment(odbc_driver));
-    
+
+        std::shared_ptr<FlightSqlDriver> odbc_driver = std::make_shared<FlightSqlDriver>();
+        *result = reinterpret_cast<SQLHENV>(new ODBCEnvironment(odbc_driver));
+
         return SQL_SUCCESS;
       }
-      
+
       case SQL_HANDLE_DBC: {
         return SQL_INVALID_HANDLE;
       }
@@ -55,4 +55,41 @@ namespace arrow
 
     return SQL_ERROR;
   }
-}  // namespace arrow
+
+  SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle)
+  {
+    switch (type) {
+      case SQL_HANDLE_ENV: {
+        using ODBC::ODBCEnvironment;
+
+        ODBCEnvironment* environment = reinterpret_cast<ODBCEnvironment*>(handle);
+
+        if (!environment) {
+          return SQL_INVALID_HANDLE;
+        }
+
+        delete environment;
+
+        return SQL_SUCCESS;
+      }
+
+      case SQL_HANDLE_DBC:
+        return SQL_INVALID_HANDLE;
+
+      case SQL_HANDLE_STMT:
+        return SQL_INVALID_HANDLE;
+
+      case SQL_HANDLE_DESC:
+        return SQL_INVALID_HANDLE;
+
+      default:
+        break;
+    }
+
+    return SQL_ERROR;
+  }
+
+
+
+
+  }  // namespace arrow

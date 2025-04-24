@@ -123,8 +123,7 @@ target_include_directories(arrow_odbc_spi_impl PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 
 find_package(ArrowFlightSql)
 
-target_link_libraries(arrow_odbc_spi_impl PUBLIC odbcabstraction
-                                                 arrow_flight_sql_static)
+target_link_libraries(arrow_odbc_spi_impl PUBLIC odbcabstraction arrow_flight_sql_shared)
 
 if(MSVC)
   set(CMAKE_CXX_FLAGS_RELEASE "/MD")
