@@ -1135,6 +1135,19 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaGeoArrowExtensions) {
     ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
     CheckFlatSchema(arrow_schema);
   }
+
+  {
+    // Parquet file does not contain Arrow schema.
+    // If Arrow extensions are enabled and extensions are NOT registered,
+    // fields will be interpreted as binary().
+    ArrowReaderProperties props;
+    props.set_arrow_extensions_enabled(true);
+    auto arrow_schema = ::arrow::schema({::arrow::field("geometry", BINARY, true),
+                                         ::arrow::field("geography", BINARY, true)});
+    std::shared_ptr<KeyValueMetadata> metadata{};
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
+    CheckFlatSchema(arrow_schema);
+  }
 }
 
 class TestConvertArrowSchema : public ::testing::Test {
