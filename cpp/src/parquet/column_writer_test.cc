@@ -31,7 +31,7 @@
 #include "arrow/util/key_value_metadata.h"
 
 #include "parquet/bloom_filter.h"
-#include "parquet/bloom_filter_builder.h"
+#include "parquet/bloom_filter_builder_internal.h"
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
@@ -1733,7 +1733,7 @@ class TestBloomFilterWriter : public TestPrimitiveWriter<TestType> {
   std::shared_ptr<TypedColumnWriter<TestType>> BuildWriterWithBloomFilter(
       int64_t output_size, const ColumnProperties& column_properties);
 
-  std::unique_ptr<internal::BloomFilterBuilder> builder_;
+  std::unique_ptr<BloomFilterBuilder> builder_;
   BloomFilter* bloom_filter_{nullptr};
 };
 
@@ -1746,7 +1746,6 @@ TestBloomFilterWriter<TestType>::BuildWriterWithBloomFilter(
   if (column_properties.encoding() == Encoding::PLAIN_DICTIONARY ||
       column_properties.encoding() == Encoding::RLE_DICTIONARY) {
     wp_builder.enable_dictionary();
-    wp_builder.dictionary_pagesize_limit(DICTIONARY_PAGE_SIZE);
   } else {
     wp_builder.disable_dictionary();
     wp_builder.encoding(column_properties.encoding());
@@ -1764,8 +1763,7 @@ TestBloomFilterWriter<TestType>::BuildWriterWithBloomFilter(
       ColumnChunkMetaDataBuilder::Make(this->writer_properties_, this->descr_);
   std::unique_ptr<PageWriter> pager = PageWriter::Open(
       this->sink_, column_properties.compression(), this->metadata_.get());
-  builder_ =
-      internal::BloomFilterBuilder::Make(&this->schema_, this->writer_properties_.get());
+  builder_ = BloomFilterBuilder::Make(&this->schema_, this->writer_properties_.get());
   // Initialize RowGroup
   builder_->AppendRowGroup();
   bloom_filter_ = builder_->GetOrCreateBloomFilter(0);

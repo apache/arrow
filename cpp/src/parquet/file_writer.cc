@@ -25,7 +25,7 @@
 
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "parquet/bloom_filter_builder.h"
+#include "parquet/bloom_filter_builder_internal.h"
 #include "parquet/column_writer.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_encryptor.h"
@@ -93,7 +93,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
                      const WriterProperties* properties, bool buffered_row_group = false,
                      InternalFileEncryptor* file_encryptor = nullptr,
                      PageIndexBuilder* page_index_builder = nullptr,
-                     internal::BloomFilterBuilder* bloom_filter_builder = nullptr)
+                     BloomFilterBuilder* bloom_filter_builder = nullptr)
       : sink_(std::move(sink)),
         metadata_(metadata),
         properties_(properties),
@@ -233,7 +233,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   bool buffered_row_group_;
   InternalFileEncryptor* file_encryptor_;
   PageIndexBuilder* page_index_builder_;
-  internal::BloomFilterBuilder* bloom_filter_builder_;
+  BloomFilterBuilder* bloom_filter_builder_;
 
   void CheckRowsWritten() const {
     // verify when only one column is written at a time
@@ -506,7 +506,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
   std::unique_ptr<RowGroupWriter> row_group_writer_;
   std::unique_ptr<PageIndexBuilder> page_index_builder_;
   std::unique_ptr<InternalFileEncryptor> file_encryptor_;
-  std::unique_ptr<internal::BloomFilterBuilder> bloom_filter_builder_;
+  std::unique_ptr<BloomFilterBuilder> bloom_filter_builder_;
 
   void StartFile() {
     auto file_encryption_properties = properties_->file_encryption_properties();
@@ -545,8 +545,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
       }
     }
     if (properties_->bloom_filter_enabled()) {
-      bloom_filter_builder_ =
-          internal::BloomFilterBuilder::Make(schema(), properties_.get());
+      bloom_filter_builder_ = BloomFilterBuilder::Make(schema(), properties_.get());
     }
     if (properties_->page_index_enabled()) {
       page_index_builder_ = PageIndexBuilder::Make(&schema_, file_encryptor_.get());

@@ -19,7 +19,7 @@
 // Parquet column chunk within a row group. It could be extended in the future
 // to iterate through all data pages in all chunks in a file.
 
-#include "parquet/bloom_filter_builder.h"
+#include "parquet/bloom_filter_builder_internal.h"
 
 #include <map>
 #include <utility>
@@ -32,10 +32,12 @@
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
 
-namespace parquet::internal {
+namespace parquet {
 
 namespace {
-/// Column encryption for bloom filter is not implemented yet.
+/// BloomFilterBuilderImpl is the implementation of BloomFilterBuilder.
+///
+/// Note: Column encryption for bloom filter is not implemented yet.
 class BloomFilterBuilderImpl : public BloomFilterBuilder {
  public:
   explicit BloomFilterBuilderImpl(const SchemaDescriptor* schema,
@@ -76,7 +78,7 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
   bool finished_ = false;
 
   using RowGroupBloomFilters = std::map<int32_t, std::unique_ptr<BloomFilter>>;
-  // Using unique_ptr because the `std::unique_ptr<BloomFilter>` is not copyable.
+  // Using unique_ptr because the `RowGroupBloomFilters` is not copyable.
   // MSVC has the issue below: https://github.com/microsoft/STL/issues/1036
   // So we use `std::unique_ptr<std::map<>>` to avoid the issue.
   std::vector<std::unique_ptr<RowGroupBloomFilters>> file_bloom_filters_;
@@ -101,7 +103,6 @@ BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordin
   }
   const BloomFilterOptions& bloom_filter_options = *bloom_filter_options_opt;
   // CheckState() should have checked that file_bloom_filters_ is not empty.
-  DCHECK(!file_bloom_filters_.empty());
   RowGroupBloomFilters& row_group_bloom_filter = *file_bloom_filters_.back();
   auto iter = row_group_bloom_filter.find(column_ordinal);
   if (iter == row_group_bloom_filter.end()) {
@@ -167,4 +168,4 @@ std::unique_ptr<BloomFilterBuilder> BloomFilterBuilder::Make(
   return std::make_unique<BloomFilterBuilderImpl>(schema, properties);
 }
 
-}  // namespace parquet::internal
+}  // namespace parquet

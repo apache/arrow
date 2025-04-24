@@ -276,7 +276,7 @@ class PARQUET_EXPORT ColumnProperties {
     return bloom_filter_options_;
   }
 
-  bool bloom_filter_enabled() const { return bloom_filter_options_ != std::nullopt; }
+  bool bloom_filter_enabled() const { return bloom_filter_options_.has_value(); }
 
  private:
   Encoding::type encoding_;

@@ -90,8 +90,8 @@ class Statistics;
 struct SizeStatistics;
 
 class BloomFilter;
-struct BloomFilterOptions;
 struct BloomFilterLocation;
+struct BloomFilterOptions;
 
 class ColumnIndex;
 class OffsetIndex;

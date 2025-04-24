@@ -20,9 +20,9 @@
 #include "arrow/io/type_fwd.h"
 #include "parquet/types.h"
 
-namespace parquet::internal {
+namespace parquet {
 
-/// \brief Interface for collecting bloom filter of a parquet file.
+/// @brief Interface for collecting bloom filter of a parquet file.
 ///
 /// ```
 /// auto bloom_filter_builder = BloomFilterBuilder::Make(schema, properties);
@@ -37,43 +37,48 @@ namespace parquet::internal {
 /// ```
 class PARQUET_EXPORT BloomFilterBuilder {
  public:
-  /// \brief API to create a BloomFilterBuilder.
+  /// @brief API to create a BloomFilterBuilder.
+  ///
+  /// @param schema The schema of the file. The life cycle of the schema must be
+  /// longer than the BloomFilterBuilder.
+  /// @param properties The properties of the file. The life cycle of the properties
+  /// must be longer than the BloomFilterBuilder.
   static std::unique_ptr<BloomFilterBuilder> Make(const SchemaDescriptor* schema,
                                                   const WriterProperties* properties);
 
-  /// Append a new row group to host all incoming bloom filters.
+  /// @brief Append a new row group to host all incoming bloom filters.
   ///
   /// This method must be called before `GetOrCreateBloomFilter` for a new row group.
   ///
-  /// \throws ParquetException if WriteTo() has been called to flush bloom filters.
+  /// @throws ParquetException if WriteTo() has been called to flush bloom filters.
   virtual void AppendRowGroup() = 0;
 
-  /// \brief Get the BloomFilter from column ordinal.
+  /// @brief Get the BloomFilter from column ordinal.
   ///
-  /// \param column_ordinal Column ordinal in schema, which is only for leaf columns.
+  /// @param column_ordinal Column ordinal in schema, which is only for leaf columns.
   ///
   /// \return BloomFilter for the column and its memory ownership belongs to the
   /// BloomFilterBuilder. It will return nullptr if bloom filter is not enabled for the
   /// column.
   ///
-  /// \throws ParquetException if any of following conditions applies:
+  /// @throws ParquetException if any of following conditions applies:
   /// 1) column_ordinal is out of bound.
   /// 2) `WriteTo()` has been called already.
   /// 3) `AppendRowGroup()` is not called before `GetOrCreateBloomFilter()`.
   virtual BloomFilter* GetOrCreateBloomFilter(int32_t column_ordinal) = 0;
 
-  /// \brief Write the bloom filter to sink.
+  /// @brief Write the bloom filter to sink.
   ///
   /// The bloom filter cannot be modified after this method is called.
   ///
-  /// \param[out] sink The output stream to write the bloom filter.
-  /// \param[out] location The location of all bloom filter relative to the start of sink.
+  /// @param[in,out] sink The output stream to write the bloom filter.
+  /// @param[out] location The location of all bloom filter relative to the start of sink.
   ///
-  /// \throws ParquetException if WriteTo() has been called to flush bloom filters.
+  /// @throws ParquetException if WriteTo() has been called to flush bloom filters.
   virtual void WriteTo(::arrow::io::OutputStream* sink,
                        BloomFilterLocation* location) = 0;
 
   virtual ~BloomFilterBuilder() = default;
 };
 
-}  // namespace parquet::internal
+}  // namespace parquet

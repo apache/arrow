@@ -2577,7 +2577,7 @@ void TypedColumnWriterImpl<FLBAType>::UpdateBloomFilterSpaced(const FLBA* values
 
 template <typename ArrayType>
 void UpdateBinaryBloomFilter(BloomFilter* bloom_filter, const ArrayType& array) {
-  // Using a smaller size because an extra `byte_arrays` are used.
+  // Using a smaller size because an extra `byte_arrays` is used.
   constexpr int64_t kBinaryHashBatchSize = 64;
   std::array<ByteArray, kBinaryHashBatchSize> byte_arrays;
   std::array<uint64_t, kBinaryHashBatchSize> hashes;
