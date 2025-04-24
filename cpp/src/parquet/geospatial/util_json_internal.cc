@@ -79,7 +79,7 @@ namespace {
 }
 
 ::arrow::Result<std::string> MakeGeoArrowCrsMetadata(
-    const std::string& crs,
+    std::string_view crs,
     const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
   const std::string kSridPrefix{"srid:"};
   const std::string kProjjsonPrefix{"projjson:"};
@@ -97,9 +97,10 @@ namespace {
   if (crs.empty()) {
     return R"("crs": "OGC:CRS84", "crs_type": "authority_code")";
   } else if (::arrow::internal::StartsWith(crs, kSridPrefix)) {
-    return R"("crs": ")" + crs.substr(kSridPrefix.size()) + R"(", "crs_type": "srid")";
+    return R"("crs": ")" + std::string(crs.substr(kSridPrefix.size())) +
+           R"(", "crs_type": "srid")";
   } else if (::arrow::internal::StartsWith(crs, kProjjsonPrefix)) {
-    std::string metadata_field = crs.substr(kProjjsonPrefix.size());
+    std::string_view metadata_field = crs.substr(kProjjsonPrefix.size());
     if (metadata && metadata->Contains(metadata_field)) {
       ARROW_ASSIGN_OR_RAISE(std::string projjson_value, metadata->Get(metadata_field));
       return R"("crs": )" + projjson_value + R"(, "crs_type": "projjson")";
@@ -114,10 +115,10 @@ namespace {
   if (document.Parse(crs.data(), crs.length()).HasParseError()) {
     rj::StringBuffer buffer;
     rj::Writer<rj::StringBuffer> writer(buffer);
-    writer.String(crs);
+    writer.String(std::string(crs));
     return R"("crs": )" + std::string(buffer.GetString());
   } else {
-    return R"("crs": )" + crs;
+    return R"("crs": )" + std::string(crs);
   }
 }
 
