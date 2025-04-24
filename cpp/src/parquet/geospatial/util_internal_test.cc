@@ -98,11 +98,6 @@ std::ostream& operator<<(std::ostream& os, const WKBTestCase& obj) {
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const BoundingBox& obj) {
-  os << obj.ToString();
-  return os;
-}
-
 class WKBTestFixture : public ::testing::TestWithParam<WKBTestCase> {
  protected:
   WKBTestCase test_case;

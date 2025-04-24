@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <iostream>
 #include <limits>
 #include <string>
 #include <unordered_set>
@@ -165,6 +166,11 @@ inline bool operator==(const BoundingBox& lhs, const BoundingBox& rhs) {
 
 inline bool operator!=(const BoundingBox& lhs, const BoundingBox& rhs) {
   return !(lhs == rhs);
+}
+
+inline std::ostream& operator<<(std::ostream& os, const BoundingBox& obj) {
+  os << obj.ToString();
+  return os;
 }
 
 class WKBBuffer;
