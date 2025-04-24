@@ -414,8 +414,8 @@ static inline format::GeospatialStatistics ToThrift(
 
   geospatial_statistics.__set_geospatial_types(encoded_geo_stats.geospatial_types);
 
-  format::BoundingBox bbox;
   if (encoded_geo_stats.xy_bounds_present) {
+    format::BoundingBox bbox;
     bbox.__set_xmin(encoded_geo_stats.xmin);
     bbox.__set_xmax(encoded_geo_stats.xmax);
     bbox.__set_ymin(encoded_geo_stats.ymin);
