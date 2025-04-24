@@ -1415,7 +1415,7 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsLonLat) {
 
   std::string geoarrow_lonlatish_crs = geoarrow_lonlat[0];
   for (const auto& geoarrow_lonlatish_crs : geoarrow_lonlat) {
-    SCOPED_TRACE(geoarrow_lonlatish_crs);
+    ARROW_SCOPED_TRACE("crs = ", geoarrow_lonlatish_crs);
     std::vector<std::shared_ptr<Field>> arrow_fields = {
         ::arrow::field("geometry",
                        test::geoarrow_wkb(R"({"crs": )" + geoarrow_lonlatish_crs + "}"),
