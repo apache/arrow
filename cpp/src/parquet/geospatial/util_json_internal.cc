@@ -59,6 +59,8 @@ namespace {
       if (identifier.HasMember("authority") && identifier.HasMember("code")) {
         if (identifier["authority"] == "OGC" && identifier["code"] == "CRS84") {
           return "";
+        } else if (identifier["authority"] == "EPSG" && identifier["code"] == "4326") {
+          return "";
         } else if (identifier["authority"] == "EPSG" && identifier["code"] == 4326) {
           return "";
         }

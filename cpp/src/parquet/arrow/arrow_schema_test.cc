@@ -1424,6 +1424,7 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsLonLat) {
       "null", R"("OGC:CRS84")", R"("EPSG:4326")",
       // Purely the parts of the PROJJSON that we inspect to check the lon/lat case
       R"({"id": {"authority": "OGC", "code": "CRS84"}})",
+      R"({"id": {"authority": "EPSG", "code": "4326"}})",
       R"({"id": {"authority": "EPSG", "code": 4326}})"};
 
   std::string geoarrow_lonlatish_crs = geoarrow_lonlat[0];
