@@ -438,9 +438,9 @@ Docker examples
 ~~~~~~~~~~~~~~~
 
 If you are having difficulty building the Python library from source, take a
-look at the ``python/examples/minimal_build`` directory which illustrates a
-complete build and test from source both with the conda- and pip-based build
-methods.
+look at the `python/examples/minimal_build <https://github.com/apache/arrow/tree/main/python/examples/minimal_build>`_
+directory which illustrates a complete build and test from source both with
+the conda- and pip-based build methods.
 
 Debugging
 ---------
