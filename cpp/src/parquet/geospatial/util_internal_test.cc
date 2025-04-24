@@ -132,8 +132,7 @@ TEST_P(WKBTestFixture, TestWKBBounderBounds) {
   WKBGeometryBounder bounder;
   EXPECT_EQ(bounder.Bounds(), BoundingBox());
 
-  ASSERT_NO_THROW(bounder.MergeGeometry(
-      {reinterpret_cast<const char*>(item.wkb.data()), item.wkb.size()}));
+  ASSERT_NO_THROW(bounder.MergeGeometry(item.wkb));
 
   EXPECT_EQ(bounder.Bounds(), item.box);
   uint32_t wkb_type =
@@ -152,10 +151,19 @@ TEST_P(WKBTestFixture, TestWKBBounderErrorForTruncatedInput) {
   // Make sure an error occurs for any version of truncated input to the bounder
   for (size_t i = 0; i < item.wkb.size(); i++) {
     SCOPED_TRACE(i);
-    ASSERT_THROW(
-        bounder.MergeGeometry({reinterpret_cast<const char*>(item.wkb.data()), i}),
-        ParquetException);
+    ASSERT_THROW(bounder.MergeGeometry({item.wkb.data(), i}), ParquetException);
   }
+}
+
+TEST_P(WKBTestFixture, TestWKBBounderErrorForInputWithTooManyBytes) {
+  auto item = GetParam();
+  WKBGeometryBounder bounder;
+
+  std::vector<uint8_t> wkb_with_extra_byte(item.wkb.size() + 1);
+  std::memcpy(wkb_with_extra_byte.data(), item.wkb.data(), item.wkb.size());
+  wkb_with_extra_byte[item.wkb.size()] = 0x00;
+
+  ASSERT_THROW(bounder.MergeGeometry(wkb_with_extra_byte), ParquetException);
 }
 
 INSTANTIATE_TEST_SUITE_P(
