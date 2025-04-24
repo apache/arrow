@@ -409,7 +409,7 @@ to 0 or 1, see :ref:`python-dev-env-variables` below.
 To set the number of threads used to compile PyArrow's C++/Cython components,
 set the ``PYARROW_PARALLEL`` environment variable.
 
-If you build PyArrow but then make changes to the Arrow C++ or PyArrow code, 
+If you build PyArrow but then make changes to the Arrow C++ or PyArrow code,
 you can end up with stale build artifacts. This can lead to
 unexpected behavior or errors. To avoid this, you can clean the build
 artifacts before rebuilding. You can do this by running:
