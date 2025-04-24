@@ -62,7 +62,7 @@ class WKBBuffer {
   }
 
   template <typename Coord, typename Visit>
-  void ReadDoubles(uint32_t n_coords, bool swap, Visit&& visit) {
+  void ReadCoords(uint32_t n_coords, bool swap, Visit&& visit) {
     size_t total_bytes = n_coords * sizeof(Coord);
     if (size_ < total_bytes) {
       throw ParquetException("Can't read coordinate sequence of ", total_bytes,
@@ -219,19 +219,19 @@ void WKBGeometryBounder::MergeSequence(WKBBuffer* src, Dimensions dimensions,
                                        uint32_t n_coords, bool swap) {
   switch (dimensions) {
     case Dimensions::kXY:
-      src->ReadDoubles<BoundingBox::XY>(
+      src->ReadCoords<BoundingBox::XY>(
           n_coords, swap, [&](BoundingBox::XY coord) { box_.UpdateXY(coord); });
       break;
     case Dimensions::kXYZ:
-      src->ReadDoubles<BoundingBox::XYZ>(
+      src->ReadCoords<BoundingBox::XYZ>(
           n_coords, swap, [&](BoundingBox::XYZ coord) { box_.UpdateXYZ(coord); });
       break;
     case Dimensions::kXYM:
-      src->ReadDoubles<BoundingBox::XYM>(
+      src->ReadCoords<BoundingBox::XYM>(
           n_coords, swap, [&](BoundingBox::XYM coord) { box_.UpdateXYM(coord); });
       break;
     case Dimensions::kXYZM:
-      src->ReadDoubles<BoundingBox::XYZM>(
+      src->ReadCoords<BoundingBox::XYZM>(
           n_coords, swap, [&](BoundingBox::XYZM coord) { box_.UpdateXYZM(coord); });
       break;
     default:
