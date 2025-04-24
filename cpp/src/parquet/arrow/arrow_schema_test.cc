@@ -1453,7 +1453,7 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsSrid) {
 }
 
 TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsProjjson) {
-  // Checks the conversion between GeoArrow that contains non-lon/lat PROJJSON
+  // Checks the conversion from GeoArrow that contains non-lon/lat PROJJSON
   // to Parquet. Almost all GeoArrow types that arrive at the Parquet reader
   // will have their CRS expressed in this way.
   ::arrow::ExtensionTypeGuard guard(test::geoarrow_wkb());
