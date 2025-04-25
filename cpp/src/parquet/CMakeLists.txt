@@ -264,10 +264,6 @@ if(NOT PARQUET_MINIMAL_DEPENDENCY)
   list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
 
   # Add RapidJSON libraries
-  if(NOT ARROW_JSON)
-    message(FATAL_ERROR "Building Parquet with Arrow support requires ARROW_JSON=ON")
-  endif()
-
   list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS RapidJSON)
   list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON)
 
