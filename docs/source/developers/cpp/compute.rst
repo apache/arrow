@@ -33,13 +33,26 @@ and where all columns are frequently accessed together. It is especially
 advantageous for hash-table keys and facilitates efficient operations such as
 grouping and hash joins by optimizing memory access patterns and data locality.
 
-Fixed-length vs. Varying-length
--------------------------------
+Metadata
+--------
 
-A key property of the row table is whether it is fixed-length or varying-length.
-A fixed-length row table contains only fixed-length columns, while a
-varying-length row table includes at least one varying-length column. This
-distinction determines how data is stored and accessed in the row table.
+A row table is defined by its metadata, ``RowTableMetadata``, which includes
+information about its schema, alignment, and derived properties.
+
+The schema specifies the types and order of columns. Each row in the row table
+contains the data for each column in that logical order (the physical order may
+vary; see :ref:`row-encoding` for details).
+
+One important property derived from the schema is wether the row table is
+fixed-length or varying-length. A fixed-length row table contains only
+fixed-length columns, while a varying-length row table includes at least one
+varying-length column. This distinction determines how data is stored and
+accessed in the row table.
+
+Each row in the row table is aligned to ``RowTableMetadata::row_alignment``
+bytes. Fixed-length columns with non-power-of-2 lengths are also aligned to
+``RowTableMetadata::row_alignment`` bytes. Varying-length columns are aligned to
+``RowTableMetadata::string_alignment`` bytes.
 
 Buffer Layout
 -------------
@@ -105,6 +118,8 @@ In a varying-length row table, the varying-length buffer contains the actual row
 data, stored contiguously. The offsets in the fixed-length buffer point to the
 starting position of each row's data.
 
+.. _row-encoding:
+
 Row Encoding
 ^^^^^^^^^^^^
 
@@ -161,11 +176,3 @@ Varying-length buffer (row data):
      - ...
      - ...
      - ...
-
-Alignment
----------
-
-Each row in the row table is aligned to ``RowTableMetadata::row_alignment``
-bytes. Fixed-length columns with non-power-of-2 lengths are also aligned to
-``RowTableMetadata::row_alignment`` bytes. Varying-length columns are aligned to
-``RowTableMetadata::string_alignment`` bytes.
