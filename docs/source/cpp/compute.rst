@@ -1491,10 +1491,10 @@ null input value is converted into a null output value.
 * \(2) Fields are casted primarily by matching field names between the input
   and output type. For duplicate field names, their relative order is preserved,
   with each input field used for one or zero output fields. This allows casting
-  to a subset of the fields or re-ordered fields. If a nullable field in the
-  output type has no matching field name in the input type, it will be filled
-  with nulls. Casting a field from nullable to not null is supported if the
-  input data contains zero nulls.
+  to a subset or re-ordered field names. If a nullable field in the output type
+  has no matching field name in the input type, it will be filled with nulls.
+  Casting a field from nullable to not null is supported if the input data
+  contains zero nulls.
 
 * \(3) The list offsets are unchanged, the list values are cast from the
   input value type to the output value type (if a conversion is
