@@ -176,20 +176,10 @@ class GeoStatisticsImpl {
     return out;
   }
 
-  void Update(const EncodedGeoStatistics& encoded) {
-    if (!is_valid_) {
-      return;
-    }
-
-    // We can create GeoStatistics from a wraparound bounding box, but we can't
-    // update an existing one because the merge logic is not yet implemented.
-    if (!bounds_empty() &&
-        (is_wraparound_x() || is_wraparound(encoded.xmin, encoded.xmax))) {
-      throw ParquetException("Wraparound X is not suppored by GeoStatistics::Update()");
-    }
+  void Decode(const EncodedGeoStatistics& encoded) {
+    Reset();
 
     geospatial::BoundingBox box;
-
     if (encoded.xy_bounds_present) {
       box.min[0] = encoded.xmin;
       box.max[0] = encoded.xmax;
@@ -333,8 +323,7 @@ std::optional<EncodedGeoStatistics> GeoStatistics::Encode() const {
 }
 
 void GeoStatistics::Decode(const EncodedGeoStatistics& encoded) {
-  impl_->Reset();
-  impl_->Update(encoded);
+  impl_->Decode(encoded);
 }
 
 std::array<double, 4> GeoStatistics::lower_bound() const { return impl_->lower_bound(); }
