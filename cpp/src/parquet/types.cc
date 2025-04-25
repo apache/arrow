@@ -772,10 +772,8 @@ class LogicalType::Impl::Compatible : public virtual LogicalType::Impl {
     }                                                \
   }
 
-#define reset_decimal_metadata(m___)           \
-  {                                            \
-    set_decimal_metadata(m___, false, -1, -1); \
-  }
+#define reset_decimal_metadata(m___) \
+  { set_decimal_metadata(m___, false, -1, -1); }
 
 // For logical types that always translate to the same converted type
 class LogicalType::Impl::SimpleCompatible : public virtual LogicalType::Impl::Compatible {
