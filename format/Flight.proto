@@ -449,9 +449,9 @@ message Ticket {
  * In these cases, the following conventions should be followed by servers and clients:
  *
  *  - Unless otherwise specified by the 'Content-Type' header of the response,
- *    a client should assume the response is an Arrow IPC Stream. Usage of an IANA
- *    media type like 'application/octet-stream' should be assumed to be an Arrow
- *    IPC Stream.
+ *    a client should assume the response is using the Arrow IPC Streaming format. 
+ *    Usage of an IANA media type like 'application/octet-stream' should be assumed to 
+ *    be using the Arrow IPC Streaming format.
  *  - The server may allow the client to choose a specific response format by
  *    specifying an 'Accept' header in the request, such as 'application/vnd.apache.parquet'
  *    or 'application/vnd.apache.arrow.stream'. If multiple types are requested and

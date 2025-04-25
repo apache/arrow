@@ -373,10 +373,10 @@ requiring a Flight service to read it back into memory and serve it
 from a ``DoGet`` request. Servers should use the following URI
 schemes for this situation:
 
-+--------------------+------------------------+
-| Location           | URI Scheme             |
-+====================+========================+
-| Object storage (1) | s3:, gcs:, abfs:, etc. |
++--------------------+---------------------------------------+
+| Location           | URI Scheme                            |
++====================+=======================================+
+| Object storage (1) | gs:, gcs:, abfs:, abfss:, wasbs:, s3: |
 +--------------------+------------------------+
 | HTTP service   (2) | http:, https:          |
 +--------------------+------------------------+
@@ -395,11 +395,11 @@ Flight service, and is not needed when the client is directly
 downloading data from an external service.
 
 Clients should assume that, unless otherwise specified, the data is
-being returned as an :ref:`ipc-streaming-format` just as it would via a ``DoGet``
-call. If the returned ``Content-Type`` header is a generic media type
-such as ``application/octet-stream``, the client should still assume
+being returned using the :ref:`ipc-streaming-format` just as it would 
+via a ``DoGet`` call. If the returned ``Content-Type`` header is a generic 
+media type such as ``application/octet-stream``, the client should still assume
 it is an Arrow IPC stream. For other media types, such as Apache Parquet,
-the server should use the appropriate IANA Media Type that a client
+the server should use the appropriate IANA Media Type that a client 
 would recognize.
 
 Finally, the server may also allow the client to choose what format the
