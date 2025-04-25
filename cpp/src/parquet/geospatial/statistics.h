@@ -119,7 +119,7 @@ class PARQUET_EXPORT GeoStatistics {
   /// \brief Reset existing statistics and populate them from previously-encoded ones
   void Decode(const EncodedGeoStatistics& encoded);
 
-  /// \brief All minimum values in XYZM order
+  /// \brief Minimum values in XYZM order
   ///
   /// For dimensions where dimension_valid() is false, the value will be NaN. For
   /// dimensions where dimension_empty() is true, the value will be +Inf.
@@ -127,10 +127,10 @@ class PARQUET_EXPORT GeoStatistics {
   /// For the first dimension (X) only, wraparound bounds apply where xmin > xmax. In this
   /// case, these bounds represent the union of the intervals [xmax, Inf] and [-Inf,
   /// xmin]. This implementation does not yet generate these types of bounds but they may
-  /// be encountered in statistics imported from Thrift.
+  /// be encountered in statistics when reading a Parquet file.
   std::array<double, kMaxDimensions> lower_bound() const;
 
-  /// \brief All maximum values in XYZM order
+  /// \brief Maximum values in XYZM order
   ///
   /// For dimensions where dimension_valid() is false, the value will be NaN. For
   /// dimensions where dimension_empty() is true, the value will be -Inf.
@@ -138,25 +138,46 @@ class PARQUET_EXPORT GeoStatistics {
   /// For the first dimension (X) only, wraparound bounds apply where xmin > xmax. In this
   /// case, these bounds represent the union of the intervals [xmax, Inf] and [-Inf,
   /// xmin]. This implementation does not yet generate these types of bounds but they may
-  /// be encountered in statistics imported from Thrift.
+  /// be encountered in statistics when reading a Parquet file.
   std::array<double, kMaxDimensions> upper_bound() const;
 
-  /// \brief Returns true if the dimension is valid and any non-NaN values were
-  /// encountered in the given dimension in XYZM order
+  /// \brief Dimension emptiness in XYZM order
+  ///
+  /// True for a given dimension if and only if zero non-NaN values were encountered
+  /// in that dimension and dimension_valid() is true for that dimension.
+  ///
+  /// When calculating statistics, zero or more of these values may be true because
+  /// this implementation calculates bounds for all dimensions; however, it may be
+  /// true that zero coordinates were encountered in a given dimension. For example,
+  /// dimension_empty() will return four true values if Update() was not called
+  /// or if Update() was called with only null values. If Update() was provided
+  /// one or more geometries with X and Y dimensions but not Z or M dimensions,
+  /// dimension_empty() will return true, true, false, false.
+  ///
+  /// For statistics read from a Parquet file, dimension_empty() will always contain
+  /// false values because there is no mechanism to communicate an empty interval
+  /// in the Thrift metadata.
   std::array<bool, kMaxDimensions> dimension_empty() const;
 
-  /// \brief Returns false if a bound was explicitly not calculated by a writer when
-  /// importing statistics from thrift
+  /// \brief Dimension validity (i.e. presence) in XYZM order
   ///
   /// When calculating statistics, this will always be true because this implementation
-  /// calculates statistics for all dimensions.
+  /// calculates statistics for all dimensions. When reading a Parquet file, one or more
+  /// of these values may be false because the file may not have provided bounds for all
+  /// dimensions.
+  ///
+  /// In other words, it is safe to use dimension_empty(), lower_bound(), and/or
+  /// upper_bound() for predicate pushdown in a given dimension if and only if
+  /// dimension_valid() is true for that dimension.
   std::array<bool, kMaxDimensions> dimension_valid() const;
 
-  /// \brief Return the geometry type codes from the well-known binary encountered
+  /// \brief Return the geometry type codes
   ///
-  /// This implementation always returns sorted output with no duplicates. Returns
-  /// std::nullopt if the writer did not calculate geometry types for statistics
-  /// imported from Thrift.
+  /// This implementation always returns sorted output with no duplicates. When
+  /// calculating statistics, a value will always be returned (although the returned
+  /// vector may be empty if Update() was never called or was only called with null
+  /// values). When reading a Parquet file, std::nullopt may be returned because
+  /// the file may not have provided this information.
   std::optional<std::vector<int32_t>> geometry_types() const;
 
   /// \brief Return a string representation of these statistics
