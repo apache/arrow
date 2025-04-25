@@ -436,7 +436,7 @@ message Ticket {
  *    URI via a DoGet request.
  *  - A valid HTTP URI (http://, https://, etc.):
  *    indicating that the client should perform a GET request against the
- *    given URI to retrieve the stream. The ticket should have been empty
+ *    given URI to retrieve the stream. The ticket should be empty
  *    in this case and should be ignored by the client.
  *  - An object storage URI (s3://, gs://, abfs://, etc.):
  *    indicating that the client should retrieve the data from the provided
