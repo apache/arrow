@@ -114,7 +114,7 @@ Welcome to the Apache Arrow C++ implementation documentation!
          :color: primary
          :expand:
 
-         To the C++ Development
+         To C++ Development
 
    .. grid-item-card:: Cookbook
       :class-card: contrib-card
