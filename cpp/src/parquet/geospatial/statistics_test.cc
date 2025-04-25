@@ -333,8 +333,17 @@ TEST(TestGeoStatistics, TestUpdateArrayInvalid) {
   encoded_unsupported.ymax = 30;
   GeoStatistics unsupported(encoded_unsupported);
 
-  EXPECT_THROW(valid.Merge(unsupported), ParquetException);
-  EXPECT_THROW(unsupported.Merge(valid), ParquetException);
+  // Check that X values are marked as invalid if merging wraparound
+  // and a non-wraparound statistics
+  GeoStatistics valid_merge_unsupported(encoded_valid);
+  valid_merge_unsupported.Merge(unsupported);
+  EXPECT_THAT(valid_merge_unsupported.dimension_valid(),
+              ::testing::ElementsAre(false, true, false, false));
+
+  GeoStatistics unsupported_merge_valid(encoded_unsupported);
+  unsupported_merge_valid.Merge(valid);
+  EXPECT_THAT(valid_merge_unsupported.dimension_valid(),
+              ::testing::ElementsAre(false, true, false, false));
 }
 
 TEST(TestGeoStatistics, TestEquals) {

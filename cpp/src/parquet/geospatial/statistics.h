@@ -88,6 +88,10 @@ class PARQUET_EXPORT GeoStatistics {
   bool Equals(const GeoStatistics& other) const;
 
   /// \brief Update these statistics based on previously calculated or decoded statistics
+  ///
+  /// Merging statistics with wraparound X values is not currently supported. Merging
+  /// two GeoStatistics where one or both has a wraparound X range will result in these
+  /// statistics having an X dimension marked as invalid.
   void Merge(const GeoStatistics& other);
 
   /// \brief Update these statistics based on values

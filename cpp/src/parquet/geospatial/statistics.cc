@@ -45,11 +45,15 @@ class GeoStatisticsImpl {
       return;
     }
 
+    // We don't yet support updating wraparound bounds. Rather than throw,
+    // we just mark the X bounds as invalid such that they are not used.
+    auto other_bounds = other.bounder_.Bounds();
     if (is_wraparound_x() || other.is_wraparound_x()) {
-      throw ParquetException("Wraparound X is not supported by GeoStatistics::Merge()");
+      other_bounds.min[0] = kNaN;
+      other_bounds.max[0] = kNaN;
     }
 
-    bounder_.MergeBox(other.bounder_.Bounds());
+    bounder_.MergeBox(other_bounds);
     std::vector<int32_t> other_geometry_types = other.bounder_.GeometryTypes();
     bounder_.MergeGeometryTypes(other_geometry_types);
   }
