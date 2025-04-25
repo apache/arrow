@@ -361,92 +361,52 @@ cdef class GeoStatistics(_Weakrefable):
         return list(maybe_geometry_types.value())
 
     @property
-    def lower_bound(self):
-        return [self.statistics.get().lower_bound()[i] for i in range(4)]
-
-    @property
-    def upper_bound(self):
-        return [self.statistics.get().upper_bound()[i] for i in range(4)]
-
-    @property
-    def dimension_empty(self):
-        return [self.statistics.get().dimension_empty()[i] for i in range(4)]
-
-    @property
-    def dimension_valid(self):
-        return [self.statistics.get().dimension_valid()[i] for i in range(4)]
-
-    @property
-    def has_x(self):
-        return self.dimension_valid[0] and not self.dimension_empty[0]
-
-    @property
-    def has_y(self):
-        return self.dimension_valid[1] and not self.dimension_empty[1]
-
-    @property
-    def has_z(self):
-        return self.dimension_valid[2] and not self.dimension_empty[2]
-
-    @property
-    def has_m(self):
-        return self.dimension_valid[3] and not self.dimension_empty[3]
-
-    @property
     def xmin(self):
-        if self.has_x:
-            return self.lower_bound[0]
-        else:
-            return None
+        return self.statistics.get().lower_bound()[0] if self._x_valid() else None
 
     @property
     def xmax(self):
-        if self.has_x:
-            return self.upper_bound[0]
-        else:
-            return None
+        return self.statistics.get().upper_bound()[0] if self._x_valid() else None
 
     @property
     def ymin(self):
-        if self.has_y:
-            return self.lower_bound[1]
-        else:
-            return None
+        return self.statistics.get().lower_bound()[1] if self._y_valid() else None
 
     @property
     def ymax(self):
-        if self.has_y:
-            return self.upper_bound[1]
-        else:
-            return None
+        return self.statistics.get().upper_bound()[1] if self._y_valid() else None
 
     @property
     def zmin(self):
-        if self.has_z:
-            return self.lower_bound[2]
-        else:
-            return None
+        return self.statistics.get().lower_bound()[2] if self._z_valid() else None
 
     @property
     def zmax(self):
-        if self.has_z:
-            return self.upper_bound[2]
-        else:
-            return None
+        return self.statistics.get().upper_bound()[2] if self._z_valid() else None
 
     @property
     def mmin(self):
-        if self.has_m:
-            return self.lower_bound[3]
-        else:
-            return None
+        return self.statistics.get().lower_bound()[3] if self._m_valid() else None
 
     @property
     def mmax(self):
-        if self.has_m:
-            return self.upper_bound[3]
-        else:
-            return None
+        return self.statistics.get().upper_bound()[3] if self._m_valid() else None
+
+    def _x_valid(self):
+        return self.statistics.get().dimension_valid()[0] \
+            and not self.statistics.get().dimension_empty()[0]
+
+    def _y_valid(self):
+        return self.statistics.get().dimension_valid()[1] \
+            and not self.statistics.get().dimension_empty()[1]
+
+    def _z_valid(self):
+        return self.statistics.get().dimension_valid()[2] \
+            and not self.statistics.get().dimension_empty()[2]
+
+    def _m_valid(self):
+        return self.statistics.get().dimension_valid()[3] \
+            and not self.statistics.get().dimension_empty()[3]
 
 
 cdef class ColumnChunkMetaData(_Weakrefable):
@@ -598,14 +558,11 @@ cdef class ColumnChunkMetaData(_Weakrefable):
     @property
     def geo_statistics(self):
         """Statistics for column chunk (:class:`GeoStatistics`)."""
-        if not self.metadata.is_geo_stats_set():
+        c_geo_statistics = self.metadata.geo_statistics()
+        if not c_geo_statistics or not c_geo_statistics.get().is_valid():
             return None
-
-        if not self.metadata.geo_statistics().get().is_valid():
-            return None
-
         cdef GeoStatistics geo_statistics = GeoStatistics.__new__(GeoStatistics)
-        geo_statistics.init(self.metadata.geo_statistics(), self)
+        geo_statistics.init(c_geo_statistics, self)
         return geo_statistics
 
     @property
