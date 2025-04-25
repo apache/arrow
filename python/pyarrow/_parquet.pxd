@@ -236,6 +236,21 @@ cdef extern from "<array>" namespace "std" nogil:
         c_bool& operator[](size_t)
 
 
+cdef extern from "parquet/geospatial/statistics.h" namespace "parquet" nogil:
+
+    cdef cppclass CParquetGeoStatistics" parquet::geospatial::GeoStatistics":
+        c_bool is_valid() const
+
+        double_array4 lower_bound() const
+        double_array4 upper_bound() const
+        bool_array4 dimension_valid() const
+        bool_array4 dimension_empty() const
+
+        optional[vector[int32_t]] geometry_types() const
+
+        c_string ToString() const
+
+
 cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
     cdef cppclass ColumnReader:
         pass
@@ -334,18 +349,6 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
     cdef cppclass ParquetIndexLocation" parquet::IndexLocation":
         int64_t offset
         int32_t length
-
-    cdef cppclass CParquetGeoStatistics" parquet::geospatial::GeoStatistics":
-        c_bool is_valid() const
-
-        double_array4 lower_bound() const
-        double_array4 upper_bound() const
-        bool_array4 dimension_valid() const
-        bool_array4 dimension_empty() const
-
-        optional[vector[int32_t]] geometry_types() const
-
-        c_string ToString() const
 
     cdef cppclass CColumnChunkMetaData" parquet::ColumnChunkMetaData":
         int64_t file_offset() const

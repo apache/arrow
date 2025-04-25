@@ -22,7 +22,6 @@
 #include "parquet/column_scanner.h"
 #include "parquet/exception.h"
 #include "parquet/file_reader.h"
-#include "parquet/geospatial/statistics.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/printer.h"
