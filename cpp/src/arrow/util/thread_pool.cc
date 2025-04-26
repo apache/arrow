@@ -171,8 +171,8 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
           "Attempt to schedule a task on a serial executor that has already finished or "
           "been abandoned");
     }
-    state->task_queue.push(QueuedTask{std::move(task), std::move(stop_token),
-                                      std::move(stop_callback), hints.priority,
+    state->task_queue.push(QueuedTask{{std::move(task), std::move(stop_token),
+                                      std::move(stop_callback)}, hints.priority,
                                       state_->spawned_tasks_count_++});
   }
   state->wait_for_tasks.notify_one();
@@ -208,8 +208,8 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
         "been abandoned");
   }
 
-  state_->task_queue.push(QueuedTask{std::move(task), std::move(stop_token),
-                                     std::move(stop_callback), hints.priority,
+  state_->task_queue.push(QueuedTask{{std::move(task), std::move(stop_token),
+                                     std::move(stop_callback)}, hints.priority,
                                      state_->spawned_tasks_count_++});
 
   return Status::OK();
