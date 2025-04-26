@@ -742,7 +742,8 @@ void AddBinaryToFixedSizeBinaryCast(CastFunction* func) {
 
   DCHECK_OK(func->AddKernel(InType::type_id, {InputType(InType::type_id)}, resolver_fsb,
                             BinaryToBinaryCastExec<FixedSizeBinaryType, InType>,
-                            NullHandling::COMPUTED_NO_PREALLOCATE));
+                            NullHandling::COMPUTED_NO_PREALLOCATE,
+                            MemAllocation::NO_PREALLOCATE));
 }
 
 void AddBinaryToFixedSizeBinaryCast(CastFunction* func) {
