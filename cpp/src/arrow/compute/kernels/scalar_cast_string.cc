@@ -587,7 +587,8 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
     }
   }
 
-  // This buffer is preallocated
+  ARROW_ASSIGN_OR_RAISE(output->buffers[1],
+                        ctx->Allocate((input.length + 1) * sizeof(output_offset_type)));
   auto* offsets = output->GetMutableValues<output_offset_type>(1);
   offsets[0] = static_cast<output_offset_type>(input.offset * width);
   for (int64_t i = 0; i < input.length; i++) {
@@ -717,7 +718,8 @@ void AddBinaryToBinaryCast(CastFunction* func) {
 
   DCHECK_OK(func->AddKernel(InType::type_id, {InputType(InType::type_id)}, out_ty,
                             BinaryToBinaryCastExec<OutType, InType>,
-                            NullHandling::COMPUTED_NO_PREALLOCATE));
+                            NullHandling::COMPUTED_NO_PREALLOCATE,
+                            MemAllocation::NO_PREALLOCATE));
 }
 
 template <typename OutType>
