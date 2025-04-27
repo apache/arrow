@@ -15,7 +15,7 @@
 
 using Apache.Arrow.Flight.Sql.Middleware.Models;
 
-namespace Apache.Arrow.Flight.Sql.Middleware.Gprc;
+namespace Apache.Arrow.Flight.Sql.Middleware.Grpc;
 
 // TODO: Add tests to cover: FlightMethodParser
 public static class FlightMethodParser

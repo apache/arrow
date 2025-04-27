@@ -15,7 +15,7 @@
 
 using System;
 using System.Net;
-using Apache.Arrow.Flight.Sql.Middleware.Middleware;
+using Apache.Arrow.Flight.Sql.Middleware;
 using Microsoft.Extensions.Logging;
 
 namespace Apache.Arrow.Flight.Sql.Tests.Stubs;
@@ -33,9 +33,9 @@ internal class ClientCookieMiddlewareMock
         };
     }
 
-    public ClientCookieMiddleware.ClientCookieMiddlewareFactory CreateFactory()
+    public ClientCookieMiddlewareFactory CreateFactory()
     {
-        return new ClientCookieMiddleware.ClientCookieMiddlewareFactory(new TestLoggerFactory());
+        return new ClientCookieMiddlewareFactory(new TestLoggerFactory());
     }
 
     public class TestLogger<T> : ILogger<T>

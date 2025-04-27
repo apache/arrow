@@ -17,7 +17,7 @@ using System;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-using Apache.Arrow.Flight.Sql.Middleware.Middleware;
+using Apache.Arrow.Flight.Sql.Middleware;
 using Apache.Arrow.Flight.Sql.Tests.Stubs;
 using Xunit;
 

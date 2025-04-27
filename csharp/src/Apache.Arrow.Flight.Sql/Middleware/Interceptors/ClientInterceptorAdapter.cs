@@ -16,7 +16,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Apache.Arrow.Flight.Sql.Middleware.Gprc;
 using Apache.Arrow.Flight.Sql.Middleware.Grpc;
 using Apache.Arrow.Flight.Sql.Middleware.Interfaces;
 using Apache.Arrow.Flight.Sql.Middleware.Models;
@@ -55,12 +54,14 @@ namespace Apache.Arrow.Flight.Sql.Middleware.Interceptors
                 throw new RpcException(new Status(StatusCode.Internal, "Middleware creation failed"), e.Message);
             }
 
+            AddCallerMetadata(ref context);
+
             // Apply middleware headers
-            var middlewareHeaders = new Metadata();
-            var headerAdapter = new MetadataAdapter(middlewareHeaders);
+            var headers = context.Options.Headers ?? new Metadata();
+            var adapter = new MetadataAdapter(headers);
             foreach (var m in middleware)
             {
-                m.OnBeforeSendingHeaders(headerAdapter);
+                m.OnBeforeSendingHeaders(adapter);
             }
 
             // Merge original headers with middleware headers
@@ -71,11 +72,6 @@ namespace Apache.Arrow.Flight.Sql.Middleware.Interceptors
                 {
                     mergedHeaders.Add(entry);
                 }
-            }
-
-            foreach (var entry in middlewareHeaders)
-            {
-                mergedHeaders.Add(entry);
             }
 
             var updatedContext = new ClientInterceptorContext<TRequest, TResponse>(
@@ -95,6 +91,7 @@ namespace Apache.Arrow.Flight.Sql.Middleware.Interceptors
                     middleware.ForEach(m => m.OnHeadersReceived(metadataAdapter));
                     headersReceived = true;
                 }
+
                 return task.Result;
             });
 
@@ -107,7 +104,7 @@ namespace Apache.Arrow.Flight.Sql.Middleware.Interceptors
                     foreach (var m in middleware)
                         m.OnHeadersReceived(trailersAdapter);
                 }
-                
+
                 var status = call.GetStatus();
                 var trailers = call.GetTrailers();
                 var flightStatus = StatusUtils.FromGrpcStatusAndTrailers(status, trailers);
@@ -119,13 +116,34 @@ namespace Apache.Arrow.Flight.Sql.Middleware.Interceptors
 
                 return response.Result;
             });
-            
+
             return new AsyncUnaryCall<TResponse>(
                 responseTask,
                 responseHeadersTask,
                 call.GetStatus,
                 call.GetTrailers,
                 call.Dispose);
+        }
+
+        private void AddCallerMetadata<TRequest, TResponse>(ref ClientInterceptorContext<TRequest, TResponse> context)
+            where TRequest : class
+            where TResponse : class
+        {
+            var headers = context.Options.Headers;
+
+            // Call doesn't have a headers collection to add to.  
+            // Need to create a new context with headers for the call.
+            if (headers == null)
+            {
+                headers = new Metadata();
+                var options = context.Options.WithHeaders(headers);
+                context = new ClientInterceptorContext<TRequest, TResponse>(context.Method, context.Host, options);
+            }
+
+            // Add caller metadata to call headers  
+            headers.Add("caller-user", Environment.UserName);
+            headers.Add("caller-machine", Environment.MachineName);
+            headers.Add("caller-os", Environment.OSVersion.ToString());
         }
     }
 }

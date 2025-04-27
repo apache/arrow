@@ -16,7 +16,7 @@
 using Apache.Arrow.Flight.Sql.Middleware.Models;
 using Grpc.Core;
 
-namespace Apache.Arrow.Flight.Sql.Middleware.Gprc;
+namespace Apache.Arrow.Flight.Sql.Middleware.Grpc;
 
 public static class StatusUtils
 {
