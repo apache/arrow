@@ -21,14 +21,10 @@ set -exu
 
 if [ $# -lt 2 ]; then
   echo "Usage: $0 VERSION rc"
-  echo "       $0 VERSION staging-rc"
   echo "       $0 VERSION release"
-  echo "       $0 VERSION staging-release"
   echo "       $0 VERSION local"
   echo " e.g.: $0 0.13.0 rc                # Verify 0.13.0 RC"
-  echo " e.g.: $0 0.13.0 staging-rc        # Verify 0.13.0 RC on staging"
   echo " e.g.: $0 0.13.0 release           # Verify 0.13.0"
-  echo " e.g.: $0 0.13.0 staging-release   # Verify 0.13.0 on staging"
   echo " e.g.: $0 0.13.0-dev20210203 local # Verify 0.13.0-dev20210203 on local"
   exit 1
 fi
@@ -70,13 +66,11 @@ ${APT_INSTALL} \
 
 code_name="$(lsb_release --codename --short)"
 distribution="$(lsb_release --id --short | tr 'A-Z' 'a-z')"
-artifactory_base_url="https://apache.jfrog.io/artifactory/arrow/${distribution}"
-case "${TYPE}" in
-  rc|staging-rc|staging-release)
-    suffix=${TYPE%-release}
-    artifactory_base_url+="-${suffix}"
-    ;;
-esac
+artifactory_base_url="https://packages.apache.org/artifactory/arrow/${distribution}"
+if [ "${TYPE}" = "rc" ]; then
+  suffix=${TYPE%-release}
+  artifactory_base_url+="-${suffix}"
+fi
 
 workaround_missing_packages=()
 case "${distribution}-${code_name}" in
@@ -134,8 +128,7 @@ if [ "${TYPE}" = "local" ]; then
   fi
 else
   case "${TYPE}" in
-    rc|staging-rc|staging-release)
-      suffix=${TYPE%-release}
+    rc)
       sed \
         -i"" \
         -e "s,^URIs: \\(.*\\)/,URIs: \\1-${suffix}/,g" \
@@ -186,7 +179,7 @@ popd
 
 
 ${APT_INSTALL} ruby-dev rubygems-integration
-gem install gobject-introspection
+MAKEFLAGS="-j$(nproc)" gem install gobject-introspection
 ruby -r gi -e "p GI.load('Arrow')"
 echo "::endgroup::"
 

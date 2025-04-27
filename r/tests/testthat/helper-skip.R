@@ -57,6 +57,7 @@ skip_if_no_pyarrow <- function() {
     return()
   }
 
+  skip_on_cran()
   skip_on_linux_devel()
   skip_on_os("windows")
 
@@ -115,11 +116,16 @@ skip_on_python_older_than <- function(python_version) {
     return()
   }
 
-  if (!reticulate::py_available(initialize = TRUE)) {
+  # We want to be careful not to initialize reticulate in this helper function
+  config <- reticulate::py_discover_config()
+
+  # It isn't documented, but config should be NULL when py_discovery_config()
+  # fails to find a valid Python installation
+  if (is.null(config)) {
     skip("Python isn't available")
   }
 
-  if (reticulate::py_version() < python_version) {
+  if (config$version < python_version) {
     skip(paste("Python version:", reticulate::py_version()))
   }
 }

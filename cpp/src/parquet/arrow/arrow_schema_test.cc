@@ -33,6 +33,7 @@
 
 #include "arrow/array.h"
 #include "arrow/extension/json.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
@@ -740,6 +741,29 @@ TEST_F(TestConvertParquetSchema, ParquetNestedSchema2) {
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
 }
 
+TEST_F(TestConvertParquetSchema, ParquetUndefinedType) {
+  std::vector<NodePtr> parquet_fields;
+
+  // Make a node and intentionally modify it such that it comes back
+  // as UndefinedLogicalType::Make()
+  NodePtr node = PrimitiveNode::Make("undefined", Repetition::OPTIONAL,
+                                     StringLogicalType::Make(), Type::BYTE_ARRAY);
+
+  format::SchemaElement string_intermediary;
+  node->ToParquet(&string_intermediary);
+
+  string_intermediary.logicalType.__isset.STRING = false;
+  node = PrimitiveNode::FromParquet(&string_intermediary);
+  parquet_fields.push_back(std::move(node));
+
+  // With default options, the field should be interpreted according to its physical type
+  ASSERT_OK(ConvertSchema(parquet_fields, nullptr));
+
+  auto arrow_schema = ::arrow::schema({{"undefined", BINARY}});
+
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
+}
+
 TEST_F(TestConvertParquetSchema, ParquetRepeatedNestedSchema) {
   std::vector<NodePtr> parquet_fields;
   std::vector<std::shared_ptr<Field>> arrow_fields;
@@ -866,7 +890,63 @@ Status ArrowSchemaToParquetMetadata(std::shared_ptr<::arrow::Schema>& arrow_sche
   return Status::OK();
 }
 
-TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
+TEST_F(TestConvertParquetSchema, ParquetVariant) {
+  // Unshredded variant
+  // optional group variant_col {
+  //  required binary metadata;
+  //  required binary value;
+  // }
+  //
+  // GH-45948: add shredded variants
+  std::vector<NodePtr> parquet_fields;
+  auto metadata =
+      PrimitiveNode::Make("metadata", Repetition::REQUIRED, ParquetType::BYTE_ARRAY);
+  auto value =
+      PrimitiveNode::Make("value", Repetition::REQUIRED, ParquetType::BYTE_ARRAY);
+
+  auto variant =
+      GroupNode::Make("variant_unshredded", Repetition::OPTIONAL, {metadata, value});
+  parquet_fields.push_back(variant);
+
+  {
+    // Test converting from parquet schema to arrow schema.
+    std::vector<std::shared_ptr<Field>> arrow_fields;
+    auto arrow_metadata =
+        ::arrow::field("metadata", ::arrow::binary(), /*nullable=*/false);
+    auto arrow_value = ::arrow::field("value", ::arrow::binary(), /*nullable=*/false);
+    auto arrow_variant = ::arrow::struct_({arrow_metadata, arrow_value});
+    arrow_fields.push_back(
+        ::arrow::field("variant_unshredded", arrow_variant, /*nullable=*/true));
+    auto arrow_schema = ::arrow::schema(arrow_fields);
+
+    ASSERT_OK(ConvertSchema(parquet_fields));
+    ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
+  }
+
+  {
+    // Test converting from parquet schema to arrow schema even though
+    // extensions are not enabled.
+    ArrowReaderProperties props;
+    props.set_arrow_extensions_enabled(false);
+
+    // Test converting from parquet schema to arrow schema.
+    std::vector<std::shared_ptr<Field>> arrow_fields;
+    auto arrow_metadata =
+        ::arrow::field("metadata", ::arrow::binary(), /*nullable=*/false);
+    auto arrow_value = ::arrow::field("value", ::arrow::binary(), /*nullable=*/false);
+    auto arrow_variant = ::arrow::struct_({arrow_metadata, arrow_value});
+    arrow_fields.push_back(
+        ::arrow::field("variant_unshredded", arrow_variant, /*nullable=*/true));
+    auto arrow_schema = ::arrow::schema(arrow_fields);
+
+    std::shared_ptr<KeyValueMetadata> metadata;
+    ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
+    CheckFlatSchema(arrow_schema, true /* check_metadata */);
+  }
+}
+
+TEST_F(TestConvertParquetSchema, ParquetSchemaArrowJsonExtension) {
   std::vector<NodePtr> parquet_fields;
   parquet_fields.push_back(PrimitiveNode::Make(
       "json_1", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, ConvertedType::JSON));
@@ -940,6 +1020,68 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
         {::arrow::field("json_1", ::arrow::extension::json(), true, field_metadata),
          ::arrow::field("json_2", ::arrow::extension::json(::arrow::large_utf8()),
                         true)});
+
+    std::shared_ptr<KeyValueMetadata> metadata;
+    ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
+    CheckFlatSchema(arrow_schema, true /* check_metadata */);
+  }
+}
+
+TEST_F(TestConvertParquetSchema, ParquetSchemaArrowUuidExtension) {
+  std::vector<NodePtr> parquet_fields;
+  parquet_fields.push_back(PrimitiveNode::Make("uuid", Repetition::OPTIONAL,
+                                               LogicalType::UUID(),
+                                               ParquetType::FIXED_LEN_BYTE_ARRAY, 16));
+
+  {
+    // Parquet file does not contain Arrow schema.
+    // By default, field should be treated as fixed_size_binary(16) in Arrow.
+    auto arrow_schema =
+        ::arrow::schema({::arrow::field("uuid", ::arrow::fixed_size_binary(16))});
+    std::shared_ptr<KeyValueMetadata> metadata{};
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata));
+    CheckFlatSchema(arrow_schema);
+  }
+
+  {
+    // Parquet file does not contain Arrow schema.
+    // If Arrow extensions are enabled, field will be interpreted as uuid()
+    // extension field.
+    ArrowReaderProperties props;
+    props.set_arrow_extensions_enabled(true);
+    auto arrow_schema =
+        ::arrow::schema({::arrow::field("uuid", ::arrow::extension::uuid())});
+    std::shared_ptr<KeyValueMetadata> metadata{};
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
+    CheckFlatSchema(arrow_schema);
+  }
+
+  {
+    // Parquet file contains Arrow schema.
+    // uuid will be interpreted as uuid() field even though extensions are not enabled.
+    ArrowReaderProperties props;
+    props.set_arrow_extensions_enabled(false);
+    std::shared_ptr<KeyValueMetadata> field_metadata =
+        ::arrow::key_value_metadata({"foo", "bar"}, {"biz", "baz"});
+    auto arrow_schema = ::arrow::schema({::arrow::field(
+        "uuid", ::arrow::extension::uuid(), /*nullable=*/true, field_metadata)});
+
+    std::shared_ptr<KeyValueMetadata> metadata;
+    ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
+    CheckFlatSchema(arrow_schema, true /* check_metadata */);
+  }
+
+  {
+    // Parquet file contains Arrow schema.
+    // uuid will be interpreted as uuid() field also when extensions *are* enabled
+    ArrowReaderProperties props;
+    props.set_arrow_extensions_enabled(true);
+    std::shared_ptr<KeyValueMetadata> field_metadata =
+        ::arrow::key_value_metadata({"foo", "bar"}, {"biz", "baz"});
+    auto arrow_schema = ::arrow::schema({::arrow::field(
+        "uuid", ::arrow::extension::uuid(), /*nullable=*/true, field_metadata)});
 
     std::shared_ptr<KeyValueMetadata> metadata;
     ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));
@@ -1634,6 +1776,21 @@ TEST(TestFromParquetSchema, CorruptMetadata) {
   std::shared_ptr<::arrow::Schema> arrow_schema;
   ArrowReaderProperties props;
   ASSERT_RAISES(IOError, FromParquetSchema(parquet_schema, props, &arrow_schema));
+}
+
+TEST(TestFromParquetSchema, UndefinedLogicalType) {
+  // Arrow GH-45522
+  auto path = test::get_data_file("unknown-logical-type.parquet");
+
+  std::unique_ptr<parquet::ParquetFileReader> reader =
+      parquet::ParquetFileReader::OpenFile(path);
+  const auto parquet_schema = reader->metadata()->schema();
+  std::shared_ptr<::arrow::Schema> arrow_schema;
+
+  // The underlying physical type is used for conversion to the Arrow type
+  ASSERT_OK(FromParquetSchema(parquet_schema, &arrow_schema));
+  ASSERT_EQ(*arrow_schema->field(1),
+            *::arrow::field("column with unknown type", ::arrow::binary()));
 }
 
 //

@@ -34,9 +34,6 @@
 #ifdef ARROW_HDFS
 #  include "arrow/filesystem/hdfs.h"
 #endif
-#ifdef ARROW_S3
-#  include "arrow/filesystem/s3fs.h"
-#endif
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/path_util.h"
@@ -47,7 +44,7 @@
 #include "arrow/status.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/parallel.h"
 #include "arrow/util/string.h"
@@ -722,6 +719,29 @@ class FileSystemFactoryRegistry {
     return &registry;
   }
 
+  Status Unregister(const std::string& scheme) {
+    std::shared_lock lock{mutex_};
+    RETURN_NOT_OK(CheckValid());
+
+    auto it = scheme_to_factory_.find(scheme);
+    if (it == scheme_to_factory_.end()) {
+      return Status::KeyError("No factories found for scheme ", scheme,
+                              ", can't unregister");
+    }
+
+    std::function<void()> finalizer;
+    if (it->second.ok()) {
+      finalizer = it->second.ValueOrDie().finalizer;
+    }
+    scheme_to_factory_.erase(it);
+    lock.unlock();
+
+    if (finalizer) {
+      finalizer();
+    }
+    return Status::OK();
+  }
+
   Result<const FileSystemFactory*> FactoryForScheme(const std::string& scheme) {
     std::shared_lock lock{mutex_};
     RETURN_NOT_OK(CheckValid());
@@ -771,7 +791,7 @@ class FileSystemFactoryRegistry {
     if (finalized_) return;
 
     for (const auto& [_, registered_or_error] : scheme_to_factory_) {
-      if (!registered_or_error.ok()) continue;
+      if (!registered_or_error.ok() || !registered_or_error->finalizer) continue;
       registered_or_error->finalizer();
     }
     finalized_ = true;
@@ -841,6 +861,10 @@ FileSystemRegistrar::FileSystemRegistrar(std::string scheme, FileSystemFactory f
 
 namespace internal {
 void* GetFileSystemRegistry() { return FileSystemFactoryRegistry::GetInstance(); }
+
+Status UnregisterFileSystemFactory(const std::string& scheme) {
+  return FileSystemFactoryRegistry::GetInstance()->Unregister(scheme);
+}
 }  // namespace internal
 
 Status LoadFileSystemFactories(const char* libpath) {
@@ -916,18 +940,6 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
     return Status::NotImplemented(
         "Got HDFS URI but Arrow compiled "
         "without HDFS support");
-#endif
-  }
-  if (scheme == "s3") {
-#ifdef ARROW_S3
-    RETURN_NOT_OK(EnsureS3Initialized());
-    ARROW_ASSIGN_OR_RAISE(auto options, S3Options::FromUri(uri, out_path));
-    ARROW_ASSIGN_OR_RAISE(auto s3fs, S3FileSystem::Make(options, io_context));
-    return s3fs;
-#else
-    return Status::NotImplemented(
-        "Got S3 URI but Arrow compiled "
-        "without S3 support");
 #endif
   }
 

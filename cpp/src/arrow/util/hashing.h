@@ -226,14 +226,14 @@ class HashTable {
   };
 
   HashTable(MemoryPool* pool, uint64_t capacity) : entries_builder_(pool) {
-    DCHECK_NE(pool, nullptr);
+    ARROW_DCHECK_NE(pool, nullptr);
     // Minimum of 32 elements
     capacity = std::max<uint64_t>(capacity, 32UL);
     capacity_ = bit_util::NextPower2(capacity);
     capacity_mask_ = capacity_ - 1;
     size_ = 0;
 
-    DCHECK_OK(UpsizeBuffer(capacity_));
+    ARROW_DCHECK_OK(UpsizeBuffer(capacity_));
   }
 
   // Lookup with non-linear probing
@@ -511,7 +511,7 @@ class ScalarMemoTable : public MemoTable {
 
     other_hashtable.VisitEntries([this](const HashTableEntry* other_entry) {
       int32_t unused;
-      DCHECK_OK(this->GetOrInsert(other_entry->payload.value, &unused));
+      ARROW_DCHECK_OK(this->GetOrInsert(other_entry->payload.value, &unused));
     });
     // TODO: ARROW-17074 - implement proper error handling
     return Status::OK();
@@ -562,7 +562,7 @@ class SmallScalarMemoTable : public MemoTable {
       memo_index = static_cast<int32_t>(index_to_value_.size());
       index_to_value_.push_back(value);
       value_to_index_[value_index] = memo_index;
-      DCHECK_LT(memo_index, cardinality + 1);
+      ARROW_DCHECK_LT(memo_index, cardinality + 1);
       on_not_found(memo_index);
     } else {
       on_found(memo_index);
@@ -610,8 +610,8 @@ class SmallScalarMemoTable : public MemoTable {
 
   // Copy values starting from index `start` into `out_data`
   void CopyValues(int32_t start, Scalar* out_data) const {
-    DCHECK_GE(start, 0);
-    DCHECK_LE(static_cast<size_t>(start), index_to_value_.size());
+    ARROW_DCHECK_GE(start, 0);
+    ARROW_DCHECK_LE(static_cast<size_t>(start), index_to_value_.size());
     int64_t offset = start * static_cast<int32_t>(sizeof(Scalar));
     memcpy(out_data, index_to_value_.data() + offset, (size() - start) * sizeof(Scalar));
   }
@@ -644,8 +644,8 @@ class BinaryMemoTable : public MemoTable {
                            int64_t values_size = -1)
       : hash_table_(pool, static_cast<uint64_t>(entries)), binary_builder_(pool) {
     const int64_t data_size = (values_size < 0) ? entries * 4 : values_size;
-    DCHECK_OK(binary_builder_.Resize(entries));
-    DCHECK_OK(binary_builder_.ReserveData(data_size));
+    ARROW_DCHECK_OK(binary_builder_.Resize(entries));
+    ARROW_DCHECK_OK(binary_builder_.ReserveData(data_size));
   }
 
   int32_t Get(const void* data, builder_offset_type length) const {
@@ -711,7 +711,7 @@ class BinaryMemoTable : public MemoTable {
     int32_t memo_index = GetNull();
     if (memo_index == kKeyNotFound) {
       memo_index = null_index_ = size();
-      DCHECK_OK(binary_builder_.AppendNull());
+      ARROW_DCHECK_OK(binary_builder_.AppendNull());
       on_not_found(memo_index);
     } else {
       on_found(memo_index);
@@ -734,7 +734,7 @@ class BinaryMemoTable : public MemoTable {
   // Copy (n + 1) offsets starting from index `start` into `out_data`
   template <class Offset>
   void CopyOffsets(int32_t start, Offset* out_data) const {
-    DCHECK_LE(start, size());
+    ARROW_DCHECK_LE(start, size());
 
     const builder_offset_type* offsets = binary_builder_.offsets_data();
     const builder_offset_type delta =
@@ -763,7 +763,7 @@ class BinaryMemoTable : public MemoTable {
 
   // Same as above, but check output size in debug mode
   void CopyValues(int32_t start, int64_t out_size, uint8_t* out_data) const {
-    DCHECK_LE(start, size());
+    ARROW_DCHECK_LE(start, size());
 
     // The absolute byte offset of `start` value in the binary buffer.
     const builder_offset_type offset = binary_builder_.offset(start);
@@ -877,7 +877,7 @@ class BinaryMemoTable : public MemoTable {
   Status MergeTable(const BinaryMemoTable& other_table) {
     other_table.VisitValues(0, [this](std::string_view other_value) {
       int32_t unused;
-      DCHECK_OK(this->GetOrInsert(other_value, &unused));
+      ARROW_DCHECK_OK(this->GetOrInsert(other_value, &unused));
     });
     return Status::OK();
   }

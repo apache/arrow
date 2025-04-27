@@ -30,7 +30,7 @@
 
 #include "arrow/io/memory.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/pcg_random.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"
@@ -76,9 +76,6 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
     case ParquetVersion::PARQUET_1_0:
       return "1.0";
       ARROW_SUPPRESS_DEPRECATION_WARNING
-    case ParquetVersion::PARQUET_2_0:
-      return "pseudo-2.0";
-      ARROW_UNSUPPRESS_DEPRECATION_WARNING
     case ParquetVersion::PARQUET_2_4:
       return "2.4";
     case ParquetVersion::PARQUET_2_6:
@@ -752,8 +749,6 @@ class FileMetaData::FileMetaDataImpl {
     int32_t encrypted_len = aes_encryptor->SignedFooterEncrypt(
         serialized_data_span, str2span(key), str2span(aad), nonce,
         encrypted_buffer->mutable_span_as<uint8_t>());
-    // Delete AES encryptor object. It was created only to verify the footer signature.
-    aes_encryptor->WipeOut();
     return 0 ==
            memcmp(encrypted_buffer->data() + encrypted_len - encryption::kGcmTagLength,
                   tag, encryption::kGcmTagLength);

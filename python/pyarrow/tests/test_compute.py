@@ -2336,7 +2336,7 @@ def test_extract_datetime_components(request):
                   "2008-12-28T00:00:00.0",
                   "2008-12-29T00:00:00.0",
                   "2012-01-01T01:02:03.0"]
-    timezones = ["UTC", "US/Central", "Asia/Kolkata",
+    timezones = ["UTC", "America/Chicago", "Asia/Kolkata",
                  "Etc/GMT-4", "Etc/GMT+4", "Australia/Broken_Hill"]
 
     # Test timezone naive timestamp array
@@ -2390,7 +2390,7 @@ def test_assume_timezone():
     ambiguous_array = pa.array(ambiguous, type=ts_type)
     nonexistent_array = pa.array(nonexistent, type=ts_type)
 
-    for timezone in ["UTC", "US/Central", "Asia/Kolkata"]:
+    for timezone in ["UTC", "America/Chicago", "Asia/Kolkata"]:
         options = pc.AssumeTimezoneOptions(timezone)
         ta = pa.array(timestamps, type=ts_type)
         expected = timestamps.tz_localize(timezone)
@@ -2583,7 +2583,7 @@ def test_round_temporal(unit):
     _check_temporal_rounding(ts, values, unit)
 
     timezones = ["Asia/Kolkata", "America/New_York", "Etc/GMT-4", "Etc/GMT+4",
-                 "Europe/Brussels", "Pacific/Marquesas", "US/Central", "UTC"]
+                 "Europe/Brussels", "Pacific/Marquesas", "America/Chicago", "UTC"]
 
     for timezone in timezones:
         ts_zoned = ts.dt.tz_localize("UTC").dt.tz_convert(timezone)

@@ -38,7 +38,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/task_group.h"
 
 namespace arrow {
@@ -812,14 +812,14 @@ struct GrouperFastImpl : public Grouper {
     ARROW_ASSIGN_OR_RAISE(
         std::shared_ptr<Buffer> buf,
         AllocateBitmap(length + kBitmapPaddingForSIMD, ctx_->memory_pool()));
-    return SliceMutableBuffer(buf, 0, bit_util::BytesForBits(length));
+    return SliceMutableBuffer(std::move(buf), 0, bit_util::BytesForBits(length));
   }
 
   Result<std::shared_ptr<Buffer>> AllocatePaddedBuffer(int64_t size) {
     ARROW_ASSIGN_OR_RAISE(
         std::shared_ptr<Buffer> buf,
         AllocateBuffer(size + kBitmapPaddingForSIMD, ctx_->memory_pool()));
-    return SliceMutableBuffer(buf, 0, size);
+    return SliceMutableBuffer(std::move(buf), 0, size);
   }
 
   Result<ExecBatch> GetUniques() override {

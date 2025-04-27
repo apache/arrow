@@ -26,6 +26,7 @@
 #include "arrow/compute/kernels/scalar_string_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/config.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
@@ -2209,14 +2210,13 @@ struct BaseExtractRegexData {
   std::vector<std::string> group_names;
 
  protected:
-  explicit BaseExtractRegexData(const std::string& pattern, bool is_utf8 = true)
+  explicit BaseExtractRegexData(const std::string& pattern, bool is_utf8)
       : regex(new RE2(pattern, MakeRE2Options(is_utf8))) {}
 };
 
 // TODO cache this once per ExtractRegexOptions
 struct ExtractRegexData : public BaseExtractRegexData {
-  static Result<ExtractRegexData> Make(const ExtractRegexOptions& options,
-                                       bool is_utf8 = true) {
+  static Result<ExtractRegexData> Make(const ExtractRegexOptions& options, bool is_utf8) {
     ExtractRegexData data(options.pattern, is_utf8);
     ARROW_RETURN_NOT_OK(data.Init());
     return data;
@@ -2224,13 +2224,6 @@ struct ExtractRegexData : public BaseExtractRegexData {
 
   Result<TypeHolder> ResolveOutputType(const std::vector<TypeHolder>& types) const {
     const DataType* input_type = types[0].type;
-    if (input_type == nullptr) {
-      // No input type specified
-      return nullptr;
-    }
-    // Input type is either [Large]Binary or [Large]String and is also the type
-    // of each field in the output struct type.
-    DCHECK(is_base_binary_like(input_type->id()));
     FieldVector fields;
     fields.reserve(num_groups());
     std::shared_ptr<DataType> owned_type = input_type->GetSharedPtr();
@@ -2240,14 +2233,21 @@ struct ExtractRegexData : public BaseExtractRegexData {
   }
 
  private:
-  explicit ExtractRegexData(const std::string& pattern, bool is_utf8 = true)
+  explicit ExtractRegexData(const std::string& pattern, bool is_utf8)
       : BaseExtractRegexData(pattern, is_utf8) {}
 };
 
 Result<TypeHolder> ResolveExtractRegexOutput(KernelContext* ctx,
                                              const std::vector<TypeHolder>& types) {
+  auto input_type = types[0].type;
+  if (input_type == nullptr) {
+    // No input type specified
+    return nullptr;
+  }
+  DCHECK(is_base_binary_like(input_type->id()));
+  auto is_utf8 = is_string(input_type->id());
   ExtractRegexOptions options = ExtractRegexState::Get(ctx);
-  ARROW_ASSIGN_OR_RAISE(auto data, ExtractRegexData::Make(options));
+  ARROW_ASSIGN_OR_RAISE(auto data, ExtractRegexData::Make(options, is_utf8));
   return data.ResolveOutputType(types);
 }
 
@@ -2359,8 +2359,7 @@ void AddAsciiStringExtractRegex(FunctionRegistry* registry) {
 }
 
 struct ExtractRegexSpanData : public BaseExtractRegexData {
-  static Result<ExtractRegexSpanData> Make(const std::string& pattern,
-                                           bool is_utf8 = true) {
+  static Result<ExtractRegexSpanData> Make(const std::string& pattern, bool is_utf8) {
     auto data = ExtractRegexSpanData(pattern, is_utf8);
     ARROW_RETURN_NOT_OK(data.Init());
     return data;
@@ -2368,10 +2367,6 @@ struct ExtractRegexSpanData : public BaseExtractRegexData {
 
   Result<TypeHolder> ResolveOutputType(const std::vector<TypeHolder>& types) const {
     const DataType* input_type = types[0].type;
-    if (input_type == nullptr) {
-      return nullptr;
-    }
-    DCHECK(is_base_binary_like(input_type->id()));
     FieldVector fields;
     fields.reserve(num_groups());
     auto index_type = is_binary_like(input_type->id()) ? int32() : int64();
@@ -2474,8 +2469,16 @@ const FunctionDoc extract_regex_span_doc(
 
 Result<TypeHolder> ResolveExtractRegexSpanOutputType(
     KernelContext* ctx, const std::vector<TypeHolder>& types) {
+  auto input_type = types[0].type;
+  if (input_type == nullptr) {
+    // No input type specified
+    return nullptr;
+  }
+  DCHECK(is_base_binary_like(input_type->id()));
+  auto is_utf8 = is_string(input_type->id());
   auto options = OptionsWrapper<ExtractRegexSpanOptions>::Get(*ctx->state());
-  ARROW_ASSIGN_OR_RAISE(auto span, ExtractRegexSpanData::Make(options.pattern));
+
+  ARROW_ASSIGN_OR_RAISE(auto span, ExtractRegexSpanData::Make(options.pattern, is_utf8));
   return span.ResolveOutputType(types);
 }
 

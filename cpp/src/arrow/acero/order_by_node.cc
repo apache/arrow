@@ -29,6 +29,7 @@
 #include "arrow/result.h"
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/tracing_internal.h"
 
 namespace arrow {

@@ -121,7 +121,9 @@ if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
   meson setup \
     --prefix=${MESON_PREFIX:-${ARROW_HOME}} \
     --buildtype=${ARROW_BUILD_TYPE:-debug} \
-    -Dtests=$(meson_boolean ${ARROW_BUILD_TESTS:-OFF}) \
+    -Dauto_features=enabled \
+    -Dgcs=disabled \
+    -Ds3=disabled \
     . \
     ${source_dir}
 elif [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
@@ -204,7 +206,6 @@ else
     -DARROW_USE_LD_GOLD=${ARROW_USE_LD_GOLD:-OFF} \
     -DARROW_USE_LLD=${ARROW_USE_LLD:-OFF} \
     -DARROW_USE_MOLD=${ARROW_USE_MOLD:-OFF} \
-    -DARROW_USE_PRECOMPILED_HEADERS=${ARROW_USE_PRECOMPILED_HEADERS:-OFF} \
     -DARROW_USE_STATIC_CRT=${ARROW_USE_STATIC_CRT:-OFF} \
     -DARROW_USE_TSAN=${ARROW_USE_TSAN:-OFF} \
     -DARROW_USE_UBSAN=${ARROW_USE_UBSAN:-OFF} \

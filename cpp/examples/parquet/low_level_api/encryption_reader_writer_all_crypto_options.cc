@@ -342,7 +342,7 @@ void InteropTestWriteEncryptedParquetFiles(std::string root_path) {
       file_writer->Close();
 
       // Write the bytes to file
-      DCHECK(out_file->Close().ok());
+      ARROW_DCHECK(out_file->Close().ok());
     } catch (const std::exception& e) {
       std::cerr << "Parquet write error: " << e.what() << std::endl;
       return;
@@ -429,7 +429,7 @@ void InteropTestReadEncryptedParquetFiles(std::string root_path) {
 
         // Add the current decryption configuration to ReaderProperties.
         reader_properties.file_decryption_properties(
-            vector_of_decryption_configurations[example_id]->DeepClone());
+            vector_of_decryption_configurations[example_id]);
 
         // Create a ParquetReader instance
         std::unique_ptr<parquet::ParquetFileReader> parquet_reader =

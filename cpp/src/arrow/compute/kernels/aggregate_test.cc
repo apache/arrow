@@ -4504,10 +4504,9 @@ TEST_F(TestPivotKernel, Basics) {
               PivotWiderOptions(/*key_names=*/{"height", "width"}));
 }
 
-TEST_F(TestPivotKernel, AllKeyTypes) {
+TEST_F(TestPivotKernel, BinaryKeyTypes) {
+  auto value_type = float32();
   for (auto key_type : BaseBinaryTypes()) {
-    auto value_type = float32();
-
     auto keys = ArrayFromJSON(key_type, R"(["width", "height"])");
     auto values = ArrayFromJSON(value_type, "[10.5, 11.5]");
     auto expected =
@@ -4515,6 +4514,25 @@ TEST_F(TestPivotKernel, AllKeyTypes) {
                        "[11.5, 10.5]");
     AssertPivot(keys, values, *expected,
                 PivotWiderOptions(/*key_names=*/{"height", "width"}));
+  }
+  auto key_type = fixed_size_binary(3);
+  auto keys = ArrayFromJSON(key_type, R"(["wid", "hei"])");
+  auto values = ArrayFromJSON(value_type, "[10.5, 11.5]");
+  auto expected = ScalarFromJSON(
+      struct_({field("hei", value_type), field("wid", value_type)}), "[11.5, 10.5]");
+  AssertPivot(keys, values, *expected, PivotWiderOptions(/*key_names=*/{"hei", "wid"}));
+}
+
+TEST_F(TestPivotKernel, IntegerKeyTypes) {
+  // It is possible to use an integer key column, while passing its string equivalent
+  // in PivotWiderOptions::key_names.
+  auto value_type = float32();
+  for (auto key_type : IntTypes()) {
+    auto keys = ArrayFromJSON(key_type, "[34, 12]");
+    auto values = ArrayFromJSON(value_type, "[10.5, 11.5]");
+    auto expected = ScalarFromJSON(
+        struct_({field("12", value_type), field("34", value_type)}), "[11.5, 10.5]");
+    AssertPivot(keys, values, *expected, PivotWiderOptions(/*key_names=*/{"12", "34"}));
   }
 }
 
@@ -4721,6 +4739,24 @@ TEST_F(TestPivotKernel, DuplicateKeyNames) {
   auto options = PivotWiderOptions(/*key_names=*/{"height", "height", "width"});
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       KeyError, ::testing::HasSubstr("Duplicate key name 'height' in PivotWiderOptions"),
+      CallFunction("pivot_wider", {keys, values}, &options));
+}
+
+TEST_F(TestPivotKernel, InvalidKeyName) {
+  auto key_type = int32();
+  auto value_type = float32();
+
+  auto keys = ArrayFromJSON(key_type, "[]");
+  auto values = ArrayFromJSON(value_type, "[]");
+  auto options = PivotWiderOptions(/*key_names=*/{"123", "width"});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("Failed to parse string: 'width' as a scalar of type int32"),
+      CallFunction("pivot_wider", {keys, values}, &options));
+  options.key_names = {"12.3", "45"};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("Failed to parse string: '12.3' as a scalar of type int32"),
       CallFunction("pivot_wider", {keys, values}, &options));
 }
 

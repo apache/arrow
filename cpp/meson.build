@@ -56,14 +56,17 @@ if git_description == ''
     git_description = run_command('git', 'describe', '--tags', check: false).stdout().strip()
 endif
 
-needs_benchmarks = get_option('benchmarks')
-needs_csv = get_option('csv')
-needs_hdfs = get_option('hdfs')
-needs_filesystem = false or needs_hdfs
-needs_integration = false
-needs_tests = get_option('tests')
-needs_ipc = get_option('ipc') or needs_tests or needs_benchmarks
-needs_testing = get_option('testing') or needs_tests or needs_benchmarks
-needs_json = get_option('json') or needs_testing
+needs_benchmarks = get_option('benchmarks').enabled()
+needs_csv = get_option('csv').enabled()
+needs_azure = get_option('azure').enabled()
+needs_gcs = get_option('gcs').enabled()
+needs_hdfs = get_option('hdfs').enabled()
+needs_s3 = get_option('s3').enabled()
+needs_filesystem = get_option('filesystem').enabled() or needs_azure or needs_gcs or needs_hdfs or needs_s3
+needs_integration = get_option('integration').enabled()
+needs_tests = get_option('tests').enabled()
+needs_ipc = get_option('ipc').enabled() or needs_tests or needs_benchmarks
+needs_testing = get_option('testing').enabled() or needs_tests or needs_benchmarks or needs_integration
+needs_json = get_option('json').enabled() or needs_testing
 
 subdir('src/arrow')

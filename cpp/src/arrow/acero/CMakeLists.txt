@@ -19,6 +19,15 @@ add_custom_target(arrow_acero)
 
 arrow_install_all_headers("arrow/acero")
 
+# If libarrow_acero.a is only built, "pkg-config --cflags --libs
+# arrow-acero" outputs build flags for static linking not shared
+# linking. ARROW_ACERO_PC_* except ARROW_ACERO_PC_*_PRIVATE are for
+# the static linking case.
+if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+  string(APPEND ARROW_ACERO_PC_CFLAGS "${ARROW_ACERO_PC_CFLAGS_PRIVATE}")
+  set(ARROW_ACERO_PC_CFLAGS_PRIVATE "")
+endif()
+
 set(ARROW_ACERO_SRCS
     accumulation_queue.cc
     scalar_aggregate_node.cc
@@ -78,8 +87,6 @@ add_arrow_lib(arrow_acero
               ARROW_ACERO_LIBRARIES
               SOURCES
               ${ARROW_ACERO_SRCS}
-              PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:arrow/acero/pch.h>"
               SHARED_LINK_LIBS
               ${ARROW_ACERO_SHARED_LINK_LIBS}
               SHARED_PRIVATE_LINK_LIBS

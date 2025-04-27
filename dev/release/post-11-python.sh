@@ -21,7 +21,8 @@ set -ex
 set -o pipefail
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-: ${TEST_PYPI:=0}
+: "${GITHUB_REPOSITORY:=apache/arrow}"
+: "${TEST_PYPI:=0}"
 
 if [ "$#" -ne 1 ]; then
   echo "Usage: $0 <version>"
@@ -30,26 +31,29 @@ fi
 
 version=$1
 
-tmp=$(mktemp -d -t "arrow-post-python.XXXXX")
-base_url=https://apache.jfrog.io/artifactory/arrow/python/${version}
-curl \
-  --location \
-  ${base_url} | \
-  grep -E -o "pyarrow-${version}[a-zA-Z0-9._-]*\\.(tar\\.gz|whl)" | \
-  sort | \
-  uniq | while read artifact; do
-  curl \
-    --fail \
-    --location \
-    --output ${tmp}/${artifact} \
-    ${base_url}/${artifact}
-done
+cd "${SOURCE_DIR}"
 
-if [ ${TEST_PYPI} -gt 0 ]; then
+if [ ! -f .env ]; then
+  echo "You must create $(pwd)/.env"
+  echo "You can use $(pwd)/.env.example as template"
+  exit 1
+fi
+# shellcheck source=SCRIPTDIR/.env.example
+. .env
+
+tmp=$(mktemp -d -t "arrow-post-python.XXXXX")
+gh release download \
+  "apache-arrow-${version}" \
+  --dir "${tmp}" \
+  --pattern "pyarrow-*.tar.gz" \
+  --pattern "pyarrow-*.whl" \
+  --repo "${GITHUB_REPOSITORY}"
+
+if [ "${TEST_PYPI}" -gt 0 ]; then
   TWINE_ARGS="--repository-url https://test.pypi.org/legacy/"
 fi
 
-twine upload ${TWINE_ARGS} ${tmp}/*
+twine upload "${TWINE_ARGS}" "${tmp}"/*
 
 rm -rf "${tmp}"
 

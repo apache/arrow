@@ -29,7 +29,7 @@
 #include "arrow/gpu/cuda_internal.h"
 #include "arrow/gpu/cuda_memory.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 

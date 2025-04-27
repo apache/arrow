@@ -36,7 +36,7 @@
 #include "arrow/status.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/future.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/ubsan.h"
 
 #include "generated/Message_generated.h"
@@ -370,7 +370,8 @@ Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_le
   ARROW_ASSIGN_OR_RAISE(auto metadata, file->ReadAt(offset, metadata_length));
   if (metadata->size() < metadata_length) {
     return Status::Invalid("Expected to read ", metadata_length,
-                           " metadata bytes but got ", metadata->size());
+                           " metadata bytes at offset ", offset, " but got ",
+                           metadata->size());
   }
   ARROW_RETURN_NOT_OK(decoder.Consume(metadata));
 

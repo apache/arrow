@@ -26,7 +26,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/simd.h"
 
 namespace arrow {

@@ -96,7 +96,7 @@ static inline Compression::type FromThriftUnsafe(format::CompressionCodec::type 
     case format::CompressionCodec::ZSTD:
       return Compression::ZSTD;
     default:
-      DCHECK(false) << "Cannot reach here";
+      ARROW_DCHECK(false) << "Cannot reach here";
       return Compression::UNCOMPRESSED;
   }
 }
@@ -272,10 +272,10 @@ static inline format::Type::type ToThrift(Type::type type) {
 
 static inline format::ConvertedType::type ToThrift(ConvertedType::type type) {
   // item 0 is NONE
-  DCHECK_NE(type, ConvertedType::NONE);
+  ARROW_DCHECK_NE(type, ConvertedType::NONE);
   // it is forbidden to emit "NA" (PARQUET-1990)
-  DCHECK_NE(type, ConvertedType::NA);
-  DCHECK_NE(type, ConvertedType::UNDEFINED);
+  ARROW_DCHECK_NE(type, ConvertedType::NA);
+  ARROW_DCHECK_NE(type, ConvertedType::UNDEFINED);
   return static_cast<format::ConvertedType::type>(static_cast<int>(type) - 1);
 }
 
@@ -307,7 +307,7 @@ static inline format::CompressionCodec::type ToThrift(Compression::type type) {
     case Compression::ZSTD:
       return format::CompressionCodec::ZSTD;
     default:
-      DCHECK(false) << "Cannot reach here";
+      ARROW_DCHECK(false) << "Cannot reach here";
       return format::CompressionCodec::UNCOMPRESSED;
   }
 }
@@ -319,7 +319,7 @@ static inline format::BoundaryOrder::type ToThrift(BoundaryOrder::type type) {
     case BoundaryOrder::Descending:
       return static_cast<format::BoundaryOrder::type>(type);
     default:
-      DCHECK(false) << "Cannot reach here";
+      ARROW_DCHECK(false) << "Cannot reach here";
       return format::BoundaryOrder::UNORDERED;
   }
 }

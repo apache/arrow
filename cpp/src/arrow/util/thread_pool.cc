@@ -29,7 +29,7 @@
 #include "arrow/util/atfork_internal.h"
 #include "arrow/util/config.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/mutex.h"
 
 #include "arrow/util/tracing_internal.h"

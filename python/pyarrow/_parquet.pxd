@@ -134,7 +134,6 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
 
     enum ParquetVersion" parquet::ParquetVersion::type":
         ParquetVersion_V1" parquet::ParquetVersion::PARQUET_1_0"
-        ParquetVersion_V2_0" parquet::ParquetVersion::PARQUET_2_0"
         ParquetVersion_V2_4" parquet::ParquetVersion::PARQUET_2_4"
         ParquetVersion_V2_6" parquet::ParquetVersion::PARQUET_2_6"
 
@@ -396,7 +395,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
     cdef cppclass ArrowReaderProperties:
         ArrowReaderProperties()
         void set_read_dictionary(int column_index, c_bool read_dict)
-        c_bool read_dictionary()
+        c_bool read_dictionary(int column_index)
         void set_batch_size(int64_t batch_size)
         int64_t batch_size()
         void set_pre_buffer(c_bool pre_buffer)
@@ -405,6 +404,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         CCacheOptions cache_options() const
         void set_coerce_int96_timestamp_unit(TimeUnit unit)
         TimeUnit coerce_int96_timestamp_unit() const
+        void set_arrow_extensions_enabled(c_bool extensions_enabled)
+        c_bool get_arrow_extensions_enabled() const
 
     ArrowReaderProperties default_arrow_reader_properties()
 

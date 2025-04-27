@@ -991,8 +991,6 @@ cdef class FileMetaData(_Weakrefable):
         cdef ParquetVersion version = self._metadata.version()
         if version == ParquetVersion_V1:
             return '1.0'
-        elif version == ParquetVersion_V2_0:
-            return 'pseudo-2.0'
         elif version == ParquetVersion_V2_4:
             return '2.4'
         elif version == ParquetVersion_V2_6:
@@ -1454,7 +1452,8 @@ cdef class ParquetReader(_Weakrefable):
              FileDecryptionProperties decryption_properties=None,
              thrift_string_size_limit=None,
              thrift_container_size_limit=None,
-             page_checksum_verification=False):
+             page_checksum_verification=False,
+             arrow_extensions_enabled=False):
         """
         Open a parquet file for reading.
 
@@ -1471,6 +1470,7 @@ cdef class ParquetReader(_Weakrefable):
         thrift_string_size_limit : int, optional
         thrift_container_size_limit : int, optional
         page_checksum_verification : bool, default False
+        arrow_extensions_enabled : bool, default False
         """
         cdef:
             shared_ptr[CFileMetaData] c_metadata
@@ -1519,6 +1519,8 @@ cdef class ParquetReader(_Weakrefable):
         else:
             arrow_props.set_coerce_int96_timestamp_unit(
                 string_to_timeunit(coerce_int96_timestamp_unit))
+
+        arrow_props.set_arrow_extensions_enabled(arrow_extensions_enabled)
 
         self.source = source
         get_reader(source, use_memory_map, &self.rd_handle)
@@ -1888,12 +1890,6 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     if version is not None:
         if version == "1.0":
             props.version(ParquetVersion_V1)
-        elif version in ("2.0", "pseudo-2.0"):
-            warnings.warn(
-                "Parquet format '2.0' pseudo version is deprecated, use "
-                "'2.4' or '2.6' for fine-grained feature selection",
-                FutureWarning, stacklevel=2)
-            props.version(ParquetVersion_V2_0)
         elif version == "2.4":
             props.version(ParquetVersion_V2_4)
         elif version == "2.6":

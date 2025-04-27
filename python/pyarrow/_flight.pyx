@@ -95,8 +95,7 @@ def _munge_grpc_python_error(message):
 
 
 cdef IpcWriteOptions _get_options(options):
-    return <IpcWriteOptions> _get_legacy_format_default(
-        use_legacy_format=None, options=options)
+    return <IpcWriteOptions> _get_legacy_format_default(options=options)
 
 
 cdef class FlightCallOptions(_Weakrefable):

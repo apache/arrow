@@ -182,6 +182,9 @@ using BaseBinaryArrowTypes =
 using BaseBinaryOrBinaryViewLikeArrowTypes =
     ::testing::Types<BinaryType, LargeBinaryType, BinaryViewType, StringType,
                      LargeStringType, StringViewType>;
+using AllBinaryOrBinrayViewLikeArrowTypes =
+    ::testing::Types<BinaryType, LargeBinaryType, BinaryViewType, FixedSizeBinaryType,
+                     StringType, LargeStringType, StringViewType>;
 
 using BinaryArrowTypes = ::testing::Types<BinaryType, LargeBinaryType>;
 

@@ -183,7 +183,7 @@ struct VarLengthKeyEncoder : KeyEncoder {
       encoded_ptr += sizeof(Offset);
     };
     if (data.is_array()) {
-      DCHECK_EQ(data.length(), batch_length);
+      ARROW_DCHECK_EQ(data.length(), batch_length);
       VisitArraySpanInline<T>(data.array, handle_next_valid_value,
                               handle_next_null_value);
     } else {

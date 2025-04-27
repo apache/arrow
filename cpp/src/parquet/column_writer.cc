@@ -41,7 +41,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/util/unreachable.h"
@@ -1696,7 +1696,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       // Serialize the buffered Dictionary Indices
       FlushBufferedDataPages();
       fallback_ = true;
-      // Only PLAIN encoding is supported for fallback in V1
+      // Only PLAIN encoding is supported for fallback
       current_encoder_ = MakeEncoder(ParquetType::type_num, Encoding::PLAIN, false,
                                      descr_, properties_->memory_pool());
       current_value_encoder_ = dynamic_cast<ValueEncoderType*>(current_encoder_.get());

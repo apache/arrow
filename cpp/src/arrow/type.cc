@@ -43,7 +43,7 @@
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
 #include "arrow/util/string.h"
 #include "arrow/util/unreachable.h"
@@ -826,7 +826,7 @@ Result<std::shared_ptr<Field>> Field::MergeWith(const Field& other,
                                other.nullable());
     }
 
-    return std::make_shared<Field>(name_, promoted_type, nullable, metadata_);
+    return std::make_shared<Field>(name_, std::move(promoted_type), nullable, metadata_);
   }
   return Status::TypeError("Unable to merge: Field ", name(),
                            " has incompatible types: ", type()->ToString(), " vs ",

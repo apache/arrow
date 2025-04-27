@@ -21,6 +21,7 @@
 
 #include "arrow/compute/kernels/scalar_string_internal.h"
 #include "arrow/util/config.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/utf8_internal.h"
 
 #ifdef ARROW_WITH_UTF8PROC

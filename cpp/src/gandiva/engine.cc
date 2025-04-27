@@ -32,7 +32,7 @@
 #include <utility>
 
 #include <arrow/util/io_util.h>
-#include <arrow/util/logging.h>
+#include <arrow/util/logging_internal.h>
 
 #if defined(_MSC_VER)
 #  pragma warning(push)

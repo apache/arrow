@@ -33,7 +33,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -83,7 +83,7 @@ Result<std::shared_ptr<ChunkedArray>> ChunkedArray::Make(ArrayVector chunks,
 Result<std::shared_ptr<ChunkedArray>> ChunkedArray::MakeEmpty(
     std::shared_ptr<DataType> type, MemoryPool* memory_pool) {
   std::vector<std::shared_ptr<Array>> new_chunks(1);
-  ARROW_ASSIGN_OR_RAISE(new_chunks[0], MakeEmptyArray(type, memory_pool));
+  ARROW_ASSIGN_OR_RAISE(new_chunks[0], MakeEmptyArray(std::move(type), memory_pool));
   return std::make_shared<ChunkedArray>(std::move(new_chunks));
 }
 
@@ -252,7 +252,7 @@ Result<std::shared_ptr<ChunkedArray>> ChunkedArray::View(
   for (int i = 0; i < this->num_chunks(); ++i) {
     ARROW_ASSIGN_OR_RAISE(out_chunks[i], chunks_[i]->View(type));
   }
-  return std::make_shared<ChunkedArray>(out_chunks, type);
+  return std::make_shared<ChunkedArray>(std::move(out_chunks), type);
 }
 
 std::string ChunkedArray::ToString() const {

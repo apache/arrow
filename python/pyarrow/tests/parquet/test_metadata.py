@@ -554,7 +554,7 @@ def test_write_metadata(tempdir):
         assert b'ARROW:schema' not in schema_as_arrow.metadata
 
     # pass through writer keyword arguments
-    for version in ["1.0", "2.0", "2.4", "2.6"]:
+    for version in ["1.0", "2.4", "2.6"]:
         pq.write_metadata(schema, path, version=version)
         parquet_meta = pq.read_metadata(path)
         # The version is stored as a single integer in the Parquet metadata,

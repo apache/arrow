@@ -94,12 +94,12 @@ Status PyFloat_AsHalf(PyObject* obj, npy_half* out) {
 namespace internal {
 
 std::string PyBytes_AsStdString(PyObject* obj) {
-  DCHECK(PyBytes_Check(obj));
+  ARROW_DCHECK(PyBytes_Check(obj));
   return std::string(PyBytes_AS_STRING(obj), PyBytes_GET_SIZE(obj));
 }
 
 Status PyUnicode_AsStdString(PyObject* obj, std::string* out) {
-  DCHECK(PyUnicode_Check(obj));
+  ARROW_DCHECK(PyUnicode_Check(obj));
   Py_ssize_t size;
   // The utf-8 representation is cached on the unicode object
   const char* data = PyUnicode_AsUTF8AndSize(obj, &size);
@@ -180,7 +180,7 @@ Result<OwnedRef> PyObjectToPyInt(PyObject* obj) {
     if (!ref) {
       RETURN_IF_PYERROR();
     }
-    DCHECK(ref);
+    ARROW_DCHECK(ref);
     return std::move(ref);
   }
   return Status::TypeError(

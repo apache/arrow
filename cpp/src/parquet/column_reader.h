@@ -102,20 +102,11 @@ class PARQUET_EXPORT LevelDecoder {
 };
 
 struct CryptoContext {
-  CryptoContext(bool start_with_dictionary_page, int16_t rg_ordinal, int16_t col_ordinal,
-                std::shared_ptr<Decryptor> meta, std::shared_ptr<Decryptor> data)
-      : start_decrypt_with_dictionary_page(start_with_dictionary_page),
-        row_group_ordinal(rg_ordinal),
-        column_ordinal(col_ordinal),
-        meta_decryptor(std::move(meta)),
-        data_decryptor(std::move(data)) {}
-  CryptoContext() {}
-
   bool start_decrypt_with_dictionary_page = false;
   int16_t row_group_ordinal = -1;
   int16_t column_ordinal = -1;
-  std::shared_ptr<Decryptor> meta_decryptor;
-  std::shared_ptr<Decryptor> data_decryptor;
+  std::function<std::unique_ptr<Decryptor>()> meta_decryptor_factory;
+  std::function<std::unique_ptr<Decryptor>()> data_decryptor_factory;
 };
 
 // Abstract page iterator interface. This way, we can feed column pages to the

@@ -735,11 +735,24 @@ def field(*name_or_index):
 def scalar(value):
     """Expression representing a scalar value.
 
+    Creates an Expression object representing a scalar value that can be used
+    in compute expressions and predicates.
+
     Parameters
     ----------
     value : bool, int, float or string
-        Python value of the scalar. Note that only a subset of types are
-        currently supported.
+        Python value of the scalar. This function accepts any value that can be
+        converted to a ``pyarrow.Scalar`` using ``pa.scalar()``.
+
+    Notes
+    -----
+    This function differs from ``pyarrow.scalar()`` in the following way:
+
+    * ``pyarrow.scalar()`` creates a ``pyarrow.Scalar`` object that represents
+      a single value in Arrow's memory model.
+    * ``pyarrow.compute.scalar()`` creates an ``Expression`` object representing
+      a scalar value that can be used in compute expressions, predicates, and
+      dataset filtering operations.
 
     Returns
     -------

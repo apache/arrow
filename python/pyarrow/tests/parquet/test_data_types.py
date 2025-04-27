@@ -58,7 +58,7 @@ pytestmark = pytest.mark.parquet
 
 @pytest.mark.pandas
 @pytest.mark.parametrize('chunk_size', [None, 1000])
-def test_parquet_2_0_roundtrip(tempdir, chunk_size):
+def test_parquet_2_6_roundtrip(tempdir, chunk_size):
     df = alltypes_sample(size=10000, categorical=True)
 
     filename = tempdir / 'pandas_roundtrip.parquet'
@@ -520,4 +520,52 @@ def test_json_extension_type(storage_type):
 
     table = pa.table([arr], names=["ext"])
 
-    _simple_table_roundtrip(table)
+    # With defaults, this should roundtrip (because store_schema=True)
+    _check_roundtrip(table, table)
+
+    # When store_schema is False, we get a string back by default
+    _check_roundtrip(
+        table,
+        pa.table({"ext": pa.array(data, pa.string())}),
+        store_schema=False)
+
+    # With arrow_extensions_enabled=True on read, we get a arrow.json back
+    # (but with string() storage)
+    _check_roundtrip(
+        table,
+        pa.table({"ext": pa.array(data, pa.json_(pa.string()))}),
+        read_table_kwargs={"arrow_extensions_enabled": True},
+        store_schema=False)
+
+
+def test_uuid_extension_type():
+    data = [
+        b'\xe4`\xf9p\x83QGN\xac\x7f\xa4g>K\xa8\xcb',
+        b'\x1et\x14\x95\xee\xd5C\xea\x9b\xd7s\xdc\x91BK\xaf',
+        None
+    ]
+    arr = pa.array(data, type=pa.uuid())
+
+    table = pa.table([arr], names=["ext"])
+
+    _check_roundtrip(table, table)
+    _check_roundtrip(
+        table,
+        pa.table({"ext": pa.array(data, pa.binary(16))}),
+        store_schema=False)
+    _check_roundtrip(
+        table,
+        table,
+        {"arrow_extensions_enabled": True}, store_schema=False)
+
+
+def test_undefined_logical_type(parquet_test_datadir):
+    test_file = f"{parquet_test_datadir}/unknown-logical-type.parquet"
+
+    table = _read_table(test_file)
+    assert table.column_names == ["column with known type", "column with unknown type"]
+    assert table["column with unknown type"].to_pylist() == [
+        b"unknown string 1",
+        b"unknown string 2",
+        b"unknown string 3"
+    ]

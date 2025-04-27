@@ -28,7 +28,6 @@ install_headers(
         'gtest_util.h',
         'matchers.h',
         'math.h',
-        'pch.h',
         'process.h',
         'random.h',
         'uniform_real.h',
@@ -38,27 +37,27 @@ install_headers(
     subdir: 'arrow/testing',
 )
 
-if needs_tests
-    testing_tests = {
-        'arrow-generator-test': {'sources': ['generator_test.cc']},
-        'arrow-gtest-util-test': {'sources': ['gtest_util_test.cc']},
-        'arrow-random-test': {'sources': ['random_test.cc']},
-    }
+testing_tests = {
+    'arrow-generator-test': {'sources': ['generator_test.cc']},
+    'arrow-gtest-util-test': {'sources': ['gtest_util_test.cc']},
+    'arrow-random-test': {'sources': ['random_test.cc']},
+}
 
-    foreach key, val : testing_tests
-        exc = executable(
-            key,
-            sources: val['sources'],
-            dependencies: [arrow_test_dep, val.get('dependencies', [])],
-        )
-        test(key, exc)
-    endforeach
+foreach key, val : testing_tests
+    exc = executable(
+        key,
+        sources: val['sources'],
+        dependencies: [arrow_test_dep, val.get('dependencies', [])],
+    )
+    test(key, exc)
+endforeach
 
-    if needs_filesystem
-        library(
-            'arrow-filesystem-example',
-            sources: ['examplefs.cc'],
-            dependencies: [arrow_dep, gtest_main_dep],
-        )
-    endif
+if needs_tests and needs_filesystem
+    arrow_filesystem_example = shared_module(
+        'arrow-filesystem-example',
+        sources: ['examplefs.cc'],
+        dependencies: [arrow_dep, gtest_dep],
+    )
+else
+    arrow_filesystem_example = disabler()
 endif

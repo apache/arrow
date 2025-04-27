@@ -33,7 +33,7 @@
 #include "arrow/array/builder_base.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace {
 template <typename Callable>

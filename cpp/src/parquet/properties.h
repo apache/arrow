@@ -427,8 +427,8 @@ class PARQUET_EXPORT WriterProperties {
 
     /// \brief Define the encoding that is used when we don't utilise dictionary encoding.
     //
-    /// This either apply if dictionary encoding is disabled or if we fallback
-    /// as the dictionary grew too large.
+    /// This is only applied if dictionary encoding is disabled. If the dictionary grows
+    /// too large we always fall back to the PLAIN encoding.
     Builder* encoding(Encoding::type encoding_type) {
       if (encoding_type == Encoding::PLAIN_DICTIONARY ||
           encoding_type == Encoding::RLE_DICTIONARY) {
@@ -441,8 +441,8 @@ class PARQUET_EXPORT WriterProperties {
 
     /// \brief Define the encoding that is used when we don't utilise dictionary encoding.
     //
-    /// This either apply if dictionary encoding is disabled or if we fallback
-    /// as the dictionary grew too large.
+    /// This is only applied if dictionary encoding is disabled. If the dictionary grows
+    /// too large we always fall back to the PLAIN encoding.
     Builder* encoding(const std::string& path, Encoding::type encoding_type) {
       if (encoding_type == Encoding::PLAIN_DICTIONARY ||
           encoding_type == Encoding::RLE_DICTIONARY) {
@@ -455,8 +455,8 @@ class PARQUET_EXPORT WriterProperties {
 
     /// \brief Define the encoding that is used when we don't utilise dictionary encoding.
     //
-    /// This either apply if dictionary encoding is disabled or if we fallback
-    /// as the dictionary grew too large.
+    /// This is only applied if dictionary encoding is disabled. If the dictionary grows
+    /// too large we always fall back to the PLAIN encoding.
     Builder* encoding(const std::shared_ptr<schema::ColumnPath>& path,
                       Encoding::type encoding_type) {
       return this->encoding(path->ToDotString(), encoding_type);
