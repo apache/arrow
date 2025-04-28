@@ -105,7 +105,7 @@ public struct org_apache_arrow_flatbuf_SparseTensorIndexCOO: FlatBufferObject, V
   }
 
   ///  The type of values in indicesBuffer
-  public var indicesType: org_apache_arrow_flatbuf_Int! { let o = _accessor.offset(VTOFFSET.indicesType.v); return org_apache_arrow_flatbuf_Int(_accessor.bb, o: _accessor.indirect(o + _accessor.postion)) }
+  public var indicesType: org_apache_arrow_flatbuf_Int! { let o = _accessor.offset(VTOFFSET.indicesType.v); return org_apache_arrow_flatbuf_Int(_accessor.bb, o: _accessor.indirect(o + _accessor.position)) }
   ///  Non-negative byte offsets to advance one value cell along each dimension
   ///  If omitted, default to row-major order (C-like).
   public var hasIndicesStrides: Bool { let o = _accessor.offset(VTOFFSET.indicesStrides.v); return o == 0 ? false : true }
@@ -114,7 +114,7 @@ public struct org_apache_arrow_flatbuf_SparseTensorIndexCOO: FlatBufferObject, V
   public var indicesStrides: [Int64] { return _accessor.getVector(at: VTOFFSET.indicesStrides.v) ?? [] }
   ///  The location and size of the indices matrix's data
   public var indicesBuffer: org_apache_arrow_flatbuf_Buffer! { let o = _accessor.offset(VTOFFSET.indicesBuffer.v); return _accessor.readBuffer(of: org_apache_arrow_flatbuf_Buffer.self, at: o) }
-  public var mutableIndicesBuffer: org_apache_arrow_flatbuf_Buffer_Mutable! { let o = _accessor.offset(VTOFFSET.indicesBuffer.v); return org_apache_arrow_flatbuf_Buffer_Mutable(_accessor.bb, o: o + _accessor.postion) }
+  public var mutableIndicesBuffer: org_apache_arrow_flatbuf_Buffer_Mutable! { let o = _accessor.offset(VTOFFSET.indicesBuffer.v); return org_apache_arrow_flatbuf_Buffer_Mutable(_accessor.bb, o: o + _accessor.position) }
   ///  This flag is true if and only if the indices matrix is sorted in
   ///  row-major order, and does not have duplicated entries.
   ///  This sort order is the same as of Tensorflow's SparseTensor,
@@ -178,7 +178,7 @@ public struct org_apache_arrow_flatbuf_SparseMatrixIndexCSX: FlatBufferObject, V
   ///  Which axis, row or column, is compressed
   public var compressedAxis: org_apache_arrow_flatbuf_SparseMatrixCompressedAxis { let o = _accessor.offset(VTOFFSET.compressedAxis.v); return o == 0 ? .row : org_apache_arrow_flatbuf_SparseMatrixCompressedAxis(rawValue: _accessor.readBuffer(of: Int16.self, at: o)) ?? .row }
   ///  The type of values in indptrBuffer
-  public var indptrType: org_apache_arrow_flatbuf_Int! { let o = _accessor.offset(VTOFFSET.indptrType.v); return org_apache_arrow_flatbuf_Int(_accessor.bb, o: _accessor.indirect(o + _accessor.postion)) }
+  public var indptrType: org_apache_arrow_flatbuf_Int! { let o = _accessor.offset(VTOFFSET.indptrType.v); return org_apache_arrow_flatbuf_Int(_accessor.bb, o: _accessor.indirect(o + _accessor.position)) }
   ///  indptrBuffer stores the location and size of indptr array that
   ///  represents the range of the rows.
   ///  The i-th row spans from `indptr[i]` to `indptr[i+1]` in the data.
@@ -203,9 +203,9 @@ public struct org_apache_arrow_flatbuf_SparseMatrixIndexCSX: FlatBufferObject, V
   ///    indptr(X) = [0, 2, 3, 5, 5, 8, 10].
   ///  ```
   public var indptrBuffer: org_apache_arrow_flatbuf_Buffer! { let o = _accessor.offset(VTOFFSET.indptrBuffer.v); return _accessor.readBuffer(of: org_apache_arrow_flatbuf_Buffer.self, at: o) }
-  public var mutableIndptrBuffer: org_apache_arrow_flatbuf_Buffer_Mutable! { let o = _accessor.offset(VTOFFSET.indptrBuffer.v); return org_apache_arrow_flatbuf_Buffer_Mutable(_accessor.bb, o: o + _accessor.postion) }
+  public var mutableIndptrBuffer: org_apache_arrow_flatbuf_Buffer_Mutable! { let o = _accessor.offset(VTOFFSET.indptrBuffer.v); return org_apache_arrow_flatbuf_Buffer_Mutable(_accessor.bb, o: o + _accessor.position) }
   ///  The type of values in indicesBuffer
-  public var indicesType: org_apache_arrow_flatbuf_Int! { let o = _accessor.offset(VTOFFSET.indicesType.v); return org_apache_arrow_flatbuf_Int(_accessor.bb, o: _accessor.indirect(o + _accessor.postion)) }
+  public var indicesType: org_apache_arrow_flatbuf_Int! { let o = _accessor.offset(VTOFFSET.indicesType.v); return org_apache_arrow_flatbuf_Int(_accessor.bb, o: _accessor.indirect(o + _accessor.position)) }
   ///  indicesBuffer stores the location and size of the array that
   ///  contains the column indices of the corresponding non-zero values.
   ///  The type of index value is long.
@@ -216,7 +216,7 @@ public struct org_apache_arrow_flatbuf_SparseMatrixIndexCSX: FlatBufferObject, V
   ///  ```
   ///  Note that the indices are sorted in lexicographical order for each row.
   public var indicesBuffer: org_apache_arrow_flatbuf_Buffer! { let o = _accessor.offset(VTOFFSET.indicesBuffer.v); return _accessor.readBuffer(of: org_apache_arrow_flatbuf_Buffer.self, at: o) }
-  public var mutableIndicesBuffer: org_apache_arrow_flatbuf_Buffer_Mutable! { let o = _accessor.offset(VTOFFSET.indicesBuffer.v); return org_apache_arrow_flatbuf_Buffer_Mutable(_accessor.bb, o: o + _accessor.postion) }
+  public var mutableIndicesBuffer: org_apache_arrow_flatbuf_Buffer_Mutable! { let o = _accessor.offset(VTOFFSET.indicesBuffer.v); return org_apache_arrow_flatbuf_Buffer_Mutable(_accessor.bb, o: o + _accessor.position) }
   public static func startSparseMatrixIndexCSX(_ fbb: inout FlatBufferBuilder) -> UOffset { fbb.startTable(with: 5) }
   public static func add(compressedAxis: org_apache_arrow_flatbuf_SparseMatrixCompressedAxis, _ fbb: inout FlatBufferBuilder) { fbb.add(element: compressedAxis.rawValue, def: 0, at: VTOFFSET.compressedAxis.p) }
   public static func add(indptrType: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: indptrType, at: VTOFFSET.indptrType.p) }
@@ -305,7 +305,7 @@ public struct org_apache_arrow_flatbuf_SparseTensorIndexCSF: FlatBufferObject, V
   ///    1 2 0 2   0   0 1 2
   ///  ```
   ///  The type of values in indptrBuffers
-  public var indptrType: org_apache_arrow_flatbuf_Int! { let o = _accessor.offset(VTOFFSET.indptrType.v); return org_apache_arrow_flatbuf_Int(_accessor.bb, o: _accessor.indirect(o + _accessor.postion)) }
+  public var indptrType: org_apache_arrow_flatbuf_Int! { let o = _accessor.offset(VTOFFSET.indptrType.v); return org_apache_arrow_flatbuf_Int(_accessor.bb, o: _accessor.indirect(o + _accessor.position)) }
   ///  indptrBuffers stores the sparsity structure.
   ///  Each two consecutive dimensions in a tensor correspond to a buffer in
   ///  indptrBuffers. A pair of consecutive values at `indptrBuffers[dim][i]`
@@ -325,7 +325,7 @@ public struct org_apache_arrow_flatbuf_SparseTensorIndexCSF: FlatBufferObject, V
   public func indptrBuffers(at index: Int32) -> org_apache_arrow_flatbuf_Buffer? { let o = _accessor.offset(VTOFFSET.indptrBuffers.v); return o == 0 ? nil : _accessor.directRead(of: org_apache_arrow_flatbuf_Buffer.self, offset: _accessor.vector(at: o) + index * 16) }
   public func mutableIndptrBuffers(at index: Int32) -> org_apache_arrow_flatbuf_Buffer_Mutable? { let o = _accessor.offset(VTOFFSET.indptrBuffers.v); return o == 0 ? nil : org_apache_arrow_flatbuf_Buffer_Mutable(_accessor.bb, o: _accessor.vector(at: o) + index * 16) }
   ///  The type of values in indicesBuffers
-  public var indicesType: org_apache_arrow_flatbuf_Int! { let o = _accessor.offset(VTOFFSET.indicesType.v); return org_apache_arrow_flatbuf_Int(_accessor.bb, o: _accessor.indirect(o + _accessor.postion)) }
+  public var indicesType: org_apache_arrow_flatbuf_Int! { let o = _accessor.offset(VTOFFSET.indicesType.v); return org_apache_arrow_flatbuf_Int(_accessor.bb, o: _accessor.indirect(o + _accessor.position)) }
   ///  indicesBuffers stores values of nodes.
   ///  Each tensor dimension corresponds to a buffer in indicesBuffers.
   ///  For example, the indicesBuffers for the above X is:
@@ -431,7 +431,7 @@ public struct org_apache_arrow_flatbuf_SparseTensor: FlatBufferObject, Verifiabl
   public func sparseIndex<T: FlatbuffersInitializable>(type: T.Type) -> T! { let o = _accessor.offset(VTOFFSET.sparseIndex.v); return _accessor.union(o) }
   ///  The location and size of the tensor's data
   public var data: org_apache_arrow_flatbuf_Buffer! { let o = _accessor.offset(VTOFFSET.data.v); return _accessor.readBuffer(of: org_apache_arrow_flatbuf_Buffer.self, at: o) }
-  public var mutableData: org_apache_arrow_flatbuf_Buffer_Mutable! { let o = _accessor.offset(VTOFFSET.data.v); return org_apache_arrow_flatbuf_Buffer_Mutable(_accessor.bb, o: o + _accessor.postion) }
+  public var mutableData: org_apache_arrow_flatbuf_Buffer_Mutable! { let o = _accessor.offset(VTOFFSET.data.v); return org_apache_arrow_flatbuf_Buffer_Mutable(_accessor.bb, o: o + _accessor.position) }
   public static func startSparseTensor(_ fbb: inout FlatBufferBuilder) -> UOffset { fbb.startTable(with: 7) }
   public static func add(typeType: org_apache_arrow_flatbuf_Type_, _ fbb: inout FlatBufferBuilder) { fbb.add(element: typeType.rawValue, def: 0, at: VTOFFSET.typeType.p) }
   public static func add(type: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: type, at: VTOFFSET.type.p) }
