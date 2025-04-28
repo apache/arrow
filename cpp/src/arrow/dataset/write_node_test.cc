@@ -248,7 +248,7 @@ TEST_F(SimpleWriteNodeTest, SequenceOutput) {
       }
       ASSERT_OK(reader.ReadNext(&batch));
     }
-    ASSERT_EQ(out_of_order, !preserve_order);
+    ASSERT_EQ(!out_of_order, preserve_order);
   }
 }
 

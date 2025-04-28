@@ -27,6 +27,10 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <arrow/dataset/dataset.h>
+#include <arrow/dataset/file_base.h>
+#include <arrow/record_batch.h>
+#include <arrow/util/async_generator.h>
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/array/array_primitive.h"
@@ -34,6 +38,7 @@
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/plan.h"
+#include "arrow/dataset/projector.h"
 #include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
@@ -356,11 +361,12 @@ TEST_F(TestFileSystemDataset, WriteProjected) {
   }
 }
 
-// this kernel delays execution for some specific scalar values
+// This kernel delays execution for some specific scalar values,
+// which guarantees the writing phase sees out-of-order exec batches
 Status delay(compute::KernelContext* ctx, const compute::ExecSpan& batch,
              compute::ExecResult* out) {
   const ArraySpan& input = batch[0].array;
-  const uint32_t* input_values = input.GetValues<uint32_t>(1);
+  const auto* input_values = input.GetValues<uint32_t>(1);
   uint8_t* output_values = out->array_span()->buffers[1].data;
 
   // Boolean data is stored in 1 bit per value
@@ -374,6 +380,70 @@ Status delay(compute::KernelContext* ctx, const compute::ExecSpan& batch,
   return Status::OK();
 }
 
+// A fragment with start=0 will defer ScanBatchesAsync returning a batch generator
+// This guarantees a dataset of multiple fragments produces out-of-order batches
+class MockFragment : public Fragment {
+ public:
+  explicit MockFragment(uint32_t start, int64_t rows_per_batch, int num_batches,
+                        const std::shared_ptr<Schema>& schema)
+      : Fragment(compute::literal(true), schema),
+        start_(start),
+        rows_per_batch_(rows_per_batch),
+        num_batches_(num_batches) {}
+
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>& options) override {
+    // One fragment requires some more time than others
+    if (start_ == 0) {
+      std::this_thread::sleep_for(std::chrono::duration<double>(0.1));
+    }
+
+    auto vec = gen::Gen({gen::Step(start_)})
+                   ->FailOnError()
+                   ->RecordBatches(rows_per_batch_, num_batches_);
+    auto it = MakeVectorIterator(vec);
+    return MakeBackgroundGenerator(std::move(it), io::default_io_context().executor());
+  }
+
+  std::string type_name() const override { return "mock"; }
+
+ protected:
+  Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
+    return given_physical_schema_;
+  };
+
+ private:
+  uint32_t start_;
+  int64_t rows_per_batch_;
+  int num_batches_;
+};
+
+// This dataset consists of multiple fragments with incrementing values across the
+// fragments
+class MockDataset : public Dataset {
+ public:
+  explicit MockDataset(const std::shared_ptr<Schema>& schema) : Dataset(schema) {}
+
+  MockDataset(const std::shared_ptr<Schema>& schema,
+              const compute::Expression& partition_expression)
+      : Dataset(schema, partition_expression) {}
+
+  std::string type_name() const override { return "mock"; }
+  Result<std::shared_ptr<Dataset>> ReplaceSchema(
+      std::shared_ptr<Schema> schema) const override {
+    RETURN_NOT_OK(CheckProjectable(*schema_, *schema));
+    return std::make_shared<MockDataset>(std::move(schema));
+  }
+
+ protected:
+  Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) override {
+    FragmentVector fragments;
+    fragments.push_back(std::make_shared<MockFragment>(0, 2, 1024, schema_));
+    fragments.push_back(std::make_shared<MockFragment>(2 * 1024, 2, 1024, schema_));
+    return MakeVectorIterator(std::move(fragments));
+  };
+};
+
 TEST_F(TestFileSystemDataset, WritePersistOrder) {
   // Test for GH-26818
   auto format = std::make_shared<IpcFileFormat>();
@@ -383,16 +453,17 @@ TEST_F(TestFileSystemDataset, WritePersistOrder) {
   write_options.partitioning = std::make_shared<HivePartitioning>(schema({}));
   write_options.basename_template = "{i}.feather";
 
-  auto table = gen::Gen({gen::Step()})->FailOnError()->Table(2, 1024);
-  auto dataset = std::make_shared<InMemoryDataset>(table);
+  // The Mock dataset delays emitting the first fragment, which test sequenced output of
+  // scan node
+  auto dataset = std::make_shared<MockDataset>(schema({field("f0", int32())}));
 
-  // register the scalar function that delays execution for some rows
-  // this guarantees the writing phase sees out-of-order exec batches
+  // The delay scalar function delays some batches of all fragments, which tests implicit
+  // ordering
   auto delay_func = std::make_shared<compute::ScalarFunction>("delay", compute::Arity(1),
                                                               compute::FunctionDoc());
   compute::ScalarKernel delay_kernel;
   delay_kernel.exec = delay;
-  delay_kernel.signature = compute::KernelSignature::Make({uint32()}, boolean());
+  delay_kernel.signature = compute::KernelSignature::Make({int32()}, boolean());
   ASSERT_OK(delay_func->AddKernel(delay_kernel));
   ASSERT_OK(compute::GetFunctionRegistry()->AddFunction(delay_func));
 
@@ -433,7 +504,7 @@ TEST_F(TestFileSystemDataset, WritePersistOrder) {
       }
       ASSERT_OK(reader.ReadNext(&batch));
     }
-    ASSERT_EQ(out_of_order, !preserve_order);
+    ASSERT_EQ(!out_of_order, preserve_order);
   }
 }
 
