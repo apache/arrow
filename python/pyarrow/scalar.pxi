@@ -884,6 +884,9 @@ cdef class BinaryScalar(Scalar):
     def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
         cdef Buffer buf = self.as_buffer()
 
+        if buf is None:
+            raise TypeError('Buffer view requested on empty scalar')
+
         if buf.buffer.get().is_mutable():
             buffer.readonly = 0
         else:
@@ -1131,8 +1134,6 @@ cdef class MapScalar(ListScalar):
         item_field = self.type.item_field.name
 
         if isinstance(i, int):
-            if arr is None:
-                raise IndexError(i)
             dct = arr[_normalize_index(i, len(arr))]
             return (dct[key_field], dct[item_field])
         else:
@@ -1192,6 +1193,16 @@ cdef class MapScalar(ListScalar):
                         f"Encountered key '{key}' which was already encountered.")
             result_dict[key] = value
         return result_dict
+
+    def keys(self):
+        """
+        Return the keys of the map as a list.
+        """
+        arr = self.values
+        if arr is None:
+            return []
+        key_field = self.type.key_field.name
+        return [k.as_py() for k in arr.field(key_field)]
 
 
 cdef class DictionaryScalar(Scalar):
