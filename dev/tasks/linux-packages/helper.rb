@@ -28,7 +28,7 @@ module Helper
     def latest_commit_time(git_directory)
       return nil unless git_directory?(git_directory)
       cd(git_directory) do
-        return Time.iso8601(`git log -n 1 --format=%aI`.chomp).utc
+        return Time.iso8601(`git log -n 1 --no-show-signature --format=%aI`.chomp).utc
       end
     end
 
