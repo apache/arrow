@@ -268,6 +268,7 @@ class BinaryTask
 
     def initialize
       @http = nil
+      @current_timeout = nil
     end
 
     private def start_http(url, &block)
@@ -302,32 +303,38 @@ class BinaryTask
     end
 
     private def request_internal(http, request, &block)
-      http.request(request) do |response|
-        case response
-        when Net::HTTPSuccess,
-             Net::HTTPNotModified
-          if block_given?
-            return yield(response)
+      read_timeout = http.read_timeout
+      begin
+        http.read_timeout = @current_timeout if @current_timeout
+        http.request(request) do |response|
+          case response
+          when Net::HTTPSuccess,
+               Net::HTTPNotModified
+            if block_given?
+              return yield(response)
+            else
+              response.read_body
+              return response
+            end
+          when Net::HTTPRedirection
+            redirected_url = URI(response["Location"])
+            redirected_request = Net::HTTP::Get.new(redirected_url, {})
+            start_http(redirected_url) do |redirected_http|
+              request_internal(redirected_http, redirected_request, &block)
+            end
           else
-            response.read_body
-            return response
+            message = "failed to request: "
+            message << "#{request.uri}: #{request.method}: "
+            message << "#{response.message} #{response.code}"
+            if response.body
+              message << "\n"
+              message << response.body
+            end
+            raise Error.new(request, response, message)
           end
-        when Net::HTTPRedirection
-          redirected_url = URI(response["Location"])
-          redirected_request = Net::HTTP::Get.new(redirected_url, {})
-          start_http(redirected_url) do |redirected_http|
-            request_internal(redirected_http, redirected_request, &block)
-          end
-        else
-          message = "failed to request: "
-          message << "#{request.uri}: #{request.method}: "
-          message << "#{response.message} #{response.code}"
-          if response.body
-            message << "\n"
-            message << response.body
-          end
-          raise Error.new(request, response, message)
         end
+      ensure
+        http.read_timeout = read_timeout
       end
     end
 
@@ -460,12 +467,11 @@ class BinaryTask
     end
 
     def with_read_timeout(timeout)
-      current_timeout = @http.read_timeout
+      current_timeout, @current_timeout = @current_timeout, timeout
       begin
-        @http.read_timeout = timeout
         yield
       ensure
-        @http.read_timeout = current_timeout
+        @current_timeout = current_timeout
       end
     end
   end
@@ -2125,7 +2131,8 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                                list: uploaded_files_name)
 
           distribution_dir = "#{yum_release_repositories_dir}/#{distribution}"
-          download_distribution(distribution,
+          download_distribution(:artifactory,
+                                distribution,
                                 distribution_dir,
                                 :rc,
                                 pattern: /\/repodata\//)
