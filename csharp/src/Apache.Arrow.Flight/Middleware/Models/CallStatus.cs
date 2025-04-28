@@ -16,16 +16,16 @@
 using System;
 using Grpc.Core;
 
-namespace Apache.Arrow.Flight.Sql.Middleware.Models;
+namespace Apache.Arrow.Flight.Middleware.Models;
 
 public sealed class CallStatus
 {
     public FlightStatusCode Code { get; }
-    public Exception? Cause { get; }
-    public string? Description { get; }
-    public Metadata? Trailers { get; }
+    public Exception Cause { get; }
+    public string Description { get; }
+    public Metadata Trailers { get; }
 
-    public CallStatus(FlightStatusCode code, Exception? cause, string? description, Metadata? trailers)
+    public CallStatus(FlightStatusCode code, Exception cause, string description, Metadata trailers)
     {
         Code = code;
         Cause = cause;

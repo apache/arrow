@@ -13,17 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Globalization;
-using System.Net;
-using Apache.Arrow.Flight.Sql.Middleware.Extensions;
-using Apache.Arrow.Flight.Sql.Middleware.Interfaces;
-using Apache.Arrow.Flight.Sql.Middleware.Models;
+using Apache.Arrow.Flight.Middleware.Interfaces;
+using Apache.Arrow.Flight.Middleware.Models;
 using Microsoft.Extensions.Logging;
 
-namespace Apache.Arrow.Flight.Sql.Middleware.Middleware;
+namespace Apache.Arrow.Flight.Middleware;
 
 public class ClientCookieMiddleware : IFlightClientMiddleware
 {
@@ -31,8 +26,6 @@ public class ClientCookieMiddleware : IFlightClientMiddleware
     private readonly ILogger<ClientCookieMiddleware> _logger;
     private const string SET_COOKIE_HEADER = "Set-cookie";
     private const string COOKIE_HEADER = "Cookie";
-
-    private readonly ConcurrentDictionary<string, Cookie> _cookies = new();
 
     public ClientCookieMiddleware(ClientCookieMiddlewareFactory factory,
         ILogger<ClientCookieMiddleware> logger)
@@ -78,52 +71,6 @@ public class ClientCookieMiddleware : IFlightClientMiddleware
                 cookieList.Add(entry.Value.ToString());
             }
         }
-
         return string.Join("; ", cookieList);
-    }
-
-    public class ClientCookieMiddlewareFactory : IFlightClientMiddlewareFactory
-    {
-        public readonly ConcurrentDictionary<string, Cookie> Cookies = new(StringComparer.OrdinalIgnoreCase);
-        private readonly ILoggerFactory _loggerFactory;
-
-        public ClientCookieMiddlewareFactory(ILoggerFactory loggerFactory)
-        {
-            _loggerFactory = loggerFactory;
-        }
-
-        public IFlightClientMiddleware OnCallStarted(CallInfo callInfo)
-        {
-            var logger = _loggerFactory.CreateLogger<ClientCookieMiddleware>();
-            return new ClientCookieMiddleware(this, logger);
-        }
-
-        internal void UpdateCookies(IEnumerable<string> newCookieHeaderValues)
-        {
-            foreach (var headerValue in newCookieHeaderValues)
-            {
-                try
-                {
-                    var parsedCookies = headerValue.ParseHeader();
-                    foreach (var parsedCookie in parsedCookies)
-                    {
-                        var nameLc = parsedCookie.Name.ToLower(CultureInfo.InvariantCulture);
-                        if (parsedCookie.Expired)
-                        {
-                            Cookies.TryRemove(nameLc, out _);
-                        }
-                        else
-                        {
-                            Cookies[nameLc] = parsedCookie;
-                        }
-                    }
-                }
-                catch (FormatException ex)
-                {
-                    var logger = _loggerFactory.CreateLogger<ClientCookieMiddleware>();
-                    logger.LogWarning(ex, "Skipping malformed Set-Cookie header: '{HeaderValue}'", headerValue);
-                }
-            }
-        }
     }
 }

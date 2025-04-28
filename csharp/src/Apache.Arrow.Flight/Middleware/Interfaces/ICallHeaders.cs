@@ -15,14 +15,14 @@
 
 using System.Collections.Generic;
 
-namespace Apache.Arrow.Flight.Sql.Middleware.Interfaces;
+namespace Apache.Arrow.Flight.Middleware.Interfaces;
 
 public interface ICallHeaders
 {
-    string? this[string key] { get; }
+    string this[string key] { get; }
     
-    string? Get(string key);
-    byte[]? GetBytes(string key);
+    string Get(string key);
+    byte[] GetBytes(string key);
     IEnumerable<string> GetAll(string key);
     IEnumerable<byte[]> GetAllBytes(string key);
     

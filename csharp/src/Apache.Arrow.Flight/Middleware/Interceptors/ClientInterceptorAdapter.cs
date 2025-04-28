@@ -16,14 +16,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Apache.Arrow.Flight.Sql.Middleware.Gprc;
-using Apache.Arrow.Flight.Sql.Middleware.Grpc;
-using Apache.Arrow.Flight.Sql.Middleware.Interfaces;
-using Apache.Arrow.Flight.Sql.Middleware.Models;
+using Apache.Arrow.Flight.Middleware.Extensions;
+using Apache.Arrow.Flight.Middleware.Interfaces;
 using Grpc.Core;
 using Grpc.Core.Interceptors;
+using CallInfo = Apache.Arrow.Flight.Middleware.Models.CallInfo;
 
-namespace Apache.Arrow.Flight.Sql.Middleware.Interceptors
+namespace Apache.Arrow.Flight.Middleware.Interceptors
 {
     public class ClientInterceptorAdapter : Interceptor
     {
@@ -36,8 +35,7 @@ namespace Apache.Arrow.Flight.Sql.Middleware.Interceptors
 
         public override AsyncUnaryCall<TResponse> AsyncUnaryCall<TRequest, TResponse>(
             TRequest request,
-            ClientInterceptorContext<TRequest, TResponse> context,
-            AsyncUnaryCallContinuation<TRequest, TResponse> continuation)
+            ClientInterceptorContext<TRequest, TResponse> context, AsyncUnaryCallContinuation<TRequest, TResponse> continuation)
             where TRequest : class
             where TResponse : class
         {

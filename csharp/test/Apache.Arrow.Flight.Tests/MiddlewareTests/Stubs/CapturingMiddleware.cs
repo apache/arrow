@@ -14,10 +14,10 @@
 // limitations under the License.
 
 using System.Collections.Generic;
-using Apache.Arrow.Flight.Sql.Middleware.Interfaces;
-using Apache.Arrow.Flight.Sql.Middleware.Models;
+using Apache.Arrow.Flight.Middleware.Interfaces;
+using Apache.Arrow.Flight.Middleware.Models;
 
-namespace Apache.Arrow.Flight.Sql.Tests.Stubs;
+namespace Apache.Arrow.Flight.Tests.MiddlewareTests.Stubs;
 
 public class CapturingMiddleware : IFlightClientMiddleware
 { 

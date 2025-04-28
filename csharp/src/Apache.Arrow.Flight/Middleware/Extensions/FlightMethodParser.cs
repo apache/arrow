@@ -13,11 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Flight.Sql.Middleware.Models;
+using Apache.Arrow.Flight.Middleware.Models;
 
-namespace Apache.Arrow.Flight.Sql.Middleware.Gprc;
+namespace Apache.Arrow.Flight.Middleware.Extensions;
 
-// TODO: Add tests to cover: FlightMethodParser
 public static class FlightMethodParser
 {
     /// <summary>
@@ -35,7 +34,7 @@ public static class FlightMethodParser
         if (parts.Length < 2)
             return FlightMethod.Unknown;
 
-        var methodName = parts[^1];
+        var methodName = parts[parts.Length - 1];
 
         return methodName switch
         {
@@ -59,6 +58,6 @@ public static class FlightMethodParser
             return "Unknown";
 
         var parts = fullMethodName.Split('/');
-        return parts.Length >= 2 ? parts[^1] : "Unknown";
+        return parts.Length >= 2 ? parts[parts.Length - 1] : "Unknown";
     }
 }

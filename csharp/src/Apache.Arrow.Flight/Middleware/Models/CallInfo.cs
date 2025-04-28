@@ -15,7 +15,7 @@
 
 using System;
 
-namespace Apache.Arrow.Flight.Sql.Middleware.Models;
+namespace Apache.Arrow.Flight.Middleware.Models;
 
 public sealed class CallInfo
 {

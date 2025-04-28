@@ -13,10 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Flight.Sql.Middleware.Interfaces;
-using Apache.Arrow.Flight.Sql.Middleware.Models;
+using Apache.Arrow.Flight.Middleware.Interfaces;
+using Apache.Arrow.Flight.Middleware.Models;
 
-namespace Apache.Arrow.Flight.Sql.Tests.Stubs;
+namespace Apache.Arrow.Flight.Tests.MiddlewareTests.Stubs;
 
 public class CapturingMiddlewareFactory : IFlightClientMiddlewareFactory
 {

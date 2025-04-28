@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Apache.Arrow.Flight.Sql.Middleware.Models;
+namespace Apache.Arrow.Flight.Middleware.Models;
 
 public enum FlightMethod
 {

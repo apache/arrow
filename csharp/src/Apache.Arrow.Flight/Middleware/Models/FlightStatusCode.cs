@@ -13,18 +13,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Flight.Sql.Middleware.Models;
+namespace Apache.Arrow.Flight.Middleware.Models;
 
-namespace Apache.Arrow.Flight.Sql.Middleware.Interfaces;
-
-public interface IFlightClientMiddleware
+public enum FlightStatusCode
 {
-    void OnBeforeSendingHeaders(ICallHeaders outgoingHeaders);
-    void OnHeadersReceived(ICallHeaders incomingHeaders);
-    void OnCallCompleted(CallStatus status);
-}
-
-public interface IFlightClientMiddlewareFactory
-{
-    IFlightClientMiddleware OnCallStarted(CallInfo callInfo);
+    Ok,
+    Cancelled,
+    Unknown,
+    InvalidArgument,
+    DeadlineExceeded,
+    NotFound,
+    AlreadyExists,
+    PermissionDenied,
+    Unauthenticated,
+    ResourceExhausted,
+    FailedPrecondition,
+    Aborted,
+    OutOfRange,
+    Unimplemented,
+    Internal,
+    Unavailable,
+    DataLoss
 }

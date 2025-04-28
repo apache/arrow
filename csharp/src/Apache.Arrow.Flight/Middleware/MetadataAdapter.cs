@@ -16,10 +16,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Apache.Arrow.Flight.Sql.Middleware.Interfaces;
+using Apache.Arrow.Flight.Middleware.Interfaces;
 using Grpc.Core;
 
-namespace Apache.Arrow.Flight.Sql.Middleware.Grpc;
+namespace Apache.Arrow.Flight.Middleware;
 
 public class MetadataAdapter : ICallHeaders
 {
@@ -30,15 +30,15 @@ public class MetadataAdapter : ICallHeaders
         _metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
     }
 
-    public string? this[string key] => Get(key);
+    public string this[string key] => Get(key);
 
-    public string? Get(string key)
+    public string Get(string key)
     {
         return _metadata.FirstOrDefault(e =>
             !e.IsBinary && e.Key.Equals(key, StringComparison.OrdinalIgnoreCase))?.Value;
     }
 
-    public byte[]? GetBytes(string key)
+    public byte[] GetBytes(string key)
     {
         return _metadata.FirstOrDefault(e =>
             e.IsBinary && e.Key.Equals(NormalizeBinaryKey(key), StringComparison.OrdinalIgnoreCase))?.ValueBytes;
@@ -88,13 +88,13 @@ public class MetadataAdapter : ICallHeaders
 
     private static string DenormalizeBinaryKey(string key)
         => key.EndsWith(Metadata.BinaryHeaderSuffix, StringComparison.OrdinalIgnoreCase)
-            ? key[..^Metadata.BinaryHeaderSuffix.Length]
+            ? key.Substring(0, key.Length - Metadata.BinaryHeaderSuffix.Length)
             : key;
 }
 
 public static class MetadataAdapterExtensions
 {
-    public static bool TryGet(this ICallHeaders headers, string key, out string? value)
+    public static bool TryGet(this ICallHeaders headers, string key, out string value)
     {
         value = headers.Get(key);
         return value is not null;

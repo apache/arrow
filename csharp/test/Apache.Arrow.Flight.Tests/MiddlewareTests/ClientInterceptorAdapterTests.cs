@@ -17,14 +17,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Client;
-using Apache.Arrow.Flight.Sql.Middleware.Interceptors;
+using Apache.Arrow.Flight.Middleware.Interceptors;
 using Apache.Arrow.Flight.Sql.Tests.Stubs;
-using Apache.Arrow.Flight.Tests;
+using Apache.Arrow.Flight.Tests.MiddlewareTests.Stubs;
 using Grpc.Core;
 using Grpc.Core.Interceptors;
 using Xunit;
 
-namespace Apache.Arrow.Flight.Sql.Tests;
+namespace Apache.Arrow.Flight.Tests.MiddlewareTests;
 
 public class ClientInterceptorAdapterTests
 {

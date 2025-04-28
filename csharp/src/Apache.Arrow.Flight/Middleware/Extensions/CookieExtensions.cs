@@ -18,28 +18,48 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 
-namespace Apache.Arrow.Flight.Sql.Middleware.Extensions;
+namespace Apache.Arrow.Flight.Middleware.Extensions;
 
-// TODO: Add tests to cover: CookieExtensions
-internal static class CookieExtensions
+public static class CookieExtensions
 {
     public static IEnumerable<Cookie> ParseHeader(this string headers)
     {
         var cookies = new List<Cookie>();
-        var segments = headers.Split(';', StringSplitOptions.RemoveEmptyEntries);
+        if (string.IsNullOrEmpty(headers))
+            return cookies;
+        
+        var segments = headers.Split([';'], StringSplitOptions.RemoveEmptyEntries);
 
         if (segments.Length == 0) return cookies;
 
-        var nameValue = segments[0].Split('=', 2);
+        var nameValue = segments[0].Split(['='], 2);
         if (nameValue.Length == 2)
         {
-            var cookie = new Cookie(nameValue[0], nameValue[1]);
+            var cookie = new Cookie(nameValue[0].Trim(), nameValue[1].Trim());
+
             foreach (var segment in segments.Skip(1))
             {
-                if (segment.StartsWith("Expires=", StringComparison.OrdinalIgnoreCase))
+                var trimmedSegment = segment.Trim();
+                if (trimmedSegment.StartsWith("Expires=", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (DateTimeOffset.TryParse(segment["Expires=".Length..], out var expires))
+                    var value = trimmedSegment.Substring("Expires=".Length).Trim();
+
+                    if (!DateTimeOffset.TryParseExact(
+                            value,
+                            "R",
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            System.Globalization.DateTimeStyles.None,
+                            out var expires))
+                    {
+                        if (DateTimeOffset.TryParse(value, out expires))
+                        {
+                            cookie.Expires = expires.UtcDateTime;
+                        }
+                    }
+                    else
+                    {
                         cookie.Expires = expires.UtcDateTime;
+                    }
                 }
             }
 

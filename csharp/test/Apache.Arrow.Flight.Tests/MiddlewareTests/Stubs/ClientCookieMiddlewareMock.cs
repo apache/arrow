@@ -15,10 +15,10 @@
 
 using System;
 using System.Net;
-using Apache.Arrow.Flight.Sql.Middleware.Middleware;
+using Apache.Arrow.Flight.Middleware;
 using Microsoft.Extensions.Logging;
 
-namespace Apache.Arrow.Flight.Sql.Tests.Stubs;
+namespace Apache.Arrow.Flight.Tests.MiddlewareTests.Stubs;
 
 internal class ClientCookieMiddlewareMock
 {
@@ -33,9 +33,9 @@ internal class ClientCookieMiddlewareMock
         };
     }
 
-    public ClientCookieMiddleware.ClientCookieMiddlewareFactory CreateFactory()
+    public ClientCookieMiddlewareFactory CreateFactory()
     {
-        return new ClientCookieMiddleware.ClientCookieMiddlewareFactory(new TestLoggerFactory());
+        return new ClientCookieMiddlewareFactory(new TestLoggerFactory());
     }
 
     public class TestLogger<T> : ILogger<T>

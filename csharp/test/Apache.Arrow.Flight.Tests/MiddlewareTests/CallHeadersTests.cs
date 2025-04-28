@@ -14,9 +14,10 @@
 // limitations under the License.
 
 using System.Linq;
+using Apache.Arrow.Flight.Tests.MiddlewareTests.Stubs;
 using Xunit;
 
-namespace Apache.Arrow.Flight.Sql.Tests;
+namespace Apache.Arrow.Flight.Tests.MiddlewareTests;
 
 public class CallHeadersTests
 {

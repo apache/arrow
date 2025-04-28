@@ -17,11 +17,11 @@ using System;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-using Apache.Arrow.Flight.Sql.Middleware.Middleware;
-using Apache.Arrow.Flight.Sql.Tests.Stubs;
+using Apache.Arrow.Flight.Middleware;
+using Apache.Arrow.Flight.Tests.MiddlewareTests.Stubs;
 using Xunit;
 
-namespace Apache.Arrow.Flight.Sql.Tests;
+namespace Apache.Arrow.Flight.Tests.MiddlewareTests;
 
 public class ClientCookieMiddlewareTests
 {

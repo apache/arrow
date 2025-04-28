@@ -15,9 +15,9 @@
 
 using System.Collections.Generic;
 using System.Linq;
-using Apache.Arrow.Flight.Sql.Middleware.Interfaces;
+using Apache.Arrow.Flight.Middleware.Interfaces;
 
-namespace Apache.Arrow.Flight.Sql.Tests;
+namespace Apache.Arrow.Flight.Tests.MiddlewareTests.Stubs;
 
 public class InMemoryCallHeaders : ICallHeaders
 {
