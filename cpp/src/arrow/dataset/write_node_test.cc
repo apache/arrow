@@ -246,7 +246,7 @@ TEST_F(SimpleWriteNodeTest, SequenceOutput) {
         }
         prev = value;
       }
-      ABORT_NOT_OK(reader.ReadNext(&batch));
+      ASSERT_OK(reader.ReadNext(&batch));
     }
     ASSERT_EQ(out_of_order, !preserve_order);
   }
