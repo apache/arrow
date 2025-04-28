@@ -29,6 +29,36 @@ import pyarrow as pa
 import pyarrow.compute as pc
 
 
+def is_python_sequence_like(obj):
+    if not hasattr(obj, "__getitem__") or not hasattr(obj, "__len__"):
+        return False
+    try:
+        length = len(obj)
+        if length > 0:
+            _ = obj[0]
+    except (TypeError, IndexError, AttributeError):
+        return False
+    return True
+
+
+def is_python_mapping_like(obj):
+    if not is_python_sequence_like(obj):
+        return False
+    if not hasattr(obj, "__iter__") or not hasattr(obj, "keys"):
+        return False
+    try:
+        keys = obj.keys()
+        if not hasattr(keys, "__iter__"):
+            return False
+        _ = len(obj)
+        for key in keys:
+            _ = obj[key]
+            break
+    except (TypeError, KeyError, AttributeError):
+        return False
+    return True
+
+
 @pytest.mark.parametrize(['value', 'ty', 'klass'], [
     (False, None, pa.BooleanScalar),
     (True, None, pa.BooleanScalar),
@@ -575,6 +605,13 @@ def test_binary(value, ty, scalar_typ):
     assert memview.strides == (1,)
 
 
+def test_binary_null():
+    s = pa.scalar(None, type=pa.binary())
+    assert s.as_py() is None
+    with pytest.raises(TypeError):
+        memoryview(s)
+
+
 def test_fixed_size_binary():
     s = pa.scalar(b'foof', type=pa.binary(4))
     assert isinstance(s, pa.FixedSizeBinaryScalar)
@@ -704,6 +741,7 @@ def test_struct():
     assert isinstance(s['y'], pa.FloatScalar)
     assert s['x'].as_py() == 2
     assert s['y'].as_py() == 3.5
+    assert is_python_sequence_like(s)
 
     with pytest.raises(KeyError):
         s['nonexistent']
@@ -721,6 +759,7 @@ def test_struct():
     assert s['y'].is_valid is False
     assert s['x'].as_py() is None
     assert s['y'].as_py() is None
+    assert is_python_sequence_like(s)
 
 
 def test_struct_duplicate_fields():
@@ -807,6 +846,8 @@ def test_map(pickle_module):
     assert restored.equals(s)
 
     assert s.as_py(maps_as_pydicts="strict") == {'a': 1, 'b': 2}
+
+    assert is_python_mapping_like(s)
 
 
 def test_map_duplicate_fields():
