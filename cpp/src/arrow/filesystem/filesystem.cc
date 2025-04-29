@@ -928,7 +928,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
         "without GCS support");
 #endif
   }
-  if (scheme == "hdfs" || scheme == "viewfs") {
+  if (scheme == "hdfs" || scheme == "viewfs" || scheme == "afs") {
 #ifdef ARROW_HDFS
     ARROW_ASSIGN_OR_RAISE(auto options, HdfsOptions::FromUri(uri));
     if (out_path != nullptr) {
