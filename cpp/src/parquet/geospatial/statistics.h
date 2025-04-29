@@ -170,9 +170,9 @@ class PARQUET_EXPORT GeoStatistics {
   /// of these values may be false because the file may not have provided bounds for all
   /// dimensions.
   ///
-  /// In other words, it is safe to use dimension_empty(), lower_bound(), and/or
-  /// upper_bound() for predicate pushdown in a given dimension if and only if
-  /// dimension_valid() is true for that dimension.
+  /// See documentation for dimension_empty(), lower_bound(), and/or upper_bound() for the
+  /// canonical values of those outputs for the dimensions where dimension_valid() is
+  /// false.
   std::array<bool, kMaxDimensions> dimension_valid() const;
 
   /// \brief Return the geometry type codes
