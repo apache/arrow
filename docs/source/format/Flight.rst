@@ -338,7 +338,7 @@ schemes for the given transports:
 
 Notes:
 
-* \(1) See :ref:`flight-extended-uris` for semantics when using 
+* \(1) See :ref:`flight-extended-uris` for semantics when using
    http/https as the transport. It should be accessible via a GET request.
 
 Connection Reuse
@@ -375,11 +375,11 @@ Extended Location URIs
 In addition to alternative transports, a server may also return
 URIs that reference an external service or object storage location.
 This can be useful in cases where intermediate data is cached as
-Apache Parquet files on cloud storage or is otherwise accessible 
-via an HTTP service. In these scenarios, it is more efficient to be 
-able to provide a URI where the client may simply download the data 
-directly, rather than requiring a Flight service to read it back into 
-memory and serve it from a ``DoGet`` request. 
+Apache Parquet files on cloud storage or is otherwise accessible
+via an HTTP service. In these scenarios, it is more efficient to be
+able to provide a URI where the client may simply download the data
+directly, rather than requiring a Flight service to read it back into
+memory and serve it from a ``DoGet`` request.
 
 To avoid the complexities of Flight Clients having to implement support
 for multiple different cloud storage vendors (e.g. AWS S3, Google Cloud),
