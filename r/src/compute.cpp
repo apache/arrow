@@ -618,7 +618,16 @@ SEXP compute__CallFunction(std::string func_name, cpp11::list args, cpp11::list 
 
 // [[arrow::export]]
 std::vector<std::string> compute__GetFunctionNames() {
-  return arrow::compute::GetFunctionRegistry()->GetFunctionNames();
+  // TODO: This is obviously not the right way or place to do this but I just want
+  //  to get the tests passing for now and validate the approach
+  auto function_names = arrow::compute::GetFunctionRegistry()->GetFunctionNames();
+  std::string target_function = "sum";
+  auto it = std::find(function_names.begin(), function_names.end(), target_function);
+  if (it == function_names.end()) {
+    auto status = arrow::compute::RegisterComputeKernels();
+    function_names = arrow::compute::GetFunctionRegistry()->GetFunctionNames();
+  }
+  return function_names;
 }
 
 class RScalarUDFKernelState : public arrow::compute::KernelState {

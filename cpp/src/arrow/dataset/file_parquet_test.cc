@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/parquet_encryption_config.h"
 #include "arrow/dataset/test_util_internal.h"
@@ -47,7 +48,6 @@
 #include "parquet/types.h"
 
 namespace arrow {
-
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 

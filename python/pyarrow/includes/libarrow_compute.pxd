@@ -15,16 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Contains utilities for working with Arrow data been stored
-# in a row-major order.
+# distutils: language = c++
 
-arrow_install_all_headers("arrow/compute/row")
+from pyarrow.includes.libarrow cimport *
 
-if(ARROW_BUILD_BENCHMARKS AND ARROW_COMPUTE)
-  add_arrow_benchmark(grouper_benchmark PREFIX "arrow-compute")
-  if(ARROW_BUILD_STATIC)
-    target_link_libraries(arrow-compute-grouper-benchmark PUBLIC arrow_compute_static)
-  else()
-    target_link_libraries(arrow-compute-grouper-benchmark PUBLIC arrow_compute_shared)
-  endif()
-endif()
+
+cdef extern from "arrow/compute/kernels/registry.h" namespace "arrow::compute" nogil:
+
+    void RegisterComputeKernels()

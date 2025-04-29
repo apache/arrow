@@ -44,6 +44,7 @@
 
 namespace arrow {
 namespace compute {
+
 namespace {
 
 // 2.718281828459045090795598298427648842334747314453125

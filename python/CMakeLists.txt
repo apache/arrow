@@ -426,6 +426,13 @@ if(PYARROW_BUILD_ACERO)
   endif()
 endif()
 
+# TODO: Add condition to PYARROW_BUILD_COMPUTE
+if(ARROW_BUILD_SHARED)
+  list(APPEND PYARROW_CPP_LINK_LIBS ArrowCompute::arrow_compute_shared)
+else()
+  list(APPEND PYARROW_CPP_LINK_LIBS ArrowCompute::arrow_compute_static)
+endif()
+
 if(PYARROW_BUILD_PARQUET)
   message(STATUS "Building PyArrow with Parquet")
   if(NOT ARROW_PARQUET)
