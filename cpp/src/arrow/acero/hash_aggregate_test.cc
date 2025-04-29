@@ -773,8 +773,8 @@ TEST_P(GroupBy, CountOnly) {
 
         auto transformed_table = table;
         if (!re_encode_cols.empty()) {
-          ASSERT_OK_AND_ASSIGN(transformed_table, arrow::acero::RunEndEncodeTableColumns(
-                                                      *table, re_encode_cols));
+          ASSERT_OK_AND_ASSIGN(transformed_table,
+                               RunEndEncodeTableColumns(*table, re_encode_cols));
         }
 
         ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
