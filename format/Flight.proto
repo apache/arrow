@@ -437,11 +437,9 @@ message Ticket {
  *  - A valid HTTP URI (http://, https://, etc.):
  *    indicating that the client should perform a GET request against the
  *    given URI to retrieve the stream. The ticket should be empty
- *    in this case and should be ignored by the client.
- *  - An object storage URI (s3://, gs://, abfs://, etc.):
- *    indicating that the client should retrieve the data from the provided
- *    object storage location. The ticket should be empty in this case and
- *    should be ignored by the client.
+ *    in this case and should be ignored by the client. Cloud object storage
+ *    can be utilized by presigned URLs or mediating the auth separately and
+ *    returning the full URL (e.g. https://amzn-s3-demo-bucket.s3.us-west-2.amazonaws.com/...).
  *
  * We allow non-Flight URIs for the purpose of allowing Flight services to indicate that
  * results can be downloaded in formats other than Arrow (such as Parquet) or to allow
