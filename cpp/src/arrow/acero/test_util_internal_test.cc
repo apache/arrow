@@ -32,6 +32,7 @@ TEST(RunEndEncodeTableColumnsTest, SchemaTypeIsModified) {
           ])"});
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> ree_table,
                        RunEndEncodeTableColumns(*table, {0}));
+  ASSERT_OK(ree_table->ValidateFull());
   ASSERT_TRUE(ree_table->schema()->field(0)->type()->Equals(
       arrow::run_end_encoded(arrow::int32(), arrow::utf8())));
 }
