@@ -333,6 +333,13 @@ schemes for the given transports:
 +----------------------------+--------------------------------+
 | (reuse connection)         | arrow-flight-reuse-connection: |
 +----------------------------+--------------------------------+
+| HTTP (1)                   | http: or https:                |
++----------------------------+--------------------------------+
+
+Notes:
+
+* \(1) See :ref:`flight-extended-uris` for semantics when using 
+   http/https as the transport. It should be accessible via a GET request.
 
 Connection Reuse
 ----------------
@@ -360,33 +367,28 @@ string, so the obvious candidates are not compatible.  The chosen
 representation can be parsed by both implementations, as well as Go's
 ``net/url`` and Python's ``urllib.parse``.
 
+.. _flight-extended-uris:
+
 Extended Location URIs
 ----------------------
 
 In addition to alternative transports, a server may also return
 URIs that reference an external service or object storage location.
 This can be useful in cases where intermediate data is cached as
-Apache Parquet files on S3 or is accessible via an HTTP service. In
-these scenarios, it is more efficient to be able to provide a URI
-where the client may simply download the data directly, rather than
-requiring a Flight service to read it back into memory and serve it
-from a ``DoGet`` request. Servers should use the following URI
-schemes for this situation:
+Apache Parquet files on cloud storage or is otherwise accessible 
+via an HTTP service. In these scenarios, it is more efficient to be 
+able to provide a URI where the client may simply download the data 
+directly, rather than requiring a Flight service to read it back into 
+memory and serve it from a ``DoGet`` request. 
 
-+--------------------+---------------------------------------+
-| Location           | URI Scheme                            |
-+====================+=======================================+
-| Object storage (1) | gs:, gcs:, abfs:, abfss:, wasbs:, s3: |
-+--------------------+---------------------------------------+
-| HTTP service   (2) | http:, https:                         |
-+--------------------+---------------------------------------+
-
-Notes:
-
-* \(1) Any auth required should be either negotiated externally to
-   Flight or should use a presigned URI.
-* \(2) The client should make a GET request to the provided URI
-   to retrieve the data.
+To avoid the complexities of Flight Clients having to implement support
+for multiple different cloud storage vendors (e.g. AWS S3, Google Cloud),
+we extend the URIs to only allow an HTTP/HTTPS uri where the client can
+perform a simple GET request to download the data. Authentication can be
+handled either by negotiating externally to the Flight protocol or by the
+Server sending a presigned URL that the client can make a GET request to.
+This should be supported by all current major cloud storage vendors, meaning
+only the server needs to know the semantics of the underlying object store APIs.
 
 When using an extended location URI, the client should ignore any
 value in the ``Ticket`` field of the ``FlightEndpoint``. The
@@ -410,10 +412,6 @@ supported, the server may respond with either 406 (Not Acceptable),
 415 (Unsupported Media Type), or successfuly respond with a different
 format that it does support, along with the correct ``Content-Type``
 header.
-
-*Note: new schemes may be proposed in the future to allow for more
-flexibility based on community requests.*
-
 
 Error Handling
 ==============
