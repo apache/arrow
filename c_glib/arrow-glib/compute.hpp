@@ -20,6 +20,7 @@
 #pragma once
 
 #include <arrow/compute/api.h>
+#include <arrow/compute/kernels/api.h>
 #include <arrow/acero/exec_plan.h>
 
 #include <arrow-glib/compute.h>
