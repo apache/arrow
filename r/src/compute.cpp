@@ -18,9 +18,12 @@
 #include "./arrow_types.h"
 #include "./safe-call-into-r.h"
 
+#if ARROW_VERSION_MAJOR >= 21
+#include <arrow/compute/kernels/api.h>
+#endif
+
 #include <arrow/array/util.h>
 #include <arrow/compute/api.h>
-#include <arrow/compute/kernels/api.h>
 #include <arrow/record_batch.h>
 #include <arrow/table.h>
 
@@ -622,12 +625,14 @@ std::vector<std::string> compute__GetFunctionNames() {
   // TODO: This is obviously not the right way or place to do this but I just want
   //  to get the tests passing for now and validate the approach
   auto function_names = arrow::compute::GetFunctionRegistry()->GetFunctionNames();
+#if ARROW_VERSION_MAJOR >= 21
   std::string target_function = "sum";
   auto it = std::find(function_names.begin(), function_names.end(), target_function);
   if (it == function_names.end()) {
     auto status = arrow::compute::RegisterComputeKernels();
     function_names = arrow::compute::GetFunctionRegistry()->GetFunctionNames();
   }
+#endif
   return function_names;
 }
 
