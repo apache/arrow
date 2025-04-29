@@ -83,6 +83,10 @@ class EncodedStatistics;
 class Statistics;
 struct SizeStatistics;
 
+class BloomFilter;
+struct BloomFilterLocation;
+struct BloomFilterOptions;
+
 class ColumnIndex;
 class OffsetIndex;
 
