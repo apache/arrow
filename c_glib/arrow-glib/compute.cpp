@@ -37,6 +37,8 @@
 #include <arrow/acero/exec_plan.h>
 #include <arrow/acero/options.h>
 
+auto registration_status_ = arrow::compute::RegisterComputeKernels();
+
 template <typename ArrowType, typename GArrowArrayType>
 typename ArrowType::c_type
 garrow_numeric_array_sum(GArrowArrayType array,
