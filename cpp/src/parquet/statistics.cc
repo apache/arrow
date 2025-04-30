@@ -970,6 +970,10 @@ class UnsortedTypedStatisticsImpl : public TypedStatistics<DType> {
 
   explicit UnsortedTypedStatisticsImpl(const ColumnDescriptor* descr) : descr_(descr) {}
 
+  UnsortedTypedStatisticsImpl(const ColumnDescriptor* descr, int64_t num_values,
+                              int64_t null_count)
+      : descr_(descr), num_values_(num_values), null_count_(null_count) {}
+
   bool HasDistinctCount() const override { return false; };
   bool HasMinMax() const override { return false; }
   bool HasNullCount() const override { return true; };
@@ -1134,6 +1138,16 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
                                              int64_t distinct_count, bool has_min_max,
                                              bool has_null_count, bool has_distinct_count,
                                              ::arrow::MemoryPool* pool) {
+  if (descr->logical_type() && descr->logical_type()->is_geometry()) {
+    switch (descr->physical_type()) {
+      case Type::BYTE_ARRAY:
+        return std::make_shared<UnsortedTypedStatisticsImpl<ByteArrayType>>(
+            descr, num_values, null_count);
+      default:
+        ParquetException::NYI("Unsorted statistics not implemented");
+    }
+  }
+
 #define MAKE_STATS(CAP_TYPE, KLASS)                                              \
   case Type::CAP_TYPE:                                                           \
     return std::make_shared<TypedStatisticsImpl<KLASS>>(                         \
