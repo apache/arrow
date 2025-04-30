@@ -1270,9 +1270,9 @@ thrift_container_size_limit : int, default None
 page_checksum_verification : bool, default False
     If True, verify the page checksum for each page read from the file.
 arrow_extensions_enabled : bool, default False
-        If True, read Parquet logical types as Arrow extension types where possible,
-        (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
-        the canonical `arrow.uuid` extension type).
+    If True, read Parquet logical types as Arrow extension types where possible,
+    (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
+    the canonical `arrow.uuid` extension type).
 
 Examples
 --------
@@ -1287,7 +1287,6 @@ Examples
                  thrift_container_size_limit=None,
                  page_checksum_verification=False,
                  arrow_extensions_enabled=False):
-
         import pyarrow.dataset as ds
 
         # map format arguments
@@ -1686,9 +1685,9 @@ thrift_container_size_limit : int, default None
 page_checksum_verification : bool, default False
     If True, verify the checksum for each page read from the file.
 arrow_extensions_enabled : bool, default False
-        If True, read Parquet logical types as Arrow extension types where possible,
-        (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
-        the canonical `arrow.uuid` extension type).
+    If True, read Parquet logical types as Arrow extension types where possible,
+    (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
+    the canonical `arrow.uuid` extension type).
 
 Returns
 -------

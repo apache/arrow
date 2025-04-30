@@ -38,6 +38,7 @@
 #include "parquet/arrow/schema_internal.h"
 #include "parquet/arrow/variant_internal.h"
 #include "parquet/exception.h"
+#include "parquet/geospatial/util_json_internal.h"
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
 #include "parquet/types.h"
@@ -288,8 +289,8 @@ int FieldIdFromMetadata(
   if (::arrow::internal::ParseValue<::arrow::Int32Type>(
           field_id_str.c_str(), field_id_str.length(), &field_id)) {
     if (field_id < 0) {
-      // Thrift should convert any negative value to null but normalize to -1 here in case
-      // we later check this in logic.
+      // Thrift should convert any negative value to null but normalize to -1 here in
+      // case we later check this in logic.
       return -1;
     }
     return field_id;
@@ -449,9 +450,9 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     }
     case ArrowTypeId::EXTENSION: {
       auto ext_type = std::static_pointer_cast<::arrow::ExtensionType>(field->type());
-      // Built-in JSON extension is handled differently.
-      if (ext_type->extension_name() == std::string("arrow.json")) {
-        // Set physical and logical types and instantiate primitive node.
+      // Set physical and logical types and instantiate primitive node
+      // for extension types
+      if (ext_type->extension_name() == std::string_view("arrow.json")) {
         type = ParquetType::BYTE_ARRAY;
         logical_type = LogicalType::JSON();
         break;
@@ -459,6 +460,11 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
         type = ParquetType::FIXED_LEN_BYTE_ARRAY;
         logical_type = LogicalType::UUID();
         length = 16;
+        break;
+      } else if (ext_type->extension_name() == std::string_view("geoarrow.wkb")) {
+        type = ParquetType::BYTE_ARRAY;
+        ARROW_ASSIGN_OR_RAISE(logical_type,
+                              LogicalTypeFromGeoArrowMetadata(ext_type->Serialize()));
         break;
       } else if (ext_type->extension_name() == std::string("parquet.variant")) {
         auto variant_type = std::static_pointer_cast<VariantExtensionType>(field->type());
@@ -495,6 +501,7 @@ struct SchemaTreeContext {
   SchemaManifest* manifest;
   ArrowReaderProperties properties;
   const SchemaDescriptor* schema;
+  std::shared_ptr<const KeyValueMetadata> metadata;
 
   void LinkParent(const SchemaField* child, const SchemaField* parent) {
     manifest->child_to_parent[child] = parent;
@@ -517,7 +524,7 @@ bool IsDictionaryReadSupported(const ArrowType& type) {
     int column_index, const schema::PrimitiveNode& primitive_node,
     SchemaTreeContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> storage_type,
-                        GetArrowType(primitive_node, ctx->properties));
+                        GetArrowType(primitive_node, ctx->properties, ctx->metadata));
   if (ctx->properties.read_dictionary(column_index) &&
       IsDictionaryReadSupported(*storage_type)) {
     return ::arrow::dictionary(::arrow::int32(), storage_type);
@@ -610,8 +617,8 @@ Status MapToSchemaField(const GroupNode& group, LevelInfo current_levels,
     return Status::Invalid("Map keys must be annotated as required.");
   }
   // Arrow doesn't support 1 column maps (i.e. Sets).  The options are to either
-  // make the values column nullable, or process the map as a list.  We choose the latter
-  // as it is simpler.
+  // make the values column nullable, or process the map as a list.  We choose the
+  // latter as it is simpler.
   if (key_value.field_count() == 1) {
     return ListToSchemaField(group, current_levels, ctx, parent, out);
   }
@@ -1197,6 +1204,7 @@ Status SchemaManifest::Make(const SchemaDescriptor* schema,
   ctx.manifest = manifest;
   ctx.properties = properties;
   ctx.schema = schema;
+  ctx.metadata = metadata;
   const GroupNode& schema_node = *schema->group_node();
   manifest->descr = schema;
   manifest->schema_fields.resize(schema_node.field_count());

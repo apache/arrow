@@ -319,6 +319,130 @@ cdef _box_flba(ParquetFLBA val, uint32_t len):
     return cp.PyBytes_FromStringAndSize(<char*> val.ptr, <Py_ssize_t> len)
 
 
+cdef class GeoStatistics(_Weakrefable):
+    """Statistics for columns with geospatial data types (experimental)
+
+    These statistics provide a bounding box and list of geometry types for
+    geospatial columns (GEOMETRY or GEOGRAPHY). All components may be None
+    if a file does not provide information about a particular component.
+    """
+
+    def __init__(self):
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
+
+    def __cinit__(self):
+        pass
+
+    def __repr__(self):
+        return f"""{object.__repr__(self)}
+  geospatial_types: {self.geospatial_types}
+  xmin: {self.xmin}, xmax: {self.xmax}
+  ymin: {self.ymin}, ymax: {self.ymax}
+  zmin: {self.zmin}, zmax: {self.zmax}
+  mmin: {self.mmin}, mmax: {self.mmax}"""
+
+    def to_dict(self):
+        """Dictionary summary of these statistics"""
+        out = {
+            "geospatial_types": self.geospatial_types,
+            "xmin": self.xmin,
+            "xmax": self.xmax,
+            "ymin": self.ymin,
+            "ymax": self.ymax,
+            "zmin": self.zmin,
+            "zmax": self.zmax,
+            "mmin": self.mmin,
+            "mmax": self.mmax
+        }
+
+        return out
+
+    @property
+    def geospatial_types(self):
+        """Unique geometry types
+
+        Contains an integer code for each geometry type code encountered in the
+        geometries represented by these statistics. The geometry type codes are
+        ISO WKB geometry type codes returned in sorted order without duplicates.
+
+        This property may be None if geospatial types are not available.
+        """
+        cdef optional[vector[int32_t]] maybe_geometry_types = \
+            self.statistics.get().geometry_types()
+        if not maybe_geometry_types.has_value():
+            return None
+
+        return list(maybe_geometry_types.value())
+
+    @property
+    def xmin(self):
+        """Minimum X value or None if not available
+
+        Note that Parquet permits "wraparound" bounds in the X direction only
+        to more compactly represent bounds for geometries with components on
+        both sides of the antimeridian. This case is denoted by xmin > xmax.
+        """
+        return self.statistics.get().lower_bound()[0] if self._x_valid() else None
+
+    @property
+    def xmax(self):
+        """Maximum X value or None if not available
+
+        Note that Parquet permits "wraparound" bounds in the X direction only
+        (see xmin).
+        """
+        return self.statistics.get().upper_bound()[0] if self._x_valid() else None
+
+    @property
+    def ymin(self):
+        """Minimum Y value or None if not available"""
+        return self.statistics.get().lower_bound()[1] if self._y_valid() else None
+
+    @property
+    def ymax(self):
+        """Maximum Y value or None if not available"""
+        return self.statistics.get().upper_bound()[1] if self._y_valid() else None
+
+    @property
+    def zmin(self):
+        """Minimum Z value or None if not available"""
+        return self.statistics.get().lower_bound()[2] if self._z_valid() else None
+
+    @property
+    def zmax(self):
+        """Maximum Z value or None if not available"""
+        return self.statistics.get().upper_bound()[2] if self._z_valid() else None
+
+    @property
+    def mmin(self):
+        """Minimum M value or None if not available"""
+        return self.statistics.get().lower_bound()[3] if self._m_valid() else None
+
+    @property
+    def mmax(self):
+        """Maximum M value or None if not available"""
+        return self.statistics.get().upper_bound()[3] if self._m_valid() else None
+
+    # Helpers to calculate the availability of a given dimension. For statistics
+    # read from a file, dimension_empty should always be false because there is
+    # no way to represent an empty range in Thrift; however, we check to be safe.
+    def _x_valid(self):
+        return self.statistics.get().dimension_valid()[0] \
+            and not self.statistics.get().dimension_empty()[0]
+
+    def _y_valid(self):
+        return self.statistics.get().dimension_valid()[1] \
+            and not self.statistics.get().dimension_empty()[1]
+
+    def _z_valid(self):
+        return self.statistics.get().dimension_valid()[2] \
+            and not self.statistics.get().dimension_empty()[2]
+
+    def _m_valid(self):
+        return self.statistics.get().dimension_valid()[3] \
+            and not self.statistics.get().dimension_empty()[3]
+
+
 cdef class ColumnChunkMetaData(_Weakrefable):
     """Column metadata for a single row group."""
 
@@ -330,6 +454,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     def __repr__(self):
         statistics = indent(repr(self.statistics), 4 * ' ')
+        geo_statistics = indent(repr(self.geo_statistics), 4 * ' ')
         return """{0}
   file_offset: {1}
   file_path: {2}
@@ -339,13 +464,15 @@ cdef class ColumnChunkMetaData(_Weakrefable):
   is_stats_set: {6}
   statistics:
 {7}
-  compression: {8}
-  encodings: {9}
-  has_dictionary_page: {10}
-  dictionary_page_offset: {11}
-  data_page_offset: {12}
-  total_compressed_size: {13}
-  total_uncompressed_size: {14}""".format(object.__repr__(self),
+  geo_statistics:
+{8}
+  compression: {9}
+  encodings: {10}
+  has_dictionary_page: {11}
+  dictionary_page_offset: {12}
+  data_page_offset: {13}
+  total_compressed_size: {14}
+  total_uncompressed_size: {15}""".format(object.__repr__(self),
                                           self.file_offset,
                                           self.file_path,
                                           self.physical_type,
@@ -353,6 +480,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
                                           self.path_in_schema,
                                           self.is_stats_set,
                                           statistics,
+                                          geo_statistics,
                                           self.compression,
                                           self.encodings,
                                           self.has_dictionary_page,
@@ -371,6 +499,11 @@ cdef class ColumnChunkMetaData(_Weakrefable):
             Dictionary with a key for each attribute of this class.
         """
         statistics = self.statistics.to_dict() if self.is_stats_set else None
+        if self.is_geo_stats_set:
+            geo_statistics = self.geo_statistics.to_dict()
+        else:
+            geo_statistics = None
+
         d = dict(
             file_offset=self.file_offset,
             file_path=self.file_path,
@@ -379,6 +512,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
             path_in_schema=self.path_in_schema,
             is_stats_set=self.is_stats_set,
             statistics=statistics,
+            geo_statistics=geo_statistics,
             compression=self.compression,
             encodings=self.encodings,
             has_dictionary_page=self.has_dictionary_page,
@@ -449,6 +583,21 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         cdef Statistics statistics = Statistics.__new__(Statistics)
         statistics.init(self.metadata.statistics(), self)
         return statistics
+
+    @property
+    def is_geo_stats_set(self):
+        """Whether or not geometry statistics are present in metadata (bool)."""
+        return self.metadata.is_geo_stats_set()
+
+    @property
+    def geo_statistics(self):
+        """Statistics for column chunk (:class:`GeoStatistics`)."""
+        c_geo_statistics = self.metadata.geo_statistics()
+        if not c_geo_statistics or not c_geo_statistics.get().is_valid():
+            return None
+        cdef GeoStatistics geo_statistics = GeoStatistics.__new__(GeoStatistics)
+        geo_statistics.init(c_geo_statistics, self)
+        return geo_statistics
 
     @property
     def compression(self):
