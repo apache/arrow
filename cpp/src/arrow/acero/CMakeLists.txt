@@ -28,6 +28,9 @@ if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
   set(ARROW_ACERO_PC_CFLAGS_PRIVATE "")
 endif()
 
+set(ARROW_ACERO_PKG_CONFIG_REQUIRES "arrow-compute")
+set(ARROW_ACERO_REQUIRED_DEPENDENCIES Arrow ArrowCompute)
+
 set(ARROW_ACERO_SRCS
     accumulation_queue.cc
     scalar_aggregate_node.cc
