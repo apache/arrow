@@ -963,6 +963,85 @@ std::shared_ptr<Comparator> DoMakeComparator(Type::type physical_type,
   return nullptr;
 }
 
+template <typename DType>
+class UnsortedTypedStatisticsImpl : public TypedStatistics<DType> {
+ public:
+  using T = typename DType::c_type;
+
+  explicit UnsortedTypedStatisticsImpl(const ColumnDescriptor* descr) : descr_(descr) {}
+
+  bool HasDistinctCount() const override { return false; };
+  bool HasMinMax() const override { return false; }
+  bool HasNullCount() const override { return true; };
+
+  int64_t null_count() const override { return null_count_; }
+
+  int64_t distinct_count() const override { return num_values_; }
+
+  void Reset() override {
+    null_count_ = 0;
+    num_values_ = 0;
+  }
+
+  std::string EncodeMin() const override { return ""; }
+
+  std::string EncodeMax() const override { return ""; }
+
+  EncodedStatistics Encode() override {
+    EncodedStatistics out;
+    out.set_null_count(null_count_);
+    return out;
+  }
+
+  Type::type physical_type() const override { return DType::type_num; }
+
+  bool Equals(const Statistics& other) const override { return false; }
+
+  int64_t num_values() const override { return num_values_; }
+
+  const ColumnDescriptor* descr() const override { return descr_; }
+
+  const T& min() const override { return dummy_minmax_; }
+
+  const T& max() const override { return dummy_minmax_; }
+
+  void Merge(const TypedStatistics<DType>& other) override {
+    num_values_ += other.num_values();
+    null_count_ += other.null_count();
+  }
+
+  void Update(const T* values, int64_t num_values, int64_t null_count) override {
+    num_values_ += num_values;
+    null_count_ += null_count;
+  }
+
+  void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_offset,
+                    int64_t num_spaced_values, int64_t num_values,
+                    int64_t null_count) override {
+    num_values_ += num_values;
+    null_count_ += null_count;
+  }
+
+  void Update(const ::arrow::Array& values, bool update_counts = true) override {
+    if (update_counts) {
+      num_values_ += values.length();
+      null_count_ += values.null_count();
+    }
+  }
+
+  void SetMinMax(const T& min, const T& max) override {}
+
+  void IncrementNullCount(int64_t n) override { null_count_ += n; }
+
+  void IncrementNumValues(int64_t n) override { num_values_ += n; }
+
+ private:
+  const ColumnDescriptor* descr_{};
+  int64_t num_values_{};
+  int64_t null_count_{};
+  T dummy_minmax_{};
+};
+
 }  // namespace
 
 // ----------------------------------------------------------------------
@@ -982,6 +1061,15 @@ std::shared_ptr<Comparator> Comparator::Make(const ColumnDescriptor* descr) {
 
 std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
                                              ::arrow::MemoryPool* pool) {
+  if (descr->logical_type() && descr->logical_type()->is_geometry()) {
+    switch (descr->physical_type()) {
+      case Type::BYTE_ARRAY:
+        return std::make_shared<UnsortedTypedStatisticsImpl<ByteArrayType>>(descr);
+      default:
+        ParquetException::NYI("Unsorted statistics not implemented");
+    }
+  }
+
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
       return std::make_shared<TypedStatisticsImpl<BooleanType>>(descr, pool);
