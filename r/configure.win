@@ -81,13 +81,13 @@ function configure_binaries() {
 
   # NOTE: If you make changes to the libraries below, you should also change
   # ci/scripts/r_windows_build.sh and ci/scripts/PKGBUILD
-  PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_DS_STATIC \
-              -DARROW_COMPUTE_STATIC -DARROW_ACERO_STATIC -DARROW_R_WITH_PARQUET \
+  PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DARROW_COMPUTE_STATIC -DPARQUET_STATIC \
+              -DARROW_DS_STATIC -DARROW_ACERO_STATIC -DARROW_R_WITH_PARQUET \
               -DARROW_R_WITH_COMPUTE -DARROW_R_WITH_ACERO \
               -DARROW_R_WITH_DATASET -DARROW_R_WITH_JSON"
   PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '
   PKG_LIBS="$PKG_LIBS -L${RWINLIB}/lib"'$(R_ARCH)$(CRT) '
-  PKG_LIBS="$PKG_LIBS -larrow_dataset -larrow_acero -larrow_compute -lparquet -larrow -larrow_bundled_dependencies \
+  PKG_LIBS="$PKG_LIBS -larrow_dataset -larrow_acero -lparquet -larrow_compute -larrow -larrow_bundled_dependencies \
             -lutf8proc -lsnappy -lz -lzstd -llz4 -lbz2 ${BROTLI_LIBS} -lole32 \
             ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
 
