@@ -24,4 +24,5 @@ Description: Apache Arrow's Compute Kernels.
 Version: @ARROW_VERSION@
 Requires: arrow
 Libs: -L${libdir} -larrow_compute
-Cflags.private: -DARROW_COMPUTE_STATIC
+Cflags:@ARROW_COMPUTE_PC_CFLAGS@
+Cflags.private:@ARROW_COMPUTE_PC_CFLAGS_PRIVATE@
