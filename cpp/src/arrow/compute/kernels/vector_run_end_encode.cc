@@ -489,6 +489,7 @@ static ArrayKernelExec GenerateREEKernelExec(Type::type type_id) {
       return Functor::template Exec<UInt8Type>;
     case Type::UINT16:
     case Type::INT16:
+    case Type::HALF_FLOAT:
       return Functor::template Exec<UInt16Type>;
     case Type::UINT32:
     case Type::INT32:
@@ -508,6 +509,10 @@ static ArrayKernelExec GenerateREEKernelExec(Type::type type_id) {
       return Functor::template Exec<UInt64Type>;
     case Type::INTERVAL_MONTH_DAY_NANO:
       return Functor::template Exec<MonthDayNanoIntervalType>;
+    case Type::DECIMAL32:
+      return Functor::template Exec<Decimal32Type>;
+    case Type::DECIMAL64:
+      return Functor::template Exec<Decimal64Type>;
     case Type::DECIMAL128:
       return Functor::template Exec<Decimal128Type>;
     case Type::DECIMAL256:
@@ -563,6 +568,11 @@ void RegisterVectorRunEndEncode(FunctionRegistry* registry) {
   for (const auto& ty : NumericTypes()) {
     add_kernel(ty->id());
   }
+
+  // TODO: Adding HALF_FLOAT to FloatingPointTypes() causes cascading failures
+  // so we specify it manually here. We should add it to FloatingPointTypes()
+  add_kernel(Type::HALF_FLOAT);
+
   add_kernel(Type::DATE32);
   add_kernel(Type::DATE64);
   add_kernel(Type::TIME32);
@@ -572,8 +582,9 @@ void RegisterVectorRunEndEncode(FunctionRegistry* registry) {
   for (const auto& ty : IntervalTypes()) {
     add_kernel(ty->id());
   }
-  add_kernel(Type::DECIMAL128);
-  add_kernel(Type::DECIMAL256);
+  for (const auto& type_id : DecimalTypeIds()) {
+    add_kernel(type_id);
+  }
   add_kernel(Type::FIXED_SIZE_BINARY);
   add_kernel(Type::STRING);
   add_kernel(Type::BINARY);
@@ -604,6 +615,11 @@ void RegisterVectorRunEndDecode(FunctionRegistry* registry) {
   for (const auto& ty : NumericTypes()) {
     add_kernel(ty->id());
   }
+
+  // TODO: Adding HALF_FLOAT to FloatingPointTypes() causes cascading failures
+  // so we specify it manually here. We should add it to FloatingPointTypes()
+  add_kernel(Type::HALF_FLOAT);
+
   add_kernel(Type::DATE32);
   add_kernel(Type::DATE64);
   add_kernel(Type::TIME32);
@@ -613,8 +629,9 @@ void RegisterVectorRunEndDecode(FunctionRegistry* registry) {
   for (const auto& ty : IntervalTypes()) {
     add_kernel(ty->id());
   }
-  add_kernel(Type::DECIMAL128);
-  add_kernel(Type::DECIMAL256);
+  for (const auto& type_id : DecimalTypeIds()) {
+    add_kernel(type_id);
+  }
   add_kernel(Type::FIXED_SIZE_BINARY);
   add_kernel(Type::STRING);
   add_kernel(Type::BINARY);
