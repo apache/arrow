@@ -130,6 +130,22 @@ skip_on_python_older_than <- function(python_version) {
   }
 }
 
+skip_if_arrow_version_less_than <- function(version, msg) {
+  if (arrow_cpp_version() < numeric_version(version)) {
+    skip(msg)
+  }
+}
+
+skip_if_arrow_version_equals <- function(version, msg) {
+  if (arrow_cpp_version() == numeric_version(version)) {
+    skip(msg)
+  }
+}
+
+arrow_cpp_version <- function() {
+  numeric_version(gsub("-SNAPSHOT", "", arrow::arrow_info()$build_info["cpp_version"]))
+}
+
 process_is_running <- function(x) {
   if (force_tests()) {
     # Return TRUE as this is used as a condition in an if statement
