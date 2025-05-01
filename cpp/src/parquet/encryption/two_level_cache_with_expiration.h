@@ -103,8 +103,7 @@ class TwoLevelCacheWithExpiration {
     if (external_cache_entry == cache_.end() ||
         external_cache_entry->second.IsExpired()) {
       cache_.insert({access_token, internal::ExpiringCacheMapEntry<V>(
-                                       std::shared_ptr<ConcurrentMap<std::string, V>>(
-                                           new ConcurrentMap<std::string, V>()),
+                                       std::make_shared<ConcurrentMap<std::string, V>>(),
                                        cache_entry_lifetime_seconds)});
     }
 
