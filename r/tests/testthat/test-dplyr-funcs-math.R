@@ -495,7 +495,7 @@ test_that("sqrt()", {
 })
 
 test_that("expm1()", {
-  skip_if_arrow_version_less_than("18.1.0.9000", "expm1 not available until version 19.")
+  skip_if_arrow_version_less_than("18.1.0.9000", "`expm1()` not available until version 19.")
 
   df <- tibble(x = c(1:5))
 
