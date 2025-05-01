@@ -130,22 +130,14 @@ skip_on_python_older_than <- function(python_version) {
   }
 }
 
-if_arrow_version <- function(version, op = `==`) {
-  op(packageVersion("arrow"), version)
-}
-
-if_arrow_version_less_than <- function(version) {
-  if_version(version, op = `<`)
-}
-
 skip_if_arrow_version_less_than <- function(version, msg) {
-  if (if_arrow_version(version, `<`)) {
+  if (arrow::arrow_info()$version < numeric_version(version)) {
     skip(msg)
   }
 }
 
 skip_if_arrow_version_equals <- function(version, msg) {
-  if (if_arrow_version(version, `==`)) {
+  if (arrow::arrow_info()$version == numeric_version(version)) {
     skip(msg)
   }
 }
