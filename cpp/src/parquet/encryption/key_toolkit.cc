@@ -35,7 +35,7 @@ std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
     throw ParquetException("No KmsClientFactory is registered.");
   }
   auto kms_client_per_kms_instance_cache =
-      kms_client_cache_per_token().GetOrCreateInternalCache(
+      kms_client_cache_.GetOrCreateInternalCache(
           kms_connection_config.key_access_token(), cache_entry_lifetime_ms);
 
   return kms_client_per_kms_instance_cache->GetOrInsert(
