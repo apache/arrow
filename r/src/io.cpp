@@ -143,6 +143,7 @@ std::shared_ptr<arrow::io::ReadableFile> io___ReadableFile__Open(
 }
 
 // ------ arrow::io::BufferReader
+// I think this will fail with new arrow...
 
 // [[arrow::export]]
 std::shared_ptr<arrow::io::BufferReader> io___BufferReader__initialize(
