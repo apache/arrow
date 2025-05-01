@@ -142,7 +142,7 @@ skip_if_arrow_version_equals <- function(version, msg) {
   }
 }
 
-arrow_cpp_version <- function(){
+arrow_cpp_version <- function() {
   numeric_version(gsub("-SNAPSHOT", "", arrow::arrow_info()$build_info["cpp_version"]))
 }
 

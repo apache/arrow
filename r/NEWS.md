@@ -19,6 +19,10 @@
 
 # arrow 20.0.0.9000
 
+## Minor improvements and fixes
+
+- Added bindings for atan, sinh, cosh, tanh, asinh, acosh, and tanh, and expm1 (#44953)
+
 # arrow 20.0.0
 
 # arrow 19.0.1.1
@@ -38,10 +42,6 @@ post](https://arrow.apache.org/blog/2025/01/16/19.0.0-release/) and
 For what's changed in Arrow C++ 19.0.1, please see the [blog
 post](https://arrow.apache.org/blog/2025/02/16/19.0.1-release/) and
 [changelog](https://arrow.apache.org/release/19.0.1.html#changelog).
-
-## Minor improvements and fixes
-
-- Added bindings for atan, sinh, cosh, tanh, asinh, acosh, and tanh, and expm1 (#44953)
 
 # arrow 18.1.0
 
