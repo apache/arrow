@@ -60,7 +60,7 @@ namespace json {
 using ::arrow::internal::checked_cast;
 using ::arrow::internal::checked_pointer_cast;
 
-namespace {
+namespace internal {
 
 constexpr auto kParseFlags = rj::kParseFullPrecisionFlag | rj::kParseNanAndInfFlag;
 
@@ -972,15 +972,15 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
   return Status::OK();
 }
 
-}  // namespace
+}  // namespace internal
 
 Result<std::shared_ptr<Array>> ArrayFromJSONString(const std::shared_ptr<DataType>& type,
                                                    std::string_view json_string) {
-  std::shared_ptr<Converter> converter;
+  std::shared_ptr<internal::Converter> converter;
   RETURN_NOT_OK(GetConverter(type, &converter));
 
   rj::Document json_doc;
-  json_doc.Parse<kParseFlags>(json_string.data(), json_string.length());
+  json_doc.Parse<internal::kParseFlags>(json_string.data(), json_string.length());
   if (json_doc.HasParseError()) {
     return Status::Invalid("JSON parse error at offset ", json_doc.GetErrorOffset(), ": ",
                            GetParseError_En(json_doc.GetParseError()));
@@ -1037,11 +1037,11 @@ Status DictArrayFromJSONString(const std::shared_ptr<DataType>& type,
 
 Status ScalarFromJSONString(const std::shared_ptr<DataType>& type,
                             std::string_view json_string, std::shared_ptr<Scalar>* out) {
-  std::shared_ptr<Converter> converter;
+  std::shared_ptr<internal::Converter> converter;
   RETURN_NOT_OK(GetConverter(type, &converter));
 
   rj::Document json_doc;
-  json_doc.Parse<kParseFlags>(json_string.data(), json_string.length());
+  json_doc.Parse<internal::kParseFlags>(json_string.data(), json_string.length());
   if (json_doc.HasParseError()) {
     return Status::Invalid("JSON parse error at offset ", json_doc.GetErrorOffset(), ": ",
                            GetParseError_En(json_doc.GetParseError()));
