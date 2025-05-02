@@ -241,7 +241,7 @@ TEST(TestDecryptionProperties, SupplyAadPrefix) {
 TEST(ColumnDecryptionProperties, SetKey) {
   std::shared_ptr<parquet::schema::ColumnPath> column_path_1 =
       parquet::schema::ColumnPath::FromDotString("column_1");
-  ColumnDecryptionProperties::Builder col_builder_1(column_path_1);
+  ColumnDecryptionProperties::Builder col_builder_1(*column_path_1);
   col_builder_1.key(kColumnEncryptionKey1);
 
   auto props = col_builder_1.build();

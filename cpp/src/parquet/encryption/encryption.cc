@@ -130,11 +130,11 @@ FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::aad_prefix
 }
 
 ColumnDecryptionProperties::Builder* ColumnDecryptionProperties::Builder::key(
-    const std::string& key) {
+    std::string key) {
   if (key.empty()) return this;
 
   DCHECK(!key.empty());
-  key_ = key;
+  key_ = std::move(key);
   return this;
 }
 

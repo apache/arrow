@@ -167,21 +167,20 @@ class PARQUET_EXPORT ColumnDecryptionProperties {
  public:
   class PARQUET_EXPORT Builder {
    public:
-    explicit Builder(const std::string& name) : column_path_(name) {}
+    explicit Builder(std::string name) : column_path_(std::move(name)) {}
 
-    explicit Builder(const std::shared_ptr<schema::ColumnPath>& path)
-        : Builder(path->ToDotString()) {}
+    explicit Builder(const schema::ColumnPath& path) : Builder(path.ToDotString()) {}
 
     /// Set an explicit column key. If applied on a file that contains
     /// key metadata for this column the metadata will be ignored,
     /// the column will be decrypted with this key.
     /// key length must be either 16, 24 or 32 bytes.
-    Builder* key(const std::string& key);
+    Builder* key(std::string key);
 
     std::shared_ptr<ColumnDecryptionProperties> build();
 
    private:
-    const std::string column_path_;
+    std::string column_path_;
     std::string key_;
   };
 
