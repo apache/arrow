@@ -657,7 +657,7 @@ tasks:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      # ARROW_USE_CACHE=OFF is for using sccache
+      # ARROW_USE_CCACHE=OFF is for using sccache
       flags: >-
         -e ARROW_USE_CCACHE=OFF
         -e ARROW_USE_MESON=ON
