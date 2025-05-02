@@ -39,8 +39,7 @@
 #include <sql.h>
 #include <sqlext.h>
 
-// TODO - fix build issues from system_trust_store
-// #include "arrow/flight/sql/odbc/flight_sql/system_trust_store.h"
+#include "arrow/flight/sql/odbc/flight_sql/system_trust_store.h"
 
 #ifndef NI_MAXHOST
 #  define NI_MAXHOST 1025
@@ -106,9 +105,6 @@ constexpr auto SYSTEM_TRUST_STORE_DEFAULT = true;
 constexpr auto STORES = {"CA", "MY", "ROOT", "SPC"};
 
 inline std::string GetCerts() {
-  // TODO - fix build issues from system_trust_store and return proper value
-  return "";
-  /*
   std::string certs;
 
   for (auto store : STORES) {
@@ -125,7 +121,6 @@ inline std::string GetCerts() {
   }
 
   return certs;
-  */
 }
 
 #else
@@ -209,8 +204,7 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
     // connection properties to allow reporting a user for other auth mechanisms
     // and also decouple the database user from user credentials.
 
-    // TODO - fix build issues from get_info_cache
-    // info_.SetProperty(SQL_USER_NAME, auth_method->GetUser());
+    info_.SetProperty(SQL_USER_NAME, auth_method->GetUser());
     attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_FALSE);
 
     PopulateMetadataSettings(properties);
@@ -432,10 +426,6 @@ boost::optional<Connection::Attribute> FlightSqlConnection::GetAttribute(
 }
 
 Connection::Info FlightSqlConnection::GetInfo(uint16_t info_type) {
-  // TODO - fix build issues from get_info_cache and return proper value.
-  uint16_t result = 0;
-  return result;
-  /*
   auto result = info_.GetInfo(info_type);
   if (info_type == SQL_DBMS_NAME || info_type == SQL_SERVER_NAME) {
     // Update the database component reported in error messages.
@@ -443,15 +433,13 @@ Connection::Info FlightSqlConnection::GetInfo(uint16_t info_type) {
     diagnostics_.SetDataSourceComponent(boost::get<std::string>(result));
   }
   return result;
-  */
 }
 
 FlightSqlConnection::FlightSqlConnection(OdbcVersion odbc_version,
                                          const std::string& driver_version)
     : diagnostics_("Apache Arrow", "Flight SQL", odbc_version),
       odbc_version_(odbc_version),
-      // TODO - fix build issues from get_info_cache and set proper value.
-      // info_(call_options_, sql_client_, driver_version),
+      info_(call_options_, sql_client_, driver_version),
       closed_(true) {
   attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_TRUE);
   attribute_[LOGIN_TIMEOUT] = static_cast<uint32_t>(0);

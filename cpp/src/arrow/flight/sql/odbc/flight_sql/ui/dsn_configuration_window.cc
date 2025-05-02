@@ -16,15 +16,15 @@
 // under the License.
 
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/ui/dsn_configuration_window.h"
+#include "arrow/flight/sql/odbc/flight_sql/flight_sql_connection.h"
 
 #include <Shlwapi.h>
 #include <Windowsx.h>
 #include <commctrl.h>
 #include <commdlg.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/utils.h>
 #include <sql.h>
 #include <sstream>
-#include "arrow/flight/sql/odbc/flight_sql/flight_sql_connection.h"
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/utils.h>
 
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/ui/add_property_window.h"
 

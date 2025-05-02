@@ -24,7 +24,7 @@
 namespace {
 
 using namespace arrow;
-namespace driver::odbcabstraction {
+using namespace driver::odbcabstraction;
 
 using driver::flight_sql::ThrowIfNotOK;
 
@@ -59,7 +59,7 @@ std::string ConvertNumericToString(NUMERIC_STRUCT& numeric) {
 
   return string;
 }
-}  // namespace driver::odbcabstraction
+}
 
 namespace driver {
 namespace flight_sql {
@@ -121,4 +121,3 @@ TEST(DecimalArrayFlightSqlAccessor,
 
 }  // namespace flight_sql
 }  // namespace driver
-}  // namespace

@@ -15,24 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 #include <winuser.h>
-#include <utility>
+#include "arrow/flight/sql/odbc/flight_sql/flight_sql_connection.h"
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/config/configuration.h"
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/config/connection_string_parser.h"
-#include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/ui/dsn_configuration_window.h"
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/ui/window.h"
-#include "arrow/flight/sql/odbc/flight_sqlflight_sql_connection.h"
+#include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/ui/dsn_configuration_window.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
+#include <utility>
 
 #include <odbcinst.h>
-#include <codecvt>
-#include <locale>
 #include <sstream>
+#include <locale>
+#include <codecvt>
 
-namespace std {
-namespace driver::flight_sql {
-namespace driver::flight_sql::config {
+using namespace std;
+using namespace driver::flight_sql;
+using namespace driver::flight_sql::config;
 
 BOOL CALLBACK ConfigDriver(HWND hwndParent, WORD fRequest, LPCSTR lpszDriver,
                            LPCSTR lpszArgs, LPSTR lpszMsg, WORD cbMsgMax,
@@ -170,7 +170,3 @@ BOOL INSTAPI ConfigDSN(HWND hwndParent, WORD req, LPCSTR driver, LPCSTR attribut
 
   return TRUE;
 }
-
-}  // namespace driver::flight_sql::config
-}  // namespace driver::flight_sql
-}  // namespace std

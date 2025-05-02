@@ -28,7 +28,7 @@
 
 #include <utility>
 
-using namespace driver::flight_sql; //-AL- todo see if this is needed.
+using namespace driver::flight_sql;
 
 namespace driver {
 namespace flight_sql {

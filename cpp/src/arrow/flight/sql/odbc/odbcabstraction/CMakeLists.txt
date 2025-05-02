@@ -17,6 +17,8 @@
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+include_directories(include)
+
 # Ensure fmt is loaded as header only
 add_compile_definitions(FMT_HEADER_ONLY)
 
@@ -57,7 +59,7 @@ add_library(odbcabstraction
             odbc_impl/odbc_environment.cc
             odbc_impl/odbc_statement.cc)
 target_include_directories(odbcabstraction PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)
-target_link_libraries(odbcabstraction PUBLIC ODBC::ODBC Boost::headers)
+target_link_libraries(odbcabstraction PUBLIC ${ODBC_LIBRARIES} Boost::headers)
 
 set_target_properties(odbcabstraction
                       PROPERTIES ARCHIVE_OUTPUT_DIRECTORY

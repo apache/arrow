@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/sql/odbc/flight_sql/timestamp_array_accessor.h"
+#include "arrow/flight/sql/odbc/flight_sql/accessors/timestamp_array_accessor.h"
 #include "arrow/flight/sql/odbc/flight_sql/utils.h"
 #include "arrow/testing/builder.h"
 #include "gtest/gtest.h"

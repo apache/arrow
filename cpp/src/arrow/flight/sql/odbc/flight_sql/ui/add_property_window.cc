@@ -17,14 +17,15 @@
 
 #include "ui/add_property_window.h"
 
-#include <Shlwapi.h>
 #include <Windowsx.h>
-#include <commctrl.h>
+#include <Shlwapi.h>
 #include <sstream>
+#include <commctrl.h>
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h>
 #include "ui/custom_window.h"
 #include "ui/window.h"
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h>
+
 
 namespace driver {
 namespace flight_sql {

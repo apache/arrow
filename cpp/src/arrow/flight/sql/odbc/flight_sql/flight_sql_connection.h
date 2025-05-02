@@ -19,12 +19,12 @@
 
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h"
 
-#include <vector>
+
 #include "arrow/flight/api.h"
 #include "arrow/flight/sql/api.h"
+#include <vector>
 
-// TODO - fix build issues from get_info_cache
-// #include "arrow/flight/sql/odbc/flight_sql/get_info_cache.h"
+#include "arrow/flight/sql/odbc/flight_sql/get_info_cache.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 
 namespace driver {
@@ -46,8 +46,7 @@ class FlightSqlConnection : public odbcabstraction::Connection {
   arrow::flight::FlightClientOptions client_options_;
   arrow::flight::FlightCallOptions call_options_;
   std::unique_ptr<arrow::flight::sql::FlightSqlClient> sql_client_;
-// TODO - fix build issues from get_info_cache
-//   GetInfoCache info_;
+  GetInfoCache info_;
   odbcabstraction::Diagnostics diagnostics_;
   odbcabstraction::OdbcVersion odbc_version_;
   bool closed_;

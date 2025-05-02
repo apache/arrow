@@ -123,7 +123,7 @@ TEST(BuildLocationTests, ForTcp) {
       missing_attr, ssl_config);
 
   Location expected_location;
-  ASSERT_TRUE(Location::ForGrpcTcp("localhost", 32010, &expected_location).ok());
+  ASSERT_TRUE(Location::ForGrpcTcp("localhost", 32010).Value(&expected_location).ok());
   ASSERT_EQ(expected_location, actual_location1);
   ASSERT_NE(expected_location, actual_location2);
 }
@@ -204,3 +204,8 @@ TEST(PopulateCallOptionsTest, GenericOptionWithSpaces) {
 
 }  // namespace flight_sql
 }  // namespace driver
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}

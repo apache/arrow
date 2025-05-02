@@ -52,8 +52,6 @@ const boost::xpressive::sregex CONNECTION_STR_REGEX(
 // entries in the properties.
 void loadPropertiesFromDSN(const std::string& dsn,
                            Connection::ConnPropertyMap& properties) {
-  // TODO - fix build errors with configuration window
-  /*
   const size_t BUFFER_SIZE = 1024 * 10;
   std::vector<char> outputBuffer;
   outputBuffer.resize(BUFFER_SIZE, '\0');
@@ -94,7 +92,6 @@ void loadPropertiesFromDSN(const std::string& dsn,
       properties.emplace(std::make_pair(std::move(key), std::move(value)));
     }
   }
-  */
 }
 
 }  // namespace
