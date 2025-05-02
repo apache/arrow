@@ -32,8 +32,8 @@ let package = Package(
             targets: ["ArrowFlight"])
     ],
     dependencies: [
-        .package(url: "https://github.com/grpc/grpc-swift.git", from: "1.15.0"),
-        .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.6.0"),
+        .package(url: "https://github.com/grpc/grpc-swift.git", from: "1.25.0"),
+        .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.29.0"),
         .package(path: "../Arrow")
     ],
     targets: [
