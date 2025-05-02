@@ -220,7 +220,7 @@ cdef class BooleanScalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __bool__(self):
-        return (self.as_py())
+        return self.as_py()
 
 cdef class UInt8Scalar(Scalar):
     """
