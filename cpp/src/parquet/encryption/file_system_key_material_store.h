@@ -45,8 +45,8 @@ class PARQUET_EXPORT FileSystemKeyMaterialStore : public FileKeyMaterialStore {
   /// so that temporary key material files can be created while using the existing key
   /// material, before moving the key material to the non-temporary location.
   static std::shared_ptr<FileSystemKeyMaterialStore> Make(
-      std::string parquet_file_path,
-      std::shared_ptr<::arrow::fs::FileSystem> file_system, bool use_tmp_prefix);
+      std::string parquet_file_path, std::shared_ptr<::arrow::fs::FileSystem> file_system,
+      bool use_tmp_prefix);
 
   /// Add key material for one encryption key.
   void AddKeyMaterial(std::string key_id_in_file, std::string key_material) {
