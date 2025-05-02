@@ -1490,7 +1490,7 @@ Dir::ArchiveDir ".";
 Dir::CacheDir ".";
 TreeDefault::Directory "pool/#{code_name}/#{component}";
 TreeDefault::SrcDirectory "pool/#{code_name}/#{component}";
-Default::Packages::Extensions ".deb";
+Default::Packages::Extensions ".deb .ddeb";
 Default::Packages::Compress ". gzip xz";
 Default::Sources::Compress ". gzip xz";
 Default::Contents::Compress "gzip";
