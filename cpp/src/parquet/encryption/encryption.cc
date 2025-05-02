@@ -205,16 +205,16 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted,
   key_ = key;
 }
 
-ColumnDecryptionProperties::ColumnDecryptionProperties(const std::string& column_path,
-                                                       const std::string& key)
-    : column_path_(column_path) {
+ColumnDecryptionProperties::ColumnDecryptionProperties(std::string column_path,
+                                                       std::string key) {
   DCHECK(!column_path.empty());
+  column_path_ = std::move(column_path);
 
   if (!key.empty()) {
     DCHECK(key.length() == 16 || key.length() == 24 || key.length() == 32);
   }
 
-  key_ = key;
+  key_ = std::move(key);
 }
 
 std::string FileDecryptionProperties::column_key(const std::string& column_path) const {

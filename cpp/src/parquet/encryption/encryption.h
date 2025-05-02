@@ -184,24 +184,17 @@ class PARQUET_EXPORT ColumnDecryptionProperties {
     std::string key_;
   };
 
-  ColumnDecryptionProperties() = default;
-  ColumnDecryptionProperties(const ColumnDecryptionProperties& other) = default;
-  ColumnDecryptionProperties(ColumnDecryptionProperties&& other) = default;
-
-  ~ColumnDecryptionProperties() { key_.clear(); }
-
   std::string column_path() const { return column_path_; }
   std::string key() const { return key_; }
 
  private:
-  const std::string column_path_;
+  std::string column_path_;
   std::string key_;
 
   /// This class is only required for setting explicit column decryption keys -
   /// to override key retriever (or to provide keys when key metadata and/or
   /// key retriever are not available)
-  explicit ColumnDecryptionProperties(const std::string& column_path,
-                                      const std::string& key);
+  explicit ColumnDecryptionProperties(std::string column_path, std::string key);
 };
 
 class PARQUET_EXPORT AADPrefixVerifier {
