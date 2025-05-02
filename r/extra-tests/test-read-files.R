@@ -18,8 +18,6 @@
 library(arrow)
 library(testthat)
 
-source("tests/testthat/helper-skip.R")
-
 pq_file <- "files/ex_data.parquet"
 
 test_that("Can read the file (parquet)", {
