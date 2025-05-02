@@ -34,7 +34,8 @@ class DataType;
 
 namespace json {
 
-/// \defgroup array-from-json Helpers for constructing Arrays from JSON text
+/// \defgroup array-from-json-string Helpers for constructing Arrays from JSON
+/// text
 ///
 /// These helpers are intended to be used in examples, tests, or for quick
 /// prototyping and are not intended to be used where performance matters.

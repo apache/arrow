@@ -227,10 +227,8 @@ to some logical subsequence of the data.  This is done by calling the
 :func:`arrow::Array::Slice` and :func:`arrow::ChunkedArray::Slice` methods,
 respectively.
 
-.. _fromjson_helpers:
-
-FromJSON Helpers
-================
+FromJSONString Helpers
+======================
 
 A set of helper functions is provided for concisely creating Arrays and Scalars
 from JSON_ text. These helpers are intended to be used in examples, tests, or
@@ -241,42 +239,42 @@ objects from line-separated JSON files.
 
 .. _JSON: https://datatracker.ietf.org/doc/html/rfc8259
 
-Examples for ``ArrayFromJSON``, ``ChunkedArrayFromJSON``, ``DictArrayFromJSON``
-are shown below::
+Examples for ``ArrayFromJSONString``, ``ChunkedArrayFromJSONString``,
+``DictArrayFromJSONString`` are shown below::
 
    // Simple types
-   auto int32_array = ArrayFromJSON(int32(), "[1, 2, 3]");
-   auto float64_array = ArrayFromJSON(float64(), "[4.0, 5.0, 6.0]")
-   auto bool_array = ArrayFromJSON(boolean(), "[true, false, true]");
-   auto string_array = ArrayFromJSON(utf8(), R"(["Hello", "World", null])");
+   auto int32_array = ArrayFromJSONString(int32(), "[1, 2, 3]");
+   auto float64_array = ArrayFromJSONString(float64(), "[4.0, 5.0, 6.0]")
+   auto bool_array = ArrayFromJSONString(boolean(), "[true, false, true]");
+   auto string_array = ArrayFromJSONString(utf8(), R"(["Hello", "World", null])");
 
    // Timestamps can be created from string representations
-   auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND),
+   auto arr = ArrayFromJSONString(timestamp(TimeUnit::SECOND),
                             R"(["1970-01-01","2000-02-29","3989-07-14","1900-02-28"])");
 
    // List, Map, Struct
-   auto list_array = ArrayFromJSON(
+   auto list_array = ArrayFromJSONString(
       list(int64()),
       "[[null], [], null, [4, 5, 6, 7, 8], [2, 3]]"
    );
-   auto map_array = ArrayFromJSON(
+   auto map_array = ArrayFromJSONString(
       map(utf8(), int32()),
       R"([[["joe", 0], ["mark", null]], null, [["cap", 8]], []])"
    );
-   auto struct_array = ArrayFromJSON(
+   auto struct_array = ArrayFromJSONString(
       struct_({field("one", int32()), field("two", int32())}),
       "[[11, 22], null, [null, 33]]"
    );
 
-    // ChunkedArrayFromJSON
-   ChunkedArrayFromJSON(int32(), {R"([5, 10])", R"([null])", R"([16])"});
+    // ChunkedArrayFromJSONString
+   ChunkedArrayFromJSONString(int32(), {R"([5, 10])", R"([null])", R"([16])"});
 
-   // DictArrayFromJSON
-   auto key_array = DictArrayFromJSON(
+   // DictArrayFromJSONString
+   auto key_array = DictArrayFromJSONString(
       dictionary(int32(), utf8()),
       "[0, 1, 0, 2, 0, 3]",
       R"(["k1", "k2", "k3", "k4"])"
    );
 
-Please see the :ref:`FromJSON API listing <api-array-from-json>` for the
-complete set of helpers.
+Please see the :ref:`FromJSONString API listing <api-array-from-json-string>` for
+the complete set of helpers.

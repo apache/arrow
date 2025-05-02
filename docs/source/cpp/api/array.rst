@@ -111,11 +111,11 @@ Utilities
    :members:
    :undoc-members:
 
-.. _api-array-from-json:
+.. _api-array-from-json-string:
 
-FromJSON Helpers
-----------------
+FromJSONString Helpers
+----------------------
 
-.. doxygengroup:: array-from-json
+.. doxygengroup:: array-from-json-string
    :content-only:
    :members:
