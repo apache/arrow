@@ -77,7 +77,7 @@ TEST_F(TwoLevelCacheWithExpirationTest, RemoveExpiration) {
   // lifetime2 will not be expired
   SleepFor(0.3);
   // now clear expired items from the cache
-  cache_.RemoveExpiredEntriesFromCache();
+  cache_.CheckCacheForExpiredTokens();
 
   // lifetime1 (with 2 items) is expired and has been removed from the cache.
   // Now the cache create a new object which has no item.

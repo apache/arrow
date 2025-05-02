@@ -110,7 +110,7 @@ class TwoLevelCacheWithExpiration {
     return cache_[access_token].cached_item();
   }
 
-  void CheckCacheForExpiredTokens(double cache_cleanup_period_seconds) {
+  void CheckCacheForExpiredTokens(double cache_cleanup_period_seconds = 0.0) {
     auto lock = mutex_.Lock();
 
     const auto now = internal::CurrentTimePoint();
@@ -119,12 +119,6 @@ class TwoLevelCacheWithExpiration {
       RemoveExpiredEntriesNoMutex();
       last_cache_cleanup_timestamp_ = now;
     }
-  }
-
-  void RemoveExpiredEntriesFromCache() {
-    auto lock = mutex_.Lock();
-
-    RemoveExpiredEntriesNoMutex();
   }
 
   void Remove(const std::string& access_token) {
