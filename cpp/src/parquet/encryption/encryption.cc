@@ -225,14 +225,14 @@ std::string FileDecryptionProperties::column_key(const std::string& column_path)
       return column_prop->key();
     }
   }
-  return empty_string_;
+  return {};
 }
 
 FileDecryptionProperties::FileDecryptionProperties(
-    const std::string& footer_key, std::shared_ptr<DecryptionKeyRetriever> key_retriever,
-    bool check_plaintext_footer_integrity, const std::string& aad_prefix,
+    std::string footer_key, std::shared_ptr<DecryptionKeyRetriever> key_retriever,
+    bool check_plaintext_footer_integrity, std::string aad_prefix,
     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
-    const ColumnPathToDecryptionPropertiesMap& column_decryption_properties,
+    ColumnPathToDecryptionPropertiesMap column_decryption_properties,
     bool plaintext_files_allowed) {
   DCHECK(!footer_key.empty() || nullptr != key_retriever ||
          0 != column_decryption_properties.size());
@@ -245,11 +245,11 @@ FileDecryptionProperties::FileDecryptionProperties(
     DCHECK(nullptr != key_retriever);
   }
   aad_prefix_verifier_ = std::move(aad_prefix_verifier);
-  footer_key_ = footer_key;
+  footer_key_ = std::move(footer_key);
   check_plaintext_footer_integrity_ = check_plaintext_footer_integrity;
   key_retriever_ = std::move(key_retriever);
-  aad_prefix_ = aad_prefix;
-  column_decryption_properties_ = column_decryption_properties;
+  aad_prefix_ = std::move(aad_prefix);
+  column_decryption_properties_ = std::move(column_decryption_properties);
   plaintext_files_allowed_ = plaintext_files_allowed;
 }
 

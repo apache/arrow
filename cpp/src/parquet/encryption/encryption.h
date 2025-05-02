@@ -331,7 +331,6 @@ class PARQUET_EXPORT FileDecryptionProperties {
   std::string aad_prefix_;
   std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier_;
 
-  const std::string empty_string_ = "";
   ColumnPathToDecryptionPropertiesMap column_decryption_properties_;
 
   std::shared_ptr<DecryptionKeyRetriever> key_retriever_;
@@ -339,11 +338,10 @@ class PARQUET_EXPORT FileDecryptionProperties {
   bool plaintext_files_allowed_;
 
   FileDecryptionProperties(
-      const std::string& footer_key,
-      std::shared_ptr<DecryptionKeyRetriever> key_retriever,
-      bool check_plaintext_footer_integrity, const std::string& aad_prefix,
+      std::string footer_key, std::shared_ptr<DecryptionKeyRetriever> key_retriever,
+      bool check_plaintext_footer_integrity, std::string aad_prefix,
       std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
-      const ColumnPathToDecryptionPropertiesMap& column_decryption_properties,
+      ColumnPathToDecryptionPropertiesMap column_decryption_properties,
       bool plaintext_files_allowed);
 };
 
