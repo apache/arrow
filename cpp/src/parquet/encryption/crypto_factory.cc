@@ -175,7 +175,7 @@ std::shared_ptr<FileDecryptionProperties> CryptoFactory::GetFileDecryptionProper
       file_path, file_system);
 
   return FileDecryptionProperties::Builder()
-      .key_retriever(key_retriever)
+      .key_retriever(std::move(key_retriever))
       ->plaintext_files_allowed()
       ->build();
 }

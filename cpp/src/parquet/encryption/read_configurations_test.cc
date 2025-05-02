@@ -125,7 +125,7 @@ class TestDecryptionConfiguration
 
     parquet::FileDecryptionProperties::Builder file_decryption_builder_1;
     vector_of_decryption_configurations_.push_back(
-        file_decryption_builder_1.key_retriever(kr1)->build());
+        file_decryption_builder_1.key_retriever(std::move(kr1))->build());
 
     // Decryption configuration 2: Decrypt using key retriever callback that holds the
     // keys of two encrypted columns and the footer key. Supply aad_prefix.
@@ -139,7 +139,9 @@ class TestDecryptionConfiguration
 
     parquet::FileDecryptionProperties::Builder file_decryption_builder_2;
     vector_of_decryption_configurations_.push_back(
-        file_decryption_builder_2.key_retriever(kr2)->aad_prefix(kFileName_)->build());
+        file_decryption_builder_2.key_retriever(std::move(kr2))
+            ->aad_prefix(kFileName_)
+            ->build());
 
     // Decryption configuration 3: Decrypt using explicit column and footer keys. Supply
     // aad_prefix.
@@ -159,7 +161,7 @@ class TestDecryptionConfiguration
     parquet::FileDecryptionProperties::Builder file_decryption_builder_3;
     vector_of_decryption_configurations_.push_back(
         file_decryption_builder_3.footer_key(kFooterEncryptionKey_)
-            ->column_keys(decryption_cols)
+            ->column_keys(std::move(decryption_cols))
             ->build());
 
     // Decryption Configuration 4: use plaintext footer mode, read only footer + plaintext

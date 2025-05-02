@@ -216,7 +216,7 @@ int main(int argc, char** argv) {
 
     // Add the current decryption configuration to ReaderProperties.
     reader_properties.file_decryption_properties(
-        file_decryption_builder.key_retriever(kr1)->build());
+        file_decryption_builder.key_retriever(std::move(kr1))->build());
 
     // Create a ParquetReader instance
     std::unique_ptr<parquet::ParquetFileReader> parquet_reader =
