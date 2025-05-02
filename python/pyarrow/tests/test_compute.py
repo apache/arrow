@@ -3791,12 +3791,13 @@ def check_run_end_encode_decode(value_type, run_end_encode_opts=None):
 
     # When value_type is floating point, we need to explicitly convert to create
     # the array. There might be a better way to do this.
-    if value_type is pa.float16():
-        values = np.float16(values)
-    elif value_type is pa.float32():
-        values = np.float32(values)
-    elif values is pa.float64():
-        values = np.float64(values)
+    if np is not None:
+        if value_type is pa.float16():
+            values = np.float16(values)
+        elif value_type is pa.float32():
+            values = np.float32(values)
+        elif values is pa.float64():
+            values = np.float64(values)
 
     arr = pa.array(values, type=value_type)
     encoded = pc.run_end_encode(arr, options=run_end_encode_opts)
