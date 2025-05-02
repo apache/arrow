@@ -358,6 +358,7 @@ if needs_json
                 'json/chunked_builder.cc',
                 'json/chunker.cc',
                 'json/converter.cc',
+                'json/from_string.cc',
                 'json/object_parser.cc',
                 'json/object_writer.cc',
                 'json/parser.cc',
@@ -366,9 +367,6 @@ if needs_json
             'dependencies': [rapidjson_dep],
         },
     }
-
-    arrow_util_srcs += 'util/from_json.cc'
-    arrow_util_deps += rapidjson_dep
 endif
 
 arrow_srcs = []

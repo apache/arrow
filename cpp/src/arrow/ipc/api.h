@@ -22,4 +22,4 @@
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
-#include "arrow/util/from_json.h"
+#include "arrow/json/from_string.h"

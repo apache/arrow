@@ -32,7 +32,7 @@ namespace arrow {
 class Array;
 class DataType;
 
-namespace util {
+namespace json {
 
 /// \defgroup array-from-json Helpers for constructing Arrays from JSON text
 ///
@@ -43,41 +43,45 @@ namespace util {
 
 /// \brief Create an Array from a JSON string
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> ArrayFromJSON(const std::shared_ptr<DataType>&,
-                                             const std::string& json);
+Result<std::shared_ptr<Array>> ArrayFromJSONString(const std::shared_ptr<DataType>&,
+                                                   const std::string& json);
 
 /// \brief Create an Array from a JSON string
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> ArrayFromJSON(const std::shared_ptr<DataType>&,
-                                             std::string_view json);
+Result<std::shared_ptr<Array>> ArrayFromJSONString(const std::shared_ptr<DataType>&,
+                                                   std::string_view json);
 
 /// \brief Create an Array from a JSON string
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> ArrayFromJSON(const std::shared_ptr<DataType>&,
-                                             const char* json);
+Result<std::shared_ptr<Array>> ArrayFromJSONString(const std::shared_ptr<DataType>&,
+                                                   const char* json);
 
 /// \brief Create an ChunkedArray from a JSON string
 ARROW_EXPORT
-Status ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
-                            const std::vector<std::string>& json_strings,
-                            std::shared_ptr<ChunkedArray>* out);
+Status ChunkedArrayFromJSONString(const std::shared_ptr<DataType>& type,
+                                  const std::vector<std::string>& json_strings,
+                                  std::shared_ptr<ChunkedArray>* out);
 
 /// \brief Create an DictionaryArray from a JSON string
 ARROW_EXPORT
-Status DictArrayFromJSON(const std::shared_ptr<DataType>&, std::string_view indices_json,
-                         std::string_view dictionary_json, std::shared_ptr<Array>* out);
+Status DictArrayFromJSONString(const std::shared_ptr<DataType>&,
+                               std::string_view indices_json,
+                               std::string_view dictionary_json,
+                               std::shared_ptr<Array>* out);
 
 /// \brief Create an Scalar from a JSON string
 ARROW_EXPORT
-Status ScalarFromJSON(const std::shared_ptr<DataType>&, std::string_view json,
-                      std::shared_ptr<Scalar>* out);
+Status ScalarFromJSONString(const std::shared_ptr<DataType>&, std::string_view json,
+                            std::shared_ptr<Scalar>* out);
 
 /// \brief Create an DictionaryScalar from a JSON string
 ARROW_EXPORT
-Status DictScalarFromJSON(const std::shared_ptr<DataType>&, std::string_view index_json,
-                          std::string_view dictionary_json, std::shared_ptr<Scalar>* out);
+Status DictScalarFromJSONString(const std::shared_ptr<DataType>&,
+                                std::string_view index_json,
+                                std::string_view dictionary_json,
+                                std::shared_ptr<Scalar>* out);
 
 /// @}
 
-}  // namespace util
+}  // namespace json
 }  // namespace arrow

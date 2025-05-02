@@ -53,6 +53,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/json/from_string.h"
 #include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
@@ -62,7 +63,6 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
-#include "arrow/util/from_json.h"
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging_internal.h"
@@ -381,7 +381,7 @@ void AssertDatumsApproxEqual(const Datum& expected, const Datum& actual, bool ve
 
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
                                      std::string_view json) {
-  EXPECT_OK_AND_ASSIGN(auto out, util::ArrayFromJSON(type, json));
+  EXPECT_OK_AND_ASSIGN(auto out, json::ArrayFromJSONString(type, json));
   return out;
 }
 
@@ -389,14 +389,14 @@ std::shared_ptr<Array> DictArrayFromJSON(const std::shared_ptr<DataType>& type,
                                          std::string_view indices_json,
                                          std::string_view dictionary_json) {
   std::shared_ptr<Array> out;
-  ABORT_NOT_OK(util::DictArrayFromJSON(type, indices_json, dictionary_json, &out));
+  ABORT_NOT_OK(json::DictArrayFromJSONString(type, indices_json, dictionary_json, &out));
   return out;
 }
 
 std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
                                                    const std::vector<std::string>& json) {
   std::shared_ptr<ChunkedArray> out;
-  ABORT_NOT_OK(util::ChunkedArrayFromJSON(type, json, &out));
+  ABORT_NOT_OK(json::ChunkedArrayFromJSONString(type, json, &out));
   return out;
 }
 
@@ -413,7 +413,7 @@ std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& 
 std::shared_ptr<Scalar> ScalarFromJSON(const std::shared_ptr<DataType>& type,
                                        std::string_view json) {
   std::shared_ptr<Scalar> out;
-  ABORT_NOT_OK(util::ScalarFromJSON(type, json, &out));
+  ABORT_NOT_OK(json::ScalarFromJSONString(type, json, &out));
   return out;
 }
 
@@ -421,7 +421,7 @@ std::shared_ptr<Scalar> DictScalarFromJSON(const std::shared_ptr<DataType>& type
                                            std::string_view index_json,
                                            std::string_view dictionary_json) {
   std::shared_ptr<Scalar> out;
-  ABORT_NOT_OK(util::DictScalarFromJSON(type, index_json, dictionary_json, &out));
+  ABORT_NOT_OK(json::DictScalarFromJSONString(type, index_json, dictionary_json, &out));
   return out;
 }
 

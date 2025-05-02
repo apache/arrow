@@ -551,10 +551,6 @@ if(ARROW_HAVE_NEON)
   list(APPEND ARROW_UTIL_SRCS util/bpacking_neon.cc)
 endif()
 
-if(ARROW_JSON)
-  list(APPEND ARROW_UTIL_SRCS util/from_json.cc)
-endif()
-
 if(ARROW_WITH_BROTLI)
   list(APPEND ARROW_UTIL_SRCS util/compression_brotli.cc)
 endif()
@@ -940,6 +936,7 @@ if(ARROW_JSON)
                            json/chunked_builder.cc
                            json/chunker.cc
                            json/converter.cc
+                           json/from_string.cc
                            json/object_parser.cc
                            json/object_writer.cc
                            json/parser.cc

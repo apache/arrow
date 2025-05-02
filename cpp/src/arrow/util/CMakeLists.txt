@@ -114,10 +114,6 @@ add_arrow_test(crc32-test
                EXTRA_LINK_LIBS
                Boost::headers)
 
-if(ARROW_JSON)
-  add_arrow_test(from_json_test SOURCES from_json_test.cc)
-endif()
-
 add_arrow_benchmark(bit_block_counter_benchmark)
 add_arrow_benchmark(bit_util_benchmark)
 add_arrow_benchmark(bitmap_reader_benchmark)

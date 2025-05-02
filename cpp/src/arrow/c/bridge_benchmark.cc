@@ -22,10 +22,10 @@
 #include "arrow/array.h"
 #include "arrow/c/bridge.h"
 #include "arrow/c/helpers.h"
+#include "arrow/json/from_string.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
-#include "arrow/util/from_json.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow::benchmarks {

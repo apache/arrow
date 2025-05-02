@@ -29,11 +29,11 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/json/from_string.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/util/compression.h"
-#include "arrow/util/from_json.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 
