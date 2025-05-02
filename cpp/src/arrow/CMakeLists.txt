@@ -859,6 +859,10 @@ if(ARROW_COMPUTE)
   foreach(LIB_TARGET ${ARROW_COMPUTE_LIBRARIES})
     target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_COMPUTE_EXPORTING)
   endforeach()
+
+  if(ARROW_BUILD_STATIC AND WIN32)
+    target_compile_definitions(arrow_compute_static PUBLIC ARROW_COMPUTE_STATIC)
+  endif()
 endif()
 
 arrow_add_object_library(ARROW_COMPUTE_CORE ${ARROW_COMPUTE_SRCS})
