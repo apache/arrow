@@ -115,8 +115,8 @@ jobs:
       - name: Setup our testing directory, copy only the tests to it.
         run: |
           mkdir -p extra-tests/files
-          # Move test helpers for e.g. skip_if_arrow_version_less_than()
-          cp arrow/r/tests/testthat/helper*.R extra-tests/
+          # Move test helpers for skip_if_arrow_version_less_than()
+          cp arrow/r/tests/testthat/helper-skip.R extra-tests/
           cp arrow/r/extra-tests/*.R extra-tests/
       - name: Download artifacts
         uses: actions/download-artifact@v4
