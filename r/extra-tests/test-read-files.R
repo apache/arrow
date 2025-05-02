@@ -18,24 +18,20 @@
 library(arrow)
 library(testthat)
 
-# These are copied from tests/testthat/helper-skip.R so we don't need to load all of 
-# the helpers.
-if_version_less_than <- function(version) {
-  arrow_cpp_version() < numeric_version(version)
+# These are similar to functions in tests/testthat/helper-skip.R but we duplicate them
+# here since very old versions don't have arrow_info() with exactly the same shape
+if_version <- function(version, op = `==`) {
+  op(packageVersion("arrow"), version)
 }
 
-skip_if_arrow_version_less_than <- function(version, msg) {
-  if (if_version_less_than(version)) {
+if_version_less_than <- function(version) {
+  if_version(version, op = `<`)
+}
+
+skip_if_version_less_than <- function(version, msg) {
+  if (if_version(version, `<`)) {
     skip(msg)
   }
-}
-
-if_version_less_than <- function(version) {
-  arrow_cpp_version() < numeric_version(version)
-}
-
-arrow_cpp_version <- function() {
-  numeric_version(gsub("-SNAPSHOT", "", arrow::arrow_info()$build_info["cpp_version"]))
 }
 
 pq_file <- "files/ex_data.parquet"
@@ -50,7 +46,7 @@ test_that("Can read the file (parquet)", {
 
 ### Parquet
 test_that("Can see the metadata (parquet)", {
-  skip_if_arrow_version_less_than("2.0.0", "Version 1.0.1 can't read new version metadata.")
+  skip_if_version_less_than("2.0.0", "Version 1.0.1 can't read new version metadata.")
 
   df <- read_parquet(pq_file)
   expect_s3_class(df, "tbl")
@@ -94,7 +90,7 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
   })
 
   test_that(paste0("Can see the metadata (feather ", comp, ")"), {
-    skip_if_arrow_version_less_than("2.0.0", "Version 1.0.1 can't read new version metadata.")
+    skip_if_version_less_than("2.0.0", "Version 1.0.1 can't read new version metadata.")
 
     df <- read_feather(feather_file)
     expect_s3_class(df, "tbl")
@@ -152,7 +148,7 @@ test_that("Can read the file (parquet)", {
 })
 
 test_that("Can see the metadata (stream)", {
-  skip_if_arrow_version_less_than("2.0.0", "Version 1.0.1 can't read new version metadata.")
+  skip_if_version_less_than("2.0.0", "Version 1.0.1 can't read new version metadata.")
   df <- read_ipc_stream(stream_file)
 
   expect_s3_class(df, "tbl")
