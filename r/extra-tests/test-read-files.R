@@ -20,10 +20,18 @@ library(testthat)
 
 # These are copied from tests/testthat/helper-skip.R so we don't need to load all of 
 # the helpers.
+if_version_less_than <- function(version) {
+  arrow_cpp_version() < numeric_version(version)
+}
+
 skip_if_arrow_version_less_than <- function(version, msg) {
-  if (arrow_cpp_version() < numeric_version(version)) {
+  if (if_version_less_than(version)) {
     skip(msg)
   }
+}
+
+if_version_less_than <- function(version) {
+  arrow_cpp_version() < numeric_version(version)
 }
 
 arrow_cpp_version <- function() {
