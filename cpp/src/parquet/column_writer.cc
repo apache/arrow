@@ -60,6 +60,14 @@
 #include "parquet/thrift_internal.h"
 #include "parquet/types.h"
 
+#include <iostream>
+#include <iomanip>
+#include <cstring>
+#include "arrow/io/memory.h"
+#include "arrow/buffer.h"
+#include "parquet/column_writer.h"
+#include "arrow/util/bit_util.h"
+
 using arrow::Array;
 using arrow::ArrayData;
 using arrow::Datum;
@@ -306,6 +314,7 @@ class SerializedPageWriter : public PageWriter {
       UpdateEncryption(encryption::kDictionaryPage);
       PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
           data_encryptor_->CiphertextLength(output_data_len), false));
+      std::cout << ("Trace 1.1  column_writer.cc WriteDictionaryPage line 329.") << std::endl;
       output_data_len =
           data_encryptor_->Encrypt(compressed_data->span_as<uint8_t>(),
                                    encryption_buffer_->mutable_span_as<uint8_t>());
@@ -398,6 +407,7 @@ class SerializedPageWriter : public PageWriter {
       PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
           data_encryptor_->CiphertextLength(output_data_len), false));
       UpdateEncryption(encryption::kDataPage);
+      std::cout << ("Trace 1.2  column_writer.cc WritedataPage line 422.") << std::endl;
       output_data_len =
           data_encryptor_->Encrypt(compressed_data->span_as<uint8_t>(),
                                    encryption_buffer_->mutable_span_as<uint8_t>());
