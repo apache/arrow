@@ -339,8 +339,6 @@ test_that("trig functions", {
 })
 
 test_that("hyperbolic trig functions", {
-  skip_if_arrow_version_less_than("18.1.0.9000", "Hyperbolic trig functions not available until version 19.")
-
   # Note: We change df mid-test because domains differ by function
   df <- tibble(x = c(seq(from = 0, to = 1, by = 0.1), NA))
 
@@ -495,8 +493,6 @@ test_that("sqrt()", {
 })
 
 test_that("expm1()", {
-  skip_if_arrow_version_less_than("18.1.0.9000", "`expm1()` not available until version 19.")
-
   df <- tibble(x = c(1:5))
 
   compare_dplyr_binding(
