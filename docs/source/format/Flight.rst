@@ -381,12 +381,12 @@ able to provide a URI where the client may simply download the data
 directly, rather than requiring a Flight service to read it back into
 memory and serve it from a ``DoGet`` request.
 
-To avoid the complexities of Flight Clients having to implement support
+To avoid the complexities of Flight clients having to implement support
 for multiple different cloud storage vendors (e.g. AWS S3, Google Cloud),
-we extend the URIs to only allow an HTTP/HTTPS uri where the client can
+we extend the URIs to only allow an HTTP/HTTPS URI where the client can
 perform a simple GET request to download the data. Authentication can be
 handled either by negotiating externally to the Flight protocol or by the
-Server sending a presigned URL that the client can make a GET request to.
+server sending a presigned URL that the client can make a GET request to.
 This should be supported by all current major cloud storage vendors, meaning
 only the server needs to know the semantics of the underlying object store APIs.
 
