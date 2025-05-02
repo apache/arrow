@@ -116,7 +116,7 @@ TEST_F(TwoLevelCacheWithExpirationTest, CleanupPeriodOk) {
   ASSERT_EQ(lifetime2->size(), 2);
 
   // The further process is added to test whether the timestamp is set correctly.
-  // CheckCheckCacheForExpiredTokens() should be called at least twice to verify the
+  // CheckCacheForExpiredTokens() should be called at least twice to verify the
   // correctness.
   SleepFor(0.3);
   cache_.CheckCacheForExpiredTokens(0.2);
