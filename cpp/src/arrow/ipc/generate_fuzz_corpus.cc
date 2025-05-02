@@ -41,7 +41,7 @@ namespace arrow::ipc {
 
 using ::arrow::internal::CreateDir;
 using ::arrow::internal::PlatformFilename;
-using ::arrow::util::ArrayFromJSON;
+using ::arrow::json::ArrayFromJSONString;
 
 Result<std::shared_ptr<RecordBatch>> MakeExtensionBatch() {
   auto array = ExampleUuid();
@@ -60,7 +60,7 @@ Result<std::shared_ptr<RecordBatch>> MakeMapBatch() {
     []
   ]
 )";
-  ARROW_ASSIGN_OR_RAISE(array, ArrayFromJSON(map(int16(), int32()), json_input));
+  ARROW_ASSIGN_OR_RAISE(array, ArrayFromJSONString(map(int16(), int32()), json_input));
   auto schema = ::arrow::schema({field("f0", array->type())});
   return RecordBatch::Make(schema, array->length(), {array});
 }
