@@ -237,7 +237,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
     /// will be wiped out (array values set to 0).
     /// Caller is responsible for wiping out the input key array.
     /// param footerKey Key length must be either 16, 24 or 32 bytes.
-    Builder* footer_key(const std::string footer_key);
+    Builder* footer_key(std::string footer_key);
 
     /// Set explicit column keys (decryption properties).
     /// Its also possible to set a key retriever on this property object.
@@ -246,7 +246,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
     /// If an explicit key is available for a footer or a column,
     /// its key metadata will be ignored.
     Builder* column_keys(
-        const ColumnPathToDecryptionPropertiesMap& column_decryption_properties);
+        ColumnPathToDecryptionPropertiesMap column_decryption_properties);
 
     /// Set a key retriever callback. Its also possible to
     /// set explicit footer or column keys on this file property object.
@@ -254,7 +254,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
     /// invocation of the retriever callback.
     /// If an explicit key is available for a footer or a column,
     /// its key metadata will be ignored.
-    Builder* key_retriever(const std::shared_ptr<DecryptionKeyRetriever>& key_retriever);
+    Builder* key_retriever(std::shared_ptr<DecryptionKeyRetriever> key_retriever);
 
     /// Skip integrity verification of plaintext footers.
     /// If not called, integrity of plaintext footers will be checked in runtime,
@@ -271,7 +271,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
     /// A must when a prefix is used for file encryption, but not stored in file.
     /// If AAD prefix is stored in file, it will be compared to the explicitly
     /// supplied value and an exception will be thrown if they differ.
-    Builder* aad_prefix(const std::string& aad_prefix);
+    Builder* aad_prefix(std::string aad_prefix);
 
     /// Set callback for verification of AAD Prefixes stored in file.
     Builder* aad_prefix_verifier(std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier);

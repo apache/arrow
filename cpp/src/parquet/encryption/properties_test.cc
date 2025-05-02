@@ -220,7 +220,7 @@ TEST(TestDecryptionProperties, UseKeyRetriever) {
       std::static_pointer_cast<parquet::StringKeyIdRetriever>(string_kr1);
 
   parquet::FileDecryptionProperties::Builder builder;
-  builder.key_retriever(kr1);
+  builder.key_retriever(std::move(kr1));
   std::shared_ptr<parquet::FileDecryptionProperties> props = builder.build();
 
   auto out_key_retriever = props->key_retriever();
@@ -261,7 +261,7 @@ TEST(TestDecryptionProperties, UsingExplicitFooterAndColumnKeys) {
 
   parquet::FileDecryptionProperties::Builder builder;
   builder.footer_key(kFooterEncryptionKey);
-  builder.column_keys(decryption_cols);
+  builder.column_keys(std::move(decryption_cols));
   std::shared_ptr<parquet::FileDecryptionProperties> props = builder.build();
 
   ASSERT_EQ(kFooterEncryptionKey, props->footer_key());
