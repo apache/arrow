@@ -56,6 +56,8 @@ RUN /arrow/ci/scripts/install_azurite.sh
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
+RUN apt-get install -y nvidia-cuda-toolkit
+
 ENV ARROW_ACERO=ON \
     ARROW_AZURE=ON \
     ARROW_BUILD_TESTS=ON \
