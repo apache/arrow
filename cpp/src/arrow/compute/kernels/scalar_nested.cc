@@ -361,7 +361,8 @@ struct ListSlice {
                                           BuilderType* out_list_builder) {
     if constexpr (kIsFixedSizeOutput) {
       DCHECK_EQ(out_list_builder->type()->id(), Type::FIXED_SIZE_LIST);
-      return out_list_builder->Append();
+      out_list_builder->UnsafeAppend();
+      return Status::OK();
     } else {
       return out_list_builder->Append(/*is_valid=*/true, slice_length);
     }
