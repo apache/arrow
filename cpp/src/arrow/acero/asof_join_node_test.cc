@@ -44,6 +44,7 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/compute/test_util_internal.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
@@ -1768,6 +1769,34 @@ TEST(AsofJoinTest, DestroyNonStartedAsofJoinNode) {
       ::testing::HasSubstr(
           "`generator` is a required SinkNode option and cannot be null"),
       DeclarationToStatus(std::move(sink)));
+}
+
+TEST(AsofJoinTest, DeadLock) {
+  int64_t n_left = 1;
+  int64_t n_right = ExecPlan::kMaxBatchSize + 1;
+  int64_t tolerance = 1;
+
+  auto left_schema = arrow::schema({arrow::field("on", int64())});
+  auto right_schema = arrow::schema({arrow::field("on", int64())});
+
+  ASSERT_OK_AND_ASSIGN(auto left_col,
+                       gen::Constant(MakeScalar(n_right + 1))->Generate(n_left));
+  ASSERT_OK_AND_ASSIGN(auto right_col, gen::Step(0ll, 1ll)->Generate(n_right));
+
+  auto left_table = Table::Make(left_schema, {left_col});
+  auto right_table = Table::Make(right_schema, {right_col});
+
+  for (int i = 0; i < 1000; ++i) {
+    std::cout << i << std::endl;
+
+    AsofJoinNodeOptions opts({{{"on"}, {}}, {{"on"}, {}}}, tolerance);
+    auto left = Declaration("table_source", TableSourceNodeOptions(left_table));
+    auto right = Declaration("table_source", TableSourceNodeOptions(right_table));
+    auto asof_join = arrow::acero::Declaration{"asofjoin", {left, right}, opts};
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         arrow::acero::DeclarationToExecBatches(std::move(asof_join)));
+    std::cout << result.batches[0].length << " rows" << std::endl;
+  }
 }
 
 }  // namespace acero

@@ -639,12 +639,14 @@ class InputState : public util::SerialSequencingQueue::Processor {
         // hit the end of the batch, need to get the next batch if possible.
         ++batches_processed_;
         latest_ref_row_ = 0;
-        have_active_batch &= !queue_.TryPop();
-        if (have_active_batch) {
-          DCHECK_GT(queue_.Front()->num_rows(), 0);  // empty batches disallowed
-          memo_.UpdateTime(GetTime(queue_.Front().get(), time_type_id_, time_col_index_,
-                                   0));  // time changed
-        }
+        std::ignore = queue_.TryPop();
+        have_active_batch = !queue_.Empty();
+        // have_active_batch &= !queue_.TryPop();
+        // if (have_active_batch) {
+        //   DCHECK_GT(queue_.Front()->num_rows(), 0);  // empty batches disallowed
+        //   memo_.UpdateTime(GetTime(queue_.Front().get(), time_type_id_, time_col_index_,
+        //                            0));  // time changed
+        // }
       }
     }
     return have_active_batch;
@@ -1427,9 +1429,27 @@ class AsofJoinNode : public ExecNode {
     ARROW_DCHECK(std_has(inputs_, input));
     size_t k = std_find(inputs_, input) - inputs_.begin();
 
+    if (k == 0) {
+      // static bool hang = true;
+      // if (hang) {
+      //   hang = false;
+      //   // Hang.
+      //   std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+      // }
+      // std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    }
+
     // Put into the sequencing queue
     ARROW_RETURN_NOT_OK(state_.at(k)->InsertBatch(std::move(batch)));
 
+    // if (k == 0) {
+    //   static int i = 0;
+    //   if (i == 1) {
+    //     PushProcess(true);
+    //     PushProcess(true);
+    //   }
+    //   i++;
+    // }
     PushProcess(true);
 
     return Status::OK();
@@ -1440,6 +1460,9 @@ class AsofJoinNode : public ExecNode {
       std::lock_guard<std::mutex> guard(gate_);
       ARROW_DCHECK(std_has(inputs_, input));
       size_t k = std_find(inputs_, input) - inputs_.begin();
+      // if (k == 0) {
+      //   std::this_thread::sleep_for(std::chrono::milliseconds(6000));
+      // }
       state_.at(k)->set_total_batches(total_batches);
     }
     // Trigger a process call
