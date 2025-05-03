@@ -802,4 +802,21 @@ GARROW_AVAILABLE_IN_19_0
 GArrowStringViewDataType *
 garrow_string_view_data_type_new(void);
 
+#define GARROW_TYPE_FIXED_SHAPE_TENSOR_DATA_TYPE                                         \
+  (garrow_fixed_shape_tensor_data_type_get_type())
+GARROW_AVAILABLE_IN_21_0
+G_DECLARE_DERIVABLE_TYPE(GArrowFixedShapeTensorDataType,
+                         garrow_fixed_shape_tensor_data_type,
+                         GARROW,
+                         FIXED_SHAPE_TENSOR_DATA_TYPE,
+                         GArrowExtensionDataType)
+struct _GArrowFixedShapeTensorDataTypeClass
+{
+  GArrowExtensionDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_21_0
+GArrowFixedShapeTensorDataType *
+garrow_fixed_shape_tensor_data_type_new(void);
+
 G_END_DECLS

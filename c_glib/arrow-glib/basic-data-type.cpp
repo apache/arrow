@@ -2267,6 +2267,37 @@ garrow_string_view_data_type_new(void)
   return data_type;
 }
 
+G_DEFINE_TYPE(GArrowFixedShapeTensorDataType,
+              garrow_fixed_shape_tensor_data_type,
+              GARROW_TYPE_EXTENSION_DATA_TYPE)
+
+static void
+garrow_fixed_shape_tensor_data_type_init(GArrowFixedShapeTensorDataType *object)
+{
+}
+
+static void
+garrow_fixed_shape_tensor_data_type_class_init(GArrowFixedShapeTensorDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_fixed_shape_tensor_data_type_new:
+ *
+ * Returns: The newly created fixed shape tensor data type.
+ */
+GArrowFixedShapeTensorDataType *
+garrow_fixed_shape_tensor_data_type_new(void)
+{
+  auto arrow_data_type = arrow::GetExtensionType("arrow.fixed_shape_tensor");
+  GArrowFixedShapeTensorDataType *data_type = GARROW_FIXED_SHAPE_TENSOR_DATA_TYPE(
+    g_object_new(GARROW_TYPE_FIXED_SHAPE_TENSOR_DATA_TYPE,
+                 "data-type",
+                 &arrow_data_type,
+                 NULL));
+  return data_type;
+}
+
 G_END_DECLS
 
 GArrowDataType *
