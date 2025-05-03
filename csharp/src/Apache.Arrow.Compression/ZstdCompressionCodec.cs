@@ -52,6 +52,11 @@ namespace Apache.Arrow.Compression
             compressor.Write(source.Span);
         }
 
+        public bool TryCompress(ReadOnlyMemory<byte> source, Memory<byte> destination, out int bytesWritten)
+        {
+            return _compressor.TryWrap(source.Span, destination.Span, out bytesWritten);
+        }
+
         public void Dispose()
         {
             _decompressor.Dispose();
