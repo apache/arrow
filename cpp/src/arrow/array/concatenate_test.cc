@@ -774,3 +774,23 @@ TEST_F(ConcatenateTest, DictionaryConcatenateWithEmptyUint16) {
 }
 
 }  // namespace arrow
+
+TEST_F(ConcatenateTest, NestedListOverflowSuggestion) {
+  auto type = struct_({field("a", int8()), field("b", list(int32()))});
+  auto array1 = ArrayFromJSON(type, R"([{"a": 1, "b": [1, 2, 3]}])");
+  auto array2 = ArrayFromJSON(type, R"([{"a": 2, "b": [4, 5, 6, 7, 8, 9, 10]}])");
+  std::shared_ptr<DataType> suggested_cast;
+  auto result = Concatenate({array1, array2}, default_memory_pool(), &suggested_cast);
+  ASSERT_TRUE(result.status().IsInvalid());
+  ASSERT_EQ(suggested_cast->ToString(), "struct<a: int8, b: large_list>");
+}
+
+TEST_F(ConcatenateTest, ComplexStructOverflowSuggestion) {
+  auto type = struct_({field("a", int8()), field("b", list(int32())), field("c", string())});
+  auto array1 = ArrayFromJSON(type, R"([{"a": 1, "b": [1, 2], "c": "test"}])");
+  auto array2 = ArrayFromJSON(type, R"([{"a": 2, "b": [3, 4, 5, 6, 7, 8], "c": "overflow"}])");
+  std::shared_ptr<DataType> suggested_cast;
+  auto result = Concatenate({array1, array2}, default_memory_pool(), &suggested_cast);
+  ASSERT_TRUE(result.status().IsInvalid());
+  ASSERT_EQ(suggested_cast->ToString(), "struct<a: int8, b: large_list, c: large_string>");
+}
