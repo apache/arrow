@@ -385,6 +385,8 @@ extension ArrowType.Info: Equatable {
             return lhsId == rhsId
         case (.timeInfo(let lhsId), .timeInfo(let rhsId)):
             return lhsId == rhsId
+        case (.complexInfo(let lhsId), .complexInfo(let rhsId)):
+            return lhsId == rhsId
         default:
             return false
         }

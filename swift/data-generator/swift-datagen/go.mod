@@ -16,7 +16,8 @@
 
 module swift-datagen/main
 
-go 1.22.7
+go 1.23.0
+
 toolchain go1.24.1
 
 require github.com/apache/arrow-go/v18 v18.2.0

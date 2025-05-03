@@ -64,6 +64,8 @@ func fromProto( // swiftlint:disable:this cyclomatic_complexity
             let arrowUnit: ArrowTime64Unit = timeType.unit == .microsecond ? .microseconds : .nanoseconds
             arrowType = ArrowTypeTime64(arrowUnit)
         }
+    case .struct_:
+        arrowType = ArrowType(ArrowType.ArrowStruct)
     default:
         arrowType = ArrowType(ArrowType.ArrowUnknown)
     }
