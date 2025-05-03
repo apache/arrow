@@ -4564,6 +4564,13 @@ jest-haste-map@^29.7.0:
   optionalDependencies:
     fsevents "^2.3.2"
 
+jest-junit-reporter@1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/jest-junit-reporter/-/jest-junit-reporter-1.1.0.tgz"
+  integrity sha512-beZH/+kAQbECfvXKrm1g0VFxUPC+cezPMHeqhP9y6ThlRjvxFvfwlUQElYIN9P1tW+odHz8nIz9VV2BdWsUlfw==
+  dependencies:
+    xml "^1.0.1"
+
 jest-leak-detector@^29.7.0:
   version "29.7.0"
   resolved "https://registry.yarnpkg.com/jest-leak-detector/-/jest-leak-detector-29.7.0.tgz#5b7ec0dadfdfec0ca383dc9aa016d36b5ea4c728"

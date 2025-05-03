@@ -25,6 +25,7 @@ export default {
     cacheDirectory: ".jest-cache",
     extensionsToTreatAsEsm: [".ts"],
     moduleFileExtensions: ["js", "mjs", "ts"],
+    testResultsProcessor: "./node_modules/jest-junit-reporter",
     coverageReporters: ["lcov", "json",],
     coveragePathIgnorePatterns: [
         "fb\\/.*\\.(js|ts)$",

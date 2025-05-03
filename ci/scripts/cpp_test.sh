@@ -95,6 +95,9 @@ if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
     --print-errorlogs \
     "$@"
 else
+  if [ -n "$ARROW_CTEST_OUTPUT_JUNIT" ]; then
+    ctest_options+=(--output-junit "${ARROW_CTEST_OUTPUT_JUNIT}")
+  fi
   ctest \
     --label-regex unittest \
     --output-on-failure \

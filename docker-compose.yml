@@ -300,6 +300,7 @@ services:
       ARROW_EXTRA_ERROR_CONTEXT: "ON"
       ARROW_MIMALLOC: "ON"
       ARROW_USE_LD_GOLD: "ON"
+      ARROW_CTEST_OUTPUT_JUNIT:  #inherit
       BUILD_DOCS_PYTHON: "ON"
     volumes: &conda-volumes
       - .:/arrow:delegated
@@ -411,6 +412,7 @@ services:
     environment:
       <<: [*common, *ccache, *sccache, *cpp]
       ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_CTEST_OUTPUT_JUNIT:  # inherit
       ARROW_MIMALLOC: "ON"
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
@@ -659,6 +661,7 @@ services:
       ARROW_S3: "OFF"
       ARROW_USE_ASAN: "ON"
       ARROW_USE_UBSAN: "ON"
+      ARROW_CTEST_OUTPUT_JUNIT:  # inherit
       # 1 GB isn't enough for a single sanitizer build
       CCACHE_MAXSIZE: 2G
       Protobuf_SOURCE: "AUTO"
@@ -1492,6 +1495,7 @@ services:
       HYPOTHESIS_PROFILE:  # inherit
       PYARROW_TEST_HYPOTHESIS:  # inherit
       PANDAS_FUTURE_INFER_STRING:  # inherit
+      ARROW_CTEST_OUTPUT_JUNIT:  # inherit
     volumes: *conda-volumes
     command: *python-conda-command
 
@@ -1516,6 +1520,7 @@ services:
     environment:
       <<: [*common, *ccache, *sccache]
       PARQUET_REQUIRE_ENCRYPTION:  # inherit
+      PYTEST_ARGS:  # inherit
       HYPOTHESIS_PROFILE:  # inherit
       PYARROW_TEST_HYPOTHESIS:  # inherit
     volumes: *conda-volumes
@@ -1543,7 +1548,7 @@ services:
       LANG: "C.UTF-8"
       BUILD_DOCS_CPP: "ON"
       BUILD_DOCS_PYTHON: "ON"
-      PYTEST_ARGS: "--doctest-modules --doctest-cython"
+      PYTEST_ARGS: "--doctest-modules --doctest-cython --junit-xml /arrow/python/pytest.xml"
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -1845,6 +1850,7 @@ services:
     environment:
       <<: *common
       BUILD_DOCS_JS: "ON"
+      TEST_REPORT_PATH:  # inherit
     command: &js-command >
       /bin/bash -c "
         /arrow/ci/scripts/js_build.sh /arrow /build &&
