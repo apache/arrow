@@ -1781,7 +1781,7 @@ TEST(AsofJoinTest, DeadLock) {
 
   ASSERT_OK_AND_ASSIGN(auto left_col,
                        gen::Constant(MakeScalar(n_right + 1))->Generate(n_left));
-  ASSERT_OK_AND_ASSIGN(auto right_col, gen::Step(0ll, 1ll)->Generate(n_right));
+  ASSERT_OK_AND_ASSIGN(auto right_col, gen::Step<int64_t>()->Generate(n_right));
 
   auto left_table = Table::Make(left_schema, {left_col});
   auto right_table = Table::Make(right_schema, {right_col});

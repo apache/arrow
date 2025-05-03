@@ -641,12 +641,6 @@ class InputState : public util::SerialSequencingQueue::Processor {
         latest_ref_row_ = 0;
         std::ignore = queue_.TryPop();
         have_active_batch = !queue_.Empty();
-        // have_active_batch &= !queue_.TryPop();
-        // if (have_active_batch) {
-        //   DCHECK_GT(queue_.Front()->num_rows(), 0);  // empty batches disallowed
-        //   memo_.UpdateTime(GetTime(queue_.Front().get(), time_type_id_, time_col_index_,
-        //                            0));  // time changed
-        // }
       }
     }
     return have_active_batch;
