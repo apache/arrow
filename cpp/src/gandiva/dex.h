@@ -409,4 +409,31 @@ class InExprDex<std::string> : public InExprDexBase<std::string> {
   }
 };
 
+class PreEvalInExprDex : public Dex {
+ public:
+  PreEvalInExprDex(const ValueValidityPairPtr& eval_expr_vv,
+                   const ValueValidityPairPtr& condition_eval_expr_vv)
+      : eval_expr_vv_(eval_expr_vv), condition_eval_expr_vv_(condition_eval_expr_vv){};
+  const ValueValidityPairPtr& eval_expr_vv() const { return eval_expr_vv_; }
+  const ValueValidityPairPtr& condition_eval_expr_vv() const {
+    return condition_eval_expr_vv_;
+  }
+
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
+
+ private:
+  ValueValidityPairPtr eval_expr_vv_;
+  ValueValidityPairPtr condition_eval_expr_vv_;
+};
+
+class ReadProxyDex : public Dex {
+ public:
+  ReadProxyDex(DataTypePtr type) : type_(type){};
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
+  const DataTypePtr& type() const { return type_; }
+
+ private:
+  DataTypePtr type_;
+};
+
 }  // namespace gandiva

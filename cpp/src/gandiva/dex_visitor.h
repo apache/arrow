@@ -41,6 +41,8 @@ class BooleanAndDex;
 class BooleanOrDex;
 template <typename Type>
 class InExprDexBase;
+class PreEvalInExprDex;
+class ReadProxyDex;
 
 /// \brief Visitor for decomposed expression.
 class GANDIVA_EXPORT DexVisitor {
@@ -66,6 +68,8 @@ class GANDIVA_EXPORT DexVisitor {
   virtual void Visit(const InExprDexBase<double>& dex) = 0;
   virtual void Visit(const InExprDexBase<gandiva::DecimalScalar128>& dex) = 0;
   virtual void Visit(const InExprDexBase<std::string>& dex) = 0;
+  virtual void Visit(const PreEvalInExprDex& dex) = 0;
+  virtual void Visit(const ReadProxyDex& dex) = 0;
 };
 
 /// Default implementation with only DCHECK().
@@ -92,6 +96,8 @@ class GANDIVA_EXPORT DexDefaultVisitor : public DexVisitor {
   VISIT_DCHECK(InExprDexBase<double>)
   VISIT_DCHECK(InExprDexBase<gandiva::DecimalScalar128>)
   VISIT_DCHECK(InExprDexBase<std::string>)
+  VISIT_DCHECK(PreEvalInExprDex)
+  VISIT_DCHECK(ReadProxyDex)
 };
 
 }  // namespace gandiva
