@@ -1480,7 +1480,7 @@ ArrayKernelExec GenerateList(detail::GetTypeId get_id) {
     case Type::LARGE_LIST:
       return Generator<Type0, LargeListType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }

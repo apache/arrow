@@ -22,13 +22,13 @@
 #include <cstdint>
 #include <iosfwd>
 
-#include "arrow/array/data.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 struct ArrayStatistics;
+struct ArrayData;
 class Array;
 class DataType;
 class Tensor;
