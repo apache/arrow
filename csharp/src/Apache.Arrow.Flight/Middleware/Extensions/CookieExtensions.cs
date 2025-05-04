@@ -25,7 +25,7 @@ public static class CookieExtensions
     public static IEnumerable<Cookie> ParseHeader(this string headers)
     {
         if (string.IsNullOrEmpty(headers))
-            return [];
+            return System.Array.Empty<Cookie>();
         
         var cookies = new List<Cookie>();
         var segments = headers.Split([';'], StringSplitOptions.RemoveEmptyEntries);
