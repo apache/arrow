@@ -501,7 +501,7 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
     if (!type.GEOGRAPHY.__isset.algorithm) {
       algorithm = LogicalType::EdgeInterpolationAlgorithm::SPHERICAL;
     } else {
-      algorithm = ::parquet::FromThrift(type.GEOGRAPHY.algorithm);
+      algorithm = LoadEnumSafe(&type.GEOGRAPHY.algorithm);
     }
 
     return GeographyLogicalType::Make(std::move(crs), algorithm);

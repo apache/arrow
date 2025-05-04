@@ -106,6 +106,25 @@ static inline BoundaryOrder::type FromThriftUnsafe(format::BoundaryOrder::type t
   return static_cast<BoundaryOrder::type>(type);
 }
 
+static inline GeometryLogicalType::EdgeInterpolationAlgorithm FromThriftUnsafe(
+    format::EdgeInterpolationAlgorithm::type type) {
+  switch (type) {
+    case format::EdgeInterpolationAlgorithm::SPHERICAL:
+      return GeometryLogicalType::EdgeInterpolationAlgorithm::SPHERICAL;
+    case format::EdgeInterpolationAlgorithm::VINCENTY:
+      return GeometryLogicalType::EdgeInterpolationAlgorithm::VINCENTY;
+    case format::EdgeInterpolationAlgorithm::THOMAS:
+      return GeometryLogicalType::EdgeInterpolationAlgorithm::THOMAS;
+    case format::EdgeInterpolationAlgorithm::ANDOYER:
+      return GeometryLogicalType::EdgeInterpolationAlgorithm::ANDOYER;
+    case format::EdgeInterpolationAlgorithm::KARNEY:
+      return GeometryLogicalType::EdgeInterpolationAlgorithm::KARNEY;
+    default:
+      ARROW_DCHECK(false) << "Cannot reach here";
+      return GeometryLogicalType::EdgeInterpolationAlgorithm::UNKNOWN;
+  }
+}
+
 namespace internal {
 
 template <typename T>
@@ -217,6 +236,15 @@ inline typename Compression::type LoadEnumSafe(const format::CompressionCodec::t
       static_cast<decltype(raw_value)>(format::CompressionCodec::LZ4_RAW);
   if (raw_value < min_value || raw_value > max_value) {
     return Compression::UNCOMPRESSED;
+  }
+  return FromThriftUnsafe(*in);
+}
+
+inline typename LogicalType::EdgeInterpolationAlgorithm LoadEnumSafe(
+    const format::EdgeInterpolationAlgorithm::type* in) {
+  if (ARROW_PREDICT_FALSE(*in < format::EdgeInterpolationAlgorithm::SPHERICAL ||
+                          *in > format::EdgeInterpolationAlgorithm::KARNEY)) {
+    return LogicalType::EdgeInterpolationAlgorithm::UNKNOWN;
   }
   return FromThriftUnsafe(*in);
 }
