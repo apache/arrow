@@ -318,6 +318,7 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdate-time")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wimplicit-fallthrough")
     string(APPEND CXX_ONLY_FLAGS " -Wredundant-move")
+    string(APPEND CXX_ONLY_FLAGS " -Wself-move")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL
                                                    "IntelLLVM")
