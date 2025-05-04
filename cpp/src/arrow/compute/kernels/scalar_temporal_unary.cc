@@ -193,7 +193,7 @@ struct Year {
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    return static_cast<T>(static_cast<const int32_t>(
+    return static_cast<T>(static_cast<int32_t>(
         year_month_day(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)))
             .year()));
   }
@@ -211,7 +211,7 @@ struct IsLeapYear {
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    int32_t y = static_cast<const int32_t>(
+    int32_t y = static_cast<int32_t>(
         year_month_day(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)))
             .year());
     return y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
@@ -230,7 +230,7 @@ struct Month {
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    return static_cast<T>(static_cast<const uint32_t>(
+    return static_cast<T>(static_cast<uint32_t>(
         year_month_day(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)))
             .month()));
   }
@@ -248,7 +248,7 @@ struct Day {
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    return static_cast<T>(static_cast<const uint32_t>(
+    return static_cast<T>(static_cast<uint32_t>(
         year_month_day(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)))
             .day()));
   }
@@ -264,9 +264,9 @@ std::array<int64_t, 3> GetYearMonthDay(int64_t arg, Localizer&& localizer) {
   const auto t = floor<days>(localizer.template ConvertTimePoint<Duration>(arg));
   const auto ymd = year_month_day(t);
 
-  return {static_cast<int64_t>(static_cast<const int32_t>(ymd.year())),
-          static_cast<int64_t>(static_cast<const uint32_t>(ymd.month())),
-          static_cast<int64_t>(static_cast<const uint32_t>(ymd.day()))};
+  return {static_cast<int64_t>(static_cast<int32_t>(ymd.year())),
+          static_cast<int64_t>(static_cast<uint32_t>(ymd.month())),
+          static_cast<int64_t>(static_cast<uint32_t>(ymd.day()))};
 }
 
 template <typename Duration, typename InType>
@@ -298,9 +298,9 @@ struct YearMonthDayVisitValueFunction {
       StructBuilder* struct_builder) {
     return [=](typename InType::c_type arg) {
       const auto ymd = GetYearMonthDay<Duration>(arg, NonZonedLocalizer{});
-      field_builders[0]->UnsafeAppend(static_cast<const int32_t>(ymd[0]));
-      field_builders[1]->UnsafeAppend(static_cast<const uint32_t>(ymd[1]));
-      field_builders[2]->UnsafeAppend(static_cast<const uint32_t>(ymd[2]));
+      field_builders[0]->UnsafeAppend(static_cast<int32_t>(ymd[0]));
+      field_builders[1]->UnsafeAppend(static_cast<uint32_t>(ymd[1]));
+      field_builders[2]->UnsafeAppend(static_cast<uint32_t>(ymd[2]));
       return struct_builder->Append();
     };
   }
@@ -315,18 +315,18 @@ struct YearMonthDayVisitValueFunction<Duration, TimestampType, BuilderType> {
     if (timezone.empty()) {
       return [=](TimestampType::c_type arg) {
         const auto ymd = GetYearMonthDay<Duration>(arg, NonZonedLocalizer{});
-        field_builders[0]->UnsafeAppend(static_cast<const int32_t>(ymd[0]));
-        field_builders[1]->UnsafeAppend(static_cast<const uint32_t>(ymd[1]));
-        field_builders[2]->UnsafeAppend(static_cast<const uint32_t>(ymd[2]));
+        field_builders[0]->UnsafeAppend(static_cast<int32_t>(ymd[0]));
+        field_builders[1]->UnsafeAppend(static_cast<uint32_t>(ymd[1]));
+        field_builders[2]->UnsafeAppend(static_cast<uint32_t>(ymd[2]));
         return struct_builder->Append();
       };
     }
     ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
     return [=](TimestampType::c_type arg) {
       const auto ymd = GetYearMonthDay<Duration>(arg, ZonedLocalizer{tz});
-      field_builders[0]->UnsafeAppend(static_cast<const int32_t>(ymd[0]));
-      field_builders[1]->UnsafeAppend(static_cast<const uint32_t>(ymd[1]));
-      field_builders[2]->UnsafeAppend(static_cast<const uint32_t>(ymd[2]));
+      field_builders[0]->UnsafeAppend(static_cast<int32_t>(ymd[0]));
+      field_builders[1]->UnsafeAppend(static_cast<uint32_t>(ymd[1]));
+      field_builders[2]->UnsafeAppend(static_cast<uint32_t>(ymd[2]));
       return struct_builder->Append();
     };
   }
