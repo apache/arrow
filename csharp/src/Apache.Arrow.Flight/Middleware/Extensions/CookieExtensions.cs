@@ -24,10 +24,10 @@ public static class CookieExtensions
 {
     public static IEnumerable<Cookie> ParseHeader(this string headers)
     {
-        var cookies = new List<Cookie>();
         if (string.IsNullOrEmpty(headers))
-            return cookies;
+            return [];
         
+        var cookies = new List<Cookie>();
         var segments = headers.Split([';'], StringSplitOptions.RemoveEmptyEntries);
 
         if (segments.Length == 0) return cookies;
