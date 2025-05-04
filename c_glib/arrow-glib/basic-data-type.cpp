@@ -131,6 +131,8 @@ G_BEGIN_DECLS
  * #GArrowStringViewDataType is a class for the string view data type.
  *
  * #GArrowBinaryViewDataType is a class for the binary view data type.
+ *
+ * #GArrowFixedShapeTensorDataType is a class for the fixed shape tensor data type.
  */
 
 struct GArrowDataTypePrivate
