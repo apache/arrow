@@ -4221,22 +4221,45 @@ cdef class StructArray(Array):
 
         c_mask = c_mask_inverted_from_obj(mask, memory_pool)
 
-        arrays = [asarray(x) for x in arrays]
-        for arr in arrays:
-            c_array = pyarrow_unwrap_array(arr)
-            if c_array == nullptr:
-                raise TypeError(f"Expected Array, got {arr.__class__}")
-            c_arrays.push_back(c_array)
         if names is not None:
             for name in names:
                 c_names.push_back(tobytes(name))
+            arrays = [asarray(x) for x in arrays]
         else:
+            py_fields = []
             for item in fields:
                 if isinstance(item, tuple):
                     py_field = field(*item)
                 else:
                     py_field = item
+                py_fields.append(py_field)
                 c_fields.push_back(py_field.sp_field)
+
+            if len(py_fields) != len(arrays):
+                raise ValueError("Must pass same number of arrays as fields")
+            type_enforced_arrays = []
+            for ary, field in zip(arrays, fields):
+                # Verify the data type of arrays which are already
+                # Arrow Arrays. Coerce the data type of anything else,
+                # since that other stuff doesn't have a certain type
+                # we can verify.
+                if isinstance(ary, (Array, ChunkedArray)):
+                    if ary.type != field.type:
+                        raise ValueError(
+                            f"Field {field.name} is expected to have type {field.type}, but provided data is {ary.type}")
+                    type_enforced_arrays.append(ary)
+                else:
+                    type_enforced_arrays.append(asarray(ary, field.type))
+            arrays = type_enforced_arrays
+
+        for arr in arrays:
+            c_array = pyarrow_unwrap_array(arr)
+            # The following is asserting an invariant, but shouldn't
+            # occur. Use of asarray above when constructing arrays
+            # should guarantee that we always get a non-null result.
+            if c_array == nullptr:
+                raise TypeError(f"Expected Array, got {arr.__class__}")
+            c_arrays.push_back(c_array)
 
         if (c_arrays.size() == 0 and c_names.size() == 0 and
                 c_fields.size() == 0):

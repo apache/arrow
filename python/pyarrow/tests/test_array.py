@@ -769,8 +769,19 @@ def test_struct_from_arrays():
 
     # Inconsistent fields
     fa2 = pa.field("a", pa.int32())
-    with pytest.raises(ValueError, match="int64 vs int32"):
+    with pytest.raises(
+            ValueError,
+            match="expected to have type int32, but provided data is int64",
+    ):
         pa.StructArray.from_arrays([a, b, c], fields=[fa2, fb, fc])
+
+    # Too few fields
+    with pytest.raises(ValueError, match="Must pass same number of arrays as fields"):
+        pa.StructArray.from_arrays([a, b, c], names=None, fields=[fa, fb])
+
+    # Too many fields
+    with pytest.raises(ValueError, match="Must pass same number of arrays as fields"):
+        pa.StructArray.from_arrays([a, b], names=None, fields=[fa, fb, fc])
 
     arrays = [a, b, c]
     fields = [fa, fb, fc]
@@ -798,6 +809,16 @@ def test_struct_from_arrays():
     arr = pa.StructArray.from_arrays([], [], mask=mask)
     assert arr.is_null() == mask
     assert arr.to_pylist() == [None, {}, {}]
+
+    # Fixed length lists https://github.com/apache/arrow/issues/38026
+    fa2 = pa.field("x", pa.list_(pa.int32(), 2))
+    arr = pa.StructArray.from_arrays([[[1, 2], [3, 4]]], fields=[fa2])
+    assert arr.to_pylist() == [{'x': [1, 2]}, {'x': [3, 4]}]
+
+    # Large Strings https://github.com/apache/arrow/issues/38026
+    fa3 = pa.field("y", pa.large_string())
+    arr = pa.StructArray.from_arrays([["foo", "bar"]], fields=[fa3])
+    assert arr.to_pylist() == [{'y': "foo"}, {'y': "bar"}]
 
 
 def test_struct_array_from_chunked():
