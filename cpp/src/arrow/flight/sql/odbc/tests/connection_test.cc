@@ -51,7 +51,42 @@ TEST(SQLAllocEnv, TestSQLAllocEnv) {
   EXPECT_TRUE(return_value == SQL_SUCCESS);
 }
 
+TEST(SQLAllocHandle, TestSQLAllocHandleConnect) {
+
+  // ODBC Environment
+  SQLHENV env;
+  SQLHDBC conn;
+
+  // Allocate an environment handle
+  SQLRETURN return_value = SQLAllocEnv(&env);
+
+  EXPECT_TRUE(return_value == SQL_SUCCESS);
+
+  // Allocate a connection using alloc handle
+  SQLRETURN return_alloc_handle = SQLAllocHandle(SQL_HANDLE_DBC, env, &conn);
+
+  EXPECT_TRUE(return_alloc_handle == SQL_SUCCESS);
+}
+
+TEST(SQLAllocConnect, TestSQLAllocHandleConnect) {
+
+  // ODBC Environment
+  SQLHENV env;
+  SQLHDBC conn;
+
+  // Allocate an environment handle
+  SQLRETURN return_value = SQLAllocEnv(&env);
+
+  EXPECT_TRUE(return_value == SQL_SUCCESS);
+
+  // Allocate a connection using alloc handle
+  SQLRETURN return_alloc_connect = SQLAllocConnect(env, &conn);
+
+  EXPECT_TRUE(return_alloc_connect == SQL_SUCCESS);
+}
+
 TEST(SQLFreeHandle, TestSQLFreeHandleEnv) {
+
   // ODBC Environment
   SQLHENV env;
 
@@ -65,6 +100,7 @@ TEST(SQLFreeHandle, TestSQLFreeHandleEnv) {
 }
 
 TEST(SQLFreeEnv, TestSQLFreeEnv) {
+
   // ODBC Environment
   SQLHENV env;
 
@@ -75,6 +111,50 @@ TEST(SQLFreeEnv, TestSQLFreeEnv) {
   SQLRETURN return_value = SQLFreeEnv(env);
 
   EXPECT_TRUE(return_value == SQL_SUCCESS);
+}
+
+TEST(SQLFreeHandle, TestSQLFreeHandleConnect) {
+
+  // ODBC Environment
+  SQLHENV env;
+  SQLHDBC conn;
+
+  // Allocate an environment handle
+  SQLRETURN return_value = SQLAllocEnv(&env);
+
+  EXPECT_TRUE(return_value == SQL_SUCCESS);
+
+  // Allocate a connection using alloc handle
+  SQLRETURN return_alloc_handle = SQLAllocHandle(SQL_HANDLE_DBC, env, &conn);
+
+  EXPECT_TRUE(return_alloc_handle == SQL_SUCCESS);
+
+  // Free the created connection using free handle
+  SQLRETURN return_free_handle = SQLFreeHandle(SQL_HANDLE_DBC, conn);
+
+  EXPECT_TRUE(return_free_handle == SQL_SUCCESS);
+}
+
+TEST(SQLFreeConnect, TestSQLFreeConnect) {
+
+  // ODBC Environment
+  SQLHENV env;
+  SQLHDBC conn;
+
+  // Allocate an environment handle
+  SQLRETURN return_env = SQLAllocEnv(&env);
+
+  EXPECT_TRUE(return_env == SQL_SUCCESS);
+
+  // Allocate a connection using alloc handle
+  SQLRETURN return_alloc_handle = SQLAllocHandle(SQL_HANDLE_DBC, env, &conn);
+
+  EXPECT_TRUE(return_alloc_handle == SQL_SUCCESS);
+
+  // Free the created connection using free connect
+  SQLRETURN return_free_connect = SQLFreeConnect(conn);
+
+  EXPECT_TRUE(return_free_connect == SQL_SUCCESS);
 }
 
 }  // namespace integration_tests
