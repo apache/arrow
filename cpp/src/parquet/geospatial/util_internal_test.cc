@@ -507,14 +507,14 @@ INSTANTIATE_TEST_SUITE_P(
 
 struct MakeWKBPointTestCase {
   std::vector<double> xyzm;
-  bool has_z;
-  bool has_m;
+  bool has_z{};
+  bool has_m{};
 };
 
 class MakeWKBPointTestFixture : public testing::TestWithParam<MakeWKBPointTestCase> {};
 
 TEST_P(MakeWKBPointTestFixture, MakeWKBPoint) {
-  auto param = GetParam();
+  const auto& param = GetParam();
   std::string wkb = test::MakeWKBPoint(param.xyzm, param.has_z, param.has_m);
   WKBGeometryBounder bounder;
   ASSERT_NO_THROW(bounder.MergeGeometry(wkb));
