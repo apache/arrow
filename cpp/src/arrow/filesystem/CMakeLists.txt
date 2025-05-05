@@ -143,7 +143,7 @@ endif()
 
 if(ARROW_HDFS)
   add_arrow_test(hdfs_test EXTRA_LABELS filesystem)
-  add_arrow_test(hdfs_test_io
+  add_arrow_test(hdfs_io_test
                  NO_VALGRIND
                  EXTRA_LABELS
                  filesystem
