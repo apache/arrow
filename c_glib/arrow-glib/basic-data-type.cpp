@@ -25,6 +25,8 @@
 #include <arrow-glib/field.hpp>
 #include <arrow-glib/type.hpp>
 
+#include <arrow/extension/fixed_shape_tensor.h>
+
 #include <arrow/c/bridge.h>
 
 G_BEGIN_DECLS
@@ -2285,17 +2287,53 @@ garrow_fixed_shape_tensor_data_type_class_init(GArrowFixedShapeTensorDataTypeCla
 
 /**
  * garrow_fixed_shape_tensor_data_type_new:
+ * @value_type: A #GArrowDataType.
+ * @size: The length of `shape`.
+ * @psize: The length of `permutation`.
+ * @shape: (array length=size): shape.
+ * @permutation: (array length=psize): permutation.
+ * @dim_name: (array length=size): dim_names.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: The newly created fixed shape tensor data type.
  */
 GArrowFixedShapeTensorDataType *
-garrow_fixed_shape_tensor_data_type_new(void)
+garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
+                                        gint32 size,
+                                        gint32 psize,
+                                        const gint64 *shape,
+                                        const gint64 *permutation,
+                                        const gchar **dim_name,
+                                        GError **error)
 {
-  auto arrow_data_type = arrow::GetExtensionType("arrow.fixed_shape_tensor");
+  std::vector<int64_t> arrow_shape;
+  std::vector<int64_t> arrow_permutation;
+  std::vector<std::string> arrow_dim_names;
+
+  auto arrow_value_type = garrow_data_type_get_raw(value_type);
+
+  for (int i = 0; i < psize; i++) {
+    arrow_shape.push_back(permutation[i]);
+  }
+
+  for (int i = 0; i < size; i++) {
+    arrow_shape.push_back(shape[i]);
+    arrow_dim_names.push_back(dim_name[i]);
+  }
+
+  auto arrow_data_type = arrow::extension::FixedShapeTensorType::Make(arrow_value_type,
+                                                                      arrow_shape,
+                                                                      arrow_permutation,
+                                                                      arrow_dim_names);
+
+  if (!garrow::check(error, arrow_data_type, "[fixed-shape-tensor][new]")) {
+    return NULL;
+  }
+
   GArrowFixedShapeTensorDataType *data_type = GARROW_FIXED_SHAPE_TENSOR_DATA_TYPE(
     g_object_new(GARROW_TYPE_FIXED_SHAPE_TENSOR_DATA_TYPE,
                  "data-type",
-                 &arrow_data_type,
+                 &arrow_data_type.ValueUnsafe(),
                  NULL));
   return data_type;
 }
