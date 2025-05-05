@@ -45,3 +45,4 @@ API Reference
    api/flightsql
    api/filesystem
    api/dataset
+   api/extension
