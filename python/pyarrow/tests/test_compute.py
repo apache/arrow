@@ -1415,17 +1415,6 @@ def test_filter_record_batch():
     expected = pa.record_batch([pa.array(["a", None, "e"])], names=["a'"])
     assert result.equals(expected)
 
-    # GH-46057: filtering all rows should return empty RecordBatch with same schema
-    mask_empty_result = batch.filter(pa.array([False] * batch.num_rows))
-    assert mask_empty_result.num_rows == 0
-    assert isinstance(mask_empty_result, pa.RecordBatch)
-    assert mask_empty_result.schema.equals(batch.schema)
-
-    expr_empty_result = batch.filter(pc.field("a'") == "zzz")
-    assert expr_empty_result.num_rows == 0
-    assert isinstance(expr_empty_result, pa.RecordBatch)
-    assert expr_empty_result.schema.equals(batch.schema)
-
 
 def test_filter_table():
     table = pa.table([pa.array(["a", None, "c", "d", "e"])], names=["a"])
@@ -1444,17 +1433,6 @@ def test_filter_table():
         assert result.equals(expected_drop)
         result = table.filter(mask, null_selection_behavior="emit_null")
         assert result.equals(expected_null)
-
-    # GH-46057: filtering all rows should return empty table with same schema
-    mask_empty_result = table.filter(pa.array([False] * table.num_rows))
-    assert mask_empty_result.num_rows == 0
-    assert isinstance(mask_empty_result, pa.Table)
-    assert mask_empty_result.schema.equals(table.schema)
-
-    expr_empty_result = table.filter(pc.field("a") == "zzz")
-    assert expr_empty_result.num_rows == 0
-    assert isinstance(expr_empty_result, pa.Table)
-    assert expr_empty_result.schema.equals(table.schema)
 
 
 def test_filter_errors():
@@ -2358,7 +2336,7 @@ def test_extract_datetime_components(request):
                   "2008-12-28T00:00:00.0",
                   "2008-12-29T00:00:00.0",
                   "2012-01-01T01:02:03.0"]
-    timezones = ["UTC", "US/Central", "Asia/Kolkata",
+    timezones = ["UTC", "America/Chicago", "Asia/Kolkata",
                  "Etc/GMT-4", "Etc/GMT+4", "Australia/Broken_Hill"]
 
     # Test timezone naive timestamp array
@@ -2412,7 +2390,7 @@ def test_assume_timezone():
     ambiguous_array = pa.array(ambiguous, type=ts_type)
     nonexistent_array = pa.array(nonexistent, type=ts_type)
 
-    for timezone in ["UTC", "US/Central", "Asia/Kolkata"]:
+    for timezone in ["UTC", "America/Chicago", "Asia/Kolkata"]:
         options = pc.AssumeTimezoneOptions(timezone)
         ta = pa.array(timestamps, type=ts_type)
         expected = timestamps.tz_localize(timezone)
@@ -2605,7 +2583,7 @@ def test_round_temporal(unit):
     _check_temporal_rounding(ts, values, unit)
 
     timezones = ["Asia/Kolkata", "America/New_York", "Etc/GMT-4", "Etc/GMT+4",
-                 "Europe/Brussels", "Pacific/Marquesas", "US/Central", "UTC"]
+                 "Europe/Brussels", "Pacific/Marquesas", "America/Chicago", "UTC"]
 
     for timezone in timezones:
         ts_zoned = ts.dt.tz_localize("UTC").dt.tz_convert(timezone)

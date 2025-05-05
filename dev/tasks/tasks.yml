@@ -533,12 +533,12 @@ tasks:
       - r-lib__libarrow__bin__darwin-arm64-openssl-3.0__arrow-{no_rc_r_version}\.zip
       - r-lib__libarrow__bin__darwin-x86_64-openssl-1.1__arrow-{no_rc_r_version}\.zip
       - r-lib__libarrow__bin__darwin-x86_64-openssl-3.0__arrow-{no_rc_r_version}\.zip
+      - r-pkg__bin__windows__contrib__4.5__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.4__arrow_{no_rc_r_version}\.zip
-      - r-pkg__bin__windows__contrib__4.3__arrow_{no_rc_r_version}\.zip
+      - r-pkg__bin__macosx__big-sur-x86_64__contrib__4.5__arrow_{no_rc_r_version}\.tgz
       - r-pkg__bin__macosx__big-sur-x86_64__contrib__4.4__arrow_{no_rc_r_version}\.tgz
-      - r-pkg__bin__macosx__big-sur-x86_64__contrib__4.3__arrow_{no_rc_r_version}\.tgz
+      - r-pkg__bin__macosx__big-sur-arm64__contrib__4.5__arrow_{no_rc_r_version}\.tgz
       - r-pkg__bin__macosx__big-sur-arm64__contrib__4.4__arrow_{no_rc_r_version}\.tgz
-      - r-pkg__bin__macosx__big-sur-arm64__contrib__4.3__arrow_{no_rc_r_version}\.tgz
       - r-pkg__src__contrib__arrow_{no_rc_r_version}\.tar\.gz
 
 {% for which in ["strong", "most"] %}
@@ -657,7 +657,10 @@ tasks:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      flags: -e ARROW_USE_MESON=ON
+      # ARROW_USE_CCACHE=OFF is for using sccache
+      flags: >-
+        -e ARROW_USE_CCACHE=OFF
+        -e ARROW_USE_MESON=ON
       image: conda-cpp
 
   test-conda-cpp-valgrind:
@@ -1087,13 +1090,25 @@ tasks:
       image: ubuntu-r-sanitizer
       timeout: 120
 
-  test-r-clang-sanitizer:
+  test-r-clang-asan:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         R_PRUNE_DEPS: TRUE
-      image: r-clang-sanitizer
+      image: r-clang-asan
+
+  test-r-clang-ubsan:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        R_PRUNE_DEPS: TRUE
+      image: r-clang-ubsan
+
+  test-r-m1-san:
+    ci: github
+    template: r/github.macos.m1san.yml
 
   # be sure to update binary-task.rb when upgrading Debian
   test-debian-12-docs:

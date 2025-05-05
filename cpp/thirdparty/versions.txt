@@ -162,6 +162,7 @@ DEPENDENCIES=(
   "ARROW_RE2_URL re2-${ARROW_RE2_BUILD_VERSION}.tar.gz https://github.com/google/re2/archive/${ARROW_RE2_BUILD_VERSION}.tar.gz"
   "ARROW_S2N_TLS_URL s2n-${ARROW_S2N_TLS_BUILD_VERSION}.tar.gz https://github.com/aws/s2n-tls/archive/${ARROW_S2N_TLS_BUILD_VERSION}.tar.gz"
   "ARROW_SNAPPY_URL snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
+  "ARROW_SUBSTRAIT_URL substrait-${ARROW_SUBSTRAIT_BUILD_VERSION}.tar.gz https://github.com/substrait-io/substrait/archive/${ARROW_SUBSTRAIT_BUILD_VERSION}.tar.gz"
   "ARROW_THRIFT_URL thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz https://www.apache.org/dyn/closer.lua/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz?action=download"
   "ARROW_UTF8PROC_URL utf8proc-${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz https://github.com/JuliaStrings/utf8proc/archive/${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
   "ARROW_XSIMD_URL xsimd-${ARROW_XSIMD_BUILD_VERSION}.tar.gz https://github.com/xtensor-stack/xsimd/archive/${ARROW_XSIMD_BUILD_VERSION}.tar.gz"

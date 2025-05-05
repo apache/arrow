@@ -66,7 +66,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-output
-          path: arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
+          path: |
+            arrow/r/tests/
+            arrow/r/arrow.Rcheck/
+            !arrow/r/arrow.Rcheck/00_pkg_src/
+            !arrow/r/arrow.Rcheck/arrow/
           if-no-files-found: ignore
 
     {% if arrow.is_default_branch() %}

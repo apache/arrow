@@ -49,11 +49,12 @@ gh release download \
   --pattern "pyarrow-*.whl" \
   --repo "${GITHUB_REPOSITORY}"
 
+TWINE_ARGS=()
 if [ "${TEST_PYPI}" -gt 0 ]; then
-  TWINE_ARGS="--repository-url https://test.pypi.org/legacy/"
+  TWINE_ARGS+=("--repository-url" "https://test.pypi.org/legacy/")
 fi
 
-twine upload "${TWINE_ARGS}" "${tmp}"/*
+twine upload "${TWINE_ARGS[@]}" "${tmp}"/*
 
 rm -rf "${tmp}"
 

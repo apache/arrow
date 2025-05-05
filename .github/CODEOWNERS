@@ -38,6 +38,7 @@
 /java/ @lidavidm
 /js/ @domoritz @trxcllnt
 /matlab/ @kevingurney @kou @sgilmore10
+/python/ @AlenkaF @raulcd @rok 
 /python/pyarrow/_flight.pyx @lidavidm
 /python/pyarrow/**/*gandiva* @wjones127
 /r/ @jonkeane @thisisnic

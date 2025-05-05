@@ -197,6 +197,7 @@ repos:
           ?^c_glib/test/run-test\.sh$|
           ?^dev/release/05-binary-upload\.sh$|
           ?^dev/release/07-binary-verify\.sh$|
+          ?^dev/release/binary-recover\.sh$|
           ?^dev/release/post-03-binary\.sh$|
           ?^dev/release/post-10-docs\.sh$|
           ?^dev/release/post-11-python\.sh$|
@@ -214,6 +215,7 @@ repos:
         files: >-
           (
           ?^dev/release/05-binary-upload\.sh$|
+          ?^dev/release/binary-recover\.sh$|
           ?^dev/release/post-03-binary\.sh$|
           ?^dev/release/post-10-docs\.sh$|
           ?^dev/release/post-11-python\.sh$|

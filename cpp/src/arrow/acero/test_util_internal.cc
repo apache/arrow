@@ -613,5 +613,31 @@ Result<std::shared_ptr<Table>> MakeRandomTimeSeriesTable(
   return Table::Make(schema, columns, num_rows);
 }
 
+Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
+    const Table& table, const std::vector<int>& column_indices) {
+  const int num_columns = table.num_columns();
+  std::vector<std::shared_ptr<ChunkedArray>> encoded_columns;
+  encoded_columns.reserve(num_columns);
+  std::vector<std::shared_ptr<Field>> encoded_fields;
+  encoded_fields.reserve(num_columns);
+  for (int i = 0; i < num_columns; i++) {
+    const auto& field = table.schema()->field(i);
+    if (std::find(column_indices.begin(), column_indices.end(), i) !=
+        column_indices.end()) {
+      ARROW_ASSIGN_OR_RAISE(auto run_end_encoded,
+                            arrow::compute::RunEndEncode(table.column(i)));
+      ARROW_DCHECK_EQ(run_end_encoded.kind(), Datum::CHUNKED_ARRAY);
+      encoded_columns.push_back(run_end_encoded.chunked_array());
+      auto encoded_type = arrow::run_end_encoded(arrow::int32(), field->type());
+      encoded_fields.push_back(field->WithType(encoded_type));
+    } else {
+      encoded_columns.push_back(table.column(i));
+      encoded_fields.push_back(field);
+    }
+  }
+  auto updated_schema = arrow::schema(std::move(encoded_fields));
+  return Table::Make(std::move(updated_schema), std::move(encoded_columns));
+}
+
 }  // namespace acero
 }  // namespace arrow
