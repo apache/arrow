@@ -413,11 +413,6 @@ arrow_add_object_library(ARROW_IO
                          io/slow.cc
                          io/stdio.cc
                          io/transform.cc)
-foreach(ARROW_IO_TARGET ${ARROW_IO_TARGETS})
-  if(NOT MSVC)
-    target_link_libraries(${ARROW_IO_TARGET} PRIVATE ${CMAKE_DL_LIBS})
-  endif()
-endforeach()
 
 set(ARROW_MEMORY_POOL_SRCS memory_pool.cc)
 if(ARROW_JEMALLOC)
