@@ -426,11 +426,17 @@ if(PYARROW_BUILD_ACERO)
   endif()
 endif()
 
-# TODO: Add condition to PYARROW_BUILD_COMPUTE
-if(ARROW_BUILD_SHARED)
-  list(APPEND PYARROW_CPP_LINK_LIBS ArrowCompute::arrow_compute_shared)
+# Currently PyArrow cannot be built without ARROW_COMPUTE
+if(NOT ARROW_COMPUTE)
+  message(FATAL_ERROR "You must build Arrow C++ with ARROW_COMPUTE=ON")
 else()
-  list(APPEND PYARROW_CPP_LINK_LIBS ArrowCompute::arrow_compute_static)
+  message(STATUS "Building PyArrow with Compute")
+  find_package(ArrowCompute REQUIRED)
+  if(ARROW_BUILD_SHARED)
+    list(APPEND PYARROW_CPP_LINK_LIBS ArrowCompute::arrow_compute_shared)
+  else()
+    list(APPEND PYARROW_CPP_LINK_LIBS ArrowCompute::arrow_compute_static)
+  endif()
 endif()
 
 if(PYARROW_BUILD_PARQUET)
