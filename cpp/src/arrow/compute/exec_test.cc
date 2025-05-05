@@ -171,6 +171,13 @@ void AssertValidityZeroExtraBits(const ArrayData& arr) {
 
 class TestComputeInternals : public ::testing::Test {
  public:
+  struct StringRandomGeneratorOption {
+    int64_t size;
+    int32_t min_length;
+    int32_t max_length;
+    double null_probability;
+  };
+
   void SetUp() {
     rng_.reset(new random::RandomArrayGenerator(/*seed=*/0));
     ResetContexts();
@@ -199,6 +206,23 @@ class TestComputeInternals : public ::testing::Test {
       chunks.push_back(GetInt32Array(size));
     }
     return std::make_shared<ChunkedArray>(std::move(chunks));
+  }
+  // type for specifying output type
+  template <typename Type>
+  std::shared_ptr<Array> GetBinaryViewArray(const StringRandomGeneratorOption& option) {
+    auto array = rng_->StringView(option.size, option.min_length, option.max_length,
+                                  option.null_probability);
+    if constexpr (std::is_same_v<Type, BinaryViewType>) {
+      auto array_data = array->data();
+      array_data->type = binary_view();
+      return MakeArray(array_data);
+    } else {
+      return array;
+    }
+  }
+  std::shared_ptr<Array> GetArrayOf(const std::shared_ptr<DataType>& type,
+                                    double null_probability, int64_t size) {
+    return rng_->ArrayOf(type, size, null_probability);
   }
 
  protected:
@@ -1012,7 +1036,83 @@ Status ExecAddInt32(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   }
   return Status::OK();
 }
-
+Status ExecCopyBinaryView(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  auto out_arr = out->array_data().get();
+  auto arg0 = batch[0].array;
+  DCHECK_EQ(0, out_arr->offset);
+  DCHECK_EQ(2, out_arr->buffers.size());
+  // Check view buffer size
+  DCHECK_EQ(out_arr->buffers[1]->size(), arg0.length * BinaryViewType::kSize);
+  auto input_view_buffer = arg0.GetValues<BinaryViewType::c_type>(1);
+  std::memcpy(out_arr->buffers[1]->mutable_data(), input_view_buffer,
+              arg0.length * BinaryViewType::kSize);
+  auto arg0_data_buffer_span = arg0.GetVariadicBuffers();
+  out_arr->buffers.reserve(arg0_data_buffer_span.size());
+  for (const auto& buffer : arg0_data_buffer_span) {
+    ARROW_ASSIGN_OR_RAISE(auto new_buffer,
+                          buffer->CopySlice(0, buffer->size(), ctx->memory_pool()));
+    out_arr->buffers.push_back(std::move(new_buffer));
+  }
+  return Status::OK();
+}
+template <typename Type>
+Status ExecCopyListView(KernelContext*, const ExecSpan& batch, ExecResult* out) {
+  using offset_type = typename Type::offset_type;
+  auto out_arr = out->array_data().get();
+  auto arg0 = batch[0].array;
+  DCHECK_EQ(0, out_arr->offset);
+  DCHECK_EQ(3, out_arr->buffers.size());
+  // Check offset buffer size
+  DCHECK_EQ(out_arr->buffers[1]->size(),
+            static_cast<int64_t>(arg0.length * sizeof(offset_type)));
+  // Check sized buffer size
+  DCHECK_EQ(out_arr->buffers[2]->size(),
+            static_cast<int64_t>(arg0.length * sizeof(offset_type)));
+  // handle offset
+  auto offset_buffer = arg0.GetValues<offset_type>(1);
+  std::memcpy(out_arr->buffers[1]->mutable_data(), offset_buffer,
+              arg0.length * sizeof(offset_type));
+  auto sized_buffer = arg0.GetValues<offset_type>(2);
+  std::memcpy(out_arr->buffers[2]->mutable_data(), sized_buffer,
+              arg0.length * sizeof(offset_type));
+  out_arr->child_data.push_back(arg0.child_data[0].ToArrayData());
+  return Status::OK();
+}
+template <typename Type>
+enable_if_t<std::is_same_v<Type, SparseUnionType>, Status> ExecCopyUnion(
+    KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  auto arg0 = batch[0].array;
+  auto out_arr = out->array_data().get();
+  DCHECK_EQ(2, out_arr->buffers.size());
+  DCHECK_EQ(0, out_arr->offset);
+  DCHECK_EQ(arg0.length, out_arr->buffers[1]->size());
+  auto input_typed_buffer = arg0.GetValues<uint8_t>(1);
+  std::memcpy(out_arr->buffers[1]->mutable_data(), input_typed_buffer, arg0.length);
+  auto offset = arg0.offset;
+  for (auto& array : arg0.child_data) {
+    out_arr->child_data.push_back(array.ToArrayData()->Slice(offset, arg0.length));
+  }
+  return Status::OK();
+}
+template <typename Type>
+enable_if_t<std::is_same_v<Type, DenseUnionType>, Status> ExecCopyUnion(
+    KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  auto arg0 = batch[0].array;
+  auto out_arr = out->array_data().get();
+  DCHECK_EQ(3, out_arr->buffers.size());
+  DCHECK_EQ(0, out_arr->offset);
+  // Check typed buffer size
+  DCHECK_EQ(arg0.length, out_arr->buffers[1]->size());
+  DCHECK_EQ(out_arr->buffers[2]->size(), arg0.length * 4);
+  auto input_typed_buffer = arg0.GetValues<uint8_t>(1);
+  std::memcpy(out_arr->buffers[1]->mutable_data(), input_typed_buffer, arg0.length);
+  for (auto& array : arg0.child_data) {
+    out_arr->child_data.push_back(array.ToArrayData());
+  }
+  auto arg0_offset_buffer = arg0.GetValues<int32_t>(2);
+  std::memcpy(out_arr->buffers[2]->mutable_data(), arg0_offset_buffer, arg0.length * 4);
+  return Status::OK();
+}
 class TestCallScalarFunction : public TestComputeInternals {
  protected:
   static bool initialized_;
@@ -1041,6 +1141,27 @@ class TestCallScalarFunction : public TestComputeInternals {
     ASSERT_OK(func->AddKernel({uint8()}, uint8(), ExecCopyArraySpan));
     ASSERT_OK(func->AddKernel({int32()}, int32(), ExecCopyArraySpan));
     ASSERT_OK(func->AddKernel({float64()}, float64(), ExecCopyArraySpan));
+    for (auto& type : BinaryViewTypes()) {
+      ASSERT_OK(func->AddKernel({type}, type, ExecCopyBinaryView));
+    }
+    auto resolver = [](KernelContext*, const std::vector<TypeHolder>& args) {
+      return args[0];
+    };
+
+    ASSERT_OK(func->AddKernel({InputType(Type::LIST_VIEW)}, OutputType(resolver),
+                              ExecCopyListView<ListViewType>));
+    ASSERT_OK(func->AddKernel({InputType(Type::LARGE_LIST_VIEW)}, OutputType(resolver),
+                              ExecCopyListView<LargeListViewType>));
+
+    ScalarKernel kernel_union({InputType(Type::DENSE_UNION)}, OutputType(resolver),
+                              ExecCopyUnion<DenseUnionType>);
+    kernel_union.null_handling = NullHandling::OUTPUT_NOT_NULL;
+    ASSERT_OK(func->AddKernel(kernel_union));
+
+    kernel_union.exec = ExecCopyUnion<SparseUnionType>;
+    kernel_union.signature = std::shared_ptr<KernelSignature>(
+        new KernelSignature({InputType(Type::SPARSE_UNION)}, OutputType(resolver)));
+    ASSERT_OK(func->AddKernel(kernel_union));
     ASSERT_OK(registry->AddFunction(func));
 
     // A version which doesn't want the executor to call PropagateNulls
@@ -1394,6 +1515,159 @@ TEST_F(TestCallScalarFunctionScalarFunction, SimpleCall) {
 
 TEST_F(TestCallScalarFunctionScalarFunction, ExecCall) {
   TestCallScalarFunctionScalarFunction::DoTest(ExecFunctionCaller::Maker);
+}
+template <typename Type>
+class TestCallScalarFunctionPreallocationNonFixedWidtTypes
+    : public TestCallScalarFunction {
+ public:
+  void CheckArrayDataCopy(std::shared_ptr<FunctionCaller> caller,
+                          std::shared_ptr<Array> input) {
+    ResetContexts();
+    // Make calculation in chunked scenario easier
+    ASSERT_EQ(input->length(), 1000);
+    // One Big Chunk
+    {
+      std::vector<Datum> args = {Datum(input)};
+      ASSERT_OK_AND_ASSIGN(auto result, caller->Call(args));
+      AssertArraysEqual(*input, *result.make_array());
+    }
+    // Set the exec_chunksize
+    {
+      exec_ctx_->set_exec_chunksize(500);
+      std::vector<Datum> args = {Datum(input)};
+      ASSERT_OK_AND_ASSIGN(auto result, caller->Call({args}, exec_ctx_.get()));
+      ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
+      const auto& carr = result.chunked_array();
+      AssertArraysEqual(*input->Slice(0, 500), *carr->chunk(0));
+      AssertArraysEqual(*input->Slice(500, 500), *carr->chunk(1), true);
+    }
+    // use ChunkedArray
+    {
+      ArrayVector array_vector = {input->Slice(0, 500), input->Slice(500, 1000)};
+      auto carr_input = std::make_shared<ChunkedArray>(array_vector);
+      std::vector<Datum> args = {Datum(carr_input)};
+      ASSERT_OK_AND_ASSIGN(auto result, caller->Call({args}));
+      ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
+      const auto& carr_output = result.chunked_array();
+      AssertArraysEqual(*carr_input->chunk(0), *carr_output->chunk(0));
+      AssertArraysEqual(*carr_input->chunk(1), *carr_output->chunk(1));
+    }
+    // Combination of ChunkedArray and exec_chunksize
+    {
+      exec_ctx_->set_exec_chunksize(300);
+      ArrayVector array_vector = {input->Slice(0, 500), input->Slice(500, 1000)};
+      auto carr_input = std::make_shared<ChunkedArray>(array_vector);
+      std::vector<Datum> args = {Datum(carr_input)};
+      ASSERT_OK_AND_ASSIGN(auto result, caller->Call({args}, exec_ctx_.get()));
+      ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
+      const auto& carr_output = result.chunked_array();
+      AssertArraysEqual(*carr_input->chunk(0)->Slice(0, 300), *carr_output->chunk(0));
+      AssertArraysEqual(*carr_input->chunk(0)->Slice(300, 200), *carr_output->chunk(1));
+      AssertArraysEqual(*carr_input->chunk(1)->Slice(0, 300), *carr_output->chunk(2));
+      AssertArraysEqual(*carr_input->chunk(1)->Slice(300, 200), *carr_output->chunk(3));
+    }
+  }
+
+ protected:
+  std::shared_ptr<DataType> type_;
+};
+template <typename Type>
+class TestCallScalarFunctionPreallocationBinaryViewCases
+    : public TestCallScalarFunctionPreallocationNonFixedWidtTypes<Type> {
+ public:
+  void SetUp() override {
+    TestCallScalarFunctionPreallocationNonFixedWidtTypes<Type>::SetUp();
+    this->type_ = TypeTraits<Type>::type_singleton();
+  }
+  void DoTest(FunctionCallerMaker caller_maker);
+};
+template <typename Type>
+void TestCallScalarFunctionPreallocationBinaryViewCases<Type>::DoTest(
+    FunctionCallerMaker caller_maker) {
+  ASSERT_OK_AND_ASSIGN(auto test_copy, caller_maker("test_copy", {this->type_}));
+  TestComputeInternals::StringRandomGeneratorOption options = {1000, 1, 11, .2};
+  auto array = this->template GetBinaryViewArray<Type>(options);
+  // check non inlined
+  this->CheckArrayDataCopy(test_copy, array);
+  options = {1000, 1, 200, .2};
+  array = this->template GetBinaryViewArray<Type>(options);
+  // check inlined
+  this->CheckArrayDataCopy(test_copy, array);
+}
+
+using BinaryViewArrowTypes = ::testing::Types<BinaryViewType, StringViewType>;
+
+TYPED_TEST_SUITE(TestCallScalarFunctionPreallocationBinaryViewCases,
+                 BinaryViewArrowTypes);
+TYPED_TEST(TestCallScalarFunctionPreallocationBinaryViewCases, SimpleCall) {
+  this->DoTest(SimpleFunctionCaller::Maker);
+}
+
+TYPED_TEST(TestCallScalarFunctionPreallocationBinaryViewCases, ExecCall) {
+  this->DoTest(ExecFunctionCaller::Maker);
+}
+template <typename Type>
+class TestCallScalarFunctionPreallocationListViewCases
+    : public TestCallScalarFunctionPreallocationNonFixedWidtTypes<Type> {
+ public:
+  void SetUp() override {
+    TestCallScalarFunctionPreallocationNonFixedWidtTypes<Type>::SetUp();
+    if constexpr (std::is_same_v<Type, ListViewType>) {
+      this->type_ = list_view(int32());
+    } else {
+      this->type_ = large_list_view(int32());
+    }
+  }
+  void DoTest(FunctionCallerMaker caller_maker);
+};
+template <typename Type>
+void TestCallScalarFunctionPreallocationListViewCases<Type>::DoTest(
+    FunctionCallerMaker caller_maker) {
+  ASSERT_OK_AND_ASSIGN(auto test_copy, caller_maker("test_copy", {this->type_}));
+  auto array = this->GetArrayOf(this->type_, .2, 1000);
+  this->CheckArrayDataCopy(test_copy, array);
+}
+using ListViewTypes = ::testing::Types<ListViewType, LargeListViewType>;
+TYPED_TEST_SUITE(TestCallScalarFunctionPreallocationListViewCases, ListViewTypes);
+
+TYPED_TEST(TestCallScalarFunctionPreallocationListViewCases, SimpleCall) {
+  this->DoTest(SimpleFunctionCaller::Maker);
+}
+
+TYPED_TEST(TestCallScalarFunctionPreallocationListViewCases, ExecCall) {
+  this->DoTest(ExecFunctionCaller::Maker);
+}
+template <typename Type>
+class TestCallScalarFunctionPreallocationUnionCases
+    : public TestCallScalarFunctionPreallocationNonFixedWidtTypes<Type> {
+ public:
+  void SetUp() override {
+    TestCallScalarFunctionPreallocationNonFixedWidtTypes<Type>::SetUp();
+    if constexpr (std::is_same_v<Type, DenseUnionType>) {
+      this->type_ =
+          dense_union({field("int32", int32()), field("int64", int64())}, {0, 1});
+    } else {
+      this->type_ =
+          sparse_union({field("int32", int32()), field("int64", int64())}, {0, 1});
+    }
+  }
+  void DoTest(FunctionCallerMaker caller_maker);
+};
+template <typename Type>
+void TestCallScalarFunctionPreallocationUnionCases<Type>::DoTest(
+    FunctionCallerMaker caller_maker) {
+  ASSERT_OK_AND_ASSIGN(auto test_copy, caller_maker("test_copy", {this->type_}));
+  auto array = this->GetArrayOf(this->type_, .2, 1000);
+  this->CheckArrayDataCopy(test_copy, array);
+}
+TYPED_TEST_SUITE(TestCallScalarFunctionPreallocationUnionCases, UnionArrowTypes);
+
+TYPED_TEST(TestCallScalarFunctionPreallocationUnionCases, SimpleCall) {
+  this->DoTest(SimpleFunctionCaller::Maker);
+}
+
+TYPED_TEST(TestCallScalarFunctionPreallocationUnionCases, ExecCall) {
+  this->DoTest(ExecFunctionCaller::Maker);
 }
 
 TEST(Ordering, IsSuborderOf) {
