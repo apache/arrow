@@ -397,7 +397,7 @@ Flight service, and is not needed when the client is directly
 downloading data from an external service.
 
 Clients should assume that, unless otherwise specified, the data is
-being returned using the :ref:`ipc-streaming-format` just as it would
+being returned using the :ref:`format-ipc` just as it would
 via a ``DoGet`` call. If the returned ``Content-Type`` header is a generic
 media type such as ``application/octet-stream``, the client should still assume
 it is an Arrow IPC stream. For other media types, such as Apache Parquet,
