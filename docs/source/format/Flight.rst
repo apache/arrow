@@ -333,6 +333,13 @@ schemes for the given transports:
 +----------------------------+--------------------------------+
 | (reuse connection)         | arrow-flight-reuse-connection: |
 +----------------------------+--------------------------------+
+| HTTP (1)                   | http: or https:                |
++----------------------------+--------------------------------+
+
+Notes:
+
+* \(1) See :ref:`flight-extended-uris` for semantics when using
+   http/https as the transport. It should be accessible via a GET request.
 
 Connection Reuse
 ----------------
@@ -359,6 +366,52 @@ string.  Java's URI implementation does not accept ``scheme:`` or
 string, so the obvious candidates are not compatible.  The chosen
 representation can be parsed by both implementations, as well as Go's
 ``net/url`` and Python's ``urllib.parse``.
+
+.. _flight-extended-uris:
+
+Extended Location URIs
+----------------------
+
+In addition to alternative transports, a server may also return
+URIs that reference an external service or object storage location.
+This can be useful in cases where intermediate data is cached as
+Apache Parquet files on cloud storage or is otherwise accessible
+via an HTTP service. In these scenarios, it is more efficient to be
+able to provide a URI where the client may simply download the data
+directly, rather than requiring a Flight service to read it back into
+memory and serve it from a ``DoGet`` request.
+
+To avoid the complexities of Flight clients having to implement support
+for multiple different cloud storage vendors (e.g. AWS S3, Google Cloud),
+we extend the URIs to only allow an HTTP/HTTPS URI where the client can
+perform a simple GET request to download the data. Authentication can be
+handled either by negotiating externally to the Flight protocol or by the
+server sending a presigned URL that the client can make a GET request to.
+This should be supported by all current major cloud storage vendors, meaning
+only the server needs to know the semantics of the underlying object store APIs.
+
+When using an extended location URI, the client should ignore any
+value in the ``Ticket`` field of the ``FlightEndpoint``. The
+``Ticket`` is only used for identifying data in the context of a
+Flight service, and is not needed when the client is directly
+downloading data from an external service.
+
+Clients should assume that, unless otherwise specified, the data is
+being returned using the :ref:`format-ipc` just as it would
+via a ``DoGet`` call. If the returned ``Content-Type`` header is a generic
+media type such as ``application/octet-stream``, the client should still assume
+it is an Arrow IPC stream. For other media types, such as Apache Parquet,
+the server should use the appropriate IANA Media Type that a client
+would recognize.
+
+Finally, the server may also allow the client to choose what format the
+data is returned in by respecting the ``Accept`` header in the request.
+If multiple formats are requested and supported, the choice of which to
+use is server-specific. If none of the requested content-types are
+supported, the server may respond with either 406 (Not Acceptable),
+415 (Unsupported Media Type), or successfuly respond with a different
+format that it does support, along with the correct ``Content-Type``
+header.
 
 Error Handling
 ==============
