@@ -309,25 +309,6 @@ static inline format::EdgeInterpolationAlgorithm::type ToThrift(
   }
 }
 
-static inline LogicalType::EdgeInterpolationAlgorithm FromThrift(
-    const format::EdgeInterpolationAlgorithm::type algorithm) {
-  switch (algorithm) {
-    case format::EdgeInterpolationAlgorithm::SPHERICAL:
-      return LogicalType::EdgeInterpolationAlgorithm::SPHERICAL;
-    case format::EdgeInterpolationAlgorithm::VINCENTY:
-      return LogicalType::EdgeInterpolationAlgorithm::VINCENTY;
-    case format::EdgeInterpolationAlgorithm::THOMAS:
-      return LogicalType::EdgeInterpolationAlgorithm::THOMAS;
-    case format::EdgeInterpolationAlgorithm::ANDOYER:
-      return LogicalType::EdgeInterpolationAlgorithm::ANDOYER;
-    case format::EdgeInterpolationAlgorithm::KARNEY:
-      return LogicalType::EdgeInterpolationAlgorithm::KARNEY;
-    default:
-      throw ParquetException("Unknown value for geometry algorithm: ",
-                             static_cast<int>(algorithm));
-  }
-}
-
 static inline EncryptionAlgorithm FromThrift(format::EncryptionAlgorithm encryption) {
   EncryptionAlgorithm encryption_algorithm;
 
