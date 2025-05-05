@@ -9,7 +9,7 @@
 \description{
 The \code{arrow} package contains methods for 37 \code{dplyr} table functions, many of
 which are "verbs" that do transformations to one or more tables.
-The package also has mappings of 212 R functions to the corresponding
+The package also has mappings of 213 R functions to the corresponding
 functions in the Arrow compute library. These allow you to write code inside
 of \code{dplyr} methods that call R functions, including many in packages like
 \code{stringr} and \code{lubridate}, and they will get translated to Arrow and run
@@ -29,7 +29,7 @@ Table into an R \code{tibble}.
 \item \code{\link[dplyr:compute]{collect()}}
 \item \code{\link[dplyr:compute]{compute()}}
 \item \code{\link[dplyr:count]{count()}}
-\item \code{\link[dplyr:distinct]{distinct()}}: \code{.keep_all = TRUE} not supported
+\item \code{\link[dplyr:distinct]{distinct()}}: \code{.keep_all = TRUE} returns a non-missing value if present, only returning missing values if all are missing.
 \item \code{\link[dplyr:explain]{explain()}}
 \item \code{\link[dplyr:filter]{filter()}}
 \item \code{\link[dplyr:mutate-joins]{full_join()}}: the \code{copy} argument is ignored
@@ -71,7 +71,7 @@ can assume that the function works in Acero just as it does in R.
 Functions can be called either as \code{pkg::fun()} or just \code{fun()}, i.e. both
 \code{str_sub()} and \code{stringr::str_sub()} work.
 
-In addition to these functions, you can call any of Arrow's 262 compute
+In addition to these functions, you can call any of Arrow's 280 compute
 functions directly. Arrow has many functions that don't map to an existing R
 function. In other cases where there is an R function mapping, you can still
 call the Arrow function directly if you don't want the adaptations that the R
@@ -83,6 +83,7 @@ as \code{arrow_ascii_is_decimal}.
 \itemize{
 \item \code{\link[=add_filename]{add_filename()}}
 \item \code{\link[=cast]{cast()}}
+\item \code{\link[=one]{one()}}
 }
 }
 
