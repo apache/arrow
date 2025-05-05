@@ -32,6 +32,3 @@
 #ifdef ARROW_S3
 #  include "arrow/filesystem/s3fs.h"  // IWYU pragma: export
 #endif
-#ifdef ARROW_HDFS
-#  include "arrow/filesystem/hdfs_io.h"  // IWYU pragma: export
-#endif
