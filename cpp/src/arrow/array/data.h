@@ -336,8 +336,8 @@ struct ARROW_EXPORT ArrayData {
   ///
   /// The associated ArrayStatistics is always discarded in a sliced
   /// ArrayData, even if the slice is trivially equal to the original ArrayData.
-  /// If you want to reuse the statistics from the original ArrayData, you need
-  /// to do it by yourself.
+  /// If you want to reuse the statistics from the original ArrayData, you must
+  /// explicitly reattach them.
   std::shared_ptr<ArrayData> Slice(int64_t offset, int64_t length) const;
 
   /// \brief Construct a zero-copy slice of the data with the given offset and length
