@@ -1043,8 +1043,8 @@ Status ExecCopyBinaryView(KernelContext* ctx, const ExecSpan& batch, ExecResult*
   DCHECK_EQ(2, out_arr->buffers.size());
   // Check view buffer size
   DCHECK_EQ(out_arr->buffers[1]->size(), arg0.length * BinaryViewType::kSize);
-  auto input_view_buffer = arg0.GetValues<BinaryViewType::c_type>(1);
-  std::memcpy(out_arr->buffers[1]->mutable_data(), input_view_buffer,
+  auto arg0_view_buffer = arg0.GetValues<BinaryViewType::c_type>(1);
+  std::memcpy(out_arr->buffers[1]->mutable_data(), arg0_view_buffer,
               arg0.length * BinaryViewType::kSize);
   auto arg0_data_buffer_span = arg0.GetVariadicBuffers();
   out_arr->buffers.reserve(arg0_data_buffer_span.size());
@@ -1068,7 +1068,6 @@ Status ExecCopyListView(KernelContext*, const ExecSpan& batch, ExecResult* out) 
   // Check sized buffer size
   DCHECK_EQ(out_arr->buffers[2]->size(),
             static_cast<int64_t>(arg0.length * sizeof(offset_type)));
-  // handle offset
   auto offset_buffer = arg0.GetValues<offset_type>(1);
   std::memcpy(out_arr->buffers[1]->mutable_data(), offset_buffer,
               arg0.length * sizeof(offset_type));
@@ -1086,8 +1085,8 @@ enable_if_t<std::is_same_v<Type, SparseUnionType>, Status> ExecCopyUnion(
   DCHECK_EQ(2, out_arr->buffers.size());
   DCHECK_EQ(0, out_arr->offset);
   DCHECK_EQ(arg0.length, out_arr->buffers[1]->size());
-  auto input_typed_buffer = arg0.GetValues<uint8_t>(1);
-  std::memcpy(out_arr->buffers[1]->mutable_data(), input_typed_buffer, arg0.length);
+  auto arg0_typed_buffer = arg0.GetValues<uint8_t>(1);
+  std::memcpy(out_arr->buffers[1]->mutable_data(), arg0_typed_buffer, arg0.length);
   auto offset = arg0.offset;
   for (auto& array : arg0.child_data) {
     out_arr->child_data.push_back(array.ToArrayData()->Slice(offset, arg0.length));
@@ -1103,9 +1102,10 @@ enable_if_t<std::is_same_v<Type, DenseUnionType>, Status> ExecCopyUnion(
   DCHECK_EQ(0, out_arr->offset);
   // Check typed buffer size
   DCHECK_EQ(arg0.length, out_arr->buffers[1]->size());
+  // Check offset buffer size
   DCHECK_EQ(out_arr->buffers[2]->size(), arg0.length * 4);
-  auto input_typed_buffer = arg0.GetValues<uint8_t>(1);
-  std::memcpy(out_arr->buffers[1]->mutable_data(), input_typed_buffer, arg0.length);
+  auto arg0_typed_buffer = arg0.GetValues<uint8_t>(1);
+  std::memcpy(out_arr->buffers[1]->mutable_data(), arg0_typed_buffer, arg0.length);
   for (auto& array : arg0.child_data) {
     out_arr->child_data.push_back(array.ToArrayData());
   }
@@ -1516,8 +1516,8 @@ TEST_F(TestCallScalarFunctionScalarFunction, SimpleCall) {
 TEST_F(TestCallScalarFunctionScalarFunction, ExecCall) {
   TestCallScalarFunctionScalarFunction::DoTest(ExecFunctionCaller::Maker);
 }
-template <typename Type>
-class TestCallScalarFunctionPreallocationNonFixedWidtTypes
+
+class TestCallScalarFunctionPreallocationNonFixedWidthTypes
     : public TestCallScalarFunction {
  public:
   void CheckArrayDataCopy(std::shared_ptr<FunctionCaller> caller,
@@ -1567,30 +1567,31 @@ class TestCallScalarFunctionPreallocationNonFixedWidtTypes
       AssertArraysEqual(*carr_input->chunk(1)->Slice(300, 200), *carr_output->chunk(3));
     }
   }
+  const std::shared_ptr<DataType>& type() { return type_; }
 
  protected:
   std::shared_ptr<DataType> type_;
 };
 template <typename Type>
 class TestCallScalarFunctionPreallocationBinaryViewCases
-    : public TestCallScalarFunctionPreallocationNonFixedWidtTypes<Type> {
+    : public TestCallScalarFunctionPreallocationNonFixedWidthTypes {
  public:
   void SetUp() override {
-    TestCallScalarFunctionPreallocationNonFixedWidtTypes<Type>::SetUp();
-    this->type_ = TypeTraits<Type>::type_singleton();
+    TestCallScalarFunctionPreallocationNonFixedWidthTypes::SetUp();
+    type_ = TypeTraits<Type>::type_singleton();
   }
   void DoTest(FunctionCallerMaker caller_maker);
 };
 template <typename Type>
 void TestCallScalarFunctionPreallocationBinaryViewCases<Type>::DoTest(
     FunctionCallerMaker caller_maker) {
-  ASSERT_OK_AND_ASSIGN(auto test_copy, caller_maker("test_copy", {this->type_}));
-  TestComputeInternals::StringRandomGeneratorOption options = {1000, 1, 11, .2};
-  auto array = this->template GetBinaryViewArray<Type>(options);
+  ASSERT_OK_AND_ASSIGN(auto test_copy, caller_maker("test_copy", {type()}));
+  StringRandomGeneratorOption options = {1000, 1, 11, .2};
+  auto array = GetBinaryViewArray<Type>(options);
   // check non inlined
   this->CheckArrayDataCopy(test_copy, array);
   options = {1000, 1, 200, .2};
-  array = this->template GetBinaryViewArray<Type>(options);
+  array = GetBinaryViewArray<Type>(options);
   // check inlined
   this->CheckArrayDataCopy(test_copy, array);
 }
@@ -1608,14 +1609,14 @@ TYPED_TEST(TestCallScalarFunctionPreallocationBinaryViewCases, ExecCall) {
 }
 template <typename Type>
 class TestCallScalarFunctionPreallocationListViewCases
-    : public TestCallScalarFunctionPreallocationNonFixedWidtTypes<Type> {
+    : public TestCallScalarFunctionPreallocationNonFixedWidthTypes {
  public:
   void SetUp() override {
-    TestCallScalarFunctionPreallocationNonFixedWidtTypes<Type>::SetUp();
+    TestCallScalarFunctionPreallocationNonFixedWidthTypes::SetUp();
     if constexpr (std::is_same_v<Type, ListViewType>) {
-      this->type_ = list_view(int32());
+      type_ = list_view(int32());
     } else {
-      this->type_ = large_list_view(int32());
+      type_ = large_list_view(int32());
     }
   }
   void DoTest(FunctionCallerMaker caller_maker);
@@ -1623,9 +1624,9 @@ class TestCallScalarFunctionPreallocationListViewCases
 template <typename Type>
 void TestCallScalarFunctionPreallocationListViewCases<Type>::DoTest(
     FunctionCallerMaker caller_maker) {
-  ASSERT_OK_AND_ASSIGN(auto test_copy, caller_maker("test_copy", {this->type_}));
-  auto array = this->GetArrayOf(this->type_, .2, 1000);
-  this->CheckArrayDataCopy(test_copy, array);
+  ASSERT_OK_AND_ASSIGN(auto test_copy, caller_maker("test_copy", {type()}));
+  auto array = GetArrayOf(type(), .2, 1000);
+  CheckArrayDataCopy(test_copy, array);
 }
 using ListViewTypes = ::testing::Types<ListViewType, LargeListViewType>;
 TYPED_TEST_SUITE(TestCallScalarFunctionPreallocationListViewCases, ListViewTypes);
@@ -1639,16 +1640,14 @@ TYPED_TEST(TestCallScalarFunctionPreallocationListViewCases, ExecCall) {
 }
 template <typename Type>
 class TestCallScalarFunctionPreallocationUnionCases
-    : public TestCallScalarFunctionPreallocationNonFixedWidtTypes<Type> {
+    : public TestCallScalarFunctionPreallocationNonFixedWidthTypes {
  public:
   void SetUp() override {
-    TestCallScalarFunctionPreallocationNonFixedWidtTypes<Type>::SetUp();
+    TestCallScalarFunctionPreallocationNonFixedWidthTypes::SetUp();
     if constexpr (std::is_same_v<Type, DenseUnionType>) {
-      this->type_ =
-          dense_union({field("int32", int32()), field("int64", int64())}, {0, 1});
+      type_ = dense_union({field("int32", int32()), field("int64", int64())}, {0, 1});
     } else {
-      this->type_ =
-          sparse_union({field("int32", int32()), field("int64", int64())}, {0, 1});
+      type_ = sparse_union({field("int32", int32()), field("int64", int64())}, {0, 1});
     }
   }
   void DoTest(FunctionCallerMaker caller_maker);
@@ -1656,9 +1655,9 @@ class TestCallScalarFunctionPreallocationUnionCases
 template <typename Type>
 void TestCallScalarFunctionPreallocationUnionCases<Type>::DoTest(
     FunctionCallerMaker caller_maker) {
-  ASSERT_OK_AND_ASSIGN(auto test_copy, caller_maker("test_copy", {this->type_}));
-  auto array = this->GetArrayOf(this->type_, .2, 1000);
-  this->CheckArrayDataCopy(test_copy, array);
+  ASSERT_OK_AND_ASSIGN(auto test_copy, caller_maker("test_copy", {type()}));
+  auto array = GetArrayOf(type(), .2, 1000);
+  CheckArrayDataCopy(test_copy, array);
 }
 TYPED_TEST_SUITE(TestCallScalarFunctionPreallocationUnionCases, UnionArrowTypes);
 
