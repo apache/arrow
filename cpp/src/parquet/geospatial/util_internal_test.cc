@@ -511,6 +511,11 @@ struct MakeWKBPointTestCase {
   bool has_m{};
 };
 
+std::ostream& operator<<(std::ostream& os, const MakeWKBPointTestCase& obj) {
+  os << "MakeWKBPointTestCase<has_z=" << obj.has_z << ", has_m=" << obj.has_m << ">";
+  return os;
+}
+
 class MakeWKBPointTestFixture : public testing::TestWithParam<MakeWKBPointTestCase> {};
 
 TEST_P(MakeWKBPointTestFixture, MakeWKBPoint) {
