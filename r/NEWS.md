@@ -19,6 +19,16 @@
 
 # arrow 20.0.0
 
+## Minor improvements and fixes
+
+- Binary Arrays now inherit from `blob::blob` in addition to `arrow_binary` when
+  [converted to R
+  objects](https://arrow.apache.org/docs/r/articles/data_types.html#translations-from-arrow-to-r).
+  This change is the first step in eventually deprecating the `arrow_binary`
+  class in favor of the `blob` class in the
+  [`blob`](https://cran.r-project.org/package=blob) package (See
+  [GH-45709](https://github.com/apache/arrow/issues/45709)).
+
 # arrow 19.0.1.1
 
 ## Minor improvements and fixes
