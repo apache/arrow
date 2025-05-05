@@ -58,7 +58,7 @@ example a ``std::vector``.  Instead, several strategies can be used:
   deal with details of the Arrow format yourself.
 
 .. note:: For cases where performance isn't important such as examples or tests,
-          you may prefer to use the ``*FromJSON`` helpers which can create
+          you may prefer to use the ``*FromJSONString`` helpers which can create
           Arrays using a JSON text shorthand. See :ref:`fromjson_helpers`.
 
 Using ArrayBuilder and its subclasses
