@@ -283,7 +283,10 @@ else
 fi
 
 if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
-  time meson install
+    time {
+      meson compile -j $[${n_jobs} + 1];
+      meson install;
+  }
 else
   export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$[${n_jobs} + 1]}
   time cmake --build . --target install
