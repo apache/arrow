@@ -717,6 +717,7 @@ set(ARROW_COMPUTE_SRCS
     compute/kernel.cc
     compute/ordering.cc
     compute/registry.cc
+    compute/kernels/chunked_internal.cc
     compute/kernels/ree_util_internal.cc
     compute/kernels/scalar_cast_boolean.cc
     compute/kernels/scalar_cast_dictionary.cc
@@ -751,8 +752,7 @@ if(ARROW_COMPUTE)
        compute/kernels/aggregate_quantile.cc
        compute/kernels/aggregate_tdigest.cc
        compute/kernels/aggregate_var_std.cc
-       compute/kernels/codegen_internal.cc # This is wrong but I am testing something
-       compute/kernels/chunked_internal.cc
+       compute/kernels/codegen_internal.cc
        compute/kernels/hash_aggregate.cc
        compute/kernels/hash_aggregate_numeric.cc
        compute/kernels/hash_aggregate_pivot.cc
