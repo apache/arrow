@@ -1783,19 +1783,22 @@ TEST(AsofJoinTest, DeadLock) {
                        gen::Constant(MakeScalar(n_right + 1))->Generate(n_left));
   ASSERT_OK_AND_ASSIGN(auto right_col, gen::Step<int64_t>()->Generate(n_right));
 
-  auto left_table = Table::Make(left_schema, {left_col});
-  auto right_table = Table::Make(right_schema, {right_col});
+  ExecBatch left_batch({left_col}, n_left);
+  ExecBatch right_batch({right_col}, n_right);
 
-  for (int i = 0; i < 1000; ++i) {
-    std::cout << i << std::endl;
+  auto exp_batch = ExecBatchFromJSON({int64(), int64()},
+                                     "[[" + std::to_string(n_right + 1) + ", null]]");
 
+  for (int i = 0; i < 42; ++i) {
     AsofJoinNodeOptions opts({{{"on"}, {}}, {{"on"}, {}}}, tolerance);
-    auto left = Declaration("table_source", TableSourceNodeOptions(left_table));
-    auto right = Declaration("table_source", TableSourceNodeOptions(right_table));
+    auto left = Declaration("exec_batch_source",
+                            ExecBatchSourceNodeOptions(left_schema, {left_batch}));
+    auto right = Declaration("exec_batch_source",
+                             ExecBatchSourceNodeOptions(right_schema, {right_batch}));
     auto asof_join = arrow::acero::Declaration{"asofjoin", {left, right}, opts};
     ASSERT_OK_AND_ASSIGN(auto result,
                          arrow::acero::DeclarationToExecBatches(std::move(asof_join)));
-    std::cout << result.batches[0].length << " rows" << std::endl;
+    AssertExecBatchesEqualIgnoringOrder(result.schema, {exp_batch}, result.batches);
   }
 }
 
