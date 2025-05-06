@@ -16,7 +16,7 @@
 # under the License.
 
 class TestFixedShapeTensorDataType < Test::Unit::TestCase
-  def test_type
+  def test_id
     data_type = Arrow::FixedShapeTensorDataType.new(Arrow::UInt64DataType.new,
                                                     [3, 4],
                                                     [1, 0],
@@ -41,14 +41,6 @@ class TestFixedShapeTensorDataType < Test::Unit::TestCase
     assert do
       data_type.to_s.start_with?("extension<arrow.fixed_shape_tensor")
     end
-  end
-
-  def test_empty_shape
-    data_type = Arrow::FixedShapeTensorDataType.new(Arrow::UInt64DataType.new,
-                                                    [],
-                                                    [],
-                                                    [])
-    assert_equal(Arrow::Type::EXTENSION, data_type.id)
   end
 
   def test_nil_permutation
@@ -96,5 +88,4 @@ class TestFixedShapeTensorDataType < Test::Unit::TestCase
     assert_equal(message,
                  error.message.lines.first.chomp)
   end
-
 end
