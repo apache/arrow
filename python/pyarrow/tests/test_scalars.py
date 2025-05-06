@@ -575,7 +575,7 @@ def test_string(value, ty, scalar_typ):
     assert buf.to_pybytes() == value.encode()
 
 
-@pytest.mark.parametrize('value', [b'foo', b'bar', None])
+@pytest.mark.parametrize('value', [b'foo', b'bar', b'', None])
 @pytest.mark.parametrize(('ty', 'scalar_typ'), [
     (pa.binary(), pa.BinaryScalar),
     (pa.large_binary(), pa.LargeBinaryScalar),
@@ -605,9 +605,9 @@ def test_binary(value, ty, scalar_typ):
         assert memview.format == 'b'
         assert memview.itemsize == 1
         assert memview.ndim == 1
-        assert memview.shape == (3,)
-        assert memview.strides == (1,)  
-
+        assert memview.shape == (len(value),)
+        assert memview.strides == (1,)
+   
 def test_fixed_size_binary():
     s = pa.scalar(b'foof', type=pa.binary(4))
     assert isinstance(s, pa.FixedSizeBinaryScalar)
