@@ -1103,50 +1103,70 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaGeoArrowExtensions) {
                                                LogicalType::Geography(),
                                                ParquetType::BYTE_ARRAY));
 
+  std::vector<std::shared_ptr<::arrow::DataType>> binary_types = {
+      ::arrow::binary(),
+      ::arrow::large_binary(),
+      ::arrow::binary_view(),
+  };
+
   {
     // Parquet file does not contain Arrow schema.
-    // By default, both fields should be treated as binary() fields in Arrow.
-    auto arrow_schema = ::arrow::schema({::arrow::field("geometry", BINARY, true),
-                                         ::arrow::field("geography", BINARY, true)});
-    std::shared_ptr<KeyValueMetadata> metadata{};
-    ASSERT_OK(ConvertSchema(parquet_fields, metadata));
-    CheckFlatSchema(arrow_schema);
+    // By default, both fields should be treated as binary_type fields in Arrow.
+    for (const auto& binary_type : binary_types) {
+      auto arrow_schema =
+          ::arrow::schema({::arrow::field("geometry", binary_type, true),
+                           ::arrow::field("geography", binary_type, true)});
+      std::shared_ptr<KeyValueMetadata> metadata{};
+      ArrowReaderProperties props;
+      props.set_binary_type(binary_type->id());
+      ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
+      CheckFlatSchema(arrow_schema);
+    }
   }
 
   {
     // Parquet file does not contain Arrow schema.
     // If Arrow extensions are enabled and extensions are registered,
-    // fields will be interpreted as geoarrow_wkb(binary()) extension fields.
+    // fields will be interpreted as geoarrow_wkb(binary_type) extension fields.
     ::arrow::ExtensionTypeGuard guard(test::geoarrow_wkb());
 
-    ArrowReaderProperties props;
-    props.set_arrow_extensions_enabled(true);
-    auto arrow_schema = ::arrow::schema(
-        {::arrow::field(
-             "geometry",
-             test::geoarrow_wkb(R"({"crs": "OGC:CRS84", "crs_type": "authority_code"})"),
-             true),
-         ::arrow::field(
-             "geography",
-             test::geoarrow_wkb(
-                 R"({"crs": "OGC:CRS84", "crs_type": "authority_code", "edges": "spherical"})"),
-             true)});
-    std::shared_ptr<KeyValueMetadata> metadata{};
-    ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
-    CheckFlatSchema(arrow_schema);
+    for (const auto& binary_type : binary_types) {
+      ArrowReaderProperties props;
+      props.set_arrow_extensions_enabled(true);
+      props.set_binary_type(binary_type->id());
+      auto arrow_schema = ::arrow::schema(
+          {::arrow::field(
+               "geometry",
+               test::geoarrow_wkb(R"({"crs": "OGC:CRS84", "crs_type": "authority_code"})",
+                                  binary_type),
+               true),
+           ::arrow::field(
+               "geography",
+               test::geoarrow_wkb(
+                   R"({"crs": "OGC:CRS84", "crs_type": "authority_code", "edges": "spherical"})",
+                   binary_type),
+               true)});
+      std::shared_ptr<KeyValueMetadata> metadata{};
+      ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
+      CheckFlatSchema(arrow_schema);
+    }
   }
 
   {
     // Parquet file does not contain Arrow schema.
     // If Arrow extensions are enabled and extensions are NOT registered,
-    // fields will be interpreted as binary().
-    ArrowReaderProperties props;
-    props.set_arrow_extensions_enabled(true);
-    auto arrow_schema = ::arrow::schema({::arrow::field("geometry", BINARY, true),
-                                         ::arrow::field("geography", BINARY, true)});
-    std::shared_ptr<KeyValueMetadata> metadata{};
-    ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
-    CheckFlatSchema(arrow_schema);
+    // fields will be interpreted as binary_type.
+    for (const auto& binary_type : binary_types) {
+      ArrowReaderProperties props;
+      props.set_arrow_extensions_enabled(true);
+      props.set_binary_type(binary_type->id());
+      auto arrow_schema =
+          ::arrow::schema({::arrow::field("geometry", binary_type, true),
+                           ::arrow::field("geography", binary_type, true)});
+      std::shared_ptr<KeyValueMetadata> metadata{};
+      ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
+      CheckFlatSchema(arrow_schema);
+    }
   }
 }
 

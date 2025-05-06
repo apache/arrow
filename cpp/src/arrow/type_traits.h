@@ -1237,6 +1237,22 @@ constexpr bool is_binary(Type::type type_id) {
   return false;
 }
 
+/// \brief Check for a binary or binary view (non-string) type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a binary type one
+constexpr bool is_binary_or_binary_view(Type::type type_id) {
+  switch (type_id) {
+    case Type::BINARY:
+    case Type::LARGE_BINARY:
+    case Type::BINARY_VIEW:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 /// \brief Check for a string type
 ///
 /// \param[in] type_id the type-id to check
@@ -1245,6 +1261,22 @@ constexpr bool is_string(Type::type type_id) {
   switch (type_id) {
     case Type::STRING:
     case Type::LARGE_STRING:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+/// \brief Check for a string or string view type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a string type one
+constexpr bool is_string_or_string_view(Type::type type_id) {
+  switch (type_id) {
+    case Type::STRING:
+    case Type::LARGE_STRING:
+    case Type::STRING_VIEW:
       return true;
     default:
       break;
