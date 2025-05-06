@@ -2332,7 +2332,7 @@ garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
     return NULL;
   }
 
-  GArrowFixedShapeTensorDataType *data_type = GARROW_FIXED_SHAPE_TENSOR_DATA_TYPE(
+  auto data_type = GARROW_FIXED_SHAPE_TENSOR_DATA_TYPE(
     g_object_new(GARROW_TYPE_FIXED_SHAPE_TENSOR_DATA_TYPE,
                  "data-type",
                  &arrow_data_type.ValueUnsafe(),
