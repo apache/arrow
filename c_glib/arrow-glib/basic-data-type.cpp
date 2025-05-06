@@ -2324,12 +2324,11 @@ garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
     arrow_dim_names.push_back(dim_name[i]);
   }
 
-  auto arrow_data_type = arrow::extension::FixedShapeTensorType::Make(arrow_value_type,
+  auto arrow_data_type_result = arrow::extension::FixedShapeTensorType::Make(arrow_value_type,
                                                                       arrow_shape,
                                                                       arrow_permutation,
                                                                       arrow_dim_names);
-
-  if (!garrow::check(error, arrow_data_type, "[fixed-shape-tensor][new]")) {
+  if (!garrow::check(error, arrow_data_type_result, "[fixed-shape-tensor][new]")) {
     return NULL;
   }
 
