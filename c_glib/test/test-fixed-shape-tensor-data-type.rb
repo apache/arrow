@@ -38,7 +38,9 @@ class TestFixedShapeTensorDataType < Test::Unit::TestCase
                                                     [3, 4],
                                                     [1, 0],
                                                     ["x", "y"])
-    assert_true(data_type.to_s.start_with?("extension<arrow.fixed_shape_tensor"))
+    assert do
+      data_type.to_s.start_with?("extension<arrow.fixed_shape_tensor")
+    end
   end
 
   def test_empty_shape
