@@ -728,7 +728,6 @@ set(ARROW_COMPUTE_SRCS
     compute/kernels/scalar_cast_string.cc
     compute/kernels/scalar_cast_temporal.cc
     compute/kernels/vector_hash.cc
-    compute/kernels/vector_run_end_encode.cc
     compute/kernels/vector_selection.cc
     compute/kernels/vector_selection_filter_internal.cc
     compute/kernels/vector_selection_internal.cc
@@ -778,6 +777,7 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_pairwise.cc
        compute/kernels/vector_rank.cc
        compute/kernels/vector_replace.cc
+       compute/kernels/vector_run_end_encode.cc
        compute/kernels/vector_select_k.cc
        compute/kernels/vector_sort.cc
        compute/kernels/vector_statistics.cc
