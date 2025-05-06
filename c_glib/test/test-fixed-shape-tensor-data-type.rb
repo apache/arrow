@@ -49,6 +49,22 @@ class TestFixedShapeTensorDataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::EXTENSION, data_type.id)
   end
 
+  def test_nil_permutation
+    data_type = Arrow::FixedShapeTensorDataType.new(Arrow::UInt64DataType.new,
+                                                    [3, 4],
+                                                    nil,
+                                                    ["x", "y"])
+    assert_equal(Arrow::Type::EXTENSION, data_type.id)
+  end
+
+  def test_nil_dim_names
+    data_type = Arrow::FixedShapeTensorDataType.new(Arrow::UInt64DataType.new,
+                                                    [3, 4],
+                                                    [0, 1],
+                                                    nil)
+    assert_equal(Arrow::Type::EXTENSION, data_type.id)
+  end
+
   def test_mismatch_permutation_size
     message =
       "[fixed-shape-tensor][new]: Invalid: " +

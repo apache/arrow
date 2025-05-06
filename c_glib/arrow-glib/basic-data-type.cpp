@@ -2291,12 +2291,12 @@ garrow_fixed_shape_tensor_data_type_class_init(GArrowFixedShapeTensorDataTypeCla
  * @shape: (array length=shape_length): A physical shape of the contained tensors as an
  * array.
  * @shape_length: The length of `shape`.
- * @permutation: (array length=permutation_length): An indices of the desired ordering of
- * the original dimensions, defined as an array. This must be `NULL` or the same length
- * array of `shape`.
+ * @permutation: (array length=permutation_length) (nullable): An indices of the desired
+ * ordering of the original dimensions, defined as an array. This must be `NULL` or the
+ * same length array of `shape`.
  * @permutation_length: The length of `permutation`.
- * @dim_names: (array length=n_dim_names): Explicit names to tensor dimensions as an
- * array. This must be `NULL` or the same length array of `shape`.
+ * @dim_names: (array length=n_dim_names) (nullable): Explicit names to tensor dimensions
+ * as an array. This must be `NULL` or the same length array of `shape`.
  * @n_dim_names. The length of `dim_names`.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
