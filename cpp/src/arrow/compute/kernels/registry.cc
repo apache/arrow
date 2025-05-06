@@ -36,6 +36,13 @@ namespace compute {
 Status RegisterComputeKernels() {
   auto registry = GetFunctionRegistry();
 
+  // Check if the function "rank" is already registered
+  // to avoid multiple registration attempts
+  auto func = registry->GetFunction("rank");
+  if (func.ok()) {
+    return Status::OK();
+  }
+
   // Register additional kernels on libarrow_compute
   // Scalar functions
   internal::RegisterScalarArithmetic(registry);
@@ -77,5 +84,8 @@ Status RegisterComputeKernels() {
 
   return Status::OK();
 }
+
+Status Initialize() { return RegisterComputeKernels(); }
+
 }  // namespace compute
 }  // namespace arrow
