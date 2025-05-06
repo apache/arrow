@@ -68,6 +68,8 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetLogicalType_JSON" parquet::LogicalType::Type::JSON"
         ParquetLogicalType_BSON" parquet::LogicalType::Type::BSON"
         ParquetLogicalType_UUID" parquet::LogicalType::Type::UUID"
+        ParquetLogicalType_GEOMETRY" parquet::LogicalType::Type::GEOMETRY"
+        ParquetLogicalType_GEOGRAPHY" parquet::LogicalType::Type::GEOGRAPHY"
         ParquetLogicalType_NONE" parquet::LogicalType::Type::NONE"
 
     enum ParquetTimeUnit" parquet::LogicalType::TimeUnit::unit":
@@ -75,6 +77,14 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetTimeUnit_MILLIS" parquet::LogicalType::TimeUnit::MILLIS"
         ParquetTimeUnit_MICROS" parquet::LogicalType::TimeUnit::MICROS"
         ParquetTimeUnit_NANOS" parquet::LogicalType::TimeUnit::NANOS"
+
+    enum ParquetEdgeInterpolationAlgorithm" parquet::LogicalType::EdgeInterpolationAlgorithm":
+        ParquetEdgeInterpolationAlgorithm_UNKNOWN" parquet::LogicalType::EdgeInterpolationAlgorithm::UNKNOWN"
+        ParquetEdgeInterpolationAlgorithm_SPHERICAL" parquet::LogicalType::EdgeInterpolationAlgorithm::SPHERICAL"
+        ParquetEdgeInterpolationAlgorithm_VINCENTY" parquet::LogicalType::EdgeInterpolationAlgorithm::VINCENTY"
+        ParquetEdgeInterpolationAlgorithm_THOMAS" parquet::LogicalType::EdgeInterpolationAlgorithm::THOMAS"
+        ParquetEdgeInterpolationAlgorithm_ANDOYER" parquet::LogicalType::EdgeInterpolationAlgorithm::ANDOYER"
+        ParquetEdgeInterpolationAlgorithm_KARNEY" parquet::LogicalType::EdgeInterpolationAlgorithm::KARNEY"
 
     enum ParquetConvertedType" parquet::ConvertedType::type":
         ParquetConvertedType_NONE" parquet::ConvertedType::NONE"
@@ -167,6 +177,15 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         c_bool is_adjusted_to_utc() const
         ParquetTimeUnit time_unit() const
 
+    cdef cppclass CParquetGeometryType \
+            " parquet::GeometryLogicalType"(CParquetLogicalType):
+        c_string crs() const
+
+    cdef cppclass CParquetGeographyType \
+            " parquet::GeographyLogicalType"(CParquetLogicalType):
+        c_string crs() const
+        ParquetEdgeInterpolationAlgorithm algorithm() const
+
     cdef cppclass ColumnDescriptor" parquet::ColumnDescriptor":
         c_bool Equals(const ColumnDescriptor& other)
 
@@ -204,6 +223,33 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
     struct EncryptionAlgorithm:
         ParquetCipher algorithm
         AadMetadata aad
+
+
+# Specific array<> types needed for GeoStatistics
+cdef extern from "<array>" namespace "std" nogil:
+    cdef cppclass double_array4 "std::array<double, 4>":
+        double_array4() except +
+        double& operator[](size_t)
+
+    cdef cppclass bool_array4 "std::array<bool, 4>":
+        bool_array4() except +
+        c_bool& operator[](size_t)
+
+
+cdef extern from "parquet/geospatial/statistics.h" namespace "parquet" nogil:
+
+    cdef cppclass CParquetGeoStatistics" parquet::geospatial::GeoStatistics":
+        c_bool is_valid() const
+
+        double_array4 lower_bound() const
+        double_array4 upper_bound() const
+        bool_array4 dimension_valid() const
+        bool_array4 dimension_empty() const
+
+        optional[vector[int32_t]] geometry_types() const
+
+        c_string ToString() const
+
 
 cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
     cdef cppclass ColumnReader:
@@ -314,6 +360,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         shared_ptr[ColumnPath] path_in_schema() const
         bint is_stats_set() const
         shared_ptr[CStatistics] statistics() const
+        c_bool is_geo_stats_set() const
+        shared_ptr[CParquetGeoStatistics] geo_statistics() const
         ParquetCompression compression() const
         const vector[ParquetEncoding]& encodings() const
         c_bool Equals(const CColumnChunkMetaData&) const
@@ -404,6 +452,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         CCacheOptions cache_options() const
         void set_coerce_int96_timestamp_unit(TimeUnit unit)
         TimeUnit coerce_int96_timestamp_unit() const
+        void set_arrow_extensions_enabled(c_bool extensions_enabled)
+        c_bool get_arrow_extensions_enabled() const
 
     ArrowReaderProperties default_arrow_reader_properties()
 
@@ -656,6 +706,16 @@ cdef class Statistics(_Weakrefable):
         ColumnChunkMetaData parent
 
     cdef inline init(self, const shared_ptr[CStatistics]& statistics,
+                     ColumnChunkMetaData parent):
+        self.statistics = statistics
+        self.parent = parent
+
+cdef class GeoStatistics(_Weakrefable):
+    cdef:
+        shared_ptr[CParquetGeoStatistics] statistics
+        ColumnChunkMetaData parent
+
+    cdef inline init(self, const shared_ptr[CParquetGeoStatistics]& statistics,
                      ColumnChunkMetaData parent):
         self.statistics = statistics
         self.parent = parent

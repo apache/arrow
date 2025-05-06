@@ -1,4 +1,4 @@
-// swift-tools-version:5.7
+// swift-tools-version: 5.10
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 // Licensed to the Apache Software Foundation (ASF) under one
@@ -32,8 +32,8 @@ let package = Package(
             targets: ["ArrowFlight"])
     ],
     dependencies: [
-        .package(url: "https://github.com/grpc/grpc-swift.git", from: "1.15.0"),
-        .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.6.0"),
+        .package(url: "https://github.com/grpc/grpc-swift.git", from: "1.25.0"),
+        .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.29.0"),
         .package(path: "../Arrow")
     ],
     targets: [

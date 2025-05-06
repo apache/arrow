@@ -245,7 +245,7 @@ public struct org_apache_arrow_flatbuf_RecordBatch: FlatBufferObject, Verifiable
   public func buffers(at index: Int32) -> org_apache_arrow_flatbuf_Buffer? { let o = _accessor.offset(VTOFFSET.buffers.v); return o == 0 ? nil : _accessor.directRead(of: org_apache_arrow_flatbuf_Buffer.self, offset: _accessor.vector(at: o) + index * 16) }
   public func mutableBuffers(at index: Int32) -> org_apache_arrow_flatbuf_Buffer_Mutable? { let o = _accessor.offset(VTOFFSET.buffers.v); return o == 0 ? nil : org_apache_arrow_flatbuf_Buffer_Mutable(_accessor.bb, o: _accessor.vector(at: o) + index * 16) }
   ///  Optional compression of the message body
-  public var compression: org_apache_arrow_flatbuf_BodyCompression? { let o = _accessor.offset(VTOFFSET.compression.v); return o == 0 ? nil : org_apache_arrow_flatbuf_BodyCompression(_accessor.bb, o: _accessor.indirect(o + _accessor.postion)) }
+  public var compression: org_apache_arrow_flatbuf_BodyCompression? { let o = _accessor.offset(VTOFFSET.compression.v); return o == 0 ? nil : org_apache_arrow_flatbuf_BodyCompression(_accessor.bb, o: _accessor.indirect(o + _accessor.position)) }
   public static func startRecordBatch(_ fbb: inout FlatBufferBuilder) -> UOffset { fbb.startTable(with: 4) }
   public static func add(length: Int64, _ fbb: inout FlatBufferBuilder) { fbb.add(element: length, def: 0, at: VTOFFSET.length.p) }
   public static func addVectorOf(nodes: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: nodes, at: VTOFFSET.nodes.p) }
@@ -309,7 +309,7 @@ public struct org_apache_arrow_flatbuf_DictionaryBatch: FlatBufferObject, Verifi
   }
 
   public var id: Int64 { let o = _accessor.offset(VTOFFSET.id.v); return o == 0 ? 0 : _accessor.readBuffer(of: Int64.self, at: o) }
-  public var data: org_apache_arrow_flatbuf_RecordBatch? { let o = _accessor.offset(VTOFFSET.data.v); return o == 0 ? nil : org_apache_arrow_flatbuf_RecordBatch(_accessor.bb, o: _accessor.indirect(o + _accessor.postion)) }
+  public var data: org_apache_arrow_flatbuf_RecordBatch? { let o = _accessor.offset(VTOFFSET.data.v); return o == 0 ? nil : org_apache_arrow_flatbuf_RecordBatch(_accessor.bb, o: _accessor.indirect(o + _accessor.position)) }
   ///  If isDelta is true the values in the dictionary are to be appended to a
   ///  dictionary with the indicated id. If isDelta is false this dictionary
   ///  should replace the existing dictionary.

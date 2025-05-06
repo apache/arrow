@@ -51,8 +51,6 @@ add_arrow_lib(arrow_substrait
               ARROW_SUBSTRAIT_LIBRARIES
               SOURCES
               ${ARROW_SUBSTRAIT_SRCS}
-              PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:arrow/engine/pch.h>"
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS

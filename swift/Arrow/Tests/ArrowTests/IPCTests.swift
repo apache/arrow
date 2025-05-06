@@ -118,7 +118,44 @@ func makeRecordBatch() throws -> RecordBatch {
     }
 }
 
-final class IPCFileReaderTests: XCTestCase {
+final class IPCFileReaderTests: XCTestCase { // swiftlint:disable:this type_body_length
+    func testFileReader_struct() throws {
+        let fileURL = currentDirectory().appendingPathComponent("../../testdata_struct.arrow")
+        let arrowReader = ArrowReader()
+        let result = arrowReader.fromFile(fileURL)
+        let recordBatches: [RecordBatch]
+        switch result {
+        case .success(let result):
+            recordBatches = result.batches
+        case .failure(let error):
+            throw error
+        }
+
+        XCTAssertEqual(recordBatches.count, 1)
+        for recordBatch in recordBatches {
+            XCTAssertEqual(recordBatch.length, 3)
+            XCTAssertEqual(recordBatch.columns.count, 1)
+            XCTAssertEqual(recordBatch.schema.fields.count, 1)
+            XCTAssertEqual(recordBatch.schema.fields[0].type.info, ArrowType.ArrowStruct)
+            let column = recordBatch.columns[0]
+            XCTAssertNotNil(column.array as? StructArray)
+            if let structArray = column.array as? StructArray {
+                XCTAssertEqual(structArray.arrowFields?.count, 2)
+                XCTAssertEqual(structArray.arrowFields?[0].type.info, ArrowType.ArrowString)
+                XCTAssertEqual(structArray.arrowFields?[1].type.info, ArrowType.ArrowBool)
+                for index in 0..<structArray.length {
+                    if index == 2 {
+                        XCTAssertNil(structArray[index])
+                    } else {
+                        XCTAssertEqual(structArray[index]?[0] as? String, "\(index)")
+                        XCTAssertEqual(structArray[index]?[1] as? Bool, index % 2 == 1)
+                    }
+                }
+            }
+
+        }
+    }
+
     func testFileReader_double() throws {
         let fileURL = currentDirectory().appendingPathComponent("../../testdata_double.arrow")
         let arrowReader = ArrowReader()
@@ -384,3 +421,4 @@ final class IPCFileReaderTests: XCTestCase {
         }
     }
 }
+// swiftlint:disable:this file_length
