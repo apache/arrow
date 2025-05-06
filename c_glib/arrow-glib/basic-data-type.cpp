@@ -2289,7 +2289,7 @@ garrow_fixed_shape_tensor_data_type_class_init(GArrowFixedShapeTensorDataTypeCla
  * garrow_fixed_shape_tensor_data_type_new:
  * @value_type: A #GArrowDataType of individual tensor elements.
  * @shape: (array length=shape_length): A physical shape of the contained tensors as an
- * array.
+ *   array.
  * @shape_length: The length of `shape`.
  * @permutation: (array length=permutation_length) (nullable): An indices of the desired
  * ordering of the original dimensions, defined as an array. This must be `NULL` or the
