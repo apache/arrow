@@ -27,6 +27,7 @@ API Reference
    api/thread
    api/datatype
    api/array
+   api/extension
    api/scalar
    api/builder
    api/table
@@ -45,4 +46,3 @@ API Reference
    api/flightsql
    api/filesystem
    api/dataset
-   api/extension
