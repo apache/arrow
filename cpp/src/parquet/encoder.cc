@@ -156,10 +156,19 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   }
 
  protected:
-  template <typename ArrayType>
+  template <bool isView = false, typename ArrayType>
   void PutBinaryArray(const ArrayType& array) {
-    const int64_t total_bytes =
-        array.value_offset(array.length()) - array.value_offset(0);
+    const int64_t total_bytes = [](const ArrayType& a) {
+      if constexpr (isView) {
+        int64_t bts = 0;
+        for (int i = 0; i < a.length(); i++) {
+          bts += static_cast<int64_t>(a.GetView(i).size());
+        }
+        return bts;
+      } else {
+        return a.value_offset(a.length()) - a.value_offset(0);
+      }
+    }(array);
     PARQUET_THROW_NOT_OK(sink_.Reserve(total_bytes + array.length() * sizeof(uint32_t)));
 
     PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
@@ -249,18 +258,21 @@ void PlainEncoder<DType>::Put(const ::arrow::Array& values) {
   ParquetException::NYI("direct put of " + values.type()->ToString());
 }
 
-void AssertBaseBinary(const ::arrow::Array& values) {
-  if (!::arrow::is_base_binary_like(values.type_id())) {
-    throw ParquetException("Only BaseBinaryArray and subclasses supported");
+void AssertBaseBinaryOrBinaryView(const ::arrow::Array& values) {
+  if (!::arrow::is_base_binary_like(values.type_id()) &&
+      !::arrow::is_binary_view_like(values.type_id())) {
+    throw ParquetException(
+        "Only BaseBinaryArray and subclasses or binary_view_like supported");
   }
 }
 
 template <>
 inline void PlainEncoder<ByteArrayType>::Put(const ::arrow::Array& values) {
-  AssertBaseBinary(values);
-
+  AssertBaseBinaryOrBinaryView(values);
   if (::arrow::is_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
+  } else if (::arrow::is_binary_view_like(values.type_id())) {
+    PutBinaryArray<true>(checked_cast<const ::arrow::BinaryViewArray&>(values));
   } else {
     DCHECK(::arrow::is_large_binary_like(values.type_id()));
     PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
@@ -752,9 +764,11 @@ void DictEncoderImpl<FLBAType>::Put(const ::arrow::Array& values) {
 
 template <>
 void DictEncoderImpl<ByteArrayType>::Put(const ::arrow::Array& values) {
-  AssertBaseBinary(values);
+  AssertBaseBinaryOrBinaryView(values);
   if (::arrow::is_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
+  } else if (::arrow::is_binary_view_like(values.type_id())) {
+    PutBinaryArray(checked_cast<const ::arrow::BinaryViewArray&>(values));
   } else {
     DCHECK(::arrow::is_large_binary_like(values.type_id()));
     PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
@@ -803,11 +817,13 @@ void DictEncoderImpl<FLBAType>::PutDictionary(const ::arrow::Array& values) {
 
 template <>
 void DictEncoderImpl<ByteArrayType>::PutDictionary(const ::arrow::Array& values) {
-  AssertBaseBinary(values);
+  AssertBaseBinaryOrBinaryView(values);
   AssertCanPutDictionary(this, values);
 
   if (::arrow::is_binary_like(values.type_id())) {
     PutBinaryDictionaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
+  } else if (::arrow::is_binary_view_like(values.type_id())) {
+    PutBinaryDictionaryArray(checked_cast<const ::arrow::BinaryViewArray&>(values));
   } else {
     DCHECK(::arrow::is_large_binary_like(values.type_id()));
     PutBinaryDictionaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
@@ -1304,9 +1320,11 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
 };
 
 void DeltaLengthByteArrayEncoder::Put(const ::arrow::Array& values) {
-  AssertBaseBinary(values);
+  AssertBaseBinaryOrBinaryView(values);
   if (::arrow::is_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
+  } else if (::arrow::is_binary_view_like(values.type_id())) {
+    PutBinaryArray(checked_cast<const ::arrow::BinaryViewArray&>(values));
   } else {
     PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
   }
@@ -1577,6 +1595,8 @@ void DeltaByteArrayEncoder<DType>::Put(const ::arrow::Array& values) {
     PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
   } else if (::arrow::is_fixed_size_binary(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::FixedSizeBinaryArray&>(values));
+  } else if (::arrow::is_binary_view_like(values.type_id())) {
+    PutBinaryArray(checked_cast<const ::arrow::BinaryViewArray&>(values));
   } else {
     throw ParquetException("Only BaseBinaryArray and subclasses supported");
   }
