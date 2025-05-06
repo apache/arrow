@@ -2288,13 +2288,15 @@ garrow_fixed_shape_tensor_data_type_class_init(GArrowFixedShapeTensorDataTypeCla
 /**
  * garrow_fixed_shape_tensor_data_type_new:
  * @value_type: A #GArrowDataType of individual tensor elements.
- * @shape: (array length=shape_length): A physical shape of the contained tensors as an array.
+ * @shape: (array length=shape_length): A physical shape of the contained tensors as an
+ * array.
  * @shape_length: The length of `shape`.
- * @permutation: (array length=permutation_length): An indices of the desired ordering of the original
- *    dimensions, defined as an array. This must be `NULL` or the same length array of `shape`.
+ * @permutation: (array length=permutation_length): An indices of the desired ordering of
+ * the original dimensions, defined as an array. This must be `NULL` or the same length
+ * array of `shape`.
  * @permutation_length: The length of `permutation`.
- * @dim_names: (array length=n_dim_names): Explicit names to tensor dimensions as an array.
- *   This must be `NULL` or the same length array of `shape`.
+ * @dim_names: (array length=n_dim_names): Explicit names to tensor dimensions as an
+ * array. This must be `NULL` or the same length array of `shape`.
  * @n_dim_names. The length of `dim_names`.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
@@ -2302,11 +2304,12 @@ garrow_fixed_shape_tensor_data_type_class_init(GArrowFixedShapeTensorDataTypeCla
  */
 GArrowFixedShapeTensorDataType *
 garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
-                                        gint32 size,
-                                        gint32 psize,
                                         const gint64 *shape,
+                                        gint32 shape_length,
                                         const gint64 *permutation,
-                                        const gchar **dim_name,
+                                        gint32 permutation_length,
+                                        const gchar **dim_names,
+                                        gint32 n_dim_names,
                                         GError **error)
 {
   std::vector<int64_t> arrow_shape;
@@ -2315,27 +2318,32 @@ garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
 
   auto arrow_value_type = garrow_data_type_get_raw(value_type);
 
-  for (int i = 0; i < psize; i++) {
-    arrow_shape.push_back(permutation[i]);
-  }
-
-  for (int i = 0; i < size; i++) {
+  for (int i = 0; i < shape_length; i++) {
     arrow_shape.push_back(shape[i]);
-    arrow_dim_names.push_back(dim_name[i]);
   }
 
-  auto arrow_data_type_result = arrow::extension::FixedShapeTensorType::Make(arrow_value_type,
-                                                                      arrow_shape,
-                                                                      arrow_permutation,
-                                                                      arrow_dim_names);
+  for (int i = 0; i < permutation_length; i++) {
+    arrow_permutation.push_back(permutation[i]);
+  }
+
+  for (int i = 0; i < n_dim_names; i++) {
+    arrow_dim_names.push_back(dim_names[i]);
+  }
+
+  auto arrow_data_type_result =
+    arrow::extension::FixedShapeTensorType::Make(arrow_value_type,
+                                                 arrow_shape,
+                                                 arrow_permutation,
+                                                 arrow_dim_names);
   if (!garrow::check(error, arrow_data_type_result, "[fixed-shape-tensor][new]")) {
     return NULL;
   }
 
+  auto arrow_data_type = *arrow_data_type_result;
   auto data_type = GARROW_FIXED_SHAPE_TENSOR_DATA_TYPE(
     g_object_new(GARROW_TYPE_FIXED_SHAPE_TENSOR_DATA_TYPE,
                  "data-type",
-                 &arrow_data_type.ValueUnsafe(),
+                 &arrow_data_type,
                  NULL));
   return data_type;
 }

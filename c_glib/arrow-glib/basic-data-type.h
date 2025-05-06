@@ -818,11 +818,12 @@ struct _GArrowFixedShapeTensorDataTypeClass
 GARROW_AVAILABLE_IN_21_0
 GArrowFixedShapeTensorDataType *
 garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
-                                        gint32 size,
-                                        gint32 psize,
                                         const gint64 *shape,
+                                        gint32 shape_length,
                                         const gint64 *permutation,
-                                        const gchar **dim_name,
+                                        gint32 permutation_length,
+                                        const gchar **dim_names,
+                                        gint32 n_dim_names,
                                         GError **error);
 
 G_END_DECLS

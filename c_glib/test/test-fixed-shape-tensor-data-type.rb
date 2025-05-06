@@ -18,26 +18,65 @@
 class TestFixedShapeTensorDataType < Test::Unit::TestCase
   def test_type
     data_type = Arrow::FixedShapeTensorDataType.new(Arrow::UInt64DataType.new,
-                                                    [3,4],
-                                                    [],
-                                                    ["x","y"])
+                                                    [3, 4],
+                                                    [1, 0],
+                                                    ["x", "y"])
     assert_equal(Arrow::Type::EXTENSION, data_type.id)
   end
 
   def test_name
     data_type = Arrow::FixedShapeTensorDataType.new(Arrow::UInt64DataType.new,
-                                                    [3,4],
-                                                    [],
-                                                    ["x","y"])
+                                                    [3, 4],
+                                                    [1, 0],
+                                                    ["x", "y"])
     assert_equal("extension", data_type.name)
     assert_equal("arrow.fixed_shape_tensor", data_type.extension_name)
   end
 
   def test_to_s
     data_type = Arrow::FixedShapeTensorDataType.new(Arrow::UInt64DataType.new,
-                                                    [3,4],
-                                                    [],
-                                                    ["x","y"])
+                                                    [3, 4],
+                                                    [1, 0],
+                                                    ["x", "y"])
     assert_true(data_type.to_s.start_with?("extension<arrow.fixed_shape_tensor"))
   end
+
+  def test_empty_shape
+    data_type = Arrow::FixedShapeTensorDataType.new(Arrow::UInt64DataType.new,
+                                                    [],
+                                                    [],
+                                                    [])
+    assert_equal(Arrow::Type::EXTENSION, data_type.id)
+  end
+
+  def test_mismatch_permutation_size
+    message =
+      "[fixed-shape-tensor][new]: Invalid: " +
+      "permutation size must match shape size. " +
+      "Expected: 2 Got: 1"
+    error = assert_raise(Arrow::Error::Invalid) do
+      Arrow::FixedShapeTensorDataType.new(Arrow::UInt64DataType.new,
+                                          [3, 4],
+                                          [1],
+                                          ["x", "y"])
+    end
+    assert_equal(message,
+                 error.message.lines.first.chomp)
+  end
+
+  def test_mismatch_dim_names_size
+    message =
+      "[fixed-shape-tensor][new]: Invalid: " +
+      "dim_names size must match shape size. " +
+      "Expected: 2 Got: 1"
+    error = assert_raise(Arrow::Error::Invalid) do
+      Arrow::FixedShapeTensorDataType.new(Arrow::UInt64DataType.new,
+                                          [3, 4],
+                                          [],
+                                          ["x"])
+    end
+    assert_equal(message,
+                 error.message.lines.first.chomp)
+  end
+
 end
