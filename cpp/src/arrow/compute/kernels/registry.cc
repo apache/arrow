@@ -67,6 +67,8 @@ Status RegisterComputeKernels() {
   internal::RegisterVectorReplace(registry);
   internal::RegisterVectorSelectK(registry);
   internal::RegisterVectorSort(registry);
+  internal::RegisterVectorRunEndEncode(registry);
+  internal::RegisterVectorRunEndDecode(registry);
   internal::RegisterVectorPairwise(registry);
   internal::RegisterVectorStatistics(registry);
   internal::RegisterVectorSwizzle(registry);
