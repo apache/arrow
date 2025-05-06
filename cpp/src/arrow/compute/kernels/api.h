@@ -15,13 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// NOTE: API is EXPERIMENTAL and will change without going through a
-// deprecation cycle
-
 #pragma once
 
-/// \defgroup compute-kernels Extra compute kernels
-/// @{
-/// @}
-
-#include "arrow/compute/kernels/registry.h"  // IWYU pragma: export
+#include "arrow/compute/kernels/registry.h"

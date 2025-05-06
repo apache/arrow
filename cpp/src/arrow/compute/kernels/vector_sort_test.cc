@@ -46,7 +46,7 @@ using internal::checked_pointer_cast;
 
 namespace compute {
 
-// Register the compute kernels
+// Initialize the compute module
 ::testing::Environment* compute_kernels_env =
     ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 

@@ -36,7 +36,7 @@
 namespace arrow {
 using compute::ComputeKernelEnvironment;
 
-// Register the compute kernels
+// Initialize the compute module
 ::testing::Environment* compute_kernels_env =
     ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 namespace dataset {
