@@ -107,11 +107,11 @@ for specific builds and others.
 Any developer can ask for a patch release to be generated sending an email to the
 `Arrow development mailing-list <https://arrow.apache.org/community/>`__ with the reason
 of why a new release is necessary.
-If there is consensus and there is a Release Manager willing to take the effort to create
+If there is consensus and there is a Release Manager willing to make the effort to create
 the release a patch release can be created.
 
 Committers can tag issues that should be included on the next patch release using the
-``backport-candidate`` label. Is the responsability of the author or the committer to add the
+``backport-candidate`` label. Is the responsibility of the author or the committer to add the
 label to the issue to help the Release Manager identify the issues that should be backported.
 
 If a specific issue is identified as the reason to create a patch release the Release Manager
@@ -185,7 +185,7 @@ Some release managers prefer to perform testing before creating the first
 release candidate to avoid the need to create multiple release candidates within
 a given release.
 
-To test before creating a release candiate:
+To test before creating a release candidate:
 
 * Create a pull request from the up-to-date maint-X.Y.Z branch onto main
 * Title the pull request "WIP: Dummy PR to check maint-X.Y.Z status"
