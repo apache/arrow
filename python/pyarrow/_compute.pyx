@@ -70,8 +70,8 @@ def _forbid_instantiation(klass, subclasses_instead=True):
     raise TypeError(msg)
 
 
-# Call to Register the compute Kernels on import
-RegisterComputeKernels()
+# Call to initialize the compute module (register kernels) on import
+CInitializeCompute()
 
 
 cdef vector[CSortKey] unwrap_sort_keys(sort_keys, allow_str=True):

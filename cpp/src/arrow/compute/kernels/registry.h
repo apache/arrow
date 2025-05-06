@@ -21,6 +21,8 @@
 
 namespace arrow::compute {
 
-ARROW_COMPUTE_EXPORT Status RegisterComputeKernels();
+Status RegisterComputeKernels();
+
+ARROW_COMPUTE_EXPORT Status Initialize();
 
 }  // namespace arrow::compute

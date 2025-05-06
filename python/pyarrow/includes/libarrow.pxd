@@ -2886,8 +2886,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef c_string ToString(DatumType kind)
 
 cdef extern from "arrow/compute/kernels/api.h" namespace "arrow::compute" nogil:
-
-    CStatus RegisterComputeKernels()
+    CStatus CInitializeCompute " arrow::compute::Initialize"()
 
 
 cdef extern from * namespace "arrow::compute":
