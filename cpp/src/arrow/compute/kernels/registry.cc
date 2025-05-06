@@ -30,8 +30,8 @@
 #include "arrow/util/config.h"  // For ARROW_COMPUTE
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
+namespace internal {
 
 Status RegisterComputeKernels() {
   auto registry = GetFunctionRegistry();
@@ -85,7 +85,8 @@ Status RegisterComputeKernels() {
   return Status::OK();
 }
 
-Status Initialize() { return RegisterComputeKernels(); }
+}  // namespace internal
 
-}  // namespace compute
-}  // namespace arrow
+Status Initialize() { return internal::RegisterComputeKernels(); }
+
+}  // namespace arrow::compute

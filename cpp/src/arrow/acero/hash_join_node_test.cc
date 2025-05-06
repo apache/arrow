@@ -59,7 +59,7 @@ using compute::SortKey;
 using compute::Take;
 using compute::internal::RowEncoder;
 
-// Register the compute kernels
+// Initialize the compute module
 ::testing::Environment* compute_kernels_env =
     ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 

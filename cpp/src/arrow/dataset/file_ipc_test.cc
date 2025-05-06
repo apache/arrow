@@ -41,7 +41,7 @@ namespace arrow {
 using compute::ComputeKernelEnvironment;
 using internal::checked_pointer_cast;
 
-// Register the compute kernels
+// Initialize the compute module
 ::testing::Environment* compute_kernels_env =
     ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
