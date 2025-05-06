@@ -21,8 +21,11 @@
 #include "arrow/testing/builder.h"
 #include "gtest/gtest.h"
 
-using namespace arrow;
+using arrow::Array;
+using arrow::Int32Type;
+using arrow::RecordBatch;
 
+using arrow::ArrayFromVector;
 namespace {
 std::shared_ptr<RecordBatch> CreateOriginalRecordBatch() {
   std::vector<int> values = {1, 2, 3, 4, 5};
@@ -30,7 +33,7 @@ std::shared_ptr<RecordBatch> CreateOriginalRecordBatch() {
 
   ArrayFromVector<Int32Type, int32_t>(values, &array);
 
-  auto schema = arrow::schema({field("test", int32(), false)});
+  auto schema = arrow::schema({field("test", arrow::int32(), false)});
 
   return RecordBatch::Make(schema, 4, {array});
 }
@@ -81,7 +84,7 @@ TEST(Transformer, TransformerAddEmptyVectorTest) {
 
   auto transformer = RecordBatchTransformerWithTasksBuilder(schema)
                          .RenameField(original_name, transformed_name)
-                         .AddFieldOfNulls(emptyField, int32())
+                         .AddFieldOfNulls(emptyField, arrow::int32())
                          .Build();
 
   auto transformed_schema = transformer->GetTransformedSchema();
@@ -120,9 +123,9 @@ TEST(Transformer, TransformerChangingOrderOfArrayTest) {
   ArrayFromVector<Int32Type, int32_t>(second_array_value, &second_array);
   ArrayFromVector<Int32Type, int32_t>(third_array_value, &third_array);
 
-  auto schema = arrow::schema({field("first_array", int32(), false),
-                               field("second_array", int32(), false),
-                               field("third_array", int32(), false)});
+  auto schema = arrow::schema({field("first_array", arrow::int32(), false),
+                               field("second_array", arrow::int32(), false),
+                               field("third_array", arrow::int32(), false)});
 
   auto original_record_batch =
       RecordBatch::Make(schema, 5, {first_array, second_array, third_array});
@@ -131,7 +134,7 @@ TEST(Transformer, TransformerChangingOrderOfArrayTest) {
                          .RenameField("third_array", "test3")
                          .RenameField("second_array", "test2")
                          .RenameField("first_array", "test1")
-                         .AddFieldOfNulls("empty", int32())
+                         .AddFieldOfNulls("empty", arrow::int32())
                          .Build();
 
   const std::shared_ptr<RecordBatch>& transformed_record_batch =

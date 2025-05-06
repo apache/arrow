@@ -22,22 +22,26 @@
 
 namespace driver {
 namespace flight_sql {
+using arrow::StringType;
+using odbcabstraction::OdbcVersion;
 
-using namespace arrow;
-using namespace odbcabstraction;
+using arrow::ArrayFromVector;
+using odbcabstraction::GetSqlWCharSize;
+using odbcabstraction::Utf8ToWcs;
 
 TEST(StringArrayAccessor, Test_CDataType_CHAR_Basic) {
   std::vector<std::string> values = {"foo", "barx", "baz123"};
   std::shared_ptr<Array> array;
   ArrayFromVector<StringType, std::string>(values, &array);
 
-  StringArrayFlightSqlAccessor<CDataType_CHAR, char> accessor(array.get());
+  StringArrayFlightSqlAccessor<odbcabstraction::CDataType_CHAR, char> accessor(
+      array.get());
 
   size_t max_strlen = 64;
   std::vector<char> buffer(values.size() * max_strlen);
   std::vector<ssize_t> strlen_buffer(values.size());
 
-  ColumnBinding binding(CDataType_CHAR, 0, 0, buffer.data(), max_strlen,
+  ColumnBinding binding(odbcabstraction::CDataType_CHAR, 0, 0, buffer.data(), max_strlen,
                         strlen_buffer.data());
 
   int64_t value_offset = 0;
@@ -57,13 +61,14 @@ TEST(StringArrayAccessor, Test_CDataType_CHAR_Truncation) {
   std::shared_ptr<Array> array;
   ArrayFromVector<StringType, std::string>(values, &array);
 
-  StringArrayFlightSqlAccessor<CDataType_CHAR, char> accessor(array.get());
+  StringArrayFlightSqlAccessor<odbcabstraction::CDataType_CHAR, char> accessor(
+      array.get());
 
   size_t max_strlen = 8;
   std::vector<char> buffer(values.size() * max_strlen);
   std::vector<ssize_t> strlen_buffer(values.size());
 
-  ColumnBinding binding(CDataType_CHAR, 0, 0, buffer.data(), max_strlen,
+  ColumnBinding binding(odbcabstraction::CDataType_CHAR, 0, 0, buffer.data(), max_strlen,
                         strlen_buffer.data());
 
   std::stringstream ss;
@@ -96,7 +101,7 @@ TEST(StringArrayAccessor, Test_CDataType_WCHAR_Basic) {
   std::vector<uint8_t> buffer(values.size() * max_strlen);
   std::vector<ssize_t> strlen_buffer(values.size());
 
-  ColumnBinding binding(CDataType_WCHAR, 0, 0, buffer.data(), max_strlen,
+  ColumnBinding binding(odbcabstraction::CDataType_WCHAR, 0, 0, buffer.data(), max_strlen,
                         strlen_buffer.data());
 
   int64_t value_offset = 0;
@@ -126,7 +131,7 @@ TEST(StringArrayAccessor, Test_CDataType_WCHAR_Truncation) {
   std::vector<uint8_t> buffer(values.size() * max_strlen);
   std::vector<ssize_t> strlen_buffer(values.size());
 
-  ColumnBinding binding(CDataType_WCHAR, 0, 0, buffer.data(), max_strlen,
+  ColumnBinding binding(odbcabstraction::CDataType_WCHAR, 0, 0, buffer.data(), max_strlen,
                         strlen_buffer.data());
 
   std::basic_stringstream<uint8_t> ss;

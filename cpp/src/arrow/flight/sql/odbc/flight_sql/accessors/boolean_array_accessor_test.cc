@@ -22,20 +22,23 @@
 namespace driver {
 namespace flight_sql {
 
-using namespace arrow;
-using namespace odbcabstraction;
+using arrow::BooleanType;
+using odbcabstraction::OdbcVersion;
+
+using arrow::ArrayFromVector;
 
 TEST(BooleanArrayFlightSqlAccessor, Test_BooleanArray_CDataType_BIT) {
   const std::vector<bool> values = {true, false, true};
   std::shared_ptr<Array> array;
   ArrayFromVector<BooleanType>(values, &array);
 
-  BooleanArrayFlightSqlAccessor<CDataType_BIT> accessor(array.get());
+  BooleanArrayFlightSqlAccessor<odbcabstraction::CDataType_BIT> accessor(array.get());
 
   std::vector<char> buffer(values.size());
   std::vector<ssize_t> strlen_buffer(values.size());
 
-  ColumnBinding binding(CDataType_BIT, 0, 0, buffer.data(), 0, strlen_buffer.data());
+  ColumnBinding binding(odbcabstraction::CDataType_BIT, 0, 0, buffer.data(), 0,
+                        strlen_buffer.data());
 
   int64_t value_offset = 0;
   odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);

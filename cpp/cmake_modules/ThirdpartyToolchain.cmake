@@ -410,7 +410,7 @@ if(ARROW_AZURE)
   set(ARROW_WITH_AZURE_SDK ON)
 endif()
 
-if(ARROW_JSON)
+if(ARROW_JSON OR ARROW_FLIGHT_SQL_ODBC)
   set(ARROW_WITH_RAPIDJSON ON)
 endif()
 
@@ -1261,6 +1261,7 @@ endif()
 if(ARROW_BUILD_INTEGRATION
    OR ARROW_BUILD_TESTS
    OR (ARROW_FLIGHT AND (ARROW_TESTING OR ARROW_BUILD_BENCHMARKS))
+   OR ARROW_FLIGHT_SQL_ODBC
    OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS)
    OR (ARROW_TESTING AND ARROW_BUILD_SHARED))
   set(ARROW_USE_BOOST TRUE)
@@ -5562,3 +5563,13 @@ if(ARROW_WITH_AZURE_SDK)
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")
+
+# ----------------------------------------------------------------------
+# Apache Flight SQL ODBC
+
+if(ARROW_FLIGHT_SQL_ODBC)
+  find_package(ODBC REQUIRED)
+  if(MSVC)
+    find_package(Boost REQUIRED COMPONENTS locale)
+  endif()
+endif()

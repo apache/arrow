@@ -25,6 +25,12 @@
 namespace driver {
 namespace flight_sql {
 
+using arrow::Int16Builder;
+using arrow::Int32Builder;
+using arrow::Result;
+using arrow::Status;
+using arrow::StringBuilder;
+
 using odbcabstraction::MetadataSettings;
 using std::optional;
 

@@ -15,28 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cmake_minimum_required(VERSION 3.16)
-set(CMAKE_CXX_STANDARD 17)
-
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-include_directories(include include/flight_sql
-                    ${CMAKE_SOURCE_DIR}/odbcabstraction/include)
-
-if(DEFINED CMAKE_TOOLCHAIN_FILE)
-  include(${CMAKE_TOOLCHAIN_FILE})
-endif()
-
-find_package(RapidJSON CONFIG REQUIRED)
-
-if(MSVC)
-  # the following definitions stop arrow from using __declspec when statically
-  # linking and will break on Windows without them
-  add_compile_definitions(ARROW_STATIC ARROW_FLIGHT_STATIC)
-endif()
-
-enable_testing()
-
 add_library(arrow_odbc_spi_impl
             include/flight_sql/flight_sql_driver.h
             accessors/binary_array_accessor.cc
@@ -99,42 +77,31 @@ add_library(arrow_odbc_spi_impl
             system_trust_store.cc
             system_trust_store.h
             utils.cc)
+target_include_directories(arrow_odbc_spi_impl
+                           PUBLIC include include/flight_sql
+                                  ${CMAKE_SOURCE_DIR}/odbcabstraction/include)
 target_include_directories(arrow_odbc_spi_impl PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 
 if(WIN32)
-  target_sources(arrow_odbc_spi_impl PRIVATE
-                 include/flight_sql/config/configuration.h
-                 include/flight_sql/config/connection_string_parser.h
-                 include/flight_sql/ui/add_property_window.h
-                 include/flight_sql/ui/custom_window.h
-                 include/flight_sql/ui/dsn_configuration_window.h
-                 include/flight_sql/ui/window.h
-                 config/configuration.cc
-                 config/connection_string_parser.cc
-                 ui/custom_window.cc
-                 ui/window.cc
-                 ui/dsn_configuration_window.cc
-                 ui/add_property_window.cc
-                 system_dsn.cc)
+  target_sources(arrow_odbc_spi_impl
+                 PRIVATE include/flight_sql/config/configuration.h
+                         include/flight_sql/config/connection_string_parser.h
+                         include/flight_sql/ui/add_property_window.h
+                         include/flight_sql/ui/custom_window.h
+                         include/flight_sql/ui/dsn_configuration_window.h
+                         include/flight_sql/ui/window.h
+                         config/configuration.cc
+                         config/connection_string_parser.cc
+                         ui/custom_window.cc
+                         ui/window.cc
+                         ui/dsn_configuration_window.cc
+                         ui/add_property_window.cc
+                         system_dsn.cc)
 endif()
-
-find_package(ArrowFlightSql)
 
 target_link_libraries(arrow_odbc_spi_impl PUBLIC odbcabstraction arrow_flight_sql_shared)
 
 if(MSVC)
-  set(CMAKE_CXX_FLAGS_RELEASE "/MD")
-  set(CMAKE_CXX_FLAGS_DEBUG "/MDd")
-  # else
-  #   target_link_libraries(arrow_odbc_spi_impl PUBLIC ArrowFlightSql::arrow_flight_sql_static)
-endif()
-
-# set(ARROW_ODBC_SPI_THIRDPARTY_LIBS
-#     ${ARROW_LIBS} gRPC::grpc++ ${ZLIB_LIBRARIES} ${Protobuf_LIBRARIES}
-#     ${OPENSSL_LIBRARIES} ${RapidJSON_LIBRARIES})
-
-if(MSVC)
-  find_package(Boost REQUIRED COMPONENTS locale)
   target_link_libraries(arrow_odbc_spi_impl PUBLIC Boost::locale)
 endif()
 
@@ -145,9 +112,6 @@ set_target_properties(arrow_odbc_spi_impl
                                  ${CMAKE_BINARY_DIR}/$<CONFIG>/lib
                                  RUNTIME_OUTPUT_DIRECTORY
                                  ${CMAKE_BINARY_DIR}/$<CONFIG>/lib)
-
-# target_include_directories(arrow_odbc_spi_impl
-#                            PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # CLI
 add_executable(arrow_odbc_spi_impl_cli main.cc)

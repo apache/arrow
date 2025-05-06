@@ -20,15 +20,14 @@
 #endif
 
 #include <sql.h>
-#include <sqltypes.h>
 #include <sqlext.h>
+#include <sqltypes.h>
 #include <sqlucode.h>
 
 #include "arrow/flight/sql/odbc/odbc_api.h"
 #include "arrow/flight/sql/odbc/visibility.h"
 
-SQLRETURN SQL_API SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent,
-  SQLHANDLE* result) {
+SQLRETURN SQL_API SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) {
   return arrow::SQLAllocHandle(type, parent, result);
 }
 
@@ -53,12 +52,13 @@ SQLRETURN SQL_API SQLFreeConnect(SQLHDBC conn) {
 }
 
 SQLRETURN SQL_API SQLDriverConnect(SQLHDBC conn, SQLHWND windowHandle,
-  SQLWCHAR* inConnectionString,
-  SQLSMALLINT inConnectionStringLen,
-  SQLWCHAR* outConnectionString,
-  SQLSMALLINT outConnectionStringBufferLen,
-  SQLSMALLINT* outConnectionStringLen,
-  SQLUSMALLINT driverCompletion) {
-  // TODO: implement SQLDriverConnect by linking to `odbc_impl` //-AL- TODO: create GitHub issue for SQLDriverConnect implementation
+                                   SQLWCHAR* inConnectionString,
+                                   SQLSMALLINT inConnectionStringLen,
+                                   SQLWCHAR* outConnectionString,
+                                   SQLSMALLINT outConnectionStringBufferLen,
+                                   SQLSMALLINT* outConnectionStringLen,
+                                   SQLUSMALLINT driverCompletion) {
+  // TODO: implement SQLDriverConnect by linking to `odbc_impl` //-AL- TODO: create GitHub
+  // issue for SQLDriverConnect implementation
   return SQL_INVALID_HANDLE;
 }

@@ -29,7 +29,9 @@
 namespace driver {
 namespace flight_sql {
 
-using namespace arrow;
+using arrow::ArrayBuilder;
+using arrow::MemoryPool;
+using arrow::Result;
 
 namespace {
 Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
@@ -108,7 +110,7 @@ RecordBatchTransformerWithTasksBuilder::RenameField(const std::string& original_
         field(transformed_name, original_fields->type(), original_fields->metadata()));
   } else {
     new_fields_.push_back(field(transformed_name, original_fields->type(),
-                                std::shared_ptr<const KeyValueMetadata>()));
+                                std::shared_ptr<const arrow::KeyValueMetadata>()));
   }
 
   return *this;

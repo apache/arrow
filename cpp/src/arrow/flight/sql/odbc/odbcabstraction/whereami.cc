@@ -87,27 +87,27 @@ static int WAI_PREFIX(getModulePath_)(HMODULE module, char* out, int capacity,
 
     if (size == 0) {
       break;
-    }
-    else if (size == (DWORD)(sizeof(buffer1) / sizeof(buffer1[0]))) {
-    DWORD size_ = size;
-    do {
-      wchar_t* path_;
+    } else if (size == (DWORD)(sizeof(buffer1) / sizeof(buffer1[0]))) {
+      DWORD size_ = size;
+      do {
+        wchar_t* path_;
 
-      path_ = (wchar_t*)WAI_REALLOC(path, sizeof(wchar_t) * size_ * 2);
-      if (!path_) break;
-      size_ *= 2;
-      path = path_;
-      size = GetModuleFileNameW(module, path, size_);
-    } while (size == size_);
+        path_ = (wchar_t*)WAI_REALLOC(path, sizeof(wchar_t) * size_ * 2);
+        if (!path_) break;
+        size_ *= 2;
+        path = path_;
+        size = GetModuleFileNameW(module, path, size_);
+      } while (size == size_);
 
-    if (size == size_) break;
+      if (size == size_) break;
     } else {
       path = buffer1;
     }
 
     if (!_wfullpath(buffer2, path, MAX_PATH)) break;
     length_ = (int)wcslen(buffer2);
-    length__ = WideCharToMultiByte(CP_UTF8, 0, buffer2, length_, out, capacity, NULL, NULL);
+    length__ =
+        WideCharToMultiByte(CP_UTF8, 0, buffer2, length_, out, capacity, NULL, NULL);
 
     if (length__ == 0)
       length__ = WideCharToMultiByte(CP_UTF8, 0, buffer2, length_, NULL, 0, NULL, NULL);
@@ -125,11 +125,11 @@ static int WAI_PREFIX(getModulePath_)(HMODULE module, char* out, int capacity,
     }
 
     length = length__;
-}
+  }
 
-if (path != buffer1) WAI_FREE(path);
+  if (path != buffer1) WAI_FREE(path);
 
-return ok ? length : -1;
+  return ok ? length : -1;
 }
 
 WAI_NOINLINE WAI_FUNCSPEC int WAI_PREFIX(getExecutablePath)(char* out, int capacity,

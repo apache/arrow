@@ -16,7 +16,7 @@
 // under the License.
 
 #ifdef _WIN32
-#include <windows.h>
+#  include <windows.h>
 #endif
 
 #include <sql.h>
@@ -30,7 +30,6 @@ namespace odbc {
 namespace integration_tests {
 
 TEST(SQLAllocHandle, TestSQLAllocHandleEnv) {
-
   // ODBC Environment
   SQLHENV env;
 
@@ -41,7 +40,6 @@ TEST(SQLAllocHandle, TestSQLAllocHandleEnv) {
 }
 
 TEST(SQLAllocEnv, TestSQLAllocEnv) {
-
   // ODBC Environment
   SQLHENV env;
 
@@ -52,7 +50,6 @@ TEST(SQLAllocEnv, TestSQLAllocEnv) {
 }
 
 TEST(SQLAllocHandle, TestSQLAllocHandleConnect) {
-
   // ODBC Environment
   SQLHENV env;
   SQLHDBC conn;
@@ -69,7 +66,6 @@ TEST(SQLAllocHandle, TestSQLAllocHandleConnect) {
 }
 
 TEST(SQLAllocConnect, TestSQLAllocHandleConnect) {
-
   // ODBC Environment
   SQLHENV env;
   SQLHDBC conn;
@@ -86,7 +82,6 @@ TEST(SQLAllocConnect, TestSQLAllocHandleConnect) {
 }
 
 TEST(SQLFreeHandle, TestSQLFreeHandleEnv) {
-
   // ODBC Environment
   SQLHENV env;
 
@@ -100,7 +95,6 @@ TEST(SQLFreeHandle, TestSQLFreeHandleEnv) {
 }
 
 TEST(SQLFreeEnv, TestSQLFreeEnv) {
-
   // ODBC Environment
   SQLHENV env;
 
@@ -114,7 +108,6 @@ TEST(SQLFreeEnv, TestSQLFreeEnv) {
 }
 
 TEST(SQLFreeHandle, TestSQLFreeHandleConnect) {
-
   // ODBC Environment
   SQLHENV env;
   SQLHDBC conn;
@@ -136,7 +129,6 @@ TEST(SQLFreeHandle, TestSQLFreeHandleConnect) {
 }
 
 TEST(SQLFreeConnect, TestSQLFreeConnect) {
-
   // ODBC Environment
   SQLHENV env;
   SQLHDBC conn;

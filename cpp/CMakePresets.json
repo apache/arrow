@@ -123,14 +123,6 @@
       }
     },
     {
-      "name": "features-flight-sql-odbc",
-      "inherits": "features-flight-sql",
-      "hidden": true,
-      "cacheVariables": {
-        "ARROW_FLIGHT_SQL_ODBC": "ON"
-      }
-    },
-    {
       "name": "features-gandiva",
       "inherits": "features-basic",
       "hidden": true,
@@ -186,6 +178,7 @@
       "cacheVariables": {
         "ARROW_BUILD_EXAMPLES": "ON",
         "ARROW_BUILD_UTILITIES": "ON",
+        "ARROW_FLIGHT_SQL_ODBC": "ON",
         "ARROW_SKYHOOK": "ON",
         "ARROW_TENSORFLOW": "ON",
         "PARQUET_BUILD_EXAMPLES": "ON",
@@ -507,15 +500,6 @@
         "base-release"
       ],
       "displayName": "Release build with Flight SQL",
-      "cacheVariables": {}
-    },
-    {
-      "name": "ninja-release-flight-sql-odbc",
-      "inherits": [
-        "features-flight-sql-odbc",
-        "base-release"
-      ],
-      "displayName": "Release build with Flight SQL ODBC",
       "cacheVariables": {}
     },
     {

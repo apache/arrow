@@ -24,8 +24,10 @@
 namespace driver {
 namespace flight_sql {
 
-using namespace arrow;
-using namespace odbcabstraction;
+using arrow::Array;
+using arrow::TimestampArray;
+using arrow::TimeUnit;
+using odbcabstraction::RowStatus;
 
 template <CDataType TARGET_TYPE, TimeUnit::type UNIT>
 class TimestampArrayFlightSqlAccessor

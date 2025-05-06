@@ -18,7 +18,7 @@
 #include "arrow/flight/sql/odbc/flight_sql/accessors/timestamp_array_accessor.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/calendar_utils.h"
 
-using namespace arrow;
+using arrow::TimeUnit;
 
 namespace {
 int64_t GetConversionToSecondsDivisor(TimeUnit::type unit) {
@@ -28,13 +28,13 @@ int64_t GetConversionToSecondsDivisor(TimeUnit::type unit) {
       divisor = 1;
       break;
     case TimeUnit::MILLI:
-      divisor = driver::flight_sql::MILLI_TO_SECONDS_DIVISOR;
+      divisor = driver::odbcabstraction::MILLI_TO_SECONDS_DIVISOR;
       break;
     case TimeUnit::MICRO:
-      divisor = driver::flight_sql::MICRO_TO_SECONDS_DIVISOR;
+      divisor = driver::odbcabstraction::MICRO_TO_SECONDS_DIVISOR;
       break;
     case TimeUnit::NANO:
-      divisor = driver::flight_sql::NANO_TO_SECONDS_DIVISOR;
+      divisor = driver::odbcabstraction::NANO_TO_SECONDS_DIVISOR;
       break;
     default:
       assert(false);
@@ -69,7 +69,9 @@ uint32_t CalculateFraction(TimeUnit::type unit, uint64_t units_since_epoch) {
 namespace driver {
 namespace flight_sql {
 
-using namespace odbcabstraction;
+using odbcabstraction::TIMESTAMP_STRUCT;
+
+using odbcabstraction::GetTimeForSecondsSinceEpoch;
 
 template <CDataType TARGET_TYPE, TimeUnit::type UNIT>
 TimestampArrayFlightSqlAccessor<TARGET_TYPE, UNIT>::TimestampArrayFlightSqlAccessor(

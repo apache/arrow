@@ -20,14 +20,13 @@
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/utils.h"
 
-#include "arrow/flight/types.h"
 #include "arrow/flight/client_cookie_middleware.h"
 #include "arrow/flight/sql/odbc/flight_sql/address_info.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_auth_method.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_ssl_config.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_statement.h"
 #include "arrow/flight/sql/odbc/flight_sql/utils.h"
-
+#include "arrow/flight/types.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/join.hpp>
@@ -63,23 +62,32 @@ using driver::odbcabstraction::DriverException;
 using driver::odbcabstraction::OdbcVersion;
 using driver::odbcabstraction::Statement;
 
-const std::string FlightSqlConnection::DSN = "dsn";
-const std::string FlightSqlConnection::DRIVER = "driver";
-const std::string FlightSqlConnection::HOST = "host";
-const std::string FlightSqlConnection::PORT = "port";
-const std::string FlightSqlConnection::USER = "user";
-const std::string FlightSqlConnection::USER_ID = "user id";
-const std::string FlightSqlConnection::UID = "uid";
-const std::string FlightSqlConnection::PASSWORD = "password";
-const std::string FlightSqlConnection::PWD = "pwd";
-const std::string FlightSqlConnection::TOKEN = "token";
-const std::string FlightSqlConnection::USE_ENCRYPTION = "useEncryption";
-const std::string FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION = "disableCertificateVerification";
-const std::string FlightSqlConnection::TRUSTED_CERTS = "trustedCerts";
-const std::string FlightSqlConnection::USE_SYSTEM_TRUST_STORE = "useSystemTrustStore";
-const std::string FlightSqlConnection::STRING_COLUMN_LENGTH = "StringColumnLength";
-const std::string FlightSqlConnection::USE_WIDE_CHAR = "UseWideChar";
-const std::string FlightSqlConnection::CHUNK_BUFFER_CAPACITY = "ChunkBufferCapacity";
+// clang-format off
+const std::string FlightSqlConnection::DSN = "dsn";            // NOLINT(runtime/string)
+const std::string FlightSqlConnection::DRIVER = "driver";      // NOLINT(runtime/string)
+const std::string FlightSqlConnection::HOST = "host";          // NOLINT(runtime/string)
+const std::string FlightSqlConnection::PORT = "port";          // NOLINT(runtime/string)
+const std::string FlightSqlConnection::USER = "user";          // NOLINT(runtime/string)
+const std::string FlightSqlConnection::USER_ID = "user id";    // NOLINT(runtime/string)
+const std::string FlightSqlConnection::UID = "uid";            // NOLINT(runtime/string)
+const std::string FlightSqlConnection::PASSWORD = "password";  // NOLINT(runtime/string)
+const std::string FlightSqlConnection::PWD = "pwd";            // NOLINT(runtime/string)
+const std::string FlightSqlConnection::TOKEN = "token";        // NOLINT(runtime/string)
+const std::string FlightSqlConnection::USE_ENCRYPTION =        // NOLINT(runtime/string)
+    "useEncryption";
+const std::string FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION = // NOLINT
+    "disableCertificateVerification";
+const std::string FlightSqlConnection::TRUSTED_CERTS =         // NOLINT(runtime/string)
+    "trustedCerts";
+const std::string FlightSqlConnection::USE_SYSTEM_TRUST_STORE = // NOLINT(runtime/string)
+    "useSystemTrustStore";
+const std::string FlightSqlConnection::STRING_COLUMN_LENGTH =  // NOLINT(runtime/string)
+    "StringColumnLength";
+const std::string FlightSqlConnection::USE_WIDE_CHAR =         // NOLINT(runtime/string)
+    "UseWideChar";
+const std::string FlightSqlConnection::CHUNK_BUFFER_CAPACITY = // NOLINT(runtime/string)
+    "ChunkBufferCapacity";
+// clang-format on
 
 const std::vector<std::string> FlightSqlConnection::ALL_KEYS = {
     FlightSqlConnection::DSN,
@@ -324,7 +332,7 @@ FlightClientOptions FlightSqlConnection::BuildFlightClientOptions(
 
         options.tls_root_certs = certs;
       } else if (!ssl_config->getTrustedCerts().empty()) {
-        flight::CertKeyPair cert_key_pair;
+        arrow::flight::CertKeyPair cert_key_pair;
         ssl_config->populateOptionsWithCerts(&cert_key_pair);
         options.tls_root_certs = cert_key_pair.pem_cert;
       }

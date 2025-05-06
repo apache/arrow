@@ -28,6 +28,9 @@
 namespace driver {
 namespace flight_sql {
 
+using arrow::BinaryArray;
+using arrow::StringArray;
+
 using arrow::internal::checked_pointer_cast;
 using std::nullopt;
 
@@ -71,10 +74,11 @@ std::shared_ptr<Schema> GetTablesReader::GetSchema() {
   }
 
   // Create a non-owned Buffer to avoid copying
-  io::BufferReader dataset_schema_reader(std::make_shared<Buffer>(array->GetView(current_row_)));
-  ipc::DictionaryMemo in_memo;
-  const Result<std::shared_ptr<Schema>>& result =
-      ReadSchema(&dataset_schema_reader, &in_memo);
+  arrow::io::BufferReader dataset_schema_reader(
+      std::make_shared<arrow::Buffer>(array->GetView(current_row_)));
+  arrow::ipc::DictionaryMemo in_memo;
+  const arrow::Result<std::shared_ptr<Schema>>& result =
+      arrow::ipc::ReadSchema(&dataset_schema_reader, &in_memo);
   if (!result.ok()) {
     // TODO: Ignoring this error until we fix the problem on Dremio server
     // The problem is that complex types columns are being returned without the children

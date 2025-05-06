@@ -24,6 +24,21 @@
 namespace driver {
 namespace flight_sql {
 
+using arrow::Date32Array;
+using arrow::Date64Array;
+using arrow::Decimal128Array;
+using arrow::DoubleArray;
+using arrow::FloatArray;
+using arrow::Int16Array;
+using arrow::Int32Array;
+using arrow::Int64Array;
+using arrow::Int8Array;
+using arrow::TimestampType;
+using arrow::UInt16Array;
+using arrow::UInt32Array;
+using arrow::UInt64Array;
+using arrow::UInt8Array;
+
 using odbcabstraction::CDataType;
 
 typedef std::pair<arrow::Type::type, CDataType> SourceAndTargetPair;
@@ -34,77 +49,100 @@ namespace {
 const std::unordered_map<SourceAndTargetPair, AccessorConstructor,
                          boost::hash<SourceAndTargetPair>>
     ACCESSORS_CONSTRUCTORS = {
-        {SourceAndTargetPair(arrow::Type::type::STRING, CDataType_CHAR),
+        {SourceAndTargetPair(arrow::Type::type::STRING, odbcabstraction::CDataType_CHAR),
          [](arrow::Array* array) {
-           return new StringArrayFlightSqlAccessor<CDataType_CHAR, char>(array);
+           return new StringArrayFlightSqlAccessor<odbcabstraction::CDataType_CHAR, char>(
+               array);
          }},
-        {SourceAndTargetPair(arrow::Type::type::STRING, CDataType_WCHAR),
+        {SourceAndTargetPair(arrow::Type::type::STRING, odbcabstraction::CDataType_WCHAR),
          CreateWCharStringArrayAccessor},
-        {SourceAndTargetPair(arrow::Type::type::DOUBLE, CDataType_DOUBLE),
+        {SourceAndTargetPair(arrow::Type::type::DOUBLE,
+                             odbcabstraction::CDataType_DOUBLE),
          [](arrow::Array* array) {
-           return new PrimitiveArrayFlightSqlAccessor<DoubleArray, CDataType_DOUBLE>(
+           return new PrimitiveArrayFlightSqlAccessor<DoubleArray,
+                                                      odbcabstraction::CDataType_DOUBLE>(
                array);
          }},
-        {SourceAndTargetPair(arrow::Type::type::FLOAT, CDataType_FLOAT),
+        {SourceAndTargetPair(arrow::Type::type::FLOAT, odbcabstraction::CDataType_FLOAT),
          [](arrow::Array* array) {
-           return new PrimitiveArrayFlightSqlAccessor<FloatArray, CDataType_FLOAT>(array);
-         }},
-        {SourceAndTargetPair(arrow::Type::type::INT64, CDataType_SBIGINT),
-         [](arrow::Array* array) {
-           return new PrimitiveArrayFlightSqlAccessor<Int64Array, CDataType_SBIGINT>(
+           return new PrimitiveArrayFlightSqlAccessor<FloatArray,
+                                                      odbcabstraction::CDataType_FLOAT>(
                array);
          }},
-        {SourceAndTargetPair(arrow::Type::type::UINT64, CDataType_UBIGINT),
+        {SourceAndTargetPair(arrow::Type::type::INT64,
+                             odbcabstraction::CDataType_SBIGINT),
          [](arrow::Array* array) {
-           return new PrimitiveArrayFlightSqlAccessor<UInt64Array, CDataType_UBIGINT>(
+           return new PrimitiveArrayFlightSqlAccessor<Int64Array,
+                                                      odbcabstraction::CDataType_SBIGINT>(
                array);
          }},
-        {SourceAndTargetPair(arrow::Type::type::INT32, CDataType_SLONG),
+        {SourceAndTargetPair(arrow::Type::type::UINT64,
+                             odbcabstraction::CDataType_UBIGINT),
          [](arrow::Array* array) {
-           return new PrimitiveArrayFlightSqlAccessor<Int32Array, CDataType_SLONG>(array);
-         }},
-        {SourceAndTargetPair(arrow::Type::type::UINT32, CDataType_ULONG),
-         [](arrow::Array* array) {
-           return new PrimitiveArrayFlightSqlAccessor<UInt32Array, CDataType_ULONG>(
+           return new PrimitiveArrayFlightSqlAccessor<UInt64Array,
+                                                      odbcabstraction::CDataType_UBIGINT>(
                array);
          }},
-        {SourceAndTargetPair(arrow::Type::type::INT16, CDataType_SSHORT),
+        {SourceAndTargetPair(arrow::Type::type::INT32, odbcabstraction::CDataType_SLONG),
          [](arrow::Array* array) {
-           return new PrimitiveArrayFlightSqlAccessor<Int16Array, CDataType_SSHORT>(
+           return new PrimitiveArrayFlightSqlAccessor<Int32Array,
+                                                      odbcabstraction::CDataType_SLONG>(
                array);
          }},
-        {SourceAndTargetPair(arrow::Type::type::UINT16, CDataType_USHORT),
+        {SourceAndTargetPair(arrow::Type::type::UINT32, odbcabstraction::CDataType_ULONG),
          [](arrow::Array* array) {
-           return new PrimitiveArrayFlightSqlAccessor<UInt16Array, CDataType_USHORT>(
+           return new PrimitiveArrayFlightSqlAccessor<UInt32Array,
+                                                      odbcabstraction::CDataType_ULONG>(
                array);
          }},
-        {SourceAndTargetPair(arrow::Type::type::INT8, CDataType_STINYINT),
+        {SourceAndTargetPair(arrow::Type::type::INT16, odbcabstraction::CDataType_SSHORT),
          [](arrow::Array* array) {
-           return new PrimitiveArrayFlightSqlAccessor<Int8Array, CDataType_STINYINT>(
+           return new PrimitiveArrayFlightSqlAccessor<Int16Array,
+                                                      odbcabstraction::CDataType_SSHORT>(
                array);
          }},
-        {SourceAndTargetPair(arrow::Type::type::UINT8, CDataType_UTINYINT),
+        {SourceAndTargetPair(arrow::Type::type::UINT16,
+                             odbcabstraction::CDataType_USHORT),
          [](arrow::Array* array) {
-           return new PrimitiveArrayFlightSqlAccessor<UInt8Array, CDataType_UTINYINT>(
+           return new PrimitiveArrayFlightSqlAccessor<UInt16Array,
+                                                      odbcabstraction::CDataType_USHORT>(
                array);
          }},
-        {SourceAndTargetPair(arrow::Type::type::BOOL, CDataType_BIT),
+        {SourceAndTargetPair(arrow::Type::type::INT8,
+                             odbcabstraction::CDataType_STINYINT),
          [](arrow::Array* array) {
-           return new BooleanArrayFlightSqlAccessor<CDataType_BIT>(array);
+           return new PrimitiveArrayFlightSqlAccessor<
+               Int8Array, odbcabstraction::CDataType_STINYINT>(array);
          }},
-        {SourceAndTargetPair(arrow::Type::type::BINARY, CDataType_BINARY),
+        {SourceAndTargetPair(arrow::Type::type::UINT8,
+                             odbcabstraction::CDataType_UTINYINT),
          [](arrow::Array* array) {
-           return new BinaryArrayFlightSqlAccessor<CDataType_BINARY>(array);
+           return new PrimitiveArrayFlightSqlAccessor<
+               UInt8Array, odbcabstraction::CDataType_UTINYINT>(array);
          }},
-        {SourceAndTargetPair(arrow::Type::type::DATE32, CDataType_DATE),
+        {SourceAndTargetPair(arrow::Type::type::BOOL, odbcabstraction::CDataType_BIT),
          [](arrow::Array* array) {
-           return new DateArrayFlightSqlAccessor<CDataType_DATE, Date32Array>(array);
+           return new BooleanArrayFlightSqlAccessor<odbcabstraction::CDataType_BIT>(
+               array);
          }},
-        {SourceAndTargetPair(arrow::Type::type::DATE64, CDataType_DATE),
+        {SourceAndTargetPair(arrow::Type::type::BINARY,
+                             odbcabstraction::CDataType_BINARY),
          [](arrow::Array* array) {
-           return new DateArrayFlightSqlAccessor<CDataType_DATE, Date64Array>(array);
+           return new BinaryArrayFlightSqlAccessor<odbcabstraction::CDataType_BINARY>(
+               array);
          }},
-        {SourceAndTargetPair(arrow::Type::type::TIMESTAMP, CDataType_TIMESTAMP),
+        {SourceAndTargetPair(arrow::Type::type::DATE32, odbcabstraction::CDataType_DATE),
+         [](arrow::Array* array) {
+           return new DateArrayFlightSqlAccessor<odbcabstraction::CDataType_DATE,
+                                                 Date32Array>(array);
+         }},
+        {SourceAndTargetPair(arrow::Type::type::DATE64, odbcabstraction::CDataType_DATE),
+         [](arrow::Array* array) {
+           return new DateArrayFlightSqlAccessor<odbcabstraction::CDataType_DATE,
+                                                 Date64Array>(array);
+         }},
+        {SourceAndTargetPair(arrow::Type::type::TIMESTAMP,
+                             odbcabstraction::CDataType_TIMESTAMP),
          [](arrow::Array* array) {
            auto time_type =
                arrow::internal::checked_pointer_cast<TimestampType>(array->type());
@@ -112,20 +150,20 @@ const std::unordered_map<SourceAndTargetPair, AccessorConstructor,
            Accessor* result;
            switch (time_unit) {
              case TimeUnit::SECOND:
-               result = new TimestampArrayFlightSqlAccessor<CDataType_TIMESTAMP,
-                                                            TimeUnit::SECOND>(array);
+               result = new TimestampArrayFlightSqlAccessor<
+                   odbcabstraction::CDataType_TIMESTAMP, TimeUnit::SECOND>(array);
                break;
              case TimeUnit::MILLI:
-               result = new TimestampArrayFlightSqlAccessor<CDataType_TIMESTAMP,
-                                                            TimeUnit::MILLI>(array);
+               result = new TimestampArrayFlightSqlAccessor<
+                   odbcabstraction::CDataType_TIMESTAMP, TimeUnit::MILLI>(array);
                break;
              case TimeUnit::MICRO:
-               result = new TimestampArrayFlightSqlAccessor<CDataType_TIMESTAMP,
-                                                            TimeUnit::MICRO>(array);
+               result = new TimestampArrayFlightSqlAccessor<
+                   odbcabstraction::CDataType_TIMESTAMP, TimeUnit::MICRO>(array);
                break;
              case TimeUnit::NANO:
-               result = new TimestampArrayFlightSqlAccessor<CDataType_TIMESTAMP,
-                                                            TimeUnit::NANO>(array);
+               result = new TimestampArrayFlightSqlAccessor<
+                   odbcabstraction::CDataType_TIMESTAMP, TimeUnit::NANO>(array);
                break;
              default:
                assert(false);
@@ -134,17 +172,19 @@ const std::unordered_map<SourceAndTargetPair, AccessorConstructor,
            }
            return result;
          }},
-        {SourceAndTargetPair(arrow::Type::type::TIME32, CDataType_TIME),
+        {SourceAndTargetPair(arrow::Type::type::TIME32, odbcabstraction::CDataType_TIME),
          [](arrow::Array* array) {
            return CreateTimeAccessor(array, arrow::Type::type::TIME32);
          }},
-        {SourceAndTargetPair(arrow::Type::type::TIME64, CDataType_TIME),
+        {SourceAndTargetPair(arrow::Type::type::TIME64, odbcabstraction::CDataType_TIME),
          [](arrow::Array* array) {
            return CreateTimeAccessor(array, arrow::Type::type::TIME64);
          }},
-        {SourceAndTargetPair(arrow::Type::type::DECIMAL128, CDataType_NUMERIC),
+        {SourceAndTargetPair(arrow::Type::type::DECIMAL128,
+                             odbcabstraction::CDataType_NUMERIC),
          [](arrow::Array* array) {
-           return new DecimalArrayFlightSqlAccessor<Decimal128Array, CDataType_NUMERIC>(
+           return new DecimalArrayFlightSqlAccessor<Decimal128Array,
+                                                    odbcabstraction::CDataType_NUMERIC>(
                array);
          }}};
 }  // namespace

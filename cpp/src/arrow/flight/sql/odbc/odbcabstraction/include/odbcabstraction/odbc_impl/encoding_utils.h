@@ -31,7 +31,9 @@
 #define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
 
 namespace ODBC {
-  using namespace driver::odbcabstraction;
+using driver::odbcabstraction::DriverException;
+using driver::odbcabstraction::GetSqlWCharSize;
+using driver::odbcabstraction::Utf8ToWcs;
 
 // Return the number of bytes required for the conversion.
 template <typename CHAR_TYPE>
@@ -46,7 +48,8 @@ inline size_t ConvertToSqlWChar(const std::string& str, SQLWCHAR* buffer,
            std::min(static_cast<SQLLEN>(wstr.size()), bufferSizeInBytes));
 
     // Write a NUL terminator
-    if (bufferSizeInBytes >= valueLengthInBytes + static_cast<SQLLEN>(GetSqlWCharSize())) {
+    if (bufferSizeInBytes >=
+        valueLengthInBytes + static_cast<SQLLEN>(GetSqlWCharSize())) {
       reinterpret_cast<CHAR_TYPE*>(buffer)[valueLengthInBytes / GetSqlWCharSize()] = '\0';
     } else {
       SQLLEN numCharsWritten = bufferSizeInBytes / GetSqlWCharSize();

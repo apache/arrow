@@ -26,6 +26,11 @@
 namespace driver {
 namespace flight_sql {
 
+using arrow::BooleanArray;
+using arrow::Int32Array;
+using arrow::ListArray;
+using arrow::StringArray;
+
 using arrow::internal::checked_pointer_cast;
 using std::nullopt;
 

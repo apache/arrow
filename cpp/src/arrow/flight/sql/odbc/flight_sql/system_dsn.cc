@@ -15,24 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// platform.h includes windows.h, so it needs to be included
+// before winuser.h
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
+
 #include <winuser.h>
+#include <utility>
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_connection.h"
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/config/configuration.h"
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/config/connection_string_parser.h"
-#include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/ui/window.h"
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/ui/dsn_configuration_window.h"
+#include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/ui/window.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
-#include <utility>
 
 #include <odbcinst.h>
-#include <sstream>
-#include <locale>
 #include <codecvt>
+#include <locale>
+#include <sstream>
 
-using namespace std;
-using namespace driver::flight_sql;
-using namespace driver::flight_sql::config;
+using driver::flight_sql::FlightSqlConnection;
+using driver::flight_sql::config::Configuration;
+using driver::flight_sql::config::ConnectionStringParser;
+using driver::flight_sql::config::DsnConfigurationWindow;
+using driver::flight_sql::config::Result;
+using driver::flight_sql::config::Window;
 
 BOOL CALLBACK ConfigDriver(HWND hwndParent, WORD fRequest, LPCSTR lpszDriver,
                            LPCSTR lpszArgs, LPSTR lpszMsg, WORD cbMsgMax,

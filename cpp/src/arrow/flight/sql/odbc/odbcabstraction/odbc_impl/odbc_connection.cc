@@ -34,11 +34,14 @@
 #include <memory>
 #include <utility>
 
-using namespace ODBC;
-using namespace driver::odbcabstraction;
+using ODBC::ODBCConnection;
+using ODBC::ODBCDescriptor;
+using ODBC::ODBCStatement;
 
 using driver::odbcabstraction::Connection;
+using driver::odbcabstraction::Diagnostics;
 using driver::odbcabstraction::DriverException;
+using driver::odbcabstraction::Statement;
 
 namespace {
 // Key-value pairs separated by semi-colon.
@@ -82,7 +85,7 @@ void loadPropertiesFromDSN(const std::string& dsn,
   for (auto& key : keys) {
     outputBuffer.clear();
     outputBuffer.resize(BUFFER_SIZE, '\0');
-    
+
     SQLGetPrivateProfileString(dsn.c_str(), key.c_str(), "", &outputBuffer[0],
                                BUFFER_SIZE, "odbc.ini");
 
@@ -565,7 +568,7 @@ void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
 
   if (!successfully_written) {
     GetDiagnostics().AddWarning("Option value changed.", "01S02",
-                                ODBCErrorCodes_GENERAL_WARNING);
+                                driver::odbcabstraction::ODBCErrorCodes_GENERAL_WARNING);
   }
 }
 
@@ -771,4 +774,3 @@ std::string ODBCConnection::getPropertiesFromConnString(
   }
   return dsn;
 }
-

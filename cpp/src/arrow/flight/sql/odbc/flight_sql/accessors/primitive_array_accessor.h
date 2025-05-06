@@ -27,9 +27,6 @@
 namespace driver {
 namespace flight_sql {
 
-using namespace arrow;
-using namespace odbcabstraction;
-
 template <typename ARROW_ARRAY, CDataType TARGET_TYPE>
 class PrimitiveArrayFlightSqlAccessor
     : public FlightSqlAccessor<

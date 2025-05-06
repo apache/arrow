@@ -25,6 +25,7 @@
 namespace driver {
 namespace flight_sql {
 
+using arrow::Schema;
 using arrow::flight::sql::ColumnMetadata;
 using std::make_optional;
 using std::nullopt;
@@ -32,48 +33,48 @@ using std::optional;
 
 namespace {
 std::shared_ptr<Schema> GetColumns_V3_Schema() {
-  return schema({
-      field("TABLE_CAT", utf8()),
-      field("TABLE_SCHEM", utf8()),
-      field("TABLE_NAME", utf8()),
-      field("COLUMN_NAME", utf8()),
-      field("DATA_TYPE", int16()),
-      field("TYPE_NAME", utf8()),
-      field("COLUMN_SIZE", int32()),
-      field("BUFFER_LENGTH", int32()),
-      field("DECIMAL_DIGITS", int16()),
-      field("NUM_PREC_RADIX", int16()),
-      field("NULLABLE", int16()),
-      field("REMARKS", utf8()),
-      field("COLUMN_DEF", utf8()),
-      field("SQL_DATA_TYPE", int16()),
-      field("SQL_DATETIME_SUB", int16()),
-      field("CHAR_OCTET_LENGTH", int32()),
-      field("ORDINAL_POSITION", int32()),
-      field("IS_NULLABLE", utf8()),
+  return arrow::schema({
+      field("TABLE_CAT", arrow::utf8()),
+      field("TABLE_SCHEM", arrow::utf8()),
+      field("TABLE_NAME", arrow::utf8()),
+      field("COLUMN_NAME", arrow::utf8()),
+      field("DATA_TYPE", arrow::int16()),
+      field("TYPE_NAME", arrow::utf8()),
+      field("COLUMN_SIZE", arrow::int32()),
+      field("BUFFER_LENGTH", arrow::int32()),
+      field("DECIMAL_DIGITS", arrow::int16()),
+      field("NUM_PREC_RADIX", arrow::int16()),
+      field("NULLABLE", arrow::int16()),
+      field("REMARKS", arrow::utf8()),
+      field("COLUMN_DEF", arrow::utf8()),
+      field("SQL_DATA_TYPE", arrow::int16()),
+      field("SQL_DATETIME_SUB", arrow::int16()),
+      field("CHAR_OCTET_LENGTH", arrow::int32()),
+      field("ORDINAL_POSITION", arrow::int32()),
+      field("IS_NULLABLE", arrow::utf8()),
   });
 }
 
 std::shared_ptr<Schema> GetColumns_V2_Schema() {
-  return schema({
-      field("TABLE_QUALIFIER", utf8()),
-      field("TABLE_OWNER", utf8()),
-      field("TABLE_NAME", utf8()),
-      field("COLUMN_NAME", utf8()),
-      field("DATA_TYPE", int16()),
-      field("TYPE_NAME", utf8()),
-      field("PRECISION", int32()),
-      field("LENGTH", int32()),
-      field("SCALE", int16()),
-      field("RADIX", int16()),
-      field("NULLABLE", int16()),
-      field("REMARKS", utf8()),
-      field("COLUMN_DEF", utf8()),
-      field("SQL_DATA_TYPE", int16()),
-      field("SQL_DATETIME_SUB", int16()),
-      field("CHAR_OCTET_LENGTH", int32()),
-      field("ORDINAL_POSITION", int32()),
-      field("IS_NULLABLE", utf8()),
+  return arrow::schema({
+      field("TABLE_QUALIFIER", arrow::utf8()),
+      field("TABLE_OWNER", arrow::utf8()),
+      field("TABLE_NAME", arrow::utf8()),
+      field("COLUMN_NAME", arrow::utf8()),
+      field("DATA_TYPE", arrow::int16()),
+      field("TYPE_NAME", arrow::utf8()),
+      field("PRECISION", arrow::int32()),
+      field("LENGTH", arrow::int32()),
+      field("SCALE", arrow::int16()),
+      field("RADIX", arrow::int16()),
+      field("NULLABLE", arrow::int16()),
+      field("REMARKS", arrow::utf8()),
+      field("COLUMN_DEF", arrow::utf8()),
+      field("SQL_DATA_TYPE", arrow::int16()),
+      field("SQL_DATETIME_SUB", arrow::int16()),
+      field("CHAR_OCTET_LENGTH", arrow::int32()),
+      field("ORDINAL_POSITION", arrow::int32()),
+      field("IS_NULLABLE", arrow::utf8()),
   });
 }
 

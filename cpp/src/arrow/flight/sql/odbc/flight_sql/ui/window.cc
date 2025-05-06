@@ -15,14 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// platform.h includes windows.h, so it needs to be included 
+// platform.h includes windows.h, so it needs to be included
 // before Windowsx.h and commctrl.h
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 
 #include <Windowsx.h>
 #include <commctrl.h>
-#include <string>
 #include <winuser.h>
+#include <string>
 
 #include <boost/algorithm/string/trim.hpp>
 #include <sstream>

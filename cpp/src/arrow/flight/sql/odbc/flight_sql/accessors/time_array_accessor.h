@@ -24,8 +24,8 @@
 namespace driver {
 namespace flight_sql {
 
-using namespace arrow;
-using namespace odbcabstraction;
+using arrow::Array;
+using odbcabstraction::RowStatus;
 
 Accessor* CreateTimeAccessor(arrow::Array* array, arrow::Type::type type);
 

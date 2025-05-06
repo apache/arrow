@@ -29,6 +29,8 @@
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/encoding_utils.h>
 
 namespace ODBC {
+using driver::odbcabstraction::WcsToUtf8;
+
 template <typename T, typename O>
 inline void GetAttribute(T attributeValue, SQLPOINTER output, O outputSize,
                          O* outputLenPtr) {

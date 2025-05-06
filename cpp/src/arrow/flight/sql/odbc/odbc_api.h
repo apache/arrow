@@ -29,8 +29,7 @@
 //
 //  Define internal ODBC API function headers.
 
-namespace arrow
-{
-  SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result);
-  SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle);
-} // namespace arrow
+namespace arrow {
+SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result);
+SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle);
+}  // namespace arrow

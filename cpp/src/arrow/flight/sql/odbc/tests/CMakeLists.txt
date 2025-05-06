@@ -17,8 +17,6 @@
 
 add_custom_target(tests)
 
-find_package(ODBC REQUIRED)
-
 include_directories(${ODBC_INCLUDE_DIRS})
 
 add_arrow_test(connection_test

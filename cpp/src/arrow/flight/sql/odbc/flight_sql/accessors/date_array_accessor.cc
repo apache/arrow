@@ -20,7 +20,8 @@
 #include "arrow/compute/api.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/calendar_utils.h"
 
-using namespace arrow;
+using arrow::Date32Array;
+using arrow::Date64Array;
 
 namespace {
 template <typename T>
@@ -33,7 +34,7 @@ int64_t convertDate(typename T::value_type value) {
 /// \return         the converted value in seconds.
 template <>
 int64_t convertDate<Date64Array>(int64_t value) {
-  return value / driver::flight_sql::MILLI_TO_SECONDS_DIVISOR;
+  return value / driver::odbcabstraction::MILLI_TO_SECONDS_DIVISOR;
 }
 
 /// Converts the value from the array, which is in days, to seconds.
@@ -41,14 +42,17 @@ int64_t convertDate<Date64Array>(int64_t value) {
 /// \return         the converted value in seconds.
 template <>
 int64_t convertDate<Date32Array>(int32_t value) {
-  return value * driver::flight_sql::DAYS_TO_SECONDS_MULTIPLIER;
+  return value * driver::odbcabstraction::DAYS_TO_SECONDS_MULTIPLIER;
 }
 }  // namespace
 
 namespace driver {
 namespace flight_sql {
 
-using namespace odbcabstraction;
+using odbcabstraction::DATE_STRUCT;
+using odbcabstraction::RowStatus;
+
+using odbcabstraction::GetTimeForSecondsSinceEpoch;
 
 template <CDataType TARGET_TYPE, typename ARROW_ARRAY>
 DateArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY>::DateArrayFlightSqlAccessor(

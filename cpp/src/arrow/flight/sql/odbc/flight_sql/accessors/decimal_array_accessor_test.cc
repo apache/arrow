@@ -23,8 +23,12 @@
 
 namespace {
 
-using namespace arrow;
-using namespace driver::odbcabstraction;
+using arrow::ArrayFromVector;
+using arrow::Decimal128;
+using arrow::Decimal128Array;
+
+using driver::odbcabstraction::NUMERIC_STRUCT;
+using driver::odbcabstraction::OdbcVersion;
 
 using driver::flight_sql::ThrowIfNotOK;
 
@@ -59,7 +63,7 @@ std::string ConvertNumericToString(NUMERIC_STRUCT& numeric) {
 
   return string;
 }
-}
+}  // namespace
 
 namespace driver {
 namespace flight_sql {
@@ -76,13 +80,14 @@ void AssertNumericOutput(int input_precision, int input_scale,
   std::shared_ptr<Array> array;
   ArrayFromVector<Decimal128Type, Decimal128>(decimal_type, values, &array);
 
-  DecimalArrayFlightSqlAccessor<Decimal128Array, CDataType_NUMERIC> accessor(array.get());
+  DecimalArrayFlightSqlAccessor<Decimal128Array, odbcabstraction::CDataType_NUMERIC>
+      accessor(array.get());
 
   std::vector<NUMERIC_STRUCT> buffer(values.size());
   std::vector<ssize_t> strlen_buffer(values.size());
 
-  ColumnBinding binding(CDataType_NUMERIC, output_precision, output_scale, buffer.data(),
-                        0, strlen_buffer.data());
+  ColumnBinding binding(odbcabstraction::CDataType_NUMERIC, output_precision,
+                        output_scale, buffer.data(), 0, strlen_buffer.data());
 
   int64_t value_offset = 0;
   odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);

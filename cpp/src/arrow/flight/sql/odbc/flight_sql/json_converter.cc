@@ -25,8 +25,12 @@
 #include "arrow/scalar.h"
 #include "arrow/visitor.h"
 
-using namespace arrow;
-using namespace boost::beast::detail;
+using namespace arrow;  // NOLINT build/namespaces
+
+using boost::beast::detail::base64::encode;
+using boost::beast::detail::base64::encoded_size;
+namespace base64 = boost::beast::detail::base64;
+
 using driver::flight_sql::ThrowIfNotOK;
 
 namespace {

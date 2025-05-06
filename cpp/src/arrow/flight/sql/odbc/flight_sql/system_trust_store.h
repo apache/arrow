@@ -19,13 +19,16 @@
 
 #if defined _WIN32 || defined _WIN64
 
-#include <windows.h>
-#include <wincrypt.h>
-#include <bcrypt.h>
-#include <cryptuiapi.h>
-#include <iostream>
-#include <tchar.h>
-#include <vector>
+#  include <windows.h>
+
+#  include <wincrypt.h>
+
+#  include <bcrypt.h>
+#  include <cryptuiapi.h>
+
+#  include <tchar.h>
+#  include <string>
+#  include <vector>
 
 namespace driver {
 namespace flight_sql {

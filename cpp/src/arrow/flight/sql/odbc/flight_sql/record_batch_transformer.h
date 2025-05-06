@@ -24,7 +24,11 @@
 namespace driver {
 namespace flight_sql {
 
-using namespace arrow;
+using arrow::Array;
+using arrow::DataType;
+using arrow::Field;
+using arrow::RecordBatch;
+using arrow::Schema;
 
 typedef std::function<std::shared_ptr<Array>(
     const std::shared_ptr<RecordBatch>& original_record_batch,

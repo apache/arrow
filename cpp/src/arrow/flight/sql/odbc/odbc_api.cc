@@ -15,110 +15,107 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_environment.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h>
 #include <arrow/flight/sql/odbc/flight_sql/include/flight_sql/flight_sql_driver.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_environment.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h>
 
 // odbc_api includes windows.h, which needs to be put behind winsock2.h.
 // odbc_environment.h includes winsock2.h
 #include <arrow/flight/sql/odbc/odbc_api.h>
 
-namespace arrow
-{
-  SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) {
-    // TODO: implement SQLAllocHandle by linking to `odbc_impl`
-    *result = 0;
+namespace arrow {
+SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) {
+  // TODO: implement SQLAllocHandle by linking to `odbc_impl`
+  *result = 0;
 
-    switch (type)
-    {
-      case SQL_HANDLE_ENV: {
-        using ODBC::ODBCEnvironment;
-        using driver::flight_sql::FlightSqlDriver;
-        
-        static std::shared_ptr<FlightSqlDriver> odbc_driver = std::make_shared<FlightSqlDriver>();
-        *result = reinterpret_cast<SQLHENV>(new ODBCEnvironment(odbc_driver));
+  switch (type) {
+    case SQL_HANDLE_ENV: {
+      using driver::flight_sql::FlightSqlDriver;
+      using ODBC::ODBCEnvironment;
 
-        return SQL_SUCCESS;
-      }
+      static std::shared_ptr<FlightSqlDriver> odbc_driver =
+          std::make_shared<FlightSqlDriver>();
+      *result = reinterpret_cast<SQLHENV>(new ODBCEnvironment(odbc_driver));
 
-      case SQL_HANDLE_DBC: {
-        using ODBC::ODBCConnection;
-        using ODBC::ODBCEnvironment;
-
-        *result = SQL_NULL_HDBC;
-
-        ODBCEnvironment* environment = reinterpret_cast<ODBCEnvironment*>(parent);
-
-        if (!environment) {
-          return SQL_INVALID_HANDLE;
-        }
-
-        std::shared_ptr<ODBCConnection> conn = environment->CreateConnection();
-
-        if (!conn) {
-          return SQL_INVALID_HANDLE;
-        }
-
-        *result = reinterpret_cast<SQLHDBC>(conn.get());
-
-        return SQL_SUCCESS;
-      }
-
-      case SQL_HANDLE_STMT: {
-        return SQL_INVALID_HANDLE;
-      }
-
-      default:
-        break;
+      return SQL_SUCCESS;
     }
 
-    return SQL_ERROR;
-  }
+    case SQL_HANDLE_DBC: {
+      using ODBC::ODBCConnection;
+      using ODBC::ODBCEnvironment;
 
-  SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle)
-  {
-    switch (type) {
-      case SQL_HANDLE_ENV: {
-        using ODBC::ODBCEnvironment;
+      *result = SQL_NULL_HDBC;
 
-        ODBCEnvironment* environment = reinterpret_cast<ODBCEnvironment*>(handle);
+      ODBCEnvironment* environment = reinterpret_cast<ODBCEnvironment*>(parent);
 
-        if (!environment) {
-          return SQL_INVALID_HANDLE;
-        }
-
-        delete environment;
-
-        return SQL_SUCCESS;
+      if (!environment) {
+        return SQL_INVALID_HANDLE;
       }
 
-      case SQL_HANDLE_DBC: {
-        using ODBC::ODBCConnection;
+      std::shared_ptr<ODBCConnection> conn = environment->CreateConnection();
 
-        ODBCConnection* conn = reinterpret_cast<ODBCConnection*>(handle);
-
-        if (!conn) {
-          return SQL_INVALID_HANDLE;
-        }
-
-        conn->releaseConnection();
-
-        return SQL_SUCCESS;
+      if (!conn) {
+        return SQL_INVALID_HANDLE;
       }
 
-      case SQL_HANDLE_STMT:
-        return SQL_INVALID_HANDLE;
+      *result = reinterpret_cast<SQLHDBC>(conn.get());
 
-      case SQL_HANDLE_DESC:
-        return SQL_INVALID_HANDLE;
-
-      default:
-        break;
+      return SQL_SUCCESS;
     }
 
-    return SQL_ERROR;
+    case SQL_HANDLE_STMT: {
+      return SQL_INVALID_HANDLE;
+    }
+
+    default:
+      break;
   }
 
-  }  // namespace arrow
+  return SQL_ERROR;
+}
+
+SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle) {
+  switch (type) {
+    case SQL_HANDLE_ENV: {
+      using ODBC::ODBCEnvironment;
+
+      ODBCEnvironment* environment = reinterpret_cast<ODBCEnvironment*>(handle);
+
+      if (!environment) {
+        return SQL_INVALID_HANDLE;
+      }
+
+      delete environment;
+
+      return SQL_SUCCESS;
+    }
+
+    case SQL_HANDLE_DBC: {
+      using ODBC::ODBCConnection;
+
+      ODBCConnection* conn = reinterpret_cast<ODBCConnection*>(handle);
+
+      if (!conn) {
+        return SQL_INVALID_HANDLE;
+      }
+
+      conn->releaseConnection();
+
+      return SQL_SUCCESS;
+    }
+
+    case SQL_HANDLE_STMT:
+      return SQL_INVALID_HANDLE;
+
+    case SQL_HANDLE_DESC:
+      return SQL_INVALID_HANDLE;
+
+    default:
+      break;
+  }
+
+  return SQL_ERROR;
+}
+
+}  // namespace arrow

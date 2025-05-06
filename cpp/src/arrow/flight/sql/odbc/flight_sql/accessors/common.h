@@ -28,9 +28,6 @@
 namespace driver {
 namespace flight_sql {
 
-using namespace arrow;
-using namespace odbcabstraction;
-
 template <typename ARRAY_TYPE>
 inline size_t CopyFromArrayValuesToBinding(ARRAY_TYPE* array, ColumnBinding* binding,
                                            int64_t starting_row, int64_t cells) {
@@ -40,7 +37,7 @@ inline size_t CopyFromArrayValuesToBinding(ARRAY_TYPE* array, ColumnBinding* bin
     for (int64_t i = 0; i < cells; ++i) {
       int64_t current_row = starting_row + i;
       if (array->IsNull(current_row)) {
-        binding->strlen_buffer[i] = NULL_DATA;
+        binding->strlen_buffer[i] = odbcabstraction::NULL_DATA;
       } else {
         binding->strlen_buffer[i] = element_size;
       }
