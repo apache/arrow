@@ -19,10 +19,9 @@
 
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h"
 
-
+#include <vector>
 #include "arrow/flight/api.h"
 #include "arrow/flight/sql/api.h"
-#include <vector>
 
 #include "arrow/flight/sql/odbc/flight_sql/get_info_cache.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"

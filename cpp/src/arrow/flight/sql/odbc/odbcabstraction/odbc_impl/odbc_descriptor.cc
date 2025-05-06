@@ -567,4 +567,3 @@ void ODBCDescriptor::SetDataPtrOnRecord(SQLPOINTER dataPtr, SQLSMALLINT recordNu
 void DescriptorRecord::CheckConsistency() {
   // TODO
 }
-

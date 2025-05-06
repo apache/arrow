@@ -102,20 +102,20 @@ add_library(arrow_odbc_spi_impl
 target_include_directories(arrow_odbc_spi_impl PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 
 if(WIN32)
-  target_sources(arrow_odbc_spi_impl PRIVATE
-                 include/flight_sql/config/configuration.h
-                 include/flight_sql/config/connection_string_parser.h
-                 include/flight_sql/ui/add_property_window.h
-                 include/flight_sql/ui/custom_window.h
-                 include/flight_sql/ui/dsn_configuration_window.h
-                 include/flight_sql/ui/window.h
-                 config/configuration.cc
-                 config/connection_string_parser.cc
-                 ui/custom_window.cc
-                 ui/window.cc
-                 ui/dsn_configuration_window.cc
-                 ui/add_property_window.cc
-                 system_dsn.cc)
+  target_sources(arrow_odbc_spi_impl
+                 PRIVATE include/flight_sql/config/configuration.h
+                         include/flight_sql/config/connection_string_parser.h
+                         include/flight_sql/ui/add_property_window.h
+                         include/flight_sql/ui/custom_window.h
+                         include/flight_sql/ui/dsn_configuration_window.h
+                         include/flight_sql/ui/window.h
+                         config/configuration.cc
+                         config/connection_string_parser.cc
+                         ui/custom_window.cc
+                         ui/window.cc
+                         ui/dsn_configuration_window.cc
+                         ui/add_property_window.cc
+                         system_dsn.cc)
 endif()
 
 find_package(ArrowFlightSql)

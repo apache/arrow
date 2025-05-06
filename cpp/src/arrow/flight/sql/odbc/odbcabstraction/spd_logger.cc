@@ -32,7 +32,7 @@ const std::string SPDLogger::LOG_LEVEL = "LogLevel";
 const std::string SPDLogger::LOG_PATH = "LogPath";
 const std::string SPDLogger::MAXIMUM_FILE_SIZE = "MaximumFileSize";
 const std::string SPDLogger::FILE_QUANTITY = "FileQuantity";
-const std::string SPDLogger::LOG_ENABLED= "LogEnabled";
+const std::string SPDLogger::LOG_ENABLED = "LogEnabled";
 
 namespace {
 inline spdlog::level::level_enum ToSpdLogLevel(LogLevel level) {

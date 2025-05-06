@@ -82,7 +82,7 @@ void loadPropertiesFromDSN(const std::string& dsn,
   for (auto& key : keys) {
     outputBuffer.clear();
     outputBuffer.resize(BUFFER_SIZE, '\0');
-    
+
     SQLGetPrivateProfileString(dsn.c_str(), key.c_str(), "", &outputBuffer[0],
                                BUFFER_SIZE, "odbc.ini");
 
@@ -771,4 +771,3 @@ std::string ODBCConnection::getPropertiesFromConnString(
   }
   return dsn;
 }
-

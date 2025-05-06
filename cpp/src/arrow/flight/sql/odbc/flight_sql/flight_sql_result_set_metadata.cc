@@ -284,7 +284,7 @@ FlightSqlResultSetMetadata::FlightSqlResultSetMetadata(
     const odbcabstraction::MetadataSettings& metadata_settings)
     : metadata_settings_(metadata_settings) {
   arrow::ipc::DictionaryMemo dict_memo;
-  
+
   ThrowIfNotOK(flight_info->GetSchema(&dict_memo).Value(&schema_));
 }
 

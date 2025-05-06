@@ -71,7 +71,8 @@ std::shared_ptr<Schema> GetTablesReader::GetSchema() {
   }
 
   // Create a non-owned Buffer to avoid copying
-  io::BufferReader dataset_schema_reader(std::make_shared<Buffer>(array->GetView(current_row_)));
+  io::BufferReader dataset_schema_reader(
+      std::make_shared<Buffer>(array->GetView(current_row_)));
   ipc::DictionaryMemo in_memo;
   const Result<std::shared_ptr<Schema>>& result =
       ReadSchema(&dataset_schema_reader, &in_memo);

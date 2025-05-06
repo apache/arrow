@@ -20,14 +20,13 @@
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/utils.h"
 
-#include "arrow/flight/types.h"
 #include "arrow/flight/client_cookie_middleware.h"
 #include "arrow/flight/sql/odbc/flight_sql/address_info.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_auth_method.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_ssl_config.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_statement.h"
 #include "arrow/flight/sql/odbc/flight_sql/utils.h"
-
+#include "arrow/flight/types.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/join.hpp>
@@ -74,7 +73,8 @@ const std::string FlightSqlConnection::PASSWORD = "password";
 const std::string FlightSqlConnection::PWD = "pwd";
 const std::string FlightSqlConnection::TOKEN = "token";
 const std::string FlightSqlConnection::USE_ENCRYPTION = "useEncryption";
-const std::string FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION = "disableCertificateVerification";
+const std::string FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION =
+    "disableCertificateVerification";
 const std::string FlightSqlConnection::TRUSTED_CERTS = "trustedCerts";
 const std::string FlightSqlConnection::USE_SYSTEM_TRUST_STORE = "useSystemTrustStore";
 const std::string FlightSqlConnection::STRING_COLUMN_LENGTH = "StringColumnLength";

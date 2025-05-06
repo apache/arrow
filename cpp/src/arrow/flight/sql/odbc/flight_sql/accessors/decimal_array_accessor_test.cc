@@ -59,7 +59,7 @@ std::string ConvertNumericToString(NUMERIC_STRUCT& numeric) {
 
   return string;
 }
-}
+}  // namespace
 
 namespace driver {
 namespace flight_sql {
