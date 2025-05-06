@@ -882,31 +882,10 @@ cdef class BinaryScalar(Scalar):
         return (self.as_py())
 
     def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
-        cdef Buffer buf = self.as_buffer()
-
+        buf = self.as_buffer()
         if buf is None:
-            raise TypeError('Buffer view requested on empty scalar')
-
-        if buf.buffer.get().is_mutable():
-            buffer.readonly = 0
-        else:
-            if flags & cp.PyBUF_WRITABLE:
-                raise BufferError("Writable buffer requested but Arrow "
-                                  "buffer was not mutable")
-            buffer.readonly = 1
-        buffer.buf = <char *>buf.buffer.get().data()
-        buffer.len = buf.size
-        if buffer.buf == NULL:
-            assert buffer.len == 0
-            buffer.buf = cp.PyBytes_AS_STRING(b"")
-        buffer.format = 'b'
-        buffer.internal = NULL
-        buffer.itemsize = 1
-        buffer.ndim = 1
-        buffer.obj = buf
-        buffer.shape = buf.shape
-        buffer.strides = buf.strides
-        buffer.suboffsets = NULL
+            raise ValueError("Cannot export buffer from null Arrow Scalar")
+        cp.PyObject_GetBuffer(buf, buffer, flags)
 
 
 cdef class LargeBinaryScalar(BinaryScalar):
