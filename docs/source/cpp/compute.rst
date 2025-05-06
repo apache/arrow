@@ -28,7 +28,8 @@ Compute Functions
 The generic Compute API
 =======================
 
-.. TODO: describe API and how to invoke compute functions
+.. seealso::
+   :doc:`Compute Functions API reference <api/compute>`
 
 Functions and function registry
 -------------------------------
@@ -41,6 +42,17 @@ whether the inputs are integral or floating-point).
 
 Functions are stored in a global :class:`FunctionRegistry` where
 they can be looked up by name.
+
+Compute Initialization
+----------------------
+
+The compute library requires a call to :func:`arrow::compute::Initialize`
+in order to register the individual functions into the :class:`FunctionRegistry`, otherwise
+only the functions required for Arrow core will be available  \(1).
+
+Notes:
+* \(1) Those are ``add``, ``array_filter``, ``array_take``, ``dictionary_encode``, ``dictionary_decode``,
+  ``indices_nonzero``, ``unique`` and ``value_counts``.
 
 Input shapes
 ------------
