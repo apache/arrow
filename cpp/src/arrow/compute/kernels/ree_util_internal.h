@@ -27,7 +27,6 @@
 #include "arrow/array/data.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/visibility.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_traits.h"
@@ -347,7 +346,7 @@ Result<std::shared_ptr<ArrayData>> PreallocateRunEndsArray(
 /// \param has_validity_buffer a validity buffer must be allocated
 /// \param length the length of the values array
 /// \param data_buffer_size the size of the data buffer for string and binary types
-ARROW_COMPUTE_EXPORT Result<std::shared_ptr<ArrayData>> PreallocateValuesArray(
+Result<std::shared_ptr<ArrayData>> PreallocateValuesArray(
     const std::shared_ptr<DataType>& value_type, bool has_validity_buffer, int64_t length,
     MemoryPool* pool, int64_t data_buffer_size);
 
@@ -363,7 +362,7 @@ ARROW_COMPUTE_EXPORT Result<std::shared_ptr<ArrayData>> PreallocateValuesArray(
 /// data.child_data[1].buffer[0] != NULLPTR
 ///
 /// \param data_buffer_size the size of the data buffer for string and binary types
-ARROW_COMPUTE_EXPORT Result<std::shared_ptr<ArrayData>> PreallocateREEArray(
+Result<std::shared_ptr<ArrayData>> PreallocateREEArray(
     std::shared_ptr<RunEndEncodedType> ree_type, bool has_validity_buffer,
     int64_t logical_length, int64_t physical_length, MemoryPool* pool,
     int64_t data_buffer_size);
@@ -378,7 +377,7 @@ ARROW_COMPUTE_EXPORT Result<std::shared_ptr<ArrayData>> PreallocateREEArray(
 /// - run_ends fits in the run-end type without overflow
 void WriteSingleRunEnd(ArrayData* run_ends_data, int64_t run_end);
 
-ARROW_COMPUTE_EXPORT Result<std::shared_ptr<ArrayData>> MakeNullREEArray(
+Result<std::shared_ptr<ArrayData>> MakeNullREEArray(
     const std::shared_ptr<DataType>& run_end_type, int64_t logical_length,
     MemoryPool* pool);
 
