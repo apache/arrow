@@ -29,8 +29,8 @@ class TestFixedShapeTensorDataType < Test::Unit::TestCase
                                                     [3, 4],
                                                     [1, 0],
                                                     ["x", "y"])
-    assert_equal("extension", data_type.name)
-    assert_equal("arrow.fixed_shape_tensor", data_type.extension_name)
+    assert_equal(["extension", "arrow.fixed_shape_tensor"],
+                 [data_type.name, data_type.extension_name])
   end
 
   def test_to_s
