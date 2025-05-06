@@ -28,7 +28,7 @@
 #include <arrow/table.h>
 
 #if ARROW_VERSION_MAJOR >= 21
-auto compute_init_status_ = arrow::compute::Initialize();
+static arrow::Status compute_init_status_ = arrow::compute::Initialize();
 #endif
 
 std::shared_ptr<arrow::compute::CastOptions> make_cast_options(cpp11::list options);
