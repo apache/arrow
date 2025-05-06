@@ -61,7 +61,8 @@ namespace {
           return "";
         } else if (identifier["authority"] == "EPSG" && identifier["code"] == "4326") {
           return "";
-        } else if (identifier["authority"] == "EPSG" && identifier["code"] == 4326) {
+        } else if (identifier["authority"] == "EPSG" && identifier["code"].IsInt() &&
+                   identifier["code"].GetInt() == 4326) {
           return "";
         }
       }
