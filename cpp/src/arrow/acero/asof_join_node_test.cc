@@ -1771,7 +1771,9 @@ TEST(AsofJoinTest, DestroyNonStartedAsofJoinNode) {
       DeclarationToStatus(std::move(sink)));
 }
 
-TEST(AsofJoinTest, DeadLock) {
+// Reproduction of GH-46224: Hang when all left timestamps are greater than right
+// timestamps.
+TEST(AsofJoinTest, LeftGreaterThanRight) {
   int64_t n_left = 1;
   int64_t n_right = ExecPlan::kMaxBatchSize + 1;
   int64_t tolerance = 1;
