@@ -171,12 +171,13 @@ std::string EscapeCrsAsJsonIfRequired(std::string_view crs) {
 
 ::arrow::Result<std::shared_ptr<::arrow::DataType>> GeoArrowTypeFromLogicalType(
     const LogicalType& logical_type,
-    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
+    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata,
+    const std::shared_ptr<::arrow::DataType>& storage_type) {
   // Check if we have a registered GeoArrow type to read into
   std::shared_ptr<::arrow::ExtensionType> maybe_geoarrow_wkb =
       ::arrow::GetExtensionType("geoarrow.wkb");
   if (!maybe_geoarrow_wkb) {
-    return ::arrow::binary();
+    return storage_type;
   }
 
   if (logical_type.is_geometry()) {
@@ -186,7 +187,7 @@ std::string EscapeCrsAsJsonIfRequired(std::string_view crs) {
                           MakeGeoArrowCrsMetadata(geospatial_type.crs(), metadata));
 
     std::string serialized_data = std::string("{") + crs_metadata + "}";
-    return maybe_geoarrow_wkb->Deserialize(::arrow::binary(), serialized_data);
+    return maybe_geoarrow_wkb->Deserialize(storage_type, serialized_data);
   } else if (logical_type.is_geography()) {
     const auto& geospatial_type =
         ::arrow::internal::checked_cast<const GeographyLogicalType&>(logical_type);
@@ -196,7 +197,7 @@ std::string EscapeCrsAsJsonIfRequired(std::string_view crs) {
         R"("edges": ")" + std::string(geospatial_type.algorithm_name()) + R"(")";
     std::string serialized_data =
         std::string("{") + crs_metadata + ", " + edges_metadata + "}";
-    return maybe_geoarrow_wkb->Deserialize(::arrow::binary(), serialized_data);
+    return maybe_geoarrow_wkb->Deserialize(storage_type, serialized_data);
   } else {
     throw ParquetException("Can't export logical type ", logical_type.ToString(),
                            " as GeoArrow");

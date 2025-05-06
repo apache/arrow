@@ -1215,10 +1215,15 @@ class BenchmarkDecodeArrowByteArray : public BenchmarkDecodeArrowBase<ByteArrayT
  public:
   using ByteArrayAccumulator = typename EncodingTraits<ByteArrayType>::Accumulator;
 
-  ByteArrayAccumulator CreateAccumulator() final {
+  ByteArrayAccumulator CreateAccumulatorForType(
+      std::shared_ptr<::arrow::DataType> binary_type) {
     ByteArrayAccumulator acc;
-    acc.builder = std::make_unique<BinaryBuilder>(default_memory_pool());
+    acc.builder = *::arrow::MakeBuilder(binary_type, default_memory_pool());
     return acc;
+  }
+
+  ByteArrayAccumulator CreateAccumulator() override {
+    return CreateAccumulatorForType(::arrow::binary());
   }
 
   void InitDataInputs() final {
@@ -1246,6 +1251,7 @@ class BenchmarkDecodeArrowByteArray : public BenchmarkDecodeArrowBase<ByteArrayT
 
 // ----------------------------------------------------------------------
 // Benchmark Decoding from Plain Encoding
+
 class BM_ArrowBinaryPlain : public BenchmarkDecodeArrowByteArray {
  public:
   void DoEncodeArrow() override {
@@ -1264,6 +1270,13 @@ class BM_ArrowBinaryPlain : public BenchmarkDecodeArrowByteArray {
     auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
     decoder->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
     return decoder;
+  }
+};
+
+class BM_ArrowBinaryViewPlain : public BM_ArrowBinaryPlain {
+ public:
+  ByteArrayAccumulator CreateAccumulator() override {
+    return CreateAccumulatorForType(::arrow::binary_view());
   }
 };
 
@@ -1293,8 +1306,19 @@ BENCHMARK_DEFINE_F(BM_ArrowBinaryPlain, DecodeArrowNonNull_Dict)
 BENCHMARK_REGISTER_F(BM_ArrowBinaryPlain, DecodeArrowNonNull_Dict)
     ->Range(MIN_RANGE, MAX_RANGE);
 
+BENCHMARK_DEFINE_F(BM_ArrowBinaryViewPlain, DecodeArrow_Dense)
+(benchmark::State& state) { DecodeArrowDenseBenchmark(state); }
+BENCHMARK_REGISTER_F(BM_ArrowBinaryViewPlain, DecodeArrow_Dense)
+    ->Range(MIN_RANGE, MAX_RANGE);
+
+BENCHMARK_DEFINE_F(BM_ArrowBinaryViewPlain, DecodeArrowNonNull_Dense)
+(benchmark::State& state) { DecodeArrowNonNullDenseBenchmark(state); }
+BENCHMARK_REGISTER_F(BM_ArrowBinaryViewPlain, DecodeArrowNonNull_Dense)
+    ->Range(MIN_RANGE, MAX_RANGE);
+
 // ----------------------------------------------------------------------
 // Benchmark Decoding from Dictionary Encoding
+
 class BM_ArrowBinaryDict : public BenchmarkDecodeArrowByteArray {
  public:
   template <typename PutValuesFunc>
@@ -1374,6 +1398,13 @@ class BM_ArrowBinaryDict : public BenchmarkDecodeArrowByteArray {
   int num_dict_entries_{0};
 };
 
+class BM_ArrowBinaryViewDict : public BM_ArrowBinaryDict {
+ public:
+  ByteArrayAccumulator CreateAccumulator() override {
+    return CreateAccumulatorForType(::arrow::binary_view());
+  }
+};
+
 BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, EncodeArrow)
 (benchmark::State& state) { EncodeArrowBenchmark(state); }
 BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, EncodeArrow)->Range(1 << 18, 1 << 20);
@@ -1416,6 +1447,20 @@ BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, DecodeArrowNonNull_Dict)
 (benchmark::State& state) { DecodeArrowNonNullDictBenchmark(state); }
 BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, DecodeArrowNonNull_Dict)
     ->Range(MIN_RANGE, MAX_RANGE);
+
+BENCHMARK_DEFINE_F(BM_ArrowBinaryViewDict, DecodeArrow_Dense)(benchmark::State& state) {
+  DecodeArrowDenseBenchmark(state);
+}
+BENCHMARK_REGISTER_F(BM_ArrowBinaryViewDict, DecodeArrow_Dense)
+    ->Range(MIN_RANGE, MAX_RANGE);
+
+BENCHMARK_DEFINE_F(BM_ArrowBinaryViewDict, DecodeArrowNonNull_Dense)
+(benchmark::State& state) { DecodeArrowNonNullDenseBenchmark(state); }
+BENCHMARK_REGISTER_F(BM_ArrowBinaryViewDict, DecodeArrowNonNull_Dense)
+    ->Range(MIN_RANGE, MAX_RANGE);
+
+// ----------------------------------------------------------------------
+// Benchmark Decoding boolean data
 
 class BenchmarkDecodeArrowBoolean : public BenchmarkDecodeArrowBase<BooleanType> {
  public:

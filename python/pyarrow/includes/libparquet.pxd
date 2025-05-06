@@ -18,8 +18,8 @@
 # distutils: language = c++
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport (CChunkedArray, CScalar, CSchema, CStatus,
-                                        CTable, CMemoryPool, CBuffer,
+from pyarrow.includes.libarrow cimport (Type, CChunkedArray, CScalar, CSchema,
+                                        CStatus, CTable, CMemoryPool, CBuffer,
                                         CKeyValueMetadata, CRandomAccessFile,
                                         COutputStream, CCacheOptions,
                                         TimeUnit, CRecordBatchReader)
@@ -440,6 +440,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
 
     cdef cppclass ArrowReaderProperties:
         ArrowReaderProperties()
+        void set_binary_type(Type binary_type)
+        Type binary_type()
         void set_read_dictionary(int column_index, c_bool read_dict)
         c_bool read_dictionary(int column_index)
         void set_batch_size(int64_t batch_size)
