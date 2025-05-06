@@ -868,7 +868,11 @@ register_bindings_hms <- function() {
       if (call_binding("is.character", x)) {
         dash <- call_binding("gsub", ":", "-", x)
         as_date_time_string <- call_binding("str_c", "1970-01-01", dash, sep = "-")
-        as_date_time <- Expression$create("strptime", as_date_time_string, options = list(format = "%Y-%m-%d-%H-%M-%S", unit = 0L))
+        as_date_time <- Expression$create(
+          "strptime",
+          as_date_time_string,
+          options = list(format = "%Y-%m-%d-%H-%M-%S", unit = 0L)
+        )
         return(datetime_to_time32(as_date_time))
       }
     }

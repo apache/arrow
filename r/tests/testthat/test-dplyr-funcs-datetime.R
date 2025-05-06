@@ -3763,9 +3763,9 @@ test_that("hms::as_hms", {
     .input %>%
       mutate(
         x = hms::as_hms(hms_string),
-        x3 = hms::as_hms(int),
-        x4 = hms::as_hms(integerish_dbl),
-        x6 = hms::as_hms(datetime)
+        x2 = hms::as_hms(int),
+        x3 = hms::as_hms(integerish_dbl),
+        x4 = hms::as_hms(datetime)
       ) %>%
       collect(),
     test_df
