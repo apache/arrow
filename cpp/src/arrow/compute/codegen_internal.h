@@ -22,8 +22,6 @@
 namespace arrow {
 namespace compute {
 namespace internal {
-// ----------------------------------------------------------------------
-// Reusable type resolvers
 
 ARROW_EXPORT Result<TypeHolder> FirstType(KernelContext*,
                                           const std::vector<TypeHolder>& types);
