@@ -1826,7 +1826,14 @@ def read_table(source, *, columns=None, use_threads=True,
         filesystem, path = _resolve_filesystem_and_path(source, filesystem)
         if filesystem is not None:
             source = filesystem.open_input_file(path)
-        # TODO test that source is not a directory or a list
+        if not (
+            isinstance(source, str)
+            or isinstance(source, pa.NativeFile)
+            or hasattr(source, "read")
+        ):
+            raise ValueError(
+                "source should be a file name, a pyarrow.NativeFile or a file-like object"
+            )
         dataset = ParquetFile(
             source, read_dictionary=read_dictionary,
             memory_map=memory_map, buffer_size=buffer_size,
