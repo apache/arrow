@@ -575,7 +575,7 @@ def test_string(value, ty, scalar_typ):
     assert buf.to_pybytes() == value.encode()
 
 
-@pytest.mark.parametrize('value', [b'foo', b'bar'])
+@pytest.mark.parametrize('value', [b'foo', b'bar', None])
 @pytest.mark.parametrize(('ty', 'scalar_typ'), [
     (pa.binary(), pa.BinaryScalar),
     (pa.large_binary(), pa.LargeBinaryScalar),
@@ -588,29 +588,25 @@ def test_binary(value, ty, scalar_typ):
     assert str(s) == str(value)
     assert repr(value) in repr(s)
     assert s.as_py() == value
-    assert bytes(s) == value
     assert s != b'xxxxx'
 
     buf = s.as_buffer()
-    assert isinstance(buf, pa.Buffer)
-    assert buf.to_pybytes() == value
+    
+    if value is None:
+        with pytest.raises(ValueError):
+            memoryview(s)
+    else:
+        assert buf.to_pybytes() == value
+        assert isinstance(buf, pa.Buffer)
+        assert bytes(s) == value
 
-    memview = memoryview(s)
-    assert memview.tobytes() == value
-
-    assert memview.format == 'b'
-    assert memview.itemsize == 1
-    assert memview.ndim == 1
-    assert memview.shape == (3,)
-    assert memview.strides == (1,)
-
-
-def test_binary_null():
-    s = pa.scalar(None, type=pa.binary())
-    assert s.as_py() is None
-    with pytest.raises(TypeError):
-        memoryview(s)
-
+        memview = memoryview(s)
+        assert memview.tobytes() == value
+        assert memview.format == 'b'
+        assert memview.itemsize == 1
+        assert memview.ndim == 1
+        assert memview.shape == (3,)
+        assert memview.strides == (1,)  
 
 def test_fixed_size_binary():
     s = pa.scalar(b'foof', type=pa.binary(4))
