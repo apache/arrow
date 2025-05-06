@@ -656,12 +656,14 @@ get_filename_component(ARROW_INCLUDE_ARROW_DIR_REAL ${ARROW_INCLUDE_DIR}/arrow R
 install(DIRECTORY ${ARROW_INCLUDE_ARROW_DIR_REAL} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 if(PYARROW_BUNDLE_ARROW_CPP)
-  # Arrow
+  # Arrow and Compute
   bundle_arrow_lib(${ARROW_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
+  bundle_arrow_lib(${ARROW_COMPUTE_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
 
   if(MSVC)
     # TODO(kszucs): locate msvcp140.dll in a portable fashion and bundle it
     bundle_arrow_import_lib(${ARROW_IMPORT_LIB})
+    bundle_arrow_import_lib(${ARROW_COMPUTE_IMPORT_LIB})
   endif()
 endif()
 
