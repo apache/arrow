@@ -23,8 +23,14 @@
 namespace driver {
 namespace flight_sql {
 
-using namespace arrow;
-using namespace odbcabstraction;
+using arrow::Decimal128;
+using arrow::Decimal128Array;
+using arrow::Decimal128Type;
+using arrow::Status;
+
+using odbcabstraction::DriverException;
+using odbcabstraction::NUMERIC_STRUCT;
+using odbcabstraction::RowStatus;
 
 template <typename ARROW_ARRAY, CDataType TARGET_TYPE>
 DecimalArrayFlightSqlAccessor<ARROW_ARRAY, TARGET_TYPE>::DecimalArrayFlightSqlAccessor(
@@ -35,9 +41,10 @@ DecimalArrayFlightSqlAccessor<ARROW_ARRAY, TARGET_TYPE>::DecimalArrayFlightSqlAc
 
 template <>
 RowStatus
-DecimalArrayFlightSqlAccessor<Decimal128Array, CDataType_NUMERIC>::MoveSingleCell_impl(
-    ColumnBinding* binding, int64_t arrow_row, int64_t i, int64_t& value_offset,
-    bool update_value_offset, odbcabstraction::Diagnostics& diagnostics) {
+DecimalArrayFlightSqlAccessor<Decimal128Array, odbcabstraction::CDataType_NUMERIC>::
+    MoveSingleCell_impl(ColumnBinding* binding, int64_t arrow_row, int64_t i,
+                        int64_t& value_offset, bool update_value_offset,
+                        odbcabstraction::Diagnostics& diagnostics) {
   auto result = &(static_cast<NUMERIC_STRUCT*>(binding->buffer)[i]);
   int32_t original_scale = data_type_->scale();
 

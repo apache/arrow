@@ -25,8 +25,12 @@
 #include <algorithm>
 #include <utility>
 
-using namespace ODBC;
-using namespace driver::odbcabstraction;
+using ODBC::ODBCConnection;
+using ODBC::ODBCEnvironment;
+
+using driver::odbcabstraction::Connection;
+using driver::odbcabstraction::Diagnostics;
+using driver::odbcabstraction::Driver;
 
 // Public
 // =========================================================================================
@@ -34,7 +38,7 @@ ODBCEnvironment::ODBCEnvironment(std::shared_ptr<Driver> driver)
     : m_driver(std::move(driver)),
       m_diagnostics(new Diagnostics(m_driver->GetDiagnostics().GetVendor(),
                                     m_driver->GetDiagnostics().GetDataSourceComponent(),
-                                    V_2)),
+                                    driver::odbcabstraction::V_2)),
       m_version(SQL_OV_ODBC2),
       m_connectionPooling(SQL_CP_OFF) {}
 
@@ -45,9 +49,10 @@ SQLINTEGER ODBCEnvironment::getODBCVersion() const { return m_version; }
 void ODBCEnvironment::setODBCVersion(SQLINTEGER version) {
   if (version != m_version) {
     m_version = version;
-    m_diagnostics.reset(new Diagnostics(m_diagnostics->GetVendor(),
-                                        m_diagnostics->GetDataSourceComponent(),
-                                        version == SQL_OV_ODBC2 ? V_2 : V_3));
+    m_diagnostics.reset(new Diagnostics(
+        m_diagnostics->GetVendor(), m_diagnostics->GetDataSourceComponent(),
+        version == SQL_OV_ODBC2 ? driver::odbcabstraction::V_2
+                                : driver::odbcabstraction::V_3));
   }
 }
 
@@ -58,8 +63,9 @@ void ODBCEnvironment::setConnectionPooling(SQLINTEGER connectionPooling) {
 }
 
 std::shared_ptr<ODBCConnection> ODBCEnvironment::CreateConnection() {
-  std::shared_ptr<Connection> spiConnection =
-      m_driver->CreateConnection(m_version == SQL_OV_ODBC2 ? V_2 : V_3);
+  std::shared_ptr<Connection> spiConnection = m_driver->CreateConnection(
+      m_version == SQL_OV_ODBC2 ? driver::odbcabstraction::V_2
+                                : driver::odbcabstraction::V_3);
   std::shared_ptr<ODBCConnection> newConn =
       std::make_shared<ODBCConnection>(*this, spiConnection);
   m_connections.push_back(newConn);

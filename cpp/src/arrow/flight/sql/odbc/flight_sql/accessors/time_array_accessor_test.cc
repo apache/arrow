@@ -24,8 +24,18 @@
 namespace driver {
 namespace flight_sql {
 
-using namespace arrow;
-using namespace odbcabstraction;
+using arrow::Array;
+using arrow::Time32Array;
+using arrow::Time32Type;
+using arrow::Time64Array;
+using arrow::Time64Type;
+using arrow::TimeUnit;
+
+using odbcabstraction::OdbcVersion;
+using odbcabstraction::TIME_STRUCT;
+
+using arrow::ArrayFromVector;
+using odbcabstraction::GetTimeForSecondsSinceEpoch;
 
 TEST(TEST_TIME32, TIME_WITH_SECONDS) {
   auto value_field = field("f0", time32(TimeUnit::SECOND));
@@ -35,13 +45,15 @@ TEST(TEST_TIME32, TIME_WITH_SECONDS) {
   std::shared_ptr<Array> time32_array;
   ArrayFromVector<Time32Type, int32_t>(value_field->type(), t32_values, &time32_array);
 
-  TimeArrayFlightSqlAccessor<CDataType_TIME, Time32Array, TimeUnit::SECOND> accessor(
-      time32_array.get());
+  TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME, Time32Array,
+                             TimeUnit::SECOND>
+      accessor(time32_array.get());
 
   std::vector<TIME_STRUCT> buffer(t32_values.size());
   std::vector<ssize_t> strlen_buffer(t32_values.size());
 
-  ColumnBinding binding(CDataType_TIME, 0, 0, buffer.data(), 0, strlen_buffer.data());
+  ColumnBinding binding(odbcabstraction::CDataType_TIME, 0, 0, buffer.data(), 0,
+                        strlen_buffer.data());
 
   int64_t value_offset = 0;
   odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
@@ -69,13 +81,15 @@ TEST(TEST_TIME32, TIME_WITH_MILLI) {
   std::shared_ptr<Array> time32_array;
   ArrayFromVector<Time32Type, int32_t>(value_field->type(), t32_values, &time32_array);
 
-  TimeArrayFlightSqlAccessor<CDataType_TIME, Time32Array, TimeUnit::MILLI> accessor(
-      time32_array.get());
+  TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME, Time32Array,
+                             TimeUnit::MILLI>
+      accessor(time32_array.get());
 
   std::vector<TIME_STRUCT> buffer(t32_values.size());
   std::vector<ssize_t> strlen_buffer(t32_values.size());
 
-  ColumnBinding binding(CDataType_TIME, 0, 0, buffer.data(), 0, strlen_buffer.data());
+  ColumnBinding binding(odbcabstraction::CDataType_TIME, 0, 0, buffer.data(), 0,
+                        strlen_buffer.data());
 
   int64_t value_offset = 0;
   odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
@@ -88,7 +102,7 @@ TEST(TEST_TIME32, TIME_WITH_MILLI) {
 
     tm time{};
 
-    auto convertedValue = t32_values[i] / MILLI_TO_SECONDS_DIVISOR;
+    auto convertedValue = t32_values[i] / odbcabstraction::MILLI_TO_SECONDS_DIVISOR;
     GetTimeForSecondsSinceEpoch(time, convertedValue);
 
     ASSERT_EQ(buffer[i].hour, time.tm_hour);
@@ -106,13 +120,15 @@ TEST(TEST_TIME64, TIME_WITH_MICRO) {
   std::shared_ptr<Array> time64_array;
   ArrayFromVector<Time64Type, int64_t>(value_field->type(), t64_values, &time64_array);
 
-  TimeArrayFlightSqlAccessor<CDataType_TIME, Time64Array, TimeUnit::MICRO> accessor(
-      time64_array.get());
+  TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME, Time64Array,
+                             TimeUnit::MICRO>
+      accessor(time64_array.get());
 
   std::vector<TIME_STRUCT> buffer(t64_values.size());
   std::vector<ssize_t> strlen_buffer(t64_values.size());
 
-  ColumnBinding binding(CDataType_TIME, 0, 0, buffer.data(), 0, strlen_buffer.data());
+  ColumnBinding binding(odbcabstraction::CDataType_TIME, 0, 0, buffer.data(), 0,
+                        strlen_buffer.data());
 
   int64_t value_offset = 0;
   odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
@@ -125,7 +141,7 @@ TEST(TEST_TIME64, TIME_WITH_MICRO) {
 
     tm time{};
 
-    const auto convertedValue = t64_values[i] / MICRO_TO_SECONDS_DIVISOR;
+    const auto convertedValue = t64_values[i] / odbcabstraction::MICRO_TO_SECONDS_DIVISOR;
     GetTimeForSecondsSinceEpoch(time, convertedValue);
 
     ASSERT_EQ(buffer[i].hour, time.tm_hour);
@@ -142,13 +158,14 @@ TEST(TEST_TIME64, TIME_WITH_NANO) {
   std::shared_ptr<Array> time64_array;
   ArrayFromVector<Time64Type, int64_t>(value_field->type(), t64_values, &time64_array);
 
-  TimeArrayFlightSqlAccessor<CDataType_TIME, Time64Array, TimeUnit::NANO> accessor(
-      time64_array.get());
+  TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME, Time64Array, TimeUnit::NANO>
+      accessor(time64_array.get());
 
   std::vector<TIME_STRUCT> buffer(t64_values.size());
   std::vector<ssize_t> strlen_buffer(t64_values.size());
 
-  ColumnBinding binding(CDataType_TIME, 0, 0, buffer.data(), 0, strlen_buffer.data());
+  ColumnBinding binding(odbcabstraction::CDataType_TIME, 0, 0, buffer.data(), 0,
+                        strlen_buffer.data());
 
   int64_t value_offset = 0;
   odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
@@ -161,7 +178,7 @@ TEST(TEST_TIME64, TIME_WITH_NANO) {
 
     tm time{};
 
-    const auto convertedValue = t64_values[i] / NANO_TO_SECONDS_DIVISOR;
+    const auto convertedValue = t64_values[i] / odbcabstraction::NANO_TO_SECONDS_DIVISOR;
     GetTimeForSecondsSinceEpoch(time, convertedValue);
 
     ASSERT_EQ(buffer[i].hour, time.tm_hour);

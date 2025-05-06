@@ -32,8 +32,14 @@
 #include <boost/variant.hpp>
 #include <utility>
 
-using namespace ODBC;
-using namespace driver::odbcabstraction;
+using ODBC::DescriptorRecord;
+using ODBC::ODBCConnection;
+using ODBC::ODBCDescriptor;
+using ODBC::ODBCStatement;
+
+using driver::odbcabstraction::DriverException;
+using driver::odbcabstraction::ResultSetMetadata;
+using driver::odbcabstraction::Statement;
 
 namespace {
 void DescriptorToHandle(SQLPOINTER output, ODBCDescriptor* descriptor,
@@ -324,7 +330,9 @@ bool ODBCStatement::Fetch(size_t rows) {
                                    ardRecord.m_scale, ardRecord.m_dataPtr,
                                    GetLength(ardRecord), ardRecord.m_indicatorPtr);
       } else {
-        m_currenResult->BindColumn(i + 1, CDataType_CHAR /* arbitrary type, not used */,
+        m_currenResult->BindColumn(i + 1,
+                                   driver::odbcabstraction::CDataType_CHAR
+                                   /* arbitrary type, not used */,
                                    0, 0, nullptr, 0, nullptr);
       }
     }
@@ -655,7 +663,7 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statementAttribute, SQLPOINTER value,
   }
   if (!successfully_written) {
     GetDiagnostics().AddWarning("Optional value changed.", "01S02",
-                                ODBCErrorCodes_GENERAL_WARNING);
+                                driver::odbcabstraction::ODBCErrorCodes_GENERAL_WARNING);
   }
 }
 

@@ -31,7 +31,9 @@
 #define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
 
 namespace ODBC {
-using namespace driver::odbcabstraction;
+using driver::odbcabstraction::DriverException;
+using driver::odbcabstraction::GetSqlWCharSize;
+using driver::odbcabstraction::Utf8ToWcs;
 
 // Return the number of bytes required for the conversion.
 template <typename CHAR_TYPE>

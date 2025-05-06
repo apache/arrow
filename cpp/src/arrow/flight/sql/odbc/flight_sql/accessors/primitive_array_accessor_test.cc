@@ -23,6 +23,19 @@
 namespace driver {
 namespace flight_sql {
 
+using arrow::DoubleArray;
+using arrow::FloatArray;
+using arrow::Int16Array;
+using arrow::Int32Array;
+using arrow::Int64Array;
+using arrow::Int8Array;
+using arrow::UInt16Array;
+using arrow::UInt32Array;
+using arrow::UInt64Array;
+using arrow::UInt8Array;
+
+using arrow::ArrayFromVector;
+
 template <typename ARROW_ARRAY, CDataType TARGET_TYPE>
 void TestPrimitiveArraySqlAccessor() {
   typedef typename ARROW_ARRAY::TypeClass::c_type c_type;
@@ -53,44 +66,46 @@ void TestPrimitiveArraySqlAccessor() {
   }
 }
 
+using odbcabstraction::CDataType;
+
 TEST(PrimitiveArrayFlightSqlAccessor, Test_Int64Array_CDataType_SBIGINT) {
-  TestPrimitiveArraySqlAccessor<Int64Array, CDataType_SBIGINT>();
+  TestPrimitiveArraySqlAccessor<Int64Array, odbcabstraction::CDataType_SBIGINT>();
 }
 
 TEST(PrimitiveArrayFlightSqlAccessor, Test_Int32Array_CDataType_SLONG) {
-  TestPrimitiveArraySqlAccessor<Int32Array, CDataType_SLONG>();
+  TestPrimitiveArraySqlAccessor<Int32Array, odbcabstraction::CDataType_SLONG>();
 }
 
 TEST(PrimitiveArrayFlightSqlAccessor, Test_Int16Array_CDataType_SSHORT) {
-  TestPrimitiveArraySqlAccessor<Int16Array, CDataType_SSHORT>();
+  TestPrimitiveArraySqlAccessor<Int16Array, odbcabstraction::CDataType_SSHORT>();
 }
 
 TEST(PrimitiveArrayFlightSqlAccessor, Test_Int8Array_CDataType_STINYINT) {
-  TestPrimitiveArraySqlAccessor<Int8Array, CDataType_STINYINT>();
+  TestPrimitiveArraySqlAccessor<Int8Array, odbcabstraction::CDataType_STINYINT>();
 }
 
 TEST(PrimitiveArrayFlightSqlAccessor, Test_UInt64Array_CDataType_UBIGINT) {
-  TestPrimitiveArraySqlAccessor<UInt64Array, CDataType_UBIGINT>();
+  TestPrimitiveArraySqlAccessor<UInt64Array, odbcabstraction::CDataType_UBIGINT>();
 }
 
 TEST(PrimitiveArrayFlightSqlAccessor, Test_UInt32Array_CDataType_ULONG) {
-  TestPrimitiveArraySqlAccessor<UInt32Array, CDataType_ULONG>();
+  TestPrimitiveArraySqlAccessor<UInt32Array, odbcabstraction::CDataType_ULONG>();
 }
 
 TEST(PrimitiveArrayFlightSqlAccessor, Test_UInt16Array_CDataType_USHORT) {
-  TestPrimitiveArraySqlAccessor<UInt16Array, CDataType_USHORT>();
+  TestPrimitiveArraySqlAccessor<UInt16Array, odbcabstraction::CDataType_USHORT>();
 }
 
 TEST(PrimitiveArrayFlightSqlAccessor, Test_UInt8Array_CDataType_UTINYINT) {
-  TestPrimitiveArraySqlAccessor<UInt8Array, CDataType_UTINYINT>();
+  TestPrimitiveArraySqlAccessor<UInt8Array, odbcabstraction::CDataType_UTINYINT>();
 }
 
 TEST(PrimitiveArrayFlightSqlAccessor, Test_FloatArray_CDataType_FLOAT) {
-  TestPrimitiveArraySqlAccessor<FloatArray, CDataType_FLOAT>();
+  TestPrimitiveArraySqlAccessor<FloatArray, odbcabstraction::CDataType_FLOAT>();
 }
 
 TEST(PrimitiveArrayFlightSqlAccessor, Test_DoubleArray_CDataType_DOUBLE) {
-  TestPrimitiveArraySqlAccessor<DoubleArray, CDataType_DOUBLE>();
+  TestPrimitiveArraySqlAccessor<DoubleArray, odbcabstraction::CDataType_DOUBLE>();
 }
 
 }  // namespace flight_sql

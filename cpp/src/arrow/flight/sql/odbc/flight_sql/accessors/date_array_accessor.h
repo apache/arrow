@@ -24,8 +24,8 @@
 namespace driver {
 namespace flight_sql {
 
-using namespace arrow;
-using namespace odbcabstraction;
+using arrow::Array;
+using odbcabstraction::RowStatus;
 
 template <CDataType TARGET_TYPE, typename ARROW_ARRAY>
 class DateArrayFlightSqlAccessor

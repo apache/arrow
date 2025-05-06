@@ -25,8 +25,8 @@
 namespace driver {
 namespace flight_sql {
 
-using namespace arrow;
-using namespace odbcabstraction;
+using arrow::BooleanArray;
+using odbcabstraction::RowStatus;
 
 template <CDataType TARGET_TYPE>
 class BooleanArrayFlightSqlAccessor

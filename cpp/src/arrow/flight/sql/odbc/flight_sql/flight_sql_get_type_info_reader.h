@@ -21,7 +21,7 @@
 namespace driver {
 namespace flight_sql {
 
-using namespace arrow;
+using arrow::RecordBatch;
 
 using std::optional;
 

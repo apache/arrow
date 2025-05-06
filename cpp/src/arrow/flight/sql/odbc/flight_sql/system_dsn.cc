@@ -33,9 +33,12 @@
 #include <locale>
 #include <sstream>
 
-using namespace std;
-using namespace driver::flight_sql;
-using namespace driver::flight_sql::config;
+using driver::flight_sql::FlightSqlConnection;
+using driver::flight_sql::config::Configuration;
+using driver::flight_sql::config::ConnectionStringParser;
+using driver::flight_sql::config::DsnConfigurationWindow;
+using driver::flight_sql::config::Result;
+using driver::flight_sql::config::Window;
 
 BOOL CALLBACK ConfigDriver(HWND hwndParent, WORD fRequest, LPCSTR lpszDriver,
                            LPCSTR lpszArgs, LPSTR lpszMsg, WORD cbMsgMax,

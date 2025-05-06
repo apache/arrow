@@ -86,10 +86,10 @@ std::shared_ptr<ResultSet> GetTablesForSQLAllCatalogs(
 
   auto transformer = RecordBatchTransformerWithTasksBuilder(schema)
                          .RenameField("catalog_name", names.catalog_column)
-                         .AddFieldOfNulls(names.schema_column, utf8())
-                         .AddFieldOfNulls(names.table_column, utf8())
-                         .AddFieldOfNulls(names.table_type_column, utf8())
-                         .AddFieldOfNulls(names.remarks_column, utf8())
+                         .AddFieldOfNulls(names.schema_column, arrow::utf8())
+                         .AddFieldOfNulls(names.table_column, arrow::utf8())
+                         .AddFieldOfNulls(names.table_type_column, arrow::utf8())
+                         .AddFieldOfNulls(names.remarks_column, arrow::utf8())
                          .Build();
 
   return std::make_shared<FlightSqlResultSet>(
@@ -112,11 +112,11 @@ std::shared_ptr<ResultSet> GetTablesForSQLAllDbSchemas(
   ThrowIfNotOK(flight_info->GetSchema(nullptr).Value(&schema));
 
   auto transformer = RecordBatchTransformerWithTasksBuilder(schema)
-                         .AddFieldOfNulls(names.catalog_column, utf8())
+                         .AddFieldOfNulls(names.catalog_column, arrow::utf8())
                          .RenameField("db_schema_name", names.schema_column)
-                         .AddFieldOfNulls(names.table_column, utf8())
-                         .AddFieldOfNulls(names.table_type_column, utf8())
-                         .AddFieldOfNulls(names.remarks_column, utf8())
+                         .AddFieldOfNulls(names.table_column, arrow::utf8())
+                         .AddFieldOfNulls(names.table_type_column, arrow::utf8())
+                         .AddFieldOfNulls(names.remarks_column, arrow::utf8())
                          .Build();
 
   return std::make_shared<FlightSqlResultSet>(
@@ -137,11 +137,11 @@ std::shared_ptr<ResultSet> GetTablesForSQLAllTableTypes(
   ThrowIfNotOK(flight_info->GetSchema(nullptr).Value(&schema));
 
   auto transformer = RecordBatchTransformerWithTasksBuilder(schema)
-                         .AddFieldOfNulls(names.catalog_column, utf8())
-                         .AddFieldOfNulls(names.schema_column, utf8())
-                         .AddFieldOfNulls(names.table_column, utf8())
+                         .AddFieldOfNulls(names.catalog_column, arrow::utf8())
+                         .AddFieldOfNulls(names.schema_column, arrow::utf8())
+                         .AddFieldOfNulls(names.table_column, arrow::utf8())
                          .RenameField("table_type", names.table_type_column)
-                         .AddFieldOfNulls(names.remarks_column, utf8())
+                         .AddFieldOfNulls(names.remarks_column, arrow::utf8())
                          .Build();
 
   return std::make_shared<FlightSqlResultSet>(
@@ -170,7 +170,7 @@ std::shared_ptr<ResultSet> GetTablesForGenericUse(
                          .RenameField("db_schema_name", names.schema_column)
                          .RenameField("table_name", names.table_column)
                          .RenameField("table_type", names.table_type_column)
-                         .AddFieldOfNulls(names.remarks_column, utf8())
+                         .AddFieldOfNulls(names.remarks_column, arrow::utf8())
                          .Build();
 
   return std::make_shared<FlightSqlResultSet>(

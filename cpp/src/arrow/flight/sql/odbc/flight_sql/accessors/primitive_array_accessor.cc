@@ -20,8 +20,16 @@
 namespace driver {
 namespace flight_sql {
 
-using namespace arrow;
-using namespace odbcabstraction;
+using arrow::DoubleArray;
+using arrow::FloatArray;
+using arrow::Int16Array;
+using arrow::Int32Array;
+using arrow::Int64Array;
+using arrow::Int8Array;
+using arrow::UInt16Array;
+using arrow::UInt32Array;
+using arrow::UInt64Array;
+using arrow::UInt8Array;
 
 template <typename ARROW_ARRAY, CDataType TARGET_TYPE>
 PrimitiveArrayFlightSqlAccessor<

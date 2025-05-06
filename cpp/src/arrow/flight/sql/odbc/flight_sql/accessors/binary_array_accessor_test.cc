@@ -23,22 +23,24 @@
 namespace driver {
 namespace flight_sql {
 
-using namespace arrow;
-using namespace odbcabstraction;
+using arrow::BinaryType;
+using odbcabstraction::OdbcVersion;
+
+using arrow::ArrayFromVector;
 
 TEST(BinaryArrayAccessor, Test_CDataType_BINARY_Basic) {
   std::vector<std::string> values = {"foo", "barx", "baz123"};
   std::shared_ptr<Array> array;
   ArrayFromVector<BinaryType, std::string>(values, &array);
 
-  BinaryArrayFlightSqlAccessor<CDataType_BINARY> accessor(array.get());
+  BinaryArrayFlightSqlAccessor<odbcabstraction::CDataType_BINARY> accessor(array.get());
 
   size_t max_strlen = 64;
   std::vector<char> buffer(values.size() * max_strlen);
   std::vector<ssize_t> strlen_buffer(values.size());
 
-  ColumnBinding binding(CDataType_BINARY, 0, 0, buffer.data(), max_strlen,
-                        strlen_buffer.data());
+  ColumnBinding binding(odbcabstraction::CDataType_BINARY, 0, 0, buffer.data(),
+                        max_strlen, strlen_buffer.data());
 
   int64_t value_offset = 0;
   odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
@@ -61,14 +63,14 @@ TEST(BinaryArrayAccessor, Test_CDataType_BINARY_Truncation) {
   std::shared_ptr<Array> array;
   ArrayFromVector<BinaryType, std::string>(values, &array);
 
-  BinaryArrayFlightSqlAccessor<CDataType_BINARY> accessor(array.get());
+  BinaryArrayFlightSqlAccessor<odbcabstraction::CDataType_BINARY> accessor(array.get());
 
   size_t max_strlen = 8;
   std::vector<char> buffer(values.size() * max_strlen);
   std::vector<ssize_t> strlen_buffer(values.size());
 
-  ColumnBinding binding(CDataType_BINARY, 0, 0, buffer.data(), max_strlen,
-                        strlen_buffer.data());
+  ColumnBinding binding(odbcabstraction::CDataType_BINARY, 0, 0, buffer.data(),
+                        max_strlen, strlen_buffer.data());
 
   std::stringstream ss;
   int64_t value_offset = 0;

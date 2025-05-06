@@ -203,9 +203,11 @@ inline void SetDefaultIfMissing(
 
 namespace driver {
 namespace flight_sql {
-using namespace arrow::flight::sql;
-using namespace arrow::flight;
-using namespace driver::odbcabstraction;
+using arrow::flight::FlightCallOptions;
+using arrow::flight::sql::FlightSqlClient;
+using arrow::flight::sql::SqlInfoOptions;
+using driver::odbcabstraction::Connection;
+using driver::odbcabstraction::DriverException;
 
 GetInfoCache::GetInfoCache(FlightCallOptions& call_options,
                            std::unique_ptr<FlightSqlClient>& client,

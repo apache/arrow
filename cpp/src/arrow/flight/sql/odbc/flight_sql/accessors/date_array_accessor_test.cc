@@ -24,8 +24,18 @@
 namespace driver {
 namespace flight_sql {
 
-using namespace arrow;
-using namespace odbcabstraction;
+using arrow::Date32Array;
+using arrow::Date32Type;
+using arrow::Date64Array;
+using arrow::Date64Type;
+using arrow::NumericArray;
+
+using odbcabstraction::DATE_STRUCT;
+using odbcabstraction::OdbcVersion;
+using odbcabstraction::tagDATE_STRUCT;
+
+using arrow::ArrayFromVector;
+using odbcabstraction::GetTimeForSecondsSinceEpoch;
 
 TEST(DateArrayAccessor, Test_Date32Array_CDataType_DATE) {
   std::vector<int32_t> values = {7589, 12320, 18980, 19095};
@@ -33,13 +43,14 @@ TEST(DateArrayAccessor, Test_Date32Array_CDataType_DATE) {
   std::shared_ptr<Array> array;
   ArrayFromVector<Date32Type, int32_t>(values, &array);
 
-  DateArrayFlightSqlAccessor<CDataType_DATE, Date32Array> accessor(
+  DateArrayFlightSqlAccessor<odbcabstraction::CDataType_DATE, Date32Array> accessor(
       dynamic_cast<NumericArray<Date32Type>*>(array.get()));
 
   std::vector<tagDATE_STRUCT> buffer(values.size());
   std::vector<ssize_t> strlen_buffer(values.size());
 
-  ColumnBinding binding(CDataType_DATE, 0, 0, buffer.data(), 0, strlen_buffer.data());
+  ColumnBinding binding(odbcabstraction::CDataType_DATE, 0, 0, buffer.data(), 0,
+                        strlen_buffer.data());
 
   int64_t value_offset = 0;
   odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
@@ -66,13 +77,14 @@ TEST(DateArrayAccessor, Test_Date64Array_CDataType_DATE) {
   std::shared_ptr<Array> array;
   ArrayFromVector<Date64Type, int64_t>(values, &array);
 
-  DateArrayFlightSqlAccessor<CDataType_DATE, Date64Array> accessor(
+  DateArrayFlightSqlAccessor<odbcabstraction::CDataType_DATE, Date64Array> accessor(
       dynamic_cast<NumericArray<Date64Type>*>(array.get()));
 
   std::vector<tagDATE_STRUCT> buffer(values.size());
   std::vector<ssize_t> strlen_buffer(values.size());
 
-  ColumnBinding binding(CDataType_DATE, 0, 0, buffer.data(), 0, strlen_buffer.data());
+  ColumnBinding binding(odbcabstraction::CDataType_DATE, 0, 0, buffer.data(), 0,
+                        strlen_buffer.data());
 
   int64_t value_offset = 0;
   odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);

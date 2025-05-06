@@ -28,8 +28,6 @@
 
 #include <utility>
 
-using namespace driver::flight_sql;
-
 namespace driver {
 namespace flight_sql {
 

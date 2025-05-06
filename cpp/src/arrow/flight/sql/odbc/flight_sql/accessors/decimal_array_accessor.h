@@ -26,8 +26,9 @@
 namespace driver {
 namespace flight_sql {
 
-using namespace arrow;
-using namespace odbcabstraction;
+using arrow::Array;
+using arrow::Decimal128Type;
+using odbcabstraction::RowStatus;
 
 template <typename ARROW_ARRAY, CDataType TARGET_TYPE>
 class DecimalArrayFlightSqlAccessor
