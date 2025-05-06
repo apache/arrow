@@ -106,6 +106,25 @@ static inline BoundaryOrder::type FromThriftUnsafe(format::BoundaryOrder::type t
   return static_cast<BoundaryOrder::type>(type);
 }
 
+static inline GeometryLogicalType::EdgeInterpolationAlgorithm FromThriftUnsafe(
+    format::EdgeInterpolationAlgorithm::type type) {
+  switch (type) {
+    case format::EdgeInterpolationAlgorithm::SPHERICAL:
+      return GeometryLogicalType::EdgeInterpolationAlgorithm::SPHERICAL;
+    case format::EdgeInterpolationAlgorithm::VINCENTY:
+      return GeometryLogicalType::EdgeInterpolationAlgorithm::VINCENTY;
+    case format::EdgeInterpolationAlgorithm::THOMAS:
+      return GeometryLogicalType::EdgeInterpolationAlgorithm::THOMAS;
+    case format::EdgeInterpolationAlgorithm::ANDOYER:
+      return GeometryLogicalType::EdgeInterpolationAlgorithm::ANDOYER;
+    case format::EdgeInterpolationAlgorithm::KARNEY:
+      return GeometryLogicalType::EdgeInterpolationAlgorithm::KARNEY;
+    default:
+      ARROW_DCHECK(false) << "Cannot reach here";
+      return GeometryLogicalType::EdgeInterpolationAlgorithm::UNKNOWN;
+  }
+}
+
 namespace internal {
 
 template <typename T>
@@ -221,6 +240,15 @@ inline typename Compression::type LoadEnumSafe(const format::CompressionCodec::t
   return FromThriftUnsafe(*in);
 }
 
+inline typename LogicalType::EdgeInterpolationAlgorithm LoadEnumSafe(
+    const format::EdgeInterpolationAlgorithm::type* in) {
+  if (ARROW_PREDICT_FALSE(*in < format::EdgeInterpolationAlgorithm::SPHERICAL ||
+                          *in > format::EdgeInterpolationAlgorithm::KARNEY)) {
+    return LogicalType::EdgeInterpolationAlgorithm::UNKNOWN;
+  }
+  return FromThriftUnsafe(*in);
+}
+
 // Safe non-enum converters
 
 static inline AadMetadata FromThrift(format::AesGcmV1 aesGcmV1) {
@@ -275,25 +303,6 @@ static inline format::EdgeInterpolationAlgorithm::type ToThrift(
       return format::EdgeInterpolationAlgorithm::ANDOYER;
     case LogicalType::EdgeInterpolationAlgorithm::KARNEY:
       return format::EdgeInterpolationAlgorithm::KARNEY;
-    default:
-      throw ParquetException("Unknown value for geometry algorithm: ",
-                             static_cast<int>(algorithm));
-  }
-}
-
-static inline LogicalType::EdgeInterpolationAlgorithm FromThrift(
-    const format::EdgeInterpolationAlgorithm::type algorithm) {
-  switch (algorithm) {
-    case format::EdgeInterpolationAlgorithm::SPHERICAL:
-      return LogicalType::EdgeInterpolationAlgorithm::SPHERICAL;
-    case format::EdgeInterpolationAlgorithm::VINCENTY:
-      return LogicalType::EdgeInterpolationAlgorithm::VINCENTY;
-    case format::EdgeInterpolationAlgorithm::THOMAS:
-      return LogicalType::EdgeInterpolationAlgorithm::THOMAS;
-    case format::EdgeInterpolationAlgorithm::ANDOYER:
-      return LogicalType::EdgeInterpolationAlgorithm::ANDOYER;
-    case format::EdgeInterpolationAlgorithm::KARNEY:
-      return LogicalType::EdgeInterpolationAlgorithm::KARNEY;
     default:
       throw ParquetException("Unknown value for geometry algorithm: ",
                              static_cast<int>(algorithm));
