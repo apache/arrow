@@ -2287,7 +2287,7 @@ garrow_fixed_shape_tensor_data_type_class_init(GArrowFixedShapeTensorDataTypeCla
 
 /**
  * garrow_fixed_shape_tensor_data_type_new:
- * @value_type: A #GArrowDataType.
+ * @value_type: A #GArrowDataType of individual tensor elements.
  * @size: The length of `shape`.
  * @psize: The length of `permutation`.
  * @shape: (array length=size): shape.
