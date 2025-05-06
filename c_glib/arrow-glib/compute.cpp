@@ -37,7 +37,8 @@
 #include <arrow/acero/exec_plan.h>
 #include <arrow/acero/options.h>
 
-auto registration_status_ = arrow::compute::RegisterComputeKernels();
+// Initialize the compute library and register compute kernels.
+auto compute_init_status_ = arrow::compute::Initialize();
 
 template <typename ArrowType, typename GArrowArrayType>
 typename ArrowType::c_type
