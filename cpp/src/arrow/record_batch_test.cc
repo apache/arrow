@@ -1348,8 +1348,7 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayMinExact) {
   auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
   auto uint32_array_data = ArrayFromJSON(uint32(), "[100, null, 1]")->data()->Copy();
   uint32_array_data->statistics = std::make_shared<ArrayStatistics>();
-  uint32_array_data->statistics->is_min_exact = true;
-  uint32_array_data->statistics->min = uint64_t{1};
+  uint32_array_data->statistics->set_min<uint64_t>(1, true);
   auto uint32_array = MakeArray(std::move(uint32_array_data));
   auto batch = RecordBatch::Make(schema, uint32_array->length(),
                                  {no_statistics_array, uint32_array});
@@ -1379,7 +1378,7 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayMinApproximate) {
   auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
   auto int32_array_data = ArrayFromJSON(int32(), "[1, null, -1]")->data()->Copy();
   int32_array_data->statistics = std::make_shared<ArrayStatistics>();
-  int32_array_data->statistics->min = -1.0;
+  int32_array_data->statistics->set_min(-1.0);
   auto int32_array = MakeArray(std::move(int32_array_data));
   auto batch = RecordBatch::Make(schema, int32_array->length(),
                                  {no_statistics_array, int32_array});
@@ -1411,8 +1410,7 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayMaxExact) {
   auto boolean_array_data =
       ArrayFromJSON(boolean(), "[true, null, false]")->data()->Copy();
   boolean_array_data->statistics = std::make_shared<ArrayStatistics>();
-  boolean_array_data->statistics->is_max_exact = true;
-  boolean_array_data->statistics->max = true;
+  boolean_array_data->statistics->set_max(true, true);
   auto boolean_array = MakeArray(std::move(boolean_array_data));
   auto batch = RecordBatch::Make(schema, boolean_array->length(),
                                  {no_statistics_array, boolean_array});
@@ -1442,7 +1440,7 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayMaxApproximate) {
   auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
   auto float64_array_data = ArrayFromJSON(float64(), "[1.0, null, -1.0]")->data()->Copy();
   float64_array_data->statistics = std::make_shared<ArrayStatistics>();
-  float64_array_data->statistics->max = 1.0;
+  float64_array_data->statistics->set_max(1.0);
   auto float64_array = MakeArray(std::move(float64_array_data));
   auto batch = RecordBatch::Make(schema, float64_array->length(),
                                  {no_statistics_array, float64_array});

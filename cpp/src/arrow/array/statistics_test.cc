@@ -97,5 +97,35 @@ TEST(ArrayStatisticsTest, TestEquality) {
   statistics2.is_max_exact = true;
   ASSERT_EQ(statistics1, statistics2);
 }
+TEST(ArrayStatisticsTests, TestSetter) {
+  ArrayStatistics statistics1;
+  ArrayStatistics statistics2;
 
+  statistics1.set_max<int64_t>(42);
+  statistics2.max = static_cast<int64_t>(42);
+  ASSERT_EQ(statistics1, statistics2);
+  statistics1.set_max<int64_t>(42, true);
+  ASSERT_NE(statistics1, statistics2);
+  statistics2.is_max_exact = true;
+  ASSERT_EQ(statistics1, statistics2);
+
+  statistics1.set_min<int64_t>(19);
+  statistics2.min = static_cast<int64_t>(19);
+  ASSERT_EQ(statistics1, statistics2);
+  statistics1.set_min<int64_t>(19, true);
+  ASSERT_NE(statistics1, statistics2);
+  statistics2.is_min_exact = true;
+  ASSERT_EQ(statistics1, statistics2);
+}
+TEST(ArrayStatisticsTests, TestGetter) {
+  ArrayStatistics statistics1;
+  ArrayStatistics statistics2;
+  statistics1.set_max<int64_t>(42);
+  statistics2.max = static_cast<int64_t>(42);
+  ASSERT_EQ(std::get<int64_t>(statistics1.max.value()), statistics2.get_max<int64_t>());
+
+  statistics1.set_min<int64_t>(19);
+  statistics2.min = static_cast<int64_t>(19);
+  ASSERT_EQ(std::get<int64_t>(statistics1.min.value()), statistics2.get_min<int64_t>());
+}
 }  // namespace arrow

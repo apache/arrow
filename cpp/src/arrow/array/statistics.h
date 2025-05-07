@@ -26,6 +26,15 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+namespace detail {
+template <typename Type, typename Variant>
+struct in_variant;
+template <typename Type, typename... VariantTypes>
+struct in_variant<Type, std::variant<VariantTypes...>>
+    : std::disjunction<std::is_same<Type, VariantTypes>...> {};
+template <typename Type, typename VariantType>
+constexpr bool in_variant_v = in_variant<Type, VariantType>::value;
+}  // namespace detail
 
 /// \class ArrayStatistics
 /// \brief Statistics for an Array
@@ -126,6 +135,36 @@ struct ARROW_EXPORT ArrayStatistics {
 
   /// \brief Whether the maximum value is exact or not
   bool is_max_exact = false;
+
+  template <typename Type>
+  std::enable_if_t<detail::in_variant_v<Type, ValueType>, void> set_max(
+      Type value, bool is_exact = false) {
+    max = value;
+    is_max_exact = is_exact;
+  }
+
+  template <typename Type>
+  std::enable_if_t<detail::in_variant_v<Type, ValueType>, void> set_min(
+      Type value, bool is_exact = false) {
+    min = value;
+    is_min_exact = is_exact;
+  }
+
+  template <typename Type>
+  std::enable_if_t<detail::in_variant_v<Type, ValueType>, std::optional<Type>> get_max() {
+    if (max.has_value()) {
+      return std::get<Type>(max.value());
+    }
+    return std::nullopt;
+  }
+
+  template <typename Type>
+  std::enable_if_t<detail::in_variant_v<Type, ValueType>, std::optional<Type>> get_min() {
+    if (min.has_value()) {
+      return std::get<Type>(min.value());
+    }
+    return std::nullopt;
+  }
 
   /// \brief Check two statistics for equality
   bool Equals(const ArrayStatistics& other) const {
