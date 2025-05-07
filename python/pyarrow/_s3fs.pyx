@@ -270,7 +270,7 @@ cdef class S3FileSystem(FileSystem):
     >>> s3 = fs.S3FileSystem(region='us-west-2')
     >>> s3.get_file_info(fs.FileSelector(
     ...    'power-analysis-ready-datastore/power_901_constants.zarr/FROCEAN', recursive=True
-    ... ))
+    ... )) # doctest: +SKIP
     [<FileInfo for 'power-analysis-ready-datastore/power_901_constants.zarr/FROCEAN/.zarray...
 
     For usage of the methods see examples for :func:`~pyarrow.fs.LocalFileSystem`.
