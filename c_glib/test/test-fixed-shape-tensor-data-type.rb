@@ -48,6 +48,7 @@ class TestFixedShapeTensorDataType < Test::Unit::TestCase
                                                     [3, 4],
                                                     nil,
                                                     ["x", "y"])
+    # TODO: Use Arrow::FixedShapeTensorDataType#permutation
     assert_equal(Arrow::Type::EXTENSION, data_type.id)
   end
 
