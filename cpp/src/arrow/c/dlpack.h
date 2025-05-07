@@ -39,6 +39,9 @@ namespace arrow::dlpack {
 ARROW_EXPORT
 Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr);
 
+ARROW_EXPORT
+Result<DLManagedTensor*> ExportTensor(const std::shared_ptr<Tensor>& t);
+
 /// \brief Get DLDevice with enumerator specifying the
 /// type of the device data is stored on and index of the
 /// device which is 0 by default for CPU.
@@ -47,5 +50,8 @@ Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr);
 /// \return DLDevice struct
 ARROW_EXPORT
 Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr);
+
+ARROW_EXPORT
+Result<DLDevice> ExportDevice(const std::shared_ptr<Tensor>& t);
 
 }  // namespace arrow::dlpack
