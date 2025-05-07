@@ -25,9 +25,8 @@
 #include <arrow-glib/field.hpp>
 #include <arrow-glib/type.hpp>
 
-#include <arrow/extension/fixed_shape_tensor.h>
-
 #include <arrow/c/bridge.h>
+#include <arrow/extension/fixed_shape_tensor.h>
 
 G_BEGIN_DECLS
 
