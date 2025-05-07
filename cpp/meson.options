@@ -23,9 +23,11 @@ option(
 )
 
 option('benchmarks', type: 'feature', description: 'Build the Arrow micro benchmarks')
+option('brotli', type: 'feature', description: 'Build with Brotli compression')
 option('compute', type: 'feature', description: 'Build all Arrow Compute kernels')
 option('csv', type: 'feature', description: 'Build the Arrow CSV Parser Module')
 option('filesystem', type: 'feature', description: 'Build the Arrow Filesystem Layer')
+option('fuzzing', type: 'feature', description: 'Build Arrow Fuzzing executables')
 
 option(
     'gcs',
@@ -34,7 +36,12 @@ option(
 )
 
 option('hdfs', type: 'feature', description: 'Build the Arrow HDFS bridge')
-option('integration', type: 'feature', description: 'Build the Arrow integration test executables')
+
+option(
+    'integration',
+    type: 'feature',
+    description: 'Build the Arrow integration test executables',
+)
 
 option(
     'ipc',
@@ -46,6 +53,12 @@ option(
 option('json', type: 'feature', description: 'Build Arrow with JSON support')
 option('git_id', type: 'string')
 option('git_description', type: 'string')
+
+option(
+    'lz4',
+    type: 'feature',
+    description: 'Build with lz4 compression',
+)
 
 option(
     'package_kind',
@@ -60,3 +73,6 @@ option(
 )
 option('testing', type: 'feature', description: 'Build the Arrow testing libraries')
 option('tests', type: 'feature', description: 'Build the Arrow googletest unit tests')
+
+option('utilities', type: 'feature', description: 'Build Arrow commandline utilities')
+option('zstd', type: 'feature', description: 'Build with zstd compression')

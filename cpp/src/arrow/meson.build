@@ -685,3 +685,7 @@ endif
 if needs_json
     subdir('json')
 endif
+
+if needs_ipc
+    subdir('ipc')
+endif
