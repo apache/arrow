@@ -639,7 +639,9 @@ class InputState : public util::SerialSequencingQueue::Processor {
         // hit the end of the batch, need to get the next batch if possible.
         ++batches_processed_;
         latest_ref_row_ = 0;
-        std::ignore = queue_.TryPop();
+        bool did_pop = queue_.TryPop().has_value();
+        DCHECK(did_pop);
+        ARROW_UNUSED(did_pop);
         have_active_batch = !queue_.Empty();
       }
     }
