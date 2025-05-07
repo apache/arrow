@@ -147,7 +147,7 @@ Python:
 In some applications, you may not create schemas directly, only using the ones
 that are embedded in :ref:`IPC messages <ipc>`.
 
-Schemas are immutable, which means you can't update an existing schema, but you 
+Schemas are immutable, which means you can't update an existing schema, but you
 can create a new one with updated values using :meth:`Schema.set`.
 
 .. ipython:: python
