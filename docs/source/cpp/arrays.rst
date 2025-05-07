@@ -240,34 +240,13 @@ objects from line-separated JSON files.
 .. _JSON: https://datatracker.ietf.org/doc/html/rfc8259
 
 Examples for ``ArrayFromJSONString``, ``ChunkedArrayFromJSONString``,
-``DictArrayFromJSONString`` are shown below::
+``DictArrayFromJSONString`` are shown below:
 
-   // Simple types
-   auto int32_array = ArrayFromJSONString(int32(), "[1, 2, 3]");
-   auto float64_array = ArrayFromJSONString(float64(), "[4.0, 5.0, 6.0]");
-   auto bool_array = ArrayFromJSONString(boolean(), "[true, false, true]");
-   auto string_array = ArrayFromJSONString(utf8(), R"(["Hello", "World", null])");
-
-   // Timestamps can be created from string representations
-   auto arr =
-       ArrayFromJSONString(timestamp(TimeUnit::SECOND),
-                           R"(["1970-01-01", "2000-02-29","3989-07-14","1900-02-28"])");
-
-   // List, Map, Struct
-   auto list_array =
-       ArrayFromJSONString(list(int64()), "[[null], [], null, [4, 5, 6, 7, 8], [2, 3]]");
-   auto map_array = ArrayFromJSONString(
-       map(utf8(), int32()), R"([[["joe", 0], ["mark", null]], null, [["cap", 8]], []])");
-   auto struct_array =
-       ArrayFromJSONString(struct_({field("one", int32()), field("two", int32())}),
-                           "[[11, 22], null, [null, 33]]");
-
-   // ChunkedArrayFromJSONString
-   ChunkedArrayFromJSONString(int32(), {R"([5, 10])", R"([null])", R"([16])"});
-
-   // DictArrayFromJSONString
-   auto key_array = DictArrayFromJSONString(
-       dictionary(int32(), utf8()), "[0, 1, 0, 2, 0, 3]", R"(["k1", "k2", "k3", "k4"])");
+.. literalinclude:: ../../../cpp/examples/arrow/from_json_string_example.cc
+   :language: cpp
+   :start-after: arrow::Status RunExample() {
+   :end-before: return arrow::Status::OK();
+   :dedent: 2
 
 Please see the :ref:`FromJSONString API listing <api-array-from-json-string>` for
 the complete set of helpers.
