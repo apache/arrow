@@ -57,6 +57,7 @@ class TestFixedShapeTensorDataType < Test::Unit::TestCase
                                                     [3, 4],
                                                     [0, 1],
                                                     nil)
+    # TODO: Use Arrow::FixedShapeTensorDataType#dim_names
     assert_equal(Arrow::Type::EXTENSION, data_type.id)
   end
 
