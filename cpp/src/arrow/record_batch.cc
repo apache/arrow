@@ -18,10 +18,10 @@
 #include "arrow/record_batch.h"
 
 #include <algorithm>
-#include <atomic>
 #include <cmath>
 #include <cstdlib>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -95,25 +95,21 @@ class SimpleRecordBatch : public RecordBatch {
   }
 
   const std::vector<std::shared_ptr<Array>>& columns() const override {
+    std::lock_guard lock(mutex_);
     for (int i = 0; i < num_columns(); ++i) {
-      // Force all columns to be boxed
-      column(i);
+      if (!boxed_columns_[i]) {
+        boxed_columns_[i] = MakeArray(columns_[i]);
+      }
     }
     return boxed_columns_;
   }
 
   std::shared_ptr<Array> column(int i) const override {
-    std::shared_ptr<Array> result = std::atomic_load(&boxed_columns_[i]);
-    if (!result) {
-      auto new_array = MakeArray(columns_[i]);
-      // Be careful not to overwrite existing entry if another thread has been calling
-      // `column(i)` at the same time, since the `boxed_columns_` contents are exposed
-      // by `columns()` (see GH-45371).
-      if (std::atomic_compare_exchange_strong(&boxed_columns_[i], &result, new_array)) {
-        return new_array;
-      }
+    std::lock_guard lock(mutex_);
+    if (!boxed_columns_[i]) {
+      boxed_columns_[i] = MakeArray(columns_[i]);
     }
-    return result;
+    return boxed_columns_[i];
   }
 
   std::shared_ptr<ArrayData> column_data(int i) const override { return columns_[i]; }
@@ -210,6 +206,7 @@ class SimpleRecordBatch : public RecordBatch {
   std::vector<std::shared_ptr<ArrayData>> columns_;
 
   // Caching boxed array data
+  mutable std::mutex mutex_;
   mutable std::vector<std::shared_ptr<Array>> boxed_columns_;
 
   // the type of device that the buffers for columns are allocated on.

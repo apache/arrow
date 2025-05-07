@@ -286,12 +286,13 @@ jobs:
           # static library. The R is not used here but R 4.1 was the last R to use
           # Rtools40.
           r-version: "4.1"
-          rtools-version: 40
+          rtools-version: ${{ matrix.config.rtools }}
           Ncpus: 2
       - name: Build Arrow C++
         shell: bash
         env:
           MINGW_ARCH: ${{ matrix.config.arch }}
+          RTOOLS_VERSION: ${{ matrix.config.rtools }}
         run: ci/scripts/r_windows_build.sh
       - name: Rename libarrow.zip
         # So that they're unique when multiple are downloaded in the next step
