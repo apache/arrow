@@ -18,8 +18,10 @@ package file_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/binary"
+	"encoding/csv"
 	"io"
 	"os"
 	"path"
@@ -34,6 +36,7 @@ import (
 	format "github.com/apache/arrow/go/v17/parquet/internal/gen-go/parquet"
 	"github.com/apache/arrow/go/v17/parquet/internal/thrift"
 	"github.com/apache/arrow/go/v17/parquet/metadata"
+	"github.com/apache/arrow/go/v17/parquet/pqarrow"
 	"github.com/apache/arrow/go/v17/parquet/schema"
 	libthrift "github.com/apache/thrift/lib/go/thrift"
 	"github.com/stretchr/testify/assert"
@@ -445,4 +448,54 @@ func TestRleBooleanEncodingFileRead(t *testing.T) {
 	}
 
 	assert.Equal(t, expected, values[:len(expected)])
+}
+
+func TestDeltaByteArray(t *testing.T) {
+	dir := os.Getenv("PARQUET_TEST_DATA")
+	if dir == "" {
+		t.Skip("no path supplied with PARQUET_TEST_DATA")
+	}
+	require.DirExists(t, dir)
+
+	expected, err := os.ReadFile(path.Join(dir, "delta_byte_array_expect.csv"))
+	require.NoError(t, err)
+	csvReader := csv.NewReader(bytes.NewReader(expected))
+
+	records, err := csvReader.ReadAll()
+	require.NoError(t, err)
+
+	records = records[1:] // skip header
+
+	props := parquet.NewReaderProperties(memory.DefaultAllocator)
+	fileReader, err := file.OpenParquetFile(path.Join(dir, "delta_byte_array.parquet"),
+		false, file.WithReadProps(props))
+	require.NoError(t, err)
+	defer fileReader.Close()
+
+	arrowReader, err := pqarrow.NewFileReader(
+		fileReader,
+		pqarrow.ArrowReadProperties{BatchSize: 1024},
+		memory.DefaultAllocator,
+	)
+	require.NoError(t, err)
+
+	rr, err := arrowReader.GetRecordReader(context.Background(), nil, nil)
+	require.NoError(t, err)
+	defer rr.Release()
+
+	for rr.Next() {
+		rec := rr.Record()
+		defer rec.Release()
+
+		for i := 0; i < int(rec.NumCols()); i++ {
+			vals := rec.Column(i)
+			for j := 0; j < vals.Len(); j++ {
+				if vals.IsNull(j) {
+					require.Equal(t, records[j][i], "")
+					continue
+				}
+				require.Equal(t, records[j][i], vals.ValueStr(j))
+			}
+		}
+	}
 }
