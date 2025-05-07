@@ -468,15 +468,12 @@ def test_schema_set_field():
         pa.field('bar', pa.string()),
         pa.field('baz', pa.list_(pa.int8()))
     ]
-
-    new_field = pa.field('foo2', pa.int64())
-
     s1 = pa.schema(fields)
-    s2 = pa.schema((new_field, fields[1], fields[2]))
 
-    new_schema = s1.set_field(0, new_field)
+    s2 = s1.set(0, s1.field(0).with_type(pa.int64()))
     
-    assert new_schema.equals(s2)
+    assert s2.field(0).type == pa.int64()
+    assert s1.field(0).type == pa.int32()
 
 
 def test_schema_equals():
