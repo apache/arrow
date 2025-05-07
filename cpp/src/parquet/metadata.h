@@ -330,6 +330,8 @@ class PARQUET_EXPORT FileMetaData {
   EncryptionAlgorithm encryption_algorithm() const;
   const std::string& footer_signing_key_metadata() const;
 
+  const std::string& file_aad() const;
+
   /// \brief Verify signature of FileMetaData when file is encrypted but footer
   /// is not encrypted (plaintext footer).
   bool VerifySignature(const void* signature);
@@ -378,6 +380,23 @@ class PARQUET_EXPORT FileMetaData {
   /// \param[in] debug whether to serialize the metadata as Thrift (if false) or
   /// debug text (if true).
   std::string SerializeUnencrypted(bool scrub, bool debug) const;
+
+  /// \brief Coalesce metadata from multiple files into a single metadata file by
+  /// appending row groups.
+  ///
+  /// \param[in] metadata_list list of FileMetaData objects to coalesce.
+  /// \param[in] writer_props WriterProperties to use to create coalesced FileMetaData
+  /// object.
+  /// \return a new FileMetaData object containing all row groups from the input
+  /// FileMetaData objects.
+  static ::arrow::Result<std::shared_ptr<FileMetaData>> CoalesceMetadata(
+      std::vector<std::shared_ptr<FileMetaData>>& metadata_list,
+      std::shared_ptr<WriterProperties>& writer_props);
+
+  /// \brief Set the AAD of decryptor of the file.
+  ///
+  /// \param[in] aad AAD to set on the decryptor.
+  void set_file_decryptor_aad(const std::string& aad);
 
  private:
   friend FileMetaDataBuilder;

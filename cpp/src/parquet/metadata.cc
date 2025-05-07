@@ -945,6 +945,13 @@ class FileMetaData::FileMetaDataImpl {
     out->impl_->key_value_metadata_ = key_value_metadata_;
     out->impl_->file_decryptor_ = file_decryptor_;
 
+    if (key_value_metadata_ && key_value_metadata_->Contains("row_group_aad_0")) {
+      PARQUET_ASSIGN_OR_THROW(
+          auto aad,
+          key_value_metadata_->Get("row_group_aad_" + std::to_string(row_groups[0])));
+      out->set_file_decryptor_aad(aad);
+    }
+
     return out;
   }
 
@@ -1069,6 +1076,10 @@ EncryptionAlgorithm FileMetaData::encryption_algorithm() const {
   return impl_->encryption_algorithm();
 }
 
+const std::string& FileMetaData::file_aad() const {
+  return impl_->file_decryptor()->file_aad();
+}
+
 const std::string& FileMetaData::footer_signing_key_metadata() const {
   return impl_->footer_signing_key_metadata();
 }
@@ -1076,6 +1087,13 @@ const std::string& FileMetaData::footer_signing_key_metadata() const {
 void FileMetaData::set_file_decryptor(
     std::shared_ptr<InternalFileDecryptor> file_decryptor) {
   impl_->set_file_decryptor(std::move(file_decryptor));
+}
+
+void FileMetaData::set_file_decryptor_aad(const std::string& aad) {
+  auto fd = impl_->file_decryptor();
+  auto file_decryptor = std::make_shared<parquet::InternalFileDecryptor>(
+      fd->properties(), aad, fd->algorithm(), fd->footer_key_metadata(), fd->pool());
+  set_file_decryptor(file_decryptor);
 }
 
 const std::shared_ptr<InternalFileDecryptor>& FileMetaData::file_decryptor() const {
@@ -1127,6 +1145,36 @@ std::string FileMetaData::SerializeUnencrypted(bool scrub, bool debug) const {
 void FileMetaData::WriteTo(::arrow::io::OutputStream* dst,
                            const std::shared_ptr<Encryptor>& encryptor) const {
   return impl_->WriteTo(dst, encryptor);
+}
+
+::arrow::Result<std::shared_ptr<parquet::FileMetaData>> FileMetaData::CoalesceMetadata(
+    std::vector<std::shared_ptr<parquet::FileMetaData>>& metadata_list,
+    std::shared_ptr<parquet::WriterProperties>& writer_props) {
+  if (metadata_list.empty()) {
+    return ::arrow::Status::Invalid("No metadata to coalesce");
+  }
+
+  std::vector<std::string> values, keys;
+
+  // Read metadata from all dataset files and store AADs.
+  for (size_t i = 0; i < metadata_list.size(); i++) {
+    const auto& file_metadata = metadata_list[i];
+    keys.push_back("row_group_aad_" + std::to_string(i));
+    values.push_back(file_metadata->file_aad());
+    if (i > 0) {
+      metadata_list[0]->AppendRowGroups(*file_metadata);
+    }
+  }
+
+  // Create a new FileMetadata object with the created AADs as key_value_metadata.
+  auto fmd_builder =
+      parquet::FileMetaDataBuilder::Make(metadata_list[0]->schema(), writer_props);
+  const std::shared_ptr<const KeyValueMetadata> file_aad_metadata =
+      ::arrow::key_value_metadata(keys, values);
+  auto metadata = fmd_builder->Finish(file_aad_metadata);
+  metadata->AppendRowGroups(*metadata_list[0]);
+
+  return metadata;
 }
 
 class FileCryptoMetaData::FileCryptoMetaDataImpl {

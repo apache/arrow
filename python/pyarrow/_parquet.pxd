@@ -412,6 +412,10 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         inline EncryptionAlgorithm encryption_algorithm() const
         inline const c_string& footer_signing_key_metadata() const
 
+    cdef CResult[shared_ptr[CFileMetaData]] CFileMetaData_CoalesceMetadata \
+        " parquet::FileMetaData::CoalesceMetadata"(const vector[shared_ptr[CFileMetaData]]& metadata_list,
+                                                   const shared_ptr[WriterProperties]& properties)
+
     cdef shared_ptr[CFileMetaData] CFileMetaData_Make \
         " parquet::FileMetaData::Make"(const void* serialized_metadata,
                                        uint32_t* metadata_len)
@@ -612,6 +616,11 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
     CStatus WriteMetaDataFile(
         const CFileMetaData& file_metadata,
         const COutputStream* sink)
+
+    CStatus WriteEncryptedMetadataFile(
+        const CFileMetaData& file_metadata,
+        shared_ptr[COutputStream] sink,
+        shared_ptr[CFileEncryptionProperties] encryption_properties)
 
 cdef class FileEncryptionProperties:
     """File-level encryption properties for the low-level API"""
