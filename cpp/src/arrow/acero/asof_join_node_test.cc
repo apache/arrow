@@ -1773,34 +1773,49 @@ TEST(AsofJoinTest, DestroyNonStartedAsofJoinNode) {
 
 // Reproduction of GH-46224: Hang when all left timestamps are greater than right
 // timestamps.
-TEST(AsofJoinTest, LeftGreaterThanRight) {
-  int64_t n_left = 1;
-  int64_t n_right = ExecPlan::kMaxBatchSize + 1;
+TEST(AsofJoinTest, OneSideTsAllGreaterThanTheOther) {
   int64_t tolerance = 1;
+  int64_t num_rows_big_ts = 1;
+  int64_t num_rows_small_ts = ExecPlan::kMaxBatchSize + 1;
+  // Make sure the big_ts is outside the horizon of the tolerance regardless of the side.
+  int64_t big_ts = num_rows_small_ts + tolerance + 1;
 
-  auto left_schema = arrow::schema({arrow::field("on", int64())});
-  auto right_schema = arrow::schema({arrow::field("on", int64())});
+  // Column of big timestamps.
+  ASSERT_OK_AND_ASSIGN(auto col_big_ts,
+                       gen::Constant(MakeScalar(big_ts))->Generate(num_rows_big_ts));
+  // Column of small timestamps from 0 to num_rows_small_ts - 1.
+  ASSERT_OK_AND_ASSIGN(auto col_small_ts,
+                       gen::Step<int64_t>()->Generate(num_rows_small_ts));
 
-  ASSERT_OK_AND_ASSIGN(auto left_col,
-                       gen::Constant(MakeScalar(n_right + 1))->Generate(n_left));
-  ASSERT_OK_AND_ASSIGN(auto right_col, gen::Step<int64_t>()->Generate(n_right));
+  struct Case {
+    std::shared_ptr<arrow::Array> left_col;
+    std::shared_ptr<arrow::Array> right_col;
+  };
 
-  ExecBatch left_batch({left_col}, n_left);
-  ExecBatch right_batch({right_col}, n_right);
+  for (const auto& c : {
+           Case{col_big_ts, col_small_ts},
+           Case{col_small_ts, col_big_ts},
+       }) {
+    auto left_schema = arrow::schema({arrow::field("on", int64())});
+    auto right_schema = arrow::schema({arrow::field("on", int64())});
 
-  auto exp_batch = ExecBatchFromJSON({int64(), int64()},
-                                     "[[" + std::to_string(n_right + 1) + ", null]]");
+    ExecBatch left_batch({c.left_col}, c.left_col->length());
+    ExecBatch right_batch({c.right_col}, c.right_col->length());
+    ASSERT_OK_AND_ASSIGN(auto col_null, MakeArrayOfNull(int64(), c.left_col->length()));
+    ExecBatch exp_batch({c.left_col, col_null}, c.left_col->length());
 
-  for (int i = 0; i < 42; ++i) {
-    AsofJoinNodeOptions opts({{{"on"}, {}}, {{"on"}, {}}}, tolerance);
-    auto left = Declaration("exec_batch_source",
-                            ExecBatchSourceNodeOptions(left_schema, {left_batch}));
-    auto right = Declaration("exec_batch_source",
-                             ExecBatchSourceNodeOptions(right_schema, {right_batch}));
-    auto asof_join = arrow::acero::Declaration{"asofjoin", {left, right}, opts};
-    ASSERT_OK_AND_ASSIGN(auto result,
-                         arrow::acero::DeclarationToExecBatches(std::move(asof_join)));
-    AssertExecBatchesEqualIgnoringOrder(result.schema, {exp_batch}, result.batches);
+    // Run moderate number of times to ensure that no hangs occur.
+    for (int i = 0; i < 42; ++i) {
+      AsofJoinNodeOptions opts({{{"on"}, {}}, {{"on"}, {}}}, tolerance);
+      auto left = Declaration("exec_batch_source",
+                              ExecBatchSourceNodeOptions(left_schema, {left_batch}));
+      auto right = Declaration("exec_batch_source",
+                               ExecBatchSourceNodeOptions(right_schema, {right_batch}));
+      auto asof_join = arrow::acero::Declaration{"asofjoin", {left, right}, opts};
+      ASSERT_OK_AND_ASSIGN(auto result,
+                           arrow::acero::DeclarationToExecBatches(std::move(asof_join)));
+      AssertExecBatchesEqualIgnoringOrder(result.schema, {exp_batch}, result.batches);
+    }
   }
 }
 
