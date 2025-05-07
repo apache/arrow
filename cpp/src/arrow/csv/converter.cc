@@ -470,6 +470,32 @@ struct MultipleParsersTimestampValueDecoder : public ValueDecoder {
   std::vector<const TimestampParser*> parsers_;
 };
 
+//
+// Value decoder for durations
+//
+struct DurationValueDecoder : public ValueDecoder {
+  using value_type = int64_t;
+
+  explicit DurationValueDecoder(const std::shared_ptr<DataType>& type,
+                                const ConvertOptions& options)
+      : ValueDecoder(type, options),
+        concrete_type_(checked_cast<const DurationType&>(*type)),
+        string_converter_() {}
+
+  Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
+    TrimWhiteSpace(&data, &size);
+    if (ARROW_PREDICT_FALSE(!string_converter_.Convert(
+            concrete_type_, reinterpret_cast<const char*>(data), size, out))) {
+      return GenericConversionError(type_, data, size);
+    }
+    return Status::OK();
+  }
+
+ protected:
+  const DurationType& concrete_type_;
+  arrow::internal::StringConverter<DurationType> string_converter_;
+};
+
 /////////////////////////////////////////////////////////////////////////
 // Concrete Converter hierarchy
 
@@ -702,6 +728,7 @@ Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataTyp
     NUMERIC_CONVERTER_CASE(Type::DATE64, Date64Type)
     NUMERIC_CONVERTER_CASE(Type::TIME32, Time32Type)
     NUMERIC_CONVERTER_CASE(Type::TIME64, Time64Type)
+    NUMERIC_CONVERTER_CASE(Type::DURATION, DurationType)
     CONVERTER_CASE(Type::BOOL, (PrimitiveConverter<BooleanType, BooleanValueDecoder>))
     CONVERTER_CASE(Type::BINARY,
                    (PrimitiveConverter<BinaryType, BinaryValueDecoder<false>>))
@@ -785,6 +812,7 @@ Result<std::shared_ptr<DictionaryConverter>> DictionaryConverter::Make(
     CONVERTER_CASE(Type::UINT64, UInt64Type, NumericValueDecoder<UInt64Type>)
     CONVERTER_CASE(Type::FLOAT, FloatType, NumericValueDecoder<FloatType>)
     CONVERTER_CASE(Type::DOUBLE, DoubleType, NumericValueDecoder<DoubleType>)
+    CONVERTER_CASE(Type::DURATION, DurationType, DurationValueDecoder)
     REAL_CONVERTER_CASE(Type::DECIMAL, Decimal128Type, DecimalValueDecoder)
     CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryType,
                    FixedSizeBinaryValueDecoder)
