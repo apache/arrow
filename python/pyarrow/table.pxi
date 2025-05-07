@@ -4960,10 +4960,11 @@ cdef class Table(_Tabular):
         ChunkedArray
         """
         self._assert_cpu()
-        return chunked_array([
+        chunks = [
             batch.to_struct_array()
             for batch in self.to_batches(max_chunksize=max_chunksize)
-        ])
+        ]
+        return chunked_array(chunks, type=struct(self.schema))
 
     @staticmethod
     def from_batches(batches, Schema schema=None):
