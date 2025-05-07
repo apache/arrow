@@ -28,12 +28,13 @@ from .core import DockerCompose, UndefinedImage
 def _mock_compose_calls(compose):
     from types import MethodType
     from subprocess import CompletedProcess
+    from itertools import chain
 
     def _mock(compose, command_tuple):
         def _execute(self, *args, **kwargs):
             params = [f'{k}={v}'
                       for k, v in self.config.params.items()]
-            command = ' '.join(params + command_tuple + args)
+            command = ' '.join(chain(params, command_tuple, args))
             click.echo(command)
             return CompletedProcess([], 0)
         return MethodType(_execute, compose)
