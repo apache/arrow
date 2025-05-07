@@ -330,6 +330,7 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/libarrow.a
 %{_libdir}/libarrow.so
 %{_libdir}/libarrow_bundled_dependencies.a
+%exclude %{_libdir}/pkgconfig/arrow-compute.pc
 %{_libdir}/pkgconfig/arrow-csv.pc
 %{_libdir}/pkgconfig/arrow-filesystem.pc
 %{_libdir}/pkgconfig/arrow-json.pc
