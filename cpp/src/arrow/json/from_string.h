@@ -43,6 +43,12 @@ namespace json {
 /// @{
 
 /// \brief Create an Array from a JSON string
+///
+/// \code {.cpp}
+/// std::shared_ptr<Array> array = ArrayFromJSONString(
+///   int64(), "[2, 3, 5, 7, 11]"
+/// ).ValueOrDie();
+/// \endcode
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> ArrayFromJSONString(const std::shared_ptr<DataType>&,
                                                    const std::string& json);
