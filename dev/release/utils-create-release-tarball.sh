@@ -46,18 +46,41 @@ rm -rf ${root_folder}
 # Resolve symbolic and hard links
 rm -rf ${root_folder}.tmp
 mv ${root_folder} ${root_folder}.tmp
-cp -R -L ${root_folder}.tmp ${root_folder}
+cp -a -L ${root_folder}.tmp ${root_folder}
 rm -rf ${root_folder}.tmp
 
 # Create a dummy .git/ directory to download the source files from GitHub with Source Link in C#.
+if stat --help > /dev/null 2>&1; then
+  # GNU stat
+  csharp_mtime=$(date --date="$(stat --format="%y" csharp)" +%Y%m%d%H%M.%S)
+else
+  # BSD stat
+  csharp_mtime=$(stat -f %Sm -t %Y%m%d%H%M.%S csharp)
+fi
 dummy_git=${root_folder}/csharp/dummy.git
 mkdir ${dummy_git}
 pushd ${dummy_git}
 echo ${release_hash} > HEAD
 echo "[remote \"origin\"] url = https://github.com/${GITHUB_REPOSITORY:-apache/arrow}.git" >> config
 mkdir objects refs
+find . -exec touch -t "${csharp_mtime}" '{}' ';'
 popd
+touch -t "${csharp_mtime}" ${root_folder}/csharp
 
 # Create new tarball from modified source directory
-tar czf ${tarball} ${root_folder}
+if type gtar > /dev/null 2>&1; then
+  gtar=gtar
+else
+  gtar=tar
+fi
+${gtar} \
+  --group=0 \
+  --mode=a=rX,u+w \
+  --numeric-owner \
+  --owner=0 \
+  --sort=name \
+  -cf \
+  - \
+  ${root_folder} | \
+    gzip --no-name > ${tarball}
 rm -rf ${root_folder}
