@@ -117,5 +117,4 @@ FromJSONString Helpers
 ----------------------
 
 .. doxygengroup:: array-from-json-string
-   :content-only:
    :members:
