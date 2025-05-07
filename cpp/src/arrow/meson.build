@@ -674,6 +674,10 @@ if needs_csv
     subdir('csv')
 endif
 
+if needs_acero
+    subdir('acero')
+endif
+
 if needs_filesystem
     subdir('filesystem')
 endif

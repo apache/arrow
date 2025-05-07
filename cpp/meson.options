@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+option('acero', type: 'feature', description: 'Build the Arrow Acero Engine Module')
 option(
     'azure',
     type: 'feature',
