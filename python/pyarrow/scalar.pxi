@@ -221,6 +221,8 @@ cdef class BooleanScalar(Scalar):
         cdef CBooleanScalar* sp = <CBooleanScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
+    def __bool__(self):
+        return self.as_py()
 
 cdef class UInt8Scalar(Scalar):
     """
@@ -239,6 +241,9 @@ cdef class UInt8Scalar(Scalar):
         """
         cdef CUInt8Scalar* sp = <CUInt8Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
+
+    def __int__(self):
+        return (self.as_py())
 
 
 cdef class Int8Scalar(Scalar):
@@ -259,6 +264,9 @@ cdef class Int8Scalar(Scalar):
         cdef CInt8Scalar* sp = <CInt8Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
+    def __int__(self):
+        return (self.as_py())
+
 
 cdef class UInt16Scalar(Scalar):
     """
@@ -277,6 +285,9 @@ cdef class UInt16Scalar(Scalar):
         """
         cdef CUInt16Scalar* sp = <CUInt16Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
+
+    def __int__(self):
+        return (self.as_py())
 
 
 cdef class Int16Scalar(Scalar):
@@ -297,6 +308,9 @@ cdef class Int16Scalar(Scalar):
         cdef CInt16Scalar* sp = <CInt16Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
+    def __int__(self):
+        return (self.as_py())
+
 
 cdef class UInt32Scalar(Scalar):
     """
@@ -315,6 +329,9 @@ cdef class UInt32Scalar(Scalar):
         """
         cdef CUInt32Scalar* sp = <CUInt32Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
+
+    def __int__(self):
+        return (self.as_py())
 
 
 cdef class Int32Scalar(Scalar):
@@ -335,6 +352,9 @@ cdef class Int32Scalar(Scalar):
         cdef CInt32Scalar* sp = <CInt32Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
+    def __int__(self):
+        return (self.as_py())
+
 
 cdef class UInt64Scalar(Scalar):
     """
@@ -353,6 +373,9 @@ cdef class UInt64Scalar(Scalar):
         """
         cdef CUInt64Scalar* sp = <CUInt64Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
+
+    def __int__(self):
+        return (self.as_py())
 
 
 cdef class Int64Scalar(Scalar):
@@ -373,6 +396,9 @@ cdef class Int64Scalar(Scalar):
         cdef CInt64Scalar* sp = <CInt64Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
+    def __int__(self):
+        return (self.as_py())
+
 
 cdef class HalfFloatScalar(Scalar):
     """
@@ -391,6 +417,9 @@ cdef class HalfFloatScalar(Scalar):
         """
         cdef CHalfFloatScalar* sp = <CHalfFloatScalar*> self.wrapped.get()
         return PyHalf_FromHalf(sp.value) if sp.is_valid else None
+
+    def __float__(self):
+        return (self.as_py())
 
 
 cdef class FloatScalar(Scalar):
@@ -411,6 +440,9 @@ cdef class FloatScalar(Scalar):
         cdef CFloatScalar* sp = <CFloatScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
+    def __float__(self):
+        return (self.as_py())
+
 
 cdef class DoubleScalar(Scalar):
     """
@@ -429,6 +461,9 @@ cdef class DoubleScalar(Scalar):
         """
         cdef CDoubleScalar* sp = <CDoubleScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
+
+    def __float__(self):
+        return (self.as_py())
 
 
 cdef class Decimal32Scalar(Scalar):
@@ -847,6 +882,15 @@ cdef class BinaryScalar(Scalar):
         buffer = self.as_buffer()
         return None if buffer is None else buffer.to_pybytes()
 
+    def __bytes__(self):
+        return (self.as_py())
+
+    def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
+        buf = self.as_buffer()
+        if buf is None:
+            raise ValueError("Cannot export buffer from null Arrow Scalar")
+        cp.PyObject_GetBuffer(buf, buffer, flags)
+
 
 cdef class LargeBinaryScalar(BinaryScalar):
     pass
@@ -1064,13 +1108,24 @@ cdef class MapScalar(ListScalar):
 
     def __getitem__(self, i):
         """
-        Return the value at the given index.
+        Return the value at the given index or key.
         """
+
         arr = self.values
         if arr is None:
-            raise IndexError(i)
-        dct = arr[_normalize_index(i, len(arr))]
-        return (dct[self.type.key_field.name], dct[self.type.item_field.name])
+            raise IndexError(i) if isinstance(i, int) else KeyError(i)
+
+        key_field = self.type.key_field.name
+        item_field = self.type.item_field.name
+
+        if isinstance(i, int):
+            dct = arr[_normalize_index(i, len(arr))]
+            return (dct[key_field], dct[item_field])
+        else:
+            for dct in arr:
+                if dct[key_field].as_py() == i:
+                    return dct[item_field]
+            raise KeyError(i)
 
     def __iter__(self):
         """
@@ -1123,6 +1178,16 @@ cdef class MapScalar(ListScalar):
                         f"Encountered key '{key}' which was already encountered.")
             result_dict[key] = value
         return result_dict
+
+    def keys(self):
+        """
+        Return the keys of the map as a list.
+        """
+        arr = self.values
+        if arr is None:
+            return []
+        key_field = self.type.key_field.name
+        return [k.as_py() for k in arr.field(key_field)]
 
 
 cdef class DictionaryScalar(Scalar):
