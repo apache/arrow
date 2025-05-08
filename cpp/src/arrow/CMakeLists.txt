@@ -867,6 +867,18 @@ endif()
 
 arrow_add_object_library(ARROW_COMPUTE_CORE ${ARROW_COMPUTE_SRCS})
 
+if(ARROW_USE_XSIMD)
+  foreach(ARROW_COMPUTE_CORE_TARGET ${ARROW_COMPUTE_CORE_TARGETS})
+    target_link_libraries(${ARROW_COMPUTE_CORE_TARGET} PRIVATE ${ARROW_XSIMD})
+  endforeach()
+endif()
+if(ARROW_WITH_OPENTELEMETRY)
+  foreach(ARROW_COMPUTE_CORE_TARGET ${ARROW_COMPUTE_CORE_TARGETS})
+    target_link_libraries(${ARROW_COMPUTE_CORE_TARGET}
+                          PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
+  endforeach()
+endif()
+
 if(ARROW_FILESYSTEM)
   set(ARROW_FILESYSTEM_SRCS
       filesystem/filesystem.cc
