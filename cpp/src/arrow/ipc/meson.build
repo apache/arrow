@@ -87,13 +87,13 @@ and needs_zstd
     fuzz_corpus_exc = executable(
         'arrow-ipc-generate-fuzz-corpus',
         sources: ['generate_fuzz_corpus.cc'],
-        dependencies: [arrow_test_dep],
+        dependencies: [arrow_test_dep_no_main],
     )
 
     tensor_fuzz_corpus_exc = executable(
         'arrow-ipc-generate-tensor-fuzz-corpus',
         sources: ['generate_tensor_fuzz_corpus.cc'],
-        dependencies: [arrow_test_dep],
+        dependencies: [arrow_test_dep_no_main],
     )
 endif
 

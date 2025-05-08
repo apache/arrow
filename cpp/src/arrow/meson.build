@@ -62,60 +62,6 @@ arrow_components = {
         'include_dirs': [include_directories('../../thirdparty/hadoop/include')],
         'dependencies': [dl_dep],
     },
-    'arrow_util': {
-        'sources': [
-            'util/align_util.cc',
-            'util/async_util.cc',
-            'util/atfork_internal.cc',
-            'util/basic_decimal.cc',
-            'util/bit_block_counter.cc',
-            'util/bit_run_reader.cc',
-            'util/bit_util.cc',
-            'util/bitmap.cc',
-            'util/bitmap_builders.cc',
-            'util/bitmap_ops.cc',
-            'util/bpacking.cc',
-            'util/byte_size.cc',
-            'util/cancel.cc',
-            'util/compression.cc',
-            'util/counting_semaphore.cc',
-            'util/cpu_info.cc',
-            'util/crc32.cc',
-            'util/debug.cc',
-            'util/decimal.cc',
-            'util/delimiting.cc',
-            'util/dict_util.cc',
-            'util/fixed_width_internal.cc',
-            'util/float16.cc',
-            'util/formatting.cc',
-            'util/future.cc',
-            'util/hashing.cc',
-            'util/int_util.cc',
-            'util/io_util.cc',
-            'util/list_util.cc',
-            'util/logger.cc',
-            'util/logging.cc',
-            'util/key_value_metadata.cc',
-            'util/math_internal.cc',
-            'util/memory.cc',
-            'util/mutex.cc',
-            'util/ree_util.cc',
-            'util/string.cc',
-            'util/string_builder.cc',
-            'util/task_group.cc',
-            'util/tdigest.cc',
-            'util/thread_pool.cc',
-            'util/time.cc',
-            'util/tracing.cc',
-            'util/trie.cc',
-            'util/union_util.cc',
-            'util/unreachable.cc',
-            'util/uri.cc',
-            'util/utf8.cc',
-            'util/value_parsing.cc',
-        ],
-        'dependencies': [threads_dep],
-    },
     'memory_pool': {'sources': ['memory_pool.cc']},
     'vendored': {
         'sources': [
@@ -181,6 +127,94 @@ arrow_components = {
             'c/dlpack.cc',
         ],
     },
+}
+
+arrow_util_srcs = [
+    'util/align_util.cc',
+    'util/async_util.cc',
+    'util/atfork_internal.cc',
+    'util/basic_decimal.cc',
+    'util/bit_block_counter.cc',
+    'util/bit_run_reader.cc',
+    'util/bit_util.cc',
+    'util/bitmap.cc',
+    'util/bitmap_builders.cc',
+    'util/bitmap_ops.cc',
+    'util/bpacking.cc',
+    'util/byte_size.cc',
+    'util/cancel.cc',
+    'util/compression.cc',
+    'util/counting_semaphore.cc',
+    'util/cpu_info.cc',
+    'util/crc32.cc',
+    'util/debug.cc',
+    'util/decimal.cc',
+    'util/delimiting.cc',
+    'util/dict_util.cc',
+    'util/fixed_width_internal.cc',
+    'util/float16.cc',
+    'util/formatting.cc',
+    'util/future.cc',
+    'util/hashing.cc',
+    'util/int_util.cc',
+    'util/io_util.cc',
+    'util/list_util.cc',
+    'util/logger.cc',
+    'util/logging.cc',
+    'util/key_value_metadata.cc',
+    'util/math_internal.cc',
+    'util/memory.cc',
+    'util/mutex.cc',
+    'util/ree_util.cc',
+    'util/string.cc',
+    'util/string_builder.cc',
+    'util/task_group.cc',
+    'util/tdigest.cc',
+    'util/thread_pool.cc',
+    'util/time.cc',
+    'util/tracing.cc',
+    'util/trie.cc',
+    'util/union_util.cc',
+    'util/unreachable.cc',
+    'util/uri.cc',
+    'util/utf8.cc',
+    'util/value_parsing.cc',
+]
+
+arrow_util_deps = [threads_dep]
+
+if needs_brotli
+    arrow_util_srcs += ['util/compression_brotli.cc']
+    arrow_util_deps += [dependency('libbrotlidec'), dependency('libbrotlienc')]
+endif
+
+if needs_bz2
+    arrow_util_srcs += ['util/compression_bz2.cc']
+    arrow_util_deps += dependency('bzip2')
+endif
+
+if needs_lz4
+    arrow_util_srcs += ['util/compression_lz4.cc']
+    arrow_util_deps += dependency('liblz4')
+endif
+
+if needs_snappy
+    arrow_util_srcs += ['util/compression_snappy.cc']
+    arrow_util_deps += dependency('snappy')
+endif
+
+if needs_zlib
+    arrow_util_srcs += ['util/compression_zlib.cc']
+    arrow_util_deps += dependency('zlib')
+endif
+
+if needs_zstd
+    arrow_util_srcs += ['util/compression_zstd.cc']
+    arrow_util_deps += dependency('libzstd')
+endif
+
+arrow_components += {
+    'arrow_util': {'sources': arrow_util_srcs, 'dependencies': arrow_util_deps},
 }
 
 arrow_testing_srcs = [
@@ -529,8 +563,13 @@ if needs_tests
         link_with: [arrow_test_lib],
         dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
     )
+    arrow_test_dep_no_main = declare_dependency(
+        link_with: [arrow_test_lib],
+        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_dep],
+    )
 else
     arrow_test_dep = disabler()
+    arrow_test_dep_no_main = disabler()
 endif
 
 arrow_tests = {
