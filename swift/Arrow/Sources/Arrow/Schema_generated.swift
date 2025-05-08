@@ -1234,7 +1234,7 @@ public struct org_apache_arrow_flatbuf_DictionaryEncoding: FlatBufferObject, Ver
   ///  cross-language compatibility and performance, implementations are
   ///  recommended to prefer signed integer types over unsigned integer types
   ///  and to avoid uint64 indices unless they are required by an application.
-  public var indexType: org_apache_arrow_flatbuf_Int? { let o = _accessor.offset(VTOFFSET.indexType.v); return o == 0 ? nil : org_apache_arrow_flatbuf_Int(_accessor.bb, o: _accessor.indirect(o + _accessor.postion)) }
+  public var indexType: org_apache_arrow_flatbuf_Int? { let o = _accessor.offset(VTOFFSET.indexType.v); return o == 0 ? nil : org_apache_arrow_flatbuf_Int(_accessor.bb, o: _accessor.indirect(o + _accessor.position)) }
   ///  By default, dictionaries are not ordered, or the order does not have
   ///  semantic meaning. In some statistical, applications, dictionary-encoding
   ///  is used to represent ordered categorical data, and we provide a way to
@@ -1308,7 +1308,7 @@ public struct org_apache_arrow_flatbuf_Field: FlatBufferObject, Verifiable {
   ///  This is the type of the decoded value if the field is dictionary encoded.
   public func type<T: FlatbuffersInitializable>(type: T.Type) -> T? { let o = _accessor.offset(VTOFFSET.type.v); return o == 0 ? nil : _accessor.union(o) }
   ///  Present only if the field is dictionary encoded.
-  public var dictionary: org_apache_arrow_flatbuf_DictionaryEncoding? { let o = _accessor.offset(VTOFFSET.dictionary.v); return o == 0 ? nil : org_apache_arrow_flatbuf_DictionaryEncoding(_accessor.bb, o: _accessor.indirect(o + _accessor.postion)) }
+  public var dictionary: org_apache_arrow_flatbuf_DictionaryEncoding? { let o = _accessor.offset(VTOFFSET.dictionary.v); return o == 0 ? nil : org_apache_arrow_flatbuf_DictionaryEncoding(_accessor.bb, o: _accessor.indirect(o + _accessor.position)) }
   ///  children apply only to nested data types like Struct, List and Union. For
   ///  primitive types children will have length 0.
   public var hasChildren: Bool { let o = _accessor.offset(VTOFFSET.children.v); return o == 0 ? false : true }

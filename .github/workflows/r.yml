@@ -64,13 +64,11 @@ env:
 jobs:
   ubuntu-minimum-cpp-version:
     name: Check minimum supported Arrow C++ Version (${{ matrix.cpp_version }})
-    # We don't provide Apache Arrow C++ 15.0.2 deb packages for Ubuntu 24.04.
-    # So we use ubuntu-22.04 here.
     runs-on: ubuntu-22.04
     strategy:
       matrix:
         include:
-          - cpp_version: "15.0.2"
+          - cpp_version: "19.0.1"
     steps:
     - name: Checkout Arrow
       uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
@@ -155,7 +153,7 @@ jobs:
             ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
             ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
       - name: Setup Python
-        uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: 3.12
       - name: Setup Archery
@@ -214,7 +212,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: 3.12
       - name: Setup Archery
@@ -337,7 +335,7 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - run: mkdir r/windows
       - name: Download artifacts
-        uses: actions/download-artifact@v4.2.1
+        uses: actions/download-artifact@v4.3.0
         with:
           name: libarrow-rtools40-ucrt64.zip
           path: r/windows

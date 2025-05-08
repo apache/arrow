@@ -374,16 +374,13 @@ target_include_directories(arrow::flatbuffers
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
 
-if(PARQUET_REQUIRE_ENCRYPTION)
-  set(ARROW_JSON ON)
-endif()
-
 if(ARROW_WITH_OPENTELEMETRY)
   set(ARROW_WITH_NLOHMANN_JSON ON)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
 if(ARROW_PARQUET)
+  set(ARROW_WITH_RAPIDJSON ON)
   set(ARROW_WITH_THRIFT ON)
 endif()
 

@@ -28,7 +28,7 @@ project(pyarrow)
 # which in turn meant that Py_GIL_DISABLED was not set.
 set(CMAKE_NO_SYSTEM_FROM_IMPORTED ON)
 
-set(PYARROW_VERSION "20.0.0-SNAPSHOT")
+set(PYARROW_VERSION "21.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PYARROW_BASE_VERSION "${PYARROW_VERSION}")
 
 # Generate SO version and full SO version
@@ -370,8 +370,7 @@ set(PYARROW_CPP_SRCS
     ${PYARROW_CPP_SOURCE_DIR}/pyarrow.cc
     ${PYARROW_CPP_SOURCE_DIR}/udf.cc)
 set_source_files_properties(${PYARROW_CPP_SOURCE_DIR}/numpy_init.cc
-                            PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                       SKIP_UNITY_BUILD_INCLUSION ON)
+                            PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 
 set(PYARROW_CPP_LINK_LIBS "")
 
@@ -467,10 +466,6 @@ endif()
 add_library(arrow_python SHARED ${PYARROW_CPP_SRCS})
 target_include_directories(arrow_python PUBLIC ${PYARROW_CPP_ROOT_DIR}
                                                ${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src)
-if(ARROW_USE_PRECOMPILED_HEADERS)
-  target_precompile_headers(arrow_python PUBLIC
-                            "$<$<COMPILE_LANGUAGE:CXX>:arrow/python/pch.h>")
-endif()
 
 # on static builds we need to be careful not to link PYARROW_CPP_LINK_LIBS
 # into everything depending on arrow_python, or else we get duplicate

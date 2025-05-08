@@ -17,76 +17,34 @@
 
 option(
     'azure',
-    type: 'boolean',
+    type: 'feature',
     description: 'Build Arrow with Azure support (requires the Azure SDK for C++)',
-    value: false,
 )
 
-option(
-    'benchmarks',
-    type: 'boolean',
-    description: 'Build the Arrow micro benchmarks',
-    value: false,
-)
-
-option(
-    'csv',
-    type: 'boolean',
-    description: 'Build the Arrow CSV Parser Module',
-    value: false,
-)
-
-option(
-    'filesystem',
-    type: 'boolean',
-    description: 'Build the Arrow Filesystem Layer',
-    value: false,
-)
+option('benchmarks', type: 'feature', description: 'Build the Arrow micro benchmarks')
+option('compute', type: 'feature', description: 'Build all Arrow Compute kernels')
+option('csv', type: 'feature', description: 'Build the Arrow CSV Parser Module')
+option('filesystem', type: 'feature', description: 'Build the Arrow Filesystem Layer')
 
 option(
     'gcs',
-    type: 'boolean',
+    type: 'feature',
     description: 'Build Arrow with GCS support (requires the Google Cloud Platform C++ Client Libraries)',
-    value: false,
 )
 
-option(
-    'hdfs',
-    type: 'boolean',
-    description: 'Build the Arrow HDFS bridge',
-    value: false,
-)
-
-option(
-    'integration',
-    type: 'boolean',
-    description: 'Build the Arrow integration test executables',
-    value: false,
-)
+option('hdfs', type: 'feature', description: 'Build the Arrow HDFS bridge')
+option('integration', type: 'feature', description: 'Build the Arrow integration test executables')
 
 option(
     'ipc',
-    type: 'boolean',
+    type: 'feature',
     description: 'Build the Arrow IPC extensions',
-    value: true,
+    value: 'enabled',
 )
 
-option(
-    'json',
-    type: 'boolean',
-    description: 'Build Arrow with JSON support',
-    value: false,
-)
-
-option(
-    'git_id',
-    type: 'string',
-)
-
-option(
-    'git_description',
-    type: 'string',
-)
+option('json', type: 'feature', description: 'Build Arrow with JSON support')
+option('git_id', type: 'string')
+option('git_description', type: 'string')
 
 option(
     'package_kind',
@@ -96,21 +54,8 @@ option(
 
 option(
     's3',
-    type: 'boolean',
+    type: 'feature',
     description: 'Build Arrow with S3 support (requires the AWS SDK for C++)',
-    value: false,
 )
-
-option(
-    'testing',
-    type: 'boolean',
-    description: 'Build the Arrow testing libraries',
-    value: false,
-)
-
-option(
-    'tests',
-    type: 'boolean',
-    description: 'Build the Arrow googletest unit tests',
-    value: false,
-)
+option('testing', type: 'feature', description: 'Build the Arrow testing libraries')
+option('tests', type: 'feature', description: 'Build the Arrow googletest unit tests')

@@ -28,7 +28,6 @@ install_headers(
         'gtest_util.h',
         'matchers.h',
         'math.h',
-        'pch.h',
         'process.h',
         'random.h',
         'uniform_real.h',
