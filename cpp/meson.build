@@ -47,12 +47,12 @@ cpp_args = cpp_compiler.get_supported_arguments(project_args)
 add_project_arguments(cpp_args, language: 'cpp')
 
 git_id = get_option('git_id')
-if git_id == ''
+if git_id == '' and not meson.is_subproject()
     git_id = run_command('git', 'log', '-n1', '--format=%H', check: false).stdout().strip()
 endif
 
 git_description = get_option('git_description')
-if git_description == ''
+if git_description == '' and not meson.is_subproject()
     git_description = run_command('git', 'describe', '--tags', check: false).stdout().strip()
 endif
 
