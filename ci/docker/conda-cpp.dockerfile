@@ -38,7 +38,7 @@ RUN mamba install -q -y \
         libnuma \
         python=${python} \
         valgrind && \
-    mamba clean --all
+    mamba clean --all --yes
 
 # We want to install the GCS testbench using the Conda base environment's Python,
 # because the test environment's Python may later change.

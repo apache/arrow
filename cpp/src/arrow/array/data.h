@@ -217,6 +217,7 @@ struct ARROW_EXPORT ArrayData {
   /// queried instead.
   /// For dictionary arrays, this reflects the validity of the dictionary
   /// index, but the corresponding dictionary value might still be null.
+  /// For null arrays, this always returns false.
   bool IsValid(int64_t i) const {
     if (buffers[0] != NULLPTR) {
       return bit_util::GetBit(buffers[0]->data(), i + offset);
@@ -358,8 +359,16 @@ struct ARROW_EXPORT ArrayData {
 
   /// \brief Return the physical null count
   ///
-  /// The null count is lazily computed from the array's validity bitmap,
-  /// if not already cached.
+  /// This method returns the number of array elements for which `IsValid` would
+  /// return false.
+  ///
+  /// A cached value is returned if already available, otherwise it is first
+  /// computed and stored.
+  /// How it is is computed depends on the data type, see `IsValid` for details.
+  ///
+  /// Note that this method is typically much faster than calling `IsValid`
+  /// for all elements. Therefore, it helps avoid per-element validity bitmap
+  /// lookups in the common cases where the array contains zero or only nulls.
   int64_t GetNullCount() const;
 
   /// \brief Return true if the array may have nulls in its validity bitmap
@@ -492,9 +501,14 @@ struct ARROW_EXPORT BufferSpan {
   }
 };
 
-/// \brief EXPERIMENTAL: A non-owning ArrayData reference that is cheaply
-/// copyable and does not contain any shared_ptr objects. Do not use in public
-/// APIs aside from compute kernels for now
+/// \brief EXPERIMENTAL: A non-owning array data container
+///
+/// Unlike ArrayData, this class doesn't own its referenced data type nor data buffers.
+/// It is cheaply copyable and can therefore be suitable for use cases where
+/// shared_ptr overhead is not acceptable. However, care should be taken to
+/// keep alive the referenced objects and memory while the ArraySpan object is in use.
+/// For this reason, this should not be exposed in most public APIs (apart from
+/// compute kernel interfaces).
 struct ARROW_EXPORT ArraySpan {
   const DataType* type = NULLPTR;
   int64_t length = 0;

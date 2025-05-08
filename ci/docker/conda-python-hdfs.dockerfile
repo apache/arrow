@@ -26,7 +26,7 @@ RUN mamba install -q -y \
         maven=${maven} \
         openjdk=${jdk} \
         pandas && \
-    mamba clean --all
+    mamba clean --all --yes
 
 # installing libhdfs (JNI)
 ARG hdfs=3.2.1

@@ -60,7 +60,7 @@ Archery calls the following docker compose commands:
 
 .. code:: bash
 
-    archery docker run --dry-run conda-python
+    archery docker --dry-run run conda-python
 
 **To disable the image pulling:**
 

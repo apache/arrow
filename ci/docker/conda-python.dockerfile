@@ -30,7 +30,7 @@ RUN mamba install -q -y \
         $([ "$python" == $(gdb --batch --eval-command 'python import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') ] && echo "gdb") \
         "python=${python}.*=*_cp*" \
         nomkl && \
-    mamba clean --all
+    mamba clean --all --yes
 
 ENV ARROW_ACERO=ON \
     ARROW_BUILD_STATIC=OFF \

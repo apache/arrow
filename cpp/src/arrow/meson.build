@@ -674,10 +674,18 @@ if needs_csv
     subdir('csv')
 endif
 
+if needs_acero
+    subdir('acero')
+endif
+
 if needs_filesystem
     subdir('filesystem')
 endif
 
 if needs_json
     subdir('json')
+endif
+
+if needs_ipc
+    subdir('ipc')
 endif

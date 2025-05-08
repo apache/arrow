@@ -1490,7 +1490,7 @@ Dir::ArchiveDir ".";
 Dir::CacheDir ".";
 TreeDefault::Directory "pool/#{code_name}/#{component}";
 TreeDefault::SrcDirectory "pool/#{code_name}/#{component}";
-Default::Packages::Extensions ".deb";
+Default::Packages::Extensions ".deb .ddeb";
 Default::Packages::Compress ". gzip xz";
 Default::Sources::Compress ". gzip xz";
 Default::Contents::Compress "gzip";
@@ -1649,7 +1649,10 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
             rm_rf(pool_dir, verbose: verbose?)
             mkdir_p(pool_dir, verbose: verbose?)
             source_dir_prefix = "#{artifacts_dir}/#{distribution}-#{code_name}"
-            Dir.glob("#{source_dir_prefix}-*/*") do |path|
+            # apache/arrow uses debian-bookworm-{amd64,arm64} but
+            # apache/arrow-adbc uses debian-bookworm. So the following
+            # glob must much both of them.
+            Dir.glob("#{source_dir_prefix}*/*") do |path|
               base_name = File.basename(path)
               package_name = ENV["DEB_PACKAGE_NAME"]
               if package_name.nil? or package_name.empty?
@@ -1686,16 +1689,17 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
         desc "Download dists/ for RC APT repositories"
         task :download do
-          apt_distributions.each do |distribution|
+          apt_targets.each do |distribution, code_name, component|
             not_checksum_pattern = /.+(?<!\.asc|\.sha512)\z/
-            base_distribution_dir = "#{base_dir}/#{distribution}"
+            base_distribution_dir =
+              "#{base_dir}/#{distribution}/dists/#{code_name}"
             pattern = not_checksum_pattern
             download_distribution(:artifactory,
                                   distribution,
                                   base_distribution_dir,
                                   :base,
                                   pattern: pattern,
-                                  prefix: "dists")
+                                  prefix: "dists/#{code_name}")
           end
         end
 
