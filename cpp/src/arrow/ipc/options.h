@@ -131,7 +131,7 @@ struct ARROW_EXPORT IpcWriteOptions {
 /// \brief Alignment of data in memory
 /// Alignment values larger than 0 are taken directly as byte alignment value
 /// See util::EnsureAlignment(..., int64_t alignment, ...)
-enum class Alignment {
+enum class Alignment : int64_t {
   /// \brief data is aligned depending on the actual data type
   kDataTypeSpecificAlignment = -3,  /// arrow::util::kValueAlignment
   /// \brief no particular alignment enforced
