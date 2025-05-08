@@ -624,6 +624,31 @@ GARROW_AVAILABLE_IN_20_0
 GBytes *
 garrow_binary_view_array_get_value(GArrowBinaryViewArray *array, gint64 i);
 
+#define GARROW_TYPE_STRING_VIEW_ARRAY (garrow_string_view_array_get_type())
+GARROW_AVAILABLE_IN_20_0
+G_DECLARE_DERIVABLE_TYPE(GArrowStringViewArray,
+                         garrow_string_view_array,
+                         GARROW,
+                         STRING_VIEW_ARRAY,
+                         GArrowBinaryViewArray)
+struct _GArrowStringViewArrayClass
+{
+  GArrowBinaryViewArrayClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_20_0
+GArrowStringViewArray *
+garrow_string_view_array_new(gint64 length,
+                             GArrowBuffer *views,
+                             GList *data_buffers,
+                             GArrowBuffer *null_bitmap,
+                             gint64 n_nulls,
+                             gint64 offset);
+
+GARROW_AVAILABLE_IN_20_0
+GBytes *
+garrow_string_view_array_get_value(GArrowStringViewArray *array, gint64 i);
+
 #define GARROW_TYPE_DATE32_ARRAY (garrow_date32_array_get_type())
 GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(

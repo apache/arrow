@@ -2975,6 +2975,32 @@ def test_table_group_by_first():
     assert result.equals(expected)
 
 
+@pytest.mark.acero
+def test_table_group_by_pivot_wider():
+    table = pa.table({'group': [1, 2, 3, 1, 2, 3],
+                      'key': ['h', 'h', 'h', 'w', 'w', 'w'],
+                      'value': [10, 20, 30, 40, 50, 60]})
+
+    with pytest.raises(ValueError, match='accepts 3 arguments but 2 passed'):
+        table.group_by("group").aggregate([("key", "pivot_wider")])
+
+    # GH-45739: calling hash_pivot_wider without options shouldn't crash
+    # (even though it's not very useful as key_names=[])
+    result = table.group_by("group").aggregate([(("key", "value"), "pivot_wider")])
+    expected = pa.table({'group': [1, 2, 3],
+                         'key_value_pivot_wider': [{}, {}, {}]})
+    assert result.equals(expected)
+
+    options = pc.PivotWiderOptions(key_names=('h', 'w'))
+    result = table.group_by("group").aggregate(
+        [(("key", "value"), "pivot_wider", options)])
+    expected = pa.table(
+        {'group': [1, 2, 3],
+         'key_value_pivot_wider': [
+             {'h': 10, 'w': 40}, {'h': 20, 'w': 50}, {'h': 30, 'w': 60}]})
+    assert result.equals(expected)
+
+
 def test_table_to_recordbatchreader():
     table = pa.Table.from_pydict({'x': [1, 2, 3]})
     reader = table.to_reader()

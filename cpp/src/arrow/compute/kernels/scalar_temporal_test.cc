@@ -30,7 +30,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/formatting.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -1878,7 +1878,7 @@ TEST_F(ScalarTemporalTest, TestLocalTimestamp) {
 TEST_F(ScalarTemporalTest, TestAssumeTimezone) {
   std::string timezone_utc = "UTC";
   std::string timezone_kolkata = "Asia/Kolkata";
-  std::string timezone_us_central = "US/Central";
+  std::string timezone_us_central = "America/Chicago";
   const char* times_utc = R"(["1970-01-01T00:00:00", null])";
   const char* times_kolkata = R"(["1970-01-01T05:30:00", null])";
   const char* times_us_central = R"(["1969-12-31T18:00:00", null])";
@@ -2004,7 +2004,7 @@ TEST_F(ScalarTemporalTest, Strftime) {
                    string_milliseconds, &options);
   CheckScalarUnary("strftime", timestamp(TimeUnit::MICRO, "Asia/Kolkata"), microseconds,
                    utf8(), string_microseconds, &options);
-  CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "US/Hawaii"), nanoseconds,
+  CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "Pacific/Honolulu"), nanoseconds,
                    utf8(), string_nanoseconds, &options);
 
   auto options_hms = StrftimeOptions("%H:%M:%S");

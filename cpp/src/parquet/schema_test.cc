@@ -1150,6 +1150,9 @@ TEST(TestLogicalTypeConstruction, NewTypeIncompatibility) {
   auto check_is_float16 = [](const std::shared_ptr<const LogicalType>& logical_type) {
     return logical_type->is_float16();
   };
+  auto check_is_variant = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_variant();
+  };
   auto check_is_null = [](const std::shared_ptr<const LogicalType>& logical_type) {
     return logical_type->is_null();
   };
@@ -1163,6 +1166,7 @@ TEST(TestLogicalTypeConstruction, NewTypeIncompatibility) {
   std::vector<ConfirmNewTypeIncompatibilityArguments> cases = {
       {LogicalType::UUID(), check_is_UUID},
       {LogicalType::Float16(), check_is_float16},
+      {LogicalType::Variant(), check_is_variant},
       {LogicalType::Null(), check_is_null},
       {LogicalType::Time(false, LogicalType::TimeUnit::MILLIS), check_is_time},
       {LogicalType::Time(false, LogicalType::TimeUnit::MICROS), check_is_time},
@@ -1247,6 +1251,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeProperties) {
       {BSONLogicalType::Make(), false, true, true},
       {UUIDLogicalType::Make(), false, true, true},
       {Float16LogicalType::Make(), false, true, true},
+      {VariantLogicalType::Make(), false, true, true},
       {NoLogicalType::Make(), false, false, true},
   };
 
@@ -1544,6 +1549,38 @@ TEST(TestLogicalTypeOperation, LogicalTypeRepresentation) {
       {LogicalType::BSON(), "BSON", R"({"Type": "BSON"})"},
       {LogicalType::UUID(), "UUID", R"({"Type": "UUID"})"},
       {LogicalType::Float16(), "Float16", R"({"Type": "Float16"})"},
+      {LogicalType::Geometry(), "Geometry(crs=)", R"({"Type": "Geometry"})"},
+      {LogicalType::Geometry("srid:1234"), "Geometry(crs=srid:1234)",
+       R"({"Type": "Geometry", "crs": "srid:1234"})"},
+      {LogicalType::Geometry(R"(crs with "quotes" and \backslashes\)"),
+       R"(Geometry(crs=crs with "quotes" and \backslashes\))",
+       R"({"Type": "Geometry", "crs": "crs with \"quotes\" and \\backslashes\\"})"},
+      {LogicalType::Geometry("crs with control characters \u0001 and \u001F"),
+       "Geometry(crs=crs with control characters \u0001 and \u001F)",
+       R"({"Type": "Geometry", "crs": "crs with control characters \u0001 and \u001F"})"},
+      {LogicalType::Geography(), "Geography(crs=, algorithm=spherical)",
+       R"({"Type": "Geography"})"},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::SPHERICAL),
+       "Geography(crs=srid:1234, algorithm=spherical)",
+       R"({"Type": "Geography", "crs": "srid:1234"})"},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::VINCENTY),
+       "Geography(crs=srid:1234, algorithm=vincenty)",
+       R"({"Type": "Geography", "crs": "srid:1234", "algorithm": "vincenty"})"},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::THOMAS),
+       "Geography(crs=srid:1234, algorithm=thomas)",
+       R"({"Type": "Geography", "crs": "srid:1234", "algorithm": "thomas"})"},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::ANDOYER),
+       "Geography(crs=srid:1234, algorithm=andoyer)",
+       R"({"Type": "Geography", "crs": "srid:1234", "algorithm": "andoyer"})"},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::KARNEY),
+       "Geography(crs=srid:1234, algorithm=karney)",
+       R"({"Type": "Geography", "crs": "srid:1234", "algorithm": "karney"})"},
+      {LogicalType::Variant(), "Variant", R"({"Type": "Variant"})"},
       {LogicalType::None(), "None", R"({"Type": "None"})"},
   };
 
@@ -1594,6 +1631,9 @@ TEST(TestLogicalTypeOperation, LogicalTypeSortOrder) {
       {LogicalType::BSON(), SortOrder::UNSIGNED},
       {LogicalType::UUID(), SortOrder::UNSIGNED},
       {LogicalType::Float16(), SortOrder::SIGNED},
+      {LogicalType::Geometry(), SortOrder::UNKNOWN},
+      {LogicalType::Geography(), SortOrder::UNKNOWN},
+      {LogicalType::Variant(), SortOrder::UNKNOWN},
       {LogicalType::None(), SortOrder::UNKNOWN}};
 
   for (const ExpectedSortOrder& c : cases) {
@@ -1688,6 +1728,24 @@ TEST(TestSchemaNodeCreation, FactoryEquivalence) {
   ConfirmGroupNodeFactoryEquivalence("list", LogicalType::List(), ConvertedType::LIST);
 }
 
+TEST(TestSchemaNodeCreation, FactoryUndefinedLogicalType) {
+  auto node = PrimitiveNode::Make("string", Repetition::REQUIRED,
+                                  StringLogicalType::Make(), Type::BYTE_ARRAY);
+
+  format::SchemaElement string_intermediary;
+  node->ToParquet(&string_intermediary);
+
+  string_intermediary.logicalType.__isset.STRING = false;
+  node = PrimitiveNode::FromParquet(&string_intermediary);
+  ASSERT_FALSE(node->logical_type()->is_valid());
+  ASSERT_EQ(node->logical_type()->ToString(), "Undefined");
+
+  auto primitive_node =
+      ::arrow::internal::checked_pointer_cast<PrimitiveNode, Node>(node);
+  ASSERT_EQ(GetSortOrder(node->logical_type(), primitive_node->physical_type()),
+            SortOrder::UNKNOWN);
+}
+
 TEST(TestSchemaNodeCreation, FactoryExceptions) {
   // Ensure that the Node factory method that accepts a logical type refuses to create
   // an object if compatibility conditions are not met
@@ -1735,6 +1793,14 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
                                        Float16LogicalType::Make(),
                                        Type::FIXED_LEN_BYTE_ARRAY, 3));
 
+  // Incompatible primitive type ...
+  ASSERT_ANY_THROW(PrimitiveNode::Make("variant", Repetition::REQUIRED,
+                                       VariantLogicalType::Make(), Type::DOUBLE));
+  // Incompatible primitive type ...
+  ASSERT_ANY_THROW(PrimitiveNode::Make("variant", Repetition::REQUIRED,
+                                       VariantLogicalType::Make(),
+                                       Type::FIXED_LEN_BYTE_ARRAY, 2));
+
   // Non-positive length argument for fixed length binary ...
   ASSERT_ANY_THROW(PrimitiveNode::Make("negative_length", Repetition::REQUIRED,
                                        NoLogicalType::Make(), Type::FIXED_LEN_BYTE_ARRAY,
@@ -1764,11 +1830,6 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   ASSERT_EQ(node->logical_type()->type(), LogicalType::Type::STRING);
   ASSERT_TRUE(node->logical_type()->is_valid());
   ASSERT_TRUE(node->logical_type()->is_serialized());
-  format::SchemaElement string_intermediary;
-  node->ToParquet(&string_intermediary);
-  // ... corrupt the Thrift intermediary ....
-  string_intermediary.logicalType.__isset.STRING = false;
-  ASSERT_ANY_THROW(node = PrimitiveNode::FromParquet(&string_intermediary));
 
   // Invalid TimeUnit in deserialized TimeLogicalType ...
   node = PrimitiveNode::Make("time", Repetition::REQUIRED,
@@ -2265,6 +2326,24 @@ TEST(TestLogicalTypeSerialization, Roundtrips) {
       {LogicalType::BSON(), Type::BYTE_ARRAY, -1},
       {LogicalType::UUID(), Type::FIXED_LEN_BYTE_ARRAY, 16},
       {LogicalType::Float16(), Type::FIXED_LEN_BYTE_ARRAY, 2},
+      {LogicalType::Geometry(), Type::BYTE_ARRAY, -1},
+      {LogicalType::Geometry("srid:1234"), Type::BYTE_ARRAY, -1},
+      {LogicalType::Geography(), Type::BYTE_ARRAY, -1},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::SPHERICAL),
+       Type::BYTE_ARRAY, -1},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::VINCENTY),
+       Type::BYTE_ARRAY, -1},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::THOMAS),
+       Type::BYTE_ARRAY, -1},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::ANDOYER),
+       Type::BYTE_ARRAY, -1},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::KARNEY),
+       Type::BYTE_ARRAY, -1},
       {LogicalType::None(), Type::BOOLEAN, -1}};
 
   for (const AnnotatedPrimitiveNodeFactoryArguments& c : cases) {

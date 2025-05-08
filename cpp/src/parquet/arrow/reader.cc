@@ -35,7 +35,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/parallel.h"
 #include "arrow/util/range.h"
 #include "arrow/util/tracing_internal.h"
@@ -1299,46 +1299,6 @@ std::shared_ptr<RowGroupReader> FileReaderImpl::RowGroup(int row_group_index) {
 
 // ----------------------------------------------------------------------
 // Public factory functions
-
-Status FileReader::GetRecordBatchReader(std::unique_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(*out, GetRecordBatchReader());
-  return Status::OK();
-}
-
-Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                        std::unique_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(*out, GetRecordBatchReader(row_group_indices));
-  return Status::OK();
-}
-
-Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                        const std::vector<int>& column_indices,
-                                        std::unique_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(*out, GetRecordBatchReader(row_group_indices, column_indices));
-  return Status::OK();
-}
-
-Status FileReader::GetRecordBatchReader(std::shared_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(auto tmp, GetRecordBatchReader());
-  out->reset(tmp.release());
-  return Status::OK();
-}
-
-Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                        std::shared_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(auto tmp, GetRecordBatchReader(row_group_indices));
-  out->reset(tmp.release());
-  return Status::OK();
-}
-
-Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                        const std::vector<int>& column_indices,
-                                        std::shared_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(auto tmp,
-                        GetRecordBatchReader(row_group_indices, column_indices));
-  out->reset(tmp.release());
-  return Status::OK();
-}
 
 Status FileReader::Make(::arrow::MemoryPool* pool,
                         std::unique_ptr<ParquetFileReader> reader,

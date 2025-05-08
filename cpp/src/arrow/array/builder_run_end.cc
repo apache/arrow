@@ -26,7 +26,7 @@
 #include "arrow/scalar.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_overflow.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/ree_util.h"
 
 namespace arrow {
@@ -289,6 +289,9 @@ Status RunEndEncodedBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   ARROW_ASSIGN_OR_RAISE(auto ree_array,
                         RunEndEncodedArray::Make(length_, run_ends_array, values_array));
   *out = std::move(ree_array->data());
+
+  Reset();
+
   return Status::OK();
 }
 

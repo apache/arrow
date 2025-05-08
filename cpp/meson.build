@@ -19,7 +19,7 @@ project(
     'arrow',
     'cpp',
     'c',
-    version: '20.0.0-SNAPSHOT',
+    version: '21.0.0-SNAPSHOT',
     license: 'Apache-2.0',
     meson_version: '>=1.3.0',
     default_options: [
@@ -54,6 +54,39 @@ endif
 git_description = get_option('git_description')
 if git_description == ''
     git_description = run_command('git', 'describe', '--tags', check: false).stdout().strip()
+endif
+
+needs_benchmarks = get_option('benchmarks').enabled()
+needs_compute = get_option('compute').enabled()
+needs_csv = get_option('csv').enabled()
+needs_azure = get_option('azure').enabled()
+needs_gcs = get_option('gcs').enabled()
+needs_hdfs = get_option('hdfs').enabled()
+needs_s3 = get_option('s3').enabled()
+needs_filesystem = get_option('filesystem').enabled() or needs_azure or needs_gcs or needs_hdfs or needs_s3
+needs_integration = get_option('integration').enabled()
+needs_tests = get_option('tests').enabled()
+needs_acero = get_option('acero').enabled()
+needs_ipc = get_option('ipc').enabled() or needs_tests or needs_acero or needs_benchmarks
+needs_fuzzing = get_option('fuzzing').enabled()
+needs_testing = (get_option('testing').enabled()
+or needs_tests
+or needs_benchmarks
+or needs_fuzzing
+or needs_integration
+)
+needs_json = get_option('json').enabled() or needs_testing
+needs_brotli = get_option('brotli').enabled() or needs_fuzzing
+needs_lz4 = get_option('lz4').enabled()
+needs_zstd = get_option('zstd').enabled()
+needs_utilities = get_option('utilities').enabled()
+
+if (get_option('brotli').enabled() or get_option('lz4').enabled() or get_option(
+    'zstd',
+).enabled()
+)
+    # See GH issue 46115
+    error('Compression options (brotli, lz4, zstd) are not implemented in Meson')
 endif
 
 subdir('src/arrow')

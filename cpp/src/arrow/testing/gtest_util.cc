@@ -47,7 +47,6 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/compute/api_vector.h"
 #include "arrow/datum.h"
 #include "arrow/extension/json.h"
 #include "arrow/io/memory.h"
@@ -65,7 +64,7 @@
 #include "arrow/util/config.h"
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/windows_compatibility.h"
 
@@ -471,24 +470,6 @@ std::shared_ptr<Tensor> TensorFromJSON(const std::shared_ptr<DataType>& type,
                                        const std::vector<std::string>& dim_names) {
   std::shared_ptr<Array> array = ArrayFromJSON(type, data);
   return *Tensor::Make(type, array->data()->buffers[1], shape, strides, dim_names);
-}
-
-Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
-    const Table& table, const std::vector<int>& column_indices) {
-  const int num_columns = table.num_columns();
-  std::vector<std::shared_ptr<ChunkedArray>> encoded_columns;
-  encoded_columns.reserve(num_columns);
-  for (int i = 0; i < num_columns; i++) {
-    if (std::find(column_indices.begin(), column_indices.end(), i) !=
-        column_indices.end()) {
-      ARROW_ASSIGN_OR_RAISE(auto run_end_encoded, compute::RunEndEncode(table.column(i)));
-      DCHECK_EQ(run_end_encoded.kind(), Datum::CHUNKED_ARRAY);
-      encoded_columns.push_back(run_end_encoded.chunked_array());
-    } else {
-      encoded_columns.push_back(table.column(i));
-    }
-  }
-  return Table::Make(table.schema(), std::move(encoded_columns));
 }
 
 Result<std::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,

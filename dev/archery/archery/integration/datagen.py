@@ -1923,11 +1923,9 @@ def get_generated_json_files(tempdir=None):
 
         generate_duration_case(),
 
-        generate_interval_case()
-        .skip_tester('JS'),  # TODO(ARROW-5239): Intervals + JS
+        generate_interval_case(),
 
-        generate_month_day_nano_interval_case()
-        .skip_tester('JS'),
+        generate_month_day_nano_interval_case(),
 
         generate_map_case(),
 

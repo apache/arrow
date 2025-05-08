@@ -37,7 +37,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/int_util_overflow.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/spaced.h"
 #include "arrow/util/ubsan.h"
@@ -1193,7 +1193,7 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
   PARQUET_THROW_NOT_OK(sink_.Advance(kMaxPageHeaderWriterSize));
 
   // Excess bytes at the beginning are sliced off and ignored.
-  return SliceBuffer(buffer, offset_bytes);
+  return SliceBuffer(std::move(buffer), offset_bytes);
 }
 
 template <>

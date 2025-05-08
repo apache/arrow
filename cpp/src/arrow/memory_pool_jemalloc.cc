@@ -17,7 +17,7 @@
 
 #include "arrow/memory_pool_internal.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/logging.h"  // IWYU pragma: keep
+#include "arrow/util/logging_internal.h"  // IWYU pragma: keep
 
 // We can't put the jemalloc memory pool implementation into
 // memory_pool.c because jemalloc.h may redefine malloc() and its

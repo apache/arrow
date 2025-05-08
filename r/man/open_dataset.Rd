@@ -166,7 +166,6 @@ information will be taken from the file paths.
 # Set up directory for examples
 tf <- tempfile()
 dir.create(tf)
-on.exit(unlink(tf))
 
 write_dataset(mtcars, tf, partitioning = "cyl")
 
@@ -180,7 +179,6 @@ open_dataset(c(file.path(tf, "cyl=4/part-0.parquet"), file.path(tf, "cyl=8/part-
 ## You must specify the file format if using a format other than parquet.
 tf2 <- tempfile()
 dir.create(tf2)
-on.exit(unlink(tf2))
 write_dataset(mtcars, tf2, format = "ipc")
 # This line will results in errors when you try to work with the data
 \dontrun{
@@ -193,7 +191,6 @@ open_dataset(tf2, format = "ipc")
 # Create a temporary directory and write example dataset
 tf3 <- tempfile()
 dir.create(tf3)
-on.exit(unlink(tf3))
 write_dataset(airquality, tf3, partitioning = c("Month", "Day"), hive_style = FALSE)
 
 # View files - you can see the partitioning means that files have been written

@@ -23,6 +23,7 @@ import sys
 import weakref
 
 import pyarrow as pa
+from pyarrow.tests import util
 
 import pytest
 
@@ -290,6 +291,6 @@ def test_print_stats(pool_factory):
     res = subprocess.run([sys.executable, "-c", code], check=True,
                          universal_newlines=True, stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE)
-    if sys.platform == "linux":
-        # On Linux at least, all memory pools should emit statistics
+    if sys.platform == "linux" and not util.running_on_musllinux():
+        # On Linux with glibc at least, all memory pools should emit statistics
         assert res.stderr.strip() != ""

@@ -25,7 +25,6 @@ import json
 import os
 import re
 import operator
-import warnings
 
 import pyarrow as pa
 
@@ -255,6 +254,10 @@ class ParquetFile:
         it will be parsed as an URI to determine the filesystem.
     page_checksum_verification : bool, default False
         If True, verify the checksum for each page read from the file.
+    arrow_extensions_enabled : bool, default False
+        If True, read Parquet logical types as Arrow extension types where possible,
+        (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
+        the canonical `arrow.uuid` extension type).
 
     Examples
     --------
@@ -303,7 +306,7 @@ class ParquetFile:
                  pre_buffer=False, coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None, filesystem=None,
-                 page_checksum_verification=False):
+                 page_checksum_verification=False, arrow_extensions_enabled=False):
 
         self._close_source = getattr(source, 'closed', True)
 
@@ -323,6 +326,7 @@ class ParquetFile:
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
             page_checksum_verification=page_checksum_verification,
+            arrow_extensions_enabled=arrow_extensions_enabled,
         )
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
@@ -1265,8 +1269,10 @@ thrift_container_size_limit : int, default None
     sufficient for most Parquet files.
 page_checksum_verification : bool, default False
     If True, verify the page checksum for each page read from the file.
-use_legacy_dataset : bool, optional
-    Deprecated and has no effect from PyArrow version 15.0.0.
+arrow_extensions_enabled : bool, default False
+    If True, read Parquet logical types as Arrow extension types where possible,
+    (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
+    the canonical `arrow.uuid` extension type).
 
 Examples
 --------
@@ -1280,14 +1286,7 @@ Examples
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
                  page_checksum_verification=False,
-                 use_legacy_dataset=None):
-
-        if use_legacy_dataset is not None:
-            warnings.warn(
-                "Passing 'use_legacy_dataset' is deprecated as of pyarrow 15.0.0 "
-                "and will be removed in a future version.",
-                FutureWarning, stacklevel=2)
-
+                 arrow_extensions_enabled=False):
         import pyarrow.dataset as ds
 
         # map format arguments
@@ -1297,6 +1296,7 @@ Examples
             "thrift_string_size_limit": thrift_string_size_limit,
             "thrift_container_size_limit": thrift_container_size_limit,
             "page_checksum_verification": page_checksum_verification,
+            "arrow_extensions_enabled": arrow_extensions_enabled,
         }
         if buffer_size:
             read_options.update(use_buffered_stream=True,
@@ -1653,8 +1653,6 @@ filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]], defaul
     Within-file level filtering and different partitioning schemes are supported.
 
     {3}
-use_legacy_dataset : bool, optional
-    Deprecated and has no effect from PyArrow version 15.0.0.
 ignore_prefixes : list, optional
     Files matching any of these prefixes will be ignored by the
     discovery process.
@@ -1686,6 +1684,10 @@ thrift_container_size_limit : int, default None
     sufficient for most Parquet files.
 page_checksum_verification : bool, default False
     If True, verify the checksum for each page read from the file.
+arrow_extensions_enabled : bool, default False
+    If True, read Parquet logical types as Arrow extension types where possible,
+    (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
+    the canonical `arrow.uuid` extension type).
 
 Returns
 -------
@@ -1776,18 +1778,12 @@ Read data from a single Parquet file:
 def read_table(source, *, columns=None, use_threads=True,
                schema=None, use_pandas_metadata=False, read_dictionary=None,
                memory_map=False, buffer_size=0, partitioning="hive",
-               filesystem=None, filters=None, use_legacy_dataset=None,
-               ignore_prefixes=None, pre_buffer=True,
-               coerce_int96_timestamp_unit=None,
+               filesystem=None, filters=None, ignore_prefixes=None,
+               pre_buffer=True, coerce_int96_timestamp_unit=None,
                decryption_properties=None, thrift_string_size_limit=None,
                thrift_container_size_limit=None,
-               page_checksum_verification=False):
-
-    if use_legacy_dataset is not None:
-        warnings.warn(
-            "Passing 'use_legacy_dataset' is deprecated as of pyarrow 15.0.0 "
-            "and will be removed in a future version.",
-            FutureWarning, stacklevel=2)
+               page_checksum_verification=False,
+               arrow_extensions_enabled=False):
 
     try:
         dataset = ParquetDataset(
@@ -1806,6 +1802,7 @@ def read_table(source, *, columns=None, use_threads=True,
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
             page_checksum_verification=page_checksum_verification,
+            arrow_extensions_enabled=arrow_extensions_enabled,
         )
     except ImportError:
         # fall back on ParquetFile for simple cases when pyarrow.dataset
@@ -1991,8 +1988,7 @@ Examples
 
 
 def write_to_dataset(table, root_path, partition_cols=None,
-                     filesystem=None, use_legacy_dataset=None,
-                     schema=None, partitioning=None,
+                     filesystem=None, schema=None, partitioning=None,
                      basename_template=None, use_threads=None,
                      file_visitor=None, existing_data_behavior=None,
                      **kwargs):
@@ -2026,8 +2022,6 @@ def write_to_dataset(table, root_path, partition_cols=None,
         If nothing passed, will be inferred based on path.
         Path will try to be found in the local on-disk filesystem otherwise
         it will be parsed as an URI to determine the filesystem.
-    use_legacy_dataset : bool, optional
-        Deprecated and has no effect from PyArrow version 15.0.0.
     schema : Schema, optional
         This Schema of the dataset.
     partitioning : Partitioning or list[str], optional
@@ -2114,12 +2108,6 @@ def write_to_dataset(table, root_path, partition_cols=None,
     >>> pq.ParquetDataset('dataset_name_4/').files
     ['dataset_name_4/...-0.parquet']
     """
-    if use_legacy_dataset is not None:
-        warnings.warn(
-            "Passing 'use_legacy_dataset' is deprecated as of pyarrow 15.0.0 "
-            "and will be removed in a future version.",
-            FutureWarning, stacklevel=2)
-
     metadata_collector = kwargs.pop('metadata_collector', None)
 
     # Check for conflicting keywords

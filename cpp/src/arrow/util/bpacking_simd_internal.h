@@ -128,7 +128,7 @@ static int unpack32_specialized(const uint32_t* in, uint32_t* out, int batch_siz
       for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack32_32(in, out + i * 32);
       break;
     default:
-      DCHECK(false) << "Unsupported num_bits";
+      ARROW_DCHECK(false) << "Unsupported num_bits";
   }
 
   return batch_size;

@@ -21,7 +21,7 @@
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace internal {
@@ -109,6 +109,10 @@ static auto kVarianceOptionsType = GetFunctionOptionsType<VarianceOptions>(
     DataMember("ddof", &VarianceOptions::ddof),
     DataMember("skip_nulls", &VarianceOptions::skip_nulls),
     DataMember("min_count", &VarianceOptions::min_count));
+static auto kSkewOptionsType = GetFunctionOptionsType<SkewOptions>(
+    DataMember("skip_nulls", &SkewOptions::skip_nulls),
+    DataMember("biased", &SkewOptions::biased),
+    DataMember("min_count", &SkewOptions::min_count));
 static auto kQuantileOptionsType = GetFunctionOptionsType<QuantileOptions>(
     DataMember("q", &QuantileOptions::q),
     DataMember("interpolation", &QuantileOptions::interpolation),
@@ -150,6 +154,12 @@ VarianceOptions::VarianceOptions(int ddof, bool skip_nulls, uint32_t min_count)
       skip_nulls(skip_nulls),
       min_count(min_count) {}
 constexpr char VarianceOptions::kTypeName[];
+
+SkewOptions::SkewOptions(bool skip_nulls, bool biased, uint32_t min_count)
+    : FunctionOptions(internal::kSkewOptionsType),
+      skip_nulls(skip_nulls),
+      biased(biased),
+      min_count(min_count) {}
 
 QuantileOptions::QuantileOptions(double q, enum Interpolation interpolation,
                                  bool skip_nulls, uint32_t min_count)
@@ -203,6 +213,7 @@ void RegisterAggregateOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kCountOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kModeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kVarianceOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kSkewOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kQuantileOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kTDigestOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPivotOptionsType));
@@ -269,6 +280,14 @@ Result<Datum> Stddev(const Datum& value, const VarianceOptions& options,
 Result<Datum> Variance(const Datum& value, const VarianceOptions& options,
                        ExecContext* ctx) {
   return CallFunction("variance", {value}, &options, ctx);
+}
+
+Result<Datum> Skew(const Datum& value, const SkewOptions& options, ExecContext* ctx) {
+  return CallFunction("skew", {value}, &options, ctx);
+}
+
+Result<Datum> Kurtosis(const Datum& value, const SkewOptions& options, ExecContext* ctx) {
+  return CallFunction("kurtosis", {value}, &options, ctx);
 }
 
 Result<Datum> Quantile(const Datum& value, const QuantileOptions& options,

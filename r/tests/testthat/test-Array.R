@@ -800,7 +800,7 @@ test_that("arrow_array() handles vector -> fixed size list arrays", {
 })
 
 test_that("Handling string data with embedded nuls", {
-  raws <- structure(
+  raws <- blob::as_blob(
     list(
       as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
       as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
@@ -808,8 +808,7 @@ test_that("Handling string data with embedded nuls", {
       as.raw(c(0x66, 0x00, 0x00, 0x61, 0x00, 0x6e)), # multiple nuls
       as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
       as.raw(c(0x74, 0x76))
-    ),
-    class = c("arrow_binary", "vctrs_vctr", "list")
+    )
   )
   expect_error(
     rawToChar(raws[[3]]),

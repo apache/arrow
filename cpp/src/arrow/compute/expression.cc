@@ -38,7 +38,7 @@
 #endif
 #include "arrow/util/hash_util.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/util/vector.h"
@@ -220,6 +220,8 @@ void PrintTo(const Expression& expr, std::ostream* os) {
 
 bool Expression::Equals(const Expression& other) const {
   if (Identical(*this, other)) return true;
+
+  if (impl_ == nullptr || other.impl_ == nullptr) return false;
 
   if (impl_->index() != other.impl_->index()) {
     return false;

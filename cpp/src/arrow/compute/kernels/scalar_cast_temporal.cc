@@ -24,6 +24,7 @@
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/util/bitmap_reader.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/time.h"
 #include "arrow/util/value_parsing.h"
 

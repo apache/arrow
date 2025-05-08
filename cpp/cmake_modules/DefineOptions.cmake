@@ -172,9 +172,6 @@ takes precedence over ccache if a storage backend is configured" ON)
 
   define_option(ARROW_USE_MOLD "Use mold for linking on Linux (if available)" OFF)
 
-  define_option(ARROW_USE_PRECOMPILED_HEADERS "Use precompiled headers when compiling"
-                OFF)
-
   define_option_string(ARROW_SIMD_LEVEL
                        "Compile-time SIMD optimization level"
                        "DEFAULT" # default to SSE4_2 on x86, NEON on Arm, NONE otherwise
@@ -346,7 +343,8 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_WITH_UTF8PROC)
 
   define_option(ARROW_GCS
-                "Build Arrow with GCS support (requires the GCloud SDK for C++)"
+                "Build Arrow with GCS support (requires the Google Cloud Platform "
+                "C++ Client Libraries)"
                 OFF
                 DEPENDS
                 ARROW_FILESYSTEM)
@@ -396,6 +394,12 @@ takes precedence over ccache if a storage backend is configured" ON)
                 OFF
                 DEPENDS
                 ARROW_FILESYSTEM)
+
+  define_option(ARROW_S3_MODULE
+                "Build the Arrow S3 filesystem as a dynamic module"
+                OFF
+                DEPENDS
+                ARROW_S3)
 
   define_option(ARROW_SKYHOOK
                 "Build the Skyhook libraries"
@@ -538,10 +542,6 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_WITH_SNAPPY "Build with Snappy compression" OFF)
   define_option(ARROW_WITH_ZLIB "Build with zlib compression" OFF)
   define_option(ARROW_WITH_ZSTD "Build with zstd compression" OFF)
-
-  define_option(ARROW_WITH_UCX
-                "Build with UCX transport for Arrow Flight;(only used if ARROW_FLIGHT is ON)"
-                OFF)
 
   define_option(ARROW_WITH_UTF8PROC
                 "Build with support for Unicode properties using the utf8proc library;(only used if ARROW_COMPUTE is ON or ARROW_GANDIVA is ON)"

@@ -134,10 +134,11 @@
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow::fs {
 
@@ -168,6 +169,8 @@ static constexpr const char kSep = '/';
 static constexpr const char kAwsEndpointUrlEnvVar[] = "AWS_ENDPOINT_URL";
 static constexpr const char kAwsEndpointUrlS3EnvVar[] = "AWS_ENDPOINT_URL_S3";
 static constexpr const char kAwsDirectoryContentType[] = "application/x-directory";
+
+using namespace std::string_literals;  // NOLINT(build/namespaces)
 
 // -----------------------------------------------------------------------
 // S3ProxyOptions implementation
@@ -398,6 +401,9 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
       options.scheme = kv.second;
     } else if (kv.first == "endpoint_override") {
       options.endpoint_override = kv.second;
+    } else if (kv.first == "allow_delayed_open") {
+      ARROW_ASSIGN_OR_RAISE(options.allow_delayed_open,
+                            ::arrow::internal::ParseBoolean(kv.second));
     } else if (kv.first == "allow_bucket_creation") {
       ARROW_ASSIGN_OR_RAISE(options.allow_bucket_creation,
                             ::arrow::internal::ParseBoolean(kv.second));
@@ -445,6 +451,7 @@ bool S3Options::Equals(const S3Options& other) const {
           proxy_options.Equals(other.proxy_options) &&
           credentials_kind == other.credentials_kind &&
           background_writes == other.background_writes &&
+          allow_delayed_open == other.allow_delayed_open &&
           allow_bucket_creation == other.allow_bucket_creation &&
           allow_bucket_deletion == other.allow_bucket_deletion &&
           tls_ca_file_path == other.tls_ca_file_path &&
@@ -3087,6 +3094,30 @@ Result<std::string> S3FileSystem::PathFromUri(const std::string& uri_string) con
                                      internal::AuthorityHandlingBehavior::kPrepend);
 }
 
+Result<std::string> S3FileSystem::MakeUri(std::string path) const {
+  if (path.length() <= 1 || path[0] != '/') {
+    return Status::Invalid("MakeUri requires an absolute, non-root path, got ", path);
+  }
+  ARROW_ASSIGN_OR_RAISE(auto uri, util::UriFromAbsolutePath(path));
+  if (!options().GetAccessKey().empty()) {
+    uri = "s3://" + options().GetAccessKey() + ":" + options().GetSecretKey() + "@" +
+          uri.substr("file:///"s.size());
+  } else {
+    uri = "s3" + uri.substr("file"s.size());
+  }
+  uri += "?";
+  uri += "region=" + util::UriEscape(options().region);
+  uri += "&";
+  uri += "scheme=" + util::UriEscape(options().scheme);
+  uri += "&";
+  uri += "endpoint_override=" + util::UriEscape(options().endpoint_override);
+  uri += "&";
+  uri += "allow_bucket_creation="s + (options().allow_bucket_creation ? "1" : "0");
+  uri += "&";
+  uri += "allow_bucket_deletion="s + (options().allow_bucket_deletion ? "1" : "0");
+  return uri;
+}
+
 S3Options S3FileSystem::options() const { return impl_->options(); }
 
 std::string S3FileSystem::region() const { return impl_->region(); }
@@ -3578,32 +3609,33 @@ bool IsS3Finalized() { return GetAwsInstance()->IsFinalized(); }
 
 S3GlobalOptions S3GlobalOptions::Defaults() {
   auto log_level = S3LogLevel::Fatal;
-
-  auto result = arrow::internal::GetEnvVar("ARROW_S3_LOG_LEVEL");
-
-  if (result.ok()) {
-    // Extract, trim, and downcase the value of the environment variable
-    auto value =
-        arrow::internal::AsciiToLower(arrow::internal::TrimString(result.ValueUnsafe()));
-
-    if (value == "fatal") {
-      log_level = S3LogLevel::Fatal;
-    } else if (value == "error") {
-      log_level = S3LogLevel::Error;
-    } else if (value == "warn") {
-      log_level = S3LogLevel::Warn;
-    } else if (value == "info") {
-      log_level = S3LogLevel::Info;
-    } else if (value == "debug") {
-      log_level = S3LogLevel::Debug;
-    } else if (value == "trace") {
-      log_level = S3LogLevel::Trace;
-    } else if (value == "off") {
-      log_level = S3LogLevel::Off;
-    }
+  int num_event_loop_threads = 1;
+  // Extract, trim, and downcase the value of the environment variable
+  auto value = arrow::internal::GetEnvVar("ARROW_S3_LOG_LEVEL")
+                   .Map(arrow::internal::AsciiToLower)
+                   .Map(arrow::internal::TrimString)
+                   .ValueOr("fatal");
+  if (value == "fatal") {
+    log_level = S3LogLevel::Fatal;
+  } else if (value == "error") {
+    log_level = S3LogLevel::Error;
+  } else if (value == "warn") {
+    log_level = S3LogLevel::Warn;
+  } else if (value == "info") {
+    log_level = S3LogLevel::Info;
+  } else if (value == "debug") {
+    log_level = S3LogLevel::Debug;
+  } else if (value == "trace") {
+    log_level = S3LogLevel::Trace;
+  } else if (value == "off") {
+    log_level = S3LogLevel::Off;
   }
 
-  return S3GlobalOptions{log_level};
+  value = arrow::internal::GetEnvVar("ARROW_S3_THREADS").ValueOr("1");
+  if (uint32_t u; ::arrow::internal::ParseUnsigned(value.data(), value.size(), &u)) {
+    num_event_loop_threads = u;
+  }
+  return S3GlobalOptions{log_level, num_event_loop_threads};
 }
 
 // -----------------------------------------------------------------------
@@ -3620,5 +3652,15 @@ Result<std::string> ResolveS3BucketRegion(const std::string& bucket) {
   ARROW_ASSIGN_OR_RAISE(auto resolver, RegionResolver::DefaultInstance());
   return resolver->ResolveRegion(bucket);
 }
+
+auto kS3FileSystemModule = ARROW_REGISTER_FILESYSTEM(
+    "s3",
+    [](const arrow::util::Uri& uri, const io::IOContext& io_context,
+       std::string* out_path) -> Result<std::shared_ptr<fs::FileSystem>> {
+      RETURN_NOT_OK(EnsureS3Initialized());
+      ARROW_ASSIGN_OR_RAISE(auto options, S3Options::FromUri(uri, out_path));
+      return S3FileSystem::Make(options, io_context);
+    },
+    [] { DCHECK_OK(EnsureS3Finalized()); });
 
 }  // namespace arrow::fs

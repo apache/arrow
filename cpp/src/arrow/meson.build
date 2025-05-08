@@ -44,42 +44,6 @@ arrow_components = {
             'array/util.cc',
             'array/validate.cc',
         ],
-        'include_dirs': [],
-        'dependencies': [],
-    },
-    'arrow_compute': {
-        'sources': [
-            'compute/api_aggregate.cc',
-            'compute/api_scalar.cc',
-            'compute/api_vector.cc',
-            'compute/cast.cc',
-            'compute/exec.cc',
-            'compute/expression.cc',
-            'compute/function.cc',
-            'compute/function_internal.cc',
-            'compute/kernel.cc',
-            'compute/ordering.cc',
-            'compute/registry.cc',
-            'compute/kernels/chunked_internal.cc',
-            'compute/kernels/codegen_internal.cc',
-            'compute/kernels/ree_util_internal.cc',
-            'compute/kernels/scalar_cast_boolean.cc',
-            'compute/kernels/scalar_cast_dictionary.cc',
-            'compute/kernels/scalar_cast_extension.cc',
-            'compute/kernels/scalar_cast_internal.cc',
-            'compute/kernels/scalar_cast_nested.cc',
-            'compute/kernels/scalar_cast_numeric.cc',
-            'compute/kernels/scalar_cast_string.cc',
-            'compute/kernels/scalar_cast_temporal.cc',
-            'compute/kernels/util_internal.cc',
-            'compute/kernels/vector_hash.cc',
-            'compute/kernels/vector_selection.cc',
-            'compute/kernels/vector_selection_filter_internal.cc',
-            'compute/kernels/vector_selection_internal.cc',
-            'compute/kernels/vector_selection_take_internal.cc',
-        ],
-        'include_dirs': [],
-        'dependencies': [],
     },
     'arrow_io': {
         'sources': [
@@ -132,6 +96,7 @@ arrow_components = {
             'util/logger.cc',
             'util/logging.cc',
             'util/key_value_metadata.cc',
+            'util/math_internal.cc',
             'util/memory.cc',
             'util/mutex.cc',
             'util/ree_util.cc',
@@ -149,14 +114,9 @@ arrow_components = {
             'util/utf8.cc',
             'util/value_parsing.cc',
         ],
-        'include_dirs': [],
         'dependencies': [threads_dep],
     },
-    'memory_pool': {
-        'sources': ['memory_pool.cc'],
-        'include_dirs': [],
-        'dependencies': [],
-    },
+    'memory_pool': {'sources': ['memory_pool.cc']},
     'vendored': {
         'sources': [
             'vendored/base64.cpp',
@@ -186,8 +146,6 @@ arrow_components = {
             'vendored/uriparser/UriResolve.c',
             'vendored/uriparser/UriShorten.c',
         ],
-        'include_dirs': [],
-        'dependencies': [],
     },
     'arrow_base': {
         'sources': [
@@ -222,10 +180,248 @@ arrow_components = {
             'c/bridge.cc',
             'c/dlpack.cc',
         ],
-        'include_dirs': [],
-        'dependencies': [],
     },
 }
+
+arrow_testing_srcs = [
+    'io/test_common.cc',
+    'ipc/test_common.cc',
+    'testing/fixed_width_test_util.cc',
+    'testing/generator.cc',
+    'testing/gtest_util.cc',
+    'testing/math.cc',
+    'testing/process.cc',
+    'testing/random.cc',
+    'testing/util.cc',
+]
+
+if needs_integration or needs_tests
+    arrow_components += {
+        'arrow_integration': {
+            'sources': [
+                'integration/c_data_integration_internal.cc',
+                'integration/json_integration.cc',
+                'integration/json_internal.cc',
+            ],
+        },
+    }
+endif
+
+if needs_csv
+    arrow_components += {
+        'arrow_csv': {
+            'sources': [
+                'csv/converter.cc',
+                'csv/chunker.cc',
+                'csv/column_builder.cc',
+                'csv/column_decoder.cc',
+                'csv/options.cc',
+                'csv/parser.cc',
+                'csv/reader.cc',
+                'csv/writer.cc',
+            ],
+        },
+    }
+
+    arrow_testing_srcs += ['csv/test_common.cc']
+endif
+
+arrow_compute_sources = [
+    'compute/api_aggregate.cc',
+    'compute/api_scalar.cc',
+    'compute/api_vector.cc',
+    'compute/cast.cc',
+    'compute/exec.cc',
+    'compute/expression.cc',
+    'compute/function.cc',
+    'compute/function_internal.cc',
+    'compute/kernel.cc',
+    'compute/ordering.cc',
+    'compute/registry.cc',
+    'compute/kernels/chunked_internal.cc',
+    'compute/kernels/codegen_internal.cc',
+    'compute/kernels/ree_util_internal.cc',
+    'compute/kernels/scalar_cast_boolean.cc',
+    'compute/kernels/scalar_cast_dictionary.cc',
+    'compute/kernels/scalar_cast_extension.cc',
+    'compute/kernels/scalar_cast_internal.cc',
+    'compute/kernels/scalar_cast_nested.cc',
+    'compute/kernels/scalar_cast_numeric.cc',
+    'compute/kernels/scalar_cast_string.cc',
+    'compute/kernels/scalar_cast_temporal.cc',
+    'compute/kernels/util_internal.cc',
+    'compute/kernels/vector_hash.cc',
+    'compute/kernels/vector_selection.cc',
+    'compute/kernels/vector_selection_filter_internal.cc',
+    'compute/kernels/vector_selection_internal.cc',
+    'compute/kernels/vector_selection_take_internal.cc',
+]
+
+if needs_compute
+    arrow_compute_sources += [
+        'compute/kernels/aggregate_basic.cc',
+        'compute/kernels/aggregate_mode.cc',
+        'compute/kernels/aggregate_pivot.cc',
+        'compute/kernels/aggregate_quantile.cc',
+        'compute/kernels/aggregate_tdigest.cc',
+        'compute/kernels/aggregate_var_std.cc',
+        'compute/kernels/hash_aggregate.cc',
+        'compute/kernels/hash_aggregate_numeric.cc',
+        'compute/kernels/hash_aggregate_pivot.cc',
+        'compute/kernels/pivot_internal.cc',
+        'compute/kernels/scalar_arithmetic.cc',
+        'compute/kernels/scalar_boolean.cc',
+        'compute/kernels/scalar_compare.cc',
+        'compute/kernels/scalar_if_else.cc',
+        'compute/kernels/scalar_nested.cc',
+        'compute/kernels/scalar_random.cc',
+        'compute/kernels/scalar_round.cc',
+        'compute/kernels/scalar_set_lookup.cc',
+        'compute/kernels/scalar_string_ascii.cc',
+        'compute/kernels/scalar_string_utf8.cc',
+        'compute/kernels/scalar_temporal_binary.cc',
+        'compute/kernels/scalar_temporal_unary.cc',
+        'compute/kernels/scalar_validity.cc',
+        'compute/kernels/vector_array_sort.cc',
+        'compute/kernels/vector_cumulative_ops.cc',
+        'compute/kernels/vector_nested.cc',
+        'compute/kernels/vector_pairwise.cc',
+        'compute/kernels/vector_rank.cc',
+        'compute/kernels/vector_replace.cc',
+        'compute/kernels/vector_run_end_encode.cc',
+        'compute/kernels/vector_select_k.cc',
+        'compute/kernels/vector_sort.cc',
+        'compute/kernels/vector_statistics.cc',
+        'compute/kernels/vector_swizzle.cc',
+        'compute/key_hash_internal.cc',
+        'compute/key_map_internal.cc',
+        'compute/light_array_internal.cc',
+        'compute/row/encode_internal.cc',
+        'compute/row/compare_internal.cc',
+        'compute/row/grouper.cc',
+        'compute/row/row_encoder_internal.cc',
+        'compute/row/row_internal.cc',
+        'compute/util.cc',
+        'compute/util_internal.cc',
+    ]
+endif
+
+arrow_components += {'arrow-compute': {'sources': arrow_compute_sources}}
+
+if needs_json or needs_integration
+    rapidjson_dep = dependency('rapidjson', include_type: 'system')
+else
+    rapidjson_dep = disabler()
+endif
+
+azure_dep = disabler()
+gcs_dep = disabler()
+s3_dep = disabler()
+if needs_filesystem
+    arrow_filesystem_srcs = [
+        'filesystem/filesystem.cc',
+        'filesystem/localfs.cc',
+        'filesystem/mockfs.cc',
+        'filesystem/path_util.cc',
+        'filesystem/util_internal.cc',
+    ]
+
+    arrow_filesystem_deps = []
+
+    if needs_azure
+        arrow_filesystem_srcs += ['filesystem/azurefs.cc']
+        cmake = import('cmake')
+        azure_opt = cmake.subproject_options()
+        azure_opt.add_cmake_defines(
+            {'BUILD_PERFORMANCE_TESTS': 'FALSE'},
+            {'BUILD_SAMPLES': 'FALSE'},
+            {'BUILD_TESTING': 'FALSE'},
+            {'BUILD_WINDOWS_UWP': 'TRUE'},
+            {'CMAKE_UNITY_BUILD': 'FALSE'},
+            {'DISABLE_AZURE_CORE_OPENTELEMETRY': 'TRUE'},
+            {'ENV{AZURE_SDK_DISABLE_AUTO_VCPKG}': 'TRUE'},
+            {'WARNINGS_AS_ERRORS': 'FALSE'},
+        )
+        azure_opt.append_compile_args('cpp', '-fPIC')
+        azure_proj = cmake.subproject('azure', options: azure_opt)
+
+        azure_dep = declare_dependency(
+            dependencies: [
+                azure_proj.dependency('azure-core'),
+                azure_proj.dependency('azure-identity'),
+                azure_proj.dependency('azure-storage-blobs'),
+                azure_proj.dependency('azure-storage-common'),
+                azure_proj.dependency('azure-storage-files-datalake'),
+            ],
+        )
+        arrow_filesystem_deps += [azure_dep]
+    endif
+
+    if needs_gcs
+        error('gcs filesystem support is not yet implemented in Meson')
+    endif
+
+    if needs_hdfs
+        arrow_filesystem_srcs += ['filesystem/hdfs.cc']
+    endif
+
+    if needs_s3
+        error('s3 filesystem support is not yet implemented in Meson')
+    endif
+
+    arrow_components += {
+        'arrow_filesystem': {
+            'sources': arrow_filesystem_srcs,
+            'dependencies': arrow_filesystem_deps,
+        },
+    }
+
+    arrow_testing_srcs += ['filesystem/test_util.cc']
+endif
+
+if needs_ipc
+    arrow_ipc_srcs = [
+        'ipc/dictionary.cc',
+        'ipc/feather.cc',
+        'ipc/message.cc',
+        'ipc/metadata_internal.cc',
+        'ipc/options.cc',
+        'ipc/reader.cc',
+        'ipc/writer.cc',
+    ]
+
+    flatbuffers_dep = dependency('flatbuffers')
+    arrow_ipc_deps = [flatbuffers_dep]
+
+    if needs_json
+        arrow_ipc_srcs += 'ipc/json_simple.cc'
+        arrow_ipc_deps += rapidjson_dep
+    endif
+
+    arrow_components += {
+        'arrow_ipc': {'sources': arrow_ipc_srcs, 'dependencies': arrow_ipc_deps},
+    }
+endif
+
+if needs_json
+    arrow_components += {
+        'arrow_json': {
+            'sources': [
+                'extension/fixed_shape_tensor.cc',
+                'extension/opaque.cc',
+                'json/options.cc',
+                'json/chunked_builder.cc',
+                'json/chunker.cc',
+                'json/converter.cc',
+                'json/object_parser.cc',
+                'json/object_writer.cc',
+                'json/parser.cc',
+                'json/reader.cc',
+            ],
+            'dependencies': [rapidjson_dep],
+        },
+    }
+endif
 
 arrow_srcs = []
 include_dir = include_directories('..')
@@ -233,8 +429,8 @@ arrow_includes = [include_dir]
 arrow_deps = []
 foreach key, val : arrow_components
     arrow_srcs += val['sources']
-    arrow_includes += val['include_dirs']
-    arrow_deps += val['dependencies']
+    arrow_includes += val.get('include_dirs', [])
+    arrow_deps += val.get('dependencies', [])
 endforeach
 
 arrow_lib = library(
@@ -243,6 +439,11 @@ arrow_lib = library(
     include_directories: arrow_includes,
     dependencies: arrow_deps,
     install: true,
+)
+
+arrow_dep = declare_dependency(
+    include_directories: [include_dir],
+    link_with: arrow_lib,
 )
 
 # Meson does not allow you to glob for headers to install. See also
@@ -286,8 +487,144 @@ install_headers(
         'visit_scalar_inline.h',
         'visit_type_inline.h',
     ],
-    install_dir: 'arrow',
+    subdir: 'arrow',
 )
+
+if needs_testing
+    filesystem_dep = dependency(
+        'boost',
+        modules: ['filesystem'],
+        required: false,
+    )
+    if not filesystem_dep.found()
+        cmake = import('cmake')
+        boost_opt = cmake.subproject_options()
+        boost_opt.add_cmake_defines(
+            {'BOOST_INCLUDE_LIBRARIES': 'filesystem;system'},
+        )
+        boost_proj = cmake.subproject('boost', options: boost_opt)
+        filesystem_dep = boost_proj.dependency('boost_filesystem')
+    endif
+
+    gtest_dep = dependency('gtest')
+    gtest_main_dep = dependency('gtest_main')
+    gtest_dep = dependency('gtest')
+    gmock_dep = dependency('gmock')
+else
+    filesystem_dep = disabler()
+    gtest_dep = disabler()
+    gtest_main_dep = disabler()
+    gtest_dep = disabler()
+    gmock_dep = disabler()
+endif
+
+arrow_test_lib = static_library(
+    'arrow_testing',
+    sources: arrow_testing_srcs,
+    dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
+)
+
+if needs_tests
+    arrow_test_dep = declare_dependency(
+        link_with: [arrow_test_lib],
+        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
+    )
+else
+    arrow_test_dep = disabler()
+endif
+
+arrow_tests = {
+    'arrow-array-test': {
+        'sources': [
+            'array/array_test.cc',
+            'array/array_binary_test.cc',
+            'array/array_dict_test.cc',
+            'array/array_list_test.cc',
+            'array/array_list_view_test.cc',
+            'array/array_run_end_test.cc',
+            'array/array_struct_test.cc',
+            'array/array_union_test.cc',
+            'array/array_view_test.cc',
+            'array/statistics_test.cc',
+        ],
+    },
+    'arrow-buffer-test': {'sources': ['buffer_test.cc']},
+    'arrow-misc-test': {
+        'sources': [
+            'datum_test.cc',
+            'memory_pool_test.cc',
+            'result_test.cc',
+            'pretty_print_test.cc',
+            'status_test.cc',
+        ],
+    },
+    'arrow-public-api-test': {'sources': ['public_api_test.cc']},
+    'arrow-scalar-test': {'sources': ['scalar_test.cc']},
+    'arrow-type-test': {'sources': ['field_ref_test.cc', 'type_test.cc']},
+    'arrow-table-test': {
+        'sources': [
+            'chunked_array_test.cc',
+            'record_batch_test.cc',
+            'table_test.cc',
+            'table_builder_test.cc',
+        ],
+    },
+    'arrow-tensor-test': {'sources': ['tensor_test.cc']},
+    'arrow-sparse-tensor-test': {'sources': ['sparse_tensor_test.cc']},
+    'arrow-stl-test': {'sources': ['stl_iterator_test.cc', 'stl_test.cc']},
+}
+
+if needs_ipc
+    arrow_tests += {
+        'arrow-extension-type-test': {
+            'sources': ['extension_type_test.cc'],
+            'dependencies': [arrow_ipc_deps],
+        },
+    }
+endif
+
+foreach key, val : arrow_tests
+    exc = executable(
+        key,
+        sources: val['sources'],
+        dependencies: [arrow_test_dep, val.get('dependencies', [])],
+    )
+    test(key, exc)
+endforeach
+
+if needs_benchmarks
+    benchmark_main_dep = dependency(
+        'benchmark-main',
+        default_options: {'tests': 'disabled'},
+    )
+
+    arrow_benchmark_dep = declare_dependency(
+        link_with: [arrow_test_lib],
+        dependencies: [arrow_dep, benchmark_main_dep, gtest_dep],
+    )
+else
+    arrow_benchmark_dep = disabler()
+endif
+
+arrow_benchmarks = [
+    'builder_benchmark',
+    'chunk_resolver_benchmark',
+    'compare_benchmark',
+    'memory_pool_benchmark',
+    'type_benchmark',
+    'tensor_benchmark',
+]
+
+foreach benchmark : arrow_benchmarks
+    benchmark_name = 'arrow-@0@'.format(benchmark.replace('_', '-'))
+    exc = executable(
+        benchmark_name,
+        sources: '@0@.cc'.format(benchmark),
+        dependencies: [arrow_benchmark_dep],
+    )
+
+    benchmark(benchmark_name, exc)
+endforeach
 
 version = meson.project_version()
 
@@ -301,7 +638,7 @@ version_major = components[0]
 version_minor = components[1]
 version_patch = components[2]
 
-arrow_version = (version_major.to_int() * 1000 + version_minor.to_int()) * 1000 + version_patch.to_int()
+arrow_version = '@0@.@1@.@2@'.format(version_major, version_minor, version_patch)
 arrow_so_version = (version_major.to_int() * 100 + version_minor.to_int()).to_string()
 arrow_full_so_version = '@0@.@1@.@2@'.format(arrow_so_version, version_patch, 0)
 
@@ -318,4 +655,37 @@ pkg.generate(
     },
 )
 
+subdir('testing')
+
+subdir('array')
+subdir('c')
+subdir('compute')
+subdir('io')
+subdir('tensor')
 subdir('util')
+subdir('vendored')
+
+gflags_dep = dependency('gflags', include_type: 'system')
+if needs_integration or needs_tests
+    subdir('integration')
+endif
+
+if needs_csv
+    subdir('csv')
+endif
+
+if needs_acero
+    subdir('acero')
+endif
+
+if needs_filesystem
+    subdir('filesystem')
+endif
+
+if needs_json
+    subdir('json')
+endif
+
+if needs_ipc
+    subdir('ipc')
+endif

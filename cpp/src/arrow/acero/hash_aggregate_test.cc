@@ -77,6 +77,7 @@ using compute::PivotWiderOptions;
 using compute::RowSegmenter;
 using compute::ScalarAggregateOptions;
 using compute::Segment;
+using compute::SkewOptions;
 using compute::SortIndices;
 using compute::SortKey;
 using compute::SortOrder;
@@ -1080,9 +1081,67 @@ TEST_P(GroupBy, MeanOverflow) {
   }
 }
 
-TEST_P(GroupBy, VarianceAndStddev) {
+TEST_P(GroupBy, VarianceStddevSkewKurtosis) {
+  for (auto value_type : {int32(), float64()}) {
+    ARROW_SCOPED_TRACE("value_type = ", *value_type);
+    auto batch = RecordBatchFromJSON(
+        schema({field("argument", value_type), field("key", int64())}), R"([
+      [1,   1],
+      [null,  1],
+      [0,   2],
+      [null,  3],
+      [4,   null],
+      [3,  1],
+      [0, 2],
+      [-1, 2],
+      [1,  null],
+      [null,  3]
+    ])");
+
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         GroupByTest(
+                             {
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                             },
+                             {
+                                 batch->GetColumnByName("key"),
+                             },
+                             {},
+                             {
+                                 {"hash_variance", nullptr},
+                                 {"hash_stddev", nullptr},
+                                 {"hash_skew", nullptr},
+                                 {"hash_kurtosis", nullptr},
+                             },
+                             false));
+
+    auto expected = ArrayFromJSON(struct_({
+                                      field("key_0", int64()),
+                                      field("hash_variance", float64()),
+                                      field("hash_stddev", float64()),
+                                      field("hash_skew", float64()),
+                                      field("hash_kurtosis", float64()),
+                                  }),
+                                  R"([
+      [1,    1.0,                 1.0,                0.0,                 -2.0],
+      [2,    0.22222222222222224, 0.4714045207910317, -0.7071067811865478, -1.5],
+      [3,    null,                null,               null,                null],
+      [null, 2.25,                1.5,                0.0,                 -2.0]
+    ])");
+    AssertDatumsApproxEqual(expected, aggregated_and_grouped,
+                            /*verbose=*/true);
+  }
+}
+
+TEST_P(GroupBy, VarianceAndStddevDdof) {
+  // Test ddof
+  auto variance_options = std::make_shared<VarianceOptions>(/*ddof=*/2);
+
   auto batch = RecordBatchFromJSON(
-      schema({field("argument", int32()), field("key", int64())}), R"([
+      schema({field("argument", float64()), field("key", int64())}), R"([
     [1,   1],
     [null,  1],
     [0,   2],
@@ -1094,83 +1153,7 @@ TEST_P(GroupBy, VarianceAndStddev) {
     [1,  null],
     [null,  3]
   ])");
-
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       GroupByTest(
-                           {
-                               batch->GetColumnByName("argument"),
-                               batch->GetColumnByName("argument"),
-                           },
-                           {
-                               batch->GetColumnByName("key"),
-                           },
-                           {},
-                           {
-                               {"hash_variance", nullptr},
-                               {"hash_stddev", nullptr},
-                           },
-                           false));
-
-  AssertDatumsApproxEqual(ArrayFromJSON(struct_({
-                                            field("key_0", int64()),
-                                            field("hash_variance", float64()),
-                                            field("hash_stddev", float64()),
-                                        }),
-                                        R"([
-    [1,    1.0,                 1.0               ],
-    [2,    0.22222222222222224, 0.4714045207910317],
-    [3,    null,                null              ],
-    [null, 2.25,                1.5               ]
-  ])"),
-                          aggregated_and_grouped,
-                          /*verbose=*/true);
-
-  batch = RecordBatchFromJSON(
-      schema({field("argument", float64()), field("key", int64())}), R"([
-    [1.0,   1],
-    [null,  1],
-    [0.0,   2],
-    [null,  3],
-    [4.0,   null],
-    [3.0,  1],
-    [0.0, 2],
-    [-1.0, 2],
-    [1.0,  null],
-    [null,  3]
-  ])");
-
-  ASSERT_OK_AND_ASSIGN(aggregated_and_grouped, GroupByTest(
-                                                   {
-                                                       batch->GetColumnByName("argument"),
-                                                       batch->GetColumnByName("argument"),
-                                                   },
-                                                   {
-                                                       batch->GetColumnByName("key"),
-                                                   },
-                                                   {},
-                                                   {
-                                                       {"hash_variance", nullptr},
-                                                       {"hash_stddev", nullptr},
-                                                   },
-                                                   false));
-
-  AssertDatumsApproxEqual(ArrayFromJSON(struct_({
-                                            field("key_0", int64()),
-                                            field("hash_variance", float64()),
-                                            field("hash_stddev", float64()),
-                                        }),
-                                        R"([
-    [1,    1.0,                 1.0               ],
-    [2,    0.22222222222222224, 0.4714045207910317],
-    [3,    null,                null              ],
-    [null, 2.25,                1.5               ]
-  ])"),
-                          aggregated_and_grouped,
-                          /*verbose=*/true);
-
-  // Test ddof
-  auto variance_options = std::make_shared<VarianceOptions>(/*ddof=*/2);
-  ASSERT_OK_AND_ASSIGN(aggregated_and_grouped,
                        GroupByTest(
                            {
                                batch->GetColumnByName("argument"),
@@ -1201,55 +1184,59 @@ TEST_P(GroupBy, VarianceAndStddev) {
                           /*verbose=*/true);
 }
 
-TEST_P(GroupBy, VarianceAndStddevDecimal) {
-  auto batch = RecordBatchFromJSON(
-      schema({field("argument0", decimal128(3, 2)), field("argument1", decimal128(3, 2)),
-              field("key", int64())}),
-      R"([
-    ["1.00",  "1.00",  1],
-    [null,    null,    1],
-    ["0.00",  "0.00",  2],
-    ["4.00",  "4.00",  null],
-    ["3.00",  "3.00",  1],
-    ["0.00",  "0.00",  2],
-    ["-1.00", "-1.00", 2],
-    ["1.00",  "1.00",  null]
+TEST_P(GroupBy, VarianceStddevSkewKurtosisDecimal) {
+  for (auto value_type :
+       {decimal32(3, 2), decimal64(3, 2), decimal128(3, 2), decimal256(3, 2)}) {
+    ARROW_SCOPED_TRACE("value_type = ", *value_type);
+    auto batch = RecordBatchFromJSON(
+        schema({field("argument", value_type), field("key", int64())}),
+        R"([
+      ["1.00",  1],
+      [null,    1],
+      ["0.00",  2],
+      ["4.00",  null],
+      ["3.00",  1],
+      ["0.00",  2],
+      ["-1.00", 2],
+      ["1.00",  null]
+    ])");
+
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         GroupByTest(
+                             {
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                             },
+                             {
+                                 batch->GetColumnByName("key"),
+                             },
+                             {},
+                             {
+                                 {"hash_variance", nullptr},
+                                 {"hash_stddev", nullptr},
+                                 {"hash_skew", nullptr},
+                                 {"hash_kurtosis", nullptr},
+                             },
+                             false));
+
+    auto expected = ArrayFromJSON(struct_({
+                                      field("key_0", int64()),
+                                      field("hash_variance", float64()),
+                                      field("hash_stddev", float64()),
+                                      field("hash_skew", float64()),
+                                      field("hash_kurtosis", float64()),
+                                  }),
+                                  R"([
+    [1,    1.0,                 1.0,                0.0,                 -2.0],
+    [2,    0.22222222222222224, 0.4714045207910317, -0.7071067811865478, -1.5],
+    [null, 2.25,                1.5,                0.0,                 -2.0]
   ])");
 
-  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       GroupByTest(
-                           {
-                               batch->GetColumnByName("argument0"),
-                               batch->GetColumnByName("argument0"),
-                               batch->GetColumnByName("argument1"),
-                               batch->GetColumnByName("argument1"),
-                           },
-                           {
-                               batch->GetColumnByName("key"),
-                           },
-                           {},
-                           {
-                               {"hash_variance", nullptr},
-                               {"hash_stddev", nullptr},
-                               {"hash_variance", nullptr},
-                               {"hash_stddev", nullptr},
-                           },
-                           false));
-
-  AssertDatumsApproxEqual(ArrayFromJSON(struct_({
-                                            field("key_0", int64()),
-                                            field("hash_variance", float64()),
-                                            field("hash_stddev", float64()),
-                                            field("hash_variance", float64()),
-                                            field("hash_stddev", float64()),
-                                        }),
-                                        R"([
-    [1,    1.0,                 1.0,                1.0,                 1.0               ],
-    [2,    0.22222222222222224, 0.4714045207910317, 0.22222222222222224, 0.4714045207910317],
-    [null, 2.25,                1.5,                2.25,                1.5               ]
-  ])"),
-                          aggregated_and_grouped,
-                          /*verbose=*/true);
+    AssertDatumsApproxEqual(expected, aggregated_and_grouped,
+                            /*verbose=*/true);
+  }
 }
 
 TEST_P(GroupBy, TDigest) {
@@ -1487,7 +1474,7 @@ TEST_P(GroupBy, StddevVarianceTDigestScalar) {
   }
 }
 
-TEST_P(GroupBy, VarianceOptions) {
+TEST_P(GroupBy, VarianceOptionsAndSkewOptions) {
   BatchesWithSchema input;
   input.batches = {
       ExecBatchFromJSON(
@@ -1503,81 +1490,101 @@ TEST_P(GroupBy, VarianceOptions) {
                         "[[null, null, 1]]"),
       ExecBatchFromJSON({int32(), float32(), int64()}, "[[2, 2.0, 1], [3, 3.0, 2]]"),
       ExecBatchFromJSON({int32(), float32(), int64()}, "[[4, 4.0, 2], [2, 2.0, 4]]"),
-      ExecBatchFromJSON({int32(), float32(), int64()}, "[[null, null, 4]]"),
+      ExecBatchFromJSON({int32(), float32(), int64()}, "[[null, null, 4], [6, 6.0, 3]]"),
   };
   input.schema = schema(
       {field("argument", int32()), field("argument1", float32()), field("key", int64())});
 
-  auto keep_nulls = std::make_shared<VarianceOptions>(/*ddof=*/0, /*skip_nulls=*/false,
-                                                      /*min_count=*/0);
-  auto min_count =
+  auto var_keep_nulls =
+      std::make_shared<VarianceOptions>(/*ddof=*/0, /*skip_nulls=*/false,
+                                        /*min_count=*/0);
+  auto var_min_count =
       std::make_shared<VarianceOptions>(/*ddof=*/0, /*skip_nulls=*/true, /*min_count=*/3);
-  auto keep_nulls_min_count = std::make_shared<VarianceOptions>(
+  auto var_keep_nulls_min_count = std::make_shared<VarianceOptions>(
       /*ddof=*/0, /*skip_nulls=*/false, /*min_count=*/3);
 
-  for (bool use_threads : {false}) {
-    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
-    ASSERT_OK_AND_ASSIGN(
-        Datum actual,
-        RunGroupBy(
-            input, {"key"},
-            {
-                {"hash_stddev", keep_nulls, "argument", "hash_stddev"},
-                {"hash_stddev", min_count, "argument", "hash_stddev"},
-                {"hash_stddev", keep_nulls_min_count, "argument", "hash_stddev"},
-                {"hash_variance", keep_nulls, "argument", "hash_variance"},
-                {"hash_variance", min_count, "argument", "hash_variance"},
-                {"hash_variance", keep_nulls_min_count, "argument", "hash_variance"},
-            },
-            use_threads));
-    Datum expected = ArrayFromJSON(struct_({
-                                       field("key", int64()),
-                                       field("hash_stddev", float64()),
-                                       field("hash_stddev", float64()),
-                                       field("hash_stddev", float64()),
-                                       field("hash_variance", float64()),
-                                       field("hash_variance", float64()),
-                                       field("hash_variance", float64()),
-                                   }),
-                                   R"([
-         [1, null,    0.471405, null,    null,   0.222222, null  ],
-         [2, 1.29904, 1.29904,  1.29904, 1.6875, 1.6875,   1.6875],
-         [3, 0.0,     null,     null,    0.0,    null,     null  ],
-         [4, null,    0.471405, null,    null,   0.222222, null  ]
-       ])");
-    ValidateOutput(expected);
-    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+  auto skew_keep_nulls = std::make_shared<SkewOptions>(/*skip_nulls=*/false,
+                                                       /*biased=*/true,
+                                                       /*min_count=*/0);
+  auto skew_min_count = std::make_shared<SkewOptions>(/*skip_nulls=*/true,
+                                                      /*biased=*/true, /*min_count=*/3);
+  auto skew_keep_nulls_min_count = std::make_shared<SkewOptions>(
+      /*skip_nulls=*/false, /*biased=*/true, /*min_count=*/3);
 
-    ASSERT_OK_AND_ASSIGN(
-        actual,
-        RunGroupBy(
-            input, {"key"},
-            {
-                {"hash_stddev", keep_nulls, "argument1", "hash_stddev"},
-                {"hash_stddev", min_count, "argument1", "hash_stddev"},
-                {"hash_stddev", keep_nulls_min_count, "argument1", "hash_stddev"},
-                {"hash_variance", keep_nulls, "argument1", "hash_variance"},
-                {"hash_variance", min_count, "argument1", "hash_variance"},
-                {"hash_variance", keep_nulls_min_count, "argument1", "hash_variance"},
-            },
-            use_threads));
-    expected = ArrayFromJSON(struct_({
-                                 field("key", int64()),
-                                 field("hash_stddev", float64()),
-                                 field("hash_stddev", float64()),
-                                 field("hash_stddev", float64()),
-                                 field("hash_variance", float64()),
-                                 field("hash_variance", float64()),
-                                 field("hash_variance", float64()),
-                             }),
-                             R"([
+  auto skew_unbiased = std::make_shared<SkewOptions>(
+      /*skip_nulls=*/false, /*biased=*/false, /*min_count=*/0);
+
+  for (std::string value_column : {"argument", "argument1"}) {
+    for (bool use_threads : {false}) {
+      SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+      ASSERT_OK_AND_ASSIGN(
+          Datum actual,
+          RunGroupBy(
+              input, {"key"},
+              {
+                  {"hash_stddev", var_keep_nulls, value_column, "hash_stddev"},
+                  {"hash_stddev", var_min_count, value_column, "hash_stddev"},
+                  {"hash_stddev", var_keep_nulls_min_count, value_column, "hash_stddev"},
+                  {"hash_variance", var_keep_nulls, value_column, "hash_variance"},
+                  {"hash_variance", var_min_count, value_column, "hash_variance"},
+                  {"hash_variance", var_keep_nulls_min_count, value_column,
+                   "hash_variance"},
+              },
+              use_threads));
+      Datum expected = ArrayFromJSON(struct_({
+                                         field("key", int64()),
+                                         field("hash_stddev", float64()),
+                                         field("hash_stddev", float64()),
+                                         field("hash_stddev", float64()),
+                                         field("hash_variance", float64()),
+                                         field("hash_variance", float64()),
+                                         field("hash_variance", float64()),
+                                     }),
+                                     R"([
          [1, null,    0.471405, null,    null,   0.222222, null  ],
          [2, 1.29904, 1.29904,  1.29904, 1.6875, 1.6875,   1.6875],
-         [3, 0.0,     null,     null,    0.0,    null,     null  ],
+         [3, 2.5,     null,     null,    6.25,   null,     null  ],
          [4, null,    0.471405, null,    null,   0.222222, null  ]
-       ])");
-    ValidateOutput(expected);
-    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+         ])");
+      ValidateOutput(actual);
+      AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+
+      ASSERT_OK_AND_ASSIGN(
+          actual,
+          RunGroupBy(
+              input, {"key"},
+              {
+                  {"hash_skew", skew_keep_nulls, value_column, "hash_skew"},
+                  {"hash_skew", skew_min_count, value_column, "hash_skew"},
+                  {"hash_skew", skew_keep_nulls_min_count, value_column, "hash_skew"},
+                  {"hash_skew", skew_unbiased, value_column, "hash_skew"},
+                  {"hash_kurtosis", skew_keep_nulls, value_column, "hash_kurtosis"},
+                  {"hash_kurtosis", skew_min_count, value_column, "hash_kurtosis"},
+                  {"hash_kurtosis", skew_keep_nulls_min_count, value_column,
+                   "hash_kurtosis"},
+                  {"hash_kurtosis", skew_unbiased, value_column, "hash_kurtosis"},
+              },
+              use_threads));
+      expected = ArrayFromJSON(struct_({
+                                   field("key", int64()),
+                                   field("hash_skew", float64()),
+                                   field("hash_skew", float64()),
+                                   field("hash_skew", float64()),
+                                   field("hash_skew", float64()),
+                                   field("hash_kurtosis", float64()),
+                                   field("hash_kurtosis", float64()),
+                                   field("hash_kurtosis", float64()),
+                                   field("hash_kurtosis", float64()),
+                               }),
+                               R"([
+         [1, null,      0.707106,  null,     null,    null,      -1.5,      null,      null    ],
+         [2, 0.213833,  0.213833,  0.213833, 0.37037, -1.720164, -1.720164, -1.720164, -3.90123],
+         [3, 0.0,       null,      null,     null,    -2.0,       null,     null,      null    ],
+         [4, null,      0.707106,  null,     null,    null,      -1.5,      null,      null    ]
+         ])");
+      ValidateOutput(actual);
+      AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+    }
   }
 }
 
@@ -4433,7 +4440,7 @@ TEST_P(GroupBy, PivotBasics) {
   }
 }
 
-TEST_P(GroupBy, PivotAllKeyTypes) {
+TEST_P(GroupBy, PivotBinaryKeyTypes) {
   auto value_type = float32();
   std::vector<std::string> table_json = {R"([
       [1, "width", 10.5],
@@ -4452,6 +4459,49 @@ TEST_P(GroupBy, PivotAllKeyTypes) {
   PivotWiderOptions options(/*key_names=*/{"height", "width"});
 
   for (const auto& key_type : BaseBinaryTypes()) {
+    ARROW_SCOPED_TRACE("key_type = ", *key_type);
+    TestPivot(key_type, value_type, options, table_json, expected_json);
+  }
+
+  auto key_type = fixed_size_binary(3);
+  table_json = {R"([
+      [1, "wid", 10.5],
+      [2, "wid", 11.5]
+      ])",
+                R"([
+      [2, "hei", 12.5],
+      [3, "wid",  13.5],
+      [1, "hei", 14.5]
+      ])"};
+  expected_json = R"([
+      [1, {"hei": 14.5, "wid": 10.5} ],
+      [2, {"hei": 12.5, "wid": 11.5} ],
+      [3, {"hei": null, "wid": 13.5} ]
+      ])";
+  options.key_names = {"hei", "wid"};
+  ARROW_SCOPED_TRACE("key_type = ", *key_type);
+  TestPivot(key_type, value_type, options, table_json, expected_json);
+}
+
+TEST_P(GroupBy, PivotIntegerKeyTypes) {
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([
+      [1, 78, 10.5],
+      [2, 78, 11.5]
+      ])",
+                                         R"([
+      [2, 56, 12.5],
+      [3, 78, 13.5],
+      [1, 56, 14.5]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"56": 14.5, "78": 10.5} ],
+      [2, {"56": 12.5, "78": 11.5} ],
+      [3, {"56": null, "78": 13.5} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"56", "78"});
+
+  for (const auto& key_type : IntTypes()) {
     ARROW_SCOPED_TRACE("key_type = ", *key_type);
     TestPivot(key_type, value_type, options, table_json, expected_json);
   }
@@ -4739,6 +4789,21 @@ TEST_P(GroupBy, PivotDuplicateKeys) {
   PivotWiderOptions options(/*key_names=*/{"height", "width", "height"});
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       KeyError, HasSubstr("Duplicate key name 'height' in PivotWiderOptions"),
+      RunPivot(key_type, value_type, options, table_json));
+}
+
+TEST_P(GroupBy, PivotInvalidKeys) {
+  // Integer key type, but key names cannot be converted to int
+  auto key_type = int32();
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([])"};
+  PivotWiderOptions options(/*key_names=*/{"123", "width"});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, HasSubstr("Failed to parse string: 'width' as a scalar of type int32"),
+      RunPivot(key_type, value_type, options, table_json));
+  options.key_names = {"12.3", "45"};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, HasSubstr("Failed to parse string: '12.3' as a scalar of type int32"),
       RunPivot(key_type, value_type, options, table_json));
 }
 

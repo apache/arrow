@@ -1212,6 +1212,7 @@ message CommandGetDbSchemas {
  *  - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
  *  - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
  *  - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
+ *  - ARROW:FLIGHT:SQL:REMARKS           - A comment describing the column. This field has been added after all others, clients should be prepared to find it missing.
  * The returned data should be ordered by catalog_name, db_schema_name, table_name, then table_type, followed by table_schema if requested.
  */
 message CommandGetTables {
@@ -1678,6 +1679,7 @@ message ActionEndSavepointRequest {
  *    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
  *    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
  *    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:REMARKS           - A comment describing the column. This field has been added after all others, clients should be prepared to find it missing.
  *  - GetFlightInfo: execute the query.
  */
 message CommandStatementQuery {
@@ -1703,6 +1705,7 @@ message CommandStatementQuery {
  *    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
  *    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
  *    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:REMARKS           - A comment describing the column. This field has been added after all others, clients should be prepared to find it missing.
  *  - GetFlightInfo: execute the query.
  *  - DoPut: execute the query.
  */
@@ -1739,6 +1742,7 @@ message TicketStatementQuery {
  *    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
  *    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
  *    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:REMARKS           - A comment describing the column. This field has been added after all others, clients should be prepared to find it missing.
  *
  *    If the schema is retrieved after parameter values have been bound with DoPut, then the server should account
  *    for the parameters when determining the schema.
@@ -1857,7 +1861,7 @@ message DoPutPreparedStatementResult {
   // statement should be considered invalid, and all subsequent requests for this prepared
   // statement must use this new handle.
   // The updated handle allows implementing query parameters with stateless services.
-  // 
+  //
   // When an updated handle is not provided by the server, clients should contiue
   // using the previous handle provided by `ActionCreatePreparedStatementResonse`.
   optional bytes prepared_statement_handle = 1;

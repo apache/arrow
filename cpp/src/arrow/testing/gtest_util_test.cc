@@ -24,6 +24,7 @@
 #include "arrow/array/builder_decimal.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
+#include "arrow/table.h"
 #include "arrow/tensor.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/math.h"
@@ -227,12 +228,14 @@ void CheckNotWithinUlp(Float x, Float y, int n_ulp) {
 
 TEST(TestWithinUlp, Double) {
   for (double f : {0.0, 1e-20, 1.0, 2345678.9}) {
+    CheckWithinUlp(f, f, 0);
     CheckWithinUlp(f, f, 1);
     CheckWithinUlp(f, f, 42);
   }
   CheckWithinUlp(-0.0, 0.0, 1);
   CheckWithinUlp(1.0, 1.0000000000000002, 1);
   CheckWithinUlp(1.0, 1.0000000000000007, 3);
+  CheckNotWithinUlp(1.0, 1.0000000000000002, 0);
   CheckNotWithinUlp(1.0, 1.0000000000000007, 2);
   CheckNotWithinUlp(1.0, 1.0000000000000007, 1);
   // left and right have a different exponent but are still very close
@@ -243,6 +246,9 @@ TEST(TestWithinUlp, Double) {
   CheckWithinUlp(123.4567, 123.45670000000015, 11);
   CheckNotWithinUlp(123.4567, 123.45670000000015, 10);
 
+  CheckWithinUlp(HUGE_VAL, HUGE_VAL, 10);
+  CheckWithinUlp(-HUGE_VAL, -HUGE_VAL, 10);
+  CheckWithinUlp(std::nan(""), std::nan(""), 10);
   CheckNotWithinUlp(HUGE_VAL, -HUGE_VAL, 10);
   CheckNotWithinUlp(12.34, -HUGE_VAL, 10);
   CheckNotWithinUlp(12.34, std::nan(""), 10);
@@ -252,12 +258,14 @@ TEST(TestWithinUlp, Double) {
 
 TEST(TestWithinUlp, Float) {
   for (float f : {0.0f, 1e-8f, 1.0f, 123.456f}) {
+    CheckWithinUlp(f, f, 0);
     CheckWithinUlp(f, f, 1);
     CheckWithinUlp(f, f, 42);
   }
   CheckWithinUlp(-0.0f, 0.0f, 1);
   CheckWithinUlp(1.0f, 1.0000001f, 1);
   CheckWithinUlp(1.0f, 1.0000013f, 11);
+  CheckNotWithinUlp(1.0f, 1.0000001f, 0);
   CheckNotWithinUlp(1.0f, 1.0000013f, 10);
   // left and right have a different exponent but are still very close
   CheckWithinUlp(1.0f, 0.99999994f, 1);
@@ -267,6 +275,9 @@ TEST(TestWithinUlp, Float) {
   CheckWithinUlp(123.456f, 123.456085f, 11);
   CheckNotWithinUlp(123.456f, 123.456085f, 10);
 
+  CheckWithinUlp(HUGE_VALF, HUGE_VALF, 10);
+  CheckWithinUlp(-HUGE_VALF, -HUGE_VALF, 10);
+  CheckWithinUlp(std::nanf(""), std::nanf(""), 10);
   CheckNotWithinUlp(HUGE_VALF, -HUGE_VALF, 10);
   CheckNotWithinUlp(12.34f, -HUGE_VALF, 10);
   CheckNotWithinUlp(12.34f, std::nanf(""), 10);

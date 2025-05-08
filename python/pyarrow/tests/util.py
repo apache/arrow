@@ -32,6 +32,7 @@ import string
 import subprocess
 import sys
 import time
+from packaging import tags
 
 import pytest
 
@@ -435,3 +436,13 @@ def windows_has_tzdata():
         tzdata_bool = os.path.exists(tzdata_path)
 
     return tzdata_bool
+
+
+def running_on_musllinux():
+    """
+    Checks whether it's running on musl systems or not.
+    """
+    for platform_tag in tags.platform_tags():
+        if platform_tag.startswith('musllinux'):
+            return True
+    return False

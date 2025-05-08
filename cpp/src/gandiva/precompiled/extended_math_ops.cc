@@ -19,7 +19,7 @@
 #  define M_PI 3.14159265358979323846
 #endif
 
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "gandiva/precompiled/decimal_ops.h"
 
 extern "C" {

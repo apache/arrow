@@ -162,7 +162,8 @@ x-hierarchy:
   - ubuntu-r-valgrind
   - ubuntu-swift
   - ubuntu-verify-rc
-  - r-clang-sanitizer
+  - r-clang-asan
+  - r-clang-ubsan
   - r
   - r-revdepcheck
   # helper services
@@ -170,10 +171,15 @@ x-hierarchy:
   - postgres
   - python-wheel-manylinux-2014
   - python-wheel-manylinux-2-28
+  - python-wheel-musllinux-1-2
   - python-wheel-manylinux-test-imports
   - python-free-threaded-wheel-manylinux-test-imports
+  - python-wheel-musllinux-test-imports
+  - python-free-threaded-wheel-musllinux-test-imports
   - python-wheel-manylinux-test-unittests
   - python-free-threaded-wheel-manylinux-test-unittests
+  - python-wheel-musllinux-test-unittests
+  - python-free-threaded-wheel-musllinux-test-unittests
   - python-wheel-windows-vs2022-base:
     - python-wheel-windows-vs2022
     - python-free-threaded-wheel-windows-vs2022
@@ -198,6 +204,8 @@ volumes:
     name: python-wheel-manylinux2014-ccache
   python-wheel-manylinux-2-28-ccache:
     name: python-wheel-manylinux-2-28-ccache
+  python-wheel-musllinux-1-2-ccache:
+    name: python-wheel-musllinux-1-2-ccache
   ubuntu-ccache:
     name: ${ARCH}-ubuntu-${UBUNTU}-ccache
 
@@ -931,7 +939,7 @@ services:
         clang_tools: ${CLANG_TOOLS}
         llvm: ${LLVM}
         pyodide_version: "0.26.0"
-        chrome_version: "122"
+        chrome_version: "134"
         selenium_version: "4.15.2"
         required_python_min: "(3,12)"
         python: ${PYTHON}
@@ -1173,7 +1181,7 @@ services:
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
-    command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
+    command: /arrow/ci/scripts/python_wheel_xlinux_build.sh
 
   # See available versions at:
   #    https://quay.io/repository/pypa/manylinux_2_28_x86_64?tab=tags
@@ -1198,7 +1206,108 @@ services:
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux-2-28-ccache:/ccache:delegated
-    command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
+    command: /arrow/ci/scripts/python_wheel_xlinux_build.sh
+
+  # See available versions at:
+  #    https://quay.io/repository/pypa/musllinux_1_2_x86_64?tab=tags
+  python-wheel-musllinux-1-2:
+    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-musllinux-1-2-vcpkg-${VCPKG}
+    build:
+      args:
+        arch: ${ARCH}
+        arch_short: ${ARCH_SHORT}
+        base: quay.io/pypa/musllinux_1_2_${ARCH_ALIAS}:2025-01-18-a325f1d
+        musllinux: 1_2
+        python: ${PYTHON}
+        python_abi_tag: ${PYTHON_ABI_TAG}
+        vcpkg: ${VCPKG}
+      context: .
+      dockerfile: ci/docker/python-wheel-musllinux.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-musllinux-1-2-vcpkg-${VCPKG}
+      secrets: *vcpkg-build-secrets
+    environment:
+      <<: [ *common, *ccache ]
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}python-wheel-musllinux-1-2-ccache:/ccache:delegated
+    command: /arrow/ci/scripts/python_wheel_xlinux_build.sh
+
+  python-wheel-musllinux-test-imports:
+    image: python:${PYTHON_IMAGE_TAG}-alpine${ALPINE_LINUX}
+    shm_size: 2G
+    volumes:
+      - .:/arrow:delegated
+    environment:
+      <<: *common
+      CHECK_IMPORTS: "ON"
+      CHECK_UNITTESTS: "OFF"
+      CHECK_WHEEL_CONTENT: "ON"
+    command: >
+      /bin/sh -c "
+        apk update &&
+        apk add --no-cache bash &&
+        /arrow/ci/scripts/python_wheel_unix_test.sh /arrow"
+
+  # TODO: Remove this when the official Docker Python image supports the free-threaded build.
+  # See https://github.com/docker-library/python/issues/947 for more info.
+  python-free-threaded-wheel-musllinux-test-imports:
+    image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-musllinux-test-imports
+    build:
+      args:
+        base: "${ARCH}/alpine:${ALPINE_LINUX}"
+      context: .
+      dockerfile: ci/docker/python-free-threaded-wheel-musllinux-test-imports.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-musllinux-test-imports
+    shm_size: 2G
+    volumes:
+      - .:/arrow:delegated
+    environment:
+      <<: *common
+      CHECK_IMPORTS: "ON"
+      CHECK_UNITTESTS: "OFF"
+    command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
+
+  python-wheel-musllinux-test-unittests:
+    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-musllinux-test
+    build:
+      args:
+        alpine_linux: ${ALPINE_LINUX}
+        python_image_tag: ${PYTHON_IMAGE_TAG}
+      context: .
+      dockerfile: ci/docker/python-wheel-musllinux-test.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-musllinux-test
+    shm_size: 2G
+    volumes:
+      - .:/arrow:delegated
+    environment:
+      <<: *common
+      CHECK_IMPORTS: "OFF"
+      CHECK_UNITTESTS: "ON"
+      CHECK_WHEEL_CONTENT: "OFF"
+    command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
+
+  # TODO: Remove this when the official Docker Python image supports the free-threaded build.
+  # See https://github.com/docker-library/python/issues/947 for more info.
+  python-free-threaded-wheel-musllinux-test-unittests:
+    image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-musllinux-test-unittests
+    build:
+      args:
+        base: "${ARCH}/alpine:${ALPINE_LINUX}"
+      context: .
+      dockerfile: ci/docker/python-free-threaded-wheel-musllinux-test-unittests.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-musllinux-test-unittests
+    shm_size: 2G
+    volumes:
+      - .:/arrow:delegated
+    environment:
+      <<: *common
+      CHECK_IMPORTS: "OFF"
+      CHECK_UNITTESTS: "ON"
+    command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-manylinux-test-imports:
     image: ${ARCH}/python:${PYTHON_IMAGE_TAG}
@@ -1609,7 +1718,7 @@ services:
       /bin/bash -c "
         /arrow/ci/scripts/r_sanitize.sh /arrow"
 
-  r-clang-sanitizer:
+  r-clang-asan:
     image: ${REPO}:r-rhub-clang-devel-latest
     build:
       context: .
@@ -1629,7 +1738,33 @@ services:
       LIBARROW_DOWNLOAD: "false"
       ARROW_SOURCE_HOME: "/arrow"
       ARROW_R_DEV: ${ARROW_R_DEV}
-      # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
+      ARROW_USE_PKG_CONFIG: "false"
+    volumes:
+      - .:/arrow:delegated
+    command: >
+      /bin/bash -c "
+        /arrow/ci/scripts/r_sanitize.sh /arrow"
+
+  r-clang-ubsan:
+    image: ${REPO}:r-rhub-clang-ubsan-devel-latest
+    build:
+      context: .
+      dockerfile: ci/docker/linux-r.dockerfile
+      cache_from:
+        - ${REPO}:r-rhub-clang-ubsan-devel-latest
+      args:
+        base: rhub/clang-ubsan
+        cmake: ${CMAKE}
+        r_dev: ${ARROW_R_DEV}
+        r_bin: R
+        tz: ${TZ}
+        r_prune_deps: ${R_PRUNE_DEPS}
+    shm_size: *shm-size
+    environment:
+      <<: *common
+      LIBARROW_DOWNLOAD: "false"
+      ARROW_SOURCE_HOME: "/arrow"
+      ARROW_R_DEV: ${ARROW_R_DEV}
       ARROW_USE_PKG_CONFIG: "false"
     volumes:
       - .:/arrow:delegated

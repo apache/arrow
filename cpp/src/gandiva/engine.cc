@@ -32,7 +32,7 @@
 #include <utility>
 
 #include <arrow/util/io_util.h>
-#include <arrow/util/logging.h>
+#include <arrow/util/logging_internal.h>
 
 #if defined(_MSC_VER)
 #  pragma warning(push)
@@ -319,6 +319,14 @@ Status Engine::LoadFunctionIRs() {
     functions_loaded_ = true;
   }
   return Status::OK();
+}
+
+llvm::Constant* Engine::CreateGlobalStringPtr(const std::string& string) {
+  auto gloval_variable = ir_builder()->CreateGlobalString(string);
+  auto zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context()), 0);
+  llvm::Constant* indices[] = {zero, zero};
+  return llvm::ConstantExpr::getInBoundsGetElementPtr(gloval_variable->getValueType(),
+                                                      gloval_variable, indices);
 }
 
 /// factory method to construct the engine.

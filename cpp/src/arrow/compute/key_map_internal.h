@@ -35,7 +35,7 @@ namespace compute {
 //
 // A detailed explanation of this data structure (including concepts such as blocks,
 // slots, stamps) and operations provided by this class is given in the document:
-// arrow/compute/exec/doc/key_map.md.
+// arrow/acero/doc/key_map.md.
 //
 class ARROW_EXPORT SwissTable {
   friend class SwissTableMerge;

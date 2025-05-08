@@ -21,6 +21,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/logging_internal.h"
 
 #include "gandiva/decimal_type_util.h"
 #include "gandiva/projector.h"

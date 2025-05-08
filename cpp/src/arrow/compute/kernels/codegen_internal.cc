@@ -25,6 +25,7 @@
 
 #include "arrow/compute/api_vector.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace compute {

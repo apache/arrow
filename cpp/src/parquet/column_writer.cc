@@ -41,7 +41,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/visit_array_inline.h"
@@ -788,6 +788,9 @@ class ColumnWriterImpl {
   // Plain-encoded statistics of the whole chunk
   virtual StatisticsPair GetChunkStatistics() = 0;
 
+  // Geospatial statistics of the whole chunk
+  virtual std::optional<geospatial::EncodedGeoStatistics> GetChunkGeoStatistics() = 0;
+
   // Merges page statistics into chunk statistics, then resets the values
   virtual void ResetPageStatistics() = 0;
 
@@ -1104,9 +1107,18 @@ int64_t ColumnWriterImpl::Close() {
     if (rows_written_ > 0 && chunk_statistics.is_set()) {
       metadata_->SetStatistics(chunk_statistics);
     }
+
     if (rows_written_ > 0 && chunk_size_statistics.is_set()) {
       metadata_->SetSizeStatistics(chunk_size_statistics);
     }
+
+    if (descr_->logical_type() != nullptr && descr_->logical_type()->is_geometry()) {
+      std::optional<geospatial::EncodedGeoStatistics> geo_stats = GetChunkGeoStatistics();
+      if (geo_stats) {
+        metadata_->SetGeoStatistics(std::move(*geo_stats));
+      }
+    }
+
     metadata_->SetKeyValueMetadata(key_value_metadata_);
     pager_->Close(has_dictionary_, fallback_);
   }
@@ -1209,29 +1221,40 @@ Status ConvertDictionaryToDense(const ::arrow::Array& array, MemoryPool* pool,
   return Status::OK();
 }
 
-template <typename DType>
-class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<DType> {
+template <typename ParquetType>
+class TypedColumnWriterImpl : public ColumnWriterImpl,
+                              public TypedColumnWriter<ParquetType> {
  public:
-  using T = typename DType::c_type;
+  using T = typename ParquetType::c_type;
 
   TypedColumnWriterImpl(ColumnChunkMetaDataBuilder* metadata,
                         std::unique_ptr<PageWriter> pager, const bool use_dictionary,
                         Encoding::type encoding, const WriterProperties* properties)
       : ColumnWriterImpl(metadata, std::move(pager), use_dictionary, encoding,
                          properties) {
-    current_encoder_ = MakeEncoder(DType::type_num, encoding, use_dictionary, descr_,
-                                   properties->memory_pool());
+    current_encoder_ = MakeEncoder(ParquetType::type_num, encoding, use_dictionary,
+                                   descr_, properties->memory_pool());
     // We have to dynamic_cast as some compilers don't want to static_cast
     // through virtual inheritance.
-    current_value_encoder_ = dynamic_cast<TypedEncoder<DType>*>(current_encoder_.get());
+    current_value_encoder_ =
+        dynamic_cast<TypedEncoder<ParquetType>*>(current_encoder_.get());
     // Will be null if not using dictionary, but that's ok
-    current_dict_encoder_ = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
+    current_dict_encoder_ =
+        dynamic_cast<DictEncoder<ParquetType>*>(current_encoder_.get());
 
-    if (properties->statistics_enabled(descr_->path()) &&
-        (SortOrder::UNKNOWN != descr_->sort_order())) {
-      page_statistics_ = MakeStatistics<DType>(descr_, allocator_);
-      chunk_statistics_ = MakeStatistics<DType>(descr_, allocator_);
+    // GH-46205: Geometry/Geography are the first non-nested logical types to have a
+    // SortOrder::UNKNOWN. Currently, the presence of statistics is tied to
+    // having a known sort order and so null counts will be missing.
+    if (properties->statistics_enabled(descr_->path())) {
+      if (SortOrder::UNKNOWN != descr_->sort_order()) {
+        page_statistics_ = MakeStatistics<ParquetType>(descr_, allocator_);
+        chunk_statistics_ = MakeStatistics<ParquetType>(descr_, allocator_);
+      }
+      if (descr_->logical_type() != nullptr && descr_->logical_type()->is_geometry()) {
+        chunk_geospatial_statistics_ = std::make_shared<geospatial::GeoStatistics>();
+      }
     }
+
     if (properties->size_statistics_level() == SizeStatisticsLevel::ColumnChunk ||
         properties->size_statistics_level() == SizeStatisticsLevel::PageAndColumnChunk) {
       page_size_statistics_ = SizeStatistics::Make(descr_);
@@ -1364,6 +1387,35 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
                          int64_t num_levels, const ::arrow::Array& array,
                          ArrowWriteContext* context, bool maybe_parent_nulls);
 
+  template <typename ArrowType>
+  Status WriteArrowSerialize(const int16_t* def_levels, const int16_t* rep_levels,
+                             int64_t num_levels, const ::arrow::Array& array,
+                             ArrowWriteContext* ctx, bool maybe_parent_nulls);
+
+  Status WriteArrowZeroCopy(const int16_t* def_levels, const int16_t* rep_levels,
+                            int64_t num_levels, const ::arrow::Array& array,
+                            ArrowWriteContext* ctx, bool maybe_parent_nulls) {
+    const auto& data = checked_cast<const ::arrow::PrimitiveArray&>(array);
+    const T* values = data.data()->GetValues<T>(1);
+    bool no_nulls =
+        this->descr()->schema_node()->is_required() || (array.null_count() == 0);
+
+    if (!maybe_parent_nulls && no_nulls) {
+      PARQUET_CATCH_NOT_OK(WriteBatch(num_levels, def_levels, rep_levels, values));
+    } else {
+      PARQUET_CATCH_NOT_OK(WriteBatchSpaced(num_levels, def_levels, rep_levels,
+                                            data.null_bitmap_data(), data.offset(),
+                                            values));
+    }
+    return Status::OK();
+  }
+
+  Status WriteArrowTimestamps(const int16_t* def_levels, const int16_t* rep_levels,
+                              int64_t num_levels, const ::arrow::Array& values,
+                              ArrowWriteContext* ctx, bool maybe_parent_nulls) {
+    return Status::NotImplemented("Timestamps writing is only implemented for Int64Type");
+  }
+
   void WriteDictionaryPage() override {
     DCHECK(current_dict_encoder_);
     std::shared_ptr<ResizableBuffer> buffer = AllocateBuffer(
@@ -1396,6 +1448,14 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       result.size_stats = *chunk_size_statistics_;
     }
     return result;
+  }
+
+  std::optional<geospatial::EncodedGeoStatistics> GetChunkGeoStatistics() override {
+    if (chunk_geospatial_statistics_) {
+      return chunk_geospatial_statistics_->Encode();
+    } else {
+      return std::nullopt;
+    }
   }
 
   void ResetPageStatistics() override {
@@ -1449,19 +1509,20 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   }
 
  private:
-  using ValueEncoderType = typename EncodingTraits<DType>::Encoder;
-  using TypedStats = TypedStatistics<DType>;
+  using ValueEncoderType = typename EncodingTraits<ParquetType>::Encoder;
+  using TypedStats = TypedStatistics<ParquetType>;
   std::unique_ptr<Encoder> current_encoder_;
   // Downcasted observers of current_encoder_.
   // The downcast is performed once as opposed to at every use since
   // dynamic_cast is so expensive, and static_cast is not available due
   // to virtual inheritance.
   ValueEncoderType* current_value_encoder_;
-  DictEncoder<DType>* current_dict_encoder_;
+  DictEncoder<ParquetType>* current_dict_encoder_;
   std::shared_ptr<TypedStats> page_statistics_;
   std::shared_ptr<TypedStats> chunk_statistics_;
   std::unique_ptr<SizeStatistics> page_size_statistics_;
   std::shared_ptr<SizeStatistics> chunk_size_statistics_;
+  std::shared_ptr<geospatial::GeoStatistics> chunk_geospatial_statistics_;
   bool pages_change_on_record_boundaries_;
 
   // If writing a sequence of ::arrow::DictionaryArray to the writer, we keep the
@@ -1654,9 +1715,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       // Serialize the buffered Dictionary Indices
       FlushBufferedDataPages();
       fallback_ = true;
-      // Only PLAIN encoding is supported for fallback in V1
-      current_encoder_ = MakeEncoder(DType::type_num, Encoding::PLAIN, false, descr_,
-                                     properties_->memory_pool());
+      // Only PLAIN encoding is supported for fallback
+      current_encoder_ = MakeEncoder(ParquetType::type_num, Encoding::PLAIN, false,
+                                     descr_, properties_->memory_pool());
       current_value_encoder_ = dynamic_cast<ValueEncoderType*>(current_encoder_.get());
       current_dict_encoder_ = nullptr;  // not using dict
       encoding_ = Encoding::PLAIN;
@@ -1687,7 +1748,14 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     if (page_statistics_ != nullptr) {
       page_statistics_->Update(values, num_values, num_nulls);
     }
+
     UpdateUnencodedDataBytes();
+
+    if constexpr (std::is_same<T, ByteArray>::value) {
+      if (chunk_geospatial_statistics_ != nullptr) {
+        chunk_geospatial_statistics_->Update(values, num_values);
+      }
+    }
   }
 
   /// \brief Write values with spaces and update page statistics accordingly.
@@ -1716,12 +1784,20 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       page_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset,
                                      num_spaced_values, num_values, num_nulls);
     }
+
     UpdateUnencodedDataBytes();
+
+    if constexpr (std::is_same<T, ByteArray>::value) {
+      if (chunk_geospatial_statistics_ != nullptr) {
+        chunk_geospatial_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset,
+                                                   num_spaced_values, num_values);
+      }
+    }
   }
 };
 
-template <typename DType>
-Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
+template <typename ParquetType>
+Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
     const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   // If this is the first time writing a DictionaryArray, then there's
@@ -1758,7 +1834,7 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
     return WriteDense();
   }
 
-  auto dict_encoder = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
+  auto dict_encoder = dynamic_cast<DictEncoder<ParquetType>*>(current_encoder_.get());
   const auto& data = checked_cast<const ::arrow::DictionaryArray&>(array);
   std::shared_ptr<::arrow::Array> dictionary = data.dictionary();
   std::shared_ptr<::arrow::Array> indices = data.indices();
@@ -1794,6 +1870,12 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
     page_statistics_->IncrementNullCount(num_chunk_levels - non_null_count);
     page_statistics_->IncrementNumValues(non_null_count);
     page_statistics_->Update(*referenced_dictionary, /*update_counts=*/false);
+
+    if (chunk_geospatial_statistics_ != nullptr) {
+      throw ParquetException(
+          "Writing dictionary-encoded GEOMETRY or GEOGRAPHY with statistics is not "
+          "supported");
+    }
   };
 
   int64_t value_offset = 0;
@@ -1870,13 +1952,13 @@ struct SerializeFunctor {
   }
 };
 
-template <typename ParquetType, typename ArrowType>
-Status WriteArrowSerialize(const ::arrow::Array& array, int64_t num_levels,
-                           const int16_t* def_levels, const int16_t* rep_levels,
-                           ArrowWriteContext* ctx, TypedColumnWriter<ParquetType>* writer,
-                           bool maybe_parent_nulls) {
-  using ParquetCType = typename ParquetType::c_type;
+template <typename ParquetType>
+template <typename ArrowType>
+Status TypedColumnWriterImpl<ParquetType>::WriteArrowSerialize(
+    const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
+    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
+  using ParquetCType = typename ParquetType::c_type;
 
   ParquetCType* buffer = nullptr;
   PARQUET_THROW_NOT_OK(ctx->GetScratchData<ParquetCType>(array.length(), &buffer));
@@ -1884,53 +1966,28 @@ Status WriteArrowSerialize(const ::arrow::Array& array, int64_t num_levels,
   SerializeFunctor<ParquetType, ArrowType> functor;
   RETURN_NOT_OK(functor.Serialize(checked_cast<const ArrayType&>(array), ctx, buffer));
   bool no_nulls =
-      writer->descr()->schema_node()->is_required() || (array.null_count() == 0);
+      this->descr()->schema_node()->is_required() || (array.null_count() == 0);
   if (!maybe_parent_nulls && no_nulls) {
-    PARQUET_CATCH_NOT_OK(writer->WriteBatch(num_levels, def_levels, rep_levels, buffer));
+    PARQUET_CATCH_NOT_OK(WriteBatch(num_levels, def_levels, rep_levels, buffer));
   } else {
-    PARQUET_CATCH_NOT_OK(writer->WriteBatchSpaced(num_levels, def_levels, rep_levels,
-                                                  array.null_bitmap_data(),
-                                                  array.offset(), buffer));
+    PARQUET_CATCH_NOT_OK(WriteBatchSpaced(num_levels, def_levels, rep_levels,
+                                          array.null_bitmap_data(), array.offset(),
+                                          buffer));
   }
   return Status::OK();
 }
 
-template <typename ParquetType>
-Status WriteArrowZeroCopy(const ::arrow::Array& array, int64_t num_levels,
-                          const int16_t* def_levels, const int16_t* rep_levels,
-                          ArrowWriteContext* ctx, TypedColumnWriter<ParquetType>* writer,
-                          bool maybe_parent_nulls) {
-  using T = typename ParquetType::c_type;
-  const auto& data = static_cast<const ::arrow::PrimitiveArray&>(array);
-  const T* values = nullptr;
-  // The values buffer may be null if the array is empty (ARROW-2744)
-  if (data.values() != nullptr) {
-    values = reinterpret_cast<const T*>(data.values()->data()) + data.offset();
-  } else {
-    DCHECK_EQ(data.length(), 0);
+#define WRITE_SERIALIZE_CASE(ArrowEnum)                                               \
+  case ::arrow::Type::ArrowEnum: {                                                    \
+    using ArrowType = typename ::arrow::TypeIdTraits<::arrow::Type::ArrowEnum>::Type; \
+    return WriteArrowSerialize<ArrowType>(def_levels, rep_levels, num_levels, array,  \
+                                          ctx, maybe_parent_nulls);                   \
   }
-  bool no_nulls =
-      writer->descr()->schema_node()->is_required() || (array.null_count() == 0);
 
-  if (!maybe_parent_nulls && no_nulls) {
-    PARQUET_CATCH_NOT_OK(writer->WriteBatch(num_levels, def_levels, rep_levels, values));
-  } else {
-    PARQUET_CATCH_NOT_OK(writer->WriteBatchSpaced(num_levels, def_levels, rep_levels,
-                                                  data.null_bitmap_data(), data.offset(),
-                                                  values));
-  }
-  return Status::OK();
-}
-
-#define WRITE_SERIALIZE_CASE(ArrowEnum, ArrowType, ParquetType)  \
-  case ::arrow::Type::ArrowEnum:                                 \
-    return WriteArrowSerialize<ParquetType, ::arrow::ArrowType>( \
-        array, num_levels, def_levels, rep_levels, ctx, this, maybe_parent_nulls);
-
-#define WRITE_ZERO_COPY_CASE(ArrowEnum, ArrowType, ParquetType)                       \
-  case ::arrow::Type::ArrowEnum:                                                      \
-    return WriteArrowZeroCopy<ParquetType>(array, num_levels, def_levels, rep_levels, \
-                                           ctx, this, maybe_parent_nulls);
+#define WRITE_ZERO_COPY_CASE(ArrowEnum)                                       \
+  case ::arrow::Type::ArrowEnum:                                              \
+    return WriteArrowZeroCopy(def_levels, rep_levels, num_levels, array, ctx, \
+                              maybe_parent_nulls);
 
 #define ARROW_UNSUPPORTED()                                          \
   std::stringstream ss;                                              \
@@ -1958,8 +2015,8 @@ Status TypedColumnWriterImpl<BooleanType>::WriteArrowDense(
   if (array.type_id() != ::arrow::Type::BOOL) {
     ARROW_UNSUPPORTED();
   }
-  return WriteArrowSerialize<BooleanType, ::arrow::BooleanType>(
-      array, num_levels, def_levels, rep_levels, ctx, this, maybe_parent_nulls);
+  return WriteArrowSerialize<::arrow::BooleanType>(def_levels, rep_levels, num_levels,
+                                                   array, ctx, maybe_parent_nulls);
 }
 
 // ----------------------------------------------------------------------
@@ -2041,17 +2098,17 @@ Status TypedColumnWriterImpl<Int32Type>::WriteArrowDense(
     case ::arrow::Type::NA: {
       PARQUET_CATCH_NOT_OK(WriteBatch(num_levels, def_levels, rep_levels, nullptr));
     } break;
-      WRITE_SERIALIZE_CASE(INT8, Int8Type, Int32Type)
-      WRITE_SERIALIZE_CASE(UINT8, UInt8Type, Int32Type)
-      WRITE_SERIALIZE_CASE(INT16, Int16Type, Int32Type)
-      WRITE_SERIALIZE_CASE(UINT16, UInt16Type, Int32Type)
-      WRITE_SERIALIZE_CASE(UINT32, UInt32Type, Int32Type)
-      WRITE_ZERO_COPY_CASE(INT32, Int32Type, Int32Type)
-      WRITE_ZERO_COPY_CASE(DATE32, Date32Type, Int32Type)
-      WRITE_SERIALIZE_CASE(DATE64, Date64Type, Int32Type)
-      WRITE_SERIALIZE_CASE(TIME32, Time32Type, Int32Type)
-      WRITE_SERIALIZE_CASE(DECIMAL128, Decimal128Type, Int32Type)
-      WRITE_SERIALIZE_CASE(DECIMAL256, Decimal256Type, Int32Type)
+      WRITE_SERIALIZE_CASE(INT8)
+      WRITE_SERIALIZE_CASE(UINT8)
+      WRITE_SERIALIZE_CASE(INT16)
+      WRITE_SERIALIZE_CASE(UINT16)
+      WRITE_SERIALIZE_CASE(UINT32)
+      WRITE_ZERO_COPY_CASE(INT32)
+      WRITE_ZERO_COPY_CASE(DATE32)
+      WRITE_SERIALIZE_CASE(DATE64)
+      WRITE_SERIALIZE_CASE(TIME32)
+      WRITE_SERIALIZE_CASE(DECIMAL128)
+      WRITE_SERIALIZE_CASE(DECIMAL256)
     default:
       ARROW_UNSUPPORTED()
   }
@@ -2158,28 +2215,27 @@ struct SerializeFunctor<Int64Type, ::arrow::TimestampType> {
 #undef COERCE_INVALID
 #undef COERCE_MULTIPLY
 
-Status WriteTimestamps(const ::arrow::Array& values, int64_t num_levels,
-                       const int16_t* def_levels, const int16_t* rep_levels,
-                       ArrowWriteContext* ctx, TypedColumnWriter<Int64Type>* writer,
-                       bool maybe_parent_nulls) {
+template <>
+Status TypedColumnWriterImpl<Int64Type>::WriteArrowTimestamps(
+    const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
+    const ::arrow::Array& values, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   const auto& source_type = static_cast<const ::arrow::TimestampType&>(*values.type());
 
   auto WriteCoerce = [&](const ArrowWriterProperties* properties) {
     ArrowWriteContext temp_ctx = *ctx;
     temp_ctx.properties = properties;
-    return WriteArrowSerialize<Int64Type, ::arrow::TimestampType>(
-        values, num_levels, def_levels, rep_levels, &temp_ctx, writer,
-        maybe_parent_nulls);
+    return WriteArrowSerialize<::arrow::TimestampType>(
+        def_levels, rep_levels, num_levels, values, &temp_ctx, maybe_parent_nulls);
   };
 
-  const ParquetVersion::type version = writer->properties()->version();
+  const ParquetVersion::type version = this->properties()->version();
 
   if (ctx->properties->coerce_timestamps_enabled()) {
     // User explicitly requested coercion to specific unit
     if (source_type.unit() == ctx->properties->coerce_timestamps_unit()) {
       // No data conversion necessary
-      return WriteArrowZeroCopy<Int64Type>(values, num_levels, def_levels, rep_levels,
-                                           ctx, writer, maybe_parent_nulls);
+      return WriteArrowZeroCopy(def_levels, rep_levels, num_levels, values, ctx,
+                                maybe_parent_nulls);
     } else {
       return WriteCoerce(ctx->properties);
     }
@@ -2204,8 +2260,8 @@ Status WriteTimestamps(const ::arrow::Array& values, int64_t num_levels,
     return WriteCoerce(properties.get());
   } else {
     // No data conversion necessary
-    return WriteArrowZeroCopy<Int64Type>(values, num_levels, def_levels, rep_levels, ctx,
-                                         writer, maybe_parent_nulls);
+    return WriteArrowZeroCopy(def_levels, rep_levels, num_levels, values, ctx,
+                              maybe_parent_nulls);
   }
 }
 
@@ -2215,15 +2271,15 @@ Status TypedColumnWriterImpl<Int64Type>::WriteArrowDense(
     const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   switch (array.type()->id()) {
     case ::arrow::Type::TIMESTAMP:
-      return WriteTimestamps(array, num_levels, def_levels, rep_levels, ctx, this,
-                             maybe_parent_nulls);
-      WRITE_ZERO_COPY_CASE(INT64, Int64Type, Int64Type)
-      WRITE_SERIALIZE_CASE(UINT32, UInt32Type, Int64Type)
-      WRITE_SERIALIZE_CASE(UINT64, UInt64Type, Int64Type)
-      WRITE_ZERO_COPY_CASE(TIME64, Time64Type, Int64Type)
-      WRITE_ZERO_COPY_CASE(DURATION, DurationType, Int64Type)
-      WRITE_SERIALIZE_CASE(DECIMAL128, Decimal128Type, Int64Type)
-      WRITE_SERIALIZE_CASE(DECIMAL256, Decimal256Type, Int64Type)
+      return WriteArrowTimestamps(def_levels, rep_levels, num_levels, array, ctx,
+                                  maybe_parent_nulls);
+      WRITE_ZERO_COPY_CASE(INT64)
+      WRITE_SERIALIZE_CASE(UINT32)
+      WRITE_SERIALIZE_CASE(UINT64)
+      WRITE_ZERO_COPY_CASE(TIME64)
+      WRITE_ZERO_COPY_CASE(DURATION)
+      WRITE_SERIALIZE_CASE(DECIMAL128)
+      WRITE_SERIALIZE_CASE(DECIMAL256)
     default:
       ARROW_UNSUPPORTED();
   }
@@ -2236,8 +2292,8 @@ Status TypedColumnWriterImpl<Int96Type>::WriteArrowDense(
   if (array.type_id() != ::arrow::Type::TIMESTAMP) {
     ARROW_UNSUPPORTED();
   }
-  return WriteArrowSerialize<Int96Type, ::arrow::TimestampType>(
-      array, num_levels, def_levels, rep_levels, ctx, this, maybe_parent_nulls);
+  return WriteArrowSerialize<::arrow::TimestampType>(def_levels, rep_levels, num_levels,
+                                                     array, ctx, maybe_parent_nulls);
 }
 
 // ----------------------------------------------------------------------
@@ -2250,8 +2306,8 @@ Status TypedColumnWriterImpl<FloatType>::WriteArrowDense(
   if (array.type_id() != ::arrow::Type::FLOAT) {
     ARROW_UNSUPPORTED();
   }
-  return WriteArrowZeroCopy<FloatType>(array, num_levels, def_levels, rep_levels, ctx,
-                                       this, maybe_parent_nulls);
+  return WriteArrowZeroCopy(def_levels, rep_levels, num_levels, array, ctx,
+                            maybe_parent_nulls);
 }
 
 template <>
@@ -2261,8 +2317,8 @@ Status TypedColumnWriterImpl<DoubleType>::WriteArrowDense(
   if (array.type_id() != ::arrow::Type::DOUBLE) {
     ARROW_UNSUPPORTED();
   }
-  return WriteArrowZeroCopy<DoubleType>(array, num_levels, def_levels, rep_levels, ctx,
-                                        this, maybe_parent_nulls);
+  return WriteArrowZeroCopy(def_levels, rep_levels, num_levels, array, ctx,
+                            maybe_parent_nulls);
 }
 
 // ----------------------------------------------------------------------
@@ -2299,7 +2355,12 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
       page_statistics_->IncrementNullCount(batch_size - non_null);
       page_statistics_->IncrementNumValues(non_null);
     }
+
     UpdateUnencodedDataBytes();
+
+    if (chunk_geospatial_statistics_ != nullptr) {
+      chunk_geospatial_statistics_->Update(*data_slice);
+    }
     CommitWriteAndCheckPageLimit(batch_size, batch_num_values, batch_size - non_null,
                                  check_page);
     CheckDictionarySizeLimit();
@@ -2442,10 +2503,10 @@ Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
     const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   switch (array.type()->id()) {
-    WRITE_SERIALIZE_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryType, FLBAType)
-    WRITE_SERIALIZE_CASE(DECIMAL128, Decimal128Type, FLBAType)
-    WRITE_SERIALIZE_CASE(DECIMAL256, Decimal256Type, FLBAType)
-    WRITE_SERIALIZE_CASE(HALF_FLOAT, HalfFloatType, FLBAType)
+    WRITE_SERIALIZE_CASE(FIXED_SIZE_BINARY)
+    WRITE_SERIALIZE_CASE(DECIMAL128)
+    WRITE_SERIALIZE_CASE(DECIMAL256)
+    WRITE_SERIALIZE_CASE(HALF_FLOAT)
     default:
       break;
   }

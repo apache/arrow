@@ -29,14 +29,17 @@ fi
 version=$1
 rc=$2
 
-rc_branch="release-${version}-rc${rc}"
+rc_tag="apache-arrow-${version}-rc${rc}"
+repository="${REPOSITORY:-apache/arrow}"
 
-archery crossbow \
-  verify-release-candidate \
-  --head-branch=${rc_branch} \
-  --pr-title="WIP: [Release] Verify ${rc_branch}" \
-  --rc=${rc} \
-  --remote=https://github.com/apache/arrow \
-  --verify-binaries \
-  --verify-wheels \
-  --version=${version}
+run_id=$(gh run list \
+            --branch "${rc_tag}" \
+            --jq '.[].databaseId' \
+            --json databaseId \
+            --limit 1 \
+            --repo "${repository}" \
+            --workflow "verify_rc.yml")
+gh run rerun \
+   "${run_id}" \
+   --failed \
+   --repo "${repository}"

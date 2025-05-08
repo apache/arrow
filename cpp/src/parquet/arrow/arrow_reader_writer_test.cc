@@ -43,6 +43,7 @@
 #include "arrow/scalar.h"
 #include "arrow/table.h"
 #include "arrow/testing/builder.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -52,7 +53,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/future.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
 
 #ifdef ARROW_CSV
@@ -1264,7 +1265,7 @@ TEST_F(TestInt96ParquetIO, ReadIntoTimestamp) {
 
 using TestUInt32ParquetIO = TestParquetIO<::arrow::UInt32Type>;
 
-TEST_F(TestUInt32ParquetIO, Parquet_2_0_Compatibility) {
+TEST_F(TestUInt32ParquetIO, Parquet_2_6_Compatibility) {
   // This also tests max_definition_level = 1
   std::shared_ptr<Array> values;
 
@@ -1479,6 +1480,61 @@ TEST_F(TestJsonParquetIO, JsonExtension) {
       ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
   this->RoundTripSingleColumn(json_array, json_array, writer_properties);
   this->RoundTripSingleColumn(json_large_array, json_large_array, writer_properties);
+}
+
+using TestGeoArrowParquetIO = TestParquetIO<test::GeoArrowWkbExtensionType>;
+
+TEST_F(TestGeoArrowParquetIO, GeoArrowExtension) {
+  ::arrow::ExtensionTypeGuard guard(test::geoarrow_wkb());
+
+  // Build a binary WKB array with at least one null value
+  ::arrow::BinaryBuilder builder;
+
+  for (int k = 0; k < 10; k++) {
+    std::string item = test::MakeWKBPoint(
+        {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
+    ASSERT_OK(builder.Append(item));
+  }
+  ASSERT_OK(builder.AppendNull());
+  for (int k = 0; k < 5; k++) {
+    std::string item = test::MakeWKBPoint(
+        {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
+    ASSERT_OK(builder.Append(item));
+  }
+
+  ASSERT_OK_AND_ASSIGN(const auto binary_array, builder.Finish());
+  const auto wkb_type = test::geoarrow_wkb_lonlat();
+  const auto wkb_array = ::arrow::ExtensionType::WrapArray(wkb_type, binary_array);
+
+  const auto large_wkb_type = test::geoarrow_wkb_lonlat(::arrow::large_binary());
+  ASSERT_OK_AND_ASSIGN(const auto large_binary_array,
+                       ::arrow::compute::Cast(binary_array, ::arrow::large_binary()));
+  const auto large_wkb_array =
+      ::arrow::ExtensionType::WrapArray(large_wkb_type, large_binary_array.make_array());
+
+  // When the original Arrow schema isn't stored and Arrow extensions are disabled,
+  // LogicalType::GEOMETRY is read as utf8.
+  auto writer_properties = default_arrow_writer_properties();
+  ASSERT_NO_FATAL_FAILURE(
+      this->RoundTripSingleColumn(wkb_array, binary_array, writer_properties));
+  ASSERT_NO_FATAL_FAILURE(
+      this->RoundTripSingleColumn(large_wkb_array, binary_array, writer_properties));
+
+  // When the original Arrow schema isn't stored and Arrow extensions are enabled,
+  // LogicalType::GEOMETRY is read as geoarrow.wkb with binary storage.
+  ::parquet::ArrowReaderProperties reader_properties;
+  reader_properties.set_arrow_extensions_enabled(true);
+  ASSERT_NO_FATAL_FAILURE(this->RoundTripSingleColumn(
+      wkb_array, wkb_array, writer_properties, reader_properties));
+  ASSERT_NO_FATAL_FAILURE(this->RoundTripSingleColumn(
+      large_wkb_array, wkb_array, writer_properties, reader_properties));
+
+  // When the original Arrow schema is stored, the stored Arrow type is respected.
+  writer_properties = ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
+  ASSERT_NO_FATAL_FAILURE(
+      this->RoundTripSingleColumn(wkb_array, wkb_array, writer_properties));
+  ASSERT_NO_FATAL_FAILURE(
+      this->RoundTripSingleColumn(large_wkb_array, large_wkb_array, writer_properties));
 }
 
 using TestNullParquetIO = TestParquetIO<::arrow::NullType>;
@@ -2055,10 +2111,6 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
                                           .version(ParquetVersion::PARQUET_1_0)
                                           ->build();
   ARROW_SUPPRESS_DEPRECATION_WARNING
-  auto parquet_version_2_0_properties = ::parquet::WriterProperties::Builder()
-                                            .version(ParquetVersion::PARQUET_2_0)
-                                            ->build();
-  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   auto parquet_version_2_4_properties = ::parquet::WriterProperties::Builder()
                                             .version(ParquetVersion::PARQUET_2_4)
                                             ->build();
@@ -2066,8 +2118,8 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
                                             .version(ParquetVersion::PARQUET_2_6)
                                             ->build();
   const std::vector<std::shared_ptr<WriterProperties>> all_properties = {
-      parquet_version_1_properties, parquet_version_2_0_properties,
-      parquet_version_2_4_properties, parquet_version_2_6_properties};
+      parquet_version_1_properties, parquet_version_2_4_properties,
+      parquet_version_2_6_properties};
 
   {
     // Using Parquet version 1.0 and 2.4 defaults, seconds should be coerced to
@@ -2081,13 +2133,11 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
                                                      parquet_version_2_4_properties));
   }
   {
-    // Using Parquet version 2.0 and 2.6 defaults, seconds should be coerced to
+    // Using Parquet version 2.6 defaults, seconds should be coerced to
     // milliseconds and nanoseconds should be retained
     auto expected_schema = schema({field("ts:s", t_ms), field("ts:ms", t_ms),
                                    field("ts:us", t_us), field("ts:ns", t_ns)});
     auto expected_table = Table::Make(expected_schema, {a_ms, a_ms, a_us, a_ns});
-    ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
-                                                     parquet_version_2_0_properties));
     ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
                                                      parquet_version_2_6_properties));
   }
@@ -2133,9 +2183,8 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
                              CreateOutputStream(), input_table->num_rows(), properties,
                              arrow_coerce_to_nanos_properties));
   }
-  // Using Parquet versions "2.0" and 2.6, coercing to (int64) nanoseconds is allowed
-  for (const auto& properties :
-       {parquet_version_2_0_properties, parquet_version_2_6_properties}) {
+  // Using Parquet version 2.6, coercing to (int64) nanoseconds is allowed
+  for (const auto& properties : {parquet_version_2_6_properties}) {
     ARROW_SCOPED_TRACE("format = ", ParquetVersionToString(properties->version()));
     auto expected_schema = schema({field("ts:s", t_ns), field("ts:ms", t_ns),
                                    field("ts:us", t_ns), field("ts:ns", t_ns)});
@@ -3336,6 +3385,28 @@ TEST(TestArrowReadWrite, NonUniqueDictionaryValues) {
   }
 }
 
+TEST(TestArrowReadWrite, DictionaryIndexBitwidthRoundtrip) {
+  // GH-30302: the bitwidth of Arrow dictionary indices should be preserved
+  for (const auto& index_type :
+       {::arrow::int8(), ::arrow::int16(), ::arrow::int32(), ::arrow::int64()}) {
+    ARROW_SCOPED_TRACE("index_type = ", *index_type);
+    auto dict_type = ::arrow::dictionary(index_type, ::arrow::utf8());
+    auto schema = ::arrow::schema({field("dictionary", dict_type)});
+
+    ::arrow::ArrayVector dict_arrays = {
+        DictArrayFromJSON(dict_type, R"([0, 1, 0, 2, 1])",
+                          R"(["first", "second", "third"])"),
+        DictArrayFromJSON(dict_type, R"([2, 0, 1, 0, 2])",
+                          R"(["first", "second", "third"])"),
+    };
+    auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(dict_arrays)});
+    auto arrow_writer_props =
+        parquet::ArrowWriterProperties::Builder().store_schema()->build();
+
+    CheckSimpleRoundtrip(table, table->num_rows(), arrow_writer_props);
+  }
+}
+
 TEST(TestArrowWrite, CheckChunkSize) {
   const int num_columns = 2;
   const int num_rows = 128;
@@ -3963,7 +4034,8 @@ TEST(TestImpalaConversion, ArrowTimestampToImpalaTimestamp) {
 }
 
 void TryReadDataFile(const std::string& path,
-                     ::arrow::StatusCode expected_code = ::arrow::StatusCode::OK) {
+                     ::arrow::StatusCode expected_code = ::arrow::StatusCode::OK,
+                     const std::string& expected_message = "") {
   auto pool = ::arrow::default_memory_pool();
 
   std::unique_ptr<FileReader> arrow_reader;
@@ -3977,6 +4049,12 @@ void TryReadDataFile(const std::string& path,
   ASSERT_EQ(s.code(), expected_code)
       << "Expected reading file to return " << arrow::Status::CodeAsString(expected_code)
       << ", but got " << s.ToString();
+
+  if (!expected_message.empty()) {
+    ASSERT_EQ(s.message().find(expected_message), 0)
+        << "Expected an error message beginning with '" << expected_message
+        << "', but got '" << s.message() << "'";
+  }
 }
 
 TEST(TestArrowReaderAdHoc, Int96BadMemoryAccess) {
@@ -3988,6 +4066,13 @@ TEST(TestArrowReaderAdHoc, CorruptedSchema) {
   // PARQUET-1481
   auto path = test::get_data_file("PARQUET-1481.parquet", /*is_good=*/false);
   TryReadDataFile(path, ::arrow::StatusCode::IOError);
+}
+
+TEST(TestArrowReaderAdHoc, InvalidRepetitionLevels) {
+  // GH-45185 - Repetition levels start with 1 instead of 0
+  auto path = test::get_data_file("ARROW-GH-45185.parquet", /*is_good=*/false);
+  TryReadDataFile(path, ::arrow::StatusCode::IOError,
+                  "The repetition level at the start of a record must be 0 but got 1");
 }
 
 TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {

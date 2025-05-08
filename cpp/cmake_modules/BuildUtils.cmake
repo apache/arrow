@@ -65,12 +65,6 @@ function(add_thirdparty_lib LIB_NAME LIB_TYPE LIB)
   endif()
 endfunction()
 
-function(REUSE_PRECOMPILED_HEADER_LIB TARGET_NAME LIB_NAME)
-  if(ARROW_USE_PRECOMPILED_HEADERS)
-    target_precompile_headers(${TARGET_NAME} REUSE_FROM ${LIB_NAME})
-  endif()
-endfunction()
-
 # Based on MIT-licensed
 # https://gist.github.com/cristianadam/ef920342939a89fae3e8a85ca9459b49
 function(arrow_create_merged_static_lib output_target)
@@ -169,7 +163,7 @@ function(arrow_create_merged_static_lib output_target)
   message(STATUS "Creating bundled static library target ${output_target} at ${output_lib_path}"
   )
 
-  add_library(${output_target} STATIC IMPORTED)
+  add_library(${output_target} STATIC IMPORTED GLOBAL)
   set_target_properties(${output_target} PROPERTIES IMPORTED_LOCATION ${output_lib_path})
   add_dependencies(${output_target} ${output_target}_merge)
 endfunction()
@@ -203,11 +197,9 @@ function(ADD_ARROW_LIB LIB_NAME)
       INSTALL_LIBRARY_DIR
       INSTALL_RUNTIME_DIR
       PKG_CONFIG_NAME
-      PRECOMPILED_HEADER_LIB
       SHARED_LINK_FLAGS)
   set(multi_value_args
       SOURCES
-      PRECOMPILED_HEADERS
       OUTPUTS
       STATIC_LINK_LIBS
       SHARED_LINK_LIBS
@@ -273,12 +265,6 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_DEFINITIONS)
       target_compile_definitions(${LIB_NAME}_objlib PRIVATE ${ARG_DEFINITIONS})
     endif()
-    if(ARG_PRECOMPILED_HEADER_LIB)
-      reuse_precompiled_header_lib(${LIB_NAME}_objlib ${ARG_PRECOMPILED_HEADER_LIB})
-    endif()
-    if(ARG_PRECOMPILED_HEADERS AND ARROW_USE_PRECOMPILED_HEADERS)
-      target_precompile_headers(${LIB_NAME}_objlib PRIVATE ${ARG_PRECOMPILED_HEADERS})
-    endif()
     set(LIB_DEPS $<TARGET_OBJECTS:${LIB_NAME}_objlib>)
     set(EXTRA_DEPS)
 
@@ -305,7 +291,6 @@ function(ADD_ARROW_LIB LIB_NAME)
     endif()
   else()
     # Prepare arguments for separate compilation of static and shared libs below
-    # TODO: add PCH directives
     set(LIB_DEPS ${ARG_SOURCES})
     set(EXTRA_DEPS ${ARG_DEPENDENCIES})
   endif()
@@ -340,10 +325,6 @@ function(ADD_ARROW_LIB LIB_NAME)
 
     if(ARG_DEFINITIONS)
       target_compile_definitions(${LIB_NAME}_shared PRIVATE ${ARG_DEFINITIONS})
-    endif()
-
-    if(ARG_PRECOMPILED_HEADER_LIB)
-      reuse_precompiled_header_lib(${LIB_NAME}_shared ${ARG_PRECOMPILED_HEADER_LIB})
     endif()
 
     if(ARG_OUTPUTS)
@@ -434,10 +415,6 @@ function(ADD_ARROW_LIB LIB_NAME)
 
     if(ARG_DEFINITIONS)
       target_compile_definitions(${LIB_NAME}_static PRIVATE ${ARG_DEFINITIONS})
-    endif()
-
-    if(ARG_PRECOMPILED_HEADER_LIB)
-      reuse_precompiled_header_lib(${LIB_NAME}_static ${ARG_PRECOMPILED_HEADER_LIB})
     endif()
 
     if(ARG_OUTPUTS)
@@ -539,13 +516,12 @@ endfunction()
 # group names must exist
 function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   set(options)
-  set(one_value_args)
+  set(one_value_args PREFIX)
   set(multi_value_args
       EXTRA_LINK_LIBS
       STATIC_LINK_LIBS
       DEPENDENCIES
       SOURCES
-      PREFIX
       LABELS)
   cmake_parse_arguments(ARG
                         "${options}"
@@ -668,10 +644,9 @@ endfunction()
 # names must exist
 function(ADD_TEST_CASE REL_TEST_NAME)
   set(options NO_VALGRIND ENABLED)
-  set(one_value_args PRECOMPILED_HEADER_LIB)
+  set(one_value_args PREFIX)
   set(multi_value_args
       SOURCES
-      PRECOMPILED_HEADERS
       STATIC_LINK_LIBS
       EXTRA_LINK_LIBS
       EXTRA_INCLUDES
@@ -679,7 +654,6 @@ function(ADD_TEST_CASE REL_TEST_NAME)
       LABELS
       EXTRA_LABELS
       TEST_ARGUMENTS
-      PREFIX
       DEFINITIONS)
   cmake_parse_arguments(ARG
                         "${options}"
@@ -734,14 +708,6 @@ function(ADD_TEST_CASE REL_TEST_NAME)
     target_link_libraries(${TEST_NAME} PRIVATE ${ARG_STATIC_LINK_LIBS})
   else()
     target_link_libraries(${TEST_NAME} PRIVATE ${ARROW_TEST_LINK_LIBS})
-  endif()
-
-  if(ARG_PRECOMPILED_HEADER_LIB)
-    reuse_precompiled_header_lib(${TEST_NAME} ${ARG_PRECOMPILED_HEADER_LIB})
-  endif()
-
-  if(ARG_PRECOMPILED_HEADERS AND ARROW_USE_PRECOMPILED_HEADERS)
-    target_precompile_headers(${TEST_NAME} PRIVATE ${ARG_PRECOMPILED_HEADERS})
   endif()
 
   if(ARG_EXTRA_LINK_LIBS)
@@ -835,13 +801,8 @@ endfunction()
 # create test executable foo-bar-example
 function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
   set(options)
-  set(one_value_args)
-  set(multi_value_args
-      EXTRA_INCLUDES
-      EXTRA_LINK_LIBS
-      EXTRA_SOURCES
-      DEPENDENCIES
-      PREFIX)
+  set(one_value_args PREFIX)
+  set(multi_value_args EXTRA_INCLUDES EXTRA_LINK_LIBS EXTRA_SOURCES DEPENDENCIES)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"

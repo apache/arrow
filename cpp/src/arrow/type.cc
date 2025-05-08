@@ -43,7 +43,7 @@
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
 #include "arrow/util/string.h"
 #include "arrow/util/unreachable.h"
@@ -826,7 +826,7 @@ Result<std::shared_ptr<Field>> Field::MergeWith(const Field& other,
                                other.nullable());
     }
 
-    return std::make_shared<Field>(name_, promoted_type, nullable, metadata_);
+    return std::make_shared<Field>(name_, std::move(promoted_type), nullable, metadata_);
   }
   return Status::TypeError("Unable to merge: Field ", name(),
                            " has incompatible types: ", type()->ToString(), " vs ",
@@ -3545,6 +3545,12 @@ const std::vector<TimeUnit::type>& TimeUnit::values() {
   static std::vector<TimeUnit::type> units = {TimeUnit::SECOND, TimeUnit::MILLI,
                                               TimeUnit::MICRO, TimeUnit::NANO};
   return units;
+}
+
+const std::vector<Type::type>& DecimalTypeIds() {
+  static std::vector<Type::type> type_ids = {Type::DECIMAL32, Type::DECIMAL64,
+                                             Type::DECIMAL128, Type::DECIMAL256};
+  return type_ids;
 }
 
 }  // namespace arrow

@@ -37,10 +37,8 @@ RUN mamba install -q -y \
         doxygen \
         libnuma \
         python=${python} \
-        ucx \
-        ucx-proc=*=cpu \
         valgrind && \
-    mamba clean --all
+    mamba clean --all --yes
 
 # We want to install the GCS testbench using the Conda base environment's Python,
 # because the test environment's Python may later change.
@@ -72,6 +70,7 @@ ENV ARROW_ACERO=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \
+    ARROW_S3_MODULE=ON \
     ARROW_SUBSTRAIT=ON \
     ARROW_USE_CCACHE=ON \
     ARROW_WITH_BROTLI=ON \

@@ -40,7 +40,7 @@
 #include "arrow/util/debug.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/logging.h"  // IWYU pragma: keep
+#include "arrow/util/logging_internal.h"  // IWYU pragma: keep
 #include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/ubsan.h"

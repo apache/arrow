@@ -114,6 +114,25 @@ class ARROW_EXPORT VarianceOptions : public FunctionOptions {
   uint32_t min_count;
 };
 
+/// \brief Control Skew and Kurtosis kernel behavior
+class ARROW_EXPORT SkewOptions : public FunctionOptions {
+ public:
+  explicit SkewOptions(bool skip_nulls = true, bool biased = true,
+                       uint32_t min_count = 0);
+  static constexpr char const kTypeName[] = "SkewOptions";
+  static SkewOptions Defaults() { return SkewOptions{}; }
+
+  /// If true (the default), null values are ignored. Otherwise, if any value is null,
+  /// emit null.
+  bool skip_nulls;
+  /// If true (the default), the calculated value is biased. If false, the calculated
+  /// value includes a correction factor to reduce bias, making it more accurate for
+  /// small sample sizes.
+  bool biased;
+  /// If less than this many non-null values are observed, emit null.
+  uint32_t min_count;
+};
+
 /// \brief Control Quantile kernel behavior
 ///
 /// By default, returns the median value.
@@ -183,9 +202,10 @@ class ARROW_EXPORT TDigestOptions : public FunctionOptions {
 /// - The corresponding `Aggregate::target` must have two FieldRef elements;
 ///   the first one points to the pivot key column, the second points to the
 ///   pivoted data column.
-/// - The pivot key column must be string-like; its values will be matched
-///   against `key_names` in order to dispatch the pivoted data into the
-///   output.
+/// - The pivot key column can be string, binary or integer; its values will be
+///   matched against `key_names` in order to dispatch the pivoted data into
+///   the output. If the pivot key column is not string-like, the `key_names`
+///   will be cast to the pivot key type.
 ///
 /// "pivot_wider" example
 /// ---------------------
@@ -501,6 +521,34 @@ Result<Datum> Stddev(const Datum& value,
 ARROW_EXPORT
 Result<Datum> Variance(const Datum& value,
                        const VarianceOptions& options = VarianceOptions::Defaults(),
+                       ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate the skewness of a numeric array
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see SkewOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed skewness as a DoubleScalar
+///
+/// \since 20.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Skew(const Datum& value,
+                   const SkewOptions& options = SkewOptions::Defaults(),
+                   ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate the kurtosis of a numeric array
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see SkewOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed kurtosis as a DoubleScalar
+///
+/// \since 20.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Kurtosis(const Datum& value,
+                       const SkewOptions& options = SkewOptions::Defaults(),
                        ExecContext* ctx = NULLPTR);
 
 /// \brief Calculate the quantiles of a numeric array

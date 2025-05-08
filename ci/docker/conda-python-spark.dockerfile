@@ -30,7 +30,7 @@ RUN mamba install -q -y \
         openjdk=${jdk} \
         maven=${maven} \
         pandas && \
-    mamba clean --all && \
+    mamba clean --all --yes && \
     mamba uninstall -q -y numpy && \
     /arrow/ci/scripts/install_numpy.sh ${numpy}
 

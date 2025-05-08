@@ -182,6 +182,9 @@ using BaseBinaryArrowTypes =
 using BaseBinaryOrBinaryViewLikeArrowTypes =
     ::testing::Types<BinaryType, LargeBinaryType, BinaryViewType, StringType,
                      LargeStringType, StringViewType>;
+using AllBinaryOrBinrayViewLikeArrowTypes =
+    ::testing::Types<BinaryType, LargeBinaryType, BinaryViewType, FixedSizeBinaryType,
+                     StringType, LargeStringType, StringViewType>;
 
 using BinaryArrowTypes = ::testing::Types<BinaryType, LargeBinaryType>;
 
@@ -369,10 +372,6 @@ std::shared_ptr<Tensor> TensorFromJSON(const std::shared_ptr<DataType>& type,
                                        const std::vector<int64_t>& shape,
                                        const std::vector<int64_t>& strides = {},
                                        const std::vector<std::string>& dim_names = {});
-
-ARROW_TESTING_EXPORT
-Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
-    const Table& table, const std::vector<int>& column_indices);
 
 // Given an array, return a new identical array except for one validity bit
 // set to a new value.

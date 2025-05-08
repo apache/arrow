@@ -108,6 +108,12 @@ that changing their value later will have an effect.
       `Logging - AWS SDK For C++
       <https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/logging.html>`__
 
+.. envvar:: ARROW_S3_THREADS
+
+   The number of threads to configure when creating AWS' I/O event loop.
+
+   Defaults to 1 as recommended by AWS' doc when the # of connections is
+   expected to be, at most, in the hundreds.
 
 .. envvar:: ARROW_TRACING_BACKEND
 

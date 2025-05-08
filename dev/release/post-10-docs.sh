@@ -22,9 +22,9 @@ set -u
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARROW_DIR="${SOURCE_DIR}/../.."
-: ${ARROW_SITE_DIR:="${ARROW_DIR}/../arrow-site"}
+: "${ARROW_SITE_DIR:=${ARROW_DIR}/../arrow-site}"
 
-if [ "$#" -ne 2  ]; then
+if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <version> <previous_version>"
   exit 1
 fi
@@ -35,35 +35,35 @@ release_tag="apache-arrow-${version}"
 branch_name=release-docs-${version}
 
 case "${version}" in
-  *.0.0)
-    is_major_release=yes
-    ;;
-  *)
-    is_major_release=no
-    ;;
+*.0.0)
+  is_major_release=yes
+  ;;
+*)
+  is_major_release=no
+  ;;
 esac
 
 pushd "${ARROW_SITE_DIR}"
 source "${SOURCE_DIR}/git-vars.sh"
-git fetch --all --prune --tags --force -j$(nproc)
+git fetch --all --prune --tags --force
 git checkout .
-git checkout ${DEFAULT_BRANCH}
+git checkout "${DEFAULT_BRANCH}"
 git clean -d -f -x
 git branch -D asf-site || :
 git checkout -b asf-site origin/asf-site
 git rebase apache/asf-site
-git branch -D ${branch_name} || :
-git checkout -b ${branch_name}
+git branch -D "${branch_name}" || :
+git checkout -b "${branch_name}"
 # list and remove previous versioned docs
 versioned_paths=()
 for versioned_path in docs/*.*/; do
-  versioned_paths+=(${versioned_path})
-  rm -rf ${versioned_path}
+  versioned_paths+=("${versioned_path}")
+  rm -rf "${versioned_path}"
 done
 # add to list and remove dev docs
 versioned_paths+=("docs/dev/")
 rm -rf docs/dev/
-if [ "$is_major_release" = "yes" ] ; then
+if [ "$is_major_release" = "yes" ]; then
   cp -r docs/ docs_temp/
 fi
 # delete current stable docs and restore all previous versioned docs
@@ -77,55 +77,55 @@ curl \
   --fail \
   --location \
   --remote-name \
-  https://apache.jfrog.io/artifactory/arrow/docs/${version}/docs.tar.gz
+  "https://github.com/apache/arrow/releases/download/${release_tag}/docs.tar.gz"
 tar xvf docs.tar.gz
 # Update DOCUMENTATION_OPTIONS.show_version_warning_banner
 find docs \
   -type f \
   -exec \
-    sed -i.bak \
-      -e "s/DOCUMENTATION_OPTIONS.show_version_warning_banner = true/DOCUMENTATION_OPTIONS.show_version_warning_banner = false/g" \
-      {} \;
+  sed -i.bak \
+  -e "s/DOCUMENTATION_OPTIONS.show_version_warning_banner = true/DOCUMENTATION_OPTIONS.show_version_warning_banner = false/g" \
+  {} \;
 find ./ -name '*.bak' -delete
 popd
 mv docs_new/docs/* docs/
 rm -rf docs_new
 
-if [ "$is_major_release" = "yes" ] ; then
+if [ "$is_major_release" = "yes" ]; then
   previous_series=${previous_version%.*}
-  mv docs_temp docs/${previous_series}
+  mv docs_temp "docs/${previous_series}"
 fi
 git add docs
 git commit -m "[Website] Update documentations for ${version}"
 
 # Update DOCUMENTATION_OPTIONS.theme_switcher_version_match and
 # DOCUMENTATION_OPTIONS.show_version_warning_banner
-if [ "$is_major_release" = "yes" ] ; then
-  pushd docs/${previous_series}
+if [ "$is_major_release" = "yes" ]; then
+  pushd "docs/${previous_series}"
   find ./ \
     -type f \
     -exec \
-      sed -i.bak \
-        -e "s/DOCUMENTATION_OPTIONS.theme_switcher_version_match = '';/DOCUMENTATION_OPTIONS.theme_switcher_version_match = '${previous_series}';/g" \
-        -e "s/DOCUMENTATION_OPTIONS.show_version_warning_banner = false/DOCUMENTATION_OPTIONS.show_version_warning_banner = true/g" \
-        {} \;
+    sed -i.bak \
+    -e "s/DOCUMENTATION_OPTIONS.theme_switcher_version_match = '';/DOCUMENTATION_OPTIONS.theme_switcher_version_match = '${previous_series}';/g" \
+    -e "s/DOCUMENTATION_OPTIONS.show_version_warning_banner = false/DOCUMENTATION_OPTIONS.show_version_warning_banner = true/g" \
+    {} \;
   find ./ -name '*.bak' -delete
   popd
-  git add docs/${previous_series}
+  git add "docs/${previous_series}"
   git commit -m "[Website] Update warning banner for ${previous_series}"
   git clean -d -f -x
   popd
 fi
 
-: ${PUSH:=1}
+: "${PUSH:=1}"
 
-if [ ${PUSH} -gt 0 ]; then
+if [ "${PUSH}" -gt 0 ]; then
   pushd "${ARROW_SITE_DIR}"
-  git push -u origin ${branch_name}
-  github_url=$(git remote get-url origin | \
-                 sed \
-                   -e 's,^git@github.com:,https://github.com/,' \
-                   -e 's,\.git$,,')
+  git push -u origin "${branch_name}"
+  github_url=$(git remote get-url origin |
+    sed \
+      -e 's,^git@github.com:,https://github.com/,' \
+      -e 's,\.git$,,')
   popd
 
   echo "Success!"

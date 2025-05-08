@@ -2630,4 +2630,8 @@ const std::vector<std::shared_ptr<DataType>>& DurationTypes();
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
 
+/// \brief Decimal type ids
+ARROW_EXPORT
+const std::vector<Type::type>& DecimalTypeIds();
+
 }  // namespace arrow

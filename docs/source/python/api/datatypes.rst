@@ -131,7 +131,6 @@ Specific classes and functions for extension types.
 
    BaseExtensionType
    ExtensionType
-   PyExtensionType
    UnknownExtensionType
    register_extension_type
    unregister_extension_type

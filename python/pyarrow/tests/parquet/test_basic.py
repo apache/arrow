@@ -970,23 +970,3 @@ def test_checksum_write_to_dataset(tempdir):
     # checksum verification enabled raises an exception
     with pytest.raises(OSError, match="CRC checksum verification"):
         _ = pq.read_table(corrupted_file_path, page_checksum_verification=True)
-
-
-@pytest.mark.dataset
-def test_deprecated_use_legacy_dataset(tempdir):
-    # Test that specifying use_legacy_dataset in ParquetDataset, write_to_dataset
-    # and read_table doesn't raise an error but gives a warning.
-    table = pa.table({"a": [1, 2, 3]})
-    path = tempdir / "deprecate_legacy"
-
-    msg = "Passing 'use_legacy_dataset'"
-    with pytest.warns(FutureWarning, match=msg):
-        pq.write_to_dataset(table, path, use_legacy_dataset=False)
-
-    pq.write_to_dataset(table, path)
-
-    with pytest.warns(FutureWarning, match=msg):
-        pq.read_table(path, use_legacy_dataset=False)
-
-    with pytest.warns(FutureWarning, match=msg):
-        pq.ParquetDataset(path, use_legacy_dataset=False)

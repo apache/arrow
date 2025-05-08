@@ -20,7 +20,7 @@
 #include <algorithm>
 
 #include "arrow/record_batch.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow::compute::internal {
 

@@ -48,6 +48,7 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/thread_pool.h"
 
 #define TRACED_TEST(t_class, t_name, t_body)  \

@@ -106,7 +106,7 @@
     "rxjs": "7.8.1",
     "ts-jest": "29.1.4",
     "ts-node": "10.9.2",
-    "typedoc": "0.27.6",
+    "typedoc": "0.27.9",
     "typescript": "5.4.5",
     "vinyl-buffer": "1.0.1",
     "vinyl-named": "1.1.0",
@@ -120,5 +120,5 @@
   "engines": {
     "node": ">=12.0"
   },
-  "version": "20.0.0-SNAPSHOT"
+  "version": "21.0.0-SNAPSHOT"
 }

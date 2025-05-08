@@ -34,7 +34,4 @@ export PYTHONNET_PYDLL=$(${PYTHON} -m find_libpython)
 
 pushd ${source_dir}
 dotnet test
-for pdb in artifacts/Apache.Arrow/*/*/Apache.Arrow.pdb; do
-  sourcelink test ${pdb}
-done
 popd

@@ -58,7 +58,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/endian.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/small_vector.h"
 #include "arrow/util/string.h"
@@ -142,7 +142,7 @@ std::string EnumToString(int value, const google::protobuf::EnumDescriptor* desc
   if (value_desc == nullptr) {
     return "unknown";
   }
-  return value_desc->name();
+  return std::string(value_desc->name());
 }
 
 Result<compute::Expression> FromProto(const substrait::Expression::ReferenceSegment* ref,

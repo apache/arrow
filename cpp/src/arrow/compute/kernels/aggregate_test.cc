@@ -42,6 +42,7 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
+#include "arrow/testing/math.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/logging.h"
 
@@ -3386,6 +3387,9 @@ TEST_F(TestVarStdKernelMergeStability, Basics) {
 #ifndef __MINGW32__  // MinGW has precision issues
   // XXX: The reference value from numpy is actually wrong due to floating
   // point limits. The correct result should equals variance(90, 0) = 4050.
+  // The problem is that the mean is not exactly representable as floating-point,
+  // and that small inaccuracy produces a large deviation when plugged into the M2
+  // calculation.
   std::vector<std::string> chunks = {"[40000008000000490]", "[40000008000000400]"};
   this->AssertVarStdIs(chunks, options, 3904.0);
 #endif
@@ -3430,12 +3434,21 @@ TEST_F(TestVarStdKernelUInt32, Basics) {
   this->AssertVarStdIs("[0, 0, 4294967295]", options, 6.148914688373205e+18);
 }
 
-// https://en.wikipedia.org/wiki/Kahan_summation_algorithm
 void KahanSum(double& sum, double& adjust, double addend) {
-  double y = addend - adjust;
-  double t = sum + y;
-  adjust = (t - sum) - y;
-  sum = t;
+  // Backported enhancement from Neumaier's algorithm: consider case where
+  // sum is small compared to addend.
+  // https://en.wikipedia.org/wiki/Kahan_summation_algorithm#Further_enhancements
+  if (abs(sum) >= abs(addend)) {
+    double y = addend - adjust;
+    double t = sum + y;
+    adjust = (t - sum) - y;
+    sum = t;
+  } else {
+    double y = sum - adjust;
+    double t = addend + y;
+    adjust = (t - addend) - y;
+    sum = t;
+  }
 }
 
 // Calculate reference variance with Welford's online algorithm + Kahan summation
@@ -3534,13 +3547,167 @@ TEST_F(TestVarStdKernelIntegerLength, Basics) {
 
 TEST(TestVarStdKernel, Decimal) {
   // Effectively treated as double, sanity check results here
-  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
+  for (const auto& ty :
+       {decimal32(3, 2), decimal64(3, 2), decimal128(3, 2), decimal256(3, 2)}) {
     CheckVarStd(ArrayFromJSON(ty, R"(["1.00"])"), VarianceOptions(), 0);
     CheckVarStd(ArrayFromJSON(ty, R"([null, "1.00", "2.00", "3.00"])"), VarianceOptions(),
                 0.6666666666666666);
     CheckVarStd(ScalarFromJSON(ty, R"("1.00")"), VarianceOptions(), 0);
     CheckVarStd(ArrayFromJSON(ty, R"([null, "1.00", "2.00"])"),
                 VarianceOptions(/*ddof=*/1), 0.5);
+  }
+}
+
+//
+// Skew and Kurtosis
+//
+
+constexpr int kSkewUlps = 3;
+constexpr int kKurtosisUlps = 6;
+
+void CheckSkewKurtosis(const Datum& array, const SkewOptions& options,
+                       double expected_skew, double expected_kurtosis, int n_ulps = -1) {
+  ARROW_SCOPED_TRACE("type = ", *array.type());
+  ASSERT_OK_AND_ASSIGN(Datum out_skew, Skew(array, options));
+  ASSERT_OK_AND_ASSIGN(Datum out_kurtosis, Kurtosis(array, options));
+  const auto& skew = checked_cast<const DoubleScalar&>(*out_skew.scalar());
+  const auto& kurtosis = checked_cast<const DoubleScalar&>(*out_kurtosis.scalar());
+  ASSERT_TRUE(skew.is_valid && kurtosis.is_valid);
+  AssertWithinUlp(expected_skew, skew.value, n_ulps >= 0 ? n_ulps : kSkewUlps);
+  AssertWithinUlp(expected_kurtosis, kurtosis.value,
+                  n_ulps >= 0 ? n_ulps : kKurtosisUlps);
+}
+
+class TestSkewKurtosis : public ::testing::Test {
+ public:
+  void AssertSkewKurtosisAre(const Array& array, const SkewOptions& options,
+                             double expected_skew, double expected_kurtosis,
+                             int n_ulps = -1) {
+    CheckSkewKurtosis(array, options, expected_skew, expected_kurtosis, n_ulps);
+  }
+
+  void AssertSkewKurtosisAre(const std::shared_ptr<ChunkedArray>& array,
+                             const SkewOptions& options, double expected_skew,
+                             double expected_kurtosis, int n_ulps = -1) {
+    CheckSkewKurtosis(array, options, expected_skew, expected_kurtosis, n_ulps);
+  }
+
+  void AssertSkewKurtosisAre(const std::shared_ptr<DataType>& type, std::string_view json,
+                             const SkewOptions& options, double expected_skew,
+                             double expected_kurtosis, int n_ulps = -1) {
+    auto array = ArrayFromJSON(type, json);
+    CheckSkewKurtosis(array, options, expected_skew, expected_kurtosis, n_ulps);
+  }
+
+  void AssertSkewKurtosisAre(const std::shared_ptr<DataType>& type,
+                             const std::vector<std::string>& json,
+                             const SkewOptions& options, double expected_skew,
+                             double expected_kurtosis, int n_ulps = -1) {
+    auto array = ChunkedArrayFromJSON(type, json);
+    CheckSkewKurtosis(array, options, expected_skew, expected_kurtosis, n_ulps);
+  }
+
+  void AssertSkewKurtosisInvalid(const Array& array, const SkewOptions& options) {
+    AssertSkewKurtosisInvalidInternal(array, options);
+  }
+
+  void AssertSkewKurtosisInvalid(const std::shared_ptr<ChunkedArray>& array,
+                                 const SkewOptions& options) {
+    AssertSkewKurtosisInvalidInternal(array, options);
+  }
+
+  void AssertSkewKurtosisInvalid(const std::shared_ptr<DataType>& type,
+                                 std::string_view json, const SkewOptions& options) {
+    auto array = ArrayFromJSON(type, json);
+    AssertSkewKurtosisInvalidInternal(array, options);
+  }
+
+  void AssertSkewKurtosisInvalid(const std::shared_ptr<DataType>& type,
+                                 const std::vector<std::string>& json,
+                                 const SkewOptions& options) {
+    auto array = ChunkedArrayFromJSON(type, json);
+    AssertSkewKurtosisInvalidInternal(array, options);
+  }
+
+ private:
+  void AssertSkewKurtosisInvalidInternal(const Datum& array, const SkewOptions& options) {
+    ASSERT_OK_AND_ASSIGN(Datum out_skew, Skew(array, options));
+    ASSERT_OK_AND_ASSIGN(Datum out_kurtosis, Kurtosis(array, options));
+    const auto& skew = checked_cast<const DoubleScalar&>(*out_skew.scalar());
+    const auto& kurtosis = checked_cast<const DoubleScalar&>(*out_kurtosis.scalar());
+    ASSERT_FALSE(skew.is_valid || kurtosis.is_valid);
+  }
+};
+
+TEST_F(TestSkewKurtosis, Basics) {
+  // Test sample from SciPy, with results obtained using numpy.float128
+  auto options = SkewOptions::Defaults();
+  AssertSkewKurtosisAre(float64(), "[1.165, 0.6268, 0.0751, 0.3516, -0.6965]", options,
+                        -0.29322304336607355496, -0.83411431970273759);
+  // Results are slightly different because the input doesn't losslessly convert
+  // to float32.
+  AssertSkewKurtosisAre(float32(), "[1.165, 0.6268, 0.0751, 0.3516, -0.6965]", options,
+                        -0.2932230870440958164, -0.8341143229437093939);
+}
+
+TEST_F(TestSkewKurtosis, Chunked) {
+  auto options = SkewOptions::Defaults();
+  AssertSkewKurtosisAre(float64(), {"[1.165, 0.6268]", "[]", "[0.0751, 0.3516, -0.6965]"},
+                        options, -0.29322304336607355496, -0.83411431970273759);
+  AssertSkewKurtosisAre(float32(), {"[1.165, 0.6268]", "[]", "[0.0751, 0.3516, -0.6965]"},
+                        options, -0.2932230870440958164, -0.8341143229437093939);
+}
+
+TEST_F(TestSkewKurtosis, Decimal) {
+  auto options = SkewOptions::Defaults();
+  for (auto type :
+       {decimal32(5, 4), decimal64(5, 4), decimal128(5, 4), decimal256(5, 4)}) {
+    AssertSkewKurtosisAre(type, R"(["1.1650", "0.6268", "0.0751", "0.3516", "-0.6965"])",
+                          options, -0.29322304336607355496, -0.83411431970273759);
+  }
+}
+
+TEST_F(TestSkewKurtosis, Integral) {
+  auto options = SkewOptions::Defaults();
+  for (auto type : IntTypes()) {
+    AssertSkewKurtosisAre(type, "[1, 2, 3, 5]", options, 0.4346507595746657,
+                          -1.1542857142857144);
+  }
+}
+
+TEST_F(TestSkewKurtosis, SpecialCases) {
+  auto options = SkewOptions::Defaults();
+  for (auto type : {float64(), float32()}) {
+    AssertSkewKurtosisAre(type, "[0, 1, 2]", options, 0.0, -1.5, /*n_ulps=*/0);
+    AssertSkewKurtosisAre(type, "[1]", options, std::nan(""), std::nan(""));
+    AssertSkewKurtosisAre(type, "[1, 1, 1, 1, 1, 1]", options, std::nan(""),
+                          std::nan(""));
+  }
+}
+
+TEST_F(TestSkewKurtosis, Options) {
+  for (auto type : {float64(), float32()}) {
+    auto options = SkewOptions::Defaults();
+    AssertSkewKurtosisInvalid(type, "[]", options);
+    AssertSkewKurtosisInvalid(type, std::vector<std::string>{}, options);
+    AssertSkewKurtosisInvalid(type, {"[]", "[]", "[]"}, options);
+    AssertSkewKurtosisAre(type, "[0, 1, null, 2]", options, 0.0, -1.5);
+    AssertSkewKurtosisAre(type, {"[0, 1]", "[]", "[null, 2]"}, options, 0.0, -1.5);
+    options.biased = false;
+    AssertSkewKurtosisInvalid(type, "[0, 1]", options);
+    AssertSkewKurtosisAre(type, {"[1, 2, 3]", "[40]", "[null]"}, options,
+                          1.9889477403978211, 3.9631931024230695);
+    options.biased = true;
+    options.min_count = 3;
+    AssertSkewKurtosisAre(type, "[0, 1, null, 2]", options, 0.0, -1.5);
+    AssertSkewKurtosisAre(type, {"[0, 1]", "[]", "[null, 2]"}, options, 0.0, -1.5);
+    options.skip_nulls = false;
+    AssertSkewKurtosisInvalid(type, "[0, 1, null, 2]", options);
+    AssertSkewKurtosisInvalid(type, {"[0, 1]", "[]", "[null, 2]"}, options);
+    options.skip_nulls = true;
+    options.min_count = 4;
+    AssertSkewKurtosisInvalid(type, "[0, 1, null, 2]", options);
+    AssertSkewKurtosisInvalid(type, {"[0, 1]", "[]", "[null, 2]"}, options);
   }
 }
 
@@ -4096,7 +4263,8 @@ TEST(TestQuantileKernel, Decimal) {
     ValidateOutput(*out_array);
     AssertArraysEqual(*expected, *out_array, /*verbose=*/true);
   };
-  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
+  for (const auto& ty :
+       {decimal32(3, 2), decimal64(3, 2), decimal128(3, 2), decimal256(3, 2)}) {
     check(ArrayFromJSON(ty, R"(["1.00", "5.00", null])"),
           QuantileOptions(0.5, QuantileOptions::LINEAR),
           ArrayFromJSON(float64(), R"([3.00])"));
@@ -4336,10 +4504,9 @@ TEST_F(TestPivotKernel, Basics) {
               PivotWiderOptions(/*key_names=*/{"height", "width"}));
 }
 
-TEST_F(TestPivotKernel, AllKeyTypes) {
+TEST_F(TestPivotKernel, BinaryKeyTypes) {
+  auto value_type = float32();
   for (auto key_type : BaseBinaryTypes()) {
-    auto value_type = float32();
-
     auto keys = ArrayFromJSON(key_type, R"(["width", "height"])");
     auto values = ArrayFromJSON(value_type, "[10.5, 11.5]");
     auto expected =
@@ -4347,6 +4514,25 @@ TEST_F(TestPivotKernel, AllKeyTypes) {
                        "[11.5, 10.5]");
     AssertPivot(keys, values, *expected,
                 PivotWiderOptions(/*key_names=*/{"height", "width"}));
+  }
+  auto key_type = fixed_size_binary(3);
+  auto keys = ArrayFromJSON(key_type, R"(["wid", "hei"])");
+  auto values = ArrayFromJSON(value_type, "[10.5, 11.5]");
+  auto expected = ScalarFromJSON(
+      struct_({field("hei", value_type), field("wid", value_type)}), "[11.5, 10.5]");
+  AssertPivot(keys, values, *expected, PivotWiderOptions(/*key_names=*/{"hei", "wid"}));
+}
+
+TEST_F(TestPivotKernel, IntegerKeyTypes) {
+  // It is possible to use an integer key column, while passing its string equivalent
+  // in PivotWiderOptions::key_names.
+  auto value_type = float32();
+  for (auto key_type : IntTypes()) {
+    auto keys = ArrayFromJSON(key_type, "[34, 12]");
+    auto values = ArrayFromJSON(value_type, "[10.5, 11.5]");
+    auto expected = ScalarFromJSON(
+        struct_({field("12", value_type), field("34", value_type)}), "[11.5, 10.5]");
+    AssertPivot(keys, values, *expected, PivotWiderOptions(/*key_names=*/{"12", "34"}));
   }
 }
 
@@ -4553,6 +4739,24 @@ TEST_F(TestPivotKernel, DuplicateKeyNames) {
   auto options = PivotWiderOptions(/*key_names=*/{"height", "height", "width"});
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       KeyError, ::testing::HasSubstr("Duplicate key name 'height' in PivotWiderOptions"),
+      CallFunction("pivot_wider", {keys, values}, &options));
+}
+
+TEST_F(TestPivotKernel, InvalidKeyName) {
+  auto key_type = int32();
+  auto value_type = float32();
+
+  auto keys = ArrayFromJSON(key_type, "[]");
+  auto values = ArrayFromJSON(value_type, "[]");
+  auto options = PivotWiderOptions(/*key_names=*/{"123", "width"});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("Failed to parse string: 'width' as a scalar of type int32"),
+      CallFunction("pivot_wider", {keys, values}, &options));
+  options.key_names = {"12.3", "45"};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("Failed to parse string: '12.3' as a scalar of type int32"),
       CallFunction("pivot_wider", {keys, values}, &options));
 }
 

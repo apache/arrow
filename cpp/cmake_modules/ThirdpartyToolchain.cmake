@@ -67,7 +67,6 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     Snappy
     Substrait
     Thrift
-    ucx
     utf8proc
     xsimd
     ZLIB
@@ -218,8 +217,6 @@ macro(build_dependency DEPENDENCY_NAME)
     build_substrait()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
     build_thrift()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "ucx")
-    build_ucx()
   elseif("${DEPENDENCY_NAME}" STREQUAL "utf8proc")
     build_utf8proc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "xsimd")
@@ -377,16 +374,13 @@ target_include_directories(arrow::flatbuffers
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
 
-if(PARQUET_REQUIRE_ENCRYPTION)
-  set(ARROW_JSON ON)
-endif()
-
 if(ARROW_WITH_OPENTELEMETRY)
   set(ARROW_WITH_NLOHMANN_JSON ON)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
 if(ARROW_PARQUET)
+  set(ARROW_WITH_RAPIDJSON ON)
   set(ARROW_WITH_THRIFT ON)
 endif()
 
@@ -697,8 +691,7 @@ if(DEFINED ENV{ARROW_GTEST_URL})
   set(GTEST_SOURCE_URL "$ENV{ARROW_GTEST_URL}")
 else()
   set_urls(GTEST_SOURCE_URL
-           "https://github.com/google/googletest/archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
-           "https://chromium.googlesource.com/external/github.com/google/googletest/+archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
+           "https://github.com/google/googletest/releases/download/v${ARROW_GTEST_BUILD_VERSION}/googletest-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz")
 endif()
 
@@ -819,13 +812,6 @@ else()
       "https://www.apache.org/dyn/closer.lua/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz?action=download"
       "https://dlcdn.apache.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
   )
-endif()
-
-if(DEFINED ENV{ARROW_UCX_URL})
-  set(ARROW_UCX_SOURCE_URL "$ENV{ARROW_UCX_URL}")
-else()
-  set_urls(ARROW_UCX_SOURCE_URL
-           "https://github.com/openucx/ucx/archive/v${ARROW_UCX_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_UTF8PROC_URL})
@@ -967,7 +953,11 @@ set(EP_COMMON_CMAKE_ARGS
     -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=${CMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY}
     -DCMAKE_INSTALL_LIBDIR=lib
     -DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT}
-    -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE})
+    -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE}
+    # We set CMAKE_POLICY_VERSION_MINIMUM temporarily due to failures with CMake 4
+    # We should remove it once we have updated the dependencies:
+    # https://github.com/apache/arrow/issues/45985
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
 
 # if building with a toolchain file, pass that through
 if(CMAKE_TOOLCHAIN_FILE)
@@ -1035,6 +1025,11 @@ macro(prepare_fetchcontent)
   set(CMAKE_COMPILE_WARNING_AS_ERROR FALSE)
   set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
   set(CMAKE_MACOSX_RPATH ${ARROW_INSTALL_NAME_RPATH})
+  # We set CMAKE_POLICY_VERSION_MINIMUM temporarily due to failures with CMake 4
+  # We should remove it once we have updated the dependencies:
+  # https://github.com/apache/arrow/issues/45985
+  set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
   if(MSVC)
     string(REPLACE "/WX" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
     string(REPLACE "/WX" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
@@ -1394,6 +1389,9 @@ macro(build_snappy)
   set(SNAPPY_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS} -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF
       "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
+  # We can remove this once we remove -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+  # from EP_COMMON_CMAKE_ARGS.
+  list(REMOVE_ITEM SNAPPY_CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
   # Snappy unconditionally enables -Werror when building with clang this can lead
   # to build failures by way of new compiler warnings. This adds a flag to disable
   # -Werror to the very end of the invocation to override the snappy internal setting.
@@ -1665,11 +1663,10 @@ endif()
 if(ARROW_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS
    OR ARROW_BUILD_INTEGRATION
-   OR ARROW_USE_GLOG
-   OR ARROW_WITH_GRPC)
-  set(ARROW_NEED_GFLAGS 1)
+   OR ARROW_USE_GLOG)
+  set(ARROW_NEED_GFLAGS TRUE)
 else()
-  set(ARROW_NEED_GFLAGS 0)
+  set(ARROW_NEED_GFLAGS FALSE)
 endif()
 
 macro(build_gflags)
@@ -2336,6 +2333,9 @@ function(build_gtest)
                        URL ${GTEST_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_GTEST_BUILD_SHA256_CHECKSUM}")
   prepare_fetchcontent()
+  # We can remove this once we remove set(CMAKE_POLICY_VERSION_MINIMUM
+  # 3.5) from prepare_fetchcontent().
+  unset(CMAKE_POLICY_VERSION_MINIMUM)
   if(APPLE)
     string(APPEND CMAKE_CXX_FLAGS " -Wno-unused-value" " -Wno-ignored-attributes")
   endif()
@@ -2753,6 +2753,10 @@ if(ARROW_WITH_ZSTD)
     else()
       set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
     endif()
+    # vcpkg uses zstd::libzstd
+    if(NOT TARGET ${ARROW_ZSTD_LIBZSTD} AND TARGET zstd::libzstd)
+      set(ARROW_ZSTD_LIBZSTD zstd::libzstd)
+    endif()
     if(NOT TARGET ${ARROW_ZSTD_LIBZSTD})
       message(FATAL_ERROR "Zstandard target doesn't exist: ${ARROW_ZSTD_LIBZSTD}")
     endif()
@@ -2876,6 +2880,10 @@ macro(build_utf8proc)
 
   set(UTF8PROC_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
                           "-DCMAKE_INSTALL_PREFIX=${UTF8PROC_PREFIX}")
+
+  # We can remove this once we remove -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+  # from EP_COMMON_CMAKE_ARGS.
+  list(REMOVE_ITEM UTF8PROC_CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
 
   externalproject_add(utf8proc_ep
                       ${EP_COMMON_OPTIONS}
@@ -3956,9 +3964,6 @@ macro(build_grpc)
                       IMPORTED_LOCATION)
   get_target_property(GRPC_CARES_INCLUDE_DIR c-ares::cares INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(GRPC_CARES_ROOT "${GRPC_CARES_INCLUDE_DIR}" DIRECTORY)
-  get_target_property(GRPC_GFLAGS_INCLUDE_DIR ${GFLAGS_LIBRARIES}
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(GRPC_GFLAGS_ROOT "${GRPC_GFLAGS_INCLUDE_DIR}" DIRECTORY)
   get_target_property(GRPC_RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(GRPC_RE2_ROOT "${GRPC_RE2_INCLUDE_DIR}" DIRECTORY)
 
@@ -3966,7 +3971,6 @@ macro(build_grpc)
   # before (what are likely) system directories
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ABSL_PREFIX}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_PB_ROOT}")
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_GFLAGS_ROOT}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_CARES_ROOT}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_RE2_ROOT}")
 
@@ -4016,7 +4020,6 @@ macro(build_grpc)
       -DgRPC_BUILD_GRPC_RUBY_PLUGIN=OFF
       -DgRPC_BUILD_TESTS=OFF
       -DgRPC_CARES_PROVIDER=package
-      -DgRPC_GFLAGS_PROVIDER=package
       -DgRPC_MSVC_STATIC_RUNTIME=${ARROW_USE_STATIC_CRT}
       -DgRPC_PROTOBUF_PROVIDER=package
       -DgRPC_RE2_PROVIDER=package
@@ -4318,6 +4321,10 @@ macro(build_nlohmann_json)
       # google-cloud-cpp requires JSON_MultipleHeaders=ON
       -DJSON_BuildTests=OFF -DJSON_MultipleHeaders=ON)
 
+  # We can remove this once we remove -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+  # from EP_COMMON_CMAKE_ARGS.
+  list(REMOVE_ITEM NLOHMANN_JSON_CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
+
   set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/nlohmann/json.hpp)
 
   externalproject_add(nlohmann_json_ep
@@ -4582,16 +4589,11 @@ target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
 function(build_orc)
   message(STATUS "Building Apache ORC from source")
 
-  # Remove this and "patch" in "ci/docker/{debian,ubuntu}-*.dockerfile" once we have a patch for ORC 2.1.1
-  find_program(PATCH patch REQUIRED)
-  set(ORC_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/orc.diff)
-
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
                          URL ${ORC_SOURCE_URL}
-                         URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}"
-                         PATCH_COMMAND ${ORC_PATCH_COMMAND})
+                         URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
     prepare_fetchcontent()
 
     set(CMAKE_UNITY_BUILD FALSE)
@@ -4758,8 +4760,7 @@ function(build_orc)
                                 ${ARROW_ZSTD_LIBZSTD}
                                 ${Snappy_TARGET}
                                 LZ4::lz4
-                                ZLIB::ZLIB
-                        PATCH_COMMAND ${ORC_PATCH_COMMAND})
+                                ZLIB::ZLIB)
     add_library(orc::orc STATIC IMPORTED)
     set_target_properties(orc::orc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
     target_include_directories(orc::orc BEFORE INTERFACE "${ORC_INCLUDE_DIR}")
@@ -5526,6 +5527,12 @@ function(build_azure_sdk)
   set(BUILD_SAMPLES FALSE)
   set(BUILD_TESTING FALSE)
   set(BUILD_WINDOWS_UWP TRUE)
+  # ICU 75.1 or later requires C++17 but Azure SDK for C++ still uses
+  # C++14. So we disable C++ API in ICU.
+  #
+  # We can remove this after
+  # https://github.com/Azure/azure-sdk-for-cpp/pull/6486 is merged.
+  string(APPEND CMAKE_CXX_FLAGS " -DU_SHOW_CPLUSPLUS_API=0")
   set(CMAKE_UNITY_BUILD FALSE)
   set(DISABLE_AZURE_CORE_OPENTELEMETRY TRUE)
   set(ENV{AZURE_SDK_DISABLE_AUTO_VCPKG} TRUE)
@@ -5553,86 +5560,6 @@ if(ARROW_WITH_AZURE_SDK)
   resolve_dependency(Azure REQUIRED_VERSION 1.10.2)
   set(AZURE_SDK_LINK_LIBRARIES Azure::azure-storage-files-datalake
                                Azure::azure-storage-blobs Azure::azure-identity)
-endif()
-# ----------------------------------------------------------------------
-# ucx - communication framework for modern, high-bandwidth and low-latency networks
-
-macro(build_ucx)
-  message(STATUS "Building UCX from source")
-
-  set(UCX_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/ucx_ep-install")
-
-  # link with static ucx libraries leads to test failures, use shared libs instead
-  set(UCX_SHARED_LIB_UCP "${UCX_PREFIX}/lib/libucp${CMAKE_SHARED_LIBRARY_SUFFIX}")
-  set(UCX_SHARED_LIB_UCT "${UCX_PREFIX}/lib/libuct${CMAKE_SHARED_LIBRARY_SUFFIX}")
-  set(UCX_SHARED_LIB_UCS "${UCX_PREFIX}/lib/libucs${CMAKE_SHARED_LIBRARY_SUFFIX}")
-  set(UCX_SHARED_LIB_UCM "${UCX_PREFIX}/lib/libucm${CMAKE_SHARED_LIBRARY_SUFFIX}")
-
-  set(UCX_CONFIGURE_COMMAND ./autogen.sh COMMAND ./configure)
-  list(APPEND
-       UCX_CONFIGURE_COMMAND
-       "CC=${CMAKE_C_COMPILER}"
-       "CXX=${CMAKE_CXX_COMPILER}"
-       "CFLAGS=${EP_C_FLAGS}"
-       "CXXFLAGS=${EP_CXX_FLAGS}"
-       "--prefix=${UCX_PREFIX}"
-       "--enable-mt"
-       "--enable-shared")
-  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
-    list(APPEND
-         UCX_CONFIGURE_COMMAND
-         "--enable-profiling"
-         "--enable-frame-pointer"
-         "--enable-stats"
-         "--enable-fault-injection"
-         "--enable-debug-data")
-  else()
-    list(APPEND
-         UCX_CONFIGURE_COMMAND
-         "--disable-logging"
-         "--disable-debug"
-         "--disable-assertions"
-         "--disable-params-check")
-  endif()
-  set(UCX_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
-  externalproject_add(ucx_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${ARROW_UCX_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_UCX_BUILD_SHA256_CHECKSUM}"
-                      CONFIGURE_COMMAND ${UCX_CONFIGURE_COMMAND}
-                      BUILD_IN_SOURCE 1
-                      BUILD_COMMAND ${UCX_BUILD_COMMAND}
-                      BUILD_BYPRODUCTS "${UCX_SHARED_LIB_UCP}" "${UCX_SHARED_LIB_UCT}"
-                                       "${UCX_SHARED_LIB_UCS}" "${UCX_SHARED_LIB_UCM}"
-                      INSTALL_COMMAND ${MAKE} install)
-
-  # ucx cmake module sets UCX_INCLUDE_DIRS
-  set(UCX_INCLUDE_DIRS "${UCX_PREFIX}/include")
-  file(MAKE_DIRECTORY "${UCX_INCLUDE_DIRS}")
-
-  add_library(ucx::ucp SHARED IMPORTED)
-  set_target_properties(ucx::ucp PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCP}")
-  add_library(ucx::uct SHARED IMPORTED)
-  set_target_properties(ucx::uct PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCT}")
-  add_library(ucx::ucs SHARED IMPORTED)
-  set_target_properties(ucx::ucs PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCS}")
-
-  add_dependencies(ucx::ucp ucx_ep)
-  add_dependencies(ucx::uct ucx_ep)
-  add_dependencies(ucx::ucs ucx_ep)
-endmacro()
-
-if(ARROW_WITH_UCX)
-  resolve_dependency(ucx
-                     ARROW_CMAKE_PACKAGE_NAME
-                     ArrowFlight
-                     ARROW_PC_PACKAGE_NAME
-                     arrow-flight
-                     PC_PACKAGE_NAMES
-                     ucx)
-  add_library(ucx::ucx INTERFACE IMPORTED)
-  target_include_directories(ucx::ucx INTERFACE "${UCX_INCLUDE_DIRS}")
-  target_link_libraries(ucx::ucx INTERFACE ucx::ucp ucx::uct ucx::ucs)
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")

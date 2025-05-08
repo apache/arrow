@@ -54,20 +54,17 @@ jobs:
         dotnet: ['8.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v4.3.0
+        uses: actions/setup-dotnet@v4.3.1
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Setup Python
-        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: 3
       - name: Checkout Arrow
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install Source Link
-        shell: bash
-        run: dotnet tool install --global sourcelink
       - name: Build
         shell: bash
         run: ci/scripts/csharp_build.sh $(pwd)
@@ -86,15 +83,13 @@ jobs:
         dotnet: ['8.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v4.3.0
+        uses: actions/setup-dotnet@v4.3.1
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install Source Link
-        run: dotnet tool install --global sourcelink
       - name: Build
         shell: bash
         run: ci/scripts/csharp_build.sh $(pwd)
@@ -113,20 +108,17 @@ jobs:
         dotnet: ['8.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v4.3.0
+        uses: actions/setup-dotnet@v4.3.1
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Setup Python
-        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: 3.12
       - name: Checkout Arrow
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install Source Link
-        shell: bash
-        run: dotnet tool install --global sourcelink
       - name: Build
         shell: bash
         run: ci/scripts/csharp_build.sh $(pwd)
@@ -182,7 +174,7 @@ jobs:
             "s/^    <Version>.+<\/Version>/    <Version>${semver}<\/Version>/" \
             csharp/Directory.Build.props
       - name: Setup Python
-        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: 3
       - name: Setup Archery
@@ -199,7 +191,7 @@ jobs:
             dev/release/utils-generate-checksum.sh "${artifact}"
           done
       - name: Upload
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: nuget
           path: |

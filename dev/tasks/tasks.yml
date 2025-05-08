@@ -24,9 +24,6 @@ groups:
   conan:
     - conan-*
 
-  conda:
-    - conda-*
-
   wheel:
     - wheel-*
     - python-sdist
@@ -122,15 +119,6 @@ groups:
   verify-rc:
     - verify-rc-*
 
-  verify-rc-binaries:
-    - verify-rc-binaries-*
-
-  verify-rc-jars:
-    - verify-rc-binaries-jars-*
-
-  verify-rc-wheels:
-    - verify-rc-binaries-wheels-*
-
   verify-rc-source:
     - verify-rc-source-*
 
@@ -150,7 +138,6 @@ groups:
     - ubuntu-*
     - centos-*
     - conan-*
-    - conda-*
     - homebrew-cpp
     - test-*
     - example-*
@@ -169,17 +156,6 @@ groups:
     - debian-*
     - ubuntu-*
     - centos-*
-    - conda-*
-    # Can be removed after conda recipes are synced: #42114
-    - ~conda-linux-aarch64-cuda-py3
-    - ~conda-linux-x64-cpu-py3
-    - ~conda-win-x64-cpu-py3
-    - ~conda-win-x64-cuda-py3
-    - ~conda-linux-ppc64le-cuda-py3
-    - ~conda-linux-aarch64-cpu-py3
-    - ~conda-linux-ppc64le-cpu-py3
-    - ~conda-linux-x64-cuda-py3
-    - ~conda-osx-arm64-cpu-py3
     - conan-*
     - homebrew-cpp
     - wheel-*
@@ -236,152 +212,7 @@ tasks:
       image: minimal-{{ kind }}
 {% endfor %}
 
-  ############################# Conda Linux (x64) #############################
-
-  conda-clean:
-    ci: azure
-    template: conda-recipes/azure.clean.yml
-
-  # Important notes on the conda setup here:
-  #
-  # * On conda-forge the `pyarrow` and `arrow-cpp` packages are built in
-  #   the same feedstock as the dependency matrix is the same for them as
-  #   Python and the OS are the main dimension.
-  # * The files in `dev/tasks/conda-recipes/.ci_support/` are automatically
-  #   generated and to be synced regularly from the feedstock. We have no way
-  #   yet to generate them inside the arrow repository automatically.
-  # * We no longer run the arrow-r jobs as the feedstock is very stable and
-  #   the complexity is mostly covered by arrow-cpp.
-
-  conda-linux-x64-cpu-py3:
-    ci: azure
-    template: conda-recipes/azure.linux.yml
-    params:
-      config: linux_64_cuda_compiler_versionNone
-    artifacts:
-      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
-
-  conda-linux-x64-cuda-py3:
-    ci: azure
-    template: conda-recipes/azure.linux.yml
-    params:
-      config: linux_64_cuda_compiler_version11.2
-    artifacts:
-      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cuda.conda
-      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.conda
-      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cuda.conda
-      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
-      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
-
-  ########################### Conda Linux (aarch64) ###########################
-
-  conda-linux-aarch64-cpu-py3:
-    ci: azure
-    template: conda-recipes/azure.linux.yml
-    params:
-      config: linux_aarch64_cuda_compiler_versionNone
-    artifacts:
-      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
-
-  conda-linux-aarch64-cuda-py3:
-    ci: azure
-    template: conda-recipes/azure.linux.yml
-    params:
-      config: linux_aarch64_cuda_compiler_version11.2
-    artifacts:
-      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cuda.conda
-      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.conda
-      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cuda.conda
-      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
-      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
-
-  ########################### Conda Linux (ppc64le) ###########################
-
-  conda-linux-ppc64le-cpu-py3:
-    ci: azure
-    template: conda-recipes/azure.linux.yml
-    params:
-      config: linux_ppc64le_cuda_compiler_versionNone
-    artifacts:
-      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
-
-  conda-linux-ppc64le-cuda-py3:
-    ci: azure
-    template: conda-recipes/azure.linux.yml
-    params:
-      config: linux_ppc64le_cuda_compiler_version11.2
-    artifacts:
-      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cuda.conda
-      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.conda
-      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cuda.conda
-      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
-      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
-
-  ############################## Conda OSX (x64) ##############################
-
-  conda-osx-x64-cpu-py3:
-    ci: azure
-    template: conda-recipes/azure.osx.yml
-    params:
-      config: osx_64_
-    artifacts:
-      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
-
-  ############################# Conda OSX (arm64) #############################
-
-  conda-osx-arm64-cpu-py3:
-    ci: azure
-    template: conda-recipes/azure.osx.yml
-    params:
-      config: osx_arm64_
-    artifacts:
-      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
-
-  ############################## Conda Windows ################################
-
-  conda-win-x64-cpu-py3:
-    ci: azure
-    template: conda-recipes/azure.win.yml
-    params:
-      config: win_64_cuda_compiler_versionNone
-    artifacts:
-      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
-      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
-
-  conda-win-x64-cuda-py3:
-    ci: azure
-    template: conda-recipes/azure.win.yml
-    params:
-      config: win_64_cuda_compiler_version11.2
-    artifacts:
-      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cuda.conda
-      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.conda
-      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cuda.conda
-      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
-      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
+  ########################### Python Wheels ############################
 
 {% for python_version, python_tag, abi_tag in [("3.9", "cp39", "cp39"),
                                                ("3.10", "cp310", "cp310"),
@@ -392,19 +223,21 @@ tasks:
 
 {############################## Wheel Linux ##################################}
 
-
-{% for arch, manylinux_version, platform_tag in [("amd64", "2014", "manylinux_2_17_x86_64.manylinux2014_x86_64"),
-                                                 ("amd64", "2-28", "manylinux_2_28_x86_64"),
-                                                 ("arm64", "2014", "manylinux_2_17_aarch64.manylinux2014_aarch64"),
-                                                 ("arm64", "2-28", "manylinux_2_28_aarch64")] %}
-  wheel-manylinux-{{ manylinux_version }}-{{ python_tag }}-{{ abi_tag }}-{{ arch }}:
+{% for wheel_kind, arch, version, platform_tag in [("manylinux", "amd64", "2014", "manylinux_2_17_x86_64.manylinux2014_x86_64"),
+                                                   ("manylinux", "amd64", "2-28", "manylinux_2_28_x86_64"),
+                                                   ("manylinux", "arm64", "2014", "manylinux_2_17_aarch64.manylinux2014_aarch64"),
+                                                   ("manylinux", "arm64", "2-28", "manylinux_2_28_aarch64"),
+                                                   ("musllinux", "amd64", "1-2", "musllinux_1_2_x86_64"),
+                                                   ("musllinux", "arm64", "1-2", "musllinux_1_2_aarch64")] %}
+  wheel-{{ wheel_kind }}-{{ version }}-{{ python_tag }}-{{ abi_tag }}-{{ arch }}:
     ci: github
     template: python-wheels/github.linux.yml
     params:
       arch: "{{ arch }}"
-      python_version: "{{ python_version }}"
+      linux_wheel_kind: "{{ wheel_kind }}"
+      linux_wheel_version: "{{ version }}"
       python_abi_tag: "{{ abi_tag }}"
-      manylinux_version: "{{ manylinux_version }}"
+      python_version: "{{ python_version }}"
       wheel_platform_tag: "{{ platform_tag }}"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
@@ -700,12 +533,12 @@ tasks:
       - r-lib__libarrow__bin__darwin-arm64-openssl-3.0__arrow-{no_rc_r_version}\.zip
       - r-lib__libarrow__bin__darwin-x86_64-openssl-1.1__arrow-{no_rc_r_version}\.zip
       - r-lib__libarrow__bin__darwin-x86_64-openssl-3.0__arrow-{no_rc_r_version}\.zip
+      - r-pkg__bin__windows__contrib__4.5__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.4__arrow_{no_rc_r_version}\.zip
-      - r-pkg__bin__windows__contrib__4.3__arrow_{no_rc_r_version}\.zip
+      - r-pkg__bin__macosx__big-sur-x86_64__contrib__4.5__arrow_{no_rc_r_version}\.tgz
       - r-pkg__bin__macosx__big-sur-x86_64__contrib__4.4__arrow_{no_rc_r_version}\.tgz
-      - r-pkg__bin__macosx__big-sur-x86_64__contrib__4.3__arrow_{no_rc_r_version}\.tgz
+      - r-pkg__bin__macosx__big-sur-arm64__contrib__4.5__arrow_{no_rc_r_version}\.tgz
       - r-pkg__bin__macosx__big-sur-arm64__contrib__4.4__arrow_{no_rc_r_version}\.tgz
-      - r-pkg__bin__macosx__big-sur-arm64__contrib__4.3__arrow_{no_rc_r_version}\.tgz
       - r-pkg__src__contrib__arrow_{no_rc_r_version}\.tar\.gz
 
 {% for which in ["strong", "most"] %}
@@ -747,28 +580,7 @@ tasks:
       distro: {{ distribution }}
   {% endfor %}
 
-  {% for target in ["jars", "wheels"] %}
-  verify-rc-binaries-{{ target }}-linux-{{ distribution }}-{{ version }}-amd64:
-    ci: github
-    template: verify-rc/github.linux.amd64.docker.yml
-    params:
-      target: {{ target }}
-      distro: {{ distribution }}
-  {% endfor %}
-
 {% endfor %}
-
-  # Separated these tasks from the loop above due to:
-  # - 'binary' verification is not platform dependent
-  # - 'yum' and 'apt' requires docker so we need to run the verification script
-  #   directly on the host
-  {% for target in ["binary", "yum", "apt"] %}
-  verify-rc-binaries-{{ target }}-linux-amd64:
-    ci: github
-    template: verify-rc/github.linux.amd64.yml
-    params:
-      target: {{ target }}
-  {% endfor %}
 
   ######################## macOS verification ################################
 
@@ -814,26 +626,6 @@ tasks:
       github_runner: "macos-14"
   {% endfor %}
 
-  {% for macos_version in ["13"] %}
-  verify-rc-binaries-wheels-macos-{{ macos_version }}-amd64:
-    ci: github
-    template: verify-rc/github.macos.yml
-    params:
-      github_runner: "macos-{{ macos_version }}"
-      target: "wheels"
-  {% endfor %}
-
-  {% for macos_version in ["14"] %}
-  verify-rc-binaries-wheels-macos-{{ macos_version }}-arm64:
-    ci: github
-    template: verify-rc/github.macos.yml
-    params:
-      env:
-        PYTEST_ADDOPTS: "-k 'not test_cancellation'"
-      github_runner: "macos-{{ macos_version }}"
-      target: "wheels"
-  {% endfor %}
-
   ######################## Windows verification ##############################
 
   verify-rc-source-windows:
@@ -843,14 +635,6 @@ tasks:
       env:
         PYARROW_TEST_GDB: "OFF"
       script: "verify-release-candidate.bat"
-
-  verify-rc-binaries-wheels-windows:
-    ci: github
-    template: verify-rc/github.win.yml
-    params:
-      env:
-        PYARROW_TEST_GDB: "OFF"
-      script: "verify-release-candidate-wheels.bat"
 
 ############################## Docker tests ##################################
 
@@ -873,7 +657,10 @@ tasks:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      flags: -e ARROW_USE_MESON=ON
+      # ARROW_USE_CCACHE=OFF is for using sccache
+      flags: >-
+        -e ARROW_USE_CCACHE=OFF
+        -e ARROW_USE_MESON=ON
       image: conda-cpp
 
   test-conda-cpp-valgrind:
@@ -1303,13 +1090,25 @@ tasks:
       image: ubuntu-r-sanitizer
       timeout: 120
 
-  test-r-clang-sanitizer:
+  test-r-clang-asan:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         R_PRUNE_DEPS: TRUE
-      image: r-clang-sanitizer
+      image: r-clang-asan
+
+  test-r-clang-ubsan:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        R_PRUNE_DEPS: TRUE
+      image: r-clang-ubsan
+
+  test-r-m1-san:
+    ci: github
+    template: r/github.macos.m1san.yml
 
   # be sure to update binary-task.rb when upgrading Debian
   test-debian-12-docs:

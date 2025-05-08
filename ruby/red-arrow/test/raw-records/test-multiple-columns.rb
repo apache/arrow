@@ -28,7 +28,7 @@ module RawRecordsMultipleColumnsTests
                      {name: :column2, type: :string},
                    ],
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
   end
 
   def test_4_elements
@@ -44,7 +44,38 @@ module RawRecordsMultipleColumnsTests
                      {name: :column3, type: :int64},
                    ],
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(records, actual_records(target))
+  end
+end
+
+class EachRawRecordRecordBatchMultipleColumnsTest < Test::Unit::TestCase
+  include RawRecordsMultipleColumnsTests
+
+  def build(schema, records)
+    Arrow::RecordBatch.new(schema, records)
+  end
+
+  def actual_records(target)
+    target.each_raw_record.to_a
+  end
+end
+
+class EachRawRecordTableMultipleColumnsTest < Test::Unit::TestCase
+  include RawRecordsMultipleColumnsTests
+
+  def build(schema, records)
+    record_batch = Arrow::RecordBatch.new(schema, records)
+    record_batches = [
+      record_batch.slice(0, 2),
+      record_batch.slice(2, 0),
+      record_batch.slice(2, record_batch.length - 2),
+    ]
+
+    Arrow::Table.new(schema, record_batches)
+  end
+
+  def actual_records(target)
+    target.each_raw_record.to_a
   end
 end
 
@@ -54,6 +85,10 @@ class RawRecordsRecordBatchMultipleColumnsTest < Test::Unit::TestCase
   def build(schema, records)
     Arrow::RecordBatch.new(schema, records)
   end
+
+  def actual_records(target)
+    target.raw_records
+  end
 end
 
 class RawRecordsTableMultipleColumnsTest < Test::Unit::TestCase
@@ -61,5 +96,9 @@ class RawRecordsTableMultipleColumnsTest < Test::Unit::TestCase
 
   def build(schema, records)
     Arrow::Table.new(schema, records)
+  end
+
+  def actual_records(target)
+    target.raw_records
   end
 end

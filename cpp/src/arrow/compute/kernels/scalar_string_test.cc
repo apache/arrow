@@ -315,13 +315,26 @@ TYPED_TEST(TestBinaryKernels, NonUtf8Regex) {
                      this->MakeArray({"bazz", "this bazz that \xfc\x40"}), &options);
   }
   {
-    ExtractRegexOptions options("(?P<letter>[\\xfc])(?P<digit>\\d)");
-    auto null_bitmap = std::make_shared<Buffer>("0");
-    auto output = StructArray::Make(
-        {this->MakeArray({"\xfc", "1"}), this->MakeArray({"\xfc", "2"})},
-        {field("letter", this->type()), field("digit", this->type())}, null_bitmap);
-    this->CheckUnary("extract_regex", this->MakeArray({"foo\xfc 1bar", "\x02\xfc\x40"}),
-                     std::static_pointer_cast<Array>(*output), &options);
+    ExtractRegexOptions options("(?P<letter>[\xfc])(?P<digit>\\d+)");
+    ASSERT_OK_AND_ASSIGN(
+        auto output,
+        StructArray::Make(
+            {this->MakeArray({"\xfc", "\xfc"}), this->MakeArray({"14", "2"})},
+            {field("letter", this->type()), field("digit", this->type())}));
+    this->CheckUnary("extract_regex",
+                     this->MakeArray({"foo\xfc\x31\x34 bar", "\x02\xfc\x32"}), output,
+                     &options);
+  }
+  {
+    ExtractRegexSpanOptions options("(?P<letter>[\xfc])(?P<digit>\\d+)");
+    auto offset_type = is_binary_like(this->type()->id()) ? int32() : int64();
+    auto out_type = struct_({field("letter", fixed_size_list(offset_type, 2)),
+                             field("digit", fixed_size_list(offset_type, 2))});
+    this->CheckUnary("extract_regex_span",
+                     this->MakeArray({"foo\xfc\x31\x34 bar", "\x02\xfc\x32"}), out_type,
+                     R"([{"letter": [3, 1], "digit": [4, 2]},
+                         {"letter": [1, 1], "digit": [2, 1]}])",
+                     &options);
   }
 }
 
@@ -371,16 +384,29 @@ TYPED_TEST(TestBinaryKernels, NonUtf8WithNullRegex) {
                      this->type(), R"(["bazz"])", &options);
   }
   {
-    ExtractRegexOptions options("(?P<null>[\\x00])(?P<digit>\\d)");
-    auto null_bitmap = std::make_shared<Buffer>("0");
-    auto output = StructArray::Make(
-        {this->template MakeArray<std::string>({{"\x00", 1}, {"1", 1}}),
-         this->template MakeArray<std::string>({{"\x00", 1}, {"2", 1}})},
-        {field("null", this->type()), field("digit", this->type())}, null_bitmap);
-    this->CheckUnary(
-        "extract_regex",
-        this->template MakeArray<std::string>({{"foo\x00 1bar", 9}, {"\x02\x00\x40", 3}}),
-        std::static_pointer_cast<Array>(*output), &options);
+    ExtractRegexOptions options(std::string("(?P<null>[\x00])(?P<digit>\\d+)", 27));
+    ASSERT_OK_AND_ASSIGN(
+        auto output,
+        StructArray::Make(
+            {this->template MakeArray<std::string>({{"\x00", 1}, {"\x00", 1}}),
+             this->template MakeArray<std::string>({"14", "2"})},
+            {field("null", this->type()), field("digit", this->type())}));
+    this->CheckUnary("extract_regex",
+                     this->template MakeArray<std::string>(
+                         {{"foo\x00\x31\x34 bar", 10}, {"\x02\x00\x32", 3}}),
+                     output, &options);
+  }
+  {
+    ExtractRegexSpanOptions options(std::string("(?P<null>[\x00])(?P<digit>\\d+)", 27));
+    auto offset_type = is_binary_like(this->type()->id()) ? int32() : int64();
+    auto out_type = struct_({field("null", fixed_size_list(offset_type, 2)),
+                             field("digit", fixed_size_list(offset_type, 2))});
+    this->CheckUnary("extract_regex_span",
+                     this->template MakeArray<std::string>(
+                         {{"foo\x00\x31\x34 bar", 10}, {"\x02\x00\x32", 3}}),
+                     out_type, R"([{"null": [3, 1], "digit": [4, 2]},
+                                   {"null": [1, 1], "digit": [2, 1]}])",
+                     &options);
   }
   {
     ReplaceSliceOptions options(1, 2, std::string("\x00\x40", 2));
@@ -1959,6 +1985,62 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegex) {
                    &options);
 }
 
+TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpan) {
+  ExtractRegexSpanOptions options{"(?P<letter>[ab]+)(?P<digit>\\d+)"};
+  auto type_fixe_size_list = is_binary_like(this->type()->id()) ? int32() : int64();
+  auto out_type = struct_({field("letter", fixed_size_list(type_fixe_size_list, 2)),
+                           field("digit", fixed_size_list(type_fixe_size_list, 2))});
+  this->CheckUnary("extract_regex_span", R"([])", out_type, R"([])", &options);
+  this->CheckUnary("extract_regex_span", R"([ null,"123ab","cd123ab","cd123abef"])",
+                   out_type, R"([null,null,null,null])", &options);
+  this->CheckUnary(
+      "extract_regex_span",
+      R"(["a1", "b2", "c3", null,"123ab","abb12","abc13","cedbb15","cedaabb125efg"])",
+      out_type,
+      R"([{"letter":[0,1], "digit":[1,1]},
+                    {"letter":[0,1], "digit":[1,1]},
+                    null,
+                    null,
+                    null,
+                    {"letter":[0,3], "digit":[3,2]},
+                    null,
+                    {"letter":[3,2], "digit":[5,2]},
+                    {"letter":[3,4], "digit":[7,3]}])",
+      &options);
+  this->CheckUnary("extract_regex_span", R"([ "a3","b2","cdaa123","cdab123ef"])",
+                   out_type,
+                   R"([{"letter":[0,1], "digit":[1,1]},
+                                  {"letter":[0,1], "digit":[1,1]},
+                                  {"letter":[2,2], "digit":[4,3]},
+                                  {"letter":[2,2], "digit":[4,3]}])",
+                   &options);
+}
+
+TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpanCaptureOption) {
+  ExtractRegexSpanOptions options{"(?P<foo>foo)?(?P<digit>\\d+)?"};
+  auto type_fixe_size_list = is_binary_like(this->type()->id()) ? int32() : int64();
+  auto out_type = struct_({field("foo", fixed_size_list(type_fixe_size_list, 2)),
+                           field("digit", fixed_size_list(type_fixe_size_list, 2))});
+  this->CheckUnary("extract_regex_span", R"([])", out_type, R"([])", &options);
+  this->CheckUnary("extract_regex_span", R"(["foo","foo123","abcfoo123","abc",null])",
+                   out_type,
+                   R"([{"foo":[0,3],"digit":null},
+                                  {"foo":[0,3],"digit":[3,3]},
+                                  {"foo":null,"digit":null},
+                                  {"foo":null,"digit":null},
+                                  null])",
+                   &options);
+  options = ExtractRegexSpanOptions{"(?P<foo>foo)(?P<digit>\\d+)?"};
+  this->CheckUnary("extract_regex_span", R"(["foo123","foo","123","abc","abcfoo"])",
+                   out_type,
+                   R"([{"foo":[0,3],"digit":[3,3]},
+                                  {"foo":[0,3],"digit":null},
+                                  null,
+                                  null,
+                                  {"foo":[3,3],"digit":null}])",
+                   &options);
+}
+
 TYPED_TEST(TestBaseBinaryKernels, ExtractRegexNoCapture) {
   // XXX Should we accept this or is it a user error?
   ExtractRegexOptions options{"foo"};
@@ -1967,9 +2049,22 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegexNoCapture) {
                    R"([{}, null, null])", &options);
 }
 
+TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpanNoCapture) {
+  // XXX Should we accept this or is it a user error?
+  ExtractRegexSpanOptions options{"foo"};
+  auto type = struct_({});
+  this->CheckUnary("extract_regex_span", R"(["oofoo", "bar", null])", type,
+                   R"([{}, null, null])", &options);
+}
+
 TYPED_TEST(TestBaseBinaryKernels, ExtractRegexNoOptions) {
   Datum input = ArrayFromJSON(this->type(), "[]");
   ASSERT_RAISES(Invalid, CallFunction("extract_regex", {input}));
+}
+
+TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpanNoOptions) {
+  Datum input = ArrayFromJSON(this->type(), "[]");
+  ASSERT_RAISES(Invalid, CallFunction("extract_regex_span", {input}));
 }
 
 TYPED_TEST(TestBaseBinaryKernels, ExtractRegexInvalid) {
@@ -1983,6 +2078,18 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegexInvalid) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("Regular expression contains unnamed groups"),
       CallFunction("extract_regex", {input}, &options));
+}
+
+TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpanInvalid) {
+  Datum input = ArrayFromJSON(this->type(), "[]");
+  ExtractRegexSpanOptions options{"invalid["};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Invalid regular expression: missing ]"),
+      CallFunction("extract_regex_span", {input}, &options));
+  options = ExtractRegexSpanOptions{"(.)"};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Regular expression contains unnamed groups"),
+      CallFunction("extract_regex_span", {input}, &options));
 }
 
 #endif

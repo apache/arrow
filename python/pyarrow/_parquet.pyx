@@ -52,6 +52,9 @@ _MAX_ROW_GROUP_SIZE = 64*1024*1024
 cdef class Statistics(_Weakrefable):
     """Statistics for a single column in a single row group."""
 
+    def __init__(self):
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
+
     def __cinit__(self):
         pass
 
@@ -217,6 +220,10 @@ cdef class Statistics(_Weakrefable):
 
 cdef class ParquetLogicalType(_Weakrefable):
     """Logical type of parquet type."""
+
+    def __init__(self):
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
+
     cdef:
         shared_ptr[const CParquetLogicalType] type
 
@@ -253,7 +260,7 @@ cdef class ParquetLogicalType(_Weakrefable):
 
 
 cdef wrap_logical_type(const shared_ptr[const CParquetLogicalType]& type):
-    cdef ParquetLogicalType out = ParquetLogicalType()
+    cdef ParquetLogicalType out = ParquetLogicalType.__new__(ParquetLogicalType)
     out.init(type)
     return out
 
@@ -312,14 +319,142 @@ cdef _box_flba(ParquetFLBA val, uint32_t len):
     return cp.PyBytes_FromStringAndSize(<char*> val.ptr, <Py_ssize_t> len)
 
 
+cdef class GeoStatistics(_Weakrefable):
+    """Statistics for columns with geospatial data types (experimental)
+
+    These statistics provide a bounding box and list of geometry types for
+    geospatial columns (GEOMETRY or GEOGRAPHY). All components may be None
+    if a file does not provide information about a particular component.
+    """
+
+    def __init__(self):
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
+
+    def __cinit__(self):
+        pass
+
+    def __repr__(self):
+        return f"""{object.__repr__(self)}
+  geospatial_types: {self.geospatial_types}
+  xmin: {self.xmin}, xmax: {self.xmax}
+  ymin: {self.ymin}, ymax: {self.ymax}
+  zmin: {self.zmin}, zmax: {self.zmax}
+  mmin: {self.mmin}, mmax: {self.mmax}"""
+
+    def to_dict(self):
+        """Dictionary summary of these statistics"""
+        out = {
+            "geospatial_types": self.geospatial_types,
+            "xmin": self.xmin,
+            "xmax": self.xmax,
+            "ymin": self.ymin,
+            "ymax": self.ymax,
+            "zmin": self.zmin,
+            "zmax": self.zmax,
+            "mmin": self.mmin,
+            "mmax": self.mmax
+        }
+
+        return out
+
+    @property
+    def geospatial_types(self):
+        """Unique geometry types
+
+        Contains an integer code for each geometry type code encountered in the
+        geometries represented by these statistics. The geometry type codes are
+        ISO WKB geometry type codes returned in sorted order without duplicates.
+
+        This property may be None if geospatial types are not available.
+        """
+        cdef optional[vector[int32_t]] maybe_geometry_types = \
+            self.statistics.get().geometry_types()
+        if not maybe_geometry_types.has_value():
+            return None
+
+        return list(maybe_geometry_types.value())
+
+    @property
+    def xmin(self):
+        """Minimum X value or None if not available
+
+        Note that Parquet permits "wraparound" bounds in the X direction only
+        to more compactly represent bounds for geometries with components on
+        both sides of the antimeridian. This case is denoted by xmin > xmax.
+        """
+        return self.statistics.get().lower_bound()[0] if self._x_valid() else None
+
+    @property
+    def xmax(self):
+        """Maximum X value or None if not available
+
+        Note that Parquet permits "wraparound" bounds in the X direction only
+        (see xmin).
+        """
+        return self.statistics.get().upper_bound()[0] if self._x_valid() else None
+
+    @property
+    def ymin(self):
+        """Minimum Y value or None if not available"""
+        return self.statistics.get().lower_bound()[1] if self._y_valid() else None
+
+    @property
+    def ymax(self):
+        """Maximum Y value or None if not available"""
+        return self.statistics.get().upper_bound()[1] if self._y_valid() else None
+
+    @property
+    def zmin(self):
+        """Minimum Z value or None if not available"""
+        return self.statistics.get().lower_bound()[2] if self._z_valid() else None
+
+    @property
+    def zmax(self):
+        """Maximum Z value or None if not available"""
+        return self.statistics.get().upper_bound()[2] if self._z_valid() else None
+
+    @property
+    def mmin(self):
+        """Minimum M value or None if not available"""
+        return self.statistics.get().lower_bound()[3] if self._m_valid() else None
+
+    @property
+    def mmax(self):
+        """Maximum M value or None if not available"""
+        return self.statistics.get().upper_bound()[3] if self._m_valid() else None
+
+    # Helpers to calculate the availability of a given dimension. For statistics
+    # read from a file, dimension_empty should always be false because there is
+    # no way to represent an empty range in Thrift; however, we check to be safe.
+    def _x_valid(self):
+        return self.statistics.get().dimension_valid()[0] \
+            and not self.statistics.get().dimension_empty()[0]
+
+    def _y_valid(self):
+        return self.statistics.get().dimension_valid()[1] \
+            and not self.statistics.get().dimension_empty()[1]
+
+    def _z_valid(self):
+        return self.statistics.get().dimension_valid()[2] \
+            and not self.statistics.get().dimension_empty()[2]
+
+    def _m_valid(self):
+        return self.statistics.get().dimension_valid()[3] \
+            and not self.statistics.get().dimension_empty()[3]
+
+
 cdef class ColumnChunkMetaData(_Weakrefable):
     """Column metadata for a single row group."""
+
+    def __init__(self):
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
     def __cinit__(self):
         pass
 
     def __repr__(self):
         statistics = indent(repr(self.statistics), 4 * ' ')
+        geo_statistics = indent(repr(self.geo_statistics), 4 * ' ')
         return """{0}
   file_offset: {1}
   file_path: {2}
@@ -329,13 +464,15 @@ cdef class ColumnChunkMetaData(_Weakrefable):
   is_stats_set: {6}
   statistics:
 {7}
-  compression: {8}
-  encodings: {9}
-  has_dictionary_page: {10}
-  dictionary_page_offset: {11}
-  data_page_offset: {12}
-  total_compressed_size: {13}
-  total_uncompressed_size: {14}""".format(object.__repr__(self),
+  geo_statistics:
+{8}
+  compression: {9}
+  encodings: {10}
+  has_dictionary_page: {11}
+  dictionary_page_offset: {12}
+  data_page_offset: {13}
+  total_compressed_size: {14}
+  total_uncompressed_size: {15}""".format(object.__repr__(self),
                                           self.file_offset,
                                           self.file_path,
                                           self.physical_type,
@@ -343,6 +480,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
                                           self.path_in_schema,
                                           self.is_stats_set,
                                           statistics,
+                                          geo_statistics,
                                           self.compression,
                                           self.encodings,
                                           self.has_dictionary_page,
@@ -361,6 +499,11 @@ cdef class ColumnChunkMetaData(_Weakrefable):
             Dictionary with a key for each attribute of this class.
         """
         statistics = self.statistics.to_dict() if self.is_stats_set else None
+        if self.is_geo_stats_set:
+            geo_statistics = self.geo_statistics.to_dict()
+        else:
+            geo_statistics = None
+
         d = dict(
             file_offset=self.file_offset,
             file_path=self.file_path,
@@ -369,6 +512,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
             path_in_schema=self.path_in_schema,
             is_stats_set=self.is_stats_set,
             statistics=statistics,
+            geo_statistics=geo_statistics,
             compression=self.compression,
             encodings=self.encodings,
             has_dictionary_page=self.has_dictionary_page,
@@ -436,9 +580,24 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         """Statistics for column chunk (:class:`Statistics`)."""
         if not self.metadata.is_stats_set():
             return None
-        statistics = Statistics()
+        cdef Statistics statistics = Statistics.__new__(Statistics)
         statistics.init(self.metadata.statistics(), self)
         return statistics
+
+    @property
+    def is_geo_stats_set(self):
+        """Whether or not geometry statistics are present in metadata (bool)."""
+        return self.metadata.is_geo_stats_set()
+
+    @property
+    def geo_statistics(self):
+        """Statistics for column chunk (:class:`GeoStatistics`)."""
+        c_geo_statistics = self.metadata.geo_statistics()
+        if not c_geo_statistics or not c_geo_statistics.get().is_valid():
+            return None
+        cdef GeoStatistics geo_statistics = GeoStatistics.__new__(GeoStatistics)
+        geo_statistics.init(c_geo_statistics, self)
+        return geo_statistics
 
     @property
     def compression(self):
@@ -739,13 +898,11 @@ cdef class SortingColumn:
 cdef class RowGroupMetaData(_Weakrefable):
     """Metadata for a single row group."""
 
-    def __cinit__(self, FileMetaData parent, int index):
-        if index < 0 or index >= parent.num_row_groups:
-            raise IndexError('{0} out of bounds'.format(index))
-        self.up_metadata = parent._metadata.RowGroup(index)
-        self.metadata = self.up_metadata.get()
-        self.parent = parent
-        self.index = index
+    def __init__(self):
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
+
+    def __cinit__(self):
+        pass
 
     def __reduce__(self):
         return RowGroupMetaData, (self.parent, self.index)
@@ -787,7 +944,7 @@ cdef class RowGroupMetaData(_Weakrefable):
         """
         if i < 0 or i >= self.num_columns:
             raise IndexError('{0} out of bounds'.format(i))
-        chunk = ColumnChunkMetaData()
+        cdef ColumnChunkMetaData chunk = ColumnChunkMetaData.__new__(ColumnChunkMetaData)
         chunk.init(self, i)
         return chunk
 
@@ -865,6 +1022,9 @@ def _reconstruct_filemetadata(Buffer serialized):
 
 cdef class FileMetaData(_Weakrefable):
     """Parquet metadata for a single file."""
+
+    def __init__(self):
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
     def __cinit__(self):
         pass
@@ -980,8 +1140,6 @@ cdef class FileMetaData(_Weakrefable):
         cdef ParquetVersion version = self._metadata.version()
         if version == ParquetVersion_V1:
             return '1.0'
-        elif version == ParquetVersion_V2_0:
-            return 'pseudo-2.0'
         elif version == ParquetVersion_V2_4:
             return '2.4'
         elif version == ParquetVersion_V2_6:
@@ -1027,7 +1185,9 @@ cdef class FileMetaData(_Weakrefable):
         -------
         row_group_metadata : RowGroupMetaData
         """
-        return RowGroupMetaData(self, i)
+        cdef RowGroupMetaData row_group = RowGroupMetaData.__new__(RowGroupMetaData)
+        row_group.init(self, i)
+        return row_group
 
     def set_file_path(self, path):
         """
@@ -1441,7 +1601,8 @@ cdef class ParquetReader(_Weakrefable):
              FileDecryptionProperties decryption_properties=None,
              thrift_string_size_limit=None,
              thrift_container_size_limit=None,
-             page_checksum_verification=False):
+             page_checksum_verification=False,
+             arrow_extensions_enabled=False):
         """
         Open a parquet file for reading.
 
@@ -1458,6 +1619,7 @@ cdef class ParquetReader(_Weakrefable):
         thrift_string_size_limit : int, optional
         thrift_container_size_limit : int, optional
         page_checksum_verification : bool, default False
+        arrow_extensions_enabled : bool, default False
         """
         cdef:
             shared_ptr[CFileMetaData] c_metadata
@@ -1507,6 +1669,8 @@ cdef class ParquetReader(_Weakrefable):
             arrow_props.set_coerce_int96_timestamp_unit(
                 string_to_timeunit(coerce_int96_timestamp_unit))
 
+        arrow_props.set_arrow_extensions_enabled(arrow_extensions_enabled)
+
         self.source = source
         get_reader(source, use_memory_map, &self.rd_handle)
 
@@ -1516,7 +1680,8 @@ cdef class ParquetReader(_Weakrefable):
         # Set up metadata
         with nogil:
             c_metadata = builder.raw_reader().metadata()
-        self._metadata = result = FileMetaData()
+        cdef FileMetaData result = FileMetaData.__new__(FileMetaData)
+        self._metadata = result
         result.init(c_metadata)
 
         if read_dictionary is not None:
@@ -1874,12 +2039,6 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     if version is not None:
         if version == "1.0":
             props.version(ParquetVersion_V1)
-        elif version in ("2.0", "pseudo-2.0"):
-            warnings.warn(
-                "Parquet format '2.0' pseudo version is deprecated, use "
-                "'2.4' or '2.6' for fine-grained feature selection",
-                FutureWarning, stacklevel=2)
-            props.version(ParquetVersion_V2_0)
         elif version == "2.4":
             props.version(ParquetVersion_V2_4)
         elif version == "2.6":
@@ -2126,28 +2285,6 @@ cdef class ParquetWriter(_Weakrefable):
         shared_ptr[COutputStream] sink
         bint own_sink
 
-    cdef readonly:
-        object use_dictionary
-        object use_deprecated_int96_timestamps
-        object use_byte_stream_split
-        object column_encoding
-        object coerce_timestamps
-        object allow_truncated_timestamps
-        object compression
-        object compression_level
-        object data_page_version
-        object use_compliant_nested_type
-        object version
-        object write_statistics
-        object writer_engine_version
-        int row_group_size
-        int64_t data_page_size
-        FileEncryptionProperties encryption_properties
-        int64_t write_batch_size
-        int64_t dictionary_pagesize_limit
-        object store_schema
-        object store_decimal_as_integer
-
     def __cinit__(self, where, Schema schema not None, use_dictionary=None,
                   compression=None, version=None,
                   write_statistics=None,
@@ -2259,7 +2396,7 @@ cdef class ParquetWriter(_Weakrefable):
         with nogil:
             metadata = self.writer.get().metadata()
         if metadata:
-            result = FileMetaData()
+            result = FileMetaData.__new__(FileMetaData)
             result.init(metadata)
             return result
         raise RuntimeError(

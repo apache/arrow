@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "arrow/status.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/math_constants.h"
 
 namespace arrow {
