@@ -231,7 +231,7 @@ jobs:
       - name: Install MinIO
         run: |
           $(brew --prefix bash)/bin/bash \
-            ci/scripts/install_minio.sh latest ${ARROW_HOME}
+            ci/scripts/install_minio.sh latest /usr/local
       - name: Set up Python
         uses: actions/setup-python@v5.6.0
         with:
