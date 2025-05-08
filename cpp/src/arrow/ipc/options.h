@@ -25,6 +25,7 @@
 #include "arrow/ipc/type_fwd.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
+#include <arrow/util/align_util.h>
 #include "arrow/util/compression.h"
 #include "arrow/util/visibility.h"
 
@@ -133,7 +134,7 @@ struct ARROW_EXPORT IpcWriteOptions {
 /// See util::EnsureAlignment(..., int64_t alignment, ...)
 enum class Alignment : int64_t {
   /// \brief data is aligned depending on the actual data type
-  kDataTypeSpecificAlignment = -3,  /// arrow::util::kValueAlignment
+  kDataTypeSpecificAlignment = util::kValueAlignment,
   /// \brief no particular alignment enforced
   kAnyAlignment = 0,
   /// \brief data is aligned to 64-byte boundary

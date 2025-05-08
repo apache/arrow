@@ -29,7 +29,7 @@
 
 namespace arrow {
 
-using internal::checked_pointer_cast;
+using internal::checked_cast;
 
 namespace util {
 
@@ -51,9 +51,9 @@ Type::type GetTypeForBuffers(const ArrayData& array) {
     // array.type->storage_type() if array.type is an ExtensionType
     DataType* dict_type = array.type.get();
     if (array.type->id() == Type::EXTENSION) {
-      dict_type = dynamic_cast<ExtensionType*>(dict_type)->storage_type().get();
+      dict_type = checked_cast<ExtensionType*>(dict_type)->storage_type().get();
     }
-    return dynamic_cast<DictionaryType*>(dict_type)->index_type()->id();
+    return checked_cast<DictionaryType*>(dict_type)->index_type()->id();
   }
   return type_id;
 }

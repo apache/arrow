@@ -49,13 +49,13 @@ cdef CMetadataVersion _unwrap_metadata_version(
 
 
 cpdef enum Alignment:
-    Any = <int8_t> CAlignment_Any
-    DataTypeSpecific = <int8_t> CAlignment_DataTypeSpecific
-    At64Byte = <int8_t> CAlignment_64Byte
+    Any = <int64_t> CAlignment_Any
+    DataTypeSpecific = <int64_t> CAlignment_DataTypeSpecific
+    At64Byte = <int64_t> CAlignment_64Byte
 
 
 cdef object _wrap_alignment(CAlignment alignment):
-    return Alignment(<char> alignment)
+    return Alignment(<int64_t> alignment)
 
 
 cdef CAlignment _unwrap_alignment(Alignment alignment) except *:

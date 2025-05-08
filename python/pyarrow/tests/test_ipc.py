@@ -537,7 +537,6 @@ def test_read_options():
     assert options.ensure_native_endian is True
     assert options.ensure_alignment == pa.ipc.Alignment.Any
     assert options.included_fields == []
-    pa.ipc.MetadataVersion
 
     options.ensure_native_endian = False
     assert options.ensure_native_endian is False

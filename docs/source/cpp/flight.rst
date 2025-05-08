@@ -249,8 +249,6 @@ This uses the :member:`arrow::ipc::IpcReadOptions::memory_pool`
 to a allocate memory with aligned addresses, but only for mis-alligned data.
 However, this creates data copies of your data recieved via Flight.
 
-.. note:: Ensuring memory alignment is not supported for non-CPU Flight data.
-
 Unless gRPC data are copied as described above, allocations made by gRPC may not
 be tracked by the Arrow memory pool, and that memory usage behavior,
 such as whether free memory is returned to the system, is dependent
