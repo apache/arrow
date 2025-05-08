@@ -731,7 +731,7 @@ TEST(TestDecimalProductKernel, SimpleProduct) {
   std::vector<std::shared_ptr<DataType>> init_types = {
       decimal32(3, 2), decimal64(3, 2), decimal128(3, 2), decimal256(3, 2)};
   std::vector<std::shared_ptr<DataType>> out_types = {
-      decimal32(9, 2), decimal64(18, 2), decimal128(38, 2), decimal256(76, 2)};
+      decimal32(3, 2), decimal64(3, 2), decimal128(3, 2), decimal256(3, 2)};
 
   for (size_t i = 0; i < init_types.size(); ++i) {
     auto& ty = init_types[i];
@@ -779,7 +779,7 @@ TEST(TestDecimalProductKernel, ScalarAggregateOptions) {
   std::vector<std::shared_ptr<DataType>> init_types = {
       decimal32(3, 2), decimal64(3, 2), decimal128(3, 2), decimal256(3, 2)};
   std::vector<std::shared_ptr<DataType>> out_types = {
-      decimal32(9, 2), decimal64(18, 2), decimal128(38, 2), decimal256(76, 2)};
+      decimal32(3, 2), decimal64(3, 2), decimal128(3, 2), decimal256(3, 2)};
 
   for (size_t i = 0; i < init_types.size(); ++i) {
     auto& ty = init_types[i];

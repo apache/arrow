@@ -367,9 +367,6 @@ struct ProductImpl : public ScalarAggregator {
 
   Status Finalize(KernelContext*, Datum* out) override {
     std::shared_ptr<DataType> out_type_ = this->out_type;
-    if (is_decimal(this->out_type->id())) {
-      ARROW_ASSIGN_OR_RAISE(out_type_, WidenDecimalToMaxPrecision(this->out_type));
-    }
 
     if ((!options.skip_nulls && this->nulls_observed) ||
         (this->count < options.min_count)) {
@@ -1176,13 +1173,13 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddArrayScalarAggKernels(ProductInit::Init, UnsignedIntTypes(), uint64(), func.get());
   AddArrayScalarAggKernels(ProductInit::Init, FloatingPointTypes(), float64(),
                            func.get());
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL32}, MaxPrecisionDecimalType),
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL32}, FirstType),
                ProductInit::Init, func.get(), SimdLevel::NONE);
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL64}, MaxPrecisionDecimalType),
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL64}, FirstType),
                ProductInit::Init, func.get(), SimdLevel::NONE);
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, MaxPrecisionDecimalType),
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, FirstType),
                ProductInit::Init, func.get(), SimdLevel::NONE);
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, MaxPrecisionDecimalType),
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, FirstType),
                ProductInit::Init, func.get(), SimdLevel::NONE);
   AddArrayScalarAggKernels(ProductInit::Init, {null()}, int64(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
