@@ -18,6 +18,12 @@
 # under the License.
 #
 
+# This must generate reproducible source archive. For reproducible
+# source archive, we must use the same timestamp, user, group and so
+# on.
+#
+# See also https://reproducible-builds.org/ for Reproducible Builds.
+
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_TOP_DIR="$(cd "${SOURCE_DIR}/../../" && pwd)"
 
@@ -49,9 +55,19 @@ mv ${root_folder} ${root_folder}.tmp
 cp -a -L ${root_folder}.tmp ${root_folder}
 rm -rf ${root_folder}.tmp
 
-# Create a dummy .git/ directory to download the source files from GitHub with Source Link in C#.
+# Create a dummy .git/ directory to download the source files from
+# GitHub with Source Link in C#. See the followings for more Source
+# Link support and why we need a dummy .git directory:
+# * https://github.com/apache/arrow/issues/21580
+# * https://github.com/apache/arrow/pull/4488
+#
+# We need to set constant timestamp for a dummy .git/ directory for
+# Reproducible Builds. We use mtime of csharp/ for it.
 if stat --help > /dev/null 2>&1; then
   # GNU stat
+  #
+  # touch accepts YYYYMMDDhhmm.ss format but GNU stat doesn't support
+  # for outputting with the format. So we use date for it.
   csharp_mtime=$(date --date="$(stat --format="%y" csharp)" +%Y%m%d%H%M.%S)
 else
   # BSD stat
@@ -67,7 +83,13 @@ find . -exec touch -t "${csharp_mtime}" '{}' ';'
 popd
 touch -t "${csharp_mtime}" ${root_folder}/csharp
 
-# Create new tarball from modified source directory
+# Create new tarball from modified source directory.
+#
+# We need GNU tar for Reproducible Builds. We want to use the same
+# owner, group, mode, file order for Reproducible Builds.
+#
+# gzip --no-name is for omitting timestamp in .gz. It's also for
+# Reproducible Builds.
 if type gtar > /dev/null 2>&1; then
   gtar=gtar
 else
