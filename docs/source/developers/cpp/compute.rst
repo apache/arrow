@@ -43,7 +43,7 @@ The schema specifies the types and order of columns. Each row in the row table
 contains the data for each column in that logical order (the physical order may
 vary; see :ref:`row-encoding` for details).
 
-One important property derived from the schema is wether the row table is
+One important property derived from the schema is whether the row table is
 fixed-length or varying-length. A fixed-length row table contains only
 fixed-length columns, while a varying-length row table includes at least one
 varying-length column. This distinction determines how data is stored and
