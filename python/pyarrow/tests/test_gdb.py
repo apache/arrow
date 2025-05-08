@@ -633,18 +633,16 @@ def test_scalars_stack(gdb_arrow):
     check_stack_repr(
         gdb_arrow, "string_scalar_empty",
         'arrow::StringScalar of size 0, value ""')
-    # TODO: Uncomment before merge, see https://github.com/apache/arrow/pull/46180#issuecomment-2863924765
-    # check_stack_repr(
-    #     gdb_arrow, "string_scalar_hehe",
-    #     'arrow::StringScalar of size 6, value "héhé"')
+    check_stack_repr(
+        gdb_arrow, "string_scalar_hehe",
+        'arrow::StringScalar of size 6, value "héhé"')
     # FIXME: excessive escaping ('\\xff' vs. '\x00')
     check_stack_repr(
         gdb_arrow, "string_scalar_invalid_chars",
         r'arrow::StringScalar of size 11, value "abc\x00def\\xffghi"')
-    # TODO: Uncomment before merge, see https://github.com/apache/arrow/pull/46180#issuecomment-2863924765
-    # check_stack_repr(
-    #     gdb_arrow, "large_string_scalar_hehe",
-    #     'arrow::LargeStringScalar of size 6, value "héhé"')
+    check_stack_repr(
+        gdb_arrow, "large_string_scalar_hehe",
+        'arrow::LargeStringScalar of size 6, value "héhé"')
 
     check_stack_repr(
         gdb_arrow, "fixed_size_binary_scalar",
@@ -984,16 +982,14 @@ def test_arrays_heap(gdb_arrow):
         gdb_arrow, "heap_large_binary_array",
         (r'arrow::LargeBinaryArray of length 3, offset 0, null count 1 = {'
          r'[0] = null, [1] = "abcd", [2] = "\000\037\377"}'))
-    # TODO: Uncomment before merge, see https://github.com/apache/arrow/pull/46180#issuecomment-2863924765
-    # check_heap_repr(
-    #     gdb_arrow, "heap_string_array",
-    #     (r'arrow::StringArray of length 3, offset 0, null count 1 = {'
-    #      r'[0] = null, [1] = "héhé", [2] = "invalid \\xff char"}'))
-    # TODO: Uncomment before merge, see https://github.com/apache/arrow/pull/46180#issuecomment-2863924765
-    # check_heap_repr(
-    #     gdb_arrow, "heap_large_string_array",
-    #     (r'arrow::LargeStringArray of length 3, offset 0, null count 1 = {'
-    #      r'[0] = null, [1] = "héhé", [2] = "invalid \\xff char"}'))
+    check_heap_repr(
+        gdb_arrow, "heap_string_array",
+        (r'arrow::StringArray of length 3, offset 0, null count 1 = {'
+         r'[0] = null, [1] = "héhé", [2] = "invalid \\xff char"}'))
+    check_heap_repr(
+        gdb_arrow, "heap_large_string_array",
+        (r'arrow::LargeStringArray of length 3, offset 0, null count 1 = {'
+         r'[0] = null, [1] = "héhé", [2] = "invalid \\xff char"}'))
     check_heap_repr(
         gdb_arrow, "heap_binary_array_sliced",
         (r'arrow::BinaryArray of length 1, offset 1, unknown null count = '
