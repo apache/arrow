@@ -176,7 +176,7 @@ TEST_F(SimpleWriteNodeTest, CustomMetadata) {
   ASSERT_TRUE(custom_metadata->Equals(*file_schema->metadata()));
 }
 
-TEST_F(SimpleWriteNodeTest, SequenceOutput) {
+TEST_F(SimpleWriteNodeTest, MultiThreadedSequenceOutputOrdering) {
   // Test for GH-26818
   auto format = std::make_shared<IpcFileFormat>();
   constexpr int kRowsPerBatch = 16;

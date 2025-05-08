@@ -893,12 +893,13 @@ Table/RecordBatch, or iterable of RecordBatch
         ``FileFormat.make_write_options()`` function.
     use_threads : bool, default True
         Write files in parallel. If enabled, then maximum parallelism will be
-        used determined by the number of available CPU cores.  Using multiple
-        threads may change the order of rows in the written dataset.
+        used determined by the number of available CPU cores. Using multiple
+        threads may change the order of rows in the written dataset if
+        preserve_order is set to False.
     preserve_order : bool, default False
         Preserve the order of rows. If enabled, order of rows in the dataset are
-        guaranteed to be preserved even if use_threads is enabled. This may cause
-        notable performance degradation.
+        guaranteed to be preserved even if use_threads is set to True. This may
+        cause notable performance degradation.
     max_partitions : int, default 1024
         Maximum number of partitions any batch may be written into.
     max_open_files : int, default 1024

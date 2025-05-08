@@ -444,7 +444,7 @@ class MockDataset : public Dataset {
   };
 };
 
-TEST_F(TestFileSystemDataset, WritePersistOrder) {
+TEST_F(TestFileSystemDataset, MultiThreadedWritePersistsOrder) {
   // Test for GH-26818
   auto format = std::make_shared<IpcFileFormat>();
   FileSystemDatasetWriteOptions write_options;
