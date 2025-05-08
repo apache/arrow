@@ -29,7 +29,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/registry.h"
+#include "arrow/compute/kernels/api.h"
 #include "arrow/compute/test_util_internal.h"
 #include "arrow/datum.h"
 #include "arrow/memory_pool.h"
