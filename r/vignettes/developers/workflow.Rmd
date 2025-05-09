@@ -61,11 +61,9 @@ To run the linter locally, install the `{lintr}` package (note, we currently use
 lintr::lint_package("arrow/r")
 ```
 
-You can automatically change the formatting of the code in the package using the [styler](https://styler.r-lib.org/) package. There are two ways to do this:
+You can automatically change the formatting of the code in the package using the [styler](https://styler.r-lib.org/) package.
 
-1. Use the comment bot to do this automatically with the command `@github-actions autotune` on a PR, and commit it back to the branch.
-
-2. Run the styler locally either via Makefile commands:
+Run the styler locally either via Makefile commands:
 
 ```bash
 make style # (for only the files changed)
@@ -212,12 +210,3 @@ See the `r:` group definition near the beginning of the [crossbow configuration]
 for a list of glob expression patterns that match names of items in the `tasks:`
 list below it.
 
-#### Run linting and documentation building tasks
-
-```
-@github-actions autotune
-```
-
-This will run and fix lint C++ linting errors, run R documentation (among other
-cleanup tasks), run styler on any changed R code, and commit the resulting
-updates to the branch.
