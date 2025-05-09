@@ -3786,19 +3786,52 @@ def test_list_slice_bad_parameters():
         pc.list_slice(arr, 0, 1, step=-1)
 
 
-def check_run_end_encode_decode(run_end_encode_opts=None):
-    arr = pa.array([1, 1, 1, 2, 2, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3])
+def check_run_end_encode_decode(value_type, run_end_encode_opts=None):
+    values = [1, 1, 1, 2, 2, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+
+    # pa.float16() is special and requires us to pass np.float16 dtype values
+    # but we want to skip if numpy isn't available so we're still running all
+    # the other tests when it isn't
+    if value_type is pa.float16():
+        if np is not None:
+            values = np.float16(values)
+        else:
+            pytest.skip("numpy is not available and is required for pa.float16()")
+
+    arr = pa.array(values, type=value_type)
     encoded = pc.run_end_encode(arr, options=run_end_encode_opts)
     decoded = pc.run_end_decode(encoded)
     assert decoded.type == arr.type
     assert decoded.equals(arr)
 
 
-def test_run_end_encode():
-    check_run_end_encode_decode()
-    check_run_end_encode_decode(pc.RunEndEncodeOptions(pa.int16()))
-    check_run_end_encode_decode(pc.RunEndEncodeOptions('int32'))
-    check_run_end_encode_decode(pc.RunEndEncodeOptions(pa.int64()))
+@pytest.mark.parametrize(
+    "value_type",
+    (
+        pa.int8(),
+        pa.int16(),
+        pa.int32(),
+        pa.int64(),
+        pa.float16(),
+        pa.float32(),
+        pa.float64(),
+        pa.decimal32(4, 0),
+        pa.decimal64(4, 0),
+        pa.decimal128(4, 0),
+        pa.decimal256(4, 0),
+    ),
+)
+@pytest.mark.parametrize(
+    "option",
+    (
+        None,
+        pc.RunEndEncodeOptions(pa.int16()),
+        pc.RunEndEncodeOptions("int32"),
+        pc.RunEndEncodeOptions(pa.int64()),
+    ),
+)
+def test_run_end_encode(value_type, option):
+    check_run_end_encode_decode(value_type, option)
 
 
 def test_pairwise_diff():
