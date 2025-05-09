@@ -61,6 +61,7 @@ option(
     description: 'Build with lz4 compression',
 )
 
+option('orc', type: 'feature', description: 'Build the Arrow ORC adapter')
 option(
     'package_kind',
     type: 'string',
