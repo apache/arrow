@@ -152,7 +152,7 @@ can create a new one with updated values using :meth:`Schema.set`.
 
 .. ipython:: python
 
-   updated_field = pa.field('s0_new', pa.int64())
+   updated_field = pa.field('field0_new', pa.int64())
    my_schema2 = my_schema.set(0, updated_field)
    my_schema2
 
