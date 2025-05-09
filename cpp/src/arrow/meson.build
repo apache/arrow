@@ -456,6 +456,60 @@ if needs_json
     }
 endif
 
+if needs_orc
+    absel_base_dep = dependency('absl_base')
+    absel_strings_dep = dependency('absl_strings')
+    absel_string_view_dep = dependency('absl_string_view')
+    protobuf_proj = subproject('protobuf')
+    protobuf_lib = protobuf_proj.get_variable('libprotobuf')
+    protoc_lib = protobuf_proj.get_variable('libprotoc')
+    protoc = find_program('protoc')
+    protoc_path = protoc.full_path()
+    # Internally we could use protobuf_proj.get_variable('incdir')
+    # to get the include directory from protobuf, but Meson does
+    # not allow you to convert that to a string, which CMake requires
+    # As a workaround, we start with the protoc path and manipulate
+    # the path strings as needed
+    proto_root = meson.project_source_root() / 'subprojects' / 'protobuf-25.2'
+    absl_root = meson.project_source_root() / 'subprojects' / 'abseil-cpp-20240722.0'
+
+    cmake = import('cmake')
+    orc_opt = cmake.subproject_options()
+    orc_opt.add_cmake_defines(
+        {'STOP_BUILD_ON_WARNING': 'FALSE'},
+        {'BUILD_LIBHDFSPP': 'FALSE'},
+        {'BUILD_JAVA': 'FALSE'},
+        {'BUILD_TOOLS': 'FALSE'},
+        {'BUILD_CPP_TESTS': 'FALSE'},
+        {'INSTALL_VENDORED_LIBS': 'FALSE'},
+        {'PROTOBUF_HOME': proto_root / 'src'},
+        {'PROTOBUF_EXECUTABLE': protoc_path},
+        {'PROTOBUF_INCLUDE_DIR': proto_root / 'src'},
+        {'PROTOBUF_LIBRARY': protobuf_lib.full_path()},
+        {'PROTOC_LIBRARY': protoc_lib.full_path()},
+        # There seems to be a bug (?) in Orc where when providing your own
+        # protobuf library, the include directory is not propogated from protobuf
+        # to the orc library being built. This workaround sets the include path
+        # for proto globally, alongside abseil
+        {'CMAKE_CXX_FLAGS': '-I@0@ -I@1@'.format(proto_root / 'src', absl_root)},
+    )
+    orc_opt.append_compile_args('cpp', '-fPIC')
+    orc_proj = cmake.subproject('orc', options: orc_opt)
+    orc_dep = orc_proj.dependency('orc')
+    arrow_components += {
+        'arrow_orc': {
+            'sources': [
+                'adapters/orc/adapter.cc',
+                'adapters/orc/options.cc',
+                'adapters/orc/util.cc',
+            ],
+            'dependencies': [orc_dep],
+        },
+    }
+else
+    orc_dep = disabler()
+endif
+
 arrow_srcs = []
 include_dir = include_directories('..')
 arrow_includes = [include_dir]
@@ -722,6 +776,10 @@ endif
 
 if needs_json
     subdir('json')
+endif
+
+if needs_orc
+    subdir('adapters/orc')
 endif
 
 if needs_ipc
