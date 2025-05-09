@@ -258,6 +258,19 @@ python = import('python')
 python3 = python.find_installation('python3')
 generate_version_header_py = project_source_root / 'tool' / 'generate-version-header.py'
 
+c_compiler = meson.get_compiler('c')
+# Specify -fPIE explicitly for g-ir-scanner because PIE is disabled by
+# default on AlmaLinux 9 RPM build by
+# LDFLAGS="-specs=/usr/lib/rpm/redhat/redhat-hardened-ld".
+gir_scanner_cflags = c_compiler.get_supported_arguments('-fPIE')
+if gir_scanner_cflags.length() == 0
+    gir_scanner_extra_args = []
+else
+    gir_scanner_extra_args = ['--cflags-begin'] + gir_scanner_cflags + [
+        '--cflags-end',
+    ]
+endif
+
 subdir('arrow-glib')
 if arrow_cuda.found()
     subdir('arrow-cuda-glib')

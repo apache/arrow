@@ -97,8 +97,7 @@ if have_gi
         libparquet_glib,
         dependencies: declare_dependency(sources: arrow_glib_gir),
         export_packages: 'parquet-glib',
-        extra_args: [
-            '--warn-all',
+        extra_args: gir_scanner_extra_args + [
             '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
         ],
         header: 'parquet-glib/parquet-glib.h',
