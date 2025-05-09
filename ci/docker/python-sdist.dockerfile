@@ -32,5 +32,6 @@ RUN apt-get update -y -q && \
 COPY python/requirements-build.txt \
      /arrow/python/requirements-build.txt
 RUN pip3 install --requirement /arrow/python/requirements-build.txt
+RUN pip3 install build
 
 ENV PYTHON=/usr/bin/python3
