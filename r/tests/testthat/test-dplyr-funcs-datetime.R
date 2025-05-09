@@ -3748,6 +3748,23 @@ test_that("hms::hms", {
       collect(),
     test_df
   )
+
+  expect_error(
+    call_binding("hms::hms", "nonsense"),
+    regexp = "All arguments must be numeric or NA"
+  )
+
+  # Works for NA_real_
+  expect_silent(
+    call_binding("hms::hms", seconds = NA_real_)
+  )
+
+  # raw NA is logical so we error here
+  expect_error(
+    call_binding("hms::hms", seconds = NA),
+    regexp = "All arguments must be numeric or NA_real_"
+  )
+
 })
 
 test_that("hms::as_hms", {

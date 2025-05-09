@@ -834,18 +834,6 @@ register_bindings_hms <- function() {
     cast(cast(x, int32()), time32(unit = "s"))
   }
 
-  register_binding(
-    "hms::hms",
-    function(seconds = 0, minutes = 0, hours = 0, days = 0) {
-      total_secs <- seconds +
-        Expression$create("multiply_checked", minutes, 60) +
-        Expression$create("multiply_checked", hours, 3600) +
-        Expression$create("multiply_checked", days, 86400)
-
-      return(numeric_to_time32(total_secs))
-    }
-  )
-
   datetime_to_time32 <- function(datetime) {
     hour <- call_binding("hour", datetime)
     min <- call_binding("minute", datetime)
@@ -855,9 +843,25 @@ register_bindings_hms <- function() {
   }
 
   register_binding(
+    "hms::hms",
+    function(seconds = 0, minutes = 0, hours = 0, days = 0) {
+      if (!call_binding("is.numeric", seconds) || !call_binding("is.numeric", minutes) ||
+        !call_binding("is.numeric", hours) || !call_binding("is.numeric", days)) {
+        abort("All arguments must be numeric or NA_real_")
+      }
+
+      total_secs <- seconds +
+        Expression$create("multiply_checked", minutes, 60) +
+        Expression$create("multiply_checked", hours, 3600) +
+        Expression$create("multiply_checked", days, 86400)
+
+      return(numeric_to_time32(total_secs))
+    }
+  )
+
+  register_binding(
     "hms::as_hms",
     function(x = numeric()) {
-
       if (call_binding("is.POSIXct", x)) {
         return(datetime_to_time32(x))
       }
