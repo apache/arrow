@@ -13,15 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Apache.Arrow.Flight.Sql;
+namespace Apache.Arrow.Flight.Middleware.Models;
 
-public static class SqlAction
+public enum FlightMethod
 {
-    public const string CreateRequest = "CreatePreparedStatement";
-    public const string CloseRequest = "ClosePreparedStatement";
-    public const string CancelFlightInfoRequest = "CancelFlightInfo";
-    public const string BeginTransactionRequest = "BeginTransaction";
-    public const string CommitRequest = "CommitTransaction";
-    public const string RollbackRequest = "RollbackTransaction";
-    public const string GetPrimaryKeysRequest = "GetPrimaryKeys";
+    Unknown,
+    Handshake,
+    ListFlights,
+    GetFlightInfo,
+    GetSchema,
+    DoGet,
+    DoPut,
+    DoExchange,
+    DoAction,
+    ListActions,
+    CancelFlightInfo
 }

@@ -13,15 +13,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Apache.Arrow.Flight.Sql;
+using System;
+using Grpc.Core;
 
-public static class SqlAction
+namespace Apache.Arrow.Flight.Middleware.Models;
+
+public sealed class CallStatus
 {
-    public const string CreateRequest = "CreatePreparedStatement";
-    public const string CloseRequest = "ClosePreparedStatement";
-    public const string CancelFlightInfoRequest = "CancelFlightInfo";
-    public const string BeginTransactionRequest = "BeginTransaction";
-    public const string CommitRequest = "CommitTransaction";
-    public const string RollbackRequest = "RollbackTransaction";
-    public const string GetPrimaryKeysRequest = "GetPrimaryKeys";
+    public FlightStatusCode Code { get; }
+    public Exception Cause { get; }
+    public string Description { get; }
+    public Metadata Trailers { get; }
+
+    public CallStatus(FlightStatusCode code, Exception cause, string description, Metadata trailers)
+    {
+        Code = code;
+        Cause = cause;
+        Description = description;
+        Trailers = trailers;
+    }
 }

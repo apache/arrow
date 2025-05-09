@@ -13,15 +13,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Apache.Arrow.Flight.Sql;
+using System.Collections.Generic;
 
-public static class SqlAction
+namespace Apache.Arrow.Flight.Middleware.Interfaces;
+
+public interface ICallHeaders
 {
-    public const string CreateRequest = "CreatePreparedStatement";
-    public const string CloseRequest = "ClosePreparedStatement";
-    public const string CancelFlightInfoRequest = "CancelFlightInfo";
-    public const string BeginTransactionRequest = "BeginTransaction";
-    public const string CommitRequest = "CommitTransaction";
-    public const string RollbackRequest = "RollbackTransaction";
-    public const string GetPrimaryKeysRequest = "GetPrimaryKeys";
+    string this[string key] { get; }
+    
+    string Get(string key);
+    byte[] GetBytes(string key);
+    IEnumerable<string> GetAll(string key);
+    IEnumerable<byte[]> GetAllBytes(string key);
+    
+    void Insert(string key, string value);
+    void Insert(string key, byte[] value);
+
+    ISet<string> Keys { get; }
+    bool ContainsKey(string key);
 }

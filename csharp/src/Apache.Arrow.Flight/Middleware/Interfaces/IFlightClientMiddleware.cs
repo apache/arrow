@@ -13,15 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Apache.Arrow.Flight.Sql;
+using Apache.Arrow.Flight.Middleware.Models;
+using CallInfo = Apache.Arrow.Flight.Middleware.Models.CallInfo;
 
-public static class SqlAction
+namespace Apache.Arrow.Flight.Middleware.Interfaces;
+
+public interface IFlightClientMiddleware
 {
-    public const string CreateRequest = "CreatePreparedStatement";
-    public const string CloseRequest = "ClosePreparedStatement";
-    public const string CancelFlightInfoRequest = "CancelFlightInfo";
-    public const string BeginTransactionRequest = "BeginTransaction";
-    public const string CommitRequest = "CommitTransaction";
-    public const string RollbackRequest = "RollbackTransaction";
-    public const string GetPrimaryKeysRequest = "GetPrimaryKeys";
+    void OnBeforeSendingHeaders(ICallHeaders outgoingHeaders);
+    void OnHeadersReceived(ICallHeaders incomingHeaders);
+    void OnCallCompleted(CallStatus status);
+}
+
+public interface IFlightClientMiddlewareFactory
+{
+    IFlightClientMiddleware OnCallStarted(CallInfo callInfo);
 }

@@ -13,15 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Apache.Arrow.Flight.Sql;
+using System;
 
-public static class SqlAction
+namespace Apache.Arrow.Flight.Middleware.Models;
+
+public sealed class CallInfo
 {
-    public const string CreateRequest = "CreatePreparedStatement";
-    public const string CloseRequest = "ClosePreparedStatement";
-    public const string CancelFlightInfoRequest = "CancelFlightInfo";
-    public const string BeginTransactionRequest = "BeginTransaction";
-    public const string CommitRequest = "CommitTransaction";
-    public const string RollbackRequest = "RollbackTransaction";
-    public const string GetPrimaryKeysRequest = "GetPrimaryKeys";
+    public string Endpoint { get; }
+    public string MethodName { get; }
+
+    public CallInfo(string endpoint, string methodName)
+    {
+        Endpoint = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
+        MethodName = methodName ?? throw new ArgumentNullException(nameof(methodName));
+    }
 }
