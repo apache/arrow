@@ -188,8 +188,8 @@ struct ReadRangeCache::Impl {
       entries = std::move(new_entries);
     }
     // Prefetch immediately, regardless of executor availability, if possible
-    ARROW_UNUSED(file->WillNeed(ranges)); // As this is optimisation only, failures
-                                          // should not be treated as fatal
+    // As this is optimisation only, failures should not be treated as fatal
+    ARROW_UNUSED(file->WillNeed(ranges));
     return Status::OK();
   }
 
