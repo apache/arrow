@@ -167,42 +167,34 @@ class PARQUET_EXPORT ColumnDecryptionProperties {
  public:
   class PARQUET_EXPORT Builder {
    public:
-    explicit Builder(const std::string& name) : column_path_(name) {}
+    explicit Builder(std::string name) : column_path_(std::move(name)) {}
 
-    explicit Builder(const std::shared_ptr<schema::ColumnPath>& path)
-        : Builder(path->ToDotString()) {}
+    explicit Builder(const schema::ColumnPath& path) : Builder(path.ToDotString()) {}
 
     /// Set an explicit column key. If applied on a file that contains
     /// key metadata for this column the metadata will be ignored,
     /// the column will be decrypted with this key.
     /// key length must be either 16, 24 or 32 bytes.
-    Builder* key(const std::string& key);
+    Builder* key(std::string key);
 
     std::shared_ptr<ColumnDecryptionProperties> build();
 
    private:
-    const std::string column_path_;
+    std::string column_path_;
     std::string key_;
   };
-
-  ColumnDecryptionProperties() = default;
-  ColumnDecryptionProperties(const ColumnDecryptionProperties& other) = default;
-  ColumnDecryptionProperties(ColumnDecryptionProperties&& other) = default;
-
-  ~ColumnDecryptionProperties() { key_.clear(); }
 
   std::string column_path() const { return column_path_; }
   std::string key() const { return key_; }
 
  private:
-  const std::string column_path_;
+  std::string column_path_;
   std::string key_;
 
   /// This class is only required for setting explicit column decryption keys -
   /// to override key retriever (or to provide keys when key metadata and/or
   /// key retriever are not available)
-  explicit ColumnDecryptionProperties(const std::string& column_path,
-                                      const std::string& key);
+  explicit ColumnDecryptionProperties(std::string column_path, std::string key);
 };
 
 class PARQUET_EXPORT AADPrefixVerifier {
@@ -237,7 +229,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
     /// will be wiped out (array values set to 0).
     /// Caller is responsible for wiping out the input key array.
     /// param footerKey Key length must be either 16, 24 or 32 bytes.
-    Builder* footer_key(const std::string footer_key);
+    Builder* footer_key(std::string footer_key);
 
     /// Set explicit column keys (decryption properties).
     /// Its also possible to set a key retriever on this property object.
@@ -246,7 +238,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
     /// If an explicit key is available for a footer or a column,
     /// its key metadata will be ignored.
     Builder* column_keys(
-        const ColumnPathToDecryptionPropertiesMap& column_decryption_properties);
+        ColumnPathToDecryptionPropertiesMap column_decryption_properties);
 
     /// Set a key retriever callback. Its also possible to
     /// set explicit footer or column keys on this file property object.
@@ -254,7 +246,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
     /// invocation of the retriever callback.
     /// If an explicit key is available for a footer or a column,
     /// its key metadata will be ignored.
-    Builder* key_retriever(const std::shared_ptr<DecryptionKeyRetriever>& key_retriever);
+    Builder* key_retriever(std::shared_ptr<DecryptionKeyRetriever> key_retriever);
 
     /// Skip integrity verification of plaintext footers.
     /// If not called, integrity of plaintext footers will be checked in runtime,
@@ -271,7 +263,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
     /// A must when a prefix is used for file encryption, but not stored in file.
     /// If AAD prefix is stored in file, it will be compared to the explicitly
     /// supplied value and an exception will be thrown if they differ.
-    Builder* aad_prefix(const std::string& aad_prefix);
+    Builder* aad_prefix(std::string aad_prefix);
 
     /// Set callback for verification of AAD Prefixes stored in file.
     Builder* aad_prefix_verifier(std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier);
@@ -331,7 +323,6 @@ class PARQUET_EXPORT FileDecryptionProperties {
   std::string aad_prefix_;
   std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier_;
 
-  const std::string empty_string_ = "";
   ColumnPathToDecryptionPropertiesMap column_decryption_properties_;
 
   std::shared_ptr<DecryptionKeyRetriever> key_retriever_;
@@ -339,11 +330,10 @@ class PARQUET_EXPORT FileDecryptionProperties {
   bool plaintext_files_allowed_;
 
   FileDecryptionProperties(
-      const std::string& footer_key,
-      std::shared_ptr<DecryptionKeyRetriever> key_retriever,
-      bool check_plaintext_footer_integrity, const std::string& aad_prefix,
+      std::string footer_key, std::shared_ptr<DecryptionKeyRetriever> key_retriever,
+      bool check_plaintext_footer_integrity, std::string aad_prefix,
       std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
-      const ColumnPathToDecryptionPropertiesMap& column_decryption_properties,
+      ColumnPathToDecryptionPropertiesMap column_decryption_properties,
       bool plaintext_files_allowed);
 };
 
