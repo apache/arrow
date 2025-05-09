@@ -474,7 +474,7 @@ def test_schema_set_field():
     
     assert s2.field(0).type == pa.int64()
     assert s1.field(0).type == pa.int32()
-
+s3 = s2.set(0, s2.field(1).with_nullable(False))
 
 def test_schema_equals():
     fields = [
