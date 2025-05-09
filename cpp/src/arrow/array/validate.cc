@@ -465,7 +465,7 @@ struct ValidateArrayImpl {
     return data.buffers[index] != nullptr && data.buffers[index]->address() != 0;
   }
 
-  Status RecurseInto(const ArrayData& related_data, bool nullable = true) {
+  Status RecurseInto(const ArrayData& related_data, bool nullable) {
     ValidateArrayImpl impl{related_data, full_validation, nullable};
     return impl.Validate();
   }
@@ -569,6 +569,10 @@ struct ValidateArrayImpl {
           actual_null_count = data.length;
         } else {
           actual_null_count = 0;
+        }
+        if (!nullable && actual_null_count > 0) {
+          return Status::Invalid("Field is not nullable but array contains ",
+                                 actual_null_count, " nulls");
         }
         if (data.null_count != kUnknownNullCount &&
             actual_null_count != data.null_count) {

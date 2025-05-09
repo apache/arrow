@@ -104,14 +104,15 @@ TEST_F(TestArray, TestValidateFullNullableList) {
   auto array_nested_null = ArrayFromJSON(type, "[[0, 1], [3, 4], [2, null]]");
 
   ASSERT_RAISES(Invalid, array->ValidateFull());
-  ASSERT_RAISES(Invalid, array->ValidateFull());
+  ASSERT_RAISES(Invalid, array_nested_null->ValidateFull());
 }
 
 TEST_F(TestArray, TestValidateFullNullableFixedSizeList) {
   auto f0 = field("f0", int32(), /*nullable=*/false);
-  auto array_nonull = ArrayFromJSON(f0->type(), "[0, 1, 2, 3, 4, 5]");
-  auto array = ArrayFromJSON(f0->type(), "[[0, 1], null, [2, 5]]");
-  auto array_nested_null = ArrayFromJSON(f0->type(), "[[0, 1], [3, 4], [2, null]]");
+  auto list_type = fixed_size_list(f0, 2);
+  auto array_nonull = ArrayFromJSON(list_type, "[[0, 1], [2, 3], [4, 5]]");
+  auto array = ArrayFromJSON(list_type, "[[0, 1], null, [2, 5]]");
+  auto array_nested_null = ArrayFromJSON(list_type, "[[0, 1], [3, 4], [2, null]]");
 
   ASSERT_OK(array_nonull->ValidateFull());
   ASSERT_RAISES(Invalid, array->ValidateFull());
