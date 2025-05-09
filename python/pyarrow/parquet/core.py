@@ -1827,7 +1827,7 @@ def read_table(source, *, columns=None, use_threads=True,
         if filesystem is not None:
             source = filesystem.open_input_file(path)
         if not (
-            isinstance(source, str)
+            (isinstance(source, str) and not os.path.isdir(source))
             or isinstance(source, pa.NativeFile)
             or hasattr(source, "read")
         ):
