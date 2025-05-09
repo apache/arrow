@@ -446,6 +446,18 @@ class MockDataset : public Dataset {
 
 TEST_F(TestFileSystemDataset, MultiThreadedWritePersistsOrder) {
   // Test for GH-26818
+  //
+  // This test uses std::this_thread::sleep_for to increase chances for batches
+  // to get written out-of-order in multi-threaded environment.
+  // With preserve_order = false, the existence of out-of-order is asserted to
+  // verify that the test setup reliably writes out-of-order sequences, and
+  // that write_options.preserve_order = preserve_order can recreate order.
+  //
+  // Estimates for out_of_order == false and preserve_order == false to occur
+  // are 10^-62 https://github.com/apache/arrow/pull/44470#discussion_r2079049038
+  //
+  // If this test starts to reliably fail with preserve_order == false, the test setup
+  // has to be revised to again reliably produce out-of-order sequences.
   auto format = std::make_shared<IpcFileFormat>();
   FileSystemDatasetWriteOptions write_options;
   write_options.file_write_options = format->DefaultWriteOptions();
