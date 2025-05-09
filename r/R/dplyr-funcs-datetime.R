@@ -846,16 +846,17 @@ register_bindings_hms <- function() {
     }
   )
 
+  datetime_to_time32 <- function(datetime) {
+    hour <- call_binding("hour", datetime)
+    min <- call_binding("minute", datetime)
+    sec <- call_binding("second", datetime)
+
+    return(call_binding("hms::hms", seconds = sec, minutes = min, hours = hour))
+  }
+
   register_binding(
     "hms::as_hms",
     function(x = numeric()) {
-      datetime_to_time32 <- function(datetime) {
-        hour <- call_binding("hour", datetime)
-        min <- call_binding("minute", datetime)
-        sec <- call_binding("second", datetime)
-
-        return(call_binding("hms::hms", seconds = sec, minutes = min, hours = hour))
-      }
 
       if (call_binding("is.POSIXct", x)) {
         return(datetime_to_time32(x))
