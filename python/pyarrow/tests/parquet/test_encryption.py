@@ -133,6 +133,32 @@ def test_encrypted_parquet_write_read(tempdir, data_table):
     assert data_table.equals(result_table)
 
 
+def test_uniform_encrypted_parquet_write_read(tempdir, data_table):
+    """Write an encrypted parquet, verify it's encrypted, and then read it."""
+    path = tempdir / PARQUET_NAME
+
+    # Encrypt the footer and all columns with the footer key,
+    encryption_config = pe.EncryptionConfiguration(
+        footer_key=FOOTER_KEY_NAME,
+        uniform_encryption=True,
+        encryption_algorithm="AES_GCM_V1",
+        cache_lifetime=timedelta(minutes=5.0),
+        data_key_length_bits=256)
+
+    kms_connection_config, crypto_factory = write_encrypted_file(
+        path, data_table, FOOTER_KEY_NAME, COL_KEY_NAME, FOOTER_KEY, b"",
+        encryption_config)
+
+    verify_file_encrypted(path)
+
+    # Read with decryption properties
+    decryption_config = pe.DecryptionConfiguration(
+        cache_lifetime=timedelta(minutes=5.0))
+    result_table = read_encrypted_parquet(
+        path, decryption_config, kms_connection_config, crypto_factory)
+    assert data_table.equals(result_table)
+
+
 def write_encrypted_parquet(path, table, encryption_config,
                             kms_connection_config, crypto_factory):
     file_encryption_properties = crypto_factory.file_encryption_properties(
@@ -236,6 +262,26 @@ def test_encrypted_parquet_write_no_col_key(tempdir, data_table):
     with pytest.raises(OSError,
                        match="Either column_keys or uniform_encryption "
                        "must be set"):
+        # Write with encryption properties
+        write_encrypted_file(path, data_table, FOOTER_KEY_NAME, COL_KEY_NAME,
+                             FOOTER_KEY, b"", encryption_config)
+
+
+def test_encrypted_parquet_write_col_key_and_uniform_encryption(tempdir, data_table):
+    """Write an encrypted parquet, but give only footer key,
+    without column key."""
+    path = tempdir / 'encrypted_table_col_key_and_uniform_encryption.in_mem.parquet'
+
+    # Encrypt the footer with the footer key
+    encryption_config = pe.EncryptionConfiguration(
+        footer_key=FOOTER_KEY_NAME,
+        column_keys={
+            COL_KEY_NAME: ["a", "b"],
+        },
+        uniform_encryption=True)
+
+    with pytest.raises(OSError,
+                       match=r"Cannot set both column_keys and uniform_encryption"):
         # Write with encryption properties
         write_encrypted_file(path, data_table, FOOTER_KEY_NAME, COL_KEY_NAME,
                              FOOTER_KEY, b"", encryption_config)
