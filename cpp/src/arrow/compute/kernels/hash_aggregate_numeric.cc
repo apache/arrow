@@ -42,7 +42,8 @@ namespace {
 // Sum/Mean/Product implementation
 
 template <typename Type, typename Impl,
-          typename AccumulateType = typename FindAccumulatorType<Type>::Type>
+          typename AccumulateType = typename FindAccumulatorType<Type>::Type,
+          bool PromoteDecimal = false >
 struct GroupedReducingAggregator : public GroupedAggregator {
   using AccType = AccumulateType;
   using CType = typename TypeTraits<AccType>::CType;
@@ -85,7 +86,7 @@ struct GroupedReducingAggregator : public GroupedAggregator {
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
     auto other =
-        checked_cast<GroupedReducingAggregator<Type, Impl, AccType>*>(&raw_other);
+        checked_cast<GroupedReducingAggregator<Type, Impl, AccType, PromoteDecimal>*>(&raw_other);
 
     CType* reduced = reduced_.mutable_data();
     int64_t* counts = counts_.mutable_data();
@@ -162,7 +163,11 @@ struct GroupedReducingAggregator : public GroupedAggregator {
   template <typename T = Type>
   static enable_if_decimal<T, std::shared_ptr<DataType>> GetOutType(
       const std::shared_ptr<DataType>& in_type) {
-    return WidenDecimalToMaxPrecision(in_type).ValueOrDie();
+    if constexpr (PromoteDecimal) {
+      return WidenDecimalToMaxPrecision(in_type).ValueOrDie();
+    } else {
+      return in_type;
+    }
   }
 
   int64_t num_groups_ = 0;
@@ -259,8 +264,8 @@ struct GroupedReducingFactory {
 // Sum implementation
 
 template <typename Type>
-struct GroupedSumImpl : public GroupedReducingAggregator<Type, GroupedSumImpl<Type>> {
-  using Base = GroupedReducingAggregator<Type, GroupedSumImpl<Type>>;
+struct GroupedSumImpl : public GroupedReducingAggregator<Type, GroupedSumImpl<Type>, typename FindAccumulatorType<Type>::Type, true> {
+  using Base = GroupedReducingAggregator<Type, GroupedSumImpl<Type>, typename FindAccumulatorType<Type>::Type, true>;
   using CType = typename Base::CType;
   using InputCType = typename Base::InputCType;
 
