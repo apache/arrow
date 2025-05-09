@@ -70,7 +70,7 @@ arrow::Status RunExample() {
   // ChunkedArrayFromJSONString
   std::shared_ptr<arrow::ChunkedArray> chunked_array;
   ARROW_RETURN_NOT_OK(ChunkedArrayFromJSONString(
-      arrow::int32(), {R"([5, 10])", R"([null])", R"([16])"}, &chunked_array));
+      arrow::int32(), {"[5, 10]", "[null]", "[16]"}, &chunked_array));
 
   // DictArrayFromJSONString
   std::shared_ptr<arrow::Array> dict_array;
