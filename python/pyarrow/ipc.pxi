@@ -1201,9 +1201,11 @@ cdef class _RecordBatchFileReader(_Weakrefable):
     @property
     def metadata(self):
         """
-        File-level custom KeyValueMetadata written via ``ipc.new_file(..., metadata=)``.
+        File-level custom metadata as dict, where both keys and values are byte-like.
+        This kind of metadata can be written via ``ipc.new_file(..., metadata=...)``.
         """
-        return pyarrow_wrap_metadata(self.reader.get().metadata())
+        wrapped = pyarrow_wrap_metadata(self.reader.get().metadata())
+        return wrapped.to_dict() if wrapped is not None else None
 
 
 def get_tensor_size(Tensor tensor):
