@@ -381,7 +381,7 @@ Status delay(compute::KernelContext* ctx, const compute::ExecSpan& batch,
 }
 
 // A fragment with start=0 will defer ScanBatchesAsync returning a batch generator
-// This guarantees a dataset of multiple fragments produces out-of-order batches
+// This guarantees a dataset of multiple fragments could produce out-of-order batches
 class MockFragment : public Fragment {
  public:
   explicit MockFragment(uint32_t start, int64_t rows_per_batch, int num_batches,
@@ -393,7 +393,7 @@ class MockFragment : public Fragment {
 
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options) override {
-    // One fragment requires some more time than others
+    // Fragment with start_=0 defers returning the generator
     if (start_ == 0) {
       std::this_thread::sleep_for(std::chrono::duration<double>(0.1));
     }
