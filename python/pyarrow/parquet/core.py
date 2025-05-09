@@ -1832,7 +1832,8 @@ def read_table(source, *, columns=None, use_threads=True,
             or hasattr(source, "read")
         ):
             raise ValueError(
-                "source should be a file name, a pyarrow.NativeFile or a file-like object"
+                "source should be a file name, a pyarrow.NativeFile or a file-like object "
+                "when the pyarrow.dataset module is not available"
             )
         dataset = ParquetFile(
             source, read_dictionary=read_dictionary,
