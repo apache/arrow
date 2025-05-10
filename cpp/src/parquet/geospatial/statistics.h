@@ -147,8 +147,9 @@ class PARQUET_EXPORT GeoStatistics {
 
   /// \brief Dimension emptiness in XYZM order
   ///
-  /// True for a given dimension if and only if zero non-NaN values were encountered
-  /// in that dimension and dimension_valid() is true for that dimension.
+  /// True for a given dimension if all values in that dimension were NaN
+  /// or there were no values in that dimension and dimension_valid()
+  /// is true.
   ///
   /// When calculating statistics, zero or more of these values may be true because
   /// this implementation calculates bounds for all dimensions; however, it may be
