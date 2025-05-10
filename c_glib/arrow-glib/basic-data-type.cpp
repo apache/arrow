@@ -2361,8 +2361,9 @@ garrow_fixed_shape_tensor_data_type_get_shape(GArrowFixedShapeTensorDataType *da
   auto arrow_data_type =
     std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(garrow_data_type_get_raw(data_type));
 
-  *length = arrow_data_type->shape().size();
-  return arrow_data_type->shape().data();
+  const auto& arrow_shape = arrow_data_type->shape();
+  *length = shape.size();
+  return shape.data();
 }
 
 G_END_DECLS
