@@ -43,7 +43,7 @@ namespace {
 
 /// Calculate the mask to use for the rolling hash, the mask is used to determine if a
 /// new chunk should be created based on the rolling hash value. The mask is calculated
-/// based on the min_chunk_size, max_chunk_size and norm_factor parameters.
+/// based on the min_chunk_size, max_chunk_size and norm_level parameters.
 ///
 /// Assuming that the gear hash hash random values with a uniform distribution, then each
 /// bit in the actual value of rolling_hash_ has even probability of being set so a mask
@@ -65,9 +65,9 @@ namespace {
 //
 // @param min_chunk_size The minimum chunk size (default 256KiB)
 // @param max_chunk_size The maximum chunk size (default 1MiB)
-// @param norm_factor Normalization factor (default 0)
+// @param norm_level Normalization level (default 0)
 // @return The mask used to compare against the rolling hash
-uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size, int norm_factor) {
+uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size, int norm_level) {
   if (min_chunk_size < 0) {
     throw ParquetException("min_chunk_size must be non-negative");
   }
@@ -87,11 +87,11 @@ uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size, int norm_
   // by taking the floor(log2(target_size))
   int mask_bits = std::max(0, ::arrow::bit_util::NumRequiredBits(target_size) - 1);
 
-  // a user defined `norm_factor` can be used to adjust the mask size, hence the matching
-  // probability, by increasing the norm_factor we increase the probability of matching
-  // the mask, forcing the distribution closer to the average size; norm_factor is 0 by
+  // a user defined `norm_level` can be used to adjust the mask size, hence the matching
+  // probability, by increasing the norm_level we increase the probability of matching
+  // the mask, forcing the distribution closer to the average size; norm_level is 0 by
   // default
-  int effective_bits = mask_bits - norm_factor;
+  int effective_bits = mask_bits - norm_level;
 
   if (effective_bits < 1 || effective_bits > 63) {
     throw ParquetException(
@@ -108,11 +108,11 @@ uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size, int norm_
 class ContentDefinedChunker::Impl {
  public:
   Impl(const LevelInfo& level_info, int64_t min_chunk_size, int64_t max_chunk_size,
-       int norm_factor)
+       int norm_level)
       : level_info_(level_info),
         min_chunk_size_(min_chunk_size),
         max_chunk_size_(max_chunk_size),
-        rolling_hash_mask_(CalculateMask(min_chunk_size, max_chunk_size, norm_factor)) {}
+        rolling_hash_mask_(CalculateMask(min_chunk_size, max_chunk_size, norm_level)) {}
 
   uint64_t GetRollingHashMask() const { return rolling_hash_mask_; }
 
@@ -375,7 +375,7 @@ class ContentDefinedChunker::Impl {
   const int64_t max_chunk_size_;
   // The mask to match the rolling hash against to determine if a new chunk should be
   // created. The mask is calculated based on min/max chunk size and the normalization
-  // factor.
+  // level.
   const uint64_t rolling_hash_mask_;
 
   // Whether the rolling hash has matched the mask since the last chunk creation. This
@@ -393,8 +393,8 @@ class ContentDefinedChunker::Impl {
 
 ContentDefinedChunker::ContentDefinedChunker(const LevelInfo& level_info,
                                              int64_t min_chunk_size,
-                                             int64_t max_chunk_size, int norm_factor)
-    : impl_(new Impl(level_info, min_chunk_size, max_chunk_size, norm_factor)) {}
+                                             int64_t max_chunk_size, int norm_level)
+    : impl_(new Impl(level_info, min_chunk_size, max_chunk_size, norm_level)) {}
 
 ContentDefinedChunker::~ContentDefinedChunker() = default;
 

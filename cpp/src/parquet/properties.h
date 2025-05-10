@@ -261,14 +261,14 @@ struct PARQUET_EXPORT CdcOptions {
   int64_t max_chunk_size = 1024 * 1024;
   /// Number of bit adjustement to the gearhash mask in order to
   /// center the chunk size around the average size more aggressively, default 0
-  /// Increasing the normalization factor increases the probability of finding a chunk,
+  /// Increasing the normalization level increases the probability of finding a chunk,
   /// improving the deduplication ratio, but also increasing the number of small chunks
   /// resulting in many small parquet data pages. The default value provides a good
-  /// balance between deduplication ratio and fragmentation. Use norm_factor=1 or
-  /// norm_factor=2 to reach a higher deduplication ratio at the expense of
+  /// balance between deduplication ratio and fragmentation. Use norm_level=1 or
+  /// norm_level=2 to reach a higher deduplication ratio at the expense of
   /// fragmentation. Negative values can also be used to reduce the probability of
   /// finding a chunk, resulting in larger chunks and fewer data pages.
-  int norm_factor = 0;
+  int norm_level = 0;
 };
 
 static constexpr CdcOptions kDefaultCdcOptions = CdcOptions{};

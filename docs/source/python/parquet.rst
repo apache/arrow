@@ -806,12 +806,12 @@ the Parquet writer. It accepts either a boolean or a dictionary for configuratio
 - ``True``: Uses the default configuration with:
    - Minimum chunk size: 256 KiB
    - Maximum chunk size: 1024 KiB
-   - Normalization factor: 0
+   - Normalization level: 0
 
 - ``dict``: Allows customization of the chunking parameters:
    - ``min_chunk_size``: Minimum chunk size in bytes (default: 256 KiB).
    - ``max_chunk_size``: Maximum chunk size in bytes (default: 1024 KiB).
-   - ``norm_factor``: Normalization factor to adjust chunk size distribution (default: 0).
+   - ``norm_level``: Normalization level to adjust chunk size distribution (default: 0).
 
 Note that the chunk size is calculated on the logical values before applying any encoding
 or compression. The actual size of the data pages may vary based on the encoding and

@@ -465,7 +465,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
     cdef cppclass CdcOptions:
         int64_t min_chunk_size
         int64_t max_chunk_size
-        int norm_factor
+        int norm_level
 
     cdef cppclass WriterProperties:
         cppclass Builder:

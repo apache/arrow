@@ -119,7 +119,7 @@ TEST(TestWriterProperties, ContentDefinedChunkingSettings) {
   auto cdc_options = props->content_defined_chunking_options();
   ASSERT_EQ(cdc_options.min_chunk_size, 256 * 1024);
   ASSERT_EQ(cdc_options.max_chunk_size, 1024 * 1024);
-  ASSERT_EQ(cdc_options.norm_factor, 0);
+  ASSERT_EQ(cdc_options.norm_level, 0);
 
   builder.enable_content_defined_chunking();
   builder.content_defined_chunking_options(CdcOptions{512 * 1024, 2048 * 1024, 1});
@@ -128,7 +128,7 @@ TEST(TestWriterProperties, ContentDefinedChunkingSettings) {
   cdc_options = props->content_defined_chunking_options();
   ASSERT_EQ(cdc_options.min_chunk_size, 512 * 1024);
   ASSERT_EQ(cdc_options.max_chunk_size, 2048 * 1024);
-  ASSERT_EQ(cdc_options.norm_factor, 1);
+  ASSERT_EQ(cdc_options.norm_level, 1);
 }
 
 TEST(TestReaderProperties, GetStreamInsufficientData) {
