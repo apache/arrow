@@ -22,10 +22,10 @@
 #include <sstream>
 
 #include "arrow/array.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/diagnostics.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/exceptions.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/platform.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/types.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 
 namespace driver {
 namespace flight_sql {

@@ -16,7 +16,7 @@
 // under the License.
 
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_result_set.h"
-#include "arrow/flight/sql/odbcabstraction/include/odbcabstraction/platform.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 
 #include <utility>
 #include "arrow/flight/types.h"
@@ -65,7 +65,7 @@ FlightSqlResultSet::FlightSqlResultSet(
   if (transformer_) {
     schema_ = transformer_->GetTransformedSchema();
   } else {
-    ThrowIfNotOK(flight_info->GetSchema(nullptr, &schema_));
+    ThrowIfNotOK(flight_info->GetSchema(nullptr).Value(&schema_));
   }
 
   for (size_t i = 0; i < columns_.size(); ++i) {

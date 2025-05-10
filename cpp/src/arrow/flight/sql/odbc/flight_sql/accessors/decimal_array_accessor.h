@@ -20,14 +20,15 @@
 #include <locale>
 #include "arrow/flight/sql/odbc/flight_sql/accessors/types.h"
 #include "arrow/flight/sql/odbc/flight_sql/utils.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/types.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 #include "arrow/type_fwd.h"
 
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
-namespace odbcabstraction {
+using arrow::Array;
+using arrow::Decimal128Type;
+using odbcabstraction::RowStatus;
 
 template <typename ARROW_ARRAY, CDataType TARGET_TYPE>
 class DecimalArrayFlightSqlAccessor
@@ -46,7 +47,5 @@ class DecimalArrayFlightSqlAccessor
   Decimal128Type* data_type_;
 };
 
-}  // namespace odbcabstraction
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

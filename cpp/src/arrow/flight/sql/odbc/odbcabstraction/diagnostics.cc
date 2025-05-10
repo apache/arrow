@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <odbcabstraction/diagnostics.h>
-#include <odbcabstraction/platform.h>
-#include <odbcabstraction/types.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h>
 
 #include <utility>
 

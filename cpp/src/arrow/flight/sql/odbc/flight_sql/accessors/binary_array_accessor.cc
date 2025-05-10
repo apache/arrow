@@ -24,8 +24,8 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
-namespace odbcabstraction {
+using arrow::BinaryArray;
+using odbcabstraction::RowStatus;
 
 namespace {
 
@@ -71,7 +71,8 @@ BinaryArrayFlightSqlAccessor<TARGET_TYPE>::BinaryArrayFlightSqlAccessor(Array* a
                         BinaryArrayFlightSqlAccessor<TARGET_TYPE>>(array) {}
 
 template <>
-RowStatus BinaryArrayFlightSqlAccessor<CDataType_BINARY>::MoveSingleCell_impl(
+RowStatus
+BinaryArrayFlightSqlAccessor<odbcabstraction::CDataType_BINARY>::MoveSingleCell_impl(
     ColumnBinding* binding, int64_t arrow_row, int64_t i, int64_t& value_offset,
     bool update_value_offset, odbcabstraction::Diagnostics& diagnostics) {
   return MoveSingleCellToBinaryBuffer(binding, this->GetArray(), arrow_row, i,
@@ -86,7 +87,5 @@ size_t BinaryArrayFlightSqlAccessor<TARGET_TYPE>::GetCellLength_impl(
 
 template class BinaryArrayFlightSqlAccessor<odbcabstraction::CDataType_BINARY>;
 
-}  // namespace odbcabstraction
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

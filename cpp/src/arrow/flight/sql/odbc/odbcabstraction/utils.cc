@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/sql/odbc/odbcabstraction/utils.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/utils.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/whereami.h"
 
 #include <fstream>

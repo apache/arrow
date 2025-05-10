@@ -28,8 +28,14 @@
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/result_set_metadata.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/statement.h"
 
-namespace ODBC {
-namespace driver::odbcabstraction {
+using ODBC::DescriptorRecord;
+using ODBC::ODBCConnection;
+using ODBC::ODBCDescriptor;
+using ODBC::ODBCStatement;
+
+using driver::odbcabstraction::Diagnostics;
+using driver::odbcabstraction::DriverException;
+using driver::odbcabstraction::ResultSetMetadata;
 
 namespace {
 SQLSMALLINT CalculateHighestBoundRecord(const std::vector<DescriptorRecord>& records) {
@@ -50,7 +56,7 @@ ODBCDescriptor::ODBCDescriptor(Diagnostics& baseDiagnostics, ODBCConnection* con
                                ODBCStatement* stmt, bool isAppDescriptor, bool isWritable,
                                bool is2xConnection)
     : m_diagnostics(baseDiagnostics.GetVendor(), baseDiagnostics.GetDataSourceComponent(),
-                    V_3),
+                    driver::odbcabstraction::V_3),
       m_owningConnection(conn),
       m_parentStatement(stmt),
       m_arrayStatusPtr(nullptr),
@@ -567,6 +573,3 @@ void ODBCDescriptor::SetDataPtrOnRecord(SQLPOINTER dataPtr, SQLSMALLINT recordNu
 void DescriptorRecord::CheckConsistency() {
   // TODO
 }
-
-}  // namespace driver::odbcabstraction
-}  // namespace ODBC

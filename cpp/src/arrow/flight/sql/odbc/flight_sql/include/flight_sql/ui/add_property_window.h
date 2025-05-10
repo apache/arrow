@@ -17,8 +17,10 @@
 
 #pragma once
 
-#include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/ui/custom_window.h"
+// platform.h needs to be included before custom_window.h due to windows.h conflicts
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
+
+#include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/ui/custom_window.h"
 
 namespace driver {
 namespace flight_sql {

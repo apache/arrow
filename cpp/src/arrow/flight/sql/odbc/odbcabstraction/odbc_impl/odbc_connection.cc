@@ -15,15 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/sql/odbc/odbcabstraction/odbc_impl/odbc_connection.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h"
 
-#include "arrow/flight/sql/odbc/odbcabstraction/exceptions.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/odbc_impl/attribute_utils.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/odbc_impl/odbc_descriptor.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/odbc_impl/odbc_environment.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/odbc_impl/odbc_statement.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/spi/connection.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/spi/statement.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/attribute_utils.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_descriptor.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_environment.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_statement.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/statement.h"
 
 #include <odbcinst.h>
 #include <sql.h>
@@ -34,11 +34,14 @@
 #include <memory>
 #include <utility>
 
-namespace ODBC {
-namespace driver::odbcabstraction {
+using ODBC::ODBCConnection;
+using ODBC::ODBCDescriptor;
+using ODBC::ODBCStatement;
 
 using driver::odbcabstraction::Connection;
+using driver::odbcabstraction::Diagnostics;
 using driver::odbcabstraction::DriverException;
+using driver::odbcabstraction::Statement;
 
 namespace {
 // Key-value pairs separated by semi-colon.
@@ -56,6 +59,7 @@ void loadPropertiesFromDSN(const std::string& dsn,
   std::vector<char> outputBuffer;
   outputBuffer.resize(BUFFER_SIZE, '\0');
   SQLSetConfigMode(ODBC_BOTH_DSN);
+
   SQLGetPrivateProfileString(dsn.c_str(), NULL, "", &outputBuffer[0], BUFFER_SIZE,
                              "odbc.ini");
 
@@ -81,8 +85,10 @@ void loadPropertiesFromDSN(const std::string& dsn,
   for (auto& key : keys) {
     outputBuffer.clear();
     outputBuffer.resize(BUFFER_SIZE, '\0');
+
     SQLGetPrivateProfileString(dsn.c_str(), key.c_str(), "", &outputBuffer[0],
                                BUFFER_SIZE, "odbc.ini");
+
     std::string value = std::string(&outputBuffer[0]);
     auto propIter = properties.find(key);
     if (propIter == properties.end()) {
@@ -562,7 +568,7 @@ void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
 
   if (!successfully_written) {
     GetDiagnostics().AddWarning("Option value changed.", "01S02",
-                                ODBCErrorCodes_GENERAL_WARNING);
+                                driver::odbcabstraction::ODBCErrorCodes_GENERAL_WARNING);
   }
 }
 
@@ -768,6 +774,3 @@ std::string ODBCConnection::getPropertiesFromConnString(
   }
   return dsn;
 }
-
-}  // namespace driver::odbcabstraction
-}  // namespace ODBC

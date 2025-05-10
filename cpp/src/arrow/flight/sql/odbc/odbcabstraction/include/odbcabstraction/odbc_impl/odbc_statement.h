@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include <odbcabstraction/odbc_impl/odbc_handle.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_handle.h>
 
-#include <odbcabstraction/platform.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h>
 #include <sql.h>
 #include <memory>
 #include <string>

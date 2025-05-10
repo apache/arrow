@@ -15,16 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <odbcabstraction/odbc_impl/odbc_statement.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_statement.h>
 
-#include <odbcabstraction/exceptions.h>
-#include <odbcabstraction/odbc_impl/attribute_utils.h>
-#include <odbcabstraction/odbc_impl/odbc_connection.h>
-#include <odbcabstraction/odbc_impl/odbc_descriptor.h>
-#include <odbcabstraction/spi/result_set.h>
-#include <odbcabstraction/spi/result_set_metadata.h>
-#include <odbcabstraction/spi/statement.h>
-#include <odbcabstraction/types.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/attribute_utils.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_descriptor.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/result_set.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/result_set_metadata.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/statement.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h>
 #include <sql.h>
 #include <sqlext.h>
 #include <sqltypes.h>
@@ -32,8 +32,14 @@
 #include <boost/variant.hpp>
 #include <utility>
 
-namespace ODBC {
-namespace driver::odbcabstraction {
+using ODBC::DescriptorRecord;
+using ODBC::ODBCConnection;
+using ODBC::ODBCDescriptor;
+using ODBC::ODBCStatement;
+
+using driver::odbcabstraction::DriverException;
+using driver::odbcabstraction::ResultSetMetadata;
+using driver::odbcabstraction::Statement;
 
 namespace {
 void DescriptorToHandle(SQLPOINTER output, ODBCDescriptor* descriptor,
@@ -324,7 +330,9 @@ bool ODBCStatement::Fetch(size_t rows) {
                                    ardRecord.m_scale, ardRecord.m_dataPtr,
                                    GetLength(ardRecord), ardRecord.m_indicatorPtr);
       } else {
-        m_currenResult->BindColumn(i + 1, CDataType_CHAR /* arbitrary type, not used */,
+        m_currenResult->BindColumn(i + 1,
+                                   driver::odbcabstraction::CDataType_CHAR
+                                   /* arbitrary type, not used */,
                                    0, 0, nullptr, 0, nullptr);
       }
     }
@@ -655,7 +663,7 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statementAttribute, SQLPOINTER value,
   }
   if (!successfully_written) {
     GetDiagnostics().AddWarning("Optional value changed.", "01S02",
-                                ODBCErrorCodes_GENERAL_WARNING);
+                                driver::odbcabstraction::ODBCErrorCodes_GENERAL_WARNING);
   }
 }
 
@@ -777,6 +785,3 @@ void ODBCStatement::GetTypeInfo(SQLSMALLINT dataType) {
 }
 
 void ODBCStatement::Cancel() { m_spiStatement->Cancel(); }
-
-}  // namespace driver::odbcabstraction
-}  // namespace ODBC

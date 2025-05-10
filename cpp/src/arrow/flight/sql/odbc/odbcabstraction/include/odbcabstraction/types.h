@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <odbcabstraction/platform.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h>
 #include <boost/optional.hpp>
 
 namespace driver {

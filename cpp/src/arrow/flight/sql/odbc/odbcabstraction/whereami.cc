@@ -6,7 +6,7 @@
 
 // in case you want to #include "whereami.c" in a larger compilation unit
 #if !defined(WHEREAMI_H)
-#  include "whereami.h"
+#  include "arrow/flight/sql/odbc/odbcabstraction/whereami.h"
 #endif
 
 #ifdef __cplusplus
@@ -86,51 +86,50 @@ static int WAI_PREFIX(getModulePath_)(HMODULE module, char* out, int capacity,
     size = GetModuleFileNameW(module, buffer1, sizeof(buffer1) / sizeof(buffer1[0]));
 
     if (size == 0) {
-      // no-op
+      break;
+    } else if (size == (DWORD)(sizeof(buffer1) / sizeof(buffer1[0]))) {
+      DWORD size_ = size;
+      do {
+        wchar_t* path_;
+
+        path_ = (wchar_t*)WAI_REALLOC(path, sizeof(wchar_t) * size_ * 2);
+        if (!path_) break;
+        size_ *= 2;
+        path = path_;
+        size = GetModuleFileNameW(module, path, size_);
+      } while (size == size_);
+
+      if (size == size_) break;
+    } else {
+      path = buffer1;
     }
-    break;
-  } else if (size == (DWORD)(sizeof(buffer1) / sizeof(buffer1[0]))) {
-    DWORD size_ = size;
-    do {
-      wchar_t* path_;
 
-      path_ = (wchar_t*)WAI_REALLOC(path, sizeof(wchar_t) * size_ * 2);
-      if (!path_) break;
-      size_ *= 2;
-      path = path_;
-      size = GetModuleFileNameW(module, path, size_);
-    } while (size == size_);
+    if (!_wfullpath(buffer2, path, MAX_PATH)) break;
+    length_ = (int)wcslen(buffer2);
+    length__ =
+        WideCharToMultiByte(CP_UTF8, 0, buffer2, length_, out, capacity, NULL, NULL);
 
-    if (size == size_) break;
-  } else {
-    path = buffer1;
-  }
+    if (length__ == 0)
+      length__ = WideCharToMultiByte(CP_UTF8, 0, buffer2, length_, NULL, 0, NULL, NULL);
+    if (length__ == 0) break;
 
-  if (!_wfullpath(buffer2, path, MAX_PATH)) break;
-  length_ = (int)wcslen(buffer2);
-  length__ = WideCharToMultiByte(CP_UTF8, 0, buffer2, length_, out, capacity, NULL, NULL);
+    if (length__ <= capacity && dirname_length) {
+      int i;
 
-  if (length__ == 0)
-    length__ = WideCharToMultiByte(CP_UTF8, 0, buffer2, length_, NULL, 0, NULL, NULL);
-  if (length__ == 0) break;
-
-  if (length__ <= capacity && dirname_length) {
-    int i;
-
-    for (i = length__ - 1; i >= 0; --i) {
-      if (out[i] == '\\') {
-        *dirname_length = i;
-        break;
+      for (i = length__ - 1; i >= 0; --i) {
+        if (out[i] == '\\') {
+          *dirname_length = i;
+          break;
+        }
       }
     }
+
+    length = length__;
   }
 
-  length = length__;
-}
+  if (path != buffer1) WAI_FREE(path);
 
-if (path != buffer1) WAI_FREE(path);
-
-return ok ? length : -1;
+  return ok ? length : -1;
 }
 
 WAI_NOINLINE WAI_FUNCSPEC int WAI_PREFIX(getExecutablePath)(char* out, int capacity,

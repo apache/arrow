@@ -24,8 +24,9 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
-namespace odbcabstraction {
+using arrow::Array;
+using arrow::StringArray;
+using odbcabstraction::RowStatus;
 
 namespace {
 
@@ -59,7 +60,7 @@ inline RowStatus MoveSingleCellToCharBuffer(std::vector<uint8_t>& buffer,
   size_t size_in_bytes;
   if (sizeof(CHAR_TYPE) > sizeof(char)) {
     if (last_retrieved_arrow_row != arrow_row) {
-      Utf8ToWcs(raw_value, raw_value_length, &buffer);
+      odbcabstraction::Utf8ToWcs(raw_value, raw_value_length, &buffer);
       last_retrieved_arrow_row = arrow_row;
     }
     value = buffer.data();
@@ -150,7 +151,5 @@ template class StringArrayFlightSqlAccessor<odbcabstraction::CDataType_CHAR, cha
 template class StringArrayFlightSqlAccessor<odbcabstraction::CDataType_WCHAR, char16_t>;
 template class StringArrayFlightSqlAccessor<odbcabstraction::CDataType_WCHAR, char32_t>;
 
-}  // namespace odbcabstraction
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

@@ -15,13 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// platform.h includes windows.h, so it needs to be included
+// before Windowsx.h and commctrl.h
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h>
+
 #include <Windowsx.h>
 #include <commctrl.h>
-#include <odbcabstraction/platform.h>
+
 #include <wtypes.h>
 #include <sstream>
 
-#include <odbcabstraction/exceptions.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h>
 #include "ui/custom_window.h"
 
 namespace driver {

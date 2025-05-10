@@ -62,24 +62,32 @@ using driver::odbcabstraction::DriverException;
 using driver::odbcabstraction::OdbcVersion;
 using driver::odbcabstraction::Statement;
 
-const char FlightSqlConnection::DSN[] = "dsn";
-const char FlightSqlConnection::DRIVER[] = "driver";
-const char FlightSqlConnection::HOST[] = "host";
-const char FlightSqlConnection::PORT[] = "port";
-const char FlightSqlConnection::USER[] = "user";
-const char FlightSqlConnection::USER_ID[] = "user id";
-const char FlightSqlConnection::UID[] = "uid";
-const char FlightSqlConnection::PASSWORD[] = "password";
-const char FlightSqlConnection::PWD[] = "pwd";
-const char FlightSqlConnection::TOKEN[] = "token";
-const char FlightSqlConnection::USE_ENCRYPTION[] = "useEncryption";
-const char FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION[] =
+// clang-format off
+const std::string FlightSqlConnection::DSN = "dsn";            // NOLINT(runtime/string)
+const std::string FlightSqlConnection::DRIVER = "driver";      // NOLINT(runtime/string)
+const std::string FlightSqlConnection::HOST = "host";          // NOLINT(runtime/string)
+const std::string FlightSqlConnection::PORT = "port";          // NOLINT(runtime/string)
+const std::string FlightSqlConnection::USER = "user";          // NOLINT(runtime/string)
+const std::string FlightSqlConnection::USER_ID = "user id";    // NOLINT(runtime/string)
+const std::string FlightSqlConnection::UID = "uid";            // NOLINT(runtime/string)
+const std::string FlightSqlConnection::PASSWORD = "password";  // NOLINT(runtime/string)
+const std::string FlightSqlConnection::PWD = "pwd";            // NOLINT(runtime/string)
+const std::string FlightSqlConnection::TOKEN = "token";        // NOLINT(runtime/string)
+const std::string FlightSqlConnection::USE_ENCRYPTION =        // NOLINT(runtime/string)
+    "useEncryption";
+const std::string FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION = // NOLINT
     "disableCertificateVerification";
-const char FlightSqlConnection::TRUSTED_CERTS[] = "trustedCerts";
-const char FlightSqlConnection::USE_SYSTEM_TRUST_STORE[] = "useSystemTrustStore";
-const char FlightSqlConnection::STRING_COLUMN_LENGTH[] = "StringColumnLength";
-const char FlightSqlConnection::USE_WIDE_CHAR[] = "UseWideChar";
-const char FlightSqlConnection::CHUNK_BUFFER_CAPACITY[] = "ChunkBufferCapacity";
+const std::string FlightSqlConnection::TRUSTED_CERTS =         // NOLINT(runtime/string)
+    "trustedCerts";
+const std::string FlightSqlConnection::USE_SYSTEM_TRUST_STORE = // NOLINT(runtime/string)
+    "useSystemTrustStore";
+const std::string FlightSqlConnection::STRING_COLUMN_LENGTH =  // NOLINT(runtime/string)
+    "StringColumnLength";
+const std::string FlightSqlConnection::USE_WIDE_CHAR =         // NOLINT(runtime/string)
+    "UseWideChar";
+const std::string FlightSqlConnection::CHUNK_BUFFER_CAPACITY = // NOLINT(runtime/string)
+    "ChunkBufferCapacity";
+// clang-format on
 
 const std::vector<std::string> FlightSqlConnection::ALL_KEYS = {
     FlightSqlConnection::DSN,
@@ -191,7 +199,7 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
     client_options.middleware.push_back(cookie_factory);
 
     std::unique_ptr<FlightClient> flight_client;
-    ThrowIfNotOK(FlightClient::Connect(location, client_options, &flight_client));
+    ThrowIfNotOK(FlightClient::Connect(location, client_options).Value(&flight_client));
 
     std::unique_ptr<FlightSqlAuthMethod> auth_method =
         FlightSqlAuthMethod::FromProperties(flight_client, properties);
@@ -203,6 +211,7 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
     // Note: This should likely come from Flight instead of being from the
     // connection properties to allow reporting a user for other auth mechanisms
     // and also decouple the database user from user credentials.
+
     info_.SetProperty(SQL_USER_NAME, auth_method->GetUser());
     attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_FALSE);
 
@@ -323,7 +332,7 @@ FlightClientOptions FlightSqlConnection::BuildFlightClientOptions(
 
         options.tls_root_certs = certs;
       } else if (!ssl_config->getTrustedCerts().empty()) {
-        flight::CertKeyPair cert_key_pair;
+        arrow::flight::CertKeyPair cert_key_pair;
         ssl_config->populateOptionsWithCerts(&cert_key_pair);
         options.tls_root_certs = cert_key_pair.pem_cert;
       }
@@ -362,7 +371,7 @@ Location FlightSqlConnection::BuildLocation(
       if (ip_address.is_v4() || ip_address.is_v6()) {
         operation_result = address_info.GetAddressInfo(host, host_name_info, NI_MAXHOST);
         if (operation_result) {
-          ThrowIfNotOK(Location::ForGrpcTls(host_name_info, port, &location));
+          ThrowIfNotOK(Location::ForGrpcTls(host_name_info, port).Value(&location));
           return location;
         }
         // TODO: We should log that we could not convert an IP to hostname here.
@@ -372,11 +381,11 @@ Location FlightSqlConnection::BuildLocation(
       // throw if it is not an IP.
     }
 
-    ThrowIfNotOK(Location::ForGrpcTls(host, port, &location));
+    ThrowIfNotOK(Location::ForGrpcTls(host, port).Value(&location));
     return location;
   }
 
-  ThrowIfNotOK(Location::ForGrpcTcp(host, port, &location));
+  ThrowIfNotOK(Location::ForGrpcTcp(host, port).Value(&location));
   return location;
 }
 

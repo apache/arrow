@@ -28,11 +28,12 @@
 namespace driver {
 namespace flight_sql {
 
-namespace odbcabstraction {
 using arrow::DataType;
 using arrow::Field;
-using arrow::util::make_optional;
-using arrow::util::nullopt;
+using odbcabstraction::SqlDataType;
+
+using std::make_optional;
+using std::nullopt;
 
 constexpr int32_t DefaultDecimalPrecision = 38;
 
@@ -136,7 +137,7 @@ size_t FlightSqlResultSetMetadata::GetColumnDisplaySize(int column_position) {
   SqlDataType data_type_v3 =
       GetDataTypeFromArrowField_V3(field, metadata_settings_.use_wide_char_);
 
-  return GetDisplaySize(data_type_v3, column_size).value_or(NO_TOTAL);
+  return GetDisplaySize(data_type_v3, column_size).value_or(odbcabstraction::NO_TOTAL);
 }
 
 std::string FlightSqlResultSetMetadata::GetBaseColumnName(int column_position) {
@@ -192,7 +193,7 @@ size_t FlightSqlResultSetMetadata::GetNumPrecRadix(int column_position) {
   SqlDataType data_type_v3 =
       GetDataTypeFromArrowField_V3(field, metadata_settings_.use_wide_char_);
 
-  return GetRadixFromSqlDataType(data_type_v3).value_or(NO_TOTAL);
+  return GetRadixFromSqlDataType(data_type_v3).value_or(odbcabstraction::NO_TOTAL);
 }
 
 size_t FlightSqlResultSetMetadata::GetOctetLength(int column_position) {
@@ -285,9 +286,8 @@ FlightSqlResultSetMetadata::FlightSqlResultSetMetadata(
     : metadata_settings_(metadata_settings) {
   arrow::ipc::DictionaryMemo dict_memo;
 
-  ThrowIfNotOK(flight_info->GetSchema(&dict_memo, &schema_));
+  ThrowIfNotOK(flight_info->GetSchema(&dict_memo).Value(&schema_));
 }
 
-}  // namespace odbcabstraction
 }  // namespace flight_sql
 }  // namespace driver

@@ -19,7 +19,7 @@
 
 #include <locale>
 #include "arrow/flight/sql/odbc/flight_sql/accessors/types.h"
-#include "arrow/flight/sql/odbc/flight_sql/accessors/utils.h"
+#include "arrow/flight/sql/odbc/flight_sql/utils.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/encoding.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 #include "arrow/type_fwd.h"
@@ -27,8 +27,12 @@
 namespace driver {
 namespace flight_sql {
 
-namespace arrow {
-namespace odbcabstraction {
+using arrow::StringArray;
+using odbcabstraction::CDataType;
+using odbcabstraction::DriverException;
+using odbcabstraction::RowStatus;
+
+using odbcabstraction::GetSqlWCharSize;
 
 template <CDataType TARGET_TYPE, typename CHAR_TYPE>
 class StringArrayFlightSqlAccessor
@@ -54,9 +58,11 @@ class StringArrayFlightSqlAccessor
 inline Accessor* CreateWCharStringArrayAccessor(arrow::Array* array) {
   switch (GetSqlWCharSize()) {
     case sizeof(char16_t):
-      return new StringArrayFlightSqlAccessor<CDataType_WCHAR, char16_t>(array);
+      return new StringArrayFlightSqlAccessor<odbcabstraction::CDataType_WCHAR, char16_t>(
+          array);
     case sizeof(char32_t):
-      return new StringArrayFlightSqlAccessor<CDataType_WCHAR, char32_t>(array);
+      return new StringArrayFlightSqlAccessor<odbcabstraction::CDataType_WCHAR, char32_t>(
+          array);
     default:
       assert(false);
       throw DriverException("Encoding is unsupported, SQLWCHAR size: " +
@@ -64,7 +70,5 @@ inline Accessor* CreateWCharStringArrayAccessor(arrow::Array* array) {
   }
 }
 
-}  // namespace odbcabstraction
-}  // namespace arrow
 }  // namespace flight_sql
 }  // namespace driver

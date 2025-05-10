@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <odbcabstraction/odbc_impl/odbc_handle.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_handle.h>
 
 #include <sql.h>
 #include <sqlext.h>
@@ -78,11 +78,9 @@ struct DescriptorRecord {
 
 class ODBCDescriptor : public ODBCHandle<ODBCDescriptor> {
  public:
-  /**
-   * @brief Construct a new ODBCDescriptor object. Link the descriptor to a connection,
-   * if applicable. A nullptr should be supplied for conn if the descriptor should not be
-   * linked.
-   */
+  /// \brief Construct a new ODBCDescriptor object. Link the descriptor to a connection,
+  /// if applicable. A nullptr should be supplied for conn if the descriptor should not be
+  /// linked.
   ODBCDescriptor(driver::odbcabstraction::Diagnostics& baseDiagnostics,
                  ODBCConnection* conn, ODBCStatement* stmt, bool isAppDescriptor,
                  bool isWritable, bool is2xConnection);
