@@ -69,7 +69,7 @@ namespace {
 // @return The mask used to compare against the rolling hash
 uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size, int norm_factor) {
   if (min_chunk_size < 0) {
-    throw ParquetException("min_chunk_size must be positive");
+    throw ParquetException("min_chunk_size must be non-negative");
   }
   if (max_chunk_size <= min_chunk_size) {
     throw ParquetException("max_chunk_size must be greater than min_chunk_size");
