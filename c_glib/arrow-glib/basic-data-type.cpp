@@ -2358,9 +2358,8 @@ const gint64 *
 garrow_fixed_shape_tensor_data_type_get_shape(GArrowFixedShapeTensorDataType *data_type,
                                               gsize *length)
 {
-  const auto priv = GARROW_DATA_TYPE_GET_PRIVATE(object);
   auto arrow_data_type =
-    std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(priv->data_type);
+    std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(garrow_data_type_get_raw(data_type));
 
   *length = arrow_data_type->shape().size();
   return arrow_data_type->shape().data();
