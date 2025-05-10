@@ -2350,8 +2350,7 @@ garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
 /**
  * garrow_fixed_shape_tensor_data_type_get_shape:
  * @object: A #GArrowDataType of individual tensor elements.
- * @length: (out) (optional): return location for the number of elements in the returned
- *   array
+ * @length: (out): return location for the number of elements in the returned array.
  *
  * Returns: (transfer full) (array length=length): Shape of tensor elements.
  */
