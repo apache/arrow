@@ -123,6 +123,14 @@
       }
     },
     {
+      "name": "features-flight-sql-odbc",
+      "inherits": "features-flight-sql",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_FLIGHT_SQL_ODBC": "ON"
+      }
+    },
+    {
       "name": "features-gandiva",
       "inherits": "features-basic",
       "hidden": true,
