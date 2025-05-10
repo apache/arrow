@@ -2690,49 +2690,81 @@ if(ARROW_WITH_LZ4)
 endif()
 
 macro(build_zstd)
-  message(STATUS "Building Zstandard from source")
+  message(STATUS "Building Zstandard from source using FetchContent")
 
-  set(ZSTD_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zstd_ep-install")
+  # Set Zstd as vendored
+  set(ZSTD_VENDORED TRUE)
 
-  set(ZSTD_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      "-DCMAKE_INSTALL_PREFIX=${ZSTD_PREFIX}"
-      -DZSTD_BUILD_PROGRAMS=OFF
-      -DZSTD_BUILD_SHARED=OFF
-      -DZSTD_BUILD_STATIC=ON
-      -DZSTD_MULTITHREAD_SUPPORT=OFF)
+  # Declare the content
+  fetchcontent_declare(zstd_ep
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${ZSTD_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_ZSTD_BUILD_SHA256_CHECKSUM}"
+                       SOURCE_SUBDIR "build/cmake")
 
-  if(MSVC)
-    set(ZSTD_STATIC_LIB "${ZSTD_PREFIX}/lib/zstd_static.lib")
-    if(ARROW_USE_STATIC_CRT)
-      list(APPEND ZSTD_CMAKE_ARGS "-DZSTD_USE_STATIC_RUNTIME=ON")
-    endif()
-  else()
-    set(ZSTD_STATIC_LIB "${ZSTD_PREFIX}/lib/libzstd.a")
+  # Prepare fetch content environment
+  prepare_fetchcontent()
+
+  # Set Zstd-specific build options as cache variables
+  set(ZSTD_BUILD_PROGRAMS
+      OFF
+      CACHE BOOL "Don't build Zstd programs" FORCE)
+  set(ZSTD_BUILD_SHARED
+      OFF
+      CACHE BOOL "Don't build Zstd shared libraries" FORCE)
+  set(ZSTD_BUILD_STATIC
+      ON
+      CACHE BOOL "Build Zstd static libraries" FORCE)
+  set(ZSTD_MULTITHREAD_SUPPORT
+      OFF
+      CACHE BOOL "Don't build Zstd with multithread support" FORCE)
+  set(ZSTD_LEGACY_SUPPORT
+      0
+      CACHE NUMBER "Disable legacy support which causes conflicts in MSVC builds" FORCE)
+
+  # Disable Unity build for zstd to prevent redefinition errors in dictBuilder/cover.h
+  set(CMAKE_UNITY_BUILD
+      OFF
+      CACHE BOOL "Disable unity build for zstd" FORCE)
+
+  # Add static runtime option for MSVC if needed
+  if(MSVC AND ARROW_USE_STATIC_CRT)
+    set(ZSTD_USE_STATIC_RUNTIME
+        ON
+        CACHE BOOL "Build Zstd with static runtime" FORCE)
   endif()
 
-  externalproject_add(zstd_ep
-                      ${EP_COMMON_OPTIONS}
-                      CMAKE_ARGS ${ZSTD_CMAKE_ARGS}
-                      SOURCE_SUBDIR "build/cmake"
-                      INSTALL_DIR ${ZSTD_PREFIX}
-                      URL ${ZSTD_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_ZSTD_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS "${ZSTD_STATIC_LIB}")
+  # Make the dependency available - this will actually perform the download and configure
+  fetchcontent_makeavailable(zstd_ep)
 
-  file(MAKE_DIRECTORY "${ZSTD_PREFIX}/include")
+  # Get the source and binary directories after fetching content
+  fetchcontent_getproperties(zstd_ep
+                             SOURCE_DIR ZSTD_SOURCE_DIR
+                             BINARY_DIR ZSTD_BINARY_DIR)
 
-  add_library(zstd::libzstd_static STATIC IMPORTED)
-  set_target_properties(zstd::libzstd_static PROPERTIES IMPORTED_LOCATION
-                                                        "${ZSTD_STATIC_LIB}")
-  target_include_directories(zstd::libzstd_static BEFORE
-                             INTERFACE "${ZSTD_PREFIX}/include")
+  # Check which target name is actually created by zstd's CMake
+  # zstd on macOS often creates 'zstd_static' despite what the docs say
+  if(TARGET zstd_static)
+    add_library(zstd::libzstd_static ALIAS zstd_static)
+    if(NOT DEFINED CMAKE_EXPORT_NO_PACKAGE_REGISTRY)
+      set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY ON)
+    endif()
+    install(TARGETS zstd_static EXPORT orc_targets)
+    message(STATUS "Using zstd_static target for zstd")
+  elseif(TARGET libzstd_static)
+    add_library(zstd::libzstd_static ALIAS libzstd_static)
+    if(NOT DEFINED CMAKE_EXPORT_NO_PACKAGE_REGISTRY)
+      set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY ON)
+    endif()
+    install(TARGETS libzstd_static EXPORT orc_targets)
+    message(STATUS "Using libzstd_static target for zstd")
+  else()
+    message(FATAL_ERROR "Neither zstd_static nor libzstd_static targets were created by FetchContent"
+    )
+  endif()
 
-  add_dependencies(zstd::libzstd_static zstd_ep)
-
+  # Add to bundled static libs
   list(APPEND ARROW_BUNDLED_STATIC_LIBS zstd::libzstd_static)
-
-  set(ZSTD_VENDORED TRUE)
 endmacro()
 
 if(ARROW_WITH_ZSTD)
