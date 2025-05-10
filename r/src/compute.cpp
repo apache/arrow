@@ -18,6 +18,10 @@
 #include "./arrow_types.h"
 #include "./safe-call-into-r.h"
 
+#if ARROW_VERSION_MAJOR >= 21
+#include <arrow/compute/kernels/api.h>
+#endif
+
 #include <arrow/array/util.h>
 #include <arrow/compute/api.h>
 #include <arrow/record_batch.h>
@@ -618,6 +622,9 @@ SEXP compute__CallFunction(std::string func_name, cpp11::list args, cpp11::list 
 
 // [[arrow::export]]
 std::vector<std::string> compute__GetFunctionNames() {
+#if ARROW_VERSION_MAJOR >= 21
+  auto compute_init_status_ = arrow::compute::Initialize();
+#endif
   return arrow::compute::GetFunctionRegistry()->GetFunctionNames();
 }
 
