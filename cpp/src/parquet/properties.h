@@ -247,7 +247,7 @@ class PARQUET_EXPORT ColumnProperties {
 
 // EXPERIMENTAL: Options for content-defined chunking.
 struct PARQUET_EXPORT CdcOptions {
-  /// Minimum chunk size in bytes, default 256 KiB
+  /// Minimum chunk size in bytes, default is 256 KiB
   /// The rolling hash will not be updated until this size is reached for each chunk.
   /// Note that all data sent through the hash function is counted towards the chunk
   /// size, including definition and repetition levels if present.
@@ -259,15 +259,17 @@ struct PARQUET_EXPORT CdcOptions {
   /// `pagesize` to a smaller value than `max_chunk_size` doesn't affect the
   /// chunking effectiveness, it results in more small parquet data pages.
   int64_t max_chunk_size = 1024 * 1024;
-  /// Number of bit adjustement to the gearhash mask in order to
-  /// center the chunk size around the average size more aggressively, default 0
+  /// Number of bit adjustment to the gearhash mask in order to center the chunk size
+  /// around the average size more aggressively, default is 0
   /// Increasing the normalization level increases the probability of finding a chunk,
   /// improving the deduplication ratio, but also increasing the number of small chunks
   /// resulting in many small parquet data pages. The default value provides a good
-  /// balance between deduplication ratio and fragmentation. Use norm_level=1 or
-  /// norm_level=2 to reach a higher deduplication ratio at the expense of
-  /// fragmentation. Negative values can also be used to reduce the probability of
-  /// finding a chunk, resulting in larger chunks and fewer data pages.
+  /// balance between deduplication ratio and fragmentation.
+  /// Use norm_level=1 or norm_level=2 to reach a higher deduplication ratio at the
+  /// expense of fragmentation. Negative values can also be used to reduce the
+  /// probability of finding a chunk, resulting in larger chunks and fewer data pages.
+  /// Note that values outside [-3, 3] are not recommended, prefer using the default
+  /// value of 0 for most use cases.
   int norm_level = 0;
 };
 
