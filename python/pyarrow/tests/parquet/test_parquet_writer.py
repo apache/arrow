@@ -361,3 +361,90 @@ def test_parquet_writer_append_key_value_metadata(tempdir):
     assert metadata[b'key1'] == b'1'
     assert metadata[b'key2'] == b'2'
     assert metadata[b'key3'] == b'3'
+
+
+def test_parquet_content_defined_chunking(tempdir):
+    table = pa.table({'a': range(100_000)})
+
+    # use PLAIN encoding because we compare the overall size of the row groups
+    # which would vary depending on the encoding making the assertions wrong
+    pq.write_table(table, tempdir / 'unchunked.parquet',
+                   use_dictionary=False,
+                   column_encoding="PLAIN")
+    pq.write_table(table, tempdir / 'chunked-default.parquet',
+                   use_dictionary=False,
+                   column_encoding="PLAIN",
+                   use_content_defined_chunking=True)
+    pq.write_table(table, tempdir / 'chunked-custom.parquet',
+                   use_dictionary=False,
+                   column_encoding="PLAIN",
+                   use_content_defined_chunking={"min_chunk_size": 32_768,
+                                                 "max_chunk_size": 65_536})
+
+    # the data must be the same
+    unchunked = pq.read_table(tempdir / 'unchunked.parquet')
+    chunked_default = pq.read_table(tempdir / 'chunked-default.parquet')
+    chunked_custom = pq.read_table(tempdir / 'chunked-custom.parquet')
+    assert unchunked.equals(chunked_default)
+    assert unchunked.equals(chunked_custom)
+
+    # number of row groups and their sizes are not affected by content defined chunking
+    unchunked_metadata = pq.read_metadata(tempdir / 'unchunked.parquet')
+    chunked_default_metadata = pq.read_metadata(tempdir / 'chunked-default.parquet')
+    chunked_custom_metadata = pq.read_metadata(tempdir / 'chunked-custom.parquet')
+
+    assert unchunked_metadata.num_row_groups == chunked_default_metadata.num_row_groups
+    assert unchunked_metadata.num_row_groups == chunked_custom_metadata.num_row_groups
+
+    for i in range(unchunked_metadata.num_row_groups):
+        rg_unchunked = unchunked_metadata.row_group(i)
+        rg_chunked_default = chunked_default_metadata.row_group(i)
+        rg_chunked_custom = chunked_custom_metadata.row_group(i)
+        assert rg_unchunked.num_rows == rg_chunked_default.num_rows
+        assert rg_unchunked.num_rows == rg_chunked_custom.num_rows
+        # since PageReader is not exposed we cannot inspect the page sizes
+        # so just check that the total byte size is different
+        assert rg_unchunked.total_byte_size < rg_chunked_default.total_byte_size
+        assert rg_unchunked.total_byte_size < rg_chunked_custom.total_byte_size
+        assert rg_chunked_default.total_byte_size < rg_chunked_custom.total_byte_size
+
+
+def test_parquet_content_defined_chunking_parameters(tempdir):
+    table = pa.table({'a': range(100)})
+    path = tempdir / 'chunked-invalid.parquet'
+
+    # it raises OSError, not ideal but this is how parquet exceptions are handled
+    # currently
+    msg = "max_chunk_size must be greater than min_chunk_size"
+    with pytest.raises(Exception, match=msg):
+        cdc_options = {"min_chunk_size": 65_536, "max_chunk_size": 32_768}
+        pq.write_table(table, path, use_content_defined_chunking=cdc_options)
+
+    cases = [
+        (
+            {"min_chunk_size": 64 * 1024, "unknown_option": True},
+            "Unknown options in 'use_content_defined_chunking': {'unknown_option'}"
+        ),
+        (
+            {"min_chunk_size": 64 * 1024},
+            "Missing options in 'use_content_defined_chunking': {'max_chunk_size'}"
+        ),
+        (
+            {"max_chunk_size": 64 * 1024},
+            "Missing options in 'use_content_defined_chunking': {'min_chunk_size'}"
+        )
+    ]
+    for cdc_options, msg in cases:
+        with pytest.raises(ValueError, match=msg):
+            pq.write_table(table, path, use_content_defined_chunking=cdc_options)
+
+    # using the default parametrization
+    pq.write_table(table, path, use_content_defined_chunking=True)
+
+    # using min_chunk_size and max_chunk_size
+    cdc_options = {"min_chunk_size": 32_768, "max_chunk_size": 65_536}
+    pq.write_table(table, path, use_content_defined_chunking=cdc_options)
+
+    # using min_chunk_size, max_chunk_size and norm_level
+    cdc_options = {"min_chunk_size": 32_768, "max_chunk_size": 65_536, "norm_level": 1}
+    pq.write_table(table, path, use_content_defined_chunking=cdc_options)
