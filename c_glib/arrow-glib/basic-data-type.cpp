@@ -2348,7 +2348,7 @@ garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
 }
 
 /**
- * garrow_fixed_shape_tensor_data_type_get_shapes:
+ * garrow_fixed_shape_tensor_data_type_get_shape:
  * @object: A #GArrowDataType of individual tensor elements.
  * @length: (out) (optional): return location for the number of elements in the returned
  *   array
@@ -2356,8 +2356,8 @@ garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
  * Returns: (transfer full) (array length=length): Shape of tensor elements.
  */
 gint64 *
-garrow_fixed_shape_tensor_data_type_get_shapes(GArrowFixedShapeTensorDataType *object,
-                                               gsize *length)
+garrow_fixed_shape_tensor_data_type_get_shape(GArrowFixedShapeTensorDataType *object,
+                                              gsize *length)
 {
   const auto priv = GARROW_DATA_TYPE_GET_PRIVATE(object);
   auto arrow_data_type =

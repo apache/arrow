@@ -828,6 +828,6 @@ garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
 
 GARROW_AVAILABLE_IN_21_0
 gint64 *
-garrow_fixed_shape_tensor_data_type_get_shapes(GArrowFixedShapeTensorDataType *object,
-                                               gsize *length);
+garrow_fixed_shape_tensor_data_type_get_shape(GArrowFixedShapeTensorDataType *object,
+                                              gsize *length);
 G_END_DECLS

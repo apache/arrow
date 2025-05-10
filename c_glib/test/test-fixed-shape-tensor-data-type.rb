@@ -33,7 +33,7 @@ class TestFixedShapeTensorDataType < Test::Unit::TestCase
   end
 
   def test_shape_size
-    assert_equal([3, 4], @data_type.shapes)
+    assert_equal([3, 4], @data_type.shape)
   end
 
   def test_to_s
