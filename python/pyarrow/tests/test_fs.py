@@ -1230,6 +1230,11 @@ def test_s3_options(pickle_module):
     assert pickle_module.loads(pickle_module.dumps(fs2)) == fs2
     assert fs2 != fs
 
+    fs = S3FileSystem(allow_delayed_open=True)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs)) == fs
+    assert pickle_module.loads(pickle_module.dumps(fs)) != S3FileSystem()
+
     fs = S3FileSystem(allow_bucket_creation=True, allow_bucket_deletion=True)
     assert isinstance(fs, S3FileSystem)
     assert pickle_module.loads(pickle_module.dumps(fs)) == fs
@@ -1834,9 +1839,17 @@ def test_s3_real_aws_region_selection():
     # Nonexistent bucket (hopefully, otherwise need to fix this test)
     with pytest.raises(IOError, match="Bucket '.*' not found"):
         FileSystem.from_uri('s3://x-arrow-nonexistent-bucket')
-    fs, path = FileSystem.from_uri(
-        's3://x-arrow-nonexistent-bucket?region=us-east-3')
+    fs, path = FileSystem.from_uri('s3://x-arrow-nonexistent-bucket?region=us-east-3')
     assert fs.region == 'us-east-3'
+
+    # allow_delayed_open has a side-effect of delaying errors until I/O is performed.
+    # region is required to bypass the lookup for a nonexistent bucket, allowing us to
+    # verify that errors are properly delayed until stream closure.
+    fs, path = FileSystem.from_uri(
+        's3://x-arrow-nonexistent-bucket/T.md?region=us-east-2&allow_delayed_open=true')
+    stream = fs.open_output_stream(path)
+    with pytest.raises(IOError):
+        stream.close()
 
 
 @pytest.mark.s3

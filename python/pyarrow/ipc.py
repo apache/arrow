@@ -59,12 +59,6 @@ sink : str, pyarrow.NativeFile, or file-like Python object
     Either a file path, or a writable file object.
 schema : pyarrow.Schema
     The Arrow schema for data to be written to the file.
-use_legacy_format : bool, default None
-    Deprecated in favor of setting options. Cannot be provided with
-    options.
-
-    If None, False will be used unless this default is overridden by
-    setting the environment variable ARROW_PRE_0_15_IPC_FORMAT=1
 options : pyarrow.ipc.IpcWriteOptions
     Options for IPC serialization.
 
@@ -80,8 +74,8 @@ class RecordBatchStreamWriter(lib._RecordBatchStreamWriter):
 
 {_ipc_writer_class_doc}"""
 
-    def __init__(self, sink, schema, *, use_legacy_format=None, options=None):
-        options = _get_legacy_format_default(use_legacy_format, options)
+    def __init__(self, sink, schema, *, options=None):
+        options = _get_legacy_format_default(options)
         self._open(sink, schema, options=options)
 
 
@@ -117,24 +111,20 @@ class RecordBatchFileWriter(lib._RecordBatchFileWriter):
 
 {_ipc_writer_class_doc}"""
 
-    def __init__(self, sink, schema, *, use_legacy_format=None, options=None):
-        options = _get_legacy_format_default(use_legacy_format, options)
+    def __init__(self, sink, schema, *, options=None):
+        options = _get_legacy_format_default(options)
         self._open(sink, schema, options=options)
 
 
-def _get_legacy_format_default(use_legacy_format, options):
-    if use_legacy_format is not None and options is not None:
-        raise ValueError(
-            "Can provide at most one of options and use_legacy_format")
-    elif options:
+def _get_legacy_format_default(options):
+    if options:
         if not isinstance(options, IpcWriteOptions):
             raise TypeError(f"expected IpcWriteOptions, got {type(options)}")
         return options
 
     metadata_version = MetadataVersion.V5
-    if use_legacy_format is None:
-        use_legacy_format = \
-            bool(int(os.environ.get('ARROW_PRE_0_15_IPC_FORMAT', '0')))
+    use_legacy_format = \
+        bool(int(os.environ.get('ARROW_PRE_0_15_IPC_FORMAT', '0')))
     if bool(int(os.environ.get('ARROW_PRE_1_0_METADATA_VERSION', '0'))):
         metadata_version = MetadataVersion.V4
     return IpcWriteOptions(use_legacy_format=use_legacy_format,
@@ -147,9 +137,8 @@ def _ensure_default_ipc_read_options(options):
     return options or IpcReadOptions()
 
 
-def new_stream(sink, schema, *, use_legacy_format=None, options=None):
+def new_stream(sink, schema, *, options=None):
     return RecordBatchStreamWriter(sink, schema,
-                                   use_legacy_format=use_legacy_format,
                                    options=options)
 
 
@@ -188,9 +177,8 @@ def open_stream(source, *, options=None, memory_pool=None):
                                    memory_pool=memory_pool)
 
 
-def new_file(sink, schema, *, use_legacy_format=None, options=None):
+def new_file(sink, schema, *, options=None):
     return RecordBatchFileWriter(sink, schema,
-                                 use_legacy_format=use_legacy_format,
                                  options=options)
 
 

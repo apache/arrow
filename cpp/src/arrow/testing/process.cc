@@ -39,11 +39,18 @@
 #      ifdef __APPLE__
 #        include <sys/sysctl.h>
 #      endif
-#      include <boost/process/v2.hpp>
 #      include <boost/process/v2/src.hpp>
-#    else
-#      include <boost/process/v2.hpp>
 #    endif
+#    include <boost/process/v2/environment.hpp>
+#    include <boost/process/v2/error.hpp>
+#    include <boost/process/v2/execute.hpp>
+#    include <boost/process/v2/exit_code.hpp>
+#    include <boost/process/v2/pid.hpp>
+#    include <boost/process/v2/popen.hpp>
+#    include <boost/process/v2/process.hpp>
+#    include <boost/process/v2/process_handle.hpp>
+#    include <boost/process/v2/start_dir.hpp>
+#    include <boost/process/v2/stdio.hpp>
 #    include <unordered_map>
 #  else
 // We need BOOST_USE_WINDOWS_H definition with MinGW when we use
@@ -57,7 +64,24 @@
 #      define BOOST_USE_WINDOWS_H = 1
 #    endif
 #    ifdef BOOST_PROCESS_HAVE_V1
-#      include <boost/process/v1.hpp>
+#      include <boost/process/v1/args.hpp>
+#      include <boost/process/v1/async.hpp>
+#      include <boost/process/v1/async_system.hpp>
+#      include <boost/process/v1/child.hpp>
+#      include <boost/process/v1/cmd.hpp>
+#      include <boost/process/v1/env.hpp>
+#      include <boost/process/v1/environment.hpp>
+#      include <boost/process/v1/error.hpp>
+#      include <boost/process/v1/exe.hpp>
+#      include <boost/process/v1/group.hpp>
+#      include <boost/process/v1/handles.hpp>
+#      include <boost/process/v1/io.hpp>
+#      include <boost/process/v1/pipe.hpp>
+#      include <boost/process/v1/search_path.hpp>
+#      include <boost/process/v1/shell.hpp>
+#      include <boost/process/v1/spawn.hpp>
+#      include <boost/process/v1/start_dir.hpp>
+#      include <boost/process/v1/system.hpp>
 #    else
 #      include <boost/process.hpp>
 #    endif

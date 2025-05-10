@@ -107,7 +107,7 @@ public struct org_apache_arrow_flatbuf_Tensor: FlatBufferObject, Verifiable {
   public var strides: [Int64] { return _accessor.getVector(at: VTOFFSET.strides.v) ?? [] }
   ///  The location and size of the tensor's data
   public var data: org_apache_arrow_flatbuf_Buffer! { let o = _accessor.offset(VTOFFSET.data.v); return _accessor.readBuffer(of: org_apache_arrow_flatbuf_Buffer.self, at: o) }
-  public var mutableData: org_apache_arrow_flatbuf_Buffer_Mutable! { let o = _accessor.offset(VTOFFSET.data.v); return org_apache_arrow_flatbuf_Buffer_Mutable(_accessor.bb, o: o + _accessor.postion) }
+  public var mutableData: org_apache_arrow_flatbuf_Buffer_Mutable! { let o = _accessor.offset(VTOFFSET.data.v); return org_apache_arrow_flatbuf_Buffer_Mutable(_accessor.bb, o: o + _accessor.position) }
   public static func startTensor(_ fbb: inout FlatBufferBuilder) -> UOffset { fbb.startTable(with: 5) }
   public static func add(typeType: org_apache_arrow_flatbuf_Type_, _ fbb: inout FlatBufferBuilder) { fbb.add(element: typeType.rawValue, def: 0, at: VTOFFSET.typeType.p) }
   public static func add(type: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: type, at: VTOFFSET.type.p) }

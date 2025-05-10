@@ -19,7 +19,7 @@ project(
     'arrow',
     'cpp',
     'c',
-    version: '20.0.0-SNAPSHOT',
+    version: '21.0.0-SNAPSHOT',
     license: 'Apache-2.0',
     meson_version: '>=1.3.0',
     default_options: [
@@ -47,23 +47,41 @@ cpp_args = cpp_compiler.get_supported_arguments(project_args)
 add_project_arguments(cpp_args, language: 'cpp')
 
 git_id = get_option('git_id')
-if git_id == ''
+if git_id == '' and not meson.is_subproject()
     git_id = run_command('git', 'log', '-n1', '--format=%H', check: false).stdout().strip()
 endif
 
 git_description = get_option('git_description')
-if git_description == ''
+if git_description == '' and not meson.is_subproject()
     git_description = run_command('git', 'describe', '--tags', check: false).stdout().strip()
 endif
 
-needs_benchmarks = get_option('benchmarks')
-needs_csv = get_option('csv')
-needs_hdfs = get_option('hdfs')
-needs_filesystem = false or needs_hdfs
-needs_integration = get_option('integration')
-needs_tests = get_option('tests')
-needs_ipc = get_option('ipc') or needs_tests or needs_benchmarks
-needs_testing = get_option('testing') or needs_tests or needs_benchmarks or needs_integration
-needs_json = get_option('json') or needs_testing
+needs_benchmarks = get_option('benchmarks').enabled()
+needs_compute = get_option('compute').enabled()
+needs_csv = get_option('csv').enabled()
+needs_azure = get_option('azure').enabled()
+needs_gcs = get_option('gcs').enabled()
+needs_hdfs = get_option('hdfs').enabled()
+needs_s3 = get_option('s3').enabled()
+needs_filesystem = get_option('filesystem').enabled() or needs_azure or needs_gcs or needs_hdfs or needs_s3
+needs_integration = get_option('integration').enabled()
+needs_tests = get_option('tests').enabled()
+needs_acero = get_option('acero').enabled()
+needs_ipc = get_option('ipc').enabled() or needs_tests or needs_acero or needs_benchmarks
+needs_fuzzing = get_option('fuzzing').enabled()
+needs_testing = (get_option('testing').enabled()
+or needs_tests
+or needs_benchmarks
+or needs_fuzzing
+or needs_integration
+)
+needs_json = get_option('json').enabled() or needs_testing
+needs_brotli = get_option('brotli').enabled() or needs_fuzzing
+needs_bz2 = get_option('bz2').enabled()
+needs_lz4 = get_option('lz4').enabled()
+needs_snappy = get_option('snappy').enabled()
+needs_zlib = get_option('zlib').enabled()
+needs_zstd = get_option('zstd').enabled()
+needs_utilities = get_option('utilities').enabled()
 
 subdir('src/arrow')

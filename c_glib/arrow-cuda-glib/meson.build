@@ -76,8 +76,7 @@ endif
 
 if have_gi
     gir_dependencies = [declare_dependency(sources: arrow_glib_gir)]
-    gir_extra_args = [
-        '--warn-all',
+    gir_extra_args = gir_scanner_extra_args + [
         '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
     ]
     arrow_cuda_glib_gir = gnome.generate_gir(

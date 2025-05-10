@@ -66,11 +66,10 @@ ${APT_INSTALL} \
 
 code_name="$(lsb_release --codename --short)"
 distribution="$(lsb_release --id --short | tr 'A-Z' 'a-z')"
-production_repository_base_url="https://repo1.maven.org/maven2/org/apache/arrow/${distribution}"
-staging_repository_base_url="https://repository.apache.org/content/repositories/staging/org/apache/arrow/${distribution}"
-repository_base_url="${production_repository_base_url}"
+artifactory_base_url="https://packages.apache.org/artifactory/arrow/${distribution}"
 if [ "${TYPE}" = "rc" ]; then
-  repository_base_url="${staging_repository_base_url}"
+  suffix=${TYPE%-release}
+  artifactory_base_url+="-${suffix}"
 fi
 
 workaround_missing_packages=()
@@ -106,7 +105,7 @@ else
   apt_source_base_name="apache-arrow-apt-source-latest-${code_name}.deb"
   curl \
     --output "${apt_source_base_name}" \
-    "${repository_base_url}/${apt_source_base_name}"
+    "${artifactory_base_url}/${apt_source_base_name}"
   ${APT_INSTALL} "./${apt_source_base_name}"
 fi
 
@@ -132,7 +131,7 @@ else
     rc)
       sed \
         -i"" \
-        -e "s,^URIs: ${production_repository_base_url},URIs: ${staging_repository_base_url},g" \
+        -e "s,^URIs: \\(.*\\)/,URIs: \\1-${suffix}/,g" \
         /etc/apt/sources.list.d/apache-arrow.sources
       ;;
   esac

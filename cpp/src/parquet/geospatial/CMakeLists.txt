@@ -15,22 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if_version <- function(version, op = `==`) {
-  op(packageVersion("arrow"), version)
-}
-
-if_version_less_than <- function(version) {
-  if_version(version, op = `<`)
-}
-
-skip_if_version_less_than <- function(version, msg) {
-  if (if_version(version, `<`)) {
-    skip(msg)
-  }
-}
-
-skip_if_version_equals <- function(version, msg) {
-  if (if_version(version, `==`)) {
-    skip(msg)
-  }
-}
+arrow_install_all_headers("parquet/geospatial")

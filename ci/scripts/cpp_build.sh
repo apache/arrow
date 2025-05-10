@@ -118,12 +118,39 @@ if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
     fi
   }
 
+  ORIGINAL_CC="${CC}"
+  if [ -n "${CC}" ]; then
+    if [ "${ARROW_USE_CCACHE}" = "ON" ]; then
+      CC="ccache ${CC}"
+    else
+      if command -v sccache; then
+        CC="sccache ${CC}"
+      fi
+    fi
+  fi
+
+  ORIGINAL_CXX="${CXX}"
+  if [ -n "${CXX}" ]; then
+    if [ "${ARROW_USE_CCACHE}" = "ON" ]; then
+      CXX="ccache ${CXX}"
+    else
+      if command -v sccache; then
+        CXX="sccache ${CXX}"
+      fi
+    fi
+  fi
   meson setup \
     --prefix=${MESON_PREFIX:-${ARROW_HOME}} \
     --buildtype=${ARROW_BUILD_TYPE:-debug} \
-    -Dtests=$(meson_boolean ${ARROW_BUILD_TESTS:-OFF}) \
+    -Dauto_features=enabled \
+    -Dfuzzing=disabled \
+    -Dgcs=disabled \
+    -Ds3=disabled \
     . \
     ${source_dir}
+
+  CC="${ORIGINAL_CC}"
+  CXX="${ORIGINAL_CXX}"
 elif [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
   if [ "${UBUNTU}" = "20.04" ]; then
     echo "arrow emscripten build is not supported on Ubuntu 20.04, run with UBUNTU=22.04"
@@ -204,7 +231,6 @@ else
     -DARROW_USE_LD_GOLD=${ARROW_USE_LD_GOLD:-OFF} \
     -DARROW_USE_LLD=${ARROW_USE_LLD:-OFF} \
     -DARROW_USE_MOLD=${ARROW_USE_MOLD:-OFF} \
-    -DARROW_USE_PRECOMPILED_HEADERS=${ARROW_USE_PRECOMPILED_HEADERS:-OFF} \
     -DARROW_USE_STATIC_CRT=${ARROW_USE_STATIC_CRT:-OFF} \
     -DARROW_USE_TSAN=${ARROW_USE_TSAN:-OFF} \
     -DARROW_USE_UBSAN=${ARROW_USE_UBSAN:-OFF} \

@@ -83,8 +83,7 @@ if have_gi
         libarrow_flight_glib,
         dependencies: declare_dependency(sources: arrow_glib_gir),
         export_packages: 'arrow-flight-glib',
-        extra_args: [
-            '--warn-all',
+        extra_args: gir_scanner_extra_args + [
             '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
         ],
         header: 'arrow-flight-glib/arrow-flight-glib.h',

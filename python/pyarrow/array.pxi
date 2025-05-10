@@ -17,6 +17,7 @@
 
 from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCapsule_New
 
+from collections.abc import Sequence
 import os
 import warnings
 from cython import sizeof
@@ -3627,7 +3628,7 @@ cdef class FixedSizeListArray(BaseListArray):
     def values(self):
         """
         Return the underlying array of values which backs the
-        FixedSizeListArray.
+        FixedSizeListArray ignoring the array's offset.
 
         Note even null elements are included.
 
@@ -4609,7 +4610,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         return pyarrow_wrap_tensor(GetResultValue(ctensor))
 
     @staticmethod
-    def from_numpy_ndarray(obj):
+    def from_numpy_ndarray(obj, dim_names=None):
         """
         Convert numpy tensors (ndarrays) to a fixed shape tensor extension array.
         The first dimension of ndarray will become the length of the fixed
@@ -4619,6 +4620,8 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         Parameters
         ----------
         obj : numpy.ndarray
+        dim_names : tuple or list of strings, default None
+            Explicit names to tensor dimensions.
 
         Examples
         --------
@@ -4654,6 +4657,17 @@ cdef class FixedShapeTensorArray(ExtensionArray):
                 "Cannot convert 1D array or scalar to fixed shape tensor array")
         if np.prod(obj.shape) == 0:
             raise ValueError("Expected a non-empty ndarray")
+        if dim_names is not None:
+            if not isinstance(dim_names, Sequence):
+                raise TypeError("dim_names must be a tuple or list")
+            if len(dim_names) != len(obj.shape[1:]):
+                raise ValueError(
+                    (f"The length of dim_names ({len(dim_names)}) does not match"
+                     f"the number of tensor dimensions ({len(obj.shape[1:])})."
+                     )
+                )
+            if not all(isinstance(name, str) for name in dim_names):
+                raise TypeError("Each element of dim_names must be a string")
 
         permutation = (-np.array(obj.strides)).argsort(kind='stable')
         if permutation[0] != 0:
@@ -4665,7 +4679,9 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         values = np.ravel(obj, order="K")
 
         return ExtensionArray.from_storage(
-            fixed_shape_tensor(arrow_type, shape[1:], permutation=permutation[1:] - 1),
+            fixed_shape_tensor(arrow_type, shape[1:],
+                               dim_names=dim_names,
+                               permutation=permutation[1:] - 1),
             FixedSizeListArray.from_arrays(values, shape[1:].prod())
         )
 
