@@ -427,11 +427,6 @@ if needs_ipc
     flatbuffers_dep = dependency('flatbuffers')
     arrow_ipc_deps = [flatbuffers_dep]
 
-    if needs_json
-        arrow_ipc_srcs += 'ipc/json_simple.cc'
-        arrow_ipc_deps += rapidjson_dep
-    endif
-
     arrow_components += {
         'arrow_ipc': {'sources': arrow_ipc_srcs, 'dependencies': arrow_ipc_deps},
     }
@@ -447,6 +442,7 @@ if needs_json
                 'json/chunked_builder.cc',
                 'json/chunker.cc',
                 'json/converter.cc',
+                'json/from_string.cc',
                 'json/object_parser.cc',
                 'json/object_writer.cc',
                 'json/parser.cc',

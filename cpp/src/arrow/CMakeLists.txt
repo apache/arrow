@@ -604,6 +604,11 @@ if(ARROW_WITH_OPENTELEMETRY)
     target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
   endforeach()
 endif()
+if(ARROW_WITH_RAPIDJSON)
+  foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
+    target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE RapidJSON)
+  endforeach()
+endif()
 if(ARROW_WITH_ZLIB)
   foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
     target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE ZLIB::ZLIB)
@@ -895,18 +900,10 @@ if(ARROW_IPC)
        ipc/options.cc
        ipc/reader.cc
        ipc/writer.cc)
-  if(ARROW_JSON)
-    list(APPEND ARROW_IPC_SRCS ipc/json_simple.cc)
-  endif()
   arrow_add_object_library(ARROW_IPC ${ARROW_IPC_SRCS})
   foreach(ARROW_IPC_TARGET ${ARROW_IPC_TARGETS})
     target_link_libraries(${ARROW_IPC_TARGET} PRIVATE arrow::flatbuffers)
   endforeach()
-  if(ARROW_JSON)
-    foreach(ARROW_IPC_TARGET ${ARROW_IPC_TARGETS})
-      target_link_libraries(${ARROW_IPC_TARGET} PRIVATE RapidJSON)
-    endforeach()
-  endif()
 else()
   set(ARROW_IPC_TARGET_SHARED)
   set(ARROW_IPC_TARGET_STATIC)
@@ -920,6 +917,7 @@ if(ARROW_JSON)
                            json/chunked_builder.cc
                            json/chunker.cc
                            json/converter.cc
+                           json/from_string.cc
                            json/object_parser.cc
                            json/object_writer.cc
                            json/parser.cc

@@ -19,7 +19,6 @@
 
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/feather.h"
-#include "arrow/ipc/json_simple.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
