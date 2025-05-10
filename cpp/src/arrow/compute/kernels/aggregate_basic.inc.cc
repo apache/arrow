@@ -93,11 +93,12 @@ struct SumImpl : public ScalarAggregator {
   }
 
   Status Finalize(KernelContext*, Datum* out) override {
+    std::shared_ptr<DataType> out_type_ = this->out_type;
     if ((!options.skip_nulls && this->nulls_observed) ||
         (this->count < options.min_count)) {
-      out->value = std::make_shared<OutputType>(out_type);
+      out->value = std::make_shared<OutputType>(out_type_);
     } else {
-      out->value = std::make_shared<OutputType>(this->sum, out_type);
+      out->value = std::make_shared<OutputType>(this->sum, out_type_);
     }
     return Status::OK();
   }
@@ -189,7 +190,10 @@ struct SumLikeInit {
 
   template <typename Type>
   enable_if_decimal<Type, Status> Visit(const Type&) {
-    state.reset(new KernelClass<Type>(type, options));
+    // By default, we widen the decimal to max precision for SumLikes
+    // However, this may not be the desired behaviour (see, e.g., MeanKernelInit)
+    auto ty = WidenDecimalToMaxPrecision(type).ValueOrDie();
+    state.reset(new KernelClass<Type>(ty, options));
     return Status::OK();
   }
 
@@ -220,9 +224,12 @@ struct MeanImpl<ArrowType, SimdLevel, enable_if_decimal<ArrowType>>
 
   template <typename T = ArrowType>
   Status FinalizeImpl(Datum* out) {
+    std::shared_ptr<DataType> out_type_;
+    ARROW_ASSIGN_OR_RAISE(out_type_, WidenDecimalToMaxPrecision(this->out_type));
+
     if ((!options.skip_nulls && this->nulls_observed) ||
         (this->count < options.min_count) || (this->count == 0)) {
-      out->value = std::make_shared<OutputType>(this->out_type);
+      out->value = std::make_shared<OutputType>(out_type_);
     } else {
       SumCType quotient, remainder;
       ARROW_ASSIGN_OR_RAISE(std::tie(quotient, remainder), this->sum.Divide(this->count));
@@ -235,7 +242,7 @@ struct MeanImpl<ArrowType, SimdLevel, enable_if_decimal<ArrowType>>
           quotient -= 1;
         }
       }
-      out->value = std::make_shared<OutputType>(quotient, this->out_type);
+      out->value = std::make_shared<OutputType>(quotient, out_type_);
     }
     return Status::OK();
   }
@@ -274,6 +281,12 @@ struct MeanKernelInit : public SumLikeInit<KernelClass> {
   MeanKernelInit(KernelContext* ctx, std::shared_ptr<DataType> type,
                  const ScalarAggregateOptions& options)
       : SumLikeInit<KernelClass>(ctx, type, options) {}
+
+  template <typename Type>
+  enable_if_decimal<Type, Status> Visit(const Type&) {
+    this->state.reset(new KernelClass<Type>(this->type, this->options));
+    return Status::OK();
+  }
 
   Status Visit(const NullType&) override {
     this->state.reset(new NullSumImpl<DoubleType>(this->options));
