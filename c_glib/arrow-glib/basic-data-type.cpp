@@ -2355,7 +2355,7 @@ garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
  * Returns: (array length=length): Shape of tensor elements.
  */
 const gint64 *
-garrow_fixed_shape_tensor_data_type_get_shape(GArrowFixedShapeTensorDataType *object,
+garrow_fixed_shape_tensor_data_type_get_shape(GArrowFixedShapeTensorDataType *data_type,
                                               gsize *length)
 {
   const auto priv = GARROW_DATA_TYPE_GET_PRIVATE(object);
