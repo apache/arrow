@@ -2352,7 +2352,7 @@ garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
  * @data_type: A #GArrowFixedShapeTensorDataType.
  * @length: (out): Return location for the number of dimensions of the tensor.
  *
- * Returns: (array length=length): Shape of tensor elements.
+ * Returns: (array length=length): Shape of the tensor.
  */
 const gint64 *
 garrow_fixed_shape_tensor_data_type_get_shape(GArrowFixedShapeTensorDataType *data_type,
