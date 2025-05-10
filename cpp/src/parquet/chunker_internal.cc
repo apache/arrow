@@ -39,6 +39,8 @@ static_assert(std::size(kGearhashTable) == kNumGearhashTables,
 static_assert(sizeof(kGearhashTable) == kNumGearhashTables * 256 * 8,
               "each table should have 256 entries of 64 bit values");
 
+namespace {
+
 /// Calculate the mask to use for the rolling hash, the mask is used to determine if a
 /// new chunk should be created based on the rolling hash value. The mask is calculated
 /// based on the min_chunk_size, max_chunk_size and norm_factor parameters.
@@ -65,8 +67,7 @@ static_assert(sizeof(kGearhashTable) == kNumGearhashTables * 256 * 8,
 // @param max_chunk_size The maximum chunk size (default 1MiB)
 // @param norm_factor Normalization factor (default 0)
 // @return The mask used to compare against the rolling hash
-static uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size,
-                              int norm_factor) {
+uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size, int norm_factor) {
   if (min_chunk_size < 0) {
     throw ParquetException("min_chunk_size must be positive");
   }
@@ -101,6 +102,8 @@ static uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size,
     return std::numeric_limits<uint64_t>::max() << (64 - effective_bits);
   }
 }
+
+}  // namespace
 
 class ContentDefinedChunker::Impl {
  public:
