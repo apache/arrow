@@ -2361,10 +2361,9 @@ garrow_fixed_shape_tensor_data_type_get_shape(GArrowFixedShapeTensorDataType *ob
   const auto priv = GARROW_DATA_TYPE_GET_PRIVATE(object);
   auto arrow_data_type =
     std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(priv->data_type);
-  auto arrow_shape = arrow_data_type->shape();
 
-  *length = arrow_shape.size();
-  return arrow_shape.data();
+  *length = arrow_data_type->shape().size();
+  return arrow_data_type->shape().data();
 }
 
 G_END_DECLS
