@@ -1278,7 +1278,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
 
   int64_t WriteBatch(int64_t num_values, const int16_t* def_levels,
                      const int16_t* rep_levels, const T* values) override {
-    if (properties_->content_defined_chunking_enabled()) {
+    if (ARROW_PREDICT_FALSE(properties_->content_defined_chunking_enabled())) {
       throw ParquetException(
           "Content-defined chunking is not yet supported for WriteBatch() and "
           "WriteBatchSpaced(), use WriteArrow() instead");
@@ -1320,7 +1320,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   void WriteBatchSpaced(int64_t num_values, const int16_t* def_levels,
                         const int16_t* rep_levels, const uint8_t* valid_bits,
                         int64_t valid_bits_offset, const T* values) override {
-    if (properties_->content_defined_chunking_enabled()) {
+    if (ARROW_PREDICT_FALSE(properties_->content_defined_chunking_enabled())) {
       throw ParquetException(
           "Content-defined chunking is not yet supported for WriteBatch() and "
           "WriteBatchSpaced(), use WriteArrow() instead");
@@ -1388,7 +1388,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       bits_buffer_->ZeroPadding();
     }
 
-    if (properties_->content_defined_chunking_enabled()) {
+    if (ARROW_PREDICT_FALSE(properties_->content_defined_chunking_enabled())) {
       DCHECK(content_defined_chunker_.has_value());
       auto chunks = content_defined_chunker_->GetChunks(def_levels, rep_levels,
                                                         num_levels, leaf_array);
