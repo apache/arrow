@@ -108,16 +108,16 @@ class PARQUET_EXPORT ContentDefinedChunker {
   //    property that controls the maximum size of a parquet data page after encoding.
   ///   While setting `data_pagesize` to a smaller value than `max_chunk_size` doesn't
   ///   affect the chunking effectiveness, it results in more small parquet data pages.
-  /// @param norm_factor Normalization factor to center the chunk size around the average
+  /// @param norm_level Normalization level to center the chunk size around the average
   ///   size more aggressively, default 0.
-  ///   Increasing the normalization factor increases the probability of finding a chunk
+  ///   Increasing the normalization level increases the probability of finding a chunk
   ///   boundary, improving the deduplication ratio, but also increases the number of
   ///   small chunks resulting in many small parquet data pages. The default value
   ///   provides a good balance between deduplication ratio and fragmentation.
-  ///   Use norm_factor=1 or norm_factor=2 to reach a higher deduplication ratio at the
+  ///   Use norm_level=1 or norm_level=2 to reach a higher deduplication ratio at the
   ///   expense of fragmentation.
   ContentDefinedChunker(const LevelInfo& level_info, int64_t min_chunk_size,
-                        int64_t max_chunk_size, int norm_factor = 0);
+                        int64_t max_chunk_size, int norm_level = 0);
   ~ContentDefinedChunker();
 
   /// Get the chunk boundaries for the given column data

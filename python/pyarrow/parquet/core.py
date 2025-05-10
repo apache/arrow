@@ -917,13 +917,13 @@ use_content_defined_chunking : bool or dict, default False
       the maximum size of a parquet data page after encoding. While setting
       `data_page_size` to a smaller value than `max_chunk_size` doesn't affect the
       chunking effectiveness, it results in more small parquet data pages.
-    - `norm_factor`: normalization factor to center the chunk size around the average
+    - `norm_level`: normalization level to center the chunk size around the average
       size more aggressively, default 0
-      Increasing the normalization factor increases the probability of finding a chunk,
+      Increasing the normalization level increases the probability of finding a chunk,
       improving the deduplication ratio, but also increasing the number of small chunks
       resulting in many small parquet data pages. The default value provides a good
-      balance between deduplication ratio and fragmentation. Use norm_factor=1 or
-      norm_factor=2 to reach a higher deduplication ratio at the expense of
+      balance between deduplication ratio and fragmentation. Use norm_level=1 or
+      norm_level=2 to reach a higher deduplication ratio at the expense of
       fragmentation.
 """
 

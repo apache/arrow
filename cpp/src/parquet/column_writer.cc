@@ -769,7 +769,7 @@ class ColumnWriterImpl {
       auto cdc_options = properties_->content_defined_chunking_options();
       content_defined_chunker_.emplace(level_info_, cdc_options.min_chunk_size,
                                        cdc_options.max_chunk_size,
-                                       cdc_options.norm_factor);
+                                       cdc_options.norm_level);
     }
   }
 

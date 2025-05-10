@@ -339,7 +339,7 @@ Result<std::shared_ptr<Buffer>> WriteTableToBuffer(
 
   auto builder = WriterProperties::Builder();
   builder.enable_content_defined_chunking()->content_defined_chunking_options(
-      {min_chunk_size, max_chunk_size, /*norm_factor=*/0});
+      {min_chunk_size, max_chunk_size, /*norm_level=*/0});
   builder.data_page_version(data_page_version);
   if (enable_dictionary) {
     builder.enable_dictionary();
@@ -843,7 +843,7 @@ TEST_F(TestCDC, ChunkSizeParameterValidation) {
 
   ASSERT_NO_THROW(ContentDefinedChunker(li, 256 * 1024, 1024 * 1024));
 
-  // with norm_factor=0 the difference between min and max chunk size must be
+  // with norm_level=0 the difference between min and max chunk size must be
   // at least 16
   ASSERT_THROW(ContentDefinedChunker(li, 0, -1), ParquetException);
   ASSERT_THROW(ContentDefinedChunker(li, 1024, 512), ParquetException);
@@ -861,7 +861,7 @@ TEST_F(TestCDC, ChunkSizeParameterValidation) {
   ASSERT_NO_THROW(
       ContentDefinedChunker(li, 1024 * 1024 * 1024L, 2LL * 1024 * 1024 * 1024L));
 
-  // with norm_factor=1 the difference between min and max chunk size must be
+  // with norm_level=1 the difference between min and max chunk size must be
   // at least 64
   ASSERT_THROW(ContentDefinedChunker(li, 1, -1, 1), ParquetException);
   ASSERT_THROW(ContentDefinedChunker(li, -1, 1, 1), ParquetException);
@@ -870,7 +870,7 @@ TEST_F(TestCDC, ChunkSizeParameterValidation) {
   ASSERT_THROW(ContentDefinedChunker(li, 1, 33, 1), ParquetException);
   ASSERT_NO_THROW(ContentDefinedChunker(li, 1, 65, 1));
 
-  // with norm_factor=2 the difference between min and max chunk size must be
+  // with norm_level=2 the difference between min and max chunk size must be
   // at least 128
   ASSERT_THROW(ContentDefinedChunker(li, 0, 123, 2), ParquetException);
   ASSERT_NO_THROW(ContentDefinedChunker(li, 0, 128, 2));

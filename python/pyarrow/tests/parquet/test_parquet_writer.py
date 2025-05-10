@@ -445,6 +445,6 @@ def test_parquet_content_defined_chunking_parameters(tempdir):
     cdc_options = {"min_chunk_size": 32_768, "max_chunk_size": 65_536}
     pq.write_table(table, path, use_content_defined_chunking=cdc_options)
 
-    # using min_chunk_size, max_chunk_size and norm_factor
-    cdc_options = {"min_chunk_size": 32_768, "max_chunk_size": 65_536, "norm_factor": 1}
+    # using min_chunk_size, max_chunk_size and norm_level
+    cdc_options = {"min_chunk_size": 32_768, "max_chunk_size": 65_536, "norm_level": 1}
     pq.write_table(table, path, use_content_defined_chunking=cdc_options)
