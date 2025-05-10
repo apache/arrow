@@ -37,8 +37,9 @@ RUN apk add --no-cache \
     unzip \
     wget \
     zip
-# Add mono from testing repo because it's not in the main repo
-RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing mono
+# Add mono from community repo because it's not in the main repo.
+# We will be able to use the main repo once we move to alpine 3.22 or later.
+RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community mono
 
 # A system Python is required for ninja and vcpkg in this Dockerfile.
 # On musllinux_1_2 a system python is installed (3.12) but pip is not
