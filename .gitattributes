@@ -12,3 +12,8 @@ r/src/RcppExports.cpp linguist-generated=true
 r/src/arrowExports.cpp linguist-generated=true
 r/man/*.Rd linguist-generated=true
 r/NEWS.md merge=union
+python/asv* export-ignore
+python/benchmarks/** export-ignore
+python/examples/** export-ignore
+python/requirements* export-ignore
+python/scripts/** export-ignore
