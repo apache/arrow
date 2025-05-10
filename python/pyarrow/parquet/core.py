@@ -181,9 +181,7 @@ def filters_to_expression(filters):
         elif op == 'not in':
             return ~field.isin(val)
         else:
-            raise ValueError(
-                '"{0}" is not a valid operator in predicates.'.format(
-                    (col, op, val)))
+            raise ValueError(f'"{col}" is not a valid operator in predicates.')
 
     disjunction_members = []
 
@@ -949,14 +947,14 @@ and write the RecordBatch into the Parquet file:
 
 class ParquetWriter:
 
-    __doc__ = """
+    __doc__ = f"""
 Class for incrementally building a Parquet file for Arrow tables.
 
 Parameters
 ----------
 where : path or file-like object
 schema : pyarrow.Schema
-{}
+{_parquet_writer_arg_docs}
 writer_engine_version : unused
 **options : dict
     If options contains a key `metadata_collector` then the
@@ -966,8 +964,8 @@ writer_engine_version : unused
 
 Examples
 --------
-{}
-""".format(_parquet_writer_arg_docs, _parquet_writer_example_doc)
+{_parquet_writer_example_doc}
+"""
 
     def __init__(self, where, schema, filesystem=None,
                  flavor=None,
@@ -1112,9 +1110,10 @@ Examples
         assert self.is_open
 
         if not table.schema.equals(self.schema, check_metadata=False):
-            msg = ('Table schema does not match schema used to create file: '
-                   '\ntable:\n{!s} vs. \nfile:\n{!s}'
-                   .format(table.schema, self.schema))
+            msg = (
+                "Table schema does not match schema used to create file: \n"
+                f"table:\n{table.schema!s} vs. \nfile:\n{self.schema!s}"
+            )
             raise ValueError(msg)
 
         self.writer.write_table(table, row_group_size=row_group_size)
@@ -1215,7 +1214,7 @@ create a ParquetDataset object with filter:
 
 
 class ParquetDataset:
-    __doc__ = """
+    __doc__ = f"""
 Encapsulates details of reading a complete Parquet dataset possibly
 consisting of multiple files and partitions in subdirectories.
 
@@ -1236,8 +1235,8 @@ filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]], defaul
     exploited to avoid loading files at all if they contain no matching rows.
     Within-file level filtering and different partitioning schemes are supported.
 
-    {1}
-{0}
+    {_DNF_filter_doc}
+{_read_docstring_common}
 ignore_prefixes : list, optional
     Files matching any of these prefixes will be ignored by the
     discovery process.
@@ -1276,8 +1275,8 @@ arrow_extensions_enabled : bool, default False
 
 Examples
 --------
-{2}
-""".format(_read_docstring_common, _DNF_filter_doc, _parquet_dataset_example)
+{_parquet_dataset_example}
+"""
 
     def __init__(self, path_or_paths, filesystem=None, schema=None, *, filters=None,
                  read_dictionary=None, memory_map=False, buffer_size=None,
@@ -1966,7 +1965,7 @@ Defining column encoding per-column:
 ...                use_dictionary=False)
 """
 
-write_table.__doc__ = """
+write_table.__doc__ = f"""
 Write a Table to Parquet format.
 
 Parameters
@@ -1977,14 +1976,14 @@ row_group_size : int
     Maximum number of rows in each written row group. If None, the
     row group size will be the minimum of the Table size and
     1024 * 1024.
-{}
+{_parquet_writer_arg_docs}
 **kwargs : optional
     Additional options for ParquetWriter
 
 Examples
 --------
-{}
-""".format(_parquet_writer_arg_docs, _write_table_example)
+{_write_table_example}
+"""
 
 
 def write_to_dataset(table, root_path, partition_cols=None,

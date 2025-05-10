@@ -216,8 +216,8 @@ cdef class ParseOptions(_Weakrefable):
             v = CUnexpectedFieldBehavior_InferType
         else:
             raise ValueError(
-                "Unexpected value `{}` for `unexpected_field_behavior`, pass "
-                "either `ignore`, `error` or `infer`.".format(value)
+                f"Unexpected value `{value}` for `unexpected_field_behavior`, pass "
+                f"either `ignore`, `error` or `infer`."
             )
 
         self.options.unexpected_field_behavior = v

@@ -294,7 +294,7 @@ sapien. Quisque pretium vestibulum urna eu vehicula."""
                                     metadata={"key3": "value3"})],
                           metadata={"lorem": lorem})
 
-    assert my_schema.to_string() == """\
+    assert my_schema.to_string() == f"""\
 foo: int32 not null
   -- field metadata --
   key1: 'value1'
@@ -302,7 +302,7 @@ bar: string
   -- field metadata --
   key3: 'value3'
 -- schema metadata --
-lorem: '""" + lorem[:65] + "' + " + str(len(lorem) - 65)
+lorem: '{lorem[:65]}' + {len(lorem) - 65}"""
 
     # Metadata that exactly fits
     result = pa.schema([('f0', 'int32')],
@@ -313,7 +313,7 @@ f0: int32
 key: 'valuexxxxxxxxxxxxxxxxxxxxxxxxxxxxx\
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'"""
 
-    assert my_schema.to_string(truncate_metadata=False) == """\
+    assert my_schema.to_string(truncate_metadata=False) == f"""\
 foo: int32 not null
   -- field metadata --
   key1: 'value1'
@@ -321,14 +321,14 @@ bar: string
   -- field metadata --
   key3: 'value3'
 -- schema metadata --
-lorem: '{}'""".format(lorem)
+lorem: '{lorem}'"""
 
     assert my_schema.to_string(truncate_metadata=False,
-                               show_field_metadata=False) == """\
+                               show_field_metadata=False) == f"""\
 foo: int32 not null
 bar: string
 -- schema metadata --
-lorem: '{}'""".format(lorem)
+lorem: '{lorem}'"""
 
     assert my_schema.to_string(truncate_metadata=False,
                                show_schema_metadata=False) == """\
@@ -657,7 +657,7 @@ def test_type_schema_pickling(pickle_module):
         if isinstance(f, pa.Field):
             fields.append(f)
         else:
-            fields.append(pa.field('_f{}'.format(i), f))
+            fields.append(pa.field(f'_f{i}', f))
 
     schema = pa.schema(fields, metadata={b'foo': b'bar'})
     roundtripped = pickle_module.loads(pickle_module.dumps(schema))

@@ -261,6 +261,6 @@ def test_set_timezone_db_path_non_windows():
 ])
 def test_extension_type_constructor_errors(klass):
     # ARROW-2638: prevent calling extension class constructors directly
-    msg = "Do not call {cls}'s constructor directly, use .* instead."
-    with pytest.raises(TypeError, match=msg.format(cls=klass.__name__)):
+    msg = f"Do not call {klass.__name__}'s constructor directly, use .* instead."
+    with pytest.raises(TypeError, match=msg):
         klass()

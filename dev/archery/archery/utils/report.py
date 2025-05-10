@@ -32,7 +32,7 @@ class Report(metaclass=ABCMeta):
     def __init__(self, **kwargs):
         for field in self.fields:
             if field not in kwargs:
-                raise ValueError('Missing keyword argument {}'.format(field))
+                raise ValueError(f'Missing keyword argument {field}')
         self._data = kwargs
 
     def __getattr__(self, key):

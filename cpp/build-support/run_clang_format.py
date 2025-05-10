@@ -38,8 +38,7 @@ def _check_one_file(filename, formatted):
             original.decode('utf8').splitlines(True),
             formatted.decode('utf8').splitlines(True),
             fromfile=filename,
-            tofile="{} (after clang format)".format(
-                filename)))
+            tofile=f"{filename} (after clang format)"))
     else:
         diff = None
 
@@ -85,8 +84,7 @@ if __name__ == "__main__":
 
     if arguments.fix:
         if not arguments.quiet:
-            print("\n".join(map(lambda x: "Formatting {}".format(x),
-                                formatted_filenames)))
+            print("\n".join(f"Formatting {x}" for x in formatted_filenames))
 
         # Break clang-format invocations into chunks: each invocation formats
         # 16 files. Wait for all processes to complete
@@ -122,9 +120,9 @@ if __name__ == "__main__":
             # check the output from each invocation of clang-format in parallel
             for filename, diff in pool.starmap(_check_one_file, checker_args):
                 if not arguments.quiet:
-                    print("Checking {}".format(filename))
+                    print(f"Checking {filename}")
                 if diff:
-                    print("{} had clang-format style issues".format(filename))
+                    print(f"{filename} had clang-format style issues")
                     # Print out the diff to stderr
                     error = True
                     # pad with a newline

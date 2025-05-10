@@ -336,7 +336,7 @@ class RowGroupInfo:
         }
 
     def __repr__(self):
-        return "RowGroupInfo({})".format(self.id)
+        return f"RowGroupInfo({self.id})"
 
     def __eq__(self, other):
         if isinstance(other, int):
@@ -671,9 +671,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
         self._set_arrow_properties()
 
     def __repr__(self):
-        return "<pyarrow.dataset.ParquetFileWriteOptions {0}>".format(
-            " ".join([f"{key}={value}" for key, value in self._properties.items()])
-        )
+        return f"<pyarrow.dataset.ParquetFileWriteOptions {self._properties}>"
 
 
 cdef set _PARQUET_READ_OPTIONS = {

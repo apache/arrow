@@ -307,8 +307,8 @@ def _perform_join_asof(left_operand, left_on, left_by,
     columns_collisions = set(left_operand.schema.names) & set(right_columns)
     if columns_collisions:
         raise ValueError(
-            "Columns {} present in both tables. AsofJoin does not support "
-            "column collisions.".format(columns_collisions),
+            f"Columns {columns_collisions} present in both tables. "
+            "AsofJoin does not support column collisions."
         )
 
     # Add the join node to the execplan
