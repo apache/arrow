@@ -16,6 +16,7 @@
 // under the License.
 
 #pragma once
+
 #include <cstdint>
 
 namespace parquet::internal {

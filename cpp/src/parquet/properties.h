@@ -251,14 +251,14 @@ struct PARQUET_EXPORT CdcOptions {
   /// The rolling hash will not be updated until this size is reached for each chunk.
   /// Note that all data sent through the hash function is counted towards the chunk
   /// size, including definition and repetition levels if present.
-  int64_t min_chunk_size;
+  int64_t min_chunk_size = 256 * 1024;
   /// Maximum chunk size in bytes, default is 1024 KiB
   /// The chunker will create a new chunk whenever the chunk size exceeds this value.
   /// Note that the parquet writer has a related `pagesize` property that controls
   /// the maximum size of a parquet data page after encoding. While setting
   /// `pagesize` to a smaller value than `max_chunk_size` doesn't affect the
   /// chunking effectiveness, it results in more small parquet data pages.
-  int64_t max_chunk_size;
+  int64_t max_chunk_size = 1024 * 1024;
   /// Number of bit adjustement to the gearhash mask in order to
   /// center the chunk size around the average size more aggressively, default 0
   /// Increasing the normalization factor increases the probability of finding a chunk,
@@ -271,7 +271,7 @@ struct PARQUET_EXPORT CdcOptions {
   int norm_factor = 0;
 };
 
-static constexpr CdcOptions kDefaultCdcOptions = CdcOptions{256 * 1024, 1024 * 1024, 0};
+static constexpr CdcOptions kDefaultCdcOptions = CdcOptions{};
 
 class PARQUET_EXPORT WriterProperties {
  public:
@@ -332,7 +332,7 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     /// \brief EXPERIMENTAL: Specify content-defined chunking options, see CdcOptions.
-    Builder* content_defined_chunking_options(const CdcOptions options) {
+    Builder* content_defined_chunking_options(const CdcOptions& options) {
       content_defined_chunking_options_ = options;
       return this;
     }

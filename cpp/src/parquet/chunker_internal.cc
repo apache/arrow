@@ -113,7 +113,7 @@ class ContentDefinedChunker::Impl {
 
   uint64_t GetRollingHashMask() const { return rolling_hash_mask_; }
 
-  void Roll(const bool value) {
+  void Roll(bool value) {
     if (++chunk_size_ < min_chunk_size_) {
       // short-circuit if we haven't reached the minimum chunk size, this speeds up the
       // chunking process since the gearhash doesn't need to be updated
