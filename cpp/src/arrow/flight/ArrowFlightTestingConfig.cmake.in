@@ -27,8 +27,8 @@
 @PACKAGE_INIT@
 
 include(CMakeFindDependencyMacro)
-find_dependency(ArrowFlight)
-find_dependency(ArrowTesting)
+find_dependency(ArrowFlight CONFIG)
+find_dependency(ArrowTesting CONFIG)
 
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowFlightTestingTargets.cmake")
 

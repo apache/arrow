@@ -27,7 +27,7 @@
 @PACKAGE_INIT@
 
 include(CMakeFindDependencyMacro)
-find_dependency(Arrow)
+find_dependency(Arrow CONFIG)
 if(CMAKE_VERSION VERSION_LESS 3.17)
   find_package(CUDA REQUIRED)
   add_library(ArrowCUDA::cuda_driver SHARED IMPORTED)

@@ -30,7 +30,7 @@ set(ARROW_LLVM_VERSIONS "@ARROW_LLVM_VERSIONS@")
 set(ARROW_ZSTD_SOURCE "@zstd_SOURCE@")
 
 include(CMakeFindDependencyMacro)
-find_dependency(Arrow)
+find_dependency(Arrow CONFIG)
 if(DEFINED CMAKE_MODULE_PATH)
   set(GANDIVA_CMAKE_MODULE_PATH_OLD ${CMAKE_MODULE_PATH})
 else()

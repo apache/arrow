@@ -29,7 +29,7 @@
 set(ARROW_TESTING_SYSTEM_DEPENDENCIES "@ARROW_TESTING_SYSTEM_DEPENDENCIES@")
 
 include(CMakeFindDependencyMacro)
-find_dependency(Arrow)
+find_dependency(Arrow CONFIG)
 
 arrow_find_dependencies("${ARROW_TESTING_SYSTEM_DEPENDENCIES}")
 
