@@ -2364,14 +2364,7 @@ garrow_fixed_shape_tensor_data_type_get_shape(GArrowFixedShapeTensorDataType *ob
   auto arrow_shape = arrow_data_type->shape();
 
   *length = arrow_shape.size();
-  auto shape = static_cast<gint64 *>(g_malloc_n(sizeof(gint64), n_shape));
-
-  for (gsize i = 0; i < n_shape; ++i) {
-    shape[i] = arrow_shape[i];
-  }
-
-  *length = n_shape;
-  return shape;
+  return arrow_shape.data();
 }
 
 G_END_DECLS
