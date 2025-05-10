@@ -4591,6 +4591,22 @@ def test_write_dataset_use_threads(tempdir):
     assert result1.to_table().equals(result2.to_table())
 
 
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_write_dataset_use_threads_preserve_order(tempdir):
+    # see GH-26818
+    table = pa.table({"a": range(1024)})
+    batches = table.to_batches(max_chunksize=2)
+    ds.write_dataset(batches, tempdir, format="parquet",
+                     use_threads=True, preserve_order=True)
+    seq = ds.dataset(tempdir).to_table(use_threads=False)['a'].to_numpy()
+    prev = -1
+    for item in seq:
+        curr = int(item)
+        assert curr > prev, f"Sequence expected to be ordered: {seq}"
+        prev = curr
+
+
 def test_write_table(tempdir):
     table = pa.table([
         pa.array(range(20)), pa.array(random.random() for _ in range(20)),
