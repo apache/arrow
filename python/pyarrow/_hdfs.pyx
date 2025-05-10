@@ -72,7 +72,7 @@ cdef class HadoopFileSystem(FileSystem):
             CHdfsOptions options
             shared_ptr[CHadoopFileSystem] wrapped
 
-        if not host.startswith(('hdfs://', 'viewfs://')) and host != "default":
+        if not host.startswith(('hdfs://', 'viewfs://', 'afs://')) and host != "default":
             # TODO(kszucs): do more sanitization
             host = 'hdfs://{}'.format(host)
 
