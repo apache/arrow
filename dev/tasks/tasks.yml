@@ -1081,30 +1081,17 @@ tasks:
       r_tag: latest
       flags: "-e LIBARROW_MINIMAL=TRUE"
 
-  test-r-linux-sanitizer:
+  test-r-linux-sanitizers:
     ci: github
-    template: docker-tests/github.linux.yml
+    template: r/github.linux.sanitizers.yml
     params:
       env:
         R_PRUNE_DEPS: TRUE
-      image: ubuntu-r-sanitizer
-      timeout: 120
-
-  test-r-clang-asan:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        R_PRUNE_DEPS: TRUE
-      image: r-clang-asan
-
-  test-r-clang-ubsan:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        R_PRUNE_DEPS: TRUE
-      image: r-clang-ubsan
+        R_ORG: "rhub"
+        R_IMAGE: "{{ '${{ matrix.config.r_image }}' }}"
+        R_TAG: "latest"
+        ARROW_R_DEV: "TRUE"
+      timeout: 240 # 4 hours
 
   test-r-m1-san:
     ci: github
