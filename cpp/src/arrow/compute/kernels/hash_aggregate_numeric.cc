@@ -43,7 +43,7 @@ namespace {
 
 template <typename Type, typename Impl,
           typename AccumulateType = typename FindAccumulatorType<Type>::Type,
-          bool PromoteDecimal = false >
+          bool PromoteDecimal = false>
 struct GroupedReducingAggregator : public GroupedAggregator {
   using AccType = AccumulateType;
   using CType = typename TypeTraits<AccType>::CType;
@@ -264,8 +264,15 @@ struct GroupedReducingFactory {
 // Sum implementation
 
 template <typename Type>
-struct GroupedSumImpl : public GroupedReducingAggregator<Type, GroupedSumImpl<Type>, typename FindAccumulatorType<Type>::Type, true> {
-  using Base = GroupedReducingAggregator<Type, GroupedSumImpl<Type>, typename FindAccumulatorType<Type>::Type, true>;
+struct GroupedSumImpl
+    : public GroupedReducingAggregator<Type,
+                                       GroupedSumImpl<Type>,
+                                       typename FindAccumulatorType<Type>::Type,
+                                       /*PromoteDecimal=*/true> {
+  using Base = GroupedReducingAggregator<Type,
+                                         GroupedSumImpl<Type>,
+                                         typename FindAccumulatorType<Type>::Type,
+                                         /*PromoteDecimal=*/true>;
   using CType = typename Base::CType;
   using InputCType = typename Base::InputCType;
 
