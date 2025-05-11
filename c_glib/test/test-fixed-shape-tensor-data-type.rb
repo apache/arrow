@@ -16,30 +16,29 @@
 # under the License.
 
 class TestFixedShapeTensorDataType < Test::Unit::TestCase
+  def setup
+    @data_type = Arrow::FixedShapeTensorDataType.new(Arrow::UInt64DataType.new,
+                                                     [3, 4],
+                                                     [1, 0],
+                                                     ["x", "y"])
+  end
+
   def test_id
-    data_type = Arrow::FixedShapeTensorDataType.new(Arrow::UInt64DataType.new,
-                                                    [3, 4],
-                                                    [1, 0],
-                                                    ["x", "y"])
-    assert_equal(Arrow::Type::EXTENSION, data_type.id)
+    assert_equal(Arrow::Type::EXTENSION, @data_type.id)
   end
 
   def test_name
-    data_type = Arrow::FixedShapeTensorDataType.new(Arrow::UInt64DataType.new,
-                                                    [3, 4],
-                                                    [1, 0],
-                                                    ["x", "y"])
     assert_equal(["extension", "arrow.fixed_shape_tensor"],
-                 [data_type.name, data_type.extension_name])
+                 [@data_type.name, @data_type.extension_name])
+  end
+
+  def test_shape
+    assert_equal([3, 4], @data_type.shape)
   end
 
   def test_to_s
-    data_type = Arrow::FixedShapeTensorDataType.new(Arrow::UInt64DataType.new,
-                                                    [3, 4],
-                                                    [1, 0],
-                                                    ["x", "y"])
     assert do
-      data_type.to_s.start_with?("extension<arrow.fixed_shape_tensor")
+      @data_type.to_s.start_with?("extension<arrow.fixed_shape_tensor")
     end
   end
 

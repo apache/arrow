@@ -2347,6 +2347,25 @@ garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
   return data_type;
 }
 
+/**
+ * garrow_fixed_shape_tensor_data_type_get_shape:
+ * @data_type: A #GArrowFixedShapeTensorDataType.
+ * @length: (out): Return location for the number of dimensions of the tensor.
+ *
+ * Returns: (array length=length): Shape of the tensor.
+ */
+const gint64 *
+garrow_fixed_shape_tensor_data_type_get_shape(GArrowFixedShapeTensorDataType *data_type,
+                                              gsize *length)
+{
+  auto arrow_data_type = std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
+
+  const auto &arrow_shape = arrow_data_type->shape();
+  *length = arrow_shape.size();
+  return arrow_shape.data();
+}
+
 G_END_DECLS
 
 GArrowDataType *
