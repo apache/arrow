@@ -86,7 +86,8 @@ struct GroupedReducingAggregator : public GroupedAggregator {
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
     auto other =
-        checked_cast<GroupedReducingAggregator<Type, Impl, AccType, PromoteDecimal>*>(&raw_other);
+        checked_cast<GroupedReducingAggregator<Type, Impl, AccType, PromoteDecimal>*>(
+            &raw_other);
 
     CType* reduced = reduced_.mutable_data();
     int64_t* counts = counts_.mutable_data();
@@ -265,12 +266,10 @@ struct GroupedReducingFactory {
 
 template <typename Type>
 struct GroupedSumImpl
-    : public GroupedReducingAggregator<Type,
-                                       GroupedSumImpl<Type>,
+    : public GroupedReducingAggregator<Type, GroupedSumImpl<Type>,
                                        typename FindAccumulatorType<Type>::Type,
                                        /*PromoteDecimal=*/true> {
-  using Base = GroupedReducingAggregator<Type,
-                                         GroupedSumImpl<Type>,
+  using Base = GroupedReducingAggregator<Type, GroupedSumImpl<Type>,
                                          typename FindAccumulatorType<Type>::Type,
                                          /*PromoteDecimal=*/true>;
   using CType = typename Base::CType;
