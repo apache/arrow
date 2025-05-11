@@ -184,7 +184,7 @@ of general type categories:
 
 * "Numeric": Integer types (Int8, etc.) and Floating-point types (Float32,
   Float64, sometimes Float16).  Some functions also accept
-  Decimal32/64/128/256 input.
+  Decimal128/256 input.
 
 * "Temporal": Date types (Date32, Date64), Time types (Time32, Time64),
   Timestamp, Duration, Interval.
@@ -296,7 +296,7 @@ the input to a single output value.
   the values to be pivoted. The output is a Struct with one field for each key
   in :member:`PivotOptions::key_names`.
 
-* \(9) Output is Int64, UInt64, Float64, or Decimal32/64/128/256, depending
+* \(9) Output is Int64, UInt64, Float64, or Decimal128/256, depending
   on the input type. For decimals, the precision is increased to the maximum
   precision for the type's width. For instance, an array of
   ``decimal128(3, 2)`` will return a ``decimal128(38, 2)`` scalar.

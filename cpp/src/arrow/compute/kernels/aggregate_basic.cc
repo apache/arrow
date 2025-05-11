@@ -366,13 +366,11 @@ struct ProductImpl : public ScalarAggregator {
   }
 
   Status Finalize(KernelContext*, Datum* out) override {
-    std::shared_ptr<DataType> out_type_ = this->out_type;
-
     if ((!options.skip_nulls && this->nulls_observed) ||
         (this->count < options.min_count)) {
-      out->value = std::make_shared<OutputType>(out_type_);
+      out->value = std::make_shared<OutputType>(this->out_type);
     } else {
-      out->value = std::make_shared<OutputType>(this->product, out_type_);
+      out->value = std::make_shared<OutputType>(this->product, this->out_type);
     }
     return Status::OK();
   }
@@ -1051,10 +1049,6 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary(), sum_doc,
                                                    &default_scalar_aggregate_options);
   AddArrayScalarAggKernels(SumInit, {boolean()}, uint64(), func.get());
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL32}, MaxPrecisionDecimalType), SumInit,
-               func.get(), SimdLevel::NONE);
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL64}, MaxPrecisionDecimalType), SumInit,
-               func.get(), SimdLevel::NONE);
   AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, MaxPrecisionDecimalType),
                SumInit, func.get(), SimdLevel::NONE);
   AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, MaxPrecisionDecimalType),
@@ -1083,13 +1077,9 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
                                                    &default_scalar_aggregate_options);
   AddArrayScalarAggKernels(MeanInit, {boolean()}, float64(), func.get());
   AddArrayScalarAggKernels(MeanInit, NumericTypes(), float64(), func.get());
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL32}, MaxPrecisionDecimalType),
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, FirstType),
                MeanInit, func.get(), SimdLevel::NONE);
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL64}, MaxPrecisionDecimalType),
-               MeanInit, func.get(), SimdLevel::NONE);
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, MaxPrecisionDecimalType),
-               MeanInit, func.get(), SimdLevel::NONE);
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, MaxPrecisionDecimalType),
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, FirstType),
                MeanInit, func.get(), SimdLevel::NONE);
   AddArrayScalarAggKernels(MeanInit, {null()}, float64(), func.get());
   // Add the SIMD variants for mean
@@ -1136,8 +1126,6 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddMinMaxKernels(MinMaxInitDefault, BaseBinaryTypes(), func.get());
   AddMinMaxKernel(MinMaxInitDefault, Type::FIXED_SIZE_BINARY, func.get());
   AddMinMaxKernel(MinMaxInitDefault, Type::INTERVAL_MONTHS, func.get());
-  AddMinMaxKernel(MinMaxInitDefault, Type::DECIMAL32, func.get());
-  AddMinMaxKernel(MinMaxInitDefault, Type::DECIMAL64, func.get());
   AddMinMaxKernel(MinMaxInitDefault, Type::DECIMAL128, func.get());
   AddMinMaxKernel(MinMaxInitDefault, Type::DECIMAL256, func.get());
   // Add the SIMD variants for min max
@@ -1173,10 +1161,6 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddArrayScalarAggKernels(ProductInit::Init, UnsignedIntTypes(), uint64(), func.get());
   AddArrayScalarAggKernels(ProductInit::Init, FloatingPointTypes(), float64(),
                            func.get());
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL32}, FirstType),
-               ProductInit::Init, func.get(), SimdLevel::NONE);
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL64}, FirstType),
-               ProductInit::Init, func.get(), SimdLevel::NONE);
   AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, FirstType),
                ProductInit::Init, func.get(), SimdLevel::NONE);
   AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, FirstType),
@@ -1202,8 +1186,8 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddBasicAggKernels(IndexInit::Init, PrimitiveTypes(), int64(), func.get());
   AddBasicAggKernels(IndexInit::Init, TemporalTypes(), int64(), func.get());
   AddBasicAggKernels(IndexInit::Init,
-                     {fixed_size_binary(1), decimal32(1, 0), decimal64(1, 0),
-                      decimal128(1, 0), decimal256(1, 0), null()},
+                     {fixed_size_binary(1), decimal128(1, 0),
+                      decimal256(1, 0), null()},
                      int64(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
