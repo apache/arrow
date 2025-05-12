@@ -1,4 +1,3 @@
-
 LIBRARY   arrow_flight_sql_odbc
 EXPORTS
 	SQLAllocConnect
@@ -38,4 +37,3 @@ EXPORTS
 	SQLSetEnvAttr
 	SQLSetStmtAttrW
 	SQLTablesW
-

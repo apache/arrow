@@ -61,14 +61,30 @@ SQLRETURN SQL_API SQLSetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER valuePt
   return arrow::SQLSetEnvAttr(env, attr, valuePtr, strLen);
 }
 
+SQLRETURN SQL_API SQLGetInfo(SQLHDBC conn, SQLUSMALLINT infoType, SQLPOINTER infoValuePtr,
+                             SQLSMALLINT bufLen, SQLSMALLINT* length) {
+  // TODO implement SQLGetInfo
+  return SQL_ERROR;
+}
+
+SQLRETURN SQL_API SQLGetDiagRec(SQLSMALLINT type, SQLHANDLE handle, SQLSMALLINT recNum,
+                                SQLCHAR* sqlState, SQLINTEGER* nativeError,
+                                SQLCHAR* msgBuffer, SQLSMALLINT msgBufferLen,
+                                SQLSMALLINT* msgLen) {
+  // TODO implement SQLGetDiagRec
+  return SQL_ERROR;
+}
+
 SQLRETURN SQL_API SQLDriverConnect(SQLHDBC conn, SQLHWND windowHandle,
-                                   SQLWCHAR* inConnectionString,
+                                   SQLCHAR* inConnectionString,
                                    SQLSMALLINT inConnectionStringLen,
-                                   SQLWCHAR* outConnectionString,
+                                   SQLCHAR* outConnectionString,
                                    SQLSMALLINT outConnectionStringBufferLen,
                                    SQLSMALLINT* outConnectionStringLen,
                                    SQLUSMALLINT driverCompletion) {
-  // TODO: implement SQLDriverConnect by linking to `odbc_impl` //-AL- TODO: create GitHub
-  // issue for SQLDriverConnect implementation
-  return SQL_INVALID_HANDLE;
+  return arrow::SQLDriverConnect(
+      conn, windowHandle, inConnectionString, inConnectionStringLen, outConnectionString,
+      outConnectionStringBufferLen, outConnectionStringLen, driverCompletion);
 }
+
+SQLRETURN SQL_API SQLDisconnect(SQLHDBC conn) { return arrow::SQLDisconnect(conn); }

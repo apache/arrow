@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/testing/gtest_util.h"
+#include "arrow/util/io_util.h"
+
 #ifdef _WIN32
 #  include <windows.h>
 #endif
@@ -22,13 +25,15 @@
 #include <sql.h>
 #include <sqltypes.h>
 #include <sqlucode.h>
+
 #include "gtest/gtest.h"
+
+#include <arrow/flight/sql/odbc/tests/odbc_test_suite.h>
 
 namespace arrow {
 namespace flight {
 namespace odbc {
 namespace integration_tests {
-
 TEST(SQLAllocHandle, TestSQLAllocHandleEnv) {
   // ODBC Environment
   SQLHENV env;
@@ -79,6 +84,64 @@ TEST(SQLAllocConnect, TestSQLAllocHandleConnect) {
   SQLRETURN return_alloc_connect = SQLAllocConnect(env, &conn);
 
   EXPECT_TRUE(return_alloc_connect == SQL_SUCCESS);
+}
+
+TEST(SQLDriverConnect, TestSQLDriverConnect) {
+  // ODBC Environment
+  SQLHENV env;
+  SQLHDBC conn;
+
+  // Allocate an environment handle
+  SQLRETURN ret = SQLAllocEnv(&env);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  ret = SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  // Allocate a connection using alloc handle
+  ret = SQLAllocHandle(SQL_HANDLE_DBC, env, &conn);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  // Connect string
+  ASSERT_OK_AND_ASSIGN(std::string connect_str,
+                       arrow::internal::GetEnvVar("ARROW_FLIGHT_SQL_ODBC_CONN"));
+  std::vector<SQLCHAR> connect_str0(connect_str.begin(), connect_str.end());
+
+  SQLCHAR outstr[ODBC_BUFFER_SIZE];
+  SQLSMALLINT outstrlen;
+
+  // Connecting to ODBC server.
+  ret = SQLDriverConnect(conn, NULL, &connect_str0[0],
+                         static_cast<SQLSMALLINT>(connect_str0.size()), outstr,
+                         ODBC_BUFFER_SIZE, &outstrlen, SQL_DRIVER_NOPROMPT);
+
+  if (ret != SQL_SUCCESS) {
+    std::cerr << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn) << std::endl;
+  }
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  // Disconnect from ODBC
+  ret = SQLDisconnect(conn);
+
+  if (ret != SQL_SUCCESS) {
+    std::cerr << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn) << std::endl;
+  }
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  // Free connection handle
+  ret = SQLFreeHandle(SQL_HANDLE_DBC, conn);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  // Free environment handle
+  ret = SQLFreeHandle(SQL_HANDLE_ENV, env);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
 }
 
 TEST(SQLFreeHandle, TestSQLFreeHandleEnv) {

@@ -41,6 +41,9 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
   ODBCConnection(const ODBCConnection&) = delete;
   ODBCConnection& operator=(const ODBCConnection&) = delete;
 
+  /// \brief Constructor for ODBCConnection.
+  /// \param environment[in] the parent environment.
+  /// \param spiConnection[in] the underlying spi connection.
   ODBCConnection(ODBCEnvironment& environment,
                  std::shared_ptr<driver::odbcabstraction::Connection> spiConnection);
 
@@ -48,6 +51,11 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
 
   const std::string& GetDSN() const;
   bool isConnected() const;
+
+  /// \brief Connect to Arrow Flight SQL server.
+  /// \param dsn[in] the dsn name.
+  /// \param properties[in] the connection property map extracted from connection string.
+  /// \param missing_properties[out] report the properties that are missing
   void connect(std::string dsn,
                const driver::odbcabstraction::Connection::ConnPropertyMap& properties,
                std::vector<std::string>& missing_properties);

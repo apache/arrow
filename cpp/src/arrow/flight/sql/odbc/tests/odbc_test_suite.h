@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
 #ifdef _WIN32
 #  include <windows.h>
 #endif
@@ -25,21 +23,20 @@
 #include <sqltypes.h>
 #include <sqlucode.h>
 
-//  @file odbc_api.h
-//
-//  Define internal ODBC API function headers.
+// For wchar conversion
+#include <codecvt>
+
 namespace arrow {
-SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result);
-SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle);
-SQLRETURN SQLGetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER valuePtr,
-                        SQLINTEGER bufferLen, SQLINTEGER* strLenPtr);
-SQLRETURN SQLSetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER valuePtr,
-                        SQLINTEGER strLen);
-SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND windowHandle,
-                           SQLCHAR* inConnectionString, SQLSMALLINT inConnectionStringLen,
-                           SQLCHAR* outConnectionString,
-                           SQLSMALLINT outConnectionStringBufferLen,
-                           SQLSMALLINT* outConnectionStringLen,
-                           SQLUSMALLINT driverCompletion);
-SQLRETURN SQLDisconnect(SQLHDBC conn);
+namespace flight {
+namespace odbc {
+namespace integration_tests {
+/** ODBC read buffer size. */
+enum { ODBC_BUFFER_SIZE = 1024 };
+
+std::string GetOdbcErrorMessage(SQLSMALLINT handle_type, SQLHANDLE handle);
+
+// -AL- todo potentially add `connectToFlightSql` here.
+}  // namespace integration_tests
+}  // namespace odbc
+}  // namespace flight
 }  // namespace arrow
