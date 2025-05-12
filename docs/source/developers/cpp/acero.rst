@@ -101,8 +101,8 @@ provide callback functions for three operations:
 - computing hashes of keys;
 - checking equality for given pairs of keys;
 - appending a given sequence of keys to a stack maintained outside of Swiss
-table object, so that they can be referenced later on by key ids (key ids will
-be equal to their positions in the stack).
+  table object, so that they can be referenced later on by key ids (key ids will
+  be equal to their positions in the stack).
 
 When passing arguments to callback functions the keys are referenced using
 integer ids. For the left side - that is the keys present in the input
@@ -121,7 +121,7 @@ is actually no need for a hash function callback. It is enough that the caller
 provides hash values for all entries in the batch when calling lookup-or-insert.
 
 Basic architecture and organization of data
-------------------------------------------
+-------------------------------------------
 
 The hash table is an array of **slots**. Slots are grouped in groups of 8 called
 **blocks**. The number of blocks is a power of 2. The empty hash table starts
@@ -135,8 +135,8 @@ Swiss table:
 
 .. image:: img/key_map_2.jpg
 
-N is the log of the number of blocks, 2^{n+3} is  the number of slots and also
-the maximum number of inserted keys and hence (N + 3) is the number of bits
+N is the log of the number of blocks, :math:`2^{n+3}` is  the number of slots and
+also the maximum number of inserted keys and hence (N + 3) is the number of bits
 required to store a key id. We will refer to N as the **size of the hash table**.
 
 Index of a block within an array will be called **block id**, and similarly index
@@ -404,7 +404,7 @@ instruction set allows to process quadruplets of 64-bit values in a single
 instruction, four searches at once.
 
 Complete search potentially across multiple blocks
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Full implementation of a search for a matching key may involve visiting multiple
 blocks beginning with the start block selected based on the hash of the key. We
@@ -452,7 +452,7 @@ each key:
 - A flag indicating if a match was found or not.
 - Slot id of a slot from which slow-path should pick up the search if the first
   match was either not found or it turns out to be false positive after
-evaluating key comparison.
+  evaluating key comparison.
 
 .. note::
    Improvement to consider: precomputing 1st pass lookup results.
