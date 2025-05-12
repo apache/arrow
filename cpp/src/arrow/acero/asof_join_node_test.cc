@@ -1774,6 +1774,11 @@ TEST(AsofJoinTest, DestroyNonStartedAsofJoinNode) {
 // Reproduction of GH-46224: Hang when all left timestamps are greater than right
 // timestamps.
 TEST(AsofJoinTest, OneSideTsAllGreaterThanTheOther) {
+#if defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER)
+  const int rounds = 1;
+#else
+  const int rounds = 42;
+#endif
   int64_t tolerance = 1;
   int64_t num_rows_big_ts = 1;
   int64_t num_rows_small_ts = ExecPlan::kMaxBatchSize + 1;
@@ -1805,7 +1810,7 @@ TEST(AsofJoinTest, OneSideTsAllGreaterThanTheOther) {
     ExecBatch exp_batch({c.left_col, col_null}, c.left_col->length());
 
     // Run moderate number of times to ensure that no hangs occur.
-    for (int i = 0; i < 42; ++i) {
+    for (int i = 0; i < rounds; ++i) {
       AsofJoinNodeOptions opts({{{"on"}, {}}, {{"on"}, {}}}, tolerance);
       auto left = Declaration("exec_batch_source",
                               ExecBatchSourceNodeOptions(left_schema, {left_batch}));
