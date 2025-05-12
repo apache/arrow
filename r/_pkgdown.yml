@@ -60,9 +60,9 @@ template:
     image:
       src: https://arrow.apache.org/img/arrow-logo_horizontal_black-txt_white-bg.png
       alt: "Apache Arrow logo, displaying the triple chevron image adjacent to the text"
-    twitter:
-      creator: "@apachearrow"
-      site: "@apachearrow"
+    BlueSky:
+      creator: "@arrow.apache.org"
+      site: "@arrow.apache.org"
       card: summary_large_image
 
 home:
