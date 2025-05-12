@@ -717,6 +717,10 @@ if needs_acero
     subdir('acero')
 endif
 
+if needs_dataset
+    subdir('dataset')
+endif
+
 if needs_filesystem
     subdir('filesystem')
 endif
