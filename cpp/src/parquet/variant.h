@@ -21,6 +21,8 @@
 #include <string_view>
 #include <vector>
 
+#include <arrow/util/decimal.h>
+
 namespace parquet::variant {
 
 // TODO(mwish): Should I use parquet::ByteArray rather than
@@ -83,6 +85,32 @@ enum class VariantPrimitiveType {
   Uuid = 20
 };
 
+/// VariantType is from basic type and primitive type.
+enum class VariantType {
+  OBJECT,
+  ARRAY,
+  VARIANT_NULL,
+  BOOLEAN,
+  BYTE,
+  SHORT,
+  INT,
+  LONG,
+  STRING,
+  DOUBLE,
+  DECIMAL4,
+  DECIMAL8,
+  DECIMAL16,
+  DATE,
+  TIMESTAMP_TZ,
+  TIMESTAMP_NTZ,
+  FLOAT,
+  BINARY,
+  TIME,
+  TIMESTAMP_NANOS_TZ,
+  TIMESTAMP_NANOS_NTZ,
+  UUID
+};
+
 class VariantMetadata {
  public:
   explicit VariantMetadata(std::string_view metadata);
@@ -103,6 +131,47 @@ class VariantMetadata {
 struct VariantValue {
   VariantMetadata metadata;
   std::string_view value;
+
+  VariantBasicType getBasicType() const;
+  VariantType getType() const;
+  std::string typeDebugString() const;
+
+  // Note: Null doesn't need visitor.
+  bool getBool() const;
+  int8_t getInt8() const;
+  int16_t getInt16() const;
+  int32_t getInt32() const;
+  int64_t getInt64() const;
+  std::string_view getString() const;
+  std::string_view getBinary() const;
+  float getFloat() const;
+  double getDouble() const;
+  // ::arrow::Decimal32 getDecimal32() const;
+
+  struct ObjectInfo {
+    uint32_t num_elements;
+    uint32_t id_size;
+    uint32_t offset_size;
+    uint32_t id_start_offset;
+    uint32_t offset_start_offset;
+    uint32_t data_start_offset;
+  };
+  ObjectInfo getObjectInfo() const;
+  std::optional<VariantValue> getObjectValueByKey(std::string_view key) const;
+
+  struct ArrayInfo {
+    uint32_t num_elements;
+    uint32_t offset_size;
+    uint32_t offset_start_offset;
+    uint32_t data_start_offset;
+  };
+  ArrayInfo getArrayInfo() const;
+
+  static constexpr uint8_t BASIC_TYPE_MASK = 0b00000011;
+  static constexpr uint8_t PRIMITIVE_TYPE_MASK = 0b00111111;
+  /** The inclusive maximum value of the type info value. It is the size limit of
+   * `SHORT_STR`. */
+  static constexpr uint8_t MAX_SHORT_STR_SIZE_MASK = 0b00111111;
 };
 
 }  // namespace parquet::variant
