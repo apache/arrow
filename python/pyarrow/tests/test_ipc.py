@@ -1319,6 +1319,7 @@ def test_record_batch_file_writer_with_metadata():
     with pa.ipc.open_file(buffer) as r:
         assert r.metadata == meta
 
+
 def test_record_batch_file_writer_with_empty_metadata():
     # https://github.com/apache/arrow/issues/46222
     tbl = pa.table({"a": [1, 2, 3]})
