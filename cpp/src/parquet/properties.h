@@ -273,8 +273,6 @@ struct PARQUET_EXPORT CdcOptions {
   int norm_level = 0;
 };
 
-static constexpr CdcOptions kDefaultCdcOptions = CdcOptions{};
-
 class PARQUET_EXPORT WriterProperties {
  public:
   class Builder {
@@ -292,7 +290,7 @@ class PARQUET_EXPORT WriterProperties {
           page_checksum_enabled_(false),
           size_statistics_level_(DEFAULT_SIZE_STATISTICS_LEVEL),
           content_defined_chunking_enabled_(false),
-          content_defined_chunking_options_(kDefaultCdcOptions) {}
+          content_defined_chunking_options_({}) {}
 
     explicit Builder(const WriterProperties& properties)
         : pool_(properties.memory_pool()),
@@ -322,6 +320,8 @@ class PARQUET_EXPORT WriterProperties {
     /// efficient deduplication of data across files, hence more efficient network
     /// transfers and storage. The chunking is based on a rolling hash algorithm that
     /// identifies chunk boundaries based on the actual content of the data.
+    ///
+    /// Note that only the WriteArrow() interface is supported at the moment.
     Builder* enable_content_defined_chunking() {
       content_defined_chunking_enabled_ = true;
       return this;

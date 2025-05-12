@@ -502,7 +502,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* disable_page_checksum()
             Builder* enable_content_defined_chunking()
             Builder* disable_content_defined_chunking()
-            Builder* content_defined_chunking_options(const CdcOptions options)
+            Builder* content_defined_chunking_options(CdcOptions options)
             shared_ptr[WriterProperties] build()
 
     cdef cppclass ArrowWriterProperties:

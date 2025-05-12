@@ -273,7 +273,7 @@ class ContentDefinedChunker::Impl {
           RollValue(value_offset);
         }
 
-        if ((rep_level == 0) && NeedNewChunk()) {
+        if (rep_level == 0 && NeedNewChunk()) {
           // if we are at a record boundary and need a new chunk, we create a new chunk
           auto levels_to_write = offset - prev_offset;
           if (levels_to_write > 0) {
@@ -305,7 +305,8 @@ class ContentDefinedChunker::Impl {
                                          const int16_t* rep_levels, int64_t num_levels,
                                          const ::arrow::Array& values) {
     const uint8_t* raw_values =
-        values.data()->GetValues<uint8_t>(1, 0) + values.offset() * kByteWidth;
+        values.data()->GetValues<uint8_t>(/*i=*/1, /*absolute_offset=*/0) +
+        values.offset() * kByteWidth;
     return Calculate(def_levels, rep_levels, num_levels, [&](int64_t i) {
       return Roll<kByteWidth>(&raw_values[i * kByteWidth]);
     });
