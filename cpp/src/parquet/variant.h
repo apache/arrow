@@ -19,8 +19,12 @@
 
 #include <cstdint>
 #include <string_view>
+#include <vector>
 
 namespace parquet::variant {
+
+// TODO(mwish): Should I use parquet::ByteArray rather than
+//  std::string_view?
 
 enum class VariantBasicType {
   /// One of the primitive types
@@ -79,20 +83,25 @@ enum class VariantPrimitiveType {
   Uuid = 20
 };
 
-// TODO(mwish): should I use ByteArray as interface here?
-struct VariantMetadata {
-  int8_t offset_size() const;
-  bool sorted_strings() const;
-  int8_t version(std::string_view metadata) const;
-  int32_t dictionary_size(std::string_view metadata) const;
-  int32_t offset(std::string_view metadata, int32_t offset_idx) const;
-  std::string_view dictionary_bytes(std::string_view metadata) const;
+class VariantMetadata {
+ public:
+  explicit VariantMetadata(std::string_view metadata);
+  /// \brief Get the variant metadata version. Currently, always 1.
+  int8_t version() const;
+  /// \brief Get the metadata key for a given variant field id.
+  std::string_view getMetadataKey(int32_t variantId) const;
 
-  std::string_view metadata;
+ private:
+  bool sortedStrings() const;
+  uint8_t offsetSize() const;
+  uint32_t dictionarySize() const;
+
+ private:
+  std::string_view metadata_;
 };
 
-// TODO(mwish): Adding interface here.
 struct VariantValue {
+  VariantMetadata metadata;
   std::string_view value;
 };
 

@@ -188,7 +188,8 @@ set(PARQUET_SRCS
     statistics.cc
     stream_reader.cc
     stream_writer.cc
-    types.cc)
+    types.cc
+    variant.cc)
 
 if(ARROW_HAVE_RUNTIME_AVX2)
   # AVX2 is used as a proxy for BMI2.
