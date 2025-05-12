@@ -1280,8 +1280,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
                      const int16_t* rep_levels, const T* values) override {
     if (ARROW_PREDICT_FALSE(properties_->content_defined_chunking_enabled())) {
       throw ParquetException(
-          "Content-defined chunking is not yet supported for WriteBatch() and "
-          "WriteBatchSpaced(), use WriteArrow() instead");
+          "Content-defined chunking is not supported in WriteBatch() or "
+          "WriteBatchSpaced(), use WriteArrow() instead.");
     }
     return WriteBatchInternal(num_values, def_levels, rep_levels, values);
   }
@@ -1322,8 +1322,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
                         int64_t valid_bits_offset, const T* values) override {
     if (ARROW_PREDICT_FALSE(properties_->content_defined_chunking_enabled())) {
       throw ParquetException(
-          "Content-defined chunking is not yet supported for WriteBatch() and "
-          "WriteBatchSpaced(), use WriteArrow() instead");
+          "Content-defined chunking is not supported in WriteBatch() or "
+          "WriteBatchSpaced(), use WriteArrow() instead.");
     }
     return WriteBatchSpacedInternal(num_values, def_levels, rep_levels, valid_bits,
                                     valid_bits_offset, values);

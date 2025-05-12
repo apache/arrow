@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/table.h"
@@ -934,12 +935,22 @@ TEST_F(TestCDC, WriteSingleColumnParquetFile) {
 
   std::vector<int32_t> numbers = {1, 2, 3, 4, 5};
   std::vector<uint8_t> valid_bits = {1, 0, 1, 0, 1};
-  EXPECT_THROW(
-      int_column_writer.WriteBatch(numbers.size(), nullptr, nullptr, numbers.data()),
-      ParquetException);
-  EXPECT_THROW(int_column_writer.WriteBatchSpaced(numbers.size(), nullptr, nullptr,
-                                                  valid_bits.data(), 0, numbers.data()),
-               ParquetException);
+
+  auto expected_msg = ::testing::Property(
+      &ParquetException::what,
+      ::testing::HasSubstr("Content-defined chunking is not supported in WriteBatch() or "
+                           "WriteBatchSpaced(), use WriteArrow() instead."));
+  EXPECT_THROW_THAT(
+      [&]() {
+        int_column_writer.WriteBatch(numbers.size(), nullptr, nullptr, numbers.data());
+      },
+      ParquetException, expected_msg);
+  EXPECT_THROW_THAT(
+      [&]() {
+        int_column_writer.WriteBatchSpaced(numbers.size(), nullptr, nullptr,
+                                           valid_bits.data(), 0, numbers.data());
+      },
+      ParquetException, expected_msg);
 }
 
 TEST_F(TestCDC, LastChunkDoesntTriggerAddDataPage) {
