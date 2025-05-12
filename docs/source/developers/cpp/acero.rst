@@ -113,7 +113,7 @@ encountered and processed.
 
 Diagram with logical view of information passing in callbacks:
 
-.. image:: ../images/key_map_1.jpg
+.. image:: img/key_map_1.jpg
 
 Hash table values for inserted keys are also stored inside Swiss table. Because
 of that, hash table logic does not need to ever re-evaluate the hash, and there
@@ -133,7 +133,7 @@ table that has the double of the number of blocks.
 The diagram below shows the basic organization of data in our implementation of
 Swiss table:
 
-.. image:: ../images/key_map_2.jpg
+.. image:: img/key_map_2.jpg
 
 N is the log of the number of blocks, 2^{n+3} is  the number of slots and also
 the maximum number of inserted keys and hence (N + 3) is the number of bits
@@ -191,7 +191,7 @@ last one uses the lowest byte (slots are in reversed bytes order). The diagram
 below shows how the information about slots is stored within a 64-bit status
 word:
 
-.. image:: ../images/key_map_3.jpg
+.. image:: img/key_map_3.jpg
 
 Each status byte has a 7-bit fragment of hash value - a **stamp** - and an empty
 slot bit. Empty slots have status byte equal to 0x80 - the highest bit is set to
@@ -200,7 +200,7 @@ set to zero.
 
 The diagram below shows which bits of hash value are used by hash table:
 
-.. image:: ../images/key_map_4.jpg
+.. image:: img/key_map_4.jpg
 
 If a hash table has 2^N blocks, then we use N highest bits of a hash to select a
 start block when searching for a match. The next 7 bits are used as a stamp.
@@ -223,7 +223,7 @@ key ids (that is 8 of them) will start and end on the byte boundary.
 The diagram below shows the organization of bytes and bits of a single block in
 interleaved array:
 
-.. image:: ../images/key_map_5.jpg
+.. image:: img/key_map_5.jpg
 
 From the size of the hash table we can derive the number K of bits needed in the
 worst case to encode any key id. K is equal to the number of bits needed to
@@ -336,17 +336,17 @@ illustrated below.
 
 1. There is a matching stamp in the block of status bytes:
 
-   .. image:: ../images/key_map_6.jpg
+   .. image:: img/key_map_6.jpg
 
 2. There is no matching stamp in the block, but there is an empty slot in the
 block:
 
-   .. image:: ../images/key_map_7.jpg
+   .. image:: img/key_map_7.jpg
 
 3. There is no matching stamp in the block and the block is full (there are no
 empty slots left):
 
-   .. image:: ../images/key_map_8.jpg
+   .. image:: img/key_map_8.jpg
 
 64-bit arithmetic can be used to search for a matching slot within the entire
 single block at once, without iterating over all slots in it. Following is an
@@ -417,7 +417,7 @@ stamp is encountered. Eventually the search stops when either:
 - the matching key is found in one of the slots matching the stamp, or
 - an empty slot is reached. This is illustrated in the diagram below:
 
-  .. image:: ../images/key_map_9.jpg
+  .. image:: img/key_map_9.jpg
 
 Optimistic processing with two passes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -515,7 +515,7 @@ When discussing resizing we will be talking about **resize source** and **resize
 target** tables. The diagram below shows how the same hash bits are interpreted
 differently by the source and the target.
 
-.. image:: ../images/key_map_10.jpg
+.. image:: img/key_map_10.jpg
 
 For a given hash, if a start block id was L in the source table, it will be
 either (2*L+0) or (2*L+1) in the target table. Based on that we can expect data
@@ -542,7 +542,7 @@ decides whether it will go to the left or to the right target block. It is
 further possible to avoid any conditional branches in this partitioning code, so
 that the result is friendly to the CPU execution pipeline.
 
-.. image:: ../images/key_map_11.jpg
+.. image:: img/key_map_11.jpg
 
 2nd pass
 ~~~~~~~~
