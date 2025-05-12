@@ -2369,7 +2369,7 @@ garrow_fixed_shape_tensor_data_type_get_shape(GArrowFixedShapeTensorDataType *da
 /**
  * garrow_fixed_shape_tensor_data_type_get_permutation:
  * @data_type: A #GArrowFixedShapeTensorDataType.
- * @length: (out): Return location for the number of permutations of the tensor.
+ * @length: (out): Return location for the number of elements of permutation.
  *
  * Returns: (array length=length): Permutation of the tensor.
  */
