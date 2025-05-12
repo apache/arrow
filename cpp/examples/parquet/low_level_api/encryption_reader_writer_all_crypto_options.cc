@@ -373,7 +373,7 @@ void InteropTestReadEncryptedParquetFiles(std::string root_path) {
 
   parquet::FileDecryptionProperties::Builder file_decryption_builder_1;
   vector_of_decryption_configurations.push_back(
-      file_decryption_builder_1.key_retriever(kr1)->build());
+      file_decryption_builder_1.key_retriever(std::move(kr1))->build());
 
   // Decryption configuration 2: Decrypt using key retriever callback that holds the keys
   // of two encrypted columns and the footer key. Supply aad_prefix.
@@ -387,7 +387,9 @@ void InteropTestReadEncryptedParquetFiles(std::string root_path) {
 
   parquet::FileDecryptionProperties::Builder file_decryption_builder_2;
   vector_of_decryption_configurations.push_back(
-      file_decryption_builder_2.key_retriever(kr2)->aad_prefix(fileName)->build());
+      file_decryption_builder_2.key_retriever(std::move(kr2))
+          ->aad_prefix(fileName)
+          ->build());
 
   // Decryption configuration 3: Decrypt using explicit column and footer keys.
   std::string path_double = "double_field";
@@ -405,7 +407,7 @@ void InteropTestReadEncryptedParquetFiles(std::string root_path) {
   parquet::FileDecryptionProperties::Builder file_decryption_builder_3;
   vector_of_decryption_configurations.push_back(
       file_decryption_builder_3.footer_key(kFooterEncryptionKey)
-          ->column_keys(decryption_cols)
+          ->column_keys(std::move(decryption_cols))
           ->build());
 
   /**********************************************************************************
