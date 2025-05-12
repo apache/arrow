@@ -749,7 +749,7 @@ def test_dataset_memory_map(tempdir):
     dirpath.mkdir()
 
     df = _test_dataframe(10, seed=0)
-    path = dirpath / f'{0}.parquet'
+    path = dirpath / '0.parquet'
     table = pa.Table.from_pandas(df)
     _write_table(table, path, version='2.6')
 
@@ -764,7 +764,7 @@ def test_dataset_enable_buffered_stream(tempdir):
     dirpath.mkdir()
 
     df = _test_dataframe(10, seed=0)
-    path = dirpath / f'{0}.parquet'
+    path = dirpath / '0.parquet'
     table = pa.Table.from_pandas(df)
     _write_table(table, path, version='2.6')
 
@@ -784,7 +784,7 @@ def test_dataset_enable_pre_buffer(tempdir):
     dirpath.mkdir()
 
     df = _test_dataframe(10, seed=0)
-    path = dirpath / f'{0}.parquet'
+    path = dirpath / '0.parquet'
     table = pa.Table.from_pandas(df)
     _write_table(table, path, version='2.6')
 

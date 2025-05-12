@@ -505,7 +505,7 @@ class Repo:
                     result = release.upload_asset(name=name, asset=fp,
                                                   content_type=mime)
             except github3.exceptions.ResponseError as e:
-                logger.error(f"Attempt {i + 1} has failed with message: {str(e)}.")
+                logger.error(f"Attempt {i + 1} has failed with message: {e}.")
                 logger.error(f"Error message {e.msg}")
                 logger.error("List of errors provided by GitHub:")
                 for err in e.errors:
@@ -523,7 +523,7 @@ class Repo:
                             logger.info(f"Asset {name} removed.")
                             break
             except github3.exceptions.ConnectionError as e:
-                logger.error(f"Attempt {i + 1} has failed with message: {str(e)}.")
+                logger.error(f"Attempt {i + 1} has failed with message: {e}.")
             else:
                 logger.info(f"Attempt {i + 1} has finished.")
                 return result
@@ -942,7 +942,7 @@ class Task(Serializable):
         except jinja2.TemplateError as e:
             raise RuntimeError(
                 f"Failed to render template `{self.template}` with "
-                f"{e.__class__.__name__}: {str(e)}"
+                f"{e.__class__.__name__}: {e}"
             )
 
         tree = {**_default_tree, self.filename: rendered}
@@ -1353,7 +1353,7 @@ class Config(dict):
                 raise CrossbowError(
                     "Unable to construct a task object from the "
                     f"definition of task `{task_name}`. The original error "
-                    f"message is: `{str(e)}`"
+                    f"message is: `{e}`"
                 )
 
         # Get the default branch name from the repository
