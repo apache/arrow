@@ -25,8 +25,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/extension/json.h"
 #include "arrow/table.h"
-#include "arrow/testing/extension_type.h"
 #include "arrow/testing/generator.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/float16.h"
@@ -323,6 +323,7 @@ Result<std::shared_ptr<Table>> ReadTableFromBuffer(const std::shared_ptr<Buffer>
   FileReaderBuilder builder;
   std::unique_ptr<FileReader> reader;
   auto props = default_arrow_reader_properties();
+  props.set_arrow_extensions_enabled(true);
 
   RETURN_NOT_OK(builder.Open(std::make_shared<BufferReader>(data)));
   RETURN_NOT_OK(builder.memory_pool(::arrow::default_memory_pool())
@@ -353,21 +354,11 @@ Result<std::shared_ptr<Buffer>> WriteTableToBuffer(
                            write_props, arrow_props));
   ARROW_ASSIGN_OR_RAISE(auto buffer, sink->Finish());
 
-  // check whether the schema has extension types, if not we can easily ensure that
-  // the parquet seralization is roundtripable with CDC enabled
-  bool validate_roundtrip = true;
-  for (const auto& field : table->schema()->fields()) {
-    if (field->type()->id() == ::arrow::Type::EXTENSION) {
-      validate_roundtrip = false;
-      break;
-    }
-  }
-  if (validate_roundtrip) {
-    ARROW_ASSIGN_OR_RAISE(auto readback, ReadTableFromBuffer(buffer));
-    RETURN_NOT_OK(readback->ValidateFull());
-    ARROW_RETURN_IF(!readback->Equals(*table),
-                    Status::Invalid("Readback table not equal to original"));
-  }
+  // validate that the data correctly roundtrips
+  ARROW_ASSIGN_OR_RAISE(auto readback, ReadTableFromBuffer(buffer));
+  RETURN_NOT_OK(readback->ValidateFull());
+  ARROW_RETURN_IF(!readback->Equals(*table),
+                  Status::Invalid("Readback table not equal to original"));
 
   return buffer;
 }
@@ -1487,7 +1478,7 @@ INSTANTIATE_TEST_SUITE_P(
             ::arrow::list(::arrow::struct_({::arrow::field("f0", ::arrow::int32())})),
             false},
         // Extension type
-        CaseConfig{::arrow::uuid(), true},
+        CaseConfig{::arrow::extension::json(), true},
         // Use ParquetDataPageVersion::V2
         CaseConfig{::arrow::large_binary(), false, ParquetDataPageVersion::V2},
         CaseConfig{::arrow::list(::arrow::utf8()), true, ParquetDataPageVersion::V2}));
