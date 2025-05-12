@@ -68,14 +68,17 @@ TEST(ConvertToJson, Int16) {
 
 TEST(ConvertToJson, Int32) {
   ASSERT_EQ("2147483647", ConvertToJson(arrow::Int32Scalar(2147483647)));
-  ASSERT_EQ("-2147483648", ConvertToJson(arrow::Int32Scalar(-2147483648)));
+  // 2147483648 is not valid as a signed int, using workaround
+  ASSERT_EQ("-2147483648",
+            ConvertToJson(arrow::Int32Scalar(static_cast<int32_t>(-2147483647 - 1))));
 }
 
 TEST(ConvertToJson, Int64) {
   ASSERT_EQ("9223372036854775807",
             ConvertToJson(arrow::Int64Scalar(9223372036854775807LL)));
-  ASSERT_EQ("-9223372036854775808",
-            ConvertToJson(arrow::Int64Scalar(-9223372036854775808ULL)));
+  // 9223372036854775808ULL is not valid as a signed int64, using workaround
+  ASSERT_EQ("-9223372036854775808", ConvertToJson(arrow::Int64Scalar(static_cast<int64_t>(
+                                        -9223372036854775807LL - 1))));
 }
 
 TEST(ConvertToJson, UInt8) {
