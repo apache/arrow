@@ -397,6 +397,9 @@ def test_dense_to_sparse_tensor(dtype_str, arrow_type, sparse_tensor_type):
 @pytest.mark.skipif(not coo_matrix, reason="requires scipy")
 @pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
 def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type):
+    if dtype_str == 'f2':
+        pytest.skip('scipy.sparse does not support float16')
+
     dtype = np.dtype(dtype_str)
     data = np.array([1, 2, 3, 4, 5, 6]).astype(dtype)
     row = np.array([0, 0, 2, 3, 1, 3])
@@ -420,11 +423,7 @@ def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type):
     assert np.array_equal(scipy_matrix.row, out_scipy_matrix.row)
     assert np.array_equal(scipy_matrix.col, out_scipy_matrix.col)
 
-    if dtype_str == 'f2':
-        dense_array = \
-            scipy_matrix.astype(np.float32).toarray().astype(np.float16)
-    else:
-        dense_array = scipy_matrix.toarray()
+    dense_array = scipy_matrix.toarray()
     assert np.array_equal(dense_array, sparse_tensor.to_tensor().to_numpy())
 
     # canonical sparse coo matrix
@@ -441,6 +440,9 @@ def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type):
 @pytest.mark.skipif(not csr_matrix, reason="requires scipy")
 @pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
 def test_sparse_csr_matrix_scipy_roundtrip(dtype_str, arrow_type):
+    if dtype_str == 'f2':
+        pytest.skip('scipy.sparse does not support float16')
+
     dtype = np.dtype(dtype_str)
     data = np.array([8, 2, 5, 3, 4, 6]).astype(dtype)
     indptr = np.array([0, 2, 3, 4, 6])
@@ -460,11 +462,7 @@ def test_sparse_csr_matrix_scipy_roundtrip(dtype_str, arrow_type):
     assert np.array_equal(sparse_array.indptr, out_sparse_array.indptr)
     assert np.array_equal(sparse_array.indices, out_sparse_array.indices)
 
-    if dtype_str == 'f2':
-        dense_array = \
-            sparse_array.astype(np.float32).toarray().astype(np.float16)
-    else:
-        dense_array = sparse_array.toarray()
+    dense_array = sparse_array.toarray()
     assert np.array_equal(dense_array, sparse_tensor.to_tensor().to_numpy())
 
 
