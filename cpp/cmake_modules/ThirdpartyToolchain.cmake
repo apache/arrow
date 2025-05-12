@@ -2745,14 +2745,20 @@ macro(build_zstd)
   # Check which target name is actually created by zstd's CMake
   # zstd on macOS often creates 'zstd_static' despite what the docs say
   if(TARGET zstd_static)
-    add_library(zstd::libzstd_static ALIAS zstd_static)
+    # Create interface library instead of alias
+    add_library(zstd::libzstd_static INTERFACE IMPORTED)
+    target_link_libraries(zstd::libzstd_static INTERFACE zstd_static)
+
     if(NOT DEFINED CMAKE_EXPORT_NO_PACKAGE_REGISTRY)
       set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY ON)
     endif()
     install(TARGETS zstd_static EXPORT orc_targets)
     message(STATUS "Using zstd_static target for zstd")
   elseif(TARGET libzstd_static)
-    add_library(zstd::libzstd_static ALIAS libzstd_static)
+    # Create interface library instead of alias
+    add_library(zstd::libzstd_static INTERFACE IMPORTED)
+    target_link_libraries(zstd::libzstd_static INTERFACE libzstd_static)
+
     if(NOT DEFINED CMAKE_EXPORT_NO_PACKAGE_REGISTRY)
       set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY ON)
     endif()
