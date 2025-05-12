@@ -69,6 +69,17 @@ options : pyarrow.ipc.IpcWriteOptions
     ARROW_PRE_1_0_METADATA_VERSION=1."""
 
 
+_ipc_file_writer_class_doc = (
+    _ipc_writer_class_doc
+    + "\n"
+    + """\
+metadata : dict | pyarrow.KeyValueMetadata, optional
+    Key/value pairs (both must be bytes-like) that will be stored
+    in the file footer and are retrievable via
+    pyarrow.ipc.open_file(...).metadata."""
+)
+
+
 class RecordBatchStreamWriter(lib._RecordBatchStreamWriter):
     __doc__ = f"""Writer for the Arrow streaming binary format
 
@@ -109,11 +120,11 @@ class RecordBatchFileWriter(lib._RecordBatchFileWriter):
 
     __doc__ = f"""Writer to create the Arrow binary file format
 
-{_ipc_writer_class_doc}"""
+{_ipc_file_writer_class_doc}"""
 
-    def __init__(self, sink, schema, *, options=None):
+    def __init__(self, sink, schema, *, options=None, metadata=None):
         options = _get_legacy_format_default(options)
-        self._open(sink, schema, options=options)
+        self._open(sink, schema, options=options, metadata=metadata)
 
 
 def _get_legacy_format_default(options):
@@ -177,15 +188,14 @@ def open_stream(source, *, options=None, memory_pool=None):
                                    memory_pool=memory_pool)
 
 
-def new_file(sink, schema, *, options=None):
-    return RecordBatchFileWriter(sink, schema,
-                                 options=options)
+def new_file(sink, schema, *, options=None, metadata=None):
+    return RecordBatchFileWriter(sink, schema, options=options, metadata=metadata)
 
 
 new_file.__doc__ = f"""\
 Create an Arrow columnar IPC file writer instance
 
-{_ipc_writer_class_doc}
+{_ipc_file_writer_class_doc}
 
 Returns
 -------
