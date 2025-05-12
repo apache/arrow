@@ -901,7 +901,6 @@ if(ARROW_FILESYSTEM)
     list(APPEND
          ARROW_FILESYSTEM_SRCS
          filesystem/hdfs.cc
-         filesystem/hdfs_io.cc
          filesystem/hdfs_internal.cc)
   endif()
   if(ARROW_S3)
