@@ -353,7 +353,9 @@ class GcsFileSystem::Impl {
     // matches the prefix we assume it is a directory.
     std::string canonical = internal::EnsureTrailingSlash(path.object);
     auto list_result = client_.ListObjects(path.bucket, gcs::Prefix(canonical));
-    if (list_result.begin() != list_result.end()) {
+    
+    // Check that the result is valid before determining whether the list is empty.
+    if (list_result.begin() != list_result.end() && *list_result.begin()) {
       // If there is at least one result it indicates this is a directory (at
       // least one object exists that starts with "path/")
       return FileInfo(path.full_path, FileType::Directory);
