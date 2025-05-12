@@ -2677,11 +2677,12 @@ macro(build_lz4)
   # Make the dependency available - this will actually perform the download and configure
   fetchcontent_makeavailable(lz4_ep)
 
-  # Since lz4 is now part of our build system, we can directly use the target
-  add_library(LZ4::lz4 ALIAS lz4_static)
+  # Add lz4 as an interfece library so other targets can depend on it
+  add_library(LZ4::lz4 INTERFACE IMPORTED)
+  target_link_libraries(LZ4::lz4 INTERFACE lz4_static)
 
   # Add to bundled static libs
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS LZ4::lz4)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS lz4_static)
 endmacro()
 
 if(ARROW_WITH_LZ4)
