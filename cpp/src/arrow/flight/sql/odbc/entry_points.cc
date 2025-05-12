@@ -69,14 +69,43 @@ SQLRETURN SQL_API SQLSetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER valuePt
   return arrow::SQLSetEnvAttr(env, attr, valuePtr, strLen);
 }
 
-SQLRETURN SQL_API SQLDriverConnect(SQLHDBC conn, SQLHWND windowHandle,
-                                   SQLWCHAR* inConnectionString,
-                                   SQLSMALLINT inConnectionStringLen,
-                                   SQLWCHAR* outConnectionString,
-                                   SQLSMALLINT outConnectionStringBufferLen,
-                                   SQLSMALLINT* outConnectionStringLen,
-                                   SQLUSMALLINT driverCompletion) {
-  // TODO: implement SQLDriverConnect by linking to `odbc_impl` //-AL- TODO: create GitHub
-  // issue for SQLDriverConnect implementation
-  return SQL_INVALID_HANDLE;
+SQLRETURN SQL_API SQLSetConnectAttrW(SQLHDBC conn, SQLINTEGER attr, SQLPOINTER value,
+                                     SQLINTEGER valueLen) {
+  // TODO implement SQLSetConnectAttr
+  return SQL_ERROR;
 }
+
+SQLRETURN SQL_API SQLGetInfoW(SQLHDBC conn, SQLUSMALLINT infoType,
+                              SQLPOINTER infoValuePtr, SQLSMALLINT bufLen,
+                              SQLSMALLINT* length) {
+  return arrow::SQLGetInfoW(conn, infoType, infoValuePtr, bufLen, length);
+}
+
+SQLRETURN SQL_API SQLGetDiagRecW(SQLSMALLINT type, SQLHANDLE handle, SQLSMALLINT recNum,
+                                 SQLWCHAR* sqlState, SQLINTEGER* nativeError,
+                                 SQLWCHAR* msgBuffer, SQLSMALLINT msgBufferLen,
+                                 SQLSMALLINT* msgLen) {
+  // TODO implement SQLGetDiagRecW
+  return SQL_ERROR;
+}
+
+SQLRETURN SQL_API SQLDriverConnectW(SQLHDBC conn, SQLHWND windowHandle,
+                                    SQLWCHAR* inConnectionString,
+                                    SQLSMALLINT inConnectionStringLen,
+                                    SQLWCHAR* outConnectionString,
+                                    SQLSMALLINT outConnectionStringBufferLen,
+                                    SQLSMALLINT* outConnectionStringLen,
+                                    SQLUSMALLINT driverCompletion) {
+  return arrow::SQLDriverConnectW(
+      conn, windowHandle, inConnectionString, inConnectionStringLen, outConnectionString,
+      outConnectionStringBufferLen, outConnectionStringLen, driverCompletion);
+}
+
+SQLRETURN SQL_API SQLConnectW(SQLHDBC conn, SQLWCHAR* dsnName, SQLSMALLINT dsnNameLen,
+                              SQLWCHAR* userName, SQLSMALLINT userNameLen,
+                              SQLWCHAR* password, SQLSMALLINT passwordLen) {
+  return arrow::SQLConnectW(conn, dsnName, dsnNameLen, userName, userNameLen, password,
+                            passwordLen);
+}
+
+SQLRETURN SQL_API SQLDisconnect(SQLHDBC conn) { return arrow::SQLDisconnect(conn); }

@@ -17,6 +17,16 @@
 
 add_custom_target(arrow_flight_sql_odbc)
 
+if(WIN32)
+  if(MSVC_VERSION GREATER_EQUAL 1900)
+    set(ODBCINST legacy_stdio_definitions odbccp32 shlwapi)
+  endif()
+elseif(APPLE)
+  set(ODBCINST iodbcinst)
+else()
+  set(ODBCINST odbcinst)
+endif()
+
 add_subdirectory(flight_sql)
 add_subdirectory(odbcabstraction)
 add_subdirectory(tests)
@@ -27,16 +37,6 @@ set(ARROW_FLIGHT_SQL_ODBC_SRCS entry_points.cc odbc_api.cc)
 
 if(WIN32)
   list(APPEND ARROW_FLIGHT_SQL_ODBC_SRCS odbc.def)
-endif()
-
-if(WIN32)
-  if(MSVC_VERSION GREATER_EQUAL 1900)
-    set(ODBCINST legacy_stdio_definitions odbccp32 shlwapi)
-  endif()
-elseif(APPLE)
-  set(ODBCINST iodbcinst)
-else()
-  set(ODBCINST odbcinst)
 endif()
 
 add_arrow_lib(arrow_flight_sql_odbc

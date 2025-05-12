@@ -66,7 +66,7 @@ void FlightSqlDriver::RegisterLog() {
   odbcabstraction::PropertyMap propertyMap;
   driver::odbcabstraction::ReadConfigFile(propertyMap, CONFIG_FILE_NAME);
 
-  auto log_enable_iterator = propertyMap.find(SPDLogger::LOG_ENABLED);
+  auto log_enable_iterator = propertyMap.find(std::string(SPDLogger::LOG_ENABLED));
   auto log_enabled = log_enable_iterator != propertyMap.end()
                          ? odbcabstraction::AsBool(log_enable_iterator->second)
                          : false;
@@ -74,13 +74,13 @@ void FlightSqlDriver::RegisterLog() {
     return;
   }
 
-  auto log_path_iterator = propertyMap.find(SPDLogger::LOG_PATH);
+  auto log_path_iterator = propertyMap.find(std::string(SPDLogger::LOG_PATH));
   auto log_path = log_path_iterator != propertyMap.end() ? log_path_iterator->second : "";
   if (log_path.empty()) {
     return;
   }
 
-  auto log_level_iterator = propertyMap.find(SPDLogger::LOG_LEVEL);
+  auto log_level_iterator = propertyMap.find(std::string(SPDLogger::LOG_LEVEL));
   auto log_level = ToLogLevel(log_level_iterator != propertyMap.end()
                                   ? std::stoi(log_level_iterator->second)
                                   : 1);
@@ -88,12 +88,14 @@ void FlightSqlDriver::RegisterLog() {
     return;
   }
 
-  auto maximum_file_size_iterator = propertyMap.find(SPDLogger::MAXIMUM_FILE_SIZE);
+  auto maximum_file_size_iterator =
+      propertyMap.find(std::string(SPDLogger::MAXIMUM_FILE_SIZE));
   auto maximum_file_size = maximum_file_size_iterator != propertyMap.end()
                                ? std::stoi(maximum_file_size_iterator->second)
                                : DEFAULT_MAXIMUM_FILE_SIZE;
 
-  auto maximum_file_quantity_iterator = propertyMap.find(SPDLogger::FILE_QUANTITY);
+  auto maximum_file_quantity_iterator =
+      propertyMap.find(std::string(SPDLogger::FILE_QUANTITY));
   auto maximum_file_quantity = maximum_file_quantity_iterator != propertyMap.end()
                                    ? std::stoi(maximum_file_quantity_iterator->second)
                                    : 1;

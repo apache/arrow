@@ -153,22 +153,22 @@ std::unique_ptr<FlightSqlAuthMethod> FlightSqlAuthMethod::FromProperties(
     const std::unique_ptr<FlightClient>& client,
     const Connection::ConnPropertyMap& properties) {
   // Check if should use user-password authentication
-  auto it_user = properties.find(FlightSqlConnection::USER);
+  auto it_user = properties.find(std::string(FlightSqlConnection::USER));
   if (it_user == properties.end()) {
     // The Microsoft OLE DB to ODBC bridge provider (MSDASQL) will write
     // "User ID" and "Password" properties instead of mapping
     // to ODBC compliant UID/PWD keys.
-    it_user = properties.find(FlightSqlConnection::USER_ID);
+    it_user = properties.find(std::string(FlightSqlConnection::USER_ID));
   }
 
-  auto it_password = properties.find(FlightSqlConnection::PASSWORD);
-  auto it_token = properties.find(FlightSqlConnection::TOKEN);
+  auto it_password = properties.find(std::string(FlightSqlConnection::PASSWORD));
+  auto it_token = properties.find(std::string(FlightSqlConnection::TOKEN));
 
   if (it_user == properties.end() || it_password == properties.end()) {
     // Accept UID/PWD as aliases for User/Password. These are suggested as
     // standard properties in the documentation for SQLDriverConnect.
-    it_user = properties.find(FlightSqlConnection::UID);
-    it_password = properties.find(FlightSqlConnection::PWD);
+    it_user = properties.find(std::string(FlightSqlConnection::UID));
+    it_password = properties.find(std::string(FlightSqlConnection::PWD));
   }
   if (it_user != properties.end() || it_password != properties.end()) {
     const std::string& user = it_user != properties.end() ? it_user->second : "";

@@ -33,13 +33,13 @@ namespace odbcabstraction {
 
 /// \brief Case insensitive comparator
 struct CaseInsensitiveComparator {
-  bool operator()(const std::string_view& s1, const std::string_view& s2) const {
+  bool operator()(const std::string& s1, const std::string& s2) const {
     return boost::lexicographical_compare(s1, s2, boost::is_iless());
   }
 };
 
 // PropertyMap is case-insensitive for keys.
-typedef std::map<std::string_view, std::string, CaseInsensitiveComparator> PropertyMap;
+typedef std::map<std::string, std::string, CaseInsensitiveComparator> PropertyMap;
 
 class Statement;
 

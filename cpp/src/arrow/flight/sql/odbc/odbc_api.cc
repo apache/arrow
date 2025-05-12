@@ -15,12 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// flight_sql_connection.h needs to be included first due to conflicts with windows.h
+#include "arrow/flight/sql/odbc/flight_sql/flight_sql_connection.h"
+
 #include <arrow/flight/sql/odbc/flight_sql/include/flight_sql/flight_sql_driver.h>
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/attribute_utils.h>
+#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/encoding_utils.h>
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h>
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_environment.h>
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h>
+
+#include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/config/configuration.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/attribute_utils.h"
+
+#if defined _WIN32 || defined _WIN64
+// For displaying DSN Window
+#  include "arrow/flight/sql/odbc/flight_sql/system_dsn.h"
+#endif
 
 // odbc_api includes windows.h, which needs to be put behind winsock2.h.
 // odbc_environment.h includes winsock2.h
@@ -28,7 +39,6 @@
 
 namespace arrow {
 SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) {
-  // TODO: implement SQLAllocHandle by linking to `odbc_impl`
   *result = nullptr;
 
   switch (type) {
@@ -103,11 +113,13 @@ SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle) {
 
       ODBCConnection* conn = reinterpret_cast<ODBCConnection*>(handle);
 
-      return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
-        conn->releaseConnection();
+      if (!conn) {
+        return SQL_INVALID_HANDLE;
+      }
 
-        return SQL_SUCCESS;
-      });
+      conn->releaseConnection();
+
+      return SQL_SUCCESS;
     }
 
     case SQL_HANDLE_STMT:
@@ -327,4 +339,117 @@ SQLRETURN SQLSetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER valuePtr,
     }
   });
 }
+
+SQLRETURN SQLDriverConnectW(SQLHDBC conn, SQLHWND windowHandle,
+                            SQLWCHAR* inConnectionString,
+                            SQLSMALLINT inConnectionStringLen,
+                            SQLWCHAR* outConnectionString,
+                            SQLSMALLINT outConnectionStringBufferLen,
+                            SQLSMALLINT* outConnectionStringLen,
+                            SQLUSMALLINT driverCompletion) {
+  // TODO: Implement FILEDSN and SAVEFILE keywords according to the spec
+  // https://github.com/apache/arrow/issues/46449
+
+  // TODO: Copy connection string properly in SQLDriverConnectW according to the
+  // spec https://github.com/apache/arrow/issues/46560
+
+  using driver::odbcabstraction::Connection;
+  using ODBC::ODBCConnection;
+
+  return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
+    ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(conn);
+    std::string connection_string =
+        ODBC::SqlWcharToString(inConnectionString, inConnectionStringLen);
+    Connection::ConnPropertyMap properties;
+    std::string dsn =
+        ODBCConnection::getPropertiesFromConnString(connection_string, properties);
+
+    std::vector<std::string_view> missing_properties;
+
+    // TODO: Implement SQL_DRIVER_COMPLETE_REQUIRED in SQLDriverConnectW according to the
+    // spec https://github.com/apache/arrow/issues/46448
+#if defined _WIN32 || defined _WIN64
+    if (driverCompletion == SQL_DRIVER_PROMPT ||
+        ((driverCompletion == SQL_DRIVER_COMPLETE ||
+          driverCompletion == SQL_DRIVER_COMPLETE_REQUIRED) &&
+         !missing_properties.empty())) {
+      // TODO: implement driverCompletion behavior to display connection window.
+    }
+#endif
+
+    connection->connect(dsn, properties, missing_properties);
+
+    // Copy connection string to outConnectionString after connection attempt
+    return ODBC::GetStringAttribute(true, connection_string, true, outConnectionString,
+                                    outConnectionStringBufferLen, outConnectionStringLen,
+                                    connection->GetDiagnostics());
+  });
+}
+
+SQLRETURN SQLConnectW(SQLHDBC conn, SQLWCHAR* dsnName, SQLSMALLINT dsnNameLen,
+                      SQLWCHAR* userName, SQLSMALLINT userNameLen, SQLWCHAR* password,
+                      SQLSMALLINT passwordLen) {
+  using driver::flight_sql::FlightSqlConnection;
+  using driver::flight_sql::config::Configuration;
+  using ODBC::ODBCConnection;
+
+  using ODBC::SqlWcharToString;
+
+  return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
+    ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(conn);
+    std::string dsn = SqlWcharToString(dsnName, dsnNameLen);
+
+    Configuration config;
+    config.LoadDsn(dsn);
+
+    if (userName) {
+      std::string uid = SqlWcharToString(userName, userNameLen);
+      config.Emplace(FlightSqlConnection::UID, std::move(uid));
+    }
+
+    if (password) {
+      std::string pwd = SqlWcharToString(password, passwordLen);
+      config.Emplace(FlightSqlConnection::PWD, std::move(pwd));
+    }
+
+    std::vector<std::string_view> missing_properties;
+
+    connection->connect(dsn, config.GetProperties(), missing_properties);
+
+    return SQL_SUCCESS;
+  });
+}
+
+SQLRETURN SQLDisconnect(SQLHDBC conn) {
+  using ODBC::ODBCConnection;
+
+  return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
+    ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(conn);
+
+    connection->disconnect();
+
+    return SQL_SUCCESS;
+  });
+}
+
+SQLRETURN SQLGetInfoW(SQLHDBC conn, SQLUSMALLINT infoType, SQLPOINTER infoValuePtr,
+                      SQLSMALLINT bufLen, SQLSMALLINT* length) {
+  // TODO: complete implementation of SQLGetInfoW and write tests
+  using ODBC::ODBCConnection;
+
+  return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
+    ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(conn);
+
+    // Partially stubbed implementation of SQLGetInfoW
+    if (infoType == SQL_DRIVER_ODBC_VER) {
+      std::string_view ver("03.80");
+
+      return ODBC::GetStringAttribute(true, ver, true, infoValuePtr, bufLen, length,
+                                      connection->GetDiagnostics());
+    }
+
+    return static_cast<SQLRETURN>(SQL_ERROR);
+  });
+}
+
 }  // namespace arrow

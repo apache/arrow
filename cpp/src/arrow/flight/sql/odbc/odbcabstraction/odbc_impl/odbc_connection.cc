@@ -85,11 +85,11 @@ void loadPropertiesFromDSN(const std::string& dsn,
   for (auto& key : keys) {
     outputBuffer.clear();
     outputBuffer.resize(BUFFER_SIZE, '\0');
-    SQLGetPrivateProfileString(dsn.c_str(), key.data(), "", &outputBuffer[0],
-                               BUFFER_SIZE, "odbc.ini");
+    SQLGetPrivateProfileString(dsn.c_str(), key.data(), "", &outputBuffer[0], BUFFER_SIZE,
+                               "odbc.ini");
 
     std::string value = std::string(&outputBuffer[0]);
-    auto propIter = properties.find(key);
+    auto propIter = properties.find(std::string(key));
     if (propIter == properties.end()) {
       properties.emplace(std::make_pair(std::move(key), std::move(value)));
     }
@@ -759,7 +759,6 @@ std::string ODBCConnection::getPropertiesFromConnString(
       if (!isDsnFirst) {
         isDriverFirst = true;
       }
-      continue;
     }
 
     // Strip wrapping curly braces.

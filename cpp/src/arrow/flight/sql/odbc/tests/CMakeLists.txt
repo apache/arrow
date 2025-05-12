@@ -19,8 +19,15 @@ add_custom_target(tests)
 
 include_directories(${ODBC_INCLUDE_DIRS})
 
+add_definitions(-DUNICODE=1)
+
 add_arrow_test(connection_test
                SOURCES
                connection_test.cc
+               odbc_test_suite.cc
+               odbc_test_suite.h
                EXTRA_LINK_LIBS
-               ${ODBC_LIBRARIES})
+               ${ODBC_LIBRARIES}
+               ${ODBCINST}
+               arrow_odbc_spi_impl
+               odbcabstraction)

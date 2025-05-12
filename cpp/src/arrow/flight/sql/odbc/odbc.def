@@ -1,6 +1,6 @@
-
 LIBRARY   arrow_flight_sql_odbc
 EXPORTS
+	ConfigDSN
 	SQLAllocConnect
 	SQLAllocEnv
 	SQLAllocHandle
@@ -38,4 +38,3 @@ EXPORTS
 	SQLSetEnvAttr
 	SQLSetStmtAttrW
 	SQLTablesW
-

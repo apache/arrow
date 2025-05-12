@@ -45,12 +45,12 @@ inline void GetAttribute(T attributeValue, SQLPOINTER output, O outputSize,
 }
 
 template <typename O>
-inline SQLRETURN GetAttributeUTF8(const std::string& attributeValue, SQLPOINTER output,
-                                  O outputSize, O* outputLenPtr) {
+inline SQLRETURN GetAttributeUTF8(const std::string_view& attributeValue,
+                                  SQLPOINTER output, O outputSize, O* outputLenPtr) {
   if (output) {
     size_t outputLenBeforeNul =
         std::min(static_cast<O>(attributeValue.size()), static_cast<O>(outputSize - 1));
-    memcpy(output, attributeValue.c_str(), outputLenBeforeNul);
+    memcpy(output, attributeValue.data(), outputLenBeforeNul);
     reinterpret_cast<char*>(output)[outputLenBeforeNul] = '\0';
   }
 
@@ -65,8 +65,8 @@ inline SQLRETURN GetAttributeUTF8(const std::string& attributeValue, SQLPOINTER 
 }
 
 template <typename O>
-inline SQLRETURN GetAttributeUTF8(const std::string& attributeValue, SQLPOINTER output,
-                                  O outputSize, O* outputLenPtr,
+inline SQLRETURN GetAttributeUTF8(const std::string_view& attributeValue,
+                                  SQLPOINTER output, O outputSize, O* outputLenPtr,
                                   driver::odbcabstraction::Diagnostics& diagnostics) {
   SQLRETURN result = GetAttributeUTF8(attributeValue, output, outputSize, outputLenPtr);
   if (SQL_SUCCESS_WITH_INFO == result) {
@@ -76,7 +76,7 @@ inline SQLRETURN GetAttributeUTF8(const std::string& attributeValue, SQLPOINTER 
 }
 
 template <typename O>
-inline SQLRETURN GetAttributeSQLWCHAR(const std::string& attributeValue,
+inline SQLRETURN GetAttributeSQLWCHAR(const std::string_view& attributeValue,
                                       bool isLengthInBytes, SQLPOINTER output,
                                       O outputSize, O* outputLenPtr) {
   size_t result =
@@ -95,7 +95,7 @@ inline SQLRETURN GetAttributeSQLWCHAR(const std::string& attributeValue,
 }
 
 template <typename O>
-inline SQLRETURN GetAttributeSQLWCHAR(const std::string& attributeValue,
+inline SQLRETURN GetAttributeSQLWCHAR(const std::string_view& attributeValue,
                                       bool isLengthInBytes, SQLPOINTER output,
                                       O outputSize, O* outputLenPtr,
                                       driver::odbcabstraction::Diagnostics& diagnostics) {
@@ -108,7 +108,8 @@ inline SQLRETURN GetAttributeSQLWCHAR(const std::string& attributeValue,
 }
 
 template <typename O>
-inline SQLRETURN GetStringAttribute(bool isUnicode, const std::string& attributeValue,
+inline SQLRETURN GetStringAttribute(bool isUnicode,
+                                    const std::string_view& attributeValue,
                                     bool isLengthInBytes, SQLPOINTER output, O outputSize,
                                     O* outputLenPtr,
                                     driver::odbcabstraction::Diagnostics& diagnostics) {
