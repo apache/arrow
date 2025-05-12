@@ -2677,26 +2677,8 @@ macro(build_lz4)
   # Make the dependency available - this will actually perform the download and configure
   fetchcontent_makeavailable(lz4_ep)
 
-  # Get the source and binary directories after fetching content
-  fetchcontent_getproperties(lz4_ep
-                             SOURCE_DIR LZ4_SOURCE_DIR
-                             BINARY_DIR LZ4_BINARY_DIR)
-
-  # Set up the imported library for compatibility with the rest of the build system
-  set(LZ4_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps/lz4_ep-build")
-  set(LZ4_INCLUDE_DIR "${LZ4_SOURCE_DIR}/lib")
-
   # Since lz4 is now part of our build system, we can directly use the target
   add_library(LZ4::lz4 ALIAS lz4_static)
-
-  # Add lz4_static to the orc export set
-  if(NOT TARGET lz4_static)
-    message(FATAL_ERROR "Expected lz4_static target to be created by FetchContent")
-  endif()
-  if(NOT DEFINED CMAKE_EXPORT_NO_PACKAGE_REGISTRY)
-    set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY ON)
-  endif()
-  install(TARGETS lz4_static EXPORT orc_targets)
 
   # Add to bundled static libs
   list(APPEND ARROW_BUNDLED_STATIC_LIBS LZ4::lz4)
