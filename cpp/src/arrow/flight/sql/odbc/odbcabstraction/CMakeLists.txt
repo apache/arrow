@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
 include_directories(include)
 
 # Ensure fmt is loaded as header only

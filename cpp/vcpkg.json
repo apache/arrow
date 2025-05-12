@@ -15,8 +15,8 @@
       ]
     },
     "benchmark",
-    "boost-cmake",
     "boost-beast",
+    "boost-cmake",
     "boost-crc",
     "boost-filesystem",
     "boost-locale",

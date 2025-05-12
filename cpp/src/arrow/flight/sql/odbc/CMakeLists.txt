@@ -15,18 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cmake_minimum_required(VERSION 3.16)
-set(CMAKE_CXX_STANDARD 17)
-
 add_custom_target(arrow_flight_sql_odbc)
-
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-  add_compile_definitions(NDEBUG)
-endif()
-
-# Add Boost dependencies. Should be pre-installed (Brew on Mac).
-find_package(Boost REQUIRED)
-find_package(ODBC REQUIRED)
 
 add_subdirectory(flight_sql)
 add_subdirectory(odbcabstraction)
