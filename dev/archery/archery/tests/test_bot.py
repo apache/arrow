@@ -50,7 +50,7 @@ def set_env_vars():
 
 
 def github_url(path):
-    return 'https://api.github.com:443/{}'.format(path.strip('/'))
+    return f'https://api.github.com:443/{path.strip("/")}'
 
 
 @group()

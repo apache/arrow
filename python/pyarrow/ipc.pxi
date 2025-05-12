@@ -301,9 +301,8 @@ cdef class Message(_Weakrefable):
         pass
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use "
-                        "`pyarrow.ipc.read_message` function instead."
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use "
+                        "`pyarrow.ipc.read_message` function instead.")
 
     @property
     def type(self):
@@ -393,9 +392,9 @@ cdef class Message(_Weakrefable):
         body_len = 0 if body is None else body.size
 
         return """pyarrow.Message
-type: {0}
-metadata length: {1}
-body length: {2}""".format(self.type, metadata_len, body_len)
+type: {self.type}
+metadata length: {metadata_len}
+body length: {body_len}"""
 
 
 cdef class MessageReader(_Weakrefable):
@@ -410,9 +409,9 @@ cdef class MessageReader(_Weakrefable):
         pass
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use "
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use "
                         "`pyarrow.ipc.MessageReader.open_stream` function "
-                        "instead.".format(self.__class__.__name__))
+                        "instead.")
 
     @staticmethod
     def open_stream(source):
@@ -660,9 +659,8 @@ cdef class RecordBatchReader(_Weakrefable):
     # cdef block is in lib.pxd
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, "
-                        "use one of the RecordBatchReader.from_* functions instead."
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, "
+                        "use one of the RecordBatchReader.from_* functions instead.")
 
     def __iter__(self):
         return self
@@ -1122,7 +1120,7 @@ cdef class _RecordBatchFileReader(_Weakrefable):
         cdef shared_ptr[CRecordBatch] batch
 
         if i < 0 or i >= self.num_record_batches:
-            raise ValueError('Batch number {0} out of range'.format(i))
+            raise ValueError(f'Batch number {i} out of range')
 
         with nogil:
             batch = GetResultValue(self.reader.get().ReadRecordBatch(i))
@@ -1152,7 +1150,7 @@ cdef class _RecordBatchFileReader(_Weakrefable):
             CRecordBatchWithMetadata batch_with_metadata
 
         if i < 0 or i >= self.num_record_batches:
-            raise ValueError('Batch number {0} out of range'.format(i))
+            raise ValueError(f'Batch number {i} out of range')
 
         with nogil:
             batch_with_metadata = GetResultValue(
@@ -1274,8 +1272,8 @@ cdef NativeFile as_native_file(source):
             source = BufferReader(source)
 
     if not isinstance(source, NativeFile):
-        raise ValueError('Unable to read message from object with type: {0}'
-                         .format(type(source)))
+        raise ValueError(
+            f'Unable to read message from object with type: {type(source)}')
     return source
 
 

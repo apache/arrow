@@ -864,7 +864,7 @@ class PeriodType(pa.ExtensionType):
         return self._freq
 
     def __arrow_ext_serialize__(self):
-        return "freq={}".format(self.freq).encode()
+        return f"freq={self.freq}".encode()
 
     @classmethod
     def __arrow_ext_deserialize__(cls, storage_type, serialized):

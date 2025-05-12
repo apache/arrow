@@ -183,7 +183,7 @@ def test_dictionary_array_automatically_read():
 
     # Make a large dictionary, a little over 4MB of data
     dict_length = 4000
-    dict_values = pa.array([('x' * 1000 + '_{}'.format(i))
+    dict_values = pa.array([('x' * 1000 + f'_{i}')
                             for i in range(dict_length)])
 
     num_chunks = 10
@@ -220,8 +220,7 @@ def test_decimal_roundtrip(tempdir):
                     util.randdecimal(precision, scale)
                     for _ in range(num_values)
                 ]
-            column_name = ('dec_precision_{:d}_scale_{:d}'
-                           .format(precision, scale))
+            column_name = f'dec_precision_{precision}_scale_{scale}'
             columns[column_name] = random_decimal_values
 
     expected = pd.DataFrame(columns)
@@ -255,7 +254,7 @@ def test_decimal_roundtrip_negative_scale(tempdir):
 
 @pytest.mark.parametrize('dtype', [int, float])
 def test_single_pylist_column_roundtrip(tempdir, dtype,):
-    filename = tempdir / 'single_{}_column.parquet'.format(dtype.__name__)
+    filename = tempdir / f'single_{dtype.__name__}_column.parquet'
     data = [pa.array(list(map(dtype, range(5))))]
     table = pa.Table.from_arrays(data, names=['a'])
     _write_table(table, filename)
