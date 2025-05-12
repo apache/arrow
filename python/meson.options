@@ -1,0 +1,107 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+option(
+    'acero',
+    type: 'feature',
+    description: 'build the Acero Engine extension',
+    value: 'auto',
+)
+
+option(
+    'azure',
+    type: 'feature',
+    description: 'build the Azure Blob Storage extension',
+    value: 'auto',
+)
+
+option(
+    'cuda',
+    type: 'feature',
+    description: 'build the Cuda extension',
+    value: 'auto',
+)
+
+option(
+    'dataset',
+    type: 'feature',
+    description: 'build the Dataset extension',
+    value: 'auto',
+)
+
+option(
+    'flight',
+    type: 'feature',
+    description: 'build the Flight extension',
+    value: 'auto',
+)
+
+option(
+    'gandiva',
+    type: 'feature',
+    description: 'build the Gandiva extension',
+    value: 'auto',
+)
+
+option(
+    'gcs',
+    type: 'feature',
+    description: 'build the Google Cloud Storage (GCS) extension',
+    value: 'auto',
+)
+
+option(
+    'hdfs',
+    type: 'feature',
+    description: 'build the HDFS extension',
+    value: 'auto',
+)
+
+option(
+    'orc',
+    type: 'feature',
+    description: 'build the ORC extension',
+    value: 'auto',
+)
+
+option(
+    'parquet',
+    type: 'feature',
+    description: 'build the Parquet extension',
+    value: 'auto',
+)
+
+option(
+    'parquet_encryption',
+    type: 'feature',
+    description: 'build the Parquet encryption extension',
+    value: 'auto',
+)
+
+option(
+    's3',
+    type: 'feature',
+    description: 'build the Amazon S3 extension',
+    value: 'auto',
+)
+
+option(
+    'substrait',
+    type: 'feature',
+    description: 'build the Substrait extension',
+    value: 'auto',
+)
