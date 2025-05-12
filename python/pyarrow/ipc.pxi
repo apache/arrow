@@ -1020,15 +1020,21 @@ cdef class _RecordBatchStreamReader(RecordBatchReader):
 cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
 
     def _open(self, sink, Schema schema not None,
-              IpcWriteOptions options=IpcWriteOptions()):
+              IpcWriteOptions options=IpcWriteOptions(),
+              metadata=None):
         cdef:
             shared_ptr[COutputStream] c_sink
+            shared_ptr[const CKeyValueMetadata] c_meta
 
         self.options = options.c_options
         get_writer(sink, &c_sink)
+
+        metadata = ensure_metadata(metadata, allow_none=True)
+        c_meta = pyarrow_unwrap_metadata(metadata)
+
         with nogil:
             self.writer = GetResultValue(
-                MakeFileWriter(c_sink, schema.sp_schema, self.options))
+                MakeFileWriter(c_sink, schema.sp_schema, self.options, c_meta))
 
 _RecordBatchWithMetadata = namedtuple(
     'RecordBatchWithMetadata',
@@ -1191,6 +1197,15 @@ cdef class _RecordBatchFileReader(_Weakrefable):
         if not self.reader:
             raise ValueError("Operation on closed reader")
         return _wrap_read_stats(self.reader.get().stats())
+
+    @property
+    def metadata(self):
+        """
+        File-level custom metadata as dict, where both keys and values are byte-like.
+        This kind of metadata can be written via ``ipc.new_file(..., metadata=...)``.
+        """
+        wrapped = pyarrow_wrap_metadata(self.reader.get().metadata())
+        return wrapped.to_dict() if wrapped is not None else None
 
 
 def get_tensor_size(Tensor tensor):

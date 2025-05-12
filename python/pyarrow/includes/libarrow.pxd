@@ -1976,13 +1976,15 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
         CIpcReadStats stats()
 
+        shared_ptr[const CKeyValueMetadata] metadata()
+
     CResult[shared_ptr[CRecordBatchWriter]] MakeStreamWriter(
         shared_ptr[COutputStream] sink, const shared_ptr[CSchema]& schema,
         CIpcWriteOptions& options)
 
     CResult[shared_ptr[CRecordBatchWriter]] MakeFileWriter(
         shared_ptr[COutputStream] sink, const shared_ptr[CSchema]& schema,
-        CIpcWriteOptions& options)
+        CIpcWriteOptions& options, shared_ptr[const CKeyValueMetadata] metadata)
 
     CResult[unique_ptr[CMessage]] ReadMessage(CInputStream* stream,
                                               CMemoryPool* pool)
