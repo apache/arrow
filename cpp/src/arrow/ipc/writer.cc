@@ -327,11 +327,9 @@ class RecordBatchSerializer {
     auto offsets = array.value_offsets();
 
     int64_t required_bytes = sizeof(offset_type) * (array.length() + 1);
-    if (array.offset() != 0) {
-      // If we have a non-zero offset, then the value offsets do not start at
-      // zero. We must a) create a new offsets array with shifted offsets and
-      // b) slice the values array accordingly
-
+    if (array.offset() != 0 || (array.length() > 0 && array.value_offset(0) > 0)) {
+      // If we have a non-zero offset, we must create a new offsets buffer with
+      // shifted offsets.
       ARROW_ASSIGN_OR_RAISE(auto shifted_offsets,
                             AllocateBuffer(required_bytes, options_.memory_pool));
 
