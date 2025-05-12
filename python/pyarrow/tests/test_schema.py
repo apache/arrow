@@ -463,6 +463,24 @@ def test_schema_add_remove_metadata():
     assert s4.metadata is None
 
 
+def test_schema_set_field():
+    fields = [
+        pa.field('foo', pa.int32()),
+        pa.field('bar', pa.string()),
+        pa.field('baz', pa.list_(pa.int8()))
+    ]
+    s1 = pa.schema(fields)
+
+    s2 = s1.set(0, s1.field(0).with_type(pa.int64()))
+
+    assert s2.field(0).type == pa.int64()
+    assert s1.field(0).type == pa.int32()
+
+    s3 = s2.set(0, s2.field(0).with_nullable(False))
+    assert s2.field(0).nullable is True
+    assert s3.field(0).nullable is False
+
+
 def test_schema_equals():
     fields = [
         pa.field('foo', pa.int32()),
