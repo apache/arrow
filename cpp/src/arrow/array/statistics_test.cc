@@ -119,15 +119,15 @@ TEST(ArrayStatisticsTest, TestEqualsDoubleValue) {
   ASSERT_FALSE(statistics1.Equals(statistics2));
   statistics2.min = 29.0;
   ASSERT_TRUE(statistics1.Equals(statistics2));
-  statistics2.min = 30;
+  statistics2.min = 30.0;
   ASSERT_FALSE(statistics1.Equals(statistics2));
 
   // Check Signed Zeros
   Reset();
-  statistics1.min = +0;
-  statistics2.min = -0;
+  statistics1.min = +0.0;
+  statistics2.min = -0.0;
   ASSERT_TRUE(statistics1.Equals(statistics2, options.signed_zeros_equal(true)));
-  ASSERT_TRUE(statistics1.Equals(statistics2, options.signed_zeros_equal(false)));
+  ASSERT_FALSE(statistics1.Equals(statistics2, options.signed_zeros_equal(false)));
 
   // Check Infinity
   Reset();
@@ -141,7 +141,7 @@ TEST(ArrayStatisticsTest, TestEqualsDoubleValue) {
   ASSERT_FALSE(statistics1.Equals(statistics2, options.signed_zeros_equal(true)));
   ASSERT_FALSE(statistics1.Equals(statistics2, options.signed_zeros_equal(false)));
 
-  statistics1.min = 0;
+  statistics1.min = 0.0;
   ASSERT_FALSE(statistics1.Equals(statistics2, options.signed_zeros_equal(true)));
   ASSERT_FALSE(statistics1.Equals(statistics2, options.signed_zeros_equal(false)));
 
