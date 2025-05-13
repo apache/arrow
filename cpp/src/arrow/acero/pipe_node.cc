@@ -17,7 +17,6 @@
 
 #include "arrow/acero/pipe_node.h"
 #include <iostream>
-#include "arrow/acero/concurrent_queue_internal.h"
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/map_node.h"
 #include "arrow/acero/options.h"
