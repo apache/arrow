@@ -2683,7 +2683,8 @@ macro(build_lz4)
   add_library(LZ4::lz4 INTERFACE IMPORTED)
   target_link_libraries(LZ4::lz4 INTERFACE lz4_static)
 
-  # Add to bundled static libs
+  # Add to bundled static libs.
+  # We must use lz4_static (not imported target) not LZ4::lz4 (imported target).
   list(APPEND ARROW_BUNDLED_STATIC_LIBS lz4_static)
 endmacro()
 
