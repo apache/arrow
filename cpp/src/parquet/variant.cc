@@ -83,7 +83,7 @@ std::string_view VariantMetadata::getMetadataKey(int32_t variantId) const {
   if (string_start + key_size > metadata_.size()) {
     throw ParquetException("Invalid Variant metadata: string data out of range");
   }
-  return std::string_view(metadata_.data() + string_start, key_size);
+  return {metadata_.data() + string_start, key_size};
 }
 
 VariantBasicType VariantValue::getBasicType() const {
@@ -272,6 +272,31 @@ double VariantValue::getDouble() const {
   return getPrimitiveVariantType<float>(VariantPrimitiveType::Double);
 }
 
+std::string_view VariantValue::getPrimitiveBinaryType(VariantPrimitiveType type) const {
+  VariantBasicType basic_type = getBasicType();
+  if (basic_type != VariantBasicType::Primitive) {
+    throw ParquetException("Not a primitive type");
+  }
+  auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
+  if (primitive_type != VariantPrimitiveType::String) {
+    throw ParquetException("Not a string type");
+  }
+
+  if (value.size() < 5) {
+    throw ParquetException("Invalid string value: too short");
+  }
+
+  uint32_t length;
+  memcpy(&length, value.data() + 1, sizeof(uint32_t));
+  length = arrow::bit_util::FromLittleEndian(length);
+
+  if (value.size() < length + 5) {
+    throw ParquetException("Invalid string value: too short for specified length");
+  }
+
+  return {value.data() + 5, length};
+}
+
 std::string_view VariantValue::getString() const {
   VariantBasicType basic_type = getBasicType();
 
@@ -280,55 +305,18 @@ std::string_view VariantValue::getString() const {
     if (value.size() < length + 1) {
       throw ParquetException("Invalid short string: too short");
     }
-    return std::string_view(value.data() + 1, length);
+    return {value.data() + 1, length};
   }
   if (basic_type == VariantBasicType::Primitive) {
-    auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
-    if (primitive_type != VariantPrimitiveType::String) {
-      throw ParquetException("Not a string type");
-    }
-
-    if (value.size() < 5) {
-      throw ParquetException("Invalid string value: too short");
-    }
-
-    uint32_t length;
-    memcpy(&length, value.data() + 1, sizeof(uint32_t));
-    length = arrow::bit_util::FromLittleEndian(length);
-
-    if (value.size() < length + 5) {
-      throw ParquetException("Invalid string value: too short for specified length");
-    }
-
-    return std::string_view(value.data() + 5, length);
+    // TODO(mwish): Should we validate utf8 here?
+    return getPrimitiveBinaryType(VariantPrimitiveType::String);
   }
 
   throw ParquetException("Not a primitive or short string type calls getString");
 }
 
 std::string_view VariantValue::getBinary() const {
-  if (getBasicType() != VariantBasicType::Primitive) {
-    throw ParquetException("Not a primitive type");
-  }
-
-  auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
-  if (primitive_type != VariantPrimitiveType::Binary) {
-    throw ParquetException("Not a binary type");
-  }
-
-  if (value.size() < 5) {
-    throw ParquetException("Invalid binary value: too short");
-  }
-
-  uint32_t length;
-  memcpy(&length, value.data() + 1, sizeof(uint32_t));
-  length = arrow::bit_util::FromLittleEndian(length);
-
-  if (value.size() < length + 5) {
-    throw ParquetException("Invalid binary value: too short for specified length");
-  }
-
-  return std::string_view(value.data() + 5, length);
+  return getPrimitiveBinaryType(VariantPrimitiveType::Binary);
 }
 
 template <typename DecimalType>
@@ -533,29 +521,72 @@ VariantValue::ArrayInfo VariantValue::getArrayInfo() const {
   if (getBasicType() != VariantBasicType::Array) {
     throw ParquetException("Not an array type");
   }
+  uint8_t value_header = value[0] >> 2;
+  uint8_t field_offset_size = (value_header & 0b11) + 1;
+  bool is_large = ((value_header >> 2) & 0b1);
 
-  if (value.size() < 6) {
-    throw ParquetException("Invalid array value: too short");
+  // 检查数据长度
+  uint8_t num_elements_size = is_large ? 4 : 1;
+  if (value.size() < 1 + num_elements_size) {
+    throw ParquetException(
+        "Invalid array value: too short: " + std::to_string(value.size()) +
+        " for at least " + std::to_string(1 + num_elements_size));
   }
 
-  uint32_t num_elements;
-  memcpy(&num_elements, value.data() + 1, sizeof(uint32_t));
-  num_elements = arrow::bit_util::FromLittleEndian(num_elements);
-
-  if (value.size() < 6) {
-    throw ParquetException("Invalid array value: too short for offset_size");
+  // 解析 num_elements
+  uint32_t num_elements = 0;
+  {
+    memcpy(&num_elements, value.data() + 1, num_elements_size);
+    num_elements = arrow::bit_util::FromLittleEndian(num_elements);
   }
 
-  uint8_t offset_size = value[5];
+  ArrayInfo info{};
+  info.num_elements = num_elements;
+  info.offset_size = field_offset_size;
+  info.offset_start_offset = 1 + num_elements_size;
+  info.data_start_offset =
+      info.offset_start_offset + (num_elements + 1) * field_offset_size;
 
-  if (offset_size < 1 || offset_size > 4) {
-    throw ParquetException("Invalid array value: invalid offset_size");
+  // 检查边界
+  if (info.data_start_offset > value.size()) {
+    throw ParquetException("Invalid array value: data_start_offset=" +
+                           std::to_string(info.data_start_offset) +
+                           ", value_size=" + std::to_string(value.size()));
   }
 
-  uint32_t offset_start_offset = 6;
-  uint32_t data_start_offset = offset_start_offset + (num_elements + 1) * offset_size;
+  // 检查最终偏移量
+  {
+    uint32_t final_offset = 0;
+    memcpy(&final_offset,
+           value.data() + info.offset_start_offset + num_elements * field_offset_size,
+           field_offset_size);
+    final_offset = arrow::bit_util::FromLittleEndian(final_offset);
 
-  return {num_elements, offset_size, offset_start_offset, data_start_offset};
+    if (info.data_start_offset + final_offset > value.size()) {
+      throw ParquetException(
+          "Invalid array value: final_offset=" + std::to_string(final_offset) +
+          ", data_start_offset=" + std::to_string(info.data_start_offset) +
+          ", value_size=" + std::to_string(value.size()));
+    }
+  }
+
+  // TODO(mwish): Remove this.
+  for (uint32_t i = 0; i < num_elements; ++i) {
+    uint32_t offset = 0, next_offset = 0;
+    memcpy(&offset, value.data() + info.offset_start_offset + i * field_offset_size,
+           field_offset_size);
+    memcpy(&next_offset,
+           value.data() + info.offset_start_offset + (i + 1) * field_offset_size,
+           field_offset_size);
+    offset = arrow::bit_util::FromLittleEndian(offset);
+    next_offset = arrow::bit_util::FromLittleEndian(next_offset);
+
+    if (offset > next_offset) {
+      throw ParquetException("Invalid array value: offsets not monotonically increasing");
+    }
+  }
+
+  return info;
 }
 
 VariantValue VariantValue::getArrayValueByIndex(uint32_t index) const {
@@ -574,11 +605,6 @@ VariantValue VariantValue::getArrayValueByIndex(uint32_t index) const {
          info.offset_size);
   offset = arrow::bit_util::FromLittleEndian(offset);
   next_offset = arrow::bit_util::FromLittleEndian(next_offset);
-
-  if (info.data_start_offset + offset >= value.size() ||
-      info.data_start_offset + next_offset > value.size() || offset > next_offset) {
-    throw ParquetException("Invalid array element offsets");
-  }
 
   // Create a VariantValue for the element
   VariantValue element_value{

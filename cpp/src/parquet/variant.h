@@ -207,6 +207,8 @@ struct VariantValue {
 
   template <typename DecimalType>
   DecimalValue<DecimalType> getPrimitiveDecimalType(VariantPrimitiveType type) const;
+
+  std::string_view getPrimitiveBinaryType(VariantPrimitiveType type) const;
 };
 
 }  // namespace parquet::variant
