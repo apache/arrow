@@ -273,66 +273,13 @@ int32_t AesEncryptorImpl::CtrEncrypt(span<const uint8_t> plaintext, span<const u
   return length_buffer_length_ + buffer_size;
 }
 
-class AesDecryptor::AesDecryptorImpl : AesCryptoContext {
- public:
-  explicit AesDecryptorImpl(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
-                            bool contains_length);
-
-  int32_t Decrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
-                  span<const uint8_t> aad, span<uint8_t> plaintext);
-
-  [[nodiscard]] int32_t PlaintextLength(int32_t ciphertext_len) const {
-    if (ciphertext_len < ciphertext_size_delta_) {
-      std::stringstream ss;
-      ss << "Ciphertext length " << ciphertext_len << " is invalid, expected at least "
-         << ciphertext_size_delta_;
-      throw ParquetException(ss.str());
-    }
-    return ciphertext_len - ciphertext_size_delta_;
-  }
-
-  [[nodiscard]] int32_t CiphertextLength(int32_t plaintext_len) const {
-    if (plaintext_len < 0) {
-      std::stringstream ss;
-      ss << "Negative plaintext length " << plaintext_len;
-      throw ParquetException(ss.str());
-    } else if (plaintext_len >
-               std::numeric_limits<int32_t>::max() - ciphertext_size_delta_) {
-      std::stringstream ss;
-      ss << "Plaintext length " << plaintext_len << " plus ciphertext size delta "
-         << ciphertext_size_delta_ << " overflows int32";
-      throw ParquetException(ss.str());
-    }
-    return plaintext_len + ciphertext_size_delta_;
-  }
-
- private:
-  [[nodiscard]] CipherContext MakeCipherContext() const;
-
-  /// Get the actual ciphertext length, inclusive of the length buffer length,
-  /// and validate that the provided buffer size is large enough.
-  [[nodiscard]] int32_t GetCiphertextLength(span<const uint8_t> ciphertext) const;
-
-  int32_t GcmDecrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
-                     span<const uint8_t> aad, span<uint8_t> plaintext);
-
-  int32_t CtrDecrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
-                     span<uint8_t> plaintext);
-};
-
-int32_t AesDecryptor::Decrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
-                              span<const uint8_t> aad, span<uint8_t> plaintext) {
-  return impl_->Decrypt(ciphertext, key, aad, plaintext);
+AesDecryptorImpl::AesDecryptorImpl(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
+                                   bool contains_length)
+    : AesCryptoContext(alg_id, key_len, metadata, contains_length) {
+      std::cout << "Created AesDecryptorImpl" << std::endl;
 }
 
-AesDecryptor::~AesDecryptor() {}
-
-AesDecryptor::AesDecryptorImpl::AesDecryptorImpl(ParquetCipher::type alg_id,
-                                                 int32_t key_len, bool metadata,
-                                                 bool contains_length)
-    : AesCryptoContext(alg_id, key_len, metadata, contains_length) {}
-
-AesCryptoContext::CipherContext AesDecryptor::AesDecryptorImpl::MakeCipherContext()
+AesCryptoContext::CipherContext AesDecryptorImpl::MakeCipherContext()
     const {
   auto ctx = NewCipherContext();
   if (kGcmMode == aes_mode_) {
@@ -357,26 +304,12 @@ AesCryptoContext::CipherContext AesDecryptor::AesDecryptorImpl::MakeCipherContex
   return ctx;
 }
 
-AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
-                           bool contains_length)
-    : impl_{std::make_unique<AesDecryptorImpl>(alg_id, key_len, metadata,
-                                               contains_length)} {}
-
-std::unique_ptr<AesDecryptor> AesDecryptor::Make(ParquetCipher::type alg_id,
-                                                 int32_t key_len, bool metadata) {
-  return std::make_unique<AesDecryptor>(alg_id, key_len, metadata);
+std::unique_ptr<AesDecryptorImpl> AesDecryptorImpl::Make(ParquetCipher::type alg_id,
+                                                         int32_t key_len, bool metadata) {
+  return std::make_unique<AesDecryptorImpl>(alg_id, key_len, metadata);
 }
 
-int32_t AesDecryptor::PlaintextLength(int32_t ciphertext_len) const {
-  return impl_->PlaintextLength(ciphertext_len);
-}
-
-int32_t AesDecryptor::CiphertextLength(int32_t plaintext_len) const {
-  return impl_->CiphertextLength(plaintext_len);
-}
-
-int32_t AesDecryptor::AesDecryptorImpl::GetCiphertextLength(
-    span<const uint8_t> ciphertext) const {
+int32_t AesDecryptorImpl::GetCiphertextLength(span<const uint8_t> ciphertext) const {
   if (length_buffer_length_ > 0) {
     // Note: length_buffer_length_ must be either 0 or kBufferSizeLength
     if (ciphertext.size() < static_cast<size_t>(kBufferSizeLength)) {
@@ -421,10 +354,8 @@ int32_t AesDecryptor::AesDecryptorImpl::GetCiphertextLength(
   }
 }
 
-int32_t AesDecryptor::AesDecryptorImpl::GcmDecrypt(span<const uint8_t> ciphertext,
-                                                   span<const uint8_t> key,
-                                                   span<const uint8_t> aad,
-                                                   span<uint8_t> plaintext) {
+int32_t AesDecryptorImpl::GcmDecrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
+                                     span<const uint8_t> aad, span<uint8_t> plaintext) {
   int len;
   int32_t plaintext_len;
 
@@ -496,9 +427,8 @@ int32_t AesDecryptor::AesDecryptorImpl::GcmDecrypt(span<const uint8_t> ciphertex
   return plaintext_len;
 }
 
-int32_t AesDecryptor::AesDecryptorImpl::CtrDecrypt(span<const uint8_t> ciphertext,
-                                                   span<const uint8_t> key,
-                                                   span<uint8_t> plaintext) {
+int32_t AesDecryptorImpl::CtrDecrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
+                                     span<uint8_t> plaintext) {
   int len;
   int32_t plaintext_len;
 
@@ -555,10 +485,8 @@ int32_t AesDecryptor::AesDecryptorImpl::CtrDecrypt(span<const uint8_t> ciphertex
   return plaintext_len;
 }
 
-int32_t AesDecryptor::AesDecryptorImpl::Decrypt(span<const uint8_t> ciphertext,
-                                                span<const uint8_t> key,
-                                                span<const uint8_t> aad,
-                                                span<uint8_t> plaintext) {
+int32_t AesDecryptorImpl::Decrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
+                                  span<const uint8_t> aad, span<uint8_t> plaintext) {
   if (static_cast<size_t>(key_length_) != key.size()) {
     std::stringstream ss;
     ss << "Wrong key length " << key.size() << ". Should be " << key_length_;

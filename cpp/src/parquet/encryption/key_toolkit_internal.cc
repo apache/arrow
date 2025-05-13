@@ -49,7 +49,7 @@ std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
                               const std::string& master_key, const std::string& aad) {
   std::string encrypted_key = ::arrow::util::base64_decode(encoded_encrypted_key);
 
-  AesDecryptor key_decryptor(ParquetCipher::AES_GCM_V1,
+  AesDecryptorImpl key_decryptor(ParquetCipher::AES_GCM_V1,
                              static_cast<int>(master_key.size()), false,
                              false /*contains_length*/);
 

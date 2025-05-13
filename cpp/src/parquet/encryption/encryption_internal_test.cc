@@ -46,7 +46,7 @@ class TestAesEncryption : public ::testing::Test {
 
     ASSERT_EQ(ciphertext_length, expected_ciphertext_len);
 
-    AesDecryptor decryptor(cipher_type, key_length_, metadata, write_length);
+    AesDecryptorImpl decryptor(cipher_type, key_length_, metadata, write_length);
 
     int32_t expected_plaintext_length = decryptor.PlaintextLength(ciphertext_length);
     std::vector<uint8_t> decrypted_text(expected_plaintext_length, '\0');
@@ -65,7 +65,7 @@ class TestAesEncryption : public ::testing::Test {
     bool metadata = false;
     bool write_length = true;
 
-    AesDecryptor decryptor(cipher_type, key_length_, metadata, write_length);
+    AesDecryptorImpl decryptor(cipher_type, key_length_, metadata, write_length);
 
     // Create ciphertext of all zeros, so the ciphertext length will be read as zero
     constexpr int32_t ciphertext_length = 100;
@@ -92,7 +92,7 @@ class TestAesEncryption : public ::testing::Test {
     int32_t ciphertext_length = encryptor.Encrypt(str2span(plain_text_), str2span(key_),
                                                   str2span(aad_), ciphertext);
 
-    AesDecryptor decryptor(cipher_type, key_length_, metadata, write_length);
+    AesDecryptorImpl decryptor(cipher_type, key_length_, metadata, write_length);
 
     int32_t expected_plaintext_length = decryptor.PlaintextLength(ciphertext_length);
     std::vector<uint8_t> decrypted_text(expected_plaintext_length, '\0');

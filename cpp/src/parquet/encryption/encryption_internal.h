@@ -164,41 +164,74 @@ class PARQUET_EXPORT AesEncryptorImpl : public AesCryptoContext, public Encrypto
                       span<const uint8_t> nonce, span<uint8_t> ciphertext);
 };
 
-/// Performs AES decryption operations with GCM or CTR ciphers.
-class PARQUET_EXPORT AesDecryptor {
- public:
-  /// \brief Construct an AesDecryptor
-  ///
-  /// \param alg_id the encryption algorithm to use
-  /// \param key_len key length. Possible values: 16, 24, 32 bytes.
-  /// \param metadata if true then this is a metadata decryptor
-  /// \param contains_length if true, expect ciphertext length prepended to the ciphertext
-  explicit AesDecryptor(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
-                        bool contains_length = true);
 
-  static std::unique_ptr<AesDecryptor> Make(ParquetCipher::type alg_id, int32_t key_len,
-                                            bool metadata);
+class PARQUET_EXPORT DecryptorInterface {
+  public:
+    virtual ~DecryptorInterface() = default;
 
-  ~AesDecryptor();
+    /// The size of the plaintext, for this cipher and the specified ciphertext length.
+    [[nodiscard]] virtual int32_t PlaintextLength(int32_t ciphertext_len) const = 0;
 
-  /// The size of the plaintext, for this cipher and the specified ciphertext length.
-  [[nodiscard]] int32_t PlaintextLength(int32_t ciphertext_len) const;
+    /// The size of the ciphertext, for this cipher and the specified plaintext length.
+    [[nodiscard]] virtual int32_t CiphertextLength(int32_t plaintext_len) const = 0;
 
-  /// The size of the ciphertext, for this cipher and the specified plaintext length.
-  [[nodiscard]] int32_t CiphertextLength(int32_t plaintext_len) const;
-
-  /// Decrypts ciphertext with the key and aad. Key length is passed only for
-  /// validation. If different from value in constructor, exception will be thrown.
-  /// The caller is responsible for ensuring that the plaintext buffer is at least as
-  /// large as PlaintextLength(ciphertext_len).
-  int32_t Decrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
-                  span<const uint8_t> aad, span<uint8_t> plaintext);
-
- private:
-  // PIMPL Idiom
-  class AesDecryptorImpl;
-  std::unique_ptr<AesDecryptorImpl> impl_;
+    /// Decrypts ciphertext with the key and aad. Key length is passed only for
+    /// validation. If different from value in constructor, exception will be thrown.
+    /// The caller is responsible for ensuring that the plaintext buffer is at least as
+    /// large as PlaintextLength(ciphertext_len).
+    virtual int32_t Decrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
+                    span<const uint8_t> aad, span<uint8_t> plaintext) = 0;
 };
+
+class PARQUET_EXPORT AesDecryptorImpl : public AesCryptoContext, public DecryptorInterface {
+  public:
+   explicit AesDecryptorImpl(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
+                             bool contains_length = true);
+
+   static std::unique_ptr<AesDecryptorImpl> Make(ParquetCipher::type alg_id, int32_t key_len,
+                                                 bool metadata);
+ 
+   int32_t Decrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
+                   span<const uint8_t> aad, span<uint8_t> plaintext) override;
+ 
+   [[nodiscard]] int32_t PlaintextLength(int32_t ciphertext_len) const override {
+     if (ciphertext_len < ciphertext_size_delta_) {
+       std::stringstream ss;
+       ss << "Ciphertext length " << ciphertext_len << " is invalid, expected at least "
+          << ciphertext_size_delta_;
+       throw ParquetException(ss.str());
+     }
+     return ciphertext_len - ciphertext_size_delta_;
+   }
+ 
+   [[nodiscard]] int32_t CiphertextLength(int32_t plaintext_len) const override {
+     if (plaintext_len < 0) {
+       std::stringstream ss;
+       ss << "Negative plaintext length " << plaintext_len;
+       throw ParquetException(ss.str());
+     } else if (plaintext_len >
+                std::numeric_limits<int32_t>::max() - ciphertext_size_delta_) {
+       std::stringstream ss;
+       ss << "Plaintext length " << plaintext_len << " plus ciphertext size delta "
+          << ciphertext_size_delta_ << " overflows int32";
+       throw ParquetException(ss.str());
+     }
+     return plaintext_len + ciphertext_size_delta_;
+   }
+ 
+  private:
+   [[nodiscard]] CipherContext MakeCipherContext() const;
+ 
+   /// Get the actual ciphertext length, inclusive of the length buffer length,
+   /// and validate that the provided buffer size is large enough.
+   [[nodiscard]] int32_t GetCiphertextLength(span<const uint8_t> ciphertext) const;
+ 
+   int32_t GcmDecrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
+                      span<const uint8_t> aad, span<uint8_t> plaintext);
+ 
+   int32_t CtrDecrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
+                      span<uint8_t> plaintext);
+ };
 
 std::string CreateModuleAad(const std::string& file_aad, int8_t module_type,
                             int16_t row_group_ordinal, int16_t column_ordinal,
