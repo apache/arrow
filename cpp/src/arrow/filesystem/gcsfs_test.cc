@@ -629,6 +629,42 @@ TEST_F(GcsIntegrationTest, GetFileInfoBucket) {
   ASSERT_RAISES(Invalid, fs->GetFileInfo("gs://" + PreexistingBucketName()));
 }
 
+TEST_F(GcsIntegrationTest, GetFileInfo) {
+  ASSERT_OK_AND_ASSIGN(auto fs, GcsFileSystem::Make(TestGcsOptions()));
+  constexpr auto kTextFileName = "dir/foo/bar.txt";
+  ASSERT_OK_AND_ASSIGN(
+      auto output,
+      fs->OpenOutputStream(PreexistingBucketPath() + kTextFileName, /*metadata=*/{}));
+  const auto data = std::string(kLoremIpsum);
+  ASSERT_OK(output->Write(data.data(), data.size()));
+  ASSERT_OK(output->Close());
+
+  // check this is the File.
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + kTextFileName, FileType::File);
+
+  // check parent directories are recognized as directories.
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/", FileType::Directory);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/foo/", FileType::Directory);
+}
+
+TEST_F(GcsIntegrationTest, GetFileInfo_WithoutPermission) {
+  TimePoint expiration = std::chrono::system_clock::now() + std::chrono::minutes(5);
+  auto options =
+      GcsOptions::FromAccessToken(/*access_token=*/"invalid-access-token", expiration);
+  options.endpoint_override = "127.0.0.1:" + Testbench()->port();
+
+  ASSERT_OK_AND_ASSIGN(auto fs, GcsFileSystem::Make(options));
+
+  constexpr auto kTextFileName = "dir/foo/bar.txt";
+
+  // check this is the File without permission.
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + kTextFileName, FileType::NotFound);
+
+  // check this is the directory without permission.
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/", FileType::NotFound);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/foo/", FileType::NotFound);
+}
+
 TEST_F(GcsIntegrationTest, GetFileInfoObjectWithNestedStructure) {
   // Adds detailed tests to handle cases of different edge cases
   // with directory naming conventions (e.g. with and without slashes).
