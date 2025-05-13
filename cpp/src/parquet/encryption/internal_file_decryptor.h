@@ -28,7 +28,7 @@ namespace parquet {
 
 namespace encryption {
 class AesDecryptor;
-class AesEncryptor;
+class AesEncryptorImpl;
 }  // namespace encryption
 
 class ColumnCryptoMetaData;

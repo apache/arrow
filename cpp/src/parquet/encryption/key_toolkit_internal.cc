@@ -28,7 +28,7 @@ static constexpr const int32_t kAcceptableDataKeyLengths[] = {128, 192, 256};
 
 std::string EncryptKeyLocally(const std::string& key_bytes, const std::string& master_key,
                               const std::string& aad) {
-  AesEncryptor key_encryptor(ParquetCipher::AES_GCM_V1,
+  AesEncryptorImpl key_encryptor(ParquetCipher::AES_GCM_V1,
                              static_cast<int>(master_key.size()), false,
                              false /*write_length*/);
 

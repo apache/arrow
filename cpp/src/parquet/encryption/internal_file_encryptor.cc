@@ -22,22 +22,22 @@
 namespace parquet {
 
 // Encryptor
-Encryptor::Encryptor(encryption::AesEncryptor* aes_encryptor, const std::string& key,
+Encryptor::Encryptor(encryption::EncryptorInterface* encryptor_interface, const std::string& key,
                      const std::string& file_aad, const std::string& aad,
                      ::arrow::MemoryPool* pool)
-    : aes_encryptor_(aes_encryptor),
+    : encryptor_interface_(encryptor_interface),
       key_(key),
       file_aad_(file_aad),
       aad_(aad),
       pool_(pool) {}
 
 int32_t Encryptor::CiphertextLength(int64_t plaintext_len) const {
-  return aes_encryptor_->CiphertextLength(plaintext_len);
+  return encryptor_interface_->CiphertextLength(plaintext_len);
 }
 
 int32_t Encryptor::Encrypt(::arrow::util::span<const uint8_t> plaintext,
                            ::arrow::util::span<uint8_t> ciphertext) {
-  return aes_encryptor_->Encrypt(plaintext, str2span(key_), str2span(aad_), ciphertext);
+  return encryptor_interface_->Encrypt(plaintext, str2span(key_), str2span(aad_), ciphertext);
 }
 
 // InternalFileEncryptor
@@ -53,9 +53,9 @@ std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterEncryptor() {
   ParquetCipher::type algorithm = properties_->algorithm().algorithm;
   std::string footer_aad = encryption::CreateFooterAad(properties_->file_aad());
   std::string footer_key = properties_->footer_key();
-  auto aes_encryptor = GetMetaAesEncryptor(algorithm, footer_key.size());
+  auto encryptor_interface = GetMetaEncryptor(algorithm, footer_key.size());
   footer_encryptor_ = std::make_shared<Encryptor>(
-      aes_encryptor, footer_key, properties_->file_aad(), footer_aad, pool_);
+    encryptor_interface, footer_key, properties_->file_aad(), footer_aad, pool_);
   return footer_encryptor_;
 }
 
@@ -67,9 +67,9 @@ std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterSigningEncryptor() {
   ParquetCipher::type algorithm = properties_->algorithm().algorithm;
   std::string footer_aad = encryption::CreateFooterAad(properties_->file_aad());
   std::string footer_signing_key = properties_->footer_key();
-  auto aes_encryptor = GetMetaAesEncryptor(algorithm, footer_signing_key.size());
+  auto encryptor_interface = GetMetaEncryptor(algorithm, footer_signing_key.size());
   footer_signing_encryptor_ = std::make_shared<Encryptor>(
-      aes_encryptor, footer_signing_key, properties_->file_aad(), footer_aad, pool_);
+    encryptor_interface, footer_signing_key, properties_->file_aad(), footer_aad, pool_);
   return footer_signing_encryptor_;
 }
 
@@ -109,12 +109,12 @@ InternalFileEncryptor::InternalFileEncryptor::GetColumnEncryptor(
   }
 
   ParquetCipher::type algorithm = properties_->algorithm().algorithm;
-  auto aes_encryptor = metadata ? GetMetaAesEncryptor(algorithm, key.size())
-                                : GetDataAesEncryptor(algorithm, key.size());
+  auto encryptor_interface = metadata ? GetMetaEncryptor(algorithm, key.size())
+                                : GetDataEncryptor(algorithm, key.size());
 
   std::string file_aad = properties_->file_aad();
   std::shared_ptr<Encryptor> encryptor =
-      std::make_shared<Encryptor>(aes_encryptor, key, file_aad, "", pool_);
+      std::make_shared<Encryptor>(encryptor_interface, key, file_aad, "", pool_);
   if (metadata)
     column_metadata_map_[column_path] = encryptor;
   else
@@ -133,22 +133,22 @@ int InternalFileEncryptor::MapKeyLenToEncryptorArrayIndex(int32_t key_len) const
   throw ParquetException("encryption key must be 16, 24 or 32 bytes in length");
 }
 
-encryption::AesEncryptor* InternalFileEncryptor::GetMetaAesEncryptor(
+encryption::EncryptorInterface* InternalFileEncryptor::GetMetaEncryptor(
     ParquetCipher::type algorithm, size_t key_size) {
   auto key_len = static_cast<int32_t>(key_size);
   int index = MapKeyLenToEncryptorArrayIndex(key_len);
   if (meta_encryptor_[index] == nullptr) {
-    meta_encryptor_[index] = encryption::AesEncryptor::Make(algorithm, key_len, true);
+    meta_encryptor_[index] = encryption::AesEncryptorImpl::Make(algorithm, key_len, true);
   }
   return meta_encryptor_[index].get();
 }
 
-encryption::AesEncryptor* InternalFileEncryptor::GetDataAesEncryptor(
+encryption::EncryptorInterface* InternalFileEncryptor::GetDataEncryptor(
     ParquetCipher::type algorithm, size_t key_size) {
   auto key_len = static_cast<int32_t>(key_size);
   int index = MapKeyLenToEncryptorArrayIndex(key_len);
   if (data_encryptor_[index] == nullptr) {
-    data_encryptor_[index] = encryption::AesEncryptor::Make(algorithm, key_len, false);
+    data_encryptor_[index] = encryption::AesEncryptorImpl::Make(algorithm, key_len, false);
   }
   return data_encryptor_[index].get();
 }

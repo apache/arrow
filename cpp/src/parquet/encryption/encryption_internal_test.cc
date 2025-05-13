@@ -35,7 +35,7 @@ class TestAesEncryption : public ::testing::Test {
   void EncryptionRoundTrip(ParquetCipher::type cipher_type, bool write_length) {
     bool metadata = false;
 
-    AesEncryptor encryptor(cipher_type, key_length_, metadata, write_length);
+    AesEncryptorImpl encryptor(cipher_type, key_length_, metadata, write_length);
 
     int32_t expected_ciphertext_len =
         encryptor.CiphertextLength(static_cast<int64_t>(plain_text_.size()));
@@ -83,7 +83,7 @@ class TestAesEncryption : public ::testing::Test {
     bool metadata = false;
     bool write_length = true;
 
-    AesEncryptor encryptor(cipher_type, key_length_, metadata, write_length);
+    AesEncryptorImpl encryptor(cipher_type, key_length_, metadata, write_length);
 
     int32_t expected_ciphertext_len =
         encryptor.CiphertextLength(static_cast<int64_t>(plain_text_.size()));

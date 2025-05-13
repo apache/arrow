@@ -740,7 +740,7 @@ class FileMetaData::FileMetaDataImpl {
     std::string key = file_decryptor_->GetFooterKey();
     std::string aad = encryption::CreateFooterAad(file_decryptor_->file_aad());
 
-    auto aes_encryptor = encryption::AesEncryptor::Make(file_decryptor_->algorithm(),
+    auto aes_encryptor = encryption::AesEncryptorImpl::Make(file_decryptor_->algorithm(),
                                                         static_cast<int>(key.size()),
                                                         true, false /*write_length*/);
 
