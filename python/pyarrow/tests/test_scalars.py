@@ -19,6 +19,7 @@ import datetime
 import decimal
 import pytest
 import weakref
+from collections.abc import Sequence, Mapping
 
 try:
     import numpy as np
@@ -27,36 +28,6 @@ except ImportError:
 
 import pyarrow as pa
 import pyarrow.compute as pc
-
-
-def is_python_sequence_like(obj):
-    if not hasattr(obj, "__getitem__") or not hasattr(obj, "__len__"):
-        return False
-    try:
-        length = len(obj)
-        if length > 0:
-            _ = obj[0]
-    except (TypeError, IndexError, AttributeError):
-        return False
-    return True
-
-
-def is_python_mapping_like(obj):
-    if not is_python_sequence_like(obj):
-        return False
-    if not hasattr(obj, "__iter__") or not hasattr(obj, "keys"):
-        return False
-    try:
-        keys = obj.keys()
-        if not hasattr(keys, "__iter__"):
-            return False
-        _ = len(obj)
-        for key in keys:
-            _ = obj[key]
-            break
-    except (TypeError, KeyError, AttributeError):
-        return False
-    return True
 
 
 @pytest.mark.parametrize(['value', 'ty', 'klass'], [
@@ -643,6 +614,7 @@ def test_list(ty, klass):
         s[-3]
     with pytest.raises(IndexError):
         s[2]
+    assert isinstance(s, Sequence)
 
 
 @pytest.mark.numpy
@@ -738,7 +710,7 @@ def test_struct():
     assert isinstance(s['y'], pa.FloatScalar)
     assert s['x'].as_py() == 2
     assert s['y'].as_py() == 3.5
-    assert is_python_sequence_like(s)
+    assert isinstance(s, Mapping)
 
     with pytest.raises(KeyError):
         s['nonexistent']
@@ -756,7 +728,7 @@ def test_struct():
     assert s['y'].is_valid is False
     assert s['x'].as_py() is None
     assert s['y'].as_py() is None
-    assert is_python_sequence_like(s)
+    assert isinstance(s, Mapping)
 
 
 def test_struct_duplicate_fields():
@@ -844,7 +816,7 @@ def test_map(pickle_module):
 
     assert s.as_py(maps_as_pydicts="strict") == {'a': 1, 'b': 2}
 
-    assert is_python_mapping_like(s)
+    assert isinstance(s, Mapping)
 
 
 def test_map_duplicate_fields():

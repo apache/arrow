@@ -927,7 +927,7 @@ cdef class StringViewScalar(StringScalar):
     pass
 
 
-cdef class ListScalar(Scalar):
+cdef class ListScalar(Scalar, collections.abc.Sequence):
     """
     Concrete class for list-like scalars.
     """
@@ -1095,7 +1095,7 @@ cdef class StructScalar(Scalar, collections.abc.Mapping):
         return str(self._as_py_tuple())
 
 
-cdef class MapScalar(ListScalar):
+cdef class MapScalar(ListScalar, collections.abc.Mapping):
     """
     Concrete class for map scalars.
     """
