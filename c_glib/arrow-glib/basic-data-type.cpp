@@ -2366,6 +2366,24 @@ garrow_fixed_shape_tensor_data_type_get_shape(GArrowFixedShapeTensorDataType *da
   return arrow_shape.data();
 }
 
+/**
+ * garrow_fixed_shape_tensor_data_type_get_permutation:
+ * @data_type: A #GArrowFixedShapeTensorDataType.
+ * @length: (out): Return location for the number of elements of permutation.
+ *
+ * Returns: (array length=length): Permutation of the tensor.
+ */
+const gint64 *
+garrow_fixed_shape_tensor_data_type_get_permutation(
+  GArrowFixedShapeTensorDataType *data_type, gsize *length)
+{
+  auto arrow_data_type = std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
+
+  const auto &arrow_permutation = arrow_data_type->permutation();
+  *length = arrow_permutation.size();
+  return arrow_permutation.data();
+}
 G_END_DECLS
 
 GArrowDataType *
