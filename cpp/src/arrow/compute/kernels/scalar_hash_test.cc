@@ -20,7 +20,7 @@
 
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/compute/key_hash_internal.h"
 #include "arrow/compute/util.h"
 #include "arrow/result.h"
@@ -493,7 +493,7 @@ static std::unordered_set<Integer> MakeSequentialIntegers(int32_t n_values) {
   for (int32_t i = 0; i < n_values; ++i) {
     values.insert(static_cast<Integer>(i));
   }
-  DCHECK_EQ(values.size(), static_cast<uint32_t>(n_values));
+  ARROW_DCHECK_EQ(values.size(), static_cast<uint32_t>(n_values));
   return values;
 }
 
