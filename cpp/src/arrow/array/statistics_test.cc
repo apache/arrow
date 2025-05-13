@@ -15,9 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
+
 #include <gtest/gtest.h>
 
 #include "arrow/array/statistics.h"
+#include "arrow/compare.h"
 
 namespace arrow {
 
@@ -61,41 +64,117 @@ TEST(ArrayStatisticsTest, TestMax) {
   ASSERT_FALSE(statistics.is_max_exact);
 }
 
-TEST(ArrayStatisticsTest, TestEquality) {
+TEST(ArrayStatisticsTest, TestEqualsNonDoulbeValue) {
   ArrayStatistics statistics1;
   ArrayStatistics statistics2;
 
-  ASSERT_EQ(statistics1, statistics2);
+  ASSERT_TRUE(statistics1.Equals(statistics2));
 
   statistics1.null_count = 29;
-  ASSERT_NE(statistics1, statistics2);
+  ASSERT_FALSE(statistics1.Equals(statistics2));
   statistics2.null_count = 29;
-  ASSERT_EQ(statistics1, statistics2);
+  ASSERT_TRUE(statistics1.Equals(statistics2));
 
   statistics1.distinct_count = 2929;
-  ASSERT_NE(statistics1, statistics2);
+  ASSERT_FALSE(statistics1.Equals(statistics2));
   statistics2.distinct_count = 2929;
-  ASSERT_EQ(statistics1, statistics2);
+  ASSERT_TRUE(statistics1.Equals(statistics2));
 
   statistics1.min = std::string("world");
-  ASSERT_NE(statistics1, statistics2);
+  ASSERT_FALSE(statistics1.Equals(statistics2));
   statistics2.min = std::string("world");
-  ASSERT_EQ(statistics1, statistics2);
+  ASSERT_TRUE(statistics1.Equals(statistics2));
 
   statistics1.is_min_exact = true;
-  ASSERT_NE(statistics1, statistics2);
+  ASSERT_FALSE(statistics1.Equals(statistics2));
   statistics2.is_min_exact = true;
-  ASSERT_EQ(statistics1, statistics2);
+  ASSERT_TRUE(statistics1.Equals(statistics2));
 
   statistics1.max = static_cast<int64_t>(-29);
-  ASSERT_NE(statistics1, statistics2);
+  ASSERT_FALSE(statistics1.Equals(statistics2));
   statistics2.max = static_cast<int64_t>(-29);
-  ASSERT_EQ(statistics1, statistics2);
+  ASSERT_TRUE(statistics1.Equals(statistics2));
 
   statistics1.is_max_exact = true;
-  ASSERT_NE(statistics1, statistics2);
+  ASSERT_FALSE(statistics1.Equals(statistics2));
   statistics2.is_max_exact = true;
-  ASSERT_EQ(statistics1, statistics2);
+  ASSERT_TRUE(statistics1.Equals(statistics2));
+
+  // Test different index
+  statistics1.max = static_cast<uint64_t>(29);
+  ASSERT_FALSE(statistics1.Equals(statistics2));
+}
+
+TEST(ArrayStatisticsTest, TestEqualsDoubleValue) {
+  ArrayStatistics statistics1;
+  ArrayStatistics statistics2;
+  EqualOptions options = EqualOptions::Defaults();
+  auto Reset = [&]() {
+    statistics1.min = std::nullopt;
+    statistics2.min = std::nullopt;
+  };
+
+  ASSERT_TRUE(statistics1.Equals(statistics2));
+  statistics1.min = 29.0;
+  ASSERT_FALSE(statistics1.Equals(statistics2));
+  statistics2.min = 29.0;
+  ASSERT_TRUE(statistics1.Equals(statistics2));
+  statistics2.min = 30;
+  ASSERT_FALSE(statistics1.Equals(statistics2));
+
+  // Check Signed Zeros
+  Reset();
+  statistics1.min = +0;
+  statistics2.min = -0;
+  ASSERT_TRUE(statistics1.Equals(statistics2, options.signed_zeros_equal(true)));
+  ASSERT_TRUE(statistics1.Equals(statistics2, options.signed_zeros_equal(false)));
+
+  // Check Infinity
+  Reset();
+  auto infinity = std::numeric_limits<double>::infinity();
+  statistics1.min = infinity;
+  statistics2.min = infinity;
+  ASSERT_TRUE(statistics1.Equals(statistics2, options.signed_zeros_equal(true)));
+  ASSERT_TRUE(statistics1.Equals(statistics2, options.signed_zeros_equal(false)));
+
+  statistics1.min = -infinity;
+  ASSERT_FALSE(statistics1.Equals(statistics2, options.signed_zeros_equal(true)));
+  ASSERT_FALSE(statistics1.Equals(statistics2, options.signed_zeros_equal(false)));
+
+  statistics1.min = 0;
+  ASSERT_FALSE(statistics1.Equals(statistics2, options.signed_zeros_equal(true)));
+  ASSERT_FALSE(statistics1.Equals(statistics2, options.signed_zeros_equal(false)));
+
+  // Check NAN
+  Reset();
+  statistics1.min = static_cast<double>(NAN);
+  statistics2.min = static_cast<double>(NAN);
+  ASSERT_TRUE(statistics1.Equals(statistics2, options.nans_equal(true)));
+  ASSERT_FALSE(statistics1.Equals(statistics2, options.nans_equal(false)));
+
+  statistics2.min = 2.0;
+  ASSERT_FALSE(statistics1.Equals(statistics2));
+
+  // Check Approximate float is false
+  Reset();
+  statistics1.max = 0.5001f;
+  statistics2.max = 0.5;
+  ASSERT_FALSE(statistics1.Equals(statistics2));
+}
+TEST(ArrayStatisticsTest, TestApproximateEqualsDoubleValue) {
+  ArrayStatistics statistics1;
+  ArrayStatistics statistics2;
+  EqualOptions options = EqualOptions::Defaults();
+
+  statistics1.max = 0.5001f;
+  statistics2.max = 0.5;
+
+  ASSERT_FALSE(statistics1.Equals(statistics2, options.atol(1e-3)));
+
+  ASSERT_TRUE(statistics1.ApproximateEquals(statistics2, options.atol(1e-3)));
+  ASSERT_TRUE(statistics2.ApproximateEquals(statistics1, options.atol(1e-3)));
+  ASSERT_FALSE(statistics1.Equals(statistics2, options.atol(1e-5)));
+  ASSERT_FALSE(statistics2.Equals(statistics1, options.atol(1e-5)));
 }
 
 }  // namespace arrow
