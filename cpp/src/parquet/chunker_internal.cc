@@ -117,6 +117,8 @@ class ContentDefinedChunker::Impl {
   uint64_t GetRollingHashMask() const { return rolling_hash_mask_; }
 
   void Roll(bool value) {
+    // Update the rolling hash with a boolean value, set has_matched_ to true if the hash
+    // matches the
     if (++chunk_size_ < min_chunk_size_) {
       // short-circuit if we haven't reached the minimum chunk size, this speeds up the
       // chunking process since the gearhash doesn't need to be updated
@@ -222,6 +224,20 @@ class ContentDefinedChunker::Impl {
   std::vector<Chunk> Calculate(const int16_t* def_levels, const int16_t* rep_levels,
                                int64_t num_levels, const RollFunc& RollValue) {
     // Calculate the chunk boundaries for typed Arrow arrays.
+    //
+    // The chunking state is maintained across the entire column without being reset
+    // between pages and row groups. This enables that the chunking process can be
+    // continued between different WriteArrow calls.
+    //
+    // Below we go over the (def_level, rep_level, value) triplets one by one while
+    // adjusting the column-global rolling hash based on the triplet. Whenever the
+    // rolling hash matches a predefined mask it sets the `has_matched_` flag to true.
+    //
+    // After each triplet NeedNewChunk() is called to evaluate if we need to create
+    // a new chunk. If the rolling hash matches the mask `kNumGearhashTables` times in
+    // row (required for better chunk size distribution) and satisfies the chunk size
+    // requirements, we create a new chunk. See the `NeedNewChunk()` method for more
+    // details.
     std::vector<Chunk> chunks;
     int64_t offset;
     int64_t prev_offset = 0;

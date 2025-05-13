@@ -1445,8 +1445,22 @@ TEST_P(TestCDCSingleRowGroup, ArrayOffsets) {
   }
 }
 
+#if defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND)
+// Instantiate the test suite with a reduced set of types to avoid slow tests
 INSTANTIATE_TEST_SUITE_P(
-    FixedSizedTypes, TestCDCSingleRowGroup,
+    Types, TestCDCSingleRowGroup,
+    testing::Values(
+        CaseConfig{::arrow::boolean(), false}, CaseConfig{::arrow::int64(), true},
+        // Binary-like
+        CaseConfig{::arrow::utf8(), false},
+        CaseConfig{::arrow::fixed_size_binary(16), true},
+        // Nested types
+        CaseConfig{::arrow::list(::arrow::int32()), false},
+        CaseConfig{::arrow::list(::arrow::utf8()), true},
+        CaseConfig{::arrow::struct_({::arrow::field("f0", ::arrow::float64())}), true}));
+#else
+INSTANTIATE_TEST_SUITE_P(
+    Types, TestCDCSingleRowGroup,
     testing::Values(
         // Boolean
         CaseConfig{::arrow::boolean(), false},
@@ -1469,7 +1483,7 @@ INSTANTIATE_TEST_SUITE_P(
         CaseConfig{::arrow::timestamp(::arrow::TimeUnit::NANO), true},
         CaseConfig{::arrow::duration(::arrow::TimeUnit::NANO), false},
         // Nested types
-        CaseConfig{::arrow::list(::arrow::int32()), false},
+        CaseConfig{::arrow::list(::arrow::int16()), false},
         CaseConfig{::arrow::list(::arrow::int32()), true},
         CaseConfig{::arrow::list(::arrow::utf8()), true},
         CaseConfig{::arrow::struct_({::arrow::field("f0", ::arrow::int32())}), false},
@@ -1482,6 +1496,7 @@ INSTANTIATE_TEST_SUITE_P(
         // Use ParquetDataPageVersion::V2
         CaseConfig{::arrow::large_binary(), false, ParquetDataPageVersion::V2},
         CaseConfig{::arrow::list(::arrow::utf8()), true, ParquetDataPageVersion::V2}));
+#endif
 
 class TestCDCMultipleRowGroups : public ::testing::Test {
  protected:

@@ -818,7 +818,8 @@ or compression. The actual size of the data pages may vary based on the encoding
 compression used.
 
 .. note::
-   Ensure that Parquet write options remain consistent across writes and files.
+   To make the most of this feature, you should ensure that Parquet write options
+   remain consistent across writes and files.
    Using different write options (like compression, encoding, or row group size)
    for different files may prevent proper deduplication and lead to suboptimal
    storage efficiency.

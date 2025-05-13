@@ -246,6 +246,16 @@ class PARQUET_EXPORT ColumnProperties {
 };
 
 // EXPERIMENTAL: Options for content-defined chunking.
+///
+/// Content-defined chunking is an experimental feature that optimizes parquet
+/// files for content addressable storage (CAS) systems by writing data pages
+/// according to content-defined chunk boundaries. This allows for more
+/// efficient deduplication of data across files, hence more efficient network
+/// transfers and storage.
+/// Each content-defined chunk is written as a separate parquet data page. The
+/// following options control the chunks' size and the chunking process. Note
+/// that the chunk size is calculated based on the logical value of the data,
+/// before any encoding or compression is applied.
 struct PARQUET_EXPORT CdcOptions {
   /// Minimum chunk size in bytes, default is 256 KiB
   /// The rolling hash will not be updated until this size is reached for each chunk.
