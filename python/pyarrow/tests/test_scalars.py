@@ -591,7 +591,7 @@ def test_binary(value, ty, scalar_typ):
     assert s != b'xxxxx'
 
     buf = s.as_buffer()
-    
+
     if value is None:
         with pytest.raises(ValueError):
             memoryview(s)
@@ -607,7 +607,8 @@ def test_binary(value, ty, scalar_typ):
         assert memview.ndim == 1
         assert memview.shape == (len(value),)
         assert memview.strides == (1,)
-   
+
+
 def test_fixed_size_binary():
     s = pa.scalar(b'foof', type=pa.binary(4))
     assert isinstance(s, pa.FixedSizeBinaryScalar)
@@ -830,12 +831,12 @@ def test_map(pickle_module):
     )
     assert s[-1] == s[1]
     assert s[-2] == s[0]
-    assert s['b'] == pa.scalar(2, type=pa.int8())
+    assert s['b'] == (pa.scalar('b', type=pa.string()), pa.scalar(2, type=pa.int8()))
     with pytest.raises(IndexError):
         s[-3]
     with pytest.raises(IndexError):
         s[2]
-    with pytest.raises(KeyError):
+    with pytest.raises(ValueError):
         s['fake_key']
 
     restored = pickle_module.loads(pickle_module.dumps(s))
