@@ -233,7 +233,7 @@ def pytest_ignore_collect(collection_path, config):
 
         # handle cuda, flight, etc
         for group in doctest_groups:
-            if 'pyarrow/{}'.format(group) in str(collection_path):
+            if f'pyarrow/{group}' in str(collection_path):
                 if not defaults[group]:
                     return True
 

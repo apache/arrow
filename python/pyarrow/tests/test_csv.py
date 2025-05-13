@@ -559,7 +559,7 @@ class BaseTestCSV(abc.ABC):
             if self.use_threads:
                 row_info = ""
             else:
-                row_info = "Row #{}: ".format(row)
+                row_info = f"Row #{row}: "
             return msg_format.format(row_info, *args)
 
         csv, _ = make_random_csv(4, 100, write_names=True)
@@ -1423,7 +1423,7 @@ class BaseCSVTableRead(BaseTestCSV):
         except AttributeError:
             clock = time.time
         num_columns = 10000
-        col_names = ["K{}".format(i) for i in range(num_columns)]
+        col_names = [f"K{i}" for i in range(num_columns)]
         csv = make_empty_csv(col_names)
         t1 = clock()
         convert_options = ConvertOptions(

@@ -150,11 +150,10 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
     queue.put(job, prefix=job_prefix)
 
     if no_push:
-        click.echo('Branches and commits created but not pushed: `{}`'
-                   .format(job.branch))
+        click.echo(f'Branches and commits created but not pushed: `{job.branch}`')
     else:
         queue.push()
-        click.echo('Pushed job identifier is: `{}`'.format(job.branch))
+        click.echo(f'Pushed job identifier is: `{job.branch}`')
 
 
 @crossbow.command()
@@ -263,7 +262,7 @@ def render(obj, task, config_path, arrow_version, arrow_remote, arrow_branch,
     for task_name, rendered_files in job.render_tasks().items():
         for path, content in _flatten(rendered_files).items():
             click.echo('#' * 80)
-            click.echo('### {:^72} ###'.format("/".join(path)))
+            click.echo(f"### {'/'.join(path):^72} ###")
             click.echo('#' * 80)
             click.echo(highlight(content))
 
@@ -534,8 +533,8 @@ def download_artifacts(obj, job_name, target_dir, dry_run, fetch,
                     else:
                         break
 
-    click.echo('Downloading {}\'s artifacts.'.format(job_name))
-    click.echo('Destination directory is {}'.format(target_dir))
+    click.echo(f'Downloading {job_name}\'s artifacts.')
+    click.echo(f'Destination directory is {target_dir}')
     click.echo()
 
     report = ConsoleReport(job, task_filters=task_filters)
