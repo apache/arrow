@@ -151,8 +151,8 @@ struct FastHashScalar {
   }
 
   static Status Exec(KernelContext* ctx, const ExecSpan& input_arg, ExecResult* out) {
-    DCHECK_EQ(input_arg.num_values(), 1);
-    DCHECK(input_arg[0].is_array());
+    ARROW_DCHECK_EQ(input_arg.num_values(), 1);
+    ARROW_DCHECK(input_arg[0].is_array());
     ArraySpan hash_input = input_arg[0].array;
 
     auto exec_ctx = default_exec_context();
@@ -227,12 +227,12 @@ void RegisterScalarHash(FunctionRegistry* registry) {
                         FastHashScalar<UInt64Type, Hashing64>::Exec);
   kernel32.null_handling = NullHandling::OUTPUT_NOT_NULL;
   kernel64.null_handling = NullHandling::OUTPUT_NOT_NULL;
-  DCHECK_OK(hash32->AddKernel(std::move(kernel32)));
-  DCHECK_OK(hash64->AddKernel(std::move(kernel64)));
+  ARROW_DCHECK_OK(hash32->AddKernel(std::move(kernel32)));
+  ARROW_DCHECK_OK(hash64->AddKernel(std::move(kernel64)));
 
   // Register hash32 and hash64 functions
-  DCHECK_OK(registry->AddFunction(std::move(hash32)));
-  DCHECK_OK(registry->AddFunction(std::move(hash64)));
+  ARROW_DCHECK_OK(registry->AddFunction(std::move(hash32)));
+  ARROW_DCHECK_OK(registry->AddFunction(std::move(hash64)));
 }
 
 }  // namespace internal
