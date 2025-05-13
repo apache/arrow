@@ -382,19 +382,19 @@ shape: {self.shape}"""
     @staticmethod
     def from_scipy(obj, dim_names=None):
         """
-        Convert scipy.sparse.coo_matrix to arrow::SparseCOOTensor
+        Convert scipy.sparse.coo_array or scipy.sparse.coo_matrix to arrow::SparseCOOTensor
 
         Parameters
         ----------
-        obj : scipy.sparse.csr_matrix
-            The scipy matrix that should be converted.
+        obj : scipy.sparse.coo_array or scipy.sparse.coo_matrix
+            The scipy array or matrix that should be converted.
         dim_names : list, optional
             Names of the dimensions.
         """
         import scipy.sparse
-        if not isinstance(obj, scipy.sparse.coo_matrix):
+        if not (isinstance(obj, scipy.sparse.coo_array) or isinstance(obj, scipy.sparse.coo_matrix)):
             raise TypeError(
-                f"Expected scipy.sparse.coo_matrix, got {type(obj)}")
+                f"Expected scipy.sparse.coo_array or scipy.sparse.coo_matrix, got {type(obj)}")
 
         cdef shared_ptr[CSparseCOOTensor] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -409,10 +409,11 @@ shape: {self.shape}"""
         row = obj.row
         col = obj.col
 
-        # When SciPy's coo_matrix has canonical format, its indices matrix is
-        # sorted in column-major order.  As Arrow's SparseCOOIndex is sorted
-        # in row-major order if it is canonical, we must sort indices matrix
-        # into row-major order to keep its canonicalness, here.
+        # When SciPy's coo_array and coo_matrix have canonical format, their
+        # indices matrix is sorted in column-major order. As Arrow's
+        # SparseCOOIndex is sorted in row-major order if it is canonical,
+        # we must sort indices matrix into row-major order to keep it's
+        # canonicalness here.
         if obj.has_canonical_format:
             order = np.lexsort((col, row))  # sort in row-major order
             row = row[order]
@@ -493,9 +494,9 @@ shape: {self.shape}"""
 
     def to_scipy(self):
         """
-        Convert arrow::SparseCOOTensor to scipy.sparse.coo_matrix.
+        Convert arrow::SparseCOOTensor to scipy.sparse.coo_array.
         """
-        from scipy.sparse import coo_matrix
+        from scipy.sparse import coo_array
         cdef PyObject* out_data
         cdef PyObject* out_coords
 
@@ -504,12 +505,12 @@ shape: {self.shape}"""
         data = PyObject_to_object(out_data)
         coords = PyObject_to_object(out_coords)
         row, col = coords[:, 0], coords[:, 1]
-        result = coo_matrix((data[:, 0], (row, col)), shape=self.shape)
+        result = coo_array((data[:, 0], (row, col)), shape=self.shape)
 
         # As the description in from_scipy above, we sorted indices matrix
-        # in row-major order if SciPy's coo_matrix has canonical format.
-        # So, we must call sum_duplicates() to make the result coo_matrix
-        # has canonical format.
+        # in row-major order if SciPy's coo_array has canonical format.
+        # So, we must call sum_duplicates() to make the resulting coo_array
+        # have canonical format.
         if self.has_canonical_format:
             result.sum_duplicates()
         return result
@@ -693,19 +694,19 @@ shape: {self.shape}"""
     @staticmethod
     def from_scipy(obj, dim_names=None):
         """
-        Convert scipy.sparse.csr_matrix to arrow::SparseCSRMatrix.
+        Convert scipy.sparse.csr_array or scipy.sparse.csr_matrix to arrow::SparseCSRMatrix.
 
         Parameters
         ----------
-        obj : scipy.sparse.csr_matrix
+        obj : scipy.sparse.csr_array or scipy.sparse.csr_matrix
             The scipy matrix that should be converted.
         dim_names : list, optional
             Names of the dimensions.
         """
         import scipy.sparse
-        if not isinstance(obj, scipy.sparse.csr_matrix):
+        if not (isinstance(obj, scipy.sparse.csr_array) or isinstance(obj, scipy.sparse.csr_matrix)):
             raise TypeError(
-                f"Expected scipy.sparse.csr_matrix, got {type(obj)}")
+                f"Expected scipy.sparse.csr_array or scipy.sparse.csr_matrix, got {type(obj)}")
 
         cdef shared_ptr[CSparseCSRMatrix] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -764,9 +765,9 @@ shape: {self.shape}"""
 
     def to_scipy(self):
         """
-        Convert arrow::SparseCSRMatrix to scipy.sparse.csr_matrix.
+        Convert arrow::SparseCSRMatrix to scipy.sparse.csr_array.
         """
-        from scipy.sparse import csr_matrix
+        from scipy.sparse import csr_array
         cdef PyObject* out_data
         cdef PyObject* out_indptr
         cdef PyObject* out_indices
@@ -778,7 +779,7 @@ shape: {self.shape}"""
         data = PyObject_to_object(out_data)
         indptr = PyObject_to_object(out_indptr)
         indices = PyObject_to_object(out_indices)
-        result = csr_matrix((data[:, 0], indices, indptr), shape=self.shape)
+        result = csr_array((data[:, 0], indices, indptr), shape=self.shape)
         return result
 
     def to_tensor(self):
