@@ -1112,14 +1112,11 @@ cdef class MapScalar(ListScalar):
         key_field = self.type.key_field.name
         item_field = self.type.item_field.name
 
-        if isinstance(i, int):
-            dct = arr[_normalize_index(i, len(arr))]
-            return (dct[key_field], dct[item_field])
-        else:
-            for dct in arr:
-                if dct[key_field].as_py() == i:
-                    return dct[item_field]
-            raise KeyError(i)
+        if isinstance(i, (str, bytes)):
+            i = self.keys().index(i)
+
+        dct = arr[_normalize_index(i, len(arr))]
+        return (dct[key_field], dct[item_field])
 
     def __iter__(self):
         """
