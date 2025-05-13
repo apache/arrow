@@ -357,9 +357,9 @@ html_theme_options = {
             "icon": "fa-brands fa-linkedin",
         },
         {
-            "name": "X",
-            "url": "https://twitter.com/ApacheArrow",
-            "icon": "fa-brands fa-square-x-twitter",
+            "name": "BlueSky",
+            "url": "https://bsky.app/profile/arrow.apache.org",
+            "icon": "fa-brands fa-bluesky",
         },
     ],
     "show_version_warning_banner": True,
