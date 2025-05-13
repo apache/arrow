@@ -177,6 +177,8 @@ struct VariantValue {
     uint32_t id_start_offset;
     uint32_t offset_start_offset;
     uint32_t data_start_offset;
+
+    std::string toDebugString() const;
   };
   ObjectInfo getObjectInfo() const;
   std::optional<VariantValue> getObjectValueByKey(std::string_view key) const;

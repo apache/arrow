@@ -95,8 +95,8 @@ VariantBasicType VariantValue::getBasicType() const {
 
 VariantType VariantValue::getType() const {
   VariantBasicType basic_type = getBasicType();
-  std::cout << "Variant first byte:" << static_cast<int>(value[0] >> 2) << ", "
-            << (value[0] && BASIC_TYPE_MASK) << '\n';
+  // std::cout << "Variant first byte:" << static_cast<int>(value[0] >> 2) << ", "
+  //           << static_cast<int>(value[0] && BASIC_TYPE_MASK) << '\n';
   switch (basic_type) {
     case VariantBasicType::Primitive: {
       auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
@@ -540,41 +540,66 @@ const uint8_t* VariantValue::getUuid() const {
   return reinterpret_cast<const uint8_t*>(value.data() + 1);
 }
 
+std::string VariantValue::ObjectInfo::toDebugString() const {
+  std::stringstream ss;
+  ss << "ObjectInfo{"
+     << "num_elements=" << num_elements
+     << ", id_size=" << static_cast<int>(id_size)
+     << ", offset_size=" << static_cast<int>(offset_size)
+     << ", id_start_offset=" << id_start_offset
+     << ", offset_start_offset=" << offset_start_offset
+     << ", data_start_offset=" << data_start_offset
+     << "}";
+  return ss.str();
+}
+
+
 VariantValue::ObjectInfo VariantValue::getObjectInfo() const {
   if (getBasicType() != VariantBasicType::Object) {
     throw ParquetException("Not an object type");
   }
-
-  if (value.size() < 5) {
-    throw ParquetException("Invalid object value: too short");
+  uint8_t value_header = value[0] >> 2;
+  uint8_t field_offset_size = (value_header & 0b11) + 1;
+  uint8_t field_id_size = ((value_header >> 2) & 0b11) + 1;
+  bool is_large = ((value_header >> 4) & 0b1);
+  uint8_t num_elements_size = is_large ? 4 : 1;
+  if (value.size() < 1 + num_elements_size) {
+    throw ParquetException("Invalid object value: too short: " +
+                           std::to_string(value.size()) + " for at least " +
+                           std::to_string(1 + num_elements_size));
   }
-
-  uint32_t num_elements;
-  memcpy(&num_elements, value.data() + 1, sizeof(uint32_t));
-  num_elements = arrow::bit_util::FromLittleEndian(num_elements);
-
-  if (value.size() < 6) {
-    throw ParquetException("Invalid object value: too short for id_size");
+  // parse num_elements
+  uint32_t num_elements = 0;
+  {
+    memcpy(&num_elements, value.data() + 1, num_elements_size);
+    num_elements = arrow::bit_util::FromLittleEndian(num_elements);
   }
-
-  uint8_t id_size = value[5];
-
-  if (value.size() < 7) {
-    throw ParquetException("Invalid object value: too short for offset_size");
+  ObjectInfo info{};
+  info.num_elements = num_elements;
+  info.id_size = field_id_size;
+  info.offset_size = field_offset_size;
+  info.id_start_offset = 1 + num_elements_size;
+  info.offset_start_offset = info.id_start_offset + num_elements * field_id_size;
+  info.data_start_offset = info.offset_start_offset + (num_elements + 1) * field_offset_size;
+  // Check the boundary with the final offset
+  if (info.data_start_offset > value.size()) {
+    throw ParquetException("Invalid object value: data_start_offset=" +
+                                 std::to_string(info.data_start_offset) +
+                                 ", value_size=" + std::to_string(value.size()));
   }
-
-  uint8_t offset_size = value[6];
-
-  if (offset_size < 1 || offset_size > 4 || id_size < 1 || id_size > 4) {
-    throw ParquetException("Invalid object value: invalid id_size or offset_size");
+  {
+    uint32_t final_offset = 0;
+    memcpy(&final_offset,
+           value.data() + info.offset_start_offset + num_elements * field_offset_size,
+           field_offset_size);
+    if (final_offset + info.data_start_offset > value.size()) {
+      throw ParquetException("Invalid object value: final_offset=" +
+                             std::to_string(final_offset) +
+                             ", data_start_offset=" + std::to_string(info.data_start_offset) +
+                             ", value_size=" + std::to_string(value.size()));
+    }
   }
-
-  uint32_t id_start_offset = 7;
-  uint32_t offset_start_offset = id_start_offset + num_elements * id_size;
-  uint32_t data_start_offset = offset_start_offset + (num_elements + 1) * offset_size;
-
-  return {num_elements,        id_size,          offset_size, id_start_offset,
-          offset_start_offset, data_start_offset};
+  return info;
 }
 
 std::optional<VariantValue> VariantValue::getObjectValueByKey(
@@ -612,9 +637,9 @@ std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
   field_id = arrow::bit_util::FromLittleEndian(field_id);
 
   // Get the key from metadata
-  if (key != nullptr) {
-    *key = metadata.getMetadataKey(field_id);
-  }
+  // TODO(mwish): Fix the casting here.
+  *key = metadata.getMetadataKey(field_id);
+  std::cout << "Metadata key:" << *key << '\n';
 
   // Read the offset and next offset
   uint32_t offset = 0, next_offset = 0;
@@ -624,23 +649,18 @@ std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
          value.data() + info.offset_start_offset + (variantId + 1) * info.offset_size,
          info.offset_size);
   offset = arrow::bit_util::FromLittleEndian(offset);
-  next_offset = arrow::bit_util::FromLittleEndian(next_offset);
 
-  if (offset == next_offset) {
-    // Field is not present (null)
-    return std::nullopt;
-  }
-
-  if (info.data_start_offset + offset >= value.size() ||
-      info.data_start_offset + next_offset > value.size() || offset > next_offset) {
-    throw ParquetException("Invalid object field offsets");
+  if (info.data_start_offset + offset > value.size()) {
+    throw ParquetException("Invalid object field offsets: data_start_offset=" +
+                           std::to_string(info.data_start_offset) +
+                           ", offset=" + std::to_string(offset) +
+                           ", value_size=" + std::to_string(value.size()));
   }
 
   // Create a VariantValue for the field
   VariantValue field_value{
       .metadata = metadata,
-      .value = std::string_view(value.data() + info.data_start_offset + offset,
-                                next_offset - offset)};
+      .value = value.substr(info.data_start_offset + offset)};
 
   return field_value;
 }

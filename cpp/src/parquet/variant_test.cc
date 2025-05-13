@@ -228,4 +228,86 @@ TEST(ParquetVariant, NullValue) {
   */
 }
 
+
+TEST(ParquetVariant, ObjectValues) {
+  std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
+  auto variant = LoadVariantValue("object_primitive", &metadata_buf, &value_buf);
+  EXPECT_EQ(VariantType::OBJECT, variant.getType());
+  EXPECT_EQ("OBJECT", variant.typeDebugString());
+
+  auto obj_info = variant.getObjectInfo();
+  EXPECT_EQ(7, obj_info.num_elements);
+
+  auto int_field = variant.getObjectValueByKey("int_field");
+  ASSERT_TRUE(int_field.has_value());
+  std::cout << "int_field: " << int_field->typeDebugString() << '\n';
+  EXPECT_EQ(VariantType::INT, int_field->getType());
+  // EXPECT_EQ(42, int_field->getInt32());
+
+  auto double_field = variant.getObjectValueByKey("double_field");
+  std::cout << "double_field: " << double_field->typeDebugString() << '\n';
+  ASSERT_TRUE(double_field.has_value());
+  EXPECT_EQ(VariantType::DOUBLE, double_field->getType());
+  // EXPECT_DOUBLE_EQ(3.14159, double_field->getDouble());
+
+  auto boolean_true_field = variant.getObjectValueByKey("boolean_true_field");
+  ASSERT_TRUE(boolean_true_field.has_value());
+  EXPECT_EQ(VariantType::BOOLEAN, boolean_true_field->getType());
+  EXPECT_TRUE(boolean_true_field->getBool());
+
+  auto boolean_false_field = variant.getObjectValueByKey("boolean_false_field");
+  ASSERT_TRUE(boolean_false_field.has_value());
+  EXPECT_EQ(VariantType::BOOLEAN, boolean_false_field->getType());
+  // EXPECT_FALSE(boolean_false_field->getBool());
+
+  auto string_field = variant.getObjectValueByKey("string_field");
+  ASSERT_TRUE(string_field.has_value());
+  EXPECT_EQ(VariantType::STRING, string_field->getType());
+  // EXPECT_EQ("Hello, World!", string_field->getString());
+
+  auto null_field = variant.getObjectValueByKey("null_field");
+  ASSERT_TRUE(null_field.has_value());
+  EXPECT_EQ(VariantType::VARIANT_NULL, null_field->getType());
+
+  auto non_existent = variant.getObjectValueByKey("non_existent");
+  EXPECT_FALSE(non_existent.has_value());
+
+  // std::string_view key;
+  // auto field_by_id = variant.getObjectFieldByFieldId(0, &key);
+  // ASSERT_TRUE(field_by_id.has_value());
+  // EXPECT_EQ("int_field", key);
+  // EXPECT_EQ(VariantType::INT, field_by_id->getType());
+  // EXPECT_EQ(42, field_by_id->getInt32());
+}
+
+TEST(ParquetVariant, DecimalValues) {
+  {
+    std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
+    auto variant = LoadVariantValue("primitive_decimal4", &metadata_buf, &value_buf);
+    EXPECT_EQ(VariantType::DECIMAL4, variant.getType());
+    EXPECT_EQ("DECIMAL4", variant.typeDebugString());
+    auto decimal = variant.getDecimal4();
+    EXPECT_EQ(2, decimal.scale);
+    EXPECT_EQ("12.34", decimal.value.ToString(decimal.scale));
+  }
+  {
+    std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
+    auto variant = LoadVariantValue("primitive_decimal8", &metadata_buf, &value_buf);
+    EXPECT_EQ(VariantType::DECIMAL8, variant.getType());
+    EXPECT_EQ("DECIMAL8", variant.typeDebugString());
+    auto decimal = variant.getDecimal8();
+    EXPECT_EQ(2, decimal.scale);
+    EXPECT_EQ("12345678.90", decimal.value.ToString(decimal.scale));
+  }
+  {
+    std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
+    auto variant = LoadVariantValue("primitive_decimal16", &metadata_buf, &value_buf);
+    EXPECT_EQ(VariantType::DECIMAL16, variant.getType());
+    EXPECT_EQ("DECIMAL16", variant.typeDebugString());
+    auto decimal = variant.getDecimal16();
+    EXPECT_EQ(2, decimal.scale);
+    EXPECT_EQ("12345678912345678.90", decimal.value.ToString(decimal.scale));
+  }
+}
+
 }  // namespace parquet::variant
