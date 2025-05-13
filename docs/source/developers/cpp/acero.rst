@@ -135,7 +135,7 @@ Swiss table:
 
 .. image:: img/key_map_2.jpg
 
-N is the log of the number of blocks, :math:`2^{n+3}` is  the number of slots and
+N is the log of the number of blocks, :math:`2^{N+3}` is  the number of slots and
 also the maximum number of inserted keys and hence (N + 3) is the number of bits
 required to store a key id. We will refer to N as the **size of the hash table**.
 
@@ -202,12 +202,12 @@ The diagram below shows which bits of hash value are used by hash table:
 
 .. image:: img/key_map_4.jpg
 
-If a hash table has 2^N blocks, then we use N highest bits of a hash to select a
-start block when searching for a match. The next 7 bits are used as a stamp.
-Using the highest bits to pick a start block means that a range of hash values
-can be easily mapped to a range of block ids of start blocks for hashes in that
-range. This is useful when resizing a hash table or merging two hash tables
-together.
+If a hash table has :math:`2^{N}` blocks, then we use N highest bits of a hash
+to select a start block when searching for a match. The next 7 bits are used as
+a stamp. Using the highest bits to pick a start block means that a range of hash
+values can be easily mapped to a range of block ids of start blocks for hashes
+in that range. This is useful when resizing a hash table or merging two hash
+tables together.
 
 Interleaving status bytes and key ids
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -273,9 +273,9 @@ key ids. For the robust implementation, sooner or later we will need to support
 out of hash bits when hash table size N is greater than 25 (25 bits of hash
 needed to select a block and 7 bits needed to generate a stamp byte reach 32
 total bits). When the number of inserted keys exceeds the maximal number of keys
-stored in a hash table of size 25 (which is at least 2^24), the chance of false
-positives during lookups will start quickly growing. 32-bit hash should not be
-used with more than about 16 million inserted keys.
+stored in a hash table of size 25 (which is at least :math:`2^{24}`), the chance
+of false positives during lookups will start quickly growing. 32-bit hash should
+not be used with more than about 16 million inserted keys.
 
 Low memory footprint and low chance of hash collisions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -300,14 +300,14 @@ instance this is slightly under 7 bytes per inserted key.
 
 Swiss table also has a low probability of false positives leading to wasted key
 comparisons. Here is some rationale behind why this should be the case. Hash
-table of size N can contain up to 2^{N+3} keys. Search for a match involves (N +
-7) hash bits: N to select a start block and 7 to use as a stamp. There are
-always at least 16 times more combinations of used hash bits than there are keys
-in the hash table (32 times more if the hash table is half full). These numbers
-mean that the probability of false positives resulting from a search for a
-matching slot should be low. That corresponds to an expected number of
-comparisons per lookup being close to 1 for keys already present and 0 for new
-keys.
+table of size N can contain up to :math:`2^{N+3}` keys. Search for a match
+involves (N + 7) hash bits: N to select a start block and 7 to use as a stamp.
+There are always at least 16 times more combinations of used hash bits than
+there are keys in the hash table (32 times more if the hash table is half full).
+These numbers mean that the probability of false positives resulting from a
+search for a matching slot should be low. That corresponds to an expected number
+of comparisons per lookup being close to 1 for keys already present and 0 for
+new keys.
 
 Lookup
 ------
@@ -336,17 +336,17 @@ illustrated below.
 
 1. There is a matching stamp in the block of status bytes:
 
-   .. image:: img/key_map_6.jpg
+.. image:: img/key_map_6.jpg
 
 2. There is no matching stamp in the block, but there is an empty slot in the
-block:
+   block:
 
-   .. image:: img/key_map_7.jpg
+.. image:: img/key_map_7.jpg
 
 3. There is no matching stamp in the block and the block is full (there are no
-empty slots left):
+   empty slots left):
 
-   .. image:: img/key_map_8.jpg
+.. image:: img/key_map_8.jpg
 
 64-bit arithmetic can be used to search for a matching slot within the entire
 single block at once, without iterating over all slots in it. Following is an
@@ -357,46 +357,51 @@ maximum local slot id) otherwise.
 Following is a sketch of the possible steps to execute when searching for the
 matching stamp in a single block.
 
-*Example will use input stamp 0x5E and a 64-bit status bytes word with one empty
-slot: 0x 4B17 5E3A 5E2B 1180.*
+| *Example will use input stamp 0x5E and a 64-bit status bytes word with one empty
+  slot:*
+| *0x 4B17 5E3A 5E2B 1180*
 
 1. [1 instruction] Replicate stamp to all bytes by multiplying it by 0x 0101 0101
-0101 0101.
+   0101 0101.
 
-   *We obtain: 0x 5E5E 5E5E 5E5E 5E5E.*
+   | *We obtain: 0x 5E5E 5E5E 5E5E 5E5E.*
 
-2. [1 instruction] XOR replicated stamp with status bytes word. Bytes
-corresponding to a matching stamp will be 0, bytes corresponding to empty slots
-will have a value between 128 and 255, bytes corresponding to non-matching
-non-empty slots will have a value between 1 and 127.
+2. [1 instruction] XOR replicated stamp with status bytes word. Bytes corresponding
+   to a matching stamp will be 0, bytes corresponding to empty slots will have a
+   value between 128 and 255, bytes corresponding to non-matching non-empty slots
+   will have a value between 1 and 127.
 
-   *We obtain: 0x 1549 0064 0075 4FDE.*
+   | *We obtain: 0x 1549 0064 0075 4FDE.*
 
 3. [2 instructions] In the next step we want to have information about a match in
-the highest bit of each byte. We can ignore here empty slot bytes, because they
-will be taken care of at a later step. Set the highest bit in each byte (OR with
-0x 8080 8080 8080 8080) and then subtract 1 from each byte (subtract 0x 0101 0101
-0101 0101 from 64-bit word). Now if a byte corresponds to a non-empty slot then
-the highest bit 0 indicates a match and 1 indicates a miss.
+   the highest bit of each byte. We can ignore here empty slot bytes, because they
+   will be taken care of at a later step. Set the highest bit in each byte (OR with
+   0x 8080 8080 8080 8080) and then subtract 1 from each byte (subtract 0x 0101 0101
+   0101 0101 from 64-bit word). Now if a byte corresponds to a non-empty slot then
+   the highest bit 0 indicates a match and 1 indicates a miss.
 
-   *then 0x 94C8 7FE3 7FF4 CEDD.*
+   | *We obtain: 0x 95C9 80E4 80F5 CFDE,*
+   | *then 0x 94C8 7FE3 7FF4 CEDD.*
 
 4. [3 instructions] In the next step we want to obtain in each byte one of two
-values: 0x80 if it is either an empty slot or a match, 0x00 otherwise. We do it
-in three steps: NOT the result of the previous step to change the meaning of the
-highest bit; OR with the original status word to set highest bit in a byte to 1
-for empty slots; mask out everything other than the highest bits in all bytes
-(AND with 0x 8080 8080 8080 8080).
+   values: 0x80 if it is either an empty slot or a match, 0x00 otherwise. We do
+   it in three steps: NOT the result of the previous step to change the meaning
+   of the highest bit; OR with the original status word to set highest bit in a
+   byte to 1 for empty slots; mask out everything other than the highest bits in
+   all bytes (AND with 0x 8080 8080 8080 8080).
 
-   *finally 0x0000 8000 8000 0080.*
+   | *We obtain: 6B37 801C 800B 3122,*
+   | *then 6B37 DE3E DE2B 31A2,*
+   | *finally 0x0000 8000 8000 0080.*
 
 5. [2 instructions] Finally, use leading zero bits count and divide it by 8 to
-find an index of the last byte that corresponds either to a match or an empty
-slot. If the leading zero count intrinsic returns 64 for a 64-bit input zero,
-then after dividing by 8 we will also get the desired answer in case of a full
-block without any matches.
+   find an index of the last byte that corresponds either to a match or an empty
+   slot. If the leading zero count intrinsic returns 64 for a 64-bit input zero,
+   then after dividing by 8 we will also get the desired answer in case of a full
+   block without any matches.
 
-   *then 2 (index of the first slot within the block that matches the stamp).*
+   | *We obtain: 16,*
+   | *then 2 (index of the first slot within the block that matches the stamp).*
 
 If SIMD instructions with 64-bit lanes are available, multiple single block
 searches for different keys can be executed together. For instance AVX2
@@ -417,7 +422,7 @@ stamp is encountered. Eventually the search stops when either:
 - the matching key is found in one of the slots matching the stamp, or
 - an empty slot is reached. This is illustrated in the diagram below:
 
-  .. image:: img/key_map_9.jpg
+.. image:: img/key_map_9.jpg
 
 Optimistic processing with two passes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -432,7 +437,7 @@ path of processing. For that reason it pays off to optimize especially for this
 90% of inputs.
 
 Lookups in Swiss table are split into two passes over an input batch of keys. The
-**first pass:  fast-path lookup**, is a highly optimized, vectorized,
+**first pass: fast-path lookup**, is a highly optimized, vectorized,
 SIMD-friendly, branch-free code that fully handles optimistic cases. The **second
 pass: slow-path lookup**, is normally executed only for the selection of inputs
 that have not been finished in the first pass, although it can also be called
@@ -462,16 +467,16 @@ each key:
    pre-computed results for all combinations of hash bits. Let us consider the
    case of Swiss table of size 5 that has 256 slots and up to 128 inserted keys.
    Only 12 bits of hash are used by lookup in that case: 5 to select a block, 7
-   to create a stamp. For all 2^{12} combinations of those bits we could keep the
-   result of first pass lookup in an array. Key id and a match indicating flag
-   can use one byte: 7 bits for key id and 1 bit for the flag. Note that slot id
-   is only needed if we go into 2nd pass lookup, so it can be stored separately
-   and likely only accessed by a small subset of keys. Fast-path lookup becomes
-   almost a single fetch of result from a 4KB array. Lookup arrays used to
-   implement this need to be kept in sync with the main copy of data about slots,
-   which requires extra care during inserts. Since the number of entries in
-   lookup arrays is much higher than the number of slots, this technique only
-   makes sense for small hash tables.
+   to create a stamp. For all :math:`2^{12}` combinations of those bits we could
+   keep the result of first pass lookup in an array. Key id and a match
+   indicating flag can use one byte: 7 bits for key id and 1 bit for the flag.
+   Note that slot id is only needed if we go into 2nd pass lookup, so it can be
+   stored separately and likely only accessed by a small subset of keys.
+   Fast-path lookup becomes almost a single fetch of result from a 4KB array.
+   Lookup arrays used to implement this need to be kept in sync with the main
+   copy of data about slots, which requires extra care during inserts. Since the
+   number of entries in lookup arrays is much higher than the number of slots,
+   this technique only makes sense for small hash tables.
 
 Dense comparisons
 ~~~~~~~~~~~~~~~~~
