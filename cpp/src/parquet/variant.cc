@@ -216,88 +216,60 @@ bool VariantValue::getBool() const {
     throw ParquetException("Not a primitive type");
   }
 
-  auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
-  if (primitive_type == VariantPrimitiveType::BooleanTrue) {
+  int8_t primitive_type = static_cast<int8_t>(value[0]) >> 2;
+  if (primitive_type == static_cast<int8_t>(VariantPrimitiveType::BooleanTrue)) {
     return true;
-  } else if (primitive_type == VariantPrimitiveType::BooleanFalse) {
+  }
+  if (primitive_type == static_cast<int8_t>(VariantPrimitiveType::BooleanFalse)) {
     return false;
   }
 
-  throw ParquetException("Not a boolean type");
+  throw ParquetException("Not a variant primitive boolean type with primitive type: " +
+                         std::to_string(primitive_type));
 }
 
-int8_t VariantValue::getInt8() const {
+template <typename PrimitiveType>
+PrimitiveType VariantValue::getPrimitiveVariantType(VariantPrimitiveType type) const {
   if (getBasicType() != VariantBasicType::Primitive) {
     throw ParquetException("Not a primitive type");
   }
 
   auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
   if (primitive_type != VariantPrimitiveType::Int8) {
-    throw ParquetException("Not an Int8 type");
+    throw ParquetException("Not an correspond type");
   }
 
-  if (value.size() < 2) {
-    throw ParquetException("Invalid Int8 value: too short");
+  if (value.size() < 1 + sizeof(PrimitiveType)) {
+    throw ParquetException("Invalid value: too short");
   }
 
-  return static_cast<int8_t>(value[1]);
+  PrimitiveType decimal_value{};
+  memcpy(&decimal_value, value.data() + 1, sizeof(PrimitiveType));
+  return decimal_value;
+}
+
+int8_t VariantValue::getInt8() const {
+  return getPrimitiveVariantType<int8_t>(VariantPrimitiveType::Int8);
 }
 
 int16_t VariantValue::getInt16() const {
-  if (getBasicType() != VariantBasicType::Primitive) {
-    throw ParquetException("Not a primitive type");
-  }
-
-  auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
-  if (primitive_type != VariantPrimitiveType::Int16) {
-    throw ParquetException("Not an Int16 type");
-  }
-
-  if (value.size() < 3) {
-    throw ParquetException("Invalid Int16 value: too short");
-  }
-
-  int16_t result;
-  memcpy(&result, value.data() + 1, sizeof(int16_t));
-  return arrow::bit_util::FromLittleEndian(result);
+  return getPrimitiveVariantType<int8_t>(VariantPrimitiveType::Int16);
 }
 
 int32_t VariantValue::getInt32() const {
-  if (getBasicType() != VariantBasicType::Primitive) {
-    throw ParquetException("Not a primitive type");
-  }
-
-  auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
-  if (primitive_type != VariantPrimitiveType::Int32) {
-    throw ParquetException("Not an Int32 type");
-  }
-
-  if (value.size() < 5) {
-    throw ParquetException("Invalid Int32 value: too short");
-  }
-
-  int32_t result;
-  memcpy(&result, value.data() + 1, sizeof(int32_t));
-  return arrow::bit_util::FromLittleEndian(result);
+  return getPrimitiveVariantType<int8_t>(VariantPrimitiveType::Int32);
 }
 
 int64_t VariantValue::getInt64() const {
-  if (getBasicType() != VariantBasicType::Primitive) {
-    throw ParquetException("Not a primitive type");
-  }
+  return getPrimitiveVariantType<int8_t>(VariantPrimitiveType::Int64);
+}
 
-  auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
-  if (primitive_type != VariantPrimitiveType::Int64) {
-    throw ParquetException("Not an Int64 type");
-  }
+float VariantValue::getFloat() const {
+  return getPrimitiveVariantType<float>(VariantPrimitiveType::Float);
+}
 
-  if (value.size() < 9) {
-    throw ParquetException("Invalid Int64 value: too short");
-  }
-
-  int64_t result;
-  memcpy(&result, value.data() + 1, sizeof(int64_t));
-  return arrow::bit_util::FromLittleEndian(result);
+double VariantValue::getDouble() const {
+  return getPrimitiveVariantType<float>(VariantPrimitiveType::Double);
 }
 
 std::string_view VariantValue::getString() const {
@@ -309,7 +281,8 @@ std::string_view VariantValue::getString() const {
       throw ParquetException("Invalid short string: too short");
     }
     return std::string_view(value.data() + 1, length);
-  } else if (basic_type == VariantBasicType::Primitive) {
+  }
+  if (basic_type == VariantBasicType::Primitive) {
     auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
     if (primitive_type != VariantPrimitiveType::String) {
       throw ParquetException("Not a string type");
@@ -330,7 +303,7 @@ std::string_view VariantValue::getString() const {
     return std::string_view(value.data() + 5, length);
   }
 
-  throw ParquetException("Not a string type");
+  throw ParquetException("Not a primitive or short string type calls getString");
 }
 
 std::string_view VariantValue::getBinary() const {
@@ -358,86 +331,37 @@ std::string_view VariantValue::getBinary() const {
   return std::string_view(value.data() + 5, length);
 }
 
-float VariantValue::getFloat() const {
+template <typename DecimalType>
+DecimalValue<DecimalType> VariantValue::getPrimitiveDecimalType(
+    VariantPrimitiveType type) const {
+  using DecimalValueType = typename DecimalType::ValueType;
   if (getBasicType() != VariantBasicType::Primitive) {
     throw ParquetException("Not a primitive type");
   }
 
   auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
-  if (primitive_type != VariantPrimitiveType::Float) {
-    throw ParquetException("Not a float type");
+  if (primitive_type != type) {
+    throw ParquetException("Not a decimal type");
   }
 
-  if (value.size() < 5) {
-    throw ParquetException("Invalid float value: too short");
+  if (value.size() < 2 + sizeof(DecimalValueType)) {
+    throw ParquetException("Invalid decimal value: too short");
   }
 
-  float result;
-  memcpy(&result, value.data() + 1, sizeof(float));
-  return arrow::bit_util::FromLittleEndian(result);
-}
+  uint8_t scale = value[1];
+  DecimalValueType decimal_value;
+  memcpy(&decimal_value, value.data() + 2, sizeof(DecimalValueType));
+  decimal_value = arrow::bit_util::FromLittleEndian(decimal_value);
 
-double VariantValue::getDouble() const {
-  if (getBasicType() != VariantBasicType::Primitive) {
-    throw ParquetException("Not a primitive type");
-  }
-
-  auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
-  if (primitive_type != VariantPrimitiveType::Double) {
-    throw ParquetException("Not a double type");
-  }
-
-  if (value.size() < 9) {
-    throw ParquetException("Invalid double value: too short");
-  }
-
-  double result;
-  memcpy(&result, value.data() + 1, sizeof(double));
-  return arrow::bit_util::FromLittleEndian(result);
+  return {scale, DecimalType(decimal_value)};
 }
 
 DecimalValue<::arrow::Decimal32> VariantValue::getDecimal4() const {
-  if (getBasicType() != VariantBasicType::Primitive) {
-    throw ParquetException("Not a primitive type");
-  }
-
-  auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
-  if (primitive_type != VariantPrimitiveType::Decimal4) {
-    throw ParquetException("Not a decimal4 type");
-  }
-
-  if (value.size() < 6) {
-    throw ParquetException("Invalid decimal4 value: too short");
-  }
-
-  uint8_t scale = value[1];
-  int32_t decimal_value;
-  memcpy(&decimal_value, value.data() + 2, sizeof(int32_t));
-  decimal_value = arrow::bit_util::FromLittleEndian(decimal_value);
-
-  return {scale, ::arrow::Decimal32(decimal_value)};
+  return getPrimitiveDecimalType<::arrow::Decimal32>(VariantPrimitiveType::Decimal4);
 }
 
 DecimalValue<::arrow::Decimal64> VariantValue::getDecimal8() const {
-  if (getBasicType() != VariantBasicType::Primitive) {
-    throw ParquetException("Not a primitive type");
-  }
-
-  auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
-  if (primitive_type != VariantPrimitiveType::Decimal8) {
-    throw ParquetException("Not a decimal8 type");
-  }
-
-  if (value.size() < 10) {
-    throw ParquetException("Invalid decimal8 value: too short");
-  }
-
-  uint8_t scale = value[1];
-  int64_t decimal_value;
-  memcpy(&decimal_value, value.data() + 2, sizeof(int64_t));
-  decimal_value = arrow::bit_util::FromLittleEndian(decimal_value);
-
-  return {scale, ::arrow::Decimal64(decimal_value)};
+  return getPrimitiveDecimalType<::arrow::Decimal64>(VariantPrimitiveType::Decimal8);
 }
 
 DecimalValue<::arrow::Decimal128> VariantValue::getDecimal16() const {
@@ -450,94 +374,34 @@ DecimalValue<::arrow::Decimal128> VariantValue::getDecimal16() const {
     throw ParquetException("Not a decimal16 type");
   }
 
-  if (value.size() < 18) {
+  if (value.size() < 2 + sizeof(int64_t) * 2) {
     throw ParquetException("Invalid decimal16 value: too short");
   }
 
   uint8_t scale = value[1];
 
-  // Decimal128 is stored as two int64_t values (low bits, high bits)
-  int64_t low_bits, high_bits;
-  memcpy(&low_bits, value.data() + 2, sizeof(int64_t));
-  memcpy(&high_bits, value.data() + 10, sizeof(int64_t));
-  low_bits = arrow::bit_util::FromLittleEndian(low_bits);
-  high_bits = arrow::bit_util::FromLittleEndian(high_bits);
-
-  return {scale, ::arrow::Decimal128(high_bits, low_bits)};
+  // TODO(mwish): Do we have better way for this?
+  std::array<int64_t, 2> low_high_bits;
+  memcpy(&low_high_bits[0], value.data() + 2, sizeof(int64_t));
+  memcpy(&low_high_bits[1], value.data() + 10, sizeof(int64_t));
+  ::arrow::bit_util::little_endian::ToNative(low_high_bits);
+  return {scale, ::arrow::Decimal128(low_high_bits[1], low_high_bits[0])};
 }
 
 int64_t VariantValue::timeNTZ() const {
-  if (getBasicType() != VariantBasicType::Primitive) {
-    throw ParquetException("Not a primitive type");
-  }
-
-  auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
-  if (primitive_type != VariantPrimitiveType::TimeNTZ) {
-    throw ParquetException("Not a timeNTZ type");
-  }
-
-  if (value.size() < 9) {
-    throw ParquetException("Invalid timeNTZ value: too short");
-  }
-
-  int64_t result;
-  memcpy(&result, value.data() + 1, sizeof(int64_t));
-  return arrow::bit_util::FromLittleEndian(result);
+  return getPrimitiveVariantType<int64_t>(VariantPrimitiveType::TimeNTZ);
 }
 
 int64_t VariantValue::getTimestamp() const {
-  if (getBasicType() != VariantBasicType::Primitive) {
-    throw ParquetException("Not a primitive type");
-  }
-
-  auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
-  if (primitive_type != VariantPrimitiveType::Timestamp) {
-    throw ParquetException("Not a timestamp type");
-  }
-
-  if (value.size() < 9) {
-    throw ParquetException("Invalid timestamp value: too short");
-  }
-
-  int64_t result;
-  memcpy(&result, value.data() + 1, sizeof(int64_t));
-  return arrow::bit_util::FromLittleEndian(result);
+  return getPrimitiveVariantType<int64_t>(VariantPrimitiveType::Timestamp);
 }
 
 int64_t VariantValue::getTimestampNTZ() const {
-  if (getBasicType() != VariantBasicType::Primitive) {
-    throw ParquetException("Not a primitive type");
-  }
-
-  auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
-  if (primitive_type != VariantPrimitiveType::TimestampNTZ) {
-    throw ParquetException("Not a timestampNTZ type");
-  }
-
-  if (value.size() < 9) {
-    throw ParquetException("Invalid timestampNTZ value: too short");
-  }
-
-  int64_t result;
-  memcpy(&result, value.data() + 1, sizeof(int64_t));
-  return arrow::bit_util::FromLittleEndian(result);
+  return getPrimitiveVariantType<int64_t>(VariantPrimitiveType::TimestampNTZ);
 }
 
 const uint8_t* VariantValue::getUuid() const {
-  if (getBasicType() != VariantBasicType::Primitive) {
-    throw ParquetException("Not a primitive type");
-  }
-
-  auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
-  if (primitive_type != VariantPrimitiveType::Uuid) {
-    throw ParquetException("Not a UUID type");
-  }
-
-  if (value.size() < 17) {
-    throw ParquetException("Invalid UUID value: too short");
-  }
-
-  return reinterpret_cast<const uint8_t*>(value.data() + 1);
+  throw ParquetException("VariantValue::getUuid Not implemented");
 }
 
 std::string VariantValue::ObjectInfo::toDebugString() const {

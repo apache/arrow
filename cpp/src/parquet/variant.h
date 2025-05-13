@@ -39,7 +39,7 @@ enum class VariantBasicType {
   Array = 3
 };
 
-enum class VariantPrimitiveType {
+enum class VariantPrimitiveType : int8_t {
   /// Equivalent Parquet Type: UNKNOWN
   NullType = 0,
   /// Equivalent Parquet Type: BOOLEAN
@@ -200,6 +200,13 @@ struct VariantValue {
   /** The inclusive maximum value of the type info value. It is the size limit of
    * `SHORT_STR`. */
   static constexpr uint8_t MAX_SHORT_STR_SIZE_MASK = 0b00111111;
+
+ private:
+  template <typename PrimitiveType>
+  PrimitiveType getPrimitiveVariantType(VariantPrimitiveType type) const;
+
+  template <typename DecimalType>
+  DecimalValue<DecimalType> getPrimitiveDecimalType(VariantPrimitiveType type) const;
 };
 
 }  // namespace parquet::variant
