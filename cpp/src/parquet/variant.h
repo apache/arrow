@@ -128,6 +128,12 @@ class VariantMetadata {
   std::string_view metadata_;
 };
 
+template <typename DecimalType>
+struct DecimalValue {
+  uint8_t scale;
+  DecimalType value;
+};
+
 struct VariantValue {
   VariantMetadata metadata;
   std::string_view value;
@@ -136,17 +142,33 @@ struct VariantValue {
   VariantType getType() const;
   std::string typeDebugString() const;
 
+  /// \defgroup ValueAccessors
+  /// @{
+
   // Note: Null doesn't need visitor.
   bool getBool() const;
   int8_t getInt8() const;
   int16_t getInt16() const;
   int32_t getInt32() const;
   int64_t getInt64() const;
+  /// Include short_string optimization and primitive string type
   std::string_view getString() const;
   std::string_view getBinary() const;
   float getFloat() const;
   double getDouble() const;
-  // ::arrow::Decimal32 getDecimal32() const;
+
+  DecimalValue<::arrow::Decimal32> getDecimal4() const;
+  DecimalValue<::arrow::Decimal64> getDecimal8() const;
+  DecimalValue<::arrow::Decimal128> getDecimal16() const;
+
+  int64_t timeNTZ() const;
+  // timestamp with adjusted to UTC
+  int64_t getTimestamp() const;
+  int64_t getTimestampNTZ() const;
+  // 16 bytes UUID
+  const uint8_t* getUuid() const;
+
+  /// }@
 
   struct ObjectInfo {
     uint32_t num_elements;
@@ -158,6 +180,8 @@ struct VariantValue {
   };
   ObjectInfo getObjectInfo() const;
   std::optional<VariantValue> getObjectValueByKey(std::string_view key) const;
+  std::optional<VariantValue> getObjectFieldByFieldId(uint32_t variantId,
+                                                      std::string_view* key) const;
 
   struct ArrayInfo {
     uint32_t num_elements;
@@ -166,6 +190,8 @@ struct VariantValue {
     uint32_t data_start_offset;
   };
   ArrayInfo getArrayInfo() const;
+  // Would throw ParquetException if index is out of range.
+  VariantValue getArrayValueByIndex(uint32_t index) const;
 
   static constexpr uint8_t BASIC_TYPE_MASK = 0b00000011;
   static constexpr uint8_t PRIMITIVE_TYPE_MASK = 0b00111111;

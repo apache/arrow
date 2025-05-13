@@ -383,7 +383,7 @@ add_parquet_test(internals-test
                  size_statistics_test.cc
                  statistics_test.cc
                  types_test.cc
-                 variant_test.cpp)
+                 variant_test.cc)
 
 set_source_files_properties(public_api_test.cc PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 
