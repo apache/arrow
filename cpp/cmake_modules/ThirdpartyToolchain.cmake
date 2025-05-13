@@ -2677,7 +2677,9 @@ macro(build_lz4)
   # Make the dependency available - this will actually perform the download and configure
   fetchcontent_makeavailable(lz4_ep)
 
-  # Add lz4 as an interfece library so other targets can depend on it
+  # Use LZ4::lz4 as an imported library not an alias of lz4_static so other targets such as orc
+  # can depend on it as an external library. External libraries are ignored in
+  # install(TARGETS orc EXPORT orc_targets) and install(EXPORT orc_targets).
   add_library(LZ4::lz4 INTERFACE IMPORTED)
   target_link_libraries(LZ4::lz4 INTERFACE lz4_static)
 
