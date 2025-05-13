@@ -707,8 +707,19 @@ test_that("as_arrow_table() errors on data.frame with NULL names", {
   expect_error(as_arrow_table(df), "Input data frame columns must be named")
 })
 
-test_that("# GH-35038 - passing in multiple arguments doesn't affect return type", {
+test_that("as_arrow_table() removes haven labels and warns users", {
+  haven_df <- tibble::tibble(
+    a = structure(1, label = "example variable a", class = c("haven_labelled", "vctrs_vctr", "integer")),
+    b = structure(2, label = "example variable b", class = c("haven_labelled", "vctrs_vctr", "integer"))
+  )
 
+  expect_warning(
+    as_arrow_table(haven_df),
+    regexp = "haven labels have been discarded"
+  )
+})
+
+test_that("# GH-35038 - passing in multiple arguments doesn't affect return type", {
   df <- data.frame(x = 1)
   out1 <- as.data.frame(arrow_table(df, name = "1"))
   out2 <- as.data.frame(arrow_table(name = "1", df))
