@@ -1085,12 +1085,6 @@ tasks:
     ci: github
     template: r/github.linux.sanitizers.yml
     params:
-      env:
-        R_PRUNE_DEPS: TRUE
-        R_ORG: "rhub"
-        R_IMAGE: "{{ '${{ matrix.config.r_image }}' }}"
-        R_TAG: "latest"
-        ARROW_R_DEV: "TRUE"
       timeout: 240 # 4 hours
 
   test-r-m1-san:

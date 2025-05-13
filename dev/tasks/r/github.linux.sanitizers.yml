@@ -24,7 +24,11 @@ jobs:
     name: "rhub/{{ '${{ matrix.config.r_image }}' }}"
     runs-on: ubuntu-latest
     timeout-minutes: {{ timeout|default(60) }}
-{{ macros.github_set_env(env) }}
+    env:
+      R_PRUNE_DEPS: TRUE
+      R_ORG: "rhub"
+      R_IMAGE: "{{ '${{ matrix.config.r_image }}' }}"
+      R_TAG: "latest"
     strategy:
       fail-fast: false
       matrix:
