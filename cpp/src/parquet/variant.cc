@@ -95,7 +95,8 @@ VariantBasicType VariantValue::getBasicType() const {
 
 VariantType VariantValue::getType() const {
   VariantBasicType basic_type = getBasicType();
-
+  std::cout << "Variant first byte:" << static_cast<int>(value[0] >> 2) << ", "
+            << (value[0] && BASIC_TYPE_MASK) << '\n';
   switch (basic_type) {
     case VariantBasicType::Primitive: {
       auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
