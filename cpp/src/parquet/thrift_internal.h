@@ -242,8 +242,9 @@ inline typename Compression::type LoadEnumSafe(const format::CompressionCodec::t
 
 inline typename LogicalType::EdgeInterpolationAlgorithm LoadEnumSafe(
     const format::EdgeInterpolationAlgorithm::type* in) {
-  if (ARROW_PREDICT_FALSE(*in < format::EdgeInterpolationAlgorithm::SPHERICAL ||
-                          *in > format::EdgeInterpolationAlgorithm::KARNEY)) {
+  const auto raw_value = internal::LoadEnumRaw(in);
+  if (ARROW_PREDICT_FALSE(raw_value < format::EdgeInterpolationAlgorithm::SPHERICAL ||
+                          raw_value > format::EdgeInterpolationAlgorithm::KARNEY)) {
     return LogicalType::EdgeInterpolationAlgorithm::UNKNOWN;
   }
   return FromThriftUnsafe(*in);
