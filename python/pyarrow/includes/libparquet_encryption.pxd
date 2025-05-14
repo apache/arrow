@@ -128,3 +128,44 @@ cdef extern from "arrow/python/parquet_encryption.h" \
             SafeGetFileDecryptionProperties(
             const CKmsConnectionConfig& kms_connection_config,
             const CDecryptionConfiguration& decryption_config)
+
+
+
+cdef extern from "parquet/encryption/crypto_factory.h" \
+        namespace "parquet::encryption" nogil:
+    cdef cppclass CExternalEncryptionConfiguration\
+            " parquet::encryption::ExternalEncryptionConfiguration":
+        CExternalEncryptionConfiguration(const c_string& footer_key) except +
+        c_string footer_key
+        c_string column_keys
+        ParquetCipher encryption_algorithm
+        c_bool plaintext_footer
+        c_bool double_wrapping
+        double cache_lifetime_seconds
+        c_bool internal_key_material
+        int32_t data_key_length_bits
+
+        c_string host
+        c_string certificate_authority_location
+        c_string client_certificate_location
+        c_string client_key_location
+        int32_t connection_pool_size
+        c_bool run_locally
+
+    cdef cppclass CDecryptionConfiguration\
+            " parquet::encryption::DecryptionConfiguration":
+        CDecryptionConfiguration() except +
+        double cache_lifetime_seconds
+
+    cdef cppclass CCryptoFactory" parquet::encryption::CryptoFactory":
+        void RegisterKmsClientFactory(
+            shared_ptr[CKmsClientFactory] kms_client_factory) except +
+        shared_ptr[CFileEncryptionProperties] GetFileEncryptionProperties(
+            const CKmsConnectionConfig& kms_connection_config,
+            const CEncryptionConfiguration& encryption_config) except +*
+        shared_ptr[CFileDecryptionProperties] GetFileDecryptionProperties(
+            const CKmsConnectionConfig& kms_connection_config,
+            const CDecryptionConfiguration& decryption_config) except +*
+        void RemoveCacheEntriesForToken(const c_string& access_token) except +
+        void RemoveCacheEntriesForAllTokens() except +
+

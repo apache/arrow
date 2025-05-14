@@ -108,3 +108,6 @@ java/.mvn/.develocity/
 # rat
 filtered_rat.txt
 rat.txt
+python/qemu_python3.10_20250508-192921_787.core
+python/qemu_python3.10_20250509-224952_168.core
+**.parquet

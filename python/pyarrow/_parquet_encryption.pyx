@@ -482,3 +482,210 @@ cdef shared_ptr[CDecryptionConfiguration] pyarrow_unwrap_decryptionconfig(object
     if isinstance(decryptionconfig, DecryptionConfiguration):
         return (<DecryptionConfiguration> decryptionconfig).unwrap()
     raise TypeError("Expected DecryptionConfiguration, got %s" % type(decryptionconfig))
+
+cdef class ExternalEncryptionConfiguration(_Weakrefable):
+    """Configuration of the encryption, such as which columns to encrypt"""
+
+    __slots__ = ()
+
+    def __init__(self, footer_key, *,
+                 column_keys=None,
+                 encryption_algorithm=None,
+                 plaintext_footer=None,
+                 double_wrapping=None,
+                 cache_lifetime=None,
+                 internal_key_material=None,
+                 data_key_length_bits=None,
+                 host=None,
+                 certificate_authority_location=None,
+                 client_certificate_location=None,
+                 client_key_location=None,
+                 connection_pool_size=0,
+                 run_locally=False):
+
+        self.configuration.reset(
+            new CExternalEncryptionConfiguration(tobytes(footer_key)))
+
+        if column_keys is not None:
+            self.column_keys = column_keys
+        if encryption_algorithm is not None:
+            self.encryption_algorithm = encryption_algorithm
+        if plaintext_footer is not None:
+            self.plaintext_footer = plaintext_footer
+        if double_wrapping is not None:
+            self.double_wrapping = double_wrapping
+        if cache_lifetime is not None:
+            self.cache_lifetime = cache_lifetime
+        if internal_key_material is not None:
+            self.internal_key_material = internal_key_material
+        if data_key_length_bits is not None:
+            self.data_key_length_bits = data_key_length_bits
+
+        # New properties
+        if host is not None:
+            self.host = host
+        if certificate_authority_location is not None:
+            self.certificate_authority_location = certificate_authority_location
+        if client_certificate_location is not None:
+            self.client_certificate_location = client_certificate_location
+        if client_key_location is not None:
+            self.client_key_location = client_key_location
+        self.connection_pool_size = connection_pool_size
+        self.run_locally = run_locally
+
+    @property
+    def footer_key(self):
+        """ID of the master key for footer encryption/signing"""
+        return frombytes(self.configuration.get().footer_key)
+
+    @property
+    def column_keys(self):
+        """
+        List of columns to encrypt, with master key IDs.
+        """
+        column_keys_str = frombytes(self.configuration.get().column_keys)
+        # Convert from "masterKeyID:colName,colName;masterKeyID:colName..."
+        # (see HIVE-21848) to dictionary of master key ID to column name lists
+        column_keys_to_key_list_str = dict(subString.replace(" ", "").split(
+            ":") for subString in column_keys_str.split(";"))
+        column_keys_dict = {k: v.split(
+            ",") for k, v in column_keys_to_key_list_str.items()}
+        return column_keys_dict
+
+    @column_keys.setter
+    def column_keys(self, dict value):
+        if value is not None:
+            # convert a dictionary such as
+            # '{"key1": ["col1 ", "col2"], "key2": ["col3 ", "col4"]}''
+            # to the string defined by the spec
+            # 'key1: col1 , col2; key2: col3 , col4'
+            column_keys = "; ".join(
+                ["{}: {}".format(k, ", ".join(v)) for k, v in value.items()])
+            self.configuration.get().column_keys = tobytes(column_keys)
+
+    @property
+    def encryption_algorithm(self):
+        """Parquet encryption algorithm.
+        Can be "AES_GCM_V1" (default), or "AES_GCM_CTR_V1"."""
+        return cipher_to_name(self.configuration.get().encryption_algorithm)
+
+    @encryption_algorithm.setter
+    def encryption_algorithm(self, value):
+        cipher = cipher_from_name(value)
+        self.configuration.get().encryption_algorithm = cipher
+
+    @property
+    def plaintext_footer(self):
+        """Write files with plaintext footer."""
+        return self.configuration.get().plaintext_footer
+
+    @plaintext_footer.setter
+    def plaintext_footer(self, value):
+        self.configuration.get().plaintext_footer = value
+
+    @property
+    def double_wrapping(self):
+        """Use double wrapping - where data encryption keys (DEKs) are
+        encrypted with key encryption keys (KEKs), which in turn are
+        encrypted with master keys.
+        If set to false, use single wrapping - where DEKs are
+        encrypted directly with master keys."""
+        return self.configuration.get().double_wrapping
+
+    @double_wrapping.setter
+    def double_wrapping(self, value):
+        self.configuration.get().double_wrapping = value
+
+    @property
+    def cache_lifetime(self):
+        """Lifetime of cached entities (key encryption keys,
+        local wrapping keys, KMS client objects)."""
+        return timedelta(
+            seconds=self.configuration.get().cache_lifetime_seconds)
+
+    @cache_lifetime.setter
+    def cache_lifetime(self, value):
+        if not isinstance(value, timedelta):
+            raise TypeError("cache_lifetime should be a timedelta")
+        self.configuration.get().cache_lifetime_seconds = value.total_seconds()
+
+    @property
+    def internal_key_material(self):
+        """Store key material inside Parquet file footers; this mode doesn’t
+        produce additional files. If set to false, key material is stored in
+        separate files in the same folder, which enables key rotation for
+        immutable Parquet files."""
+        return self.configuration.get().internal_key_material
+
+    @internal_key_material.setter
+    def internal_key_material(self, value):
+        self.configuration.get().internal_key_material = value
+
+    @property
+    def data_key_length_bits(self):
+        """Length of data encryption keys (DEKs), randomly generated by parquet key
+        management tools. Can be 128, 192 or 256 bits."""
+        return self.configuration.get().data_key_length_bits
+
+    @data_key_length_bits.setter
+    def data_key_length_bits(self, value):
+        self.configuration.get().data_key_length_bits = value
+
+    # --- Existing properties (footer_key, etc.) stay unchanged ---
+
+    @property
+    def host(self):
+        return frombytes(self.configuration.get().host)
+
+    @host.setter
+    def host(self, value):
+        self.configuration.get().host = tobytes(value)
+
+    @property
+    def certificate_authority_location(self):
+        return self.configuration.get().certificate_authority_location
+
+    @certificate_authority_location.setter
+    def certificate_authority_location(self, value):
+        self.configuration.get().certificate_authority_location = value
+
+    @property
+    def client_certificate_location(self):
+        return self.configuration.get().client_certificate_location
+
+    @client_certificate_location.setter
+    def client_certificate_location(self, value):
+        self.configuration.get().client_certificate_location = value
+
+    @property
+    def client_key_location(self):
+        return frombytes(self.configuration.get().client_key_location)
+
+    @client_key_location.setter
+    def client_key_location(self, value):
+        self.configuration.get().client_key_location = value
+
+    @property
+    def connection_pool_size(self):
+        return self.configuration.get().connection_pool_size
+
+    @connection_pool_size.setter
+    def connection_pool_size(self, value):
+        self.configuration.get().connection_pool_size = value
+
+    @property
+    def run_locally(self):
+        return self.configuration.get().run_locally
+
+    @run_locally.setter
+    def run_locally(self, value):
+        self.configuration.get().run_locally = value
+
+    cdef inline shared_ptr[CExternalEncryptionConfiguration] unwrap(self) nogil:
+        return self.configuration
+
+
+cdef shared_ptr[CExternalEncryptionConfiguration] pyarrow_unwrap_externalencryptionconfig(object encryptionconfig) except *:
+    if isinstance(encryptionconfig, ExternalEncryptionConfiguration):
+        return (<ExternalEncryptionConfiguration> encryptionconfig).unwrap()
+    raise TypeError("Expected EncryptionConfiguration, got %s" % type(encryptionconfig))
