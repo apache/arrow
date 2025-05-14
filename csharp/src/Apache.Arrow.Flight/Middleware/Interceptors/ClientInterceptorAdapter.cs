@@ -16,114 +16,146 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Apache.Arrow.Flight.Middleware.Extensions;
+using System.Threading.Tasks;
 using Apache.Arrow.Flight.Middleware.Interfaces;
 using Grpc.Core;
 using Grpc.Core.Interceptors;
-using CallInfo = Apache.Arrow.Flight.Middleware.Models.CallInfo;
 
 namespace Apache.Arrow.Flight.Middleware.Interceptors
 {
-    public class ClientInterceptorAdapter : Interceptor
+    public sealed class ClientInterceptorAdapter : Interceptor
     {
-        private readonly IList<IFlightClientMiddlewareFactory> _factories;
+        private readonly IReadOnlyList<IFlightClientMiddlewareFactory> _factories;
 
         public ClientInterceptorAdapter(IEnumerable<IFlightClientMiddlewareFactory> factories)
         {
-            _factories = factories.ToList();
+            _factories = factories?.ToList() ?? throw new ArgumentNullException(nameof(factories));
         }
 
         public override AsyncUnaryCall<TResponse> AsyncUnaryCall<TRequest, TResponse>(
             TRequest request,
-            ClientInterceptorContext<TRequest, TResponse> context, AsyncUnaryCallContinuation<TRequest, TResponse> continuation)
+            ClientInterceptorContext<TRequest, TResponse> context,
+            AsyncUnaryCallContinuation<TRequest, TResponse> continuation)
             where TRequest : class
             where TResponse : class
         {
-            var middleware = new List<IFlightClientMiddleware>();
-            var callInfo = new CallInfo(
-                context.Host ?? "unknown",
-                FlightMethodParser.ParseMethodName(context.Method.FullName));
+            var options = InterceptCall(context, out var middlewares);
 
-            try
-            {
-                middleware.AddRange(_factories.Select(factory => factory.OnCallStarted(callInfo)));
-            }
-            catch (Exception e)
-            {
-                throw new RpcException(new Status(StatusCode.Internal, "Middleware creation failed"), e.Message);
-            }
-
-            // Apply middleware headers
-            var middlewareHeaders = new Metadata();
-            var headerAdapter = new MetadataAdapter(middlewareHeaders);
-            foreach (var m in middleware)
-            {
-                m.OnBeforeSendingHeaders(headerAdapter);
-            }
-
-            // Merge original headers with middleware headers
-            var mergedHeaders = new Metadata();
-            if (context.Options.Headers != null)
-            {
-                foreach (var entry in context.Options.Headers)
-                {
-                    mergedHeaders.Add(entry);
-                }
-            }
-
-            foreach (var entry in middlewareHeaders)
-            {
-                mergedHeaders.Add(entry);
-            }
-
-            var updatedContext = new ClientInterceptorContext<TRequest, TResponse>(
+            var newContext = new ClientInterceptorContext<TRequest, TResponse>(
                 context.Method,
                 context.Host,
-                context.Options.WithHeaders(mergedHeaders)
-            );
+                options);
 
-            var headersReceived = false;
-            var call = continuation(request, updatedContext);
+            var call = continuation(request, newContext);
+
+            return new AsyncUnaryCall<TResponse>(
+                HandleResponse(call.ResponseAsync, call.ResponseHeadersAsync, call.GetStatus, call.GetTrailers,
+                    call.Dispose, middlewares),
+                call.ResponseHeadersAsync,
+                call.GetStatus,
+                call.GetTrailers,
+                call.Dispose
+            );
+        }
+
+        public override AsyncServerStreamingCall<TResponse> AsyncServerStreamingCall<TRequest, TResponse>(
+            TRequest request,
+            ClientInterceptorContext<TRequest, TResponse> context,
+            AsyncServerStreamingCallContinuation<TRequest, TResponse> continuation)
+            where TRequest : class
+            where TResponse : class
+        {
+            var callOptions = InterceptCall(context, out var middlewares);
+            var newContext = new ClientInterceptorContext<TRequest, TResponse>(
+                context.Method, context.Host, callOptions);
+
+            var call = continuation(request, newContext);
 
             var responseHeadersTask = call.ResponseHeadersAsync.ContinueWith(task =>
             {
-                if (task.Exception is null)
+                if (task.Exception == null && task.Result != null)
                 {
-                    var metadataAdapter = new MetadataAdapter(task.Result);
-                    middleware.ForEach(m => m.OnHeadersReceived(metadataAdapter));
-                    headersReceived = true;
+                    var headers = task.Result;
+                    foreach (var m in middlewares)
+                        m?.OnHeadersReceived(new CallHeaders(headers));
                 }
+
                 return task.Result;
             });
 
-            var responseTask = call.ResponseAsync.ContinueWith(response =>
-            {
-                // If headers were never received, simulate with trailers
-                if (!headersReceived)
-                {
-                    var trailersAdapter = new MetadataAdapter(call.GetTrailers());
-                    foreach (var m in middleware)
-                        m.OnHeadersReceived(trailersAdapter);
-                }
-                
-                var status = call.GetStatus();
-                var trailers = call.GetTrailers();
-                var flightStatus = StatusUtils.FromGrpcStatusAndTrailers(status, trailers);
+            var wrappedResponseStream = new MiddlewareResponseStream<TResponse>(
+                call.ResponseStream,
+                call,
+                middlewares);
 
-                middleware.ForEach(m => m.OnCallCompleted(flightStatus));
-
-                if (response.IsFaulted && response.Exception != null)
-                    throw response.Exception;
-
-                return response.Result;
-            });
-            
-            return new AsyncUnaryCall<TResponse>(
-                responseTask,
+            return new AsyncServerStreamingCall<TResponse>(
+                wrappedResponseStream,
                 responseHeadersTask,
                 call.GetStatus,
                 call.GetTrailers,
                 call.Dispose);
+        }
+
+
+        private CallOptions InterceptCall<TRequest, TResponse>(
+            ClientInterceptorContext<TRequest, TResponse> context,
+            out List<IFlightClientMiddleware> middlewareList)
+            where TRequest : class
+            where TResponse : class
+        {
+            var callInfo = new CallInfo(context.Method.FullName, context.Method.Type);
+
+            var headers = context.Options.Headers ?? new Metadata();
+            middlewareList = new List<IFlightClientMiddleware>();
+
+            var callHeaders = new CallHeaders(headers);
+
+            foreach (var factory in _factories)
+            {
+                var middleware = factory.OnCallStarted(callInfo);
+                middleware?.OnBeforeSendingHeaders(callHeaders);
+                middlewareList.Add(middleware);
+            }
+
+            return context.Options.WithHeaders(headers);
+        }
+
+        private async Task<TResponse> HandleResponse<TResponse>(
+            Task<TResponse> responseTask,
+            Task<Metadata> headersTask,
+            Func<Status> getStatus,
+            Func<Metadata> getTrailers,
+            Action dispose,
+            List<IFlightClientMiddleware> middlewares)
+        {
+            try
+            {
+                var headers = await headersTask.ConfigureAwait(false);
+                foreach (var m in middlewares)
+                {
+                    m?.OnHeadersReceived(new CallHeaders(headers));
+                }
+
+                var response = await responseTask.ConfigureAwait(false);
+                foreach (var m in middlewares)
+                {
+                    m?.OnCallCompleted(getStatus(), getTrailers());
+                }
+
+                return response;
+            }
+            catch
+            {
+                foreach (var m in middlewares)
+                {
+                    m?.OnCallCompleted(getStatus(), getTrailers());
+                }
+                throw;
+            }
+            finally
+            {
+                dispose?.Invoke();
+            }
         }
     }
 }

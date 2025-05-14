@@ -15,6 +15,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 
@@ -22,50 +23,82 @@ namespace Apache.Arrow.Flight.Middleware.Extensions;
 
 public static class CookieExtensions
 {
-    public static IEnumerable<Cookie> ParseHeader(this string headers)
+    public static IEnumerable<Cookie> ParseHeader(this string setCookieHeader)
     {
-        if (string.IsNullOrEmpty(headers))
+        if (string.IsNullOrWhiteSpace(setCookieHeader))
             return System.Array.Empty<Cookie>();
-        
-        var cookies = new List<Cookie>();
-        var segments = headers.Split([';'], StringSplitOptions.RemoveEmptyEntries);
 
-        if (segments.Length == 0) return cookies;
+        var cookies = new List<Cookie>();
+
+        var segments = setCookieHeader.Split([';'], StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length == 0)
+            return cookies;
 
         var nameValue = segments[0].Split(['='], 2);
-        if (nameValue.Length == 2)
+        if (nameValue.Length != 2 || string.IsNullOrWhiteSpace(nameValue[0]))
+            return cookies;
+
+        var name = nameValue[0].Trim();
+        var value = nameValue[1].Trim();
+        var cookie = new Cookie(name, value);
+
+        foreach (var segment in segments.Skip(1))
         {
-            var cookie = new Cookie(nameValue[0].Trim(), nameValue[1].Trim());
+            var kv = segment.Split(['='], 2, StringSplitOptions.RemoveEmptyEntries);
+            var key = kv[0].Trim().ToLowerInvariant();
+            var val = kv.Length > 1 ? kv[1] : null;
 
-            foreach (var segment in segments.Skip(1))
+            switch (key)
             {
-                var trimmedSegment = segment.Trim();
-                if (trimmedSegment.StartsWith("Expires=", StringComparison.OrdinalIgnoreCase))
-                {
-                    var value = trimmedSegment.Substring("Expires=".Length).Trim();
+                case "expires":
+                    if (!string.IsNullOrWhiteSpace(val))
+                    {
+                        if (DateTimeOffset.TryParseExact(val, "R", CultureInfo.InvariantCulture, DateTimeStyles.None, out var expiresRfc))
+                            cookie.Expires = expiresRfc.UtcDateTime;
+                        else if (DateTimeOffset.TryParse(val, out var expiresFallback))
+                            cookie.Expires = expiresFallback.UtcDateTime;
+                    }
+                    break;
 
-                    if (!DateTimeOffset.TryParseExact(
-                            value,
-                            "R",
-                            System.Globalization.CultureInfo.InvariantCulture,
-                            System.Globalization.DateTimeStyles.None,
-                            out var expires))
-                    {
-                        if (DateTimeOffset.TryParse(value, out expires))
-                        {
-                            cookie.Expires = expires.UtcDateTime;
-                        }
-                    }
-                    else
-                    {
-                        cookie.Expires = expires.UtcDateTime;
-                    }
-                }
+                case "max-age":
+                    if (int.TryParse(val, out var seconds))
+                        cookie.Expires = DateTime.UtcNow.AddSeconds(seconds);
+                    break;
+
+                case "domain":
+                    cookie.Domain = val;
+                    break;
+
+                case "path":
+                    cookie.Path = val;
+                    break;
+
+                case "secure":
+                    cookie.Secure = true;
+                    break;
+
+                case "httponly":
+                    cookie.HttpOnly = true;
+                    break;
             }
-
-            cookies.Add(cookie);
         }
 
+        cookies.Add(cookie);
         return cookies;
+    }
+    
+    public static bool IsExpired(this Cookie cookie, string rawHeader)
+    {
+        if (string.IsNullOrWhiteSpace(cookie?.Value))
+            return true;
+
+        // If raw header has Max-Age=0, consider it deleted
+        if (rawHeader?.IndexOf("Max-Age=0", StringComparison.OrdinalIgnoreCase) >= 0)
+            return true;
+        
+        if (cookie.Expires != DateTime.MinValue && cookie.Expires <= DateTime.UtcNow)
+            return true;
+
+        return false;
     }
 }

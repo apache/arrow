@@ -13,8 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Flight.Middleware.Models;
-using CallInfo = Apache.Arrow.Flight.Middleware.Models.CallInfo;
+using Grpc.Core;
 
 namespace Apache.Arrow.Flight.Middleware.Interfaces;
 
@@ -22,10 +21,5 @@ public interface IFlightClientMiddleware
 {
     void OnBeforeSendingHeaders(ICallHeaders outgoingHeaders);
     void OnHeadersReceived(ICallHeaders incomingHeaders);
-    void OnCallCompleted(CallStatus status);
-}
-
-public interface IFlightClientMiddlewareFactory
-{
-    IFlightClientMiddleware OnCallStarted(CallInfo callInfo);
+    void OnCallCompleted(Status status, Metadata trailers);
 }

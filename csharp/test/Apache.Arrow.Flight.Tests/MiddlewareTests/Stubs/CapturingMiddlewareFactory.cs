@@ -13,8 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Dynamic;
 using Apache.Arrow.Flight.Middleware.Interfaces;
-using Apache.Arrow.Flight.Middleware.Models;
+using CallInfo = Apache.Arrow.Flight.Middleware.CallInfo;
+
 
 namespace Apache.Arrow.Flight.Tests.MiddlewareTests.Stubs;
 
@@ -22,5 +24,5 @@ public class CapturingMiddlewareFactory : IFlightClientMiddlewareFactory
 {
     public CapturingMiddleware Instance { get; } = new();
 
-    public IFlightClientMiddleware OnCallStarted(CallInfo callInfo) => Instance;
+    public IFlightClientMiddleware OnCallStarted(CallInfo callInfo)=> Instance;
 }

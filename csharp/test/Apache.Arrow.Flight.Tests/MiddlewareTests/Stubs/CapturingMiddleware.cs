@@ -15,7 +15,7 @@
 
 using System.Collections.Generic;
 using Apache.Arrow.Flight.Middleware.Interfaces;
-using Apache.Arrow.Flight.Middleware.Models;
+using Grpc.Core;
 
 namespace Apache.Arrow.Flight.Tests.MiddlewareTests.Stubs;
 
@@ -38,8 +38,8 @@ public class CapturingMiddleware : IFlightClientMiddleware
         HeadersReceivedCalled = true;
         CaptureHeaders(incomingHeaders);
     }
-    
-    public void OnCallCompleted(CallStatus status)
+
+    public void OnCallCompleted(Status status, Metadata trailers)
     {
         CallCompletedCalled = true;
     }
@@ -48,7 +48,7 @@ public class CapturingMiddleware : IFlightClientMiddleware
     {
         foreach (var key in headers.Keys)
         {
-            var value = headers.Get(key);
+            var value = headers[key];
             if (value != null)
             {
                 CapturedHeaders[key] = value;

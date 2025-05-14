@@ -15,7 +15,7 @@
 
 using System.Collections.Generic;
 using Apache.Arrow.Flight.Middleware.Interfaces;
-using Apache.Arrow.Flight.Middleware.Models;
+using Grpc.Core;
 using Microsoft.Extensions.Logging;
 
 namespace Apache.Arrow.Flight.Middleware;
@@ -24,7 +24,7 @@ public class ClientCookieMiddleware : IFlightClientMiddleware
 {
     private readonly ClientCookieMiddlewareFactory _factory;
     private readonly ILogger<ClientCookieMiddleware> _logger;
-    private const string SET_COOKIE_HEADER = "Set-cookie";
+    private const string SET_COOKIE_HEADER = "Set-Cookie";
     private const string COOKIE_HEADER = "Cookie";
 
     public ClientCookieMiddleware(ClientCookieMiddlewareFactory factory,
@@ -36,25 +36,26 @@ public class ClientCookieMiddleware : IFlightClientMiddleware
 
     public void OnBeforeSendingHeaders(ICallHeaders outgoingHeaders)
     {
+        if (_factory.Cookies.IsEmpty)
+            return;
         var cookieValue = GetValidCookiesAsString();
         if (!string.IsNullOrEmpty(cookieValue))
         {
             outgoingHeaders.Insert(COOKIE_HEADER, cookieValue);
         }
-
-        _logger.LogInformation("Sending Headers: " + string.Join(", ", outgoingHeaders.Keys));
+        _logger.LogInformation("Sending Headers: " + string.Join(", ", outgoingHeaders));
     }
 
     public void OnHeadersReceived(ICallHeaders incomingHeaders)
     {
-        var setCookieHeaders = incomingHeaders.GetAll(SET_COOKIE_HEADER);
-        _factory.UpdateCookies(setCookieHeaders);
-        _logger.LogInformation("Received Headers: " + string.Join(", ", incomingHeaders.Keys));
+        var setCookies = incomingHeaders.GetAll(SET_COOKIE_HEADER);
+        _factory.UpdateCookies(setCookies);
+        _logger.LogInformation("Received Headers: " + string.Join(", ", incomingHeaders));
     }
 
-    public void OnCallCompleted(CallStatus status)
+    public void OnCallCompleted(Status status, Metadata trailers)
     {
-        _logger.LogInformation($"Call completed with: {status.Code} ({status.Description})");
+        _logger.LogInformation($"Call completed with: {status.StatusCode} ({status.Detail})");
     }
 
     private string GetValidCookiesAsString()
@@ -62,6 +63,7 @@ public class ClientCookieMiddleware : IFlightClientMiddleware
         var cookieList = new List<string>();
         foreach (var entry in _factory.Cookies)
         {
+            _logger.LogInformation($"Before remove cookie: {entry.Key} Expired: ({entry.Value.Expired})");
             if (entry.Value.Expired)
             {
                 _factory.Cookies.TryRemove(entry.Key, out _);

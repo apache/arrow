@@ -21,8 +21,6 @@ using System.Net;
 using Apache.Arrow.Flight.Middleware.Extensions;
 using Apache.Arrow.Flight.Middleware.Interfaces;
 using Microsoft.Extensions.Logging;
-using CallInfo = Apache.Arrow.Flight.Middleware.Models.CallInfo;
-
 namespace Apache.Arrow.Flight.Middleware;
 
 public class ClientCookieMiddlewareFactory : IFlightClientMiddlewareFactory
@@ -43,15 +41,15 @@ public class ClientCookieMiddlewareFactory : IFlightClientMiddlewareFactory
     
     internal void UpdateCookies(IEnumerable<string> newCookieHeaderValues)
     {
+        var logger = _loggerFactory.CreateLogger<ClientCookieMiddleware>();
         foreach (var headerValue in newCookieHeaderValues)
         {
             try
             {
-                var parsedCookies = headerValue.ParseHeader();
-                foreach (var parsedCookie in parsedCookies)
+                foreach (var parsedCookie in headerValue.ParseHeader())
                 {
                     var nameLc = parsedCookie.Name.ToLower(CultureInfo.InvariantCulture);
-                    if (parsedCookie.Expired)
+                    if (parsedCookie.IsExpired(headerValue))
                     {
                         Cookies.TryRemove(nameLc, out _);
                     }
@@ -63,9 +61,10 @@ public class ClientCookieMiddlewareFactory : IFlightClientMiddlewareFactory
             }
             catch (FormatException ex)
             {
-                var logger = _loggerFactory.CreateLogger<ClientCookieMiddleware>();
+               
                 logger.LogWarning(ex, "Skipping malformed Set-Cookie header: '{HeaderValue}'", headerValue);
             }
         }
     }
+    
 }

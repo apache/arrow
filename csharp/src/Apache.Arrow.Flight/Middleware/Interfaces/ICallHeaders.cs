@@ -20,12 +20,12 @@ namespace Apache.Arrow.Flight.Middleware.Interfaces;
 public interface ICallHeaders
 {
     string this[string key] { get; }
-    
+
     string Get(string key);
     byte[] GetBytes(string key);
     IEnumerable<string> GetAll(string key);
     IEnumerable<byte[]> GetAllBytes(string key);
-    
+
     void Insert(string key, string value);
     void Insert(string key, byte[] value);
 

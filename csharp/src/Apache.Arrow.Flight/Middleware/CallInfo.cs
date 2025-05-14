@@ -13,23 +13,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
 using Grpc.Core;
 
-namespace Apache.Arrow.Flight.Middleware.Models;
+namespace Apache.Arrow.Flight.Middleware;
 
-public sealed class CallStatus
+public readonly struct CallInfo
 {
-    public FlightStatusCode Code { get; }
-    public Exception Cause { get; }
-    public string Description { get; }
-    public Metadata Trailers { get; }
+    public string Method { get; }
+    public MethodType MethodType { get; }
 
-    public CallStatus(FlightStatusCode code, Exception cause, string description, Metadata trailers)
+    public CallInfo(string method, MethodType methodType)
     {
-        Code = code;
-        Cause = cause;
-        Description = description;
-        Trailers = trailers;
+        Method = method;
+        MethodType = methodType;
+    }
+
+    public override string ToString()
+    {
+        return $"{MethodType}: {Method}";
     }
 }
