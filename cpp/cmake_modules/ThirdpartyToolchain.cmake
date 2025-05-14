@@ -50,6 +50,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     Brotli
     BZip2
     c-ares
+    FlatBuffers
     gflags
     glog
     google_cloud_cpp_storage
@@ -185,6 +186,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_bzip2()
   elseif("${DEPENDENCY_NAME}" STREQUAL "c-ares")
     build_cares()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "FlatBuffers")
+    build_flatbuffers()
   elseif("${DEPENDENCY_NAME}" STREQUAL "gflags")
     build_gflags()
   elseif("${DEPENDENCY_NAME}" STREQUAL "glog")
@@ -366,10 +369,6 @@ endmacro()
 # Thirdparty versions, environment variables, source URLs
 
 set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
-
-add_library(arrow::flatbuffers INTERFACE IMPORTED)
-target_include_directories(arrow::flatbuffers
-                           INTERFACE "${THIRDPARTY_DIR}/flatbuffers/include")
 
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
@@ -643,6 +642,14 @@ if(DEFINED ENV{ARROW_CRC32C_URL})
 else()
   set_urls(CRC32C_SOURCE_URL
            "https://github.com/google/crc32c/archive/${ARROW_CRC32C_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_FLATBUFFERS_URL})
+  set(FLATBUFFERS_SOURCE_URL "$ENV{ARROW_FLATBUFFERS_URL}")
+else()
+  set_urls(FLATBUFFERS_SOURCE_URL
+           "https://github.com/google/flatbuffers/archive/refs/tags/${ARROW_FLATBUFFERS_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -2319,6 +2326,60 @@ if(ARROW_MIMALLOC)
 
   set(mimalloc_VENDORED TRUE)
 endif()
+
+# ----------------------------------------------------------------------
+# Google flatbuffers
+
+function(build_flatbuffers)
+  message(STATUS "Building flatbuffers from source")
+
+  set(FLATBUFFERS_PREFIX
+      "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep/src/flatbuffers_ep-install")
+  set(FLATBUFFERS_INCLUDE_DIR
+      "${CMAKE_CURRENT_BINARY_DIR}/FlatBuffers-prefix/src/FlatBuffers/include")
+  set(FLATBUFFERS_STATIC_LIB
+      "${FLATBUFFERS_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}flatbuffers${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  )
+
+  set(FLATBUFFERS_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${FLATBUFFERS_PREFIX}"
+      "-DFLATBUFFERS_BUILD_TESTS=OFF")
+
+  externalproject_add(FlatBuffers
+                      ${EP_COMMON_OPTIONS}
+                      URL ${FLATBUFFERS_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_FLATBUFFERS_BUILD_SHA256_CHECKSUM}"
+                      BUILD_BYPRODUCTS "${FLATBUFFERS_STATIC_LIB}" <BINARY_DIR>/flatc
+                      CMAKE_ARGS ${FLATBUFFERS_CMAKE_ARGS})
+
+  # The include directory must exist before it is referenced by a target.
+  file(MAKE_DIRECTORY "${FLATBUFFERS_INCLUDE_DIR}")
+
+  add_library(flatbuffers::flatbuffers STATIC IMPORTED)
+  set_target_properties(flatbuffers::flatbuffers PROPERTIES IMPORTED_LOCATION
+                                                            "${FLATBUFFERS_STATIC_LIB}")
+  target_include_directories(flatbuffers::flatbuffers BEFORE
+                             INTERFACE "${FLATBUFFERS_INCLUDE_DIR}")
+
+  get_cmake_property(_variableNames VARIABLES)
+  list(FILTER
+       _variableNames
+       INCLUDE
+       REGEX
+       "^FLATBUFFERS_")
+  foreach(_variableName ${_variableNames})
+    message(STATUS "${_variableName}=${${_variableName}}")
+  endforeach()
+
+  set(FLATBUFFERS_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
+endfunction()
+
+resolve_dependency(FlatBuffers)
 
 # ----------------------------------------------------------------------
 # Google gtest

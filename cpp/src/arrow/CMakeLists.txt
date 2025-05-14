@@ -138,10 +138,10 @@ if(ARROW_ENABLE_THREADING)
 endif()
 
 set(ARROW_TEST_LINK_TOOLCHAIN ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN})
-set(ARROW_TEST_STATIC_LINK_LIBS arrow::flatbuffers arrow_testing_static arrow_static
-                                ${ARROW_TEST_LINK_TOOLCHAIN})
-set(ARROW_TEST_SHARED_LINK_LIBS arrow::flatbuffers arrow_testing_shared arrow_shared
-                                ${ARROW_TEST_LINK_TOOLCHAIN})
+set(ARROW_TEST_STATIC_LINK_LIBS flatbuffers::flatbuffers arrow_testing_static
+                                arrow_static ${ARROW_TEST_LINK_TOOLCHAIN})
+set(ARROW_TEST_SHARED_LINK_LIBS flatbuffers::flatbuffers arrow_testing_shared
+                                arrow_shared ${ARROW_TEST_LINK_TOOLCHAIN})
 
 if(CMAKE_DL_LIBS)
   list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
@@ -627,9 +627,10 @@ else()
 endif()
 
 set(ARROW_TESTING_SHARED_LINK_LIBS arrow_shared ${ARROW_GTEST_GTEST})
-set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON Boost::process)
+set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS flatbuffers::flatbuffers RapidJSON
+                                           Boost::process)
 set(ARROW_TESTING_STATIC_LINK_LIBS
-    arrow::flatbuffers
+    flatbuffers::flatbuffers
     RapidJSON
     Boost::process
     arrow_static
@@ -900,7 +901,8 @@ if(ARROW_IPC)
   endif()
   arrow_add_object_library(ARROW_IPC ${ARROW_IPC_SRCS})
   foreach(ARROW_IPC_TARGET ${ARROW_IPC_TARGETS})
-    target_link_libraries(${ARROW_IPC_TARGET} PRIVATE arrow::flatbuffers)
+    target_link_libraries(${ARROW_IPC_TARGET} PRIVATE flatbuffers::flatbuffers)
+    add_dependencies(${ARROW_IPC_TARGET} arrow_generated_files)
   endforeach()
   if(ARROW_JSON)
     foreach(ARROW_IPC_TARGET ${ARROW_IPC_TARGETS})

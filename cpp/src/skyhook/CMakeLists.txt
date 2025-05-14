@@ -44,10 +44,10 @@ add_arrow_lib(arrow_skyhook
               SHARED_LINK_LIBS
               ${ARROW_SKYHOOK_LINK_SHARED}
               SHARED_PRIVATE_LINK_LIBS
-              arrow::flatbuffers
+              flatbuffers::flatbuffers
               STATIC_LINK_LIBS
               ${ARROW_SKYHOOK_LINK_STATIC}
-              arrow::flatbuffers)
+              flatbuffers::flatbuffers)
 
 #  define the cls library
 add_arrow_lib(cls_skyhook
@@ -58,7 +58,7 @@ add_arrow_lib(cls_skyhook
               SHARED_LINK_LIBS
               ${ARROW_SKYHOOK_LINK_SHARED}
               SHARED_PRIVATE_LINK_LIBS
-              arrow::flatbuffers
+              flatbuffers::flatbuffers
               STATIC_LINK_LIBS
               ${ARROW_SKYHOOK_LINK_STATIC})
 

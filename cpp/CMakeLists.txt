@@ -655,7 +655,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/src)
 include_directories(src)
 
 # Compiled flatbuffers files
-include_directories(src/generated)
+add_subdirectory(src/generated)
 
 #
 # Visibility
@@ -777,10 +777,9 @@ pass ARROW_BUILD_STATIC=on")
   set(ARROW_TEST_LINK_LIBS arrow_testing_static)
   set(ARROW_EXAMPLE_LINK_LIBS arrow_static)
 endif()
-# arrow::flatbuffers isn't needed for all tests but we specify it as
-# the first link library. It's for prioritizing bundled FlatBuffers
-# than system FlatBuffers.
-list(PREPEND ARROW_TEST_LINK_LIBS arrow::flatbuffers)
+# flatbuffers isn't needed for all tests but we specify it as
+# the first link library.
+list(PREPEND ARROW_TEST_LINK_LIBS flatbuffers::flatbuffers)
 list(APPEND ARROW_TEST_LINK_LIBS ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN})
 
 if(ARROW_BUILD_BENCHMARKS)
