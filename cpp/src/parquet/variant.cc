@@ -175,7 +175,7 @@ uint32_t VariantMetadata::dictionarySize() const {
   }
   uint32_t dict_size = 0;
   memcpy(&dict_size, metadata_.data() + 1, length);
-  dict_size = arrow::bit_util::FromLittleEndian(dict_size);
+  dict_size = ::arrow::bit_util::FromLittleEndian(dict_size);
   return dict_size;
 }
 
@@ -210,7 +210,7 @@ std::string_view VariantMetadata::getMetadataKey(int32_t variant_id) const {
   return {metadata_.data() + string_start, key_size};
 }
 
-arrow::internal::SmallVector<int32_t, 1> VariantMetadata::getMetadataId(
+::arrow::internal::SmallVector<int32_t, 1> VariantMetadata::getMetadataId(
     std::string_view key) const {
   uint32_t offset_size = offsetSize();
   uint32_t dict_size = dictionarySize();
@@ -452,7 +452,7 @@ std::string_view VariantValue::getPrimitiveBinaryType(VariantPrimitiveType type)
 
   uint32_t length;
   memcpy(&length, value.data() + 1, sizeof(uint32_t));
-  length = arrow::bit_util::FromLittleEndian(length);
+  length = ::arrow::bit_util::FromLittleEndian(length);
 
   if (value.size() < length + 5) {
     throw ParquetException("Invalid string value: too short for specified length");
@@ -494,7 +494,7 @@ DecimalValue<DecimalType> VariantValue::getPrimitiveDecimalType(
   uint8_t scale = value[1];
   DecimalValueType decimal_value;
   memcpy(&decimal_value, value.data() + 2, sizeof(DecimalValueType));
-  decimal_value = arrow::bit_util::FromLittleEndian(decimal_value);
+  decimal_value = ::arrow::bit_util::FromLittleEndian(decimal_value);
 
   return {scale, DecimalType(decimal_value)};
 }
@@ -554,6 +554,7 @@ std::string VariantValue::ObjectInfo::toDebugString() const {
   std::stringstream ss;
   ss << "ObjectInfo{"
      << "num_elements=" << num_elements << ", id_size=" << static_cast<int>(id_size)
+     << ", id_size=" << static_cast<int>(id_size)
      << ", offset_size=" << static_cast<int>(offset_size)
      << ", id_start_offset=" << id_start_offset
      << ", offset_start_offset=" << offset_start_offset
@@ -577,7 +578,7 @@ VariantValue::ObjectInfo VariantValue::getObjectInfo() const {
   uint32_t num_elements = 0;
   {
     memcpy(&num_elements, value.data() + 1, num_elements_size);
-    num_elements = arrow::bit_util::FromLittleEndian(num_elements);
+    num_elements = ::arrow::bit_util::FromLittleEndian(num_elements);
   }
   ObjectInfo info{};
   info.num_elements = num_elements;
@@ -643,7 +644,7 @@ std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
     uint32_t variant_field_id = 0;
     memcpy(&variant_field_id, value.data() + info.id_start_offset + i * info.id_size,
            info.id_size);
-    variant_field_id = arrow::bit_util::FromLittleEndian(variant_field_id);
+    variant_field_id = ::arrow::bit_util::FromLittleEndian(variant_field_id);
     if (variant_field_id == variant_id) {
       field_offset_opt = i;
       break;
@@ -658,7 +659,7 @@ std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
   memcpy(&offset,
          value.data() + info.offset_start_offset + field_offset * info.offset_size,
          info.offset_size);
-  offset = arrow::bit_util::FromLittleEndian(offset);
+  offset = ::arrow::bit_util::FromLittleEndian(offset);
 
   if (info.data_start_offset + offset > value.size()) {
     throw ParquetException("Invalid object field offsets: data_start_offset=" +
@@ -668,8 +669,7 @@ std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
   }
 
   // Create a VariantValue for the field
-  VariantValue field_value{.metadata = metadata,
-                           .value = value.substr(info.data_start_offset + offset)};
+  VariantValue field_value{metadata, value.substr(info.data_start_offset + offset)};
 
   return field_value;
 }
@@ -699,7 +699,7 @@ VariantValue::ArrayInfo VariantValue::getArrayInfo() const {
   uint32_t num_elements = 0;
   {
     memcpy(&num_elements, value.data() + 1, num_elements_size);
-    num_elements = arrow::bit_util::FromLittleEndian(num_elements);
+    num_elements = ::arrow::bit_util::FromLittleEndian(num_elements);
   }
 
   ArrayInfo info{};
@@ -723,7 +723,7 @@ VariantValue::ArrayInfo VariantValue::getArrayInfo() const {
     memcpy(&final_offset,
            value.data() + info.offset_start_offset + num_elements * field_offset_size,
            field_offset_size);
-    final_offset = arrow::bit_util::FromLittleEndian(final_offset);
+    final_offset = ::arrow::bit_util::FromLittleEndian(final_offset);
 
     if (info.data_start_offset + final_offset > value.size()) {
       throw ParquetException(
@@ -742,8 +742,8 @@ VariantValue::ArrayInfo VariantValue::getArrayInfo() const {
     memcpy(&next_offset,
            value.data() + info.offset_start_offset + (i + 1) * field_offset_size,
            field_offset_size);
-    offset = arrow::bit_util::FromLittleEndian(offset);
-    next_offset = arrow::bit_util::FromLittleEndian(next_offset);
+    offset = ::arrow::bit_util::FromLittleEndian(offset);
+    next_offset = ::arrow::bit_util::FromLittleEndian(next_offset);
 
     if (offset > next_offset) {
       throw ParquetException(
@@ -769,14 +769,13 @@ VariantValue VariantValue::getArrayValueByIndex(uint32_t index,
   memcpy(&next_offset,
          value.data() + info.offset_start_offset + (index + 1) * info.offset_size,
          info.offset_size);
-  offset = arrow::bit_util::FromLittleEndian(offset);
-  next_offset = arrow::bit_util::FromLittleEndian(next_offset);
+  offset = ::arrow::bit_util::FromLittleEndian(offset);
+  next_offset = ::arrow::bit_util::FromLittleEndian(next_offset);
 
   // Create a VariantValue for the element
   VariantValue element_value{
-      .metadata = metadata,
-      .value = std::string_view(value.data() + info.data_start_offset + offset,
-                                next_offset - offset)};
+      metadata, std::string_view(value.data() + info.data_start_offset + offset,
+                                 next_offset - offset)};
 
   return element_value;
 }
