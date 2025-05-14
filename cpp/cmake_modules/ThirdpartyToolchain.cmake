@@ -2694,6 +2694,15 @@ if(ARROW_WITH_LZ4)
                      TRUE
                      PC_PACKAGE_NAMES
                      liblz4)
+
+  # Set the target name based on how LZ4 was resolved
+  if(TARGET lz4_static)
+    set(LZ4_TARGET lz4_static)
+  elseif(TARGET LZ4::lz4)
+    set(LZ4_TARGET LZ4::lz4)
+  else()
+    message(FATAL_ERROR "Unable to determine LZ4 target name")
+  endif()
 endif()
 
 macro(build_zstd)
@@ -4742,8 +4751,8 @@ function(build_orc)
         "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
         "-DSNAPPY_LIBRARY=$<TARGET_FILE:${Snappy_TARGET}>"
         "-DLZ4_HOME=${ORC_LZ4_ROOT}"
-        "-DLZ4_LIBRARY=$<TARGET_FILE:LZ4::lz4>"
-        "-DLZ4_STATIC_LIB=$<TARGET_FILE:LZ4::lz4>"
+        "-DLZ4_LIBRARY=$<LZ4_TARGET>"
+        "-DLZ4_STATIC_LIB=$<LZ4_TARGET>"
         "-DLZ4_INCLUDE_DIR=${ORC_LZ4_ROOT}/include"
         "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
         "-DZSTD_HOME=${ORC_ZSTD_ROOT}"
