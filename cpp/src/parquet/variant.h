@@ -23,6 +23,7 @@
 #include <vector>
 
 #include <arrow/util/decimal.h>
+#include <arrow/util/small_vector.h>
 
 namespace parquet::variant {
 
@@ -96,10 +97,10 @@ enum class VariantType {
   ARRAY,
   VARIANT_NULL,
   BOOLEAN,
-  BYTE,
-  SHORT,
-  INT,
-  LONG,
+  INT8,
+  INT16,
+  INT32,
+  INT64,
   STRING,
   DOUBLE,
   DECIMAL4,
@@ -124,13 +125,14 @@ class VariantMetadata {
   /// \brief Get the variant metadata version. Currently, always 1.
   int8_t version() const;
   /// \brief Get the metadata key for a given variant field id.
-  std::string_view getMetadataKey(int32_t variantId) const;
+  std::string_view getMetadataKey(int32_t variant_id) const;
+  ::arrow::internal::SmallVector<int32_t, 1> getMetadataId(std::string_view key) const;
 
- private:
   bool sortedStrings() const;
   uint8_t offsetSize() const;
   uint32_t dictionarySize() const;
 
+ private:
   static constexpr uint8_t VERSION_MASK = 0xF;
   static constexpr uint8_t SORTED_STRING_MASK = 0b10000;
 
@@ -189,13 +191,22 @@ struct VariantValue {
     uint32_t offset_start_offset;
     uint32_t data_start_offset;
 
+    bool operator==(const ObjectInfo& info) const {
+      return num_elements == info.num_elements && id_size == info.id_size &&
+             offset_size == info.offset_size && id_start_offset == info.id_start_offset &&
+             offset_start_offset == info.offset_start_offset &&
+             data_start_offset == info.data_start_offset;
+    }
+
     std::string toDebugString() const;
   };
   ObjectInfo getObjectInfo() const;
   std::optional<VariantValue> getObjectValueByKey(std::string_view key) const;
   std::optional<VariantValue> getObjectValueByKey(std::string_view key,
                                                   const ObjectInfo& info) const;
-  VariantValue getObjectFieldByFieldId(uint32_t variantId, std::string_view* key) const;
+  std::optional<VariantValue> getObjectFieldByFieldId(uint32_t variant_id) const;
+  std::optional<VariantValue> getObjectFieldByFieldId(uint32_t variant_id,
+                                                      const ObjectInfo& info) const;
 
   struct ArrayInfo {
     uint32_t num_elements;

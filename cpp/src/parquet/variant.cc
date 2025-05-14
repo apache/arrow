@@ -22,6 +22,7 @@
 #include <string_view>
 
 #include <arrow/util/endian.h>
+#include <arrow/util/logging.h>
 
 #include "parquet/exception.h"
 
@@ -101,14 +102,14 @@ std::string variantTypeToString(VariantType type) {
       return "NULL";
     case VariantType::BOOLEAN:
       return "BOOLEAN";
-    case VariantType::BYTE:
-      return "BYTE";
-    case VariantType::SHORT:
-      return "SHORT";
-    case VariantType::INT:
-      return "INT";
-    case VariantType::LONG:
-      return "LONG";
+    case VariantType::INT8:
+      return "INT8";
+    case VariantType::INT16:
+      return "INT16";
+    case VariantType::INT32:
+      return "INT32";
+    case VariantType::INT64:
+      return "INT64";
     case VariantType::STRING:
       return "STRING";
     case VariantType::DOUBLE:
@@ -178,19 +179,19 @@ uint32_t VariantMetadata::dictionarySize() const {
   return dict_size;
 }
 
-std::string_view VariantMetadata::getMetadataKey(int32_t variantId) const {
+std::string_view VariantMetadata::getMetadataKey(int32_t variant_id) const {
   uint32_t offset_size = offsetSize();
   uint32_t dict_size = dictionarySize();
 
-  if (variantId < 0 || variantId >= static_cast<int32_t>(dict_size)) {
-    throw ParquetException("Invalid Variant metadata: variantId out of range");
+  if (variant_id < 0 || variant_id >= static_cast<int32_t>(dict_size)) {
+    throw ParquetException("Invalid Variant metadata: variant_id out of range");
   }
 
   if ((dict_size + 1) * offset_size > metadata_.size()) {
     throw ParquetException("Invalid Variant metadata: offset out of range");
   }
 
-  size_t offset_start_pos = 1 + offset_size + (variantId * offset_size);
+  size_t offset_start_pos = 1 + offset_size + (variant_id * offset_size);
 
   uint32_t variant_offset = 0;
   uint32_t variant_next_offset = 0;
@@ -207,6 +208,40 @@ std::string_view VariantMetadata::getMetadataKey(int32_t variantId) const {
     throw ParquetException("Invalid Variant metadata: string data out of range");
   }
   return {metadata_.data() + string_start, key_size};
+}
+
+arrow::internal::SmallVector<int32_t, 1> VariantMetadata::getMetadataId(
+    std::string_view key) const {
+  uint32_t offset_size = offsetSize();
+  uint32_t dict_size = dictionarySize();
+
+  if ((dict_size + 1) * offset_size > metadata_.size()) {
+    throw ParquetException("Invalid Variant metadata: offset out of range");
+  }
+  ::arrow::internal::SmallVector<int32_t, 1> vector;
+  for (uint32_t i = 0; i < dict_size; ++i) {
+    size_t offset_start_pos = 1 + offset_size + (i * offset_size);
+    uint32_t variant_offset = 0;
+    memcpy(&variant_offset, metadata_.data() + offset_start_pos, offset_size);
+    variant_offset = ::arrow::bit_util::FromLittleEndian(variant_offset);
+
+    uint32_t variant_next_offset = 0;
+    memcpy(&variant_next_offset, metadata_.data() + offset_start_pos + offset_size,
+           offset_size);
+    variant_next_offset = ::arrow::bit_util::FromLittleEndian(variant_next_offset);
+
+    uint32_t key_size = variant_next_offset - variant_offset;
+
+    size_t string_start = 1 + offset_size * (dict_size + 2) + variant_offset;
+    if (string_start + key_size > metadata_.size()) {
+      throw ParquetException("Invalid Variant metadata: string data out of range");
+    }
+    std::string_view current_key{metadata_.data() + string_start, key_size};
+    if (current_key == key) {
+      vector.push_back(i);
+    }
+  }
+  return vector;
 }
 
 VariantBasicType VariantValue::getBasicType() const {
@@ -228,13 +263,13 @@ VariantType VariantValue::getType() const {
         case VariantPrimitiveType::BooleanFalse:
           return VariantType::BOOLEAN;
         case VariantPrimitiveType::Int8:
-          return VariantType::BYTE;
+          return VariantType::INT8;
         case VariantPrimitiveType::Int16:
-          return VariantType::SHORT;
+          return VariantType::INT16;
         case VariantPrimitiveType::Int32:
-          return VariantType::INT;
+          return VariantType::INT32;
         case VariantPrimitiveType::Int64:
-          return VariantType::LONG;
+          return VariantType::INT64;
         case VariantPrimitiveType::Double:
           return VariantType::DOUBLE;
         case VariantPrimitiveType::Decimal4:
@@ -291,14 +326,14 @@ std::string VariantValue::typeDebugString() const {
       return "NULL";
     case VariantType::BOOLEAN:
       return "BOOLEAN";
-    case VariantType::BYTE:
-      return "BYTE";
-    case VariantType::SHORT:
-      return "SHORT";
-    case VariantType::INT:
-      return "INT";
-    case VariantType::LONG:
-      return "LONG";
+    case VariantType::INT8:
+      return "INT8";
+    case VariantType::INT16:
+      return "INT16";
+    case VariantType::INT32:
+      return "INT32";
+    case VariantType::INT64:
+      return "INT64";
     case VariantType::STRING:
       return "STRING";
     case VariantType::DOUBLE:
@@ -582,56 +617,45 @@ std::optional<VariantValue> VariantValue::getObjectValueByKey(
 
 std::optional<VariantValue> VariantValue::getObjectValueByKey(
     std::string_view key, const VariantValue::ObjectInfo& info) const {
-  // TODO(mwish): Currently we just linear search here. The best way here is:
-  //  1. check the num_elements
-  //  2.1. If the element number is less than 8(or other magic number), we can keep
-  //       current method.
-  //  2.2. If the element number is larger than 8, and metadata.sorted_strings is true,
-  //       we can first apply binary search on the metadata, and then binary search the
-  //       field id.
-
-  for (uint32_t i = 0; i < info.num_elements; ++i) {
-    std::string_view field_key;
-    std::optional<VariantValue> field_value = getObjectFieldByFieldId(i, &field_key);
-
-    if (!field_value.has_value()) {
-      // The field might not belong to the current object,
-      // just skip it.
-      continue;
-    }
-
-    if (field_key == key) {
-      return field_value;
+  ARROW_DCHECK_EQ(getObjectInfo(), info);
+  auto metadata_ids = metadata.getMetadataId(key);
+  if (metadata_ids.empty()) {
+    return std::nullopt;
+  }
+  for (uint32_t variant_id : metadata_ids) {
+    auto variant_value = getObjectFieldByFieldId(variant_id, info);
+    if (variant_value.has_value()) {
+      return variant_value;
     }
   }
-
   return std::nullopt;
 }
 
-VariantValue VariantValue::getObjectFieldByFieldId(uint32_t variantId,
-                                                   std::string_view* key) const {
-  ObjectInfo info = getObjectInfo();
+std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
+    uint32_t variant_id, const ObjectInfo& info) const {
+  ARROW_DCHECK_EQ(getObjectInfo(), info);
 
-  if (variantId >= info.num_elements) {
-    throw ParquetException("Field ID out of range: " + std::to_string(variantId) +
-                           " >= " + std::to_string(info.num_elements));
+  uint32_t field_offset = std::numeric_limits<uint32_t>::max();
+  // Get the field offset
+  // TODO(mwish): Using binary search to optimize it.
+  for (uint32_t i = 0; i < info.num_elements; ++i) {
+    uint32_t variant_field_id = 0;
+    memcpy(&variant_field_id, value.data() + info.id_start_offset + i * info.id_size,
+           info.id_size);
+    variant_field_id = arrow::bit_util::FromLittleEndian(variant_field_id);
+    if (variant_field_id == variant_id) {
+      field_offset = i;
+      break;
+    }
+  }
+  if (field_offset == std::numeric_limits<uint32_t>::max()) {
+    return std::nullopt;
   }
 
-  // Read the field ID
-  uint32_t field_id = 0;
-  memcpy(&field_id, value.data() + info.id_start_offset + variantId * info.id_size,
-         info.id_size);
-  field_id = arrow::bit_util::FromLittleEndian(field_id);
-
-  // Get the key from metadata
-  *key = metadata.getMetadataKey(static_cast<int32_t>(field_id));
-
   // Read the offset and next offset
-  uint32_t offset = 0, next_offset = 0;
-  memcpy(&offset, value.data() + info.offset_start_offset + variantId * info.offset_size,
-         info.offset_size);
-  memcpy(&next_offset,
-         value.data() + info.offset_start_offset + (variantId + 1) * info.offset_size,
+  uint32_t offset = 0;
+  memcpy(&offset,
+         value.data() + info.offset_start_offset + field_offset * info.offset_size,
          info.offset_size);
   offset = arrow::bit_util::FromLittleEndian(offset);
 
@@ -647,6 +671,13 @@ VariantValue VariantValue::getObjectFieldByFieldId(uint32_t variantId,
                            .value = value.substr(info.data_start_offset + offset)};
 
   return field_value;
+}
+
+std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
+    uint32_t variant_id) const {
+  ObjectInfo info = getObjectInfo();
+
+  return getObjectFieldByFieldId(variant_id, info);
 }
 
 VariantValue::ArrayInfo VariantValue::getArrayInfo() const {

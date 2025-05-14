@@ -132,30 +132,30 @@ TEST(ParquetVariant, NumericValues) {
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_int8", &metadata_buf, &value_buf);
-    EXPECT_EQ(VariantType::BYTE, variant.getType());
-    EXPECT_EQ("BYTE", variant.typeDebugString());
+    EXPECT_EQ(VariantType::INT8, variant.getType());
+    EXPECT_EQ("INT8", variant.typeDebugString());
     EXPECT_EQ(42, variant.getInt8());
   }
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_int16", &metadata_buf, &value_buf);
-    EXPECT_EQ(VariantType::SHORT, variant.getType());
-    EXPECT_EQ("SHORT", variant.typeDebugString());
+    EXPECT_EQ(VariantType::INT16, variant.getType());
+    EXPECT_EQ("INT16", variant.typeDebugString());
     EXPECT_EQ(1234, variant.getInt16());
   }
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_int32", &metadata_buf, &value_buf);
-    EXPECT_EQ(VariantType::INT, variant.getType());
-    EXPECT_EQ("INT", variant.typeDebugString());
+    EXPECT_EQ(VariantType::INT32, variant.getType());
+    EXPECT_EQ("INT32", variant.typeDebugString());
     EXPECT_EQ(123456, variant.getInt32());
   }
   {
     // FIXME(mwish): https://github.com/apache/parquet-testing/issues/82
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_int64", &metadata_buf, &value_buf);
-    //   EXPECT_EQ(VariantType::LONG, variant.getType());
-    //   EXPECT_EQ("LONG", variant.typeDebugString());
+    EXPECT_EQ(VariantType::INT32, variant.getType());
+    EXPECT_EQ("INT32", variant.typeDebugString());
     EXPECT_EQ(12345678, variant.getInt32());
   }
   {
@@ -227,7 +227,7 @@ TEST(ParquetVariant, ObjectValues) {
   EXPECT_EQ(7, obj_info.num_elements);
   auto handle_int_field = [](const std::optional<VariantValue>& value) {
     EXPECT_TRUE(value.has_value());
-    EXPECT_EQ(VariantType::BYTE, value->getType());
+    EXPECT_EQ(VariantType::INT8, value->getType());
     EXPECT_EQ(1, value->getInt8());
   };
   auto handle_double_field = [](const std::optional<VariantValue>& value) {
@@ -281,8 +281,8 @@ TEST(ParquetVariant, ObjectValues) {
   }
   // Test get by index
   for (uint32_t i = 0; i < obj_info.num_elements; ++i) {
-    std::string_view key;
-    auto value = variant.getObjectFieldByFieldId(i, &key);
+    auto value = variant.getObjectFieldByFieldId(i);
+    auto key = variant.metadata.getMetadataKey(i);
     auto iter = key_handler.find(std::string(key));
     ASSERT_TRUE(iter != key_handler.end());
     auto handler = iter->second;
@@ -290,7 +290,7 @@ TEST(ParquetVariant, ObjectValues) {
   }
   {
     std::string_view key;
-    EXPECT_THROW(variant.getObjectFieldByFieldId(100, &key), ParquetException);
+    EXPECT_FALSE(variant.getObjectFieldByFieldId(100).has_value());
   }
 }
 
@@ -303,18 +303,20 @@ TEST(ParquetVariant, NestedObjectValues) {
   EXPECT_EQ(3, info.num_elements);
 
   // Trying to get the exists key
-  auto value = variant.getObjectValueByKey("id", info);
-  ASSERT_TRUE(value.has_value());
-  EXPECT_EQ(VariantType::BYTE, value->getType());
-  EXPECT_EQ(1, value->getInt8());
+  auto id = variant.getObjectValueByKey("id", info);
+  ASSERT_TRUE(id.has_value());
+  EXPECT_EQ(VariantType::INT8, id->getType());
+  EXPECT_EQ(1, id->getInt8());
 
-  auto observation = value->getObjectValueByKey("observation", info);
+  auto observation = variant.getObjectValueByKey("observation", info);
   ASSERT_TRUE(observation.has_value());
   EXPECT_EQ(VariantType::OBJECT, observation->getType());
 
-  auto species = observation->getObjectValueByKey("species", info);
+  auto species = variant.getObjectValueByKey("species", info);
   ASSERT_TRUE(species.has_value());
   EXPECT_EQ(VariantType::OBJECT, species->getType());
+  auto species_info = species->getObjectInfo();
+  EXPECT_EQ(2, species_info.num_elements);
 
   // Inner object works well
   {
@@ -323,12 +325,12 @@ TEST(ParquetVariant, NestedObjectValues) {
     auto name = species->getObjectValueByKey("name");
     ASSERT_TRUE(name.has_value());
     EXPECT_EQ(VariantType::STRING, name->getType());
-    EXPECT_EQ("name", name->getString());
+    EXPECT_EQ("lava monster", name->getString());
 
     auto population = species->getObjectValueByKey("population");
     ASSERT_TRUE(population.has_value());
-    EXPECT_EQ(VariantType::SHORT, name->getType());
-    EXPECT_EQ(6789, name->getInt16());
+    EXPECT_EQ(VariantType::INT16, population->getType());
+    EXPECT_EQ(6789, population->getInt16());
   }
 
   // Get inner key outside will fail
@@ -337,22 +339,22 @@ TEST(ParquetVariant, NestedObjectValues) {
     for (auto& key : observation_keys) {
       // Only observation would get it successfully.
       auto inner_value = observation->getObjectValueByKey(key);
-      ASSERT_TRUE(value.has_value());
+      ASSERT_TRUE(inner_value.has_value());
 
-      inner_value = value->getObjectValueByKey(key, info);
-      ASSERT_FALSE(value.has_value());
+      inner_value = variant.getObjectValueByKey(key);
+      ASSERT_FALSE(inner_value.has_value());
 
       inner_value = species->getObjectValueByKey(key);
-      ASSERT_FALSE(value.has_value());
+      ASSERT_FALSE(inner_value.has_value());
     }
   }
   // Get outside keys in inner object
   {
-    auto inner_value = observation->getObjectValueByKey("id", info);
-    ASSERT_FALSE(inner_value.has_value());
+    auto inner_value = observation->getObjectValueByKey("id");
+    EXPECT_FALSE(inner_value.has_value());
 
-    inner_value = species->getObjectValueByKey("id", info);
-    ASSERT_FALSE(inner_value.has_value());
+    inner_value = species->getObjectValueByKey("id");
+    EXPECT_FALSE(inner_value.has_value());
   }
 }
 
@@ -422,19 +424,19 @@ TEST(ParquetVariant, ArrayValues) {
     EXPECT_EQ(4, array_info.num_elements);
 
     auto element0 = variant.getArrayValueByIndex(0);
-    EXPECT_EQ(VariantType::BYTE, element0.getType());
+    EXPECT_EQ(VariantType::INT8, element0.getType());
     EXPECT_EQ(2, element0.getInt8());
 
     auto element1 = variant.getArrayValueByIndex(1);
-    EXPECT_EQ(VariantType::BYTE, element1.getType());
+    EXPECT_EQ(VariantType::INT8, element1.getType());
     EXPECT_EQ(1, element1.getInt8());
 
     auto element2 = variant.getArrayValueByIndex(2);
-    EXPECT_EQ(VariantType::BYTE, element2.getType());
+    EXPECT_EQ(VariantType::INT8, element2.getType());
     EXPECT_EQ(5, element2.getInt8());
 
     auto element3 = variant.getArrayValueByIndex(3);
-    EXPECT_EQ(VariantType::BYTE, element3.getType());
+    EXPECT_EQ(VariantType::INT8, element3.getType());
     EXPECT_EQ(9, element3.getInt8());
 
     EXPECT_THROW(variant.getArrayValueByIndex(4), ParquetException);
@@ -469,7 +471,7 @@ TEST(ParquetVariant, ArrayValuesNested) {
     EXPECT_EQ(2, first_element_info.num_elements);
     auto id = first_element.getObjectValueByKey("id");
     ASSERT_TRUE(id.has_value());
-    EXPECT_EQ(VariantType::BYTE, id->getType());
+    EXPECT_EQ(VariantType::INT8, id->getType());
     EXPECT_EQ(1, id->getInt8());
   }
   {
@@ -483,7 +485,7 @@ TEST(ParquetVariant, ArrayValuesNested) {
     EXPECT_EQ(3, third_element_info.num_elements);
     auto id = third_element.getObjectValueByKey("id");
     ASSERT_TRUE(id.has_value());
-    EXPECT_EQ(VariantType::BYTE, id->getType());
+    EXPECT_EQ(VariantType::INT8, id->getType());
     EXPECT_EQ(2, id->getInt8());
   }
 }
