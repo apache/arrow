@@ -199,7 +199,7 @@ def create_config(directory, yml_content, env_content=None):
     if env_content is not None:
         with env_path.open('w') as fp:
             for k, v in env_content.items():
-                fp.write("{}={}\n".format(k, v))
+                fp.write(f"{k}={v}\n")
 
     return config_path
 

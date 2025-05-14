@@ -381,9 +381,13 @@ class RankMetaFunction : public RankMetaFunctionBase<RankMetaFunction> {
   }
 
   RankMetaFunction()
-      : RankMetaFunctionBase("rank", Arity::Unary(), rank_doc, &kDefaultOptions) {}
+      : RankMetaFunctionBase("rank", Arity::Unary(), rank_doc, GetDefaultOptions()) {}
 
-  static inline const auto kDefaultOptions = RankOptions::Defaults();
+ private:
+  static const RankOptions* GetDefaultOptions() {
+    static const auto kDefaultOptions = RankOptions::Defaults();
+    return &kDefaultOptions;
+  }
 };
 
 class RankQuantileMetaFunction : public RankMetaFunctionBase<RankQuantileMetaFunction> {
@@ -398,9 +402,13 @@ class RankQuantileMetaFunction : public RankMetaFunctionBase<RankQuantileMetaFun
 
   RankQuantileMetaFunction()
       : RankMetaFunctionBase("rank_quantile", Arity::Unary(), rank_quantile_doc,
-                             &kDefaultOptions) {}
+                             GetDefaultOptions()) {}
 
-  static inline const auto kDefaultOptions = RankQuantileOptions::Defaults();
+ private:
+  static const RankQuantileOptions* GetDefaultOptions() {
+    static const auto kDefaultOptions = RankQuantileOptions::Defaults();
+    return &kDefaultOptions;
+  }
 };
 
 class RankNormalMetaFunction : public RankMetaFunctionBase<RankNormalMetaFunction> {
@@ -415,9 +423,13 @@ class RankNormalMetaFunction : public RankMetaFunctionBase<RankNormalMetaFunctio
 
   RankNormalMetaFunction()
       : RankMetaFunctionBase("rank_normal", Arity::Unary(), rank_normal_doc,
-                             &kDefaultOptions) {}
+                             GetDefaultOptions()) {}
 
-  static inline const auto kDefaultOptions = RankQuantileOptions::Defaults();
+ private:
+  static const RankQuantileOptions* GetDefaultOptions() {
+    static const auto kDefaultOptions = RankQuantileOptions::Defaults();
+    return &kDefaultOptions;
+  }
 };
 
 }  // namespace

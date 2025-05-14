@@ -47,12 +47,12 @@ cpp_args = cpp_compiler.get_supported_arguments(project_args)
 add_project_arguments(cpp_args, language: 'cpp')
 
 git_id = get_option('git_id')
-if git_id == ''
+if git_id == '' and not meson.is_subproject()
     git_id = run_command('git', 'log', '-n1', '--format=%H', check: false).stdout().strip()
 endif
 
 git_description = get_option('git_description')
-if git_description == ''
+if git_description == '' and not meson.is_subproject()
     git_description = run_command('git', 'describe', '--tags', check: false).stdout().strip()
 endif
 
@@ -77,16 +77,11 @@ or needs_integration
 )
 needs_json = get_option('json').enabled() or needs_testing
 needs_brotli = get_option('brotli').enabled() or needs_fuzzing
+needs_bz2 = get_option('bz2').enabled()
 needs_lz4 = get_option('lz4').enabled()
+needs_snappy = get_option('snappy').enabled()
+needs_zlib = get_option('zlib').enabled()
 needs_zstd = get_option('zstd').enabled()
 needs_utilities = get_option('utilities').enabled()
-
-if (get_option('brotli').enabled() or get_option('lz4').enabled() or get_option(
-    'zstd',
-).enabled()
-)
-    # See GH issue 46115
-    error('Compression options (brotli, lz4, zstd) are not implemented in Meson')
-endif
 
 subdir('src/arrow')

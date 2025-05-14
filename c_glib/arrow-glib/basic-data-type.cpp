@@ -2347,6 +2347,69 @@ garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
   return data_type;
 }
 
+/**
+ * garrow_fixed_shape_tensor_data_type_get_shape:
+ * @data_type: A #GArrowFixedShapeTensorDataType.
+ * @length: (out): Return location for the number of dimensions of the tensor.
+ *
+ * Returns: (array length=length): Shape of the tensor.
+ */
+const gint64 *
+garrow_fixed_shape_tensor_data_type_get_shape(GArrowFixedShapeTensorDataType *data_type,
+                                              gsize *length)
+{
+  auto arrow_data_type = std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
+
+  const auto &arrow_shape = arrow_data_type->shape();
+  *length = arrow_shape.size();
+  return arrow_shape.data();
+}
+
+/**
+ * garrow_fixed_shape_tensor_data_type_get_permutation:
+ * @data_type: A #GArrowFixedShapeTensorDataType.
+ * @length: (out): Return location for the number of elements of permutation.
+ *
+ * Returns: (array length=length): Permutation of the tensor.
+ */
+const gint64 *
+garrow_fixed_shape_tensor_data_type_get_permutation(
+  GArrowFixedShapeTensorDataType *data_type, gsize *length)
+{
+  auto arrow_data_type = std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
+
+  const auto &arrow_permutation = arrow_data_type->permutation();
+  *length = arrow_permutation.size();
+  return arrow_permutation.data();
+}
+
+/**
+ * garrow_fixed_shape_tensor_data_type_get_dim_names:
+ * @data_type: A #GArrowFixedShapeTensorDataType.
+ *
+ * Returns: (array zero-terminated=1) (element-type utf8) (transfer full):
+ *   Dimention names of the tensor.
+ *
+ *   It's a %NULL-terminated string array. It must be freed with
+ *   g_strfreev() when no longer needed.
+ */
+gchar **
+garrow_fixed_shape_tensor_data_type_get_dim_names(
+  GArrowFixedShapeTensorDataType *data_type)
+{
+  auto arrow_data_type = std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
+  const auto &arrow_dim_names = arrow_data_type->dim_names();
+  auto n = arrow_dim_names.size();
+  auto dim_names = g_new(gchar *, n + 1);
+  for (size_t i = 0; i < n; ++i) {
+    dim_names[i] = g_strndup(arrow_dim_names[i].data(), arrow_dim_names[i].size());
+  }
+  dim_names[n] = nullptr;
+  return dim_names;
+}
 G_END_DECLS
 
 GArrowDataType *

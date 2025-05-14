@@ -646,7 +646,7 @@ PyArrow are:
      - Number of processes used to compile PyArrow’s C++/Cython components
      - ``''``
 
-The components being disabled or enabled when building PyArrrow is by default
+The components being disabled or enabled when building PyArrow is by default
 based on how Arrow C++ is build (i.e. it follows the ``ARROW_$COMPONENT`` flags).
 However, the ``PYARROW_WITH_$COMPONENT`` environment variables can still be used
 to override this when building PyArrow (e.g. to disable components, or to enforce

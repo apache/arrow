@@ -359,7 +359,7 @@ showing how a client might handle the metadata and data streams:
    be used alongside the sequence number to match the message regardless of the higher bytes (e.g. we only
    care about matching the lower 4 bytes to the sequence number)
 
-   * Once recieved, the Most Significant Byte's value determines how the client processes the body data:
+   * Once received, the Most Significant Byte's value determines how the client processes the body data:
 
      * If the most significant byte is 0: Then the body of the message is the raw IPC packed body buffers
        allowing it to easily be processed with the corresponding metadata header bytes.

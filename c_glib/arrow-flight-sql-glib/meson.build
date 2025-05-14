@@ -81,8 +81,7 @@ if have_gi
         libarrow_flight_sql_glib,
         dependencies: arrow_flight_sql_glib_gir_dependencies,
         export_packages: 'arrow-flight-sql-glib',
-        extra_args: [
-            '--warn-all',
+        extra_args: gir_scanner_extra_args + [
             '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
             '--include-uninstalled=./arrow-flight-glib/ArrowFlight-1.0.gir',
         ],

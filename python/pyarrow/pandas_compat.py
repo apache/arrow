@@ -81,7 +81,7 @@ def get_logical_type(arrow_type):
         if isinstance(arrow_type, pa.lib.DictionaryType):
             return 'categorical'
         elif isinstance(arrow_type, pa.lib.ListType):
-            return 'list[{}]'.format(get_logical_type(arrow_type.value_type))
+            return f'list[{get_logical_type(arrow_type.value_type)}]'
         elif isinstance(arrow_type, pa.lib.TimestampType):
             return 'datetimetz' if arrow_type.tz is not None else 'datetime'
         elif pa.types.is_decimal(arrow_type):
@@ -180,9 +180,8 @@ def get_column_metadata(column, name, arrow_type, field_name):
         and not isinstance(name, str)
     ):
         raise TypeError(
-            'Column name must be a string. Got column {} of type {}'.format(
-                name, type(name).__name__
-            )
+            f"Column name must be a string. Got column {name} of type "
+            f"{type(name).__name__}"
         )
 
     assert isinstance(field_name, str), str(type(field_name))
@@ -365,7 +364,7 @@ def _index_level_name(index, i, column_names):
     if index.name is not None and index.name not in column_names:
         return _column_name_to_strings(index.name)
     else:
-        return '__index_level_{:d}__'.format(i)
+        return f'__index_level_{i:d}__'
 
 
 def _get_columns_to_convert(df, schema, preserve_index, columns):
@@ -373,7 +372,7 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
 
     if not df.columns.is_unique:
         raise ValueError(
-            'Duplicate column names found: {}'.format(list(df.columns))
+            f'Duplicate column names found: {list(df.columns)}'
         )
 
     if schema is not None:
@@ -396,7 +395,7 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
 
         if _pandas_api.is_sparse(col):
             raise TypeError(
-                "Sparse pandas data (column {}) not supported.".format(name))
+                f"Sparse pandas data (column {name}) not supported.")
 
         columns_to_convert.append(col)
         convert_fields.append(None)
@@ -458,27 +457,27 @@ def _get_columns_to_convert_given_schema(df, schema, preserve_index):
             except (KeyError, IndexError):
                 # name not found as index level
                 raise KeyError(
-                    "name '{}' present in the specified schema is not found "
-                    "in the columns or index".format(name))
+                    f"name '{name}' present in the specified schema is not found "
+                    "in the columns or index")
             if preserve_index is False:
                 raise ValueError(
-                    "name '{}' present in the specified schema corresponds "
+                    f"name '{name}' present in the specified schema corresponds "
                     "to the index, but 'preserve_index=False' was "
-                    "specified".format(name))
+                    "specified")
             elif (preserve_index is None and
                     isinstance(col, _pandas_api.pd.RangeIndex)):
                 raise ValueError(
-                    "name '{}' is present in the schema, but it is a "
+                    f"name '{name}' is present in the schema, but it is a "
                     "RangeIndex which will not be converted as a column "
                     "in the Table, but saved as metadata-only not in "
                     "columns. Specify 'preserve_index=True' to force it "
                     "being added as a column, or remove it from the "
-                    "specified schema".format(name))
+                    "specified schema")
             is_index = True
 
         if _pandas_api.is_sparse(col):
             raise TypeError(
-                "Sparse pandas data (column {}) not supported.".format(name))
+                f"Sparse pandas data (column {name}) not supported.")
 
         field = schema.field(name)
         columns_to_convert.append(col)
@@ -621,13 +620,12 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
         except (pa.ArrowInvalid,
                 pa.ArrowNotImplementedError,
                 pa.ArrowTypeError) as e:
-            e.args += ("Conversion failed for column {!s} with type {!s}"
-                       .format(col.name, col.dtype),)
+            e.args += (
+                f"Conversion failed for column {col.name} with type {col.dtype}",)
             raise e
         if not field_nullable and result.null_count > 0:
-            raise ValueError("Field {} was non-nullable but pandas column "
-                             "had {} null values".format(str(field),
-                                                         result.null_count))
+            raise ValueError(f"Field {field} was non-nullable but pandas column "
+                             f"had {result.null_count} null values")
         return result
 
     def _can_definitely_zero_copy(arr):
@@ -1004,8 +1002,7 @@ def _reconstruct_index(table, index_descriptors, all_columns, types_mapper=None)
                 # Possibly the result of munged metadata
                 continue
         else:
-            raise ValueError("Unrecognized index kind: {}"
-                             .format(descr['kind']))
+            raise ValueError(f"Unrecognized index kind: {descr['kind']}")
         index_arrays.append(index_level)
         index_names.append(index_name)
 

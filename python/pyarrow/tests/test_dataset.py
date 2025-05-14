@@ -122,7 +122,7 @@ def mockfs():
     ]
 
     for i, directory in enumerate(directories):
-        path = '{}/file{}.parquet'.format(directory, i)
+        path = f'{directory}/file{i}.parquet'
         mockfs.create_dir(directory)
         with mockfs.open_output_stream(path) as out:
             data = [
@@ -198,15 +198,15 @@ def multisourcefs(request):
     mockfs.create_dir('plain')
     n = len(df_a)
     for i, chunk in enumerate([df_a.iloc[i:i+n//10] for i in range(0, n, n//10)]):
-        path = 'plain/chunk-{}.parquet'.format(i)
+        path = f'plain/chunk-{i}.parquet'
         with mockfs.open_output_stream(path) as out:
             pq.write_table(_table_from_pandas(chunk), out)
 
     # create one with schema partitioning by weekday and color
     mockfs.create_dir('schema')
     for part, chunk in df_b.groupby([df_b.date.dt.dayofweek, df_b.color]):
-        folder = 'schema/{}/{}'.format(*part)
-        path = '{}/chunk.parquet'.format(folder)
+        folder = f'schema/{part[0]}/{part[1]}'
+        path = f'{folder}/chunk.parquet'
         mockfs.create_dir(folder)
         with mockfs.open_output_stream(path) as out:
             pq.write_table(_table_from_pandas(chunk), out)
@@ -214,8 +214,8 @@ def multisourcefs(request):
     # create one with hive partitioning by year and month
     mockfs.create_dir('hive')
     for part, chunk in df_c.groupby([df_c.date.dt.year, df_c.date.dt.month]):
-        folder = 'hive/year={}/month={}'.format(*part)
-        path = '{}/chunk.parquet'.format(folder)
+        folder = f'hive/year={part[0]}/month={part[1]}'
+        path = f'{folder}/chunk.parquet'
         mockfs.create_dir(folder)
         with mockfs.open_output_stream(path) as out:
             pq.write_table(_table_from_pandas(chunk), out)
@@ -223,8 +223,8 @@ def multisourcefs(request):
     # create one with hive partitioning by color
     mockfs.create_dir('hive_color')
     for part, chunk in df_d.groupby("color"):
-        folder = 'hive_color/color={}'.format(part)
-        path = '{}/chunk.parquet'.format(folder)
+        folder = f'hive_color/color={part}'
+        path = f'{folder}/chunk.parquet'
         mockfs.create_dir(folder)
         with mockfs.open_output_stream(path) as out:
             pq.write_table(_table_from_pandas(chunk), out)
@@ -1801,8 +1801,8 @@ def test_fragments_repr(tempdir, dataset):
     fragment = list(dataset.get_fragments())[0]
     assert (
         repr(fragment) ==
-        "<pyarrow.dataset.ParquetFileFragment path={}>".format(
-            dataset.filesystem.normalize_path(str(path)))
+        "<pyarrow.dataset.ParquetFileFragment path="
+        f"{dataset.filesystem.normalize_path(str(path))}>"
     )
 
     # non-parquet format
@@ -1812,8 +1812,8 @@ def test_fragments_repr(tempdir, dataset):
     fragment = list(dataset.get_fragments())[0]
     assert (
         repr(fragment) ==
-        "<pyarrow.dataset.FileFragment type=ipc path={}>".format(
-            dataset.filesystem.normalize_path(str(path)))
+        "<pyarrow.dataset.FileFragment type=ipc path="
+        f"{dataset.filesystem.normalize_path(str(path))}>"
     )
 
 
@@ -2569,7 +2569,7 @@ def _create_partitioned_dataset(basedir):
     path.mkdir()
 
     for i in range(3):
-        part = path / "part={}".format(i)
+        part = path / f"part={i}"
         part.mkdir()
         pq.write_table(table.slice(3*i, 3), part / "test.parquet")
 
@@ -2781,9 +2781,8 @@ def s3_example_simple(s3_server):
 
     host, port, access_key, secret_key = s3_server['connection']
     uri = (
-        "s3://{}:{}@mybucket/data.parquet?scheme=http&endpoint_override={}:{}"
-        "&allow_bucket_creation=True"
-        .format(access_key, secret_key, host, port)
+        f"s3://{access_key}:{secret_key}@mybucket/data.parquet?scheme=http"
+        f"&endpoint_override={host}:{port}&allow_bucket_creation=True"
     )
 
     fs, path = FileSystem.from_uri(uri)
@@ -2833,7 +2832,7 @@ def test_open_dataset_from_uri_s3_fsspec(s3_example_simple):
         key=access_key,
         secret=secret_key,
         client_kwargs={
-            'endpoint_url': 'http://{}:{}'.format(host, port)
+            'endpoint_url': f'http://{host}:{port}'
         }
     )
 
@@ -2855,10 +2854,10 @@ def test_open_dataset_from_s3_with_filesystem_uri(s3_server):
     host, port, access_key, secret_key = s3_server['connection']
     bucket = 'theirbucket'
     path = 'nested/folder/data.parquet'
-    uri = "s3://{}:{}@{}/{}?scheme=http&endpoint_override={}:{}"\
-        "&allow_bucket_creation=true".format(
-            access_key, secret_key, bucket, path, host, port
-        )
+    uri = (
+        f"s3://{access_key}:{secret_key}@{bucket}/{path}?scheme=http"
+        f"&endpoint_override={host}:{port}&allow_bucket_creation=true"
+    )
 
     fs, path = FileSystem.from_uri(uri)
     assert path == 'theirbucket/nested/folder/data.parquet'
@@ -3361,7 +3360,7 @@ def test_csv_format(tempdir, dataset_reader):
 ])
 def test_csv_format_compressed(tempdir, compression, dataset_reader):
     if not pyarrow.Codec.is_available(compression):
-        pytest.skip("{} support is not built".format(compression))
+        pytest.skip(f"{compression} support is not built")
     table = pa.table({'a': pa.array([1, 2, 3], type="int64"),
                       'b': pa.array([.1, .2, .3], type="float64")})
     filesystem = fs.LocalFileSystem()
@@ -4778,7 +4777,7 @@ def test_write_dataset_parquet(tempdir):
         format = ds.ParquetFileFormat()
         opts = format.make_write_options(version=version)
         assert "<pyarrow.dataset.ParquetFileWriteOptions" in repr(opts)
-        base_dir = tempdir / 'parquet_dataset_version{0}'.format(version)
+        base_dir = tempdir / f'parquet_dataset_version{version}'
         ds.write_dataset(table, base_dir, format=format, file_options=opts)
         meta = pq.read_metadata(base_dir / "part-0.parquet")
         expected_version = "1.0" if version == "1.0" else "2.6"
@@ -5001,7 +5000,7 @@ def test_write_dataset_s3_put_only(s3_server):
     fs = S3FileSystem(
         access_key='test_dataset_limited_user',
         secret_key='limited123',
-        endpoint_override='{}:{}'.format(host, port),
+        endpoint_override=f'{host}:{port}',
         scheme='http'
     )
 
@@ -5049,7 +5048,7 @@ def test_write_dataset_s3_put_only(s3_server):
     fs = S3FileSystem(
         access_key='limited',
         secret_key='limited123',
-        endpoint_override='{}:{}'.format(host, port),
+        endpoint_override=f'{host}:{port}',
         scheme='http',
         allow_bucket_creation=True,
     )

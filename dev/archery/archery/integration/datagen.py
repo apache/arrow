@@ -1592,8 +1592,7 @@ def generate_null_trivial_case(batch_sizes):
 
 def generate_decimal32_case():
     fields = [
-        DecimalField(name='f{}'.format(i), precision=precision, scale=2,
-                     bit_width=32)
+        DecimalField(name=f'f{i}', precision=precision, scale=2, bit_width=32)
         for i, precision in enumerate(range(3, 10))
     ]
 
@@ -1603,8 +1602,7 @@ def generate_decimal32_case():
 
 def generate_decimal64_case():
     fields = [
-        DecimalField(name='f{}'.format(i), precision=precision, scale=2,
-                     bit_width=64)
+        DecimalField(name=f'f{i}', precision=precision, scale=2, bit_width=64)
         for i, precision in enumerate(range(3, 19))
     ]
 
@@ -1614,8 +1612,7 @@ def generate_decimal64_case():
 
 def generate_decimal128_case():
     fields = [
-        DecimalField(name='f{}'.format(i), precision=precision, scale=2,
-                     bit_width=128)
+        DecimalField(name=f'f{i}', precision=precision, scale=2, bit_width=128)
         for i, precision in enumerate(range(3, 39))
     ]
 
@@ -1628,8 +1625,7 @@ def generate_decimal128_case():
 
 def generate_decimal256_case():
     fields = [
-        DecimalField(name='f{}'.format(i), precision=precision, scale=5,
-                     bit_width=256)
+        DecimalField(name=f'f{i}', precision=precision, scale=5, bit_width=256)
         for i, precision in enumerate(range(37, 70))
     ]
 

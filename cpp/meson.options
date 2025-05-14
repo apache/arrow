@@ -24,6 +24,7 @@ option(
 
 option('benchmarks', type: 'feature', description: 'Build the Arrow micro benchmarks')
 option('brotli', type: 'feature', description: 'Build with Brotli compression')
+option('bz2', type: 'feature', description: 'Build with BZ2 compression')
 option('compute', type: 'feature', description: 'Build all Arrow Compute kernels')
 option('csv', type: 'feature', description: 'Build the Arrow CSV Parser Module')
 option('filesystem', type: 'feature', description: 'Build the Arrow Filesystem Layer')
@@ -66,6 +67,7 @@ option(
     description: 'Arbitrary string that identifies the kind of package (for informational purposes)',
 )
 
+option('snappy', type: 'feature', description: 'Build with snappy compression')
 option(
     's3',
     type: 'feature',
@@ -75,4 +77,5 @@ option('testing', type: 'feature', description: 'Build the Arrow testing librari
 option('tests', type: 'feature', description: 'Build the Arrow googletest unit tests')
 
 option('utilities', type: 'feature', description: 'Build Arrow commandline utilities')
+option('zlib', type: 'feature', description: 'Build with zlib compression')
 option('zstd', type: 'feature', description: 'Build with zstd compression')
