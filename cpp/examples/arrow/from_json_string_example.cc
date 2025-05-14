@@ -68,9 +68,9 @@ arrow::Status RunExample() {
           "[[11, 22], null, [null, 33]]"));
 
   // ChunkedArrayFromJSONString
-  std::shared_ptr<arrow::ChunkedArray> chunked_array;
-  ARROW_RETURN_NOT_OK(ChunkedArrayFromJSONString(
-      arrow::int32(), {"[5, 10]", "[null]", "[16]"}, &chunked_array));
+  ARROW_ASSIGN_OR_RAISE(
+      auto chunked_array,
+      ChunkedArrayFromJSONString(arrow::int32(), {"[5, 10]", "[null]", "[16]"}));
 
   // DictArrayFromJSONString
   std::shared_ptr<arrow::Array> dict_array;

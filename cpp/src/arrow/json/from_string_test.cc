@@ -1481,20 +1481,20 @@ TEST(TestDictArrayFromJSON, Errors) {
 
 TEST(TestChunkedArrayFromJSON, Basics) {
   auto type = int32();
-  std::shared_ptr<ChunkedArray> chunked_array;
-  ASSERT_OK(ChunkedArrayFromJSONString(type, {}, &chunked_array));
+  ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArrayFromJSONString(type, {}));
   ASSERT_OK(chunked_array->ValidateFull());
   ASSERT_EQ(chunked_array->num_chunks(), 0);
   AssertTypeEqual(type, chunked_array->type());
 
-  ASSERT_OK(ChunkedArrayFromJSONString(type, {"[1, 2]", "[3, null, 4]"}, &chunked_array));
-  ASSERT_OK(chunked_array->ValidateFull());
-  ASSERT_EQ(chunked_array->num_chunks(), 2);
+  ASSERT_OK_AND_ASSIGN(auto chunked_array_two,
+                       ChunkedArrayFromJSONString(type, {"[1, 2]", "[3, null, 4]"}));
+  ASSERT_OK(chunked_array_two->ValidateFull());
+  ASSERT_EQ(chunked_array_two->num_chunks(), 2);
   std::shared_ptr<Array> expected_chunk;
   ASSERT_OK_AND_ASSIGN(expected_chunk, ArrayFromJSONString(type, "[1, 2]"));
-  AssertArraysEqual(*expected_chunk, *chunked_array->chunk(0), /*verbose=*/true);
+  AssertArraysEqual(*expected_chunk, *chunked_array_two->chunk(0), /*verbose=*/true);
   ASSERT_OK_AND_ASSIGN(expected_chunk, ArrayFromJSONString(type, "[3, null, 4]"));
-  AssertArraysEqual(*expected_chunk, *chunked_array->chunk(1), /*verbose=*/true);
+  AssertArraysEqual(*expected_chunk, *chunked_array_two->chunk(1), /*verbose=*/true);
 }
 
 TEST(TestScalarFromJSON, Basics) {

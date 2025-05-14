@@ -479,13 +479,12 @@ void TestSession() {
       key_value_metadata({"key1", "key2", "key3"}, {"value1", "value2", "value3"}));
 
   // Table
-  ChunkedArrayVector table_columns{2};
-  ARROW_CHECK_OK(
-      ChunkedArrayFromJSONString(int32(), {"[1, 2, 3]", "[4, 5]"}, &table_columns[0]));
-  ARROW_CHECK_OK(ChunkedArrayFromJSONString(
-      utf8(), {R"(["abc", null])", R"(["def"])", R"(["ghi", "jkl"])"},
-      &table_columns[1]));
-  auto table = Table::Make(batch_schema, table_columns);
+  ASSERT_OK_AND_ASSIGN(auto col1,
+                       ChunkedArrayFromJSONString(int32(), {"[1, 2, 3]", "[4, 5]"}));
+  ASSERT_OK_AND_ASSIGN(
+      auto col2, ChunkedArrayFromJSONString(
+                     utf8(), {R"(["abc", null])", R"(["def"])", R"(["ghi", "jkl"])"}));
+  auto table = Table::Make(batch_schema, {col1, col2});
 
   // Datum
   Datum empty_datum{};

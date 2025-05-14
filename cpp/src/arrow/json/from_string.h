@@ -68,15 +68,13 @@ Result<std::shared_ptr<Array>> ArrayFromJSONString(const std::shared_ptr<DataTyp
 /// \brief Create a ChunkedArray from a JSON string
 ///
 /// \code {.cpp}
-/// std::shared_ptr<ChunkedArray> chunked_array;
-/// ChunkedArrayFromJSONString(
-///   int64(), {R"([5, 10])", R"([null])", R"([16])"}, &chunked_array
-/// );
+///  std::shared_ptr<ChunkedArray> chunked_array =
+///      ChunkedArrayFromJSONString(int64(), {R"([5, 10])", R"([null])", R"([16])"})
+///          .ValueOrDie();
 /// \endcode
 ARROW_EXPORT
-Status ChunkedArrayFromJSONString(const std::shared_ptr<DataType>& type,
-                                  const std::vector<std::string>& json_strings,
-                                  std::shared_ptr<ChunkedArray>* out);
+Result<std::shared_ptr<ChunkedArray>> ChunkedArrayFromJSONString(
+    const std::shared_ptr<DataType>& type, const std::vector<std::string>& json_strings);
 
 /// \brief Create a DictionaryArray from a JSON string
 ///

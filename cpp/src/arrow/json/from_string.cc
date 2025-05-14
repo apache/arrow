@@ -1003,17 +1003,17 @@ Result<std::shared_ptr<Array>> ArrayFromJSONString(const std::shared_ptr<DataTyp
   return ArrayFromJSONString(type, std::string_view(json_string));
 }
 
-Status ChunkedArrayFromJSONString(const std::shared_ptr<DataType>& type,
-                                  const std::vector<std::string>& json_strings,
-                                  std::shared_ptr<ChunkedArray>* out) {
+Result<std::shared_ptr<ChunkedArray>> ChunkedArrayFromJSONString(
+    const std::shared_ptr<DataType>& type, const std::vector<std::string>& json_strings) {
   ArrayVector out_chunks;
   out_chunks.reserve(json_strings.size());
   for (const std::string& chunk_json : json_strings) {
     out_chunks.emplace_back();
     ARROW_ASSIGN_OR_RAISE(out_chunks.back(), ArrayFromJSONString(type, chunk_json));
   }
-  *out = std::make_shared<ChunkedArray>(std::move(out_chunks), type);
-  return Status::OK();
+  std::shared_ptr<ChunkedArray> out =
+      std::make_shared<ChunkedArray>(std::move(out_chunks), type);
+  return out;
 }
 
 Status DictArrayFromJSONString(const std::shared_ptr<DataType>& type,
