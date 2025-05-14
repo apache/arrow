@@ -85,7 +85,7 @@ TEST(StringArrayAccessor, Test_CDataType_CHAR_Truncation) {
     ASSERT_EQ(values[0].length() - original_value_offset, strlen_buffer[0]);
 
     ss << buffer.data();
-  } while (value_offset < values[0].length() && value_offset != -1);
+  } while (value_offset < static_cast<int64_t>(values[0].length()) && value_offset != -1);
 
   ASSERT_EQ(values[0], ss.str());
 }
@@ -154,7 +154,8 @@ TEST(StringArrayAccessor, Test_CDataType_WCHAR_Truncation) {
       length = buffer.size();
     }
     finalStr.insert(finalStr.end(), buffer.data(), buffer.data() + length);
-  } while (value_offset < values[0].length() * GetSqlWCharSize() && value_offset != -1);
+  } while (value_offset < static_cast<int64_t>(values[0].length() * GetSqlWCharSize()) &&
+           value_offset != -1);
 
   // Trim final null bytes
   finalStr.resize(values[0].length() * GetSqlWCharSize());

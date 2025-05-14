@@ -17,7 +17,6 @@
 
 #include "arrow/flight/sql/odbc/flight_sql/accessors/date_array_accessor.h"
 #include <time.h>
-#include "arrow/compute/api.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/calendar_utils.h"
 
 using arrow::Date32Array;

@@ -25,7 +25,7 @@
 #include "arrow/scalar.h"
 #include "arrow/visitor.h"
 
-using namespace arrow;  // NOLINT build/namespaces
+using arrow::Status;
 
 using boost::beast::detail::base64::encode;
 using boost::beast::detail::base64::encoded_size;
@@ -37,8 +37,8 @@ namespace {
 template <typename ScalarT>
 Status ConvertScalarToStringAndWrite(const ScalarT& scalar,
                                      rapidjson::Writer<rapidjson::StringBuffer>& writer) {
-  ARROW_ASSIGN_OR_RAISE(auto string_scalar, scalar.CastTo(utf8()))
-  const auto& view = reinterpret_cast<StringScalar*>(string_scalar.get())->view();
+  ARROW_ASSIGN_OR_RAISE(auto string_scalar, scalar.CastTo(arrow::utf8()))
+  const auto& view = reinterpret_cast<arrow::StringScalar*>(string_scalar.get())->view();
   writer.String(view.data(), view.length(), true);
   return Status::OK();
 }
@@ -86,180 +86,180 @@ class ScalarToJson : public arrow::ScalarVisitor {
 
   std::string ToString() { return string_buffer_.GetString(); }
 
-  Status Visit(const NullScalar& scalar) override {
+  Status Visit(const arrow::NullScalar& scalar) override {
     writer_.Null();
 
     return Status::OK();
   }
 
-  Status Visit(const BooleanScalar& scalar) override {
+  Status Visit(const arrow::BooleanScalar& scalar) override {
     writer_.Bool(scalar.value);
 
     return Status::OK();
   }
 
-  Status Visit(const Int8Scalar& scalar) override {
+  Status Visit(const arrow::Int8Scalar& scalar) override {
     writer_.Int(scalar.value);
 
     return Status::OK();
   }
 
-  Status Visit(const Int16Scalar& scalar) override {
+  Status Visit(const arrow::Int16Scalar& scalar) override {
     writer_.Int(scalar.value);
 
     return Status::OK();
   }
 
-  Status Visit(const Int32Scalar& scalar) override {
+  Status Visit(const arrow::Int32Scalar& scalar) override {
     writer_.Int(scalar.value);
 
     return Status::OK();
   }
 
-  Status Visit(const Int64Scalar& scalar) override {
+  Status Visit(const arrow::Int64Scalar& scalar) override {
     writer_.Int64(scalar.value);
 
     return Status::OK();
   }
 
-  Status Visit(const UInt8Scalar& scalar) override {
+  Status Visit(const arrow::UInt8Scalar& scalar) override {
     writer_.Uint(scalar.value);
 
     return Status::OK();
   }
 
-  Status Visit(const UInt16Scalar& scalar) override {
+  Status Visit(const arrow::UInt16Scalar& scalar) override {
     writer_.Uint(scalar.value);
 
     return Status::OK();
   }
 
-  Status Visit(const UInt32Scalar& scalar) override {
+  Status Visit(const arrow::UInt32Scalar& scalar) override {
     writer_.Uint(scalar.value);
 
     return Status::OK();
   }
 
-  Status Visit(const UInt64Scalar& scalar) override {
+  Status Visit(const arrow::UInt64Scalar& scalar) override {
     writer_.Uint64(scalar.value);
 
     return Status::OK();
   }
 
-  Status Visit(const HalfFloatScalar& scalar) override {
+  Status Visit(const arrow::HalfFloatScalar& scalar) override {
     return Status::NotImplemented("Cannot convert HalfFloatScalar to JSON.");
   }
 
-  Status Visit(const FloatScalar& scalar) override {
+  Status Visit(const arrow::FloatScalar& scalar) override {
     writer_.Double(scalar.value);
 
     return Status::OK();
   }
 
-  Status Visit(const DoubleScalar& scalar) override {
+  Status Visit(const arrow::DoubleScalar& scalar) override {
     writer_.Double(scalar.value);
 
     return Status::OK();
   }
 
-  Status Visit(const StringScalar& scalar) override {
+  Status Visit(const arrow::StringScalar& scalar) override {
     const auto& view = scalar.view();
     writer_.String(view.data(), view.length());
 
     return Status::OK();
   }
 
-  Status Visit(const BinaryScalar& scalar) override {
+  Status Visit(const arrow::BinaryScalar& scalar) override {
     return ConvertBinaryToBase64StringAndWrite(scalar, writer_);
   }
 
-  Status Visit(const LargeStringScalar& scalar) override {
+  Status Visit(const arrow::LargeStringScalar& scalar) override {
     const auto& view = scalar.view();
     writer_.String(view.data(), view.length());
 
     return Status::OK();
   }
 
-  Status Visit(const LargeBinaryScalar& scalar) override {
+  Status Visit(const arrow::LargeBinaryScalar& scalar) override {
     return ConvertBinaryToBase64StringAndWrite(scalar, writer_);
   }
 
-  Status Visit(const FixedSizeBinaryScalar& scalar) override {
+  Status Visit(const arrow::FixedSizeBinaryScalar& scalar) override {
     return ConvertBinaryToBase64StringAndWrite(scalar, writer_);
   }
 
-  Status Visit(const Date64Scalar& scalar) override {
+  Status Visit(const arrow::Date64Scalar& scalar) override {
     return ConvertScalarToStringAndWrite(scalar, writer_);
   }
 
-  Status Visit(const Date32Scalar& scalar) override {
+  Status Visit(const arrow::Date32Scalar& scalar) override {
     return ConvertScalarToStringAndWrite(scalar, writer_);
   }
 
-  Status Visit(const Time32Scalar& scalar) override {
+  Status Visit(const arrow::Time32Scalar& scalar) override {
     return ConvertScalarToStringAndWrite(scalar, writer_);
   }
 
-  Status Visit(const Time64Scalar& scalar) override {
+  Status Visit(const arrow::Time64Scalar& scalar) override {
     return ConvertScalarToStringAndWrite(scalar, writer_);
   }
 
-  Status Visit(const TimestampScalar& scalar) override {
+  Status Visit(const arrow::TimestampScalar& scalar) override {
     return ConvertScalarToStringAndWrite(scalar, writer_);
   }
 
-  Status Visit(const DayTimeIntervalScalar& scalar) override {
+  Status Visit(const arrow::DayTimeIntervalScalar& scalar) override {
     return ConvertScalarToStringAndWrite(scalar, writer_);
   }
 
-  Status Visit(const MonthDayNanoIntervalScalar& scalar) override {
+  Status Visit(const arrow::MonthDayNanoIntervalScalar& scalar) override {
     return ConvertScalarToStringAndWrite(scalar, writer_);
   }
 
-  Status Visit(const MonthIntervalScalar& scalar) override {
+  Status Visit(const arrow::MonthIntervalScalar& scalar) override {
     return ConvertScalarToStringAndWrite(scalar, writer_);
   }
 
-  Status Visit(const DurationScalar& scalar) override {
+  Status Visit(const arrow::DurationScalar& scalar) override {
     // TODO: Append TimeUnit on conversion
     return ConvertScalarToStringAndWrite(scalar, writer_);
   }
 
-  Status Visit(const Decimal128Scalar& scalar) override {
+  Status Visit(const arrow::Decimal128Scalar& scalar) override {
     const auto& view = scalar.ToString();
     writer_.RawValue(view.data(), view.length(), rapidjson::kNumberType);
 
     return Status::OK();
   }
 
-  Status Visit(const Decimal256Scalar& scalar) override {
+  Status Visit(const arrow::Decimal256Scalar& scalar) override {
     const auto& view = scalar.ToString();
     writer_.RawValue(view.data(), view.length(), rapidjson::kNumberType);
 
     return Status::OK();
   }
 
-  Status Visit(const ListScalar& scalar) override {
+  Status Visit(const arrow::ListScalar& scalar) override {
     return WriteListScalar(scalar, writer_, this);
   }
 
-  Status Visit(const LargeListScalar& scalar) override {
+  Status Visit(const arrow::LargeListScalar& scalar) override {
     return WriteListScalar(scalar, writer_, this);
   }
 
-  Status Visit(const MapScalar& scalar) override {
+  Status Visit(const arrow::MapScalar& scalar) override {
     return WriteListScalar(scalar, writer_, this);
   }
 
-  Status Visit(const FixedSizeListScalar& scalar) override {
+  Status Visit(const arrow::FixedSizeListScalar& scalar) override {
     return WriteListScalar(scalar, writer_, this);
   }
 
-  Status Visit(const StructScalar& scalar) override {
+  Status Visit(const arrow::StructScalar& scalar) override {
     writer_.StartObject();
 
-    const std::shared_ptr<StructType>& data_type =
-        std::static_pointer_cast<StructType>(scalar.type);
+    const std::shared_ptr<arrow::StructType>& data_type =
+        std::static_pointer_cast<arrow::StructType>(scalar.type);
     for (int i = 0; i < data_type->num_fields(); ++i) {
       const auto& result = scalar.field(i);
       ThrowIfNotOK(result.status());
@@ -275,19 +275,19 @@ class ScalarToJson : public arrow::ScalarVisitor {
     return Status::OK();
   }
 
-  Status Visit(const DictionaryScalar& scalar) override {
+  Status Visit(const arrow::DictionaryScalar& scalar) override {
     return Status::NotImplemented("Cannot convert DictionaryScalar to JSON.");
   }
 
-  Status Visit(const SparseUnionScalar& scalar) override {
+  Status Visit(const arrow::SparseUnionScalar& scalar) override {
     return scalar.child_value().get()->Accept(this);
   }
 
-  Status Visit(const DenseUnionScalar& scalar) override {
+  Status Visit(const arrow::DenseUnionScalar& scalar) override {
     return scalar.child_value().get()->Accept(this);
   }
 
-  Status Visit(const ExtensionScalar& scalar) override {
+  Status Visit(const arrow::ExtensionScalar& scalar) override {
     return Status::NotImplemented("Cannot convert ExtensionScalar to JSON.");
   }
 };

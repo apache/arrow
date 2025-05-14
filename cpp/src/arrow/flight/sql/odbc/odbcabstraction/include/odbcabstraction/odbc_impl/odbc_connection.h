@@ -50,7 +50,7 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
   bool isConnected() const;
   void connect(std::string dsn,
                const driver::odbcabstraction::Connection::ConnPropertyMap& properties,
-               std::vector<std::string>& missing_properties);
+               std::vector<std::string_view>& missing_properties);
 
   void GetInfo(SQLUSMALLINT infoType, SQLPOINTER value, SQLSMALLINT bufferLength,
                SQLSMALLINT* outputLength, bool isUnicode);

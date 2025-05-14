@@ -27,16 +27,6 @@
 
 namespace driver {
 namespace odbcabstraction {
-
-// clang-format off
-const std::string SPDLogger::LOG_LEVEL = "LogLevel";          // NOLINT(runtime/string)
-const std::string SPDLogger::LOG_PATH = "LogPath";            // NOLINT(runtime/string)
-const std::string SPDLogger::MAXIMUM_FILE_SIZE =              // NOLINT(runtime/string)
-    "MaximumFileSize";
-const std::string SPDLogger::FILE_QUANTITY = "FileQuantity";  // NOLINT(runtime/string)
-const std::string SPDLogger::LOG_ENABLED = "LogEnabled";      // NOLINT(runtime/string)
-// clang-format on
-
 namespace {
 inline spdlog::level::level_enum ToSpdLogLevel(LogLevel level) {
   switch (level) {

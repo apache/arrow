@@ -18,8 +18,6 @@ cpp/src/arrow/util/random.h
 cpp/src/arrow/status.cc
 cpp/src/arrow/status.h
 cpp/src/arrow/vendored/*
-cpp/src/arrow/flight/sql/odbc/odbcabstraction/whereami.cc
-cpp/src/arrow/flight/sql/odbc/odbcabstraction/whereami.h
 cpp/build-support/asan_symbolize.py
 cpp/build-support/cpplint.py
 cpp/build-support/lint_exclusions.txt

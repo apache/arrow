@@ -119,13 +119,14 @@ bool RegisterDsn(const Configuration& config, LPCSTR driver) {
 
   const auto& map = config.GetProperties();
   for (auto it = map.begin(); it != map.end(); ++it) {
-    const std::string& key = it->first;
+    const std::string_view& key = it->first;
     if (boost::iequals(FlightSqlConnection::DSN, key) ||
         boost::iequals(FlightSqlConnection::DRIVER, key)) {
       continue;
     }
 
-    if (!SQLWritePrivateProfileString(dsn.c_str(), key.c_str(), it->second.c_str(),
+    std::string key_str = std::string(key);
+    if (!SQLWritePrivateProfileString(dsn.c_str(), key_str.c_str(), it->second.c_str(),
                                       "ODBC.INI")) {
       PostLastInstallerError();
       return false;

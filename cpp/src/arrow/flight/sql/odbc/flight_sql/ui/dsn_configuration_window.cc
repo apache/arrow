@@ -36,7 +36,7 @@ std::string TestConnection(const driver::flight_sql::config::Configuration& conf
   std::unique_ptr<driver::flight_sql::FlightSqlConnection> flightSqlConn(
       new driver::flight_sql::FlightSqlConnection(driver::odbcabstraction::V_3));
 
-  std::vector<std::string> missingProperties;
+  std::vector<std::string_view> missingProperties;
   flightSqlConn->Connect(config.GetProperties(), missingProperties);
 
   // This should have been checked before enabling the Test button.
@@ -306,7 +306,7 @@ int DsnConfigurationWindow::CreatePropertiesGroup(int posX, int posY, int sizeX)
 
   const auto keys = config.GetCustomKeys();
   for (const auto& key : keys) {
-    propertyList->ListAddItem({key, config.Get(key)});
+    propertyList->ListAddItem({std::string(key), config.Get(key)});
   }
 
   SendMessage(propertyList->GetHandle(), LVM_SETEXTENDEDLISTVIEWSTYLE,

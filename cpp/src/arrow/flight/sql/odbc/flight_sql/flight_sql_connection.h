@@ -53,30 +53,31 @@ class FlightSqlConnection : public odbcabstraction::Connection {
   void PopulateMetadataSettings(const Connection::ConnPropertyMap& connPropertyMap);
 
  public:
-  static const std::vector<std::string> ALL_KEYS;
-  static const std::string DSN;
-  static const std::string DRIVER;
-  static const std::string HOST;
-  static const std::string PORT;
-  static const std::string USER;
-  static const std::string UID;
-  static const std::string USER_ID;
-  static const std::string PASSWORD;
-  static const std::string PWD;
-  static const std::string TOKEN;
-  static const std::string USE_ENCRYPTION;
-  static const std::string DISABLE_CERTIFICATE_VERIFICATION;
-  static const std::string TRUSTED_CERTS;
-  static const std::string USE_SYSTEM_TRUST_STORE;
-  static const std::string STRING_COLUMN_LENGTH;
-  static const std::string USE_WIDE_CHAR;
-  static const std::string CHUNK_BUFFER_CAPACITY;
+  static const std::vector<std::string_view> ALL_KEYS;
+  static constexpr std::string_view DSN = "dsn";
+  static constexpr std::string_view DRIVER = "driver";
+  static constexpr std::string_view HOST = "host";
+  static constexpr std::string_view PORT = "port";
+  static constexpr std::string_view USER = "user";
+  static constexpr std::string_view USER_ID = "user id";
+  static constexpr std::string_view UID = "uid";
+  static constexpr std::string_view PASSWORD = "password";
+  static constexpr std::string_view PWD = "pwd";
+  static constexpr std::string_view TOKEN = "token";
+  static constexpr std::string_view USE_ENCRYPTION = "useEncryption";
+  static constexpr std::string_view DISABLE_CERTIFICATE_VERIFICATION =
+      "disableCertificateVerification";
+  static constexpr std::string_view TRUSTED_CERTS = "trustedCerts";
+  static constexpr std::string_view USE_SYSTEM_TRUST_STORE = "useSystemTrustStore";
+  static constexpr std::string_view STRING_COLUMN_LENGTH = "StringColumnLength";
+  static constexpr std::string_view USE_WIDE_CHAR = "UseWideChar";
+  static constexpr std::string_view CHUNK_BUFFER_CAPACITY = "ChunkBufferCapacity";
 
   explicit FlightSqlConnection(odbcabstraction::OdbcVersion odbc_version,
                                const std::string& driver_version = "0.9.0.0");
 
   void Connect(const ConnPropertyMap& properties,
-               std::vector<std::string>& missing_attr) override;
+               std::vector<std::string_view>& missing_attr) override;
 
   void Close() override;
 
@@ -92,13 +93,13 @@ class FlightSqlConnection : public odbcabstraction::Connection {
   /// \brief Builds a Location used for FlightClient connection.
   /// \note Visible for testing
   static arrow::flight::Location BuildLocation(
-      const ConnPropertyMap& properties, std::vector<std::string>& missing_attr,
+      const ConnPropertyMap& properties, std::vector<std::string_view>& missing_attr,
       const std::shared_ptr<FlightSqlSslConfig>& ssl_config);
 
   /// \brief Builds a FlightClientOptions used for FlightClient connection.
   /// \note Visible for testing
   static arrow::flight::FlightClientOptions BuildFlightClientOptions(
-      const ConnPropertyMap& properties, std::vector<std::string>& missing_attr,
+      const ConnPropertyMap& properties, std::vector<std::string_view>& missing_attr,
       const std::shared_ptr<FlightSqlSslConfig>& ssl_config);
 
   /// \brief Builds a FlightCallOptions used on gRPC calls.

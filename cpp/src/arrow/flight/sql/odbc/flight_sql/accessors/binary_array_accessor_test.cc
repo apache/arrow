@@ -96,7 +96,7 @@ TEST(BinaryArrayAccessor, Test_CDataType_BINARY_Truncation) {
     // It's safe to create a std::string from this data because we know it's
     // ASCII, this doesn't work with arbitrary binary data.
     ss << std::string(buffer.data(), buffer.data() + chunk_length);
-  } while (value_offset < values[0].length() && value_offset != -1);
+  } while (value_offset < static_cast<int64_t>(values[0].length()) && value_offset != -1);
 
   ASSERT_EQ(values[0], ss.str());
 }

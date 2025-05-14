@@ -61,14 +61,8 @@ class AddPropertyWindow : public CustomWindow {
    */
   void Create();
 
-  /**
-   * @copedoc ignite::odbc::system::ui::CustomWindow::OnCreate
-   */
   void OnCreate() override;
 
-  /**
-   * @copedoc ignite::odbc::system::ui::CustomWindow::OnMessage
-   */
   bool OnMessage(UINT msg, WPARAM wParam, LPARAM lParam) override;
 
   /**

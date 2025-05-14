@@ -34,19 +34,22 @@ static const char DEFAULT_USE_CERT_STORE[] = TRUE_STR;
 static const char DEFAULT_DISABLE_CERT_VERIFICATION[] = FALSE_STR;
 
 namespace {
-std::string ReadDsnString(const std::string& dsn, const std::string& key,
+std::string ReadDsnString(const std::string& dsn, const std::string_view& key,
                           const std::string& dflt = "") {
 #define BUFFER_SIZE (1024)
   std::vector<char> buf(BUFFER_SIZE);
 
-  int ret = SQLGetPrivateProfileString(dsn.c_str(), key.c_str(), dflt.c_str(), buf.data(),
-                                       static_cast<int>(buf.size()), "ODBC.INI");
+  std::string key_str = std::string(key);
+  int ret =
+      SQLGetPrivateProfileString(dsn.c_str(), key_str.c_str(), dflt.c_str(), buf.data(),
+                                 static_cast<int>(buf.size()), "ODBC.INI");
 
   if (ret > BUFFER_SIZE) {
     // If there wasn't enough space, try again with the right size buffer.
     buf.resize(ret + 1);
-    ret = SQLGetPrivateProfileString(dsn.c_str(), key.c_str(), dflt.c_str(), buf.data(),
-                                     static_cast<int>(buf.size()), "ODBC.INI");
+    ret =
+        SQLGetPrivateProfileString(dsn.c_str(), key_str.c_str(), dflt.c_str(), buf.data(),
+                                   static_cast<int>(buf.size()), "ODBC.INI");
   }
 
   return std::string(buf.data(), ret);
@@ -131,17 +134,18 @@ void Configuration::LoadDsn(const std::string& dsn) {
   auto customKeys = ReadAllKeys(dsn);
   RemoveAllKnownKeys(customKeys);
   for (auto key : customKeys) {
-    Set(key, ReadDsnString(dsn, key));
+    std::string_view key_sv(key);
+    Set(key, ReadDsnString(dsn, key_sv));
   }
 }
 
 void Configuration::Clear() { this->properties.clear(); }
 
-bool Configuration::IsSet(const std::string& key) const {
+bool Configuration::IsSet(const std::string_view& key) const {
   return 0 != this->properties.count(key);
 }
 
-const std::string& Configuration::Get(const std::string& key) const {
+const std::string& Configuration::Get(const std::string_view& key) const {
   const auto itr = this->properties.find(key);
   if (itr == this->properties.cend()) {
     static const std::string empty("");
@@ -150,7 +154,7 @@ const std::string& Configuration::Get(const std::string& key) const {
   return itr->second;
 }
 
-void Configuration::Set(const std::string& key, const std::string& value) {
+void Configuration::Set(const std::string_view& key, const std::string& value) {
   const std::string copy = boost::trim_copy(value);
   if (!copy.empty()) {
     this->properties[key] = value;
@@ -162,12 +166,12 @@ const driver::odbcabstraction::Connection::ConnPropertyMap& Configuration::GetPr
   return this->properties;
 }
 
-std::vector<std::string> Configuration::GetCustomKeys() const {
+std::vector<std::string_view> Configuration::GetCustomKeys() const {
   driver::odbcabstraction::Connection::ConnPropertyMap copyProps(properties);
   for (auto& key : FlightSqlConnection::ALL_KEYS) {
     copyProps.erase(key);
   }
-  std::vector<std::string> keys;
+  std::vector<std::string_view> keys;
   boost::copy(copyProps | boost::adaptors::map_keys, std::back_inserter(keys));
   return keys;
 }

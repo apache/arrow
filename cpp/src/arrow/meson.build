@@ -176,6 +176,7 @@ arrow_components = {
             'vendored/uriparser/UriRecompose.c',
             'vendored/uriparser/UriResolve.c',
             'vendored/uriparser/UriShorten.c',
+            'vendored/whereami/whereami.cc',
         ],
     },
     'arrow_base': {

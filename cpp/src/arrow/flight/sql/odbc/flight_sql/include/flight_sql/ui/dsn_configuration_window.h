@@ -74,6 +74,7 @@ class DsnConfigurationWindow : public CustomWindow {
    * Constructor.
    *
    * @param parent Parent window handle.
+   * @param config Configuration
    */
   DsnConfigurationWindow(Window* parent, config::Configuration& config);
 
@@ -87,14 +88,8 @@ class DsnConfigurationWindow : public CustomWindow {
    */
   void Create();
 
-  /**
-   * @copedoc ignite::odbc::system::ui::CustomWindow::OnCreate
-   */
   void OnCreate() override;
 
-  /**
-   * @copedoc ignite::odbc::system::ui::CustomWindow::OnMessage
-   */
   bool OnMessage(UINT msg, WPARAM wParam, LPARAM lParam) override;
 
  private:

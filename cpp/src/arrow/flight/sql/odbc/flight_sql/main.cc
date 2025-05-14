@@ -208,7 +208,7 @@ int main() {
       {FlightSqlConnection::PASSWORD, std::string("dremio123")},
       {FlightSqlConnection::USE_ENCRYPTION, std::string("false")},
   };
-  std::vector<std::string> missing_attr;
+  std::vector<std::string_view> missing_attr;
   connection->Connect(properties, missing_attr);
 
   //  TestBindColumnBigInt(connection);

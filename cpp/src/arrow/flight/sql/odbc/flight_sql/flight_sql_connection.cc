@@ -62,34 +62,7 @@ using driver::odbcabstraction::DriverException;
 using driver::odbcabstraction::OdbcVersion;
 using driver::odbcabstraction::Statement;
 
-// clang-format off
-const std::string FlightSqlConnection::DSN = "dsn";            // NOLINT(runtime/string)
-const std::string FlightSqlConnection::DRIVER = "driver";      // NOLINT(runtime/string)
-const std::string FlightSqlConnection::HOST = "host";          // NOLINT(runtime/string)
-const std::string FlightSqlConnection::PORT = "port";          // NOLINT(runtime/string)
-const std::string FlightSqlConnection::USER = "user";          // NOLINT(runtime/string)
-const std::string FlightSqlConnection::USER_ID = "user id";    // NOLINT(runtime/string)
-const std::string FlightSqlConnection::UID = "uid";            // NOLINT(runtime/string)
-const std::string FlightSqlConnection::PASSWORD = "password";  // NOLINT(runtime/string)
-const std::string FlightSqlConnection::PWD = "pwd";            // NOLINT(runtime/string)
-const std::string FlightSqlConnection::TOKEN = "token";        // NOLINT(runtime/string)
-const std::string FlightSqlConnection::USE_ENCRYPTION =        // NOLINT(runtime/string)
-    "useEncryption";
-const std::string FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION = // NOLINT
-    "disableCertificateVerification";
-const std::string FlightSqlConnection::TRUSTED_CERTS =         // NOLINT(runtime/string)
-    "trustedCerts";
-const std::string FlightSqlConnection::USE_SYSTEM_TRUST_STORE = // NOLINT(runtime/string)
-    "useSystemTrustStore";
-const std::string FlightSqlConnection::STRING_COLUMN_LENGTH =  // NOLINT(runtime/string)
-    "StringColumnLength";
-const std::string FlightSqlConnection::USE_WIDE_CHAR =         // NOLINT(runtime/string)
-    "UseWideChar";
-const std::string FlightSqlConnection::CHUNK_BUFFER_CAPACITY = // NOLINT(runtime/string)
-    "ChunkBufferCapacity";
-// clang-format on
-
-const std::vector<std::string> FlightSqlConnection::ALL_KEYS = {
+const std::vector<std::string_view> FlightSqlConnection::ALL_KEYS = {
     FlightSqlConnection::DSN,
     FlightSqlConnection::DRIVER,
     FlightSqlConnection::HOST,
@@ -138,7 +111,7 @@ inline std::string GetCerts() { return ""; }
 
 #endif
 
-const std::set<std::string, odbcabstraction::CaseInsensitiveComparator>
+const std::set<std::string_view, odbcabstraction::CaseInsensitiveComparator>
     BUILT_IN_PROPERTIES = {FlightSqlConnection::HOST,
                            FlightSqlConnection::PORT,
                            FlightSqlConnection::USER,
@@ -155,8 +128,8 @@ const std::set<std::string, odbcabstraction::CaseInsensitiveComparator>
                            FlightSqlConnection::USE_WIDE_CHAR};
 
 Connection::ConnPropertyMap::const_iterator TrackMissingRequiredProperty(
-    const std::string& property, const Connection::ConnPropertyMap& properties,
-    std::vector<std::string>& missing_attr) {
+    const std::string_view& property, const Connection::ConnPropertyMap& properties,
+    std::vector<std::string_view>& missing_attr) {
   auto prop_iter = properties.find(property);
   if (properties.end() == prop_iter) {
     missing_attr.push_back(property);
@@ -186,7 +159,7 @@ std::shared_ptr<FlightSqlSslConfig> LoadFlightSslConfigs(
 }
 
 void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
-                                  std::vector<std::string>& missing_attr) {
+                                  std::vector<std::string_view>& missing_attr) {
   try {
     auto flight_ssl_configs = LoadFlightSslConfigs(properties);
 
@@ -242,7 +215,7 @@ boost::optional<int32_t> FlightSqlConnection::GetStringColumnLength(
   } catch (const std::exception& e) {
     diagnostics_.AddWarning(
         std::string("Invalid value for connection property " +
-                    FlightSqlConnection::STRING_COLUMN_LENGTH +
+                    std::string(FlightSqlConnection::STRING_COLUMN_LENGTH) +
                     ". Please ensure it has a valid numeric value. Message: " + e.what()),
         "01000", odbcabstraction::ODBCErrorCodes_GENERAL_WARNING);
   }
@@ -271,7 +244,7 @@ size_t FlightSqlConnection::GetChunkBufferCapacity(
   } catch (const std::exception& e) {
     diagnostics_.AddWarning(
         std::string("Invalid value for connection property " +
-                    FlightSqlConnection::CHUNK_BUFFER_CAPACITY +
+                    std::string(FlightSqlConnection::CHUNK_BUFFER_CAPACITY) +
                     ". Please ensure it has a valid numeric value. Message: " + e.what()),
         "01000", odbcabstraction::ODBCErrorCodes_GENERAL_WARNING);
   }
@@ -299,7 +272,7 @@ const FlightCallOptions& FlightSqlConnection::PopulateCallOptions(
       // Connection properties containing spaces will crash gRPC, but some tools
       // such as the OLE DB to ODBC bridge generate unused properties containing spaces.
       diagnostics_.AddWarning(
-          std::string("Ignoring connection option " + prop.first) +
+          std::string("Ignoring connection option " + std::string(prop.first)) +
               ". Server-specific options must be valid HTTP header names and " +
               "cannot contain spaces.",
           "01000", odbcabstraction::ODBCErrorCodes_GENERAL_WARNING);
@@ -308,7 +281,7 @@ const FlightCallOptions& FlightSqlConnection::PopulateCallOptions(
 
     // Note: header names must be lower case for gRPC.
     // gRPC will crash if they are not lower-case.
-    std::string key_lc = boost::algorithm::to_lower_copy(prop.first);
+    std::string key_lc = boost::algorithm::to_lower_copy(std::string(prop.first));
     call_options_.headers.emplace_back(std::make_pair(key_lc, prop.second));
   }
 
@@ -316,7 +289,7 @@ const FlightCallOptions& FlightSqlConnection::PopulateCallOptions(
 }
 
 FlightClientOptions FlightSqlConnection::BuildFlightClientOptions(
-    const ConnPropertyMap& properties, std::vector<std::string>& missing_attr,
+    const ConnPropertyMap& properties, std::vector<std::string_view>& missing_attr,
     const std::shared_ptr<FlightSqlSslConfig>& ssl_config) {
   FlightClientOptions options;
   // Persist state information using cookies if the FlightProducer supports it.
@@ -343,15 +316,17 @@ FlightClientOptions FlightSqlConnection::BuildFlightClientOptions(
 }
 
 Location FlightSqlConnection::BuildLocation(
-    const ConnPropertyMap& properties, std::vector<std::string>& missing_attr,
+    const ConnPropertyMap& properties, std::vector<std::string_view>& missing_attr,
     const std::shared_ptr<FlightSqlSslConfig>& ssl_config) {
   const auto& host_iter = TrackMissingRequiredProperty(HOST, properties, missing_attr);
 
   const auto& port_iter = TrackMissingRequiredProperty(PORT, properties, missing_attr);
 
   if (!missing_attr.empty()) {
+    std::vector<std::string> missing_attr_string_vec(missing_attr.begin(),
+                                                     missing_attr.end());
     std::string missing_attr_str = std::string("Missing required properties: ") +
-                                   boost::algorithm::join(missing_attr, ", ");
+                                   boost::algorithm::join(missing_attr_string_vec, ", ");
     throw DriverException(missing_attr_str);
   }
 

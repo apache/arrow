@@ -43,7 +43,6 @@ class Window {
    * @param parent Parent window handle.
    * @param className Window class name.
    * @param title Window title.
-   * @param callback Event processing function.
    */
   Window(Window* parent, const char* className, const char* title);
 
@@ -128,6 +127,7 @@ class Window {
    * @param sizeY Size by Y coordinate.
    * @param title Title.
    * @param id ID to be assigned to the created window.
+   * @param style Window style.
    * @return Auto pointer containing new window.
    */
   std::unique_ptr<Window> CreateEdit(int posX, int posY, int sizeX, int sizeY,
@@ -142,6 +142,7 @@ class Window {
    * @param sizeY Size by Y coordinate.
    * @param title Title.
    * @param id ID to be assigned to the created window.
+   * @param style Window style.
    * @return Auto pointer containing new window.
    */
   std::unique_ptr<Window> CreateButton(int posX, int posY, int sizeX, int sizeY,
@@ -156,6 +157,7 @@ class Window {
    * @param sizeY Size by Y coordinate.
    * @param title Title.
    * @param id ID to be assigned to the created window.
+   * @param state Checked state of checkbox
    * @return Auto pointer containing new window.
    */
   std::unique_ptr<Window> CreateCheckBox(int posX, int posY, int sizeX, int sizeY,
@@ -228,7 +230,7 @@ class Window {
   /**
    * Get CheckBox state.
    *
-   * @param True if checked.
+   * @return True if checked.
    */
   bool IsChecked() const;
 

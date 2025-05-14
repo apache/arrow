@@ -1288,6 +1288,9 @@ if(ARROW_USE_BOOST)
   endif()
   if(ARROW_BOOST_REQUIRE_LIBRARY)
     set(ARROW_BOOST_COMPONENTS filesystem system)
+    if(ARROW_FLIGHT_SQL_ODBC AND MSVC)
+      list(APPEND ARROW_BOOST_COMPONENTS locale)
+    endif()
     set(ARROW_BOOST_OPTIONAL_COMPONENTS process)
   else()
     set(ARROW_BOOST_COMPONENTS)
@@ -5562,14 +5565,11 @@ if(ARROW_WITH_AZURE_SDK)
                                Azure::azure-storage-blobs Azure::azure-identity)
 endif()
 
-message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")
-
 # ----------------------------------------------------------------------
 # Apache Flight SQL ODBC
 
 if(ARROW_FLIGHT_SQL_ODBC)
   find_package(ODBC REQUIRED)
-  if(MSVC)
-    find_package(Boost REQUIRED COMPONENTS locale)
-  endif()
 endif()
+
+message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")

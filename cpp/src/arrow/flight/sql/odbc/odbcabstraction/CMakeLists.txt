@@ -50,8 +50,7 @@ add_library(odbcabstraction
             logger.cc
             spd_logger.cc
             utils.cc
-            whereami.h
-            whereami.cc
+            ../../../../vendored/whereami/whereami.cc
             odbc_impl/odbc_connection.cc
             odbc_impl/odbc_descriptor.cc
             odbc_impl/odbc_environment.cc

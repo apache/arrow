@@ -15,8 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/vendored/whereami/whereami.h"
+
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/utils.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/whereami.h"
 
 #include <fstream>
 #include <sstream>
@@ -40,7 +41,7 @@ boost::optional<bool> AsBool(const std::string& value) {
 }
 
 boost::optional<bool> AsBool(const Connection::ConnPropertyMap& connPropertyMap,
-                             const std::string& property_name) {
+                             const std::string_view& property_name) {
   auto extracted_property = connPropertyMap.find(property_name);
 
   if (extracted_property != connPropertyMap.end()) {
@@ -52,7 +53,7 @@ boost::optional<bool> AsBool(const Connection::ConnPropertyMap& connPropertyMap,
 
 boost::optional<int32_t> AsInt32(int32_t min_value,
                                  const Connection::ConnPropertyMap& connPropertyMap,
-                                 const std::string& property_name) {
+                                 const std::string_view& property_name) {
   auto extracted_property = connPropertyMap.find(property_name);
 
   if (extracted_property != connPropertyMap.end()) {

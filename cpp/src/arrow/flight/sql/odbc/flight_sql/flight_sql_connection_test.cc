@@ -103,7 +103,7 @@ TEST(MetadataSettingsTest, UseWideCharTest) {
 }
 
 TEST(BuildLocationTests, ForTcp) {
-  std::vector<std::string> missing_attr;
+  std::vector<std::string_view> missing_attr;
   Connection::ConnPropertyMap properties = {
       {FlightSqlConnection::HOST, std::string("localhost")},
       {FlightSqlConnection::PORT, std::string("32010")},
@@ -129,7 +129,7 @@ TEST(BuildLocationTests, ForTcp) {
 }
 
 TEST(BuildLocationTests, ForTls) {
-  std::vector<std::string> missing_attr;
+  std::vector<std::string_view> missing_attr;
   Connection::ConnPropertyMap properties = {
       {FlightSqlConnection::HOST, std::string("localhost")},
       {FlightSqlConnection::PORT, std::string("32010")},

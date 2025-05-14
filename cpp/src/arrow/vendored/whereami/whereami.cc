@@ -6,7 +6,7 @@
 
 // in case you want to #include "whereami.c" in a larger compilation unit
 #if !defined(WHEREAMI_H)
-#  include "arrow/flight/sql/odbc/odbcabstraction/whereami.h"
+#  include "whereami.h"
 #endif
 
 #ifdef __cplusplus

@@ -66,7 +66,7 @@ void loadPropertiesFromDSN(const std::string& dsn,
   // The output buffer holds the list of keys in a series of NUL-terminated strings.
   // The series is terminated with an empty string (eg a NUL-terminator terminating the
   // last key followed by a NUL terminator after).
-  std::vector<std::string> keys;
+  std::vector<std::string_view> keys;
   size_t pos = 0;
   while (pos < BUFFER_SIZE) {
     std::string key(&outputBuffer[pos]);
@@ -86,7 +86,8 @@ void loadPropertiesFromDSN(const std::string& dsn,
     outputBuffer.clear();
     outputBuffer.resize(BUFFER_SIZE, '\0');
 
-    SQLGetPrivateProfileString(dsn.c_str(), key.c_str(), "", &outputBuffer[0],
+    std::string key_str = std::string(key);
+    SQLGetPrivateProfileString(dsn.c_str(), key_str.c_str(), "", &outputBuffer[0],
                                BUFFER_SIZE, "odbc.ini");
 
     std::string value = std::string(&outputBuffer[0]);
@@ -118,7 +119,7 @@ const std::string& ODBCConnection::GetDSN() const { return m_dsn; }
 
 void ODBCConnection::connect(std::string dsn,
                              const Connection::ConnPropertyMap& properties,
-                             std::vector<std::string>& missing_properties) {
+                             std::vector<std::string_view>& missing_properties) {
   if (m_isConnected) {
     throw DriverException("Already connected.", "HY010");
   }

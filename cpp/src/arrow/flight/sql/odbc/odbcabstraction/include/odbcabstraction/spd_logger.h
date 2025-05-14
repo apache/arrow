@@ -32,11 +32,11 @@ class SPDLogger : public Logger {
   std::shared_ptr<spdlog::logger> logger_;
 
  public:
-  static const std::string LOG_LEVEL;
-  static const std::string LOG_PATH;
-  static const std::string MAXIMUM_FILE_SIZE;
-  static const std::string FILE_QUANTITY;
-  static const std::string LOG_ENABLED;
+  static constexpr std::string_view LOG_LEVEL = "LogLevel";
+  static constexpr std::string_view LOG_PATH = "LogPath";
+  static constexpr std::string_view MAXIMUM_FILE_SIZE = "MaximumFileSize";
+  static constexpr std::string_view FILE_QUANTITY = "FileQuantity";
+  static constexpr std::string_view LOG_ENABLED = "LogEnabled";
 
   SPDLogger() = default;
   ~SPDLogger() = default;
