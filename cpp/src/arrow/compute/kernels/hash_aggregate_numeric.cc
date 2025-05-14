@@ -55,7 +55,7 @@ struct GroupedReducingAggregator : public GroupedAggregator {
     reduced_ = TypedBufferBuilder<CType>(pool_);
     counts_ = TypedBufferBuilder<int64_t>(pool_);
     no_nulls_ = TypedBufferBuilder<bool>(pool_);
-    out_type_ = GetOutType(args.inputs[0].GetSharedPtr());
+    ARROW_ASSIGN_OR_RAISE(out_type_, GetOutType(args.inputs[0].GetSharedPtr()));
     return Status::OK();
   }
 
@@ -156,16 +156,16 @@ struct GroupedReducingAggregator : public GroupedAggregator {
   std::shared_ptr<DataType> out_type() const override { return out_type_; }
 
   template <typename T = Type>
-  static enable_if_t<!is_decimal_type<T>::value, std::shared_ptr<DataType>> GetOutType(
+  static enable_if_t<!is_decimal_type<T>::value, Result<std::shared_ptr<DataType>>> GetOutType(
       const std::shared_ptr<DataType>& in_type) {
     return TypeTraits<AccType>::type_singleton();
   }
 
   template <typename T = Type>
-  static enable_if_decimal<T, std::shared_ptr<DataType>> GetOutType(
+  static enable_if_decimal<T, Result<std::shared_ptr<DataType>>> GetOutType(
       const std::shared_ptr<DataType>& in_type) {
     if constexpr (PromoteDecimal) {
-      return WidenDecimalToMaxPrecision(in_type).ValueOrDie();
+      return WidenDecimalToMaxPrecision(in_type);
     } else {
       return in_type;
     }
