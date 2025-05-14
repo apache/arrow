@@ -268,7 +268,7 @@ TEST_F(DatasetWriterTestFixture, DirectoryCreateFails) {
 }
 
 TEST_F(DatasetWriterTestFixture, BatchGreaterThanMaxRowsQueued) {
-  auto dataset_writer = MakeDatasetWriter(10);
+  auto dataset_writer = MakeDatasetWriter(/*max_rows=*/10);
   dataset_writer->WriteRecordBatch(MakeBatch(35), "");
   EndWriterChecked(dataset_writer.get());
   AssertCreatedData({{"testdir/chunk-0.arrow", 0, 35}});
