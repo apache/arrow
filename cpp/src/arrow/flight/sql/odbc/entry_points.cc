@@ -51,6 +51,16 @@ SQLRETURN SQL_API SQLFreeConnect(SQLHDBC conn) {
   return arrow::SQLFreeHandle(SQL_HANDLE_DBC, conn);
 }
 
+SQLRETURN SQL_API SQLGetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER valuePtr,
+                                SQLINTEGER bufferLen, SQLINTEGER* strLenPtr) {
+  return arrow::SQLGetEnvAttr(env, attr, valuePtr, bufferLen, strLenPtr);
+}
+
+SQLRETURN SQL_API SQLSetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER valuePtr,
+                                SQLINTEGER strLen) {
+  return arrow::SQLSetEnvAttr(env, attr, valuePtr, strLen);
+}
+
 SQLRETURN SQL_API SQLDriverConnect(SQLHDBC conn, SQLHWND windowHandle,
                                    SQLWCHAR* inConnectionString,
                                    SQLSMALLINT inConnectionStringLen,
