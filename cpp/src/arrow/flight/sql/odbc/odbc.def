@@ -7,33 +7,33 @@ EXPORTS
 	SQLBindCol
 	SQLCancel
 	SQLCloseCursor
-	SQLColAttributeW
-	SQLColumnsW
-	SQLConnectW
+	SQLColAttribute
+	SQLColumns
+	SQLConnect
 	SQLDisconnect
-	SQLDriverConnectW
-	SQLErrorW
-	SQLExecDirectW
+	SQLDriverConnect
+	SQLError
+	SQLExecDirect
 	SQLExecute
 	SQLFetch
-	SQLForeignKeysW
+	SQLForeignKeys
 	SQLFreeEnv
 	SQLFreeHandle
 	SQLFreeStmt
-	SQLGetConnectAttrW
+	SQLGetConnectAttr
 	SQLGetData
-	SQLGetDiagFieldW
-	SQLGetDiagRecW
+	SQLGetDiagField
+	SQLGetDiagRec
 	SQLGetEnvAttr
-	SQLGetInfoW
-	SQLGetStmtAttrW
-	SQLGetTypeInfoW
+	SQLGetInfo
+	SQLGetStmtAttr
+	SQLGetTypeInfo
 	SQLMoreResults
-	SQLNativeSqlW
+	SQLNativeSql
 	SQLNumResultCols
-	SQLPrepareW
-	SQLPrimaryKeysW
-	SQLSetConnectAttrW
+	SQLPrepare
+	SQLPrimaryKeys
+	SQLSetConnectAttr
 	SQLSetEnvAttr
-	SQLSetStmtAttrW
-	SQLTablesW
+	SQLSetStmtAttr
+	SQLTables
