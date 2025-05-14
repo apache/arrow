@@ -189,4 +189,72 @@ void CryptoFactory::RotateMasterKeys(
                                  double_wrapping, cache_lifetime_seconds);
 }
 
+
+std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionPropertiesWithExternalConfig(
+    const KmsConnectionConfig& kms_connection_config,
+    const ExternalEncryptionConfiguration& encryption_config, const std::string& file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
+  if (!encryption_config.uniform_encryption && encryption_config.column_keys.empty()) {
+    throw ParquetException("Either column_keys or uniform_encryption must be set");
+  } else if (encryption_config.uniform_encryption &&
+             !encryption_config.column_keys.empty()) {
+    throw ParquetException("Cannot set both column_keys and uniform_encryption");
+  }
+  const std::string& footer_key_id = encryption_config.footer_key;
+  const std::string& column_key_str = encryption_config.column_keys;
+
+  std::shared_ptr<FileKeyMaterialStore> key_material_store = nullptr;
+  if (!encryption_config.internal_key_material) {
+    try {
+      key_material_store =
+          FileSystemKeyMaterialStore::Make(file_path, file_system, false);
+    } catch (ParquetException& e) {
+      std::stringstream ss;
+      ss << "Failed to get key material store.\n" << e.what() << "\n";
+      throw ParquetException(ss.str());
+    }
+  }
+
+  FileKeyWrapper key_wrapper(key_toolkit_.get(), kms_connection_config,
+                             key_material_store, encryption_config.cache_lifetime_seconds,
+                             encryption_config.double_wrapping);
+
+  int32_t dek_length_bits = encryption_config.data_key_length_bits;
+  if (!internal::ValidateKeyLength(dek_length_bits)) {
+    std::ostringstream ss;
+    ss << "Wrong data key length : " << dek_length_bits;
+    throw ParquetException(ss.str());
+  }
+
+  int dek_length = dek_length_bits / 8;
+
+  std::string footer_key(dek_length, '\0');
+  RandBytes(reinterpret_cast<uint8_t*>(footer_key.data()), footer_key.size());
+
+  std::string footer_key_metadata =
+      key_wrapper.GetEncryptionKeyMetadata(footer_key, footer_key_id, true);
+
+  FileEncryptionProperties::Builder properties_builder =
+      FileEncryptionProperties::Builder(footer_key);
+  properties_builder.footer_key_metadata(footer_key_metadata);
+  properties_builder.algorithm(encryption_config.encryption_algorithm);
+
+  if (!encryption_config.uniform_encryption) {
+    ColumnPathToEncryptionPropertiesMap encrypted_columns =
+        GetColumnEncryptionProperties(dek_length, column_key_str, &key_wrapper);
+    properties_builder.encrypted_columns(encrypted_columns);
+
+    if (encryption_config.plaintext_footer) {
+      properties_builder.set_plaintext_footer();
+    }
+  }
+
+  if (key_material_store != nullptr) {
+    key_material_store->SaveMaterial();
+  }
+  return properties_builder.build();
+}
+
+
+
 }  // namespace parquet::encryption

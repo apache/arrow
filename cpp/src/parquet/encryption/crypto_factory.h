@@ -86,70 +86,6 @@ struct PARQUET_EXPORT EncryptionConfiguration {
   int32_t data_key_length_bits = kDefaultDataKeyLengthBits;
 };
 
-struct PARQUET_EXPORT DecryptionConfiguration {
-  /// Lifetime of cached entities (key encryption keys, local wrapping keys, KMS client
-  /// objects).
-  /// The default is 600 (10 minutes).
-  double cache_lifetime_seconds = kDefaultCacheLifetimeSeconds;
-};
-
-/// This is a core class, that translates the parameters of high level encryption (like
-/// the names of encrypted columns, names of master keys, etc), into parameters of low
-/// level encryption (like the key metadata, DEK, etc). A factory that produces the low
-/// level FileEncryptionProperties and FileDecryptionProperties objects, from the high
-/// level parameters.
-class PARQUET_EXPORT CryptoFactory {
- public:
-  /// a KmsClientFactory object must be registered via this method before calling any of
-  /// GetFileEncryptionProperties()/GetFileDecryptionProperties() methods.
-  void RegisterKmsClientFactory(std::shared_ptr<KmsClientFactory> kms_client_factory);
-
-  /// Get the encryption properties for a Parquet file.
-  /// If external key material is used then a file system and path to the
-  /// parquet file must be provided.
-  std::shared_ptr<FileEncryptionProperties> GetFileEncryptionProperties(
-      const KmsConnectionConfig& kms_connection_config,
-      const EncryptionConfiguration& encryption_config, const std::string& file_path = "",
-      const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
-
-  /// Get decryption properties for a Parquet file.
-  /// If external key material is used then a file system and path to the
-  /// parquet file must be provided.
-  std::shared_ptr<FileDecryptionProperties> GetFileDecryptionProperties(
-      const KmsConnectionConfig& kms_connection_config,
-      const DecryptionConfiguration& decryption_config, const std::string& file_path = "",
-      const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
-
-  void RemoveCacheEntriesForToken(const std::string& access_token) {
-    key_toolkit_->RemoveCacheEntriesForToken(access_token);
-  }
-
-  void RemoveCacheEntriesForAllTokens() {
-    key_toolkit_->RemoveCacheEntriesForAllTokens();
-  }
-
-  /// Rotates master encryption keys for a Parquet file that uses external key material.
-  /// In single wrapping mode, data encryption keys are decrypted with the old master keys
-  /// and then re-encrypted with new master keys.
-  /// In double wrapping mode, key encryption keys are decrypted with the old master keys
-  /// and then re-encrypted with new master keys.
-  /// This relies on the KMS supporting versioning, such that the old master key is
-  /// used when unwrapping a key, and the latest version is used when wrapping a key.
-  void RotateMasterKeys(const KmsConnectionConfig& kms_connection_config,
-                        const std::string& parquet_file_path,
-                        const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
-                        bool double_wrapping = kDefaultDoubleWrapping,
-                        double cache_lifetime_seconds = kDefaultCacheLifetimeSeconds);
-
- private:
-  ColumnPathToEncryptionPropertiesMap GetColumnEncryptionProperties(
-      int dek_length, const std::string& column_keys, FileKeyWrapper* key_wrapper);
-
-  /// Key utilities object for kms client initialization and cache control
-  std::shared_ptr<KeyToolkit> key_toolkit_ = std::make_shared<KeyToolkit>();
-};
-
-
 struct PARQUET_EXPORT ExternalEncryptionConfiguration {
   explicit ExternalEncryptionConfiguration(const std::string& footer_key)
       : footer_key(footer_key) {}
@@ -219,5 +155,76 @@ struct PARQUET_EXPORT ExternalEncryptionConfiguration {
   /// Whether to run local client instead of calling remote KMS
   bool run_locally = false;
 };
+
+
+struct PARQUET_EXPORT DecryptionConfiguration {
+  /// Lifetime of cached entities (key encryption keys, local wrapping keys, KMS client
+  /// objects).
+  /// The default is 600 (10 minutes).
+  double cache_lifetime_seconds = kDefaultCacheLifetimeSeconds;
+};
+
+/// This is a core class, that translates the parameters of high level encryption (like
+/// the names of encrypted columns, names of master keys, etc), into parameters of low
+/// level encryption (like the key metadata, DEK, etc). A factory that produces the low
+/// level FileEncryptionProperties and FileDecryptionProperties objects, from the high
+/// level parameters.
+class PARQUET_EXPORT CryptoFactory {
+ public:
+  /// a KmsClientFactory object must be registered via this method before calling any of
+  /// GetFileEncryptionProperties()/GetFileDecryptionProperties() methods.
+  void RegisterKmsClientFactory(std::shared_ptr<KmsClientFactory> kms_client_factory);
+
+  /// Get the encryption properties for a Parquet file.
+  /// If external key material is used then a file system and path to the
+  /// parquet file must be provided.
+  std::shared_ptr<FileEncryptionProperties> GetFileEncryptionProperties(
+      const KmsConnectionConfig& kms_connection_config,
+      const EncryptionConfiguration& encryption_config, const std::string& file_path = "",
+      const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
+
+  std::shared_ptr<FileEncryptionProperties> GetFileEncryptionPropertiesWithExternalConfig(
+      const KmsConnectionConfig& kms_connection_config,
+      const ExternalEncryptionConfiguration& encryption_config, const std::string& file_path = "",
+      const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
+
+  /// Get decryption properties for a Parquet file.
+  /// If external key material is used then a file system and path to the
+  /// parquet file must be provided.
+  std::shared_ptr<FileDecryptionProperties> GetFileDecryptionProperties(
+      const KmsConnectionConfig& kms_connection_config,
+      const DecryptionConfiguration& decryption_config, const std::string& file_path = "",
+      const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
+
+  void RemoveCacheEntriesForToken(const std::string& access_token) {
+    key_toolkit_->RemoveCacheEntriesForToken(access_token);
+  }
+
+  void RemoveCacheEntriesForAllTokens() {
+    key_toolkit_->RemoveCacheEntriesForAllTokens();
+  }
+
+  /// Rotates master encryption keys for a Parquet file that uses external key material.
+  /// In single wrapping mode, data encryption keys are decrypted with the old master keys
+  /// and then re-encrypted with new master keys.
+  /// In double wrapping mode, key encryption keys are decrypted with the old master keys
+  /// and then re-encrypted with new master keys.
+  /// This relies on the KMS supporting versioning, such that the old master key is
+  /// used when unwrapping a key, and the latest version is used when wrapping a key.
+  void RotateMasterKeys(const KmsConnectionConfig& kms_connection_config,
+                        const std::string& parquet_file_path,
+                        const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
+                        bool double_wrapping = kDefaultDoubleWrapping,
+                        double cache_lifetime_seconds = kDefaultCacheLifetimeSeconds);
+
+ private:
+  ColumnPathToEncryptionPropertiesMap GetColumnEncryptionProperties(
+      int dek_length, const std::string& column_keys, FileKeyWrapper* key_wrapper);
+
+  /// Key utilities object for kms client initialization and cache control
+  std::shared_ptr<KeyToolkit> key_toolkit_ = std::make_shared<KeyToolkit>();
+};
+
+
 
 }  // namespace parquet::encryption

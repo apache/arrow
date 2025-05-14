@@ -411,7 +411,26 @@ cdef class CryptoFactory(_Weakrefable):
         file_encryption_properties = GetResultValue(
             file_encryption_properties_result)
         return FileEncryptionProperties.wrap(file_encryption_properties)
-
+    
+    def file_encryption_properties_with_external_config(
+        self,
+        KmsConnectionConfig kms_connection_config,
+        ExternalEncryptionConfiguration encryption_config):  
+        """
+        Create file encryption properties using external encryption configuration.
+        """
+        cdef:
+            CResult[shared_ptr[CFileEncryptionProperties]] \
+                file_encryption_properties_result
+        with nogil:
+            file_encryption_properties_result = \
+                self.factory.get().SafeGetFileEncryptionPropertiesWithExternalConfig(
+                    deref(kms_connection_config.unwrap().get()),
+                    deref(encryption_config.unwrap().get()))
+        file_encryption_properties = GetResultValue(
+            file_encryption_properties_result)
+        return FileEncryptionProperties.wrap(file_encryption_properties)
+        
     def file_decryption_properties(
             self,
             KmsConnectionConfig kms_connection_config,

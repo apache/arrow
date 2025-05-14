@@ -128,6 +128,10 @@ cdef extern from "arrow/python/parquet_encryption.h" \
             SafeGetFileDecryptionProperties(
             const CKmsConnectionConfig& kms_connection_config,
             const CDecryptionConfiguration& decryption_config)
+        CResult[shared_ptr[CFileEncryptionProperties]] \
+            SafeGetFileEncryptionPropertiesWithExternalConfig(
+            const CKmsConnectionConfig& kms_connection_config,
+            const CExternalEncryptionConfiguration& encryption_config)
 
 
 
@@ -163,7 +167,10 @@ cdef extern from "parquet/encryption/crypto_factory.h" \
         shared_ptr[CFileEncryptionProperties] GetFileEncryptionProperties(
             const CKmsConnectionConfig& kms_connection_config,
             const CEncryptionConfiguration& encryption_config) except +*
-        shared_ptr[CFileDecryptionProperties] GetFileDecryptionProperties(
+        shared_ptr[CFileEncryptionProperties] GetFileEncryptionProperties(
+            const CKmsConnectionConfig& kms_connection_config,
+            const CEncryptionConfiguration& encryption_config) except +*
+        shared_ptr[CFileDecryptionProperties] GetFileEncryptionPropertiesWithExternalConfig(
             const CKmsConnectionConfig& kms_connection_config,
             const CDecryptionConfiguration& decryption_config) except +*
         void RemoveCacheEntriesForToken(const c_string& access_token) except +
