@@ -161,7 +161,7 @@ uint32_t VariantMetadata::dictionarySize() const {
   if (length > 4) {
     throw ParquetException("Invalid offset size: " + std::to_string(length));
   }
-  if (length + 1 > metadata_.size()) {
+  if (static_cast<size_t>(length + 1) > metadata_.size()) {
     throw ParquetException("Invalid Variant metadata: too short for dictionary size");
   }
   uint32_t dict_size = 0;
@@ -422,8 +422,10 @@ std::string_view VariantValue::getString() const {
 
   if (basic_type == VariantBasicType::ShortString) {
     uint8_t length = (value[0] >> 2) & MAX_SHORT_STR_SIZE_MASK;
-    if (value.size() < length + 1) {
-      throw ParquetException("Invalid short string: too short");
+    if (value.size() < static_cast<size_t>(length + 1)) {
+      throw ParquetException(
+          "Invalid short string: too short: " + std::to_string(value.size()) +
+          " for at least " + std::to_string(length + 1));
     }
     return {value.data() + 1, length};
   }
@@ -507,16 +509,13 @@ std::array<uint8_t, 16> VariantValue::getUuid() const {
 std::string VariantValue::ObjectInfo::toDebugString() const {
   std::stringstream ss;
   ss << "ObjectInfo{"
-     << "num_elements=" << num_elements
-     << ", id_size=" << static_cast<int>(id_size)
+     << "num_elements=" << num_elements << ", id_size=" << static_cast<int>(id_size)
      << ", offset_size=" << static_cast<int>(offset_size)
      << ", id_start_offset=" << id_start_offset
      << ", offset_start_offset=" << offset_start_offset
-     << ", data_start_offset=" << data_start_offset
-     << "}";
+     << ", data_start_offset=" << data_start_offset << "}";
   return ss.str();
 }
-
 
 VariantValue::ObjectInfo VariantValue::getObjectInfo() const {
   checkBasicType(VariantBasicType::Object);
@@ -525,10 +524,10 @@ VariantValue::ObjectInfo VariantValue::getObjectInfo() const {
   uint8_t field_id_size = ((value_header >> 2) & 0b11) + 1;
   bool is_large = ((value_header >> 4) & 0b1);
   uint8_t num_elements_size = is_large ? 4 : 1;
-  if (value.size() < 1 + num_elements_size) {
-    throw ParquetException("Invalid object value: too short: " +
-                           std::to_string(value.size()) + " for at least " +
-                           std::to_string(1 + num_elements_size));
+  if (value.size() < static_cast<size_t>(1 + num_elements_size)) {
+    throw ParquetException(
+        "Invalid object value: too short: " + std::to_string(value.size()) +
+        " for at least " + std::to_string(1 + num_elements_size));
   }
   // parse num_elements
   uint32_t num_elements = 0;
@@ -542,12 +541,13 @@ VariantValue::ObjectInfo VariantValue::getObjectInfo() const {
   info.offset_size = field_offset_size;
   info.id_start_offset = 1 + num_elements_size;
   info.offset_start_offset = info.id_start_offset + num_elements * field_id_size;
-  info.data_start_offset = info.offset_start_offset + (num_elements + 1) * field_offset_size;
+  info.data_start_offset =
+      info.offset_start_offset + (num_elements + 1) * field_offset_size;
   // Check the boundary with the final offset
   if (info.data_start_offset > value.size()) {
     throw ParquetException("Invalid object value: data_start_offset=" +
-                                 std::to_string(info.data_start_offset) +
-                                 ", value_size=" + std::to_string(value.size()));
+                           std::to_string(info.data_start_offset) +
+                           ", value_size=" + std::to_string(value.size()));
   }
   {
     uint32_t final_offset = 0;
@@ -556,10 +556,10 @@ VariantValue::ObjectInfo VariantValue::getObjectInfo() const {
            field_offset_size);
     // It could be less than value size since it could be a sub-object.
     if (final_offset + info.data_start_offset > value.size()) {
-      throw ParquetException("Invalid object value: final_offset=" +
-                             std::to_string(final_offset) +
-                             ", data_start_offset=" + std::to_string(info.data_start_offset) +
-                             ", value_size=" + std::to_string(value.size()));
+      throw ParquetException(
+          "Invalid object value: final_offset=" + std::to_string(final_offset) +
+          ", data_start_offset=" + std::to_string(info.data_start_offset) +
+          ", value_size=" + std::to_string(value.size()));
     }
   }
   return info;
@@ -629,9 +629,8 @@ VariantValue VariantValue::getObjectFieldByFieldId(uint32_t variantId,
   }
 
   // Create a VariantValue for the field
-  VariantValue field_value{
-      .metadata = metadata,
-      .value = value.substr(info.data_start_offset + offset)};
+  VariantValue field_value{.metadata = metadata,
+                           .value = value.substr(info.data_start_offset + offset)};
 
   return field_value;
 }
@@ -644,7 +643,7 @@ VariantValue::ArrayInfo VariantValue::getArrayInfo() const {
 
   // check the array header
   uint8_t num_elements_size = is_large ? 4 : 1;
-  if (value.size() < 1 + num_elements_size) {
+  if (value.size() < static_cast<size_t>(1 + num_elements_size)) {
     throw ParquetException(
         "Invalid array value: too short: " + std::to_string(value.size()) +
         " for at least " + std::to_string(1 + num_elements_size));
