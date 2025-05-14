@@ -24,6 +24,7 @@
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 
@@ -233,7 +234,7 @@ class TestReplaceBinary : public TestReplaceKernel<T> {
 
 using NumericBasedTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
-                     Int32Type, Int64Type, FloatType, DoubleType, Date32Type, Date64Type,
+                     Int32Type, Int64Type, HalfFloatType, FloatType, DoubleType, Date32Type, Date64Type,
                      Time32Type, Time64Type, TimestampType, MonthIntervalType>;
 
 TYPED_TEST_SUITE(TestReplaceNumeric, NumericBasedTypes);
