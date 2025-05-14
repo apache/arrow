@@ -25,7 +25,6 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
-#include "arrow/array/array_base.h"
 #include "arrow/buffer.h"
 #include "arrow/compute/exec.h"
 #include "arrow/datum.h"
@@ -93,7 +92,8 @@ std::shared_ptr<arrow::Array> ConstantArrayGenerator::Int64(int64_t size, int64_
   return ConstantArray<Int64Type>(size, value);
 }
 
-std::shared_ptr<arrow::Array> ConstantArrayGenerator::Float16(int64_t size, uint16_t value) {
+std::shared_ptr<arrow::Array> ConstantArrayGenerator::Float16(int64_t size, 
+                                                              uint16_t value) {
   return ConstantArray<HalfFloatType>(size, value);
 }
 
