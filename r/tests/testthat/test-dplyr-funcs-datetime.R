@@ -3773,7 +3773,7 @@ test_that("hms::as_hms", {
     int = c(30L, 75L),
     integerish_dbl = c(31, 76),
     dbl = c(31.2, 76.4),
-    datetime = as.POSIXct(c(1645243500, 1745243500), tz = "UTC")
+    datetime = as.POSIXct(c(1645243500, 1745243500), tz = "UTC", origin = "1970-01-01")
   )
 
   compare_dplyr_binding(
