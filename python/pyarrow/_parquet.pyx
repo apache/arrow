@@ -1972,12 +1972,14 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         write_page_index=False,
         write_page_checksum=False,
         sorting_columns=None,
-        store_decimal_as_integer=False) except *:
+        store_decimal_as_integer=False,
+        use_content_defined_chunking=False) except *:
 
     """General writer properties"""
     cdef:
         shared_ptr[WriterProperties] properties
         WriterProperties.Builder props
+        CdcOptions cdc_options
 
     # data_page_version
 
@@ -2101,6 +2103,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
             raise TypeError(
                 "'column_encoding' should be a dictionary or a string")
 
+    # size limits
     if data_page_size is not None:
         props.data_pagesize(data_page_size)
 
@@ -2109,6 +2112,33 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
 
     if dictionary_pagesize_limit is not None:
         props.dictionary_pagesize_limit(dictionary_pagesize_limit)
+
+    # content defined chunking
+
+    if use_content_defined_chunking is True:
+        props.enable_content_defined_chunking()
+    elif use_content_defined_chunking is False:
+        props.disable_content_defined_chunking()
+    elif isinstance(use_content_defined_chunking, dict):
+        defined_keys = use_content_defined_chunking.keys()
+        mandatory_keys = {"min_chunk_size", "max_chunk_size"}
+        allowed_keys = {"min_chunk_size", "max_chunk_size", "norm_level"}
+        unknown_keys = defined_keys - allowed_keys
+        missing_keys = mandatory_keys - defined_keys
+        if unknown_keys:
+            raise ValueError(
+                f"Unknown options in 'use_content_defined_chunking': {unknown_keys}")
+        if missing_keys:
+            raise ValueError(
+                f"Missing options in 'use_content_defined_chunking': {missing_keys}")
+        cdc_options.min_chunk_size = use_content_defined_chunking["min_chunk_size"]
+        cdc_options.max_chunk_size = use_content_defined_chunking["max_chunk_size"]
+        cdc_options.norm_level = use_content_defined_chunking.get("norm_level", 0)
+        props.enable_content_defined_chunking()
+        props.content_defined_chunking_options(cdc_options)
+    else:
+        raise TypeError(
+            "'use_content_defined_chunking' should be either boolean or a dictionary")
 
     # encryption
 
@@ -2259,7 +2289,8 @@ cdef class ParquetWriter(_Weakrefable):
                   write_page_index=False,
                   write_page_checksum=False,
                   sorting_columns=None,
-                  store_decimal_as_integer=False):
+                  store_decimal_as_integer=False,
+                  use_content_defined_chunking=False):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2294,6 +2325,7 @@ cdef class ParquetWriter(_Weakrefable):
             write_page_checksum=write_page_checksum,
             sorting_columns=sorting_columns,
             store_decimal_as_integer=store_decimal_as_integer,
+            use_content_defined_chunking=use_content_defined_chunking
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
