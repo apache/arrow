@@ -27,7 +27,7 @@ COPY ci/conda_env_python.txt \
 # we need to install the conda-forge gdb instead (GH-38323).
 RUN mamba install -q -y \
         --file arrow/ci/conda_env_python.txt \
-        $([ "$python" == $(gdb --batch --eval-command 'python import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') ] && echo "gdb") \
+        $([ "$python" == $(gdb --batch --eval-command 'python import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') ] && echo "gdb<16.3") \
         "python=${python}.*=*_cp*" \
         nomkl && \
     mamba clean --all --yes
