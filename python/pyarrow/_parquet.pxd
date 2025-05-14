@@ -18,12 +18,6 @@
 # distutils: language = c++
 # cython: language_level = 3
 
-from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport (CChunkedArray, CScalar, CSchema, CStatus,
-                                        CTable, CMemoryPool, CBuffer,
-                                        CKeyValueMetadata, CRandomAccessFile,
-                                        COutputStream, CCacheOptions,
-                                        TimeUnit, CRecordBatchReader)
 from pyarrow.includes.libparquet cimport *
 from pyarrow.lib cimport _Weakrefable
 
