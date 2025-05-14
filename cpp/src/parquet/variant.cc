@@ -21,7 +21,8 @@
 #include <iostream>
 #include <string_view>
 
-#include "arrow/util/endian.h"
+#include <arrow/util/endian.h>
+
 #include "parquet/exception.h"
 
 namespace parquet::variant {
@@ -146,13 +147,20 @@ VariantMetadata::VariantMetadata(std::string_view metadata) : metadata_(metadata
     throw ParquetException("Invalid Variant metadata: too short: " +
                            std::to_string(metadata.size()));
   }
+  if (version() != 1) {
+    // Currently we only supports version 1.
+    throw ParquetException("Unsupported Variant metadata version: " +
+                           std::to_string(version()));
+  }
 }
 
 int8_t VariantMetadata::version() const {
-  return static_cast<int8_t>(metadata_[0]) & 0x0F;
+  return static_cast<int8_t>(metadata_[0]) & VERSION_MASK;
 }
 
-bool VariantMetadata::sortedStrings() const { return (metadata_[0] & 0b10000) != 0; }
+bool VariantMetadata::sortedStrings() const {
+  return (metadata_[0] & SORTED_STRING_MASK) != 0;
+}
 
 uint8_t VariantMetadata::offsetSize() const { return ((metadata_[0] >> 6) & 0x3) + 1; }
 
@@ -187,10 +195,10 @@ std::string_view VariantMetadata::getMetadataKey(int32_t variantId) const {
   uint32_t variant_offset = 0;
   uint32_t variant_next_offset = 0;
   memcpy(&variant_offset, metadata_.data() + offset_start_pos, offset_size);
-  variant_offset = arrow::bit_util::FromLittleEndian(variant_offset);
+  variant_offset = ::arrow::bit_util::FromLittleEndian(variant_offset);
   memcpy(&variant_next_offset, metadata_.data() + offset_start_pos + offset_size,
          offset_size);
-  variant_next_offset = arrow::bit_util::FromLittleEndian(variant_next_offset);
+  variant_next_offset = ::arrow::bit_util::FromLittleEndian(variant_next_offset);
 
   uint32_t key_size = variant_next_offset - variant_offset;
 
@@ -585,6 +593,12 @@ std::optional<VariantValue> VariantValue::getObjectValueByKey(
   for (uint32_t i = 0; i < info.num_elements; ++i) {
     std::string_view field_key;
     std::optional<VariantValue> field_value = getObjectFieldByFieldId(i, &field_key);
+
+    if (!field_value.has_value()) {
+      // The field might not belong to the current object,
+      // just skip it.
+      continue;
+    }
 
     if (field_key == key) {
       return field_value;

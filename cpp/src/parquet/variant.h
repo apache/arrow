@@ -131,6 +131,9 @@ class VariantMetadata {
   uint8_t offsetSize() const;
   uint32_t dictionarySize() const;
 
+  static constexpr uint8_t VERSION_MASK = 0xF;
+  static constexpr uint8_t SORTED_STRING_MASK = 0b10000;
+
  private:
   std::string_view metadata_;
 };

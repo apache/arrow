@@ -49,6 +49,8 @@ TEST(ParquetVariant, MetadataBase) {
   std::string dir_string(parquet::test::get_variant_dir());
   auto file_system = std::make_shared<::arrow::fs::LocalFileSystem>();
   std::vector<std::string> primitive_metadatas = {
+      // FIXME(mwish): null metadata is corrupt, see
+      // https://github.com/apache/parquet-testing/issues/81
       // "primitive_null.metadata",
       "primitive_boolean_true.metadata", "primitive_boolean_false.metadata",
       "primitive_date.metadata",         "primitive_decimal4.metadata",
@@ -289,6 +291,68 @@ TEST(ParquetVariant, ObjectValues) {
   {
     std::string_view key;
     EXPECT_THROW(variant.getObjectFieldByFieldId(100, &key), ParquetException);
+  }
+}
+
+TEST(ParquetVariant, NestedObjectValues) {
+  std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
+  auto variant = LoadVariantValue("object_nested", &metadata_buf, &value_buf);
+  EXPECT_EQ(VariantType::OBJECT, variant.getType());
+  EXPECT_EQ("OBJECT", variant.typeDebugString());
+  auto info = variant.getObjectInfo();
+  EXPECT_EQ(3, info.num_elements);
+
+  // Trying to get the exists key
+  auto value = variant.getObjectValueByKey("id", info);
+  ASSERT_TRUE(value.has_value());
+  EXPECT_EQ(VariantType::BYTE, value->getType());
+  EXPECT_EQ(1, value->getInt8());
+
+  auto observation = value->getObjectValueByKey("observation", info);
+  ASSERT_TRUE(observation.has_value());
+  EXPECT_EQ(VariantType::OBJECT, observation->getType());
+
+  auto species = observation->getObjectValueByKey("species", info);
+  ASSERT_TRUE(species.has_value());
+  EXPECT_EQ(VariantType::OBJECT, species->getType());
+
+  // Inner object works well
+  {
+    auto species_object_info = species->getObjectInfo();
+    EXPECT_EQ(2, species_object_info.num_elements);
+    auto name = species->getObjectValueByKey("name");
+    ASSERT_TRUE(name.has_value());
+    EXPECT_EQ(VariantType::STRING, name->getType());
+    EXPECT_EQ("name", name->getString());
+
+    auto population = species->getObjectValueByKey("population");
+    ASSERT_TRUE(population.has_value());
+    EXPECT_EQ(VariantType::SHORT, name->getType());
+    EXPECT_EQ(6789, name->getInt16());
+  }
+
+  // Get inner key outside will fail
+  {
+    std::vector<std::string_view> observation_keys = {"location", "time", "value"};
+    for (auto& key : observation_keys) {
+      // Only observation would get it successfully.
+      auto inner_value = observation->getObjectValueByKey(key);
+      ASSERT_TRUE(value.has_value());
+
+      inner_value = value->getObjectValueByKey(key, info);
+      ASSERT_FALSE(value.has_value());
+
+      inner_value = species->getObjectValueByKey(key);
+      ASSERT_FALSE(value.has_value());
+    }
+  }
+  // Get outside keys in inner object
+  {
+    auto inner_value = observation->getObjectValueByKey("id", info);
+    ASSERT_FALSE(inner_value.has_value());
+
+    inner_value = species->getObjectValueByKey("id", info);
+    ASSERT_FALSE(inner_value.has_value());
   }
 }
 
