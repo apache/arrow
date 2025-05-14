@@ -2407,7 +2407,7 @@ garrow_fixed_shape_tensor_data_type_get_dim_names(
   for (size_t i = 0; i < n; ++i) {
     dim_names[i] = g_strndup(arrow_dim_names[i].data(), arrow_dim_names[i].size());
   }
-  dim_names[n] = NULL;
+  dim_names[n] = nullptr;
   return dim_names;
 }
 G_END_DECLS
