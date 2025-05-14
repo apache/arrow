@@ -1491,6 +1491,7 @@ TYPED_TEST(TestFillNullNumeric, FillNullForwardLargeInput) {
   ASSERT_OK_AND_ASSIGN(auto array_null, MakeArrayOfNull(array_random->type(), len_null));
   auto array_null_filled =
       ConstantArrayGenerator::Numeric<TypeParam>(len_null, x_ptr[len_random - 1]);
+  ASSERT_NE(array_null_filled, nullptr);
   {
     ASSERT_OK_AND_ASSIGN(auto value_array,
                          Concatenate({array_random, array_null, array_random}));
