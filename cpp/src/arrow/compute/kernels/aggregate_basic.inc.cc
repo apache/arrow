@@ -187,14 +187,12 @@ struct SumLikeInit {
     return Status::OK();
   }
 
-  /* Decimal types
-   *
-   * By default, we widen the decimal to max precision for SumLikes
-   * However, this may not be the desired behaviour (see, e.g., MeanKernelInit) */
+  /// By default, we widen the decimal to max precision for SumLikes
+  /// However, this may not be the desired behaviour (see, e.g., MeanKernelInit)
   template <typename Type>
   enable_if_decimal<Type, Status> Visit(const Type&) {
     if constexpr (PromoteDecimal) {
-      auto ty = WidenDecimalToMaxPrecision(type).ValueOrDie();
+      ARROW_ASSIGN_OR_RAISE(auto ty, WidenDecimalToMaxPrecision(type));
       state.reset(new KernelClass<Type>(ty, options));
       return Status::OK();
     } else {
