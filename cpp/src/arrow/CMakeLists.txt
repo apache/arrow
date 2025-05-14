@@ -481,8 +481,7 @@ set(ARROW_VENDORED_SRCS
     vendored/uriparser/UriQuery.c
     vendored/uriparser/UriRecompose.c
     vendored/uriparser/UriResolve.c
-    vendored/uriparser/UriShorten.c
-    vendored/whereami/whereami.cc)
+    vendored/uriparser/UriShorten.c)
 if(APPLE)
   list(APPEND ARROW_VENDORED_SRCS vendored/datetime/ios.mm)
 endif()
