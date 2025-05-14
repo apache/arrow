@@ -3792,4 +3792,7 @@ test_that("hms::as_hms", {
     arrow_table(test_df) %>% mutate(y = hms::as_hms(dbl)) %>% collect(),
     "was truncated converting to int32"
   )
+
+  skip_if_not_available("utf8proc")
+
 })
