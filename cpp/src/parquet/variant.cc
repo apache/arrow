@@ -326,7 +326,8 @@ std::string VariantValue::typeDebugString() const {
 
 bool VariantValue::getBool() const {
   if (getBasicType() != VariantBasicType::Primitive) {
-    throw ParquetException("Not a primitive type");
+    throw ParquetException("Expected primitive type, but got: " +
+                           variantBasicTypeToString(getBasicType()));
   }
 
   int8_t primitive_type = static_cast<int8_t>(value[0]) >> 2;
@@ -341,11 +342,16 @@ bool VariantValue::getBool() const {
                          std::to_string(primitive_type));
 }
 
+void VariantValue::checkBasicType(VariantBasicType type) const {
+  if (getBasicType() != type) {
+    throw ParquetException("Expected basic type: " + variantBasicTypeToString(type) +
+                           ", but got: " + variantBasicTypeToString(getBasicType()));
+  }
+}
+
 void VariantValue::checkPrimitiveType(VariantPrimitiveType type,
                                       size_t size_required) const {
-  if (getBasicType() != VariantBasicType::Primitive) {
-    throw ParquetException("Not a primitive type");
-  }
+  checkBasicType(VariantBasicType::Primitive);
 
   auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
   if (primitive_type != type) {
@@ -354,9 +360,9 @@ void VariantValue::checkPrimitiveType(VariantPrimitiveType type,
         ", but got: " + variantPrimitiveTypeToString(primitive_type));
   }
 
-  if (value.size() < 1 + size_required) {
+  if (value.size() < size_required) {
     throw ParquetException("Invalid value: too short, expected at least " +
-                           std::to_string(1 + size_required) + " bytes for type " +
+                           std::to_string(size_required) + " bytes for type " +
                            variantPrimitiveTypeToString(type) +
                            ", but got: " + std::to_string(value.size()) + " bytes");
   }
@@ -364,7 +370,7 @@ void VariantValue::checkPrimitiveType(VariantPrimitiveType type,
 
 template <typename PrimitiveType>
 PrimitiveType VariantValue::getPrimitiveType(VariantPrimitiveType type) const {
-  checkPrimitiveType(type, sizeof(PrimitiveType));
+  checkPrimitiveType(type, sizeof(PrimitiveType) + 1);
 
   PrimitiveType primitive_value{};
   memcpy(&primitive_value, value.data() + 1, sizeof(PrimitiveType));
@@ -378,15 +384,15 @@ int8_t VariantValue::getInt8() const {
 }
 
 int16_t VariantValue::getInt16() const {
-  return getPrimitiveType<int8_t>(VariantPrimitiveType::Int16);
+  return getPrimitiveType<int16_t>(VariantPrimitiveType::Int16);
 }
 
 int32_t VariantValue::getInt32() const {
-  return getPrimitiveType<int8_t>(VariantPrimitiveType::Int32);
+  return getPrimitiveType<int32_t>(VariantPrimitiveType::Int32);
 }
 
 int64_t VariantValue::getInt64() const {
-  return getPrimitiveType<int8_t>(VariantPrimitiveType::Int64);
+  return getPrimitiveType<int64_t>(VariantPrimitiveType::Int64);
 }
 
 float VariantValue::getFloat() const {
@@ -394,22 +400,11 @@ float VariantValue::getFloat() const {
 }
 
 double VariantValue::getDouble() const {
-  return getPrimitiveType<float>(VariantPrimitiveType::Double);
+  return getPrimitiveType<double>(VariantPrimitiveType::Double);
 }
 
 std::string_view VariantValue::getPrimitiveBinaryType(VariantPrimitiveType type) const {
-  VariantBasicType basic_type = getBasicType();
-  if (basic_type != VariantBasicType::Primitive) {
-    throw ParquetException("Not a primitive type");
-  }
-  auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
-  if (primitive_type != VariantPrimitiveType::String) {
-    throw ParquetException("Not a string type");
-  }
-
-  if (value.size() < 5) {
-    throw ParquetException("Invalid string value: too short");
-  }
+  checkPrimitiveType(type, /*size_required=*/5);
 
   uint32_t length;
   memcpy(&length, value.data() + 1, sizeof(uint32_t));
@@ -468,7 +463,7 @@ DecimalValue<::arrow::Decimal64> VariantValue::getDecimal8() const {
 
 DecimalValue<::arrow::Decimal128> VariantValue::getDecimal16() const {
   checkPrimitiveType(VariantPrimitiveType::Decimal16,
-                     /*size_required=*/sizeof(int64_t) * 2);
+                     /*size_required=*/sizeof(int64_t) * 2 + 2);
 
   uint8_t scale = value[1];
 
@@ -524,9 +519,7 @@ std::string VariantValue::ObjectInfo::toDebugString() const {
 
 
 VariantValue::ObjectInfo VariantValue::getObjectInfo() const {
-  if (getBasicType() != VariantBasicType::Object) {
-    throw ParquetException("Not an object type");
-  }
+  checkBasicType(VariantBasicType::Object);
   uint8_t value_header = value[0] >> 2;
   uint8_t field_offset_size = (value_header & 0b11) + 1;
   uint8_t field_id_size = ((value_header >> 2) & 0b11) + 1;
@@ -561,6 +554,7 @@ VariantValue::ObjectInfo VariantValue::getObjectInfo() const {
     memcpy(&final_offset,
            value.data() + info.offset_start_offset + num_elements * field_offset_size,
            field_offset_size);
+    // It could be less than value size since it could be a sub-object.
     if (final_offset + info.data_start_offset > value.size()) {
       throw ParquetException("Invalid object value: final_offset=" +
                              std::to_string(final_offset) +
@@ -591,12 +585,13 @@ std::optional<VariantValue> VariantValue::getObjectValueByKey(
   return std::nullopt;
 }
 
-std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
-    uint32_t variantId, std::string_view* key) const {
+VariantValue VariantValue::getObjectFieldByFieldId(uint32_t variantId,
+                                                   std::string_view* key) const {
   ObjectInfo info = getObjectInfo();
 
   if (variantId >= info.num_elements) {
-    throw ParquetException("Field ID out of range");
+    throw ParquetException("Field ID out of range: " + std::to_string(variantId) +
+                           " >= " + std::to_string(info.num_elements));
   }
 
   // Read the field ID
@@ -606,7 +601,7 @@ std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
   field_id = arrow::bit_util::FromLittleEndian(field_id);
 
   // Get the key from metadata
-  *key = metadata.getMetadataKey(field_id);
+  *key = metadata.getMetadataKey(static_cast<int32_t>(field_id));
 
   // Read the offset and next offset
   uint32_t offset = 0, next_offset = 0;
@@ -633,10 +628,7 @@ std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
 }
 
 VariantValue::ArrayInfo VariantValue::getArrayInfo() const {
-  if (getBasicType() != VariantBasicType::Array) {
-    throw ParquetException("Expected array type, but got: " +
-                           variantBasicTypeToString(getBasicType()));
-  }
+  checkBasicType(VariantBasicType::Array);
   uint8_t value_header = value[0] >> 2;
   uint8_t field_offset_size = (value_header & 0b11) + 1;
   bool is_large = ((value_header >> 2) & 0b1);
@@ -649,7 +641,7 @@ VariantValue::ArrayInfo VariantValue::getArrayInfo() const {
         " for at least " + std::to_string(1 + num_elements_size));
   }
 
-  // 解析 num_elements
+  // parse num_elements
   uint32_t num_elements = 0;
   {
     memcpy(&num_elements, value.data() + 1, num_elements_size);
@@ -663,14 +655,15 @@ VariantValue::ArrayInfo VariantValue::getArrayInfo() const {
   info.data_start_offset =
       info.offset_start_offset + (num_elements + 1) * field_offset_size;
 
-  // 检查边界
+  // Boundary check
   if (info.data_start_offset > value.size()) {
     throw ParquetException("Invalid array value: data_start_offset=" +
                            std::to_string(info.data_start_offset) +
                            ", value_size=" + std::to_string(value.size()));
   }
 
-  // 检查最终偏移量
+  // Validate final offset is equal to the size of the value,
+  // it would work since even empty array would have an offset of 0.
   {
     uint32_t final_offset = 0;
     memcpy(&final_offset,

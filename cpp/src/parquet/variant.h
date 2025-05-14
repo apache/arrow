@@ -189,8 +189,7 @@ struct VariantValue {
   };
   ObjectInfo getObjectInfo() const;
   std::optional<VariantValue> getObjectValueByKey(std::string_view key) const;
-  std::optional<VariantValue> getObjectFieldByFieldId(uint32_t variantId,
-                                                      std::string_view* key) const;
+  VariantValue getObjectFieldByFieldId(uint32_t variantId, std::string_view* key) const;
 
   struct ArrayInfo {
     uint32_t num_elements;
@@ -202,6 +201,7 @@ struct VariantValue {
   // Would throw ParquetException if index is out of range.
   VariantValue getArrayValueByIndex(uint32_t index) const;
 
+ private:
   static constexpr uint8_t BASIC_TYPE_MASK = 0b00000011;
   static constexpr uint8_t PRIMITIVE_TYPE_MASK = 0b00111111;
   /** The inclusive maximum value of the type info value. It is the size limit of
@@ -216,6 +216,7 @@ struct VariantValue {
   DecimalValue<DecimalType> getPrimitiveDecimalType(VariantPrimitiveType type) const;
 
   std::string_view getPrimitiveBinaryType(VariantPrimitiveType type) const;
+  void checkBasicType(VariantBasicType type) const;
   void checkPrimitiveType(VariantPrimitiveType type, size_t size_required) const;
 };
 

@@ -67,11 +67,11 @@ TEST(ParquetVariant, MetadataBase) {
     EXPECT_EQ(1, metadata.version());
     EXPECT_THROW(metadata.getMetadataKey(0), ParquetException);
   }
-
   {
     std::string object_metadata = "object_primitive.metadata";
     ARROW_SCOPED_TRACE("Testing file: " + object_metadata);
-    auto buf = readFromFile(*file_system, object_metadata);
+    std::string path = dir_string + "/" + object_metadata;
+    auto buf = readFromFile(*file_system, path);
 
     VariantMetadata metadata(std::string_view{*buf});
     EXPECT_EQ("int_field", metadata.getMetadataKey(0));
@@ -108,12 +108,10 @@ TEST(ParquetVariant, BooleanValue) {
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_boolean_true", &metadata_buf, &value_buf);
-    std::cout << variant.typeDebugString() << '\n';
     EXPECT_EQ(VariantType::BOOLEAN, variant.getType());
     EXPECT_EQ("BOOLEAN", variant.typeDebugString());
     EXPECT_EQ(true, variant.getBool());
   }
-
   // test false
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
@@ -121,7 +119,6 @@ TEST(ParquetVariant, BooleanValue) {
     EXPECT_EQ(VariantType::BOOLEAN, variant.getType());
     EXPECT_EQ(false, variant.getBool());
   }
-
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_int32", &metadata_buf, &value_buf);
@@ -218,17 +215,6 @@ TEST(ParquetVariant, StringValues) {
   }
 }
 
-TEST(ParquetVariant, NullValue) {
-  // https://github.com/apache/parquet-testing/issues/81
-  /*
-  std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
-  auto variant = LoadVariantValue("primitive_null", &metadata_buf, &value_buf);
-  EXPECT_EQ(VariantType::VARIANT_NULL, variant.getType());
-  EXPECT_EQ("NULL", variant.typeDebugString());
-  */
-}
-
-
 TEST(ParquetVariant, ObjectValues) {
   std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
   auto variant = LoadVariantValue("object_primitive", &metadata_buf, &value_buf);
@@ -237,47 +223,73 @@ TEST(ParquetVariant, ObjectValues) {
 
   auto obj_info = variant.getObjectInfo();
   EXPECT_EQ(7, obj_info.num_elements);
+  auto handle_int_field = [](const std::optional<VariantValue>& value) {
+    EXPECT_TRUE(value.has_value());
+    EXPECT_EQ(VariantType::BYTE, value->getType());
+    EXPECT_EQ(1, value->getInt8());
+  };
+  auto handle_double_field = [](const std::optional<VariantValue>& value) {
+    EXPECT_TRUE(value.has_value());
+    EXPECT_EQ(VariantType::DECIMAL4, value->getType());
+    auto decimal_value = value->getDecimal4();
+    EXPECT_EQ("1.23456789", decimal_value.value.ToString(decimal_value.scale));
+  };
+  auto handle_boolean_true_field = [](const std::optional<VariantValue>& value) {
+    EXPECT_TRUE(value.has_value());
+    EXPECT_EQ(VariantType::BOOLEAN, value->getType());
+    EXPECT_TRUE(value->getBool());
+  };
+  auto handle_boolean_false_field = [](const std::optional<VariantValue>& value) {
+    EXPECT_TRUE(value.has_value());
+    EXPECT_EQ(VariantType::BOOLEAN, value->getType());
+    EXPECT_FALSE(value->getBool());
+  };
+  auto handle_string_field = [](const std::optional<VariantValue>& value) {
+    EXPECT_TRUE(value.has_value());
+    EXPECT_EQ(VariantType::STRING, value->getType());
+    EXPECT_EQ("Apache Parquet", value->getString());
+  };
+  auto handle_null_field = [](const std::optional<VariantValue>& value) {
+    EXPECT_TRUE(value.has_value());
+    EXPECT_EQ(VariantType::VARIANT_NULL, value->getType());
+  };
+  auto handle_timestamp_field = [](const std::optional<VariantValue>& value) {
+    EXPECT_TRUE(value.has_value());
+    EXPECT_EQ(VariantType::STRING, value->getType());
+    EXPECT_EQ("2025-04-16T12:34:56.78", value->getString());
+  };
 
-  auto int_field = variant.getObjectValueByKey("int_field");
-  ASSERT_TRUE(int_field.has_value());
-  std::cout << "int_field: " << int_field->typeDebugString() << '\n';
-  EXPECT_EQ(VariantType::INT, int_field->getType());
-  // EXPECT_EQ(42, int_field->getInt32());
-
-  auto double_field = variant.getObjectValueByKey("double_field");
-  std::cout << "double_field: " << double_field->typeDebugString() << '\n';
-  ASSERT_TRUE(double_field.has_value());
-  EXPECT_EQ(VariantType::DOUBLE, double_field->getType());
-  // EXPECT_DOUBLE_EQ(3.14159, double_field->getDouble());
-
-  auto boolean_true_field = variant.getObjectValueByKey("boolean_true_field");
-  ASSERT_TRUE(boolean_true_field.has_value());
-  EXPECT_EQ(VariantType::BOOLEAN, boolean_true_field->getType());
-  EXPECT_TRUE(boolean_true_field->getBool());
-
-  auto boolean_false_field = variant.getObjectValueByKey("boolean_false_field");
-  ASSERT_TRUE(boolean_false_field.has_value());
-  EXPECT_EQ(VariantType::BOOLEAN, boolean_false_field->getType());
-  // EXPECT_FALSE(boolean_false_field->getBool());
-
-  auto string_field = variant.getObjectValueByKey("string_field");
-  ASSERT_TRUE(string_field.has_value());
-  EXPECT_EQ(VariantType::STRING, string_field->getType());
-  // EXPECT_EQ("Hello, World!", string_field->getString());
-
-  auto null_field = variant.getObjectValueByKey("null_field");
-  ASSERT_TRUE(null_field.has_value());
-  EXPECT_EQ(VariantType::VARIANT_NULL, null_field->getType());
-
-  auto non_existent = variant.getObjectValueByKey("non_existent");
-  EXPECT_FALSE(non_existent.has_value());
-
-  // std::string_view key;
-  // auto field_by_id = variant.getObjectFieldByFieldId(0, &key);
-  // ASSERT_TRUE(field_by_id.has_value());
-  // EXPECT_EQ("int_field", key);
-  // EXPECT_EQ(VariantType::INT, field_by_id->getType());
-  // EXPECT_EQ(42, field_by_id->getInt32());
+  std::map<std::string, std::function<void(const std::optional<VariantValue>& value)>>
+      key_handler = {{"int_field", handle_int_field},
+                     {"double_field", handle_double_field},
+                     {"boolean_true_field", handle_boolean_true_field},
+                     {"boolean_false_field", handle_boolean_false_field},
+                     {"string_field", handle_string_field},
+                     {"null_field", handle_null_field},
+                     {"timestamp_field", handle_timestamp_field}};
+  // Test getObjectValueByKey with existing keys
+  for (auto& [key, handler] : key_handler) {
+    auto value = variant.getObjectValueByKey(key);
+    handler(value);
+  }
+  // Test non-existing key
+  {
+    auto ne = variant.getObjectValueByKey("non_exists");
+    EXPECT_FALSE(ne.has_value());
+  }
+  // Test get by index
+  for (uint32_t i = 0; i < obj_info.num_elements; ++i) {
+    std::string_view key;
+    auto value = variant.getObjectFieldByFieldId(i, &key);
+    auto iter = key_handler.find(std::string(key));
+    ASSERT_TRUE(iter != key_handler.end());
+    auto handler = iter->second;
+    handler(value);
+  }
+  {
+    std::string_view key;
+    EXPECT_THROW(variant.getObjectFieldByFieldId(100, &key), ParquetException);
+  }
 }
 
 TEST(ParquetVariant, DecimalValues) {
@@ -319,13 +331,6 @@ TEST(ParquetVariant, DateTimeValues) {
     // 2025-04-16
     EXPECT_EQ(20194, variant.getDate());
   }
-  // {
-  //   std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
-  //   auto variant = LoadVariantValue("primitive_time", &metadata_buf, &value_buf);
-  //   EXPECT_EQ(VariantType::TIME, variant.getType());
-  //   EXPECT_EQ("TIME", variant.typeDebugString());
-  //   EXPECT_EQ(43200000000, variant.getTimeNTZ());
-  // }
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_timestamp", &metadata_buf, &value_buf);
@@ -342,30 +347,6 @@ TEST(ParquetVariant, DateTimeValues) {
   }
 }
 
-// TEST(ParquetVariant, UuidValue) {
-//   std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
-//   auto variant = LoadVariantValue("primitive_uuid", &metadata_buf, &value_buf);
-//   EXPECT_EQ(VariantType::UUID, variant.getType());
-//   EXPECT_EQ("UUID", variant.typeDebugString());
-//
-//   // UUID 是 16 字节的二进制数据
-//   const uint8_t* uuid = variant.getUuid();
-//   ASSERT_NE(nullptr, uuid);
-//
-//   // 检查 UUID 的格式（这里只是示例，实际值可能不同）
-//   std::string uuid_str;
-//   for (int i = 0; i < 16; i++) {
-//     char hex[3];
-//     snprintf(hex, sizeof(hex), "%02x", uuid[i]);
-//     uuid_str += hex;
-//     if (i == 3 || i == 5 || i == 7 || i == 9) {
-//       uuid_str += "-";
-//     }
-//   }
-//
-//   EXPECT_EQ(36, uuid_str.length()); // 标准 UUID 字符串长度
-// }
-
 TEST(ParquetVariant, ArrayValues) {
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
@@ -376,14 +357,13 @@ TEST(ParquetVariant, ArrayValues) {
     auto array_info = variant.getArrayInfo();
     EXPECT_EQ(4, array_info.num_elements);
 
-    // 通过索引获取值
     auto element0 = variant.getArrayValueByIndex(0);
     EXPECT_EQ(VariantType::BYTE, element0.getType());
-    EXPECT_EQ(2, element0.getInt32());
+    EXPECT_EQ(2, element0.getInt8());
 
     auto element1 = variant.getArrayValueByIndex(1);
     EXPECT_EQ(VariantType::BYTE, element1.getType());
-    EXPECT_EQ(1, element1.getInt32());
+    EXPECT_EQ(1, element1.getInt8());
 
     auto element2 = variant.getArrayValueByIndex(2);
     EXPECT_EQ(VariantType::BYTE, element2.getType());
@@ -441,82 +421,6 @@ TEST(ParquetVariant, ArrayValuesNested) {
     ASSERT_TRUE(id.has_value());
     EXPECT_EQ(VariantType::BYTE, id->getType());
     EXPECT_EQ(2, id->getInt8());
-  }
-}
-
-TEST(ParquetVariant, NestedStructures) {
-  // 测试嵌套对象
-  {
-    std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
-    auto variant = LoadVariantValue("object_nested", &metadata_buf, &value_buf);
-    EXPECT_EQ(VariantType::OBJECT, variant.getType());
-
-    auto nested_obj = variant.getObjectValueByKey("nested_object");
-    ASSERT_TRUE(nested_obj.has_value());
-    EXPECT_EQ(VariantType::OBJECT, nested_obj->getType());
-
-    auto nested_field = nested_obj->getObjectValueByKey("nested_field");
-    ASSERT_TRUE(nested_field.has_value());
-    EXPECT_EQ(VariantType::STRING, nested_field->getType());
-    EXPECT_EQ("Nested value", nested_field->getString());
-  }
-
-  // 测试嵌套数组
-  {
-    std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
-    auto variant = LoadVariantValue("array_nested", &metadata_buf, &value_buf);
-    EXPECT_EQ(VariantType::ARRAY, variant.getType());
-
-    auto nested_array = variant.getArrayValueByIndex(0);
-    EXPECT_EQ(VariantType::ARRAY, nested_array.getType());
-
-    auto array_info = nested_array.getArrayInfo();
-    EXPECT_EQ(3, array_info.num_elements);
-
-    auto element0 = nested_array.getArrayValueByIndex(0);
-    EXPECT_EQ(VariantType::INT, element0.getType());
-    EXPECT_EQ(1, element0.getInt32());
-
-    auto element1 = nested_array.getArrayValueByIndex(1);
-    EXPECT_EQ(VariantType::INT, element1.getType());
-    EXPECT_EQ(2, element1.getInt32());
-
-    auto element2 = nested_array.getArrayValueByIndex(2);
-    EXPECT_EQ(VariantType::INT, element2.getType());
-    EXPECT_EQ(3, element2.getInt32());
-  }
-
-  // 测试对象中的数组
-  {
-    std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
-    auto variant = LoadVariantValue("object_with_array", &metadata_buf, &value_buf);
-    EXPECT_EQ(VariantType::OBJECT, variant.getType());
-
-    auto array_field = variant.getObjectValueByKey("array_field");
-    ASSERT_TRUE(array_field.has_value());
-    EXPECT_EQ(VariantType::ARRAY, array_field->getType());
-
-    auto array_info = array_field->getArrayInfo();
-    EXPECT_EQ(3, array_info.num_elements);
-
-    auto element0 = array_field->getArrayValueByIndex(0);
-    EXPECT_EQ(VariantType::INT, element0.getType());
-    EXPECT_EQ(1, element0.getInt32());
-  }
-
-  // 测试数组中的对象
-  {
-    std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
-    auto variant = LoadVariantValue("array_with_objects", &metadata_buf, &value_buf);
-    EXPECT_EQ(VariantType::ARRAY, variant.getType());
-
-    auto object_element = variant.getArrayValueByIndex(0);
-    EXPECT_EQ(VariantType::OBJECT, object_element.getType());
-
-    auto field = object_element.getObjectValueByKey("field");
-    ASSERT_TRUE(field.has_value());
-    EXPECT_EQ(VariantType::STRING, field->getType());
-    EXPECT_EQ("Value", field->getString());
   }
 }
 
