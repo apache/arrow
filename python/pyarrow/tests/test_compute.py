@@ -3869,6 +3869,8 @@ def test_winsorize():
     result = pc.winsorize(
         arr, options=pc.WinsorizeOptions(lower_limit=0.1, upper_limit=0.8))
     assert result.to_pylist() == [8, 4, 8, 8, 5, 3, 7, 2, 2, 6]
+
+
 hash_types = st.deferred(
     lambda: (
         past.primitive_types |
