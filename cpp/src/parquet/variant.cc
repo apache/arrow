@@ -218,6 +218,7 @@ arrow::internal::SmallVector<int32_t, 1> VariantMetadata::getMetadataId(
   if ((dict_size + 1) * offset_size > metadata_.size()) {
     throw ParquetException("Invalid Variant metadata: offset out of range");
   }
+  // TODO(mwish): This can be optimized by using binary search if the metadata is sorted.
   ::arrow::internal::SmallVector<int32_t, 1> vector;
   for (uint32_t i = 0; i < dict_size; ++i) {
     size_t offset_start_pos = 1 + offset_size + (i * offset_size);
@@ -635,7 +636,7 @@ std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
     uint32_t variant_id, const ObjectInfo& info) const {
   ARROW_DCHECK_EQ(getObjectInfo(), info);
 
-  uint32_t field_offset = std::numeric_limits<uint32_t>::max();
+  std::optional<uint32_t> field_offset_opt;
   // Get the field offset
   // TODO(mwish): Using binary search to optimize it.
   for (uint32_t i = 0; i < info.num_elements; ++i) {
@@ -644,14 +645,14 @@ std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
            info.id_size);
     variant_field_id = arrow::bit_util::FromLittleEndian(variant_field_id);
     if (variant_field_id == variant_id) {
-      field_offset = i;
+      field_offset_opt = i;
       break;
     }
   }
-  if (field_offset == std::numeric_limits<uint32_t>::max()) {
+  if (!field_offset_opt.has_value()) {
     return std::nullopt;
   }
-
+  uint32_t field_offset = field_offset_opt.value();
   // Read the offset and next offset
   uint32_t offset = 0;
   memcpy(&offset,

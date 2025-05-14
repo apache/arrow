@@ -288,10 +288,7 @@ TEST(ParquetVariant, ObjectValues) {
     auto handler = iter->second;
     handler(value);
   }
-  {
-    std::string_view key;
-    EXPECT_FALSE(variant.getObjectFieldByFieldId(100).has_value());
-  }
+  EXPECT_FALSE(variant.getObjectFieldByFieldId(100).has_value());
 }
 
 TEST(ParquetVariant, NestedObjectValues) {

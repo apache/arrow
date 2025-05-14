@@ -126,6 +126,11 @@ class VariantMetadata {
   int8_t version() const;
   /// \brief Get the metadata key for a given variant field id.
   std::string_view getMetadataKey(int32_t variant_id) const;
+  /// \brief Get the metadata id for a given key.
+  /// From the discussion in ML:
+  /// https://lists.apache.org/thread/b68tjmrjmy64mbv9dknpmqs28vnzjj96 if
+  /// !sortedStrings(), the metadata key is not guaranteed to be unique, so we use a
+  /// vector to store all the metadata ids.
   ::arrow::internal::SmallVector<int32_t, 1> getMetadataId(std::string_view key) const;
 
   bool sortedStrings() const;
