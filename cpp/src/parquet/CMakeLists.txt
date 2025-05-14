@@ -190,7 +190,7 @@ set(PARQUET_SRCS
     stream_reader.cc
     stream_writer.cc
     types.cc
-    variant.cc)
+    variant_value.cc)
 
 if(ARROW_HAVE_RUNTIME_AVX2)
   # AVX2 is used as a proxy for BMI2.
@@ -384,7 +384,7 @@ add_parquet_test(internals-test
                  size_statistics_test.cc
                  statistics_test.cc
                  types_test.cc
-                 variant_test.cc)
+                 variant_value_test.cc)
 
 set_source_files_properties(public_api_test.cc PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 

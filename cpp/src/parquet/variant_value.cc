@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/variant.h"
+#include "parquet/variant_value.h"
 
 #include <cstdint>
 #include <iostream>

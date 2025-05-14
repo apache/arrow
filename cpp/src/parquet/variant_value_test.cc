@@ -21,7 +21,7 @@
 
 #include "parquet/exception.h"
 #include "parquet/test_util.h"
-#include "parquet/variant.h"
+#include "parquet/variant_value.h"
 
 #include <arrow/filesystem/localfs.h>
 #include <arrow/testing/gtest_util.h>
@@ -163,7 +163,7 @@ TEST(ParquetVariant, NumericValues) {
     auto variant = LoadVariantValue("primitive_float", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::FLOAT, variant.getType());
     EXPECT_EQ("FLOAT", variant.typeDebugString());
-    EXPECT_FLOAT_EQ(1234567940.0, variant.getFloat());
+    EXPECT_FLOAT_EQ(1234567940.0f, variant.getFloat());
   }
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
