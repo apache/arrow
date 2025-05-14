@@ -3779,7 +3779,6 @@ test_that("hms::as_hms", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        x = hms::as_hms(hms_string),
         x2 = hms::as_hms(int),
         x3 = hms::as_hms(integerish_dbl),
         x4 = hms::as_hms(datetime)
@@ -3794,5 +3793,14 @@ test_that("hms::as_hms", {
   )
 
   skip_if_not_available("utf8proc")
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        x = hms::as_hms(hms_string),
+      ) %>%
+      collect(),
+    test_df
+  )
 
 })
