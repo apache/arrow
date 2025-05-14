@@ -567,11 +567,20 @@ VariantValue::ObjectInfo VariantValue::getObjectInfo() const {
 
 std::optional<VariantValue> VariantValue::getObjectValueByKey(
     std::string_view key) const {
-  if (getBasicType() != VariantBasicType::Object) {
-    throw ParquetException("Not an object type");
-  }
-
   ObjectInfo info = getObjectInfo();
+
+  return getObjectValueByKey(key, info);
+}
+
+std::optional<VariantValue> VariantValue::getObjectValueByKey(
+    std::string_view key, const VariantValue::ObjectInfo& info) const {
+  // TODO(mwish): Currently we just linear search here. The best way here is:
+  //  1. check the num_elements
+  //  2.1. If the element number is less than 8(or other magic number), we can keep
+  //       current method.
+  //  2.2. If the element number is larger than 8, and metadata.sorted_strings is true,
+  //       we can first apply binary search on the metadata, and then binary search the
+  //       field id.
 
   for (uint32_t i = 0; i < info.num_elements; ++i) {
     std::string_view field_key;
@@ -692,18 +701,20 @@ VariantValue::ArrayInfo VariantValue::getArrayInfo() const {
     next_offset = arrow::bit_util::FromLittleEndian(next_offset);
 
     if (offset > next_offset) {
-      throw ParquetException("Invalid array value: offsets not monotonically increasing");
+      throw ParquetException(
+          "Invalid array value: offsets not monotonically increasing: " +
+          std::to_string(offset) + " > " + std::to_string(next_offset));
     }
   }
 
   return info;
 }
 
-VariantValue VariantValue::getArrayValueByIndex(uint32_t index) const {
-  ArrayInfo info = getArrayInfo();
-
+VariantValue VariantValue::getArrayValueByIndex(uint32_t index,
+                                                const ArrayInfo& info) const {
   if (index >= info.num_elements) {
-    throw ParquetException("Array index out of range");
+    throw ParquetException("Array index out of range: " + std::to_string(index) +
+                           " >= " + std::to_string(info.num_elements));
   }
 
   // Read the offset and next offset
@@ -723,6 +734,11 @@ VariantValue VariantValue::getArrayValueByIndex(uint32_t index) const {
                                 next_offset - offset)};
 
   return element_value;
+}
+
+VariantValue VariantValue::getArrayValueByIndex(uint32_t index) const {
+  ArrayInfo info = getArrayInfo();
+  return getArrayValueByIndex(index, info);
 }
 
 }  // namespace parquet::variant

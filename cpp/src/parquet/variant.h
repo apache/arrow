@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -189,6 +190,8 @@ struct VariantValue {
   };
   ObjectInfo getObjectInfo() const;
   std::optional<VariantValue> getObjectValueByKey(std::string_view key) const;
+  std::optional<VariantValue> getObjectValueByKey(std::string_view key,
+                                                  const ObjectInfo& info) const;
   VariantValue getObjectFieldByFieldId(uint32_t variantId, std::string_view* key) const;
 
   struct ArrayInfo {
@@ -200,6 +203,7 @@ struct VariantValue {
   ArrayInfo getArrayInfo() const;
   // Would throw ParquetException if index is out of range.
   VariantValue getArrayValueByIndex(uint32_t index) const;
+  VariantValue getArrayValueByIndex(uint32_t index, const ArrayInfo& info) const;
 
  private:
   static constexpr uint8_t BASIC_TYPE_MASK = 0b00000011;
@@ -212,9 +216,11 @@ struct VariantValue {
   template <typename PrimitiveType>
   PrimitiveType getPrimitiveType(VariantPrimitiveType type) const;
 
+  // An extra function because decimal uses 1 byte for scale.
   template <typename DecimalType>
   DecimalValue<DecimalType> getPrimitiveDecimalType(VariantPrimitiveType type) const;
 
+  // An extra function because binary/string uses 4 bytes for length.
   std::string_view getPrimitiveBinaryType(VariantPrimitiveType type) const;
   void checkBasicType(VariantBasicType type) const;
   void checkPrimitiveType(VariantPrimitiveType type, size_t size_required) const;
