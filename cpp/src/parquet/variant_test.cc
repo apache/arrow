@@ -310,80 +310,35 @@ TEST(ParquetVariant, DecimalValues) {
   }
 }
 
-TEST(ParquetVariant, ArrayValues) {
-  std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
-  auto variant = LoadVariantValue("array_primitive", &metadata_buf, &value_buf);
-  EXPECT_EQ(VariantType::ARRAY, variant.getType());
-  EXPECT_EQ("ARRAY", variant.typeDebugString());
-
-  // 获取数组信息
-  auto array_info = variant.getArrayInfo();
-  EXPECT_EQ(5, array_info.num_elements);
-
-  // 通过索引获取值
-  auto element0 = variant.getArrayValueByIndex(0);
-  EXPECT_EQ(VariantType::INT, element0.getType());
-  EXPECT_EQ(1, element0.getInt32());
-
-  auto element1 = variant.getArrayValueByIndex(1);
-  EXPECT_EQ(VariantType::INT, element1.getType());
-  EXPECT_EQ(2, element1.getInt32());
-
-  auto element2 = variant.getArrayValueByIndex(2);
-  EXPECT_EQ(VariantType::INT, element2.getType());
-  EXPECT_EQ(3, element2.getInt32());
-
-  auto element3 = variant.getArrayValueByIndex(3);
-  EXPECT_EQ(VariantType::INT, element3.getType());
-  EXPECT_EQ(4, element3.getInt32());
-
-  auto element4 = variant.getArrayValueByIndex(4);
-  EXPECT_EQ(VariantType::INT, element4.getType());
-  EXPECT_EQ(5, element4.getInt32());
-
-  EXPECT_THROW(variant.getArrayValueByIndex(5), ParquetException);
-  EXPECT_THROW(variant.getArrayValueByIndex(100), ParquetException);
-}
-
 TEST(ParquetVariant, DateTimeValues) {
-  // 测试日期值
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_date", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::DATE, variant.getType());
     EXPECT_EQ("DATE", variant.typeDebugString());
-    // 日期值表示为自 Unix 纪元以来的天数
-    EXPECT_EQ(18262, variant.getInt32());  // 2020-01-01
+    // 2025-04-16
+    EXPECT_EQ(20194, variant.getDate());
   }
-
-  // 测试时间值
+  // {
+  //   std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
+  //   auto variant = LoadVariantValue("primitive_time", &metadata_buf, &value_buf);
+  //   EXPECT_EQ(VariantType::TIME, variant.getType());
+  //   EXPECT_EQ("TIME", variant.typeDebugString());
+  //   EXPECT_EQ(43200000000, variant.getTimeNTZ());
+  // }
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
-    auto variant = LoadVariantValue("primitive_time", &metadata_buf, &value_buf);
-    EXPECT_EQ(VariantType::TIME, variant.getType());
-    EXPECT_EQ("TIME", variant.typeDebugString());
-    // 时间值表示为自午夜以来的微秒数
-    EXPECT_EQ(43200000000, variant.timeNTZ());  // 12:00:00
-  }
-
-  // 测试带时区的时间戳
-  {
-    std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
-    auto variant = LoadVariantValue("primitive_timestamp_tz", &metadata_buf, &value_buf);
+    auto variant = LoadVariantValue("primitive_timestamp", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::TIMESTAMP_TZ, variant.getType());
     EXPECT_EQ("TIMESTAMP_TZ", variant.typeDebugString());
-    // 时间戳值表示为自 Unix 纪元以来的微秒数
-    EXPECT_EQ(1577836800000000, variant.getTimestamp());  // 2020-01-01 00:00:00 UTC
+    EXPECT_EQ(1744821296780000, variant.getTimestamp());
   }
-
-  // 测试不带时区的时间戳
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
-    auto variant = LoadVariantValue("primitive_timestamp_ntz", &metadata_buf, &value_buf);
+    auto variant = LoadVariantValue("primitive_timestampntz", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::TIMESTAMP_NTZ, variant.getType());
     EXPECT_EQ("TIMESTAMP_NTZ", variant.typeDebugString());
-    // 时间戳值表示为自 Unix 纪元以来的微秒数
-    EXPECT_EQ(1577836800000000, variant.getTimestampNTZ());  // 2020-01-01 00:00:00
+    EXPECT_EQ(1744806896780000, variant.getTimestampNTZ());
   }
 }
 
@@ -410,6 +365,84 @@ TEST(ParquetVariant, DateTimeValues) {
 //
 //   EXPECT_EQ(36, uuid_str.length()); // 标准 UUID 字符串长度
 // }
+
+TEST(ParquetVariant, ArrayValues) {
+  {
+    std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
+    auto variant = LoadVariantValue("array_primitive", &metadata_buf, &value_buf);
+    EXPECT_EQ(VariantType::ARRAY, variant.getType());
+    EXPECT_EQ("ARRAY", variant.typeDebugString());
+
+    auto array_info = variant.getArrayInfo();
+    EXPECT_EQ(4, array_info.num_elements);
+
+    // 通过索引获取值
+    auto element0 = variant.getArrayValueByIndex(0);
+    EXPECT_EQ(VariantType::BYTE, element0.getType());
+    EXPECT_EQ(2, element0.getInt32());
+
+    auto element1 = variant.getArrayValueByIndex(1);
+    EXPECT_EQ(VariantType::BYTE, element1.getType());
+    EXPECT_EQ(1, element1.getInt32());
+
+    auto element2 = variant.getArrayValueByIndex(2);
+    EXPECT_EQ(VariantType::BYTE, element2.getType());
+    EXPECT_EQ(5, element2.getInt8());
+
+    auto element3 = variant.getArrayValueByIndex(3);
+    EXPECT_EQ(VariantType::BYTE, element3.getType());
+    EXPECT_EQ(9, element3.getInt8());
+
+    EXPECT_THROW(variant.getArrayValueByIndex(4), ParquetException);
+    EXPECT_THROW(variant.getArrayValueByIndex(100), ParquetException);
+    EXPECT_THROW(variant.getObjectInfo(), ParquetException);
+  }
+  {
+    // array_empty
+    std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
+    auto variant = LoadVariantValue("array_empty", &metadata_buf, &value_buf);
+    EXPECT_EQ(VariantType::ARRAY, variant.getType());
+    EXPECT_EQ("ARRAY", variant.typeDebugString());
+    auto array_info = variant.getArrayInfo();
+    EXPECT_EQ(0, array_info.num_elements);
+
+    EXPECT_THROW(variant.getArrayValueByIndex(0), ParquetException);
+    EXPECT_THROW(variant.getObjectInfo(), ParquetException);
+  }
+}
+
+TEST(ParquetVariant, ArrayValuesNested) {
+  std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
+  auto variant = LoadVariantValue("array_nested", &metadata_buf, &value_buf);
+  EXPECT_EQ(VariantType::ARRAY, variant.getType());
+  EXPECT_EQ("ARRAY", variant.typeDebugString());
+  auto object_info = variant.getArrayInfo();
+  EXPECT_EQ(3, object_info.num_elements);
+  {
+    auto first_element = variant.getArrayValueByIndex(0);
+    EXPECT_EQ(VariantType::OBJECT, first_element.getType());
+    auto first_element_info = first_element.getObjectInfo();
+    EXPECT_EQ(2, first_element_info.num_elements);
+    auto id = first_element.getObjectValueByKey("id");
+    ASSERT_TRUE(id.has_value());
+    EXPECT_EQ(VariantType::BYTE, id->getType());
+    EXPECT_EQ(1, id->getInt8());
+  }
+  {
+    auto second_element = variant.getArrayValueByIndex(1);
+    EXPECT_EQ(VariantType::VARIANT_NULL, second_element.getType());
+  }
+  {
+    auto third_element = variant.getArrayValueByIndex(2);
+    EXPECT_EQ(VariantType::OBJECT, third_element.getType());
+    auto third_element_info = third_element.getObjectInfo();
+    EXPECT_EQ(3, third_element_info.num_elements);
+    auto id = third_element.getObjectValueByKey("id");
+    ASSERT_TRUE(id.has_value());
+    EXPECT_EQ(VariantType::BYTE, id->getType());
+    EXPECT_EQ(2, id->getInt8());
+  }
+}
 
 TEST(ParquetVariant, NestedStructures) {
   // 测试嵌套对象

@@ -39,6 +39,8 @@ enum class VariantBasicType {
   Array = 3
 };
 
+std::string variantBasicTypeToString(VariantBasicType type);
+
 enum class VariantPrimitiveType : int8_t {
   /// Equivalent Parquet Type: UNKNOWN
   NullType = 0,
@@ -85,6 +87,8 @@ enum class VariantPrimitiveType : int8_t {
   Uuid = 20
 };
 
+std::string variantPrimitiveTypeToString(VariantPrimitiveType type);
+
 /// VariantType is from basic type and primitive type.
 enum class VariantType {
   OBJECT,
@@ -110,6 +114,8 @@ enum class VariantType {
   TIMESTAMP_NANOS_NTZ,
   UUID
 };
+
+std::string variantTypeToString(VariantType type);
 
 class VariantMetadata {
  public:
@@ -161,12 +167,13 @@ struct VariantValue {
   DecimalValue<::arrow::Decimal64> getDecimal8() const;
   DecimalValue<::arrow::Decimal128> getDecimal16() const;
 
-  int64_t timeNTZ() const;
+  int32_t getDate() const;
+  int64_t getTimeNTZ() const;
   // timestamp with adjusted to UTC
   int64_t getTimestamp() const;
   int64_t getTimestampNTZ() const;
   // 16 bytes UUID
-  const uint8_t* getUuid() const;
+  std::array<uint8_t, 16> getUuid() const;
 
   /// }@
 
@@ -203,12 +210,13 @@ struct VariantValue {
 
  private:
   template <typename PrimitiveType>
-  PrimitiveType getPrimitiveVariantType(VariantPrimitiveType type) const;
+  PrimitiveType getPrimitiveType(VariantPrimitiveType type) const;
 
   template <typename DecimalType>
   DecimalValue<DecimalType> getPrimitiveDecimalType(VariantPrimitiveType type) const;
 
   std::string_view getPrimitiveBinaryType(VariantPrimitiveType type) const;
+  void checkPrimitiveType(VariantPrimitiveType type, size_t size_required) const;
 };
 
 }  // namespace parquet::variant

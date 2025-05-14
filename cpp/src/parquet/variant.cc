@@ -26,6 +26,121 @@
 
 namespace parquet::variant {
 
+std::string variantBasicTypeToString(VariantBasicType type) {
+  switch (type) {
+    case VariantBasicType::Primitive:
+      return "Primitive";
+    case VariantBasicType::ShortString:
+      return "ShortString";
+    case VariantBasicType::Object:
+      return "Object";
+    case VariantBasicType::Array:
+      return "Array";
+    default:
+      return "Unknown";
+  }
+}
+
+std::string variantPrimitiveTypeToString(VariantPrimitiveType type) {
+  switch (type) {
+    case VariantPrimitiveType::NullType:
+      return "NullType";
+    case VariantPrimitiveType::BooleanTrue:
+      return "BooleanTrue";
+    case VariantPrimitiveType::BooleanFalse:
+      return "BooleanFalse";
+    case VariantPrimitiveType::Int8:
+      return "Int8";
+    case VariantPrimitiveType::Int16:
+      return "Int16";
+    case VariantPrimitiveType::Int32:
+      return "Int32";
+    case VariantPrimitiveType::Int64:
+      return "Int64";
+    case VariantPrimitiveType::Double:
+      return "Double";
+    case VariantPrimitiveType::Decimal4:
+      return "Decimal4";
+    case VariantPrimitiveType::Decimal8:
+      return "Decimal8";
+    case VariantPrimitiveType::Decimal16:
+      return "Decimal16";
+    case VariantPrimitiveType::Date:
+      return "Date";
+    case VariantPrimitiveType::Timestamp:
+      return "Timestamp";
+    case VariantPrimitiveType::TimestampNTZ:
+      return "TimestampNTZ";
+    case VariantPrimitiveType::Float:
+      return "Float";
+    case VariantPrimitiveType::Binary:
+      return "Binary";
+    case VariantPrimitiveType::String:
+      return "String";
+    case VariantPrimitiveType::TimeNTZ:
+      return "TimeNTZ";
+    case VariantPrimitiveType::TimestampTZ:
+      return "TimestampTZ";
+    case VariantPrimitiveType::TimestampNTZNanos:
+      return "TimestampNTZNanos";
+    case VariantPrimitiveType::Uuid:
+      return "Uuid";
+    default:
+      return "Unknown";
+  }
+}
+
+std::string variantTypeToString(VariantType type) {
+  switch (type) {
+    case VariantType::OBJECT:
+      return "OBJECT";
+    case VariantType::ARRAY:
+      return "ARRAY";
+    case VariantType::VARIANT_NULL:
+      return "NULL";
+    case VariantType::BOOLEAN:
+      return "BOOLEAN";
+    case VariantType::BYTE:
+      return "BYTE";
+    case VariantType::SHORT:
+      return "SHORT";
+    case VariantType::INT:
+      return "INT";
+    case VariantType::LONG:
+      return "LONG";
+    case VariantType::STRING:
+      return "STRING";
+    case VariantType::DOUBLE:
+      return "DOUBLE";
+    case VariantType::DECIMAL4:
+      return "DECIMAL4";
+    case VariantType::DECIMAL8:
+      return "DECIMAL8";
+    case VariantType::DECIMAL16:
+      return "DECIMAL16";
+    case VariantType::DATE:
+      return "DATE";
+    case VariantType::TIMESTAMP_TZ:
+      return "TIMESTAMP_TZ";
+    case VariantType::TIMESTAMP_NTZ:
+      return "TIMESTAMP_NTZ";
+    case VariantType::FLOAT:
+      return "FLOAT";
+    case VariantType::BINARY:
+      return "BINARY";
+    case VariantType::TIME:
+      return "TIME";
+    case VariantType::TIMESTAMP_NANOS_TZ:
+      return "TIMESTAMP_NANOS_TZ";
+    case VariantType::TIMESTAMP_NANOS_NTZ:
+      return "TIMESTAMP_NANOS_NTZ";
+    case VariantType::UUID:
+      return "UUID";
+    default:
+      return "UNKNOWN";
+  }
+}
+
 VariantMetadata::VariantMetadata(std::string_view metadata) : metadata_(metadata) {
   if (metadata.size() < 2) {
     throw ParquetException("Invalid Variant metadata: too short: " +
@@ -95,8 +210,6 @@ VariantBasicType VariantValue::getBasicType() const {
 
 VariantType VariantValue::getType() const {
   VariantBasicType basic_type = getBasicType();
-  // std::cout << "Variant first byte:" << static_cast<int>(value[0] >> 2) << ", "
-  //           << static_cast<int>(value[0] && BASIC_TYPE_MASK) << '\n';
   switch (basic_type) {
     case VariantBasicType::Primitive: {
       auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
@@ -228,48 +341,60 @@ bool VariantValue::getBool() const {
                          std::to_string(primitive_type));
 }
 
-template <typename PrimitiveType>
-PrimitiveType VariantValue::getPrimitiveVariantType(VariantPrimitiveType type) const {
+void VariantValue::checkPrimitiveType(VariantPrimitiveType type,
+                                      size_t size_required) const {
   if (getBasicType() != VariantBasicType::Primitive) {
     throw ParquetException("Not a primitive type");
   }
 
   auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
-  if (primitive_type != VariantPrimitiveType::Int8) {
-    throw ParquetException("Not an correspond type");
+  if (primitive_type != type) {
+    throw ParquetException(
+        "Expected primitive type: " + variantPrimitiveTypeToString(type) +
+        ", but got: " + variantPrimitiveTypeToString(primitive_type));
   }
 
-  if (value.size() < 1 + sizeof(PrimitiveType)) {
-    throw ParquetException("Invalid value: too short");
+  if (value.size() < 1 + size_required) {
+    throw ParquetException("Invalid value: too short, expected at least " +
+                           std::to_string(1 + size_required) + " bytes for type " +
+                           variantPrimitiveTypeToString(type) +
+                           ", but got: " + std::to_string(value.size()) + " bytes");
   }
+}
 
-  PrimitiveType decimal_value{};
-  memcpy(&decimal_value, value.data() + 1, sizeof(PrimitiveType));
-  return decimal_value;
+template <typename PrimitiveType>
+PrimitiveType VariantValue::getPrimitiveType(VariantPrimitiveType type) const {
+  checkPrimitiveType(type, sizeof(PrimitiveType));
+
+  PrimitiveType primitive_value{};
+  memcpy(&primitive_value, value.data() + 1, sizeof(PrimitiveType));
+  // Here we should cast from Little endian.
+  primitive_value = ::arrow::bit_util::FromLittleEndian(primitive_value);
+  return primitive_value;
 }
 
 int8_t VariantValue::getInt8() const {
-  return getPrimitiveVariantType<int8_t>(VariantPrimitiveType::Int8);
+  return getPrimitiveType<int8_t>(VariantPrimitiveType::Int8);
 }
 
 int16_t VariantValue::getInt16() const {
-  return getPrimitiveVariantType<int8_t>(VariantPrimitiveType::Int16);
+  return getPrimitiveType<int8_t>(VariantPrimitiveType::Int16);
 }
 
 int32_t VariantValue::getInt32() const {
-  return getPrimitiveVariantType<int8_t>(VariantPrimitiveType::Int32);
+  return getPrimitiveType<int8_t>(VariantPrimitiveType::Int32);
 }
 
 int64_t VariantValue::getInt64() const {
-  return getPrimitiveVariantType<int8_t>(VariantPrimitiveType::Int64);
+  return getPrimitiveType<int8_t>(VariantPrimitiveType::Int64);
 }
 
 float VariantValue::getFloat() const {
-  return getPrimitiveVariantType<float>(VariantPrimitiveType::Float);
+  return getPrimitiveType<float>(VariantPrimitiveType::Float);
 }
 
 double VariantValue::getDouble() const {
-  return getPrimitiveVariantType<float>(VariantPrimitiveType::Double);
+  return getPrimitiveType<float>(VariantPrimitiveType::Double);
 }
 
 std::string_view VariantValue::getPrimitiveBinaryType(VariantPrimitiveType type) const {
@@ -323,18 +448,7 @@ template <typename DecimalType>
 DecimalValue<DecimalType> VariantValue::getPrimitiveDecimalType(
     VariantPrimitiveType type) const {
   using DecimalValueType = typename DecimalType::ValueType;
-  if (getBasicType() != VariantBasicType::Primitive) {
-    throw ParquetException("Not a primitive type");
-  }
-
-  auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
-  if (primitive_type != type) {
-    throw ParquetException("Not a decimal type");
-  }
-
-  if (value.size() < 2 + sizeof(DecimalValueType)) {
-    throw ParquetException("Invalid decimal value: too short");
-  }
+  checkPrimitiveType(type, sizeof(DecimalValueType) + 2);
 
   uint8_t scale = value[1];
   DecimalValueType decimal_value;
@@ -353,18 +467,8 @@ DecimalValue<::arrow::Decimal64> VariantValue::getDecimal8() const {
 }
 
 DecimalValue<::arrow::Decimal128> VariantValue::getDecimal16() const {
-  if (getBasicType() != VariantBasicType::Primitive) {
-    throw ParquetException("Not a primitive type");
-  }
-
-  auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
-  if (primitive_type != VariantPrimitiveType::Decimal16) {
-    throw ParquetException("Not a decimal16 type");
-  }
-
-  if (value.size() < 2 + sizeof(int64_t) * 2) {
-    throw ParquetException("Invalid decimal16 value: too short");
-  }
+  checkPrimitiveType(VariantPrimitiveType::Decimal16,
+                     /*size_required=*/sizeof(int64_t) * 2);
 
   uint8_t scale = value[1];
 
@@ -376,20 +480,33 @@ DecimalValue<::arrow::Decimal128> VariantValue::getDecimal16() const {
   return {scale, ::arrow::Decimal128(low_high_bits[1], low_high_bits[0])};
 }
 
-int64_t VariantValue::timeNTZ() const {
-  return getPrimitiveVariantType<int64_t>(VariantPrimitiveType::TimeNTZ);
+int32_t VariantValue::getDate() const {
+  return getPrimitiveType<int32_t>(VariantPrimitiveType::Date);
+}
+
+int64_t VariantValue::getTimeNTZ() const {
+  return getPrimitiveType<int64_t>(VariantPrimitiveType::TimeNTZ);
 }
 
 int64_t VariantValue::getTimestamp() const {
-  return getPrimitiveVariantType<int64_t>(VariantPrimitiveType::Timestamp);
+  return getPrimitiveType<int64_t>(VariantPrimitiveType::Timestamp);
 }
 
 int64_t VariantValue::getTimestampNTZ() const {
-  return getPrimitiveVariantType<int64_t>(VariantPrimitiveType::TimestampNTZ);
+  return getPrimitiveType<int64_t>(VariantPrimitiveType::TimestampNTZ);
 }
 
-const uint8_t* VariantValue::getUuid() const {
-  throw ParquetException("VariantValue::getUuid Not implemented");
+std::array<uint8_t, 16> VariantValue::getUuid() const {
+  checkPrimitiveType(VariantPrimitiveType::Uuid, /*size_required=*/17);
+  std::array<uint8_t, 16> uuid_value;
+  memcpy(uuid_value.data(), value.data() + 1, sizeof(uuid_value));
+#if ARROW_LITTLE_ENDIAN
+  std::array<uint8_t, 16> uuid_value_le;
+  ::arrow::bit_util::ByteSwap(uuid_value_le.data(), uuid_value.data(), uuid_value.size());
+  return uuid_value_le;
+#else
+  return uuid_value;
+#endif
 }
 
 std::string VariantValue::ObjectInfo::toDebugString() const {
@@ -489,9 +606,7 @@ std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
   field_id = arrow::bit_util::FromLittleEndian(field_id);
 
   // Get the key from metadata
-  // TODO(mwish): Fix the casting here.
   *key = metadata.getMetadataKey(field_id);
-  std::cout << "Metadata key:" << *key << '\n';
 
   // Read the offset and next offset
   uint32_t offset = 0, next_offset = 0;
@@ -519,13 +634,14 @@ std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
 
 VariantValue::ArrayInfo VariantValue::getArrayInfo() const {
   if (getBasicType() != VariantBasicType::Array) {
-    throw ParquetException("Not an array type");
+    throw ParquetException("Expected array type, but got: " +
+                           variantBasicTypeToString(getBasicType()));
   }
   uint8_t value_header = value[0] >> 2;
   uint8_t field_offset_size = (value_header & 0b11) + 1;
   bool is_large = ((value_header >> 2) & 0b1);
 
-  // 检查数据长度
+  // check the array header
   uint8_t num_elements_size = is_large ? 4 : 1;
   if (value.size() < 1 + num_elements_size) {
     throw ParquetException(
@@ -570,7 +686,8 @@ VariantValue::ArrayInfo VariantValue::getArrayInfo() const {
     }
   }
 
-  // TODO(mwish): Remove this.
+  // checking the element is incremental.
+  // TODO(mwish): Remove this or encapsulate this range check to function
   for (uint32_t i = 0; i < num_elements; ++i) {
     uint32_t offset = 0, next_offset = 0;
     memcpy(&offset, value.data() + info.offset_start_offset + i * field_offset_size,
