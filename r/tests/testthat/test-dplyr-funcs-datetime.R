@@ -3764,7 +3764,6 @@ test_that("hms::hms", {
     call_binding("hms::hms", seconds = NA),
     regexp = "All arguments must be numeric or NA_real_"
   )
-
 })
 
 test_that("hms::as_hms", {
@@ -3802,5 +3801,4 @@ test_that("hms::as_hms", {
       collect(),
     test_df
   )
-
 })
