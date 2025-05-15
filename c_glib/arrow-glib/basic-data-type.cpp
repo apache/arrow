@@ -2417,6 +2417,8 @@ garrow_fixed_shape_tensor_data_type_get_dim_names(
  * @length: (out): Return location for the number of strides of tensor shape.
  *
  * Returns: (array length=length): Strides in bytes for each tensor dimension.
+ *
+ * Since: 21.0.0
  */
 const gint64 *
 garrow_fixed_shape_tensor_data_type_get_strides(GArrowFixedShapeTensorDataType *data_type,
