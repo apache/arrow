@@ -172,6 +172,21 @@ std::vector<std::string> Configuration::GetCustomKeys() const {
   return keys;
 }
 
+std::string Configuration::ToConnectString() const {
+  std::stringstream connect_string_buffer;
+
+  for (const auto& [key, value] : this->properties) {
+    if (value.empty()) continue;
+
+    if (value.find(' ') == std::string::npos)
+      connect_string_buffer << key << '=' << value << ';';
+    else
+      connect_string_buffer << key << "={" << value << "};";
+  }
+
+  return connect_string_buffer.str();
+}
+
 }  // namespace config
 }  // namespace flight_sql
 }  // namespace driver

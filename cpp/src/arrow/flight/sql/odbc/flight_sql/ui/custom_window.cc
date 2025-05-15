@@ -26,7 +26,7 @@
 #include <sstream>
 
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h>
-#include "ui/custom_window.h"
+#include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/ui/custom_window.h"
 
 namespace driver {
 namespace flight_sql {

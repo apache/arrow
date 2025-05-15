@@ -15,11 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/flight/sql/odbc/flight_sql/system_dsn.cc"
+
 #include <arrow/flight/sql/odbc/flight_sql/include/flight_sql/flight_sql_driver.h>
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/encoding_utils.h>
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h>
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_environment.h>
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h>
+
+#include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/config/configuration.h"
 
 // odbc_api includes windows.h, which needs to be put behind winsock2.h.
 // odbc_environment.h includes winsock2.h
@@ -292,23 +296,22 @@ SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND windowHandle,
       ((driverCompletion == SQL_DRIVER_COMPLETE ||
         driverCompletion == SQL_DRIVER_COMPLETE_REQUIRED) &&
        !missing_properties.empty())) {
-    // TODO: Display connection window. Draft code is provided
-    // Configuration config;
-    // if (DisplayConnectionWindow(windowHandle, config)) {
-    //  properties = config.GetProperties();
-    // 
-    // // Copy connection string to outConnectionString before connection attempt
-    // connectStr = config.ToConnectString();
-    //size_t reslen = ODBC::CopyStringToBuffer(
-    //    connectStr, reinterpret_cast<char*>(outConnectionString),
-    //    static_cast<size_t>(outConnectionStringBufferLen));
-    //if (outConnectionStringLen)
-    //  *outConnectionStringLen = static_cast<SQLSMALLINT>(reslen);
-    // 
-    //  connection->connect(dsn, properties, missing_properties);
-    //} else {
-    //  throw DriverException("Connection canceled by user", "HY008");
-    //}
+    driver::flight_sql::config::Configuration config;
+    if (DisplayConnectionWindow(windowHandle, config)) {
+      properties = config.GetProperties();
+
+      // Copy connection string to outConnectionString before connection attempt
+      connection_string = config.ToConnectString();
+      size_t reslen = ODBC::CopyStringToBuffer(
+          connection_string, reinterpret_cast<char*>(outConnectionString),
+          static_cast<size_t>(outConnectionStringBufferLen));
+      if (outConnectionStringLen)
+        *outConnectionStringLen = static_cast<SQLSMALLINT>(reslen);
+
+      connection->connect(dsn, properties, missing_properties);
+    } else {
+      throw DriverException("Connection canceled by user", "HY008");
+    }
   } else {
     // Copy connection string to outConnectionString after connection attempt
     size_t reslen = ODBC::CopyStringToBuffer(
@@ -345,8 +348,8 @@ SQLRETURN SQLGetInfo(SQLHDBC conn, SQLUSMALLINT infoType, SQLPOINTER infoValuePt
   // Partially stubbed implementation of SQLGetInfo
   if (infoType == SQL_DRIVER_ODBC_VER) {
     std::string ver("03.80");
-    size_t reslen =
-        ODBC::CopyStringToBuffer(ver, reinterpret_cast<char*>(infoValuePtr), static_cast<size_t>(bufLen));
+    size_t reslen = ODBC::CopyStringToBuffer(ver, reinterpret_cast<char*>(infoValuePtr),
+                                             static_cast<size_t>(bufLen));
     if (length) *length = static_cast<SQLSMALLINT>(reslen);
 
     return SQL_SUCCESS;

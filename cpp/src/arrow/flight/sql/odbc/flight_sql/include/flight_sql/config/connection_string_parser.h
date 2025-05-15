@@ -19,7 +19,7 @@
 
 #include <string>
 
-#include "config/configuration.h"
+#include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/config/configuration.h"
 
 namespace driver {
 namespace flight_sql {

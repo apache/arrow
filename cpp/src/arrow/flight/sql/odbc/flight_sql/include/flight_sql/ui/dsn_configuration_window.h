@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "config/configuration.h"
-#include "ui/custom_window.h"
+#include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/config/configuration.h"
+#include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/ui/custom_window.h"
 
 namespace driver {
 namespace flight_sql {
