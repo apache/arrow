@@ -644,22 +644,12 @@ TEST_F(GcsIntegrationTest, GetFileInfo) {
 
   // check parent directories are recognized as directories.
   AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/", FileType::Directory);
-  AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/foo/", FileType::Directory);
-}
 
-TEST_F(GcsIntegrationTest, GetFileInfoWithoutPermission) {
-  auto options = GcsOptions::Defaults();
-  // Test with real GCS.
-  ASSERT_OK_AND_ASSIGN(auto fs, GcsFileSystem::Make(options));
-  // Without permission, always File typs is FileType::NotFound.
-  constexpr auto kTextFileName = "dir/foo/bar.txt";
-
-  // check this is the File without permission.
-  AssertFileInfo(fs.get(), PreexistingBucketPath() + kTextFileName, FileType::NotFound);
-
-  // check this is the directory without permission.
-  AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/", FileType::NotFound);
-  AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/foo/", FileType::NotFound);
+  // check not exists.
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/foo/unexpected_dir/",
+                 FileType::NotFound);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/foo/not_bar.txt",
+                 FileType::NotFound);
 }
 
 TEST_F(GcsIntegrationTest, GetFileInfoObjectWithNestedStructure) {

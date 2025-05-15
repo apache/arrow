@@ -354,14 +354,15 @@ class GcsFileSystem::Impl {
     std::string canonical = internal::EnsureTrailingSlash(path.object);
     auto list_result = client_.ListObjects(path.bucket, gcs::Prefix(canonical));
 
-    // Check that the result is valid before determining whether the list is empty.
-    auto it = list_result.begin();
-    if (it != list_result.end() && *it) {
-      // If there is at least one result it indicates this is a directory (at
-      // least one object exists that starts with "path/")
+    for (auto&& object_metadata : list_result) {
+      if (!object_metadata) {
+        continue;
+      }
+      // If there is at least one valid result, it indicates this is a
+      // directory (at least one object exists that starts with "path/")
       return FileInfo(path.full_path, FileType::Directory);
     }
-    // Return the original not-found info if there was no match.
+    // Return the original not-found info if there was no valid result.
     return info;
   }
 
