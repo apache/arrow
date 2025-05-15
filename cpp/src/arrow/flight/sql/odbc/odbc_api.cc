@@ -337,4 +337,22 @@ SQLRETURN SQLDisconnect(SQLHDBC conn) {
   return SQL_SUCCESS;
 }
 
+SQLRETURN SQLGetInfo(SQLHDBC conn, SQLUSMALLINT infoType, SQLPOINTER infoValuePtr,
+                     SQLSMALLINT bufLen, SQLSMALLINT* length) {
+  std::cout << "-AL- SQLGetInfo called\n";
+  // TODO: complete implementation of SQLGetInfo and write tests
+
+  // Partially stubbed implementation of SQLGetInfo
+  if (infoType == SQL_DRIVER_ODBC_VER) {
+    std::string ver("03.80");
+    size_t reslen =
+        ODBC::CopyStringToBuffer(ver, reinterpret_cast<char*>(infoValuePtr), static_cast<size_t>(bufLen));
+    if (length) *length = static_cast<SQLSMALLINT>(reslen);
+
+    return SQL_SUCCESS;
+  }
+
+  return SQL_ERROR;
+}
+
 }  // namespace arrow

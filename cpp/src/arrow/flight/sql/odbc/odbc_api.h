@@ -42,4 +42,6 @@ SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND windowHandle,
                            SQLSMALLINT* outConnectionStringLen,
                            SQLUSMALLINT driverCompletion);
 SQLRETURN SQLDisconnect(SQLHDBC conn);
+SQLRETURN SQLGetInfo(SQLHDBC conn, SQLUSMALLINT infoType, SQLPOINTER infoValuePtr,
+                     SQLSMALLINT bufLen, SQLSMALLINT* length);
 }  // namespace arrow

@@ -63,8 +63,7 @@ SQLRETURN SQL_API SQLSetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER valuePt
 
 SQLRETURN SQL_API SQLGetInfo(SQLHDBC conn, SQLUSMALLINT infoType, SQLPOINTER infoValuePtr,
                              SQLSMALLINT bufLen, SQLSMALLINT* length) {
-  // TODO implement SQLGetInfo
-  return SQL_ERROR;
+  return arrow::SQLGetInfo(conn, infoType, infoValuePtr, bufLen, length);
 }
 
 SQLRETURN SQL_API SQLGetDiagRec(SQLSMALLINT type, SQLHANDLE handle, SQLSMALLINT recNum,
