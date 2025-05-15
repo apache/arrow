@@ -647,14 +647,11 @@ TEST_F(GcsIntegrationTest, GetFileInfo) {
   AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/foo/", FileType::Directory);
 }
 
-TEST_F(GcsIntegrationTest, GetFileInfo_WithoutPermission) {
-  TimePoint expiration = std::chrono::system_clock::now() + std::chrono::minutes(5);
-  auto options =
-      GcsOptions::FromAccessToken(/*access_token=*/"invalid-access-token", expiration);
-  options.endpoint_override = "127.0.0.1:" + Testbench()->port();
-
+TEST_F(GcsIntegrationTest, GetFileInfoWithoutPermission) {
+  auto options = GcsOptions::Defaults();
+  // Test with real GCS.
   ASSERT_OK_AND_ASSIGN(auto fs, GcsFileSystem::Make(options));
-
+  // Without permission, always File typs is FileType::NotFound.
   constexpr auto kTextFileName = "dir/foo/bar.txt";
 
   // check this is the File without permission.
