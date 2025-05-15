@@ -85,8 +85,12 @@ touch -t "${csharp_mtime}" ${root_folder}/csharp
 
 # Create new tarball from modified source directory.
 #
+# We need to strip unreproducible information. See also:
+# https://reproducible-builds.org/docs/stripping-unreproducible-information/
+#
 # We need GNU tar for Reproducible Builds. We want to use the same
 # owner, group, mode, file order for Reproducible Builds.
+# See also: https://reproducible-builds.org/docs/archives/
 #
 # gzip --no-name is for omitting timestamp in .gz. It's also for
 # Reproducible Builds.
