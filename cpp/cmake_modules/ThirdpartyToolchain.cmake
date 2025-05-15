@@ -4725,7 +4725,12 @@ function(build_orc)
                         INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
 
-    get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
+    if(LZ4_VENDORED)
+      set(ORC_LZ4_TARGET lz4_static)
+    else()
+      set(ORC_LZ4_TARGET LZ4::lz4)
+    endif()
+    get_target_property(ORC_LZ4_ROOT ${ORC_LZ4_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
 
     get_target_property(ORC_ZSTD_ROOT ${ARROW_ZSTD_LIBZSTD} INTERFACE_INCLUDE_DIRECTORIES)
@@ -4751,8 +4756,8 @@ function(build_orc)
         "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
         "-DSNAPPY_LIBRARY=$<TARGET_FILE:${Snappy_TARGET}>"
         "-DLZ4_HOME=${ORC_LZ4_ROOT}"
-        "-DLZ4_LIBRARY=$<LZ4_TARGET>"
-        "-DLZ4_STATIC_LIB=$<LZ4_TARGET>"
+        "-DLZ4_LIBRARY=$<TARGET_FILE:${ORC_LZ4_TARGET}>"
+        "-DLZ4_STATIC_LIB=$<TARGET_FILE:${ORC_LZ4_TARGET}>"
         "-DLZ4_INCLUDE_DIR=${ORC_LZ4_ROOT}/include"
         "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
         "-DZSTD_HOME=${ORC_ZSTD_ROOT}"
