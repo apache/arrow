@@ -62,7 +62,9 @@ rm -rf ${root_folder}.tmp
 # * https://github.com/apache/arrow/pull/4488
 #
 # We need to set constant timestamp for a dummy .git/ directory for
-# Reproducible Builds. We use mtime of csharp/ for it.
+# Reproducible Builds. We use mtime of csharp/ for it. If
+# SOURCE_DATE_EPOCH is defined, this mtime is overwritten when tar
+# file is created.
 if stat --help > /dev/null 2>&1; then
   # GNU stat
   #
@@ -99,12 +101,19 @@ if type gtar > /dev/null 2>&1; then
 else
   gtar=tar
 fi
-${gtar} \
+gtar_options=(
   --group=0 \
   --mode=a=rX,u+w \
   --numeric-owner \
   --owner=0 \
   --sort=name \
+)
+if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
+  gtar_options+=(--mtime="$(date +%Y-%m-%dT%H:%M:%S --date=@${SOURCE_DATE_EPOCH})")
+fi
+set -x
+${gtar} \
+  "${gtar_options[@]}" \
   -cf \
   - \
   ${root_folder} | \
