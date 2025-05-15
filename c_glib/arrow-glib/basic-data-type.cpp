@@ -2410,6 +2410,26 @@ garrow_fixed_shape_tensor_data_type_get_dim_names(
   dim_names[n] = nullptr;
   return dim_names;
 }
+
+/**
+ * garrow_fixed_shape_tensor_data_type_get_strides:
+ * @data_type: A #GArrowFixedShapeTensorDataType.
+ * @length: (out): Return location for the number of strides of tensor shape.
+ *
+ * Returns: (array length=length): Strides in bytes for each tensor dimension.
+ *
+ * Since: 21.0.0
+ */
+const gint64 *
+garrow_fixed_shape_tensor_data_type_get_strides(GArrowFixedShapeTensorDataType *data_type,
+                                                gsize *length)
+{
+  auto arrow_data_type = std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
+  const auto &arrow_strides = arrow_data_type->strides();
+  *length = arrow_strides.size();
+  return arrow_strides.data();
+}
 G_END_DECLS
 
 GArrowDataType *
