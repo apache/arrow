@@ -40,6 +40,10 @@ class TestFixedShapeTensorDataType < Test::Unit::TestCase
     assert_equal([1, 0], @data_type.permutation)
   end
 
+  def test_strides
+    assert_equal([8, 32], @data_type.strides)
+  end
+
   def test_dim_names
     assert_equal(["x", "y"], @data_type.dim_names)
   end
@@ -56,6 +60,7 @@ class TestFixedShapeTensorDataType < Test::Unit::TestCase
                                                     nil,
                                                     ["x", "y"])
     assert_equal([], data_type.permutation)
+    assert_equal([32, 8], data_type.strides)
   end
 
   def test_nil_dim_names
