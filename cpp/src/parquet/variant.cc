@@ -143,69 +143,91 @@ std::string variantTypeToString(VariantType type) {
   }
 }
 
+inline uint32_t readLittleEndianU32(const void* from, uint8_t size) {
+  ARROW_DCHECK_LE(size, 4);
+  ARROW_DCHECK_GE(size, 1);
+
+  uint32_t result = 0;
+  memcpy(&result, from, size);
+  return ::arrow::bit_util::FromLittleEndian(result);
+}
+
 VariantMetadata::VariantMetadata(std::string_view metadata) : metadata_(metadata) {
-  if (metadata.size() < 2) {
-    throw ParquetException("Invalid Variant metadata: too short: " +
+  if (metadata.size() < HEADER_SIZE_BYTES + MINIMAL_OFFSET_SIZE_BYTES * 2) {
+    // Empty metadata is at least 3 bytes: version, dictionarySize and
+    // at least one offset.
+    throw ParquetException("Invalid Variant metadata: too short: size=" +
                            std::to_string(metadata.size()));
   }
-  if (version() != 1) {
+  if (version() != SUPPORTED_VERSION) {
     // Currently we only supports version 1.
     throw ParquetException("Unsupported Variant metadata version: " +
                            std::to_string(version()));
   }
+  uint8_t offset_size = offsetSize();
+  if (offset_size < MINIMAL_OFFSET_SIZE_BYTES ||
+      offset_size > MAXIMUM_OFFSET_SIZE_BYTES) {
+    throw ParquetException("Invalid Variant metadata: invalid offset size: " +
+                           std::to_string(offset_size));
+  }
+  dictionary_size_ = loadDictionarySize(metadata, offset_size);
+  if (HEADER_SIZE_BYTES + (dictionary_size_ + 1) * offset_size > metadata_.size()) {
+    throw ParquetException(
+        "Invalid Variant metadata: offset out of range: " +
+        std::to_string((dictionary_size_ + HEADER_SIZE_BYTES) * offset_size) + " > " +
+        std::to_string(metadata_.size()));
+  }
 }
 
-int8_t VariantMetadata::version() const {
-  return static_cast<int8_t>(metadata_[0]) & VERSION_MASK;
+uint8_t VariantMetadata::version() const {
+  return static_cast<uint8_t>(metadata_[0]) & VERSION_MASK;
 }
 
 bool VariantMetadata::sortedStrings() const {
   return (metadata_[0] & SORTED_STRING_MASK) != 0;
 }
 
-uint8_t VariantMetadata::offsetSize() const { return ((metadata_[0] >> 6) & 0x3) + 1; }
+uint8_t VariantMetadata::offsetSize() const {
+  // Since it stores offsetSize - 1, we add 1 here.
+  return ((metadata_[0] >> OFFSET_SIZE_BIT_SHIFT) & OFFSET_SIZE_MASK) + 1;
+}
 
-uint32_t VariantMetadata::dictionarySize() const {
-  uint8_t length = offsetSize();
-  if (length > 4) {
-    throw ParquetException("Invalid offset size: " + std::to_string(length));
-  }
-  if (static_cast<size_t>(length + 1) > metadata_.size()) {
+uint32_t VariantMetadata::loadDictionarySize(std::string_view metadata,
+                                             uint8_t offset_size) {
+  if (static_cast<size_t>(offset_size + HEADER_SIZE_BYTES) > metadata.size()) {
     throw ParquetException("Invalid Variant metadata: too short for dictionary size");
   }
-  uint32_t dict_size = 0;
-  memcpy(&dict_size, metadata_.data() + 1, length);
-  dict_size = ::arrow::bit_util::FromLittleEndian(dict_size);
-  return dict_size;
+  return readLittleEndianU32(metadata.data() + HEADER_SIZE_BYTES, offset_size);
 }
+
+uint32_t VariantMetadata::dictionarySize() const { return dictionary_size_; }
 
 std::string_view VariantMetadata::getMetadataKey(int32_t variant_id) const {
   uint32_t offset_size = offsetSize();
   uint32_t dict_size = dictionarySize();
 
   if (variant_id < 0 || variant_id >= static_cast<int32_t>(dict_size)) {
-    throw ParquetException("Invalid Variant metadata: variant_id out of range");
+    throw ParquetException("Invalid Variant metadata: variant_id out of range: " +
+                           std::to_string(variant_id) +
+                           " >= " + std::to_string(dict_size));
   }
 
-  if ((dict_size + 1) * offset_size > metadata_.size()) {
-    throw ParquetException("Invalid Variant metadata: offset out of range");
-  }
+  size_t offset_start_pos = HEADER_SIZE_BYTES + offset_size + (variant_id * offset_size);
 
-  size_t offset_start_pos = 1 + offset_size + (variant_id * offset_size);
-
-  uint32_t variant_offset = 0;
-  uint32_t variant_next_offset = 0;
-  memcpy(&variant_offset, metadata_.data() + offset_start_pos, offset_size);
-  variant_offset = ::arrow::bit_util::FromLittleEndian(variant_offset);
-  memcpy(&variant_next_offset, metadata_.data() + offset_start_pos + offset_size,
-         offset_size);
-  variant_next_offset = ::arrow::bit_util::FromLittleEndian(variant_next_offset);
-
+  // Index range of offsets are already checked in ctor, so no need to check again.
+  uint32_t variant_offset =
+      readLittleEndianU32(metadata_.data() + offset_start_pos, offset_size);
+  uint32_t variant_next_offset =
+      readLittleEndianU32(metadata_.data() + offset_start_pos + offset_size, offset_size);
   uint32_t key_size = variant_next_offset - variant_offset;
 
-  size_t string_start = 1 + offset_size * (dict_size + 2) + variant_offset;
+  size_t string_start =
+      HEADER_SIZE_BYTES + offset_size * (dict_size + 2) + variant_offset;
   if (string_start + key_size > metadata_.size()) {
-    throw ParquetException("Invalid Variant metadata: string data out of range");
+    throw ParquetException("Invalid Variant metadata: string data out of range: " +
+                           std::to_string(string_start) + " + " +
+                           std::to_string(key_size) + " > " +
+                           std::to_string(metadata_.size()));
   }
   return {metadata_.data() + string_start, key_size};
 }
@@ -215,22 +237,17 @@ std::string_view VariantMetadata::getMetadataKey(int32_t variant_id) const {
   uint32_t offset_size = offsetSize();
   uint32_t dict_size = dictionarySize();
 
-  if ((dict_size + 1) * offset_size > metadata_.size()) {
+  if ((dict_size + HEADER_SIZE_BYTES) * offset_size > metadata_.size()) {
     throw ParquetException("Invalid Variant metadata: offset out of range");
   }
   // TODO(mwish): This can be optimized by using binary search if the metadata is sorted.
   ::arrow::internal::SmallVector<int32_t, 1> vector;
   for (uint32_t i = 0; i < dict_size; ++i) {
     size_t offset_start_pos = 1 + offset_size + (i * offset_size);
-    uint32_t variant_offset = 0;
-    memcpy(&variant_offset, metadata_.data() + offset_start_pos, offset_size);
-    variant_offset = ::arrow::bit_util::FromLittleEndian(variant_offset);
-
-    uint32_t variant_next_offset = 0;
-    memcpy(&variant_next_offset, metadata_.data() + offset_start_pos + offset_size,
-           offset_size);
-    variant_next_offset = ::arrow::bit_util::FromLittleEndian(variant_next_offset);
-
+    uint32_t variant_offset =
+        readLittleEndianU32(metadata_.data() + offset_start_pos, offset_size);
+    uint32_t variant_next_offset = readLittleEndianU32(
+        metadata_.data() + offset_start_pos + offset_size, offset_size);
     uint32_t key_size = variant_next_offset - variant_offset;
 
     size_t string_start = 1 + offset_size * (dict_size + 2) + variant_offset;
@@ -575,11 +592,7 @@ VariantValue::ObjectInfo VariantValue::getObjectInfo() const {
         " for at least " + std::to_string(1 + num_elements_size));
   }
   // parse num_elements
-  uint32_t num_elements = 0;
-  {
-    memcpy(&num_elements, value.data() + 1, num_elements_size);
-    num_elements = ::arrow::bit_util::FromLittleEndian(num_elements);
-  }
+  uint32_t num_elements = readLittleEndianU32(value.data() + 1, num_elements_size);
   ObjectInfo info{};
   info.num_elements = num_elements;
   info.id_size = field_id_size;
@@ -595,10 +608,9 @@ VariantValue::ObjectInfo VariantValue::getObjectInfo() const {
                            ", value_size=" + std::to_string(value.size()));
   }
   {
-    uint32_t final_offset = 0;
-    memcpy(&final_offset,
-           value.data() + info.offset_start_offset + num_elements * field_offset_size,
-           field_offset_size);
+    uint32_t final_offset = readLittleEndianU32(
+        value.data() + info.offset_start_offset + num_elements * field_offset_size,
+        field_offset_size);
     // It could be less than value size since it could be a sub-object.
     if (final_offset + info.data_start_offset > value.size()) {
       throw ParquetException(
@@ -641,9 +653,8 @@ std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
   // Get the field offset
   // TODO(mwish): Using binary search to optimize it.
   for (uint32_t i = 0; i < info.num_elements; ++i) {
-    uint32_t variant_field_id = 0;
-    memcpy(&variant_field_id, value.data() + info.id_start_offset + i * info.id_size,
-           info.id_size);
+    uint32_t variant_field_id = readLittleEndianU32(
+        value.data() + info.offset_start_offset + i * info.offset_size, info.offset_size);
     variant_field_id = ::arrow::bit_util::FromLittleEndian(variant_field_id);
     if (variant_field_id == variant_id) {
       field_offset_opt = i;
@@ -655,11 +666,9 @@ std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
   }
   uint32_t field_offset = field_offset_opt.value();
   // Read the offset and next offset
-  uint32_t offset = 0;
-  memcpy(&offset,
-         value.data() + info.offset_start_offset + field_offset * info.offset_size,
-         info.offset_size);
-  offset = ::arrow::bit_util::FromLittleEndian(offset);
+  uint32_t offset = readLittleEndianU32(
+      value.data() + info.offset_start_offset + field_offset * info.offset_size,
+      info.offset_size);
 
   if (info.data_start_offset + offset > value.size()) {
     throw ParquetException("Invalid object field offsets: data_start_offset=" +
@@ -695,13 +704,7 @@ VariantValue::ArrayInfo VariantValue::getArrayInfo() const {
         " for at least " + std::to_string(1 + num_elements_size));
   }
 
-  // parse num_elements
-  uint32_t num_elements = 0;
-  {
-    memcpy(&num_elements, value.data() + 1, num_elements_size);
-    num_elements = ::arrow::bit_util::FromLittleEndian(num_elements);
-  }
-
+  uint32_t num_elements = readLittleEndianU32(value.data() + 1, num_elements_size);
   ArrayInfo info{};
   info.num_elements = num_elements;
   info.offset_size = field_offset_size;
@@ -719,11 +722,9 @@ VariantValue::ArrayInfo VariantValue::getArrayInfo() const {
   // Validate final offset is equal to the size of the value,
   // it would work since even empty array would have an offset of 0.
   {
-    uint32_t final_offset = 0;
-    memcpy(&final_offset,
-           value.data() + info.offset_start_offset + num_elements * field_offset_size,
-           field_offset_size);
-    final_offset = ::arrow::bit_util::FromLittleEndian(final_offset);
+    uint32_t final_offset = readLittleEndianU32(
+        value.data() + info.offset_start_offset + num_elements * field_offset_size,
+        field_offset_size);
 
     if (info.data_start_offset + final_offset > value.size()) {
       throw ParquetException(
@@ -736,15 +737,12 @@ VariantValue::ArrayInfo VariantValue::getArrayInfo() const {
   // checking the element is incremental.
   // TODO(mwish): Remove this or encapsulate this range check to function
   for (uint32_t i = 0; i < num_elements; ++i) {
-    uint32_t offset = 0, next_offset = 0;
-    memcpy(&offset, value.data() + info.offset_start_offset + i * field_offset_size,
-           field_offset_size);
-    memcpy(&next_offset,
-           value.data() + info.offset_start_offset + (i + 1) * field_offset_size,
-           field_offset_size);
-    offset = ::arrow::bit_util::FromLittleEndian(offset);
-    next_offset = ::arrow::bit_util::FromLittleEndian(next_offset);
-
+    uint32_t offset = readLittleEndianU32(
+        value.data() + info.offset_start_offset + i * field_offset_size,
+        field_offset_size);
+    uint32_t next_offset = readLittleEndianU32(
+        value.data() + info.offset_start_offset + (i + 1) * field_offset_size,
+        field_offset_size);
     if (offset > next_offset) {
       throw ParquetException(
           "Invalid array value: offsets not monotonically increasing: " +
@@ -763,14 +761,12 @@ VariantValue VariantValue::getArrayValueByIndex(uint32_t index,
   }
 
   // Read the offset and next offset
-  uint32_t offset = 0, next_offset = 0;
-  memcpy(&offset, value.data() + info.offset_start_offset + index * info.offset_size,
-         info.offset_size);
-  memcpy(&next_offset,
-         value.data() + info.offset_start_offset + (index + 1) * info.offset_size,
-         info.offset_size);
-  offset = ::arrow::bit_util::FromLittleEndian(offset);
-  next_offset = ::arrow::bit_util::FromLittleEndian(next_offset);
+  uint32_t offset = readLittleEndianU32(
+      value.data() + info.offset_start_offset + index * info.offset_size,
+      info.offset_size);
+  uint32_t next_offset = readLittleEndianU32(
+      value.data() + info.offset_start_offset + (index + 1) * info.offset_size,
+      info.offset_size);
 
   // Create a VariantValue for the element
   VariantValue element_value{

@@ -123,8 +123,10 @@ class VariantMetadata {
  public:
   explicit VariantMetadata(std::string_view metadata);
   /// \brief Get the variant metadata version. Currently, always 1.
-  int8_t version() const;
+  uint8_t version() const;
   /// \brief Get the metadata key for a given variant field id.
+  /// \throw ParquetException if the variant_id is out of range(larger than
+  ///        dictionary size).
   std::string_view getMetadataKey(int32_t variant_id) const;
   /// \brief Get the metadata id for a given key.
   /// From the discussion in ML:
@@ -138,11 +140,22 @@ class VariantMetadata {
   uint32_t dictionarySize() const;
 
  private:
-  static constexpr uint8_t VERSION_MASK = 0xF;
+  static uint32_t loadDictionarySize(std::string_view metadata, uint8_t offset_size);
+
+ private:
+  static constexpr uint8_t VERSION_MASK = 0b1111;
   static constexpr uint8_t SORTED_STRING_MASK = 0b10000;
+  static constexpr size_t HEADER_SIZE_BYTES = 1;
+  static constexpr size_t MINIMAL_OFFSET_SIZE_BYTES = 1;
+  static constexpr size_t MAXIMUM_OFFSET_SIZE_BYTES = 4;
+  // mask is applied after shift, it's like 0b11000000 before shift.
+  static constexpr uint8_t OFFSET_SIZE_MASK = 0b11;
+  static constexpr uint8_t OFFSET_SIZE_BIT_SHIFT = 6;
+  static constexpr uint8_t SUPPORTED_VERSION = 1;
 
  private:
   std::string_view metadata_;
+  uint32_t dictionary_size_{0};
 };
 
 template <typename DecimalType>
