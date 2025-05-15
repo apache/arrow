@@ -2658,7 +2658,7 @@ macro(build_lz4)
   set(LZ4_VENDORED TRUE)
 
   # Declare the content
-  fetchcontent_declare(lz4_ep
+  fetchcontent_declare(lz4
                        URL ${LZ4_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_LZ4_BUILD_SHA256_CHECKSUM}"
                        SOURCE_SUBDIR "build/cmake")
@@ -2675,7 +2675,7 @@ macro(build_lz4)
       CACHE BOOL "Don't build legacy LZ4 tools" FORCE)
 
   # Make the dependency available - this will actually perform the download and configure
-  fetchcontent_makeavailable(lz4_ep)
+  fetchcontent_makeavailable(lz4)
 
   # Use LZ4::lz4 as an imported library not an alias of lz4_static so other targets such as orc
   # can depend on it as an external library. External libraries are ignored in
@@ -2694,15 +2694,6 @@ if(ARROW_WITH_LZ4)
                      TRUE
                      PC_PACKAGE_NAMES
                      liblz4)
-
-  # Set the target name based on how LZ4 was resolved
-  if(TARGET lz4_static)
-    set(LZ4_TARGET lz4_static)
-  elseif(TARGET LZ4::lz4)
-    set(LZ4_TARGET LZ4::lz4)
-  else()
-    message(FATAL_ERROR "Unable to determine LZ4 target name")
-  endif()
 endif()
 
 macro(build_zstd)
@@ -4605,6 +4596,17 @@ target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
 function(build_orc)
   message(STATUS "Building Apache ORC from source")
 
+  if(LZ4_VENDORED)
+    set(ORC_LZ4_TARGET lz4_static)
+    set(ORC_LZ4_ROOT "${lz4_SOURCE_DIR}")
+    set(ORC_LZ4_INCLUDE_DIR "${lz4_SOURCE_DIR}/lib")
+  else()
+    set(ORC_LZ4_TARGET LZ4::lz4)
+    get_target_property(ORC_LZ4_INCLUDE_DIR ${ORC_LZ4_TARGET}
+                        INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_INCLUDE_DIR}" DIRECTORY)
+  endif()
+
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
@@ -4617,16 +4619,14 @@ function(build_orc)
     set(ORC_PREFER_STATIC_LZ4
         OFF
         CACHE BOOL "" FORCE)
-    get_target_property(LZ4_INCLUDE_DIR LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
-    if(NOT LZ4_INCLUDE_DIR)
-      find_path(LZ4_INCLUDE_DIR NAMES lz4.h)
-    endif()
-    get_filename_component(LZ4_ROOT "${LZ4_INCLUDE_DIR}" DIRECTORY)
     set(LZ4_HOME
-        "${LZ4_ROOT}"
+        "${ORC_LZ4_ROOT}"
+        CACHE STRING "" FORCE)
+    set(LZ4_INCLUDE_DIR
+        "${ORC_LZ4_INCLUDE_DIR}"
         CACHE STRING "" FORCE)
     set(LZ4_LIBRARY
-        LZ4::lz4
+        ${ORC_LZ4_TARGET}
         CACHE STRING "" FORCE)
 
     set(ORC_PREFER_STATIC_PROTOBUF
@@ -4725,14 +4725,6 @@ function(build_orc)
                         INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
 
-    if(LZ4_VENDORED)
-      set(ORC_LZ4_TARGET lz4_static)
-    else()
-      set(ORC_LZ4_TARGET LZ4::lz4)
-    endif()
-    get_target_property(ORC_LZ4_ROOT ${ORC_LZ4_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
-
     get_target_property(ORC_ZSTD_ROOT ${ARROW_ZSTD_LIBZSTD} INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_ZSTD_ROOT "${ORC_ZSTD_ROOT}" DIRECTORY)
 
@@ -4758,7 +4750,7 @@ function(build_orc)
         "-DLZ4_HOME=${ORC_LZ4_ROOT}"
         "-DLZ4_LIBRARY=$<TARGET_FILE:${ORC_LZ4_TARGET}>"
         "-DLZ4_STATIC_LIB=$<TARGET_FILE:${ORC_LZ4_TARGET}>"
-        "-DLZ4_INCLUDE_DIR=${ORC_LZ4_ROOT}/include"
+        "-DLZ4_INCLUDE_DIR=${ORC_LZ4_INCLUDE_DIR}"
         "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
         "-DZSTD_HOME=${ORC_ZSTD_ROOT}"
         "-DZSTD_INCLUDE_DIR=$<TARGET_PROPERTY:${ARROW_ZSTD_LIBZSTD},INTERFACE_INCLUDE_DIRECTORIES>"
