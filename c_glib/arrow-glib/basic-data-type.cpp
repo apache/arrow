@@ -2353,6 +2353,8 @@ garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
  * @length: (out): Return location for the number of dimensions of the tensor.
  *
  * Returns: (array length=length): Shape of the tensor.
+ *
+ * Since: 21.0.0
  */
 const gint64 *
 garrow_fixed_shape_tensor_data_type_get_shape(GArrowFixedShapeTensorDataType *data_type,
@@ -2372,6 +2374,8 @@ garrow_fixed_shape_tensor_data_type_get_shape(GArrowFixedShapeTensorDataType *da
  * @length: (out): Return location for the number of elements of permutation.
  *
  * Returns: (array length=length): Permutation of the tensor.
+ *
+ * Since: 21.0.0
  */
 const gint64 *
 garrow_fixed_shape_tensor_data_type_get_permutation(
@@ -2394,6 +2398,8 @@ garrow_fixed_shape_tensor_data_type_get_permutation(
  *
  *   It's a %NULL-terminated string array. It must be freed with
  *   g_strfreev() when no longer needed.
+ *
+ * Since: 21.0.0
  */
 gchar **
 garrow_fixed_shape_tensor_data_type_get_dim_names(
