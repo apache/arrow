@@ -21,7 +21,7 @@
 
 #include "parquet/exception.h"
 #include "parquet/test_util.h"
-#include "parquet/variant_value.h"
+#include "parquet/variant.h"
 
 #include <arrow/filesystem/localfs.h>
 #include <arrow/testing/gtest_util.h>
