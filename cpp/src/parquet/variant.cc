@@ -241,6 +241,7 @@ std::string_view VariantMetadata::getMetadataKey(uint32_t variant_id) const {
     throw ParquetException("Invalid Variant metadata: offset out of range");
   }
   // TODO(mwish): This can be optimized by using binary search if the metadata is sorted.
+  bool sort_and_unique = sortedStrings();
   ::arrow::internal::SmallVector<uint32_t, 1> vector;
   uint32_t variant_offset = 0;
   uint32_t variant_next_offset = 0;
@@ -258,6 +259,9 @@ std::string_view VariantMetadata::getMetadataKey(uint32_t variant_id) const {
     std::string_view current_key{metadata_.data() + string_start, key_size};
     if (current_key == key) {
       vector.push_back(i);
+      if (sort_and_unique) {
+        break;
+      }
     }
   }
   return vector;
