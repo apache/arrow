@@ -202,11 +202,11 @@ uint32_t VariantMetadata::loadDictionarySize(std::string_view metadata,
 
 uint32_t VariantMetadata::dictionarySize() const { return dictionary_size_; }
 
-std::string_view VariantMetadata::getMetadataKey(int32_t variant_id) const {
+std::string_view VariantMetadata::getMetadataKey(uint32_t variant_id) const {
   uint32_t offset_size = offsetSize();
   uint32_t dict_size = dictionarySize();
 
-  if (variant_id < 0 || variant_id >= static_cast<int32_t>(dict_size)) {
+  if (variant_id >= dict_size) {
     throw ParquetException("Invalid Variant metadata: variant_id out of range: " +
                            std::to_string(variant_id) +
                            " >= " + std::to_string(dict_size));
@@ -232,7 +232,7 @@ std::string_view VariantMetadata::getMetadataKey(int32_t variant_id) const {
   return {metadata_.data() + string_start, key_size};
 }
 
-::arrow::internal::SmallVector<int32_t, 1> VariantMetadata::getMetadataId(
+::arrow::internal::SmallVector<uint32_t, 1> VariantMetadata::getMetadataId(
     std::string_view key) const {
   uint32_t offset_size = offsetSize();
   uint32_t dict_size = dictionarySize();
@@ -241,12 +241,13 @@ std::string_view VariantMetadata::getMetadataKey(int32_t variant_id) const {
     throw ParquetException("Invalid Variant metadata: offset out of range");
   }
   // TODO(mwish): This can be optimized by using binary search if the metadata is sorted.
-  ::arrow::internal::SmallVector<int32_t, 1> vector;
+  ::arrow::internal::SmallVector<uint32_t, 1> vector;
+  uint32_t variant_offset = 0;
+  uint32_t variant_next_offset = 0;
   for (uint32_t i = 0; i < dict_size; ++i) {
     size_t offset_start_pos = 1 + offset_size + (i * offset_size);
-    uint32_t variant_offset =
-        readLittleEndianU32(metadata_.data() + offset_start_pos, offset_size);
-    uint32_t variant_next_offset = readLittleEndianU32(
+    variant_offset = variant_next_offset;
+    variant_next_offset = readLittleEndianU32(
         metadata_.data() + offset_start_pos + offset_size, offset_size);
     uint32_t key_size = variant_next_offset - variant_offset;
 
@@ -654,8 +655,7 @@ std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
   // TODO(mwish): Using binary search to optimize it.
   for (uint32_t i = 0; i < info.num_elements; ++i) {
     uint32_t variant_field_id = readLittleEndianU32(
-        value.data() + info.offset_start_offset + i * info.offset_size, info.offset_size);
-    variant_field_id = ::arrow::bit_util::FromLittleEndian(variant_field_id);
+        value.data() + info.id_start_offset + i * info.id_size, info.id_size);
     if (variant_field_id == variant_id) {
       field_offset_opt = i;
       break;

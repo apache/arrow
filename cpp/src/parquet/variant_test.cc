@@ -270,9 +270,12 @@ TEST(ParquetVariant, ObjectValues) {
                      {"null_field", handle_null_field},
                      {"timestamp_field", handle_timestamp_field}};
   // Test getObjectValueByKey with existing keys
-  for (auto& [key, handler] : key_handler) {
-    auto value = variant.getObjectValueByKey(key);
-    handler(value);
+  {
+    ARROW_SCOPED_TRACE("Test getObjectValueByKey with existing keys");
+    for (auto& [key, handler] : key_handler) {
+      auto value = variant.getObjectValueByKey(key);
+      handler(value);
+    }
   }
   // Test non-existing key
   {
@@ -280,13 +283,16 @@ TEST(ParquetVariant, ObjectValues) {
     EXPECT_FALSE(ne.has_value());
   }
   // Test get by index
-  for (uint32_t i = 0; i < obj_info.num_elements; ++i) {
-    auto value = variant.getObjectFieldByFieldId(i);
-    auto key = variant.metadata.getMetadataKey(i);
-    auto iter = key_handler.find(std::string(key));
-    ASSERT_TRUE(iter != key_handler.end());
-    auto handler = iter->second;
-    handler(value);
+  {
+    ARROW_SCOPED_TRACE("Test getObjectFieldByFieldId with existing indexes");
+    for (uint32_t i = 0; i < obj_info.num_elements; ++i) {
+      auto value = variant.getObjectFieldByFieldId(i);
+      auto key = variant.metadata.getMetadataKey(i);
+      auto iter = key_handler.find(std::string(key));
+      ASSERT_TRUE(iter != key_handler.end());
+      auto handler = iter->second;
+      handler(value);
+    }
   }
   EXPECT_FALSE(variant.getObjectFieldByFieldId(100).has_value());
 }

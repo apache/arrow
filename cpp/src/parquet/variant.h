@@ -127,13 +127,13 @@ class VariantMetadata {
   /// \brief Get the metadata key for a given variant field id.
   /// \throw ParquetException if the variant_id is out of range(larger than
   ///        dictionary size).
-  std::string_view getMetadataKey(int32_t variant_id) const;
+  std::string_view getMetadataKey(uint32_t variant_id) const;
   /// \brief Get the metadata id for a given key.
   /// From the discussion in ML:
   /// https://lists.apache.org/thread/b68tjmrjmy64mbv9dknpmqs28vnzjj96 if
   /// !sortedStrings(), the metadata key is not guaranteed to be unique, so we use a
   /// vector to store all the metadata ids.
-  ::arrow::internal::SmallVector<int32_t, 1> getMetadataId(std::string_view key) const;
+  ::arrow::internal::SmallVector<uint32_t, 1> getMetadataId(std::string_view key) const;
 
   bool sortedStrings() const;
   uint8_t offsetSize() const;
