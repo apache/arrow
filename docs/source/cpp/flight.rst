@@ -246,8 +246,8 @@ on a 4-byte boundary), which can be enforced
 by setting :member:`arrow::ipc::IpcReadOptions::ensure_alignment`
 to :member:`arrow::ipc::Alignment::kDataTypeSpecificAlignment`.
 This uses the :member:`arrow::ipc::IpcReadOptions::memory_pool`
-to a allocate memory with aligned addresses, but only for mis-alligned data.
-However, this creates data copies of your data recieved via Flight.
+to allocate memory with aligned addresses, but only for mis-aligned data.
+However, this creates data copies of your data received via Flight.
 
 Unless gRPC data are copied as described above, allocations made by gRPC may not
 be tracked by the Arrow memory pool, and that memory usage behavior,
