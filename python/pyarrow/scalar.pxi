@@ -18,6 +18,7 @@
 import collections
 import warnings
 from uuid import UUID
+from collections.abc import Sequence, Mapping
 
 
 cdef class Scalar(_Weakrefable):
@@ -927,7 +928,7 @@ cdef class StringViewScalar(StringScalar):
     pass
 
 
-cdef class ListScalar(Scalar, collections.abc.Sequence):
+cdef class ListScalar(Scalar, Sequence):
     """
     Concrete class for list-like scalars.
     """
@@ -996,7 +997,7 @@ cdef class LargeListViewScalar(ListScalar):
     pass
 
 
-cdef class StructScalar(Scalar, collections.abc.Mapping):
+cdef class StructScalar(Scalar, Mapping):
     """
     Concrete class for struct scalars.
     """
@@ -1095,7 +1096,7 @@ cdef class StructScalar(Scalar, collections.abc.Mapping):
         return str(self._as_py_tuple())
 
 
-cdef class MapScalar(ListScalar, collections.abc.Mapping):
+cdef class MapScalar(ListScalar, Mapping):
     """
     Concrete class for map scalars.
     """
