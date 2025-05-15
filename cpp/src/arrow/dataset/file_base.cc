@@ -17,6 +17,7 @@
 
 #include "arrow/dataset/file_base.h"
 
+#include "arrow/acero/accumulation_queue.h"
 #include "arrow/acero/exec_plan.h"
 
 #include <algorithm>
@@ -559,13 +560,18 @@ Result<acero::ExecNode*> MakeWriteNode(acero::ExecPlan* plan,
 
 namespace {
 
-class TeeNode : public acero::MapNode {
+class TeeNode : public acero::MapNode,
+                public arrow::acero::util::SerialSequencingQueue::Processor {
  public:
   TeeNode(acero::ExecPlan* plan, std::vector<acero::ExecNode*> inputs,
           std::shared_ptr<Schema> output_schema,
           FileSystemDatasetWriteOptions write_options)
       : MapNode(plan, std::move(inputs), std::move(output_schema)),
-        write_options_(std::move(write_options)) {}
+        write_options_(std::move(write_options)) {
+    if (write_options.preserve_order) {
+      sequencer_ = acero::util::SerialSequencingQueue::Make(this);
+    }
+  }
 
   Status StartProducing() override {
     ARROW_ASSIGN_OR_RAISE(
@@ -591,6 +597,18 @@ class TeeNode : public acero::MapNode {
   }
 
   const char* kind_name() const override { return "TeeNode"; }
+
+  Status InputReceived(ExecNode* input, ExecBatch batch) override {
+    DCHECK_EQ(input, inputs_[0]);
+    if (sequencer_) {
+      return sequencer_->InsertBatch(std::move(batch));
+    }
+    return Process(std::move(batch));
+  }
+
+  Status Process(ExecBatch batch) override {
+    return acero::MapNode::InputReceived(inputs_[0], batch);
+  }
 
   void Finish() override { dataset_writer_->Finish(); }
 
@@ -625,6 +643,7 @@ class TeeNode : public acero::MapNode {
   std::unique_ptr<internal::DatasetWriter> dataset_writer_;
   FileSystemDatasetWriteOptions write_options_;
   std::atomic<int32_t> backpressure_counter_ = 0;
+  std::unique_ptr<acero::util::SerialSequencingQueue> sequencer_{nullptr};
 };
 
 }  // namespace
