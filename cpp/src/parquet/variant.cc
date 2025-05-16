@@ -23,6 +23,7 @@
 
 #include <arrow/util/endian.h>
 #include <arrow/util/logging.h>
+#include <arrow/util/unreachable.h>
 
 #include "parquet/exception.h"
 
@@ -407,6 +408,8 @@ std::string_view VariantValue::typeDebugString() const {
       return "TimestampNanosNtz";
     case VariantType::Uuid:
       return "Uuid";
+    default:
+      ::arrow::Unreachable();
   }
 }
 
@@ -648,6 +651,7 @@ uint32_t VariantValue::num_elements() const {
                              VariantBasicTypeToString(basic_type));
     }
   }
+  ::arrow::Unreachable();
 }
 
 std::optional<VariantValue> VariantValue::getObjectValueByKey(

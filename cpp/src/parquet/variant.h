@@ -128,7 +128,7 @@ class PARQUET_EXPORT VariantMetadata {
   uint8_t version() const;
   /// \brief Get the metadata key for a given variant field id.
   /// \throw ParquetException if the variant_id is out of range(larger than
-  ///        dictionary size).
+  ///        dictionary_size).
   std::string_view GetMetadataKey(uint32_t variant_id) const;
   /// \brief Get the metadata id for a given key.
   /// From the discussion in ML:
@@ -175,38 +175,77 @@ class PARQUET_EXPORT VariantValue {
   std::string_view typeDebugString() const;
   const VariantMetadata& metadata() const;
 
-  /// \defgroup ValueAccessors
-  /// @{
-
   // Note: Null doesn't need visitor.
+
+  /// \brief Get the primitive boolean value.
+  /// \throw ParquetException if the type is not a boolean type.
   bool getBool() const;
+  /// \brief Get the primitive int8 value.
+  /// \throw ParquetException if the type is not an int8 type.
   int8_t getInt8() const;
+  /// \brief Get the primitive int16 value.
+  /// \throw ParquetException if the type is not an int16 type.
   int16_t getInt16() const;
+  /// \brief Get the primitive int32 value.
+  /// \throw ParquetException if the type is not an int32 type.
   int32_t getInt32() const;
+  /// \brief Get the primitive int64 value.
+  /// \throw ParquetException if the type is not an int64 type.
   int64_t getInt64() const;
-  /// Include short_string optimization and primitive string type
+  /// \brief Get the string value, including both short string optimization and primitive
+  /// string type. \throw ParquetException if the type is not a string type.
   std::string_view getString() const;
+  /// \brief Get the binary value.
+  /// \throw ParquetException if the type is not a binary type.
   std::string_view getBinary() const;
+  /// \brief Get the primitive float value.
+  /// \throw ParquetException if the type is not a float type.
   float getFloat() const;
+  /// \brief Get the primitive double value.
+  /// \throw ParquetException if the type is not a double type.
   double getDouble() const;
 
+  /// \brief Get the decimal value with 4 bytes precision.
+  /// \throw ParquetException if the type is not a decimal4 type.
   DecimalValue<::arrow::Decimal32> getDecimal4() const;
+  /// \brief Get the decimal value with 8 bytes precision.
+  /// \throw ParquetException if the type is not a decimal8 type.
   DecimalValue<::arrow::Decimal64> getDecimal8() const;
+  /// \brief Get the decimal value with 16 bytes precision.
+  /// \throw ParquetException if the type is not a decimal16 type.
   DecimalValue<::arrow::Decimal128> getDecimal16() const;
 
+  /// \brief Get the date value as days since Unix epoch.
+  /// \throw ParquetException if the type is not a date type.
   int32_t getDate() const;
+  /// \brief Get the time value without timezone as microseconds since midnight.
+  /// \throw ParquetException if the type is not a time type.
   int64_t getTimeNtz() const;
-  // timestamp with adjusted to UTC
+  /// \brief Get the timestamp value with UTC timezone as microseconds since Unix epoch.
+  /// \throw ParquetException if the type is not a timestamp type.
   int64_t getTimestamp() const;
+  /// \brief Get the timestamp value without timezone as microseconds since Unix epoch.
+  /// \throw ParquetException if the type is not a timestamp without timezone type.
   int64_t getTimestampNtz() const;
-  // 16 bytes UUID
+  /// \brief Get the UUID value as a 16-byte array.
+  /// \throw ParquetException if the type is not a UUID type.
   std::array<uint8_t, 16> getUuid() const;
 
-  /// }@
-
+  /// \brief Get the num_elements of the array or object.
+  ///        For array, it returns the number of elements in the array.
+  ///        For object, it returns the number of fields in the object.
+  /// \throw ParquetException if the type is not an array or object type.
   uint32_t num_elements() const;
 
+  /// \brief Get the value of the object field by key.
+  /// \return returns the value of the field with the given key, or empty if the key
+  ///         doesn't exist.
+  /// \throw ParquetException if the type is not an object type.
   std::optional<VariantValue> getObjectValueByKey(std::string_view key) const;
+  /// \brief Get the value of the object field by field id.
+  /// \return returns the value of the field with the given field id, or empty if the
+  ///         field id doesn't exist.
+  /// \throw ParquetException if the type is not an object type.
   std::optional<VariantValue> getObjectFieldByFieldId(uint32_t variant_id) const;
 
   // Would throw ParquetException if index is out of range.
@@ -215,10 +254,12 @@ class PARQUET_EXPORT VariantValue {
  private:
   static constexpr uint8_t kBasicTypeMask = 0b00000011;
   static constexpr uint8_t kPrimitiveTypeMask = 0b00111111;
-  /** The inclusive maximum value of the type info value. It is the size limit of
-   * `SHORT_STR`. */
+  /// The inclusive maximum value of the type info value. It is the size limit of
+  /// ShortString.
   static constexpr uint8_t kMaxShortStrSizeMask = 0b00111111;
 
+  /// ComplexInfo is used to store the metadata of the array or object.
+  /// For array, it doesn't have id_size and id_start_offset.
   struct ComplexInfo {
     uint32_t num_elements;
     uint32_t id_start_offset;
