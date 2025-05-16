@@ -130,8 +130,7 @@ arrow::Status WriteEncryptedFile(const std::string& path_to_file) {
   // Set write options with encryption configuration.
   auto encryption_config = std::make_shared<parquet::encryption::EncryptionConfiguration>(
       std::string("footerKeyId"));
-  encryption_config->column_keys =
-      "columnKeyId: i, s.a, s.b, m.key_value.key, m.key_value.value, l.list.element";
+  encryption_config->column_keys = "columnKeyId: i, s.a, s.b, m.key, m.value, l";
 
   auto parquet_encryption_config = std::make_shared<ds::ParquetEncryptionConfig>();
   // Directly assign shared_ptr objects to ParquetEncryptionConfig members.

@@ -609,27 +609,20 @@ columns are encrypted with individual keys as configured via
 .. literalinclude:: ../../../cpp/examples/arrow/parquet_column_encryption.cc
    :language: cpp
    :start-at: // Set write options with encryption configuration
-   :end-before: auto parquet_encryption_config
-   :emphasize-lines: 4-5
+   :end-at: encryption_config->column_keys
+   :emphasize-lines: 4
    :dedent: 2
 
 See the full `Parquet column encryption example <examples/parquet_column_encryption.html>`_.
 
 .. note::
 
-   Encrypting columns that have nested fields (struct, map or list data types)
-   requires column keys for the inner fields, not the outer column itself.
-   Configuring a column key for the outer column causes
-   this error (here the column name is ``col``):
+   Columns with nested fields (struct or map data types) can be encrypted as a whole, or only
+   individual fields. Configure an encryption key for the column name to encrypt all nested fields
+   with this key, or configure a key for individual fields.
 
-   .. code-block::
-
-      OSError: Encrypted column col not in file schema
-
-   Conventionally, the key and value fields of a map column ``m`` have the names
-   ``m.key_value.key`` and  ``m.key_value.value``, respectively. The inner field of a
-   list column ``l`` has the name ``l.list.element``. An inner field ``f`` of a struct column ``s`` has
-   the name ``s.f``.
+   Conventionally, the key and value fields of a map column ``m`` have the names ``m.key`` and
+   ``m.value``, respectively. An inner field ``f`` of a struct column ``s`` has the name ``s.f``.
 
 Miscellaneous
 -------------
