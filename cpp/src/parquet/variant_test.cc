@@ -100,8 +100,7 @@ VariantValue LoadVariantValue(const std::string& test_name,
   *value_buf_out = readFromFile(*file_system, value_path);
 
   std::string_view value{**value_buf_out};
-
-  VariantMetadata metadata(std::string_view{**metadata_buf_out});
+  std::string_view metadata{**metadata_buf_out};
   return VariantValue{metadata, value};
 }
 
@@ -111,7 +110,7 @@ TEST(ParquetVariant, BooleanValue) {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_boolean_true", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::Boolean, variant.getType());
-    EXPECT_EQ("BOOLEAN", variant.typeDebugString());
+    EXPECT_EQ("Boolean", variant.typeDebugString());
     EXPECT_EQ(true, variant.getBool());
   }
   // test false
@@ -133,21 +132,21 @@ TEST(ParquetVariant, NumericValues) {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_int8", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::Int8, variant.getType());
-    EXPECT_EQ("INT8", variant.typeDebugString());
+    EXPECT_EQ("Int8", variant.typeDebugString());
     EXPECT_EQ(42, variant.getInt8());
   }
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_int16", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::Int16, variant.getType());
-    EXPECT_EQ("INT16", variant.typeDebugString());
+    EXPECT_EQ("Int16", variant.typeDebugString());
     EXPECT_EQ(1234, variant.getInt16());
   }
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_int32", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::Int32, variant.getType());
-    EXPECT_EQ("INT32", variant.typeDebugString());
+    EXPECT_EQ("Int32", variant.typeDebugString());
     EXPECT_EQ(123456, variant.getInt32());
   }
   {
@@ -155,21 +154,21 @@ TEST(ParquetVariant, NumericValues) {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_int64", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::Int32, variant.getType());
-    EXPECT_EQ("INT32", variant.typeDebugString());
+    EXPECT_EQ("Int32", variant.typeDebugString());
     EXPECT_EQ(12345678, variant.getInt32());
   }
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_float", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::Float, variant.getType());
-    EXPECT_EQ("FLOAT", variant.typeDebugString());
+    EXPECT_EQ("Float", variant.typeDebugString());
     EXPECT_FLOAT_EQ(1234567940.0f, variant.getFloat());
   }
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_double", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::Double, variant.getType());
-    EXPECT_EQ("DOUBLE", variant.typeDebugString());
+    EXPECT_EQ("Double", variant.typeDebugString());
     EXPECT_DOUBLE_EQ(1234567890.1234, variant.getDouble());
   }
   {
@@ -186,7 +185,7 @@ TEST(ParquetVariant, StringValues) {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_string", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::String, variant.getType());
-    EXPECT_EQ("STRING", variant.typeDebugString());
+    EXPECT_EQ("String", variant.typeDebugString());
     std::string expected =
         R"(This string is longer than 64 bytes and therefore does not fit in a short_string and it also includes several non ascii characters such as 🐢, 💖, ♥️, 🎣 and 🤦!!)";
     EXPECT_EQ(expected, variant.getString());
@@ -203,7 +202,7 @@ TEST(ParquetVariant, StringValues) {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_binary", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::Binary, variant.getType());
-    EXPECT_EQ("BINARY", variant.typeDebugString());
+    EXPECT_EQ("Binary", variant.typeDebugString());
     auto binary_data = variant.getBinary();
     std::string expected = ::arrow::util::base64_decode("AxM33q2+78r+");
     EXPECT_EQ(expected, binary_data);
@@ -221,10 +220,9 @@ TEST(ParquetVariant, ObjectValues) {
   std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
   auto variant = LoadVariantValue("object_primitive", &metadata_buf, &value_buf);
   EXPECT_EQ(VariantType::Object, variant.getType());
-  EXPECT_EQ("OBJECT", variant.typeDebugString());
+  EXPECT_EQ("Object", variant.typeDebugString());
 
-  auto obj_info = variant.getObjectInfo();
-  EXPECT_EQ(7, obj_info.num_elements);
+  EXPECT_EQ(7, variant.num_elements());
   auto handle_int_field = [](const std::optional<VariantValue>& value) {
     EXPECT_TRUE(value.has_value());
     EXPECT_EQ(VariantType::Int8, value->getType());
@@ -285,9 +283,9 @@ TEST(ParquetVariant, ObjectValues) {
   // Test get by index
   {
     ARROW_SCOPED_TRACE("Test getObjectFieldByFieldId with existing indexes");
-    for (uint32_t i = 0; i < obj_info.num_elements; ++i) {
+    for (uint32_t i = 0; i < variant.num_elements(); ++i) {
       auto value = variant.getObjectFieldByFieldId(i);
-      auto key = variant.metadata.GetMetadataKey(i);
+      auto key = variant.metadata().GetMetadataKey(i);
       auto iter = key_handler.find(std::string(key));
       ASSERT_TRUE(iter != key_handler.end());
       auto handler = iter->second;
@@ -301,30 +299,26 @@ TEST(ParquetVariant, NestedObjectValues) {
   std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
   auto variant = LoadVariantValue("object_nested", &metadata_buf, &value_buf);
   EXPECT_EQ(VariantType::Object, variant.getType());
-  EXPECT_EQ("OBJECT", variant.typeDebugString());
-  auto info = variant.getObjectInfo();
-  EXPECT_EQ(3, info.num_elements);
+  EXPECT_EQ("Object", variant.typeDebugString());
+  EXPECT_EQ(3, variant.num_elements());
 
   // Trying to get the exists key
-  auto id = variant.getObjectValueByKey("id", info);
+  auto id = variant.getObjectValueByKey("id");
   ASSERT_TRUE(id.has_value());
   EXPECT_EQ(VariantType::Int8, id->getType());
   EXPECT_EQ(1, id->getInt8());
 
-  auto observation = variant.getObjectValueByKey("observation", info);
+  auto observation = variant.getObjectValueByKey("observation");
   ASSERT_TRUE(observation.has_value());
   EXPECT_EQ(VariantType::Object, observation->getType());
 
-  auto species = variant.getObjectValueByKey("species", info);
+  auto species = variant.getObjectValueByKey("species");
   ASSERT_TRUE(species.has_value());
   EXPECT_EQ(VariantType::Object, species->getType());
-  auto species_info = species->getObjectInfo();
-  EXPECT_EQ(2, species_info.num_elements);
 
   // Inner object works well
   {
-    auto species_object_info = species->getObjectInfo();
-    EXPECT_EQ(2, species_object_info.num_elements);
+    EXPECT_EQ(2, species->num_elements());
     auto name = species->getObjectValueByKey("name");
     ASSERT_TRUE(name.has_value());
     EXPECT_EQ(VariantType::String, name->getType());
@@ -366,7 +360,7 @@ TEST(ParquetVariant, DecimalValues) {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_decimal4", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::Decimal4, variant.getType());
-    EXPECT_EQ("DECIMAL4", variant.typeDebugString());
+    EXPECT_EQ("Decimal4", variant.typeDebugString());
     auto decimal = variant.getDecimal4();
     EXPECT_EQ(2, decimal.scale);
     EXPECT_EQ("12.34", decimal.value.ToString(decimal.scale));
@@ -375,7 +369,7 @@ TEST(ParquetVariant, DecimalValues) {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_decimal8", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::Decimal8, variant.getType());
-    EXPECT_EQ("DECIMAL8", variant.typeDebugString());
+    EXPECT_EQ("Decimal8", variant.typeDebugString());
     auto decimal = variant.getDecimal8();
     EXPECT_EQ(2, decimal.scale);
     EXPECT_EQ("12345678.90", decimal.value.ToString(decimal.scale));
@@ -384,7 +378,7 @@ TEST(ParquetVariant, DecimalValues) {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_decimal16", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::Decimal16, variant.getType());
-    EXPECT_EQ("DECIMAL16", variant.typeDebugString());
+    EXPECT_EQ("Decimal16", variant.typeDebugString());
     auto decimal = variant.getDecimal16();
     EXPECT_EQ(2, decimal.scale);
     EXPECT_EQ("12345678912345678.90", decimal.value.ToString(decimal.scale));
@@ -396,7 +390,7 @@ TEST(ParquetVariant, DateTimeValues) {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_date", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::Date, variant.getType());
-    EXPECT_EQ("DATE", variant.typeDebugString());
+    EXPECT_EQ("Date", variant.typeDebugString());
     // 2025-04-16
     EXPECT_EQ(20194, variant.getDate());
   }
@@ -404,14 +398,14 @@ TEST(ParquetVariant, DateTimeValues) {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_timestamp", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::TimestampTz, variant.getType());
-    EXPECT_EQ("TIMESTAMP_TZ", variant.typeDebugString());
+    EXPECT_EQ("TimestampTz", variant.typeDebugString());
     EXPECT_EQ(1744821296780000, variant.getTimestamp());
   }
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_timestampntz", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::TimestampNtz, variant.getType());
-    EXPECT_EQ("TIMESTAMP_NTZ", variant.typeDebugString());
+    EXPECT_EQ("TimestampNtz", variant.typeDebugString());
     EXPECT_EQ(1744806896780000, variant.getTimestampNtz());
   }
 }
@@ -421,10 +415,9 @@ TEST(ParquetVariant, ArrayValues) {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("array_primitive", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::Array, variant.getType());
-    EXPECT_EQ("ARRAY", variant.typeDebugString());
+    EXPECT_EQ("Array", variant.typeDebugString());
 
-    auto array_info = variant.getArrayInfo();
-    EXPECT_EQ(4, array_info.num_elements);
+    EXPECT_EQ(4, variant.num_elements());
 
     auto element0 = variant.getArrayValueByIndex(0);
     EXPECT_EQ(VariantType::Int8, element0.getType());
@@ -444,19 +437,19 @@ TEST(ParquetVariant, ArrayValues) {
 
     EXPECT_THROW(variant.getArrayValueByIndex(4), ParquetException);
     EXPECT_THROW(variant.getArrayValueByIndex(100), ParquetException);
-    EXPECT_THROW(variant.getObjectInfo(), ParquetException);
+    EXPECT_THROW(variant.getObjectValueByKey("10"), ParquetException);
+    EXPECT_THROW(variant.getObjectFieldByFieldId(10), ParquetException);
   }
   {
     // array_empty
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("array_empty", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::Array, variant.getType());
-    EXPECT_EQ("ARRAY", variant.typeDebugString());
-    auto array_info = variant.getArrayInfo();
-    EXPECT_EQ(0, array_info.num_elements);
+    EXPECT_EQ("Array", variant.typeDebugString());
+    EXPECT_EQ(0, variant.num_elements());
 
     EXPECT_THROW(variant.getArrayValueByIndex(0), ParquetException);
-    EXPECT_THROW(variant.getObjectInfo(), ParquetException);
+    EXPECT_THROW(variant.getObjectValueByKey("key"), ParquetException);
   }
 }
 
@@ -464,14 +457,12 @@ TEST(ParquetVariant, ArrayValuesNested) {
   std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
   auto variant = LoadVariantValue("array_nested", &metadata_buf, &value_buf);
   EXPECT_EQ(VariantType::Array, variant.getType());
-  EXPECT_EQ("ARRAY", variant.typeDebugString());
-  auto object_info = variant.getArrayInfo();
-  EXPECT_EQ(3, object_info.num_elements);
+  EXPECT_EQ("Array", variant.typeDebugString());
+  EXPECT_EQ(3, variant.num_elements());
   {
     auto first_element = variant.getArrayValueByIndex(0);
     EXPECT_EQ(VariantType::Object, first_element.getType());
-    auto first_element_info = first_element.getObjectInfo();
-    EXPECT_EQ(2, first_element_info.num_elements);
+    EXPECT_EQ(2, first_element.num_elements());
     auto id = first_element.getObjectValueByKey("id");
     ASSERT_TRUE(id.has_value());
     EXPECT_EQ(VariantType::Int8, id->getType());
@@ -484,8 +475,7 @@ TEST(ParquetVariant, ArrayValuesNested) {
   {
     auto third_element = variant.getArrayValueByIndex(2);
     EXPECT_EQ(VariantType::Object, third_element.getType());
-    auto third_element_info = third_element.getObjectInfo();
-    EXPECT_EQ(3, third_element_info.num_elements);
+    EXPECT_EQ(3, third_element.num_elements());
     auto id = third_element.getObjectValueByKey("id");
     ASSERT_TRUE(id.has_value());
     EXPECT_EQ(VariantType::Int8, id->getType());

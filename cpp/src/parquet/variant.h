@@ -166,13 +166,14 @@ struct PARQUET_EXPORT DecimalValue {
   DecimalType value;
 };
 
-struct PARQUET_EXPORT VariantValue {
-  VariantMetadata metadata;
-  std::string_view value;
+class PARQUET_EXPORT VariantValue {
+ public:
+  VariantValue(std::string_view metadata, std::string_view value);
 
   VariantBasicType getBasicType() const;
   VariantType getType() const;
-  std::string typeDebugString() const;
+  std::string_view typeDebugString() const;
+  const VariantMetadata& metadata() const;
 
   /// \defgroup ValueAccessors
   /// @{
@@ -203,41 +204,13 @@ struct PARQUET_EXPORT VariantValue {
 
   /// }@
 
-  struct ObjectInfo {
-    uint32_t num_elements;
-    uint32_t id_size;
-    uint32_t offset_size;
-    uint32_t id_start_offset;
-    uint32_t offset_start_offset;
-    uint32_t data_start_offset;
+  uint32_t num_elements() const;
 
-    bool operator==(const ObjectInfo& info) const {
-      return num_elements == info.num_elements && id_size == info.id_size &&
-             offset_size == info.offset_size && id_start_offset == info.id_start_offset &&
-             offset_start_offset == info.offset_start_offset &&
-             data_start_offset == info.data_start_offset;
-    }
-
-    std::string toDebugString() const;
-  };
-  ObjectInfo getObjectInfo() const;
   std::optional<VariantValue> getObjectValueByKey(std::string_view key) const;
-  std::optional<VariantValue> getObjectValueByKey(std::string_view key,
-                                                  const ObjectInfo& info) const;
   std::optional<VariantValue> getObjectFieldByFieldId(uint32_t variant_id) const;
-  std::optional<VariantValue> getObjectFieldByFieldId(uint32_t variant_id,
-                                                      const ObjectInfo& info) const;
 
-  struct ArrayInfo {
-    uint32_t num_elements;
-    uint32_t offset_size;
-    uint32_t offset_start_offset;
-    uint32_t data_start_offset;
-  };
-  ArrayInfo getArrayInfo() const;
   // Would throw ParquetException if index is out of range.
   VariantValue getArrayValueByIndex(uint32_t index) const;
-  VariantValue getArrayValueByIndex(uint32_t index, const ArrayInfo& info) const;
 
  private:
   static constexpr uint8_t kBasicTypeMask = 0b00000011;
@@ -246,7 +219,18 @@ struct PARQUET_EXPORT VariantValue {
    * `SHORT_STR`. */
   static constexpr uint8_t kMaxShortStrSizeMask = 0b00111111;
 
+  struct ComplexInfo {
+    uint32_t num_elements;
+    uint32_t id_start_offset;
+    uint32_t offset_start_offset;
+    uint32_t data_start_offset;
+    uint8_t id_size;
+    uint8_t offset_size;
+  };
+
  private:
+  VariantValue(VariantMetadata metadata, std::string_view value);
+
   template <typename PrimitiveType>
   PrimitiveType getPrimitiveType(VariantPrimitiveType type) const;
 
@@ -258,6 +242,15 @@ struct PARQUET_EXPORT VariantValue {
   std::string_view getPrimitiveBinaryType(VariantPrimitiveType type) const;
   void checkBasicType(VariantBasicType type) const;
   void checkPrimitiveType(VariantPrimitiveType type, size_t size_required) const;
+
+  static ComplexInfo getArrayInfo(std::string_view value);
+  static ComplexInfo getObjectInfo(std::string_view value);
+
+ private:
+  VariantMetadata metadata_;
+  std::string_view value_;
+
+  ComplexInfo complex_info_{};
 };
 
 }  // namespace parquet::variant
