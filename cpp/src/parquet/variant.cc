@@ -28,7 +28,7 @@
 
 namespace parquet::variant {
 
-std::string variantBasicTypeToString(VariantBasicType type) {
+std::string VariantBasicTypeToString(VariantBasicType type) {
   switch (type) {
     case VariantBasicType::Primitive:
       return "Primitive";
@@ -43,7 +43,7 @@ std::string variantBasicTypeToString(VariantBasicType type) {
   }
 }
 
-std::string variantPrimitiveTypeToString(VariantPrimitiveType type) {
+std::string VariantPrimitiveTypeToString(VariantPrimitiveType type) {
   switch (type) {
     case VariantPrimitiveType::NullType:
       return "NullType";
@@ -71,20 +71,20 @@ std::string variantPrimitiveTypeToString(VariantPrimitiveType type) {
       return "Date";
     case VariantPrimitiveType::Timestamp:
       return "Timestamp";
-    case VariantPrimitiveType::TimestampNTZ:
-      return "TimestampNTZ";
+    case VariantPrimitiveType::TimestampNtz:
+      return "TimestampNtz";
     case VariantPrimitiveType::Float:
       return "Float";
     case VariantPrimitiveType::Binary:
       return "Binary";
     case VariantPrimitiveType::String:
       return "String";
-    case VariantPrimitiveType::TimeNTZ:
-      return "TimeNTZ";
-    case VariantPrimitiveType::TimestampTZ:
+    case VariantPrimitiveType::TimeNtz:
+      return "TimeNtz";
+    case VariantPrimitiveType::TimestampTz:
       return "TimestampTZ";
-    case VariantPrimitiveType::TimestampNTZNanos:
-      return "TimestampNTZNanos";
+    case VariantPrimitiveType::TimestampNtzNanos:
+      return "TimestampNtzNanos";
     case VariantPrimitiveType::Uuid:
       return "Uuid";
     default:
@@ -92,51 +92,51 @@ std::string variantPrimitiveTypeToString(VariantPrimitiveType type) {
   }
 }
 
-std::string variantTypeToString(VariantType type) {
+std::string VariantTypeToString(VariantType type) {
   switch (type) {
-    case VariantType::OBJECT:
+    case VariantType::Object:
       return "OBJECT";
-    case VariantType::ARRAY:
+    case VariantType::Array:
       return "ARRAY";
-    case VariantType::VARIANT_NULL:
+    case VariantType::Null:
       return "NULL";
-    case VariantType::BOOLEAN:
+    case VariantType::Boolean:
       return "BOOLEAN";
-    case VariantType::INT8:
+    case VariantType::Int8:
       return "INT8";
-    case VariantType::INT16:
+    case VariantType::Int16:
       return "INT16";
-    case VariantType::INT32:
+    case VariantType::Int32:
       return "INT32";
-    case VariantType::INT64:
+    case VariantType::Int64:
       return "INT64";
-    case VariantType::STRING:
+    case VariantType::String:
       return "STRING";
-    case VariantType::DOUBLE:
+    case VariantType::Double:
       return "DOUBLE";
-    case VariantType::DECIMAL4:
+    case VariantType::Decimal4:
       return "DECIMAL4";
-    case VariantType::DECIMAL8:
+    case VariantType::Decimal8:
       return "DECIMAL8";
-    case VariantType::DECIMAL16:
+    case VariantType::Decimal16:
       return "DECIMAL16";
-    case VariantType::DATE:
+    case VariantType::Date:
       return "DATE";
-    case VariantType::TIMESTAMP_TZ:
+    case VariantType::TimestampTz:
       return "TIMESTAMP_TZ";
-    case VariantType::TIMESTAMP_NTZ:
-      return "TIMESTAMP_NTZ";
-    case VariantType::FLOAT:
+    case VariantType::TimestampNtz:
+      return "TIMESTAMP_Ntz";
+    case VariantType::Float:
       return "FLOAT";
-    case VariantType::BINARY:
+    case VariantType::Binary:
       return "BINARY";
-    case VariantType::TIME:
+    case VariantType::Time:
       return "TIME";
-    case VariantType::TIMESTAMP_NANOS_TZ:
+    case VariantType::TimestampNanosTz:
       return "TIMESTAMP_NANOS_TZ";
-    case VariantType::TIMESTAMP_NANOS_NTZ:
-      return "TIMESTAMP_NANOS_NTZ";
-    case VariantType::UUID:
+    case VariantType::TimestampNanosNtz:
+      return "TIMESTAMP_NANOS_Ntz";
+    case VariantType::Uuid:
       return "UUID";
     default:
       return "UNKNOWN";
@@ -153,76 +153,75 @@ inline uint32_t readLittleEndianU32(const void* from, uint8_t size) {
 }
 
 VariantMetadata::VariantMetadata(std::string_view metadata) : metadata_(metadata) {
-  if (metadata.size() < HEADER_SIZE_BYTES + MINIMAL_OFFSET_SIZE_BYTES * 2) {
+  if (metadata.size() < kHeaderSizeBytes + kMinimalOffsetSizeBytes * 2) {
     // Empty metadata is at least 3 bytes: version, dictionarySize and
     // at least one offset.
     throw ParquetException("Invalid Variant metadata: too short: size=" +
                            std::to_string(metadata.size()));
   }
-  if (version() != SUPPORTED_VERSION) {
+  if (version() != kSupportedVersion) {
     // Currently we only supports version 1.
     throw ParquetException("Unsupported Variant metadata version: " +
                            std::to_string(version()));
   }
-  uint8_t offset_size = offsetSize();
-  if (offset_size < MINIMAL_OFFSET_SIZE_BYTES ||
-      offset_size > MAXIMUM_OFFSET_SIZE_BYTES) {
+  uint8_t offset_sz = offset_size();
+  if (offset_sz < kMinimalOffsetSizeBytes || offset_sz > kMaximumOffsetSizeBytes) {
     throw ParquetException("Invalid Variant metadata: invalid offset size: " +
-                           std::to_string(offset_size));
+                           std::to_string(offset_sz));
   }
-  dictionary_size_ = loadDictionarySize(metadata, offset_size);
-  if (HEADER_SIZE_BYTES + (dictionary_size_ + 1) * offset_size > metadata_.size()) {
+  dictionary_size_ = loadDictionarySize(metadata, offset_sz);
+  if (kHeaderSizeBytes + (dictionary_size_ + 1) * offset_sz > metadata_.size()) {
     throw ParquetException(
         "Invalid Variant metadata: offset out of range: " +
-        std::to_string((dictionary_size_ + HEADER_SIZE_BYTES) * offset_size) + " > " +
+        std::to_string((dictionary_size_ + kHeaderSizeBytes) * offset_sz) + " > " +
         std::to_string(metadata_.size()));
   }
 }
 
 uint8_t VariantMetadata::version() const {
-  return static_cast<uint8_t>(metadata_[0]) & VERSION_MASK;
+  return static_cast<uint8_t>(metadata_[0]) & kVersionMask;
 }
 
-bool VariantMetadata::sortedStrings() const {
-  return (metadata_[0] & SORTED_STRING_MASK) != 0;
+bool VariantMetadata::sorted_and_unique() const {
+  return (metadata_[0] & kSortedStringMask) != 0;
 }
 
-uint8_t VariantMetadata::offsetSize() const {
+uint8_t VariantMetadata::offset_size() const {
   // Since it stores offsetSize - 1, we add 1 here.
-  return ((metadata_[0] >> OFFSET_SIZE_BIT_SHIFT) & OFFSET_SIZE_MASK) + 1;
+  return ((metadata_[0] >> kOffsetSizeBitShift) & kOffsetSizeMask) + 1;
 }
 
 uint32_t VariantMetadata::loadDictionarySize(std::string_view metadata,
                                              uint8_t offset_size) {
-  if (static_cast<size_t>(offset_size + HEADER_SIZE_BYTES) > metadata.size()) {
+  if (static_cast<size_t>(offset_size + kHeaderSizeBytes) > metadata.size()) {
     throw ParquetException("Invalid Variant metadata: too short for dictionary size");
   }
-  return readLittleEndianU32(metadata.data() + HEADER_SIZE_BYTES, offset_size);
+  return readLittleEndianU32(metadata.data() + kHeaderSizeBytes, offset_size);
 }
 
-uint32_t VariantMetadata::dictionarySize() const { return dictionary_size_; }
+uint32_t VariantMetadata::dictionary_size() const { return dictionary_size_; }
 
-std::string_view VariantMetadata::getMetadataKey(uint32_t variant_id) const {
-  uint32_t offset_size = offsetSize();
-  uint32_t dict_size = dictionarySize();
+std::string_view VariantMetadata::GetMetadataKey(uint32_t variant_id) const {
+  uint32_t offset_bytes = offset_size();
+  uint32_t dictionary_bytes = dictionary_size();
 
-  if (variant_id >= dict_size) {
+  if (variant_id >= dictionary_bytes) {
     throw ParquetException("Invalid Variant metadata: variant_id out of range: " +
                            std::to_string(variant_id) +
-                           " >= " + std::to_string(dict_size));
+                           " >= " + std::to_string(dictionary_bytes));
   }
 
-  size_t offset_start_pos = HEADER_SIZE_BYTES + offset_size + (variant_id * offset_size);
+  size_t offset_start_pos = kHeaderSizeBytes + offset_bytes + (variant_id * offset_bytes);
 
   // Index range of offsets are already checked in ctor, so no need to check again.
   uint32_t variant_offset =
-      readLittleEndianU32(metadata_.data() + offset_start_pos, offset_size);
-  uint32_t variant_next_offset =
-      readLittleEndianU32(metadata_.data() + offset_start_pos + offset_size, offset_size);
+      readLittleEndianU32(metadata_.data() + offset_start_pos, offset_bytes);
+  uint32_t variant_next_offset = readLittleEndianU32(
+      metadata_.data() + offset_start_pos + offset_bytes, offset_bytes);
   uint32_t key_size = variant_next_offset - variant_offset;
 
   size_t string_start =
-      HEADER_SIZE_BYTES + offset_size * (dict_size + 2) + variant_offset;
+      kHeaderSizeBytes + offset_bytes * (dictionary_bytes + 2) + variant_offset;
   if (string_start + key_size > metadata_.size()) {
     throw ParquetException("Invalid Variant metadata: string data out of range: " +
                            std::to_string(string_start) + " + " +
@@ -232,27 +231,27 @@ std::string_view VariantMetadata::getMetadataKey(uint32_t variant_id) const {
   return {metadata_.data() + string_start, key_size};
 }
 
-::arrow::internal::SmallVector<uint32_t, 1> VariantMetadata::getMetadataId(
+::arrow::internal::SmallVector<uint32_t, 1> VariantMetadata::GetMetadataId(
     std::string_view key) const {
-  uint32_t offset_size = offsetSize();
-  uint32_t dict_size = dictionarySize();
+  uint32_t offset_bytes = offset_size();
+  uint32_t dictionary_bytes = dictionary_size();
 
-  if ((dict_size + HEADER_SIZE_BYTES) * offset_size > metadata_.size()) {
+  if ((dictionary_bytes + kHeaderSizeBytes) * offset_bytes > metadata_.size()) {
     throw ParquetException("Invalid Variant metadata: offset out of range");
   }
+  const bool sort_and_unique = sorted_and_unique();
   // TODO(mwish): This can be optimized by using binary search if the metadata is sorted.
-  bool sort_and_unique = sortedStrings();
   ::arrow::internal::SmallVector<uint32_t, 1> vector;
   uint32_t variant_offset = 0;
   uint32_t variant_next_offset = 0;
-  for (uint32_t i = 0; i < dict_size; ++i) {
-    size_t offset_start_pos = 1 + offset_size + (i * offset_size);
+  for (uint32_t i = 0; i < dictionary_bytes; ++i) {
+    size_t offset_start_pos = 1 + offset_bytes + (i * offset_bytes);
     variant_offset = variant_next_offset;
     variant_next_offset = readLittleEndianU32(
-        metadata_.data() + offset_start_pos + offset_size, offset_size);
+        metadata_.data() + offset_start_pos + offset_bytes, offset_bytes);
     uint32_t key_size = variant_next_offset - variant_offset;
 
-    size_t string_start = 1 + offset_size * (dict_size + 2) + variant_offset;
+    size_t string_start = 1 + offset_bytes * (dictionary_bytes + 2) + variant_offset;
     if (string_start + key_size > metadata_.size()) {
       throw ParquetException("Invalid Variant metadata: string data out of range");
     }
@@ -271,9 +270,8 @@ VariantBasicType VariantValue::getBasicType() const {
   if (value.empty()) {
     throw ParquetException("Empty variant value");
   }
-  return static_cast<VariantBasicType>(value[0] & BASIC_TYPE_MASK);
+  return static_cast<VariantBasicType>(value[0] & kBasicTypeMask);
 }
-
 VariantType VariantValue::getType() const {
   VariantBasicType basic_type = getBasicType();
   switch (basic_type) {
@@ -281,57 +279,57 @@ VariantType VariantValue::getType() const {
       auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
       switch (primitive_type) {
         case VariantPrimitiveType::NullType:
-          return VariantType::VARIANT_NULL;
+          return VariantType::Null;
         case VariantPrimitiveType::BooleanTrue:
         case VariantPrimitiveType::BooleanFalse:
-          return VariantType::BOOLEAN;
+          return VariantType::Boolean;
         case VariantPrimitiveType::Int8:
-          return VariantType::INT8;
+          return VariantType::Int8;
         case VariantPrimitiveType::Int16:
-          return VariantType::INT16;
+          return VariantType::Int16;
         case VariantPrimitiveType::Int32:
-          return VariantType::INT32;
+          return VariantType::Int32;
         case VariantPrimitiveType::Int64:
-          return VariantType::INT64;
+          return VariantType::Int64;
         case VariantPrimitiveType::Double:
-          return VariantType::DOUBLE;
+          return VariantType::Double;
         case VariantPrimitiveType::Decimal4:
-          return VariantType::DECIMAL4;
+          return VariantType::Decimal4;
         case VariantPrimitiveType::Decimal8:
-          return VariantType::DECIMAL8;
+          return VariantType::Decimal8;
         case VariantPrimitiveType::Decimal16:
-          return VariantType::DECIMAL16;
+          return VariantType::Decimal16;
         case VariantPrimitiveType::Date:
-          return VariantType::DATE;
+          return VariantType::Date;
         case VariantPrimitiveType::Timestamp:
-          return VariantType::TIMESTAMP_TZ;
-        case VariantPrimitiveType::TimestampNTZ:
-          return VariantType::TIMESTAMP_NTZ;
+          return VariantType::TimestampTz;
+        case VariantPrimitiveType::TimestampNtz:
+          return VariantType::TimestampNtz;
         case VariantPrimitiveType::Float:
-          return VariantType::FLOAT;
+          return VariantType::Float;
         case VariantPrimitiveType::Binary:
-          return VariantType::BINARY;
+          return VariantType::Binary;
         case VariantPrimitiveType::String:
-          return VariantType::STRING;
-        case VariantPrimitiveType::TimeNTZ:
-          return VariantType::TIME;
-        case VariantPrimitiveType::TimestampTZ:
-          return VariantType::TIMESTAMP_NANOS_TZ;
-        case VariantPrimitiveType::TimestampNTZNanos:
-          return VariantType::TIMESTAMP_NANOS_NTZ;
+          return VariantType::String;
+        case VariantPrimitiveType::TimeNtz:
+          return VariantType::Time;
+        case VariantPrimitiveType::TimestampTz:
+          return VariantType::TimestampNanosTz;
+        case VariantPrimitiveType::TimestampNtzNanos:
+          return VariantType::TimestampNanosNtz;
         case VariantPrimitiveType::Uuid:
-          return VariantType::UUID;
+          return VariantType::Uuid;
         default:
           throw ParquetException("Unknown primitive type: " +
                                  std::to_string(static_cast<int>(primitive_type)));
       }
     }
     case VariantBasicType::ShortString:
-      return VariantType::STRING;
+      return VariantType::String;
     case VariantBasicType::Object:
-      return VariantType::OBJECT;
+      return VariantType::Object;
     case VariantBasicType::Array:
-      return VariantType::ARRAY;
+      return VariantType::Array;
     default:
       throw ParquetException("Unknown basic type: " +
                              std::to_string(static_cast<int>(basic_type)));
@@ -341,59 +339,59 @@ VariantType VariantValue::getType() const {
 std::string VariantValue::typeDebugString() const {
   VariantType type = getType();
   switch (type) {
-    case VariantType::OBJECT:
-      return "OBJECT";
-    case VariantType::ARRAY:
-      return "ARRAY";
-    case VariantType::VARIANT_NULL:
-      return "NULL";
-    case VariantType::BOOLEAN:
-      return "BOOLEAN";
-    case VariantType::INT8:
-      return "INT8";
-    case VariantType::INT16:
-      return "INT16";
-    case VariantType::INT32:
-      return "INT32";
-    case VariantType::INT64:
-      return "INT64";
-    case VariantType::STRING:
-      return "STRING";
-    case VariantType::DOUBLE:
-      return "DOUBLE";
-    case VariantType::DECIMAL4:
-      return "DECIMAL4";
-    case VariantType::DECIMAL8:
-      return "DECIMAL8";
-    case VariantType::DECIMAL16:
-      return "DECIMAL16";
-    case VariantType::DATE:
-      return "DATE";
-    case VariantType::TIMESTAMP_TZ:
-      return "TIMESTAMP_TZ";
-    case VariantType::TIMESTAMP_NTZ:
-      return "TIMESTAMP_NTZ";
-    case VariantType::FLOAT:
-      return "FLOAT";
-    case VariantType::BINARY:
-      return "BINARY";
-    case VariantType::TIME:
-      return "TIME";
-    case VariantType::TIMESTAMP_NANOS_TZ:
-      return "TIMESTAMP_NANOS_TZ";
-    case VariantType::TIMESTAMP_NANOS_NTZ:
-      return "TIMESTAMP_NANOS_NTZ";
-    case VariantType::UUID:
-      return "UUID";
+    case VariantType::Object:
+      return "Object";
+    case VariantType::Array:
+      return "Array";
+    case VariantType::Null:
+      return "Null";
+    case VariantType::Boolean:
+      return "Boolean";
+    case VariantType::Int8:
+      return "Int8";
+    case VariantType::Int16:
+      return "Int16";
+    case VariantType::Int32:
+      return "Int32";
+    case VariantType::Int64:
+      return "Int64";
+    case VariantType::String:
+      return "String";
+    case VariantType::Double:
+      return "Double";
+    case VariantType::Decimal4:
+      return "Decimal4";
+    case VariantType::Decimal8:
+      return "Decimal8";
+    case VariantType::Decimal16:
+      return "Decimal16";
+    case VariantType::Date:
+      return "Date";
+    case VariantType::TimestampTz:
+      return "TimestampTz";
+    case VariantType::TimestampNtz:
+      return "TimestampNtz";
+    case VariantType::Float:
+      return "Float";
+    case VariantType::Binary:
+      return "Binary";
+    case VariantType::Time:
+      return "Time";
+    case VariantType::TimestampNanosTz:
+      return "TimestampNanosTz";
+    case VariantType::TimestampNanosNtz:
+      return "TimestampNanosNtz";
+    case VariantType::Uuid:
+      return "Uuid";
     default:
-      return "UNKNOWN";
+      return "Unknown";
   }
 }
 
 bool VariantValue::getBool() const {
   if (getBasicType() != VariantBasicType::Primitive) {
     throw ParquetException("Expected primitive type, but got: " +
-                           variantBasicTypeToString(getBasicType()));
+                           VariantBasicTypeToString(getBasicType()));
   }
 
   int8_t primitive_type = static_cast<int8_t>(value[0]) >> 2;
@@ -410,8 +408,8 @@ bool VariantValue::getBool() const {
 
 void VariantValue::checkBasicType(VariantBasicType type) const {
   if (getBasicType() != type) {
-    throw ParquetException("Expected basic type: " + variantBasicTypeToString(type) +
-                           ", but got: " + variantBasicTypeToString(getBasicType()));
+    throw ParquetException("Expected basic type: " + VariantBasicTypeToString(type) +
+                           ", but got: " + VariantBasicTypeToString(getBasicType()));
   }
 }
 
@@ -422,14 +420,14 @@ void VariantValue::checkPrimitiveType(VariantPrimitiveType type,
   auto primitive_type = static_cast<VariantPrimitiveType>(value[0] >> 2);
   if (primitive_type != type) {
     throw ParquetException(
-        "Expected primitive type: " + variantPrimitiveTypeToString(type) +
-        ", but got: " + variantPrimitiveTypeToString(primitive_type));
+        "Expected primitive type: " + VariantPrimitiveTypeToString(type) +
+        ", but got: " + VariantPrimitiveTypeToString(primitive_type));
   }
 
   if (value.size() < size_required) {
     throw ParquetException("Invalid value: too short, expected at least " +
                            std::to_string(size_required) + " bytes for type " +
-                           variantPrimitiveTypeToString(type) +
+                           VariantPrimitiveTypeToString(type) +
                            ", but got: " + std::to_string(value.size()) + " bytes");
   }
 }
@@ -487,7 +485,7 @@ std::string_view VariantValue::getString() const {
   VariantBasicType basic_type = getBasicType();
 
   if (basic_type == VariantBasicType::ShortString) {
-    uint8_t length = (value[0] >> 2) & MAX_SHORT_STR_SIZE_MASK;
+    uint8_t length = (value[0] >> 2) & kMaxShortStrSizeMask;
     if (value.size() < static_cast<size_t>(length + 1)) {
       throw ParquetException(
           "Invalid short string: too short: " + std::to_string(value.size()) +
@@ -547,16 +545,16 @@ int32_t VariantValue::getDate() const {
   return getPrimitiveType<int32_t>(VariantPrimitiveType::Date);
 }
 
-int64_t VariantValue::getTimeNTZ() const {
-  return getPrimitiveType<int64_t>(VariantPrimitiveType::TimeNTZ);
+int64_t VariantValue::getTimeNtz() const {
+  return getPrimitiveType<int64_t>(VariantPrimitiveType::TimeNtz);
 }
 
 int64_t VariantValue::getTimestamp() const {
   return getPrimitiveType<int64_t>(VariantPrimitiveType::Timestamp);
 }
 
-int64_t VariantValue::getTimestampNTZ() const {
-  return getPrimitiveType<int64_t>(VariantPrimitiveType::TimestampNTZ);
+int64_t VariantValue::getTimestampNtz() const {
+  return getPrimitiveType<int64_t>(VariantPrimitiveType::TimestampNtz);
 }
 
 std::array<uint8_t, 16> VariantValue::getUuid() const {
@@ -637,7 +635,7 @@ std::optional<VariantValue> VariantValue::getObjectValueByKey(
 std::optional<VariantValue> VariantValue::getObjectValueByKey(
     std::string_view key, const VariantValue::ObjectInfo& info) const {
   ARROW_DCHECK_EQ(getObjectInfo(), info);
-  auto metadata_ids = metadata.getMetadataId(key);
+  auto metadata_ids = metadata.GetMetadataId(key);
   if (metadata_ids.empty()) {
     return std::nullopt;
   }

@@ -25,6 +25,8 @@
 #include <arrow/util/decimal.h>
 #include <arrow/util/small_vector.h>
 
+#include "parquet/platform.h"
+
 namespace parquet::variant {
 
 // TODO(mwish): Should I use parquet::ByteArray rather than
@@ -41,7 +43,7 @@ enum class VariantBasicType {
   Array = 3
 };
 
-std::string variantBasicTypeToString(VariantBasicType type);
+PARQUET_EXPORT std::string VariantBasicTypeToString(VariantBasicType type);
 
 enum class VariantPrimitiveType : int8_t {
   /// Equivalent Parquet Type: UNKNOWN
@@ -71,7 +73,7 @@ enum class VariantPrimitiveType : int8_t {
   /// Equivalent Parquet Type: TIMESTAMP(isAdjustedToUTC=true, MICROS)
   Timestamp = 12,
   /// Equivalent Parquet Type: TIMESTAMP(isAdjustedToUTC=false, MICROS)
-  TimestampNTZ = 13,
+  TimestampNtz = 13,
   /// Equivalent Parquet Type: FLOAT
   Float = 14,
   /// Equivalent Parquet Type: BINARY
@@ -79,47 +81,47 @@ enum class VariantPrimitiveType : int8_t {
   /// Equivalent Parquet Type: STRING
   String = 16,
   /// Equivalent Parquet Type: TIME(isAdjustedToUTC=false, MICROS)
-  TimeNTZ = 17,
+  TimeNtz = 17,
   /// Equivalent Parquet Type: TIMESTAMP(isAdjustedToUTC=true, NANOS)
-  TimestampTZ = 18,  // Assuming TZ stands for TimeZone, and follows the document's
+  TimestampTz = 18,  // Assuming TZ stands for TimeZone, and follows the document's
                      // 'timestamp with time zone'
   /// Equivalent Parquet Type: TIMESTAMP(isAdjustedToUTC=false, NANOS)
-  TimestampNTZNanos = 19,  // Differentiating from TimestampNTZ (MICROS)
+  TimestampNtzNanos = 19,  // Differentiating from TimestampNtz (MICROS)
   /// Equivalent Parquet Type: UUID
   Uuid = 20
 };
 
-std::string variantPrimitiveTypeToString(VariantPrimitiveType type);
+PARQUET_EXPORT std::string VariantPrimitiveTypeToString(VariantPrimitiveType type);
 
 /// VariantType is from basic type and primitive type.
 enum class VariantType {
-  OBJECT,
-  ARRAY,
-  VARIANT_NULL,
-  BOOLEAN,
-  INT8,
-  INT16,
-  INT32,
-  INT64,
-  STRING,
-  DOUBLE,
-  DECIMAL4,
-  DECIMAL8,
-  DECIMAL16,
-  DATE,
-  TIMESTAMP_TZ,
-  TIMESTAMP_NTZ,
-  FLOAT,
-  BINARY,
-  TIME,
-  TIMESTAMP_NANOS_TZ,
-  TIMESTAMP_NANOS_NTZ,
-  UUID
+  Object,
+  Array,
+  Null,
+  Boolean,
+  Int8,
+  Int16,
+  Int32,
+  Int64,
+  String,
+  Double,
+  Decimal4,
+  Decimal8,
+  Decimal16,
+  Date,
+  TimestampTz,
+  TimestampNtz,
+  Float,
+  Binary,
+  Time,
+  TimestampNanosTz,
+  TimestampNanosNtz,
+  Uuid
 };
 
-std::string variantTypeToString(VariantType type);
+PARQUET_EXPORT std::string VariantTypeToString(VariantType type);
 
-class VariantMetadata {
+class PARQUET_EXPORT VariantMetadata {
  public:
   explicit VariantMetadata(std::string_view metadata);
   /// \brief Get the variant metadata version. Currently, always 1.
@@ -127,31 +129,31 @@ class VariantMetadata {
   /// \brief Get the metadata key for a given variant field id.
   /// \throw ParquetException if the variant_id is out of range(larger than
   ///        dictionary size).
-  std::string_view getMetadataKey(uint32_t variant_id) const;
+  std::string_view GetMetadataKey(uint32_t variant_id) const;
   /// \brief Get the metadata id for a given key.
   /// From the discussion in ML:
   /// https://lists.apache.org/thread/b68tjmrjmy64mbv9dknpmqs28vnzjj96 if
-  /// !sortedStrings(), the metadata key is not guaranteed to be unique, so we use a
+  /// !sorted_and_unique(), the metadata key is not guaranteed to be unique, so we use a
   /// vector to store all the metadata ids.
-  ::arrow::internal::SmallVector<uint32_t, 1> getMetadataId(std::string_view key) const;
+  ::arrow::internal::SmallVector<uint32_t, 1> GetMetadataId(std::string_view key) const;
 
-  bool sortedStrings() const;
-  uint8_t offsetSize() const;
-  uint32_t dictionarySize() const;
+  bool sorted_and_unique() const;
+  uint8_t offset_size() const;
+  uint32_t dictionary_size() const;
 
  private:
   static uint32_t loadDictionarySize(std::string_view metadata, uint8_t offset_size);
 
  private:
-  static constexpr uint8_t VERSION_MASK = 0b1111;
-  static constexpr uint8_t SORTED_STRING_MASK = 0b10000;
-  static constexpr size_t HEADER_SIZE_BYTES = 1;
-  static constexpr size_t MINIMAL_OFFSET_SIZE_BYTES = 1;
-  static constexpr size_t MAXIMUM_OFFSET_SIZE_BYTES = 4;
+  static constexpr uint8_t kVersionMask = 0b1111;
+  static constexpr uint8_t kSortedStringMask = 0b10000;
+  static constexpr size_t kHeaderSizeBytes = 1;
+  static constexpr size_t kMinimalOffsetSizeBytes = 1;
+  static constexpr size_t kMaximumOffsetSizeBytes = 4;
   // mask is applied after shift, it's like 0b11000000 before shift.
-  static constexpr uint8_t OFFSET_SIZE_MASK = 0b11;
-  static constexpr uint8_t OFFSET_SIZE_BIT_SHIFT = 6;
-  static constexpr uint8_t SUPPORTED_VERSION = 1;
+  static constexpr uint8_t kOffsetSizeMask = 0b11;
+  static constexpr uint8_t kOffsetSizeBitShift = 6;
+  static constexpr uint8_t kSupportedVersion = 1;
 
  private:
   std::string_view metadata_;
@@ -159,12 +161,12 @@ class VariantMetadata {
 };
 
 template <typename DecimalType>
-struct DecimalValue {
+struct PARQUET_EXPORT DecimalValue {
   uint8_t scale;
   DecimalType value;
 };
 
-struct VariantValue {
+struct PARQUET_EXPORT VariantValue {
   VariantMetadata metadata;
   std::string_view value;
 
@@ -192,10 +194,10 @@ struct VariantValue {
   DecimalValue<::arrow::Decimal128> getDecimal16() const;
 
   int32_t getDate() const;
-  int64_t getTimeNTZ() const;
+  int64_t getTimeNtz() const;
   // timestamp with adjusted to UTC
   int64_t getTimestamp() const;
-  int64_t getTimestampNTZ() const;
+  int64_t getTimestampNtz() const;
   // 16 bytes UUID
   std::array<uint8_t, 16> getUuid() const;
 
@@ -238,11 +240,11 @@ struct VariantValue {
   VariantValue getArrayValueByIndex(uint32_t index, const ArrayInfo& info) const;
 
  private:
-  static constexpr uint8_t BASIC_TYPE_MASK = 0b00000011;
-  static constexpr uint8_t PRIMITIVE_TYPE_MASK = 0b00111111;
+  static constexpr uint8_t kBasicTypeMask = 0b00000011;
+  static constexpr uint8_t kPrimitiveTypeMask = 0b00111111;
   /** The inclusive maximum value of the type info value. It is the size limit of
    * `SHORT_STR`. */
-  static constexpr uint8_t MAX_SHORT_STR_SIZE_MASK = 0b00111111;
+  static constexpr uint8_t kMaxShortStrSizeMask = 0b00111111;
 
  private:
   template <typename PrimitiveType>
