@@ -563,7 +563,7 @@ Result<acero::ExecNode*> MakeWriteNode(acero::ExecPlan* plan,
                           acero::ConsumingSinkNodeOptions{
                               std::move(consumer),
                               {},
-                              /*sequence_output=*/write_options.preserve_order}));
+                              /*sequence_output=*/write_node_options.write_options.preserve_order}));
 
   return node;
 }
