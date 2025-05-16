@@ -43,7 +43,7 @@ enum class VariantBasicType {
   Array = 3
 };
 
-PARQUET_EXPORT std::string VariantBasicTypeToString(VariantBasicType type);
+PARQUET_EXPORT std::string_view VariantBasicTypeToString(VariantBasicType type);
 
 enum class VariantPrimitiveType : int8_t {
   /// Equivalent Parquet Type: UNKNOWN
@@ -91,7 +91,7 @@ enum class VariantPrimitiveType : int8_t {
   Uuid = 20
 };
 
-PARQUET_EXPORT std::string VariantPrimitiveTypeToString(VariantPrimitiveType type);
+PARQUET_EXPORT std::string_view VariantPrimitiveTypeToString(VariantPrimitiveType type);
 
 /// VariantType is from basic type and primitive type.
 enum class VariantType {
@@ -119,7 +119,7 @@ enum class VariantType {
   Uuid
 };
 
-PARQUET_EXPORT std::string VariantTypeToString(VariantType type);
+PARQUET_EXPORT std::string_view VariantTypeToString(VariantType type);
 
 class PARQUET_EXPORT VariantMetadata {
  public:
