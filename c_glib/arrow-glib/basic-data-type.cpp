@@ -2300,6 +2300,8 @@ garrow_fixed_shape_tensor_data_type_class_init(GArrowFixedShapeTensorDataTypeCla
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: The newly created fixed shape tensor data type.
+ *
+ * Since: 21.0.0
  */
 GArrowFixedShapeTensorDataType *
 garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
