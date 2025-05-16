@@ -17,6 +17,13 @@
   under the License.
 -->
 
+# arrow 20.0.0.1
+
+## Minor improvements and fixes
+
+- Updated internal C++ code to comply with CRAN's gcc-UBSAN checks
+  ([#46394](https://github.com/apache/arrow/issues/46394))
+
 # arrow 20.0.0
 
 ## Minor improvements and fixes
