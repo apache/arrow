@@ -559,11 +559,12 @@ Result<acero::ExecNode*> MakeWriteNode(acero::ExecPlan* plan,
       auto node,
       // to preserve order explicitly, sequence the exec batches
       // this requires exec batch index to be set upstream (e.g. by SourceNode)
-      acero::MakeExecNode("consuming_sink", plan, std::move(inputs),
-                          acero::ConsumingSinkNodeOptions{
-                              std::move(consumer),
-                              {},
-                              /*sequence_output=*/write_node_options.write_options.preserve_order}));
+      acero::MakeExecNode(
+          "consuming_sink", plan, std::move(inputs),
+          acero::ConsumingSinkNodeOptions{
+              std::move(consumer),
+              {},
+              /*sequence_output=*/write_node_options.write_options.preserve_order}));
 
   return node;
 }
