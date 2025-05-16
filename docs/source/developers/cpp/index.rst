@@ -31,3 +31,4 @@ C++ Development
    conventions
    fuzzing
    compute
+   acero
