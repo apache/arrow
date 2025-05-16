@@ -1,0 +1,297 @@
+---
+title: Getting started with Apache Arrow and R  
+description: >
+  An informal introduction of the functioning of Apache Arrow for R users
+output: rmarkdown::html_vignette
+---
+
+
+## What is this vignette and is it for you?
+
+This vignette provides an overview of how Arrow works in a plain, non-technical language. It aims at giving some simple and useful intuitions, before diving deeper in the documentation. It is specifically intended for newcomers with a limited background in computer science and hence avoids most technical terms. This vignette assumes that you have some experience with R, that you are familiar with the `dplyr` syntax and that you know how to use a Parquet file.
+
+Some technical points are deliberately simplified to keep things simple, so in case you find an apparent contradiction between this vignette and the rest of the documentation, please trust the documentation rather than this vignette.
+
+## Introducing Apache Arrow
+
+This section introduces the Apache Arrow project.
+
+### What is Apache Arrow?
+
+[Apache `Arrow`](https://arrow.apache.org/) is an *open-source* project that offers two things: 
+
+- Apache Arrow defines a standardized way to organize data in memory (called _Apache Arrow Columnar Format_). You do not need to know much about this _Columnar Format_ to use Arrow with R, except that it is very efficient (processing is fast) and interoperable (meaning for instance that both R and Python can access the same data, without converting the data from one format to another).
+- This _Columnar Format_ has been implemented in several languages: C++, Rust, Go, Java... (see [here](https://arrow.apache.org/docs/status.html) for the list). In particular, there is one implementation in `C++`:  the library called `libarrow`.
+
+What about the Arrow R package then? This package simply makes it possible to use the `libarrow` library within `R`. So keep in mind that when you are manipulating data with the Arrow R package, it _looks like_ you are writing `R` code, but _in fact_ you are working with C++ (more on this below).
+
+### What's so special about Arrow?
+
+Arrow has five distinctive features:
+
+- __Columnar Memory Format__: in Arrow, data is organized in columns rather than in rows (hence the "columnar format"). In practice, it means that all values of the first column are stored contiguously in memory, followed by all values of the second column, and so on. This columnar format speeds up data processing. Imagine that you want to calculate the mean of a variable: you can directly access the block of memory containing the entire column and get the result, no matter how many columns you have in your dataset.
+
+- __Ability to process very large datasets__: using the `arrow` package, you will be able to process very large amounts of data, even datasets that are too large to fit in the memory of your computer. This is due to the powerful execution engine of arrow (called `acero`, more on this below).
+
+- __Easy use with Parquet files__: Arrow is optimized to work well with data stored in Parquet files. This is again due to the `acero` execution engine.
+
+- __Interoperability__: Arrow is designed to be interoperable between several programming languages such as `R`, Python, Java, C++, etc. This means that data can be exchanged between different programming languages without converting the data from one format to another, resulting in significant performance gains.
+
+- __*Lazy Evaluation*__: when you manipulate data using the `arrow` package, your instructions are not executed immediately. They are rather stored and run only when you explicitly ask for it (more on this below). This is once again a feature of the `acero` execution engine.
+
+## What do you need to know to use Arrow with R?
+
+This section describes four important features of `arrow` you should be aware of:
+
+- data is stored in a specific data structure: the `Arrow Table` (quite similar to a standard data.frame);
+- you can manipulate Arrow Tables with the usual `dplyr` syntax (verbs `select()`, `filter()`, `mutate()` and so on);
+- The data processing is carried out by the Arrow execution engine: `acero`;
+- Arrow relies on lazy evaluation: data is processed only when needed.
+
+### What is an `Arrow Table`?
+
+Arrow stores data in a specific data structure: the `Arrow Table`. In an `Arrow Table` object, data is organized in columns rather than rows, according to the Apache Arrow Columnar Format. In practice, you can work `Arrow Tables` pretty much in the same way you work with standard data.frames. The key differences are described in the rest of this vignette.
+
+You can easily convert data to and from `Arrow Tables`. sTo convert a `data.frame` or a `tibble` into an `Arrow Table`, simply use the `as_arrow_table()` function. To convert an `Arrow Table` to a data.frame, use the `collect()` function.
+
+```{r}
+library(arrow)
+library(dplyr)
+
+# Load data and convert to Arrow Table
+iris_arrow <- iris |> as_arrow_table()
+
+# Convert to Arrow Table to a data.frame
+iris_df <- iris_arrow |> collect()
+```
+
+There are some differences between `Arrow Tables` and standard `data.frames` or `tibbles`.
+
+First difference: if you call the name of a `data.frame` or a `tibble` in the console, the first few rows of data will be displayed. If you do the same operation on an `Arrow Table`, you will get only metadata describing the data (number of rows and columns, column name and type).
+
+```{r}
+# Display a data.frame
+iris
+```
+
+```{r}
+# Display an Arrow Table
+iris_arrow
+```
+
+Second difference: you probably use frequently the `View()` function to have a look at the data store in a data.frame. It is unfortunately not possible (so far) to open an Arrow Table in the same way. You should rather use the `slice_head()` function to extract the first rows of the data, and then use `collect()` to convert it to a data.frame, and then use `View()`.
+
+```{r}
+# Display an Arrow Table
+iris_extract <- iris_arrow |> slice_head(n = 10) |> collect()
+```
+
+### Manipulating `Arrow Tables` with the `dplyr` syntax
+
+The `arrow` package makes it possible to manipulate `Arrow Tables` with the usual `dplyr` syntax (verbs `select()`, `filter()`, `mutate()`, `left_join()`, etc.), __as if__ this table was a standard `data.frame` or `tibble`. It is also possible to use a number of functions from the `tidyverse` packages (such as `stringr` and `lubridate`) to modify `Arrow Table`. This is very convenient in practice: once you know how to use `dplyr` and the `tidyverse`, you can start using `arrow` without having to learn a whole new syntax.
+
+You can see in the following example that manipulating an Arrow Table is almost identical to manipulating a data.frame. The only apparent difference between the two codes is the presence of the `collect()` function at the end of the instructions. The purpose of this `collect()` is explained later, in the paragraph on lazy evaluation.
+
+
+```r
+# Manipulating a data.frame with the dplyr syntax
+iris_df |> group_by(Species) |> summarise(Sepal.Width_mean = mean(Sepal.Width))
+
+# Manipulating an Arrow Table with the dplyr syntax
+iris_arrow |> group_by(Species) |> summarise(Sepal.Width_mean = mean(Sepal.Width)) |> collect()
+```
+
+### The Arrow execution engine: `acero`
+
+There is one essential difference between manipulating a `data.frame` or a `tibble` and manipulating an `Arrow Table`. To understand this difference, you must first understand the __distinction between data manipulation syntax and execution engine__:
+
+- Data manipulation syntax is the set of functions you use to describe the operations you want to perform (calculating averages, making joins...), independently of how these calculations are actually carried out; for instance, the tidyverse syntax and SQL queries are two examples of data manipulation syntaxes;
+- the execution engine refers to the way computations are actually performed, independently of how they have been described by the user. Most of the time, the execution engine is not directly accessible to the user.
+
+__The big difference between manipulating a `data.frame` and manipulating an `Arrow Table` lies in the execution engine__: if you manipulate a `data.frame` with the dplyr syntax, then computations are performed by the `dplyr` execution engine; if you manipulate an `Arrow Table` with the dplyr syntax, then computations are performed by a completely different execution engine: the `arrow` execution engine named `acero` and written in C++. It's precisely because `acero` is much more efficient than `dplyr` execution engine that `arrow` is so much faster than `dplyr`.
+
+__This hidden difference on execution engines has an important technical consequence__: when you manipulate an `Arrow Table` with the dplyr syntax, your code needs to be converted into C++ so that the `acero` engine can perform the computations. This conversion is performed automatically and invisibly by the R arrow package, because this package contains the C++ translation of several hundred `tidyverse` functions. For example, the arrow contains the C++ translation of the `filter()` function from `dplyr`, so that `filter()` instructions written in `tidyverse` syntax can be automatically converted into equivalent C++ instructions. The list of _tidyverse_ functions supported by `acero` is available on [this page](https://arrow.apache.org/docs/dev/r/reference/acero.html). Occasionally, however, you may wish to use a function not supported by `acero`. This situation is described in the paragraph "How to use a function not supported by `acero`".
+
+__This is the magic trick you should keep in mind__: it _looks like_ you are writing and running R code, but in fact your code is _invisibly translated into C++ code_ and sent to the `acero` execution engine.
+
+It may happen sometimes that you want to use an R function that the arrow package cannot convert automatically. In technical terms, the function is said to be "not supported by `acero`". This problem can often be solved at a minor cost, see below the paragraph "How to use a function not supported by `acero`".
+
+### Lazy evaluation with Arrow
+
+Arrow has a specific behavior called  _lazy evaluation_: calculations are only performed when they are actually needed. In practice, this means that `arrow` memorizes the instructions you submit, but does not perform any computation until you explicitly ask for it. You can use two functions to ask Arrow to perform computations: `collect()` and `compute()`. There is only one difference between `collect()` and `compute()`, but it's an important one: `collect()` returns the result of processing as a `data.frame`, while `compute()` returns it as an `Arrow Table`.
+
+You might wonder what the point of *lazy evaluation* is. Why not execute each instruction immediately
+(this is called *eager evaluation*)? *Lazy evaluation* is useful for performance purposes: when you ask Arrow to execute a series of instructions, Arrow first analyzes this series of instructions, optimizes it (for instance by removing some useless columns) and does all the data processing all at once, often faster than on an instruction-by-instruction basis. This kind of optimization can be very useful, particularly when you process large datasets.
+
+## How do I use Arrow properly?
+
+At first sight, it looks like Arrow can be used in exactly the same way as dplyr (and in fact, this is done on purpose!). However, there are a few important differences that you should know about to understand what is going on under the hood. This section details three recommendations to use Arrow efficiently:
+
+- Use lazy evaluation correctly;
+- Use `open_dataset()` rather than `read_parquet()`;
+- Use `compute()` rather than `collect()`;
+
+### Overcoming the limitations of lazy evaluation
+
+The previous section explained what lazy evaluation is and why it is useful to optimize performance. However, lazy evaluation is not always easy to use, and has limitations that you need to know about.
+
+#### The limitations of lazy evaluation
+
+Lazy evaluation improves performance by minimizing the amount of computations actually needed to execute a series of instructions. With that in mind, you might think that the best way to use Arrow is to write all your data processing in _lazy_ mode (without any `compute()` or `collect()` in the intermediate steps), and do a single `compute()` or `collect()` at the very end of the process, so that all operations are optimized in a single step. If that was true (and unfortunately it is not!), an ideal process would then look like this:
+
+```{r, eval=FALSE}
+# Connect to raw data
+data1 <- open_dataset("data1.parquet")
+data2 <- open_dataset("data2.parquet")
+
+# A first lazy processing step
+intermediate_results1 <- data1 |>
+  select(...) |>
+  filter(...) |>
+  mutate(...)
+
+# A second lazy processing step
+intermediate_results2 <- data2 |>
+  select(...) |>
+  filter(...) |>
+  mutate(...)
+
+# Et many other lazy processing steps with many instructions...
+# ...
+# ...
+# ...
+
+# The last processing step
+final_results <- intermediate_results8 |>
+  left_join(
+    intermediate_results9, 
+    by = "id"
+  ) |>
+  compute()
+  
+write_parquet(final_results, "final_results.parquet")
+```
+
+Unfortunately, __reality is not that simple because lazy evaluation has limitations__. Although Arrow is powerful, its ability to analyze, optimize and execute long series of instructions is not unlimited. If you ask Arrow to execute an extremely long and complex series of instructions in one step, it might be unable to do it. For instance, Arrow is likely to crash if you want to do a long series of joins on large tables.
+
+__The limitations of lazy evaluation can lead to session crashes__. When the `acero` engine fails to execute a series of instructions because it is too long or too complex, your R session will crash abruptly, without any error message. R prints no error message because there was actually no error in R (the cause of the crash is in the underlying C++ code). All you can do is restart `R` and start all over again. As you can see, it is essential that you structure your code so that you take advantage of the benefits of lazy evaluation without running into problems.
+
+
+#### The solution: structure your code into consistent and not-too-long steps
+
+__The obvious way to avoid the limitations of lazy evaluation is to break down your code into steps__, and execute each step separately, by calling `compute()` at the end of each step. This way, `acero` will execute sequentially several somewhat complex series of instructions, rather than failing to execute one single very complex series of instructions.
+
+Here comes the tricky question: what is the appropriate length of these intermediate steps? If they are too long, you are at risk of a session crash. If they are too short, your code is basically executed on an instruction-by-instruction basis and you lose the benefits of lazy evaluation. Unfortunately, there is no rule that would work in all cases. You should try, fail and determine what is reasonable. This being said, here are a few tips that might help you:
+
+- __A reasonable starting point might be to organize your code in data processing steps that do not exceed 30 or 40 lines of code__. A 200-line processing step is likely to run you into trouble (and it might not be very readable).
+
+- __Intermediate processing steps should be consistent with the objective of your data processing.__ For example, if the overall code consists of processing two tables separately, and then joining them, it would be reasonable  to organize the code in three steps, each ending with a `compute()`: processing the first table, processing the second table, and joining the two tables.
+
+- __The larger the datasets you work on, the more cautious you should be when defining long intermediate steps__.
+
+- __Intermediate processing steps with complex instructions should be shorter__: for example, if your code consists only of `filter()`, `select()` and easy `mutate()`, you can have quite a lot of them in one processing step, because these operations are simple. Conversely, one processing step should not include more than three or four joins (because joins are complex operations), especially if the tables are large.
+
+
+
+### Use `open_dataset()` rather than `read_parquet()` to read Parquet files
+
+In case the data you work with is stored in Parquet files, you should use the `open_dataset()` function to access the data, rather than the `read_parquet()` function. There are two reasons for this recommendation:
+
+- __More general use__: the `open_dataset()` function can be used to connect to a single Parquet file, but also to partitioned Parquet files, whereas `read_parquet()` can read only single files.
+
+- __Lazy behavior__: the `read_parquet()` function immediately loads all the data from the Parquet file into memory, including data that may not be needed in later steps. Conversely, the `open_dataset()` function has a lazy behavior: it creates a connection to the Parquet file, but does not import the data itself, unless you ask for it with `compute()` or `collect()`. This behavior induces faster execution and lower memory consumption. The following example explains why in detail.
+
+```{r, eval = FALSE}
+library(arrow)
+library(dplyr)
+
+# Connect to a single Parquet file
+wage_data <- open_dataset("path/to/data/wage_data.parquet")
+
+# Processing the data
+results <- wage_data |>
+  select(firstname, wage) |>
+  filter(firstname %in% c("Bob", "Bill", "Fred")) |>
+  group_by(firstname) |>
+  summarise(mean_wage = mean(wage)) |>
+  compute()
+```
+
+- The first step creates a connection to `my_data.parquet`, but does not import any data (there is no `collect()` or `compute()`);
+- The second step selects some variables from the data, selects some observations and finally computes some descriptive statistic by group. Note that this step ends with `compute()`, meaning that Arrow will execute the code.
+- When the code is executed by Arrow, Arrow analyzes the series of instructions and sees that only some columns are necessary (`firstname` and `wage`) and that only some rows are necessary (those where `firstname` is Bob, Bill or Fred). Arrow then scans the Parquet file, and does its best to import only the data needed for the computations.
+
+
+### Use `Arrow Table` objects rather than `data.frames` objects
+
+When handling large data sets, it is essential to __manipulate only `Arrow Table` objects__, rather than standard `data.frames` (or `tibbles`). This is due to the fact that the (very fast) `acero` execution engine can handle only `Arrow Table` objects, but cannot manipulate `data.frame` objects. If at some point in your pipeline, the data is converted to a data.frame, then the following steps of data processing will be carried out by the (slow) dplyr execution engine, resulting in poor performance.
+
+
+This implies two things:
+
+- You should import data directly into `Arrow Table` objects, or convert data to `Arrow Table` with the `as_arrow_table()` function. For example, when importing a csv file with the `read_csv_arrow()` function, you should use the `as_data_frame = FALSE` option so that the data is imported as an `Arrow Table`.
+- You should __systematically use `compute()` rather than `collect()` in intermediate processing steps__. This recommendation is particularly important. The examples below explain why.
+
+#### What you should not do: use `collect()` in intermediate steps
+
+In the code below, the execution of the first step is triggered by `collect()`, so the intermediate table `intermediate_results` is a data.frame. Because this object is a data.frame, the second step is executed by the `dplyr` execution engine, resulting in low performance particularly if the data is large.
+
+```{r eval=FALSE,message=FALSE}
+library(arrow)
+library(dplyr)
+
+# Connect to the data
+wage_data <- open_dataset("path/to/data/wage_data.parquet")
+
+# First step
+# intermediate_results is a data.frame because collect() is used
+intermediate_results <- wage_data |>
+  group_by(firstname) |>
+  summarise(
+    mean_wage = mean(wage)
+  ) |>
+  collect()
+
+# Second step
+# This step is executed by the dplyr execution engine
+# because intermediate_results is a data.frame => low performance
+final_results <- intermediate_results |> 
+  filter(firstname == "Bob") |> 
+  collect()
+```
+
+#### What you should do: use `compute()` in intermediate steps
+
+In the code below, the execution of the first step is triggered by `compute()`, so the intermediate table `intermediate_results` is an `Arrow Table`. Because this object is a `Arrow Table`, the second step is executed by the `acero` execution engine, ensuring high performance particularly if the data is large.
+
+```{r eval=FALSE,message=FALSE}
+library(arrow)
+library(dplyr)
+
+# Connect to the data
+wage_data <- open_dataset("path/to/data/wage_data.parquet")
+
+# First step
+# intermediate_results is an Arrow Table because compute() is used
+intermediate_results <- wage_data |>
+  group_by(firstname) |>
+  summarise(
+    mean_wage = mean(wage)
+  ) |>
+  compute()
+
+# Second step
+# This step is executed by the acero execution engine
+# because intermediate_results is a Arrow Frame => high performance
+final_results <- intermediate_results |> 
+  filter(firstname == "Bob") |> 
+  collect()
+```
+
+
+
+
+
+
+
+
