@@ -85,7 +85,7 @@ arrow_acero_lib = library(
 
 arrow_acero_dep = declare_dependency(link_with: [arrow_acero_lib])
 
-arrow_acero_testing_sources = ['test_nodes.cc', 'test_util_internal.cc'] + arrow_compute_testing_srcs
+arrow_acero_testing_sources = files('test_nodes.cc', 'test_util_internal.cc') + arrow_compute_testing_srcs
 
 arrow_acero_tests = {
     'plan-test': {'sources': ['plan_test.cc', 'test_nodes_test.cc']},

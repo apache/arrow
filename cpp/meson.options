@@ -27,6 +27,7 @@ option('brotli', type: 'feature', description: 'Build with Brotli compression')
 option('bz2', type: 'feature', description: 'Build with BZ2 compression')
 option('compute', type: 'feature', description: 'Build all Arrow Compute kernels')
 option('csv', type: 'feature', description: 'Build the Arrow CSV Parser Module')
+option('dataset', type: 'feature', description: 'Build the Arrow Dataset Modules')
 option('filesystem', type: 'feature', description: 'Build the Arrow Filesystem Layer')
 option('fuzzing', type: 'feature', description: 'Build Arrow Fuzzing executables')
 
