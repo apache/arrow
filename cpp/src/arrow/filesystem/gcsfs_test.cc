@@ -629,6 +629,15 @@ TEST_F(GcsIntegrationTest, GetFileInfoBucket) {
   ASSERT_RAISES(Invalid, fs->GetFileInfo("gs://" + PreexistingBucketName()));
 }
 
+// We intentionally do not test invalid permission with storage-testbench,
+// because the testbench does not enforce any permission checks (ACL/IAM).
+// See:
+// https://github.com/googleapis/storage-testbench?tab=readme-ov-file#what-is-this-testbench
+//
+// In real GCS environments, trying to access a bucket without permission
+// results in:
+//   - Error Code: 5
+//   - Status : NOT_FOUND
 TEST_F(GcsIntegrationTest, GetFileInfoWithoutPermission) {
   auto options = GcsOptions::Anonymous();
   options.retry_limit_seconds = 15;
@@ -636,9 +645,8 @@ TEST_F(GcsIntegrationTest, GetFileInfoWithoutPermission) {
   // Make the real GcsFileSystem.
   ASSERT_OK_AND_ASSIGN(auto fs, GcsFileSystem::Make(options));
   // Check FileInfo without permission.
-  AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/foo/unexpected_dir/",
-                 FileType::NotFound);
-  AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/foo/not_bar.txt",
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/foo/", FileType::NotFound);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/foo/bar.txt",
                  FileType::NotFound);
 }
 
