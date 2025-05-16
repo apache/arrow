@@ -36,6 +36,7 @@ enum class BloomFilterBuildStrategy;
 //
 class ARROW_EXPORT Hashing32 {
   friend class TestVectorHash;
+  friend class TestScalarHash;
   template <typename T>
   friend void TestBloomLargeHashHelper(int64_t, int64_t, const std::vector<uint64_t>&,
                                        int64_t, int, T*);
@@ -159,6 +160,7 @@ class ARROW_EXPORT Hashing32 {
 
 class ARROW_EXPORT Hashing64 {
   friend class TestVectorHash;
+  friend class TestScalarHash;
   template <typename T>
   friend void TestBloomLargeHashHelper(int64_t, int64_t, const std::vector<uint64_t>&,
                                        int64_t, int, T*);
