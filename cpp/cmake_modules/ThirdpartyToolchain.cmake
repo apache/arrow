@@ -2906,7 +2906,7 @@ endmacro()
 
 if(ARROW_WITH_UTF8PROC)
   set(utf8proc_resolve_dependency_args utf8proc PC_PACKAGE_NAMES libutf8proc)
-  if(NOT VCPKG_TOOLCHAIN)
+  if(NOT ARROW_VCPKG)
     # utf8proc in vcpkg doesn't provide version information:
     # https://github.com/microsoft/vcpkg/issues/39176
     list(APPEND utf8proc_resolve_dependency_args REQUIRED_VERSION "2.2.0")
