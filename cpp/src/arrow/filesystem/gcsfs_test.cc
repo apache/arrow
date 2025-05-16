@@ -629,23 +629,13 @@ TEST_F(GcsIntegrationTest, GetFileInfoBucket) {
   ASSERT_RAISES(Invalid, fs->GetFileInfo("gs://" + PreexistingBucketName()));
 }
 
-TEST_F(GcsIntegrationTest, GetFileInfo) {
-  ASSERT_OK_AND_ASSIGN(auto fs, GcsFileSystem::Make(TestGcsOptions()));
-  constexpr auto kTextFileName = "dir/foo/bar.txt";
-  ASSERT_OK_AND_ASSIGN(
-      auto output,
-      fs->OpenOutputStream(PreexistingBucketPath() + kTextFileName, /*metadata=*/{}));
-  const auto data = std::string(kLoremIpsum);
-  ASSERT_OK(output->Write(data.data(), data.size()));
-  ASSERT_OK(output->Close());
-
-  // check this is the File.
-  AssertFileInfo(fs.get(), PreexistingBucketPath() + kTextFileName, FileType::File);
-
-  // check parent directories are recognized as directories.
-  AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/", FileType::Directory);
-
-  // check not exists.
+TEST_F(GcsIntegrationTest, GetFileInfoWithoutPermission) {
+  auto options = GcsOptions::Anonymous();
+  options.retry_limit_seconds = 15;
+  options.project_id = "test-only-invalid-project-id";
+  // Make the real GcsFileSystem.
+  ASSERT_OK_AND_ASSIGN(auto fs, GcsFileSystem::Make(options));
+  // Check FileInfo without permission.
   AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/foo/unexpected_dir/",
                  FileType::NotFound);
   AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/foo/not_bar.txt",
