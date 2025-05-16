@@ -15,9 +15,7 @@
 
 using System;
 using System.Buffers.Binary;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using Apache.Arrow.Ipc;
 using Google.FlatBuffers;
 
@@ -51,10 +49,8 @@ namespace Apache.Arrow.Flight
             return schema;
         }
 
-        internal static Schema DecodeSchema(ByteBuffer schemaBuffer)
+        internal static Schema DecodeSchema(ByteBuffer schemaBuffer, ref DictionaryMemo dictionaryMemo)
         {
-            //DictionaryBatch not supported for now
-            DictionaryMemo dictionaryMemo = null;
             var schema = MessageSerializer.GetSchema(ArrowReaderImplementation.ReadMessage<Flatbuf.Schema>(schemaBuffer), ref dictionaryMemo);
             return schema;
         }
