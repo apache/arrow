@@ -629,22 +629,33 @@ TEST_F(GcsIntegrationTest, GetFileInfoBucket) {
   ASSERT_RAISES(Invalid, fs->GetFileInfo("gs://" + PreexistingBucketName()));
 }
 
-// We intentionally do not test invalid permission with storage-testbench,
+// We intentionally do not test invalid permissions with storage-testbench,
 // because the testbench does not enforce any permission checks (ACL/IAM).
 // See:
 // https://github.com/googleapis/storage-testbench?tab=readme-ov-file#what-is-this-testbench
 //
 // In real GCS environments, trying to access a bucket without permission
 // results in:
-//   - Error Code: 5
-//   - Status : NOT_FOUND
+//   - Error code: 5
+//   - Status    : NOT_FOUND
+//
+// The following test depends on real GCS access and is not suitable for CI/CD
+// environments. To run this test manually, set the environment variable:
+//     ARROW_RUN_REAL_GCS_TESTS=1
+//
+// Example:
+//     ARROW_RUN_REAL_GCS_TESTS=1 ./debug/arrow-gcsfs-test
 TEST_F(GcsIntegrationTest, GetFileInfoWithoutPermission) {
+  if (!std::getenv("ARROW_RUN_REAL_GCS_TESTS")) {
+    GTEST_SKIP() << "Skipping test that requires real GCS access. "
+                 << "Set ARROW_RUN_REAL_GCS_TESTS=1 to enable.";
+  }
   auto options = GcsOptions::Anonymous();
   options.retry_limit_seconds = 15;
   options.project_id = "test-only-invalid-project-id";
-  // Make the real GcsFileSystem.
+
   ASSERT_OK_AND_ASSIGN(auto fs, GcsFileSystem::Make(options));
-  // Check FileInfo without permission.
+
   AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/foo/", FileType::NotFound);
   AssertFileInfo(fs.get(), PreexistingBucketPath() + "dir/foo/bar.txt",
                  FileType::NotFound);
