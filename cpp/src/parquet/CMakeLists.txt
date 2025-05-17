@@ -258,24 +258,23 @@ else()
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal_nossl.cc)
 endif()
 
-if(NOT PARQUET_MINIMAL_DEPENDENCY)
-  list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
+list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
 
-  # Add RapidJSON libraries
-  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS RapidJSON)
-  list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON)
+# Add RapidJSON libraries
+list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS RapidJSON)
+list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON)
 
-  # These are libraries that we will link privately with parquet_shared (as they
-  # do not need to be linked transitively by other linkers)
-  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS thrift::thrift)
+# These are libraries that we will link privately with parquet_shared (as they
+# do not need to be linked transitively by other linkers)
+list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS thrift::thrift)
 
-  # Link publicly with parquet_static (because internal users need to
-  # transitively link all dependencies)
-  list(APPEND PARQUET_STATIC_LINK_LIBS thrift::thrift)
-  if(NOT THRIFT_VENDORED)
-    list(APPEND PARQUET_STATIC_INSTALL_INTERFACE_LIBS thrift::thrift)
-  endif()
+# Link publicly with parquet_static (because internal users need to
+# transitively link all dependencies)
+list(APPEND PARQUET_STATIC_LINK_LIBS thrift::thrift)
+if(NOT THRIFT_VENDORED)
+  list(APPEND PARQUET_STATIC_INSTALL_INTERFACE_LIBS thrift::thrift)
 endif()
+
 if(ARROW_WITH_OPENTELEMETRY)
   list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
 endif()
