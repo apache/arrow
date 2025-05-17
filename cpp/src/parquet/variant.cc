@@ -29,7 +29,7 @@
 
 namespace parquet::variant {
 
-std::string_view VariantBasicTypeToString(VariantBasicType type) {
+std::string VariantBasicTypeToString(VariantBasicType type) {
   switch (type) {
     case VariantBasicType::Primitive:
       return "Primitive";
@@ -44,7 +44,7 @@ std::string_view VariantBasicTypeToString(VariantBasicType type) {
   }
 }
 
-std::string_view VariantPrimitiveTypeToString(VariantPrimitiveType type) {
+std::string VariantPrimitiveTypeToString(VariantPrimitiveType type) {
   switch (type) {
     case VariantPrimitiveType::NullType:
       return "NullType";
@@ -93,7 +93,7 @@ std::string_view VariantPrimitiveTypeToString(VariantPrimitiveType type) {
   }
 }
 
-std::string_view VariantTypeToString(VariantType type) {
+std::string VariantTypeToString(VariantType type) {
   switch (type) {
     case VariantType::Object:
       return "OBJECT";
