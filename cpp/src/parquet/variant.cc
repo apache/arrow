@@ -96,51 +96,51 @@ std::string VariantPrimitiveTypeToString(VariantPrimitiveType type) {
 std::string VariantTypeToString(VariantType type) {
   switch (type) {
     case VariantType::Object:
-      return "OBJECT";
+      return "Object";
     case VariantType::Array:
-      return "ARRAY";
+      return "Array";
     case VariantType::Null:
-      return "NULL";
+      return "Null";
     case VariantType::Boolean:
-      return "BOOLEAN";
+      return "Boolean";
     case VariantType::Int8:
-      return "INT8";
+      return "Int8";
     case VariantType::Int16:
-      return "INT16";
+      return "Int16";
     case VariantType::Int32:
-      return "INT32";
+      return "Int32";
     case VariantType::Int64:
-      return "INT64";
+      return "Int64";
     case VariantType::String:
-      return "STRING";
+      return "String";
     case VariantType::Double:
-      return "DOUBLE";
+      return "Double";
     case VariantType::Decimal4:
-      return "DECIMAL4";
+      return "Decimal4";
     case VariantType::Decimal8:
-      return "DECIMAL8";
+      return "Decimal8";
     case VariantType::Decimal16:
-      return "DECIMAL16";
+      return "Decimal16";
     case VariantType::Date:
-      return "DATE";
+      return "Date";
     case VariantType::TimestampTz:
-      return "TIMESTAMP_TZ";
+      return "TimestampTz";
     case VariantType::TimestampNtz:
-      return "TIMESTAMP_Ntz";
+      return "TimestampNtz";
     case VariantType::Float:
-      return "FLOAT";
+      return "Float";
     case VariantType::Binary:
-      return "BINARY";
+      return "Binary";
     case VariantType::Time:
-      return "TIME";
+      return "Time";
     case VariantType::TimestampNanosTz:
-      return "TIMESTAMP_NANOS_TZ";
+      return "TimestampNanosTz";
     case VariantType::TimestampNanosNtz:
-      return "TIMESTAMP_NANOS_Ntz";
+      return "TimestampNanosNtz";
     case VariantType::Uuid:
-      return "UUID";
+      return "Uuid";
     default:
-      return "UNKNOWN";
+      return "Unknown";
   }
 }
 
@@ -588,7 +588,7 @@ std::array<uint8_t, 16> VariantValue::getUuid() const {
   memcpy(uuid_value.data(), value_.data() + 1, sizeof(uuid_value));
 #if ARROW_LITTLE_ENDIAN
   std::array<uint8_t, 16> uuid_value_le;
-  ::arrow::bit_util::ByteSwap(uuid_value_le.data(), uuid_value.data(), uuid_value.size());
+  ::arrow::bit_util::ByteSwap(uuid_value_le.data(), uuid_value.data(), 16);
   return uuid_value_le;
 #else
   return uuid_value;
