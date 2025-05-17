@@ -641,14 +641,14 @@ TEST_F(GcsIntegrationTest, GetFileInfoBucket) {
 //
 // The following test depends on real GCS access and is not suitable for CI/CD
 // environments. To run this test manually, set the environment variable:
-//     ARROW_RUN_REAL_GCS_TESTS=1
+//     ARROW_TEST_GCS_USE_REAL_SERVICE=1
 //
 // Example:
-//     ARROW_RUN_REAL_GCS_TESTS=1 ./debug/arrow-gcsfs-test
+//     ARROW_TEST_GCS_USE_REAL_SERVICE=1 ./debug/arrow-gcsfs-test
 TEST_F(GcsIntegrationTest, GetFileInfoWithoutPermission) {
-  if (!std::getenv("ARROW_RUN_REAL_GCS_TESTS")) {
+  if (!std::getenv("ARROW_TEST_GCS_USE_REAL_SERVICE")) {
     GTEST_SKIP() << "Skipping test that requires real GCS access. "
-                 << "Set ARROW_RUN_REAL_GCS_TESTS=1 to enable.";
+                 << "Set ARROW_TEST_GCS_USE_REAL_SERVICE=1 to enable.";
   }
   auto options = GcsOptions::Anonymous();
   options.retry_limit_seconds = 15;
