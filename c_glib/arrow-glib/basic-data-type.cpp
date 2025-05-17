@@ -2270,9 +2270,34 @@ garrow_string_view_data_type_new(void)
   return data_type;
 }
 
+enum {
+  PROP_NDIM = 1
+};
+
 G_DEFINE_TYPE(GArrowFixedShapeTensorDataType,
               garrow_fixed_shape_tensor_data_type,
               GARROW_TYPE_EXTENSION_DATA_TYPE)
+
+static void
+garrow_fixed_shape_tensor_data_type_get_property(GObject *object,
+                                                 guint prop_id,
+                                                 GValue *value,
+                                                 GParamSpec *pspec)
+{
+  switch (prop_id) {
+  case PROP_NDIM:
+    {
+      auto arrow_data_type =
+        std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(
+          garrow_data_type_get_raw(GARROW_DATA_TYPE(object)));
+      g_value_set_uint64(value, arrow_data_type->ndim());
+    }
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
 
 static void
 garrow_fixed_shape_tensor_data_type_init(GArrowFixedShapeTensorDataType *object)
@@ -2282,6 +2307,19 @@ garrow_fixed_shape_tensor_data_type_init(GArrowFixedShapeTensorDataType *object)
 static void
 garrow_fixed_shape_tensor_data_type_class_init(GArrowFixedShapeTensorDataTypeClass *klass)
 {
+  GParamSpec *spec;
+
+  auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->get_property = garrow_fixed_shape_tensor_data_type_get_property;
+
+  spec = g_param_spec_uint64("ndim",
+                             "Ndim",
+                             "Number of dimensions of tensor elements",
+                             0,
+                             G_MAXUINT64,
+                             0,
+                             static_cast<GParamFlags>(G_PARAM_READABLE));
+  g_object_class_install_property(gobject_class, PROP_NDIM, spec);
 }
 
 /**
