@@ -44,5 +44,21 @@ namespace Apache.Arrow.Ipc
 #else
         ;
 #endif
+
+        /// <summary>
+        /// try to write compressed data to span
+        /// </summary>
+        /// <param name="source">The data to compress</param>
+        /// <param name="destination">Span to write compressed data to</param>
+        /// <param name="bytesWritten">The number of bytes written to the destination</param>
+        /// <returns>true if compressed was successful, false if the destination buffer is too small</returns>
+        bool TryCompress(ReadOnlyMemory<byte> source, Memory<byte> destination, out int bytesWritten)
+#if NET6_0_OR_GREATER
+        {
+            throw new NotImplementedException("This codec does not support compression");
+        }
+#else
+            ;
+#endif
     }
 }
