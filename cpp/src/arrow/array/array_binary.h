@@ -32,6 +32,7 @@
 #include "arrow/buffer.h"
 #include "arrow/stl_iterator.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -239,6 +240,40 @@ class ARROW_EXPORT BinaryViewArray : public FlatArray {
 
   IteratorType begin() const { return IteratorType(*this); }
   IteratorType end() const { return IteratorType(*this, length()); }
+
+  /// \brief Create A new equivalent Array which copies data from data buffers that is
+  /// referenced  by View elements into a  new data Buffer.
+  /// \details Before Calling CompactArray
+  /// \code{.unparsed}
+  /// ╭─────┬─────┬─────┬─────╮
+  /// │view1│view2│view3│view4│
+  /// ╰─────┴─────┴─────┴─────╯
+  ///    │           │
+  ///    │           │
+  ///    │           ╰───╮
+  ///    │               │
+  ///    ∨               ∨
+  /// ╭─────┬─────╮   ╭─────┬─────╮
+  /// │data1│data2│   │data3│data4│
+  /// ╰─────┴─────╯   ╰─────┴─────╯
+  /// \endcode
+  /// After Calling CompactArray
+  ///  \code{.unparsed}
+  /// ╭─────┬─────┬─────┬─────╮
+  /// │view1│view2│view3│view4│
+  /// ╰─────┴─────┴─────┴─────╯
+  ///    │           │
+  ///    │     ╭─────╯
+  ///    │     │
+  ///    ∨     ∨
+  /// ╭─────┬─────╮
+  /// │data1│data2│
+  /// ╰─────┴─────╯
+  ///  \endcode
+  /// \param pool it's used for Builder
+  /// \return a new Array which has a new data buffer
+  Result<std::shared_ptr<Array>> CompactArray(
+      MemoryPool* pool = default_memory_pool()) const;
 
  protected:
   using FlatArray::FlatArray;
