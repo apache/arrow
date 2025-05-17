@@ -424,7 +424,10 @@ if needs_ipc
         'ipc/writer.cc',
     ]
 
-    flatbuffers_dep = dependency('flatbuffers')
+    flatbuffers_incdir = include_directories(
+        '../../thirdparty/flatbuffers/include',
+    )
+    flatbuffers_dep = declare_dependency(include_directories: flatbuffers_incdir)
     arrow_ipc_deps = [flatbuffers_dep]
 
     arrow_components += {
