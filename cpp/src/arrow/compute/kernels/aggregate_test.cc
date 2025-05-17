@@ -56,6 +56,10 @@ namespace compute {
 
 using internal::FindAccumulatorType;
 
+// Initialize the compute module
+::testing::Environment* compute_kernels_env =
+    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
+
 //
 // Sum
 //

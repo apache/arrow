@@ -17,11 +17,4 @@
 
 #pragma once
 
-namespace arrow {
-namespace compute {
-
-ARROW_COMPUTE_EXPORT Result<std::unique_ptr<RowSegmenter>> MakeAnyKeysSegmenter(
-    const std::vector<TypeHolder>& key_types, ExecContext* ctx);
-
-}  // namespace compute
-}  // namespace arrow
+#include "arrow/compute/kernels/registry.h"
