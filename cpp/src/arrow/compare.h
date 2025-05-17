@@ -92,21 +92,29 @@ class EqualOptions {
 };
 
 /// Returns true if the arrays are exactly equal
+///
+/// Note that arrow::ArrayStatistics is not included in the comparison.
 ARROW_EXPORT bool ArrayEquals(const Array& left, const Array& right,
                               const EqualOptions& = EqualOptions::Defaults());
 
 /// Returns true if the arrays are approximately equal. For non-floating point
 /// types, this is equivalent to ArrayEquals(left, right)
+///
+/// Note that arrow::ArrayStatistics is not included in the comparison.
 ARROW_EXPORT bool ArrayApproxEquals(const Array& left, const Array& right,
                                     const EqualOptions& = EqualOptions::Defaults());
 
 /// Returns true if indicated equal-length segment of arrays are exactly equal
+///
+/// Note that arrow::ArrayStatistics is not included in the comparison.
 ARROW_EXPORT bool ArrayRangeEquals(const Array& left, const Array& right,
                                    int64_t start_idx, int64_t end_idx,
                                    int64_t other_start_idx,
                                    const EqualOptions& = EqualOptions::Defaults());
 
 /// Returns true if indicated equal-length segment of arrays are approximately equal
+///
+/// Note that arrow::ArrayStatistics is not included in the comparison.
 ARROW_EXPORT bool ArrayRangeApproxEquals(const Array& left, const Array& right,
                                          int64_t start_idx, int64_t end_idx,
                                          int64_t other_start_idx,
