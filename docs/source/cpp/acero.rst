@@ -44,4 +44,3 @@ be formulated and executed.
    acero/overview
    acero/user_guide
    acero/substrait
-   acero/developer_guide

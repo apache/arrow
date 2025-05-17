@@ -19,7 +19,7 @@
 Substrait
 =========
 
-The ``arrow-dataset`` module can execute Substrait_ plans via the :doc:`Acero <../cpp/streaming_execution>`
+The ``arrow-dataset`` module can execute Substrait_ plans via the :doc:`Acero <../cpp/acero>`
 query engine.
 
 .. contents::
@@ -199,5 +199,5 @@ This Java program:
 
 .. _`Substrait`: https://substrait.io/
 .. _`Substrait Java`: https://github.com/substrait-io/substrait-java
-.. _`Acero`: https://arrow.apache.org/docs/cpp/streaming_execution.html
+.. _`Acero`: https://arrow.apache.org/docs/cpp/acero.html
 .. _`Extended Expression`: https://github.com/substrait-io/substrait/blob/main/site/docs/expressions/extended_expression.md
