@@ -194,6 +194,14 @@ repos:
           (
           ?^ci/scripts/c_glib_build\.sh$|
           ?^ci/scripts/c_glib_test\.sh$|
+          ?^ci/scripts/conan_setup\.sh$|
+          ?^ci/scripts/download_tz_database\.sh$|
+          ?^ci/scripts/install_azurite\.sh$|
+          ?^ci/scripts/install_ceph\.sh$|
+          ?^ci/scripts/install_spark\.sh$|
+          ?^ci/scripts/integration_dask\.sh$|
+          ?^ci/scripts/msys2_system_upgrade\.sh$|
+          ?^ci/scripts/util_free_space\.sh$|
           ?^c_glib/test/run-test\.sh$|
           ?^cpp/build-support/build-lz4-lib\.sh$|
           ?^cpp/build-support/build-zstd-lib\.sh$|
