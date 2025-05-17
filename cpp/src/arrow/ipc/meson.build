@@ -22,12 +22,7 @@ exc = executable(
 )
 test('arrow-feather-test', exc)
 
-ipc_tests = [
-    'json_simple_test',
-    'message_internal_test',
-    'read_write_test',
-    'tensor_test',
-]
+ipc_tests = ['message_internal_test', 'read_write_test', 'tensor_test']
 
 foreach ipc_test : ipc_tests
     test_name = 'arrow-ipc-@0@'.format(ipc_test.replace('_', '-'))
@@ -44,7 +39,6 @@ install_headers(
         'api.h',
         'dictionary.h',
         'feather.h',
-        'json_simple.h',
         'message.h',
         'options.h',
         'reader.h',
