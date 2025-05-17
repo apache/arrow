@@ -195,6 +195,10 @@ repos:
           ?^ci/scripts/c_glib_build\.sh$|
           ?^ci/scripts/c_glib_test\.sh$|
           ?^c_glib/test/run-test\.sh$|
+          ?^cpp/build-support/build-lz4-lib\.sh$|
+          ?^cpp/build-support/build-zstd-lib\.sh$|
+          ?^cpp/build-support/get-upstream-commit\.sh$|
+          ?^cpp/build-support/update-thrift\.sh$|
           ?^dev/release/05-binary-upload\.sh$|
           ?^dev/release/07-binary-verify\.sh$|
           ?^dev/release/binary-recover\.sh$|
