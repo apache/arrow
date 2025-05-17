@@ -171,6 +171,20 @@ TEST(StructArray, FromFields) {
   ASSERT_RAISES(Invalid, res);
 }
 
+TEST(StructArray, ValidateFullNullable) {
+  auto type = struct_({field("a", int32(), /*nullable=*/false),
+                       field("b", utf8(), /*nullable=*/false),
+                       field("c", list(boolean()), /*nullable=*/false)});
+
+  auto struct_arr = ArrayFromJSON(
+      type, R"([[1, "a", [null, false]], [null, "bc", []], [2, null, null]])");
+  auto struct_arr_nonull = ArrayFromJSON(
+      type, R"([[1, "a"], [true, false], [6, "bc", []], [2, "bcj", [true, true]]])");
+
+  ASSERT_RAISES(Invalid, struct_arr->ValidateFull());
+  ASSERT_OK(struct_arr_nonull->ValidateFull());
+}
+
 TEST(StructArray, Validate) {
   auto a = ArrayFromJSON(int32(), "[4, 5]");
   auto type = struct_({field("a", int32())});
@@ -353,6 +367,50 @@ TEST(StructArray, CanReferenceFieldsByNames) {
   ASSERT_RAISES(Invalid, arr->CanReferenceFieldsByNames({"f0", "f1"}));
   // Both
   ASSERT_RAISES(Invalid, arr->CanReferenceFieldsByNames({"f0", "f1", "nope"}));
+}
+
+TEST(ListOfStructs, ValidateFullNullable) {
+  auto struct_type = struct_(
+      {field("x", int32(), /*nullable=*/false), field("y", utf8(), /*nullable=*/false)});
+  auto list_type = list(struct_type);
+
+  auto list_with_nulls = ArrayFromJSON(list_type, R"([
+        [ [1, "a"], [null, "b"] ],
+        null,
+        [ [3, "c"] ]
+      ])");
+
+  auto list_no_nulls = ArrayFromJSON(list_type, R"([
+        [ [1, "a"], [2, "b"] ],
+        [ [3, "c"] ],
+        []
+      ])");
+
+  ASSERT_RAISES(Invalid, list_with_nulls->ValidateFull());  // null in non-nullable field
+  ASSERT_OK(list_no_nulls->ValidateFull());                 // all valid
+}
+
+TEST(StructOfStructs, ValidateFullNullable) {
+  auto inner_struct = struct_(
+      {field("x", int32(), /*nullable=*/false), field("y", utf8(), /*nullable=*/false)});
+  auto outer_struct = struct_({field("id", int64(), /*nullable=*/false),
+                               field("meta", inner_struct, /*nullable=*/false)});
+
+  auto struct_with_nulls = ArrayFromJSON(outer_struct, R"([
+        [1, [1, "ok"]],
+        [2, [null, "fail"]],
+        [3, [3, "good"]]
+      ])");
+
+  auto struct_no_nulls = ArrayFromJSON(outer_struct, R"([
+        [1, [1, "ok"]],
+        [2, [2, "yes"]],
+        [3, [3, "good"]]
+      ])");
+
+  ASSERT_RAISES(Invalid,
+                struct_with_nulls->ValidateFull());  // null in inner non-nullable field
+  ASSERT_OK(struct_no_nulls->ValidateFull());        // all valid
 }
 
 // ----------------------------------------------------------------------------------
