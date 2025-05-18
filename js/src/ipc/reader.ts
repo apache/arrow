@@ -370,7 +370,7 @@ abstract class RecordBatchReaderImpl<T extends TypeMap = any> implements RecordB
                     header.nodes,
                     buffers,
                     null
-                );                
+                );
             } else {
                 throw new Error('Record batch is compressed but codec not found');
             }
@@ -393,7 +393,7 @@ abstract class RecordBatchReaderImpl<T extends TypeMap = any> implements RecordB
         return new VectorLoader(body, header.nodes, header.buffers, this.dictionaries, this.schema.metadataVersion).visitMany(types);
     }
 
-    private _decompressBuffers(header: metadata.RecordBatch, body: Uint8Array, codec: Codec): { decommpressedBody: Uint8Array, buffers: metadata.BufferRegion[] } {
+    private _decompressBuffers(header: metadata.RecordBatch, body: Uint8Array, codec: Codec): { decommpressedBody: Uint8Array; buffers: metadata.BufferRegion[] } {
         const decompressedBuffers: Uint8Array[] = [];
         const newBufferRegions: metadata.BufferRegion[] = [];
 
@@ -404,13 +404,13 @@ abstract class RecordBatchReaderImpl<T extends TypeMap = any> implements RecordB
                 newBufferRegions.push(new metadata.BufferRegion(currentOffset, 0));
                 continue;
             }
-            const byteBuf = new flatbuffers.ByteBuffer(body.subarray(offset, offset + length))
-            let uncompressedLenth = bigIntToNumber(byteBuf.readInt64(0));
-            
-            
+            const byteBuf = new flatbuffers.ByteBuffer(body.subarray(offset, offset + length));
+            const uncompressedLenth = bigIntToNumber(byteBuf.readInt64(0));
+
+
             const bytes = byteBuf.bytes().subarray(LENGTH_OF_PREFIX_DATA);
-            
-            let decompressed = (uncompressedLenth === LENGTH_NO_COMPRESSED_DATA)
+
+            const decompressed = (uncompressedLenth === LENGTH_NO_COMPRESSED_DATA)
                 ? bytes
                 : codec.decode!(bytes);
 
@@ -425,14 +425,14 @@ abstract class RecordBatchReaderImpl<T extends TypeMap = any> implements RecordB
         const totalSize = currentOffset;
         const combined = new Uint8Array(totalSize);
 
-        for (let i = 0; i < decompressedBuffers.length; i++) {                  
-            combined.set(decompressedBuffers[i], newBufferRegions[i].offset);
+        for (const [i, decompressedBuffer] of decompressedBuffers.entries()) {
+            combined.set(decompressedBuffer, newBufferRegions[i].offset);
         }
 
         return {
             decommpressedBody: combined,
             buffers: newBufferRegions
-        }        
+        };
     }
 }
 

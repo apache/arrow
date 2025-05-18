@@ -158,8 +158,8 @@ export class RecordBatch {
     public get buffers() { return this._buffers; }
     public get compression() { return this._compression; }
     constructor(
-        length: bigint | number, 
-        nodes: FieldNode[], 
+        length: bigint | number,
+        nodes: FieldNode[],
         buffers: BufferRegion[],
         compression: _CompressionType | null
     ) {
@@ -308,8 +308,8 @@ function decodeSchema(_schema: _Schema, dictionaries: Map<number, DataType> = ne
 /** @ignore */
 function decodeRecordBatch(batch: _RecordBatch, version = MetadataVersion.V5) {
     const recordBatch = new RecordBatch(
-        batch.length(), 
-        decodeFieldNodes(batch), 
+        batch.length(),
+        decodeFieldNodes(batch),
         decodeBuffers(batch, version),
         batch.compression()?.codec() ?? null
     );
