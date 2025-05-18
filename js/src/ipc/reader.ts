@@ -46,8 +46,13 @@ import {
     isFileHandle, isFetchResponse,
     isReadableDOMStream, isReadableNodeStream
 } from '../util/compat.js';
+import { Codec, compressionRegistry, LENGTH_NO_COMPRESSED_DATA, LENGTH_OF_PREFIX_DATA } from './compression.js';
 
 import type { DuplexOptions, Duplex } from 'node:stream';
+import { bigIntToNumber } from './../util/bigint.js';
+import * as flatbuffers from 'flatbuffers';
+
+const DEFAULT_ALIGNMENT = 8;
 
 /** @ignore */ export type FromArg0 = ArrowJSONLike;
 /** @ignore */ export type FromArg1 = PromiseLike<ArrowJSONLike>;
@@ -354,12 +359,27 @@ abstract class RecordBatchReaderImpl<T extends TypeMap = any> implements RecordB
         return this;
     }
 
-    protected _loadRecordBatch(header: metadata.RecordBatch, body: any) {
+    protected _loadRecordBatch(header: metadata.RecordBatch, body: Uint8Array): RecordBatch<T> {
+        if (header.compression != null ) {
+            const codec = compressionRegistry.get(header.compression);
+            if (codec?.decode && typeof codec.decode === 'function') {
+                const {decommpressedBody, buffers} = this._decompressBuffers(header, body, codec);
+                body = decommpressedBody;
+                header = new metadata.RecordBatch(
+                    header.length,
+                    header.nodes,
+                    buffers,
+                    null
+                );                
+            } else {
+                throw new Error('Record batch is compressed but codec not found');
+            }
+        }
         const children = this._loadVectors(header, body, this.schema.fields);
         const data = makeData({ type: new Struct(this.schema.fields), length: header.length, children });
         return new RecordBatch(this.schema, data);
     }
-    protected _loadDictionaryBatch(header: metadata.DictionaryBatch, body: any) {
+    protected _loadDictionaryBatch(header: metadata.DictionaryBatch, body: Uint8Array) {
         const { id, isDelta } = header;
         const { dictionaries, schema } = this;
         const dictionary = dictionaries.get(id);
@@ -369,8 +389,50 @@ abstract class RecordBatchReaderImpl<T extends TypeMap = any> implements RecordB
             new Vector(data)) :
             new Vector(data)).memoize() as Vector;
     }
-    protected _loadVectors(header: metadata.RecordBatch, body: any, types: (Field | DataType)[]) {
+    protected _loadVectors(header: metadata.RecordBatch, body: Uint8Array, types: (Field | DataType)[]) {
         return new VectorLoader(body, header.nodes, header.buffers, this.dictionaries, this.schema.metadataVersion).visitMany(types);
+    }
+
+    private _decompressBuffers(header: metadata.RecordBatch, body: Uint8Array, codec: Codec): { decommpressedBody: Uint8Array, buffers: metadata.BufferRegion[] } {
+        const decompressedBuffers: Uint8Array[] = [];
+        const newBufferRegions: metadata.BufferRegion[] = [];
+
+        let currentOffset = 0;
+        for (const {offset, length } of header.buffers) {
+            if (length === 0) {
+                decompressedBuffers.push(new Uint8Array(0));
+                newBufferRegions.push(new metadata.BufferRegion(currentOffset, 0));
+                continue;
+            }
+            const byteBuf = new flatbuffers.ByteBuffer(body.subarray(offset, offset + length))
+            let uncompressedLenth = bigIntToNumber(byteBuf.readInt64(0));
+            
+            
+            const bytes = byteBuf.bytes().subarray(LENGTH_OF_PREFIX_DATA);
+            
+            let decompressed = (uncompressedLenth === LENGTH_NO_COMPRESSED_DATA)
+                ? bytes
+                : codec.decode!(bytes);
+
+            decompressedBuffers.push(decompressed);
+
+            const padding = (DEFAULT_ALIGNMENT - (currentOffset % DEFAULT_ALIGNMENT)) % DEFAULT_ALIGNMENT;
+            currentOffset += padding;
+            newBufferRegions.push(new metadata.BufferRegion(currentOffset, decompressed.length));
+            currentOffset += decompressed.length;
+        }
+
+        const totalSize = currentOffset;
+        const combined = new Uint8Array(totalSize);
+
+        for (let i = 0; i < decompressedBuffers.length; i++) {                  
+            combined.set(decompressedBuffers[i], newBufferRegions[i].offset);
+        }
+
+        return {
+            decommpressedBody: combined,
+            buffers: newBufferRegions
+        }        
     }
 }
 

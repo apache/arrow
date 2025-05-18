@@ -33,7 +33,7 @@ static getSizePrefixedRootAsBodyCompression(bb:flatbuffers.ByteBuffer, obj?:Body
  * Compressor library.
  * For LZ4_FRAME, each compressed buffer must consist of a single frame.
  */
-codec():CompressionType {
+codec(): CompressionType {
   const offset = this.bb!.__offset(this.bb_pos, 4);
   return offset ? this.bb!.readInt8(this.bb_pos + offset) : CompressionType.LZ4_FRAME;
 }
