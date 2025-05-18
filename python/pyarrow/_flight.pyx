@@ -890,7 +890,7 @@ cdef class FlightInfo(_Weakrefable):
 
         Parameters
         ----------
-        schema : Schema
+        schema : Schema, optional
             the schema of the data in this flight.
         descriptor : FlightDescriptor
             the descriptor for this flight.
@@ -961,6 +961,8 @@ cdef class FlightInfo(_Weakrefable):
             CDictionaryMemo dummy_memo
 
         check_flight_status(self.info.get().GetSchema(&dummy_memo).Value(&schema))
+        if schema.get() == NULL:
+            return None
         return pyarrow_wrap_schema(schema)
 
     @property

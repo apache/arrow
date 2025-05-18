@@ -280,9 +280,30 @@ arrow::Result<FlightInfo> FlightInfo::Make(const Schema& schema,
   return FlightInfo(std::move(data));
 }
 
+arrow::Result<FlightInfo> FlightInfo::Make(const std::shared_ptr<Schema>& schema,
+                                           const FlightDescriptor& descriptor,
+                                           const std::vector<FlightEndpoint>& endpoints,
+                                           int64_t total_records, int64_t total_bytes,
+                                           bool ordered, std::string app_metadata) {
+  FlightInfo::Data data;
+  data.descriptor = descriptor;
+  data.endpoints = endpoints;
+  data.total_records = total_records;
+  data.total_bytes = total_bytes;
+  data.ordered = ordered;
+  data.app_metadata = std::move(app_metadata);
+  if (schema) {
+    RETURN_NOT_OK(internal::SchemaToString(*schema, &data.schema));
+  }
+  return FlightInfo(std::move(data));
+}
+
 arrow::Result<std::shared_ptr<Schema>> FlightInfo::GetSchema(
     ipc::DictionaryMemo* dictionary_memo) const {
   if (reconstructed_schema_) {
+    return schema_;
+  } else if (data_.schema.empty()) {
+    reconstructed_schema_ = true;
     return schema_;
   }
   // Create a non-owned Buffer to avoid copying
@@ -305,7 +326,9 @@ arrow::Status FlightInfo::Deserialize(std::string_view serialized,
 std::string FlightInfo::ToString() const {
   std::stringstream ss;
   ss << "<FlightInfo schema=";
-  if (schema_) {
+  if (data_.schema.empty()) {
+    ss << "(empty)";
+  } else if (schema_) {
     ss << schema_->ToString();
   } else {
     ss << "(serialized)";
