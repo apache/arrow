@@ -312,9 +312,13 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
         descr_->sort_order() == SortOrder::UNKNOWN) {
       return false;
     }
-    if (possible_encoded_stats_ == nullptr) {
-      possible_encoded_stats_ =
-          std::make_shared<EncodedStatistics>(FromThrift(column_metadata_->statistics));
+    {
+      // Because we are modifying possible_encoded_stats_ in a const method
+      const std::lock_guard<std::mutex> guard(stats_mutex_);
+      if (possible_encoded_stats_ == nullptr) {
+        possible_encoded_stats_ =
+            std::make_shared<EncodedStatistics>(FromThrift(column_metadata_->statistics));
+      }
     }
     return writer_version_->HasCorrectStatistics(type(), *possible_encoded_stats_,
                                                  descr_->sort_order());

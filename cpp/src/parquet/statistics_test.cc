@@ -455,7 +455,8 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
 
     std::shared_ptr<EncodedStatistics> enc_stats = column_chunk->encoded_statistics();
     EXPECT_EQ(null_count, enc_stats->null_count);
-    EXPECT_TRUE(expected_stats->HasMinMax());
+    EXPECT_TRUE(enc_stats->has_min());
+    EXPECT_TRUE(enc_stats->has_max());
     EXPECT_EQ(expected_stats->EncodeMin(), enc_stats->min());
     EXPECT_EQ(expected_stats->EncodeMax(), enc_stats->max());
   }
