@@ -850,25 +850,25 @@ Status HadoopFileSystem::OpenReadable(
     const std::string& path, int32_t buffer_size,
     std::shared_ptr<arrow::io::internal::HdfsReadableFile>* file) {
   return impl_->OpenReadable(path, buffer_size, file);
-};
+}
 
 Status HadoopFileSystem::OpenReadable(
     const std::string& path, int32_t buffer_size, const io::IOContext& io_context,
     std::shared_ptr<arrow::io::internal::HdfsReadableFile>* file) {
   return impl_->OpenReadable(path, buffer_size, io_context, file);
-};
+}
 
 Status HadoopFileSystem::OpenReadable(
     const std::string& path,
     std::shared_ptr<arrow::io::internal::HdfsReadableFile>* file) {
   return impl_->OpenReadable(path, file);
-};
+}
 
 Status HadoopFileSystem::OpenReadable(
     const std::string& path, const io::IOContext& io_context,
     std::shared_ptr<arrow::io::internal::HdfsReadableFile>* file) {
   return impl_->OpenReadable(path, io_context, file);
-};
+}
 
 Status HadoopFileSystem::OpenWritable(
     const std::string& path, bool append, int32_t buffer_size, int16_t replication,
@@ -876,13 +876,13 @@ Status HadoopFileSystem::OpenWritable(
     std::shared_ptr<arrow::io::internal::HdfsOutputStream>* file) {
   return impl_->OpenWritable(path, append, buffer_size, replication, default_block_size,
                              file);
-};
+}
 
 Status HadoopFileSystem::OpenWritable(
     const std::string& path, bool append,
     std::shared_ptr<arrow::io::internal::HdfsOutputStream>* file) {
   return impl_->OpenWritable(path, append, file);
-};
+}
 
 // ----------------------------------------------------------------------
 // Allow public API users to check whether we are set up correctly
