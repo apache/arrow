@@ -21,16 +21,8 @@
 #include <string>
 #include <vector>
 
-// #include <cstdint>
-// #include <unordered_map>
-
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/util/uri.h"
-
-// #include "arrow/filesystem/type_fwd.h"
-// #include "arrow/io/interfaces.h"
-// #include "arrow/util/macros.h"
-// #include "arrow/util/visibility.h"
 
 namespace arrow::io::internal {
 class HdfsReadableFile;
