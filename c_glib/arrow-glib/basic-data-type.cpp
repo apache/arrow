@@ -2312,6 +2312,13 @@ garrow_fixed_shape_tensor_data_type_class_init(GArrowFixedShapeTensorDataTypeCla
   auto gobject_class = G_OBJECT_CLASS(klass);
   gobject_class->get_property = garrow_fixed_shape_tensor_data_type_get_property;
 
+  /**
+   * GArrowFixedShapeTensorDataType::n-dimensions:
+   *
+   * The number of dimensions of tensor elements.
+   *
+   * Since: 21.0.0
+   */
   spec = g_param_spec_uint64("n_dimensions",
                              "NDimensions",
                              "Number of dimensions of tensor elements",
