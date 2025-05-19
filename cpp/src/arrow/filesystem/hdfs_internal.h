@@ -238,14 +238,15 @@ struct HdfsPathInfo {
   int16_t permissions;
 };
 
-ARROW_EXPORT Status MakeReadableFile(const std::string& path, int32_t buffer_size,
-  const io::IOContext& io_context, LibHdfsShim* driver,
-  hdfsFS fs, hdfsFile file,
-  std::shared_ptr<HdfsReadableFile>* out);
-
 class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
  public:
   ~HdfsReadableFile() override;
+
+  static Result<std::shared_ptr<HdfsReadableFile>> Make(const std::string& path,
+                                                        int32_t buffer_size,
+                                                        const io::IOContext& io_context,
+                                                        LibHdfsShim* driver, hdfsFS fs,
+                                                        hdfsFile handle);
 
   Status Close() override;
 
@@ -269,23 +270,20 @@ class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
   std::unique_ptr<HdfsReadableFileImpl> impl_;
 
   friend class arrow::fs::HadoopFileSystem;
-  friend Status MakeReadableFile(const std::string& path, int32_t buffer_size,
-                                 const io::IOContext& io_context, LibHdfsShim* driver,
-                                 hdfsFS fs, hdfsFile file,
-                                 std::shared_ptr<HdfsReadableFile>* out);
 
   ARROW_DISALLOW_COPY_AND_ASSIGN(HdfsReadableFile);
 };
-
-ARROW_EXPORT Status MakeOutputStream(const std::string& path, int32_t buffer_size,
-  LibHdfsShim* driver, hdfsFS fs, hdfsFile file,
-  std::shared_ptr<HdfsOutputStream>* out);
 
 // Naming this file OutputStream because it does not support seeking (like the
 // WritableFile interface)
 class ARROW_EXPORT HdfsOutputStream : public OutputStream {
  public:
   ~HdfsOutputStream() override;
+
+  static Result<std::shared_ptr<HdfsOutputStream>> Make(const std::string& path,
+                                                        int32_t buffer_size,
+                                                        LibHdfsShim* driver, hdfsFS fs,
+                                                        hdfsFile handle);
 
   Status Close() override;
 
@@ -303,9 +301,6 @@ class ARROW_EXPORT HdfsOutputStream : public OutputStream {
   std::unique_ptr<HdfsOutputStreamImpl> impl_;
 
   friend class arrow::fs::HadoopFileSystem;
-  friend Status MakeOutputStream(const std::string& path, int32_t buffer_size,
-    LibHdfsShim* driver, hdfsFS fs, hdfsFile file,
-    std::shared_ptr<HdfsOutputStream>* out);
 
   HdfsOutputStream();
 
