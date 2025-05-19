@@ -1,0 +1,195 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+from pathlib import Path
+from . import cdata
+from .tester import Tester, CDataExporter, CDataImporter
+from .util import run_cmd, log
+from typing import Final
+import functools
+
+
+class ExternalLibraryTester(Tester):
+    PRODUCER = True
+    CONSUMER = True
+    FLIGHT_SERVER = False
+    FLIGHT_CLIENT = False
+    C_DATA_SCHEMA_EXPORTER = True
+    C_DATA_ARRAY_EXPORTER = True
+    C_DATA_SCHEMA_IMPORTER = True
+    C_DATA_ARRAY_IMPORTER = True
+
+    _EXE_PATH: Path
+    _INTEGRATION_EXE: Path
+    _STREAM_TO_FILE: Path
+    _FILE_TO_STREAM: Path
+    _INTEGRATION_DLL: Path
+
+    def __init__(
+        self,
+        path: Path,
+        is_producer_compatible: bool,
+        is_consumer_compatible: bool,
+        is_c_data_schema_exporter_compatible: bool,
+        is_c_data_array_exporter_compatible: bool,
+        is_c_data_schema_importer_compatible: bool,
+        is_c_data_array_importer_compatible: bool,
+        **args,
+    ):
+        super().__init__(**args)
+        self.is_producer_compatible = is_producer_compatible
+        self.is_consumer_compatible = is_consumer_compatible
+        self.is_c_data_schema_exporter_compatible = is_c_data_schema_exporter_compatible
+        self.is_c_data_array_exporter_compatible = is_c_data_array_exporter_compatible
+        self.is_c_data_schema_importer_compatible = is_c_data_schema_importer_compatible
+        self.is_c_data_array_importer_compatible = is_c_data_array_importer_compatible
+        self._EXE_PATH = path
+        self._INTEGRATION_EXE = path / "arrow-json-integration-test"
+        self._STREAM_TO_FILE = path / "arrow-stream-to-file"
+        self._FILE_TO_STREAM = path / "arrow-file-to-stream"
+        self._INTEGRATION_DLL = self._EXE_PATH / (
+            "libarrow_integration_testing" + cdata.dll_suffix
+        )
+
+    def _run(self, arrow_path: str, json_path: str, command: str, quirks):
+        env = {
+            "ARROW_PATH": arrow_path,
+            "JSON_PATH": json_path,
+            "COMMAND": command,
+            **{f"QUIRK_{q}": "1" for q in quirks or ()},
+        }
+
+        if self.debug:
+            log(f"{self._INTEGRATION_EXE} {env}")
+
+        run_cmd([self._INTEGRATION_EXE], env=env)
+
+    def validate(self, json_path: str, arrow_path: str, quirks=None):
+        return self._run(arrow_path, json_path, "VALIDATE", quirks)
+
+    def json_to_file(self, json_path: str, arrow_path: str):
+        return self._run(arrow_path, json_path, "JSON_TO_ARROW", quirks=None)
+
+    def stream_to_file(self, stream_path, file_path):
+        cmd = [self._STREAM_TO_FILE, "<", stream_path, ">", file_path]
+        self.run_shell_command(cmd)
+
+    def file_to_stream(self, file_path, stream_path):
+        cmd = [self._FILE_TO_STREAM, file_path, ">", stream_path]
+        self.run_shell_command(cmd)
+
+    def make_c_data_exporter(self):
+        return ExternalLibraryCDataExporter(self.debug, self.args)
+
+    def make_c_data_importer(self):
+        return ExternalLibraryCDataImporter(self.debug, self.args)
+
+
+_external_library_c_data_entrypoints: Final[
+    str
+] = """
+    const char* CDataIntegration_ExportSchemaFromJson(const char* json_path, struct ArrowSchema* out);
+
+    const char* CDataIntegration_ImportSchemaAndCompareToJson(const char* json_path, struct ArrowSchema* schema);
+
+    const char* CDataIntegration_ExportBatchFromJson(const char* json_path, int num_batch, struct ArrowArray* out);
+
+    const char* CDataIntegration_ImportBatchAndCompareToJson(const char* json_path, int num_batch, struct ArrowArray* batch);
+
+    int64_t BytesAllocated(void);
+    """
+
+
+class _CDataBase:
+
+    @functools.lru_cache
+    def _load_ffi(ffi, lib_path: Path):
+        ffi.cdef(_external_library_c_data_entrypoints)
+        dll = ffi.dlopen(str(lib_path))
+        return dll
+
+    def __init__(self, debug: bool, integration_dll_path: Path, args):
+        self.debug = debug
+        self.args = args
+        self.ffi = cdata.ffi()
+        self.dll = self._load_ffi(self.ffi, integration_dll_path)
+
+    def _check_external_library_error(self, na_error):
+        """
+        Check a `const char*` error return from an integration entrypoint.
+
+        A null means success, a non-empty string is an error message.
+        The string is statically allocated on the external library side and does not
+        need to be released.
+        """
+        assert self.ffi.typeof(na_error) is self.ffi.typeof("const char*")
+        if na_error != self.ffi.NULL:
+            error = self.ffi.string(na_error).decode("utf8", errors="replace")
+            raise RuntimeError(
+                f"External library C Data Integration call failed: {error}"
+            )
+
+
+class ExternalLibraryCDataExporter(CDataExporter, _CDataBase):
+    _supports_releasing_memory: bool = True
+
+    def __init__(self, supports_releasing_memory: bool, args):
+        super().__init__(**args)
+        self._supports_releasing_memory = supports_releasing_memory
+
+    def export_schema_from_json(self, json_path, c_schema_ptr):
+        na_error = self.dll.CDataIntegration_ExportSchemaFromJson(
+            str(json_path).encode(), c_schema_ptr
+        )
+        self._check_external_library_error(na_error)
+
+    def export_batch_from_json(self, json_path, num_batch: int, c_array_ptr):
+        na_error = self.dll.CDataIntegration_ExportBatchFromJson(
+            str(json_path).encode(), num_batch, c_array_ptr
+        )
+        self._check_external_library_error(na_error)
+
+    @property
+    def supports_releasing_memory(self):
+        return self.supports_releasing_memory
+
+    def record_allocation_state(self):
+        return self.dll.BytesAllocated()
+
+
+class ExternalLibraryCDataImporter(CDataImporter, _CDataBase):
+    _supports_releasing_memory: bool = True
+
+    def __init__(self, supports_releasing_memory: bool, args):
+        super().__init__(**args)
+        self._supports_releasing_memory = supports_releasing_memory
+
+    def import_schema_and_compare_to_json(self, json_path, c_schema_ptr):
+        na_error = self.dll.CDataIntegration_ImportSchemaAndCompareToJson(
+            str(json_path).encode(), c_schema_ptr
+        )
+        self._check_external_library_error(na_error)
+
+    def import_batch_and_compare_to_json(self, json_path, num_batch, c_array_ptr):
+        na_error = self.dll.CDataIntegration_ImportBatchAndCompareToJson(
+            str(json_path).encode(), num_batch, c_array_ptr
+        )
+        self._check_external_library_error(na_error)
+
+    @property
+    def supports_releasing_memory(self):
+        return True

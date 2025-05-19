@@ -23,6 +23,7 @@ import glob
 import gzip
 import itertools
 import os
+from pathlib import Path
 import sys
 import tempfile
 import traceback
@@ -591,8 +592,10 @@ def get_static_json_files():
 
 def run_all_tests(with_cpp=True, with_java=True, with_js=True,
                   with_csharp=True, with_go=True, with_rust=False,
-                  with_nanoarrow=False, run_ipc=False, run_flight=False,
-                  run_c_data=False, tempdir=None, target_implementations="",
+                  with_nanoarrow=False, with_external_library : Optional[Path]=None,
+                  run_ipc=False,
+                  run_flight=False, run_c_data=False, tempdir=None,
+                  target_implementations="",
                   **kwargs):
     tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
     target_implementations = \
@@ -634,6 +637,19 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
     if with_rust:
         from .tester_rust import RustTester
         append_tester("rust", RustTester(**kwargs))
+
+    if with_external_library:
+        from .tester_external_library import ExternalLibraryTester
+
+        append_tester("external_library", ExternalLibraryTester(
+            path=Path(with_external_library),
+            is_producer_compatible=kwargs.get("external_library_ipc_produder", False),
+            is_consumer_compatible=kwargs.get("external_library_ipc_consumer", False),
+            is_c_data_schema_exporter_compatible=kwargs.get("external_library_c_data_schema_exporter", False),
+            is_c_data_array_exporter_compatible=kwargs.get("external_library_c_data_array_exporter", False),
+            is_c_data_schema_importer_compatible=kwargs.get("external_library_c_data_schema_importer", False),
+            is_c_data_array_importer_compatible=kwargs.get("external_library_c_data_array_importer", False),
+            **kwargs))
 
     static_json_files = get_static_json_files()
     generated_json_files = datagen.get_generated_json_files(tempdir=tempdir)
