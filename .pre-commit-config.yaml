@@ -196,13 +196,31 @@ repos:
           ?^ci/scripts/c_glib_build\.sh$|
           ?^ci/scripts/c_glib_test\.sh$|
           ?^ci/scripts/conan_setup\.sh$|
+          ?^ci/scripts/csharp_build\.sh$|
+          ?^ci/scripts/csharp_pack\.sh$|
           ?^ci/scripts/download_tz_database\.sh$|
           ?^ci/scripts/install_azurite\.sh$|
           ?^ci/scripts/install_ccache\.sh$|
           ?^ci/scripts/install_ceph\.sh$|
+          ?^ci/scripts/install_chromedriver\.sh$|
+          ?^ci/scripts/install_cmake\.sh$|
+          ?^ci/scripts/install_emscripten\.sh$|
+          ?^ci/scripts/install_iwyu\.sh$|
+          ?^ci/scripts/install_ninja\.sh$|
+          ?^ci/scripts/install_numpy\.sh$|
+          ?^ci/scripts/install_pandas\.sh$|
+          ?^ci/scripts/install_python\.sh$|
           ?^ci/scripts/install_spark\.sh$|
+          ?^ci/scripts/install_vcpkg\.sh$|
           ?^ci/scripts/integration_dask\.sh$|
+          ?^ci/scripts/java_full_build\.sh$|
+          ?^ci/scripts/matlab_build\.sh$|
+          ?^ci/scripts/msys2_system_clean\.sh$|
           ?^ci/scripts/msys2_system_upgrade\.sh$|
+          ?^ci/scripts/python_sdist_build\.sh$|
+          ?^ci/scripts/release_test\.sh$|
+          ?^ci/scripts/ruby_test\.sh$|
+          ?^ci/scripts/rust_build\.sh$|
           ?^ci/scripts/util_free_space\.sh$|
           ?^cpp/build-support/build-lz4-lib\.sh$|
           ?^cpp/build-support/build-zstd-lib\.sh$|

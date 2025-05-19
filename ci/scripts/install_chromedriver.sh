@@ -23,7 +23,7 @@ set -e
 
 chrome_version=$1
 
-if [ $chrome_version = "latest" ]; then
+if [ "$chrome_version" = "latest" ]; then
   latest_release_path=LATEST_RELEASE_STABLE
 else
   latest_release_path=LATEST_RELEASE_${chrome_version}

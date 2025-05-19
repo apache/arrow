@@ -24,7 +24,7 @@ dist_dir=${2}
 
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 
-pushd ${arrow_dir}/java
+pushd "${arrow_dir}/java"
 
 # Ensure that there is no old jar
 # inside the maven repository
@@ -52,8 +52,8 @@ mvn clean \
     -Papache-release \
     -Parrow-c-data \
     -Parrow-jni \
-    -Darrow.cpp.build.dir=$dist_dir \
-    -Darrow.c.jni.dist.dir=$dist_dir \
+    -Darrow.cpp.build.dir="$dist_dir" \
+    -Darrow.c.jni.dist.dir="$dist_dir" \
     --no-transfer-progress
 
 # copy all jar, zip and pom files to the distribution folder
@@ -66,6 +66,6 @@ find ~/.m2/repository/org/apache/arrow \
      -name "*.zip" \
      ")" \
      -exec echo {} ";" \
-     -exec cp {} $dist_dir ";"
+     -exec cp {} "$dist_dir" ";"
 
 popd

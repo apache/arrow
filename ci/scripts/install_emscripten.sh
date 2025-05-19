@@ -24,13 +24,13 @@ set -e
 target_path=$1
 pyodide_path=$2
 
-emscripten_version=$(${pyodide_path}/python -c "import sys;print(*sys._emscripten_info.emscripten_version,sep='.')")
+emscripten_version=$("${pyodide_path}/python" -c "import sys;print(*sys._emscripten_info.emscripten_version,sep='.')")
 
-cd ${target_path}
+cd "${target_path}"
 if [ ! -d emsdk ]; then
   git clone https://github.com/emscripten-core/emsdk.git
 fi
 cd emsdk 
-./emsdk install ${emscripten_version} 
-./emsdk activate ${emscripten_version}
+./emsdk install "${emscripten_version}"
+./emsdk activate "${emscripten_version}"
 echo "Installed emsdk to: ${target_path}"
