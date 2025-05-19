@@ -1205,7 +1205,13 @@ default "hive"
     assumes directory names with key=value pairs like "/year=2009/month=11".
     In addition, a scheme like "/2009/11" is also supported, in which case
     you need to specify the field names or a full schema. See the
-    ``pyarrow.dataset.partitioning()`` function for more details."""
+    ``pyarrow.dataset.partitioning()`` function for more details.
+partition_base_dir : str, optional
+    For the purposes of applying the partitioning, paths will be
+    stripped of the partition_base_dir. Files not matching the
+    partition_base_dir prefix will be skipped for partitioning discovery.
+    The ignored files will still be part of the Dataset, but will not
+    have partition information."""
 
 
 _parquet_dataset_example = """\
@@ -1313,7 +1319,8 @@ Examples
 
     def __init__(self, path_or_paths, filesystem=None, schema=None, *, filters=None,
                  read_dictionary=None, memory_map=False, buffer_size=None,
-                 partitioning="hive", ignore_prefixes=None, pre_buffer=True,
+                 partitioning="hive", partition_base_dir=None,
+                 ignore_prefixes=None, pre_buffer=True,
                  coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
@@ -1403,6 +1410,7 @@ Examples
         self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,
                                    schema=schema, format=parquet_format,
                                    partitioning=partitioning,
+                                   partition_base_dir=partition_base_dir,
                                    ignore_prefixes=ignore_prefixes)
 
     def equals(self, other):
