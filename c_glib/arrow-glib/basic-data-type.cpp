@@ -2271,7 +2271,7 @@ garrow_string_view_data_type_new(void)
 }
 
 enum {
-  PROP_N_DIMS = 1
+  PROP_N_DIMENSIONS = 1
 };
 
 G_DEFINE_TYPE(GArrowFixedShapeTensorDataType,
@@ -2285,7 +2285,7 @@ garrow_fixed_shape_tensor_data_type_get_property(GObject *object,
                                                  GParamSpec *pspec)
 {
   switch (prop_id) {
-  case PROP_N_DIMS:
+  case PROP_N_DIMENSIONS:
     {
       auto arrow_data_type =
         std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(
@@ -2312,14 +2312,14 @@ garrow_fixed_shape_tensor_data_type_class_init(GArrowFixedShapeTensorDataTypeCla
   auto gobject_class = G_OBJECT_CLASS(klass);
   gobject_class->get_property = garrow_fixed_shape_tensor_data_type_get_property;
 
-  spec = g_param_spec_uint64("n_dims",
-                             "Ndims",
+  spec = g_param_spec_uint64("n_dimensions",
+                             "NDimensions",
                              "Number of dimensions of tensor elements",
                              0,
                              G_MAXUINT64,
                              0,
                              static_cast<GParamFlags>(G_PARAM_READABLE));
-  g_object_class_install_property(gobject_class, PROP_N_DIMS, spec);
+  g_object_class_install_property(gobject_class, PROP_N_DIMENSIONS, spec);
 }
 
 /**

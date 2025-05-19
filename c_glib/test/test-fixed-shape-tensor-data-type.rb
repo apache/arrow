@@ -32,8 +32,8 @@ class TestFixedShapeTensorDataType < Test::Unit::TestCase
                  [@data_type.name, @data_type.extension_name])
   end
 
-  def test_n_dims
-    assert_equal(2, @data_type.n_dims)
+  def test_n_dimensions
+    assert_equal(2, @data_type.n_dimensions)
   end
 
   def test_shape
