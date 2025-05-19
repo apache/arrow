@@ -39,6 +39,10 @@ class ExternalLibraryTester(Tester):
     _FILE_TO_STREAM: Path
     _INTEGRATION_DLL: Path
 
+    _supports_releasing_memory: bool = True
+
+    name = "external_library"
+
     def __init__(
         self,
         path: Path,
@@ -48,6 +52,7 @@ class ExternalLibraryTester(Tester):
         is_c_data_array_exporter_compatible: bool,
         is_c_data_schema_importer_compatible: bool,
         is_c_data_array_importer_compatible: bool,
+        supports_releasing_memory: bool,
         **args,
     ):
         super().__init__(**args)
@@ -57,12 +62,13 @@ class ExternalLibraryTester(Tester):
         self.is_c_data_array_exporter_compatible = is_c_data_array_exporter_compatible
         self.is_c_data_schema_importer_compatible = is_c_data_schema_importer_compatible
         self.is_c_data_array_importer_compatible = is_c_data_array_importer_compatible
+        self.supports_releasing_memory = supports_releasing_memory
         self._EXE_PATH = path
         self._INTEGRATION_EXE = path / "arrow-json-integration-test"
         self._STREAM_TO_FILE = path / "arrow-stream-to-file"
         self._FILE_TO_STREAM = path / "arrow-file-to-stream"
         self._INTEGRATION_DLL = self._EXE_PATH / (
-            "libarrow_integration_testing" + cdata.dll_suffix
+            "c_data_integration" + cdata.dll_suffix
         )
 
     def _run(self, arrow_path: str, json_path: str, command: str, quirks):
@@ -93,40 +99,47 @@ class ExternalLibraryTester(Tester):
         self.run_shell_command(cmd)
 
     def make_c_data_exporter(self):
-        return ExternalLibraryCDataExporter(self.debug, self.args)
+        return ExternalLibraryCDataExporter(
+            self.debug, self._INTEGRATION_DLL, self.supports_releasing_memory, self.args
+        )
 
     def make_c_data_importer(self):
-        return ExternalLibraryCDataImporter(self.debug, self.args)
+        return ExternalLibraryCDataImporter(
+            self.debug, self._INTEGRATION_DLL, self.supports_releasing_memory, self.args
+        )
 
 
-_external_library_c_data_entrypoints: Final[
-    str
-] = """
-    const char* CDataIntegration_ExportSchemaFromJson(const char* json_path, struct ArrowSchema* out);
+_EXTERNAL_LIBRARY_C_DATA_ENTRYPOINTS = """
+    const char* external_CDataIntegration_ExportSchemaFromJson(
+        const char* json_path, struct ArrowSchema* out);
 
-    const char* CDataIntegration_ImportSchemaAndCompareToJson(const char* json_path, struct ArrowSchema* schema);
+    const char* external_CDataIntegration_ImportSchemaAndCompareToJson(
+        const char* json_path, struct ArrowSchema* schema);
 
-    const char* CDataIntegration_ExportBatchFromJson(const char* json_path, int num_batch, struct ArrowArray* out);
+    const char* external_CDataIntegration_ExportBatchFromJson(
+        const char* json_path, int num_batch, struct ArrowArray* out);
 
-    const char* CDataIntegration_ImportBatchAndCompareToJson(const char* json_path, int num_batch, struct ArrowArray* batch);
+    const char* external_CDataIntegration_ImportBatchAndCompareToJson(
+        const char* json_path, int num_batch, struct ArrowArray* batch);
 
-    int64_t BytesAllocated(void);
+    int64_t external_BytesAllocated(void);
     """
 
 
-class _CDataBase:
+@functools.lru_cache
+def _load_ffi(ffi, lib_path: Path):
+    ffi.cdef(_EXTERNAL_LIBRARY_C_DATA_ENTRYPOINTS)
+    dll = ffi.dlopen(str(lib_path))
+    return dll
 
-    @functools.lru_cache
-    def _load_ffi(ffi, lib_path: Path):
-        ffi.cdef(_external_library_c_data_entrypoints)
-        dll = ffi.dlopen(str(lib_path))
-        return dll
+
+class _CDataBase:
 
     def __init__(self, debug: bool, integration_dll_path: Path, args):
         self.debug = debug
         self.args = args
         self.ffi = cdata.ffi()
-        self.dll = self._load_ffi(self.ffi, integration_dll_path)
+        self.dll = _load_ffi(self.ffi, integration_dll_path)
 
     def _check_external_library_error(self, na_error):
         """
@@ -147,25 +160,33 @@ class _CDataBase:
 class ExternalLibraryCDataExporter(CDataExporter, _CDataBase):
     _supports_releasing_memory: bool = True
 
-    def __init__(self, supports_releasing_memory: bool, args):
-        super().__init__(**args)
+    def __init__(
+        self,
+        debug: bool,
+        integration_dll_path: Path,
+        supports_releasing_memory: bool,
+        args,
+    ):
+        super().__init__(
+            debug=debug, integration_dll_path=integration_dll_path, args=args
+        )
         self._supports_releasing_memory = supports_releasing_memory
 
     def export_schema_from_json(self, json_path, c_schema_ptr):
-        na_error = self.dll.CDataIntegration_ExportSchemaFromJson(
+        na_error = self.dll.external_CDataIntegration_ExportSchemaFromJson(
             str(json_path).encode(), c_schema_ptr
         )
         self._check_external_library_error(na_error)
 
     def export_batch_from_json(self, json_path, num_batch: int, c_array_ptr):
-        na_error = self.dll.CDataIntegration_ExportBatchFromJson(
+        na_error = self.dll.external_CDataIntegration_ExportBatchFromJson(
             str(json_path).encode(), num_batch, c_array_ptr
         )
         self._check_external_library_error(na_error)
 
     @property
     def supports_releasing_memory(self):
-        return self.supports_releasing_memory
+        return self._supports_releasing_memory
 
     def record_allocation_state(self):
         return self.dll.BytesAllocated()
@@ -174,22 +195,30 @@ class ExternalLibraryCDataExporter(CDataExporter, _CDataBase):
 class ExternalLibraryCDataImporter(CDataImporter, _CDataBase):
     _supports_releasing_memory: bool = True
 
-    def __init__(self, supports_releasing_memory: bool, args):
-        super().__init__(**args)
+    def __init__(
+        self,
+        debug: bool,
+        integration_dll_path: Path,
+        supports_releasing_memory: bool,
+        args,
+    ):
+        super().__init__(
+            debug=debug, integration_dll_path=integration_dll_path, args=args
+        )
         self._supports_releasing_memory = supports_releasing_memory
 
     def import_schema_and_compare_to_json(self, json_path, c_schema_ptr):
-        na_error = self.dll.CDataIntegration_ImportSchemaAndCompareToJson(
+        na_error = self.dll.external_CDataIntegration_ImportSchemaAndCompareToJson(
             str(json_path).encode(), c_schema_ptr
         )
         self._check_external_library_error(na_error)
 
     def import_batch_and_compare_to_json(self, json_path, num_batch, c_array_ptr):
-        na_error = self.dll.CDataIntegration_ImportBatchAndCompareToJson(
+        na_error = self.dll.external_CDataIntegration_ImportBatchAndCompareToJson(
             str(json_path).encode(), num_batch, c_array_ptr
         )
         self._check_external_library_error(na_error)
 
     @property
     def supports_releasing_memory(self):
-        return True
+        return self._supports_releasing_memory
