@@ -2320,7 +2320,7 @@ garrow_fixed_shape_tensor_data_type_class_init(GArrowFixedShapeTensorDataTypeCla
    * Since: 21.0.0
    */
   spec = g_param_spec_uint64("n_dimensions",
-                             "NDimensions",
+                             "N dimensions",
                              "Number of dimensions of tensor elements",
                              0,
                              G_MAXUINT64,
