@@ -585,7 +585,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
     std::shared_ptr<HdfsReadableFile> file(new HdfsReadableFile(io_context));
     file->impl_->set_members(path, driver, fs, handle);
     file->impl_->set_buffer_size(buffer_size);
-    return std::move(file);
+    return file;
   }
 
   Status Close() {
@@ -743,7 +743,7 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
                                                         hdfsFile handle) {
     std::shared_ptr<HdfsOutputStream> file(new HdfsOutputStream());
     file->impl_->set_members(path, driver, fs, handle);
-    return std::move(file);
+    return file;
   }
 
   Status Close() {
