@@ -71,9 +71,9 @@ enum class VariantPrimitiveType : int8_t {
   /// Equivalent Parquet Type: DATE
   Date = 11,
   /// Equivalent Parquet Type: TIMESTAMP(isAdjustedToUTC=true, MICROS)
-  Timestamp = 12,
+  TimestampMicros = 12,
   /// Equivalent Parquet Type: TIMESTAMP(isAdjustedToUTC=false, MICROS)
-  TimestampNtz = 13,
+  TimestampMicrosNtz = 13,
   /// Equivalent Parquet Type: FLOAT
   Float = 14,
   /// Equivalent Parquet Type: BINARY
@@ -81,12 +81,12 @@ enum class VariantPrimitiveType : int8_t {
   /// Equivalent Parquet Type: STRING
   String = 16,
   /// Equivalent Parquet Type: TIME(isAdjustedToUTC=false, MICROS)
-  TimeNtz = 17,
+  TimeMicrosNtz = 17,
   /// Equivalent Parquet Type: TIMESTAMP(isAdjustedToUTC=true, NANOS)
-  TimestampTz = 18,  // Assuming TZ stands for TimeZone, and follows the document's
-                     // 'timestamp with time zone'
+  TimestampNanosTz = 18,  // Assuming TZ stands for TimeZone, and follows the document's
+                          // 'timestamp with time zone'
   /// Equivalent Parquet Type: TIMESTAMP(isAdjustedToUTC=false, NANOS)
-  TimestampNtzNanos = 19,  // Differentiating from TimestampNtz (MICROS)
+  TimestampNanosNtz = 19,  // Differentiating from TimestampNtz (MICROS)
   /// Equivalent Parquet Type: UUID
   Uuid = 20
 };
@@ -109,8 +109,8 @@ enum class VariantType {
   Decimal8,
   Decimal16,
   Date,
-  TimestampTz,
-  TimestampNtz,
+  TimestampMicrosTz,
+  TimestampMicrosNtz,
   Float,
   Binary,
   Time,
@@ -140,6 +140,10 @@ class PARQUET_EXPORT VariantMetadata {
   bool sorted_and_unique() const;
   uint8_t offset_size() const;
   uint32_t dictionary_size() const;
+
+  /// Metadata for primitive types and any nested types
+  /// without key dictionary.
+  static constexpr char kEmptyMetadataChars[] = {0x1, 0x0, 0x0};
 
  private:
   static uint32_t loadDictionarySize(std::string_view metadata, uint8_t offset_size);
@@ -220,13 +224,19 @@ class PARQUET_EXPORT VariantValue {
   int32_t getDate() const;
   /// \brief Get the time value without timezone as microseconds since midnight.
   /// \throw ParquetException if the type is not a time type.
-  int64_t getTimeNtz() const;
+  int64_t getTimeMicrosNtz() const;
   /// \brief Get the timestamp value with UTC timezone as microseconds since Unix epoch.
   /// \throw ParquetException if the type is not a timestamp type.
-  int64_t getTimestamp() const;
+  int64_t getTimestampMicros() const;
   /// \brief Get the timestamp value without timezone as microseconds since Unix epoch.
   /// \throw ParquetException if the type is not a timestamp without timezone type.
-  int64_t getTimestampNtz() const;
+  int64_t getTimestampMicrosNtz() const;
+  /// \brief Get the timestamp value with UTC timezone as nanoseconds since Unix epoch.
+  /// \throw ParquetException if the type is not a timestamp type.
+  int64_t getTimestampNanosTz() const;
+  /// \brief Get the timestamp value without timezone as nanoseconds since Unix epoch.
+  /// \throw ParquetException if the type is not a timestamp without timezone type.
+  int64_t getTimestampNanosNtz() const;
   /// \brief Get the UUID value as a 16-byte array.
   /// \throw ParquetException if the type is not a UUID type.
   std::array<uint8_t, 16> getUuid() const;

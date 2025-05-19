@@ -27,6 +27,9 @@
 #include <arrow/testing/gtest_util.h>
 #include <arrow/util/base64.h>
 
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_io.hpp>
+
 namespace parquet::variant {
 
 std::string metadata_test_file_name(std::string_view test_name) {
@@ -45,6 +48,11 @@ std::shared_ptr<::arrow::Buffer> readFromFile(::arrow::fs::FileSystem& fs,
   return buf;
 }
 
+uint8_t primitiveHeader(VariantPrimitiveType primitive) {
+  return (static_cast<uint8_t>(primitive) << 2);
+}
+
+// TODO(mwish): Extract this to primitive metadata test
 TEST(ParquetVariant, MetadataBase) {
   std::string dir_string(parquet::test::get_variant_dir());
   auto file_system = std::make_shared<::arrow::fs::LocalFileSystem>();
@@ -104,6 +112,15 @@ VariantValue LoadVariantValue(const std::string& test_name,
   return VariantValue{metadata, value};
 }
 
+TEST(ParquetVariant, NullValue) {
+  std::string_view empty_metadata(VariantMetadata::kEmptyMetadataChars, 3);
+  const uint8_t null_chars[] = {primitiveHeader(VariantPrimitiveType::NullType)};
+  VariantValue variant{empty_metadata,
+                       std::string_view{reinterpret_cast<const char*>(null_chars), 1}};
+  EXPECT_EQ(VariantType::Null, variant.getType());
+  EXPECT_EQ("Null", variant.typeDebugString());
+}
+
 TEST(ParquetVariant, BooleanValue) {
   // test true
   {
@@ -151,11 +168,48 @@ TEST(ParquetVariant, NumericValues) {
   }
   {
     // FIXME(mwish): https://github.com/apache/parquet-testing/issues/82
+    //  The primitive_int64 is a int32 value, but the metadata is int64.
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_int64", &metadata_buf, &value_buf);
     EXPECT_EQ(VariantType::Int32, variant.getType());
     EXPECT_EQ("Int32", variant.typeDebugString());
     EXPECT_EQ(12345678, variant.getInt32());
+  }
+  {
+    // Test handwritten int64
+    const uint8_t int64_chars[] = {primitiveHeader(VariantPrimitiveType::Int64),
+                                   0xB1,
+                                   0x1C,
+                                   0x6C,
+                                   0xB1,
+                                   0xF4,
+                                   0x10,
+                                   0x22,
+                                   0x11};
+    std::string_view metadata(VariantMetadata::kEmptyMetadataChars, 3);
+    std::string_view value{reinterpret_cast<const char*>(int64_chars),
+                           sizeof(int64_chars)};
+    VariantValue variant{metadata, value};
+    EXPECT_EQ(VariantType::Int64, variant.getType());
+    EXPECT_EQ(1234567890987654321L, variant.getInt64());
+  }
+  {
+    // Test handwritten int64 negative
+    const uint8_t int64_chars[] = {primitiveHeader(VariantPrimitiveType::Int64),
+                                   0xFF,
+                                   0xFF,
+                                   0xFF,
+                                   0xFF,
+                                   0xFF,
+                                   0xFF,
+                                   0xFF,
+                                   0xFF};
+    std::string_view metadata(VariantMetadata::kEmptyMetadataChars, 3);
+    std::string_view value{reinterpret_cast<const char*>(int64_chars),
+                           sizeof(int64_chars)};
+    VariantValue variant{metadata, value};
+    EXPECT_EQ(VariantType::Int64, variant.getType());
+    EXPECT_EQ(-1L, variant.getInt64());
   }
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
@@ -385,6 +439,36 @@ TEST(ParquetVariant, DecimalValues) {
   }
 }
 
+TEST(ParquetVariant, Uuid) {
+  std::string_view empty_metadata(VariantMetadata::kEmptyMetadataChars, 3);
+  const uint8_t uuid_chars[] = {primitiveHeader(VariantPrimitiveType::Uuid),
+                                0x00,
+                                0x11,
+                                0x22,
+                                0x33,
+                                0x44,
+                                0x55,
+                                0x66,
+                                0x77,
+                                0x88,
+                                0x99,
+                                0xAA,
+                                0xBB,
+                                0xCC,
+                                0xDD,
+                                0xEE,
+                                0xFF};
+  std::string_view value(reinterpret_cast<const char*>(uuid_chars), sizeof(uuid_chars));
+  VariantValue variant(empty_metadata, value);
+  ASSERT_EQ(VariantType::Uuid, variant.getType());
+  auto uuid_val = variant.getUuid();
+  boost::uuids::uuid uuid{};
+  for (size_t i = 0; i < uuid.size(); ++i) {
+    uuid.data[i] = uuid_val[i];
+  }
+  EXPECT_EQ("00112233-4455-6677-8899-aabbccddeeff", to_string(uuid));
+}
+
 TEST(ParquetVariant, DateTimeValues) {
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
@@ -397,16 +481,73 @@ TEST(ParquetVariant, DateTimeValues) {
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_timestamp", &metadata_buf, &value_buf);
-    EXPECT_EQ(VariantType::TimestampTz, variant.getType());
-    EXPECT_EQ("TimestampTz", variant.typeDebugString());
-    EXPECT_EQ(1744821296780000, variant.getTimestamp());
+    EXPECT_EQ(VariantType::TimestampMicrosTz, variant.getType());
+    EXPECT_EQ("TimestampMicrosTz", variant.typeDebugString());
+    EXPECT_EQ(1744821296780000, variant.getTimestampMicros());
   }
   {
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_timestampntz", &metadata_buf, &value_buf);
-    EXPECT_EQ(VariantType::TimestampNtz, variant.getType());
-    EXPECT_EQ("TimestampNtz", variant.typeDebugString());
-    EXPECT_EQ(1744806896780000, variant.getTimestampNtz());
+    EXPECT_EQ(VariantType::TimestampMicrosNtz, variant.getType());
+    EXPECT_EQ("TimestampMicrosNtz", variant.typeDebugString());
+    EXPECT_EQ(1744806896780000, variant.getTimestampMicrosNtz());
+  }
+  {
+    // Timestamp Nanos tz negative
+    std::string_view empty_metadata(VariantMetadata::kEmptyMetadataChars, 3);
+    const uint8_t timestamp_nanos_ntz_chars[] = {
+        primitiveHeader(VariantPrimitiveType::TimestampNanosTz),
+        0xFF,
+        0xFF,
+        0xFF,
+        0xFF,
+        0xFF,
+        0xFF,
+        0xFF,
+        0xFF};
+    std::string_view value{reinterpret_cast<const char*>(timestamp_nanos_ntz_chars),
+                           sizeof(timestamp_nanos_ntz_chars)};
+    VariantValue variant{empty_metadata, value};
+    EXPECT_EQ(VariantType::TimestampNanosTz, variant.getType());
+    EXPECT_EQ(-1L, variant.getTimestampNanosTz());
+  }
+  {
+    // Timestamp Nanos tz negative
+    std::string_view empty_metadata(VariantMetadata::kEmptyMetadataChars, 3);
+    const uint8_t timestamp_nanos_ntz_chars[] = {
+        primitiveHeader(VariantPrimitiveType::TimestampNanosTz),
+        0x15,
+        0xC9,
+        0xBB,
+        0x86,
+        0xB4,
+        0x0C,
+        0x37,
+        0x18};
+    std::string_view value{reinterpret_cast<const char*>(timestamp_nanos_ntz_chars),
+                           sizeof(timestamp_nanos_ntz_chars)};
+    VariantValue variant{empty_metadata, value};
+    EXPECT_EQ(VariantType::TimestampNanosTz, variant.getType());
+    EXPECT_EQ(1744877350123456789L, variant.getTimestampNanosTz());
+  }
+  {
+    // Timestamp Nanos Ntz
+    std::string_view empty_metadata(VariantMetadata::kEmptyMetadataChars, 3);
+    const uint8_t timestamp_nanos_ntz_chars[] = {
+        primitiveHeader(VariantPrimitiveType::TimestampNanosNtz),
+        0x15,
+        0xC9,
+        0xBB,
+        0x86,
+        0xB4,
+        0x0C,
+        0x37,
+        0x18};
+    std::string_view value{reinterpret_cast<const char*>(timestamp_nanos_ntz_chars),
+                           sizeof(timestamp_nanos_ntz_chars)};
+    VariantValue variant{empty_metadata, value};
+    EXPECT_EQ(VariantType::TimestampNanosNtz, variant.getType());
+    EXPECT_EQ(1744877350123456789L, variant.getTimestampNanosNtz());
   }
 }
 

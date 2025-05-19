@@ -70,22 +70,22 @@ std::string VariantPrimitiveTypeToString(VariantPrimitiveType type) {
       return "Decimal16";
     case VariantPrimitiveType::Date:
       return "Date";
-    case VariantPrimitiveType::Timestamp:
-      return "Timestamp";
-    case VariantPrimitiveType::TimestampNtz:
-      return "TimestampNtz";
+    case VariantPrimitiveType::TimestampMicros:
+      return "TimestampMicros";
+    case VariantPrimitiveType::TimestampMicrosNtz:
+      return "TimestampMicrosNtz";
     case VariantPrimitiveType::Float:
       return "Float";
     case VariantPrimitiveType::Binary:
       return "Binary";
     case VariantPrimitiveType::String:
       return "String";
-    case VariantPrimitiveType::TimeNtz:
-      return "TimeNtz";
-    case VariantPrimitiveType::TimestampTz:
-      return "TimestampTZ";
-    case VariantPrimitiveType::TimestampNtzNanos:
-      return "TimestampNtzNanos";
+    case VariantPrimitiveType::TimeMicrosNtz:
+      return "TimeMicrosNtz";
+    case VariantPrimitiveType::TimestampNanosTz:
+      return "TimestampNanosTz";
+    case VariantPrimitiveType::TimestampNanosNtz:
+      return "TimestampNanosNtz";
     case VariantPrimitiveType::Uuid:
       return "Uuid";
     default:
@@ -123,10 +123,10 @@ std::string VariantTypeToString(VariantType type) {
       return "Decimal16";
     case VariantType::Date:
       return "Date";
-    case VariantType::TimestampTz:
-      return "TimestampTz";
-    case VariantType::TimestampNtz:
-      return "TimestampNtz";
+    case VariantType::TimestampMicrosTz:
+      return "TimestampMicrosTz";
+    case VariantType::TimestampMicrosNtz:
+      return "TimestampMicrosNtz";
     case VariantType::Float:
       return "Float";
     case VariantType::Binary:
@@ -324,21 +324,21 @@ VariantType VariantValue::getType() const {
           return VariantType::Decimal16;
         case VariantPrimitiveType::Date:
           return VariantType::Date;
-        case VariantPrimitiveType::Timestamp:
-          return VariantType::TimestampTz;
-        case VariantPrimitiveType::TimestampNtz:
-          return VariantType::TimestampNtz;
+        case VariantPrimitiveType::TimestampMicros:
+          return VariantType::TimestampMicrosTz;
+        case VariantPrimitiveType::TimestampMicrosNtz:
+          return VariantType::TimestampMicrosNtz;
         case VariantPrimitiveType::Float:
           return VariantType::Float;
         case VariantPrimitiveType::Binary:
           return VariantType::Binary;
         case VariantPrimitiveType::String:
           return VariantType::String;
-        case VariantPrimitiveType::TimeNtz:
+        case VariantPrimitiveType::TimeMicrosNtz:
           return VariantType::Time;
-        case VariantPrimitiveType::TimestampTz:
+        case VariantPrimitiveType::TimestampNanosTz:
           return VariantType::TimestampNanosTz;
-        case VariantPrimitiveType::TimestampNtzNanos:
+        case VariantPrimitiveType::TimestampNanosNtz:
           return VariantType::TimestampNanosNtz;
         case VariantPrimitiveType::Uuid:
           return VariantType::Uuid;
@@ -392,10 +392,10 @@ std::string_view VariantValue::typeDebugString() const {
       return "Decimal16";
     case VariantType::Date:
       return "Date";
-    case VariantType::TimestampTz:
-      return "TimestampTz";
-    case VariantType::TimestampNtz:
-      return "TimestampNtz";
+    case VariantType::TimestampMicrosTz:
+      return "TimestampMicrosTz";
+    case VariantType::TimestampMicrosNtz:
+      return "TimestampMicrosNtz";
     case VariantType::Float:
       return "Float";
     case VariantType::Binary:
@@ -570,29 +570,31 @@ int32_t VariantValue::getDate() const {
   return getPrimitiveType<int32_t>(VariantPrimitiveType::Date);
 }
 
-int64_t VariantValue::getTimeNtz() const {
-  return getPrimitiveType<int64_t>(VariantPrimitiveType::TimeNtz);
+int64_t VariantValue::getTimeMicrosNtz() const {
+  return getPrimitiveType<int64_t>(VariantPrimitiveType::TimeMicrosNtz);
 }
 
-int64_t VariantValue::getTimestamp() const {
-  return getPrimitiveType<int64_t>(VariantPrimitiveType::Timestamp);
+int64_t VariantValue::getTimestampMicros() const {
+  return getPrimitiveType<int64_t>(VariantPrimitiveType::TimestampMicros);
 }
 
-int64_t VariantValue::getTimestampNtz() const {
-  return getPrimitiveType<int64_t>(VariantPrimitiveType::TimestampNtz);
+int64_t VariantValue::getTimestampMicrosNtz() const {
+  return getPrimitiveType<int64_t>(VariantPrimitiveType::TimestampMicrosNtz);
+}
+
+int64_t VariantValue::getTimestampNanosTz() const {
+  return getPrimitiveType<int64_t>(VariantPrimitiveType::TimestampNanosTz);
+}
+
+int64_t VariantValue::getTimestampNanosNtz() const {
+  return getPrimitiveType<int64_t>(VariantPrimitiveType::TimestampNanosNtz);
 }
 
 std::array<uint8_t, 16> VariantValue::getUuid() const {
   checkPrimitiveType(VariantPrimitiveType::Uuid, /*size_required=*/17);
   std::array<uint8_t, 16> uuid_value;
   memcpy(uuid_value.data(), value_.data() + 1, sizeof(uuid_value));
-#if ARROW_LITTLE_ENDIAN
-  std::array<uint8_t, 16> uuid_value_le;
-  ::arrow::bit_util::ByteSwap(uuid_value_le.data(), uuid_value.data(), 16);
-  return uuid_value_le;
-#else
   return uuid_value;
-#endif
 }
 
 VariantValue::ComplexInfo VariantValue::getObjectInfo(std::string_view value) {
