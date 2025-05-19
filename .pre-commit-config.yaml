@@ -208,14 +208,6 @@ repos:
           ?^cpp/build-support/build-zstd-lib\.sh$|
           ?^cpp/build-support/get-upstream-commit\.sh$|
           ?^cpp/build-support/update-thrift\.sh$|
-          ?^cpp/build/google_cloud_cpp_ep-prefix/src/google_cloud_cpp_ep/external/googleapis/renovate\.sh$|
-          ?^cpp/build/google_cloud_cpp_ep-prefix/src/google_cloud_cpp_ep/external/googleapis/update_libraries\.sh$|
-          ?^cpp/build/google_cloud_cpp_ep-prefix/src/google_cloud_cpp_ep/release/release\.sh$|
-          ?^cpp/build/substrait_ep-prefix/src/substrait_ep/ci/release/dry_run\.sh$|
-          ?^cpp/build/substrait_ep-prefix/src/substrait_ep/ci/release/prepare\.sh$|
-          ?^cpp/build/substrait_ep-prefix/src/substrait_ep/ci/release/publish\.sh$|
-          ?^cpp/build/substrait_ep-prefix/src/substrait_ep/ci/release/run\.sh$|
-          ?^cpp/build/substrait_ep-prefix/src/substrait_ep/ci/release/verify\.sh$|
           ?^cpp/examples/minimal_build/run\.sh$|
           ?^cpp/examples/tutorial_examples/run\.sh$|
           ?^dev/release/05-binary-upload\.sh$|
