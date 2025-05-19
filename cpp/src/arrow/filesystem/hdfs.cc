@@ -93,8 +93,6 @@ class HadoopFileSystem::Impl {
 
   Status Init() {
     RETURN_NOT_OK(ConnectLibHdfs(&driver_));
-    // RETURN_NOT_OK(io::HadoopFileSystem::Connect(&options_.connection_config,
-    // &client_));
 
     if (!driver_) {
       return Status::Invalid("Failed to initialize HDFS driver");
@@ -132,7 +130,6 @@ class HadoopFileSystem::Impl {
 
   Status Close() {
     if (client_) {
-      // RETURN_NOT_OK(client_->Disconnect());
       int ret = driver_->Disconnect(client_);
       CHECK_FAILURE(ret, "hdfsFS::Disconnect");
       return Status::OK();
