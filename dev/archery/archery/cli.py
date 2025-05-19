@@ -708,6 +708,9 @@ def _set_default(opt, default):
 @click.option('--external-library-c-data-array-importer', type=bool, default=False,
                 help='Set external library as supporting importing C Data array in integration tests',
                 envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_C_DATA_ARRAY_IMPORTER")
+@click.option('--external-library-supports-releasing-memory', type=bool, default=False,
+              help='Set external library as supporting releasing memory in integration tests',
+              envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_SUPPORTS_RELEASING_MEMORY")
 @click.option('--target-implementations', default='',
               help=('Target implementations in this integration tests'),
               envvar="ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS")

@@ -645,6 +645,7 @@ def select_testers(with_cpp=True, with_java=True, with_js=True,
             is_c_data_array_exporter_compatible=kwargs.get("external_library_c_data_array_exporter", False),
             is_c_data_schema_importer_compatible=kwargs.get("external_library_c_data_schema_importer", False),
             is_c_data_array_importer_compatible=kwargs.get("external_library_c_data_array_importer", False),
+            supports_releasing_memory=kwargs.get("external_library_supports_releasing_memory", False),
             **kwargs))
 
     return testers, other_testers
