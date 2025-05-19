@@ -22,12 +22,6 @@
 
 #include <hdfs.h>
 
-// #include <cstdint>
-// #include <memory>
-// #include <string>
-// #include <unordered_map>
-// #include <vector>
-
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/hdfs.h"
 #include "arrow/filesystem/type_fwd.h"
@@ -35,8 +29,6 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/visibility.h"
 #include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
-
-// #include "arrow/util/macros.h"
 
 using std::size_t;
 
