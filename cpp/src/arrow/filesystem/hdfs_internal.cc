@@ -39,13 +39,6 @@
 #include <vector>
 #include "arrow/util/basic_decimal.h"
 
-// #include <algorithm>
-// #include <cerrno>
-// #include <cstring>
-// #include <limits>
-// #include <memory>
-// #include <unordered_map>
-
 #ifndef _WIN32
 #  include <dlfcn.h>
 #endif
@@ -55,10 +48,6 @@
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging_internal.h"
-
-// #include "arrow/filesystem/type_fwd.h"
-// #include "arrow/io/interfaces.h"
-// #include "arrow/memory_pool.h"
 
 namespace arrow {
 
