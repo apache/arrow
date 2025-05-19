@@ -116,6 +116,14 @@ struct ARROW_EXPORT S3Options {
   /// This option is ignored on non-Windows, non-macOS systems.
   double request_timeout = -1;
 
+  /// \brief Minimum transfer rate in bytes per second
+  ///
+  /// If the transfer falls below the low_speed_limit during the request_timeout
+  /// period, the transfer will be considered too slow, and abort.
+  /// If negative, the AWS SDK default value is used (typically 1 byte/second).
+  /// This option is only for CURL clients.
+  int low_speed_limit = -1;
+
   /// If non-empty, override region with a connect string such as "localhost:9000"
   // XXX perhaps instead take a URL like "http://localhost:9000"?
   std::string endpoint_override;
