@@ -576,18 +576,6 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
  public:
   explicit HdfsReadableFileImpl(MemoryPool* pool) : pool_(pool) {}
 
-  static Result<std::shared_ptr<HdfsReadableFile>> Make(const std::string& path,
-                                                        int32_t buffer_size,
-                                                        const io::IOContext& io_context,
-                                                        internal::LibHdfsShim* driver,
-                                                        hdfsFS fs, hdfsFile handle) {
-    // Must use `new` due to private constructor
-    std::shared_ptr<HdfsReadableFile> file(new HdfsReadableFile(io_context));
-    file->impl_->set_members(path, driver, fs, handle);
-    file->impl_->set_buffer_size(buffer_size);
-    return file;
-  }
-
   Status Close() {
     if (is_open_) {
       // is_open_ must be set to false in the beginning, because the destructor
@@ -729,6 +717,16 @@ Status HdfsReadableFile::Seek(int64_t position) { return impl_->Seek(position); 
 
 Result<int64_t> HdfsReadableFile::Tell() const { return impl_->Tell(); }
 
+Result<std::shared_ptr<HdfsReadableFile>> HdfsReadableFile::Make(
+    const std::string& path, int32_t buffer_size, const io::IOContext& io_context,
+    internal::LibHdfsShim* driver, hdfsFS fs, hdfsFile handle) {
+  // Must use `new` due to private constructor
+  std::shared_ptr<HdfsReadableFile> file(new HdfsReadableFile(io_context));
+  file->impl_->set_members(path, driver, fs, handle);
+  file->impl_->set_buffer_size(buffer_size);
+  return file;
+}
+
 // ----------------------------------------------------------------------
 // File writing
 
@@ -736,15 +734,6 @@ Result<int64_t> HdfsReadableFile::Tell() const { return impl_->Tell(); }
 class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
  public:
   HdfsOutputStreamImpl() {}
-
-  static Result<std::shared_ptr<HdfsOutputStream>> Make(const std::string& path,
-                                                        int32_t buffer_size,
-                                                        LibHdfsShim* driver, hdfsFS fs,
-                                                        hdfsFile handle) {
-    std::shared_ptr<HdfsOutputStream> file(new HdfsOutputStream());
-    file->impl_->set_members(path, driver, fs, handle);
-    return file;
-  }
 
   Status Close() {
     if (is_open_) {
@@ -810,6 +799,16 @@ Status HdfsOutputStream::Write(const void* buffer, int64_t nbytes) {
 Status HdfsOutputStream::Flush() { return impl_->Flush(); }
 
 Result<int64_t> HdfsOutputStream::Tell() const { return impl_->Tell(); }
+
+Result<std::shared_ptr<HdfsOutputStream>> HdfsOutputStream::Make(const std::string& path,
+                                                                 int32_t buffer_size,
+                                                                 LibHdfsShim* driver,
+                                                                 hdfsFS fs,
+                                                                 hdfsFile handle) {
+  std::shared_ptr<HdfsOutputStream> file(new HdfsOutputStream());
+  file->impl_->set_members(path, driver, fs, handle);
+  return file;
+}
 
 }  // namespace io::internal
 }  // namespace arrow
