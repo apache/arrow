@@ -52,6 +52,7 @@
 #include <aws/core/client/RetryStrategy.h>
 #include <aws/core/http/HttpResponse.h>
 #include <aws/core/utils/Outcome.h>
+#include <aws/core/utils/logging/DefaultLogSystem.h>
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
 #include <aws/core/utils/stream/PreallocatedStreamBuf.h>
 #include <aws/core/utils/xml/XmlSerializer.h>
@@ -616,6 +617,24 @@ class WrappedRetryStrategy : public Aws::Client::RetryStrategy {
   }
 
   std::shared_ptr<S3RetryStrategy> s3_retry_strategy_;
+};
+
+// An AWS logging system that wraps a provided S3Logger
+class WrappedS3Logger : public Aws::Utils::Logging::DefaultLogSystem {
+  private:
+    std::shared_ptr<S3Logger> logger;
+  public:
+    explicit WrappedS3Logger(Aws::Utils::Logging::LogLevel logLevel, std::shared_ptr<S3Logger> logger)
+      : DefaultLogSystem(logLevel, "")
+    {
+      this->logger = logger;
+    }
+
+  protected:
+    void ProcessFormattedStatement(Aws::String &&statement) override
+    {
+        logger->log(statement);
+    }
 };
 
 class S3Client : public Aws::S3::S3Client {
@@ -3543,11 +3562,19 @@ struct AwsInstance {
         };
 #endif
     aws_options_.loggingOptions.logLevel = aws_log_level;
-    // By default the AWS SDK logs to files, log to console instead
-    aws_options_.loggingOptions.logger_create_fn = [this] {
-      return std::make_shared<Aws::Utils::Logging::ConsoleLogSystem>(
-          aws_options_.loggingOptions.logLevel);
-    };
+
+    if (options.logger) {
+      aws_options_.loggingOptions.logger_create_fn = [this, options] {
+        return std::make_shared<WrappedS3Logger>(
+            aws_options_.loggingOptions.logLevel, options.logger);
+      };
+    } else {
+      // By default the AWS SDK logs to files, log to console instead
+      aws_options_.loggingOptions.logger_create_fn = [this] {
+        return std::make_shared<Aws::Utils::Logging::ConsoleLogSystem>(
+            aws_options_.loggingOptions.logLevel);
+      };
+    }
 #if ARROW_AWS_SDK_VERSION_CHECK(1, 9, 272)
     // ARROW-18290: escape all special chars for compatibility with non-AWS S3 backends.
     // This configuration options is only available with AWS SDK 1.9.272 and later.
@@ -3635,7 +3662,7 @@ S3GlobalOptions S3GlobalOptions::Defaults() {
   if (uint32_t u; ::arrow::internal::ParseUnsigned(value.data(), value.size(), &u)) {
     num_event_loop_threads = u;
   }
-  return S3GlobalOptions{log_level, num_event_loop_threads};
+  return S3GlobalOptions{log_level, nullptr, num_event_loop_threads};
 }
 
 // -----------------------------------------------------------------------
