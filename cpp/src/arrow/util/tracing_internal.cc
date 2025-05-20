@@ -93,6 +93,10 @@ class OtlpOStreamExporter final : public sdktrace::SpanExporter {
 
     return otel::sdk::common::ExportResult::kSuccess;
   }
+  bool ForceFlush(std::chrono::microseconds timeout) noexcept override {
+    (*out_).flush();
+    return true;
+  }
   bool Shutdown(std::chrono::microseconds timeout =
                     std::chrono::microseconds(0)) noexcept override {
     return exporter_.Shutdown(timeout);
