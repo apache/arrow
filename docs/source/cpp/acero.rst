@@ -30,8 +30,8 @@ Acero: A C++ streaming execution engine
 .. note::
 
     If you are interested in contributing to Acero or learning about its
-    internals, please see the `Acero Developer's Guide
-    <../developers/cpp/acero>`_.
+    internals, please see the :ref:`Acero Developer's Guide
+    <developing-acero>`.
 
 For many complex computations, successive direct :ref:`invocation of
 compute functions <invoking-compute-functions>` is not feasible
