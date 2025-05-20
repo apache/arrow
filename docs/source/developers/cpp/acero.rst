@@ -18,7 +18,6 @@
 .. default-domain:: cpp
 .. highlight:: cpp
 .. cpp:namespace:: arrow::acero
-.. _developing-acero:
 
 ================
 Developing Acero
