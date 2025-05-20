@@ -248,11 +248,10 @@ jobs:
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: apache/infrastructure-actions/stash/restore@3354c1565d4b0e335b78a76aedd82153a9e144d4
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-ccache-macos-${{ matrix.macos-version }}-
+          key: cpp-ccache-macos-${{ matrix.macos-version }}
       - name: Build
         run: |
           if [ "${{ matrix.macos-version }}" = "13" ]; then
@@ -353,14 +352,10 @@ jobs:
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: apache/infrastructure-actions/stash/restore@3354c1565d4b0e335b78a76aedd82153a9e144d4
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-ccache-windows-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-ccache-windows-${{ env.CACHE_VERSION }}-
-        env:
-          # We can invalidate the current cache by updating this.
-          CACHE_VERSION: "2022-09-13"
+          key: cpp-ccache-windows-${{ matrix.macos-version }}
       - name: Build
         shell: cmd
         run: |
@@ -440,11 +435,10 @@ jobs:
         shell: msys2 {0}
         run: ci/scripts/msys2_setup.sh cpp
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: apache/infrastructure-actions/stash/restore@3354c1565d4b0e335b78a76aedd82153a9e144d4
         with:
           path: ccache
-          key: cpp-ccache-${{ matrix.msystem_lower}}-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-ccache-${{ matrix.msystem_lower}}-
+          key: cpp-ccache-${{ matrix.msystem_lower}}
       - name: Build
         shell: msys2 {0}
         run: |
