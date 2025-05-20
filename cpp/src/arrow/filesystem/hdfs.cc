@@ -129,11 +129,19 @@ class HadoopFileSystem::Impl {
   }
 
   Status Close() {
-    if (client_) {
-      int ret = driver_->Disconnect(client_);
-      CHECK_FAILURE(ret, "hdfsFS::Disconnect");
-      return Status::OK();
+    if (client_ == nullptr) {
+      return Status::OK();  // already closed
     }
+
+    if (!driver_) {
+      return Status::Invalid("driver_ is null in Close()");
+    }
+
+    int ret = driver_->Disconnect(client_);
+    CHECK_FAILURE(ret, "hdfsFS::Disconnect");
+
+    client_ = nullptr;  // prevent double-disconnect
+
     return Status::OK();
   }
 
