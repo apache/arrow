@@ -118,6 +118,60 @@ func makeRecordBatch() throws -> RecordBatch {
     }
 }
 
+final class IPCStreamReaderTests: XCTestCase {
+    func testRBInMemoryToFromStream() throws {
+        let schema = makeSchema()
+        let recordBatch = try makeRecordBatch()
+        let arrowWriter = ArrowWriter()
+        let writerInfo = ArrowWriter.Info(.recordbatch, schema: schema, batches: [recordBatch])
+        switch arrowWriter.writeSteaming(writerInfo) {
+        case .success(let writeData):
+            let arrowReader = ArrowReader()
+            switch arrowReader.readStreaming(writeData) {
+            case .success(let result):
+                let recordBatches = result.batches
+                XCTAssertEqual(recordBatches.count, 1)
+                for recordBatch in recordBatches {
+                    XCTAssertEqual(recordBatch.length, 4)
+                    XCTAssertEqual(recordBatch.columns.count, 5)
+                    XCTAssertEqual(recordBatch.schema.fields.count, 5)
+                    XCTAssertEqual(recordBatch.schema.fields[0].name, "col1")
+                    XCTAssertEqual(recordBatch.schema.fields[0].type.info, ArrowType.ArrowUInt8)
+                    XCTAssertEqual(recordBatch.schema.fields[1].name, "col2")
+                    XCTAssertEqual(recordBatch.schema.fields[1].type.info, ArrowType.ArrowString)
+                    XCTAssertEqual(recordBatch.schema.fields[2].name, "col3")
+                    XCTAssertEqual(recordBatch.schema.fields[2].type.info, ArrowType.ArrowDate32)
+                    XCTAssertEqual(recordBatch.schema.fields[3].name, "col4")
+                    XCTAssertEqual(recordBatch.schema.fields[3].type.info, ArrowType.ArrowInt32)
+                    XCTAssertEqual(recordBatch.schema.fields[4].name, "col5")
+                    XCTAssertEqual(recordBatch.schema.fields[4].type.info, ArrowType.ArrowFloat)
+                    let columns = recordBatch.columns
+                    XCTAssertEqual(columns[0].nullCount, 2)
+                    let dateVal =
+                        "\((columns[2].array as! AsString).asString(0))" // swiftlint:disable:this force_cast
+                    XCTAssertEqual(dateVal, "2014-09-10 00:00:00 +0000")
+                    let stringVal =
+                        "\((columns[1].array as! AsString).asString(1))" // swiftlint:disable:this force_cast
+                    XCTAssertEqual(stringVal, "test22")
+                    let uintVal =
+                        "\((columns[0].array as! AsString).asString(0))" // swiftlint:disable:this force_cast
+                    XCTAssertEqual(uintVal, "10")
+                    let stringVal2 =
+                        "\((columns[1].array as! AsString).asString(3))" // swiftlint:disable:this force_cast
+                    XCTAssertEqual(stringVal2, "test44")
+                    let uintVal2 =
+                        "\((columns[0].array as! AsString).asString(3))" // swiftlint:disable:this force_cast
+                    XCTAssertEqual(uintVal2, "44")
+                }
+            case.failure(let error):
+                throw error
+            }
+        case .failure(let error):
+            throw error
+        }
+    }
+}
+
 final class IPCFileReaderTests: XCTestCase { // swiftlint:disable:this type_body_length
     func testFileReader_struct() throws {
         let fileURL = currentDirectory().appendingPathComponent("../../testdata_struct.arrow")
@@ -204,10 +258,10 @@ final class IPCFileReaderTests: XCTestCase { // swiftlint:disable:this type_body
         let arrowWriter = ArrowWriter()
         // write data from file to a stream
         let writerInfo = ArrowWriter.Info(.recordbatch, schema: fileRBs[0].schema, batches: fileRBs)
-        switch arrowWriter.toStream(writerInfo) {
+        switch arrowWriter.writeFile(writerInfo) {
         case .success(let writeData):
             // read stream back into recordbatches
-            try checkBoolRecordBatch(arrowReader.fromStream(writeData))
+            try checkBoolRecordBatch(arrowReader.readFile(writeData))
         case .failure(let error):
             throw error
         }
@@ -227,10 +281,10 @@ final class IPCFileReaderTests: XCTestCase { // swiftlint:disable:this type_body
         let recordBatch = try makeRecordBatch()
         let arrowWriter = ArrowWriter()
         let writerInfo = ArrowWriter.Info(.recordbatch, schema: schema, batches: [recordBatch])
-        switch arrowWriter.toStream(writerInfo) {
+        switch arrowWriter.writeFile(writerInfo) {
         case .success(let writeData):
             let arrowReader = ArrowReader()
-            switch arrowReader.fromStream(writeData) {
+            switch arrowReader.readFile(writeData) {
             case .success(let result):
                 let recordBatches = result.batches
                 XCTAssertEqual(recordBatches.count, 1)
@@ -279,10 +333,10 @@ final class IPCFileReaderTests: XCTestCase { // swiftlint:disable:this type_body
         let schema = makeSchema()
         let arrowWriter = ArrowWriter()
         let writerInfo = ArrowWriter.Info(.schema, schema: schema)
-        switch arrowWriter.toStream(writerInfo) {
+        switch arrowWriter.writeFile(writerInfo) {
         case .success(let writeData):
             let arrowReader = ArrowReader()
-            switch arrowReader.fromStream(writeData) {
+            switch arrowReader.readFile(writeData) {
             case .success(let result):
                 XCTAssertNotNil(result.schema)
                 let schema  = result.schema!
@@ -362,10 +416,10 @@ final class IPCFileReaderTests: XCTestCase { // swiftlint:disable:this type_body
         let dataset = try makeBinaryDataset()
         let writerInfo = ArrowWriter.Info(.recordbatch, schema: dataset.0, batches: [dataset.1])
         let arrowWriter = ArrowWriter()
-        switch arrowWriter.toStream(writerInfo) {
+        switch arrowWriter.writeFile(writerInfo) {
         case .success(let writeData):
             let arrowReader = ArrowReader()
-            switch arrowReader.fromStream(writeData) {
+            switch arrowReader.readFile(writeData) {
             case .success(let result):
                 XCTAssertNotNil(result.schema)
                 let schema  = result.schema!
@@ -391,10 +445,10 @@ final class IPCFileReaderTests: XCTestCase { // swiftlint:disable:this type_body
         let dataset = try makeTimeDataset()
         let writerInfo = ArrowWriter.Info(.recordbatch, schema: dataset.0, batches: [dataset.1])
         let arrowWriter = ArrowWriter()
-        switch arrowWriter.toStream(writerInfo) {
+        switch arrowWriter.writeFile(writerInfo) {
         case .success(let writeData):
             let arrowReader = ArrowReader()
-            switch arrowReader.fromStream(writeData) {
+            switch arrowReader.readFile(writeData) {
             case .success(let result):
                 XCTAssertNotNil(result.schema)
                 let schema  = result.schema!

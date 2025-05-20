@@ -123,6 +123,7 @@ public class ArrowWriter { // swiftlint:disable:this type_body_length
             let startIndex = writer.count
             switch writeRecordBatch(batch: batch) {
             case .success(let rbResult):
+                withUnsafeBytes(of: CONTINUATIONMARKER.littleEndian) {writer.append(Data($0))}
                 withUnsafeBytes(of: rbResult.1.o.littleEndian) {writer.append(Data($0))}
                 writer.append(rbResult.0)
                 switch writeRecordBatchData(&writer, batch: batch) {
@@ -232,7 +233,7 @@ public class ArrowWriter { // swiftlint:disable:this type_body_length
         return .success(fbb.data)
     }
 
-    private func writeStream(_ writer: inout DataWriter, info: ArrowWriter.Info) -> Result<Bool, ArrowError> {
+    private func writeFile(_ writer: inout DataWriter, info: ArrowWriter.Info) -> Result<Bool, ArrowError> {
         var fbb: FlatBufferBuilder = FlatBufferBuilder()
         switch writeSchema(&fbb, schema: info.schema) {
         case .success(let schemaOffset):
@@ -264,9 +265,41 @@ public class ArrowWriter { // swiftlint:disable:this type_body_length
         return .success(true)
     }
 
-    public func toStream(_ info: ArrowWriter.Info) -> Result<Data, ArrowError> {
+    public func writeSteaming(_ info: ArrowWriter.Info) -> Result<Data, ArrowError> {
+        let writer: any DataWriter = InMemDataWriter()
+        switch toMessage(info.schema) {
+        case .success(let schemaData):
+            withUnsafeBytes(of: CONTINUATIONMARKER.littleEndian) {writer.append(Data($0))}
+            withUnsafeBytes(of: UInt32(schemaData.count).littleEndian) {writer.append(Data($0))}
+            writer.append(schemaData)
+        case .failure(let error):
+            return .failure(error)
+        }
+
+        for batch in info.batches {
+            switch toMessage(batch) {
+            case .success(let batchData):
+                withUnsafeBytes(of: CONTINUATIONMARKER.littleEndian) {writer.append(Data($0))}
+                withUnsafeBytes(of: UInt32(batchData[0].count).littleEndian) {writer.append(Data($0))}
+                writer.append(batchData[0])
+                writer.append(batchData[1])
+            case .failure(let error):
+                return .failure(error)
+            }
+        }
+
+        withUnsafeBytes(of: CONTINUATIONMARKER.littleEndian) {writer.append(Data($0))}
+        withUnsafeBytes(of: UInt32(0).littleEndian) {writer.append(Data($0))}
+        if let memWriter = writer as? InMemDataWriter {
+            return .success(memWriter.data)
+        } else {
+            return .failure(.invalid("Unable to cast writer"))
+        }
+    }
+
+    public func writeFile(_ info: ArrowWriter.Info) -> Result<Data, ArrowError> {
         var writer: any DataWriter = InMemDataWriter()
-        switch writeStream(&writer, info: info) {
+        switch writeFile(&writer, info: info) {
         case .success:
             if let memWriter = writer as? InMemDataWriter {
                 return .success(memWriter.data)
@@ -293,7 +326,7 @@ public class ArrowWriter { // swiftlint:disable:this type_body_length
 
         var writer: any DataWriter = FileDataWriter(fileHandle)
         writer.append(FILEMARKER.data(using: .utf8)!)
-        switch writeStream(&writer, info: info) {
+        switch writeFile(&writer, info: info) {
         case .success:
             writer.append(FILEMARKER.data(using: .utf8)!)
         case .failure(let error):
