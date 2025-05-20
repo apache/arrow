@@ -167,6 +167,44 @@ Future<std::vector<ExecBatch>> StartAndCollect(
       });
 }
 
+Future<std::vector<std::vector<ExecBatch>>> StartAndCollect(
+    ExecPlan* plan, std::vector<AsyncGenerator<std::optional<ExecBatch>>> gens) {
+  RETURN_NOT_OK(plan->Validate());
+  plan->StartProducing();
+
+  auto collected_futs = ::arrow::internal::MapVector(
+      [](AsyncGenerator<std::optional<ExecBatch>> gen) {
+        return CollectAsyncGenerator(gen);
+      },
+      std::move(gens));
+
+  auto wait_for = ::arrow::internal::MapVector(
+      [](Future<std::vector<std::optional<ExecBatch>>> fut) { return Future<>(fut); },
+      collected_futs);
+  wait_for.push_back(plan->finished());
+
+  static_assert(
+      std::is_same_v<decltype(collected_futs),
+                     std::vector<Future<std::vector<std::optional<ExecBatch>>>>>);
+
+  auto r = AllFinished(wait_for).Then([collected_futs]() mutable
+                                      -> Result<std::vector<std::vector<ExecBatch>>> {
+    return ::arrow::internal::MaybeMapVector(
+        [](Future<std::vector<std::optional<ExecBatch>>> collected_fut)
+            -> Result<std::vector<ExecBatch>> {
+          ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
+
+          static_assert(
+              std::is_same_v<decltype(collected), std::vector<std::optional<ExecBatch>>>);
+          return ::arrow::internal::MapVector(
+              [](std::optional<ExecBatch> batch) { return batch.value_or(ExecBatch()); },
+              std::move(collected));
+        },
+        std::move(collected_futs));
+  });
+  return r;
+}
+
 namespace {
 
 Result<ExecBatch> MakeIntegerBatch(const std::vector<std::function<int64_t(int)>>& gens,
