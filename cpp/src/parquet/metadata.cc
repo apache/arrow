@@ -340,9 +340,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   }
 
   inline std::shared_ptr<Statistics> statistics() const {
-    if (is_stats_set() && possible_stats_ == nullptr) {
-      // Because we are modifying possible_stats_ in a const method
-      const std::lock_guard<std::mutex> guard(stats_mutex_);
+    const std::lock_guard<std::mutex> guard(stats_mutex_);
+    if (possible_stats_ == nullptr) {
       possible_stats_ = MakeColumnStats(*column_metadata_, descr_);
     }
     return possible_stats_;
