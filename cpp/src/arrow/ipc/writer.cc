@@ -324,32 +324,36 @@ class RecordBatchSerializer {
     // Share slicing logic between ListArray, BinaryArray and LargeBinaryArray
     using offset_type = typename ArrayType::offset_type;
 
-    auto offsets = array.value_offsets();
+    if (array.length() == 0) {
+      *value_offsets = array.value_offsets();
+      return Status::OK();
+    }
 
     int64_t required_bytes = sizeof(offset_type) * (array.length() + 1);
-    if (array.length() > 0 && array.value_offset(0) > 0) {
+    if (array.value_offset(0) > 0) {
       // If the offset of the first value is non-zero, then we must create a new
       // offsets buffer with shifted offsets.
       ARROW_ASSIGN_OR_RAISE(auto shifted_offsets,
                             AllocateBuffer(required_bytes, options_.memory_pool));
 
       auto dest_offsets = shifted_offsets->mutable_span_as<offset_type>();
-      const offset_type start_offset = array.value_offset(0);
+      const offset_type* source_offsets = array.raw_value_offsets();
+      const offset_type start_offset = source_offsets[0];
 
-      for (int i = 0; i < array.length(); ++i) {
-        dest_offsets[i] = array.value_offset(i) - start_offset;
+      for (int i = 0; i <= array.length(); ++i) {
+        dest_offsets[i] = source_offsets[i] - start_offset;
       }
-      // Final offset
-      dest_offsets[array.length()] = array.value_offset(array.length()) - start_offset;
-      offsets = std::move(shifted_offsets);
+      *value_offsets = std::move(shifted_offsets);
     } else {
       // ARROW-6046: if we have a truncated slice with unused leading or
-      // trailing data, slice it.
-      if (offsets != nullptr && (array.offset() > 0 || offsets->size() > required_bytes)) {
-        offsets = SliceBuffer(offsets, array.offset() * sizeof(offset_type), required_bytes);
+      // trailing data, then we slice it.
+      if (array.offset() > 0 || array.value_offsets()->size() > required_bytes) {
+        *value_offsets = SliceBuffer(
+            array.value_offsets(), array.offset() * sizeof(offset_type), required_bytes);
+      } else {
+        *value_offsets = array.value_offsets();
       }
     }
-    *value_offsets = std::move(offsets);
     return Status::OK();
   }
 
