@@ -327,9 +327,9 @@ class RecordBatchSerializer {
     auto offsets = array.value_offsets();
 
     int64_t required_bytes = sizeof(offset_type) * (array.length() + 1);
-    if (array.offset() != 0 || (array.length() > 0 && array.value_offset(0) > 0)) {
-      // If we have a non-zero offset, we must create a new offsets buffer with
-      // shifted offsets.
+    if (array.length() > 0 && array.value_offset(0) > 0) {
+      // If the offset of the first value is non-zero, then we must create a new
+      // offsets buffer with shifted offsets.
       ARROW_ASSIGN_OR_RAISE(auto shifted_offsets,
                             AllocateBuffer(required_bytes, options_.memory_pool));
 
@@ -343,10 +343,10 @@ class RecordBatchSerializer {
       dest_offsets[array.length()] = array.value_offset(array.length()) - start_offset;
       offsets = std::move(shifted_offsets);
     } else {
-      // ARROW-6046: Slice offsets to used extent, in case we have a truncated
-      // slice
-      if (offsets != nullptr && offsets->size() > required_bytes) {
-        offsets = SliceBuffer(offsets, 0, required_bytes);
+      // ARROW-6046: if we have a truncated slice with unused leading or
+      // trailing data, slice it.
+      if (offsets != nullptr && (array.offset() > 0 || offsets->size() > required_bytes)) {
+        offsets = SliceBuffer(offsets, array.offset() * sizeof(offset_type), required_bytes);
       }
     }
     *value_offsets = std::move(offsets);
