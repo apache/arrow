@@ -551,35 +551,35 @@ Installing Manually
       $ tree ~/.m2/repository/org/apache/arrow
       .
       ├── arrow-flight
-      │   ├── 9.0.0.dev501
-      │   │   └── arrow-flight-9.0.0.dev501.pom
+      │   ├── 9.0.0.dev501
+      │   │   └── arrow-flight-9.0.0.dev501.pom
       ├── arrow-format
-      │   ├── 9.0.0.dev501
-      │   │   ├── arrow-format-9.0.0.dev501.jar
-      │   │   └── arrow-format-9.0.0.dev501.pom
+      │   ├── 9.0.0.dev501
+      │   │   ├── arrow-format-9.0.0.dev501.jar
+      │   │   └── arrow-format-9.0.0.dev501.pom
       ├── arrow-java-root
-      │   ├── 9.0.0.dev501
-      │   │   └── arrow-java-root-9.0.0.dev501.pom
+      │   ├── 9.0.0.dev501
+      │   │   └── arrow-java-root-9.0.0.dev501.pom
       ├── arrow-memory
-      │   ├── 9.0.0.dev501
-      │   │   └── arrow-memory-9.0.0.dev501.pom
+      │   ├── 9.0.0.dev501
+      │   │   └── arrow-memory-9.0.0.dev501.pom
       ├── arrow-memory-core
-      │   ├── 9.0.0.dev501
-      │   │   ├── arrow-memory-core-9.0.0.dev501.jar
-      │   │   └── arrow-memory-core-9.0.0.dev501.pom
+      │   ├── 9.0.0.dev501
+      │   │   ├── arrow-memory-core-9.0.0.dev501.jar
+      │   │   └── arrow-memory-core-9.0.0.dev501.pom
       ├── arrow-memory-netty
-      │   ├── 9.0.0.dev501
-      │   │   ├── arrow-memory-netty-9.0.0.dev501.jar
-      │   │   └── arrow-memory-netty-9.0.0.dev501.pom
+      │   ├── 9.0.0.dev501
+      │   │   ├── arrow-memory-netty-9.0.0.dev501.jar
+      │   │   └── arrow-memory-netty-9.0.0.dev501.pom
       ├── arrow-vector
-      │   ├── 9.0.0.dev501
-      │   │   ├── _remote.repositories
-      │   │   ├── arrow-vector-9.0.0.dev501.jar
-      │   │   └── arrow-vector-9.0.0.dev501.pom
+      │   ├── 9.0.0.dev501
+      │   │   ├── _remote.repositories
+      │   │   ├── arrow-vector-9.0.0.dev501.jar
+      │   │   └── arrow-vector-9.0.0.dev501.pom
       └── flight-core
          ├── 9.0.0.dev501
-         │   ├── flight-core-9.0.0.dev501.jar
-         │   └── flight-core-9.0.0.dev501.pom
+          ├── 9.0.0.dev501
+          │   ├── flight-core-9.0.0.dev501.jar
 
 6. Compile your project like usual with ``mvn clean install``.
 
