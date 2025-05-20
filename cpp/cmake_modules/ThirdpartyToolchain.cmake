@@ -4851,11 +4851,12 @@ macro(build_opentelemetry)
   set(OPENTELEMETRY_LIBRARIES)
   set(OPENTELEMETRY_CXX_FLAGS "${EP_CXX_FLAGS}")
   # GH-46508: Supress warnings that won't be demoted by -Wno-error in recent Clang.
-  if((CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND
-      CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "19.1.0") OR
-     (CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" AND
-      CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "17.0.0"))
-    string(APPEND OPENTELEMETRY_CXX_FLAGS " -Wno-error=missing-template-arg-list-after-template-kw")
+  if((CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION
+                                                 VERSION_GREATER_EQUAL "19.1.0")
+     OR (CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" AND CMAKE_CXX_COMPILER_VERSION
+                                                         VERSION_GREATER_EQUAL "17.0.0"))
+    string(APPEND OPENTELEMETRY_CXX_FLAGS
+           " -Wno-error=missing-template-arg-list-after-template-kw")
   endif()
 
   foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_APIS})
@@ -4902,10 +4903,8 @@ macro(build_opentelemetry)
   endforeach()
 
   set(OPENTELEMETRY_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      "-DCMAKE_INSTALL_PREFIX=${OPENTELEMETRY_PREFIX}"
-      -DCMAKE_CXX_FLAGS=${OPENTELEMETRY_CXX_FLAGS}
-      -DWITH_EXAMPLES=OFF)
+      ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${OPENTELEMETRY_PREFIX}"
+      -DCMAKE_CXX_FLAGS=${OPENTELEMETRY_CXX_FLAGS} -DWITH_EXAMPLES=OFF)
 
   set(OPENTELEMETRY_PREFIX_PATH_LIST)
   # Don't specify the DEPENDS unless we actually have dependencies, else
