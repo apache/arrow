@@ -44,3 +44,4 @@ be formulated and executed.
    acero/overview
    acero/user_guide
    acero/substrait
+   ../developers/cpp/acero
