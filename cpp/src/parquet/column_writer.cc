@@ -2395,7 +2395,8 @@ template <>
 Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
     const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
-  if (!::arrow::is_base_binary_like(array.type()->id())) {
+  if (!::arrow::is_base_binary_like(array.type()->id()) &&
+      !::arrow::is_binary_view_like(array.type()->id())) {
     ARROW_UNSUPPORTED();
   }
 
