@@ -303,6 +303,12 @@ class BaseBinaryBuilder
     return Status::OK();
   }
 
+  /// Get the builder to keep track of the offsets.
+  TypedBufferBuilder<offset_type>* offsets_builder() { return &offsets_builder_; }
+  /// Get the builder to keep track of the value binary data.
+  TypedBufferBuilder<uint8_t>* value_data_builder() { return &value_data_builder_; }
+  using ArrayBuilder::UnsafeAppendToBitmap;
+
   void Reset() override {
     ArrayBuilder::Reset();
     offsets_builder_.Reset();

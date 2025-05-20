@@ -1267,6 +1267,27 @@ class BM_ArrowBinaryPlain : public BenchmarkDecodeArrowByteArray {
   }
 };
 
+class BM_ArrowBinaryDeltaLength : public BenchmarkDecodeArrowByteArray {
+ public:
+  void DoEncodeArrow() override {
+    auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+    encoder->Put(*input_array_);
+    buffer_ = encoder->FlushValues();
+  }
+
+  void DoEncodeLowLevel() override {
+    auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+    encoder->Put(values_.data(), num_values_);
+    buffer_ = encoder->FlushValues();
+  }
+
+  std::unique_ptr<ByteArrayDecoder> InitializeDecoder() override {
+    auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+    decoder->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
+    return decoder;
+  }
+};
+
 BENCHMARK_DEFINE_F(BM_ArrowBinaryPlain, EncodeArrow)
 (benchmark::State& state) { EncodeArrowBenchmark(state); }
 BENCHMARK_REGISTER_F(BM_ArrowBinaryPlain, EncodeArrow)->Range(1 << 18, 1 << 20);
@@ -1282,6 +1303,16 @@ BENCHMARK_REGISTER_F(BM_ArrowBinaryPlain, DecodeArrow_Dense)->Range(MIN_RANGE, M
 BENCHMARK_DEFINE_F(BM_ArrowBinaryPlain, DecodeArrowNonNull_Dense)
 (benchmark::State& state) { DecodeArrowNonNullDenseBenchmark(state); }
 BENCHMARK_REGISTER_F(BM_ArrowBinaryPlain, DecodeArrowNonNull_Dense)
+    ->Range(MIN_RANGE, MAX_RANGE);
+
+BENCHMARK_DEFINE_F(BM_ArrowBinaryDeltaLength, DecodeArrow_Dense)
+(benchmark::State& state) { DecodeArrowDenseBenchmark(state); }
+BENCHMARK_REGISTER_F(BM_ArrowBinaryDeltaLength, DecodeArrow_Dense)
+    ->Range(MIN_RANGE, MAX_RANGE);
+
+BENCHMARK_DEFINE_F(BM_ArrowBinaryDeltaLength, DecodeArrowNotNull_Dense)
+(benchmark::State& state) { DecodeArrowNonNullDenseBenchmark(state); }
+BENCHMARK_REGISTER_F(BM_ArrowBinaryDeltaLength, DecodeArrowNotNull_Dense)
     ->Range(MIN_RANGE, MAX_RANGE);
 
 BENCHMARK_DEFINE_F(BM_ArrowBinaryPlain, DecodeArrow_Dict)

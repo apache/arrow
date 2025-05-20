@@ -496,6 +496,8 @@ struct ArrowBinaryHelper<ByteArrayType> {
     return acc_->builder->AppendNull();
   }
 
+  bool CanFit(int64_t length) const { return length <= chunk_space_remaining_; }
+
  private:
   Status PushChunk() {
     ARROW_ASSIGN_OR_RAISE(auto chunk, acc_->builder->Finish());
@@ -503,8 +505,6 @@ struct ArrowBinaryHelper<ByteArrayType> {
     chunk_space_remaining_ = ::arrow::kBinaryMemoryLimit;
     return Status::OK();
   }
-
-  bool CanFit(int64_t length) const { return length <= chunk_space_remaining_; }
 
   Accumulator* acc_;
   int64_t entries_remaining_;
@@ -1675,12 +1675,89 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     num_valid_values_ = num_length;
   }
 
+  Status DecodeArrowDenseFastPath(
+      int num_values, int null_count, const uint8_t* valid_bits,
+      int64_t valid_bits_offset, typename EncodingTraits<ByteArrayType>::Accumulator* out,
+      int* out_num_values) {
+    int num_non_null_values = num_values - null_count;
+    if (num_non_null_values > num_valid_values_) {
+      throw ParquetException("Expected to decode ", num_non_null_values,
+                             " values, but can decode decoded ", num_valid_values_,
+                             " values.");
+    }
+    const int32_t* length_ptr = buffered_length_->data_as<int32_t>() + length_idx_;
+    int bytes_offset = len_ - decoder_->bytes_left();
+    const uint8_t* data_ptr = data_ + bytes_offset;
+    const int64_t initial_offset = out->builder->value_data_length();
+    auto* offsets_builder = out->builder->offsets_builder();
+    auto* value_data_builder = out->builder->value_data_builder();
+    // Phase1: get total length of binary data and append to value_data_builder
+    int64_t accum_length = 0;
+    for (int i = 0; i < num_non_null_values; ++i) {
+      if (ARROW_PREDICT_FALSE(length_ptr[i] < 0)) {
+        return Status::Invalid("negative string delta length");
+      }
+      accum_length += length_ptr[i];
+    }
+    {
+      // Actually these checks would not happen since DecodeArrowDenseFastPath
+      // would be called only when helper.CanFit(decoder_->bytes_left()),
+      // so, accum_length <= decoder_->bytes_left() << chunk_space_remaining_
+      // <= std::numeric_limits<int32_t>::max().
+      if (ARROW_PREDICT_FALSE(accum_length > std::numeric_limits<int32_t>::max())) {
+        return Status::Invalid("excess expansion in DELTA_BYTE_ARRAY");
+      }
+      if (ARROW_PREDICT_FALSE(decoder_->bytes_left() < accum_length)) {
+        return Status::Invalid("Binary data is too short");
+      }
+    }
+    RETURN_NOT_OK(out->builder->ValidateOverflow(accum_length));
+    // Append the binary data
+    ARROW_RETURN_NOT_OK(value_data_builder->Append(data_ptr, accum_length));
+    // Phase2: append offsets
+    RETURN_NOT_OK(offsets_builder->Reserve(num_values));
+    {
+      accum_length = 0;
+      int length_idx = 0;
+      RETURN_NOT_OK(VisitNullBitmapInline(
+          valid_bits, valid_bits_offset, num_values, null_count,
+          [&]() {
+            offsets_builder->UnsafeAppend(
+                static_cast<int32_t>(initial_offset + accum_length));
+            accum_length += length_ptr[length_idx];
+            ++length_idx;
+            return Status::OK();
+          },
+          [&]() {
+            offsets_builder->UnsafeAppend(
+                static_cast<int32_t>(initial_offset + accum_length));
+            return Status::OK();
+          }));
+    }
+    // Phase3: Append nulls
+    out->builder->UnsafeAppendToBitmap(valid_bits, valid_bits_offset, num_values);
+    // Phase4: update the encoder internal status.
+    if (ARROW_PREDICT_FALSE(!decoder_->Advance(8 * accum_length))) {
+      ParquetException::EofException();
+    }
+    length_idx_ += num_non_null_values;
+    this->num_values_ -= num_non_null_values;
+    num_valid_values_ -= num_non_null_values;
+    *out_num_values = num_values - null_count;
+    return Status::OK();
+  }
+
   Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
                           typename EncodingTraits<ByteArrayType>::Accumulator* out,
                           int* out_num_values) {
     ArrowBinaryHelper<ByteArrayType> helper(out, num_values);
     RETURN_NOT_OK(helper.Prepare());
+
+    if (helper.CanFit(decoder_->bytes_left())) {
+      return DecodeArrowDenseFastPath(num_values, null_count, valid_bits,
+                                      valid_bits_offset, out, out_num_values);
+    }
 
     std::vector<ByteArray> values(num_values - null_count);
     const int num_valid_values = Decode(values.data(), num_values - null_count);
