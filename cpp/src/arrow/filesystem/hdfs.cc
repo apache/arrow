@@ -87,18 +87,21 @@ Status GetPathInfoFailed(const std::string& path) {
 class HadoopFileSystem::Impl {
  public:
   Impl(HdfsOptions options, const io::IOContext& io_context)
-      : options_(std::move(options)), io_context_(io_context) {}
+      : options_(std::move(options)),
+        io_context_(io_context),
+        driver_(NULLPTR),
+        port_(0),
+        client_(NULLPTR) {}
 
   ~Impl() { ARROW_WARN_NOT_OK(Close(), "Failed to disconnect hdfs client"); }
 
   Status Init() {
+    const HdfsConnectionConfig* config = &options_.connection_config;
     RETURN_NOT_OK(ConnectLibHdfs(&driver_));
 
     if (!driver_) {
       return Status::Invalid("Failed to initialize HDFS driver");
     }
-
-    const HdfsConnectionConfig* config = &options_.connection_config;
 
     // connect to HDFS with the builder object
     hdfsBuilder* builder = driver_->NewBuilder();
@@ -124,6 +127,11 @@ class HadoopFileSystem::Impl {
     if (client_ == nullptr) {
       return Status::IOError("HDFS connection failed");
     }
+
+    namenode_host_ = config->host;
+    port_ = config->port;
+    user_ = config->user;
+    kerb_ticket_ = config->kerb_ticket;
 
     return Status::OK();
   }
@@ -550,10 +558,16 @@ class HadoopFileSystem::Impl {
   }
 
  protected:
-  hdfsFS client_;
   const HdfsOptions options_;
   const io::IOContext io_context_;
   io::internal::LibHdfsShim* driver_;
+
+  std::string namenode_host_;
+  std::string user_;
+  int port_;
+  std::string kerb_ticket_;
+
+  hdfsFS client_;
 
   void PathInfoToFileInfo(const HdfsPathInfo& info, FileInfo* out) {
     if (info.kind == FileType::Directory) {
