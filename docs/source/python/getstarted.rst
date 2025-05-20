@@ -141,7 +141,7 @@ and will lazily load chunks of data only when iterating over them
 
     import datetime
 
-    current_year = datetime.datetime.utcnow().year
+    current_year = datetime.datetime.now(datetime.UTC).year
     for table_chunk in birthdays_dataset.to_batches():
         print("AGES", pc.subtract(current_year, table_chunk["years"]))
 
