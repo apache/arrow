@@ -772,6 +772,11 @@ TEST_F(TestPrettyPrint, BinaryNoNewlines) {
   options.window = 2;
   expected = "[666F6F,626172,...,,FF]";
   CheckPrimitive<BinaryType, std::string>(options, is_valid, values, expected, false);
+
+  // With truncated element size
+  options.element_size_limit = 1;
+  expected = "[6+5,6+5,...,,F+1]";
+  CheckPrimitive<BinaryType, std::string>(options, is_valid, values, expected, false);
 }
 
 template <typename TypeClass>
@@ -1417,6 +1422,7 @@ lorem: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla accumsan 
           sapien commodo massa, vel volutpat orci nisi eu justo. Nulla non blandit
           sapien. Quisque pretium vestibulum urna eu vehicula.')";
   options.truncate_metadata = false;
+  options.element_size_limit = 10000;
   Check(*my_schema, options, expected_verbose);
 
   // Metadata that exactly fits

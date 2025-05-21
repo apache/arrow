@@ -104,7 +104,17 @@ void PrettyPrinter::CloseArray(const Array& array) {
   (*sink_) << options_.array_delimiters.close;
 }
 
-void PrettyPrinter::Write(std::string_view data) { (*sink_) << data; }
+void PrettyPrinter::Write(std::string_view data) {
+  int available_chars = options_.element_size_limit;
+  for (size_t i = 0; i < data.size(); ++i) {
+    if (available_chars-- > 0) {
+      sink_->put(data[i]);
+    } else {
+      (*sink_) << "+" << data.size() - options_.element_size_limit;
+      return;
+    }
+  }
+}
 
 void PrettyPrinter::WriteIndented(std::string_view data) {
   Indent();
@@ -176,7 +186,7 @@ class ArrayPrinter : public PrettyPrinter {
 
   template <typename ArrayType, typename Formatter>
   Status WritePrimitiveValues(const ArrayType& array, Formatter* formatter) {
-    auto appender = [&](std::string_view v) { (*sink_) << v; };
+    auto appender = [&](std::string_view v) { this->Write(v); };
     auto format_func = [&](int64_t i) {
       (*formatter)(array.GetView(i), appender);
       return Status::OK();
@@ -232,9 +242,9 @@ class ArrayPrinter : public PrettyPrinter {
   enable_if_has_string_view<T, Status> WriteDataValues(const ArrayType& array) {
     return WriteValues(array, [&](int64_t i) {
       if constexpr (T::is_utf8) {
-        (*sink_) << "\"" << array.GetView(i) << "\"";
+        this->Write("\"" + std::string{array.GetView(i)} + "\"");
       } else {
-        (*sink_) << HexEncode(array.GetView(i));
+        this->Write(HexEncode(array.GetView(i)));
       }
       return Status::OK();
     });
@@ -243,7 +253,7 @@ class ArrayPrinter : public PrettyPrinter {
   template <typename ArrayType, typename T = typename ArrayType::TypeClass>
   enable_if_decimal<T, Status> WriteDataValues(const ArrayType& array) {
     return WriteValues(array, [&](int64_t i) {
-      (*sink_) << array.FormatValue(i);
+      this->Write(array.FormatValue(i));
       return Status::OK();
     });
   }
