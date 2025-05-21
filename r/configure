@@ -106,6 +106,14 @@ else
   ARROW_USE_PKG_CONFIG="false"
 fi
 
+if [ "$PKG_CONFIG_AVAILABLE" = "true" ] && [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
+  ARROW_USE_PKG_CONFIG="true"
+  echo "*** Using pkg-config."
+else
+  ARROW_USE_PKG_CONFIG="false"
+  echo "*** Not using pkg-config."
+fi
+
 ## Find openssl
 # Arrow's cmake process uses this same process to find openssl,
 # but doing it now allows us to catch it in
@@ -120,7 +128,7 @@ if [ "${OPENSSL_ROOT_DIR}" = "" ] && brew --prefix openssl >/dev/null 2>&1; then
   export PKG_CONFIG_PATH="${OPENSSL_ROOT_DIR}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
 fi
 # Look for openssl with pkg-config for non-brew sources(e.g. CRAN) and Linux
-if [ "${OPENSSL_ROOT_DIR}" = "" ] && [ "${PKG_CONFIG_AVAILABLE}" = "true" ]; then
+if [ "${OPENSSL_ROOT_DIR}" = "" ] && [ "${ARROW_USE_PKG_CONFIG}" = "true" ]; then
   if ${PKG_CONFIG} --exists openssl; then
     export OPENSSL_ROOT_DIR="`${PKG_CONFIG} --variable=prefix openssl`"
   fi
@@ -155,7 +163,7 @@ find_arrow () {
     _LIBARROW_FOUND="${ARROW_HOME}"
     echo "*** Trying Arrow C++ in ARROW_HOME: $_LIBARROW_FOUND"
     export PKG_CONFIG_PATH="${_LIBARROW_FOUND}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
-  elif [ "$ARROW_USE_PKG_CONFIG" != "false" ] && ${PKG_CONFIG} ${PKG_CONFIG_NAME}; then
+  elif [ "$ARROW_USE_PKG_CONFIG" = "true" ] && ${PKG_CONFIG} ${PKG_CONFIG_NAME}; then
     # 2. Use pkg-config to find arrow on the system
     _LIBARROW_FOUND="`${PKG_CONFIG} --variable=prefix --silence-errors ${PKG_CONFIG_NAME}`"
     echo "*** Trying Arrow C++ found by pkg-config: $_LIBARROW_FOUND"
@@ -165,7 +173,7 @@ find_arrow () {
 
   if [ "$_LIBARROW_FOUND" != "false" ]; then
     # We found a library, so check for version mismatch
-    if [ "$PKG_CONFIG_AVAILABLE" = "true" ]; then
+    if [ "$ARROW_USE_PKG_CONFIG" = "true" ]; then
       PC_LIB_VERSION=`${PKG_CONFIG} --modversion ${PKG_CONFIG_NAME}`
     else
       PC_LIB_VERSION=`grep '^Version' ${_LIBARROW_FOUND}/lib/pkgconfig/arrow.pc | sed s/Version:\ //`
@@ -211,7 +219,7 @@ do_bundled_build () {
   # and our ability to make edits to it since we "own" it.
   LIB_DIR="${_LIBARROW_FOUND}/lib"
   if [ -d "$LIB_DIR" ]; then
-    if [ "${PKG_CONFIG_AVAILABLE}" = "true" ]; then
+    if [ "${ARROW_USE_PKG_CONFIG}" = "true" ]; then
       # Use pkg-config to do static linking of libarrow's dependencies
       export PKG_CONFIG_PATH="${LIB_DIR}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
       # pkg-config on CentOS 7 doesn't have --define-prefix option.
@@ -240,7 +248,7 @@ do_bundled_build () {
 # Once libarrow is obtained, this function sets `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS`
 # either from pkg-config or by inferring things about the directory in $1
 set_pkg_vars () {
-  if [ "$PKG_CONFIG_AVAILABLE" = "true" ]; then
+  if [ "$ARROW_USE_PKG_CONFIG" = "true" ]; then
     set_lib_dir_with_pc
   else
     set_lib_dir_without_pc $1
@@ -250,7 +258,7 @@ set_pkg_vars () {
   # is set by the above set_lib_dir_* call.
   add_feature_flags
 
-  if [ "$PKG_CONFIG_AVAILABLE" = "true" ]; then
+  if [ "$ARROW_USE_PKG_CONFIG" = "true" ]; then
     set_pkg_vars_with_pc
   else
     set_pkg_vars_without_pc $1
@@ -333,18 +341,18 @@ add_feature_flags () {
       # NOTE: parquet is assumed to have the same -L flag as arrow
       # so there is no need to add its location to PKG_DIRS
     fi
-    if arrow_built_with ARROW_DATASET; then
-      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_DATASET"
-      PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES arrow-dataset"
-      PKG_LIBS_FEATURES_WITHOUT_PC="-larrow_dataset $PKG_LIBS_FEATURES_WITHOUT_PC"
-      # NOTE: arrow_dataset is assumed to have the same -L flag as arrow
-      # so there is no need to add its location to PKG_DIRS
-    fi
     if arrow_built_with ARROW_ACERO; then
       PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_ACERO"
       PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES arrow-acero"
       PKG_LIBS_FEATURES_WITHOUT_PC="-larrow_acero $PKG_LIBS_FEATURES_WITHOUT_PC"
       # NOTE: arrow_acero is assumed to have the same -L flag as arrow
+      # so there is no need to add its location to PKG_DIRS
+    fi
+    if arrow_built_with ARROW_DATASET; then
+      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_DATASET"
+      PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES arrow-dataset"
+      PKG_LIBS_FEATURES_WITHOUT_PC="-larrow_dataset $PKG_LIBS_FEATURES_WITHOUT_PC"
+      # NOTE: arrow_dataset is assumed to have the same -L flag as arrow
       # so there is no need to add its location to PKG_DIRS
     fi
     if arrow_built_with ARROW_SUBSTRAIT; then
@@ -389,9 +397,9 @@ if [ "$_LIBARROW_FOUND" != "false" ] && [ "$_LIBARROW_FOUND" != "" ]; then
 
   # If we didn't find any libraries with pkg-config, try again without pkg-config
   FOUND_PKG_LIBS=`echo "$PKG_LIBS" | tr -d '[:space:]'`
-  if [ -z "$FOUND_PKG_LIBS" ] && [ "$PKG_CONFIG_AVAILABLE" = "true" ]; then
+  if [ -z "$FOUND_PKG_LIBS" ] && [ "$ARROW_USE_PKG_CONFIG" = "true" ]; then
     echo "*** pkg-config failed to find libraries. Running detection without pkg-config."
-    PKG_CONFIG_AVAILABLE="false"
+    ARROW_USE_PKG_CONFIG="false"
     set_pkg_vars ${_LIBARROW_FOUND}
   fi
 else
