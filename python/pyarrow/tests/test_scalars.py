@@ -809,7 +809,7 @@ def test_map(pickle_module):
         s[-3]
     with pytest.raises(IndexError):
         s[2]
-    with pytest.raises(ValueError):
+    with pytest.raises(KeyError):
         s['fake_key']
 
     restored = pickle_module.loads(pickle_module.dumps(s))
