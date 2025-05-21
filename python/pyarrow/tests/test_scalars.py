@@ -564,6 +564,7 @@ def test_binary(value, ty, scalar_typ):
     buf = s.as_buffer()
 
     if value is None:
+        assert buf is None
         with pytest.raises(ValueError):
             memoryview(s)
     else:
