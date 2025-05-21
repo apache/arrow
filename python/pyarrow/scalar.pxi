@@ -242,7 +242,7 @@ cdef class UInt8Scalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __int__(self):
-        return (self.as_py())
+        return self.as_py()
 
 
 cdef class Int8Scalar(Scalar):
