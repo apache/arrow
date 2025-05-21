@@ -27,6 +27,11 @@ Acero: A C++ streaming execution engine
 
     Acero is experimental and a stable API is not yet guaranteed.
 
+.. note::
+
+    If you are interested in contributing to Acero or learning about its
+    internals, please see the :doc:`Acero Developer's Guide<../developers/cpp/acero>`.
+
 For many complex computations, successive direct :ref:`invocation of
 compute functions <invoking-compute-functions>` is not feasible
 in either memory or computation time. To facilitate arbitrarily large inputs
@@ -44,4 +49,3 @@ be formulated and executed.
    acero/overview
    acero/user_guide
    acero/substrait
-   acero/developer_guide
