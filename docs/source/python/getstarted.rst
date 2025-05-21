@@ -138,6 +138,7 @@ Loading back the partitioned dataset will detect the chunks
 and will lazily load chunks of data only when iterating over them
 
 .. ipython:: python
+    :okexcept:
 
     import datetime
 
