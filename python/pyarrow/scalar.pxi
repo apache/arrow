@@ -1115,9 +1115,12 @@ cdef class MapScalar(ListScalar, Mapping):
 
         if isinstance(i, (bytes, str)):
             try:
-                i = list(self.keys()).index(i)
+                key_index = list(self.keys()).index(i)
             except ValueError:
                 raise KeyError(i)
+
+            dct = arr[_normalize_index(key_index, len(arr))]
+            return dct[item_field]
 
         dct = arr[_normalize_index(i, len(arr))]
         return (dct[key_field], dct[item_field])
