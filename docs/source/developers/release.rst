@@ -300,7 +300,7 @@ Be sure to go through on the following checklist:
 #. Update version in Apache Arrow Cookbook
 #. Announce the new release
 #. Publish release blog posts
-#. Announce the release on BlueSky
+#. Announce the release on Bluesky and LinkedIn
 #. Remove old artifacts
 
 .. dropdown:: Merge changes on release branch to maintenance branch for patch releases
@@ -703,7 +703,7 @@ Be sure to go through on the following checklist:
    Post about the release and link to the blog post on social media. The project
    has two official accounts:
 
-   * BlueSky: `@arrow.apache.org <https://bsky.app/profile/arrow.apache.org>`_
+   * Bluesky: `@arrow.apache.org <https://bsky.app/profile/arrow.apache.org>`_
    * LinkedIn: https://www.linkedin.com/company/apache-arrow/
 
    PMC members have access or can request access to post under these accounts.
