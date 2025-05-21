@@ -68,6 +68,8 @@ G_BEGIN_DECLS
  * values. You can convert a normal array to a run-end encoded array
  * by garrow_array_run_end_encode(). You can convert a run-end encoded
  * array to a normal array by garrow_run_end_encoded_array_decode().
+ *
+ * #GArrowFixedSizeListArray is a class for fixed size list data array.
  */
 
 typedef struct GArrowListArrayPrivate_
@@ -2044,4 +2046,117 @@ garrow_run_end_encoded_array_find_physical_length(GArrowRunEndEncodedArray *arra
   return arrow_run_end_encoded_array->FindPhysicalLength();
 }
 
+G_DEFINE_TYPE(GArrowFixedSizeListArray, garrow_fixed_size_list_array, GARROW_TYPE_ARRAY)
+
+static void
+garrow_fixed_size_list_array_init(GArrowFixedSizeListArray *object)
+{
+}
+
+static void
+garrow_fixed_size_list_array_class_init(GArrowFixedSizeListArrayClass *klass)
+{
+}
+
+/**
+ * garrow_fixed_size_list_array_new_list_size
+ * @value_array: The value of the fixed list size array.
+ * @list_size: The list size of the fixed list size array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): A newly created #GArrowFixedSizeListArray
+ *   or %NULL on error.
+ *
+ * Since: 22.0.0
+ */
+GArrowFixedSizeListArray *
+garrow_fixed_size_list_array_new_list_size(GArrowArray *value_array,
+                                           gint32 list_size,
+                                           GArrowBuffer *null_bitmap,
+                                           gint64 n_nulls,
+                                           GError **error)
+{
+  std::shared_ptr<arrow::Array> arrow_value_array = garrow_array_get_raw(value_array);
+  auto arrow_null_bitmap = garrow_buffer_get_raw(null_bitmap);
+
+  auto arrow_fixed_size_list_array_result =
+    arrow::FixedSizeListArray::FromArrays(arrow_value_array,
+                                          list_size,
+                                          arrow_null_bitmap,
+                                          n_nulls);
+
+  garrow::check(error,
+                arrow_fixed_size_list_array_result,
+                "[fixed-size-list-array][new-list-size]");
+  std::shared_ptr<arrow::Array> arrow_array = *arrow_fixed_size_list_array_result;
+  return GARROW_FIXED_SIZE_LIST_ARRAY(garrow_array_new_raw(&arrow_array));
+}
+
+/**
+ * garrow_fixed_size_list_array_new_type_array
+ * @value_array: The value of the fixed list size array.
+ * @data_type: The data type of the fixed list size array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): A newly created #GArrowFixedSizeListArray
+ *   or %NULL on error.
+ *
+ * Since: 22.0.0
+ */
+GArrowFixedSizeListArray *
+garrow_fixed_size_list_array_new_data_type(GArrowArray *value_array,
+                                           GArrowDataType *data_type,
+                                           GArrowBuffer *null_bitmap,
+                                           gint64 n_nulls,
+                                           GError **error)
+{
+  std::shared_ptr<arrow::Array> arrow_value_array = garrow_array_get_raw(value_array);
+  std::shared_ptr<arrow::DataType> arrow_data_type = garrow_data_type_get_raw(data_type);
+  std::shared_ptr<arrow::Buffer> arrow_null_bitmap = garrow_buffer_get_raw(null_bitmap);
+
+  auto arrow_fixed_size_list_array_result =
+    arrow::FixedSizeListArray::FromArrays(arrow_value_array,
+                                          arrow_data_type,
+                                          arrow_null_bitmap,
+                                          n_nulls);
+
+  garrow::check(error,
+                arrow_fixed_size_list_array_result,
+                "[fixed-size-list-array][new-data-type]");
+  std::shared_ptr<arrow::Array> arrow_array = *arrow_fixed_size_list_array_result;
+  return GARROW_FIXED_SIZE_LIST_ARRAY(garrow_array_new_raw(&arrow_array));
+}
+
+/**
+ * garrow_fixed_size_list_array_get_values
+ * @array: A #GArrowFixedSizeListArray
+ *
+ * Returns: (transfer full): The element array.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 22.0.0
+ */
+GArrowArray *
+garrow_fixed_size_list_array_get_values(GArrowFixedSizeListArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_fixed_size_list_array =
+    std::static_pointer_cast<arrow::FixedSizeListArray>(arrow_array);
+  auto arrow_value_array = arrow_fixed_size_list_array->values();
+
+  return garrow_array_new_raw(&arrow_value_array);
+}
 G_END_DECLS
