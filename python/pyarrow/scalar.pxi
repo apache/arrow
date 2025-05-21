@@ -264,7 +264,7 @@ cdef class Int8Scalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __int__(self):
-        return (self.as_py())
+        return self.as_py()
 
 
 cdef class UInt16Scalar(Scalar):
@@ -286,7 +286,7 @@ cdef class UInt16Scalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __int__(self):
-        return (self.as_py())
+        return self.as_py()
 
 
 cdef class Int16Scalar(Scalar):
@@ -308,7 +308,7 @@ cdef class Int16Scalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __int__(self):
-        return (self.as_py())
+        return self.as_py()
 
 
 cdef class UInt32Scalar(Scalar):
@@ -330,7 +330,7 @@ cdef class UInt32Scalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __int__(self):
-        return (self.as_py())
+        return self.as_py()
 
 
 cdef class Int32Scalar(Scalar):
@@ -352,7 +352,7 @@ cdef class Int32Scalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __int__(self):
-        return (self.as_py())
+        return self.as_py()
 
 
 cdef class UInt64Scalar(Scalar):
@@ -374,7 +374,7 @@ cdef class UInt64Scalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __int__(self):
-        return (self.as_py())
+        return self.as_py()
 
 
 cdef class Int64Scalar(Scalar):
@@ -396,7 +396,7 @@ cdef class Int64Scalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __int__(self):
-        return (self.as_py())
+        return self.as_py()
 
 
 cdef class HalfFloatScalar(Scalar):
@@ -418,7 +418,7 @@ cdef class HalfFloatScalar(Scalar):
         return PyFloat_FromHalf(sp.value) if sp.is_valid else None
 
     def __float__(self):
-        return (self.as_py())
+        return self.as_py()
 
 
 cdef class FloatScalar(Scalar):
@@ -440,7 +440,7 @@ cdef class FloatScalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __float__(self):
-        return (self.as_py())
+        return self.as_py()
 
 
 cdef class DoubleScalar(Scalar):
@@ -462,7 +462,7 @@ cdef class DoubleScalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __float__(self):
-        return (self.as_py())
+        return self.as_py()
 
 
 cdef class Decimal32Scalar(Scalar):
@@ -880,7 +880,7 @@ cdef class BinaryScalar(Scalar):
         return None if buffer is None else buffer.to_pybytes()
 
     def __bytes__(self):
-        return (self.as_py())
+        return self.as_py()
 
     def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
         buf = self.as_buffer()
