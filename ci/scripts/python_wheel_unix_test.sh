@@ -96,13 +96,13 @@ if [ "${CHECK_VERSION}" == "ON" ]; then
 fi
 
 if [ "${CHECK_WHEEL_CONTENT}" == "ON" ]; then
-  python "${source_dir}"/ci/scripts/python_wheel_validate_contents.py \
-    --path "${source_dir}"/python/repaired_wheels
+  python "${source_dir}/ci/scripts/python_wheel_validate_contents.py" \
+    --path "${source_dir}/python/repaired_wheels"
 fi
 
 if [ "${CHECK_UNITTESTS}" == "ON" ]; then
   # Install testing dependencies
-  python -m pip install -U -r "${source_dir}"/python/requirements-wheel-test.txt
+  python -m pip install -U -r "${source_dir}/python/requirements-wheel-test.txt"
 
   # Execute unittest, test dependencies must be installed
   python -c 'import pyarrow; pyarrow.create_library_symlinks()'
