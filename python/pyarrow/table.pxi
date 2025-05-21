@@ -5629,7 +5629,7 @@ cdef class Table(_Tabular):
         self._assert_cpu()
         return TableGroupBy(self, keys, use_threads=use_threads)
 
-    def join(self, right_table, keys, right_keys=None, join_type="left outer",
+    def join(self, right_table, keys, right_keys=None, filter_expression=None, join_type="left outer",
              left_suffix=None, right_suffix=None, coalesce_keys=True,
              use_threads=True):
         """

@@ -300,6 +300,24 @@ def test_order_by():
         _ = OrderByNodeOptions([("b", "ascending")], null_placement="start")
 
 
+def test_hash_join_with_filter():
+    left = pa.table({'key': [1, 2, 3], 'a': [4, 5, 6]})
+    left_source = Declaration("table_source", options=TableSourceNodeOptions(left))
+    right = pa.table({'key': [2, 3, 4], 'b': [4, 5, 6]})
+    right_source = Declaration("table_source", options=TableSourceNodeOptions(right))
+
+    join_opts = HashJoinNodeOptions(
+        "inner", left_keys="key", right_keys="key",
+        filter_expression=pc.equal(pc.field('a'), 5))
+    joined = Declaration(
+        "hashjoin", options=join_opts, inputs=[left_source, right_source])
+    result = joined.to_table()
+    expected = pa.table(
+        [[2], [5], [2], [4]],
+        names=["key", "a", "key", "b"])
+    assert result.equals(expected)
+
+
 def test_hash_join():
     left = pa.table({'key': [1, 2, 3], 'a': [4, 5, 6]})
     left_source = Declaration("table_source", options=TableSourceNodeOptions(left))
