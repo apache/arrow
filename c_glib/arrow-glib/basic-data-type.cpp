@@ -2364,15 +2364,15 @@ garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
 
   auto arrow_value_type = garrow_data_type_get_raw(value_type);
 
-  for (int i = 0; i < shape_length; i++) {
+  for (gsize i = 0; i < shape_length; i++) {
     arrow_shape.push_back(shape[i]);
   }
 
-  for (int i = 0; i < permutation_length; i++) {
+  for (gsize i = 0; i < permutation_length; i++) {
     arrow_permutation.push_back(permutation[i]);
   }
 
-  for (int i = 0; i < n_dim_names; i++) {
+  for (gsize i = 0; i < n_dim_names; i++) {
     arrow_dim_names.push_back(dim_names[i]);
   }
 
