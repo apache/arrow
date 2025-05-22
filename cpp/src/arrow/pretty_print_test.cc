@@ -177,6 +177,18 @@ TEST_F(TestPrettyPrint, PrimitiveType) {
   ])expected";
   CheckPrimitive<StringType, std::string>({2, 10}, is_valid, values3, ex3_in2);
   CheckPrimitive<LargeStringType, std::string>({2, 10}, is_valid, values3, ex3_in2);
+
+  PrettyPrintOptions options{2, 10};
+  options.element_size_limit = 2;
+  static const char* ex3_in3 = R"expected(  [
+    " (... 3 chars omitted)",
+    " (... 3 chars omitted)",
+    null,
+    " (... 3 chars omitted)",
+    null
+  ])expected";
+  CheckPrimitive<StringType, std::string>(options, is_valid, values3, ex3_in3);
+  CheckPrimitive<LargeStringType, std::string>(options, is_valid, values3, ex3_in3);
 }
 
 TEST_F(TestPrettyPrint, PrimitiveTypeNoNewlines) {
@@ -775,7 +787,8 @@ TEST_F(TestPrettyPrint, BinaryNoNewlines) {
 
   // With truncated element size
   options.element_size_limit = 1;
-  expected = "[6+5,6+5,...,,F+1]";
+  expected =
+      "[6 (... 5 chars omitted),6 (... 5 chars omitted),...,,F (... 1 chars omitted)]";
   CheckPrimitive<BinaryType, std::string>(options, is_valid, values, expected, false);
 }
 
@@ -1108,6 +1121,12 @@ TEST_F(TestPrettyPrint, FixedSizeBinaryType) {
   CheckArray(*array, {0, 10}, ex);
   static const char* ex_2 = "  [\n    666F6F,\n    ...\n    62617A\n  ]";
   CheckArray(*array, {2, 1}, ex_2);
+
+  auto options = PrettyPrintOptions{2, 1};
+  options.element_size_limit = 3;
+  static const char* ex_3 =
+      "  [\n    666 (... 3 chars omitted),\n    ...\n    626 (... 3 chars omitted)\n  ]";
+  CheckArray(*array, options, ex_3);
 }
 
 TEST_F(TestPrettyPrint, DecimalTypes) {
