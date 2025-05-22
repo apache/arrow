@@ -21,14 +21,10 @@
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 
 Result<TypeHolder> FirstType(KernelContext*, const std::vector<TypeHolder>& types) {
   return types.front();
 }
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

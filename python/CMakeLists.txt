@@ -661,7 +661,6 @@ if(PYARROW_BUNDLE_ARROW_CPP)
   bundle_arrow_lib(${ARROW_COMPUTE_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
 
   if(MSVC)
-    # TODO(kszucs): locate msvcp140.dll in a portable fashion and bundle it
     bundle_arrow_import_lib(${ARROW_IMPORT_LIB})
     bundle_arrow_import_lib(${ARROW_COMPUTE_IMPORT_LIB})
   endif()
