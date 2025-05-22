@@ -420,6 +420,9 @@ cdef class HalfFloatScalar(Scalar):
     def __float__(self):
         return self.as_py()
 
+    def __int__(self):
+        return int(float(self))
+
 
 cdef class FloatScalar(Scalar):
     """
@@ -442,6 +445,9 @@ cdef class FloatScalar(Scalar):
     def __float__(self):
         return self.as_py()
 
+    def __int__(self):
+        return int(float(self))
+
 
 cdef class DoubleScalar(Scalar):
     """
@@ -463,6 +469,9 @@ cdef class DoubleScalar(Scalar):
 
     def __float__(self):
         return self.as_py()
+
+    def __int__(self):
+        return int(float(self))
 
 
 cdef class Decimal32Scalar(Scalar):

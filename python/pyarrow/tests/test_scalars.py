@@ -243,6 +243,7 @@ def test_numerics():
     assert str(s) == "1.5"
     assert s.as_py() == 1.5
     assert float(s) == 1.5
+    assert int(s) == 1
 
     if np is not None:
         # float16
@@ -253,6 +254,7 @@ def test_numerics():
         assert repr(s) == f"<pyarrow.HalfFloatScalar: {np.float16(0.5)!r}>"
         assert str(s) == "0.5"
         assert s.as_py() == 0.5
+        assert int(s) == 0
 
 
 def test_decimal128():
