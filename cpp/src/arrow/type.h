@@ -178,7 +178,7 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
   virtual DataTypeLayout layout() const = 0;
 
   /// \brief Return the type category
-  Type::type id() const { return id_; }
+  constexpr Type::type id() const { return id_; }
 
   /// \brief Return the type category of the storage type
   virtual Type::type storage_id() const { return id_; }
