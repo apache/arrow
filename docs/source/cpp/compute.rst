@@ -48,10 +48,10 @@ Compute Initialization
 
 The compute library requires a call to :func:`arrow::compute::Initialize`
 in order to register the individual functions into the :class:`FunctionRegistry`, otherwise
-only the functions required for Arrow core will be available  \(1).
+only the functions required for Arrow core functionality will be available  \(1).
 
-\(1) Those are ``add``, ``array_filter``, ``array_take``, ``dictionary_encode``, ``dictionary_decode``,
-``indices_nonzero``, ``unique`` and ``value_counts``.
+\(1) The set of functions required for Arrow core functionality are an implementation detail
+of the library, and should not be considered stable.
 
 Input shapes
 ------------
