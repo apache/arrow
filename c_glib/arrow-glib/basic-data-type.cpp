@@ -2506,6 +2506,7 @@ garrow_uuid_data_type_class_init(GArrowUuidDataTypeClass *klass)
  * Returns: (nullable):
  *   The newly created UUID data type on success, %NULL on error.
  *
+ * Since: 21.0.0
  */
 GArrowUuidDataType *
 garrow_uuid_data_type_new(GError **error)
