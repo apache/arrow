@@ -21,6 +21,7 @@
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/config/configuration.h"
 
 using driver::flight_sql::config::Configuration;
+using driver::odbcabstraction::Connection;
 
 #if defined _WIN32 || defined _WIN64
 /**
@@ -31,6 +32,19 @@ using driver::flight_sql::config::Configuration;
  * @return True on success and false on fail.
  */
 bool DisplayConnectionWindow(void* windowParent, Configuration& config);
+
+/**
+ * For SQLDriverConnect.
+ * Display connection window for user to configure connection parameters.
+ *
+ * @param windowParent Parent window handle.
+ * @param config Output configuration, presumed to be empty, it will be using values from
+ * properties.
+ * @param config Output properties.
+ * @return True on success and false on fail.
+ */
+bool DisplayConnectionWindow(void* windowParent, Configuration& config,
+                             Connection::ConnPropertyMap& properties);
 #endif
 
 /**

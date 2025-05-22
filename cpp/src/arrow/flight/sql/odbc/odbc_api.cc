@@ -354,6 +354,7 @@ SQLRETURN SQLDriverConnectW(SQLHDBC conn, SQLHWND windowHandle,
   // spec https://github.com/apache/arrow/issues/46560
 
   using driver::odbcabstraction::Connection;
+  using driver::odbcabstraction::DriverException;
   using ODBC::ODBCConnection;
 
   return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
@@ -369,16 +370,41 @@ SQLRETURN SQLDriverConnectW(SQLHDBC conn, SQLHWND windowHandle,
     // TODO: Implement SQL_DRIVER_COMPLETE_REQUIRED in SQLDriverConnectW according to the
     // spec https://github.com/apache/arrow/issues/46448
 #if defined _WIN32 || defined _WIN64
-    if (driverCompletion == SQL_DRIVER_PROMPT ||
-        ((driverCompletion == SQL_DRIVER_COMPLETE ||
-          driverCompletion == SQL_DRIVER_COMPLETE_REQUIRED) &&
-         !missing_properties.empty())) {
-      // TODO: implement driverCompletion behavior to display connection window.
+    // Load the DSN window according to driverCompletion
+    if (driverCompletion == SQL_DRIVER_PROMPT) {
+      // Load DSN window before first attempt to connect
+      driver::flight_sql::config::Configuration config;
+      if (!DisplayConnectionWindow(windowHandle, config, properties)) {
+        return static_cast<SQLRETURN>(SQL_NO_DATA);
+      }
+      connection->connect(dsn, properties, missing_properties);
+    } else if (driverCompletion == SQL_DRIVER_COMPLETE ||
+               driverCompletion == SQL_DRIVER_COMPLETE_REQUIRED) {
+      try {
+        connection->connect(dsn, properties, missing_properties);
+      } catch (const DriverException&) {
+        // If first connection fails due to missing attributes, load
+        // the DSN window and try to connect again
+        if (!missing_properties.empty()) {
+          driver::flight_sql::config::Configuration config;
+          missing_properties.clear();
+
+          if (!DisplayConnectionWindow(windowHandle, config, properties)) {
+            return static_cast<SQLRETURN>(SQL_NO_DATA);
+          }
+          connection->connect(dsn, properties, missing_properties);
+        } else {
+          throw;
+        }
+      }
+    } else {
+      // Default case: attempt connection without showing DSN window
+      connection->connect(dsn, properties, missing_properties);
     }
-#endif
-
+#else
+    // Attempt connection without loading DSN window on macOS/Linux
     connection->connect(dsn, properties, missing_properties);
-
+#endif
     // Copy connection string to outConnectionString after connection attempt
     return ODBC::GetStringAttribute(true, connection_string, true, outConnectionString,
                                     outConnectionStringBufferLen, outConnectionStringLen,

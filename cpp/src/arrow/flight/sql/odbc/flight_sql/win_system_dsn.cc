@@ -41,6 +41,7 @@ using driver::flight_sql::config::ConnectionStringParser;
 using driver::flight_sql::config::DsnConfigurationWindow;
 using driver::flight_sql::config::Result;
 using driver::flight_sql::config::Window;
+using driver::odbcabstraction::DriverException;
 
 BOOL CALLBACK ConfigDriver(HWND hwndParent, WORD fRequest, LPCSTR lpszDriver,
                            LPCSTR lpszArgs, LPSTR lpszMsg, WORD cbMsgMax,
@@ -63,7 +64,7 @@ bool DisplayConnectionWindow(void* windowParent, Configuration& config) {
     window.Update();
 
     return ProcessMessages(window) == Result::OK;
-  } catch (const driver::odbcabstraction::DriverException& err) {
+  } catch (const DriverException& err) {
     std::stringstream buf;
     buf << "SQL State: " << err.GetSqlState() << ", Message: " << err.GetMessageText()
         << ", Code: " << err.GetNativeError();
@@ -74,6 +75,21 @@ bool DisplayConnectionWindow(void* windowParent, Configuration& config) {
   }
 
   return false;
+}
+
+bool DisplayConnectionWindow(void* windowParent, Configuration& config,
+                             Connection::ConnPropertyMap& properties) {
+  for (const auto& [key, value] : properties) {
+    config.Set(key, value);
+  }
+
+  if (DisplayConnectionWindow(windowParent, config)) {
+    properties = config.GetProperties();
+    return true;
+  } else {
+    // TODO: log cancelled dialog after logging is enabled.
+    return false;
+  }
 }
 
 BOOL INSTAPI ConfigDSN(HWND hwndParent, WORD req, LPCSTR driver, LPCSTR attributes) {
