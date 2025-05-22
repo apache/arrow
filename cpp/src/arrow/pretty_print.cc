@@ -59,7 +59,9 @@ class PrettyPrinter {
       : options_(options), indent_(options.indent), sink_(sink) {}
 
   inline void Write(std::string_view data);
+  inline void Write(std::string_view data, const int max_chars);
   inline void WriteIndented(std::string_view data);
+  inline void WriteIndented(std::string_view data, const int max_chars);
   inline void Newline();
   inline void Indent();
   inline void IndentAfterNewline();
@@ -105,12 +107,16 @@ void PrettyPrinter::CloseArray(const Array& array) {
 }
 
 void PrettyPrinter::Write(std::string_view data) {
-  int available_chars = options_.element_size_limit;
-  for (size_t i = 0; i < data.size(); ++i) {
-    if (available_chars-- > 0) {
-      sink_->put(data[i]);
+  Write(data, options_.element_size_limit);
+}
+
+void PrettyPrinter::Write(std::string_view data, const int max_chars) {
+  int curr_max = max_chars;
+  for (auto c : data) {
+    if (curr_max-- > 0) {
+      sink_->put(c);
     } else {
-      (*sink_) << "+" << data.size() - options_.element_size_limit;
+      (*sink_) << " (... " << data.size() - max_chars << " chars omitted)";
       return;
     }
   }
@@ -118,7 +124,12 @@ void PrettyPrinter::Write(std::string_view data) {
 
 void PrettyPrinter::WriteIndented(std::string_view data) {
   Indent();
-  Write(data);
+  Write(data, options_.element_size_limit);
+}
+
+void PrettyPrinter::WriteIndented(std::string_view data, const int max_chars) {
+  Indent();
+  Write(data, max_chars);
 }
 
 void PrettyPrinter::Newline() {
@@ -242,7 +253,9 @@ class ArrayPrinter : public PrettyPrinter {
   enable_if_has_string_view<T, Status> WriteDataValues(const ArrayType& array) {
     return WriteValues(array, [&](int64_t i) {
       if constexpr (T::is_utf8) {
-        this->Write("\"" + std::string{array.GetView(i)} + "\"");
+        (*sink_) << "\"";
+        this->Write(array.GetView(i), options_.element_size_limit - 2);
+        (*sink_) << "\"";
       } else {
         this->Write(HexEncode(array.GetView(i)));
       }
