@@ -34,5 +34,4 @@ class TestUuidDataType < Test::Unit::TestCase
       @data_type.to_s.start_with?("extension<arrow.uuid")
     end
   end
-
 end
