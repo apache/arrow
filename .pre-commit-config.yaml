@@ -26,7 +26,13 @@ repos:
       - id: rat
         name: Release Audit Tool
         language: system
-        entry: bash -c "git archive HEAD --prefix=apache-arrow/ --output=arrow-src.tar && ./dev/release/run-rat.sh arrow-src.tar"
+        entry: |
+          bash -c " \
+            git archive HEAD \
+              --prefix=apache-arrow/ \
+              --output=apache-arrow.tar.gz && \
+              dev/release/run-rat.sh apache-arrow.tar.gz && \
+            rm -f apache-arrow.tar.gz"
         always_run: true
         pass_filenames: false
   - repo: https://github.com/hadolint/hadolint
