@@ -421,7 +421,7 @@ cdef class HalfFloatScalar(Scalar):
         return self.as_py()
 
     def __int__(self):
-        return int(float(self))
+        return int(self.as_py())
 
 
 cdef class FloatScalar(Scalar):
