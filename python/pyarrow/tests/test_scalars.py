@@ -255,7 +255,7 @@ def test_numerics():
         assert repr(s) == f"<pyarrow.HalfFloatScalar: {np.float16(0.5)!r}>"
         assert str(s) == "0.5"
         assert s.as_py() == 0.5
-        assert int(s) == np.float16(0)
+        assert int(s) == 0
 
 
 def test_decimal128():
