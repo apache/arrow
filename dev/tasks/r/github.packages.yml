@@ -186,6 +186,8 @@ jobs:
         shell: bash
         env:
           ARROW_HOME: "arrow"
+          MINGW_ARCH: "ucrt64"
+          RTOOLS_VERSION: 40
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: arrow/ci/scripts/r_windows_build.sh
       - name: Create Checksum
