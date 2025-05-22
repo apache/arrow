@@ -18,7 +18,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/compute/codegen_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"

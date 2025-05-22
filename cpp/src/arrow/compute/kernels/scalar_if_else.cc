@@ -22,7 +22,6 @@
 #include "arrow/array/builder_union.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/codegen_internal.h"
-#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/copy_data_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
