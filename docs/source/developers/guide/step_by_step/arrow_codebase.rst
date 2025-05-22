@@ -36,14 +36,16 @@ The `Apache Arrow repository <https://github.com/apache/arrow>`_ includes
 implementations for most of the libraries for which Arrow is available.
 
 Languages like GLib (``c_glib/``), C++ (``cpp/``), C# (``csharp/``),
-JavaScript (``js/``), MATLAB (``matlab/``), Python (``python/``), R (``r/``)
-and Ruby (``ruby/``) have their own subdirectories in the main folder as written here.
+MATLAB (``matlab/``), Python (``python/``), R (``r/``) and Ruby (``ruby/``)
+have their own subdirectories in the main folder as written here.
 
 The following language implementations have their own repositories:
 
 - `Rust <https://github.com/apache/arrow-rs>`_
 - `Go <https://github.com/apache/arrow-go>`_
 - `Java <https://github.com/apache/arrow-java>`_
+- `JavaScript <https://github.com/apache/arrow-js>`_
+- `Julia <https://github.com/apache/arrow-julia>`_
 
 In the **language-specific subdirectories** you can find the code
 connected to that language. For example:
