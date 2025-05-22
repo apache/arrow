@@ -15,14 +15,9 @@
 
 using System;
 using System.IO;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Threading;
-using System.Threading.Tasks;
 using Apache.Arrow.Ipc;
 using K4os.Compression.LZ4;
 using K4os.Compression.LZ4.Streams;
-using K4os.Compression.LZ4.Streams.Abstractions;
 
 namespace Apache.Arrow.Compression
 {
@@ -61,21 +56,6 @@ namespace Apache.Arrow.Compression
             encoder.WriteManyBytes(source.Span);
         }
 
-        public bool TryCompress(ReadOnlyMemory<byte> source, Memory<byte> destination, out int bytesWritten)
-        {
-            using var memoryStream = new MemoryStream(destination.Length);
-            using(var encoder = LZ4Frame.Encode(memoryStream, _settings, leaveOpen: true))
-            {
-                encoder.WriteManyBytes(source.Span);
-            }
-            bytesWritten = checked((int)memoryStream.Position);
-            if (bytesWritten > destination.Length)
-            {
-                return false;
-            }
-            memoryStream.GetBuffer().AsSpan(0, bytesWritten).CopyTo(destination.Span);
-            return true;
-        }
         public void Dispose()
         {
         }

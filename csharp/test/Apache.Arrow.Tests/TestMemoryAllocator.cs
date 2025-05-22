@@ -16,9 +16,7 @@
 using System;
 using Apache.Arrow.Memory;
 using System.Buffers;
-using System.Diagnostics;
 using System.Threading;
-using Xunit;
 
 namespace Apache.Arrow.Tests
 {
@@ -26,6 +24,7 @@ namespace Apache.Arrow.Tests
     {
         private int _rented = 0;
         public int Rented => _rented;
+
         protected override IMemoryOwner<byte> AllocateInternal(int length, out int bytesAllocated)
         {
             var mem = MemoryPool<byte>.Shared.Rent(length);
@@ -33,16 +32,19 @@ namespace Apache.Arrow.Tests
             Interlocked.Increment(ref _rented);
             return new TestMemoryOwner(mem, this);
         }
+
         private class TestMemoryOwner : IMemoryOwner<byte>
         {
             private readonly IMemoryOwner<byte> _inner;
             private readonly TestMemoryAllocator _allocator;
             private bool _disposed;
+
             public TestMemoryOwner(IMemoryOwner<byte> inner, TestMemoryAllocator allocator)
             {
                 _inner = inner;
                 _allocator = allocator;
             }
+
             public Memory<byte> Memory
             {
                 get

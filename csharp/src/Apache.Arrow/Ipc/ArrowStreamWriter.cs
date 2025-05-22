@@ -106,7 +106,7 @@ namespace Apache.Arrow.Ipc
             private readonly List<Buffer> _buffers;
             private readonly ICompressionCodec _compressionCodec;
             private readonly MemoryAllocator _allocator;
-
+            private readonly MemoryStream _fallbackCompressionStream;
             public IReadOnlyList<FieldNode> FieldNodes => _fieldNodes;
             public IReadOnlyList<Buffer> Buffers => _buffers;
 
@@ -114,10 +114,11 @@ namespace Apache.Arrow.Ipc
             public int TotalLength { get; private set; }
 
             public ArrowRecordBatchFlatBufferBuilder(
-                ICompressionCodec compressionCodec, MemoryAllocator allocator)
+                ICompressionCodec compressionCodec, MemoryAllocator allocator, MemoryStream fallbackCompressionStream)
             {
                 _compressionCodec = compressionCodec;
                 _allocator = allocator;
+                _fallbackCompressionStream = fallbackCompressionStream;
                 _fieldNodes = new List<FieldNode>();
                 _buffers = new List<Buffer>();
                 TotalLength = 0;
@@ -526,10 +527,12 @@ namespace Apache.Arrow.Ipc
                 }
                 return CreateBuffer(buffer.Memory, null);
             }
+
             private Buffer CreateBuffer(IMemoryOwner<byte>  bufferOwner)
             {
                 return CreateBuffer(bufferOwner.Memory, bufferOwner);
             }
+
             private Buffer CreateBuffer(ReadOnlyMemory<byte> buffer, IDisposable localBufferOwner)
             {
                 int offset = TotalLength;
@@ -557,7 +560,7 @@ namespace Apache.Arrow.Ipc
                     int newBufferLength = UncompressedLengthSize + buffer.Length;
                     bufferOwner = _allocator.Allocate(newBufferLength);
 
-                    if(_compressionCodec.TryCompress(buffer, bufferOwner.Memory.Slice(UncompressedLengthSize, buffer.Length), out int bytesWritten))
+                    if(TryCompress(buffer, bufferOwner.Memory.Slice(UncompressedLengthSize, buffer.Length), out int bytesWritten))
                     {
                         // Write the uncompressed length to the start of the buffer
                         BinaryPrimitives.WriteInt64LittleEndian(bufferOwner.Memory.Span, buffer.Length);
@@ -580,6 +583,24 @@ namespace Apache.Arrow.Ipc
                 TotalLength += paddedLength;
                 // if the buffer is owned locally or allocated in the method, we can dispose it after writing the buffer to the stream
                 return new Buffer(bufferToWrite, offset, (IDisposable)bufferOwner ?? localBufferOwner);
+            }
+
+            private bool TryCompress(ReadOnlyMemory<byte> source, Memory<byte> destination, out int bytesWritten)
+            {
+                if(_compressionCodec is ITryCompressionCodec tryCompressionCodec)
+                    return tryCompressionCodec.TryCompress(source, destination, out bytesWritten);
+                // Fallback to using a memory stream for compression
+                _fallbackCompressionStream.Seek(0, SeekOrigin.Begin);
+                _fallbackCompressionStream.SetLength(0);
+                _compressionCodec.Compress(source, _fallbackCompressionStream);
+                if (_fallbackCompressionStream.Length >= destination.Length)
+                {
+                    bytesWritten = 0;
+                    return false;
+                }
+                _fallbackCompressionStream.Seek(0, SeekOrigin.Begin);
+                bytesWritten = _fallbackCompressionStream.ReadFullBuffer(destination);
+                return true;
             }
 
             public void Visit(IArrowArray array)
@@ -607,8 +628,11 @@ namespace Apache.Arrow.Ipc
         private readonly bool _leaveOpen;
         private readonly IpcOptions _options;
         private readonly MemoryAllocator _allocator;
+        // Fallback for compression codec, not implementing TryCompress.
+        // Reuse a single memory stream for writing compressed
+        private readonly MemoryStream _fallbackCompressionStream = new MemoryStream();
 
-        internal const Flatbuf.MetadataVersion CurrentMetadataVersion = Flatbuf.MetadataVersion.V5;
+        private protected const Flatbuf.MetadataVersion CurrentMetadataVersion = Flatbuf.MetadataVersion.V5;
 
         private static readonly byte[] s_padding = new byte[64];
 
@@ -827,7 +851,7 @@ namespace Apache.Arrow.Ipc
                 ? _options.CompressionCodecFactory.CreateCodec(_options.CompressionCodec.Value, _options.CompressionLevel)
                 : null;
 
-            var recordBatchBuilder = new ArrowRecordBatchFlatBufferBuilder(compressionCodec, _allocator);
+            var recordBatchBuilder = new ArrowRecordBatchFlatBufferBuilder(compressionCodec, _allocator, _fallbackCompressionStream);
 
             // Visit all arrays recursively
             for (int i = 0; i < fields.Count; i++)
@@ -1327,6 +1351,7 @@ namespace Apache.Arrow.Ipc
             {
                 BaseStream.Dispose();
             }
+            _fallbackCompressionStream.Dispose();
         }
     }
 

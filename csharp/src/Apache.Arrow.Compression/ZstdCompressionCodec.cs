@@ -20,7 +20,7 @@ using ZstdSharp;
 
 namespace Apache.Arrow.Compression
 {
-    internal sealed class ZstdCompressionCodec : ICompressionCodec
+    internal sealed class ZstdCompressionCodec : ITryCompressionCodec
     {
         private readonly Decompressor _decompressor;
         private readonly Compressor _compressor;
