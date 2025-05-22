@@ -16,8 +16,8 @@
 // under the License.#include "arrow/compute/api_vector.h"
 
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/codegen_internal.h"
 #include "arrow/compute/function.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging_internal.h"

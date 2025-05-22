@@ -20,8 +20,8 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/compute/codegen_internal.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
 

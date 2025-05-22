@@ -26,10 +26,10 @@
 #include <vector>
 
 #include "arrow/compute/cast_internal.h"
-#include "arrow/compute/codegen_internal.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/reflection_internal.h"

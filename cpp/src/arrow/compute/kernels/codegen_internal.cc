@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/codegen_internal.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 
 #include <cmath>
 #include <functional>
