@@ -20,9 +20,9 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/compute/cast.h"                      // IWYU pragma: keep
-#include "arrow/compute/kernel.h"                    // IWYU pragma: keep
-#include "arrow/compute/kernels/codegen_internal.h"  // IWYU pragma: keep
+#include "arrow/compute/cast.h"              // IWYU pragma: keep
+#include "arrow/compute/codegen_internal.h"  // IWYU pragma: keep
+#include "arrow/compute/kernel.h"            // IWYU pragma: keep
 
 namespace arrow {
 namespace compute {

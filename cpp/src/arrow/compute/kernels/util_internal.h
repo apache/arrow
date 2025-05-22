@@ -23,7 +23,7 @@
 
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
-#include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/compute/codegen_internal.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bitmap_ops.h"

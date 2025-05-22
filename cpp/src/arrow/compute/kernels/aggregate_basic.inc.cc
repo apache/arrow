@@ -29,8 +29,8 @@
 #include <utility>
 
 #include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/codegen_internal.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
-#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
