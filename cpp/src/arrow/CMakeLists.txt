@@ -709,7 +709,6 @@ set(ARROW_COMPUTE_SRCS
     compute/api_scalar.cc
     compute/api_vector.cc
     compute/cast.cc
-    compute/codegen_internal.cc
     compute/exec.cc
     compute/expression.cc
     compute/function.cc
@@ -718,6 +717,7 @@ set(ARROW_COMPUTE_SRCS
     compute/ordering.cc
     compute/registry.cc
     compute/kernels/chunked_internal.cc
+    compute/kernels/codegen_internal.cc
     compute/kernels/scalar_cast_boolean.cc
     compute/kernels/scalar_cast_dictionary.cc
     compute/kernels/scalar_cast_extension.cc

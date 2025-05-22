@@ -23,10 +23,10 @@
 
 #include "arrow/array/data.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/codegen_internal.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 
 namespace arrow::compute::internal {
 

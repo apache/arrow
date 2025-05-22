@@ -21,9 +21,9 @@
 
 #include "arrow/array/data.h"
 #include "arrow/buffer_builder.h"
-#include "arrow/compute/codegen_internal.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"

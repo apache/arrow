@@ -19,7 +19,7 @@
 
 #include <cstdint>
 
-#include "arrow/compute/codegen_internal.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/visibility.h"
 #include "arrow/visit_data_inline.h"
 
