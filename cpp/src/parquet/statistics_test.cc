@@ -807,6 +807,11 @@ void AssertStatsSet(const ApplicationVersion& version,
   stats.set_is_signed(false);
   metadata_builder->SetStatistics(stats);
   ASSERT_EQ(column_chunk->is_stats_set(), expected_is_set);
+  if (expected_is_set) {
+    ASSERT_TRUE(column_chunk->encoded_statistics() != nullptr);
+  } else {
+    ASSERT_TRUE(column_chunk->encoded_statistics() == nullptr);
+  }
 }
 
 // Statistics are restricted for few types in older parquet version
