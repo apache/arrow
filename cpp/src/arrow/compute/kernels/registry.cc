@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 #include "arrow/compute/registry.h"
-#include "arrow/compute/kernels/registry.h"
+#include "arrow/compute/kernels/api.h"
 
 #include <algorithm>
 #include <memory>
@@ -35,13 +35,6 @@ namespace internal {
 
 Status RegisterComputeKernels() {
   auto registry = GetFunctionRegistry();
-
-  // Check if a compute kernels function is already registered
-  // to avoid multiple registration attempts.
-  auto func = registry->GetFunction("rank");
-  if (func.ok()) {
-    return Status::OK();
-  }
 
   // Register additional kernels on libarrow_compute
   // Scalar functions
@@ -89,6 +82,9 @@ Status RegisterComputeKernels() {
 
 }  // namespace internal
 
-Status Initialize() { return internal::RegisterComputeKernels(); }
+Status Initialize() {
+  static auto st = internal::RegisterComputeKernels();
+  return st;
+}
 
 }  // namespace arrow::compute
