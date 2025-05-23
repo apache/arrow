@@ -149,9 +149,9 @@ template <typename T, typename C_TYPE = typename T::c_type>
 void AssertJSONScalar(const std::shared_ptr<DataType>& type, const std::string& json,
                       const bool is_valid, const C_TYPE value) {
   SCOPED_TRACE(json);
-  std::shared_ptr<Scalar> actual, expected;
+  std::shared_ptr<Scalar> expected;
 
-  ASSERT_OK(ScalarFromJSONString(type, json, &actual));
+  ASSERT_OK_AND_ASSIGN(auto actual, ScalarFromJSONString(type, json));
   if (is_valid) {
     ASSERT_OK_AND_ASSIGN(expected, MakeScalar(type, value));
   } else {
@@ -1471,12 +1471,11 @@ TEST(TestDictArrayFromJSON, Basics) {
 
 TEST(TestDictArrayFromJSON, Errors) {
   auto type = dictionary(int32(), utf8());
-  std::shared_ptr<Array> array;
 
-  ASSERT_RAISES(Invalid, DictArrayFromJSONString(type, "[\"not a valid index\"]",
-                                                 "[\"\"]", &array));
-  ASSERT_RAISES(Invalid, DictArrayFromJSONString(type, "[0, 1]", "[1]",
-                                                 &array));  // dict value isn't string
+  ASSERT_RAISES(Invalid,
+                DictArrayFromJSONString(type, "[\"not a valid index\"]", "[\"\"]"));
+  ASSERT_RAISES(Invalid, DictArrayFromJSONString(type, "[0, 1]",
+                                                 "[1]"));  // dict value isn't string
 }
 
 TEST(TestChunkedArrayFromJSON, Basics) {
@@ -1516,25 +1515,23 @@ TEST(TestScalarFromJSON, Basics) {
   AssertJSONScalar<BooleanType, bool>(boolean(), "1", true, true);
   AssertJSONScalar<DoubleType>(float64(), "1.0", true, 1.0);
   AssertJSONScalar<DoubleType>(float64(), "-0.0", true, -0.0);
-  ASSERT_OK(ScalarFromJSONString(float64(), "NaN", &scalar));
+  ASSERT_OK(ScalarFromJSONString(float64(), "NaN"));
   ASSERT_TRUE(std::isnan(checked_cast<DoubleScalar&>(*scalar).value));
-  ASSERT_OK(ScalarFromJSONString(float64(), "Inf", &scalar));
+  ASSERT_OK(ScalarFromJSONString(float64(), "Inf"));
   ASSERT_TRUE(std::isinf(checked_cast<DoubleScalar&>(*scalar).value));
 }
 
 TEST(TestScalarFromJSON, Errors) {
   std::shared_ptr<Scalar> scalar;
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "[0]", &scalar));
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "[9223372036854775808]", &scalar));
-  ASSERT_RAISES(Invalid,
-                ScalarFromJSONString(int64(), "[-9223372036854775809]", &scalar));
-  ASSERT_RAISES(Invalid,
-                ScalarFromJSONString(uint64(), "[18446744073709551616]", &scalar));
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(uint64(), "[-1]", &scalar));
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(binary(), "0", &scalar));
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(binary(), "[]", &scalar));
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(boolean(), "0.0", &scalar));
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(boolean(), "\"true\"", &scalar));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "[0]"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "[9223372036854775808]"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "[-9223372036854775809]"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(uint64(), "[18446744073709551616]"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(uint64(), "[-1]"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(binary(), "0"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(binary(), "[]"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(boolean(), "0.0"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(boolean(), "\"true\""));
 }
 
 TEST(TestDictScalarFromJSONString, Basics) {
@@ -1553,12 +1550,11 @@ TEST(TestDictScalarFromJSONString, Basics) {
 
 TEST(TestDictScalarFromJSONString, Errors) {
   auto type = dictionary(int32(), utf8());
-  std::shared_ptr<Scalar> scalar;
 
-  ASSERT_RAISES(Invalid, DictScalarFromJSONString(type, "\"not a valid index\"", "[\"\"]",
-                                                  &scalar));
-  ASSERT_RAISES(Invalid, DictScalarFromJSONString(type, "0", "[1]",
-                                                  &scalar));  // dict value isn't string
+  ASSERT_RAISES(Invalid,
+                DictScalarFromJSONString(type, "\"not a valid index\"", "[\"\"]"));
+  ASSERT_RAISES(Invalid,
+                DictScalarFromJSONString(type, "0", "[1]"));  // dict value isn't string
 }
 
 }  // namespace json

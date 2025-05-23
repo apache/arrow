@@ -73,10 +73,10 @@ arrow::Status RunExample() {
       ChunkedArrayFromJSONString(arrow::int32(), {"[5, 10]", "[null]", "[16]"}));
 
   // DictArrayFromJSONString
-  std::shared_ptr<arrow::Array> dict_array;
-  ARROW_RETURN_NOT_OK(DictArrayFromJSONString(
-      dictionary(arrow::int32(), arrow::utf8()), "[0, 1, 0, 2, 0, 3]",
-      R"(["k1", "k2", "k3", "k4"])", &dict_array));
+  ARROW_ASSIGN_OR_RAISE(
+      auto dict_array,
+      DictArrayFromJSONString(dictionary(arrow::int32(), arrow::utf8()),
+                              "[0, 1, 0, 2, 0, 3]", R"(["k1", "k2", "k3", "k4"])"));
 
   return arrow::Status::OK();
 }
