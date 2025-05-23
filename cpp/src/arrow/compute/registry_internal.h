@@ -30,6 +30,7 @@ void RegisterScalarBoolean(FunctionRegistry* registry);
 void RegisterScalarCast(FunctionRegistry* registry);
 void RegisterDictionaryDecode(FunctionRegistry* registry);
 void RegisterScalarComparison(FunctionRegistry* registry);
+void RegisterScalarHash(FunctionRegistry* registry);
 void RegisterScalarIfElse(FunctionRegistry* registry);
 void RegisterScalarNested(FunctionRegistry* registry);
 void RegisterScalarRandom(FunctionRegistry* registry);  // Nullary
