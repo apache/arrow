@@ -87,36 +87,38 @@ namespace Apache.Arrow.Ipc
                 }
             }
 
-            public readonly struct Buffer
+            public readonly struct Buffer : IDisposable
             {
                 public readonly ReadOnlyMemory<byte> DataBuffer;
                 public readonly int Offset;
+                private readonly IDisposable _owner;
 
-                public Buffer(ReadOnlyMemory<byte> buffer, int offset)
+                public Buffer(ReadOnlyMemory<byte> buffer, int offset, IDisposable owner)
                 {
                     DataBuffer = buffer;
                     Offset = offset;
+                    _owner = owner;
                 }
+                public void Dispose() => _owner?.Dispose();
             }
 
             private readonly List<FieldNode> _fieldNodes;
             private readonly List<Buffer> _buffers;
             private readonly ICompressionCodec _compressionCodec;
             private readonly MemoryAllocator _allocator;
-            private readonly MemoryStream _compressionStream;
-
+            private readonly MemoryStream _fallbackCompressionStream;
             public IReadOnlyList<FieldNode> FieldNodes => _fieldNodes;
             public IReadOnlyList<Buffer> Buffers => _buffers;
 
-            public List<long> VariadicCounts { get; private set; } 
+            public List<long> VariadicCounts { get; private set; }
             public int TotalLength { get; private set; }
 
             public ArrowRecordBatchFlatBufferBuilder(
-                ICompressionCodec compressionCodec, MemoryAllocator allocator, MemoryStream compressionStream)
+                ICompressionCodec compressionCodec, MemoryAllocator allocator, MemoryStream fallbackCompressionStream)
             {
                 _compressionCodec = compressionCodec;
-                _compressionStream = compressionStream;
                 _allocator = allocator;
+                _fallbackCompressionStream = fallbackCompressionStream;
                 _fieldNodes = new List<FieldNode>();
                 _buffers = new List<Buffer>();
                 TotalLength = 0;
@@ -155,20 +157,20 @@ namespace Apache.Arrow.Ipc
             private void VisitPrimitiveArray<T>(PrimitiveArray<T> array)
                 where T : struct, IEquatable<T>
             {
-                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
-                _buffers.Add(CreateSlicedBuffer<T>(array.ValueBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
+                _buffers.Add(CreateSlicedBuffer<T>(array.ValueBuffer, array.Offset, array.Length, false));
             }
 
             public void Visit(BooleanArray array)
             {
-                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
-                _buffers.Add(CreateBitmapBuffer(array.ValueBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
+                _buffers.Add(CreateBitmapBuffer(array.ValueBuffer, array.Offset, array.Length, false));
             }
 
             public void Visit(ListArray array)
             {
-                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
-                _buffers.Add(CreateBuffer(GetZeroBasedValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length)));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
+                _buffers.Add(CreateBuffer(GetZeroBasedValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length), true));
 
                 int valuesOffset = 0;
                 int valuesLength = 0;
@@ -191,9 +193,9 @@ namespace Apache.Arrow.Ipc
             {
                 var (valueOffsetsBuffer, minOffset, maxEnd) = GetZeroBasedListViewOffsets(array);
 
-                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
-                _buffers.Add(CreateBuffer(valueOffsetsBuffer));
-                _buffers.Add(CreateSlicedBuffer<int>(array.SizesBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
+                _buffers.Add(CreateBuffer(valueOffsetsBuffer, true));
+                _buffers.Add(CreateSlicedBuffer<int>(array.SizesBuffer, array.Offset, array.Length, false));
 
                 IArrowArray values = array.Values;
                 if (minOffset != 0 || values.Length != maxEnd)
@@ -206,8 +208,8 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(LargeListArray array)
             {
-                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
-                _buffers.Add(CreateBuffer(GetZeroBasedLongValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length)));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
+                _buffers.Add(CreateBuffer(GetZeroBasedLongValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length), true));
 
                 int valuesOffset = 0;
                 int valuesLength = 0;
@@ -228,7 +230,7 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(FixedSizeListArray array)
             {
-                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
 
                 var listSize = ((FixedSizeListType)array.Data.DataType).ListSize;
                 var valuesSlice =
@@ -245,8 +247,8 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(BinaryArray array)
             {
-                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
-                _buffers.Add(CreateBuffer(GetZeroBasedValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length)));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
+                _buffers.Add(CreateBuffer(GetZeroBasedValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length), true));
 
                 int valuesOffset = 0;
                 int valuesLength = 0;
@@ -256,16 +258,16 @@ namespace Apache.Arrow.Ipc
                     valuesLength = array.ValueOffsets[array.Length] - valuesOffset;
                 }
 
-                _buffers.Add(CreateSlicedBuffer<byte>(array.ValueBuffer, valuesOffset, valuesLength));
+                _buffers.Add(CreateSlicedBuffer<byte>(array.ValueBuffer, valuesOffset, valuesLength, false));
             }
 
             public void Visit(BinaryViewArray array)
             {
-                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
-                _buffers.Add(CreateSlicedBuffer<Scalars.BinaryView>(array.ViewsBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
+                _buffers.Add(CreateSlicedBuffer<Scalars.BinaryView>(array.ViewsBuffer, array.Offset, array.Length, false));
                 for (int i = 0; i < array.DataBufferCount; i++)
                 {
-                    _buffers.Add(CreateBuffer(array.DataBuffer(i)));
+                    _buffers.Add(CreateBuffer(array.DataBuffer(i), false));
                 }
                 VariadicCounts = VariadicCounts ?? new List<long>();
                 VariadicCounts.Add(array.DataBufferCount);
@@ -273,8 +275,8 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(LargeBinaryArray array)
             {
-                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
-                _buffers.Add(CreateBuffer(GetZeroBasedLongValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length)));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
+                _buffers.Add(CreateBuffer(GetZeroBasedLongValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length), true));
 
                 int valuesOffset = 0;
                 int valuesLength = 0;
@@ -284,14 +286,14 @@ namespace Apache.Arrow.Ipc
                     valuesLength = checked((int)array.ValueOffsets[array.Length]) - valuesOffset;
                 }
 
-                _buffers.Add(CreateSlicedBuffer<byte>(array.ValueBuffer, valuesOffset, valuesLength));
+                _buffers.Add(CreateSlicedBuffer<byte>(array.ValueBuffer, valuesOffset, valuesLength, false));
             }
 
             public void Visit(FixedSizeBinaryArray array)
             {
                 var itemSize = ((FixedSizeBinaryType)array.Data.DataType).ByteWidth;
-                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
-                _buffers.Add(CreateSlicedBuffer(array.ValueBuffer, itemSize, array.Offset, array.Length));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
+                _buffers.Add(CreateSlicedBuffer(array.ValueBuffer, itemSize, array.Offset, array.Length, false));
             }
 
             public void Visit(Decimal32Array array) => Visit(array as FixedSizeBinaryArray);
@@ -304,7 +306,7 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(StructArray array)
             {
-                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
 
                 for (int i = 0; i < array.Fields.Count; i++)
                 {
@@ -315,12 +317,12 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(UnionArray array)
             {
-                _buffers.Add(CreateSlicedBuffer<byte>(array.TypeBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateSlicedBuffer<byte>(array.TypeBuffer, array.Offset, array.Length, false));
 
                 ArrowBuffer? offsets = (array as DenseUnionArray)?.ValueOffsetBuffer;
                 if (offsets != null)
                 {
-                    _buffers.Add(CreateSlicedBuffer<int>(offsets.Value, array.Offset, array.Length));
+                    _buffers.Add(CreateSlicedBuffer<int>(offsets.Value, array.Offset, array.Length, false));
                 }
 
                 for (int i = 0; i < array.Fields.Count; i++)
@@ -351,7 +353,7 @@ namespace Apache.Arrow.Ipc
                 {
                     // Array has been sliced, so we need to shift and adjust the offsets
                     var originalOffsets = valueOffsetsBuffer.Span.CastTo<int>().Slice(arrayOffset, arrayLength + 1);
-                    var firstOffset = arrayLength > 0 ? originalOffsets[0] : 0;
+                    int firstOffset = arrayLength > 0 ? originalOffsets[0] : 0;
 
                     var newValueOffsetsBuffer = _allocator.Allocate(requiredBytes);
                     var newValueOffsets = newValueOffsetsBuffer.Memory.Span.CastTo<int>();
@@ -371,8 +373,8 @@ namespace Apache.Arrow.Ipc
                 }
                 else
                 {
-                    // Use the full buffer
-                    return valueOffsetsBuffer;
+                    // Use the full buffer, but create a copy that is externally owned
+                    return new ArrowBuffer(valueOffsetsBuffer.Memory);
                 }
             }
 
@@ -393,7 +395,6 @@ namespace Apache.Arrow.Ipc
                     {
                         newValueOffsets[i] = originalOffsets[i] - firstOffset;
                     }
-
                     return new ArrowBuffer(newValueOffsetsBuffer);
                 }
                 else if (valueOffsetsBuffer.Length > requiredBytes)
@@ -404,8 +405,8 @@ namespace Apache.Arrow.Ipc
                 }
                 else
                 {
-                    // Use the full buffer
-                    return valueOffsetsBuffer;
+                    // Use the full buffer, create new buffer that is externally owned
+                    return new ArrowBuffer(valueOffsetsBuffer.Memory);
                 }
             }
 
@@ -439,12 +440,17 @@ namespace Apache.Arrow.Ipc
                 if (minOffset == 0)
                 {
                     // No need to adjust the offsets, but we may need to slice the offsets buffer.
-                    ArrowBuffer buffer = array.ValueOffsetsBuffer;
-                    if (array.Offset != 0 || buffer.Length > requiredBytes)
+                    ArrowBuffer buffer;
+                    if (array.Offset != 0 || array.ValueOffsetsBuffer.Length > requiredBytes)
                     {
                         var byteOffset = sizeof(int) * array.Offset;
-                        var sliceLength = Math.Min(requiredBytes, buffer.Length - byteOffset);
-                        buffer = new ArrowBuffer(buffer.Memory.Slice(byteOffset, sliceLength));
+                        var sliceLength = Math.Min(requiredBytes, array.ValueOffsetsBuffer.Length - byteOffset);
+                        buffer = new ArrowBuffer(array.ValueOffsetsBuffer.Memory.Slice(byteOffset, sliceLength));
+                    }
+                    else
+                    {
+                        // create a copy that's externally owned
+                        buffer = new ArrowBuffer(array.ValueOffsetsBuffer.Memory);
                     }
 
                     return (buffer, minOffset, maxEnd);
@@ -461,11 +467,11 @@ namespace Apache.Arrow.Ipc
                 return (new ArrowBuffer(newOffsetsBuffer), minOffset, maxEnd);
             }
 
-            private Buffer CreateBitmapBuffer(ArrowBuffer buffer, int offset, int length)
+            private Buffer CreateBitmapBuffer(ArrowBuffer buffer, int offset, int length, bool locallyOwned)
             {
                 if (buffer.IsEmpty)
                 {
-                    return CreateBuffer(buffer.Memory);
+                    return CreateBuffer(buffer, locallyOwned);
                 }
 
                 var paddedLength = CalculatePaddedBufferLength(BitUtility.ByteCount(length));
@@ -474,7 +480,7 @@ namespace Apache.Arrow.Ipc
                     var byteOffset = offset / 8;
                     var sliceLength = Math.Min(paddedLength, buffer.Length - byteOffset);
 
-                    return CreateBuffer(buffer.Memory.Slice(byteOffset, sliceLength));
+                    return CreateBuffer(buffer.Memory.Slice(byteOffset, sliceLength), locallyOwned ? buffer : null);
                 }
                 else
                 {
@@ -487,17 +493,17 @@ namespace Apache.Arrow.Ipc
                         BitUtility.SetBit(outputSpan, i, BitUtility.GetBit(inputSpan, offset + i));
                     }
 
-                    return CreateBuffer(memoryOwner.Memory);
+                    return CreateBuffer(memoryOwner);
                 }
             }
 
-            private Buffer CreateSlicedBuffer<T>(ArrowBuffer buffer, int offset, int length)
+            private Buffer CreateSlicedBuffer<T>(ArrowBuffer buffer, int offset, int length, bool owned)
                 where T : struct
             {
-                return CreateSlicedBuffer(buffer, Unsafe.SizeOf<T>(), offset, length);
+                return CreateSlicedBuffer(buffer, Unsafe.SizeOf<T>(), offset, length, owned);
             }
 
-            private Buffer CreateSlicedBuffer(ArrowBuffer buffer, int itemSize, int offset, int length)
+            private Buffer CreateSlicedBuffer(ArrowBuffer buffer, int itemSize, int offset, int length, bool owned)
             {
                 var byteLength = length * itemSize;
                 var paddedLength = CalculatePaddedBufferLength(byteLength);
@@ -505,23 +511,35 @@ namespace Apache.Arrow.Ipc
                 {
                     var byteOffset = offset * itemSize;
                     var sliceLength = Math.Min(paddedLength, buffer.Length - byteOffset);
-                    return CreateBuffer(buffer.Memory.Slice(byteOffset, sliceLength));
+                    return CreateBuffer(buffer.Memory.Slice(byteOffset, sliceLength),
+                        owned ? buffer : null);
                 }
 
-                return CreateBuffer(buffer.Memory);
+                return CreateBuffer(buffer, owned);
             }
 
-            private Buffer CreateBuffer(ArrowBuffer buffer)
+            private Buffer CreateBuffer(ArrowBuffer buffer, bool locallyOwned)
             {
-                return CreateBuffer(buffer.Memory);
+                if (locallyOwned)
+                {
+                    // this buffer is locally owned, we can dispose it
+                    return CreateBuffer(buffer.Memory, buffer);
+                }
+                return CreateBuffer(buffer.Memory, null);
             }
 
-            private Buffer CreateBuffer(ReadOnlyMemory<byte> buffer)
+            private Buffer CreateBuffer(IMemoryOwner<byte>  bufferOwner)
+            {
+                return CreateBuffer(bufferOwner.Memory, bufferOwner);
+            }
+
+            private Buffer CreateBuffer(ReadOnlyMemory<byte> buffer, IDisposable localBufferOwner)
             {
                 int offset = TotalLength;
                 const int UncompressedLengthSize = 8;
 
                 ReadOnlyMemory<byte> bufferToWrite;
+                IMemoryOwner<byte> bufferOwner=null;
                 if (_compressionCodec == null)
                 {
                     bufferToWrite = buffer;
@@ -529,40 +547,60 @@ namespace Apache.Arrow.Ipc
                 else if (buffer.Length == 0)
                 {
                     // Write zero length and skip compression
-                    var uncompressedLengthBytes = _allocator.Allocate(UncompressedLengthSize);
-                    BinaryPrimitives.WriteInt64LittleEndian(uncompressedLengthBytes.Memory.Span, 0);
-                    bufferToWrite = uncompressedLengthBytes.Memory;
+                    bufferOwner = _allocator.Allocate(UncompressedLengthSize);
+                    BinaryPrimitives.WriteInt64LittleEndian(bufferOwner.Memory.Span, 0);
+                    bufferToWrite = bufferOwner.Memory.Slice(0, UncompressedLengthSize);
+                    // the local source buffer owner can be disposed, its memory is no longer needed
+                    localBufferOwner?.Dispose();
                 }
                 else
                 {
                     // See format/Message.fbs, and the BUFFER BodyCompressionMethod for documentation on how
                     // compressed buffers are stored.
-                    _compressionStream.Seek(0, SeekOrigin.Begin);
-                    _compressionStream.SetLength(0);
-                    _compressionCodec.Compress(buffer, _compressionStream);
-                    if (_compressionStream.Length < buffer.Length)
+                    int newBufferLength = UncompressedLengthSize + buffer.Length;
+                    bufferOwner = _allocator.Allocate(newBufferLength);
+
+                    if(TryCompress(buffer, bufferOwner.Memory.Slice(UncompressedLengthSize, buffer.Length), out int bytesWritten))
                     {
-                        var newBuffer = _allocator.Allocate((int) _compressionStream.Length + UncompressedLengthSize);
-                        BinaryPrimitives.WriteInt64LittleEndian(newBuffer.Memory.Span, buffer.Length);
-                        _compressionStream.Seek(0, SeekOrigin.Begin);
-                        _compressionStream.ReadFullBuffer(newBuffer.Memory.Slice(UncompressedLengthSize));
-                        bufferToWrite = newBuffer.Memory;
+                        // Write the uncompressed length to the start of the buffer
+                        BinaryPrimitives.WriteInt64LittleEndian(bufferOwner.Memory.Span, buffer.Length);
+                        bufferToWrite = bufferOwner.Memory.Slice(0, bytesWritten+UncompressedLengthSize);
                     }
                     else
                     {
+                        // TryCompress failed, because the buffer is too small.
                         // If the compressed buffer is larger than the uncompressed buffer, use the uncompressed
                         // buffer instead, and indicate this by setting the uncompressed length to -1
-                        var newBuffer = _allocator.Allocate(buffer.Length + UncompressedLengthSize);
-                        BinaryPrimitives.WriteInt64LittleEndian(newBuffer.Memory.Span, -1);
-                        buffer.CopyTo(newBuffer.Memory.Slice(UncompressedLengthSize));
-                        bufferToWrite = newBuffer.Memory;
+                        BinaryPrimitives.WriteInt64LittleEndian(bufferOwner.Memory.Span, -1);
+                        buffer.CopyTo(bufferOwner.Memory.Slice(UncompressedLengthSize));
+                        bufferToWrite = bufferOwner.Memory.Slice(0, newBufferLength);
                     }
+                    // the local source buffer owner can be disposed, its memory was copied
+                    localBufferOwner?.Dispose();
                 }
 
                 int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(bufferToWrite.Length));
                 TotalLength += paddedLength;
+                // if the buffer is owned locally or allocated in the method, we can dispose it after writing the buffer to the stream
+                return new Buffer(bufferToWrite, offset, (IDisposable)bufferOwner ?? localBufferOwner);
+            }
 
-                return new Buffer(bufferToWrite, offset);
+            private bool TryCompress(ReadOnlyMemory<byte> source, Memory<byte> destination, out int bytesWritten)
+            {
+                if(_compressionCodec is ITryCompressionCodec tryCompressionCodec)
+                    return tryCompressionCodec.TryCompress(source, destination, out bytesWritten);
+                // Fallback to using a memory stream for compression
+                _fallbackCompressionStream.Seek(0, SeekOrigin.Begin);
+                _fallbackCompressionStream.SetLength(0);
+                _compressionCodec.Compress(source, _fallbackCompressionStream);
+                if (_fallbackCompressionStream.Length >= destination.Length)
+                {
+                    bytesWritten = 0;
+                    return false;
+                }
+                _fallbackCompressionStream.Seek(0, SeekOrigin.Begin);
+                bytesWritten = _fallbackCompressionStream.ReadFullBuffer(destination);
+                return true;
             }
 
             public void Visit(IArrowArray array)
@@ -590,8 +628,9 @@ namespace Apache.Arrow.Ipc
         private readonly bool _leaveOpen;
         private readonly IpcOptions _options;
         private readonly MemoryAllocator _allocator;
-        // Reuse a single memory stream for writing compressed data to, to reduce memory allocations
-        private readonly MemoryStream _compressionStream = new MemoryStream();
+        // Fallback for compression codec, not implementing TryCompress.
+        // Reuse a single memory stream for writing compressed
+        private readonly MemoryStream _fallbackCompressionStream = new MemoryStream();
 
         private protected const Flatbuf.MetadataVersion CurrentMetadataVersion = Flatbuf.MetadataVersion.V5;
 
@@ -742,19 +781,17 @@ namespace Apache.Arrow.Ipc
 
             for (int i = 0; i < buffers.Count; i++)
             {
-                ReadOnlyMemory<byte> buffer = buffers[i].DataBuffer;
-                if (buffer.IsEmpty)
+                using var buffer = buffers[i]; // Dispose the buffer after writing
+                ReadOnlyMemory<byte> dataBuffer = buffer.DataBuffer;
+                if (dataBuffer.IsEmpty)
                     continue;
-
-                BaseStream.Write(buffer);
-
-                int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(buffer.Length));
-                int padding = paddedLength - buffer.Length;
+                BaseStream.Write(dataBuffer);
+                int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(dataBuffer.Length));
+                int padding = paddedLength - dataBuffer.Length;
                 if (padding > 0)
                 {
                     WritePadding(padding);
                 }
-
                 bodyLength += paddedLength;
             }
 
@@ -773,14 +810,15 @@ namespace Apache.Arrow.Ipc
 
             for (int i = 0; i < buffers.Count; i++)
             {
-                ReadOnlyMemory<byte> buffer = buffers[i].DataBuffer;
-                if (buffer.IsEmpty)
+                using var buffer = buffers[i]; // Dispose the buffer after writing
+                ReadOnlyMemory<byte> dataBuffer = buffer.DataBuffer;
+                if (dataBuffer.IsEmpty)
                     continue;
 
-                await BaseStream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
+                await BaseStream.WriteAsync(dataBuffer, cancellationToken).ConfigureAwait(false);
 
-                int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(buffer.Length));
-                int padding = paddedLength - buffer.Length;
+                int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(dataBuffer.Length));
+                int padding = paddedLength - dataBuffer.Length;
                 if (padding > 0)
                 {
                     await WritePaddingAsync(padding).ConfigureAwait(false);
@@ -813,7 +851,7 @@ namespace Apache.Arrow.Ipc
                 ? _options.CompressionCodecFactory.CreateCodec(_options.CompressionCodec.Value, _options.CompressionLevel)
                 : null;
 
-            var recordBatchBuilder = new ArrowRecordBatchFlatBufferBuilder(compressionCodec, _allocator, _compressionStream);
+            var recordBatchBuilder = new ArrowRecordBatchFlatBufferBuilder(compressionCodec, _allocator, _fallbackCompressionStream);
 
             // Visit all arrays recursively
             for (int i = 0; i < fields.Count; i++)
@@ -1313,7 +1351,7 @@ namespace Apache.Arrow.Ipc
             {
                 BaseStream.Dispose();
             }
-            _compressionStream.Dispose();
+            _fallbackCompressionStream.Dispose();
         }
     }
 

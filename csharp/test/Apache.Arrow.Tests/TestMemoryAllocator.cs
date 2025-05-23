@@ -13,17 +13,56 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 using Apache.Arrow.Memory;
 using System.Buffers;
+using System.Threading;
 
 namespace Apache.Arrow.Tests
 {
     public class TestMemoryAllocator : MemoryAllocator
     {
+        private int _rented = 0;
+        public int Rented => _rented;
+
         protected override IMemoryOwner<byte> AllocateInternal(int length, out int bytesAllocated)
         {
-            bytesAllocated = length;
-            return MemoryPool<byte>.Shared.Rent(length);
+            var mem = MemoryPool<byte>.Shared.Rent(length);
+            bytesAllocated = mem.Memory.Length;
+            Interlocked.Increment(ref _rented);
+            return new TestMemoryOwner(mem, this);
+        }
+
+        private class TestMemoryOwner : IMemoryOwner<byte>
+        {
+            private readonly IMemoryOwner<byte> _inner;
+            private readonly TestMemoryAllocator _allocator;
+            private bool _disposed;
+
+            public TestMemoryOwner(IMemoryOwner<byte> inner, TestMemoryAllocator allocator)
+            {
+                _inner = inner;
+                _allocator = allocator;
+            }
+
+            public Memory<byte> Memory
+            {
+                get
+                {
+                    if (_disposed)
+                        throw new ObjectDisposedException(nameof(TestMemoryOwner));
+                    return _inner.Memory;
+                }
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                    return;
+                _disposed = true;
+                Interlocked.Decrement(ref _allocator._rented);
+                _inner?.Dispose();
+            }
         }
     }
 }

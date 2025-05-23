@@ -33,7 +33,7 @@ namespace Apache.Arrow.Compression
                 {
                     _settings = new LZ4EncoderSettings
                     {
-                        CompressionLevel = (LZ4Level) compressionLevel,
+                        CompressionLevel = (LZ4Level) compressionLevel
                     };
                 }
                 else
