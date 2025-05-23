@@ -20,7 +20,7 @@ namespace Apache.Arrow.Ipc
     public interface ITryCompressionCodec : ICompressionCodec
     {
         /// <summary>
-        /// try to write compressed data to span
+        /// Try to write compressed data to a fixed length memory span
         /// </summary>
         /// <param name="source">The data to compress</param>
         /// <param name="destination">Memory to write compressed data to</param>
