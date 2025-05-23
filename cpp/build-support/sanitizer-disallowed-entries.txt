@@ -23,3 +23,6 @@ fun:*testing*internal*InvokeWith*
 
 # Workaround for RapidJSON https://github.com/Tencent/rapidjson/issues/1724
 src:*/rapidjson/internal/*
+
+# Workaround for heap-use-after-free error for OpenTelemetry.
+fun:*opentelemetry::v1::trace::NoopTracer*
