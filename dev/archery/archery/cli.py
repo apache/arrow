@@ -16,7 +16,6 @@
 # under the License.
 
 from io import StringIO
-from typing import Optional
 import click
 import json
 import logging
