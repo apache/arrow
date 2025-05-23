@@ -144,6 +144,8 @@ class PARQUET_EXPORT VariantMetadata {
   /// Metadata for primitive types and any nested types
   /// without key dictionary.
   static constexpr char kEmptyMetadataChars[] = {0x1, 0x0, 0x0};
+  static constexpr std::string_view kEmptyMetadataStringView{kEmptyMetadataChars,
+                                                             sizeof(kEmptyMetadataChars)};
 
  private:
   static uint32_t loadDictionarySize(std::string_view metadata, uint8_t offset_size);
@@ -262,7 +264,11 @@ class PARQUET_EXPORT VariantValue {
   VariantValue getArrayValueByIndex(uint32_t index) const;
 
  private:
+  static constexpr uint8_t kHeaderSizeBytes = 1;
+  static constexpr size_t kDecimalScaleSizeBytes = 1;
+  static constexpr size_t kPrimitiveStringLengthSizeBytes = 4;
   static constexpr uint8_t kBasicTypeMask = 0b00000011;
+  static constexpr uint8_t kPrimitiveTypeBitShift = 2;
   static constexpr uint8_t kPrimitiveTypeMask = 0b00111111;
   /// The inclusive maximum value of the type info value. It is the size limit of
   /// ShortString.
@@ -292,10 +298,14 @@ class PARQUET_EXPORT VariantValue {
   // An extra function because binary/string uses 4 bytes for length.
   std::string_view getPrimitiveBinaryType(VariantPrimitiveType type) const;
   void checkBasicType(VariantBasicType type) const;
+  void checkIsComplexType() const;
   void checkPrimitiveType(VariantPrimitiveType type, size_t size_required) const;
 
   static ComplexInfo getArrayInfo(std::string_view value);
   static ComplexInfo getObjectInfo(std::string_view value);
+
+  uint32_t complexOffsetAt(uint32_t field_index) const;
+  uint32_t complexFieldIdAt(uint32_t field_index) const;
 
  private:
   VariantMetadata metadata_;

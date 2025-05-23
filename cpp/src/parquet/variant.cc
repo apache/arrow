@@ -171,7 +171,7 @@ VariantMetadata::VariantMetadata(std::string_view metadata) : metadata_(metadata
                            std::to_string(offset_sz));
   }
   dictionary_size_ = loadDictionarySize(metadata, offset_sz);
-  if (kHeaderSizeBytes + (dictionary_size_ + 1) * offset_sz > metadata_.size()) {
+  if (kHeaderSizeBytes + (dictionary_size_ + 2) * offset_sz > metadata_.size()) {
     throw ParquetException(
         "Invalid Variant metadata: offset out of range: " +
         std::to_string((dictionary_size_ + kHeaderSizeBytes) * offset_sz) + " > " +
@@ -204,12 +204,12 @@ uint32_t VariantMetadata::dictionary_size() const { return dictionary_size_; }
 
 std::string_view VariantMetadata::GetMetadataKey(uint32_t variant_id) const {
   uint32_t offset_bytes = offset_size();
-  uint32_t dictionary_bytes = dictionary_size();
+  uint32_t dictionary_item_count = dictionary_size();
 
-  if (variant_id >= dictionary_bytes) {
+  if (variant_id >= dictionary_item_count) {
     throw ParquetException("Invalid Variant metadata: variant_id out of range: " +
                            std::to_string(variant_id) +
-                           " >= " + std::to_string(dictionary_bytes));
+                           " >= " + std::to_string(dictionary_item_count));
   }
 
   size_t offset_start_pos = kHeaderSizeBytes + offset_bytes + (variant_id * offset_bytes);
@@ -221,8 +221,9 @@ std::string_view VariantMetadata::GetMetadataKey(uint32_t variant_id) const {
       metadata_.data() + offset_start_pos + offset_bytes, offset_bytes);
   uint32_t key_size = variant_next_offset - variant_offset;
 
+  // 2 for dictionary_size and an extra offset for the dictionary key string.
   size_t string_start =
-      kHeaderSizeBytes + offset_bytes * (dictionary_bytes + 2) + variant_offset;
+      kHeaderSizeBytes + offset_bytes * (dictionary_item_count + 2) + variant_offset;
   if (string_start + key_size > metadata_.size()) {
     throw ParquetException("Invalid Variant metadata: string data out of range: " +
                            std::to_string(string_start) + " + " +
@@ -237,26 +238,26 @@ std::string_view VariantMetadata::GetMetadataKey(uint32_t variant_id) const {
   uint32_t offset_bytes = offset_size();
   uint32_t dictionary_bytes = dictionary_size();
 
-  if ((dictionary_bytes + kHeaderSizeBytes) * offset_bytes > metadata_.size()) {
-    throw ParquetException("Invalid Variant metadata: offset out of range");
-  }
   const bool sort_and_unique = sorted_and_unique();
   // TODO(mwish): This can be optimized by using binary search if the metadata is sorted.
   ::arrow::internal::SmallVector<uint32_t, 1> vector;
-  uint32_t variant_offset = 0;
-  uint32_t variant_next_offset = 0;
+  uint32_t dictionary_key_offset = 0;
+  uint32_t dictionary_next_key_offset = 0;
+  const uint32_t dictionary_key_start_offset =
+      kHeaderSizeBytes + offset_bytes * (dictionary_bytes + 2);
   for (uint32_t i = 0; i < dictionary_bytes; ++i) {
-    size_t offset_start_pos = 1 + offset_bytes + (i * offset_bytes);
-    variant_offset = variant_next_offset;
-    variant_next_offset = readLittleEndianU32(
+    size_t offset_start_pos = kHeaderSizeBytes + (i + 1) * offset_bytes;
+    dictionary_key_offset = dictionary_next_key_offset;
+    dictionary_next_key_offset = readLittleEndianU32(
         metadata_.data() + offset_start_pos + offset_bytes, offset_bytes);
-    uint32_t key_size = variant_next_offset - variant_offset;
+    uint32_t dictionary_key_size = dictionary_next_key_offset - dictionary_key_offset;
 
-    size_t string_start = 1 + offset_bytes * (dictionary_bytes + 2) + variant_offset;
-    if (string_start + key_size > metadata_.size()) {
+    size_t dictionary_key_start = dictionary_key_start_offset + dictionary_key_offset;
+    if (dictionary_key_start + dictionary_key_size > metadata_.size()) {
       throw ParquetException("Invalid Variant metadata: string data out of range");
     }
-    std::string_view current_key{metadata_.data() + string_start, key_size};
+    std::string_view current_key{metadata_.data() + dictionary_key_start,
+                                 dictionary_key_size};
     if (current_key == key) {
       vector.push_back(i);
       if (sort_and_unique) {
@@ -299,7 +300,8 @@ VariantType VariantValue::getType() const {
   VariantBasicType basic_type = getBasicType();
   switch (basic_type) {
     case VariantBasicType::Primitive: {
-      auto primitive_type = static_cast<VariantPrimitiveType>(value_[0] >> 2);
+      auto primitive_type =
+          static_cast<VariantPrimitiveType>(value_[0] >> kPrimitiveTypeBitShift);
       switch (primitive_type) {
         case VariantPrimitiveType::NullType:
           return VariantType::Null;
@@ -419,7 +421,7 @@ bool VariantValue::getBool() const {
                            VariantBasicTypeToString(getBasicType()));
   }
 
-  uint8_t primitive_type = static_cast<uint8_t>(value_[0]) >> 2;
+  uint8_t primitive_type = static_cast<uint8_t>(value_[0]) >> kPrimitiveTypeBitShift;
   if (primitive_type == static_cast<uint8_t>(VariantPrimitiveType::BooleanTrue)) {
     return true;
   }
@@ -438,11 +440,20 @@ void VariantValue::checkBasicType(VariantBasicType type) const {
   }
 }
 
+void VariantValue::checkIsComplexType() const {
+  VariantBasicType basic_type = getBasicType();
+  if (basic_type != VariantBasicType::Object && basic_type != VariantBasicType::Array) {
+    throw ParquetException("Expected complex type, but got: " +
+                           VariantBasicTypeToString(basic_type));
+  }
+}
+
 void VariantValue::checkPrimitiveType(VariantPrimitiveType type,
                                       size_t size_required) const {
   checkBasicType(VariantBasicType::Primitive);
 
-  auto primitive_type = static_cast<VariantPrimitiveType>(value_[0] >> 2);
+  auto primitive_type =
+      static_cast<VariantPrimitiveType>(value_[0] >> kPrimitiveTypeBitShift);
   if (primitive_type != type) {
     throw ParquetException(
         "Expected primitive type: " + VariantPrimitiveTypeToString(type) +
@@ -459,10 +470,10 @@ void VariantValue::checkPrimitiveType(VariantPrimitiveType type,
 
 template <typename PrimitiveType>
 PrimitiveType VariantValue::getPrimitiveType(VariantPrimitiveType type) const {
-  checkPrimitiveType(type, sizeof(PrimitiveType) + 1);
+  checkPrimitiveType(type, sizeof(PrimitiveType) + kHeaderSizeBytes);
 
   PrimitiveType primitive_value{};
-  memcpy(&primitive_value, value_.data() + 1, sizeof(PrimitiveType));
+  memcpy(&primitive_value, value_.data() + kHeaderSizeBytes, sizeof(PrimitiveType));
   // Here we should cast from Little endian.
   primitive_value = ::arrow::bit_util::FromLittleEndian(primitive_value);
   return primitive_value;
@@ -493,37 +504,39 @@ double VariantValue::getDouble() const {
 }
 
 std::string_view VariantValue::getPrimitiveBinaryType(VariantPrimitiveType type) const {
-  checkPrimitiveType(type, /*size_required=*/5);
+  checkPrimitiveType(
+      type, /*size_required=*/kHeaderSizeBytes + kPrimitiveStringLengthSizeBytes);
 
   uint32_t length;
-  memcpy(&length, value_.data() + 1, sizeof(uint32_t));
+  memcpy(&length, value_.data() + kHeaderSizeBytes, sizeof(uint32_t));
   length = ::arrow::bit_util::FromLittleEndian(length);
 
-  if (value_.size() < length + 5) {
+  if (value_.size() < length + kHeaderSizeBytes + kPrimitiveStringLengthSizeBytes) {
     throw ParquetException("Invalid string value: too short for specified length");
   }
 
-  return {value_.data() + 5, length};
+  return {value_.data() + kHeaderSizeBytes + kPrimitiveStringLengthSizeBytes, length};
 }
 
 std::string_view VariantValue::getString() const {
   VariantBasicType basic_type = getBasicType();
 
   if (basic_type == VariantBasicType::ShortString) {
-    uint8_t length = (value_[0] >> 2) & kMaxShortStrSizeMask;
-    if (value_.size() < static_cast<size_t>(length + 1)) {
+    uint8_t short_string_length = (value_[0] >> 2) & kMaxShortStrSizeMask;
+    if (value_.size() < static_cast<size_t>(short_string_length + kHeaderSizeBytes)) {
       throw ParquetException(
           "Invalid short string: too short: " + std::to_string(value_.size()) +
-          " for at least " + std::to_string(length + 1));
+          " for at least " + std::to_string(short_string_length + kHeaderSizeBytes));
     }
-    return {value_.data() + 1, length};
+    return {value_.data() + kHeaderSizeBytes, short_string_length};
   }
   if (basic_type == VariantBasicType::Primitive) {
     // TODO(mwish): Should we validate utf8 here?
     return getPrimitiveBinaryType(VariantPrimitiveType::String);
   }
 
-  throw ParquetException("Not a primitive or short string type calls getString");
+  throw ParquetException("Expected ShortString or Primitive type, but got: " +
+                         VariantBasicTypeToString(basic_type));
 }
 
 std::string_view VariantValue::getBinary() const {
@@ -534,11 +547,13 @@ template <typename DecimalType>
 DecimalValue<DecimalType> VariantValue::getPrimitiveDecimalType(
     VariantPrimitiveType type) const {
   using DecimalValueType = typename DecimalType::ValueType;
-  checkPrimitiveType(type, sizeof(DecimalValueType) + 2);
+  checkPrimitiveType(
+      type, sizeof(DecimalValueType) + kHeaderSizeBytes + kDecimalScaleSizeBytes);
 
-  uint8_t scale = value_[1];
+  uint8_t scale = value_[kHeaderSizeBytes];
   DecimalValueType decimal_value;
-  memcpy(&decimal_value, value_.data() + 2, sizeof(DecimalValueType));
+  memcpy(&decimal_value, value_.data() + kHeaderSizeBytes + kDecimalScaleSizeBytes,
+         sizeof(DecimalValueType));
   decimal_value = ::arrow::bit_util::FromLittleEndian(decimal_value);
 
   return {scale, DecimalType(decimal_value)};
@@ -553,8 +568,9 @@ DecimalValue<::arrow::Decimal64> VariantValue::getDecimal8() const {
 }
 
 DecimalValue<::arrow::Decimal128> VariantValue::getDecimal16() const {
-  checkPrimitiveType(VariantPrimitiveType::Decimal16,
-                     /*size_required=*/sizeof(int64_t) * 2 + 2);
+  checkPrimitiveType(
+      VariantPrimitiveType::Decimal16,
+      /*size_required=*/sizeof(int64_t) * 2 + kHeaderSizeBytes + kDecimalScaleSizeBytes);
 
   uint8_t scale = value_[1];
 
@@ -591,10 +607,24 @@ int64_t VariantValue::getTimestampNanosNtz() const {
 }
 
 std::array<uint8_t, 16> VariantValue::getUuid() const {
-  checkPrimitiveType(VariantPrimitiveType::Uuid, /*size_required=*/17);
+  checkPrimitiveType(VariantPrimitiveType::Uuid, /*size_required=*/16 + kHeaderSizeBytes);
   std::array<uint8_t, 16> uuid_value;
-  memcpy(uuid_value.data(), value_.data() + 1, sizeof(uuid_value));
+  memcpy(uuid_value.data(), value_.data() + kHeaderSizeBytes, sizeof(uuid_value));
   return uuid_value;
+}
+
+uint32_t VariantValue::complexOffsetAt(uint32_t field_index) const {
+  checkIsComplexType();
+  return readLittleEndianU32(value_.data() + complex_info_.offset_start_offset +
+                                 field_index * complex_info_.offset_size,
+                             complex_info_.offset_size);
+}
+
+uint32_t VariantValue::complexFieldIdAt(uint32_t field_index) const {
+  checkBasicType(VariantBasicType::Object);
+  return readLittleEndianU32(
+      value_.data() + complex_info_.id_start_offset + field_index * complex_info_.id_size,
+      complex_info_.id_size);
 }
 
 VariantValue::ComplexInfo VariantValue::getObjectInfo(std::string_view value) {
@@ -603,13 +633,14 @@ VariantValue::ComplexInfo VariantValue::getObjectInfo(std::string_view value) {
   uint8_t field_id_size = ((value_header >> 2) & 0b11) + 1;
   bool is_large = ((value_header >> 4) & 0b1);
   uint8_t num_elements_size = is_large ? 4 : 1;
-  if (value.size() < static_cast<size_t>(1 + num_elements_size)) {
+  if (value.size() < static_cast<size_t>(kHeaderSizeBytes + num_elements_size)) {
     throw ParquetException(
         "Invalid object value: too short: " + std::to_string(value.size()) +
-        " for at least " + std::to_string(1 + num_elements_size));
+        " for at least " + std::to_string(kHeaderSizeBytes + num_elements_size));
   }
   // parse num_elements
-  uint32_t num_elements = readLittleEndianU32(value.data() + 1, num_elements_size);
+  uint32_t num_elements =
+      readLittleEndianU32(value.data() + kHeaderSizeBytes, num_elements_size);
   ComplexInfo complex_info{};
   complex_info.num_elements = num_elements;
   complex_info.id_size = field_id_size;
@@ -624,19 +655,6 @@ VariantValue::ComplexInfo VariantValue::getObjectInfo(std::string_view value) {
     throw ParquetException("Invalid object value: data_start_offset=" +
                            std::to_string(complex_info.data_start_offset) +
                            ", value_size=" + std::to_string(value.size()));
-  }
-  {
-    uint32_t final_offset =
-        readLittleEndianU32(value.data() + complex_info.offset_start_offset +
-                                num_elements * field_offset_size,
-                            field_offset_size);
-    // It could be less than value size since it could be a sub-object.
-    if (final_offset + complex_info.data_start_offset > value.size()) {
-      throw ParquetException(
-          "Invalid object value: final_offset=" + std::to_string(final_offset) +
-          ", data_start_offset=" + std::to_string(complex_info.data_start_offset) +
-          ", value_size=" + std::to_string(value.size()));
-    }
   }
   return complex_info;
 }
@@ -675,27 +693,22 @@ std::optional<VariantValue> VariantValue::getObjectValueByKey(
 std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
     uint32_t variant_id) const {
   checkBasicType(VariantBasicType::Object);
-  std::optional<uint32_t> field_offset_opt;
+  std::optional<uint32_t> field_index_opt;
   // Get the field offset
   // TODO(mwish): Using binary search to optimize it.
   for (uint32_t i = 0; i < complex_info_.num_elements; ++i) {
-    uint32_t variant_field_id = readLittleEndianU32(
-        value_.data() + complex_info_.id_start_offset + i * complex_info_.id_size,
-        complex_info_.id_size);
+    uint32_t variant_field_id = complexFieldIdAt(i);
     if (variant_field_id == variant_id) {
-      field_offset_opt = i;
+      field_index_opt = i;
       break;
     }
   }
-  if (!field_offset_opt.has_value()) {
+  if (!field_index_opt.has_value()) {
     return std::nullopt;
   }
-  uint32_t field_offset = field_offset_opt.value();
+  uint32_t field_index = field_index_opt.value();
   // Read the offset and next offset
-  uint32_t offset =
-      readLittleEndianU32(value_.data() + complex_info_.offset_start_offset +
-                              field_offset * complex_info_.offset_size,
-                          complex_info_.offset_size);
+  uint32_t offset = complexOffsetAt(field_index);
 
   if (complex_info_.data_start_offset + offset > value_.size()) {
     throw ParquetException("Invalid object field offsets: data_start_offset=" +
@@ -713,22 +726,23 @@ std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
 
 VariantValue::ComplexInfo VariantValue::getArrayInfo(std::string_view value) {
   uint8_t value_header = value[0] >> 2;
-  uint8_t field_offset_size = (value_header & 0b11) + 1;
+  uint8_t field_offset_size = (value_header & 0b11) + kHeaderSizeBytes;
   bool is_large = ((value_header >> 2) & 0b1);
 
   // check the array header
   uint8_t num_elements_size = is_large ? 4 : 1;
-  if (value.size() < static_cast<size_t>(1 + num_elements_size)) {
+  if (value.size() < static_cast<size_t>(kHeaderSizeBytes + num_elements_size)) {
     throw ParquetException(
         "Invalid array value: too short: " + std::to_string(value.size()) +
         " for at least " + std::to_string(1 + num_elements_size));
   }
 
-  uint32_t num_elements = readLittleEndianU32(value.data() + 1, num_elements_size);
+  uint32_t num_elements =
+      readLittleEndianU32(value.data() + kHeaderSizeBytes, num_elements_size);
   ComplexInfo complex_info{};
   complex_info.num_elements = num_elements;
   complex_info.offset_size = field_offset_size;
-  complex_info.offset_start_offset = 1 + num_elements_size;
+  complex_info.offset_start_offset = kHeaderSizeBytes + num_elements_size;
   complex_info.data_start_offset =
       complex_info.offset_start_offset + (num_elements + 1) * field_offset_size;
 
@@ -750,14 +764,8 @@ VariantValue VariantValue::getArrayValueByIndex(uint32_t index) const {
   }
 
   // Read the offset and next offset
-  uint32_t offset =
-      readLittleEndianU32(value_.data() + complex_info_.offset_start_offset +
-                              index * complex_info_.offset_size,
-                          complex_info_.offset_size);
-  uint32_t next_offset =
-      readLittleEndianU32(value_.data() + complex_info_.offset_start_offset +
-                              (index + 1) * complex_info_.offset_size,
-                          complex_info_.offset_size);
+  uint32_t offset = complexOffsetAt(index);
+  uint32_t next_offset = complexOffsetAt(index + 1);
 
   // Create a VariantValue for the element
   VariantValue element_value{

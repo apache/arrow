@@ -52,28 +52,27 @@ uint8_t primitiveHeader(VariantPrimitiveType primitive) {
   return (static_cast<uint8_t>(primitive) << 2);
 }
 
-// TODO(mwish): Extract this to primitive metadata test
 TEST(ParquetVariant, MetadataBase) {
   std::string dir_string(parquet::test::get_variant_dir());
   auto file_system = std::make_shared<::arrow::fs::LocalFileSystem>();
   std::vector<std::string> primitive_metadatas = {
-      // FIXME(mwish): null metadata is corrupt, see
-      // https://github.com/apache/parquet-testing/issues/81
-      // "primitive_null.metadata",
-      "primitive_boolean_true.metadata", "primitive_boolean_false.metadata",
-      "primitive_date.metadata",         "primitive_decimal4.metadata",
-      "primitive_decimal8.metadata",     "primitive_decimal16.metadata",
-      "primitive_float.metadata",        "primitive_double.metadata",
-      "primitive_int8.metadata",         "primitive_int16.metadata",
-      "primitive_int32.metadata",        "primitive_int64.metadata",
-      "primitive_binary.metadata",       "primitive_string.metadata",
+      "primitive_null.metadata",          "primitive_boolean_true.metadata",
+      "primitive_boolean_false.metadata", "primitive_date.metadata",
+      "primitive_decimal4.metadata",      "primitive_decimal8.metadata",
+      "primitive_decimal16.metadata",     "primitive_float.metadata",
+      "primitive_double.metadata",        "primitive_int8.metadata",
+      "primitive_int16.metadata",         "primitive_int32.metadata",
+      "primitive_int64.metadata",         "primitive_binary.metadata",
+      "primitive_string.metadata",
   };
   for (auto& test_file : primitive_metadatas) {
     ARROW_SCOPED_TRACE("Testing file: " + test_file);
     std::string path = dir_string + "/" + test_file;
     auto buf = readFromFile(*file_system, path);
 
-    VariantMetadata metadata(std::string_view{*buf});
+    std::string_view metadata_buf{*buf};
+    EXPECT_EQ(metadata_buf, VariantMetadata::kEmptyMetadataStringView);
+    VariantMetadata metadata(metadata_buf);
     EXPECT_EQ(1, metadata.version());
     EXPECT_THROW(metadata.GetMetadataKey(0), ParquetException);
   }
@@ -167,13 +166,11 @@ TEST(ParquetVariant, NumericValues) {
     EXPECT_EQ(123456, variant.getInt32());
   }
   {
-    // FIXME(mwish): https://github.com/apache/parquet-testing/issues/82
-    //  The primitive_int64 is a int32 value, but the metadata is int64.
     std::shared_ptr<::arrow::Buffer> metadata_buf, value_buf;
     auto variant = LoadVariantValue("primitive_int64", &metadata_buf, &value_buf);
-    EXPECT_EQ(VariantType::Int32, variant.getType());
-    EXPECT_EQ("Int32", variant.typeDebugString());
-    EXPECT_EQ(12345678, variant.getInt32());
+    EXPECT_EQ(VariantType::Int64, variant.getType());
+    EXPECT_EQ("Int64", variant.typeDebugString());
+    EXPECT_EQ(1234567890123456789, variant.getInt64());
   }
   {
     // Test handwritten int64
@@ -186,10 +183,9 @@ TEST(ParquetVariant, NumericValues) {
                                    0x10,
                                    0x22,
                                    0x11};
-    std::string_view metadata(VariantMetadata::kEmptyMetadataChars, 3);
     std::string_view value{reinterpret_cast<const char*>(int64_chars),
                            sizeof(int64_chars)};
-    VariantValue variant{metadata, value};
+    VariantValue variant{VariantMetadata::kEmptyMetadataStringView, value};
     EXPECT_EQ(VariantType::Int64, variant.getType());
     EXPECT_EQ(1234567890987654321L, variant.getInt64());
   }
@@ -204,10 +200,9 @@ TEST(ParquetVariant, NumericValues) {
                                    0xFF,
                                    0xFF,
                                    0xFF};
-    std::string_view metadata(VariantMetadata::kEmptyMetadataChars, 3);
     std::string_view value{reinterpret_cast<const char*>(int64_chars),
                            sizeof(int64_chars)};
-    VariantValue variant{metadata, value};
+    VariantValue variant{VariantMetadata::kEmptyMetadataStringView, value};
     EXPECT_EQ(VariantType::Int64, variant.getType());
     EXPECT_EQ(-1L, variant.getInt64());
   }
@@ -440,7 +435,7 @@ TEST(ParquetVariant, DecimalValues) {
 }
 
 TEST(ParquetVariant, Uuid) {
-  std::string_view empty_metadata(VariantMetadata::kEmptyMetadataChars, 3);
+  std::string_view empty_metadata = VariantMetadata::kEmptyMetadataStringView;
   const uint8_t uuid_chars[] = {primitiveHeader(VariantPrimitiveType::Uuid),
                                 0x00,
                                 0x11,
@@ -494,7 +489,6 @@ TEST(ParquetVariant, DateTimeValues) {
   }
   {
     // Timestamp Nanos tz negative
-    std::string_view empty_metadata(VariantMetadata::kEmptyMetadataChars, 3);
     const uint8_t timestamp_nanos_ntz_chars[] = {
         primitiveHeader(VariantPrimitiveType::TimestampNanosTz),
         0xFF,
@@ -507,13 +501,12 @@ TEST(ParquetVariant, DateTimeValues) {
         0xFF};
     std::string_view value{reinterpret_cast<const char*>(timestamp_nanos_ntz_chars),
                            sizeof(timestamp_nanos_ntz_chars)};
-    VariantValue variant{empty_metadata, value};
+    VariantValue variant{VariantMetadata::kEmptyMetadataStringView, value};
     EXPECT_EQ(VariantType::TimestampNanosTz, variant.getType());
     EXPECT_EQ(-1L, variant.getTimestampNanosTz());
   }
   {
     // Timestamp Nanos tz negative
-    std::string_view empty_metadata(VariantMetadata::kEmptyMetadataChars, 3);
     const uint8_t timestamp_nanos_ntz_chars[] = {
         primitiveHeader(VariantPrimitiveType::TimestampNanosTz),
         0x15,
@@ -526,7 +519,7 @@ TEST(ParquetVariant, DateTimeValues) {
         0x18};
     std::string_view value{reinterpret_cast<const char*>(timestamp_nanos_ntz_chars),
                            sizeof(timestamp_nanos_ntz_chars)};
-    VariantValue variant{empty_metadata, value};
+    VariantValue variant{VariantMetadata::kEmptyMetadataStringView, value};
     EXPECT_EQ(VariantType::TimestampNanosTz, variant.getType());
     EXPECT_EQ(1744877350123456789L, variant.getTimestampNanosTz());
   }
