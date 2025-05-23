@@ -735,7 +735,8 @@ def _set_default(opt, default):
               help='Include Java in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_JAVA")
 @click.option('--with-js', type=bool, default=False,
-              help='Include JavaScript in integration tests')
+              help='Include JavaScript in integration tests',
+              envvar="ARCHERY_INTEGRATION_WITH_JS")
 @click.option('--with-go', type=bool, default=False,
               help='Include Go in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_GO")
