@@ -287,6 +287,11 @@ fi
 if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
   time meson compile -j ${ARROW_BUILD_PARALLEL}
   meson install
+  # Remove all added files in cpp/subprojects/ because they may have
+  # unreadable permissions on Docker host.
+  pushd "${source_dir}"
+  meson subprojects purge --confirm --include-cache
+  popd
 else
   : ${CMAKE_BUILD_PARALLEL_LEVEL:=${ARROW_BUILD_PARALLEL}}
   export CMAKE_BUILD_PARALLEL_LEVEL
