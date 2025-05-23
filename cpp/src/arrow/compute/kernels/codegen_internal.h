@@ -1224,6 +1224,7 @@ KernelType GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
       return Generator<UInt8Type, Args...>::Exec;
     case Type::UINT16:
     case Type::INT16:
+    case Type::HALF_FLOAT:
       return Generator<UInt16Type, Args...>::Exec;
     case Type::UINT32:
     case Type::INT32:
