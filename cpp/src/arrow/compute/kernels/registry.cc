@@ -33,7 +33,7 @@
 namespace arrow::compute {
 namespace internal {
 
-bool RegisterComputeKernels() {
+Status RegisterComputeKernels() {
   auto registry = GetFunctionRegistry();
 
   // Register additional kernels on libarrow_compute
@@ -77,14 +77,14 @@ bool RegisterComputeKernels() {
   internal::RegisterScalarAggregateTDigest(registry);
   internal::RegisterScalarAggregateVariance(registry);
 
-  return true;
+  return Status::OK();
 }
 
 }  // namespace internal
 
-void Initialize() {
-  static const bool reg = internal::RegisterComputeKernels();
-  (void)reg;
+Status Initialize() {
+  static auto st = internal::RegisterComputeKernels();
+  return st;
 }
 
 }  // namespace arrow::compute

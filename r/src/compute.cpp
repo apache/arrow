@@ -623,7 +623,11 @@ SEXP compute__CallFunction(std::string func_name, cpp11::list args, cpp11::list 
 // [[arrow::export]]
 std::vector<std::string> compute__GetFunctionNames() {
 #if ARROW_VERSION_MAJOR >= 21
-  arrow::compute::Initialize();
+  auto compute_init_status_ = arrow::compute::Initialize();
+  if (!compute_init_status_.ok()) {
+    cpp11::stop("Failed to initialize compute functions: %s",
+                compute_init_status_.ToString().c_str());
+  }
 #endif
   return arrow::compute::GetFunctionRegistry()->GetFunctionNames();
 }

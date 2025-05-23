@@ -83,7 +83,7 @@ arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> CreateDataSetFromCSVData
 }
 
 arrow::Status DoHashJoin() {
-  arrow::compute::Initialize();
+  ARROW_RETURN_NOT_OK(arrow::compute::Initialize());
   arrow::dataset::internal::Initialize();
 
   ARROW_ASSIGN_OR_RAISE(auto l_dataset, CreateDataSetFromCSVData(true));
