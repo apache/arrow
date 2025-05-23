@@ -579,6 +579,40 @@ TEST_F(TestIpcRoundTrip, SpecificMetadataVersion) {
   TestMetadataVersion(MetadataVersion::V5);
 }
 
+TEST_F(TestIpcRoundTrip, AlienSlice) {
+  // This tests serialization of a sliced ListArray that got sliced "the Rust
+  // way": by slicing the value_offsets buffer, but keeping top-level offset at
+  // 0.
+
+  // Values buffer [1, 2, 3, 4, 5]
+  TypedBufferBuilder<int32_t> values_builder;
+  ASSERT_OK(values_builder.Reserve(5));
+  for (int32_t i = 1; i <= 5; i++) {
+    ASSERT_OK(values_builder.Append(i));
+  }
+  ASSERT_OK_AND_ASSIGN(auto values_buffer, values_builder.Finish());
+
+  // Offsets buffer [2, 5]
+  TypedBufferBuilder<int32_t> offsets_builder;
+  ASSERT_OK(offsets_builder.Reserve(2));
+  ASSERT_OK(offsets_builder.Append(2));
+  ASSERT_OK(offsets_builder.Append(5));
+  ASSERT_OK_AND_ASSIGN(auto offsets_buffer, offsets_builder.Finish());
+
+  // Construct the (nested) array.
+  auto child_data = ArrayData::Make(arrow::int32(),
+                                    /*num_rows=*/5,
+                                    /*buffers=*/{nullptr, values_buffer});
+  auto list_data = ArrayData::Make(list(int32()),
+                                   /*num_rows=*/1,
+                                   /*buffers=*/{nullptr, offsets_buffer});
+  list_data->child_data = {child_data};
+  std::shared_ptr<Array> list_array = MakeArray(list_data);
+  ASSERT_OK(list_array->ValidateFull());
+
+  CheckRoundtrip(list_array);
+}
+
 TEST(TestReadMessage, CorruptedSmallInput) {
   std::string data = "abc";
   auto reader = io::BufferReader::FromString(data);
