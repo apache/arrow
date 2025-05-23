@@ -25,7 +25,7 @@ namespace Apache.Arrow.Ipc
         /// <param name="source">The data to compress</param>
         /// <param name="destination">Span to write compressed data to</param>
         /// <param name="bytesWritten">The number of bytes written to the destination</param>
-        /// <returns>true if compressed was successful, false if the destination buffer is too small</returns>
+        /// <returns>true if compression was successful, false if the destination buffer is too small</returns>
         bool TryCompress(ReadOnlyMemory<byte> source, Memory<byte> destination, out int bytesWritten);
 
     }
