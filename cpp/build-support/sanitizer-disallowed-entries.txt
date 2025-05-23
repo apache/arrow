@@ -25,4 +25,5 @@ fun:*testing*internal*InvokeWith*
 src:*/rapidjson/internal/*
 
 # Workaround for heap-use-after-free error for OpenTelemetry.
-fun:*opentelemetry::v1::trace::NoopTracer*
+# fun:*opentelemetry::v1::trace::NoopTracer*
+src:*/sdk/src/trace/tracer.cc
