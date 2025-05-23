@@ -40,6 +40,19 @@
 // Initialize the compute library and register compute kernels.
 static auto compute_init_status_ = arrow::compute::Initialize();
 
+gboolean
+garrow_compute_is_initialized(GError **error)
+{
+  if (!compute_init_status_.ok()) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_UNKNOWN,
+                "Arrow compute module is not properly initialized: %s",
+                compute_init_status_.ToString().c_str());
+  }
+  return compute_init_status_.ok();
+}
+
 template <typename ArrowType, typename GArrowArrayType>
 typename ArrowType::c_type
 garrow_numeric_array_sum(GArrowArrayType array,
