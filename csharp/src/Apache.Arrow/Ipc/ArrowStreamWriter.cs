@@ -550,7 +550,7 @@ namespace Apache.Arrow.Ipc
                     bufferOwner = _allocator.Allocate(UncompressedLengthSize);
                     BinaryPrimitives.WriteInt64LittleEndian(bufferOwner.Memory.Span, 0);
                     bufferToWrite = bufferOwner.Memory.Slice(0, UncompressedLengthSize);
-                    // the local source buffer owner can be disposed, it's memory is no longer needed
+                    // the local source buffer owner can be disposed, its memory is no longer needed
                     localBufferOwner?.Dispose();
                 }
                 else
