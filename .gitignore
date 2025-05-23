@@ -108,4 +108,3 @@ java/.mvn/.develocity/
 # rat
 filtered_rat.txt
 rat.txt
-build
