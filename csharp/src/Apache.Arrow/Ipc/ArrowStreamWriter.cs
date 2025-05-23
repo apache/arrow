@@ -575,7 +575,7 @@ namespace Apache.Arrow.Ipc
                         buffer.CopyTo(bufferOwner.Memory.Slice(UncompressedLengthSize));
                         bufferToWrite = bufferOwner.Memory.Slice(0, newBufferLength);
                     }
-                    // the local source buffer owner can be disposed, it's memory was copied
+                    // the local source buffer owner can be disposed, its memory was copied
                     localBufferOwner?.Dispose();
                 }
 
