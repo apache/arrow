@@ -268,11 +268,7 @@ class PARQUET_EXPORT VariantValue {
   static constexpr size_t kDecimalScaleSizeBytes = 1;
   static constexpr size_t kPrimitiveStringLengthSizeBytes = 4;
   static constexpr uint8_t kBasicTypeMask = 0b00000011;
-  static constexpr uint8_t kPrimitiveTypeBitShift = 2;
-  static constexpr uint8_t kPrimitiveTypeMask = 0b00111111;
-  /// The inclusive maximum value of the type info value. It is the size limit of
-  /// ShortString.
-  static constexpr uint8_t kMaxShortStrSizeMask = 0b00111111;
+  static constexpr uint8_t kValueHeaderBitShift = 2;
 
   /// ComplexInfo is used to store the metadata of the array or object.
   /// For array, it doesn't have id_size and id_start_offset.

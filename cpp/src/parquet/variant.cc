@@ -301,7 +301,7 @@ VariantType VariantValue::getType() const {
   switch (basic_type) {
     case VariantBasicType::Primitive: {
       auto primitive_type =
-          static_cast<VariantPrimitiveType>(value_[0] >> kPrimitiveTypeBitShift);
+          static_cast<VariantPrimitiveType>(value_[0] >> kValueHeaderBitShift);
       switch (primitive_type) {
         case VariantPrimitiveType::NullType:
           return VariantType::Null;
@@ -421,7 +421,7 @@ bool VariantValue::getBool() const {
                            VariantBasicTypeToString(getBasicType()));
   }
 
-  uint8_t primitive_type = static_cast<uint8_t>(value_[0]) >> kPrimitiveTypeBitShift;
+  uint8_t primitive_type = static_cast<uint8_t>(value_[0]) >> kValueHeaderBitShift;
   if (primitive_type == static_cast<uint8_t>(VariantPrimitiveType::BooleanTrue)) {
     return true;
   }
@@ -453,7 +453,7 @@ void VariantValue::checkPrimitiveType(VariantPrimitiveType type,
   checkBasicType(VariantBasicType::Primitive);
 
   auto primitive_type =
-      static_cast<VariantPrimitiveType>(value_[0] >> kPrimitiveTypeBitShift);
+      static_cast<VariantPrimitiveType>(value_[0] >> kValueHeaderBitShift);
   if (primitive_type != type) {
     throw ParquetException(
         "Expected primitive type: " + VariantPrimitiveTypeToString(type) +
@@ -522,7 +522,7 @@ std::string_view VariantValue::getString() const {
   VariantBasicType basic_type = getBasicType();
 
   if (basic_type == VariantBasicType::ShortString) {
-    uint8_t short_string_length = (value_[0] >> 2) & kMaxShortStrSizeMask;
+    uint8_t short_string_length = (value_[0] >> kValueHeaderBitShift);
     if (value_.size() < static_cast<size_t>(short_string_length + kHeaderSizeBytes)) {
       throw ParquetException(
           "Invalid short string: too short: " + std::to_string(value_.size()) +
@@ -628,9 +628,9 @@ uint32_t VariantValue::complexFieldIdAt(uint32_t field_index) const {
 }
 
 VariantValue::ComplexInfo VariantValue::getObjectInfo(std::string_view value) {
-  uint8_t value_header = value[0] >> 2;
+  uint8_t value_header = value[0] >> kValueHeaderBitShift;
   uint8_t field_offset_size = (value_header & 0b11) + 1;
-  uint8_t field_id_size = ((value_header >> 2) & 0b11) + 1;
+  uint8_t field_id_size = ((value_header >> kValueHeaderBitShift) & 0b11) + 1;
   bool is_large = ((value_header >> 4) & 0b1);
   uint8_t num_elements_size = is_large ? 4 : 1;
   if (value.size() < static_cast<size_t>(kHeaderSizeBytes + num_elements_size)) {
@@ -725,9 +725,9 @@ std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
 }
 
 VariantValue::ComplexInfo VariantValue::getArrayInfo(std::string_view value) {
-  uint8_t value_header = value[0] >> 2;
+  uint8_t value_header = value[0] >> kValueHeaderBitShift;
   uint8_t field_offset_size = (value_header & 0b11) + kHeaderSizeBytes;
-  bool is_large = ((value_header >> 2) & 0b1);
+  bool is_large = ((value_header >> kValueHeaderBitShift) & 0b1);
 
   // check the array header
   uint8_t num_elements_size = is_large ? 4 : 1;
