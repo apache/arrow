@@ -16,4 +16,5 @@
 # under the License.
 
 # OpenTelemetry.
-type:opentelemetry::v1::trace::NoopTracer
+heap-use-after-free
+fun:*opentelemetry::v1::trace::NoopTracer*
