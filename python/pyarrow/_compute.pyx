@@ -71,7 +71,7 @@ def _forbid_instantiation(klass, subclasses_instead=True):
 
 
 # Call to initialize the compute module (register kernels) on import
-check_status(CInitializeCompute())
+CInitializeCompute()
 
 
 cdef vector[CSortKey] unwrap_sort_keys(sort_keys, allow_str=True):
