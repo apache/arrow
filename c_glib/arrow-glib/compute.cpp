@@ -38,13 +38,7 @@
 #include <arrow/acero/options.h>
 
 // Initialize the compute library and register compute kernels.
-namespace {
-  struct ArrowComputeInitializer
-  {
-    ArrowComputeInitializer() { arrow::compute::Initialize(); }
-  };
-  static ArrowComputeInitializer arrow_compute_initializer_;
-} // namespace
+static auto compute_init_status_ = arrow::compute::Initialize();
 
 template <typename ArrowType, typename GArrowArrayType>
 typename ArrowType::c_type
