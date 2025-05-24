@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestUuidDataType < Test::Unit::TestCase
+class TestUUIDDataType < Test::Unit::TestCase
   def setup
-    @data_type = Arrow::UuidDataType.new
+    @data_type = Arrow::UUIDDataType.new
   end
 
   def test_id

@@ -136,7 +136,7 @@ G_BEGIN_DECLS
  *
  * #GArrowFixedShapeTensorDataType is a class for the fixed shape tensor data type.
  *
- * #GArrowUuidDataType is a class for UUID data type.
+ * #GArrowUUIDDataType is a class for UUID data type.
  */
 
 struct GArrowDataTypePrivate
@@ -2487,15 +2487,15 @@ garrow_fixed_shape_tensor_data_type_get_strides(GArrowFixedShapeTensorDataType *
   return arrow_strides.data();
 }
 
-G_DEFINE_TYPE(GArrowUuidDataType, garrow_uuid_data_type, GARROW_TYPE_EXTENSION_DATA_TYPE)
+G_DEFINE_TYPE(GArrowUUIDDataType, garrow_uuid_data_type, GARROW_TYPE_EXTENSION_DATA_TYPE)
 
 static void
-garrow_uuid_data_type_init(GArrowUuidDataType *object)
+garrow_uuid_data_type_init(GArrowUUIDDataType *object)
 {
 }
 
 static void
-garrow_uuid_data_type_class_init(GArrowUuidDataTypeClass *klass)
+garrow_uuid_data_type_class_init(GArrowUUIDDataTypeClass *klass)
 {
 }
 
@@ -2508,7 +2508,7 @@ garrow_uuid_data_type_class_init(GArrowUuidDataTypeClass *klass)
  *
  * Since: 21.0.0
  */
-GArrowUuidDataType *
+GArrowUUIDDataType *
 garrow_uuid_data_type_new(GError **error)
 {
   auto arrow_data_type_result = arrow::extension::UuidType::Make();
