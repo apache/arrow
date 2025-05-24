@@ -17,26 +17,22 @@
 #
 # This config sets the following variables in your project::
 #
-#   ArrowAcero_FOUND - true if Arrow Acero found on the system
+#   ArrowCompute_FOUND - true if Arrow Compute found on the system
 #
 # This config sets the following targets in your project::
 #
-#   ArrowAcero::arrow_acero_shared - for linked as shared library if shared library is built
-#   ArrowAcero::arrow_acero_static - for linked as static library if static library is built
+#   ArrowCompute::arrow_compute_shared - for linked as shared library if shared library is built
+#   ArrowCompute::arrow_compute_static - for linked as static library if static library is built
 
 @PACKAGE_INIT@
 
-set(ARROW_ACERO_REQUIRED_DEPENDENCIES "@ARROW_ACERO_REQUIRED_DEPENDENCIES@")
-
 include(CMakeFindDependencyMacro)
-foreach(dependency ${ARROW_ACERO_REQUIRED_DEPENDENCIES})
-  find_dependency(${dependency} CONFIG)
-endforeach()
+find_dependency(Arrow CONFIG)
 
-include("${CMAKE_CURRENT_LIST_DIR}/ArrowAceroTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/ArrowComputeTargets.cmake")
 
-arrow_keep_backward_compatibility(ArrowAcero arrow_acero)
+arrow_keep_backward_compatibility(ArrowCompute arrow_compute)
 
-check_required_components(ArrowAcero)
+check_required_components(ArrowCompute)
 
-arrow_show_details(ArrowAcero ARROW_ACERO)
+arrow_show_details(ArrowCompute ARROW_COMPUTE)
