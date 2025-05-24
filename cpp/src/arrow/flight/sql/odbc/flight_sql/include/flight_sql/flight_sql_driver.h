@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/driver.h>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/driver.h"
 
 namespace driver {
 namespace flight_sql {
