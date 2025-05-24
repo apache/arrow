@@ -22,6 +22,7 @@
 #include <string>
 #include <variant>
 
+#include "arrow/compare.h"
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
@@ -128,17 +129,13 @@ struct ARROW_EXPORT ArrayStatistics {
   bool is_max_exact = false;
 
   /// \brief Check two statistics for equality
-  bool Equals(const ArrayStatistics& other) const {
-    return null_count == other.null_count && distinct_count == other.distinct_count &&
-           min == other.min && is_min_exact == other.is_min_exact && max == other.max &&
-           is_max_exact == other.is_max_exact;
-  }
+  bool Equals(const ArrayStatistics& other,
+              const EqualOptions& = EqualOptions::Defaults()) const;
 
-  /// \brief Check two statistics for equality
-  bool operator==(const ArrayStatistics& other) const { return Equals(other); }
-
-  /// \brief Check two statistics for not equality
-  bool operator!=(const ArrayStatistics& other) const { return !Equals(other); }
+  /// Check two statistics for approximate equality
+  /// epsilon is only used if the ArrayStatistics::ValueType is Double
+  bool ApproximateEquals(const ArrayStatistics& other,
+                         const EqualOptions& = EqualOptions::Defaults()) const;
 };
 
 }  // namespace arrow
