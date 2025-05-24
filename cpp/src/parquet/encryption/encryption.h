@@ -289,8 +289,6 @@ class PARQUET_EXPORT FileDecryptionProperties {
     bool plaintext_files_allowed_;
   };
 
-  ~FileDecryptionProperties() { footer_key_.clear(); }
-
   std::string column_key(const std::string& column_path) const;
 
   std::string footer_key() const { return footer_key_; }
