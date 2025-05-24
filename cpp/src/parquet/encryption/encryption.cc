@@ -282,20 +282,19 @@ FileEncryptionProperties::column_encryption_properties(const std::string& column
 }
 
 FileEncryptionProperties::FileEncryptionProperties(
-    ParquetCipher::type cipher, const std::string& footer_key,
-    const std::string& footer_key_metadata, bool encrypted_footer,
-    const std::string& aad_prefix, bool store_aad_prefix_in_file,
-    const ColumnPathToEncryptionPropertiesMap& encrypted_columns)
-    : footer_key_(footer_key),
-      footer_key_metadata_(footer_key_metadata),
+    ParquetCipher::type cipher, std::string footer_key, std::string footer_key_metadata,
+    bool encrypted_footer, std::string aad_prefix, bool store_aad_prefix_in_file,
+    ColumnPathToEncryptionPropertiesMap encrypted_columns)
+    : footer_key_(std::move(footer_key)),
+      footer_key_metadata_(std::move(footer_key_metadata)),
       encrypted_footer_(encrypted_footer),
-      aad_prefix_(aad_prefix),
+      aad_prefix_(std::move(aad_prefix)),
       store_aad_prefix_in_file_(store_aad_prefix_in_file),
-      encrypted_columns_(encrypted_columns) {
-  DCHECK(!footer_key.empty());
+      encrypted_columns_(std::move(encrypted_columns)) {
+  DCHECK(!footer_key_.empty());
   // footer_key must be either 16, 24 or 32 bytes.
-  DCHECK(footer_key.length() == 16 || footer_key.length() == 24 ||
-         footer_key.length() == 32);
+  DCHECK(footer_key_.length() == 16 || footer_key_.length() == 24 ||
+         footer_key_.length() == 32);
 
   uint8_t aad_file_unique[kAadFileUniqueLength];
   encryption::RandBytes(aad_file_unique, kAadFileUniqueLength);
@@ -303,17 +302,17 @@ FileEncryptionProperties::FileEncryptionProperties(
                                   kAadFileUniqueLength);
 
   bool supply_aad_prefix = false;
-  if (aad_prefix.empty()) {
+  if (aad_prefix_.empty()) {
     file_aad_ = aad_file_unique_str;
   } else {
-    file_aad_ = aad_prefix + aad_file_unique_str;
+    file_aad_ = aad_prefix_ + aad_file_unique_str;
     if (!store_aad_prefix_in_file_) supply_aad_prefix = true;
   }
   algorithm_.algorithm = cipher;
   algorithm_.aad.aad_file_unique = aad_file_unique_str;
   algorithm_.aad.supply_aad_prefix = supply_aad_prefix;
-  if (!aad_prefix.empty() && store_aad_prefix_in_file_) {
-    algorithm_.aad.aad_prefix = aad_prefix;
+  if (!aad_prefix_.empty() && store_aad_prefix_in_file_) {
+    algorithm_.aad.aad_prefix = aad_prefix_;
   }
 }
 
