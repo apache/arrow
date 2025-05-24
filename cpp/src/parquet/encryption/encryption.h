@@ -390,8 +390,6 @@ class PARQUET_EXPORT FileEncryptionProperties {
     ColumnPathToEncryptionPropertiesMap encrypted_columns_;
   };
 
-  ~FileEncryptionProperties() { footer_key_.clear(); }
-
   bool encrypted_footer() const { return encrypted_footer_; }
 
   EncryptionAlgorithm algorithm() const { return algorithm_; }
@@ -419,10 +417,10 @@ class PARQUET_EXPORT FileEncryptionProperties {
   bool store_aad_prefix_in_file_;
   ColumnPathToEncryptionPropertiesMap encrypted_columns_;
 
-  FileEncryptionProperties(ParquetCipher::type cipher, const std::string& footer_key,
-                           const std::string& footer_key_metadata, bool encrypted_footer,
-                           const std::string& aad_prefix, bool store_aad_prefix_in_file,
-                           const ColumnPathToEncryptionPropertiesMap& encrypted_columns);
+  FileEncryptionProperties(ParquetCipher::type cipher, std::string footer_key,
+                           std::string footer_key_metadata, bool encrypted_footer,
+                           std::string aad_prefix, bool store_aad_prefix_in_file,
+                           ColumnPathToEncryptionPropertiesMap encrypted_columns);
 };
 
 }  // namespace parquet
