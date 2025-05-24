@@ -23,6 +23,7 @@
 #include <openssl/rand.h>
 
 #include <algorithm>
+#include <array>
 #include <iostream>
 #include <memory>
 #include <sstream>

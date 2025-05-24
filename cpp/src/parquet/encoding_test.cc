@@ -16,6 +16,7 @@
 // under the License.
 
 #include <gtest/gtest.h>
+
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -32,6 +33,8 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
@@ -422,48 +425,62 @@ TEST(TestDictionaryEncoding, CannotDictDecodeBoolean) {
 // ----------------------------------------------------------------------
 // Shared arrow builder decode tests
 
+std::vector<std::shared_ptr<::arrow::DataType>> binary_like_types_for_dense_decoding() {
+  return {::arrow::binary(), ::arrow::large_binary(), ::arrow::binary_view(),
+          ::arrow::utf8(),   ::arrow::large_utf8(),   ::arrow::utf8_view()};
+}
+
+std::vector<std::shared_ptr<::arrow::DataType>> binary_like_types_for_dict_decoding() {
+  return {::arrow::binary()};
+}
+
 class TestArrowBuilderDecoding : public ::testing::Test {
  public:
-  using DenseBuilder = ::arrow::internal::ChunkedBinaryBuilder;
   using DictBuilder = ::arrow::BinaryDictionary32Builder;
 
   void SetUp() override { null_probabilities_ = {0.0, 0.5, 1.0}; }
   void TearDown() override {}
 
-  void InitTestCase(double null_probability) {
-    GenerateInputData(null_probability);
+  void InitTestCase(const std::shared_ptr<::arrow::DataType>& dense_type,
+                    double null_probability, bool create_dict) {
+    GenerateInputData(dense_type, null_probability, create_dict);
     SetupEncoderDecoder();
   }
 
-  void GenerateInputData(double null_probability) {
+  void GenerateInputData(const std::shared_ptr<::arrow::DataType>& dense_type,
+                         double null_probability, bool create_dict) {
     constexpr int num_unique = 100;
     constexpr int repeat = 100;
     constexpr int64_t min_length = 2;
     constexpr int64_t max_length = 10;
     ::arrow::random::RandomArrayGenerator rag(0);
-    expected_dense_ = rag.BinaryWithRepeats(repeat * num_unique, num_unique, min_length,
-                                            max_length, null_probability);
+    binary_dense_ = rag.BinaryWithRepeats(repeat * num_unique, num_unique, min_length,
+                                          max_length, null_probability);
+    dense_type_ = dense_type;
+    ASSERT_OK_AND_ASSIGN(expected_dense_,
+                         ::arrow::compute::Cast(*binary_dense_, dense_type_));
 
-    num_values_ = static_cast<int>(expected_dense_->length());
-    null_count_ = static_cast<int>(expected_dense_->null_count());
-    valid_bits_ = expected_dense_->null_bitmap_data();
+    num_values_ = static_cast<int>(binary_dense_->length());
+    null_count_ = static_cast<int>(binary_dense_->null_count());
+    valid_bits_ = binary_dense_->null_bitmap_data();
 
-    auto builder = CreateDictBuilder();
-    ASSERT_OK(builder->AppendArray(*expected_dense_));
-    ASSERT_OK(builder->Finish(&expected_dict_));
+    if (create_dict) {
+      auto builder = CreateDictBuilder();
+      ASSERT_OK(builder->AppendArray(*binary_dense_));
+      ASSERT_OK(builder->Finish(&expected_dict_));
+    }
 
     // Initialize input_data_ for the encoder from the expected_array_ values
-    const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*expected_dense_);
+    const auto& binary_array = checked_cast<const ::arrow::BinaryArray&>(*binary_dense_);
     input_data_.resize(binary_array.length());
-
     for (int64_t i = 0; i < binary_array.length(); ++i) {
-      auto view = binary_array.GetView(i);
-      input_data_[i] = {static_cast<uint32_t>(view.length()),
-                        reinterpret_cast<const uint8_t*>(view.data())};
+      input_data_[i] = binary_array.GetView(i);
     }
   }
 
   std::unique_ptr<DictBuilder> CreateDictBuilder() {
+    EXPECT_EQ(dense_type_->id(), ::arrow::Type::BINARY)
+        << "Only BINARY is supported for dictionary decoding";
     return std::make_unique<DictBuilder>(default_memory_pool());
   }
 
@@ -472,6 +489,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
 
   void CheckDense(int actual_num_values, const ::arrow::Array& chunk) {
     ASSERT_EQ(actual_num_values, num_values_ - null_count_);
+    ASSERT_OK(chunk.ValidateFull());
     ASSERT_ARRAYS_EQUAL(chunk, *expected_dense_);
   }
 
@@ -480,43 +498,50 @@ class TestArrowBuilderDecoding : public ::testing::Test {
     ASSERT_EQ(actual_num_values, num_values_ - null_count_);
     std::shared_ptr<::arrow::Array> actual;
     ASSERT_OK(builder.Finish(&actual));
+    ASSERT_OK(actual->ValidateFull());
     ASSERT_ARRAYS_EQUAL(*actual, *expected_dict_);
   }
 
   void CheckDecodeArrowUsingDenseBuilder() {
-    for (auto np : null_probabilities_) {
-      InitTestCase(np);
+    for (auto dense_type : binary_like_types_for_dense_decoding()) {
+      ARROW_SCOPED_TRACE("dense_type = ", *dense_type);
+      for (auto np : null_probabilities_) {
+        InitTestCase(dense_type, np, /*create_dict=*/false);
 
-      typename EncodingTraits<ByteArrayType>::Accumulator acc;
-      acc.builder.reset(new ::arrow::BinaryBuilder);
-      auto actual_num_values =
-          decoder_->DecodeArrow(num_values_, null_count_, valid_bits_, 0, &acc);
+        typename EncodingTraits<ByteArrayType>::Accumulator acc;
+        ASSERT_OK_AND_ASSIGN(acc.builder, ::arrow::MakeBuilder(dense_type_));
+        auto actual_num_values =
+            decoder_->DecodeArrow(num_values_, null_count_, valid_bits_, 0, &acc);
 
-      std::shared_ptr<::arrow::Array> chunk;
-      ASSERT_OK(acc.builder->Finish(&chunk));
-      CheckDense(actual_num_values, *chunk);
+        std::shared_ptr<::arrow::Array> chunk;
+        ASSERT_OK(acc.builder->Finish(&chunk));
+        CheckDense(actual_num_values, *chunk);
+      }
     }
   }
 
   void CheckDecodeArrowUsingDictBuilder() {
-    for (auto np : null_probabilities_) {
-      InitTestCase(np);
-      auto builder = CreateDictBuilder();
-      auto actual_num_values =
-          decoder_->DecodeArrow(num_values_, null_count_, valid_bits_, 0, builder.get());
-      CheckDict(actual_num_values, *builder);
+    for (auto dense_type : binary_like_types_for_dict_decoding()) {
+      ARROW_SCOPED_TRACE("dense_type = ", *dense_type);
+      for (auto np : null_probabilities_) {
+        InitTestCase(dense_type, np, /*create_dict=*/true);
+        auto builder = CreateDictBuilder();
+        auto actual_num_values = decoder_->DecodeArrow(num_values_, null_count_,
+                                                       valid_bits_, 0, builder.get());
+        CheckDict(actual_num_values, *builder);
+      }
     }
   }
 
   void CheckDecodeArrowNonNullUsingDenseBuilder() {
-    for (auto np : null_probabilities_) {
-      InitTestCase(np);
-      if (null_count_ > 0) {
-        continue;
-      }
+    for (auto dense_type : binary_like_types_for_dense_decoding()) {
+      ARROW_SCOPED_TRACE("dense_type = ", *dense_type);
+      InitTestCase(dense_type, /*null_probability=*/0.0, /*create_dict=*/false);
+
       typename EncodingTraits<ByteArrayType>::Accumulator acc;
-      acc.builder.reset(new ::arrow::BinaryBuilder);
+      ASSERT_OK_AND_ASSIGN(acc.builder, ::arrow::MakeBuilder(dense_type_));
       auto actual_num_values = decoder_->DecodeArrowNonNull(num_values_, &acc);
+
       std::shared_ptr<::arrow::Array> chunk;
       ASSERT_OK(acc.builder->Finish(&chunk));
       CheckDense(actual_num_values, *chunk);
@@ -524,11 +549,9 @@ class TestArrowBuilderDecoding : public ::testing::Test {
   }
 
   void CheckDecodeArrowNonNullUsingDictBuilder() {
-    for (auto np : null_probabilities_) {
-      InitTestCase(np);
-      if (null_count_ > 0) {
-        continue;
-      }
+    for (auto dense_type : binary_like_types_for_dict_decoding()) {
+      ARROW_SCOPED_TRACE("dense_type = ", *dense_type);
+      InitTestCase(dense_type, /*null_probability=*/0.0, /*create_dict=*/true);
       auto builder = CreateDictBuilder();
       auto actual_num_values = decoder_->DecodeArrowNonNull(num_values_, builder.get());
       CheckDict(actual_num_values, *builder);
@@ -537,6 +560,8 @@ class TestArrowBuilderDecoding : public ::testing::Test {
 
  protected:
   std::vector<double> null_probabilities_;
+  std::shared_ptr<::arrow::Array> binary_dense_;
+  std::shared_ptr<::arrow::DataType> dense_type_;
   std::shared_ptr<::arrow::Array> expected_dict_;
   std::shared_ptr<::arrow::Array> expected_dense_;
   int num_values_;
@@ -1291,7 +1316,7 @@ TEST_F(DictEncoding, CheckDecodeArrowNonNullDictBuilder) {
 
 TEST_F(DictEncoding, CheckDecodeIndicesSpaced) {
   for (auto np : null_probabilities_) {
-    InitTestCase(np);
+    InitTestCase(::arrow::binary(), np, /*create_dict=*/true);
     auto builder = CreateDictBuilder();
     dict_decoder_->InsertDictionary(builder.get());
     int actual_num_values;
@@ -1321,7 +1346,7 @@ TEST_F(DictEncoding, CheckDecodeIndicesSpaced) {
 }
 
 TEST_F(DictEncoding, CheckDecodeIndicesNoNulls) {
-  InitTestCase(/*null_probability=*/0.0);
+  InitTestCase(::arrow::binary(), /*null_probability=*/0.0, /*create_dict=*/true);
   auto builder = CreateDictBuilder();
   dict_decoder_->InsertDictionary(builder.get());
   auto actual_num_values = dict_decoder_->DecodeIndices(num_values_, builder.get());
@@ -2164,22 +2189,6 @@ TEST(DeltaLengthByteArrayEncoding, RejectBadBuffer) {
   ASSERT_THROW(decoder->DecodeArrow(3, 0, nullptr, 0, &acc), ParquetException);
 }
 
-std::shared_ptr<::arrow::Array> CastBinaryTypesHelper(
-    std::shared_ptr<::arrow::Array> result, std::shared_ptr<::arrow::DataType> type) {
-  if (::arrow::is_large_binary_like(type->id())) {
-    ::arrow::compute::CastOptions options;
-    if (::arrow::is_string(type->id())) {
-      options.to_type = ::arrow::large_utf8();
-    } else {
-      options.to_type = ::arrow::large_binary();
-    }
-    EXPECT_OK_AND_ASSIGN(
-        auto tmp, CallFunction("cast", {::arrow::Datum{result}}, &options, nullptr));
-    result = tmp.make_array();
-  }
-  return result;
-}
-
 TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
   const int64_t size = 50;
   const int32_t min_length = 0;
@@ -2189,11 +2198,11 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
   auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
   auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
 
-  auto CheckSeed = [&](std::shared_ptr<::arrow::Array> values) {
+  auto CheckRoundtrip = [&](std::shared_ptr<::arrow::Array> values,
+                            int64_t total_data_size) {
     ASSERT_NO_THROW(encoder->Put(*values));
-    auto* binary_array = checked_cast<const ::arrow::BinaryArray*>(values.get());
     // For DeltaLength encoding, the estimated size should be at least the total byte size
-    EXPECT_GE(encoder->EstimatedDataEncodedSize(), binary_array->total_values_length())
+    EXPECT_GE(encoder->EstimatedDataEncodedSize(), total_data_size)
         << "Estimated size should be at least the total byte size";
     auto buf = encoder->FlushValues();
 
@@ -2201,11 +2210,7 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
     decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
     typename EncodingTraits<ByteArrayType>::Accumulator acc;
-    if (::arrow::is_string(values->type()->id())) {
-      acc.builder = std::make_unique<::arrow::StringBuilder>();
-    } else {
-      acc.builder = std::make_unique<::arrow::BinaryBuilder>();
-    }
+    ASSERT_OK_AND_ASSIGN(acc.builder, ::arrow::MakeBuilder(values->type()));
     ASSERT_EQ(num_values,
               decoder->DecodeArrow(static_cast<int>(values->length()),
                                    static_cast<int>(values->null_count()),
@@ -2219,18 +2224,28 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
     ::arrow::AssertArraysEqual(*values, *result);
   };
 
+  auto CheckRoundtripAllTypes = [&](std::shared_ptr<::arrow::Array> values) {
+    auto* binary_array = checked_cast<const ::arrow::BinaryArray*>(values.get());
+    const auto total_data_size = binary_array->total_values_length();
+    for (auto type : binary_like_types_for_dense_decoding()) {
+      ARROW_SCOPED_TRACE("type = ", *type);
+      ASSERT_OK_AND_ASSIGN(auto cast_values, ::arrow::compute::Cast(*values, type));
+      CheckRoundtrip(cast_values, total_data_size);
+    }
+  };
+
   ::arrow::random::RandomArrayGenerator rag(42);
   auto values = rag.String(0, min_length, max_length, null_probability);
-  CheckSeed(values);
+  CheckRoundtripAllTypes(values);
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
     rag = ::arrow::random::RandomArrayGenerator(seed);
 
     values = rag.String(size, min_length, max_length, null_probability);
-    CheckSeed(values);
+    CheckRoundtripAllTypes(values);
 
     values =
         rag.BinaryWithRepeats(size, num_unique, min_length, max_length, null_probability);
-    CheckSeed(values);
+    CheckRoundtripAllTypes(values);
   }
 }
 
@@ -2249,7 +2264,11 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowDirectPut) {
     auto encoded_values_buf = SliceBuffer(buf, lengths_buf->size());
 
     ASSERT_TRUE(encoded_lengths_buf->Equals(*lengths_buf));
-    ASSERT_TRUE(encoded_values_buf->Equals(*values->data()->buffers[2]));
+    if (::arrow::is_base_binary_like(values->type_id())) {
+      // The encoded values (after the delta-encoded lengths) must be the raw data,
+      // which is also the data buffer of a Binary / LargeBinary array.
+      ASSERT_TRUE(encoded_values_buf->Equals(*values->data()->buffers[2]));
+    }
   };
 
   auto CheckDecode = [](std::shared_ptr<Buffer> buf,
@@ -2259,12 +2278,7 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowDirectPut) {
     decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
     typename EncodingTraits<ByteArrayType>::Accumulator acc;
-    if (::arrow::is_string(values->type()->id())) {
-      acc.builder = std::make_unique<::arrow::StringBuilder>();
-    } else {
-      acc.builder = std::make_unique<::arrow::BinaryBuilder>();
-    }
-
+    ASSERT_OK_AND_ASSIGN(acc.builder, ::arrow::MakeBuilder(values->type()));
     ASSERT_EQ(num_values,
               decoder->DecodeArrow(static_cast<int>(values->length()),
                                    static_cast<int>(values->null_count()),
@@ -2275,27 +2289,24 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowDirectPut) {
     ASSERT_EQ(num_values, result->length());
     ASSERT_OK(result->ValidateFull());
 
-    auto upcast_result = CastBinaryTypesHelper(result, values->type());
-    ::arrow::AssertArraysEqual(*values, *upcast_result);
+    ::arrow::AssertArraysEqual(*values, *result);
   };
 
   auto values = R"(["Hello", "World", "Foobar", "ADBCEF"])";
   auto lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([5, 5, 6, 6])");
-
-  CheckEncode(::arrow::ArrayFromJSON(::arrow::utf8(), values), lengths);
-  CheckEncode(::arrow::ArrayFromJSON(::arrow::large_utf8(), values), lengths);
-  CheckEncode(::arrow::ArrayFromJSON(::arrow::binary(), values), lengths);
-  CheckEncode(::arrow::ArrayFromJSON(::arrow::large_binary(), values), lengths);
-
   auto encoded =
       ::arrow::ConcatenateBuffers(
           {DeltaEncode({5, 5, 6, 6}), std::make_shared<Buffer>("HelloWorldFoobarADBCEF")})
           .ValueOrDie();
 
-  CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::utf8(), values));
-  CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_utf8(), values));
-  CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::binary(), values));
-  CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_binary(), values));
+  auto types = binary_like_types_for_dense_decoding();
+
+  for (const auto& type : types) {
+    ARROW_SCOPED_TRACE("type = ", *type);
+    auto array = ::arrow::ArrayFromJSON(type, values);
+    CheckEncode(array, lengths);
+    CheckDecode(encoded, array);
+  }
 }
 
 // ----------------------------------------------------------------------
@@ -2351,9 +2362,7 @@ TYPED_TEST(TestDeltaByteArrayEncoding, BasicRoundTrip) {
 
 template <typename Type>
 class TestDeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
-  using ArrowType = typename EncodingTraits<Type>::ArrowType;
   using Accumulator = typename EncodingTraits<Type>::Accumulator;
-  using BuilderType = typename ::arrow::TypeTraits<ArrowType>::BuilderType;
 
  public:
   std::unique_ptr<TypedEncoder<Type>> encoder =
@@ -2379,7 +2388,7 @@ void TestDeltaByteArrayEncodingDirectPut<ByteArrayType>::CheckDirectPut(
   decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
   Accumulator acc;
-  acc.builder = std::make_unique<BuilderType>(array->type(), default_memory_pool());
+  ASSERT_OK_AND_ASSIGN(acc.builder, ::arrow::MakeBuilder(array->type()));
 
   ASSERT_EQ(num_values,
             decoder->DecodeArrow(static_cast<int>(array->length()),
@@ -2475,12 +2484,7 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
     decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
     typename EncodingTraits<ByteArrayType>::Accumulator acc;
-    if (::arrow::is_string(values->type()->id())) {
-      acc.builder = std::make_unique<::arrow::StringBuilder>();
-    } else {
-      acc.builder = std::make_unique<::arrow::BinaryBuilder>();
-    }
-
+    ASSERT_OK_AND_ASSIGN(acc.builder, ::arrow::MakeBuilder(values->type()));
     ASSERT_EQ(num_values,
               decoder->DecodeArrow(static_cast<int>(values->length()),
                                    static_cast<int>(values->null_count()),
@@ -2491,8 +2495,7 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
     ASSERT_EQ(num_values, result->length());
     ASSERT_OK(result->ValidateFull());
 
-    auto upcast_result = CastBinaryTypesHelper(result, values->type());
-    ::arrow::AssertArraysEqual(*values, *upcast_result);
+    ::arrow::AssertArraysEqual(*values, *result);
   };
 
   auto CheckEncodeDecode = [&](std::string_view values,
@@ -2504,15 +2507,14 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
                                                 std::make_shared<Buffer>(suffix_data)})
                        .ValueOrDie();
 
-    CheckEncode(::arrow::ArrayFromJSON(::arrow::utf8(), values), encoded);
-    CheckEncode(::arrow::ArrayFromJSON(::arrow::large_utf8(), values), encoded);
-    CheckEncode(::arrow::ArrayFromJSON(::arrow::binary(), values), encoded);
-    CheckEncode(::arrow::ArrayFromJSON(::arrow::large_binary(), values), encoded);
+    auto types = binary_like_types_for_dense_decoding();
 
-    CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::utf8(), values));
-    CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_utf8(), values));
-    CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::binary(), values));
-    CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_binary(), values));
+    for (const auto& type : types) {
+      ARROW_SCOPED_TRACE("type = ", *type);
+      auto values_array = ::arrow::ArrayFromJSON(::arrow::utf8(), values);
+      CheckEncode(values_array, encoded);
+      CheckDecode(encoded, values_array);
+    }
   };
 
   {
@@ -2559,4 +2561,5 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
     CheckEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
   }
 }
+
 }  // namespace parquet::test

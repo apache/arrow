@@ -67,8 +67,6 @@ const std::shared_ptr<Schema> kBoringSchema = schema({
     field("ts_s_utc", timestamp(TimeUnit::SECOND, "UTC")),
 });
 
-#define EXPECT_OK ARROW_EXPECT_OK
-
 Expression cast(Expression argument, std::shared_ptr<DataType> to_type) {
   return call("cast", {std::move(argument)},
               compute::CastOptions::Safe(std::move(to_type)));

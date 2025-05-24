@@ -364,11 +364,13 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
       break;
     case ArrowTypeId::LARGE_STRING:
     case ArrowTypeId::STRING:
+    case ArrowTypeId::STRING_VIEW:
       type = ParquetType::BYTE_ARRAY;
       logical_type = LogicalType::String();
       break;
     case ArrowTypeId::LARGE_BINARY:
     case ArrowTypeId::BINARY:
+    case ArrowTypeId::BINARY_VIEW:
       type = ParquetType::BYTE_ARRAY;
       break;
     case ArrowTypeId::FIXED_SIZE_BINARY: {
@@ -484,7 +486,7 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     }
 
     default: {
-      // TODO: DENSE_UNION, SPARE_UNION, DECIMAL_TEXT, VARCHAR
+      // TODO: DENSE_UNION, SPARSE_UNION
       return Status::NotImplemented(
           "Unhandled type for Arrow to Parquet schema conversion: ",
           field->type()->ToString());
@@ -1033,11 +1035,11 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
     modified = true;
   }
 
-  if ((origin_type->id() == ::arrow::Type::LARGE_BINARY &&
-       inferred_type->id() == ::arrow::Type::BINARY) ||
-      (origin_type->id() == ::arrow::Type::LARGE_STRING &&
-       inferred_type->id() == ::arrow::Type::STRING)) {
-    // Read back binary-like arrays with the intended offset width.
+  if ((::arrow::is_binary_or_binary_view(origin_type->id()) &&
+       ::arrow::is_binary_or_binary_view(inferred_type->id())) ||
+      (::arrow::is_string_or_string_view(origin_type->id()) &&
+       ::arrow::is_string_or_string_view(inferred_type->id()))) {
+    // Read back binary-like arrays with the intended layout (narrow, large, view).
     inferred->field = inferred->field->WithType(origin_type);
     modified = true;
   }

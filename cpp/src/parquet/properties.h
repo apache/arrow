@@ -24,7 +24,7 @@
 #include <utility>
 
 #include "arrow/io/caching.h"
-#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/type_fwd.h"
 #include "parquet/encryption/encryption.h"
@@ -990,6 +990,8 @@ static constexpr bool kArrowDefaultUseThreads = false;
 // Default number of rows to read when using ::arrow::RecordBatchReader
 static constexpr int64_t kArrowDefaultBatchSize = 64 * 1024;
 
+constexpr inline ::arrow::Type::type kArrowDefaultBinaryType = ::arrow::Type::BINARY;
+
 /// EXPERIMENTAL: Properties for configuring FileReader behavior.
 class PARQUET_EXPORT ArrowReaderProperties {
  public:
@@ -1000,6 +1002,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
         pre_buffer_(true),
         cache_options_(::arrow::io::CacheOptions::LazyDefaults()),
         coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO),
+        binary_type_(kArrowDefaultBinaryType),
         arrow_extensions_enabled_(false),
         should_load_statistics_(false) {}
 
@@ -1031,6 +1034,22 @@ class PARQUET_EXPORT ArrowReaderProperties {
       return false;
     }
   }
+
+  /// \brief Set the Arrow binary type to read BYTE_ARRAY columns as.
+  ///
+  /// Allowed values are Type::BINARY, Type::LARGE_BINARY and Type::BINARY_VIEW.
+  /// Default is Type::BINARY.
+  ///
+  /// If a BYTE_ARRAY column has the STRING logical type, it is read as the
+  /// Arrow string type corresponding to the configured binary type (for example
+  /// Type::LARGE_STRING if the configured binary type is Type::LARGE_BINARY).
+  ///
+  /// However, if a serialized Arrow schema is found in the Parquet metadata,
+  /// this setting is ignored and the Arrow schema takes precedence
+  /// (see ArrowWriterProperties::store_schema).
+  void set_binary_type(::arrow::Type::type value) { binary_type_ = value; }
+  /// Return the Arrow binary type to read BYTE_ARRAY columns as.
+  ::arrow::Type::type binary_type() const { return binary_type_; }
 
   /// \brief Set the maximum number of rows to read into a record batch.
   ///
@@ -1101,6 +1120,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   ::arrow::io::IOContext io_context_;
   ::arrow::io::CacheOptions cache_options_;
   ::arrow::TimeUnit::type coerce_int96_timestamp_unit_;
+  ::arrow::Type::type binary_type_;
   bool arrow_extensions_enabled_;
   bool should_load_statistics_;
 };

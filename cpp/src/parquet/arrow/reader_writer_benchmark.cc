@@ -33,6 +33,8 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/array/data.h"
+#include "arrow/compute/cast.h"
 #include "arrow/io/memory.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
@@ -222,9 +224,9 @@ BENCHMARK_TEMPLATE2(BM_WriteColumn, true, BooleanType);
 
 int32_t kInfiniteUniqueValues = -1;
 
-std::shared_ptr<Table> RandomStringTable(int64_t length, int64_t unique_values,
+std::shared_ptr<Table> RandomStringTable(std::shared_ptr<::arrow::DataType> type,
+                                         int64_t length, int64_t unique_values,
                                          int64_t null_percentage) {
-  std::shared_ptr<::arrow::DataType> type = ::arrow::utf8();
   std::shared_ptr<::arrow::Array> arr;
   ::arrow::random::RandomArrayGenerator generator(/*seed=*/500);
   double null_probability = static_cast<double>(null_percentage) / 100.0;
@@ -236,13 +238,14 @@ std::shared_ptr<Table> RandomStringTable(int64_t length, int64_t unique_values,
                                       /*min_length=*/3, /*max_length=*/32,
                                       /*null_probability=*/null_probability);
   }
+  arr = *::arrow::compute::Cast(*arr, type);
   return Table::Make(
       ::arrow::schema({::arrow::field("column", type, null_percentage > 0)}), {arr});
 }
 
 static void BM_WriteBinaryColumn(::benchmark::State& state) {
   std::shared_ptr<Table> table =
-      RandomStringTable(BENCHMARK_SIZE, state.range(1), state.range(0));
+      RandomStringTable(::arrow::utf8(), BENCHMARK_SIZE, state.range(1), state.range(0));
 
   while (state.KeepRunning()) {
     auto output = CreateOutputStream();
@@ -283,9 +286,11 @@ struct Examples<bool> {
 static void BenchmarkReadTable(::benchmark::State& state, const Table& table,
                                std::shared_ptr<WriterProperties> properties,
                                int64_t num_values = -1, int64_t total_bytes = -1) {
+  // Make sure we roundtrip Arrow types by storing the schema
+  auto arrow_properties = ArrowWriterProperties::Builder().store_schema()->build();
   auto output = CreateOutputStream();
   EXIT_NOT_OK(WriteTable(table, ::arrow::default_memory_pool(), output,
-                         /*chunk_size=*/table.num_rows(), properties));
+                         /*chunk_size=*/table.num_rows(), properties, arrow_properties));
   PARQUET_ASSIGN_OR_THROW(auto buffer, output->Finish());
 
   for (auto _ : state) {
@@ -454,28 +459,44 @@ BENCHMARK_TEMPLATE2(BM_ReadColumnPlain, true, Float16LogicalType)
 // Benchmark reading binary column
 //
 
-static void BM_ReadBinaryColumn(::benchmark::State& state) {
+static void BenchmarkReadBinaryColumn(::benchmark::State& state,
+                                      const std::shared_ptr<::arrow::DataType>& type) {
   std::shared_ptr<Table> table =
-      RandomStringTable(BENCHMARK_SIZE, state.range(1), state.range(0));
+      RandomStringTable(type, BENCHMARK_SIZE, state.range(1), state.range(0));
 
-  // Offsets + data
-  int64_t total_bytes = table->column(0)->chunk(0)->data()->buffers[1]->size() +
-                        table->column(0)->chunk(0)->data()->buffers[2]->size();
+  // Offsets / views + data
+  int64_t total_bytes = 0;
+  const ::arrow::ArrayData& column = *table->column(0)->chunk(0)->data();
+  for (size_t i = 1; i < column.buffers.size(); ++i) {
+    total_bytes += column.buffers[i]->size();
+  }
   BenchmarkReadTable(state, *table, table->num_rows(), total_bytes);
 }
 
-BENCHMARK(BM_ReadBinaryColumn)
-    ->ArgNames({"null_probability", "unique_values"})
-    // We vary unique values to trigger the dictionary-encoded (for low-cardinality)
-    // and plain (for high-cardinality) code paths.
-    ->Args({0, 32})
-    ->Args({0, kInfiniteUniqueValues})
-    ->Args({1, 32})
-    ->Args({50, 32})
-    ->Args({99, 32})
-    ->Args({1, kInfiniteUniqueValues})
-    ->Args({50, kInfiniteUniqueValues})
-    ->Args({99, kInfiniteUniqueValues});
+static void SetReadBinaryColumnArgs(benchmark::internal::Benchmark* b) {
+  b->ArgNames({"null_probability", "unique_values"})
+      // We vary unique values to trigger the dictionary-encoded (for low-cardinality)
+      // and plain (for high-cardinality) code paths.
+      ->Args({0, 32})
+      ->Args({0, kInfiniteUniqueValues})
+      ->Args({1, 32})
+      ->Args({50, 32})
+      ->Args({99, 32})
+      ->Args({1, kInfiniteUniqueValues})
+      ->Args({50, kInfiniteUniqueValues})
+      ->Args({99, kInfiniteUniqueValues});
+}
+
+static void BM_ReadBinaryColumn(::benchmark::State& state) {
+  BenchmarkReadBinaryColumn(state, ::arrow::utf8());
+}
+
+static void BM_ReadBinaryViewColumn(::benchmark::State& state) {
+  BenchmarkReadBinaryColumn(state, ::arrow::large_utf8());
+}
+
+BENCHMARK(BM_ReadBinaryColumn)->Apply(SetReadBinaryColumnArgs);
+BENCHMARK(BM_ReadBinaryViewColumn)->Apply(SetReadBinaryColumnArgs);
 
 //
 // Benchmark reading a nested column
