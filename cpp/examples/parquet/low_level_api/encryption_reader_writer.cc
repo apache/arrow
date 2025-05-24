@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
     parquet::WriterProperties::Builder builder;
     // Add the current encryption configuration to WriterProperties.
     builder.encryption(file_encryption_builder.footer_key_metadata("kf")
-                           ->encrypted_columns(encryption_cols)
+                           ->encrypted_columns(std::move(encryption_cols))
                            ->build());
 
     // Add other writer properties

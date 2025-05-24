@@ -90,7 +90,7 @@ TEST(TestEncryptionProperties, EncryptFooterAndTwoColumns) {
 
   FileEncryptionProperties::Builder builder(kFooterEncryptionKey);
   builder.footer_key_metadata("kf");
-  builder.encrypted_columns(encrypted_columns);
+  builder.encrypted_columns(std::move(encrypted_columns));
   std::shared_ptr<FileEncryptionProperties> props = builder.build();
 
   ASSERT_EQ(true, props->encrypted_footer());
@@ -145,7 +145,7 @@ TEST(TestEncryptionProperties, EncryptTwoColumnsNotFooter) {
   FileEncryptionProperties::Builder builder(kFooterEncryptionKey);
   builder.footer_key_metadata("kf");
   builder.set_plaintext_footer();
-  builder.encrypted_columns(encrypted_columns);
+  builder.encrypted_columns(std::move(encrypted_columns));
   std::shared_ptr<FileEncryptionProperties> props = builder.build();
 
   ASSERT_EQ(false, props->encrypted_footer());
