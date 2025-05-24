@@ -845,4 +845,20 @@ GARROW_AVAILABLE_IN_21_0
 const gint64 *
 garrow_fixed_shape_tensor_data_type_get_strides(GArrowFixedShapeTensorDataType *data_type,
                                                 gsize *length);
+
+#define GARROW_TYPE_UUID_DATA_TYPE (garrow_uuid_data_type_get_type())
+GARROW_AVAILABLE_IN_21_0
+G_DECLARE_DERIVABLE_TYPE(GArrowUUIDDataType,
+                         garrow_uuid_data_type,
+                         GARROW,
+                         UUID_DATA_TYPE,
+                         GArrowExtensionDataType)
+struct _GArrowUUIDDataTypeClass
+{
+  GArrowExtensionDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_21_0
+GArrowUUIDDataType *
+garrow_uuid_data_type_new(GError **error);
 G_END_DECLS
