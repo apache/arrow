@@ -42,7 +42,13 @@
 Expression <- R6Class("Expression",
   inherit = ArrowObject,
   public = list(
-    ToString = function() compute___expr__ToString(self),
+    ToString = function(){
+      if(self$type_id() == Type$EXTENSION){
+        self$type()
+      } else {
+        compute___expr__ToString(self)
+      }
+    } ,
     Equals = function(other, ...) {
       inherits(other, "Expression") && compute___expr__equals(self, other)
     },
