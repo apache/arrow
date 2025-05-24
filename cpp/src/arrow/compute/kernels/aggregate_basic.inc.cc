@@ -95,9 +95,9 @@ struct SumImpl : public ScalarAggregator {
   Status Finalize(KernelContext*, Datum* out) override {
     if ((!options.skip_nulls && this->nulls_observed) ||
         (this->count < options.min_count)) {
-      out->value = std::make_shared<OutputType>(out_type);
+      out->value = std::make_shared<OutputType>(this->out_type);
     } else {
-      out->value = std::make_shared<OutputType>(this->sum, out_type);
+      out->value = std::make_shared<OutputType>(this->sum, this->out_type);
     }
     return Status::OK();
   }
@@ -157,7 +157,7 @@ struct NullSumImpl : public NullImpl<ArrowType> {
   }
 };
 
-template <template <typename> class KernelClass>
+template <template <typename> class KernelClass, bool PromoteDecimal = true>
 struct SumLikeInit {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
@@ -187,10 +187,18 @@ struct SumLikeInit {
     return Status::OK();
   }
 
+  /// By default, we widen the decimal to max precision for SumLikes
+  /// However, this may not be the desired behaviour (see, e.g., MeanKernelInit)
   template <typename Type>
   enable_if_decimal<Type, Status> Visit(const Type&) {
-    state.reset(new KernelClass<Type>(type, options));
-    return Status::OK();
+    if constexpr (PromoteDecimal) {
+      ARROW_ASSIGN_OR_RAISE(auto ty, WidenDecimalToMaxPrecision(type));
+      state.reset(new KernelClass<Type>(ty, options));
+      return Status::OK();
+    } else {
+      state.reset(new KernelClass<Type>(type, options));
+      return Status::OK();
+    }
   }
 
   virtual Status Visit(const NullType&) {
@@ -270,10 +278,10 @@ struct MeanImpl<ArrowType, SimdLevel,
 };
 
 template <template <typename> class KernelClass>
-struct MeanKernelInit : public SumLikeInit<KernelClass> {
+struct MeanKernelInit : public SumLikeInit<KernelClass, /*PromoteDecimal=*/false> {
   MeanKernelInit(KernelContext* ctx, std::shared_ptr<DataType> type,
                  const ScalarAggregateOptions& options)
-      : SumLikeInit<KernelClass>(ctx, type, options) {}
+      : SumLikeInit<KernelClass, /*PromoteDecimal=*/false>(ctx, type, options) {}
 
   Status Visit(const NullType&) override {
     this->state.reset(new NullSumImpl<DoubleType>(this->options));
