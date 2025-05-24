@@ -61,6 +61,17 @@ TEST(ArrayStatisticsTest, TestMax) {
   ASSERT_FALSE(statistics.is_max_exact);
 }
 
+TEST(ArrayStatisticsTest, average_byte_width) {
+  ArrayStatistics statistics;
+  ASSERT_FALSE(statistics.average_byte_width.has_value());
+  ASSERT_FALSE(statistics.is_average_byte_width_exact);
+  statistics.average_byte_width = 12.0;
+  statistics.is_average_byte_width_exact = true;
+  ASSERT_TRUE(statistics.average_byte_width.has_value());
+  ASSERT_EQ(12.0, statistics.average_byte_width.value());
+  ASSERT_TRUE(statistics.is_average_byte_width_exact);
+}
+
 TEST(ArrayStatisticsTest, TestEquality) {
   ArrayStatistics statistics1;
   ArrayStatistics statistics2;
@@ -95,6 +106,16 @@ TEST(ArrayStatisticsTest, TestEquality) {
   statistics1.is_max_exact = true;
   ASSERT_NE(statistics1, statistics2);
   statistics2.is_max_exact = true;
+  ASSERT_EQ(statistics1, statistics2);
+
+  statistics1.average_byte_width = 12.0;
+  ASSERT_NE(statistics1, statistics2);
+  statistics2.average_byte_width = 12.0;
+  ASSERT_EQ(statistics1, statistics2);
+
+  statistics1.is_average_byte_width_exact = true;
+  ASSERT_NE(statistics1, statistics2);
+  statistics2.is_average_byte_width_exact = true;
   ASSERT_EQ(statistics1, statistics2);
 }
 

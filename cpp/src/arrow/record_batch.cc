@@ -555,6 +555,18 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
       RETURN_NOT_OK(on_statistics(statistics));
       statistics.start_new_column = false;
     }
+    if (column_statistics->average_byte_width.has_value()) {
+      statistics.nth_statistics++;
+      if (column_statistics->is_average_byte_width_exact) {
+        statistics.key = ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_EXACT;
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_APPROXIMATE;
+      }
+      statistics.type = float64();
+      statistics.value = column_statistics->average_byte_width.value();
+      RETURN_NOT_OK(on_statistics(statistics));
+      statistics.start_new_column = false;
+    }
   }
   return Status::OK();
 }
