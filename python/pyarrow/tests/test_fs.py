@@ -1597,7 +1597,7 @@ def test_filesystem_from_uri_s3(s3_server):
     host, port, access_key, secret_key = s3_server['connection']
 
     uri = f"s3://{access_key}:{secret_key}@mybucket/foo/bar?scheme=http&" \
-          f"endpoint_override={host}:{port}&allow_bucket_creation=True"
+        f"endpoint_override={host}:{port}&allow_bucket_creation=True"
 
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, S3FileSystem)

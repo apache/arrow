@@ -827,7 +827,7 @@ cdef class SortingColumn:
 
     def __repr__(self):
         return f"{self.__class__.__name__}(column_index={self.column_index}, " \
-               f"descending={self.descending}, nulls_first={self.nulls_first})"
+            f"descending={self.descending}, nulls_first={self.nulls_first})"
 
     def __eq__(self, SortingColumn other):
         return (self.column_index == other.column_index and
