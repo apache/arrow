@@ -146,21 +146,14 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
   std::string key() const { return key_; }
   std::string key_metadata() const { return key_metadata_; }
 
-  ColumnEncryptionProperties() = default;
-  ColumnEncryptionProperties(const ColumnEncryptionProperties& other) = default;
-  ColumnEncryptionProperties(ColumnEncryptionProperties&& other) = default;
-
-  ~ColumnEncryptionProperties() { key_.clear(); }
-
  private:
-  const std::string column_path_;
+  std::string column_path_;
   bool encrypted_;
   bool encrypted_with_footer_key_;
   std::string key_;
   std::string key_metadata_;
-  explicit ColumnEncryptionProperties(bool encrypted, const std::string& column_path,
-                                      const std::string& key,
-                                      const std::string& key_metadata);
+  explicit ColumnEncryptionProperties(bool encrypted, std::string column_path,
+                                      std::string key, std::string key_metadata);
 };
 
 class PARQUET_EXPORT ColumnDecryptionProperties {

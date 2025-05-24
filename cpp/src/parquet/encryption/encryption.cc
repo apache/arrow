@@ -181,11 +181,11 @@ FileEncryptionProperties::Builder::disable_aad_prefix_storage() {
 }
 
 ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted,
-                                                       const std::string& column_path,
-                                                       const std::string& key,
-                                                       const std::string& key_metadata)
-    : column_path_(column_path) {
+                                                       std::string column_path,
+                                                       std::string key,
+                                                       std::string key_metadata) {
   DCHECK(!column_path.empty());
+  column_path_ = std::move(column_path);
   if (!encrypted) {
     DCHECK(key.empty() && key_metadata.empty());
   }
@@ -200,8 +200,8 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted,
   }
 
   encrypted_ = encrypted;
-  key_metadata_ = key_metadata;
-  key_ = key;
+  key_metadata_ = std::move(key_metadata);
+  key_ = std::move(key);
 }
 
 ColumnDecryptionProperties::ColumnDecryptionProperties(std::string column_path,
