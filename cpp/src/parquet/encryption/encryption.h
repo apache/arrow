@@ -102,11 +102,11 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
   class PARQUET_EXPORT Builder {
    public:
     /// Convenience builder for encrypted columns.
-    explicit Builder(const std::string& name) : Builder(name, true) {}
+    explicit Builder(std::string name) : Builder(std::move(name), true) {}
 
     /// Convenience builder for encrypted columns.
-    explicit Builder(const std::shared_ptr<schema::ColumnPath>& path)
-        : Builder(path->ToDotString(), true) {}
+    explicit Builder(const schema::ColumnPath& path)
+        : Builder(path.ToDotString(), true) {}
 
     /// Set a column-specific key.
     /// If key is not set on an encrypted column, the column will
@@ -117,13 +117,13 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
 
     /// Set a key retrieval metadata.
     /// use either key_metadata() or key_id(), not both
-    Builder* key_metadata(const std::string& key_metadata);
+    Builder* key_metadata(std::string key_metadata);
 
     /// A convenience function to set key metadata using a string id.
     /// Set a key retrieval metadata (converted from String).
     /// use either key_metadata() or key_id(), not both
     /// key_id will be converted to metadata (UTF-8 array).
-    Builder* key_id(const std::string& key_id);
+    Builder* key_id(std::string key_id);
 
     std::shared_ptr<ColumnEncryptionProperties> build() {
       return std::shared_ptr<ColumnEncryptionProperties>(
@@ -131,13 +131,13 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
     }
 
    private:
-    const std::string column_path_;
+    std::string column_path_;
     bool encrypted_;
     std::string key_;
     std::string key_metadata_;
 
-    Builder(const std::string path, bool encrypted)
-        : column_path_(path), encrypted_(encrypted) {}
+    Builder(std::string path, bool encrypted)
+        : column_path_(std::move(path)), encrypted_(encrypted) {}
   };
 
   std::string column_path() const { return column_path_; }

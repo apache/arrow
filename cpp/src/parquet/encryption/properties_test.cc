@@ -128,13 +128,13 @@ TEST(TestEncryptionProperties, EncryptFooterAndTwoColumns) {
 TEST(TestEncryptionProperties, EncryptTwoColumnsNotFooter) {
   std::shared_ptr<parquet::schema::ColumnPath> column_path_1 =
       parquet::schema::ColumnPath::FromDotString("column_1");
-  ColumnEncryptionProperties::Builder column_builder_1(column_path_1);
+  ColumnEncryptionProperties::Builder column_builder_1(*column_path_1);
   column_builder_1.key(kColumnEncryptionKey1);
   column_builder_1.key_id("kc1");
 
   std::shared_ptr<parquet::schema::ColumnPath> column_path_2 =
       parquet::schema::ColumnPath::FromDotString("column_2");
-  ColumnEncryptionProperties::Builder column_builder_2(column_path_2);
+  ColumnEncryptionProperties::Builder column_builder_2(*column_path_2);
   column_builder_2.key(kColumnEncryptionKey2);
   column_builder_2.key_id("kc2");
 
