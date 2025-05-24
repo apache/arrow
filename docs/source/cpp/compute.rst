@@ -214,15 +214,15 @@ the input to a single output value.
 +--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
 | count_distinct     | Unary   | Non-nested types                              | Scalar Int64           | :struct:`CountOptions`           | \(2)  |
 +--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| first              | Unary   | Numeric, Binary                               | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(3) |
+| first              | Unary   | Numeric, Binary                               | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(3)  |
 +--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| first_last         | Unary   | Numeric, Binary                               | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(3) |
+| first_last         | Unary   | Numeric, Binary                               | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(3)  |
 +--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
 | index              | Unary   | Any                                           | Scalar Int64           | :struct:`IndexOptions`           | \(4)  |
 +--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
 | kurtosis           | Unary   | Numeric                                       | Scalar Float64         | :struct:`SkewOptions`            | \(11) |
 +--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| last               | Unary   | Numeric, Binary                               | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(3) |
+| last               | Unary   | Numeric, Binary                               | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(3)  |
 +--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
 | max                | Unary   | Non-nested types                              | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |
 +--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+

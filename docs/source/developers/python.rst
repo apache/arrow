@@ -318,6 +318,7 @@ The presets are provided as a convenience, but you may instead opt to
 specify the individual components:
 
 .. code-block::
+
    $ cmake -S arrow/cpp -B arrow/cpp/build \
            -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
            -DCMAKE_BUILD_TYPE=Debug \

@@ -64,7 +64,7 @@ To build the default modules, go to the project root and execute:
 Maven
 ~~~~~
 
-.. code-block::
+.. code-block:: text
 
     $ cd arrow/java
     $ export JAVA_HOME=<absolute path to your java home>
@@ -74,7 +74,7 @@ Maven
 Docker compose
 ~~~~~~~~~~~~~~
 
-.. code-block::
+.. code-block:: text
 
     $ cd arrow/java
     $ export JAVA_HOME=<absolute path to your java home>
@@ -84,7 +84,7 @@ Docker compose
 Archery
 ~~~~~~~
 
-.. code-block::
+.. code-block:: text
 
     $ cd arrow/java
     $ export JAVA_HOME=<absolute path to your java home>
@@ -120,7 +120,7 @@ Maven
 
 - To build only the JNI C Data Interface library (Windows):
 
-  .. code-block::
+  .. code-block:: text
 
       $ cd arrow/java
       $ mvn generate-resources -Pgenerate-libs-cdata-all-os -N
@@ -142,7 +142,7 @@ Maven
 
 - To build all JNI libraries (Windows) except the JNI C Data Interface library:
 
-  .. code-block::
+  .. code-block:: text
 
       $ cd arrow/java
       $ mvn generate-resources -Pgenerate-libs-jni-windows -N
@@ -172,7 +172,7 @@ CMake
 
 - To build only the JNI C Data Interface library (Windows):
 
-  .. code-block::
+  .. code-block:: text
 
       $ cd arrow
       $ mkdir java-dist, java-cdata
@@ -190,7 +190,7 @@ CMake
 
 - To build all JNI libraries (macOS / Linux) except the JNI C Data Interface library:
 
-  .. code-block::
+  .. code-block:: text
 
       $ cd arrow
       $ brew bundle --file=cpp/Brewfile
@@ -240,7 +240,7 @@ CMake
 
 - To build all JNI libraries (Windows) except the JNI C Data Interface library:
 
-  .. code-block::
+  .. code-block:: text
 
       $ cd arrow
       $ mkdir java-dist, cpp-jni
@@ -306,14 +306,14 @@ Building Java JNI Modules
 
 - To compile the JNI bindings, use the ``arrow-c-data`` Maven profile:
 
-  .. code-block::
+  .. code-block:: text
 
       $ cd arrow/java
       $ mvn -Darrow.c.jni.dist.dir=<absolute path to your arrow folder>/java-dist/lib -Parrow-c-data clean install
 
 - To compile the JNI bindings for ORC / Gandiva / Dataset, use the ``arrow-jni`` Maven profile:
 
-  .. code-block::
+  .. code-block:: text
 
       $ cd arrow/java
       $ mvn \
@@ -335,7 +335,7 @@ Configuring Maven toolchains
 To be able to use a JDK version for testing, it needs to be registered first in Maven ``toolchains.xml``
 configuration file usually located under ``${HOME}/.m2`` with the following snippet added to it:
 
-  .. code-block::
+  .. code-block:: xml
 
       <?xml version="1.0" encoding="UTF8"?>
       <toolchains>
@@ -364,7 +364,7 @@ To run Arrow tests with a specific JDK version, use the ``arrow.test.jdk-version
 
 For example, to run Arrow tests with JDK 17, use the following snippet:
 
-  .. code-block::
+  .. code-block:: text
 
       $ cd arrow/java
       $ mvn -Darrow.test.jdk-version=17 clean verify
@@ -408,7 +408,7 @@ Common Errors
 
 * When working with the JNI code: if the C++ build cannot find dependencies, with errors like these:
 
-  .. code-block::
+  .. code-block:: text
 
      Could NOT find Boost (missing: Boost_INCLUDE_DIR system filesystem)
      Could NOT find Lz4 (missing: LZ4_LIB)
@@ -416,7 +416,7 @@ Common Errors
 
   Specify that the dependencies should be downloaded at build time (more details at `Dependency Resolution`_):
 
-  .. code-block::
+  .. code-block:: text
 
      -Dre2_SOURCE=BUNDLED \
      -DBoost_SOURCE=BUNDLED \
@@ -551,35 +551,35 @@ Installing Manually
       $ tree ~/.m2/repository/org/apache/arrow
       .
       ├── arrow-flight
-      │   ├── 9.0.0.dev501
-      │   │   └── arrow-flight-9.0.0.dev501.pom
+      │   ├── 9.0.0.dev501
+      │   │   └── arrow-flight-9.0.0.dev501.pom
       ├── arrow-format
-      │   ├── 9.0.0.dev501
-      │   │   ├── arrow-format-9.0.0.dev501.jar
-      │   │   └── arrow-format-9.0.0.dev501.pom
+      │   ├── 9.0.0.dev501
+      │   │   ├── arrow-format-9.0.0.dev501.jar
+      │   │   └── arrow-format-9.0.0.dev501.pom
       ├── arrow-java-root
-      │   ├── 9.0.0.dev501
-      │   │   └── arrow-java-root-9.0.0.dev501.pom
+      │   ├── 9.0.0.dev501
+      │   │   └── arrow-java-root-9.0.0.dev501.pom
       ├── arrow-memory
-      │   ├── 9.0.0.dev501
-      │   │   └── arrow-memory-9.0.0.dev501.pom
+      │   ├── 9.0.0.dev501
+      │   │   └── arrow-memory-9.0.0.dev501.pom
       ├── arrow-memory-core
-      │   ├── 9.0.0.dev501
-      │   │   ├── arrow-memory-core-9.0.0.dev501.jar
-      │   │   └── arrow-memory-core-9.0.0.dev501.pom
+      │   ├── 9.0.0.dev501
+      │   │   ├── arrow-memory-core-9.0.0.dev501.jar
+      │   │   └── arrow-memory-core-9.0.0.dev501.pom
       ├── arrow-memory-netty
-      │   ├── 9.0.0.dev501
-      │   │   ├── arrow-memory-netty-9.0.0.dev501.jar
-      │   │   └── arrow-memory-netty-9.0.0.dev501.pom
+      │   ├── 9.0.0.dev501
+      │   │   ├── arrow-memory-netty-9.0.0.dev501.jar
+      │   │   └── arrow-memory-netty-9.0.0.dev501.pom
       ├── arrow-vector
-      │   ├── 9.0.0.dev501
-      │   │   ├── _remote.repositories
-      │   │   ├── arrow-vector-9.0.0.dev501.jar
-      │   │   └── arrow-vector-9.0.0.dev501.pom
+      │   ├── 9.0.0.dev501
+      │   │   ├── _remote.repositories
+      │   │   ├── arrow-vector-9.0.0.dev501.jar
+      │   │   └── arrow-vector-9.0.0.dev501.pom
       └── flight-core
-         ├── 9.0.0.dev501
-         │   ├── flight-core-9.0.0.dev501.jar
-         │   └── flight-core-9.0.0.dev501.pom
+          ├── 9.0.0.dev501
+          │   ├── flight-core-9.0.0.dev501.jar
+          │   └── flight-core-9.0.0.dev501.pom
 
 6. Compile your project like usual with ``mvn clean install``.
 
