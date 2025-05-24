@@ -54,20 +54,19 @@ ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key(
   if (column_key.empty()) return this;
 
   DCHECK(key_.empty());
-  key_ = column_key;
+  key_ = std::move(column_key);
   return this;
 }
 
 ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key_metadata(
-    const std::string& key_metadata) {
+    std::string key_metadata) {
   DCHECK(!key_metadata.empty());
-  DCHECK(key_metadata_.empty());
-  key_metadata_ = key_metadata;
+  key_metadata_ = std::move(key_metadata);
   return this;
 }
 
 ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key_id(
-    const std::string& key_id) {
+    std::string key_id) {
   // key_id is expected to be in UTF8 encoding
   ::arrow::util::InitializeUTF8();
   const uint8_t* data = reinterpret_cast<const uint8_t*>(key_id.c_str());
@@ -76,7 +75,7 @@ ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key_id
   }
 
   DCHECK(!key_id.empty());
-  this->key_metadata(key_id);
+  this->key_metadata(std::move(key_id));
   return this;
 }
 
