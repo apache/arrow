@@ -143,31 +143,31 @@ std::shared_ptr<ColumnDecryptionProperties> ColumnDecryptionProperties::Builder:
 }
 
 FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key_metadata(
-    const std::string& footer_key_metadata) {
+    std::string footer_key_metadata) {
   if (footer_key_metadata.empty()) return this;
 
   DCHECK(footer_key_metadata_.empty());
-  footer_key_metadata_ = footer_key_metadata;
+  footer_key_metadata_ = std::move(footer_key_metadata);
   return this;
 }
 
 FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::encrypted_columns(
-    const ColumnPathToEncryptionPropertiesMap& encrypted_columns) {
+    ColumnPathToEncryptionPropertiesMap encrypted_columns) {
   if (encrypted_columns.size() == 0) return this;
 
   if (encrypted_columns_.size() != 0)
     throw ParquetException("Column properties already set");
 
-  encrypted_columns_ = encrypted_columns;
+  encrypted_columns_ = std::move(encrypted_columns);
   return this;
 }
 
 FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::aad_prefix(
-    const std::string& aad_prefix) {
+    std::string aad_prefix) {
   if (aad_prefix.empty()) return this;
 
   DCHECK(aad_prefix_.empty());
-  aad_prefix_ = aad_prefix;
+  aad_prefix_ = std::move(aad_prefix);
   store_aad_prefix_in_file_ = true;
   return this;
 }
@@ -253,7 +253,7 @@ FileDecryptionProperties::FileDecryptionProperties(
 }
 
 FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key_id(
-    const std::string& key_id) {
+    std::string key_id) {
   // key_id is expected to be in UTF8 encoding
   ::arrow::util::InitializeUTF8();
   const uint8_t* data = reinterpret_cast<const uint8_t*>(key_id.c_str());
@@ -265,7 +265,7 @@ FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key
     return this;
   }
 
-  return footer_key_metadata(key_id);
+  return footer_key_metadata(std::move(key_id));
 }
 
 std::shared_ptr<ColumnEncryptionProperties>

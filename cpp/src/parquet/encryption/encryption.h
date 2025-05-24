@@ -334,10 +334,10 @@ class PARQUET_EXPORT FileEncryptionProperties {
  public:
   class PARQUET_EXPORT Builder {
    public:
-    explicit Builder(const std::string& footer_key)
+    explicit Builder(std::string footer_key)
         : parquet_cipher_(kDefaultEncryptionAlgorithm),
           encrypted_footer_(kDefaultEncryptedFooter) {
-      footer_key_ = footer_key;
+      footer_key_ = std::move(footer_key);
       store_aad_prefix_in_file_ = false;
     }
 
@@ -357,14 +357,14 @@ class PARQUET_EXPORT FileEncryptionProperties {
 
     /// Set a key retrieval metadata (converted from String).
     /// use either footer_key_metadata or footer_key_id, not both.
-    Builder* footer_key_id(const std::string& key_id);
+    Builder* footer_key_id(std::string key_id);
 
     /// Set a key retrieval metadata.
     /// use either footer_key_metadata or footer_key_id, not both.
-    Builder* footer_key_metadata(const std::string& footer_key_metadata);
+    Builder* footer_key_metadata(std::string footer_key_metadata);
 
     /// Set the file AAD Prefix.
-    Builder* aad_prefix(const std::string& aad_prefix);
+    Builder* aad_prefix(std::string aad_prefix);
 
     /// Skip storing AAD Prefix in file.
     /// If not called, and if AAD Prefix is set, it will be stored.
@@ -373,8 +373,7 @@ class PARQUET_EXPORT FileEncryptionProperties {
     /// Set the list of encrypted columns and their properties (keys etc).
     /// If not called, all columns will be encrypted with the footer key.
     /// If called, the file columns not in the list will be left unencrypted.
-    Builder* encrypted_columns(
-        const ColumnPathToEncryptionPropertiesMap& encrypted_columns);
+    Builder* encrypted_columns(ColumnPathToEncryptionPropertiesMap encrypted_columns);
 
     std::shared_ptr<FileEncryptionProperties> build() {
       return std::shared_ptr<FileEncryptionProperties>(new FileEncryptionProperties(

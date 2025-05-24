@@ -79,13 +79,13 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
 
   FileEncryptionProperties::Builder properties_builder =
       FileEncryptionProperties::Builder(footer_key);
-  properties_builder.footer_key_metadata(footer_key_metadata);
+  properties_builder.footer_key_metadata(std::move(footer_key_metadata));
   properties_builder.algorithm(encryption_config.encryption_algorithm);
 
   if (!encryption_config.uniform_encryption) {
     ColumnPathToEncryptionPropertiesMap encrypted_columns =
         GetColumnEncryptionProperties(dek_length, column_key_str, &key_wrapper);
-    properties_builder.encrypted_columns(encrypted_columns);
+    properties_builder.encrypted_columns(std::move(encrypted_columns));
 
     if (encryption_config.plaintext_footer) {
       properties_builder.set_plaintext_footer();
