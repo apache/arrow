@@ -130,6 +130,12 @@ std::string PrintDatum(const Datum& datum) {
   if (datum.is_scalar()) {
     if (!datum.scalar()->is_valid) return "null[" + datum.type()->ToString() + "]";
 
+    if (datum.type()->id() == Type::EXTENSION) {
+      const auto& ext_type = checked_cast<const ExtensionType&>(*datum.type());
+      return "ExtensionType[" + ext_type.extension_name() + "]: " +
+             datum.scalar()->ToString();
+    }
+    
     switch (datum.type()->id()) {
       case Type::STRING:
       case Type::LARGE_STRING:
