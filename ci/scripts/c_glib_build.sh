@@ -33,6 +33,8 @@ if [ -n "${MSYSTEM:-}" ]; then
   # Fix ARROW_HOME when running under MSYS2
   ARROW_HOME="$(cygpath --unix "${ARROW_HOME}")"
   export ARROW_HOME
+  # Force disable ARROW_GLIB_WERROR false
+  ARROW_GLIB_WERROR=false
 fi
 
 PATH="${ARROW_HOME}/bin:${PATH}"
