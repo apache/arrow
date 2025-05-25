@@ -132,10 +132,10 @@ std::string PrintDatum(const Datum& datum) {
 
     if (datum.type()->id() == Type::EXTENSION) {
       const auto& ext_type = checked_cast<const ExtensionType&>(*datum.type());
-      return "ExtensionType[" + ext_type.extension_name() + "]: " +
-             datum.scalar()->ToString();
+      return "ExtensionType[" + ext_type.extension_name() +
+             "]: " + datum.scalar()->ToString();
     }
-    
+
     switch (datum.type()->id()) {
       case Type::STRING:
       case Type::LARGE_STRING:
