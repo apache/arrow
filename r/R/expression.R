@@ -42,13 +42,7 @@
 Expression <- R6Class("Expression",
   inherit = ArrowObject,
   public = list(
-    ToString = function(){
-      if(self$type_id() == Type$EXTENSION){
-        self$type()
-      } else {
-        compute___expr__ToString(self)
-      }
-    } ,
+    ToString = function() compute___expr__ToString(self),
     Equals = function(other, ...) {
       inherits(other, "Expression") && compute___expr__equals(self, other)
     },
@@ -161,6 +155,7 @@ Expression$scalar <- function(x) {
   if (!inherits(x, "Scalar")) {
     x <- Scalar$create(x)
   }
+
   expr <- compute___expr__scalar(x)
   expr$schema <- schema()
   expr
