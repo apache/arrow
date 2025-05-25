@@ -694,6 +694,12 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
   /// automatically.
   Status AppendNulls(int64_t length) final;
 
+  void UnsafeAppend();
+
+  void UnsafeAppendNull();
+
+  void UnsafeAppendNulls(int64_t length);
+
   Status ValidateOverflow(int64_t new_elements);
 
   Status AppendEmptyValue() final;
