@@ -383,11 +383,19 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   std::shared_ptr<Impl> impl_;
 };
 
+class ARROW_EXPORT S3Logger {
+ public:
+  virtual void log(std::string& statement) = 0;
+};
+
 enum class S3LogLevel : int8_t { Off, Fatal, Error, Warn, Info, Debug, Trace };
 
 struct ARROW_EXPORT S3GlobalOptions {
   /// The log level for S3-originating messages.
   S3LogLevel log_level;
+
+  /// Optional logger class to use for the aws sdk
+  std::shared_ptr<S3Logger> logger;
 
   /// The number of threads to configure when creating AWS' I/O event loop
   ///
