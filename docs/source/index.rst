@@ -92,7 +92,15 @@ target environment.**
 
    developers/index
 
-Implementations
+.. _toc.libraries:
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   libraries/index
+
+Docs
 ---------------
 
 .. _toc.usage:
