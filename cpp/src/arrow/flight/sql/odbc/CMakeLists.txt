@@ -17,9 +17,14 @@
 
 add_custom_target(arrow_flight_sql_odbc)
 
+# Ensure fmt is loaded as header only
+add_compile_definitions(FMT_HEADER_ONLY)
+
 if(WIN32)
   if(MSVC_VERSION GREATER_EQUAL 1900)
     set(ODBCINST legacy_stdio_definitions odbccp32 shlwapi)
+  elseif(MINGW)
+    set(ODBCINST odbccp32 shlwapi)
   endif()
 elseif(APPLE)
   set(ODBCINST iodbcinst)

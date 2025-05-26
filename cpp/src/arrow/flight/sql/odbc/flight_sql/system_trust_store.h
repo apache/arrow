@@ -24,6 +24,9 @@
 #  include <wincrypt.h>
 
 #  include <bcrypt.h>
+
+#  include <prsht.h>
+
 #  include <cryptuiapi.h>
 
 #  include <tchar.h>

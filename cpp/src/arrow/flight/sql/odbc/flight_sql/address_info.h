@@ -21,6 +21,7 @@
 
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h>
 #include <sys/types.h>
+#include <cstdint>
 #if !_WIN32
 #  include <netdb.h>
 #endif

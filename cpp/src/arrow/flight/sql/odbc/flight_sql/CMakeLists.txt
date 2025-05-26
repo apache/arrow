@@ -101,10 +101,12 @@ if(WIN32)
                          win_system_dsn.cc)
 endif()
 
-target_link_libraries(arrow_odbc_spi_impl PUBLIC odbcabstraction arrow_flight_sql_shared)
+target_link_libraries(arrow_odbc_spi_impl PUBLIC odbcabstraction arrow_flight_sql_shared
+                                                 Boost::locale)
 
-if(MSVC)
-  target_link_libraries(arrow_odbc_spi_impl PUBLIC Boost::locale)
+# Link libraries on MINGW64 only
+if(MINGW AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  target_link_libraries(arrow_odbc_spi_impl PUBLIC ${ODBCINST})
 endif()
 
 set_target_properties(arrow_odbc_spi_impl

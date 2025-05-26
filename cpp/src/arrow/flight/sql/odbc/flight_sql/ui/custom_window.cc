@@ -23,6 +23,7 @@
 #include <commctrl.h>
 
 #include <wtypes.h>
+#include <cassert>
 #include <sstream>
 
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
@@ -53,7 +54,7 @@ LRESULT CALLBACK CustomWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam,
 
   switch (msg) {
     case WM_NCCREATE: {
-      _ASSERT(lParam != NULL);
+      assert(lParam != NULL);
 
       CREATESTRUCT* createStruct = reinterpret_cast<CREATESTRUCT*>(lParam);
 
@@ -65,7 +66,7 @@ LRESULT CALLBACK CustomWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam,
     }
 
     case WM_CREATE: {
-      _ASSERT(window != NULL);
+      assert(window != NULL);
 
       window->SetHandle(hwnd);
 

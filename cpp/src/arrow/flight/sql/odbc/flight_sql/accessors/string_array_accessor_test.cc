@@ -134,7 +134,6 @@ TEST(StringArrayAccessor, Test_CDataType_WCHAR_Truncation) {
   ColumnBinding binding(odbcabstraction::CDataType_WCHAR, 0, 0, buffer.data(), max_strlen,
                         strlen_buffer.data());
 
-  std::basic_stringstream<uint8_t> ss;
   int64_t value_offset = 0;
 
   // Construct the whole string by concatenating smaller chunks from
