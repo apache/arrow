@@ -1868,7 +1868,7 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
-        /arrow/ci/scripts/r_build.sh /arrow /build
+        /arrow/ci/scripts/r_build.sh /arrow /build"
 
   ################################# Tools #####################################
 
