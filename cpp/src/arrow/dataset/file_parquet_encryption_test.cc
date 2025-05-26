@@ -114,7 +114,6 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
     // Init dataset and partitioning.
     ASSERT_NO_FATAL_FAILURE(PrepareTableAndPartitioning());
     ASSERT_OK_AND_ASSIGN(expected_table_, table_->CombineChunks());
-    ASSERT_OK_AND_ASSIGN(expected_table_, SortTable(expected_table_));
 
     // Prepare encryption properties.
     key_map_.emplace(kColumnMasterKeyId, kColumnMasterKey);
@@ -185,6 +184,7 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
         write_options.base_dir = "thread-" + std::to_string(i);
         write_options.partitioning = partitioning_;
         write_options.basename_template = "part{i}.parquet";
+        write_options.preserve_order = true;
         futures.push_back(
             DeferNotOk(pool->Submit(FileSystemDataset::Write, write_options, scanner)));
       }
@@ -310,25 +310,9 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
 
   void CheckDatasetResults(const std::shared_ptr<Table>& table) {
     ASSERT_OK(table->ValidateFull());
-    // Make results comparable despite ordering and chunking differences
+    // Make results comparable despite chunking differences
     ASSERT_OK_AND_ASSIGN(auto combined_table, table->CombineChunks());
-    ASSERT_OK_AND_ASSIGN(auto sorted_table, SortTable(combined_table));
-    AssertTablesEqual(*sorted_table, *expected_table_);
-  }
-
-  // Sort table for comparability of dataset read results, which may be unordered.
-  // This relies on column "a" having statistically unique values.
-  Result<std::shared_ptr<Table>> SortTable(const std::shared_ptr<Table>& table) {
-    if (!GetParam().concurrently) {
-      // table is only unordered in multi-threaded environment, no need to sort otherwise
-      return table;
-    }
-
-    compute::SortOptions options({compute::SortKey("a")});
-    ARROW_ASSIGN_OR_RAISE(auto indices, compute::SortIndices(table, options));
-    ARROW_ASSIGN_OR_RAISE(auto sorted, compute::Take(table, indices));
-    EXPECT_EQ(sorted.kind(), Datum::TABLE);
-    return sorted.table();
+    AssertTablesEqual(*combined_table, *expected_table_);
   }
 
  protected:
