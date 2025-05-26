@@ -94,14 +94,6 @@ endif
 ipc_fuzz_targets = ['file_fuzz', 'stream_fuzz', 'tensor_stream_fuzz']
 
 if needs_fuzzing
-    if meson.version() < '1.8.0'
-        error(
-            ' Meson >= 1.8.0 is required for fuzzing support, found @0@'.format(
-                meson.version(),
-            ),
-        )
-    endif
-
     foreach ipc_fuzz_target : ipc_fuzz_targets
         target_name = 'arrow-ipc-@0@'.format(ipc_fuzz_target.replace('_', '-'))
         executable(
