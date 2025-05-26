@@ -23,26 +23,26 @@ install_prefix=${2:-/usr/local}
 clang_tools_version=${3:-8}
 
 iwyu_branch_name="clang_${clang_tools_version}"
-if [ ${clang_tools_version} -lt 10 ]; then
+if [ "${clang_tools_version}" -lt 10 ]; then
   iwyu_branch_name="${iwyu_branch_name}.0"
 fi
 
-git clone --single-branch --branch ${iwyu_branch_name} \
-    https://github.com/include-what-you-use/include-what-you-use.git ${source_dir}
+git clone --single-branch --branch "${iwyu_branch_name}" \
+    https://github.com/include-what-you-use/include-what-you-use.git "${source_dir}"
 
-mkdir -p ${source_dir}/build
-pushd ${source_dir}/build
+mkdir -p "${source_dir}/build"
+pushd "${source_dir}/build"
 
 # Build IWYU for current Clang
 export CC=clang-${clang_tools_version}
 export CXX=clang++-${clang_tools_version}
 
-cmake -DCMAKE_PREFIX_PATH=/usr/lib/llvm-${clang_tools_version} \
-      -DCMAKE_INSTALL_PREFIX=${install_prefix} \
-      ${source_dir}
+cmake -DCMAKE_PREFIX_PATH="/usr/lib/llvm-${clang_tools_version}" \
+      -DCMAKE_INSTALL_PREFIX="${install_prefix}" \
+      "${source_dir}"
 make -j4
 make install
 
 popd
 
-rm -rf ${source_dir}
+rm -rf "${source_dir}"

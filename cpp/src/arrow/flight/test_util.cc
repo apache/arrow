@@ -77,6 +77,16 @@ FlightInfo MakeFlightInfo(const Schema& schema, const FlightDescriptor& descript
   return info;
 }
 
+FlightInfo MakeFlightInfo(const FlightDescriptor& descriptor,
+                          const std::vector<FlightEndpoint>& endpoints,
+                          int64_t total_records, int64_t total_bytes, bool ordered,
+                          std::string app_metadata) {
+  EXPECT_OK_AND_ASSIGN(auto info,
+                       FlightInfo::Make(nullptr, descriptor, endpoints, total_records,
+                                        total_bytes, ordered, std::move(app_metadata)));
+  return info;
+}
+
 NumberingStream::NumberingStream(std::unique_ptr<FlightDataStream> stream)
     : counter_(0), stream_(std::move(stream)) {}
 

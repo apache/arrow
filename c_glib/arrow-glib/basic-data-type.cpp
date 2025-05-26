@@ -27,6 +27,7 @@
 
 #include <arrow/c/bridge.h>
 #include <arrow/extension/fixed_shape_tensor.h>
+#include <arrow/extension/uuid.h>
 
 G_BEGIN_DECLS
 
@@ -134,6 +135,8 @@ G_BEGIN_DECLS
  * #GArrowBinaryViewDataType is a class for the binary view data type.
  *
  * #GArrowFixedShapeTensorDataType is a class for the fixed shape tensor data type.
+ *
+ * #GArrowUUIDDataType is a class for UUID data type.
  */
 
 struct GArrowDataTypePrivate
@@ -2270,9 +2273,34 @@ garrow_string_view_data_type_new(void)
   return data_type;
 }
 
+enum {
+  PROP_N_DIMENSIONS = 1
+};
+
 G_DEFINE_TYPE(GArrowFixedShapeTensorDataType,
               garrow_fixed_shape_tensor_data_type,
               GARROW_TYPE_EXTENSION_DATA_TYPE)
+
+static void
+garrow_fixed_shape_tensor_data_type_get_property(GObject *object,
+                                                 guint prop_id,
+                                                 GValue *value,
+                                                 GParamSpec *pspec)
+{
+  switch (prop_id) {
+  case PROP_N_DIMENSIONS:
+    {
+      auto arrow_data_type =
+        std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(
+          garrow_data_type_get_raw(GARROW_DATA_TYPE(object)));
+      g_value_set_uint64(value, arrow_data_type->ndim());
+    }
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
 
 static void
 garrow_fixed_shape_tensor_data_type_init(GArrowFixedShapeTensorDataType *object)
@@ -2282,6 +2310,26 @@ garrow_fixed_shape_tensor_data_type_init(GArrowFixedShapeTensorDataType *object)
 static void
 garrow_fixed_shape_tensor_data_type_class_init(GArrowFixedShapeTensorDataTypeClass *klass)
 {
+  GParamSpec *spec;
+
+  auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->get_property = garrow_fixed_shape_tensor_data_type_get_property;
+
+  /**
+   * GArrowFixedShapeTensorDataType::n-dimensions:
+   *
+   * The number of dimensions of tensor elements.
+   *
+   * Since: 21.0.0
+   */
+  spec = g_param_spec_uint64("n_dimensions",
+                             "N dimensions",
+                             "Number of dimensions of tensor elements",
+                             0,
+                             G_MAXUINT64,
+                             0,
+                             static_cast<GParamFlags>(G_PARAM_READABLE));
+  g_object_class_install_property(gobject_class, PROP_N_DIMENSIONS, spec);
 }
 
 /**
@@ -2319,15 +2367,15 @@ garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
 
   auto arrow_value_type = garrow_data_type_get_raw(value_type);
 
-  for (int i = 0; i < shape_length; i++) {
+  for (gsize i = 0; i < shape_length; i++) {
     arrow_shape.push_back(shape[i]);
   }
 
-  for (int i = 0; i < permutation_length; i++) {
+  for (gsize i = 0; i < permutation_length; i++) {
     arrow_permutation.push_back(permutation[i]);
   }
 
-  for (int i = 0; i < n_dim_names; i++) {
+  for (gsize i = 0; i < n_dim_names; i++) {
     arrow_dim_names.push_back(dim_names[i]);
   }
 
@@ -2437,6 +2485,40 @@ garrow_fixed_shape_tensor_data_type_get_strides(GArrowFixedShapeTensorDataType *
   const auto &arrow_strides = arrow_data_type->strides();
   *length = arrow_strides.size();
   return arrow_strides.data();
+}
+
+G_DEFINE_TYPE(GArrowUUIDDataType, garrow_uuid_data_type, GARROW_TYPE_EXTENSION_DATA_TYPE)
+
+static void
+garrow_uuid_data_type_init(GArrowUUIDDataType *object)
+{
+}
+
+static void
+garrow_uuid_data_type_class_init(GArrowUUIDDataTypeClass *klass)
+{
+}
+
+/*
+ * garrow_uuid_data_type_new:
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable):
+ *   The newly created UUID data type on success, %NULL on error.
+ *
+ * Since: 21.0.0
+ */
+GArrowUUIDDataType *
+garrow_uuid_data_type_new(GError **error)
+{
+  auto arrow_data_type_result = arrow::extension::UuidType::Make();
+  if (garrow::check(error, arrow_data_type_result, "[uuid-data-type][new]")) {
+    auto arrow_data_type = *arrow_data_type_result;
+    return GARROW_UUID_DATA_TYPE(
+      g_object_new(GARROW_TYPE_UUID_DATA_TYPE, "data-type", &arrow_data_type, NULL));
+  } else {
+    return NULL;
+  }
 }
 G_END_DECLS
 
