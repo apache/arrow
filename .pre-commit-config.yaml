@@ -48,11 +48,6 @@ repos:
           ?^ci/docker/python-.*-wheel-windows-test-vs2022.*\.dockerfile$|
           )
         types: []
-  - repo: https://github.com/MarcoGorelli/cython-lint
-    rev: v0.12.5
-    hooks:
-      - id: cython-lint
-        args: [--no-pycodestyle]
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v14.0.6
     hooks:
