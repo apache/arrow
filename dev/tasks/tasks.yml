@@ -567,7 +567,6 @@ tasks:
   {% for target in ["cpp",
                     "csharp",
                     "integration",
-                    "js",
                     "python",
                     "ruby"] %}
   verify-rc-source-{{ target }}-linux-{{ distribution }}-{{ version }}-amd64:
@@ -597,7 +596,6 @@ tasks:
   {% for target in ["cpp",
                     "csharp",
                     "integration",
-                    "js",
                     "python",
                     "ruby"] %}
   verify-rc-source-{{ target }}-macos-amd64:
@@ -611,7 +609,6 @@ tasks:
   {% for target in ["cpp",
                     "csharp",
                     "integration",
-                    "js",
                     "python",
                     "ruby"] %}
   verify-rc-source-{{ target }}-macos-arm64:
