@@ -341,16 +341,10 @@ html_theme_options = {
       "image_light": "_static/arrow.png",
       "image_dark": "_static/arrow-dark.png",
     },
-    "header_links_before_dropdown": 2,
-    "header_dropdown_text": "Implementations",
+    "header_links_before_dropdown": 4,
     "navbar_align": "left",
     "navbar_end": ["kapa-ai-bot.html", "version-switcher", "theme-switcher", "navbar-icon-links"],
     "icon_links": [
-        {
-            "name": "GitHub",
-            "url": "https://github.com/apache/arrow",
-            "icon": "fa-brands fa-square-github",
-        },
         {
             "name": "LinkedIn",
             "url": "https://www.linkedin.com/company/apache-arrow/",
