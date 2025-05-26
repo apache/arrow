@@ -303,6 +303,8 @@ class PARQUET_EXPORT VariantValue {
   uint32_t complexOffsetAt(uint32_t field_index) const;
   uint32_t complexFieldIdAt(uint32_t field_index) const;
 
+  uint8_t valueHeader() const;
+
  private:
   VariantMetadata metadata_;
   std::string_view value_;

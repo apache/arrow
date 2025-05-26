@@ -300,8 +300,7 @@ VariantType VariantValue::getType() const {
   VariantBasicType basic_type = getBasicType();
   switch (basic_type) {
     case VariantBasicType::Primitive: {
-      auto primitive_type =
-          static_cast<VariantPrimitiveType>(value_[0] >> kValueHeaderBitShift);
+      auto primitive_type = static_cast<VariantPrimitiveType>(valueHeader());
       switch (primitive_type) {
         case VariantPrimitiveType::NullType:
           return VariantType::Null;
@@ -452,8 +451,7 @@ void VariantValue::checkPrimitiveType(VariantPrimitiveType type,
                                       size_t size_required) const {
   checkBasicType(VariantBasicType::Primitive);
 
-  auto primitive_type =
-      static_cast<VariantPrimitiveType>(value_[0] >> kValueHeaderBitShift);
+  auto primitive_type = static_cast<VariantPrimitiveType>(valueHeader());
   if (primitive_type != type) {
     throw ParquetException(
         "Expected primitive type: " + VariantPrimitiveTypeToString(type) +
@@ -522,7 +520,7 @@ std::string_view VariantValue::getString() const {
   VariantBasicType basic_type = getBasicType();
 
   if (basic_type == VariantBasicType::ShortString) {
-    uint8_t short_string_length = (value_[0] >> kValueHeaderBitShift);
+    uint8_t short_string_length = valueHeader();
     if (value_.size() < static_cast<size_t>(short_string_length + kHeaderSizeBytes)) {
       throw ParquetException(
           "Invalid short string: too short: " + std::to_string(value_.size()) +
@@ -627,8 +625,13 @@ uint32_t VariantValue::complexFieldIdAt(uint32_t field_index) const {
       complex_info_.id_size);
 }
 
+uint8_t VariantValue::valueHeader() const {
+  // Using unsigned shift to avoid sign extension.
+  return static_cast<uint8_t>(value_[0]) >> kValueHeaderBitShift;
+}
+
 VariantValue::ComplexInfo VariantValue::getObjectInfo(std::string_view value) {
-  uint8_t value_header = value[0] >> kValueHeaderBitShift;
+  uint8_t value_header = static_cast<uint8_t>(value[0]) >> kValueHeaderBitShift;
   uint8_t field_offset_size = (value_header & 0b11) + 1;
   uint8_t field_id_size = ((value_header >> kValueHeaderBitShift) & 0b11) + 1;
   bool is_large = ((value_header >> 4) & 0b1);
@@ -725,7 +728,7 @@ std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
 }
 
 VariantValue::ComplexInfo VariantValue::getArrayInfo(std::string_view value) {
-  uint8_t value_header = value[0] >> kValueHeaderBitShift;
+  uint8_t value_header = static_cast<uint8_t>(value[0]) >> kValueHeaderBitShift;
   uint8_t field_offset_size = (value_header & 0b11) + kHeaderSizeBytes;
   bool is_large = ((value_header >> kValueHeaderBitShift) & 0b1);
 
@@ -763,15 +766,17 @@ VariantValue VariantValue::getArrayValueByIndex(uint32_t index) const {
                            " >= " + std::to_string(complex_info_.num_elements));
   }
 
-  // Read the offset and next offset
   uint32_t offset = complexOffsetAt(index);
-  uint32_t next_offset = complexOffsetAt(index + 1);
+  if (complex_info_.data_start_offset + offset > value_.size()) {
+    throw ParquetException("Invalid array value: data_start_offset=" +
+                           std::to_string(complex_info_.data_start_offset) +
+                           ", offset=" + std::to_string(offset) +
+                           ", value_size=" + std::to_string(value_.size()));
+  }
 
   // Create a VariantValue for the element
   VariantValue element_value{
-      metadata_,
-      std::string_view(value_.data() + complex_info_.data_start_offset + offset,
-                       next_offset - offset)};
+      metadata_, value_.substr(/*pos=*/complex_info_.data_start_offset + offset)};
 
   return element_value;
 }
