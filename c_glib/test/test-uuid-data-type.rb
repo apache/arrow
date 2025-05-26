@@ -30,8 +30,6 @@ class TestUUIDDataType < Test::Unit::TestCase
   end
 
   def test_to_s
-    assert do
-      @data_type.to_s.start_with?("extension<arrow.uuid")
-    end
+    assert_equal("extension<arrow.uuid>", @data_type.to_s)
   end
 end
