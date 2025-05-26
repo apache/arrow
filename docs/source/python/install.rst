@@ -63,6 +63,25 @@ need to install the `Visual C++ Redistributable for Visual Studio 2015
 .. warning::
    On Linux, you will need pip >= 19.0 to detect the prebuilt binary packages.
 
+You may encounter problems writing datetime data to a file if you install
+pyarrow with pip.  One process to fix this problem:
+
+   1. Install tzdata with ``pip install tzdata``
+
+   2. Set the environmental variable ``TZDIR`` = ``path/to/tzdata``
+
+You can find where ``tzdata`` is installed with the following python
+commands
+
+.. code-block:: python
+
+   >>> import tzdata
+   >>> print(tzdata.__file__)
+   path\to\.venv\Lib\site-packages\tzdata\__init__.py
+
+You only need to set the TZDIR environmental variable to
+``path\to\.venv\Lib\site-packages\tzdata\`` in the above example
+
 Installing nightly packages or from source
 ------------------------------------------
 
