@@ -29,7 +29,9 @@
 
 namespace parquet::encryption {
 SecureString::SecureString(SecureString&& secret) noexcept
-    : secret_(std::move(secret.secret_)) {}
+    : secret_(std::move(secret.secret_)) {
+  secret.Dispose();
+}
 SecureString::SecureString(std::string&& secret) noexcept : secret_(std::move(secret)) {
   SecureClear(&secret);
 }
@@ -42,6 +44,7 @@ SecureString& SecureString::operator=(SecureString&& secret) noexcept {
   }
   Dispose();
   secret_ = std::move(secret.secret_);
+  secret.Dispose();
   return *this;
 }
 SecureString& SecureString::operator=(const SecureString& secret) {

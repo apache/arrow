@@ -72,14 +72,18 @@ TEST(TestSecureString, SecureClearString) {
 TEST(TestSecureString, Construct) {
   // move constructing from a string securely clears that string
   std::string string("hello world");
+  auto old_string = StringArea(string);
   SecureString secret_from_string(std::move(string));
   AssertSecurelyCleared(string);
+  AssertSecurelyCleared(old_string);
   ASSERT_FALSE(secret_from_string.empty());
 
   // move constructing from a secure string securely clears that secure string
-  // Note: there is no way to test the secure clearing of the moved secure string
+  auto old_secret_from_string =
+      std::string_view(secret_from_string.as_view().data(), secret_from_string.length());
   SecureString secret_from_move_secret(std::move(secret_from_string));
   ASSERT_TRUE(secret_from_string.empty());
+  AssertSecurelyCleared(old_secret_from_string);
   ASSERT_FALSE(secret_from_move_secret.empty());
 
   // copy constructing from a secure string does not modify that secure string
@@ -92,16 +96,30 @@ TEST(TestSecureString, Construct) {
 TEST(TestSecureString, Assign) {
   // move assigning from a string securely clears that string
   std::string string("hello world");
-  SecureString secret_from_string;
+  auto old_string = StringArea(string);
+  SecureString secret_from_string("a secret");
+  auto old_secret_from_string =
+      std::string_view(secret_from_string.as_view().data(), secret_from_string.length());
   secret_from_string = std::move(string);
   AssertSecurelyCleared(string);
+  AssertSecurelyCleared(old_string);
+  if (old_secret_from_string.data() != secret_from_string.as_view().data()) {
+    AssertSecurelyCleared(old_secret_from_string);
+  }
   ASSERT_FALSE(secret_from_string.empty());
 
   // move assigning from a secure string securely clears that secure string
-  // Note: there is no way to test the secure clearing of the moved secure string
-  SecureString secret_from_move_secret;
+  auto new_secret_from_string =
+      std::string_view(secret_from_string.as_view().data(), secret_from_string.length());
+  SecureString secret_from_move_secret("another secret");
+  auto old_secret_from_move_secret = std::string_view(
+      secret_from_move_secret.as_view().data(), secret_from_move_secret.length());
   secret_from_move_secret = std::move(secret_from_string);
   ASSERT_TRUE(secret_from_string.empty());
+  AssertSecurelyCleared(new_secret_from_string);
+  if (old_secret_from_move_secret.data() != secret_from_move_secret.as_view().data()) {
+    AssertSecurelyCleared(old_secret_from_move_secret);
+  }
   ASSERT_FALSE(secret_from_move_secret.empty());
 
   // assigning from a secure string does not modify that secure string
