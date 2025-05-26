@@ -66,3 +66,13 @@ Documentation and source code for Apache Arrow libraries
      - `Rust Docs <https://docs.rs/arrow/latest>`_
      - `Rust Source <https://github.com/apache/arrow-rs>`_
 
+
+Examples
+--------
+
+The Apache Arrow project provides example code in multiple languages. 
+
+- `C++ cookbook <https://arrow.apache.org/cookbook/cpp/>`__
+- `Java cookbook <https://arrow.apache.org/cookbook/java/>`__
+- `Python cookbook <https://arrow.apache.org/cookbook/py/>`__
+- `R cookbook <https://arrow.apache.org/cookbook/r/>`__
