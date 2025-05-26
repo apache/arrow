@@ -46,7 +46,7 @@ Documentation and source code for Apache Arrow libraries
      - `Java Source <https://github.com/apache/arrow-java>`_
    * - JavaScript
      - `JavaScript Docs <https://arrow.apache.org/docs/js>`_
-     - `JavaScript Source <https://github.com/apache/arrow/tree/main/js>`_
+     - `JavaScript Source <https://github.com/apache/arrow-js>`_
    * - Julia
      - `Julia Docs <https://arrow.apache.org/julia/>`_
      - `Julia Source <https://github.com/apache/arrow-julia>`_
