@@ -155,7 +155,6 @@ Expression$scalar <- function(x) {
   if (!inherits(x, "Scalar")) {
     x <- Scalar$create(x)
   }
-
   expr <- compute___expr__scalar(x)
   expr$schema <- schema()
   expr
