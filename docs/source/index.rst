@@ -100,38 +100,32 @@ target environment.**
 
    libraries/index
 
-Docs
----------------
+Libraries
+=========
 
-.. _toc.usage:
+The Apache Arrow project provides libraries in many languages. For more details, see the full
+`Libraries documentation <libraries/index>`__.
 
-.. toctree::
-   :maxdepth: 1
-
-   C/GLib <c_glib/index>
-   C++ <cpp/index>
-   C# <https://github.com/apache/arrow/blob/main/csharp/README.md>
-   Go <https://arrow.apache.org/go/>
-   Java <java/index>
-   JavaScript <js/index>
-   Julia <https://arrow.apache.org/julia/>
-   MATLAB <https://github.com/apache/arrow/blob/main/matlab/README.md>
-   nanoarrow <https://arrow.apache.org/nanoarrow/>
-   Python <python/index>
-   R <r/index>
-   Ruby <https://github.com/apache/arrow/blob/main/ruby/README.md>
-   Rust <https://docs.rs/crate/arrow/>
-   status
+- `C/GLib <c_glib/index>`__
+- `C++ <cpp/index>`__
+- `C# <https://github.com/apache/arrow/blob/main/csharp/README.md>`__
+- `Go <https://arrow.apache.org/go/>`__
+- `Java <java/index>`__
+- `JavaScript <js/index>`__
+- `Julia <https://arrow.apache.org/julia/>`__
+- `MATLAB <https://github.com/apache/arrow/blob/main/matlab/README.md>`__
+- `nanoarrow <https://arrow.apache.org/nanoarrow/>`__
+- `Python <python/index>`__
+- `R <r/index>`__
+- `Ruby <https://github.com/apache/arrow/blob/main/ruby/README.md>`__
+- `Rust <https://docs.rs/crate/arrow/>`__
 
 Examples
 --------
 
-.. _toc.cookbook:
+The Apache Arrow project provides example code in multiple languages. 
 
-.. toctree::
-   :maxdepth: 1
-
-   C++ cookbook <https://arrow.apache.org/cookbook/cpp/>
-   Java cookbook <https://arrow.apache.org/cookbook/java/>
-   Python cookbook <https://arrow.apache.org/cookbook/py/>
-   R cookbook <https://arrow.apache.org/cookbook/r/>
+- `C++ cookbook <https://arrow.apache.org/cookbook/cpp/>`__
+- `Java cookbook <https://arrow.apache.org/cookbook/java/>`__
+- `Python cookbook <https://arrow.apache.org/cookbook/py/>`__
+- `R cookbook <https://arrow.apache.org/cookbook/r/>`__

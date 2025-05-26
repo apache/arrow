@@ -15,6 +15,13 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. _libraries:
+
+Libraries
+===========
+
+
+Documentation and source code for Apache Arrow libraries
 
 .. list-table::
    :header-rows: 1
