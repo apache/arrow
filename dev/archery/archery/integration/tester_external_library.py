@@ -56,13 +56,13 @@ class ExternalLibraryTester(Tester):
         **args,
     ):
         super().__init__(**args)
-        self.is_producer_compatible = is_producer_compatible
-        self.is_consumer_compatible = is_consumer_compatible
-        self.is_c_data_schema_exporter_compatible = is_c_data_schema_exporter_compatible
-        self.is_c_data_array_exporter_compatible = is_c_data_array_exporter_compatible
-        self.is_c_data_schema_importer_compatible = is_c_data_schema_importer_compatible
-        self.is_c_data_array_importer_compatible = is_c_data_array_importer_compatible
-        self.supports_releasing_memory = supports_releasing_memory
+        self.PRODUCER = is_producer_compatible
+        self.CONSUMER = is_consumer_compatible
+        self.C_DATA_SCHEMA_EXPORTER = is_c_data_schema_exporter_compatible
+        self.C_DATA_ARRAY_EXPORTER = is_c_data_array_exporter_compatible
+        self.C_DATA_SCHEMA_IMPORTER = is_c_data_schema_importer_compatible
+        self.C_DATA_ARRAY_IMPORTER = is_c_data_array_importer_compatible
+        self._supports_releasing_memory = supports_releasing_memory
         self._EXE_PATH = path
         self._INTEGRATION_EXE = path / "arrow-json-integration-test"
         self._STREAM_TO_FILE = path / "arrow-stream-to-file"
@@ -100,12 +100,18 @@ class ExternalLibraryTester(Tester):
 
     def make_c_data_exporter(self):
         return ExternalLibraryCDataExporter(
-            self.debug, self._INTEGRATION_DLL, self.supports_releasing_memory, self.args
+            self.debug,
+            self._INTEGRATION_DLL,
+            self._supports_releasing_memory,
+            self.args,
         )
 
     def make_c_data_importer(self):
         return ExternalLibraryCDataImporter(
-            self.debug, self._INTEGRATION_DLL, self.supports_releasing_memory, self.args
+            self.debug,
+            self._INTEGRATION_DLL,
+            self._supports_releasing_memory,
+            self.args,
         )
 
 
