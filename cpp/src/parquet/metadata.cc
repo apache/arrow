@@ -313,11 +313,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       return false;
     }
     {
-      // Because we are modifying possible_*stats_ in a const method
-      const std::lock_guard<std::mutex> guard(stats_mutex_);
-      if (possible_stats_ == nullptr) {
-        possible_stats_ = MakeColumnStats(*column_metadata_, descr_);
-      }
+      // Because we are modifying possible_encoded_stats_ in a const method
+      const std::lock_guard<std::recursive_mutex> guard(stats_mutex_);
       if (possible_encoded_stats_ == nullptr) {
         possible_encoded_stats_ =
             std::make_shared<EncodedStatistics>(FromThrift(column_metadata_->statistics));
@@ -329,7 +326,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 
   inline bool is_geo_stats_set() const {
     // Because we are modifying possible_geo_stats_ in a const method
-    const std::lock_guard<std::mutex> guard(stats_mutex_);
+    const std::lock_guard<std::recursive_mutex> guard(stats_mutex_);
     if (possible_geo_stats_ == nullptr &&
         column_metadata_->__isset.geospatial_statistics) {
       possible_geo_stats_ = MakeColumnGeometryStats(*column_metadata_, descr_);
@@ -343,7 +340,14 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   }
 
   inline std::shared_ptr<Statistics> statistics() const {
-    return is_stats_set() ? possible_stats_ : nullptr;
+    const std::lock_guard<std::recursive_mutex> guard(stats_mutex_);
+    if (is_stats_set()) {
+      // Because we are modifying possible_stats_ in a const method
+      if (possible_stats_ == nullptr) {
+        possible_stats_ = MakeColumnStats(*column_metadata_, descr_);
+      }
+    }
+    return possible_stats_;
   }
 
   inline std::shared_ptr<SizeStatistics> size_statistics() const {
@@ -432,7 +436,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     key_value_metadata_ = FromThriftKeyValueMetadata(*column_metadata_);
   }
 
-  mutable std::mutex stats_mutex_;
+  mutable std::recursive_mutex stats_mutex_;
   mutable std::shared_ptr<EncodedStatistics> possible_encoded_stats_;
   mutable std::shared_ptr<Statistics> possible_stats_;
   mutable std::shared_ptr<geospatial::GeoStatistics> possible_geo_stats_;
