@@ -89,6 +89,22 @@ option(
     type: 'string',
     description: 'Arbitrary string that identifies the kind of package (for informational purposes)',
 )
+option('parquet', type: 'feature', description: 'Build the Parquet libraries')
+option(
+    'parquet_build_executables',
+    type: 'feature',
+    description: 'Build the Parquet executable CLI tools.',
+)
+option(
+    'parquet_build_examples',
+    type: 'feature',
+    description: 'Build the Parquet examples.',
+)
+option(
+    'parquet_require_encryption',
+    type: 'feature',
+    description: 'Build support for encryption. Fail if OpenSSL is not found',
+)
 
 option('snappy', type: 'feature', description: 'Build with snappy compression')
 option(
