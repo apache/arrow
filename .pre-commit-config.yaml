@@ -173,6 +173,22 @@ repos:
           (
           ?^r/src/arrowExports\.cpp$|
           )
+  - repo: https://github.com/cpplint/cpplint
+    rev: 1.6.1
+    hooks:
+      - id: cpplint
+        name: R (C++) Lint
+        alias: r-cpp-lint
+        args:
+          - "--verbose=2"
+        types_or:
+          - c++
+        files: >-
+          ^r/src/
+        exclude: >-
+          (
+          ?^r/src/arrowExports\.cpp$|
+          )
   - repo: https://github.com/rubocop/rubocop
     rev: "v1.71.0"
     hooks:
