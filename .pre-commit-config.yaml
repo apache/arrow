@@ -166,6 +166,20 @@ repos:
           ?.pb\.(cc|h)$|
           ?^cpp/src/generated/|
           )
+  - repo: local
+    hooks:
+      - id: lintr
+        name: R Lint
+        alias: r-lint
+        language: r
+        additional_dependencies:
+          - cyclocomp
+          - lintr
+        entry: |
+          Rscript r/tools/lint.R
+        pass_filenames: false
+        files: >-
+          ^r/.*\.(R|Rmd)$
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v14.0.6
     hooks:
