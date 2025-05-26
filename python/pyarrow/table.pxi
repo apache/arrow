@@ -113,7 +113,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def __repr__(self):
         type_format = object.__repr__(self)
-        return '{0}\n{1}'.format(type_format, str(self))
+        return f"{type_format}\n{self}"
 
     def to_string(self, *, int indent=0, int window=5, int container_window=2,
                   c_bool skip_new_lines=False):
@@ -1568,8 +1568,8 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
             schema.reset(new CSchema(c_fields, c_meta))
             return arrays
         else:
-            raise ValueError('Length of names ({}) does not match '
-                             'length of arrays ({})'.format(len(names), K))
+            raise ValueError(f'Length of names ({len(names)}) does not match '
+                             f'length of arrays ({K})')
 
     c_fields.resize(K)
 
@@ -1578,8 +1578,8 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
                          'Table or RecordBatch.')
 
     if len(names) != K:
-        raise ValueError('Length of names ({}) does not match '
-                         'length of arrays ({})'.format(len(names), K))
+        raise ValueError(f'Length of names ({len(names)}) does not match '
+                         f'length of arrays ({K})')
 
     converted_arrays = []
     for i in range(K):
@@ -1726,11 +1726,10 @@ cdef class _Tabular(_PandasConvertible):
             field_indices = self.schema.get_all_field_indices(i)
 
             if len(field_indices) == 0:
-                raise KeyError("Field \"{}\" does not exist in schema"
-                               .format(i))
+                raise KeyError(f'Field "{i}" does not exist in schema')
             elif len(field_indices) > 1:
-                raise KeyError("Field \"{}\" exists {} times in schema"
-                               .format(i, len(field_indices)))
+                raise KeyError(
+                    f'Field "{i}" exists {len(field_indices)} times in schema')
             else:
                 return field_indices[0]
         elif isinstance(i, int):
@@ -2368,15 +2367,13 @@ cdef class _Tabular(_PandasConvertible):
             show_field_metadata=show_metadata,
             show_schema_metadata=show_metadata
         )
-        title = 'pyarrow.{}\n{}'.format(type(self).__name__, schema_as_string)
+        title = f'pyarrow.{type(self).__name__}\n{schema_as_string}'
         pieces = [title]
         if preview_cols:
             pieces.append('----')
             for i in range(min(self.num_columns, preview_cols)):
-                pieces.append('{}: {}'.format(
-                    self.field(i).name,
-                    self.column(i).to_string(indent=0, skip_new_lines=True)
-                ))
+                pieces.append(
+                    f'{self.field(i).name}: {self.column(i).to_string(indent=0, skip_new_lines=True)}')
             if preview_cols < self.num_columns:
                 pieces.append('...')
         return '\n'.join(pieces)
@@ -2436,7 +2433,7 @@ cdef class _Tabular(_PandasConvertible):
         for col in columns:
             idx = self.schema.get_field_index(col)
             if idx == -1:
-                raise KeyError("Column {!r} not found".format(col))
+                raise KeyError(f"Column {col!r} not found")
             indices.append(idx)
 
         indices.sort()
@@ -3072,7 +3069,7 @@ cdef class RecordBatch(_Tabular):
                 indices = self.schema.get_all_field_indices(name)
 
                 if not indices:
-                    raise KeyError("Column {!r} not found".format(name))
+                    raise KeyError(f"Column {name!r} not found")
 
                 for index in indices:
                     idx_to_new_name[index] = new_name
@@ -3347,14 +3344,13 @@ cdef class RecordBatch(_Tabular):
             list newcols = []
 
         if self.schema.names != target_schema.names:
-            raise ValueError("Target schema's field names are not matching "
-                             "the record batch's field names: {!r}, {!r}"
-                             .format(self.schema.names, target_schema.names))
+            raise ValueError(f"Target schema's field names are not matching "
+                             f"the record batch's field names: {self.schema.names!r}, {target_schema.names!r}")
 
         for column, field in zip(self.itercolumns(), target_schema):
             if not field.nullable and column.null_count > 0:
-                raise ValueError("Casting field {!r} with null values to non-nullable"
-                                 .format(field.name))
+                raise ValueError(
+                    f"Casting field {field.name!r} with null values to non-nullable")
             casted = column.cast(field.type, safe=safe, options=options)
             newcols.append(casted)
 
@@ -3550,7 +3546,7 @@ cdef class RecordBatch(_Tabular):
         for arr in converted_arrays:
             if len(arr) != num_rows:
                 raise ValueError('Arrays were not all the same length: '
-                                 '{0} vs {1}'.format(len(arr), num_rows))
+                                 f'{len(arr)} vs {num_rows}')
             c_arrays.push_back(arr.sp_array)
 
         result = pyarrow_wrap_batch(CRecordBatch.Make(c_schema, num_rows,
@@ -4714,14 +4710,13 @@ cdef class Table(_Tabular):
             list newcols = []
 
         if self.schema.names != target_schema.names:
-            raise ValueError("Target schema's field names are not matching "
-                             "the table's field names: {!r}, {!r}"
-                             .format(self.schema.names, target_schema.names))
+            raise ValueError(f"Target schema's field names are not matching "
+                             f"the table's field names: {self.schema.names!r}, {target_schema.names!r}")
 
         for column, field in zip(self.itercolumns(), target_schema):
             if not field.nullable and column.null_count > 0:
-                raise ValueError("Casting field {!r} with null values to non-nullable"
-                                 .format(field.name))
+                raise ValueError(
+                    f"Casting field {field.name!r} with null values to non-nullable")
             casted = column.cast(field.type, safe=safe, options=options)
             newcols.append(casted)
 
@@ -4960,10 +4955,11 @@ cdef class Table(_Tabular):
         ChunkedArray
         """
         self._assert_cpu()
-        return chunked_array([
+        chunks = [
             batch.to_struct_array()
             for batch in self.to_batches(max_chunksize=max_chunksize)
-        ])
+        ]
+        return chunked_array(chunks, type=struct(self.schema))
 
     @staticmethod
     def from_batches(batches, Schema schema=None):
@@ -5557,7 +5553,7 @@ cdef class Table(_Tabular):
                 indices = self.schema.get_all_field_indices(name)
 
                 if not indices:
-                    raise KeyError("Column {!r} not found".format(name))
+                    raise KeyError(f"Column {name!r} not found")
 
                 for index in indices:
                     idx_to_new_name[index] = new_name

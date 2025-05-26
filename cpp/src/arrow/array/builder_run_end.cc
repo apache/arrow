@@ -289,6 +289,9 @@ Status RunEndEncodedBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   ARROW_ASSIGN_OR_RAISE(auto ree_array,
                         RunEndEncodedArray::Make(length_, run_ends_array, values_array));
   *out = std::move(ree_array->data());
+
+  Reset();
+
   return Status::OK();
 }
 

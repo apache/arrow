@@ -183,7 +183,7 @@ def test_dictionary_array_automatically_read():
 
     # Make a large dictionary, a little over 4MB of data
     dict_length = 4000
-    dict_values = pa.array([('x' * 1000 + '_{}'.format(i))
+    dict_values = pa.array([('x' * 1000 + f'_{i}')
                             for i in range(dict_length)])
 
     num_chunks = 10
@@ -220,8 +220,7 @@ def test_decimal_roundtrip(tempdir):
                     util.randdecimal(precision, scale)
                     for _ in range(num_values)
                 ]
-            column_name = ('dec_precision_{:d}_scale_{:d}'
-                           .format(precision, scale))
+            column_name = f'dec_precision_{precision}_scale_{scale}'
             columns[column_name] = random_decimal_values
 
     expected = pd.DataFrame(columns)
@@ -255,7 +254,7 @@ def test_decimal_roundtrip_negative_scale(tempdir):
 
 @pytest.mark.parametrize('dtype', [int, float])
 def test_single_pylist_column_roundtrip(tempdir, dtype,):
-    filename = tempdir / 'single_{}_column.parquet'.format(dtype.__name__)
+    filename = tempdir / f'single_{dtype.__name__}_column.parquet'
     data = [pa.array(list(map(dtype, range(5))))]
     table = pa.Table.from_arrays(data, names=['a'])
     _write_table(table, filename)
@@ -520,7 +519,43 @@ def test_json_extension_type(storage_type):
 
     table = pa.table([arr], names=["ext"])
 
-    _simple_table_roundtrip(table)
+    # With defaults, this should roundtrip (because store_schema=True)
+    _check_roundtrip(table, table)
+
+    # When store_schema is False, we get a string back by default
+    _check_roundtrip(
+        table,
+        pa.table({"ext": pa.array(data, pa.string())}),
+        store_schema=False)
+
+    # With arrow_extensions_enabled=True on read, we get a arrow.json back
+    # (but with string() storage)
+    _check_roundtrip(
+        table,
+        pa.table({"ext": pa.array(data, pa.json_(pa.string()))}),
+        read_table_kwargs={"arrow_extensions_enabled": True},
+        store_schema=False)
+
+
+def test_uuid_extension_type():
+    data = [
+        b'\xe4`\xf9p\x83QGN\xac\x7f\xa4g>K\xa8\xcb',
+        b'\x1et\x14\x95\xee\xd5C\xea\x9b\xd7s\xdc\x91BK\xaf',
+        None
+    ]
+    arr = pa.array(data, type=pa.uuid())
+
+    table = pa.table([arr], names=["ext"])
+
+    _check_roundtrip(table, table)
+    _check_roundtrip(
+        table,
+        pa.table({"ext": pa.array(data, pa.binary(16))}),
+        store_schema=False)
+    _check_roundtrip(
+        table,
+        table,
+        {"arrow_extensions_enabled": True}, store_schema=False)
 
 
 def test_undefined_logical_type(parquet_test_datadir):

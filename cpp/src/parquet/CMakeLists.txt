@@ -140,8 +140,7 @@ set(PARQUET_THRIFT_SOURCE_DIR "${ARROW_SOURCE_DIR}/src/generated/")
 
 set_source_files_properties("${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
                             "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.h"
-                            PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                       SKIP_UNITY_BUILD_INCLUSION ON)
+                            PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 
 if(NOT MSVC)
   set_source_files_properties(src/parquet/parquet_types.cpp
@@ -161,6 +160,7 @@ set(PARQUET_SRCS
     arrow/writer.cc
     bloom_filter.cc
     bloom_filter_reader.cc
+    chunker_internal.cc
     column_reader.cc
     column_scanner.cc
     column_writer.cc
@@ -172,6 +172,9 @@ set(PARQUET_SRCS
     exception.cc
     file_reader.cc
     file_writer.cc
+    geospatial/statistics.cc
+    geospatial/util_internal.cc
+    geospatial/util_json_internal.cc
     level_comparison.cc
     level_conversion.cc
     metadata.cc
@@ -202,9 +205,8 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   if(NOT MSVC)
     string(APPEND AVX2_FLAGS " ${CMAKE_CXX_FLAGS_RELEASE}")
   endif()
-  set_source_files_properties(level_comparison_avx2.cc
-                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
-                                                                    "${AVX2_FLAGS}")
+  set_source_files_properties(level_comparison_avx2.cc PROPERTIES COMPILE_FLAGS
+                                                                  "${AVX2_FLAGS}")
   # WARNING: DO NOT BLINDLY COPY THIS CODE FOR OTHER BMI2 USE CASES.
   # This code is always guarded by runtime dispatch which verifies
   # BMI2 is present.  For a very small number of CPUs AVX2 does not
@@ -221,9 +223,8 @@ if(ARROW_HAVE_RUNTIME_AVX2)
     # Need to pass ARROW_HAVE_BMI2 for level_conversion_inc.h to compile
     # the BMI2 path.
     set(BMI2_FLAGS "${AVX2_FLAGS} ${ARROW_BMI2_FLAG} -DARROW_HAVE_BMI2")
-    set_source_files_properties(level_conversion_bmi2.cc
-                                PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
-                                                                      "${BMI2_FLAGS}")
+    set_source_files_properties(level_conversion_bmi2.cc PROPERTIES COMPILE_FLAGS
+                                                                    "${BMI2_FLAGS}")
   endif()
 endif()
 
@@ -261,6 +262,10 @@ endif()
 if(NOT PARQUET_MINIMAL_DEPENDENCY)
   list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
 
+  # Add RapidJSON libraries
+  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS RapidJSON)
+  list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON)
+
   # These are libraries that we will link privately with parquet_shared (as they
   # do not need to be linked transitively by other linkers)
   list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS thrift::thrift)
@@ -288,8 +293,6 @@ add_arrow_lib(parquet
               parquet
               SOURCES
               ${PARQUET_SRCS}
-              PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:parquet/pch.h>"
               OUTPUTS
               PARQUET_LIBRARIES
               SHARED_LINK_FLAGS
@@ -358,6 +361,7 @@ endif()
 add_subdirectory(api)
 add_subdirectory(arrow)
 add_subdirectory(encryption)
+add_subdirectory(geospatial)
 
 arrow_install_all_headers("parquet")
 
@@ -368,19 +372,20 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
 
 add_parquet_test(internals-test
                  SOURCES
-                 bloom_filter_test.cc
                  bloom_filter_reader_test.cc
-                 properties_test.cc
-                 statistics_test.cc
+                 bloom_filter_test.cc
                  encoding_test.cc
+                 geospatial/statistics_test.cc
+                 geospatial/util_internal_test.cc
                  metadata_test.cc
                  page_index_test.cc
+                 properties_test.cc
                  public_api_test.cc
                  size_statistics_test.cc
+                 statistics_test.cc
                  types_test.cc)
 
-set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                                          SKIP_UNITY_BUILD_INCLUSION ON)
+set_source_files_properties(public_api_test.cc PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 
 add_parquet_test(reader-test
                  SOURCES
@@ -395,6 +400,8 @@ add_parquet_test(writer-test
                  column_writer_test.cc
                  file_serialize_test.cc
                  stream_writer_test.cc)
+
+add_parquet_test(chunker-test SOURCES chunker_internal_test.cc)
 
 add_parquet_test(arrow-test
                  SOURCES

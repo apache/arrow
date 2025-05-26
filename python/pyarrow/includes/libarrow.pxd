@@ -1874,12 +1874,18 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         @staticmethod
         CIpcWriteOptions Defaults()
 
+    ctypedef enum CAlignment" arrow::ipc::Alignment":
+        CAlignment_Any" arrow::ipc::Alignment::kAnyAlignment"
+        CAlignment_DataTypeSpecific" arrow::ipc::Alignment::kDataTypeSpecificAlignment"
+        CAlignment_64Byte" arrow::ipc::Alignment::k64ByteAlignment"
+
     cdef cppclass CIpcReadOptions" arrow::ipc::IpcReadOptions":
         int max_recursion_depth
         CMemoryPool* memory_pool
         vector[int] included_fields
         c_bool use_threads
         c_bool ensure_native_endian
+        CAlignment ensure_alignment
 
         @staticmethod
         CIpcReadOptions Defaults()
@@ -1976,13 +1982,15 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
         CIpcReadStats stats()
 
+        shared_ptr[const CKeyValueMetadata] metadata()
+
     CResult[shared_ptr[CRecordBatchWriter]] MakeStreamWriter(
         shared_ptr[COutputStream] sink, const shared_ptr[CSchema]& schema,
         CIpcWriteOptions& options)
 
     CResult[shared_ptr[CRecordBatchWriter]] MakeFileWriter(
         shared_ptr[COutputStream] sink, const shared_ptr[CSchema]& schema,
-        CIpcWriteOptions& options)
+        CIpcWriteOptions& options, shared_ptr[const CKeyValueMetadata] metadata)
 
     CResult[unique_ptr[CMessage]] ReadMessage(CInputStream* stream,
                                               CMemoryPool* pool)

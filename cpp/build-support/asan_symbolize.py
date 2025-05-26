@@ -171,7 +171,7 @@ class DarwinSymbolizer(Symbolizer):
     #   foo(type1, type2) (in object.name) (filename.cc:80)
     match = re.match(r'^(.*) \(in (.*)\) \((.*:\d*)\)$', atos_line)
     if DEBUG:
-      print('atos_line: {0}'.format(atos_line))
+      print(f'atos_line: {atos_line}')
     if match:
       function_name = match.group(1)
       function_name = re.sub(r'\(.*?\)', '', function_name)

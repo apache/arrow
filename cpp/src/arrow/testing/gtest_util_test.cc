@@ -24,6 +24,7 @@
 #include "arrow/array/builder_decimal.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
+#include "arrow/table.h"
 #include "arrow/tensor.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/math.h"

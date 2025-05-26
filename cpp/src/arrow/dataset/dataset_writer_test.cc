@@ -105,7 +105,8 @@ class DatasetWriterTestFixture : public testing::Test {
       uint64_t max_rows = kDefaultDatasetWriterMaxRowsQueued) {
     EXPECT_OK_AND_ASSIGN(auto dataset_writer,
                          DatasetWriter::Make(
-                             write_options_, scheduler_, [] {}, [] {}, [] {}, max_rows));
+                             write_options_, scheduler_, [this] { paused_ = true; },
+                             [this] { paused_ = false; }, [] {}, max_rows));
     return dataset_writer;
   }
 
@@ -231,6 +232,7 @@ class DatasetWriterTestFixture : public testing::Test {
   util::AsyncTaskScheduler* scheduler_;
   Future<> scheduler_finished_;
   FileSystemDatasetWriteOptions write_options_;
+  bool paused_{false};
   uint64_t counter_ = 0;
 };
 
@@ -265,6 +267,14 @@ TEST_F(DatasetWriterTestFixture, DirectoryCreateFails) {
   ASSERT_FINISHES_AND_RAISES(Invalid, scheduler_finished_);
 }
 
+TEST_F(DatasetWriterTestFixture, BatchGreaterThanMaxRowsQueued) {
+  auto dataset_writer = MakeDatasetWriter(/*max_rows=*/10);
+  dataset_writer->WriteRecordBatch(MakeBatch(35), "");
+  EndWriterChecked(dataset_writer.get());
+  AssertCreatedData({{"testdir/chunk-0.arrow", 0, 35}});
+  ASSERT_EQ(paused_, false);
+}
+
 TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
   write_options_.max_rows_per_file = 10;
   write_options_.max_rows_per_group = 10;
@@ -275,6 +285,7 @@ TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
                      {"testdir/chunk-1.arrow", 10, 10},
                      {"testdir/chunk-2.arrow", 20, 10},
                      {"testdir/chunk-3.arrow", 30, 5}});
+  ASSERT_EQ(paused_, false);
 }
 
 TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteBackpresure) {

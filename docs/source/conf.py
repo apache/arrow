@@ -357,9 +357,9 @@ html_theme_options = {
             "icon": "fa-brands fa-linkedin",
         },
         {
-            "name": "X",
-            "url": "https://twitter.com/ApacheArrow",
-            "icon": "fa-brands fa-square-x-twitter",
+            "name": "BlueSky",
+            "url": "https://bsky.app/profile/arrow.apache.org",
+            "icon": "fa-brands fa-bluesky",
         },
     ],
     "show_version_warning_banner": True,
@@ -382,7 +382,7 @@ html_context = {
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.
 #
-html_title = u'Apache Arrow v{}'.format(version)
+html_title = f"Apache Arrow v{version}"
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 #

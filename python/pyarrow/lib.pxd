@@ -207,10 +207,6 @@ cdef class JsonType(BaseExtensionType):
         const CJsonType* json_ext_type
 
 
-cdef class PyExtensionType(ExtensionType):
-    pass
-
-
 cdef class _Metadata(_Weakrefable):
     # required because KeyValueMetadata also extends collections.abc.Mapping
     # and the first parent class must be an extension type

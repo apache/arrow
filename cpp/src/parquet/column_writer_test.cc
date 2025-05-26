@@ -35,12 +35,12 @@
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
+#include "parquet/geospatial/statistics.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
 #include "parquet/test_util.h"
-#include "parquet/thrift_internal.h"
 #include "parquet/types.h"
 
 namespace bit_util = arrow::bit_util;
@@ -397,6 +397,25 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     auto metadata_accessor =
         ColumnChunkMetaData::Make(metadata_->contents(), this->descr_);
     return metadata_accessor->key_value_metadata();
+  }
+
+  std::unique_ptr<ColumnChunkMetaData> metadata_accessor() {
+    // Metadata accessor must be created lazily.
+    // This is because the ColumnChunkMetaData semantics dictate the metadata object is
+    // complete (no changes to the metadata buffer can be made after instantiation)
+    ApplicationVersion app_version(this->writer_properties_->created_by());
+    return ColumnChunkMetaData::Make(metadata_->contents(), this->descr_,
+                                     default_reader_properties(), &app_version);
+  }
+
+  EncodedStatistics metadata_encoded_stats() { return metadata_stats()->Encode(); }
+
+  std::shared_ptr<Statistics> metadata_stats() {
+    return metadata_accessor()->statistics();
+  }
+
+  std::shared_ptr<geospatial::GeoStatistics> metadata_geo_stats() {
+    return metadata_accessor()->geo_statistics();
   }
 
  protected:
@@ -1808,7 +1827,6 @@ TEST_F(TestValuesWriterInt32Type, AllNullsCompressionInPageV2) {
 }
 
 #ifdef ARROW_WITH_ZSTD
-
 TEST_F(TestValuesWriterInt32Type, AvoidCompressedInDataPageV2) {
   Compression::type compression = Compression::ZSTD;
   auto verify_only_one_uncompressed_page = [&](int total_num_values) {
@@ -1849,8 +1867,158 @@ TEST_F(TestValuesWriterInt32Type, AvoidCompressedInDataPageV2) {
     verify_only_one_uncompressed_page(/*total_num_values=*/1);
   }
 }
-
 #endif
+
+// Test writing and reading geometry columns
+class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
+ public:
+  void SetUpSchema(Repetition::type repetition, int num_columns) override {
+    std::vector<schema::NodePtr> fields;
+
+    for (int i = 0; i < num_columns; ++i) {
+      std::string name = TestColumnName(i);
+      std::shared_ptr<const LogicalType> logical_type =
+          GeometryLogicalType::Make("srid:1234");
+      fields.push_back(schema::PrimitiveNode::Make(name, repetition, logical_type,
+                                                   ByteArrayType::type_num));
+    }
+    node_ = schema::GroupNode::Make("schema", Repetition::REQUIRED, fields);
+    schema_.Init(node_);
+  }
+
+  void GenerateData(int64_t num_values, uint32_t seed = 0) {
+    values_.resize(num_values);
+
+    buffer_.resize(num_values * kWkbPointXYSize);
+    uint8_t* ptr = buffer_.data();
+    for (int k = 0; k < num_values; k++) {
+      std::string item = test::MakeWKBPoint(
+          {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
+      std::memcpy(ptr, item.data(), item.size());
+      values_[k].len = kWkbPointXYSize;
+      values_[k].ptr = ptr;
+      ptr += kWkbPointXYSize;
+    }
+
+    values_ptr_ = values_.data();
+  }
+};
+
+TEST_F(TestGeometryValuesWriter, TestWriteAndRead) {
+  this->SetUpSchema(Repetition::REQUIRED, 1);
+  this->GenerateData(SMALL_SIZE);
+  size_t num_values = this->values_.size();
+  auto writer = this->BuildWriter(num_values, ColumnProperties());
+  writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_.data());
+
+  writer->Close();
+  this->ReadColumn();
+  for (size_t i = 0; i < num_values; i++) {
+    const ByteArray& value = this->values_out_[i];
+    auto xy = GetWKBPointCoordinateXY(value);
+    EXPECT_TRUE(xy.has_value());
+    auto expected_x = static_cast<double>(i);
+    auto expected_y = static_cast<double>(i + 1);
+    EXPECT_EQ(*xy, std::make_pair(expected_x, expected_y));
+  }
+
+  // Statistics are unset because the sort order is unknown
+  ASSERT_FALSE(metadata_accessor()->is_stats_set());
+  ASSERT_EQ(metadata_accessor()->statistics(), nullptr);
+
+  ASSERT_TRUE(metadata_accessor()->is_geo_stats_set());
+  std::shared_ptr<geospatial::GeoStatistics> geospatial_statistics = metadata_geo_stats();
+  ASSERT_TRUE(geospatial_statistics != nullptr);
+  EXPECT_THAT(*geospatial_statistics->geometry_types(), ::testing::ElementsAre(1));
+  EXPECT_DOUBLE_EQ(0, geospatial_statistics->lower_bound()[0]);
+  EXPECT_DOUBLE_EQ(1, geospatial_statistics->lower_bound()[1]);
+  EXPECT_DOUBLE_EQ(99, geospatial_statistics->upper_bound()[0]);
+  EXPECT_DOUBLE_EQ(100, geospatial_statistics->upper_bound()[1]);
+  EXPECT_THAT(geospatial_statistics->dimension_valid(),
+              ::testing::ElementsAre(true, true, false, false));
+}
+
+TEST_F(TestGeometryValuesWriter, TestWriteAndReadSpaced) {
+  this->SetUpSchema(Repetition::OPTIONAL, 1);
+  this->GenerateData(SMALL_SIZE);
+  size_t num_values = this->values_.size();
+
+  std::vector<int16_t> definition_levels(num_values, 1);
+  std::vector<int16_t> repetition_levels(num_values, 0);
+  std::vector<size_t> non_null_indices;
+
+  // Replace some of the generated data with NULL
+  for (size_t i = 0; i < num_values; i++) {
+    if (i % 3 == 0) {
+      definition_levels[i] = 0;
+    } else {
+      non_null_indices.push_back(i);
+    }
+  }
+
+  // Construct valid bits using definition levels
+  std::vector<uint8_t> valid_bytes(num_values);
+  std::transform(definition_levels.begin(), definition_levels.end(), valid_bytes.begin(),
+                 [&](int64_t level) { return static_cast<uint8_t>(level); });
+  std::shared_ptr<Buffer> valid_bits;
+  ASSERT_OK_AND_ASSIGN(valid_bits, ::arrow::internal::BytesToBits(valid_bytes));
+
+  auto writer = this->BuildWriter(num_values, ColumnProperties());
+  writer->WriteBatchSpaced(this->values_.size(), definition_levels.data(),
+                           repetition_levels.data(), valid_bits->data(), 0,
+                           this->values_.data());
+
+  writer->Close();
+  this->ReadColumn();
+  size_t expected_values_read = non_null_indices.size();
+  EXPECT_EQ(expected_values_read, values_read_);
+  for (int64_t i = 0; i < values_read_; i++) {
+    const ByteArray& value = this->values_out_[i];
+    auto xy = GetWKBPointCoordinateXY(value);
+    EXPECT_TRUE(xy.has_value());
+    auto expected_x = static_cast<double>(non_null_indices[i]);
+    auto expected_y = static_cast<double>(non_null_indices[i] + 1);
+    EXPECT_EQ(*xy, std::make_pair(expected_x, expected_y));
+  }
+
+  std::shared_ptr<geospatial::GeoStatistics> geospatial_statistics = metadata_geo_stats();
+  ASSERT_TRUE(geospatial_statistics != nullptr);
+  EXPECT_DOUBLE_EQ(1, geospatial_statistics->lower_bound()[0]);
+  EXPECT_DOUBLE_EQ(2, geospatial_statistics->lower_bound()[1]);
+  EXPECT_DOUBLE_EQ(98, geospatial_statistics->upper_bound()[0]);
+  EXPECT_DOUBLE_EQ(99, geospatial_statistics->upper_bound()[1]);
+  EXPECT_THAT(geospatial_statistics->dimension_valid(),
+              ::testing::ElementsAre(true, true, false, false));
+}
+
+TEST_F(TestGeometryValuesWriter, TestWriteAndReadAllNull) {
+  this->SetUpSchema(Repetition::OPTIONAL, 1);
+  this->values_.resize(SMALL_SIZE);
+  std::fill(this->values_.begin(), this->values_.end(), ByteArray{0, nullptr});
+  this->def_levels_.resize(SMALL_SIZE);
+  std::fill(this->def_levels_.begin(), this->def_levels_.end(), 0);
+  auto writer = this->BuildWriter(SMALL_SIZE);
+  writer->WriteBatch(this->values_.size(), this->def_levels_.data(), nullptr,
+                     this->values_.data());
+
+  writer->Close();
+  this->ReadColumn();
+  for (int i = 0; i < SMALL_SIZE; i++) {
+    EXPECT_EQ(this->definition_levels_out_[i], 0);
+  }
+
+  // Statistics are unset because the sort order is unknown
+  ASSERT_FALSE(metadata_accessor()->is_stats_set());
+  ASSERT_EQ(metadata_accessor()->statistics(), nullptr);
+
+  // GeoStatistics should exist but all components should be marked as uncalculated
+  ASSERT_TRUE(metadata_accessor()->is_geo_stats_set());
+  std::shared_ptr<geospatial::GeoStatistics> geospatial_statistics = metadata_geo_stats();
+  ASSERT_TRUE(geospatial_statistics != nullptr);
+  EXPECT_THAT(geospatial_statistics->dimension_valid(),
+              ::testing::ElementsAre(false, false, false, false));
+  EXPECT_EQ(geospatial_statistics->geometry_types(), std::nullopt);
+}
 
 }  // namespace test
 }  // namespace parquet

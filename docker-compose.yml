@@ -158,13 +158,12 @@ x-hierarchy:
   - ubuntu-cpp-sanitizer
   - ubuntu-cpp-thread-sanitizer
   - ubuntu-cpp-emscripten
-  - ubuntu-r-sanitizer
   - ubuntu-r-valgrind
   - ubuntu-swift
   - ubuntu-verify-rc
-  - r-clang-sanitizer
   - r
   - r-revdepcheck
+  - r-san
   # helper services
   - impala
   - postgres
@@ -1689,43 +1688,15 @@ services:
     command: >
       /bin/bash -c "/arrow/ci/scripts/r_test.sh /arrow"
 
-  ubuntu-r-sanitizer:
-    # Only amd64 supported
-    # Usage:
-    #   docker compose build ubuntu-r-sanitizer
-    #   docker compose run ubuntu-r-sanitizer
-    image: ${REPO}:amd64-ubuntu-r-sanitizer
-    cap_add:
-      # LeakSanitizer and gdb requires ptrace(2)
-      - SYS_PTRACE
+  r-san:
+    image: ${REPO}:r-${R_ORG}-${R_IMAGE}
     build:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:amd64-ubuntu-r-sanitizer
+        - ${REPO}:r-${R_ORG}-${R_IMAGE}
       args:
-        base: wch1/r-debug:latest
-        cmake: ${CMAKE}
-        r_bin: RDsan
-        tz: ${TZ}
-        r_prune_deps: ${R_PRUNE_DEPS}
-    environment:
-      <<: [*common, *ccache]
-      ARROW_SOURCE_HOME: "/arrow"
-    volumes: *ubuntu-volumes
-    command: >
-      /bin/bash -c "
-        /arrow/ci/scripts/r_sanitize.sh /arrow"
-
-  r-clang-sanitizer:
-    image: ${REPO}:r-rhub-clang-devel-latest
-    build:
-      context: .
-      dockerfile: ci/docker/linux-r.dockerfile
-      cache_from:
-        - ${REPO}:r-rhub-clang-devel-latest
-      args:
-        base: rhub/clang-asan
+        base: ${R_ORG}/${R_IMAGE}:${R_TAG}
         cmake: ${CMAKE}
         r_dev: ${ARROW_R_DEV}
         r_bin: R
@@ -1737,7 +1708,6 @@ services:
       LIBARROW_DOWNLOAD: "false"
       ARROW_SOURCE_HOME: "/arrow"
       ARROW_R_DEV: ${ARROW_R_DEV}
-      # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
       ARROW_USE_PKG_CONFIG: "false"
     volumes:
       - .:/arrow:delegated

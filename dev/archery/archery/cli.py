@@ -270,7 +270,7 @@ def decorate_lint_command(cmd):
     Decorate the lint() command function to add individual per-check options.
     """
     for check in lint_checks:
-        option = click.option("--{0}/--no-{0}".format(check.option_name),
+        option = click.option(f"--{check.option_name}/--no-{check.option_name}",
                               default=None, help=check.help)
         cmd = option(cmd)
     return cmd
@@ -414,7 +414,7 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
     """ List benchmark suite.
     """
     with tmpdir(preserve=preserve) as root:
-        logger.debug("Running benchmark {}".format(rev_or_path))
+        logger.debug(f"Running benchmark {rev_or_path}")
 
         if language == "cpp":
             conf = CppBenchmarkRunner.default_configuration(
@@ -495,7 +495,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
     archery benchmark run --output=run.json
     """
     with tmpdir(preserve=preserve) as root:
-        logger.debug("Running benchmark {}".format(rev_or_path))
+        logger.debug(f"Running benchmark {rev_or_path}")
 
         if language == "cpp":
             conf = CppBenchmarkRunner.default_configuration(
@@ -626,8 +626,7 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
     archery --quiet benchmark diff WORKSPACE run.json > result.json
     """
     with tmpdir(preserve=preserve) as root:
-        logger.debug("Comparing {} (contender) with {} (baseline)"
-                     .format(contender, baseline))
+        logger.debug(f"Comparing {contender} (contender) with {baseline} (baseline)")
 
         if language == "cpp":
             conf = CppBenchmarkRunner.default_configuration(
@@ -704,7 +703,7 @@ def _format_comparisons_with_pandas(comparisons_json, no_counters,
     def labelled(title, df):
         if len(df) == 0:
             return ''
-        title += ': ({})'.format(len(df))
+        title += f': ({len(df)})'
         df_str = df.to_string(index=False)
         bar = '-' * df_str.index('\n')
         return '\n'.join([bar, title, bar, df_str])
@@ -736,7 +735,8 @@ def _set_default(opt, default):
               help='Include Java in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_JAVA")
 @click.option('--with-js', type=bool, default=False,
-              help='Include JavaScript in integration tests')
+              help='Include JavaScript in integration tests',
+              envvar="ARCHERY_INTEGRATION_WITH_JS")
 @click.option('--with-go', type=bool, default=False,
               help='Include Go in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_GO")

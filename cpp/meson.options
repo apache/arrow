@@ -15,56 +15,50 @@
 # specific language governing permissions and limitations
 # under the License.
 
+option('acero', type: 'feature', description: 'Build the Arrow Acero Engine Module')
 option(
-    'benchmarks',
-    type: 'boolean',
-    description: 'Build the Arrow micro benchmarks',
-    value: false,
+    'azure',
+    type: 'feature',
+    description: 'Build Arrow with Azure support (requires the Azure SDK for C++)',
 )
 
-option(
-    'csv',
-    type: 'boolean',
-    description: 'Build the Arrow CSV Parser Module',
-    value: false,
-)
+option('benchmarks', type: 'feature', description: 'Build the Arrow micro benchmarks')
+option('brotli', type: 'feature', description: 'Build with Brotli compression')
+option('bz2', type: 'feature', description: 'Build with BZ2 compression')
+option('compute', type: 'feature', description: 'Build all Arrow Compute kernels')
+option('csv', type: 'feature', description: 'Build the Arrow CSV Parser Module')
+option('filesystem', type: 'feature', description: 'Build the Arrow Filesystem Layer')
+option('fuzzing', type: 'feature', description: 'Build Arrow Fuzzing executables')
 
 option(
-    'hdfs',
-    type: 'boolean',
-    description: 'Build the Arrow HDFS bridge',
-    value: false,
+    'gcs',
+    type: 'feature',
+    description: 'Build Arrow with GCS support (requires the Google Cloud Platform C++ Client Libraries)',
 )
+
+option('hdfs', type: 'feature', description: 'Build the Arrow HDFS bridge')
 
 option(
     'integration',
-    type: 'boolean',
+    type: 'feature',
     description: 'Build the Arrow integration test executables',
-    value: false,
 )
 
 option(
     'ipc',
-    type: 'boolean',
+    type: 'feature',
     description: 'Build the Arrow IPC extensions',
-    value: false,
+    value: 'enabled',
 )
 
-option(
-    'json',
-    type: 'boolean',
-    description: 'Build Arrow with JSON support',
-    value: false,
-)
+option('json', type: 'feature', description: 'Build Arrow with JSON support')
+option('git_id', type: 'string')
+option('git_description', type: 'string')
 
 option(
-    'git_id',
-    type: 'string',
-)
-
-option(
-    'git_description',
-    type: 'string',
+    'lz4',
+    type: 'feature',
+    description: 'Build with lz4 compression',
 )
 
 option(
@@ -73,16 +67,15 @@ option(
     description: 'Arbitrary string that identifies the kind of package (for informational purposes)',
 )
 
+option('snappy', type: 'feature', description: 'Build with snappy compression')
 option(
-    'testing',
-    type: 'boolean',
-    description: 'Build the Arrow testing libraries',
-    value: false,
+    's3',
+    type: 'feature',
+    description: 'Build Arrow with S3 support (requires the AWS SDK for C++)',
 )
+option('testing', type: 'feature', description: 'Build the Arrow testing libraries')
+option('tests', type: 'feature', description: 'Build the Arrow googletest unit tests')
 
-option(
-    'tests',
-    type: 'boolean',
-    description: 'Build the Arrow googletest unit tests',
-    value: false,
-)
+option('utilities', type: 'feature', description: 'Build Arrow commandline utilities')
+option('zlib', type: 'feature', description: 'Build with zlib compression')
+option('zstd', type: 'feature', description: 'Build with zstd compression')

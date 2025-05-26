@@ -249,18 +249,6 @@ check_named_cols <- function(df) {
   }
 }
 
-#' Parse a compact column type specification into Arrow schema
-#'
-#' @param col_types A single character string where each character represents
-#' a column type, like in readr
-#' @param col_names Character vector of column names (must match the length of
-#' col_types characters)
-#' @return A Schema object
-#'
-#' @examples
-#' parse_compact_col_spec("ci", colnames = c("x", "y"))
-#'
-#' @keywords internal
 parse_compact_col_spec <- function(col_types, col_names) {
   if (length(col_types) != 1L) {
     abort("`col_types` must be a character vector of size 1")

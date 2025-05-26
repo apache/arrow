@@ -40,7 +40,7 @@ RUN mamba install -q -y \
         yarn=${yarn} \
         openjdk=${jdk} \
         zstd && \
-    mamba clean --all --force-pkgs-dirs
+    mamba clean --yes --all --force-pkgs-dirs
 
 # Install Rust with only the needed components
 # (rustfmt is needed for tonic-build to compile the protobuf definitions)

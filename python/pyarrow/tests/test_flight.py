@@ -83,9 +83,9 @@ def read_flight_resource(path):
             return f.read()
     except FileNotFoundError:
         raise RuntimeError(
-            "Test resource {} not found; did you initialize the "
-            "test resource submodule?\n{}".format(root / path,
-                                                  traceback.format_exc()))
+            f"Test resource {root / path} not found; did you initialize the "
+            f"test resource submodule?\n{traceback.format_exc()}"
+        )
 
 
 def example_tls_certs():
@@ -431,7 +431,7 @@ class ExchangeFlightServer(FlightServerBase):
             return self.exchange_transform(context, reader, writer)
         else:
             raise pa.ArrowInvalid(
-                "Unknown command: {}".format(descriptor.command))
+                f"Unknown command: {descriptor.command}")
 
     def exchange_do_get(self, context, reader, writer):
         """Emulate DoGet with DoExchange."""
@@ -620,9 +620,10 @@ class ClientHeaderAuthMiddleware(ClientMiddleware):
 
     def received_headers(self, headers):
         auth_header = case_insensitive_header_lookup(headers, 'Authorization')
-        self.factory.set_call_credential([
-            b'authorization',
-            auth_header[0].encode("utf-8")])
+        if auth_header:
+            self.factory.set_call_credential([
+                b'authorization',
+                auth_header[0].encode("utf-8")])
 
 
 class HeaderAuthServerMiddlewareFactory(ServerMiddlewareFactory):
@@ -916,6 +917,23 @@ def test_repr():
     assert repr(flight.SchemaResult(pa.schema([("int", "int64")]))) == \
         "<pyarrow.flight.SchemaResult schema=(int: int64)>"
     assert repr(flight.Ticket(b"foo")) == ticket_repr
+    assert info.schema == pa.schema([])
+
+    info = flight.FlightInfo(
+        None, flight.FlightDescriptor.for_path(), [],
+        1, 42, True, b"test app metadata"
+    )
+    info_repr = (
+        "<pyarrow.flight.FlightInfo "
+        "schema=None "
+        "descriptor=<pyarrow.flight.FlightDescriptor path=[]> "
+        "endpoints=[] "
+        "total_records=1 "
+        "total_bytes=42 "
+        "ordered=True "
+        "app_metadata=b'test app metadata'>")
+    assert repr(info) == info_repr
+    assert info.schema is None
 
     with pytest.raises(TypeError):
         flight.Action("foo", None)

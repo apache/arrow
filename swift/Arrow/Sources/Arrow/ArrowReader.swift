@@ -19,7 +19,7 @@ import FlatBuffers
 import Foundation
 
 let FILEMARKER = "ARROW1"
-let CONTINUATIONMARKER = -1
+let CONTINUATIONMARKER = UInt32(0xFFFFFFFF)
 
 public class ArrowReader { // swiftlint:disable:this type_body_length
     private class RecordBatchData {
@@ -216,7 +216,77 @@ public class ArrowReader { // swiftlint:disable:this type_body_length
         return .success(RecordBatch(arrowSchema, columns: columns))
     }
 
-    public func fromStream( // swiftlint:disable:this function_body_length
+    /*
+     This is for reading the Arrow streaming format. The Arrow streaming format
+     is slightly different from the Arrow File format as it doesn't contain a header
+     and footer.
+     */
+    public func readStreaming( // swiftlint:disable:this function_body_length
+        _ input: Data,
+        useUnalignedBuffers: Bool = false
+    ) -> Result<ArrowReaderResult, ArrowError> {
+        let result = ArrowReaderResult()
+        var offset: Int = 0
+        var length = getUInt32(input, offset: offset)
+        var streamData = input
+        var schemaMessage: org_apache_arrow_flatbuf_Schema?
+        while length != 0 {
+            if length == CONTINUATIONMARKER {
+                offset += Int(MemoryLayout<UInt32>.size)
+                length = getUInt32(input, offset: offset)
+                if length == 0 {
+                    return .success(result)
+                }
+            }
+
+            offset += Int(MemoryLayout<UInt32>.size)
+            streamData = input[offset...]
+            let dataBuffer = ByteBuffer(
+                data: streamData,
+                allowReadingUnalignedBuffers: true)
+            let message = org_apache_arrow_flatbuf_Message.getRootAsMessage(bb: dataBuffer)
+            switch message.headerType {
+            case .recordbatch:
+                do {
+                    let rbMessage = message.header(type: org_apache_arrow_flatbuf_RecordBatch.self)!
+                    let recordBatch = try loadRecordBatch(
+                        rbMessage,
+                        schema: schemaMessage!,
+                        arrowSchema: result.schema!,
+                        data: input,
+                        messageEndOffset: (Int64(offset) + Int64(length))).get()
+                    result.batches.append(recordBatch)
+                    offset += Int(message.bodyLength + Int64(length))
+                    length = getUInt32(input, offset: offset)
+                } catch let error as ArrowError {
+                    return .failure(error)
+                } catch {
+                    return .failure(.unknownError("Unexpected error: \(error)"))
+                }
+            case .schema:
+                schemaMessage = message.header(type: org_apache_arrow_flatbuf_Schema.self)!
+                let schemaResult = loadSchema(schemaMessage!)
+                switch schemaResult {
+                case .success(let schema):
+                    result.schema = schema
+                case .failure(let error):
+                    return .failure(error)
+                }
+                offset += Int(message.bodyLength + Int64(length))
+                length = getUInt32(input, offset: offset)
+            default:
+                return .failure(.unknownError("Unhandled header type: \(message.headerType)"))
+            }
+        }
+        return .success(result)
+    }
+
+    /*
+     This is for reading the Arrow file format. The Arrow file format supports
+     random accessing the data.  The Arrow file format contains a header and
+     footer around the Arrow streaming format.
+     */
+    public func readFile( // swiftlint:disable:this function_body_length
         _ fileData: Data,
         useUnalignedBuffers: Bool = false
     ) -> Result<ArrowReaderResult, ArrowError> {
@@ -242,7 +312,7 @@ public class ArrowReader { // swiftlint:disable:this type_body_length
         for index in 0 ..< footer.recordBatchesCount {
             let recordBatch = footer.recordBatches(at: index)!
             var messageLength = fileData.withUnsafeBytes { rawBuffer in
-                rawBuffer.loadUnaligned(fromByteOffset: Int(recordBatch.offset), as: Int32.self)
+                rawBuffer.loadUnaligned(fromByteOffset: Int(recordBatch.offset), as: UInt32.self)
             }
 
             var messageOffset: Int64 = 1
@@ -251,7 +321,7 @@ public class ArrowReader { // swiftlint:disable:this type_body_length
                 messageLength = fileData.withUnsafeBytes { rawBuffer in
                     rawBuffer.loadUnaligned(
                         fromByteOffset: Int(recordBatch.offset + Int64(MemoryLayout<Int32>.size)),
-                        as: Int32.self)
+                        as: UInt32.self)
                 }
             }
 
@@ -296,7 +366,7 @@ public class ArrowReader { // swiftlint:disable:this type_body_length
             let markerLength = FILEMARKER.utf8.count
             let footerLengthEnd = Int(fileData.count - markerLength)
             let data = fileData[..<(footerLengthEnd)]
-            return fromStream(data)
+            return readFile(data)
         } catch {
             return .failure(.unknownError("Error loading file: \(error)"))
         }
@@ -340,10 +410,10 @@ public class ArrowReader { // swiftlint:disable:this type_body_length
             } catch {
                 return .failure(.unknownError("Unexpected error: \(error)"))
             }
-
         default:
             return .failure(.unknownError("Unhandled header type: \(message.headerType)"))
         }
     }
 
 }
+// swiftlint:disable:this file_length

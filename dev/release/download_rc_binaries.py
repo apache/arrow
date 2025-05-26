@@ -28,7 +28,6 @@ import subprocess
 import time
 import urllib.request
 
-
 DEFAULT_PARALLEL_DOWNLOADS = 8
 
 
@@ -36,33 +35,31 @@ class Downloader:
 
     def get_file_list(self, prefix, filter=None):
         def traverse(directory, files, directories):
-            url = f'{self.URL_ROOT}/{directory}'
+            url = f"{self.URL_ROOT}/{directory}"
             response = urllib.request.urlopen(url).read().decode()
             paths = re.findall('<a href="(.+?)"', response)
             for path in paths:
-                path = re.sub(f'^{re.escape(url)}',
-                              '',
-                              path)
-                if path == '../':
+                path = re.sub(f"^{re.escape(url)}", "", path)
+                if path == "../":
                     continue
-                resolved_path = f'{directory}{path}'
+                resolved_path = f"{directory}{path}"
                 if filter and not filter(path):
                     continue
-                if path.endswith('/'):
+                if path.endswith("/"):
                     directories.append(resolved_path)
                 else:
                     files.append(resolved_path)
+
         files = []
-        if prefix != '' and not prefix.endswith('/'):
-            prefix += '/'
+        if prefix != "" and not prefix.endswith("/"):
+            prefix += "/"
         directories = [prefix]
         while len(directories) > 0:
             directory = directories.pop()
             traverse(directory, files, directories)
         return files
 
-    def download_files(self, files, dest=None, num_parallel=None,
-                       re_match=None):
+    def download_files(self, files, dest=None, num_parallel=None, re_match=None):
         """
         Download files from Bintray in parallel. If file already exists, will
         overwrite if the checksum does not match what Bintray says it should be
@@ -83,18 +80,20 @@ class Downloader:
             num_parallel = DEFAULT_PARALLEL_DOWNLOADS
 
         if re_match is not None:
-            regex = re.compile(re_match)
-            files = [x for x in files if regex.match(x)]
+            files = self._filter_files(files, re_match)
 
         if num_parallel == 1:
             for path in files:
                 self._download_file(dest, path)
         else:
             parallel_map_terminate_early(
-                functools.partial(self._download_file, dest),
-                files,
-                num_parallel
+                functools.partial(self._download_file,
+                                  dest), files, num_parallel
             )
+
+    def _filter_files(self, files, re_match):
+        regex = re.compile(re_match)
+        return [x for x in files if regex.match(x)]
 
     def _download_file(self, dest, path):
         base, filename = os.path.split(path)
@@ -104,9 +103,9 @@ class Downloader:
 
         dest_path = os.path.join(dest_dir, filename)
 
-        print("Downloading {} to {}".format(path, dest_path))
+        print(f"Downloading {path} to {dest_path}")
 
-        url = f'{self.URL_ROOT}/{path}'
+        url = f"{self.URL_ROOT}/{path}"
         self._download_url(url, dest_path)
 
     def _download_url(self, url, dest_path, *, extra_args=None):
@@ -128,8 +127,8 @@ class Downloader:
                 delay = attempt * 3
                 print(f"Waiting {delay} seconds before retrying {url}")
                 time.sleep(delay)
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE)
+            proc = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = proc.communicate()
             if proc.returncode != 0:
                 try:
@@ -142,8 +141,9 @@ class Downloader:
                     break
             else:
                 return
-        raise Exception(f"Downloading {url} failed\n"
-                        f"stdout: {stdout}\nstderr: {stderr}")
+        raise Exception(
+            f"Downloading {url} failed\n" f"stdout: {stdout}\nstderr: {stderr}"
+        )
 
     def _curl_version(self):
         cmd = ["curl", "--version"]
@@ -152,9 +152,15 @@ class Downloader:
         return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
 
 
+class Artifactory(Downloader):
+    URL_ROOT = "https://packages.apache.org/artifactory/arrow"
+
+
 class Maven(Downloader):
-    URL_ROOT = "https://repository.apache.org" + \
-        "/content/repositories/staging/org/apache/arrow"
+    URL_ROOT = (
+        "https://repository.apache.org"
+        + "/content/repositories/staging/org/apache/arrow"
+    )
 
 
 class GitHub(Downloader):
@@ -170,8 +176,10 @@ class GitHub(Downloader):
         self._token = os.environ.get("GH_TOKEN")
 
     def get_file_list(self, prefix, filter=None):
-        url = (f"https://api.github.com/repos/{self._repository}/"
-               f"releases/tags/{self._tag}")
+        url = (
+            f"https://api.github.com/repos/{self._repository}/"
+            f"releases/tags/{self._tag}"
+        )
         print("Fetching release from", url)
         headers = {
             "Accept": "application/vnd.github+json",
@@ -200,6 +208,10 @@ class GitHub(Downloader):
             files.append((asset["name"], url))
         return files
 
+    def _filter_files(self, files, re_match):
+        regex = re.compile(re_match)
+        return [x for x in files if regex.match(x[0])]
+
     def _download_file(self, dest, asset):
         name, url = asset
 
@@ -222,11 +234,7 @@ class GitHub(Downloader):
         if self._curl_version() >= (7, 71, 0):
             # Also retry 403s
             extra_args.append("--retry-all-errors")
-        self._download_url(
-            url,
-            dest_path,
-            extra_args=extra_args
-        )
+        self._download_url(url, dest_path, extra_args=extra_args)
 
 
 def parallel_map_terminate_early(f, iterable, num_parallel):
@@ -244,74 +252,104 @@ def parallel_map_terminate_early(f, iterable, num_parallel):
 
 
 ARROW_REPOSITORY_PACKAGE_TYPES = [
-    'almalinux',
-    'amazon-linux',
-    'centos',
-    'debian',
-    'ubuntu',
+    "almalinux",
+    "amazon-linux",
+    "centos",
+    "debian",
+    "ubuntu",
 ]
-ARROW_STANDALONE_PACKAGE_TYPES = ['nuget', 'python']
-ARROW_PACKAGE_TYPES = \
-    ARROW_REPOSITORY_PACKAGE_TYPES + \
-    ARROW_STANDALONE_PACKAGE_TYPES
+ARROW_STANDALONE_PACKAGE_TYPES = ["nuget", "python"]
+ARROW_PACKAGE_TYPES = ARROW_REPOSITORY_PACKAGE_TYPES + ARROW_STANDALONE_PACKAGE_TYPES
 
 
-def download_rc_binaries(version, rc_number, re_match=None, dest=None,
-                         num_parallel=None, target_package_type=None,
-                         repository=None, tag=None):
-    version_string = '{}-rc{}'.format(version, rc_number)
-    version_pattern = re.compile(r'\d+\.\d+\.\d+')
+def download_rc_binaries(
+    version,
+    rc_number,
+    re_match=None,
+    dest=None,
+    num_parallel=None,
+    target_package_type=None,
+    repository=None,
+    tag=None,
+):
+    version_string = f'{version}-rc{rc_number}'
+    version_pattern = re.compile(r"\d+\.\d+\.\d+")
     if target_package_type:
         package_types = [target_package_type]
     else:
         package_types = ARROW_PACKAGE_TYPES
     for package_type in package_types:
+
         def is_target(path):
             match = version_pattern.search(path)
             if not match:
                 return True
             return match[0] == version
+
         filter = is_target
 
-        if package_type == 'github' or package_type == 'nuget':
+        if package_type == "github" or package_type in ARROW_STANDALONE_PACKAGE_TYPES:
             downloader = GitHub(repository, tag)
-            prefix = ''
+            prefix = ""
             filter = None
         elif package_type in ARROW_REPOSITORY_PACKAGE_TYPES:
-            downloader = Maven()
-            prefix = package_type
+            downloader = Artifactory()
+            prefix = f'{package_type}-rc'
         else:
-            downloader = Maven()
-            prefix = f'{package_type}/{version_string}'
+            downloader = Artifactory()
+            prefix = f'{package_type}-rc/{version_string}'
             filter = None
         files = downloader.get_file_list(prefix, filter=filter)
-        downloader.download_files(files, re_match=re_match, dest=dest,
-                                  num_parallel=num_parallel)
+        downloader.download_files(
+            files, re_match=re_match, dest=dest, num_parallel=num_parallel
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='Download release candidate binaries'
+        description="Download release candidate binaries")
+    parser.add_argument("version", type=str, help="The version number")
+    parser.add_argument(
+        "rc_number", type=int, help="The release candidate number, e.g. 0, 1, etc"
     )
-    parser.add_argument('version', type=str, help='The version number')
-    parser.add_argument('rc_number', type=int,
-                        help='The release candidate number, e.g. 0, 1, etc')
-    parser.add_argument('-e', '--regexp', type=str, default=None,
-                        help=('Regular expression to match on file names '
-                              'to only download certain files'))
-    parser.add_argument('--dest', type=str, default=os.getcwd(),
-                        help='The output folder for the downloaded files')
-    parser.add_argument('--num_parallel', type=int,
-                        default=DEFAULT_PARALLEL_DOWNLOADS,
-                        help='The number of concurrent downloads to do')
-    parser.add_argument('--package_type', type=str, default=None,
-                        help='The package type to be downloaded')
-    parser.add_argument('--repository', type=str,
-                        help=('The repository to pull from '
-                              '(required if --package_type=github)'))
-    parser.add_argument('--tag', type=str,
-                        help=('The release tag to download '
-                              '(required if --package_type=github)'))
+    parser.add_argument(
+        "-e",
+        "--regexp",
+        type=str,
+        default=None,
+        help=(
+            "Regular expression to match on file names "
+            "to only download certain files"
+        ),
+    )
+    parser.add_argument(
+        "--dest",
+        type=str,
+        default=os.getcwd(),
+        help="The output folder for the downloaded files",
+    )
+    parser.add_argument(
+        "--num_parallel",
+        type=int,
+        default=DEFAULT_PARALLEL_DOWNLOADS,
+        help="The number of concurrent downloads to do",
+    )
+    parser.add_argument(
+        "--package_type",
+        type=str,
+        default=None,
+        help="The package type to be downloaded",
+    )
+    parser.add_argument(
+        "--repository",
+        type=str,
+        help=("The repository to pull from " "(required if --package_type=github)"),
+    )
+    parser.add_argument(
+        "--tag",
+        type=str,
+        help=("The release tag to download " "(required if --package_type=github)"),
+    )
     args = parser.parse_args()
 
     download_rc_binaries(

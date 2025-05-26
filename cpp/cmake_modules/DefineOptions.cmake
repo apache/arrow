@@ -172,9 +172,6 @@ takes precedence over ccache if a storage backend is configured" ON)
 
   define_option(ARROW_USE_MOLD "Use mold for linking on Linux (if available)" OFF)
 
-  define_option(ARROW_USE_PRECOMPILED_HEADERS "Use precompiled headers when compiling"
-                OFF)
-
   define_option_string(ARROW_SIMD_LEVEL
                        "Compile-time SIMD optimization level"
                        "DEFAULT" # default to SSE4_2 on x86, NEON on Arm, NONE otherwise
@@ -338,6 +335,13 @@ takes precedence over ccache if a storage backend is configured" ON)
                 DEPENDS
                 ARROW_FLIGHT)
 
+  define_option(ARROW_FLIGHT_SQL_ODBC
+                "Build the Arrow Flight SQL ODBC extension"
+                OFF
+                DEPENDS
+                ARROW_FLIGHT_SQL
+                ARROW_COMPUTE)
+
   define_option(ARROW_GANDIVA
                 "Build the Gandiva libraries"
                 OFF
@@ -346,7 +350,8 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_WITH_UTF8PROC)
 
   define_option(ARROW_GCS
-                "Build Arrow with GCS support (requires the GCloud SDK for C++)"
+                "Build Arrow with GCS support (requires the Google Cloud Platform "
+                "C++ Client Libraries)"
                 OFF
                 DEPENDS
                 ARROW_FILESYSTEM)

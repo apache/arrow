@@ -28,7 +28,6 @@ install_headers(
         'gtest_util.h',
         'matchers.h',
         'math.h',
-        'pch.h',
         'process.h',
         'random.h',
         'uniform_real.h',
@@ -54,9 +53,11 @@ foreach key, val : testing_tests
 endforeach
 
 if needs_tests and needs_filesystem
-    shared_module(
+    arrow_filesystem_example = shared_module(
         'arrow-filesystem-example',
         sources: ['examplefs.cc'],
         dependencies: [arrow_dep, gtest_dep],
     )
+else
+    arrow_filesystem_example = disabler()
 endif

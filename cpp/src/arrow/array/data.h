@@ -64,32 +64,24 @@ constexpr int64_t kUnknownNullCount = -1;
 ///
 /// This data structure is a self-contained representation of the memory and
 /// metadata inside an Arrow array data structure (called vectors in Java). The
-/// classes arrow::Array and its subclasses provide strongly-typed accessors
+/// Array class and its concrete subclasses provide strongly-typed accessors
 /// with support for the visitor pattern and other affordances.
 ///
 /// This class is designed for easy internal data manipulation, analytical data
-/// processing, and data transport to and from IPC messages. For example, we
-/// could cast from int64 to float64 like so:
+/// processing, and data transport to and from IPC messages.
 ///
-/// Int64Array arr = GetMyData();
-/// auto new_data = arr.data()->Copy();
-/// new_data->type = arrow::float64();
-/// DoubleArray double_arr(new_data);
+/// This class is also useful in an analytics setting where memory may be
+/// efficiently reused. For example, computing the Abs of a numeric array
+/// should return null iff the input is null: therefore, an Abs function can
+/// reuse the validity bitmap (a Buffer) of its input as the validity bitmap
+/// of its output.
 ///
-/// This object is also useful in an analytics setting where memory may be
-/// reused. For example, if we had a group of operations all returning doubles,
-/// say:
-///
-/// Log(Sqrt(Expr(arr)))
-///
-/// Then the low-level implementations of each of these functions could have
-/// the signatures
-///
-/// void Log(const ArrayData& values, ArrayData* out);
-///
-/// As another example a function may consume one or more memory buffers in an
-/// input array and replace them with newly-allocated data, changing the output
-/// data type as well.
+/// This class is meant mostly for immutable data access. Any mutable access
+/// (either to ArrayData members or to the contents of its Buffers) should take
+/// into account the fact that ArrayData instances are typically wrapped in a
+/// shared_ptr and can therefore have multiple owners at any given time.
+/// Therefore, mutable access is discouraged except when initially populating
+/// the ArrayData.
 struct ARROW_EXPORT ArrayData {
   ArrayData() = default;
 
@@ -194,16 +186,18 @@ struct ARROW_EXPORT ArrayData {
     return *this;
   }
 
+  /// \brief Return a shallow copy of this ArrayData
   std::shared_ptr<ArrayData> Copy() const { return std::make_shared<ArrayData>(*this); }
 
-  /// \brief Copy all buffers and children recursively to destination MemoryManager
+  /// \brief Deep copy this ArrayData to destination memory manager
   ///
-  /// This utilizes MemoryManager::CopyBuffer to create a new ArrayData object
-  /// recursively copying the buffers and all child buffers to the destination
-  /// memory manager. This includes dictionaries if applicable.
+  /// Returns a new ArrayData object with buffers and all child buffers
+  /// copied to the destination memory manager. This includes dictionaries
+  /// if applicable.
   Result<std::shared_ptr<ArrayData>> CopyTo(
       const std::shared_ptr<MemoryManager>& to) const;
-  /// \brief View or Copy this ArrayData to destination memory manager.
+
+  /// \brief View or copy this ArrayData to destination memory manager
   ///
   /// Tries to view the buffer contents on the given memory manager's device
   /// if possible (to avoid a copy) but falls back to copying if a no-copy view
@@ -211,8 +205,19 @@ struct ARROW_EXPORT ArrayData {
   Result<std::shared_ptr<ArrayData>> ViewOrCopyTo(
       const std::shared_ptr<MemoryManager>& to) const;
 
+  /// \brief Return the null-ness of a given array element
+  ///
+  /// Calling `IsNull(i)` is the same as `!IsValid(i)`.
   bool IsNull(int64_t i) const { return !IsValid(i); }
 
+  /// \brief Return the validity of a given array element
+  ///
+  /// For most data types, this will simply query the validity bitmap.
+  /// For union and run-end-encoded arrays, the underlying child data is
+  /// queried instead.
+  /// For dictionary arrays, this reflects the validity of the dictionary
+  /// index, but the corresponding dictionary value might still be null.
+  /// For null arrays, this always returns false.
   bool IsValid(int64_t i) const {
     if (buffers[0] != NULLPTR) {
       return bit_util::GetBit(buffers[0]->data(), i + offset);
@@ -230,7 +235,19 @@ struct ARROW_EXPORT ArrayData {
     return null_count.load() != length;
   }
 
-  // Access a buffer's data as a typed C pointer
+  /// \brief Access a buffer's data as a typed C pointer
+  ///
+  /// \param i the buffer index
+  /// \param absolute_offset the offset into the buffer
+  ///
+  /// If `absolute_offset` is non-zero, the type `T` must match the
+  /// layout of buffer number `i` for the array's data type; otherwise
+  /// offset computation would be incorrect.
+  ///
+  /// If the given buffer is bit-packed (such as a validity bitmap, or
+  /// the data buffer of a boolean array), then `absolute_offset` must be
+  /// zero for correct results, and any bit offset must be applied manually
+  /// by the caller.
   template <typename T>
   inline const T* GetValues(int i, int64_t absolute_offset) const {
     if (buffers[i]) {
@@ -240,13 +257,27 @@ struct ARROW_EXPORT ArrayData {
     }
   }
 
+  /// \brief Access a buffer's data as a typed C pointer
+  ///
+  /// \param i the buffer index
+  ///
+  /// This method uses the array's offset to index into buffer number `i`.
+  ///
+  /// Calling this method on a bit-packed buffer (such as a validity bitmap, or
+  /// the data buffer of a boolean array) will lead to incorrect results.
+  /// You should instead call `GetValues(i, 0)` and apply the bit offset manually.
   template <typename T>
   inline const T* GetValues(int i) const {
     return GetValues<T>(i, offset);
   }
 
-  // Like GetValues, but returns NULLPTR instead of aborting if the underlying
-  // buffer is not a CPU buffer.
+  /// \brief Access a buffer's data as a typed C pointer
+  ///
+  /// \param i the buffer index
+  /// \param absolute_offset the offset into the buffer
+  ///
+  /// Like `GetValues(i, absolute_offset)`, but returns nullptr if the given buffer
+  /// is not a CPU buffer.
   template <typename T>
   inline const T* GetValuesSafe(int i, int64_t absolute_offset) const {
     if (buffers[i] && buffers[i]->is_cpu()) {
@@ -256,12 +287,24 @@ struct ARROW_EXPORT ArrayData {
     }
   }
 
+  /// \brief Access a buffer's data as a typed C pointer
+  ///
+  /// \param i the buffer index
+  ///
+  /// Like `GetValues(i)`, but returns nullptr if the given buffer is not a CPU buffer.
   template <typename T>
   inline const T* GetValuesSafe(int i) const {
     return GetValuesSafe<T>(i, offset);
   }
 
-  // Access a buffer's data as a typed C pointer
+  /// \brief Access a buffer's data as a mutable typed C pointer
+  ///
+  /// \param i the buffer index
+  /// \param absolute_offset the offset into the buffer
+  ///
+  /// Like `GetValues(i, absolute_offset)`, but allows mutating buffer contents.
+  /// This should only be used when initially populating the ArrayData, before
+  /// it is attached to a Array instance.
   template <typename T>
   inline T* GetMutableValues(int i, int64_t absolute_offset) {
     if (buffers[i]) {
@@ -271,6 +314,13 @@ struct ARROW_EXPORT ArrayData {
     }
   }
 
+  /// \brief Access a buffer's data as a mutable typed C pointer
+  ///
+  /// \param i the buffer index
+  ///
+  /// Like `GetValues(i)`, but allows mutating buffer contents.
+  /// This should only be used when initially populating the ArrayData, before
+  /// it is attached to a Array instance.
   template <typename T>
   inline T* GetMutableValues(int i) {
     return GetMutableValues<T>(i, offset);
@@ -278,36 +328,56 @@ struct ARROW_EXPORT ArrayData {
 
   /// \brief Construct a zero-copy slice of the data with the given offset and length
   ///
-  /// The associated `ArrayStatistics` is always discarded in a sliced
-  /// `ArrayData`. Because `ArrayStatistics` in the original
-  /// `ArrayData` may be invalid in a sliced `ArrayData`. If you want
-  /// to reuse statistics in the original `ArrayData`, you need to do
-  /// it by yourself.
+  /// This method applies the given slice to this ArrayData, taking into account
+  /// its existing offset and length.
+  /// If the given `length` is too large, the slice length is clamped so as not
+  /// to go past the offset end.
+  /// If the given `often` is too large, or if either `offset` or `length` is negative,
+  /// behavior is undefined.
   ///
-  /// If the specified slice range has the same range as the original
-  /// `ArrayData`, we can reuse statistics in the original
-  /// `ArrayData`. Because it has the same data as the original
-  /// `ArrayData`. But the associated `ArrayStatistics` is discarded
-  /// in this case too. Use `Copy()` instead for the case.
+  /// The associated ArrayStatistics is always discarded in a sliced
+  /// ArrayData, even if the slice is trivially equal to the original ArrayData.
+  /// If you want to reuse the statistics from the original ArrayData, you must
+  /// explicitly reattach them.
   std::shared_ptr<ArrayData> Slice(int64_t offset, int64_t length) const;
 
-  /// \brief Input-checking variant of Slice
+  /// \brief Construct a zero-copy slice of the data with the given offset and length
   ///
-  /// An Invalid Status is returned if the requested slice falls out of bounds.
-  /// Note that unlike Slice, `length` isn't clamped to the available buffer size.
+  /// Like `Slice(offset, length)`, but returns an error if the requested slice
+  /// falls out of bounds.
+  /// Unlike Slice, `length` isn't clamped to the available buffer size.
   Result<std::shared_ptr<ArrayData>> SliceSafe(int64_t offset, int64_t length) const;
 
+  /// \brief Set the cached physical null count
+  ///
+  /// \param v the number of nulls in the ArrayData
+  ///
+  /// This should only be used when initially populating the ArrayData, if
+  /// it possible to compute the null count without visiting the entire validity
+  /// bitmap. In most cases, relying on `GetNullCount` is sufficient.
   void SetNullCount(int64_t v) { null_count.store(v); }
 
-  /// \brief Return physical null count, or compute and set it if it's not known
+  /// \brief Return the physical null count
+  ///
+  /// This method returns the number of array elements for which `IsValid` would
+  /// return false.
+  ///
+  /// A cached value is returned if already available, otherwise it is first
+  /// computed and stored.
+  /// How it is is computed depends on the data type, see `IsValid` for details.
+  ///
+  /// Note that this method is typically much faster than calling `IsValid`
+  /// for all elements. Therefore, it helps avoid per-element validity bitmap
+  /// lookups in the common cases where the array contains zero or only nulls.
   int64_t GetNullCount() const;
 
-  /// \brief Return true if the data has a validity bitmap and the physical null
-  /// count is known to be non-zero or not yet known.
+  /// \brief Return true if the array may have nulls in its validity bitmap
   ///
-  /// Note that this is not the same as MayHaveLogicalNulls, which also checks
-  /// for the presence of nulls in child data for types like unions and run-end
-  /// encoded types.
+  /// This method returns true if the data has a validity bitmap, and the physical
+  /// null count is either known to be non-zero or not yet known.
+  ///
+  /// Unlike `MayHaveLogicalNulls`, this does not check for the presence of nulls
+  /// in child data for data types such as unions and run-end encoded types.
   ///
   /// \see HasValidityBitmap
   /// \see MayHaveLogicalNulls
@@ -317,18 +387,20 @@ struct ARROW_EXPORT ArrayData {
     return null_count.load() != 0 && buffers[0] != NULLPTR;
   }
 
-  /// \brief Return true if the data has a validity bitmap
+  /// \brief Return true if the array has a validity bitmap
   bool HasValidityBitmap() const { return buffers[0] != NULLPTR; }
 
-  /// \brief Return true if the validity bitmap may have 0's in it, or if the
-  /// child arrays (in the case of types without a validity bitmap) may have
-  /// nulls, or if the dictionary of dictionary array may have nulls.
+  /// \brief Return true if the array may have logical nulls
   ///
-  /// This is not a drop-in replacement for MayHaveNulls, as historically
-  /// MayHaveNulls() has been used to check for the presence of a validity
-  /// bitmap that needs to be checked.
+  /// Unlike `MayHaveNulls`, this method checks for null child values
+  /// for types without a validity bitmap, such as unions and run-end encoded
+  /// types, and for null dictionary values for dictionary types.
   ///
-  /// Code that previously used MayHaveNulls() and then dealt with the validity
+  /// This implies that `MayHaveLogicalNulls` may return true for arrays that
+  /// don't have a top-level validity bitmap. It is therefore necessary
+  /// to call `HasValidityBitmap` before accessing a top-level validity bitmap.
+  ///
+  /// Code that previously used MayHaveNulls and then dealt with the validity
   /// bitmap directly can be fixed to handle all types correctly without
   /// performance degradation when handling most types by adopting
   /// HasValidityBitmap and MayHaveLogicalNulls.
@@ -373,13 +445,12 @@ struct ARROW_EXPORT ArrayData {
     return null_count.load() != 0;
   }
 
-  /// \brief Computes the logical null count for arrays of all types including
-  /// those that do not have a validity bitmap like union and run-end encoded
-  /// arrays
+  /// \brief Compute the logical null count for arrays of all types
   ///
   /// If the array has a validity bitmap, this function behaves the same as
-  /// GetNullCount. For types that have no validity bitmap, this function will
-  /// recompute the null count every time it is called.
+  /// GetNullCount. For arrays that have no validity bitmap but whose values
+  /// may be logically null (such as union arrays and run-end encoded arrays),
+  /// this function recomputes the null count every time it is called.
   ///
   /// \see GetNullCount
   int64_t ComputeLogicalNullCount() const;
@@ -430,9 +501,14 @@ struct ARROW_EXPORT BufferSpan {
   }
 };
 
-/// \brief EXPERIMENTAL: A non-owning ArrayData reference that is cheaply
-/// copyable and does not contain any shared_ptr objects. Do not use in public
-/// APIs aside from compute kernels for now
+/// \brief EXPERIMENTAL: A non-owning array data container
+///
+/// Unlike ArrayData, this class doesn't own its referenced data type nor data buffers.
+/// It is cheaply copyable and can therefore be suitable for use cases where
+/// shared_ptr overhead is not acceptable. However, care should be taken to
+/// keep alive the referenced objects and memory while the ArraySpan object is in use.
+/// For this reason, this should not be exposed in most public APIs (apart from
+/// compute kernel interfaces).
 struct ARROW_EXPORT ArraySpan {
   const DataType* type = NULLPTR;
   int64_t length = 0;

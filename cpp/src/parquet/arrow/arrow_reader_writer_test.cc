@@ -43,6 +43,7 @@
 #include "arrow/scalar.h"
 #include "arrow/table.h"
 #include "arrow/testing/builder.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -1479,6 +1480,61 @@ TEST_F(TestJsonParquetIO, JsonExtension) {
       ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
   this->RoundTripSingleColumn(json_array, json_array, writer_properties);
   this->RoundTripSingleColumn(json_large_array, json_large_array, writer_properties);
+}
+
+using TestGeoArrowParquetIO = TestParquetIO<test::GeoArrowWkbExtensionType>;
+
+TEST_F(TestGeoArrowParquetIO, GeoArrowExtension) {
+  ::arrow::ExtensionTypeGuard guard(test::geoarrow_wkb());
+
+  // Build a binary WKB array with at least one null value
+  ::arrow::BinaryBuilder builder;
+
+  for (int k = 0; k < 10; k++) {
+    std::string item = test::MakeWKBPoint(
+        {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
+    ASSERT_OK(builder.Append(item));
+  }
+  ASSERT_OK(builder.AppendNull());
+  for (int k = 0; k < 5; k++) {
+    std::string item = test::MakeWKBPoint(
+        {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
+    ASSERT_OK(builder.Append(item));
+  }
+
+  ASSERT_OK_AND_ASSIGN(const auto binary_array, builder.Finish());
+  const auto wkb_type = test::geoarrow_wkb_lonlat();
+  const auto wkb_array = ::arrow::ExtensionType::WrapArray(wkb_type, binary_array);
+
+  const auto large_wkb_type = test::geoarrow_wkb_lonlat(::arrow::large_binary());
+  ASSERT_OK_AND_ASSIGN(const auto large_binary_array,
+                       ::arrow::compute::Cast(binary_array, ::arrow::large_binary()));
+  const auto large_wkb_array =
+      ::arrow::ExtensionType::WrapArray(large_wkb_type, large_binary_array.make_array());
+
+  // When the original Arrow schema isn't stored and Arrow extensions are disabled,
+  // LogicalType::GEOMETRY is read as utf8.
+  auto writer_properties = default_arrow_writer_properties();
+  ASSERT_NO_FATAL_FAILURE(
+      this->RoundTripSingleColumn(wkb_array, binary_array, writer_properties));
+  ASSERT_NO_FATAL_FAILURE(
+      this->RoundTripSingleColumn(large_wkb_array, binary_array, writer_properties));
+
+  // When the original Arrow schema isn't stored and Arrow extensions are enabled,
+  // LogicalType::GEOMETRY is read as geoarrow.wkb with binary storage.
+  ::parquet::ArrowReaderProperties reader_properties;
+  reader_properties.set_arrow_extensions_enabled(true);
+  ASSERT_NO_FATAL_FAILURE(this->RoundTripSingleColumn(
+      wkb_array, wkb_array, writer_properties, reader_properties));
+  ASSERT_NO_FATAL_FAILURE(this->RoundTripSingleColumn(
+      large_wkb_array, wkb_array, writer_properties, reader_properties));
+
+  // When the original Arrow schema is stored, the stored Arrow type is respected.
+  writer_properties = ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
+  ASSERT_NO_FATAL_FAILURE(
+      this->RoundTripSingleColumn(wkb_array, wkb_array, writer_properties));
+  ASSERT_NO_FATAL_FAILURE(
+      this->RoundTripSingleColumn(large_wkb_array, large_wkb_array, writer_properties));
 }
 
 using TestNullParquetIO = TestParquetIO<::arrow::NullType>;
