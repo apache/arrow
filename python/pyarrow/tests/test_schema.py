@@ -313,7 +313,7 @@ f0: int32
 key: 'valuexxxxxxxxxxxxxxxxxxxxxxxxxxxxx\
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'"""
 
-    assert my_schema.to_string(truncate_metadata=False, max_element_length=100) == f"""\
+    assert my_schema.to_string(truncate_metadata=False) == f"""\
 foo: int32 not null
   -- field metadata --
   key1: 'value1'
