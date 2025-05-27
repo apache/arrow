@@ -402,16 +402,17 @@ add_parquet_test(writer-test
 
 add_parquet_test(chunker-test SOURCES chunker_internal_test.cc)
 
-add_parquet_test(arrow-test
+add_parquet_test(arrow-reader-writer-test
                  SOURCES
-                 arrow/arrow_metadata_test.cc
                  arrow/arrow_reader_writer_test.cc
-                 arrow/arrow_schema_test.cc
                  arrow/arrow_statistics_test.cc
                  arrow/variant_test.cc)
 
 add_parquet_test(arrow-internals-test SOURCES arrow/path_internal_test.cc
                  arrow/reconstruct_internal_test.cc)
+
+add_parquet_test(arrow-metadata-test SOURCES arrow/arrow_metadata_test.cc
+                 arrow/arrow_schema_test.cc)
 
 if(PARQUET_REQUIRE_ENCRYPTION)
   add_parquet_test(encryption-test

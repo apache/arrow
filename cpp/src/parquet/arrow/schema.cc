@@ -78,6 +78,19 @@ Repetition::type RepetitionFromNullable(bool is_nullable) {
   return is_nullable ? Repetition::OPTIONAL : Repetition::REQUIRED;
 }
 
+Result<std::shared_ptr<::arrow::DataType>> MakeArrowList(
+    std::shared_ptr<Field> field, const ArrowReaderProperties& props) {
+  switch (props.list_type()) {
+    case ::arrow::Type::LIST:
+      return ::arrow::list(std::move(field));
+    case ::arrow::Type::LARGE_LIST:
+      return ::arrow::large_list(std::move(field));
+    default:
+      return Status::TypeError("Invalid list_type: " +
+                               ::arrow::internal::ToString(props.list_type()));
+  }
+}
+
 Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
                    const WriterProperties& properties,
                    const ArrowWriterProperties& arrow_properties, NodePtr* out);
@@ -776,8 +789,10 @@ Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
     RETURN_NOT_OK(
         PopulateLeaf(column_index, item_field, current_levels, ctx, out, child_field));
   }
-  out->field = ::arrow::field(group.name(), ::arrow::list(child_field->field),
-                              group.is_optional(), FieldIdMetadata(group.field_id()));
+  ARROW_ASSIGN_OR_RAISE(auto list_type,
+                        MakeArrowList(child_field->field, ctx->properties));
+  out->field = ::arrow::field(group.name(), std::move(list_type), group.is_optional(),
+                              FieldIdMetadata(group.field_id()));
   out->level_info = current_levels;
   // At this point current levels contains the def level for this list,
   // we need to reset to the prior parent.
@@ -805,7 +820,9 @@ Status GroupToSchemaField(const GroupNode& node, LevelInfo current_levels,
 
     int16_t repeated_ancestor_def_level = current_levels.IncrementRepeated();
     RETURN_NOT_OK(GroupToStruct(node, current_levels, ctx, out, &out->children[0]));
-    out->field = ::arrow::field(node.name(), ::arrow::list(out->children[0].field),
+    ARROW_ASSIGN_OR_RAISE(auto list_type,
+                          MakeArrowList(out->children[0].field, ctx->properties));
+    out->field = ::arrow::field(node.name(), std::move(list_type),
                                 /*nullable=*/false, FieldIdMetadata(node.field_id()));
 
     ctx->LinkParent(&out->children[0], out);
@@ -856,7 +873,9 @@ Status NodeToSchemaField(const Node& node, LevelInfo current_levels,
       RETURN_NOT_OK(PopulateLeaf(column_index, child_field, current_levels, ctx, out,
                                  &out->children[0]));
 
-      out->field = ::arrow::field(node.name(), ::arrow::list(child_field),
+      ARROW_ASSIGN_OR_RAISE(auto list_type,
+                            MakeArrowList(out->children[0].field, ctx->properties));
+      out->field = ::arrow::field(node.name(), std::move(list_type),
                                   /*nullable=*/false, FieldIdMetadata(node.field_id()));
       out->level_info = current_levels;
       // At this point current_levels has consider this list the ancestor so restore
@@ -934,6 +953,7 @@ std::function<std::shared_ptr<::arrow::DataType>(FieldVector)> GetNestedFactory(
       }
       break;
     case ::arrow::Type::LIST:
+    case ::arrow::Type::LARGE_LIST:
       if (origin_type.id() == ::arrow::Type::LIST) {
         return [](FieldVector fields) {
           DCHECK_EQ(fields.size(), 1);

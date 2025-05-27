@@ -351,6 +351,30 @@ def test_large_list_records():
     _check_roundtrip(table)
 
 
+list_types = [
+    (pa.ListType, pa.list_),
+    (pa.LargeListType, pa.large_list),
+]
+
+
+def test_list_types():
+    data = [[1, 2, None]] * 50
+    for _, in_factory in list_types:
+        array = pa.array(data, type=in_factory(pa.int32()))
+        table = pa.Table.from_arrays([array], ['lists'])
+        for out_type, out_factory in list_types:
+            for store_schema in (True, False):
+                if store_schema:
+                    expected_table = table
+                else:
+                    expected_table = pa.Table.from_arrays(
+                        [pa.array(data, type=out_factory(pa.int32()))], ['lists'])
+                result = _roundtrip_table(
+                    table, write_table_kwargs=dict(store_schema=store_schema),
+                    read_table_kwargs=dict(list_type=out_type))
+                assert result == expected_table
+
+
 @pytest.mark.pandas
 def test_parquet_nested_convenience(tempdir):
     # ARROW-1684
