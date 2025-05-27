@@ -1683,7 +1683,7 @@ TEST(AsofJoinTest, PauseProducingAsofJoinSource) {
   ASSERT_FINISHES_OK(sink_gen());
   BusyWait(10, [&] { return !backpressure_monitor->is_paused(); });
   ASSERT_FALSE(backpressure_monitor->is_paused());
-  
+
   // Cleanup
   for (size_t i = 0; i < cnt - 3; i++) {
     ASSERT_FINISHES_OK(sink_gen());
