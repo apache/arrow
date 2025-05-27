@@ -241,8 +241,7 @@ GArrowDataType *
 garrow_run_end_encoded_data_type_get_value_data_type(
   GArrowRunEndEncodedDataType *data_type);
 
-#define GARROW_TYPE_BASE_LIST_DATA_TYPE \
-  (garrow_base_list_data_type_get_type())
+#define GARROW_TYPE_BASE_LIST_DATA_TYPE (garrow_base_list_data_type_get_type())
 GARROW_AVAILABLE_IN_21_0
 G_DECLARE_DERIVABLE_TYPE(GArrowBaseListDataType,
                          garrow_base_list_data_type,

@@ -753,9 +753,7 @@ garrow_run_end_encoded_data_type_get_value_data_type(
   return garrow_data_type_new_raw(&arrow_value_data_type);
 }
 
-G_DEFINE_TYPE(GArrowBaseListDataType,
-              garrow_base_list_data_type,
-              GARROW_TYPE_DATA_TYPE)
+G_DEFINE_TYPE(GArrowBaseListDataType, garrow_base_list_data_type, GARROW_TYPE_DATA_TYPE)
 
 static void
 garrow_base_list_data_type_init(GArrowBaseListDataType *object)
