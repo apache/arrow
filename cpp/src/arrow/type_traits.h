@@ -1666,9 +1666,7 @@ constexpr bool is_base_binary_like(const DataType& type) {
 /// \return whether type is a binary-like type
 ///
 /// Convenience for checking using the type's id
-constexpr bool is_binary_like(const DataType& type) {
-  return is_binary_like(type.id());
-}
+constexpr bool is_binary_like(const DataType& type) { return is_binary_like(type.id()); }
 
 /// \brief Check for a large-binary-like type
 ///
@@ -1728,9 +1726,7 @@ constexpr bool is_interval(const DataType& type) { return is_interval(type.id())
 /// \return whether type is a dictionary type
 ///
 /// Convenience for checking using the type's id
-constexpr bool is_dictionary(const DataType& type) {
-  return is_dictionary(type.id());
-}
+constexpr bool is_dictionary(const DataType& type) { return is_dictionary(type.id()); }
 
 /// \brief Check for a fixed-size-binary type
 ///
@@ -1748,9 +1744,7 @@ constexpr bool is_fixed_size_binary(const DataType& type) {
 /// \return whether type is a fixed-width type
 ///
 /// Convenience for checking using the type's id
-constexpr bool is_fixed_width(const DataType& type) {
-  return is_fixed_width(type.id());
-}
+constexpr bool is_fixed_width(const DataType& type) { return is_fixed_width(type.id()); }
 
 /// \brief Check for a variable-length list type
 ///
