@@ -21,7 +21,7 @@
 #'
 #' The `arrow` package contains methods for 37 `dplyr` table functions, many of
 #' which are "verbs" that do transformations to one or more tables.
-#' The package also has mappings of 223 R functions to the corresponding
+#' The package also has mappings of 222 R functions to the corresponding
 #' functions in the Arrow compute library. These allow you to write code inside
 #' of `dplyr` methods that call R functions, including many in packages like
 #' `stringr` and `lubridate`, and they will get translated to Arrow and run
@@ -96,7 +96,6 @@
 #'
 #' * [`add_filename()`][arrow::add_filename()]
 #' * [`cast()`][arrow::cast()]
-#' * [`one()`][arrow::one()]
 #'
 #' ## base
 #'
