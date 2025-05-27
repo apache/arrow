@@ -229,9 +229,9 @@ class OtelLoggerImpl : public OtelLogger {
 
     logger_->EmitLogRecord(std::move(log));
 
-    if (details.severity >= options_.flush_severity) {
-      util::Logger::Flush();
-    }
+    // if (details.severity >= options_.flush_severity) {
+    //   util::Logger::Flush();
+    // }
   }
 
   bool Flush(std::chrono::microseconds timeout) override {
