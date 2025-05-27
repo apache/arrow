@@ -71,7 +71,7 @@ documentation and source code for these libraries.
      - `Rust Docs <https://docs.rs/arrow/latest>`_
      - `Rust Source <https://github.com/apache/arrow-rs>`_
    * - Swift
-     - `Swift Docs <https://github.com/apache/arrow/blob/main/swift/README.md>`_
+     - `Swift Docs <https://github.com/apache/arrow/blob/main/swift/Arrow/README.md>`_
      - `Swift Source <https://github.com/apache/arrow/tree/main/swift>`_
 
 In addition to the libraries listed above, the Arrow project hosts the
