@@ -324,7 +324,6 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   }
 
   inline bool is_geo_stats_set() const {
-    // Because we are modifying possible_geo_stats_ in a const method
     const std::lock_guard<std::mutex> guard(stats_mutex_);
     if (possible_geo_stats_ == nullptr &&
         column_metadata_->__isset.geospatial_statistics) {
