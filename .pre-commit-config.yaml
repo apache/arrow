@@ -48,22 +48,6 @@ repos:
           ?^ci/docker/python-.*-wheel-windows-test-vs2022.*\.dockerfile$|
           )
         types: []
-  - repo: https://github.com/pycqa/flake8
-    rev: 6.1.0
-    hooks:
-      - id: flake8
-        name: Python Format
-        files: ^(python|dev|c_glib|integration)/
-        types:
-          - file
-          - python
-        exclude: vendored
-        args: [--config, python/setup.cfg]
-  - repo: https://github.com/MarcoGorelli/cython-lint
-    rev: v0.12.5
-    hooks:
-      - id: cython-lint
-        args: [--no-pycodestyle]
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v14.0.6
     hooks:
@@ -121,6 +105,53 @@ repos:
         alias: matlab-cpp-format
         files: >-
           ^matlab/src/cpp/
+  - repo: https://github.com/hhatto/autopep8
+    rev: v2.3.2
+    hooks:
+      - id: autopep8
+        name: Python Format
+        alias: python-format
+        args:
+          - "--global-config"
+          - "python/setup.cfg"
+          - "--ignore-local-config"
+          - "--in-place"
+        files: >-
+          ^(c_glib|dev|python)/
+        types:
+          - file
+        types_or:
+          - cython
+          - python
+        exclude: >-
+          (
+          ?^python/pyarrow/vendored/|
+          )
+  - repo: https://github.com/pycqa/flake8
+    rev: 6.1.0
+    hooks:
+      - id: flake8
+        name: Python Lint
+        alias: python-lint
+        args:
+          - "--config"
+          - "python/setup.cfg"
+        files: >-
+          ^(c_glib|dev|python)/
+        exclude: >-
+          (
+          ?^python/pyarrow/vendored/|
+          )
+  - repo: https://github.com/MarcoGorelli/cython-lint
+    rev: v0.16.2
+    hooks:
+      - id: cython-lint
+        name: Python (Cython) Lint
+        alias: python-cython-lint
+        args:
+          - "--no-pycodestyle"
+        files: >-
+          ^python/
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v14.0.6
     hooks:
@@ -135,12 +166,42 @@ repos:
           ?.pb\.(cc|h)$|
           ?^cpp/src/generated/|
           )
+  - repo: local
+    hooks:
+      - id: lintr
+        name: R Lint
+        alias: r-lint
+        language: r
+        additional_dependencies:
+          - cyclocomp
+          - lintr
+        entry: |
+          Rscript r/tools/lint.R
+        pass_filenames: false
+        files: >-
+          ^r/.*\.(R|Rmd)$
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v14.0.6
     hooks:
       - id: clang-format
         name: R (C++) Format
         alias: r-cpp-format
+        files: >-
+          ^r/src/
+        exclude: >-
+          (
+          ?^r/src/arrowExports\.cpp$|
+          )
+  - repo: https://github.com/cpplint/cpplint
+    rev: 1.6.1
+    hooks:
+      - id: cpplint
+        name: R (C++) Lint
+        alias: r-cpp-lint
+        args:
+          - "--verbose=2"
+        types_or:
+          - c++
         files: >-
           ^r/src/
         exclude: >-

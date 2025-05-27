@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,15 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+class TestUUIDDataType < Test::Unit::TestCase
+  def setup
+    @data_type = Arrow::UUIDDataType.new
+  end
 
-source_dir=${1}/js
-build_dir=${2}/js
+  def test_id
+    assert_equal(Arrow::Type::EXTENSION, @data_type.id)
+  end
 
-pushd ${build_dir}
+  def test_name
+    assert_equal(["extension", "arrow.uuid"],
+                 [@data_type.name, @data_type.extension_name])
+  end
 
-yarn lint
-yarn test
-yarn test:bundle
-
-popd
+  def test_to_s
+    assert_equal("extension<arrow.uuid>", @data_type.to_s)
+  end
+end

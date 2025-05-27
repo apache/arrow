@@ -1,3 +1,5 @@
+#!/usr/bin/env Rscript
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,19 +17,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG arch=amd64
-ARG node=18
-FROM ${arch}/node:${node}
+lints <- lintr::lint_package("r")
+if (length(lints) == 0) {
+  q("no")
+}
 
-ENV NODE_NO_WARNINGS=1
-
-# install rsync for copying the generated documentation
-RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends rsync && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# TODO(kszucs):
-# 1. add the files required to install the dependencies to .dockerignore
-# 2. copy these files to their appropriate path
-# 3. download and compile the dependencies
+print(lints)
+q("no", status=1)

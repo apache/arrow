@@ -27,6 +27,7 @@
 
 #include <arrow/c/bridge.h>
 #include <arrow/extension/fixed_shape_tensor.h>
+#include <arrow/extension/uuid.h>
 
 G_BEGIN_DECLS
 
@@ -134,6 +135,8 @@ G_BEGIN_DECLS
  * #GArrowBinaryViewDataType is a class for the binary view data type.
  *
  * #GArrowFixedShapeTensorDataType is a class for the fixed shape tensor data type.
+ *
+ * #GArrowUUIDDataType is a class for UUID data type.
  */
 
 struct GArrowDataTypePrivate
@@ -2482,6 +2485,40 @@ garrow_fixed_shape_tensor_data_type_get_strides(GArrowFixedShapeTensorDataType *
   const auto &arrow_strides = arrow_data_type->strides();
   *length = arrow_strides.size();
   return arrow_strides.data();
+}
+
+G_DEFINE_TYPE(GArrowUUIDDataType, garrow_uuid_data_type, GARROW_TYPE_EXTENSION_DATA_TYPE)
+
+static void
+garrow_uuid_data_type_init(GArrowUUIDDataType *object)
+{
+}
+
+static void
+garrow_uuid_data_type_class_init(GArrowUUIDDataTypeClass *klass)
+{
+}
+
+/*
+ * garrow_uuid_data_type_new:
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable):
+ *   The newly created UUID data type on success, %NULL on error.
+ *
+ * Since: 21.0.0
+ */
+GArrowUUIDDataType *
+garrow_uuid_data_type_new(GError **error)
+{
+  auto arrow_data_type_result = arrow::extension::UuidType::Make();
+  if (garrow::check(error, arrow_data_type_result, "[uuid-data-type][new]")) {
+    auto arrow_data_type = *arrow_data_type_result;
+    return GARROW_UUID_DATA_TYPE(
+      g_object_new(GARROW_TYPE_UUID_DATA_TYPE, "data-type", &arrow_data_type, NULL));
+  } else {
+    return NULL;
+  }
 }
 G_END_DECLS
 

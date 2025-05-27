@@ -24,7 +24,6 @@ build_dir=${2}
 
 : ${ARROW_INTEGRATION_CPP:=ON}
 : ${ARROW_INTEGRATION_CSHARP:=ON}
-: ${ARROW_INTEGRATION_JS:=ON}
 
 . ${arrow_dir}/ci/scripts/util_log.sh
 
@@ -65,7 +64,8 @@ fi
 github_actions_group_end
 
 github_actions_group_begin "Integration: Build: JavaScript"
-if [ "${ARROW_INTEGRATION_JS}" == "ON" ]; then
-    ${arrow_dir}/ci/scripts/js_build.sh ${arrow_dir} ${build_dir}
+if [ "${ARCHERY_INTEGRATION_WITH_JS}" -gt "0" ]; then
+    "${arrow_dir}/js/ci/scripts/build.sh" "${arrow_dir}/js"
+    cp -a "${arrow_dir}/js" "${build_dir}/js"
 fi
 github_actions_group_end
