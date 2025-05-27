@@ -313,7 +313,6 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       return false;
     }
     {
-      // Because we are modifying possible_encoded_stats_ in a const method
       const std::lock_guard<std::mutex> guard(stats_mutex_);
       if (possible_encoded_stats_ == nullptr) {
         possible_encoded_stats_ =
