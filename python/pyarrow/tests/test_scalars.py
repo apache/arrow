@@ -42,6 +42,7 @@ import pyarrow.compute as pc
     (1, pa.uint32(), pa.UInt32Scalar),
     (1, pa.int64(), pa.Int64Scalar),
     (1, pa.uint64(), pa.UInt64Scalar),
+    (1.0, pa.float16(), pa.HalfFloatScalar),
     (1.0, None, pa.DoubleScalar),
     (1.0, pa.float32(), pa.FloatScalar),
     (decimal.Decimal("1.123"), None, pa.Decimal128Scalar),
