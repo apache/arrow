@@ -39,6 +39,7 @@ repos:
     rev: v2.12.0
     hooks:
       - id: hadolint-docker
+        alias: docker
         name: Docker Format
         # We can enable this after we fix all existing lint failures.
         # files: (/Dockerfile|\.dockerfile)$
@@ -53,7 +54,7 @@ repos:
     hooks:
       - id: clang-format
         name: C++ Format
-        alias: cpp-format
+        alias: cpp
         types_or:
           - c++
           # - json
@@ -73,6 +74,7 @@ repos:
     rev: 1.6.1
     hooks:
       - id: cpplint
+        alias: cpp
         name: C++ Lint
         args:
           - "--verbose=2"
@@ -93,8 +95,8 @@ repos:
     rev: v14.0.6
     hooks:
       - id: clang-format
+        alias: c-glib
         name: C/GLib Format
-        alias: c-glib-cpp-format
         files: >-
           ^c_glib/
   - repo: https://github.com/pre-commit/mirrors-clang-format
@@ -109,8 +111,8 @@ repos:
     rev: v2.3.2
     hooks:
       - id: autopep8
+        alias: python
         name: Python Format
-        alias: python-format
         args:
           - "--global-config"
           - "python/setup.cfg"
@@ -131,8 +133,8 @@ repos:
     rev: 6.1.0
     hooks:
       - id: flake8
+        alias: python
         name: Python Lint
-        alias: python-lint
         args:
           - "--config"
           - "python/setup.cfg"
@@ -146,8 +148,8 @@ repos:
     rev: v0.16.2
     hooks:
       - id: cython-lint
+        alias: python
         name: Python (Cython) Lint
-        alias: python-cython-lint
         args:
           - "--no-pycodestyle"
         files: >-
@@ -156,8 +158,8 @@ repos:
     rev: v14.0.6
     hooks:
       - id: clang-format
+        alias: python
         name: Python (C++) Format
-        alias: python-cpp-format
         files: >-
           ^python/pyarrow/src/
         exclude: >-
@@ -169,8 +171,8 @@ repos:
   - repo: local
     hooks:
       - id: lintr
+        alias: r
         name: R Lint
-        alias: r-lint
         language: r
         additional_dependencies:
           - cyclocomp
@@ -184,8 +186,8 @@ repos:
     rev: v14.0.6
     hooks:
       - id: clang-format
+        alias: r
         name: R (C++) Format
-        alias: r-cpp-format
         files: >-
           ^r/src/
         exclude: >-
@@ -196,8 +198,8 @@ repos:
     rev: 1.6.1
     hooks:
       - id: cpplint
+        alias: r
         name: R (C++) Lint
-        alias: r-cpp-lint
         args:
           - "--verbose=2"
         types_or:
@@ -213,7 +215,7 @@ repos:
     hooks:
       - id: rubocop
         name: Ruby Format
-        alias: ruby-format
+        alias: ruby
         args:
           - "--autocorrect"
         exclude: >-
@@ -224,6 +226,7 @@ repos:
     rev: v0.6.13
     hooks:
       - id: cmake-format
+        alias: cpp
         name: CMake Format
         files: >-
           (
@@ -244,6 +247,7 @@ repos:
     rev: v0.9.1
     hooks:
       - id: sphinx-lint
+        alias: docs
         files: ^docs/source
         exclude: ^docs/source/python/generated
         args: [
@@ -256,6 +260,7 @@ repos:
     rev: v0.10.0
     hooks:
       - id: shellcheck
+        alias: shell
         # TODO: Remove this when we fix all lint failures
         files: >-
           (
@@ -310,6 +315,7 @@ repos:
     rev: v3.11.0-1
     hooks:
       - id: shfmt
+        alias: shell
         args:
           # The default args is "--write --simplify" but we don't use
           # "--simplify". Because it's conflicted will ShellCheck.
@@ -327,4 +333,5 @@ repos:
     rev: v1.6.1
     hooks:
       - id: meson-fmt
+        alias: cpp
         args: ['--inplace']
