@@ -262,6 +262,38 @@ static inline AadMetadata FromThrift(format::AesGcmCtrV1 aesGcmCtrV1) {
                      aesGcmCtrV1.supply_aad_prefix};
 }
 
+static inline EncodedStatistics FromThrift(const format::Statistics& stats) {
+  EncodedStatistics out;
+
+  // Use the new V2 min-max statistics over the former one if it is filled
+  if (stats.__isset.max_value || stats.__isset.min_value) {
+    // TODO: check if the column_order is TYPE_DEFINED_ORDER.
+    if (stats.__isset.max_value) {
+      out.set_max(stats.max_value);
+    }
+    if (stats.__isset.min_value) {
+      out.set_min(stats.min_value);
+    }
+  } else if (stats.__isset.max || stats.__isset.min) {
+    // TODO: check created_by to see if it is corrupted for some types.
+    // TODO: check if the sort_order is SIGNED.
+    if (stats.__isset.max) {
+      out.set_max(stats.max);
+    }
+    if (stats.__isset.min) {
+      out.set_min(stats.min);
+    }
+  }
+  if (stats.__isset.null_count) {
+    out.set_null_count(stats.null_count);
+  }
+  if (stats.__isset.distinct_count) {
+    out.set_distinct_count(stats.distinct_count);
+  }
+
+  return out;
+}
+
 static inline geospatial::EncodedGeoStatistics FromThrift(
     const format::GeospatialStatistics& geo_stats) {
   geospatial::EncodedGeoStatistics out;

@@ -156,7 +156,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
     // Print column metadata
     for (auto i : selected_columns) {
       auto column_chunk = group_metadata->ColumnChunk(i);
-      std::shared_ptr<Statistics> stats = column_chunk->statistics();
+      std::shared_ptr<EncodedStatistics> stats = column_chunk->encoded_statistics();
 
       const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
       stream << "Column " << i << std::endl;
@@ -165,9 +165,9 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
       }
       stream << "  Values: " << column_chunk->num_values();
       if (column_chunk->is_stats_set()) {
-        std::string min = stats->EncodeMin(), max = stats->EncodeMax();
-        stream << ", Null Values: " << stats->null_count()
-               << ", Distinct Values: " << stats->distinct_count() << std::endl
+        std::string min = stats->min(), max = stats->max();
+        stream << ", Null Values: " << stats->null_count
+               << ", Distinct Values: " << stats->distinct_count << std::endl
                << "  Max: " << FormatStatValue(descr->physical_type(), max)
                << ", Min: " << FormatStatValue(descr->physical_type(), min);
       } else {
