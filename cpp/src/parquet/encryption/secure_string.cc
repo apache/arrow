@@ -58,7 +58,12 @@ SecureString& SecureString::operator=(const SecureString& secret) {
 }
 SecureString& SecureString::operator=(std::string&& secret) noexcept {
   Dispose();
+  // if secret is local string (length <= 15 characters), copies local buffer, resets to 0
+  // - requires secure cleaning the local buffer
+  // if secret is longer, moves the pointer to secret_, resets to 0 and uses local buffer
+  // - does not require cleaning anything
   secret_ = std::move(secret);
+  // cleans only the local buffer of secret as this always is a local string by now
   SecureClear(&secret);
   return *this;
 }
