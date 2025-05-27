@@ -209,20 +209,26 @@ def test_timestamp_scalar():
 def test_bool():
     false = pa.scalar(False)
     true = pa.scalar(True)
+    null = pa.scalar(None, type=pa.bool_())
 
     assert isinstance(false, pa.BooleanScalar)
     assert isinstance(true, pa.BooleanScalar)
+    assert isinstance(null, pa.BooleanScalar)
 
     assert repr(true) == "<pyarrow.BooleanScalar: True>"
     assert str(true) == "True"
     assert repr(false) == "<pyarrow.BooleanScalar: False>"
     assert str(false) == "False"
+    assert repr(null) == "<pyarrow.BooleanScalar: None>"
+    assert str(null) == "None"
 
     assert true.as_py() is True
     assert false.as_py() is False
+    assert null.as_py() is None
 
     assert bool(true) is True
     assert bool(false) is False
+    assert bool(null) is False
 
 
 def test_numerics():
