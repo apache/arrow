@@ -63,8 +63,8 @@ need to install the `Visual C++ Redistributable for Visual Studio 2015
 .. warning::
    On Linux, you will need pip >= 19.0 to detect the prebuilt binary packages.
 
-You may encounter problems writing datetime data to a file if you install
-pyarrow with pip.  One process to fix this problem:
+You may encounter problems writing datetime data to an ORC file if you install
+pyarrow with pip. One possible solution to fix this problem:
 
    1. Install tzdata with ``pip install tzdata``
 
