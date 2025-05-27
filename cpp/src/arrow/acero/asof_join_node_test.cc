@@ -1692,7 +1692,9 @@ TEST(AsofJoinTest, PauseProducingAsofJoinSource) {
   batch_producer_left.producer().Push(IterationEnd<std::optional<ExecBatch>>());
   batch_producer_right.producer().Push(IterationEnd<std::optional<ExecBatch>>());
 
-  plan->StopProducing();
+  //finish gracefully
+  ASSERT_TRUE(batch_producer_left.producer().Close());
+  ASSERT_TRUE(batch_producer_right.producer().Close());
 
   ASSERT_TRUE(fut.Wait(kDefaultAssertFinishesWaitSeconds));
   if (!fut.status().ok()) {
