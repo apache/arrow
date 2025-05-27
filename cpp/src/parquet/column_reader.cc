@@ -2071,7 +2071,7 @@ class ByteArrayChunkedRecordReader final : public TypedRecordReader<ByteArrayTyp
  public:
   ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
                                ::arrow::MemoryPool* pool, bool read_dense_for_nullable,
-                               std::shared_ptr<::arrow::DataType> arrow_type)
+                               const std::shared_ptr<::arrow::DataType>& arrow_type)
       : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool,
                                          read_dense_for_nullable) {
     ARROW_DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
@@ -2230,13 +2230,13 @@ void TypedRecordReader<FLBAType>::DebugPrintState() {}
 std::shared_ptr<RecordReader> MakeByteArrayRecordReader(
     const ColumnDescriptor* descr, LevelInfo leaf_info, ::arrow::MemoryPool* pool,
     bool read_dictionary, bool read_dense_for_nullable,
-    std::shared_ptr<::arrow::DataType> arrow_type) {
+    const std::shared_ptr<::arrow::DataType>& arrow_type) {
   if (read_dictionary) {
     return std::make_shared<ByteArrayDictionaryRecordReader>(descr, leaf_info, pool,
                                                              read_dense_for_nullable);
   } else {
     return std::make_shared<ByteArrayChunkedRecordReader>(
-        descr, leaf_info, pool, read_dense_for_nullable, std::move(arrow_type));
+        descr, leaf_info, pool, read_dense_for_nullable, arrow_type);
   }
 }
 
@@ -2245,7 +2245,7 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(
 std::shared_ptr<RecordReader> RecordReader::Make(
     const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool,
     bool read_dictionary, bool read_dense_for_nullable,
-    std::shared_ptr<::arrow::DataType> arrow_type) {
+    const std::shared_ptr<::arrow::DataType>& arrow_type) {
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
       return std::make_shared<TypedRecordReader<BooleanType>>(descr, leaf_info, pool,
@@ -2267,7 +2267,7 @@ std::shared_ptr<RecordReader> RecordReader::Make(
                                                              read_dense_for_nullable);
     case Type::BYTE_ARRAY: {
       return MakeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
-                                       read_dense_for_nullable, std::move(arrow_type));
+                                       read_dense_for_nullable, arrow_type);
     }
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_shared<FLBARecordReader>(descr, leaf_info, pool,

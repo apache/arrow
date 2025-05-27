@@ -1334,7 +1334,8 @@ void DeltaLengthByteArrayEncoder::Put(const ::arrow::Array& values) {
   } else if (::arrow::is_binary_view_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::BinaryViewArray&>(values));
   } else {
-    throw ParquetException("Only binary-like data supported");
+    throw ParquetException("Only binary-like data supported, got " +
+                           values.type()->ToString());
   }
 }
 
