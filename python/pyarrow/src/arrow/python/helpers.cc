@@ -16,6 +16,7 @@
 // under the License.
 
 // helpers.h includes a NumPy header, so we include this first
+#include "arrow/python/numpy_init.h"
 #include "arrow/python/numpy_interop.h"
 
 #include "arrow/python/helpers.h"
@@ -31,6 +32,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -73,7 +75,7 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
   }
 }
 
-PyObject* PyHalf_FromHalf(npy_half value) {
+PyObject* PyHalf_FromHalf(uint16_t value) {
   PyObject* result = PyArrayScalar_New(Half);
   if (result != NULL) {
     PyArrayScalar_ASSIGN(result, Half, value);
@@ -81,14 +83,16 @@ PyObject* PyHalf_FromHalf(npy_half value) {
   return result;
 }
 
-Status PyFloat_AsHalf(PyObject* obj, npy_half* out) {
-  if (PyArray_IsScalar(obj, Half)) {
+Status PyFloat_AsHalf(PyObject* obj, uint16_t* out) {
+  if (PyFloat_Check(obj)) {
+    // Use Arrow's Float16 implementation instead of NumPy
+    float float_val = static_cast<float>(PyFloat_AsDouble(obj));
+    arrow::util::Float16 half_val = arrow::util::Float16::FromFloat(float_val);
+    *out = half_val.bits();
+  } else if (has_numpy() && PyArray_IsScalar(obj, Half)) {
     *out = PyArrayScalar_VAL(obj, Half);
-    return Status::OK();
-  } else {
-    // XXX: cannot use npy_double_to_half() without linking with Numpy
-    return Status::TypeError("Expected np.float16 instance");
   }
+  return Status::OK();
 }
 
 namespace internal {

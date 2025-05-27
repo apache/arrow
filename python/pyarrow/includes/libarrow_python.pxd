@@ -55,7 +55,7 @@ cdef extern from "arrow/python/arrow_to_pandas.h" namespace "arrow::py::MapConve
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)
 
-    object PyHalf_FromHalf(npy_half value)
+    object PyHalf_FromHalf(uint16_t value)
 
     cdef cppclass PyConversionOptions:
         PyConversionOptions()
