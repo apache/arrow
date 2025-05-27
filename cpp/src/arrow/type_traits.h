@@ -1523,7 +1523,7 @@ constexpr bool is_union(Type::type type_id) {
 ///
 /// For Type::FIXED_SIZE_BINARY, you will instead need to inspect the concrete
 /// DataType to get this information.
-static inline int bit_width(Type::type type_id) {
+constexpr int bit_width(Type::type type_id) {
   switch (type_id) {
     case Type::BOOL:
       return 1;
@@ -1579,7 +1579,7 @@ static inline int bit_width(Type::type type_id) {
 ///
 /// \param[in] type_id the type-id to check
 /// \return the offsets bit width, or 0 if the type does not have offsets
-static inline int offset_bit_width(Type::type type_id) {
+constexpr int offset_bit_width(Type::type type_id) {
   switch (type_id) {
     case Type::STRING:
     case Type::BINARY:
@@ -1628,7 +1628,7 @@ int RequiredValueAlignmentForBuffer(Type::type type_id, int buffer_index);
 /// \return whether type is an integer type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_integer(const DataType& type) { return is_integer(type.id()); }
+constexpr bool is_integer(const DataType& type) { return is_integer(type.id()); }
 
 /// \brief Check for a signed integer type
 ///
@@ -1636,7 +1636,7 @@ static inline bool is_integer(const DataType& type) { return is_integer(type.id(
 /// \return whether type is a signed integer type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_signed_integer(const DataType& type) {
+constexpr bool is_signed_integer(const DataType& type) {
   return is_signed_integer(type.id());
 }
 
@@ -1646,7 +1646,7 @@ static inline bool is_signed_integer(const DataType& type) {
 /// \return whether type is an unsigned integer type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_unsigned_integer(const DataType& type) {
+constexpr bool is_unsigned_integer(const DataType& type) {
   return is_unsigned_integer(type.id());
 }
 
@@ -1656,7 +1656,7 @@ static inline bool is_unsigned_integer(const DataType& type) {
 /// \return whether type is a floating point type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_floating(const DataType& type) { return is_floating(type.id()); }
+constexpr bool is_floating(const DataType& type) { return is_floating(type.id()); }
 
 /// \brief Check for a numeric type (number except boolean type)
 ///
@@ -1664,7 +1664,7 @@ static inline bool is_floating(const DataType& type) { return is_floating(type.i
 /// \return whether type is a numeric type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_numeric(const DataType& type) { return is_numeric(type.id()); }
+constexpr bool is_numeric(const DataType& type) { return is_numeric(type.id()); }
 
 /// \brief Check for a decimal type
 ///
@@ -1672,7 +1672,7 @@ static inline bool is_numeric(const DataType& type) { return is_numeric(type.id(
 /// \return whether type is a decimal type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_decimal(const DataType& type) { return is_decimal(type.id()); }
+constexpr bool is_decimal(const DataType& type) { return is_decimal(type.id()); }
 
 /// \brief Check for a primitive type
 ///
@@ -1680,7 +1680,7 @@ static inline bool is_decimal(const DataType& type) { return is_decimal(type.id(
 /// \return whether type is a primitive type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_primitive(const DataType& type) { return is_primitive(type.id()); }
+constexpr bool is_primitive(const DataType& type) { return is_primitive(type.id()); }
 
 /// \brief Check for a binary or string-like type (except fixed-size binary)
 ///
@@ -1688,7 +1688,7 @@ static inline bool is_primitive(const DataType& type) { return is_primitive(type
 /// \return whether type is a binary or string-like type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_base_binary_like(const DataType& type) {
+constexpr bool is_base_binary_like(const DataType& type) {
   return is_base_binary_like(type.id());
 }
 
@@ -1698,9 +1698,7 @@ static inline bool is_base_binary_like(const DataType& type) {
 /// \return whether type is a binary-like type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_binary_like(const DataType& type) {
-  return is_binary_like(type.id());
-}
+constexpr bool is_binary_like(const DataType& type) { return is_binary_like(type.id()); }
 
 /// \brief Check for a large-binary-like type
 ///
@@ -1708,7 +1706,7 @@ static inline bool is_binary_like(const DataType& type) {
 /// \return whether type is a large-binary-like type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_large_binary_like(const DataType& type) {
+constexpr bool is_large_binary_like(const DataType& type) {
   return is_large_binary_like(type.id());
 }
 
@@ -1718,7 +1716,7 @@ static inline bool is_large_binary_like(const DataType& type) {
 /// \return whether type is a binary type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_binary(const DataType& type) { return is_binary(type.id()); }
+constexpr bool is_binary(const DataType& type) { return is_binary(type.id()); }
 
 /// \brief Check for a string type
 ///
@@ -1726,7 +1724,7 @@ static inline bool is_binary(const DataType& type) { return is_binary(type.id())
 /// \return whether type is a string type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_string(const DataType& type) { return is_string(type.id()); }
+constexpr bool is_string(const DataType& type) { return is_string(type.id()); }
 
 /// \brief Check for a binary-view-like type
 ///
@@ -1734,7 +1732,7 @@ static inline bool is_string(const DataType& type) { return is_string(type.id())
 /// \return whether type is a binary-view-like type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_binary_view_like(const DataType& type) {
+constexpr bool is_binary_view_like(const DataType& type) {
   return is_binary_view_like(type.id());
 }
 
@@ -1744,7 +1742,7 @@ static inline bool is_binary_view_like(const DataType& type) {
 /// \return whether type is a temporal type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_temporal(const DataType& type) { return is_temporal(type.id()); }
+constexpr bool is_temporal(const DataType& type) { return is_temporal(type.id()); }
 
 /// \brief Check for an interval type
 ///
@@ -1752,7 +1750,7 @@ static inline bool is_temporal(const DataType& type) { return is_temporal(type.i
 /// \return whether type is a interval type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_interval(const DataType& type) { return is_interval(type.id()); }
+constexpr bool is_interval(const DataType& type) { return is_interval(type.id()); }
 
 /// \brief Check for a dictionary type
 ///
@@ -1760,9 +1758,7 @@ static inline bool is_interval(const DataType& type) { return is_interval(type.i
 /// \return whether type is a dictionary type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_dictionary(const DataType& type) {
-  return is_dictionary(type.id());
-}
+constexpr bool is_dictionary(const DataType& type) { return is_dictionary(type.id()); }
 
 /// \brief Check for a fixed-size-binary type
 ///
@@ -1770,7 +1766,7 @@ static inline bool is_dictionary(const DataType& type) {
 /// \return whether type is a fixed-size-binary type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_fixed_size_binary(const DataType& type) {
+constexpr bool is_fixed_size_binary(const DataType& type) {
   return is_fixed_size_binary(type.id());
 }
 
@@ -1780,9 +1776,7 @@ static inline bool is_fixed_size_binary(const DataType& type) {
 /// \return whether type is a fixed-width type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_fixed_width(const DataType& type) {
-  return is_fixed_width(type.id());
-}
+constexpr bool is_fixed_width(const DataType& type) { return is_fixed_width(type.id()); }
 
 /// \brief Check for a variable-length list type
 ///
@@ -1790,7 +1784,7 @@ static inline bool is_fixed_width(const DataType& type) {
 /// \return whether type is a variable-length list type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_var_length_list(const DataType& type) {
+constexpr bool is_var_length_list(const DataType& type) {
   return is_var_length_list(type.id());
 }
 
@@ -1800,7 +1794,7 @@ static inline bool is_var_length_list(const DataType& type) {
 /// \return whether type is a list-like type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_list_like(const DataType& type) { return is_list_like(type.id()); }
+constexpr bool is_list_like(const DataType& type) { return is_list_like(type.id()); }
 
 /// \brief Check for a var-length list or list-view like type
 ///
@@ -1808,7 +1802,7 @@ static inline bool is_list_like(const DataType& type) { return is_list_like(type
 /// \return whether type is a var-length list or list-view like type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_var_length_list_like(const DataType& type) {
+constexpr bool is_var_length_list_like(const DataType& type) {
   return is_var_length_list_like(type.id());
 }
 
@@ -1818,7 +1812,7 @@ static inline bool is_var_length_list_like(const DataType& type) {
 /// \return whether type is a list-view type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_list_view(const DataType& type) { return is_list_view(type.id()); }
+constexpr bool is_list_view(const DataType& type) { return is_list_view(type.id()); }
 
 /// \brief Check for a nested type
 ///
@@ -1826,7 +1820,7 @@ static inline bool is_list_view(const DataType& type) { return is_list_view(type
 /// \return whether type is a nested type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_nested(const DataType& type) { return is_nested(type.id()); }
+constexpr bool is_nested(const DataType& type) { return is_nested(type.id()); }
 
 /// \brief Check for a union type
 ///
@@ -1834,7 +1828,7 @@ static inline bool is_nested(const DataType& type) { return is_nested(type.id())
 /// \return whether type is a union type
 ///
 /// Convenience for checking using the type's id
-static inline bool is_union(const DataType& type) { return is_union(type.id()); }
+constexpr bool is_union(const DataType& type) { return is_union(type.id()); }
 
 /// @}
 
