@@ -24,9 +24,13 @@ import { builderThroughNodeStream } from './io/node/builder.js';
 import { recordBatchReaderThroughNodeStream } from './io/node/reader.js';
 import { recordBatchWriterThroughNodeStream } from './io/node/writer.js';
 
-streamAdapters.toNodeStream = toNodeStream;
-Builder['throughNode'] = builderThroughNodeStream;
-RecordBatchReader['throughNode'] = recordBatchReaderThroughNodeStream;
-RecordBatchWriter['throughNode'] = recordBatchWriterThroughNodeStream;
+// Override in IIFE so that bundlers don't tree-shake out this logic,
+// but also so we're still compliant with `"sideEffects": false`
+(() => {
+    streamAdapters.toNodeStream = toNodeStream;
+    Builder['throughNode'] = builderThroughNodeStream;
+    RecordBatchReader['throughNode'] = recordBatchReaderThroughNodeStream;
+    RecordBatchWriter['throughNode'] = recordBatchWriterThroughNodeStream;
+})();
 
 export * from './Arrow.dom.js';
