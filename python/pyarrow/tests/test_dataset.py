@@ -845,6 +845,7 @@ def test_parquet_read_options():
     opts1 = ds.ParquetReadOptions()
     opts2 = ds.ParquetReadOptions(dictionary_columns=['a', 'b'])
     opts3 = ds.ParquetReadOptions(coerce_int96_timestamp_unit="ms")
+    opts4 = ds.ParquetReadOptions(binary_type=pa.binary_view())
 
     assert opts1.dictionary_columns == set()
 
@@ -853,9 +854,20 @@ def test_parquet_read_options():
     assert opts1.coerce_int96_timestamp_unit == "ns"
     assert opts3.coerce_int96_timestamp_unit == "ms"
 
+    assert opts1.binary_type == pa.binary()
+    assert opts4.binary_type == pa.binary_view()
+
     assert opts1 == opts1
     assert opts1 != opts2
     assert opts1 != opts3
+    assert opts1 != opts4
+
+    opts4.binary_type = None
+    assert opts4.binary_type == pa.binary()
+    assert opts1 == opts4
+    opts4.binary_type = pa.large_binary()
+    assert opts4.binary_type == pa.large_binary()
+    assert opts1 != opts4
 
 
 @pytest.mark.parquet
@@ -863,11 +875,14 @@ def test_parquet_file_format_read_options():
     pff1 = ds.ParquetFileFormat()
     pff2 = ds.ParquetFileFormat(dictionary_columns={'a'})
     pff3 = ds.ParquetFileFormat(coerce_int96_timestamp_unit="s")
+    pff4 = ds.ParquetFileFormat(binary_type=pa.binary_view())
 
     assert pff1.read_options == ds.ParquetReadOptions()
     assert pff2.read_options == ds.ParquetReadOptions(dictionary_columns=['a'])
     assert pff3.read_options == ds.ParquetReadOptions(
         coerce_int96_timestamp_unit="s")
+    assert pff4.read_options == ds.ParquetReadOptions(
+        binary_type=pa.binary_view())
 
 
 @pytest.mark.parquet

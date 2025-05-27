@@ -98,6 +98,10 @@
                           << _st.ToString();                            \
   } while (false)
 
+#define EXPECT_OK ARROW_EXPECT_OK
+
+#define EXPECT_OK_NO_THROW(expr) EXPECT_NO_THROW(EXPECT_OK(expr))
+
 #define ASSERT_NOT_OK(expr)                                                         \
   for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr)); _st.ok();) \
   FAIL() << "'" ARROW_STRINGIFY(expr) "' did not failed" << _st.ToString()

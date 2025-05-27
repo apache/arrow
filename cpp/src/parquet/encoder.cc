@@ -24,6 +24,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -66,6 +67,21 @@ namespace {
 // The Parquet spec isn't very clear whether ByteArray lengths are signed or
 // unsigned, but the Java implementation uses signed ints.
 constexpr size_t kMaxByteArraySize = std::numeric_limits<int32_t>::max();
+
+// Get the data size of a Array binary-like array
+template <typename ArrayType>
+int64_t GetBinaryDataSize(const ArrayType& array) {
+  return array.value_offset(array.length()) - array.value_offset(0);
+}
+
+template <>
+int64_t GetBinaryDataSize(const ::arrow::BinaryViewArray& array) {
+  int64_t total_size = 0;
+  ::arrow::VisitArraySpanInline<::arrow::BinaryViewType>(
+      *array.data(),
+      [&](std::string_view v) { total_size += static_cast<int64_t>(v.size()); }, [] {});
+  return total_size;
+}
 
 class EncoderImpl : virtual public Encoder {
  public:
@@ -158,8 +174,7 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
  protected:
   template <typename ArrayType>
   void PutBinaryArray(const ArrayType& array) {
-    const int64_t total_bytes =
-        array.value_offset(array.length()) - array.value_offset(0);
+    const int64_t total_bytes = GetBinaryDataSize(array);
     PARQUET_THROW_NOT_OK(sink_.Reserve(total_bytes + array.length() * sizeof(uint32_t)));
 
     PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
@@ -249,21 +264,24 @@ void PlainEncoder<DType>::Put(const ::arrow::Array& values) {
   ParquetException::NYI("direct put of " + values.type()->ToString());
 }
 
-void AssertBaseBinary(const ::arrow::Array& values) {
-  if (!::arrow::is_base_binary_like(values.type_id())) {
-    throw ParquetException("Only BaseBinaryArray and subclasses supported");
+void AssertVarLengthBinary(const ::arrow::Array& values) {
+  if (!::arrow::is_base_binary_like(values.type_id()) &&
+      !::arrow::is_binary_view_like(values.type_id())) {
+    throw ParquetException("Only binary-like data supported");
   }
 }
 
 template <>
 inline void PlainEncoder<ByteArrayType>::Put(const ::arrow::Array& values) {
-  AssertBaseBinary(values);
+  AssertVarLengthBinary(values);
 
   if (::arrow::is_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
-  } else {
-    DCHECK(::arrow::is_large_binary_like(values.type_id()));
+  } else if (::arrow::is_large_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
+  } else {
+    DCHECK(::arrow::is_binary_view_like(values.type_id()));
+    PutBinaryArray(checked_cast<const ::arrow::BinaryViewArray&>(values));
   }
 }
 
@@ -752,12 +770,14 @@ void DictEncoderImpl<FLBAType>::Put(const ::arrow::Array& values) {
 
 template <>
 void DictEncoderImpl<ByteArrayType>::Put(const ::arrow::Array& values) {
-  AssertBaseBinary(values);
+  AssertVarLengthBinary(values);
   if (::arrow::is_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
-  } else {
-    DCHECK(::arrow::is_large_binary_like(values.type_id()));
+  } else if (::arrow::is_large_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
+  } else {
+    DCHECK(::arrow::is_binary_view_like(values.type_id()));
+    PutBinaryArray(checked_cast<const ::arrow::BinaryViewArray&>(values));
   }
 }
 
@@ -803,14 +823,16 @@ void DictEncoderImpl<FLBAType>::PutDictionary(const ::arrow::Array& values) {
 
 template <>
 void DictEncoderImpl<ByteArrayType>::PutDictionary(const ::arrow::Array& values) {
-  AssertBaseBinary(values);
+  AssertVarLengthBinary(values);
   AssertCanPutDictionary(this, values);
 
   if (::arrow::is_binary_like(values.type_id())) {
     PutBinaryDictionaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
-  } else {
-    DCHECK(::arrow::is_large_binary_like(values.type_id()));
+  } else if (::arrow::is_large_binary_like(values.type_id())) {
     PutBinaryDictionaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
+  } else {
+    DCHECK(::arrow::is_binary_view_like(values.type_id()));
+    PutBinaryDictionaryArray(checked_cast<const ::arrow::BinaryViewArray&>(values));
   }
 }
 
@@ -1304,11 +1326,16 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
 };
 
 void DeltaLengthByteArrayEncoder::Put(const ::arrow::Array& values) {
-  AssertBaseBinary(values);
+  AssertVarLengthBinary(values);
   if (::arrow::is_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
-  } else {
+  } else if (::arrow::is_large_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
+  } else if (::arrow::is_binary_view_like(values.type_id())) {
+    PutBinaryArray(checked_cast<const ::arrow::BinaryViewArray&>(values));
+  } else {
+    throw ParquetException("Only binary-like data supported, got " +
+                           values.type()->ToString());
   }
 }
 
@@ -1575,10 +1602,12 @@ void DeltaByteArrayEncoder<DType>::Put(const ::arrow::Array& values) {
     PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
   } else if (::arrow::is_large_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
+  } else if (::arrow::is_binary_view_like(values.type_id())) {
+    PutBinaryArray(checked_cast<const ::arrow::BinaryViewArray&>(values));
   } else if (::arrow::is_fixed_size_binary(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::FixedSizeBinaryArray&>(values));
   } else {
-    throw ParquetException("Only BaseBinaryArray and subclasses supported");
+    throw ParquetException("Only binary-like data supported");
   }
 }
 

@@ -883,6 +883,8 @@ Status TransferColumnData(RecordReader* reader,
     case ::arrow::Type::FIXED_SIZE_BINARY:
     case ::arrow::Type::BINARY:
     case ::arrow::Type::STRING:
+    case ::arrow::Type::BINARY_VIEW:
+    case ::arrow::Type::STRING_VIEW:
     case ::arrow::Type::LARGE_BINARY:
     case ::arrow::Type::LARGE_STRING: {
       RETURN_NOT_OK(TransferBinary(reader, pool, value_field, &chunked_result));
