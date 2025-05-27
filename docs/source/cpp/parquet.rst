@@ -482,6 +482,14 @@ physical type.
 +-------------------+-----------------------------+----------------------------+---------+
 | FLOAT16           | FIXED_LENGTH_BYTE_ARRAY     | HalfFloat                  |         |
 +-------------------+-----------------------------+----------------------------+---------+
+| UUID              | FIXED_LENGTH_BYTE_ARRAY     | Extension (arrow.uuid)     |         |
++-------------------+-----------------------------+----------------------------+---------+
+| JSON              | BYTE_ARRAY                  | Extension (arrow.json)     |         |
++-------------------+-----------------------------+----------------------------+---------+
+| GEOMETRY          | BYTE_ARRAY                  | Extension (geoarrow.wkb)   | \(6)    |
++-------------------+-----------------------------+----------------------------+---------+
+| GEOGRAPHY         | BYTE_ARRAY                  | Extension (geoarrow.wkb)   | \(6)    |
++-------------------+-----------------------------+----------------------------+---------+
 
 * \(1) On the write side, the Parquet physical type INT32 is generated.
 
@@ -496,9 +504,11 @@ physical type.
   in contradiction with the
   `Parquet specification <https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#maps>`__.
 
-*Unsupported logical types:* JSON, BSON, UUID.  If such a type is encountered
+* \(6) Requires that the geoarrow.wkb extension type is registered.
+
+*Unsupported logical types:* BSON.  If such a type is encountered
 when reading a Parquet file, the default physical type mapping is used (for
-example, a Parquet JSON column may be read as Arrow Binary or FixedSizeBinary).
+example, a Parquet BSON column may be read as Arrow Binary or FixedSizeBinary).
 
 Converted types
 ~~~~~~~~~~~~~~~
