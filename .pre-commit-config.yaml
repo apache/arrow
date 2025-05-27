@@ -166,6 +166,25 @@ repos:
           ?.pb\.(cc|h)$|
           ?^cpp/src/generated/|
           )
+  - repo: https://github.com/numpy/numpydoc
+    rev: v1.8.0
+    hooks:
+      - id: numpydoc-validation
+        name: Python (NumPy doc) Lint
+        alias: python-doc-lint
+        args:
+          - "--config=python"
+        files: >-
+          ^python/pyarrow/
+        exclude: >-
+          (
+          ?^python/pyarrow/interchange/from_dataframe\.py|
+          ?^python/pyarrow/jvm\.py|
+          ?^python/pyarrow/pandas_compat\.py|
+          ?^python/pyarrow/tests/|
+          ?^python/pyarrow/util\.py|
+          ?^python/pyarrow/vendored/|
+          )
   - repo: local
     hooks:
       - id: lintr
