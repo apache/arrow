@@ -59,9 +59,9 @@ class PrettyPrinter {
       : options_(options), indent_(options.indent), sink_(sink) {}
 
   inline void Write(std::string_view data);
-  inline void Write(std::string_view data, const int max_chars);
+  inline void Write(std::string_view data, uint64_t max_chars);
   inline void WriteIndented(std::string_view data);
-  inline void WriteIndented(std::string_view data, const int max_chars);
+  inline void WriteIndented(std::string_view data, uint64_t max_chars);
   inline void Newline();
   inline void Indent();
   inline void IndentAfterNewline();
@@ -110,15 +110,10 @@ void PrettyPrinter::Write(std::string_view data) {
   Write(data, options_.element_size_limit);
 }
 
-void PrettyPrinter::Write(std::string_view data, const int max_chars) {
-  int curr_max = max_chars;
-  for (auto c : data) {
-    if (curr_max-- > 0) {
-      sink_->put(c);
-    } else {
-      (*sink_) << " (... " << data.size() - max_chars << " chars omitted)";
-      return;
-    }
+void PrettyPrinter::Write(std::string_view data, const uint64_t max_chars) {
+  (*sink_) << data.substr(0, max_chars);
+  if (data.size() > max_chars) {
+    (*sink_) << " (... " << data.size() - max_chars << " chars omitted)";
   }
 }
 
@@ -127,7 +122,7 @@ void PrettyPrinter::WriteIndented(std::string_view data) {
   Write(data, options_.element_size_limit);
 }
 
-void PrettyPrinter::WriteIndented(std::string_view data, const int max_chars) {
+void PrettyPrinter::WriteIndented(std::string_view data, const uint64_t max_chars) {
   Indent();
   Write(data, max_chars);
 }
