@@ -110,3 +110,27 @@ target environment.**
          :expand:
 
          To Cookbook
+
+.. _toc.columnar:
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   format/index
+
+.. _toc.development:
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   developers/index
+
+.. _toc.implementations:
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   implementations
