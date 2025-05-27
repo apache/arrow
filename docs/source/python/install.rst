@@ -80,7 +80,7 @@ commands:
    path\to\.venv\Lib\site-packages\tzdata\__init__.py
 
 You only need to set the ``TZDIR`` environmental variable to
-``path\to\.venv\Lib\site-packages\tzdata\`` in the above example
+``path\to\.venv\Lib\site-packages\tzdata\`` in the above example.
 
 Installing nightly packages or from source
 ------------------------------------------
