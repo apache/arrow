@@ -178,11 +178,11 @@ repos:
           ^python/pyarrow/
         exclude: >-
           (
-          ?^python/pyarrow/interchange/from_dataframe\.py|
-          ?^python/pyarrow/jvm\.py|
-          ?^python/pyarrow/pandas_compat\.py|
+          ?^python/pyarrow/interchange/from_dataframe\.py$|
+          ?^python/pyarrow/jvm\.py$|
+          ?^python/pyarrow/pandas_compat\.py$|
           ?^python/pyarrow/tests/|
-          ?^python/pyarrow/util\.py|
+          ?^python/pyarrow/util\.py$|
           ?^python/pyarrow/vendored/|
           )
   - repo: local
