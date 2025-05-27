@@ -68,7 +68,7 @@ pyarrow with pip.  One process to fix this problem:
 
    1. Install tzdata with ``pip install tzdata``
 
-   2. Set the environmental variable ``TZDIR`` = ``path/to/tzdata``
+   2. Set the environmental variable ``TZDIR`` = ``path\to\.venv\Lib\site-packages\tzdata\``
 
 You can find where ``tzdata`` is installed with the following python
 commands:
