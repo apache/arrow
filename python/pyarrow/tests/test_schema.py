@@ -321,7 +321,7 @@ bar: string
   -- field metadata --
   key3: 'value3'
 -- schema metadata --
-lorem: '{lorem[:100]} (... 612 chars omitted)'"""
+lorem: '{lorem[:100]} (... {len(lorem) - 100} chars omitted)'"""
 
     assert my_schema.to_string(truncate_metadata=False,
                                show_field_metadata=False) == f"""\
