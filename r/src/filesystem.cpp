@@ -333,7 +333,7 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
   s3_opts.allow_bucket_deletion = allow_bucket_deletion;
 
   s3_opts.check_directory_existence_before_creation =
-    check_directory_existence_before_creation;
+      check_directory_existence_before_creation;
 
   s3_opts.request_timeout = request_timeout;
   s3_opts.connect_timeout = connect_timeout;
