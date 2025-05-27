@@ -71,7 +71,7 @@ pyarrow with pip.  One process to fix this problem:
    2. Set the environmental variable ``TZDIR`` = ``path/to/tzdata``
 
 You can find where ``tzdata`` is installed with the following python
-commands
+commands:
 
 .. code-block:: python
 
