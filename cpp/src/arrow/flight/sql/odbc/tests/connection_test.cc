@@ -400,8 +400,7 @@ TEST(SQLDriverConnect, TestSQLDriverConnectInvalidUid) {
 
   EXPECT_TRUE(ret == SQL_ERROR);
 
-  // TODO uncomment this check when SQLGetDiagRec is implemented
-  // VerifyOdbcErrorState(SQL_HANDLE_DBC, conn, std::string("28000"));
+  VerifyOdbcErrorState(SQL_HANDLE_DBC, conn, std::string("28000"));
 
   // TODO: Check that outstr remains empty after SqlWcharToString
   // is fixed to handle empty `outstr`
@@ -621,8 +620,7 @@ TEST(SQLConnect, TestSQLConnectInvalidUid) {
   // so connection still fails despite passing valid uid in SQLConnect call
   EXPECT_TRUE(ret == SQL_ERROR);
 
-  // TODO uncomment this check when SQLGetDiagRec is implemented
-  // VerifyOdbcErrorState(SQL_HANDLE_DBC, conn, std::string("28000"));
+  VerifyOdbcErrorState(SQL_HANDLE_DBC, conn, std::string("28000"));
 
   // Remove DSN
   EXPECT_TRUE(UnregisterDsn(dsn));
@@ -747,6 +745,82 @@ TEST(SQLDisconnect, TestSQLDisconnectWithoutConnection) {
 
   EXPECT_TRUE(ret == SQL_SUCCESS);
 }
+
+TEST(SQLGetDiagRec, TestSQLGetDiagRecForConnectFailure) {
+  //  ODBC Environment
+  SQLHENV env;
+  SQLHDBC conn;
+
+  // Allocate an environment handle
+  SQLRETURN ret = SQLAllocEnv(&env);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  ret = SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  // Allocate a connection using alloc handle
+  ret = SQLAllocHandle(SQL_HANDLE_DBC, env, &conn);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  // Connect string
+  ASSERT_OK_AND_ASSIGN(std::string connect_str,
+                       arrow::internal::GetEnvVar(TEST_CONNECT_STR));
+  // Append invalid uid to connection string
+  connect_str += std::string("uid=non_existent_id;");
+
+  ASSERT_OK_AND_ASSIGN(std::wstring wconnect_str,
+                       arrow::util::UTF8ToWideString(connect_str));
+  std::vector<SQLWCHAR> connect_str0(wconnect_str.begin(), wconnect_str.end());
+
+  SQLWCHAR outstr[ODBC_BUFFER_SIZE];
+  SQLSMALLINT outstrlen;
+
+  // Connecting to ODBC server.
+  ret = SQLDriverConnect(conn, NULL, &connect_str0[0],
+                         static_cast<SQLSMALLINT>(connect_str0.size()), outstr,
+                         ODBC_BUFFER_SIZE, &outstrlen, SQL_DRIVER_NOPROMPT);
+
+  EXPECT_TRUE(ret == SQL_ERROR);
+
+  if (ret != SQL_SUCCESS) {
+    std::cerr << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn) << std::endl;
+  }
+
+  SQLWCHAR sql_state[6];
+  SQLINTEGER native_error;
+  SQLWCHAR message[ODBC_BUFFER_SIZE];
+  SQLSMALLINT message_length;
+
+  ret = SQLGetDiagRec(SQL_HANDLE_DBC, conn, 1, sql_state, &native_error, message,
+                      ODBC_BUFFER_SIZE, &message_length);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  EXPECT_TRUE(message_length > 200);
+
+  EXPECT_TRUE(native_error == 200);
+
+  // 28000
+  EXPECT_TRUE(sql_state[0] == '2');
+  EXPECT_TRUE(sql_state[1] == '8');
+  EXPECT_TRUE(sql_state[2] == '0');
+  EXPECT_TRUE(sql_state[3] == '0');
+  EXPECT_TRUE(sql_state[4] == '0');
+
+  // Free connection handle
+  ret = SQLFreeHandle(SQL_HANDLE_DBC, conn);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  // Free environment handle
+  ret = SQLFreeHandle(SQL_HANDLE_ENV, env);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+}
+
 }  // namespace integration_tests
 }  // namespace odbc
 }  // namespace flight

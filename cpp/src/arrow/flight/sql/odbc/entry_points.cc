@@ -59,6 +59,14 @@ SQLRETURN SQL_API SQLGetDiagFieldW(SQLSMALLINT handleType, SQLHANDLE handle,
                                  diagInfoPtr, bufferLength, stringLengthPtr);
 }
 
+SQLRETURN SQL_API SQLGetDiagRecW(SQLSMALLINT handleType, SQLHANDLE handle,
+                                 SQLSMALLINT recNumber, SQLWCHAR* sqlState,
+                                 SQLINTEGER* nativeErrorPtr, SQLWCHAR* messageText,
+                                 SQLSMALLINT bufferLength, SQLSMALLINT* textLengthPtr) {
+  return arrow::SQLGetDiagRecW(handleType, handle, recNumber, sqlState, nativeErrorPtr,
+                               messageText, bufferLength, textLengthPtr);
+}
+
 SQLRETURN SQL_API SQLGetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER valuePtr,
                                 SQLINTEGER bufferLen, SQLINTEGER* strLenPtr) {
   return arrow::SQLGetEnvAttr(env, attr, valuePtr, bufferLen, strLenPtr);
@@ -79,14 +87,6 @@ SQLRETURN SQL_API SQLGetInfoW(SQLHDBC conn, SQLUSMALLINT infoType,
                               SQLPOINTER infoValuePtr, SQLSMALLINT bufLen,
                               SQLSMALLINT* length) {
   return arrow::SQLGetInfoW(conn, infoType, infoValuePtr, bufLen, length);
-}
-
-SQLRETURN SQL_API SQLGetDiagRecW(SQLSMALLINT type, SQLHANDLE handle, SQLSMALLINT recNum,
-                                 SQLWCHAR* sqlState, SQLINTEGER* nativeError,
-                                 SQLWCHAR* msgBuffer, SQLSMALLINT msgBufferLen,
-                                 SQLSMALLINT* msgLen) {
-  // TODO implement SQLGetDiagRecW
-  return SQL_ERROR;
 }
 
 SQLRETURN SQL_API SQLDriverConnectW(SQLHDBC conn, SQLHWND windowHandle,

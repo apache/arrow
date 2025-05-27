@@ -230,11 +230,91 @@ SQLRETURN SQLGetDiagFieldW(SQLSMALLINT handleType, SQLHANDLE handle,
                                 stringLengthPtr, *diagnostics);
     }
 
-    default:
-      return SQL_ERROR;
+    default: {
+      // TODO Return correct dummy values
+      return SQL_SUCCESS;
+    }
   }
 
   return SQL_ERROR;
+}
+
+SQLRETURN SQLGetDiagRecW(SQLSMALLINT handleType, SQLHANDLE handle, SQLSMALLINT recNumber,
+                         SQLWCHAR* sqlState, SQLINTEGER* nativeErrorPtr,
+                         SQLWCHAR* messageText, SQLSMALLINT bufferLength,
+                         SQLSMALLINT* textLengthPtr) {
+  using driver::odbcabstraction::Diagnostics;
+  using ODBC::ConvertToSqlWChar;
+  using ODBC::GetStringAttribute;
+  using ODBC::ODBCConnection;
+  using ODBC::ODBCEnvironment;
+
+  if (!handle) {
+    return SQL_INVALID_HANDLE;
+  }
+
+  // Record number must be greater or equal to 1
+  if (recNumber < 1 || bufferLength < 0) {
+    return SQL_ERROR;
+  }
+
+  // Set character type to be Unicode by default
+  const bool isUnicode = true;
+  Diagnostics* diagnostics = nullptr;
+
+  switch (handleType) {
+    case SQL_HANDLE_ENV: {
+      auto* environment = ODBCEnvironment::of(handle);
+      diagnostics = &environment->GetDiagnostics();
+      break;
+    }
+
+    case SQL_HANDLE_DBC: {
+      auto* connection = ODBCConnection::of(handle);
+      diagnostics = &connection->GetDiagnostics();
+      break;
+    }
+
+    case SQL_HANDLE_DESC: {
+      return SQL_ERROR;
+    }
+
+    case SQL_HANDLE_STMT: {
+      return SQL_ERROR;
+    }
+
+    default:
+      return SQL_INVALID_HANDLE;
+  }
+
+  if (!diagnostics) {
+    return SQL_ERROR;
+  }
+
+  // Convert from ODBC 1 based record number to internal diagnostics 0 indexed storage
+  const size_t recordIndex = static_cast<size_t>(recNumber - 1);
+  if (!diagnostics->HasRecord(recordIndex)) {
+    return SQL_NO_DATA;
+  }
+
+  if (sqlState) {
+    // The length of the sql state is always 5 characters plus null
+    SQLSMALLINT size = 6;
+    const std::string& state = diagnostics->GetSQLState(recordIndex);
+    GetStringAttribute(isUnicode, state, false, sqlState, size, &size, *diagnostics);
+  }
+
+  if (nativeErrorPtr) {
+    *nativeErrorPtr = diagnostics->GetNativeError(recordIndex);
+  }
+
+  if (messageText || textLengthPtr) {
+    const std::string& message = diagnostics->GetMessageText(recordIndex);
+    return GetStringAttribute(isUnicode, message, false, messageText, bufferLength,
+                              textLengthPtr, *diagnostics);
+  }
+
+  return SQL_SUCCESS;
 }
 
 SQLRETURN SQLGetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER valuePtr,
