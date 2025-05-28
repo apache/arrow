@@ -90,3 +90,17 @@ Implementation Status
 
 The :doc:`status` page provides an overview of the current capabilities of the
 official Arrow libraries.
+
+Cookbook
+========
+
+The Apache Arrow Cookbook is a collection of recipes for using the Arrow
+libraries for different programming languages.
+
+* `C++ Cookbook <https://arrow.apache.org/cookbook/cpp/>`_
+* `Java Cookbook <https://arrow.apache.org/cookbook/java/>`_
+* `Python Cookbook <https://arrow.apache.org/cookbook/py/>`_
+* `R Cookbook <https://arrow.apache.org/cookbook/r/>`_
+
+The source files for the Cookbook are maintained in the
+`Apache Arrow Cookbooks repository <https://github.com/apache/arrow-cookbook>`_.
