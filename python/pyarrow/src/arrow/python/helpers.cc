@@ -75,8 +75,16 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
   }
 }
 
-PyObject* PyHalf_FromHalf(uint16_t value) {
-  // Convert the uint16_t to a PyFloat object
+PyObject* PyHalf_FromHalf(npy_half value) {
+  PyObject* result = PyArrayScalar_New(Half);
+  if (result != NULL) {
+    PyArrayScalar_ASSIGN(result, Half, value);
+  }
+  return result;
+}
+
+PyObject* PyFloat_FromHalf(uint16_t value) {
+  // Convert the uint16_t Float16 value to a PyFloat object
   arrow::util::Float16 half_val = arrow::util::Float16::FromBits(value);
   PyObject* result = PyFloat_FromDouble(half_val.ToDouble());
   return result;

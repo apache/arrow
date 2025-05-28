@@ -43,8 +43,12 @@ class OwnedRef;
 // \return A shared pointer to DataType
 ARROW_PYTHON_EXPORT std::shared_ptr<DataType> GetPrimitiveType(Type::type type);
 
-// \brief Construct a np.float16 object from a uint16_t value.
-ARROW_PYTHON_EXPORT PyObject* PyHalf_FromHalf(uint16_t value);
+// \brief Construct a np.float16 object from a npy_half value.
+ARROW_DEPRECATED("Deprecated in 21.0.0. Will be removed in 23.0.0")
+ARROW_PYTHON_EXPORT PyObject* PyHalf_FromHalf(npy_half value);
+
+// \brief Construct a Python float object from a uint16_t value.
+ARROW_PYTHON_EXPORT PyObject* PyFloat_FromHalf(uint16_t value);
 
 // \brief Convert a Python object to a uint16_t value.
 ARROW_PYTHON_EXPORT Status PyFloat_AsHalf(PyObject* obj, uint16_t* out);
