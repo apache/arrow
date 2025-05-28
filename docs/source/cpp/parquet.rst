@@ -418,33 +418,31 @@ Types
 Physical types
 ~~~~~~~~~~~~~~
 
-+--------------------------+-------------------------+------------+
-| Physical type            | Mapped Arrow type       | Notes      |
-+==========================+=========================+============+
-| BOOLEAN                  | Boolean                 |            |
-+--------------------------+-------------------------+------------+
-| INT32                    | Int32 / other           | \(1)       |
-+--------------------------+-------------------------+------------+
-| INT64                    | Int64 / other           | \(1)       |
-+--------------------------+-------------------------+------------+
-| INT96                    | Timestamp (nanoseconds) | \(2)       |
-+--------------------------+-------------------------+------------+
-| FLOAT                    | Float32                 |            |
-+--------------------------+-------------------------+------------+
-| DOUBLE                   | Float64                 |            |
-+--------------------------+-------------------------+------------+
-| BYTE_ARRAY               | Binary / other          | \(1) \(3)  |
-+--------------------------+-------------------------+------------+
-| FIXED_LENGTH_BYTE_ARRAY  | FixedSizeBinary / other | \(1)       |
-+--------------------------+-------------------------+------------+
++--------------------------+------------------------------------+------------+
+| Physical type            | Mapped Arrow type                  | Notes      |
++==========================+====================================+============+
+| BOOLEAN                  | Boolean                            |            |
++--------------------------+------------------------------------+------------+
+| INT32                    | Int32 / other                      | \(1)       |
++--------------------------+------------------------------------+------------+
+| INT64                    | Int64 / other                      | \(1)       |
++--------------------------+------------------------------------+------------+
+| INT96                    | Timestamp (nanoseconds)            | \(2)       |
++--------------------------+------------------------------------+------------+
+| FLOAT                    | Float32                            |            |
++--------------------------+------------------------------------+------------+
+| DOUBLE                   | Float64                            |            |
++--------------------------+------------------------------------+------------+
+| BYTE_ARRAY               | Binary / LargeBinary / BinaryView  | \(1)       |
++--------------------------+------------------------------------+------------+
+| FIXED_LENGTH_BYTE_ARRAY  | FixedSizeBinary / other            | \(1)       |
++--------------------------+------------------------------------+------------+
 
 * \(1) Can be mapped to other Arrow types, depending on the logical type
-  (see below).
+  (see table below).
 
 * \(2) On the write side, :func:`ArrowWriterProperties::support_deprecated_int96_timestamps`
   must be enabled.
-
-* \(3) On the write side, an Arrow LargeBinary can also mapped to BYTE_ARRAY.
 
 Logical types
 ~~~~~~~~~~~~~
@@ -475,11 +473,12 @@ physical type.
 | TIMESTAMP         | INT64                       | Timestamp (milli-, micro-  |         |
 |                   |                             | or nanoseconds)            |         |
 +-------------------+-----------------------------+----------------------------+---------+
-| STRING            | BYTE_ARRAY                  | Utf8                       | \(4)    |
+| STRING            | BYTE_ARRAY                  | String / LargeString /     |         |
+|                   |                             | StringView                 |         |
 +-------------------+-----------------------------+----------------------------+---------+
-| LIST              | Any                         | List                       | \(5)    |
+| LIST              | Any                         | List                       | \(4)    |
 +-------------------+-----------------------------+----------------------------+---------+
-| MAP               | Any                         | Map                        | \(6)    |
+| MAP               | Any                         | Map                        | \(5)    |
 +-------------------+-----------------------------+----------------------------+---------+
 | FLOAT16           | FIXED_LENGTH_BYTE_ARRAY     | HalfFloat                  |         |
 +-------------------+-----------------------------+----------------------------+---------+
@@ -490,12 +489,10 @@ physical type.
 
 * \(3) On the write side, an Arrow Date64 is also mapped to a Parquet DATE INT32.
 
-* \(4) On the write side, an Arrow LargeUtf8 is also mapped to a Parquet STRING.
-
-* \(5) On the write side, an Arrow LargeList or FixedSizedList is also mapped to
+* \(4) On the write side, an Arrow LargeList or FixedSizedList is also mapped to
   a Parquet LIST.
 
-* \(6) On the read side, a key with multiple values does not get deduplicated,
+* \(5) On the read side, a key with multiple values does not get deduplicated,
   in contradiction with the
   `Parquet specification <https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#maps>`__.
 

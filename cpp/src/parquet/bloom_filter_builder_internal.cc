@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "arrow/io/interfaces.h"
+#include "arrow/util/logging.h"
 
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
@@ -96,7 +97,7 @@ BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordin
   const ColumnDescriptor* column_descr = schema_->Column(column_ordinal);
   // Bloom filter does not support boolean type, and this should be checked in
   // CheckState() already.
-  DCHECK_NE(column_descr->physical_type(), Type::BOOLEAN);
+  ARROW_DCHECK_NE(column_descr->physical_type(), Type::BOOLEAN);
   auto bloom_filter_options_opt = properties_->bloom_filter_options(column_descr->path());
   if (bloom_filter_options_opt == std::nullopt) {
     return nullptr;

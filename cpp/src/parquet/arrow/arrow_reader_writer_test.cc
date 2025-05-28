@@ -43,9 +43,11 @@
 #include "arrow/scalar.h"
 #include "arrow/table.h"
 #include "arrow/testing/builder.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"  // for ARROW_CSV definition
@@ -72,6 +74,7 @@
 #include "parquet/column_writer.h"
 #include "parquet/file_writer.h"
 #include "parquet/page_index.h"
+#include "parquet/properties.h"
 #include "parquet/test_util.h"
 
 using arrow::Array;
@@ -89,6 +92,7 @@ using arrow::DictionaryArray;
 using arrow::ListArray;
 using arrow::PrimitiveArray;
 using arrow::ResizableBuffer;
+using arrow::Result;
 using arrow::Scalar;
 using arrow::Status;
 using arrow::Table;
@@ -622,15 +626,28 @@ class ParquetIOTestBase : public ::testing::Test {
     return ParquetFileWriter::Open(sink_, schema);
   }
 
+  Result<std::unique_ptr<FileReader>> ReaderFromBuffer(
+      const std::shared_ptr<Buffer>& buffer,
+      const ArrowReaderProperties& properties = default_arrow_reader_properties()) {
+    FileReaderBuilder builder;
+    std::unique_ptr<FileReader> out;
+    RETURN_NOT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+    RETURN_NOT_OK(builder.memory_pool(::arrow::default_memory_pool())
+                      ->properties(properties)
+                      ->Build(&out));
+    return out;
+  }
+
+  Result<std::unique_ptr<FileReader>> ReaderFromSink(
+      const ArrowReaderProperties& properties = default_arrow_reader_properties()) {
+    ARROW_ASSIGN_OR_RAISE(auto buffer, sink_->Finish());
+    return ReaderFromBuffer(buffer, properties);
+  }
+
   void ReaderFromSink(
       std::unique_ptr<FileReader>* out,
       const ArrowReaderProperties& properties = default_arrow_reader_properties()) {
-    ASSERT_OK_AND_ASSIGN(auto buffer, sink_->Finish());
-    FileReaderBuilder builder;
-    ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
-    ASSERT_OK_NO_THROW(builder.memory_pool(::arrow::default_memory_pool())
-                           ->properties(properties)
-                           ->Build(out));
+    ASSERT_OK_NO_THROW(ReaderFromSink(properties).Value(out));
   }
 
   void ReadSingleColumnFile(std::unique_ptr<FileReader> file_reader,
@@ -648,14 +665,18 @@ class ParquetIOTestBase : public ::testing::Test {
     ASSERT_OK((*out)->ValidateFull());
   }
 
-  void ReadAndCheckSingleColumnFile(const Array& values) {
+  void ReadAndCheckSingleColumnFile(std::unique_ptr<FileReader> file_reader,
+                                    const Array& values) {
     std::shared_ptr<Array> out;
-
-    std::unique_ptr<FileReader> reader;
-    ReaderFromSink(&reader);
-    ReadSingleColumnFile(std::move(reader), &out);
-
+    ReadSingleColumnFile(std::move(file_reader), &out);
     AssertArraysEqual(values, *out);
+  }
+
+  void ReadAndCheckSingleColumnFile(
+      const Array& values,
+      const ArrowReaderProperties& properties = default_arrow_reader_properties()) {
+    ASSERT_OK_AND_ASSIGN(auto file_reader, ReaderFromSink(properties));
+    ReadAndCheckSingleColumnFile(std::move(file_reader), values);
   }
 
   void ReadTableFromFile(std::unique_ptr<FileReader> reader, bool expect_metadata,
@@ -777,8 +798,16 @@ class TestReadDecimals : public ParquetIOTestBase {
                              /*rep_levels=*/nullptr, byte_arrays.data());
     column_writer->Close();
     file_writer->Close();
+    ASSERT_OK_AND_ASSIGN(auto buffer, sink_->Finish());
 
-    ReadAndCheckSingleColumnFile(expected);
+    // The binary_type setting shouldn't affect the results
+    for (auto binary_type : {::arrow::Type::BINARY, ::arrow::Type::LARGE_BINARY,
+                             ::arrow::Type::BINARY_VIEW}) {
+      ArrowReaderProperties properties;
+      properties.set_binary_type(binary_type);
+      ASSERT_OK_AND_ASSIGN(auto reader, ReaderFromBuffer(buffer, properties));
+      ReadAndCheckSingleColumnFile(std::move(reader), expected);
+    }
   }
 };
 
@@ -1391,50 +1420,56 @@ TEST_F(TestStringParquetIO, EmptyStringColumnRequiredWrite) {
   AssertArraysEqual(*values, *chunked_array->chunk(0));
 }
 
-using TestLargeBinaryParquetIO = TestParquetIO<::arrow::LargeBinaryType>;
+class TestBinaryLikeParquetIO : public ParquetIOTestBase {
+ public:
+  void CheckRoundTrip(std::string_view json, ::arrow::Type::type binary_type,
+                      const std::shared_ptr<DataType>& specific_type,
+                      const std::shared_ptr<DataType>& fallback_type) {
+    const auto specific_array = ::arrow::ArrayFromJSON(specific_type, json);
+    const auto fallback_array = ::arrow::ArrayFromJSON(fallback_type, json);
 
-TEST_F(TestLargeBinaryParquetIO, Basics) {
-  const char* json = "[\"foo\", \"\", null, \"\xff\"]";
+    // When the original Arrow schema isn't stored, the array is decoded as
+    // the fallback type (since there is no specific Parquet logical
+    // type for it).
+    this->RoundTripSingleColumn(specific_array, /*expected=*/fallback_array,
+                                default_arrow_writer_properties());
 
-  const auto large_type = ::arrow::large_binary();
-  const auto narrow_type = ::arrow::binary();
-  const auto large_array = ::arrow::ArrayFromJSON(large_type, json);
-  const auto narrow_array = ::arrow::ArrayFromJSON(narrow_type, json);
+    // When the original Arrow schema isn't stored and a binary_type is set,
+    // the array is decoded as the specific type.
+    ArrowReaderProperties reader_properties;
+    reader_properties.set_binary_type(binary_type);
+    this->RoundTripSingleColumn(specific_array, /*expected=*/specific_array,
+                                default_arrow_writer_properties(), reader_properties);
+    this->RoundTripSingleColumn(fallback_array, /*expected=*/specific_array,
+                                default_arrow_writer_properties(), reader_properties);
 
-  // When the original Arrow schema isn't stored, a LargeBinary array
-  // is decoded as Binary (since there is no specific Parquet logical
-  // type for it).
-  this->RoundTripSingleColumn(large_array, narrow_array,
-                              default_arrow_writer_properties());
+    // When the original Arrow schema is stored, the array is decoded as the
+    // specific type.
+    const auto writer_properties =
+        ArrowWriterProperties::Builder().store_schema()->build();
+    this->RoundTripSingleColumn(specific_array, /*expected=*/specific_array,
+                                writer_properties);
+  }
+};
 
-  // When the original Arrow schema is stored, the LargeBinary array
-  // is read back as LargeBinary.
-  const auto arrow_properties =
-      ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
-  this->RoundTripSingleColumn(large_array, large_array, arrow_properties);
+TEST_F(TestBinaryLikeParquetIO, LargeBinary) {
+  CheckRoundTrip("[\"foo\", \"\", null, \"\xff\"]", ::arrow::Type::LARGE_BINARY,
+                 ::arrow::large_binary(), ::arrow::binary());
 }
 
-using TestLargeStringParquetIO = TestParquetIO<::arrow::LargeStringType>;
+TEST_F(TestBinaryLikeParquetIO, BinaryView) {
+  CheckRoundTrip("[\"foo\", \"\", null, \"\xff\"]", ::arrow::Type::BINARY_VIEW,
+                 ::arrow::binary_view(), ::arrow::binary());
+}
 
-TEST_F(TestLargeStringParquetIO, Basics) {
-  const char* json = R"(["foo", "", null, "bar"])";
+TEST_F(TestBinaryLikeParquetIO, LargeString) {
+  CheckRoundTrip(R"(["foo", "", null, "bar"])", ::arrow::Type::LARGE_BINARY,
+                 ::arrow::large_utf8(), ::arrow::utf8());
+}
 
-  const auto large_type = ::arrow::large_utf8();
-  const auto narrow_type = ::arrow::utf8();
-  const auto large_array = ::arrow::ArrayFromJSON(large_type, json);
-  const auto narrow_array = ::arrow::ArrayFromJSON(narrow_type, json);
-
-  // When the original Arrow schema isn't stored, a LargeBinary array
-  // is decoded as Binary (since there is no specific Parquet logical
-  // type for it).
-  this->RoundTripSingleColumn(large_array, narrow_array,
-                              default_arrow_writer_properties());
-
-  // When the original Arrow schema is stored, the LargeBinary array
-  // is read back as LargeBinary.
-  const auto arrow_properties =
-      ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
-  this->RoundTripSingleColumn(large_array, large_array, arrow_properties);
+TEST_F(TestBinaryLikeParquetIO, StringView) {
+  CheckRoundTrip(R"(["foo", "", null, "bar"])", ::arrow::Type::BINARY_VIEW,
+                 ::arrow::utf8_view(), ::arrow::utf8());
 }
 
 using TestJsonParquetIO = TestParquetIO<::arrow::extension::JsonExtensionType>;
@@ -1481,6 +1516,61 @@ TEST_F(TestJsonParquetIO, JsonExtension) {
       ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
   this->RoundTripSingleColumn(json_array, json_array, writer_properties);
   this->RoundTripSingleColumn(json_large_array, json_large_array, writer_properties);
+}
+
+using TestGeoArrowParquetIO = TestParquetIO<test::GeoArrowWkbExtensionType>;
+
+TEST_F(TestGeoArrowParquetIO, GeoArrowExtension) {
+  ::arrow::ExtensionTypeGuard guard(test::geoarrow_wkb());
+
+  // Build a binary WKB array with at least one null value
+  ::arrow::BinaryBuilder builder;
+
+  for (int k = 0; k < 10; k++) {
+    std::string item = test::MakeWKBPoint(
+        {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
+    ASSERT_OK(builder.Append(item));
+  }
+  ASSERT_OK(builder.AppendNull());
+  for (int k = 0; k < 5; k++) {
+    std::string item = test::MakeWKBPoint(
+        {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
+    ASSERT_OK(builder.Append(item));
+  }
+
+  ASSERT_OK_AND_ASSIGN(const auto binary_array, builder.Finish());
+  const auto wkb_type = test::geoarrow_wkb_lonlat();
+  const auto wkb_array = ::arrow::ExtensionType::WrapArray(wkb_type, binary_array);
+
+  const auto large_wkb_type = test::geoarrow_wkb_lonlat(::arrow::large_binary());
+  ASSERT_OK_AND_ASSIGN(const auto large_binary_array,
+                       ::arrow::compute::Cast(binary_array, ::arrow::large_binary()));
+  const auto large_wkb_array =
+      ::arrow::ExtensionType::WrapArray(large_wkb_type, large_binary_array.make_array());
+
+  // When the original Arrow schema isn't stored and Arrow extensions are disabled,
+  // LogicalType::GEOMETRY is read as utf8.
+  auto writer_properties = default_arrow_writer_properties();
+  ASSERT_NO_FATAL_FAILURE(
+      this->RoundTripSingleColumn(wkb_array, binary_array, writer_properties));
+  ASSERT_NO_FATAL_FAILURE(
+      this->RoundTripSingleColumn(large_wkb_array, binary_array, writer_properties));
+
+  // When the original Arrow schema isn't stored and Arrow extensions are enabled,
+  // LogicalType::GEOMETRY is read as geoarrow.wkb with binary storage.
+  ::parquet::ArrowReaderProperties reader_properties;
+  reader_properties.set_arrow_extensions_enabled(true);
+  ASSERT_NO_FATAL_FAILURE(this->RoundTripSingleColumn(
+      wkb_array, wkb_array, writer_properties, reader_properties));
+  ASSERT_NO_FATAL_FAILURE(this->RoundTripSingleColumn(
+      large_wkb_array, wkb_array, writer_properties, reader_properties));
+
+  // When the original Arrow schema is stored, the stored Arrow type is respected.
+  writer_properties = ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
+  ASSERT_NO_FATAL_FAILURE(
+      this->RoundTripSingleColumn(wkb_array, wkb_array, writer_properties));
+  ASSERT_NO_FATAL_FAILURE(
+      this->RoundTripSingleColumn(large_wkb_array, large_wkb_array, writer_properties));
 }
 
 using TestNullParquetIO = TestParquetIO<::arrow::NullType>;

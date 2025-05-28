@@ -181,6 +181,8 @@ add_arrow_acero_test(aggregate_node_test SOURCES aggregate_node_test.cc)
 add_arrow_acero_test(util_test SOURCES util_test.cc task_util_test.cc)
 add_arrow_acero_test(hash_aggregate_test SOURCES hash_aggregate_test.cc)
 
+add_arrow_acero_test(test_util_internal_test SOURCES test_util_internal_test.cc)
+
 if(ARROW_BUILD_BENCHMARKS)
   function(add_arrow_acero_benchmark REL_BENCHMARK_NAME)
     set(options)

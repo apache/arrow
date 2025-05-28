@@ -178,7 +178,7 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
   virtual DataTypeLayout layout() const = 0;
 
   /// \brief Return the type category
-  Type::type id() const { return id_; }
+  constexpr Type::type id() const { return id_; }
 
   /// \brief Return the type category of the storage type
   virtual Type::type storage_id() const { return id_; }
@@ -2366,19 +2366,19 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   std::vector<std::string> field_names() const;
 
   /// Returns null if name not found
-  std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
+  std::shared_ptr<Field> GetFieldByName(std::string_view name) const;
 
   /// \brief Return the indices of all fields having this name in sorted order
-  FieldVector GetAllFieldsByName(const std::string& name) const;
+  FieldVector GetAllFieldsByName(std::string_view name) const;
 
   /// Returns -1 if name not found
-  int GetFieldIndex(const std::string& name) const;
+  int GetFieldIndex(std::string_view name) const;
 
   /// Return the indices of all fields having this name
-  std::vector<int> GetAllFieldIndices(const std::string& name) const;
+  std::vector<int> GetAllFieldIndices(std::string_view name) const;
 
   /// Indicate if field named `name` can be found unambiguously in the schema.
-  Status CanReferenceFieldByName(const std::string& name) const;
+  Status CanReferenceFieldByName(std::string_view name) const;
 
   /// Indicate if fields named `names` can be found unambiguously in the schema.
   Status CanReferenceFieldsByNames(const std::vector<std::string>& names) const;

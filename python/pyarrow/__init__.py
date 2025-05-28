@@ -178,7 +178,7 @@ from pyarrow.lib import (null, bool_,
                          BaseExtensionType, ExtensionType,
                          RunEndEncodedType, Bool8Type, FixedShapeTensorType,
                          JsonType, OpaqueType, UuidType,
-                         PyExtensionType, UnknownExtensionType,
+                         UnknownExtensionType,
                          register_extension_type, unregister_extension_type,
                          DictionaryMemo,
                          KeyValueMetadata,
@@ -408,7 +408,7 @@ def get_library_dirs():
                 if not library_dir.startswith("-L"):
                     raise ValueError(
                         "pkg-config --libs-only-L returned unexpected "
-                        "value {!r}".format(library_dir))
+                        f"value {library_dir!r}")
                 append_library_dir(library_dir[2:])
 
     if _sys.platform == 'win32':

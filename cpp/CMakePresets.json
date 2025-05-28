@@ -178,6 +178,7 @@
       "cacheVariables": {
         "ARROW_BUILD_EXAMPLES": "ON",
         "ARROW_BUILD_UTILITIES": "ON",
+        "ARROW_FLIGHT_SQL_ODBC": "ON",
         "ARROW_SKYHOOK": "ON",
         "ARROW_TENSORFLOW": "ON",
         "PARQUET_BUILD_EXAMPLES": "ON",

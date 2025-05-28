@@ -207,10 +207,6 @@ cdef class JsonType(BaseExtensionType):
         const CJsonType* json_ext_type
 
 
-cdef class PyExtensionType(ExtensionType):
-    pass
-
-
 cdef class _Metadata(_Weakrefable):
     # required because KeyValueMetadata also extends collections.abc.Mapping
     # and the first parent class must be an extension type
@@ -669,6 +665,8 @@ cdef shared_ptr[function[StreamWrapFunc]] make_streamwrap_func(
 
 # Default is allow_none=False
 cpdef DataType ensure_type(object type, bint allow_none=*)
+
+cdef DataType primitive_type(Type type)
 
 cdef timeunit_to_string(TimeUnit unit)
 cdef TimeUnit string_to_timeunit(unit) except *

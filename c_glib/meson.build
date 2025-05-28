@@ -34,7 +34,7 @@ project(
     #   * 22.04: 0.61.2
     #   * 24.04: 1.3.2
     meson_version: '>=0.61.2',
-    version: '20.0.0-SNAPSHOT',
+    version: '21.0.0-SNAPSHOT',
 )
 
 version = meson.project_version()
@@ -257,6 +257,19 @@ add_project_arguments(cxx.get_supported_arguments(cxx_flags), language: 'cpp')
 python = import('python')
 python3 = python.find_installation('python3')
 generate_version_header_py = project_source_root / 'tool' / 'generate-version-header.py'
+
+c_compiler = meson.get_compiler('c')
+# Specify -fPIE explicitly for g-ir-scanner because PIE is disabled by
+# default on AlmaLinux 9 RPM build by
+# LDFLAGS="-specs=/usr/lib/rpm/redhat/redhat-hardened-ld".
+gir_scanner_cflags = c_compiler.get_supported_arguments('-fPIE')
+if gir_scanner_cflags.length() == 0
+    gir_scanner_extra_args = []
+else
+    gir_scanner_extra_args = ['--cflags-begin'] + gir_scanner_cflags + [
+        '--cflags-end',
+    ]
+endif
 
 subdir('arrow-glib')
 if arrow_cuda.found()

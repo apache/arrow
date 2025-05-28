@@ -22,6 +22,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using Apache.Arrow.Ipc;
+using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 using Xunit;
 
@@ -239,7 +240,7 @@ namespace Apache.Arrow.Tests
         {
             using (MemoryStream stream = new MemoryStream())
             {
-                using (var writer = new ArrowStreamWriter(stream, originalBatches[0].Schema, leaveOpen: true, options))
+                using (var writer = new ArrowStreamWriter(stream, originalBatches[0].Schema, leaveOpen: true, options, new TestMemoryAllocator()))
                 {
                     foreach (RecordBatch originalBatch in originalBatches)
                     {
@@ -261,11 +262,11 @@ namespace Apache.Arrow.Tests
             }
         }
 
-        private static async Task TestRoundTripRecordBatchesAsync(List<RecordBatch> originalBatches, IpcOptions options = null, bool strictCompare = true)
+        private static async Task TestRoundTripRecordBatchesAsync(List<RecordBatch> originalBatches, IpcOptions options = null, bool strictCompare = true, MemoryAllocator memoryAllocator = null)
         {
             using (MemoryStream stream = new MemoryStream())
             {
-                using (var writer = new ArrowStreamWriter(stream, originalBatches[0].Schema, leaveOpen: true, options))
+                using (var writer = new ArrowStreamWriter(stream, originalBatches[0].Schema, leaveOpen: true, options, memoryAllocator ??  new TestMemoryAllocator()))
                 {
                     foreach (RecordBatch originalBatch in originalBatches)
                     {
@@ -714,6 +715,25 @@ namespace Apache.Arrow.Tests
             RecordBatch readBatch = reader.ReadNextRecordBatch();
             Assert.Null(readBatch);
             SchemaComparer.Compare(originalBatch.Schema, reader.Schema);
+        }
+
+
+        [Theory]
+        [InlineData(0, 45)]
+        [InlineData(3, 45)]
+        [InlineData(16, 45)]
+        public async Task MemoryOwnerDisposalSlicedArray(int sliceOffset, int sliceLength)
+        {
+            var originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            var slicedArrays = originalBatch.Arrays
+                .Select(array => ArrowArrayFactory.Slice(array, sliceOffset, sliceLength))
+                .ToList();
+            var slicedBatch = new RecordBatch(originalBatch.Schema, slicedArrays, sliceLength);
+            var allocator = new TestMemoryAllocator();
+            await TestRoundTripRecordBatchesAsync(new List<RecordBatch> () {slicedBatch}, null, false, allocator);
+            if(sliceOffset % 8 != 0)
+                Assert.True(allocator.Statistics.Allocations > 0);
+            Assert.Equal(0,allocator.Rented);
         }
     }
 }

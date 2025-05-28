@@ -104,7 +104,7 @@ public struct org_apache_arrow_flatbuf_Footer: FlatBufferObject, Verifiable {
   }
 
   public var version: org_apache_arrow_flatbuf_MetadataVersion { let o = _accessor.offset(VTOFFSET.version.v); return o == 0 ? .v1 : org_apache_arrow_flatbuf_MetadataVersion(rawValue: _accessor.readBuffer(of: Int16.self, at: o)) ?? .v1 }
-  public var schema: org_apache_arrow_flatbuf_Schema? { let o = _accessor.offset(VTOFFSET.schema.v); return o == 0 ? nil : org_apache_arrow_flatbuf_Schema(_accessor.bb, o: _accessor.indirect(o + _accessor.postion)) }
+  public var schema: org_apache_arrow_flatbuf_Schema? { let o = _accessor.offset(VTOFFSET.schema.v); return o == 0 ? nil : org_apache_arrow_flatbuf_Schema(_accessor.bb, o: _accessor.indirect(o + _accessor.position)) }
   public var hasDictionaries: Bool { let o = _accessor.offset(VTOFFSET.dictionaries.v); return o == 0 ? false : true }
   public var dictionariesCount: Int32 { let o = _accessor.offset(VTOFFSET.dictionaries.v); return o == 0 ? 0 : _accessor.vector(count: o) }
   public func dictionaries(at index: Int32) -> org_apache_arrow_flatbuf_Block? { let o = _accessor.offset(VTOFFSET.dictionaries.v); return o == 0 ? nil : _accessor.directRead(of: org_apache_arrow_flatbuf_Block.self, offset: _accessor.vector(at: o) + index * 24) }

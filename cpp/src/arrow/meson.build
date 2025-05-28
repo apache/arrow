@@ -45,38 +45,6 @@ arrow_components = {
             'array/validate.cc',
         ],
     },
-    'arrow_compute': {
-        'sources': [
-            'compute/api_aggregate.cc',
-            'compute/api_scalar.cc',
-            'compute/api_vector.cc',
-            'compute/cast.cc',
-            'compute/exec.cc',
-            'compute/expression.cc',
-            'compute/function.cc',
-            'compute/function_internal.cc',
-            'compute/kernel.cc',
-            'compute/ordering.cc',
-            'compute/registry.cc',
-            'compute/kernels/chunked_internal.cc',
-            'compute/kernels/codegen_internal.cc',
-            'compute/kernels/ree_util_internal.cc',
-            'compute/kernels/scalar_cast_boolean.cc',
-            'compute/kernels/scalar_cast_dictionary.cc',
-            'compute/kernels/scalar_cast_extension.cc',
-            'compute/kernels/scalar_cast_internal.cc',
-            'compute/kernels/scalar_cast_nested.cc',
-            'compute/kernels/scalar_cast_numeric.cc',
-            'compute/kernels/scalar_cast_string.cc',
-            'compute/kernels/scalar_cast_temporal.cc',
-            'compute/kernels/util_internal.cc',
-            'compute/kernels/vector_hash.cc',
-            'compute/kernels/vector_selection.cc',
-            'compute/kernels/vector_selection_filter_internal.cc',
-            'compute/kernels/vector_selection_internal.cc',
-            'compute/kernels/vector_selection_take_internal.cc',
-        ],
-    },
     'arrow_io': {
         'sources': [
             'io/buffered.cc',
@@ -93,60 +61,6 @@ arrow_components = {
         ],
         'include_dirs': [include_directories('../../thirdparty/hadoop/include')],
         'dependencies': [dl_dep],
-    },
-    'arrow_util': {
-        'sources': [
-            'util/align_util.cc',
-            'util/async_util.cc',
-            'util/atfork_internal.cc',
-            'util/basic_decimal.cc',
-            'util/bit_block_counter.cc',
-            'util/bit_run_reader.cc',
-            'util/bit_util.cc',
-            'util/bitmap.cc',
-            'util/bitmap_builders.cc',
-            'util/bitmap_ops.cc',
-            'util/bpacking.cc',
-            'util/byte_size.cc',
-            'util/cancel.cc',
-            'util/compression.cc',
-            'util/counting_semaphore.cc',
-            'util/cpu_info.cc',
-            'util/crc32.cc',
-            'util/debug.cc',
-            'util/decimal.cc',
-            'util/delimiting.cc',
-            'util/dict_util.cc',
-            'util/fixed_width_internal.cc',
-            'util/float16.cc',
-            'util/formatting.cc',
-            'util/future.cc',
-            'util/hashing.cc',
-            'util/int_util.cc',
-            'util/io_util.cc',
-            'util/list_util.cc',
-            'util/logger.cc',
-            'util/logging.cc',
-            'util/key_value_metadata.cc',
-            'util/math_internal.cc',
-            'util/memory.cc',
-            'util/mutex.cc',
-            'util/ree_util.cc',
-            'util/string.cc',
-            'util/string_builder.cc',
-            'util/task_group.cc',
-            'util/tdigest.cc',
-            'util/thread_pool.cc',
-            'util/time.cc',
-            'util/tracing.cc',
-            'util/trie.cc',
-            'util/union_util.cc',
-            'util/unreachable.cc',
-            'util/uri.cc',
-            'util/utf8.cc',
-            'util/value_parsing.cc',
-        ],
-        'dependencies': [threads_dep],
     },
     'memory_pool': {'sources': ['memory_pool.cc']},
     'vendored': {
@@ -215,6 +129,94 @@ arrow_components = {
     },
 }
 
+arrow_util_srcs = [
+    'util/align_util.cc',
+    'util/async_util.cc',
+    'util/atfork_internal.cc',
+    'util/basic_decimal.cc',
+    'util/bit_block_counter.cc',
+    'util/bit_run_reader.cc',
+    'util/bit_util.cc',
+    'util/bitmap.cc',
+    'util/bitmap_builders.cc',
+    'util/bitmap_ops.cc',
+    'util/bpacking.cc',
+    'util/byte_size.cc',
+    'util/cancel.cc',
+    'util/compression.cc',
+    'util/counting_semaphore.cc',
+    'util/cpu_info.cc',
+    'util/crc32.cc',
+    'util/debug.cc',
+    'util/decimal.cc',
+    'util/delimiting.cc',
+    'util/dict_util.cc',
+    'util/fixed_width_internal.cc',
+    'util/float16.cc',
+    'util/formatting.cc',
+    'util/future.cc',
+    'util/hashing.cc',
+    'util/int_util.cc',
+    'util/io_util.cc',
+    'util/list_util.cc',
+    'util/logger.cc',
+    'util/logging.cc',
+    'util/key_value_metadata.cc',
+    'util/math_internal.cc',
+    'util/memory.cc',
+    'util/mutex.cc',
+    'util/ree_util.cc',
+    'util/string.cc',
+    'util/string_builder.cc',
+    'util/task_group.cc',
+    'util/tdigest.cc',
+    'util/thread_pool.cc',
+    'util/time.cc',
+    'util/tracing.cc',
+    'util/trie.cc',
+    'util/union_util.cc',
+    'util/unreachable.cc',
+    'util/uri.cc',
+    'util/utf8.cc',
+    'util/value_parsing.cc',
+]
+
+arrow_util_deps = [threads_dep]
+
+if needs_brotli
+    arrow_util_srcs += ['util/compression_brotli.cc']
+    arrow_util_deps += [dependency('libbrotlidec'), dependency('libbrotlienc')]
+endif
+
+if needs_bz2
+    arrow_util_srcs += ['util/compression_bz2.cc']
+    arrow_util_deps += dependency('bzip2')
+endif
+
+if needs_lz4
+    arrow_util_srcs += ['util/compression_lz4.cc']
+    arrow_util_deps += dependency('liblz4')
+endif
+
+if needs_snappy
+    arrow_util_srcs += ['util/compression_snappy.cc']
+    arrow_util_deps += dependency('snappy')
+endif
+
+if needs_zlib
+    arrow_util_srcs += ['util/compression_zlib.cc']
+    arrow_util_deps += dependency('zlib')
+endif
+
+if needs_zstd
+    arrow_util_srcs += ['util/compression_zstd.cc']
+    arrow_util_deps += dependency('libzstd')
+endif
+
+arrow_components += {
+    'arrow_util': {'sources': arrow_util_srcs, 'dependencies': arrow_util_deps},
+}
+
 arrow_testing_srcs = [
     'io/test_common.cc',
     'ipc/test_common.cc',
@@ -257,6 +259,88 @@ if needs_csv
 
     arrow_testing_srcs += ['csv/test_common.cc']
 endif
+
+arrow_compute_sources = [
+    'compute/api_aggregate.cc',
+    'compute/api_scalar.cc',
+    'compute/api_vector.cc',
+    'compute/cast.cc',
+    'compute/exec.cc',
+    'compute/expression.cc',
+    'compute/function.cc',
+    'compute/function_internal.cc',
+    'compute/kernel.cc',
+    'compute/ordering.cc',
+    'compute/registry.cc',
+    'compute/kernels/chunked_internal.cc',
+    'compute/kernels/codegen_internal.cc',
+    'compute/kernels/ree_util_internal.cc',
+    'compute/kernels/scalar_cast_boolean.cc',
+    'compute/kernels/scalar_cast_dictionary.cc',
+    'compute/kernels/scalar_cast_extension.cc',
+    'compute/kernels/scalar_cast_internal.cc',
+    'compute/kernels/scalar_cast_nested.cc',
+    'compute/kernels/scalar_cast_numeric.cc',
+    'compute/kernels/scalar_cast_string.cc',
+    'compute/kernels/scalar_cast_temporal.cc',
+    'compute/kernels/util_internal.cc',
+    'compute/kernels/vector_hash.cc',
+    'compute/kernels/vector_selection.cc',
+    'compute/kernels/vector_selection_filter_internal.cc',
+    'compute/kernels/vector_selection_internal.cc',
+    'compute/kernels/vector_selection_take_internal.cc',
+]
+
+if needs_compute
+    arrow_compute_sources += [
+        'compute/kernels/aggregate_basic.cc',
+        'compute/kernels/aggregate_mode.cc',
+        'compute/kernels/aggregate_pivot.cc',
+        'compute/kernels/aggregate_quantile.cc',
+        'compute/kernels/aggregate_tdigest.cc',
+        'compute/kernels/aggregate_var_std.cc',
+        'compute/kernels/hash_aggregate.cc',
+        'compute/kernels/hash_aggregate_numeric.cc',
+        'compute/kernels/hash_aggregate_pivot.cc',
+        'compute/kernels/pivot_internal.cc',
+        'compute/kernels/scalar_arithmetic.cc',
+        'compute/kernels/scalar_boolean.cc',
+        'compute/kernels/scalar_compare.cc',
+        'compute/kernels/scalar_if_else.cc',
+        'compute/kernels/scalar_nested.cc',
+        'compute/kernels/scalar_random.cc',
+        'compute/kernels/scalar_round.cc',
+        'compute/kernels/scalar_set_lookup.cc',
+        'compute/kernels/scalar_string_ascii.cc',
+        'compute/kernels/scalar_string_utf8.cc',
+        'compute/kernels/scalar_temporal_binary.cc',
+        'compute/kernels/scalar_temporal_unary.cc',
+        'compute/kernels/scalar_validity.cc',
+        'compute/kernels/vector_array_sort.cc',
+        'compute/kernels/vector_cumulative_ops.cc',
+        'compute/kernels/vector_nested.cc',
+        'compute/kernels/vector_pairwise.cc',
+        'compute/kernels/vector_rank.cc',
+        'compute/kernels/vector_replace.cc',
+        'compute/kernels/vector_run_end_encode.cc',
+        'compute/kernels/vector_select_k.cc',
+        'compute/kernels/vector_sort.cc',
+        'compute/kernels/vector_statistics.cc',
+        'compute/kernels/vector_swizzle.cc',
+        'compute/key_hash_internal.cc',
+        'compute/key_map_internal.cc',
+        'compute/light_array_internal.cc',
+        'compute/row/encode_internal.cc',
+        'compute/row/compare_internal.cc',
+        'compute/row/grouper.cc',
+        'compute/row/row_encoder_internal.cc',
+        'compute/row/row_internal.cc',
+        'compute/util.cc',
+        'compute/util_internal.cc',
+    ]
+endif
+
+arrow_components += {'arrow-compute': {'sources': arrow_compute_sources}}
 
 if needs_json or needs_integration
     rapidjson_dep = dependency('rapidjson', include_type: 'system')
@@ -340,13 +424,11 @@ if needs_ipc
         'ipc/writer.cc',
     ]
 
-    flatbuffers_dep = dependency('flatbuffers')
+    flatbuffers_incdir = include_directories(
+        '../../thirdparty/flatbuffers/include',
+    )
+    flatbuffers_dep = declare_dependency(include_directories: flatbuffers_incdir)
     arrow_ipc_deps = [flatbuffers_dep]
-
-    if needs_json
-        arrow_ipc_srcs += 'ipc/json_simple.cc'
-        arrow_ipc_deps += rapidjson_dep
-    endif
 
     arrow_components += {
         'arrow_ipc': {'sources': arrow_ipc_srcs, 'dependencies': arrow_ipc_deps},
@@ -363,6 +445,7 @@ if needs_json
                 'json/chunked_builder.cc',
                 'json/chunker.cc',
                 'json/converter.cc',
+                'json/from_string.cc',
                 'json/object_parser.cc',
                 'json/object_writer.cc',
                 'json/parser.cc',
@@ -479,8 +562,13 @@ if needs_tests
         link_with: [arrow_test_lib],
         dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
     )
+    arrow_test_dep_no_main = declare_dependency(
+        link_with: [arrow_test_lib],
+        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_dep],
+    )
 else
     arrow_test_dep = disabler()
+    arrow_test_dep_no_main = disabler()
 endif
 
 arrow_tests = {
@@ -607,10 +695,13 @@ pkg.generate(
 
 subdir('testing')
 
+subdir('array')
 subdir('c')
+subdir('compute')
 subdir('io')
 subdir('tensor')
 subdir('util')
+subdir('vendored')
 
 gflags_dep = dependency('gflags', include_type: 'system')
 if needs_integration or needs_tests
@@ -621,6 +712,18 @@ if needs_csv
     subdir('csv')
 endif
 
+if needs_acero
+    subdir('acero')
+endif
+
 if needs_filesystem
     subdir('filesystem')
+endif
+
+if needs_json
+    subdir('json')
+endif
+
+if needs_ipc
+    subdir('ipc')
 endif

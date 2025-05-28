@@ -29,7 +29,6 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-brotli)
     packages+=(${MINGW_PACKAGE_PREFIX}-bzip2)
     packages+=(${MINGW_PACKAGE_PREFIX}-c-ares)
-    packages+=(${MINGW_PACKAGE_PREFIX}-cc)
     packages+=(${MINGW_PACKAGE_PREFIX}-ccache)
     packages+=(${MINGW_PACKAGE_PREFIX}-clang)
     packages+=(${MINGW_PACKAGE_PREFIX}-cmake)
@@ -39,6 +38,7 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-gtest)
     packages+=(${MINGW_PACKAGE_PREFIX}-libutf8proc)
     packages+=(${MINGW_PACKAGE_PREFIX}-libxml2)
+    packages+=(${MINGW_PACKAGE_PREFIX}-llvm)
     packages+=(${MINGW_PACKAGE_PREFIX}-lz4)
     packages+=(${MINGW_PACKAGE_PREFIX}-ninja)
     packages+=(${MINGW_PACKAGE_PREFIX}-nlohmann-json)
@@ -69,15 +69,6 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-gobject-introspection)
     packages+=(${MINGW_PACKAGE_PREFIX}-meson)
     packages+=(${MINGW_PACKAGE_PREFIX}-vala)
-    ;;
-esac
-
-case "${target}" in
-  cgo)
-    packages+=(${MINGW_PACKAGE_PREFIX}-arrow)
-    packages+=(${MINGW_PACKAGE_PREFIX}-gcc)
-    packages+=(${MINGW_PACKAGE_PREFIX}-toolchain)
-    packages+=(base-devel)
     ;;
 esac
 

@@ -318,6 +318,7 @@ The presets are provided as a convenience, but you may instead opt to
 specify the individual components:
 
 .. code-block::
+
    $ cmake -S arrow/cpp -B arrow/cpp/build \
            -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
            -DCMAKE_BUILD_TYPE=Debug \
@@ -409,8 +410,15 @@ to 0 or 1, see :ref:`python-dev-env-variables` below.
 To set the number of threads used to compile PyArrow's C++/Cython components,
 set the ``PYARROW_PARALLEL`` environment variable.
 
-If you wish to delete stale PyArrow build artifacts before rebuilding, navigate
-to the ``arrow/python`` folder and run ``git clean -Xfd .``.
+If you build PyArrow but then make changes to the Arrow C++ or PyArrow code,
+you can end up with stale build artifacts. This can lead to
+unexpected behavior or errors. To avoid this, you can clean the build
+artifacts before rebuilding. You can do this by running:
+
+.. code-block::
+
+   $ pushd arrow/python
+   $ git clean -Xfd .
 
 By default, PyArrow will be built in release mode even if Arrow C++ has been
 built in debug mode. To create a debug build of PyArrow, run
@@ -421,8 +429,8 @@ similarly.
 Now you are ready to install test dependencies and run `Unit Testing`_, as
 described above.
 
-To build a self-contained wheel (including the Arrow and Parquet C++
-libraries), one can set ``--bundle-arrow-cpp``:
+If you need to build a self-contained wheel (including the Arrow and Parquet C++
+libraries), you can set ``--bundle-arrow-cpp``:
 
 .. code-block::
 
@@ -438,9 +446,9 @@ Docker examples
 ~~~~~~~~~~~~~~~
 
 If you are having difficulty building the Python library from source, take a
-look at the ``python/examples/minimal_build`` directory which illustrates a
-complete build and test from source both with the conda- and pip-based build
-methods.
+look at the `python/examples/minimal_build <https://github.com/apache/arrow/tree/main/python/examples/minimal_build>`_
+directory which illustrates a complete build and test from source both with
+the conda- and pip-based build methods.
 
 Debugging
 ---------
@@ -639,7 +647,7 @@ PyArrow are:
      - Number of processes used to compile PyArrow’s C++/Cython components
      - ``''``
 
-The components being disabled or enabled when building PyArrrow is by default
+The components being disabled or enabled when building PyArrow is by default
 based on how Arrow C++ is build (i.e. it follows the ``ARROW_$COMPONENT`` flags).
 However, the ``PYARROW_WITH_$COMPONENT`` environment variables can still be used
 to override this when building PyArrow (e.g. to disable components, or to enforce

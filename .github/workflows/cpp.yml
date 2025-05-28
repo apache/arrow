@@ -121,7 +121,7 @@ jobs:
       - name: Setup Python on hosted runner
         if: |
           matrix.runs-on == 'ubuntu-latest'
-        uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: 3
       - name: Setup Python on self-hosted runner
@@ -233,7 +233,7 @@ jobs:
           $(brew --prefix bash)/bin/bash \
             ci/scripts/install_minio.sh latest ${ARROW_HOME}
       - name: Set up Python
-        uses: actions/setup-python@v5.5.0
+        uses: actions/setup-python@v5.6.0
         with:
           python-version: 3.12
       - name: Install Google Cloud Storage Testbench
@@ -395,6 +395,7 @@ jobs:
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
       ARROW_FLIGHT_SQL: ON
+      ARROW_FLIGHT_SQL_ODBC: ON
       ARROW_GANDIVA: ON
       ARROW_GCS: ON
       ARROW_HDFS: OFF
@@ -462,7 +463,7 @@ jobs:
             https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2024-09-13T20-26-02Z
           chmod +x /usr/local/bin/minio.exe
       - name: Set up Python
-        uses: actions/setup-python@v5.5.0
+        uses: actions/setup-python@v5.6.0
         id: python-install
         with:
           python-version: 3.9

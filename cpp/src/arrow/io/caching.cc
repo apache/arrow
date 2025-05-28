@@ -188,7 +188,12 @@ struct ReadRangeCache::Impl {
       entries = std::move(new_entries);
     }
     // Prefetch immediately, regardless of executor availability, if possible
-    return file->WillNeed(ranges);
+    auto st = file->WillNeed(ranges);
+    // As this is optimisation only, I/O failures should not be treated as fatal
+    if (st.IsIOError()) {
+      return Status::OK();
+    }
+    return st;
   }
 
   // Read the given range from the cache, blocking if needed. Cannot read a range

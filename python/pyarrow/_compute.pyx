@@ -63,14 +63,10 @@ def _pas():
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
-    msg = '{} is an abstract class thus cannot be initialized.'.format(
-        klass.__name__
-    )
+    msg = f'{klass.__name__} is an abstract class thus cannot be initialized.'
     if subclasses_instead:
         subclasses = [cls.__name__ for cls in klass.__subclasses__]
-        msg += ' Use one of the subclasses instead: {}'.format(
-            ', '.join(subclasses)
-        )
+        msg += f' Use one of the subclasses instead: {", ".join(subclasses)}'
     raise TypeError(msg)
 
 
@@ -201,8 +197,7 @@ cdef class Kernel(_Weakrefable):
     """
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
 
 cdef class ScalarKernel(Kernel):
@@ -212,8 +207,7 @@ cdef class ScalarKernel(Kernel):
         self.kernel = kernel
 
     def __repr__(self):
-        return ("ScalarKernel<{}>"
-                .format(frombytes(self.kernel.signature.get().ToString())))
+        return f"ScalarKernel<{frombytes(self.kernel.signature.get().ToString())}>"
 
 
 cdef class VectorKernel(Kernel):
@@ -223,8 +217,7 @@ cdef class VectorKernel(Kernel):
         self.kernel = kernel
 
     def __repr__(self):
-        return ("VectorKernel<{}>"
-                .format(frombytes(self.kernel.signature.get().ToString())))
+        return f"VectorKernel<{frombytes(self.kernel.signature.get().ToString())}>"
 
 
 cdef class ScalarAggregateKernel(Kernel):
@@ -234,8 +227,7 @@ cdef class ScalarAggregateKernel(Kernel):
         self.kernel = kernel
 
     def __repr__(self):
-        return ("ScalarAggregateKernel<{}>"
-                .format(frombytes(self.kernel.signature.get().ToString())))
+        return f"ScalarAggregateKernel<{frombytes(self.kernel.signature.get().ToString())}>"
 
 
 cdef class HashAggregateKernel(Kernel):
@@ -245,8 +237,7 @@ cdef class HashAggregateKernel(Kernel):
         self.kernel = kernel
 
     def __repr__(self):
-        return ("HashAggregateKernel<{}>"
-                .format(frombytes(self.kernel.signature.get().ToString())))
+        return f"HashAggregateKernel<{frombytes(self.kernel.signature.get().ToString())}>"
 
 
 FunctionDoc = namedtuple(
@@ -298,17 +289,14 @@ cdef class Function(_Weakrefable):
     }
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
     cdef void init(self, const shared_ptr[CFunction]& sp_func) except *:
         self.sp_func = sp_func
         self.base_func = sp_func.get()
 
     def __repr__(self):
-        return ("arrow.compute.Function<name={}, kind={}, "
-                "arity={}, num_kernels={}>"
-                .format(self.name, self.kind, self.arity, self.num_kernels))
+        return f"arrow.compute.Function<name={self.name}, kind={self.kind}, arity={self.arity}, num_kernels={self.num_kernels}>"
 
     def __reduce__(self):
         # Reduction uses the global registry
@@ -2568,9 +2556,7 @@ cdef class Expression(_Weakrefable):
         return frombytes(self.expr.ToString())
 
     def __repr__(self):
-        return "<pyarrow.compute.{0} {1}>".format(
-            self.__class__.__name__, str(self)
-        )
+        return f"<pyarrow.compute.{self.__class__.__name__} {self}>"
 
     @staticmethod
     def from_substrait(object message not None):
@@ -2874,8 +2860,7 @@ cdef class UdfContext:
     """
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
     cdef void init(self, const CUdfContext &c_context):
         self.c_context = c_context
@@ -3010,7 +2995,7 @@ def register_scalar_function(func, function_name, function_doc, in_types, out_ty
         all arguments are scalar, else it must return an Array.
 
         To define a varargs function, pass a callable that takes
-        *args. The last in_type will be the type of all varargs
+        ``*args``. The last in_type will be the type of all varargs
         arguments.
     function_name : str
         Name of the function. There should only be one function

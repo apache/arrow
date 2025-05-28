@@ -163,7 +163,7 @@ function(arrow_create_merged_static_lib output_target)
   message(STATUS "Creating bundled static library target ${output_target} at ${output_lib_path}"
   )
 
-  add_library(${output_target} STATIC IMPORTED)
+  add_library(${output_target} STATIC IMPORTED GLOBAL)
   set_target_properties(${output_target} PROPERTIES IMPORTED_LOCATION ${output_lib_path})
   add_dependencies(${output_target} ${output_target}_merge)
 endfunction()

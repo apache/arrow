@@ -27,7 +27,7 @@ import pytest
 
 import pyarrow as pa
 from pyarrow.tests import util
-from pyarrow.tests.parquet.common import _check_roundtrip
+from pyarrow.tests.parquet.common import _check_roundtrip, _roundtrip_table
 
 try:
     import pyarrow.parquet as pq
@@ -183,7 +183,7 @@ def test_dictionary_array_automatically_read():
 
     # Make a large dictionary, a little over 4MB of data
     dict_length = 4000
-    dict_values = pa.array([('x' * 1000 + '_{}'.format(i))
+    dict_values = pa.array([('x' * 1000 + f'_{i}')
                             for i in range(dict_length)])
 
     num_chunks = 10
@@ -220,8 +220,7 @@ def test_decimal_roundtrip(tempdir):
                     util.randdecimal(precision, scale)
                     for _ in range(num_values)
                 ]
-            column_name = ('dec_precision_{:d}_scale_{:d}'
-                           .format(precision, scale))
+            column_name = f'dec_precision_{precision}_scale_{scale}'
             columns[column_name] = random_decimal_values
 
     expected = pd.DataFrame(columns)
@@ -255,7 +254,7 @@ def test_decimal_roundtrip_negative_scale(tempdir):
 
 @pytest.mark.parametrize('dtype', [int, float])
 def test_single_pylist_column_roundtrip(tempdir, dtype,):
-    filename = tempdir / 'single_{}_column.parquet'.format(dtype.__name__)
+    filename = tempdir / f'single_{dtype.__name__}_column.parquet'
     data = [pa.array(list(map(dtype, range(5))))]
     table = pa.Table.from_arrays(data, names=['a'])
     _write_table(table, filename)
@@ -388,6 +387,25 @@ def test_fixed_size_binary():
     _check_roundtrip(table)
 
 
+def test_binary_types():
+    types = [pa.binary(), pa.large_binary(), pa.binary_view()]
+    data = [b'abc', None, b'defg', b'x' * 30]
+    for in_type in types:
+        array = pa.array(data, in_type)
+        table = pa.Table.from_arrays([array], ['binary'])
+        for out_type in types:
+            for store_schema in (False, True):
+                result = _roundtrip_table(
+                    table, write_table_kwargs=dict(store_schema=store_schema),
+                    read_table_kwargs=dict(binary_type=out_type))
+                if store_schema:
+                    expected_table = table
+                else:
+                    expected_table = pa.Table.from_arrays(
+                        [pa.array(data, out_type)], ['binary'])
+                assert result == expected_table
+
+
 # Large types
 # -----------------------------------------------------------------------------
 
@@ -477,9 +495,9 @@ def test_list_of_binary_large_cell():
     assert table.equals(read_table)
 
 
-def test_large_binary():
+def test_large_binary_and_binary_view():
     data = [b'foo', b'bar'] * 50
-    for type in [pa.large_binary(), pa.large_string()]:
+    for type in [pa.large_binary(), pa.binary_view()]:
         arr = pa.array(data, type=type)
         table = pa.Table.from_arrays([arr], names=['strs'])
         for use_dictionary in [False, True]:
@@ -488,10 +506,10 @@ def test_large_binary():
 
 @pytest.mark.slow
 @pytest.mark.large_memory
-def test_large_binary_huge():
+def test_large_binary_and_binary_view_huge():
     s = b'xy' * 997
     data = [s] * ((1 << 33) // len(s))
-    for type in [pa.large_binary(), pa.large_string()]:
+    for type in [pa.large_binary(), pa.binary_view()]:
         arr = pa.array(data, type=type)
         table = pa.Table.from_arrays([arr], names=['strs'])
         for use_dictionary in [False, True]:

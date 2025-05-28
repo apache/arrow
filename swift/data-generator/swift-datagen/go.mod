@@ -16,10 +16,11 @@
 
 module swift-datagen/main
 
-go 1.22.7
+go 1.23.0
+
 toolchain go1.24.1
 
-require github.com/apache/arrow-go/v18 v18.2.0
+require github.com/apache/arrow-go/v18 v18.3.0
 
 require (
 	github.com/goccy/go-json v0.10.5 // indirect
@@ -29,9 +30,9 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0 // indirect
-	golang.org/x/mod v0.23.0 // indirect
-	golang.org/x/sync v0.11.0 // indirect
-	golang.org/x/sys v0.31.0 // indirect
-	golang.org/x/tools v0.30.0 // indirect
+	golang.org/x/mod v0.24.0 // indirect
+	golang.org/x/sync v0.13.0 // indirect
+	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/tools v0.32.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 )

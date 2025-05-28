@@ -355,18 +355,16 @@ def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
             qualname_with_signature = '.'.join([module, cython_signature])
             click.echo(
                 click.style(
-                    '-> {}'.format(qualname_with_signature),
+                    f'-> {qualname_with_signature}',
                     fg='yellow'
                 )
             )
 
         for error in errors:
             number_of_violations += 1
-            click.echo('{}: {}'.format(*error))
+            click.echo(f'{error[0]}: {error[1]}')
 
-    msg = 'Total number of docstring violations: {}'.format(
-        number_of_violations
-    )
+    msg = f'Total number of docstring violations: {number_of_violations}'
     click.echo()
     click.echo(click.style(msg, fg='red'))
 
@@ -392,7 +390,7 @@ def rat_linter(src, root):
 
     violations = list(report.validate(exclusion=exclusion))
     for violation in violations:
-        print("apache-rat license violation: {}".format(violation))
+        print(f"apache-rat license violation: {violation}")
 
     yield LintResult(len(violations) == 0)
 

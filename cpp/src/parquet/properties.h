@@ -24,7 +24,7 @@
 #include <utility>
 
 #include "arrow/io/caching.h"
-#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/type_fwd.h"
 #include "parquet/encryption/encryption.h"
@@ -289,6 +289,44 @@ class PARQUET_EXPORT ColumnProperties {
   std::optional<BloomFilterOptions> bloom_filter_options_;
 };
 
+// EXPERIMENTAL: Options for content-defined chunking.
+///
+/// Content-defined chunking is an experimental feature that optimizes parquet
+/// files for content addressable storage (CAS) systems by writing data pages
+/// according to content-defined chunk boundaries. This allows for more
+/// efficient deduplication of data across files, hence more efficient network
+/// transfers and storage.
+/// Each content-defined chunk is written as a separate parquet data page. The
+/// following options control the chunks' size and the chunking process. Note
+/// that the chunk size is calculated based on the logical value of the data,
+/// before any encoding or compression is applied.
+struct PARQUET_EXPORT CdcOptions {
+  /// Minimum chunk size in bytes, default is 256 KiB
+  /// The rolling hash will not be updated until this size is reached for each chunk.
+  /// Note that all data sent through the hash function is counted towards the chunk
+  /// size, including definition and repetition levels if present.
+  int64_t min_chunk_size = 256 * 1024;
+  /// Maximum chunk size in bytes, default is 1024 KiB
+  /// The chunker will create a new chunk whenever the chunk size exceeds this value.
+  /// Note that the parquet writer has a related `pagesize` property that controls
+  /// the maximum size of a parquet data page after encoding. While setting
+  /// `pagesize` to a smaller value than `max_chunk_size` doesn't affect the
+  /// chunking effectiveness, it results in more small parquet data pages.
+  int64_t max_chunk_size = 1024 * 1024;
+  /// Number of bit adjustment to the gearhash mask in order to center the chunk size
+  /// around the average size more aggressively, default is 0
+  /// Increasing the normalization level increases the probability of finding a chunk,
+  /// improving the deduplication ratio, but also increasing the number of small chunks
+  /// resulting in many small parquet data pages. The default value provides a good
+  /// balance between deduplication ratio and fragmentation.
+  /// Use norm_level=1 or norm_level=2 to reach a higher deduplication ratio at the
+  /// expense of fragmentation. Negative values can also be used to reduce the
+  /// probability of finding a chunk, resulting in larger chunks and fewer data pages.
+  /// Note that values outside [-3, 3] are not recommended, prefer using the default
+  /// value of 0 for most use cases.
+  int norm_level = 0;
+};
+
 class PARQUET_EXPORT WriterProperties {
  public:
   class Builder {
@@ -304,7 +342,9 @@ class PARQUET_EXPORT WriterProperties {
           created_by_(DEFAULT_CREATED_BY),
           store_decimal_as_integer_(false),
           page_checksum_enabled_(false),
-          size_statistics_level_(DEFAULT_SIZE_STATISTICS_LEVEL) {}
+          size_statistics_level_(DEFAULT_SIZE_STATISTICS_LEVEL),
+          content_defined_chunking_enabled_(false),
+          content_defined_chunking_options_({}) {}
 
     explicit Builder(const WriterProperties& properties)
         : pool_(properties.memory_pool()),
@@ -319,9 +359,39 @@ class PARQUET_EXPORT WriterProperties {
           page_checksum_enabled_(properties.page_checksum_enabled()),
           size_statistics_level_(properties.size_statistics_level()),
           sorting_columns_(properties.sorting_columns()),
-          default_column_properties_(properties.default_column_properties()) {}
+          default_column_properties_(properties.default_column_properties()),
+          content_defined_chunking_enabled_(
+              properties.content_defined_chunking_enabled()),
+          content_defined_chunking_options_(
+              properties.content_defined_chunking_options()) {}
 
     virtual ~Builder() {}
+
+    /// \brief EXPERIMENTAL: Use content-defined page chunking for all columns.
+    ///
+    /// Optimize parquet files for content addressable storage (CAS) systems by writing
+    /// data pages according to content-defined chunk boundaries. This allows for more
+    /// efficient deduplication of data across files, hence more efficient network
+    /// transfers and storage. The chunking is based on a rolling hash algorithm that
+    /// identifies chunk boundaries based on the actual content of the data.
+    ///
+    /// Note that only the WriteArrow() interface is supported at the moment.
+    Builder* enable_content_defined_chunking() {
+      content_defined_chunking_enabled_ = true;
+      return this;
+    }
+
+    /// \brief EXPERIMENTAL: Disable content-defined page chunking for all columns.
+    Builder* disable_content_defined_chunking() {
+      content_defined_chunking_enabled_ = false;
+      return this;
+    }
+
+    /// \brief EXPERIMENTAL: Specify content-defined chunking options, see CdcOptions.
+    Builder* content_defined_chunking_options(const CdcOptions& options) {
+      content_defined_chunking_options_ = options;
+      return this;
+    }
 
     /// Specify the memory pool for the writer. Default default_memory_pool.
     Builder* memory_pool(MemoryPool* pool) {
@@ -784,7 +854,8 @@ class PARQUET_EXPORT WriterProperties {
           pagesize_, version_, created_by_, page_checksum_enabled_,
           size_statistics_level_, std::move(file_encryption_properties_),
           default_column_properties_, column_properties, data_page_version_,
-          store_decimal_as_integer_, std::move(sorting_columns_)));
+          store_decimal_as_integer_, std::move(sorting_columns_),
+          content_defined_chunking_enabled_, content_defined_chunking_options_));
     }
 
    private:
@@ -813,6 +884,8 @@ class PARQUET_EXPORT WriterProperties {
     std::unordered_map<std::string, bool> dictionary_enabled_;
     std::unordered_map<std::string, bool> statistics_enabled_;
     std::unordered_map<std::string, bool> page_index_enabled_;
+    bool content_defined_chunking_enabled_;
+    CdcOptions content_defined_chunking_options_;
     std::unordered_map<std::string, std::optional<BloomFilterOptions>>
         bloom_filter_options_;
   };
@@ -838,6 +911,13 @@ class PARQUET_EXPORT WriterProperties {
   inline bool store_decimal_as_integer() const { return store_decimal_as_integer_; }
 
   inline bool page_checksum_enabled() const { return page_checksum_enabled_; }
+
+  inline bool content_defined_chunking_enabled() const {
+    return content_defined_chunking_enabled_;
+  }
+  inline CdcOptions content_defined_chunking_options() const {
+    return content_defined_chunking_options_;
+  }
 
   inline SizeStatisticsLevel size_statistics_level() const {
     return size_statistics_level_;
@@ -954,7 +1034,8 @@ class PARQUET_EXPORT WriterProperties {
       const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
       ParquetDataPageVersion data_page_version, bool store_short_decimal_as_integer,
-      std::vector<SortingColumn> sorting_columns)
+      std::vector<SortingColumn> sorting_columns, bool content_defined_chunking_enabled,
+      CdcOptions content_defined_chunking_options)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
@@ -969,7 +1050,9 @@ class PARQUET_EXPORT WriterProperties {
         file_encryption_properties_(file_encryption_properties),
         sorting_columns_(std::move(sorting_columns)),
         default_column_properties_(default_column_properties),
-        column_properties_(column_properties) {}
+        column_properties_(column_properties),
+        content_defined_chunking_enabled_(content_defined_chunking_enabled),
+        content_defined_chunking_options_(content_defined_chunking_options) {}
 
   MemoryPool* pool_;
   int64_t dictionary_pagesize_limit_;
@@ -989,6 +1072,9 @@ class PARQUET_EXPORT WriterProperties {
 
   ColumnProperties default_column_properties_;
   std::unordered_map<std::string, ColumnProperties> column_properties_;
+
+  bool content_defined_chunking_enabled_;
+  CdcOptions content_defined_chunking_options_;
 };
 
 PARQUET_EXPORT const std::shared_ptr<WriterProperties>& default_writer_properties();
@@ -1001,6 +1087,8 @@ static constexpr bool kArrowDefaultUseThreads = false;
 // Default number of rows to read when using ::arrow::RecordBatchReader
 static constexpr int64_t kArrowDefaultBatchSize = 64 * 1024;
 
+constexpr inline ::arrow::Type::type kArrowDefaultBinaryType = ::arrow::Type::BINARY;
+
 /// EXPERIMENTAL: Properties for configuring FileReader behavior.
 class PARQUET_EXPORT ArrowReaderProperties {
  public:
@@ -1011,6 +1099,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
         pre_buffer_(true),
         cache_options_(::arrow::io::CacheOptions::LazyDefaults()),
         coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO),
+        binary_type_(kArrowDefaultBinaryType),
         arrow_extensions_enabled_(false),
         should_load_statistics_(false) {}
 
@@ -1042,6 +1131,22 @@ class PARQUET_EXPORT ArrowReaderProperties {
       return false;
     }
   }
+
+  /// \brief Set the Arrow binary type to read BYTE_ARRAY columns as.
+  ///
+  /// Allowed values are Type::BINARY, Type::LARGE_BINARY and Type::BINARY_VIEW.
+  /// Default is Type::BINARY.
+  ///
+  /// If a BYTE_ARRAY column has the STRING logical type, it is read as the
+  /// Arrow string type corresponding to the configured binary type (for example
+  /// Type::LARGE_STRING if the configured binary type is Type::LARGE_BINARY).
+  ///
+  /// However, if a serialized Arrow schema is found in the Parquet metadata,
+  /// this setting is ignored and the Arrow schema takes precedence
+  /// (see ArrowWriterProperties::store_schema).
+  void set_binary_type(::arrow::Type::type value) { binary_type_ = value; }
+  /// Return the Arrow binary type to read BYTE_ARRAY columns as.
+  ::arrow::Type::type binary_type() const { return binary_type_; }
 
   /// \brief Set the maximum number of rows to read into a record batch.
   ///
@@ -1112,6 +1217,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   ::arrow::io::IOContext io_context_;
   ::arrow::io::CacheOptions cache_options_;
   ::arrow::TimeUnit::type coerce_int96_timestamp_unit_;
+  ::arrow::Type::type binary_type_;
   bool arrow_extensions_enabled_;
   bool should_load_statistics_;
 };

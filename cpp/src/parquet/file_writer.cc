@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "parquet/bloom_filter_builder_internal.h"

@@ -26,8 +26,8 @@ cdef class Scalar(_Weakrefable):
     """
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use "
-                        "pa.scalar() instead.".format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, "
+                        "use pa.scalar() instead.")
 
     cdef void init(self, const shared_ptr[CScalar]& wrapped):
         self.wrapped = wrapped
@@ -117,9 +117,7 @@ cdef class Scalar(_Weakrefable):
                 check_status(self.wrapped.get().Validate())
 
     def __repr__(self):
-        return '<pyarrow.{}: {!r}>'.format(
-            self.__class__.__name__, self.as_py()
-        )
+        return f'<pyarrow.{self.__class__.__name__}: {self.as_py()!r}>'
 
     def __str__(self):
         return str(self.as_py())
@@ -611,10 +609,10 @@ def _datetime_from_int(int64_t value, TimeUnit unit, tzinfo=None):
         # otherwise safely truncate to microsecond resolution datetime
         if value % 1000 != 0:
             raise ValueError(
-                "Nanosecond resolution temporal type {} is not safely "
+                f"Nanosecond resolution temporal type {value} is not safely "
                 "convertible to microseconds to convert to datetime.datetime. "
                 "Install pandas to return as Timestamp with nanosecond "
-                "support or access the .value attribute.".format(value)
+                "support or access the .value attribute."
             )
         delta = datetime.timedelta(microseconds=value // 1000)
 
@@ -735,9 +733,7 @@ cdef class TimestampScalar(Scalar):
             type_format = str(_pc().strftime(self, format="%Y-%m-%dT%H:%M:%S%z"))
         else:
             type_format = str(_pc().strftime(self))
-        return '<pyarrow.{}: {!r}>'.format(
-            self.__class__.__name__, type_format
-        )
+        return f'<pyarrow.{self.__class__.__name__}: {type_format!r}>'
 
 
 cdef class DurationScalar(Scalar):
@@ -783,10 +779,10 @@ cdef class DurationScalar(Scalar):
             # otherwise safely truncate to microsecond resolution timedelta
             if sp.value % 1000 != 0:
                 raise ValueError(
-                    "Nanosecond duration {} is not safely convertible to "
+                    f"Nanosecond duration {sp.value} is not safely convertible to "
                     "microseconds to convert to datetime.timedelta. Install "
                     "pandas to return as Timedelta with nanosecond support or "
-                    "access the .value attribute.".format(sp.value)
+                    "access the .value attribute."
                 )
             return datetime.timedelta(microseconds=sp.value // 1000)
 
@@ -1049,9 +1045,7 @@ cdef class StructScalar(Scalar, collections.abc.Mapping):
             return None
 
     def __repr__(self):
-        return '<pyarrow.{}: {!r}>'.format(
-            self.__class__.__name__, self._as_py_tuple()
-        )
+        return f'<pyarrow.{self.__class__.__name__}: {self._as_py_tuple()!r}>'
 
     def __str__(self):
         return str(self._as_py_tuple())
@@ -1356,9 +1350,8 @@ cdef class ExtensionScalar(Scalar):
             storage = None
         elif isinstance(value, Scalar):
             if value.type != typ.storage_type:
-                raise TypeError("Incompatible storage type {0} "
-                                "for extension type {1}"
-                                .format(value.type, typ))
+                raise TypeError(f"Incompatible storage type {value.type} "
+                                f"for extension type {typ}")
             storage = value
         else:
             storage = scalar(value, typ.storage_type)

@@ -268,6 +268,7 @@ class BinaryTask
 
     def initialize
       @http = nil
+      @current_timeout = nil
     end
 
     private def start_http(url, &block)
@@ -302,32 +303,38 @@ class BinaryTask
     end
 
     private def request_internal(http, request, &block)
-      http.request(request) do |response|
-        case response
-        when Net::HTTPSuccess,
-             Net::HTTPNotModified
-          if block_given?
-            return yield(response)
+      read_timeout = http.read_timeout
+      begin
+        http.read_timeout = @current_timeout if @current_timeout
+        http.request(request) do |response|
+          case response
+          when Net::HTTPSuccess,
+               Net::HTTPNotModified
+            if block_given?
+              return yield(response)
+            else
+              response.read_body
+              return response
+            end
+          when Net::HTTPRedirection
+            redirected_url = URI(response["Location"])
+            redirected_request = Net::HTTP::Get.new(redirected_url, {})
+            start_http(redirected_url) do |redirected_http|
+              request_internal(redirected_http, redirected_request, &block)
+            end
           else
-            response.read_body
-            return response
+            message = "failed to request: "
+            message << "#{request.uri}: #{request.method}: "
+            message << "#{response.message} #{response.code}"
+            if response.body
+              message << "\n"
+              message << response.body
+            end
+            raise Error.new(request, response, message)
           end
-        when Net::HTTPRedirection
-          redirected_url = URI(response["Location"])
-          redirected_request = Net::HTTP::Get.new(redirected_url, {})
-          start_http(redirected_url) do |redirected_http|
-            request_internal(redirected_http, redirected_request, &block)
-          end
-        else
-          message = "failed to request: "
-          message << "#{request.uri}: #{request.method}: "
-          message << "#{response.message} #{response.code}"
-          if response.body
-            message << "\n"
-            message << response.body
-          end
-          raise Error.new(request, response, message)
         end
+      ensure
+        http.read_timeout = read_timeout
       end
     end
 
@@ -460,12 +467,11 @@ class BinaryTask
     end
 
     def with_read_timeout(timeout)
-      current_timeout = @http.read_timeout
+      current_timeout, @current_timeout = @current_timeout, timeout
       begin
-        @http.read_timeout = timeout
         yield
       ensure
-        @http.read_timeout = current_timeout
+        @current_timeout = current_timeout
       end
     end
   end
@@ -1401,6 +1407,10 @@ class BinaryTask
     "#{tmp_dir}/release"
   end
 
+  def recover_dir
+    "#{tmp_dir}/recover"
+  end
+
   def apt_repository_label
     "Apache Arrow"
   end
@@ -1413,8 +1423,8 @@ class BinaryTask
     "#{rc_dir}/apt/repositories"
   end
 
-  def apt_release_repositories_dir
-    "#{release_dir}/apt/repositories"
+  def apt_recover_repositories_dir
+    "#{recover_dir}/apt/repositories"
   end
 
   def available_apt_targets
@@ -1480,7 +1490,7 @@ Dir::ArchiveDir ".";
 Dir::CacheDir ".";
 TreeDefault::Directory "pool/#{code_name}/#{component}";
 TreeDefault::SrcDirectory "pool/#{code_name}/#{component}";
-Default::Packages::Extensions ".deb";
+Default::Packages::Extensions ".deb .ddeb";
 Default::Packages::Compress ". gzip xz";
 Default::Sources::Compress ". gzip xz";
 Default::Contents::Compress "gzip";
@@ -1565,16 +1575,21 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
          verbose: verbose?)
       mv(release_file.path, "#{dists_dir}/Release", verbose: verbose?)
 
-      base_dists_dir = "#{base_dir}/#{distribution}/dists/#{code_name}"
-      merged_dists_dir = "#{merged_dir}/#{distribution}/dists/#{code_name}"
-      rm_rf(merged_dists_dir)
-      merger = APTDistsMerge::Merger.new(base_dists_dir,
-                                         dists_dir,
-                                         merged_dists_dir)
-      merger.merge
+      if base_dir and merged_dir
+        base_dists_dir = "#{base_dir}/#{distribution}/dists/#{code_name}"
+        merged_dists_dir = "#{merged_dir}/#{distribution}/dists/#{code_name}"
+        rm_rf(merged_dists_dir)
+        merger = APTDistsMerge::Merger.new(base_dists_dir,
+                                           dists_dir,
+                                           merged_dists_dir)
+        merger.merge
 
-      in_release_path = "#{merged_dists_dir}/InRelease"
-      release_path = "#{merged_dists_dir}/Release"
+        in_release_path = "#{merged_dists_dir}/InRelease"
+        release_path = "#{merged_dists_dir}/Release"
+      else
+        in_release_path = "#{dists_dir}/InRelease"
+        release_path = "#{dists_dir}/Release"
+      end
       signed_release_path = "#{release_path}.gpg"
       sh("gpg",
          "--sign",
@@ -1634,7 +1649,10 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
             rm_rf(pool_dir, verbose: verbose?)
             mkdir_p(pool_dir, verbose: verbose?)
             source_dir_prefix = "#{artifacts_dir}/#{distribution}-#{code_name}"
-            Dir.glob("#{source_dir_prefix}-*/*") do |path|
+            # apache/arrow uses debian-bookworm-{amd64,arm64} but
+            # apache/arrow-adbc uses debian-bookworm. So the following
+            # glob must much both of them.
+            Dir.glob("#{source_dir_prefix}*/*") do |path|
               base_name = File.basename(path)
               package_name = ENV["DEB_PACKAGE_NAME"]
               if package_name.nil? or package_name.empty?
@@ -1671,16 +1689,17 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
         desc "Download dists/ for RC APT repositories"
         task :download do
-          apt_distributions.each do |distribution|
+          apt_targets.each do |distribution, code_name, component|
             not_checksum_pattern = /.+(?<!\.asc|\.sha512)\z/
-            base_distribution_dir = "#{base_dir}/#{distribution}"
+            base_distribution_dir =
+              "#{base_dir}/#{distribution}/dists/#{code_name}"
             pattern = not_checksum_pattern
             download_distribution(:artifactory,
                                   distribution,
                                   base_distribution_dir,
                                   :base,
                                   pattern: pattern,
-                                  prefix: "dists")
+                                  prefix: "dists/#{code_name}")
           end
         end
 
@@ -1766,7 +1785,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
   end
 
   def define_apt_release_tasks
-    directory apt_release_repositories_dir
 
     namespace :apt do
       desc "Release APT repository"
@@ -1779,10 +1797,67 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     end
   end
 
+  def define_apt_recover_tasks
+    namespace :apt do
+      namespace :recover do
+        desc "Download repositories"
+        task :download do
+          apt_targets.each do |distribution, code_name, component|
+            not_checksum_pattern = /.+(?<!\.asc|\.sha512)\z/
+            code_name_dir =
+              "#{apt_recover_repositories_dir}/#{distribution}/pool/#{code_name}"
+            pattern = not_checksum_pattern
+            download_distribution(:artifactory,
+                                  distribution,
+                                  code_name_dir,
+                                  :base,
+                                  pattern: pattern,
+                                  prefix: "pool/#{code_name}")
+          end
+        end
+
+        desc "Update repositories"
+        task :update do
+          apt_update(nil, apt_recover_repositories_dir, nil)
+          apt_targets.each do |distribution, code_name, component|
+            dists_dir =
+              "#{apt_recover_repositories_dir}/#{distribution}/dists/#{code_name}"
+            next unless File.exist?(dists_dir)
+            sign_dir("#{distribution} #{code_name}",
+                     dists_dir)
+          end
+        end
+
+        desc "Upload repositories"
+        task :upload do
+          apt_distributions.each do |distribution|
+            dists_dir =
+              "#{apt_recover_repositories_dir}/#{distribution}/dists"
+            uploader = ArtifactoryUploader.new(api_key: artifactory_api_key,
+                                               destination_prefix: "dists",
+                                               distribution: distribution,
+                                               source: dists_dir,
+                                               staging: staging?)
+            uploader.upload
+          end
+        end
+      end
+
+      desc "Recover APT repositories"
+      apt_recover_tasks = [
+        "apt:recover:download",
+        "apt:recover:update",
+        "apt:recover:upload",
+      ]
+      task :recover => apt_recover_tasks
+    end
+  end
+
   def define_apt_tasks
     define_apt_staging_tasks
     define_apt_rc_tasks
     define_apt_release_tasks
+    define_apt_recover_tasks
   end
 
   def yum_rc_repositories_dir
@@ -2125,7 +2200,8 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                                list: uploaded_files_name)
 
           distribution_dir = "#{yum_release_repositories_dir}/#{distribution}"
-          download_distribution(distribution,
+          download_distribution(:artifactory,
+                                distribution,
                                 distribution_dir,
                                 :rc,
                                 pattern: /\/repodata\//)

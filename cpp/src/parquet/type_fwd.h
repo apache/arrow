@@ -83,6 +83,11 @@ class EncodedStatistics;
 class Statistics;
 struct SizeStatistics;
 
+namespace geospatial {
+class GeoStatistics;
+struct EncodedGeoStatistics;
+}  // namespace geospatial
+
 class BloomFilter;
 struct BloomFilterLocation;
 struct BloomFilterOptions;

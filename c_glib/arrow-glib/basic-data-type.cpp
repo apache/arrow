@@ -26,6 +26,8 @@
 #include <arrow-glib/type.hpp>
 
 #include <arrow/c/bridge.h>
+#include <arrow/extension/fixed_shape_tensor.h>
+#include <arrow/extension/uuid.h>
 
 G_BEGIN_DECLS
 
@@ -131,6 +133,10 @@ G_BEGIN_DECLS
  * #GArrowStringViewDataType is a class for the string view data type.
  *
  * #GArrowBinaryViewDataType is a class for the binary view data type.
+ *
+ * #GArrowFixedShapeTensorDataType is a class for the fixed shape tensor data type.
+ *
+ * #GArrowUUIDDataType is a class for UUID data type.
  */
 
 struct GArrowDataTypePrivate
@@ -2267,6 +2273,253 @@ garrow_string_view_data_type_new(void)
   return data_type;
 }
 
+enum {
+  PROP_N_DIMENSIONS = 1
+};
+
+G_DEFINE_TYPE(GArrowFixedShapeTensorDataType,
+              garrow_fixed_shape_tensor_data_type,
+              GARROW_TYPE_EXTENSION_DATA_TYPE)
+
+static void
+garrow_fixed_shape_tensor_data_type_get_property(GObject *object,
+                                                 guint prop_id,
+                                                 GValue *value,
+                                                 GParamSpec *pspec)
+{
+  switch (prop_id) {
+  case PROP_N_DIMENSIONS:
+    {
+      auto arrow_data_type =
+        std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(
+          garrow_data_type_get_raw(GARROW_DATA_TYPE(object)));
+      g_value_set_uint64(value, arrow_data_type->ndim());
+    }
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_fixed_shape_tensor_data_type_init(GArrowFixedShapeTensorDataType *object)
+{
+}
+
+static void
+garrow_fixed_shape_tensor_data_type_class_init(GArrowFixedShapeTensorDataTypeClass *klass)
+{
+  GParamSpec *spec;
+
+  auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->get_property = garrow_fixed_shape_tensor_data_type_get_property;
+
+  /**
+   * GArrowFixedShapeTensorDataType::n-dimensions:
+   *
+   * The number of dimensions of tensor elements.
+   *
+   * Since: 21.0.0
+   */
+  spec = g_param_spec_uint64("n_dimensions",
+                             "N dimensions",
+                             "Number of dimensions of tensor elements",
+                             0,
+                             G_MAXUINT64,
+                             0,
+                             static_cast<GParamFlags>(G_PARAM_READABLE));
+  g_object_class_install_property(gobject_class, PROP_N_DIMENSIONS, spec);
+}
+
+/**
+ * garrow_fixed_shape_tensor_data_type_new:
+ * @value_type: A #GArrowDataType of individual tensor elements.
+ * @shape: (array length=shape_length): A physical shape of the contained tensors as an
+ *   array.
+ * @shape_length: The length of `shape`.
+ * @permutation: (array length=permutation_length) (nullable): An indices of the desired
+ *   ordering of the original dimensions, defined as an array. This must be `NULL` or
+ *   the same length array of `shape`.
+ * @permutation_length: The length of `permutation`.
+ * @dim_names: (array length=n_dim_names) (nullable): Explicit names to tensor dimensions
+ *   as an array. This must be `NULL` or the same length array of `shape`.
+ * @n_dim_names. The length of `dim_names`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: The newly created fixed shape tensor data type.
+ *
+ * Since: 21.0.0
+ */
+GArrowFixedShapeTensorDataType *
+garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
+                                        const gint64 *shape,
+                                        gsize shape_length,
+                                        const gint64 *permutation,
+                                        gsize permutation_length,
+                                        const gchar **dim_names,
+                                        gsize n_dim_names,
+                                        GError **error)
+{
+  std::vector<int64_t> arrow_shape;
+  std::vector<int64_t> arrow_permutation;
+  std::vector<std::string> arrow_dim_names;
+
+  auto arrow_value_type = garrow_data_type_get_raw(value_type);
+
+  for (gsize i = 0; i < shape_length; i++) {
+    arrow_shape.push_back(shape[i]);
+  }
+
+  for (gsize i = 0; i < permutation_length; i++) {
+    arrow_permutation.push_back(permutation[i]);
+  }
+
+  for (gsize i = 0; i < n_dim_names; i++) {
+    arrow_dim_names.push_back(dim_names[i]);
+  }
+
+  auto arrow_data_type_result =
+    arrow::extension::FixedShapeTensorType::Make(arrow_value_type,
+                                                 arrow_shape,
+                                                 arrow_permutation,
+                                                 arrow_dim_names);
+  if (!garrow::check(error, arrow_data_type_result, "[fixed-shape-tensor][new]")) {
+    return NULL;
+  }
+
+  auto arrow_data_type = *arrow_data_type_result;
+  auto data_type = GARROW_FIXED_SHAPE_TENSOR_DATA_TYPE(
+    g_object_new(GARROW_TYPE_FIXED_SHAPE_TENSOR_DATA_TYPE,
+                 "data-type",
+                 &arrow_data_type,
+                 NULL));
+  return data_type;
+}
+
+/**
+ * garrow_fixed_shape_tensor_data_type_get_shape:
+ * @data_type: A #GArrowFixedShapeTensorDataType.
+ * @length: (out): Return location for the number of dimensions of the tensor.
+ *
+ * Returns: (array length=length): Shape of the tensor.
+ *
+ * Since: 21.0.0
+ */
+const gint64 *
+garrow_fixed_shape_tensor_data_type_get_shape(GArrowFixedShapeTensorDataType *data_type,
+                                              gsize *length)
+{
+  auto arrow_data_type = std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
+
+  const auto &arrow_shape = arrow_data_type->shape();
+  *length = arrow_shape.size();
+  return arrow_shape.data();
+}
+
+/**
+ * garrow_fixed_shape_tensor_data_type_get_permutation:
+ * @data_type: A #GArrowFixedShapeTensorDataType.
+ * @length: (out): Return location for the number of elements of permutation.
+ *
+ * Returns: (array length=length): Permutation of the tensor.
+ *
+ * Since: 21.0.0
+ */
+const gint64 *
+garrow_fixed_shape_tensor_data_type_get_permutation(
+  GArrowFixedShapeTensorDataType *data_type, gsize *length)
+{
+  auto arrow_data_type = std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
+
+  const auto &arrow_permutation = arrow_data_type->permutation();
+  *length = arrow_permutation.size();
+  return arrow_permutation.data();
+}
+
+/**
+ * garrow_fixed_shape_tensor_data_type_get_dim_names:
+ * @data_type: A #GArrowFixedShapeTensorDataType.
+ *
+ * Returns: (array zero-terminated=1) (element-type utf8) (transfer full):
+ *   Dimention names of the tensor.
+ *
+ *   It's a %NULL-terminated string array. It must be freed with
+ *   g_strfreev() when no longer needed.
+ *
+ * Since: 21.0.0
+ */
+gchar **
+garrow_fixed_shape_tensor_data_type_get_dim_names(
+  GArrowFixedShapeTensorDataType *data_type)
+{
+  auto arrow_data_type = std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
+  const auto &arrow_dim_names = arrow_data_type->dim_names();
+  auto n = arrow_dim_names.size();
+  auto dim_names = g_new(gchar *, n + 1);
+  for (size_t i = 0; i < n; ++i) {
+    dim_names[i] = g_strndup(arrow_dim_names[i].data(), arrow_dim_names[i].size());
+  }
+  dim_names[n] = nullptr;
+  return dim_names;
+}
+
+/**
+ * garrow_fixed_shape_tensor_data_type_get_strides:
+ * @data_type: A #GArrowFixedShapeTensorDataType.
+ * @length: (out): Return location for the number of strides of tensor shape.
+ *
+ * Returns: (array length=length): Strides in bytes for each tensor dimension.
+ *
+ * Since: 21.0.0
+ */
+const gint64 *
+garrow_fixed_shape_tensor_data_type_get_strides(GArrowFixedShapeTensorDataType *data_type,
+                                                gsize *length)
+{
+  auto arrow_data_type = std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
+  const auto &arrow_strides = arrow_data_type->strides();
+  *length = arrow_strides.size();
+  return arrow_strides.data();
+}
+
+G_DEFINE_TYPE(GArrowUUIDDataType, garrow_uuid_data_type, GARROW_TYPE_EXTENSION_DATA_TYPE)
+
+static void
+garrow_uuid_data_type_init(GArrowUUIDDataType *object)
+{
+}
+
+static void
+garrow_uuid_data_type_class_init(GArrowUUIDDataTypeClass *klass)
+{
+}
+
+/*
+ * garrow_uuid_data_type_new:
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable):
+ *   The newly created UUID data type on success, %NULL on error.
+ *
+ * Since: 21.0.0
+ */
+GArrowUUIDDataType *
+garrow_uuid_data_type_new(GError **error)
+{
+  auto arrow_data_type_result = arrow::extension::UuidType::Make();
+  if (garrow::check(error, arrow_data_type_result, "[uuid-data-type][new]")) {
+    auto arrow_data_type = *arrow_data_type_result;
+    return GARROW_UUID_DATA_TYPE(
+      g_object_new(GARROW_TYPE_UUID_DATA_TYPE, "data-type", &arrow_data_type, NULL));
+  } else {
+    return NULL;
+  }
+}
 G_END_DECLS
 
 GArrowDataType *

@@ -168,3 +168,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
     endforeach()
   endif()
 endif()
+
+if(ARROW_FLIGHT_SQL_ODBC)
+  add_subdirectory(odbc)
+endif()
