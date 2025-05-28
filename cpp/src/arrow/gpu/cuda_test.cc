@@ -1067,11 +1067,9 @@ TEST_F(TestArrayDataStatisticsViewOrCopyTO, CPUBufferAndCudaBufferPointToCpuMemo
   array_data->null_count = 4;
   ASSERT_TRUE(is_valid_as_array(array_data));
   {
-    // The view operation is applied to CudaBuffers because it's possible to obtain a
-    // host pointer from them.
-    // I ran this test on an RTX 3050 Mobile (which supports Unified Addressing), and
-    // the assertion passed. However, on GPUs that do not support Unified Addressing,
-    // the assertion is expected to fail.
+    // I ran this test on an RTX 3050 Mobile, which supports the device attribute
+    // cudaDevAttrCanUseHostPointerForRegisteredMem, and the assertion passed.
+    // On GPUs that do not support this attribute, the assertion is expected to fail.
     ASSERT_OK_AND_ASSIGN(auto viewed_array_data, array_data->ViewOrCopyTo(cpu_mm_));
     ASSERT_TRUE(is_statistics_shared(array_data, viewed_array_data));
   }
@@ -1132,11 +1130,10 @@ TEST_F(TestArrayDataStatisticsViewOrCopyTO, CudaHostBufferAndGpuBuffersPointToMe
   array_data->null_count = 4;
   ASSERT_TRUE(is_valid_as_array(array_data));
   {
-    // The view operation is applied to data_buffer because it's possible to obtain a
-    // host pointer from it.
-    // I ran this test on an RTX 3050 Mobile (which supports Unified Addressing), and
-    // the assertion passed. However, on GPUs that do not support Unified Addressing,
-    // the assertion is expected to fail.
+    // I ran this test on an RTX 3050 Mobile, which supports the device attribute
+    // cudaDevAttrCanUseHostPointerForRegisteredMem, and the assertion passed.
+    // On GPUs that do not support this attribute, the assertion is expected to fail.
+
     ASSERT_OK_AND_ASSIGN(auto viewed_array_data, array_data->ViewOrCopyTo(cpu_mm_));
     ASSERT_TRUE(is_statistics_shared(array_data, viewed_array_data));
   }
@@ -1158,8 +1155,10 @@ TEST_F(TestArrayDataStatisticsViewOrCopyTO, CudaBuffers) {
   statistics->max = 10;
   array_data->statistics = statistics;
   array_data->null_count = 4;
-  // Why does the assertion below fail
+  // Why does the assertion below fail? Is the bitmap_buffer on the GPU invalid,
+  // even though the other GPU-resident buffers are valid?
   // ASSERT_TRUE(is_valid_as_array(array_data));
+
   {
     // Since it's not possible to get  host pointers from CudaBuffers,
     // the buffers are copied.
@@ -1193,11 +1192,10 @@ TEST_F(TestArrayDataStatisticsViewOrCopyTO, CudaBuffersPointToCpuMemory) {
   // even though the other GPU-resident buffers are valid?
   // ASSERT_TRUE(is_valid_as_array(array_data));
   {
-    // The view operation is applied to CudaBuffers because it's possible to obtain a
-    // host pointer from them.
-    // Note that I ran this test on an RTX 3050 Mobile (which supports Unified
-    // Addressing), and the assertion passed. However, on GPUs that do not support Unified
-    // Addressing, the assertion is expected to fail.
+    // I ran this test on an RTX 3050 Mobile, which supports the device attribute
+    // cudaDevAttrCanUseHostPointerForRegisteredMem, and the assertion passed.
+    // On GPUs that do not support this attribute, the assertion is expected to fail.
+
     ASSERT_OK_AND_ASSIGN(auto viewed_data, array_data->ViewOrCopyTo(cpu_mm_));
     ASSERT_TRUE(is_statistics_shared(array_data, viewed_data));
   }
