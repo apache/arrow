@@ -385,7 +385,7 @@ install_csharp() {
     local dotnet_download_url=$( \
       curl -sL ${dotnet_download_thank_you_url} | \
         grep 'directLink' | \
-        grep -E -o 'https://download[^"]+' | \
+        grep -E -o 'https://builds.dotnet[^"]+' | \
         sed -n 2p)
     mkdir -p ${csharp_bin}
     curl -sL ${dotnet_download_url} | \

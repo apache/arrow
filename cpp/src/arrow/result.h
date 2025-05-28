@@ -231,7 +231,7 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
   /// contents of a `Result<U>`. `T` must be implicitly constructible from `U
   /// &&`.
   ///
-  /// Sets `other` to contain a non-OK status with a`StatusError::Invalid`
+  /// Sets `other` to contain a non-OK status with a `StatusError::Invalid`
   /// error code.
   ///
   /// \param other The Result object to move from and set to a non-OK status.
