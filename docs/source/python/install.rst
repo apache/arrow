@@ -113,8 +113,6 @@ commands:
    >>> print(tzdata.__file__)
    path\to\.venv\Lib\site-packages\tzdata\__init__.py
 
-You only need to set the ``TZDIR`` environmental variable to
-``path\to\.venv\Lib\site-packages\tzdata\`` in the above example.
 
 .. _python-conda-differences:
 
