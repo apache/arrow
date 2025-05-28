@@ -50,7 +50,7 @@ ARROW_PYTHON_EXPORT PyObject* PyHalf_FromHalf(npy_half value);
 // \brief Construct a Python float object from a uint16_t value.
 ARROW_PYTHON_EXPORT PyObject* PyFloat_FromHalf(uint16_t value);
 
-// \brief Convert a Python object to a uint16_t value.
+// \brief Convert a Python object to a half-float uint16_t value.
 ARROW_PYTHON_EXPORT Status PyFloat_AsHalf(PyObject* obj, uint16_t* out);
 
 namespace internal {

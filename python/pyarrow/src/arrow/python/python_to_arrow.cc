@@ -232,7 +232,7 @@ class PyValue {
     } else if (internal::PyIntScalar_Check(obj)) {
       float float_val{};
       RETURN_NOT_OK(internal::IntegerScalarToFloat32Safe(obj, &float_val));
-      arrow::util::Float16 half_val = arrow::util::Float16::FromFloat(float_val);
+      const auto half_val = arrow::util::Float16::FromFloat(float_val);
       value = half_val.bits();
     } else {
       return internal::InvalidValue(obj, "tried to convert to float16");
