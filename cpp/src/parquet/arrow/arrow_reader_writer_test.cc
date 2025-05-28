@@ -6214,20 +6214,22 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTrip) {
 }
 
 TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripDictionary) {
-  auto origin_schema = ::arrow::schema(
-      {::arrow::field("c0", ::arrow::int64()), ::arrow::field("c1", ::arrow::utf8())});
-  auto schema = ::arrow::schema(
-      {::arrow::field("c0", ::arrow::dictionary(::arrow::int64(), ::arrow::int64())),
-       ::arrow::field("c1", ::arrow::dictionary(::arrow::int64(), ::arrow::utf8()))});
-  bloom_filters_.clear();
-  BloomFilterOptions options;
-  options.ndv = 10;
-  auto writer_properties = WriterProperties::Builder()
-                               .enable_bloom_filter_options(options, "c0")
-                               ->enable_bloom_filter_options(options, "c1")
-                               ->max_row_group_length(4)
-                               ->build();
-  std::vector<std::string> contents = {R"([
+  for (const auto& arrow_utf8_type :
+       {::arrow::utf8(), ::arrow::large_utf8(), ::arrow::utf8_view()}) {
+    auto origin_schema = ::arrow::schema(
+        {::arrow::field("c0", ::arrow::int64()), ::arrow::field("c1", arrow_utf8_type)});
+    auto schema = ::arrow::schema(
+        {::arrow::field("c0", ::arrow::dictionary(::arrow::int64(), ::arrow::int64())),
+         ::arrow::field("c1", ::arrow::dictionary(::arrow::int64(), ::arrow::utf8()))});
+    bloom_filters_.clear();
+    BloomFilterOptions options;
+    options.ndv = 10;
+    auto writer_properties = WriterProperties::Builder()
+                                 .enable_bloom_filter_options(options, "c0")
+                                 ->enable_bloom_filter_options(options, "c1")
+                                 ->max_row_group_length(4)
+                                 ->build();
+    std::vector<std::string> contents = {R"([
         [1,     "a"],
         [2,     "b"],
         [3,     "c"],
@@ -6235,41 +6237,59 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripDictionary) {
         [5,     null],
         [6,     "f"]
   ])"};
-  auto dict_encoded_table = ::arrow::TableFromJSON(schema, contents);
-  // using non_dict_table to adapt some interface which doesn't support dictionary.
-  auto table = ::arrow::TableFromJSON(origin_schema, contents);
-  WriteFile(writer_properties, dict_encoded_table);
+    auto dict_encoded_table = ::arrow::TableFromJSON(schema, contents);
+    // using non_dict_table to adapt some interface which doesn't support dictionary.
+    auto table = ::arrow::TableFromJSON(origin_schema, contents);
+    WriteFile(writer_properties, dict_encoded_table);
 
-  ReadBloomFilters(/*expect_num_row_groups=*/2);
-  ASSERT_EQ(4, bloom_filters_.size());
-  std::vector<int64_t> row_group_row_count{4, 2};
-  int64_t current_row = 0;
-  int64_t bloom_filter_idx = 0;  // current index in `bloom_filters_`
-  for (int64_t row_group_id = 0; row_group_id < 2; ++row_group_id) {
-    {
-      // The bloom filter for same column in another row-group.
-      int64_t bloom_filter_idx_another_rg =
-          row_group_id == 0 ? bloom_filter_idx + 2 : bloom_filter_idx - 2;
-      ASSERT_NE(nullptr, bloom_filters_[bloom_filter_idx]);
-      auto col = table->column(0)->Slice(current_row, row_group_row_count[row_group_id]);
-      VerifyBloomFilterContains<::arrow::Int64Type>(
-          bloom_filters_[bloom_filter_idx].get(), *col);
-      VerifyBloomFilterNotContains<::arrow::Int64Type>(
-          bloom_filters_[bloom_filter_idx_another_rg].get(), *col);
-      ++bloom_filter_idx;
+    ReadBloomFilters(/*expect_num_row_groups=*/2);
+    ASSERT_EQ(4, bloom_filters_.size());
+    std::vector<int64_t> row_group_row_count{4, 2};
+    int64_t current_row = 0;
+    int64_t bloom_filter_idx = 0;  // current index in `bloom_filters_`
+    for (int64_t row_group_id = 0; row_group_id < 2; ++row_group_id) {
+      {
+        // The bloom filter for same column in another row-group.
+        int64_t bloom_filter_idx_another_rg =
+            row_group_id == 0 ? bloom_filter_idx + 2 : bloom_filter_idx - 2;
+        ASSERT_NE(nullptr, bloom_filters_[bloom_filter_idx]);
+        auto col =
+            table->column(0)->Slice(current_row, row_group_row_count[row_group_id]);
+        VerifyBloomFilterContains<::arrow::Int64Type>(
+            bloom_filters_[bloom_filter_idx].get(), *col);
+        VerifyBloomFilterNotContains<::arrow::Int64Type>(
+            bloom_filters_[bloom_filter_idx_another_rg].get(), *col);
+        ++bloom_filter_idx;
+      }
+      {
+        int64_t bloom_filter_idx_another_rg =
+            row_group_id == 0 ? bloom_filter_idx + 2 : bloom_filter_idx - 2;
+        ASSERT_NE(nullptr, bloom_filters_[bloom_filter_idx]);
+        auto col =
+            table->column(1)->Slice(current_row, row_group_row_count[row_group_id]);
+        if (arrow_utf8_type->id() == ::arrow::Type::STRING) {
+          // For STRING, we can use the same function.
+          VerifyBloomFilterContains<::arrow::StringType>(
+              bloom_filters_[bloom_filter_idx].get(), *col);
+          VerifyBloomFilterNotContains<::arrow::StringType>(
+              bloom_filters_[bloom_filter_idx_another_rg].get(), *col);
+        } else if (arrow_utf8_type->id() == ::arrow::Type::LARGE_STRING) {
+          // For LARGE_STRING, we can use the same function.
+          VerifyBloomFilterContains<::arrow::LargeStringType>(
+              bloom_filters_[bloom_filter_idx].get(), *col);
+          VerifyBloomFilterNotContains<::arrow::LargeStringType>(
+              bloom_filters_[bloom_filter_idx_another_rg].get(), *col);
+        } else if (arrow_utf8_type->id() == ::arrow::Type::STRING_VIEW) {
+          // For STRING_VIEW, we can use the same function.
+          VerifyBloomFilterContains<::arrow::StringViewType>(
+              bloom_filters_[bloom_filter_idx].get(), *col);
+          VerifyBloomFilterNotContains<::arrow::StringViewType>(
+              bloom_filters_[bloom_filter_idx_another_rg].get(), *col);
+        }
+        ++bloom_filter_idx;
+      }
+      current_row += row_group_row_count[row_group_id];
     }
-    {
-      int64_t bloom_filter_idx_another_rg =
-          row_group_id == 0 ? bloom_filter_idx + 2 : bloom_filter_idx - 2;
-      ASSERT_NE(nullptr, bloom_filters_[bloom_filter_idx]);
-      auto col = table->column(1)->Slice(current_row, row_group_row_count[row_group_id]);
-      VerifyBloomFilterContains<::arrow::StringType>(
-          bloom_filters_[bloom_filter_idx].get(), *col);
-      VerifyBloomFilterNotContains<::arrow::StringType>(
-          bloom_filters_[bloom_filter_idx_another_rg].get(), *col);
-      ++bloom_filter_idx;
-    }
-    current_row += row_group_row_count[row_group_id];
   }
 }
 
