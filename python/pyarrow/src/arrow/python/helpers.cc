@@ -83,7 +83,6 @@ PyObject* PyFloat_FromHalf(uint16_t value) {
 
 Result<uint16_t> PyFloat_AsHalf(PyObject* obj) {
   if (PyFloat_Check(obj)) {
-    // Use Arrow's Float16 implementation instead of NumPy
     float float_val = static_cast<float>(PyFloat_AsDouble(obj));
     arrow::util::Float16 half_val = arrow::util::Float16::FromFloat(float_val);
     return half_val.bits();
