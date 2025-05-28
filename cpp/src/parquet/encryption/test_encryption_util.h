@@ -31,6 +31,7 @@
 #include "arrow/filesystem/localfs.h"
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/secure_string.h"
 
 #include "parquet/encryption/encryption.h"
 #include "parquet/test_util.h"
@@ -40,6 +41,7 @@ class ParquetFileReader;
 namespace encryption::test {
 
 using ::arrow::internal::TemporaryDir;
+using ::arrow::util::SecureString;
 
 constexpr int kFixedLength = 10;
 

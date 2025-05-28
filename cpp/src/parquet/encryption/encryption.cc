@@ -26,24 +26,26 @@
 #include "arrow/util/utf8.h"
 #include "parquet/encryption/encryption_internal.h"
 
+using ::arrow::util::SecureString;
+
 namespace parquet {
 
 // integer key retriever
-void IntegerKeyIdRetriever::PutKey(uint32_t key_id, encryption::SecureString key) {
+void IntegerKeyIdRetriever::PutKey(uint32_t key_id, SecureString key) {
   key_map_.insert({key_id, std::move(key)});
 }
 
 // string key retriever
-void StringKeyIdRetriever::PutKey(std::string key_id, encryption::SecureString key) {
+void StringKeyIdRetriever::PutKey(std::string key_id, SecureString key) {
   key_map_.insert({std::move(key_id), std::move(key)});
 }
 
-encryption::SecureString StringKeyIdRetriever::GetKey(const std::string& key_id) {
+SecureString StringKeyIdRetriever::GetKey(const std::string& key_id) {
   return key_map_.at(key_id);
 }
 
 ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key(
-    encryption::SecureString column_key) {
+    SecureString column_key) {
   if (column_key.empty()) return this;
 
   DCHECK(key_.empty());
@@ -85,7 +87,7 @@ FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::column_key
 }
 
 FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::footer_key(
-    encryption::SecureString footer_key) {
+    SecureString footer_key) {
   if (footer_key.empty()) {
     return this;
   }
@@ -123,7 +125,7 @@ FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::aad_prefix
 }
 
 ColumnDecryptionProperties::Builder* ColumnDecryptionProperties::Builder::key(
-    encryption::SecureString key) {
+    SecureString key) {
   if (key.empty()) return this;
 
   DCHECK(key_.empty());
@@ -176,7 +178,7 @@ FileEncryptionProperties::Builder::disable_aad_prefix_storage() {
 
 ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted,
                                                        std::string column_path,
-                                                       encryption::SecureString key,
+                                                       SecureString key,
                                                        std::string key_metadata)
     : column_path_(std::move(column_path)),
       encrypted_(encrypted),
@@ -196,7 +198,7 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted,
 }
 
 ColumnDecryptionProperties::ColumnDecryptionProperties(std::string column_path,
-                                                       encryption::SecureString key)
+                                                       SecureString key)
     : column_path_(std::move(column_path)), key_(std::move(key)) {
   DCHECK(!column_path_.empty());
 
@@ -205,7 +207,7 @@ ColumnDecryptionProperties::ColumnDecryptionProperties(std::string column_path,
   }
 }
 
-const encryption::SecureString& FileDecryptionProperties::column_key(
+const SecureString& FileDecryptionProperties::column_key(
     const std::string& column_path) const {
   if (column_decryption_properties_.find(column_path) !=
       column_decryption_properties_.end()) {
@@ -218,8 +220,7 @@ const encryption::SecureString& FileDecryptionProperties::column_key(
 }
 
 FileDecryptionProperties::FileDecryptionProperties(
-    encryption::SecureString footer_key,
-    std::shared_ptr<DecryptionKeyRetriever> key_retriever,
+    SecureString footer_key, std::shared_ptr<DecryptionKeyRetriever> key_retriever,
     bool check_plaintext_footer_integrity, std::string aad_prefix,
     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
     ColumnPathToDecryptionPropertiesMap column_decryption_properties,
@@ -272,9 +273,9 @@ FileEncryptionProperties::column_encryption_properties(const std::string& column
 }
 
 FileEncryptionProperties::FileEncryptionProperties(
-    ParquetCipher::type cipher, encryption::SecureString footer_key,
-    std::string footer_key_metadata, bool encrypted_footer, std::string aad_prefix,
-    bool store_aad_prefix_in_file, ColumnPathToEncryptionPropertiesMap encrypted_columns)
+    ParquetCipher::type cipher, SecureString footer_key, std::string footer_key_metadata,
+    bool encrypted_footer, std::string aad_prefix, bool store_aad_prefix_in_file,
+    ColumnPathToEncryptionPropertiesMap encrypted_columns)
     : footer_key_(std::move(footer_key)),
       footer_key_metadata_(std::move(footer_key_metadata)),
       encrypted_footer_(encrypted_footer),

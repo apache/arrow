@@ -22,6 +22,8 @@
 #include "parquet/encryption/key_toolkit_internal.h"
 #include "parquet/exception.h"
 
+using ::arrow::util::SecureString;
+
 namespace parquet::encryption {
 
 FileKeyWrapper::FileKeyWrapper(KeyToolkit* key_toolkit,

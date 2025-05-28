@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <arrow/util/secure_string.h>
 #include <reader_writer.h>
 
 #include <cassert>
@@ -39,9 +40,9 @@
 
 constexpr int NUM_ROWS_PER_ROW_GROUP = 500;
 const char* PARQUET_FILENAME = "parquet_cpp_example.parquet.encrypted";
-const parquet::encryption::SecureString kFooterEncryptionKey("0123456789012345");
-const parquet::encryption::SecureString kColumnEncryptionKey1("1234567890123450");
-const parquet::encryption::SecureString kColumnEncryptionKey2("1234567890123451");
+const arrow::util::SecureString kFooterEncryptionKey("0123456789012345");
+const arrow::util::SecureString kColumnEncryptionKey1("1234567890123450");
+const arrow::util::SecureString kColumnEncryptionKey2("1234567890123451");
 
 int main(int argc, char** argv) {
   /**********************************************************************************

@@ -18,6 +18,7 @@
 #include <string_view>
 
 #include "arrow/util/logging.h"
+#include "arrow/util/secure_string.h"
 #include "arrow/util/string.h"
 
 #include "parquet/encryption/crypto_factory.h"
@@ -25,6 +26,8 @@
 #include "parquet/encryption/file_key_unwrapper.h"
 #include "parquet/encryption/file_system_key_material_store.h"
 #include "parquet/encryption/key_toolkit_internal.h"
+
+using arrow::util::SecureString;
 
 namespace parquet::encryption {
 

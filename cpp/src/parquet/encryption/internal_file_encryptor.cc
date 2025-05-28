@@ -16,15 +16,17 @@
 // under the License.
 
 #include "parquet/encryption/internal_file_encryptor.h"
+#include "arrow/util/secure_string.h"
 #include "parquet/encryption/encryption.h"
 #include "parquet/encryption/encryption_internal.h"
+
+using arrow::util::SecureString;
 
 namespace parquet {
 
 // Encryptor
-Encryptor::Encryptor(encryption::AesEncryptor* aes_encryptor,
-                     encryption::SecureString key, std::string file_aad, std::string aad,
-                     ::arrow::MemoryPool* pool)
+Encryptor::Encryptor(encryption::AesEncryptor* aes_encryptor, SecureString key,
+                     std::string file_aad, std::string aad, ::arrow::MemoryPool* pool)
     : aes_encryptor_(aes_encryptor),
       key_(std::move(key)),
       file_aad_(std::move(file_aad)),
@@ -52,7 +54,7 @@ std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterEncryptor() {
 
   ParquetCipher::type algorithm = properties_->algorithm().algorithm;
   std::string footer_aad = encryption::CreateFooterAad(properties_->file_aad());
-  const encryption::SecureString& footer_key = properties_->footer_key();
+  const SecureString& footer_key = properties_->footer_key();
   auto aes_encryptor = GetMetaAesEncryptor(algorithm, footer_key.size());
   footer_encryptor_ = std::make_shared<Encryptor>(
       aes_encryptor, footer_key, properties_->file_aad(), footer_aad, pool_);
@@ -66,7 +68,7 @@ std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterSigningEncryptor() {
 
   ParquetCipher::type algorithm = properties_->algorithm().algorithm;
   std::string footer_aad = encryption::CreateFooterAad(properties_->file_aad());
-  const encryption::SecureString& footer_signing_key = properties_->footer_key();
+  const SecureString& footer_signing_key = properties_->footer_key();
   auto aes_encryptor = GetMetaAesEncryptor(algorithm, footer_signing_key.size());
   footer_signing_encryptor_ = std::make_shared<Encryptor>(
       aes_encryptor, footer_signing_key, properties_->file_aad(), footer_aad, pool_);
@@ -101,9 +103,9 @@ InternalFileEncryptor::InternalFileEncryptor::GetColumnEncryptor(
     return nullptr;
   }
 
-  const encryption::SecureString& key = column_prop->is_encrypted_with_footer_key()
-                                            ? properties_->footer_key()
-                                            : column_prop->key();
+  const SecureString& key = column_prop->is_encrypted_with_footer_key()
+                                ? properties_->footer_key()
+                                : column_prop->key();
 
   ParquetCipher::type algorithm = properties_->algorithm().algorithm;
   auto aes_encryptor = metadata ? GetMetaAesEncryptor(algorithm, key.size())

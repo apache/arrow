@@ -17,6 +17,7 @@
 
 #include "arrow/json/object_parser.h"
 #include "arrow/json/object_writer.h"
+#include "arrow/util/secure_string.h"
 
 #include "parquet/encryption/key_toolkit_internal.h"
 #include "parquet/encryption/local_wrap_kms_client.h"
@@ -24,6 +25,7 @@
 
 using ::arrow::json::internal::ObjectParser;
 using ::arrow::json::internal::ObjectWriter;
+using ::arrow::util::SecureString;
 
 namespace parquet::encryption {
 

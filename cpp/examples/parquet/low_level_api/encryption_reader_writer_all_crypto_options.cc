@@ -17,6 +17,7 @@
 
 #include <arrow/io/file.h>
 #include <arrow/util/logging.h>
+#include <arrow/util/secure_string.h>
 #include <dirent.h>
 #include <parquet/api/reader.h>
 #include <parquet/api/writer.h>
@@ -92,9 +93,9 @@
 
 constexpr int NUM_ROWS_PER_ROW_GROUP = 500;
 
-const parquet::encryption::SecureString kFooterEncryptionKey("0123456789012345");
-const parquet::encryption::SecureString kColumnEncryptionKey1("1234567890123450");
-const parquet::encryption::SecureString kColumnEncryptionKey2("1234567890123451");
+const arrow::util::SecureString kFooterEncryptionKey("0123456789012345");
+const arrow::util::SecureString kColumnEncryptionKey1("1234567890123450");
+const arrow::util::SecureString kColumnEncryptionKey2("1234567890123451");
 const char* fileName = "tester";
 
 using FileClass = ::arrow::io::FileOutputStream;

@@ -16,9 +16,12 @@
 // under the License.
 
 #include "arrow/util/base64.h"
+#include "arrow/util/secure_string.h"
 
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/key_toolkit_internal.h"
+
+using arrow::util::SecureString;
 
 namespace parquet::encryption::internal {
 

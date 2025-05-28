@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "parquet/encryption/secure_string.h"
+#include "arrow/util/secure_string.h"
 #include "parquet/schema.h"
 
 namespace parquet {
@@ -42,7 +42,7 @@ class FileDecryptionProperties;
 class PARQUET_EXPORT Decryptor {
  public:
   Decryptor(std::unique_ptr<encryption::AesDecryptor> decryptor,
-            encryption::SecureString key, std::string file_aad, std::string aad,
+            ::arrow::util::SecureString key, std::string file_aad, std::string aad,
             ::arrow::MemoryPool* pool);
   ~Decryptor();
 
@@ -57,7 +57,7 @@ class PARQUET_EXPORT Decryptor {
 
  private:
   std::unique_ptr<encryption::AesDecryptor> aes_decryptor_;
-  encryption::SecureString key_;
+  ::arrow::util::SecureString key_;
   std::string file_aad_;
   std::string aad_;
   ::arrow::MemoryPool* pool_;
@@ -73,7 +73,7 @@ class InternalFileDecryptor {
 
   const std::string& file_aad() const { return file_aad_; }
 
-  const encryption::SecureString& GetFooterKey();
+  const ::arrow::util::SecureString& GetFooterKey();
 
   ParquetCipher::type algorithm() const { return algorithm_; }
 
@@ -129,13 +129,13 @@ class InternalFileDecryptor {
 
   // Protects footer_key_ updates
   std::mutex mutex_;
-  encryption::SecureString footer_key_;
+  ::arrow::util::SecureString footer_key_;
 
-  encryption::SecureString GetColumnKey(const std::string& column_path,
-                                        const std::string& column_key_metadata);
+  ::arrow::util::SecureString GetColumnKey(const std::string& column_path,
+                                           const std::string& column_key_metadata);
 
-  static encryption::SecureString RetrieveColumnKeyIfEmpty(
-      encryption::SecureString column_key, const std::string& column_key_metadata,
+  static ::arrow::util::SecureString RetrieveColumnKeyIfEmpty(
+      ::arrow::util::SecureString column_key, const std::string& column_key_metadata,
       const std::shared_ptr<DecryptionKeyRetriever>& key_retriever);
 
   std::unique_ptr<Decryptor> GetFooterDecryptor(const std::string& aad, bool metadata);

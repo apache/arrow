@@ -253,8 +253,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
       encryption/key_metadata.cc
       encryption/key_toolkit.cc
       encryption/key_toolkit_internal.cc
-      encryption/local_wrap_kms_client.cc
-      encryption/secure_string.cc)
+      encryption/local_wrap_kms_client.cc)
 else()
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal_nossl.cc)
 endif()
@@ -422,7 +421,6 @@ if(PARQUET_REQUIRE_ENCRYPTION)
                    encryption/write_configurations_test.cc
                    encryption/read_configurations_test.cc
                    encryption/properties_test.cc
-                   encryption/secure_string_test.cc
                    encryption/test_encryption_util.cc)
   add_parquet_test(encryption-key-management-test
                    SOURCES
