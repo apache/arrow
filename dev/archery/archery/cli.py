@@ -710,25 +710,25 @@ def validate_conditional_options(ctx, param: click.Option, value):
 @click.option('--with-external-library', type=click.Path(exists=True, file_okay=False, dir_okay=True, executable=False),
               help='Path to the external library to include in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_EXTERNAL_LIBRARY")
-@click.option('--external-library-ipc-producer', type=bool, default=False, callback=validate_conditional_options,
+@click.option('--external-library-ipc-producer', is_flag=True, default=False, callback=validate_conditional_options,
               help='Set external library as supporting producing IPC in integration tests. "arrow-json-integration-test", "arrow-stream-to-file" and "arrow-file-to-stream" executables must be present in the external library folder.',
               envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_IPC_PRODUCER")
-@click.option('--external-library-ipc-consumer', type=bool, default=False, callback=validate_conditional_options,
+@click.option('--external-library-ipc-consumer', is_flag=True, default=False, callback=validate_conditional_options,
               help='Set external library as supporting consuming IPC in integration tests. "arrow-json-integration-test", "arrow-stream-to-file" and "arrow-file-to-stream" executables must be present in the external library folder.',
               envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_IPC_CONSUMER")
-@click.option('--external-library-c-data-schema-exporter', type=bool, default=False, callback=validate_conditional_options,
+@click.option('--external-library-c-data-schema-exporter', is_flag=True, default=False, callback=validate_conditional_options,
                 help='Set external library as supporting exporting C Data schema in integration tests. "c_data_integration.[dll/so]" shared library must be present in the external library folder.',
                 envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_C_DATA_SCHEMA_EXPORTER")
-@click.option('--external-library-c-data-schema-importer', type=bool, default=False, callback=validate_conditional_options,
+@click.option('--external-library-c-data-schema-importer', is_flag=True, default=False, callback=validate_conditional_options,
                 help='Set external library as supporting importing C Data schema in integration tests. "c_data_integration.[dll/so]" shared library must be present in the external library folder.',
                 envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_C_DATA_SCHEMA_IMPORTER")
-@click.option('--external-library-c-data-array-exporter', type=bool, default=False, callback=validate_conditional_options,
+@click.option('--external-library-c-data-array-exporter', is_flag=True, default=False, callback=validate_conditional_options,
                 help='Set external library as supporting exporting C Data array in integration tests. "c_data_integration.[dll/so]" shared library must be present in the external library folder.',
                 envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_C_DATA_ARRAY_EXPORTER")
-@click.option('--external-library-c-data-array-importer', type=bool, default=False, callback=validate_conditional_options,
+@click.option('--external-library-c-data-array-importer', is_flag=True, default=False, callback=validate_conditional_options,
                 help='Set external library as supporting importing C Data array in integration tests. "c_data_integration.[dll/so]" shared library must be present in the external library folder.',
                 envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_C_DATA_ARRAY_IMPORTER")
-@click.option('--external-library-supports-releasing-memory', type=bool, default=False, callback=validate_conditional_options,
+@click.option('--external-library-supports-releasing-memory', is_flag=True, default=False, callback=validate_conditional_options,
               help='Set external library as supporting releasing memory in integration tests',
               envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_SUPPORTS_RELEASING_MEMORY")
 @click.option('--target-implementations', default='',
