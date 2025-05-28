@@ -226,7 +226,6 @@ class PyValue {
   }
 
   static Result<uint16_t> Convert(const HalfFloatType*, const O&, I obj) {
-    uint16_t value;
     if (internal::PyFloatScalar_Check(obj)) {
       return PyFloat_AsHalf(obj);
     } else if (internal::PyIntScalar_Check(obj)) {
@@ -237,7 +236,6 @@ class PyValue {
     } else {
       return internal::InvalidValue(obj, "tried to convert to float16");
     }
-    return value;
   }
 
   static Result<float> Convert(const FloatType*, const O&, I obj) {

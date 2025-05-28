@@ -82,7 +82,6 @@ PyObject* PyFloat_FromHalf(uint16_t value) {
 }
 
 Result<uint16_t> PyFloat_AsHalf(PyObject* obj) {
-  uint16_t value;
   if (PyFloat_Check(obj)) {
     // Use Arrow's Float16 implementation instead of NumPy
     float float_val = static_cast<float>(PyFloat_AsDouble(obj));
@@ -91,10 +90,9 @@ Result<uint16_t> PyFloat_AsHalf(PyObject* obj) {
   } else if (has_numpy() && PyArray_IsScalar(obj, Half)) {
     return PyArrayScalar_VAL(obj, Half);
   } else {
-    return Status::Invalid("Could not convert expected float with type ",
-                           Py_TYPE(obj)->tp_name, ": to Float16");
+    return Status::TypeError("conversion to float16 expects a `float` or ",
+                             "`np.float16` object, got ", Py_TYPE(obj)->tp_name);
   }
-  return value;
 }
 
 namespace internal {
