@@ -26,8 +26,6 @@
 
 #include "arrow/python/numpy_interop.h"
 
-#include <numpy/halffloat.h>
-
 #include "arrow/python/visibility.h"
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
