@@ -16,6 +16,7 @@
 # under the License.
 
 from io import StringIO
+from typing import Final
 import click
 import json
 import logging
@@ -660,6 +661,26 @@ def _set_default(opt, default):
     return opt
 
 
+def validate_conditional_options(ctx, param: click.Option, value):
+    """Custom validation function to check dependencies between options"""
+    if (
+        param.name
+        in [
+            "external_library_ipc_producer",
+            "external_library_ipc_consumer",
+            "external_library_c_data_schema_exporter",
+            "external_library_c_data_schema_importer",
+            "external_library_c_data_array_exporter",
+            "external_library_c_data_array_importer",
+        ]
+        and not ctx.params.get("with_external_library")
+    ):
+        raise click.BadParameter(
+            f"{param.name} can only be used when --with-external-library is specified"
+        )
+    return value
+
+
 @archery.command(short_help="Execute protocol and Flight integration tests")
 @click.option('--with-all', is_flag=True, default=False,
               help=('Include all known implementations by default '
@@ -687,27 +708,27 @@ def _set_default(opt, default):
               help='Include Rust in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_RUST")
 @click.option('--with-external-library', type=click.Path(exists=True, file_okay=False, dir_okay=True, executable=False),
-              help='Include external library in integration tests',
+              help='Path to the external library to include in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_EXTERNAL_LIBRARY")
-@click.option('--external-library-IPC-producer', type=bool, default=False,
-              help='Set external library as supporting producing IPC in integration tests',
+@click.option('--external-library-ipc-producer', type=bool, default=False, callback=validate_conditional_options,
+              help='Set external library as supporting producing IPC in integration tests. "arrow-json-integration-test", "arrow-stream-to-file" and "arrow-file-to-stream" executables must be present in the external library folder.',
               envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_IPC_PRODUCER")
-@click.option('--external-library-IPC-consumer', type=bool, default=False,
-              help='Set external library as supporting consuming IPC in integration tests',
+@click.option('--external-library-ipc-consumer', type=bool, default=False, callback=validate_conditional_options,
+              help='Set external library as supporting consuming IPC in integration tests. "arrow-json-integration-test", "arrow-stream-to-file" and "arrow-file-to-stream" executables must be present in the external library folder.',
               envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_IPC_CONSUMER")
-@click.option('--external-library-c-data-schema-exporter', type=bool, default=False,
-                help='Set external library as supporting exporting C Data schema in integration tests',
+@click.option('--external-library-c-data-schema-exporter', type=bool, default=False, callback=validate_conditional_options,
+                help='Set external library as supporting exporting C Data schema in integration tests. "c_data_integration.[dll/so]" shared library must be present in the external library folder.',
                 envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_C_DATA_SCHEMA_EXPORTER")
-@click.option('--external-library-c-data-schema-importer', type=bool, default=False,
-                help='Set external library as supporting importing C Data schema in integration tests',
+@click.option('--external-library-c-data-schema-importer', type=bool, default=False, callback=validate_conditional_options,
+                help='Set external library as supporting importing C Data schema in integration tests. "c_data_integration.[dll/so]" shared library must be present in the external library folder.',
                 envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_C_DATA_SCHEMA_IMPORTER")
-@click.option('--external-library-c-data-array-exporter', type=bool, default=False,
-                help='Set external library as supporting exporting C Data array in integration tests',
+@click.option('--external-library-c-data-array-exporter', type=bool, default=False, callback=validate_conditional_options,
+                help='Set external library as supporting exporting C Data array in integration tests. "c_data_integration.[dll/so]" shared library must be present in the external library folder.',
                 envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_C_DATA_ARRAY_EXPORTER")
-@click.option('--external-library-c-data-array-importer', type=bool, default=False,
-                help='Set external library as supporting importing C Data array in integration tests',
+@click.option('--external-library-c-data-array-importer', type=bool, default=False, callback=validate_conditional_options,
+                help='Set external library as supporting importing C Data array in integration tests. "c_data_integration.[dll/so]" shared library must be present in the external library folder.',
                 envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_C_DATA_ARRAY_IMPORTER")
-@click.option('--external-library-supports-releasing-memory', type=bool, default=False,
+@click.option('--external-library-supports-releasing-memory', type=bool, default=False, callback=validate_conditional_options,
               help='Set external library as supporting releasing memory in integration tests',
               envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_SUPPORTS_RELEASING_MEMORY")
 @click.option('--target-implementations', default='',
@@ -827,7 +848,8 @@ def integration(with_all=False, random_seed=12345, write_generated_json="",
                 "Need exactly one implementation to generate gold files; try --help")
         generate_gold_files(testers[0], write_gold_files)
     else:
-        if enabled_formats == False:
+        have_enabled_formats: Final[bool] = any(args[f"run_{fmt}"] for fmt in formats)
+        if not have_enabled_formats:
             raise click.UsageError(
                 "Need to enable at least one format to test "
                 "(IPC, Flight, C Data Interface); try --help")
