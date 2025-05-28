@@ -71,13 +71,12 @@ class OtlpOStreamLogRecordExporter final : public otel::sdk::logs::LogRecordExpo
     otel::exporter::otlp::OtlpRecordableUtils::PopulateRequest(records, &request);
 
     for (const auto& logs : request.resource_logs()) {
-      std::string out = logs.DebugString();
-      // std::string out;
-      // auto status =
-      //     google::protobuf::util::MessageToJsonString(logs, &out, pb_json_options_);
-      // if (ARROW_PREDICT_FALSE(!status.ok())) {
-      //   return otel::sdk::common::ExportResult::kFailure;
-      // }
+      std::string out;
+      auto status =
+          google::protobuf::util::MessageToJsonString(logs, &out, pb_json_options_);
+      if (ARROW_PREDICT_FALSE(!status.ok())) {
+        return otel::sdk::common::ExportResult::kFailure;
+      }
       (*sink_) << out << std::endl;
     }
 
