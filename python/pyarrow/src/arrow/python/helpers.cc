@@ -78,8 +78,7 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
 PyObject* PyFloat_FromHalf(uint16_t value) {
   // Convert the uint16_t Float16 value to a PyFloat object
   arrow::util::Float16 half_val = arrow::util::Float16::FromBits(value);
-  PyObject* result = PyFloat_FromDouble(half_val.ToDouble());
-  return result;
+  return PyFloat_FromDouble(half_val.ToDouble());
 }
 
 Result<uint16_t> PyFloat_AsHalf(PyObject* obj) {
@@ -88,9 +87,9 @@ Result<uint16_t> PyFloat_AsHalf(PyObject* obj) {
     // Use Arrow's Float16 implementation instead of NumPy
     float float_val = static_cast<float>(PyFloat_AsDouble(obj));
     arrow::util::Float16 half_val = arrow::util::Float16::FromFloat(float_val);
-    value = half_val.bits();
+    return half_val.bits();
   } else if (has_numpy() && PyArray_IsScalar(obj, Half)) {
-    value = PyArrayScalar_VAL(obj, Half);
+    return PyArrayScalar_VAL(obj, Half);
   } else {
     return Status::Invalid("Could not convert expected float with type ",
                            Py_TYPE(obj)->tp_name, ": to Float16");

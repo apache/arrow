@@ -41,7 +41,7 @@ class OwnedRef;
 // \return A shared pointer to DataType
 ARROW_PYTHON_EXPORT std::shared_ptr<DataType> GetPrimitiveType(Type::type type);
 
-// \brief Construct a Python float object from a uint16_t value.
+// \brief Construct a Python float object from a half-float uint16_t value.
 ARROW_PYTHON_EXPORT PyObject* PyFloat_FromHalf(uint16_t value);
 
 // \brief Convert a Python object to a half-float uint16_t value.

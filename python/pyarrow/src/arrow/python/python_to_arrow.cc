@@ -228,12 +228,12 @@ class PyValue {
   static Result<uint16_t> Convert(const HalfFloatType*, const O&, I obj) {
     uint16_t value;
     if (internal::PyFloatScalar_Check(obj)) {
-      ARROW_ASSIGN_OR_RAISE(value, PyFloat_AsHalf(obj));
+      return PyFloat_AsHalf(obj);
     } else if (internal::PyIntScalar_Check(obj)) {
       float float_val{};
       RETURN_NOT_OK(internal::IntegerScalarToFloat32Safe(obj, &float_val));
       const auto half_val = arrow::util::Float16::FromFloat(float_val);
-      value = half_val.bits();
+      return half_val.bits();
     } else {
       return internal::InvalidValue(obj, "tried to convert to float16");
     }
