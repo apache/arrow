@@ -75,14 +75,6 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
   }
 }
 
-PyObject* PyHalf_FromHalf(npy_half value) {
-  PyObject* result = PyArrayScalar_New(Half);
-  if (result != NULL) {
-    PyArrayScalar_ASSIGN(result, Half, value);
-  }
-  return result;
-}
-
 PyObject* PyFloat_FromHalf(uint16_t value) {
   // Convert the uint16_t Float16 value to a PyFloat object
   arrow::util::Float16 half_val = arrow::util::Float16::FromBits(value);
@@ -90,16 +82,20 @@ PyObject* PyFloat_FromHalf(uint16_t value) {
   return result;
 }
 
-Status PyFloat_AsHalf(PyObject* obj, uint16_t* out) {
+Result<uint16_t> PyFloat_AsHalf(PyObject* obj) {
+  uint16_t value;
   if (PyFloat_Check(obj)) {
     // Use Arrow's Float16 implementation instead of NumPy
     float float_val = static_cast<float>(PyFloat_AsDouble(obj));
     arrow::util::Float16 half_val = arrow::util::Float16::FromFloat(float_val);
-    *out = half_val.bits();
+    value = half_val.bits();
   } else if (has_numpy() && PyArray_IsScalar(obj, Half)) {
-    *out = PyArrayScalar_VAL(obj, Half);
+    value = PyArrayScalar_VAL(obj, Half);
+  } else {
+    return Status::Invalid("Could not convert expected float with type ",
+                           Py_TYPE(obj)->tp_name, ": to Float16");
   }
-  return Status::OK();
+  return value;
 }
 
 namespace internal {

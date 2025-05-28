@@ -1666,9 +1666,9 @@ def test_floating_point_truncate_unsafe():
 
 def test_half_float_array_from_python():
     # GH-46611
-    arr = pa.array([1.0, 2.0, 3, None], type=pa.float16())
+    arr = pa.array([1.0, 2.0, 3, None, 12345.6789, 1.234567], type=pa.float16())
     assert arr.type == pa.float16()
-    assert arr.to_pylist() == [1.0, 2.0, 3.0, None]
+    assert arr.to_pylist() == [1.0, 2.0, 3.0, None, 12344.0, 1.234375]
     msg1 = "Could not convert 'a' with type str: tried to convert to float16"
     with pytest.raises(pa.ArrowInvalid, match=msg1):
         arr = pa.array(['a', 3, None], type=pa.float16())
