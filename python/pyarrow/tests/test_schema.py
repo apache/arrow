@@ -324,11 +324,12 @@ bar: string
 lorem: '{lorem[:92]} (... {len(lorem) - 91} chars omitted)"""
 
     assert my_schema.to_string(truncate_metadata=False,
-                               show_field_metadata=False) == f"""\
+                               show_field_metadata=False,
+                               max_element_length=50) == f"""\
 foo: int32 not null
 bar: string
 -- schema metadata --
-lorem: '{lorem[:92]} (... {len(lorem) - 91} chars omitted)"""
+lorem: '{lorem[:50 - 8]} (... {len(lorem) - (50 - 9)} chars omitted)"""
 
     assert my_schema.to_string(truncate_metadata=False,
                                show_schema_metadata=False) == """\

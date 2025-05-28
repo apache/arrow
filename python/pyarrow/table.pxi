@@ -116,7 +116,7 @@ cdef class ChunkedArray(_PandasConvertible):
         return f"{type_format}\n{self}"
 
     def to_string(self, *, int indent=0, int window=5, int container_window=2,
-                  c_bool skip_new_lines=False):
+                  c_bool skip_new_lines=False, int max_element_length=100):
         """
         Render a "pretty-printed" string representation of the ChunkedArray
 
@@ -137,7 +137,9 @@ cdef class ChunkedArray(_PandasConvertible):
         skip_new_lines : bool
             If the array should be rendered as a single line of text
             or if each element should be on its own line.
-
+        max_element_length : int
+            Maximum length of a single element before it is truncated,
+            by default ``100``.
         Examples
         --------
         >>> import pyarrow as pa
@@ -153,6 +155,7 @@ cdef class ChunkedArray(_PandasConvertible):
             options = PrettyPrintOptions(indent, window)
             options.skip_new_lines = skip_new_lines
             options.container_window = container_window
+            options.element_size_limit = max_element_length
             check_status(
                 PrettyPrint(
                     deref(self.chunked_array),

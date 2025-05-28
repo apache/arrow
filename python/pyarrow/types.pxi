@@ -3566,7 +3566,7 @@ cdef class Schema(_Weakrefable):
         return pyarrow_wrap_schema(new_schema)
 
     def to_string(self, truncate_metadata=True, show_field_metadata=True,
-                  show_schema_metadata=True):
+                  show_schema_metadata=True, max_element_length=100):
         """
         Return human-readable representation of Schema
 
@@ -3579,6 +3579,8 @@ cdef class Schema(_Weakrefable):
             Display Field-level KeyValueMetadata
         show_schema_metadata : boolean, default True
             Display Schema-level KeyValueMetadata
+        max_element_length : int, default 100
+            Maximum length of a single element before it is truncated
 
         Returns
         -------
@@ -3592,6 +3594,7 @@ cdef class Schema(_Weakrefable):
         options.truncate_metadata = truncate_metadata
         options.show_field_metadata = show_field_metadata
         options.show_schema_metadata = show_schema_metadata
+        options.element_size_limit = max_element_length
 
         with nogil:
             check_status(
