@@ -285,9 +285,9 @@ repos:
           ?^ci/scripts/msys2_system_clean\.sh$|
           ?^ci/scripts/msys2_system_upgrade\.sh$|
           ?^ci/scripts/python_sdist_build\.sh$|
-          ?^ci/scripts/python_wheel_unix_test\.sh|$
-          ?^ci/scripts/r_build\.sh|$
-          ?^ci/scripts/r_revdepcheck\.sh|$
+          ?^ci/scripts/python_wheel_unix_test\.sh$|
+          ?^ci/scripts/r_build\.sh$|
+          ?^ci/scripts/r_revdepcheck\.sh$|
           ?^ci/scripts/release_test\.sh$|
           ?^ci/scripts/ruby_test\.sh$|
           ?^ci/scripts/rust_build\.sh$|
