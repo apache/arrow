@@ -96,24 +96,49 @@ void SecureString::SecureClear(std::string* secret) {
   SecureClear(reinterpret_cast<uint8_t*>(secret->data()), secret->capacity());
 }
 inline void SecureString::SecureClear(uint8_t* data, size_t size) {
-  // Heavily borrowed from libb2's `secure_zero_memory` at
-  // https://github.com/BLAKE2/libb2/blob/master/src/blake2-impl.h
+  // There is various prior art for this:
+  // https://www.cryptologie.net/article/419/zeroing-memory-compiler-optimizations-and-memset_s/
+  // - libb2's `secure_zero_memory` at https://github.com/BLAKE2/libb2/blob/30d45a17c59dc7dbf853da3085b71d466275bd0a/src/blake2-impl.h#L140-L160
+  // - libsodium's `sodium_memzero` at https://github.com/jedisct1/libsodium/blob/be58b2e6664389d9c7993b55291402934b43b3ca/src/libsodium/sodium/utils.c#L78:L101
+  // Note: https://www.daemonology.net/blog/2014-09-06-zeroing-buffers-is-insufficient.html
 #if defined(_WIN32)
+  // SecureZeroMemory is meant to not be optimized away
   SecureZeroMemory(data, size);
 #elif defined(__STDC_LIB_EXT1__)
   // memset_s is meant to not be optimized away
   memset_s(data, size, 0, size);
 #elif defined(OPENSSL_VERSION_NUMBER) && OPENSSL_VERSION_NUMBER >= 0x30000000
+  // rely on some implementation in OpenSSL cryptographic library
   OPENSSL_cleanse(data, size);
 #elif defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 25))
-  // glibc 2.25+ has explicit_bzero
+  // explicit_bzero is meant to not be optimized away
   explicit_bzero(data, size);
 #else
-  // Try to ensure that a true library call to memset() will be generated
-  // by the compiler.
+  // Volatile pointer to memset function is an attempt to avoid
+  // that the compiler optimizes away the memset function call.
+  // pretty much what OPENSSL_cleanse above does
+  // https://github.com/openssl/openssl/blob/3423c30db3aa044f46e1f0270e2ecd899415bf5f/crypto/mem_clr.c#L22
   static const volatile auto memset_v = &memset;
   memset_v(data, 0, size);
-  __asm__ __volatile__("" ::"r"(data) : "memory");
+
+#if defined(__GNUC__) || defined(__clang__)
+  // __asm__ only supported by GCC and Clang
+  // not supported by MSVC on the ARM and x64 processors
+  // https://en.cppreference.com/w/c/language/asm.html
+  // https://en.cppreference.com/w/cpp/language/asm.html
+
+  // Additional attempt on top of volatile memset_v above
+  // to avoid that the compiler optimizes away the memset function call.
+  // Assembler code that tells the compiler 'data' has side effects.
+  // https://gcc.gnu.org/onlinedocs/gcc/Extended-Asm.html:
+  // - "volatile": the asm produces side effects
+  // - "memory": effectively forms a read/write memory barrier for the compiler
+  __asm__ __volatile__(
+    "" /* no actual code */
+    : /* no output */
+    : "r"(data) /* input */
+    : "memory" /* memory side effects beyond input and output */);
+#endif
 #endif
 }
 
