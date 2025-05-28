@@ -149,9 +149,13 @@ Result<std::shared_ptr<ArrayData>> CopyToImpl(const ArrayData& data,
                                               Fn&& copy_fn) {
   auto output = ArrayData::Make(data.type, data.length, data.null_count, data.offset);
   output->buffers.resize(data.buffers.size());
+  bool is_viewed = true;
+  bool has_buffer = false;
   for (auto&& [buf, out_buf] : internal::Zip(data.buffers, output->buffers)) {
     if (buf) {
+      has_buffer = true;
       ARROW_ASSIGN_OR_RAISE(out_buf, copy_fn(buf, to));
+      is_viewed &= (out_buf->address() == buf->address());
     }
   }
 
@@ -164,8 +168,13 @@ Result<std::shared_ptr<ArrayData>> CopyToImpl(const ArrayData& data,
   if (data.dictionary) {
     ARROW_ASSIGN_OR_RAISE(output->dictionary, CopyToImpl(*data.dictionary, to, copy_fn));
   }
-
-  output->statistics = data.statistics;
+  if (is_viewed && has_buffer) {
+    output->statistics = data.statistics;
+  } else {
+    // Note that some types, like Null, use the same path for both copy and view
+    // operations. In such cases, it is assumed that arrow::ArrayData is also copied.
+    output->statistics = std::make_shared<ArrayStatistics>(*data.statistics);
+  }
 
   return output;
 }

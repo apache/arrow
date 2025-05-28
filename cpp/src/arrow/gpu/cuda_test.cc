@@ -852,6 +852,389 @@ TEST_F(TestCudaDeviceArrayRoundtrip, Dictionary) {
   };
   TestWithArrayFactory(factory);
 }
+namespace {
+class MyCudaMemoryManager : public CudaMemoryManager {
+ public:
+  explicit MyCudaMemoryManager(const std::shared_ptr<Device>& device)
+      : CudaMemoryManager(device) {}
+};
+}  // namespace
+class TestArrayDataStatisticsViewOrCopyTO : public TestCudaBase {
+ public:
+  void SetUp() override {
+    TestCudaBase::SetUp();
+    // To use the same memory manager and ensure correct behavior across multiple test
+    // cases.
+    mm_ = context_->memory_manager();
+    my_cuda_mm_ = std::make_shared<MyCudaMemoryManager>(device_);
+  }
+
+  Result<std::shared_ptr<Buffer>> GenerateCPUBitmapBuffer(int32_t length) const {
+    if (length == 0) {
+      return nullptr;
+    } else {
+      auto pool = std::static_pointer_cast<CPUMemoryManager>(cpu_mm_)->pool();
+      ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBitmap(length, pool));
+      for (int i = 0; i < length; i++) {
+        bit_util::SetBitTo(buffer->mutable_data(), i, i % 3 != 0);
+      }
+      return buffer;
+    }
+  }
+
+  Result<std::shared_ptr<Buffer>> GenerateGPUHostBitmapBuffer(int32_t length) {
+    if (length == 0) {
+      return nullptr;
+    } else {
+      ARROW_ASSIGN_OR_RAISE(auto cuda_host_buffer,
+                            device_->AllocateHostBuffer(bit_util::BytesForBits(length)));
+      for (int i = 0; i < length; i++) {
+        bit_util::SetBitTo(cuda_host_buffer->mutable_data(), i, i % 3 != 0);
+      }
+      return cuda_host_buffer;
+    }
+  }
+
+  Result<std::shared_ptr<Buffer>> GenerateGPUBitmapBuffer(int32_t length) {
+    ARROW_ASSIGN_OR_RAISE(auto gpu_host_buffer, GenerateGPUHostBitmapBuffer(length));
+    if (gpu_host_buffer != nullptr) {
+      ARROW_ASSIGN_OR_RAISE(auto raw_cuda_buffer, mm_->AllocateBuffer(length));
+      std::shared_ptr<CudaBuffer> cuda_buffer =
+          arrow::internal::checked_pointer_cast<CudaBuffer>(std::move(raw_cuda_buffer));
+      ARROW_RETURN_NOT_OK(
+          cuda_buffer->CopyFromHost(0, gpu_host_buffer->data(), gpu_host_buffer->size()));
+      return cuda_buffer;
+    } else {
+      return nullptr;
+    }
+  }
+  Result<std::shared_ptr<Buffer>> GenerateCPUDataBuffer(
+      const std::vector<int32_t>& values) const {
+    return Buffer::FromVector(values);
+  }
+  Result<std::shared_ptr<Buffer>> GenerateGPUHostDataBuffer(
+      const std::vector<int32_t>& values) const {
+    ARROW_ASSIGN_OR_RAISE(auto cuda_host_buffer,
+                          device_->AllocateHostBuffer(values.size() * 4));
+    std::memcpy(cuda_host_buffer->mutable_data(), values.data(), values.size() * 4);
+    return cuda_host_buffer;
+  }
+  Result<std::shared_ptr<Buffer>> GenerateGPUtDataBuffer(
+      const std::vector<int32_t>& values) const {
+    ARROW_ASSIGN_OR_RAISE(auto cuda_raw_buffer, mm_->AllocateBuffer(values.size() * 4));
+    auto cuda_buffer =
+        arrow::internal::checked_pointer_cast<CudaBuffer>(std::move(cuda_raw_buffer));
+    ARROW_RETURN_NOT_OK(cuda_buffer->CopyFromHost(0, values.data(), values.size() * 4));
+    return cuda_buffer;
+  }
+  Result<std::shared_ptr<Buffer>> GenerateGPUBitmapBufferPointToCpuMemory(
+      int32_t length) {
+    ARROW_ASSIGN_OR_RAISE(auto raw_buffer, GenerateGPUHostBitmapBuffer(length));
+    auto cuda_host_buffer =
+        ::arrow::internal::checked_pointer_cast<CudaHostBuffer>(raw_buffer);
+    ARROW_ASSIGN_OR_RAISE(auto device_address,
+                          cuda_host_buffer->GetDeviceAddress(context_));
+    auto size = cuda_host_buffer->size();
+    return std::shared_ptr<CudaBuffer>(new CudaBuffer(device_address, size, context_,
+                                                      /*owned_data*/ false),
+                                       [host_buffer = std::move(cuda_host_buffer)](
+                                           CudaBuffer* buffer) { delete buffer; });
+  }
+
+  Result<std::shared_ptr<Buffer>> GenerateGPUtDataBufferPointToCpuMemory(
+      const std::vector<int32_t>& values) const {
+    ARROW_ASSIGN_OR_RAISE(auto raw_buffer, GenerateGPUHostDataBuffer(values));
+    auto cuda_host_buffer =
+        ::arrow::internal::checked_pointer_cast<CudaHostBuffer>(raw_buffer);
+    ARROW_ASSIGN_OR_RAISE(auto device_address,
+                          cuda_host_buffer->GetDeviceAddress(context_));
+    auto size = cuda_host_buffer->size();
+    return std::shared_ptr<CudaBuffer>(new CudaBuffer(device_address, size, context_,
+                                                      /*owned_data*/ false),
+                                       [host_buffer = std::move(cuda_host_buffer)](
+                                           CudaBuffer* buffer) { delete buffer; });
+  }
+  bool is_statistics_shared(const std::shared_ptr<ArrayData>& left,
+                            const std::shared_ptr<ArrayData>& right) {
+    return left->statistics == right->statistics;
+  }
+  bool is_valid_as_array(const std::shared_ptr<ArrayData>& array_data) {
+    return Int32Array(array_data).ValidateFull().ok();
+  }
+
+ protected:
+  std::shared_ptr<CudaMemoryManager> my_cuda_mm_;
+};
+
+TEST_F(TestArrayDataStatisticsViewOrCopyTO, NullArray) {
+  NullArray array(10);
+  auto& array_data = array.data();
+  auto statistics = std::make_shared<ArrayStatistics>();
+  statistics->null_count = 10;
+  array.data()->statistics = statistics;
+  ASSERT_OK_AND_ASSIGN(auto copied_array_data,
+                       array_data->CopyTo(arrow::default_cpu_memory_manager()));
+
+  ASSERT_FALSE(is_statistics_shared(array_data, copied_array_data));
+}
+
+TEST_F(TestArrayDataStatisticsViewOrCopyTO, CpuBuffers) {
+  ASSERT_OK_AND_ASSIGN(auto bitmap_buffer, GenerateCPUBitmapBuffer(10));
+  ASSERT_OK_AND_ASSIGN(auto data_buffer,
+                       GenerateCPUDataBuffer({1, 2, 3, 4, 5, 6, 7, 8, 9, 10}));
+  auto array_data = ArrayData::Make(int32(), 10, {bitmap_buffer, data_buffer});
+  auto statistics = std::make_shared<ArrayStatistics>();
+  statistics->max = 10;
+  array_data->statistics = statistics;
+  ASSERT_TRUE(is_valid_as_array(array_data));
+
+  ASSERT_OK_AND_ASSIGN(auto viewed_array_data, array_data->ViewOrCopyTo(cpu_mm_));
+  ASSERT_TRUE(is_statistics_shared(array_data, viewed_array_data));
+}
+
+TEST_F(TestArrayDataStatisticsViewOrCopyTO, CPUBufferAndCudaHostBuffer) {
+  ASSERT_OK_AND_ASSIGN(auto bitmap_buffer, GenerateCPUBitmapBuffer(10));
+  ASSERT_OK_AND_ASSIGN(auto data_buffer,
+                       GenerateGPUHostDataBuffer({1, 2, 3, 4, 5, 6, 7, 8, 9, 10}));
+  auto array_data = ArrayData::Make(int32(), 10, {});
+  array_data->buffers = {bitmap_buffer, data_buffer};
+  auto statistics = std::make_shared<ArrayStatistics>();
+  statistics->max = 10;
+  array_data->statistics = statistics;
+  array_data->null_count = 4;
+  ASSERT_TRUE(is_valid_as_array(array_data));
+  {
+    ASSERT_OK_AND_ASSIGN(auto viewed_array_data, array_data->ViewOrCopyTo(cpu_mm_));
+    ASSERT_TRUE(is_statistics_shared(array_data, viewed_array_data));
+  }
+  {
+    ASSERT_OK_AND_ASSIGN(auto viewed_array_data, array_data->ViewOrCopyTo(my_cuda_mm_));
+    ASSERT_TRUE(is_statistics_shared(array_data, viewed_array_data));
+  }
+}
+
+TEST_F(TestArrayDataStatisticsViewOrCopyTO, CPUBufferAndCudaBuffer) {
+  ASSERT_OK_AND_ASSIGN(auto bitmap_buffer, GenerateCPUBitmapBuffer(10));
+  ASSERT_OK_AND_ASSIGN(auto data_buffer,
+                       GenerateGPUtDataBuffer({1, 2, 3, 4, 5, 6, 7, 8, 9, 10}));
+  auto array_data = ArrayData::Make(int32(), 10, {});
+  array_data->buffers = {bitmap_buffer, data_buffer};
+  auto statistics = std::make_shared<ArrayStatistics>();
+  statistics->max = 10;
+  array_data->statistics = statistics;
+  array_data->null_count = 4;
+  ASSERT_TRUE(is_valid_as_array(array_data));
+  {
+    // Since it's not possible to get  host pointers from data_buffer,
+    // data_buffer is copied.
+    ASSERT_OK_AND_ASSIGN(auto copied_array_data, array_data->ViewOrCopyTo(cpu_mm_));
+    ASSERT_FALSE(is_statistics_shared(array_data, copied_array_data));
+  }
+  {
+    // Despite using the same memory manager, data_buffer is still being copied.
+    // Should we consider this a bug?
+    ASSERT_OK_AND_ASSIGN(auto copied_array_data, array_data->ViewOrCopyTo(mm_));
+    ASSERT_FALSE(is_statistics_shared(array_data, copied_array_data));
+  }
+  {
+    // Since neither the data_buffer nor the 'to' memory manager belong to the CPU,
+    // the data_buffer is copied.
+    ASSERT_OK_AND_ASSIGN(auto copied_array_data, array_data->ViewOrCopyTo(my_cuda_mm_));
+    ASSERT_FALSE(is_statistics_shared(array_data, copied_array_data));
+  }
+}
+
+TEST_F(TestArrayDataStatisticsViewOrCopyTO, CPUBufferAndCudaBufferPointToCpuMemory) {
+  ASSERT_OK_AND_ASSIGN(auto bitmap_buffer, GenerateCPUBitmapBuffer(10));
+  ASSERT_OK_AND_ASSIGN(auto data_buffer, GenerateGPUtDataBufferPointToCpuMemory(
+                                             {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}));
+  auto array_data = ArrayData::Make(int32(), 10, {});
+  array_data->buffers = {bitmap_buffer, data_buffer};
+  auto statistics = std::make_shared<ArrayStatistics>();
+  statistics->max = 10;
+  array_data->statistics = statistics;
+  array_data->null_count = 4;
+  ASSERT_TRUE(is_valid_as_array(array_data));
+  {
+    // The view operation is applied to CudaBuffers because it's possible to obtain a
+    // host pointer from them.
+    // I ran this test on an RTX 3050 Mobile (which supports Unified Addressing), and
+    // the assertion passed. However, on GPUs that do not support Unified Addressing,
+    // the assertion is expected to fail.
+    ASSERT_OK_AND_ASSIGN(auto viewed_array_data, array_data->ViewOrCopyTo(cpu_mm_));
+    ASSERT_TRUE(is_statistics_shared(array_data, viewed_array_data));
+  }
+  {
+    // Since neither the data_buffer nor the 'to' memory manager belong to the CPU,
+    // the data_buffer is copied.
+    ASSERT_OK_AND_ASSIGN(auto copied_array_data, array_data->ViewOrCopyTo(my_cuda_mm_));
+    ASSERT_FALSE(is_statistics_shared(array_data, copied_array_data));
+  }
+}
+TEST_F(TestArrayDataStatisticsViewOrCopyTO, CudaHostBuffers) {
+  ASSERT_OK_AND_ASSIGN(auto bitmap_buffer, GenerateGPUHostBitmapBuffer(10));
+  ASSERT_OK_AND_ASSIGN(auto data_buffer,
+                       GenerateGPUHostDataBuffer({1, 2, 3, 4, 5, 6, 7, 8, 9, 10}));
+  auto array_data = ArrayData::Make(int32(), 10, {});
+  array_data->buffers = {bitmap_buffer, data_buffer};
+  auto statistics = std::make_shared<ArrayStatistics>();
+  statistics->max = 10;
+  array_data->statistics = statistics;
+  array_data->null_count = 4;
+  ASSERT_TRUE(is_valid_as_array(array_data));
+  ASSERT_OK_AND_ASSIGN(auto viewed_array_data, array_data->ViewOrCopyTo(cpu_mm_));
+  ASSERT_TRUE(is_statistics_shared(array_data, viewed_array_data));
+}
+TEST_F(TestArrayDataStatisticsViewOrCopyTO, CudaHostBufferAndGpuBuffer) {
+  ASSERT_OK_AND_ASSIGN(auto bitmap_buffer, GenerateGPUHostBitmapBuffer(10));
+  ASSERT_OK_AND_ASSIGN(auto data_buffer,
+                       GenerateGPUtDataBuffer({1, 2, 3, 4, 5, 6, 7, 8, 9, 10}));
+  auto array_data = ArrayData::Make(int32(), 10, {});
+  array_data->buffers = {bitmap_buffer, data_buffer};
+  auto statistics = std::make_shared<ArrayStatistics>();
+  statistics->max = 10;
+  array_data->statistics = statistics;
+  array_data->null_count = 4;
+  ASSERT_TRUE(is_valid_as_array(array_data));
+  {
+    // Since it's not possible to get  host pointers from data_buffer,
+    // data_buffer is copied.
+    ASSERT_OK_AND_ASSIGN(auto copied_array_data, array_data->ViewOrCopyTo(cpu_mm_));
+    ASSERT_FALSE(is_statistics_shared(array_data, copied_array_data));
+  }
+  {
+    // Since neither the data_buffer nor the 'to' memory manager belong to the CPU,
+    // the data_buffer is copied.
+    ASSERT_OK_AND_ASSIGN(auto copied_array_data, array_data->ViewOrCopyTo(my_cuda_mm_));
+    ASSERT_FALSE(is_statistics_shared(array_data, copied_array_data));
+  }
+}
+TEST_F(TestArrayDataStatisticsViewOrCopyTO, CudaHostBufferAndGpuBuffersPointToMemory) {
+  ASSERT_OK_AND_ASSIGN(auto bitmap_buffer, GenerateGPUHostBitmapBuffer(10));
+  ASSERT_OK_AND_ASSIGN(auto data_buffer, GenerateGPUtDataBufferPointToCpuMemory(
+                                             {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}));
+  auto array_data = ArrayData::Make(int32(), 10, {});
+  array_data->buffers = {bitmap_buffer, data_buffer};
+  auto statistics = std::make_shared<ArrayStatistics>();
+  statistics->max = 10;
+  array_data->statistics = statistics;
+  array_data->null_count = 4;
+  ASSERT_TRUE(is_valid_as_array(array_data));
+  {
+    // The view operation is applied to data_buffer because it's possible to obtain a
+    // host pointer from it.
+    // I ran this test on an RTX 3050 Mobile (which supports Unified Addressing), and
+    // the assertion passed. However, on GPUs that do not support Unified Addressing,
+    // the assertion is expected to fail.
+    ASSERT_OK_AND_ASSIGN(auto viewed_array_data, array_data->ViewOrCopyTo(cpu_mm_));
+    ASSERT_TRUE(is_statistics_shared(array_data, viewed_array_data));
+  }
+  {
+    // Since neither the data_buffer nor the 'to' memory manager belong to the CPU,
+    // the data_buffer is copied.
+    ASSERT_OK_AND_ASSIGN(auto copied_array_data, array_data->ViewOrCopyTo(my_cuda_mm_));
+    ASSERT_FALSE(is_statistics_shared(array_data, copied_array_data));
+  }
+}
+
+TEST_F(TestArrayDataStatisticsViewOrCopyTO, CudaBuffers) {
+  ASSERT_OK_AND_ASSIGN(auto bitmap_buffer, GenerateGPUBitmapBuffer(10));
+  ASSERT_OK_AND_ASSIGN(auto data_buffer,
+                       GenerateGPUtDataBuffer({1, 2, 3, 4, 5, 6, 7, 8, 9, 10}));
+  auto array_data = ArrayData::Make(int32(), 10, {});
+  array_data->buffers = {bitmap_buffer, data_buffer};
+  auto statistics = std::make_shared<ArrayStatistics>();
+  statistics->max = 10;
+  array_data->statistics = statistics;
+  array_data->null_count = 4;
+  // Why does the assertion below fail
+  // ASSERT_TRUE(is_valid_as_array(array_data));
+  {
+    // Since it's not possible to get  host pointers from CudaBuffers,
+    // the buffers are copied.
+    ASSERT_OK_AND_ASSIGN(auto copied_array_data, array_data->ViewOrCopyTo(cpu_mm_));
+    ASSERT_FALSE(is_statistics_shared(array_data, copied_array_data));
+  }
+  {
+    // Despite using the same memory manager, CudaBuffers are still being copied.
+    // Should we consider this a bug?
+    ASSERT_OK_AND_ASSIGN(auto copied_array_data, array_data->ViewOrCopyTo(mm_));
+    ASSERT_FALSE(is_statistics_shared(array_data, copied_array_data));
+  }
+  {
+    // Since neither the buffer nor the 'to' memory manager belong to the CPU,
+    // the buffers are copied.
+    ASSERT_OK_AND_ASSIGN(auto copied_array_data, array_data->ViewOrCopyTo(my_cuda_mm_));
+    ASSERT_FALSE(is_statistics_shared(array_data, copied_array_data));
+  }
+}
+TEST_F(TestArrayDataStatisticsViewOrCopyTO, CudaBuffersPointToCpuMemory) {
+  ASSERT_OK_AND_ASSIGN(auto bitmap_buffer, GenerateGPUBitmapBufferPointToCpuMemory(10));
+  ASSERT_OK_AND_ASSIGN(auto data_buffer, GenerateGPUtDataBufferPointToCpuMemory(
+                                             {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}));
+  auto array_data = ArrayData::Make(int32(), 10, {bitmap_buffer, data_buffer});
+  auto statistics = std::make_shared<ArrayStatistics>();
+  statistics->max = 10;
+  array_data->statistics = statistics;
+  array_data->null_count = 4;
+
+  // Why does the assertion below fail? Is the bitmap_buffer on the GPU invalid,
+  // even though the other GPU-resident buffers are valid?
+  // ASSERT_TRUE(is_valid_as_array(array_data));
+  {
+    // The view operation is applied to CudaBuffers because it's possible to obtain a
+    // host pointer from them.
+    // Note that I ran this test on an RTX 3050 Mobile (which supports Unified
+    // Addressing), and the assertion passed. However, on GPUs that do not support Unified
+    // Addressing, the assertion is expected to fail.
+    ASSERT_OK_AND_ASSIGN(auto viewed_data, array_data->ViewOrCopyTo(cpu_mm_));
+    ASSERT_TRUE(is_statistics_shared(array_data, viewed_data));
+  }
+  {
+    // The view operation is applied because the same memory manager is used.
+    ASSERT_OK_AND_ASSIGN(auto viewed_data, array_data->ViewOrCopyTo(mm_));
+    ASSERT_TRUE(is_statistics_shared(array_data, viewed_data));
+  }
+  {
+    // Since neither the buffer nor the 'to' memory manager belong to the CPU,
+    // the buffers are copied.
+    ASSERT_OK_AND_ASSIGN(auto copied_array_data, array_data->ViewOrCopyTo(my_cuda_mm_));
+    ASSERT_FALSE(is_statistics_shared(array_data, copied_array_data));
+  }
+}
+
+TEST_F(TestArrayDataStatisticsViewOrCopyTO, CudaBufferAndCudaBufferPointToCpuMemory) {
+  ASSERT_OK_AND_ASSIGN(auto bitmap_buffer, GenerateGPUBitmapBufferPointToCpuMemory(10));
+  ASSERT_OK_AND_ASSIGN(auto data_buffer,
+                       GenerateGPUtDataBuffer({1, 2, 3, 4, 5, 6, 7, 8, 9, 10}));
+  auto array_data = ArrayData::Make(int32(), 10, {bitmap_buffer, data_buffer});
+  auto statistics = std::make_shared<ArrayStatistics>();
+  statistics->max = 10;
+  array_data->statistics = statistics;
+  array_data->null_count = 4;
+
+  // Why does the assertion below fail? Is the bitmap_buffer on the GPU invalid,
+  // even though the other GPU-resident buffers are valid?
+  // ASSERT_TRUE(is_valid_as_array(array_data));
+  {
+    // Since it's not possible to get  a host pointer from data_buffer,
+    // data_buffer is copied. (Bitmap buffer is viewed)
+    ASSERT_OK_AND_ASSIGN(auto copied_array_data, array_data->ViewOrCopyTo(cpu_mm_));
+    ASSERT_FALSE(is_statistics_shared(array_data, copied_array_data));
+  }
+  {
+    // Despite using the same memory manager, data_buffer is still being copied.
+    // Should we consider this a bug?
+    ASSERT_OK_AND_ASSIGN(auto copied_array_data, array_data->ViewOrCopyTo(mm_));
+    ASSERT_FALSE(is_statistics_shared(array_data, copied_array_data));
+  }
+  {
+    // Since neither the buffer nor the 'to' memory manager belong to the CPU,
+    // the buffers are copied.
+    ASSERT_OK_AND_ASSIGN(auto copied_array_data, array_data->ViewOrCopyTo(my_cuda_mm_));
+    ASSERT_FALSE(is_statistics_shared(array_data, copied_array_data));
+  }
+}
 
 }  // namespace cuda
 }  // namespace arrow

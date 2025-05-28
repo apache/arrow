@@ -3958,6 +3958,7 @@ TEST_F(TestArrayDataStatistics, CopyAssignment) {
 TEST_F(TestArrayDataStatistics, CopyTo) {
   ASSERT_OK_AND_ASSIGN(auto copied_data,
                        data_->CopyTo(arrow::default_cpu_memory_manager()));
+  ASSERT_NE(copied_data->statistics, data_->statistics);
 
   ASSERT_TRUE(copied_data->statistics->null_count.has_value());
   ASSERT_EQ(null_count_, copied_data->statistics->null_count.value());
@@ -3971,6 +3972,17 @@ TEST_F(TestArrayDataStatistics, CopyTo) {
   ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data->statistics->max.value()));
   ASSERT_EQ(max_, std::get<int64_t>(copied_data->statistics->max.value()));
   ASSERT_TRUE(copied_data->statistics->is_max_exact);
+}
+TEST_F(TestArrayDataStatistics, CopyToNullArray) {
+  NullArray array(10);
+  auto& array_data = array.data();
+  auto statistics = std::make_shared<ArrayStatistics>();
+  statistics->null_count = 10;
+  array.data()->statistics = statistics;
+  ASSERT_OK_AND_ASSIGN(auto copied_array_data,
+                       array_data->CopyTo(arrow::default_cpu_memory_manager()));
+  ASSERT_NE(copied_array_data->statistics, array.statistics());
+  ASSERT_EQ(*copied_array_data->statistics, *array.statistics());
 }
 
 TEST_F(TestArrayDataStatistics, Slice) {
