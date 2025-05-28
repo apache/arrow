@@ -4849,6 +4849,10 @@ macro(build_opentelemetry)
       version)
   set(OPENTELEMETRY_BUILD_BYPRODUCTS)
   set(OPENTELEMETRY_LIBRARIES)
+  set(OPENTELEMETRY_CXX_FLAGS "${EP_CXX_FLAGS}")
+  if(ARROW_USE_TSAN)
+    string(APPEND OPENTELEMETRY_CXX_FLAGS " -fsanitize=thread -DTHREAD_SANITIZE")
+  endif()
 
   foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_APIS})
     add_library(opentelemetry-cpp::${_OPENTELEMETRY_LIB} INTERFACE IMPORTED)
@@ -4895,7 +4899,7 @@ macro(build_opentelemetry)
 
   set(OPENTELEMETRY_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${OPENTELEMETRY_PREFIX}"
-      -DWITH_EXAMPLES=OFF)
+      -DCMAKE_CXX_FLAGS=${OPENTELEMETRY_CXX_FLAGS} -DWITH_EXAMPLES=OFF)
 
   set(OPENTELEMETRY_PREFIX_PATH_LIST)
   # Don't specify the DEPENDS unless we actually have dependencies, else
