@@ -45,7 +45,7 @@
     <Authors>The Apache Software Foundation</Authors>
     <PackageIcon>feather.png</PackageIcon>
     <!-- We can't use PackageLicenseExpression; the license file also contains 3rd-party notices. -->
-    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageLicenseExpression>APACHE-2.0</PackageLicenseExpression>
     <PackageProjectUrl>https://arrow.apache.org/</PackageProjectUrl>
     <PackageTags>apache arrow</PackageTags>
     <RepositoryType>git</RepositoryType>
@@ -55,7 +55,6 @@
   </PropertyGroup>
 
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
-    <Content Include="$(RepoRoot)LICENSE.txt" Pack="true" PackagePath="" />
     <Content Include="$(CSharpDir)/feather.png" Link="feather.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
