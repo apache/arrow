@@ -118,7 +118,7 @@ public class FixedBufferBuilder<T>: ValuesBufferBuilder<T>, ArrowBufferBuilder {
         return [nulls, values]
     }
 
-    fileprivate static func defaultValueForType() throws -> T {
+    fileprivate static func defaultValueForType() throws -> T { // swiftlint:disable:this cyclomatic_complexity
         let type = T.self
         if type == Int8.self {
             return Int8(0) as! T // swiftlint:disable:this force_cast
@@ -140,6 +140,8 @@ public class FixedBufferBuilder<T>: ValuesBufferBuilder<T>, ArrowBufferBuilder {
             return Float(0) as! T // swiftlint:disable:this force_cast
         } else if type == Double.self {
             return Double(0) as! T // swiftlint:disable:this force_cast
+        } else if type == Decimal.self {
+            return Decimal(0) as! T  // swiftlint:disable:this force_cast
         }
 
         throw ArrowError.unknownType("Unable to determine default value")

@@ -37,13 +37,13 @@ public enum ArrowError: Error {
     case invalid(String)
 }
 
-public enum ArrowTypeId {
+public enum ArrowTypeId: Sendable, Equatable {
     case binary
     case boolean
     case date32
     case date64
     case dateType
-    case decimal128
+    case decimal128(_ precision: Int32, _ scale: Int32)
     case decimal256
     case dictionary
     case double
@@ -122,6 +122,23 @@ public class ArrowTypeTime64: ArrowType {
     }
 }
 
+public class ArrowTypeDecimal128: ArrowType {
+    let precision: Int32
+    let scale: Int32
+
+    public init(precision: Int32, scale: Int32) {
+        self.precision = precision
+        self.scale = scale
+        super.init(ArrowType.ArrowDecimal128)
+    }
+
+    public override var cDataFormatId: String {
+        get throws {
+            return "d:\(precision),\(scale)"
+        }
+    }
+}
+
 public class ArrowNestedType: ArrowType {
     let fields: [ArrowField]
     public init(_ info: ArrowType.Info, fields: [ArrowField]) {
@@ -142,6 +159,7 @@ public class ArrowType {
     public static let ArrowUInt64 = Info.primitiveInfo(ArrowTypeId.uint64)
     public static let ArrowFloat = Info.primitiveInfo(ArrowTypeId.float)
     public static let ArrowDouble = Info.primitiveInfo(ArrowTypeId.double)
+    public static let ArrowDecimal128 = Info.primitiveInfo(ArrowTypeId.decimal128(38, 18))
     public static let ArrowUnknown = Info.primitiveInfo(ArrowTypeId.unknown)
     public static let ArrowString = Info.variableInfo(ArrowTypeId.string)
     public static let ArrowBool = Info.primitiveInfo(ArrowTypeId.boolean)
@@ -206,12 +224,16 @@ public class ArrowType {
             return ArrowType.ArrowFloat
         } else if type == Double.self {
             return ArrowType.ArrowDouble
+        } else if type == Decimal.self {
+            return ArrowType.ArrowDecimal128
         } else {
             return ArrowType.ArrowUnknown
         }
     }
 
-    public static func infoForNumericType<T>(_ type: T.Type) -> ArrowType.Info {
+    public static func infoForNumericType<T>( // swiftlint:disable:this cyclomatic_complexity
+        _ type: T.Type
+    ) -> ArrowType.Info {
         if type == Int8.self {
             return ArrowType.ArrowInt8
         } else if type == Int16.self {
@@ -232,6 +254,8 @@ public class ArrowType {
             return ArrowType.ArrowFloat
         } else if type == Double.self {
             return ArrowType.ArrowDouble
+        } else if type == Decimal.self {
+            return ArrowType.ArrowDecimal128
         } else {
             return ArrowType.ArrowUnknown
         }
@@ -260,6 +284,8 @@ public class ArrowType {
             return MemoryLayout<Float>.stride
         case .double:
             return MemoryLayout<Double>.stride
+        case .decimal128:
+            return 16 // Decimal 128 (= 16 * 8) bits
         case .boolean:
             return MemoryLayout<Bool>.stride
         case .date32:
@@ -304,6 +330,8 @@ public class ArrowType {
                 return "f"
             case ArrowTypeId.double:
                 return "g"
+            case ArrowTypeId.decimal128(let precision, let scale):
+                return "d:\(precision),\(scale)"
             case ArrowTypeId.boolean:
                 return "b"
             case ArrowTypeId.date32:

@@ -44,6 +44,15 @@ func fromProto( // swiftlint:disable:this cyclomatic_complexity function_body_le
         } else if floatType.precision == .double {
             arrowType = ArrowType(ArrowType.ArrowDouble)
         }
+    case .decimal:
+        let decimalType = field.type(type: org_apache_arrow_flatbuf_Decimal.self)!
+        if decimalType.bitWidth == 128 && decimalType.precision <= 38 {
+            let arrowDecimal128 = ArrowTypeId.decimal128(decimalType.precision, decimalType.scale)
+            arrowType = ArrowType(ArrowType.Info.primitiveInfo(arrowDecimal128))
+        } else {
+            // Unsupport yet
+            arrowType = ArrowType(ArrowType.ArrowUnknown)
+        }
     case .utf8:
         arrowType = ArrowType(ArrowType.ArrowString)
     case .binary:

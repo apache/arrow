@@ -119,6 +119,12 @@ public class Time64ArrayBuilder: ArrowArrayBuilder<FixedBufferBuilder<Time64>, T
     }
 }
 
+public class Decimal128ArrayBuilder: ArrowArrayBuilder<FixedBufferBuilder<Decimal>, Decimal128Array> {
+  fileprivate convenience init(precision: Int32, scale: Int32) throws {
+    try self.init(ArrowTypeDecimal128(precision: precision, scale: scale))
+  }
+}
+
 public class StructArrayBuilder: ArrowArrayBuilder<StructBufferBuilder, StructArray> {
     let builders: [any ArrowArrayHolderBuilder]
     let fields: [ArrowField]
@@ -197,6 +203,8 @@ public class ArrowArrayBuilders {
             return try ArrowArrayBuilders.loadBoolArrayBuilder()
         } else if builderType == Date.self || builderType == Date?.self {
             return try ArrowArrayBuilders.loadDate64ArrayBuilder()
+        } else if builderType == Decimal.self || builderType == Decimal?.self {
+            return try ArrowArrayBuilders.loadDecimal128ArrayBuilder(38, 18)
         } else {
             throw ArrowError.invalid("Invalid type for builder: \(builderType)")
         }
@@ -215,7 +223,8 @@ public class ArrowArrayBuilders {
             type == UInt8.self || type == UInt16.self ||
             type == UInt32.self || type == UInt64.self ||
             type == String.self || type == Double.self ||
-            type == Float.self || type == Date.self
+            type == Float.self || type == Date.self ||
+            type == Decimal.self || type == Decimal?.self
     }
 
     public static func loadStructArrayBuilderForType<T>(_ obj: T) throws -> StructArrayBuilder {
@@ -279,12 +288,18 @@ public class ArrowArrayBuilders {
                 throw ArrowError.invalid("Expected arrow type for \(arrowType.id) not found")
             }
             return try Time64ArrayBuilder(timeType.unit)
+        case .decimal128:
+            guard let decimalType = arrowType as? ArrowTypeDecimal128 else {
+                throw ArrowError.invalid("Expected ArrowTypeDecimal128 for decimal128 type")
+            }
+            return try Decimal128ArrayBuilder(precision: decimalType.precision, scale: decimalType.scale)
         default:
             throw ArrowError.unknownType("Builder not found for arrow type: \(arrowType.id)")
         }
     }
 
-    public static func loadNumberArrayBuilder<T>() throws -> NumberArrayBuilder<T> {
+    public static func loadNumberArrayBuilder<T>( // swiftlint:disable:this cyclomatic_complexity
+    ) throws -> NumberArrayBuilder<T> {
         let type = T.self
         if type == Int8.self {
             return try NumberArrayBuilder<T>()
@@ -305,6 +320,8 @@ public class ArrowArrayBuilders {
         } else if type == Float.self {
             return try NumberArrayBuilder<T>()
         } else if type == Double.self {
+            return try NumberArrayBuilder<T>()
+        } else if type == Decimal.self {
             return try NumberArrayBuilder<T>()
         } else {
             throw ArrowError.unknownType("Type is invalid for NumberArrayBuilder")
@@ -337,5 +354,12 @@ public class ArrowArrayBuilders {
 
     public static func loadTime64ArrayBuilder(_ unit: ArrowTime64Unit) throws -> Time64ArrayBuilder {
         return try Time64ArrayBuilder(unit)
+    }
+
+    public static func loadDecimal128ArrayBuilder(
+        _ precision: Int32 = 38,
+        _ scale: Int32 = 18
+    ) throws -> Decimal128ArrayBuilder {
+      return try Decimal128ArrayBuilder(precision: precision, scale: scale)
     }
 }

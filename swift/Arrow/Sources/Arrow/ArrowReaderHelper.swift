@@ -44,6 +44,20 @@ private func makeStringHolder(_ buffers: [ArrowBuffer],
     }
 }
 
+private func makeDecimalHolder(_ field: ArrowField,
+                               buffers: [ArrowBuffer],
+                               nullCount: UInt
+) -> Result<ArrowArrayHolder, ArrowError> {
+    do {
+        let arrowData = try ArrowData(field.type, buffers: buffers, nullCount: nullCount)
+        return .success(ArrowArrayHolderImpl(try Decimal128Array(arrowData)))
+    } catch let error as ArrowError {
+        return .failure(error)
+    } catch {
+        return .failure(.unknownError("\(error)"))
+    }
+}
+
 private func makeDateHolder(_ field: ArrowField,
                             buffers: [ArrowBuffer],
                             nullCount: UInt
@@ -178,6 +192,8 @@ func makeArrayHolder( // swiftlint:disable:this cyclomatic_complexity
         return makeFixedHolder(Float.self, field: field, buffers: buffers, nullCount: nullCount)
     case .double:
         return makeFixedHolder(Double.self, field: field, buffers: buffers, nullCount: nullCount)
+    case .decimal128:
+        return makeDecimalHolder(field, buffers: buffers, nullCount: nullCount)
     case .string:
         return makeStringHolder(buffers, nullCount: nullCount)
     case .binary:
@@ -203,7 +219,7 @@ func makeBuffer(_ buffer: org_apache_arrow_flatbuf_Buffer, fileData: Data,
 
 func isFixedPrimitive(_ type: org_apache_arrow_flatbuf_Type_) -> Bool {
     switch type {
-    case .int, .bool, .floatingpoint, .date, .time:
+    case .int, .bool, .floatingpoint, .date, .time, .decimal:
         return true
     default:
         return false
@@ -243,6 +259,12 @@ func findArrowType( // swiftlint:disable:this cyclomatic_complexity function_bod
         default:
             return ArrowType(ArrowType.ArrowUnknown)
         }
+    case .decimal:
+        let dataType = field.type(type: org_apache_arrow_flatbuf_Decimal.self)!
+        if dataType.bitWidth == 128 {
+            return ArrowType(ArrowType.ArrowDecimal128)
+        }
+        return ArrowType(ArrowType.ArrowUnknown)
     case .utf8:
         return ArrowType(ArrowType.ArrowString)
     case .binary:
