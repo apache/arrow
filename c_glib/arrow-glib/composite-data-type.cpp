@@ -64,7 +64,8 @@ static void
 garrow_base_list_data_type_class_init(GArrowBaseListDataTypeClass *klass)
 {
 }
-G_DEFINE_TYPE(GArrowListDataType, garrow_list_data_type, GARROW_TYPE_DATA_TYPE)
+
+G_DEFINE_TYPE(GArrowListDataType, garrow_list_data_type, GARROW_TYPE_BASE_LIST_DATA_TYPE)
 
 static void
 garrow_list_data_type_init(GArrowListDataType *object)
