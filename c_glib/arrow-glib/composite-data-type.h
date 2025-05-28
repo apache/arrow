@@ -47,7 +47,7 @@ G_DECLARE_DERIVABLE_TYPE(GArrowListDataType,
                          GArrowBaseListDataType)
 struct _GArrowListDataTypeClass
 {
-  GArrowDataTypeClass parent_class;
+  GArrowBaseListDataTypeClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_ALL
