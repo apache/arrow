@@ -86,6 +86,7 @@ arrow-glib
 
 for proj in ${SUBPROJECTS} ; do
   python3 -c "import sys; f = sys.argv[1]; d = open(f).read().replace('\r\n', '\n'); open(f, 'w').write(d)" "${build_dir}/${proj}/version.h"
+  python3 -c "import sys; print(sys.stdin.read().replace('\r\n', '%CRCR%\n'), end='')" "${build_dir}/${proj}/version.h"
 done
 
 pushd "${build_dir}"
