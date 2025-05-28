@@ -1610,12 +1610,6 @@ TEST(AsofJoinTest, PauseProducingAsofJoinSource) {
   BackpressureCounters bp_countersl, bp_countersr;
   BackpressureCountingNode::Register();
 
-  auto wait = [](uint32_t miliseconds) {
-    for (size_t i = 0; i < miliseconds; i++) {
-      SleepABit();
-    }
-  };
-
   Declaration left_count{"backpressure_count",
                          {std::move(left)},
                          BackpressureCountingNodeOptions(&bp_countersl)};
@@ -1654,24 +1648,24 @@ TEST(AsofJoinTest, PauseProducingAsofJoinSource) {
   uint32_t l_cnt = 0;
   uint32_t r_cnt = 0;
   for (uint32_t i = 0; i < kPauseIfAbove; i++) {
-    wait(10);
+    SleepABit();
     EXPECT_FALSE(backpressure_monitor->is_paused());
     batch_producer_left.producer().Push(l_batches.batches[l_cnt++]);
     batch_producer_right.producer().Push(r0_batches.batches[r_cnt++]);
   }
 
-  wait(10);
+  SleepABit();
   EXPECT_FALSE(backpressure_monitor->is_paused());
   // One more batch should trigger back pressure
   batch_producer_right.producer().Push(r0_batches.batches[r_cnt++]);
   batch_producer_left.producer().Push(l_batches.batches[l_cnt++]);
 
-  wait(10);
+  SleepABit();
   EXPECT_TRUE(backpressure_monitor->is_paused());
 
   // Fill up the inputs of the asof join node
   for (uint32_t i = 0; i < thresholdOfBackpressureAsof; i++) {
-    wait(10);
+    SleepABit();
     EXPECT_FALSE(is_l_paused());
     EXPECT_FALSE(is_r_paused());
     batch_producer_left.producer().Push(l_batches.batches[l_cnt++]);
@@ -1683,7 +1677,7 @@ TEST(AsofJoinTest, PauseProducingAsofJoinSource) {
   // Read the batches from the sink to open up input of the asof join node
   for (uint32_t i = 0; i < thresholdOfBackpressureAsof - thresholdOfBackpressureAsofLow;
        i++) {
-    wait(10);
+    SleepABit();
     EXPECT_TRUE(is_l_paused());
     EXPECT_TRUE(is_r_paused());
     EXPECT_TRUE(backpressure_monitor->is_paused());
@@ -1692,9 +1686,12 @@ TEST(AsofJoinTest, PauseProducingAsofJoinSource) {
     EXPECT_TRUE(opt_batch);
   }
 
+  BusyWait(5.0, [&]() { return !is_l_paused(); });
+  BusyWait(5.0, [&]() { return !is_r_paused(); });
+
   // Finish the batches in the left and right producers
   for (uint32_t i = 0; i < thresholdOfBackpressureAsofLow + kResumeIfBelow + 2; i++) {
-    wait(10);
+    SleepABit();
     EXPECT_FALSE(is_l_paused());
     EXPECT_FALSE(is_r_paused());
     EXPECT_TRUE(backpressure_monitor->is_paused());
@@ -1702,7 +1699,9 @@ TEST(AsofJoinTest, PauseProducingAsofJoinSource) {
     ASSERT_FINISHES_OK_AND_ASSIGN(opt_batch, sink_gen());
     EXPECT_TRUE(opt_batch);
   }
-  wait(10);
+
+  BusyWait(5.0, [&]() { return !backpressure_monitor->is_paused(); });
+
   EXPECT_FALSE(is_l_paused());
   EXPECT_FALSE(is_r_paused());
   EXPECT_FALSE(backpressure_monitor->is_paused());
