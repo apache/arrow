@@ -143,6 +143,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   bool is_stats_set() const;
   bool is_geo_stats_set() const;
   std::shared_ptr<Statistics> statistics() const;
+  std::shared_ptr<EncodedStatistics> encoded_statistics() const;
   std::shared_ptr<SizeStatistics> size_statistics() const;
   std::shared_ptr<geospatial::GeoStatistics> geo_statistics() const;
 

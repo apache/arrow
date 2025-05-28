@@ -219,13 +219,6 @@ class PrepareTest < Test::Unit::TestCase
     end
     expected_changes += [
       {
-        path: "js/package.json",
-        hunks: [
-          ["-  \"version\": \"#{@snapshot_version}\"",
-           "+  \"version\": \"#{@release_version}\""],
-        ],
-      },
-      {
         path: "matlab/CMakeLists.txt",
         hunks: [
           ["-set(MLARROW_VERSION \"#{@snapshot_version}\")",

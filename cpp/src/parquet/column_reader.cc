@@ -49,6 +49,7 @@
 #include "parquet/encoding.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"
+#include "parquet/exception.h"
 #include "parquet/level_comparison.h"
 #include "parquet/level_conversion.h"
 #include "parquet/properties.h"
@@ -196,34 +197,8 @@ namespace {
 template <typename H>
 EncodedStatistics ExtractStatsFromHeader(const H& header) {
   EncodedStatistics page_statistics;
-  if (!header.__isset.statistics) {
-    return page_statistics;
-  }
-  const format::Statistics& stats = header.statistics;
-  // Use the new V2 min-max statistics over the former one if it is filled
-  if (stats.__isset.max_value || stats.__isset.min_value) {
-    // TODO: check if the column_order is TYPE_DEFINED_ORDER.
-    if (stats.__isset.max_value) {
-      page_statistics.set_max(stats.max_value);
-    }
-    if (stats.__isset.min_value) {
-      page_statistics.set_min(stats.min_value);
-    }
-  } else if (stats.__isset.max || stats.__isset.min) {
-    // TODO: check created_by to see if it is corrupted for some types.
-    // TODO: check if the sort_order is SIGNED.
-    if (stats.__isset.max) {
-      page_statistics.set_max(stats.max);
-    }
-    if (stats.__isset.min) {
-      page_statistics.set_min(stats.min);
-    }
-  }
-  if (stats.__isset.null_count) {
-    page_statistics.set_null_count(stats.null_count);
-  }
-  if (stats.__isset.distinct_count) {
-    page_statistics.set_distinct_count(stats.distinct_count);
+  if (header.__isset.statistics) {
+    page_statistics = FromThrift(header.statistics);
   }
   return page_statistics;
 }
@@ -2069,11 +2044,35 @@ class ByteArrayChunkedRecordReader final : public TypedRecordReader<ByteArrayTyp
                                            virtual public BinaryRecordReader {
  public:
   ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
-                               ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
+                               ::arrow::MemoryPool* pool, bool read_dense_for_nullable,
+                               const std::shared_ptr<::arrow::DataType>& arrow_type)
       : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool,
                                          read_dense_for_nullable) {
     ARROW_DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
-    accumulator_.builder = std::make_unique<::arrow::BinaryBuilder>(pool);
+    auto arrow_binary_type = arrow_type ? arrow_type->id() : ::arrow::Type::BINARY;
+    switch (arrow_binary_type) {
+      case ::arrow::Type::BINARY:
+        accumulator_.builder = std::make_unique<::arrow::BinaryBuilder>(pool);
+        break;
+      case ::arrow::Type::STRING:
+        accumulator_.builder = std::make_unique<::arrow::StringBuilder>(pool);
+        break;
+      case ::arrow::Type::LARGE_BINARY:
+        accumulator_.builder = std::make_unique<::arrow::LargeBinaryBuilder>(pool);
+        break;
+      case ::arrow::Type::LARGE_STRING:
+        accumulator_.builder = std::make_unique<::arrow::LargeStringBuilder>(pool);
+        break;
+      case ::arrow::Type::BINARY_VIEW:
+        accumulator_.builder = std::make_unique<::arrow::BinaryViewBuilder>(pool);
+        break;
+      case ::arrow::Type::STRING_VIEW:
+        accumulator_.builder = std::make_unique<::arrow::StringViewBuilder>(pool);
+        break;
+      default:
+        throw ParquetException("cannot read Parquet BYTE_ARRAY as Arrow " +
+                               arrow_type->ToString());
+    }
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {
@@ -2202,26 +2201,25 @@ void TypedRecordReader<ByteArrayType>::DebugPrintState() {}
 template <>
 void TypedRecordReader<FLBAType>::DebugPrintState() {}
 
-std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* descr,
-                                                        LevelInfo leaf_info,
-                                                        ::arrow::MemoryPool* pool,
-                                                        bool read_dictionary,
-                                                        bool read_dense_for_nullable) {
+std::shared_ptr<RecordReader> MakeByteArrayRecordReader(
+    const ColumnDescriptor* descr, LevelInfo leaf_info, ::arrow::MemoryPool* pool,
+    bool read_dictionary, bool read_dense_for_nullable,
+    const std::shared_ptr<::arrow::DataType>& arrow_type) {
   if (read_dictionary) {
     return std::make_shared<ByteArrayDictionaryRecordReader>(descr, leaf_info, pool,
                                                              read_dense_for_nullable);
   } else {
-    return std::make_shared<ByteArrayChunkedRecordReader>(descr, leaf_info, pool,
-                                                          read_dense_for_nullable);
+    return std::make_shared<ByteArrayChunkedRecordReader>(
+        descr, leaf_info, pool, read_dense_for_nullable, arrow_type);
   }
 }
 
 }  // namespace
 
-std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
-                                                 LevelInfo leaf_info, MemoryPool* pool,
-                                                 bool read_dictionary,
-                                                 bool read_dense_for_nullable) {
+std::shared_ptr<RecordReader> RecordReader::Make(
+    const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool,
+    bool read_dictionary, bool read_dense_for_nullable,
+    const std::shared_ptr<::arrow::DataType>& arrow_type) {
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
       return std::make_shared<TypedRecordReader<BooleanType>>(descr, leaf_info, pool,
@@ -2243,7 +2241,7 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
                                                              read_dense_for_nullable);
     case Type::BYTE_ARRAY: {
       return MakeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
-                                       read_dense_for_nullable);
+                                       read_dense_for_nullable, arrow_type);
     }
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_shared<FLBARecordReader>(descr, leaf_info, pool,

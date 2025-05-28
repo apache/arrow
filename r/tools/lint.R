@@ -1,3 +1,5 @@
+#!/usr/bin/env Rscript
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,17 +17,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[wrap-file]
-directory = flatbuffers-24.3.6
-source_url = https://github.com/google/flatbuffers/archive/v24.3.6.tar.gz
-source_filename = flatbuffers-24.3.6.tar.gz
-source_hash = 5d8bfbf5b1b4c47f516e7673677f0e8db0efd32f262f7a14c3fd5ff67e2bd8fc
-patch_filename = flatbuffers_24.3.6-1_patch.zip
-patch_url = https://wrapdb.mesonbuild.com/v2/flatbuffers_24.3.6-1/get_patch
-patch_hash = bc0e1035a67ae74b1f862491fe2b0fd49b2889d989508143fff0a45508421bd7
-source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/flatbuffers_24.3.6-1/flatbuffers-24.3.6.tar.gz
-wrapdb_version = 24.3.6-1
+lints <- lintr::lint_package("r")
+if (length(lints) == 0) {
+  q("no")
+}
 
-[provide]
-flatbuffers = flatbuffers_dep
-program_names = flatc, flathash
+print(lints)
+q("no", status=1)
