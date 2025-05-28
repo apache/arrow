@@ -66,14 +66,14 @@ class ExternalLibraryTester(Tester):
     Executable and library must strictly follow the expected naming conventions
     """
 
-    PRODUCER = True
-    CONSUMER = True
+    PRODUCER = False
+    CONSUMER = False
     FLIGHT_SERVER = False
     FLIGHT_CLIENT = False
-    C_DATA_SCHEMA_EXPORTER = True
-    C_DATA_ARRAY_EXPORTER = True
-    C_DATA_SCHEMA_IMPORTER = True
-    C_DATA_ARRAY_IMPORTER = True
+    C_DATA_SCHEMA_EXPORTER = False
+    C_DATA_ARRAY_EXPORTER = False
+    C_DATA_SCHEMA_IMPORTER = False
+    C_DATA_ARRAY_IMPORTER = False
 
     _EXE_PATH: Path
     _INTEGRATION_EXE: Path
