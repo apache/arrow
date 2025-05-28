@@ -73,12 +73,12 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     case bump_type
     when :minor, :patch
       sh(env,
-         "dev/release/post-12-bump-versions.sh",
+         "dev/release/post-11-bump-versions.sh",
          released_version,
          @release_version)
     else
       sh(env,
-         "dev/release/post-12-bump-versions.sh",
+         "dev/release/post-11-bump-versions.sh",
          released_version,
          @next_version)
     end
@@ -248,13 +248,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         ]
       end
       expected_changes += [
-        {
-          path: "js/package.json",
-          hunks: [
-            ["-  \"version\": \"#{@snapshot_version}\"",
-             "+  \"version\": \"#{@next_snapshot_version}\""],
-          ],
-        },
         {
           path: "matlab/CMakeLists.txt",
           hunks: [
