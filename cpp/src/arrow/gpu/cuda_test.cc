@@ -965,6 +965,17 @@ class TestArrayDataStatisticsViewOrCopyTO : public TestCudaBase {
  protected:
   std::shared_ptr<CudaMemoryManager> my_cuda_mm_;
 };
+TEST_F(TestArrayDataStatisticsViewOrCopyTO, EmptyStatistics) {
+  ASSERT_OK_AND_ASSIGN(auto bitmap_buffer, GenerateCPUBitmapBuffer(10));
+  ASSERT_OK_AND_ASSIGN(auto data_buffer,
+                       GenerateCPUDataBuffer({1, 2, 3, 4, 5, 6, 7, 8, 9, 10}));
+  auto array_data = ArrayData::Make(int32(), 10, {bitmap_buffer, data_buffer});
+  auto statistics = std::make_shared<ArrayStatistics>();
+  ASSERT_TRUE(is_valid_as_array(array_data));
+
+  ASSERT_OK_AND_ASSIGN(auto viewed_array_data, array_data->ViewOrCopyTo(cpu_mm_));
+  ASSERT_TRUE(is_statistics_shared(array_data, viewed_array_data));
+}
 
 TEST_F(TestArrayDataStatisticsViewOrCopyTO, NullArray) {
   NullArray array(10);

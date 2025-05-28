@@ -173,7 +173,9 @@ Result<std::shared_ptr<ArrayData>> CopyToImpl(const ArrayData& data,
   } else {
     // Note that some types, like Null, use the same path for both copy and view
     // operations. In such cases, it is assumed that arrow::ArrayData is also copied.
-    output->statistics = std::make_shared<ArrayStatistics>(*data.statistics);
+    if (data.statistics != nullptr) {
+      output->statistics = std::make_shared<ArrayStatistics>(*data.statistics);
+    }
   }
 
   return output;
