@@ -32,6 +32,8 @@ G_BEGIN_DECLS
  * @title: Composite data type classes
  * @include: arrow-glib/arrow-glib.h
  *
+ * #GArrowBaseListDataType is a abstract class for list data type.
+ *
  * #GArrowListDataType is a class for list data type.
  *
  * #GArrowLargeListDataType is a class for 64-bit offsets list data type.
@@ -51,6 +53,17 @@ G_BEGIN_DECLS
  * #GArrowRunEndEncodedDataType is a class for run end encoded data type.
  */
 
+G_DEFINE_TYPE(GArrowBaseListDataType, garrow_base_list_data_type, GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_base_list_data_type_init(GArrowBaseListDataType *object)
+{
+}
+
+static void
+garrow_base_list_data_type_class_init(GArrowBaseListDataTypeClass *klass)
+{
+}
 G_DEFINE_TYPE(GArrowListDataType, garrow_list_data_type, GARROW_TYPE_DATA_TYPE)
 
 static void
@@ -753,15 +766,4 @@ garrow_run_end_encoded_data_type_get_value_data_type(
   return garrow_data_type_new_raw(&arrow_value_data_type);
 }
 
-G_DEFINE_TYPE(GArrowBaseListDataType, garrow_base_list_data_type, GARROW_TYPE_DATA_TYPE)
-
-static void
-garrow_base_list_data_type_init(GArrowBaseListDataType *object)
-{
-}
-
-static void
-garrow_base_list_data_type_class_init(GArrowBaseListDataTypeClass *klass)
-{
-}
 G_END_DECLS
