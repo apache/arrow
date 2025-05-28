@@ -33,8 +33,6 @@ if [ -n "${MSYSTEM:-}" ]; then
   # Fix ARROW_HOME when running under MSYS2
   ARROW_HOME="$(cygpath --unix "${ARROW_HOME}")"
   export ARROW_HOME
-  # Force disable ARROW_GLIB_WERROR false
-  ARROW_GLIB_WERROR=false
 fi
 
 PATH="${ARROW_HOME}/bin:${PATH}"
@@ -78,6 +76,17 @@ meson setup \
       -Dwerror="${ARROW_GLIB_WERROR}" \
       "${build_dir}" \
       "${source_dir}"
+
+SUBPROJECTS="
+arrow-dataset-glib
+arrow-flight-glib
+arrow-flight-sql-glib
+arrow-glib
+"
+
+for proj in ${SUBPROJECTS} ; do
+  python3 -c "import sys; f = sys.argv[1]; d = open(f).read().replace('\r\n', '\n'); open(f, 'w').write(d)" "${build_dir}/${proj}/version.h"
+done
 
 pushd "${build_dir}"
 ninja
