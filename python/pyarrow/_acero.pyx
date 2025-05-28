@@ -272,8 +272,8 @@ class OrderByNodeOptions(_OrderByNodeOptions):
 cdef class _HashJoinNodeOptions(ExecNodeOptions):
 
     def _set_options(
-        self, join_type, left_keys, right_keys, Expression filter_expression=None, left_output=None, right_output=None,
-        output_suffix_for_left="", output_suffix_for_right="",
+        self, join_type, left_keys, right_keys, left_output=None, right_output=None,
+        output_suffix_for_left="", output_suffix_for_right="", Expression filter_expression=None,
     ):
         cdef:
             CJoinType c_join_type
@@ -379,15 +379,17 @@ class HashJoinNodeOptions(_HashJoinNodeOptions):
     output_suffix_for_right : str
         Suffix added to names of output fields coming from right input,
         see `output_suffix_for_left` for details.
+    filter_expression: Expression
+        Expression that will be used during join operation.
     """
 
     def __init__(
-        self, join_type, left_keys, right_keys, filter_expression=None, left_output=None, right_output=None,
-        output_suffix_for_left="", output_suffix_for_right=""
+        self, join_type, left_keys, right_keys, left_output=None, right_output=None,
+        output_suffix_for_left="", output_suffix_for_right="", filter_expression=None,
     ):
         self._set_options(
-            join_type, left_keys, right_keys, filter_expression, left_output, right_output,
-            output_suffix_for_left, output_suffix_for_right
+            join_type, left_keys, right_keys, left_output, right_output,
+            output_suffix_for_left, output_suffix_for_right, filter_expression
         )
 
 

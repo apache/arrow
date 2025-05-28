@@ -317,6 +317,19 @@ def test_hash_join_with_filter():
         names=["key", "a", "key", "b"])
     assert result.equals(expected)
 
+    # left join
+    join_opts = HashJoinNodeOptions(
+        "left outer", left_keys="key", right_keys="key",
+        filter_expression=pc.equal(pc.field('a'), 5))
+    joined = Declaration(
+        "hashjoin", options=join_opts, inputs=[left_source, right_source])
+    result = joined.to_table()
+    expected = pa.table(
+        [[1, 2, 3], [4, 5, 6], [None, 2, None], [None, 4, None]],
+        names=["key", "a", "key", "b"]
+    )
+    assert result.sort_by("a").equals(expected)
+
 
 def test_hash_join():
     left = pa.table({'key': [1, 2, 3], 'a': [4, 5, 6]})
