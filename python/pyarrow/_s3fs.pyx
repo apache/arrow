@@ -263,6 +263,8 @@ cdef class S3FileSystem(FileSystem):
         If true, then virtual addressing is always enabled.
         If false, then virtual addressing is only enabled if `endpoint_override` is empty.
         This can be used for non-AWS backends that only support virtual hosted-style access.
+    tls_ca_file_path : str, default None
+        Use custom CA certificate for TLS verification
 
     Examples
     --------
@@ -290,7 +292,7 @@ cdef class S3FileSystem(FileSystem):
                  check_directory_existence_before_creation=False,
                  retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(
                      max_attempts=3),
-                 force_virtual_addressing=False):
+                 force_virtual_addressing=False, tls_ca_file_path=None):
         cdef:
             optional[CS3Options] options
             shared_ptr[CS3FileSystem] wrapped
@@ -414,6 +416,8 @@ cdef class S3FileSystem(FileSystem):
                 retry_strategy.max_attempts)
         else:
             raise ValueError(f'Invalid retry_strategy {retry_strategy!r}')
+        if tls_ca_file_path:
+            options.value().tls_ca_file_path = tobytes(tls_ca_file_path)
 
         with nogil:
             wrapped = GetResultValue(CS3FileSystem.Make(options.value()))
@@ -474,6 +478,7 @@ cdef class S3FileSystem(FileSystem):
                                'password': frombytes(
                                    opts.proxy_options.password)},
                 force_virtual_addressing=opts.force_virtual_addressing,
+                tls_ca_file_path=frombytes(opts.tls_ca_file_path),
             ),)
         )
 
