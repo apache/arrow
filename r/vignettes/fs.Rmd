@@ -190,7 +190,7 @@ Also note that parameters in the URI need to be
 
 For S3, only the following options can be included in the URI as query parameters
 are `region`, `scheme`, `endpoint_override`, `access_key`, `secret_key`, `allow_bucket_creation`,
-and `allow_bucket_deletion`. For GCS, the supported parameters are `scheme`, `endpoint_override`,
+`allow_bucket_deletion` and `check_directory_existence_before_creation`. For GCS, the supported parameters are `scheme`, `endpoint_override`,
 and `retry_limit_seconds`.
 
 In GCS, a useful option is `retry_limit_seconds`, which sets the number of seconds

@@ -156,6 +156,10 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #'    buckets if `$CreateDir()` is called on the bucket level (default `FALSE`).
 #' - `allow_bucket_deletion`: logical, if TRUE, the filesystem will delete
 #'    buckets if`$DeleteDir()` is called on the bucket level (default `FALSE`).
+#' - `check_directory_existence_before_creation`: logical, check if directory
+#'    already exists or not before creation. Helpful for cloud storage operations
+#'    where object mutation operations are rate limited or existing directories
+#'    are read-only. (default `FALSE`).
 #' - `request_timeout`: Socket read time on Windows and macOS in seconds. If
 #'    negative, the AWS SDK default (typically 3 seconds).
 #' - `connect_timeout`: Socket connection timeout in seconds. If negative, AWS
@@ -411,7 +415,8 @@ S3FileSystem$create <- function(anonymous = FALSE, ...) {
     invalid_args <- intersect(
       c(
         "access_key", "secret_key", "session_token", "role_arn", "session_name",
-        "external_id", "load_frequency", "allow_bucket_creation", "allow_bucket_deletion"
+        "external_id", "load_frequency", "allow_bucket_creation", "allow_bucket_deletion",
+        "check_directory_existence_before_creation"
       ),
       names(args)
     )
@@ -459,6 +464,7 @@ default_s3_options <- list(
   background_writes = TRUE,
   allow_bucket_creation = FALSE,
   allow_bucket_deletion = FALSE,
+  check_directory_existence_before_creation = FALSE,
   connect_timeout = -1,
   request_timeout = -1
 )
