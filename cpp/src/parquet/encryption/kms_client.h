@@ -22,6 +22,7 @@
 #include <unordered_map>
 
 #include "arrow/util/mutex.h"
+#include "arrow/util/secure_string.h"
 
 #include "parquet/exception.h"
 #include "parquet/platform.h"
@@ -81,12 +82,12 @@ class PARQUET_EXPORT KmsClient {
 
   /// Wraps a key - encrypts it with the master key, encodes the result
   /// and potentially adds a KMS-specific metadata.
-  virtual std::string WrapKey(const std::string& key_bytes,
+  virtual std::string WrapKey(const ::arrow::util::SecureString& key_bytes,
                               const std::string& master_key_identifier) = 0;
 
   /// Decrypts (unwraps) a key with the master key.
-  virtual std::string UnwrapKey(const std::string& wrapped_key,
-                                const std::string& master_key_identifier) = 0;
+  virtual ::arrow::util::SecureString UnwrapKey(
+      const std::string& wrapped_key, const std::string& master_key_identifier) = 0;
   virtual ~KmsClient() {}
 };
 
