@@ -32,7 +32,7 @@ G_BEGIN_DECLS
  * @title: Composite data type classes
  * @include: arrow-glib/arrow-glib.h
  *
- * #GArrowBaseListDataType is a abstract class for list data type.
+ * #GArrowBaseListDataType is an abstract class for list data type.
  *
  * #GArrowListDataType is a class for list data type.
  *
