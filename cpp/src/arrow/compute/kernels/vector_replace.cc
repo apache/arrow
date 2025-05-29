@@ -842,6 +842,7 @@ void RegisterVectorFunction(FunctionRegistry* registry,
   }
   add_primitive_kernel(null());
   add_primitive_kernel(boolean());
+  add_primitive_kernel(float16());
   AddKernel(Type::FIXED_SIZE_BINARY,
             Functor<FixedSizeBinaryType>::GetSignature(Type::FIXED_SIZE_BINARY),
             Functor<FixedSizeBinaryType>::Exec, ChunkedFunctor<FixedSizeBinaryType>::Exec,
