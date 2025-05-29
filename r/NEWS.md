@@ -22,8 +22,9 @@
 ## Minor improvements and fixes
 
 - Added bindings for atan, sinh, cosh, tanh, asinh, acosh, and tanh, and expm1 (#44953)
-- Expose an option `check_directory_existence_before_creation` in `S3FileSystem` 
+- Expose an option `check_directory_existence_before_creation` in `S3FileSystem`
   to reduce I/O calls on cloud storage (@HaochengLIU, #41998)
+
 # arrow 20.0.0.1
 
 ## Minor improvements and fixes
