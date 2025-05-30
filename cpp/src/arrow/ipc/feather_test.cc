@@ -319,6 +319,27 @@ TEST_P(TestFeather, SliceBooleanRoundTrip) {
   CheckSlices(batch);
 }
 
+TEST_P(TestFeather, SliceListsRoundTrip) {
+  if (GetParam().version == kFeatherV1Version) {
+    // IPC V1 does not support list<int>.
+    return;
+  }
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(ipc::test::MakeListRecordBatchSized(600, &batch));
+  CheckSlices(batch);
+}
+
+TEST_P(TestFeather, SliceListsViewRoundTrip) {
+  if (GetParam().version == kFeatherV1Version) {
+    // IPC V1 does not support list<int>.
+    return;
+  }
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(ipc::test::MakeListViewRecordBatchSized(600, &batch));
+  CheckSlices(batch);
+}
+
+
 INSTANTIATE_TEST_SUITE_P(
     FeatherTests, TestFeather,
     ::testing::Values(TestParam(kFeatherV1Version), TestParam(kFeatherV2Version),
