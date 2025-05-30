@@ -976,28 +976,235 @@ TEST_F(TestArray, TestAppendArraySlice) {
     ASSERT_EQ(8, result->null_count());
   }
 }
+class TestBinaryViewBuilderAppendArraySlice : public TestArray {
+ public:
+  struct StringOptions {
+    int64_t size;
+    int32_t min_length;
+    int32_t max_length;
+    double null_probability;
+  };
+  TestBinaryViewBuilderAppendArraySlice() : TestArray(), generator_(12) {}
+  void SetUp() override {
+    TestArray::SetUp();
+    builder_ = BinaryViewBuilder(pool_);
+  }
+  Result<std::shared_ptr<Array>> AppendArraySliceBySlice(
+      const std::shared_ptr<Array>& array) {
+    const ArraySpan span(*array->data());
+    for (int i = 0; i < array->length(); i++) {
+      ARROW_RETURN_NOT_OK(builder_.AppendArraySlice(span, i, 1));
+    }
+    return builder_.Finish();
+  }
 
-// GH-39976: Test out-of-line data size calculation in
-// BinaryViewBuilder::AppendArraySlice.
-TEST_F(TestArray, TestBinaryViewAppendArraySlice) {
-  BinaryViewBuilder src_builder(pool_);
-  ASSERT_OK(src_builder.AppendNull());
-  ASSERT_OK(src_builder.Append("long string; not inlined"));
-  ASSERT_EQ(2, src_builder.length());
-  ASSERT_OK_AND_ASSIGN(auto src, src_builder.Finish());
+  Result<std::shared_ptr<Array>> GenerateString(const StringOptions& option) {
+    return generator_
+        .StringView(option.size, option.min_length, option.max_length,
+                    option.null_probability)
+        ->View(binary_view());
+  }
+
+ protected:
+  BinaryViewBuilder builder_;
+  random::RandomArrayGenerator generator_;
+};
+
+TEST_F(TestBinaryViewBuilderAppendArraySlice, Inline) {
+  StringOptions options{};
+  options.size = 16;
+  options.min_length = 0;
+  options.max_length = 12;
+  options.null_probability = 0;
+
+  // Null values are not included
+  {
+    ASSERT_OK_AND_ASSIGN(auto src, GenerateString(options));
+    ArraySpan span(*src->data());
+    ASSERT_OK(builder_.AppendArraySlice(span, 0, src->length()));
+    ASSERT_OK_AND_ASSIGN(auto dst, builder_.Finish());
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*dst, *src);
+  }
+  {
+    ASSERT_OK_AND_ASSIGN(auto src, GenerateString(options));
+    ASSERT_OK_AND_ASSIGN(auto dst, AppendArraySliceBySlice(src));
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*dst, *src);
+  }
+
+  // Null values are  included
+  options.null_probability = .2;
+  {
+    ASSERT_OK_AND_ASSIGN(auto src, GenerateString(options));
+    // Check for the existence of null values.
+    ASSERT_NE(src->data()->buffers[0], nullptr);
+    ArraySpan span(*src->data());
+    ASSERT_OK(builder_.AppendArraySlice(span, 0, src->length()));
+    ASSERT_OK_AND_ASSIGN(auto dst, builder_.Finish());
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*dst, *src);
+  }
+
+  {
+    ASSERT_OK_AND_ASSIGN(auto src, GenerateString(options));
+    // Check for the existence of null values.
+    ASSERT_NE(src->data()->buffers[0], nullptr);
+    ASSERT_OK_AND_ASSIGN(auto dst, AppendArraySliceBySlice(src));
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*dst, *src);
+  }
+}
+
+TEST_F(TestBinaryViewBuilderAppendArraySlice, NonInlineOneBLock) {
+  StringOptions options{};
+  options.size = 16;
+  options.min_length = 13;
+  options.max_length = 23;
+  options.null_probability = 0;
+
+  // Null values are not included
+  {
+    ASSERT_OK_AND_ASSIGN(auto src, GenerateString(options));
+    ArraySpan span(*src->data());
+    ASSERT_OK(builder_.AppendArraySlice(span, 0, src->length()));
+    ASSERT_OK_AND_ASSIGN(auto dst, builder_.Finish());
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*dst, *src);
+  }
+  {
+    ASSERT_OK_AND_ASSIGN(auto src, GenerateString(options));
+    ASSERT_OK_AND_ASSIGN(auto dst, AppendArraySliceBySlice(src));
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*dst, *src);
+  }
+
+  // Null values are  included
+  options.null_probability = .2;
+  {
+    ASSERT_OK_AND_ASSIGN(auto src, GenerateString(options));
+    // Check for the existence of null values.
+    ASSERT_NE(src->data()->buffers[0], nullptr);
+    ArraySpan span(*src->data());
+    ASSERT_OK(builder_.AppendArraySlice(span, 0, src->length()));
+    ASSERT_OK_AND_ASSIGN(auto dst, builder_.Finish());
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*dst, *src);
+  }
+
+  {
+    ASSERT_OK_AND_ASSIGN(auto src, GenerateString(options));
+    // Check for the existence of null values.
+    ASSERT_NE(src->data()->buffers[0], nullptr);
+    ASSERT_OK_AND_ASSIGN(auto dst, AppendArraySliceBySlice(src));
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*dst, *src);
+  }
+}
+
+TEST_F(TestBinaryViewBuilderAppendArraySlice, InlineAndNonInlineOneBLock) {
+  StringOptions options{};
+  options.size = 40;
+  options.min_length = 1;
+  options.max_length = 23;
+  options.null_probability = 0;
+  // Null values are not included
+  {
+    ASSERT_OK_AND_ASSIGN(auto src, GenerateString(options));
+    ArraySpan span(*src->data());
+    ASSERT_OK(builder_.AppendArraySlice(span, 0, src->length()));
+    ASSERT_OK_AND_ASSIGN(auto dst, builder_.Finish());
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*dst, *src);
+  }
+  {
+    ASSERT_OK_AND_ASSIGN(auto src, GenerateString(options));
+    ASSERT_OK_AND_ASSIGN(auto dst, AppendArraySliceBySlice(src));
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*dst, *src);
+  }
+
+  options.null_probability = .2;
+  // Null values are  included
+  {
+    ASSERT_OK_AND_ASSIGN(auto src, GenerateString(options));
+    // Check for the existence of null values.
+    ASSERT_NE(src->data()->buffers[0], nullptr);
+    ArraySpan span(*src->data());
+    ASSERT_OK(builder_.AppendArraySlice(span, 0, src->length()));
+    ASSERT_OK_AND_ASSIGN(auto dst, builder_.Finish());
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*dst, *src);
+  }
+
+  {
+    ASSERT_OK_AND_ASSIGN(auto src, GenerateString(options));
+    // Check for the existence of null values.
+    ASSERT_NE(src->data()->buffers[0], nullptr);
+    ASSERT_OK_AND_ASSIGN(auto dst, AppendArraySliceBySlice(src));
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*dst, *src);
+  }
+}
+
+TEST_F(TestBinaryViewBuilderAppendArraySlice,
+       LARGE_MEMORY_TEST(NonInlineMultipleBlocks)) {
+  std::string a(1 << 30, 'a');
+  ASSERT_OK(builder_.Append(a));
+  ASSERT_OK(builder_.AppendNull());
+  ASSERT_OK(builder_.Append(a));
+  ASSERT_OK(builder_.AppendNull());
+  ASSERT_OK(builder_.Append(a));
+  ASSERT_OK_AND_ASSIGN(auto src, builder_.Finish())
   ASSERT_OK(src->ValidateFull());
 
   ArraySpan span;
   span.SetMembers(*src->data());
-  BinaryViewBuilder dst_builder(pool_);
-  ASSERT_OK(dst_builder.AppendArraySlice(span, 0, 1));
-  ASSERT_EQ(1, dst_builder.length());
-  ASSERT_OK(dst_builder.AppendArraySlice(span, 1, 1));
-  ASSERT_EQ(2, dst_builder.length());
-  ASSERT_OK_AND_ASSIGN(auto dst, dst_builder.Finish());
-  ASSERT_OK(dst->ValidateFull());
+  {
+    ASSERT_OK(builder_.AppendArraySlice(span, 0, src->length()));
+    ASSERT_OK_AND_ASSIGN(auto dst, builder_.Finish());
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*src, *dst);
+  }
 
-  AssertArraysEqual(*src, *dst);
+  {
+    ASSERT_OK_AND_ASSIGN(auto dst, AppendArraySliceBySlice(src));
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*src, *dst);
+  }
+}
+
+TEST_F(TestBinaryViewBuilderAppendArraySlice,
+       LARGE_MEMORY_TEST(InlineAndNonInlineMultipleBlocks)) {
+  std::string large_a(1 << 30, 'a');
+  std::string small_a(1 << 14, 'a');
+  ASSERT_OK(builder_.Append(large_a));
+  ASSERT_EQ(builder_.current_block_bytes_remaining(), 0);
+  ASSERT_OK(builder_.AppendNull());
+  ASSERT_OK(builder_.Append(small_a));
+  ASSERT_OK(builder_.AppendNull());
+  ASSERT_OK(builder_.Append("123456"));
+  ASSERT_EQ(builder_.current_block_bytes_remaining(), 1 << 14);
+  ASSERT_OK(builder_.Append(large_a));
+  ASSERT_OK(builder_.AppendNull());
+  ASSERT_OK(builder_.Append(large_a));
+  ASSERT_OK_AND_ASSIGN(auto src, builder_.Finish());
+  ASSERT_OK(src->ValidateFull());
+
+  ArraySpan span;
+  span.SetMembers(*src->data());
+  {
+    ASSERT_OK(builder_.AppendArraySlice(span, 0, src->length()));
+    ASSERT_OK_AND_ASSIGN(auto dst, builder_.Finish());
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*src, *dst);
+  }
+
+  {
+    ASSERT_OK_AND_ASSIGN(auto dst, AppendArraySliceBySlice(src));
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*src, *dst);
+  }
 }
 
 TEST_F(TestArray, ValidateBuffersPrimitive) {
