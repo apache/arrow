@@ -330,39 +330,24 @@ def test_hash_join_with_residual_filter():
         names=["key", "a", "key", "b"])
     assert result.equals(expected)
 
-    left = pa.table({'l1': [1], 'l_str': ["alpha"]})
-    left_source = Declaration("table_source", options=TableSourceNodeOptions(left))
-    right = pa.table({'r1': [1], 'r_str': ["alpha"]})
-    right_source = Declaration("table_source", options=TableSourceNodeOptions(right))
-
     # test with always true
-    always_true = pc.equal(
-        pc.add(
-            pc.field("l1"),
-            pc.field("r1")
-        ), pa.scalar(2)
-    )
+    always_true = pc.scalar(True)
     join_opts = HashJoinNodeOptions(
-        "inner", left_keys="l_str", right_keys="r_str",
+        "inner", left_keys="key", right_keys="key",
         filter=always_true)
     joined = Declaration(
         "hashjoin", options=join_opts, inputs=[left_source, right_source])
     result = joined.to_table()
     expected = pa.table(
-        [[1], ["alpha"], [1], ["alpha"]],
-        names=["l1", "l_str", "r1", "r_str"]
+        [[2, 3], [5, 6], [2, 3], [4, 5]],
+        names=["key", "a", "key", "b"]
     )
     assert result.equals(expected)
 
     # test with always false
-    always_false = pc.equal(
-        pc.add(
-            pc.field("l1"),
-            pc.field("r1")
-        ), pa.scalar(3)
-    )
+    always_false = pc.scalar(False)
     join_opts = HashJoinNodeOptions(
-        "inner", left_keys="l_str", right_keys="r_str",
+        "inner", left_keys="key", right_keys="key",
         filter=always_false)
 
     joined = Declaration(
@@ -371,11 +356,11 @@ def test_hash_join_with_residual_filter():
     expected = pa.table(
         [
             pa.array([], type=pa.int64()),
-            pa.array([], type=pa.string()),
             pa.array([], type=pa.int64()),
-            pa.array([], type=pa.string())
+            pa.array([], type=pa.int64()),
+            pa.array([], type=pa.int64())
         ],
-        names=["l1", "l_str", "r1", "r_str"]
+        names=["key", "a", "key", "b"]
     )
     assert result.equals(expected)
 
