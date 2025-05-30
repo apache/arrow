@@ -128,10 +128,18 @@ struct ARROW_EXPORT ArrayStatistics {
   /// \brief Whether the maximum value is exact or not
   bool is_max_exact = false;
 
-  /// \brief Check two statistics for equality
-  ///  epsilon is only used if the ArrayStatistics::ValueType is Double
+  /// \brief Check if two \ref ArrayStatistics are equal.
+  ///
+  /// \param equal_options Options used to compare double values for equality.
+  ///
+  /// \param is_approximate If true, \ref arrow::EqualOptions::atol_ is used
+  /// for comparing double values.
+  ///
+  /// \return True if the two \ref arrow::ArrayStatistics instances are equal; otherwise,
+  /// false.
   bool Equals(const ArrayStatistics& other,
-              const EqualOptions& = EqualOptions::Defaults()) const;
+              const EqualOptions& equal_options = EqualOptions::Defaults(),
+              bool is_approximate = true) const;
 };
 
 }  // namespace arrow

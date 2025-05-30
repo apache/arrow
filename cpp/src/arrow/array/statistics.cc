@@ -25,18 +25,22 @@
 namespace arrow {
 using ValueType = ArrayStatistics::ValueType;
 namespace {
-bool DoubleEquals(const double& left, const double& right, const EqualOptions& options) {
+bool DoubleEquals(const double& left, const double& right, const EqualOptions& options,
+                  bool is_approximate) {
   if (left == right) {
     return options.signed_zeros_equal() || (std::signbit(left) == std::signbit(right));
   } else if (options.nans_equal() && (std::isnan(left) || std::isnan(right))) {
     return true;
-  } else {
+  } else if (is_approximate) {
     return std::fabs(left - right) <= options.atol();
+  } else {
+    return false;
   }
 }
 
 bool ValueTypeEquals(const std::optional<ValueType>& left,
-                     const std::optional<ValueType>& right, const EqualOptions& options) {
+                     const std::optional<ValueType>& right, const EqualOptions& options,
+                     bool is_approximate) {
   if (!left.has_value() || !right.has_value()) {
     return left.has_value() == right.has_value();
   } else if (left->index() != right->index()) {
@@ -47,7 +51,7 @@ bool ValueTypeEquals(const std::optional<ValueType>& left,
       using type_2 = std::decay_t<decltype(v2)>;
       if constexpr (std::conjunction_v<std::is_same<type_1, double>,
                                        std::is_same<type_2, double>>) {
-        return DoubleEquals(v1, v2, options);
+        return DoubleEquals(v1, v2, options, is_approximate);
       } else if constexpr (std::is_same_v<type_1, type_2>) {
         return v1 == v2;
       }
@@ -59,17 +63,18 @@ bool ValueTypeEquals(const std::optional<ValueType>& left,
   }
 }
 bool EqualsImpl(const ArrayStatistics& left, const ArrayStatistics& right,
-                const EqualOptions& equal_options) {
+                const EqualOptions& equal_options, bool is_approximate) {
   return left.null_count == right.null_count &&
          left.distinct_count == right.distinct_count &&
          left.is_min_exact == right.is_min_exact &&
          left.is_max_exact == right.is_max_exact &&
-         ValueTypeEquals(left.min, right.min, equal_options) &&
-         ValueTypeEquals(left.max, right.max, equal_options);
+         ValueTypeEquals(left.min, right.min, equal_options, is_approximate) &&
+         ValueTypeEquals(left.max, right.max, equal_options, is_approximate);
 }
 }  // namespace
 bool ArrayStatistics::Equals(const ArrayStatistics& other,
-                             const EqualOptions& options) const {
-  return EqualsImpl(*this, other, options);
+                             const EqualOptions& equal_options,
+                             bool is_approximate) const {
+  return EqualsImpl(*this, other, equal_options, is_approximate);
 }
 }  // namespace arrow
