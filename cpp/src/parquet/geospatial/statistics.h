@@ -63,18 +63,22 @@ class GeoStatisticsImpl;
 /// \brief Base type for computing geospatial column statistics while writing a file
 /// or representing them when reading a file
 ///
-/// Note that NaN values that were encountered within coordinates are omitted; however,
-/// NaN values that were obtained via decoding encoded statistics are propagated. This
-/// behaviour ensures C++ clients that are inspecting statistics via the column metadata
-/// can detect the case where a writer generated NaNs (even though this implementation
-/// does not generate them).
-///
-/// The handling of NaN values in coordinates is not well-defined among bounding
-/// implementations except for the WKB convention for POINT EMPTY, which is consistently
-/// represented as a point whose ordinates are all NaN. Any other geometry that contains
-/// NaNs cannot expect defined behaviour here or elsewhere; however, a row group that
-/// contains both NaN-containing and normal (completely finite) geometries should not be
-/// excluded from predicate pushdown.
+/// These statistics track the minimum and maximum value (omitting NaN values) of the
+/// four possible dimensions (X, Y, Z, and M) and the distinct set of geometry
+/// type/dimension combinations (e.g., point XY, linestring XYZM) present in the data.
+/// Any of these individual components may be "invalid": for example, when reading a
+/// Parquet file, information about individual components obtained from the column
+/// chunk metadata may have been missing or deemed unusable. Orthogonally,
+/// any of these individual components may be "empty": for example, when using
+/// GeoStatistics to accumulate bounds whilst writing, if all geometries in a column chunk
+/// are null, all ranges (X, Y, Z, and M) will be empty. If all geometries in a column
+/// chunk contain only XY coordinates (the most common case), the Z and M ranges will
+/// be empty but the X and Y ranges will contain finite bounds. Empty ranges are
+/// considered "valid" because they are known to represent exactly zero values (in
+/// contrast to an invalid range, whose contents is completely unknown). These concepts
+/// are all necessary for this object to accurately represent (1) accumulated or partially
+/// accumulated statistics during the writing process and (2) deserialized statistics read
+/// from the column chunk metadata during the reading process.
 ///
 /// EXPERIMENTAL
 class PARQUET_EXPORT GeoStatistics {
