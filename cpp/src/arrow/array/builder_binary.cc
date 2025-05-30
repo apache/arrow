@@ -50,30 +50,43 @@ BinaryViewBuilder::BinaryViewBuilder(const std::shared_ptr<DataType>& type,
 Status BinaryViewBuilder::AppendArraySlice(const ArraySpan& array, int64_t offset,
                                            int64_t length) {
   auto bitmap = array.GetValues<uint8_t>(0, 0);
+  RETURN_NOT_OK(Reserve(length));
   auto values = array.GetValues<BinaryViewType::c_type>(1) + offset;
+  auto AddString = [&](int64_t start, int64_t end, int64_t size) {
+    RETURN_NOT_OK(ReserveData(size));
+    for (int64_t i = start; i < end; i++) {
+      if (bitmap && !bit_util::GetBit(bitmap, array.offset + i + offset)) {
+        UnsafeAppendNull();
+        continue;
+      }
 
-  int64_t out_of_line_total = 0, i = 0;
-  VisitNullBitmapInline(
+      UnsafeAppend(util::FromBinaryView(values[i], array.GetVariadicBuffers().data()));
+    }
+    return Status::OK();
+  };
+  int64_t out_of_line_total = 0, i = 0, start = 0;
+  ARROW_RETURN_NOT_OK(VisitNullBitmapInline(
       array.buffers[0].data, array.offset + offset, length, array.null_count,
       [&] {
         if (!values[i].is_inline()) {
-          out_of_line_total += static_cast<int64_t>(values[i].size());
+          auto current_length_value = static_cast<int64_t>(values[i].size());
+          if (out_of_line_total + current_length_value >
+              data_heap_builder_.ValueSizeLimit()) {
+            ARROW_RETURN_NOT_OK(AddString(start, i, out_of_line_total));
+            out_of_line_total = current_length_value;
+            start = i;
+          } else {
+            out_of_line_total += current_length_value;
+          }
         }
         ++i;
+        return Status::OK();
       },
-      [&] { ++i; });
-
-  RETURN_NOT_OK(Reserve(length));
-  RETURN_NOT_OK(ReserveData(out_of_line_total));
-
-  for (int64_t i = 0; i < length; i++) {
-    if (bitmap && !bit_util::GetBit(bitmap, array.offset + offset + i)) {
-      UnsafeAppendNull();
-      continue;
-    }
-
-    UnsafeAppend(util::FromBinaryView(values[i], array.GetVariadicBuffers().data()));
-  }
+      [&] {
+        ++i;
+        return Status::OK();
+      }));
+  ARROW_RETURN_NOT_OK(AddString(start, i, out_of_line_total));
   return Status::OK();
 }
 
