@@ -300,7 +300,7 @@ def test_order_by():
         _ = OrderByNodeOptions([("b", "ascending")], null_placement="start")
 
 
-def test_hash_join_with_filter():
+def test_hash_join_with_residual_filter():
     left = pa.table({'key': [1, 2, 3], 'a': [4, 5, 6]})
     left_source = Declaration("table_source", options=TableSourceNodeOptions(left))
     right = pa.table({'key': [2, 3, 4], 'b': [4, 5, 6]})
@@ -308,7 +308,7 @@ def test_hash_join_with_filter():
 
     join_opts = HashJoinNodeOptions(
         "inner", left_keys="key", right_keys="key",
-        filter_expression=pc.equal(pc.field('a'), 5))
+        filter=pc.equal(pc.field('a'), 5))
     joined = Declaration(
         "hashjoin", options=join_opts, inputs=[left_source, right_source])
     result = joined.to_table()
@@ -317,18 +317,67 @@ def test_hash_join_with_filter():
         names=["key", "a", "key", "b"])
     assert result.equals(expected)
 
-    # left join
+    # test filter expression referencing columns from both side
     join_opts = HashJoinNodeOptions(
         "left outer", left_keys="key", right_keys="key",
-        filter_expression=pc.equal(pc.field('a'), 5))
+        filter=pc.equal(pc.field("a"), 5) | pc.equal(pc.field("b"), 10)
+    )
     joined = Declaration(
         "hashjoin", options=join_opts, inputs=[left_source, right_source])
     result = joined.to_table()
     expected = pa.table(
-        [[1, 2, 3], [4, 5, 6], [None, 2, None], [None, 4, None]],
-        names=["key", "a", "key", "b"]
+        [[2, 1, 3], [5, 4, 6], [2, None, None], [4, None, None]],
+        names=["key", "a", "key", "b"])
+    assert result.equals(expected)
+
+    left = pa.table({'l1': [1], 'l_str': ["alpha"]})
+    left_source = Declaration("table_source", options=TableSourceNodeOptions(left))
+    right = pa.table({'r1': [1], 'r_str': ["alpha"]})
+    right_source = Declaration("table_source", options=TableSourceNodeOptions(right))
+
+    # test with always true
+    always_true = pc.equal(
+        pc.add(
+            pc.field("l1"),
+            pc.field("r1")
+        ), pa.scalar(2)
     )
-    assert result.sort_by("a").equals(expected)
+    join_opts = HashJoinNodeOptions(
+        "inner", left_keys="l_str", right_keys="r_str",
+        filter=always_true)
+    joined = Declaration(
+        "hashjoin", options=join_opts, inputs=[left_source, right_source])
+    result = joined.to_table()
+    expected = pa.table(
+        [[1], ["alpha"], [1], ["alpha"]],
+        names=["l1", "l_str", "r1", "r_str"]
+    )
+    assert result.equals(expected)
+
+    # test with always false
+    always_false = pc.equal(
+        pc.add(
+            pc.field("l1"),
+            pc.field("r1")
+        ), pa.scalar(3)
+    )
+    join_opts = HashJoinNodeOptions(
+        "inner", left_keys="l_str", right_keys="r_str",
+        filter=always_false)
+
+    joined = Declaration(
+        "hashjoin", options=join_opts, inputs=[left_source, right_source])
+    result = joined.to_table()
+    expected = pa.table(
+        [
+            pa.array([], type=pa.int64()),
+            pa.array([], type=pa.string()),
+            pa.array([], type=pa.int64()),
+            pa.array([], type=pa.string())
+        ],
+        names=["l1", "l_str", "r1", "r_str"]
+    )
+    assert result.equals(expected)
 
 
 def test_hash_join():
