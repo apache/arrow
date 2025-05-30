@@ -526,7 +526,10 @@ Special cases
 
 An Arrow Extension type is written out as its storage type.  It can still
 be recreated at read time using Parquet metadata (see "Roundtripping Arrow
-types" below).
+types" below). Some extension types have Parquet LogicalType equivalents
+(e.g., UUID, JSON, GEOMETRY, GEOGRAPHY). These are created automatically
+if the appropriate option is set in the ``ArrowReaderProperties`` even if
+there was no Arrow schema stored in the Parquet metadata.
 
 An Arrow Dictionary type is written out as its value type.  It can still
 be recreated at read time using Parquet metadata (see "Roundtripping Arrow
