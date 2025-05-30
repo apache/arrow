@@ -185,14 +185,14 @@ def _perform_join(join_type, left_operand, left_keys,
             join_type, left_keys, right_keys, left_columns, right_columns,
             output_suffix_for_left=left_suffix or "",
             output_suffix_for_right=right_suffix or "",
-            filter_expression=filter,
+            filter=filter,
         )
     else:
         join_opts = HashJoinNodeOptions(
             join_type, left_keys, right_keys,
             output_suffix_for_left=left_suffix or "",
             output_suffix_for_right=right_suffix or "",
-            filter_expression=filter,
+            filter=filter,
         )
     decl = Declaration(
         "hashjoin", options=join_opts, inputs=[left_source, right_source]
