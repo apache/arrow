@@ -29,6 +29,7 @@
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/ui/window.h"
 #include "arrow/flight/sql/odbc/flight_sql/system_dsn.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/logger.h"
 
 #include <odbcinst.h>
 #include <codecvt>
@@ -87,7 +88,7 @@ bool DisplayConnectionWindow(void* windowParent, Configuration& config,
     properties = config.GetProperties();
     return true;
   } else {
-    // TODO: log cancelled dialog after logging is enabled.
+    LOG_INFO("Dialog is cancelled by user");
     return false;
   }
 }

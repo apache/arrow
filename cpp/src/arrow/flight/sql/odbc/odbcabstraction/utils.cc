@@ -81,9 +81,8 @@ std::string GetModulePath() {
   return std::string(path.begin(), path.begin() + dirname_length);
 }
 
-void ReadConfigFile(PropertyMap& properties, const std::string& config_file_name) {
-  auto config_path = GetModulePath();
-
+void ReadConfigFile(PropertyMap& properties, const std::string& config_path,
+                    const std::string& config_file_name) {
   std::ifstream config_file;
   auto config_file_path = config_path + "/" + config_file_name;
   config_file.open(config_file_path);

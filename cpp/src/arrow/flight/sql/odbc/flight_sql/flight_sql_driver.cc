@@ -20,9 +20,11 @@
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spd_logger.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/utils.h"
+#include "arrow/util/io_util.h"
 
 #define DEFAULT_MAXIMUM_FILE_SIZE 16777216
 #define CONFIG_FILE_NAME "arrow-odbc.ini"
+#define CONFIG_FILE_PATH "CONFIG_FILE_PATH"
 
 namespace driver {
 namespace flight_sql {
@@ -52,7 +54,9 @@ LogLevel ToLogLevel(int64_t level) {
 }  // namespace
 
 FlightSqlDriver::FlightSqlDriver()
-    : diagnostics_("Apache Arrow", "Flight SQL", OdbcVersion::V_3), version_("0.9.0.0") {}
+    : diagnostics_("Apache Arrow", "Flight SQL", OdbcVersion::V_3), version_("0.9.0.0") {
+  RegisterLog();
+}
 
 std::shared_ptr<Connection> FlightSqlDriver::CreateConnection(OdbcVersion odbc_version) {
   return std::make_shared<FlightSqlConnection>(odbc_version, version_);
@@ -63,14 +67,19 @@ odbcabstraction::Diagnostics& FlightSqlDriver::GetDiagnostics() { return diagnos
 void FlightSqlDriver::SetVersion(std::string version) { version_ = std::move(version); }
 
 void FlightSqlDriver::RegisterLog() {
+  std::string config_path = arrow::internal::GetEnvVar(CONFIG_FILE_PATH).ValueOr("");
+  if (config_path.empty()) {
+    return;
+  }
+
   odbcabstraction::PropertyMap propertyMap;
-  driver::odbcabstraction::ReadConfigFile(propertyMap, CONFIG_FILE_NAME);
+  driver::odbcabstraction::ReadConfigFile(propertyMap, config_path, CONFIG_FILE_NAME);
 
   auto log_enable_iterator = propertyMap.find(std::string(SPDLogger::LOG_ENABLED));
   auto log_enabled = log_enable_iterator != propertyMap.end()
                          ? odbcabstraction::AsBool(log_enable_iterator->second)
                          : false;
-  if (!log_enabled) {
+  if (!log_enabled.get()) {
     return;
   }
 

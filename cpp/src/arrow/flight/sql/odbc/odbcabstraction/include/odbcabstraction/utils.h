@@ -52,7 +52,8 @@ boost::optional<int32_t> AsInt32(int32_t min_value,
                                  const Connection::ConnPropertyMap& connPropertyMap,
                                  const std::string_view& property_name);
 
-void ReadConfigFile(PropertyMap& properties, const std::string& configFileName);
+void ReadConfigFile(PropertyMap& properties, const std::string& configPath,
+                    const std::string& configFileName);
 
 }  // namespace odbcabstraction
 }  // namespace driver

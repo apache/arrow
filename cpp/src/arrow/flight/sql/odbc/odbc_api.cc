@@ -18,15 +18,15 @@
 // flight_sql_connection.h needs to be included first due to conflicts with windows.h
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_connection.h"
 
-#include <arrow/flight/sql/odbc/flight_sql/include/flight_sql/flight_sql_driver.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/encoding_utils.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_environment.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h>
-
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/config/configuration.h"
+#include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/flight_sql_driver.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/logger.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/attribute_utils.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/encoding_utils.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_environment.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h"
 
 #if defined _WIN32 || defined _WIN64
 // For displaying DSN Window
@@ -35,10 +35,13 @@
 
 // odbc_api includes windows.h, which needs to be put behind winsock2.h.
 // odbc_environment.h includes winsock2.h
-#include <arrow/flight/sql/odbc/odbc_api.h>
+#include "arrow/flight/sql/odbc/odbc_api.h"
 
 namespace arrow {
 SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) {
+  LOG_DEBUG("SQLAllocHandle called with type: {}, parent: {}, result: {}", type, parent,
+            fmt::ptr(result));
+
   *result = nullptr;
 
   switch (type) {
@@ -93,6 +96,8 @@ SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) 
 }
 
 SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle) {
+  LOG_DEBUG("SQLFreeHandle called with type: {}, handle: {}", type, handle);
+
   switch (type) {
     case SQL_HANDLE_ENV: {
       using ODBC::ODBCEnvironment;
@@ -159,6 +164,12 @@ SQLRETURN SQLGetDiagFieldW(SQLSMALLINT handleType, SQLHANDLE handle,
   using ODBC::GetStringAttribute;
   using ODBC::ODBCConnection;
   using ODBC::ODBCEnvironment;
+
+  LOG_DEBUG(
+      "SQLGetDiagFieldW called with handleType: {}, handle: {}, recNumber: {}, "
+      "diagIdentifier: {}, diagInfoPtr: {}, bufferLength: {}, stringLengthPtr: {}",
+      handleType, handle, recNumber, diagIdentifier, diagInfoPtr, bufferLength,
+      fmt::ptr(stringLengthPtr));
 
   if (!handle) {
     return SQL_INVALID_HANDLE;
@@ -369,6 +380,13 @@ SQLRETURN SQLGetDiagRecW(SQLSMALLINT handleType, SQLHANDLE handle, SQLSMALLINT r
   using ODBC::ODBCConnection;
   using ODBC::ODBCEnvironment;
 
+  LOG_DEBUG(
+      "SQLGetDiagRecW called with handleType: {}, handle: {}, recNumber: {}, "
+      "sqlState: {}, nativeErrorPtr: {}, messageText: {}, bufferLength: {}, "
+      "textLengthPtr: {}",
+      handleType, handle, recNumber, fmt::ptr(sqlState), fmt::ptr(nativeErrorPtr),
+      fmt::ptr(messageText), bufferLength, fmt::ptr(textLengthPtr));
+
   if (!handle) {
     return SQL_INVALID_HANDLE;
   }
@@ -438,9 +456,14 @@ SQLRETURN SQLGetDiagRecW(SQLSMALLINT handleType, SQLHANDLE handle, SQLSMALLINT r
 }
 
 SQLRETURN SQLGetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER valuePtr,
-                        SQLINTEGER bufferLen, SQLINTEGER* strLenPtr) {
+                        SQLINTEGER bufferLength, SQLINTEGER* strLenPtr) {
   using driver::odbcabstraction::DriverException;
   using ODBC::ODBCEnvironment;
+
+  LOG_DEBUG(
+      "SQLGetEnvAttr called with env: {}, attr: {}, valuePtr: {}, "
+      "bufferLength: {}, strLenPtr: {}",
+      env, attr, valuePtr, bufferLength, fmt::ptr(strLenPtr));
 
   ODBCEnvironment* environment = reinterpret_cast<ODBCEnvironment*>(env);
 
@@ -497,6 +520,11 @@ SQLRETURN SQLSetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER valuePtr,
                         SQLINTEGER strLen) {
   using driver::odbcabstraction::DriverException;
   using ODBC::ODBCEnvironment;
+
+  LOG_DEBUG(
+      "SQLSetEnvAttr called with env: {}, attr: {}, valuePtr: {}, "
+      "strLen: {}",
+      env, attr, valuePtr, strLen);
 
   ODBCEnvironment* environment = reinterpret_cast<ODBCEnvironment*>(env);
 
@@ -556,6 +584,14 @@ SQLRETURN SQLDriverConnectW(SQLHDBC conn, SQLHWND windowHandle,
   using driver::odbcabstraction::Connection;
   using driver::odbcabstraction::DriverException;
   using ODBC::ODBCConnection;
+
+  LOG_DEBUG(
+      "SQLDriverConnectW called with conn: {}, windowHandle: {}, inConnectionString: {}, "
+      "inConnectionStringLen: {}, outConnectionString: {}, outConnectionStringBufferLen: "
+      "{}, outConnectionStringLen: {}, driverCompletion: {}",
+      conn, fmt::ptr(windowHandle), fmt::ptr(inConnectionString), inConnectionStringLen,
+      fmt::ptr(outConnectionString), outConnectionStringBufferLen,
+      fmt::ptr(outConnectionStringLen), driverCompletion);
 
   return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
     ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(conn);
@@ -621,6 +657,12 @@ SQLRETURN SQLConnectW(SQLHDBC conn, SQLWCHAR* dsnName, SQLSMALLINT dsnNameLen,
 
   using ODBC::SqlWcharToString;
 
+  LOG_DEBUG(
+      "SQLConnectW called with conn: {}, dsnName: {}, dsnNameLen: {}, userName: {}, "
+      "userNameLen: {}, password: {}, passwordLen: {}",
+      conn, fmt::ptr(dsnName), dsnNameLen, fmt::ptr(userName), userNameLen,
+      fmt::ptr(password), passwordLen);
+
   return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
     ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(conn);
     std::string dsn = SqlWcharToString(dsnName, dsnNameLen);
@@ -649,6 +691,8 @@ SQLRETURN SQLConnectW(SQLHDBC conn, SQLWCHAR* dsnName, SQLSMALLINT dsnNameLen,
 SQLRETURN SQLDisconnect(SQLHDBC conn) {
   using ODBC::ODBCConnection;
 
+  LOG_DEBUG("SQLDisconnect called with conn: {}", conn);
+
   return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
     ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(conn);
 
@@ -662,6 +706,11 @@ SQLRETURN SQLGetInfoW(SQLHDBC conn, SQLUSMALLINT infoType, SQLPOINTER infoValueP
                       SQLSMALLINT bufLen, SQLSMALLINT* length) {
   // TODO: complete implementation of SQLGetInfoW and write tests
   using ODBC::ODBCConnection;
+
+  LOG_DEBUG(
+      "SQLGetInfoW called with conn: {}, infoType: {}, infoValuePtr: {}, bufLen: {}, "
+      "length: {}",
+      conn, infoType, infoValuePtr, bufLen, fmt::ptr(length));
 
   return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
     ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(conn);
