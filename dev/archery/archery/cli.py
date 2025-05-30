@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections import namedtuple
 from io import StringIO
 import click
 import json
@@ -30,7 +29,7 @@ from .benchmark.runner import CppBenchmarkRunner, JavaBenchmarkRunner
 from .compat import _import_pandas
 from .lang.cpp import CppCMakeDefinition, CppConfiguration
 from .utils.cli import ArrowBool, validate_arrow_sources, add_optional_command
-from .utils.lint import linter, python_numpydoc, LintValidationException
+from .utils.lint import python_numpydoc, LintValidationException
 from .utils.logger import logger, ctx as log_ctx
 from .utils.source import ArrowSources
 from .utils.tmpdir import tmpdir
@@ -244,64 +243,6 @@ def build(ctx, src, build_dir, force, targets, **kwargs):
 
     for target in targets:
         build.run(target)
-
-
-LintCheck = namedtuple('LintCheck', ('option_name', 'help'))
-
-lint_checks = [
-    LintCheck('clang-format', "Format C++ files with clang-format."),
-    LintCheck('clang-tidy', "Lint C++ files with clang-tidy."),
-    LintCheck('cpplint', "Lint C++ files with cpplint."),
-    LintCheck('iwyu', "Lint changed C++ files with Include-What-You-Use."),
-    LintCheck('python',
-              "Format and lint Python files with autopep8 and flake8."),
-    LintCheck('numpydoc', "Lint Python files with numpydoc."),
-    LintCheck('cmake-format', "Format CMake files with cmake-format.py."),
-    LintCheck('rat',
-              "Check all sources files for license texts via Apache RAT."),
-    LintCheck('r', "Lint R files."),
-    LintCheck('docker', "Lint Dockerfiles with hadolint."),
-    LintCheck('docs', "Lint docs with sphinx-lint."),
-]
-
-
-def decorate_lint_command(cmd):
-    """
-    Decorate the lint() command function to add individual per-check options.
-    """
-    for check in lint_checks:
-        option = click.option(f"--{check.option_name}/--no-{check.option_name}",
-                              default=None, help=check.help)
-        cmd = option(cmd)
-    return cmd
-
-
-@archery.command(short_help="Check Arrow source tree for errors")
-@click.option("--src", metavar="<arrow_src>", default=None,
-              callback=validate_arrow_sources,
-              help="Specify Arrow source directory")
-@click.option("--fix", is_flag=True, type=BOOL, default=False,
-              help="Toggle fixing the lint errors if the linter supports it.")
-@click.option("--iwyu_all", is_flag=True, type=BOOL, default=False,
-              help="Run IWYU on all C++ files if enabled")
-@click.option("-a", "--all", is_flag=True, default=False,
-              help="Enable all checks.")
-@click.argument("path", required=False)
-@decorate_lint_command
-@click.pass_context
-def lint(ctx, src, fix, iwyu_all, path, **checks):
-    if checks.pop('all'):
-        # "--all" is given => enable all non-selected checks
-        for k, v in checks.items():
-            if v is None:
-                checks[k] = True
-    if not any(checks.values()):
-        raise click.UsageError(
-            "Need to enable at least one lint check (try --help)")
-    try:
-        linter(src, fix, iwyu_all=iwyu_all, path=path, **checks)
-    except LintValidationException:
-        sys.exit(1)
 
 
 def _flatten_numpydoc_rules(rules):

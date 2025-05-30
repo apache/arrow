@@ -29,31 +29,6 @@ else:
 
 from ..compat import _get_module
 from ..utils.logger import logger
-from ..utils.command import Command, capture_stdout, default_bin
-
-
-class PythonCommand(Command):
-    def __init__(self, python_bin=None):
-        self.bin = default_bin(python_bin, "python")
-
-
-class Flake8(Command):
-    def __init__(self, flake8_bin=None):
-        self.bin = default_bin(flake8_bin, "flake8")
-
-
-class CythonLint(Command):
-    def __init__(self, cython_lint_bin=None):
-        self.bin = default_bin(cython_lint_bin, "cython-lint")
-
-
-class Autopep8(Command):
-    def __init__(self, autopep8_bin=None):
-        self.bin = default_bin(autopep8_bin, "autopep8")
-
-    @capture_stdout()
-    def run_captured(self, *args, **kwargs):
-        return self.run(*args, **kwargs)
 
 
 def _tokenize_signature(s):
