@@ -37,22 +37,6 @@
 #include <arrow/acero/exec_plan.h>
 #include <arrow/acero/options.h>
 
-// Initialize the compute library and register compute kernels.
-static auto compute_init_status_ = arrow::compute::Initialize();
-
-gboolean
-garrow_compute_is_initialized(GError **error)
-{
-  if (!compute_init_status_.ok()) {
-    g_set_error(error,
-                GARROW_ERROR,
-                GARROW_ERROR_UNKNOWN,
-                "Arrow compute module is not properly initialized: %s",
-                compute_init_status_.ToString().c_str());
-  }
-  return compute_init_status_.ok();
-}
-
 template <typename ArrowType, typename GArrowArrayType>
 typename ArrowType::c_type
 garrow_numeric_array_sum(GArrowArrayType array,
@@ -176,6 +160,9 @@ G_BEGIN_DECLS
  * @title: Computation on data
  * @include: arrow-glib/arrow-glib.h
  *
+ * You must call garrow_compute_initialize() explicitly before you use
+ * computation related features.
+ *
  * #GArrowExecuteContext is a class to customize how to execute a
  * function.
  *
@@ -265,6 +252,25 @@ G_BEGIN_DECLS
  *
  * There are many functions to compute data on an array.
  */
+
+/**
+ * garrow_compute_initialize:
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * You must call this explicitly before you use computation related
+ * features.
+ *
+ * Returns: %TRUE if initializing the compute module completed successfully,
+ *   %FALSE otherwise.
+ *
+ * Since: 21.0.0
+ */
+gboolean
+garrow_compute_initialize(GError **error)
+{
+  auto status = arrow::compute::Initialize();
+  return garrow::check(error, status, "[compute][initialize]");
+}
 
 typedef struct GArrowExecuteContextPrivate_
 {
