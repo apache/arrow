@@ -56,6 +56,12 @@ template:
           data-consent-screen-disclaimer="By clicking &quot;I agree, let's chat&quot;, you consent to the use of the AI assistant in accordance with kapa.ai's [Privacy Policy](https://www.kapa.ai/content/privacy-policy). This service uses reCAPTCHA, which requires your consent to Google's [Privacy Policy](https://policies.google.com/privacy) and [Terms of Service](https://policies.google.com/terms). By proceeding, you explicitly agree to both kapa.ai's and Google's privacy policies."
       ></script>
       <!-- End Kapa AI -->
+      <!-- Make the package title visible and white. This overcomes an issue with pkgdown and the cosmo theme we use. More straightforward options were attempted but none worked. -->
+      <style>
+        .navbar-brand {
+          color: white !important;
+        }
+      </style>
   opengraph:
     image:
       src: https://arrow.apache.org/img/arrow-logo_horizontal_black-txt_white-bg.png
