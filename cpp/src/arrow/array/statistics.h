@@ -77,6 +77,12 @@ struct ARROW_EXPORT ArrayStatistics {
   /// \brief The number of distinct values, may not be set
   std::optional<int64_t> distinct_count = std::nullopt;
 
+  /// \brief The average size in bytes of a row in an array, may not be set
+  std::optional<double> average_byte_width = std::nullopt;
+
+  /// \brief Whether the average_byte_width value is exact or not
+  bool is_average_byte_width_exact = false;
+
   /// \brief The minimum value, may not be set
   std::optional<ValueType> min = std::nullopt;
 
@@ -131,7 +137,9 @@ struct ARROW_EXPORT ArrayStatistics {
   bool Equals(const ArrayStatistics& other) const {
     return null_count == other.null_count && distinct_count == other.distinct_count &&
            min == other.min && is_min_exact == other.is_min_exact && max == other.max &&
-           is_max_exact == other.is_max_exact;
+           is_max_exact == other.is_max_exact &&
+           average_byte_width == other.average_byte_width &&
+           is_average_byte_width_exact == other.is_average_byte_width_exact;
   }
 
   /// \brief Check two statistics for equality
