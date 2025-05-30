@@ -175,18 +175,22 @@ def fields(draw, type_strategy=primitive_types):
     return pa.field(name, type=typ, nullable=nullable, metadata=meta)
 
 
-def list_types(item_strategy=primitive_types):
-    return (
+def list_types(item_strategy=primitive_types, include_views=True):
+    types = (
         st.builds(pa.list_, item_strategy) |
         st.builds(pa.large_list, item_strategy) |
         st.builds(
             pa.list_,
             item_strategy,
             st.integers(min_value=0, max_value=16)
-        ) |
-        st.builds(pa.list_view, item_strategy) |
-        st.builds(pa.large_list_view, item_strategy)
+        )
     )
+    if include_views:
+        types |= (
+            st.builds(pa.list_view, item_strategy) |
+            st.builds(pa.large_list_view, item_strategy)
+        )
+    return types
 
 
 @st.composite
@@ -305,8 +309,7 @@ def arrays(draw, type, size=None, nullable=True):
     elif pa.types.is_timestamp(ty):
         if zoneinfo is None:
             pytest.skip('no module named zoneinfo (or tzdata on Windows)')
-        if ty.tz is None:
-            pytest.skip('requires timezone not None')
+        h.assume(ty.tz is not None)
         min_int64 = -(2**63)
         max_int64 = 2**63 - 1
         min_datetime = datetime.datetime.fromtimestamp(
@@ -323,7 +326,11 @@ def arrays(draw, type, size=None, nullable=True):
         value = st.datetimes(timezones=st.just(tz), min_value=min_datetime,
                              max_value=max_datetime)
     elif pa.types.is_duration(ty):
-        value = st.timedeltas()
+        min_int64 = -(2**63)
+        max_int64 = 2**63 - 1
+        min_timedelta = datetime.timedelta(microseconds=min_int64 // 1000)
+        max_timedelta = datetime.timedelta(microseconds=max_int64 // 1000)
+        value = st.timedeltas(min_value=min_timedelta, max_value=max_timedelta)
     elif pa.types.is_interval(ty):
         value = st.timedeltas()
     elif pa.types.is_binary(ty) or pa.types.is_large_binary(ty):
@@ -362,7 +369,8 @@ def arrays(draw, type, size=None, nullable=True):
         value = st.one_of(st.none(), value)
     values = st.lists(value, min_size=size, max_size=size)
 
-    return pa.array(draw(values), type=ty)
+    actual_values = draw(values)
+    return pa.array(actual_values, type=ty)
 
 
 @st.composite
