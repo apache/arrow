@@ -22,6 +22,7 @@
 #include <string>
 #include <variant>
 
+#include "arrow/compare.h"
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
@@ -127,18 +128,20 @@ struct ARROW_EXPORT ArrayStatistics {
   /// \brief Whether the maximum value is exact or not
   bool is_max_exact = false;
 
-  /// \brief Check two statistics for equality
-  bool Equals(const ArrayStatistics& other) const {
-    return null_count == other.null_count && distinct_count == other.distinct_count &&
-           min == other.min && is_min_exact == other.is_min_exact && max == other.max &&
-           is_max_exact == other.is_max_exact;
-  }
-
-  /// \brief Check two statistics for equality
-  bool operator==(const ArrayStatistics& other) const { return Equals(other); }
-
-  /// \brief Check two statistics for not equality
-  bool operator!=(const ArrayStatistics& other) const { return !Equals(other); }
+  /// \brief Checks whether this ArrayStatistics instance is equal to another.
+  ///
+  /// \param other The \ref ArrayStatistics instance to compare against.
+  ///
+  /// \param equal_options Options used to compare double values for equality.
+  ///
+  /// \param is_approximate If true, \ref arrow::EqualOptions::atol_ is used
+  /// for comparing double values.
+  ///
+  /// \return True if the two \ref arrow::ArrayStatistics instances are equal; otherwise,
+  /// false.
+  bool Equals(const ArrayStatistics& other,
+              const EqualOptions& equal_options = EqualOptions::Defaults(),
+              bool is_approximate = true) const;
 };
 
 }  // namespace arrow
