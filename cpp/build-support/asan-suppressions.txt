@@ -15,15 +15,5 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Workaround for a problem with gmock where a runtime error is caused by a call on a null pointer,
-# on a mocked object.
-# Seen error:
-# thirdparty/gmock-1.7.0/include/gmock/gmock-spec-builders.h:1529:12: runtime error: member call on null pointer of type 'testing::internal::ActionResultHolder<void>'
-fun:*testing*internal*InvokeWith*
-
-# Workaround for RapidJSON https://github.com/Tencent/rapidjson/issues/1724
-src:*/rapidjson/internal/*
-
-# Workaround for heap-use-after-free error for OpenTelemetry.
-# fun:*opentelemetry::v1::trace::NoopTracer*
-src:*/sdk/src/trace/tracer.cc
+# OpenTelemetry.
+interceptor_via_fun:*opentelemetry::v1::trace::NoopTracer*
