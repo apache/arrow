@@ -1729,59 +1729,67 @@ class TestTracing : public ::testing::Test {
  protected:
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<FlightServerBase> server_;
+
+#ifdef ARROW_WITH_OPENTELEMETRY
+ protected:
+  // Must define it ourselves to avoid a linker error
+  constexpr static size_t kSpanIdSize = opentelemetry::trace::SpanId::kSize;
+  constexpr static size_t kTraceIdSize = opentelemetry::trace::TraceId::kSize;
+
+  ARROW_DISABLE_UBSAN("address")
+  void NoParentTrace() {
+    ASSERT_OK_AND_ASSIGN(auto results, client_->DoAction(Action{}));
+
+    ASSERT_OK_AND_ASSIGN(auto result, results->Next());
+    ASSERT_NE(result, nullptr);
+    ASSERT_NE(result->body, nullptr);
+    // Span ID should be a valid span ID, i.e. the server must have started a span
+    ASSERT_EQ(result->body->size(), kSpanIdSize);
+    opentelemetry::trace::SpanId span_id({result->body->data(), kSpanIdSize});
+    ASSERT_TRUE(span_id.IsValid());
+
+    ASSERT_OK_AND_ASSIGN(result, results->Next());
+    ASSERT_NE(result, nullptr);
+    ASSERT_NE(result->body, nullptr);
+    ASSERT_EQ(result->body->size(), kTraceIdSize);
+    opentelemetry::trace::TraceId trace_id({result->body->data(), kTraceIdSize});
+    ASSERT_TRUE(trace_id.IsValid());
+  }
+  ARROW_DISABLE_UBSAN("address")
+  void WithParentTrace() {
+    auto* tracer = arrow::internal::tracing::GetTracer();
+    auto span = tracer->StartSpan("test");
+    auto scope = tracer->WithActiveSpan(span);
+
+    auto span_context = span->GetContext();
+    auto current_trace_id = span_context.trace_id().Id();
+
+    ASSERT_OK_AND_ASSIGN(auto results, client_->DoAction(Action{}));
+
+    ASSERT_OK_AND_ASSIGN(auto result, results->Next());
+    ASSERT_NE(result, nullptr);
+    ASSERT_NE(result->body, nullptr);
+    ASSERT_EQ(result->body->size(), kSpanIdSize);
+    opentelemetry::trace::SpanId span_id({result->body->data(), kSpanIdSize});
+    ASSERT_TRUE(span_id.IsValid());
+
+    ASSERT_OK_AND_ASSIGN(result, results->Next());
+    ASSERT_NE(result, nullptr);
+    ASSERT_NE(result->body, nullptr);
+    ASSERT_EQ(result->body->size(), kTraceIdSize);
+    opentelemetry::trace::TraceId trace_id({result->body->data(), kTraceIdSize});
+    // The server span should have the same trace ID as the client span.
+    ASSERT_EQ(std::string_view(reinterpret_cast<const char*>(trace_id.Id().data()),
+                               trace_id.Id().size()),
+              std::string_view(reinterpret_cast<const char*>(current_trace_id.data()),
+                               current_trace_id.size()));
+  }
+#endif
 };
 
 #ifdef ARROW_WITH_OPENTELEMETRY
-// Must define it ourselves to avoid a linker error
-constexpr size_t kSpanIdSize = opentelemetry::trace::SpanId::kSize;
-constexpr size_t kTraceIdSize = opentelemetry::trace::TraceId::kSize;
-
-TEST_F(TestTracing, NoParentTrace) {
-  ASSERT_OK_AND_ASSIGN(auto results, client_->DoAction(Action{}));
-
-  ASSERT_OK_AND_ASSIGN(auto result, results->Next());
-  ASSERT_NE(result, nullptr);
-  ASSERT_NE(result->body, nullptr);
-  // Span ID should be a valid span ID, i.e. the server must have started a span
-  ASSERT_EQ(result->body->size(), kSpanIdSize);
-  opentelemetry::trace::SpanId span_id({result->body->data(), kSpanIdSize});
-  ASSERT_TRUE(span_id.IsValid());
-
-  ASSERT_OK_AND_ASSIGN(result, results->Next());
-  ASSERT_NE(result, nullptr);
-  ASSERT_NE(result->body, nullptr);
-  ASSERT_EQ(result->body->size(), kTraceIdSize);
-  opentelemetry::trace::TraceId trace_id({result->body->data(), kTraceIdSize});
-  ASSERT_TRUE(trace_id.IsValid());
-}
-TEST_F(TestTracing, WithParentTrace) {
-  auto* tracer = arrow::internal::tracing::GetTracer();
-  auto span = tracer->StartSpan("test");
-  auto scope = tracer->WithActiveSpan(span);
-
-  auto span_context = span->GetContext();
-  auto current_trace_id = span_context.trace_id().Id();
-
-  ASSERT_OK_AND_ASSIGN(auto results, client_->DoAction(Action{}));
-
-  ASSERT_OK_AND_ASSIGN(auto result, results->Next());
-  ASSERT_NE(result, nullptr);
-  ASSERT_NE(result->body, nullptr);
-  ASSERT_EQ(result->body->size(), kSpanIdSize);
-  opentelemetry::trace::SpanId span_id({result->body->data(), kSpanIdSize});
-  ASSERT_TRUE(span_id.IsValid());
-
-  ASSERT_OK_AND_ASSIGN(result, results->Next());
-  ASSERT_NE(result, nullptr);
-  ASSERT_NE(result->body, nullptr);
-  ASSERT_EQ(result->body->size(), kTraceIdSize);
-  opentelemetry::trace::TraceId trace_id({result->body->data(), kTraceIdSize});
-  // The server span should have the same trace ID as the client span.
-  ASSERT_EQ(std::string_view(reinterpret_cast<const char*>(trace_id.Id().data()),
-                             trace_id.Id().size()),
-            std::string_view(reinterpret_cast<const char*>(current_trace_id.data()),
-                             current_trace_id.size()));
-}
+TEST_F(TestTracing, NoParentTrace) { NoParentTrace(); }
+TEST_F(TestTracing, WithParentTrace) { WithParentTrace(); }
 #else
 TEST_F(TestTracing, NoOp) {
   // The middleware should not cause any trouble when OTel is not enabled.
