@@ -4510,6 +4510,9 @@ cdef class Table(_Tabular):
         All the underlying chunks in the ChunkedArray of each column are
         concatenated into zero or one chunk.
 
+        To avoid buffer overflow, binary columns may be combined into
+        multiple chunks. Chunks will have the maximum possible length.
+
         Parameters
         ----------
         memory_pool : MemoryPool, default None

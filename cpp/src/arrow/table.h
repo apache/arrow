@@ -214,6 +214,9 @@ class ARROW_EXPORT Table {
   /// All the underlying chunks in the ChunkedArray of each column are
   /// concatenated into zero or one chunk.
   ///
+  /// To avoid buffer overflow, binary columns may be combined into
+  /// multiple chunks. Chunks will have the maximum possible length.
+  ///
   /// \param[in] pool The pool for buffer allocations
   Result<std::shared_ptr<Table>> CombineChunks(
       MemoryPool* pool = default_memory_pool()) const;
