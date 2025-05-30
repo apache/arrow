@@ -147,11 +147,12 @@ if arrow_cpp_build_lib_dir == ''
         modules: ['ArrowCUDA::arrow_cuda_shared'],
         required: false,
     )
-    # we do not support compiling Glib without Compute and Acero engine
+    # we do not support compiling GLib without Compute and Acero engine
     arrow_compute = dependency(
         'arrow-compute',
-        required: true,
-        version: ['>=' + version],
+        'ArrowCompute',
+        kwargs: common_args,
+        modules: ['ArrowCompute::arrow_compute_shared'],
     )
     arrow_acero = dependency(
         'arrow-acero',
