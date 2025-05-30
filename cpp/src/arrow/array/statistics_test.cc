@@ -64,7 +64,7 @@ TEST(ArrayStatisticsTest, TestMax) {
   ASSERT_FALSE(statistics.is_max_exact);
 }
 
-TEST(ArrayStatisticsTest, TestEqualsNonDoulbeValue) {
+TEST(ArrayStatisticsTest, TestEqualityNonDoulbeValue) {
   ArrayStatistics statistics1;
   ArrayStatistics statistics2;
 
@@ -105,7 +105,7 @@ TEST(ArrayStatisticsTest, TestEqualsNonDoulbeValue) {
   ASSERT_FALSE(statistics1.Equals(statistics2));
 }
 
-TEST(ArrayStatisticsTest, TestEqualsDoubleValue) {
+TEST(ArrayStatisticsTest, TestEqualityDoubleValue) {
   ArrayStatistics statistics1;
   ArrayStatistics statistics2;
   EqualOptions options = EqualOptions::Defaults();
@@ -115,9 +115,9 @@ TEST(ArrayStatisticsTest, TestEqualsDoubleValue) {
   };
 
   ASSERT_TRUE(statistics1.Equals(statistics2));
-  statistics1.min = 29.0;
-  ASSERT_FALSE(statistics1.Equals(statistics2));
   statistics2.min = 29.0;
+  ASSERT_FALSE(statistics1.Equals(statistics2));
+  statistics1.min = 29.0;
   ASSERT_TRUE(statistics1.Equals(statistics2));
   statistics2.min = 30.0;
   ASSERT_FALSE(statistics1.Equals(statistics2));
@@ -155,24 +155,12 @@ TEST(ArrayStatisticsTest, TestEqualsDoubleValue) {
   statistics2.min = 2.0;
   ASSERT_FALSE(statistics1.Equals(statistics2));
 
-  // Check Approximate float is false
+  // Check Approximate float
   Reset();
   statistics1.max = 0.5001f;
   statistics2.max = 0.5;
-  ASSERT_FALSE(statistics1.Equals(statistics2));
-}
-TEST(ArrayStatisticsTest, TestApproximateEqualsDoubleValue) {
-  ArrayStatistics statistics1;
-  ArrayStatistics statistics2;
-  EqualOptions options = EqualOptions::Defaults();
-
-  statistics1.max = 0.5001f;
-  statistics2.max = 0.5;
-
-  ASSERT_FALSE(statistics1.Equals(statistics2, options.atol(1e-3)));
-
-  ASSERT_TRUE(statistics1.ApproximateEquals(statistics2, options.atol(1e-3)));
-  ASSERT_TRUE(statistics2.ApproximateEquals(statistics1, options.atol(1e-3)));
+  ASSERT_TRUE(statistics1.Equals(statistics2, options.atol(1e-3)));
+  ASSERT_TRUE(statistics2.Equals(statistics1, options.atol(1e-3)));
   ASSERT_FALSE(statistics1.Equals(statistics2, options.atol(1e-5)));
   ASSERT_FALSE(statistics2.Equals(statistics1, options.atol(1e-5)));
 }

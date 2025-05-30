@@ -129,13 +129,9 @@ struct ARROW_EXPORT ArrayStatistics {
   bool is_max_exact = false;
 
   /// \brief Check two statistics for equality
+  ///  epsilon is only used if the ArrayStatistics::ValueType is Double
   bool Equals(const ArrayStatistics& other,
               const EqualOptions& = EqualOptions::Defaults()) const;
-
-  /// Check two statistics for approximate equality
-  /// epsilon is only used if the ArrayStatistics::ValueType is Double
-  bool ApproximateEquals(const ArrayStatistics& other,
-                         const EqualOptions& = EqualOptions::Defaults()) const;
 };
 
 }  // namespace arrow
