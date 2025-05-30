@@ -1553,6 +1553,165 @@ TEST(AsofJoinTest, BackpressureWithBatches) {
                           /*num_r0_batches=*/50, /*num_r1_batches=*/20, /*slow_r0=*/true);
 }
 
+TEST(AsofJoinTest, PauseProducingAsofJoinSource) {
+  int batch_size = 1;
+  auto make_shift = [batch_size](int num_batches, const std::shared_ptr<Schema>& schema,
+                                 int shift) {
+    return MakeIntegerBatches(
+        {[](int row) -> int64_t { return row; },
+         [num_batches](int row) -> int64_t { return row / num_batches; },
+         [shift](int row) -> int64_t { return row * 10 + shift; }},
+        schema, num_batches, batch_size);
+  };
+  auto l_schema =
+      schema({field("time", int64()), field("key", int64()), field("l_value", int64())});
+  auto r_schema =
+      schema({field("time", int64()), field("key", int64()), field("r0_value", int64())});
+
+  auto output_schema =
+      schema({field("time", int64()), field("key", int64()), field("l_value", int64()),
+              field("key", int64()), field("r0_value", int64())});
+
+  ASSERT_OK_AND_ASSIGN(auto out_batch,
+                       MakeIntegerBatches({[](int row) -> int64_t { return row; },
+                                           [](int row) -> int64_t { return row; },
+                                           [](int row) -> int64_t { return row / 20; },
+                                           [](int row) -> int64_t { return row / 20; },
+                                           [](int row) -> int64_t { return row * 10; }},
+                                          output_schema, 20, batch_size))
+
+  ASSERT_OK_AND_ASSIGN(auto l_batches, make_shift(50, l_schema, 2));
+  ASSERT_OK_AND_ASSIGN(auto r0_batches, make_shift(50, r_schema, 1));
+  std::optional<ExecBatch> out = out_batch.batches[0];
+
+  constexpr uint32_t thresholdOfBackpressureAsof = 8;
+  constexpr uint32_t thresholdOfBackpressureAsofLow = 4;
+
+  constexpr uint32_t kPauseIfAbove = 4;
+  constexpr uint32_t kResumeIfBelow = 2;
+  uint32_t pause_if_above_bytes =
+      kPauseIfAbove * static_cast<uint32_t>(out->TotalBufferSize());
+  uint32_t resume_if_below_bytes =
+      kResumeIfBelow * static_cast<uint32_t>(out->TotalBufferSize());
+  EXPECT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make());
+  PushGenerator<std::optional<ExecBatch>> batch_producer_left;
+  PushGenerator<std::optional<ExecBatch>> batch_producer_right;
+
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
+  BackpressureMonitor* backpressure_monitor;
+  BackpressureOptions backpressure_options(resume_if_below_bytes, pause_if_above_bytes);
+  std::shared_ptr<Schema> schema_ = schema({field("data", uint32())});
+
+  BackpressureCountingNode::Register();
+
+  Declaration left{"source", SourceNodeOptions(l_schema, batch_producer_left)};
+  Declaration right{"source", SourceNodeOptions(r_schema, batch_producer_right)};
+  AsofJoinNodeOptions asof_join_opts({{{"time"}, {}}, {{"time"}, {}}}, 1);
+
+  BackpressureCounters bp_countersl, bp_countersr;
+  BackpressureCountingNode::Register();
+
+  Declaration left_count{"backpressure_count",
+                         {std::move(left)},
+                         BackpressureCountingNodeOptions(&bp_countersl)};
+
+  Declaration right_count{"backpressure_count",
+                          {std::move(right)},
+                          BackpressureCountingNodeOptions(&bp_countersr)};
+
+  Declaration asof_join{"asofjoin",
+                        {std::move(left_count), std::move(right_count)},
+                        std::move(asof_join_opts)};
+
+  ARROW_EXPECT_OK(
+      acero::Declaration::Sequence(
+          {
+              std::move(asof_join),
+              {"sink", SinkNodeOptions{&sink_gen, /*schema=*/nullptr,
+                                       backpressure_options, &backpressure_monitor}},
+          })
+          .AddToPlan(plan.get()));
+
+  ASSERT_TRUE(backpressure_monitor);
+  plan->StartProducing();
+  auto fut = plan->finished();
+
+  EXPECT_FALSE(backpressure_monitor->is_paused());
+
+  auto is_l_paused = [&]() {
+    return bp_countersl.pause_count != bp_countersl.resume_count;
+  };
+  auto is_r_paused = [&]() {
+    return bp_countersr.pause_count != bp_countersr.resume_count;
+  };
+
+  // Should be able to push kPauseIfAbove batches without triggering back pressure
+  uint32_t l_cnt = 0;
+  uint32_t r_cnt = 0;
+  for (uint32_t i = 0; i < kPauseIfAbove; i++) {
+    SleepABit();
+    EXPECT_FALSE(backpressure_monitor->is_paused());
+    batch_producer_left.producer().Push(l_batches.batches[l_cnt++]);
+    batch_producer_right.producer().Push(r0_batches.batches[r_cnt++]);
+  }
+
+  SleepABit();
+  EXPECT_FALSE(backpressure_monitor->is_paused());
+  // One more batch should trigger back pressure
+  batch_producer_right.producer().Push(r0_batches.batches[r_cnt++]);
+  batch_producer_left.producer().Push(l_batches.batches[l_cnt++]);
+
+  BusyWait(5, [&] { return backpressure_monitor->is_paused(); });
+  EXPECT_TRUE(backpressure_monitor->is_paused());
+
+  // Fill up the inputs of the asof join node
+  for (uint32_t i = 0; i < thresholdOfBackpressureAsof; i++) {
+    SleepABit();
+    EXPECT_FALSE(is_l_paused());
+    EXPECT_FALSE(is_r_paused());
+    batch_producer_left.producer().Push(l_batches.batches[l_cnt++]);
+    batch_producer_right.producer().Push(r0_batches.batches[r_cnt++]);
+  }
+
+  std::optional<ExecBatch> opt_batch;
+  BusyWait(5.0, [&]() { return is_l_paused(); });
+  BusyWait(5.0, [&]() { return is_r_paused(); });
+  // Read the batches from the sink to open up input of the asof join node
+  for (uint32_t i = 0; i < thresholdOfBackpressureAsof - thresholdOfBackpressureAsofLow;
+       i++) {
+    SleepABit();
+    EXPECT_TRUE(is_l_paused());
+    EXPECT_TRUE(is_r_paused());
+    EXPECT_TRUE(backpressure_monitor->is_paused());
+
+    ASSERT_FINISHES_OK_AND_ASSIGN(opt_batch, sink_gen());
+    EXPECT_TRUE(opt_batch);
+  }
+
+  BusyWait(5.0, [&]() { return !is_l_paused(); });
+  BusyWait(5.0, [&]() { return !is_r_paused(); });
+
+  // Finish the batches in the left and right producers
+  for (uint32_t i = 0; i < thresholdOfBackpressureAsofLow + kResumeIfBelow + 3; i++) {
+    SleepABit();
+    EXPECT_FALSE(is_l_paused());
+    EXPECT_FALSE(is_r_paused());
+    ASSERT_FINISHES_OK_AND_ASSIGN(opt_batch, sink_gen());
+    EXPECT_TRUE(opt_batch);
+  }
+
+  EXPECT_FALSE(is_l_paused());
+  EXPECT_FALSE(is_r_paused());
+  EXPECT_FALSE(backpressure_monitor->is_paused());
+
+  batch_producer_left.producer().Push(IterationEnd<std::optional<ExecBatch>>());
+  batch_producer_right.producer().Push(IterationEnd<std::optional<ExecBatch>>());
+
+  ASSERT_FINISHES_OK_AND_ASSIGN(opt_batch, sink_gen());
+  EXPECT_FALSE(opt_batch);
+
+  ASSERT_THAT(fut, Finishes(Ok()));
+}
 template <typename BatchesMaker>
 void TestSequencing(BatchesMaker maker, int num_batches, int batch_size) {
   auto l_schema =
