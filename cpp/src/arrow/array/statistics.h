@@ -128,7 +128,9 @@ struct ARROW_EXPORT ArrayStatistics {
   /// \brief Whether the maximum value is exact or not
   bool is_max_exact = false;
 
-  /// \brief Check if two \ref ArrayStatistics are equal.
+  /// \brief Checks whether this ArrayStatistics instance is equal to another.
+  ///
+  /// \param other The \ref ArrayStatistics instance to compare against.
   ///
   /// \param equal_options Options used to compare double values for equality.
   ///
