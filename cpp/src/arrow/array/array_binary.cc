@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/builder_binary.h"
 #include "arrow/array/validate.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -104,7 +105,14 @@ BinaryViewArray::BinaryViewArray(std::shared_ptr<DataType> type, int64_t length,
   SetData(
       ArrayData::Make(std::move(type), length, std::move(buffers), null_count, offset));
 }
-
+Result<std::shared_ptr<Array>> BinaryViewArray::CompactArray(MemoryPool* pool) const {
+  std::unique_ptr<ArrayBuilder> builder;
+  ARROW_RETURN_NOT_OK(MakeBuilder(pool, type(), &builder));
+  ArraySpan span(*data());
+  // ArraySpan handles offset
+  ARROW_RETURN_NOT_OK(builder->AppendArraySlice(span, 0, span.length));
+  return builder->Finish();
+}
 std::string_view BinaryViewArray::GetView(int64_t i) const {
   const std::shared_ptr<Buffer>* data_buffers = data_->buffers.data() + 2;
   return util::FromBinaryView(raw_values_[i], data_buffers);
