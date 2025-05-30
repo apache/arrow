@@ -159,6 +159,8 @@ TEST(ArrayStatisticsTest, TestEqualityDoubleValue) {
   Reset();
   statistics1.max = 0.5001f;
   statistics2.max = 0.5;
+  ASSERT_FALSE(statistics1.Equals(statistics2, options.atol(1e-3), false));
+
   ASSERT_TRUE(statistics1.Equals(statistics2, options.atol(1e-3)));
   ASSERT_TRUE(statistics2.Equals(statistics1, options.atol(1e-3)));
   ASSERT_FALSE(statistics1.Equals(statistics2, options.atol(1e-5)));
