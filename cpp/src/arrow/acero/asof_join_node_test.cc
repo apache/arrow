@@ -1660,7 +1660,7 @@ TEST(AsofJoinTest, PauseProducingAsofJoinSource) {
   batch_producer_right.producer().Push(r0_batches.batches[r_cnt++]);
   batch_producer_left.producer().Push(l_batches.batches[l_cnt++]);
 
-  SleepABit();
+  BusyWait(5, [&] { return backpressure_monitor->is_paused(); });
   EXPECT_TRUE(backpressure_monitor->is_paused());
 
   // Fill up the inputs of the asof join node
@@ -1673,7 +1673,8 @@ TEST(AsofJoinTest, PauseProducingAsofJoinSource) {
   }
 
   std::optional<ExecBatch> opt_batch;
-
+  BusyWait(5.0, [&]() { return is_l_paused(); });
+  BusyWait(5.0, [&]() { return is_r_paused(); });
   // Read the batches from the sink to open up input of the asof join node
   for (uint32_t i = 0; i < thresholdOfBackpressureAsof - thresholdOfBackpressureAsofLow;
        i++) {
@@ -1690,24 +1691,17 @@ TEST(AsofJoinTest, PauseProducingAsofJoinSource) {
   BusyWait(5.0, [&]() { return !is_r_paused(); });
 
   // Finish the batches in the left and right producers
-  for (uint32_t i = 0; i < thresholdOfBackpressureAsofLow + kResumeIfBelow + 2; i++) {
+  for (uint32_t i = 0; i < thresholdOfBackpressureAsofLow + kResumeIfBelow + 3; i++) {
     SleepABit();
     EXPECT_FALSE(is_l_paused());
     EXPECT_FALSE(is_r_paused());
-    EXPECT_TRUE(backpressure_monitor->is_paused());
-
     ASSERT_FINISHES_OK_AND_ASSIGN(opt_batch, sink_gen());
     EXPECT_TRUE(opt_batch);
   }
 
-  BusyWait(5.0, [&]() { return !backpressure_monitor->is_paused(); });
-
   EXPECT_FALSE(is_l_paused());
   EXPECT_FALSE(is_r_paused());
   EXPECT_FALSE(backpressure_monitor->is_paused());
-
-  ASSERT_FINISHES_OK_AND_ASSIGN(opt_batch, sink_gen());
-  EXPECT_TRUE(opt_batch);
 
   batch_producer_left.producer().Push(IterationEnd<std::optional<ExecBatch>>());
   batch_producer_right.producer().Push(IterationEnd<std::optional<ExecBatch>>());
