@@ -105,7 +105,7 @@ pyarrow with pip. One possible solution to fix this problem:
    2. Set the environment variable ``TZDIR = path\to\.venv\Lib\site-packages\tzdata\``
 
 You can find where ``tzdata`` is installed with the following python
-commands:
+command:
 
 .. code-block:: python
 
