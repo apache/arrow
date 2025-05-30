@@ -1007,14 +1007,14 @@ class TestConvertPrimitiveTypes:
         arr = np.array([1.5, np.nan], dtype=np.float16)
         a = pa.array(arr, type=pa.float16())
         x, y = a.to_pylist()
-        assert isinstance(x, np.float16)
+        assert isinstance(x, float)
         assert x == 1.5
-        assert isinstance(y, np.float16)
+        assert isinstance(y, float)
         assert np.isnan(y)
 
         a = pa.array(arr, type=pa.float16(), from_pandas=True)
         x, y = a.to_pylist()
-        assert isinstance(x, np.float16)
+        assert isinstance(x, float)
         assert x == 1.5
         assert y is None
 

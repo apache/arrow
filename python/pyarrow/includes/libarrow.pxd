@@ -1314,7 +1314,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         uint64_t value
 
     cdef cppclass CHalfFloatScalar" arrow::HalfFloatScalar"(CScalar):
-        npy_half value
+        uint16_t value
 
     cdef cppclass CFloatScalar" arrow::FloatScalar"(CScalar):
         float value
