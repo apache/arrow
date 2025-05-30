@@ -40,7 +40,7 @@ while reading this document.
 The columnar format has some key features:
 
 * Data adjacency for sequential access (scans)
-* O(1) (constant-time) random access
+* O(1) (constant-time) random access [#f1]_
 * SIMD and vectorization-friendly
 * Relocatable without "pointer swizzling", allowing for true zero-copy
   access in shared memory
@@ -51,6 +51,9 @@ mutation operations. This document is concerned only with in-memory
 data representation and serialization details; issues such as
 coordinating mutation of data structures are left to be handled by
 implementations.
+
+.. [#f1] Except for the :ref:`run-end-encoded-layout` where random access is
+    O(log n).
 
 Terminology
 ===========
