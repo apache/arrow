@@ -17,11 +17,21 @@
 
 #pragma once
 
-namespace arrow {
-namespace compute {
+#include "arrow/compute/visibility.h"
+#include "arrow/status.h"
 
-ARROW_COMPUTE_EXPORT Result<std::unique_ptr<RowSegmenter>> MakeAnyKeysSegmenter(
-    const std::vector<TypeHolder>& key_types, ExecContext* ctx);
+namespace arrow::compute {
 
-}  // namespace compute
-}  // namespace arrow
+namespace internal {
+
+/// \brief Register all compute kernels.
+Status RegisterComputeKernels();
+
+}  // namespace internal
+
+/// \brief Initialize the compute module.
+///
+/// Registers the compute kernel functions to be available on the FunctionRegistry.
+ARROW_COMPUTE_EXPORT Status Initialize();
+
+}  // namespace arrow::compute

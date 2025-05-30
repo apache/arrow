@@ -25,6 +25,10 @@
 
 G_BEGIN_DECLS
 
+GARROW_AVAILABLE_IN_21_0
+gboolean
+garrow_compute_initialize(GError **error);
+
 #define GARROW_TYPE_EXECUTE_CONTEXT (garrow_execute_context_get_type())
 GARROW_AVAILABLE_IN_1_0
 G_DECLARE_DERIVABLE_TYPE(

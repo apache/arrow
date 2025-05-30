@@ -18,9 +18,14 @@
 #include <gtest/gtest.h>
 
 #include "arrow/acero/test_util_internal.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
 
 namespace arrow::acero {
+
+// Initialize the compute module
+::testing::Environment* compute_kernels_env =
+    ::testing::AddGlobalTestEnvironment(new arrow::compute::ComputeKernelEnvironment);
 
 TEST(RunEndEncodeTableColumnsTest, SchemaTypeIsModified) {
   std::shared_ptr<Table> table =
