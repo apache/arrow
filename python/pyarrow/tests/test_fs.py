@@ -30,7 +30,8 @@ import weakref
 import pyarrow as pa
 from pyarrow.tests.test_io import assert_file_not_found
 from pyarrow.tests.util import (_filesystem_uri, ProxyHandler,
-                                _configure_s3_limited_user)
+                                _configure_s3_limited_user,
+                                running_on_musllinux)
 
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
@@ -127,13 +128,13 @@ class DummyHandler(FileSystemHandler):
     def open_input_stream(self, path):
         if "notfound" in path:
             raise FileNotFoundError(path)
-        data = "{0}:input_stream".format(path).encode('utf8')
+        data = f"{path}:input_stream".encode('utf8')
         return pa.BufferReader(data)
 
     def open_input_file(self, path):
         if "notfound" in path:
             raise FileNotFoundError(path)
-        data = "{0}:input_file".format(path).encode('utf8')
+        data = f"{path}:input_file".encode('utf8')
         return pa.BufferReader(data)
 
     def open_output_stream(self, path, metadata):
@@ -248,7 +249,7 @@ def s3fs(request, s3_server):
     fs = S3FileSystem(
         access_key=access_key,
         secret_key=secret_key,
-        endpoint_override='{}:{}'.format(host, port),
+        endpoint_override=f'{host}:{port}',
         scheme='http',
         allow_bucket_creation=True,
         allow_bucket_deletion=True
@@ -381,7 +382,7 @@ def py_fsspec_s3fs(request, s3_server):
     fs = s3fs.S3FileSystem(
         key=access_key,
         secret=secret_key,
-        client_kwargs=dict(endpoint_url='http://{}:{}'.format(host, port))
+        client_kwargs=dict(endpoint_url=f'http://{host}:{port}')
     )
     fs = PyFileSystem(FSSpecHandler(fs))
     fs.create_dir(bucket)
@@ -522,7 +523,7 @@ def test_s3fs_limited_permissions_create_bucket(s3_server):
     fs = S3FileSystem(
         access_key='test_fs_limited_user',
         secret_key='limited123',
-        endpoint_override='{}:{}'.format(host, port),
+        endpoint_override=f'{host}:{port}',
         scheme='http'
     )
     fs.create_dir('existing-bucket/test')
@@ -765,7 +766,7 @@ def test_get_file_info_with_selector(fs, pathfn):
                   info.path.rstrip("/").endswith(dir_b)):
                 assert info.type == FileType.Directory
             else:
-                raise ValueError('unexpected path {}'.format(info.path))
+                raise ValueError(f'unexpected path {info.path}')
             check_mtime_or_absent(info)
 
         # non-recursive selector -> not selecting the nested file_c
@@ -1229,6 +1230,11 @@ def test_s3_options(pickle_module):
     assert pickle_module.loads(pickle_module.dumps(fs2)) == fs2
     assert fs2 != fs
 
+    fs = S3FileSystem(allow_delayed_open=True)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs)) == fs
+    assert pickle_module.loads(pickle_module.dumps(fs)) != S3FileSystem()
+
     fs = S3FileSystem(allow_bucket_creation=True, allow_bucket_deletion=True)
     assert isinstance(fs, S3FileSystem)
     assert pickle_module.loads(pickle_module.dumps(fs)) == fs
@@ -1504,7 +1510,7 @@ def test_hdfs_options(hdfs_connection, pickle_module):
         host, port, 'me', replication + 1, buffer_size, default_block_size
     ))
     hdfs5 = HadoopFileSystem(host, port)
-    hdfs6 = HadoopFileSystem.from_uri('hdfs://{}:{}'.format(host, port))
+    hdfs6 = HadoopFileSystem.from_uri(f'hdfs://{host}:{port}')
     hdfs7 = HadoopFileSystem(host, port, user='localuser')
     hdfs8 = HadoopFileSystem(host, port, user='localuser',
                              kerb_ticket="cache_path")
@@ -1544,7 +1550,7 @@ def test_hdfs_options(hdfs_connection, pickle_module):
     assert hdfs.get_file_info(FileSelector('/'))
 
     hdfs = HadoopFileSystem.from_uri(
-        "hdfs://{}:{}/?user={}".format(host, port, user)
+        f"hdfs://{host}:{port}/?user={user}"
     )
     assert hdfs.get_file_info(FileSelector('/'))
 
@@ -1590,9 +1596,8 @@ def test_filesystem_from_uri_s3(s3_server):
 
     host, port, access_key, secret_key = s3_server['connection']
 
-    uri = "s3://{}:{}@mybucket/foo/bar?scheme=http&endpoint_override={}:{}"\
-          "&allow_bucket_creation=True" \
-          .format(access_key, secret_key, host, port)
+    uri = f"s3://{access_key}:{secret_key}@mybucket/foo/bar?scheme=http&" \
+        f"endpoint_override={host}:{port}&allow_bucket_creation=True"
 
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, S3FileSystem)
@@ -1834,9 +1839,17 @@ def test_s3_real_aws_region_selection():
     # Nonexistent bucket (hopefully, otherwise need to fix this test)
     with pytest.raises(IOError, match="Bucket '.*' not found"):
         FileSystem.from_uri('s3://x-arrow-nonexistent-bucket')
-    fs, path = FileSystem.from_uri(
-        's3://x-arrow-nonexistent-bucket?region=us-east-3')
+    fs, path = FileSystem.from_uri('s3://x-arrow-nonexistent-bucket?region=us-east-3')
     assert fs.region == 'us-east-3'
+
+    # allow_delayed_open has a side-effect of delaying errors until I/O is performed.
+    # region is required to bypass the lookup for a nonexistent bucket, allowing us to
+    # verify that errors are properly delayed until stream closure.
+    fs, path = FileSystem.from_uri(
+        's3://x-arrow-nonexistent-bucket/T.md?region=us-east-2&allow_delayed_open=true')
+    stream = fs.open_output_stream(path)
+    with pytest.raises(IOError):
+        stream.close()
 
 
 @pytest.mark.s3
@@ -2030,6 +2043,8 @@ def test_concurrent_s3fs_init():
 
 
 @pytest.mark.s3
+@pytest.mark.skipif(running_on_musllinux(), reason="Leaking S3ClientFinalizer causes "
+                                                   "segfault on musl based systems")
 def test_uwsgi_integration():
     # GH-44071: using S3FileSystem under uwsgi shouldn't lead to a crash at shutdown
     try:

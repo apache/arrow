@@ -207,9 +207,9 @@ class BitReader {
 };
 
 inline bool BitWriter::PutValue(uint64_t v, int num_bits) {
-  DCHECK_LE(num_bits, 64);
+  ARROW_DCHECK_LE(num_bits, 64);
   if (num_bits < 64) {
-    DCHECK_EQ(v >> num_bits, 0) << "v = " << v << ", num_bits = " << num_bits;
+    ARROW_DCHECK_EQ(v >> num_bits, 0) << "v = " << v << ", num_bits = " << num_bits;
   }
 
   if (ARROW_PREDICT_FALSE(byte_offset_ * 8 + bit_offset_ + num_bits > max_bytes_ * 8))
@@ -228,13 +228,13 @@ inline bool BitWriter::PutValue(uint64_t v, int num_bits) {
     buffered_values_ =
         (num_bits - bit_offset_ == 64) ? 0 : (v >> (num_bits - bit_offset_));
   }
-  DCHECK_LT(bit_offset_, 64);
+  ARROW_DCHECK_LT(bit_offset_, 64);
   return true;
 }
 
 inline void BitWriter::Flush(bool align) {
   int num_bytes = static_cast<int>(bit_util::BytesForBits(bit_offset_));
-  DCHECK_LE(byte_offset_ + num_bytes, max_bytes_);
+  ARROW_DCHECK_LE(byte_offset_ + num_bytes, max_bytes_);
   auto buffered_values = arrow::bit_util::ToLittleEndian(buffered_values_);
   memcpy(buffer_ + byte_offset_, &buffered_values, num_bytes);
 
@@ -247,7 +247,7 @@ inline void BitWriter::Flush(bool align) {
 
 inline uint8_t* BitWriter::GetNextBytePtr(int num_bytes) {
   Flush(/* align */ true);
-  DCHECK_LE(byte_offset_, max_bytes_);
+  ARROW_DCHECK_LE(byte_offset_, max_bytes_);
   if (byte_offset_ + num_bytes > max_bytes_) return NULL;
   uint8_t* ptr = buffer_ + byte_offset_;
   byte_offset_ += num_bytes;
@@ -299,7 +299,7 @@ inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
 #ifdef _MSC_VER
 #  pragma warning(pop)
 #endif
-    DCHECK_LE(*bit_offset, 64);
+    ARROW_DCHECK_LE(*bit_offset, 64);
   }
 }
 
@@ -312,8 +312,8 @@ inline bool BitReader::GetValue(int num_bits, T* v) {
 
 template <typename T>
 inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
-  DCHECK(buffer_ != NULL);
-  DCHECK_LE(num_bits, static_cast<int>(sizeof(T) * 8)) << "num_bits: " << num_bits;
+  ARROW_DCHECK(buffer_ != NULL);
+  ARROW_DCHECK_LE(num_bits, static_cast<int>(sizeof(T) * 8)) << "num_bits: " << num_bits;
 
   int bit_offset = bit_offset_;
   int byte_offset = byte_offset_;
@@ -354,7 +354,7 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     byte_offset += num_unpacked * num_bits / 8;
   } else {
     // TODO: revisit this limit if necessary
-    DCHECK_LE(num_bits, 32);
+    ARROW_DCHECK_LE(num_bits, 32);
     const int buffer_size = 1024;
     uint32_t unpack_buffer[buffer_size];
     while (i < batch_size) {

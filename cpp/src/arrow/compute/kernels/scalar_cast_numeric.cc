@@ -25,6 +25,7 @@
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {

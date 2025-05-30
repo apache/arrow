@@ -71,6 +71,13 @@ if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
 
+# https://cmake.org/cmake/help/latest/policy/CMP0167.html
+#
+# Use Boost's CMake packages instead of FindBoost.cmake in CMake.
+if(POLICY CMP0167)
+  cmake_policy(SET CMP0167 NEW)
+endif()
+
 # https://cmake.org/cmake/help/latest/policy/CMP0170.html
 #
 # CMP0170 is for enforcing dependency populations by users with
@@ -79,7 +86,7 @@ if(POLICY CMP0170)
   cmake_policy(SET CMP0170 NEW)
 endif()
 
-set(ARROW_VERSION "20.0.0-SNAPSHOT")
+set(ARROW_VERSION "21.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -525,22 +532,86 @@ enable_testing()
 # For arrow.pc. Cflags.private, Libs.private and Requires.private are
 # used when "pkg-config --cflags --libs --static arrow" is used.
 set(ARROW_PC_CFLAGS "")
-set(ARROW_PC_CFLAGS_PRIVATE " -DARROW_STATIC")
+set(ARROW_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  # We add -DARROW_STATIC only when static build is enabled because
+  # pkgconf 1.7.4 or later on Windows uses "--static" by default. If
+  # Cflags.private (-DARROW_STATIC) is used for shared linking, it
+  # will cause linke error. We recommend users to not use pkgconf for
+  # shared linking on Windows but we also provide a workaround here.
+  # If users don't enable ARROW_BUILD_STATIC, users can use pkgconf on
+  # Windows because Cflags.private is used but it has nothing.
+  string(APPEND ARROW_PC_CFLAGS_PRIVATE " -DARROW_STATIC")
+endif()
 set(ARROW_PC_LIBS_PRIVATE "")
 set(ARROW_PC_REQUIRES_PRIVATE "")
 
+# For arrow-acero.pc.
+set(ARROW_ACERO_PC_CFLAGS "")
+set(ARROW_ACERO_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_ACERO_PC_CFLAGS_PRIVATE " -DARROW_ACERO_STATIC")
+endif()
+
+# For arrow-cuda.pc.
+set(ARROW_CUDA_PC_CFLAGS "")
+set(ARROW_CUDA_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_CUDA_PC_CFLAGS_PRIVATE " -DARROW_CUDA_STATIC")
+endif()
+
+# For arrow-dataset.pc.
+set(ARROW_DATASET_PC_CFLAGS "")
+set(ARROW_DATASET_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_DATASET_PC_CFLAGS_PRIVATE " -DARROW_DS_STATIC")
+endif()
+
 # For arrow-flight.pc.
+set(ARROW_FLIGHT_PC_CFLAGS "")
+set(ARROW_FLIGHT_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_FLIGHT_PC_CFLAGS_PRIVATE " -DARROW_FLIGHT_STATIC")
+endif()
 set(ARROW_FLIGHT_PC_REQUIRES_PRIVATE "")
+
+# For arrow-flight-sql.pc.
+set(ARROW_FLIGHT_SQL_PC_CFLAGS "")
+set(ARROW_FLIGHT_SQL_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_FLIGHT_SQL_PC_CFLAGS_PRIVATE " -DARROW_FLIGHT_SQL_STATIC")
+endif()
+set(ARROW_FLIGHT_PC_REQUIRES_PRIVATE "")
+
+# For arrow-substrait.pc.
+set(ARROW_SUBSTRAIT_PC_CFLAGS "")
+set(ARROW_SUBSTRAIT_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_SUBSTRAIT_PC_CFLAGS_PRIVATE " -DARROW_ENGINE_STATIC")
+endif()
 
 # For arrow-testing.pc.
 set(ARROW_TESTING_PC_CFLAGS "")
-set(ARROW_TESTING_PC_CFLAGS_PRIVATE " -DARROW_TESTING_STATIC")
+set(ARROW_TESTING_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_TESTING_PC_CFLAGS_PRIVATE " -DARROW_TESTING_STATIC")
+endif()
 set(ARROW_TESTING_PC_LIBS "")
 set(ARROW_TESTING_PC_REQUIRES "")
 
+# For gandiva.pc.
+set(GANDIVA_PC_CFLAGS "")
+set(GANDIVA_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND GANDIVA_PC_CFLAGS_PRIVATE " -DGANDIVA_STATIC")
+endif()
+
 # For parquet.pc.
 set(PARQUET_PC_CFLAGS "")
-set(PARQUET_PC_CFLAGS_PRIVATE " -DPARQUET_STATIC")
+set(PARQUET_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND PARQUET_PC_CFLAGS_PRIVATE " -DPARQUET_STATIC")
+endif()
 set(PARQUET_PC_REQUIRES "")
 set(PARQUET_PC_REQUIRES_PRIVATE "")
 

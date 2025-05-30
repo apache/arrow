@@ -19,6 +19,15 @@ add_custom_target(arrow_flight_sql)
 
 arrow_install_all_headers("arrow/flight/sql")
 
+# If libarrow_flight_sql.a is only built, "pkg-config --cflags --libs
+# arrow-flight-sql" outputs build flags for static linking not shared
+# linking. ARROW_FLIGHT_SQL_PC_* except ARROW_FLIGHT_PC_SQL_*_PRIVATE
+# are for the static linking case.
+if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+  string(APPEND ARROW_FLIGHT_SQL_PC_CFLAGS "${ARROW_FLIGHT_SQL_PC_CFLAGS_PRIVATE}")
+  set(ARROW_FLIGHT_SQL_PC_CFLAGS_PRIVATE "")
+endif()
+
 set(FLIGHT_SQL_PROTO_PATH "${ARROW_SOURCE_DIR}/../format")
 set(FLIGHT_SQL_PROTO ${ARROW_SOURCE_DIR}/../format/FlightSql.proto)
 
@@ -158,4 +167,8 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                                                        ARROW_FLIGHT_SQL_STATIC)
     endforeach()
   endif()
+endif()
+
+if(ARROW_FLIGHT_SQL_ODBC)
+  add_subdirectory(odbc)
 endif()

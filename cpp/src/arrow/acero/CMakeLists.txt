@@ -19,6 +19,15 @@ add_custom_target(arrow_acero)
 
 arrow_install_all_headers("arrow/acero")
 
+# If libarrow_acero.a is only built, "pkg-config --cflags --libs
+# arrow-acero" outputs build flags for static linking not shared
+# linking. ARROW_ACERO_PC_* except ARROW_ACERO_PC_*_PRIVATE are for
+# the static linking case.
+if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+  string(APPEND ARROW_ACERO_PC_CFLAGS "${ARROW_ACERO_PC_CFLAGS_PRIVATE}")
+  set(ARROW_ACERO_PC_CFLAGS_PRIVATE "")
+endif()
+
 set(ARROW_ACERO_SRCS
     accumulation_queue.cc
     scalar_aggregate_node.cc
@@ -78,8 +87,6 @@ add_arrow_lib(arrow_acero
               ARROW_ACERO_LIBRARIES
               SOURCES
               ${ARROW_ACERO_SRCS}
-              PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:arrow/acero/pch.h>"
               SHARED_LINK_LIBS
               ${ARROW_ACERO_SHARED_LINK_LIBS}
               SHARED_PRIVATE_LINK_LIBS
@@ -173,6 +180,8 @@ add_arrow_acero_test(union_node_test SOURCES union_node_test.cc)
 add_arrow_acero_test(aggregate_node_test SOURCES aggregate_node_test.cc)
 add_arrow_acero_test(util_test SOURCES util_test.cc task_util_test.cc)
 add_arrow_acero_test(hash_aggregate_test SOURCES hash_aggregate_test.cc)
+
+add_arrow_acero_test(test_util_internal_test SOURCES test_util_internal_test.cc)
 
 if(ARROW_BUILD_BENCHMARKS)
   function(add_arrow_acero_benchmark REL_BENCHMARK_NAME)

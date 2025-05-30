@@ -30,13 +30,14 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/test_util_internal.h"
+#include "arrow/compute/registry.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -2317,6 +2318,11 @@ class TestRank : public BaseTestRank {
   }
 };
 
+TEST_F(TestRank, DefaultOptions) {
+  ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction("rank"));
+  ASSERT_STREQ(function->default_options()->type_name(), "RankOptions");
+}
+
 TEST_F(TestRank, Real) {
   for (auto real_type : ::arrow::FloatingPointTypes()) {
     SetInput(ArrayFromJSON(real_type, "[2.1, 3.2, 1.0, 0.0, 5.5]"));
@@ -2635,6 +2641,12 @@ class TestRankQuantile : public BaseTestRank {
   }
 };
 
+TEST_F(TestRankQuantile, DefaultOptions) {
+  ASSERT_OK_AND_ASSIGN(auto function,
+                       GetFunctionRegistry()->GetFunction("rank_quantile"));
+  ASSERT_STREQ(function->default_options()->type_name(), "RankQuantileOptions");
+}
+
 TEST_F(TestRankQuantile, Real) {
   for (auto type : ::arrow::FloatingPointTypes()) {
     AssertRankQuantileNumeric(type);
@@ -2673,6 +2685,13 @@ TEST_F(TestRankQuantile, FixedSizeBinary) {
   // With nulls
   SetInput(ArrayFromJSON(type, R"([null, "abc", null, "def", null])"));
   AssertRankQuantile_N1N2N();
+}
+
+class TestRankNormal : public BaseTestRank {};
+
+TEST_F(TestRankNormal, DefaultOptions) {
+  ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction("rank_normal"));
+  ASSERT_STREQ(function->default_options()->type_name(), "RankQuantileOptions");
 }
 
 }  // namespace compute

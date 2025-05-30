@@ -31,11 +31,12 @@
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/parallel.h"
 #include "arrow/util/range.h"
 #include "arrow/util/tracing_internal.h"
@@ -451,8 +452,17 @@ class LeafReader : public ColumnReaderImpl {
         field_(std::move(field)),
         input_(std::move(input)),
         descr_(input_->descr()) {
+    const auto type_id = field_->type()->id();
+    // If binary-like, RecordReader is able to read directly as the concrete type
+    // so as to avoid offset limitations.
+    std::shared_ptr<DataType> type_for_reading =
+        (::arrow::is_base_binary_like(type_id) || ::arrow::is_binary_view_like(type_id))
+            ? field_->type()
+            : nullptr;
     record_reader_ = RecordReader::Make(
-        descr_, leaf_info, ctx_->pool, field_->type()->id() == ::arrow::Type::DICTIONARY);
+        descr_, leaf_info, ctx_->pool,
+        /*read_dictionary=*/field_->type()->id() == ::arrow::Type::DICTIONARY,
+        /*read_dense_for_nullable=*/false, /*arrow_type=*/type_for_reading);
     NextRowGroup();
   }
 
@@ -1299,46 +1309,6 @@ std::shared_ptr<RowGroupReader> FileReaderImpl::RowGroup(int row_group_index) {
 
 // ----------------------------------------------------------------------
 // Public factory functions
-
-Status FileReader::GetRecordBatchReader(std::unique_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(*out, GetRecordBatchReader());
-  return Status::OK();
-}
-
-Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                        std::unique_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(*out, GetRecordBatchReader(row_group_indices));
-  return Status::OK();
-}
-
-Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                        const std::vector<int>& column_indices,
-                                        std::unique_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(*out, GetRecordBatchReader(row_group_indices, column_indices));
-  return Status::OK();
-}
-
-Status FileReader::GetRecordBatchReader(std::shared_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(auto tmp, GetRecordBatchReader());
-  out->reset(tmp.release());
-  return Status::OK();
-}
-
-Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                        std::shared_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(auto tmp, GetRecordBatchReader(row_group_indices));
-  out->reset(tmp.release());
-  return Status::OK();
-}
-
-Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                        const std::vector<int>& column_indices,
-                                        std::shared_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(auto tmp,
-                        GetRecordBatchReader(row_group_indices, column_indices));
-  out->reset(tmp.release());
-  return Status::OK();
-}
 
 Status FileReader::Make(::arrow::MemoryPool* pool,
                         std::unique_ptr<ParquetFileReader> reader,

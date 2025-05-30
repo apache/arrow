@@ -23,8 +23,9 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "parquet/column_writer.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_encryptor.h"
@@ -447,9 +448,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
       auto footer_signing_encryptor = file_encryptor_->GetFooterSigningEncryptor();
       WriteEncryptedFileMetadata(*file_metadata_, sink_.get(), footer_signing_encryptor,
                                  false);
-    }
-    if (file_encryptor_) {
-      file_encryptor_->WipeOutEncryptionKeys();
     }
   }
 

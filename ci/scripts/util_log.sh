@@ -17,10 +17,12 @@
 
 github_actions_group_begin() {
   echo "::group::$1"
+  echo "::stop-commands::arrow-log-grouping"
   set -x
 }
 
 github_actions_group_end() {
   set +x
+  echo "::arrow-log-grouping::"
   echo "::endgroup::"
 }

@@ -121,7 +121,7 @@ jobs:
       - name: Setup Python on hosted runner
         if: |
           matrix.runs-on == 'ubuntu-latest'
-        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: 3
       - name: Setup Python on self-hosted runner
@@ -210,7 +210,6 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
-      GTest_SOURCE: BUNDLED
     steps:
       - name: CPU Info
         run: |
@@ -234,7 +233,7 @@ jobs:
           $(brew --prefix bash)/bin/bash \
             ci/scripts/install_minio.sh latest ${ARROW_HOME}
       - name: Set up Python
-        uses: actions/setup-python@v5.4.0
+        uses: actions/setup-python@v5.6.0
         with:
           python-version: 3.12
       - name: Install Google Cloud Storage Testbench
@@ -256,6 +255,19 @@ jobs:
           restore-keys: cpp-ccache-macos-${{ matrix.macos-version }}-
       - name: Build
         run: |
+          if [ "${{ matrix.macos-version }}" = "13" ]; then
+            # This is a workaround.
+            #
+            # Homebrew uses /usr/local as prefix. So packages
+            # installed by Homebrew also use /usr/local/include. We
+            # want to include headers for packages installed by
+            # Homebrew as system headers to ignore warnings in them.
+            # But "-isystem /usr/local/include" isn't used by CMake
+            # because /usr/local/include is marked as the default
+            # include path. So we disable -Werror to avoid build error
+            # by warnings from packages installed by Homebrew.
+            export BUILD_WARNING_LEVEL=PRODUCTION
+          fi
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
@@ -383,6 +395,7 @@ jobs:
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
       ARROW_FLIGHT_SQL: ON
+      ARROW_FLIGHT_SQL_ODBC: ON
       ARROW_GANDIVA: ON
       ARROW_GCS: ON
       ARROW_HDFS: OFF
@@ -400,15 +413,12 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
-      # Don't use preinstalled Boost by empty BOOST_ROOT
-      BOOST_ROOT: ""
       ARROW_CMAKE_ARGS: >-
         -DARROW_PACKAGE_PREFIX=/${{ matrix.msystem_lower}}
         -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON
       # We can't use unity build because we don't have enough memory on
       # GitHub Actions.
       # CMAKE_UNITY_BUILD: ON
-      GTest_SOURCE: BUNDLED
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -453,7 +463,7 @@ jobs:
             https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2024-09-13T20-26-02Z
           chmod +x /usr/local/bin/minio.exe
       - name: Set up Python
-        uses: actions/setup-python@v5.4.0
+        uses: actions/setup-python@v5.6.0
         id: python-install
         with:
           python-version: 3.9

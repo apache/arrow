@@ -26,13 +26,28 @@
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_LIST_DATA_TYPE (garrow_list_data_type_get_type())
-GARROW_AVAILABLE_IN_ALL
-G_DECLARE_DERIVABLE_TYPE(
-  GArrowListDataType, garrow_list_data_type, GARROW, LIST_DATA_TYPE, GArrowDataType)
-struct _GArrowListDataTypeClass
+#define GARROW_TYPE_BASE_LIST_DATA_TYPE (garrow_base_list_data_type_get_type())
+GARROW_AVAILABLE_IN_21_0
+G_DECLARE_DERIVABLE_TYPE(GArrowBaseListDataType,
+                         garrow_base_list_data_type,
+                         GARROW,
+                         BASE_LIST_DATA_TYPE,
+                         GArrowDataType)
+struct _GArrowBaseListDataTypeClass
 {
   GArrowDataTypeClass parent_class;
+};
+
+#define GARROW_TYPE_LIST_DATA_TYPE (garrow_list_data_type_get_type())
+GARROW_AVAILABLE_IN_ALL
+G_DECLARE_DERIVABLE_TYPE(GArrowListDataType,
+                         garrow_list_data_type,
+                         GARROW,
+                         LIST_DATA_TYPE,
+                         GArrowBaseListDataType)
+struct _GArrowListDataTypeClass
+{
+  GArrowBaseListDataTypeClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_ALL

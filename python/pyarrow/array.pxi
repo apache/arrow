@@ -17,6 +17,7 @@
 
 from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCapsule_New
 
+from collections.abc import Sequence
 import os
 import warnings
 from cython import sizeof
@@ -339,11 +340,10 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 if value_type is not None:
                     warnings.warn(
                         "The dtype of the 'categories' of the passed "
-                        "categorical values ({0}) does not match the "
-                        "specified type ({1}). For now ignoring the specified "
+                        f"categorical values ({values.categories.dtype}) does not match the "
+                        f"specified type ({value_type}). For now ignoring the specified "
                         "type, but in the future this mismatch will raise a "
-                        "TypeError".format(
-                            values.categories.dtype, value_type),
+                        "TypeError",
                         FutureWarning, stacklevel=2)
                     dictionary = array(
                         values.categories.values, memory_pool=memory_pool)
@@ -1027,9 +1027,9 @@ cdef class Array(_PandasConvertible):
     """
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use one of "
-                        "the `pyarrow.Array.from_*` functions instead."
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor "
+                        "directly, use one of the `pyarrow.Array.from_*` "
+                        "functions instead.")
 
     cdef void init(self, const shared_ptr[CArray]& sp_array) except *:
         self.sp_array = sp_array
@@ -1271,18 +1271,18 @@ cdef class Array(_PandasConvertible):
 
         if type.num_fields != len(children):
             raise ValueError("Type's expected number of children "
-                             "({0}) did not match the passed number "
-                             "({1}).".format(type.num_fields, len(children)))
+                             f"({type.num_fields}) did not match the passed number "
+                             f"({len(children)})")
 
         if type.has_variadic_buffers:
             if type.num_buffers > len(buffers):
                 raise ValueError("Type's expected number of buffers is at least "
-                                 "{0}, but the passed number is "
-                                 "{1}.".format(type.num_buffers, len(buffers)))
+                                 f"{type.num_buffers}, but the passed number is "
+                                 f"{len(buffers)}.")
         elif type.num_buffers != len(buffers):
             raise ValueError("Type's expected number of buffers "
-                             "({0}) did not match the passed number "
-                             "({1}).".format(type.num_buffers, len(buffers)))
+                             f"({type.num_buffers}) did not match the passed number "
+                             f"({len(buffers)}).")
 
         for buf in buffers:
             # None will produce a null buffer pointer
@@ -1354,7 +1354,7 @@ cdef class Array(_PandasConvertible):
 
     def __repr__(self):
         type_format = object.__repr__(self)
-        return '{0}\n{1}'.format(type_format, str(self))
+        return f'{type_format}\n{self}'
 
     def to_string(self, *, int indent=2, int top_level_indent=0, int window=10,
                   int container_window=2, c_bool skip_new_lines=False):
@@ -3628,7 +3628,7 @@ cdef class FixedSizeListArray(BaseListArray):
     def values(self):
         """
         Return the underlying array of values which backs the
-        FixedSizeListArray.
+        FixedSizeListArray ignoring the array's offset.
 
         Note even null elements are included.
 
@@ -3712,7 +3712,7 @@ cdef class UnionArray(Array):
         result = (<CUnionArray*> self.ap).field(pos)
         if result != NULL:
             return pyarrow_wrap_array(result)
-        raise KeyError("UnionArray does not have child {}".format(pos))
+        raise KeyError(f"UnionArray does not have child {pos}")
 
     @property
     def type_codes(self):
@@ -4381,8 +4381,8 @@ cdef class RunEndEncodedArray(Array):
 
         if type.num_fields != len(children):
             raise ValueError("RunEndEncodedType's expected number of children "
-                             "({0}) did not match the passed number "
-                             "({1}).".format(type.num_fields, len(children)))
+                             f"({type.num_fields}) did not match the passed number "
+                             f"({len(children)})")
 
         # buffers are validated as if we needed to pass them to C++, but
         # _make_from_arrays will take care of filling in the expected
@@ -4394,13 +4394,13 @@ cdef class RunEndEncodedArray(Array):
                              "bitmap, buffers[0] is not None")
         if type.num_buffers != len(buffers):
             raise ValueError("RunEndEncodedType's expected number of buffers "
-                             "({0}) did not match the passed number "
-                             "({1}).".format(type.num_buffers, len(buffers)))
+                             f"({type.num_buffers}) did not match the passed number "
+                             f"({len(buffers)}).")
 
         # null_count is also validated as if we needed it
         if null_count != -1 and null_count != 0:
             raise ValueError("RunEndEncodedType's expected null_count (0) "
-                             "did not match passed number ({0})".format(null_count))
+                             f"did not match passed number ({null_count})")
 
         return RunEndEncodedArray._from_arrays(type, False, length, children[0],
                                                children[1], offset)
@@ -4483,8 +4483,8 @@ cdef class ExtensionArray(Array):
             shared_ptr[CExtensionArray] ext_array
 
         if storage.type != typ.storage_type:
-            raise TypeError("Incompatible storage type {0} "
-                            "for extension type {1}".format(storage.type, typ))
+            raise TypeError(f"Incompatible storage type {storage.type} "
+                            f"for extension type {typ}")
 
         ext_array = make_shared[CExtensionArray](typ.sp_type, storage.sp_array)
         cdef Array result = pyarrow_wrap_array(<shared_ptr[CArray]> ext_array)
@@ -4610,7 +4610,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         return pyarrow_wrap_tensor(GetResultValue(ctensor))
 
     @staticmethod
-    def from_numpy_ndarray(obj):
+    def from_numpy_ndarray(obj, dim_names=None):
         """
         Convert numpy tensors (ndarrays) to a fixed shape tensor extension array.
         The first dimension of ndarray will become the length of the fixed
@@ -4620,6 +4620,8 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         Parameters
         ----------
         obj : numpy.ndarray
+        dim_names : tuple or list of strings, default None
+            Explicit names to tensor dimensions.
 
         Examples
         --------
@@ -4655,6 +4657,17 @@ cdef class FixedShapeTensorArray(ExtensionArray):
                 "Cannot convert 1D array or scalar to fixed shape tensor array")
         if np.prod(obj.shape) == 0:
             raise ValueError("Expected a non-empty ndarray")
+        if dim_names is not None:
+            if not isinstance(dim_names, Sequence):
+                raise TypeError("dim_names must be a tuple or list")
+            if len(dim_names) != len(obj.shape[1:]):
+                raise ValueError(
+                    (f"The length of dim_names ({len(dim_names)}) does not match"
+                     f"the number of tensor dimensions ({len(obj.shape[1:])})."
+                     )
+                )
+            if not all(isinstance(name, str) for name in dim_names):
+                raise TypeError("Each element of dim_names must be a string")
 
         permutation = (-np.array(obj.strides)).argsort(kind='stable')
         if permutation[0] != 0:
@@ -4666,7 +4679,9 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         values = np.ravel(obj, order="K")
 
         return ExtensionArray.from_storage(
-            fixed_shape_tensor(arrow_type, shape[1:], permutation=permutation[1:] - 1),
+            fixed_shape_tensor(arrow_type, shape[1:],
+                               dim_names=dim_names,
+                               permutation=permutation[1:] - 1),
             FixedSizeListArray.from_arrays(values, shape[1:].prod())
         )
 
@@ -4947,7 +4962,7 @@ def concat_arrays(arrays, MemoryPool memory_pool=None):
     for array in arrays:
         if not isinstance(array, Array):
             raise TypeError("Iterable should contain Array objects, "
-                            "got {0} instead".format(type(array)))
+                            f"got {type(array)} instead")
         c_arrays.push_back(pyarrow_unwrap_array(array))
 
     with nogil:

@@ -21,7 +21,7 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 // This code is adapted from
 // https://github.com/ray-project/ray/blob/master/src/ray/util/logging_test.cc.

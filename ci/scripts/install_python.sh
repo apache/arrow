@@ -44,7 +44,7 @@ platform=${platforms[$1]}
 version=$2
 full_version=${versions[$2]}
 
-if [ $platform = "macOS" ]; then
+if [ "$platform" = "macOS" ]; then
     echo "Downloading Python installer..."
 
     if [ "$(uname -m)" = "x86_64" ] && [ "$version" = "3.9" ];
@@ -74,12 +74,12 @@ if [ $platform = "macOS" ]; then
 </array>
 </plist>
 EOF
-        installer -pkg $fname -applyChoiceChangesXML ./choicechanges.plist -target /
+        installer -pkg "$fname" -applyChoiceChangesXML ./choicechanges.plist -target /
         rm ./choicechanges.plist
     else
-        installer -pkg $fname -target /
+        installer -pkg "$fname" -target /
     fi
-    rm $fname
+    rm "$fname"
 
     python="/Library/Frameworks/Python.framework/Versions/${version}/bin/python${version}"
     if [[ $2 == "3.13t" ]]; then

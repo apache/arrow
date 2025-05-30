@@ -48,26 +48,27 @@ Status PythonDecimalToString(PyObject* python_decimal, std::string* out) {
 // \return The status of the operation
 static Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int32_t* precision,
                                             int32_t* scale) {
-  DCHECK_NE(python_decimal, NULLPTR);
-  DCHECK_NE(precision, NULLPTR);
-  DCHECK_NE(scale, NULLPTR);
+  ARROW_DCHECK_NE(python_decimal, NULLPTR);
+  ARROW_DCHECK_NE(precision, NULLPTR);
+  ARROW_DCHECK_NE(scale, NULLPTR);
 
-  // TODO(phillipc): Make sure we perform PyDecimal_Check(python_decimal) as a DCHECK
+  // TODO(phillipc): Make sure we perform PyDecimal_Check(python_decimal) as a
+  // ARROW_DCHECK
   OwnedRef as_tuple(PyObject_CallMethod(python_decimal, const_cast<char*>("as_tuple"),
                                         const_cast<char*>("")));
   RETURN_IF_PYERROR();
-  DCHECK(PyTuple_Check(as_tuple.obj()));
+  ARROW_DCHECK(PyTuple_Check(as_tuple.obj()));
 
   OwnedRef digits(PyObject_GetAttrString(as_tuple.obj(), "digits"));
   RETURN_IF_PYERROR();
-  DCHECK(PyTuple_Check(digits.obj()));
+  ARROW_DCHECK(PyTuple_Check(digits.obj()));
 
   const auto num_digits = static_cast<int32_t>(PyTuple_Size(digits.obj()));
   RETURN_IF_PYERROR();
 
   OwnedRef py_exponent(PyObject_GetAttrString(as_tuple.obj(), "exponent"));
   RETURN_IF_PYERROR();
-  DCHECK(IsPyInteger(py_exponent.obj()));
+  ARROW_DCHECK(IsPyInteger(py_exponent.obj()));
 
   const auto exponent = static_cast<int32_t>(PyLong_AsLong(py_exponent.obj()));
   RETURN_IF_PYERROR();
@@ -90,13 +91,13 @@ static Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int32_t* p
 
 PyObject* DecimalFromString(PyObject* decimal_constructor,
                             const std::string& decimal_string) {
-  DCHECK_NE(decimal_constructor, nullptr);
+  ARROW_DCHECK_NE(decimal_constructor, nullptr);
 
   auto string_size = decimal_string.size();
-  DCHECK_GT(string_size, 0);
+  ARROW_DCHECK_GT(string_size, 0);
 
   auto string_bytes = decimal_string.c_str();
-  DCHECK_NE(string_bytes, nullptr);
+  ARROW_DCHECK_NE(string_bytes, nullptr);
 
   return PyObject_CallFunction(decimal_constructor, const_cast<char*>("s#"), string_bytes,
                                static_cast<Py_ssize_t>(string_size));
@@ -117,7 +118,7 @@ Status DecimalFromStdString(const std::string& decimal_string,
   const int32_t scale = arrow_type.scale();
 
   if (scale != inferred_scale) {
-    DCHECK_NE(out, NULLPTR);
+    ARROW_DCHECK_NE(out, NULLPTR);
     ARROW_ASSIGN_OR_RAISE(*out, out->Rescale(inferred_scale, scale));
   }
 
@@ -135,8 +136,8 @@ template <typename ArrowDecimal>
 Status InternalDecimalFromPythonDecimal(PyObject* python_decimal,
                                         const DecimalType& arrow_type,
                                         ArrowDecimal* out) {
-  DCHECK_NE(python_decimal, NULLPTR);
-  DCHECK_NE(out, NULLPTR);
+  ARROW_DCHECK_NE(python_decimal, NULLPTR);
+  ARROW_DCHECK_NE(out, NULLPTR);
 
   std::string string;
   RETURN_NOT_OK(PythonDecimalToString(python_decimal, &string));
@@ -146,8 +147,8 @@ Status InternalDecimalFromPythonDecimal(PyObject* python_decimal,
 template <typename ArrowDecimal>
 Status InternalDecimalFromPyObject(PyObject* obj, const DecimalType& arrow_type,
                                    ArrowDecimal* out) {
-  DCHECK_NE(obj, NULLPTR);
-  DCHECK_NE(out, NULLPTR);
+  ARROW_DCHECK_NE(obj, NULLPTR);
+  ARROW_DCHECK_NE(out, NULLPTR);
 
   if (IsPyInteger(obj)) {
     // TODO: add a fast path for small-ish ints
@@ -206,7 +207,7 @@ bool PyDecimal_Check(PyObject* obj) {
   static OwnedRef decimal_type;
   if (!decimal_type.obj()) {
     ARROW_CHECK_OK(ImportDecimalType(&decimal_type));
-    DCHECK(PyType_Check(decimal_type.obj()));
+    ARROW_DCHECK(PyType_Check(decimal_type.obj()));
   }
   // PyObject_IsInstance() is slower as it has to check for virtual subclasses
   const int result =
@@ -216,7 +217,7 @@ bool PyDecimal_Check(PyObject* obj) {
 }
 
 bool PyDecimal_ISNAN(PyObject* obj) {
-  DCHECK(PyDecimal_Check(obj)) << "obj is not an instance of decimal.Decimal";
+  ARROW_DCHECK(PyDecimal_Check(obj)) << "obj is not an instance of decimal.Decimal";
   OwnedRef is_nan(
       PyObject_CallMethod(obj, const_cast<char*>("is_nan"), const_cast<char*>("")));
   return PyObject_IsTrue(is_nan.obj()) == 1;

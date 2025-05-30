@@ -107,6 +107,10 @@ macro(tsort_bool_option_dependencies)
 endmacro()
 
 macro(resolve_option_dependencies)
+  # Arrow Flight SQL ODBC is available only for Windows for now.
+  if(NOT MSVC_TOOLCHAIN)
+    set(ARROW_FLIGHT_SQL_ODBC OFF)
+  endif()
   if(MSVC_TOOLCHAIN)
     set(ARROW_USE_GLOG OFF)
   endif()
@@ -171,9 +175,6 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_USE_LLD "Use the LLVM lld for linking (if available)" OFF)
 
   define_option(ARROW_USE_MOLD "Use mold for linking on Linux (if available)" OFF)
-
-  define_option(ARROW_USE_PRECOMPILED_HEADERS "Use precompiled headers when compiling"
-                OFF)
 
   define_option_string(ARROW_SIMD_LEVEL
                        "Compile-time SIMD optimization level"
@@ -338,6 +339,13 @@ takes precedence over ccache if a storage backend is configured" ON)
                 DEPENDS
                 ARROW_FLIGHT)
 
+  define_option(ARROW_FLIGHT_SQL_ODBC
+                "Build the Arrow Flight SQL ODBC extension"
+                OFF
+                DEPENDS
+                ARROW_FLIGHT_SQL
+                ARROW_COMPUTE)
+
   define_option(ARROW_GANDIVA
                 "Build the Gandiva libraries"
                 OFF
@@ -346,7 +354,8 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_WITH_UTF8PROC)
 
   define_option(ARROW_GCS
-                "Build Arrow with GCS support (requires the GCloud SDK for C++)"
+                "Build Arrow with GCS support (requires the Google Cloud Platform "
+                "C++ Client Libraries)"
                 OFF
                 DEPENDS
                 ARROW_FILESYSTEM)
@@ -396,6 +405,12 @@ takes precedence over ccache if a storage backend is configured" ON)
                 OFF
                 DEPENDS
                 ARROW_FILESYSTEM)
+
+  define_option(ARROW_S3_MODULE
+                "Build the Arrow S3 filesystem as a dynamic module"
+                OFF
+                DEPENDS
+                ARROW_S3)
 
   define_option(ARROW_SKYHOOK
                 "Build the Skyhook libraries"

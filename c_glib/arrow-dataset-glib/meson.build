@@ -119,8 +119,7 @@ if have_gi
         libarrow_dataset_glib,
         dependencies: declare_dependency(sources: arrow_glib_gir),
         export_packages: 'arrow-dataset-glib',
-        extra_args: [
-            '--warn-all',
+        extra_args: gir_scanner_extra_args + [
             '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
         ],
         header: 'arrow-dataset-glib/arrow-dataset-glib.h',

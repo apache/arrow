@@ -28,7 +28,7 @@
 #include "arrow/result.h"
 #include "arrow/table.h"
 #include "arrow/util/future.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/map.h"
 #include "arrow/util/string.h"
 #include "arrow/util/tracing_internal.h"
@@ -58,7 +58,7 @@ class Throttle {
       return Future<>::MakeFinished();
     }
     std::lock_guard<std::mutex> lg(mutex_);
-    if (values + current_value_ > max_value_) {
+    if (current_value_ >= max_value_) {
       in_waiting_ = values;
       backpressure_ = Future<>::Make();
     } else {
@@ -75,7 +75,7 @@ class Throttle {
     {
       std::lock_guard<std::mutex> lg(mutex_);
       current_value_ -= values;
-      if (in_waiting_ > 0 && in_waiting_ + current_value_ <= max_value_) {
+      if (in_waiting_ > 0 && current_value_ < max_value_) {
         in_waiting_ = 0;
         to_complete = backpressure_;
       }

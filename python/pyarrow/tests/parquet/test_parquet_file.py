@@ -353,3 +353,15 @@ def test_read_statistics():
                                 "null_count=1, distinct_count=None, "
                                 "min=-1, is_min_exact=True, "
                                 "max=3, is_max_exact=True>")
+
+
+def test_read_undefined_logical_type(parquet_test_datadir):
+    test_file = f"{parquet_test_datadir}/unknown-logical-type.parquet"
+
+    table = pq.ParquetFile(test_file).read()
+    assert table.column_names == ["column with known type", "column with unknown type"]
+    assert table["column with unknown type"].to_pylist() == [
+        b"unknown string 1",
+        b"unknown string 2",
+        b"unknown string 3"
+    ]

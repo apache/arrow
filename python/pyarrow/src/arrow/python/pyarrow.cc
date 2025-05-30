@@ -91,7 +91,7 @@ namespace internal {
 int check_status(const Status& status) { return ::pyarrow_internal_check_status(status); }
 
 PyObject* convert_status(const Status& status) {
-  DCHECK(!status.ok());
+  ARROW_DCHECK(!status.ok());
   return ::pyarrow_internal_convert_status(status);
 }
 

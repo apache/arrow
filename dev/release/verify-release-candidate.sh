@@ -21,7 +21,6 @@
 # Requirements
 # - Ruby >= 2.3
 # - gcc >= 4.8
-# - Node.js >= 18
 # - Go >= 1.22
 # - Docker
 #
@@ -168,6 +167,7 @@ verify_dir_artifact_signatures() {
 }
 
 test_binary() {
+  # this downloads all artifacts and verifies their checksums and signatures
   show_header "Testing binary artifacts"
   maybe_setup_conda
 
@@ -176,7 +176,8 @@ test_binary() {
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
          --dest=${download_dir} \
-         --repository=${GITHUB_REPOSITORY:-apache/arrow}
+         --repository=${GITHUB_REPOSITORY:-apache/arrow} \
+         --tag="apache-arrow-$VERSION-rc$RC_NUMBER"
 
   verify_dir_artifact_signatures ${download_dir}
 }
@@ -323,35 +324,6 @@ setup_tempdir() {
   echo "Working in sandbox ${ARROW_TMPDIR}"
 }
 
-install_nodejs() {
-  # Install NodeJS locally for running the JavaScript tests rather than using the
-  # system Node installation, which may be too old.
-  if [ "${NODEJS_ALREADY_INSTALLED:-0}" -gt 0 ]; then
-    show_info "NodeJS $(node --version) already installed"
-    return 0
-  fi
-
-  node_major_version=$(node --version 2>&1 | grep -o '^v[0-9]*' | sed -e 's/^v//g' || :)
-  node_minor_version=$(node --version 2>&1 | grep -o '^v[0-9]*\.[0-9]*' | sed -e 's/^v[0-9]*\.//g' || :)
-  if [[ -n "${node_major_version}" && -n "${node_minor_version}" &&
-      ("${node_major_version}" -eq 16 ||
-        ("${node_major_version}" -eq 18 && "${node_minor_version}" -ge 14) ||
-        "${node_major_version}" -ge 20) ]]; then
-    show_info "Found NodeJS installation with version v${node_major_version}.${node_minor_version}.x"
-  else
-    export NVM_DIR="$(pwd)/.nvm"
-    mkdir -p $NVM_DIR
-    curl -sL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | \
-      PROFILE=/dev/null bash
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-    nvm install --lts
-    show_info "Installed NodeJS $(node --version)"
-  fi
-
-  NODEJS_ALREADY_INSTALLED=1
-}
-
 install_csharp() {
   # Install C# if doesn't already exist
   if [ "${CSHARP_ALREADY_INSTALLED:-0}" -gt 0 ]; then
@@ -383,7 +355,7 @@ install_csharp() {
     local dotnet_download_url=$( \
       curl -sL ${dotnet_download_thank_you_url} | \
         grep 'directLink' | \
-        grep -E -o 'https://download[^"]+' | \
+        grep -E -o 'https://builds.dotnet[^"]+' | \
         sed -n 2p)
     mkdir -p ${csharp_bin}
     curl -sL ${dotnet_download_url} | \
@@ -500,13 +472,6 @@ maybe_setup_virtualenv() {
       show_info "Installed pip packages $@..."
       pip install "$@"
     fi
-  fi
-}
-
-maybe_setup_nodejs() {
-  show_info "Ensuring that NodeJS is installed..."
-  if [ "${USE_CONDA}" -eq 0 ]; then
-    install_nodejs
   fi
 }
 
@@ -770,29 +735,6 @@ test_csharp() {
   popd
 }
 
-test_js() {
-  show_header "Build and test JavaScript libraries"
-
-  maybe_setup_nodejs
-  maybe_setup_conda nodejs=18
-
-  if ! command -v yarn &> /dev/null; then
-    npm install yarn
-    PATH=$PWD/node_modules/yarn/bin:$PATH
-  fi
-
-  pushd js
-  yarn --frozen-lockfile
-  yarn clean:all
-  yarn lint
-  yarn build
-  if [ ${TEST_JS} -gt 0 ]; then
-    yarn test
-    yarn test:bundle
-  fi
-  popd
-}
-
 # Run integration tests
 test_integration() {
   show_header "Build and execute integration tests"
@@ -815,7 +757,6 @@ test_integration() {
   LD_LIBRARY_PATH=$ARROW_CPP_EXE_PATH:$LD_LIBRARY_PATH archery integration \
     --run-ipc --run-flight --run-c-data \
     --with-cpp=${TEST_INTEGRATION_CPP} \
-    --with-js=${TEST_INTEGRATION_JS} \
     $INTEGRATION_TEST_ARGS
 }
 
@@ -896,9 +837,6 @@ test_source_distribution() {
 
   if [ ${TEST_CSHARP} -gt 0 ]; then
     test_csharp
-  fi
-  if [ ${BUILD_JS} -gt 0 ]; then
-    test_js
   fi
   if [ ${BUILD_CPP} -gt 0 ]; then
     test_and_install_cpp
@@ -1049,11 +987,13 @@ test_wheels() {
       $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
       --package_type python \
       --regex=${filter_regex} \
-      --dest=${download_dir}
+      --dest=${download_dir} \
+      --repository=${GITHUB_REPOSITORY:-apache/arrow} \
+      --tag="apache-arrow-$VERSION-rc$RC_NUMBER"
 
     verify_dir_artifact_signatures ${download_dir}
 
-    wheels_dir=${download_dir}/python-rc/${VERSION}-rc${RC_NUMBER}
+    wheels_dir=${download_dir}
   fi
 
   pushd ${wheels_dir}
@@ -1088,18 +1028,15 @@ test_wheels() {
 : ${TEST_GLIB:=${TEST_SOURCE}}
 : ${TEST_RUBY:=${TEST_SOURCE}}
 : ${TEST_PYTHON:=${TEST_SOURCE}}
-: ${TEST_JS:=${TEST_SOURCE}}
 : ${TEST_INTEGRATION:=${TEST_SOURCE}}
 
 # For selective Integration testing, set TEST_DEFAULT=0 TEST_INTEGRATION_X=1 TEST_INTEGRATION_Y=1
 : ${TEST_INTEGRATION_CPP:=${TEST_INTEGRATION}}
-: ${TEST_INTEGRATION_JS:=${TEST_INTEGRATION}}
 
 # Automatically build/test if its activated by a dependent
 TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
 BUILD_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON} + ${TEST_INTEGRATION_CPP}))
-BUILD_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
-TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JS}))
+TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP}))
 
 # Execute tests in a conda environment
 : ${USE_CONDA:=0}

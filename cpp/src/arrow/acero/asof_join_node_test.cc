@@ -44,10 +44,12 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/compute/test_util_internal.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/thread_pool.h"
 
 #define TRACED_TEST(t_class, t_name, t_body)  \
@@ -1767,6 +1769,59 @@ TEST(AsofJoinTest, DestroyNonStartedAsofJoinNode) {
       ::testing::HasSubstr(
           "`generator` is a required SinkNode option and cannot be null"),
       DeclarationToStatus(std::move(sink)));
+}
+
+// Reproduction of GH-46224: Hang when all left timestamps are greater than right
+// timestamps.
+TEST(AsofJoinTest, OneSideTsAllGreaterThanTheOther) {
+#if defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER)
+  const int rounds = 1;
+#else
+  const int rounds = 42;
+#endif
+  int64_t tolerance = 1;
+  int64_t num_rows_big_ts = 1;
+  int64_t num_rows_small_ts = ExecPlan::kMaxBatchSize + 1;
+  // Make sure the big_ts is outside the horizon of the tolerance regardless of the side.
+  int64_t big_ts = num_rows_small_ts + tolerance + 1;
+
+  // Column of big timestamps.
+  ASSERT_OK_AND_ASSIGN(auto col_big_ts,
+                       gen::Constant(MakeScalar(big_ts))->Generate(num_rows_big_ts));
+  // Column of small timestamps from 0 to num_rows_small_ts - 1.
+  ASSERT_OK_AND_ASSIGN(auto col_small_ts,
+                       gen::Step<int64_t>()->Generate(num_rows_small_ts));
+
+  struct Case {
+    std::shared_ptr<arrow::Array> left_col;
+    std::shared_ptr<arrow::Array> right_col;
+  };
+
+  for (const auto& c : {
+           Case{col_big_ts, col_small_ts},
+           Case{col_small_ts, col_big_ts},
+       }) {
+    auto left_schema = arrow::schema({arrow::field("on", int64())});
+    auto right_schema = arrow::schema({arrow::field("on", int64())});
+
+    ExecBatch left_batch({c.left_col}, c.left_col->length());
+    ExecBatch right_batch({c.right_col}, c.right_col->length());
+    ASSERT_OK_AND_ASSIGN(auto col_null, MakeArrayOfNull(int64(), c.left_col->length()));
+    ExecBatch exp_batch({c.left_col, col_null}, c.left_col->length());
+
+    // Run moderate number of times to ensure that no hangs occur.
+    for (int i = 0; i < rounds; ++i) {
+      AsofJoinNodeOptions opts({{{"on"}, {}}, {{"on"}, {}}}, tolerance);
+      auto left = Declaration("exec_batch_source",
+                              ExecBatchSourceNodeOptions(left_schema, {left_batch}));
+      auto right = Declaration("exec_batch_source",
+                               ExecBatchSourceNodeOptions(right_schema, {right_batch}));
+      auto asof_join = arrow::acero::Declaration{"asofjoin", {left, right}, opts};
+      ASSERT_OK_AND_ASSIGN(auto result,
+                           arrow::acero::DeclarationToExecBatches(std::move(asof_join)));
+      AssertExecBatchesEqualIgnoringOrder(result.schema, {exp_batch}, result.batches);
+    }
+  }
 }
 
 }  // namespace acero

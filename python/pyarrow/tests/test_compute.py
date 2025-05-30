@@ -198,6 +198,7 @@ def test_option_class_equality(request):
         pc.TrimOptions(" "),
         pc.Utf8NormalizeOptions("NFKC"),
         pc.VarianceOptions(),
+        pc.WinsorizeOptions(0.05, 0.9),
         pc.WeekOptions(week_starts_monday=True, count_from_zero=False,
                        first_week_is_fully_in_year=False),
     ]
@@ -460,16 +461,17 @@ def test_kurtosis():
 @pytest.mark.parametrize("input, expected", (
     (
         [1.0, 2.0, 3.0, 40.0, None],
-        {'skew': 1.988947740397821, 'kurtosis': 3.9631931024230695}
+        {'skew': pytest.approx(1.988947740397821),
+         'kurtosis': pytest.approx(3.9631931024230695)}
     ),
-    ([1, 2, 40], {'skew': 1.7281098503730385, 'kurtosis': None}),
+    ([1, 2, 40], {'skew': pytest.approx(1.7281098503730385), 'kurtosis': None}),
     ([1, 40], {'skew': None, 'kurtosis': None}),
 ))
 def test_unbiased_skew_and_kurtosis(input, expected):
     arrow_skew = pc.skew(input, skip_nulls=True, biased=False)
     arrow_kurtosis = pc.kurtosis(input, skip_nulls=True, biased=False)
-    assert arrow_skew == pa.scalar(expected['skew'], type=pa.float64())
-    assert arrow_kurtosis == pa.scalar(expected['kurtosis'], type=pa.float64())
+    assert arrow_skew.as_py() == expected['skew']
+    assert arrow_kurtosis.as_py() == expected['kurtosis']
 
 
 def test_count_substring():
@@ -2334,7 +2336,7 @@ def test_extract_datetime_components(request):
                   "2008-12-28T00:00:00.0",
                   "2008-12-29T00:00:00.0",
                   "2012-01-01T01:02:03.0"]
-    timezones = ["UTC", "US/Central", "Asia/Kolkata",
+    timezones = ["UTC", "America/Chicago", "Asia/Kolkata",
                  "Etc/GMT-4", "Etc/GMT+4", "Australia/Broken_Hill"]
 
     # Test timezone naive timestamp array
@@ -2388,7 +2390,7 @@ def test_assume_timezone():
     ambiguous_array = pa.array(ambiguous, type=ts_type)
     nonexistent_array = pa.array(nonexistent, type=ts_type)
 
-    for timezone in ["UTC", "US/Central", "Asia/Kolkata"]:
+    for timezone in ["UTC", "America/Chicago", "Asia/Kolkata"]:
         options = pc.AssumeTimezoneOptions(timezone)
         ta = pa.array(timestamps, type=ts_type)
         expected = timestamps.tz_localize(timezone)
@@ -2581,7 +2583,7 @@ def test_round_temporal(unit):
     _check_temporal_rounding(ts, values, unit)
 
     timezones = ["Asia/Kolkata", "America/New_York", "Etc/GMT-4", "Etc/GMT+4",
-                 "Europe/Brussels", "Pacific/Marquesas", "US/Central", "UTC"]
+                 "Europe/Brussels", "Pacific/Marquesas", "America/Chicago", "UTC"]
 
     for timezone in timezones:
         ts_zoned = ts.dt.tz_localize("UTC").dt.tz_convert(timezone)
@@ -3853,3 +3855,14 @@ def test_pivot_wider():
     with pytest.raises(ValueError, match="Encountered more than one non-null value"):
         result = pc.pivot_wider(["height", "width", "height"], [10, None, 11],
                                 key_names=key_names)
+
+
+def test_winsorize():
+    arr = pa.array([10, 4, 9, 8, 5, 3, 7, 2, 1, 6])
+
+    result = pc.winsorize(arr, 0.1, 0.8)
+    assert result.to_pylist() == [8, 4, 8, 8, 5, 3, 7, 2, 2, 6]
+
+    result = pc.winsorize(
+        arr, options=pc.WinsorizeOptions(lower_limit=0.1, upper_limit=0.8))
+    assert result.to_pylist() == [8, 4, 8, 8, 5, 3, 7, 2, 2, 6]

@@ -32,7 +32,7 @@ test('arrow-dlpack-test', exc)
 exc = executable(
     'arrow-bridge-benchmark',
     sources: ['bridge_benchmark.cc'],
-    dependencies: [arrow_test_dep, benchmark_dep],
+    dependencies: [arrow_benchmark_dep],
 )
 benchmark('arrow-bridge-benchmark', exc)
 

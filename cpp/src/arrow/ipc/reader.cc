@@ -47,13 +47,14 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/align_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/parallel.h"
 #include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"
@@ -636,8 +637,17 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
                             arrow::internal::SwapEndianArrayData(filtered_column));
     }
   }
-  return RecordBatch::Make(std::move(filtered_schema), metadata->length(),
-                           std::move(filtered_columns));
+  auto batch = RecordBatch::Make(std::move(filtered_schema), metadata->length(),
+                                 std::move(filtered_columns));
+
+  if (ARROW_PREDICT_FALSE(context.options.ensure_alignment != Alignment::kAnyAlignment)) {
+    return util::EnsureAlignment(batch,
+                                 // the numerical value of ensure_alignment enum is taken
+                                 // literally as byte alignment
+                                 static_cast<int64_t>(context.options.ensure_alignment),
+                                 context.options.memory_pool);
+  }
+  return batch;
 }
 
 Result<std::shared_ptr<RecordBatch>> LoadRecordBatch(

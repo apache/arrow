@@ -17,11 +17,50 @@
   under the License.
 -->
 
-# arrow 19.0.1.9000
+# arrow 20.0.0.9000
+
+## Minor improvements and fixes
+
+- Added bindings for atan, sinh, cosh, tanh, asinh, acosh, and tanh, and expm1 (#44953)
+- Expose an option `check_directory_existence_before_creation` in `S3FileSystem`
+  to reduce I/O calls on cloud storage (@HaochengLIU, #41998)
+
+# arrow 20.0.0.1
+
+## Minor improvements and fixes
+
+- Updated internal C++ code to comply with CRAN's gcc-UBSAN checks
+  ([#46394](https://github.com/apache/arrow/issues/46394))
+
+# arrow 20.0.0
+
+## Minor improvements and fixes
+
+- Binary Arrays now inherit from `blob::blob` in addition to `arrow_binary` when
+  [converted to R
+  objects](https://arrow.apache.org/docs/r/articles/data_types.html#translations-from-arrow-to-r).
+  This change is the first step in eventually deprecating the `arrow_binary`
+  class in favor of the `blob` class in the
+  [`blob`](https://cran.r-project.org/package=blob) package (See
+  [GH-45709](https://github.com/apache/arrow/issues/45709)).
+
+# arrow 19.0.1.1
+
+## Minor improvements and fixes
+
+- Updated internal code to comply with new CRAN requirements on non-API calls ([#45949](https://github.com/apache/arrow/issues/45949))
+- Enable building the bundled third-party libraries under CMake 4.0 ([#45987](https://github.com/apache/arrow/issues/45987))
 
 # arrow 19.0.1
 
-# arrow 19.0.0
+This release primarily updates the underlying Arrow C++ version used by the
+package to version 19.0.1 and includes all changes from the 19.0.0 and 19.0.1
+releases. For what's changed in Arrow C++ 19.0.0, please see the [blog
+post](https://arrow.apache.org/blog/2025/01/16/19.0.0-release/) and
+[changelog](https://arrow.apache.org/release/19.0.0.html#changelog).
+For what's changed in Arrow C++ 19.0.1, please see the [blog
+post](https://arrow.apache.org/blog/2025/02/16/19.0.1-release/) and
+[changelog](https://arrow.apache.org/release/19.0.1.html#changelog).
 
 # arrow 18.1.0
 
@@ -72,7 +111,7 @@
 ## Minor improvements and fixes
 
 * Dataset and table output printing now truncates schemas longer than 20 items long (#38916)
-* Fixed pointer conversion to Python for latest reticulate to ensure data can be passed between Arrow and PyArrow (#39969) 
+* Fixed pointer conversion to Python for latest reticulate to ensure data can be passed between Arrow and PyArrow (#39969)
 * Check on macOS if we are using GNU libtool is and ensure we use macOS libtool instead (#40259)
 * Fix an error where creating a bundled tarball with all dependencies was failing on Windows (@hutch3232, #40232)
 
@@ -86,7 +125,7 @@
   data into R (@m-muecke, #38601).
 * Calling `dimnames` or `colnames` on `Dataset` objects now returns a useful
   result rather than just `NULL` (#38377).
-* The `code()` method on Schema objects now takes an optional `namespace` 
+* The `code()` method on Schema objects now takes an optional `namespace`
   argument which, when `TRUE`, prefixes names with `arrow::` which makes
   the output more portable (@orgadish, #38144).
 
@@ -101,7 +140,7 @@
   ND-JSON support added in arrow 13.0.0 (@Divyansh200102, #38258).
 * To make debugging problems easier when using arrow with AWS S3
   (e.g., `s3_bucket`, `S3FileSystem`), the debug log level for S3 can be set
-  with the `AWS_S3_LOG_LEVEL` environment variable. 
+  with the `AWS_S3_LOG_LEVEL` environment variable.
   See `?S3FileSystem` for more information. (#38267)
 * Using arrow with duckdb (i.e., `to_duckdb()`) no longer results in warnings
   when quitting your R session. (#38495)
@@ -143,8 +182,8 @@
 
 * If pkg-config fails to detect the required libraries an additional search
   without pkg-config is run (#38970).
-* Fetch the latest nightly Arrow C++ binary when installing a development 
-  Version (#38236).  
+* Fetch the latest nightly Arrow C++ binary when installing a development
+  Version (#38236).
 
 # arrow 14.0.0.1
 
@@ -168,7 +207,7 @@
 * `schema()` can now be called on `data.frame` objects to retrieve their
   inferred Arrow schema  (#37843).
 * CSVs with a comma or other character as decimal mark can now be read in
-  by the dataset reading functions and new function `read_csv2_arrow()` 
+  by the dataset reading functions and new function `read_csv2_arrow()`
   (#38002).
 
 ## Minor improvements and fixes
@@ -246,7 +285,7 @@
 
 # arrow 12.0.1
 
-* Update the version of the date library vendored with Arrow C++ library 
+* Update the version of the date library vendored with Arrow C++ library
   for compatibility with tzdb 0.4.0 (#35594, #35612).
 * Update some tests for compatibility with waldo 0.5.1 (#35131, #35308).
 

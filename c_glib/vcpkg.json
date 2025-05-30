@@ -1,9 +1,11 @@
 {
   "name": "arrow-glib",
-  "version-string": "20.0.0-SNAPSHOT",
+  "version-string": "21.0.0-SNAPSHOT",
+  "$comment:dependencies": "We can enable gobject-introspection again once it's updated",
   "dependencies": [
     "glib",
-    "gobject-introspection",
     "pkgconf"
-  ]
+  ],
+  "$comment": "We can update builtin-baseline by 'vcpkg x-update-baseline'",
+  "builtin-baseline": "09f6a4ef2f08252f7f4d924fd9c2d42165fb21c9"
 }

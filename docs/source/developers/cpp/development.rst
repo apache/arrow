@@ -162,12 +162,6 @@ target that is executable from the root of the repository:
 
    $ docker compose run ubuntu-lint
 
-Alternatively, on an open pull request, the comment bot can format C++ code
-for you (it will push a commit to the branch that can then be pulled). Just
-comment the following::
-
-  @github-actions autotune
-
 Cleaning includes with include-what-you-use (IWYU)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

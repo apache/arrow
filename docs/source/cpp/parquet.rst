@@ -418,33 +418,31 @@ Types
 Physical types
 ~~~~~~~~~~~~~~
 
-+--------------------------+-------------------------+------------+
-| Physical type            | Mapped Arrow type       | Notes      |
-+==========================+=========================+============+
-| BOOLEAN                  | Boolean                 |            |
-+--------------------------+-------------------------+------------+
-| INT32                    | Int32 / other           | \(1)       |
-+--------------------------+-------------------------+------------+
-| INT64                    | Int64 / other           | \(1)       |
-+--------------------------+-------------------------+------------+
-| INT96                    | Timestamp (nanoseconds) | \(2)       |
-+--------------------------+-------------------------+------------+
-| FLOAT                    | Float32                 |            |
-+--------------------------+-------------------------+------------+
-| DOUBLE                   | Float64                 |            |
-+--------------------------+-------------------------+------------+
-| BYTE_ARRAY               | Binary / other          | \(1) \(3)  |
-+--------------------------+-------------------------+------------+
-| FIXED_LENGTH_BYTE_ARRAY  | FixedSizeBinary / other | \(1)       |
-+--------------------------+-------------------------+------------+
++--------------------------+------------------------------------+------------+
+| Physical type            | Mapped Arrow type                  | Notes      |
++==========================+====================================+============+
+| BOOLEAN                  | Boolean                            |            |
++--------------------------+------------------------------------+------------+
+| INT32                    | Int32 / other                      | \(1)       |
++--------------------------+------------------------------------+------------+
+| INT64                    | Int64 / other                      | \(1)       |
++--------------------------+------------------------------------+------------+
+| INT96                    | Timestamp (nanoseconds)            | \(2)       |
++--------------------------+------------------------------------+------------+
+| FLOAT                    | Float32                            |            |
++--------------------------+------------------------------------+------------+
+| DOUBLE                   | Float64                            |            |
++--------------------------+------------------------------------+------------+
+| BYTE_ARRAY               | Binary / LargeBinary / BinaryView  | \(1)       |
++--------------------------+------------------------------------+------------+
+| FIXED_LENGTH_BYTE_ARRAY  | FixedSizeBinary / other            | \(1)       |
++--------------------------+------------------------------------+------------+
 
 * \(1) Can be mapped to other Arrow types, depending on the logical type
-  (see below).
+  (see table below).
 
 * \(2) On the write side, :func:`ArrowWriterProperties::support_deprecated_int96_timestamps`
   must be enabled.
-
-* \(3) On the write side, an Arrow LargeBinary can also mapped to BYTE_ARRAY.
 
 Logical types
 ~~~~~~~~~~~~~
@@ -475,11 +473,12 @@ physical type.
 | TIMESTAMP         | INT64                       | Timestamp (milli-, micro-  |         |
 |                   |                             | or nanoseconds)            |         |
 +-------------------+-----------------------------+----------------------------+---------+
-| STRING            | BYTE_ARRAY                  | Utf8                       | \(4)    |
+| STRING            | BYTE_ARRAY                  | String / LargeString /     |         |
+|                   |                             | StringView                 |         |
 +-------------------+-----------------------------+----------------------------+---------+
-| LIST              | Any                         | List                       | \(5)    |
+| LIST              | Any                         | List                       | \(4)    |
 +-------------------+-----------------------------+----------------------------+---------+
-| MAP               | Any                         | Map                        | \(6)    |
+| MAP               | Any                         | Map                        | \(5)    |
 +-------------------+-----------------------------+----------------------------+---------+
 | FLOAT16           | FIXED_LENGTH_BYTE_ARRAY     | HalfFloat                  |         |
 +-------------------+-----------------------------+----------------------------+---------+
@@ -490,12 +489,10 @@ physical type.
 
 * \(3) On the write side, an Arrow Date64 is also mapped to a Parquet DATE INT32.
 
-* \(4) On the write side, an Arrow LargeUtf8 is also mapped to a Parquet STRING.
-
-* \(5) On the write side, an Arrow LargeList or FixedSizedList is also mapped to
+* \(4) On the write side, an Arrow LargeList or FixedSizedList is also mapped to
   a Parquet LIST.
 
-* \(6) On the read side, a key with multiple values does not get deduplicated,
+* \(5) On the read side, a key with multiple values does not get deduplicated,
   in contradiction with the
   `Parquet specification <https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#maps>`__.
 
@@ -584,6 +581,52 @@ More specifically, Parquet C++ supports:
   supported.
 * EncryptionWithFooterKey and EncryptionWithColumnKey modes.
 * Encrypted Footer and Plaintext Footer modes.
+
+Configuration
+~~~~~~~~~~~~~
+
+Parquet encryption uses a ``parquet::encryption::CryptoFactory`` that has access to a
+Key Management System (KMS), which stores actual encryption keys, referenced by key ids.
+The Parquet encryption configuration only uses key ids, no actual keys.
+
+Parquet metadata encryption is configured via ``parquet::encryption::EncryptionConfiguration``:
+
+.. literalinclude:: ../../../cpp/examples/arrow/parquet_column_encryption.cc
+   :language: cpp
+   :start-at: // Set write options with encryption configuration
+   :end-before: encryption_config->column_keys
+   :dedent: 2
+
+If ``encryption_config->uniform_encryption`` is set to ``true``, then all columns are
+encrypted with the same key as the Parquet metadata. Otherwise, individual
+columns are encrypted with individual keys as configured via
+``encryption_config->column_keys``. This field expects a string of the format
+``"columnKeyID1:colName1,colName2;columnKeyID3:colName3..."``.
+
+.. literalinclude:: ../../../cpp/examples/arrow/parquet_column_encryption.cc
+   :language: cpp
+   :start-at: // Set write options with encryption configuration
+   :end-before: auto parquet_encryption_config
+   :emphasize-lines: 4-5
+   :dedent: 2
+
+See the full `Parquet column encryption example <examples/parquet_column_encryption.html>`_.
+
+.. note::
+
+   Encrypting columns that have nested fields (struct, map or list data types)
+   requires column keys for the inner fields, not the outer column itself.
+   Configuring a column key for the outer column causes
+   this error (here the column name is ``col``):
+
+   .. code-block::
+
+      OSError: Encrypted column col not in file schema
+
+   Conventionally, the key and value fields of a map column ``m`` have the names
+   ``m.key_value.key`` and  ``m.key_value.value``, respectively. The inner field of a
+   list column ``l`` has the name ``l.list.element``. An inner field ``f`` of a struct column ``s`` has
+   the name ``s.f``.
 
 Miscellaneous
 -------------

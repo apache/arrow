@@ -315,6 +315,13 @@ test_that("trig functions", {
     df
   )
 
+    compare_dplyr_binding(
+    .input %>%
+      mutate(y = atan(x)) %>%
+      collect(),
+    df
+  )
+
   # with namespacing
   compare_dplyr_binding(
     .input %>%
@@ -323,7 +330,92 @@ test_that("trig functions", {
         b = base::cos(x),
         c = base::tan(x),
         d = base::asin(x),
-        e = base::acos(x)
+        e = base::acos(x),
+        f = base::atan(x)
+      ) %>%
+      collect(),
+    df
+  )
+})
+
+test_that("hyperbolic trig functions", {
+  # Note: We change df mid-test because domains differ by function
+  df <- tibble(x = c(seq(from = 0, to = 1, by = 0.1), NA))
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(y = sinh(x)) %>%
+      collect(),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(y = cosh(x)) %>%
+      collect(),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(y = tanh(x)) %>%
+      collect(),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(y = asinh(x)) %>%
+      collect(),
+    df
+  )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        a = base::sinh(x),
+        b = base::cosh(x),
+        c = base::tanh(x),
+        d = base::asinh(x),
+      ) %>%
+      collect(),
+    df
+  )
+
+  df <- tibble(x = c(seq(from = 1, to = 2, by = 0.1)))
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(y = acosh(x)) %>%
+      collect(),
+    df
+  )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        a = base::acosh(x),
+      ) %>%
+      collect(),
+    df
+  )
+
+  df <- tibble(x = c(seq(from = -0.5, to = 0.5, by = 0.1)))
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(y = atanh(x)) %>%
+      collect(),
+    df
+  )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        a = base::atanh(x)
       ) %>%
       collect(),
     df
@@ -394,6 +486,20 @@ test_that("sqrt()", {
       mutate(
         y = sqrt(x),
         y2 = base::sqrt(x)
+      ) %>%
+      collect(),
+    df
+  )
+})
+
+test_that("expm1()", {
+  df <- tibble(x = c(1:5))
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        y = expm1(x),
+        y2 = base::expm1(x)
       ) %>%
       collect(),
     df

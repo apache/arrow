@@ -45,38 +45,38 @@ static void BenchmarkListSlice(benchmark::State& state, const ListSliceOptions& 
   }
 }
 
-template <typename InListType = ListType>
-static void ListSliceInt64List(benchmark::State& state) {
+template <typename InListType>
+static void BenchmarkListSliceInt64List(benchmark::State& state) {
   ListSliceOptions opts;
   opts.start = kSliceStart;
   BenchmarkListSlice(state, opts, std::make_shared<InListType>(int64()));
 }
 
-template <typename InListType = ListType>
-static void ListSliceStringList(benchmark::State& state) {
+template <typename InListType>
+static void BenchmarkListSliceStringList(benchmark::State& state) {
   ListSliceOptions opts;
   opts.start = kSliceStart;
   BenchmarkListSlice(state, opts, std::make_shared<InListType>(utf8()));
 }
 
-template <typename InListType = ListType>
-static void ListSliceInt64ListWithStop(benchmark::State& state) {
+template <typename InListType>
+static void BenchmarkListSliceInt64ListWithStop(benchmark::State& state) {
   ListSliceOptions opts;
   opts.start = kSliceStart;
   opts.stop = kSliceStop;
   BenchmarkListSlice(state, opts, std::make_shared<InListType>(int64()));
 }
 
-template <typename InListType = ListType>
-static void ListSliceStringListWithStop(benchmark::State& state) {
+template <typename InListType>
+static void BenchmarkListSliceStringListWithStop(benchmark::State& state) {
   ListSliceOptions opts;
   opts.start = kSliceStart;
   opts.stop = kSliceStop;
   BenchmarkListSlice(state, opts, std::make_shared<InListType>(utf8()));
 }
 
-template <typename InListType = ListType>
-static void ListSliceInt64ListWithStepAndStop(benchmark::State& state) {
+template <typename InListType>
+static void BenchmarkListSliceInt64ListWithStepAndStop(benchmark::State& state) {
   ListSliceOptions opts;
   opts.start = kSliceStart;
   opts.step = 2;
@@ -84,8 +84,8 @@ static void ListSliceInt64ListWithStepAndStop(benchmark::State& state) {
   BenchmarkListSlice(state, opts, std::make_shared<InListType>(int64()));
 }
 
-template <typename InListType = ListType>
-static void ListSliceStringListWithStepAndStop(benchmark::State& state) {
+template <typename InListType>
+static void BenchmarkListSliceStringListWithStepAndStop(benchmark::State& state) {
   ListSliceOptions opts;
   opts.start = kSliceStart;
   opts.step = 2;
@@ -93,29 +93,25 @@ static void ListSliceStringListWithStepAndStop(benchmark::State& state) {
   BenchmarkListSlice(state, opts, std::make_shared<InListType>(utf8()));
 }
 
-static void ListSliceInt64ListView(benchmark::State& state) {
-  ListSliceInt64List<ListViewType>(state);
-}
+const auto ListSliceInt64List = BenchmarkListSliceInt64List<ListType>;
+const auto ListSliceStringList = BenchmarkListSliceStringList<ListType>;
+const auto ListSliceInt64ListWithStop = BenchmarkListSliceInt64ListWithStop<ListType>;
+const auto ListSliceStringListWithStop = BenchmarkListSliceStringListWithStop<ListType>;
+const auto ListSliceInt64ListWithStepAndStop =
+    BenchmarkListSliceInt64ListWithStepAndStop<ListType>;
+const auto ListSliceStringListWithStepAndStop =
+    BenchmarkListSliceStringListWithStepAndStop<ListType>;
 
-static void ListSliceStringListView(benchmark::State& state) {
-  ListSliceStringList<ListViewType>(state);
-}
-
-static void ListSliceInt64ListViewWithStop(benchmark::State& state) {
-  ListSliceInt64ListWithStop<ListViewType>(state);
-}
-
-static void ListSliceStringListViewWithStop(benchmark::State& state) {
-  ListSliceStringListWithStop<ListViewType>(state);
-}
-
-static void ListSliceInt64ListViewWithStepAndStop(benchmark::State& state) {
-  ListSliceInt64ListWithStepAndStop<ListViewType>(state);
-}
-
-static void ListSliceStringListViewWithStepAndStop(benchmark::State& state) {
-  ListSliceStringListWithStepAndStop<ListViewType>(state);
-}
+const auto ListSliceInt64ListView = BenchmarkListSliceInt64List<ListViewType>;
+const auto ListSliceStringListView = BenchmarkListSliceStringList<ListViewType>;
+const auto ListSliceInt64ListViewWithStop =
+    BenchmarkListSliceInt64ListWithStop<ListViewType>;
+const auto ListSliceStringListViewWithStop =
+    BenchmarkListSliceStringListWithStop<ListViewType>;
+const auto ListSliceInt64ListViewWithStepAndStop =
+    BenchmarkListSliceInt64ListWithStepAndStop<ListViewType>;
+const auto ListSliceStringListViewWithStepAndStop =
+    BenchmarkListSliceStringListWithStepAndStop<ListViewType>;
 
 static void ListSliceInt64ListToFSL(benchmark::State& state) {
   ListSliceOptions opts;

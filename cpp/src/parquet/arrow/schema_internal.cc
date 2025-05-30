@@ -18,8 +18,13 @@
 #include "parquet/arrow/schema_internal.h"
 
 #include "arrow/extension/json.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/type.h"
+#include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 
+#include "parquet/geospatial/util_json_internal.h"
 #include "parquet/properties.h"
 
 using ArrowType = ::arrow::DataType;
@@ -111,31 +116,78 @@ Result<std::shared_ptr<ArrowType>> MakeArrowTimestamp(const LogicalType& logical
 }
 
 Result<std::shared_ptr<ArrowType>> FromByteArray(
-    const LogicalType& logical_type, const ArrowReaderProperties& reader_properties) {
+    const LogicalType& logical_type, const ArrowReaderProperties& reader_properties,
+    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
+  auto binary_type = [&]() -> Result<std::shared_ptr<ArrowType>> {
+    const auto configured_binary_type = reader_properties.binary_type();
+    switch (configured_binary_type) {
+      case ::arrow::Type::BINARY:
+        return ::arrow::binary();
+      case ::arrow::Type::LARGE_BINARY:
+        return ::arrow::large_binary();
+      case ::arrow::Type::BINARY_VIEW:
+        return ::arrow::binary_view();
+      default:
+        return Status::TypeError("Invalid Arrow type for BYTE_ARRAY columns: ",
+                                 ::arrow::internal::ToString(configured_binary_type));
+    }
+  };
+
+  auto utf8_type = [&]() -> Result<std::shared_ptr<ArrowType>> {
+    const auto configured_binary_type = reader_properties.binary_type();
+    switch (configured_binary_type) {
+      case ::arrow::Type::BINARY:
+        return ::arrow::utf8();
+      case ::arrow::Type::LARGE_BINARY:
+        return ::arrow::large_utf8();
+      case ::arrow::Type::BINARY_VIEW:
+        return ::arrow::utf8_view();
+      default:
+        return Status::TypeError("Invalid Arrow type for BYTE_ARRAY columns: ",
+                                 ::arrow::internal::ToString(configured_binary_type));
+    }
+  };
+
   switch (logical_type.type()) {
     case LogicalType::Type::STRING:
-      return ::arrow::utf8();
+      return utf8_type();
     case LogicalType::Type::DECIMAL:
       return MakeArrowDecimal(logical_type);
     case LogicalType::Type::NONE:
     case LogicalType::Type::ENUM:
     case LogicalType::Type::BSON:
-      return ::arrow::binary();
-    case LogicalType::Type::JSON:
+      return binary_type();
+    case LogicalType::Type::JSON: {
       if (reader_properties.get_arrow_extensions_enabled()) {
-        return ::arrow::extension::json(::arrow::utf8());
+        return utf8_type().Map(::arrow::extension::json);
       }
       // When the original Arrow schema isn't stored and Arrow extensions are disabled,
       // LogicalType::JSON is read as utf8().
-      return ::arrow::utf8();
+      return utf8_type();
+    }
+    case LogicalType::Type::GEOMETRY:
+    case LogicalType::Type::GEOGRAPHY: {
+      ARROW_ASSIGN_OR_RAISE(auto storage_type, binary_type());
+      if (reader_properties.get_arrow_extensions_enabled()) {
+        // Attempt creating a GeoArrow extension type (or return the default
+        // binary_type if types are not registered)
+        return GeoArrowTypeFromLogicalType(logical_type, metadata, storage_type);
+      }
+
+      // When the original Arrow schema isn't stored, Arrow extensions are disabled, or
+      // the geoarrow.wkb extension type isn't registered, LogicalType::GEOMETRY and
+      // LogicalType::GEOGRAPHY are read as the default binary_type.
+      return storage_type;
+    }
     default:
       return Status::NotImplemented("Unhandled logical logical_type ",
                                     logical_type.ToString(), " for binary array");
   }
 }
 
-Result<std::shared_ptr<ArrowType>> FromFLBA(const LogicalType& logical_type,
-                                            int32_t physical_length) {
+Result<std::shared_ptr<ArrowType>> FromFLBA(
+    const LogicalType& logical_type, int32_t physical_length,
+    const ArrowReaderProperties& reader_properties) {
   switch (logical_type.type()) {
     case LogicalType::Type::DECIMAL:
       return MakeArrowDecimal(logical_type);
@@ -143,11 +195,15 @@ Result<std::shared_ptr<ArrowType>> FromFLBA(const LogicalType& logical_type,
       return ::arrow::float16();
     case LogicalType::Type::NONE:
     case LogicalType::Type::INTERVAL:
+      return ::arrow::fixed_size_binary(physical_length);
     case LogicalType::Type::UUID:
+      if (physical_length == 16 && reader_properties.get_arrow_extensions_enabled()) {
+        return ::arrow::extension::uuid();
+      }
+
       return ::arrow::fixed_size_binary(physical_length);
     default:
-      return Status::NotImplemented("Unhandled logical logical_type ",
-                                    logical_type.ToString(),
+      return Status::NotImplemented("Unhandled logical_type ", logical_type.ToString(),
                                     " for fixed-length binary array");
   }
 }
@@ -190,9 +246,15 @@ Result<std::shared_ptr<ArrowType>> FromInt64(const LogicalType& logical_type) {
 
 Result<std::shared_ptr<ArrowType>> GetArrowType(
     Type::type physical_type, const LogicalType& logical_type, int type_length,
-    const ArrowReaderProperties& reader_properties) {
-  if (logical_type.is_invalid() || logical_type.is_null()) {
+    const ArrowReaderProperties& reader_properties,
+    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
+  if (logical_type.is_null()) {
     return ::arrow::null();
+  }
+
+  if (logical_type.is_invalid()) {
+    return GetArrowType(physical_type, *NoLogicalType::Make(), type_length,
+                        reader_properties);
   }
 
   switch (physical_type) {
@@ -209,9 +271,9 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
     case ParquetType::DOUBLE:
       return ::arrow::float64();
     case ParquetType::BYTE_ARRAY:
-      return FromByteArray(logical_type, reader_properties);
+      return FromByteArray(logical_type, reader_properties, metadata);
     case ParquetType::FIXED_LEN_BYTE_ARRAY:
-      return FromFLBA(logical_type, type_length);
+      return FromFLBA(logical_type, type_length, reader_properties);
     default: {
       // PARQUET-1565: This can occur if the file is corrupt
       return Status::IOError("Invalid physical column type: ",
@@ -222,9 +284,10 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
 
 Result<std::shared_ptr<ArrowType>> GetArrowType(
     const schema::PrimitiveNode& primitive,
-    const ArrowReaderProperties& reader_properties) {
+    const ArrowReaderProperties& reader_properties,
+    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
   return GetArrowType(primitive.physical_type(), *primitive.logical_type(),
-                      primitive.type_length(), reader_properties);
+                      primitive.type_length(), reader_properties, metadata);
 }
 
 }  // namespace parquet::arrow

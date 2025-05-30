@@ -169,6 +169,31 @@ def test_invalid_source():
         pq.ParquetFile(None)
 
 
+def test_read_table_without_dataset(tempdir):
+    from unittest import mock
+
+    class MockParquetDataset:
+        def __init__(self, *args, **kwargs):
+            raise ImportError("MockParquetDataset")
+
+    path = tempdir / "test.parquet"
+    table = pa.table({"a": [1, 2, 3]})
+    _write_table(table, path)
+
+    with mock.patch('pyarrow.parquet.core.ParquetDataset', new=MockParquetDataset):
+        with pytest.raises(ValueError, match="the 'filters' keyword"):
+            pq.read_table(path, filters=[('integer', '=', 1)])
+        with pytest.raises(ValueError, match="the 'partitioning' keyword"):
+            pq.read_table(path, partitioning=['week', 'color'])
+        with pytest.raises(ValueError, match="the 'schema' argument"):
+            pq.read_table(path, schema=table.schema)
+        # Error message varies depending on OS
+        with pytest.raises(OSError):
+            pq.read_table(tempdir)
+        result = pq.read_table(path)
+        assert result == table
+
+
 @pytest.mark.slow
 def test_file_with_over_int16_max_row_groups():
     # PARQUET-1857: Parquet encryption support introduced a INT16_MAX upper

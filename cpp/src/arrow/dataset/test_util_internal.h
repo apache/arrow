@@ -1065,7 +1065,7 @@ class FileFormatFixtureMixinV2 : public ::testing::Test {
   }
 
   void CheckDatasetSchemaSet() {
-    DCHECK_NE(dataset_schema_, nullptr)
+    ARROW_DCHECK_NE(dataset_schema_, nullptr)
         << "call SetDatasetSchema before calling this method";
   }
 
@@ -1822,7 +1822,7 @@ struct ArithmeticDatasetFixture {
 
   /// \brief Creates a JSON RecordBatch
   static std::string JSONRecordBatch(int64_t n) {
-    DCHECK_GT(n, 0);
+    ARROW_DCHECK_GT(n, 0);
 
     auto record = JSONRecordFor(n);
 
@@ -1843,7 +1843,7 @@ struct ArithmeticDatasetFixture {
   }
 
   static std::unique_ptr<RecordBatchReader> GetRecordBatchReader(int64_t n) {
-    DCHECK_GT(n, 0);
+    ARROW_DCHECK_GT(n, 0);
 
     // Functor which generates `n` RecordBatch
     struct {
@@ -2140,8 +2140,8 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
         actual_struct = std::dynamic_pointer_cast<Array>(struct_array);
       }
 
-      auto expected_struct = ArrayFromJSON(struct_(expected_physical_schema_->fields()),
-                                           file_contents->second);
+      auto expected_struct = arrow::ArrayFromJSON(
+          struct_(expected_physical_schema_->fields()), file_contents->second);
 
       AssertArraysEqual(*expected_struct, *actual_struct, /*verbose=*/true);
     }

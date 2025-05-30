@@ -35,7 +35,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/future.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/windows_fixup.h"
 
 namespace arrow {

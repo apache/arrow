@@ -1,6 +1,6 @@
 {
   "name": "arrow",
-  "version-string": "20.0.0-SNAPSHOT",
+  "version-string": "21.0.0-SNAPSHOT",
   "dependencies": [
     "abseil",
     {
@@ -15,11 +15,17 @@
       ]
     },
     "benchmark",
+    "boost-beast",
+    "boost-cmake",
     "boost-crc",
     "boost-filesystem",
+    "boost-locale",
     "boost-multiprecision",
+    "boost-optional",
     "boost-process",
     "boost-system",
+    "boost-variant",
+    "boost-xpressive",
     "brotli",
     "bzip2",
     "c-ares",
@@ -28,15 +34,19 @@
     "gflags",
     "glog",
     {
-      "name":"google-cloud-cpp",
-      "version>=": "1.32.1",
+      "name": "google-cloud-cpp",
       "default-features": false,
       "features": [
         "storage"
       ]
     },
     "grpc",
-    "gtest",
+    {
+      "name": "gtest",
+      "features": [
+        "cxx17"
+      ]
+    },
     "lz4",
     "openssl",
     "orc",
@@ -44,6 +54,7 @@
     "rapidjson",
     "re2",
     "snappy",
+    "spdlog",
     "sqlite3",
     "thrift",
     "utf8proc",
@@ -51,8 +62,6 @@
     "zlib",
     "zstd"
   ],
-  "overrides": [
-    { "name": "gtest", "version": "1.10.0", "port-version": 4 }
-  ],
-  "builtin-baseline": "3d8f78171a2a37d461077bf8d063256b63e25a4f"
+  "$comment": "We can update builtin-baseline by 'vcpkg x-update-baseline'",
+  "builtin-baseline": "09f6a4ef2f08252f7f4d924fd9c2d42165fb21c9"
 }

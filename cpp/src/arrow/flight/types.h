@@ -468,6 +468,151 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor
   }
 };
 
+/// \brief Data structure providing an opaque identifier or credential to use
+/// when requesting a data stream with the DoGet RPC
+struct ARROW_FLIGHT_EXPORT Ticket : public internal::BaseType<Ticket> {
+  std::string ticket;
+
+  Ticket() = default;
+  Ticket(std::string ticket)  // NOLINT runtime/explicit
+      : ticket(std::move(ticket)) {}
+
+  std::string ToString() const;
+  bool Equals(const Ticket& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Get the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Parse the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized, Ticket* out);
+};
+
+/// \brief A host location (a URI)
+struct ARROW_FLIGHT_EXPORT Location : public internal::BaseType<Location> {
+ public:
+  /// \brief Initialize a blank location.
+  Location();
+
+  ~Location();
+
+  /// \brief Initialize a location by parsing a URI string
+  static arrow::Result<Location> Parse(const std::string& uri_string);
+
+  /// \brief Get the fallback URI.
+  ///
+  /// arrow-flight-reuse-connection://? means that a client may attempt to
+  /// reuse an existing connection to a Flight service to fetch data instead
+  /// of creating a new connection to one of the other locations listed in a
+  /// FlightEndpoint response.
+  static const Location& ReuseConnection();
+
+  /// \brief Initialize a location for a non-TLS, gRPC-based Flight
+  /// service from a host and port
+  /// \param[in] host The hostname to connect to
+  /// \param[in] port The port
+  /// \return Arrow result with the resulting location
+  static arrow::Result<Location> ForGrpcTcp(const std::string& host, const int port);
+
+  /// \brief Initialize a location for a TLS-enabled, gRPC-based Flight
+  /// service from a host and port
+  /// \param[in] host The hostname to connect to
+  /// \param[in] port The port
+  /// \return Arrow result with the resulting location
+  static arrow::Result<Location> ForGrpcTls(const std::string& host, const int port);
+
+  /// \brief Initialize a location for a domain socket-based Flight
+  /// service
+  /// \param[in] path The path to the domain socket
+  /// \return Arrow result with the resulting location
+  static arrow::Result<Location> ForGrpcUnix(const std::string& path);
+
+  /// \brief Initialize a location based on a URI scheme
+  static arrow::Result<Location> ForScheme(const std::string& scheme,
+                                           const std::string& host, const int port);
+
+  /// \brief Get the scheme of this URI.
+  std::string scheme() const;
+
+  /// \brief Get a representation of this URI as a string.
+  std::string ToString() const;
+  bool Equals(const Location& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Serialize this message to its wire-format representation.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized, Location* out);
+
+ private:
+  friend class FlightClient;
+  friend class FlightServerBase;
+  std::shared_ptr<arrow::util::Uri> uri_;
+};
+
+/// \brief A flight ticket and list of locations where the ticket can be
+/// redeemed
+struct ARROW_FLIGHT_EXPORT FlightEndpoint : public internal::BaseType<FlightEndpoint> {
+  /// Opaque ticket identify; use with DoGet RPC
+  Ticket ticket;
+
+  /// List of locations where ticket can be redeemed. If the list is empty, the
+  /// ticket can only be redeemed on the current service where the ticket was
+  /// generated
+  std::vector<Location> locations;
+
+  /// Expiration time of this stream. If present, clients may assume
+  /// they can retry DoGet requests. Otherwise, clients should avoid
+  /// retrying DoGet requests.
+  std::optional<Timestamp> expiration_time;
+
+  /// Opaque Application-defined metadata
+  std::string app_metadata;
+
+  FlightEndpoint() = default;
+  FlightEndpoint(Ticket ticket, std::vector<Location> locations,
+                 std::optional<Timestamp> expiration_time, std::string app_metadata)
+      : ticket(std::move(ticket)),
+        locations(std::move(locations)),
+        expiration_time(expiration_time),
+        app_metadata(std::move(app_metadata)) {}
+
+  std::string ToString() const;
+  bool Equals(const FlightEndpoint& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Serialize this message to its wire-format representation.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized, FlightEndpoint* out);
+};
+
 /// \brief The access coordinates for retrieval of a dataset, returned by
 /// GetFlightInfo
 class ARROW_FLIGHT_EXPORT FlightInfo
@@ -493,12 +638,21 @@ class ARROW_FLIGHT_EXPORT FlightInfo
                                         bool ordered = false,
                                         std::string app_metadata = "");
 
+  /// \brief Factory method to construct a FlightInfo.
+  static arrow::Result<FlightInfo> Make(const std::shared_ptr<Schema>& schema,
+                                        const FlightDescriptor& descriptor,
+                                        const std::vector<FlightEndpoint>& endpoints,
+                                        int64_t total_records, int64_t total_bytes,
+                                        bool ordered = false,
+                                        std::string app_metadata = "");
+
   /// \brief Deserialize the Arrow schema of the dataset. Populate any
   ///   dictionary encoded fields into a DictionaryMemo for
   ///   bookkeeping
   /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
   /// be modified
-  /// \return Arrow result with the reconstructed Schema
+  /// \return Arrow result with the reconstructed Schema. Note that the schema
+  ///   may be nullptr, as the schema is optional.
   arrow::Result<std::shared_ptr<Schema>> GetSchema(
       ipc::DictionaryMemo* dictionary_memo) const;
 
@@ -702,151 +856,6 @@ struct ARROW_FLIGHT_EXPORT CancelFlightInfoResult
 
 ARROW_FLIGHT_EXPORT
 std::ostream& operator<<(std::ostream& os, CancelStatus status);
-
-/// \brief Data structure providing an opaque identifier or credential to use
-/// when requesting a data stream with the DoGet RPC
-struct ARROW_FLIGHT_EXPORT Ticket : public internal::BaseType<Ticket> {
-  std::string ticket;
-
-  Ticket() = default;
-  Ticket(std::string ticket)  // NOLINT runtime/explicit
-      : ticket(std::move(ticket)) {}
-
-  std::string ToString() const;
-  bool Equals(const Ticket& other) const;
-
-  using SuperT::Deserialize;
-  using SuperT::SerializeToString;
-
-  /// \brief Get the wire-format representation of this type.
-  ///
-  /// Useful when interoperating with non-Flight systems (e.g. REST
-  /// services) that may want to return Flight types.
-  ///
-  /// Use `SerializeToString()` if you want a Result-returning version.
-  arrow::Status SerializeToString(std::string* out) const;
-
-  /// \brief Parse the wire-format representation of this type.
-  ///
-  /// Useful when interoperating with non-Flight systems (e.g. REST
-  /// services) that may want to return Flight types.
-  ///
-  /// Use `Deserialize(serialized)` if you want a Result-returning version.
-  static arrow::Status Deserialize(std::string_view serialized, Ticket* out);
-};
-
-/// \brief A host location (a URI)
-struct ARROW_FLIGHT_EXPORT Location : public internal::BaseType<Location> {
- public:
-  /// \brief Initialize a blank location.
-  Location();
-
-  ~Location();
-
-  /// \brief Initialize a location by parsing a URI string
-  static arrow::Result<Location> Parse(const std::string& uri_string);
-
-  /// \brief Get the fallback URI.
-  ///
-  /// arrow-flight-reuse-connection://? means that a client may attempt to
-  /// reuse an existing connection to a Flight service to fetch data instead
-  /// of creating a new connection to one of the other locations listed in a
-  /// FlightEndpoint response.
-  static const Location& ReuseConnection();
-
-  /// \brief Initialize a location for a non-TLS, gRPC-based Flight
-  /// service from a host and port
-  /// \param[in] host The hostname to connect to
-  /// \param[in] port The port
-  /// \return Arrow result with the resulting location
-  static arrow::Result<Location> ForGrpcTcp(const std::string& host, const int port);
-
-  /// \brief Initialize a location for a TLS-enabled, gRPC-based Flight
-  /// service from a host and port
-  /// \param[in] host The hostname to connect to
-  /// \param[in] port The port
-  /// \return Arrow result with the resulting location
-  static arrow::Result<Location> ForGrpcTls(const std::string& host, const int port);
-
-  /// \brief Initialize a location for a domain socket-based Flight
-  /// service
-  /// \param[in] path The path to the domain socket
-  /// \return Arrow result with the resulting location
-  static arrow::Result<Location> ForGrpcUnix(const std::string& path);
-
-  /// \brief Initialize a location based on a URI scheme
-  static arrow::Result<Location> ForScheme(const std::string& scheme,
-                                           const std::string& host, const int port);
-
-  /// \brief Get the scheme of this URI.
-  std::string scheme() const;
-
-  /// \brief Get a representation of this URI as a string.
-  std::string ToString() const;
-  bool Equals(const Location& other) const;
-
-  using SuperT::Deserialize;
-  using SuperT::SerializeToString;
-
-  /// \brief Serialize this message to its wire-format representation.
-  ///
-  /// Use `SerializeToString()` if you want a Result-returning version.
-  arrow::Status SerializeToString(std::string* out) const;
-
-  /// \brief Deserialize this message from its wire-format representation.
-  ///
-  /// Use `Deserialize(serialized)` if you want a Result-returning version.
-  static arrow::Status Deserialize(std::string_view serialized, Location* out);
-
- private:
-  friend class FlightClient;
-  friend class FlightServerBase;
-  std::shared_ptr<arrow::util::Uri> uri_;
-};
-
-/// \brief A flight ticket and list of locations where the ticket can be
-/// redeemed
-struct ARROW_FLIGHT_EXPORT FlightEndpoint : public internal::BaseType<FlightEndpoint> {
-  /// Opaque ticket identify; use with DoGet RPC
-  Ticket ticket;
-
-  /// List of locations where ticket can be redeemed. If the list is empty, the
-  /// ticket can only be redeemed on the current service where the ticket was
-  /// generated
-  std::vector<Location> locations;
-
-  /// Expiration time of this stream. If present, clients may assume
-  /// they can retry DoGet requests. Otherwise, clients should avoid
-  /// retrying DoGet requests.
-  std::optional<Timestamp> expiration_time;
-
-  /// Opaque Application-defined metadata
-  std::string app_metadata;
-
-  FlightEndpoint() = default;
-  FlightEndpoint(Ticket ticket, std::vector<Location> locations,
-                 std::optional<Timestamp> expiration_time, std::string app_metadata)
-      : ticket(std::move(ticket)),
-        locations(std::move(locations)),
-        expiration_time(expiration_time),
-        app_metadata(std::move(app_metadata)) {}
-
-  std::string ToString() const;
-  bool Equals(const FlightEndpoint& other) const;
-
-  using SuperT::Deserialize;
-  using SuperT::SerializeToString;
-
-  /// \brief Serialize this message to its wire-format representation.
-  ///
-  /// Use `SerializeToString()` if you want a Result-returning version.
-  arrow::Status SerializeToString(std::string* out) const;
-
-  /// \brief Deserialize this message from its wire-format representation.
-  ///
-  /// Use `Deserialize(serialized)` if you want a Result-returning version.
-  static arrow::Status Deserialize(std::string_view serialized, FlightEndpoint* out);
-};
 
 /// \brief The request of the RenewFlightEndpoint action.
 struct ARROW_FLIGHT_EXPORT RenewFlightEndpointRequest

@@ -19,6 +19,15 @@ add_custom_target(arrow_substrait)
 
 arrow_install_all_headers("arrow/engine")
 
+# If libarrow_substrait.a is only built, "pkg-config --cflags --libs
+# arrow-substrait" outputs build flags for static linking not shared
+# linking. ARROW_SUBSTRAIT_PC_* except ARROW_SUBSTRAIT_PC_*_PRIVATE are for
+# the static linking case.
+if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+  string(APPEND ARROW_SUBSTRAIT_PC_CFLAGS "${ARROW_SUBSTRAIT_PC_CFLAGS_PRIVATE}")
+  set(ARROW_SUBSTRAIT_PC_CFLAGS_PRIVATE "")
+endif()
+
 set(ARROW_SUBSTRAIT_SRCS
     substrait/expression_internal.cc
     substrait/extended_expression_internal.cc
@@ -42,8 +51,6 @@ add_arrow_lib(arrow_substrait
               ARROW_SUBSTRAIT_LIBRARIES
               SOURCES
               ${ARROW_SUBSTRAIT_SRCS}
-              PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:arrow/engine/pch.h>"
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS

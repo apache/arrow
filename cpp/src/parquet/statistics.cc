@@ -31,7 +31,7 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/float16.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 #include "parquet/encoding.h"
@@ -526,10 +526,14 @@ std::pair<ByteArray, ByteArray> GetMinMaxBinaryHelper(
   if (::arrow::is_binary_like(values.type_id())) {
     ::arrow::VisitArraySpanInline<::arrow::BinaryType>(
         *values.data(), std::move(valid_func), std::move(null_func));
-  } else {
-    DCHECK(::arrow::is_large_binary_like(values.type_id()));
+  } else if (::arrow::is_large_binary_like(values.type_id())) {
     ::arrow::VisitArraySpanInline<::arrow::LargeBinaryType>(
         *values.data(), std::move(valid_func), std::move(null_func));
+  } else if (::arrow::is_binary_view_like(values.type_id())) {
+    ::arrow::VisitArraySpanInline<::arrow::BinaryViewType>(
+        *values.data(), std::move(valid_func), std::move(null_func));
+  } else {
+    throw ParquetException("Only binary-like data supported");
   }
 
   return {min, max};

@@ -49,6 +49,7 @@
 #include "parquet/encoding.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"
+#include "parquet/exception.h"
 #include "parquet/level_comparison.h"
 #include "parquet/level_conversion.h"
 #include "parquet/properties.h"
@@ -196,34 +197,8 @@ namespace {
 template <typename H>
 EncodedStatistics ExtractStatsFromHeader(const H& header) {
   EncodedStatistics page_statistics;
-  if (!header.__isset.statistics) {
-    return page_statistics;
-  }
-  const format::Statistics& stats = header.statistics;
-  // Use the new V2 min-max statistics over the former one if it is filled
-  if (stats.__isset.max_value || stats.__isset.min_value) {
-    // TODO: check if the column_order is TYPE_DEFINED_ORDER.
-    if (stats.__isset.max_value) {
-      page_statistics.set_max(stats.max_value);
-    }
-    if (stats.__isset.min_value) {
-      page_statistics.set_min(stats.min_value);
-    }
-  } else if (stats.__isset.max || stats.__isset.min) {
-    // TODO: check created_by to see if it is corrupted for some types.
-    // TODO: check if the sort_order is SIGNED.
-    if (stats.__isset.max) {
-      page_statistics.set_max(stats.max);
-    }
-    if (stats.__isset.min) {
-      page_statistics.set_min(stats.min);
-    }
-  }
-  if (stats.__isset.null_count) {
-    page_statistics.set_null_count(stats.null_count);
-  }
-  if (stats.__isset.distinct_count) {
-    page_statistics.set_distinct_count(stats.distinct_count);
+  if (header.__isset.statistics) {
+    page_statistics = FromThrift(header.statistics);
   }
   return page_statistics;
 }
@@ -273,8 +248,7 @@ class SerializedPageReader : public PageReader {
   void set_max_page_header_size(uint32_t size) override { max_page_header_size_ = size; }
 
  private:
-  void UpdateDecryption(const std::shared_ptr<Decryptor>& decryptor, int8_t module_type,
-                        std::string* page_aad);
+  void UpdateDecryption(Decryptor* decryptor, int8_t module_type, std::string* page_aad);
 
   void InitDecryption();
 
@@ -306,8 +280,13 @@ class SerializedPageReader : public PageReader {
   // Please refer to the encryption specification for more details:
   // https://github.com/apache/parquet-format/blob/encryption/Encryption.md#44-additional-authenticated-data
 
-  // The ordinal fields in the context below are used for AAD suffix calculation.
+  // The CryptoContext used by this PageReader.
   CryptoContext crypto_ctx_;
+  // This PageReader has its own Decryptor instances in order to be thread-safe.
+  std::unique_ptr<Decryptor> meta_decryptor_;
+  std::unique_ptr<Decryptor> data_decryptor_;
+
+  // The ordinal fields in the context below are used for AAD suffix calculation.
   int32_t page_ordinal_;  // page ordinal does not count the dictionary page
 
   // Maximum allowed page size
@@ -331,22 +310,28 @@ class SerializedPageReader : public PageReader {
 
 void SerializedPageReader::InitDecryption() {
   // Prepare the AAD for quick update later.
-  if (crypto_ctx_.data_decryptor != nullptr) {
-    ARROW_DCHECK(!crypto_ctx_.data_decryptor->file_aad().empty());
-    data_page_aad_ = encryption::CreateModuleAad(
-        crypto_ctx_.data_decryptor->file_aad(), encryption::kDataPage,
-        crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal, kNonPageOrdinal);
+  if (crypto_ctx_.data_decryptor_factory) {
+    data_decryptor_ = crypto_ctx_.data_decryptor_factory();
+    if (data_decryptor_) {
+      ARROW_DCHECK(!data_decryptor_->file_aad().empty());
+      data_page_aad_ = encryption::CreateModuleAad(
+          data_decryptor_->file_aad(), encryption::kDataPage,
+          crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal, kNonPageOrdinal);
+    }
   }
-  if (crypto_ctx_.meta_decryptor != nullptr) {
-    ARROW_DCHECK(!crypto_ctx_.meta_decryptor->file_aad().empty());
-    data_page_header_aad_ = encryption::CreateModuleAad(
-        crypto_ctx_.meta_decryptor->file_aad(), encryption::kDataPageHeader,
-        crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal, kNonPageOrdinal);
+  if (crypto_ctx_.meta_decryptor_factory) {
+    meta_decryptor_ = crypto_ctx_.meta_decryptor_factory();
+    if (meta_decryptor_) {
+      ARROW_DCHECK(!meta_decryptor_->file_aad().empty());
+      data_page_header_aad_ = encryption::CreateModuleAad(
+          meta_decryptor_->file_aad(), encryption::kDataPageHeader,
+          crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal, kNonPageOrdinal);
+    }
   }
 }
 
-void SerializedPageReader::UpdateDecryption(const std::shared_ptr<Decryptor>& decryptor,
-                                            int8_t module_type, std::string* page_aad) {
+void SerializedPageReader::UpdateDecryption(Decryptor* decryptor, int8_t module_type,
+                                            std::string* page_aad) {
   ARROW_DCHECK(decryptor != nullptr);
   if (crypto_ctx_.start_decrypt_with_dictionary_page) {
     UpdateDecryptor(decryptor, crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal,
@@ -425,15 +410,15 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       // This gets used, then set by DeserializeThriftMsg
       header_size = static_cast<uint32_t>(view.size());
       try {
-        if (crypto_ctx_.meta_decryptor != nullptr) {
-          UpdateDecryption(crypto_ctx_.meta_decryptor, encryption::kDictionaryPageHeader,
+        if (meta_decryptor_ != nullptr) {
+          UpdateDecryption(meta_decryptor_.get(), encryption::kDictionaryPageHeader,
                            &data_page_header_aad_);
         }
         // Reset current page header to avoid unclearing the __isset flag.
         current_page_header_ = format::PageHeader();
         deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(view.data()),
                                         &header_size, &current_page_header_,
-                                        crypto_ctx_.meta_decryptor.get());
+                                        meta_decryptor_.get());
         break;
       } catch (std::exception& e) {
         // Failed to deserialize. Double the allowed page header size and try again
@@ -461,8 +446,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       continue;
     }
 
-    if (crypto_ctx_.data_decryptor != nullptr) {
-      UpdateDecryption(crypto_ctx_.data_decryptor, encryption::kDictionaryPage,
+    if (data_decryptor_ != nullptr) {
+      UpdateDecryption(data_decryptor_.get(), encryption::kDictionaryPage,
                        &data_page_aad_);
     }
 
@@ -491,13 +476,13 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     }
 
     // Decrypt it if we need to
-    if (crypto_ctx_.data_decryptor != nullptr) {
-      PARQUET_THROW_NOT_OK(decryption_buffer_->Resize(
-          crypto_ctx_.data_decryptor->PlaintextLength(compressed_len),
-          /*shrink_to_fit=*/false));
-      compressed_len = crypto_ctx_.data_decryptor->Decrypt(
-          page_buffer->span_as<uint8_t>(),
-          decryption_buffer_->mutable_span_as<uint8_t>());
+    if (data_decryptor_ != nullptr) {
+      PARQUET_THROW_NOT_OK(
+          decryption_buffer_->Resize(data_decryptor_->PlaintextLength(compressed_len),
+                                     /*shrink_to_fit=*/false));
+      compressed_len =
+          data_decryptor_->Decrypt(page_buffer->span_as<uint8_t>(),
+                                   decryption_buffer_->mutable_span_as<uint8_t>());
 
       page_buffer = decryption_buffer_;
     }
@@ -1611,7 +1596,12 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // another record start or exhausting the ColumnChunk
     int64_t level = levels_position_;
     if (at_record_start_) {
-      ARROW_DCHECK_EQ(0, rep_levels[levels_position_]);
+      if (ARROW_PREDICT_FALSE(rep_levels[levels_position_] != 0)) {
+        std::stringstream ss;
+        ss << "The repetition level at the start of a record must be 0 but got "
+           << rep_levels[levels_position_];
+        throw ParquetException(ss.str());
+      }
       ++levels_position_;
       // We have decided to consume the level at this position; therefore we
       // must advance until we find another record boundary
@@ -2054,11 +2044,35 @@ class ByteArrayChunkedRecordReader final : public TypedRecordReader<ByteArrayTyp
                                            virtual public BinaryRecordReader {
  public:
   ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
-                               ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
+                               ::arrow::MemoryPool* pool, bool read_dense_for_nullable,
+                               const std::shared_ptr<::arrow::DataType>& arrow_type)
       : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool,
                                          read_dense_for_nullable) {
     ARROW_DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
-    accumulator_.builder = std::make_unique<::arrow::BinaryBuilder>(pool);
+    auto arrow_binary_type = arrow_type ? arrow_type->id() : ::arrow::Type::BINARY;
+    switch (arrow_binary_type) {
+      case ::arrow::Type::BINARY:
+        accumulator_.builder = std::make_unique<::arrow::BinaryBuilder>(pool);
+        break;
+      case ::arrow::Type::STRING:
+        accumulator_.builder = std::make_unique<::arrow::StringBuilder>(pool);
+        break;
+      case ::arrow::Type::LARGE_BINARY:
+        accumulator_.builder = std::make_unique<::arrow::LargeBinaryBuilder>(pool);
+        break;
+      case ::arrow::Type::LARGE_STRING:
+        accumulator_.builder = std::make_unique<::arrow::LargeStringBuilder>(pool);
+        break;
+      case ::arrow::Type::BINARY_VIEW:
+        accumulator_.builder = std::make_unique<::arrow::BinaryViewBuilder>(pool);
+        break;
+      case ::arrow::Type::STRING_VIEW:
+        accumulator_.builder = std::make_unique<::arrow::StringViewBuilder>(pool);
+        break;
+      default:
+        throw ParquetException("cannot read Parquet BYTE_ARRAY as Arrow " +
+                               arrow_type->ToString());
+    }
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {
@@ -2187,26 +2201,25 @@ void TypedRecordReader<ByteArrayType>::DebugPrintState() {}
 template <>
 void TypedRecordReader<FLBAType>::DebugPrintState() {}
 
-std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* descr,
-                                                        LevelInfo leaf_info,
-                                                        ::arrow::MemoryPool* pool,
-                                                        bool read_dictionary,
-                                                        bool read_dense_for_nullable) {
+std::shared_ptr<RecordReader> MakeByteArrayRecordReader(
+    const ColumnDescriptor* descr, LevelInfo leaf_info, ::arrow::MemoryPool* pool,
+    bool read_dictionary, bool read_dense_for_nullable,
+    const std::shared_ptr<::arrow::DataType>& arrow_type) {
   if (read_dictionary) {
     return std::make_shared<ByteArrayDictionaryRecordReader>(descr, leaf_info, pool,
                                                              read_dense_for_nullable);
   } else {
-    return std::make_shared<ByteArrayChunkedRecordReader>(descr, leaf_info, pool,
-                                                          read_dense_for_nullable);
+    return std::make_shared<ByteArrayChunkedRecordReader>(
+        descr, leaf_info, pool, read_dense_for_nullable, arrow_type);
   }
 }
 
 }  // namespace
 
-std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
-                                                 LevelInfo leaf_info, MemoryPool* pool,
-                                                 bool read_dictionary,
-                                                 bool read_dense_for_nullable) {
+std::shared_ptr<RecordReader> RecordReader::Make(
+    const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool,
+    bool read_dictionary, bool read_dense_for_nullable,
+    const std::shared_ptr<::arrow::DataType>& arrow_type) {
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
       return std::make_shared<TypedRecordReader<BooleanType>>(descr, leaf_info, pool,
@@ -2228,7 +2241,7 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
                                                              read_dense_for_nullable);
     case Type::BYTE_ARRAY: {
       return MakeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
-                                       read_dense_for_nullable);
+                                       read_dense_for_nullable, arrow_type);
     }
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_shared<FLBARecordReader>(descr, leaf_info, pool,

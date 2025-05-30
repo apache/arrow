@@ -374,16 +374,13 @@ target_include_directories(arrow::flatbuffers
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
 
-if(PARQUET_REQUIRE_ENCRYPTION)
-  set(ARROW_JSON ON)
-endif()
-
 if(ARROW_WITH_OPENTELEMETRY)
   set(ARROW_WITH_NLOHMANN_JSON ON)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
 if(ARROW_PARQUET)
+  set(ARROW_WITH_RAPIDJSON ON)
   set(ARROW_WITH_THRIFT ON)
 endif()
 
@@ -410,7 +407,7 @@ if(ARROW_AZURE)
   set(ARROW_WITH_AZURE_SDK ON)
 endif()
 
-if(ARROW_JSON)
+if(ARROW_JSON OR ARROW_FLIGHT_SQL_ODBC)
   set(ARROW_WITH_RAPIDJSON ON)
 endif()
 
@@ -610,8 +607,6 @@ else()
            # our currently used packages and doesn't fall out of sync with
            # ${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}
            "${THIRDPARTY_MIRROR_URL}/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
-           "https://boostorg.jfrog.io/artifactory/main/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
-           "https://sourceforge.net/projects/boost/files/boost/${ARROW_BOOST_BUILD_VERSION}/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
   )
 endif()
 
@@ -694,8 +689,7 @@ if(DEFINED ENV{ARROW_GTEST_URL})
   set(GTEST_SOURCE_URL "$ENV{ARROW_GTEST_URL}")
 else()
   set_urls(GTEST_SOURCE_URL
-           "https://github.com/google/googletest/archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
-           "https://chromium.googlesource.com/external/github.com/google/googletest/+archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
+           "https://github.com/google/googletest/releases/download/v${ARROW_GTEST_BUILD_VERSION}/googletest-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz")
 endif()
 
@@ -957,7 +951,11 @@ set(EP_COMMON_CMAKE_ARGS
     -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=${CMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY}
     -DCMAKE_INSTALL_LIBDIR=lib
     -DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT}
-    -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE})
+    -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE}
+    # We set CMAKE_POLICY_VERSION_MINIMUM temporarily due to failures with CMake 4
+    # We should remove it once we have updated the dependencies:
+    # https://github.com/apache/arrow/issues/45985
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
 
 # if building with a toolchain file, pass that through
 if(CMAKE_TOOLCHAIN_FILE)
@@ -1025,6 +1023,11 @@ macro(prepare_fetchcontent)
   set(CMAKE_COMPILE_WARNING_AS_ERROR FALSE)
   set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
   set(CMAKE_MACOSX_RPATH ${ARROW_INSTALL_NAME_RPATH})
+  # We set CMAKE_POLICY_VERSION_MINIMUM temporarily due to failures with CMake 4
+  # We should remove it once we have updated the dependencies:
+  # https://github.com/apache/arrow/issues/45985
+  set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
   if(MSVC)
     string(REPLACE "/WX" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
     string(REPLACE "/WX" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
@@ -1253,6 +1256,7 @@ endif()
 if(ARROW_BUILD_INTEGRATION
    OR ARROW_BUILD_TESTS
    OR (ARROW_FLIGHT AND (ARROW_TESTING OR ARROW_BUILD_BENCHMARKS))
+   OR ARROW_FLIGHT_SQL_ODBC
    OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS)
    OR (ARROW_TESTING AND ARROW_BUILD_SHARED))
   set(ARROW_USE_BOOST TRUE)
@@ -1279,6 +1283,9 @@ if(ARROW_USE_BOOST)
   endif()
   if(ARROW_BOOST_REQUIRE_LIBRARY)
     set(ARROW_BOOST_COMPONENTS filesystem system)
+    if(ARROW_FLIGHT_SQL_ODBC AND MSVC)
+      list(APPEND ARROW_BOOST_COMPONENTS locale)
+    endif()
     set(ARROW_BOOST_OPTIONAL_COMPONENTS process)
   else()
     set(ARROW_BOOST_COMPONENTS)
@@ -1384,6 +1391,9 @@ macro(build_snappy)
   set(SNAPPY_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS} -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF
       "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
+  # We can remove this once we remove -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+  # from EP_COMMON_CMAKE_ARGS.
+  list(REMOVE_ITEM SNAPPY_CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
   # Snappy unconditionally enables -Werror when building with clang this can lead
   # to build failures by way of new compiler warnings. This adds a flag to disable
   # -Werror to the very end of the invocation to override the snappy internal setting.
@@ -1655,11 +1665,10 @@ endif()
 if(ARROW_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS
    OR ARROW_BUILD_INTEGRATION
-   OR ARROW_USE_GLOG
-   OR ARROW_WITH_GRPC)
-  set(ARROW_NEED_GFLAGS 1)
+   OR ARROW_USE_GLOG)
+  set(ARROW_NEED_GFLAGS TRUE)
 else()
-  set(ARROW_NEED_GFLAGS 0)
+  set(ARROW_NEED_GFLAGS FALSE)
 endif()
 
 macro(build_gflags)
@@ -2326,6 +2335,9 @@ function(build_gtest)
                        URL ${GTEST_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_GTEST_BUILD_SHA256_CHECKSUM}")
   prepare_fetchcontent()
+  # We can remove this once we remove set(CMAKE_POLICY_VERSION_MINIMUM
+  # 3.5) from prepare_fetchcontent().
+  unset(CMAKE_POLICY_VERSION_MINIMUM)
   if(APPLE)
     string(APPEND CMAKE_CXX_FLAGS " -Wno-unused-value" " -Wno-ignored-attributes")
   endif()
@@ -2642,33 +2654,40 @@ if(ARROW_WITH_ZLIB)
 endif()
 
 macro(build_lz4)
-  message(STATUS "Building LZ4 from source")
+  message(STATUS "Building LZ4 from source using FetchContent")
 
-  set(LZ4_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/lz4_ep-install")
+  # Set LZ4 as vendored
+  set(LZ4_VENDORED TRUE)
 
-  set(LZ4_STATIC_LIB
-      "${LZ4_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}lz4${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  # Declare the content
+  fetchcontent_declare(lz4
+                       URL ${LZ4_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_LZ4_BUILD_SHA256_CHECKSUM}"
+                       SOURCE_SUBDIR "build/cmake")
 
-  set(LZ4_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-                     -DLZ4_BUILD_CLI=OFF -DLZ4_BUILD_LEGACY_LZ4C=OFF)
+  # Prepare fetch content environment
+  prepare_fetchcontent()
 
-  # We need to copy the header in lib to directory outside of the build
-  externalproject_add(lz4_ep
-                      ${EP_COMMON_OPTIONS}
-                      CMAKE_ARGS ${LZ4_CMAKE_ARGS}
-                      SOURCE_SUBDIR "build/cmake"
-                      INSTALL_DIR ${LZ4_PREFIX}
-                      URL ${LZ4_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_LZ4_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS ${LZ4_STATIC_LIB})
+  # Set LZ4-specific build options as cache variables
+  set(LZ4_BUILD_CLI
+      OFF
+      CACHE BOOL "Don't build LZ4 CLI" FORCE)
+  set(LZ4_BUILD_LEGACY_LZ4C
+      OFF
+      CACHE BOOL "Don't build legacy LZ4 tools" FORCE)
 
-  file(MAKE_DIRECTORY "${LZ4_PREFIX}/include")
-  add_library(LZ4::lz4 STATIC IMPORTED)
-  set_target_properties(LZ4::lz4 PROPERTIES IMPORTED_LOCATION "${LZ4_STATIC_LIB}")
-  target_include_directories(LZ4::lz4 BEFORE INTERFACE "${LZ4_PREFIX}/include")
-  add_dependencies(LZ4::lz4 lz4_ep)
+  # Make the dependency available - this will actually perform the download and configure
+  fetchcontent_makeavailable(lz4)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS LZ4::lz4)
+  # Use LZ4::lz4 as an imported library not an alias of lz4_static so other targets such as orc
+  # can depend on it as an external library. External libraries are ignored in
+  # install(TARGETS orc EXPORT orc_targets) and install(EXPORT orc_targets).
+  add_library(LZ4::lz4 INTERFACE IMPORTED)
+  target_link_libraries(LZ4::lz4 INTERFACE lz4_static)
+
+  # Add to bundled static libs.
+  # We must use lz4_static (not imported target) not LZ4::lz4 (imported target).
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS lz4_static)
 endmacro()
 
 if(ARROW_WITH_LZ4)
@@ -2742,6 +2761,10 @@ if(ARROW_WITH_ZSTD)
       set(ARROW_ZSTD_LIBZSTD zstd::libzstd_shared)
     else()
       set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
+    endif()
+    # vcpkg uses zstd::libzstd
+    if(NOT TARGET ${ARROW_ZSTD_LIBZSTD} AND TARGET zstd::libzstd)
+      set(ARROW_ZSTD_LIBZSTD zstd::libzstd)
     endif()
     if(NOT TARGET ${ARROW_ZSTD_LIBZSTD})
       message(FATAL_ERROR "Zstandard target doesn't exist: ${ARROW_ZSTD_LIBZSTD}")
@@ -2867,6 +2890,10 @@ macro(build_utf8proc)
   set(UTF8PROC_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
                           "-DCMAKE_INSTALL_PREFIX=${UTF8PROC_PREFIX}")
 
+  # We can remove this once we remove -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+  # from EP_COMMON_CMAKE_ARGS.
+  list(REMOVE_ITEM UTF8PROC_CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
+
   externalproject_add(utf8proc_ep
                       ${EP_COMMON_OPTIONS}
                       CMAKE_ARGS ${UTF8PROC_CMAKE_ARGS}
@@ -2890,7 +2917,7 @@ endmacro()
 
 if(ARROW_WITH_UTF8PROC)
   set(utf8proc_resolve_dependency_args utf8proc PC_PACKAGE_NAMES libutf8proc)
-  if(NOT VCPKG_TOOLCHAIN)
+  if(NOT ARROW_VCPKG)
     # utf8proc in vcpkg doesn't provide version information:
     # https://github.com/microsoft/vcpkg/issues/39176
     list(APPEND utf8proc_resolve_dependency_args REQUIRED_VERSION "2.2.0")
@@ -3946,9 +3973,6 @@ macro(build_grpc)
                       IMPORTED_LOCATION)
   get_target_property(GRPC_CARES_INCLUDE_DIR c-ares::cares INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(GRPC_CARES_ROOT "${GRPC_CARES_INCLUDE_DIR}" DIRECTORY)
-  get_target_property(GRPC_GFLAGS_INCLUDE_DIR ${GFLAGS_LIBRARIES}
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(GRPC_GFLAGS_ROOT "${GRPC_GFLAGS_INCLUDE_DIR}" DIRECTORY)
   get_target_property(GRPC_RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(GRPC_RE2_ROOT "${GRPC_RE2_INCLUDE_DIR}" DIRECTORY)
 
@@ -3956,7 +3980,6 @@ macro(build_grpc)
   # before (what are likely) system directories
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ABSL_PREFIX}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_PB_ROOT}")
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_GFLAGS_ROOT}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_CARES_ROOT}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_RE2_ROOT}")
 
@@ -4006,7 +4029,6 @@ macro(build_grpc)
       -DgRPC_BUILD_GRPC_RUBY_PLUGIN=OFF
       -DgRPC_BUILD_TESTS=OFF
       -DgRPC_CARES_PROVIDER=package
-      -DgRPC_GFLAGS_PROVIDER=package
       -DgRPC_MSVC_STATIC_RUNTIME=${ARROW_USE_STATIC_CRT}
       -DgRPC_PROTOBUF_PROVIDER=package
       -DgRPC_RE2_PROVIDER=package
@@ -4308,6 +4330,10 @@ macro(build_nlohmann_json)
       # google-cloud-cpp requires JSON_MultipleHeaders=ON
       -DJSON_BuildTests=OFF -DJSON_MultipleHeaders=ON)
 
+  # We can remove this once we remove -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+  # from EP_COMMON_CMAKE_ARGS.
+  list(REMOVE_ITEM NLOHMANN_JSON_CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
+
   set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/nlohmann/json.hpp)
 
   externalproject_add(nlohmann_json_ep
@@ -4572,6 +4598,17 @@ target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
 function(build_orc)
   message(STATUS "Building Apache ORC from source")
 
+  if(LZ4_VENDORED)
+    set(ORC_LZ4_TARGET lz4_static)
+    set(ORC_LZ4_ROOT "${lz4_SOURCE_DIR}")
+    set(ORC_LZ4_INCLUDE_DIR "${lz4_SOURCE_DIR}/lib")
+  else()
+    set(ORC_LZ4_TARGET LZ4::lz4)
+    get_target_property(ORC_LZ4_INCLUDE_DIR ${ORC_LZ4_TARGET}
+                        INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_INCLUDE_DIR}" DIRECTORY)
+  endif()
+
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
@@ -4584,16 +4621,14 @@ function(build_orc)
     set(ORC_PREFER_STATIC_LZ4
         OFF
         CACHE BOOL "" FORCE)
-    get_target_property(LZ4_INCLUDE_DIR LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
-    if(NOT LZ4_INCLUDE_DIR)
-      find_path(LZ4_INCLUDE_DIR NAMES lz4.h)
-    endif()
-    get_filename_component(LZ4_ROOT "${LZ4_INCLUDE_DIR}" DIRECTORY)
     set(LZ4_HOME
-        "${LZ4_ROOT}"
+        "${ORC_LZ4_ROOT}"
+        CACHE STRING "" FORCE)
+    set(LZ4_INCLUDE_DIR
+        "${ORC_LZ4_INCLUDE_DIR}"
         CACHE STRING "" FORCE)
     set(LZ4_LIBRARY
-        LZ4::lz4
+        ${ORC_LZ4_TARGET}
         CACHE STRING "" FORCE)
 
     set(ORC_PREFER_STATIC_PROTOBUF
@@ -4692,9 +4727,6 @@ function(build_orc)
                         INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
 
-    get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
-
     get_target_property(ORC_ZSTD_ROOT ${ARROW_ZSTD_LIBZSTD} INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_ZSTD_ROOT "${ORC_ZSTD_ROOT}" DIRECTORY)
 
@@ -4718,9 +4750,9 @@ function(build_orc)
         "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
         "-DSNAPPY_LIBRARY=$<TARGET_FILE:${Snappy_TARGET}>"
         "-DLZ4_HOME=${ORC_LZ4_ROOT}"
-        "-DLZ4_LIBRARY=$<TARGET_FILE:LZ4::lz4>"
-        "-DLZ4_STATIC_LIB=$<TARGET_FILE:LZ4::lz4>"
-        "-DLZ4_INCLUDE_DIR=${ORC_LZ4_ROOT}/include"
+        "-DLZ4_LIBRARY=$<TARGET_FILE:${ORC_LZ4_TARGET}>"
+        "-DLZ4_STATIC_LIB=$<TARGET_FILE:${ORC_LZ4_TARGET}>"
+        "-DLZ4_INCLUDE_DIR=${ORC_LZ4_INCLUDE_DIR}"
         "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
         "-DZSTD_HOME=${ORC_ZSTD_ROOT}"
         "-DZSTD_INCLUDE_DIR=$<TARGET_PROPERTY:${ARROW_ZSTD_LIBZSTD},INTERFACE_INCLUDE_DIRECTORIES>"
@@ -5510,6 +5542,12 @@ function(build_azure_sdk)
   set(BUILD_SAMPLES FALSE)
   set(BUILD_TESTING FALSE)
   set(BUILD_WINDOWS_UWP TRUE)
+  # ICU 75.1 or later requires C++17 but Azure SDK for C++ still uses
+  # C++14. So we disable C++ API in ICU.
+  #
+  # We can remove this after
+  # https://github.com/Azure/azure-sdk-for-cpp/pull/6486 is merged.
+  string(APPEND CMAKE_CXX_FLAGS " -DU_SHOW_CPLUSPLUS_API=0")
   set(CMAKE_UNITY_BUILD FALSE)
   set(DISABLE_AZURE_CORE_OPENTELEMETRY TRUE)
   set(ENV{AZURE_SDK_DISABLE_AUTO_VCPKG} TRUE)
@@ -5537,6 +5575,13 @@ if(ARROW_WITH_AZURE_SDK)
   resolve_dependency(Azure REQUIRED_VERSION 1.10.2)
   set(AZURE_SDK_LINK_LIBRARIES Azure::azure-storage-files-datalake
                                Azure::azure-storage-blobs Azure::azure-identity)
+endif()
+
+# ----------------------------------------------------------------------
+# Apache Flight SQL ODBC
+
+if(ARROW_FLIGHT_SQL_ODBC)
+  find_package(ODBC REQUIRED)
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")

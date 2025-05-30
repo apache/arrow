@@ -95,7 +95,6 @@ if [ ${SOURCE_UPLOAD} -gt 0 ]; then
   # Upload signed tarballs to GitHub Release
   gh release upload ${tag} \
      --repo "${GITHUB_REPOSITORY}" \
-     --verify-tag \
      signed-artifacts/*
 
   # check out the arrow RC folder
@@ -189,12 +188,12 @@ The vote will be open for at least 72 hours.
 [1]: https://github.com/apache/arrow/issues?q=is%3Aissue+milestone%3A${version}+is%3Aclosed
 [2]: https://github.com/apache/arrow/tree/${release_hash}
 [3]: ${rc_url}
-[4]: https://apache.jfrog.io/artifactory/arrow/almalinux-rc/
-[5]: https://apache.jfrog.io/artifactory/arrow/amazon-linux-rc/
-[6]: https://apache.jfrog.io/artifactory/arrow/centos-rc/
-[7]: https://apache.jfrog.io/artifactory/arrow/debian-rc/
-[8]: https://apache.jfrog.io/artifactory/arrow/python-rc/${version}-rc${rc}
-[9]: https://apache.jfrog.io/artifactory/arrow/ubuntu-rc/
+[4]: https://packages.apache.org/artifactory/arrow/almalinux-rc/
+[5]: https://packages.apache.org/artifactory/arrow/amazon-linux-rc/
+[6]: https://packages.apache.org/artifactory/arrow/centos-rc/
+[7]: https://packages.apache.org/artifactory/arrow/debian-rc/
+[8]: https://packages.apache.org/artifactory/arrow/ubuntu-rc/
+[9]: https://github.com/apache/arrow/releases/tag/apache-arrow-${version}-rc${rc}
 [10]: https://github.com/apache/arrow/blob/${release_hash}/CHANGELOG.md
 [11]: https://arrow.apache.org/docs/developers/release_verification.html
 [12]: ${verify_pr_url}

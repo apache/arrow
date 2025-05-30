@@ -98,6 +98,10 @@
                           << _st.ToString();                            \
   } while (false)
 
+#define EXPECT_OK ARROW_EXPECT_OK
+
+#define EXPECT_OK_NO_THROW(expr) EXPECT_NO_THROW(EXPECT_OK(expr))
+
 #define ASSERT_NOT_OK(expr)                                                         \
   for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr)); _st.ok();) \
   FAIL() << "'" ARROW_STRINGIFY(expr) "' did not failed" << _st.ToString()
@@ -182,6 +186,9 @@ using BaseBinaryArrowTypes =
 using BaseBinaryOrBinaryViewLikeArrowTypes =
     ::testing::Types<BinaryType, LargeBinaryType, BinaryViewType, StringType,
                      LargeStringType, StringViewType>;
+using AllBinaryOrBinrayViewLikeArrowTypes =
+    ::testing::Types<BinaryType, LargeBinaryType, BinaryViewType, FixedSizeBinaryType,
+                     StringType, LargeStringType, StringViewType>;
 
 using BinaryArrowTypes = ::testing::Types<BinaryType, LargeBinaryType>;
 
@@ -369,10 +376,6 @@ std::shared_ptr<Tensor> TensorFromJSON(const std::shared_ptr<DataType>& type,
                                        const std::vector<int64_t>& shape,
                                        const std::vector<int64_t>& strides = {},
                                        const std::vector<std::string>& dim_names = {});
-
-ARROW_TESTING_EXPORT
-Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
-    const Table& table, const std::vector<int>& column_indices);
 
 // Given an array, return a new identical array except for one validity bit
 // set to a new value.

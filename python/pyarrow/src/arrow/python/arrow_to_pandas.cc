@@ -264,10 +264,11 @@ inline void set_numpy_metadata(int type, const DataType* datatype, PyArray_Descr
       const auto& timestamp_type = checked_cast<const TimestampType&>(*datatype);
       metadata->meta.base = internal::NumPyFrequency(timestamp_type.unit());
     } else {
-      DCHECK(false) << "NPY_DATETIME views only supported for Arrow TIMESTAMP types";
+      ARROW_DCHECK(false)
+          << "NPY_DATETIME views only supported for Arrow TIMESTAMP types";
     }
   } else if (type == NPY_TIMEDELTA) {
-    DCHECK_EQ(datatype->id(), Type::DURATION);
+    ARROW_DCHECK_EQ(datatype->id(), Type::DURATION);
     const auto& duration_type = checked_cast<const DurationType&>(*datatype);
     metadata->meta.base = internal::NumPyFrequency(duration_type.unit());
   }
@@ -466,7 +467,7 @@ class PandasWriter {
     // 1D array when there is only one column
     PyAcquireGIL lock;
 
-    DCHECK_EQ(1, num_columns_);
+    ARROW_DCHECK_EQ(1, num_columns_);
 
     npy_intp new_dims[1] = {static_cast<npy_intp>(num_rows_)};
     PyArray_Dims dims;
@@ -691,7 +692,7 @@ Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
       }
       RETURN_NOT_OK(ConvertArrayToPandas(options, field, nullptr,
                                          fields_data[i + fields_data_offset].ref()));
-      DCHECK(PyArray_Check(fields_data[i + fields_data_offset].obj()));
+      ARROW_DCHECK(PyArray_Check(fields_data[i + fields_data_offset].obj()));
     }
 
     // Construct a dictionary for each row
@@ -723,7 +724,7 @@ Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
           auto setitem_result =
               PyDict_SetItemString(dict_item.obj(), name.c_str(), field_value.obj());
           RETURN_IF_PYERROR();
-          DCHECK_EQ(setitem_result, 0);
+          ARROW_DCHECK_EQ(setitem_result, 0);
         }
         *out_values = dict_item.obj();
         // Grant ownership to the resulting array
@@ -792,7 +793,7 @@ enable_if_list_like<T, Status> ConvertListsLike(PandasOptions options,
   RETURN_NOT_OK(ConvertChunkedArrayToPandas(options, flat_column, nullptr,
                                             owned_numpy_array.ref()));
   PyObject* numpy_array = owned_numpy_array.obj();
-  DCHECK(PyArray_Check(numpy_array));
+  ARROW_DCHECK(PyArray_Check(numpy_array));
 
   int64_t chunk_offset = 0;
   for (int c = 0; c < data.num_chunks(); c++) {
@@ -1289,7 +1290,7 @@ struct ObjectWriterVisitor {
     RETURN_IF_PYERROR();
     auto to_date_offset = [&](const MonthDayNanoIntervalType::MonthDayNanos& interval,
                               PyObject** out) {
-      DCHECK(internal::BorrowPandasDataOffsetType() != nullptr);
+      ARROW_DCHECK(internal::BorrowPandasDataOffsetType() != nullptr);
       // DateOffset objects do not add nanoseconds component to pd.Timestamp.
       // as of  Pandas 1.3.3
       // (https://github.com/pandas-dev/pandas/issues/43892).
@@ -1588,8 +1589,8 @@ class DatetimeWriter : public TypedPandasWriter<NPY_DATETIME> {
 
   Status CopyInto(std::shared_ptr<ChunkedArray> data, int64_t rel_placement) override {
     const auto& ts_type = checked_cast<const TimestampType&>(*data->type());
-    DCHECK_EQ(UNIT, ts_type.unit()) << "Should only call instances of this writer "
-                                    << "with arrays of the correct unit";
+    ARROW_DCHECK_EQ(UNIT, ts_type.unit()) << "Should only call instances of this writer "
+                                          << "with arrays of the correct unit";
     ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull,
                                     this->GetBlockColumnStart(rel_placement));
     return Status::OK();
@@ -1619,7 +1620,7 @@ class DatetimeMilliWriter : public DatetimeWriter<TimeUnit::MILLI> {
       ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull, out_values);
     } else {
       const auto& ts_type = checked_cast<const TimestampType&>(*data->type());
-      DCHECK_EQ(TimeUnit::MILLI, ts_type.unit())
+      ARROW_DCHECK_EQ(TimeUnit::MILLI, ts_type.unit())
           << "Should only call instances of this writer "
           << "with arrays of the correct unit";
       ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull, out_values);
@@ -1726,8 +1727,8 @@ class TimedeltaWriter : public TypedPandasWriter<NPY_TIMEDELTA> {
 
   Status CopyInto(std::shared_ptr<ChunkedArray> data, int64_t rel_placement) override {
     const auto& type = checked_cast<const DurationType&>(*data->type());
-    DCHECK_EQ(UNIT, type.unit()) << "Should only call instances of this writer "
-                                 << "with arrays of the correct unit";
+    ARROW_DCHECK_EQ(UNIT, type.unit()) << "Should only call instances of this writer "
+                                       << "with arrays of the correct unit";
     ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull,
                                     this->GetBlockColumnStart(rel_placement));
     return Status::OK();
@@ -1817,7 +1818,7 @@ class CategoricalWriter
       RETURN_NOT_OK(this->AllocateNDArray(TRAITS::npy_type, 1));
       RETURN_NOT_OK(MakeZeroLengthArray(dict_type.value_type(), &dict));
     } else {
-      DCHECK_EQ(IndexType::type_id, dict_type.index_type()->id());
+      ARROW_DCHECK_EQ(IndexType::type_id, dict_type.index_type()->id());
       RETURN_NOT_OK(WriteIndices(*data, &dict));
     }
 
@@ -1920,7 +1921,7 @@ class CategoricalWriter
   }
 
   Status WriteIndices(const ChunkedArray& data, std::shared_ptr<Array>* out_dict) {
-    DCHECK_GT(data.num_chunks(), 0);
+    ARROW_DCHECK_GT(data.num_chunks(), 0);
 
     // Sniff the first chunk
     const auto& arr_first = checked_cast<const DictionaryArray&>(*data.chunk(0));
@@ -2031,7 +2032,7 @@ Status MakeWriter(const PandasOptions& options, PandasWriter::type writer_type,
               " not yet supported, index type: ", index_type.ToString());
         default:
           // Unreachable
-          DCHECK(false);
+          ARROW_DCHECK(false);
           break;
       }
     } break;
@@ -2311,7 +2312,7 @@ std::shared_ptr<ChunkedArray> GetStorageChunkedArray(std::shared_ptr<ChunkedArra
 Result<std::shared_ptr<ChunkedArray>> GetDecodedChunkedArray(
     std::shared_ptr<ChunkedArray> arr) {
   ARROW_ASSIGN_OR_RAISE(Datum decoded, compute::RunEndDecode(arr));
-  DCHECK(decoded.is_chunked_array());
+  ARROW_DCHECK(decoded.is_chunked_array());
   return decoded.chunked_array();
 };
 
@@ -2552,7 +2553,7 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
     const auto& dense_type =
         checked_cast<const DictionaryType&>(*arr->type()).value_type();
     RETURN_NOT_OK(DecodeDictionaries(options.pool, dense_type, &arr));
-    DCHECK_NE(arr->type()->id(), Type::DICTIONARY);
+    ARROW_DCHECK_NE(arr->type()->id(), Type::DICTIONARY);
 
     // The original Python DictionaryArray won't own the memory anymore
     // as we actually built a new array when we decoded the DictionaryArray
@@ -2601,7 +2602,7 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
   PandasWriter::type output_type;
   RETURN_NOT_OK(GetPandasWriterType(*arr, modified_options, &output_type));
   if (options.decode_dictionaries) {
-    DCHECK_NE(output_type, PandasWriter::CATEGORICAL);
+    ARROW_DCHECK_NE(output_type, PandasWriter::CATEGORICAL);
   }
 
   std::shared_ptr<PandasWriter> writer;

@@ -114,7 +114,7 @@ jobs:
           key: ${{ matrix.cache }}-${{ hashFiles('cpp/**') }}
           restore-keys: ${{ matrix.cache }}-
       - name: Setup Python
-        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: 3.12
       - name: Setup Archery
@@ -183,7 +183,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@v5.4.0
+        uses: actions/setup-python@v5.6.0
         with:
           python-version: '3.11'
       - name: Install Dependencies
@@ -195,6 +195,7 @@ jobs:
           brew uninstall pkg-config || :
           brew uninstall pkg-config@0.29.2 || :
           brew bundle --file=cpp/Brewfile
+
           python -m pip install \
             -r python/requirements-build.txt \
             -r python/requirements-test.txt
@@ -218,6 +219,20 @@ jobs:
       - name: Build
         shell: bash
         run: |
+          if [ "${{ matrix.macos-version }}" = "13" ]; then
+            # This is a workaround.
+            #
+            # Homebrew uses /usr/local as prefix. So packages
+            # installed by Homebrew also use /usr/local/include. We
+            # want to include headers for packages installed by
+            # Homebrew as system headers to ignore warnings in them.
+            # But "-isystem /usr/local/include" isn't used by CMake
+            # because /usr/local/include is marked as the default
+            # include path. So we disable -Werror to avoid build error
+            # by warnings from packages installed by Homebrew.
+            export BUILD_WARNING_LEVEL=PRODUCTION
+          fi
+
           python -m pip install wheel
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
           ci/scripts/python_build.sh $(pwd) $(pwd)/build

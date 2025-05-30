@@ -77,6 +77,9 @@ def lint_file(path):
 
 EXCLUSIONS = _paths('''\
     arrow/arrow-config.cmake
+    arrow/flight/sql/odbc/flight_sql/get_info_cache.h
+    arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/blocking_queue.h
+    arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_handle.h
     arrow/python/iterators.h
     arrow/util/hashing.h
     arrow/util/macros.h
@@ -121,7 +124,7 @@ def lint_files():
 if __name__ == '__main__':
     failures = list(lint_files())
     for path, why, i, line in failures:
-        print('File {0} failed C++/CLI lint check: {1}\n'
-              'Line {2}: {3}'.format(path, why, i + 1, line))
+        print(f'File {path} failed C++/CLI lint check: {why}\n'
+              f'Line {i + 1}: {line}')
     if failures:
         exit(1)

@@ -29,7 +29,9 @@
 #include "arrow/compute/kernels/hash_aggregate_internal.h"
 #include "arrow/compute/kernels/pivot_internal.h"
 #include "arrow/compute/row/grouper.h"
+#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/span.h"
 #include "arrow/visit_type_inline.h"
 
@@ -54,7 +56,7 @@ struct GroupedPivotAccumulator {
     return Status::OK();
   }
 
-  Status Consume(span<const uint32_t> groups, span<const PivotWiderKeyIndex> keys,
+  Status Consume(span<const uint32_t> groups, const std::shared_ptr<ArrayData>& keys,
                  const ArraySpan& values) {
     // To dispatch the values into the right (group, key) coordinates,
     // we first compute a vector of take indices for each output column.
@@ -78,7 +80,8 @@ struct GroupedPivotAccumulator {
     // respective take_indices for the column's keys.
     //
 
-    DCHECK_EQ(groups.size(), keys.size());
+    DCHECK_EQ(keys->type->id(), Type::UINT32);
+    DCHECK_EQ(groups.size(), static_cast<size_t>(keys->length));
     DCHECK_EQ(groups.size(), static_cast<size_t>(values.length));
 
     std::shared_ptr<DataType> take_index_type;
@@ -118,20 +121,28 @@ struct GroupedPivotAccumulator {
       DCHECK_LE(offset, scratch_buffer_.capacity());
 
       // Populate the take_indices for each output column
-      for (int64_t i = 0; i < values.length; ++i) {
-        const PivotWiderKeyIndex key = keys[i];
-        if (key != kNullPivotKey && !values.IsNull(i)) {
-          DCHECK_LT(static_cast<int>(key), num_keys_);
-          const uint32_t group = groups[i];
-          if (bit_util::GetBit(take_bitmap_data[key], group)) {
-            return DuplicateValue();
-          }
-          // For row #group in column #key, we are going to take the value at index #i
-          bit_util::SetBit(take_bitmap_data[key], group);
-          take_indices_data[key][group] = static_cast<TakeIndex>(i);
-        }
-      }
-      return Status::OK();
+      const uint8_t* keys_null_bitmap =
+          (keys->GetNullCount() != 0) ? keys->GetValues<uint8_t>(0, 0) : nullptr;
+      const uint32_t* key_values = keys->GetValues<uint32_t>(1);
+      const uint8_t* values_null_bitmap =
+          (values.GetNullCount() != 0) ? values.GetValues<uint8_t>(0, 0) : nullptr;
+      return ::arrow::internal::VisitTwoBitBlocks(
+          keys_null_bitmap, keys->offset, values_null_bitmap, values.offset,
+          values.length,
+          [&](int64_t i) {
+            // Non-null key, non-null value
+            const uint32_t group = groups[i];
+            const uint32_t key = key_values[i];
+            DCHECK_LT(static_cast<int>(key), num_keys_);
+            if (ARROW_PREDICT_FALSE(bit_util::GetBit(take_bitmap_data[key], group))) {
+              return DuplicateValue();
+            }
+            // For row #group in column #key, we are going to take the value at index #i
+            bit_util::SetBit(take_bitmap_data[key], group);
+            take_indices_data[key][group] = static_cast<TakeIndex>(i);
+            return Status::OK();
+          },
+          [] { return Status::OK(); });
     };
 
     // Call compute_take_indices with the optimal integer width
@@ -166,12 +177,13 @@ struct GroupedPivotAccumulator {
     return MergeColumns(std::move(new_columns));
   }
 
-  Status Consume(span<const uint32_t> groups, const PivotWiderKeyIndex key,
+  Status Consume(span<const uint32_t> groups, std::optional<PivotWiderKeyIndex> maybe_key,
                  const ArraySpan& values) {
-    if (key == kNullPivotKey) {
+    if (!maybe_key.has_value()) {
       // Nothing to update
       return Status::OK();
     }
+    const auto key = maybe_key.value();
     DCHECK_LT(static_cast<int>(key), num_keys_);
     DCHECK_EQ(groups.size(), static_cast<size_t>(values.length));
 
@@ -381,7 +393,8 @@ struct GroupedPivotImpl : public GroupedAggregator {
     }
     out_type_ = struct_(std::move(fields));
     out_struct_type_ = checked_cast<const StructType*>(out_type_.get());
-    ARROW_ASSIGN_OR_RAISE(key_mapper_, PivotWiderKeyMapper::Make(*key_type_, options_));
+    ARROW_ASSIGN_OR_RAISE(key_mapper_,
+                          PivotWiderKeyMapper::Make(*key_type_, options_, ctx));
     RETURN_NOT_OK(accumulator_.Init(ctx, value_type, options_));
     return Status::OK();
   }
@@ -404,11 +417,11 @@ struct GroupedPivotImpl : public GroupedAggregator {
       return Status::NotImplemented("Consuming scalar pivot value");
     }
     if (batch[0].is_array()) {
-      ARROW_ASSIGN_OR_RAISE(span<const PivotWiderKeyIndex> keys,
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> keys,
                             key_mapper_->MapKeys(batch[0].array));
       return accumulator_.Consume(groups, keys, batch[1].array);
     } else {
-      ARROW_ASSIGN_OR_RAISE(PivotWiderKeyIndex key,
+      ARROW_ASSIGN_OR_RAISE(std::optional<PivotWiderKeyIndex> key,
                             key_mapper_->MapKey(*batch[0].scalar));
       return accumulator_.Consume(groups, key, batch[1].array);
     }
@@ -444,6 +457,8 @@ const FunctionDoc hash_pivot_doc{
      "is emitted. If a pivot key doesn't appear in a given group, null is emitted.\n"
      "If more than one non-null value is encountered in the same group for a\n"
      "given pivot key, Invalid is raised.\n"
+     "The pivot key column can be string, binary or integer. The `key_names`\n"
+     "will be cast to the pivot key column type for matching.\n"
      "Behavior of unexpected pivot keys is controlled by `unexpected_key_behavior`\n"
      "in PivotWiderOptions."),
     {"pivot_keys", "pivot_values", "group_id_array"},
@@ -457,14 +472,20 @@ void RegisterHashAggregatePivot(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_pivot_wider", Arity::Ternary(), hash_pivot_doc, &default_pivot_options);
-    for (auto key_type : BaseBinaryTypes()) {
+    auto add_kernel = [&](InputType type) {
       // Anything that scatter() (i.e. take()) accepts can be passed as values
-      auto sig = KernelSignature::Make(
-          {key_type->id(), InputType::Any(), InputType(Type::UINT32)},
-          OutputType(ResolveGroupOutputType));
+      auto sig = KernelSignature::Make({type, InputType::Any(), InputType(Type::UINT32)},
+                                       OutputType(ResolveGroupOutputType));
       DCHECK_OK(func->AddKernel(
           MakeKernel(std::move(sig), HashAggregateInit<GroupedPivotImpl>)));
+    };
+    for (const auto& key_type : BaseBinaryTypes()) {
+      add_kernel(key_type->id());
     }
+    for (const auto& key_type : IntTypes()) {
+      add_kernel(key_type->id());
+    }
+    add_kernel(Type::FIXED_SIZE_BINARY);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 }

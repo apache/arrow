@@ -21,7 +21,7 @@
 
 [![Fuzzing Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/arrow.svg)](https://bugs.chromium.org/p/oss-fuzz/issues/list?sort=-opened&can=1&q=proj:arrow)
 [![License](http://img.shields.io/:license-Apache%202-blue.svg)](https://github.com/apache/arrow/blob/main/LICENSE.txt)
-[![Twitter Follow](https://img.shields.io/twitter/follow/apachearrow.svg?style=social&label=Follow)](https://twitter.com/apachearrow)
+[![BlueSky Follow](https://img.shields.io/badge/bluesky-Follow-blue?logo=bluesky)](https://bsky.app/profile/arrow.apache.org)
 
 ## Powering In-Memory Analytics
 
@@ -31,11 +31,13 @@ enable data systems to efficiently store, process, and move data.
 
 Major components of the project include:
 
- - [The Arrow Columnar In-Memory Format](https://arrow.apache.org/docs/dev/format/Columnar.html):
+ - [The Arrow Columnar Format](https://arrow.apache.org/docs/dev/format/Columnar.html):
    a standard and efficient in-memory representation of various datatypes, plain or nested
  - [The Arrow IPC Format](https://arrow.apache.org/docs/dev/format/Columnar.html#serialization-and-interprocess-communication-ipc):
    an efficient serialization of the Arrow format and associated metadata,
    for communication between processes and heterogeneous environments
+ - [ADBC (Arrow Database Connectivity)](https://github.com/apache/arrow-adbc/) `↗`: Arrow-powered API,
+   drivers, and libraries for access to databases and query engines
  - [The Arrow Flight RPC protocol](https://github.com/apache/arrow/tree/main/format/Flight.proto):
    based on the Arrow IPC format, a building block for remote services exchanging
    Arrow data with application-defined semantics (for example a storage server or a database)
@@ -44,13 +46,17 @@ Major components of the project include:
  - [C# .NET libraries](https://github.com/apache/arrow/tree/main/csharp)
  - [Gandiva](https://github.com/apache/arrow/tree/main/cpp/src/gandiva):
    an [LLVM](https://llvm.org)-based Arrow expression compiler, part of the C++ codebase
- - [Go libraries](https://github.com/apache/arrow-go)
- - [Java libraries](https://github.com/apache/arrow-java)
- - [JavaScript libraries](https://github.com/apache/arrow/tree/main/js)
+ - [Go libraries](https://github.com/apache/arrow-go) `↗`
+ - [Java libraries](https://github.com/apache/arrow-java) `↗`
+ - [JavaScript libraries](https://github.com/apache/arrow-js) `↗`
+ - [Julia implementation](https://github.com/apache/arrow-julia) `↗`
  - [Python libraries](https://github.com/apache/arrow/tree/main/python)
  - [R libraries](https://github.com/apache/arrow/tree/main/r)
  - [Ruby libraries](https://github.com/apache/arrow/tree/main/ruby)
- - [Rust libraries](https://github.com/apache/arrow-rs)
+ - [Rust libraries](https://github.com/apache/arrow-rs) `↗`
+
+The `↗` icon denotes that this component of the project is maintained in a separate
+repository.
 
 Arrow is an [Apache Software Foundation](https://www.apache.org) project. Learn more at
 [arrow.apache.org](https://arrow.apache.org).

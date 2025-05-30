@@ -267,7 +267,7 @@ def test_statistics_convert_logical_types(tempdir):
     for i, (min_val, max_val, typ) in enumerate(cases):
         t = pa.Table.from_arrays([pa.array([min_val, max_val], type=typ)],
                                  ['col'])
-        path = str(tempdir / ('example{}.parquet'.format(i)))
+        path = str(tempdir / f'example{i}.parquet')
         pq.write_table(t, path, version='2.6')
         pf = pq.ParquetFile(path)
         stats = pf.metadata.row_group(0).column(0).statistics
@@ -554,7 +554,7 @@ def test_write_metadata(tempdir):
         assert b'ARROW:schema' not in schema_as_arrow.metadata
 
     # pass through writer keyword arguments
-    for version in ["1.0", "2.0", "2.4", "2.6"]:
+    for version in ["1.0", "2.4", "2.6"]:
         pq.write_metadata(schema, path, version=version)
         parquet_meta = pq.read_metadata(path)
         # The version is stored as a single integer in the Parquet metadata,

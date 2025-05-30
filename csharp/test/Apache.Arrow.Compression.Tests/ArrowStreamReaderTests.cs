@@ -16,6 +16,7 @@
 using Apache.Arrow.Ipc;
 using System;
 using System.Reflection;
+using Apache.Arrow.Tests;
 using Xunit;
 
 namespace Apache.Arrow.Compression.Tests
@@ -63,6 +64,26 @@ namespace Apache.Arrow.Compression.Tests
 
             var exception = Assert.Throws<Exception>(() => reader.ReadNextRecordBatch());
             Assert.Contains("no ICompressionCodecFactory has been configured", exception.Message);
+        }
+
+        [Theory]
+        [InlineData("ipc_lz4_compression.arrow_stream")]
+        [InlineData("ipc_zstd_compression.arrow_stream")]
+        public void MemoryPoolDisposedOnReadCompressedIpcStream(string fileName)
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            using var stream = assembly.GetManifestResourceStream($"Apache.Arrow.Compression.Tests.Resources.{fileName}");
+            Assert.NotNull(stream);
+            var codecFactory = new CompressionCodecFactory();
+            var allocator = new TestMemoryAllocator();
+            using var reader = new ArrowStreamReader(stream, allocator, codecFactory, false);
+            using (var recordBatch = reader.ReadNextRecordBatch())
+            {
+                VerifyCompressedIpcFileBatch(recordBatch);
+            }
+            Assert.True(allocator.Statistics.Allocations > 0);
+            Assert.Equal(0, allocator.Rented);
+
         }
 
         private static void VerifyCompressedIpcFileBatch(RecordBatch batch)

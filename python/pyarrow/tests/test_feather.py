@@ -443,7 +443,7 @@ def test_all_null_category(version):
 
 @pytest.mark.pandas
 def test_multithreaded_read(version):
-    data = {'c{}'.format(i): [''] * 10
+    data = {f'c{i}': [''] * 10
             for i in range(100)}
     df = pd.DataFrame(data)
     _check_pandas_roundtrip(df, use_threads=True, version=version)
@@ -803,6 +803,15 @@ def test_read_column_duplicated_in_file(tempdir):
     # selection with column names errors
     with pytest.raises(ValueError):
         read_table(path, columns=['a', 'b'])
+
+
+def test_read_column_with_generator(tempdir, version):
+    table = pa.table([[1, 2, 3], [4, 5, 6], [7, 8, 9]], names=['a', 'b', 'c'])
+    path = str(tempdir / "data.feather")
+    write_feather(table, path, version=version)
+    columns_gen = (x for x in ['a', 'b', 'c'])
+    with pytest.raises(TypeError, match="Columns must be a sequence"):
+        read_table(path, columns=columns_gen)
 
 
 def test_nested_types(compression):

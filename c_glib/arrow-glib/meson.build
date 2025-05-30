@@ -266,7 +266,7 @@ if have_gi
     arrow_glib_gir = gnome.generate_gir(
         libarrow_glib,
         export_packages: 'arrow-glib',
-        extra_args: ['--warn-all'],
+        extra_args: gir_scanner_extra_args,
         header: 'arrow-glib/arrow-glib.h',
         identifier_prefix: 'GArrow',
         includes: ['GObject-2.0', 'Gio-2.0'],

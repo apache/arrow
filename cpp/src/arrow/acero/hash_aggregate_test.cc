@@ -4440,7 +4440,7 @@ TEST_P(GroupBy, PivotBasics) {
   }
 }
 
-TEST_P(GroupBy, PivotAllKeyTypes) {
+TEST_P(GroupBy, PivotBinaryKeyTypes) {
   auto value_type = float32();
   std::vector<std::string> table_json = {R"([
       [1, "width", 10.5],
@@ -4459,6 +4459,49 @@ TEST_P(GroupBy, PivotAllKeyTypes) {
   PivotWiderOptions options(/*key_names=*/{"height", "width"});
 
   for (const auto& key_type : BaseBinaryTypes()) {
+    ARROW_SCOPED_TRACE("key_type = ", *key_type);
+    TestPivot(key_type, value_type, options, table_json, expected_json);
+  }
+
+  auto key_type = fixed_size_binary(3);
+  table_json = {R"([
+      [1, "wid", 10.5],
+      [2, "wid", 11.5]
+      ])",
+                R"([
+      [2, "hei", 12.5],
+      [3, "wid",  13.5],
+      [1, "hei", 14.5]
+      ])"};
+  expected_json = R"([
+      [1, {"hei": 14.5, "wid": 10.5} ],
+      [2, {"hei": 12.5, "wid": 11.5} ],
+      [3, {"hei": null, "wid": 13.5} ]
+      ])";
+  options.key_names = {"hei", "wid"};
+  ARROW_SCOPED_TRACE("key_type = ", *key_type);
+  TestPivot(key_type, value_type, options, table_json, expected_json);
+}
+
+TEST_P(GroupBy, PivotIntegerKeyTypes) {
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([
+      [1, 78, 10.5],
+      [2, 78, 11.5]
+      ])",
+                                         R"([
+      [2, 56, 12.5],
+      [3, 78, 13.5],
+      [1, 56, 14.5]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"56": 14.5, "78": 10.5} ],
+      [2, {"56": 12.5, "78": 11.5} ],
+      [3, {"56": null, "78": 13.5} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"56", "78"});
+
+  for (const auto& key_type : IntTypes()) {
     ARROW_SCOPED_TRACE("key_type = ", *key_type);
     TestPivot(key_type, value_type, options, table_json, expected_json);
   }
@@ -4746,6 +4789,21 @@ TEST_P(GroupBy, PivotDuplicateKeys) {
   PivotWiderOptions options(/*key_names=*/{"height", "width", "height"});
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       KeyError, HasSubstr("Duplicate key name 'height' in PivotWiderOptions"),
+      RunPivot(key_type, value_type, options, table_json));
+}
+
+TEST_P(GroupBy, PivotInvalidKeys) {
+  // Integer key type, but key names cannot be converted to int
+  auto key_type = int32();
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([])"};
+  PivotWiderOptions options(/*key_names=*/{"123", "width"});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, HasSubstr("Failed to parse string: 'width' as a scalar of type int32"),
+      RunPivot(key_type, value_type, options, table_json));
+  options.key_names = {"12.3", "45"};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, HasSubstr("Failed to parse string: '12.3' as a scalar of type int32"),
       RunPivot(key_type, value_type, options, table_json));
 }
 

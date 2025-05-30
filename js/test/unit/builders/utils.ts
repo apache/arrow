@@ -141,6 +141,7 @@ export function validateVector<T extends DataType>(vals: (T['TValue'] | null)[],
     let i = 0, x: T['TValue'] | null, y: T['TValue'] | null;
     const nulls = nullVals.reduce((m, x) => m.set(x, x), new Map());
     try {
+        expect(vec).toHaveLength(vals.length);
         for (x of vec) {
             if (nulls.has(y = vals[i])) {
                 expect(x).toBeNull();

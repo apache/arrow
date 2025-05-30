@@ -30,7 +30,7 @@ import type { FloatBuilder, Float16Builder, Float32Builder, Float64Builder } fro
 import type { IntBuilder, Int8Builder, Int16Builder, Int32Builder, Int64Builder, Uint8Builder, Uint16Builder, Uint32Builder, Uint64Builder } from './builder/int.js';
 import type { TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder } from './builder/time.js';
 import type { TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder } from './builder/timestamp.js';
-import type { IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder } from './builder/interval.js';
+import type { IntervalBuilder, IntervalDayTimeBuilder, IntervalMonthDayNanoBuilder, IntervalYearMonthBuilder } from './builder/interval.js';
 import type { DurationBuilder, DurationSecondBuilder, DurationMillisecondBuilder, DurationMicrosecondBuilder, DurationNanosecondBuilder } from './builder/duration.js';
 import type { Utf8Builder } from './builder/utf8.js';
 import type { LargeUtf8Builder } from './builder/largeutf8.js';
@@ -233,6 +233,7 @@ export type TypeToDataType<T extends Type> = {
     [Type.Interval]: type.Interval;
     [Type.IntervalDayTime]: type.IntervalDayTime;
     [Type.IntervalYearMonth]: type.IntervalYearMonth;
+    [Type.IntervalMonthDayNano]: type.IntervalMonthDayNano;
     [Type.Duration]: type.Duration;
     [Type.DurationSecond]: type.DurationSecond;
     [Type.DurationMillisecond]: type.DurationMillisecond;
@@ -288,6 +289,7 @@ type TypeToBuilder<T extends Type = any, TNull = any> = {
     [Type.Interval]: IntervalBuilder<any, TNull>;
     [Type.IntervalDayTime]: IntervalDayTimeBuilder<TNull>;
     [Type.IntervalYearMonth]: IntervalYearMonthBuilder<TNull>;
+    [Type.IntervalMonthDayNano]: IntervalMonthDayNanoBuilder<TNull>;
     [Type.Duration]: DurationBuilder<any, TNull>;
     [Type.DurationSecond]: DurationBuilder<any, TNull>;
     [Type.DurationMillisecond]: DurationMillisecondBuilder<TNull>;
@@ -343,6 +345,7 @@ type DataTypeToBuilder<T extends DataType = any, TNull = any> = {
     [Type.Interval]: T extends type.Interval ? IntervalBuilder<T, TNull> : never;
     [Type.IntervalDayTime]: T extends type.IntervalDayTime ? IntervalDayTimeBuilder<TNull> : never;
     [Type.IntervalYearMonth]: T extends type.IntervalYearMonth ? IntervalYearMonthBuilder<TNull> : never;
+    [Type.IntervalMonthDayNano]: T extends type.IntervalMonthDayNano ? IntervalMonthDayNanoBuilder<TNull> : never;
     [Type.Duration]: T extends type.Duration ? DurationBuilder<T, TNull> : never;
     [Type.DurationSecond]: T extends type.DurationSecond ? DurationSecondBuilder<TNull> : never;
     [Type.DurationMillisecond]: T extends type.DurationMillisecond ? DurationMillisecondBuilder<TNull> : never;

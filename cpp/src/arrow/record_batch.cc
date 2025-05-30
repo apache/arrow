@@ -32,6 +32,7 @@
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_union.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/array/statistics.h"
 #include "arrow/array/validate.h"
 #include "arrow/c/abi.h"
 #include "arrow/pretty_print.h"
@@ -39,8 +40,9 @@
 #include "arrow/table.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/vector.h"
 #include "arrow/visit_type_inline.h"
 
@@ -81,7 +83,7 @@ class SimpleRecordBatch : public RecordBatch {
     }
   }
 
-  SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
+  SimpleRecordBatch(std::shared_ptr<Schema> schema, int64_t num_rows,
                     std::vector<std::shared_ptr<ArrayData>> columns,
                     DeviceAllocationType device_type = DeviceAllocationType::kCPU,
                     std::shared_ptr<Device::SyncEvent> sync_event = nullptr)
@@ -216,8 +218,8 @@ class SimpleRecordBatch : public RecordBatch {
   std::shared_ptr<Device::SyncEvent> sync_event_;
 };
 
-RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows)
-    : schema_(schema), num_rows_(num_rows) {}
+RecordBatch::RecordBatch(std::shared_ptr<Schema> schema, int64_t num_rows)
+    : schema_(std::move(schema)), num_rows_(num_rows) {}
 
 std::shared_ptr<RecordBatch> RecordBatch::Make(
     std::shared_ptr<Schema> schema, int64_t num_rows,
@@ -556,6 +558,21 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
   }
   return Status::OK();
 }
+struct StringBuilderVisitor {
+  template <typename DataType>
+  enable_if_has_string_view<DataType, Status> Visit(const DataType&,
+                                                    ArrayBuilder* raw_builder,
+                                                    const std::string& value) {
+    using Builder = typename TypeTraits<DataType>::BuilderType;
+    auto builder = static_cast<Builder*>(raw_builder);
+    return builder->Append(value);
+  }
+
+  Status Visit(const DataType& type, ArrayBuilder*, const std::string&) {
+    return Status::Invalid("Only string types are supported and the current type is ",
+                           type.ToString());
+  }
+};
 }  // namespace
 
 Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
@@ -580,7 +597,7 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
   RETURN_NOT_OK(EnumerateStatistics(*this, [&](const EnumeratedStatistics& statistics) {
     int8_t i = 0;
     for (const auto& field : values_types) {
-      if (field->type()->id() == statistics.type->id()) {
+      if (field->type()->Equals(statistics.type)) {
         break;
       }
       i++;
@@ -680,8 +697,8 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
         return static_cast<DoubleBuilder*>(builder)->Append(value);
       }
       Status operator()(const std::string& value) {
-        return static_cast<StringBuilder*>(builder)->Append(
-            value.data(), static_cast<int32_t>(value.size()));
+        StringBuilderVisitor visitor;
+        return VisitTypeInline(*builder->type(), &visitor, builder, value);
       }
     } visitor;
     visitor.builder = values_builders[values_type_index].get();

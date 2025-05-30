@@ -404,7 +404,7 @@ def test_timestamp():
     units = ['ns', 'us', 'ms', 's']
 
     for i, unit in enumerate(units):
-        dtype = 'datetime64[{}]'.format(unit)
+        dtype = f'datetime64[{unit}]'
         arrow_arr = pa.Array.from_pandas(arr.astype(dtype))
         expected = pd.Timestamp('2000-01-01 12:34:56')
 
@@ -414,7 +414,7 @@ def test_timestamp():
         tz = 'America/New_York'
         arrow_type = pa.timestamp(unit, tz=tz)
 
-        dtype = 'datetime64[{}]'.format(unit)
+        dtype = f'datetime64[{unit}]'
         arrow_arr = pa.Array.from_pandas(arr.astype(dtype), type=arrow_type)
         expected = (pd.Timestamp('2000-01-01 12:34:56')
                     .tz_localize('utc')
@@ -478,7 +478,7 @@ def test_duration():
     units = ['us', 'ms', 's']
 
     for i, unit in enumerate(units):
-        dtype = 'timedelta64[{}]'.format(unit)
+        dtype = f'timedelta64[{unit}]'
         arrow_arr = pa.array(arr.astype(dtype))
         expected = datetime.timedelta(seconds=60*60)
         assert isinstance(arrow_arr[1].as_py(), datetime.timedelta)

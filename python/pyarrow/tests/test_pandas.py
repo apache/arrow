@@ -3876,7 +3876,7 @@ def test_to_pandas_split_blocks():
         pa.array([1, 2, 3, 4, 5]*100, type='f8'),
         pa.array([1, 2, 3, 4, 5]*100, type='f8'),
         pa.array([1, 2, 3, 4, 5]*100, type='f8'),
-    ], ['f{}'.format(i) for i in range(8)])
+    ], [f'f{i}' for i in range(8)])
 
     _check_blocks_created(t, 8)
     _check_to_pandas_memory_unchanged(t, split_blocks=True)
@@ -3902,7 +3902,7 @@ def test_to_pandas_self_destruct():
             # Slice to force a copy
             pa.array(np.random.randn(10000)[::2])
             for i in range(K)
-        ], ['f{}'.format(i) for i in range(K)])
+        ], [f'f{i}' for i in range(K)])
 
     t = _make_table()
     _check_to_pandas_memory_unchanged(t, split_blocks=True, self_destruct=True)
@@ -4892,14 +4892,13 @@ def make_df_with_timestamps():
 
 
 @pytest.mark.parquet
-@pytest.mark.filterwarnings("ignore:Parquet format '2.0':FutureWarning")
 def test_timestamp_as_object_parquet(tempdir):
     # Timestamps can be stored as Parquet and reloaded into Pandas with no loss
     # of information if the timestamp_as_object option is True.
     df = make_df_with_timestamps()
     table = pa.Table.from_pandas(df)
     filename = tempdir / "timestamps_from_pandas.parquet"
-    pq.write_table(table, filename, version="2.0")
+    pq.write_table(table, filename)
     result = pq.read_table(filename)
     df2 = result.to_pandas(timestamp_as_object=True)
     tm.assert_frame_equal(df, df2)

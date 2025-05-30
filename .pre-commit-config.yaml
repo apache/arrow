@@ -26,13 +26,20 @@ repos:
       - id: rat
         name: Release Audit Tool
         language: system
-        entry: bash -c "git archive HEAD --prefix=apache-arrow/ --output=arrow-src.tar && ./dev/release/run-rat.sh arrow-src.tar"
+        entry: |
+          bash -c " \
+            git archive HEAD \
+              --prefix=apache-arrow/ \
+              --output=apache-arrow.tar.gz && \
+              dev/release/run-rat.sh apache-arrow.tar.gz && \
+            rm -f apache-arrow.tar.gz"
         always_run: true
         pass_filenames: false
   - repo: https://github.com/hadolint/hadolint
     rev: v2.12.0
     hooks:
       - id: hadolint-docker
+        alias: docker
         name: Docker Format
         # We can enable this after we fix all existing lint failures.
         # files: (/Dockerfile|\.dockerfile)$
@@ -42,28 +49,12 @@ repos:
           ?^ci/docker/python-.*-wheel-windows-test-vs2022.*\.dockerfile$|
           )
         types: []
-  - repo: https://github.com/pycqa/flake8
-    rev: 6.1.0
-    hooks:
-      - id: flake8
-        name: Python Format
-        files: ^(python|dev|c_glib|integration)/
-        types:
-          - file
-          - python
-        exclude: vendored
-        args: [--config, python/setup.cfg]
-  - repo: https://github.com/MarcoGorelli/cython-lint
-    rev: v0.12.5
-    hooks:
-      - id: cython-lint
-        args: [--no-pycodestyle]
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v14.0.6
     hooks:
       - id: clang-format
         name: C++ Format
-        alias: cpp-format
+        alias: cpp
         types_or:
           - c++
           # - json
@@ -83,6 +74,7 @@ repos:
     rev: 1.6.1
     hooks:
       - id: cpplint
+        alias: cpp
         name: C++ Lint
         args:
           - "--verbose=2"
@@ -103,8 +95,8 @@ repos:
     rev: v14.0.6
     hooks:
       - id: clang-format
+        alias: c-glib
         name: C/GLib Format
-        alias: c-glib-cpp-format
         files: >-
           ^c_glib/
   - repo: https://github.com/pre-commit/mirrors-clang-format
@@ -115,12 +107,59 @@ repos:
         alias: matlab-cpp-format
         files: >-
           ^matlab/src/cpp/
+  - repo: https://github.com/hhatto/autopep8
+    rev: v2.3.2
+    hooks:
+      - id: autopep8
+        alias: python
+        name: Python Format
+        args:
+          - "--global-config"
+          - "python/setup.cfg"
+          - "--ignore-local-config"
+          - "--in-place"
+        files: >-
+          ^(c_glib|dev|python)/
+        types:
+          - file
+        types_or:
+          - cython
+          - python
+        exclude: >-
+          (
+          ?^python/pyarrow/vendored/|
+          )
+  - repo: https://github.com/pycqa/flake8
+    rev: 6.1.0
+    hooks:
+      - id: flake8
+        alias: python
+        name: Python Lint
+        args:
+          - "--config"
+          - "python/setup.cfg"
+        files: >-
+          ^(c_glib|dev|python)/
+        exclude: >-
+          (
+          ?^python/pyarrow/vendored/|
+          )
+  - repo: https://github.com/MarcoGorelli/cython-lint
+    rev: v0.16.2
+    hooks:
+      - id: cython-lint
+        alias: python
+        name: Python (Cython) Lint
+        args:
+          - "--no-pycodestyle"
+        files: >-
+          ^python/
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v14.0.6
     hooks:
       - id: clang-format
+        alias: python
         name: Python (C++) Format
-        alias: python-cpp-format
         files: >-
           ^python/pyarrow/src/
         exclude: >-
@@ -129,12 +168,42 @@ repos:
           ?.pb\.(cc|h)$|
           ?^cpp/src/generated/|
           )
+  - repo: local
+    hooks:
+      - id: lintr
+        alias: r
+        name: R Lint
+        language: r
+        additional_dependencies:
+          - cyclocomp
+          - lintr
+        entry: |
+          Rscript r/tools/lint.R
+        pass_filenames: false
+        files: >-
+          ^r/.*\.(R|Rmd)$
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v14.0.6
     hooks:
       - id: clang-format
+        alias: r
         name: R (C++) Format
-        alias: r-cpp-format
+        files: >-
+          ^r/src/
+        exclude: >-
+          (
+          ?^r/src/arrowExports\.cpp$|
+          )
+  - repo: https://github.com/cpplint/cpplint
+    rev: 1.6.1
+    hooks:
+      - id: cpplint
+        alias: r
+        name: R (C++) Lint
+        args:
+          - "--verbose=2"
+        types_or:
+          - c++
         files: >-
           ^r/src/
         exclude: >-
@@ -146,7 +215,7 @@ repos:
     hooks:
       - id: rubocop
         name: Ruby Format
-        alias: ruby-format
+        alias: ruby
         args:
           - "--autocorrect"
         exclude: >-
@@ -157,6 +226,7 @@ repos:
     rev: v0.6.13
     hooks:
       - id: cmake-format
+        alias: cpp
         name: CMake Format
         files: >-
           (
@@ -177,6 +247,7 @@ repos:
     rev: v0.9.1
     hooks:
       - id: sphinx-lint
+        alias: docs
         files: ^docs/source
         exclude: ^docs/source/python/generated
         args: [
@@ -189,17 +260,82 @@ repos:
     rev: v0.10.0
     hooks:
       - id: shellcheck
+        alias: shell
         # TODO: Remove this when we fix all lint failures
         files: >-
           (
+          ?^c_glib/test/run-test\.sh$|
           ?^ci/scripts/c_glib_build\.sh$|
           ?^ci/scripts/c_glib_test\.sh$|
-          ?^c_glib/test/run-test\.sh$|
+          ?^ci/scripts/conan_setup\.sh$|
+          ?^ci/scripts/csharp_build\.sh$|
+          ?^ci/scripts/csharp_pack\.sh$|
+          ?^ci/scripts/download_tz_database\.sh$|
+          ?^ci/scripts/install_azurite\.sh$|
+          ?^ci/scripts/install_ccache\.sh$|
+          ?^ci/scripts/install_ceph\.sh$|
+          ?^ci/scripts/install_chromedriver\.sh$|
+          ?^ci/scripts/install_cmake\.sh$|
+          ?^ci/scripts/install_emscripten\.sh$|
+          ?^ci/scripts/install_iwyu\.sh$|
+          ?^ci/scripts/install_ninja\.sh$|
+          ?^ci/scripts/install_numpy\.sh$|
+          ?^ci/scripts/install_pandas\.sh$|
+          ?^ci/scripts/install_python\.sh$|
+          ?^ci/scripts/install_spark\.sh$|
+          ?^ci/scripts/install_vcpkg\.sh$|
+          ?^ci/scripts/integration_arrow_build\.sh$|
+          ?^ci/scripts/integration_dask\.sh$|
+          ?^ci/scripts/matlab_build\.sh$|
+          ?^ci/scripts/msys2_system_clean\.sh$|
+          ?^ci/scripts/msys2_system_upgrade\.sh$|
+          ?^ci/scripts/python_sdist_build\.sh$|
+          ?^ci/scripts/python_wheel_unix_test\.sh$|
+          ?^ci/scripts/r_build\.sh$|
+          ?^ci/scripts/r_revdepcheck\.sh$|
+          ?^ci/scripts/release_test\.sh$|
+          ?^ci/scripts/ruby_test\.sh$|
+          ?^ci/scripts/rust_build\.sh$|
+          ?^ci/scripts/util_free_space\.sh$|
+          ?^cpp/build-support/build-lz4-lib\.sh$|
+          ?^cpp/build-support/build-zstd-lib\.sh$|
+          ?^cpp/build-support/get-upstream-commit\.sh$|
+          ?^cpp/build-support/update-thrift\.sh$|
+          ?^cpp/examples/minimal_build/run\.sh$|
+          ?^cpp/examples/tutorial_examples/run\.sh$|
+          ?^dev/release/05-binary-upload\.sh$|
           ?^dev/release/07-binary-verify\.sh$|
+          ?^dev/release/binary-recover\.sh$|
+          ?^dev/release/post-03-binary\.sh$|
+          ?^dev/release/post-10-docs\.sh$|
+          ?^dev/release/post-11-python\.sh$|
+          ?^dev/release/setup-rhel-rebuilds\.sh$|
           ?^dev/release/utils-generate-checksum\.sh$|
+          ?^python/asv-install\.sh$|
+          ?^python/asv-uninstall\.sh$|
+          ?^swift/gen-protobuffers\.sh$|
+          )
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.11.0-1
+    hooks:
+      - id: shfmt
+        alias: shell
+        args:
+          # The default args is "--write --simplify" but we don't use
+          # "--simplify". Because it's conflicted will ShellCheck.
+          - "--write"
+        # TODO: Remove this when we fix all lint failures
+        files: >-
+          (
+          ?^dev/release/05-binary-upload\.sh$|
+          ?^dev/release/binary-recover\.sh$|
+          ?^dev/release/post-03-binary\.sh$|
+          ?^dev/release/post-10-docs\.sh$|
+          ?^dev/release/post-11-python\.sh$|
           )
   - repo: https://github.com/trim21/pre-commit-mirror-meson
     rev: v1.6.1
     hooks:
       - id: meson-fmt
+        alias: cpp
         args: ['--inplace']

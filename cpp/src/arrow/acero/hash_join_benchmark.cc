@@ -26,6 +26,7 @@
 #include "arrow/api.h"
 #include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/thread_pool.h"
 
 #include <cstdint>

@@ -225,9 +225,9 @@ cdef class DataType(_Weakrefable):
         pass
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use public "
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use public "
                         "functions like pyarrow.int64, pyarrow.list_, etc. "
-                        "instead.".format(self.__class__.__name__))
+                        "instead.")
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
         assert type != nullptr
@@ -359,7 +359,7 @@ cdef class DataType(_Weakrefable):
         return type_for_alias, (str(self),)
 
     def __repr__(self):
-        return '{0.__class__.__name__}({0})'.format(self)
+        return f'{self.__class__.__name__}({self})'
 
     def __eq__(self, other):
         try:
@@ -1882,8 +1882,7 @@ cdef class ExtensionType(BaseExtensionType):
             return NotImplemented
 
     def __repr__(self):
-        fmt = '{0.__class__.__name__}({1})'
-        return fmt.format(self, repr(self.storage_type))
+        return f'{self.__class__.__name__}({repr(self.storage_type)})'
 
     def __arrow_ext_serialize__(self):
         """
@@ -2136,91 +2135,7 @@ cdef class OpaqueType(BaseExtensionType):
         return OpaqueScalar
 
 
-_py_extension_type_auto_load = False
-
-
-cdef class PyExtensionType(ExtensionType):
-    """
-    Concrete base class for Python-defined extension types based on pickle
-    for (de)serialization.
-
-    .. warning::
-       This class is deprecated and its deserialization is disabled by default.
-       :class:`ExtensionType` is recommended instead.
-
-    Parameters
-    ----------
-    storage_type : DataType
-        The storage type for which the extension is built.
-    """
-
-    def __cinit__(self):
-        if type(self) is PyExtensionType:
-            raise TypeError("Can only instantiate subclasses of "
-                            "PyExtensionType")
-
-    def __init__(self, DataType storage_type):
-        warnings.warn(
-            "pyarrow.PyExtensionType is deprecated "
-            "and will refuse deserialization by default. "
-            "Instead, please derive from pyarrow.ExtensionType and implement "
-            "your own serialization mechanism.",
-            FutureWarning)
-        ExtensionType.__init__(self, storage_type, "arrow.py_extension_type")
-
-    def __reduce__(self):
-        raise NotImplementedError("Please implement {0}.__reduce__"
-                                  .format(type(self).__name__))
-
-    def __arrow_ext_serialize__(self):
-        return pickle.dumps(self)
-
-    @classmethod
-    def __arrow_ext_deserialize__(cls, storage_type, serialized):
-        if not _py_extension_type_auto_load:
-            warnings.warn(
-                "pickle-based deserialization of pyarrow.PyExtensionType subclasses "
-                "is disabled by default; if you only ingest "
-                "trusted data files, you may re-enable this using "
-                "`pyarrow.PyExtensionType.set_auto_load(True)`.\n"
-                "In the future, Python-defined extension subclasses should "
-                "derive from pyarrow.ExtensionType (not pyarrow.PyExtensionType) "
-                "and implement their own serialization mechanism.\n",
-                RuntimeWarning)
-            return UnknownExtensionType(storage_type, serialized)
-        try:
-            ty = pickle.loads(serialized)
-        except Exception:
-            # For some reason, it's impossible to deserialize the
-            # ExtensionType instance.  Perhaps the serialized data is
-            # corrupt, or more likely the type is being deserialized
-            # in an environment where the original Python class or module
-            # is not available.  Fall back on a generic BaseExtensionType.
-            return UnknownExtensionType(storage_type, serialized)
-
-        if ty.storage_type != storage_type:
-            raise TypeError("Expected storage type {0} but got {1}"
-                            .format(ty.storage_type, storage_type))
-        return ty
-
-    # XXX Cython marks extension types as immutable, so cannot expose this
-    # as a writable class attribute.
-    @classmethod
-    def set_auto_load(cls, value):
-        """
-        Enable or disable auto-loading of serialized PyExtensionType instances.
-
-        Parameters
-        ----------
-        value : bool
-            Whether to enable auto-loading.
-        """
-        global _py_extension_type_auto_load
-        assert isinstance(value, bool)
-        _py_extension_type_auto_load = value
-
-
-cdef class UnknownExtensionType(PyExtensionType):
+cdef class UnknownExtensionType(ExtensionType):
     """
     A concrete class for Python-defined extension types that refer to
     an unknown Python implementation.
@@ -2238,10 +2153,14 @@ cdef class UnknownExtensionType(PyExtensionType):
 
     def __init__(self, DataType storage_type, serialized):
         self.serialized = serialized
-        PyExtensionType.__init__(self, storage_type)
+        super().__init__(storage_type, "pyarrow.unknown")
 
     def __arrow_ext_serialize__(self):
         return self.serialized
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        return UnknownExtensionType()
 
 
 _python_extension_types_registry = []
@@ -2611,8 +2530,7 @@ cdef class Field(_Weakrefable):
         return field, (self.name, self.type, self.nullable, self.metadata)
 
     def __str__(self):
-        return 'pyarrow.Field<{0}>'.format(
-            frombytes(self.field.ToString(), safe=True))
+        return f'pyarrow.Field<{frombytes(self.field.ToString(), safe=True)}>'
 
     def __repr__(self):
         return self.__str__()
@@ -3267,7 +3185,7 @@ cdef class Schema(_Weakrefable):
         if isinstance(i, (bytes, str)):
             field_index = self.get_field_index(i)
             if field_index < 0:
-                raise KeyError("Column {} does not exist in schema".format(i))
+                raise KeyError(f"Column {i} does not exist in schema")
             else:
                 return self._field(field_index)
         elif isinstance(i, int):
@@ -3796,7 +3714,7 @@ def unify_schemas(schemas, *, promote_options="default"):
         vector[shared_ptr[CSchema]] c_schemas
     for schema in schemas:
         if not isinstance(schema, Schema):
-            raise TypeError("Expected Schema, got {}".format(type(schema)))
+            raise TypeError(f"Expected Schema, got {type(schema)}")
         c_schemas.push_back(pyarrow_unwrap_schema(schema))
 
     if promote_options == "default":
@@ -5532,14 +5450,14 @@ def union(child_fields, mode, type_codes=None):
     """
     if isinstance(mode, int):
         if mode not in (_UnionMode_SPARSE, _UnionMode_DENSE):
-            raise ValueError("Invalid union mode {0!r}".format(mode))
+            raise ValueError(f"Invalid union mode {mode!r}")
     else:
         if mode == 'sparse':
             mode = _UnionMode_SPARSE
         elif mode == 'dense':
             mode = _UnionMode_DENSE
         else:
-            raise ValueError("Invalid union mode {0!r}".format(mode))
+            raise ValueError(f"Invalid union mode {mode!r}")
 
     if mode == _UnionMode_SPARSE:
         return sparse_union(child_fields, type_codes)
@@ -5904,7 +5822,7 @@ def type_for_alias(name):
     try:
         alias = _type_aliases[name]
     except KeyError:
-        raise ValueError('No type alias for {0}'.format(name))
+        raise ValueError(f'No type alias for {name}')
 
     if isinstance(alias, DataType):
         return alias
@@ -5919,7 +5837,7 @@ cpdef DataType ensure_type(object ty, bint allow_none=False):
     elif isinstance(ty, str):
         return type_for_alias(ty)
     else:
-        raise TypeError('DataType expected, got {!r}'.format(type(ty)))
+        raise TypeError(f'DataType expected, got {type(ty)!r}')
 
 
 def schema(fields, metadata=None):
@@ -6092,39 +6010,6 @@ cdef class _ExtensionRegistryNanny(_Weakrefable):
 
 
 _registry_nanny = _ExtensionRegistryNanny()
-
-
-def _register_py_extension_type():
-    cdef:
-        DataType storage_type
-        shared_ptr[CExtensionType] cpy_ext_type
-        c_string c_extension_name = tobytes("arrow.py_extension_type")
-
-    # Make a dummy C++ ExtensionType
-    storage_type = null()
-    check_status(CPyExtensionType.FromClass(
-        storage_type.sp_type, c_extension_name, PyExtensionType,
-        &cpy_ext_type))
-    check_status(
-        RegisterPyExtensionType(<shared_ptr[CDataType]> cpy_ext_type))
-
-
-def _unregister_py_extension_types():
-    # This needs to be done explicitly before the Python interpreter is
-    # finalized.  If the C++ type is destroyed later in the process
-    # teardown stage, it will invoke CPython APIs such as Py_DECREF
-    # with a destroyed interpreter.
-    unregister_extension_type("arrow.py_extension_type")
-    for ext_type in _python_extension_types_registry:
-        try:
-            unregister_extension_type(ext_type.extension_name)
-        except KeyError:
-            pass
-    _registry_nanny.release_registry()
-
-
-_register_py_extension_type()
-atexit.register(_unregister_py_extension_types)
 
 
 #

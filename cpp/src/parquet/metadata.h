@@ -22,12 +22,12 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "parquet/encryption/type_fwd.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
+#include "parquet/type_fwd.h"
 
 namespace parquet {
 
@@ -141,8 +141,11 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   int64_t num_values() const;
   std::shared_ptr<schema::ColumnPath> path_in_schema() const;
   bool is_stats_set() const;
+  bool is_geo_stats_set() const;
   std::shared_ptr<Statistics> statistics() const;
+  std::shared_ptr<EncodedStatistics> encoded_statistics() const;
   std::shared_ptr<SizeStatistics> size_statistics() const;
+  std::shared_ptr<geospatial::GeoStatistics> geo_statistics() const;
 
   Compression::type compression() const;
   // Indicate if the ColumnChunk compression is supported by the current
@@ -439,6 +442,9 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   // column metadata
   void SetStatistics(const EncodedStatistics& stats);
   void SetSizeStatistics(const SizeStatistics& size_stats);
+
+  // column geometry statistics
+  void SetGeoStatistics(const geospatial::EncodedGeoStatistics& geo_stats);
 
   void SetKeyValueMetadata(std::shared_ptr<const KeyValueMetadata> key_value_metadata);
 

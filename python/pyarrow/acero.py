@@ -22,7 +22,7 @@
 # distutils: language = c++
 # cython: language_level = 3
 
-from pyarrow.lib import Table, RecordBatch
+from pyarrow.lib import Table, RecordBatch, array
 from pyarrow.compute import Expression, field
 
 try:
@@ -307,8 +307,8 @@ def _perform_join_asof(left_operand, left_on, left_by,
     columns_collisions = set(left_operand.schema.names) & set(right_columns)
     if columns_collisions:
         raise ValueError(
-            "Columns {} present in both tables. AsofJoin does not support "
-            "column collisions.".format(columns_collisions),
+            f"Columns {columns_collisions} present in both tables. "
+            "AsofJoin does not support column collisions."
         )
 
     # Add the join node to the execplan
@@ -362,7 +362,7 @@ def _filter_table(table, expression):
 
     Returns
     -------
-    Table
+    Table or RecordBatch
     """
     is_batch = False
     if isinstance(table, RecordBatch):
@@ -375,7 +375,11 @@ def _filter_table(table, expression):
     ])
     result = decl.to_table(use_threads=True)
     if is_batch:
-        result = result.combine_chunks().to_batches()[0]
+        if result.num_rows > 0:
+            result = result.combine_chunks().to_batches()[0]
+        else:
+            arrays = [array([], type=field.type) for field in result.schema]
+            result = RecordBatch.from_arrays(arrays, schema=result.schema)
     return result
 
 

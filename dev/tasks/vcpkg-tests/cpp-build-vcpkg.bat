@@ -27,7 +27,6 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\Too
 @rem changes in vcpkg
 
 vcpkg install ^
-    --triplet x64-windows ^
     --x-manifest-root cpp  ^
     --feature-flags=versions ^
     --clean-after-build ^

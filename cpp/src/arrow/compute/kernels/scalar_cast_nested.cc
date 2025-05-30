@@ -18,7 +18,7 @@
 // Implementation of casting to (or between) list types
 
 #include <limits>
-#include <set>
+#include <map>
 #include <utility>
 #include <vector>
 
@@ -30,6 +30,7 @@
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -38,20 +39,6 @@ using internal::CopyBitmap;
 namespace compute::internal {
 
 namespace {
-
-Result<std::shared_ptr<Buffer>> GetNullBitmapBuffer(const ArraySpan& in_array,
-                                                    MemoryPool* pool) {
-  if (in_array.buffers[0].data == nullptr) {
-    return nullptr;
-  }
-
-  if (in_array.offset == 0) {
-    return in_array.GetBuffer(0);
-  }
-
-  // If a non-zero offset, we need to shift the bitmap
-  return CopyBitmap(pool, in_array.buffers[0].data, in_array.offset, in_array.length);
-}
 
 // (Large)List<T> -> (Large)List<U>
 
@@ -127,7 +114,7 @@ struct CastList {
 
     ArrayData* out_array = out->array_data().get();
     ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
-                          GetNullBitmapBuffer(in_array, ctx->memory_pool()));
+                          GetOrCopyNullBitmapBuffer(in_array, ctx->memory_pool()));
     out_array->buffers[1] = in_array.GetBuffer(1);
 
     std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
@@ -167,7 +154,7 @@ struct CastFixedToVarList {
 
     ArrayData* out_array = out->array_data().get();
     ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
-                          GetNullBitmapBuffer(in_array, ctx->memory_pool()));
+                          GetOrCopyNullBitmapBuffer(in_array, ctx->memory_pool()));
 
     const auto& in_type = checked_cast<const FixedSizeListType&>(*in_array.type);
     const int32_t list_size = in_type.list_size();
@@ -278,7 +265,7 @@ struct CastVarToFixedList {
 
     ArrayData* out_array = out->array_data().get();
     ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
-                          GetNullBitmapBuffer(in_array, ctx->memory_pool()));
+                          GetOrCopyNullBitmapBuffer(in_array, ctx->memory_pool()));
 
     // Handle values
     std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
@@ -351,41 +338,25 @@ struct CastStruct {
 
     std::vector<int> fields_to_select(out_field_count, -1);
 
-    std::set<std::string> all_in_field_names;
+    std::multimap<std::string, int> in_fields;
     for (int in_field_index = 0; in_field_index < in_field_count; ++in_field_index) {
-      all_in_field_names.insert(in_type.field(in_field_index)->name());
+      in_fields.insert({in_type.field(in_field_index)->name(), in_field_index});
     }
 
-    for (int in_field_index = 0, out_field_index = 0;
-         out_field_index < out_field_count;) {
+    for (int out_field_index = 0; out_field_index < out_field_count; ++out_field_index) {
       const auto& out_field = out_type.field(out_field_index);
-      if (in_field_index < in_field_count) {
-        const auto& in_field = in_type.field(in_field_index);
-        // If there are more in_fields check if they match the out_field.
-        if (in_field->name() == out_field->name()) {
-          // Found matching in_field and out_field.
-          fields_to_select[out_field_index++] = in_field_index;
-          // Using the same in_field for multiple out_fields is not allowed.
-          in_field_index++;
-          continue;
-        }
-      }
-      if (all_in_field_names.count(out_field->name()) == 0 && out_field->nullable()) {
-        // Didn't match current in_field, but we can fill with null.
-        // Filling with null is only acceptable on nullable fields when there
-        // is definitely no in_field with matching name.
 
-        fields_to_select[out_field_index++] = kFillNullSentinel;
-      } else if (in_field_index < in_field_count) {
-        // Didn't match current in_field, and the we cannot fill with null, so
-        // try next in_field.
-        in_field_index++;
+      // Take the first field with matching name, if any. Extract it from the map so it
+      // can't be reused.
+      auto maybe_in_field_index = in_fields.extract(out_field->name());
+      if (!maybe_in_field_index.empty()) {
+        fields_to_select[out_field_index] = maybe_in_field_index.mapped();
+      } else if (out_field->nullable()) {
+        fields_to_select[out_field_index] = kFillNullSentinel;
       } else {
-        // Didn't match current in_field, we cannot fill with null, and there
-        // are no more in_fields to try, so fail.
-        return Status::TypeError(
-            "struct fields don't match or are in the wrong order: Input fields: ",
-            in_type.ToString(), " output fields: ", out_type.ToString());
+        return Status::TypeError("struct fields don't match: non-nullable out field `",
+                                 out_field->name(), "` not found in in fields ",
+                                 in_type.ToString());
       }
     }
 

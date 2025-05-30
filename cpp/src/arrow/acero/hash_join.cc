@@ -29,6 +29,7 @@
 #include "arrow/acero/task_util.h"
 #include "arrow/compute/row/encode_internal.h"
 #include "arrow/compute/row/row_encoder_internal.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/tracing_internal.h"
 
 namespace arrow {

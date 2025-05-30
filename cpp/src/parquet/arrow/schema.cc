@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/extension/json.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
@@ -30,12 +31,14 @@
 #include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 
 #include "parquet/arrow/schema_internal.h"
+#include "parquet/arrow/variant_internal.h"
 #include "parquet/exception.h"
+#include "parquet/geospatial/util_json_internal.h"
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
 #include "parquet/types.h"
@@ -111,6 +114,25 @@ Status MapToNode(const std::shared_ptr<::arrow::MapType>& type, const std::strin
       GroupNode::Make("key_value", Repetition::REPEATED, {key_node, value_node});
   *out = GroupNode::Make(name, RepetitionFromNullable(nullable), {key_value},
                          LogicalType::Map(), field_id);
+  return Status::OK();
+}
+
+Status VariantToNode(const std::shared_ptr<VariantExtensionType>& type,
+                     const std::string& name, bool nullable, int field_id,
+                     const WriterProperties& properties,
+                     const ArrowWriterProperties& arrow_properties, NodePtr* out) {
+  NodePtr metadata_node;
+  RETURN_NOT_OK(FieldToNode("metadata", type->metadata(), properties, arrow_properties,
+                            &metadata_node));
+
+  NodePtr value_node;
+  RETURN_NOT_OK(
+      FieldToNode("value", type->value(), properties, arrow_properties, &value_node));
+
+  *out = GroupNode::Make(name, RepetitionFromNullable(nullable),
+                         {std::move(metadata_node), std::move(value_node)},
+                         LogicalType::Variant(), field_id);
+
   return Status::OK();
 }
 
@@ -267,8 +289,8 @@ int FieldIdFromMetadata(
   if (::arrow::internal::ParseValue<::arrow::Int32Type>(
           field_id_str.c_str(), field_id_str.length(), &field_id)) {
     if (field_id < 0) {
-      // Thrift should convert any negative value to null but normalize to -1 here in case
-      // we later check this in logic.
+      // Thrift should convert any negative value to null but normalize to -1 here in
+      // case we later check this in logic.
       return -1;
     }
     return field_id;
@@ -342,11 +364,13 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
       break;
     case ArrowTypeId::LARGE_STRING:
     case ArrowTypeId::STRING:
+    case ArrowTypeId::STRING_VIEW:
       type = ParquetType::BYTE_ARRAY;
       logical_type = LogicalType::String();
       break;
     case ArrowTypeId::LARGE_BINARY:
     case ArrowTypeId::BINARY:
+    case ArrowTypeId::BINARY_VIEW:
       type = ParquetType::BYTE_ARRAY;
       break;
     case ArrowTypeId::FIXED_SIZE_BINARY: {
@@ -428,13 +452,29 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     }
     case ArrowTypeId::EXTENSION: {
       auto ext_type = std::static_pointer_cast<::arrow::ExtensionType>(field->type());
-      // Built-in JSON extension is handled differently.
-      if (ext_type->extension_name() == std::string("arrow.json")) {
-        // Set physical and logical types and instantiate primitive node.
+      // Set physical and logical types and instantiate primitive node
+      // for extension types
+      if (ext_type->extension_name() == std::string_view("arrow.json")) {
         type = ParquetType::BYTE_ARRAY;
         logical_type = LogicalType::JSON();
         break;
+      } else if (ext_type->extension_name() == std::string("arrow.uuid")) {
+        type = ParquetType::FIXED_LEN_BYTE_ARRAY;
+        logical_type = LogicalType::UUID();
+        length = 16;
+        break;
+      } else if (ext_type->extension_name() == std::string_view("geoarrow.wkb")) {
+        type = ParquetType::BYTE_ARRAY;
+        ARROW_ASSIGN_OR_RAISE(logical_type,
+                              LogicalTypeFromGeoArrowMetadata(ext_type->Serialize()));
+        break;
+      } else if (ext_type->extension_name() == std::string("parquet.variant")) {
+        auto variant_type = std::static_pointer_cast<VariantExtensionType>(field->type());
+
+        return VariantToNode(variant_type, name, field->nullable(), field_id, properties,
+                             arrow_properties, out);
       }
+
       std::shared_ptr<::arrow::Field> storage_field = ::arrow::field(
           name, ext_type->storage_type(), field->nullable(), field->metadata());
       return FieldToNode(name, storage_field, properties, arrow_properties, out);
@@ -446,7 +486,7 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     }
 
     default: {
-      // TODO: DENSE_UNION, SPARE_UNION, DECIMAL_TEXT, VARCHAR
+      // TODO: DENSE_UNION, SPARSE_UNION
       return Status::NotImplemented(
           "Unhandled type for Arrow to Parquet schema conversion: ",
           field->type()->ToString());
@@ -463,6 +503,7 @@ struct SchemaTreeContext {
   SchemaManifest* manifest;
   ArrowReaderProperties properties;
   const SchemaDescriptor* schema;
+  std::shared_ptr<const KeyValueMetadata> metadata;
 
   void LinkParent(const SchemaField* child, const SchemaField* parent) {
     manifest->child_to_parent[child] = parent;
@@ -485,7 +526,7 @@ bool IsDictionaryReadSupported(const ArrowType& type) {
     int column_index, const schema::PrimitiveNode& primitive_node,
     SchemaTreeContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> storage_type,
-                        GetArrowType(primitive_node, ctx->properties));
+                        GetArrowType(primitive_node, ctx->properties, ctx->metadata));
   if (ctx->properties.read_dictionary(column_index) &&
       IsDictionaryReadSupported(*storage_type)) {
     return ::arrow::dictionary(::arrow::int32(), storage_type);
@@ -578,8 +619,8 @@ Status MapToSchemaField(const GroupNode& group, LevelInfo current_levels,
     return Status::Invalid("Map keys must be annotated as required.");
   }
   // Arrow doesn't support 1 column maps (i.e. Sets).  The options are to either
-  // make the values column nullable, or process the map as a list.  We choose the latter
-  // as it is simpler.
+  // make the values column nullable, or process the map as a list.  We choose the
+  // latter as it is simpler.
   if (key_value.field_count() == 1) {
     return ListToSchemaField(group, current_levels, ctx, parent, out);
   }
@@ -994,11 +1035,11 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
     modified = true;
   }
 
-  if ((origin_type->id() == ::arrow::Type::LARGE_BINARY &&
-       inferred_type->id() == ::arrow::Type::BINARY) ||
-      (origin_type->id() == ::arrow::Type::LARGE_STRING &&
-       inferred_type->id() == ::arrow::Type::STRING)) {
-    // Read back binary-like arrays with the intended offset width.
+  if ((::arrow::is_binary_or_binary_view(origin_type->id()) &&
+       ::arrow::is_binary_or_binary_view(inferred_type->id())) ||
+      (::arrow::is_string_or_string_view(origin_type->id()) &&
+       ::arrow::is_string_or_string_view(inferred_type->id()))) {
+    // Read back binary-like arrays with the intended layout (narrow, large, view).
     inferred->field = inferred->field->WithType(origin_type);
     modified = true;
   }
@@ -1027,47 +1068,62 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
   bool modified = false;
 
   auto& origin_type = origin_field.type();
-  const auto& inferred_type = inferred->field->type();
 
+  // The origin was an extension type. This occurs when the ARROW:extension:name field
+  // was present when the schema was written and that extension is registered when
+  // the schema is read.
   if (origin_type->id() == ::arrow::Type::EXTENSION) {
-    const auto& ex_type = checked_cast<const ::arrow::ExtensionType&>(*origin_type);
-    if (inferred_type->id() != ::arrow::Type::EXTENSION &&
-        ex_type.extension_name() == std::string("arrow.json") &&
-        ::arrow::extension::JsonExtensionType::IsSupportedStorageType(
-            inferred_type->id())) {
-      // Schema mismatch.
-      //
-      // Arrow extensions are DISABLED in Parquet.
-      // origin_type is ::arrow::extension::json()
-      // inferred_type is ::arrow::utf8()
-      //
-      // Origin type is restored as Arrow should be considered the source of truth.
-      inferred->field = inferred->field->WithType(origin_type);
-      RETURN_NOT_OK(ApplyOriginalStorageMetadata(origin_field, inferred));
-    } else if (inferred_type->id() == ::arrow::Type::EXTENSION &&
-               ex_type.extension_name() == std::string("arrow.json")) {
-      // Potential schema mismatch.
-      //
-      // Arrow extensions are ENABLED in Parquet.
-      // origin_type is arrow::extension::json(...)
-      // inferred_type is arrow::extension::json(arrow::utf8())
-      auto origin_storage_field = origin_field.WithType(ex_type.storage_type());
+    const auto& origin_extension_type =
+        checked_cast<const ::arrow::ExtensionType&>(*origin_type);
 
-      // Apply metadata recursively to storage type
-      RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
-      inferred->field = inferred->field->WithType(origin_type);
+    // (Recursively) Apply the original storage metadata from the original storage field
+    // This applies extension types to child elements, if any.
+    auto origin_storage_field =
+        origin_field.WithType(origin_extension_type.storage_type());
+    RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
+
+    // Use the inferred type after child updates for below checks to see if
+    // we can restore an extension type on the output.
+    const auto& inferred_type = inferred->field->type();
+
+    // Whether or not the inferred type is also an extension type. This can occur when
+    // arrow_extensions_enabled is true in the ArrowReaderProperties. Extension types
+    // are not currently inferred for any other reason.
+    bool arrow_extension_inferred = inferred_type->id() == ::arrow::Type::EXTENSION;
+
+    // Check if the inferred storage type is compatible with the extension type
+    // we're hoping to apply. We assume that if an extension type was inferred
+    // that it was constructed with a valid storage type. Otherwise, we check with
+    // extension types that we know about for valid storage, falling back to
+    // storage type equality for extension types that we don't know about.
+    std::string origin_extension_name = origin_extension_type.extension_name();
+    bool extension_supports_inferred_storage;
+
+    if (origin_extension_name == "arrow.json") {
+      extension_supports_inferred_storage =
+          arrow_extension_inferred ||
+          ::arrow::extension::JsonExtensionType::IsSupportedStorageType(
+              inferred_type->id());
+    } else if (origin_extension_name == "arrow.uuid") {
+      extension_supports_inferred_storage =
+          arrow_extension_inferred ||
+          ::arrow::extension::UuidType::IsSupportedStorageType(inferred_type);
+    } else if (origin_extension_name == "parquet.variant") {
+      extension_supports_inferred_storage =
+          arrow_extension_inferred ||
+          VariantExtensionType::IsSupportedStorageType(inferred_type);
     } else {
-      auto origin_storage_field = origin_field.WithType(ex_type.storage_type());
-
-      // Apply metadata recursively to storage type
-      RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
-
-      // Restore extension type, if the storage type is the same as inferred
-      // from the Parquet type
-      if (ex_type.storage_type()->Equals(*inferred->field->type())) {
-        inferred->field = inferred->field->WithType(origin_type);
-      }
+      extension_supports_inferred_storage =
+          origin_extension_type.storage_type()->Equals(*inferred_type);
     }
+
+    // If the origin extension of the metadata we are about to apply supports
+    // the Arrow storage type we would otherwise return, we restore the extension
+    // type to the output.
+    if (extension_supports_inferred_storage) {
+      inferred->field = inferred->field->WithType(origin_type);
+    }
+
     modified = true;
   } else {
     ARROW_ASSIGN_OR_RAISE(modified, ApplyOriginalStorageMetadata(origin_field, inferred));
@@ -1150,6 +1206,7 @@ Status SchemaManifest::Make(const SchemaDescriptor* schema,
   ctx.manifest = manifest;
   ctx.properties = properties;
   ctx.schema = schema;
+  ctx.metadata = metadata;
   const GroupNode& schema_node = *schema->group_node();
   manifest->descr = schema;
   manifest->schema_fields.resize(schema_node.field_count());
