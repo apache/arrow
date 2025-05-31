@@ -300,6 +300,45 @@ strides: {self.strides}"""
         buffer.strides = <Py_ssize_t *> cp.PyBytes_AsString(self._ssize_t_strides)
         buffer.suboffsets = NULL
 
+    def __dlpack__(self, stream=None):
+        """
+        Export a Tensor as a DLPack capsule.
+
+        Parameters
+        ----------
+        stream : int, optional
+            A Python integer representing a pointer to a stream. Currently not supported.
+            Stream is provided by the consumer to the producer to instruct the producer
+            to ensure that operations can safely be performed on the array.
+
+        Returns
+        -------
+        capsule : PyCapsule
+            A DLPack capsule for the tensor, pointing to a DLManagedTensor.
+        """
+        if stream is None:
+            dlm_tensor = GetResultValue(ExportTensorToDLPack(self.sp_tensor))
+
+            return PyCapsule_New(dlm_tensor, 'dltensor', dlpack_pycapsule_deleter)
+        else:
+            raise NotImplementedError(
+                "Only stream=None is supported."
+            )
+
+    def __dlpack_device__(self):
+        """
+        Return the DLPack device tuple this tensor resides on.
+
+        Returns
+        -------
+        tuple : Tuple[int, int]
+            Tuple with index specifying the type of the device (where
+            CPU = 1, see cpp/src/arrow/c/dpack_abi.h) and index of the
+            device which is 0 by default for CPU.
+        """
+        device = GetResultValue(ExportDevice(self.sp_tensor))
+        return device.device_type, device.device_id
+
 
 ctypedef CSparseCOOIndex* _CSparseCOOIndexPtr
 
