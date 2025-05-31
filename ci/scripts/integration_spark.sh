@@ -18,9 +18,13 @@
 # exit on any error
 set -eu
 
+# SC2034 (warning): source_dir appears unused.
+# shellcheck disable=SC2034
 source_dir=${1}
 spark_dir=${2}
 
+# SC2034 (warning): spark_version appears unused.
+# shellcheck disable=SC2034
 # Spark branch to checkout
 spark_version=${SPARK_VERSION:-master}
 
@@ -35,7 +39,7 @@ fi
 export MAVEN_OPTS="-Xss256m -Xmx2g -XX:ReservedCodeCacheSize=1g -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
 export MAVEN_OPTS="${MAVEN_OPTS} -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
 
-pushd ${spark_dir}
+pushd "${spark_dir}"
   echo "Building Spark ${SPARK_VERSION}"
 
   # Build Spark only

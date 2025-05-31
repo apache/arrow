@@ -276,6 +276,7 @@ repos:
           ?^ci/scripts/install_ceph\.sh$|
           ?^ci/scripts/install_chromedriver\.sh$|
           ?^ci/scripts/install_cmake\.sh$|
+          ?^ci/scripts/install_conda\.sh$|
           ?^ci/scripts/install_emscripten\.sh$|
           ?^ci/scripts/install_iwyu\.sh$|
           ?^ci/scripts/install_ninja\.sh$|
@@ -286,9 +287,11 @@ repos:
           ?^ci/scripts/install_vcpkg\.sh$|
           ?^ci/scripts/integration_arrow_build\.sh$|
           ?^ci/scripts/integration_dask\.sh$|
+          ?^ci/scripts/integration_spark\.sh$|
           ?^ci/scripts/matlab_build\.sh$|
           ?^ci/scripts/msys2_system_clean\.sh$|
           ?^ci/scripts/msys2_system_upgrade\.sh$|
+          ?^ci/scripts/nanoarrow_build\.sh$|
           ?^ci/scripts/python_sdist_build\.sh$|
           ?^ci/scripts/python_wheel_unix_test\.sh$|
           ?^ci/scripts/r_build\.sh$|
