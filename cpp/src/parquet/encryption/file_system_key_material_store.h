@@ -36,8 +36,8 @@ class PARQUET_EXPORT FileSystemKeyMaterialStore : public FileKeyMaterialStore {
   static constexpr const char kKeyMaterialFileSuffix[] = ".json";
 
   FileSystemKeyMaterialStore() {}
-  FileSystemKeyMaterialStore(const std::string& key_material_file_path,
-                             const std::shared_ptr<::arrow::fs::FileSystem>& file_system);
+  FileSystemKeyMaterialStore(std::string key_material_file_path,
+                             std::shared_ptr<::arrow::fs::FileSystem> file_system);
 
   /// Creates a new file system key material store for a parquet file.
   /// When use_tmp_prefix is true, files are saved with an extra _TMP prefix so they don't
@@ -45,12 +45,12 @@ class PARQUET_EXPORT FileSystemKeyMaterialStore : public FileKeyMaterialStore {
   /// so that temporary key material files can be created while using the existing key
   /// material, before moving the key material to the non-temporary location.
   static std::shared_ptr<FileSystemKeyMaterialStore> Make(
-      const std::string& parquet_file_path,
-      const std::shared_ptr<::arrow::fs::FileSystem>& file_system, bool use_tmp_prefix);
+      std::string parquet_file_path, std::shared_ptr<::arrow::fs::FileSystem> file_system,
+      bool use_tmp_prefix);
 
   /// Add key material for one encryption key.
   void AddKeyMaterial(std::string key_id_in_file, std::string key_material) {
-    key_material_map_.insert({key_id_in_file, key_material});
+    key_material_map_.emplace(std::move(key_id_in_file), std::move(key_material));
   }
 
   /// Get key material
