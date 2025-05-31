@@ -19,6 +19,8 @@
 
 set -e
 
+# SC2034 (warning): arrow_dir appears unused.
+# shellcheck disable=SC2034
 arrow_dir=${1}
 source_dir=${1}/nanoarrow
 build_dir=${2}/nanoarrow
@@ -43,10 +45,10 @@ fi
 
 set -x
 
-mkdir -p ${build_dir}
-pushd ${build_dir}
+mkdir -p "${build_dir}"
+pushd "${build_dir}"
 
-cmake ${source_dir} \
+cmake "${source_dir}" \
   -DNANOARROW_IPC=ON \
   -DNANOARROW_IPC_WITH_ZSTD=ON \
   -DNANOARROW_BUILD_INTEGRATION_TESTS=ON
