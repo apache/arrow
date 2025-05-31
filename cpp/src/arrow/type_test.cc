@@ -751,8 +751,11 @@ TEST(TestSchemaBuilder, WithMetadata) {
 
   SchemaBuilder builder;
   ASSERT_OK(builder.AddMetadata(*metadata));
-  ASSERT_OK(builder.AddMetadata(*metadata2));
   ASSERT_OK_AND_ASSIGN(auto schema, builder.Finish());
+  AssertSchemaEqual(schema, ::arrow::schema({})->WithMetadata(metadata));
+
+  ASSERT_OK(builder.AddMetadata(*metadata2));
+  ASSERT_OK_AND_ASSIGN(schema, builder.Finish());
   AssertSchemaEqual(schema, ::arrow::schema({})->WithMetadata(merged_metadata));
 
   ASSERT_OK(builder.AddField(f0));
