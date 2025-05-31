@@ -1102,9 +1102,9 @@ Examples
         ----------
         table_or_batch : {RecordBatch, Table}
         row_group_size : int, default None
-            Maximum number of rows in each written row group. If None,
-            the row group size will be the minimum of the input
-            table or batch length and 1024 * 1024.
+            Maximum number of rows in each written row group. If None, the row
+            group size will be the minimum of the number of rows in the
+            Table/RecordBatch and 1024 * 1024.
         """
         if isinstance(table_or_batch, pa.RecordBatch):
             self.write_batch(table_or_batch, row_group_size)
@@ -1123,8 +1123,8 @@ Examples
         row_group_size : int, default None
             Maximum number of rows in written row group. If None, the
             row group size will be the minimum of the RecordBatch
-            size and 1024 * 1024.  If set larger than 64Mi then 64Mi
-            will be used instead.
+            size (in rows) and 1024 * 1024. If set larger than 64 * 1024 * 1024
+            then 64 * 1024 * 1024 will be used instead.
         """
         table = pa.Table.from_batches([batch], batch.schema)
         self.write_table(table, row_group_size)
@@ -1138,9 +1138,9 @@ Examples
         table : Table
         row_group_size : int, default None
             Maximum number of rows in each written row group. If None,
-            the row group size will be the minimum of the Table size
-            and 1024 * 1024.  If set larger than 64Mi then 64Mi will
-            be used instead.
+            the row group size will be the minimum of the Table size (in rows)
+            and 1024 * 1024. If set larger than 64 * 1024 * 1024 then
+            64 * 1024 * 1024 will be used instead.
 
         """
         if self.schema_changed:
@@ -2017,10 +2017,11 @@ Parameters
 ----------
 table : pyarrow.Table
 where : string or pyarrow.NativeFile
-row_group_size : int
+row_group_size : int, default None
     Maximum number of rows in each written row group. If None, the
-    row group size will be the minimum of the Table size and
-    1024 * 1024.
+    row group size will be the minimum of the Table size (in rows)
+    and 1024 * 1024. If set larger than 64 * 1024 * 1024 then
+    64 * 1024 * 1024 will be used instead.
 {_parquet_writer_arg_docs}
 **kwargs : optional
     Additional options for ParquetWriter
