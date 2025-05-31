@@ -17,6 +17,7 @@
 
 # Arrow file and stream reader/writer classes, and other messaging tools
 
+from abc import abstractmethod
 import os
 
 import pyarrow as pa
@@ -50,6 +51,45 @@ class RecordBatchStreamReader(lib._RecordBatchStreamReader):
     def __init__(self, source, *, options=None, memory_pool=None):
         options = _ensure_default_ipc_read_options(options)
         self._open(source, options=options, memory_pool=memory_pool)
+
+
+class StreamListener:
+    """
+    Abstract class for which an implementation instance
+    may be provided to a StreamDecoder
+    """
+    @abstractmethod
+    def OnEOS(self):
+        ...
+
+    @abstractmethod
+    def OnRecordBatchDecoded(self, batch):
+        ...
+
+    @abstractmethod
+    def OnSchemaDecoded(self, schema):
+        ...
+
+
+class StreamDecoder(lib._StreamDecoder):
+    """
+    Expermental StreamDecoder API
+
+    Parameters
+    ----------
+    listener : StreamListener
+        An instance of a StreamListener
+    options : pyarrow.ipc.IpcWriteOptions
+        Options for IPC serialization.
+    memory_pool : MemoryPool, default None
+        If None, default memory pool is used.
+    """
+
+    def __init__(self, listener: StreamListener, *, options=None, memory_pool=None):
+        if not isinstance(listener, StreamListener):
+            raise TypeError("Expected listener to be a subclass of StreamListener")
+        options = _ensure_default_ipc_read_options(options)
+        self._open(listener, options=options)
 
 
 _ipc_writer_class_doc = """\
