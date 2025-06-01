@@ -134,14 +134,18 @@ struct ARROW_EXPORT ArrayStatistics {
   ///
   /// \param equal_options Options used to compare double values for equality.
   ///
-  /// \param is_approximate If true, \ref arrow::EqualOptions::atol_ is used
-  /// for comparing double values.
-  ///
   /// \return True if the two \ref arrow::ArrayStatistics instances are equal; otherwise,
   /// false.
   bool Equals(const ArrayStatistics& other,
-              const EqualOptions& equal_options = EqualOptions::Defaults(),
-              bool is_approximate = true) const;
+              const EqualOptions& equal_options = EqualOptions::Defaults()) const;
+
+  bool operator==(const ArrayStatistics& other) const {
+    return Equals(other, EqualOptions::Defaults());
+  }
+
+  bool operator!=(const ArrayStatistics& other) const {
+    return !Equals(other, EqualOptions::Defaults());
+  }
 };
 
 }  // namespace arrow

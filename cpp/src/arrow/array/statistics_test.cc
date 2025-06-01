@@ -68,41 +68,41 @@ TEST(ArrayStatisticsTest, TestEqualityNonDoulbeValue) {
   ArrayStatistics statistics1;
   ArrayStatistics statistics2;
 
-  ASSERT_TRUE(statistics1.Equals(statistics2));
+  ASSERT_EQ(statistics1, statistics2);
 
   statistics1.null_count = 29;
-  ASSERT_FALSE(statistics1.Equals(statistics2));
+  ASSERT_NE(statistics1, statistics2);
   statistics2.null_count = 29;
-  ASSERT_TRUE(statistics1.Equals(statistics2));
+  ASSERT_EQ(statistics1, statistics2);
 
   statistics1.distinct_count = 2929;
-  ASSERT_FALSE(statistics1.Equals(statistics2));
+  ASSERT_NE(statistics1, statistics2);
   statistics2.distinct_count = 2929;
-  ASSERT_TRUE(statistics1.Equals(statistics2));
+  ASSERT_EQ(statistics1, statistics2);
 
   statistics1.min = std::string("world");
-  ASSERT_FALSE(statistics1.Equals(statistics2));
+  ASSERT_NE(statistics1, statistics2);
   statistics2.min = std::string("world");
-  ASSERT_TRUE(statistics1.Equals(statistics2));
+  ASSERT_EQ(statistics1, statistics2);
 
   statistics1.is_min_exact = true;
-  ASSERT_FALSE(statistics1.Equals(statistics2));
+  ASSERT_NE(statistics1, statistics2);
   statistics2.is_min_exact = true;
-  ASSERT_TRUE(statistics1.Equals(statistics2));
+  ASSERT_EQ(statistics1, statistics2);
 
   statistics1.max = static_cast<int64_t>(-29);
-  ASSERT_FALSE(statistics1.Equals(statistics2));
+  ASSERT_NE(statistics1, statistics2);
   statistics2.max = static_cast<int64_t>(-29);
-  ASSERT_TRUE(statistics1.Equals(statistics2));
+  ASSERT_EQ(statistics1, statistics2);
 
   statistics1.is_max_exact = true;
-  ASSERT_FALSE(statistics1.Equals(statistics2));
+  ASSERT_NE(statistics1, statistics2);
   statistics2.is_max_exact = true;
-  ASSERT_TRUE(statistics1.Equals(statistics2));
+  ASSERT_EQ(statistics1, statistics2);
 
   // Test different index
   statistics1.max = static_cast<uint64_t>(29);
-  ASSERT_FALSE(statistics1.Equals(statistics2));
+  ASSERT_NE(statistics1, statistics2);
 }
 
 TEST(ArrayStatisticsTest, TestEqualityDoubleValue) {
@@ -114,13 +114,13 @@ TEST(ArrayStatisticsTest, TestEqualityDoubleValue) {
     statistics2.min = std::nullopt;
   };
 
-  ASSERT_TRUE(statistics1.Equals(statistics2));
+  ASSERT_EQ(statistics1, statistics2);
   statistics2.min = 29.0;
-  ASSERT_FALSE(statistics1.Equals(statistics2));
+  ASSERT_NE(statistics1, statistics2);
   statistics1.min = 29.0;
-  ASSERT_TRUE(statistics1.Equals(statistics2));
+  ASSERT_EQ(statistics1, statistics2);
   statistics2.min = 30.0;
-  ASSERT_FALSE(statistics1.Equals(statistics2));
+  ASSERT_NE(statistics1, statistics2);
 
   // Check Signed Zeros
   Reset();
@@ -159,9 +159,9 @@ TEST(ArrayStatisticsTest, TestEqualityDoubleValue) {
   Reset();
   statistics1.max = 0.5001f;
   statistics2.max = 0.5;
-  ASSERT_FALSE(statistics1.Equals(statistics2, options.atol(1e-3), false));
+  ASSERT_FALSE(statistics1.Equals(statistics2, options.atol(1e-3).allow_atol(false)));
 
-  ASSERT_TRUE(statistics1.Equals(statistics2, options.atol(1e-3)));
+  ASSERT_TRUE(statistics1.Equals(statistics2, options.atol(1e-3).allow_atol(true)));
   ASSERT_TRUE(statistics2.Equals(statistics1, options.atol(1e-3)));
   ASSERT_FALSE(statistics1.Equals(statistics2, options.atol(1e-5)));
   ASSERT_FALSE(statistics2.Equals(statistics1, options.atol(1e-5)));
