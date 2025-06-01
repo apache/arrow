@@ -21,7 +21,7 @@ set -e
 
 arrow_dir=${1}
 source_dir=${arrow_dir}/nanoarrow
-build_dir=${source_dir}/nanoarrow
+build_dir=${2}/nanoarrow
 
 # This file is used to build the nanoarrow binaries needed for the archery
 # integration tests. Testing of the nanoarrow implementation in normal CI is handled
