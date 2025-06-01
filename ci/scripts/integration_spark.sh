@@ -18,13 +18,14 @@
 # exit on any error
 set -eu
 
-# SC2034 (warning): source_dir appears unused.
-# shellcheck disable=SC2034
-source_dir=${1}
-spark_dir=${2}
+if [  "$#" -lt 2 ]; then
+  echo "Usage: $0 <spark_version> <spark_dir>"
+  exit 1
+fi
 
 # Spark branch to checkout
-spark_version=${SPARK_VERSION:-master}
+spark_version=${1}
+spark_dir=${2}
 
 # Use old behavior that always dropped timezones.
 export PYARROW_IGNORE_TIMEZONE=1
