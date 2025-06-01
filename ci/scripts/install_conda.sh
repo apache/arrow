@@ -27,8 +27,6 @@ fi
 arch=$(uname -m)
 platform=$(uname)
 installer=$1
-# SC2034 (warning): version appears unused.
-# shellcheck disable=SC2034
 version=$2
 prefix=$3
 

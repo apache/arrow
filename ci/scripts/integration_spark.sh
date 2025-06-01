@@ -23,15 +23,13 @@ set -eu
 source_dir=${1}
 spark_dir=${2}
 
-# SC2034 (warning): spark_version appears unused.
-# shellcheck disable=SC2034
 # Spark branch to checkout
 spark_version=${SPARK_VERSION:-master}
 
 # Use old behavior that always dropped timezones.
 export PYARROW_IGNORE_TIMEZONE=1
 
-if [ "${SPARK_VERSION:1:2}" == "2." ]; then
+if [ "${spark_version:1:2}" == "2." ]; then
   # https://github.com/apache/spark/blob/master/docs/sql-pyspark-pandas-with-arrow.md#compatibility-setting-for-pyarrow--0150-and-spark-23x-24x
   export ARROW_PRE_0_15_IPC_FORMAT=1
 fi
@@ -40,7 +38,7 @@ export MAVEN_OPTS="-Xss256m -Xmx2g -XX:ReservedCodeCacheSize=1g -Dorg.slf4j.simp
 export MAVEN_OPTS="${MAVEN_OPTS} -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
 
 pushd "${spark_dir}"
-  echo "Building Spark ${SPARK_VERSION}"
+  echo "Building Spark ${spark_version}"
 
   # Build Spark only
   build/mvn -B -DskipTests package
@@ -54,7 +52,7 @@ pushd "${spark_dir}"
     "pyspark.sql.tests.arrow.test_arrow_map"
     "pyspark.sql.tests.arrow.test_arrow_python_udf")
 
-  case "${SPARK_VERSION}" in
+  case "${spark_version}" in
     v1.*|v2.*|v3.0.*|v3.1.*|v3.2.*|v3.3.*)
       old_test_modules=true
       ;;

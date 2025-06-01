@@ -19,11 +19,9 @@
 
 set -e
 
-# SC2034 (warning): arrow_dir appears unused.
-# shellcheck disable=SC2034
 arrow_dir=${1}
-source_dir=${1}/nanoarrow
-build_dir=${2}/nanoarrow
+source_dir=${arrow_dir}/nanoarrow
+build_dir=${source_dir}/nanoarrow
 
 # This file is used to build the nanoarrow binaries needed for the archery
 # integration tests. Testing of the nanoarrow implementation in normal CI is handled
