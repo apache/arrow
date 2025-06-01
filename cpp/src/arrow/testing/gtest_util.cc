@@ -944,6 +944,30 @@ Result<std::shared_ptr<DataType>> DictExtensionType::Deserialize(
   return std::make_shared<DictExtensionType>();
 }
 
+bool BinaryViewExtensionType::ExtensionEquals(const ExtensionType& other) const {
+  return (other.extension_name() == this->extension_name());
+}
+
+std::shared_ptr<Array> BinaryViewExtensionType::MakeArray(
+    std::shared_ptr<ArrayData> data) const {
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK_EQ("binary_view",
+            static_cast<const ExtensionType&>(*data->type).extension_name());
+  return std::make_shared<TinyintArray>(data);
+}
+
+Result<std::shared_ptr<DataType>> BinaryViewExtensionType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
+  if (serialized != "binary_view_serialized") {
+    return Status::Invalid("Type identifier did not match: '", serialized, "'");
+  }
+  if (!storage_type->Equals(*int16())) {
+    return Status::Invalid("Invalid storage type for BinaryViewExtensionType: ",
+                           storage_type->ToString());
+  }
+  return std::make_shared<BinaryViewExtensionType>();
+}
+
 bool Complex128Type::ExtensionEquals(const ExtensionType& other) const {
   return (other.extension_name() == this->extension_name());
 }
@@ -974,6 +998,10 @@ std::shared_ptr<DataType> tinyint() { return std::make_shared<TinyintType>(); }
 
 std::shared_ptr<DataType> list_extension_type() {
   return std::make_shared<ListExtensionType>();
+}
+
+std::shared_ptr<DataType> binary_view_extension_type() {
+  return std::make_shared<BinaryViewExtensionType>();
 }
 
 std::shared_ptr<DataType> dict_extension_type() {
