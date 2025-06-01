@@ -533,7 +533,7 @@ namespace {
 struct ExportedArrayPrivateData : PoolAllocationMixin<ExportedArrayPrivateData> {
   // The buffers are owned by the ArrayData member
   SmallVector<const void*, 3> buffers_;
-  struct ArrowArray dictionary_ {};
+  struct ArrowArray dictionary_{};
   SmallVector<struct ArrowArray, 1> children_;
   SmallVector<struct ArrowArray*, 4> child_pointers_;
 
@@ -586,8 +586,12 @@ struct ArrayExporter {
       ++buffers_begin;
     }
 
+    Type::type storage_id =
+        data->type->id() == Type::EXTENSION
+            ? (checked_cast<const ExtensionType&>(*data->type).storage_type()->id())
+            : data->type->id();
     bool need_variadic_buffer_sizes =
-        data->type->id() == Type::BINARY_VIEW || data->type->id() == Type::STRING_VIEW;
+        storage_id == Type::BINARY_VIEW || storage_id == Type::STRING_VIEW;
     if (need_variadic_buffer_sizes) {
       ++n_buffers;
     }
