@@ -15,5 +15,3 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# OpenTelemetry.
-interceptor_via_fun:*opentelemetry::v1::trace::NoopTracer*

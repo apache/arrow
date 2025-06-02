@@ -94,23 +94,15 @@ class TestLogging : public ::testing::Test {
 
   otel::trace::Scope MakeScope() { return tracer_->WithActiveSpan(span_); }
 
-  ARROW_DISABLE_UBSAN("address")
-  void TestBasics() {
-    auto scope = MakeScope();
-    Log(LogLevel::ARROW_ERROR, "foo bar");
-    Log(LogLevel::ARROW_WARNING, "baz bal");
-  }
-
  protected:
   otel::trace::Tracer* tracer_;
   otel::nostd::shared_ptr<otel::trace::Span> span_;
 };
 
 TEST_F(TestLogging, Basics) {
-  TestBasics();
-  // auto scope = MakeScope();
-  // Log(LogLevel::ARROW_ERROR, "foo bar");
-  // Log(LogLevel::ARROW_WARNING, "baz bal");
+  auto scope = MakeScope();
+  Log(LogLevel::ARROW_ERROR, "foo bar");
+  Log(LogLevel::ARROW_WARNING, "baz bal");
 }
 
 }  // namespace telemetry
