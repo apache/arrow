@@ -482,13 +482,13 @@ physical type.
 +-------------------+-----------------------------+----------------------------+----------+
 | FLOAT16           | FIXED_LENGTH_BYTE_ARRAY     | HalfFloat                  |          |
 +-------------------+-----------------------------+----------------------------+----------+
-| UUID              | FIXED_LENGTH_BYTE_ARRAY     | Extension (arrow.uuid)     | \(6)     |
+| UUID              | FIXED_LENGTH_BYTE_ARRAY     | Extension (``arrow.uuid``) | \(6)     |
 +-------------------+-----------------------------+----------------------------+----------+
-| JSON              | BYTE_ARRAY                  | Extension (arrow.json)     | \(6)     |
+| JSON              | BYTE_ARRAY                  | Extension (``arrow.json``) | \(6)     |
 +-------------------+-----------------------------+----------------------------+----------+
-| GEOMETRY          | BYTE_ARRAY                  | Extension (geoarrow.wkb)   | \(6) \(7)|
+| GEOMETRY          | BYTE_ARRAY                  | Extension (``geoarrow.wkb``) | \(6) \(7)|
 +-------------------+-----------------------------+----------------------------+----------+
-| GEOGRAPHY         | BYTE_ARRAY                  | Extension (geoarrow.wkb)   | \(6) \(7)|
+| GEOGRAPHY         | BYTE_ARRAY                  | Extension (``geoarrow.wkb``) | \(6) \(7)|
 +-------------------+-----------------------------+----------------------------+----------+
 
 * \(1) On the write side, the Parquet physical type INT32 is generated.
