@@ -70,6 +70,8 @@
 // > other API headers. This approach efficiently avoids the conflict
 // > between the two different versions of Abseil.
 #include "arrow/util/tracing_internal.h"
+// When running with OTel, ASAN reports false-positives that can't be easily suppressed.
+// Disable OTel for ASAN. See GH-46509.
 #if defined(ARROW_WITH_OPENTELEMETRY) && !defined(ADDRESS_SANITIZER)
 #  include <opentelemetry/context/propagation/global_propagator.h>
 #  include <opentelemetry/context/propagation/text_map_propagator.h>
@@ -95,6 +97,8 @@ const char kAuthHeader[] = "authorization";
 class OtelEnvironment : public ::testing::Environment {
  public:
   void SetUp() override {
+// When running with OTel, ASAN reports false-positives that can't be easily suppressed.
+// Disable OTel for ASAN. See GH-46509.
 #if defined(ARROW_WITH_OPENTELEMETRY) && !defined(ADDRESS_SANITIZER)
     // The default tracer always generates no-op spans which have no
     // span/trace ID. Set up a different tracer. Note, this needs to be run
@@ -1682,6 +1686,8 @@ class TracingTestServer : public FlightServerBase {
     auto* middleware =
         reinterpret_cast<TracingServerMiddleware*>(call_context.GetMiddleware("tracing"));
     if (!middleware) return Status::Invalid("Could not find middleware");
+// When running with OTel, ASAN reports false-positives that can't be easily suppressed.
+// Disable OTel for ASAN. See GH-46509.
 #if defined(ARROW_WITH_OPENTELEMETRY) && !defined(ADDRESS_SANITIZER)
     // Ensure the trace context is present (but the value is random so
     // we cannot assert any particular value)
@@ -1731,6 +1737,8 @@ class TestTracing : public ::testing::Test {
   std::unique_ptr<FlightServerBase> server_;
 };
 
+// When running with OTel, ASAN reports false-positives that can't be easily suppressed.
+// Disable OTel for ASAN. See GH-46509.
 #if defined(ARROW_WITH_OPENTELEMETRY) && !defined(ADDRESS_SANITIZER)
 // Must define it ourselves to avoid a linker error
 constexpr size_t kSpanIdSize = opentelemetry::trace::SpanId::kSize;
