@@ -507,7 +507,7 @@ physical type.
 * \(6) Requires that ``arrow_extensions_enabled`` in ``ArrowReaderProperties`` is ``true``.
   When ``false``, the underlying storage type is read.
 
-* \(7) Requires that the geoarrow.wkb extension type is registered.
+* \(7) Requires that the ``geoarrow.wkb`` extension type is registered.
 
 *Unsupported logical types:* BSON.  If such a type is encountered
 when reading a Parquet file, the default physical type mapping is used (for
