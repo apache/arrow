@@ -370,7 +370,7 @@ def test_hash_join_with_residual_filter():
 
     join_opts = HashJoinNodeOptions(
         "inner", left_keys="key", right_keys="key",
-        filter=pc.equal(pc.field('a'), 5))
+        filter_expression=pc.equal(pc.field('a'), 5))
     joined = Declaration(
         "hashjoin", options=join_opts, inputs=[left_source, right_source])
     result = joined.to_table()
@@ -382,7 +382,7 @@ def test_hash_join_with_residual_filter():
     # test filter expression referencing columns from both side
     join_opts = HashJoinNodeOptions(
         "left outer", left_keys="key", right_keys="key",
-        filter=pc.equal(pc.field("a"), 5) | pc.equal(pc.field("b"), 10)
+        filter_expression=pc.equal(pc.field("a"), 5) | pc.equal(pc.field("b"), 10)
     )
     joined = Declaration(
         "hashjoin", options=join_opts, inputs=[left_source, right_source])
@@ -396,7 +396,7 @@ def test_hash_join_with_residual_filter():
     always_true = pc.scalar(True)
     join_opts = HashJoinNodeOptions(
         "inner", left_keys="key", right_keys="key",
-        filter=always_true)
+        filter_expression=always_true)
     joined = Declaration(
         "hashjoin", options=join_opts, inputs=[left_source, right_source])
     result = joined.to_table()
@@ -410,7 +410,7 @@ def test_hash_join_with_residual_filter():
     always_false = pc.scalar(False)
     join_opts = HashJoinNodeOptions(
         "inner", left_keys="key", right_keys="key",
-        filter=always_false)
+        filter_expression=always_false)
     joined = Declaration(
         "hashjoin", options=join_opts, inputs=[left_source, right_source])
     result = joined.to_table()
