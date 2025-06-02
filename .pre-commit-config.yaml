@@ -182,6 +182,19 @@ repos:
         pass_filenames: false
         files: >-
           ^r/.*\.(R|Rmd)$
+  - repo: local
+    hooks:
+      - id: styler
+        alias: r
+        name: R Format
+        language: r
+        additional_dependencies:
+          - roxygen2
+          - styler
+        entry: |
+          Rscript -e "styler::style_file(commandArgs(TRUE)[1])"
+        files: >-
+          ^r/.*\.(R|Rmd)$
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v14.0.6
     hooks:

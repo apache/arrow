@@ -493,7 +493,7 @@ default_s3_options <- list(
 #' @examplesIf FALSE
 #' # Turn on debug logging. The following line of code should be run in a fresh
 #' # R session prior to any calls to `s3_bucket()` (or other S3 functions)
-#' Sys.setenv("ARROW_S3_LOG_LEVEL"="DEBUG")
+#' Sys.setenv("ARROW_S3_LOG_LEVEL" = "DEBUG")
 #' bucket <- s3_bucket("voltrondata-labs-datasets")
 #'
 #' @export
@@ -554,7 +554,8 @@ GcsFileSystem <- R6Class("GcsFileSystem",
       # Convert from nanoseconds to POSIXct w/ UTC tz
       if ("expiration" %in% names(out)) {
         out$expiration <- as.POSIXct(
-          out$expiration / 1000000000, origin = "1970-01-01", tz = "UTC"
+          out$expiration / 1000000000,
+          origin = "1970-01-01", tz = "UTC"
         )
       }
 
@@ -609,8 +610,10 @@ GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ..
     stop(
       paste(
         "Option 'expiration' must be of class POSIXct, not",
-        class(options$expiration)[[1]]),
-      call. = FALSE)
+        class(options$expiration)[[1]]
+      ),
+      call. = FALSE
+    )
   }
 
   options$retry_limit_seconds <- retry_limit_seconds
