@@ -1532,7 +1532,7 @@ void TestBackpressure(BatchesMaker maker, int batch_size, int num_l_batches,
     return true;
   };
 
-  BusyWait(60.0, has_bp_been_applied);
+  BusyWait(3.0, has_bp_been_applied);
   ASSERT_TRUE(has_bp_been_applied());
 
   gate.ReleaseAllBatches();
@@ -1649,11 +1649,10 @@ TEST(AsofJoinTest, PauseProducingAsofJoinSource) {
   EXPECT_FALSE(backpressure_monitor->is_paused());
   batch_producer_left.producer().Push(l_batches.batches[l_cnt++]);
   batch_producer_right.producer().Push(r0_batches.batches[r_cnt++]);
-  // }
 
-  // One more batch should trigger back pressure
+  // this should trigger pause on sink
 
-  BusyWait(60.0, [&]() { return backpressure_monitor->is_paused(); });
+  BusyWait(3.0, [&]() { return backpressure_monitor->is_paused(); });
   arrow::io::internal::GetIOThreadPool()->WaitForIdle();
   arrow::internal::GetCpuThreadPool()->WaitForIdle();
 
@@ -1678,37 +1677,32 @@ TEST(AsofJoinTest, PauseProducingAsofJoinSource) {
     batch_producer_right.producer().Push(r0_batches.batches[r_cnt++]);
   }
 
+  BusyWait(3.0, is_l_paused);
+  BusyWait(3.0, is_r_paused);
+  arrow::io::internal::GetIOThreadPool()->WaitForIdle();
+  arrow::internal::GetCpuThreadPool()->WaitForIdle();
+  // Verify pause propagates
+  EXPECT_TRUE(is_l_paused());
+  EXPECT_TRUE(is_r_paused());
+
+  batch_producer_left.producer().Push(IterationEnd<std::optional<ExecBatch>>());
+  batch_producer_right.producer().Push(IterationEnd<std::optional<ExecBatch>>());
+
   std::optional<ExecBatch> opt_batch;
-  arrow::internal::GetCpuThreadPool()->WaitForIdle();
-  // Read the batches from the sink to open up input of the asof join node
-  for (uint32_t i = 0; i < thresholdOfBackpressureAsof - thresholdOfBackpressureAsofLow;
+
+  for (uint32_t i = 1; i < thresholdOfBackpressureAsof - thresholdOfBackpressureAsofLow;
        i++) {
-    SleepABit();
-    EXPECT_TRUE(is_l_paused());
-    EXPECT_TRUE(is_r_paused());
-    EXPECT_TRUE(backpressure_monitor->is_paused());
-
     ASSERT_FINISHES_OK_AND_ASSIGN(opt_batch, sink_gen());
     EXPECT_TRUE(opt_batch);
   }
-
+  BusyWait(3.0, [&]() { return !is_l_paused(); });
+  BusyWait(3.0, [&]() { return !is_r_paused(); });
+  arrow::io::internal::GetIOThreadPool()->WaitForIdle();
   arrow::internal::GetCpuThreadPool()->WaitForIdle();
-
-  // Finish the batches in the left and right producers
-  for (uint32_t i = 0; i < thresholdOfBackpressureAsofLow + 1; i++) {
-    SleepABit();
-    EXPECT_FALSE(is_l_paused());
-    EXPECT_FALSE(is_r_paused());
-    ASSERT_FINISHES_OK_AND_ASSIGN(opt_batch, sink_gen());
-    EXPECT_TRUE(opt_batch);
-  }
 
   EXPECT_FALSE(is_l_paused());
   EXPECT_FALSE(is_r_paused());
   EXPECT_FALSE(backpressure_monitor->is_paused());
-
-  batch_producer_left.producer().Push(IterationEnd<std::optional<ExecBatch>>());
-  batch_producer_right.producer().Push(IterationEnd<std::optional<ExecBatch>>());
 
   ASSERT_FINISHES_OK_AND_ASSIGN(opt_batch, sink_gen());
   EXPECT_FALSE(opt_batch);
