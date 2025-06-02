@@ -1384,10 +1384,15 @@ TYPED_TEST(TestStringKernels, IsDecimalUnicode) {
 }
 
 TYPED_TEST(TestStringKernels, IsDigitUnicode) {
-  // These are digits according to Python, but we don't have the information in
-  // utf8proc for this
-  // this->CheckUnary("utf8_is_digit", "[\"²\", \"①\"]", boolean(), "[true,
-  // true]");
+  // Tests for digits across various Unicode scripts.
+  // ٤: Arabic 4, ³: Superscript 3, ५: Devanagari 5, Ⅷ: Roman 8 (not digit),
+  // １２３: Fullwidth 123.
+  // '¾' (vulgar fraction) is treated as a digit by utf8proc
+  this->CheckUnary(
+      "utf8_is_digit",
+      R"(["0", "٤", "۵", "३", "१२३", "٣٣", "²", "１２３", "٣٢", "٩", "①", "Ⅷ", "abc" , "⻁", ""])",
+      boolean(),
+      R"([true, true, true, true, true, true, true, true, true, true, true, false, false, false, false])");
 }
 
 TYPED_TEST(TestStringKernels, IsNumericUnicode) {
