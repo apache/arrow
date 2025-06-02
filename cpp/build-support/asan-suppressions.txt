@@ -14,16 +14,6 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-# False positive from atexit() registration in libc
-leak:*__new_exitfn*
-# Leak at shutdown in OpenSSL
-leak:CRYPTO_zalloc
-
-# OpenTelemetry. These seem like false positives and go away if the
-# CPU thread pool is manually shut down before exit.
-# Note that ASan has trouble backtracing these and may not be able to
-# without LSAN_OPTIONS=fast_unwind_on_malloc=0:malloc_context_size=100
-leak:opentelemetry::v1::context::ThreadLocalContextStorage::GetStack
-leak:opentelemetry::v1::context::ThreadLocalContextStorage::Stack::Resize
-leak:std::make_shared<opentelemetry::v1::trace::NoopTracer>
+  
+# Note this file is merely a placeholder that contains no suppressions for now.
+# But it may become useful in the future.
