@@ -32,12 +32,24 @@ class TestFixedShapeTensorDataType < Test::Unit::TestCase
                  [@data_type.name, @data_type.extension_name])
   end
 
+  def test_n_dimensions
+    assert_equal(2, @data_type.n_dimensions)
+  end
+
   def test_shape
     assert_equal([3, 4], @data_type.shape)
   end
 
   def test_permutation
     assert_equal([1, 0], @data_type.permutation)
+  end
+
+  def test_strides
+    assert_equal([8, 32], @data_type.strides)
+  end
+
+  def test_dim_names
+    assert_equal(["x", "y"], @data_type.dim_names)
   end
 
   def test_to_s
@@ -51,7 +63,8 @@ class TestFixedShapeTensorDataType < Test::Unit::TestCase
                                                     [3, 4],
                                                     nil,
                                                     ["x", "y"])
-    assert_equal([], data_type.permutation)
+    assert_equal([[], [32, 8]],
+                 [data_type.permutation, data_type.strides])
   end
 
   def test_nil_dim_names
@@ -59,8 +72,7 @@ class TestFixedShapeTensorDataType < Test::Unit::TestCase
                                                     [3, 4],
                                                     [0, 1],
                                                     nil)
-    # TODO: Use Arrow::FixedShapeTensorDataType#dim_names
-    assert_equal(Arrow::Type::EXTENSION, data_type.id)
+    assert_equal([], data_type.dim_names)
   end
 
   def test_mismatch_permutation_size

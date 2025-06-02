@@ -33,7 +33,7 @@ offered by the language and common in-memory data processing algorithms
 provided by the Apache Arrow implementation in their programming
 language of choice. Some implementations are further ahead and feature a
 vast set of algorithms for in-memory analytical data processing. More detail
-about how implementations differ can be found on the :ref:`status` page.
+about how implementations differ can be found on the :doc:`../status` page.
 
 Apart from this initial vision, Arrow has grown to also develop a
 multi-language collection of libraries for solving problems related to

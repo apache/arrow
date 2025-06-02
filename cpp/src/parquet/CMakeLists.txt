@@ -160,6 +160,7 @@ set(PARQUET_SRCS
     arrow/writer.cc
     bloom_filter.cc
     bloom_filter_reader.cc
+    chunker_internal.cc
     column_reader.cc
     column_scanner.cc
     column_writer.cc
@@ -368,11 +369,12 @@ configure_file(parquet_version.h.in "${CMAKE_CURRENT_BINARY_DIR}/parquet_version
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet")
 
+set_source_files_properties(public_api_test.cc PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+
 add_parquet_test(internals-test
                  SOURCES
                  bloom_filter_reader_test.cc
                  bloom_filter_test.cc
-                 encoding_test.cc
                  geospatial/statistics_test.cc
                  geospatial/util_internal_test.cc
                  metadata_test.cc
@@ -383,7 +385,7 @@ add_parquet_test(internals-test
                  statistics_test.cc
                  types_test.cc)
 
-set_source_files_properties(public_api_test.cc PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+add_parquet_test(encoding-test SOURCES encoding_test.cc)
 
 add_parquet_test(reader-test
                  SOURCES
@@ -398,6 +400,8 @@ add_parquet_test(writer-test
                  column_writer_test.cc
                  file_serialize_test.cc
                  stream_writer_test.cc)
+
+add_parquet_test(chunker-test SOURCES chunker_internal_test.cc)
 
 add_parquet_test(arrow-test
                  SOURCES

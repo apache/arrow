@@ -845,6 +845,7 @@ def test_parquet_read_options():
     opts1 = ds.ParquetReadOptions()
     opts2 = ds.ParquetReadOptions(dictionary_columns=['a', 'b'])
     opts3 = ds.ParquetReadOptions(coerce_int96_timestamp_unit="ms")
+    opts4 = ds.ParquetReadOptions(binary_type=pa.binary_view())
 
     assert opts1.dictionary_columns == set()
 
@@ -853,9 +854,20 @@ def test_parquet_read_options():
     assert opts1.coerce_int96_timestamp_unit == "ns"
     assert opts3.coerce_int96_timestamp_unit == "ms"
 
+    assert opts1.binary_type == pa.binary()
+    assert opts4.binary_type == pa.binary_view()
+
     assert opts1 == opts1
     assert opts1 != opts2
     assert opts1 != opts3
+    assert opts1 != opts4
+
+    opts4.binary_type = None
+    assert opts4.binary_type == pa.binary()
+    assert opts1 == opts4
+    opts4.binary_type = pa.large_binary()
+    assert opts4.binary_type == pa.large_binary()
+    assert opts1 != opts4
 
 
 @pytest.mark.parquet
@@ -863,11 +875,14 @@ def test_parquet_file_format_read_options():
     pff1 = ds.ParquetFileFormat()
     pff2 = ds.ParquetFileFormat(dictionary_columns={'a'})
     pff3 = ds.ParquetFileFormat(coerce_int96_timestamp_unit="s")
+    pff4 = ds.ParquetFileFormat(binary_type=pa.binary_view())
 
     assert pff1.read_options == ds.ParquetReadOptions()
     assert pff2.read_options == ds.ParquetReadOptions(dictionary_columns=['a'])
     assert pff3.read_options == ds.ParquetReadOptions(
         coerce_int96_timestamp_unit="s")
+    assert pff4.read_options == ds.ParquetReadOptions(
+        binary_type=pa.binary_view())
 
 
 @pytest.mark.parquet
@@ -4588,6 +4603,22 @@ def test_write_dataset_use_threads(tempdir):
     result1 = ds.dataset(target1, format="feather", partitioning=partitioning)
     result2 = ds.dataset(target2, format="feather", partitioning=partitioning)
     assert result1.to_table().equals(result2.to_table())
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_write_dataset_use_threads_preserve_order(tempdir):
+    # see GH-26818
+    table = pa.table({"a": range(1024)})
+    batches = table.to_batches(max_chunksize=2)
+    ds.write_dataset(batches, tempdir, format="parquet",
+                     use_threads=True, preserve_order=True)
+    seq = ds.dataset(tempdir).to_table(use_threads=False)['a'].to_numpy()
+    prev = -1
+    for item in seq:
+        curr = int(item)
+        assert curr > prev, f"Sequence expected to be ordered: {seq}"
+        prev = curr
 
 
 def test_write_table(tempdir):

@@ -21,7 +21,7 @@
 #'
 #' The `arrow` package contains methods for 37 `dplyr` table functions, many of
 #' which are "verbs" that do transformations to one or more tables.
-#' The package also has mappings of 221 R functions to the corresponding
+#' The package also has mappings of 222 R functions to the corresponding
 #' functions in the Arrow compute library. These allow you to write code inside
 #' of `dplyr` methods that call R functions, including many in packages like
 #' `stringr` and `lubridate`, and they will get translated to Arrow and run
@@ -83,7 +83,7 @@
 #' Functions can be called either as `pkg::fun()` or just `fun()`, i.e. both
 #' `str_sub()` and `stringr::str_sub()` work.
 #'
-#' In addition to these functions, you can call any of Arrow's 271 compute
+#' In addition to these functions, you can call any of Arrow's 280 compute
 #' functions directly. Arrow has many functions that don't map to an existing R
 #' function. In other cases where there is an R function mapping, you can still
 #' call the Arrow function directly if you don't want the adaptations that the R
@@ -96,7 +96,6 @@
 #'
 #' * [`add_filename()`][arrow::add_filename()]
 #' * [`cast()`][arrow::cast()]
-#' * [`one()`][arrow::one()]
 #'
 #' ## base
 #'
@@ -215,6 +214,11 @@
 #' * [`n()`][dplyr::n()]
 #' * [`n_distinct()`][dplyr::n_distinct()]
 #'
+#' ## hms
+#'
+#' * [`as_hms()`][hms::as_hms()]
+#' * [`hms()`][hms::hms()]
+#'
 #' ## lubridate
 #'
 #' * [`am()`][lubridate::am()]
@@ -296,11 +300,6 @@
 #' * [`ymd_hm()`][lubridate::ymd_hm()]: `locale` argument not supported
 #' * [`ymd_hms()`][lubridate::ymd_hms()]: `locale` argument not supported
 #' * [`yq()`][lubridate::yq()]: `locale` argument not supported
-#'
-#' ## hms
-#'
-#' * [`hms()`][hms::hms()]: subsecond times not supported
-#' * [`hms()`][hms::as_hms()]: subsecond times not supported
 #'
 #' ## methods
 #'

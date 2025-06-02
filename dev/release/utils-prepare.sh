@@ -111,14 +111,6 @@ update_versions() {
     apache-arrow.rb
   popd
 
-  pushd "${ARROW_DIR}/js"
-  sed -i.bak -E -e \
-    "s/^  \"version\": \".+\"/  \"version\": \"${version}\"/" \
-    package.json
-  rm -f package.json.bak
-  git add package.json
-  popd
-
   pushd "${ARROW_DIR}/matlab"
   sed -i.bak -E -e \
     "s/^set\(MLARROW_VERSION \".+\"\)/set(MLARROW_VERSION \"${version}\")/" \

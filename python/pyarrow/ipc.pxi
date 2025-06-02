@@ -48,6 +48,26 @@ cdef CMetadataVersion _unwrap_metadata_version(
     raise ValueError("Not a metadata version: " + repr(version))
 
 
+cpdef enum Alignment:
+    Any = <int64_t> CAlignment_Any
+    DataTypeSpecific = <int64_t> CAlignment_DataTypeSpecific
+    At64Byte = <int64_t> CAlignment_64Byte
+
+
+cdef object _wrap_alignment(CAlignment alignment):
+    return Alignment(<int64_t> alignment)
+
+
+cdef CAlignment _unwrap_alignment(Alignment alignment) except *:
+    if alignment == Alignment.Any:
+        return CAlignment_Any
+    elif alignment == Alignment.DataTypeSpecific:
+        return CAlignment_DataTypeSpecific
+    elif alignment == Alignment.At64Byte:
+        return CAlignment_64Byte
+    raise ValueError("Not an alignment: " + repr(alignment))
+
+
 _WriteStats = namedtuple(
     'WriteStats',
     ('num_messages', 'num_record_batches', 'num_dictionary_batches',
@@ -120,6 +140,10 @@ cdef class IpcReadOptions(_Weakrefable):
     ----------
     ensure_native_endian : bool, default True
         Whether to convert incoming data to platform-native endianness.
+    ensure_alignment : Alignment, default Alignment.Any
+        Data is copied to aligned memory locations if mis-aligned.
+        Some use cases might require data to have a specific alignment, for example,
+        for the data buffer of an int32 array to be aligned on a 4-byte boundary.
     use_threads : bool
         Whether to use the global CPU thread pool to parallelize any
         computational tasks like decompression
@@ -133,9 +157,11 @@ cdef class IpcReadOptions(_Weakrefable):
     # cdef block is in lib.pxd
 
     def __init__(self, *, bint ensure_native_endian=True,
+                 Alignment ensure_alignment=Alignment.Any,
                  bint use_threads=True, list included_fields=None):
         self.c_options = CIpcReadOptions.Defaults()
         self.ensure_native_endian = ensure_native_endian
+        self.ensure_alignment = ensure_alignment
         self.use_threads = use_threads
         if included_fields is not None:
             self.included_fields = included_fields
@@ -147,6 +173,14 @@ cdef class IpcReadOptions(_Weakrefable):
     @ensure_native_endian.setter
     def ensure_native_endian(self, bint value):
         self.c_options.ensure_native_endian = value
+
+    @property
+    def ensure_alignment(self):
+        return _wrap_alignment(self.c_options.ensure_alignment)
+
+    @ensure_alignment.setter
+    def ensure_alignment(self, Alignment value):
+        self.c_options.ensure_alignment = _unwrap_alignment(value)
 
     @property
     def use_threads(self):

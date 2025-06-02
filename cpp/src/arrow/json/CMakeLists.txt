@@ -20,6 +20,7 @@ add_arrow_test(test
                chunked_builder_test.cc
                chunker_test.cc
                converter_test.cc
+               from_string_test.cc
                parser_test.cc
                reader_test.cc
                PREFIX

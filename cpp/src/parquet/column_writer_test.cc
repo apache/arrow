@@ -1999,7 +1999,7 @@ TEST_F(TestGeometryValuesWriter, TestWriteAndReadAllNull) {
   std::fill(this->def_levels_.begin(), this->def_levels_.end(), 0);
   auto writer = this->BuildWriter(SMALL_SIZE);
   writer->WriteBatch(this->values_.size(), this->def_levels_.data(), nullptr,
-                     this->values_ptr_);
+                     this->values_.data());
 
   writer->Close();
   this->ReadColumn();

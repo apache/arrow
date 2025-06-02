@@ -407,7 +407,7 @@ if(ARROW_AZURE)
   set(ARROW_WITH_AZURE_SDK ON)
 endif()
 
-if(ARROW_JSON)
+if(ARROW_JSON OR ARROW_FLIGHT_SQL_ODBC)
   set(ARROW_WITH_RAPIDJSON ON)
 endif()
 
@@ -607,8 +607,6 @@ else()
            # our currently used packages and doesn't fall out of sync with
            # ${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}
            "${THIRDPARTY_MIRROR_URL}/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
-           "https://boostorg.jfrog.io/artifactory/main/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
-           "https://sourceforge.net/projects/boost/files/boost/${ARROW_BOOST_BUILD_VERSION}/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
   )
 endif()
 
@@ -1258,6 +1256,7 @@ endif()
 if(ARROW_BUILD_INTEGRATION
    OR ARROW_BUILD_TESTS
    OR (ARROW_FLIGHT AND (ARROW_TESTING OR ARROW_BUILD_BENCHMARKS))
+   OR ARROW_FLIGHT_SQL_ODBC
    OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS)
    OR (ARROW_TESTING AND ARROW_BUILD_SHARED))
   set(ARROW_USE_BOOST TRUE)
@@ -1284,6 +1283,9 @@ if(ARROW_USE_BOOST)
   endif()
   if(ARROW_BOOST_REQUIRE_LIBRARY)
     set(ARROW_BOOST_COMPONENTS filesystem system)
+    if(ARROW_FLIGHT_SQL_ODBC AND MSVC)
+      list(APPEND ARROW_BOOST_COMPONENTS locale)
+    endif()
     set(ARROW_BOOST_OPTIONAL_COMPONENTS process)
   else()
     set(ARROW_BOOST_COMPONENTS)
@@ -2652,33 +2654,40 @@ if(ARROW_WITH_ZLIB)
 endif()
 
 macro(build_lz4)
-  message(STATUS "Building LZ4 from source")
+  message(STATUS "Building LZ4 from source using FetchContent")
 
-  set(LZ4_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/lz4_ep-install")
+  # Set LZ4 as vendored
+  set(LZ4_VENDORED TRUE)
 
-  set(LZ4_STATIC_LIB
-      "${LZ4_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}lz4${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  # Declare the content
+  fetchcontent_declare(lz4
+                       URL ${LZ4_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_LZ4_BUILD_SHA256_CHECKSUM}"
+                       SOURCE_SUBDIR "build/cmake")
 
-  set(LZ4_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-                     -DLZ4_BUILD_CLI=OFF -DLZ4_BUILD_LEGACY_LZ4C=OFF)
+  # Prepare fetch content environment
+  prepare_fetchcontent()
 
-  # We need to copy the header in lib to directory outside of the build
-  externalproject_add(lz4_ep
-                      ${EP_COMMON_OPTIONS}
-                      CMAKE_ARGS ${LZ4_CMAKE_ARGS}
-                      SOURCE_SUBDIR "build/cmake"
-                      INSTALL_DIR ${LZ4_PREFIX}
-                      URL ${LZ4_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_LZ4_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS ${LZ4_STATIC_LIB})
+  # Set LZ4-specific build options as cache variables
+  set(LZ4_BUILD_CLI
+      OFF
+      CACHE BOOL "Don't build LZ4 CLI" FORCE)
+  set(LZ4_BUILD_LEGACY_LZ4C
+      OFF
+      CACHE BOOL "Don't build legacy LZ4 tools" FORCE)
 
-  file(MAKE_DIRECTORY "${LZ4_PREFIX}/include")
-  add_library(LZ4::lz4 STATIC IMPORTED)
-  set_target_properties(LZ4::lz4 PROPERTIES IMPORTED_LOCATION "${LZ4_STATIC_LIB}")
-  target_include_directories(LZ4::lz4 BEFORE INTERFACE "${LZ4_PREFIX}/include")
-  add_dependencies(LZ4::lz4 lz4_ep)
+  # Make the dependency available - this will actually perform the download and configure
+  fetchcontent_makeavailable(lz4)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS LZ4::lz4)
+  # Use LZ4::lz4 as an imported library not an alias of lz4_static so other targets such as orc
+  # can depend on it as an external library. External libraries are ignored in
+  # install(TARGETS orc EXPORT orc_targets) and install(EXPORT orc_targets).
+  add_library(LZ4::lz4 INTERFACE IMPORTED)
+  target_link_libraries(LZ4::lz4 INTERFACE lz4_static)
+
+  # Add to bundled static libs.
+  # We must use lz4_static (not imported target) not LZ4::lz4 (imported target).
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS lz4_static)
 endmacro()
 
 if(ARROW_WITH_LZ4)
@@ -2908,7 +2917,7 @@ endmacro()
 
 if(ARROW_WITH_UTF8PROC)
   set(utf8proc_resolve_dependency_args utf8proc PC_PACKAGE_NAMES libutf8proc)
-  if(NOT VCPKG_TOOLCHAIN)
+  if(NOT ARROW_VCPKG)
     # utf8proc in vcpkg doesn't provide version information:
     # https://github.com/microsoft/vcpkg/issues/39176
     list(APPEND utf8proc_resolve_dependency_args REQUIRED_VERSION "2.2.0")
@@ -4589,6 +4598,17 @@ target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
 function(build_orc)
   message(STATUS "Building Apache ORC from source")
 
+  if(LZ4_VENDORED)
+    set(ORC_LZ4_TARGET lz4_static)
+    set(ORC_LZ4_ROOT "${lz4_SOURCE_DIR}")
+    set(ORC_LZ4_INCLUDE_DIR "${lz4_SOURCE_DIR}/lib")
+  else()
+    set(ORC_LZ4_TARGET LZ4::lz4)
+    get_target_property(ORC_LZ4_INCLUDE_DIR ${ORC_LZ4_TARGET}
+                        INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_INCLUDE_DIR}" DIRECTORY)
+  endif()
+
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
@@ -4601,16 +4621,14 @@ function(build_orc)
     set(ORC_PREFER_STATIC_LZ4
         OFF
         CACHE BOOL "" FORCE)
-    get_target_property(LZ4_INCLUDE_DIR LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
-    if(NOT LZ4_INCLUDE_DIR)
-      find_path(LZ4_INCLUDE_DIR NAMES lz4.h)
-    endif()
-    get_filename_component(LZ4_ROOT "${LZ4_INCLUDE_DIR}" DIRECTORY)
     set(LZ4_HOME
-        "${LZ4_ROOT}"
+        "${ORC_LZ4_ROOT}"
+        CACHE STRING "" FORCE)
+    set(LZ4_INCLUDE_DIR
+        "${ORC_LZ4_INCLUDE_DIR}"
         CACHE STRING "" FORCE)
     set(LZ4_LIBRARY
-        LZ4::lz4
+        ${ORC_LZ4_TARGET}
         CACHE STRING "" FORCE)
 
     set(ORC_PREFER_STATIC_PROTOBUF
@@ -4709,9 +4727,6 @@ function(build_orc)
                         INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
 
-    get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
-
     get_target_property(ORC_ZSTD_ROOT ${ARROW_ZSTD_LIBZSTD} INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_ZSTD_ROOT "${ORC_ZSTD_ROOT}" DIRECTORY)
 
@@ -4735,9 +4750,9 @@ function(build_orc)
         "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
         "-DSNAPPY_LIBRARY=$<TARGET_FILE:${Snappy_TARGET}>"
         "-DLZ4_HOME=${ORC_LZ4_ROOT}"
-        "-DLZ4_LIBRARY=$<TARGET_FILE:LZ4::lz4>"
-        "-DLZ4_STATIC_LIB=$<TARGET_FILE:LZ4::lz4>"
-        "-DLZ4_INCLUDE_DIR=${ORC_LZ4_ROOT}/include"
+        "-DLZ4_LIBRARY=$<TARGET_FILE:${ORC_LZ4_TARGET}>"
+        "-DLZ4_STATIC_LIB=$<TARGET_FILE:${ORC_LZ4_TARGET}>"
+        "-DLZ4_INCLUDE_DIR=${ORC_LZ4_INCLUDE_DIR}"
         "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
         "-DZSTD_HOME=${ORC_ZSTD_ROOT}"
         "-DZSTD_INCLUDE_DIR=$<TARGET_PROPERTY:${ARROW_ZSTD_LIBZSTD},INTERFACE_INCLUDE_DIRECTORIES>"
@@ -4911,7 +4926,7 @@ macro(build_opentelemetry)
        -DWITH_OTLP_HTTP_SSL_PREVIEW=OFF
        -DWITH_OTLP_HTTP_SSL_TLS_PREVIEW=OFF
        "-DProtobuf_INCLUDE_DIR=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
-       "-DProtobuf_LIBRARY=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
+       "-DProtobuf_LIBRARY=${OPENTELEMETRY_PROTOBUF_LIBRARY}"
        "-DProtobuf_PROTOC_EXECUTABLE=${OPENTELEMETRY_PROTOC_EXECUTABLE}")
 
   # OpenTelemetry with OTLP enabled requires Protobuf definitions from a
@@ -5560,6 +5575,13 @@ if(ARROW_WITH_AZURE_SDK)
   resolve_dependency(Azure REQUIRED_VERSION 1.10.2)
   set(AZURE_SDK_LINK_LIBRARIES Azure::azure-storage-files-datalake
                                Azure::azure-storage-blobs Azure::azure-identity)
+endif()
+
+# ----------------------------------------------------------------------
+# Apache Flight SQL ODBC
+
+if(ARROW_FLIGHT_SQL_ODBC)
+  find_package(ODBC REQUIRED)
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")

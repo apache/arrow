@@ -36,9 +36,9 @@ if [ -z "${vcpkg_version}" ]; then
 fi
 
 # reduce the fetched data using a shallow clone
-git clone --shallow-since=2021-04-01 https://github.com/microsoft/vcpkg ${vcpkg_destination}
+git clone --shallow-since=2021-04-01 https://github.com/microsoft/vcpkg "${vcpkg_destination}"
 
-pushd ${vcpkg_destination}
+pushd "${vcpkg_destination}"
 
 git checkout "${vcpkg_version}"
 
@@ -49,7 +49,7 @@ else
 fi
 
 if [ -f "${vcpkg_ports_patch}" ]; then
-  git apply --verbose --ignore-whitespace ${vcpkg_ports_patch}
+  git apply --verbose --ignore-whitespace "${vcpkg_ports_patch}"
   echo "Patch successfully applied to the VCPKG port files!"
 fi
 

@@ -108,7 +108,7 @@ class ARROW_EXPORT Decimal32 : public BasicDecimal32 {
 
   /// \brief Convert from a big-endian byte representation. The length must be
   ///        between 1 and 4
-  /// \return error statis if the length is an invalid value
+  /// \return error status if the length is an invalid value
   static Result<Decimal32> FromBigEndian(const uint8_t* data, int32_t length);
 
   /// \brief Convert Decimal32 from one scale to another
@@ -220,7 +220,7 @@ class ARROW_EXPORT Decimal64 : public BasicDecimal64 {
 
   /// \brief Convert from a big-endian byte representation. The length must be
   ///        between 1 and 4
-  /// \return error statis if the length is an invalid value
+  /// \return error status if the length is an invalid value
   static Result<Decimal64> FromBigEndian(const uint8_t* data, int32_t length);
 
   /// \brief Convert Decimal64 from one scale to another

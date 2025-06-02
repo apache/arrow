@@ -183,6 +183,12 @@ FlightInfo MakeFlightInfo(const Schema& schema, const FlightDescriptor& descript
                           std::string app_metadata);
 
 ARROW_FLIGHT_EXPORT
+FlightInfo MakeFlightInfo(const FlightDescriptor& descriptor,
+                          const std::vector<FlightEndpoint>& endpoints,
+                          int64_t total_records, int64_t total_bytes, bool ordered,
+                          std::string app_metadata);
+
+ARROW_FLIGHT_EXPORT
 Status ExampleTlsCertificates(std::vector<CertKeyPair>* out);
 
 ARROW_FLIGHT_EXPORT

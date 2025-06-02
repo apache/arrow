@@ -51,6 +51,11 @@ tensor_type_pairs = [
     ('f8', pa.float64())
 ]
 
+# scipy.sparse does not support float16
+scipy_type_pairs = [
+    pair for pair in tensor_type_pairs if pair[0] != 'f2'
+]
+
 
 @pytest.mark.parametrize('sparse_tensor_type', [
     pa.SparseCSRMatrix,
@@ -395,7 +400,7 @@ def test_dense_to_sparse_tensor(dtype_str, arrow_type, sparse_tensor_type):
 
 
 @pytest.mark.skipif(not coo_matrix, reason="requires scipy")
-@pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
+@pytest.mark.parametrize('dtype_str,arrow_type', scipy_type_pairs)
 def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type):
     dtype = np.dtype(dtype_str)
     data = np.array([1, 2, 3, 4, 5, 6]).astype(dtype)
@@ -420,11 +425,7 @@ def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type):
     assert np.array_equal(scipy_matrix.row, out_scipy_matrix.row)
     assert np.array_equal(scipy_matrix.col, out_scipy_matrix.col)
 
-    if dtype_str == 'f2':
-        dense_array = \
-            scipy_matrix.astype(np.float32).toarray().astype(np.float16)
-    else:
-        dense_array = scipy_matrix.toarray()
+    dense_array = scipy_matrix.toarray()
     assert np.array_equal(dense_array, sparse_tensor.to_tensor().to_numpy())
 
     # canonical sparse coo matrix
@@ -439,7 +440,7 @@ def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type):
 
 
 @pytest.mark.skipif(not csr_matrix, reason="requires scipy")
-@pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
+@pytest.mark.parametrize('dtype_str,arrow_type', scipy_type_pairs)
 def test_sparse_csr_matrix_scipy_roundtrip(dtype_str, arrow_type):
     dtype = np.dtype(dtype_str)
     data = np.array([8, 2, 5, 3, 4, 6]).astype(dtype)
@@ -460,11 +461,7 @@ def test_sparse_csr_matrix_scipy_roundtrip(dtype_str, arrow_type):
     assert np.array_equal(sparse_array.indptr, out_sparse_array.indptr)
     assert np.array_equal(sparse_array.indices, out_sparse_array.indices)
 
-    if dtype_str == 'f2':
-        dense_array = \
-            sparse_array.astype(np.float32).toarray().astype(np.float16)
-    else:
-        dense_array = sparse_array.toarray()
+    dense_array = sparse_array.toarray()
     assert np.array_equal(dense_array, sparse_tensor.to_tensor().to_numpy())
 
 

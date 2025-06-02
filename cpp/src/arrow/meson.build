@@ -424,13 +424,11 @@ if needs_ipc
         'ipc/writer.cc',
     ]
 
-    flatbuffers_dep = dependency('flatbuffers')
+    flatbuffers_incdir = include_directories(
+        '../../thirdparty/flatbuffers/include',
+    )
+    flatbuffers_dep = declare_dependency(include_directories: flatbuffers_incdir)
     arrow_ipc_deps = [flatbuffers_dep]
-
-    if needs_json
-        arrow_ipc_srcs += 'ipc/json_simple.cc'
-        arrow_ipc_deps += rapidjson_dep
-    endif
 
     arrow_components += {
         'arrow_ipc': {'sources': arrow_ipc_srcs, 'dependencies': arrow_ipc_deps},
@@ -447,6 +445,7 @@ if needs_json
                 'json/chunked_builder.cc',
                 'json/chunker.cc',
                 'json/converter.cc',
+                'json/from_string.cc',
                 'json/object_parser.cc',
                 'json/object_writer.cc',
                 'json/parser.cc',
@@ -727,4 +726,8 @@ endif
 
 if needs_ipc
     subdir('ipc')
+endif
+
+if get_option('tensorflow').enabled()
+    subdir('adapters/tensorflow')
 endif

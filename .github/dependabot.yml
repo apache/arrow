@@ -38,13 +38,6 @@ updates:
     commit-message:
       prefix: "MINOR: [Swift] "
     open-pull-requests-limit: 10
-  - package-ecosystem: "npm"
-    directory: "/js/"
-    schedule:
-      interval: "monthly"
-    commit-message:
-      prefix: "MINOR: [JS] "
-    open-pull-requests-limit: 10
   - package-ecosystem: "nuget"
     directory: "/csharp/"
     schedule:

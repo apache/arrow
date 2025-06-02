@@ -32,6 +32,7 @@ from pyarrow.lib cimport (_Weakrefable, Buffer, Schema,
                           Table, KeyValueMetadata,
                           pyarrow_wrap_chunked_array,
                           pyarrow_wrap_schema,
+                          pyarrow_unwrap_data_type,
                           pyarrow_unwrap_metadata,
                           pyarrow_unwrap_schema,
                           pyarrow_wrap_table,
@@ -827,7 +828,7 @@ cdef class SortingColumn:
 
     def __repr__(self):
         return f"{self.__class__.__name__}(column_index={self.column_index}, " \
-               f"descending={self.descending}, nulls_first={self.nulls_first})"
+            f"descending={self.descending}, nulls_first={self.nulls_first})"
 
     def __eq__(self, SortingColumn other):
         return (self.column_index == other.column_index and
@@ -1551,7 +1552,8 @@ cdef class ParquetReader(_Weakrefable):
         self._metadata = None
 
     def open(self, object source not None, *, bint use_memory_map=False,
-             read_dictionary=None, FileMetaData metadata=None,
+             read_dictionary=None, binary_type=None,
+             FileMetaData metadata=None,
              int buffer_size=0, bint pre_buffer=False,
              coerce_int96_timestamp_unit=None,
              FileDecryptionProperties decryption_properties=None,
@@ -1567,6 +1569,7 @@ cdef class ParquetReader(_Weakrefable):
         source : str, pathlib.Path, pyarrow.NativeFile, or file-like object
         use_memory_map : bool, default False
         read_dictionary : iterable[int or str], optional
+        binary_type : pyarrow.DataType, optional
         metadata : FileMetaData, optional
         buffer_size : int, default 0
         pre_buffer : bool, default False
@@ -1617,6 +1620,10 @@ cdef class ParquetReader(_Weakrefable):
         arrow_props.set_pre_buffer(pre_buffer)
 
         properties.set_page_checksum_verification(page_checksum_verification)
+
+        if binary_type is not None:
+            c_binary_type = pyarrow_unwrap_data_type(binary_type)
+            arrow_props.set_binary_type(c_binary_type.get().id())
 
         if coerce_int96_timestamp_unit is None:
             # use the default defined in default_arrow_reader_properties()
@@ -1972,12 +1979,14 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         write_page_index=False,
         write_page_checksum=False,
         sorting_columns=None,
-        store_decimal_as_integer=False) except *:
+        store_decimal_as_integer=False,
+        use_content_defined_chunking=False) except *:
 
     """General writer properties"""
     cdef:
         shared_ptr[WriterProperties] properties
         WriterProperties.Builder props
+        CdcOptions cdc_options
 
     # data_page_version
 
@@ -2101,6 +2110,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
             raise TypeError(
                 "'column_encoding' should be a dictionary or a string")
 
+    # size limits
     if data_page_size is not None:
         props.data_pagesize(data_page_size)
 
@@ -2109,6 +2119,33 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
 
     if dictionary_pagesize_limit is not None:
         props.dictionary_pagesize_limit(dictionary_pagesize_limit)
+
+    # content defined chunking
+
+    if use_content_defined_chunking is True:
+        props.enable_content_defined_chunking()
+    elif use_content_defined_chunking is False:
+        props.disable_content_defined_chunking()
+    elif isinstance(use_content_defined_chunking, dict):
+        defined_keys = use_content_defined_chunking.keys()
+        mandatory_keys = {"min_chunk_size", "max_chunk_size"}
+        allowed_keys = {"min_chunk_size", "max_chunk_size", "norm_level"}
+        unknown_keys = defined_keys - allowed_keys
+        missing_keys = mandatory_keys - defined_keys
+        if unknown_keys:
+            raise ValueError(
+                f"Unknown options in 'use_content_defined_chunking': {unknown_keys}")
+        if missing_keys:
+            raise ValueError(
+                f"Missing options in 'use_content_defined_chunking': {missing_keys}")
+        cdc_options.min_chunk_size = use_content_defined_chunking["min_chunk_size"]
+        cdc_options.max_chunk_size = use_content_defined_chunking["max_chunk_size"]
+        cdc_options.norm_level = use_content_defined_chunking.get("norm_level", 0)
+        props.enable_content_defined_chunking()
+        props.content_defined_chunking_options(cdc_options)
+    else:
+        raise TypeError(
+            "'use_content_defined_chunking' should be either boolean or a dictionary")
 
     # encryption
 
@@ -2259,7 +2296,8 @@ cdef class ParquetWriter(_Weakrefable):
                   write_page_index=False,
                   write_page_checksum=False,
                   sorting_columns=None,
-                  store_decimal_as_integer=False):
+                  store_decimal_as_integer=False,
+                  use_content_defined_chunking=False):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2294,6 +2332,7 @@ cdef class ParquetWriter(_Weakrefable):
             write_page_checksum=write_page_checksum,
             sorting_columns=sorting_columns,
             store_decimal_as_integer=store_decimal_as_integer,
+            use_content_defined_chunking=use_content_defined_chunking
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,

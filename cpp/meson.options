@@ -73,6 +73,13 @@ option(
     type: 'feature',
     description: 'Build Arrow with S3 support (requires the AWS SDK for C++)',
 )
+
+option(
+    'tensorflow',
+    type: 'feature',
+    description: 'Build Arrow with TensorFlow support enabled',
+)
+
 option('testing', type: 'feature', description: 'Build the Arrow testing libraries')
 option('tests', type: 'feature', description: 'Build the Arrow googletest unit tests')
 

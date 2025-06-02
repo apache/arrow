@@ -45,6 +45,7 @@
 #include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/visit_array_inline.h"
+#include "parquet/chunker_internal.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
 #include "parquet/encryption/encryption_internal.h"
@@ -764,6 +765,12 @@ class ColumnWriterImpl {
       compressor_temp_buffer_ =
           std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
     }
+    if (properties_->content_defined_chunking_enabled()) {
+      auto cdc_options = properties_->content_defined_chunking_options();
+      content_defined_chunker_.emplace(level_info_, cdc_options.min_chunk_size,
+                                       cdc_options.max_chunk_size,
+                                       cdc_options.norm_level);
+    }
   }
 
   virtual ~ColumnWriterImpl() = default;
@@ -894,6 +901,8 @@ class ColumnWriterImpl {
   std::shared_ptr<ResizableBuffer> compressor_temp_buffer_;
 
   std::vector<std::unique_ptr<DataPage>> data_pages_;
+
+  std::optional<internal::ContentDefinedChunker> content_defined_chunker_;
 
  private:
   void InitSinks() {
@@ -1269,6 +1278,16 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
 
   int64_t WriteBatch(int64_t num_values, const int16_t* def_levels,
                      const int16_t* rep_levels, const T* values) override {
+    if (ARROW_PREDICT_FALSE(properties_->content_defined_chunking_enabled())) {
+      throw ParquetException(
+          "Content-defined chunking is not supported in WriteBatch() or "
+          "WriteBatchSpaced(), use WriteArrow() instead.");
+    }
+    return WriteBatchInternal(num_values, def_levels, rep_levels, values);
+  }
+
+  int64_t WriteBatchInternal(int64_t num_values, const int16_t* def_levels,
+                             const int16_t* rep_levels, const T* values) {
     // We check for DataPage limits only after we have inserted the values. If a user
     // writes a large number of values, the DataPage size can be much above the limit.
     // The purpose of this chunking is to bound this. Even if a user writes large number
@@ -1301,6 +1320,18 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   void WriteBatchSpaced(int64_t num_values, const int16_t* def_levels,
                         const int16_t* rep_levels, const uint8_t* valid_bits,
                         int64_t valid_bits_offset, const T* values) override {
+    if (ARROW_PREDICT_FALSE(properties_->content_defined_chunking_enabled())) {
+      throw ParquetException(
+          "Content-defined chunking is not supported in WriteBatch() or "
+          "WriteBatchSpaced(), use WriteArrow() instead.");
+    }
+    return WriteBatchSpacedInternal(num_values, def_levels, rep_levels, valid_bits,
+                                    valid_bits_offset, values);
+  }
+
+  void WriteBatchSpacedInternal(int64_t num_values, const int16_t* def_levels,
+                                const int16_t* rep_levels, const uint8_t* valid_bits,
+                                int64_t valid_bits_offset, const T* values) {
     // Like WriteBatch, but for spaced values
     int64_t value_offset = 0;
     auto WriteChunk = [&](int64_t offset, int64_t batch_size, bool check_page) {
@@ -1357,13 +1388,47 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       bits_buffer_->ZeroPadding();
     }
 
-    if (leaf_array.type()->id() == ::arrow::Type::DICTIONARY) {
-      return WriteArrowDictionary(def_levels, rep_levels, num_levels, leaf_array, ctx,
-                                  maybe_parent_nulls);
+    if (ARROW_PREDICT_FALSE(properties_->content_defined_chunking_enabled())) {
+      DCHECK(content_defined_chunker_.has_value());
+      auto chunks = content_defined_chunker_->GetChunks(def_levels, rep_levels,
+                                                        num_levels, leaf_array);
+      for (size_t i = 0; i < chunks.size(); i++) {
+        auto chunk = chunks[i];
+        auto chunk_array = leaf_array.Slice(chunk.value_offset);
+        auto chunk_def_levels = AddIfNotNull(def_levels, chunk.level_offset);
+        auto chunk_rep_levels = AddIfNotNull(rep_levels, chunk.level_offset);
+        if (leaf_array.type()->id() == ::arrow::Type::DICTIONARY) {
+          ARROW_CHECK_OK(WriteArrowDictionary(chunk_def_levels, chunk_rep_levels,
+                                              chunk.levels_to_write, *chunk_array, ctx,
+                                              maybe_parent_nulls));
+        } else {
+          ARROW_CHECK_OK(WriteArrowDense(chunk_def_levels, chunk_rep_levels,
+                                         chunk.levels_to_write, *chunk_array, ctx,
+                                         maybe_parent_nulls));
+        }
+        bool is_last_chunk = i == (chunks.size() - 1);
+        if (num_buffered_values_ > 0 && !is_last_chunk) {
+          // Explicitly add a new data page according to the content-defined chunk
+          // boundaries. This way the same chunks will have the same byte-sequence
+          // in the resulting file, which can be identified by content addressible
+          // storage.
+          // Note that the last chunk doesn't trigger a new data page in order to
+          // allow subsequent WriteArrow() calls to continue writing to the same
+          // data page, the chunker's state is not being reset after the last chunk.
+          AddDataPage();
+        }
+      }
+      return Status::OK();
     } else {
-      return WriteArrowDense(def_levels, rep_levels, num_levels, leaf_array, ctx,
-                             maybe_parent_nulls);
+      if (leaf_array.type()->id() == ::arrow::Type::DICTIONARY) {
+        return WriteArrowDictionary(def_levels, rep_levels, num_levels, leaf_array, ctx,
+                                    maybe_parent_nulls);
+      } else {
+        return WriteArrowDense(def_levels, rep_levels, num_levels, leaf_array, ctx,
+                               maybe_parent_nulls);
+      }
     }
+
     END_PARQUET_CATCH_EXCEPTIONS
   }
 
@@ -1401,11 +1466,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
         this->descr()->schema_node()->is_required() || (array.null_count() == 0);
 
     if (!maybe_parent_nulls && no_nulls) {
-      PARQUET_CATCH_NOT_OK(WriteBatch(num_levels, def_levels, rep_levels, values));
+      PARQUET_CATCH_NOT_OK(
+          WriteBatchInternal(num_levels, def_levels, rep_levels, values));
     } else {
-      PARQUET_CATCH_NOT_OK(WriteBatchSpaced(num_levels, def_levels, rep_levels,
-                                            data.null_bitmap_data(), data.offset(),
-                                            values));
+      PARQUET_CATCH_NOT_OK(WriteBatchSpacedInternal(num_levels, def_levels, rep_levels,
+                                                    data.null_bitmap_data(),
+                                                    data.offset(), values));
     }
     return Status::OK();
   }
@@ -1968,11 +2034,11 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowSerialize(
   bool no_nulls =
       this->descr()->schema_node()->is_required() || (array.null_count() == 0);
   if (!maybe_parent_nulls && no_nulls) {
-    PARQUET_CATCH_NOT_OK(WriteBatch(num_levels, def_levels, rep_levels, buffer));
+    PARQUET_CATCH_NOT_OK(WriteBatchInternal(num_levels, def_levels, rep_levels, buffer));
   } else {
-    PARQUET_CATCH_NOT_OK(WriteBatchSpaced(num_levels, def_levels, rep_levels,
-                                          array.null_bitmap_data(), array.offset(),
-                                          buffer));
+    PARQUET_CATCH_NOT_OK(WriteBatchSpacedInternal(num_levels, def_levels, rep_levels,
+                                                  array.null_bitmap_data(),
+                                                  array.offset(), buffer));
   }
   return Status::OK();
 }
@@ -2096,7 +2162,8 @@ Status TypedColumnWriterImpl<Int32Type>::WriteArrowDense(
     const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   switch (array.type()->id()) {
     case ::arrow::Type::NA: {
-      PARQUET_CATCH_NOT_OK(WriteBatch(num_levels, def_levels, rep_levels, nullptr));
+      PARQUET_CATCH_NOT_OK(
+          WriteBatchInternal(num_levels, def_levels, rep_levels, nullptr));
     } break;
       WRITE_SERIALIZE_CASE(INT8)
       WRITE_SERIALIZE_CASE(UINT8)
@@ -2328,7 +2395,8 @@ template <>
 Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
     const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
-  if (!::arrow::is_base_binary_like(array.type()->id())) {
+  if (!::arrow::is_base_binary_like(array.type()->id()) &&
+      !::arrow::is_binary_view_like(array.type()->id())) {
     ARROW_UNSUPPORTED();
   }
 

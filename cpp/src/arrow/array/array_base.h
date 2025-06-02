@@ -123,6 +123,8 @@ class ARROW_EXPORT Array {
   const uint8_t* null_bitmap_data() const { return null_bitmap_data_; }
 
   /// Equality comparison with another array
+  ///
+  /// Note that arrow::ArrayStatistics is not included in the comparison.
   bool Equals(const Array& arr, const EqualOptions& = EqualOptions::Defaults()) const;
   bool Equals(const std::shared_ptr<Array>& arr,
               const EqualOptions& = EqualOptions::Defaults()) const;
@@ -134,6 +136,8 @@ class ARROW_EXPORT Array {
   /// Approximate equality comparison with another array
   ///
   /// epsilon is only used if this is FloatArray or DoubleArray
+  ///
+  /// Note that arrow::ArrayStatistics is not included in the comparison.
   bool ApproxEquals(const std::shared_ptr<Array>& arr,
                     const EqualOptions& = EqualOptions::Defaults()) const;
   bool ApproxEquals(const Array& arr,
@@ -141,6 +145,8 @@ class ARROW_EXPORT Array {
 
   /// Compare if the range of slots specified are equal for the given array and
   /// this array.  end_idx exclusive.  This methods does not bounds check.
+  ///
+  /// Note that arrow::ArrayStatistics is not included in the comparison.
   bool RangeEquals(int64_t start_idx, int64_t end_idx, int64_t other_start_idx,
                    const Array& other,
                    const EqualOptions& = EqualOptions::Defaults()) const;
