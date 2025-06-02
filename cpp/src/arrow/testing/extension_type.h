@@ -132,7 +132,6 @@ class ARROW_TESTING_EXPORT DictExtensionType : public ExtensionType {
   std::string Serialize() const override { return "dict-extension-serialized"; }
 };
 
-
 class ARROW_TESTING_EXPORT BinaryViewExtensionType : public ExtensionType {
  public:
   BinaryViewExtensionType() : ExtensionType(binary_view()) {}
