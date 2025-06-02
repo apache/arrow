@@ -268,6 +268,7 @@ repos:
           ?^ci/scripts/c_glib_build\.sh$|
           ?^ci/scripts/c_glib_test\.sh$|
           ?^ci/scripts/conan_setup\.sh$|
+          ?^ci/scripts/cpp_test\.sh$|
           ?^ci/scripts/csharp_build\.sh$|
           ?^ci/scripts/csharp_pack\.sh$|
           ?^ci/scripts/download_tz_database\.sh$|
