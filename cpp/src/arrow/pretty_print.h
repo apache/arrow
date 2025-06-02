@@ -58,7 +58,7 @@ struct ARROW_EXPORT PrettyPrintOptions {
   PrettyPrintOptions(int indent,  // NOLINT runtime/explicit
                      int window = 10, int indent_size = 2, std::string null_rep = "null",
                      bool skip_new_lines = false, bool truncate_metadata = true,
-                     int container_window = 2, int max_element_length = 100)
+                     int container_window = 2, int element_size_limit = 100)
       : indent(indent),
         indent_size(indent_size),
         window(window),
@@ -66,7 +66,7 @@ struct ARROW_EXPORT PrettyPrintOptions {
         null_rep(std::move(null_rep)),
         skip_new_lines(skip_new_lines),
         truncate_metadata(truncate_metadata),
-        element_size_limit(max_element_length) {}
+        element_size_limit(element_size_limit) {}
 
   /// Create a PrettyPrintOptions instance with default values
   static PrettyPrintOptions Defaults() { return PrettyPrintOptions(); }

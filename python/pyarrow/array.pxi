@@ -1358,7 +1358,7 @@ cdef class Array(_PandasConvertible):
 
     def to_string(self, *, int indent=2, int top_level_indent=0, int window=10,
                   int container_window=2, c_bool skip_new_lines=False,
-                  int max_element_length=100):
+                  int element_size_limit=100):
         """
         Render a "pretty-printed" string representation of the Array.
 
@@ -1384,7 +1384,7 @@ cdef class Array(_PandasConvertible):
         skip_new_lines : bool
             If the array should be rendered as a single line of text
             or if each element should be on its own line.
-        max_element_length : int
+        element_size_limit : int
             Maximum length of a single element before it is truncated,
             by default ``100``.
         """
@@ -1396,7 +1396,7 @@ cdef class Array(_PandasConvertible):
             options = PrettyPrintOptions(top_level_indent, window)
             options.skip_new_lines = skip_new_lines
             options.indent_size = indent
-            options.element_size_limit = max_element_length
+            options.element_size_limit = element_size_limit
             check_status(
                 PrettyPrint(
                     deref(self.ap),
