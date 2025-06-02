@@ -1385,7 +1385,8 @@ TYPED_TEST(TestStringKernels, IsDecimalUnicode) {
 
 TYPED_TEST(TestStringKernels, IsDigitUnicode) {
   // Tests for digits across various Unicode scripts.
-  // ٤: Arabic 4, ³: Superscript 3, ५: Devanagari 5, Ⅷ: Roman 8 (not digit), １２３: Fullwidth 123
+  // ٤: Arabic 4, ³: Superscript 3, ५: Devanagari 5, Ⅷ: Roman 8 (not digit),
+  // １２３: Fullwidth 123.
   // '¾' (vulgar fraction) is treated as a digit by utf8proc
   this->CheckUnary(
       "utf8_is_digit",
