@@ -829,7 +829,17 @@ class RepeatedArrayFactory {
   }
 
   Status Visit(const ExtensionType& type) {
-    return Status::NotImplemented("construction from scalar of type ", *scalar_.type);
+    // Retrieve the underlying storage scalar from the ExtensionScalar
+    const auto& ext_scalar = checked_cast<const ExtensionScalar&>(scalar_);
+    const auto& storage_scalar = ext_scalar.value;
+
+    // Create an array from the storage scalar
+    ARROW_ASSIGN_OR_RAISE(auto storage_array,
+                          MakeArrayFromScalar(*storage_scalar, length_, pool_));
+
+    // Wrap the storage array in the ExtensionType
+    out_ = type.MakeArray(storage_array->data());
+    return Status::OK();
   }
 
   Result<std::shared_ptr<Buffer>> CreateUnionTypeCodes(int8_t type_code) {
