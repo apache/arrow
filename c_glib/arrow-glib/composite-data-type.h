@@ -256,4 +256,25 @@ GArrowDataType *
 garrow_run_end_encoded_data_type_get_value_data_type(
   GArrowRunEndEncodedDataType *data_type);
 
+#define GARROW_TYPE_FIXED_SIZE_LIST_DATA_TYPE                                            \
+  (garrow_fixed_size_list_data_type_get_type())
+GARROW_AVAILABLE_IN_21_0
+G_DECLARE_DERIVABLE_TYPE(GArrowFixedSizeListDataType,
+                         garrow_fixed_size_list_data_type,
+                         GARROW,
+                         FIXED_SIZE_LIST_DATA_TYPE,
+                         GArrowBaseListDataType)
+struct _GArrowFixedSizeListDataTypeClass
+{
+  GArrowBaseListDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_21_0
+GArrowFixedSizeListDataType *
+garrow_fixed_size_list_data_type_new_data_type(GArrowDataType *data_type,
+                                               gint32 list_size);
+
+GARROW_AVAILABLE_IN_21_0
+GArrowFixedSizeListDataType *
+garrow_fixed_size_list_data_type_new_field(GArrowField *field, gint32 list_size);
 G_END_DECLS

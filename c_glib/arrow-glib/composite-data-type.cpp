@@ -767,4 +767,64 @@ garrow_run_end_encoded_data_type_get_value_data_type(
   return garrow_data_type_new_raw(&arrow_value_data_type);
 }
 
+G_DEFINE_TYPE(GArrowFixedSizeListDataType,
+              garrow_fixed_size_list_data_type,
+              GARROW_TYPE_BASE_LIST_DATA_TYPE)
+
+static void
+garrow_fixed_size_list_data_type_init(GArrowFixedSizeListDataType *object)
+{
+}
+
+static void
+garrow_fixed_size_list_data_type_class_init(GArrowFixedSizeListDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_fixed_size_list_data_type_new_data_type:
+ * @data_type: The data type of elements.
+ * @list_size: The size of value.
+ *
+ * Returns: (transfer full) : The newly created fixed size list data type.
+ *
+ * Since: 21.0.0
+ */
+GArrowFixedSizeListDataType *
+garrow_fixed_size_list_data_type_new_data_type(GArrowDataType *data_type,
+                                               gint32 list_size)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+
+  auto arrow_fixed_size_list_data_type =
+    std::make_shared<arrow::FixedSizeListType>(arrow_data_type, list_size);
+  return GARROW_FIXED_SIZE_LIST_DATA_TYPE(
+    g_object_new(GARROW_TYPE_FIXED_SIZE_LIST_DATA_TYPE,
+                 "data-type",
+                 &arrow_fixed_size_list_data_type,
+                 nullptr));
+}
+
+/**
+ * garrow_fixed_size_list_data_type_new_field:
+ * @field: The field of elements.
+ * @list_size: The size of value.
+ *
+ * Returns: (transfer full) : The newly created fixed size list data type.
+ *
+ * Since: 21.0.0
+ */
+GArrowFixedSizeListDataType *
+garrow_fixed_size_list_data_type_new_field(GArrowField *field, gint32 list_size)
+{
+  auto arrow_field = garrow_field_get_raw(field);
+
+  auto arrow_fixed_size_list_data_type =
+    std::make_shared<arrow::FixedSizeListType>(arrow_field, list_size);
+  return GARROW_FIXED_SIZE_LIST_DATA_TYPE(
+    g_object_new(GARROW_TYPE_FIXED_SIZE_LIST_DATA_TYPE,
+                 "data-type",
+                 &arrow_fixed_size_list_data_type,
+                 nullptr));
+}
 G_END_DECLS
