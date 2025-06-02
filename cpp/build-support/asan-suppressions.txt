@@ -14,3 +14,6 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+  
+# Note this file is merely a placeholder that contains no suppressions for now.
+# But it may become useful in the future.
