@@ -25,7 +25,7 @@
 - Expose an option `check_directory_existence_before_creation` in `S3FileSystem`
   to reduce I/O calls on cloud storage (@HaochengLIU, #41998)
 - `case_when()` now correctly detects objects that are not in the global 
-  environment (@etiennebacher, #46567).
+  environment (@etiennebacher, #46667).
 
 # arrow 20.0.0.1
 
