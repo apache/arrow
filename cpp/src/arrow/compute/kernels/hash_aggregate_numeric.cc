@@ -849,21 +849,41 @@ using GroupedKurtosisImpl =
     ConcreteGroupedStatisticImpl<Type, SkewOptions, StatisticType::Kurtosis>;
 
 template <template <typename Type> typename GroupedImpl>
-Result<HashAggregateKernel> MakeGroupedStatisticKernel(
-    const std::shared_ptr<DataType>& type) {
-  auto make_kernel = [&](auto&& type) -> Result<HashAggregateKernel> {
-    using T = std::decay_t<decltype(type)>;
-    // Supporting all number types except float16
-    if constexpr (is_integer_type<T>::value ||
-                  (is_floating_type<T>::value && !is_half_float_type<T>::value) ||
-                  is_decimal_type<T>::value) {
-      return MakeKernel(InputType(T::type_id), HashAggregateInit<GroupedImpl<T>>);
-    }
+struct GroupedStatisticKernelFactory {
+  // Supporting all number types except float16
+  template <typename T>
+  enable_if_number<T, Status> Visit(const T& type) {
+    out = MakeKernel(InputType(T::type_id), HashAggregateInit<GroupedImpl<T>>);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_decimal<T, Status> Visit(const T& type) {
+    out = MakeKernel(InputType(T::type_id), HashAggregateInit<GroupedImpl<T>>);
+    return Status::OK();
+  }
+
+  Status Visit(const HalfFloatType& type) {
     return Status::NotImplemented("Computing higher-order statistic of data of type ",
                                   type);
-  };
+  }
 
-  return VisitType(*type, make_kernel);
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("Computing higher-order statistic of data of type ",
+                                  type);
+  }
+
+  HashAggregateKernel out;
+};
+
+template <template <typename Type> typename GroupedImpl>
+Result<HashAggregateKernel> MakeGroupedStatisticKernel(
+    const std::shared_ptr<DataType>& type) {
+  // Using a distinct visitor class because a generic lambda would hit a MSVC
+  // internal compiler error.
+  GroupedStatisticKernelFactory<GroupedImpl> visitor;
+  RETURN_NOT_OK(VisitTypeInline(*type, &visitor));
+  return std::move(visitor.out);
 }
 
 Status AddHashAggregateStatisticKernels(HashAggregateFunction* func,
