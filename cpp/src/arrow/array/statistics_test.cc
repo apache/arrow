@@ -100,71 +100,68 @@ TEST(ArrayStatisticsTest, TestEqualityNonDoulbeValue) {
   statistics2.is_max_exact = true;
   ASSERT_EQ(statistics1, statistics2);
 
-  // Test different index
+  // Test different ArrayStatistics::ValueType
   statistics1.max = static_cast<uint64_t>(29);
+  statistics1.max = static_cast<int64_t>(29);
   ASSERT_NE(statistics1, statistics2);
 }
+class TestEqualityDoubleValue : public ::testing::Test {
+ protected:
+  ArrayStatistics statistics1_;
+  ArrayStatistics statistics2_;
+  EqualOptions options_ = EqualOptions::Defaults();
+};
 
-TEST(ArrayStatisticsTest, TestEqualityDoubleValue) {
-  ArrayStatistics statistics1;
-  ArrayStatistics statistics2;
-  EqualOptions options = EqualOptions::Defaults();
-  auto Reset = [&]() {
-    statistics1.min = std::nullopt;
-    statistics2.min = std::nullopt;
-  };
+TEST_F(TestEqualityDoubleValue, ExactValue) {
+  ASSERT_EQ(statistics1_, statistics2_);
+  statistics2_.min = 29.0;
+  ASSERT_NE(statistics1_, statistics2_);
+  statistics1_.min = 29.0;
+  ASSERT_EQ(statistics1_, statistics2_);
+  statistics2_.min = 30.0;
+  ASSERT_NE(statistics1_, statistics2_);
+}
 
-  ASSERT_EQ(statistics1, statistics2);
-  statistics2.min = 29.0;
-  ASSERT_NE(statistics1, statistics2);
-  statistics1.min = 29.0;
-  ASSERT_EQ(statistics1, statistics2);
-  statistics2.min = 30.0;
-  ASSERT_NE(statistics1, statistics2);
+TEST_F(TestEqualityDoubleValue, SignedZero) {
+  statistics1_.min = +0.0;
+  statistics2_.min = -0.0;
+  ASSERT_TRUE(statistics1_.Equals(statistics2_, options_.signed_zeros_equal(true)));
+  ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.signed_zeros_equal(false)));
+}
 
-  // Check Signed Zeros
-  Reset();
-  statistics1.min = +0.0;
-  statistics2.min = -0.0;
-  ASSERT_TRUE(statistics1.Equals(statistics2, options.signed_zeros_equal(true)));
-  ASSERT_FALSE(statistics1.Equals(statistics2, options.signed_zeros_equal(false)));
-
-  // Check Infinity
-  Reset();
+TEST_F(TestEqualityDoubleValue, Infinity) {
   auto infinity = std::numeric_limits<double>::infinity();
-  statistics1.min = infinity;
-  statistics2.min = infinity;
-  ASSERT_TRUE(statistics1.Equals(statistics2, options.signed_zeros_equal(true)));
-  ASSERT_TRUE(statistics1.Equals(statistics2, options.signed_zeros_equal(false)));
+  statistics1_.min = infinity;
+  statistics2_.min = infinity;
+  ASSERT_TRUE(statistics1_.Equals(statistics2_, options_.signed_zeros_equal(true)));
+  ASSERT_TRUE(statistics1_.Equals(statistics2_, options_.signed_zeros_equal(false)));
+  statistics1_.min = -infinity;
+  ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.signed_zeros_equal(true)));
+  ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.signed_zeros_equal(false)));
+  statistics1_.min = 0.0;
+  ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.signed_zeros_equal(true)));
+  ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.signed_zeros_equal(false)));
+}
 
-  statistics1.min = -infinity;
-  ASSERT_FALSE(statistics1.Equals(statistics2, options.signed_zeros_equal(true)));
-  ASSERT_FALSE(statistics1.Equals(statistics2, options.signed_zeros_equal(false)));
+TEST_F(TestEqualityDoubleValue, Nan) {
+  statistics1_.min = static_cast<double>(NAN);
+  statistics2_.min = static_cast<double>(NAN);
+  ASSERT_TRUE(statistics1_.Equals(statistics2_, options_.nans_equal(true)));
+  ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.nans_equal(false)));
 
-  statistics1.min = 0.0;
-  ASSERT_FALSE(statistics1.Equals(statistics2, options.signed_zeros_equal(true)));
-  ASSERT_FALSE(statistics1.Equals(statistics2, options.signed_zeros_equal(false)));
+  statistics2_.min = 2.0;
+  ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.nans_equal(true)));
+  ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.nans_equal(false)));
+}
+TEST_F(TestEqualityDoubleValue, ApproximateEquals) {
+  statistics1_.max = 0.5001f;
+  statistics2_.max = 0.5;
+  ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.atol(1e-3).use_atol(false)));
 
-  // Check NAN
-  Reset();
-  statistics1.min = static_cast<double>(NAN);
-  statistics2.min = static_cast<double>(NAN);
-  ASSERT_TRUE(statistics1.Equals(statistics2, options.nans_equal(true)));
-  ASSERT_FALSE(statistics1.Equals(statistics2, options.nans_equal(false)));
-
-  statistics2.min = 2.0;
-  ASSERT_FALSE(statistics1.Equals(statistics2));
-
-  // Check Approximate float
-  Reset();
-  statistics1.max = 0.5001f;
-  statistics2.max = 0.5;
-  ASSERT_FALSE(statistics1.Equals(statistics2, options.atol(1e-3).allow_atol(false)));
-
-  ASSERT_TRUE(statistics1.Equals(statistics2, options.atol(1e-3).allow_atol(true)));
-  ASSERT_TRUE(statistics2.Equals(statistics1, options.atol(1e-3)));
-  ASSERT_FALSE(statistics1.Equals(statistics2, options.atol(1e-5)));
-  ASSERT_FALSE(statistics2.Equals(statistics1, options.atol(1e-5)));
+  ASSERT_TRUE(statistics1_.Equals(statistics2_, options_.atol(1e-3).use_atol(true)));
+  ASSERT_TRUE(statistics2_.Equals(statistics1_, options_.atol(1e-3)));
+  ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.atol(1e-5)));
+  ASSERT_FALSE(statistics2_.Equals(statistics1_, options_.atol(1e-5)));
 }
 
 }  // namespace arrow

@@ -23,14 +23,17 @@
 #include "arrow/compare.h"
 #include "arrow/util/logging_internal.h"
 namespace arrow {
-using ValueType = ArrayStatistics::ValueType;
+
 namespace {
+
+using ValueType = ArrayStatistics::ValueType;
+
 bool DoubleEquals(const double& left, const double& right, const EqualOptions& options) {
   if (left == right) {
     return options.signed_zeros_equal() || (std::signbit(left) == std::signbit(right));
   } else if (options.nans_equal() && (std::isnan(left) || std::isnan(right))) {
-    return true;
-  } else if (options.allow_atol()) {
+    return std::isnan(left) && std::isnan(right);
+  } else if (options.use_atol()) {
     return std::fabs(left - right) <= options.atol();
   } else {
     return false;

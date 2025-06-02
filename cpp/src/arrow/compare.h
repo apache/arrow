@@ -58,17 +58,17 @@ class EqualOptions {
     return res;
   }
   /// Whether the "atol" property is used in the comparison.
-  bool allow_atol() const { return allow_atol_; }
+  bool use_atol() const { return use_atol_; }
 
-  /// Return a new EqualOptions object with the "allow_atol" property changed.
-  EqualOptions allow_atol(bool v) const {
+  /// Return a new EqualOptions object with the "use_atol" property changed.
+  EqualOptions use_atol(bool v) const {
     auto res = EqualOptions(*this);
-    res.allow_atol_ = v;
+    res.use_atol_ = v;
     return res;
   }
 
   /// The absolute tolerance for approximate comparisons of floating-point values.
-  /// Note that this option is ignored if "allow_atol" is set to false.
+  /// Note that this option is ignored if "use_atol" is set to false.
   double atol() const { return atol_; }
 
   /// Return a new EqualOptions object with the "atol" property changed.
@@ -97,7 +97,7 @@ class EqualOptions {
   double atol_ = kDefaultAbsoluteTolerance;
   bool nans_equal_ = false;
   bool signed_zeros_equal_ = true;
-  bool allow_atol_ = true;
+  bool use_atol_ = true;
   std::ostream* diff_sink_ = NULLPTR;
 };
 

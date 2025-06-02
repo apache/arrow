@@ -128,7 +128,7 @@ struct ARROW_EXPORT ArrayStatistics {
   /// \brief Whether the maximum value is exact or not
   bool is_max_exact = false;
 
-  /// \brief Checks whether this ArrayStatistics instance is equal to another.
+  /// \brief Check two statistics for equality
   ///
   /// \param other The \ref ArrayStatistics instance to compare against.
   ///
@@ -139,13 +139,11 @@ struct ARROW_EXPORT ArrayStatistics {
   bool Equals(const ArrayStatistics& other,
               const EqualOptions& equal_options = EqualOptions::Defaults()) const;
 
-  bool operator==(const ArrayStatistics& other) const {
-    return Equals(other, EqualOptions::Defaults());
-  }
+  /// \brief Check two statistics for equality
+  bool operator==(const ArrayStatistics& other) const { return Equals(other); }
 
-  bool operator!=(const ArrayStatistics& other) const {
-    return !Equals(other, EqualOptions::Defaults());
-  }
+  /// \brief Check two statistics for not equality
+  bool operator!=(const ArrayStatistics& other) const { return !Equals(other); }
 };
 
 }  // namespace arrow
