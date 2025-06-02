@@ -5631,7 +5631,7 @@ cdef class Table(_Tabular):
 
     def join(self, right_table, keys, right_keys=None, join_type="left outer",
              left_suffix=None, right_suffix=None, coalesce_keys=True,
-             use_threads=True, filter=None):
+             use_threads=True, filter_expression=None):
         """
         Perform a join between this table and another one.
 
@@ -5665,7 +5665,7 @@ cdef class Table(_Tabular):
             in the join result.
         use_threads : bool, default True
             Whether to use multithreading or not.
-        filter: Expression
+        filter_expression : pyarrow.compute.Expression
             Residual filter which is applied to matching row.
 
         Returns
@@ -5741,7 +5741,7 @@ cdef class Table(_Tabular):
 
         Inner join with intended mismatch filter expression:
 
-        >>> t1.join(t2, 'id', join_type="inner", filter=pc.equal(pc.field("n_legs"), 100))
+        >>> t1.join(t2, 'id', join_type="inner", filter_expression=pc.equal(pc.field("n_legs"), 100))
         pyarrow.Table
         id: int64
         year: int64
@@ -5761,7 +5761,7 @@ cdef class Table(_Tabular):
             left_suffix=left_suffix, right_suffix=right_suffix,
             use_threads=use_threads, coalesce_keys=coalesce_keys,
             output_type=Table,
-            filter=filter,
+            filter_expression=filter_expression,
         )
 
     def join_asof(self, right_table, on, by, tolerance, right_on=None, right_by=None):
