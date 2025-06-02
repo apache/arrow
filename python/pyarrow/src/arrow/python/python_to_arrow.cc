@@ -229,9 +229,9 @@ class PyValue {
     if (internal::PyFloatScalar_Check(obj)) {
       return PyFloat_AsHalf(obj);
     } else if (internal::PyIntScalar_Check(obj)) {
-      float float_val{};
-      RETURN_NOT_OK(internal::IntegerScalarToFloat32Safe(obj, &float_val));
-      const auto half_val = arrow::util::Float16::FromFloat(float_val);
+      double float_val{};
+      RETURN_NOT_OK(internal::IntegerScalarToDoubleSafe(obj, &float_val));
+      const auto half_val = arrow::util::Float16::FromDouble(float_val);
       return half_val.bits();
     } else {
       return internal::InvalidValue(obj, "tried to convert to float16");

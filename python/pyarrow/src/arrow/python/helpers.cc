@@ -83,8 +83,8 @@ PyObject* PyFloat_FromHalf(uint16_t value) {
 
 Result<uint16_t> PyFloat_AsHalf(PyObject* obj) {
   if (PyFloat_Check(obj)) {
-    float float_val = static_cast<float>(PyFloat_AsDouble(obj));
-    arrow::util::Float16 half_val = arrow::util::Float16::FromFloat(float_val);
+    double float_val = static_cast<float>(PyFloat_AsDouble(obj));
+    arrow::util::Float16 half_val = arrow::util::Float16::FromDouble(float_val);
     return half_val.bits();
   } else if (has_numpy() && PyArray_IsScalar(obj, Half)) {
     return PyArrayScalar_VAL(obj, Half);
