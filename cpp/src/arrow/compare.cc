@@ -27,10 +27,12 @@
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "arrow/array.h"
 #include "arrow/array/diff.h"
+#include "arrow/array/statistics.h"
 #include "arrow/buffer.h"
 #include "arrow/scalar.h"
 #include "arrow/sparse_tensor.h"
@@ -1522,5 +1524,53 @@ bool TypeEquals(const DataType& left, const DataType& right, bool check_metadata
     return visitor.result();
   }
 }
+namespace {
 
+using ValueType = ArrayStatistics::ValueType;
+
+bool DoubleEquals(const double& left, const double& right, const EqualOptions& options) {
+  bool result;
+  auto visitor = [&](auto&& compare_func) { result = compare_func(left, right); };
+  VisitFloatingEquality<double>(options, options.use_atol(), std::move(visitor));
+  return result;
+}
+
+bool ValueTypeEquals(const std::optional<ValueType>& left,
+                     const std::optional<ValueType>& right, const EqualOptions& options) {
+  if (!left.has_value() || !right.has_value()) {
+    return left.has_value() == right.has_value();
+  } else if (left->index() != right->index()) {
+    return false;
+  } else {
+    auto EqualsVisitor = [&](const auto& v1, const auto& v2) {
+      using type_1 = std::decay_t<decltype(v1)>;
+      using type_2 = std::decay_t<decltype(v2)>;
+      if constexpr (std::conjunction_v<std::is_same<type_1, double>,
+                                       std::is_same<type_2, double>>) {
+        return DoubleEquals(v1, v2, options);
+      } else if constexpr (std::is_same_v<type_1, type_2>) {
+        return v1 == v2;
+      }
+      // It is unreachable
+      DCHECK(false);
+      return false;
+    };
+    return std::visit(EqualsVisitor, left.value(), right.value());
+  }
+}
+bool EqualsImpl(const ArrayStatistics& left, const ArrayStatistics& right,
+                const EqualOptions& equal_options) {
+  return left.null_count == right.null_count &&
+         left.distinct_count == right.distinct_count &&
+         left.is_min_exact == right.is_min_exact &&
+         left.is_max_exact == right.is_max_exact &&
+         ValueTypeEquals(left.min, right.min, equal_options) &&
+         ValueTypeEquals(left.max, right.max, equal_options);
+}
+}  // namespace
+
+bool ArrayStatisticsEquals(const ArrayStatistics& left, const ArrayStatistics& right,
+                           const EqualOptions& options) {
+  return EqualsImpl(left, right, options);
+}
 }  // namespace arrow

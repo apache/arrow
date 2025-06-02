@@ -128,16 +128,18 @@ struct ARROW_EXPORT ArrayStatistics {
   /// \brief Whether the maximum value is exact or not
   bool is_max_exact = false;
 
-  /// \brief Check two statistics for equality
+  /// \brief Check two \ref arrow::ArrayStatistics for equality
   ///
-  /// \param other The \ref ArrayStatistics instance to compare against.
+  /// \param other The \ref arrow::ArrayStatistics instance to compare against.
   ///
   /// \param equal_options Options used to compare double values for equality.
   ///
   /// \return True if the two \ref arrow::ArrayStatistics instances are equal; otherwise,
   /// false.
   bool Equals(const ArrayStatistics& other,
-              const EqualOptions& equal_options = EqualOptions::Defaults()) const;
+              const EqualOptions& equal_options = EqualOptions::Defaults()) const {
+    return ArrayStatisticsEquals(*this, other, equal_options);
+  }
 
   /// \brief Check two statistics for equality
   bool operator==(const ArrayStatistics& other) const { return Equals(other); }

@@ -15,66 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// This empty .cc file is for embedding not inlined symbols in
+// arrow::ArrayStatistics into libarrow.
+
 #include "arrow/array/statistics.h"
-
-#include <cmath>
-#include <type_traits>
-
-#include "arrow/compare.h"
-#include "arrow/util/logging_internal.h"
-namespace arrow {
-
-namespace {
-
-using ValueType = ArrayStatistics::ValueType;
-
-bool DoubleEquals(const double& left, const double& right, const EqualOptions& options) {
-  if (left == right) {
-    return options.signed_zeros_equal() || (std::signbit(left) == std::signbit(right));
-  } else if (options.nans_equal() && (std::isnan(left) || std::isnan(right))) {
-    return std::isnan(left) && std::isnan(right);
-  } else if (options.use_atol()) {
-    return std::fabs(left - right) <= options.atol();
-  } else {
-    return false;
-  }
-}
-
-bool ValueTypeEquals(const std::optional<ValueType>& left,
-                     const std::optional<ValueType>& right, const EqualOptions& options) {
-  if (!left.has_value() || !right.has_value()) {
-    return left.has_value() == right.has_value();
-  } else if (left->index() != right->index()) {
-    return false;
-  } else {
-    auto EqualsVisitor = [&](const auto& v1, const auto& v2) {
-      using type_1 = std::decay_t<decltype(v1)>;
-      using type_2 = std::decay_t<decltype(v2)>;
-      if constexpr (std::conjunction_v<std::is_same<type_1, double>,
-                                       std::is_same<type_2, double>>) {
-        return DoubleEquals(v1, v2, options);
-      } else if constexpr (std::is_same_v<type_1, type_2>) {
-        return v1 == v2;
-      }
-      // It is unreachable
-      DCHECK(false);
-      return false;
-    };
-    return std::visit(EqualsVisitor, left.value(), right.value());
-  }
-}
-bool EqualsImpl(const ArrayStatistics& left, const ArrayStatistics& right,
-                const EqualOptions& equal_options) {
-  return left.null_count == right.null_count &&
-         left.distinct_count == right.distinct_count &&
-         left.is_min_exact == right.is_min_exact &&
-         left.is_max_exact == right.is_max_exact &&
-         ValueTypeEquals(left.min, right.min, equal_options) &&
-         ValueTypeEquals(left.max, right.max, equal_options);
-}
-}  // namespace
-bool ArrayStatistics::Equals(const ArrayStatistics& other,
-                             const EqualOptions& equal_options) const {
-  return EqualsImpl(*this, other, equal_options);
-}
-}  // namespace arrow

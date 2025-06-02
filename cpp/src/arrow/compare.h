@@ -26,7 +26,7 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
+struct ArrayStatistics;
 class Array;
 class DataType;
 class Tensor;
@@ -144,6 +144,15 @@ ARROW_EXPORT bool SparseTensorEquals(const SparseTensor& left, const SparseTenso
 /// fields
 ARROW_EXPORT bool TypeEquals(const DataType& left, const DataType& right,
                              bool check_metadata = true);
+/// \brief Check two \ref arrow::ArrayStatistics for equality
+/// \param[in] left an \ref arrow::ArrayStatistics
+/// \param[in] right an \ref arrow::ArrayStatistics
+/// \param[in] options Options used to compare double values for equality.
+/// \return True if the two \ref arrow::ArrayStatistics instances are equal; otherwise,
+/// false.
+ARROW_EXPORT bool ArrayStatisticsEquals(
+    const ArrayStatistics& left, const ArrayStatistics& right,
+    const EqualOptions& options = EqualOptions::Defaults());
 
 /// Returns true if scalars are equal
 /// \param[in] left a Scalar
