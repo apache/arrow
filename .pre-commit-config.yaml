@@ -299,7 +299,9 @@ repos:
           ?^ci/scripts/release_test\.sh$|
           ?^ci/scripts/ruby_test\.sh$|
           ?^ci/scripts/rust_build\.sh$|
+          ?^ci/scripts/util_enable_core_dumps\.sh$|
           ?^ci/scripts/util_free_space\.sh$|
+          ?^ci/scripts/util_log\.sh$|
           ?^cpp/build-support/build-lz4-lib\.sh$|
           ?^cpp/build-support/build-zstd-lib\.sh$|
           ?^cpp/build-support/get-upstream-commit\.sh$|
