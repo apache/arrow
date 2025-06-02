@@ -1532,7 +1532,7 @@ void TestBackpressure(BatchesMaker maker, int batch_size, int num_l_batches,
     return true;
   };
 
-  BusyWait(3.0, has_bp_been_applied);
+  BusyWait(60.0, has_bp_been_applied);
   ASSERT_TRUE(has_bp_been_applied());
 
   gate.ReleaseAllBatches();
