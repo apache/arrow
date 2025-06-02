@@ -249,6 +249,17 @@ check_named_cols <- function(df) {
   }
 }
 
+unlabel_cols <- function(df) {
+  remove_label <- function(x) {
+    attr(x, "label") <- NULL
+    class(x) <- class(x)[!class(x) %in% c("haven_labelled", "vctrs_vctr")]
+    rlang::warn("haven labels have been discarded")
+    x
+  }
+
+  purrr::modify_if(df, ~ inherits(.x, "haven_labelled"), remove_label)
+}
+
 parse_compact_col_spec <- function(col_types, col_names) {
   if (length(col_types) != 1L) {
     abort("`col_types` must be a character vector of size 1")
