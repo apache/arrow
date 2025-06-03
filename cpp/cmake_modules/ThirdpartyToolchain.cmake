@@ -4926,7 +4926,7 @@ macro(build_opentelemetry)
        -DWITH_OTLP_HTTP_SSL_PREVIEW=OFF
        -DWITH_OTLP_HTTP_SSL_TLS_PREVIEW=OFF
        "-DProtobuf_INCLUDE_DIR=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
-       "-DProtobuf_LIBRARY=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
+       "-DProtobuf_LIBRARY=${OPENTELEMETRY_PROTOBUF_LIBRARY}"
        "-DProtobuf_PROTOC_EXECUTABLE=${OPENTELEMETRY_PROTOC_EXECUTABLE}")
 
   # OpenTelemetry with OTLP enabled requires Protobuf definitions from a

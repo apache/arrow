@@ -4510,6 +4510,9 @@ cdef class Table(_Tabular):
         All the underlying chunks in the ChunkedArray of each column are
         concatenated into zero or one chunk.
 
+        To avoid buffer overflow, binary columns may be combined into
+        multiple chunks. Chunks will have the maximum possible length.
+
         Parameters
         ----------
         memory_pool : MemoryPool, default None
@@ -5631,7 +5634,7 @@ cdef class Table(_Tabular):
 
     def join(self, right_table, keys, right_keys=None, join_type="left outer",
              left_suffix=None, right_suffix=None, coalesce_keys=True,
-             use_threads=True):
+             use_threads=True, filter_expression=None):
         """
         Perform a join between this table and another one.
 
@@ -5665,6 +5668,8 @@ cdef class Table(_Tabular):
             in the join result.
         use_threads : bool, default True
             Whether to use multithreading or not.
+        filter_expression : pyarrow.compute.Expression
+            Residual filter which is applied to matching row.
 
         Returns
         -------
@@ -5674,6 +5679,7 @@ cdef class Table(_Tabular):
         --------
         >>> import pandas as pd
         >>> import pyarrow as pa
+        >>> import pyarrow.compute as pc
         >>> df1 = pd.DataFrame({'id': [1, 2, 3],
         ...                     'year': [2020, 2022, 2019]})
         >>> df2 = pd.DataFrame({'id': [3, 4],
@@ -5724,7 +5730,7 @@ cdef class Table(_Tabular):
         n_legs: [[5,100]]
         animal: [["Brittle stars","Centipede"]]
 
-        Right anti join
+        Right anti join:
 
         >>> t1.join(t2, 'id', join_type="right anti")
         pyarrow.Table
@@ -5735,6 +5741,20 @@ cdef class Table(_Tabular):
         id: [[4]]
         n_legs: [[100]]
         animal: [["Centipede"]]
+
+        Inner join with intended mismatch filter expression:
+
+        >>> t1.join(t2, 'id', join_type="inner", filter_expression=pc.equal(pc.field("n_legs"), 100))
+        pyarrow.Table
+        id: int64
+        year: int64
+        n_legs: int64
+        animal: string
+        ----
+        id: []
+        year: []
+        n_legs: []
+        animal: []
         """
         self._assert_cpu()
         if right_keys is None:
@@ -5743,7 +5763,8 @@ cdef class Table(_Tabular):
             join_type, self, keys, right_table, right_keys,
             left_suffix=left_suffix, right_suffix=right_suffix,
             use_threads=use_threads, coalesce_keys=coalesce_keys,
-            output_type=Table
+            output_type=Table,
+            filter_expression=filter_expression,
         )
 
     def join_asof(self, right_table, on, by, tolerance, right_on=None, right_by=None):

@@ -20,7 +20,7 @@
 set -e
 
 arrow_dir=${1}
-source_dir=${1}/nanoarrow
+source_dir=${arrow_dir}/nanoarrow
 build_dir=${2}/nanoarrow
 
 # This file is used to build the nanoarrow binaries needed for the archery
@@ -43,10 +43,10 @@ fi
 
 set -x
 
-mkdir -p ${build_dir}
-pushd ${build_dir}
+mkdir -p "${build_dir}"
+pushd "${build_dir}"
 
-cmake ${source_dir} \
+cmake "${source_dir}" \
   -DNANOARROW_IPC=ON \
   -DNANOARROW_IPC_WITH_ZSTD=ON \
   -DNANOARROW_BUILD_INTEGRATION_TESTS=ON

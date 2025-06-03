@@ -107,6 +107,10 @@ macro(tsort_bool_option_dependencies)
 endmacro()
 
 macro(resolve_option_dependencies)
+  # Arrow Flight SQL ODBC is available only for Windows for now.
+  if(NOT MSVC_TOOLCHAIN)
+    set(ARROW_FLIGHT_SQL_ODBC OFF)
+  endif()
   if(MSVC_TOOLCHAIN)
     set(ARROW_USE_GLOG OFF)
   endif()
@@ -596,10 +600,6 @@ takes precedence over ccache if a storage backend is configured" ON)
 
   #----------------------------------------------------------------------
   set_option_category("Parquet")
-
-  define_option(PARQUET_MINIMAL_DEPENDENCY
-                "Depend only on Thirdparty headers to build libparquet.;\
-Always OFF if building binaries" OFF)
 
   define_option(PARQUET_BUILD_EXECUTABLES
                 "Build the Parquet executable CLI tools. Requires static libraries to be built."

@@ -635,8 +635,7 @@ tasks:
 
 ############################## Docker tests ##################################
 
-{% for image in ["alpine-linux-cpp",
-                 "conda-cpp",
+{% for image in ["conda-cpp",
                  "debian-c-glib",
                  "ubuntu-c-glib",
                  "debian-ruby",
@@ -649,16 +648,6 @@ tasks:
         UBUNTU: 22.04
       image: {{ image }}
 {% endfor %}
-
-  test-conda-cpp-meson:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      # ARROW_USE_CCACHE=OFF is for using sccache
-      flags: >-
-        -e ARROW_USE_CCACHE=OFF
-        -e ARROW_USE_MESON=ON
-      image: conda-cpp
 
   test-conda-cpp-valgrind:
     ci: github

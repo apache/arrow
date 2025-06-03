@@ -168,6 +168,25 @@ repos:
           ?.pb\.(cc|h)$|
           ?^cpp/src/generated/|
           )
+  - repo: https://github.com/numpy/numpydoc
+    rev: v1.8.0
+    hooks:
+      - id: numpydoc-validation
+        name: Python (NumPy doc) Lint
+        alias: python-doc-lint
+        args:
+          - "--config=python"
+        files: >-
+          ^python/pyarrow/
+        exclude: >-
+          (
+          ?^python/pyarrow/interchange/from_dataframe\.py$|
+          ?^python/pyarrow/jvm\.py$|
+          ?^python/pyarrow/pandas_compat\.py$|
+          ?^python/pyarrow/tests/|
+          ?^python/pyarrow/util\.py$|
+          ?^python/pyarrow/vendored/|
+          )
   - repo: local
     hooks:
       - id: lintr
@@ -180,6 +199,19 @@ repos:
         entry: |
           Rscript r/tools/lint.R
         pass_filenames: false
+        files: >-
+          ^r/.*\.(R|Rmd)$
+  - repo: local
+    hooks:
+      - id: styler
+        alias: r
+        name: R Format
+        language: r
+        additional_dependencies:
+          - roxygen2
+          - styler
+        entry: |
+          Rscript -e "styler::style_file(commandArgs(TRUE)[1])"
         files: >-
           ^r/.*\.(R|Rmd)$
   - repo: https://github.com/pre-commit/mirrors-clang-format
@@ -276,6 +308,7 @@ repos:
           ?^ci/scripts/install_ceph\.sh$|
           ?^ci/scripts/install_chromedriver\.sh$|
           ?^ci/scripts/install_cmake\.sh$|
+          ?^ci/scripts/install_conda\.sh$|
           ?^ci/scripts/install_emscripten\.sh$|
           ?^ci/scripts/install_iwyu\.sh$|
           ?^ci/scripts/install_ninja\.sh$|
@@ -284,15 +317,23 @@ repos:
           ?^ci/scripts/install_python\.sh$|
           ?^ci/scripts/install_spark\.sh$|
           ?^ci/scripts/install_vcpkg\.sh$|
+          ?^ci/scripts/integration_arrow_build\.sh$|
           ?^ci/scripts/integration_dask\.sh$|
+          ?^ci/scripts/integration_spark\.sh$|
           ?^ci/scripts/matlab_build\.sh$|
           ?^ci/scripts/msys2_system_clean\.sh$|
           ?^ci/scripts/msys2_system_upgrade\.sh$|
+          ?^ci/scripts/nanoarrow_build\.sh$|
           ?^ci/scripts/python_sdist_build\.sh$|
+          ?^ci/scripts/python_wheel_unix_test\.sh$|
+          ?^ci/scripts/r_build\.sh$|
+          ?^ci/scripts/r_revdepcheck\.sh$|
           ?^ci/scripts/release_test\.sh$|
           ?^ci/scripts/ruby_test\.sh$|
           ?^ci/scripts/rust_build\.sh$|
+          ?^ci/scripts/util_enable_core_dumps\.sh$|
           ?^ci/scripts/util_free_space\.sh$|
+          ?^ci/scripts/util_log\.sh$|
           ?^cpp/build-support/build-lz4-lib\.sh$|
           ?^cpp/build-support/build-zstd-lib\.sh$|
           ?^cpp/build-support/get-upstream-commit\.sh$|
