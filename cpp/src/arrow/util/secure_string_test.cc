@@ -21,6 +21,8 @@
 
 #include "arrow/util/secure_string.h"
 
+#include <src/gtest-internal-inl.h>
+
 namespace arrow::util::test {
 
 std::string_view StringArea(const std::string& string) {
@@ -71,6 +73,84 @@ void AssertSecurelyCleared(const std::string_view area, const std::string& secre
   if (leaks >= 3) {
     FAIL() << leaks << " characters of secret leaked into " << area;
   }
+}
+
+// GTest test result reporter that captures the result but does not hand it to the unit
+// test instance. This effectively hides the result from the GTest test framework.
+class Reporter : public testing::TestPartResultReporterInterface {
+ public:
+  explicit Reporter(testing::TestInfo* test_info)
+      : result_(testing::TestPartResult::kSuccess, test_info->file(), test_info->line(),
+                "") {}
+  void ReportTestPartResult(const testing::TestPartResult& result) override {
+    result_ = result;
+  }
+  const testing::TestPartResult& result() const { return result_; }
+
+ private:
+  testing::TestPartResult result_;
+};
+
+#define GET_TEST_RESULT_REPORTER() \
+  testing::internal::GetUnitTestImpl()->GetTestPartResultReporterForCurrentThread()
+
+#define SET_TEST_RESULT_REPORTER(reporter)                                         \
+  testing::internal::GetUnitTestImpl()->SetTestPartResultReporterForCurrentThread( \
+      reporter);
+
+#define CAPTURE_TEST_RESULT(capture, body)    \
+  {                                           \
+    auto report = GET_TEST_RESULT_REPORTER(); \
+    SET_TEST_RESULT_REPORTER(&capture);       \
+    body;                                     \
+    SET_TEST_RESULT_REPORTER(report);         \
+  }
+
+TEST(TestSecureString, AssertSecurelyCleared) {
+  // This tests AssertSecurelyCleared helper methods is actually able to identify secret
+  // leakage. It captures test results emitted by ASSERT_EQ and then asserts result type
+  // and message.
+  auto capture = Reporter(test_info_);
+
+  auto short_zeros = std::string(10, '\0');
+  AssertSecurelyCleared(std::string_view(short_zeros));
+
+  auto large_zeros = std::string(1000, '\0');
+  AssertSecurelyCleared(large_zeros);
+
+  auto no_zeros = std::string("abcdefghijklmnopqrstuvwxyz");
+  CAPTURE_TEST_RESULT(capture, AssertSecurelyCleared(no_zeros));
+  ASSERT_EQ(capture.result().type(), testing::TestPartResult::kFatalFailure);
+  ASSERT_EQ(std::string(capture.result().message()),
+            "Expected equality of these values:\n"
+            "  area\n"
+            "    Which is: \"abcdefghijklmnopqrstuvwxyz\"\n"
+            "  std::string_view(zeros)\n"
+            "    Which is: "
+            "\"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\"
+            "0\\0\"\n");
+
+  auto some_zeros = no_zeros;
+  some_zeros = std::string(10, '\0');
+  AssertSecurelyCleared(some_zeros, 10);
+  CAPTURE_TEST_RESULT(capture, AssertSecurelyCleared(some_zeros));
+  ASSERT_EQ(capture.result().type(), testing::TestPartResult::kFatalFailure);
+  ASSERT_EQ(std::string(capture.result().message()),
+            "Expected equality of these values:\n"
+            "  area\n"
+            "    Which is: \"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0lmnopqrstuvwxyz\"\n"
+            "  std::string_view(zeros)\n"
+            "    Which is: "
+            "\"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\"
+            "0\\0\"\n");
+
+  AssertSecurelyCleared(some_zeros, "12345678901234567890123456");
+  CAPTURE_TEST_RESULT(capture, AssertSecurelyCleared(StringArea(some_zeros), no_zeros));
+  ASSERT_EQ(capture.result().type(), testing::TestPartResult::kFatalFailure);
+  ASSERT_EQ(std::string(capture.result().message()),
+            "Failed\n"
+            "15 characters of secret leaked into "
+            "\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0lmnopqrstuvwxyz\n");
 }
 
 TEST(TestSecureString, SecureClearString) {
