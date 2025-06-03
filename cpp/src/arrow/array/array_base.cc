@@ -76,6 +76,7 @@ bool Array::IsValid(int64_t i) const {
   }
   return data_->null_count != data_->length;
 }
+
 const std::shared_ptr<DataType>& Array::type() const { return data_->type; }
 
 Type::type Array::type_id() const { return data_->type->id(); }
@@ -93,6 +94,7 @@ DeviceAllocationType Array::device_type() const { return data_->device_type(); }
 const std::shared_ptr<ArrayStatistics>& Array::statistics() const {
   return data_->statistics;
 }
+
 void Array::SetData(const std::shared_ptr<ArrayData>& data) {
   if (data->buffers.size() > 0) {
     null_bitmap_data_ = data->GetValuesSafe<uint8_t>(0, /*offset=*/0);
@@ -379,6 +381,7 @@ Result<std::shared_ptr<Array>> Array::ViewOrCopyTo(
 NullArray::NullArray(int64_t length) {
   SetData(ArrayData::Make(null(), length, {nullptr}, length));
 }
+
 void NullArray::SetData(const std::shared_ptr<ArrayData>& data) {
   null_bitmap_data_ = NULLPTR;
   data->null_count = data->length;

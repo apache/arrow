@@ -146,6 +146,7 @@ StringViewArray::StringViewArray(std::shared_ptr<ArrayData> data) {
   ARROW_CHECK_EQ(data->type->id(), Type::STRING_VIEW);
   SetData(std::move(data));
 }
+
 void BinaryViewArray::SetData(std::shared_ptr<ArrayData> data) {
   FlatArray::SetData(std::move(data));
   raw_values_ = data_->GetValuesSafe<c_type>(1);
