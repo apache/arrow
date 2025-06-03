@@ -579,11 +579,10 @@ TEST_F(TestIpcRoundTrip, SpecificMetadataVersion) {
   TestMetadataVersion(MetadataVersion::V5);
 }
 
-TEST_F(TestIpcRoundTrip, AlienSlice) {
+TEST_F(TestIpcRoundTrip, ListWithSlicedValues) {
   // This tests serialization of a sliced ListArray that got sliced "the Rust
   // way": by slicing the value_offsets buffer, but keeping top-level offset at
   // 0.
-
   auto child_data = ArrayFromJSON(int32(), "[1, 2, 3, 4, 5]")->data();
 
   // Offsets buffer [2, 5]
