@@ -21,7 +21,7 @@
 #include <string>
 
 #include "arrow/util/span.h"
-#include "parquet/platform.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow::util {
 /**
@@ -34,7 +34,7 @@ namespace arrow::util {
  * not noticing the need to securely erasing the argument after invoking the constructor /
  * calling the assignment operator.
  */
-class PARQUET_EXPORT SecureString {
+class ARROW_EXPORT SecureString {
  public:
   SecureString() noexcept = default;
   SecureString(SecureString&&) noexcept;
@@ -54,9 +54,10 @@ class PARQUET_EXPORT SecureString {
   [[nodiscard]] bool empty() const;
   [[nodiscard]] std::size_t size() const;
   [[nodiscard]] std::size_t length() const;
+  [[nodiscard]] std::size_t capacity() const;
 
-  [[nodiscard]] ::arrow::util::span<uint8_t> as_span();
-  [[nodiscard]] ::arrow::util::span<const uint8_t> as_span() const;
+  [[nodiscard]] span<uint8_t> as_span();
+  [[nodiscard]] span<const uint8_t> as_span() const;
   [[nodiscard]] std::string_view as_view() const;
 
   void Dispose();

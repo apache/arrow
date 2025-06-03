@@ -15,11 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#define __STDC_WANT_LIB_EXT1__ 1
+#include <string.h>
+#include <utility>
+
 #if defined(ARROW_USE_OPENSSL)
 #  include <openssl/crypto.h>
 #  include <openssl/opensslv.h>
 #endif
-#include <utility>
+
+#include "arrow/util/windows_compatibility.h"
 #if defined(_WIN32)
 #  include <windows.h>
 #endif
@@ -28,13 +33,16 @@
 #include "arrow/util/span.h"
 
 namespace arrow::util {
+
 SecureString::SecureString(SecureString&& secret) noexcept
     : secret_(std::move(secret.secret_)) {
   secret.Dispose();
 }
+
 SecureString::SecureString(std::string&& secret) noexcept : secret_(std::move(secret)) {
   SecureClear(&secret);
 }
+
 SecureString::SecureString(size_t n, char c) noexcept : secret_(n, c) {}
 
 SecureString& SecureString::operator=(SecureString&& secret) noexcept {
@@ -47,6 +55,7 @@ SecureString& SecureString::operator=(SecureString&& secret) noexcept {
   secret.Dispose();
   return *this;
 }
+
 SecureString& SecureString::operator=(const SecureString& secret) {
   if (this == &secret) {
     // self-assignment
@@ -56,11 +65,16 @@ SecureString& SecureString::operator=(const SecureString& secret) {
   secret_ = secret.secret_;
   return *this;
 }
+
 SecureString& SecureString::operator=(std::string&& secret) noexcept {
   Dispose();
-  // if secret is local string (length <= 15 characters), copies local buffer, resets to 0
+  // std::string implementation may distinguish between local string (a very short string)
+  // and non-local (longer) strings. The former stores the string in a local buffer, the
+  // latter stores a pointer to allocated memory that stores the string.
+  //
+  // If secret is a local string, copies local buffer, resets size to 0
   // - requires secure cleaning the local buffer
-  // if secret is longer, moves the pointer to secret_, resets to 0 and uses local buffer
+  // If secret is longer, moves the pointer to secret_, resets to 0, uses local buffer
   // - does not require cleaning anything
   secret_ = std::move(secret);
   // cleans only the local buffer of secret as this always is a local string by now
@@ -77,24 +91,32 @@ bool SecureString::operator!=(const SecureString& other) const {
 }
 
 bool SecureString::empty() const { return secret_.empty(); }
+
 std::size_t SecureString::size() const { return secret_.size(); }
+
 std::size_t SecureString::length() const { return secret_.length(); }
 
-::arrow::util::span<uint8_t> SecureString::as_span() {
+std::size_t SecureString::capacity() const { return secret_.capacity(); }
+
+span<uint8_t> SecureString::as_span() {
   return {reinterpret_cast<uint8_t*>(secret_.data()), secret_.size()};
 }
-::arrow::util::span<const uint8_t> SecureString::as_span() const {
+
+span<const uint8_t> SecureString::as_span() const {
   return {reinterpret_cast<const uint8_t*>(secret_.data()), secret_.size()};
 }
+
 std::string_view SecureString::as_view() const {
   return {secret_.data(), secret_.size()};
 }
 
 void SecureString::Dispose() { SecureClear(&secret_); }
+
 void SecureString::SecureClear(std::string* secret) {
   secret->clear();
   SecureClear(reinterpret_cast<uint8_t*>(secret->data()), secret->capacity());
 }
+
 inline void SecureString::SecureClear(uint8_t* data, size_t size) {
   // There is various prior art for this:
   // https://www.cryptologie.net/article/419/zeroing-memory-compiler-optimizations-and-memset_s/

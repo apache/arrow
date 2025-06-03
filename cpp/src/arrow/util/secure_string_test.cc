@@ -135,30 +135,14 @@ TEST(TestSecureString, Construct) {
 }
 
 TEST(TestSecureString, Assign) {
-  // we initialize with the first string and iteratively assign the subsequent values
-  // the first two values are local (15 chars and less), the remainder are non-local
-  // strings (larger than 15 chars) memory management of short and long strings behaves
-  // differently
+  // We initialize with the first string and iteratively assign the subsequent values.
+  // The first two values are local (very short strings), the remainder are non-local
+  // strings. Memory management of short and long strings behaves differently.
   std::vector<std::string> test_strings = {
       "secret", "another secret", "a much longer secret", std::string(1024, 'x')};
 
-  // assert test string configuration
-  ASSERT_GE(test_strings.size(), 4);
-  for (size_t i = 1; i < test_strings.size(); i++) {
-    // we expect first two strings to be local strings
-    if (i <= 1) {
-      ASSERT_LT(test_strings[i].size(), 15 / sizeof(char));
-    } else {
-      ASSERT_GE(test_strings[i].size(), 15 / sizeof(char));
-    }
-    // the strings are increasing in size
-    if (i > 0) {
-      ASSERT_TRUE(test_strings[i].size() > test_strings[i - 1].size());
-    }
-  }
-
   std::vector<std::string> reverse_strings = std::vector(test_strings);
-  reverse(reverse_strings.begin(), reverse_strings.end());
+  std::reverse(reverse_strings.begin(), reverse_strings.end());
 
   for (auto vec : {test_strings, reverse_strings}) {
     auto init_string = vec[0];
@@ -171,7 +155,7 @@ TEST(TestSecureString, Assign) {
 
       // move-assigning from a string securely clears that string
       // the earlier value of the secure string is securely cleared
-      for (auto string : strings) {
+      for (const auto& string : strings) {
         auto string_copy = std::string(string);
         auto old_string_copy_area = StringArea(string_copy);
         ASSERT_FALSE(string.empty());
@@ -212,7 +196,7 @@ TEST(TestSecureString, Assign) {
 
       // move-assigning from a secure string securely clears that secure string
       // the earlier value of the secure string is securely cleared
-      for (auto string : strings) {
+      for (const auto& string : strings) {
         auto string_copy = std::string(string);
         SecureString secret_string(std::move(string_copy));
         ASSERT_FALSE(string.empty());
@@ -227,18 +211,19 @@ TEST(TestSecureString, Assign) {
         secret_from_move_secret = std::move(secret_string);
 
         ASSERT_TRUE(secret_string.empty());
+        auto secret_from_move_secret_view = secret_from_move_secret.as_view();
         // the secure string can reuse the string_copy's string buffer after assignment
         // then, string_copy's string buffer is obviously not cleared
-        if (old_secret_string_area.data() != secret_from_move_secret.as_view().data()) {
+        if (old_secret_string_area.data() != secret_from_move_secret_view.data()) {
           AssertSecurelyCleared(old_secret_string_area,
                                 old_secret_from_move_secret_value);
         }
         ASSERT_FALSE(secret_from_move_secret.empty());
         ASSERT_EQ(secret_from_move_secret.size(), string.size());
         ASSERT_EQ(secret_from_move_secret.length(), string.length());
-        ASSERT_EQ(secret_from_move_secret.as_view(), std::string_view(string));
+        ASSERT_EQ(secret_from_move_secret_view, std::string_view(string));
         if (old_secret_from_move_secret_area.data() ==
-            secret_from_move_secret.as_view().data()) {
+            secret_from_move_secret_view.data()) {
           // when secure string reuses the buffer, the old value must be cleared
           AssertSecurelyCleared(old_secret_from_move_secret_area,
                                 secret_from_move_secret.size());
@@ -255,7 +240,7 @@ TEST(TestSecureString, Assign) {
       std::string init_string_copy(init_string);
       SecureString secret_from_copy_secret(std::move(init_string_copy));
 
-      for (auto string : strings) {
+      for (const auto& string : strings) {
         // copy-assigning from a secure string does not modify that secure string
         // the earlier value of the secure string is securely cleared
         auto string_copy = std::string(string);
@@ -314,20 +299,19 @@ TEST(TestSecureString, AsSpan) {
   SecureString secret("hello world");
   const SecureString& const_secret(secret);
   auto const_span = const_secret.as_span();
-  auto mutual_span = secret.as_span();
+  auto mutable_span = secret.as_span();
 
   std::string expected = "hello world";
-  ::arrow::util::span expected_span = {reinterpret_cast<uint8_t*>(expected.data()),
-                                       expected.size()};
+  span expected_span = {reinterpret_cast<uint8_t*>(expected.data()), expected.size()};
   ASSERT_EQ(const_span, expected_span);
-  ASSERT_EQ(mutual_span, expected_span);
+  ASSERT_EQ(mutable_span, expected_span);
 
   // modify secret through mutual span
   // the const span shares the same secret, so it is changed as well
-  mutual_span[0] = 'H';
+  mutable_span[0] = 'H';
   expected_span[0] = 'H';
   ASSERT_EQ(const_span, expected_span);
-  ASSERT_EQ(mutual_span, expected_span);
+  ASSERT_EQ(mutable_span, expected_span);
 }
 
 TEST(TestSecureString, AsView) {
