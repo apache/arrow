@@ -632,6 +632,7 @@ tasks:
       env:
         PYARROW_TEST_GDB: "OFF"
       script: "verify-release-candidate.bat"
+      timeout: 120
 
 ############################## Docker tests ##################################
 
