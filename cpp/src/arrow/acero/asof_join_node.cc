@@ -1060,30 +1060,31 @@ class AsofJoinNode : public ExecNode {
   }
 
   bool Process() {
-    std::lock_guard<std::mutex> guard(gate_);
-    if (!CheckEnded()) {
-      return false;
-    }
-
     // Process batches while we have data
     for (;;) {
       backpressure_future_.Wait();
-      Result<std::shared_ptr<RecordBatch>> result = ProcessInner();
-
-      if (result.ok()) {
-        auto out_rb = *result;
-        if (!out_rb) break;
-        ExecBatch out_b(*out_rb);
-        out_b.index = batches_produced_++;
-        DEBUG_SYNC(this, "produce batch ", out_b.index, ":", DEBUG_MANIP(std::endl),
-                   out_rb->ToString(), DEBUG_MANIP(std::endl));
-        Status st = output_->InputReceived(this, std::move(out_b));
-        if (!st.ok()) {
-          EndFromProcessThread(std::move(st));
+      {
+        std::lock_guard<std::mutex> guard(gate_);
+        if (!CheckEnded()) {
+          return false;
         }
-      } else {
-        EndFromProcessThread(result.status());
-        return false;
+        Result<std::shared_ptr<RecordBatch>> result = ProcessInner();
+
+        if (result.ok()) {
+          auto out_rb = *result;
+          if (!out_rb) break;
+          ExecBatch out_b(*out_rb);
+          out_b.index = batches_produced_++;
+          DEBUG_SYNC(this, "produce batch ", out_b.index, ":", DEBUG_MANIP(std::endl),
+                     out_rb->ToString(), DEBUG_MANIP(std::endl));
+          Status st = output_->InputReceived(this, std::move(out_b));
+          if (!st.ok()) {
+            EndFromProcessThread(std::move(st));
+          }
+        } else {
+          EndFromProcessThread(result.status());
+          return false;
+        }
       }
     }
 
