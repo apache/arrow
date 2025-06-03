@@ -18,11 +18,17 @@
 # TODO(GH-37221): Remove compute dependency for REE requirements on bridge_test
 set(ARROW_TEST_LINK_LIBS "")
 
+if(ARROW_TEST_LINKAGE STREQUAL "static")
+  list(APPEND ARROW_TEST_LINK_LIBS ${ARROW_TEST_STATIC_LINK_LIBS})
+else()
+  list(APPEND ARROW_TEST_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS})
+endif()
+
 if(ARROW_COMPUTE)
   if(ARROW_TEST_LINKAGE STREQUAL "static")
-    list(APPEND ARROW_TEST_LINK_LIBS arrow_compute_static ${ARROW_TEST_STATIC_LINK_LIBS})
+    list(APPEND ARROW_TEST_LINK_LIBS arrow_compute_static)
   else()
-    list(APPEND ARROW_TEST_LINK_LIBS arrow_compute_shared ${ARROW_TEST_SHARED_LINK_LIBS})
+    list(APPEND ARROW_TEST_LINK_LIBS arrow_compute_shared)
   endif()
 endif()
 
