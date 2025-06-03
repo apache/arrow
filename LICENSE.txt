@@ -783,16 +783,6 @@ License: http://www.apache.org/licenses/LICENSE-2.0
 
 --------------------------------------------------------------------------------
 
-This project includes code from the Google styleguide.
-
-* cpp/build-support/cpplint.py is based on the scripts from the Google styleguide.
-
-Copyright: 2009 Google Inc. All rights reserved.
-Homepage: https://github.com/google/styleguide
-License: 3-clause BSD
-
---------------------------------------------------------------------------------
-
 This project includes code from Snappy.
 
 * cpp/cmake_modules/{SnappyCMakeLists.txt,SnappyConfig.h} are based on code
@@ -2292,7 +2282,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 --------------------------------------------------------------------------------
-The files cpp/src/arrow/vendored/whereami/whereami.h, 
+The files cpp/src/arrow/vendored/whereami/whereami.h,
 cpp/src/arrow/vendored/whereami/whereami.cc are adapted from
 Grégory Pakosz's whereami library (https://github.com/gpakosz/whereami)
 It is dual licensed under both the WTFPLv2 and MIT licenses.
