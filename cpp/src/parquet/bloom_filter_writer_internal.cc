@@ -183,13 +183,13 @@ void BloomFilterWriterImpl<ParquetType>::UpdateBloomFilterArray(
   ::arrow::Unreachable("UpdateBloomFilterArray for non ByteArray type is unreachable");
 }
 
-template class PARQUET_EXPORT BloomFilterWriterImpl<BooleanType>;
-template class PARQUET_EXPORT BloomFilterWriterImpl<Int32Type>;
-template class PARQUET_EXPORT BloomFilterWriterImpl<Int64Type>;
-template class PARQUET_EXPORT BloomFilterWriterImpl<Int96Type>;
-template class PARQUET_EXPORT BloomFilterWriterImpl<FloatType>;
-template class PARQUET_EXPORT BloomFilterWriterImpl<DoubleType>;
-template class PARQUET_EXPORT BloomFilterWriterImpl<ByteArrayType>;
-template class PARQUET_EXPORT BloomFilterWriterImpl<FLBAType>;
+template class BloomFilterWriterImpl<BooleanType>;
+template class BloomFilterWriterImpl<Int32Type>;
+template class BloomFilterWriterImpl<Int64Type>;
+template class BloomFilterWriterImpl<Int96Type>;
+template class BloomFilterWriterImpl<FloatType>;
+template class BloomFilterWriterImpl<DoubleType>;
+template class BloomFilterWriterImpl<ByteArrayType>;
+template class BloomFilterWriterImpl<FLBAType>;
 
 }  // namespace parquet::internal
