@@ -23,32 +23,21 @@
 namespace parquet {
 
 /// @brief Interface for collecting bloom filter of a parquet file.
-///
-/// ```
-/// auto bloom_filter_builder = BloomFilterBuilder::Make(schema, properties);
-/// for (int i = 0; i < num_row_groups; i++) {
-///   bloom_filter_builder->AppendRowGroup();
-///   auto* bloom_filter =
-///   bloom_filter_builder->GetOrCreateBloomFilter(bloom_filter_column);
-///   // Add bloom filter entries in `bloom_filter`.
-///   // ...
-/// }
-/// bloom_filter_builder->WriteTo(sink, location);
-/// ```
 class PARQUET_EXPORT BloomFilterBuilder {
  public:
   /// @brief API to create a BloomFilterBuilder.
   ///
-  /// @param schema The schema of the file. The life cycle of the schema must be
-  /// longer than the BloomFilterBuilder.
-  /// @param properties The properties of the file. The life cycle of the properties
-  /// must be longer than the BloomFilterBuilder.
+  /// @param schema The schema of the file and it must outlive the created
+  /// BloomFilterBuilder.
+  /// @param properties The properties of the file with a set of `BloomFilterOption`s
+  /// for columns enabling bloom filters. It must outlive the created BloomFilterBuilder.
   static std::unique_ptr<BloomFilterBuilder> Make(const SchemaDescriptor* schema,
                                                   const WriterProperties* properties);
 
-  /// @brief Append a new row group to host all incoming bloom filters.
+  /// @brief Start a new row group to host all bloom filters belong to it.
   ///
-  /// This method must be called before `GetOrCreateBloomFilter` for a new row group.
+  /// This method must be called before `GetOrCreateBloomFilter` for columns of a new row
+  /// group.
   ///
   /// @throws ParquetException if WriteTo() has been called to flush bloom filters.
   virtual void AppendRowGroup() = 0;
@@ -64,7 +53,8 @@ class PARQUET_EXPORT BloomFilterBuilder {
   /// @throws ParquetException if any of following conditions applies:
   /// 1) column_ordinal is out of bound.
   /// 2) `WriteTo()` has been called already.
-  /// 3) `AppendRowGroup()` is not called before `GetOrCreateBloomFilter()`.
+  /// 3) `AppendRowGroup()` is not called before `GetOrCreateBloomFilter()`
+  ///     for the first row-group.
   virtual BloomFilter* GetOrCreateBloomFilter(int32_t column_ordinal) = 0;
 
   /// @brief Write the bloom filter to sink.

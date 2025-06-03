@@ -183,7 +183,7 @@ struct PARQUET_EXPORT BloomFilterOptions {
   int32_t ndv = DEFAULT_BLOOM_FILTER_NDV;
   /// False-positive probability of the bloom filter.
   ///
-  /// The bloom filter data structure is a trade of between disk and memory space
+  /// The bloom filter data structure is a trade-off between disk and memory space
   /// versus fpp, the smaller the fpp, the more memory and disk space is required,
   /// thus setting it to a reasonable value e.g. 0.1, 0.05, or 0.001 is recommended.
   ///

@@ -47,14 +47,10 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
   BloomFilterBuilderImpl(const BloomFilterBuilderImpl&) = delete;
   BloomFilterBuilderImpl(BloomFilterBuilderImpl&&) = default;
 
-  /// Append a new row group to host all incoming bloom filters.
   void AppendRowGroup() override;
 
   BloomFilter* GetOrCreateBloomFilter(int32_t column_ordinal) override;
 
-  /// Serialize all bloom filters with header and bitset in the order of row group and
-  /// column id. The side effect is that it deletes all bloom filters after they have
-  /// been flushed.
   void WriteTo(::arrow::io::OutputStream* sink, BloomFilterLocation* location) override;
 
  private:

@@ -375,9 +375,9 @@ add_parquet_test(internals-test
                  SOURCES
                  bloom_filter_test.cc
                  bloom_filter_reader_writer_test.cc
+                 encoding_test.cc
                  properties_test.cc
                  statistics_test.cc
-                 encoding_test.cc
                  geospatial/statistics_test.cc
                  geospatial/util_internal_test.cc
                  metadata_test.cc
