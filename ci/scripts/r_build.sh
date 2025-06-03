@@ -24,7 +24,7 @@ build_dir=${2}
 
 : "${BUILD_DOCS_R:=OFF}"
 
-if [ -z "${INSTALL_ARGS}" ] ; then
+if [ -z "${INSTALL_ARGS}" ]; then
   R_INSTALL_ARGS=()
 else
   read -r -a R_INSTALL_ARGS <<< "$INSTALL_ARGS"
