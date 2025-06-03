@@ -274,6 +274,30 @@ TEST(TestSecureString, Assign) {
   }
 }
 
+TEST(TestSecureString, Deconstruct) {
+#if !defined(ARROW_VALGRIND) && !defined(ARROW_USE_ASAN)
+  // We use a very short and a very long string as memory management of short and long
+  // strings behaves differently.
+  std::vector<std::string> strings = {"short secret", std::string(1024, 'x')};
+
+  for (auto& string : strings) {
+    auto old_string_value = string;
+    std::string_view view;
+    {
+      // construct secret
+      auto secret = SecureString(std::move(string));
+      // memorize view
+      view = secret.as_view();
+      // deconstruct secret on leaving this context
+    }
+    // assert secret memory is cleared on deconstruction
+    AssertSecurelyCleared(view, old_string_value);
+    // so is the string (tested more thoroughly elsewhere)
+    AssertSecurelyCleared(string);
+  }
+#endif
+}
+
 TEST(TestSecureString, Compare) {
   ASSERT_TRUE(SecureString("") == SecureString(""));
   ASSERT_FALSE(SecureString("") != SecureString(""));
