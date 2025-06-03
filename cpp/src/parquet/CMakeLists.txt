@@ -160,6 +160,7 @@ set(PARQUET_SRCS
     arrow/writer.cc
     bloom_filter.cc
     bloom_filter_builder_internal.cc
+    bloom_filter_writer_internal.cc
     bloom_filter_reader.cc
     chunker_internal.cc
     column_reader.cc
