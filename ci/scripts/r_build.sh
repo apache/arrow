@@ -24,13 +24,10 @@ build_dir=${2}
 
 : "${BUILD_DOCS_R:=OFF}"
 
-# Split words safely using read and a here string (Bash only)
-#
-# This statement split INSTALL_ARGS="--foo --bar" and set
-# R_INSTALL_ARGS as array like ['--foo', '--bar'] in Python.
-# This way SC2086 shellcheck safe.
-# See also: https://www.shellcheck.net/wiki/SC2086
-read -r -a R_INSTALL_ARGS <<< "${INSTALL_ARGS:-}"
+R_INSTALL_ARGS=()
+for arg in ${INSTALL_ARGS:-}; do
+  R_INSTALL_ARGS+=("${arg}")
+done
 
 # https://github.com/apache/arrow/issues/41429
 # TODO: We want to out-of-source build. This is a workaround. We copy
@@ -48,12 +45,6 @@ else
   SUDO=
 fi
 
-# "${R_INSTALL_ARGS[@]}" extracts array variable.
-#
-# when the variable empty:
-#   -> CMD INSTALL arrow*.tar.gz
-# when the variable set ['--foo', '--bar']:
-#   -> CMD INSTALL --foo --bar arrow*.tar.gz
 ${SUDO} \
   env \
     PKG_CONFIG_PATH="${ARROW_HOME}/lib/pkgconfig:${PKG_CONFIG_PATH}" \
