@@ -69,7 +69,7 @@ call conda create --no-shortcuts -c conda-forge -f -q -y -p %_VERIFICATION_CONDA
 
 call activate %_VERIFICATION_CONDA_ENV% || exit /B 1
 
-set GENERATOR=Visual Studio 16 2019
+set GENERATOR=Visual Studio 17 2022
 set ARCHITECTURE=x64
 set CONFIGURATION=release
 
@@ -84,7 +84,7 @@ mkdir !ARROW_SOURCE!\cpp\build
 pushd !ARROW_SOURCE!\cpp\build
 
 @rem This is the path for Visual Studio Community 2017
-call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tools\VsDevCmd.bat" -arch=amd64
+call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
 
 @rem NOTE(wesm): not using Ninja for now to be able to more easily control the
 @rem generator used
