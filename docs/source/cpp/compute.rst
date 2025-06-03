@@ -47,11 +47,12 @@ Compute Initialization
 ----------------------
 
 The compute library requires a call to :func:`arrow::compute::Initialize`
-in order to register the individual functions into the :class:`FunctionRegistry`, otherwise
-only the functions required for Arrow core functionality will be available  \(1).
+in order to register the individual functions into the global :class:`FunctionRegistry`,
+otherwise only the functions required for Arrow core functionality will be available.
 
-\(1) The set of functions required for Arrow core functionality are an implementation detail
-of the library, and should not be considered stable.
+.. note::
+   The set of functions required for Arrow core functionality are an implementation detail
+   of the library, and should not be considered stable.
 
 Input shapes
 ------------
