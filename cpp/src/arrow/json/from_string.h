@@ -84,7 +84,6 @@ Result<std::shared_ptr<ChunkedArray>> ChunkedArrayFromJSONString(
 ///     R"(["k1", "k2", "k3", "k4"])");
 /// \endcode
 ARROW_EXPORT
-ARROW_EXPORT
 Result<std::shared_ptr<Array>> DictArrayFromJSONString(const std::shared_ptr<DataType>&,
                                                        std::string_view indices_json,
                                                        std::string_view dictionary_json);
