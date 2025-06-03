@@ -1498,7 +1498,6 @@ TEST(TestChunkedArrayFromJSON, Basics) {
 
 TEST(TestScalarFromJSON, Basics) {
   // Sanity check for common types (not exhaustive)
-  std::shared_ptr<Scalar> scalar;
   AssertJSONScalar<Int64Type>(int64(), "4", true, 4);
   AssertJSONScalar<Int64Type>(int64(), "null", false, 0);
   AssertJSONScalar<StringType, std::shared_ptr<Buffer>>(utf8(), R"("")", true,
@@ -1515,14 +1514,13 @@ TEST(TestScalarFromJSON, Basics) {
   AssertJSONScalar<BooleanType, bool>(boolean(), "1", true, true);
   AssertJSONScalar<DoubleType>(float64(), "1.0", true, 1.0);
   AssertJSONScalar<DoubleType>(float64(), "-0.0", true, -0.0);
-  ASSERT_OK(ScalarFromJSONString(float64(), "NaN"));
-  ASSERT_TRUE(std::isnan(checked_cast<DoubleScalar&>(*scalar).value));
-  ASSERT_OK(ScalarFromJSONString(float64(), "Inf"));
-  ASSERT_TRUE(std::isinf(checked_cast<DoubleScalar&>(*scalar).value));
+  ASSERT_OK_AND_ASSIGN(auto nan_scalar, ScalarFromJSONString(float64(), "NaN"));
+  ASSERT_TRUE(std::isnan(checked_cast<DoubleScalar&>(*nan_scalar).value));
+  ASSERT_OK_AND_ASSIGN(auto inf_scalar, ScalarFromJSONString(float64(), "Inf"));
+  ASSERT_TRUE(std::isinf(checked_cast<DoubleScalar&>(*inf_scalar).value));
 }
 
 TEST(TestScalarFromJSON, Errors) {
-  std::shared_ptr<Scalar> scalar;
   ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "[0]"));
   ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "[9223372036854775808]"));
   ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "[-9223372036854775809]"));
