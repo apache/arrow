@@ -1237,4 +1237,42 @@ TEST_F(TestDecimal, TestSha) {
     EXPECT_NE(value_at_position, response->GetScalar(i - 1).ValueOrDie()->ToString());
   }
 }
+
+TEST_F(TestDecimal, TestCastDecimalVarCharInvalidInputInvalidOutput) {
+    auto decimal_type_10_0 = std::make_shared<arrow::Decimal128Type>(10, 0);
+    auto decimal_type_38_30 = std::make_shared<arrow::Decimal128Type>(38, 30);
+    auto decimal_type_38_27 = std::make_shared<arrow::Decimal128Type>(38, 27);
+
+    auto field_str = field("in_str", utf8());
+    auto schema = arrow::schema({field_str});
+    auto res_bool = field("res_bool", arrow::boolean());
+  
+    auto int_literal = TreeExprBuilder::MakeLiteral((int32_t)100);
+    auto int_literal_multiply = TreeExprBuilder::MakeLiteral((int32_t)10);
+    auto string_literal = TreeExprBuilder::MakeStringLiteral("foo");
+    auto cast_multiply_literal =
+       TreeExprBuilder::MakeFunction("castDECIMAL", {int_literal_multiply}, decimal_type_10_0);
+    auto cast_int_literal =
+       TreeExprBuilder::MakeFunction("castDECIMAL", {int_literal}, decimal_type_38_30);
+    auto cast_string_func =
+       TreeExprBuilder::MakeFunction("castDECIMAL", {string_literal}, decimal_type_38_30);
+    auto multiply_func =
+       TreeExprBuilder::MakeFunction("multiply", {cast_multiply_literal, cast_int_literal}, decimal_type_38_27);
+    auto equal_func = TreeExprBuilder::MakeFunction("equal", {multiply_func, cast_string_func}, arrow::boolean());
+    auto expr = TreeExprBuilder::MakeExpression(equal_func, res_bool);
+  
+    std::shared_ptr<Projector> projector;
+  
+    auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+    EXPECT_TRUE(status.ok()) << status.message();
+  
+    int num_records = 1;
+    auto invalid_in = MakeArrowArrayUtf8({"1.345"}, {true});
+    auto in_batch_1 = arrow::RecordBatch::Make(schema, num_records, {invalid_in});
+      
+    arrow::ArrayVector outputs_1;
+    status = projector->Evaluate(*in_batch_1, pool_, &outputs_1);
+    EXPECT_FALSE(status.ok()) << status.message();
+    EXPECT_NE(status.message().find("not a valid decimal128 number"), std::string::npos);
+  }
 }  // namespace gandiva
