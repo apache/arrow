@@ -555,7 +555,7 @@ GcsFileSystem <- R6Class("GcsFileSystem",
       if ("expiration" %in% names(out)) {
         out$expiration <- as.POSIXct(
           out$expiration / 1000000000,
-          origin = "1970-01-01", 
+          origin = "1970-01-01",
           tz = "UTC"
         )
       }
