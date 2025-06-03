@@ -24,7 +24,7 @@ build_dir=${2}
 
 : "${BUILD_DOCS_R:=OFF}"
 
-read -r -a R_INSTALL_ARGS <<< "$INSTALL_ARGS"
+read -r -a R_INSTALL_ARGS <<< "${INSTALL_ARGS:-}"
 
 # https://github.com/apache/arrow/issues/41429
 # TODO: We want to out-of-source build. This is a workaround. We copy
