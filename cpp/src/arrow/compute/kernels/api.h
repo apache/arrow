@@ -22,13 +22,6 @@
 
 namespace arrow::compute {
 
-namespace internal {
-
-/// \brief Register all compute kernels.
-Status RegisterComputeKernels();
-
-}  // namespace internal
-
 /// \brief Initialize the compute module.
 ///
 /// Register the compute kernel functions to be available on the
