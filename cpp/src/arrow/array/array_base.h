@@ -23,12 +23,11 @@
 #include <string>
 #include <vector>
 
-#include "arrow/array/data.h"
 #include "arrow/buffer.h"
 #include "arrow/compare.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -59,35 +58,17 @@ class ARROW_EXPORT Array {
 
   /// \brief Return true if value at index is valid (not null). Does not
   /// boundscheck
-  bool IsValid(int64_t i) const {
-    if (null_bitmap_data_ != NULLPTR) {
-      return bit_util::GetBit(null_bitmap_data_, i + data_->offset);
-    }
-    // Dispatching with a few conditionals like this makes IsNull more
-    // efficient for how it is used in practice. Making IsNull virtual
-    // would add a vtable lookup to every call and prevent inlining +
-    // a potential inner-branch removal.
-    if (type_id() == Type::SPARSE_UNION) {
-      return !internal::IsNullSparseUnion(*data_, i);
-    }
-    if (type_id() == Type::DENSE_UNION) {
-      return !internal::IsNullDenseUnion(*data_, i);
-    }
-    if (type_id() == Type::RUN_END_ENCODED) {
-      return !internal::IsNullRunEndEncoded(*data_, i);
-    }
-    return data_->null_count != data_->length;
-  }
+  bool IsValid(int64_t i) const;
 
   /// \brief Return a Scalar containing the value of this array at i
   Result<std::shared_ptr<Scalar>> GetScalar(int64_t i) const;
 
   /// Size in the number of elements this array contains.
-  int64_t length() const { return data_->length; }
+  int64_t length() const;
 
   /// A relative position into another array's data, to enable zero-copy
   /// slicing. This value defaults to zero
-  int64_t offset() const { return data_->offset; }
+  int64_t offset() const;
 
   /// The number of null entries in the array. If the null count was not known
   /// at time of construction (and set to a negative value), then the null
@@ -106,15 +87,15 @@ class ARROW_EXPORT Array {
   /// \see GetNullCount
   int64_t ComputeLogicalNullCount() const;
 
-  const std::shared_ptr<DataType>& type() const { return data_->type; }
-  Type::type type_id() const { return data_->type->id(); }
+  const std::shared_ptr<DataType>& type() const;
+  Type::type type_id() const;
 
   /// Buffer for the validity (null) bitmap, if any. Note that Union types
   /// never have a null bitmap.
   ///
   /// Note that for `null_count == 0` or for null type, this will be null.
   /// This buffer does not account for any slice offset
-  const std::shared_ptr<Buffer>& null_bitmap() const { return data_->buffers[0]; }
+  const std::shared_ptr<Buffer>& null_bitmap() const;
 
   /// Raw pointer to the null bitmap.
   ///
@@ -208,7 +189,7 @@ class ARROW_EXPORT Array {
 
   const std::shared_ptr<ArrayData>& data() const { return data_; }
 
-  int num_fields() const { return static_cast<int>(data_->child_data.size()); }
+  int num_fields() const;
 
   /// \return PrettyPrint representation of array suitable for debugging
   std::string ToString() const;
@@ -236,7 +217,7 @@ class ARROW_EXPORT Array {
   /// object which backs this Array.
   ///
   /// \return DeviceAllocationType
-  DeviceAllocationType device_type() const { return data_->device_type(); }
+  DeviceAllocationType device_type() const;
 
   /// \brief Return the statistics of this Array
   ///
@@ -244,7 +225,7 @@ class ARROW_EXPORT Array {
   /// object which backs this Array.
   ///
   /// \return const std::shared_ptr<ArrayStatistics>&
-  const std::shared_ptr<ArrayStatistics>& statistics() const { return data_->statistics; }
+  const std::shared_ptr<ArrayStatistics>& statistics() const;
 
  protected:
   Array() = default;
@@ -254,14 +235,7 @@ class ARROW_EXPORT Array {
   const uint8_t* null_bitmap_data_ = NULLPTR;
 
   /// Protected method for constructors
-  void SetData(const std::shared_ptr<ArrayData>& data) {
-    if (data->buffers.size() > 0) {
-      null_bitmap_data_ = data->GetValuesSafe<uint8_t>(0, /*offset=*/0);
-    } else {
-      null_bitmap_data_ = NULLPTR;
-    }
-    data_ = data;
-  }
+  void SetData(const std::shared_ptr<ArrayData>& data);
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Array);
@@ -284,20 +258,17 @@ class ARROW_EXPORT FlatArray : public Array {
 class ARROW_EXPORT PrimitiveArray : public FlatArray {
  public:
   /// Does not account for any slice offset
-  const std::shared_ptr<Buffer>& values() const { return data_->buffers[1]; }
+  const std::shared_ptr<Buffer>& values() const;
 
  protected:
   PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t length,
                  const std::shared_ptr<Buffer>& data,
-                 const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
-                 int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+                 const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
+                 int64_t offset);
 
   PrimitiveArray() : raw_values_(NULLPTR) {}
 
-  void SetData(const std::shared_ptr<ArrayData>& data) {
-    this->Array::SetData(data);
-    raw_values_ = data->GetValuesSafe<uint8_t>(1, /*offset=*/0);
-  }
+  void SetData(const std::shared_ptr<ArrayData>& data);
 
   explicit PrimitiveArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
 
@@ -313,11 +284,7 @@ class ARROW_EXPORT NullArray : public FlatArray {
   explicit NullArray(int64_t length);
 
  private:
-  void SetData(const std::shared_ptr<ArrayData>& data) {
-    null_bitmap_data_ = NULLPTR;
-    data->null_count = data->length;
-    data_ = data;
-  }
+  void SetData(const std::shared_ptr<ArrayData>& data);
 };
 
 }  // namespace arrow

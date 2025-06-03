@@ -28,6 +28,7 @@
 #include "arrow/array/array_dict.h"
 #include "arrow/array/array_nested.h"
 #include "arrow/array/array_primitive.h"
+#include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/array/validate.h"
 #include "arrow/buffer.h"
@@ -54,6 +55,55 @@ int64_t Array::null_count() const { return data_->GetNullCount(); }
 
 int64_t Array::ComputeLogicalNullCount() const {
   return data_->ComputeLogicalNullCount();
+}
+
+bool Array::IsValid(int64_t i) const {
+  if (null_bitmap_data_ != NULLPTR) {
+    return bit_util::GetBit(null_bitmap_data_, i + data_->offset);
+  }
+  // Dispatching with a few conditionals like this makes IsNull more
+  // efficient for how it is used in practice. Making IsNull virtual
+  // would add a vtable lookup to every call and prevent inlining +
+  // a potential inner-branch removal.
+  if (type_id() == Type::SPARSE_UNION) {
+    return !internal::IsNullSparseUnion(*data_, i);
+  }
+  if (type_id() == Type::DENSE_UNION) {
+    return !internal::IsNullDenseUnion(*data_, i);
+  }
+  if (type_id() == Type::RUN_END_ENCODED) {
+    return !internal::IsNullRunEndEncoded(*data_, i);
+  }
+  return data_->null_count != data_->length;
+}
+const std::shared_ptr<DataType>& Array::type() const { return data_->type; }
+
+Type::type Array::type_id() const { return data_->type->id(); }
+
+int64_t Array::length() const { return data_->length; }
+
+int64_t Array::offset() const { return data_->offset; }
+
+const std::shared_ptr<Buffer>& Array::null_bitmap() const { return data_->buffers[0]; }
+
+int Array::num_fields() const { return static_cast<int>(data_->child_data.size()); }
+
+DeviceAllocationType Array::device_type() const { return data_->device_type(); }
+
+const std::shared_ptr<ArrayStatistics>& Array::statistics() const {
+  return data_->statistics;
+}
+void Array::SetData(const std::shared_ptr<ArrayData>& data) {
+  if (data->buffers.size() > 0) {
+    null_bitmap_data_ = data->GetValuesSafe<uint8_t>(0, /*offset=*/0);
+  } else {
+    null_bitmap_data_ = NULLPTR;
+  }
+  data_ = data;
+}
+
+const std::shared_ptr<Buffer>& PrimitiveArray::values() const {
+  return data_->buffers[1];
 }
 
 namespace internal {
@@ -328,6 +378,11 @@ Result<std::shared_ptr<Array>> Array::ViewOrCopyTo(
 
 NullArray::NullArray(int64_t length) {
   SetData(ArrayData::Make(null(), length, {nullptr}, length));
+}
+void NullArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  null_bitmap_data_ = NULLPTR;
+  data->null_count = data->length;
+  data_ = data;
 }
 
 // ----------------------------------------------------------------------

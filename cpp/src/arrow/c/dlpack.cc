@@ -18,6 +18,7 @@
 #include "arrow/c/dlpack.h"
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/data.h"
 #include "arrow/c/dlpack_abi.h"
 #include "arrow/device.h"
 #include "arrow/type.h"

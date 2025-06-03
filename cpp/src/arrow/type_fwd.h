@@ -69,6 +69,7 @@ using FieldVector = std::vector<std::shared_ptr<Field>>;
 
 class Array;
 struct ArrayData;
+struct ArrayStatistics;
 struct ArraySpan;
 class ArrayBuilder;
 struct Scalar;
