@@ -1069,8 +1069,7 @@ Result<std::shared_ptr<Scalar>> DictScalarFromJSONString(
   ARROW_ASSIGN_OR_RAISE(
       dictionary, ArrayFromJSONString(dictionary_type.value_type(), dictionary_json));
 
-  auto out = DictionaryScalar::Make(std::move(index), std::move(dictionary));
-  return out;
+  return DictionaryScalar::Make(std::move(index), std::move(dictionary));
 }
 
 }  // namespace json
