@@ -171,7 +171,7 @@ TEST(TestSecureString, Assign) {
 
       // move-assigning from a string securely clears that string
       // the earlier value of the secure string is securely cleared
-      for (auto string : strings) {
+      for (const auto& string : strings) {
         auto string_copy = std::string(string);
         auto old_string_copy_area = StringArea(string_copy);
         ASSERT_FALSE(string.empty());
@@ -212,7 +212,7 @@ TEST(TestSecureString, Assign) {
 
       // move-assigning from a secure string securely clears that secure string
       // the earlier value of the secure string is securely cleared
-      for (auto string : strings) {
+      for (const auto& string : strings) {
         auto string_copy = std::string(string);
         SecureString secret_string(std::move(string_copy));
         ASSERT_FALSE(string.empty());
@@ -255,7 +255,7 @@ TEST(TestSecureString, Assign) {
       std::string init_string_copy(init_string);
       SecureString secret_from_copy_secret(std::move(init_string_copy));
 
-      for (auto string : strings) {
+      for (const auto& string : strings) {
         // copy-assigning from a secure string does not modify that secure string
         // the earlier value of the secure string is securely cleared
         auto string_copy = std::string(string);
