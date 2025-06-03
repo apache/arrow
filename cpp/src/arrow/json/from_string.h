@@ -67,7 +67,7 @@ Result<std::shared_ptr<Array>> ArrayFromJSONString(const std::shared_ptr<DataTyp
 /// \brief Create a ChunkedArray from a JSON string
 ///
 /// \code {.cpp}
-/// Result<std::shared_ptr<ChunkedArray>> chunked_array_result =
+/// Result<std::shared_ptr<ChunkedArray>> chunked_array =
 ///     ChunkedArrayFromJSONString(int64(), {R"([5, 10])", R"([null])", R"([16])"});
 /// \endcode
 ARROW_EXPORT
