@@ -47,9 +47,8 @@ namespace json {
 /// \brief Create an Array from a JSON string
 ///
 /// \code {.cpp}
-/// std::shared_ptr<Array> array = ArrayFromJSONString(
-///     int64(), "[2, 3, null, 7, 11]"
-/// ).ValueOrDie();
+/// Result<std::shared_ptr<Array>> array =
+///     ArrayFromJSONString(int64(), "[2, 3, null, 7, 11]");
 /// \endcode
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> ArrayFromJSONString(const std::shared_ptr<DataType>&,
@@ -78,7 +77,7 @@ Result<std::shared_ptr<ChunkedArray>> ChunkedArrayFromJSONString(
 /// \brief Create a DictionaryArray from a JSON string
 ///
 /// \code {.cpp}
-/// std::shared_ptr<Array> dict_array =
+/// Result<std::shared_ptr<Array>> dict_array =
 ///     DictArrayFromJSONString(dictionary(int32(), utf8()), "[0, 1, 0, 2, 0, 3]",
 ///     R"(["k1", "k2", "k3", "k4"])");
 /// \endcode
@@ -89,7 +88,7 @@ Result<std::shared_ptr<Array>> DictArrayFromJSONString(const std::shared_ptr<Dat
 
 /// \brief Create a Scalar from a JSON string
 /// \code {.cpp}
-/// std::shared_ptr<Scalar> scalar =
+/// Result<std::shared_ptr<Scalar>> scalar =
 ///     ScalarFromJSONString(float64(), "42", &scalar);
 /// \endcode
 ARROW_EXPORT
@@ -98,7 +97,7 @@ Result<std::shared_ptr<Scalar>> ScalarFromJSONString(const std::shared_ptr<DataT
 
 /// \brief Create a DictionaryScalar from a JSON string
 /// \code {.cpp}
-/// std::shared_ptr<Scalar> dict_scalar =
+/// Result<std::shared_ptr<Scalar>> dict_scalar =
 ///     DictScalarFromJSONString(dictionary(int32(), utf8()), "3", R"(["k1", "k2", "k3",
 ///     "k4"])", &scalar);
 /// \endcode
