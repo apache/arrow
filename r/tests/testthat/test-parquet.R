@@ -483,7 +483,6 @@ test_that("Can read Parquet files from a URL", {
 })
 
 test_that("thrift string and container size can be specified when reading Parquet files", {
-
   tf <- tempfile()
   on.exit(unlink(tf))
   table <- arrow_table(example_data)
