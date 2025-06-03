@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/data.h"
 #include "arrow/array/validate.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -31,6 +32,33 @@
 namespace arrow {
 
 using internal::checked_cast;
+
+template <typename TYPE>
+std::shared_ptr<Buffer> BaseBinaryArray<TYPE>::value_offsets() const {
+  return data_->buffers[1];
+}
+
+template <typename TYPE>
+std::shared_ptr<Buffer> BaseBinaryArray<TYPE>::value_data() const {
+  return data_->buffers[2];
+}
+
+template <typename TYPE>
+typename BaseBinaryArray<TYPE>::offset_type BaseBinaryArray<TYPE>::total_values_length()
+    const {
+  if (data_->length > 0) {
+    return raw_value_offsets_[data_->length] - raw_value_offsets_[0];
+  } else {
+    return 0;
+  }
+}
+
+template <typename TYPE>
+void BaseBinaryArray<TYPE>::SetData(const std::shared_ptr<ArrayData>& data) {
+  this->Array::SetData(data);
+  raw_value_offsets_ = data->GetValuesSafe<offset_type>(1);
+  raw_data_ = data->GetValuesSafe<uint8_t>(2, /*offset=*/0);
+}
 
 BinaryArray::BinaryArray(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK(is_binary_like(data->type->id()));
@@ -110,9 +138,17 @@ std::string_view BinaryViewArray::GetView(int64_t i) const {
   return util::FromBinaryView(raw_values_[i], data_buffers);
 }
 
+const std::shared_ptr<Buffer>& BinaryViewArray::values() const {
+  return data_->buffers[1];
+}
+
 StringViewArray::StringViewArray(std::shared_ptr<ArrayData> data) {
   ARROW_CHECK_EQ(data->type->id(), Type::STRING_VIEW);
   SetData(std::move(data));
+}
+void BinaryViewArray::SetData(std::shared_ptr<ArrayData> data) {
+  FlatArray::SetData(std::move(data));
+  raw_values_ = data_->GetValuesSafe<c_type>(1);
 }
 
 Status StringViewArray::ValidateUTF8() const { return internal::ValidateUTF8(*data_); }
@@ -128,5 +164,14 @@ FixedSizeBinaryArray::FixedSizeBinaryArray(const std::shared_ptr<DataType>& type
                                            int64_t null_count, int64_t offset) {
   SetData(ArrayData::Make(type, length, {null_bitmap, data}, null_count, offset));
 }
+
+void FixedSizeBinaryArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  this->PrimitiveArray::SetData(data);
+  byte_width_ = internal::checked_cast<const FixedSizeBinaryType&>(*type()).byte_width();
+  values_ = raw_values_ + data_->offset * byte_width_;
+}
+
+template class BaseBinaryArray<BinaryType>;
+template class BaseBinaryArray<LargeBinaryType>;
 
 }  // namespace arrow

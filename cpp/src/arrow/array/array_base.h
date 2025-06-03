@@ -263,8 +263,8 @@ class ARROW_EXPORT PrimitiveArray : public FlatArray {
  protected:
   PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t length,
                  const std::shared_ptr<Buffer>& data,
-                 const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
-                 int64_t offset);
+                 const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+                 int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
   PrimitiveArray() : raw_values_(NULLPTR) {}
 
