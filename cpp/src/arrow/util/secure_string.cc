@@ -19,6 +19,8 @@
 #  include <openssl/crypto.h>
 #  include <openssl/opensslv.h>
 #endif
+#define __STDC_WANT_LIB_EXT1__ 1
+#include <string.h>
 #include <utility>
 #if defined(_WIN32)
 #  include <windows.h>
