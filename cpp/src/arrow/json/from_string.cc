@@ -1004,23 +1004,22 @@ Result<std::shared_ptr<Array>> ArrayFromJSONString(const std::shared_ptr<DataTyp
   return ArrayFromJSONString(type, std::string_view(json_string));
 }
 
-Status ChunkedArrayFromJSONString(const std::shared_ptr<DataType>& type,
-                                  const std::vector<std::string>& json_strings,
-                                  std::shared_ptr<ChunkedArray>* out) {
+Result<std::shared_ptr<ChunkedArray>> ChunkedArrayFromJSONString(
+    const std::shared_ptr<DataType>& type, const std::vector<std::string>& json_strings) {
   ArrayVector out_chunks;
   out_chunks.reserve(json_strings.size());
   for (const std::string& chunk_json : json_strings) {
     out_chunks.emplace_back();
     ARROW_ASSIGN_OR_RAISE(out_chunks.back(), ArrayFromJSONString(type, chunk_json));
   }
-  *out = std::make_shared<ChunkedArray>(std::move(out_chunks), type);
-  return Status::OK();
+  std::shared_ptr<ChunkedArray> out =
+      std::make_shared<ChunkedArray>(std::move(out_chunks), type);
+  return out;
 }
 
-Status DictArrayFromJSONString(const std::shared_ptr<DataType>& type,
-                               std::string_view indices_json,
-                               std::string_view dictionary_json,
-                               std::shared_ptr<Array>* out) {
+Result<std::shared_ptr<Array>> DictArrayFromJSONString(
+    const std::shared_ptr<DataType>& type, std::string_view indices_json,
+    std::string_view dictionary_json) {
   if (type->id() != Type::DICTIONARY) {
     return Status::TypeError("DictArrayFromJSON requires dictionary type, got ", *type);
   }
@@ -1031,13 +1030,13 @@ Status DictArrayFromJSONString(const std::shared_ptr<DataType>& type,
                         ArrayFromJSONString(dictionary_type.index_type(), indices_json));
   ARROW_ASSIGN_OR_RAISE(auto dictionary, ArrayFromJSONString(dictionary_type.value_type(),
                                                              dictionary_json));
-
-  return DictionaryArray::FromArrays(type, std::move(indices), std::move(dictionary))
-      .Value(out);
+  ARROW_ASSIGN_OR_RAISE(auto out, DictionaryArray::FromArrays(type, std::move(indices),
+                                                              std::move(dictionary)));
+  return out;
 }
 
-Status ScalarFromJSONString(const std::shared_ptr<DataType>& type,
-                            std::string_view json_string, std::shared_ptr<Scalar>* out) {
+Result<std::shared_ptr<Scalar>> ScalarFromJSONString(
+    const std::shared_ptr<DataType>& type, std::string_view json_string) {
   std::shared_ptr<JSONConverter> converter;
   RETURN_NOT_OK(GetConverter(type, &converter));
 
@@ -1052,13 +1051,13 @@ Status ScalarFromJSONString(const std::shared_ptr<DataType>& type,
   RETURN_NOT_OK(converter->AppendValue(json_doc));
   RETURN_NOT_OK(converter->Finish(&array));
   DCHECK_EQ(array->length(), 1);
-  return array->GetScalar(0).Value(out);
+  ARROW_ASSIGN_OR_RAISE(auto out, array->GetScalar(0));
+  return out;
 }
 
-Status DictScalarFromJSONString(const std::shared_ptr<DataType>& type,
-                                std::string_view index_json,
-                                std::string_view dictionary_json,
-                                std::shared_ptr<Scalar>* out) {
+Result<std::shared_ptr<Scalar>> DictScalarFromJSONString(
+    const std::shared_ptr<DataType>& type, std::string_view index_json,
+    std::string_view dictionary_json) {
   if (type->id() != Type::DICTIONARY) {
     return Status::TypeError("DictScalarFromJSONString requires dictionary type, got ",
                              *type);
@@ -1066,14 +1065,14 @@ Status DictScalarFromJSONString(const std::shared_ptr<DataType>& type,
 
   const auto& dictionary_type = checked_cast<const DictionaryType&>(*type);
 
-  std::shared_ptr<Scalar> index;
   std::shared_ptr<Array> dictionary;
-  RETURN_NOT_OK(ScalarFromJSONString(dictionary_type.index_type(), index_json, &index));
+  ARROW_ASSIGN_OR_RAISE(auto index,
+                        ScalarFromJSONString(dictionary_type.index_type(), index_json));
   ARROW_ASSIGN_OR_RAISE(
       dictionary, ArrayFromJSONString(dictionary_type.value_type(), dictionary_json));
 
-  *out = DictionaryScalar::Make(std::move(index), std::move(dictionary));
-  return Status::OK();
+  auto out = DictionaryScalar::Make(std::move(index), std::move(dictionary));
+  return out;
 }
 
 }  // namespace json

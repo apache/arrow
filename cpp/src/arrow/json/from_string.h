@@ -48,7 +48,7 @@ namespace json {
 ///
 /// \code {.cpp}
 /// std::shared_ptr<Array> array = ArrayFromJSONString(
-///   int64(), "[2, 3, null, 7, 11]"
+///     int64(), "[2, 3, null, 7, 11]"
 /// ).ValueOrDie();
 /// \endcode
 ARROW_EXPORT
@@ -68,52 +68,46 @@ Result<std::shared_ptr<Array>> ArrayFromJSONString(const std::shared_ptr<DataTyp
 /// \brief Create a ChunkedArray from a JSON string
 ///
 /// \code {.cpp}
-/// std::shared_ptr<ChunkedArray> chunked_array;
-/// ChunkedArrayFromJSONString(
-///   int64(), {R"([5, 10])", R"([null])", R"([16])"}, &chunked_array
-/// );
+/// std::shared_ptr<ChunkedArray> chunked_array =
+///     ChunkedArrayFromJSONString(int64(), {R"([5, 10])", R"([null])", R"([16])"})
+///         .ValueOrDie();
 /// \endcode
 ARROW_EXPORT
-Status ChunkedArrayFromJSONString(const std::shared_ptr<DataType>& type,
-                                  const std::vector<std::string>& json_strings,
-                                  std::shared_ptr<ChunkedArray>* out);
+Result<std::shared_ptr<ChunkedArray>> ChunkedArrayFromJSONString(
+    const std::shared_ptr<DataType>& type, const std::vector<std::string>& json_strings);
 
 /// \brief Create a DictionaryArray from a JSON string
 ///
 /// \code {.cpp}
-/// std::shared_ptr<Array> array;
-/// DictArrayFromJSONString(
-///   dictionary(int32(), utf8()),
-///   "[0, 1, 0, 2, 0, 3]", R"(["k1", "k2", "k3", "k4"])",
-///   &array
-/// );
+/// std::shared_ptr<Array> dict_array =
+///     DictArrayFromJSONString(dictionary(int32(), utf8()), "[0, 1, 0, 2, 0, 3]",
+///     R"(["k1", "k2", "k3", "k4"])");
 /// \endcode
 ARROW_EXPORT
-Status DictArrayFromJSONString(const std::shared_ptr<DataType>&,
-                               std::string_view indices_json,
-                               std::string_view dictionary_json,
-                               std::shared_ptr<Array>* out);
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> DictArrayFromJSONString(const std::shared_ptr<DataType>&,
+                                                       std::string_view indices_json,
+                                                       std::string_view dictionary_json);
 
 /// \brief Create a Scalar from a JSON string
 /// \code {.cpp}
-/// std::shared_ptr<Scalar> scalar;
-/// ScalarFromJSONString(float64(), "42", &scalar);
+/// std::shared_ptr<Scalar> scalar =
+///     ScalarFromJSONString(float64(), "42", &scalar);
 /// \endcode
 ARROW_EXPORT
-Status ScalarFromJSONString(const std::shared_ptr<DataType>&, std::string_view json,
-                            std::shared_ptr<Scalar>* out);
+Result<std::shared_ptr<Scalar>> ScalarFromJSONString(const std::shared_ptr<DataType>&,
+                                                     std::string_view json);
 
 /// \brief Create a DictionaryScalar from a JSON string
 /// \code {.cpp}
-/// std::shared_ptr<Scalar> scalar;
-/// DictScalarFromJSONString(dictionary(int32(), utf8()), "3", R"(["k1", "k2", "k3",
-/// "k4"])", &scalar);
+/// std::shared_ptr<Scalar> dict_scalar =
+///     DictScalarFromJSONString(dictionary(int32(), utf8()), "3", R"(["k1", "k2", "k3",
+///     "k4"])", &scalar);
 /// \endcode
 ARROW_EXPORT
-Status DictScalarFromJSONString(const std::shared_ptr<DataType>&,
-                                std::string_view index_json,
-                                std::string_view dictionary_json,
-                                std::shared_ptr<Scalar>* out);
+Result<std::shared_ptr<Scalar>> DictScalarFromJSONString(
+    const std::shared_ptr<DataType>&, std::string_view index_json,
+    std::string_view dictionary_json);
 
 /// @}
 

@@ -387,15 +387,14 @@ std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
 std::shared_ptr<Array> DictArrayFromJSON(const std::shared_ptr<DataType>& type,
                                          std::string_view indices_json,
                                          std::string_view dictionary_json) {
-  std::shared_ptr<Array> out;
-  ABORT_NOT_OK(json::DictArrayFromJSONString(type, indices_json, dictionary_json, &out));
+  EXPECT_OK_AND_ASSIGN(
+      auto out, json::DictArrayFromJSONString(type, indices_json, dictionary_json));
   return out;
 }
 
 std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
                                                    const std::vector<std::string>& json) {
-  std::shared_ptr<ChunkedArray> out;
-  ABORT_NOT_OK(json::ChunkedArrayFromJSONString(type, json, &out));
+  EXPECT_OK_AND_ASSIGN(auto out, json::ChunkedArrayFromJSONString(type, json));
   return out;
 }
 
@@ -411,16 +410,15 @@ std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& 
 
 std::shared_ptr<Scalar> ScalarFromJSON(const std::shared_ptr<DataType>& type,
                                        std::string_view json) {
-  std::shared_ptr<Scalar> out;
-  ABORT_NOT_OK(json::ScalarFromJSONString(type, json, &out));
+  EXPECT_OK_AND_ASSIGN(auto out, json::ScalarFromJSONString(type, json));
   return out;
 }
 
 std::shared_ptr<Scalar> DictScalarFromJSON(const std::shared_ptr<DataType>& type,
                                            std::string_view index_json,
                                            std::string_view dictionary_json) {
-  std::shared_ptr<Scalar> out;
-  ABORT_NOT_OK(json::DictScalarFromJSONString(type, index_json, dictionary_json, &out));
+  EXPECT_OK_AND_ASSIGN(auto out,
+                       json::DictScalarFromJSONString(type, index_json, dictionary_json));
   return out;
 }
 
