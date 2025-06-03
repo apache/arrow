@@ -44,7 +44,6 @@ if [ -x "$(command -v sudo)" ]; then
 else
   SUDO=
 fi
-
 ${SUDO} \
   env \
     PKG_CONFIG_PATH="${ARROW_HOME}/lib/pkgconfig:${PKG_CONFIG_PATH}" \
