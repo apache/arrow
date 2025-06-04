@@ -422,6 +422,7 @@ arrow_lib = library(
     include_directories: arrow_includes,
     dependencies: arrow_deps,
     install: true,
+    gnu_symbol_visibility: 'hidden',
 )
 
 arrow_dep = declare_dependency(
