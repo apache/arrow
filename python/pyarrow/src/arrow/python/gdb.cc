@@ -363,10 +363,9 @@ void TestSession() {
   ExtensionScalar extension_scalar_null{extension_scalar.value, extension_scalar_type,
                                         /*is_valid=*/false};
 
-  ASSERT_OK_AND_ASSIGN(
-      auto heap_map_scalar,
-      ScalarFromJSONString(map(utf8(), int32()), R"([["a", 5], ["b", 6]])"));
-  auto heap_map_scalar_null = MakeNullScalar(heap_map_scalar->type);
+  auto heap_map_scalar =
+      ScalarFromJSONString(map(utf8(), int32()), R"([["a", 5], ["b", 6]])");
+  auto heap_map_scalar_null = MakeNullScalar(heap_map_scalar.ValueOrDie()->type);
 
   // Array and ArrayData
   auto heap_null_array = SliceArrayFromJSON(null(), "[null, null]");
@@ -479,12 +478,10 @@ void TestSession() {
       key_value_metadata({"key1", "key2", "key3"}, {"value1", "value2", "value3"}));
 
   // Table
-  ASSERT_OK_AND_ASSIGN(auto col1,
-                       ChunkedArrayFromJSONString(int32(), {"[1, 2, 3]", "[4, 5]"}));
-  ASSERT_OK_AND_ASSIGN(
-      auto col2, ChunkedArrayFromJSONString(
-                     utf8(), {R"(["abc", null])", R"(["def"])", R"(["ghi", "jkl"])"}));
-  auto table = Table::Make(batch_schema, {col1, col2});
+  auto col1 = ChunkedArrayFromJSONString(int32(), {"[1, 2, 3]", "[4, 5]"});
+  auto col2 = ChunkedArrayFromJSONString(
+      utf8(), {R"(["abc", null])", R"(["def"])", R"(["ghi", "jkl"])"});
+  auto table = Table::Make(batch_schema, {*col1, *col2});
 
   // Datum
   Datum empty_datum{};
