@@ -1012,9 +1012,7 @@ Result<std::shared_ptr<ChunkedArray>> ChunkedArrayFromJSONString(
     out_chunks.emplace_back();
     ARROW_ASSIGN_OR_RAISE(out_chunks.back(), ArrayFromJSONString(type, chunk_json));
   }
-  std::shared_ptr<ChunkedArray> out =
-      std::make_shared<ChunkedArray>(std::move(out_chunks), type);
-  return out;
+  return std::make_shared<ChunkedArray>(std::move(out_chunks), type);
 }
 
 Result<std::shared_ptr<Array>> DictArrayFromJSONString(
