@@ -146,7 +146,7 @@ class ARROW_TESTING_EXPORT BinaryViewExtensionType : public ExtensionType {
       std::shared_ptr<DataType> storage_type,
       const std::string& serialized) const override;
 
-  std::string Serialize() const override { return "binary_view_serializeds"; }
+  std::string Serialize() const override { return "binary_view_serialized"; }
 };
 
 // A minimal extension type that does not error when passed blank extension information
