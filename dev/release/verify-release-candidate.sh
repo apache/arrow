@@ -902,7 +902,8 @@ test_linux_wheels() {
       if ! VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv; then
         continue
       fi
-      pip install pyarrow-${TEST_PYARROW_VERSION:-${VERSION}}-cp${pyver/.}-cp${python/.}-${platform}.whl
+      find . -name pyarrow-${TEST_PYARROW_VERSION:-${VERSION}}-cp${pyver/.}-cp${python/.}-*.whl | grep -E "${platform}" | \
+        xargs pip install
       ARROW_GCS=${check_gcs} \
         ARROW_VERSION=${VERSION} \
         CHECK_VERSION=${check_version} \
