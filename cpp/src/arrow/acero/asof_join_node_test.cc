@@ -1667,24 +1667,12 @@ TEST(AsofJoinTest, PauseProducingAsofJoinSource) {
   arrow::io::internal::GetIOThreadPool()->WaitForIdle();
   arrow::internal::GetCpuThreadPool()->WaitForIdle();
 
-  EXPECT_FALSE(is_l_paused());
-  EXPECT_FALSE(is_r_paused());
-  EXPECT_TRUE(backpressure_monitor->is_paused());
-
-  batch_producer_left.producer().Push(l_batches.batches[l_cnt++]);
-  arrow::internal::GetCpuThreadPool()->WaitForIdle();
-  batch_producer_right.producer().Push(r0_batches.batches[r_cnt++]);
-  arrow::internal::GetCpuThreadPool()->WaitForIdle();
-
-  EXPECT_FALSE(is_l_paused());
-  EXPECT_FALSE(is_r_paused());
-  EXPECT_TRUE(backpressure_monitor->is_paused());
-
   // Fill up the inputs of the asof join node
-  for (uint32_t i = 1; i < thresholdOfBackpressureAsof; i++) {
+  for (uint32_t i = 0; i < thresholdOfBackpressureAsof; i++) {
     SleepABit();
-    EXPECT_FALSE(is_l_paused()) << i;
+    EXPECT_FALSE(is_l_paused());
     EXPECT_FALSE(is_r_paused());
+    EXPECT_TRUE(backpressure_monitor->is_paused());
     batch_producer_left.producer().Push(l_batches.batches[l_cnt++]);
     batch_producer_right.producer().Push(r0_batches.batches[r_cnt++]);
   }
