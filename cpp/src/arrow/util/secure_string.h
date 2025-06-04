@@ -44,7 +44,7 @@ class ARROW_EXPORT SecureString {
 
   SecureString& operator=(SecureString&&) noexcept;
   SecureString& operator=(const SecureString&);
-  SecureString& operator=(std::string&& secret) noexcept;
+  SecureString& operator=(std::string&&) noexcept;
 
   bool operator==(const SecureString&) const;
   bool operator!=(const SecureString&) const;
