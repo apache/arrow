@@ -591,7 +591,7 @@ struct ArrayExporter {
             ? (checked_cast<const ExtensionType&>(*data->type).storage_type()->id())
             : data->type->id();
     bool need_variadic_buffer_sizes =
-        storage_id == Type::BINARY_VIEW || storage_id == Type::STRING_VIEW;
+        data->type->storage_id() == Type::BINARY_VIEW || storage_id == Type::STRING_VIEW;
     if (need_variadic_buffer_sizes) {
       ++n_buffers;
     }
