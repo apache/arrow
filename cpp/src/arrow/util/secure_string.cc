@@ -139,8 +139,11 @@ std::string_view SecureString::as_view() const {
 void SecureString::Dispose() { SecureClear(&secret_); }
 
 void SecureString::SecureClear(std::string* secret) {
-  secret->clear();
+  // in case of non-local strings (long strings), this order is vital
+  // first clear the string buffer
   SecureClear(reinterpret_cast<uint8_t*>(secret->data()), secret->capacity());
+  // then reset the string size (moves from the non-local to the local string buffer)
+  secret->clear();
 }
 
 inline void SecureString::SecureClear(uint8_t* data, size_t size) {

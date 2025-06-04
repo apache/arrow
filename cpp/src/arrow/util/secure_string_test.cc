@@ -112,6 +112,8 @@ TEST(TestSecureString, AssertSecurelyCleared) {
 
   // check short string with zeros and non-zeros after string length
   auto short_some_zeros = std::string(short_zeros.length() + 3, '*');
+  short_zeros.resize(short_zeros.capacity(), '*');  // for string buffers longer than 8
+  short_zeros.resize(8);  // now the string buffer is filled with '*' after the string
   short_some_zeros = short_zeros;
   // string buffer in short_some_zeros can be larger than short_zeros.length() + 3
   // assert only the area that we can control
@@ -129,6 +131,8 @@ TEST(TestSecureString, AssertSecurelyCleared) {
   // check long string with zeros and non-zeros after string length
   auto zeros = std::string(32, '\0');
   auto long_some_zeros = std::string(zeros.length() + 10, '*');
+  zeros.resize(zeros.capacity(), '*');  // for string buffers longer than 32
+  zeros.resize(32);  // now the string buffer is filled with '*' after the string
   long_some_zeros = zeros;
   // string buffer in long_some_zeros can be larger than zeros.length() + 10
   // assert only the area that we can control
