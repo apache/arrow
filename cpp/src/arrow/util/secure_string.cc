@@ -30,16 +30,49 @@
 #endif
 
 #include "arrow/util/secure_string.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/span.h"
 
 namespace arrow::util {
 
-SecureString::SecureString(SecureString&& other) noexcept
-    : secret_(std::move(other.secret_)) {
+/// Note:
+/// A string std::string is securely moved into a SecureString in two steps:
+/// 1. the std::string is moved via std::move(string)
+/// 2. the std::string is securely cleared
+///
+/// The std::move has two different effects, depending on the size of the string.
+/// A very short string (called local string) stores the string in a local buffer,
+/// a long string stores a pointer to allocated memory that stores the string.
+///
+/// If the string is a small string, std::move copies the local buffer.
+/// If the string is a long string, std::move moves the pointer and then resets the
+/// string size to 0 (which turns the string into a local string).
+///
+/// In both cases, after a std::move(string), the string uses the local buffer.
+///
+/// Thus, after a std::move(string), calling SecureClear(std::string*) only
+/// securely clears the **local buffer** of the string. Therefore, std::move(string)
+/// must move the pointer of long string into SecureString (which later clears the string).
+/// Otherwise, the content of the string cannot be securely cleared.
+///
+/// This condition is checked by secure_move.
+
+void secure_move(std::string& string, std::string& dst) {
+  auto ptr = string.data();
+  dst = std::move(string);
+
+  // We require the buffer address string.data() to remain (not be freed),
+  // or reused by dst. Otherwise, we cannot securely clear string after this move
+  ARROW_CHECK(string.data() == ptr || dst.data() == ptr);
+}
+
+SecureString::SecureString(SecureString&& other) noexcept {
+  secure_move(other.secret_, secret_);
   other.Dispose();
 }
 
-SecureString::SecureString(std::string&& secret) noexcept : secret_(std::move(secret)) {
+SecureString::SecureString(std::string&& secret) noexcept {
+  secure_move(secret, secret_);
   SecureClear(&secret);
 }
 
@@ -51,7 +84,7 @@ SecureString& SecureString::operator=(SecureString&& other) noexcept {
     return *this;
   }
   Dispose();
-  secret_ = std::move(other.secret_);
+  secure_move(other.secret_, secret_);
   other.Dispose();
   return *this;
 }
@@ -68,16 +101,7 @@ SecureString& SecureString::operator=(const SecureString& other) {
 
 SecureString& SecureString::operator=(std::string&& secret) noexcept {
   Dispose();
-  // std::string implementation may distinguish between local string (a very short string)
-  // and non-local (longer) strings. The former stores the string in a local buffer, the
-  // latter stores a pointer to allocated memory that stores the string.
-  //
-  // If secret is a local string, copies local buffer, resets size to 0
-  // - requires secure cleaning the local buffer
-  // If secret is longer, moves the pointer to secret_, resets to 0, uses local buffer
-  // - does not require cleaning anything
-  secret_ = std::move(secret);
-  // cleans only the local buffer of secret as this always is a local string by now
+  secure_move(secret, secret_);
   SecureClear(&secret);
   return *this;
 }
