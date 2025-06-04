@@ -85,14 +85,47 @@ std::string_view StringArea(const std::string& string) {
 TEST(TestSecureString, AssertSecurelyCleared) {
   // This tests AssertSecurelyCleared helper methods is actually able to identify secret
   // leakage. It retrieves assertion results and asserts result type and message.
-  auto short_zeros = std::string(10, '\0');
+  testing::AssertionResult result = testing::AssertionSuccess();
+
+  // check short string with all zeros
+  auto short_zeros = std::string(8, '\0');
+  short_zeros.resize(short_zeros.capacity(), '\0');  // for string buffers longer than 8
+  short_zeros.resize(8);  // now the entire string buffer has zeros
+  // checks the entire string buffer (capacity)
+  ASSERT_TRUE(AssertSecurelyCleared(short_zeros));
+  // checks only 10 bytes (length)
   ASSERT_TRUE(AssertSecurelyCleared(std::string_view(short_zeros)));
 
-  auto large_zeros = std::string(1000, '\0');
-  ASSERT_TRUE(AssertSecurelyCleared(large_zeros));
+  // check long string with all zeros
+  auto long_zeros = std::string(1000, '\0');
+  long_zeros.resize(long_zeros.capacity(), '\0');  // for longer string buffers
+  long_zeros.resize(1000);  // now the entire string buffer has zeros
+  // checks the entire string buffer (capacity)
+  ASSERT_TRUE(AssertSecurelyCleared(long_zeros));
+  // checks only 1000 bytes (length)
+  ASSERT_TRUE(AssertSecurelyCleared(std::string_view(long_zeros)));
+
+  // check short string with zeros and non-zeros after string length
+  auto short_some_zeros = std::string(short_zeros.length() + 3, '*');
+  short_some_zeros = short_zeros;
+  result = AssertSecurelyCleared(short_some_zeros);
+  ASSERT_FALSE(result);
+  ASSERT_EQ(std::string(result.message()),
+            "Expected equality of these values:\n"
+            "  area\n"
+            "    Which is: \"\\0\\0\\0\\0\\0\\0\\0\\0\\0**\\0\\0\\0\\0\"\n"
+            "  std::string_view(zeros)\n"
+            "    Which is: \"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\"");
+
+  // check long string with zeros and non-zeros after string length
+  auto long_some_zeros = std::string(long_zeros.length() + 10, '*');
+  long_some_zeros = long_zeros;
+  result = AssertSecurelyCleared(long_some_zeros);
+  ASSERT_FALSE(result);
+  ASSERT_EQ(std::string(result.message()), "");
 
   auto no_zeros = std::string("abcdefghijklmnopqrstuvwxyz");
-  auto result = AssertSecurelyCleared(no_zeros);
+  result = AssertSecurelyCleared(no_zeros);
   ASSERT_FALSE(result);
   ASSERT_EQ(std::string(result.message()),
             "Expected equality of these values:\n"
