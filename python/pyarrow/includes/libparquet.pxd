@@ -442,6 +442,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         ArrowReaderProperties()
         void set_binary_type(Type binary_type)
         Type binary_type()
+        void set_list_type(Type list_type)
+        Type list_type()
         void set_read_dictionary(int column_index, c_bool read_dict)
         c_bool read_dictionary(int column_index)
         void set_batch_size(int64_t batch_size)

@@ -68,6 +68,11 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
     store_schema=*,
 ) except *
 
+
+# Unwrap the "list_type" argument for ArrowReaderProperties
+cdef Type _unwrap_list_type(obj) except *
+
+
 cdef class ParquetSchema(_Weakrefable):
     cdef:
         FileMetaData parent  # the FileMetaData owning the SchemaDescriptor
