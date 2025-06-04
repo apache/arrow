@@ -1047,8 +1047,7 @@ Result<std::shared_ptr<Scalar>> ScalarFromJSONString(
   RETURN_NOT_OK(converter->AppendValue(json_doc));
   RETURN_NOT_OK(converter->Finish(&array));
   DCHECK_EQ(array->length(), 1);
-  ARROW_ASSIGN_OR_RAISE(auto out, array->GetScalar(0));
-  return out;
+  return array->GetScalar(0);
 }
 
 Result<std::shared_ptr<Scalar>> DictScalarFromJSONString(
