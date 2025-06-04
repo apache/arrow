@@ -65,7 +65,7 @@ std::string_view StringArea(const std::string& string) {
 ::testing::AssertionResult AssertSecurelyCleared(const std::string_view area,
                                                  const std::string& secret_value) {
   auto leaks = 0;
-  for (size_t i = 0; i < secret_value.size(); i++) {
+  for (size_t i = 0; i < std::min(area.length(), secret_value.length()); i++) {
     if (area[i] == secret_value[i]) {
       leaks++;
     } else {
@@ -108,24 +108,45 @@ TEST(TestSecureString, AssertSecurelyCleared) {
   // check short string with zeros and non-zeros after string length
   auto short_some_zeros = std::string(short_zeros.length() + 3, '*');
   short_some_zeros = short_zeros;
-  result = AssertSecurelyCleared(short_some_zeros);
+  // string buffer in short_some_zeros can be larger than short_zeros.length() + 3
+  // assert only the area that we can control
+  auto short_some_zeros_view =
+      std::string_view(short_some_zeros.data(), short_zeros.length() + 3);
+  result = AssertSecurelyCleared(short_some_zeros_view);
   ASSERT_FALSE(result);
   ASSERT_EQ(std::string(result.message()),
             "Expected equality of these values:\n"
             "  area\n"
-            "    Which is: \"\\0\\0\\0\\0\\0\\0\\0\\0\\0**\\0\\0\\0\\0\"\n"
+            "    Which is: \"\\0\\0\\0\\0\\0\\0\\0\\0\\0**\"\n"
             "  std::string_view(zeros)\n"
-            "    Which is: \"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\"");
+            "    Which is: \"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\"");
 
   // check long string with zeros and non-zeros after string length
-  auto long_some_zeros = std::string(long_zeros.length() + 10, '*');
-  long_some_zeros = long_zeros;
-  result = AssertSecurelyCleared(long_some_zeros);
+  auto zeros = std::string(32, '\0');
+  auto long_some_zeros = std::string(zeros.length() + 10, '*');
+  long_some_zeros = zeros;
+  // string buffer in long_some_zeros can be larger than zeros.length() + 10
+  // assert only the area that we can control
+  auto long_some_zeros_view =
+      std::string_view(long_some_zeros.data(), zeros.length() + 10);
+  result = AssertSecurelyCleared(long_some_zeros_view);
   ASSERT_FALSE(result);
-  ASSERT_EQ(std::string(result.message()), "");
+  ASSERT_EQ(std::string(result.message()),
+            "Expected equality of these values:\n"
+            "  area\n"
+            "    Which is: "
+            "\"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\"
+            "0\\0\\0\\0\\0\\0\\0\\0\\0*********\"\n"
+            "  std::string_view(zeros)\n"
+            "    Which is: "
+            "\"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\"
+            "0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\"");
 
   auto no_zeros = std::string("abcdefghijklmnopqrstuvwxyz");
-  result = AssertSecurelyCleared(no_zeros);
+  // string buffer in no_zeros can be larger than no_zeros.length()
+  // assert only the area that we can control
+  auto no_zeros_view = std::string_view(no_zeros);
+  result = AssertSecurelyCleared(no_zeros_view);
   ASSERT_FALSE(result);
   ASSERT_EQ(std::string(result.message()),
             "Expected equality of these values:\n"
@@ -136,10 +157,14 @@ TEST(TestSecureString, AssertSecurelyCleared) {
             "\"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\"
             "0\\0\"");
 
-  auto some_zeros = no_zeros;
-  some_zeros = std::string(10, '\0');
-  ASSERT_TRUE(AssertSecurelyCleared(some_zeros, 10));
-  result = AssertSecurelyCleared(some_zeros);
+  // check string with zeros and non-zeros after string length
+  auto some_zeros_front = no_zeros;
+  some_zeros_front = std::string(10, '\0');
+  // string buffer in some_zeros_front can be larger than no_zeros.length()
+  // assert only the area that we can control
+  auto some_zeros_fronts_view =
+      std::string_view(some_zeros_front.data(), no_zeros.length());
+  result = AssertSecurelyCleared(some_zeros_fronts_view);
   ASSERT_FALSE(result);
   ASSERT_EQ(std::string(result.message()),
             "Expected equality of these values:\n"
@@ -150,12 +175,31 @@ TEST(TestSecureString, AssertSecurelyCleared) {
             "\"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\"
             "0\\0\"");
 
-  ASSERT_TRUE(AssertSecurelyCleared(some_zeros, "12345678901234567890123456"));
-  result = AssertSecurelyCleared(StringArea(some_zeros), no_zeros);
+  ASSERT_TRUE(AssertSecurelyCleared(some_zeros_front, no_zeros));
+  result = AssertSecurelyCleared(some_zeros_fronts_view, no_zeros);
   ASSERT_FALSE(result);
   ASSERT_EQ(std::string(result.message()),
             "15 characters of secret leaked into "
             "\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0lmnopqrstuvwxyz");
+
+  // check string with non-zeros and zeros after string length
+  auto some_zeros_back = std::string(no_zeros.length() + 3, '\0');
+  some_zeros_back = no_zeros;
+  // string buffer in some_zeros_back can be larger than no_zeros.length() + 3
+  // assert only the area that we can control
+  auto some_zeros_back_view =
+      std::string_view(some_zeros_back.data(), no_zeros.length() + 3);
+  ASSERT_TRUE(AssertSecurelyCleared(some_zeros_back_view, no_zeros.length()));
+  result = AssertSecurelyCleared(some_zeros_back_view);
+  ASSERT_FALSE(result);
+  ASSERT_EQ(std::string(result.message()),
+            "Expected equality of these values:\n"
+            "  area\n"
+            "    Which is: \"abcdefghijklmnopqrstuvwxyz\\0\\0\\0\"\n"
+            "  std::string_view(zeros)\n"
+            "    Which is: "
+            "\"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\"
+            "0\\0\\0\\0\\0\"");
 }
 
 TEST(TestSecureString, SecureClearString) {
