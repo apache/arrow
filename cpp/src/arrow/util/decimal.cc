@@ -1110,7 +1110,11 @@ Result<Decimal32> Decimal32::FromBigEndian(const uint8_t* bytes, int32_t length)
   return Decimal32(value);
 }
 
-std::ostream& operator<<(std::ostream& os, const Decimal32& decimal) {
+Status Decimal32::ToArrowStatus(DecimalStatus dstatus) const {
+  return arrow::ToArrowStatus(dstatus, 32);
+}
+
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const Decimal32& decimal) {
   os << decimal.ToIntegerString();
   return os;
 }
@@ -1133,7 +1137,11 @@ Result<Decimal64> Decimal64::FromBigEndian(const uint8_t* bytes, int32_t length)
   return Decimal64(value);
 }
 
-std::ostream& operator<<(std::ostream& os, const Decimal64& decimal) {
+Status Decimal64::ToArrowStatus(DecimalStatus dstatus) const {
+  return arrow::ToArrowStatus(dstatus, 64);
+}
+
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const Decimal64& decimal) {
   os << decimal.ToIntegerString();
   return os;
 }
@@ -1191,7 +1199,11 @@ Result<Decimal128> Decimal128::FromBigEndian(const uint8_t* bytes, int32_t lengt
   return Decimal128(high, static_cast<uint64_t>(low));
 }
 
-std::ostream& operator<<(std::ostream& os, const Decimal128& decimal) {
+Status Decimal128::ToArrowStatus(DecimalStatus dstatus) const {
+  return arrow::ToArrowStatus(dstatus, 128);
+}
+
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const Decimal128& decimal) {
   os << decimal.ToIntegerString();
   return os;
 }
@@ -1440,7 +1452,7 @@ double Decimal256::ToDouble(int32_t scale) const {
   return Decimal256RealConversion::ToReal<double>(*this, scale);
 }
 
-std::ostream& operator<<(std::ostream& os, const Decimal256& decimal) {
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const Decimal256& decimal) {
   os << decimal.ToIntegerString();
   return os;
 }

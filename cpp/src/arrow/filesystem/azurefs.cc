@@ -1354,7 +1354,7 @@ bool IsDfsEmulator(const AzureOptions& options) {
 
 namespace internal {
 
-Result<HNSSupport> CheckIfHierarchicalNamespaceIsEnabled(
+ARROW_EXPORT Result<HNSSupport> CheckIfHierarchicalNamespaceIsEnabled(
     const DataLake::DataLakeFileSystemClient& adlfs_client, const AzureOptions& options) {
   try {
     auto directory_client = adlfs_client.GetDirectoryClient("");
