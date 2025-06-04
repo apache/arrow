@@ -581,13 +581,9 @@ struct ArrayExportChecker {
       ++expected_buffers;
     }
 
-    Type::type storage_id = expected_data.type->id() == Type::EXTENSION
-                                ? (checked_cast<const ExtensionType&>(*expected_data.type)
-                                       .storage_type()
-                                       ->id())
-                                : expected_data.type->id();
     bool has_variadic_buffer_sizes =
-        storage_id == Type::STRING_VIEW || storage_id == Type::BINARY_VIEW;
+        expected_data.type->storage_id() == Type::BINARY_VIEW ||
+        expected_data.type->storage_id() == Type::STRING_VIEW;
     ASSERT_EQ(c_export->n_buffers, expected_n_buffers + has_variadic_buffer_sizes);
     ASSERT_NE(c_export->buffers, nullptr);
 
