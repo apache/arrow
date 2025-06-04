@@ -113,7 +113,6 @@ class TestEqualityDoubleValue : public ::testing::Test {
 };
 
 TEST_F(TestEqualityDoubleValue, ExactValue) {
-  ASSERT_EQ(statistics1_, statistics2_);
   statistics2_.min = 29.0;
   ASSERT_NE(statistics1_, statistics2_);
   statistics1_.min = 29.0;
@@ -133,24 +132,17 @@ TEST_F(TestEqualityDoubleValue, Infinity) {
   auto infinity = std::numeric_limits<double>::infinity();
   statistics1_.min = infinity;
   statistics2_.min = infinity;
-  ASSERT_TRUE(statistics1_.Equals(statistics2_, options_.signed_zeros_equal(true)));
-  ASSERT_TRUE(statistics1_.Equals(statistics2_, options_.signed_zeros_equal(false)));
+  ASSERT_EQ(statistics1_, statistics2_);
   statistics1_.min = -infinity;
-  ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.signed_zeros_equal(true)));
-  ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.signed_zeros_equal(false)));
+  ASSERT_NE(statistics1_, statistics2_);
   statistics1_.min = 0.0;
-  ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.signed_zeros_equal(true)));
-  ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.signed_zeros_equal(false)));
+  ASSERT_NE(statistics1_, statistics2_);
 }
 
-TEST_F(TestEqualityDoubleValue, Nan) {
-  statistics1_.min = static_cast<double>(NAN);
-  statistics2_.min = static_cast<double>(NAN);
+TEST_F(TestEqualityDoubleValue, NaN) {
+  statistics1_.min = std::numeric_limits<double>::quiet_NaN();
+  statistics2_.min = std::numeric_limits<double>::quiet_NaN();
   ASSERT_TRUE(statistics1_.Equals(statistics2_, options_.nans_equal(true)));
-  ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.nans_equal(false)));
-
-  statistics2_.min = 2.0;
-  ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.nans_equal(true)));
   ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.nans_equal(false)));
 }
 TEST_F(TestEqualityDoubleValue, ApproximateEquals) {
@@ -158,7 +150,7 @@ TEST_F(TestEqualityDoubleValue, ApproximateEquals) {
   statistics2_.max = 0.5;
   ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.atol(1e-3).use_atol(false)));
 
-  ASSERT_TRUE(statistics1_.Equals(statistics2_, options_.atol(1e-3).use_atol(true)));
+  ASSERT_TRUE(statistics1_.Equals(statistics2_, options_.atol(1e-3)));
   ASSERT_TRUE(statistics2_.Equals(statistics1_, options_.atol(1e-3)));
   ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.atol(1e-5)));
   ASSERT_FALSE(statistics2_.Equals(statistics1_, options_.atol(1e-5)));

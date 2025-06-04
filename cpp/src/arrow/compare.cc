@@ -1535,8 +1535,9 @@ bool DoubleEquals(const double& left, const double& right, const EqualOptions& o
   return result;
 }
 
-bool ValueTypeEquals(const std::optional<ValueType>& left,
-                     const std::optional<ValueType>& right, const EqualOptions& options) {
+bool ArrayStatisticsValueTypeEquals(const std::optional<ValueType>& left,
+                                    const std::optional<ValueType>& right,
+                                    const EqualOptions& options) {
   if (!left.has_value() || !right.has_value()) {
     return left.has_value() == right.has_value();
   } else if (left->index() != right->index()) {
@@ -1558,19 +1559,19 @@ bool ValueTypeEquals(const std::optional<ValueType>& left,
     return std::visit(EqualsVisitor, left.value(), right.value());
   }
 }
-bool EqualsImpl(const ArrayStatistics& left, const ArrayStatistics& right,
-                const EqualOptions& equal_options) {
+bool ArrayStatisticsEqualsImpl(const ArrayStatistics& left, const ArrayStatistics& right,
+                               const EqualOptions& equal_options) {
   return left.null_count == right.null_count &&
          left.distinct_count == right.distinct_count &&
          left.is_min_exact == right.is_min_exact &&
          left.is_max_exact == right.is_max_exact &&
-         ValueTypeEquals(left.min, right.min, equal_options) &&
-         ValueTypeEquals(left.max, right.max, equal_options);
+         ArrayStatisticsValueTypeEquals(left.min, right.min, equal_options) &&
+         ArrayStatisticsValueTypeEquals(left.max, right.max, equal_options);
 }
 }  // namespace
 
 bool ArrayStatisticsEquals(const ArrayStatistics& left, const ArrayStatistics& right,
                            const EqualOptions& options) {
-  return EqualsImpl(left, right, options);
+  return ArrayStatisticsEqualsImpl(left, right, options);
 }
 }  // namespace arrow

@@ -98,6 +98,7 @@ class EqualOptions {
   bool nans_equal_ = false;
   bool signed_zeros_equal_ = true;
   bool use_atol_ = true;
+
   std::ostream* diff_sink_ = NULLPTR;
 };
 
