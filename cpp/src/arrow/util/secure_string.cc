@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// __STDC_WANT_LIB_EXT1__ and string.h are required by memset_s:
+// https://en.cppreference.com/w/c/string/byte/memset
 #define __STDC_WANT_LIB_EXT1__ 1
 #include <string.h>
 #include <utility>
@@ -29,8 +31,8 @@
 #  include <windows.h>
 #endif
 
-#include "arrow/util/secure_string.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/secure_string.h"
 #include "arrow/util/span.h"
 
 namespace arrow::util {
@@ -52,8 +54,8 @@ namespace arrow::util {
 ///
 /// Thus, after a std::move(string), calling SecureClear(std::string*) only
 /// securely clears the **local buffer** of the string. Therefore, std::move(string)
-/// must move the pointer of long string into SecureString (which later clears the string).
-/// Otherwise, the content of the string cannot be securely cleared.
+/// must move the pointer of long string into SecureString (which later clears the
+/// string). Otherwise, the content of the string cannot be securely cleared.
 ///
 /// This condition is checked by secure_move.
 
