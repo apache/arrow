@@ -34,9 +34,9 @@
 
 namespace arrow::util {
 
-SecureString::SecureString(SecureString&& secret) noexcept
-    : secret_(std::move(secret.secret_)) {
-  secret.Dispose();
+SecureString::SecureString(SecureString&& other) noexcept
+    : secret_(std::move(other.secret_)) {
+  other.Dispose();
 }
 
 SecureString::SecureString(std::string&& secret) noexcept : secret_(std::move(secret)) {
@@ -45,24 +45,24 @@ SecureString::SecureString(std::string&& secret) noexcept : secret_(std::move(se
 
 SecureString::SecureString(size_t n, char c) noexcept : secret_(n, c) {}
 
-SecureString& SecureString::operator=(SecureString&& secret) noexcept {
-  if (this == &secret) {
+SecureString& SecureString::operator=(SecureString&& other) noexcept {
+  if (this == &other) {
     // self-assignment
     return *this;
   }
   Dispose();
-  secret_ = std::move(secret.secret_);
-  secret.Dispose();
+  secret_ = std::move(other.secret_);
+  other.Dispose();
   return *this;
 }
 
-SecureString& SecureString::operator=(const SecureString& secret) {
-  if (this == &secret) {
+SecureString& SecureString::operator=(const SecureString& other) {
+  if (this == &other) {
     // self-assignment
     return *this;
   }
   Dispose();
-  secret_ = secret.secret_;
+  secret_ = other.secret_;
   return *this;
 }
 
