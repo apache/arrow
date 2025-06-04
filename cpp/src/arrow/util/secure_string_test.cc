@@ -56,14 +56,18 @@ std::string_view StringArea(const std::string& string) {
 
 /**
  * Checks the area has been securely cleared from the secret value.
- * Assumes the area has been released, so it might have been reclaimed and changed after
- * cleaning. We cannot check for all-zeros, best we can check here is no secret character
- * has leaked. If by any chance the modification produced a former key character at the
- * right position, this will be false negative / flaky. Therefore, we check for three
- * consecutive secret characters before we fail.
+ * Assumes the area has been deallocated, so it might have been reclaimed and changed
+ * after cleaning. We cannot check for all-zeros, best we can check here is no secret
+ * character has leaked. If by any chance the modification produced a former key character
+ * at the right position, this will be false negative / flaky. Therefore, we check for
+ * three consecutive secret characters before we fail.
  */
 ::testing::AssertionResult AssertSecurelyCleared(const std::string_view area,
                                                  const std::string& secret_value) {
+#if defined(ARROW_VALGRIND) || defined(ARROW_USE_ASAN)
+  return testing::AssertionSuccess() << "Not checking deallocated memory";
+#else
+  // accessing deallocated memory will fail when running with  Address Sanitizer enabled
   auto leaks = 0;
   for (size_t i = 0; i < std::min(area.length(), secret_value.length()); i++) {
     if (area[i] == secret_value[i]) {
@@ -80,6 +84,7 @@ std::string_view StringArea(const std::string& string) {
            << leaks << " characters of secret leaked into " << area;
   }
   return ::testing::AssertionSuccess();
+#endif
 }
 
 TEST(TestSecureString, AssertSecurelyCleared) {
@@ -177,10 +182,14 @@ TEST(TestSecureString, AssertSecurelyCleared) {
 
   ASSERT_TRUE(AssertSecurelyCleared(some_zeros_front, no_zeros));
   result = AssertSecurelyCleared(some_zeros_fronts_view, no_zeros);
+#if defined(ARROW_VALGRIND) || defined(ARROW_USE_ASAN)
+  ASSERT_TRUE(result);
+#else
   ASSERT_FALSE(result);
   ASSERT_EQ(std::string(result.message()),
             "15 characters of secret leaked into "
             "\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0lmnopqrstuvwxyz");
+#endif
 
   // check string with non-zeros and zeros after string length
   auto some_zeros_back = std::string(no_zeros.length() + 3, '\0');
