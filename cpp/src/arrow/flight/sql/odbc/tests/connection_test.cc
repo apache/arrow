@@ -746,6 +746,189 @@ TEST(SQLDisconnect, TestSQLDisconnectWithoutConnection) {
   EXPECT_TRUE(ret == SQL_SUCCESS);
 }
 
+TEST(SQLGetDiagFieldW, TestSQLGetDiagFieldWForConnectFailure) {
+  //  ODBC Environment
+  SQLHENV env;
+  SQLHDBC conn;
+
+  // Allocate an environment handle
+  SQLRETURN ret = SQLAllocEnv(&env);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  ret = SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  // Allocate a connection using alloc handle
+  ret = SQLAllocHandle(SQL_HANDLE_DBC, env, &conn);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  // Connect string
+  ASSERT_OK_AND_ASSIGN(std::string connect_str,
+                       arrow::internal::GetEnvVar(TEST_CONNECT_STR));
+  // Append invalid uid to connection string
+  connect_str += std::string("uid=non_existent_id;");
+
+  ASSERT_OK_AND_ASSIGN(std::wstring wconnect_str,
+                       arrow::util::UTF8ToWideString(connect_str));
+  std::vector<SQLWCHAR> connect_str0(wconnect_str.begin(), wconnect_str.end());
+
+  SQLWCHAR outstr[ODBC_BUFFER_SIZE];
+  SQLSMALLINT outstrlen;
+
+  // Connecting to ODBC server.
+  ret = SQLDriverConnect(conn, NULL, &connect_str0[0],
+                         static_cast<SQLSMALLINT>(connect_str0.size()), outstr,
+                         ODBC_BUFFER_SIZE, &outstrlen, SQL_DRIVER_NOPROMPT);
+
+  EXPECT_TRUE(ret == SQL_ERROR);
+
+  // Retrieve all supported header level and record level data
+  SQLSMALLINT HEADER_LEVEL = 0;
+  SQLSMALLINT RECORD_1 = 1;
+
+  // SQL_DIAG_NUMBER
+  SQLINTEGER diag_number;
+  SQLSMALLINT diag_number_length;
+
+  ret = SQLGetDiagField(SQL_HANDLE_DBC, conn, HEADER_LEVEL, SQL_DIAG_NUMBER, &diag_number,
+                        sizeof(SQLINTEGER), &diag_number_length);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  EXPECT_EQ(diag_number, 1);
+
+  // SQL_DIAG_SERVER_NAME
+  SQLWCHAR server_name[ODBC_BUFFER_SIZE];
+  SQLSMALLINT server_name_length;
+
+  ret = SQLGetDiagField(SQL_HANDLE_DBC, conn, RECORD_1, SQL_DIAG_SERVER_NAME, server_name,
+                        ODBC_BUFFER_SIZE, &server_name_length);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  // SQL_DIAG_MESSAGE_TEXT
+  SQLWCHAR message_text[ODBC_BUFFER_SIZE];
+  SQLSMALLINT message_text_length;
+
+  ret = SQLGetDiagField(SQL_HANDLE_DBC, conn, RECORD_1, SQL_DIAG_MESSAGE_TEXT,
+                        message_text, ODBC_BUFFER_SIZE, &message_text_length);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  EXPECT_GT(message_text_length, 100);
+
+  // SQL_DIAG_NATIVE
+  SQLINTEGER diag_native;
+  SQLSMALLINT diag_native_length;
+
+  ret = SQLGetDiagField(SQL_HANDLE_DBC, conn, RECORD_1, SQL_DIAG_NATIVE, &diag_native,
+                        sizeof(diag_native), &diag_native_length);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  EXPECT_EQ(diag_native, 200);
+
+  // SQL_DIAG_SQLSTATE
+  const SQLSMALLINT sql_state_size = 6;
+  SQLWCHAR sql_state[sql_state_size];
+  SQLSMALLINT sql_state_length;
+  ret = SQLGetDiagField(SQL_HANDLE_DBC, conn, RECORD_1, SQL_DIAG_SQLSTATE, sql_state,
+                        sql_state_size * driver::odbcabstraction::GetSqlWCharSize(),
+                        &sql_state_length);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  // 28000
+  EXPECT_EQ(sql_state[0], '2');
+  EXPECT_EQ(sql_state[1], '8');
+  EXPECT_EQ(sql_state[2], '0');
+  EXPECT_EQ(sql_state[3], '0');
+  EXPECT_EQ(sql_state[4], '0');
+
+  // Free connection handle
+  ret = SQLFreeHandle(SQL_HANDLE_DBC, conn);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  // Free environment handle
+  ret = SQLFreeHandle(SQL_HANDLE_ENV, env);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+}
+
+TEST(SQLGetDiagFieldW, TestSQLGetDiagFieldWForConnectFailureNTS) {
+  // Test is disabled because driver manager on Windows does not pass through SQL_NTS
+  // This test case can be potentionally used on macOS/Linux
+  GTEST_SKIP();
+  //  ODBC Environment
+  SQLHENV env;
+  SQLHDBC conn;
+
+  // Allocate an environment handle
+  SQLRETURN ret = SQLAllocEnv(&env);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  ret = SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  // Allocate a connection using alloc handle
+  ret = SQLAllocHandle(SQL_HANDLE_DBC, env, &conn);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  // Connect string
+  ASSERT_OK_AND_ASSIGN(std::string connect_str,
+                       arrow::internal::GetEnvVar(TEST_CONNECT_STR));
+  // Append invalid uid to connection string
+  connect_str += std::string("uid=non_existent_id;");
+
+  ASSERT_OK_AND_ASSIGN(std::wstring wconnect_str,
+                       arrow::util::UTF8ToWideString(connect_str));
+  std::vector<SQLWCHAR> connect_str0(wconnect_str.begin(), wconnect_str.end());
+
+  SQLWCHAR outstr[ODBC_BUFFER_SIZE];
+  SQLSMALLINT outstrlen;
+
+  // Connecting to ODBC server.
+  ret = SQLDriverConnect(conn, NULL, &connect_str0[0],
+                         static_cast<SQLSMALLINT>(connect_str0.size()), outstr,
+                         ODBC_BUFFER_SIZE, &outstrlen, SQL_DRIVER_NOPROMPT);
+
+  EXPECT_TRUE(ret == SQL_ERROR);
+
+  // Retrieve all supported header level and record level data
+  SQLSMALLINT HEADER_LEVEL = 0;
+  SQLSMALLINT RECORD_1 = 1;
+
+  // SQL_DIAG_MESSAGE_TEXT SQL_NTS
+  SQLWCHAR message_text[ODBC_BUFFER_SIZE];
+  SQLSMALLINT message_text_length;
+
+  message_text[ODBC_BUFFER_SIZE - 1] = '\0';
+
+  ret = SQLGetDiagField(SQL_HANDLE_DBC, conn, RECORD_1, SQL_DIAG_MESSAGE_TEXT,
+                        message_text, SQL_NTS, &message_text_length);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  EXPECT_GT(message_text_length, 100);
+
+  // Free connection handle
+  ret = SQLFreeHandle(SQL_HANDLE_DBC, conn);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  // Free environment handle
+  ret = SQLFreeHandle(SQL_HANDLE_ENV, env);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+}
+
 TEST(SQLGetDiagRec, TestSQLGetDiagRecForConnectFailure) {
   //  ODBC Environment
   SQLHENV env;
@@ -785,10 +968,6 @@ TEST(SQLGetDiagRec, TestSQLGetDiagRecForConnectFailure) {
 
   EXPECT_TRUE(ret == SQL_ERROR);
 
-  if (ret != SQL_SUCCESS) {
-    std::cerr << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn) << std::endl;
-  }
-
   SQLWCHAR sql_state[6];
   SQLINTEGER native_error;
   SQLWCHAR message[ODBC_BUFFER_SIZE];
@@ -799,16 +978,16 @@ TEST(SQLGetDiagRec, TestSQLGetDiagRecForConnectFailure) {
 
   EXPECT_TRUE(ret == SQL_SUCCESS);
 
-  EXPECT_TRUE(message_length > 200);
+  EXPECT_GT(message_length, 200);
 
-  EXPECT_TRUE(native_error == 200);
+  EXPECT_EQ(native_error, 200);
 
   // 28000
-  EXPECT_TRUE(sql_state[0] == '2');
-  EXPECT_TRUE(sql_state[1] == '8');
-  EXPECT_TRUE(sql_state[2] == '0');
-  EXPECT_TRUE(sql_state[3] == '0');
-  EXPECT_TRUE(sql_state[4] == '0');
+  EXPECT_EQ(sql_state[0], '2');
+  EXPECT_EQ(sql_state[1], '8');
+  EXPECT_EQ(sql_state[2], '0');
+  EXPECT_EQ(sql_state[3], '0');
+  EXPECT_EQ(sql_state[4], '0');
 
   // Free connection handle
   ret = SQLFreeHandle(SQL_HANDLE_DBC, conn);
