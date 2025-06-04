@@ -1028,7 +1028,7 @@ Result<std::shared_ptr<Array>> DictArrayFromJSONString(
                         ArrayFromJSONString(dictionary_type.index_type(), indices_json));
   ARROW_ASSIGN_OR_RAISE(auto dictionary, ArrayFromJSONString(dictionary_type.value_type(),
                                                              dictionary_json));
-  return DictionaryArray::FromArrays(type, std::move(indices), std::move(dictionary)));
+  return DictionaryArray::FromArrays(type, std::move(indices), std::move(dictionary));
 }
 
 Result<std::shared_ptr<Scalar>> ScalarFromJSONString(
