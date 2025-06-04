@@ -364,8 +364,8 @@ void TestSession() {
                                         /*is_valid=*/false};
 
   auto heap_map_scalar =
-      ScalarFromJSONString(map(utf8(), int32()), R"([["a", 5], ["b", 6]])");
-  auto heap_map_scalar_null = MakeNullScalar(heap_map_scalar.ValueOrDie()->type);
+      *ScalarFromJSONString(map(utf8(), int32()), R"([["a", 5], ["b", 6]])");
+  auto heap_map_scalar_null = MakeNullScalar(heap_map_scalar->type);
 
   // Array and ArrayData
   auto heap_null_array = SliceArrayFromJSON(null(), "[null, null]");
