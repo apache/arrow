@@ -363,9 +363,9 @@ void TestSession() {
   ExtensionScalar extension_scalar_null{extension_scalar.value, extension_scalar_type,
                                         /*is_valid=*/false};
 
-  std::shared_ptr<Scalar> heap_map_scalar;
-  ARROW_CHECK_OK(ScalarFromJSONString(map(utf8(), int32()), R"([["a", 5], ["b", 6]])",
-                                      &heap_map_scalar));
+  ASSERT_OK_AND_ASSIGN(
+      auto heap_map_scalar,
+      ScalarFromJSONString(map(utf8(), int32()), R"([["a", 5], ["b", 6]])"));
   auto heap_map_scalar_null = MakeNullScalar(heap_map_scalar->type);
 
   // Array and ArrayData
