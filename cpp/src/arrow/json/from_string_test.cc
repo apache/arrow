@@ -149,9 +149,9 @@ template <typename T, typename C_TYPE = typename T::c_type>
 void AssertJSONScalar(const std::shared_ptr<DataType>& type, const std::string& json,
                       const bool is_valid, const C_TYPE value) {
   SCOPED_TRACE(json);
-  std::shared_ptr<Scalar> actual, expected;
+  std::shared_ptr<Scalar> expected;
 
-  ASSERT_OK(ScalarFromJSONString(type, json, &actual));
+  ASSERT_OK_AND_ASSIGN(auto actual, ScalarFromJSONString(type, json));
   if (is_valid) {
     ASSERT_OK_AND_ASSIGN(expected, MakeScalar(type, value));
   } else {
@@ -1471,35 +1471,33 @@ TEST(TestDictArrayFromJSON, Basics) {
 
 TEST(TestDictArrayFromJSON, Errors) {
   auto type = dictionary(int32(), utf8());
-  std::shared_ptr<Array> array;
 
-  ASSERT_RAISES(Invalid, DictArrayFromJSONString(type, "[\"not a valid index\"]",
-                                                 "[\"\"]", &array));
-  ASSERT_RAISES(Invalid, DictArrayFromJSONString(type, "[0, 1]", "[1]",
-                                                 &array));  // dict value isn't string
+  ASSERT_RAISES(Invalid,
+                DictArrayFromJSONString(type, "[\"not a valid index\"]", "[\"\"]"));
+  ASSERT_RAISES(Invalid, DictArrayFromJSONString(type, "[0, 1]",
+                                                 "[1]"));  // dict value isn't string
 }
 
 TEST(TestChunkedArrayFromJSON, Basics) {
   auto type = int32();
-  std::shared_ptr<ChunkedArray> chunked_array;
-  ASSERT_OK(ChunkedArrayFromJSONString(type, {}, &chunked_array));
+  ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArrayFromJSONString(type, {}));
   ASSERT_OK(chunked_array->ValidateFull());
   ASSERT_EQ(chunked_array->num_chunks(), 0);
   AssertTypeEqual(type, chunked_array->type());
 
-  ASSERT_OK(ChunkedArrayFromJSONString(type, {"[1, 2]", "[3, null, 4]"}, &chunked_array));
-  ASSERT_OK(chunked_array->ValidateFull());
-  ASSERT_EQ(chunked_array->num_chunks(), 2);
+  ASSERT_OK_AND_ASSIGN(auto chunked_array_two,
+                       ChunkedArrayFromJSONString(type, {"[1, 2]", "[3, null, 4]"}));
+  ASSERT_OK(chunked_array_two->ValidateFull());
+  ASSERT_EQ(chunked_array_two->num_chunks(), 2);
   std::shared_ptr<Array> expected_chunk;
   ASSERT_OK_AND_ASSIGN(expected_chunk, ArrayFromJSONString(type, "[1, 2]"));
-  AssertArraysEqual(*expected_chunk, *chunked_array->chunk(0), /*verbose=*/true);
+  AssertArraysEqual(*expected_chunk, *chunked_array_two->chunk(0), /*verbose=*/true);
   ASSERT_OK_AND_ASSIGN(expected_chunk, ArrayFromJSONString(type, "[3, null, 4]"));
-  AssertArraysEqual(*expected_chunk, *chunked_array->chunk(1), /*verbose=*/true);
+  AssertArraysEqual(*expected_chunk, *chunked_array_two->chunk(1), /*verbose=*/true);
 }
 
 TEST(TestScalarFromJSON, Basics) {
   // Sanity check for common types (not exhaustive)
-  std::shared_ptr<Scalar> scalar;
   AssertJSONScalar<Int64Type>(int64(), "4", true, 4);
   AssertJSONScalar<Int64Type>(int64(), "null", false, 0);
   AssertJSONScalar<StringType, std::shared_ptr<Buffer>>(utf8(), R"("")", true,
@@ -1516,25 +1514,22 @@ TEST(TestScalarFromJSON, Basics) {
   AssertJSONScalar<BooleanType, bool>(boolean(), "1", true, true);
   AssertJSONScalar<DoubleType>(float64(), "1.0", true, 1.0);
   AssertJSONScalar<DoubleType>(float64(), "-0.0", true, -0.0);
-  ASSERT_OK(ScalarFromJSONString(float64(), "NaN", &scalar));
-  ASSERT_TRUE(std::isnan(checked_cast<DoubleScalar&>(*scalar).value));
-  ASSERT_OK(ScalarFromJSONString(float64(), "Inf", &scalar));
-  ASSERT_TRUE(std::isinf(checked_cast<DoubleScalar&>(*scalar).value));
+  ASSERT_OK_AND_ASSIGN(auto nan_scalar, ScalarFromJSONString(float64(), "NaN"));
+  ASSERT_TRUE(std::isnan(checked_cast<DoubleScalar&>(*nan_scalar).value));
+  ASSERT_OK_AND_ASSIGN(auto inf_scalar, ScalarFromJSONString(float64(), "Inf"));
+  ASSERT_TRUE(std::isinf(checked_cast<DoubleScalar&>(*inf_scalar).value));
 }
 
 TEST(TestScalarFromJSON, Errors) {
-  std::shared_ptr<Scalar> scalar;
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "[0]", &scalar));
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "[9223372036854775808]", &scalar));
-  ASSERT_RAISES(Invalid,
-                ScalarFromJSONString(int64(), "[-9223372036854775809]", &scalar));
-  ASSERT_RAISES(Invalid,
-                ScalarFromJSONString(uint64(), "[18446744073709551616]", &scalar));
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(uint64(), "[-1]", &scalar));
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(binary(), "0", &scalar));
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(binary(), "[]", &scalar));
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(boolean(), "0.0", &scalar));
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(boolean(), "\"true\"", &scalar));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "[0]"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "[9223372036854775808]"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "[-9223372036854775809]"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(uint64(), "[18446744073709551616]"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(uint64(), "[-1]"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(binary(), "0"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(binary(), "[]"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(boolean(), "0.0"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(boolean(), "\"true\""));
 }
 
 TEST(TestDictScalarFromJSONString, Basics) {
@@ -1553,12 +1548,11 @@ TEST(TestDictScalarFromJSONString, Basics) {
 
 TEST(TestDictScalarFromJSONString, Errors) {
   auto type = dictionary(int32(), utf8());
-  std::shared_ptr<Scalar> scalar;
 
-  ASSERT_RAISES(Invalid, DictScalarFromJSONString(type, "\"not a valid index\"", "[\"\"]",
-                                                  &scalar));
-  ASSERT_RAISES(Invalid, DictScalarFromJSONString(type, "0", "[1]",
-                                                  &scalar));  // dict value isn't string
+  ASSERT_RAISES(Invalid,
+                DictScalarFromJSONString(type, "\"not a valid index\"", "[\"\"]"));
+  ASSERT_RAISES(Invalid,
+                DictScalarFromJSONString(type, "0", "[1]"));  // dict value isn't string
 }
 
 }  // namespace json
