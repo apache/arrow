@@ -1314,10 +1314,10 @@ std::shared_ptr<Converter> Converter::Make(
       }
 
     case Type::DECIMAL32:
-      return std::make_shared<arrow::r::Converter_Decimal<Decimal128Type>>(chunked_array);
+      return std::make_shared<arrow::r::Converter_Decimal<Decimal32Type>>(chunked_array);
 
     case Type::DECIMAL64:
-      return std::make_shared<arrow::r::Converter_Decimal<Decimal128Type>>(chunked_array);
+      return std::make_shared<arrow::r::Converter_Decimal<Decimal64Type>>(chunked_array);
 
     case Type::DECIMAL128:
       return std::make_shared<arrow::r::Converter_Decimal<Decimal128Type>>(chunked_array);
