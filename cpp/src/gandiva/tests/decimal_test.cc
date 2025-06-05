@@ -17,6 +17,7 @@
 
 #include <sstream>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
@@ -1247,8 +1248,8 @@ TEST_F(TestDecimal, TestCastDecimalVarCharInvalidInputInvalidOutput) {
     auto schema = arrow::schema({field_str});
     auto res_bool = field("res_bool", arrow::boolean());
   
-    auto int_literal = TreeExprBuilder::MakeLiteral((int32_t)100);
-    auto int_literal_multiply = TreeExprBuilder::MakeLiteral((int32_t)10);
+    auto int_literal = TreeExprBuilder::MakeLiteral(static_cast<int32_t>(100));
+    auto int_literal_multiply = TreeExprBuilder::MakeLiteral(static_cast<int32_t>(10));
     auto string_literal = TreeExprBuilder::MakeStringLiteral("foo");
     auto cast_multiply_literal =
        TreeExprBuilder::MakeFunction("castDECIMAL", {int_literal_multiply}, decimal_type_10_0);
@@ -1268,11 +1269,11 @@ TEST_F(TestDecimal, TestCastDecimalVarCharInvalidInputInvalidOutput) {
   
     int num_records = 1;
     auto invalid_in = MakeArrowArrayUtf8({"1.345"}, {true});
-    auto in_batch_1 = arrow::RecordBatch::Make(schema, num_records, {invalid_in});
+    auto in_batch = arrow::RecordBatch::Make(schema, num_records, {invalid_in});
       
-    arrow::ArrayVector outputs_1;
-    status = projector->Evaluate(*in_batch_1, pool_, &outputs_1);
-    EXPECT_FALSE(status.ok()) << status.message();
-    EXPECT_NE(status.message().find("not a valid decimal128 number"), std::string::npos);
+    arrow::ArrayVector outputs;
+    status = projector->Evaluate(*in_batch, pool_, &outputs);
+    ASSERT_NOT_OK(status);
+    ASSERT_THAT(status.message(), ::testing::HasSubstr("not a valid decimal128 number"));
   }
 }  // namespace gandiva
