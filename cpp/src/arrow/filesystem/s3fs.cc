@@ -398,6 +398,8 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
     } else if (kv.first == "tls_verify_certificates") {
       ARROW_ASSIGN_OR_RAISE(options.tls_verify_certificates,
                             ::arrow::internal::ParseBoolean(kv.second));
+    } else if (kv.first == "smart_defaults") {
+      options.smart_defaults = kv.second;
     } else {
       return Status::Invalid("Unexpected query parameter in S3 URI: '", kv.first, "'");
     }
@@ -424,7 +426,8 @@ bool S3Options::Equals(const S3Options& other) const {
       default_metadata_size
           ? (other.default_metadata && other.default_metadata->Equals(*default_metadata))
           : (!other.default_metadata || other.default_metadata->size() == 0);
-  return (region == other.region && connect_timeout == other.connect_timeout &&
+  return (smart_defaults == other.smart_defaults && region == other.region &&
+          connect_timeout == other.connect_timeout &&
           request_timeout == other.request_timeout &&
           endpoint_override == other.endpoint_override && scheme == other.scheme &&
           role_arn == other.role_arn && session_name == other.session_name &&
@@ -1069,7 +1072,15 @@ class EndpointProviderCache {
 
 class ClientBuilder {
  public:
-  explicit ClientBuilder(S3Options options) : options_(std::move(options)) {}
+  // Make sure the default S3ClientConfiguration constructor is never invoked (see below)
+  ClientBuilder() = delete;
+
+  explicit ClientBuilder(S3Options options)
+      : options_(std::move(options)),
+        // The S3ClientConfiguration constructor always does EC2 metadata lookups,
+        // unless IMDS is disabled (GH-46214).
+        client_config_(/*useSmartDefaults=*/true, options_.smart_defaults.c_str(),
+                       /*shouldDisableIMDS=*/true) {}
 
   const Aws::Client::ClientConfiguration& config() const { return client_config_; }
 
