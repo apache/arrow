@@ -744,6 +744,7 @@ if(ARROW_COMPUTE)
   # Include the remaining kernels
   list(APPEND
        ARROW_COMPUTE_LIB_SRCS
+       compute/initialize.cc
        compute/kernels/aggregate_basic.cc
        compute/kernels/aggregate_mode.cc
        compute/kernels/aggregate_pivot.cc
@@ -755,7 +756,6 @@ if(ARROW_COMPUTE)
        compute/kernels/hash_aggregate_pivot.cc
        compute/kernels/pivot_internal.cc
        compute/kernels/ree_util_internal.cc
-       compute/kernels/registry.cc
        compute/kernels/scalar_arithmetic.cc
        compute/kernels/scalar_boolean.cc
        compute/kernels/scalar_compare.cc

@@ -18,10 +18,6 @@
 #include "./arrow_types.h"
 #include "./safe-call-into-r.h"
 
-#if ARROW_VERSION_MAJOR >= 21
-#include <arrow/compute/kernels/api.h>
-#endif
-
 #include <arrow/array/util.h>
 #include <arrow/compute/api.h>
 #include <arrow/record_batch.h>

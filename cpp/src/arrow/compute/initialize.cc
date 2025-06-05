@@ -14,8 +14,8 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+#include "arrow/compute/initialize.h"
 #include "arrow/compute/registry.h"
-#include "arrow/compute/kernels/api.h"
 
 #include <algorithm>
 #include <memory>

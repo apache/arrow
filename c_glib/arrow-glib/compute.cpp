@@ -36,7 +36,7 @@
 
 #include <arrow/acero/exec_plan.h>
 #include <arrow/acero/options.h>
-#include <arrow/compute/kernels/api.h>
+#include <arrow/compute/api.h>
 
 template <typename ArrowType, typename GArrowArrayType>
 typename ArrowType::c_type
