@@ -95,8 +95,8 @@ TYPES_NUMERIC <- Type[
     "INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32",
     "INT64", "UINT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
     "DECIMAL32", "DECIMAL64", "DECIMAL128", "DECIMAL256"
-    )
-  ]
+  )
+]
 
 #' @rdname enums
 #' @export
