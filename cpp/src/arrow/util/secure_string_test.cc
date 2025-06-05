@@ -31,7 +31,7 @@ std::string_view StringArea(const std::string& string) {
 #define COMPARE(val1, val2) \
   ::testing::internal::EqHelper::Compare(#val1, #val2, val1, val2)
 
-::testing::AssertionResult AssertSecurelyCleared(const std::string_view area) {
+::testing::AssertionResult AssertSecurelyCleared(const std::string_view& area) {
   // the entire area is filled with zeros
   std::string zeros(area.size(), '\0');
   return COMPARE(area, std::string_view(zeros));
@@ -44,7 +44,7 @@ std::string_view StringArea(const std::string& string) {
 /**
  * Checks the area has been securely cleared after some position.
  */
-::testing::AssertionResult AssertSecurelyCleared(const std::string_view area,
+::testing::AssertionResult AssertSecurelyCleared(const std::string_view& area,
                                                  const size_t pos) {
   // the area after pos is filled with zeros
   if (pos < area.size()) {
@@ -62,9 +62,9 @@ std::string_view StringArea(const std::string& string) {
  * at the right position, this will be false negative / flaky. Therefore, we check for
  * three consecutive secret characters before we fail.
  */
-::testing::AssertionResult AssertSecurelyCleared(const std::string_view area,
+::testing::AssertionResult AssertSecurelyCleared(const std::string_view& area,
                                                  const std::string& secret_value) {
-#if defined(ARROW_VALGRIND) || defined(ARROW_USE_ASAN)
+#if defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER)
   return testing::AssertionSuccess() << "Not checking deallocated memory";
 #else
   // accessing deallocated memory will fail when running with  Address Sanitizer enabled
@@ -110,34 +110,55 @@ TEST(TestSecureString, AssertSecurelyCleared) {
   // checks only 1000 bytes (length)
   ASSERT_TRUE(AssertSecurelyCleared(std::string_view(long_zeros)));
 
-  // check short string with zeros and non-zeros after string length
-  auto short_some_zeros = std::string(short_zeros.length() + 3, '*');
-  short_zeros.resize(short_zeros.capacity(), '*');  // for string buffers longer than 8
-  short_zeros.resize(8);  // now the string buffer is filled with '*' after the string
-  short_some_zeros = short_zeros;
-  // string buffer in short_some_zeros can be larger than short_zeros.length() + 3
+  auto no_zeros = std::string("abcdefghijklmnopqrstuvwxyz");
+  // string buffer in no_zeros can be larger than no_zeros.length()
   // assert only the area that we can control
-  auto short_some_zeros_view =
-      std::string_view(short_some_zeros.data(), short_zeros.length() + 3);
+  auto no_zeros_view = std::string_view(no_zeros);
+  result = AssertSecurelyCleared(no_zeros_view);
+  ASSERT_FALSE(result);
+  ASSERT_EQ(std::string(result.message()),
+            "Expected equality of these values:\n"
+            "  area\n"
+            "    Which is: \"abcdefghijklmnopqrstuvwxyz\"\n"
+            "  std::string_view(zeros)\n"
+            "    Which is: "
+            "\"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\"
+            "0\\0\\0\\0\\0\"");
+
+  // check short string with zeros and non-zeros after string length
+  auto stars = std::string(12, '*');
+  auto short_some_zeros = stars;
+  memset(short_some_zeros.data(), '\0', 8);
+  short_some_zeros.resize(8);
+  // string buffer in short_some_zeros can be larger than 12
+  // assert only the area that we can control
+  auto short_some_zeros_view = std::string_view(short_some_zeros.data(), 12);
   result = AssertSecurelyCleared(short_some_zeros_view);
   ASSERT_FALSE(result);
   ASSERT_EQ(std::string(result.message()),
             "Expected equality of these values:\n"
             "  area\n"
-            "    Which is: \"\\0\\0\\0\\0\\0\\0\\0\\0\\0**\"\n"
+            "    Which is: \"\\0\\0\\0\\0\\0\\0\\0\\0\\0***\"\n"
             "  std::string_view(zeros)\n"
-            "    Which is: \"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\"");
+            "    Which is: \"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\"");
+
+  ASSERT_TRUE(AssertSecurelyCleared(short_some_zeros, stars));
+#if !defined(ARROW_VALGRIND) && !defined(ADDRESS_SANITIZER)
+  result = AssertSecurelyCleared(short_some_zeros_view, stars);
+  ASSERT_FALSE(result);
+  ASSERT_EQ(std::string(result.message()),
+            "3 characters of secret leaked into "
+            "\\0\\0\\0\\0\\0\\0\\0\\0\\0***");
+#endif
 
   // check long string with zeros and non-zeros after string length
-  auto zeros = std::string(32, '\0');
-  auto long_some_zeros = std::string(zeros.length() + 10, '*');
-  zeros.resize(zeros.capacity(), '*');  // for string buffers longer than 32
-  zeros.resize(32);  // now the string buffer is filled with '*' after the string
-  long_some_zeros = zeros;
-  // string buffer in long_some_zeros can be larger than zeros.length() + 10
+  stars = std::string(42, '*');
+  auto long_some_zeros = stars;
+  memset(long_some_zeros.data(), '\0', 32);
+  long_some_zeros.resize(32);
+  // string buffer in long_some_zeros can be larger than 42
   // assert only the area that we can control
-  auto long_some_zeros_view =
-      std::string_view(long_some_zeros.data(), zeros.length() + 10);
+  auto long_some_zeros_view = std::string_view(long_some_zeros.data(), 42);
   result = AssertSecurelyCleared(long_some_zeros_view);
   ASSERT_FALSE(result);
   ASSERT_EQ(std::string(result.message()),
@@ -151,69 +172,25 @@ TEST(TestSecureString, AssertSecurelyCleared) {
             "\"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\"
             "0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\"");
 
-  auto no_zeros = std::string("abcdefghijklmnopqrstuvwxyz123");
-  // string buffer in no_zeros can be larger than no_zeros.length()
-  // assert only the area that we can control
-  auto no_zeros_view = std::string_view(no_zeros);
-  result = AssertSecurelyCleared(no_zeros_view);
+  ASSERT_TRUE(AssertSecurelyCleared(long_some_zeros, stars));
+#if !defined(ARROW_VALGRIND) && !defined(ADDRESS_SANITIZER)
+  result = AssertSecurelyCleared(long_some_zeros_view, stars);
   ASSERT_FALSE(result);
   ASSERT_EQ(std::string(result.message()),
-            "Expected equality of these values:\n"
-            "  area\n"
-            "    Which is: \"abcdefghijklmnopqrstuvwxyz123\"\n"
-            "  std::string_view(zeros)\n"
-            "    Which is: "
-            "\"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\"
-            "0\\0\\0\\0\\0\"");
-
-  // check string with zeros and non-zeros after string length
-  auto some_zeros_front = no_zeros;
-  some_zeros_front = std::string(no_zeros.length() - 3, '\0');
-  // string buffer in some_zeros_front can be larger than no_zeros.length() - 3
-  // assert only the area that we can control
-  auto some_zeros_fronts_view =
-      std::string_view(some_zeros_front.data(), no_zeros.length());
-  result = AssertSecurelyCleared(some_zeros_fronts_view);
-  ASSERT_FALSE(result);
-  ASSERT_EQ(std::string(result.message()),
-            "Expected equality of these values:\n"
-            "  area\n"
-            "    Which is: \"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0"
-            "\\0\\0\\0\\0\\0\\0123\"\n"
-            "  std::string_view(zeros)\n"
-            "    Which is: "
-            "\"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\"
-            "0\\0\"");
-
-  ASSERT_TRUE(AssertSecurelyCleared(some_zeros_front, no_zeros));
-#if !defined(ARROW_VALGRIND) && !defined(ARROW_USE_ASAN)
-  result = AssertSecurelyCleared(some_zeros_fronts_view, no_zeros);
-  ASSERT_FALSE(result);
-  ASSERT_EQ(std::string(result.message()),
-            "3 characters of secret leaked into "
-            "\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0"
-            "\\0123");
+            "9 characters of secret leaked into "
+            "\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\"
+            "0\\0\\0\\0\\0\\0\\0\\0\\0*********");
 #endif
 
   // check string with non-zeros and zeros after string length
   auto some_zeros_back = std::string(no_zeros.length() + 3, '\0');
   some_zeros_back = no_zeros;
+  memset(some_zeros_back.data() + no_zeros.length() * sizeof(char), '\0', 3 + 1);
   // string buffer in some_zeros_back can be larger than no_zeros.length() + 3
   // assert only the area that we can control
   auto some_zeros_back_view =
       std::string_view(some_zeros_back.data(), no_zeros.length() + 3);
   ASSERT_TRUE(AssertSecurelyCleared(some_zeros_back_view, no_zeros.length()));
-  result = AssertSecurelyCleared(some_zeros_back_view);
-  ASSERT_FALSE(result);
-  ASSERT_EQ(
-      std::string(result.message()),
-      "Expected equality of these values:\n"
-      "  area\n"
-      "    Which is: \"abcdefghijklmnopqrstuvwxyz123\\0\\0\\0\"\n"
-      "  std::string_view(zeros)\n"
-      "    Which is: "
-      "\"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\"
-      "0\\0\\0\\0\\0\\0\\0\\0\"");
 }
 
 TEST(TestSecureString, SecureClearString) {
@@ -281,8 +258,16 @@ TEST(TestSecureString, Assign) {
   // We initialize with the first string and iteratively assign the subsequent values.
   // The first two values are local (very short strings), the remainder are non-local
   // strings. Memory management of short and long strings behaves differently.
-  std::vector<std::string> test_strings = {
-      "secret", "another secret", "a much longer secret", std::string(1024, 'x')};
+  std::vector<std::string> test_strings = {"secret", "another secret",
+                                           std::string(128, 'x'), std::string(1024, 'y')};
+  for (auto& string : test_strings) {
+    // string buffer might be longer than string.length with arbitrary bytes
+    // secure string does not have to protect that garbage bytes
+    // zeroing here so we get expected results
+    auto length = string.length();
+    string.resize(string.capacity(), '\0');
+    string.resize(length);
+  }
 
   std::vector<std::string> reverse_strings = std::vector(test_strings);
   std::reverse(reverse_strings.begin(), reverse_strings.end());
@@ -384,9 +369,9 @@ TEST(TestSecureString, Assign) {
       std::string init_string_copy(init_string);
       SecureString secret_from_copy_secret(std::move(init_string_copy));
 
+      // copy-assigning from a secure string does not modify that secure string
+      // the earlier value of the secure string is securely cleared
       for (const auto& string : strings) {
-        // copy-assigning from a secure string does not modify that secure string
-        // the earlier value of the secure string is securely cleared
         auto string_copy = std::string(string);
         SecureString secret_string(std::move(string_copy));
         ASSERT_FALSE(string.empty());
@@ -419,7 +404,7 @@ TEST(TestSecureString, Assign) {
 }
 
 TEST(TestSecureString, Deconstruct) {
-#if defined(ARROW_VALGRIND) || defined(ARROW_USE_ASAN)
+#if defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER)
   GTEST_SKIP() << "Test accesses deallocated memory";
 #else
   // We use a very short and a very long string as memory management of short and long
