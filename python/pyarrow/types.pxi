@@ -3580,8 +3580,7 @@ cdef class Schema(_Weakrefable):
         show_schema_metadata : boolean, default True
             Display Schema-level KeyValueMetadata
         element_size_limit : int, default 100
-            Maximum length of a single element before it is truncated
-
+            Maximum number of characters of a single element before it is truncated.
         Returns
         -------
         str : the formatted output

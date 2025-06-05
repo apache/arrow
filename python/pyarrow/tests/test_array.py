@@ -75,8 +75,8 @@ def test_constructor_raises():
 
 
 def test_list_format():
-    arr = pa.array([[1], None, [2, 3, None]])
-    result = arr.to_string()
+    arr = pa.array([[1], None, [200, 3, None]])
+    result = arr.to_string(element_size_limit=2)
     expected = """\
 [
   [
@@ -84,7 +84,7 @@ def test_list_format():
   ],
   null,
   [
-    2,
+    20 (... 1 chars omitted),
     3,
     null
   ]
