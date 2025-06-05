@@ -210,7 +210,7 @@ test_that("Type strings are correctly canonicalized", {
   )
   expect_equal(
     canonical_type_str("decimal128"),
-    sub("^([^([<]+).*$", "\\1", decimal(3, 2)$ToString())
+    sub("^([^([<]+).*$", "\\1", decimal(31, 2)$ToString())
   )
   expect_equal(
     canonical_type_str("decimal128"),
