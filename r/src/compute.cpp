@@ -23,6 +23,18 @@
 #include <arrow/record_batch.h>
 #include <arrow/table.h>
 
+#if ARROW_VERSION_MAJOR >= 21
+// Initialize Arrow Compute kernels at startup
+namespace {
+struct ArrowComputeInitializer {
+  ArrowComputeInitializer() {
+    auto status = arrow::compute::Initialize();
+    StopIfNotOk(status);
+  }
+} arrow_compute_initializer;
+}  // namespace
+#endif
+
 std::shared_ptr<arrow::compute::CastOptions> make_cast_options(cpp11::list options);
 
 arrow::compute::ExecContext* gc_context() {
@@ -618,9 +630,6 @@ SEXP compute__CallFunction(std::string func_name, cpp11::list args, cpp11::list 
 
 // [[arrow::export]]
 std::vector<std::string> compute__GetFunctionNames() {
-#if ARROW_VERSION_MAJOR >= 21
-  StopIfNotOk(arrow::compute::Initialize());
-#endif
   return arrow::compute::GetFunctionRegistry()->GetFunctionNames();
 }
 
