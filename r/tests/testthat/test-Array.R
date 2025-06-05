@@ -1324,9 +1324,9 @@ test_that("Can convert R integer/double to decimal (ARROW-11631)", {
   # Check all of decimal32, decimal64, decimal128 and decimal256
 
 
-  decimal32_from_dbl <- arrow_array(c(1, NA_real_), type = decimal32(12, 2))
+  decimal32_from_dbl <- arrow_array(c(1, NA_real_), type = decimal32(9, 2))
   decimal64_from_dbl <- arrow_array(c(1, NA_real_), type = decimal64(12, 2))
-  decimal32_from_int <- arrow_array(c(1L, NA_integer_), type = decimal32(12, 2))
+  decimal32_from_int <- arrow_array(c(1L, NA_integer_), type = decimal32(9, 2))
   decimal64_from_int <- arrow_array(c(1L, NA_integer_), type = decimal64(12, 2))
 
   decimal128_from_dbl <- arrow_array(c(1, NA_real_), type = decimal128(12, 2))
@@ -1342,12 +1342,12 @@ test_that("Can convert R integer/double to decimal (ARROW-11631)", {
 
   expect_equal(
     decimal32_from_dbl,
-    arrow_array(c(1, NA))$cast(decimal32(12, 2))
+    arrow_array(c(1, NA))$cast(decimal32(9, 2))
   )
 
   expect_equal(
     decimal64_from_dbl,
-    arrow_array(c(1, NA))$cast(decimal64()(12, 2))
+    arrow_array(c(1, NA))$cast(decimal64(12, 2))
   )
 
   expect_equal(
@@ -1362,7 +1362,7 @@ test_that("Can convert R integer/double to decimal (ARROW-11631)", {
 
   expect_equal(
     decimal32_from_int,
-    arrow_array(c(1, NA))$cast(decimal32(12, 2))
+    arrow_array(c(1, NA))$cast(decimal32(9, 2))
   )
 
   expect_equal(
