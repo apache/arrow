@@ -1385,7 +1385,7 @@ cdef class Array(_PandasConvertible):
             If the array should be rendered as a single line of text
             or if each element should be on its own line.
         element_size_limit : int
-            Maximum length of a single element before it is truncated,
+            Maximum number of characters of a single element before it is truncated,
             by default ``100``.
         """
         cdef:
