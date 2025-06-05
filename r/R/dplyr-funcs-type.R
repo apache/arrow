@@ -186,7 +186,7 @@ register_bindings_type_inspect <- function() {
     is.numeric(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
       "UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
       "UINT64", "INT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
-      "DECIMAL128", "DECIMAL256"
+      "DECIMAL32", "DECIMAL64", "DECIMAL128", "DECIMAL256"
     )])
   })
   register_binding("base::is.double", function(x) {
