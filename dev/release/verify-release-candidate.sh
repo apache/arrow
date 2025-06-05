@@ -882,7 +882,7 @@ test_linux_wheels() {
   fi
 
   local python_versions="${TEST_PYTHON_VERSIONS:-3.9 3.10 3.11 3.12 3.13}"
-  local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_17_${arch}.manylinux2014_${arch} manylinux_2_28_${arch}}"
+  local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux2014_${arch}.manylinux_2_17_${arch} manylinux_2_28_${arch}}"
 
   if [ "${SOURCE_KIND}" != "local" ]; then
     local wheel_content="OFF"
@@ -902,8 +902,7 @@ test_linux_wheels() {
       if ! VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv; then
         continue
       fi
-      find . -name pyarrow-${TEST_PYARROW_VERSION:-${VERSION}}-cp${pyver/.}-cp${python/.}-*.whl | grep -E "${platform}" | \
-        xargs pip install
+      pip install pyarrow-${TEST_PYARROW_VERSION:-${VERSION}}-cp${pyver/.}-cp${python/.}-${platform}.whl
       ARROW_GCS=${check_gcs} \
         ARROW_VERSION=${VERSION} \
         CHECK_VERSION=${check_version} \
