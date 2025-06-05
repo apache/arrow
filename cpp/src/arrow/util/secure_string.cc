@@ -38,7 +38,7 @@
 namespace arrow::util {
 
 /// Note:
-/// A string std::string is securely moved into a SecureString in two steps:
+/// A std::string is securely moved into a SecureString in two steps:
 /// 1. the std::string is moved via std::move(string)
 /// 2. the std::string is securely cleared
 ///
@@ -139,10 +139,8 @@ std::string_view SecureString::as_view() const {
 void SecureString::Dispose() { SecureClear(&secret_); }
 
 void SecureString::SecureClear(std::string* secret) {
-  // in case of non-local strings (long strings), this order is vital
-  // first clear the string buffer
+  // call SecureClear first just in case secret->clear() frees some memory
   SecureClear(reinterpret_cast<uint8_t*>(secret->data()), secret->capacity());
-  // then reset the string size (moves from the non-local to the local string buffer)
   secret->clear();
 }
 
