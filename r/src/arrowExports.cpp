@@ -2551,6 +2551,24 @@ BEGIN_CPP11
 END_CPP11
 }
 // datatype.cpp
+std::shared_ptr<arrow::DataType> Decimal32Type__initialize(int32_t precision, int32_t scale);
+extern "C" SEXP _arrow_Decimal32Type__initialize(SEXP precision_sexp, SEXP scale_sexp){
+BEGIN_CPP11
+	arrow::r::Input<int32_t>::type precision(precision_sexp);
+	arrow::r::Input<int32_t>::type scale(scale_sexp);
+	return cpp11::as_sexp(Decimal32Type__initialize(precision, scale));
+END_CPP11
+}
+// datatype.cpp
+std::shared_ptr<arrow::DataType> Decimal64Type__initialize(int32_t precision, int32_t scale);
+extern "C" SEXP _arrow_Decimal64Type__initialize(SEXP precision_sexp, SEXP scale_sexp){
+BEGIN_CPP11
+	arrow::r::Input<int32_t>::type precision(precision_sexp);
+	arrow::r::Input<int32_t>::type scale(scale_sexp);
+	return cpp11::as_sexp(Decimal64Type__initialize(precision, scale));
+END_CPP11
+}
+// datatype.cpp
 std::shared_ptr<arrow::DataType> Decimal128Type__initialize(int32_t precision, int32_t scale);
 extern "C" SEXP _arrow_Decimal128Type__initialize(SEXP precision_sexp, SEXP scale_sexp){
 BEGIN_CPP11
@@ -5910,6 +5928,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Date32__initialize", (DL_FUNC) &_arrow_Date32__initialize, 0}, 
 		{ "_arrow_Date64__initialize", (DL_FUNC) &_arrow_Date64__initialize, 0}, 
 		{ "_arrow_Null__initialize", (DL_FUNC) &_arrow_Null__initialize, 0}, 
+		{ "_arrow_Decimal32Type__initialize", (DL_FUNC) &_arrow_Decimal32Type__initialize, 2}, 
+		{ "_arrow_Decimal64Type__initialize", (DL_FUNC) &_arrow_Decimal64Type__initialize, 2}, 
 		{ "_arrow_Decimal128Type__initialize", (DL_FUNC) &_arrow_Decimal128Type__initialize, 2}, 
 		{ "_arrow_Decimal256Type__initialize", (DL_FUNC) &_arrow_Decimal256Type__initialize, 2}, 
 		{ "_arrow_DayTimeInterval__initialize", (DL_FUNC) &_arrow_DayTimeInterval__initialize, 0}, 

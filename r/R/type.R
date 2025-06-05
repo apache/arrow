@@ -590,8 +590,12 @@ decimal <- function(precision, scale) {
 
   if (args$precision > 38) {
     decimal256(args$precision, args$scale)
-  } else {
+  } else if (args$precision > 18) {
     decimal128(args$precision, args$scale)
+  } else if (args$precision > 9) {
+    decimal64(args$precision, args$scale)
+  } else {
+    decimal32(args$precision, args$scale)
   }
 }
 
