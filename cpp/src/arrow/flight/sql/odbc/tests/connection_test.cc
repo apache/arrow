@@ -216,7 +216,7 @@ TEST_F(FlightSQLODBCTestBase, TestSQLGetEnvAttrOutputNTS) {
 
 TEST_F(FlightSQLODBCTestBase, TestSQLGetEnvAttrGetLength) {
   // Test is disabled because call to SQLGetEnvAttr is handled by the driver manager on
-  // Windows. This test case can be potentionally used on macOS/Linux
+  // Windows. This test case can be potentially used on macOS/Linux
   GTEST_SKIP();
 
   connect();
@@ -234,7 +234,7 @@ TEST_F(FlightSQLODBCTestBase, TestSQLGetEnvAttrGetLength) {
 
 TEST_F(FlightSQLODBCTestBase, TestSQLGetEnvAttrNullValuePointer) {
   // Test is disabled because call to SQLGetEnvAttr is handled by the driver manager on
-  // Windows. This test case can be potentionally used on macOS/Linux
+  // Windows. This test case can be potentially used on macOS/Linux
   GTEST_SKIP();
   connect();
 
@@ -861,7 +861,7 @@ TEST(SQLGetDiagFieldW, TestSQLGetDiagFieldWForConnectFailure) {
 
 TEST(SQLGetDiagFieldW, TestSQLGetDiagFieldWForConnectFailureNTS) {
   // Test is disabled because driver manager on Windows does not pass through SQL_NTS
-  // This test case can be potentionally used on macOS/Linux
+  // This test case can be potentially used on macOS/Linux
   GTEST_SKIP();
   //  ODBC Environment
   SQLHENV env;
@@ -988,6 +988,61 @@ TEST(SQLGetDiagRec, TestSQLGetDiagRecForConnectFailure) {
   EXPECT_EQ(sql_state[2], '0');
   EXPECT_EQ(sql_state[3], '0');
   EXPECT_EQ(sql_state[4], '0');
+
+  // Free connection handle
+  ret = SQLFreeHandle(SQL_HANDLE_DBC, conn);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  // Free environment handle
+  ret = SQLFreeHandle(SQL_HANDLE_ENV, env);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+}
+
+TEST_F(MockFlightSqlServer, TestConnectToMock) {
+  // -AL- have 1 test that connects to the mock suite.
+  connectToMock();
+  disconnect();
+}
+
+TEST_F(MockFlightSqlServer, TestConnectToMockFail) {
+  std::string connect_str(
+      "driver={Apache Arrow Flight SQL ODBC Driver};HOST=localhost;port=" +
+      std::to_string(port) + ";token=invalid_token;useEncryption=false;");
+  // -AL- can probably override this to connect when I implement tests to run on both modes.
+  SQLRETURN ret = SQLAllocEnv(&env);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  ret = SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  // Allocate a connection using alloc handle
+  ret = SQLAllocHandle(SQL_HANDLE_DBC, env, &conn);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS);
+
+  // Connect string
+  std::vector<SQLWCHAR> connect_str0(connect_str.begin(), connect_str.end());
+
+  SQLWCHAR outstr[ODBC_BUFFER_SIZE];
+  SQLSMALLINT outstrlen;
+
+  // Connecting to ODBC server.
+  ret = SQLDriverConnect(conn, NULL, &connect_str0[0],
+                         static_cast<SQLSMALLINT>(connect_str0.size()), outstr,
+                         ODBC_BUFFER_SIZE, &outstrlen, SQL_DRIVER_NOPROMPT);
+
+  if (ret != SQL_SUCCESS) {
+    std::cerr << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn) << std::endl;
+  }
+
+  // Assert connection has failed
+  ASSERT_TRUE(ret == SQL_ERROR);
+
+  VerifyOdbcErrorState(SQL_HANDLE_DBC, conn, std::string("28000"));
 
   // Free connection handle
   ret = SQLFreeHandle(SQL_HANDLE_DBC, conn);

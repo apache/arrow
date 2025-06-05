@@ -21,13 +21,25 @@ include_directories(${ODBC_INCLUDE_DIRS})
 
 add_definitions(-DUNICODE=1)
 
+find_package(SQLite3Alt REQUIRED)
+
+set(ARROW_FLIGHT_SQL_MOCK_SERVER_SRCS
+    ../../example/sqlite_sql_info.cc
+    ../../example/sqlite_type_info.cc
+    ../../example/sqlite_statement.cc
+    ../../example/sqlite_statement_batch_reader.cc
+    ../../example/sqlite_server.cc
+    ../../example/sqlite_tables_schema_batch_reader.cc)
+
 add_arrow_test(connection_test
                SOURCES
                connection_test.cc
                odbc_test_suite.cc
                odbc_test_suite.h
+               ${ARROW_FLIGHT_SQL_MOCK_SERVER_SRCS}
                EXTRA_LINK_LIBS
                ${ODBC_LIBRARIES}
                ${ODBCINST}
+               ${SQLite3_LIBRARIES}
                arrow_odbc_spi_impl
                odbcabstraction)

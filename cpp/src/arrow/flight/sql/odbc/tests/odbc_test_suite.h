@@ -19,6 +19,8 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/utf8.h"
 
+#include "arrow/flight/sql/client.h"
+#include "arrow/flight/sql/example/sqlite_server.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/encoding_utils.h"
 
 #ifdef _WIN32
@@ -48,6 +50,8 @@ class FlightSQLODBCTestBase : public ::testing::Test {
   /// \brief Connect to Arrow Flight SQL server using connection string defined in
   /// environment variable "ARROW_FLIGHT_SQL_ODBC_CONN"
   void connect();
+  /// \brief Connect to Arrow Flight SQL server using connection string
+  void connectWithString(std::string connection_str);
   /// \brief Disconnect from server
   void disconnect();
 
@@ -59,6 +63,46 @@ class FlightSQLODBCTestBase : public ::testing::Test {
 
   /** ODBC Statement. */
   SQLHSTMT stmt;
+};
+
+class MockFlightSqlServerAuthHandler : public ServerAuthHandler {
+ public:
+  MockFlightSqlServerAuthHandler(const std::string& token);
+  ~MockFlightSqlServerAuthHandler() override;
+  Status Authenticate(const ServerCallContext& context, ServerAuthSender* outgoing,
+                      ServerAuthReader* incoming) override;
+  Status IsValid(const ServerCallContext& context, const std::string& token,
+                 std::string* peer_identity) override;
+
+ private:
+  std::string token_;
+};
+
+class MockFlightSqlServer : public FlightSQLODBCTestBase {
+ public:
+  void connectToMock();
+  // -AL- let's start by getting a mock server, not sure if I need all these.
+  // public:
+  //  std::unique_ptr<FlightSqlClient> sql_client;
+
+  // arrow::Result<int64_t> ExecuteCountQuery(const std::string& query) {
+
+  //   ARROW_ASSIGN_OR_RAISE(auto table, stream->ToTable());
+
+  //   const std::shared_ptr<Array>& result_array = table->column(0)->chunk(0);
+  //   ARROW_ASSIGN_OR_RAISE(auto count_scalar, result_array->GetScalar(0));
+
+  //   return reinterpret_cast<Int64Scalar&>(*count_scalar).value;
+  // }
+  int port;
+
+ protected:
+  void SetUp() override;
+
+  void TearDown() override;
+
+ private:
+  std::shared_ptr<arrow::flight::sql::example::SQLiteFlightSqlServer> server;
 };
 
 /** ODBC read buffer size. */

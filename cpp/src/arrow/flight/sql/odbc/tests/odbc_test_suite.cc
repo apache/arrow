@@ -30,6 +30,11 @@ namespace flight {
 namespace odbc {
 namespace integration_tests {
 void FlightSQLODBCTestBase::connect() {
+  ASSERT_OK_AND_ASSIGN(std::string connect_str,
+                       arrow::internal::GetEnvVar(TEST_CONNECT_STR));
+  connectWithString(connect_str);
+}
+void FlightSQLODBCTestBase::connectWithString(std::string connect_str) {
   // Allocate an environment handle
   SQLRETURN ret = SQLAllocEnv(&env);
 
@@ -45,8 +50,6 @@ void FlightSQLODBCTestBase::connect() {
   EXPECT_TRUE(ret == SQL_SUCCESS);
 
   // Connect string
-  ASSERT_OK_AND_ASSIGN(std::string connect_str,
-                       arrow::internal::GetEnvVar(TEST_CONNECT_STR));
   std::vector<SQLWCHAR> connect_str0(connect_str.begin(), connect_str.end());
 
   SQLWCHAR outstr[ODBC_BUFFER_SIZE];
@@ -85,6 +88,58 @@ void FlightSQLODBCTestBase::disconnect() {
 
   EXPECT_TRUE(ret == SQL_SUCCESS);
 }
+
+MockFlightSqlServerAuthHandler::MockFlightSqlServerAuthHandler(const std::string& token)
+    : token_(token) {}
+
+MockFlightSqlServerAuthHandler::~MockFlightSqlServerAuthHandler() {}
+
+Status MockFlightSqlServerAuthHandler::Authenticate(const ServerCallContext& context,
+                                           ServerAuthSender* outgoing,
+                                           ServerAuthReader* incoming) {
+  
+  auto headers = context.incoming_headers();
+  std::string bearer_token = std::string(headers.find("authorization")->second);
+  std::string bearer_prefix("Bearer ");
+  if (bearer_token != bearer_prefix + token_) {
+    return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");
+  }
+  return Status::OK();
+}
+
+Status MockFlightSqlServerAuthHandler::IsValid(const ServerCallContext& context,
+                                      const std::string& token,
+                                      std::string* peer_identity) {
+  if (token != token_) {
+    return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");
+  }
+  // Does not support peer identity
+  *peer_identity = std::string("");
+  return Status::OK();
+}
+
+void MockFlightSqlServer::connectToMock() {
+  std::string connect_str(
+      "driver={Apache Arrow Flight SQL ODBC Driver};HOST=localhost;port=" +
+      std::to_string(port) + ";token=t0k3n;useEncryption=false;");
+  connectWithString(connect_str);
+}
+
+void MockFlightSqlServer::SetUp() {
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("0.0.0.0", 0));
+  arrow::flight::FlightServerOptions options(location);
+  options.auth_handler =
+      std::make_unique<MockFlightSqlServerAuthHandler>("t0k3n");
+  ASSERT_OK_AND_ASSIGN(server,
+                       arrow::flight::sql::example::SQLiteFlightSqlServer::Create());
+  ASSERT_OK(server->Init(options));
+
+  port = server->port();
+  ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcTcp("localhost", port));
+  ASSERT_OK_AND_ASSIGN(auto client, arrow::flight::FlightClient::Connect(location));
+}
+
+void MockFlightSqlServer::TearDown() { ASSERT_OK(server->Shutdown()); }
 
 bool compareConnPropertyMap(Connection::ConnPropertyMap map1,
                             Connection::ConnPropertyMap map2) {
