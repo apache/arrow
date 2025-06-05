@@ -249,7 +249,7 @@ test_that("is.na() evaluates to TRUE on NaN (ARROW-12055)", {
 
 test_that("type checks with is() giving Arrow types", {
   # with class2=DataType
-  extract_logicals <- function(x){
+  extract_logicals <- function(x) {
     x %>%
       collect() %>%
       t() %>%
@@ -371,8 +371,10 @@ test_that("type checks with is() giving Arrow types", {
         str_is_str = is(str, string())
       ) %>%
       extract_logicals(),
-    c(FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE,
-      FALSE, FALSE, FALSE, FALSE, FALSE, TRUE)
+    c(
+      FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE,
+      FALSE, FALSE, FALSE, FALSE, FALSE, TRUE
+    )
   )
   # with class2=string
   expect_equal(
