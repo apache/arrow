@@ -31,6 +31,8 @@
 \alias{null}
 \alias{timestamp}
 \alias{decimal}
+\alias{decimal32}
+\alias{decimal64}
 \alias{decimal128}
 \alias{decimal256}
 \alias{struct}
@@ -99,6 +101,10 @@ null()
 timestamp(unit = c("s", "ms", "us", "ns"), timezone = "")
 
 decimal(precision, scale)
+
+decimal32(precision, scale)
+
+decimal64(precision, scale)
 
 decimal128(precision, scale)
 
