@@ -75,7 +75,7 @@ if [ -w "${build_dir}" ]; then
   cp -a "${source_dir}"/ci/conan/* "${build_dir}/conan/"
 else
   sudo cp -a "${source_dir}"/ci/conan/* "${build_dir}/conan/"
-  sudo chown -R "$(id -u)":"$(id -g)" "${build_dir}/conan/"
+  sudo chown -R "$(id -u):$(id -g)" "${build_dir}/conan/"
 fi
 cd "${build_dir}/conan/all"
 conan create . "${conan_args[@]}" "$@"
