@@ -511,6 +511,18 @@ class ARROW_EXPORT StringHeapBuilder {
     return v;
   }
 
+  c_type GetViewFromBlock(int32_t block_id, int32_t block_offset, int32_t offset,
+                          int32_t length) const {
+    const auto* value = blocks_.at(block_id)->data_as<uint8_t>() + block_offset + offset;
+    if (length <= BinaryViewType::kInlineSize) {
+      return util::ToInlineBinaryView(value, length);
+    }
+    c_type out;
+    out.ref = {length, {}, block_id, block_offset + offset};
+    memcpy(&out.ref.prefix, value, sizeof(out.ref.prefix));
+    return out;
+  }
+
   static constexpr int64_t ValueSizeLimit() {
     return std::numeric_limits<int32_t>::max();
   }
@@ -643,6 +655,33 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
 
   void UnsafeAppend(std::string_view value) {
     UnsafeAppend(value.data(), static_cast<int64_t>(value.size()));
+  }
+
+  Result<std::pair<int32_t, int32_t>> AppendBlock(const uint8_t* value,
+                                                  const int64_t length) {
+    ARROW_PREDICT_TRUE(length > TypeClass::kInlineSize);
+    ARROW_ASSIGN_OR_RAISE(auto v,
+                          data_heap_builder_.Append</*Safe=*/true>(value, length));
+    return std::pair{v.ref.buffer_index, v.ref.offset};
+  }
+
+  Result<std::pair<int32_t, int32_t>> AppendBlock(const char* value,
+                                                  const int64_t length) {
+    return AppendBlock(reinterpret_cast<const uint8_t*>(value), length);
+  }
+
+  Result<std::pair<int32_t, int32_t>> AppendBlock(const std::string& value) {
+    return AppendBlock(value.data(), static_cast<int64_t>(value.size()));
+  }
+
+  Status AppendViewFromBuffer(int32_t buffer_id, int32_t buffer_offset, int32_t start,
+                              int32_t length) {
+    ARROW_RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendToBitmap(true);
+
+    auto v = data_heap_builder_.GetViewFromBlock(buffer_id, buffer_offset, start, length);
+    data_builder_.UnsafeAppend(v);
+    return Status::OK();
   }
 
   /// \brief Ensures there is enough allocated available capacity in the

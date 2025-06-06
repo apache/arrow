@@ -1000,6 +1000,39 @@ TEST_F(TestArray, TestBinaryViewAppendArraySlice) {
   AssertArraysEqual(*src, *dst);
 }
 
+TEST_F(TestArray, BinaryViewFromBuffer) {
+  BinaryViewBuilder src_builder(pool_);
+  ASSERT_OK(src_builder.Append("Hello"));
+  /// let block = builder.append_block(b"helloworldbingobongo".into());
+  ///
+  /// builder.try_append_view(block, 0, 5).unwrap();
+  /// builder.try_append_view(block, 5, 5).unwrap();
+  /// builder.try_append_view(block, 10, 5).unwrap();
+  /// builder.try_append_view(block, 15, 5).unwrap();
+  /// builder.try_append_view(block, 0, 15).unwrap();
+  /// let array = builder.finish();
+  ASSERT_OK_AND_ASSIGN(const auto x, src_builder.AppendBlock("helloworldbingobongo"));
+  const auto [block_id, block_offset] = x;
+  ASSERT_OK(src_builder.AppendViewFromBuffer(block_id, block_offset, 0, 5));
+  ASSERT_OK(src_builder.AppendViewFromBuffer(block_id, block_offset, 5, 5));
+  ASSERT_OK(src_builder.AppendViewFromBuffer(block_id, block_offset, 10, 5));
+  ASSERT_OK(src_builder.AppendViewFromBuffer(block_id, block_offset, 15, 5));
+  ASSERT_OK(src_builder.AppendViewFromBuffer(block_id, block_offset, 0, 15));
+
+  ASSERT_OK_AND_ASSIGN(auto src, src_builder.Finish());
+  ASSERT_OK(src->ValidateFull());
+
+  // Verify the content of the resulting array
+  ASSERT_EQ(src->length(), 6);
+  const auto& binary_view_array = static_cast<const BinaryViewArray&>(*src);
+  ASSERT_EQ(binary_view_array.GetString(0), "Hello");
+  ASSERT_EQ(binary_view_array.GetString(1), "hello");
+  ASSERT_EQ(binary_view_array.GetString(2), "world");
+  ASSERT_EQ(binary_view_array.GetString(3), "bingo");
+  ASSERT_EQ(binary_view_array.GetString(4), "bongo");
+  ASSERT_EQ(binary_view_array.GetString(5), "helloworldbingo");
+}
+
 TEST_F(TestArray, ValidateBuffersPrimitive) {
   auto empty_buffer = std::make_shared<Buffer>("");
   auto null_buffer = Buffer::FromString("\xff");
