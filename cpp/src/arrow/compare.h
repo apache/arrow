@@ -26,6 +26,7 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
 struct ArrayStatistics;
 class Array;
 class DataType;
@@ -57,6 +58,7 @@ class EqualOptions {
     res.signed_zeros_equal_ = v;
     return res;
   }
+
   /// Whether the "atol" property is used in the comparison.
   bool use_atol() const { return use_atol_; }
 
@@ -145,6 +147,7 @@ ARROW_EXPORT bool SparseTensorEquals(const SparseTensor& left, const SparseTenso
 /// fields
 ARROW_EXPORT bool TypeEquals(const DataType& left, const DataType& right,
                              bool check_metadata = true);
+
 /// \brief Check two \ref arrow::ArrayStatistics for equality
 /// \param[in] left an \ref arrow::ArrayStatistics
 /// \param[in] right an \ref arrow::ArrayStatistics

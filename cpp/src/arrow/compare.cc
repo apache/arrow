@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -1526,8 +1527,6 @@ bool TypeEquals(const DataType& left, const DataType& right, bool check_metadata
 }
 namespace {
 
-using ValueType = ArrayStatistics::ValueType;
-
 bool DoubleEquals(const double& left, const double& right, const EqualOptions& options) {
   bool result;
   auto visitor = [&](auto&& compare_func) { result = compare_func(left, right); };
@@ -1535,9 +1534,9 @@ bool DoubleEquals(const double& left, const double& right, const EqualOptions& o
   return result;
 }
 
-bool ArrayStatisticsValueTypeEquals(const std::optional<ValueType>& left,
-                                    const std::optional<ValueType>& right,
-                                    const EqualOptions& options) {
+bool ArrayStatisticsValueTypeEquals(
+    const std::optional<ArrayStatistics::ValueType>& left,
+    const std::optional<ArrayStatistics::ValueType>& right, const EqualOptions& options) {
   if (!left.has_value() || !right.has_value()) {
     return left.has_value() == right.has_value();
   } else if (left->index() != right->index()) {
@@ -1559,6 +1558,7 @@ bool ArrayStatisticsValueTypeEquals(const std::optional<ValueType>& left,
     return std::visit(EqualsVisitor, left.value(), right.value());
   }
 }
+
 bool ArrayStatisticsEqualsImpl(const ArrayStatistics& left, const ArrayStatistics& right,
                                const EqualOptions& equal_options) {
   return left.null_count == right.null_count &&
@@ -1568,10 +1568,12 @@ bool ArrayStatisticsEqualsImpl(const ArrayStatistics& left, const ArrayStatistic
          ArrayStatisticsValueTypeEquals(left.min, right.min, equal_options) &&
          ArrayStatisticsValueTypeEquals(left.max, right.max, equal_options);
 }
+
 }  // namespace
 
 bool ArrayStatisticsEquals(const ArrayStatistics& left, const ArrayStatistics& right,
                            const EqualOptions& options) {
   return ArrayStatisticsEqualsImpl(left, right, options);
 }
+
 }  // namespace arrow
