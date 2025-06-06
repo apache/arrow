@@ -37,6 +37,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/binary_view_util.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -659,7 +660,8 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
 
   Result<std::pair<int32_t, int32_t>> AppendBlock(const uint8_t* value,
                                                   const int64_t length) {
-    ARROW_PREDICT_TRUE(length > TypeClass::kInlineSize);
+    ARROW_CHECK_GT(length, TypeClass::kInlineSize)
+        << "Block length should be greater than inline size";
     ARROW_ASSIGN_OR_RAISE(auto v,
                           data_heap_builder_.Append</*Safe=*/true>(value, length));
     return std::pair{v.ref.buffer_index, v.ref.offset};
