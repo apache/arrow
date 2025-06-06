@@ -163,7 +163,6 @@ install_headers(
         'string_builder.h',
         'string.h',
         'task_group.h',
-        'tdigest.h',
         'test_common.h',
         'thread_pool.h',
         'time.h',
