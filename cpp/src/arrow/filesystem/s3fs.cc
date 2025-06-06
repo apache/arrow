@@ -445,6 +445,7 @@ bool S3Options::Equals(const S3Options& other) const {
           : (!other.default_metadata || other.default_metadata->size() == 0);
   return (region == other.region && connect_timeout == other.connect_timeout &&
           request_timeout == other.request_timeout &&
+          low_speed_limit == other.low_speed_limit &&
           endpoint_override == other.endpoint_override && scheme == other.scheme &&
           role_arn == other.role_arn && session_name == other.session_name &&
           external_id == other.external_id && load_frequency == other.load_frequency &&
@@ -1128,6 +1129,9 @@ class ClientBuilder {
     if (options_.connect_timeout > 0) {
       client_config_.connectTimeoutMs =
           static_cast<long>(ceil(options_.connect_timeout * 1000));  // NOLINT runtime/int
+    }
+    if (options_.low_speed_limit >= 0) {
+      client_config_.lowSpeedLimit = options_.low_speed_limit;
     }
 
     client_config_.endpointOverride = ToAwsString(options_.endpoint_override);
