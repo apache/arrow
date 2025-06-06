@@ -132,8 +132,13 @@ class PARQUET_EXPORT Node {
 
   const Node* parent() const { return parent_; }
 
+  /// \brief The path of this column in the Parquet schema
   const std::shared_ptr<ColumnPath> path() const;
 
+  /// \brief The path of this column in the corresponding Arrow schema
+  ///
+  /// This path differs from \ref parquet::schema::Node::path only for nested fields like
+  /// lists or maps.
   const std::shared_ptr<ColumnPath> schema_path() const;
 
   virtual void ToParquet(void* element) const = 0;
@@ -388,8 +393,13 @@ class PARQUET_EXPORT ColumnDescriptor {
 
   const std::string& name() const { return primitive_node_->name(); }
 
+  /// \brief The path of this column in the Parquet schema
   const std::shared_ptr<schema::ColumnPath> path() const;
 
+  /// \brief The path of this column in the corresponding Arrow schema
+  ///
+  /// This path differs from \ref parquet::schema::Node::path only for nested fields like
+  /// lists or maps.
   const std::shared_ptr<schema::ColumnPath> schema_path() const;
 
   const schema::NodePtr& schema_node() const { return node_; }

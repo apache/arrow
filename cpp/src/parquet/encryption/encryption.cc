@@ -23,10 +23,13 @@
 #include <utility>
 
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/string.h"
 #include "arrow/util/utf8.h"
 #include "parquet/encryption/encryption_internal.h"
 
 namespace parquet {
+
+using ::arrow::internal::StartsWith;
 
 // integer key retriever
 void IntegerKeyIdRetriever::PutKey(uint32_t key_id, const std::string& key) {
@@ -163,7 +166,7 @@ FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::encrypted_
   return this;
 }
 
-void FileEncryptionProperties::encrypt_schema(const SchemaDescriptor& schema) {
+void FileEncryptionProperties::EncryptSchema(const SchemaDescriptor& schema) {
   // Check that all columns in columnEncryptionProperties exist in the schema.
   // Copy the encrypted_columns map as we are going to modify it while iterating it
   auto encrypted_columns = ColumnPathToEncryptionPropertiesMap(encrypted_columns_);
@@ -189,7 +192,6 @@ void FileEncryptionProperties::encrypt_schema(const SchemaDescriptor& schema) {
     for (const auto& elem : encrypted_columns) {
       auto& encrypted_column = elem.first;
       auto encrypted_column_prefix = encrypted_column + ".";
-      auto encrypted_column_prefix_len = encrypted_column_prefix.size();
 
       // first we look up encrypted_columns as
       // find first column that equals encrypted_column or starts with encrypted_column
@@ -203,19 +205,17 @@ void FileEncryptionProperties::encrypt_schema(const SchemaDescriptor& schema) {
       // encrypted_column encrypts column 'it' when 'it' is either equal to
       // encrypted_column, or 'it' starts with encrypted_column_prefix,
       // i.e. encrypted_column followed by a '.'
-      while (
-          it != column_path_vec.end() &&
-          (it->first == encrypted_column ||
-           // C++20: can be replaced with it->first.starts_with(encrypted_column_prefix)
-           it->first.compare(0, encrypted_column_prefix_len, encrypted_column_prefix) ==
-               0)) {
+      while (it != column_path_vec.end() &&
+             (it->first == encrypted_column ||
+              StartsWith(it->first, encrypted_column_prefix))) {
         // there are columns encrypted by encrypted_column
         matches = true;
 
         // add column 'it' to file_encryption_properties.encrypted_columns
-        // when encrypted_column is a parent column
+        // when encrypted_column is a parent column or a schema path
         if (it->second != encrypted_column) {
           encrypted_columns_.erase(encrypted_column);
+          encrypted_columns_.erase(it->second);
           encrypted_columns_.emplace(it->second, elem.second);
         }
 

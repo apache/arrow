@@ -480,7 +480,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
     } else {
       // make the file encryption encrypt this schema
       // this modifies file_encryption_properties->encrypted_columns()
-      file_encryption_properties->encrypt_schema(schema_);
+      file_encryption_properties->EncryptSchema(schema_);
 
       file_encryptor_ = std::make_unique<InternalFileEncryptor>(
           file_encryption_properties, properties_->memory_pool());

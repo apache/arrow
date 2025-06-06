@@ -225,7 +225,8 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterUseAES_GCM_CTR) {
 
 TEST(TestFileEncryptionProperties, EncryptSchema) {
   std::string kFooterEncryptionKey_ = std::string(kFooterEncryptionKey);
-  std::string kColumnEncryptionKey_ = std::string(kColumnEncryptionKey1);
+  std::string kColumnEncryptionKey1_ = std::string(kColumnEncryptionKey1);
+  std::string kColumnEncryptionKey2_ = std::string(kColumnEncryptionKey2);
 
   std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
       encryption_cols;
@@ -239,13 +240,13 @@ TEST(TestFileEncryptionProperties, EncryptSchema) {
       "b_list.list.element");
   parquet::ColumnEncryptionProperties::Builder encryption_col_builder_27("b_struct.f1");
 
-  encryption_col_builder_21.key(kColumnEncryptionKey_)->key_id("kc1");
-  encryption_col_builder_22.key(kColumnEncryptionKey_)->key_id("kc1");
-  encryption_col_builder_23.key(kColumnEncryptionKey_)->key_id("kc1");
-  encryption_col_builder_24.key(kColumnEncryptionKey_)->key_id("kc1");
-  encryption_col_builder_25.key(kColumnEncryptionKey_)->key_id("kc1");
-  encryption_col_builder_26.key(kColumnEncryptionKey_)->key_id("kc1");
-  encryption_col_builder_27.key(kColumnEncryptionKey_)->key_id("kc1");
+  encryption_col_builder_21.key(kColumnEncryptionKey1_)->key_id("kc1");
+  encryption_col_builder_22.key(kColumnEncryptionKey1_)->key_id("kc1");
+  encryption_col_builder_23.key(kColumnEncryptionKey1_)->key_id("kc1");
+  encryption_col_builder_24.key(kColumnEncryptionKey1_)->key_id("kc1");
+  encryption_col_builder_25.key(kColumnEncryptionKey1_)->key_id("kc1");
+  encryption_col_builder_26.key(kColumnEncryptionKey1_)->key_id("kc1");
+  encryption_col_builder_27.key(kColumnEncryptionKey1_)->key_id("kc1");
 
   encryption_cols["a_map"] = encryption_col_builder_21.build();
   encryption_cols["a_list"] = encryption_col_builder_22.build();
@@ -332,10 +333,9 @@ TEST(TestFileEncryptionProperties, EncryptSchema) {
   ASSERT_EQ(cols.at("b_struct.f1")->column_path(), "b_struct.f1");
   ASSERT_EQ(cols.size(), 7);
 
-  encryption_configurations->encrypt_schema(descr);
+  encryption_configurations->EncryptSchema(descr);
 
-  // the updated configuration where parent fields have been replaced with all their leaf
-  // fields
+  // the updated configuration where parent fields are replaced with all their leaf fields
   cols = encryption_configurations->encrypted_columns();
   ASSERT_EQ(cols.at("a_map.key_value.key")->column_path(), "a_map");
   ASSERT_EQ(cols.at("a_map.key_value.value")->column_path(), "a_map");
@@ -347,6 +347,32 @@ TEST(TestFileEncryptionProperties, EncryptSchema) {
   ASSERT_EQ(cols.at("b_list.list.element")->column_path(), "b_list.list.element");
   ASSERT_EQ(cols.at("b_struct.f1")->column_path(), "b_struct.f1");
   ASSERT_EQ(cols.size(), 9);
+
+  // provide encryption key for parent field (a_map) and one nested field (a_map.value)
+  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_28("a_map.value");
+  encryption_col_builder_28.key(kColumnEncryptionKey2_)->key_id("kc2");
+  encryption_cols["a_map.value"] = encryption_col_builder_28.build();
+
+  file_encryption_builder =
+      parquet::FileEncryptionProperties::Builder(kFooterEncryptionKey_);
+  file_encryption_builder.encrypted_columns(encryption_cols);
+  encryption_configurations = file_encryption_builder.build();
+
+  // original configuration as set above
+  cols = encryption_configurations->encrypted_columns();
+  ASSERT_EQ(cols.at("a_map")->column_path(), "a_map");
+  ASSERT_EQ(cols.at("a_map.value")->column_path(), "a_map.value");
+  ASSERT_EQ(cols.size(), 8);
+
+  std::cout << std::endl;
+  encryption_configurations->EncryptSchema(descr);
+
+  // the updated configuration where parent fields are replaced with all their leaf fields
+  cols = encryption_configurations->encrypted_columns();
+  ASSERT_EQ(cols.at("a_map.key_value.key")->column_path(), "a_map");
+  ASSERT_EQ(cols.at("a_map.key_value.value")->column_path(), "a_map.value");
+  ASSERT_EQ(cols.at("a_map.key_value.key")->key(), kColumnEncryptionKey1_);
+  ASSERT_EQ(cols.at("a_map.key_value.value")->key(), kColumnEncryptionKey2_);
 }
 
 // Set temp_dir before running the write/read tests. The encrypted files will
