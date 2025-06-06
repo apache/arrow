@@ -19,7 +19,6 @@
 
 #include <optional>
 
-#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/partition.h"
@@ -30,13 +29,6 @@
 #include "arrow/testing/generator.h"
 
 namespace arrow {
-
-using compute::ComputeKernelEnvironment;
-
-// Initialize the compute module
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
-
 namespace dataset {
 
 class TestInMemoryFragment : public DatasetFixtureMixin {};

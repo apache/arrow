@@ -24,7 +24,6 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
-#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/engine/substrait/util.h"
 #include "arrow/flight/server.h"
 #include "arrow/flight/sql/client.h"
@@ -39,11 +38,6 @@
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
-using compute::ComputeKernelEnvironment;
-
-// Initialize the compute module
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 namespace flight {
 namespace sql {
 

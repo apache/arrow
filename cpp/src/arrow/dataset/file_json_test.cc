@@ -17,7 +17,6 @@
 
 #include "arrow/dataset/file_json.h"
 
-#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/mockfs.h"
@@ -33,12 +32,6 @@
 namespace arrow {
 
 using internal::checked_cast;
-
-using compute::ComputeKernelEnvironment;
-
-// Initialize the compute module
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 namespace dataset {
 

@@ -38,10 +38,6 @@ using internal::StringFormatter;
 
 namespace compute {
 
-// Initialize the compute module
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
-
 class ScalarTemporalTest : public ::testing::Test {
  public:
   const char* date32s =

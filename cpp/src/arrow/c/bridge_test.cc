@@ -50,15 +50,9 @@
 // TODO(GH-37221): Remove these ifdef checks when compute dependency is removed
 #ifdef ARROW_COMPUTE
 #  include "arrow/compute/api_vector.h"
-#  include "arrow/compute/kernels/test_util_internal.h"
 #endif
 
 namespace arrow {
-#ifdef ARROW_COMPUTE
-// Initialize the compute module
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new compute::ComputeKernelEnvironment);
-#endif
 using internal::ArrayDeviceExportTraits;
 using internal::ArrayDeviceStreamExportTraits;
 using internal::ArrayExportGuard;

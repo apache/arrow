@@ -34,10 +34,6 @@ using internal::checked_pointer_cast;
 
 namespace compute {
 
-// Initialize the compute module
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
-
 void CheckBooleanScalarArrayBinary(std::string func_name, Datum array) {
   for (std::shared_ptr<Scalar> scalar :
        {std::make_shared<BooleanScalar>(), std::make_shared<BooleanScalar>(true),

@@ -24,7 +24,6 @@
 
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/compute/api_aggregate.h"
-#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/compute/test_util_internal.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
@@ -34,12 +33,7 @@
 
 namespace arrow {
 
-using compute::ComputeKernelEnvironment;
 using compute::ExecBatchFromJSON;
-
-// Initialize the compute module
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 namespace acero {
 

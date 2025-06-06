@@ -26,9 +26,9 @@ endif()
 
 if(ARROW_COMPUTE)
   if(ARROW_TEST_LINKAGE STREQUAL "static")
-    list(APPEND ARROW_TEST_LINK_LIBS arrow_compute_static)
+    list(APPEND ARROW_TEST_LINK_LIBS arrow_compute_static arrow_compute_testing)
   else()
-    list(APPEND ARROW_TEST_LINK_LIBS arrow_compute_shared)
+    list(APPEND ARROW_TEST_LINK_LIBS arrow_compute_shared arrow_compute_testing)
   endif()
 endif()
 

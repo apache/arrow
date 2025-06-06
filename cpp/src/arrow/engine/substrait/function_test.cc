@@ -34,7 +34,6 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
-#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/datum.h"
 #include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/options.h"
@@ -49,11 +48,6 @@
 #include "arrow/type_fwd.h"
 
 namespace arrow {
-using compute::ComputeKernelEnvironment;
-
-// Initialize the compute module
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 namespace engine {
 struct FunctionTestCase {

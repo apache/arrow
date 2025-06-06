@@ -119,6 +119,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
 
   set(ARROW_FLIGHT_SQL_TEST_LIBS ${SQLite3_LIBRARIES})
   set(ARROW_FLIGHT_SQL_ACERO_SRCS example/acero_server.cc)
+  set(ARROW_FLIGHT_SQL_EXTRA_LINK_LIBS "")
 
   if(ARROW_COMPUTE
      AND ARROW_PARQUET
@@ -129,6 +130,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
     else()
       list(APPEND ARROW_FLIGHT_SQL_TEST_LIBS arrow_substrait_shared)
     endif()
+    list(APPEND ARROW_FLIGHT_SQL_EXTRA_LINK_LIBS arrow_compute_testing)
 
     if(ARROW_BUILD_EXAMPLES)
       add_executable(acero-flight-sql-server ${ARROW_FLIGHT_SQL_ACERO_SRCS}
@@ -146,6 +148,8 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                  STATIC_LINK_LIBS
                  ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
                  ${ARROW_FLIGHT_SQL_TEST_LIBS}
+                 EXTRA_LINK_LIBS
+                 ${ARROW_FLIGHT_SQL_EXTRA_LINK_LIBS}
                  EXTRA_INCLUDES
                  "${CMAKE_CURRENT_BINARY_DIR}/../"
                  LABELS

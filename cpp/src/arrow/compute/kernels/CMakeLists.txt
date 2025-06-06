@@ -34,7 +34,7 @@ add_arrow_test(scalar_cast_test
                scalar_cast_test.cc
                EXTRA_LINK_LIBS
                arrow_compute_kernels_testing
-               arrow_compute_testing)
+               arrow_compute_core_testing)
 
 # ----------------------------------------------------------------------
 # Scalar kernels

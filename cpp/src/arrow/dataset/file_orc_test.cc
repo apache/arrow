@@ -21,7 +21,6 @@
 #include <utility>
 
 #include "arrow/adapters/orc/adapter.h"
-#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
@@ -34,11 +33,6 @@
 #include "arrow/testing/util.h"
 
 namespace arrow {
-using compute::ComputeKernelEnvironment;
-
-// Initialize the compute module
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 namespace dataset {
 
 class OrcFormatHelper {

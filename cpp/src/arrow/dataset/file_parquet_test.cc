@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/parquet_encryption_config.h"
 #include "arrow/dataset/test_util_internal.h"
@@ -49,11 +48,6 @@
 
 namespace arrow {
 
-using compute::ComputeKernelEnvironment;
-
-// Initialize the compute module
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 

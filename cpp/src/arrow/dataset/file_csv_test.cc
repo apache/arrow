@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "arrow/acero/exec_plan.h"
-#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/csv/writer.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"
@@ -40,11 +39,6 @@
 #include "arrow/util/config.h"
 
 namespace arrow {
-using compute::ComputeKernelEnvironment;
-
-// Initialize the compute module
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 namespace dataset {
 
 class CsvFormatHelper {

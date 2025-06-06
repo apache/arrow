@@ -17,23 +17,26 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/acero/test_util_internal.h"
+#include "arrow/compute/initialize.h"
 #include "arrow/testing/gtest_util.h"
 
-namespace arrow::acero {
+namespace arrow::compute {
 
-TEST(RunEndEncodeTableColumnsTest, SchemaTypeIsModified) {
-  std::shared_ptr<Table> table =
-      arrow::TableFromJSON(arrow::schema({arrow::field("col", arrow::utf8())}), {R"([
-            {"col": "a"},
-            {"col": "b"},
-            {"col": "c"},
-            {"col": "d"}
-          ])"});
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> ree_table,
-                       RunEndEncodeTableColumns(*table, {0}));
-  ASSERT_OK(ree_table->ValidateFull());
-  ASSERT_TRUE(ree_table->schema()->field(0)->type()->Equals(
-      arrow::run_end_encoded(arrow::int32(), arrow::utf8())));
-}
-}  // namespace arrow::acero
+namespace {
+
+class ComputeKernelEnvironment : public ::testing::Environment {
+ public:
+  // This must be done before using the compute kernels in order to
+  // register them to the FunctionRegistry.
+  ComputeKernelEnvironment() : ::testing::Environment() {}
+
+  void SetUp() override { ASSERT_OK(arrow::compute::Initialize()); }
+};
+
+}  // namespace
+
+// Initialize the compute module
+::testing::Environment* compute_kernels_env =
+    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
+
+}  // namespace arrow::compute

@@ -28,10 +28,6 @@
 
 namespace arrow::compute {
 
-// Initialize the compute module
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
-
 namespace {
 
 using SmallSignedIntegerTypes = ::testing::Types<Int8Type, Int16Type>;

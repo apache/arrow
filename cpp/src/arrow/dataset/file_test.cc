@@ -34,7 +34,6 @@
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/array/array_primitive.h"
-#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/compute/test_util_internal.h"
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/partition.h"
@@ -51,11 +50,6 @@
 namespace cp = arrow::compute;
 
 namespace arrow {
-using compute::ComputeKernelEnvironment;
-
-// Initialize the compute module
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 using compute::ExecBatchFromJSON;
 using internal::TemporaryDir;

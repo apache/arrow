@@ -28,10 +28,6 @@ using internal::ThreadPool;
 
 namespace compute {
 
-// Initialize the compute module
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
-
 namespace {
 
 void TestRandomWithOptions(int64_t length, const RandomOptions& random_options) {

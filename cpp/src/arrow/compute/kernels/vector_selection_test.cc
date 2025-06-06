@@ -45,10 +45,6 @@ using std::string_view;
 
 namespace compute {
 
-// Initialize the compute module
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
-
 namespace {
 
 template <typename T>
