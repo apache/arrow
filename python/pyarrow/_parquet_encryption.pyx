@@ -28,6 +28,12 @@ from pyarrow.lib cimport _Weakrefable
 from pyarrow.lib import tobytes, frombytes
 
 
+cdef extern from "Python.h":
+    # To let us get a PyObject* and avoid Cython auto-ref-counting
+    PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
+        char *v, Py_ssize_t len) except NULL
+
+
 cdef ParquetCipher cipher_from_name(name):
     name = name.upper()
     if name == 'AES_GCM_V1':
@@ -300,8 +306,12 @@ cdef class KmsConnectionConfig(_Weakrefable):
 
 # Callback definitions for CPyKmsClientVtable
 cdef void _cb_wrap_key(
-        handler, const c_string& key_bytes,
+        handler, const CSecureString& key,
         const c_string& master_key_identifier, c_string* out) except *:
+    cdef:
+        cpp_string_view view = key.as_view()
+    key_bytes = PyObject_to_object(
+        PyBytes_FromStringAndSizeNative(view.data(), view.size()))
     mkid_str = frombytes(master_key_identifier)
     wrapped_key = handler.wrap_key(key_bytes, mkid_str)
     out[0] = tobytes(wrapped_key)
@@ -309,11 +319,16 @@ cdef void _cb_wrap_key(
 
 cdef void _cb_unwrap_key(
         handler, const c_string& wrapped_key,
-        const c_string& master_key_identifier, c_string* out) except *:
+        const c_string& master_key_identifier, shared_ptr[CSecureString]* out) except *:
     mkid_str = frombytes(master_key_identifier)
     wk_str = frombytes(wrapped_key)
     key = handler.unwrap_key(wk_str, mkid_str)
-    out[0] = tobytes(key)
+
+    cdef:
+        c_string cstr = tobytes(key)
+        shared_ptr[CSecureString] css = shared_ptr[CSecureString](new CSecureString(move(cstr)))
+
+    out[0] = css
 
 
 cdef class KmsClient(_Weakrefable):
