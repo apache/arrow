@@ -40,8 +40,13 @@ void StringKeyIdRetriever::PutKey(std::string key_id, SecureString key) {
   key_map_.insert({std::move(key_id), std::move(key)});
 }
 
-SecureString StringKeyIdRetriever::GetKey(const std::string& key_id) {
+SecureString StringKeyIdRetriever::GetKeyById(const std::string& key_id) {
   return key_map_.at(key_id);
+}
+
+ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key(
+    std::string column_key) {
+  return key(SecureString(std::move(column_key)));
 }
 
 ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key(
@@ -84,6 +89,11 @@ FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::column_key
 
   column_decryption_properties_ = column_decryption_properties;
   return this;
+}
+
+FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::footer_key(
+    std::string footer_key) {
+  return this->footer_key(SecureString(std::move(footer_key)));
 }
 
 FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::footer_key(
