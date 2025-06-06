@@ -37,7 +37,6 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/binary_view_util.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
