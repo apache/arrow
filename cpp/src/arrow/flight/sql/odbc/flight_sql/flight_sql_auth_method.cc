@@ -45,6 +45,10 @@ class NoOpAuthMethod : public FlightSqlAuthMethod {
   void Authenticate(FlightSqlConnection& connection,
                     FlightCallOptions& call_options) override {
     // Do nothing
+
+    // TODO: implement NoOpAuthMethod to validate server address.
+    // Can use NoOpClientAuthHandler.
+    // https://github.com/apache/arrow/issues/46733
   }
 };
 
