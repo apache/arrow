@@ -74,6 +74,8 @@ esac
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ARROW_DIR="$(cd "${SOURCE_DIR}/../.." && pwd)"
 
+: ${GITHUB_REPOSITORY:=apache/arrow}
+
 show_header() {
   echo ""
   printf '=%.0s' $(seq ${#1}); printf '\n'
@@ -176,7 +178,7 @@ test_binary() {
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
          --dest=${download_dir} \
-         --repository=${GITHUB_REPOSITORY:-apache/arrow} \
+         --repository=${GITHUB_REPOSITORY} \
          --tag="apache-arrow-$VERSION-rc$RC_NUMBER"
 
   verify_dir_artifact_signatures ${download_dir}
@@ -787,6 +789,14 @@ ensure_source_directory() {
     if [ ! -d "${ARROW_SOURCE_DIR}" ]; then
       pushd $ARROW_TMPDIR
       fetch_archive ${dist_name}
+      git clone https://github.com/${GITHUB_REPOSITORY}.git arrow
+      pushd arrow
+      dev/release/utils-create-release-tarball.sh ${VERSION} ${RC_NUMBER}
+      if ! cmp ${dist_name}.tar.gz ../${dist_name}.tar.gz; then
+        echo "Source archive isn't reproducible"
+        return 1
+      fi
+      popd
       tar xf ${dist_name}.tar.gz
       popd
     fi
@@ -988,7 +998,7 @@ test_wheels() {
       --package_type python \
       --regex=${filter_regex} \
       --dest=${download_dir} \
-      --repository=${GITHUB_REPOSITORY:-apache/arrow} \
+      --repository=${GITHUB_REPOSITORY} \
       --tag="apache-arrow-$VERSION-rc$RC_NUMBER"
 
     verify_dir_artifact_signatures ${download_dir}
