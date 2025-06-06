@@ -652,6 +652,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool truncate_metadata
         c_bool show_field_metadata
         c_bool show_schema_metadata
+        int element_size_limit
 
         @staticmethod
         PrettyPrintOptions Defaults()

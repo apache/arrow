@@ -321,14 +321,15 @@ bar: string
   -- field metadata --
   key3: 'value3'
 -- schema metadata --
-lorem: '{lorem}'"""
+lorem: '{lorem[:92]} (... {len(lorem) - 91} chars omitted)"""
 
     assert my_schema.to_string(truncate_metadata=False,
-                               show_field_metadata=False) == f"""\
+                               show_field_metadata=False,
+                               element_size_limit=50) == f"""\
 foo: int32 not null
 bar: string
 -- schema metadata --
-lorem: '{lorem}'"""
+lorem: '{lorem[:50 - 8]} (... {len(lorem) - (50 - 9)} chars omitted)"""
 
     assert my_schema.to_string(truncate_metadata=False,
                                show_schema_metadata=False) == """\
