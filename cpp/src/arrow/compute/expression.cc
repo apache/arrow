@@ -219,7 +219,7 @@ void PrintTo(const Expression& expr, std::ostream* os) {
 }
 
 bool Expression::Equals(const Expression& other) const {
-  if (Identical(*this, other)) return true;
+  if (Expression::Identical(*this, other)) return true;
 
   if (impl_ == nullptr || other.impl_ == nullptr) return false;
 
@@ -260,7 +260,7 @@ bool Expression::Equals(const Expression& other) const {
   return false;
 }
 
-ARROW_EXPORT bool Identical(const Expression& l, const Expression& r) {
+bool Expression::Identical(const Expression& l, const Expression& r) {
   return l.impl_ == r.impl_;
 }
 
@@ -1454,7 +1454,7 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
                                   return inequality->Simplify(std::move(expr));
                                 }));
 
-      if (Identical(simplified, expr)) continue;
+      if (Expression::Identical(simplified, expr)) continue;
 
       expr = std::move(simplified);
       RETURN_NOT_OK(CanonicalizeAndFoldConstants());
@@ -1465,7 +1465,7 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
           auto simplified,
           SimplifyIsValidGuarantee(std::move(expr), *CallNotNull(guarantee)));
 
-      if (Identical(simplified, expr)) continue;
+      if (Expression::Identical(simplified, expr)) continue;
 
       expr = std::move(simplified);
       RETURN_NOT_OK(CanonicalizeAndFoldConstants());
