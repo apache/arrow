@@ -2558,13 +2558,14 @@ def test_construct_from_invalid_sources_raise(multisourcefs):
 
 def test_construct_in_memory(dataset_reader):
     batch = pa.RecordBatch.from_arrays([pa.array(range(10))], names=["a"])
+    reader = pa.RecordBatchReader.from_batches(batch.schema, [batch])
     table = pa.Table.from_batches([batch])
 
     dataset_table = ds.dataset([], format='ipc', schema=pa.schema([])
                                ).to_table()
     assert dataset_table == pa.table([])
 
-    for source in (batch, table, [batch], [table]):
+    for source in (batch, table, [batch], [table], reader):
         dataset = ds.dataset(source)
         assert dataset_reader.to_table(dataset) == table
         assert len(list(dataset.get_fragments())) == 1
