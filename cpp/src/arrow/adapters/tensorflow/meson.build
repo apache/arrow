@@ -1,5 +1,3 @@
-# shellcheck shell=bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,14 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-github_actions_group_begin() {
-  echo "::group::$1"
-  echo "::stop-commands::arrow-log-grouping"
-  set -x
-}
+install_headers(['convert.h'], subdir: 'arrow/adapters/tensorflow')
 
-github_actions_group_end() {
-  set +x
-  echo "::arrow-log-grouping::"
-  echo "::endgroup::"
-}
+pkg.generate(
+    filebase: 'arrow-tensorflow',
+    name: 'Apache Arrow Tensorflow',
+    description: 'Tensorflow modules for Apache Arrow',
+    requires: ['arrow'],
+)

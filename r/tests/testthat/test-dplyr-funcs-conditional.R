@@ -491,3 +491,20 @@ test_that("coalesce()", {
     class = "validation_error"
   )
 })
+
+test_that("external objects are found when they're not in the global environment, #46636", {
+  dat <- arrow_table(x = c("a", "b"))
+  pattern <- "a"
+  expect_identical(
+    dat %>%
+      mutate(x2 = case_when(x == pattern ~ "foo")) %>%
+      collect(),
+    tibble(x = c("a", "b"), x2 = c("foo", NA))
+  )
+  expect_identical(
+    dat %>%
+      mutate(x2 = if_else(x == pattern, "foo", NA_character_)) %>%
+      collect(),
+    tibble(x = c("a", "b"), x2 = c("foo", NA))
+  )
+})

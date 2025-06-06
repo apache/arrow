@@ -363,9 +363,8 @@ void TestSession() {
   ExtensionScalar extension_scalar_null{extension_scalar.value, extension_scalar_type,
                                         /*is_valid=*/false};
 
-  std::shared_ptr<Scalar> heap_map_scalar;
-  ARROW_CHECK_OK(ScalarFromJSONString(map(utf8(), int32()), R"([["a", 5], ["b", 6]])",
-                                      &heap_map_scalar));
+  auto heap_map_scalar =
+      *ScalarFromJSONString(map(utf8(), int32()), R"([["a", 5], ["b", 6]])");
   auto heap_map_scalar_null = MakeNullScalar(heap_map_scalar->type);
 
   // Array and ArrayData
@@ -479,13 +478,10 @@ void TestSession() {
       key_value_metadata({"key1", "key2", "key3"}, {"value1", "value2", "value3"}));
 
   // Table
-  ChunkedArrayVector table_columns{2};
-  ARROW_CHECK_OK(
-      ChunkedArrayFromJSONString(int32(), {"[1, 2, 3]", "[4, 5]"}, &table_columns[0]));
-  ARROW_CHECK_OK(ChunkedArrayFromJSONString(
-      utf8(), {R"(["abc", null])", R"(["def"])", R"(["ghi", "jkl"])"},
-      &table_columns[1]));
-  auto table = Table::Make(batch_schema, table_columns);
+  auto col1 = ChunkedArrayFromJSONString(int32(), {"[1, 2, 3]", "[4, 5]"});
+  auto col2 = ChunkedArrayFromJSONString(
+      utf8(), {R"(["abc", null])", R"(["def"])", R"(["ghi", "jkl"])"});
+  auto table = Table::Make(batch_schema, {*col1, *col2});
 
   // Datum
   Datum empty_datum{};

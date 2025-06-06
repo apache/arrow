@@ -675,7 +675,6 @@ test_that("as.factor()/dictionary_encode()", {
 })
 
 test_that("bad explicit type conversions with as.*()", {
-
   # Arrow returns lowercase "true", "false" (instead of "TRUE", "FALSE" like R)
   expect_error(
     compare_dplyr_binding(

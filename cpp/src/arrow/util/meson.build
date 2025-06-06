@@ -246,9 +246,9 @@ if host_machine.system() == 'windows'
     # This manifest enables long file paths on Windows 10+
     # See https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#enable-long-paths-in-windows-10-version-1607-and-later
     if cpp_compiler.get_id() == 'msvc'
-        utility_test_sources += ['io_util_test.manifest']
+        utility_test_srcs += ['io_util_test.manifest']
     else
-        utility_test_sources += ['io_util_test.rc']
+        utility_test_srcs += ['io_util_test.rc']
     endif
 endif
 
