@@ -67,8 +67,25 @@ needs_filesystem = get_option('filesystem').enabled() or needs_azure or needs_gc
 needs_integration = get_option('integration').enabled()
 needs_tests = get_option('tests').enabled()
 needs_acero = get_option('acero').enabled()
-needs_ipc = get_option('ipc').enabled() or needs_tests or needs_acero or needs_benchmarks
+needs_parquet = get_option('parquet').enabled()
+needs_ipc = (get_option('ipc').enabled()
+or needs_tests
+or needs_acero
+or needs_benchmarks
+or needs_parquet
+)
+
 needs_fuzzing = get_option('fuzzing').enabled()
+if needs_fuzzing
+    if meson.version() < '1.8.0'
+        error(
+            ' Meson >= 1.8.0 is required for fuzzing support, found @0@'.format(
+                meson.version(),
+            ),
+        )
+    endif
+endif
+
 needs_testing = (get_option('testing').enabled()
 or needs_tests
 or needs_benchmarks
@@ -85,3 +102,11 @@ needs_zstd = get_option('zstd').enabled()
 needs_utilities = get_option('utilities').enabled()
 
 subdir('src/arrow')
+
+if needs_parquet
+    subdir('src/parquet')
+    subdir('tools/parquet')
+    if get_option('parquet_build_examples').enabled()
+        subdir('examples/parquet')
+    endif
+endif
