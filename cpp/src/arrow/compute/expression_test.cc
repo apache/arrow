@@ -990,7 +990,7 @@ TEST(Expression, ExecuteDictionaryTransparent) {
 void ExpectIdenticalIfUnchanged(Expression modified, Expression original) {
   if (modified == original) {
     // no change -> must be identical
-    EXPECT_TRUE(Identical(modified, original)) << "  " << original.ToString();
+    EXPECT_TRUE(Expression::Identical(modified, original)) << "  " << original.ToString();
   }
 }
 
