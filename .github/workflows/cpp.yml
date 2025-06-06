@@ -375,7 +375,7 @@ jobs:
 
   windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.msystem_upper }} C++
-    runs-on: windows-2019
+    runs-on: windows-2022
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     # Build may take 1h+ without cache.
     timeout-minutes: 120

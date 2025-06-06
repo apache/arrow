@@ -1,8 +1,0 @@
-// TypeScript configuration for the ES2015 CommonJS target's tests
-{
-  "extends": "./tsconfig.base.json",
-  "compilerOptions": {
-    "target": "ESNext",
-    "module": "CommonJS"
-  }
-}

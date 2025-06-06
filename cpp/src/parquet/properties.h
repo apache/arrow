@@ -991,6 +991,7 @@ static constexpr bool kArrowDefaultUseThreads = false;
 static constexpr int64_t kArrowDefaultBatchSize = 64 * 1024;
 
 constexpr inline ::arrow::Type::type kArrowDefaultBinaryType = ::arrow::Type::BINARY;
+constexpr inline ::arrow::Type::type kArrowDefaultListType = ::arrow::Type::LIST;
 
 /// EXPERIMENTAL: Properties for configuring FileReader behavior.
 class PARQUET_EXPORT ArrowReaderProperties {
@@ -1003,6 +1004,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
         cache_options_(::arrow::io::CacheOptions::LazyDefaults()),
         coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO),
         binary_type_(kArrowDefaultBinaryType),
+        list_type_(kArrowDefaultListType),
         arrow_extensions_enabled_(false),
         should_load_statistics_(false) {}
 
@@ -1050,6 +1052,18 @@ class PARQUET_EXPORT ArrowReaderProperties {
   void set_binary_type(::arrow::Type::type value) { binary_type_ = value; }
   /// Return the Arrow binary type to read BYTE_ARRAY columns as.
   ::arrow::Type::type binary_type() const { return binary_type_; }
+
+  /// \brief Set the Arrow list type to read Parquet list columns as.
+  ///
+  /// Allowed values are Type::LIST and Type::LARGE_LIST.
+  /// Default is Type::LIST.
+  ///
+  /// However, if a serialized Arrow schema is found in the Parquet metadata,
+  /// this setting is ignored and the Arrow schema takes precedence
+  /// (see ArrowWriterProperties::store_schema).
+  void set_list_type(::arrow::Type::type value) { list_type_ = value; }
+  /// Return the Arrow list type to read Parquet list columns as.
+  ::arrow::Type::type list_type() const { return list_type_; }
 
   /// \brief Set the maximum number of rows to read into a record batch.
   ///
@@ -1121,6 +1135,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   ::arrow::io::CacheOptions cache_options_;
   ::arrow::TimeUnit::type coerce_int96_timestamp_unit_;
   ::arrow::Type::type binary_type_;
+  ::arrow::Type::type list_type_;
   bool arrow_extensions_enabled_;
   bool should_load_statistics_;
 };

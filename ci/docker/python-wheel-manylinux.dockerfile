@@ -114,7 +114,9 @@ RUN --mount=type=secret,id=github_repository_owner \
       rm -rf ~/.config/NuGet/
 
 # Make sure auditwheel is up-to-date
-RUN pipx upgrade auditwheel
+# Force upgrade version to 6.4.0 or later to ensure platform tags order is correct
+# See https://github.com/apache/arrow/pull/46705
+RUN pipx upgrade auditwheel>=6.4.0
 
 # Configure Python for applications running in the bash shell of this Dockerfile
 ARG python=3.9

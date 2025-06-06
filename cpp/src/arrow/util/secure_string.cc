@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// __STDC_WANT_LIB_EXT1__ and string.h are required by memset_s:
+// https://en.cppreference.com/w/c/string/byte/memset
 #define __STDC_WANT_LIB_EXT1__ 1
 #include <string.h>
 #include <utility>
@@ -29,92 +31,49 @@
 #  include <windows.h>
 #endif
 
+#include "arrow/util/logging.h"
 #include "arrow/util/secure_string.h"
 #include "arrow/util/span.h"
 
 namespace arrow::util {
 
-SecureString::SecureString(SecureString&& secret) noexcept
-    : secret_(std::move(secret.secret_)) {
-  secret.Dispose();
+/// Note:
+/// A std::string is securely moved into a SecureString in two steps:
+/// 1. the std::string is moved via std::move(string)
+/// 2. the std::string is securely cleared
+///
+/// The std::move has two different effects, depending on the size of the string.
+/// A very short string (called local string) stores the string in a local buffer,
+/// a long string stores a pointer to allocated memory that stores the string.
+///
+/// If the string is a small string, std::move copies the local buffer.
+/// If the string is a long string, std::move moves the pointer and then resets the
+/// string size to 0 (which turns the string into a local string).
+///
+/// In both cases, after a std::move(string), the string uses the local buffer.
+///
+/// Thus, after a std::move(string), calling SecureClear(std::string*) only
+/// securely clears the **local buffer** of the string. Therefore, std::move(string)
+/// must move the pointer of long string into SecureString (which later clears the
+/// string). Otherwise, the content of the string cannot be securely cleared.
+///
+/// This condition is checked by SecureMove.
+
+namespace {
+void SecureMove(std::string& string, std::string& dst) {
+  auto ptr = string.data();
+  dst = std::move(string);
+
+  // We require the buffer address string.data() to remain (not be freed) as is,
+  // or to be reused by dst. Otherwise, we cannot securely clear string after std::move
+  ARROW_CHECK(string.data() == ptr || dst.data() == ptr);
 }
-
-SecureString::SecureString(std::string&& secret) noexcept : secret_(std::move(secret)) {
-  SecureClear(&secret);
-}
-
-SecureString::SecureString(size_t n, char c) noexcept : secret_(n, c) {}
-
-SecureString& SecureString::operator=(SecureString&& secret) noexcept {
-  if (this == &secret) {
-    // self-assignment
-    return *this;
-  }
-  Dispose();
-  secret_ = std::move(secret.secret_);
-  secret.Dispose();
-  return *this;
-}
-
-SecureString& SecureString::operator=(const SecureString& secret) {
-  if (this == &secret) {
-    // self-assignment
-    return *this;
-  }
-  Dispose();
-  secret_ = secret.secret_;
-  return *this;
-}
-
-SecureString& SecureString::operator=(std::string&& secret) noexcept {
-  Dispose();
-  // std::string implementation may distinguish between local string (a very short string)
-  // and non-local (longer) strings. The former stores the string in a local buffer, the
-  // latter stores a pointer to allocated memory that stores the string.
-  //
-  // If secret is a local string, copies local buffer, resets size to 0
-  // - requires secure cleaning the local buffer
-  // If secret is longer, moves the pointer to secret_, resets to 0, uses local buffer
-  // - does not require cleaning anything
-  secret_ = std::move(secret);
-  // cleans only the local buffer of secret as this always is a local string by now
-  SecureClear(&secret);
-  return *this;
-}
-
-bool SecureString::operator==(const SecureString& other) const {
-  return secret_ == other.secret_;
-}
-
-bool SecureString::operator!=(const SecureString& other) const {
-  return secret_ != other.secret_;
-}
-
-bool SecureString::empty() const { return secret_.empty(); }
-
-std::size_t SecureString::size() const { return secret_.size(); }
-
-std::size_t SecureString::length() const { return secret_.length(); }
-
-std::size_t SecureString::capacity() const { return secret_.capacity(); }
-
-span<uint8_t> SecureString::as_span() {
-  return {reinterpret_cast<uint8_t*>(secret_.data()), secret_.size()};
-}
-
-span<const uint8_t> SecureString::as_span() const {
-  return {reinterpret_cast<const uint8_t*>(secret_.data()), secret_.size()};
-}
-
-std::string_view SecureString::as_view() const {
-  return {secret_.data(), secret_.size()};
-}
-
-void SecureString::Dispose() { SecureClear(&secret_); }
+}  // namespace
 
 void SecureString::SecureClear(std::string* secret) {
-  secret->clear();
+  // call SecureClear first just in case secret->clear() frees some memory
   SecureClear(reinterpret_cast<uint8_t*>(secret->data()), secret->capacity());
+  secret->clear();
 }
 
 inline void SecureString::SecureClear(uint8_t* data, size_t size) {
@@ -165,5 +124,75 @@ inline void SecureString::SecureClear(uint8_t* data, size_t size) {
 #  endif
 #endif
 }
+
+SecureString::SecureString(SecureString&& other) noexcept {
+  SecureMove(other.secret_, secret_);
+  other.Dispose();
+}
+
+SecureString::SecureString(std::string&& secret) noexcept {
+  SecureMove(secret, secret_);
+  SecureClear(&secret);
+}
+
+SecureString::SecureString(size_t n, char c) noexcept : secret_(n, c) {}
+
+SecureString& SecureString::operator=(SecureString&& other) noexcept {
+  if (this == &other) {
+    // self-assignment
+    return *this;
+  }
+  Dispose();
+  SecureMove(other.secret_, secret_);
+  other.Dispose();
+  return *this;
+}
+
+SecureString& SecureString::operator=(const SecureString& other) {
+  if (this == &other) {
+    // self-assignment
+    return *this;
+  }
+  Dispose();
+  secret_ = other.secret_;
+  return *this;
+}
+
+SecureString& SecureString::operator=(std::string&& secret) noexcept {
+  Dispose();
+  SecureMove(secret, secret_);
+  SecureClear(&secret);
+  return *this;
+}
+
+bool SecureString::operator==(const SecureString& other) const {
+  return secret_ == other.secret_;
+}
+
+bool SecureString::operator!=(const SecureString& other) const {
+  return secret_ != other.secret_;
+}
+
+bool SecureString::empty() const { return secret_.empty(); }
+
+std::size_t SecureString::size() const { return secret_.size(); }
+
+std::size_t SecureString::length() const { return secret_.length(); }
+
+std::size_t SecureString::capacity() const { return secret_.capacity(); }
+
+span<uint8_t> SecureString::as_span() {
+  return {reinterpret_cast<uint8_t*>(secret_.data()), secret_.size()};
+}
+
+span<const uint8_t> SecureString::as_span() const {
+  return {reinterpret_cast<const uint8_t*>(secret_.data()), secret_.size()};
+}
+
+std::string_view SecureString::as_view() const {
+  return {secret_.data(), secret_.size()};
+}
+
+void SecureString::Dispose() { SecureClear(&secret_); }
 
 }  // namespace arrow::util

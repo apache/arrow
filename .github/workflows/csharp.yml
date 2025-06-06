@@ -73,8 +73,8 @@ jobs:
         run: ci/scripts/csharp_test.sh $(pwd)
 
   windows:
-    name: AMD64 Windows 2019 18.04 C# ${{ matrix.dotnet }}
-    runs-on: windows-2019
+    name: AMD64 Windows C# ${{ matrix.dotnet }}
+    runs-on: windows-2022
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     strategy:

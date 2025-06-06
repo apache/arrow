@@ -2641,7 +2641,8 @@ Status SchemaBuilder::AddSchemas(const std::vector<std::shared_ptr<Schema>>& sch
 }
 
 Status SchemaBuilder::AddMetadata(const KeyValueMetadata& metadata) {
-  impl_->metadata_ = metadata.Copy();
+  impl_->metadata_ =
+      impl_->metadata_ ? impl_->metadata_->Merge(metadata) : metadata.Copy();
   return Status::OK();
 }
 

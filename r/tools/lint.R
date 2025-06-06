@@ -23,4 +23,4 @@ if (length(lints) == 0) {
 }
 
 print(lints)
-q("no", status=1)
+q("no", status = 1)

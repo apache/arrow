@@ -450,38 +450,46 @@ Logical types
 Specific logical types can override the default Arrow type mapping for a given
 physical type.
 
-+-------------------+-----------------------------+----------------------------+---------+
-| Logical type      | Physical type               | Mapped Arrow type          | Notes   |
-+===================+=============================+============================+=========+
-| NULL              | Any                         | Null                       | \(1)    |
-+-------------------+-----------------------------+----------------------------+---------+
-| INT               | INT32                       | Int8 / UInt8 / Int16 /     |         |
-|                   |                             | UInt16 / Int32 / UInt32    |         |
-+-------------------+-----------------------------+----------------------------+---------+
-| INT               | INT64                       | Int64 / UInt64             |         |
-+-------------------+-----------------------------+----------------------------+---------+
-| DECIMAL           | INT32 / INT64 / BYTE_ARRAY  | Decimal128 / Decimal256    | \(2)    |
-|                   | / FIXED_LENGTH_BYTE_ARRAY   |                            |         |
-+-------------------+-----------------------------+----------------------------+---------+
-| DATE              | INT32                       | Date32                     | \(3)    |
-+-------------------+-----------------------------+----------------------------+---------+
-| TIME              | INT32                       | Time32 (milliseconds)      |         |
-+-------------------+-----------------------------+----------------------------+---------+
-| TIME              | INT64                       | Time64 (micro- or          |         |
-|                   |                             | nanoseconds)               |         |
-+-------------------+-----------------------------+----------------------------+---------+
-| TIMESTAMP         | INT64                       | Timestamp (milli-, micro-  |         |
-|                   |                             | or nanoseconds)            |         |
-+-------------------+-----------------------------+----------------------------+---------+
-| STRING            | BYTE_ARRAY                  | String / LargeString /     |         |
-|                   |                             | StringView                 |         |
-+-------------------+-----------------------------+----------------------------+---------+
-| LIST              | Any                         | List                       | \(4)    |
-+-------------------+-----------------------------+----------------------------+---------+
-| MAP               | Any                         | Map                        | \(5)    |
-+-------------------+-----------------------------+----------------------------+---------+
-| FLOAT16           | FIXED_LENGTH_BYTE_ARRAY     | HalfFloat                  |         |
-+-------------------+-----------------------------+----------------------------+---------+
++-------------------+-----------------------------+------------------------------+-----------+
+| Logical type      | Physical type               | Mapped Arrow type            | Notes     |
++===================+=============================+==============================+===========+
+| NULL              | Any                         | Null                         | \(1)      |
++-------------------+-----------------------------+------------------------------+-----------+
+| INT               | INT32                       | Int8 / UInt8 / Int16 /       |           |
+|                   |                             | UInt16 / Int32 / UInt32      |           |
++-------------------+-----------------------------+------------------------------+-----------+
+| INT               | INT64                       | Int64 / UInt64               |           |
++-------------------+-----------------------------+------------------------------+-----------+
+| DECIMAL           | INT32 / INT64 / BYTE_ARRAY  | Decimal128 / Decimal256      | \(2)      |
+|                   | / FIXED_LENGTH_BYTE_ARRAY   |                              |           |
++-------------------+-----------------------------+------------------------------+-----------+
+| DATE              | INT32                       | Date32                       | \(3)      |
++-------------------+-----------------------------+------------------------------+-----------+
+| TIME              | INT32                       | Time32 (milliseconds)        |           |
++-------------------+-----------------------------+------------------------------+-----------+
+| TIME              | INT64                       | Time64 (micro- or            |           |
+|                   |                             | nanoseconds)                 |           |
++-------------------+-----------------------------+------------------------------+-----------+
+| TIMESTAMP         | INT64                       | Timestamp (milli-, micro-    |           |
+|                   |                             | or nanoseconds)              |           |
++-------------------+-----------------------------+------------------------------+-----------+
+| STRING            | BYTE_ARRAY                  | String / LargeString /       |           |
+|                   |                             | StringView                   |           |
++-------------------+-----------------------------+------------------------------+-----------+
+| LIST              | Any                         | List                         | \(4)      |
++-------------------+-----------------------------+------------------------------+-----------+
+| MAP               | Any                         | Map                          | \(5)      |
++-------------------+-----------------------------+------------------------------+-----------+
+| FLOAT16           | FIXED_LENGTH_BYTE_ARRAY     | HalfFloat                    |           |
++-------------------+-----------------------------+------------------------------+-----------+
+| UUID              | FIXED_LENGTH_BYTE_ARRAY     | Extension (``arrow.uuid``)   | \(6)      |
++-------------------+-----------------------------+------------------------------+-----------+
+| JSON              | BYTE_ARRAY                  | Extension (``arrow.json``)   | \(6)      |
++-------------------+-----------------------------+------------------------------+-----------+
+| GEOMETRY          | BYTE_ARRAY                  | Extension (``geoarrow.wkb``) | \(6) \(7) |
++-------------------+-----------------------------+------------------------------+-----------+
+| GEOGRAPHY         | BYTE_ARRAY                  | Extension (``geoarrow.wkb``) | \(6) \(7) |
++-------------------+-----------------------------+------------------------------+-----------+
 
 * \(1) On the write side, the Parquet physical type INT32 is generated.
 
@@ -496,9 +504,14 @@ physical type.
   in contradiction with the
   `Parquet specification <https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#maps>`__.
 
-*Unsupported logical types:* JSON, BSON, UUID.  If such a type is encountered
+* \(6) Requires that ``arrow_extensions_enabled`` in ``ArrowReaderProperties`` is ``true``.
+  When ``false``, the underlying storage type is read.
+
+* \(7) Requires that the ``geoarrow.wkb`` extension type is registered.
+
+*Unsupported logical types:* BSON.  If such a type is encountered
 when reading a Parquet file, the default physical type mapping is used (for
-example, a Parquet JSON column may be read as Arrow Binary or FixedSizeBinary).
+example, a Parquet BSON column may be read as Arrow Binary or FixedSizeBinary).
 
 Converted types
 ~~~~~~~~~~~~~~~
@@ -513,7 +526,10 @@ Special cases
 
 An Arrow Extension type is written out as its storage type.  It can still
 be recreated at read time using Parquet metadata (see "Roundtripping Arrow
-types" below).
+types" below). Some extension types have Parquet LogicalType equivalents
+(e.g., UUID, JSON, GEOMETRY, GEOGRAPHY). These are created automatically
+if the appropriate option is set in the ``ArrowReaderProperties`` even if
+there was no Arrow schema stored in the Parquet metadata.
 
 An Arrow Dictionary type is written out as its value type.  It can still
 be recreated at read time using Parquet metadata (see "Roundtripping Arrow

@@ -388,7 +388,7 @@ cdef class HalfFloatScalar(Scalar):
             This parameter is ignored for non-nested Scalars.
         """
         cdef CHalfFloatScalar* sp = <CHalfFloatScalar*> self.wrapped.get()
-        return PyHalf_FromHalf(sp.value) if sp.is_valid else None
+        return PyFloat_FromHalf(sp.value) if sp.is_valid else None
 
 
 cdef class FloatScalar(Scalar):

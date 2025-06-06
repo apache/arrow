@@ -42,6 +42,7 @@ import pyarrow.compute as pc
     (1, pa.uint32(), pa.UInt32Scalar),
     (1, pa.int64(), pa.Int64Scalar),
     (1, pa.uint64(), pa.UInt64Scalar),
+    (1.0, pa.float16(), pa.HalfFloatScalar),
     (1.0, None, pa.DoubleScalar),
     (1.0, pa.float32(), pa.FloatScalar),
     (decimal.Decimal("1.123"), None, pa.Decimal128Scalar),
@@ -238,15 +239,12 @@ def test_numerics():
     assert str(s) == "1.5"
     assert s.as_py() == 1.5
 
-    if np is not None:
-        # float16
-        s = pa.scalar(np.float16(0.5), type='float16')
-        assert isinstance(s, pa.HalfFloatScalar)
-        # on numpy2 repr(np.float16(0.5)) == "np.float16(0.5)"
-        # on numpy1 repr(np.float16(0.5)) == "0.5"
-        assert repr(s) == f"<pyarrow.HalfFloatScalar: {np.float16(0.5)!r}>"
-        assert str(s) == "0.5"
-        assert s.as_py() == 0.5
+    # float16
+    s = pa.scalar(0.5, type='float16')
+    assert isinstance(s, pa.HalfFloatScalar)
+    assert repr(s) == "<pyarrow.HalfFloatScalar: 0.5>"
+    assert str(s) == "0.5"
+    assert s.as_py() == 0.5
 
 
 def test_decimal128():
