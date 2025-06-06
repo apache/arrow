@@ -167,7 +167,6 @@ install_headers(
         'thread_pool.h',
         'time.h',
         'tracing.h',
-        'trie.h',
         'type_fwd.h',
         'type_traits.h',
         'ubsan.h',
