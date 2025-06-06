@@ -52,6 +52,13 @@ option(
 )
 
 option('json', type: 'feature', description: 'Build Arrow with JSON support')
+
+option(
+    'flight',
+    type: 'feature',
+    description: 'Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)',
+)
+
 option('git_id', type: 'string')
 option('git_description', type: 'string')
 
