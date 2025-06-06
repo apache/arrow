@@ -15,23 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 #include "arrow/compute/initialize.h"
-#include "arrow/compute/registry.h"
 
-#include <algorithm>
-#include <memory>
-#include <mutex>
-#include <unordered_map>
-#include <utility>
-
-#include "arrow/compute/function.h"
-#include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry_internal.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/status.h"
-#include "arrow/util/config.h"  // For ARROW_COMPUTE
-#include "arrow/util/logging.h"
 
 namespace arrow::compute {
-namespace internal {
+namespace {
 
 Status RegisterComputeKernels() {
   auto registry = GetFunctionRegistry();
@@ -80,10 +70,10 @@ Status RegisterComputeKernels() {
   return Status::OK();
 }
 
-}  // namespace internal
+}  // namespace
 
 Status Initialize() {
-  static auto st = internal::RegisterComputeKernels();
+  static auto st = RegisterComputeKernels();
   return st;
 }
 
