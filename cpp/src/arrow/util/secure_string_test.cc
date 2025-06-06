@@ -31,21 +31,21 @@ std::string_view StringArea(const std::string& string) {
 #define COMPARE(val1, val2) \
   ::testing::internal::EqHelper::Compare(#val1, #val2, val1, val2)
 
-::testing::AssertionResult AssertSecurelyCleared(const std::string_view& area) {
+::testing::AssertionResult IsSecurelyCleared(const std::string_view& area) {
   // the entire area is filled with zeros
   std::string zeros(area.size(), '\0');
   return COMPARE(area, std::string_view(zeros));
 }
 
-::testing::AssertionResult AssertSecurelyCleared(const std::string& string) {
-  return AssertSecurelyCleared(StringArea(string));
+::testing::AssertionResult IsSecurelyCleared(const std::string& string) {
+  return IsSecurelyCleared(StringArea(string));
 }
 
 /**
  * Checks the area has been securely cleared after some position.
  */
-::testing::AssertionResult AssertSecurelyCleared(const std::string_view& area,
-                                                 const size_t pos) {
+::testing::AssertionResult IsSecurelyCleared(const std::string_view& area,
+                                             const size_t pos) {
   // the area after pos is filled with zeros
   if (pos < area.size()) {
     std::string zeros(area.size() - pos, '\0');
@@ -62,8 +62,8 @@ std::string_view StringArea(const std::string& string) {
  * at the right position, this will be false negative / flaky. Therefore, we check for
  * three consecutive secret characters before we fail.
  */
-::testing::AssertionResult AssertSecurelyCleared(const std::string_view& area,
-                                                 const std::string& secret_value) {
+::testing::AssertionResult IsSecurelyCleared(const std::string_view& area,
+                                             const std::string& secret_value) {
 #if defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER)
   return testing::AssertionSuccess() << "Not checking deallocated memory";
 #else
@@ -97,24 +97,24 @@ TEST(TestSecureString, AssertSecurelyCleared) {
   short_zeros.resize(short_zeros.capacity(), '\0');  // for string buffers longer than 8
   short_zeros.resize(8);  // now the entire string buffer has zeros
   // checks the entire string buffer (capacity)
-  ASSERT_TRUE(AssertSecurelyCleared(short_zeros));
+  ASSERT_TRUE(IsSecurelyCleared(short_zeros));
   // checks only 10 bytes (length)
-  ASSERT_TRUE(AssertSecurelyCleared(std::string_view(short_zeros)));
+  ASSERT_TRUE(IsSecurelyCleared(std::string_view(short_zeros)));
 
   // check long string with all zeros
   auto long_zeros = std::string(1000, '\0');
   long_zeros.resize(long_zeros.capacity(), '\0');  // for longer string buffers
   long_zeros.resize(1000);  // now the entire string buffer has zeros
   // checks the entire string buffer (capacity)
-  ASSERT_TRUE(AssertSecurelyCleared(long_zeros));
+  ASSERT_TRUE(IsSecurelyCleared(long_zeros));
   // checks only 1000 bytes (length)
-  ASSERT_TRUE(AssertSecurelyCleared(std::string_view(long_zeros)));
+  ASSERT_TRUE(IsSecurelyCleared(std::string_view(long_zeros)));
 
   auto no_zeros = std::string("abcdefghijklmnopqrstuvwxyz");
   // string buffer in no_zeros can be larger than no_zeros.length()
   // assert only the area that we can control
   auto no_zeros_view = std::string_view(no_zeros);
-  result = AssertSecurelyCleared(no_zeros_view);
+  result = IsSecurelyCleared(no_zeros_view);
   ASSERT_FALSE(result);
   ASSERT_EQ(std::string(result.message()),
             "Expected equality of these values:\n"
@@ -133,7 +133,7 @@ TEST(TestSecureString, AssertSecurelyCleared) {
   // string buffer in short_some_zeros can be larger than 12
   // assert only the area that we can control
   auto short_some_zeros_view = std::string_view(short_some_zeros.data(), 12);
-  result = AssertSecurelyCleared(short_some_zeros_view);
+  result = IsSecurelyCleared(short_some_zeros_view);
   ASSERT_FALSE(result);
   ASSERT_EQ(std::string(result.message()),
             "Expected equality of these values:\n"
@@ -142,9 +142,9 @@ TEST(TestSecureString, AssertSecurelyCleared) {
             "  std::string_view(zeros)\n"
             "    Which is: \"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\"");
 
-  ASSERT_TRUE(AssertSecurelyCleared(short_some_zeros, stars));
+  ASSERT_TRUE(IsSecurelyCleared(short_some_zeros, stars));
 #if !defined(ARROW_VALGRIND) && !defined(ADDRESS_SANITIZER)
-  result = AssertSecurelyCleared(short_some_zeros_view, stars);
+  result = IsSecurelyCleared(short_some_zeros_view, stars);
   ASSERT_FALSE(result);
   ASSERT_EQ(std::string(result.message()),
             "3 characters of secret leaked into "
@@ -159,7 +159,7 @@ TEST(TestSecureString, AssertSecurelyCleared) {
   // string buffer in long_some_zeros can be larger than 42
   // assert only the area that we can control
   auto long_some_zeros_view = std::string_view(long_some_zeros.data(), 42);
-  result = AssertSecurelyCleared(long_some_zeros_view);
+  result = IsSecurelyCleared(long_some_zeros_view);
   ASSERT_FALSE(result);
   ASSERT_EQ(std::string(result.message()),
             "Expected equality of these values:\n"
@@ -172,9 +172,9 @@ TEST(TestSecureString, AssertSecurelyCleared) {
             "\"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\"
             "0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\"");
 
-  ASSERT_TRUE(AssertSecurelyCleared(long_some_zeros, stars));
+  ASSERT_TRUE(IsSecurelyCleared(long_some_zeros, stars));
 #if !defined(ARROW_VALGRIND) && !defined(ADDRESS_SANITIZER)
-  result = AssertSecurelyCleared(long_some_zeros_view, stars);
+  result = IsSecurelyCleared(long_some_zeros_view, stars);
   ASSERT_FALSE(result);
   ASSERT_EQ(std::string(result.message()),
             "9 characters of secret leaked into "
@@ -190,7 +190,7 @@ TEST(TestSecureString, AssertSecurelyCleared) {
   // assert only the area that we can control
   auto some_zeros_back_view =
       std::string_view(some_zeros_back.data(), no_zeros.length() + 3);
-  ASSERT_TRUE(AssertSecurelyCleared(some_zeros_back_view, no_zeros.length()));
+  ASSERT_TRUE(IsSecurelyCleared(some_zeros_back_view, no_zeros.length()));
 }
 
 TEST(TestSecureString, SecureClearString) {
@@ -199,8 +199,8 @@ TEST(TestSecureString, SecureClearString) {
     std::string tiny("abc");
     auto old_area = StringArea(tiny);
     SecureString::SecureClear(&tiny);
-    ASSERT_TRUE(AssertSecurelyCleared(tiny));
-    ASSERT_TRUE(AssertSecurelyCleared(old_area));
+    ASSERT_TRUE(IsSecurelyCleared(tiny));
+    ASSERT_TRUE(IsSecurelyCleared(old_area));
   }
 
   // long string
@@ -209,8 +209,8 @@ TEST(TestSecureString, SecureClearString) {
     large.resize(512, 'y');
     auto old_area = StringArea(large);
     SecureString::SecureClear(&large);
-    ASSERT_TRUE(AssertSecurelyCleared(large));
-    ASSERT_TRUE(AssertSecurelyCleared(old_area));
+    ASSERT_TRUE(IsSecurelyCleared(large));
+    ASSERT_TRUE(IsSecurelyCleared(old_area));
   }
 
   // empty string
@@ -221,8 +221,8 @@ TEST(TestSecureString, SecureClearString) {
     empty.resize(0);
     auto old_area = StringArea(empty);
     SecureString::SecureClear(&empty);
-    ASSERT_TRUE(AssertSecurelyCleared(empty));
-    ASSERT_TRUE(AssertSecurelyCleared(old_area));
+    ASSERT_TRUE(IsSecurelyCleared(empty));
+    ASSERT_TRUE(IsSecurelyCleared(old_area));
   }
 }
 
@@ -231,25 +231,24 @@ TEST(TestSecureString, Construct) {
   std::string string("hello world");
   auto old_string = StringArea(string);
   SecureString secret_from_string(std::move(string));
-  ASSERT_TRUE(AssertSecurelyCleared(string));
-  ASSERT_TRUE(AssertSecurelyCleared(old_string));
+  ASSERT_TRUE(IsSecurelyCleared(string));
+  ASSERT_TRUE(IsSecurelyCleared(old_string));
   ASSERT_FALSE(secret_from_string.empty());
+  ASSERT_EQ(secret_from_string.as_view(), "hello world");
 
   // move-constructing from a secure string securely clears that secure string
   auto old_secret_from_string_view = secret_from_string.as_view();
   auto old_secret_from_string_value = std::string(secret_from_string.as_view());
   SecureString secret_from_move_secret(std::move(secret_from_string));
   ASSERT_TRUE(secret_from_string.empty());
-  ASSERT_TRUE(AssertSecurelyCleared(old_secret_from_string_view));
+  ASSERT_TRUE(IsSecurelyCleared(old_secret_from_string_view));
   ASSERT_FALSE(secret_from_move_secret.empty());
-  ASSERT_EQ(secret_from_move_secret.as_view(),
-            std::string_view(old_secret_from_string_value));
+  ASSERT_EQ(secret_from_move_secret.as_view(), old_secret_from_string_value);
 
   // copy-constructing from a secure string does not modify that secure string
   SecureString secret_from_secret(secret_from_move_secret);
   ASSERT_FALSE(secret_from_move_secret.empty());
-  ASSERT_EQ(secret_from_move_secret.as_view(),
-            std::string_view(old_secret_from_string_value));
+  ASSERT_EQ(secret_from_move_secret.as_view(), old_secret_from_string_value);
   ASSERT_FALSE(secret_from_secret.empty());
   ASSERT_EQ(secret_from_secret, secret_from_move_secret);
 }
@@ -295,25 +294,25 @@ TEST(TestSecureString, Assign) {
 
         ASSERT_FALSE(string.empty());
         ASSERT_TRUE(string_copy.empty());
-        ASSERT_TRUE(AssertSecurelyCleared(string_copy));
+        ASSERT_TRUE(IsSecurelyCleared(string_copy));
         auto secret_from_string_view = secret_from_string.as_view();
         // the secure string can reuse the string_copy's string buffer after assignment
         // then, string_copy's string buffer is obviously not cleared
         if (secret_from_string_view.data() != old_string_copy_area.data()) {
-          ASSERT_TRUE(AssertSecurelyCleared(old_string_copy_area, string));
+          ASSERT_TRUE(IsSecurelyCleared(old_string_copy_area, string));
         }
         ASSERT_FALSE(secret_from_string.empty());
         ASSERT_EQ(secret_from_string.size(), string.size());
         ASSERT_EQ(secret_from_string.length(), string.length());
-        ASSERT_EQ(secret_from_string_view, std::string_view(string));
+        ASSERT_EQ(secret_from_string_view, string);
         if (secret_from_string_view.data() == old_secret_from_string_area.data()) {
           // when secure string reuses the buffer, the old value must be cleared
-          ASSERT_TRUE(AssertSecurelyCleared(old_secret_from_string_area,
-                                            secret_from_string.size()));
+          ASSERT_TRUE(
+              IsSecurelyCleared(old_secret_from_string_area, secret_from_string.size()));
         } else {
           // when secure string has a new buffer, the old buffer must be cleared
-          ASSERT_TRUE(AssertSecurelyCleared(old_secret_from_string_area,
-                                            old_secret_from_string_value));
+          ASSERT_TRUE(IsSecurelyCleared(old_secret_from_string_area,
+                                        old_secret_from_string_value));
         }
       }
     }
@@ -344,22 +343,22 @@ TEST(TestSecureString, Assign) {
         // the secure string can reuse the string_copy's string buffer after assignment
         // then, string_copy's string buffer is obviously not cleared
         if (old_secret_string_area.data() != secret_from_move_secret_view.data()) {
-          ASSERT_TRUE(AssertSecurelyCleared(old_secret_string_area,
-                                            old_secret_from_move_secret_value));
+          ASSERT_TRUE(IsSecurelyCleared(old_secret_string_area,
+                                        old_secret_from_move_secret_value));
         }
         ASSERT_FALSE(secret_from_move_secret.empty());
         ASSERT_EQ(secret_from_move_secret.size(), string.size());
         ASSERT_EQ(secret_from_move_secret.length(), string.length());
-        ASSERT_EQ(secret_from_move_secret_view, std::string_view(string));
+        ASSERT_EQ(secret_from_move_secret_view, string);
         if (old_secret_from_move_secret_area.data() ==
             secret_from_move_secret_view.data()) {
           // when secure string reuses the buffer, the old value must be cleared
-          ASSERT_TRUE(AssertSecurelyCleared(old_secret_from_move_secret_area,
-                                            secret_from_move_secret.size()));
+          ASSERT_TRUE(IsSecurelyCleared(old_secret_from_move_secret_area,
+                                        secret_from_move_secret.size()));
         } else {
           // when secure string has a new buffer, the old buffer must be cleared
-          ASSERT_TRUE(AssertSecurelyCleared(old_secret_from_move_secret_area,
-                                            old_secret_from_move_secret_value));
+          ASSERT_TRUE(IsSecurelyCleared(old_secret_from_move_secret_area,
+                                        old_secret_from_move_secret_value));
         }
       }
     }
@@ -387,16 +386,16 @@ TEST(TestSecureString, Assign) {
         ASSERT_FALSE(secret_from_copy_secret.empty());
         ASSERT_EQ(secret_from_copy_secret.size(), string.size());
         ASSERT_EQ(secret_from_copy_secret.length(), string.length());
-        ASSERT_EQ(secret_from_copy_secret.as_view(), std::string_view(string));
+        ASSERT_EQ(secret_from_copy_secret.as_view(), string);
         if (old_secret_from_copy_secret_area.data() ==
             secret_from_copy_secret.as_view().data()) {
           // when secure string reuses the buffer, the old value must be cleared
-          ASSERT_TRUE(AssertSecurelyCleared(old_secret_from_copy_secret_area,
-                                            secret_from_copy_secret.size()));
+          ASSERT_TRUE(IsSecurelyCleared(old_secret_from_copy_secret_area,
+                                        secret_from_copy_secret.size()));
         } else {
           // when secure string has a new buffer, the old buffer must be cleared
-          ASSERT_TRUE(AssertSecurelyCleared(old_secret_from_copy_secret_area,
-                                            old_secret_from_copy_secret_value));
+          ASSERT_TRUE(IsSecurelyCleared(old_secret_from_copy_secret_area,
+                                        old_secret_from_copy_secret_value));
         }
       }
     }
@@ -422,9 +421,9 @@ TEST(TestSecureString, Deconstruct) {
       // deconstruct secret on leaving this context
     }
     // assert secret memory is cleared on deconstruction
-    ASSERT_TRUE(AssertSecurelyCleared(view, old_string_value));
+    ASSERT_TRUE(IsSecurelyCleared(view, old_string_value));
     // so is the string (tested more thoroughly elsewhere)
-    ASSERT_TRUE(AssertSecurelyCleared(string));
+    ASSERT_TRUE(IsSecurelyCleared(string));
   }
 #endif
 }
