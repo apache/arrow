@@ -659,12 +659,7 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
   }
 
   Result<std::pair<int32_t, int32_t>> AppendBlock(const uint8_t* value,
-                                                  const int64_t length) {
-    ARROW_CHECK_GT(length, TypeClass::kInlineSize);
-    ARROW_ASSIGN_OR_RAISE(auto v,
-                          data_heap_builder_.Append</*Safe=*/true>(value, length));
-    return std::pair{v.ref.buffer_index, v.ref.offset};
-  }
+                                                  const int64_t length);
 
   Result<std::pair<int32_t, int32_t>> AppendBlock(const char* value,
                                                   const int64_t length) {
