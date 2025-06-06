@@ -1525,6 +1525,7 @@ bool TypeEquals(const DataType& left, const DataType& right, bool check_metadata
     return visitor.result();
   }
 }
+
 namespace {
 
 bool DoubleEquals(const double& left, const double& right, const EqualOptions& options) {
