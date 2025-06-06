@@ -80,7 +80,7 @@ class MockFlightSqlServerAuthHandler : public ServerAuthHandler {
 
 class MockFlightSqlServer : public FlightSQLODBCTestBase {
  public:
-  void connectToMock();
+  void connect();
   // -AL- let's start by getting a mock server, not sure if I need all these.
   // public:
   //  std::unique_ptr<FlightSqlClient> sql_client;
@@ -104,6 +104,22 @@ class MockFlightSqlServer : public FlightSQLODBCTestBase {
  private:
   std::shared_ptr<arrow::flight::sql::example::SQLiteFlightSqlServer> server;
 };
+
+template <typename T>
+class MyFixture : public T {
+ public:
+  using List = std::list<T>;
+};
+
+// -AL- idea: (not checked if works with gtest) I could define TestTypes differently
+// depending on whether GetEnvVar(TEST_CONNECT_STR) is empty
+using TestTypes = ::testing::Types<MockFlightSqlServer, FlightSQLODBCTestBase>;
+//bool useboth = true;
+//using TestTypes = useboth ? ::testing::Types<MockFlightSqlServer, FlightSQLODBCTestBase>
+//                          : ::testing::Types<MockFlightSqlServer, FlightSQLODBCTestBase>
+//                                TYPED_TEST_SUITE(MyFixture, TestTypes);
+
+TYPED_TEST_SUITE(MyFixture, TestTypes);
 
 /** ODBC read buffer size. */
 enum { ODBC_BUFFER_SIZE = 1024 };

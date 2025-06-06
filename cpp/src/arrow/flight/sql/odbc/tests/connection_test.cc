@@ -1002,7 +1002,7 @@ TEST(SQLGetDiagRec, TestSQLGetDiagRecForConnectFailure) {
 
 TEST_F(MockFlightSqlServer, TestConnectToMock) {
   // -AL- have 1 test that connects to the mock suite.
-  connectToMock();
+  connect();
   disconnect();
 }
 
@@ -1053,6 +1053,12 @@ TEST_F(MockFlightSqlServer, TestConnectToMockFail) {
   ret = SQLFreeHandle(SQL_HANDLE_ENV, env);
 
   EXPECT_TRUE(ret == SQL_SUCCESS);
+}
+
+TYPED_TEST(MyFixture, TestConnectToMock) {
+  // -AL- have 1 test that connects to the mock suite.
+  connect();
+  disconnect();
 }
 
 }  // namespace integration_tests

@@ -118,7 +118,7 @@ Status MockFlightSqlServerAuthHandler::IsValid(const ServerCallContext& context,
   return Status::OK();
 }
 
-void MockFlightSqlServer::connectToMock() {
+void MockFlightSqlServer::connect() {
   std::string connect_str(
       "driver={Apache Arrow Flight SQL ODBC Driver};HOST=localhost;port=" +
       std::to_string(port) + ";token=t0k3n;useEncryption=false;");
