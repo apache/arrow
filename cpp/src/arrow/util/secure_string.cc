@@ -70,6 +70,12 @@ void SecureMove(std::string& string, std::string& dst) {
 }
 }  // namespace
 
+void SecureString::SecureClear(std::string* secret) {
+  // call SecureClear first just in case secret->clear() frees some memory
+  SecureClear(reinterpret_cast<uint8_t*>(secret->data()), secret->capacity());
+  secret->clear();
+}
+
 inline void SecureString::SecureClear(uint8_t* data, size_t size) {
   // There is various prior art for this:
   // https://www.cryptologie.net/article/419/zeroing-memory-compiler-optimizations-and-memset_s/
@@ -188,11 +194,5 @@ std::string_view SecureString::as_view() const {
 }
 
 void SecureString::Dispose() { SecureClear(&secret_); }
-
-void SecureString::SecureClear(std::string* secret) {
-  // call SecureClear first just in case secret->clear() frees some memory
-  SecureClear(reinterpret_cast<uint8_t*>(secret->data()), secret->capacity());
-  secret->clear();
-}
 
 }  // namespace arrow::util
