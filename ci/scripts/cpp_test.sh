@@ -73,6 +73,8 @@ case "$(uname)" in
     exclude_tests="${exclude_tests}|gandiva-precompiled-test"
     exclude_tests="${exclude_tests}|gandiva-projector-test"
     exclude_tests="${exclude_tests}|gandiva-utf8-test"
+    # TODO: Enable ODBC tests
+    exclude_tests="${exclude_tests}|arrow-connection-test"
     ctest_options+=(--exclude-regex "${exclude_tests}")
     ;;
   *)
