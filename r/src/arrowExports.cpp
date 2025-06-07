@@ -1350,6 +1350,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute.cpp
+void compute__Initialize();
+extern "C" SEXP _arrow_compute__Initialize(){
+BEGIN_CPP11
+	compute__Initialize();
+	return R_NilValue;
+END_CPP11
+}
+// compute.cpp
 void RegisterScalarUDF(std::string name, cpp11::list func_sexp);
 extern "C" SEXP _arrow_RegisterScalarUDF(SEXP name_sexp, SEXP func_sexp_sexp){
 BEGIN_CPP11
@@ -5805,6 +5813,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
 		{ "_arrow_compute__GetFunctionNames", (DL_FUNC) &_arrow_compute__GetFunctionNames, 0}, 
+		{ "_arrow_compute__Initialize", (DL_FUNC) &_arrow_compute__Initialize, 0}, 
 		{ "_arrow_RegisterScalarUDF", (DL_FUNC) &_arrow_RegisterScalarUDF, 2}, 
 		{ "_arrow_build_info", (DL_FUNC) &_arrow_build_info, 0}, 
 		{ "_arrow_runtime_info", (DL_FUNC) &_arrow_runtime_info, 0}, 
@@ -6223,6 +6232,9 @@ extern "C" void R_init_arrow(DllInfo* dll){
   arrow::r::altrep::Init_Altrep_classes(dll);
   #endif
 
+  #if ARROW_VERSION_MAJOR >= 21
+  _arrow_compute__Initialize();
+  #endif
 }
 
 

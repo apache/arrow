@@ -49,6 +49,9 @@ arrow::Status RunMain() {
 
   schema = arrow::schema({field_a, field_b});
 
+  // Initialize the compute module to register the required compute kernels.
+  ARROW_RETURN_NOT_OK(arrow::compute::Initialize());
+
   std::shared_ptr<arrow::Table> table;
   table = arrow::Table::Make(schema, {some_nums, more_nums}, 5);
   // (Doc section: Create Tables)

@@ -36,6 +36,7 @@
 
 #include <arrow/acero/exec_plan.h>
 #include <arrow/acero/options.h>
+#include <arrow/compute/api.h>
 
 template <typename ArrowType, typename GArrowArrayType>
 typename ArrowType::c_type
@@ -160,6 +161,9 @@ G_BEGIN_DECLS
  * @title: Computation on data
  * @include: arrow-glib/arrow-glib.h
  *
+ * You must call garrow_compute_initialize() explicitly before you use
+ * computation related features.
+ *
  * #GArrowExecuteContext is a class to customize how to execute a
  * function.
  *
@@ -249,6 +253,25 @@ G_BEGIN_DECLS
  *
  * There are many functions to compute data on an array.
  */
+
+/**
+ * garrow_compute_initialize:
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * You must call this explicitly before you use computation related
+ * features.
+ *
+ * Returns: %TRUE if initializing the compute module completed successfully,
+ *   %FALSE otherwise.
+ *
+ * Since: 21.0.0
+ */
+gboolean
+garrow_compute_initialize(GError **error)
+{
+  auto status = arrow::compute::Initialize();
+  return garrow::check(error, status, "[compute][initialize]");
+}
 
 typedef struct GArrowExecuteContextPrivate_
 {

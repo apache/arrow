@@ -2228,6 +2228,8 @@ cdef extern from "arrow/util/thread_pool.h" namespace "arrow::internal" nogil:
 
 cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
+    CStatus InitializeCompute " arrow::compute::Initialize"()
+
     cdef cppclass CExecBatch "arrow::compute::ExecBatch":
         vector[CDatum] values
         int64_t length

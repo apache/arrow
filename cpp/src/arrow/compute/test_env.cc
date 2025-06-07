@@ -15,13 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+#include <gtest/gtest.h>
 
-namespace arrow {
-namespace compute {
+#include "arrow/compute/initialize.h"
+#include "arrow/testing/gtest_util.h"
 
-ARROW_COMPUTE_EXPORT Result<std::unique_ptr<RowSegmenter>> MakeAnyKeysSegmenter(
-    const std::vector<TypeHolder>& key_types, ExecContext* ctx);
+namespace arrow::compute {
 
-}  // namespace compute
-}  // namespace arrow
+namespace {
+
+class ComputeKernelEnvironment : public ::testing::Environment {
+ public:
+  // This must be done before using the compute kernels in order to
+  // register them to the FunctionRegistry.
+  ComputeKernelEnvironment() : ::testing::Environment() {}
+
+  void SetUp() override { ASSERT_OK(arrow::compute::Initialize()); }
+};
+
+}  // namespace
+
+// Initialize the compute module
+::testing::Environment* compute_kernels_env =
+    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
+
+}  // namespace arrow::compute

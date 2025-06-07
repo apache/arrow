@@ -40,6 +40,10 @@ except ImportError:
 import warnings
 
 
+# Call to initialize the compute module (register kernels) on import
+check_status(InitializeCompute())
+
+
 __pas = None
 _substrait_msg = (
     "The pyarrow installation is not built with support for Substrait."
