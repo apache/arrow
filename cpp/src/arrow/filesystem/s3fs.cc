@@ -1108,91 +1108,103 @@ class EndpointProviderCache {
 
 class ClientBuilder {
  public:
-  explicit ClientBuilder(S3Options options) : options_(std::move(options)) {}
+  explicit ClientBuilder(S3Options options) : options_(std::move(options)) {
+    // The ClientConfiguration constructor always does a current region lookup
+    // via EC2 metadata, unless IMDS is disabled (GH-46214).
+    client_config_.emplace(/*useSmartDefaults=*/true, options_.smart_defaults,
+                           /*shouldDisableIMDS=*/true);
+  }
 
-  const Aws::Client::ClientConfiguration& config() const { return client_config_; }
+  const Aws::Client::ClientConfiguration& config() const {
+    DCHECK(client_config_.has_value());
+    return *client_config_;
+  }
 
-  Aws::Client::ClientConfiguration* mutable_config() { return &client_config_; }
+  Aws::Client::ClientConfiguration* mutable_config() {
+    DCHECK(client_config_.has_value());
+    return &*client_config_;
+  }
 
   Result<std::shared_ptr<S3ClientHolder>> BuildClient(
       std::optional<io::IOContext> io_context = std::nullopt) {
     credentials_provider_ = options_.credentials_provider;
     if (!options_.region.empty()) {
-      client_config_.region = ToAwsString(options_.region);
+      client_config_->region = ToAwsString(options_.region);
     }
     if (options_.request_timeout > 0) {
       // Use ceil() to avoid setting it to 0 as that probably means no timeout.
-      client_config_.requestTimeoutMs =
+      client_config_->requestTimeoutMs =
           static_cast<long>(ceil(options_.request_timeout * 1000));  // NOLINT runtime/int
     }
     if (options_.connect_timeout > 0) {
-      client_config_.connectTimeoutMs =
+      client_config_->connectTimeoutMs =
           static_cast<long>(ceil(options_.connect_timeout * 1000));  // NOLINT runtime/int
     }
 
-    client_config_.endpointOverride = ToAwsString(options_.endpoint_override);
+    client_config_->endpointOverride = ToAwsString(options_.endpoint_override);
     if (options_.scheme == "http") {
-      client_config_.scheme = Aws::Http::Scheme::HTTP;
+      client_config_->scheme = Aws::Http::Scheme::HTTP;
     } else if (options_.scheme == "https") {
-      client_config_.scheme = Aws::Http::Scheme::HTTPS;
+      client_config_->scheme = Aws::Http::Scheme::HTTPS;
     } else {
       return Status::Invalid("Invalid S3 connection scheme '", options_.scheme, "'");
     }
     if (options_.retry_strategy) {
-      client_config_.retryStrategy =
+      client_config_->retryStrategy =
           std::make_shared<WrappedRetryStrategy>(options_.retry_strategy);
     } else {
-      client_config_.retryStrategy = std::make_shared<ConnectRetryStrategy>();
+      client_config_->retryStrategy = std::make_shared<ConnectRetryStrategy>();
     }
     if (!options_.tls_ca_file_path.empty()) {
-      client_config_.caFile = ToAwsString(options_.tls_ca_file_path);
+      client_config_->caFile = ToAwsString(options_.tls_ca_file_path);
     } else if (!internal::global_options.tls_ca_file_path.empty()) {
-      client_config_.caFile = ToAwsString(internal::global_options.tls_ca_file_path);
+      client_config_->caFile = ToAwsString(internal::global_options.tls_ca_file_path);
     }
     if (!options_.tls_ca_dir_path.empty()) {
-      client_config_.caPath = ToAwsString(options_.tls_ca_dir_path);
+      client_config_->caPath = ToAwsString(options_.tls_ca_dir_path);
     } else if (!internal::global_options.tls_ca_dir_path.empty()) {
-      client_config_.caPath = ToAwsString(internal::global_options.tls_ca_dir_path);
+      client_config_->caPath = ToAwsString(internal::global_options.tls_ca_dir_path);
     }
-    client_config_.verifySSL = options_.tls_verify_certificates;
+    client_config_->verifySSL = options_.tls_verify_certificates;
 
     // Set proxy options if provided
     if (!options_.proxy_options.scheme.empty()) {
       if (options_.proxy_options.scheme == "http") {
-        client_config_.proxyScheme = Aws::Http::Scheme::HTTP;
+        client_config_->proxyScheme = Aws::Http::Scheme::HTTP;
       } else if (options_.proxy_options.scheme == "https") {
-        client_config_.proxyScheme = Aws::Http::Scheme::HTTPS;
+        client_config_->proxyScheme = Aws::Http::Scheme::HTTPS;
       } else {
         return Status::Invalid("Invalid proxy connection scheme '",
                                options_.proxy_options.scheme, "'");
       }
     }
     if (!options_.proxy_options.host.empty()) {
-      client_config_.proxyHost = ToAwsString(options_.proxy_options.host);
+      client_config_->proxyHost = ToAwsString(options_.proxy_options.host);
     }
     if (options_.proxy_options.port != -1) {
-      client_config_.proxyPort = options_.proxy_options.port;
+      client_config_->proxyPort = options_.proxy_options.port;
     }
     if (!options_.proxy_options.username.empty()) {
-      client_config_.proxyUserName = ToAwsString(options_.proxy_options.username);
+      client_config_->proxyUserName = ToAwsString(options_.proxy_options.username);
     }
     if (!options_.proxy_options.password.empty()) {
-      client_config_.proxyPassword = ToAwsString(options_.proxy_options.password);
+      client_config_->proxyPassword = ToAwsString(options_.proxy_options.password);
     }
 
     if (io_context) {
       // TODO: Once ARROW-15035 is done we can get rid of the "at least 25" fallback
-      client_config_.maxConnections = std::max(io_context->executor()->GetCapacity(), 25);
+      client_config_->maxConnections =
+          std::max(io_context->executor()->GetCapacity(), 25);
     }
 
     const bool use_virtual_addressing =
         options_.endpoint_override.empty() || options_.force_virtual_addressing;
 
 #ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
-    client_config_.useVirtualAddressing = use_virtual_addressing;
-    auto endpoint_provider = EndpointProviderCache::Instance()->Lookup(client_config_);
+    client_config_->useVirtualAddressing = use_virtual_addressing;
+    auto endpoint_provider = EndpointProviderCache::Instance()->Lookup(*client_config_);
     auto client = std::make_shared<S3Client>(credentials_provider_, endpoint_provider,
-                                             client_config_);
+                                             *client_config_);
 #else
     auto client = std::make_shared<S3Client>(
         credentials_provider_, client_config_,
@@ -1207,10 +1219,12 @@ class ClientBuilder {
 
  protected:
   S3Options options_;
+  // GH-46214: the ClientConfiguration default constructor may issue arbitrary metadata
+  // calls, defer construction until necessary.
 #ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
-  Aws::S3::S3ClientConfiguration client_config_;
+  std::optional<Aws::S3::S3ClientConfiguration> client_config_;
 #else
-  Aws::Client::ClientConfiguration client_config_;
+  std::optional<Aws::Client::ClientConfiguration> client_config_;
 #endif
   std::shared_ptr<Aws::Auth::AWSCredentialsProvider> credentials_provider_;
 };
