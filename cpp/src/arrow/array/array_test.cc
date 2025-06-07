@@ -3861,6 +3861,7 @@ class TestArrayDataStatistics : public ::testing::Test {
     values_ = {1, 0, 3, -4};
     min_ = *std::min_element(values_.begin(), values_.end());
     max_ = *std::max_element(values_.begin(), values_.end());
+    average_byte_width_ = 4.0;
     values_buffer_ = Buffer::FromVector(values_);
     data_ = ArrayData::Make(int32(), values_.size(), {null_buffer_, values_buffer_},
                             null_count_);
@@ -3870,6 +3871,8 @@ class TestArrayDataStatistics : public ::testing::Test {
     data_->statistics->is_min_exact = true;
     data_->statistics->max = max_;
     data_->statistics->is_max_exact = true;
+    data_->statistics->average_byte_width = average_byte_width_;
+    data_->statistics->is_average_byte_width_exact = true;
   }
 
  protected:
@@ -3879,6 +3882,7 @@ class TestArrayDataStatistics : public ::testing::Test {
   std::vector<int32_t> values_;
   int64_t min_;
   int64_t max_;
+  double average_byte_width_;
   std::shared_ptr<Buffer> values_buffer_;
   std::shared_ptr<ArrayData> data_;
 };
@@ -3899,6 +3903,10 @@ TEST_F(TestArrayDataStatistics, MoveConstructor) {
   ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics->max.value()));
   ASSERT_EQ(max_, std::get<int64_t>(moved_data.statistics->max.value()));
   ASSERT_TRUE(moved_data.statistics->is_max_exact);
+
+  ASSERT_TRUE(moved_data.statistics->average_byte_width.has_value());
+  ASSERT_EQ(average_byte_width_, moved_data.statistics->average_byte_width.value());
+  ASSERT_TRUE(moved_data.statistics->is_average_byte_width_exact);
 }
 
 TEST_F(TestArrayDataStatistics, CopyConstructor) {
@@ -3916,6 +3924,10 @@ TEST_F(TestArrayDataStatistics, CopyConstructor) {
   ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics->max.value()));
   ASSERT_EQ(max_, std::get<int64_t>(copied_data.statistics->max.value()));
   ASSERT_TRUE(copied_data.statistics->is_max_exact);
+
+  ASSERT_TRUE(copied_data.statistics->average_byte_width.has_value());
+  ASSERT_EQ(average_byte_width_, copied_data.statistics->average_byte_width.value());
+  ASSERT_TRUE(copied_data.statistics->is_average_byte_width_exact);
 }
 
 TEST_F(TestArrayDataStatistics, MoveAssignment) {
@@ -3935,6 +3947,10 @@ TEST_F(TestArrayDataStatistics, MoveAssignment) {
   ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics->max.value()));
   ASSERT_EQ(max_, std::get<int64_t>(moved_data.statistics->max.value()));
   ASSERT_TRUE(moved_data.statistics->is_max_exact);
+
+  ASSERT_TRUE(moved_data.statistics->average_byte_width.has_value());
+  ASSERT_EQ(average_byte_width_, moved_data.statistics->average_byte_width.value());
+  ASSERT_TRUE(moved_data.statistics->is_average_byte_width_exact);
 }
 
 TEST_F(TestArrayDataStatistics, CopyAssignment) {
@@ -3953,6 +3969,10 @@ TEST_F(TestArrayDataStatistics, CopyAssignment) {
   ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics->max.value()));
   ASSERT_EQ(max_, std::get<int64_t>(copied_data.statistics->max.value()));
   ASSERT_TRUE(copied_data.statistics->is_max_exact);
+
+  ASSERT_TRUE(copied_data.statistics->average_byte_width.has_value());
+  ASSERT_EQ(average_byte_width_, copied_data.statistics->average_byte_width.value());
+  ASSERT_TRUE(copied_data.statistics->is_average_byte_width_exact);
 }
 
 TEST_F(TestArrayDataStatistics, CopyTo) {
