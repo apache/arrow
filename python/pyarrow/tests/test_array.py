@@ -4266,3 +4266,9 @@ def test_non_cpu_array():
         arr.tolist()
     with pytest.raises(NotImplementedError):
         arr.validate(full=True)
+
+def test_slicing_with_non_trivial_step():
+    # https://github.com/apache/arrow/issues/46606
+    arr = pa.array([1.2, 3.5, None])
+    assert arr[-1:] == pa.array([None])
+    assert arr[::-1] == pa.array([None, 3.5, 1.2])
