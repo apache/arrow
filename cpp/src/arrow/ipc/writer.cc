@@ -329,15 +329,24 @@ class RecordBatchSerializer {
       return Status::OK();
     }
 
-    int64_t required_bytes = sizeof(offset_type) * (array.length() + 1);
-    if (array.value_offset(0) > 0) {
+    const int64_t required_bytes = sizeof(offset_type) * (array.length() + 1);
+
+    offset_type first_offset = 0;
+    RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
+        array.data()->buffers[1], array.offset() * sizeof(offset_type),
+        sizeof(offset_type), reinterpret_cast<uint8_t*>(&first_offset)));
+
+    if (first_offset > 0) {
       // If the offset of the first value is non-zero, then we must create a new
       // offsets buffer with shifted offsets.
+      if (!array.data()->buffers[1]->is_cpu()) {
+        return Status::NotImplemented("Rebasing non-CPU offsets");
+      }
       ARROW_ASSIGN_OR_RAISE(auto shifted_offsets,
                             AllocateBuffer(required_bytes, options_.memory_pool));
 
-      auto dest_offsets = shifted_offsets->mutable_span_as<offset_type>();
       const offset_type* source_offsets = array.raw_value_offsets();
+      auto dest_offsets = shifted_offsets->mutable_span_as<offset_type>();
       const offset_type start_offset = source_offsets[0];
 
       for (int i = 0; i <= array.length(); ++i) {
@@ -369,6 +378,9 @@ class RecordBatchSerializer {
       // If we have a non-zero offset, it's likely that the smallest offset is
       // not zero. We must a) create a new offsets array with shifted offsets and
       // b) slice the values array accordingly.
+      if (!array.data()->buffers[1]->is_cpu()) {
+        return Status::NotImplemented("Rebasing non-CPU list view offsets");
+      }
 
       ARROW_ASSIGN_OR_RAISE(auto shifted_offsets,
                             AllocateBuffer(required_bytes, options_.memory_pool));

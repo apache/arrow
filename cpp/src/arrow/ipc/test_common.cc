@@ -474,7 +474,7 @@ Status MakeListViewRecordBatchSized(const int length, std::shared_ptr<RecordBatc
 }
 
 Status MakeListViewRecordBatch(std::shared_ptr<RecordBatch>* out) {
-  return MakeListRecordBatchSized(200, out);
+  return MakeListViewRecordBatchSized(200, out);
 }
 
 Status MakeFixedSizeListRecordBatch(std::shared_ptr<RecordBatch>* out) {

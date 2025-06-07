@@ -27,7 +27,7 @@ import zipfile
 
 
 def process_dir(corpus_dir, zip_output):
-    seen = set()
+    seen_hashes = {}
 
     for child in corpus_dir.iterdir():
         if not child.is_file():
@@ -35,10 +35,12 @@ def process_dir(corpus_dir, zip_output):
         with child.open('rb') as f:
             data = f.read()
         arcname = hashlib.sha1(data).hexdigest()
-        if arcname in seen:
-            raise ValueError(f"Duplicate hash: {arcname} (in file {child})")
+        if arcname in seen_hashes:
+            raise ValueError(
+                f"Duplicate hash: {arcname} (in file {child}), "
+                f"already seen in file {seen_hashes[arcname]}")
         zip_output.writestr(str(arcname), data)
-        seen.add(arcname)
+        seen_hashes[arcname] = child
 
 
 def main(corpus_dir, zip_output_name):
