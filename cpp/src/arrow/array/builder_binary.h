@@ -511,9 +511,22 @@ class ARROW_EXPORT StringHeapBuilder {
     return v;
   }
 
-  c_type GetViewFromBuffer(const int32_t buffer_index, const int32_t offset,
-                           const int32_t length) const {
-    const auto* value = blocks_.at(buffer_index)->data_as<uint8_t>() + offset;
+  template <bool Safe>
+  std::conditional_t<Safe, Result<c_type>, c_type> GetViewFromBuffer(
+      const int32_t buffer_index, const int32_t offset, const int32_t length) const {
+    if constexpr (Safe) {
+      if (ARROW_PREDICT_FALSE(buffer_index < 0 or
+                              buffer_index >= static_cast<int32_t>(blocks_.size()))) {
+        return Status::IndexError("buffer index ", buffer_index, " out of range 0..",
+                                  blocks_.size());
+      }
+      if (ARROW_PREDICT_FALSE(offset < 0 or length < 0 or
+                              offset + length > current_offset_)) {
+        return Status::IndexError(offset, "..", offset + length, " out of range 0..",
+                                  current_offset_);
+      }
+    }
+    const auto* value = blocks_[buffer_index]->data_as<uint8_t>() + offset;
     return util::ToBinaryView(value, length, buffer_index, offset);
   }
 
@@ -561,7 +574,6 @@ class ARROW_EXPORT StringHeapBuilder {
     return std::move(blocks_);
   }
 
- private:
   Status FinishLastBlock() {
     if (current_remaining_bytes_ > 0) {
       // Avoid leaking uninitialized bytes from the allocator
@@ -573,6 +585,7 @@ class ARROW_EXPORT StringHeapBuilder {
     return Status::OK();
   }
 
+ private:
   MemoryPool* pool_;
   int64_t alignment_;
   int64_t blocksize_ = kDefaultBlocksize;
@@ -651,29 +664,31 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
     UnsafeAppend(value.data(), static_cast<int64_t>(value.size()));
   }
 
-  Result<TypeClass::c_type> AppendBuffer(const uint8_t* value, const int64_t length) {
+  Result<int32_t> AppendBuffer(const uint8_t* value, const int64_t length) {
     if (ARROW_PREDICT_FALSE(length <= TypeClass::kInlineSize)) {
       return Status::Invalid(
           "The size of buffer to append should be larger than kInlineSize");
     }
+    ARROW_RETURN_NOT_OK(data_heap_builder_.FinishLastBlock());
     ARROW_ASSIGN_OR_RAISE(auto v,
                           data_heap_builder_.Append</*Safe=*/true>(value, length));
-    return v;
+    return v.ref.buffer_index;
   }
-  Result<TypeClass::c_type> AppendBuffer(const char* value, const int64_t length) {
+
+  Result<int32_t> AppendBuffer(const char* value, const int64_t length) {
     return AppendBuffer(reinterpret_cast<const uint8_t*>(value), length);
   }
 
-  Result<TypeClass::c_type> AppendBuffer(const std::string& value) {
+  Result<int32_t> AppendBuffer(const std::string& value) {
     return AppendBuffer(value.data(), static_cast<int64_t>(value.size()));
   }
 
-  Status AppendViewFromBuffer(const TypeClass::c_type buffer, const int32_t start,
+  Status AppendViewFromBuffer(const int32_t buffer_idx, const int32_t start,
                               const int32_t length) {
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(true);
-    auto v = data_heap_builder_.GetViewFromBuffer(buffer.ref.buffer_index,
-                                                  buffer.ref.offset + start, length);
+    ARROW_ASSIGN_OR_RAISE(
+        auto v, data_heap_builder_.GetViewFromBuffer<true>(buffer_idx, start, length));
     data_builder_.UnsafeAppend(v);
     return Status::OK();
   }
