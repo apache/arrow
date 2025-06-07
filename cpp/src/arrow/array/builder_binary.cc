@@ -100,13 +100,6 @@ void BinaryViewBuilder::Reset() {
   data_heap_builder_.Reset();
 }
 
-Result<std::pair<int32_t, int32_t>> BinaryViewBuilder::AppendBlock(const uint8_t* value,
-                                                                   const int64_t length) {
-  DCHECK_GT(length, TypeClass::kInlineSize);
-  ARROW_ASSIGN_OR_RAISE(auto v, data_heap_builder_.Append</*Safe=*/true>(value, length));
-  return std::pair{v.ref.buffer_index, v.ref.offset};
-}
-
 // ----------------------------------------------------------------------
 // Fixed width binary
 

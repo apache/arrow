@@ -511,16 +511,10 @@ class ARROW_EXPORT StringHeapBuilder {
     return v;
   }
 
-  c_type GetViewFromBlock(int32_t block_id, int32_t block_offset, int32_t offset,
-                          int32_t length) const {
-    const auto* value = blocks_.at(block_id)->data_as<uint8_t>() + block_offset + offset;
-    if (length <= BinaryViewType::kInlineSize) {
-      return util::ToInlineBinaryView(value, length);
-    }
-    c_type out;
-    out.ref = {length, {}, block_id, block_offset + offset};
-    memcpy(&out.ref.prefix, value, sizeof(out.ref.prefix));
-    return out;
+  c_type GetViewFromBuffer(const int32_t buffer_index, const int32_t offset,
+                           const int32_t length) const {
+    const auto* value = blocks_.at(buffer_index)->data_as<uint8_t>() + offset;
+    return util::ToBinaryView(value, length, buffer_index, offset);
   }
 
   static constexpr int64_t ValueSizeLimit() {
@@ -657,24 +651,29 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
     UnsafeAppend(value.data(), static_cast<int64_t>(value.size()));
   }
 
-  Result<std::pair<int32_t, int32_t>> AppendBlock(const uint8_t* value,
-                                                  const int64_t length);
-
-  Result<std::pair<int32_t, int32_t>> AppendBlock(const char* value,
-                                                  const int64_t length) {
-    return AppendBlock(reinterpret_cast<const uint8_t*>(value), length);
+  Result<TypeClass::c_type> AppendBuffer(const uint8_t* value, const int64_t length) {
+    if (ARROW_PREDICT_FALSE(length <= TypeClass::kInlineSize)) {
+      return Status::Invalid(
+          "The size of buffer to append should be larger than kInlineSize");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto v,
+                          data_heap_builder_.Append</*Safe=*/true>(value, length));
+    return v;
+  }
+  Result<TypeClass::c_type> AppendBuffer(const char* value, const int64_t length) {
+    return AppendBuffer(reinterpret_cast<const uint8_t*>(value), length);
   }
 
-  Result<std::pair<int32_t, int32_t>> AppendBlock(const std::string& value) {
-    return AppendBlock(value.data(), static_cast<int64_t>(value.size()));
+  Result<TypeClass::c_type> AppendBuffer(const std::string& value) {
+    return AppendBuffer(value.data(), static_cast<int64_t>(value.size()));
   }
 
-  Status AppendViewFromBuffer(int32_t buffer_id, int32_t buffer_offset, int32_t start,
-                              int32_t length) {
+  Status AppendViewFromBuffer(const TypeClass::c_type buffer, const int32_t start,
+                              const int32_t length) {
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(true);
-
-    auto v = data_heap_builder_.GetViewFromBlock(buffer_id, buffer_offset, start, length);
+    auto v = data_heap_builder_.GetViewFromBuffer(buffer.ref.buffer_index,
+                                                  buffer.ref.offset + start, length);
     data_builder_.UnsafeAppend(v);
     return Status::OK();
   }
