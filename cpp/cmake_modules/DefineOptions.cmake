@@ -269,12 +269,7 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_LARGE_MEMORY_TESTS "Enable unit tests which use large memory" OFF)
 
   #----------------------------------------------------------------------
-  set_option_category("Lint")
-
-  define_option(ARROW_ONLY_LINT "Only define the lint and check-format targets" OFF)
-
-  define_option(ARROW_VERBOSE_LINT
-                "If off, 'quiet' flags will be passed to linting tools" OFF)
+  set_option_category("Coverage")
 
   define_option(ARROW_GENERATE_COVERAGE "Build with C++ code coverage enabled" OFF)
 

@@ -17,9 +17,6 @@ https://github.com/libdynd
 This product includes software from the LLVM project
  * distributed under the University of Illinois Open Source
 
-This product includes software from the google-lint project
- * Copyright (c) 2009 Google Inc. All rights reserved.
-
 This product includes software from the mman-win32 project
  * Copyright https://code.google.com/p/mman-win32/
  * Licensed under the MIT License;

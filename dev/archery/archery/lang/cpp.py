@@ -62,7 +62,6 @@ class CppConfiguration:
                  with_brotli=None, with_bz2=None, with_lz4=None,
                  with_snappy=None, with_zlib=None, with_zstd=None,
                  # extras
-                 with_lint_only=False,
                  use_gold_linker=True,
                  simd_level="DEFAULT",
                  cmake_extras=None):
@@ -115,7 +114,6 @@ class CppConfiguration:
         self.with_zlib = with_zlib
         self.with_zstd = with_zstd
 
-        self.with_lint_only = with_lint_only
         self.use_gold_linker = use_gold_linker
         self.simd_level = simd_level
 
@@ -184,10 +182,8 @@ class CppConfiguration:
 
         yield ("CMAKE_EXPORT_COMPILE_COMMANDS", truthifier(True))
         yield ("CMAKE_BUILD_TYPE", self.build_type)
-
-        if not self.with_lint_only:
-            yield ("BUILD_WARNING_LEVEL",
-                   or_else(self.warn_level, "production"))
+        yield ("BUILD_WARNING_LEVEL",
+               or_else(self.warn_level, "production"))
 
         # if not ctx.quiet:
         #   yield ("ARROW_VERBOSE_THIRDPARTY_BUILD", "ON")
@@ -240,8 +236,6 @@ class CppConfiguration:
         yield ("ARROW_WITH_SNAPPY", truthifier(self.with_snappy))
         yield ("ARROW_WITH_ZLIB", truthifier(self.with_zlib))
         yield ("ARROW_WITH_ZSTD", truthifier(self.with_zstd))
-
-        yield ("ARROW_LINT_ONLY", truthifier(self.with_lint_only))
 
         # Some configurations don't like gnu gold linker.
         broken_with_gold_ld = [self.with_fuzzing, self.with_gandiva]
