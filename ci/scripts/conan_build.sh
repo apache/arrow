@@ -77,5 +77,12 @@ else
   sudo cp -a ${source_dir}/ci/conan/* ${build_dir}/conan/
   sudo chown -R $(id -u):$(id -g) ${build_dir}/conan/
 fi
+
+# TEST
+OS=$( uname -s )
+if [ x"$OS" = x"Linux" ]; then
+  sudo apt update
+  sudo apt install -y rapidjson-dev
+fi
 cd ${build_dir}/conan/all
 conan create . "${conan_args[@]}" "$@"
