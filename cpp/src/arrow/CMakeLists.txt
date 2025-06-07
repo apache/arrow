@@ -515,6 +515,7 @@ set(ARROW_UTIL_SRCS
     util/memory.cc
     util/mutex.cc
     util/ree_util.cc
+    util/secure_string.cc
     util/string.cc
     util/string_builder.cc
     util/task_group.cc
@@ -572,6 +573,11 @@ endif()
 if(ARROW_USE_GLOG)
   foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
     target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE glog::glog)
+  endforeach()
+endif()
+if(ARROW_USE_OPENSSL)
+  foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
+    target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE ${ARROW_OPENSSL_LIBS})
   endforeach()
 endif()
 if(ARROW_USE_XSIMD)
