@@ -515,12 +515,12 @@ class ARROW_EXPORT StringHeapBuilder {
   std::conditional_t<Safe, Result<c_type>, c_type> GetViewFromBuffer(
       const int32_t buffer_index, const int32_t offset, const int32_t length) const {
     if constexpr (Safe) {
-      if (ARROW_PREDICT_FALSE(buffer_index < 0 or
+      if (ARROW_PREDICT_FALSE(buffer_index < 0 ||
                               buffer_index >= static_cast<int32_t>(blocks_.size()))) {
         return Status::IndexError("buffer index ", buffer_index, " out of range 0..",
                                   blocks_.size());
       }
-      if (ARROW_PREDICT_FALSE(offset < 0 or length < 0 or
+      if (ARROW_PREDICT_FALSE(offset < 0 || length < 0 ||
                               offset + length > current_offset_)) {
         return Status::IndexError(offset, "..", offset + length, " out of range 0..",
                                   current_offset_);
