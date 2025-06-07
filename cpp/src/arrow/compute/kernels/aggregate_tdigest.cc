@@ -19,7 +19,7 @@
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/util/bit_run_reader.h"
-#include "arrow/util/tdigest.h"
+#include "arrow/util/tdigest_internal.h"
 
 namespace arrow {
 namespace compute {

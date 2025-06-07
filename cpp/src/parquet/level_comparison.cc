@@ -23,7 +23,7 @@
 
 #include <vector>
 
-#include "arrow/util/dispatch.h"
+#include "arrow/util/dispatch_internal.h"
 
 namespace parquet::internal {
 

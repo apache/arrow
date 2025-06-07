@@ -28,8 +28,8 @@
 #include "arrow/tensor.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
-#include "arrow/util/print.h"
-#include "arrow/util/sort.h"
+#include "arrow/util/print_internal.h"
+#include "arrow/util/sort_internal.h"
 #include "arrow/util/string.h"
 
 #include <rapidjson/document.h>

@@ -19,7 +19,7 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
-#include "arrow/util/tdigest.h"
+#include "arrow/util/tdigest_internal.h"
 
 namespace arrow {
 namespace util {

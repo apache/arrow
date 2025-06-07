@@ -23,7 +23,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "arrow/util/double_conversion.h"
+#include "arrow/util/double_conversion_internal.h"
 #include "arrow/util/utf8_internal.h"
 #include "arrow/util/value_parsing.h"
 

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/dispatch.h"
+#include "arrow/util/dispatch_internal.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {

@@ -26,7 +26,7 @@
 
 #include "arrow/util/base64.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/double_conversion.h"
+#include "arrow/util/double_conversion_internal.h"
 #include "arrow/util/value_parsing.h"
 
 #include "gandiva/encrypt_utils.h"

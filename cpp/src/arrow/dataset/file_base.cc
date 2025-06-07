@@ -46,7 +46,7 @@
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/map.h"
+#include "arrow/util/map_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/tracing_internal.h"

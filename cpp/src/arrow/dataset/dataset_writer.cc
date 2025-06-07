@@ -29,7 +29,7 @@
 #include "arrow/table.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging_internal.h"
-#include "arrow/util/map.h"
+#include "arrow/util/map_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/tracing_internal.h"
 

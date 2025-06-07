@@ -35,10 +35,10 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/type.h"
-#include "arrow/util/bitset_stack.h"
+#include "arrow/util/bitset_stack_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging_internal.h"
-#include "arrow/util/trie.h"
+#include "arrow/util/trie_internal.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {

@@ -30,7 +30,7 @@
 #include "arrow/status.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
-#include "arrow/util/sort.h"
+#include "arrow/util/sort_internal.h"
 
 using std::size_t;
 

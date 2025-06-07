@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/tdigest.h"
+#include "arrow/util/tdigest_internal.h"
 
 #include <algorithm>
 #include <cmath>

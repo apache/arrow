@@ -21,7 +21,7 @@
 # https://github.com/lemire/FrameOfReference/blob/146948b6058a976bc7767262ad3a2ce201486b93/scripts/turbopacking64.py
 
 # Usage:
-#   python bpacking64_codegen.py > bpacking64_default.h
+#   python bpacking64_codegen.py > bpacking64_default_internal.h
 
 def howmany(bit):
     """ how many values are we going to pack? """
