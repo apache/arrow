@@ -5070,9 +5070,7 @@ function(build_awssdk)
   # aws-c-common must be the first product because others depend on
   # this.
   set(AWSSDK_PRODUCTS aws-c-common)
-  # aws-lc and s2n-tls only needed on Linux.
-  # We can use LINUX with CMake 3.25 or later.
-  if(UNIX AND NOT APPLE)
+  if(LINUX)
     list(APPEND AWSSDK_PRODUCTS aws-lc s2n-tls)
   endif()
   list(APPEND
@@ -5100,23 +5098,6 @@ function(build_awssdk)
     # AWS-C-CAL ->
     # AWS_C_CAL
     string(REGEX REPLACE "-" "_" BASE_VARIABLE_NAME "${BASE_VARIABLE_NAME}")
-    if(AWSSDK_PRODUCT STREQUAL "s2n-tls")
-      # S2N_LIBCRYPTO_SUPPORTS_ENGINE.c doesn't refer
-      # S2N_INTERN_LIBCRYPTO. We need to use aws-lc with
-      # S2N_INTERN_LIBCRYPTO but S2N_LIBCRYPTO_SUPPORTS_ENGINE.c may
-      # refer system OpenSSL. So s2n-tls may mix aws-lc and OpenSSL
-      # configurations.
-      set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
-          ${CMAKE_COMMAND} -E rm tests/features/S2N_LIBCRYPTO_SUPPORTS_ENGINE.c)
-    elseif(AWSSDK_PRODUCT_NAME STREQUAL "aws-sdk-cpp"
-           AND WINDOWS
-           AND NOT MSVC)
-      # We can remove this once
-      # https://github.com/aws/aws-sdk-cpp/issues/3315 is resolved.
-      find_program(PATCH patch REQUIRED)
-      set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
-          patch --input=${CMAKE_CURRENT_SOURCE_DIR}/aws-sdk-cpp-pr-1333.patch --strip=1)
-    endif()
     fetchcontent_declare(${AWSSDK_PRODUCT}
                          ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
                          PATCH_COMMAND ${${BASE_VARIABLE_NAME}_PATCH_COMMAND}
@@ -5183,6 +5164,10 @@ function(build_awssdk)
 
   set(AWSSDK_LINK_LIBRARIES)
   foreach(AWSSDK_PRODUCT ${AWSSDK_PRODUCTS})
+    if("${AWSSDK_PRODUCT}" STREQUAL "s2n-tls")
+      # Use aws-lc's openssl/*.h not openssl/*.h in system.
+      set(ADDITIONAL_FLAGS "-DCOMPILE_DEFINITIONS=-I${aws-lc_SOURCE_DIR}/include")
+    endif()
     fetchcontent_makeavailable(${AWSSDK_PRODUCT})
     list(PREPEND CMAKE_MODULE_PATH "${${AWSSDK_PRODUCT}_SOURCE_DIR}/cmake")
     if(NOT "${AWSSDK_PRODUCT}" STREQUAL "aws-sdk-cpp")
