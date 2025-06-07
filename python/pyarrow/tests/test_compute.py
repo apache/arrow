@@ -3788,16 +3788,6 @@ def test_list_slice_bad_parameters():
 
 def check_run_end_encode_decode(value_type, run_end_encode_opts=None):
     values = [1, 1, 1, 2, 2, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3]
-
-    # pa.float16() is special and requires us to pass np.float16 dtype values
-    # but we want to skip if numpy isn't available so we're still running all
-    # the other tests when it isn't
-    if value_type is pa.float16():
-        if np is not None:
-            values = np.float16(values)
-        else:
-            pytest.skip("numpy is not available and is required for pa.float16()")
-
     arr = pa.array(values, type=value_type)
     encoded = pc.run_end_encode(arr, options=run_end_encode_opts)
     decoded = pc.run_end_decode(encoded)
