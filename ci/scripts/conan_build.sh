@@ -83,6 +83,9 @@ OS=$( uname -s )
 if [ x"$OS" = x"Linux" ]; then
   sudo apt update
   sudo apt install -y rapidjson-dev
+  dpkg -L rapidjson-dev
+  dpkg -l rapidjson-dev
+  cat /etc/os-release
 fi
 cd ${build_dir}/conan/all
 conan create . "${conan_args[@]}" "$@"
