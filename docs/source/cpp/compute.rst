@@ -276,8 +276,8 @@ the input to a single output value.
   is always -1, regardless of whether there are nulls in the input.
 
 * \(5) For decimal inputs, the resulting decimal will have the same
-  scale and the maximum precision for its width. For instance, an array
-  of ``decimal128(3, 2)`` will return a ``decimal128(38, 2)`` scalar.
+  scale and the precision for its width. For instance, an array
+  of ``decimal128(3, 2)`` will return a ``decimal128(3, 2)`` scalar.
   The result is rounded away from zero.
 
 * \(6) Output is a ``{"min": input type, "max": input type}`` Struct.
