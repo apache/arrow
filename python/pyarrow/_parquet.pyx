@@ -42,6 +42,7 @@ from pyarrow.lib cimport (_Weakrefable, Buffer, Schema,
                           string_to_timeunit)
 
 from pyarrow.lib import (ArrowException, NativeFile, BufferOutputStream,
+                         ListType, LargeListType,
                          _stringify_path,
                          tobytes, frombytes, is_threading_enabled)
 
@@ -49,6 +50,16 @@ cimport cpython as cp
 
 _DEFAULT_ROW_GROUP_SIZE = 1024*1024
 _MAX_ROW_GROUP_SIZE = 64*1024*1024
+
+
+cdef Type _unwrap_list_type(obj) except *:
+    if obj is ListType:
+        return _Type_LIST
+    elif obj is LargeListType:
+        return _Type_LARGE_LIST
+    else:
+        raise TypeError(f"Unexpected list_type: {obj!r}")
+
 
 cdef class Statistics(_Weakrefable):
     """Statistics for a single column in a single row group."""
@@ -1552,7 +1563,7 @@ cdef class ParquetReader(_Weakrefable):
         self._metadata = None
 
     def open(self, object source not None, *, bint use_memory_map=False,
-             read_dictionary=None, binary_type=None,
+             read_dictionary=None, binary_type=None, list_type=None,
              FileMetaData metadata=None,
              int buffer_size=0, bint pre_buffer=False,
              coerce_int96_timestamp_unit=None,
@@ -1570,6 +1581,7 @@ cdef class ParquetReader(_Weakrefable):
         use_memory_map : bool, default False
         read_dictionary : iterable[int or str], optional
         binary_type : pyarrow.DataType, optional
+        list_type : subclass of pyarrow.DataType, optional
         metadata : FileMetaData, optional
         buffer_size : int, default 0
         pre_buffer : bool, default False
@@ -1624,6 +1636,9 @@ cdef class ParquetReader(_Weakrefable):
         if binary_type is not None:
             c_binary_type = pyarrow_unwrap_data_type(binary_type)
             arrow_props.set_binary_type(c_binary_type.get().id())
+
+        if list_type is not None:
+            arrow_props.set_list_type(_unwrap_list_type(list_type))
 
         if coerce_int96_timestamp_unit is None:
             # use the default defined in default_arrow_reader_properties()

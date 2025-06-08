@@ -720,6 +720,10 @@ if needs_filesystem
     subdir('filesystem')
 endif
 
+if needs_flight
+    subdir('flight')
+endif
+
 if needs_json
     subdir('json')
 endif
