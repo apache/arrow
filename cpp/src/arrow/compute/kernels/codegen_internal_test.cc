@@ -129,6 +129,32 @@ TEST(TestDispatchBest, CastDecimalArgs) {
   AssertTypeEqual(*args[2], *utf8());
 }
 
+TEST(TestDecimalPromotion, WidenDecimalToMaxPrecision) {
+  std::shared_ptr<DataType> arg;
+  std::shared_ptr<DataType> expected;
+  std::shared_ptr<DataType> unwrapped;
+
+  arg = decimal32(3, 2);
+  expected = decimal32(9, 2);
+  ASSERT_OK_AND_ASSIGN(unwrapped, WidenDecimalToMaxPrecision(arg));
+  AssertTypeEqual(*unwrapped, *expected);
+
+  arg = decimal64(3, 2);
+  expected = decimal64(18, 2);
+  ASSERT_OK_AND_ASSIGN(unwrapped, WidenDecimalToMaxPrecision(arg));
+  AssertTypeEqual(*unwrapped, *expected);
+
+  arg = decimal128(3, 2);
+  expected = decimal128(38, 2);
+  ASSERT_OK_AND_ASSIGN(unwrapped, WidenDecimalToMaxPrecision(arg));
+  AssertTypeEqual(*unwrapped, *expected);
+
+  arg = decimal256(3, 2);
+  expected = decimal256(76, 2);
+  ASSERT_OK_AND_ASSIGN(unwrapped, WidenDecimalToMaxPrecision(arg));
+  AssertTypeEqual(*unwrapped, *expected);
+}
+
 TEST(TestDispatchBest, CommonTemporal) {
   std::vector<TypeHolder> args;
 
