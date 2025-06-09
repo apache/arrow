@@ -110,10 +110,11 @@ void PrettyPrinter::Write(std::string_view data) {
   Write(data, options_.element_size_limit);
 }
 
-void PrettyPrinter::Write(std::string_view data, const int max_chars) {
+void PrettyPrinter::Write(std::string_view data, int max_chars) {
   (*sink_) << data.substr(0, max_chars);
-  if (data.size() > static_cast<uint64_t>(max_chars)) {
-    (*sink_) << " (... " << data.size() - max_chars << " chars omitted)";
+  if (data.size() > static_cast<size_t>(max_chars)) {
+    (*sink_) << " (... " << data.size() - static_cast<size_t>(max_chars)
+             << " chars omitted)";
   }
 }
 
@@ -122,7 +123,7 @@ void PrettyPrinter::WriteIndented(std::string_view data) {
   Write(data, options_.element_size_limit);
 }
 
-void PrettyPrinter::WriteIndented(std::string_view data, const int max_chars) {
+void PrettyPrinter::WriteIndented(std::string_view data, int max_chars) {
   Indent();
   Write(data, max_chars);
 }
@@ -192,7 +193,7 @@ class ArrayPrinter : public PrettyPrinter {
 
   template <typename ArrayType, typename Formatter>
   Status WritePrimitiveValues(const ArrayType& array, Formatter* formatter) {
-    auto appender = [&](std::string_view v) { this->Write(v); };
+    auto appender = [&](std::string_view v) { Write(v); };
     auto format_func = [&](int64_t i) {
       (*formatter)(array.GetView(i), appender);
       return Status::OK();
