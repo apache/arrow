@@ -23,6 +23,12 @@
 
 namespace arrow::util::test {
 
+#if defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || defined(THREAD_SANITIZER)
+#  define CAN_TEST_DEALLOCATED_AREAS 0
+#else
+#  define CAN_TEST_DEALLOCATED_AREAS 1
+#endif
+
 std::string_view StringArea(const std::string& string) {
   return {string.data(), string.capacity()};
 }
@@ -64,7 +70,7 @@ std::string_view StringArea(const std::string& string) {
  */
 ::testing::AssertionResult IsSecurelyCleared(const std::string_view& area,
                                              const std::string& secret_value) {
-#if defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER)
+#if !CAN_TEST_DEALLOCATED_AREAS
   return testing::AssertionSuccess() << "Not checking deallocated memory";
 #else
   // accessing deallocated memory will fail when running with  Address Sanitizer enabled
@@ -145,7 +151,7 @@ TEST(TestSecureString, AssertSecurelyCleared) {
             "    Which is: \"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\"");
 
   ASSERT_TRUE(IsSecurelyCleared(short_some_zeros, stars));
-#if !defined(ARROW_VALGRIND) && !defined(ADDRESS_SANITIZER)
+#if CAN_TEST_DEALLOCATED_AREAS
   result = IsSecurelyCleared(short_some_zeros_view, stars);
   ASSERT_FALSE(result);
   ASSERT_EQ(std::string(result.message()),
@@ -175,7 +181,7 @@ TEST(TestSecureString, AssertSecurelyCleared) {
             "0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\"");
 
   ASSERT_TRUE(IsSecurelyCleared(long_some_zeros, stars));
-#if !defined(ARROW_VALGRIND) && !defined(ADDRESS_SANITIZER)
+#if CAN_TEST_DEALLOCATED_AREAS
   result = IsSecurelyCleared(long_some_zeros_view, stars);
   ASSERT_FALSE(result);
   ASSERT_EQ(std::string(result.message()),
@@ -416,7 +422,7 @@ TEST(TestSecureString, Assign) {
 }
 
 TEST(TestSecureString, Deconstruct) {
-#if defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER)
+#if !CAN_TEST_DEALLOCATED_AREAS
   GTEST_SKIP() << "Test accesses deallocated memory";
 #else
   // We use a very short and a very long string as memory management of short and long
@@ -486,5 +492,7 @@ TEST(TestSecureString, AsView) {
   const std::string_view view = secret.as_view();
   ASSERT_EQ(view, "hello world");
 }
+
+#undef CAN_TEST_DEALLOCATED_AREAS
 
 }  // namespace arrow::util::test
