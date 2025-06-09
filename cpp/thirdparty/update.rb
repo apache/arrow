@@ -90,6 +90,30 @@ def update_product_github(product, metadata, repository)
   $stderr.puts("  Checksum: #{metadata[:checksum]}")
 end
 
+def update_product_apache(product, metadata, project)
+  version = metadata[:version]
+  version_directory_pattern = metadata[:version_directory_template] % {
+    version: "(\\d+(?:\\.\\d+)+)",
+  }
+  versions = URI.open("https://downloads.apache.org/#{project}/") do |response|
+    response.read.scan(/<a href="#{version_directory_pattern}\/">/).flatten
+  end
+  latest_version = versions.last
+  return if version == latest_version
+
+  url_template = metadata[:url_template]
+  url = url_template % {
+    version: latest_version,
+    version_underscore: latest_version.gsub(".", "_"),
+  }
+  $stderr.puts("Updating #{product}: #{version} -> #{latest_version}")
+  metadata[:version] = latest_version
+  URI.open(url, "rb") do |response|
+    metadata[:checksum] = Digest::SHA256.hexdigest(response.read)
+  end
+  $stderr.puts("  Checksum: #{metadata[:checksum]}")
+end
+
 def update_product(product, metadata)
   url_template = metadata[:url_template]
   if url_template.nil?
@@ -99,9 +123,14 @@ def update_product(product, metadata)
   end
 
   case url_template
-  when /\Ahttps:\/\/github.com\/((?:[^\/]+)\/(?:[^\/]+))\//
+  when /\Ahttps:\/\/github\.com\/((?:[^\/]+)\/(?:[^\/]+))\//
     github_repository = Regexp.last_match[1]
     update_product_github(product, metadata, github_repository)
+  when /\Ahttps:\/\/www\.apache\.org\/dyn\/closer\.lua\/
+          ((?:[^\/]+))\/((?:[^\/]+))\//x
+    apache_project = Regexp.last_match[1]
+    metadata[:version_directory_template] = Regexp.last_match[2]
+    update_product_apache(product, metadata, apache_project)
   else
     $stderr.puts("TODO: #{product} isn't supported yet: #{url_template}")
   end
