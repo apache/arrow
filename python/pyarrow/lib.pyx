@@ -96,6 +96,15 @@ def is_threading_enabled() -> bool:
     return libarrow_python.IsThreadingEnabled()
 
 
+def get_pybuild_type() -> str:
+    """
+    Returns the PyArrow build type (release, debug, relwithdebinfo).
+    The default build type is release, regardless of if C++ was 
+    built in debug mode.
+    """
+    return libarrow_python.GetPyBuildType().decode('utf-8')
+
+
 Type_NA = _Type_NA
 Type_BOOL = _Type_BOOL
 Type_UINT8 = _Type_UINT8

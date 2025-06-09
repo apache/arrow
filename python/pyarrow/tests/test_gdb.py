@@ -25,6 +25,7 @@ import sys
 import pytest
 
 import pyarrow as pa
+from pyarrow.lib import get_pybuild_type
 
 
 pytestmark = pytest.mark.gdb
@@ -195,6 +196,8 @@ def gdb():
 def gdb_arrow(gdb):
     if 'deb' not in pa.cpp_build_info.build_type:
         pytest.skip("Arrow C++ debug symbols not available")
+    if get_pybuild_type() != 'debug':
+        pytest.skip("PyArrow C++ not built in debug mode")
 
     skip_if_gdb_script_unavailable()
     gdb.run_command(f"source {gdb_script}")
