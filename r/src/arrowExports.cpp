@@ -6232,9 +6232,7 @@ extern "C" void R_init_arrow(DllInfo* dll){
   arrow::r::altrep::Init_Altrep_classes(dll);
   #endif
 
-  #if ARROW_VERSION_MAJOR >= 21
   _arrow_compute__Initialize();
-  #endif
 }
 
 

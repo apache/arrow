@@ -191,9 +191,7 @@ static const R_CallMethodDef CallEntries[] = {
   arrow::r::altrep::Init_Altrep_classes(dll);
   #endif
 
-  #if ARROW_VERSION_MAJOR >= 21
   _arrow_compute__Initialize();
-  #endif
 }
 \n'
 )
