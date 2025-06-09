@@ -1,24 +1,4 @@
-# MIT License
-#
-# Copyright (c) 2019 Conan.io
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+import os
 
 from conan import ConanFile
 from conan.errors import ConanInvalidConfiguration, ConanException
@@ -28,10 +8,8 @@ from conan.tools.files import apply_conandata_patches, copy, export_conandata_pa
 from conan.tools.microsoft import is_msvc, is_msvc_static_runtime
 from conan.tools.scm import Version
 
-import os
-import glob
-
 required_conan_version = ">=2.1.0"
+
 
 class ArrowConan(ConanFile):
     name = "arrow"
@@ -102,7 +80,7 @@ class ArrowConan(ConanFile):
         "dataset_modules": False,
         "deprecated": True,
         "encryption": False,
-        "filesystem_layer": False,
+        "filesystem_layer": True,
         "hdfs_bridgs": False,
         "plasma": "deprecated",
         "simd_level": "default",
@@ -142,7 +120,7 @@ class ArrowConan(ConanFile):
     def _min_cppstd(self):
         # arrow >= 10.0.0 requires C++17.
         # https://github.com/apache/arrow/pull/13991
-        return "11" if Version(self.version) < "10.0.0" else "17"
+        return "17"
 
     def export_sources(self):
         export_conandata_patches(self)
@@ -151,10 +129,10 @@ class ArrowConan(ConanFile):
     def config_options(self):
         if self.settings.os == "Windows":
             del self.options.fPIC
-        if Version(self.version) < "8.0.0":
-            del self.options.substrait
         if is_msvc(self):
             self.options.with_boost = True
+        if Version(self.version) >= "19.0.0":
+            self.options.with_mimalloc = True
 
     def configure(self):
         if self.options.shared:
@@ -209,9 +187,6 @@ class ArrowConan(ConanFile):
             self.requires("snappy/1.1.9")
         if self.options.get_safe("simd_level") != None or \
                 self.options.get_safe("runtime_simd_level") != None:
-            if Version(self.version) < 8:
-                self.requires("xsimd/9.0.1")
-            else:
                 self.requires("xsimd/13.0.0")
         if self.options.with_zlib:
             self.requires("zlib/[>=1.2.11 <2]")
@@ -253,15 +228,6 @@ class ArrowConan(ConanFile):
         if self.settings.compiler.get_safe("cppstd"):
             check_min_cppstd(self, self._min_cppstd)
 
-        if (
-            Version(self.version) < "10.0.0"
-            and self.settings.compiler == "clang"
-            and Version(self.settings.compiler.version) < "3.9"
-        ):
-            raise ConanInvalidConfiguration(
-                f"{self.ref} requires C++11, which needs at least clang-3.9"
-            )
-
         if self.options.get_safe("skyhook", False):
             raise ConanInvalidConfiguration("CCI has no librados recipe (yet)")
         if self.options.with_cuda:
@@ -284,26 +250,6 @@ class ArrowConan(ConanFile):
             self.tool_requires("cmake/[>=3.16 <4]")
 
     def source(self):
-        # START
-        # This block should be removed when we update upstream:
-        # https://github.com/conan-io/conan-center-index/tree/master/recipes/arrow/
-        if not self.version in self.conan_data.get("sources", {}):
-            import shutil
-            top_level = os.environ.get("ARROW_HOME")
-            shutil.copytree(os.path.join(top_level, "cpp"),
-                            os.path.join(self.source_folder, "cpp"))
-            shutil.copytree(os.path.join(top_level, "format"),
-                            os.path.join(self.source_folder, "format"))
-            top_level_files = [
-                ".env",
-                "LICENSE.txt",
-                "NOTICE.txt",
-            ]
-            for top_level_file in top_level_files:
-                shutil.copy(os.path.join(top_level, top_level_file),
-                            self.source_folder)
-            return
-        # END
         get(self, **self.conan_data["sources"][self.version],
             filename=f"apache-arrow-{self.version}.tar.gz", strip_root=True)
 
@@ -371,7 +317,7 @@ class ArrowConan(ConanFile):
         if self.options.with_lz4:
             tc.variables["ARROW_LZ4_USE_SHARED"] = bool(self.dependencies["lz4"].options.shared)
         tc.variables["ARROW_WITH_SNAPPY"] = bool(self.options.with_snappy)
-        tc.variables["RapidJSON_SOURCE"] = "AUTO"
+        tc.variables["RapidJSON_SOURCE"] = "SYSTEM"
         tc.variables["Snappy_SOURCE"] = "SYSTEM"
         if self.options.with_snappy:
             tc.variables["ARROW_SNAPPY_USE_SHARED"] = bool(self.dependencies["snappy"].options.shared)
@@ -425,28 +371,11 @@ class ArrowConan(ConanFile):
         tc.generate()
 
         deps = CMakeDeps(self)
+        deps.set_property("mimalloc", "cmake_target_name", "mimalloc::mimalloc")
         deps.generate()
 
     def _patch_sources(self):
         apply_conandata_patches(self)
-        if Version(self.version) < "10.0.0":
-            for filename in glob.glob(os.path.join(self.source_folder, "cpp", "cmake_modules", "Find*.cmake")):
-                if os.path.basename(filename) not in [
-                    "FindArrow.cmake",
-                    "FindArrowAcero.cmake",
-                    "FindArrowCUDA.cmake",
-                    "FindArrowDataset.cmake",
-                    "FindArrowFlight.cmake",
-                    "FindArrowFlightSql.cmake",
-                    "FindArrowFlightTesting.cmake",
-                    "FindArrowPython.cmake",
-                    "FindArrowPythonFlight.cmake",
-                    "FindArrowSubstrait.cmake",
-                    "FindArrowTesting.cmake",
-                    "FindGandiva.cmake",
-                    "FindParquet.cmake",
-                ]:
-                    os.remove(filename)
 
     def build(self):
         self._patch_sources()
@@ -463,29 +392,6 @@ class ArrowConan(ConanFile):
         rmdir(self, os.path.join(self.package_folder, "lib", "cmake"))
         rmdir(self, os.path.join(self.package_folder, "lib", "pkgconfig"))
         rmdir(self, os.path.join(self.package_folder, "share"))
-
-        cmake_suffix = "shared" if self.options.shared else "static"
-
-        alias_map = { f"Arrow::arrow_{cmake_suffix}": f"arrow::arrow_{cmake_suffix}" }
-
-        if self.options.parquet:
-            alias_map[f"Parquet::parquet_{cmake_suffix}"] = f"arrow::parquet_{cmake_suffix}"
-
-        if self.options.get_safe("substrait"):
-            alias_map[f"Arrow::arrow_substrait_{cmake_suffix}"] = f"arrow::arrow_substrait_{cmake_suffix}"
-
-        if self.options.acero:
-            alias_map[f"Arrow::arrow_acero_{cmake_suffix}"] = f"arrow::arrow_acero_{cmake_suffix}"
-
-        if self.options.gandiva:
-            alias_map[f"Gandiva::gandiva_{cmake_suffix}"] = f"arrow::gandiva_{cmake_suffix}"
-
-        if self.options.with_flight_rpc:
-            alias_map[f"ArrowFlight::arrow_flight_sql_{cmake_suffix}"] = f"arrow::arrow_flight_sql_{cmake_suffix}"
-
-    @property
-    def _module_subfolder(self):
-        return os.path.join("lib", "cmake")
 
     def package_info(self):
         # FIXME: fix CMake targets of components
@@ -556,6 +462,8 @@ class ArrowConan(ConanFile):
             self.cpp_info.components["dataset"].libs = ["arrow_dataset"]
             if self.options.parquet:
                 self.cpp_info.components["dataset"].requires = ["libparquet"]
+            if self.options.acero and Version(self.version) >= "19.0.0":
+                self.cpp_info.components["dataset"].requires = ["libacero"]
 
         if self.options.cli and (self.options.with_cuda or self.options.with_flight_rpc or self.options.parquet):
             binpath = os.path.join(self.package_folder, "bin")
