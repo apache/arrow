@@ -156,8 +156,8 @@ struct GroupedReducingAggregator : public GroupedAggregator {
   std::shared_ptr<DataType> out_type() const override { return out_type_; }
 
   template <typename T = Type>
-  static enable_if_t<!is_decimal_type<T>::value, Result<std::shared_ptr<DataType>>> GetOutType(
-      const std::shared_ptr<DataType>& in_type) {
+  static enable_if_t<!is_decimal_type<T>::value, Result<std::shared_ptr<DataType>>>
+  GetOutType(const std::shared_ptr<DataType>& in_type) {
     return TypeTraits<AccType>::type_singleton();
   }
 
