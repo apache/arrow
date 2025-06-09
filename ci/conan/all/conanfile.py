@@ -371,7 +371,7 @@ class ArrowConan(ConanFile):
         if self.options.with_lz4:
             tc.variables["ARROW_LZ4_USE_SHARED"] = bool(self.dependencies["lz4"].options.shared)
         tc.variables["ARROW_WITH_SNAPPY"] = bool(self.options.with_snappy)
-        tc.variables["RapidJSON_SOURCE"] = "SYSTEM"
+        tc.variables["RapidJSON_SOURCE"] = "AUTO"
         tc.variables["Snappy_SOURCE"] = "SYSTEM"
         if self.options.with_snappy:
             tc.variables["ARROW_SNAPPY_USE_SHARED"] = bool(self.dependencies["snappy"].options.shared)
