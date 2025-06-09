@@ -355,12 +355,6 @@ set(PYARROW_CPP_SOURCE_DIR ${PYARROW_CPP_ROOT_DIR}/arrow/python)
 string(TOLOWER ${CMAKE_BUILD_TYPE} LOWERCASE_PYBUILD_TYPE)
 configure_file("${PYARROW_CPP_SOURCE_DIR}/pybuild_type.h.cmake" "${PYARROW_CPP_SOURCE_DIR}/pybuild_type.h" ESCAPE_QUOTES)
 
-#message(STATUS "Trying to install: ${CMAKE_CURRENT_BINARY_DIR}/${PYARROW_CPP_SOURCE_DIR}/pybuild_type.h to #${CMAKE_INSTALL_INCLUDEDIR}/arrow/python")
-#install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PYARROW_CPP_ROOT_DIR}/pybuild_type.h"
-#        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/python")
-#
-#message(STATUS "Installed ${CMAKE_INSTALL_INCLUDEDIR}/arrow/python/pybuild_type.h")
-
 set(PYARROW_CPP_SRCS
     ${PYARROW_CPP_SOURCE_DIR}/arrow_to_pandas.cc
     ${PYARROW_CPP_SOURCE_DIR}/benchmark.cc
