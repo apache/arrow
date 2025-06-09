@@ -229,30 +229,41 @@ TEST(TestSecureString, SecureClearString) {
 }
 
 TEST(TestSecureString, Construct) {
-  // move-constructing from a string securely clears that string
-  std::string string("hello world");
-  auto old_string = StringArea(string);
-  SecureString secret_from_string(std::move(string));
-  ASSERT_TRUE(IsSecurelyCleared(string));
-  ASSERT_TRUE(IsSecurelyCleared(old_string));
-  ASSERT_FALSE(secret_from_string.empty());
-  ASSERT_EQ(secret_from_string.as_view(), "hello world");
+  // We use a very short and a very long string as memory management of short and long
+  // strings behaves differently.
+  std::vector<std::string> strings = {"short secret", std::string(1024, 'x')};
 
-  // move-constructing from a secure string securely clears that secure string
-  auto old_secret_from_string_view = secret_from_string.as_view();
-  auto old_secret_from_string_value = std::string(secret_from_string.as_view());
-  SecureString secret_from_move_secret(std::move(secret_from_string));
-  ASSERT_TRUE(secret_from_string.empty());
-  ASSERT_TRUE(IsSecurelyCleared(old_secret_from_string_view));
-  ASSERT_FALSE(secret_from_move_secret.empty());
-  ASSERT_EQ(secret_from_move_secret.as_view(), old_secret_from_string_value);
+  for (const auto& original_string : strings) {
+    // move-constructing from a string either reuses its buffer or securely clears
+    // that string
+    std::string string = original_string;
+    auto old_string = StringArea(string);
+    SecureString secret_from_string(std::move(string));
+    ASSERT_TRUE(IsSecurelyCleared(string));
+    if (secret_from_string.as_view().data() != old_string.data()) {
+      ASSERT_TRUE(IsSecurelyCleared(old_string));
+    }
+    ASSERT_FALSE(secret_from_string.empty());
+    ASSERT_EQ(secret_from_string.as_view(), original_string);
 
-  // copy-constructing from a secure string does not modify that secure string
-  SecureString secret_from_secret(secret_from_move_secret);
-  ASSERT_FALSE(secret_from_move_secret.empty());
-  ASSERT_EQ(secret_from_move_secret.as_view(), old_secret_from_string_value);
-  ASSERT_FALSE(secret_from_secret.empty());
-  ASSERT_EQ(secret_from_secret, secret_from_move_secret);
+    // move-constructing from a secure string securely clears that secure string
+    auto old_secret_from_string_view = secret_from_string.as_view();
+    auto old_secret_from_string_value = std::string(secret_from_string.as_view());
+    SecureString secret_from_move_secret(std::move(secret_from_string));
+    ASSERT_TRUE(secret_from_string.empty());
+    if (secret_from_move_secret.as_view().data() != old_secret_from_string_view.data()) {
+      ASSERT_TRUE(IsSecurelyCleared(old_secret_from_string_view));
+    }
+    ASSERT_FALSE(secret_from_move_secret.empty());
+    ASSERT_EQ(secret_from_move_secret.as_view(), old_secret_from_string_value);
+
+    // copy-constructing from a secure string does not modify that secure string
+    SecureString secret_from_secret(secret_from_move_secret);
+    ASSERT_FALSE(secret_from_move_secret.empty());
+    ASSERT_EQ(secret_from_move_secret.as_view(), old_secret_from_string_value);
+    ASSERT_FALSE(secret_from_secret.empty());
+    ASSERT_EQ(secret_from_secret, secret_from_move_secret);
+  }
 }
 
 TEST(TestSecureString, Assign) {
