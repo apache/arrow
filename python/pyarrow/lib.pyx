@@ -98,7 +98,7 @@ def is_threading_enabled() -> bool:
 
 def get_pybuild_type() -> str:
     """
-    Returns the PyArrow build type (release, debug, relwithdebinfo).
+    Returns the PyArrow build type (debug, minsizerel, release, relwithdebinfo).
     The default build type is release, regardless of if C++ was 
     built in debug mode.
     """
