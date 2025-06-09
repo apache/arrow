@@ -30,8 +30,11 @@ conan_args=()
 conan_args+=(--build=missing)
 if [ -n "${ARROW_CONAN_PARQUET:-}" ]; then
   conan_args+=(--options arrow/*:parquet=${ARROW_CONAN_PARQUET})
-  conan_args+=(--options arrow/*:with_thrift=${ARROW_CONAN_PARQUET})
   conan_args+=(--options arrow/*:with_boost=${ARROW_CONAN_PARQUET})
+  conan_args+=(--options arrow/*:with_json=${ARROW_CONAN_PARQUET})
+  conan_args+=(--options arrow/*:with_thrift=${ARROW_CONAN_PARQUET})
+else
+  conan_args+=(--options arrow/*:parquet=False)
 fi
 if [ -n "${ARROW_CONAN_WITH_BROTLI:-}" ]; then
   conan_args+=(--options arrow/*:with_brotli=${ARROW_CONAN_WITH_BROTLI})
