@@ -87,6 +87,8 @@ std::string_view StringArea(const std::string& string) {
 #endif
 }
 
+#undef COMPARE
+
 TEST(TestSecureString, AssertSecurelyCleared) {
   // This tests AssertSecurelyCleared helper methods is actually able to identify secret
   // leakage. It retrieves assertion results and asserts result type and message.
