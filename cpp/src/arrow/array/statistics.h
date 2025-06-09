@@ -22,6 +22,7 @@
 #include <string>
 #include <variant>
 
+#include "arrow/compare.h"
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
@@ -127,11 +128,17 @@ struct ARROW_EXPORT ArrayStatistics {
   /// \brief Whether the maximum value is exact or not
   bool is_max_exact = false;
 
-  /// \brief Check two statistics for equality
-  bool Equals(const ArrayStatistics& other) const {
-    return null_count == other.null_count && distinct_count == other.distinct_count &&
-           min == other.min && is_min_exact == other.is_min_exact && max == other.max &&
-           is_max_exact == other.is_max_exact;
+  /// \brief Check two \ref arrow::ArrayStatistics for equality
+  ///
+  /// \param other The \ref arrow::ArrayStatistics instance to compare against.
+  ///
+  /// \param equal_options Options used to compare double values for equality.
+  ///
+  /// \return True if the two \ref arrow::ArrayStatistics instances are equal; otherwise,
+  /// false.
+  bool Equals(const ArrayStatistics& other,
+              const EqualOptions& equal_options = EqualOptions::Defaults()) const {
+    return ArrayStatisticsEquals(*this, other, equal_options);
   }
 
   /// \brief Check two statistics for equality

@@ -50,7 +50,7 @@
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/bitmap_visit.h"
 #include "arrow/util/bitmap_writer.h"
-#include "arrow/util/bitset_stack.h"
+#include "arrow/util/bitset_stack_internal.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/ubsan.h"
 

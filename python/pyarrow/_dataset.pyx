@@ -1011,7 +1011,7 @@ cdef class InMemoryDataset(Dataset):
         if isinstance(source, (pa.RecordBatch, pa.Table)):
             source = [source]
 
-        if isinstance(source, (list, tuple)):
+        if isinstance(source, (list, tuple, pa.RecordBatchReader)):
             batches = []
             for item in source:
                 if isinstance(item, pa.RecordBatch):
@@ -1036,8 +1036,8 @@ cdef class InMemoryDataset(Dataset):
                 pyarrow_unwrap_table(table))
         else:
             raise TypeError(
-                'Expected a table, batch, or list of tables/batches '
-                'instead of the given type: ' +
+                'Expected a Table, RecordBatch, list of Table/RecordBatch, '
+                'or RecordBatchReader instead of the given type: ' +
                 type(source).__name__
             )
 
