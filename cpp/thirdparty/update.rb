@@ -31,6 +31,24 @@ if patterns.empty?
   exit(false)
 end
 
+# Extract product information from the `cpp/thirdparty/versions.txt`
+# content.
+#
+# Output:
+#
+#   {
+#     "ABSL" => {
+#       version: "20211102.0",
+#       checksum: "dcf71b9cba8dc0ca9940c4b316a0c796be8fab42b070bb6b7cab62b48f0e66c4",
+#       url_template: "https://github.com/abseil/abseil-cpp/archive/%{version}.tar.gz"
+#     },
+#     "AWS_C_AUTH" => {
+#       version: "v0.9.0",
+#       checksum: "aa6e98864fefb95c249c100da4ae7aed36ba13a8a91415791ec6fad20bec0427",
+#       url_template: "https://github.com/awslabs/aws-c-auth/archive/%{version}.tar.gz",
+#     },
+#     ...
+#   }
 def parse_versions_txt_content(content)
   products = {}
   content.each_line(chomp: true) do |line|
@@ -59,6 +77,28 @@ def parse_versions_txt_content(content)
   products
 end
 
+# Update `metadata[:version]` and `metadata[:checksum]` for
+# `latest_version`.
+#
+# This is used by product specific `#update_product_*` such as
+# `#update_product_github` and `#update_product_apache`.
+def update_product_generic(product, metadata, latest_version)
+  version = metadata[:version]
+  url_template = metadata[:url_template]
+  url = url_template % {
+    version: latest_version,
+    version_underscore: latest_version.gsub(".", "_"),
+  }
+  $stderr.puts("Updating #{product}: #{version} -> #{latest_version}")
+  metadata[:version] = latest_version
+  URI.open(url, "rb") do |response|
+    metadata[:checksum] = Digest::SHA256.hexdigest(response.read)
+  end
+  $stderr.puts("  Checksum: #{metadata[:checksum]}")
+end
+
+# Update metadata to the latest version. This is for products hosted
+# on GitHub.
 def update_product_github(product, metadata, repository)
   version = metadata[:version]
   tags_url = "https://api.github.com/repos/#{repository}/tags"
@@ -77,19 +117,11 @@ def update_product_github(product, metadata, repository)
   end
   return if version == latest_version
 
-  url_template = metadata[:url_template]
-  url = url_template % {
-    version: latest_version,
-    version_underscore: latest_version.gsub(".", "_"),
-  }
-  $stderr.puts("Updating #{product}: #{version} -> #{latest_version}")
-  metadata[:version] = latest_version
-  URI.open(url, "rb") do |response|
-    metadata[:checksum] = Digest::SHA256.hexdigest(response.read)
-  end
-  $stderr.puts("  Checksum: #{metadata[:checksum]}")
+  update_product_generic(product, metadata, latest_version)
 end
 
+# Update metadata to the latest version. This is for products
+# developed by Apache Software Foundation.
 def update_product_apache(product, metadata, project)
   version = metadata[:version]
   version_directory_pattern = metadata[:version_directory_template] % {
@@ -101,19 +133,10 @@ def update_product_apache(product, metadata, project)
   latest_version = versions.last
   return if version == latest_version
 
-  url_template = metadata[:url_template]
-  url = url_template % {
-    version: latest_version,
-    version_underscore: latest_version.gsub(".", "_"),
-  }
-  $stderr.puts("Updating #{product}: #{version} -> #{latest_version}")
-  metadata[:version] = latest_version
-  URI.open(url, "rb") do |response|
-    metadata[:checksum] = Digest::SHA256.hexdigest(response.read)
-  end
-  $stderr.puts("  Checksum: #{metadata[:checksum]}")
+  update_product_generic(product, metadata, latest_version)
 end
 
+# Update one product to the latest version.
 def update_product(product, metadata)
   url_template = metadata[:url_template]
   if url_template.nil?
@@ -136,6 +159,9 @@ def update_product(product, metadata)
   end
 end
 
+# Update `versions.txt` content with `products`. `products` must be
+# the same structure as `Hash` returned by
+# `#parse_versions_txt_content`.
 def update_versions_txt_content!(content, products)
   products.each do |product, metadata|
     prefix = "ARROW_#{Regexp.escape(product)}"
