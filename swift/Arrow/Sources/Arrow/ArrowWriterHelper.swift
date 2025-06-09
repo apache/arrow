@@ -41,6 +41,8 @@ func toFBTypeEnum(_ arrowType: ArrowType) -> Result<org_apache_arrow_flatbuf_Typ
         return .success(org_apache_arrow_flatbuf_Type_.date)
     case .time32, .time64:
         return .success(org_apache_arrow_flatbuf_Type_.time)
+    case .timestamp:
+        return .success(org_apache_arrow_flatbuf_Type_.timestamp)
     case .strct:
         return .success(org_apache_arrow_flatbuf_Type_.struct_)
     default:
@@ -103,6 +105,32 @@ func toFBType( // swiftlint:disable:this cyclomatic_complexity function_body_len
         }
 
         return .failure(.invalid("Unable to case to Time64"))
+    case .timestamp:
+        if let timestampType = arrowType as? ArrowTypeTimestamp {
+            let startOffset = org_apache_arrow_flatbuf_Timestamp.startTimestamp(&fbb)
+            
+            let fbUnit: org_apache_arrow_flatbuf_TimeUnit
+            switch timestampType.unit {
+            case .seconds:
+                fbUnit = .second
+            case .milliseconds:
+                fbUnit = .millisecond
+            case .microseconds:
+                fbUnit = .microsecond
+            case .nanoseconds:
+                fbUnit = .nanosecond
+            }
+            org_apache_arrow_flatbuf_Timestamp.add(unit: fbUnit, &fbb)
+            
+            if let timezone = timestampType.timezone {
+                let timezoneOffset = fbb.create(string: timezone)
+                org_apache_arrow_flatbuf_Timestamp.add(timezone: timezoneOffset, &fbb)
+            }
+            
+            return .success(org_apache_arrow_flatbuf_Timestamp.endTimestamp(&fbb, start: startOffset))
+        }
+        
+        return .failure(.invalid("Unable to cast to Timestamp"))
     case .strct:
         let startOffset = org_apache_arrow_flatbuf_Struct_.startStruct_(&fbb)
         return .success(org_apache_arrow_flatbuf_Struct_.endStruct_(&fbb, start: startOffset))

@@ -64,6 +64,22 @@ func fromProto( // swiftlint:disable:this cyclomatic_complexity function_body_le
             let arrowUnit: ArrowTime64Unit = timeType.unit == .microsecond ? .microseconds : .nanoseconds
             arrowType = ArrowTypeTime64(arrowUnit)
         }
+    case .timestamp:
+        let timestampType = field.type(type: org_apache_arrow_flatbuf_Timestamp.self)!
+        let arrowUnit: ArrowTimestampUnit
+        switch timestampType.unit {
+        case .second:
+            arrowUnit = .seconds
+        case .millisecond:
+            arrowUnit = .milliseconds
+        case .microsecond:
+            arrowUnit = .microseconds
+        case .nanosecond:
+            arrowUnit = .nanoseconds
+        }
+        
+        let timezone = timestampType.timezone
+        arrowType = ArrowTypeTimestamp(arrowUnit, timezone: timezone?.isEmpty == true ? nil : timezone)
     case .struct_:
         var children = [ArrowField]()
         for index in 0..<field.childrenCount {

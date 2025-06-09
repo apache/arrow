@@ -119,6 +119,12 @@ public class Time64ArrayBuilder: ArrowArrayBuilder<FixedBufferBuilder<Time64>, T
     }
 }
 
+public class TimestampArrayBuilder: ArrowArrayBuilder<FixedBufferBuilder<Int64>, TimestampArray> {
+    fileprivate convenience init(_ unit: ArrowTimestampUnit, timezone: String? = nil) throws {
+        try self.init(ArrowTypeTimestamp(unit, timezone: timezone))
+    }
+}
+
 public class StructArrayBuilder: ArrowArrayBuilder<StructBufferBuilder, StructArray> {
     let builders: [any ArrowArrayHolderBuilder]
     let fields: [ArrowField]
@@ -279,6 +285,11 @@ public class ArrowArrayBuilders {
                 throw ArrowError.invalid("Expected arrow type for \(arrowType.id) not found")
             }
             return try Time64ArrayBuilder(timeType.unit)
+        case .timestamp:
+            guard let timestampType = arrowType as? ArrowTypeTimestamp else {
+                throw ArrowError.invalid("Expected arrow type for \(arrowType.id) not found")
+            }
+            return try TimestampArrayBuilder(timestampType.unit)
         default:
             throw ArrowError.unknownType("Builder not found for arrow type: \(arrowType.id)")
         }
@@ -337,5 +348,9 @@ public class ArrowArrayBuilders {
 
     public static func loadTime64ArrayBuilder(_ unit: ArrowTime64Unit) throws -> Time64ArrayBuilder {
         return try Time64ArrayBuilder(unit)
+    }
+    
+    public static func loadTimestampArrayBuilder(_ unit: ArrowTimestampUnit, timezone: String? = nil) throws -> TimestampArrayBuilder {
+        return try TimestampArrayBuilder(unit, timezone: timezone)
     }
 }

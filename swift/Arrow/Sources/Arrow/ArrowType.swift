@@ -21,6 +21,7 @@ public typealias Time32 = Int32
 public typealias Time64 = Int64
 public typealias Date32 = Int32
 public typealias Date64 = Int64
+public typealias Timestamp = Int64
 
 func FlatBuffersVersion_23_1_4() { // swiftlint:disable:this identifier_name
 }
@@ -65,6 +66,7 @@ public enum ArrowTypeId {
     case strct
     case time32
     case time64
+    case timestamp
     case time
     case uint16
     case uint32
@@ -122,6 +124,49 @@ public class ArrowTypeTime64: ArrowType {
     }
 }
 
+public enum ArrowTimestampUnit {
+    case seconds
+    case milliseconds
+    case microseconds
+    case nanoseconds
+}
+
+public class ArrowTypeTimestamp: ArrowType {
+    let unit: ArrowTimestampUnit
+    let timezone: String?
+    
+    public init(_ unit: ArrowTimestampUnit, timezone: String? = nil) {
+        self.unit = unit
+        self.timezone = timezone
+        
+        super.init(ArrowType.ArrowTimestamp)
+    }
+    
+    public convenience init(type: ArrowTypeId) {
+        self.init(.milliseconds, timezone: nil)
+    }
+    
+    public override var cDataFormatId: String {
+        get throws {
+            let unitChar: String
+            switch self.unit {
+                case .seconds: unitChar = "s"
+                case .milliseconds: unitChar = "m"
+                case .microseconds: unitChar = "u"
+                case .nanoseconds: unitChar = "n"
+            }
+            
+            if let timezone = self.timezone {
+                return "ts\(unitChar):\(timezone)"
+            } else {
+                return "ts\(unitChar)"
+            }
+        }
+    }
+    
+}
+
+
 public class ArrowNestedType: ArrowType {
     let fields: [ArrowField]
     public init(_ info: ArrowType.Info, fields: [ArrowField]) {
@@ -150,6 +195,7 @@ public class ArrowType {
     public static let ArrowBinary = Info.variableInfo(ArrowTypeId.binary)
     public static let ArrowTime32 = Info.timeInfo(ArrowTypeId.time32)
     public static let ArrowTime64 = Info.timeInfo(ArrowTypeId.time64)
+    public static let ArrowTimestamp = Info.timeInfo(ArrowTypeId.timestamp)
     public static let ArrowStruct = Info.complexInfo(ArrowTypeId.strct)
 
     public init(_ info: ArrowType.Info) {
@@ -270,6 +316,8 @@ public class ArrowType {
             return MemoryLayout<Time32>.stride
         case .time64:
             return MemoryLayout<Time64>.stride
+        case .timestamp:
+            return MemoryLayout<Timestamp>.stride
         case .binary:
             return MemoryLayout<Int8>.stride
         case .string:
@@ -320,6 +368,11 @@ public class ArrowType {
                     return try time64.cDataFormatId
                 }
                 return "ttu"
+            case ArrowTypeId.timestamp:
+                if let timestamp = self as? ArrowTypeTimestamp {
+                    return try timestamp.cDataFormatId
+                }
+                return "tsu"
             case ArrowTypeId.binary:
                 return "z"
             case ArrowTypeId.string:
@@ -366,6 +419,24 @@ public class ArrowType {
             return ArrowTypeTime64(.microseconds)
         } else if  from == "ttn" {
             return ArrowTypeTime64(.nanoseconds)
+        } else if from.starts(with: "ts") {
+            let components = from.split(separator: ":", maxSplits: 1)
+            guard let unitPart = components.first, unitPart.count == 3 else {
+                throw ArrowError.notImplemented
+            }
+            
+            let unitChar = unitPart.suffix(1)
+            let unit: ArrowTimestampUnit
+            switch unitChar {
+            case "s": unit = .seconds
+            case "m": unit = .milliseconds
+            case "u": unit = .microseconds
+            case "n": unit = .nanoseconds
+            default: unit = .milliseconds
+            }
+            
+            let timezone = components.count > 1 ? String(components[1]) : nil
+            return ArrowTypeTimestamp(unit, timezone: timezone)
         } else if  from == "z" {
             return ArrowType(ArrowType.ArrowBinary)
         } else if  from == "u" {

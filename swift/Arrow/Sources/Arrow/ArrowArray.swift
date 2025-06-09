@@ -105,6 +105,8 @@ public class ArrowArrayHolderImpl: ArrowArrayHolder {
             return try ArrowArrayHolderImpl(Time32Array(with))
         case .time64:
             return try ArrowArrayHolderImpl(Time64Array(with))
+        case .timestamp:
+            return try ArrowArrayHolderImpl(TimestampArray(with))
         case .string:
             return try ArrowArrayHolderImpl(StringArray(with))
         case .boolean:
@@ -232,6 +234,71 @@ public class Date64Array: ArrowArray<Date> {
 
 public class Time32Array: FixedArray<Time32> {}
 public class Time64Array: FixedArray<Time64> {}
+
+public class TimestampArray: FixedArray<Timestamp> {
+    
+    public struct FormattingOptions {
+        public var dateFormat: String = "yyyy-MM-dd HH:mm:ss.SSS"
+        public var locale: Locale = .current
+        public var includeTimezone: Bool = true
+        public var fallbackToRaw: Bool = true
+        
+        public init(dateFormat: String = "yyyy-MM-dd HH:mm:ss.SSS",
+                    locale: Locale = .current,
+                    includeTimezone: Bool = true,
+                    fallbackToRaw: Bool = true) {
+            self.dateFormat = dateFormat
+            self.locale = locale
+            self.includeTimezone = includeTimezone
+            self.fallbackToRaw = fallbackToRaw
+        }
+    }
+    
+    public func formattedDate(at index: UInt, options: FormattingOptions = FormattingOptions()) -> String? {
+        guard let timestamp = self[index] else { return nil }
+
+        guard let timestampType = self.arrowData.type as? ArrowTypeTimestamp else {
+            return options.fallbackToRaw ? "\(timestamp)" : nil
+        }
+
+        let date = dateFromTimestamp(timestamp, unit: timestampType.unit)
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = options.dateFormat
+        formatter.locale = options.locale
+
+        if options.includeTimezone, let timezone = timestampType.timezone {
+            formatter.timeZone = TimeZone(identifier: timezone)
+        }
+
+        return formatter.string(from: date)
+    }
+    
+    private func dateFromTimestamp(_ timestamp: Int64, unit: ArrowTimestampUnit) -> Date {
+        let timeInterval: TimeInterval
+
+        switch unit {
+        case .seconds:
+            timeInterval = TimeInterval(timestamp)
+        case .milliseconds:
+            timeInterval = TimeInterval(timestamp) / 1_000
+        case .microseconds:
+            timeInterval = TimeInterval(timestamp) / 1_000_000
+        case .nanoseconds:
+            timeInterval = TimeInterval(timestamp) / 1_000_000_000
+        }
+
+        return Date(timeIntervalSince1970: timeInterval)
+    }
+    
+    public override func asString(_ index: UInt) -> String {
+        if let formatted = formattedDate(at: index) {
+            return formatted
+        }
+
+        return super.asString(index)
+    }
+}
 
 public class BinaryArray: ArrowArray<Data> {
     public struct Options {
