@@ -5118,6 +5118,11 @@ function(build_awssdk)
     # AWS-C-CAL ->
     # AWS_C_CAL
     string(REGEX REPLACE "-" "_" BASE_VARIABLE_NAME "${BASE_VARIABLE_NAME}")
+    if(MINGW AND AWSSDK_PRODUCT STREQUAL "aws-c-common")
+      find_program(PATCH patch REQUIRED)
+      set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
+          ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/aws-c-common-1208.patch)
+    endif()
     fetchcontent_declare(${AWSSDK_PRODUCT}
                          ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
                          PATCH_COMMAND ${${BASE_VARIABLE_NAME}_PATCH_COMMAND}
