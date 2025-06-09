@@ -5082,8 +5082,6 @@ endif()
 # ----------------------------------------------------------------------
 # AWS SDK for C++
 
-include(AWSSDKVariables)
-
 function(build_awssdk)
   message(STATUS "Building AWS SDK for C++ from source")
 
