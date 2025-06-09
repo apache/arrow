@@ -37,6 +37,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/binary_view_util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -501,7 +502,7 @@ class ARROW_EXPORT StringHeapBuilder {
     }
 
     auto v = util::ToNonInlineBinaryView(value, static_cast<int32_t>(length),
-                                         static_cast<int32_t>(blocks_.size() - 1),
+                                         static_cast<int32_t>(current_block_),
                                          current_offset_);
 
     memcpy(current_out_buffer_, value, static_cast<size_t>(length));
@@ -524,14 +525,15 @@ class ARROW_EXPORT StringHeapBuilder {
           "strings larger than 2GB");
     }
     if (num_bytes > current_remaining_bytes_) {
-      ARROW_RETURN_NOT_OK(FinishLastBlock());
+      ARROW_RETURN_NOT_OK(FinishCurrentBlock());
       current_remaining_bytes_ = num_bytes > blocksize_ ? num_bytes : blocksize_;
       ARROW_ASSIGN_OR_RAISE(
-          std::shared_ptr<ResizableBuffer> new_block,
+          std::shared_ptr<Buffer> new_block,
           AllocateResizableBuffer(current_remaining_bytes_, alignment_, pool_));
       current_offset_ = 0;
       current_out_buffer_ = new_block->mutable_data();
       blocks_.emplace_back(std::move(new_block));
+      current_block_ = static_cast<int32_t>(blocks_.size() - 1);
     }
     return Status::OK();
   }
@@ -540,29 +542,40 @@ class ARROW_EXPORT StringHeapBuilder {
     current_offset_ = 0;
     current_out_buffer_ = NULLPTR;
     current_remaining_bytes_ = 0;
+    current_block_ = 0;
     blocks_.clear();
   }
 
   int64_t current_remaining_bytes() const { return current_remaining_bytes_; }
 
-  Result<std::vector<std::shared_ptr<ResizableBuffer>>> Finish() {
+  Result<std::vector<std::shared_ptr<Buffer>>> Finish() {
     if (!blocks_.empty()) {
-      ARROW_RETURN_NOT_OK(FinishLastBlock());
+      ARROW_RETURN_NOT_OK(FinishCurrentBlock());
     }
     current_offset_ = 0;
     current_out_buffer_ = NULLPTR;
     current_remaining_bytes_ = 0;
+    current_block_ = 0;
     return std::move(blocks_);
+  }
+  int32_t TryAddBufferAndGetIndex(const std::shared_ptr<Buffer>& buffer) {
+    auto it = std::find(blocks_.begin(), blocks_.end(), buffer);
+    if (it == blocks_.end()) {
+      blocks_.push_back(buffer);
+      return static_cast<int32_t>(blocks_.size() - 1);
+    } else {
+      return static_cast<int32_t>(std::distance(blocks_.begin(), it));
+    }
   }
 
  private:
-  Status FinishLastBlock() {
+  Status FinishCurrentBlock() {
     if (current_remaining_bytes_ > 0) {
+      auto block = checked_pointer_cast<ResizableBuffer>(blocks_[current_block_]);
       // Avoid leaking uninitialized bytes from the allocator
-      ARROW_RETURN_NOT_OK(
-          blocks_.back()->Resize(blocks_.back()->size() - current_remaining_bytes_,
-                                 /*shrink_to_fit=*/true));
-      blocks_.back()->ZeroPadding();
+      ARROW_RETURN_NOT_OK(block->Resize(block->size() - current_remaining_bytes_,
+                                        /*shrink_to_fit=*/true));
+      block->ZeroPadding();
     }
     return Status::OK();
   }
@@ -570,9 +583,10 @@ class ARROW_EXPORT StringHeapBuilder {
   MemoryPool* pool_;
   int64_t alignment_;
   int64_t blocksize_ = kDefaultBlocksize;
-  std::vector<std::shared_ptr<ResizableBuffer>> blocks_;
+  std::vector<std::shared_ptr<Buffer>> blocks_;
 
   int32_t current_offset_ = 0;
+  int64_t current_block_ = 0;
   uint8_t* current_out_buffer_ = NULLPTR;
   int64_t current_remaining_bytes_ = 0;
 };
@@ -691,8 +705,8 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
     UnsafeAppendToBitmap(true);
   }
 
-  /// \brief Append a slice of a BinaryViewArray passed as an ArraySpan. Copies
-  /// the underlying out-of-line string memory to avoid memory lifetime issues
+  /// \brief Append a slice of a BinaryViewArray passed as an ArraySpan. The view
+  /// buffer is copied, whereas the data buffers are shared rather than copied.
   Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override;
 
