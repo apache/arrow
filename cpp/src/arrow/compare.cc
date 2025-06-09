@@ -51,7 +51,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/memory.h"
+#include "arrow/util/memory_internal.h"
 #include "arrow/util/ree_util.h"
 #include "arrow/visit_scalar_inline.h"
 #include "arrow/visit_type_inline.h"
