@@ -253,7 +253,7 @@ def test_numerics():
     assert int(s) == 1
 
     # float16
-    s = pa.scalar(np.float16(0.5), type='float16')
+    s = pa.scalar(0.5, type='float16')
     assert isinstance(s, pa.HalfFloatScalar)
     assert repr(s) == "<pyarrow.HalfFloatScalar: 0.5>"
     assert str(s) == "0.5"
