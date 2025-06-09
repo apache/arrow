@@ -75,17 +75,32 @@ def test_constructor_raises():
 
 
 def test_list_format():
-    arr = pa.array([[1], None, [2, 3, None]])
+    arr = pa.array([["foo"], None, ["bar", "a longer string", None]])
     result = arr.to_string()
     expected = """\
 [
   [
-    1
+    "foo"
   ],
   null,
   [
-    2,
-    3,
+    "bar",
+    "a longer string",
+    null
+  ]
+]"""
+    assert result == expected
+
+    result = arr.to_string(element_size_limit=10)
+    expected = """\
+[
+  [
+    "foo"
+  ],
+  null,
+  [
+    "bar",
+    "a longer (... 7 chars omitted)",
     null
   ]
 ]"""
