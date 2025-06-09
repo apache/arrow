@@ -488,7 +488,6 @@ def test_array_slice():
                 assert res.to_numpy().tolist() == expected
 
 
-@pytest.mark.numpy
 def test_array_slice_negative_step():
     # ARROW-2714
     np_arr = np.arange(20)
@@ -496,7 +495,7 @@ def test_array_slice_negative_step():
     chunked_arr = pa.chunked_array([arr])
 
     cases = [
-        slice(None, None, -1),
+        slice(None, None, -1),  # GH-46606
         slice(None, 6, -2),
         slice(10, 6, -2),
         slice(8, None, -2),
@@ -520,13 +519,6 @@ def test_array_slice_negative_step():
         result = chunked_arr[case]
         expected = pa.chunked_array([np_arr[case]])
         assert result.equals(expected)
-
-
-def test_slicing_with_non_trivial_step():
-    # https://github.com/apache/arrow/issues/46606
-    arr = pa.array([1.2, 3.5, None])
-    assert arr[-1:] == pa.array([None], type=pa.float64())
-    assert arr[::-1] == pa.array([None, 3.5, 1.2])
 
 
 def test_array_diff():
