@@ -72,6 +72,7 @@ add_arrow_test(utility-test
                ree_util_test.cc
                reflection_test.cc
                rows_to_batches_test.cc
+               secure_string_test.cc
                small_vector_test.cc
                span_test.cc
                stl_util_test.cc
