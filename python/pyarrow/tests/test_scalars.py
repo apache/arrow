@@ -258,7 +258,7 @@ def test_numerics():
     assert repr(s) == "<pyarrow.HalfFloatScalar: 0.5>"
     assert str(s) == "0.5"
     assert s.as_py() == 0.5
-    assert float(s) == 1.5
+    assert float(s) == 0.5
     assert int(s) == 0
 
 
