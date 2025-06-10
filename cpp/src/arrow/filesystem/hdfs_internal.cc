@@ -55,7 +55,7 @@ using internal::GetEnvVarNative;
 using internal::IOErrorFromErrno;
 using internal::PlatformFilename;
 
-namespace io::internal {
+namespace fs::internal {
 
 namespace {
 
@@ -810,5 +810,5 @@ Result<std::shared_ptr<HdfsOutputStream>> HdfsOutputStream::Make(const std::stri
   return file;
 }
 
-}  // namespace io::internal
+}  // namespace fs::internal
 }  // namespace arrow
