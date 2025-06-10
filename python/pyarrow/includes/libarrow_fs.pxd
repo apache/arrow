@@ -308,17 +308,12 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     CStatus HaveLibHdfs()
 
-    cdef enum HdfsDriver" arrow::io::HdfsDriver":
-        HdfsDriver_LIBHDFS" arrow::io::HdfsDriver::LIBHDFS"
-        HdfsDriver_LIBHDFS3" arrow::io::HdfsDriver::LIBHDFS3"
-
     cdef cppclass HdfsConnectionConfig:
         c_string host
         int port
         c_string user
         c_string kerb_ticket
         unordered_map[c_string, c_string] extra_conf
-        HdfsDriver driver
 
 # Callbacks for implementing Python filesystems
 # Use typedef to emulate syntax for std::function<void(..)>
