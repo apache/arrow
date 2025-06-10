@@ -503,15 +503,14 @@ def test_array_slice():
                 assert res.to_numpy().tolist() == expected
 
 
-@pytest.mark.numpy
 def test_array_slice_negative_step():
     # ARROW-2714
-    np_arr = np.arange(20)
-    arr = pa.array(np_arr)
+    values = list(range(20))
+    arr = pa.array(values)
     chunked_arr = pa.chunked_array([arr])
 
     cases = [
-        slice(None, None, -1),
+        slice(None, None, -1),  # GH-46606
         slice(None, 6, -2),
         slice(10, 6, -2),
         slice(8, None, -2),
@@ -525,7 +524,7 @@ def test_array_slice_negative_step():
 
     for case in cases:
         result = arr[case]
-        expected = pa.array(np_arr[case])
+        expected = pa.array(values[case], type=arr.type)
         assert result.equals(expected)
 
         result = pa.record_batch([arr], names=['f0'])[case]
@@ -533,7 +532,7 @@ def test_array_slice_negative_step():
         assert result.equals(expected)
 
         result = chunked_arr[case]
-        expected = pa.chunked_array([np_arr[case]])
+        expected = pa.chunked_array([values[case]], type=arr.type)
         assert result.equals(expected)
 
 
