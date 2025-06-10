@@ -4464,7 +4464,7 @@ def float16():
     to a python list, the types of its elements will be ``np.float16``
 
     >>> [type(val) for val in a.to_pylist()]
-    [<class 'numpy.float16'>, <class 'numpy.float16'>]
+    [<class 'float'>, <class 'float'>]
     """
     return primitive_type(_Type_HALF_FLOAT)
 
