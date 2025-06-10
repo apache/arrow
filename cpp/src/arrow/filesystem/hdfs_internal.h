@@ -40,7 +40,7 @@ class Status;
 
 using internal::IOErrorFromErrno;
 
-namespace io::internal {
+namespace fs::internal {
 
 class HdfsReadableFile;
 class HdfsOutputStream;
@@ -238,7 +238,7 @@ struct HdfsPathInfo {
   int16_t permissions;
 };
 
-class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
+class ARROW_EXPORT HdfsReadableFile : public io::RandomAccessFile {
  public:
   ~HdfsReadableFile() override;
 
@@ -276,7 +276,7 @@ class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
 
 // Naming this file OutputStream because it does not support seeking (like the
 // WritableFile interface)
-class ARROW_EXPORT HdfsOutputStream : public OutputStream {
+class ARROW_EXPORT HdfsOutputStream : public io::OutputStream {
  public:
   ~HdfsOutputStream() override;
 
@@ -307,5 +307,5 @@ class ARROW_EXPORT HdfsOutputStream : public OutputStream {
   ARROW_DISALLOW_COPY_AND_ASSIGN(HdfsOutputStream);
 };
 
-}  // namespace io::internal
+}  // namespace fs::internal
 }  // namespace arrow

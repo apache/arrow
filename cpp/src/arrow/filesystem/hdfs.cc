@@ -34,12 +34,13 @@ namespace arrow {
 
 using internal::ErrnoFromStatus;
 using internal::ParseValue;
-using io::internal::HdfsOutputStream;
-using io::internal::HdfsPathInfo;
-using io::internal::HdfsReadableFile;
 using util::Uri;
 
 namespace fs {
+
+using internal::HdfsOutputStream;
+using internal::HdfsPathInfo;
+using internal::HdfsReadableFile;
 
 #define CHECK_FAILURE(RETURN_VALUE, WHAT)                       \
   do {                                                          \
@@ -560,7 +561,7 @@ class HadoopFileSystem::Impl {
  protected:
   const HdfsOptions options_;
   const io::IOContext io_context_;
-  io::internal::LibHdfsShim* driver_;
+  internal::LibHdfsShim* driver_;
 
   std::string namenode_host_;
   std::string user_;
@@ -895,14 +896,14 @@ Status HadoopFileSystem::OpenReadable(const std::string& path,
 Status HadoopFileSystem::OpenWritable(
     const std::string& path, bool append, int32_t buffer_size, int16_t replication,
     int64_t default_block_size,
-    std::shared_ptr<arrow::io::internal::HdfsOutputStream>* file) {
+    std::shared_ptr<internal::HdfsOutputStream>* file) {
   return impl_->OpenWritable(path, append, buffer_size, replication, default_block_size,
                              file);
 }
 
 Status HadoopFileSystem::OpenWritable(
     const std::string& path, bool append,
-    std::shared_ptr<arrow::io::internal::HdfsOutputStream>* file) {
+    std::shared_ptr<internal::HdfsOutputStream>* file) {
   return impl_->OpenWritable(path, append, file);
 }
 
@@ -910,8 +911,8 @@ Status HadoopFileSystem::OpenWritable(
 // Allow public API users to check whether we are set up correctly
 
 Status HaveLibHdfs() {
-  io::internal::LibHdfsShim* driver;
-  return io::internal::ConnectLibHdfs(&driver);
+  internal::LibHdfsShim* driver;
+  return internal::ConnectLibHdfs(&driver);
 }
 
 }  // namespace fs
