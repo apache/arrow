@@ -584,7 +584,9 @@ def _normalize_slice(object arrow_obj, slice key):
     start, stop, step = key.indices(n)
 
     if step != 1:
-        indices = np.arange(start, stop, step)
+        indices = list(range(start, stop, step))
+        if len(indices) == 0:
+            return arrow_obj.slice(0, 0)
         return arrow_obj.take(indices)
     else:
         length = max(stop - start, 0)
