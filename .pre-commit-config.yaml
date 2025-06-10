@@ -196,8 +196,9 @@ repos:
         additional_dependencies:
           - cyclocomp
           - lintr
+          - testthat
         entry: |
-          Rscript r/tools/lint.R
+          Rscript -e "Sys.setenv(NOT_CRAN = 'TRUE'); lintr::expect_lint_free('r')"
         pass_filenames: false
         files: >-
           ^r/.*\.(R|Rmd)$
