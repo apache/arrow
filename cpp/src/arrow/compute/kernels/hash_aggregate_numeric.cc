@@ -42,8 +42,7 @@ namespace {
 // Sum/Mean/Product implementation
 
 template <typename Type, typename Impl,
-          typename AccumulateType = typename FindAccumulatorType<Type>::Type,
-          bool PromoteDecimal = false>
+          typename AccumulateType = typename FindAccumulatorType<Type>::Type>
 struct GroupedReducingAggregator : public GroupedAggregator {
   using AccType = AccumulateType;
   using CType = typename TypeTraits<AccType>::CType;
@@ -86,7 +85,7 @@ struct GroupedReducingAggregator : public GroupedAggregator {
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
     auto other =
-        checked_cast<GroupedReducingAggregator<Type, Impl, AccType, PromoteDecimal>*>(
+        checked_cast<GroupedReducingAggregator<Type, Impl, AccType>*>(
             &raw_other);
 
     CType* reduced = reduced_.mutable_data();
@@ -156,20 +155,28 @@ struct GroupedReducingAggregator : public GroupedAggregator {
   std::shared_ptr<DataType> out_type() const override { return out_type_; }
 
   template <typename T = Type>
-  static enable_if_t<!is_decimal_type<T>::value, Result<std::shared_ptr<DataType>>>
+  enable_if_t<!is_decimal_type<T>::value, Result<std::shared_ptr<DataType>>>
   GetOutType(const std::shared_ptr<DataType>& in_type) {
     return TypeTraits<AccType>::type_singleton();
   }
 
   template <typename T = Type>
-  static enable_if_decimal<T, Result<std::shared_ptr<DataType>>> GetOutType(
+  enable_if_decimal<T, Result<std::shared_ptr<DataType>>> GetOutType(
       const std::shared_ptr<DataType>& in_type) {
-    if constexpr (PromoteDecimal) {
+    if (PromoteDecimal()) {
       return WidenDecimalToMaxPrecision(in_type);
     } else {
       return in_type;
     }
   }
+
+  /// If this returns true, then the aggregator will promote a decimal
+  /// to the maximum precision for that type. For instance, a decimal128(3, 2)
+  /// will be promoted to a decimal128(38, 2)
+  ///
+  /// TODO: Ideally this should be configurable via the function options with an
+  /// enum PrecisionPolicy { PROMOTE_TO_MAX, DEMOTE_TO_DOUBLE, NO_PROMOTION }
+  virtual bool PromoteDecimal() const { return true; }
 
   int64_t num_groups_ = 0;
   ScalarAggregateOptions options_;
@@ -267,11 +274,9 @@ struct GroupedReducingFactory {
 template <typename Type>
 struct GroupedSumImpl
     : public GroupedReducingAggregator<Type, GroupedSumImpl<Type>,
-                                       typename FindAccumulatorType<Type>::Type,
-                                       /*PromoteDecimal=*/true> {
+                                       typename FindAccumulatorType<Type>::Type> {
   using Base = GroupedReducingAggregator<Type, GroupedSumImpl<Type>,
-                                         typename FindAccumulatorType<Type>::Type,
-                                         /*PromoteDecimal=*/true>;
+                                         typename FindAccumulatorType<Type>::Type>;
   using CType = typename Base::CType;
   using InputCType = typename Base::InputCType;
 
@@ -327,6 +332,8 @@ struct GroupedProductImpl final
   static CType Reduce(const DataType& out_type, const CType u, const CType v) {
     return MultiplyTraits<AccType>::Multiply(out_type, u, v);
   }
+
+  bool PromoteDecimal() const override { return false; }
 
   using Base::Finish;
 };
@@ -425,6 +432,8 @@ struct GroupedMeanImpl
     }
     return values;
   }
+
+  bool PromoteDecimal() const override { return false; }
 
   std::shared_ptr<DataType> out_type() const override {
     if (is_decimal_type<Type>::value) return this->out_type_;

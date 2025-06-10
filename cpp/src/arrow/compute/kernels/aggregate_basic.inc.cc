@@ -157,7 +157,7 @@ struct NullSumImpl : public NullImpl<ArrowType> {
   }
 };
 
-template <template <typename> class KernelClass, bool PromoteDecimal = true>
+template <template <typename> class KernelClass>
 struct SumLikeInit {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
@@ -167,6 +167,14 @@ struct SumLikeInit {
   SumLikeInit(KernelContext* ctx, std::shared_ptr<DataType> type,
               const ScalarAggregateOptions& options)
       : ctx(ctx), type(type), options(options) {}
+
+  /// If this returns true, then the aggregator will promote a decimal
+  /// to the maximum precision for that type. For instance, a decimal128(3, 2)
+  /// will be promoted to a decimal128(38, 2)
+  ///
+  /// TODO: Ideally this should be configurable via the function options with an
+  /// enum PrecisionPolicy { PROMOTE_TO_MAX, DEMOTE_TO_DOUBLE, NO_PROMOTION }
+  virtual bool PromoteDecimal() const { return true; }
 
   Status Visit(const DataType&) { return Status::NotImplemented("No sum implemented"); }
 
@@ -191,7 +199,7 @@ struct SumLikeInit {
   /// However, this may not be the desired behaviour (see, e.g., MeanKernelInit)
   template <typename Type>
   enable_if_decimal<Type, Status> Visit(const Type&) {
-    if constexpr (PromoteDecimal) {
+    if (PromoteDecimal()) {
       ARROW_ASSIGN_OR_RAISE(auto ty, WidenDecimalToMaxPrecision(type));
       state.reset(new KernelClass<Type>(ty, options));
       return Status::OK();
@@ -278,10 +286,12 @@ struct MeanImpl<ArrowType, SimdLevel,
 };
 
 template <template <typename> class KernelClass>
-struct MeanKernelInit : public SumLikeInit<KernelClass, /*PromoteDecimal=*/false> {
+struct MeanKernelInit : public SumLikeInit<KernelClass> {
   MeanKernelInit(KernelContext* ctx, std::shared_ptr<DataType> type,
                  const ScalarAggregateOptions& options)
-      : SumLikeInit<KernelClass, /*PromoteDecimal=*/false>(ctx, type, options) {}
+      : SumLikeInit<KernelClass>(ctx, type, options) {}
+
+  bool PromoteDecimal() const override { return false; }
 
   Status Visit(const NullType&) override {
     this->state.reset(new NullSumImpl<DoubleType>(this->options));
