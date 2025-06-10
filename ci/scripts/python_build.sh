@@ -82,7 +82,7 @@ export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 # If we are building docs we force Cython>3.1.1 to avoid numpydoc
 # failures due to Cython docstring being wrongly generated.
 if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then
-  ${PYTHON:-python} -m pip install Cython>3.1.1
+  ${PYTHON:-python} -m pip install --upgrade Cython>3.1.1
 fi
 
 # https://github.com/apache/arrow/issues/41429
