@@ -26,6 +26,7 @@ namespace arrow::compute {
 ///
 /// Register the compute kernel functions to be available on the
 /// global FunctionRegistry.
+/// This function will only be available if ARROW_COMPUTE is enabled.
 ARROW_COMPUTE_EXPORT Status Initialize();
 
 }  // namespace arrow::compute
