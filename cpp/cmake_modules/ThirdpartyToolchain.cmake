@@ -5227,6 +5227,29 @@ function(build_awssdk)
   set(AWS_SDK_WARNINGS_ARE_ERRORS
       OFF
       CACHE BOOL "" FORCE)
+  if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
+    # This is for RTools 40. We can remove this after we dropped
+    # support for R < 4.2. schannel.h in RTools 40 is old.
+
+    # For winhttp.h
+    #
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/winhttp/error-messages
+    string(APPEND CMAKE_CXX_FLAGS " -DERROR_WINHTTP_UNHANDLED_SCRIPT_TYPE=12176")
+    string(APPEND CMAKE_CXX_FLAGS " -DERROR_WINHTTP_SCRIPT_EXECUTION_ERROR=12177")
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/api/winhttp/ns-winhttp-winhttp_async_result
+    string(APPEND CMAKE_CXX_FLAGS " -DAPI_GET_PROXY_FOR_URL=6")
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/api/winhttp/nc-winhttp-winhttp_status_callback
+    string(APPEND CMAKE_CXX_FLAGS " -DWINHTTP_CALLBACK_STATUS_CLOSE_COMPLETE=0x02000000")
+    string(APPEND CMAKE_CXX_FLAGS
+           " -DWINHTTP_CALLBACK_STATUS_SHUTDOWN_COMPLETE=0x04000000")
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/winhttp/option-flags
+    string(APPEND CMAKE_CXX_FLAGS " -DWINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2=0x00000800")
+    string(APPEND CMAKE_CXX_FLAGS " -DWINHTTP_NO_CLIENT_CERT_CONTEXT=0")
+  endif()
 
   set(AWSSDK_LINK_LIBRARIES)
   foreach(AWSSDK_PRODUCT ${AWSSDK_PRODUCTS})
