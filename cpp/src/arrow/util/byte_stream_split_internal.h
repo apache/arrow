@@ -39,6 +39,20 @@ namespace arrow::util::internal {
 // SIMD implementations
 //
 
+template <typename T>
+constexpr T ReversePow2(T x) {
+  for (T n = 0, y = 1; n <= (8 * static_cast<T>(sizeof(T))); ++n, y = y * 2) {
+    if (y == x) {
+      return n;
+    }
+  }
+  return 0;
+}
+
+static_assert(ReversePow2(8) == 3);
+static_assert(ReversePow2(4) == 2);
+static_assert(ReversePow2(2) == 1);
+
 #if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
 template <int kNumStreams>
 void ByteStreamSplitDecodeSimd128(const uint8_t* data, int width, int64_t num_values,
@@ -46,8 +60,8 @@ void ByteStreamSplitDecodeSimd128(const uint8_t* data, int width, int64_t num_va
   using simd_batch = xsimd::make_sized_batch_t<int8_t, 16>;
 
   assert(width == kNumStreams);
-  static_assert(kNumStreams == 4 || kNumStreams == 8, "Invalid number of streams.");
-  constexpr int kNumStreamsLog2 = (kNumStreams == 8 ? 3 : 2);
+  constexpr int kNumStreamsLog2 = ReversePow2(kNumStreams);
+  static_assert(kNumStreamsLog2 != 0);
   constexpr int64_t kBlockSize = sizeof(simd_batch) * kNumStreams;
 
   const int64_t size = num_values * kNumStreams;
@@ -579,7 +593,7 @@ inline void ByteStreamSplitDecode(const uint8_t* data, int width, int64_t num_va
       memcpy(out, data, num_values);
       return;
     case 2:
-      return ByteStreamSplitDecodeScalar<2>(data, width, num_values, stride, out);
+      return ByteStreamSplitDecodePerhapsSimd<2>(data, width, num_values, stride, out);
     case 4:
       return ByteStreamSplitDecodePerhapsSimd<4>(data, width, num_values, stride, out);
     case 8:
