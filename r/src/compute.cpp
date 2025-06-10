@@ -623,10 +623,8 @@ std::vector<std::string> compute__GetFunctionNames() {
 
 // [[arrow::export]]
 void compute__Initialize() {
-#if ARROW_VERSION_MAJOR >= 21
   auto status = arrow::compute::Initialize();
   StopIfNotOk(status);
-#endif
 }
 
 class RScalarUDFKernelState : public arrow::compute::KernelState {
