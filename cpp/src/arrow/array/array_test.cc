@@ -1086,7 +1086,7 @@ class TestBinaryViewBuilderAppendArraySlice : public TestArray {
   void AssertAppendArraySliceWithArrayAndSpanOffset(const std::shared_ptr<Array>& src) {
     // Ensure even length to simplify calculations in
     // AppendArraySliceWithArrayAndSpanOffset
-    ASSERT_TRUE(src->length() % 2 == 0);
+    ASSERT_EQ(src->length() % 2, 0);
     ASSERT_OK_AND_ASSIGN(auto dst, AppendArraySliceWithArrayAndSpanOffset(src));
     ASSERT_OK(dst->ValidateFull());
     AssertArraysEqual(*dst, *src);
