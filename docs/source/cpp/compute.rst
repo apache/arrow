@@ -183,8 +183,7 @@ To avoid exhaustively listing supported types, the tables below use a number
 of general type categories:
 
 * "Numeric": Integer types (Int8, etc.) and Floating-point types (Float32,
-  Float64, sometimes Float16).  Some functions also accept
-  Decimal128/256 input.
+  Float64, sometimes Float16).  Some functions also accept Decimal input.
 
 * "Temporal": Date types (Date32, Date64), Time types (Time32, Time64),
   Timestamp, Duration, Interval.
