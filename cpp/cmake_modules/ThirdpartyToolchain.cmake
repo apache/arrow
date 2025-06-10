@@ -5160,6 +5160,15 @@ function(build_awssdk)
       ON
       CACHE BOOL "" FORCE)
 
+  # For aws-c-common
+  if(MINGW)
+    # PPROCESSOR_NUMBER requires Windows 7 or later.
+    #
+    # 0x0601 == _WIN32_WINNT_WIN7
+    string(APPEND CMAKE_C_FLAGS " -D_WIN32_WINNT=0x0601")
+    string(APPEND CMAKE_CXX_FLAGS " -D_WIN32_WINNT=0x0601")
+  endif()
+
   # For aws-lc
   set(DISABLE_PERL
       ON
