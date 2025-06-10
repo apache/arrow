@@ -5199,7 +5199,7 @@ function(build_awssdk)
     # This is for RTools 40. We can remove this after we dropped
     # support for R < 4.2. schannel.h in RTools 40 is old.
 
-    # For schannel.h.
+    # For schannel.h
     #
     # See also:
     # https://learn.microsoft.com/en-us/windows/win32/api/schannel/ns-schannel-schannel_cred
@@ -5213,7 +5213,7 @@ function(build_awssdk)
     string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_3_CLIENT=0x00002000")
     string(APPEND CMAKE_C_FLAGS " -DSCH_USE_STRONG_CRYPTO=0x00400000")
 
-    # For sspi.h.
+    # For sspi.h
     #
     # See also:
     # https://learn.microsoft.com/en-us/windows/win32/api/sspi/ne-sspi-sec_application_protocol_negotiation_ext
@@ -5222,6 +5222,11 @@ function(build_awssdk)
     # https://learn.microsoft.com/en-us/windows/win32/api/sspi/ns-sspi-secbuffer
     string(APPEND CMAKE_C_FLAGS " -DSECBUFFER_ALERT=17")
   endif()
+
+  # For aws-sdk-cpp
+  set(AWS_SDK_WARNINGS_ARE_ERRORS
+      OFF
+      CACHE BOOL "" FORCE)
 
   set(AWSSDK_LINK_LIBRARIES)
   foreach(AWSSDK_PRODUCT ${AWSSDK_PRODUCTS})
