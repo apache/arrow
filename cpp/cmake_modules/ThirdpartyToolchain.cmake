@@ -5199,7 +5199,10 @@ function(build_awssdk)
     # This is for RTools 40. We can remove this after we dropped
     # support for R < 4.2. schannel.h in RTools 40 is old.
 
-    # See also: https://learn.microsoft.com/en-us/windows/win32/api/schannel/ns-schannel-schannel_cred
+    # For schannel.h.
+    #
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/api/schannel/ns-schannel-schannel_cred
     string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_0_SERVER=0x00000040")
     string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_0_CLIENT=0x00000080")
     string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_1_SERVER=0x00000100")
@@ -5209,6 +5212,15 @@ function(build_awssdk)
     string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_3_SERVER=0x00001000")
     string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_3_CLIENT=0x00002000")
     string(APPEND CMAKE_C_FLAGS " -DSCH_USE_STRONG_CRYPTO=0x00400000")
+
+    # For sspi.h.
+    #
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/api/sspi/ne-sspi-sec_application_protocol_negotiation_ext
+    string(APPEND CMAKE_C_FLAGS " -DSecApplicationProtocolNegotiationExt_ALPN=2")
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/api/sspi/ns-sspi-secbuffer
+    string(APPEND CMAKE_C_FLAGS " -DSECBUFFER_ALERT=17")
   endif()
 
   set(AWSSDK_LINK_LIBRARIES)
