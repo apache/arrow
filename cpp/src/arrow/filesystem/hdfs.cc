@@ -893,17 +893,16 @@ Status HadoopFileSystem::OpenReadable(const std::string& path,
   return impl_->OpenReadable(path, io_context, file);
 }
 
-Status HadoopFileSystem::OpenWritable(
-    const std::string& path, bool append, int32_t buffer_size, int16_t replication,
-    int64_t default_block_size,
-    std::shared_ptr<internal::HdfsOutputStream>* file) {
+Status HadoopFileSystem::OpenWritable(const std::string& path, bool append,
+                                      int32_t buffer_size, int16_t replication,
+                                      int64_t default_block_size,
+                                      std::shared_ptr<internal::HdfsOutputStream>* file) {
   return impl_->OpenWritable(path, append, buffer_size, replication, default_block_size,
                              file);
 }
 
-Status HadoopFileSystem::OpenWritable(
-    const std::string& path, bool append,
-    std::shared_ptr<internal::HdfsOutputStream>* file) {
+Status HadoopFileSystem::OpenWritable(const std::string& path, bool append,
+                                      std::shared_ptr<internal::HdfsOutputStream>* file) {
   return impl_->OpenWritable(path, append, file);
 }
 
