@@ -117,11 +117,11 @@ def test_tensor_dlpack(np_type):
                     "1.24.0")
 
     arr = np.array([1, 2, 3, 4, 5, 6, 1, 1])
-    expected = np.ndarray((2, 2, 2), dtype=np_type, buffer=arr, order='C')
+    expected = np.array(arr, dtype=np_type).reshape((2, 2, 2), order='C')
     t = pa.Tensor.from_numpy(expected)
     check_dlpack_export(t, expected)
 
-    expected = np.ndarray((2, 2, 2), dtype=np_type, buffer=arr, order='F')
+    expected = np.array(arr, dtype=np_type).reshape((2, 2, 2), order='F')
     t = pa.Tensor.from_numpy(expected)
     check_dlpack_export(t, expected)
 
