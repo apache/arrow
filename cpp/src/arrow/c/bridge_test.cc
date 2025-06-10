@@ -53,6 +53,7 @@
 #endif
 
 namespace arrow {
+
 using internal::ArrayDeviceExportTraits;
 using internal::ArrayDeviceStreamExportTraits;
 using internal::ArrayExportGuard;
