@@ -977,7 +977,7 @@ TEST_F(TestArray, TestAppendArraySlice) {
     ASSERT_EQ(8, result->null_count());
   }
 }
-class TestBinaryViewBuilderAppendArraySlice : public TestArray {
+class TestArrayBinaryViewBuilderAppendArraySlice : public TestArray {
  public:
   struct StringOptions {
     int64_t size = 0;
@@ -987,7 +987,7 @@ class TestBinaryViewBuilderAppendArraySlice : public TestArray {
     double null_probability = 0.0;
   };
 
-  TestBinaryViewBuilderAppendArraySlice() : TestArray(), generator_(12) {}
+  TestArrayBinaryViewBuilderAppendArraySlice() : TestArray(), generator_(12) {}
 
   void SetUp() override {
     TestArray::SetUp();
@@ -1004,7 +1004,7 @@ class TestBinaryViewBuilderAppendArraySlice : public TestArray {
   Result<std::shared_ptr<Array>> AppendArraySliceWithSpanOffset(
       const std::shared_ptr<Array>& array) {
     const ArraySpan span(*array->data());
-    for (int i = 0; i < array->length(); i++) {
+    for (int i = 0; i < array->length(); ++i) {
       ARROW_RETURN_NOT_OK(builder_.AppendArraySlice(span, i, 1));
     }
     return builder_.Finish();
@@ -1012,7 +1012,7 @@ class TestBinaryViewBuilderAppendArraySlice : public TestArray {
 
   Result<std::shared_ptr<Array>> AppendArraySliceWithArrayOffset(
       const std::shared_ptr<Array>& array) {
-    for (int i = 0; i < array->length(); i++) {
+    for (int i = 0; i < array->length(); ++i) {
       auto slice = array->Slice(i, 1);
       const ArraySpan span(*slice->data());
       ARROW_RETURN_NOT_OK(builder_.AppendArraySlice(span, 0, 1));
@@ -1097,7 +1097,7 @@ class TestBinaryViewBuilderAppendArraySlice : public TestArray {
   random::RandomArrayGenerator generator_;
 };
 
-TEST_F(TestBinaryViewBuilderAppendArraySlice, Inline) {
+TEST_F(TestArrayBinaryViewBuilderAppendArraySlice, Inline) {
   StringOptions options{};
   options.size = 16;
   options.min_length = 0;
@@ -1120,7 +1120,7 @@ TEST_F(TestBinaryViewBuilderAppendArraySlice, Inline) {
   }
 }
 
-TEST_F(TestBinaryViewBuilderAppendArraySlice, NonInline) {
+TEST_F(TestArrayBinaryViewBuilderAppendArraySlice, NonInline) {
   StringOptions options{};
   options.size = 200;
   options.min_length = 13;
@@ -1144,7 +1144,7 @@ TEST_F(TestBinaryViewBuilderAppendArraySlice, NonInline) {
   }
 }
 
-TEST_F(TestBinaryViewBuilderAppendArraySlice, NonInlineAndInline) {
+TEST_F(TestArrayBinaryViewBuilderAppendArraySlice, NonInlineAndInline) {
   StringOptions options{};
   options.size = 200;
   options.min_length = 0;
@@ -1168,7 +1168,7 @@ TEST_F(TestBinaryViewBuilderAppendArraySlice, NonInlineAndInline) {
   }
 }
 
-TEST_F(TestBinaryViewBuilderAppendArraySlice, NonInlineAndInlineAndAppend) {
+TEST_F(TestArrayBinaryViewBuilderAppendArraySlice, NonInlineAndInlineAndAppend) {
   StringOptions options{};
   options.size = 200;
   options.min_length = 0;
@@ -1213,7 +1213,7 @@ TEST_F(TestBinaryViewBuilderAppendArraySlice, NonInlineAndInlineAndAppend) {
 }
 
 // Check the state of arrow::internal::StringHeapBuilder::current_block_
-TEST_F(TestBinaryViewBuilderAppendArraySlice, Reset) {
+TEST_F(TestArrayBinaryViewBuilderAppendArraySlice, Reset) {
   StringOptions options{};
   options.size = 200;
   options.min_length = 0;
@@ -1263,6 +1263,10 @@ TEST_F(TestBinaryViewBuilderAppendArraySlice, Reset) {
   view_1 = view_buffer[0];
   view_2 = view_buffer[1];
   view_3 = view_buffer[2];
+
+  ASSERT_EQ(view_1.ref.buffer_index, 0);
+  ASSERT_EQ(view_2.ref.buffer_index, 0);
+  ASSERT_EQ(view_3.ref.buffer_index, 1);
 }
 
 TEST_F(TestArray, ValidateBuffersPrimitive) {
