@@ -271,8 +271,7 @@ struct GroupedReducingFactory {
 // Sum implementation
 
 template <typename Type>
-struct GroupedSumImpl
-    : public GroupedReducingAggregator<Type, GroupedSumImpl<Type>> {
+struct GroupedSumImpl : public GroupedReducingAggregator<Type, GroupedSumImpl<Type>> {
   using Base = GroupedReducingAggregator<Type, GroupedSumImpl<Type>>;
   using CType = typename Base::CType;
   using InputCType = typename Base::InputCType;
