@@ -40,7 +40,7 @@ if [ -n "${ARROW_CONAN_WITH_BROTLI:-}" ]; then
   conan_args+=(--options "arrow/*:with_brotli=${ARROW_CONAN_WITH_BROTLI}")
 fi
 if [ -n "${ARROW_CONAN_WITH_BZ2:-}" ]; then
-  conan_args+=(--options arrow/*:with_bz2="${ARROW_CONAN_WITH_BZ2}")
+  conan_args+=(--options "arrow/*:with_bz2=${ARROW_CONAN_WITH_BZ2}")
 fi
 if [ -n "${ARROW_CONAN_WITH_FLIGHT_RPC:-}" ]; then
   conan_args+=(--options "arrow/*:with_flight_rpc=${ARROW_CONAN_WITH_FLIGHT_RPC}")
