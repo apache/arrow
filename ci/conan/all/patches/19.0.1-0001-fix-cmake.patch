@@ -1,0 +1,57 @@
+diff --git a/cpp/cmake_modules/FindThriftAlt.cmake b/cpp/cmake_modules/FindThriftAlt.cmake
+index 98a706d..edf195e 100644
+--- a/cpp/cmake_modules/FindThriftAlt.cmake
++++ b/cpp/cmake_modules/FindThriftAlt.cmake
+@@ -45,22 +45,20 @@ endif()
+ #   * https://github.com/apache/thrift/pull/2725
+ #   * https://github.com/apache/thrift/pull/2726
+ #   * https://github.com/conda-forge/thrift-cpp-feedstock/issues/68
+-if(NOT WIN32)
+-  set(find_package_args "")
+-  if(ThriftAlt_FIND_VERSION)
+-    list(APPEND find_package_args ${ThriftAlt_FIND_VERSION})
+-  endif()
+-  if(ThriftAlt_FIND_QUIETLY)
+-    list(APPEND find_package_args QUIET)
+-  endif()
+-  find_package(Thrift ${find_package_args})
+-  if(Thrift_FOUND)
+-    set(ThriftAlt_FOUND TRUE)
+-    add_executable(thrift::compiler IMPORTED)
+-    set_target_properties(thrift::compiler PROPERTIES IMPORTED_LOCATION
+-                                                      "${THRIFT_COMPILER}")
+-    return()
+-  endif()
++set(find_package_args "")
++if(ThriftAlt_FIND_VERSION)
++  list(APPEND find_package_args ${ThriftAlt_FIND_VERSION})
++endif()
++if(ThriftAlt_FIND_QUIETLY)
++  list(APPEND find_package_args QUIET)
++endif()
++find_package(Thrift ${find_package_args})
++if(Thrift_FOUND)
++  set(ThriftAlt_FOUND TRUE)
++  add_executable(thrift::compiler IMPORTED)
++  set_target_properties(thrift::compiler PROPERTIES IMPORTED_LOCATION
++                                                    "${THRIFT_COMPILER}")
++  return()
+ endif()
+ 
+ function(extract_thrift_version)
+diff --git a/cpp/src/parquet/size_statistics.cc b/cpp/src/parquet/size_statistics.cc
+index 1ce6c937a..e45eef3f0 100644
+--- a/cpp/src/parquet/size_statistics.cc
++++ b/cpp/src/parquet/size_statistics.cc
+@@ -18,9 +18,11 @@
+ #include "parquet/size_statistics.h"
+
+ #include <algorithm>
++#include <array>
+ #include <numeric>
+ #include <ostream>
+ #include <string_view>
++#include <vector>
+
+ #include "arrow/util/logging.h"
+ #include "parquet/exception.h"
