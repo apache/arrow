@@ -51,9 +51,7 @@ using internal::BinaryBitBlockCounter;
 using internal::BitBlockCount;
 using internal::BitBlockCounter;
 using internal::CheckIndexBounds;
-using internal::ChunkResolver;
 using internal::OptionalBitBlockCounter;
-using internal::TypedChunkLocation;
 
 namespace compute {
 namespace internal {

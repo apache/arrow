@@ -33,11 +33,7 @@
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 
-namespace arrow {
-
-using internal::ChunkResolver;
-
-namespace compute::internal {
+namespace arrow::compute::internal {
 
 using FilterState = OptionsWrapper<FilterOptions>;
 using TakeState = OptionsWrapper<TakeOptions>;
@@ -191,5 +187,4 @@ Status StructTakeExec(KernelContext*, const ValuesSpan&, const ArraySpan&,
 Status MapTakeExec(KernelContext*, const ValuesSpan&, const ArraySpan&,
                    std::shared_ptr<ArrayData>*);
 
-}  // namespace compute::internal
-}  // namespace arrow
+}  // namespace arrow::compute::internal
