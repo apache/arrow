@@ -78,13 +78,6 @@ export PYARROW_PARALLEL=${n_jobs}
 export CMAKE_PREFIX_PATH
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 
-# https://github.com/apache/arrow/issues/46516
-# If we are building docs we force Cython>3.1.1 to avoid numpydoc
-# failures due to Cython docstring being wrongly generated.
-if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then
-  ${PYTHON:-python} -m pip install --upgrade Cython>3.1.1
-fi
-
 # https://github.com/apache/arrow/issues/41429
 # TODO: We want to out-of-source build. This is a workaround. We copy
 # all needed files to the build directory from the source directory
