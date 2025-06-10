@@ -17,8 +17,8 @@
 
 # Requirements for building the documentation
 breathe
-doxygen
 cython>3.1.1
+doxygen
 ipython
 linkify-it-py
 # We can't install linuxdoc by conda. We install linuxdoc by pip in
