@@ -1108,7 +1108,12 @@ class EndpointProviderCache {
 
 class ClientBuilder {
  public:
-  explicit ClientBuilder(S3Options options) : options_(std::move(options)) {}
+  explicit ClientBuilder(S3Options options)
+      : options_(std::move(options)),
+        // The ClientConfiguration constructor always does a current region lookup
+        // via EC2 metadata, unless IMDS is disabled (GH-46214).
+        client_config_(/*useSmartDefaults=*/true, options_.smart_defaults,
+                       /*shouldDisableIMDS=*/true) {}
 
   const Aws::Client::ClientConfiguration& config() const { return client_config_; }
 
