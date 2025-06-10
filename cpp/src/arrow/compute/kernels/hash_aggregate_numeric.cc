@@ -85,8 +85,7 @@ struct GroupedReducingAggregator : public GroupedAggregator {
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
     auto other =
-        checked_cast<GroupedReducingAggregator<Type, Impl, AccType>*>(
-            &raw_other);
+        checked_cast<GroupedReducingAggregator<Type, Impl, AccType>*>(&raw_other);
 
     CType* reduced = reduced_.mutable_data();
     int64_t* counts = counts_.mutable_data();
@@ -155,8 +154,8 @@ struct GroupedReducingAggregator : public GroupedAggregator {
   std::shared_ptr<DataType> out_type() const override { return out_type_; }
 
   template <typename T = Type>
-  enable_if_t<!is_decimal_type<T>::value, Result<std::shared_ptr<DataType>>>
-  GetOutType(const std::shared_ptr<DataType>& in_type) {
+  enable_if_t<!is_decimal_type<T>::value, Result<std::shared_ptr<DataType>>> GetOutType(
+      const std::shared_ptr<DataType>& in_type) {
     return TypeTraits<AccType>::type_singleton();
   }
 
