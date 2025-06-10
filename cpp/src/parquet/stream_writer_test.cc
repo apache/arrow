@@ -80,6 +80,9 @@ class TestStreamWriter : public ::testing::Test {
     fields.push_back(schema::PrimitiveNode::Make("double_field", Repetition::REQUIRED,
                                                  Type::DOUBLE, ConvertedType::NONE));
 
+    fields.push_back(schema::PrimitiveNode::Make("bytes_field", Repetition::REQUIRED,
+                                                 Type::BYTE_ARRAY, ConvertedType::NONE));
+
     return std::static_pointer_cast<schema::GroupNode>(
         schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
   }
@@ -99,7 +102,7 @@ TEST_F(TestStreamWriter, DefaultConstructed) {
   EXPECT_EQ(0, os.current_column());
   EXPECT_EQ(0, os.current_row());
   EXPECT_EQ(0, os.num_columns());
-  EXPECT_EQ(0, os.SkipColumns(10));
+  EXPECT_EQ(0, os.SkipColumns(11));
 }
 
 TEST_F(TestStreamWriter, TypeChecking) {
@@ -162,6 +165,14 @@ TEST_F(TestStreamWriter, TypeChecking) {
   EXPECT_THROW(writer_ << 5.4f, ParquetException);
   EXPECT_NO_THROW(writer_ << 5.4);
 
+  // Required type: Variable length byte array.
+  EXPECT_EQ(10, writer_.current_column());
+  EXPECT_THROW(writer_ << 5, ParquetException);
+  EXPECT_THROW(writer_ << char3_array, ParquetException);
+  EXPECT_THROW(writer_ << char4_array, ParquetException);
+  EXPECT_THROW(writer_ << char5_array, ParquetException);
+  EXPECT_NO_THROW(writer_ << std::string_view("\xff\0ok", 4));
+
   EXPECT_EQ(0, writer_.current_row());
   EXPECT_NO_THROW(writer_ << EndRow);
   EXPECT_EQ(1, writer_.current_row());
@@ -210,6 +221,10 @@ TEST_F(TestStreamWriter, RequiredFieldChecking) {
   EXPECT_THROW(writer_ << optional<double>(), ParquetException);
   EXPECT_NO_THROW(writer_ << optional<double>(5.4));
 
+  // Required field of type: Variable length byte array.
+  EXPECT_THROW(writer_ << optional<std::string>(), ParquetException);
+  EXPECT_NO_THROW(writer_ << optional<std::string>("ok"));
+
   EXPECT_NO_THROW(writer_ << EndRow);
 }
 
@@ -234,6 +249,7 @@ TEST_F(TestStreamWriter, EndRow) {
   EXPECT_NO_THROW(writer_ << uint64_t((1ull << 60) + 123));
   EXPECT_NO_THROW(writer_ << 25.4f);
   EXPECT_NO_THROW(writer_ << 3.3424);
+  EXPECT_NO_THROW(writer_ << "ok");
   // Correct use of end row after all fields have been output.
   EXPECT_NO_THROW(writer_ << EndRow);
   EXPECT_EQ(1, writer_.current_row());
@@ -272,6 +288,7 @@ TEST_F(TestStreamWriter, EndRowGroup) {
     EXPECT_NO_THROW(writer_ << uint64_t((1ull << 60) - i * i)) << "index: " << i;
     EXPECT_NO_THROW(writer_ << 42325.4f / float(i + 1)) << "index: " << i;
     EXPECT_NO_THROW(writer_ << 3.2342e5 / double(i + 1)) << "index: " << i;
+    EXPECT_NO_THROW(writer_ << std::to_string(i)) << "index: " << i;
     EXPECT_NO_THROW(writer_ << EndRow) << "index: " << i;
 
     if (i % 1000 == 0) {
@@ -293,7 +310,7 @@ TEST_F(TestStreamWriter, SkipColumns) {
   writer_ << true << std::string("Cannot skip mandatory columns");
   EXPECT_THROW(writer_.SkipColumns(1), ParquetException);
   writer_ << 'x' << std::array<char, 4>{'A', 'B', 'C', 'D'} << int8_t(2) << uint16_t(3)
-          << int32_t(4) << uint64_t(5) << 6.0f << 7.0;
+          << int32_t(4) << uint64_t(5) << 6.0f << 7.0 << "ok";
   writer_ << EndRow;
 }
 
@@ -304,7 +321,7 @@ TEST_F(TestStreamWriter, AppendNotImplemented) {
   writer_ = StreamWriter{ParquetFileWriter::Open(outfile, GetSchema())};
   writer_ << false << std::string("Just one row") << 'x'
           << std::array<char, 4>{'A', 'B', 'C', 'D'} << int8_t(2) << uint16_t(3)
-          << int32_t(4) << uint64_t(5) << 6.0f << 7.0;
+          << int32_t(4) << uint64_t(5) << 6.0f << 7.0 << "ok";
   writer_ << EndRow;
   writer_ = StreamWriter{};
 
