@@ -41,10 +41,11 @@ namespace arrow {
 
 using arrow::fs::HadoopFileSystem;
 using arrow::fs::HdfsOptions;
-using io::internal::HdfsPathInfo;
-using io::internal::HdfsReadableFile;
 
-namespace io {
+namespace fs::internal {
+
+using arrow::fs::internal::HdfsPathInfo;
+using arrow::fs::internal::HdfsReadableFile;
 
 std::vector<uint8_t> RandomData(int64_t size) {
   std::vector<uint8_t> buffer(size);
@@ -65,7 +66,7 @@ class TestHadoopFileSystem : public ::testing::Test {
                         bool append = false, int buffer_size = 0, int16_t replication = 0,
                         int default_block_size = 0) {
     {
-      std::shared_ptr<internal::HdfsOutputStream> file;
+      std::shared_ptr<HdfsOutputStream> file;
       RETURN_NOT_OK(client_->OpenWritable(path, append, buffer_size, replication,
                                           default_block_size, &file));
 
@@ -88,7 +89,7 @@ class TestHadoopFileSystem : public ::testing::Test {
 
   // Set up shared state between unit tests
   void SetUp() {
-    internal::LibHdfsShim* driver_shim;
+    LibHdfsShim* driver_shim;
 
     client_ = nullptr;
     scratch_dir_ =
@@ -479,5 +480,5 @@ TEST_F(TestHadoopFileSystem, ThreadSafety) {
   ASSERT_EQ(niter * 4, correct_count);
 }
 
-}  // namespace io
+}  // namespace fs::internal
 }  // namespace arrow
