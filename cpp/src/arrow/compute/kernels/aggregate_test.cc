@@ -501,8 +501,8 @@ TEST(TestDecimalSumKernel, SimpleSum) {
                                                       decimal256(76, 2)};
 
   for (size_t i = 0; i < init_types.size(); ++i) {
-    auto& ty = init_types[i];
-    auto& out_ty = out_types[i];
+    const auto& ty = init_types[i];
+    const auto& out_ty = out_types[i];
 
     EXPECT_THAT(Sum(ArrayFromJSON(ty, R"([])")),
                 ResultWith(ScalarFromJSON(out_ty, R"(null)")));
