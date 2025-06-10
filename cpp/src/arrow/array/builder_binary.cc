@@ -81,13 +81,13 @@ Status BinaryViewBuilder::AppendArraySlice(const ArraySpan& array, int64_t offse
         if (view.is_inline()) {
           data_builder_.UnsafeAppend(&view, 1);
         } else {
-          auto dst_buffer_index = TryAddBufferAndGetIndex(
+          auto dst_data_buffer_index = TryAddBufferAndGetIndex(
               buffer_index_map, view.ref.buffer_index, data_heap_builder_,
               data_buffers[view.ref.buffer_index]);
           auto dst_view_index = data_builder_.length();
           data_builder_.UnsafeAppend(&view, 1);
           data_builder_.mutable_data()[dst_view_index].ref.buffer_index =
-              dst_buffer_index;
+              dst_data_buffer_index;
         }
       },
       [&]() { UnsafeAppendNull(); });

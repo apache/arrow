@@ -533,7 +533,7 @@ class ARROW_EXPORT StringHeapBuilder {
       current_offset_ = 0;
       current_out_buffer_ = new_block->mutable_data();
       blocks_.emplace_back(std::move(new_block));
-      current_block_ = static_cast<int32_t>(blocks_.size() - 1);
+      current_block_ = static_cast<int64_t>(blocks_.size() - 1);
     }
     return Status::OK();
   }
