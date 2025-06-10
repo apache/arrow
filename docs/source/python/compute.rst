@@ -63,6 +63,21 @@ Below are a few simple examples::
    >>> pc.multiply(x, y)
    <pyarrow.DoubleScalar: 72.54>
 
+If you are using a compute function which returns more than one value, results
+will be returned as a ``StructScalar``.  You can extract the individual values by
+calling the :meth:`pyarrow.StructScalar.values` method::
+
+   >>> import pyarrow as pa
+   >>> import pyarrow.compute as pc
+   >>> a = pa.array([1, 1, 2, 3])
+   >>> pc.min_max(a)
+   <pyarrow.StructScalar: [('min', 1), ('max', 3)]>
+   >>> a, b = pc.min_max(a).values()
+   >>> a
+   <pyarrow.Int64Scalar: 1>
+   >>> b
+   <pyarrow.Int64Scalar: 3>
+
 These functions can do more than just element-by-element operations.
 Here is an example of sorting a table::
 

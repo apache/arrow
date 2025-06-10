@@ -37,7 +37,7 @@
 #include "arrow/status.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/print.h"
+#include "arrow/util/print_internal.h"
 #include "arrow/util/string.h"
 
 #ifndef ARROW_AWS_SDK_VERSION_CHECK
