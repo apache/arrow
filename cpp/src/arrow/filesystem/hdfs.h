@@ -24,14 +24,13 @@
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/util/uri.h"
 
-
 namespace arrow::fs {
 
 namespace internal {
-  class HdfsReadableFile;
-  class HdfsOutputStream;
+class HdfsReadableFile;
+class HdfsOutputStream;
 
-  struct HdfsPathInfo;
+struct HdfsPathInfo;
 }  // namespace internal
 
 struct HdfsConnectionConfig {
