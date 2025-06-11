@@ -1021,6 +1021,14 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.25)
 endif()
 
 macro(prepare_fetchcontent)
+  # We need to use CACHE variables here because there are dependencies
+  # that don't use CMP0077 NEW policy. If CMP0077 NEW policy isn't
+  # used, option() ignores normal (not CACHE) variables. We can use
+  # normal (not CACHE) variables here when all dependencies use
+  # CMP0077 NEW policy.
+  #
+  # See also:
+  # https://cmake.org/cmake/help/latest/policy/CMP0077.html
   set(BUILD_SHARED_LIBS
       OFF
       CACHE BOOL "" FORCE)
