@@ -5170,19 +5170,19 @@ function(build_awssdk)
   endif()
 
   # For aws-lc
-  set(DISABLE_PERL
+  set(DISABLE_GO
       ON
       CACHE BOOL "" FORCE)
-  set(DISABLE_GO
+  set(DISABLE_PERL
       ON
       CACHE BOOL "" FORCE)
 
   # For s2n-tls
-  set(crypto_STATIC_LIBRARY
-      "$<TARGET_FILE:crypto>"
-      CACHE STRING "" FORCE)
   set(crypto_INCLUDE_DIR
       "$<TARGET_PROPERTY:crypto,INTERFACE_INCLUDE_DIRECTORIES>"
+      CACHE STRING "" FORCE)
+  set(crypto_STATIC_LIBRARY
+      "$<TARGET_FILE:crypto>"
       CACHE STRING "" FORCE)
   set(S2N_INTERN_LIBCRYPTO
       ON
@@ -5227,6 +5227,12 @@ function(build_awssdk)
   set(AWS_SDK_WARNINGS_ARE_ERRORS
       OFF
       CACHE BOOL "" FORCE)
+  set(ZLIB_INCLUDE_DIR
+      "$<TARGET_PROPERTY:ZLIB::ZLIB,INTERFACE_INCLUDE_DIRECTORIES>"
+      CACHE STRING "" FORCE)
+  set(ZLIB_LIBRARY
+      "$<TARGET_FILE:ZLIB::ZLIB>"
+      CACHE STRING "" FORCE)
   if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
     # This is for RTools 40. We can remove this after we dropped
     # support for R < 4.2. schannel.h in RTools 40 is old.
