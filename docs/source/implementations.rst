@@ -82,7 +82,7 @@ designed to help produce and consume Arrow data.
    :header-rows: 0
 
    * - nanoarrow
-     - `nanoarrow Docs <https://arrow.apache.org/nanoarrow>`_
+     - `nanoarrow Docs <https://arrow.apache.org/nanoarrow>`_ :fa:`external-link-alt`
      - `nanoarrow Source <http://github.com/apache/arrow-nanoarrow>`_
 
 Implementation Status
