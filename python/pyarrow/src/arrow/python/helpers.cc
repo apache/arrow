@@ -96,10 +96,14 @@ Result<uint16_t> PyFloat_AsHalf(PyObject* obj) {
 }
 
 Result<std::shared_ptr<Array>> Arange(int64_t start, int64_t stop, int64_t step) {
-  double delta = static_cast<double>(stop - start);
-  double size = std::ceil(delta / step);
-
-  if (ARROW_PREDICT_FALSE(step == 0 || size <= 0)) {
+  int64_t size;
+  if (step > 0 && stop > start) {
+    // Ceiling division for positive step
+    size = (stop - start + step - 1) / step;
+  } else if (step < 0 && stop < start) {
+    // Ceiling division for negative step
+    size = (start - stop - step - 1) / (-step);
+  } else {
     return MakeEmptyArray(int64());
   }
   std::shared_ptr<Buffer> data_buffer;
