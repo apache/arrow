@@ -536,6 +536,26 @@ def test_array_slice_negative_step():
         assert result.equals(expected)
 
 
+def test_arange():
+    cases = [
+        (0, 10),  # Default step
+        (0, 10, 1),
+        (0, 10, 2),
+        (10, 0, -1),
+        (10, 0, -2),
+        (0, 0),       # Empty array
+        (0, 10, -1),  # Empty array
+        (10, 0, 1),   # Empty array
+    ]
+    for case in cases:
+        result = pa.arange(*case)
+        assert result.equals(pa.array(list(range(*case)), type=pa.int64()))
+
+    # Special case for invalid step (range does not accept step of 0)
+    result = pa.arange(0, 10, 0)
+    assert result.equals(pa.array([], type=pa.int64()))
+
+
 def test_array_diff():
     # ARROW-6252
     arr1 = pa.array(['foo'], type=pa.utf8())

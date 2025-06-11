@@ -27,6 +27,7 @@
 #include <sstream>
 #include <type_traits>
 
+#include "arrow/array.h"
 #include "arrow/python/common.h"
 #include "arrow/python/decimal.h"
 #include "arrow/type_fwd.h"
@@ -92,6 +93,23 @@ Result<uint16_t> PyFloat_AsHalf(PyObject* obj) {
     return Status::TypeError("conversion to float16 expects a `float` or ",
                              "`np.float16` object, got ", Py_TYPE(obj)->tp_name);
   }
+}
+
+Result<std::shared_ptr<Array>> Arange(int64_t start, int64_t stop, int64_t step) {
+  double delta = static_cast<double>(stop - start);
+  double size = std::ceil(delta / step);
+
+  if (ARROW_PREDICT_FALSE(step == 0 || size <= 0)) {
+    return MakeEmptyArray(int64());
+  }
+  std::shared_ptr<Buffer> data_buffer;
+  ARROW_ASSIGN_OR_RAISE(data_buffer, AllocateBuffer(size * sizeof(int64_t)));
+  auto values = reinterpret_cast<int64_t*>(data_buffer->mutable_data());
+  for (int64_t i = 0; i < size; ++i) {
+    values[i] = start + i * step;
+  }
+  auto data = ArrayData::Make(int64(), size, {nullptr, data_buffer}, 0);
+  return MakeArray(data);
 }
 
 namespace internal {
