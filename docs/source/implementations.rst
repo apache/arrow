@@ -35,10 +35,10 @@ documentation and source code for these libraries.
      - Docs
      - Source
    * - C++
-     - :ref:`C++ Docs<cpp>`
+     - :doc:`C++ Docs<cpp/index>`
      - `C++ Source <https://github.com/apache/arrow/tree/main/cpp>`_
    * - C GLib
-     - :ref:`C GLib Docs<c-glib>`
+     - :doc:`C GLib Docs<c_glib/index>`
      - `C GLib Source <https://github.com/apache/arrow/tree/main/c_glib>`_
    * - C#
      - `C# Docs <https://github.com/apache/arrow/blob/main/csharp/README.md>`_ :fa:`external-link-alt`
@@ -47,10 +47,10 @@ documentation and source code for these libraries.
      - `Go Docs <https://godoc.org/github.com/apache/arrow/go/arrow>`_ :fa:`external-link-alt`
      - `Go Source <https://github.com/apache/arrow-go>`_
    * - Java
-     - :ref:`Java Docs<java>`
+     - :doc:`Java Docs<java/index>`
      - `Java Source <https://github.com/apache/arrow-java>`_
    * - JavaScript
-     - :ref:`JavaScript Docs<js>`
+     - :doc:`JavaScript Docs<js/index>`
      - `JavaScript Source <https://github.com/apache/arrow-js>`_
    * - Julia
      - `Julia Docs <https://arrow.apache.org/julia/>`_ :fa:`external-link-alt`
@@ -59,7 +59,7 @@ documentation and source code for these libraries.
      - `MATLAB Docs <https://github.com/apache/arrow/blob/main/matlab/README.md>`_ :fa:`external-link-alt`
      - `MATLAB Source <https://github.com/apache/arrow/tree/main/matlab>`_
    * - Python
-     - :ref:`Python Docs<python>`
+     - :doc:`Python Docs<python/index>`
      - `Python Source <https://github.com/apache/arrow/tree/main/python>`_
    * - R
      - `R Docs <r/index.html>`_ :fa:`external-link-alt`
@@ -109,8 +109,8 @@ The source files for the Cookbook are maintained in the
    :maxdepth: 1
    :hidden:
 
-   C/GLib <c_glib/index>
    C++ <cpp/index>
+   C GLib <c_glib/index>
    C# <https://github.com/apache/arrow/blob/main/csharp/README.md>
    Go <https://arrow.apache.org/go/>
    Java <java/index>
