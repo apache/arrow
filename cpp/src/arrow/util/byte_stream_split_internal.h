@@ -109,6 +109,51 @@ void ByteStreamSplitDecodeSimd128(const uint8_t* data, int width, int64_t num_va
   }
 }
 
+template <int N>
+struct grouped_bytes_impl;
+
+template <>
+struct grouped_bytes_impl<1> {
+  using type = int8_t;
+};
+
+template <>
+struct grouped_bytes_impl<2> {
+  using type = int16_t;
+};
+
+template <>
+struct grouped_bytes_impl<4> {
+  using type = int32_t;
+};
+
+template <>
+struct grouped_bytes_impl<8> {
+  using type = int64_t;
+};
+
+// Map a number of bytes to a type
+template <int N>
+using grouped_bytes_t = typename grouped_bytes_impl<N>::type;
+
+// Like xsimd::zlip_lo, but zip groups of NBytes at once
+template <int NBytes, int BatchSize = 16,
+          typename Batch = xsimd::make_sized_batch_t<int8_t, BatchSize>>
+auto zip_lo_n(Batch const& a, Batch const& b) -> Batch {
+  return xsimd::bitwise_cast<int8_t>(
+      xsimd::zip_lo(xsimd::bitwise_cast<grouped_bytes_t<NBytes>>(a),
+                    xsimd::bitwise_cast<grouped_bytes_t<NBytes>>(b)));
+}
+
+// Like xsimd::zlip_hi, but zip groups of NBytes at once
+template <int NBytes, int BatchSize = 16,
+          typename Batch = xsimd::make_sized_batch_t<int8_t, BatchSize>>
+auto zip_hi_n(Batch const& a, Batch const& b) -> Batch {
+  return xsimd::bitwise_cast<int8_t>(
+      xsimd::zip_hi(xsimd::bitwise_cast<grouped_bytes_t<NBytes>>(a),
+                    xsimd::bitwise_cast<grouped_bytes_t<NBytes>>(b)));
+}
+
 template <int kNumStreams>
 void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
                                   const int64_t num_values, uint8_t* output_buffer_raw) {
@@ -117,9 +162,6 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
   assert(width == kNumStreams);
   static_assert(kNumStreams == 4 || kNumStreams == 8, "Invalid number of streams.");
   constexpr int kBlockSize = sizeof(simd_batch) * kNumStreams;
-
-  simd_batch stage[3][kNumStreams];
-  simd_batch final_result[kNumStreams];
 
   const int64_t size = num_values * kNumStreams;
   const int64_t num_blocks = size / kBlockSize;
@@ -137,92 +179,84 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
       output_buffer_raw[j * num_values + i] = byte_in_value;
     }
   }
-  // The current shuffling algorithm diverges for float and double types but the compiler
-  // should be able to remove the branch since only one path is taken for each template
-  // instantiation.
-  // Example run for 32-bit variables:
-  // Step 0: copy from unaligned input bytes:
-  //   0: ABCD ABCD ABCD ABCD 1: ABCD ABCD ABCD ABCD ...
-  // Step 1: simd_batch<int8_t, 8>::zip_lo and simd_batch<int8_t, 8>::zip_hi:
-  //   0: AABB CCDD AABB CCDD 1: AABB CCDD AABB CCDD ...
-  // Step 2: apply simd_batch<int8_t, 8>::zip_lo and  simd_batch<int8_t, 8>::zip_hi again:
-  //   0: AAAA BBBB CCCC DDDD 1: AAAA BBBB CCCC DDDD ...
-  // Step 3: simd_batch<int8_t, 8>::zip_lo and simd_batch<int8_t, 8>::zip_hi:
-  //   0: AAAA AAAA BBBB BBBB 1: CCCC CCCC DDDD DDDD ...
-  // Step 4: simd_batch<int64_t, 2>::zip_lo and simd_batch<int64_t, 2>::zip_hi:
-  //   0: AAAA AAAA AAAA AAAA 1: BBBB BBBB BBBB BBBB ...
+
+  // Number of input values we can fit in a simd register
+  constexpr int NumValuesInBatch = sizeof(simd_batch) / kNumStreams;
+  static_assert(NumValuesInBatch > 0);
+  // Number of bytes we'll bring together in the first byte-level part of the algorithm.
+  // Since we zip with the next batch, the number of values in a batch determines how many
+  // bytes end up together before we can use a larger type
+  constexpr int NumBytes = 2 * NumValuesInBatch;
+  // Number of steps in the first part of the algorithm with byte-level zipping
+  constexpr int NumStepsByte = ReversePow2(NumValuesInBatch) + 1;
+
+  simd_batch stage[NumStepsByte + 1][kNumStreams];
+
+  // Two step shuffling algorithm that starts with bytes and ends with a larger data type.
+  // An algorithm similar to the decoding one with log2(sizeof(simd_batch)) + 1 stages is
+  // also valid but not as performant.
   for (int64_t block_index = 0; block_index < num_blocks; ++block_index) {
     // First copy the data to stage 0.
     for (int i = 0; i < kNumStreams; ++i) {
       stage[0][i] = simd_batch::load_unaligned(
-          reinterpret_cast<const int8_t*>(raw_values) +
-          (block_index * kNumStreams + i) * sizeof(simd_batch));
+          &raw_values[(block_index * kNumStreams + i) * sizeof(simd_batch)]);
     }
 
+    // We first make byte-level shuffling, until we have gather enough bytes together
+    // and in the correct order to use a bigger data type.
+    //
+    // clang-format off
+    // Stage 0: A0B0C0D0 A1B1C1D1 A2B2C2D2 A3B3C3D3 | A4B4C4D4 A5B5C5D5 A6B6C6D6 A7B7C7D7 | ...
+    // Stage 1: A0A4B0B4 C0C4D0D4 A1A5B1B5 C1C5D1D5 | A2A6B2B6 C2C6D2D6 A3A7B3B7 C3C7D3D7 | ...
+    // Stage 2: A0A2A4A6 B0B2B4B6 C0C2C4C6 D0D2D4D6 | A1A3A5A7 B1B3B5B7 C1C3C5C7 D1D3D5D7 | ...
+    // Stage 3: A0A1A2A3 A4A5A6A7 B0B1B2B3 B4B5B6B7 | C0C1C2C3 C4C5C6C7 D0D1D2D3 D4D5D6D7 | ...
+    // clang-format on
+    //
     // The shuffling of bytes is performed through the unpack intrinsics.
     // In my measurements this gives better performance then an implementation
     // which uses the shuffle intrinsics.
-    for (int stage_lvl = 0; stage_lvl < 2; ++stage_lvl) {
-      for (int i = 0; i < kNumStreams / 2; ++i) {
-        stage[stage_lvl + 1][i * 2] =
-            xsimd::zip_lo(stage[stage_lvl][i * 2], stage[stage_lvl][i * 2 + 1]);
-        stage[stage_lvl + 1][i * 2 + 1] =
-            xsimd::zip_hi(stage[stage_lvl][i * 2], stage[stage_lvl][i * 2 + 1]);
+    //
+    // Loop order does not matter so we prefer higher locality
+    for (int i = 0; i < kNumStreams / 2; ++i) {
+      for (int step = 0; step < NumStepsByte; ++step) {
+        stage[step + 1][i * 2] =
+            xsimd::zip_lo(stage[step][i * 2], stage[step][i * 2 + 1]);
+        stage[step + 1][i * 2 + 1] =
+            xsimd::zip_hi(stage[step][i * 2], stage[step][i * 2 + 1]);
       }
     }
+
+    // We know have the bytes packed in a larger data type and in the correct order to
+    // start using a bigger data type
+    //
+    // Example run for 32-bit variables it's int64_t with NumBytes=8 bytes:
+    //
+    // clang-format off
+    // Stage 4: A0A1A2A3 A4A5A6A7 A8A9AAAB ACADAEAF | B0B1B2B3 B4B5B6B7 B8B9BABB BCBDBEBF | ...
+    // clang-format on
+    simd_batch final_result[kNumStreams];
     if constexpr (kNumStreams == 8) {
-      // This is the path for 64bits data.
       simd_batch tmp[8];
-      using int32_batch = xsimd::make_sized_batch_t<int32_t, 4>;
-      // This is a workaround, see: https://github.com/xtensor-stack/xsimd/issues/735
-      auto from_int32_batch = [](int32_batch from) -> simd_batch {
-        simd_batch dest;
-        memcpy(&dest, &from, sizeof(simd_batch));
-        return dest;
-      };
-      auto to_int32_batch = [](simd_batch from) -> int32_batch {
-        int32_batch dest;
-        memcpy(&dest, &from, sizeof(simd_batch));
-        return dest;
-      };
       for (int i = 0; i < 4; ++i) {
-        tmp[i * 2] = from_int32_batch(
-            xsimd::zip_lo(to_int32_batch(stage[2][i]), to_int32_batch(stage[2][i + 4])));
-        tmp[i * 2 + 1] = from_int32_batch(
-            xsimd::zip_hi(to_int32_batch(stage[2][i]), to_int32_batch(stage[2][i + 4])));
+        tmp[i * 2] =
+            zip_lo_n<NumBytes>(stage[NumStepsByte][i], stage[NumStepsByte][i + 4]);
+        tmp[i * 2 + 1] =
+            zip_hi_n<NumBytes>(stage[NumStepsByte][i], stage[NumStepsByte][i + 4]);
       }
       for (int i = 0; i < 4; ++i) {
-        final_result[i * 2] = from_int32_batch(
-            xsimd::zip_lo(to_int32_batch(tmp[i]), to_int32_batch(tmp[i + 4])));
-        final_result[i * 2 + 1] = from_int32_batch(
-            xsimd::zip_hi(to_int32_batch(tmp[i]), to_int32_batch(tmp[i + 4])));
+        final_result[i * 2] = zip_lo_n<NumBytes>(tmp[i], tmp[i + 4]);
+        final_result[i * 2 + 1] = zip_hi_n<NumBytes>(tmp[i], tmp[i + 4]);
       }
     } else {
-      // This is the path for 32bits data.
-      using int64_batch = xsimd::make_sized_batch_t<int64_t, 2>;
-      // This is a workaround, see: https://github.com/xtensor-stack/xsimd/issues/735
-      auto from_int64_batch = [](int64_batch from) -> simd_batch {
-        simd_batch dest;
-        memcpy(&dest, &from, sizeof(simd_batch));
-        return dest;
-      };
-      auto to_int64_batch = [](simd_batch from) -> int64_batch {
-        int64_batch dest;
-        memcpy(&dest, &from, sizeof(simd_batch));
-        return dest;
-      };
-      simd_batch tmp[4];
       for (int i = 0; i < 2; ++i) {
-        tmp[i * 2] = xsimd::zip_lo(stage[2][i * 2], stage[2][i * 2 + 1]);
-        tmp[i * 2 + 1] = xsimd::zip_hi(stage[2][i * 2], stage[2][i * 2 + 1]);
-      }
-      for (int i = 0; i < 2; ++i) {
-        final_result[i * 2] = from_int64_batch(
-            xsimd::zip_lo(to_int64_batch(tmp[i]), to_int64_batch(tmp[i + 2])));
-        final_result[i * 2 + 1] = from_int64_batch(
-            xsimd::zip_hi(to_int64_batch(tmp[i]), to_int64_batch(tmp[i + 2])));
+        final_result[i * 2] =
+            zip_lo_n<NumBytes>(stage[NumStepsByte][i], stage[NumStepsByte][i + 2]);
+        final_result[i * 2 + 1] =
+            zip_hi_n<NumBytes>(stage[NumStepsByte][i], stage[NumStepsByte][i + 2]);
       }
     }
+
+    // Save the encoded data to the output buffer
     for (int i = 0; i < kNumStreams; ++i) {
       xsimd::store_unaligned(&output_buffer_streams[i][block_index * sizeof(simd_batch)],
                              final_result[i]);
