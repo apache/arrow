@@ -1021,47 +1021,19 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.25)
 endif()
 
 macro(prepare_fetchcontent)
-  # We need to use CACHE variables here because there are dependencies
-  # that don't use CMP0077 NEW policy. If CMP0077 NEW policy isn't
-  # used, option() ignores normal (not CACHE) variables. We can use
-  # normal (not CACHE) variables here when all dependencies use
-  # CMP0077 NEW policy.
-  #
-  # See also:
-  # https://cmake.org/cmake/help/latest/policy/CMP0077.html
-  set(BUILD_SHARED_LIBS
-      OFF
-      CACHE BOOL "" FORCE)
-  set(BUILD_STATIC_LIBS
-      ON
-      CACHE BOOL "" FORCE)
-  set(BUILD_TESTING
-      OFF
-      CACHE BOOL "" FORCE)
-  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY
-      ""
-      CACHE PATH "" FORCE)
-  set(CMAKE_COMPILE_WARNING_AS_ERROR
-      FALSE
-      CACHE BOOL "" FORCE)
-  set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY
-      TRUE
-      CACHE BOOL "" FORCE)
-  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY
-      ""
-      CACHE PATH "" FORCE)
-  set(CMAKE_MACOSX_RPATH
-      ${ARROW_INSTALL_NAME_RPATH}
-      CACHE BOOL "" FORCE)
+  set(BUILD_SHARED_LIBS OFF)
+  set(BUILD_STATIC_LIBS ON)
+  set(BUILD_TESTING OFF)
+  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "")
+  set(CMAKE_COMPILE_WARNING_AS_ERROR OFF)
+  set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY OFF)
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "")
+  set(CMAKE_MACOSX_RPATH ${ARROW_INSTALL_NAME_RPATH})
   # We set CMAKE_POLICY_VERSION_MINIMUM temporarily due to failures with CMake 4
   # We should remove it once we have updated the dependencies:
   # https://github.com/apache/arrow/issues/45985
-  set(CMAKE_POLICY_VERSION_MINIMUM
-      3.5
-      CACHE STRING "" FORCE)
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY
-      ""
-      CACHE PATH "" FORCE)
+  set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "")
 
   if(MSVC)
     string(REPLACE "/WX" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
@@ -5138,35 +5110,12 @@ function(build_awssdk)
   endforeach()
 
   prepare_fetchcontent()
-  set(BUILD_DEPS
-      OFF
-      CACHE BOOL "" FORCE)
-  set(BUILD_ONLY
-      ""
-      CACHE STRING "" FORCE)
-  list(APPEND
-       BUILD_ONLY
-       config
-       core
-       identity-management
-       s3
-       sts
-       transfer)
-  set(BUILD_TOOL
-      OFF
-      CACHE BOOL "" FORCE)
-  set(ENABLE_TESTING
-      OFF
-      CACHE BOOL "" FORCE)
-  set(IN_SOURCE_BUILD
-      ON
-      CACHE BOOL "" FORCE)
-  set(MINIMIZE_SIZE
-      ON
-      CACHE BOOL "" FORCE)
-  set(USE_OPENSSL
-      ON
-      CACHE BOOL "" FORCE)
+  set(BUILD_DEPS OFF)
+  set(BUILD_TOOL OFF)
+  set(ENABLE_TESTING OFF)
+  set(IN_SOURCE_BUILD ON)
+  set(MINIMIZE_SIZE ON)
+  set(USE_OPENSSL ON)
 
   # For aws-c-common
   if(MINGW)
@@ -5178,23 +5127,13 @@ function(build_awssdk)
   endif()
 
   # For aws-lc
-  set(DISABLE_GO
-      ON
-      CACHE BOOL "" FORCE)
-  set(DISABLE_PERL
-      ON
-      CACHE BOOL "" FORCE)
+  set(DISABLE_GO ON)
+  set(DISABLE_PERL ON)
 
   # For s2n-tls
-  set(crypto_INCLUDE_DIR
-      "$<TARGET_PROPERTY:crypto,INTERFACE_INCLUDE_DIRECTORIES>"
-      CACHE STRING "" FORCE)
-  set(crypto_STATIC_LIBRARY
-      "$<TARGET_FILE:crypto>"
-      CACHE STRING "" FORCE)
-  set(S2N_INTERN_LIBCRYPTO
-      ON
-      CACHE BOOL "" FORCE)
+  set(crypto_INCLUDE_DIR "$<TARGET_PROPERTY:crypto,INTERFACE_INCLUDE_DIRECTORIES>")
+  set(crypto_STATIC_LIBRARY "$<TARGET_FILE:crypto>")
+  set(S2N_INTERN_LIBCRYPTO ON)
 
   # For aws-lc and s2n-tls
   #
@@ -5232,7 +5171,31 @@ function(build_awssdk)
   endif()
 
   # For aws-sdk-cpp
+  #
+  # We need to use CACHE variables because aws-sdk-cpp < 12.0.0 uses
+  # CMP0077 OLD policy. We can use normal variables when we use
+  # aws-sdk-cpp >= 12.0.0.
   set(AWS_SDK_WARNINGS_ARE_ERRORS
+      OFF
+      CACHE BOOL "" FORCE)
+  set(BUILD_DEPS
+      OFF
+      CACHE BOOL "" FORCE)
+  set(BUILD_ONLY
+      ""
+      CACHE STRING "" FORCE)
+  list(APPEND
+       BUILD_ONLY
+       config
+       core
+       identity-management
+       s3
+       sts
+       transfer)
+  set(BUILD_SHARED_LIBS
+      OFF
+      CACHE BOOL "" FORCE)
+  set(ENABLE_TESTING
       OFF
       CACHE BOOL "" FORCE)
   set(ZLIB_INCLUDE_DIR
