@@ -2053,10 +2053,11 @@ void CheckApproxEquals() {
 
 template <typename TYPE>
 void CheckFloatApproxEqualsWithAtol() {
+  using c_type = typename TYPE::c_type;
   auto type = TypeTraits<TYPE>::type_singleton();
   std::shared_ptr<Array> a, b;
-  ArrayFromVector<TYPE>(type, {true}, {0.5}, &a);
-  ArrayFromVector<TYPE>(type, {true}, {0.6}, &b);
+  ArrayFromVector<TYPE>(type, {true}, {static_cast<c_type>(0.5)}, &a);
+  ArrayFromVector<TYPE>(type, {true}, {static_cast<c_type>(0.6)}, &b);
   auto options = EqualOptions::Defaults().atol(0.2);
 
   ASSERT_FALSE(a->Equals(b));
