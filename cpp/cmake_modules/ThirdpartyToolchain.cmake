@@ -5198,12 +5198,21 @@ function(build_awssdk)
   set(ENABLE_TESTING
       OFF
       CACHE BOOL "" FORCE)
-  set(ZLIB_INCLUDE_DIR
-      "$<TARGET_PROPERTY:ZLIB::ZLIB,INTERFACE_INCLUDE_DIRECTORIES>"
-      CACHE STRING "" FORCE)
-  set(ZLIB_LIBRARY
-      "$<TARGET_FILE:ZLIB::ZLIB>"
-      CACHE STRING "" FORCE)
+  if(NOT WIN32)
+    find_curl()
+    set(CURL_INCLUDE_DIR
+        "$<TARGET_PROPERTY:CURL::libcurl,INTERFACE_INCLUDE_DIRECTORIES>"
+        CACHE STRING "" FORCE)
+    set(CURL_LIBRARY
+        "$<TARGET_FILE:CURL::libcurl>"
+        CACHE STRING "" FORCE)
+    set(ZLIB_INCLUDE_DIR
+        "$<TARGET_PROPERTY:ZLIB::ZLIB,INTERFACE_INCLUDE_DIRECTORIES>"
+        CACHE STRING "" FORCE)
+    set(ZLIB_LIBRARY
+        "$<TARGET_FILE:ZLIB::ZLIB>"
+        CACHE STRING "" FORCE)
+  endif()
   if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
     # This is for RTools 40. We can remove this after we dropped
     # support for R < 4.2. schannel.h in RTools 40 is old.
