@@ -24,13 +24,13 @@ class TestFixedSizeListDataType < Test::Unit::TestCase
     end
 
     def test_field
-      field = Arrow::Field.new(@list_name, @list_type)
+      field = Arrow::Field.new(@field_name, @value_type)
       data_type = Arrow::FixedSizeListDataType.new(field, @list_size);
       assert_equal(Arrow::Type::FIXED_SIZE_LIST, data_type.id);
     end
 
     def test_data_type
-      data_type = Arrow::FixedSizeListDataType.new(@list_type, @list_size);
+      data_type = Arrow::FixedSizeListDataType.new(@value_type, @list_size);
       assert_equal(Arrow::Type::FIXED_SIZE_LIST, data_type.id);
     end
   end
