@@ -109,7 +109,7 @@ void ByteStreamSplitDecodeSimd128(const uint8_t* data, int width, int64_t num_va
   }
 }
 
-template <int N>
+template <int kNumBytes>
 struct grouped_bytes_impl;
 
 template <>
@@ -133,32 +133,32 @@ struct grouped_bytes_impl<8> {
 };
 
 // Map a number of bytes to a type
-template <int N>
-using grouped_bytes_t = typename grouped_bytes_impl<N>::type;
+template <int kNumBytes>
+using grouped_bytes_t = typename grouped_bytes_impl<kNumBytes>::type;
 
 // Like xsimd::zlip_lo, but zip groups of NBytes at once
-template <int NBytes, int BatchSize = 16,
-          typename Batch = xsimd::make_sized_batch_t<int8_t, BatchSize>>
+template <int kNumBytes, int kBatchSize = 16,
+          typename Batch = xsimd::make_sized_batch_t<int8_t, kBatchSize>>
 auto zip_lo_n(Batch const& a, Batch const& b) -> Batch {
-  if constexpr (NBytes == BatchSize) {
+  if constexpr (kNumBytes == kBatchSize) {
     return a;
   } else {
     return xsimd::bitwise_cast<int8_t>(
-        xsimd::zip_lo(xsimd::bitwise_cast<grouped_bytes_t<NBytes>>(a),
-                      xsimd::bitwise_cast<grouped_bytes_t<NBytes>>(b)));
+        xsimd::zip_lo(xsimd::bitwise_cast<grouped_bytes_t<kNumBytes>>(a),
+                      xsimd::bitwise_cast<grouped_bytes_t<kNumBytes>>(b)));
   }
 }
 
 // Like xsimd::zlip_hi, but zip groups of NBytes at once
-template <int NBytes, int BatchSize = 16,
-          typename Batch = xsimd::make_sized_batch_t<int8_t, BatchSize>>
+template <int kNumBytes, int kBatchSize = 16,
+          typename Batch = xsimd::make_sized_batch_t<int8_t, kBatchSize>>
 auto zip_hi_n(Batch const& a, Batch const& b) -> Batch {
-  if constexpr (NBytes == BatchSize) {
+  if constexpr (kNumBytes == kBatchSize) {
     return b;
   } else {
     return xsimd::bitwise_cast<int8_t>(
-        xsimd::zip_hi(xsimd::bitwise_cast<grouped_bytes_t<NBytes>>(a),
-                      xsimd::bitwise_cast<grouped_bytes_t<NBytes>>(b)));
+        xsimd::zip_hi(xsimd::bitwise_cast<grouped_bytes_t<kNumBytes>>(a),
+                      xsimd::bitwise_cast<grouped_bytes_t<kNumBytes>>(b)));
   }
 }
 
@@ -188,19 +188,19 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
   }
 
   // Number of input values we can fit in a simd register
-  constexpr int NumValuesInBatch = sizeof(simd_batch) / kNumStreams;
-  static_assert(NumValuesInBatch > 0);
+  constexpr int kNumValuesInBatch = sizeof(simd_batch) / kNumStreams;
+  static_assert(kNumValuesInBatch > 0);
   // Number of bytes we'll bring together in the first byte-level part of the algorithm.
   // Since we zip with the next batch, the number of values in a batch determines how many
   // bytes end up together before we can use a larger type
-  constexpr int NumBytes = 2 * NumValuesInBatch;
+  constexpr int kNumBytes = 2 * kNumValuesInBatch;
   // Number of steps in the first part of the algorithm with byte-level zipping
-  constexpr int NumStepsByte = ReversePow2(NumValuesInBatch) + 1;
+  constexpr int kNumStepsByte = ReversePow2(kNumValuesInBatch) + 1;
   // Number of steps in the first part of the algorithm with large data type zipping
-  constexpr int NumStepsLarge =
-      ReversePow2(static_cast<int>(sizeof(simd_batch)) / NumBytes);
+  constexpr int kNumStepsLarge =
+      ReversePow2(static_cast<int>(sizeof(simd_batch)) / kNumBytes);
   // Total number of steps
-  constexpr int NumSteps = NumStepsByte + NumStepsLarge;
+  constexpr int NumSteps = kNumStepsByte + kNumStepsLarge;
 
   // Two step shuffling algorithm that starts with bytes and ends with a larger data type.
   // An algorithm similar to the decoding one with log2(sizeof(simd_batch)) + 1 stages is
@@ -230,7 +230,7 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
     //
     // Loop order does not matter so we prefer higher locality
     for (int i = 0; i < kNumStreams / 2; ++i) {
-      for (int step = 0; step < NumStepsByte; ++step) {
+      for (int step = 0; step < kNumStepsByte; ++step) {
         stage[step + 1][i * 2] =
             xsimd::zip_lo(stage[step][i * 2], stage[step][i * 2 + 1]);
         stage[step + 1][i * 2 + 1] =
@@ -246,12 +246,12 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
     //
     // 4: A0A1A2A3 A4A5A6A7 A8A9AAAB ACADAEAF | B0B1B2B3 B4B5B6B7 B8B9BABB BCBDBEBF | ...
     constexpr int kNumStreamsHalf = kNumStreams / 2;
-    for (int step = NumStepsByte; step < NumSteps; ++step) {
+    for (int step = kNumStepsByte; step < NumSteps; ++step) {
       for (int i = 0; i < kNumStreamsHalf; ++i) {
         stage[step + 1][i * 2] =
-            zip_lo_n<NumBytes>(stage[step][i], stage[step][i + kNumStreamsHalf]);
+            zip_lo_n<kNumBytes>(stage[step][i], stage[step][i + kNumStreamsHalf]);
         stage[step + 1][i * 2 + 1] =
-            zip_hi_n<NumBytes>(stage[step][i], stage[step][i + kNumStreamsHalf]);
+            zip_hi_n<kNumBytes>(stage[step][i], stage[step][i + kNumStreamsHalf]);
       }
     }
 
