@@ -19,6 +19,9 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/utf8.h"
 
+#include "arrow/flight/server_middleware.h"
+#include "arrow/flight/sql/client.h"
+#include "arrow/flight/sql/example/sqlite_server.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/encoding_utils.h"
 
 #ifdef _WIN32
@@ -28,6 +31,8 @@
 #include <sql.h>
 #include <sqltypes.h>
 #include <sqlucode.h>
+
+#include <type_traits>
 
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h"
 
@@ -43,13 +48,20 @@ namespace odbc {
 namespace integration_tests {
 using driver::odbcabstraction::Connection;
 
-class FlightSQLODBCTestBase : public ::testing::Test {
+class FlightSQLODBCRemoteTestBase : public ::testing::Test {
  public:
   /// \brief Connect to Arrow Flight SQL server using connection string defined in
   /// environment variable "ARROW_FLIGHT_SQL_ODBC_CONN"
   void connect();
+  /// \brief Connect to Arrow Flight SQL server using connection string
+  void connectWithString(std::string connection_str);
   /// \brief Disconnect from server
   void disconnect();
+  /// \brief Get connection string from environment variable "ARROW_FLIGHT_SQL_ODBC_CONN"
+  std::string virtual getConnectionString();
+  /// \brief Get invalid connection string based on connection string defined in
+  /// environment variable "ARROW_FLIGHT_SQL_ODBC_CONN"
+  std::string virtual getInvalidConnectionString();
 
   /** ODBC Environment. */
   SQLHENV env;
@@ -59,7 +71,76 @@ class FlightSQLODBCTestBase : public ::testing::Test {
 
   /** ODBC Statement. */
   SQLHSTMT stmt;
+
+ protected:
+  void SetUp() override;
 };
+
+static constexpr std::string_view kAuthHeader = "authorization";
+static constexpr std::string_view kBearerPrefix = "Bearer ";
+static constexpr std::string_view test_token = "t0k3n";
+
+std::string FindTokenInCallHeaders(const CallHeaders& incoming_headers);
+
+// A server middleware for validating incoming bearer header authentication.
+class MockServerMiddleware : public ServerMiddleware {
+ public:
+  explicit MockServerMiddleware(const CallHeaders& incoming_headers, bool* isValid)
+      : isValid_(isValid) {
+    incoming_headers_ = incoming_headers;
+  }
+
+  void SendingHeaders(AddCallHeaders* outgoing_headers) override;
+
+  void CallCompleted(const Status& status) override {}
+
+  std::string name() const override { return "MockServerMiddleware"; }
+
+ private:
+  CallHeaders incoming_headers_;
+  bool* isValid_;
+};
+
+// Factory for base64 header authentication testing.
+class MockServerMiddlewareFactory : public ServerMiddlewareFactory {
+ public:
+  MockServerMiddlewareFactory() : isValid_(false) {}
+
+  Status StartCall(const CallInfo& info, const ServerCallContext& context,
+                   std::shared_ptr<ServerMiddleware>* middleware) override;
+
+ private:
+  bool isValid_;
+};
+
+class FlightSQLODBCMockTestBase : public FlightSQLODBCRemoteTestBase {
+  // Sets up a mock server for each test case
+ public:
+  /// \brief Get connection string for mock server
+  std::string getConnectionString() override;
+  /// \brief Get invalid connection string for mock server
+  std::string getInvalidConnectionString() override;
+
+  int port;
+
+ protected:
+  void SetUp() override;
+
+  void TearDown() override;
+
+ private:
+  std::shared_ptr<arrow::flight::sql::example::SQLiteFlightSqlServer> server;
+};
+
+template <typename T>
+class FlightSQLODBCTestBase : public T {
+ public:
+  using List = std::list<T>;
+};
+
+using TestTypes =
+    ::testing::Types<FlightSQLODBCMockTestBase, FlightSQLODBCRemoteTestBase>;
+TYPED_TEST_SUITE(FlightSQLODBCTestBase, TestTypes);
 
 /** ODBC read buffer size. */
 enum { ODBC_BUFFER_SIZE = 1024 };

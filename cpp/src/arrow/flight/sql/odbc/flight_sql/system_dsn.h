@@ -40,7 +40,7 @@ bool DisplayConnectionWindow(void* windowParent, Configuration& config);
  * @param windowParent Parent window handle.
  * @param config Output configuration, presumed to be empty, it will be using values from
  * properties.
- * @param config Output properties.
+ * @param properties Output properties.
  * @return True on success and false on fail.
  */
 bool DisplayConnectionWindow(void* windowParent, Configuration& config,

@@ -200,49 +200,51 @@ TEST(SQLSetEnvAttr, TestSQLSetEnvAttrODBCVersionInvalid) {
   EXPECT_TRUE(return_set == SQL_ERROR);
 }
 
-TEST_F(FlightSQLODBCTestBase, TestSQLGetEnvAttrOutputNTS) {
-  connect();
+TYPED_TEST(FlightSQLODBCTestBase, TestSQLGetEnvAttrOutputNTS) {
+  this->connect();
 
   SQLINTEGER output_nts;
 
-  SQLRETURN return_get = SQLGetEnvAttr(env, SQL_ATTR_OUTPUT_NTS, &output_nts, 0, 0);
+  SQLRETURN return_get = SQLGetEnvAttr(this->env, SQL_ATTR_OUTPUT_NTS, &output_nts, 0, 0);
 
   EXPECT_TRUE(return_get == SQL_SUCCESS);
 
   EXPECT_EQ(output_nts, SQL_TRUE);
 
-  disconnect();
+  this->disconnect();
 }
 
-TEST_F(FlightSQLODBCTestBase, TestSQLGetEnvAttrGetLength) {
+TYPED_TEST(FlightSQLODBCTestBase, TestSQLGetEnvAttrGetLength) {
   // Test is disabled because call to SQLGetEnvAttr is handled by the driver manager on
-  // Windows. This test case can be potentionally used on macOS/Linux
+  // Windows. This test case can be potentially used on macOS/Linux
   GTEST_SKIP();
 
-  connect();
+  this->connect();
 
   SQLINTEGER length;
 
-  SQLRETURN return_get = SQLGetEnvAttr(env, SQL_ATTR_ODBC_VERSION, nullptr, 0, &length);
+  SQLRETURN return_get =
+      SQLGetEnvAttr(this->env, SQL_ATTR_ODBC_VERSION, nullptr, 0, &length);
 
   EXPECT_TRUE(return_get == SQL_SUCCESS);
 
   EXPECT_EQ(length, sizeof(SQLINTEGER));
 
-  disconnect();
+  this->disconnect();
 }
 
-TEST_F(FlightSQLODBCTestBase, TestSQLGetEnvAttrNullValuePointer) {
+TYPED_TEST(FlightSQLODBCTestBase, TestSQLGetEnvAttrNullValuePointer) {
   // Test is disabled because call to SQLGetEnvAttr is handled by the driver manager on
-  // Windows. This test case can be potentionally used on macOS/Linux
+  // Windows. This test case can be potentially used on macOS/Linux
   GTEST_SKIP();
-  connect();
+  this->connect();
 
-  SQLRETURN return_get = SQLGetEnvAttr(env, SQL_ATTR_ODBC_VERSION, nullptr, 0, nullptr);
+  SQLRETURN return_get =
+      SQLGetEnvAttr(this->env, SQL_ATTR_ODBC_VERSION, nullptr, 0, nullptr);
 
   EXPECT_TRUE(return_get == SQL_ERROR);
 
-  disconnect();
+  this->disconnect();
 }
 
 TEST(SQLSetEnvAttr, TestSQLSetEnvAttrOutputNTSValid) {
@@ -292,7 +294,7 @@ TEST(SQLSetEnvAttr, TestSQLSetEnvAttrNullValuePointer) {
   EXPECT_TRUE(return_set == SQL_ERROR);
 }
 
-TEST(SQLDriverConnect, TestSQLDriverConnect) {
+TYPED_TEST(FlightSQLODBCTestBase, TestSQLDriverConnect) {
   // ODBC Environment
   SQLHENV env;
   SQLHDBC conn;
@@ -312,8 +314,7 @@ TEST(SQLDriverConnect, TestSQLDriverConnect) {
   EXPECT_TRUE(ret == SQL_SUCCESS);
 
   // Connect string
-  ASSERT_OK_AND_ASSIGN(std::string connect_str,
-                       arrow::internal::GetEnvVar(TEST_CONNECT_STR));
+  std::string connect_str = this->getConnectionString();
   ASSERT_OK_AND_ASSIGN(std::wstring wconnect_str,
                        arrow::util::UTF8ToWideString(connect_str));
   std::vector<SQLWCHAR> connect_str0(wconnect_str.begin(), wconnect_str.end());
@@ -361,7 +362,7 @@ TEST(SQLDriverConnect, TestSQLDriverConnect) {
   EXPECT_TRUE(ret == SQL_SUCCESS);
 }
 
-TEST(SQLDriverConnect, TestSQLDriverConnectInvalidUid) {
+TEST_F(FlightSQLODBCRemoteTestBase, TestSQLDriverConnectInvalidUid) {
   // ODBC Environment
   SQLHENV env;
   SQLHDBC conn;
@@ -380,11 +381,8 @@ TEST(SQLDriverConnect, TestSQLDriverConnectInvalidUid) {
 
   EXPECT_TRUE(ret == SQL_SUCCESS);
 
-  // Connect string
-  ASSERT_OK_AND_ASSIGN(std::string connect_str,
-                       arrow::internal::GetEnvVar(TEST_CONNECT_STR));
-  // Append invalid uid to connection string
-  connect_str += std::string("uid=non_existent_id;");
+  // Invalid connect string
+  std::string connect_str = getInvalidConnectionString();
 
   ASSERT_OK_AND_ASSIGN(std::wstring wconnect_str,
                        arrow::util::UTF8ToWideString(connect_str));
@@ -418,7 +416,7 @@ TEST(SQLDriverConnect, TestSQLDriverConnectInvalidUid) {
   EXPECT_TRUE(ret == SQL_SUCCESS);
 }
 
-TEST(SQLConnect, TestSQLConnect) {
+TYPED_TEST(FlightSQLODBCTestBase, TestSQLConnect) {
   // ODBC Environment
   SQLHENV env;
   SQLHDBC conn;
@@ -438,8 +436,7 @@ TEST(SQLConnect, TestSQLConnect) {
   EXPECT_TRUE(ret == SQL_SUCCESS);
 
   // Connect string
-  ASSERT_OK_AND_ASSIGN(std::string connect_str,
-                       arrow::internal::GetEnvVar(TEST_CONNECT_STR));
+  std::string connect_str = this->getConnectionString();
 
   // Write connection string content into a DSN,
   // must succeed before continuing
@@ -454,7 +451,7 @@ TEST(SQLConnect, TestSQLConnect) {
   std::vector<SQLWCHAR> uid0(wuid.begin(), wuid.end());
   std::vector<SQLWCHAR> pwd0(wpwd.begin(), wpwd.end());
 
-  // Connecting to ODBC server.
+  // Connecting to ODBC server. Empty uid and pwd should be ignored.
   ret = SQLConnect(conn, dsn0.data(), static_cast<SQLSMALLINT>(dsn0.size()), uid0.data(),
                    static_cast<SQLSMALLINT>(uid0.size()), pwd0.data(),
                    static_cast<SQLSMALLINT>(pwd0.size()));
@@ -488,7 +485,7 @@ TEST(SQLConnect, TestSQLConnect) {
   EXPECT_TRUE(ret == SQL_SUCCESS);
 }
 
-TEST(SQLConnect, TestSQLConnectInputUidPwd) {
+TEST_F(FlightSQLODBCRemoteTestBase, TestSQLConnectInputUidPwd) {
   // ODBC Environment
   SQLHENV env;
   SQLHDBC conn;
@@ -508,10 +505,9 @@ TEST(SQLConnect, TestSQLConnectInputUidPwd) {
   EXPECT_TRUE(ret == SQL_SUCCESS);
 
   // Connect string
-  ASSERT_OK_AND_ASSIGN(std::string connect_str,
-                       arrow::internal::GetEnvVar(TEST_CONNECT_STR));
+  std::string connect_str = getConnectionString();
 
-  // Retrieve valid uid and pwd
+  // Retrieve valid uid and pwd, assumes TEST_CONNECT_STR contains uid and pwd
   Connection::ConnPropertyMap properties;
   ODBC::ODBCConnection::getPropertiesFromConnString(connect_str, properties);
   std::string uid_key("uid");
@@ -567,7 +563,7 @@ TEST(SQLConnect, TestSQLConnectInputUidPwd) {
   EXPECT_TRUE(ret == SQL_SUCCESS);
 }
 
-TEST(SQLConnect, TestSQLConnectInvalidUid) {
+TEST_F(FlightSQLODBCRemoteTestBase, TestSQLConnectInvalidUid) {
   // ODBC Environment
   SQLHENV env;
   SQLHDBC conn;
@@ -587,10 +583,9 @@ TEST(SQLConnect, TestSQLConnectInvalidUid) {
   EXPECT_TRUE(ret == SQL_SUCCESS);
 
   // Connect string
-  ASSERT_OK_AND_ASSIGN(std::string connect_str,
-                       arrow::internal::GetEnvVar(TEST_CONNECT_STR));
+  std::string connect_str = getConnectionString();
 
-  // Retrieve valid uid and pwd
+  // Retrieve valid uid and pwd, assumes TEST_CONNECT_STR contains uid and pwd
   Connection::ConnPropertyMap properties;
   ODBC::ODBCConnection::getPropertiesFromConnString(connect_str, properties);
   std::string uid = properties[std::string("uid")];
@@ -636,7 +631,7 @@ TEST(SQLConnect, TestSQLConnectInvalidUid) {
   EXPECT_TRUE(ret == SQL_SUCCESS);
 }
 
-TEST(SQLConnect, TestSQLConnectDSNPrecedence) {
+TEST_F(FlightSQLODBCRemoteTestBase, TestSQLConnectDSNPrecedence) {
   // ODBC Environment
   SQLHENV env;
   SQLHDBC conn;
@@ -656,13 +651,13 @@ TEST(SQLConnect, TestSQLConnectDSNPrecedence) {
   EXPECT_TRUE(ret == SQL_SUCCESS);
 
   // Connect string
-  ASSERT_OK_AND_ASSIGN(std::string connect_str,
-                       arrow::internal::GetEnvVar(TEST_CONNECT_STR));
+  std::string connect_str = getConnectionString();
 
   // Write connection string content into a DSN,
   // must succeed before continuing
 
-  // Pass incorrect uid and password to SQLConnect, they will be ignored
+  // Pass incorrect uid and password to SQLConnect, they will be ignored.
+  // Assumes TEST_CONNECT_STR contains uid and pwd
   std::string uid("non_existent_id"), pwd("non_existent_password");
   ASSERT_TRUE(writeDSN(connect_str));
 
@@ -746,7 +741,7 @@ TEST(SQLDisconnect, TestSQLDisconnectWithoutConnection) {
   EXPECT_TRUE(ret == SQL_SUCCESS);
 }
 
-TEST(SQLGetDiagFieldW, TestSQLGetDiagFieldWForConnectFailure) {
+TYPED_TEST(FlightSQLODBCTestBase, TestSQLGetDiagFieldWForConnectFailure) {
   //  ODBC Environment
   SQLHENV env;
   SQLHDBC conn;
@@ -765,11 +760,8 @@ TEST(SQLGetDiagFieldW, TestSQLGetDiagFieldWForConnectFailure) {
 
   EXPECT_TRUE(ret == SQL_SUCCESS);
 
-  // Connect string
-  ASSERT_OK_AND_ASSIGN(std::string connect_str,
-                       arrow::internal::GetEnvVar(TEST_CONNECT_STR));
-  // Append invalid uid to connection string
-  connect_str += std::string("uid=non_existent_id;");
+  // Invalid connect string
+  std::string connect_str = this->getInvalidConnectionString();
 
   ASSERT_OK_AND_ASSIGN(std::wstring wconnect_str,
                        arrow::util::UTF8ToWideString(connect_str));
@@ -859,9 +851,9 @@ TEST(SQLGetDiagFieldW, TestSQLGetDiagFieldWForConnectFailure) {
   EXPECT_TRUE(ret == SQL_SUCCESS);
 }
 
-TEST(SQLGetDiagFieldW, TestSQLGetDiagFieldWForConnectFailureNTS) {
+TYPED_TEST(FlightSQLODBCTestBase, TestSQLGetDiagFieldWForConnectFailureNTS) {
   // Test is disabled because driver manager on Windows does not pass through SQL_NTS
-  // This test case can be potentionally used on macOS/Linux
+  // This test case can be potentially used on macOS/Linux
   GTEST_SKIP();
   //  ODBC Environment
   SQLHENV env;
@@ -881,11 +873,8 @@ TEST(SQLGetDiagFieldW, TestSQLGetDiagFieldWForConnectFailureNTS) {
 
   EXPECT_TRUE(ret == SQL_SUCCESS);
 
-  // Connect string
-  ASSERT_OK_AND_ASSIGN(std::string connect_str,
-                       arrow::internal::GetEnvVar(TEST_CONNECT_STR));
-  // Append invalid uid to connection string
-  connect_str += std::string("uid=non_existent_id;");
+  // Invalid connect string
+  std::string connect_str = this->getInvalidConnectionString();
 
   ASSERT_OK_AND_ASSIGN(std::wstring wconnect_str,
                        arrow::util::UTF8ToWideString(connect_str));
@@ -902,7 +891,6 @@ TEST(SQLGetDiagFieldW, TestSQLGetDiagFieldWForConnectFailureNTS) {
   EXPECT_TRUE(ret == SQL_ERROR);
 
   // Retrieve all supported header level and record level data
-  SQLSMALLINT HEADER_LEVEL = 0;
   SQLSMALLINT RECORD_1 = 1;
 
   // SQL_DIAG_MESSAGE_TEXT SQL_NTS
@@ -929,7 +917,7 @@ TEST(SQLGetDiagFieldW, TestSQLGetDiagFieldWForConnectFailureNTS) {
   EXPECT_TRUE(ret == SQL_SUCCESS);
 }
 
-TEST(SQLGetDiagRec, TestSQLGetDiagRecForConnectFailure) {
+TYPED_TEST(FlightSQLODBCTestBase, TestSQLGetDiagRecForConnectFailure) {
   //  ODBC Environment
   SQLHENV env;
   SQLHDBC conn;
@@ -948,11 +936,8 @@ TEST(SQLGetDiagRec, TestSQLGetDiagRecForConnectFailure) {
 
   EXPECT_TRUE(ret == SQL_SUCCESS);
 
-  // Connect string
-  ASSERT_OK_AND_ASSIGN(std::string connect_str,
-                       arrow::internal::GetEnvVar(TEST_CONNECT_STR));
-  // Append invalid uid to connection string
-  connect_str += std::string("uid=non_existent_id;");
+  // Invalid connect string
+  std::string connect_str = this->getInvalidConnectionString();
 
   ASSERT_OK_AND_ASSIGN(std::wstring wconnect_str,
                        arrow::util::UTF8ToWideString(connect_str));
@@ -978,7 +963,7 @@ TEST(SQLGetDiagRec, TestSQLGetDiagRecForConnectFailure) {
 
   EXPECT_TRUE(ret == SQL_SUCCESS);
 
-  EXPECT_GT(message_length, 200);
+  EXPECT_GT(message_length, 120);
 
   EXPECT_EQ(native_error, 200);
 
@@ -998,6 +983,12 @@ TEST(SQLGetDiagRec, TestSQLGetDiagRecForConnectFailure) {
   ret = SQLFreeHandle(SQL_HANDLE_ENV, env);
 
   EXPECT_TRUE(ret == SQL_SUCCESS);
+}
+
+TYPED_TEST(FlightSQLODBCTestBase, TestConnect) {
+  // Verifies connect and disconnect works on its own
+  this->connect();
+  this->disconnect();
 }
 
 }  // namespace integration_tests
