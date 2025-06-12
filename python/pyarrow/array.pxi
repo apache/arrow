@@ -2144,7 +2144,8 @@ cdef class Array(_PandasConvertible):
         return pyarrow_wrap_array(array)
 
     def __dlpack__(self, stream=None):
-        """Export a primitive array as a DLPack capsule.
+        """
+        Export a primitive array as a DLPack capsule.
 
         Parameters
         ----------
@@ -2159,7 +2160,7 @@ cdef class Array(_PandasConvertible):
             A DLPack capsule for the array, pointing to a DLManagedTensor.
         """
         if stream is None:
-            dlm_tensor = GetResultValue(ExportToDLPack(self.sp_array))
+            dlm_tensor = GetResultValue(ExportArrayToDLPack(self.sp_array))
 
             return PyCapsule_New(dlm_tensor, 'dltensor', dlpack_pycapsule_deleter)
         else:
