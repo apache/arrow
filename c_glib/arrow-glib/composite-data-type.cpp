@@ -796,7 +796,7 @@ garrow_fixed_size_list_data_type_new_data_type(GArrowDataType *value_type,
 {
   auto arrow_data_type = garrow_data_type_get_raw(data_type);
   auto arrow_fixed_size_list_data_type =
-    std::make_shared<arrow::FixedSizeListType>(arrow_data_type, list_size);
+    arrow::fixed_size_list(arrow_data_type, list_size);
   return GARROW_FIXED_SIZE_LIST_DATA_TYPE(
     g_object_new(GARROW_TYPE_FIXED_SIZE_LIST_DATA_TYPE,
                  "data-type",
