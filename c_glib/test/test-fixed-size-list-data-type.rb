@@ -18,7 +18,7 @@
 class TestFixedSizeListDataType < Test::Unit::TestCase
   sub_test_case(".new") do
     def setup
-      @list_type = Arrow::BooleanDataType.new
+      @value_type = Arrow::BooleanDataType.new
       @list_size = 5
       @field_name = "bool_field"
     end
