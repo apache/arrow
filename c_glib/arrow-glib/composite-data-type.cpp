@@ -784,7 +784,7 @@ garrow_fixed_size_list_data_type_class_init(GArrowFixedSizeListDataTypeClass *kl
 /**
  * garrow_fixed_size_list_data_type_new_data_type:
  * @data_type: The data type of elements.
- * @list_size: The size of value.
+ * @list_size: The size of each list.
  *
  * Returns: A newly created fixed size list data type.
  *
