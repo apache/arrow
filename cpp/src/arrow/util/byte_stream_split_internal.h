@@ -431,6 +431,10 @@ template <int kNumStreams>
 void inline ByteStreamSplitDecodeSimd(const uint8_t* data, int width, int64_t num_values,
                                       int64_t stride, uint8_t* out) {
 #  if defined(ARROW_HAVE_AVX2)
+  // Not implemented
+  if constexpr (kNumStreams == 2) {
+    return ByteStreamSplitDecodeSimd128<2>(data, width, num_values, stride, out);
+  }
   return ByteStreamSplitDecodeAvx2<kNumStreams>(data, width, num_values, stride, out);
 #  elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
   return ByteStreamSplitDecodeSimd128<kNumStreams>(data, width, num_values, stride, out);
@@ -444,6 +448,11 @@ void inline ByteStreamSplitEncodeSimd(const uint8_t* raw_values, int width,
                                       const int64_t num_values,
                                       uint8_t* output_buffer_raw) {
 #  if defined(ARROW_HAVE_AVX2)
+  // Not implemented
+  if constexpr (kNumStreams == 2) {
+    return ByteStreamSplitEncodeSimd128<kNumStreams>(raw_values, width, num_values,
+                                                     output_buffer_raw);
+  }
   return ByteStreamSplitEncodeAvx2<kNumStreams>(raw_values, width, num_values,
                                                 output_buffer_raw);
 #  elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
@@ -602,7 +611,7 @@ inline void ByteStreamSplitEncode(const uint8_t* raw_values, int width,
       memcpy(out, raw_values, num_values);
       return;
     case 2:
-      return ByteStreamSplitEncodeSimd128<2>(raw_values, width, num_values, out);
+      return ByteStreamSplitEncodePerhapsSimd<2>(raw_values, width, num_values, out);
     case 4:
       return ByteStreamSplitEncodePerhapsSimd<4>(raw_values, width, num_values, out);
     case 8:
@@ -626,7 +635,7 @@ inline void ByteStreamSplitDecode(const uint8_t* data, int width, int64_t num_va
       memcpy(out, data, num_values);
       return;
     case 2:
-      return ByteStreamSplitDecodeSimd128<2>(data, width, num_values, stride, out);
+      return ByteStreamSplitDecodePerhapsSimd<2>(data, width, num_values, stride, out);
     case 4:
       return ByteStreamSplitDecodePerhapsSimd<4>(data, width, num_values, stride, out);
     case 8:
