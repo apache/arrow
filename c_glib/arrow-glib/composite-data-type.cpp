@@ -794,7 +794,7 @@ GArrowFixedSizeListDataType *
 garrow_fixed_size_list_data_type_new_data_type(GArrowDataType *value_type,
                                                gint32 list_size)
 {
-  auto arrow_data_type = garrow_data_type_get_raw(value_type);
+  auto arrow_value_type = garrow_data_type_get_raw(value_type);
   auto arrow_fixed_size_list_data_type =
     arrow::fixed_size_list(arrow_data_type, list_size);
   return GARROW_FIXED_SIZE_LIST_DATA_TYPE(
