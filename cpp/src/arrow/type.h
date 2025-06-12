@@ -2635,3 +2635,14 @@ ARROW_EXPORT
 const std::vector<Type::type>& DecimalTypeIds();
 
 }  // namespace arrow
+
+/// \brief Get a singleton instance of a DataType for a given Type::type id
+///
+/// This function returns a singleton instance of the appropriate DataType for
+/// the given Type::type id. For types that require parameters (like DECIMAL,
+/// TIMESTAMP, etc.), it returns a Status::NotImplemented error.
+///
+/// \param[in] id The Type::type id to get a singleton for
+/// \return A Result containing either a shared_ptr to the DataType or an error
+ARROW_EXPORT
+Result<std::shared_ptr<DataType>> type_singleton(Type::type id);
