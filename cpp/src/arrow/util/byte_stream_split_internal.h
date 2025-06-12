@@ -189,13 +189,17 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
   constexpr int NumBytes = 2 * NumValuesInBatch;
   // Number of steps in the first part of the algorithm with byte-level zipping
   constexpr int NumStepsByte = ReversePow2(NumValuesInBatch) + 1;
-
-  simd_batch stage[NumStepsByte + 1][kNumStreams];
+  // Number of steps in the first part of the algorithm with large data type zipping
+  constexpr int NumStepsLarge = ReversePow2(sizeof(simd_batch) / NumBytes);
+  // Total number of steps
+  constexpr int NumSteps = NumStepsByte + NumStepsLarge;
 
   // Two step shuffling algorithm that starts with bytes and ends with a larger data type.
   // An algorithm similar to the decoding one with log2(sizeof(simd_batch)) + 1 stages is
   // also valid but not as performant.
   for (int64_t block_index = 0; block_index < num_blocks; ++block_index) {
+    simd_batch stage[NumSteps + 1][kNumStreams];
+
     // First copy the data to stage 0.
     for (int i = 0; i < kNumStreams; ++i) {
       stage[0][i] = simd_batch::load_unaligned(
@@ -234,32 +238,20 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
     // clang-format off
     // Stage 4: A0A1A2A3 A4A5A6A7 A8A9AAAB ACADAEAF | B0B1B2B3 B4B5B6B7 B8B9BABB BCBDBEBF | ...
     // clang-format on
-    simd_batch final_result[kNumStreams];
-    if constexpr (kNumStreams == 8) {
-      simd_batch tmp[8];
-      for (int i = 0; i < 4; ++i) {
-        tmp[i * 2] =
-            zip_lo_n<NumBytes>(stage[NumStepsByte][i], stage[NumStepsByte][i + 4]);
-        tmp[i * 2 + 1] =
-            zip_hi_n<NumBytes>(stage[NumStepsByte][i], stage[NumStepsByte][i + 4]);
-      }
-      for (int i = 0; i < 4; ++i) {
-        final_result[i * 2] = zip_lo_n<NumBytes>(tmp[i], tmp[i + 4]);
-        final_result[i * 2 + 1] = zip_hi_n<NumBytes>(tmp[i], tmp[i + 4]);
-      }
-    } else {
-      for (int i = 0; i < 2; ++i) {
-        final_result[i * 2] =
-            zip_lo_n<NumBytes>(stage[NumStepsByte][i], stage[NumStepsByte][i + 2]);
-        final_result[i * 2 + 1] =
-            zip_hi_n<NumBytes>(stage[NumStepsByte][i], stage[NumStepsByte][i + 2]);
+    constexpr int kNumStreamsHalf = kNumStreams / 2;
+    for (int step = NumStepsByte; step < NumSteps; ++step) {
+      for (int i = 0; i < kNumStreamsHalf; ++i) {
+        stage[step + 1][i * 2] =
+            zip_lo_n<NumBytes>(stage[step][i], stage[step][i + kNumStreamsHalf]);
+        stage[step + 1][i * 2 + 1] =
+            zip_hi_n<NumBytes>(stage[step][i], stage[step][i + kNumStreamsHalf]);
       }
     }
 
     // Save the encoded data to the output buffer
     for (int i = 0; i < kNumStreams; ++i) {
       xsimd::store_unaligned(&output_buffer_streams[i][block_index * sizeof(simd_batch)],
-                             final_result[i]);
+                             stage[NumSteps][i]);
     }
   }
 }
