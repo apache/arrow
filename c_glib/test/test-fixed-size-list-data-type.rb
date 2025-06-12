@@ -29,7 +29,7 @@ class TestFixedSizeListDataType < Test::Unit::TestCase
       assert_equal(Arrow::Type::FIXED_SIZE_LIST, data_type.id);
     end
 
-    def test_new_data_type
+    def test_data_type
       data_type = Arrow::FixedSizeListDataType.new(@list_type, @list_size);
       assert_equal(Arrow::Type::FIXED_SIZE_LIST, data_type.id);
     end
