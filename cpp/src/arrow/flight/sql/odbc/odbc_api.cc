@@ -26,6 +26,7 @@
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/encoding_utils.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_environment.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_statement.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h"
 
 #if defined _WIN32 || defined _WIN64
@@ -85,8 +86,29 @@ SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) 
     }
 
     case SQL_HANDLE_STMT: {
-      return SQL_INVALID_HANDLE;
+      using ODBC::ODBCConnection;
+      using ODBC::ODBCStatement;
+
+      *result = SQL_NULL_HSTMT;
+
+      ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(parent);
+
+      return ODBCConnection::ExecuteWithDiagnostics(connection, SQL_ERROR, [=]() {
+        std::shared_ptr<ODBCStatement> statement = connection->createStatement();
+
+        if (statement) {
+          *result = reinterpret_cast<SQLHSTMT>(statement.get());
+
+          return SQL_SUCCESS;
+        }
+
+        return SQL_ERROR;
+      });
     }
+
+    // TODO Implement for case of descriptor
+    case SQL_HANDLE_DESC:
+      return SQL_INVALID_HANDLE;
 
     default:
       break;
@@ -127,14 +149,62 @@ SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle) {
       return SQL_SUCCESS;
     }
 
-    case SQL_HANDLE_STMT:
-      return SQL_INVALID_HANDLE;
+    case SQL_HANDLE_STMT: {
+      using ODBC::ODBCStatement;
+
+      ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(handle);
+
+      if (!statement) {
+        return SQL_INVALID_HANDLE;
+      }
+
+      statement->releaseStatement();
+
+      return SQL_SUCCESS;
+    }
 
     case SQL_HANDLE_DESC:
       return SQL_INVALID_HANDLE;
 
     default:
       break;
+  }
+
+  return SQL_ERROR;
+}
+
+SQLRETURN SQLFreeStmt(SQLHSTMT handle, SQLUSMALLINT option) {
+  switch (option) {
+    case SQL_CLOSE: {
+      using ODBC::ODBCStatement;
+
+      ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(handle);
+
+      return ODBCStatement::ExecuteWithDiagnostics(statement, SQL_ERROR, [=]() {
+        if (!statement) {
+          return SQL_INVALID_HANDLE;
+        }
+
+        // Close cursor with suppressErrors set to true
+        statement->closeCursor(true);
+
+        return SQL_SUCCESS;
+      });
+    }
+
+    case SQL_DROP: {
+      return SQLFreeHandle(SQL_HANDLE_STMT, handle);
+    }
+
+    // TODO Implement SQLBindCol
+    case SQL_UNBIND: {
+      return SQL_SUCCESS;
+    }
+
+    // SQLBindParameter is not supported
+    case SQL_RESET_PARAMS: {
+      return SQL_SUCCESS;
+    }
   }
 
   return SQL_ERROR;

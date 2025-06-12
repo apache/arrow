@@ -41,6 +41,10 @@ SQLRETURN SQL_API SQLAllocConnect(SQLHENV env, SQLHDBC* conn) {
   return arrow::SQLAllocHandle(SQL_HANDLE_DBC, env, conn);
 }
 
+SQLRETURN SQL_API SQLAllocStmt(SQLHDBC conn, SQLHSTMT* stmt) {
+  return arrow::SQLAllocHandle(SQL_HANDLE_STMT, conn, stmt);
+}
+
 SQLRETURN SQL_API SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle) {
   return arrow::SQLFreeHandle(type, handle);
 }
@@ -51,6 +55,10 @@ SQLRETURN SQL_API SQLFreeEnv(SQLHENV env) {
 
 SQLRETURN SQL_API SQLFreeConnect(SQLHDBC conn) {
   return arrow::SQLFreeHandle(SQL_HANDLE_DBC, conn);
+}
+
+SQLRETURN SQL_API SQLFreeStmt(SQLHSTMT stmt, SQLUSMALLINT option) {
+  return arrow::SQLFreeStmt(stmt, option);
 }
 
 SQLRETURN SQL_API SQLGetDiagFieldW(SQLSMALLINT handleType, SQLHANDLE handle,

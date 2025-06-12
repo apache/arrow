@@ -31,6 +31,7 @@
 namespace arrow {
 SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result);
 SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle);
+SQLRETURN SQLFreeStmt(SQLHSTMT stmt, SQLUSMALLINT option);
 SQLRETURN SQLGetDiagFieldW(SQLSMALLINT handleType, SQLHANDLE handle,
                            SQLSMALLINT recNumber, SQLSMALLINT diagIdentifier,
                            SQLPOINTER diagInfoPtr, SQLSMALLINT bufferLength,
