@@ -26,7 +26,7 @@ project(
         'buildtype=release',
         'c_std=gnu11,c11',
         'warning_level=2',
-        'cpp_std=c++17',
+        'cpp_std=c++20',
     ],
 )
 
