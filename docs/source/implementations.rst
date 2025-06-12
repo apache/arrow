@@ -50,7 +50,7 @@ documentation and source code for these libraries.
      - :doc:`Java Docs<java/index>`
      - `Java Source <https://github.com/apache/arrow-java>`_
    * - JavaScript
-     - `JavaScript Docs <js/index.html>`_ :fa:`external-link-alt`
+     - `JavaScript Docs <https://arrow.apache.org/docs/js>`_ :fa:`external-link-alt`
      - `JavaScript Source <https://github.com/apache/arrow-js>`_
    * - Julia
      - `Julia Docs <https://arrow.apache.org/julia/>`_ :fa:`external-link-alt`
