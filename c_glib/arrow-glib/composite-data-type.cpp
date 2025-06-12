@@ -815,7 +815,7 @@ garrow_fixed_size_list_data_type_new_field(GArrowField *field, gint32 list_size)
 {
   auto arrow_field = garrow_field_get_raw(field);
   auto arrow_fixed_size_list_data_type =
-    std::make_shared<arrow::FixedSizeListType>(arrow_field, list_size);
+    arrow::fixed_size_list(arrow_field, list_size);
   return GARROW_FIXED_SIZE_LIST_DATA_TYPE(
     g_object_new(GARROW_TYPE_FIXED_SIZE_LIST_DATA_TYPE,
                  "data-type",
