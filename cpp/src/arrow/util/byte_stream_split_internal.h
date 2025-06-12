@@ -140,18 +140,26 @@ using grouped_bytes_t = typename grouped_bytes_impl<N>::type;
 template <int NBytes, int BatchSize = 16,
           typename Batch = xsimd::make_sized_batch_t<int8_t, BatchSize>>
 auto zip_lo_n(Batch const& a, Batch const& b) -> Batch {
-  return xsimd::bitwise_cast<int8_t>(
-      xsimd::zip_lo(xsimd::bitwise_cast<grouped_bytes_t<NBytes>>(a),
-                    xsimd::bitwise_cast<grouped_bytes_t<NBytes>>(b)));
+  if constexpr (NBytes == BatchSize) {
+    return a;
+  } else {
+    return xsimd::bitwise_cast<int8_t>(
+        xsimd::zip_lo(xsimd::bitwise_cast<grouped_bytes_t<NBytes>>(a),
+                      xsimd::bitwise_cast<grouped_bytes_t<NBytes>>(b)));
+  }
 }
 
 // Like xsimd::zlip_hi, but zip groups of NBytes at once
 template <int NBytes, int BatchSize = 16,
           typename Batch = xsimd::make_sized_batch_t<int8_t, BatchSize>>
 auto zip_hi_n(Batch const& a, Batch const& b) -> Batch {
-  return xsimd::bitwise_cast<int8_t>(
-      xsimd::zip_hi(xsimd::bitwise_cast<grouped_bytes_t<NBytes>>(a),
-                    xsimd::bitwise_cast<grouped_bytes_t<NBytes>>(b)));
+  if constexpr (NBytes == BatchSize) {
+    return b;
+  } else {
+    return xsimd::bitwise_cast<int8_t>(
+        xsimd::zip_hi(xsimd::bitwise_cast<grouped_bytes_t<NBytes>>(a),
+                      xsimd::bitwise_cast<grouped_bytes_t<NBytes>>(b)));
+  }
 }
 
 template <int kNumStreams>
@@ -160,7 +168,6 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
   using simd_batch = xsimd::make_sized_batch_t<int8_t, 16>;
 
   assert(width == kNumStreams);
-  static_assert(kNumStreams == 4 || kNumStreams == 8, "Invalid number of streams.");
   constexpr int kBlockSize = sizeof(simd_batch) * kNumStreams;
 
   const int64_t size = num_values * kNumStreams;
@@ -595,7 +602,7 @@ inline void ByteStreamSplitEncode(const uint8_t* raw_values, int width,
       memcpy(out, raw_values, num_values);
       return;
     case 2:
-      return ByteStreamSplitEncodeScalar<2>(raw_values, width, num_values, out);
+      return ByteStreamSplitEncodeSimd128<2>(raw_values, width, num_values, out);
     case 4:
       return ByteStreamSplitEncodePerhapsSimd<4>(raw_values, width, num_values, out);
     case 8:
@@ -619,7 +626,7 @@ inline void ByteStreamSplitDecode(const uint8_t* data, int width, int64_t num_va
       memcpy(out, data, num_values);
       return;
     case 2:
-      return ByteStreamSplitDecodePerhapsSimd<2>(data, width, num_values, stride, out);
+      return ByteStreamSplitDecodeSimd128<2>(data, width, num_values, stride, out);
     case 4:
       return ByteStreamSplitDecodePerhapsSimd<4>(data, width, num_values, stride, out);
     case 8:
