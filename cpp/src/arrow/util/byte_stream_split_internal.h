@@ -197,7 +197,8 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
   // Number of steps in the first part of the algorithm with byte-level zipping
   constexpr int NumStepsByte = ReversePow2(NumValuesInBatch) + 1;
   // Number of steps in the first part of the algorithm with large data type zipping
-  constexpr int NumStepsLarge = ReversePow2(static_cast<int>(sizeof(simd_batch)) / NumBytes);
+  constexpr int NumStepsLarge =
+      ReversePow2(static_cast<int>(sizeof(simd_batch)) / NumBytes);
   // Total number of steps
   constexpr int NumSteps = NumStepsByte + NumStepsLarge;
 
