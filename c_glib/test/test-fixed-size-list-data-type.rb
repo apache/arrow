@@ -35,7 +35,7 @@ class TestFixedSizeListDataType < Test::Unit::TestCase
     end
   end
 
-  sub_test_case(".instance_method") do
+  sub_test_case("instance_methods") do
     def setup
       @data_type = Arrow::FixedSizeListDataType.new(Arrow::BooleanDataType.new, 5)
     end
