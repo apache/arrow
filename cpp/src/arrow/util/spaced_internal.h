@@ -23,9 +23,7 @@
 
 #include "arrow/util/bit_run_reader.h"
 
-namespace arrow {
-namespace util {
-namespace internal {
+namespace arrow::util::internal {
 
 /// \brief Compress the buffer to spaced, excluding the null entries.
 ///
@@ -53,27 +51,29 @@ inline int SpacedCompress(const T* src, int num_values, const uint8_t* valid_bit
   return num_valid_values;
 }
 
-/// \brief Relocate values in buffer into positions of non-null values as indicated by
-/// a validity bitmap.
+/// \brief Relocate values according to a validity bitmap, to the right
+///
+/// Non-null values should initially be densely packed at the left of the buffer.
+/// This method spreads the values out according to the given validity bitmap.
+/// Null entries are zero-initialized.
 ///
 /// \param[in, out] buffer the in-place buffer
 /// \param[in] num_values total size of buffer including null slots
 /// \param[in] null_count number of null slots
 /// \param[in] valid_bits bitmap data indicating position of valid slots
 /// \param[in] valid_bits_offset offset into valid_bits
-/// \return The number of values expanded, including nulls.
 template <typename T>
-inline int SpacedExpand(T* buffer, int num_values, int null_count,
-                        const uint8_t* valid_bits, int64_t valid_bits_offset) {
+inline void SpacedExpandRightward(T* buffer, int num_values, int null_count,
+                                  const uint8_t* valid_bits, int64_t valid_bits_offset) {
   // Point to end as we add the spacing from the back.
   int idx_decode = num_values - null_count;
 
   // Depending on the number of nulls, some of the value slots in buffer may
   // be uninitialized, and this will cause valgrind warnings / potentially UB
-  std::memset(static_cast<void*>(buffer + idx_decode), 0, null_count * sizeof(T));
+  memset(static_cast<void*>(buffer + idx_decode), 0, null_count * sizeof(T));
   if (idx_decode == 0) {
     // All nulls, nothing more to do
-    return num_values;
+    return;
   }
 
   arrow::internal::ReverseSetBitRunReader reader(valid_bits, valid_bits_offset,
@@ -85,14 +85,60 @@ inline int SpacedExpand(T* buffer, int num_values, int null_count,
     }
     idx_decode -= static_cast<int32_t>(run.length);
     assert(idx_decode >= 0);
-    std::memmove(buffer + run.position, buffer + idx_decode, run.length * sizeof(T));
+    if (idx_decode == run.position) {
+      // We have come to the point where no more expansion is required: the remaining
+      // values are already in their final position.
+      return;
+    }
+    // Source and destination may overlap if run.length > 1
+    memmove(buffer + run.position, buffer + idx_decode, run.length * sizeof(T));
   }
 
   // Otherwise caller gave an incorrect null_count
   assert(idx_decode == 0);
-  return num_values;
 }
 
-}  // namespace internal
-}  // namespace util
-}  // namespace arrow
+/// \brief Relocate values according to a validity bitmap, to the left
+///
+/// Non-null values should initially be densely packed at the right of the buffer.
+/// This method spreads the values out according to the given validity bitmap.
+/// Null entries are zero-initialized.
+///
+/// \param[in, out] buffer the in-place buffer
+/// \param[in] byte_width the byte width of values
+/// \param[in] length total length of buffer including null slots
+/// \param[in] null_count number of null slots
+/// \param[in] valid_bits bitmap data indicating position of valid slots
+/// \param[in] valid_bits_offset offset into valid_bits
+inline void SpacedExpandLeftward(uint8_t* buffer, int byte_width, int64_t length,
+                                 int64_t null_count, const uint8_t* valid_bits,
+                                 int64_t valid_bits_offset) {
+  // Point to start of values.
+  int64_t idx_decode = byte_width * null_count;
+
+  // Depending on the number of nulls, some of the value slots in buffer may
+  // be uninitialized, and this will cause valgrind warnings / potentially UB
+  memset(buffer, 0, idx_decode);
+
+  arrow::internal::SetBitRunReader reader(valid_bits, valid_bits_offset, length);
+  while (true) {
+    const auto run = reader.NextRun();
+    if (run.length == 0) {
+      break;
+    }
+    if (idx_decode == run.position * byte_width) {
+      // We have come to the point where no more expansion is required: the remaining
+      // values are already in their final position.
+      return;
+    }
+    // Source and destination may overlap if run.length > 1
+    memmove(buffer + run.position * byte_width, buffer + idx_decode,
+            run.length * byte_width);
+    idx_decode += run.length * byte_width;
+  }
+
+  // Otherwise caller gave an incorrect null_count
+  assert(idx_decode == length * byte_width);
+}
+
+}  // namespace arrow::util::internal
