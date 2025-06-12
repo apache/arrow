@@ -299,6 +299,7 @@ repos:
           ?^c_glib/test/run-test\.sh$|
           ?^ci/scripts/c_glib_build\.sh$|
           ?^ci/scripts/c_glib_test\.sh$|
+          ?^ci/scripts/ccache_setup\.sh$|
           ?^ci/scripts/conan_build\.sh$|
           ?^ci/scripts/conan_setup\.sh$|
           ?^ci/scripts/cpp_test\.sh$|
