@@ -300,7 +300,7 @@ the input to a single output value.
 Grouped Aggregations ("group by")
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Grouped aggregations are not directly invokable, but are used as part of a
+Grouped aggregations are not directly invocable, but are used as part of a
 SQL-style "group by" operation. Like scalar aggregations, grouped aggregations
 reduce multiple input values to a single output value. Instead of aggregating
 all values of the input, however, grouped aggregations partition the input
