@@ -572,13 +572,13 @@ def infer_type(values, mask=None, from_pandas=False):
     return pyarrow_wrap_data_type(out)
 
 
-def arange(int64_t start, int64_t stop, int64_t step=1):
+def arange(int64_t start, int64_t stop, int64_t step=1, *, memory_pool=None):
     """
     Create an array of evenly spaced values within a given interval.
+
     This function is similar to Python's `range` function.
     The resulting array will contain values starting from `start` up to but not
-    including `stop`, with a step size of `step`. If `step` is zero, the function
-    will return an empty array.
+    including `stop`, with a step size of `step`.
 
     Parameters
     ----------
@@ -588,12 +588,20 @@ def arange(int64_t start, int64_t stop, int64_t step=1):
         The stopping value for the sequence. The returned array will not include this value.
     step : int, default 1
         The spacing between values.
+    memory_pool : MemoryPool, optional
+        A memory pool to use for memory allocations.
+
+    Raises
+    ------
+    ArrowInvalid
+        If `step` is zero.
 
     Returns
     -------
     arange : Array
     """
-    c_array = GetResultValue(Arange(start, stop, step))
+    cdef CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+    c_array = GetResultValue(Arange(start, stop, step, pool))
     return pyarrow_wrap_array(c_array)
 
 

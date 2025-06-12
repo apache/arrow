@@ -74,7 +74,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         CMemoryPool* pool)
 
     CResult[shared_ptr[CArray]] Arange(int64_t start, int64_t stop,
-                                       int64_t step)
+                                       int64_t step, CMemoryPool* pool)
 
     CResult[shared_ptr[CDataType]] NumPyDtypeToArrow(object dtype)
 
