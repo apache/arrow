@@ -271,7 +271,7 @@ struct _GArrowFixedSizeListDataTypeClass
 
 GARROW_AVAILABLE_IN_21_0
 GArrowFixedSizeListDataType *
-garrow_fixed_size_list_data_type_new_data_type(GArrowDataType *data_type,
+garrow_fixed_size_list_data_type_new_data_type(GArrowDataType *value_type,
                                                gint32 list_size);
 
 GARROW_AVAILABLE_IN_21_0
