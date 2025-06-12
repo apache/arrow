@@ -796,14 +796,14 @@ garrow_fixed_size_list_data_type_new_data_type(GArrowDataType *value_type,
 {
   auto arrow_value_type = garrow_data_type_get_raw(value_type);
   auto arrow_fixed_size_list_data_type =
-    arrow::fixed_size_list(arrow_data_type, list_size);
+    arrow::fixed_size_list(arrow_value_type, list_size);
   return GARROW_FIXED_SIZE_LIST_DATA_TYPE(
     garrow_data_type_new_raw(&arrow_fixed_size_list_data_type));
 }
 
 /**
  * garrow_fixed_size_list_data_type_new_field:
- * @field: The field for elements.
+ * @field: The field of an element of each list.
  * @list_size: The size of value.
  *
  * Returns: A newly created fixed size list data type.
