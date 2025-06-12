@@ -2431,9 +2431,9 @@ struct ExtractRegexSpan : ExtractRegexBase {
             int64_t size = found_values[i].size();
             array_builders[i]->UnsafeAppend(static_cast<OffsetCType>(begin));
             array_builders[i]->UnsafeAppend(static_cast<OffsetCType>(size));
-            ARROW_RETURN_NOT_OK(span_builders[i]->Append());
+            span_builders[i]->UnsafeAppend();
           } else {
-            ARROW_RETURN_NOT_OK(span_builders[i]->AppendNull());
+            span_builders[i]->UnsafeAppendNull();
           }
         }
         ARROW_RETURN_NOT_OK(struct_builder->Append());
