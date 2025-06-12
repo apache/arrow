@@ -122,7 +122,13 @@ static std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
 
 std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_data,
                                             const ColumnDescriptor* descr) {
-  switch (static_cast<Type::type>(meta_data.type)) {
+  auto metadata_type = static_cast<Type::type>(meta_data.type);
+  if (descr->physical_type() != metadata_type) {
+    throw ParquetException(
+        "ColumnMetaData type does not match ColumnDescriptor physical type: " +
+        TypeToString(metadata_type) + " vs. " + TypeToString(descr->physical_type()));
+  }
+  switch (metadata_type) {
     case Type::BOOLEAN:
       return MakeTypedColumnStats<BooleanType>(meta_data, descr);
     case Type::INT32:
@@ -1541,7 +1547,7 @@ bool ApplicationVersion::VersionEq(const ApplicationVersion& other_version) cons
 // parquet-mr/parquet-column/src/main/java/org/apache/parquet/CorruptStatistics.java
 // PARQUET-686 has more discussion on statistics
 bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
-                                              EncodedStatistics& statistics,
+                                              const EncodedStatistics& statistics,
                                               SortOrder::type sort_order) const {
   // parquet-cpp version 1.3.0 and parquet-mr 1.10.0 onwards stats are computed
   // correctly for all types
