@@ -62,7 +62,7 @@ void ByteStreamSplitDecodeSimd128(const uint8_t* data, int width, int64_t num_va
   assert(width == kNumStreams);
   constexpr int kNumStreamsLog2 = ReversePow2(kNumStreams);
   static_assert(kNumStreamsLog2 != 0);
-  constexpr int64_t kBlockSize = sizeof(simd_batch) * kNumStreams;
+  constexpr int64_t kBlockSize = simd_batch::size * kNumStreams;
 
   const int64_t size = num_values * kNumStreams;
   const int64_t num_blocks = size / kBlockSize;
@@ -90,8 +90,7 @@ void ByteStreamSplitDecodeSimd128(const uint8_t* data, int width, int64_t num_va
 
   for (int64_t i = 0; i < num_blocks; ++i) {
     for (int j = 0; j < kNumStreams; ++j) {
-      stage[0][j] =
-          simd_batch::load_unaligned(&data[i * sizeof(simd_batch) + j * stride]);
+      stage[0][j] = simd_batch::load_unaligned(&data[i * simd_batch::size + j * stride]);
     }
     for (int step = 0; step < kNumStreamsLog2; ++step) {
       for (int j = 0; j < kNumStreamsHalf; ++j) {
@@ -103,7 +102,7 @@ void ByteStreamSplitDecodeSimd128(const uint8_t* data, int width, int64_t num_va
     }
     for (int j = 0; j < kNumStreams; ++j) {
       xsimd::store_unaligned(
-          reinterpret_cast<int8_t*>(out + (i * kNumStreams + j) * sizeof(simd_batch)),
+          reinterpret_cast<int8_t*>(out + (i * kNumStreams + j) * simd_batch::size),
           stage[kNumStreamsLog2][j]);
     }
   }
@@ -168,7 +167,7 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
   using simd_batch = xsimd::make_sized_batch_t<int8_t, 16>;
 
   assert(width == kNumStreams);
-  constexpr int kBlockSize = sizeof(simd_batch) * kNumStreams;
+  constexpr int kBlockSize = simd_batch::size * kNumStreams;
 
   const int64_t size = num_values * kNumStreams;
   const int64_t num_blocks = size / kBlockSize;
@@ -188,7 +187,7 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
   }
 
   // Number of input values we can fit in a simd register
-  constexpr int kNumValuesInBatch = sizeof(simd_batch) / kNumStreams;
+  constexpr int kNumValuesInBatch = simd_batch::size / kNumStreams;
   static_assert(kNumValuesInBatch > 0);
   // Number of bytes we'll bring together in the first byte-level part of the algorithm.
   // Since we zip with the next batch, the number of values in a batch determines how many
@@ -198,12 +197,12 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
   constexpr int kNumStepsByte = ReversePow2(kNumValuesInBatch) + 1;
   // Number of steps in the first part of the algorithm with large data type zipping
   constexpr int kNumStepsLarge =
-      ReversePow2(static_cast<int>(sizeof(simd_batch)) / kNumBytes);
+      ReversePow2(static_cast<int>(simd_batch::size) / kNumBytes);
   // Total number of steps
   constexpr int NumSteps = kNumStepsByte + kNumStepsLarge;
 
   // Two step shuffling algorithm that starts with bytes and ends with a larger data type.
-  // An algorithm similar to the decoding one with log2(sizeof(simd_batch)) + 1 stages is
+  // An algorithm similar to the decoding one with log2(simd_batch::size) + 1 stages is
   // also valid but not as performant.
   for (int64_t block_index = 0; block_index < num_blocks; ++block_index) {
     simd_batch stage[NumSteps + 1][kNumStreams];
@@ -211,7 +210,7 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
     // First copy the data to stage 0.
     for (int i = 0; i < kNumStreams; ++i) {
       stage[0][i] = simd_batch::load_unaligned(
-          &raw_values[(block_index * kNumStreams + i) * sizeof(simd_batch)]);
+          &raw_values[(block_index * kNumStreams + i) * simd_batch::size]);
     }
 
     // We first make byte-level shuffling, until we have gather enough bytes together
@@ -257,7 +256,7 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
 
     // Save the encoded data to the output buffer
     for (int i = 0; i < kNumStreams; ++i) {
-      xsimd::store_unaligned(&output_buffer_streams[i][block_index * sizeof(simd_batch)],
+      xsimd::store_unaligned(&output_buffer_streams[i][block_index * simd_batch::size],
                              stage[NumSteps][i]);
     }
   }
