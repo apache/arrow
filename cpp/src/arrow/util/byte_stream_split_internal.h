@@ -433,8 +433,9 @@ void inline ByteStreamSplitDecodeSimd(const uint8_t* data, int width, int64_t nu
   // Not implemented
   if constexpr (kNumStreams == 2) {
     return ByteStreamSplitDecodeSimd128<2>(data, width, num_values, stride, out);
+  } else {
+    return ByteStreamSplitDecodeAvx2<kNumStreams>(data, width, num_values, stride, out);
   }
-  return ByteStreamSplitDecodeAvx2<kNumStreams>(data, width, num_values, stride, out);
 #  elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
   return ByteStreamSplitDecodeSimd128<kNumStreams>(data, width, num_values, stride, out);
 #  else
@@ -451,9 +452,10 @@ void inline ByteStreamSplitEncodeSimd(const uint8_t* raw_values, int width,
   if constexpr (kNumStreams == 2) {
     return ByteStreamSplitEncodeSimd128<kNumStreams>(raw_values, width, num_values,
                                                      output_buffer_raw);
+  } else {
+    return ByteStreamSplitEncodeAvx2<kNumStreams>(raw_values, width, num_values,
+                                                  output_buffer_raw);
   }
-  return ByteStreamSplitEncodeAvx2<kNumStreams>(raw_values, width, num_values,
-                                                output_buffer_raw);
 #  elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
   return ByteStreamSplitEncodeSimd128<kNumStreams>(raw_values, width, num_values,
                                                    output_buffer_raw);
