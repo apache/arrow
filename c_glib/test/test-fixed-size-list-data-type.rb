@@ -23,7 +23,7 @@ class TestFixedSizeListDataType < Test::Unit::TestCase
       @field_name = "bool_field"
     end
 
-    def test_new_field
+    def test_field
       field = Arrow::Field.new(@list_name, @list_type)
       data_type = Arrow::FixedSizeListDataType.new(field, @list_size);
       assert_equal(Arrow::Type::FIXED_SIZE_LIST, data_type.id);
