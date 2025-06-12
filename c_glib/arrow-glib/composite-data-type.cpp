@@ -803,7 +803,7 @@ garrow_fixed_size_list_data_type_new_data_type(GArrowDataType *value_type,
 
 /**
  * garrow_fixed_size_list_data_type_new_field:
- * @field: The field of elements.
+ * @field: The field for elements.
  * @list_size: The size of value.
  *
  * Returns: A newly created fixed size list data type.
