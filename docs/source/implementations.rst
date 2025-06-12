@@ -50,7 +50,7 @@ documentation and source code for these libraries.
      - :doc:`Java Docs<java/index>`
      - `Java Source <https://github.com/apache/arrow-java>`_
    * - JavaScript
-     - :doc:`JavaScript Docs<js/index>`
+     - `JavaScript Docs <js/index.html>`_ :fa:`external-link-alt`
      - `JavaScript Source <https://github.com/apache/arrow-js>`_
    * - Julia
      - `Julia Docs <https://arrow.apache.org/julia/>`_ :fa:`external-link-alt`
@@ -114,7 +114,7 @@ The source files for the Cookbook are maintained in the
    C# <https://github.com/apache/arrow/blob/main/csharp/README.md>
    Go <https://arrow.apache.org/go/>
    Java <java/index>
-   JavaScript <js/index>
+   JavaScript <https://arrow.apache.org/docs/js>
    Julia <https://arrow.apache.org/julia/>
    MATLAB <https://github.com/apache/arrow/blob/main/matlab/README.md>
    Python <python/index>
