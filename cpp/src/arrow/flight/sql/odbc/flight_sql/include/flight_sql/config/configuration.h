@@ -59,7 +59,7 @@ class Configuration {
    */
   const driver::odbcabstraction::Connection::ConnPropertyMap& GetProperties() const;
 
-  std::vector<std::string_view> GetCustomKeys() const;
+  std::vector<std::string> GetCustomKeys() const;
 
  private:
   driver::odbcabstraction::Connection::ConnPropertyMap properties;
