@@ -1248,6 +1248,8 @@ TEST_F(TestDecimal, TestCastDecimalVarCharInvalidInputInvalidOutput) {
   auto schema = arrow::schema({field_str});
   auto res_bool = field("res_bool", arrow::boolean());
 
+  // This is minimal possible expression to reproduce SIGSEGV
+  // equal(multiply(castDecimal(10), castDecimal(100)), castDECIMAL("foo"))
   auto int_literal = TreeExprBuilder::MakeLiteral(static_cast<int32_t>(100));
   auto int_literal_multiply = TreeExprBuilder::MakeLiteral(static_cast<int32_t>(10));
   auto string_literal = TreeExprBuilder::MakeStringLiteral("foo");
@@ -1265,15 +1267,14 @@ TEST_F(TestDecimal, TestCastDecimalVarCharInvalidInputInvalidOutput) {
 
   std::shared_ptr<Projector> projector;
 
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
-  EXPECT_TRUE(status.ok()) << status.message();
+  ASSERT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
 
   int num_records = 1;
   auto invalid_in = MakeArrowArrayUtf8({"1.345"}, {true});
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {invalid_in});
 
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  auto status = projector->Evaluate(*in_batch, pool_, &outputs);
   ASSERT_NOT_OK(status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("not a valid decimal128 number"));
 }
