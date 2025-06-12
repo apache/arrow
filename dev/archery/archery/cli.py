@@ -17,6 +17,7 @@
 
 from collections import namedtuple
 from io import StringIO
+from typing import Final
 import click
 import json
 import logging
@@ -721,6 +722,26 @@ def _set_default(opt, default):
     return opt
 
 
+def validate_conditional_options(ctx, param: click.Option, value):
+    """Custom validation function to check dependencies between options"""
+    if (
+        param.name
+        in [
+            "external_library_ipc_producer",
+            "external_library_ipc_consumer",
+            "external_library_c_data_schema_exporter",
+            "external_library_c_data_schema_importer",
+            "external_library_c_data_array_exporter",
+            "external_library_c_data_array_importer",
+        ]
+        and not ctx.params.get("with_external_library")
+    ):
+        raise click.BadParameter(
+            f"{param.name} can only be used when --with-external-library is specified"
+        )
+    return value
+
+
 @archery.command(short_help="Execute protocol and Flight integration tests")
 @click.option('--with-all', is_flag=True, default=False,
               help=('Include all known implementations by default '
@@ -746,6 +767,30 @@ def _set_default(opt, default):
 @click.option('--with-rust', type=bool, default=False,
               help='Include Rust in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_RUST")
+@click.option('--with-external-library', type=click.Path(exists=True, file_okay=False, dir_okay=True, executable=False),
+              help='Path to the external library to include in integration tests',
+              envvar="ARCHERY_INTEGRATION_WITH_EXTERNAL_LIBRARY")
+@click.option('--external-library-ipc-producer', is_flag=True, default=False, callback=validate_conditional_options,
+              help='Set external library as supporting producing IPC in integration tests. "arrow-json-integration-test", "arrow-stream-to-file" and "arrow-file-to-stream" executables must be present in the external library folder.',
+              envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_IPC_PRODUCER")
+@click.option('--external-library-ipc-consumer', is_flag=True, default=False, callback=validate_conditional_options,
+              help='Set external library as supporting consuming IPC in integration tests. "arrow-json-integration-test", "arrow-stream-to-file" and "arrow-file-to-stream" executables must be present in the external library folder.',
+              envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_IPC_CONSUMER")
+@click.option('--external-library-c-data-schema-exporter', is_flag=True, default=False, callback=validate_conditional_options,
+                help='Set external library as supporting exporting C Data schema in integration tests. "c_data_integration.[dll/so]" shared library must be present in the external library folder.',
+                envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_C_DATA_SCHEMA_EXPORTER")
+@click.option('--external-library-c-data-schema-importer', is_flag=True, default=False, callback=validate_conditional_options,
+                help='Set external library as supporting importing C Data schema in integration tests. "c_data_integration.[dll/so]" shared library must be present in the external library folder.',
+                envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_C_DATA_SCHEMA_IMPORTER")
+@click.option('--external-library-c-data-array-exporter', is_flag=True, default=False, callback=validate_conditional_options,
+                help='Set external library as supporting exporting C Data array in integration tests. "c_data_integration.[dll/so]" shared library must be present in the external library folder.',
+                envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_C_DATA_ARRAY_EXPORTER")
+@click.option('--external-library-c-data-array-importer', is_flag=True, default=False, callback=validate_conditional_options,
+                help='Set external library as supporting importing C Data array in integration tests. "c_data_integration.[dll/so]" shared library must be present in the external library folder.',
+                envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_C_DATA_ARRAY_IMPORTER")
+@click.option('--external-library-supports-releasing-memory', is_flag=True, default=False, callback=validate_conditional_options,
+              help='Set external library as supporting releasing memory in integration tests',
+              envvar="ARCHERY_INTEGRATION_EXTERNAL_LIBRARY_SUPPORTS_RELEASING_MEMORY")
 @click.option('--target-implementations', default='',
               help=('Target implementations in this integration tests'),
               envvar="ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS")
@@ -845,29 +890,21 @@ def integration(with_all=False, random_seed=12345, **args):
     implementations = ['cpp', 'csharp', 'java', 'js', 'go', 'nanoarrow', 'rust']
     formats = ['ipc', 'flight', 'c_data']
 
-    enabled_implementations = 0
-    for lang in implementations:
-        param = f'with_{lang}'
-        if with_all:
-            args[param] = with_all
-        enabled_implementations += args[param]
-
-    enabled_formats = 0
-    for fmt in formats:
-        param = f'run_{fmt}'
-        enabled_formats += args[param]
-
     if gen_path:
         # XXX See GH-37575: this option is only used by the JS test suite
         # and might not be useful anymore.
         os.makedirs(gen_path, exist_ok=True)
         write_js_test_json(gen_path)
     else:
-        if enabled_formats == 0:
+        have_enabled_formats: Final[bool] = any(args[f"run_{fmt}"] for fmt in formats)
+        if not have_enabled_formats:
             raise click.UsageError(
                 "Need to enable at least one format to test "
                 "(IPC, Flight, C Data Interface); try --help")
-        if enabled_implementations == 0:
+        have_enabled_implementation: Final[bool] = with_all or any(
+            args[f"with_{impl}"] for impl in implementations if args.get(f"with_{impl}")
+        )
+        if not have_enabled_implementation:
             raise click.UsageError(
                 "Need to enable at least one implementation to test; try --help")
         run_all_tests(**args)
