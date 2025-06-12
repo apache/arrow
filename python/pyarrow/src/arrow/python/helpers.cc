@@ -95,31 +95,6 @@ Result<uint16_t> PyFloat_AsHalf(PyObject* obj) {
   }
 }
 
-Result<std::shared_ptr<Array>> Arange(int64_t start, int64_t stop, int64_t step,
-                                      MemoryPool* pool) {
-  int64_t size;
-  if (step == 0) {
-    return Status::Invalid("Step must not be zero");
-  }
-  if (step > 0 && stop > start) {
-    // Ceiling division for positive step
-    size = (stop - start + step - 1) / step;
-  } else if (step < 0 && stop < start) {
-    // Ceiling division for negative step
-    size = (start - stop - step - 1) / (-step);
-  } else {
-    return MakeEmptyArray(int64());
-  }
-  std::shared_ptr<Buffer> data_buffer;
-  ARROW_ASSIGN_OR_RAISE(data_buffer, AllocateBuffer(size * sizeof(int64_t), pool));
-  auto values = reinterpret_cast<int64_t*>(data_buffer->mutable_data());
-  for (int64_t i = 0; i < size; ++i) {
-    values[i] = start + i * step;
-  }
-  auto data = ArrayData::Make(int64(), size, {nullptr, data_buffer}, 0);
-  return MakeArray(data);
-}
-
 namespace internal {
 
 std::string PyBytes_AsStdString(PyObject* obj) {

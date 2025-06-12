@@ -47,21 +47,6 @@ ARROW_PYTHON_EXPORT PyObject* PyFloat_FromHalf(uint16_t value);
 // \brief Convert a Python object to a half-float uint16_t value.
 ARROW_PYTHON_EXPORT Result<uint16_t> PyFloat_AsHalf(PyObject* obj);
 
-/// \brief Create an array of evenly spaced values within a given interval.
-/// This function is similar to Python's `range` function.
-/// The resulting array will contain values starting from `start` up to but not
-/// including `stop`, with a step size of `step`. If `step` is zero, the function
-/// will return an error.
-/// The resulting array will have a data type of `int64`.
-/// \param[in] start initial value of the sequence.
-/// \param[in] stop final value of the sequence (exclusive).
-/// \param[in] step step size between consecutive values.
-/// \param[in] pool Memory pool for any memory allocations.
-/// \return Result Array
-ARROW_PYTHON_EXPORT
-Result<std::shared_ptr<Array>> Arange(int64_t start, int64_t stop, int64_t step,
-                                      MemoryPool* pool);
-
 namespace internal {
 
 // \brief Check that a Python module has been already imported
