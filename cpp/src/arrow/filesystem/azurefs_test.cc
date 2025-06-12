@@ -1094,7 +1094,7 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
 #define ASSERT_RAISES_ERRNO(expr, expected_errno)                                     \
-  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr));              \
+  for (::arrow::Status _st = ::arrow::ToStatus((expr));                               \
        !WithErrno(_st, (expected_errno));)                                            \
   FAIL() << "'" ARROW_STRINGIFY(expr) "' did not fail with errno=" << #expected_errno \
          << ": " << _st.ToString()
@@ -1872,7 +1872,7 @@ class TestAzureFileSystem : public ::testing::Test {
     FileInfo _src_info;                                                                 \
     ASSERT_OK(                                                                          \
         CheckExpectedErrno(_src, _dest, _expected_errno, #expected_errno, &_src_info)); \
-    auto _move_st = ::arrow::internal::GenericToStatus(fs()->Move(_src, _dest));        \
+    auto _move_st = ::arrow::ToStatus(fs()->Move(_src, _dest));                         \
     if (_expected_errno.has_value()) {                                                  \
       if (WithErrno(_move_st, *_expected_errno)) {                                      \
         /* If the Move failed, the source should remain unchanged. */                   \
