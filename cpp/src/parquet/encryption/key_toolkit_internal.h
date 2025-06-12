@@ -19,19 +19,22 @@
 
 #include <string>
 
+#include "arrow/util/secure_string.h"
 #include "parquet/platform.h"
 
 namespace parquet::encryption::internal {
 
 /// Encrypts "key" with "master_key", using AES-GCM and the "aad"
 PARQUET_EXPORT
-std::string EncryptKeyLocally(const std::string& key, const std::string& master_key,
+std::string EncryptKeyLocally(const ::arrow::util::SecureString& key,
+                              const ::arrow::util::SecureString& master_key,
                               const std::string& aad);
 
 /// Decrypts encrypted key with "master_key", using AES-GCM and the "aad"
 PARQUET_EXPORT
-std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
-                              const std::string& master_key, const std::string& aad);
+::arrow::util::SecureString DecryptKeyLocally(
+    const std::string& encoded_encrypted_key,
+    const ::arrow::util::SecureString& master_key, const std::string& aad);
 
 PARQUET_EXPORT
 bool ValidateKeyLength(int32_t key_length_bits);

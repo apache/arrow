@@ -17,6 +17,7 @@
 
 #include "arrow/json/object_parser.h"
 #include "arrow/json/object_writer.h"
+#include "arrow/util/secure_string.h"
 
 #include "parquet/encryption/key_toolkit_internal.h"
 #include "parquet/encryption/local_wrap_kms_client.h"
@@ -24,6 +25,7 @@
 
 using ::arrow::json::internal::ObjectParser;
 using ::arrow::json::internal::ObjectWriter;
+using ::arrow::util::SecureString;
 
 namespace parquet::encryption {
 
@@ -69,10 +71,10 @@ LocalWrapKmsClient::LocalWrapKmsClient(const KmsConnectionConfig& kms_connection
   master_key_cache_.Clear();
 }
 
-std::string LocalWrapKmsClient::WrapKey(const std::string& key_bytes,
+std::string LocalWrapKmsClient::WrapKey(const SecureString& key_bytes,
                                         const std::string& master_key_identifier) {
   const auto master_key = master_key_cache_.GetOrInsert(
-      master_key_identifier, [this, master_key_identifier]() -> std::string {
+      master_key_identifier, [this, master_key_identifier]() -> SecureString {
         return this->GetKeyFromServer(master_key_identifier);
       });
   const auto& aad = master_key_identifier;
@@ -82,8 +84,8 @@ std::string LocalWrapKmsClient::WrapKey(const std::string& key_bytes,
   return LocalKeyWrap::CreateSerialized(encrypted_encoded_key);
 }
 
-std::string LocalWrapKmsClient::UnwrapKey(const std::string& wrapped_key,
-                                          const std::string& master_key_identifier) {
+SecureString LocalWrapKmsClient::UnWrapKey(const std::string& wrapped_key,
+                                           const std::string& master_key_identifier) {
   LocalKeyWrap key_wrap = LocalKeyWrap::Parse(wrapped_key);
   const std::string& master_key_version = key_wrap.master_key_version();
   if (kLocalWrapNoKeyVersion != master_key_version) {
@@ -91,8 +93,8 @@ std::string LocalWrapKmsClient::UnwrapKey(const std::string& wrapped_key,
                            master_key_version);
   }
   const std::string& encrypted_encoded_key = key_wrap.encrypted_encoded_key();
-  const std::string master_key = master_key_cache_.GetOrInsert(
-      master_key_identifier, [this, master_key_identifier]() -> std::string {
+  const SecureString& master_key = master_key_cache_.GetOrInsert(
+      master_key_identifier, [this, master_key_identifier]() -> const SecureString& {
         return this->GetKeyFromServer(master_key_identifier);
       });
   const std::string& aad = master_key_identifier;
@@ -100,8 +102,9 @@ std::string LocalWrapKmsClient::UnwrapKey(const std::string& wrapped_key,
   return internal::DecryptKeyLocally(encrypted_encoded_key, master_key, aad);
 }
 
-std::string LocalWrapKmsClient::GetKeyFromServer(const std::string& key_identifier) {
-  std::string master_key = GetMasterKeyFromServer(key_identifier);
+const SecureString& LocalWrapKmsClient::GetKeyFromServer(
+    const std::string& key_identifier) {
+  const SecureString& master_key = GetMasterKeyFromServer(key_identifier);
   int32_t key_length_bits = static_cast<int32_t>(master_key.size() * 8);
   if (!internal::ValidateKeyLength(key_length_bits)) {
     std::ostringstream ss;
