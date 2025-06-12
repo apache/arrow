@@ -217,12 +217,12 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
     // We first make byte-level shuffling, until we have gather enough bytes together
     // and in the correct order to use a bigger data type.
     //
-    // clang-format off
-    // Stage 0: A0B0C0D0 A1B1C1D1 A2B2C2D2 A3B3C3D3 | A4B4C4D4 A5B5C5D5 A6B6C6D6 A7B7C7D7 | ...
-    // Stage 1: A0A4B0B4 C0C4D0D4 A1A5B1B5 C1C5D1D5 | A2A6B2B6 C2C6D2D6 A3A7B3B7 C3C7D3D7 | ...
-    // Stage 2: A0A2A4A6 B0B2B4B6 C0C2C4C6 D0D2D4D6 | A1A3A5A7 B1B3B5B7 C1C3C5C7 D1D3D5D7 | ...
-    // Stage 3: A0A1A2A3 A4A5A6A7 B0B1B2B3 B4B5B6B7 | C0C1C2C3 C4C5C6C7 D0D1D2D3 D4D5D6D7 | ...
-    // clang-format on
+    // Example with 32bit data on 128 bit register:
+    //
+    // 0: A0B0C0D0 A1B1C1D1 A2B2C2D2 A3B3C3D3 | A4B4C4D4 A5B5C5D5 A6B6C6D6 A7B7C7D7 | ...
+    // 1: A0A4B0B4 C0C4D0D4 A1A5B1B5 C1C5D1D5 | A2A6B2B6 C2C6D2D6 A3A7B3B7 C3C7D3D7 | ...
+    // 2: A0A2A4A6 B0B2B4B6 C0C2C4C6 D0D2D4D6 | A1A3A5A7 B1B3B5B7 C1C3C5C7 D1D3D5D7 | ...
+    // 3: A0A1A2A3 A4A5A6A7 B0B1B2B3 B4B5B6B7 | C0C1C2C3 C4C5C6C7 D0D1D2D3 D4D5D6D7 | ...
     //
     // The shuffling of bytes is performed through the unpack intrinsics.
     // In my measurements this gives better performance then an implementation
@@ -241,11 +241,10 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
     // We know have the bytes packed in a larger data type and in the correct order to
     // start using a bigger data type
     //
-    // Example run for 32-bit variables it's int64_t with NumBytes=8 bytes:
+    // Example with 32bit data on 128 bit register.
+    // The large data type is int64_t with NumBytes=8 bytes:
     //
-    // clang-format off
-    // Stage 4: A0A1A2A3 A4A5A6A7 A8A9AAAB ACADAEAF | B0B1B2B3 B4B5B6B7 B8B9BABB BCBDBEBF | ...
-    // clang-format on
+    // 4: A0A1A2A3 A4A5A6A7 A8A9AAAB ACADAEAF | B0B1B2B3 B4B5B6B7 B8B9BABB BCBDBEBF | ...
     constexpr int kNumStreamsHalf = kNumStreams / 2;
     for (int step = NumStepsByte; step < NumSteps; ++step) {
       for (int i = 0; i < kNumStreamsHalf; ++i) {
