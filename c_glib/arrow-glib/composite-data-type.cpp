@@ -791,7 +791,7 @@ garrow_fixed_size_list_data_type_class_init(GArrowFixedSizeListDataTypeClass *kl
  * Since: 21.0.0
  */
 GArrowFixedSizeListDataType *
-garrow_fixed_size_list_data_type_new_data_type(GArrowDataType *data_type,
+garrow_fixed_size_list_data_type_new_data_type(GArrowDataType *value_type,
                                                gint32 list_size)
 {
   auto arrow_data_type = garrow_data_type_get_raw(data_type);
