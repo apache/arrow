@@ -1862,7 +1862,7 @@ message DoPutPreparedStatementResult {
   // statement must use this new handle.
   // The updated handle allows implementing query parameters with stateless services.
   //
-  // When an updated handle is not provided by the server, clients should contiue
+  // When an updated handle is not provided by the server, clients should continue
   // using the previous handle provided by `ActionCreatePreparedStatementResonse`.
   optional bytes prepared_statement_handle = 1;
 }
