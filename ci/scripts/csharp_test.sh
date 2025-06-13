@@ -35,3 +35,4 @@ export PYTHONNET_PYDLL=$(${PYTHON} -m find_libpython)
 pushd ${source_dir}
 dotnet test
 popd
+
