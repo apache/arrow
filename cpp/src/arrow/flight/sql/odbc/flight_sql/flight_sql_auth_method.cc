@@ -107,7 +107,9 @@ class UserPasswordAuthMethod : public FlightSqlAuthMethod {
       throw odbcabstraction::DriverException(bearer_result.status().message());
     }
 
-    call_options.headers.push_back(bearer_result.ValueOrDie());
+    // call_options may have already been populated with data from the connection string
+    // or DSN. Ensure auth-generated headers are placed at the front of the header list.
+    call_options.headers.insert(call_options.headers.begin(), bearer_result.ValueOrDie());
   }
 
   std::string GetUser() override { return user_; }
@@ -129,10 +131,11 @@ class TokenAuthMethod : public FlightSqlAuthMethod {
 
   void Authenticate(FlightSqlConnection& connection,
                     FlightCallOptions& call_options) override {
-    // add the token to the headers
+    // add the token to the front of the headers. For consistency auth headers should be
+    // at the front.
     const std::pair<std::string, std::string> token_header("authorization",
                                                            "Bearer " + token_);
-    call_options.headers.push_back(token_header);
+    call_options.headers.insert(call_options.headers.begin(), token_header);
 
     const arrow::Status status = client_.Authenticate(
         call_options,

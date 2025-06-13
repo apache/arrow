@@ -175,6 +175,7 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
     std::unique_ptr<FlightClient> flight_client;
     ThrowIfNotOK(FlightClient::Connect(location, client_options).Value(&flight_client));
 
+    PopulateMetadataSettings(properties);
     PopulateCallOptions(properties);
 
     std::unique_ptr<FlightSqlAuthMethod> auth_method =
@@ -190,8 +191,6 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
 
     info_.SetProperty(SQL_USER_NAME, auth_method->GetUser());
     attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_FALSE);
-
-    PopulateMetadataSettings(properties);
   } catch (...) {
     attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_TRUE);
     sql_client_.reset();
