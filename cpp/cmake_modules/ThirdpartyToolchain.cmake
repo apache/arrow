@@ -5200,13 +5200,6 @@ function(build_awssdk)
       OFF
       CACHE BOOL "" FORCE)
   if(NOT WIN32)
-    find_curl()
-    set(CURL_INCLUDE_DIR
-        "$<TARGET_PROPERTY:CURL::libcurl,INTERFACE_INCLUDE_DIRECTORIES>"
-        CACHE STRING "" FORCE)
-    set(CURL_LIBRARY
-        "$<TARGET_FILE:CURL::libcurl>"
-        CACHE STRING "" FORCE)
     set(ZLIB_INCLUDE_DIR
         "$<TARGET_PROPERTY:ZLIB::ZLIB,INTERFACE_INCLUDE_DIRECTORIES>"
         CACHE STRING "" FORCE)
