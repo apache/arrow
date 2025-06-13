@@ -56,6 +56,11 @@ cmake_policy(SET CMP0068 NEW)
 # find_package() uses <PackageName>_ROOT variables.
 cmake_policy(SET CMP0074 NEW)
 
+# https://cmake.org/cmake/help/latest/policy/CMP0077.html
+#
+# option() honors normal variables.
+cmake_policy(SET CMP0077 NEW)
+
 # https://cmake.org/cmake/help/latest/policy/CMP0091.html
 #
 # MSVC runtime library flags are selected by an abstraction.
@@ -387,14 +392,10 @@ endif()
 
 # where to put generated archives (.a files)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-set(ARCHIVE_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-
 # where to put generated libraries (.so files)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-set(LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-
 # where to put generated binaries
-set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 if(CMAKE_GENERATOR STREQUAL Xcode)
   # Xcode projects support multi-configuration builds.  This forces a single output directory

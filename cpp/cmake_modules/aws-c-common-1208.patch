@@ -1,0 +1,83 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+From 06c435c6765833734c62ac45909b5ab1fc5276a7 Mon Sep 17 00:00:00 2001
+From: Sutou Kouhei <kou@clear-code.com>
+Date: Sat, 7 Jun 2025 20:40:36 +0900
+Subject: [PATCH] Use _WIN32 not _MSC_VER for MinGW
+
+This was missed in https://github.com/awslabs/aws-c-common/pull/801
+and https://github.com/awslabs/aws-c-common/pull/822 .
+
+MSYS2 also includes this change:
+https://github.com/msys2/MINGW-packages/blob/master/mingw-w64-aws-c-common/001-fix-build-on-mingw-aarch64.patch
+
+Error message without this:
+
+https://github.com/ursacomputing/crossbow/actions/runs/15502494926/job/43652596580#step:7:5884
+
+     cd /D/a/crossbow/crossbow/src/build-i686-cpp/_deps/aws-c-common-build && /D/a/crossbow/crossbow/sccache/sccache.exe /C/rtools40/mingw32/bin/cc.exe -DARROW_HAVE_RUNTIME_SSE4_2 -DARROW_HAVE_SSE4_2 -DARROW_WITH_TIMING_TESTS -DAWS_AFFINITY_METHOD=AWS_AFFINITY_METHOD_NONE -DCJSON_HIDE_SYMBOLS -DINTEL_NO_ITTNOTIFY_API -DPSAPI_VERSION=1 -DWINDOWS_KERNEL_LIB=kernel32 -D_CRT_SECURE_NO_WARNINGS @CMakeFiles/aws-c-common.dir/includes_C.rsp -O3 -DNDEBUG -O2 -ftree-vectorize  -std=gnu99 -fvisibility=hidden -Wall -Wstrict-prototypes -pedantic -Wno-long-long -fPIC -D_FILE_OFFSET_BITS=64 -MD -MT _deps/aws-c-common-build/CMakeFiles/aws-c-common.dir/source/allocator.c.obj -MF CMakeFiles/aws-c-common.dir/source/allocator.c.obj.d -o CMakeFiles/aws-c-common.dir/source/allocator.c.obj -c /D/a/crossbow/crossbow/src/build-i686-cpp/_deps/aws-c-common-src/source/allocator.c
+    In file included from D:/a/crossbow/crossbow/src/build-i686-cpp/_deps/aws-c-common-src/include/aws/common/byte_order.h:71,
+                     from D:/a/crossbow/crossbow/src/build-i686-cpp/_deps/aws-c-common-src/include/aws/common/byte_buf.h:9,
+                     from D:/a/crossbow/crossbow/src/build-i686-cpp/_deps/aws-c-common-src/include/aws/common/thread.h:8,
+                     from D:/a/crossbow/crossbow/src/build-i686-cpp/_deps/aws-c-common-src/include/aws/common/logging.h:11,
+                     from D:/a/crossbow/crossbow/src/build-i686-cpp/_deps/aws-c-common-src/source/allocator.c:8:
+    D:/a/crossbow/crossbow/src/build-i686-cpp/_deps/aws-c-common-src/include/aws/common/byte_order.inl: In function 'aws_hton64':
+    D:/a/crossbow/crossbow/src/build-i686-cpp/_deps/aws-c-common-src/include/aws/common/byte_order.inl:47:23: warning: implicit declaration of function 'htonl'; did you mean 'wtoll'? [-Wimplicit-function-declaration]
+         return ((uint64_t)htonl(low)) << 32 | htonl(high);
+                           ^~~~~
+                           wtoll
+    In file included from C:/rtools40/mingw32/i686-w64-mingw32/include/windows.h:92,
+                     from D:/a/crossbow/crossbow/src/build-i686-cpp/_deps/aws-c-common-src/source/allocator.c:15:
+    C:/rtools40/mingw32/i686-w64-mingw32/include/winsock.h: At top level:
+    C:/rtools40/mingw32/i686-w64-mingw32/include/winsock.h:286:37: error: conflicting types for 'htonl'
+       WINSOCK_API_LINKAGE u_long WSAAPI htonl(u_long hostlong);
+                                         ^~~~~
+    In file included from D:/a/crossbow/crossbow/src/build-i686-cpp/_deps/aws-c-common-src/include/aws/common/byte_order.h:71,
+                     from D:/a/crossbow/crossbow/src/build-i686-cpp/_deps/aws-c-common-src/include/aws/common/byte_buf.h:9,
+                     from D:/a/crossbow/crossbow/src/build-i686-cpp/_deps/aws-c-common-src/include/aws/common/thread.h:8,
+                     from D:/a/crossbow/crossbow/src/build-i686-cpp/_deps/aws-c-common-src/include/aws/common/logging.h:11,
+                     from D:/a/crossbow/crossbow/src/build-i686-cpp/_deps/aws-c-common-src/source/allocator.c:8:
+    D:/a/crossbow/crossbow/src/build-i686-cpp/_deps/aws-c-common-src/include/aws/common/byte_order.inl:47:23: note: previous implicit declaration of 'htonl' was here
+         return ((uint64_t)htonl(low)) << 32 | htonl(high);
+                           ^~~~~
+---
+ include/aws/common/byte_order.inl | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/aws/common/byte_order.inl b/include/aws/common/byte_order.inl
+index 1204be06a1..0abd9cb8cd 100644
+--- a/include/aws/common/byte_order.inl
++++ b/include/aws/common/byte_order.inl
+@@ -13,7 +13,7 @@
+ #    include <stdlib.h>
+ #else
+ #    include <netinet/in.h>
+-#endif /* _MSC_VER */
++#endif /* _WIN32 */
+ 
+ AWS_EXTERN_C_BEGIN
+ 
+@@ -39,7 +39,7 @@ AWS_STATIC_IMPL uint64_t aws_hton64(uint64_t x) {
+     uint64_t v;
+     __asm__("bswap %q0" : "=r"(v) : "0"(x));
+     return v;
+-#elif defined(_MSC_VER)
++#elif defined(_WIN32)
+     return _byteswap_uint64(x);
+ #else
+     uint32_t low = x & UINT32_MAX;

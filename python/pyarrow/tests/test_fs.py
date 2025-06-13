@@ -2043,6 +2043,8 @@ def test_concurrent_s3fs_init():
 
 
 @pytest.mark.s3
+@pytest.mark.skip(reason="atexit(ensure_s3_finalized) will be called too late "
+                  "with bundled aws-sdk-cpp 1.11.587")
 @pytest.mark.skipif(running_on_musllinux(), reason="Leaking S3ClientFinalizer causes "
                                                    "segfault on musl based systems")
 def test_uwsgi_integration():
