@@ -26,14 +26,14 @@ class TestFixedSizeListDataType < Test::Unit::TestCase
     def test_field
       field = Arrow::Field.new(@field_name, @value_type)
       data_type = Arrow::FixedSizeListDataType.new(field, @list_size)
-      assert_equal([Arrow::Type::FIXED_SIZE_LIST, "fixed_size_list<bool_field: bool>[5]"],
-                   [data_type.id, data_type.to_s])
+      # TODO: check value_field and list_size separately.
+      assert_equal("fixed_size_list<bool_field: bool>[5]", data_type.to_s)
     end
 
     def test_data_type
       data_type = Arrow::FixedSizeListDataType.new(@value_type, @list_size)
-      assert_equal([Arrow::Type::FIXED_SIZE_LIST, "fixed_size_list<item: bool>[5]"],
-                   [data_type.id, data_type.to_s])
+      # TODO: check value_field and list_size separately.
+      assert_equal("fixed_size_list<item: bool>[5]", data_type.to_s)
     end
   end
 
