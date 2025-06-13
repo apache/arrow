@@ -208,7 +208,7 @@ if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1"
   set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 endif()
 
-# Needed for linting targets, etc.
+# Needed for Gandiva.
 # Use the first Python installation on PATH, not the newest one
 set(Python3_FIND_STRATEGY "LOCATION")
 # On Windows, use registry last, not first
@@ -275,121 +275,6 @@ endif()
 if(ARROW_OPTIONAL_INSTALL)
   set(INSTALL_IS_OPTIONAL OPTIONAL)
 endif()
-
-#
-# "make lint" target
-#
-if(NOT ARROW_VERBOSE_LINT)
-  set(ARROW_LINT_QUIET "--quiet")
-endif()
-
-if(NOT LINT_EXCLUSIONS_FILE)
-  # source files matching a glob from a line in this file
-  # will be excluded from linting (cpplint, clang-tidy, clang-format)
-  set(LINT_EXCLUSIONS_FILE ${BUILD_SUPPORT_DIR}/lint_exclusions.txt)
-endif()
-
-find_program(CPPLINT_BIN
-             NAMES cpplint cpplint.py
-             HINTS ${BUILD_SUPPORT_DIR})
-message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
-
-set(COMMON_LINT_OPTIONS
-    --exclude_globs
-    ${LINT_EXCLUSIONS_FILE}
-    --source_dir
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    --source_dir
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples
-    --source_dir
-    ${CMAKE_CURRENT_SOURCE_DIR}/tools)
-
-add_custom_target(lint
-                  ${PYTHON_EXECUTABLE}
-                  ${BUILD_SUPPORT_DIR}/run_cpplint.py
-                  --cpplint_binary
-                  ${CPPLINT_BIN}
-                  ${COMMON_LINT_OPTIONS}
-                  ${ARROW_LINT_QUIET}
-                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..)
-
-#
-# "make format" and "make check-format" targets
-#
-if(${CLANG_FORMAT_FOUND})
-  # runs clang format and updates files in place.
-  add_custom_target(format
-                    ${PYTHON_EXECUTABLE}
-                    ${BUILD_SUPPORT_DIR}/run_clang_format.py
-                    --clang_format_binary
-                    ${CLANG_FORMAT_BIN}
-                    ${COMMON_LINT_OPTIONS}
-                    --fix
-                    ${ARROW_LINT_QUIET})
-
-  # runs clang format and exits with a non-zero exit code if any files need to be reformatted
-  add_custom_target(check-format
-                    ${PYTHON_EXECUTABLE}
-                    ${BUILD_SUPPORT_DIR}/run_clang_format.py
-                    --clang_format_binary
-                    ${CLANG_FORMAT_BIN}
-                    ${COMMON_LINT_OPTIONS}
-                    ${ARROW_LINT_QUIET})
-endif()
-
-add_custom_target(lint_cpp_cli ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/lint_cpp_cli.py
-                               ${CMAKE_CURRENT_SOURCE_DIR}/src)
-
-if(ARROW_LINT_ONLY)
-  message("ARROW_LINT_ONLY was specified, this is only a partial build directory")
-  return()
-endif()
-
-#
-# "make clang-tidy" and "make check-clang-tidy" targets
-#
-if(${CLANG_TIDY_FOUND})
-  # TODO check to make sure .clang-tidy is being respected
-
-  # runs clang-tidy and attempts to fix any warning automatically
-  add_custom_target(clang-tidy
-                    ${PYTHON_EXECUTABLE}
-                    ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
-                    --clang_tidy_binary
-                    ${CLANG_TIDY_BIN}
-                    --compile_commands
-                    ${CMAKE_BINARY_DIR}/compile_commands.json
-                    ${COMMON_LINT_OPTIONS}
-                    --fix
-                    ${ARROW_LINT_QUIET})
-
-  # runs clang-tidy and exits with a non-zero exit code if any errors are found.
-  add_custom_target(check-clang-tidy
-                    ${PYTHON_EXECUTABLE}
-                    ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
-                    --clang_tidy_binary
-                    ${CLANG_TIDY_BIN}
-                    --compile_commands
-                    ${CMAKE_BINARY_DIR}/compile_commands.json
-                    ${COMMON_LINT_OPTIONS}
-                    ${ARROW_LINT_QUIET})
-endif()
-
-if(UNIX)
-  add_custom_target(iwyu
-                    ${CMAKE_COMMAND}
-                    -E
-                    env
-                    "PYTHON=${PYTHON_EXECUTABLE}"
-                    ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh)
-  add_custom_target(iwyu-all
-                    ${CMAKE_COMMAND}
-                    -E
-                    env
-                    "PYTHON=${PYTHON_EXECUTABLE}"
-                    ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh
-                    all)
-endif(UNIX)
 
 # datetime code used by iOS requires zlib support
 if(IOS)
