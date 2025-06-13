@@ -2664,11 +2664,13 @@ if(ARROW_WITH_ZLIB)
   resolve_dependency(ZLIB PC_PACKAGE_NAMES zlib)
 endif()
 
-macro(build_lz4)
+function(build_lz4)
   message(STATUS "Building LZ4 from source using FetchContent")
 
   # Set LZ4 as vendored
-  set(LZ4_VENDORED TRUE)
+  set(LZ4_VENDORED
+      TRUE
+      PARENT_SCOPE)
 
   # Declare the content
   fetchcontent_declare(lz4
@@ -2699,7 +2701,10 @@ macro(build_lz4)
   # Add to bundled static libs.
   # We must use lz4_static (not imported target) not LZ4::lz4 (imported target).
   list(APPEND ARROW_BUNDLED_STATIC_LIBS lz4_static)
-endmacro()
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
+endfunction()
 
 if(ARROW_WITH_LZ4)
   resolve_dependency(lz4
@@ -4785,7 +4790,7 @@ function(build_orc)
                                 ${ARROW_PROTOBUF_PROTOC}
                                 ${ARROW_ZSTD_LIBZSTD}
                                 ${Snappy_TARGET}
-                                LZ4::lz4
+                                ${ORC_LZ4_TARGET}
                                 ZLIB::ZLIB)
     add_library(orc::orc STATIC IMPORTED)
     set_target_properties(orc::orc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
