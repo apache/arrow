@@ -15,4 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#define PYARROW_CYTHON_BUILD_TYPE "@LOWERCASE_PYBUILD_TYPE@"
+#pragma once
+
+#include <string>
+
+#include "arrow/python/visibility.h"
+
+namespace arrow {
+namespace py {
+
+struct BuildInfo {
+  // The uppercase build type, e.g. "DEBUG" or "RELEASE"
+  std::string build_type;
+};
+
+/// \brief Get build info for PyArrow.
+///
+ARROW_PYTHON_EXPORT
+const BuildInfo& GetBuildInfo();
+
+}  // namespace py
+}  // namespace arrow
