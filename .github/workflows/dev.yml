@@ -41,7 +41,8 @@ jobs:
 
   lint:
     name: Lint C++, Python, R, Docker, RAT
-    runs-on: ubuntu-24.04
+    # Use Ubuntu 22.04 to ensure working pre-commit on Ubuntu 22.04.
+    runs-on: ubuntu-22.04
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     steps:
@@ -49,15 +50,13 @@ jobs:
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
-      - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
-        with:
-          python-version: 3.12
-      - uses: r-lib/actions/setup-r@bd49c52ffe281809afa6f0fecbf37483c5dd0b93 # v2.11.3
       - name: Install pre-commit
         run: |
-          python -m pip install pre-commit
-          pre-commit run --show-diff-on-failure --color=always
+          sudo apt update
+          sudo apt install -y -V \
+            pre-commit \
+            r-cran-xml2 \
+            ruby-dev
       - name: Cache pre-commit
         uses: actions/cache@v4
         with:
