@@ -320,7 +320,6 @@ Libraries and header files for Apache Arrow C++.
 %{_datadir}/gdb/auto-load/
 %{_includedir}/arrow/
 %exclude %{_includedir}/arrow/acero/
-%exclude %{_includedir}/arrow/compute/kernels
 %exclude %{_includedir}/arrow/compute/row
 %exclude %{_includedir}/arrow/dataset/
 %if %{use_flight}
@@ -363,7 +362,6 @@ Libraries and header files for Apache Arrow Compute
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-%{_includedir}/arrow/compute/kernels
 %{_includedir}/arrow/compute/row
 %{_libdir}/cmake/ArrowCompute/
 %{_libdir}/libarrow_compute.a
