@@ -17,9 +17,6 @@
 
 include_directories(include)
 
-# Ensure fmt is loaded as header only
-add_compile_definitions(FMT_HEADER_ONLY)
-
 add_library(odbcabstraction
             include/odbcabstraction/calendar_utils.h
             include/odbcabstraction/diagnostics.h
