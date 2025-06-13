@@ -338,6 +338,9 @@ tasks:
       - libarrow-acero-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-acero{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-acero{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-compute-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-compute{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-compute{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
@@ -425,6 +428,11 @@ tasks:
       - arrow-acero-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% if not is_rhel7_based %}
       - arrow[0-9]+-acero-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+    {% endif %}
+      - arrow[0-9]+-compute-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow-compute-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+    {% if not is_rhel7_based %}
+      - arrow[0-9]+-compute-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
       - arrow[0-9]+-dataset-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-dataset-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
