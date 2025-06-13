@@ -358,7 +358,10 @@ repos:
           ?^swift/gen-protobuffers\.sh$|
           )
   - repo: https://github.com/scop/pre-commit-shfmt
-    rev: v3.11.0-1
+    # v3.11.0-1 or later requires pre-commit 3.2.0 or later but Ubuntu
+    # 22.04 ships pre-commit 2.17.0. We can use update this rev after
+    # Ubuntu 22.04 reached EOL (June 2027).
+    rev: v3.10.0-1
     hooks:
       - id: shfmt
         alias: shell
