@@ -55,7 +55,7 @@ jobs:
           sudo apt update
           sudo apt install -y -V \
             pre-commit \
-            r-cran-xml2 \
+            r-base \
             ruby-dev
       - name: Cache pre-commit
         uses: actions/cache@v4
