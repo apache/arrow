@@ -285,6 +285,7 @@ public abstract class FlightSqlServer : FlightServer
     public override Task DoAction(FlightAction action, IAsyncStreamWriter<FlightResult> responseStream, ServerCallContext context)
     {
         Logger?.LogTrace("Executing Flight SQL DoAction: {ActionType}", action.Type);
+        
         switch (action.Type)
         {
             case SqlAction.CreateRequest:
