@@ -368,7 +368,8 @@ set(PYARROW_CPP_SRCS
     ${PYARROW_CPP_SOURCE_DIR}/python_test.cc
     ${PYARROW_CPP_SOURCE_DIR}/python_to_arrow.cc
     ${PYARROW_CPP_SOURCE_DIR}/pyarrow.cc
-    ${PYARROW_CPP_SOURCE_DIR}/udf.cc)
+    ${PYARROW_CPP_SOURCE_DIR}/udf.cc
+    ${PYARROW_CPP_SOURCE_DIR}/util.cc)
 set_source_files_properties(${PYARROW_CPP_SOURCE_DIR}/numpy_init.cc
                             PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 
