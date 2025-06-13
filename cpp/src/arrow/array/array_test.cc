@@ -818,7 +818,7 @@ TEST_F(TestArray, TestMakeArrayFromMapScalar) {
 TEST_F(TestArray, TestMakeArrayFromScalar_SmallintExtensionType) {
   auto ext_type = std::make_shared<SmallintType>();
   auto storage_scalar = std::make_shared<Int16Scalar>(42);
-  auto ext_scalar = std::make_shared<ExtensionScalar>(ext_type, storage_scalar);
+  auto ext_scalar = std::make_shared<ExtensionScalar>(storage_scalar, ext_type);
 
   ASSERT_OK_AND_ASSIGN(auto arr, MakeArrayFromScalar(*ext_scalar, 3));
   ASSERT_EQ(arr->type()->id(), Type::EXTENSION);
