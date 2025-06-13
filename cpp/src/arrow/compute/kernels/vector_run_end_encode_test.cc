@@ -356,6 +356,13 @@ std::vector<REETestData> GenerateTestData() {
       REETestData::TypeMinMaxNull<UInt64Type>(),
       REETestData::TypeMinMaxNull<FloatType>(),
       REETestData::TypeMinMaxNull<DoubleType>(),
+      // Float types
+      REETestData::JSON(float16(), "[1, 1, 0, -5, -5, -5, 255, 255]", "[1, 0, -5, 255]",
+                        "[2, 3, 6, 8]"),
+      REETestData::JSON(float32(), "[1, 1, 0, -5, -5, -5, 255, 255]", "[1, 0, -5, 255]",
+                        "[2, 3, 6, 8]"),
+      REETestData::JSON(float64(), "[1, 1, 0, -5, -5, -5, 255, 255]", "[1, 0, -5, 255]",
+                        "[2, 3, 6, 8]"),
       // A few temporal types
       REETestData::JSON(date32(),
                         "[86400, 86400, 0, 432000, 432000, 432000, 22075200, 22075200]",
@@ -369,6 +376,12 @@ std::vector<REETestData> GenerateTestData() {
       REETestData::JSON(time64(TimeUnit::MICRO), "[1, 1, 0, 5, 5, 5, 255, 255]",
                         "[1, 0, 5, 255]", "[2, 3, 6, 8]"),
       // Decimal and fixed size binary types
+      REETestData::JSON(decimal32(4, 1),
+                        R"(["1.0", "1.0", "0.0", "5.2", "5.2", "5.2", "255.0", "255.0"])",
+                        R"(["1.0", "0.0", "5.2", "255.0"])", "[2, 3, 6, 8]"),
+      REETestData::JSON(decimal64(4, 1),
+                        R"(["1.0", "1.0", "0.0", "5.2", "5.2", "5.2", "255.0", "255.0"])",
+                        R"(["1.0", "0.0", "5.2", "255.0"])", "[2, 3, 6, 8]"),
       REETestData::JSON(decimal128(4, 1),
                         R"(["1.0", "1.0", "0.0", "5.2", "5.2", "5.2", "255.0", "255.0"])",
                         R"(["1.0", "0.0", "5.2", "255.0"])", "[2, 3, 6, 8]"),
