@@ -85,10 +85,10 @@ void ByteStreamSplitDecodeSimd128(const uint8_t* data, int width, int64_t num_va
   // Stage 1: AAAA BBBB CCCC DDDD
   // Stage 2: ACAC ACAC BDBD BDBD
   // Stage 3: ABCD ABCD ABCD ABCD
-  simd_batch stage[kNumStreamsLog2 + 1][kNumStreams];
   constexpr int kNumStreamsHalf = kNumStreams / 2U;
 
   for (int64_t i = 0; i < num_blocks; ++i) {
+    simd_batch stage[kNumStreamsLog2 + 1][kNumStreams];
     for (int j = 0; j < kNumStreams; ++j) {
       stage[0][j] = simd_batch::load_unaligned(&data[i * simd_batch::size + j * stride]);
     }
