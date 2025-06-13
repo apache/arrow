@@ -31,8 +31,6 @@ if [ -z "${PYTHON}" ]; then
 fi
 ${PYTHON} -m pip install pyarrow find-libpython
 PYTHONNET_PYDLL=$(${PYTHON} -m find_libpython)
-echo "PYTHON is: $PYTHON"
-echo "find_libpython output: \"$(${PYTHON} -m find_libpython)\""
 export PYTHONNET_PYDLL
 
 pushd "${source_dir}"
