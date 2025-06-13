@@ -288,6 +288,3 @@ cdef extern from "arrow/python/gdb.h" namespace "arrow::gdb" nogil:
 
 cdef extern from "arrow/python/helpers.h" namespace "arrow::py::internal":
     c_bool IsThreadingEnabled()
-
-cdef extern from "arrow/python/helpers.h" namespace "arrow::py::internal":
-    c_string GetPyBuildType()

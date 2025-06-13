@@ -29,7 +29,6 @@
 
 #include "arrow/python/common.h"
 #include "arrow/python/decimal.h"
-#include "arrow/python/pybuild_type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
@@ -498,14 +497,6 @@ bool IsThreadingEnabled() {
 #else
   return false;
 #endif
-}
-
-namespace {
-  const std::string kPyBuildType = PYARROW_CYTHON_BUILD_TYPE;
-}
-
-std::string GetPyBuildType() {
-  return kPyBuildType;
 }
 
 }  // namespace internal

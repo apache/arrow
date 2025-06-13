@@ -155,9 +155,6 @@ void DebugPrint(PyObject* obj);
 ARROW_PYTHON_EXPORT
 bool IsThreadingEnabled();
 
-ARROW_PYTHON_EXPORT
-std::string GetPyBuildType();
-
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow

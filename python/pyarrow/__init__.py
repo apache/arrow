@@ -63,7 +63,8 @@ from pyarrow.lib import (BuildInfo, RuntimeInfo, set_timezone_db_path,
                          MonthDayNano, VersionInfo, cpp_build_info,
                          cpp_version, cpp_version_info, runtime_info,
                          cpu_count, set_cpu_count, enable_signal_handlers,
-                         io_thread_count, set_io_thread_count)
+                         io_thread_count, set_io_thread_count,
+                         PythonBuildInfo, pa_build_info as build_info)
 
 
 def show_versions():
@@ -84,6 +85,7 @@ def show_versions():
     print_entry("Arrow C++ git revision", cpp_build_info.git_id)
     print_entry("Arrow C++ git description", cpp_build_info.git_description)
     print_entry("Arrow C++ build type", cpp_build_info.build_type)
+    print_entry("PyArrow build type", build_info().build_type)
 
 
 def _module_is_available(module):

@@ -23,7 +23,6 @@ import pytest
 
 import pyarrow as pa
 from pyarrow.lib import ArrowInvalid
-from pyarrow.lib import get_pybuild_type
 
 
 def test_get_include():
@@ -95,7 +94,8 @@ def test_build_info():
     assert pa.cpp_build_info.build_type in (
         'debug', 'release', 'minsizerel', 'relwithdebinfo')
 
-    assert get_pybuild_type() in (
+    assert isinstance(pa.build_info(), pa.PythonBuildInfo)
+    assert pa.build_info().build_type in (
         'debug', 'release', 'minsizerel', 'relwithdebinfo')
 
     # assert pa.version == pa.__version__  # XXX currently false

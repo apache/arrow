@@ -352,13 +352,15 @@ set(PYARROW_CPP_ROOT_DIR pyarrow/src)
 set(PYARROW_CPP_SOURCE_DIR ${PYARROW_CPP_ROOT_DIR}/arrow/python)
 
 # Write out compile-time configuration constants
-string(TOLOWER ${CMAKE_BUILD_TYPE} LOWERCASE_PYBUILD_TYPE)
-configure_file("${PYARROW_CPP_SOURCE_DIR}/pybuild_type.h.cmake" "${PYARROW_CPP_SOURCE_DIR}/pybuild_type.h" ESCAPE_QUOTES)
+string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_PYBUILD_TYPE)
+configure_file("${PYARROW_CPP_SOURCE_DIR}/config_internal.h.cmake"
+               "${PYARROW_CPP_SOURCE_DIR}/config_internal.h" ESCAPE_QUOTES)
 
 set(PYARROW_CPP_SRCS
     ${PYARROW_CPP_SOURCE_DIR}/arrow_to_pandas.cc
     ${PYARROW_CPP_SOURCE_DIR}/benchmark.cc
     ${PYARROW_CPP_SOURCE_DIR}/common.cc
+    ${PYARROW_CPP_SOURCE_DIR}/config.cc
     ${PYARROW_CPP_SOURCE_DIR}/datetime.cc
     ${PYARROW_CPP_SOURCE_DIR}/decimal.cc
     ${PYARROW_CPP_SOURCE_DIR}/extension_type.cc
