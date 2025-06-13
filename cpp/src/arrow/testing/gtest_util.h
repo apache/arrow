@@ -49,7 +49,7 @@
 // NOTE: using a for loop for this macro allows extra failure messages to be
 // appended with operator<<
 #define ASSERT_RAISES(ENUM, expr)                                                 \
-  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr));          \
+  for (::arrow::Status _st = ::arrow::internal::CallToArrowStatus((expr));        \
        !_st.Is##ENUM();)                                                          \
   FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
                 ENUM) ", but got "                                                \
@@ -58,7 +58,7 @@
 #define ASSERT_RAISES_WITH_MESSAGE(ENUM, message, expr)                               \
   do {                                                                                \
     auto _res = (expr);                                                               \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);                   \
+    ::arrow::Status _st = ::arrow::internal::CallToArrowStatus(_res);                 \
     if (!_st.Is##ENUM()) {                                                            \
       FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
                     ENUM) ", but got "                                                \
@@ -70,7 +70,7 @@
 #define EXPECT_RAISES_WITH_MESSAGE_THAT(ENUM, matcher, expr)                             \
   do {                                                                                   \
     auto _res = (expr);                                                                  \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);                      \
+    ::arrow::Status _st = ::arrow::internal::CallToArrowStatus(_res);                    \
     EXPECT_TRUE(_st.Is##ENUM()) << "Expected '" ARROW_STRINGIFY(expr) "' to fail with "  \
                                 << ARROW_STRINGIFY(ENUM) ", but got " << _st.ToString(); \
     EXPECT_THAT(_st.ToStringWithoutContextLines(), (matcher));                           \
@@ -79,13 +79,13 @@
 #define EXPECT_RAISES_WITH_CODE_AND_MESSAGE_THAT(code, matcher, expr) \
   do {                                                                \
     auto _res = (expr);                                               \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);   \
+    ::arrow::Status _st = ::arrow::internal::CallToArrowStatus(_res); \
     EXPECT_EQ(_st.CodeAsString(), Status::CodeAsString(code));        \
     EXPECT_THAT(_st.ToStringWithoutContextLines(), (matcher));        \
   } while (false)
 
-#define ASSERT_OK(expr)                                                              \
-  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr)); !_st.ok();) \
+#define ASSERT_OK(expr)                                                                \
+  for (::arrow::Status _st = ::arrow::internal::CallToArrowStatus((expr)); !_st.ok();) \
   FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _st.ToString()
 
 #define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))
@@ -93,7 +93,7 @@
 #define ARROW_EXPECT_OK(expr)                                           \
   do {                                                                  \
     auto _res = (expr);                                                 \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);     \
+    ::arrow::Status _st = ::arrow::internal::CallToArrowStatus(_res);   \
     EXPECT_TRUE(_st.ok()) << "'" ARROW_STRINGIFY(expr) "' failed with " \
                           << _st.ToString();                            \
   } while (false)
@@ -102,17 +102,17 @@
 
 #define EXPECT_OK_NO_THROW(expr) EXPECT_NO_THROW(EXPECT_OK(expr))
 
-#define ASSERT_NOT_OK(expr)                                                         \
-  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr)); _st.ok();) \
+#define ASSERT_NOT_OK(expr)                                                           \
+  for (::arrow::Status _st = ::arrow::internal::CallToArrowStatus((expr)); _st.ok();) \
   FAIL() << "'" ARROW_STRINGIFY(expr) "' did not failed" << _st.ToString()
 
-#define ABORT_NOT_OK(expr)                                          \
-  do {                                                              \
-    auto _res = (expr);                                             \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res); \
-    if (ARROW_PREDICT_FALSE(!_st.ok())) {                           \
-      _st.Abort();                                                  \
-    }                                                               \
+#define ABORT_NOT_OK(expr)                                            \
+  do {                                                                \
+    auto _res = (expr);                                               \
+    ::arrow::Status _st = ::arrow::internal::CallToArrowStatus(_res); \
+    if (ARROW_PREDICT_FALSE(!_st.ok())) {                             \
+      _st.Abort();                                                    \
+    }                                                                 \
   } while (false);
 
 #define ASSIGN_OR_HANDLE_ERROR_IMPL(handle_error, status_name, lhs, rexpr) \

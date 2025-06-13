@@ -52,10 +52,10 @@
   ARROW_RETURN_IF_(condition, status, ARROW_STRINGIFY(status))
 
 /// \brief Propagate any non-successful Status to the caller
-#define ARROW_RETURN_NOT_OK(status)                                   \
-  do {                                                                \
-    ::arrow::Status __s = ::arrow::internal::GenericToStatus(status); \
-    ARROW_RETURN_IF_(!__s.ok(), __s, ARROW_STRINGIFY(status));        \
+#define ARROW_RETURN_NOT_OK(status)                                     \
+  do {                                                                  \
+    ::arrow::Status __s = ::arrow::internal::CallToArrowStatus(status); \
+    ARROW_RETURN_IF_(!__s.ok(), __s, ARROW_STRINGIFY(status));          \
   } while (false)
 
 /// \brief Given `expr` and `warn_msg`; log `warn_msg` if `expr` is a non-ok status
@@ -67,15 +67,6 @@
     }                                     \
   } while (false)
 
-#define RETURN_NOT_OK_ELSE(s, else_)                            \
-  do {                                                          \
-    ::arrow::Status _s = ::arrow::internal::GenericToStatus(s); \
-    if (!_s.ok()) {                                             \
-      else_;                                                    \
-      return _s;                                                \
-    }                                                           \
-  } while (false)
-
 // This is an internal-use macro and should not be used in public headers.
 #ifndef RETURN_NOT_OK
 #  define RETURN_NOT_OK(s) ARROW_RETURN_NOT_OK(s)
@@ -83,8 +74,10 @@
 
 namespace arrow {
 namespace internal {
+
 class StatusConstant;
-}
+
+}  // namespace internal
 
 enum class StatusCode : char {
   OK = 0,
@@ -350,6 +343,30 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
     return FromArgs(code(), std::forward<Args>(args)...).WithDetail(detail());
   }
 
+  /// \brief Apply a functor if the status indicates an error
+  ///
+  /// If the status indicates a success, it is returned as-is.
+  ///
+  /// If the status indicates an error, the given functor is called with the status
+  /// as argument.
+  /// If the functor returns a new Status, it is returned.
+  /// If the functor returns a Status-compatible object such as Result<T>, it is
+  /// converted to Status and returned.
+  /// If the functor returns void, the original Status is returned.
+  template <typename OnError>
+  Status OrElse(OnError&& on_error) {
+    using RT = decltype(on_error(Status(StatusCode::UnknownError, "")));
+    if (ARROW_PREDICT_TRUE(ok())) {
+      return *this;
+    }
+    if constexpr (std::is_same_v<RT, void>) {
+      on_error(*this);
+      return *this;
+    } else {
+      return ToArrowStatus(on_error(*this));
+    }
+  }
+
   void Warn() const;
   void Warn(const std::string& message) const;
 
@@ -463,13 +480,16 @@ Status& Status::operator&=(Status&& s) noexcept {
 }
 /// \endcond
 
+constexpr inline const Status& ToArrowStatus(const Status& st) { return st; }
+static inline Status ToArrowStatus(Status&& st) { return st; }
+
 namespace internal {
-
-// Extract Status from Status or Result<T>
-// Useful for the status check macros such as RETURN_NOT_OK.
-inline const Status& GenericToStatus(const Status& st) { return st; }
-inline Status GenericToStatus(Status&& st) { return std::move(st); }
-
+// A trivial wrapper so that macros don't have to namespace-quality ArrowToStatus
+// (otherwise argument-dependent lookup would be disabled).
+template <typename T>
+Status CallToArrowStatus(T&& t) {
+  return ToArrowStatus(std::forward<T>(t));
+}
 }  // namespace internal
 
 }  // namespace arrow

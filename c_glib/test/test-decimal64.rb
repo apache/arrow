@@ -106,7 +106,7 @@ class TestDecimal64 < Test::Unit::TestCase
     decimal1 = Arrow::Decimal64.new(23423445)
     decimal2 = Arrow::Decimal64.new(0)
     message =
-      "[decimal64][divide]: Invalid: Division by 0 in Decimal64"
+      "[decimal64][divide]: Invalid: Division by 0 in Decimal"
     assert_raise(Arrow::Error::Invalid.new(message)) do
       decimal1.divide(decimal2)
     end
@@ -214,7 +214,7 @@ class TestDecimal64 < Test::Unit::TestCase
     decimal = Arrow::Decimal64.new(10)
     message =
       "[decimal64][rescale]: Invalid: " +
-      "Rescaling Decimal64 value would cause data loss"
+      "Rescaling Decimal value would cause data loss"
     assert_raise(Arrow::Error::Invalid.new(message)) do
       decimal.rescale(1, -1)
     end

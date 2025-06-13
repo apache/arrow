@@ -59,18 +59,18 @@
 
 // Arrow Status to Parquet exception
 
-#define PARQUET_IGNORE_NOT_OK(s)                                \
-  do {                                                          \
-    ::arrow::Status _s = ::arrow::internal::GenericToStatus(s); \
-    ARROW_UNUSED(_s);                                           \
+#define PARQUET_IGNORE_NOT_OK(s)                                  \
+  do {                                                            \
+    ::arrow::Status _s = ::arrow::internal::CallToArrowStatus(s); \
+    ARROW_UNUSED(_s);                                             \
   } while (0)
 
-#define PARQUET_THROW_NOT_OK(s)                                 \
-  do {                                                          \
-    ::arrow::Status _s = ::arrow::internal::GenericToStatus(s); \
-    if (!_s.ok()) {                                             \
-      throw ::parquet::ParquetStatusException(std::move(_s));   \
-    }                                                           \
+#define PARQUET_THROW_NOT_OK(s)                                   \
+  do {                                                            \
+    ::arrow::Status _s = ::arrow::internal::CallToArrowStatus(s); \
+    if (!_s.ok()) {                                               \
+      throw ::parquet::ParquetStatusException(std::move(_s));     \
+    }                                                             \
   } while (0)
 
 #define PARQUET_ASSIGN_OR_THROW_IMPL(status_name, lhs, rexpr) \
