@@ -29,6 +29,7 @@
 #include "arrow/buffer.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/hashing.h"

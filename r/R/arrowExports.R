@@ -536,6 +536,10 @@ compute__GetFunctionNames <- function() {
   .Call(`_arrow_compute__GetFunctionNames`)
 }
 
+compute__Initialize <- function() {
+  invisible(.Call(`_arrow_compute__Initialize`))
+}
+
 RegisterScalarUDF <- function(name, func_sexp) {
   invisible(.Call(`_arrow_RegisterScalarUDF`, name, func_sexp))
 }
