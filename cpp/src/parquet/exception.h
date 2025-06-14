@@ -23,7 +23,7 @@
 #include <utility>
 
 #include "arrow/type_fwd.h"
-#include "arrow/util/string_builder.h"
+#include "arrow/util/string_util_internal.h"
 #include "parquet/platform.h"
 
 // PARQUET-1085
@@ -100,7 +100,7 @@ class ParquetException : public std::exception {
 
   template <typename... Args>
   explicit ParquetException(Args&&... args)
-      : msg_(::arrow::util::StringBuilder(std::forward<Args>(args)...)) {}
+      : msg_(::arrow::internal::JoinToString(std::forward<Args>(args)...)) {}
 
   explicit ParquetException(std::string msg) : msg_(std::move(msg)) {}
 
