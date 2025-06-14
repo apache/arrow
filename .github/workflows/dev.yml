@@ -55,12 +55,14 @@ jobs:
           sudo apt update
           sudo apt install -y -V \
             pre-commit \
-            r-cran-xml2 \
+            r-base \
             ruby-dev
       - name: Cache pre-commit
         uses: actions/cache@v4
         with:
-          path: ~/.cache/pre-commit
+          path: |
+            ~/.cache/pre-commit
+            ~/.local/share/renv/cache
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
       - name: Run pre-commit
         run: |
