@@ -135,8 +135,8 @@ static TransportStatus TransportStatusFromGrpc(const ::grpc::Status& grpc_status
                              grpc_status.error_message()};
     default:
       return TransportStatus{TransportStatusCode::kUnknown,
-                             internal::JoinToString("(", grpc_status.error_code(), ")",
-                                                    grpc_status.error_message())};
+                             arrow::internal::JoinToString("(", grpc_status.error_code(), ")",
+                                        grpc_status.error_message())};
   }
 }
 
