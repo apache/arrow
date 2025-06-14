@@ -568,9 +568,6 @@ class ARROW_EXPORT StringHeapBuilder {
     if (!blocks_.empty()) {
       ARROW_RETURN_NOT_OK(FinishLastBlock());
     }
-    current_offset_ = 0;
-    current_out_buffer_ = NULLPTR;
-    current_remaining_bytes_ = 0;
     return std::move(blocks_);
   }
 
@@ -582,6 +579,9 @@ class ARROW_EXPORT StringHeapBuilder {
                                  /*shrink_to_fit=*/true));
       blocks_.back()->ZeroPadding();
     }
+    current_offset_ = 0;
+    current_out_buffer_ = NULLPTR;
+    current_remaining_bytes_ = 0;
     return Status::OK();
   }
 

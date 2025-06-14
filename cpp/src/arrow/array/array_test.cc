@@ -1001,36 +1001,50 @@ TEST_F(TestArray, TestBinaryViewAppendArraySlice) {
 }
 
 TEST_F(TestArray, BinaryViewFromBlock) {
-  BinaryViewBuilder src_builder(pool_);
-  ASSERT_OK(src_builder.Append("Hello"));
-  /// let block = builder.append_block(b"helloworldbingobongo".into());
-  ///
-  /// builder.try_append_view(block, 0, 5).unwrap();
-  /// builder.try_append_view(block, 5, 5).unwrap();
-  /// builder.try_append_view(block, 10, 5).unwrap();
-  /// builder.try_append_view(block, 15, 5).unwrap();
-  /// builder.try_append_view(block, 0, 15).unwrap();
-  /// let array = builder.finish();
-  ASSERT_OK_AND_ASSIGN(const auto buffer,
-                       src_builder.AppendBuffer("helloworldbingobongo"));
-  ASSERT_OK(src_builder.AppendViewFromBuffer(buffer, 0, 5));
-  ASSERT_OK(src_builder.AppendViewFromBuffer(buffer, 5, 5));
-  ASSERT_OK(src_builder.AppendViewFromBuffer(buffer, 10, 5));
-  ASSERT_OK(src_builder.AppendViewFromBuffer(buffer, 15, 5));
-  ASSERT_OK(src_builder.AppendViewFromBuffer(buffer, 0, 15));
+  for (auto seed : {0u, 0xdeadbeef, 42u}) {
+    constexpr int32_t n_bytes = 4000;
+    constexpr int32_t n_test_case = 20;
+    ARROW_SCOPED_TRACE("seed = ", seed);
+    BinaryViewBuilder src_builder(pool_);
+    std::vector<uint8_t> buffer1(n_bytes);
+    random_bytes(n_bytes, seed, buffer1.data());
+    ASSERT_OK_AND_ASSIGN(const auto buffer1_idx,
+                         src_builder.AppendBuffer(buffer1.data(), n_bytes));
+    ASSERT_EQ(buffer1_idx, 0);
+    std::vector<uint8_t> buffer2(n_bytes);
+    random_bytes(n_bytes, seed, buffer2.data());
+    ASSERT_OK_AND_ASSIGN(const auto buffer2_idx,
+                         src_builder.AppendBuffer(buffer2.data(), n_bytes));
+    ASSERT_EQ(buffer2_idx, 1);
 
-  ASSERT_OK_AND_ASSIGN(auto src, src_builder.Finish());
-  ASSERT_OK(src->ValidateFull());
-
-  // Verify the content of the resulting array
-  ASSERT_EQ(src->length(), 6);
-  const auto& binary_view_array = static_cast<const BinaryViewArray&>(*src);
-  ASSERT_EQ(binary_view_array.GetString(0), "Hello");
-  ASSERT_EQ(binary_view_array.GetString(1), "hello");
-  ASSERT_EQ(binary_view_array.GetString(2), "world");
-  ASSERT_EQ(binary_view_array.GetString(3), "bingo");
-  ASSERT_EQ(binary_view_array.GetString(4), "bongo");
-  ASSERT_EQ(binary_view_array.GetString(5), "helloworldbingo");
+    std::vector<int32_t> starts(n_test_case);
+    rand_uniform_int(n_test_case, seed, 0, n_bytes - 20, starts.data());
+    std::vector<bool> choose_flags(n_test_case);
+    random_is_valid(n_test_case, 0.5, &choose_flags, seed);
+    for (int i = 0; i < n_test_case; i++) {
+      ASSERT_OK(src_builder.AppendViewFromBuffer(
+          choose_flags[i] ? buffer1_idx : buffer2_idx, starts[i], 20));
+      ASSERT_OK(src_builder.AppendViewFromBuffer(
+          choose_flags[i] == 0 ? buffer2_idx : buffer1_idx, starts[i], 5));
+    }
+    ASSERT_OK_AND_ASSIGN(auto src, src_builder.Finish());
+    ASSERT_OK(src->ValidateFull());
+    // Verify the content of the resulting array
+    ASSERT_EQ(src->length(), n_test_case * 2);
+    const auto& binary_view_array = static_cast<const BinaryViewArray&>(*src);
+    for (int i = 0; i < n_test_case; i++) {
+      ASSERT_EQ(binary_view_array.GetView(i * 2),
+                std::string_view(reinterpret_cast<char*>(
+                                     (choose_flags[i] ? buffer1 : buffer2).data()) +
+                                     starts[i],
+                                 20));
+      ASSERT_EQ(binary_view_array.GetView(i * 2 + 1),
+                std::string_view(reinterpret_cast<char*>(
+                                     (choose_flags[i] ? buffer2 : buffer1).data()) +
+                                     starts[i],
+                                 5));
+    }
+  }
 }
 
 TEST_F(TestArray, ValidateBuffersPrimitive) {
