@@ -28,7 +28,7 @@
 // This software may be modified and distributed under the terms
 // of the BSD license. See the LICENSE file for details.
 
-#include "arrow/io/hdfs_internal.h"
+#include "arrow/filesystem/hdfs_internal.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -43,6 +43,7 @@
 #  include <dlfcn.h>
 #endif
 
+#include "arrow/buffer.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
@@ -51,11 +52,19 @@
 namespace arrow {
 
 using internal::GetEnvVarNative;
+using internal::IOErrorFromErrno;
 using internal::PlatformFilename;
 
-namespace io::internal {
+namespace fs::internal {
 
 namespace {
+
+#define CHECK_FAILURE(RETURN_VALUE, WHAT)                       \
+  do {                                                          \
+    if (RETURN_VALUE == -1) {                                   \
+      return IOErrorFromErrno(errno, "HDFS ", WHAT, " failed"); \
+    }                                                           \
+  } while (0)
 
 template <bool Required, typename T>
 Status SetSymbol(void* handle, char const* name, T** symbol) {
@@ -502,5 +511,304 @@ int LibHdfsShim::Utime(hdfsFS fs, const char* path, tTime mtime, tTime atime) {
   }
 }
 
-}  // namespace io::internal
+// ----------------------------------------------------------------------
+// File reading
+
+class HdfsAnyFileImpl {
+ public:
+  void set_members(const std::string& path, internal::LibHdfsShim* driver, hdfsFS fs,
+                   hdfsFile handle) {
+    path_ = path;
+    driver_ = driver;
+    fs_ = fs;
+    file_ = handle;
+    is_open_ = true;
+  }
+
+  Status Seek(int64_t position) {
+    RETURN_NOT_OK(CheckClosed());
+    int ret = driver_->Seek(fs_, file_, position);
+    CHECK_FAILURE(ret, "seek");
+    return Status::OK();
+  }
+
+  Result<int64_t> Tell() {
+    RETURN_NOT_OK(CheckClosed());
+    int64_t ret = driver_->Tell(fs_, file_);
+    CHECK_FAILURE(ret, "tell");
+    return ret;
+  }
+
+  bool is_open() const { return is_open_; }
+
+ protected:
+  Status CheckClosed() {
+    if (!is_open_) {
+      return Status::Invalid("Operation on closed HDFS file");
+    }
+    return Status::OK();
+  }
+
+  std::string path_;
+
+  internal::LibHdfsShim* driver_;
+
+  // For threadsafety
+  std::mutex lock_;
+
+  // These are pointers in libhdfs, so OK to copy
+  hdfsFS fs_;
+  hdfsFile file_;
+
+  bool is_open_;
+};
+
+namespace {
+
+Status GetPathInfoFailed(const std::string& path) {
+  return IOErrorFromErrno(errno, "Calling GetPathInfo for '", path, "' failed");
+}
+
+}  // namespace
+
+// Private implementation for read-only files
+class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
+ public:
+  explicit HdfsReadableFileImpl(MemoryPool* pool) : pool_(pool) {}
+
+  Status Close() {
+    if (is_open_) {
+      // is_open_ must be set to false in the beginning, because the destructor
+      // attempts to close the stream again, and if the first close fails, then
+      // the error doesn't get propagated properly and the second close
+      // initiated by the destructor raises a segfault
+      is_open_ = false;
+      int ret = driver_->CloseFile(fs_, file_);
+      CHECK_FAILURE(ret, "CloseFile");
+    }
+    return Status::OK();
+  }
+
+  bool closed() const { return !is_open_; }
+
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, uint8_t* buffer) {
+    RETURN_NOT_OK(CheckClosed());
+    if (!driver_->HasPread()) {
+      std::lock_guard<std::mutex> guard(lock_);
+      RETURN_NOT_OK(Seek(position));
+      return Read(nbytes, buffer);
+    }
+
+    constexpr int64_t kMaxBlockSize = std::numeric_limits<int32_t>::max();
+    int64_t total_bytes = 0;
+    while (nbytes > 0) {
+      const auto block_size = static_cast<tSize>(std::min(kMaxBlockSize, nbytes));
+      tSize ret =
+          driver_->Pread(fs_, file_, static_cast<tOffset>(position), buffer, block_size);
+      CHECK_FAILURE(ret, "read");
+      DCHECK_LE(ret, block_size);
+      if (ret == 0) {
+        break;  // EOF
+      }
+      buffer += ret;
+      total_bytes += ret;
+      position += ret;
+      nbytes -= ret;
+    }
+    return total_bytes;
+  }
+
+  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) {
+    RETURN_NOT_OK(CheckClosed());
+
+    ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(nbytes, pool_));
+    ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
+                          ReadAt(position, nbytes, buffer->mutable_data()));
+    if (bytes_read < nbytes) {
+      RETURN_NOT_OK(buffer->Resize(bytes_read));
+      buffer->ZeroPadding();
+    }
+    // R build with openSUSE155 requires an explicit shared_ptr construction
+    return std::shared_ptr<Buffer>(std::move(buffer));
+  }
+
+  Result<int64_t> Read(int64_t nbytes, void* buffer) {
+    RETURN_NOT_OK(CheckClosed());
+
+    int64_t total_bytes = 0;
+    while (total_bytes < nbytes) {
+      tSize ret = driver_->Read(
+          fs_, file_, reinterpret_cast<uint8_t*>(buffer) + total_bytes,
+          static_cast<tSize>(std::min<int64_t>(buffer_size_, nbytes - total_bytes)));
+      CHECK_FAILURE(ret, "read");
+      total_bytes += ret;
+      if (ret == 0) {
+        break;
+      }
+    }
+    return total_bytes;
+  }
+
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) {
+    RETURN_NOT_OK(CheckClosed());
+
+    ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(nbytes, pool_));
+    ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buffer->mutable_data()));
+    if (bytes_read < nbytes) {
+      RETURN_NOT_OK(buffer->Resize(bytes_read));
+    }
+    // R build with openSUSE155 requires an explicit shared_ptr construction
+    return std::shared_ptr<Buffer>(std::move(buffer));
+  }
+
+  Result<int64_t> GetSize() {
+    RETURN_NOT_OK(CheckClosed());
+
+    hdfsFileInfo* entry = driver_->GetPathInfo(fs_, path_.c_str());
+    if (entry == nullptr) {
+      return GetPathInfoFailed(path_);
+    }
+    int64_t size = entry->mSize;
+    driver_->FreeFileInfo(entry, 1);
+    return size;
+  }
+
+  void set_memory_pool(MemoryPool* pool) { pool_ = pool; }
+
+  void set_buffer_size(int32_t buffer_size) { buffer_size_ = buffer_size; }
+
+ private:
+  MemoryPool* pool_;
+  int32_t buffer_size_;
+};
+
+HdfsReadableFile::HdfsReadableFile(const io::IOContext& io_context) {
+  impl_.reset(new HdfsReadableFileImpl(io_context.pool()));
+}
+
+HdfsReadableFile::~HdfsReadableFile() {
+  ARROW_WARN_NOT_OK(impl_->Close(), "Failed to close HdfsReadableFile");
+}
+
+Status HdfsReadableFile::Close() { return impl_->Close(); }
+
+bool HdfsReadableFile::closed() const { return impl_->closed(); }
+
+Result<int64_t> HdfsReadableFile::ReadAt(int64_t position, int64_t nbytes, void* buffer) {
+  return impl_->ReadAt(position, nbytes, reinterpret_cast<uint8_t*>(buffer));
+}
+
+Result<std::shared_ptr<Buffer>> HdfsReadableFile::ReadAt(int64_t position,
+                                                         int64_t nbytes) {
+  return impl_->ReadAt(position, nbytes);
+}
+
+Result<int64_t> HdfsReadableFile::Read(int64_t nbytes, void* buffer) {
+  return impl_->Read(nbytes, buffer);
+}
+
+Result<std::shared_ptr<Buffer>> HdfsReadableFile::Read(int64_t nbytes) {
+  return impl_->Read(nbytes);
+}
+
+Result<int64_t> HdfsReadableFile::GetSize() { return impl_->GetSize(); }
+
+Status HdfsReadableFile::Seek(int64_t position) { return impl_->Seek(position); }
+
+Result<int64_t> HdfsReadableFile::Tell() const { return impl_->Tell(); }
+
+Result<std::shared_ptr<HdfsReadableFile>> HdfsReadableFile::Make(
+    const std::string& path, int32_t buffer_size, const io::IOContext& io_context,
+    internal::LibHdfsShim* driver, hdfsFS fs, hdfsFile handle) {
+  // Must use `new` due to private constructor
+  std::shared_ptr<HdfsReadableFile> file(new HdfsReadableFile(io_context));
+  file->impl_->set_members(path, driver, fs, handle);
+  file->impl_->set_buffer_size(buffer_size);
+  return file;
+}
+
+// ----------------------------------------------------------------------
+// File writing
+
+// Private implementation for writable-only files
+class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
+ public:
+  HdfsOutputStreamImpl() {}
+
+  Status Close() {
+    if (is_open_) {
+      // is_open_ must be set to false in the beginning, because the destructor
+      // attempts to close the stream again, and if the first close fails, then
+      // the error doesn't get propagated properly and the second close
+      // initiated by the destructor raises a segfault
+      is_open_ = false;
+      RETURN_NOT_OK(FlushInternal());
+      int ret = driver_->CloseFile(fs_, file_);
+      CHECK_FAILURE(ret, "CloseFile");
+    }
+    return Status::OK();
+  }
+
+  bool closed() const { return !is_open_; }
+
+  Status Flush() {
+    RETURN_NOT_OK(CheckClosed());
+
+    return FlushInternal();
+  }
+
+  Status Write(const uint8_t* buffer, int64_t nbytes) {
+    RETURN_NOT_OK(CheckClosed());
+
+    constexpr int64_t kMaxBlockSize = std::numeric_limits<int32_t>::max();
+
+    std::lock_guard<std::mutex> guard(lock_);
+    while (nbytes > 0) {
+      const auto block_size = static_cast<tSize>(std::min(kMaxBlockSize, nbytes));
+      tSize ret = driver_->Write(fs_, file_, buffer, block_size);
+      CHECK_FAILURE(ret, "Write");
+      DCHECK_LE(ret, block_size);
+      buffer += ret;
+      nbytes -= ret;
+    }
+    return Status::OK();
+  }
+
+ protected:
+  Status FlushInternal() {
+    int ret = driver_->Flush(fs_, file_);
+    CHECK_FAILURE(ret, "Flush");
+    return Status::OK();
+  }
+};
+
+HdfsOutputStream::HdfsOutputStream() { impl_.reset(new HdfsOutputStreamImpl()); }
+
+HdfsOutputStream::~HdfsOutputStream() {
+  ARROW_WARN_NOT_OK(impl_->Close(), "Failed to close HdfsOutputStream");
+}
+
+Status HdfsOutputStream::Close() { return impl_->Close(); }
+
+bool HdfsOutputStream::closed() const { return impl_->closed(); }
+
+Status HdfsOutputStream::Write(const void* buffer, int64_t nbytes) {
+  return impl_->Write(reinterpret_cast<const uint8_t*>(buffer), nbytes);
+}
+
+Status HdfsOutputStream::Flush() { return impl_->Flush(); }
+
+Result<int64_t> HdfsOutputStream::Tell() const { return impl_->Tell(); }
+
+Result<std::shared_ptr<HdfsOutputStream>> HdfsOutputStream::Make(const std::string& path,
+                                                                 int32_t buffer_size,
+                                                                 LibHdfsShim* driver,
+                                                                 hdfsFS fs,
+                                                                 hdfsFile handle) {
+  std::shared_ptr<HdfsOutputStream> file(new HdfsOutputStream());
+  file->impl_->set_members(path, driver, fs, handle);
+  return file;
+}
+
+}  // namespace fs::internal
 }  // namespace arrow
