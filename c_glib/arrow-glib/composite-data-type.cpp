@@ -51,6 +51,8 @@ G_BEGIN_DECLS
  * #GArrowDictionaryDataType is a class for dictionary data type.
  *
  * #GArrowRunEndEncodedDataType is a class for run end encoded data type.
+ *
+ * #GArrowFixedSizeListDataType is a class for fixed size list data type.
  */
 
 G_DEFINE_TYPE(GArrowBaseListDataType, garrow_base_list_data_type, GARROW_TYPE_DATA_TYPE)
