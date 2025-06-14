@@ -199,7 +199,7 @@ arrow_util_srcs = [
     'util/mutex.cc',
     'util/ree_util.cc',
     'util/string.cc',
-    'util/string_builder.cc',
+    'util/string_util_internal.cc',
     'util/task_group.cc',
     'util/tdigest.cc',
     'util/thread_pool.cc',
