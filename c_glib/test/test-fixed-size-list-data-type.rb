@@ -17,29 +17,28 @@
 
 class TestFixedSizeListDataType < Test::Unit::TestCase
   sub_test_case(".new") do
-    def setup
-      @value_type = Arrow::BooleanDataType.new
-      @list_size = 5
-      @field_name = "bool_field"
-    end
-
     def test_field
-      field = Arrow::Field.new(@field_name, @value_type)
-      data_type = Arrow::FixedSizeListDataType.new(field, @list_size)
-      # TODO: check value_field and list_size separately.
-      assert_equal("fixed_size_list<bool_field: bool>[5]", data_type.to_s)
+      list_size = 5
+      field_name = "bool_field"
+      field = Arrow::Field.new("bool_field", Arrow::BooleanDataType.new)
+      data_type = Arrow::FixedSizeListDataType.new(field, list_size)
+      assert_equal([field, list_size], [data_type.field, data_type.list_size])
     end
 
     def test_data_type
-      data_type = Arrow::FixedSizeListDataType.new(@value_type, @list_size)
-      # TODO: check value_field and list_size separately.
-      assert_equal("fixed_size_list<item: bool>[5]", data_type.to_s)
+      value_type = Arrow::BooleanDataType.new
+      list_size = 5
+      data_type = Arrow::FixedSizeListDataType.new(value_type, list_size)
+      field = Arrow::Field.new("item", value_type)
+      assert_equal([field, list_size], [data_type.field, data_type.list_size])
     end
   end
 
   sub_test_case("instance_methods") do
     def setup
-      @data_type = Arrow::FixedSizeListDataType.new(Arrow::BooleanDataType.new, 5)
+      @list_size = 5
+      @value_type =Arrow::BooleanDataType.new
+      @data_type = Arrow::FixedSizeListDataType.new(@value_type, @list_size)
     end
 
     def test_name
@@ -48,6 +47,15 @@ class TestFixedSizeListDataType < Test::Unit::TestCase
 
     def test_to_s
       assert_equal("fixed_size_list<item: bool>[5]", @data_type.to_s)
+    end
+
+    def test_list_size
+      assert_equal(@list_size, @data_type.list_size)
+    end
+
+    def test_field
+      field = Arrow::Field.new("item", @value_type)
+      assert_equal(field, @data_type.field)
     end
   end
 end

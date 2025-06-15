@@ -38,6 +38,10 @@ struct _GArrowBaseListDataTypeClass
   GArrowDataTypeClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_21_0
+GArrowField *
+garrow_base_list_data_type_get_field(GArrowBaseListDataType *base_list_data_type);
+
 #define GARROW_TYPE_LIST_DATA_TYPE (garrow_list_data_type_get_type())
 GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowListDataType,
