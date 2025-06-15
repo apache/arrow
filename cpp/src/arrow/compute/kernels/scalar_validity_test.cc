@@ -26,6 +26,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/float16.h"
 
 namespace arrow {
 namespace compute {
@@ -106,6 +107,16 @@ TEST(TestValidityKernels, IsFinite) {
   CheckScalar("is_finite",
               {ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 42, null]")},
               ArrayFromJSON(boolean(), "[true, true, true, null]"));
+  CheckScalar("is_finite", {ArrayFromJSON(float32(), "[1.0, NaN, Inf, null]")},
+              ArrayFromJSON(boolean(), "[true, false, false, null]"));
+  CheckScalar("is_finite", {ArrayFromJSON(float64(), "[1.0, NaN, Inf, null]")},
+              ArrayFromJSON(boolean(), "[true, false, false, null]"));
+  CheckScalar("is_finite", {ArrayFromJSON(float16(), "[1.0, NaN, Inf, null]")},
+              ArrayFromJSON(boolean(), "[true, false, false, null]"));
+
+  // Verifies that actual uint16s don't use IsFiniteOperator
+  CheckScalar("is_finite", {ArrayFromJSON(uint16(), "[1, null]")}, 
+              ArrayFromJSON(boolean(), "[true, null]"));
 }
 
 TEST(TestValidityKernels, IsInf) {
@@ -121,6 +132,16 @@ TEST(TestValidityKernels, IsInf) {
               ArrayFromJSON(boolean(), "[null, null, null, null]"));
   CheckScalar("is_inf", {ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 42, null]")},
               ArrayFromJSON(boolean(), "[false, false, false, null]"));
+  CheckScalar("is_inf", {ArrayFromJSON(float32(), "[1.0, NaN, Inf, null]")},
+              ArrayFromJSON(boolean(), "[false, false, true, null]"));
+  CheckScalar("is_inf", {ArrayFromJSON(float64(), "[1.0, NaN, Inf, null]")},
+              ArrayFromJSON(boolean(), "[false, false, true, null]"));
+  CheckScalar("is_inf", {ArrayFromJSON(float16(), "[1.0, NaN, Inf, null]")},
+              ArrayFromJSON(boolean(), "[false, false, true, null]"));
+
+  // Verifies that actual uint16s don't use IsNanOperator
+  CheckScalar("is_inf", {ArrayFromJSON(uint16(), "[1, null]")}, 
+              ArrayFromJSON(boolean(), "[false, null]"));
 }
 
 TEST(TestValidityKernels, IsNan) {
@@ -136,6 +157,16 @@ TEST(TestValidityKernels, IsNan) {
               ArrayFromJSON(boolean(), "[null, null, null, null]"));
   CheckScalar("is_nan", {ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 42, null]")},
               ArrayFromJSON(boolean(), "[false, false, false, null]"));
+  CheckScalar("is_nan", {ArrayFromJSON(float32(), "[0.0, 1.0, NaN, 2.5, null]")},
+              ArrayFromJSON(boolean(), "[false, false, true, false, null]"));
+  CheckScalar("is_nan", {ArrayFromJSON(float64(), "[0.0, 1.0, NaN, 2.5, null]")},
+              ArrayFromJSON(boolean(), "[false, false, true, false, null]"));
+  CheckScalar("is_nan", {ArrayFromJSON(float16(), "[1.2, NaN, 2.5, NaN, 6, null]")},
+              ArrayFromJSON(boolean(), "[false, true, false, true, false, null]"));
+
+  // Verifies that actual uint16s don't use IsNanOperator
+  CheckScalar("is_nan", {ArrayFromJSON(uint16(), "[1, null]")}, 
+              ArrayFromJSON(boolean(), "[false, null]"));
 }
 
 TEST(TestValidityKernels, IsValidIsNullNullType) {

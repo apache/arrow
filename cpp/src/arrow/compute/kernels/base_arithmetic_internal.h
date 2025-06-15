@@ -25,6 +25,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/int_util_overflow.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -489,6 +490,19 @@ struct Negate {
   }
 };
 
+// Can't tell the difference between HalfFloatType and UInt16Type in
+// enable_if_unsigned_integer_value above, so seperate operator needed
+struct NegateHalfFloat {
+  template <typename T, typename Arg>
+  static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg arg,
+                                                            Status*) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    using ::arrow::util::Float16;
+    auto val = Float16::FromBits(static_cast<uint16_t>(arg));
+    return (-val).bits();
+  }
+};
+
 struct NegateChecked {
   template <typename T, typename Arg>
   static enable_if_signed_integer_value<Arg, T> Call(KernelContext*, Arg arg,
@@ -649,6 +663,18 @@ struct Sign {
   static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg arg,
                                                         Status*) {
     return (arg == 0) ? 0 : arg.Sign();
+  }
+};
+
+struct SignHalfFloat {
+  template <typename T, typename Arg>
+  static constexpr enable_if_unsigned_integer_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                                 Status*) {
+    using ::arrow::util::Float16;
+    auto val = Float16::FromBits(static_cast<uint16_t>(arg));
+    return val.is_nan() ? arg :
+          (val.is_zero() ? Float16(0).bits() :
+          (val.signbit() ? Float16(-1).bits() : Float16(1).bits()));
   }
 };
 

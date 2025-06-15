@@ -687,6 +687,14 @@ void AddDecimalBinaryKernels(const std::string& name, ScalarFunction* func) {
   DCHECK_OK(func->AddKernel({in_type256, in_type256}, out_type, exec256));
 }
 
+template <typename Op>
+void AddHalfFloatUnaryKernel(ScalarFunction* func) {
+  OutputType out_type(FirstType);
+  auto in_type = InputType(Type::HALF_FLOAT);
+  auto exec = ScalarUnaryNotNull<HalfFloatType, HalfFloatType, Op>::Exec;
+  DCHECK_OK(func->AddKernel({in_type}, out_type, exec));
+}
+
 // Generate a kernel given an arithmetic functor
 template <template <typename...> class KernelGenerator, typename OutType, typename Op>
 ArrayKernelExec GenerateArithmeticWithFixedIntOutType(detail::GetTypeId get_id) {
@@ -1695,6 +1703,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   auto negate = MakeUnaryArithmeticFunction<Negate>("negate", negate_doc);
   AddDecimalUnaryKernels<Negate>(negate.get());
+  AddHalfFloatUnaryKernel<NegateHalfFloat>(negate.get());
 
   // Add neg(duration) -> duration
   for (auto unit : TimeUnit::values()) {
@@ -1754,6 +1763,10 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   for (auto unit : TimeUnit::values()) {
     auto exec = ScalarUnary<Int8Type, Int64Type, Sign>::Exec;
     DCHECK_OK(sign->AddKernel({duration(unit)}, int8(), std::move(exec)));
+  }
+  {
+    auto exec = ScalarUnary<HalfFloatType, HalfFloatType, SignHalfFloat>::Exec;
+    DCHECK_OK(sign->AddKernel({InputType(Type::HALF_FLOAT)}, float16(), std::move(exec)));
   }
   DCHECK_OK(registry->AddFunction(std::move(sign)));
 

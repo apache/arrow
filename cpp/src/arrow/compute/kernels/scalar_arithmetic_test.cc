@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -35,6 +36,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/math_constants.h"
 #include "arrow/util/string.h"
 
@@ -2924,6 +2926,22 @@ TYPED_TEST(TestUnaryArithmeticFloating, Sign) {
   this->AssertUnaryOp(sign, "[NaN]", "[NaN]");
   this->AssertUnaryOp(sign, this->MakeScalar(min), this->MakeScalar(-1));
   this->AssertUnaryOp(sign, this->MakeScalar(max), this->MakeScalar(1));
+}
+
+TEST(TestUnaryArithmeticHalfFloat, Negate) {
+  CheckScalar("negate", {ArrayFromJSON(float16(), "[1.0, -2.5, null, Inf]")},
+              ArrayFromJSON(float16(), "[-1.0, 2.5, null, -Inf]"));
+
+  // Negating actual uint16s wraps around
+  // TODO does this need to be portable?
+  CheckScalar("negate", {ArrayFromJSON(uint16(), "[0, 1]")},
+              ArrayFromJSON(uint16(), "[0, 65535]"));
+
+}
+
+TEST(TestUnaryArithmeticHalfFloat, Sign) {
+  CheckScalar("sign", {ArrayFromJSON(float16(), "[0, 1.0, -2.5, NaN, null, Inf, -Inf]")},
+              ArrayFromJSON(float16(), "[0, 1, -1, NaN, null, 1, -1]"));
 }
 
 }  // namespace

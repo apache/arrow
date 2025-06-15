@@ -16,12 +16,14 @@
 // under the License.
 
 #include <cmath>
+#include <iostream> // remove when testing done
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common_internal.h"
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
 
 namespace arrow {
@@ -60,6 +62,12 @@ Status IsValidExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
 struct IsFiniteOperator {
   template <typename OutType, typename InType>
   static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
+    // this is HalfFloatType, because int types call a different operator
+    if constexpr(std::is_same_v<InType, uint16_t>) {
+      using ::arrow::util::Float16;
+      return Float16::FromBits(static_cast<uint16_t>(value)).is_finite();
+    }
+
     return std::isfinite(value);
   }
 };
@@ -67,6 +75,12 @@ struct IsFiniteOperator {
 struct IsInfOperator {
   template <typename OutType, typename InType>
   static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
+    // this is HalfFloatType, because int types call a different operator
+    if constexpr(std::is_same_v<InType, uint16_t>) {
+      using ::arrow::util::Float16;
+      return Float16::FromBits(static_cast<uint16_t>(value)).is_infinity();
+    }
+
     return std::isinf(value);
   }
 };
@@ -122,6 +136,13 @@ Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
 struct IsNanOperator {
   template <typename OutType, typename InType>
   static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
+    // this is HalfFloatType, because int types call a different operator
+    if constexpr(std::is_same_v<InType, uint16_t>) {
+      using ::arrow::util::Float16;
+      auto val = Float16::FromBits(static_cast<uint16_t>(value));
+      return val.is_nan();
+    }
+    
     return std::isnan(value);
   }
 };
@@ -161,6 +182,7 @@ std::shared_ptr<ScalarFunction> MakeIsFiniteFunction(std::string name, FunctionD
 
   AddFloatValidityKernel<FloatType, IsFiniteOperator>(float32(), func.get());
   AddFloatValidityKernel<DoubleType, IsFiniteOperator>(float64(), func.get());
+  AddFloatValidityKernel<HalfFloatType, IsFiniteOperator>(float16(), func.get());
 
   for (const auto& ty : IntTypes()) {
     DCHECK_OK(func->AddKernel({InputType(ty->id())}, boolean(), ConstBoolExec<true>));
@@ -180,6 +202,7 @@ std::shared_ptr<ScalarFunction> MakeIsInfFunction(std::string name, FunctionDoc 
 
   AddFloatValidityKernel<FloatType, IsInfOperator>(float32(), func.get());
   AddFloatValidityKernel<DoubleType, IsInfOperator>(float64(), func.get());
+  AddFloatValidityKernel<HalfFloatType, IsInfOperator>(float16(), func.get());
 
   for (const auto& ty : IntTypes()) {
     DCHECK_OK(func->AddKernel({InputType(ty->id())}, boolean(), ConstBoolExec<false>));
@@ -199,6 +222,7 @@ std::shared_ptr<ScalarFunction> MakeIsNanFunction(std::string name, FunctionDoc 
 
   AddFloatValidityKernel<FloatType, IsNanOperator>(float32(), func.get());
   AddFloatValidityKernel<DoubleType, IsNanOperator>(float64(), func.get());
+  AddFloatValidityKernel<HalfFloatType, IsNanOperator>(float16(), func.get());
 
   for (const auto& ty : IntTypes()) {
     DCHECK_OK(func->AddKernel({InputType(ty->id())}, boolean(), ConstBoolExec<false>));
