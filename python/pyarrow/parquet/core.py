@@ -261,7 +261,7 @@ class ParquetFile:
         it will be parsed as an URI to determine the filesystem.
     page_checksum_verification : bool, default False
         If True, verify the checksum for each page read from the file.
-    arrow_extensions_enabled : bool, default False
+    arrow_extensions_enabled : bool, default True
         If True, read Parquet logical types as Arrow extension types where possible,
         (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
         the canonical `arrow.uuid` extension type).
@@ -314,7 +314,7 @@ class ParquetFile:
                  coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None, filesystem=None,
-                 page_checksum_verification=False, arrow_extensions_enabled=False):
+                 page_checksum_verification=False, arrow_extensions_enabled=True):
 
         self._close_source = getattr(source, 'closed', True)
 
@@ -1321,7 +1321,7 @@ thrift_container_size_limit : int, default None
     sufficient for most Parquet files.
 page_checksum_verification : bool, default False
     If True, verify the page checksum for each page read from the file.
-arrow_extensions_enabled : bool, default False
+arrow_extensions_enabled : bool, default True
     If True, read Parquet logical types as Arrow extension types where possible,
     (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
     the canonical `arrow.uuid` extension type).
@@ -1339,7 +1339,7 @@ Examples
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
                  page_checksum_verification=False,
-                 arrow_extensions_enabled=False):
+                 arrow_extensions_enabled=True):
         import pyarrow.dataset as ds
 
         # map format arguments
@@ -1739,7 +1739,7 @@ thrift_container_size_limit : int, default None
     sufficient for most Parquet files.
 page_checksum_verification : bool, default False
     If True, verify the checksum for each page read from the file.
-arrow_extensions_enabled : bool, default False
+arrow_extensions_enabled : bool, default True
     If True, read Parquet logical types as Arrow extension types where possible,
     (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
     the canonical `arrow.uuid` extension type).
@@ -1839,7 +1839,7 @@ def read_table(source, *, columns=None, use_threads=True,
                decryption_properties=None, thrift_string_size_limit=None,
                thrift_container_size_limit=None,
                page_checksum_verification=False,
-               arrow_extensions_enabled=False):
+               arrow_extensions_enabled=True):
 
     try:
         dataset = ParquetDataset(
