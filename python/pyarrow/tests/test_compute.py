@@ -355,7 +355,6 @@ def test_sum_array(arrow_type):
 
     arr = pa.array([], type=arrow_type)
     assert arr.sum().as_py() is None  # noqa: E711
-    assert pc.sum(arr).as_py() is None  # noqa: E711
     assert arr.sum(min_count=0).as_py() == 0
     assert pc.sum(arr, min_count=0).as_py() == 0
 
@@ -369,39 +368,38 @@ def test_sum_decimal_array(arrow_type):
         else pa.decimal256(76, arrow_type.scale)
     )
     expected_sum = Decimal("5.79")
+    expected_sum_overflow = Decimal("10.00")
     zero = Decimal("0.00")
 
+    # No overflow
     arr = pa.array([Decimal("1.23"), Decimal("4.56")], type=arrow_type)
     assert arr.sum().as_py() == expected_sum
     assert arr.sum().type == max_precision_type
-    assert pc.sum(arr).as_py() == expected_sum
-    assert pc.sum(arr).type == max_precision_type
 
     arr = pa.array([Decimal("1.23"), Decimal("4.56"), None], type=arrow_type)
     assert arr.sum().as_py() == expected_sum
     assert arr.sum().type == max_precision_type
-    assert pc.sum(arr).as_py() == expected_sum
-    assert pc.sum(arr).type == max_precision_type
+
+    # With overflow
+    arr = pa.array([Decimal("1.23"), Decimal("8.77")], type=arrow_type)
+    assert arr.sum().as_py() == expected_sum_overflow
+    assert arr.sum().type == max_precision_type
+
+    arr = pa.array([Decimal("1.23"), Decimal("8.77"), None], type=arrow_type)
+    assert arr.sum().as_py() == expected_sum_overflow
+    assert arr.sum().type == max_precision_type
 
     arr = pa.array([None], type=arrow_type)
     assert arr.sum().as_py() is None  # noqa: E711
     assert arr.sum().type == max_precision_type  # noqa: E711
-    assert pc.sum(arr).as_py() is None  # noqa: E711
-    assert pc.sum(arr).type == max_precision_type  # noqa: E711
     assert arr.sum(min_count=0).as_py() == zero
     assert arr.sum(min_count=0).type == max_precision_type
-    assert pc.sum(arr, min_count=0).as_py() == zero
-    assert pc.sum(arr, min_count=0).type == max_precision_type
 
     arr = pa.array([], type=arrow_type)
     assert arr.sum().as_py() is None  # noqa: E711
     assert arr.sum().type == max_precision_type  # noqa: E711
-    assert pc.sum(arr).as_py() is None  # noqa: E711
-    assert pc.sum(arr).type == max_precision_type  # noqa: E711
     assert arr.sum(min_count=0).as_py() == zero
     assert arr.sum(min_count=0).type == max_precision_type
-    assert pc.sum(arr, min_count=0).as_py() == zero
-    assert pc.sum(arr, min_count=0).type == max_precision_type
 
 
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
