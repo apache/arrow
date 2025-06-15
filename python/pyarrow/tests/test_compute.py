@@ -1051,6 +1051,25 @@ def test_pad():
     assert pc.utf8_rpad(arr, 3).tolist() == [None, 'á  ', 'abcd']
 
 
+def test_utf8_zfill():
+    arr = pa.array(['A', 'AB', 'ABC', None])
+    assert pc.utf8_zfill(
+        arr, options=pc.PadOptions(width=3, padding='0')
+    ).to_pylist() == ['00A', '0AB', 'ABC', None]
+
+    # sign handling
+    arr = pa.array(['-1', '+1', '1'])
+    assert pc.utf8_zfill(
+        arr, options=pc.PadOptions(width=4, padding='0')
+    ).to_pylist() == ['-001', '+001', '0001']
+
+    # no padding needed
+    arr = pa.array(['ABC', '-1234'])
+    assert pc.utf8_zfill(
+        arr, options=pc.PadOptions(width=3, padding='0')
+    ).to_pylist() == ['ABC', '-1234']
+
+
 @pytest.mark.pandas
 def test_replace_slice():
     offsets = range(-3, 4)

@@ -987,13 +987,69 @@ const FunctionDoc utf8_rpad_doc(
      "the given UTF8 codeunit.\nNull values emit null."),
     {"strings"}, "PadOptions", /*options_required=*/true);
 
+struct Utf8ZFillTransform : public StringTransformBase {
+  using State = OptionsWrapper<PadOptions>;
+
+  const PadOptions& options_;
+
+  explicit Utf8ZFillTransform(const PadOptions& options) : options_(options) {}
+
+  Status PreExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) override {
+    auto str = reinterpret_cast<const uint8_t*>(options_.padding.data());
+    auto strlen = options_.padding.size();
+    if (util::UTF8Length(str, str + strlen) != 1) {
+      return Status::Invalid("Padding must be one codepoint, got '", options_.padding,
+                             "'");
+    }
+    return Status::OK();
+  }
+
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+    return input_ncodeunits + 4 * ninputs * options_.width;
+  }
+
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    const int64_t input_width = util::UTF8Length(input, input + input_string_ncodeunits);
+    if (input_width >= options_.width) {
+      std::copy(input, input + input_string_ncodeunits, output);
+      return input_string_ncodeunits;
+    }
+    const int64_t spaces = options_.width - input_width;
+    uint8_t* start = output;
+    // sign-aware padding:
+    if (input_string_ncodeunits > 0 && (input[0] == '+' || input[0] == '-')) {
+      *output++ = input[0];
+      input++;
+      input_string_ncodeunits--;
+    }
+    int64_t num_zeros = spaces;
+    while (num_zeros > 0) {
+      output = std::copy(options_.padding.begin(), options_.padding.end(), output);
+      num_zeros--;
+    }
+    output = std::copy(input, input + input_string_ncodeunits, output);
+    return output - start;
+  }
+};
+
+template <typename Type>
+using Utf8ZFill = StringTransformExecWithState<Type, Utf8ZFillTransform>;
+
+const FunctionDoc utf8_zfill_doc(
+    "Pad strings on the left with zeros, handling signs like Python str.zfill()",
+    ("For each string in `strings`, emit a string of length `width`, left-padded "
+     "with '0' characters. If the string starts with '+' or '-', the sign is preserved "
+     "and padding occurs after the sign.\nNull values emit null."),
+    {"strings"}, "PadOptions", /*options_required=*/true);
+
 void AddUtf8StringPad(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernelWithState<Utf8LPad>("utf8_lpad", registry, utf8_lpad_doc);
   MakeUnaryStringBatchKernelWithState<Utf8RPad>("utf8_rpad", registry, utf8_rpad_doc);
   MakeUnaryStringBatchKernelWithState<Utf8Center>("utf8_center", registry,
                                                   utf8_center_doc);
+  MakeUnaryStringBatchKernelWithState<Utf8ZFill>("utf8_zfill", registry, utf8_zfill_doc);
 }
-
 // ----------------------------------------------------------------------
 // Replace slice
 
