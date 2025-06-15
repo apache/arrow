@@ -299,6 +299,7 @@ String Padding
    utf8_center
    utf8_lpad
    utf8_rpad
+   utf8_zfill
 
 String Trimming
 ---------------

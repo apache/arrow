@@ -1136,6 +1136,15 @@ class PadOptions(_PadOptions):
         What to do if there is an odd number of padding characters (in case
         of centered padding). Defaults to aligning on the left (i.e. adding
         the extra padding character on the right).
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr = pa.array(["1", "-2", "+3"])
+    >>> opts = pc.PadOptions(width=4, padding="0")
+    >>> pc.utf8_zfill(arr, options=opts).to_pylist()
+    ['0001', '-002', '+003']
     """
 
     def __init__(self, width, padding=' ', lean_left_on_odd_padding=True):
