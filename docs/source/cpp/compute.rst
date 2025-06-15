@@ -296,7 +296,7 @@ the input to a single output value.
   in :member:`PivotOptions::key_names`.
 
 * \(9) Output is Int64, UInt64, Float64, or Decimal128/256, depending
-  on the input type. For decimals, the precision is increased to the maximum
+  on the input type. For sums of decimals, the precision is increased to the maximum
   precision for the type's width. For instance, an array of
   ``decimal128(3, 2)`` will return a ``decimal128(38, 2)`` scalar.
 
