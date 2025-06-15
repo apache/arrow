@@ -51,6 +51,8 @@ G_BEGIN_DECLS
  * #GArrowDictionaryDataType is a class for dictionary data type.
  *
  * #GArrowRunEndEncodedDataType is a class for run end encoded data type.
+ *
+ * #GArrowFixedSizeListDataType is a class for fixed size list data type.
  */
 
 G_DEFINE_TYPE(GArrowBaseListDataType, garrow_base_list_data_type, GARROW_TYPE_DATA_TYPE)
@@ -767,4 +769,55 @@ garrow_run_end_encoded_data_type_get_value_data_type(
   return garrow_data_type_new_raw(&arrow_value_data_type);
 }
 
+G_DEFINE_TYPE(GArrowFixedSizeListDataType,
+              garrow_fixed_size_list_data_type,
+              GARROW_TYPE_BASE_LIST_DATA_TYPE)
+
+static void
+garrow_fixed_size_list_data_type_init(GArrowFixedSizeListDataType *object)
+{
+}
+
+static void
+garrow_fixed_size_list_data_type_class_init(GArrowFixedSizeListDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_fixed_size_list_data_type_new_data_type:
+ * @value_type: The data type of an element of each list.
+ * @list_size: The size of each list.
+ *
+ * Returns: A newly created fixed size list data type.
+ *
+ * Since: 21.0.0
+ */
+GArrowFixedSizeListDataType *
+garrow_fixed_size_list_data_type_new_data_type(GArrowDataType *value_type,
+                                               gint32 list_size)
+{
+  auto arrow_value_type = garrow_data_type_get_raw(value_type);
+  auto arrow_fixed_size_list_data_type =
+    arrow::fixed_size_list(arrow_value_type, list_size);
+  return GARROW_FIXED_SIZE_LIST_DATA_TYPE(
+    garrow_data_type_new_raw(&arrow_fixed_size_list_data_type));
+}
+
+/**
+ * garrow_fixed_size_list_data_type_new_field:
+ * @field: The field of an element of each list.
+ * @list_size: The size of value.
+ *
+ * Returns: A newly created fixed size list data type.
+ *
+ * Since: 21.0.0
+ */
+GArrowFixedSizeListDataType *
+garrow_fixed_size_list_data_type_new_field(GArrowField *field, gint32 list_size)
+{
+  auto arrow_field = garrow_field_get_raw(field);
+  auto arrow_fixed_size_list_data_type = arrow::fixed_size_list(arrow_field, list_size);
+  return GARROW_FIXED_SIZE_LIST_DATA_TYPE(
+    garrow_data_type_new_raw(&arrow_fixed_size_list_data_type));
+}
 G_END_DECLS
