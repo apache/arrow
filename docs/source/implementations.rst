@@ -71,8 +71,8 @@ documentation and source code for these libraries.
      - `Rust Docs <https://docs.rs/arrow/latest>`_ :fa:`external-link-alt`
      - `Rust Source <https://github.com/apache/arrow-rs>`_
    * - Swift
-     - `Swift Docs <https://github.com/apache/arrow/blob/main/swift/Arrow/README.md>`_ :fa:`external-link-alt`
-     - `Swift Source <https://github.com/apache/arrow/tree/main/swift>`_
+     - `Swift Docs <https://github.com/apache/arrow-swift/blob/main/Arrow/README.md>`_ :fa:`external-link-alt`
+     - `Swift Source <https://github.com/apache/arrow-swift>`_
 
 In addition to the libraries listed above, the Arrow project hosts the
 **nanoarrow** subproject which provides a set of lightweight libraries
@@ -121,6 +121,6 @@ The source files for the Cookbook are maintained in the
    R <https://arrow.apache.org/docs/r>
    Ruby <https://github.com/apache/arrow/blob/main/ruby/README.md>
    Rust <https://docs.rs/crate/arrow/>
-   Swift <https://github.com/apache/arrow/blob/main/swift/Arrow/README.md>
+   Swift <https://github.com/apache/arrow-swift/blob/main/Arrow/README.md>
    nanoarrow <https://arrow.apache.org/nanoarrow/>
    Implementation Status <status>
