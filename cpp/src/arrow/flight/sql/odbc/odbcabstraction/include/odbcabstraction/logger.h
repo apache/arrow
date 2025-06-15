@@ -20,7 +20,10 @@
 #include <functional>
 #include <string>
 
-#include <spdlog/fmt/bundled/format.h>
+#include <spdlog/fmt/fmt.h>
+
+// The logger using spdlog is deprecated and will be replaced.
+// TODO: mirgate logging to use Arrow's internal logging system
 
 #define __LAZY_LOG(LEVEL, ...)                                         \
   do {                                                                 \

@@ -111,26 +111,26 @@ inline std::string GetCerts() { return ""; }
 
 #endif
 
-const std::set<std::string_view, odbcabstraction::CaseInsensitiveComparator>
-    BUILT_IN_PROPERTIES = {FlightSqlConnection::HOST,
-                           FlightSqlConnection::PORT,
-                           FlightSqlConnection::USER,
-                           FlightSqlConnection::USER_ID,
-                           FlightSqlConnection::UID,
-                           FlightSqlConnection::PASSWORD,
-                           FlightSqlConnection::PWD,
-                           FlightSqlConnection::TOKEN,
-                           FlightSqlConnection::USE_ENCRYPTION,
-                           FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION,
-                           FlightSqlConnection::TRUSTED_CERTS,
-                           FlightSqlConnection::USE_SYSTEM_TRUST_STORE,
-                           FlightSqlConnection::STRING_COLUMN_LENGTH,
-                           FlightSqlConnection::USE_WIDE_CHAR};
+const std::set<std::string_view, CaseInsensitiveComparatorStrView> BUILT_IN_PROPERTIES = {
+    FlightSqlConnection::HOST,
+    FlightSqlConnection::PORT,
+    FlightSqlConnection::USER,
+    FlightSqlConnection::USER_ID,
+    FlightSqlConnection::UID,
+    FlightSqlConnection::PASSWORD,
+    FlightSqlConnection::PWD,
+    FlightSqlConnection::TOKEN,
+    FlightSqlConnection::USE_ENCRYPTION,
+    FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION,
+    FlightSqlConnection::TRUSTED_CERTS,
+    FlightSqlConnection::USE_SYSTEM_TRUST_STORE,
+    FlightSqlConnection::STRING_COLUMN_LENGTH,
+    FlightSqlConnection::USE_WIDE_CHAR};
 
 Connection::ConnPropertyMap::const_iterator TrackMissingRequiredProperty(
     const std::string_view& property, const Connection::ConnPropertyMap& properties,
     std::vector<std::string_view>& missing_attr) {
-  auto prop_iter = properties.find(property);
+  auto prop_iter = properties.find(std::string(property));
   if (properties.end() == prop_iter) {
     missing_attr.push_back(property);
   }
@@ -149,7 +149,8 @@ std::shared_ptr<FlightSqlSslConfig> LoadFlightSslConfigs(
       AsBool(connPropertyMap, FlightSqlConnection::USE_SYSTEM_TRUST_STORE)
           .value_or(SYSTEM_TRUST_STORE_DEFAULT);
 
-  auto trusted_certs_iterator = connPropertyMap.find(FlightSqlConnection::TRUSTED_CERTS);
+  auto trusted_certs_iterator =
+      connPropertyMap.find(std::string(FlightSqlConnection::TRUSTED_CERTS));
   auto trusted_certs = trusted_certs_iterator != connPropertyMap.end()
                            ? trusted_certs_iterator->second
                            : "";
@@ -174,6 +175,9 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
     std::unique_ptr<FlightClient> flight_client;
     ThrowIfNotOK(FlightClient::Connect(location, client_options).Value(&flight_client));
 
+    PopulateMetadataSettings(properties);
+    PopulateCallOptions(properties);
+
     std::unique_ptr<FlightSqlAuthMethod> auth_method =
         FlightSqlAuthMethod::FromProperties(flight_client, properties);
     auth_method->Authenticate(*this, call_options_);
@@ -187,9 +191,6 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
 
     info_.SetProperty(SQL_USER_NAME, auth_method->GetUser());
     attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_FALSE);
-
-    PopulateMetadataSettings(properties);
-    PopulateCallOptions(properties);
   } catch (...) {
     attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_TRUE);
     sql_client_.reset();
