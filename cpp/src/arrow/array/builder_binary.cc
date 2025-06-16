@@ -69,28 +69,31 @@ int32_t TryAddBufferAndGetIndex(std::unordered_map<int32_t, int32_t>& buffer_map
 Status BinaryViewBuilder::AppendArraySlice(const ArraySpan& array, int64_t offset,
                                            int64_t length) {
   RETURN_NOT_OK(Reserve(length));
+
   auto absolute_offset = array.offset + offset;
-  auto view_buffer = array.GetValues<BinaryViewType::c_type>(1, absolute_offset);
-  auto data_buffers = array.GetVariadicBuffers();
+  auto src_view_buffer = array.GetValues<BinaryViewType::c_type>(1, absolute_offset);
+  auto src_data_buffers = array.GetVariadicBuffers();
+  auto dst_view_buffer = data_builder_.mutable_data() + data_builder_.length();
+
+  // First, copy the entire view buffer. Then update the buffer index if the view elements
+  // are not inlined.
+  std::memcpy(dst_view_buffer, src_view_buffer, length * BinaryViewType::kSize);
+  data_builder_.bytes_builder()->UnsafeAdvance(length * BinaryViewType::kSize);
+  UnsafeAppendToBitmap(array.buffers[0].data, absolute_offset, length);
+
   std::unordered_map<int32_t, int32_t> buffer_index_map;
   internal::VisitBitBlocksVoid(
       array.buffers[0].data, absolute_offset, length,
       [&](int64_t index) {
-        UnsafeAppendToBitmap(true);
-        const auto& view = view_buffer[index];
-        if (view.is_inline()) {
-          data_builder_.UnsafeAppend(&view, 1);
-        } else {
+        const auto& view = src_view_buffer[index];
+        if (!view.is_inline()) {
           auto dst_data_buffer_index = TryAddBufferAndGetIndex(
               buffer_index_map, view.ref.buffer_index, data_heap_builder_,
-              data_buffers[view.ref.buffer_index]);
-          auto dst_view_index = data_builder_.length();
-          data_builder_.UnsafeAppend(&view, 1);
-          data_builder_.mutable_data()[dst_view_index].ref.buffer_index =
-              dst_data_buffer_index;
+              src_data_buffers[view.ref.buffer_index]);
+          dst_view_buffer[index].ref.buffer_index = dst_data_buffer_index;
         }
       },
-      [&]() { UnsafeAppendNull(); });
+      [&]() {});
 
   return Status::OK();
 }
