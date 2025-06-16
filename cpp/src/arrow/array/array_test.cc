@@ -2069,6 +2069,24 @@ void CheckApproxEquals() {
 }
 
 template <typename TYPE>
+void CheckFloatApproxEqualsWithAtol() {
+  using c_type = typename TYPE::c_type;
+  auto type = TypeTraits<TYPE>::type_singleton();
+  std::shared_ptr<Array> a, b;
+  ArrayFromVector<TYPE>(type, {true}, {static_cast<c_type>(0.5)}, &a);
+  ArrayFromVector<TYPE>(type, {true}, {static_cast<c_type>(0.6)}, &b);
+  auto options = EqualOptions::Defaults().atol(0.2);
+
+  ASSERT_FALSE(a->Equals(b));
+  ASSERT_TRUE(a->Equals(b, options.use_atol(true)));
+  ASSERT_TRUE(a->ApproxEquals(b, options));
+
+  ASSERT_FALSE(a->RangeEquals(0, 1, 0, b, options));
+  ASSERT_TRUE(a->RangeEquals(0, 1, 0, b, options.use_atol(true)));
+  ASSERT_TRUE(ArrayRangeApproxEquals(*a, *b, 0, 1, 0, options));
+}
+
+template <typename TYPE>
 void CheckSliceApproxEquals() {
   using T = typename TYPE::c_type;
 
@@ -2270,6 +2288,11 @@ void CheckFloatingZeroEquality() {
 TEST(TestPrimitiveAdHoc, FloatingApproxEquals) {
   CheckApproxEquals<FloatType>();
   CheckApproxEquals<DoubleType>();
+}
+
+TEST(TestPrimitiveAdHoc, FloatingApproxEqualsWithAtol) {
+  CheckFloatApproxEqualsWithAtol<FloatType>();
+  CheckFloatApproxEqualsWithAtol<DoubleType>();
 }
 
 TEST(TestPrimitiveAdHoc, FloatingSliceApproxEquals) {
