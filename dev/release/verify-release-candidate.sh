@@ -512,15 +512,6 @@ test_and_install_cpp() {
     ARROW_BUILD_TESTS=ON
   fi
 
-  case "$(uname)" in
-     Linux)
-      GTest_SOURCE=BUNDLED
-      ;;
-    Darwin)
-      GTest_SOURCE=SYSTEM
-      ;;
-  esac
-
   cmake \
     -DARROW_BOOST_USE_SHARED=ON \
     -DARROW_BUILD_EXAMPLES=OFF \
@@ -557,7 +548,7 @@ test_and_install_cpp() {
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
-    -DGTest_SOURCE=${GTest_SOURCE} \
+    -DGTest_SOURCE=${GTest_SOURCE:-BUNDLED} \
     -DPARQUET_BUILD_EXAMPLES=ON \
     -DPARQUET_BUILD_EXECUTABLES=ON \
     -DPARQUET_REQUIRE_ENCRYPTION=ON \
