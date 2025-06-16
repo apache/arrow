@@ -61,6 +61,8 @@ using UnsignedIntegerTypes =
 // TODO(kszucs): add half-float
 using FloatingTypes = testing::Types<FloatType, DoubleType>;
 
+using HalfFloatTypes = testing::Types<HalfFloatType>;
+
 // Assert that all-null-type inputs results in a null-type output.
 void AssertNullToNull(const std::string& func_name) {
   SCOPED_TRACE(func_name);
@@ -224,6 +226,9 @@ class TestUnaryArithmeticUnsigned : public TestUnaryArithmeticIntegral<T> {};
 
 template <typename T>
 class TestUnaryArithmeticFloating : public TestUnaryArithmetic<T> {};
+
+template <typename T>
+class TestUnaryArithmeticHalfFloat : public TestUnaryArithmetic<T> {};
 
 class TestArithmeticDecimal : public ::testing::Test {
  protected:
@@ -499,6 +504,7 @@ TYPED_TEST_SUITE(TestUnaryArithmeticIntegral, IntegralTypes);
 TYPED_TEST_SUITE(TestUnaryArithmeticSigned, SignedIntegerTypes);
 TYPED_TEST_SUITE(TestUnaryArithmeticUnsigned, UnsignedIntegerTypes);
 TYPED_TEST_SUITE(TestUnaryArithmeticFloating, FloatingTypes);
+TYPED_TEST_SUITE(TestUnaryArithmeticHalfFloat, HalfFloatTypes);
 
 TYPED_TEST_SUITE(TestBinaryArithmeticIntegral, IntegralTypes);
 TYPED_TEST_SUITE(TestBinaryArithmeticSigned, SignedIntegerTypes);
@@ -2927,12 +2933,18 @@ TYPED_TEST(TestUnaryArithmeticFloating, Sign) {
   this->AssertUnaryOp(sign, this->MakeScalar(max), this->MakeScalar(1));
 }
 
-TEST(TestUnaryArithmeticHalfFloat, Negate) {
-  CheckScalar("negate", {ArrayFromJSON(float16(), "[1.0, -2.5, null, Inf]")},
-              ArrayFromJSON(float16(), "[-1.0, 2.5, null, -Inf]"));
+TYPED_TEST(TestUnaryArithmeticHalfFloat, Negate) {
+  CheckScalar("negate", {ArrayFromJSON(float16(), "[0.0, 1.0, -2.5, null, Inf]")},
+              ArrayFromJSON(float16(), "[-0.0, -1.0, 2.5, null, -Inf]"));
+
+  // CheckScalar above complains when trying to compare NaN and negated(NaN)
+  this->SetNansEqual(true);
+  this->AssertUnaryOp(Negate, "[NaN]", "[NaN]");
+  this->AssertUnaryOp(Negate, "[NaN]", "[-NaN]");
+  this->AssertUnaryOp(Negate, "[-NaN]", "[NaN]");
 }
 
-TEST(TestUnaryArithmeticHalfFloat, Sign) {
+TYPED_TEST(TestUnaryArithmeticHalfFloat, Sign) {
   CheckScalar("sign", {ArrayFromJSON(float16(), "[0, 1.0, -2.5, NaN, null, Inf, -Inf]")},
               ArrayFromJSON(float16(), "[0, 1, -1, NaN, null, 1, -1]"));
 }
