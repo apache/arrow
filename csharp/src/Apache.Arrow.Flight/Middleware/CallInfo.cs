@@ -13,15 +13,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Apache.Arrow.Flight.Sql;
+using Grpc.Core;
 
-public static class SqlAction
+namespace Apache.Arrow.Flight.Middleware;
+
+public readonly struct CallInfo
 {
-    public const string CreateRequest = "CreatePreparedStatement";
-    public const string CloseRequest = "ClosePreparedStatement";
-    public const string CancelFlightInfoRequest = "CancelFlightInfo";
-    public const string BeginTransactionRequest = "BeginTransaction";
-    public const string CommitRequest = "CommitTransaction";
-    public const string RollbackRequest = "RollbackTransaction";
-    public const string GetPrimaryKeysRequest = "GetPrimaryKeys";
+    public string Method { get; }
+    public MethodType MethodType { get; }
+
+    public CallInfo(string method, MethodType methodType)
+    {
+        Method = method;
+        MethodType = methodType;
+    }
+
+    public override string ToString()
+    {
+        return $"{MethodType}: {Method}";
+    }
 }
