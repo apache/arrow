@@ -664,6 +664,15 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
     UnsafeAppend(value.data(), static_cast<int64_t>(value.size()));
   }
 
+  /// \brief Append a buffer of raw bytes to the internal data heap
+  ///
+  /// This method is used to add out-of-line data buffers to the builder.
+  /// The size of the buffer must be larger than TypeClass::kInlineSize.
+  ///
+  /// \param[in] value Pointer to the raw byte data.
+  /// \param[in] length The number of bytes in the buffer.
+  /// \return A Result containing the index of the newly appended buffer on success,
+  ///         or a Status error if the length is too small or allocation fails.
   Result<int32_t> AppendBuffer(const uint8_t* value, const int64_t length) {
     if (ARROW_PREDICT_FALSE(length <= TypeClass::kInlineSize)) {
       return Status::Invalid(
@@ -683,14 +692,28 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
     return AppendBuffer(value.data(), static_cast<int64_t>(value.size()));
   }
 
+  Result<int32_t> AppendBuffer(const std::string_view value) {
+    return AppendBuffer(value.data(), static_cast<int64_t>(value.size()));
+  }
+
   Status AppendViewFromBuffer(const int32_t buffer_idx, const int32_t start,
                               const int32_t length) {
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(true);
-    ARROW_ASSIGN_OR_RAISE(
-        auto v, data_heap_builder_.GetViewFromBuffer<true>(buffer_idx, start, length));
+    ARROW_ASSIGN_OR_RAISE(const auto v, data_heap_builder_.GetViewFromBuffer<true>(
+                                            buffer_idx, start, length));
     data_builder_.UnsafeAppend(v);
     return Status::OK();
+  }
+
+  /// \pre The caller must ensure that:
+  ///      - `buffer_idx` is a valid index for buffer.
+  ///      - `start` and `length` define a valid range within the specified buffer.
+  void UnsafeAppendViewFromBuffer(const int32_t buffer_idx, const int32_t start,
+                                  const int32_t length) {
+    UnsafeAppendToBitmap(true);
+    const auto v = data_heap_builder_.GetViewFromBuffer<false>(buffer_idx, start, length);
+    data_builder_.UnsafeAppend(v);
   }
 
   /// \brief Ensures there is enough allocated available capacity in the

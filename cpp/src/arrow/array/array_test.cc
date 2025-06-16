@@ -1000,7 +1000,7 @@ TEST_F(TestArray, TestBinaryViewAppendArraySlice) {
   AssertArraysEqual(*src, *dst);
 }
 
-TEST_F(TestArray, BinaryViewFromBlock) {
+TEST_F(TestArray, BinaryViewFromBuffer) {
   for (auto seed : {0u, 0xdeadbeef, 42u}) {
     constexpr int32_t n_bytes = 4000;
     constexpr int32_t n_test_case = 20;
