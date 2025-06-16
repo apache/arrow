@@ -20,7 +20,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -2931,12 +2930,6 @@ TYPED_TEST(TestUnaryArithmeticFloating, Sign) {
 TEST(TestUnaryArithmeticHalfFloat, Negate) {
   CheckScalar("negate", {ArrayFromJSON(float16(), "[1.0, -2.5, null, Inf]")},
               ArrayFromJSON(float16(), "[-1.0, 2.5, null, -Inf]"));
-
-  // Negating actual uint16s wraps around
-  // TODO does this need to be portable?
-  CheckScalar("negate", {ArrayFromJSON(uint16(), "[0, 1]")},
-              ArrayFromJSON(uint16(), "[0, 65535]"));
-
 }
 
 TEST(TestUnaryArithmeticHalfFloat, Sign) {

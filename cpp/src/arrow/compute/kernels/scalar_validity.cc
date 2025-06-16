@@ -16,7 +16,6 @@
 // under the License.
 
 #include <cmath>
-#include <iostream> // remove when testing done
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common_internal.h"
@@ -142,7 +141,7 @@ struct IsNanOperator {
       auto val = Float16::FromBits(static_cast<uint16_t>(value));
       return val.is_nan();
     }
-    
+
     return std::isnan(value);
   }
 };
