@@ -16,6 +16,7 @@
 # under the License.
 
 from pyarrow.includes.libarrow cimport GetBuildInfo
+cimport pyarrow.includes.libarrow_python_config as libarrow_python_config
 
 from collections import namedtuple
 import os
@@ -75,6 +76,27 @@ def runtime_info():
     return RuntimeInfo(
         simd_level=frombytes(c_info.simd_level),
         detected_simd_level=frombytes(c_info.detected_simd_level))
+
+
+PythonBuildInfo = namedtuple(
+    'PythonBuildInfo',
+    ('build_type'))
+
+
+def pa_build_info():
+    """
+    Get PyArrow build information.
+
+    Returns
+    -------
+    info : pyarrow.PythonBuildInfo
+    """
+    cdef:
+        const libarrow_python_config.CBuildInfo* c_info
+
+    c_info = &libarrow_python_config.GetBuildInfo()
+
+    return PythonBuildInfo(build_type=c_info.build_type.decode('utf-8').lower())
 
 
 def set_timezone_db_path(path):
