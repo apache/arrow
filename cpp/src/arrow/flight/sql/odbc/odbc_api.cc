@@ -234,6 +234,7 @@ SQLRETURN SQLGetDiagFieldW(SQLSMALLINT handleType, SQLHANDLE handle,
   using ODBC::GetStringAttribute;
   using ODBC::ODBCConnection;
   using ODBC::ODBCEnvironment;
+  using ODBC::ODBCStatement;
 
   LOG_DEBUG(
       "SQLGetDiagFieldW called with handleType: {}, handle: {}, recNumber: {}, "
@@ -277,7 +278,9 @@ SQLRETURN SQLGetDiagFieldW(SQLSMALLINT handleType, SQLHANDLE handle,
     }
 
     case SQL_HANDLE_STMT: {
-      return SQL_ERROR;
+      ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(handle);
+      diagnostics = &statement->GetDiagnostics();
+      break;
     }
 
     default:
@@ -308,12 +311,44 @@ SQLRETURN SQLGetDiagFieldW(SQLSMALLINT handleType, SQLHANDLE handle,
       return SQL_SUCCESS;
     }
 
-    // TODO Implement statement header functions
-    case SQL_DIAG_CURSOR_ROW_COUNT:
+    case SQL_DIAG_CURSOR_ROW_COUNT: {
+      if (handleType == SQL_HANDLE_STMT) {
+        if (diagInfoPtr) {
+          // Will always be 0 if only select supported
+          *static_cast<SQLLEN*>(diagInfoPtr) = 0;
+        }
+
+        if (stringLengthPtr) {
+          *stringLengthPtr = sizeof(SQLLEN);
+        }
+
+        return SQL_SUCCESS;
+      }
+
+      return SQL_ERROR;
+    }
+
+    // Not supported
     case SQL_DIAG_DYNAMIC_FUNCTION:
-    case SQL_DIAG_DYNAMIC_FUNCTION_CODE:
+    case SQL_DIAG_DYNAMIC_FUNCTION_CODE: {
+      if (handleType == SQL_HANDLE_STMT) {
+        return SQL_SUCCESS;
+      }
+
+      return SQL_ERROR;
+    }
+
     case SQL_DIAG_ROW_COUNT: {
       if (handleType == SQL_HANDLE_STMT) {
+        if (diagInfoPtr) {
+          // Will always be 0 if only select supported
+          *static_cast<SQLLEN*>(diagInfoPtr) = 0;
+        }
+
+        if (stringLengthPtr) {
+          *stringLengthPtr = sizeof(SQLLEN);
+        }
+
         return SQL_SUCCESS;
       }
 
@@ -372,8 +407,11 @@ SQLRETURN SQLGetDiagFieldW(SQLSMALLINT handleType, SQLHANDLE handle,
           }
 
           case SQL_HANDLE_STMT: {
-            // TODO Implement for case of statement
-            return SQL_ERROR;
+            ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(handle);
+            ODBCConnection* connection = &statement->GetConnection();
+            std::string dsn = connection->GetDSN();
+            return GetStringAttribute(isUnicode, dsn, true, diagInfoPtr, bufferLength,
+                                      stringLengthPtr, *diagnostics);
           }
 
           default:
@@ -445,10 +483,10 @@ SQLRETURN SQLGetDiagRecW(SQLSMALLINT handleType, SQLHANDLE handle, SQLSMALLINT r
                          SQLWCHAR* messageText, SQLSMALLINT bufferLength,
                          SQLSMALLINT* textLengthPtr) {
   using driver::odbcabstraction::Diagnostics;
-  using ODBC::ConvertToSqlWChar;
   using ODBC::GetStringAttribute;
   using ODBC::ODBCConnection;
   using ODBC::ODBCEnvironment;
+  using ODBC::ODBCStatement;
 
   LOG_DEBUG(
       "SQLGetDiagRecW called with handleType: {}, handle: {}, recNumber: {}, "
@@ -488,7 +526,8 @@ SQLRETURN SQLGetDiagRecW(SQLSMALLINT handleType, SQLHANDLE handle, SQLSMALLINT r
     }
 
     case SQL_HANDLE_STMT: {
-      return SQL_ERROR;
+      auto* statement = ODBCStatement::of(handle);
+      diagnostics = &statement->GetDiagnostics();
     }
 
     default:
