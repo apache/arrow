@@ -61,20 +61,20 @@ SQLRETURN SQL_API SQLFreeStmt(SQLHSTMT stmt, SQLUSMALLINT option) {
   return arrow::SQLFreeStmt(stmt, option);
 }
 
-SQLRETURN SQL_API SQLGetDiagFieldW(SQLSMALLINT handleType, SQLHANDLE handle,
-                                   SQLSMALLINT recNumber, SQLSMALLINT diagIdentifier,
-                                   SQLPOINTER diagInfoPtr, SQLSMALLINT bufferLength,
-                                   SQLSMALLINT* stringLengthPtr) {
-  return arrow::SQLGetDiagFieldW(handleType, handle, recNumber, diagIdentifier,
-                                 diagInfoPtr, bufferLength, stringLengthPtr);
+SQLRETURN SQL_API SQLGetDiagField(SQLSMALLINT handleType, SQLHANDLE handle,
+                                  SQLSMALLINT recNumber, SQLSMALLINT diagIdentifier,
+                                  SQLPOINTER diagInfoPtr, SQLSMALLINT bufferLength,
+                                  SQLSMALLINT* stringLengthPtr) {
+  return arrow::SQLGetDiagField(handleType, handle, recNumber, diagIdentifier,
+                                diagInfoPtr, bufferLength, stringLengthPtr);
 }
 
-SQLRETURN SQL_API SQLGetDiagRecW(SQLSMALLINT handleType, SQLHANDLE handle,
-                                 SQLSMALLINT recNumber, SQLWCHAR* sqlState,
-                                 SQLINTEGER* nativeErrorPtr, SQLWCHAR* messageText,
-                                 SQLSMALLINT bufferLength, SQLSMALLINT* textLengthPtr) {
-  return arrow::SQLGetDiagRecW(handleType, handle, recNumber, sqlState, nativeErrorPtr,
-                               messageText, bufferLength, textLengthPtr);
+SQLRETURN SQL_API SQLGetDiagRec(SQLSMALLINT handleType, SQLHANDLE handle,
+                                SQLSMALLINT recNumber, SQLWCHAR* sqlState,
+                                SQLINTEGER* nativeErrorPtr, SQLWCHAR* messageText,
+                                SQLSMALLINT bufferLength, SQLSMALLINT* textLengthPtr) {
+  return arrow::SQLGetDiagRec(handleType, handle, recNumber, sqlState, nativeErrorPtr,
+                              messageText, bufferLength, textLengthPtr);
 }
 
 SQLRETURN SQL_API SQLGetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER valuePtr,
@@ -87,36 +87,35 @@ SQLRETURN SQL_API SQLSetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER valuePt
   return arrow::SQLSetEnvAttr(env, attr, valuePtr, strLen);
 }
 
-SQLRETURN SQL_API SQLSetConnectAttrW(SQLHDBC conn, SQLINTEGER attr, SQLPOINTER value,
-                                     SQLINTEGER valueLen) {
+SQLRETURN SQL_API SQLSetConnectAttr(SQLHDBC conn, SQLINTEGER attr, SQLPOINTER value,
+                                    SQLINTEGER valueLen) {
   LOG_DEBUG("SQLSetConnectAttrW called with conn: {}, attr: {}, value: {}, valueLen: {}",
             conn, attr, value, valueLen);
   return SQL_ERROR;
 }
 
-SQLRETURN SQL_API SQLGetInfoW(SQLHDBC conn, SQLUSMALLINT infoType,
-                              SQLPOINTER infoValuePtr, SQLSMALLINT bufLen,
-                              SQLSMALLINT* length) {
-  return arrow::SQLGetInfoW(conn, infoType, infoValuePtr, bufLen, length);
+SQLRETURN SQL_API SQLGetInfo(SQLHDBC conn, SQLUSMALLINT infoType, SQLPOINTER infoValuePtr,
+                             SQLSMALLINT bufLen, SQLSMALLINT* length) {
+  return arrow::SQLGetInfo(conn, infoType, infoValuePtr, bufLen, length);
 }
 
-SQLRETURN SQL_API SQLDriverConnectW(SQLHDBC conn, SQLHWND windowHandle,
-                                    SQLWCHAR* inConnectionString,
-                                    SQLSMALLINT inConnectionStringLen,
-                                    SQLWCHAR* outConnectionString,
-                                    SQLSMALLINT outConnectionStringBufferLen,
-                                    SQLSMALLINT* outConnectionStringLen,
-                                    SQLUSMALLINT driverCompletion) {
-  return arrow::SQLDriverConnectW(
+SQLRETURN SQL_API SQLDriverConnect(SQLHDBC conn, SQLHWND windowHandle,
+                                   SQLWCHAR* inConnectionString,
+                                   SQLSMALLINT inConnectionStringLen,
+                                   SQLWCHAR* outConnectionString,
+                                   SQLSMALLINT outConnectionStringBufferLen,
+                                   SQLSMALLINT* outConnectionStringLen,
+                                   SQLUSMALLINT driverCompletion) {
+  return arrow::SQLDriverConnect(
       conn, windowHandle, inConnectionString, inConnectionStringLen, outConnectionString,
       outConnectionStringBufferLen, outConnectionStringLen, driverCompletion);
 }
 
-SQLRETURN SQL_API SQLConnectW(SQLHDBC conn, SQLWCHAR* dsnName, SQLSMALLINT dsnNameLen,
-                              SQLWCHAR* userName, SQLSMALLINT userNameLen,
-                              SQLWCHAR* password, SQLSMALLINT passwordLen) {
-  return arrow::SQLConnectW(conn, dsnName, dsnNameLen, userName, userNameLen, password,
-                            passwordLen);
+SQLRETURN SQL_API SQLConnect(SQLHDBC conn, SQLWCHAR* dsnName, SQLSMALLINT dsnNameLen,
+                             SQLWCHAR* userName, SQLSMALLINT userNameLen,
+                             SQLWCHAR* password, SQLSMALLINT passwordLen) {
+  return arrow::SQLConnect(conn, dsnName, dsnNameLen, userName, userNameLen, password,
+                           passwordLen);
 }
 
 SQLRETURN SQL_API SQLDisconnect(SQLHDBC conn) { return arrow::SQLDisconnect(conn); }
@@ -142,11 +141,11 @@ SQLRETURN SQL_API SQLCloseCursor(SQLHSTMT statementHandle) {
   return SQL_ERROR;
 }
 
-SQLRETURN SQL_API SQLColAttributeW(SQLHSTMT statementHandle, SQLUSMALLINT columnNumber,
-                                   SQLUSMALLINT fieldIdentifier,
-                                   SQLPOINTER characterAttributePtr,
-                                   SQLSMALLINT bufferLength, SQLSMALLINT* stringLengthPtr,
-                                   SQLLEN* numericAttributePtr) {
+SQLRETURN SQL_API SQLColAttribute(SQLHSTMT statementHandle, SQLUSMALLINT columnNumber,
+                                  SQLUSMALLINT fieldIdentifier,
+                                  SQLPOINTER characterAttributePtr,
+                                  SQLSMALLINT bufferLength, SQLSMALLINT* stringLengthPtr,
+                                  SQLLEN* numericAttributePtr) {
   LOG_DEBUG(
       "SQLColAttributeW called with statementHandle: {}, columnNumber: {}, "
       "fieldIdentifier: {}, characterAttributePtr: {}, bufferLength: {}, "
@@ -156,11 +155,11 @@ SQLRETURN SQL_API SQLColAttributeW(SQLHSTMT statementHandle, SQLUSMALLINT column
   return SQL_ERROR;
 }
 
-SQLRETURN SQL_API SQLColumnsW(SQLHSTMT statementHandle, SQLWCHAR* catalogName,
-                              SQLSMALLINT catalogNameLength, SQLWCHAR* schemaName,
-                              SQLSMALLINT schemaNameLength, SQLWCHAR* tableName,
-                              SQLSMALLINT tableNameLength, SQLWCHAR* columnName,
-                              SQLSMALLINT columnNameLength) {
+SQLRETURN SQL_API SQLColumns(SQLHSTMT statementHandle, SQLWCHAR* catalogName,
+                             SQLSMALLINT catalogNameLength, SQLWCHAR* schemaName,
+                             SQLSMALLINT schemaNameLength, SQLWCHAR* tableName,
+                             SQLSMALLINT tableNameLength, SQLWCHAR* columnName,
+                             SQLSMALLINT columnNameLength) {
   LOG_DEBUG(
       "SQLColumnsW called with statementHandle: {}, catalogName: {}, catalogNameLength: "
       "{}, "
@@ -173,10 +172,10 @@ SQLRETURN SQL_API SQLColumnsW(SQLHSTMT statementHandle, SQLWCHAR* catalogName,
   return SQL_ERROR;
 }
 
-SQLRETURN SQL_API SQLErrorW(SQLHENV handleType, SQLHDBC handle, SQLHSTMT hstmt,
-                            SQLWCHAR FAR* szSqlState, SQLINTEGER FAR* pfNativeError,
-                            SQLWCHAR FAR* szErrorMsg, SQLSMALLINT cbErrorMsgMax,
-                            SQLSMALLINT FAR* pcbErrorMsg) {
+SQLRETURN SQL_API SQLError(SQLHENV handleType, SQLHDBC handle, SQLHSTMT hstmt,
+                           SQLWCHAR FAR* szSqlState, SQLINTEGER FAR* pfNativeError,
+                           SQLWCHAR FAR* szErrorMsg, SQLSMALLINT cbErrorMsgMax,
+                           SQLSMALLINT FAR* pcbErrorMsg) {
   LOG_DEBUG(
       "SQLErrorW called with handleType: {}, handle: {}, hstmt: {}, szSqlState: {}, "
       "pfNativeError: {}, szErrorMsg: {}, cbErrorMsgMax: {}, pcbErrorMsg: {}",
@@ -185,8 +184,8 @@ SQLRETURN SQL_API SQLErrorW(SQLHENV handleType, SQLHDBC handle, SQLHSTMT hstmt,
   return SQL_ERROR;
 }
 
-SQLRETURN SQL_API SQLExecDirectW(SQLHSTMT statementHandle, SQLWCHAR* statementText,
-                                 SQLINTEGER textLength) {
+SQLRETURN SQL_API SQLExecDirect(SQLHSTMT statementHandle, SQLWCHAR* statementText,
+                                SQLINTEGER textLength) {
   LOG_DEBUG(
       "SQLExecDirectW called with statementHandle: {}, statementText: {}, textLength: {}",
       statementHandle, fmt::ptr(statementText), textLength);
@@ -203,13 +202,13 @@ SQLRETURN SQL_API SQLFetch(SQLHSTMT statementHandle) {
   return SQL_ERROR;
 }
 
-SQLRETURN SQL_API SQLForeignKeysW(SQLHSTMT statementHandle, SQLWCHAR* pKCatalogName,
-                                  SQLSMALLINT pKCatalogNameLength, SQLWCHAR* pKSchemaName,
-                                  SQLSMALLINT pKSchemaNameLength, SQLWCHAR* pKTableName,
-                                  SQLSMALLINT pKTableNameLength, SQLWCHAR* fKCatalogName,
-                                  SQLSMALLINT fKCatalogNameLength, SQLWCHAR* fKSchemaName,
-                                  SQLSMALLINT fKSchemaNameLength, SQLWCHAR* fKTableName,
-                                  SQLSMALLINT fKTableNameLength) {
+SQLRETURN SQL_API SQLForeignKeys(SQLHSTMT statementHandle, SQLWCHAR* pKCatalogName,
+                                 SQLSMALLINT pKCatalogNameLength, SQLWCHAR* pKSchemaName,
+                                 SQLSMALLINT pKSchemaNameLength, SQLWCHAR* pKTableName,
+                                 SQLSMALLINT pKTableNameLength, SQLWCHAR* fKCatalogName,
+                                 SQLSMALLINT fKCatalogNameLength, SQLWCHAR* fKSchemaName,
+                                 SQLSMALLINT fKSchemaNameLength, SQLWCHAR* fKTableName,
+                                 SQLSMALLINT fKTableNameLength) {
   LOG_DEBUG(
       "SQLForeignKeysW called with statementHandle: {}, pKCatalogName: {}, "
       "pKCatalogNameLength: "
@@ -226,9 +225,9 @@ SQLRETURN SQL_API SQLForeignKeysW(SQLHSTMT statementHandle, SQLWCHAR* pKCatalogN
   return SQL_ERROR;
 }
 
-SQLRETURN SQL_API SQLGetConnectAttrW(SQLHDBC connectionHandle, SQLINTEGER attribute,
-                                     SQLPOINTER valuePtr, SQLINTEGER bufferLength,
-                                     SQLINTEGER* stringLengthPtr) {
+SQLRETURN SQL_API SQLGetConnectAttr(SQLHDBC connectionHandle, SQLINTEGER attribute,
+                                    SQLPOINTER valuePtr, SQLINTEGER bufferLength,
+                                    SQLINTEGER* stringLengthPtr) {
   LOG_DEBUG(
       "SQLGetConnectAttrW called with connectionHandle: {}, attribute: {}, valuePtr: {}, "
       "bufferLength: {}, stringLengthPtr: {}",
@@ -247,9 +246,9 @@ SQLRETURN SQL_API SQLGetData(SQLHSTMT statementHandle, SQLUSMALLINT col_or_Param
   return SQL_ERROR;
 }
 
-SQLRETURN SQL_API SQLGetStmtAttrW(SQLHSTMT statementHandle, SQLINTEGER attribute,
-                                  SQLPOINTER valuePtr, SQLINTEGER bufferLength,
-                                  SQLINTEGER* stringLengthPtr) {
+SQLRETURN SQL_API SQLGetStmtAttr(SQLHSTMT statementHandle, SQLINTEGER attribute,
+                                 SQLPOINTER valuePtr, SQLINTEGER bufferLength,
+                                 SQLINTEGER* stringLengthPtr) {
   LOG_DEBUG(
       "SQLGetStmtAttrW called with statementHandle: {}, attribute: {}, valuePtr: {}, "
       "bufferLength: {}, stringLengthPtr: {}",
@@ -257,7 +256,7 @@ SQLRETURN SQL_API SQLGetStmtAttrW(SQLHSTMT statementHandle, SQLINTEGER attribute
   return SQL_ERROR;
 }
 
-SQLRETURN SQL_API SQLGetTypeInfoW(SQLHSTMT statementHandle, SQLSMALLINT dataType) {
+SQLRETURN SQL_API SQLGetTypeInfo(SQLHSTMT statementHandle, SQLSMALLINT dataType) {
   LOG_DEBUG("SQLGetTypeInfoW called with statementHandle: {} dataType: {}",
             statementHandle, dataType);
   return SQL_ERROR;
@@ -268,10 +267,10 @@ SQLRETURN SQL_API SQLMoreResults(SQLHSTMT statementHandle) {
   return SQL_ERROR;
 }
 
-SQLRETURN SQL_API SQLNativeSqlW(SQLHDBC connectionHandle, SQLWCHAR* inStatementText,
-                                SQLINTEGER inStatementTextLength,
-                                SQLWCHAR* outStatementText, SQLINTEGER bufferLength,
-                                SQLINTEGER* outStatementTextLength) {
+SQLRETURN SQL_API SQLNativeSql(SQLHDBC connectionHandle, SQLWCHAR* inStatementText,
+                               SQLINTEGER inStatementTextLength,
+                               SQLWCHAR* outStatementText, SQLINTEGER bufferLength,
+                               SQLINTEGER* outStatementTextLength) {
   LOG_DEBUG(
       "SQLNativeSqlW called with connectionHandle: {}, inStatementText: {}, "
       "inStatementTextLength: "
@@ -288,18 +287,18 @@ SQLRETURN SQL_API SQLNumResultCols(SQLHSTMT statementHandle,
   return SQL_ERROR;
 }
 
-SQLRETURN SQL_API SQLPrepareW(SQLHSTMT statementHandle, SQLWCHAR* statementText,
-                              SQLINTEGER textLength) {
+SQLRETURN SQL_API SQLPrepare(SQLHSTMT statementHandle, SQLWCHAR* statementText,
+                             SQLINTEGER textLength) {
   LOG_DEBUG(
       "SQLPrepareW called with statementHandle: {}, statementText: {}, textLength: {}",
       statementHandle, fmt::ptr(statementText), textLength);
   return SQL_ERROR;
 }
 
-SQLRETURN SQL_API SQLPrimaryKeysW(SQLHSTMT statementHandle, SQLWCHAR* catalogName,
-                                  SQLSMALLINT catalogNameLength, SQLWCHAR* schemaName,
-                                  SQLSMALLINT schemaNameLength, SQLWCHAR* tableName,
-                                  SQLSMALLINT tableNameLength) {
+SQLRETURN SQL_API SQLPrimaryKeys(SQLHSTMT statementHandle, SQLWCHAR* catalogName,
+                                 SQLSMALLINT catalogNameLength, SQLWCHAR* schemaName,
+                                 SQLSMALLINT schemaNameLength, SQLWCHAR* tableName,
+                                 SQLSMALLINT tableNameLength) {
   LOG_DEBUG(
       "SQLPrimaryKeysW called with statementHandle: {}, catalogName: {}, "
       "catalogNameLength: "
@@ -309,8 +308,8 @@ SQLRETURN SQL_API SQLPrimaryKeysW(SQLHSTMT statementHandle, SQLWCHAR* catalogNam
   return SQL_ERROR;
 }
 
-SQLRETURN SQL_API SQLSetStmtAttrW(SQLHSTMT statementHandle, SQLINTEGER attribute,
-                                  SQLPOINTER valuePtr, SQLINTEGER stringLength) {
+SQLRETURN SQL_API SQLSetStmtAttr(SQLHSTMT statementHandle, SQLINTEGER attribute,
+                                 SQLPOINTER valuePtr, SQLINTEGER stringLength) {
   LOG_DEBUG(
       "SQLSetStmtAttrW called with statementHandle: {}, attribute: {}, valuePtr: {}, "
       "stringLength: {}",
@@ -318,11 +317,11 @@ SQLRETURN SQL_API SQLSetStmtAttrW(SQLHSTMT statementHandle, SQLINTEGER attribute
   return SQL_ERROR;
 }
 
-SQLRETURN SQL_API SQLTablesW(SQLHSTMT statementHandle, SQLWCHAR* catalogName,
-                             SQLSMALLINT catalogNameLength, SQLWCHAR* schemaName,
-                             SQLSMALLINT schemaNameLength, SQLWCHAR* tableName,
-                             SQLSMALLINT tableNameLength, SQLWCHAR* tableType,
-                             SQLSMALLINT tableTypeLength) {
+SQLRETURN SQL_API SQLTables(SQLHSTMT statementHandle, SQLWCHAR* catalogName,
+                            SQLSMALLINT catalogNameLength, SQLWCHAR* schemaName,
+                            SQLSMALLINT schemaNameLength, SQLWCHAR* tableName,
+                            SQLSMALLINT tableNameLength, SQLWCHAR* tableType,
+                            SQLSMALLINT tableTypeLength) {
   LOG_DEBUG(
       "SQLTablesW called with statementHandle: {}, catalogName: {}, catalogNameLength: "
       "{}, "

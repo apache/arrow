@@ -54,7 +54,7 @@ bool DisplayConnectionWindow(void* windowParent, Configuration& config,
  * @param driver Driver.
  * @return True on success and false on fail.
  */
-bool RegisterDsn(const Configuration& config, LPCSTR driver);
+bool RegisterDsn(const Configuration& config, LPCWSTR driver);
 
 /**
  * Unregister specified DSN.
@@ -62,4 +62,4 @@ bool RegisterDsn(const Configuration& config, LPCSTR driver);
  * @param dsn DSN name.
  * @return True on success and false on fail.
  */
-bool UnregisterDsn(const std::string& dsn);
+bool UnregisterDsn(const std::wstring& dsn);

@@ -19,8 +19,6 @@ add_custom_target(tests)
 
 include_directories(${ODBC_INCLUDE_DIRS})
 
-add_definitions(-DUNICODE=1)
-
 find_package(SQLite3Alt REQUIRED)
 
 set(ARROW_FLIGHT_SQL_MOCK_SERVER_SRCS

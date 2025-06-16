@@ -17,6 +17,9 @@
 
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h"
 
+#include "arrow/result.h"
+#include "arrow/util/utf8.h"
+
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/attribute_utils.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_descriptor.h"
@@ -56,40 +59,44 @@ const boost::xpressive::sregex CONNECTION_STR_REGEX(
 void loadPropertiesFromDSN(const std::string& dsn,
                            Connection::ConnPropertyMap& properties) {
   const size_t BUFFER_SIZE = 1024 * 10;
-  std::vector<char> outputBuffer;
+  std::vector<wchar_t> outputBuffer;
   outputBuffer.resize(BUFFER_SIZE, '\0');
   SQLSetConfigMode(ODBC_BOTH_DSN);
 
-  SQLGetPrivateProfileString(dsn.c_str(), NULL, "", &outputBuffer[0], BUFFER_SIZE,
-                             "odbc.ini");
+  std::wstring wDsn = arrow::util::UTF8ToWideString(dsn).ValueOr(L"");
+
+  SQLGetPrivateProfileString(wDsn.c_str(), NULL, L"", &outputBuffer[0], BUFFER_SIZE,
+                             L"odbc.ini");
 
   // The output buffer holds the list of keys in a series of NUL-terminated strings.
   // The series is terminated with an empty string (eg a NUL-terminator terminating the
   // last key followed by a NUL terminator after).
-  std::vector<std::string_view> keys;
+  std::vector<std::wstring_view> keys;
   size_t pos = 0;
   while (pos < BUFFER_SIZE) {
-    std::string key(&outputBuffer[pos]);
-    if (key.empty()) {
+    std::wstring wKey(&outputBuffer[pos]);
+    if (wKey.empty()) {
       break;
     }
-    size_t len = key.size();
+    size_t len = wKey.size();
 
     // Skip over Driver or DSN keys.
-    if (!boost::iequals(key, "DSN") && !boost::iequals(key, "Driver")) {
-      keys.emplace_back(std::move(key));
+    if (!boost::iequals(wKey, L"DSN") && !boost::iequals(wKey, L"Driver")) {
+      keys.emplace_back(std::move(wKey));
     }
     pos += len + 1;
   }
 
-  for (auto& key : keys) {
+  for (auto& wKey : keys) {
     outputBuffer.clear();
     outputBuffer.resize(BUFFER_SIZE, '\0');
-    SQLGetPrivateProfileString(dsn.c_str(), key.data(), "", &outputBuffer[0], BUFFER_SIZE,
-                               "odbc.ini");
+    SQLGetPrivateProfileString(wDsn.c_str(), wKey.data(), L"", &outputBuffer[0],
+                               BUFFER_SIZE, L"odbc.ini");
 
-    std::string value = std::string(&outputBuffer[0]);
-    auto propIter = properties.find(std::string(key));
+    std::wstring wValue = std::wstring(&outputBuffer[0]);
+    std::string value = arrow::util::WideStringToUTF8(wValue).ValueOr("");
+    std::string key = arrow::util::WideStringToUTF8(std::wstring(wKey)).ValueOr("");
+    auto propIter = properties.find(key);
     if (propIter == properties.end()) {
       properties.emplace(std::make_pair(std::move(key), std::move(value)));
     }

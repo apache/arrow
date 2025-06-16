@@ -32,29 +32,28 @@ namespace arrow {
 SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result);
 SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle);
 SQLRETURN SQLFreeStmt(SQLHSTMT stmt, SQLUSMALLINT option);
-SQLRETURN SQLGetDiagFieldW(SQLSMALLINT handleType, SQLHANDLE handle,
-                           SQLSMALLINT recNumber, SQLSMALLINT diagIdentifier,
-                           SQLPOINTER diagInfoPtr, SQLSMALLINT bufferLength,
-                           SQLSMALLINT* stringLengthPtr);
-SQLRETURN SQLGetDiagRecW(SQLSMALLINT handleType, SQLHANDLE handle, SQLSMALLINT recNumber,
-                         SQLWCHAR* sqlState, SQLINTEGER* nativeErrorPtr,
-                         SQLWCHAR* messageText, SQLSMALLINT bufferLength,
-                         SQLSMALLINT* textLengthPtr);
+SQLRETURN SQLGetDiagField(SQLSMALLINT handleType, SQLHANDLE handle, SQLSMALLINT recNumber,
+                          SQLSMALLINT diagIdentifier, SQLPOINTER diagInfoPtr,
+                          SQLSMALLINT bufferLength, SQLSMALLINT* stringLengthPtr);
+SQLRETURN SQLGetDiagRec(SQLSMALLINT handleType, SQLHANDLE handle, SQLSMALLINT recNumber,
+                        SQLWCHAR* sqlState, SQLINTEGER* nativeErrorPtr,
+                        SQLWCHAR* messageText, SQLSMALLINT bufferLength,
+                        SQLSMALLINT* textLengthPtr);
 SQLRETURN SQLGetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER valuePtr,
                         SQLINTEGER bufferLen, SQLINTEGER* strLenPtr);
 SQLRETURN SQLSetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER valuePtr,
                         SQLINTEGER strLen);
-SQLRETURN SQLDriverConnectW(SQLHDBC conn, SQLHWND windowHandle,
-                            SQLWCHAR* inConnectionString,
-                            SQLSMALLINT inConnectionStringLen,
-                            SQLWCHAR* outConnectionString,
-                            SQLSMALLINT outConnectionStringBufferLen,
-                            SQLSMALLINT* outConnectionStringLen,
-                            SQLUSMALLINT driverCompletion);
-SQLRETURN SQLConnectW(SQLHDBC conn, SQLWCHAR* dsnName, SQLSMALLINT dsnNameLen,
-                      SQLWCHAR* userName, SQLSMALLINT userNameLen, SQLWCHAR* password,
-                      SQLSMALLINT passwordLen);
+SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND windowHandle,
+                           SQLWCHAR* inConnectionString,
+                           SQLSMALLINT inConnectionStringLen,
+                           SQLWCHAR* outConnectionString,
+                           SQLSMALLINT outConnectionStringBufferLen,
+                           SQLSMALLINT* outConnectionStringLen,
+                           SQLUSMALLINT driverCompletion);
+SQLRETURN SQLConnect(SQLHDBC conn, SQLWCHAR* dsnName, SQLSMALLINT dsnNameLen,
+                     SQLWCHAR* userName, SQLSMALLINT userNameLen, SQLWCHAR* password,
+                     SQLSMALLINT passwordLen);
 SQLRETURN SQLDisconnect(SQLHDBC conn);
-SQLRETURN SQLGetInfoW(SQLHDBC conn, SQLUSMALLINT infoType, SQLPOINTER infoValuePtr,
-                      SQLSMALLINT bufLen, SQLSMALLINT* length);
+SQLRETURN SQLGetInfo(SQLHDBC conn, SQLUSMALLINT infoType, SQLPOINTER infoValuePtr,
+                     SQLSMALLINT bufLen, SQLSMALLINT* length);
 }  // namespace arrow

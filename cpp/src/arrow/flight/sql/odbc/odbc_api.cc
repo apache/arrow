@@ -224,10 +224,9 @@ inline bool IsValidStringFieldArgs(SQLPOINTER diagInfoPtr, SQLSMALLINT bufferLen
   return hasValidBuffer || stringLengthPtr;
 }
 
-SQLRETURN SQLGetDiagFieldW(SQLSMALLINT handleType, SQLHANDLE handle,
-                           SQLSMALLINT recNumber, SQLSMALLINT diagIdentifier,
-                           SQLPOINTER diagInfoPtr, SQLSMALLINT bufferLength,
-                           SQLSMALLINT* stringLengthPtr) {
+SQLRETURN SQLGetDiagField(SQLSMALLINT handleType, SQLHANDLE handle, SQLSMALLINT recNumber,
+                          SQLSMALLINT diagIdentifier, SQLPOINTER diagInfoPtr,
+                          SQLSMALLINT bufferLength, SQLSMALLINT* stringLengthPtr) {
   // TODO: Implement additional fields types
   // https://github.com/apache/arrow/issues/46573
   using driver::odbcabstraction::Diagnostics;
@@ -478,10 +477,10 @@ SQLRETURN SQLGetDiagFieldW(SQLSMALLINT handleType, SQLHANDLE handle,
   return SQL_ERROR;
 }
 
-SQLRETURN SQLGetDiagRecW(SQLSMALLINT handleType, SQLHANDLE handle, SQLSMALLINT recNumber,
-                         SQLWCHAR* sqlState, SQLINTEGER* nativeErrorPtr,
-                         SQLWCHAR* messageText, SQLSMALLINT bufferLength,
-                         SQLSMALLINT* textLengthPtr) {
+SQLRETURN SQLGetDiagRec(SQLSMALLINT handleType, SQLHANDLE handle, SQLSMALLINT recNumber,
+                        SQLWCHAR* sqlState, SQLINTEGER* nativeErrorPtr,
+                        SQLWCHAR* messageText, SQLSMALLINT bufferLength,
+                        SQLSMALLINT* textLengthPtr) {
   using driver::odbcabstraction::Diagnostics;
   using ODBC::GetStringAttribute;
   using ODBC::ODBCConnection;
@@ -677,17 +676,17 @@ SQLRETURN SQLSetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER valuePtr,
   });
 }
 
-SQLRETURN SQLDriverConnectW(SQLHDBC conn, SQLHWND windowHandle,
-                            SQLWCHAR* inConnectionString,
-                            SQLSMALLINT inConnectionStringLen,
-                            SQLWCHAR* outConnectionString,
-                            SQLSMALLINT outConnectionStringBufferLen,
-                            SQLSMALLINT* outConnectionStringLen,
-                            SQLUSMALLINT driverCompletion) {
+SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND windowHandle,
+                           SQLWCHAR* inConnectionString,
+                           SQLSMALLINT inConnectionStringLen,
+                           SQLWCHAR* outConnectionString,
+                           SQLSMALLINT outConnectionStringBufferLen,
+                           SQLSMALLINT* outConnectionStringLen,
+                           SQLUSMALLINT driverCompletion) {
   // TODO: Implement FILEDSN and SAVEFILE keywords according to the spec
   // https://github.com/apache/arrow/issues/46449
 
-  // TODO: Copy connection string properly in SQLDriverConnectW according to the
+  // TODO: Copy connection string properly in SQLDriverConnect according to the
   // spec https://github.com/apache/arrow/issues/46560
 
   using driver::odbcabstraction::Connection;
@@ -712,7 +711,7 @@ SQLRETURN SQLDriverConnectW(SQLHDBC conn, SQLHWND windowHandle,
 
     std::vector<std::string_view> missing_properties;
 
-    // TODO: Implement SQL_DRIVER_COMPLETE_REQUIRED in SQLDriverConnectW according to the
+    // TODO: Implement SQL_DRIVER_COMPLETE_REQUIRED in SQLDriverConnect according to the
     // spec https://github.com/apache/arrow/issues/46448
 #if defined _WIN32 || defined _WIN64
     // Load the DSN window according to driverCompletion
@@ -757,9 +756,9 @@ SQLRETURN SQLDriverConnectW(SQLHDBC conn, SQLHWND windowHandle,
   });
 }
 
-SQLRETURN SQLConnectW(SQLHDBC conn, SQLWCHAR* dsnName, SQLSMALLINT dsnNameLen,
-                      SQLWCHAR* userName, SQLSMALLINT userNameLen, SQLWCHAR* password,
-                      SQLSMALLINT passwordLen) {
+SQLRETURN SQLConnect(SQLHDBC conn, SQLWCHAR* dsnName, SQLSMALLINT dsnNameLen,
+                     SQLWCHAR* userName, SQLSMALLINT userNameLen, SQLWCHAR* password,
+                     SQLSMALLINT passwordLen) {
   using driver::flight_sql::FlightSqlConnection;
   using driver::flight_sql::config::Configuration;
   using ODBC::ODBCConnection;
@@ -811,8 +810,8 @@ SQLRETURN SQLDisconnect(SQLHDBC conn) {
   });
 }
 
-SQLRETURN SQLGetInfoW(SQLHDBC conn, SQLUSMALLINT infoType, SQLPOINTER infoValuePtr,
-                      SQLSMALLINT bufLen, SQLSMALLINT* length) {
+SQLRETURN SQLGetInfo(SQLHDBC conn, SQLUSMALLINT infoType, SQLPOINTER infoValuePtr,
+                     SQLSMALLINT bufLen, SQLSMALLINT* length) {
   // TODO: complete implementation of SQLGetInfoW and write tests
   using ODBC::ODBCConnection;
 

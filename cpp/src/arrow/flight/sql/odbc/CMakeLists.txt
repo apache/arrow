@@ -32,6 +32,8 @@ else()
   set(ODBCINST odbcinst)
 endif()
 
+add_definitions(-DUNICODE=1)
+
 add_subdirectory(flight_sql)
 add_subdirectory(odbcabstraction)
 add_subdirectory(tests)

@@ -19,6 +19,8 @@
 
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_connection.h"
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/config/configuration.h"
+#include "arrow/result.h"
+#include "arrow/util/utf8.h"
 
 #include <odbcinst.h>
 #include <sstream>
@@ -29,14 +31,14 @@ using driver::flight_sql::config::Configuration;
 void PostLastInstallerError() {
 #define BUFFER_SIZE (1024)
   DWORD code;
-  char msg[BUFFER_SIZE];
+  wchar_t msg[BUFFER_SIZE];
   SQLInstallerError(1, &code, msg, BUFFER_SIZE, NULL);
 
-  std::stringstream buf;
-  buf << "Message: \"" << msg << "\", Code: " << code;
-  std::string errorMsg = buf.str();
+  std::wstringstream buf;
+  buf << L"Message: \"" << msg << L"\", Code: " << code;
+  std::wstring errorMsg = buf.str();
 
-  MessageBox(NULL, errorMsg.c_str(), "Error!", MB_ICONEXCLAMATION | MB_OK);
+  MessageBox(NULL, errorMsg.c_str(), L"Error!", MB_ICONEXCLAMATION | MB_OK);
   SQLPostInstallerError(code, errorMsg.c_str());
 }
 
@@ -46,7 +48,7 @@ void PostLastInstallerError() {
  * @param dsn DSN name.
  * @return True on success and false on fail.
  */
-bool UnregisterDsn(const std::string& dsn) {
+bool UnregisterDsn(const std::wstring& dsn) {
   if (SQLRemoveDSNFromIni(dsn.c_str())) {
     return true;
   }
@@ -62,10 +64,11 @@ bool UnregisterDsn(const std::string& dsn) {
  * @param driver Driver.
  * @return True on success and false on fail.
  */
-bool RegisterDsn(const Configuration& config, LPCSTR driver) {
+bool RegisterDsn(const Configuration& config, LPCWSTR driver) {
   const std::string& dsn = config.Get(FlightSqlConnection::DSN);
+  std::wstring wDsn = arrow::util::UTF8ToWideString(dsn).ValueOr(L"");
 
-  if (!SQLWriteDSNToIni(dsn.c_str(), driver)) {
+  if (!SQLWriteDSNToIni(wDsn.c_str(), driver)) {
     PostLastInstallerError();
     return false;
   }
@@ -78,8 +81,10 @@ bool RegisterDsn(const Configuration& config, LPCSTR driver) {
       continue;
     }
 
-    if (!SQLWritePrivateProfileString(dsn.c_str(), key.data(), it->second.c_str(),
-                                      "ODBC.INI")) {
+    std::wstring wKey = arrow::util::UTF8ToWideString(key).ValueOr(L"");
+    std::wstring wValue = arrow::util::UTF8ToWideString(it->second).ValueOr(L"");
+    if (!SQLWritePrivateProfileString(wDsn.c_str(), wKey.c_str(), wValue.c_str(),
+                                      L"ODBC.INI")) {
       PostLastInstallerError();
       return false;
     }

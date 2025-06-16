@@ -262,8 +262,8 @@ bool writeDSN(Connection::ConnPropertyMap properties) {
   }
 
   std::string driver = config.Get(FlightSqlConnection::DRIVER);
-
-  return RegisterDsn(config, driver.c_str());
+  std::wstring wDriver = arrow::util::UTF8ToWideString(driver).ValueOr(L"");
+  return RegisterDsn(config, wDriver.c_str());
 }
 }  // namespace integration_tests
 }  // namespace odbc
