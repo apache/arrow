@@ -59,6 +59,7 @@ class Configuration {
   void Clear();
   bool IsSet(const std::string_view& key) const;
   const std::string& Get(const std::string_view& key) const;
+  void Set(const std::string_view& key, const std::wstring& wValue);
   void Set(const std::string_view& key, const std::string& value);
 
   /**

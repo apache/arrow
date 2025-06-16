@@ -33,6 +33,8 @@ else()
   set(ODBCINST odbcinst)
 endif()
 
+add_definitions(-DUNICODE=1)
+
 add_subdirectory(odbc_impl)
 
 arrow_install_all_headers("arrow/flight/sql/odbc")
