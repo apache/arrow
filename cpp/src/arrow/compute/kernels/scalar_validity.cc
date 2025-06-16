@@ -138,8 +138,7 @@ struct IsNanOperator {
     // this is HalfFloatType, because int types call a different operator
     if constexpr(std::is_same_v<InType, uint16_t>) {
       using ::arrow::util::Float16;
-      auto val = Float16::FromBits(static_cast<uint16_t>(value));
-      return val.is_nan();
+      return Float16::FromBits(static_cast<uint16_t>(value)).is_nan();
     }
 
     return std::isnan(value);
