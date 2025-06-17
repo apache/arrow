@@ -315,6 +315,17 @@ func (c *client) AuthenticateBasicToken(ctx context.Context, username, password 
 		return ctx, err
 	}
 
+	// Ensure stream is properly cleaned up
+	defer func() {
+		// Drain any remaining messages
+		for {
+			_, err := stream.Recv()
+			if err != nil {
+				break
+			}
+		}
+	}()
+
 	err = stream.CloseSend()
 	if err != nil {
 		return ctx, err
