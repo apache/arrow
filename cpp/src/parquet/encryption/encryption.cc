@@ -23,10 +23,13 @@
 #include <utility>
 
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/string.h"
 #include "arrow/util/utf8.h"
 #include "parquet/encryption/encryption_internal.h"
 
 namespace parquet {
+
+using ::arrow::internal::StartsWith;
 
 // integer key retriever
 void IntegerKeyIdRetriever::PutKey(uint32_t key_id, const std::string& key) {
@@ -161,6 +164,73 @@ FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::encrypted_
 
   encrypted_columns_ = encrypted_columns;
   return this;
+}
+
+void FileEncryptionProperties::EncryptSchema(const SchemaDescriptor& schema) {
+  // Check that all columns in columnEncryptionProperties exist in the schema.
+  // Copy the encrypted_columns map as we are going to modify it while iterating it
+  auto encrypted_columns = ColumnPathToEncryptionPropertiesMap(encrypted_columns_);
+  // if columnEncryptionProperties is empty, every column in file schema will be
+  // encrypted with footer key.
+  if (!encrypted_columns.empty()) {
+    std::vector<std::pair<std::string, std::string>> column_path_vec;
+    // First, memorize all column or schema paths of the schema as dot-strings.
+    for (int i = 0; i < schema.num_columns(); i++) {
+      auto column = schema.Column(i);
+      auto column_path = column->path()->ToDotString();
+      auto schema_path = column->schema_path()->ToDotString();
+      column_path_vec.emplace_back(column_path, column_path);
+      if (schema_path != column_path) {
+        column_path_vec.emplace_back(schema_path, column_path);
+      }
+    }
+    // Sort them alphabetically, so that we can use binary-search and look up parent
+    // columns.
+    std::sort(column_path_vec.begin(), column_path_vec.end());
+
+    // Check if encrypted column exists in schema, or if it is a parent field of a column.
+    for (const auto& elem : encrypted_columns) {
+      auto& encrypted_column = elem.first;
+      auto encrypted_column_prefix = encrypted_column + ".";
+
+      // first we look up encrypted_columns as
+      // find first column that equals encrypted_column or starts with encrypted_column
+      auto it = std::lower_bound(
+          column_path_vec.begin(), column_path_vec.end(), encrypted_column,
+          [&](const std::pair<std::string, std::string>& item, const std::string& term) {
+            return item.first < term;
+          });
+      bool matches = false;
+
+      // encrypted_column encrypts column 'it' when 'it' is either equal to
+      // encrypted_column, or 'it' starts with encrypted_column_prefix,
+      // i.e. encrypted_column followed by a '.'
+      while (it != column_path_vec.end() &&
+             (it->first == encrypted_column ||
+              StartsWith(it->first, encrypted_column_prefix))) {
+        // there are columns encrypted by encrypted_column
+        matches = true;
+
+        // add column 'it' to file_encryption_properties.encrypted_columns
+        // when encrypted_column is a parent column or a schema path
+        if (it->second != encrypted_column) {
+          encrypted_columns_.erase(encrypted_column);
+          encrypted_columns_.erase(it->second);
+          encrypted_columns_.emplace(it->second, elem.second);
+        }
+
+        // move to next match
+        ++it;
+      }
+
+      // check encrypted_column matches any existing column
+      if (!matches) {
+        std::stringstream ss;
+        ss << "Encrypted column " + encrypted_column + " not in file schema";
+        throw ParquetException(ss.str());
+      }
+    }
+  }
 }
 
 FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::aad_prefix(
