@@ -1370,25 +1370,25 @@ class BitmapOp : public ::testing::Test {
                    const std::vector<int>& result_bits) {
     std::shared_ptr<Buffer> left, right, out;
     int64_t length{0};
-    uint8_t *left_buffer, *right_buffer;
+    uint8_t *left_data, *right_data;
 
     for (int64_t left_offset : {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120, 65536}) {
       if (left_bits.size() > 0) {
         BitmapFromVector(left_bits, left_offset, &left, &length);
-        left_buffer = left->mutable_data();
+        left_data = left->mutable_data();
       } else {
-        left_buffer = nullptr;
+        left_data = nullptr;
       }
       for (int64_t right_offset : {left_offset, left_offset + 8, left_offset + 40}) {
         if (right_bits.size() > 0) {
           BitmapFromVector(right_bits, right_offset, &right, &length);
-          right_buffer = right->mutable_data();
+          right_data = right->mutable_data();
         } else {
-          right_buffer = nullptr;
+          right_data = nullptr;
         }
         for (int64_t out_offset : {left_offset, left_offset + 16, left_offset + 24}) {
           ASSERT_OK_AND_ASSIGN(
-              out, op.Call(default_memory_pool(), left_buffer, left_offset, right_buffer,
+              out, op.Call(default_memory_pool(), left_data, left_offset, right_data,
                            right_offset, length, out_offset));
           if (out == nullptr) {
             ASSERT_EQ(std::vector<int>{}, result_bits);
@@ -1398,7 +1398,7 @@ class BitmapOp : public ::testing::Test {
 
             // Clear out buffer and try non-allocating version
             std::memset(out->mutable_data(), 0, out->size());
-            auto status = op.Call(left_buffer, left_offset, right_buffer, right_offset,
+            auto status = op.Call(left_data, left_offset, right_data, right_offset,
                                   length, out_offset, out->mutable_data());
             if (status.IsNotImplemented()) {
               ASSERT_EQ(
@@ -1421,27 +1421,27 @@ class BitmapOp : public ::testing::Test {
                      const std::vector<int>& result_bits) {
     std::shared_ptr<Buffer> left, right, out;
     int64_t length{0};
-    uint8_t *left_buffer, *right_buffer;
+    uint8_t *left_data, *right_data;
     auto offset_values = {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120, 65536};
 
     for (int64_t left_offset : offset_values) {
       if (left_bits.size() > 0) {
         BitmapFromVector(left_bits, left_offset, &left, &length);
-        left_buffer = left->mutable_data();
+        left_data = left->mutable_data();
       } else {
-        left_buffer = nullptr;
+        left_data = nullptr;
       }
 
       for (int64_t right_offset : offset_values) {
         if (right_bits.size() > 0) {
           BitmapFromVector(right_bits, right_offset, &right, &length);
-          right_buffer = right->mutable_data();
+          right_data = right->mutable_data();
         } else {
-          right_buffer = nullptr;
+          right_data = nullptr;
         }
         for (int64_t out_offset : offset_values) {
           ASSERT_OK_AND_ASSIGN(
-              out, op.Call(default_memory_pool(), left_buffer, left_offset, right_buffer,
+              out, op.Call(default_memory_pool(), left_data, left_offset, right_data,
                            right_offset, length, out_offset));
           if (out == nullptr) {
             ASSERT_EQ(std::vector<int>{}, result_bits);
@@ -1451,7 +1451,7 @@ class BitmapOp : public ::testing::Test {
 
             // Clear out buffer and try non-allocating version
             std::memset(out->mutable_data(), 0, out->size());
-            auto status = op.Call(left_buffer, left_offset, right_buffer, right_offset,
+            auto status = op.Call(left_data, left_offset, right_data, right_offset,
                                   length, out_offset, out->mutable_data());
             if (status.IsNotImplemented()) {
               ASSERT_EQ(
