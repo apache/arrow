@@ -1475,6 +1475,38 @@ def test_azurefs_options(pickle_module):
     assert pickle_module.loads(pickle_module.dumps(fs4)) == fs4
     assert fs4 != fs3
 
+    fs5 = AzureFileSystem(
+        account_name='fake-account-name',
+        tenant_id='fake-tenant-id',
+        client_id='fake-client-id',
+        client_secret='fake-client-secret'
+    )
+    assert isinstance(fs5, AzureFileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs5)) == fs5
+    assert fs5 != fs4
+
+    error_msg = "All of tenant_id, client_id, and client_secret must be provided"
+    with pytest.raises(ValueError, match=error_msg):
+        AzureFileSystem(
+            account_name='fake-account-name',
+            client_id='fake-client-id',
+            client_secret='fake-client-secret'
+        )
+
+    with pytest.raises(ValueError, match=error_msg):
+        AzureFileSystem(
+            account_name='fake-account-name',
+            tenant_id='fake-tenant-id',
+            client_secret='fake-client-secret'
+        )
+
+    with pytest.raises(ValueError, match=error_msg):
+        AzureFileSystem(
+            account_name='fake-account-name',
+            tenant_id='fake-tenant-id',
+            client_id='fake-client-id'
+        )
+
     with pytest.raises(ValueError):
         AzureFileSystem(account_name='fake-account-name', account_key='fakeaccount',
                         sas_token='fakesastoken')
