@@ -569,6 +569,7 @@ def test_json_extension_type(storage_type):
     _check_roundtrip(
         table,
         pa.table({"ext": pa.array(data, pa.string())}),
+        {"arrow_extensions_enabled": False},
         store_schema=False)
 
     # With arrow_extensions_enabled=True on read, we get a arrow.json back
@@ -576,7 +577,7 @@ def test_json_extension_type(storage_type):
     _check_roundtrip(
         table,
         pa.table({"ext": pa.array(data, pa.json_(pa.string()))}),
-        read_table_kwargs={"arrow_extensions_enabled": True},
+        {"arrow_extensions_enabled": True},
         store_schema=False)
 
 
@@ -594,11 +595,13 @@ def test_uuid_extension_type():
     _check_roundtrip(
         table,
         pa.table({"ext": pa.array(data, pa.binary(16))}),
+        {"arrow_extensions_enabled": False},
         store_schema=False)
     _check_roundtrip(
         table,
         table,
-        {"arrow_extensions_enabled": True}, store_schema=False)
+        {"arrow_extensions_enabled": True},
+        store_schema=False)
 
 
 def test_undefined_logical_type(parquet_test_datadir):
