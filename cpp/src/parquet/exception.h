@@ -23,7 +23,7 @@
 #include <utility>
 
 #include "arrow/type_fwd.h"
-#include "arrow/util/string_util_internal.h"
+#include "arrow/util/string_util.h"
 #include "parquet/platform.h"
 
 // PARQUET-1085

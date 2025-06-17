@@ -40,7 +40,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_util_internal.h"
+#include "arrow/util/string_util.h"
 #include "arrow/util/type_fwd.h"
 
 // NOTE: failing must be inline in the macros below, to get correct file / line number

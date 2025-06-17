@@ -15,15 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/string_util_internal.h"
+#include "arrow/util/string_util.h"
 
 #include <memory>
 #include <sstream>
 
 namespace arrow {
-
 namespace internal {
-namespace detail {
 
 StringStreamWrapper::StringStreamWrapper()
     : sstream_(std::make_unique<std::ostringstream>()), ostream_(*sstream_) {}
@@ -32,6 +30,5 @@ StringStreamWrapper::~StringStreamWrapper() {}
 
 std::string StringStreamWrapper::str() { return sstream_->str(); }
 
-}  // namespace detail
 }  // namespace internal
 }  // namespace arrow
