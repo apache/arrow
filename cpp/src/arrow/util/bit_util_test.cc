@@ -1278,16 +1278,24 @@ struct OptionalBitmapAndOp : public BitmapOperation {
                                        int64_t left_offset, const uint8_t* right,
                                        int64_t right_offset, int64_t length,
                                        int64_t out_offset) const override {
-    return OptionalBitmapAnd(pool, left, left_offset, right, right_offset, length,
-                             out_offset);
+    std::shared_ptr<Buffer> left_buffer, right_buffer;
+    if (right != nullptr) {
+      ARROW_ASSIGN_OR_RAISE(right_buffer,
+                            CopyBitmap(pool, right, 0, length + right_offset));
+    }
+    if (left != nullptr) {
+      ARROW_ASSIGN_OR_RAISE(left_buffer, CopyBitmap(pool, left, 0, length + left_offset));
+    }
+
+    return OptionalBitmapAnd(pool, left_buffer, left_offset, right_buffer, right_offset,
+                             length, out_offset);
   }
 
   Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
               int64_t right_offset, int64_t length, int64_t out_offset,
               uint8_t* out_buffer) const override {
-    OptionalBitmapAnd(left, left_offset, right, right_offset, length, out_offset,
-                      out_buffer);
-    return Status::OK();
+    return Status::NotImplemented(
+        "OptionalBitmapAnd does not implement non-allocation buffer version");
   }
 };
 
@@ -1384,16 +1392,24 @@ class BitmapOp : public ::testing::Test {
                            right_offset, length, out_offset));
           if (out == nullptr) {
             ASSERT_EQ(std::vector<int>{}, result_bits);
-            // TODO(raulcd) This has to test the case of non-allocating buffer
           } else {
             auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
             ASSERT_READER_VALUES(reader, result_bits);
+
             // Clear out buffer and try non-allocating version
             std::memset(out->mutable_data(), 0, out->size());
-            ASSERT_OK(op.Call(left_buffer, left_offset, right_buffer, right_offset,
-                              length, out_offset, out->mutable_data()));
-            reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
-            ASSERT_READER_VALUES(reader, result_bits);
+            auto status = op.Call(left_buffer, left_offset, right_buffer, right_offset,
+                                  length, out_offset, out->mutable_data());
+            if (status.IsNotImplemented()) {
+              ASSERT_EQ(
+                  status.message(),
+                  "OptionalBitmapAnd does not implement non-allocation buffer version");
+              continue;
+            } else {
+              ASSERT_OK(status);
+              reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
+              ASSERT_READER_VALUES(reader, result_bits);
+            }
           }
         }
       }
@@ -1429,17 +1445,24 @@ class BitmapOp : public ::testing::Test {
                            right_offset, length, out_offset));
           if (out == nullptr) {
             ASSERT_EQ(std::vector<int>{}, result_bits);
-            // TODO: This has to test the case of non-allocating buffer
           } else {
             auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
             ASSERT_READER_VALUES(reader, result_bits);
 
             // Clear out buffer and try non-allocating version
             std::memset(out->mutable_data(), 0, out->size());
-            ASSERT_OK(op.Call(left_buffer, left_offset, right_buffer, right_offset,
-                              length, out_offset, out->mutable_data()));
-            reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
-            ASSERT_READER_VALUES(reader, result_bits);
+            auto status = op.Call(left_buffer, left_offset, right_buffer, right_offset,
+                                  length, out_offset, out->mutable_data());
+            if (status.IsNotImplemented()) {
+              ASSERT_EQ(
+                  status.message(),
+                  "OptionalBitmapAnd does not implement non-allocation buffer version");
+              continue;
+            } else {
+              ASSERT_OK(status);
+              reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
+              ASSERT_READER_VALUES(reader, result_bits);
+            }
           }
         }
       }
@@ -1456,7 +1479,6 @@ TEST_F(BitmapOp, OptionalAnd) {
   TestAligned(op, left, right, result);
   TestUnaligned(op, left, right, result);
 
-  result = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   TestAligned(op, {}, right, right);
   TestUnaligned(op, {}, right, right);
   TestAligned(op, left, {}, left);
