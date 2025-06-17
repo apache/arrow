@@ -34,10 +34,19 @@ class ComputeKernelEnvironment : public ::testing::Environment {
 };
 
 }  // namespace
+
+#ifdef _WIN32
+// Initialize the compute module
+::testing::Environment* compute_kernels_env =
+    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
+#endif
+
 }  // namespace arrow::compute
 
+#ifndef _WIN32
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   ::testing::AddGlobalTestEnvironment(new arrow::compute::ComputeKernelEnvironment);
   return RUN_ALL_TESTS();
 }
+#endif
