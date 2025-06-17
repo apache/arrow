@@ -23,7 +23,7 @@
 
 #include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_util_internal.h"
+#include "arrow/util/string_util.h"
 #include "arrow/util/visibility.h"
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT

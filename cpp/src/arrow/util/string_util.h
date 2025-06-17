@@ -28,7 +28,6 @@
 namespace arrow {
 
 namespace internal {
-namespace detail {
 
 class ARROW_EXPORT StringStreamWrapper {
  public:
@@ -43,11 +42,9 @@ class ARROW_EXPORT StringStreamWrapper {
   std::ostream& ostream_;
 };
 
-}  // namespace detail
-
 template <typename... Args>
 std::string JoinToString(Args&&... args) {
-  detail::StringStreamWrapper ss;
+  StringStreamWrapper ss;
   (
       [&ss](auto&& arg) {
         // Avoid losing precision when printing floating point numbers

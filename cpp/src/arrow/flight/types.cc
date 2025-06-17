@@ -37,7 +37,7 @@
 #include "arrow/util/formatting.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
-#include "arrow/util/string_util_internal.h"
+#include "arrow/util/string_util.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {

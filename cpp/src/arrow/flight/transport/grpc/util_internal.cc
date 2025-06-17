@@ -29,7 +29,7 @@
 #include "arrow/flight/types.h"
 #include "arrow/status.h"
 #include "arrow/util/string.h"
-#include "arrow/util/string_util_internal.h"
+#include "arrow/util/string_util.h"
 
 namespace arrow {
 
@@ -134,9 +134,10 @@ static TransportStatus TransportStatusFromGrpc(const ::grpc::Status& grpc_status
       return TransportStatus{TransportStatusCode::kUnauthenticated,
                              grpc_status.error_message()};
     default:
-      return TransportStatus{TransportStatusCode::kUnknown,
-                             internal::JoinToString("(", grpc_status.error_code(), ")",
-                                                    grpc_status.error_message())};
+      return TransportStatus{
+          TransportStatusCode::kUnknown,
+          arrow::internal::JoinToString("(", grpc_status.error_code(), ")",
+                                        grpc_status.error_message())};
   }
 }
 
