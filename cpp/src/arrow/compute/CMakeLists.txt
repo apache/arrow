@@ -48,7 +48,7 @@ if(ARROW_TESTING AND ARROW_COMPUTE)
   add_library(arrow_compute_testing OBJECT ${ARROW_COMPUTE_TESTING_SRCS})
   # Even though this is still just an object library we still need to "link"
   # arrow_compute_core_testing so that is also included correctly
-  if(WIN32)
+  if(WIN32 AND (CMAKE_SIZEOF_VOID_P EQUAL 4))
     target_link_libraries(arrow_compute_testing
                           PUBLIC $<TARGET_OBJECTS:arrow_compute_core_testing>
                           PUBLIC ${ARROW_GTEST_GTEST_MAIN})

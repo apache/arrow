@@ -35,7 +35,7 @@ class ComputeKernelEnvironment : public ::testing::Environment {
 
 }  // namespace
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_WIN64)
 // Initialize the compute module
 ::testing::Environment* compute_kernels_env =
     ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
@@ -43,7 +43,7 @@ class ComputeKernelEnvironment : public ::testing::Environment {
 
 }  // namespace arrow::compute
 
-#ifndef _WIN32
+#if !(defined(_WIN32) && !defined(_WIN64))
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   ::testing::AddGlobalTestEnvironment(new arrow::compute::ComputeKernelEnvironment);
