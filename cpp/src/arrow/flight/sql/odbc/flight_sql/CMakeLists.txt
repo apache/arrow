@@ -102,7 +102,7 @@ if(WIN32)
 endif()
 
 target_link_libraries(arrow_odbc_spi_impl PUBLIC odbcabstraction arrow_flight_sql_shared
-                                                 Boost::locale)
+                                                 arrow_compute_shared Boost::locale)
 
 # Link libraries on MINGW64 only
 if(MINGW AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")

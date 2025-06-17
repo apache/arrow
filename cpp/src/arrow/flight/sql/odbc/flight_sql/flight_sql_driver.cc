@@ -16,7 +16,9 @@
 // under the License.
 
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/flight_sql_driver.h"
+#include "arrow/compute/api.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_connection.h"
+#include "arrow/flight/sql/odbc/flight_sql/utils.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spd_logger.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/utils.h"
@@ -56,6 +58,8 @@ LogLevel ToLogLevel(int64_t level) {
 FlightSqlDriver::FlightSqlDriver()
     : diagnostics_("Apache Arrow", "Flight SQL", OdbcVersion::V_3), version_("0.9.0.0") {
   RegisterLog();
+  // Register Kernel functions to library
+  ThrowIfNotOK(arrow::compute::Initialize());
 }
 
 std::shared_ptr<Connection> FlightSqlDriver::CreateConnection(OdbcVersion odbc_version) {
