@@ -827,7 +827,7 @@ garrow_fixed_size_list_data_type_class_init(GArrowFixedSizeListDataTypeClass *kl
   spec = g_param_spec_int("list-size",
                           "List size",
                           "The list size of the elements",
-                          G_MININT,
+                          0,
                           G_MAXINT,
                           0,
                           G_PARAM_READABLE);
