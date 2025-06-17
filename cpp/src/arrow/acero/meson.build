@@ -80,7 +80,7 @@ arrow_acero_srcs = [
 arrow_acero_lib = library(
     'arrow-acero',
     sources: arrow_acero_srcs,
-    dependencies: [arrow_dep, arrow_compute_dep],
+    dependencies: [arrow_compute_dep, arrow_dep],
 )
 
 arrow_acero_dep = declare_dependency(link_with: [arrow_acero_lib])
@@ -147,5 +147,5 @@ pkg.generate(
     filebase: 'arrow-acero',
     name: 'Apache Arrow Acero Engine',
     description: 'Apache Arrow\'s Acero Engine',
-    requires: ['arrow', 'arrow-compute'],
+    requires: ['arrow-compute'],
 )

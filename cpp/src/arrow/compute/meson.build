@@ -93,7 +93,7 @@ exc = executable(
         'kernel_test.cc',
         'registry_test.cc',
     ],
-    dependencies: [arrow_test_dep, arrow_compute_core_test_dep],
+    dependencies: [arrow_compute_core_test_dep, arrow_test_dep],
 )
 test('arrow-internals-test', exc)
 
