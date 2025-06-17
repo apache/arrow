@@ -815,7 +815,7 @@ TEST_F(TestArray, TestMakeArrayFromMapScalar) {
   AssertAppendScalar(pool_, std::make_shared<MapScalar>(scalar));
 }
 
-TEST_F(TestArray, TestMakeArrayFromScalar_SmallintExtensionType) {
+TEST_F(TestArray, TestMakeArrayFromScalarSmallintExtensionType) {
   auto ext_type = std::make_shared<SmallintType>();
   auto storage_scalar = std::make_shared<Int16Scalar>(42);
   auto ext_scalar = std::make_shared<ExtensionScalar>(storage_scalar, ext_type);
