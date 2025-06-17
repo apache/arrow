@@ -837,8 +837,10 @@ class RepeatedArrayFactory {
     ARROW_ASSIGN_OR_RAISE(auto storage_array,
                           MakeArrayFromScalar(*storage_scalar, length_, pool_));
 
-    // Wrap the storage array in the ExtensionType
-    out_ = type.MakeArray(storage_array->data());
+    auto ext_type = std::static_pointer_cast<ExtensionType>(ext_scalar.type);
+
+    out_ = type.WrapArray(ext_type, storage_array);
+
     return Status::OK();
   }
 
