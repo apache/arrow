@@ -609,9 +609,9 @@ class BinaryField(PrimitiveField):
 
         sizes = self._random_sizes(size)
 
-        for i, nbytes in enumerate(sizes):
+        for i, np_nbytes in enumerate(sizes):
             if is_valid[i]:
-                values.append(random_bytes(nbytes))
+                values.append(random_bytes(int(np_nbytes)))
             else:
                 values.append(b"")
 
