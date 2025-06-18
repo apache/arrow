@@ -263,5 +263,4 @@ Status ChunkedBinaryBuilder::Reserve(int64_t values) {
 }
 
 }  // namespace internal
-
 }  // namespace arrow
