@@ -34,8 +34,8 @@
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
-#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/float16.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 
@@ -351,20 +351,12 @@ TEST_F(TestPrettyPrint, HalfFloat) {
 ])expected";
 
   using ::arrow::util::Float16;
-  std::vector<uint16_t> values = {Float16(-1e10f).bits(),
-                                  Float16(-1234.0f).bits(),
-                                  Float16(-0.0f).bits(),
-                                  Float16(0.0f).bits(),
-                                  Float16(1.0f).bits(),
-                                  Float16(1.2f).bits(),
-                                  Float16(2.5f).bits(),
-                                  Float16(3.9921875f).bits(),
-                                  Float16(4.125f).bits(),
-                                  Float16(1e4f).bits(),
-                                  Float16(12345.0f).bits(),
-                                  Float16(1e5f).bits(),
-                                  Float16(NAN).bits(),
-                                  Float16(6.10f).bits()};
+  std::vector<uint16_t> values = {
+      Float16(-1e10f).bits(), Float16(-1234.0f).bits(),   Float16(-0.0f).bits(),
+      Float16(0.0f).bits(),   Float16(1.0f).bits(),       Float16(1.2f).bits(),
+      Float16(2.5f).bits(),   Float16(3.9921875f).bits(), Float16(4.125f).bits(),
+      Float16(1e4f).bits(),   Float16(12345.0f).bits(),   Float16(1e5f).bits(),
+      Float16(NAN).bits(),    Float16(6.10f).bits()};
 
   std::vector<bool> is_valid(values.size(), true);
   is_valid.back() = false;
