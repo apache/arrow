@@ -448,6 +448,7 @@ EXTRACT_HOUR_TIME(time32)
     return millis >= 0                                                                   \
                ? ((millis / NMILLIS_IN_UNIT) * NMILLIS_IN_UNIT)                          \
                : (((millis - NMILLIS_IN_UNIT + 1) / NMILLIS_IN_UNIT) * NMILLIS_IN_UNIT); \
+  }
 
 #define DATE_TRUNC_WEEK(TYPE)                                               \
   FORCE_INLINE                                                              \
