@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -34,6 +35,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/float16.h"
 
 namespace arrow {
 
@@ -328,6 +330,46 @@ TEST_F(TestPrettyPrint, UInt64) {
   CheckPrimitive<UInt64Type, uint64_t>(
       {0, 10}, {true, true, true}, {0, 9223372036854775803ULL, 18446744073709551615ULL},
       expected);
+}
+
+TEST_F(TestPrettyPrint, HalfFloat) {
+  static const char* expected = R"expected([
+  -inf,
+  -1234,
+  -0,
+  0,
+  1,
+  1.2001953125,
+  2.5,
+  3.9921875,
+  4.125,
+  10000,
+  12344,
+  inf,
+  nan,
+  null
+])expected";
+
+  using ::arrow::util::Float16;
+  std::vector<uint16_t> values = {Float16(-1e10f).bits(),
+                                  Float16(-1234.0f).bits(),
+                                  Float16(-0.0f).bits(),
+                                  Float16(0.0f).bits(),
+                                  Float16(1.0f).bits(),
+                                  Float16(1.2f).bits(),
+                                  Float16(2.5f).bits(),
+                                  Float16(3.9921875f).bits(),
+                                  Float16(4.125f).bits(),
+                                  Float16(1e4f).bits(),
+                                  Float16(12345.0f).bits(),
+                                  Float16(1e5f).bits(),
+                                  Float16(NAN).bits(),
+                                  Float16(6.10f).bits()};
+
+  std::vector<bool> is_valid(values.size(), true);
+  is_valid.back() = false;
+
+  CheckPrimitive<HalfFloatType, uint16_t>({0, 10}, is_valid, values, expected);
 }
 
 TEST_F(TestPrettyPrint, DateTimeTypes) {
