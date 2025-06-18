@@ -132,8 +132,8 @@ def _ensure_filesystem(filesystem, *, use_mmap=False):
 
 def _resolve_filesystem_and_path(path, filesystem=None, *, memory_map=False):
     """
-    Return filesystem/path from path which could be an URI or a plain
-    filesystem path.
+    Return filesystem/path from path which could be an URI, a plain
+    filesystem path or a combination of fsspec protocol and URI.
     """
     if not _is_path_like(path):
         if filesystem is not None:
@@ -173,15 +173,33 @@ def _resolve_filesystem_and_path(path, filesystem=None, *, memory_map=False):
     # if the file or directory doesn't exists locally, then assume that
     # the path is an URI describing the file system as well
     if not exists_locally:
+        # Remember if fsspec-based filesystems are contained in URI
+        fsspec_index = path.find("fsspec+")
+        slash_index = path.find("://")
+
         try:
             filesystem, path = FileSystem.from_uri(path)
         except ValueError as e:
+            # an URI with fsspec implementation type
+            # example: fsspec+memory://example.parquet
+            if ("Unrecognized filesystem type in URI" in str(e) and
+                    (fsspec_index == 0 and slash_index > 0)):
+                # try loading fsspec to handle fsspec-compatible filesystems
+                try:
+                    import fsspec
+                    _, _, path = path.partition("+")
+                    fs, path = fsspec.url_to_fs(path)
+                    filesystem = _ensure_filesystem(fs)
+                except (ImportError, ValueError):
+                    raise e
             # neither an URI nor a locally existing path, so assume that
             # local path was given and propagate a nicer file not found error
             # instead of a more confusing scheme parsing error
-            if "empty scheme" not in str(e) \
+            elif "empty scheme" not in str(e) \
                     and "Cannot parse URI" not in str(e):
                 raise
+            else:
+                raise e
     else:
         path = filesystem.normalize_path(path)
 

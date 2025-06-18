@@ -365,3 +365,16 @@ def test_read_undefined_logical_type(parquet_test_datadir):
         b"unknown string 2",
         b"unknown string 3"
     ]
+
+
+def test_parquet_file_fsspec_in_uri():
+    pytest.importorskip("fsspec")
+
+    table = pa.table({"a": range(10)})
+    pq.write_table(table, "fsspec+memory://example.parquet")
+    table2 = pq.read_table("fsspec+memory://example.parquet")
+    assert table.equals(table2)
+
+    msg = "Unrecognized filesystem type in URI"
+    with pytest.raises(pa.ArrowInvalid, match=msg):
+        pq.read_table("non-existing://example.parquet")
