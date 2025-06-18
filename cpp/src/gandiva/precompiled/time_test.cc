@@ -364,7 +364,7 @@ TEST(TestTime, TimeStampTrunc) {
   EXPECT_EQ(date_trunc_Week_timestamp(StringToTimestamp("2000-03-06 10:10:10")),
             StringToTimestamp("2000-03-06 00:00:00"));
 
-// Test dates before epoch (1970-01-01)
+  // Test dates before epoch (1970-01-01)
   EXPECT_EQ(date_trunc_Second_date64(StringToTimestamp("1969-12-31 23:45:15")),
             StringToTimestamp("1969-12-31 23:45:15"));
   EXPECT_EQ(date_trunc_Minute_date64(StringToTimestamp("1969-12-31 23:45:15")),
