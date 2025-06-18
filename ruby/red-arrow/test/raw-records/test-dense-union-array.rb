@@ -36,7 +36,8 @@ module RawRecordsDenseUnionArrayTests
   end
 
   def build_record_batch(type, records)
-    Arrow::RecordBatch.new(build_schema(type, [0, 1]), records)
+    type_codes = [0, 1]
+    Arrow::RecordBatch.new(build_schema(type, type_codes), records)
   end
 
   def remove_field_names(records)
