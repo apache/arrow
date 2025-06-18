@@ -1452,10 +1452,13 @@ cdef extern from "arrow/c/dlpack_abi.h" nogil:
 
 
 cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
-    CResult[DLManagedTensor*] ExportToDLPack" arrow::dlpack::ExportArray"(
+    CResult[DLManagedTensor*] ExportArrayToDLPack" arrow::dlpack::ExportArray"(
         const shared_ptr[CArray]& arr)
+    CResult[DLManagedTensor*] ExportTensorToDLPack" arrow::dlpack::ExportTensor"(
+        const shared_ptr[CTensor]& tensor)
 
     CResult[DLDevice] ExportDevice(const shared_ptr[CArray]& arr)
+    CResult[DLDevice] ExportDevice(const shared_ptr[CTensor]& tensor)
 
 
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:
