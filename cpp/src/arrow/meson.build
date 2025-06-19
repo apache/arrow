@@ -472,6 +472,22 @@ if needs_json
     }
 endif
 
+if needs_orc
+    orc_dep = dependency('orc')
+    arrow_components += {
+        'arrow_orc': {
+            'sources': files(
+                'adapters/orc/adapter.cc',
+                'adapters/orc/options.cc',
+                'adapters/orc/util.cc',
+            ),
+            'dependencies': [orc_dep],
+        },
+    }
+else
+    orc_dep = disabler()
+endif
+
 arrow_srcs = []
 include_dir = include_directories('..')
 arrow_includes = [include_dir]
@@ -833,6 +849,10 @@ endif
 
 if needs_json
     subdir('json')
+endif
+
+if needs_orc
+    subdir('adapters/orc')
 endif
 
 if needs_ipc
