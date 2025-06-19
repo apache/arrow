@@ -529,7 +529,13 @@ class EachRawRecordTableDenseUnionArrayTest < Test::Unit::TestCase
   include RawRecordsDenseUnionArrayTests
 
   def build(type, records)
-    build_record_batch(type, records).to_table
+    record_batch = build_record_batch(type, records)
+    # Multiple chunks
+    record_batches = [
+      record_batch,
+      record_batch.slice(record_batch.length, 0), # Empty chunk
+    ]
+    Arrow::Table.new(record_batch.schema, record_batches)
   end
 
   def actual_records(target)
