@@ -300,6 +300,10 @@ DecimalType <- R6Class("DecimalType",
   )
 )
 
+Decimal32Type <- R6Class("Decimal32Type", inherit = DecimalType)
+
+Decimal64Type <- R6Class("Decimal64Type", inherit = DecimalType)
+
 Decimal128Type <- R6Class("Decimal128Type", inherit = DecimalType)
 
 Decimal256Type <- R6Class("Decimal256Type", inherit = DecimalType)
@@ -586,9 +590,27 @@ decimal <- function(precision, scale) {
 
   if (args$precision > 38) {
     decimal256(args$precision, args$scale)
-  } else {
+  } else if (args$precision > 18) {
     decimal128(args$precision, args$scale)
+  } else if (args$precision > 9) {
+    decimal64(args$precision, args$scale)
+  } else {
+    decimal32(args$precision, args$scale)
   }
+}
+
+#' @rdname data-type
+#' @export
+decimal32 <- function(precision, scale) {
+  args <- check_decimal_args(precision, scale)
+  Decimal32Type__initialize(args$precision, args$scale)
+}
+
+#' @rdname data-type
+#' @export
+decimal64 <- function(precision, scale) {
+  args <- check_decimal_args(precision, scale)
+  Decimal64Type__initialize(args$precision, args$scale)
 }
 
 #' @rdname data-type
@@ -768,6 +790,8 @@ canonical_type_str <- function(type_str) {
     time64 = "time64",
     null = "null",
     timestamp = "timestamp",
+    decimal32 = "decimal32",
+    decimal64 = "decimal64",
     decimal128 = "decimal128",
     decimal256 = "decimal256",
     struct = "struct",

@@ -584,7 +584,9 @@ def _normalize_slice(object arrow_obj, slice key):
     start, stop, step = key.indices(n)
 
     if step != 1:
-        indices = np.arange(start, stop, step)
+        indices = list(range(start, stop, step))
+        if len(indices) == 0:
+            return arrow_obj.slice(0, 0)
         return arrow_obj.take(indices)
     else:
         length = max(stop - start, 0)
@@ -1357,7 +1359,8 @@ cdef class Array(_PandasConvertible):
         return f'{type_format}\n{self}'
 
     def to_string(self, *, int indent=2, int top_level_indent=0, int window=10,
-                  int container_window=2, c_bool skip_new_lines=False):
+                  int container_window=2, c_bool skip_new_lines=False,
+                  int element_size_limit=100):
         """
         Render a "pretty-printed" string representation of the Array.
 
@@ -1383,6 +1386,8 @@ cdef class Array(_PandasConvertible):
         skip_new_lines : bool
             If the array should be rendered as a single line of text
             or if each element should be on its own line.
+        element_size_limit : int, default 100
+            Maximum number of characters of a single element before it is truncated.
         """
         cdef:
             c_string result
@@ -1392,6 +1397,7 @@ cdef class Array(_PandasConvertible):
             options = PrettyPrintOptions(top_level_indent, window)
             options.skip_new_lines = skip_new_lines
             options.indent_size = indent
+            options.element_size_limit = element_size_limit
             check_status(
                 PrettyPrint(
                     deref(self.ap),
@@ -2138,7 +2144,8 @@ cdef class Array(_PandasConvertible):
         return pyarrow_wrap_array(array)
 
     def __dlpack__(self, stream=None):
-        """Export a primitive array as a DLPack capsule.
+        """
+        Export a primitive array as a DLPack capsule.
 
         Parameters
         ----------
@@ -2153,7 +2160,7 @@ cdef class Array(_PandasConvertible):
             A DLPack capsule for the array, pointing to a DLManagedTensor.
         """
         if stream is None:
-            dlm_tensor = GetResultValue(ExportToDLPack(self.sp_array))
+            dlm_tensor = GetResultValue(ExportArrayToDLPack(self.sp_array))
 
             return PyCapsule_New(dlm_tensor, 'dltensor', dlpack_pycapsule_deleter)
         else:

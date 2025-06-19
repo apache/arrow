@@ -49,7 +49,7 @@ from pyarrow._dataset cimport (
 
 from pyarrow._parquet cimport (
     _create_writer_properties, _create_arrow_writer_properties,
-    FileMetaData,
+    _unwrap_list_type, FileMetaData,
 )
 
 
@@ -145,6 +145,7 @@ cdef class ParquetFileFormat(FileFormat):
         options.coerce_int96_timestamp_unit = \
             read_options._coerce_int96_timestamp_unit
         options.binary_type = read_options._binary_type
+        options.list_type = read_options._list_type
 
         self.init(<shared_ptr[CFileFormat]> wrapped)
         self.default_fragment_scan_options = default_fragment_scan_options
@@ -186,6 +187,7 @@ cdef class ParquetFileFormat(FileFormat):
         parquet_read_options._coerce_int96_timestamp_unit = \
             options.coerce_int96_timestamp_unit
         parquet_read_options._binary_type = options.binary_type
+        parquet_read_options._list_type = options.list_type
         return parquet_read_options
 
     def make_write_options(self, **kwargs):
@@ -516,20 +518,27 @@ cdef class ParquetReadOptions(_Weakrefable):
         If given, Parquet binary columns will be read as this datatype.
         This setting is ignored if a serialized Arrow schema is found in
         the Parquet metadata.
+    list_type : subclass of pyarrow.DataType, default None
+        If given, non-MAP repeated columns will be read as an instance of
+        this datatype (either pyarrow.ListType or pyarrow.LargeListType).
+        This setting is ignored if a serialized Arrow schema is found in
+        the Parquet metadata.
     """
 
     cdef public:
         set dictionary_columns
         TimeUnit _coerce_int96_timestamp_unit
         Type _binary_type
+        Type _list_type
 
     # Also see _PARQUET_READ_OPTIONS
     def __init__(self, dictionary_columns=None,
                  coerce_int96_timestamp_unit=None,
-                 binary_type=None):
+                 binary_type=None, list_type=None):
         self.dictionary_columns = set(dictionary_columns or set())
         self.coerce_int96_timestamp_unit = coerce_int96_timestamp_unit
         self.binary_type = binary_type
+        self.list_type = list_type
 
     @property
     def binary_type(self):
@@ -541,6 +550,18 @@ cdef class ParquetReadOptions(_Weakrefable):
             self._binary_type = pyarrow_unwrap_data_type(ty).get().id()
         else:
             self._binary_type = _Type_BINARY
+
+    @property
+    def list_type(self):
+        return (pa.LargeListType if self._list_type == _Type_LARGE_LIST
+                else pa.ListType)
+
+    @list_type.setter
+    def list_type(self, ty):
+        if ty is not None:
+            self._list_type = _unwrap_list_type(ty)
+        else:
+            self._list_type = _Type_LIST
 
     @property
     def coerce_int96_timestamp_unit(self):
@@ -564,9 +585,10 @@ cdef class ParquetReadOptions(_Weakrefable):
         bool
         """
         return (self.dictionary_columns == other.dictionary_columns and
-                self.coerce_int96_timestamp_unit ==
-                other.coerce_int96_timestamp_unit and
-                self.binary_type == other.binary_type)
+                self._coerce_int96_timestamp_unit ==
+                other._coerce_int96_timestamp_unit and
+                self._binary_type == other._binary_type and
+                self._list_type == other._list_type)
 
     def __eq__(self, other):
         try:
@@ -578,7 +600,10 @@ cdef class ParquetReadOptions(_Weakrefable):
         return (
             f"<ParquetReadOptions"
             f" dictionary_columns={self.dictionary_columns}"
-            f" coerce_int96_timestamp_unit={self.coerce_int96_timestamp_unit}>"
+            f" coerce_int96_timestamp_unit={self.coerce_int96_timestamp_unit}"
+            f" binary_type={self.binary_type}"
+            f" list_type={self.list_type}"
+            f">"
         )
 
 
@@ -696,7 +721,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
 
 
 cdef set _PARQUET_READ_OPTIONS = {
-    'dictionary_columns', 'coerce_int96_timestamp_unit', 'binary_type'
+    'dictionary_columns', 'coerce_int96_timestamp_unit', 'binary_type', 'list_type',
 }
 
 

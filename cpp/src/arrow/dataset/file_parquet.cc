@@ -117,6 +117,7 @@ parquet::ArrowReaderProperties MakeArrowReaderProperties(
   properties.set_coerce_int96_timestamp_unit(
       format.reader_options.coerce_int96_timestamp_unit);
   properties.set_binary_type(format.reader_options.binary_type);
+  properties.set_list_type(format.reader_options.list_type);
   return properties;
 }
 
@@ -445,7 +446,8 @@ bool ParquetFileFormat::Equals(const FileFormat& other) const {
   return (reader_options.dict_columns == other_reader_options.dict_columns &&
           reader_options.coerce_int96_timestamp_unit ==
               other_reader_options.coerce_int96_timestamp_unit &&
-          reader_options.binary_type == other_reader_options.binary_type);
+          reader_options.binary_type == other_reader_options.binary_type &&
+          reader_options.list_type == other_reader_options.list_type);
 }
 
 ParquetFileFormat::ParquetFileFormat(const parquet::ReaderProperties& reader_properties)

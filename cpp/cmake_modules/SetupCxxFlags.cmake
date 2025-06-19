@@ -152,8 +152,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # shared libraries
 set(CMAKE_POSITION_INDEPENDENT_CODE ${ARROW_POSITION_INDEPENDENT_CODE})
 
-string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
-
 set(UNKNOWN_COMPILER_MESSAGE
     "Unknown compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 
@@ -265,7 +263,7 @@ endif()
 # `RELEASE`, then it will default to `PRODUCTION`. The goal of defaulting to
 # `CHECKIN` is to avoid friction with long response time from CI.
 if(NOT BUILD_WARNING_LEVEL)
-  if("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+  if("${UPPERCASE_BUILD_TYPE}" STREQUAL "RELEASE")
     set(BUILD_WARNING_LEVEL PRODUCTION)
   else()
     set(BUILD_WARNING_LEVEL CHECKIN)
@@ -294,8 +292,9 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4365")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4267")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4838")
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
-                                                        "Clang")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
+         OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
+         OR CMAKE_CXX_COMPILER_ID STREQUAL "IBMClang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wextra")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdocumentation")
@@ -602,7 +601,7 @@ if(NOT WIN32 AND NOT APPLE)
     if(MUST_USE_GOLD)
       message(STATUS "Using hard-wired gold linker (version ${GOLD_VERSION})")
       if(ARROW_BUGGY_GOLD)
-        if("${ARROW_LINK}" STREQUAL "d" AND "${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+        if("${ARROW_LINK}" STREQUAL "d" AND "${UPPERCASE_BUILD_TYPE}" STREQUAL "RELEASE")
           message(SEND_ERROR "Configured to use buggy gold with dynamic linking "
                              "in a RELEASE build")
         endif()
@@ -808,7 +807,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   set(CMAKE_SHARED_LINKER_FLAGS "-sSIDE_MODULE=1 ${ARROW_EMSCRIPTEN_LINKER_FLAGS}")
   if(ARROW_TESTING)
     # flags for building test executables for use in node
-    if("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+    if("${UPPERCASE_BUILD_TYPE}" STREQUAL "RELEASE")
       set(CMAKE_EXE_LINKER_FLAGS
           "${ARROW_EMSCRIPTEN_LINKER_FLAGS} -sALLOW_MEMORY_GROWTH -lnodefs.js -lnoderawfs.js --pre-js ${BUILD_SUPPORT_DIR}/emscripten-test-init.js"
       )

@@ -609,9 +609,12 @@ class BinaryField(PrimitiveField):
 
         sizes = self._random_sizes(size)
 
-        for i, nbytes in enumerate(sizes):
+        for i, np_nbytes in enumerate(sizes):
             if is_valid[i]:
-                values.append(random_bytes(nbytes))
+                # We have to cast to int because Python 3.13.4 has a bug
+                # on random_bytes. See the comment here:
+                # https://github.com/apache/arrow/pull/46823#issuecomment-2979376852
+                values.append(random_bytes(int(np_nbytes)))
             else:
                 values.append(b"")
 

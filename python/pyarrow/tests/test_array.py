@@ -75,17 +75,32 @@ def test_constructor_raises():
 
 
 def test_list_format():
-    arr = pa.array([[1], None, [2, 3, None]])
+    arr = pa.array([["foo"], None, ["bar", "a longer string", None]])
     result = arr.to_string()
     expected = """\
 [
   [
-    1
+    "foo"
   ],
   null,
   [
-    2,
-    3,
+    "bar",
+    "a longer string",
+    null
+  ]
+]"""
+    assert result == expected
+
+    result = arr.to_string(element_size_limit=10)
+    expected = """\
+[
+  [
+    "foo"
+  ],
+  null,
+  [
+    "bar",
+    "a longer (... 7 chars omitted)",
     null
   ]
 ]"""
@@ -488,15 +503,14 @@ def test_array_slice():
                 assert res.to_numpy().tolist() == expected
 
 
-@pytest.mark.numpy
 def test_array_slice_negative_step():
     # ARROW-2714
-    np_arr = np.arange(20)
-    arr = pa.array(np_arr)
+    values = list(range(20))
+    arr = pa.array(values)
     chunked_arr = pa.chunked_array([arr])
 
     cases = [
-        slice(None, None, -1),
+        slice(None, None, -1),  # GH-46606
         slice(None, 6, -2),
         slice(10, 6, -2),
         slice(8, None, -2),
@@ -510,7 +524,7 @@ def test_array_slice_negative_step():
 
     for case in cases:
         result = arr[case]
-        expected = pa.array(np_arr[case])
+        expected = pa.array(values[case], type=arr.type)
         assert result.equals(expected)
 
         result = pa.record_batch([arr], names=['f0'])[case]
@@ -518,7 +532,7 @@ def test_array_slice_negative_step():
         assert result.equals(expected)
 
         result = chunked_arr[case]
-        expected = pa.chunked_array([np_arr[case]])
+        expected = pa.chunked_array([values[case]], type=arr.type)
         assert result.equals(expected)
 
 
@@ -1664,6 +1678,16 @@ def test_floating_point_truncate_unsafe():
         _check_cast_case(case, safe=False)
 
 
+def test_half_float_array_from_python():
+    # GH-46611
+    arr = pa.array([1.0, 2.0, 3, None, 12345.6789, 1.234567], type=pa.float16())
+    assert arr.type == pa.float16()
+    assert arr.to_pylist() == [1.0, 2.0, 3.0, None, 12344.0, 1.234375]
+    msg1 = "Could not convert 'a' with type str: tried to convert to float16"
+    with pytest.raises(pa.ArrowInvalid, match=msg1):
+        arr = pa.array(['a', 3, None], type=pa.float16())
+
+
 def test_decimal_to_int_safe():
     safe_cases = [
         (
@@ -2281,10 +2305,11 @@ def test_array_conversions_no_sentinel_values():
 
     assert arr2.type == 'int8'
 
-    arr3 = pa.array(np.array([1, np.nan, 2, 3, np.nan, 4], dtype='float32'),
-                    type='float32')
-    assert arr3.type == 'float32'
-    assert arr3.null_count == 0
+    for ty in ['float16', 'float32', 'float64']:
+        arr3 = pa.array(np.array([1, np.nan, 2, 3, np.nan, 4], dtype=ty),
+                        type=ty)
+        assert arr3.type == ty
+        assert arr3.null_count == 0
 
 
 def test_time32_time64_from_integer():

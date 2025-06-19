@@ -846,6 +846,7 @@ def test_parquet_read_options():
     opts2 = ds.ParquetReadOptions(dictionary_columns=['a', 'b'])
     opts3 = ds.ParquetReadOptions(coerce_int96_timestamp_unit="ms")
     opts4 = ds.ParquetReadOptions(binary_type=pa.binary_view())
+    opts5 = ds.ParquetReadOptions(list_type=pa.LargeListType)
 
     assert opts1.dictionary_columns == set()
 
@@ -857,10 +858,14 @@ def test_parquet_read_options():
     assert opts1.binary_type == pa.binary()
     assert opts4.binary_type == pa.binary_view()
 
+    assert opts1.list_type is pa.ListType
+    assert opts5.list_type is pa.LargeListType
+
     assert opts1 == opts1
     assert opts1 != opts2
     assert opts1 != opts3
     assert opts1 != opts4
+    assert opts1 != opts5
 
     opts4.binary_type = None
     assert opts4.binary_type == pa.binary()
@@ -869,6 +874,13 @@ def test_parquet_read_options():
     assert opts4.binary_type == pa.large_binary()
     assert opts1 != opts4
 
+    opts5.list_type = pa.ListType
+    assert opts5.list_type is pa.ListType
+    assert opts5 == opts1
+    opts5.list_type = pa.LargeListType
+    assert opts5.list_type is pa.LargeListType
+    assert opts5 != opts1
+
 
 @pytest.mark.parquet
 def test_parquet_file_format_read_options():
@@ -876,6 +888,7 @@ def test_parquet_file_format_read_options():
     pff2 = ds.ParquetFileFormat(dictionary_columns={'a'})
     pff3 = ds.ParquetFileFormat(coerce_int96_timestamp_unit="s")
     pff4 = ds.ParquetFileFormat(binary_type=pa.binary_view())
+    pff5 = ds.ParquetFileFormat(list_type=pa.LargeListType)
 
     assert pff1.read_options == ds.ParquetReadOptions()
     assert pff2.read_options == ds.ParquetReadOptions(dictionary_columns=['a'])
@@ -883,6 +896,8 @@ def test_parquet_file_format_read_options():
         coerce_int96_timestamp_unit="s")
     assert pff4.read_options == ds.ParquetReadOptions(
         binary_type=pa.binary_view())
+    assert pff5.read_options == ds.ParquetReadOptions(
+        list_type=pa.LargeListType)
 
 
 @pytest.mark.parquet
@@ -2543,13 +2558,14 @@ def test_construct_from_invalid_sources_raise(multisourcefs):
 
 def test_construct_in_memory(dataset_reader):
     batch = pa.RecordBatch.from_arrays([pa.array(range(10))], names=["a"])
+    reader = pa.RecordBatchReader.from_batches(batch.schema, [batch])
     table = pa.Table.from_batches([batch])
 
     dataset_table = ds.dataset([], format='ipc', schema=pa.schema([])
                                ).to_table()
     assert dataset_table == pa.table([])
 
-    for source in (batch, table, [batch], [table]):
+    for source in (batch, table, [batch], [table], reader):
         dataset = ds.dataset(source)
         assert dataset_reader.to_table(dataset) == table
         assert len(list(dataset.get_fragments())) == 1

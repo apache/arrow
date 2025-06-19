@@ -29,6 +29,7 @@ on:
       - '.github/workflows/ruby.yml'
       - 'ci/docker/**'
       - 'ci/scripts/c_glib_*'
+      - 'ci/scripts/ccache_setup.sh'
       - 'ci/scripts/cpp_*'
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/ruby_*'
@@ -43,6 +44,7 @@ on:
       - '.github/workflows/ruby.yml'
       - 'ci/docker/**'
       - 'ci/scripts/c_glib_*'
+      - 'ci/scripts/ccache_setup.sh'
       - 'ci/scripts/cpp_*'
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/ruby_*'
@@ -201,7 +203,7 @@ jobs:
 
   windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} GLib & Ruby
-    runs-on: windows-2019
+    runs-on: windows-2022
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 90
     strategy:

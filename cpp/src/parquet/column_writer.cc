@@ -2022,7 +2022,7 @@ struct SerializeFunctor {
   Status Serialize(const ArrayType& array, ArrowWriteContext*, ParquetCType* out) {
     const ArrowCType* input = array.raw_values();
     if (array.null_count() > 0) {
-      for (int i = 0; i < array.length(); i++) {
+      for (int64_t i = 0; i < array.length(); i++) {
         out[i] = static_cast<ParquetCType>(input[i]);
       }
     } else {
@@ -2081,7 +2081,7 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowSerialize(
 template <>
 struct SerializeFunctor<BooleanType, ::arrow::BooleanType> {
   Status Serialize(const ::arrow::BooleanArray& data, ArrowWriteContext*, bool* out) {
-    for (int i = 0; i < data.length(); i++) {
+    for (int64_t i = 0; i < data.length(); i++) {
       *out++ = data.Value(i);
     }
     return Status::OK();
@@ -2106,7 +2106,7 @@ template <>
 struct SerializeFunctor<Int32Type, ::arrow::Date64Type> {
   Status Serialize(const ::arrow::Date64Array& array, ArrowWriteContext*, int32_t* out) {
     const int64_t* input = array.raw_values();
-    for (int i = 0; i < array.length(); i++) {
+    for (int64_t i = 0; i < array.length(); i++) {
       *out++ = static_cast<int32_t>(*input++ / 86400000);
     }
     return Status::OK();
@@ -2160,7 +2160,7 @@ struct SerializeFunctor<Int32Type, ::arrow::Time32Type> {
     const int32_t* input = array.raw_values();
     const auto& type = static_cast<const ::arrow::Time32Type&>(*array.type());
     if (type.unit() == ::arrow::TimeUnit::SECOND) {
-      for (int i = 0; i < array.length(); i++) {
+      for (int64_t i = 0; i < array.length(); i++) {
         out[i] = input[i] * 1000;
       }
     } else {

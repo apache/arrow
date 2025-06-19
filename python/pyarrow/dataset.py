@@ -804,7 +804,7 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
                 'of batches or tables. The given list contains the following '
                 f'types: {type_names}'
             )
-    elif isinstance(source, (pa.RecordBatch, pa.Table)):
+    elif isinstance(source, (pa.RecordBatch, pa.Table, pa.RecordBatchReader)):
         return _in_memory_dataset(source, **kwargs)
     else:
         raise TypeError(

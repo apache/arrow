@@ -29,53 +29,56 @@ export ARROW_HOME=${source_dir}
 conan_args=()
 conan_args+=(--build=missing)
 if [ -n "${ARROW_CONAN_PARQUET:-}" ]; then
-  conan_args+=(--options arrow/*:parquet=${ARROW_CONAN_PARQUET})
-  conan_args+=(--options arrow/*:with_thrift=${ARROW_CONAN_PARQUET})
-  conan_args+=(--options arrow/*:with_boost=${ARROW_CONAN_PARQUET})
+  conan_args+=(--options "arrow/*:parquet=${ARROW_CONAN_PARQUET}")
+  conan_args+=(--options "arrow/*:with_boost=${ARROW_CONAN_PARQUET}")
+  conan_args+=(--options "arrow/*:with_json=${ARROW_CONAN_PARQUET}")
+  conan_args+=(--options "arrow/*:with_thrift=${ARROW_CONAN_PARQUET}")
+else
+  conan_args+=(--options "arrow/*:parquet=False")
 fi
 if [ -n "${ARROW_CONAN_WITH_BROTLI:-}" ]; then
-  conan_args+=(--options arrow/*:with_brotli=${ARROW_CONAN_WITH_BROTLI})
+  conan_args+=(--options "arrow/*:with_brotli=${ARROW_CONAN_WITH_BROTLI}")
 fi
 if [ -n "${ARROW_CONAN_WITH_BZ2:-}" ]; then
-  conan_args+=(--options arrow/*:with_bz2=${ARROW_CONAN_WITH_BZ2})
+  conan_args+=(--options "arrow/*:with_bz2=${ARROW_CONAN_WITH_BZ2}")
 fi
 if [ -n "${ARROW_CONAN_WITH_FLIGHT_RPC:-}" ]; then
-  conan_args+=(--options arrow/*:with_flight_rpc=${ARROW_CONAN_WITH_FLIGHT_RPC})
-  conan_args+=(--options arrow/*:with_grpc=${ARROW_CONAN_WITH_FLIGHT_RPC})
-  conan_args+=(--options arrow/*:with_protobuf=${ARROW_CONAN_WITH_FLIGHT_RPC})
-  conan_args+=(--options arrow/*:with_re2=${ARROW_CONAN_WITH_FLIGHT_RPC})
+  conan_args+=(--options "arrow/*:with_flight_rpc=${ARROW_CONAN_WITH_FLIGHT_RPC}")
+  conan_args+=(--options "arrow/*:with_grpc=${ARROW_CONAN_WITH_FLIGHT_RPC}")
+  conan_args+=(--options "arrow/*:with_protobuf=${ARROW_CONAN_WITH_FLIGHT_RPC}")
+  conan_args+=(--options "arrow/*:with_re2=${ARROW_CONAN_WITH_FLIGHT_RPC}")
 fi
 if [ -n "${ARROW_CONAN_WITH_GLOG:-}" ]; then
-  conan_args+=(--options arrow/*:with_glog=${ARROW_CONAN_WITH_GLOG})
+  conan_args+=(--options "arrow/*:with_glog=${ARROW_CONAN_WITH_GLOG}")
 fi
 if [ -n "${ARROW_CONAN_WITH_JEMALLOC:-}" ]; then
-  conan_args+=(--options arrow/*:with_jemalloc=${ARROW_CONAN_WITH_JEMALLOC})
+  conan_args+=(--options "arrow/*:with_jemalloc=${ARROW_CONAN_WITH_JEMALLOC}")
 fi
 if [ -n "${ARROW_CONAN_WITH_JSON:-}" ]; then
-  conan_args+=(--options arrow/*:with_json=${ARROW_CONAN_WITH_JSON})
+  conan_args+=(--options "arrow/*:with_json=${ARROW_CONAN_WITH_JSON}")
 fi
 if [ -n "${ARROW_CONAN_WITH_LZ4:-}" ]; then
-  conan_args+=(--options arrow/*:with_lz4=${ARROW_CONAN_WITH_LZ4})
+  conan_args+=(--options "arrow/*:with_lz4=${ARROW_CONAN_WITH_LZ4}")
 fi
 if [ -n "${ARROW_CONAN_WITH_SNAPPY:-}" ]; then
-  conan_args+=(--options arrow/*:with_snappy=${ARROW_CONAN_WITH_SNAPPY})
+  conan_args+=(--options "arrow/*:with_snappy=${ARROW_CONAN_WITH_SNAPPY}")
 fi
 if [ -n "${ARROW_CONAN_WITH_ZSTD:-}" ]; then
-  conan_args+=(--options arrow/*:with_zstd=${ARROW_CONAN_WITH_ZSTD})
+  conan_args+=(--options "arrow/*:with_zstd=${ARROW_CONAN_WITH_ZSTD}")
 fi
 
-version=$(grep '^set(ARROW_VERSION ' ${ARROW_HOME}/cpp/CMakeLists.txt | \
+version=$(grep '^set(ARROW_VERSION ' "${ARROW_HOME}/cpp/CMakeLists.txt" | \
             grep -E -o '([0-9.]*)')
-conan_args+=(--version ${version})
+conan_args+=(--version "${version}")
 
 rm -rf ~/.conan/data/arrow/
-rm -rf ${build_dir}/conan || sudo rm -rf ${build_dir}/conan
-mkdir -p ${build_dir}/conan || sudo mkdir -p ${build_dir}/conan
-if [ -w ${build_dir} ]; then
-  cp -a ${source_dir}/ci/conan/* ${build_dir}/conan/
+rm -rf "${build_dir}/conan" || sudo rm -rf "${build_dir}/conan"
+mkdir -p "${build_dir}/conan" || sudo mkdir -p "${build_dir}/conan"
+if [ -w "${build_dir}" ]; then
+  cp -a "${source_dir}"/ci/conan/* "${build_dir}/conan/"
 else
-  sudo cp -a ${source_dir}/ci/conan/* ${build_dir}/conan/
-  sudo chown -R $(id -u):$(id -g) ${build_dir}/conan/
+  sudo cp -a "${source_dir}"/ci/conan/* "${build_dir}/conan/"
+  sudo chown -R "$(id -u):$(id -g)" "${build_dir}/conan/"
 fi
-cd ${build_dir}/conan/all
+cd "${build_dir}/conan/all"
 conan create . "${conan_args[@]}" "$@"

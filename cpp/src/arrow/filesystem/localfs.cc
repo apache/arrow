@@ -160,6 +160,12 @@ FileInfo StatToFileInfo(const struct stat& s) {
 #  ifdef __APPLE__
   // macOS doesn't use the POSIX-compliant spelling
   info.set_mtime(ToTimePoint(s.st_mtimespec));
+#  elif defined(_AIX) && defined(_ALL_SOURCE)
+  // In AIX with _ALL_SOURCE, stat struct member st_mtim is of type st_timespec_t.
+  struct timespec times;
+  times.tv_sec = s.st_mtim.tv_sec;
+  times.tv_nsec = static_cast<int64_t>(s.st_mtim.tv_nsec);
+  info.set_mtime(ToTimePoint(times));
 #  else
   info.set_mtime(ToTimePoint(s.st_mtim));
 #  endif

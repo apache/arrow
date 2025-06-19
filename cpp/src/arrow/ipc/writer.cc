@@ -324,34 +324,45 @@ class RecordBatchSerializer {
     // Share slicing logic between ListArray, BinaryArray and LargeBinaryArray
     using offset_type = typename ArrayType::offset_type;
 
-    auto offsets = array.value_offsets();
+    if (array.length() == 0) {
+      *value_offsets = array.value_offsets();
+      return Status::OK();
+    }
 
-    int64_t required_bytes = sizeof(offset_type) * (array.length() + 1);
-    if (array.offset() != 0) {
-      // If we have a non-zero offset, then the value offsets do not start at
-      // zero. We must a) create a new offsets array with shifted offsets and
-      // b) slice the values array accordingly
+    const int64_t required_bytes = sizeof(offset_type) * (array.length() + 1);
 
+    offset_type first_offset = 0;
+    RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
+        array.data()->buffers[1], array.offset() * sizeof(offset_type),
+        sizeof(offset_type), reinterpret_cast<uint8_t*>(&first_offset)));
+
+    if (first_offset > 0) {
+      // If the offset of the first value is non-zero, then we must create a new
+      // offsets buffer with shifted offsets.
+      if (!array.data()->buffers[1]->is_cpu()) {
+        return Status::NotImplemented("Rebasing non-CPU offsets");
+      }
       ARROW_ASSIGN_OR_RAISE(auto shifted_offsets,
                             AllocateBuffer(required_bytes, options_.memory_pool));
 
+      const offset_type* source_offsets = array.raw_value_offsets();
       auto dest_offsets = shifted_offsets->mutable_span_as<offset_type>();
-      const offset_type start_offset = array.value_offset(0);
+      const offset_type start_offset = source_offsets[0];
 
-      for (int i = 0; i < array.length(); ++i) {
-        dest_offsets[i] = array.value_offset(i) - start_offset;
+      for (int i = 0; i <= array.length(); ++i) {
+        dest_offsets[i] = source_offsets[i] - start_offset;
       }
-      // Final offset
-      dest_offsets[array.length()] = array.value_offset(array.length()) - start_offset;
-      offsets = std::move(shifted_offsets);
+      *value_offsets = std::move(shifted_offsets);
     } else {
-      // ARROW-6046: Slice offsets to used extent, in case we have a truncated
-      // slice
-      if (offsets != nullptr && offsets->size() > required_bytes) {
-        offsets = SliceBuffer(offsets, 0, required_bytes);
+      // ARROW-6046: if we have a truncated slice with unused leading or
+      // trailing data, then we slice it.
+      if (array.offset() > 0 || array.value_offsets()->size() > required_bytes) {
+        *value_offsets = SliceBuffer(
+            array.value_offsets(), array.offset() * sizeof(offset_type), required_bytes);
+      } else {
+        *value_offsets = array.value_offsets();
       }
     }
-    *value_offsets = std::move(offsets);
     return Status::OK();
   }
 
@@ -367,6 +378,9 @@ class RecordBatchSerializer {
       // If we have a non-zero offset, it's likely that the smallest offset is
       // not zero. We must a) create a new offsets array with shifted offsets and
       // b) slice the values array accordingly.
+      if (!array.data()->buffers[1]->is_cpu()) {
+        return Status::NotImplemented("Rebasing non-CPU list view offsets");
+      }
 
       ARROW_ASSIGN_OR_RAISE(auto shifted_offsets,
                             AllocateBuffer(required_bytes, options_.memory_pool));

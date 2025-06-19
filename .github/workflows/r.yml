@@ -196,7 +196,7 @@ jobs:
 
   windows-cpp:
     name: AMD64 Windows C++ RTools ${{ matrix.config.rtools }} ${{ matrix.config.arch }}
-    runs-on: windows-2019
+    runs-on: windows-2022
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 90
     strategy:
@@ -248,7 +248,7 @@ jobs:
   windows-r:
     needs: [windows-cpp]
     name: AMD64 Windows R ${{ matrix.config.rversion }}
-    runs-on: windows-2019
+    runs-on: windows-2022
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 75
     strategy:
@@ -331,24 +331,6 @@ jobs:
             check_dir = 'check',
             timeout = 3600
           )
-      - name: Run lintr
-        if: ${{ matrix.config.rversion == 'release' }}
-        env:
-          NOT_CRAN: "true"
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: Rscript {0}
-        working-directory: r
-        run: |
-          Sys.setenv(
-            RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "r", "windows", "libarrow.zip"),
-            MAKEFLAGS = paste0("-j", parallel::detectCores()),
-            ARROW_R_DEV = TRUE,
-            "_R_CHECK_FORCE_SUGGESTS_" = FALSE
-          )
-          # we use pak for package installation since it is faster, safer and more convenient
-          pak::local_install()
-          pak::pak("lintr")
-          lintr::expect_lint_free()
       - name: Dump install logs
         shell: cmd
         run: cat r/check/arrow.Rcheck/00install.out

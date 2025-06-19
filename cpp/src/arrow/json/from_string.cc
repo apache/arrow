@@ -60,7 +60,7 @@ namespace json {
 using ::arrow::internal::checked_cast;
 using ::arrow::internal::checked_pointer_cast;
 
-namespace internal {
+namespace {
 
 constexpr auto kParseFlags = rj::kParseFullPrecisionFlag | rj::kParseNanAndInfFlag;
 
@@ -90,9 +90,9 @@ Status JSONTypeError(const char* expected_type, rj::Type json_type) {
                          JsonTypeName(json_type));
 }
 
-class Converter {
+class JSONConverter {
  public:
-  virtual ~Converter() = default;
+  virtual ~JSONConverter() = default;
 
   virtual Status Init() { return Status::OK(); }
 
@@ -117,11 +117,12 @@ class Converter {
   std::shared_ptr<DataType> type_;
 };
 
-Status GetConverter(const std::shared_ptr<DataType>&, std::shared_ptr<Converter>* out);
+Status GetConverter(const std::shared_ptr<DataType>&,
+                    std::shared_ptr<JSONConverter>* out);
 
 // CRTP
 template <class Derived>
-class ConcreteConverter : public Converter {
+class ConcreteConverter : public JSONConverter {
  public:
   Result<int64_t> SizeOfJSONArray(const rj::Value& json_obj) {
     if (!json_obj.IsArray()) {
@@ -601,7 +602,7 @@ class VarLengthListLikeConverter final
 
  private:
   std::shared_ptr<BuilderType> builder_;
-  std::shared_ptr<Converter> child_converter_;
+  std::shared_ptr<JSONConverter> child_converter_;
 };
 
 // ------------------------------------------------------------------------
@@ -653,7 +654,7 @@ class MapConverter final : public ConcreteConverter<MapConverter> {
 
  private:
   std::shared_ptr<MapBuilder> builder_;
-  std::shared_ptr<Converter> key_converter_, item_converter_;
+  std::shared_ptr<JSONConverter> key_converter_, item_converter_;
 };
 
 // ------------------------------------------------------------------------
@@ -691,7 +692,7 @@ class FixedSizeListConverter final : public ConcreteConverter<FixedSizeListConve
  private:
   int32_t list_size_;
   std::shared_ptr<FixedSizeListBuilder> builder_;
-  std::shared_ptr<Converter> child_converter_;
+  std::shared_ptr<JSONConverter> child_converter_;
 };
 
 // ------------------------------------------------------------------------
@@ -704,7 +705,7 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
   Status Init() override {
     std::vector<std::shared_ptr<ArrayBuilder>> child_builders;
     for (const auto& field : type_->fields()) {
-      std::shared_ptr<Converter> child_converter;
+      std::shared_ptr<JSONConverter> child_converter;
       RETURN_NOT_OK(GetConverter(field->type(), &child_converter));
       child_converters_.push_back(child_converter);
       child_builders.push_back(child_converter->builder());
@@ -762,7 +763,7 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
 
  private:
   std::shared_ptr<StructBuilder> builder_;
-  std::vector<std::shared_ptr<Converter>> child_converters_;
+  std::vector<std::shared_ptr<JSONConverter>> child_converters_;
 };
 
 // ------------------------------------------------------------------------
@@ -783,7 +784,7 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
     }
     std::vector<std::shared_ptr<ArrayBuilder>> child_builders;
     for (const auto& field : type_->fields()) {
-      std::shared_ptr<Converter> child_converter;
+      std::shared_ptr<JSONConverter> child_converter;
       RETURN_NOT_OK(GetConverter(field->type(), &child_converter));
       child_converters_.push_back(child_converter);
       child_builders.push_back(child_converter->builder());
@@ -841,7 +842,7 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
  private:
   UnionMode::type mode_;
   std::shared_ptr<ArrayBuilder> builder_;
-  std::vector<std::shared_ptr<Converter>> child_converters_;
+  std::vector<std::shared_ptr<JSONConverter>> child_converters_;
   std::vector<int8_t> type_id_to_child_num_;
 };
 
@@ -854,8 +855,8 @@ Status ConversionNotImplemented(const std::shared_ptr<DataType>& type) {
 }
 
 Status GetDictConverter(const std::shared_ptr<DataType>& type,
-                        std::shared_ptr<Converter>* out) {
-  std::shared_ptr<Converter> res;
+                        std::shared_ptr<JSONConverter>* out) {
+  std::shared_ptr<JSONConverter> res;
 
   const auto value_type = checked_cast<const DictionaryType&>(*type).value_type();
 
@@ -905,12 +906,12 @@ Status GetDictConverter(const std::shared_ptr<DataType>& type,
 }
 
 Status GetConverter(const std::shared_ptr<DataType>& type,
-                    std::shared_ptr<Converter>* out) {
+                    std::shared_ptr<JSONConverter>* out) {
   if (type->id() == Type::DICTIONARY) {
     return GetDictConverter(type, out);
   }
 
-  std::shared_ptr<Converter> res;
+  std::shared_ptr<JSONConverter> res;
 
 #define SIMPLE_CONVERTER_CASE(ID, CLASS) \
   case ID:                               \
@@ -972,15 +973,15 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
   return Status::OK();
 }
 
-}  // namespace internal
+}  // namespace
 
 Result<std::shared_ptr<Array>> ArrayFromJSONString(const std::shared_ptr<DataType>& type,
                                                    std::string_view json_string) {
-  std::shared_ptr<internal::Converter> converter;
+  std::shared_ptr<JSONConverter> converter;
   RETURN_NOT_OK(GetConverter(type, &converter));
 
   rj::Document json_doc;
-  json_doc.Parse<internal::kParseFlags>(json_string.data(), json_string.length());
+  json_doc.Parse<kParseFlags>(json_string.data(), json_string.length());
   if (json_doc.HasParseError()) {
     return Status::Invalid("JSON parse error at offset ", json_doc.GetErrorOffset(), ": ",
                            GetParseError_En(json_doc.GetParseError()));
@@ -1003,23 +1004,20 @@ Result<std::shared_ptr<Array>> ArrayFromJSONString(const std::shared_ptr<DataTyp
   return ArrayFromJSONString(type, std::string_view(json_string));
 }
 
-Status ChunkedArrayFromJSONString(const std::shared_ptr<DataType>& type,
-                                  const std::vector<std::string>& json_strings,
-                                  std::shared_ptr<ChunkedArray>* out) {
+Result<std::shared_ptr<ChunkedArray>> ChunkedArrayFromJSONString(
+    const std::shared_ptr<DataType>& type, const std::vector<std::string>& json_strings) {
   ArrayVector out_chunks;
   out_chunks.reserve(json_strings.size());
   for (const std::string& chunk_json : json_strings) {
     out_chunks.emplace_back();
     ARROW_ASSIGN_OR_RAISE(out_chunks.back(), ArrayFromJSONString(type, chunk_json));
   }
-  *out = std::make_shared<ChunkedArray>(std::move(out_chunks), type);
-  return Status::OK();
+  return std::make_shared<ChunkedArray>(std::move(out_chunks), type);
 }
 
-Status DictArrayFromJSONString(const std::shared_ptr<DataType>& type,
-                               std::string_view indices_json,
-                               std::string_view dictionary_json,
-                               std::shared_ptr<Array>* out) {
+Result<std::shared_ptr<Array>> DictArrayFromJSONString(
+    const std::shared_ptr<DataType>& type, std::string_view indices_json,
+    std::string_view dictionary_json) {
   if (type->id() != Type::DICTIONARY) {
     return Status::TypeError("DictArrayFromJSON requires dictionary type, got ", *type);
   }
@@ -1030,18 +1028,16 @@ Status DictArrayFromJSONString(const std::shared_ptr<DataType>& type,
                         ArrayFromJSONString(dictionary_type.index_type(), indices_json));
   ARROW_ASSIGN_OR_RAISE(auto dictionary, ArrayFromJSONString(dictionary_type.value_type(),
                                                              dictionary_json));
-
-  return DictionaryArray::FromArrays(type, std::move(indices), std::move(dictionary))
-      .Value(out);
+  return DictionaryArray::FromArrays(type, std::move(indices), std::move(dictionary));
 }
 
-Status ScalarFromJSONString(const std::shared_ptr<DataType>& type,
-                            std::string_view json_string, std::shared_ptr<Scalar>* out) {
-  std::shared_ptr<internal::Converter> converter;
+Result<std::shared_ptr<Scalar>> ScalarFromJSONString(
+    const std::shared_ptr<DataType>& type, std::string_view json_string) {
+  std::shared_ptr<JSONConverter> converter;
   RETURN_NOT_OK(GetConverter(type, &converter));
 
   rj::Document json_doc;
-  json_doc.Parse<internal::kParseFlags>(json_string.data(), json_string.length());
+  json_doc.Parse<kParseFlags>(json_string.data(), json_string.length());
   if (json_doc.HasParseError()) {
     return Status::Invalid("JSON parse error at offset ", json_doc.GetErrorOffset(), ": ",
                            GetParseError_En(json_doc.GetParseError()));
@@ -1051,13 +1047,12 @@ Status ScalarFromJSONString(const std::shared_ptr<DataType>& type,
   RETURN_NOT_OK(converter->AppendValue(json_doc));
   RETURN_NOT_OK(converter->Finish(&array));
   DCHECK_EQ(array->length(), 1);
-  return array->GetScalar(0).Value(out);
+  return array->GetScalar(0);
 }
 
-Status DictScalarFromJSONString(const std::shared_ptr<DataType>& type,
-                                std::string_view index_json,
-                                std::string_view dictionary_json,
-                                std::shared_ptr<Scalar>* out) {
+Result<std::shared_ptr<Scalar>> DictScalarFromJSONString(
+    const std::shared_ptr<DataType>& type, std::string_view index_json,
+    std::string_view dictionary_json) {
   if (type->id() != Type::DICTIONARY) {
     return Status::TypeError("DictScalarFromJSONString requires dictionary type, got ",
                              *type);
@@ -1065,14 +1060,13 @@ Status DictScalarFromJSONString(const std::shared_ptr<DataType>& type,
 
   const auto& dictionary_type = checked_cast<const DictionaryType&>(*type);
 
-  std::shared_ptr<Scalar> index;
   std::shared_ptr<Array> dictionary;
-  RETURN_NOT_OK(ScalarFromJSONString(dictionary_type.index_type(), index_json, &index));
+  ARROW_ASSIGN_OR_RAISE(auto index,
+                        ScalarFromJSONString(dictionary_type.index_type(), index_json));
   ARROW_ASSIGN_OR_RAISE(
       dictionary, ArrayFromJSONString(dictionary_type.value_type(), dictionary_json));
 
-  *out = DictionaryScalar::Make(std::move(index), std::move(dictionary));
-  return Status::OK();
+  return DictionaryScalar::Make(std::move(index), std::move(dictionary));
 }
 
 }  // namespace json

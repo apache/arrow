@@ -29,6 +29,7 @@ on:
       - '.github/workflows/cpp.yml'
       - 'ci/conda_env_*'
       - 'ci/docker/**'
+      - 'ci/scripts/ccache_setup.sh'
       - 'ci/scripts/cpp_*'
       - 'ci/scripts/install_azurite.sh'
       - 'ci/scripts/install_gcs_testbench.sh'
@@ -45,6 +46,7 @@ on:
       - '.github/workflows/cpp.yml'
       - 'ci/conda_env_*'
       - 'ci/docker/**'
+      - 'ci/scripts/ccache_setup.sh'
       - 'ci/scripts/cpp_*'
       - 'ci/scripts/install_azurite.sh'
       - 'ci/scripts/install_gcs_testbench.sh'
@@ -375,7 +377,7 @@ jobs:
 
   windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.msystem_upper }} C++
-    runs-on: windows-2019
+    runs-on: windows-2022
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     # Build may take 1h+ without cache.
     timeout-minutes: 120

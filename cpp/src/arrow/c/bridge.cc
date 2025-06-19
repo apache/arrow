@@ -586,8 +586,8 @@ struct ArrayExporter {
       ++buffers_begin;
     }
 
-    bool need_variadic_buffer_sizes =
-        data->type->id() == Type::BINARY_VIEW || data->type->id() == Type::STRING_VIEW;
+    bool need_variadic_buffer_sizes = data->type->storage_id() == Type::BINARY_VIEW ||
+                                      data->type->storage_id() == Type::STRING_VIEW;
     if (need_variadic_buffer_sizes) {
       ++n_buffers;
     }
