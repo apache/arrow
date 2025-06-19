@@ -52,7 +52,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y -V reprotest
+          sudo apt install -y -V gpg reprotest
       - name: Store Version and Release Candidate Number
         run: |
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
@@ -81,12 +81,22 @@ jobs:
           release_notes="Release Candidate: ${VERSION} RC${RC_NUM}"
           echo "RELEASE_CANDIDATE_NOTES=${release_notes}" >> ${GITHUB_ENV}
       - name: Create Release tarball
+        env:
+          ARROW_GPG_KEY_UID: A2AC7132B5DA7C273A7A147665F4A8CA9769ECD7
+          ARROW_GPG_SECRET_KEY: ${{ secrets.ARROW_GPG_SECRET_KEY }}
         run: |
           sudo reprotest \
             "dev/release/utils-create-release-tarball.sh ${VERSION} ${RC_NUM}" \
             apache-arrow-${VERSION}.tar.gz
           dev/release/utils-create-release-tarball.sh ${VERSION} ${RC_NUM}
           echo "RELEASE_TARBALL=apache-arrow-${VERSION}.tar.gz" >> ${GITHUB_ENV}
+          echo "${ARROW_GPG_SECRET_KEY}" | gpg --import
+          gpg \
+            --armor \
+            --detach-sign \
+            --local-user "${ARROW_GPG_SECRET_KEY}" \
+            --output "${RELEASE_TARBALL}.asc" \
+            "${RELEASE_TARBALL}"
           dev/release/utils-generate-checksum.sh "apache-arrow-${VERSION}.tar.gz"
       - name: Upload Artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
