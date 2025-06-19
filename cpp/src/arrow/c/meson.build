@@ -18,7 +18,7 @@
 if needs_compute
     arrow_c_bridge_deps = [arrow_compute_test_dep]
 else
-    arrow_c_bridge_deps = []
+    arrow_c_bridge_deps = [arrow_test_dep]
 endif
 
 exc = executable(
