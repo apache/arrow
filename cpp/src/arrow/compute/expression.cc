@@ -1333,7 +1333,13 @@ struct Inequality {
       return call->function_name == "is_valid" ? literal(true) : literal(false);
     }
 
-    if (call->function_name == "is_in") {
+    // The maximum number of values in the expression set of values
+    // in order to use the SimplifyIsIn function.
+    static constexpr int16_t kIsInSimplificationMaxValueSet = 50;
+    auto options = checked_pointer_cast<SetLookupOptions>(call->options);
+
+    if (call->function_name == "is_in" &&
+        options->value_set.length() <= kIsInSimplificationMaxValueSet) {
       ARROW_ASSIGN_OR_RAISE(std::optional<Expression> result,
                             SimplifyIsIn(guarantee, call));
       return result.value_or(expr);
