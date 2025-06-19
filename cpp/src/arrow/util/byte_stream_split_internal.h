@@ -199,13 +199,13 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
   constexpr int kNumStepsLarge =
       ReversePow2(static_cast<int>(simd_batch::size) / kNumBytes);
   // Total number of steps
-  constexpr int NumSteps = kNumStepsByte + kNumStepsLarge;
+  constexpr int kNumSteps = kNumStepsByte + kNumStepsLarge;
 
   // Two step shuffling algorithm that starts with bytes and ends with a larger data type.
   // An algorithm similar to the decoding one with log2(simd_batch::size) + 1 stages is
   // also valid but not as performant.
   for (int64_t block_index = 0; block_index < num_blocks; ++block_index) {
-    simd_batch stage[NumSteps + 1][kNumStreams];
+    simd_batch stage[kNumSteps + 1][kNumStreams];
 
     // First copy the data to stage 0.
     for (int i = 0; i < kNumStreams; ++i) {
@@ -245,7 +245,7 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
     //
     // 4: A0A1A2A3 A4A5A6A7 A8A9AAAB ACADAEAF | B0B1B2B3 B4B5B6B7 B8B9BABB BCBDBEBF | ...
     constexpr int kNumStreamsHalf = kNumStreams / 2;
-    for (int step = kNumStepsByte; step < NumSteps; ++step) {
+    for (int step = kNumStepsByte; step < kNumSteps; ++step) {
       for (int i = 0; i < kNumStreamsHalf; ++i) {
         stage[step + 1][i * 2] =
             zip_lo_n<kNumBytes>(stage[step][i], stage[step][i + kNumStreamsHalf]);
@@ -257,7 +257,7 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
     // Save the encoded data to the output buffer
     for (int i = 0; i < kNumStreams; ++i) {
       xsimd::store_unaligned(&output_buffer_streams[i][block_index * simd_batch::size],
-                             stage[NumSteps][i]);
+                             stage[kNumSteps][i]);
     }
   }
 }
