@@ -355,12 +355,8 @@ template <int kNumStreams>
 void ByteStreamSplitEncodeAvx2(const uint8_t* raw_values, int width,
                                const int64_t num_values, uint8_t* output_buffer_raw) {
   assert(width == kNumStreams);
-  static_assert(kNumStreams == 4 || kNumStreams == 8, "Invalid number of streams.");
+  static_assert(kNumStreams == 4, "Invalid number of streams.");
   constexpr int kBlockSize = sizeof(__m256i) * kNumStreams;
-
-  if constexpr (kNumStreams == 8)  // Back to SSE, currently no path for double.
-    return ByteStreamSplitEncodeSimd128<kNumStreams>(raw_values, width, num_values,
-                                                     output_buffer_raw);
 
   const int64_t size = num_values * kNumStreams;
   if (size < kBlockSize)  // Back to SSE for small size
@@ -449,7 +445,7 @@ void inline ByteStreamSplitEncodeSimd(const uint8_t* raw_values, int width,
                                       uint8_t* output_buffer_raw) {
 #  if defined(ARROW_HAVE_AVX2)
   // Not implemented
-  if constexpr (kNumStreams == 2) {
+  if constexpr (kNumStreams == 2 || kNumStreams == 8) {
     return ByteStreamSplitEncodeSimd128<kNumStreams>(raw_values, width, num_values,
                                                      output_buffer_raw);
   } else {
