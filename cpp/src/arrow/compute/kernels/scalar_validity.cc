@@ -29,6 +29,7 @@ namespace arrow {
 
 using internal::CopyBitmap;
 using internal::InvertBitmap;
+using util::Float16;
 
 namespace compute {
 namespace internal {
@@ -62,9 +63,8 @@ struct IsFiniteOperator {
   template <typename OutType, typename InType>
   static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
     // this is HalfFloatType, because int types call a different operator
-    if constexpr(std::is_same_v<InType, uint16_t>) {
-      using ::arrow::util::Float16;
-      return Float16::FromBits(static_cast<uint16_t>(value)).is_finite();
+    if constexpr (std::is_same_v<InType, uint16_t>) {
+      return Float16::FromBits(value).is_finite();
     }
 
     return std::isfinite(value);
@@ -75,9 +75,8 @@ struct IsInfOperator {
   template <typename OutType, typename InType>
   static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
     // this is HalfFloatType, because int types call a different operator
-    if constexpr(std::is_same_v<InType, uint16_t>) {
-      using ::arrow::util::Float16;
-      return Float16::FromBits(static_cast<uint16_t>(value)).is_infinity();
+    if constexpr (std::is_same_v<InType, uint16_t>) {
+      return Float16::FromBits(value).is_infinity();
     }
 
     return std::isinf(value);
@@ -90,7 +89,14 @@ template <typename T>
 static void SetNanBits(const ArraySpan& arr, uint8_t* out_bitmap, int64_t out_offset) {
   const T* data = arr.GetValues<T>(1);
   for (int64_t i = 0; i < arr.length; ++i) {
-    if (std::isnan(data[i])) {
+    bool is_nan(false);
+    if constexpr (std::is_same_v<T, uint16_t>) {
+      is_nan = Float16::FromBits(data[i]).is_nan();
+    } else {
+      is_nan = std::isnan(data[i]);
+    }
+
+    if (is_nan) {
       bit_util::SetBit(out_bitmap, i + out_offset);
     }
   }
@@ -124,6 +130,9 @@ Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
       case Type::DOUBLE:
         SetNanBits<double>(arr, out_bitmap, out_span->offset);
         break;
+      case Type::HALF_FLOAT:
+        SetNanBits<uint16_t>(arr, out_bitmap, out_span->offset);
+        break;
       default:
         return Status::NotImplemented("NaN detection not implemented for type ",
                                       arr.type->ToString());
@@ -136,9 +145,8 @@ struct IsNanOperator {
   template <typename OutType, typename InType>
   static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
     // this is HalfFloatType, because int types call a different operator
-    if constexpr(std::is_same_v<InType, uint16_t>) {
-      using ::arrow::util::Float16;
-      return Float16::FromBits(static_cast<uint16_t>(value)).is_nan();
+    if constexpr (std::is_same_v<InType, uint16_t>) {
+      return Float16::FromBits(value).is_nan();
     }
 
     return std::isnan(value);

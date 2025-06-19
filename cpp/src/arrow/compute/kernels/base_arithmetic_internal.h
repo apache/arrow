@@ -24,8 +24,8 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/float16.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -35,6 +35,7 @@ using internal::DivideWithOverflow;
 using internal::MultiplyWithOverflow;
 using internal::NegateWithOverflow;
 using internal::SubtractWithOverflow;
+using util::Float16;
 
 namespace compute {
 namespace internal {
@@ -494,11 +495,10 @@ struct Negate {
 // enable_if_unsigned_integer_value above, so seperate operator needed
 struct NegateHalfFloat {
   template <typename T, typename Arg>
-  static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg arg,
-                                                            Status*) {
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
+    static_assert(std::is_same_v<Arg, uint16_t>, "");
     static_assert(std::is_same<T, Arg>::value, "");
-    using ::arrow::util::Float16;
-    auto val = Float16::FromBits(static_cast<uint16_t>(arg));
+    auto val = Float16::FromBits(arg);
     return (-val).bits();
   }
 };
@@ -668,13 +668,15 @@ struct Sign {
 
 struct SignHalfFloat {
   template <typename T, typename Arg>
-  static constexpr enable_if_unsigned_integer_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                                 Status*) {
-    using ::arrow::util::Float16;
-    auto val = Float16::FromBits(static_cast<uint16_t>(arg));
-    return val.is_nan() ? arg :
-          (val.is_zero() ? Float16(0).bits() :
-          (val.signbit() ? Float16(-1).bits() : Float16(1).bits()));
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
+    static_assert(std::is_same_v<Arg, uint16_t>, "");
+    static_assert(std::is_same<T, Arg>::value, "");
+    auto val = Float16::FromBits(arg);
+    return val.is_nan()
+               ? arg
+               : (val.is_zero()
+                      ? Float16(0).bits()
+                      : (val.signbit() ? Float16(-1).bits() : Float16(1).bits()));
   }
 };
 

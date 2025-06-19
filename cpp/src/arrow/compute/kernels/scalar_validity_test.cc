@@ -107,12 +107,6 @@ TEST(TestValidityKernels, IsFinite) {
   CheckScalar("is_finite",
               {ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 42, null]")},
               ArrayFromJSON(boolean(), "[true, true, true, null]"));
-  CheckScalar("is_finite", {ArrayFromJSON(float32(), "[1.0, NaN, Inf, null]")},
-              ArrayFromJSON(boolean(), "[true, false, false, null]"));
-  CheckScalar("is_finite", {ArrayFromJSON(float64(), "[1.0, NaN, Inf, null]")},
-              ArrayFromJSON(boolean(), "[true, false, false, null]"));
-  CheckScalar("is_finite", {ArrayFromJSON(float16(), "[1.0, NaN, Inf, null]")},
-              ArrayFromJSON(boolean(), "[true, false, false, null]"));
 }
 
 TEST(TestValidityKernels, IsInf) {
@@ -128,12 +122,6 @@ TEST(TestValidityKernels, IsInf) {
               ArrayFromJSON(boolean(), "[null, null, null, null]"));
   CheckScalar("is_inf", {ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 42, null]")},
               ArrayFromJSON(boolean(), "[false, false, false, null]"));
-  CheckScalar("is_inf", {ArrayFromJSON(float32(), "[1.0, NaN, Inf, null]")},
-              ArrayFromJSON(boolean(), "[false, false, true, null]"));
-  CheckScalar("is_inf", {ArrayFromJSON(float64(), "[1.0, NaN, Inf, null]")},
-              ArrayFromJSON(boolean(), "[false, false, true, null]"));
-  CheckScalar("is_inf", {ArrayFromJSON(float16(), "[1.0, NaN, Inf, null]")},
-              ArrayFromJSON(boolean(), "[false, false, true, null]"));
 }
 
 TEST(TestValidityKernels, IsNan) {
@@ -149,12 +137,6 @@ TEST(TestValidityKernels, IsNan) {
               ArrayFromJSON(boolean(), "[null, null, null, null]"));
   CheckScalar("is_nan", {ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 42, null]")},
               ArrayFromJSON(boolean(), "[false, false, false, null]"));
-  CheckScalar("is_nan", {ArrayFromJSON(float32(), "[0, 1.2, NaN, 2.5, null]")},
-              ArrayFromJSON(boolean(), "[false, false, true, false, null]"));
-  CheckScalar("is_nan", {ArrayFromJSON(float64(), "[0, 1.2, NaN, 2.5, null]")},
-              ArrayFromJSON(boolean(), "[false, false, true, false, null]"));
-  CheckScalar("is_nan", {ArrayFromJSON(float16(), "[0, 1.2, NaN, 2.5, null]")},
-              ArrayFromJSON(boolean(), "[false, false, true, false, null]"));
 }
 
 TEST(TestValidityKernels, IsValidIsNullNullType) {
@@ -269,7 +251,8 @@ class TestFloatingPointValidityKernels : public TestValidityKernels<ArrowType> {
   }
 };
 
-TYPED_TEST_SUITE(TestFloatingPointValidityKernels, RealArrowTypes);
+using RealTypesWithHalfFloat = testing::Types<FloatType, DoubleType, HalfFloatType>;
+TYPED_TEST_SUITE(TestFloatingPointValidityKernels, RealTypesWithHalfFloat);
 
 TYPED_TEST(TestFloatingPointValidityKernels, IsNull) { this->TestIsNull(); }
 
