@@ -510,7 +510,7 @@ BENCHMARK(BM_ByteStreamSplitEncode_Double_Scalar)->Apply(ByteStreamSplitApply);
 
 #if defined(ARROW_HAVE_SSE4_2)
 static void BM_ByteStreamSplitDecode_Int16_Sse2(benchmark::State& state) {
-  BM_ByteStreamSplitDecode<float>(
+  BM_ByteStreamSplitDecode<int16_t>(
       state, ::arrow::util::internal::ByteStreamSplitDecodeSimd128<sizeof(int16_t)>);
 }
 
@@ -525,7 +525,7 @@ static void BM_ByteStreamSplitDecode_Double_Sse2(benchmark::State& state) {
 }
 
 static void BM_ByteStreamSplitEncode_Int16_Sse2(benchmark::State& state) {
-  BM_ByteStreamSplitEncode<float>(
+  BM_ByteStreamSplitEncode<int16_t>(
       state, ::arrow::util::internal::ByteStreamSplitEncodeSimd128<sizeof(int16_t)>);
 }
 
@@ -549,7 +549,7 @@ BENCHMARK(BM_ByteStreamSplitEncode_Double_Sse2)->Apply(ByteStreamSplitApply);
 
 #if defined(ARROW_HAVE_AVX2)
 static void BM_ByteStreamSplitDecode_Int16_Avx2(benchmark::State& state) {
-  BM_ByteStreamSplitDecode<float>(
+  BM_ByteStreamSplitDecode<int16_t>(
       state, ::arrow::util::internal::ByteStreamSplitDecodeAvx2<sizeof(int16_t)>);
 }
 
@@ -564,7 +564,7 @@ static void BM_ByteStreamSplitDecode_Double_Avx2(benchmark::State& state) {
 }
 
 static void BM_ByteStreamSplitEncode_Int16_Avx2(benchmark::State& state) {
-  BM_ByteStreamSplitEncode<float>(
+  BM_ByteStreamSplitEncode<int16_t>(
       state, ::arrow::util::internal::ByteStreamSplitEncodeAvx2<sizeof(int16_t)>);
 }
 
