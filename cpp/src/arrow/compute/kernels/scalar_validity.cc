@@ -65,9 +65,9 @@ struct IsFiniteOperator {
     // this is HalfFloatType, because int types call a different operator
     if constexpr (std::is_same_v<InType, uint16_t>) {
       return Float16::FromBits(value).is_finite();
+    } else {
+      return std::isfinite(value);
     }
-
-    return std::isfinite(value);
   }
 };
 
@@ -77,9 +77,9 @@ struct IsInfOperator {
     // this is HalfFloatType, because int types call a different operator
     if constexpr (std::is_same_v<InType, uint16_t>) {
       return Float16::FromBits(value).is_infinity();
+    } else {
+      return std::isinf(value);
     }
-
-    return std::isinf(value);
   }
 };
 
@@ -147,9 +147,9 @@ struct IsNanOperator {
     // this is HalfFloatType, because int types call a different operator
     if constexpr (std::is_same_v<InType, uint16_t>) {
       return Float16::FromBits(value).is_nan();
+    } else {
+      return std::isnan(value);
     }
-
-    return std::isnan(value);
   }
 };
 
