@@ -32,6 +32,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/time.h"
 #include "arrow/util/visibility.h"
@@ -136,7 +137,8 @@ ARROW_EXPORT
 bool StringToFloat(const char* s, size_t length, char decimal_point, double* out);
 
 ARROW_EXPORT
-bool StringToFloat(const char* s, size_t length, char decimal_point, uint16_t* out);
+bool StringToFloat(const char* s, size_t length, char decimal_point,
+                   ::arrow::util::Float16* out);
 
 template <>
 struct StringConverter<FloatType> {
@@ -168,7 +170,7 @@ struct StringConverter<DoubleType> {
 
 template <>
 struct StringConverter<HalfFloatType> {
-  using value_type = uint16_t;
+  using value_type = ::arrow::util::Float16;
 
   explicit StringConverter(char decimal_point = '.') : decimal_point(decimal_point) {}
 

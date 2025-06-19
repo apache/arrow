@@ -26,6 +26,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/float16.h"
 
 namespace arrow {
 namespace compute {
@@ -250,7 +251,8 @@ class TestFloatingPointValidityKernels : public TestValidityKernels<ArrowType> {
   }
 };
 
-TYPED_TEST_SUITE(TestFloatingPointValidityKernels, RealArrowTypes);
+using RealTypesWithHalfFloat = testing::Types<FloatType, DoubleType, HalfFloatType>;
+TYPED_TEST_SUITE(TestFloatingPointValidityKernels, RealTypesWithHalfFloat);
 
 TYPED_TEST(TestFloatingPointValidityKernels, IsNull) { this->TestIsNull(); }
 
