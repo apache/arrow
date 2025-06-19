@@ -27,7 +27,6 @@
 #include <sstream>
 #include <type_traits>
 
-#include "arrow/array.h"
 #include "arrow/python/common.h"
 #include "arrow/python/decimal.h"
 #include "arrow/type_fwd.h"

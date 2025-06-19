@@ -601,7 +601,8 @@ def arange(int64_t start, int64_t stop, int64_t step=1, *, memory_pool=None):
     arange : Array
     """
     cdef CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
-    c_array = GetResultValue(Arange(start, stop, step, pool))
+    with nogil:
+        c_array = GetResultValue(Arange(start, stop, step, pool))
     return pyarrow_wrap_array(c_array)
 
 
