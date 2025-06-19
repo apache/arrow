@@ -39,6 +39,8 @@
 
 namespace arrow {
 
+using util::Float16;
+
 class TestPrettyPrint : public ::testing::Test {
  public:
   void SetUp() {}
@@ -350,7 +352,6 @@ TEST_F(TestPrettyPrint, HalfFloat) {
   null
 ])expected";
 
-  using ::arrow::util::Float16;
   std::vector<uint16_t> values = {
       Float16(-1e10f).bits(), Float16(-1234.0f).bits(),   Float16(-0.0f).bits(),
       Float16(0.0f).bits(),   Float16(1.0f).bits(),       Float16(1.2f).bits(),
