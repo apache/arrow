@@ -542,6 +542,8 @@ def test_array_diff():
     arr2 = pa.array(['foo', 'bar', None], type=pa.utf8())
     arr3 = pa.array([1, 2, 3])
     arr4 = pa.array([[], [1], None], type=pa.list_(pa.int64()))
+    arr5 = pa.array([1.5, 3, 6], type=pa.float16())
+    arr6 = pa.array([1, 3], type=pa.float16())
 
     assert arr1.diff(arr1) == ''
     assert arr1.diff(arr2) == '''
@@ -553,6 +555,14 @@ def test_array_diff():
     assert arr1.diff(arr3).strip() == '# Array types differed: string vs int64'
     assert arr1.diff(arr4).strip() == ('# Array types differed: string vs '
                                        'list<item: int64>')
+    assert arr5.diff(arr5) == ''
+    assert arr5.diff(arr6) == '''
+@@ -0, +0 @@
+-1.5
++1
+@@ -2, +2 @@
+-6
+'''
 
 
 def test_array_iter():
