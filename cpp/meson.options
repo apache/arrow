@@ -69,6 +69,12 @@ option(
 )
 
 option(
+    'orc',
+    type: 'feature',
+    description: 'Build the Arrow ORC adapter',
+)
+
+option(
     'package_kind',
     type: 'string',
     description: 'Arbitrary string that identifies the kind of package (for informational purposes)',
