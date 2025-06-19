@@ -55,8 +55,13 @@
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
 #include <aws/core/utils/stream/PreallocatedStreamBuf.h>
 #include <aws/core/utils/xml/XmlSerializer.h>
+#include <aws/crt/io/Bootstrap.h>
+#include <aws/crt/io/EventLoopGroup.h>
+#include <aws/crt/io/HostResolver.h>
 #include <aws/identity-management/auth/STSAssumeRoleCredentialsProvider.h>
 #include <aws/s3/S3Client.h>
+#include <aws/s3/S3ClientConfiguration.h>
+#include <aws/s3/S3EndpointProvider.h>
 #include <aws/s3/S3Errors.h>
 #include <aws/s3/model/AbortMultipartUploadRequest.h>
 #include <aws/s3/model/CompleteMultipartUploadRequest.h>
@@ -78,42 +83,17 @@
 #include <aws/s3/model/PutObjectResult.h>
 #include <aws/s3/model/UploadPartRequest.h>
 
-// AWS_SDK_VERSION_{MAJOR,MINOR,PATCH} are available since 1.9.7.
-#if defined(AWS_SDK_VERSION_MAJOR) && defined(AWS_SDK_VERSION_MINOR) && \
-    defined(AWS_SDK_VERSION_PATCH)
 // Redundant "(...)" are for suppressing "Weird number of spaces at
 // line-start. Are you using a 2-space indent? [whitespace/indent]
 // [3]" errors...
-#  define ARROW_AWS_SDK_VERSION_CHECK(major, minor, patch)                      \
-    ((AWS_SDK_VERSION_MAJOR > (major) ||                                        \
-      (AWS_SDK_VERSION_MAJOR == (major) && AWS_SDK_VERSION_MINOR > (minor)) ||  \
-      ((AWS_SDK_VERSION_MAJOR == (major) && AWS_SDK_VERSION_MINOR == (minor) && \
-        AWS_SDK_VERSION_PATCH >= (patch)))))
-#else
-#  define ARROW_AWS_SDK_VERSION_CHECK(major, minor, patch) 0
-#endif
+#define ARROW_AWS_SDK_VERSION_CHECK(major, minor, patch)                      \
+  ((AWS_SDK_VERSION_MAJOR > (major) ||                                        \
+    (AWS_SDK_VERSION_MAJOR == (major) && AWS_SDK_VERSION_MINOR > (minor)) ||  \
+    ((AWS_SDK_VERSION_MAJOR == (major) && AWS_SDK_VERSION_MINOR == (minor) && \
+      AWS_SDK_VERSION_PATCH >= (patch)))))
 
-// This feature is available since 1.9.0 but
-// AWS_SDK_VERSION_{MAJOR,MINOR,PATCH} are available since 1.9.7. So
-// we can't use this feature for [1.9.0,1.9.6]. If it's a problem,
-// please report it to our issue tracker.
-#if ARROW_AWS_SDK_VERSION_CHECK(1, 9, 0)
-#  define ARROW_S3_HAS_CRT
-#endif
-
-#if ARROW_AWS_SDK_VERSION_CHECK(1, 10, 0)
-#  define ARROW_S3_HAS_S3CLIENT_CONFIGURATION
-#endif
-
-#ifdef ARROW_S3_HAS_CRT
-#  include <aws/crt/io/Bootstrap.h>
-#  include <aws/crt/io/EventLoopGroup.h>
-#  include <aws/crt/io/HostResolver.h>
-#endif
-
-#ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
-#  include <aws/s3/S3ClientConfiguration.h>
-#  include <aws/s3/S3EndpointProvider.h>
+#if !defined(AWS_SDK_VERSION_MAJOR) || !ARROW_AWS_SDK_VERSION_CHECK(1, 11, 0)
+#  error "The AWS SDK is too old, version 1.11.0 or later is required"
 #endif
 
 #include "arrow/util/windows_fixup.h"
@@ -792,22 +772,6 @@ class S3Client : public Aws::S3::S3Client {
   std::shared_ptr<S3RetryStrategy> s3_retry_strategy_;
 };
 
-// In AWS SDK < 1.8, Aws::Client::ClientConfiguration::followRedirects is a bool.
-template <bool Never = false>
-void DisableRedirectsImpl(bool* followRedirects) {
-  *followRedirects = false;
-}
-
-// In AWS SDK >= 1.8, it's a Aws::Client::FollowRedirectsPolicy scoped enum.
-template <typename PolicyEnum, PolicyEnum Never = PolicyEnum::NEVER>
-void DisableRedirectsImpl(PolicyEnum* followRedirects) {
-  *followRedirects = Never;
-}
-
-void DisableRedirects(Aws::Client::ClientConfiguration* c) {
-  DisableRedirectsImpl(&c->followRedirects);
-}
-
 // -----------------------------------------------------------------------
 // S3 client protection against use after finalization
 //
@@ -978,8 +942,6 @@ Result<std::shared_ptr<S3ClientHolder>> GetClientHolder(
 // -----------------------------------------------------------------------
 // S3 client factory: build S3Client from S3Options
 
-#ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
-
 // GH-40279: standard initialization of S3Client creates a new `S3EndpointProvider`
 // every time. Its construction takes 1ms, which makes instantiating every S3Client
 // very costly (see upstream bug report
@@ -1104,8 +1066,6 @@ class EndpointProviderCache {
   std::unordered_map<EndpointConfigKey, CacheValue> cache_;
 };
 
-#endif  // ARROW_S3_HAS_S3CLIENT_CONFIGURATION
-
 class ClientBuilder {
  public:
   explicit ClientBuilder(S3Options options) : options_(std::move(options)) {}
@@ -1188,17 +1148,10 @@ class ClientBuilder {
     const bool use_virtual_addressing =
         options_.endpoint_override.empty() || options_.force_virtual_addressing;
 
-#ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
     client_config_.useVirtualAddressing = use_virtual_addressing;
     auto endpoint_provider = EndpointProviderCache::Instance()->Lookup(client_config_);
     auto client = std::make_shared<S3Client>(credentials_provider_, endpoint_provider,
                                              client_config_);
-#else
-    auto client = std::make_shared<S3Client>(
-        credentials_provider_, client_config_,
-        Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
-        use_virtual_addressing);
-#endif
     client->s3_retry_strategy_ = options_.retry_strategy;
     return GetClientHolder(std::move(client));
   }
@@ -1207,11 +1160,7 @@ class ClientBuilder {
 
  protected:
   S3Options options_;
-#ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
   Aws::S3::S3ClientConfiguration client_config_;
-#else
-  Aws::Client::ClientConfiguration client_config_;
-#endif
   std::shared_ptr<Aws::Auth::AWSCredentialsProvider> credentials_provider_;
 };
 
@@ -1275,7 +1224,8 @@ class RegionResolver {
   Status Init() {
     DCHECK(builder_.options().endpoint_override.empty());
     // On Windows with AWS SDK >= 1.8, it is necessary to disable redirects (ARROW-10085).
-    DisableRedirects(builder_.mutable_config());
+    builder_.mutable_config()->followRedirects =
+        Aws::Client::FollowRedirectsPolicy::NEVER;
     return builder_.BuildClient().Value(&holder_);
   }
 
@@ -2391,8 +2341,6 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
       req.SetCopySourceSSECustomerKeyMD5(sse_headers.sse_customer_key_md5);
       req.SetCopySourceSSECustomerAlgorithm(sse_headers.sse_customer_algorithm);
     }
-    // ARROW-13048: Copy source "Must be URL-encoded" according to AWS SDK docs.
-    // However at least in 1.8 and 1.9 the SDK URL-encodes the path for you
     req.SetCopySource(src_path.ToAwsString());
     return OutcomeToStatus(
         std::forward_as_tuple("When copying key '", src_path.key, "' in bucket '",
@@ -3500,9 +3448,7 @@ struct AwsInstance {
         return;
       }
       GetClientFinalizer()->Finalize();
-#ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
       EndpointProviderCache::Instance()->Reset();
-#endif
       Aws::ShutdownAPI(aws_options_);
     }
   }
@@ -3529,7 +3475,6 @@ struct AwsInstance {
 
 #undef LOG_LEVEL_CASE
 
-#ifdef ARROW_S3_HAS_CRT
     aws_options_.ioOptions.clientBootstrap_create_fn =
         [ev_threads = options.num_event_loop_threads]() {
           // https://github.com/aws/aws-sdk-cpp/blob/1.11.15/src/aws-cpp-sdk-core/source/Aws.cpp#L65
@@ -3541,18 +3486,14 @@ struct AwsInstance {
           client_bootstrap->EnableBlockingShutdown();
           return client_bootstrap;
         };
-#endif
     aws_options_.loggingOptions.logLevel = aws_log_level;
     // By default the AWS SDK logs to files, log to console instead
     aws_options_.loggingOptions.logger_create_fn = [this] {
       return std::make_shared<Aws::Utils::Logging::ConsoleLogSystem>(
           aws_options_.loggingOptions.logLevel);
     };
-#if ARROW_AWS_SDK_VERSION_CHECK(1, 9, 272)
     // ARROW-18290: escape all special chars for compatibility with non-AWS S3 backends.
-    // This configuration options is only available with AWS SDK 1.9.272 and later.
     aws_options_.httpOptions.compliantRfc3986Encoding = true;
-#endif
     aws_options_.httpOptions.installSigPipeHandler = options.install_sigpipe_handler;
     Aws::InitAPI(aws_options_);
   }
