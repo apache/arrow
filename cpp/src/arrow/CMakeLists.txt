@@ -517,7 +517,7 @@ set(ARROW_UTIL_SRCS
     util/ree_util.cc
     util/secure_string.cc
     util/string.cc
-    util/string_builder.cc
+    util/string_util.cc
     util/task_group.cc
     util/tdigest.cc
     util/thread_pool.cc

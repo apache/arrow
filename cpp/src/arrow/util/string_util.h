@@ -26,9 +26,8 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-namespace util {
 
-namespace detail {
+namespace internal {
 
 class ARROW_EXPORT StringStreamWrapper {
  public:
@@ -43,31 +42,24 @@ class ARROW_EXPORT StringStreamWrapper {
   std::ostream& ostream_;
 };
 
-}  // namespace detail
-
-template <typename Head>
-void StringBuilderRecursive(std::ostream& stream, Head&& head) {
-  if constexpr (std::is_floating_point_v<std::decay_t<Head>>) {
-    // Avoid losing precision when printing floating point numbers
-    stream << std::to_string(head);
-  } else {
-    stream << head;
-  }
-}
-
-template <typename Head, typename... Tail>
-void StringBuilderRecursive(std::ostream& stream, Head&& head, Tail&&... tail) {
-  StringBuilderRecursive(stream, std::forward<Head>(head));
-  StringBuilderRecursive(stream, std::forward<Tail>(tail)...);
-}
-
 template <typename... Args>
-std::string StringBuilder(Args&&... args) {
-  detail::StringStreamWrapper ss;
-  StringBuilderRecursive(ss.stream(), std::forward<Args>(args)...);
+std::string JoinToString(Args&&... args) {
+  StringStreamWrapper ss;
+  (
+      [&ss](auto&& arg) {
+        // Avoid losing precision when printing floating point numbers
+        if constexpr (std::is_floating_point_v<std::decay_t<decltype(arg)>>) {
+          ss.stream() << std::to_string(arg);
+        } else {
+          ss.stream() << arg;
+        }
+      }(std::forward<Args>(args)),
+      ...);
   return ss.str();
 }
+}  // namespace internal
 
+namespace util {
 /// CRTP helper for declaring string representation. Defines operator<<
 template <typename T>
 class ToStringOstreamable {
