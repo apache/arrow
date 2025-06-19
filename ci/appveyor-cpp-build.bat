@@ -24,7 +24,7 @@ git reset --hard
 git submodule update --init || exit /B
 
 set ARROW_TEST_DATA=%CD%\testing\data
-set PARQUET_TEST_DATA=%CD%/cpp/submodules/parquet-testing/data
+set PARQUET_TEST_DATA=C:\projects\arrow\cpp\submodules\parquet-testing\data
 
 @rem Enable memory debug checks if the env is not set already
 IF "%ARROW_DEBUG_MEMORY_POOL%"=="" (
