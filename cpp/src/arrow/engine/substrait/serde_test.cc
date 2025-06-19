@@ -1065,6 +1065,10 @@ NamedTableProvider AlwaysProvideSameTable(std::shared_ptr<Table> table) {
 }
 
 TEST(Substrait, ExecReadRelWithLocalFiles) {
+#if defined(_MSVC_VER) && _MSVC_VER < 1930
+  GTEST_SKIP() << "GH-XXX: AppVeyor treats backslashes as escape characters";
+#endif
+
   ASSERT_OK_AND_ASSIGN(std::string dir_string,
                        arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
 
