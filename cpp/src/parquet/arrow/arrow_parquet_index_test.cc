@@ -57,44 +57,28 @@
 
 #include "parquet/api/reader.h"
 
+#include "parquet/arrow/reader.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/test_util.h"
+#include "parquet/arrow/writer.h"
 #include "parquet/bloom_filter.h"
 #include "parquet/bloom_filter_reader.h"
+#include "parquet/file_writer.h"
 #include "parquet/page_index.h"
+#include "parquet/properties.h"
 #include "parquet/test_util.h"
 
 using arrow::Array;
-using arrow::ArrayData;
-using arrow::ArrayFromJSON;
-using arrow::ArrayVector;
-using arrow::ArrayVisitor;
 using arrow::Buffer;
 using arrow::ChunkedArray;
-using arrow::DataType;
-using arrow::Datum;
-using arrow::DecimalType;
 using arrow::default_memory_pool;
-using arrow::DictionaryArray;
-using arrow::ListArray;
-using arrow::PrimitiveArray;
-using arrow::ResizableBuffer;
 using arrow::Result;
-using arrow::Scalar;
 using arrow::Status;
 using arrow::Table;
-using arrow::TimeUnit;
-using arrow::compute::DictionaryEncode;
 using arrow::internal::checked_cast;
-using arrow::internal::checked_pointer_cast;
-using arrow::internal::Iota;
 using arrow::io::BufferReader;
 
-using arrow::randint;
-using arrow::random_is_valid;
-
-using ArrowId = ::arrow::Type;
 using ParquetType = parquet::Type;
 
 using parquet::arrow::FromParquetSchema;
