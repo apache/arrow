@@ -399,7 +399,7 @@ TEST(TestTime, TimeStampTrunc) {
             StringToTimestamp("1930-04-01 00:00:00"));
   EXPECT_EQ(date_trunc_Year_date64(StringToTimestamp("1930-05-15 12:34:56")),
             StringToTimestamp("1930-01-01 00:00:00"));
-  EXPECT_EQ(date_trunc_Decade_date64(StringToTimestamp("1930-05-15 12:34:56")),
+  EXPECT_EQ(date_trunc_Decade_date64(StringToTimestamp("1931-05-15 12:34:56")),
             StringToTimestamp("1930-01-01 00:00:00"));
   EXPECT_EQ(date_trunc_Century_date64(StringToTimestamp("1930-05-15 12:34:56")),
             StringToTimestamp("1901-01-01 00:00:00"));
