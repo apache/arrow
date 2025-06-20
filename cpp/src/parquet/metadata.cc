@@ -122,7 +122,7 @@ static std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
 
 std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_data,
                                             const ColumnDescriptor* descr) {
-  auto metadata_type = static_cast<Type::type>(meta_data.type);
+  auto metadata_type = LoadEnumSafe(&meta_data.type);
   if (descr->physical_type() != metadata_type) {
     throw ParquetException(
         "ColumnMetaData type does not match ColumnDescriptor physical type: " +
