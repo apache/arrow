@@ -75,37 +75,14 @@ if [ ${SOURCE_RAT} -gt 0 ]; then
 fi
 
 if [ ${SOURCE_UPLOAD} -gt 0 ]; then
-  rm -rf signed-artifacts
-  mkdir -p signed-artifacts
-
-  # sign the artifacts
-  for artifact in artifacts/*; do
-    case "${artifact}" in
-      *.sha256|*.sha512)
-        continue
-        ;;
-    esac
-    gpg \
-      --armor \
-      --detach-sig \
-      --output signed-artifacts/$(basename ${artifact}).asc \
-      ${artifact}
-  done
-
-  # Upload signed tarballs to GitHub Release
-  gh release upload ${tag} \
-     --repo "${GITHUB_REPOSITORY}" \
-     signed-artifacts/*
-
   # check out the arrow RC folder
   svn co --depth=empty https://dist.apache.org/repos/dist/dev/arrow tmp
 
   # add the release candidate for the tag
   mkdir -p tmp/${tag}
 
-  # copy the rc tarball into the tmp dir
+  # copy the release candidate tarball and related files into the tmp dir
   cp artifacts/${tarball}* tmp/${tag}
-  cp signed-artifacts/${tarball}.asc tmp/${tag}
 
   # commit to svn
   svn add tmp/${tag}
@@ -113,7 +90,6 @@ if [ ${SOURCE_UPLOAD} -gt 0 ]; then
 
   # clean up
   rm -rf artifacts
-  rm -rf signed-artifacts
   rm -rf tmp
 
   echo "Success! The release candidate is available here:"
