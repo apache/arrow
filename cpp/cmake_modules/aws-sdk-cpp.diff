@@ -1,0 +1,12 @@
+diff --git a/generated/src/aws-cpp-sdk-s3/source/S3Client.cpp b/generated/src/aws-cpp-sdk-s3/source/S3Client.cpp
+index 0134be223a8..7fefd1c0f5f 100644
+--- a/generated/src/aws-cpp-sdk-s3/source/S3Client.cpp
++++ b/generated/src/aws-cpp-sdk-s3/source/S3Client.cpp
+@@ -260,6 +260,7 @@ S3Client::S3Client(const std::shared_ptr<AWSCredentialsProvider>& credentialsPro
+                                                                 clientConfiguration.payloadSigningPolicy,
+                                                                 /*doubleEncodeValue*/ false),
+             Aws::MakeShared<S3ErrorMarshaller>(ALLOCATION_TAG)),
++    Aws::Client::ClientWithAsyncTemplateMethods<S3Client>(),
+     m_clientConfiguration(clientConfiguration),
+     m_endpointProvider(endpointProvider ? std::move(endpointProvider) : Aws::MakeShared<S3EndpointProvider>(ALLOCATION_TAG))
+ {
