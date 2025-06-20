@@ -160,12 +160,22 @@ class ARROW_EXPORT ChunkedArray {
   ///
   /// Two chunked arrays can be equal only if they have equal datatypes.
   /// However, they may be equal even if they have different chunkings.
+  ///
+  /// Setting \ref arrow::EqualOptions::use_atol to true is equivalent to
+  /// using \ref arrow::ChunkedArray::ApproxEquals
   bool Equals(const ChunkedArray& other,
               const EqualOptions& opts = EqualOptions::Defaults()) const;
+
   /// \brief Determine if two chunked arrays are equal.
+  ///
+  /// Setting \ref arrow::EqualOptions::use_atol to true is equivalent to
+  /// using \ref arrow::ChunkedArray::ApproxEquals
   bool Equals(const std::shared_ptr<ChunkedArray>& other,
               const EqualOptions& opts = EqualOptions::Defaults()) const;
+
   /// \brief Determine if two chunked arrays approximately equal
+  ///
+  /// Setting \ref arrow::EqualOptions::use_atol has no effect on this method.
   bool ApproxEquals(const ChunkedArray& other,
                     const EqualOptions& = EqualOptions::Defaults()) const;
 

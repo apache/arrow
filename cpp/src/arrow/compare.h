@@ -99,12 +99,15 @@ class EqualOptions {
   double atol_ = kDefaultAbsoluteTolerance;
   bool nans_equal_ = false;
   bool signed_zeros_equal_ = true;
-  bool use_atol_ = true;
+  bool use_atol_ = false;
 
   std::ostream* diff_sink_ = NULLPTR;
 };
 
 /// Returns true if the arrays are exactly equal
+///
+/// Setting \ref arrow::EqualOptions::use_atol to true
+/// is equivalent to using \ref arrow::ArrayApproxEquals.
 ///
 /// Note that arrow::ArrayStatistics is not included in the comparison.
 ARROW_EXPORT bool ArrayEquals(const Array& left, const Array& right,
@@ -113,11 +116,16 @@ ARROW_EXPORT bool ArrayEquals(const Array& left, const Array& right,
 /// Returns true if the arrays are approximately equal. For non-floating point
 /// types, this is equivalent to ArrayEquals(left, right)
 ///
+/// Setting \ref arrow::EqualOptions::use_atol has no effect on this method.
+///
 /// Note that arrow::ArrayStatistics is not included in the comparison.
 ARROW_EXPORT bool ArrayApproxEquals(const Array& left, const Array& right,
                                     const EqualOptions& = EqualOptions::Defaults());
 
 /// Returns true if indicated equal-length segment of arrays are exactly equal
+///
+/// Setting \ref arrow::EqualOptions::use_atol to true
+/// is equivalent to using \ref arrow::ArrayRangeApproxEquals.
 ///
 /// Note that arrow::ArrayStatistics is not included in the comparison.
 ARROW_EXPORT bool ArrayRangeEquals(const Array& left, const Array& right,
@@ -126,6 +134,8 @@ ARROW_EXPORT bool ArrayRangeEquals(const Array& left, const Array& right,
                                    const EqualOptions& = EqualOptions::Defaults());
 
 /// Returns true if indicated equal-length segment of arrays are approximately equal
+///
+/// Setting \ref arrow::EqualOptions::use_atol has no effect on this method.
 ///
 /// Note that arrow::ArrayStatistics is not included in the comparison.
 ARROW_EXPORT bool ArrayRangeApproxEquals(const Array& left, const Array& right,
@@ -159,6 +169,10 @@ ARROW_EXPORT bool ArrayStatisticsEquals(
     const EqualOptions& options = EqualOptions::Defaults());
 
 /// Returns true if scalars are equal
+///
+/// Setting \ref arrow::EqualOptions::use_atol to true
+/// is equivalent to using \ref arrow::ScalarApproxEquals.
+///
 /// \param[in] left a Scalar
 /// \param[in] right a Scalar
 /// \param[in] options comparison options
@@ -166,6 +180,9 @@ ARROW_EXPORT bool ScalarEquals(const Scalar& left, const Scalar& right,
                                const EqualOptions& options = EqualOptions::Defaults());
 
 /// Returns true if scalars are approximately equal
+///
+/// Setting \ref arrow::EqualOptions::use_atol has no effect on this method.
+///
 /// \param[in] left a Scalar
 /// \param[in] right a Scalar
 /// \param[in] options comparison options

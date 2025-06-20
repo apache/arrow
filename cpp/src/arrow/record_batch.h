@@ -120,6 +120,10 @@ class ARROW_EXPORT RecordBatch {
 
   /// \brief Determine if two record batches are exactly equal
   ///
+  /// Setting \ref arrow::EqualOptions::use_atol to true is equivalent to
+  /// using \ref arrow::RecordBatch::ApproxEquals Although, Schema comparison is included,
+  /// and inclusion of schema metadata depends on \p check_metadata .
+  ///
   /// \param[in] other the RecordBatch to compare with
   /// \param[in] check_metadata if true, check that Schema metadata is the same
   /// \param[in] opts the options for equality comparisons
@@ -128,6 +132,8 @@ class ARROW_EXPORT RecordBatch {
               const EqualOptions& opts = EqualOptions::Defaults()) const;
 
   /// \brief Determine if two record batches are approximately equal
+  ///
+  /// Setting \ref arrow::EqualOptions::use_atol has no effect on this method.
   ///
   /// \param[in] other the RecordBatch to compare with
   /// \param[in] opts the options for equality comparisons

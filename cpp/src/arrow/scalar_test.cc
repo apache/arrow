@@ -387,6 +387,14 @@ class TestRealScalar : public ::testing::Test {
     ASSERT_FALSE(scalar_zero_->ApproxEquals(*scalar_neg_zero_, options));
   }
 
+  void TestUseAtol() {
+    auto options = EqualOptions::Defaults().atol(0.2f);
+
+    ASSERT_FALSE(scalar_val_->Equals(*scalar_other_, options));
+    ASSERT_TRUE(scalar_val_->Equals(*scalar_other_, options.use_atol(true)));
+    ASSERT_TRUE(scalar_val_->ApproxEquals(*scalar_other_, options));
+  }
+
   void TestStructOf() {
     auto ty = struct_({field("float", type_)});
 
@@ -521,6 +529,8 @@ TYPED_TEST(TestRealScalar, NanEquals) { this->TestNanEquals(); }
 TYPED_TEST(TestRealScalar, SignedZeroEquals) { this->TestSignedZeroEquals(); }
 
 TYPED_TEST(TestRealScalar, ApproxEquals) { this->TestApproxEquals(); }
+
+TYPED_TEST(TestRealScalar, UseAtol) { this->TestUseAtol(); }
 
 TYPED_TEST(TestRealScalar, StructOf) { this->TestStructOf(); }
 
