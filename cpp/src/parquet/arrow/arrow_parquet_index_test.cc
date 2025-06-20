@@ -62,6 +62,7 @@
 #include "parquet/arrow/test_util.h"
 #include "parquet/bloom_filter.h"
 #include "parquet/bloom_filter_reader.h"
+#include "parquet/page_index.h"
 #include "parquet/test_util.h"
 
 using arrow::Array;
