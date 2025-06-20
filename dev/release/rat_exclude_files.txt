@@ -151,5 +151,3 @@ r/tools/nixlibs-allowlist.txt
 .gitattributes
 ruby/red-arrow/.yardopts
 .github/pull_request_template.md
-swift/data-generator/swift-datagen/go.sum
-swift/CDataWGo/go.sum

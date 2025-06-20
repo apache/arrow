@@ -77,6 +77,7 @@ repos:
         alias: cpp
         name: C++ Lint
         args:
+          - "--quiet"
           - "--verbose=2"
         types_or:
           - c++
@@ -196,8 +197,9 @@ repos:
         additional_dependencies:
           - cyclocomp
           - lintr
+          - testthat
         entry: |
-          Rscript r/tools/lint.R
+          Rscript -e "Sys.setenv(NOT_CRAN = 'TRUE'); lintr::expect_lint_free('r')"
         pass_filenames: false
         files: >-
           ^r/.*\.(R|Rmd)$
@@ -299,10 +301,13 @@ repos:
           ?^c_glib/test/run-test\.sh$|
           ?^ci/scripts/c_glib_build\.sh$|
           ?^ci/scripts/c_glib_test\.sh$|
+          ?^ci/scripts/ccache_setup\.sh$|
+          ?^ci/scripts/conan_build\.sh$|
           ?^ci/scripts/conan_setup\.sh$|
           ?^ci/scripts/cpp_test\.sh$|
           ?^ci/scripts/csharp_build\.sh$|
           ?^ci/scripts/csharp_pack\.sh$|
+          ?^ci/scripts/csharp_test\.sh$|
           ?^ci/scripts/download_tz_database\.sh$|
           ?^ci/scripts/install_azurite\.sh$|
           ?^ci/scripts/install_ccache\.sh$|
@@ -354,7 +359,10 @@ repos:
           ?^swift/gen-protobuffers\.sh$|
           )
   - repo: https://github.com/scop/pre-commit-shfmt
-    rev: v3.11.0-1
+    # v3.11.0-1 or later requires pre-commit 3.2.0 or later but Ubuntu
+    # 22.04 ships pre-commit 2.17.0. We can use update this rev after
+    # Ubuntu 22.04 reached EOL (June 2027).
+    rev: v3.10.0-1
     hooks:
       - id: shfmt
         alias: shell

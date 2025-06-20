@@ -17,7 +17,7 @@
 
 #include "arrow/util/formatting.h"
 #include "arrow/util/config.h"
-#include "arrow/util/double_conversion.h"
+#include "arrow/util/double_conversion_internal.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
 

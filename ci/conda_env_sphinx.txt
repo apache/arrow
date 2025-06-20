@@ -17,6 +17,7 @@
 
 # Requirements for building the documentation
 breathe
+cython>3.1.1
 doxygen
 ipython
 linkify-it-py

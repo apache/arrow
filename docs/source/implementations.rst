@@ -35,44 +35,44 @@ documentation and source code for these libraries.
      - Docs
      - Source
    * - C++
-     - `C++ Docs <https://arrow.apache.org/docs/cpp>`_
+     - :doc:`C++ Docs<cpp/index>`
      - `C++ Source <https://github.com/apache/arrow/tree/main/cpp>`_
    * - C GLib
-     - `C GLib Docs <https://arrow.apache.org/docs/c_glib>`_
+     - :doc:`C GLib Docs<c_glib/index>`
      - `C GLib Source <https://github.com/apache/arrow/tree/main/c_glib>`_
    * - C#
-     - `C# Docs <https://github.com/apache/arrow/blob/main/csharp/README.md>`_
+     - `C# Docs <https://github.com/apache/arrow/blob/main/csharp/README.md>`_ :fa:`external-link-alt`
      - `C# Source <https://github.com/apache/arrow/tree/main/csharp>`_
    * - Go
-     - `Go Docs <https://godoc.org/github.com/apache/arrow/go/arrow>`_
+     - `Go Docs <https://godoc.org/github.com/apache/arrow/go/arrow>`_ :fa:`external-link-alt`
      - `Go Source <https://github.com/apache/arrow-go>`_
    * - Java
-     - `Java Docs <https://arrow.apache.org/docs/java>`_
+     - :doc:`Java Docs<java/index>`
      - `Java Source <https://github.com/apache/arrow-java>`_
    * - JavaScript
-     - `JavaScript Docs <https://arrow.apache.org/docs/js>`_
+     - `JavaScript Docs <https://arrow.apache.org/docs/js>`_ :fa:`external-link-alt`
      - `JavaScript Source <https://github.com/apache/arrow-js>`_
    * - Julia
-     - `Julia Docs <https://arrow.apache.org/julia/>`_
+     - `Julia Docs <https://arrow.apache.org/julia/>`_ :fa:`external-link-alt`
      - `Julia Source <https://github.com/apache/arrow-julia>`_
    * - MATLAB
-     - `MATLAB Docs <https://github.com/apache/arrow/blob/main/matlab/README.md>`_
+     - `MATLAB Docs <https://github.com/apache/arrow/blob/main/matlab/README.md>`_ :fa:`external-link-alt`
      - `MATLAB Source <https://github.com/apache/arrow/tree/main/matlab>`_
    * - Python
-     - `Python Docs <https://arrow.apache.org/docs/python>`_
+     - :doc:`Python Docs<python/index>`
      - `Python Source <https://github.com/apache/arrow/tree/main/python>`_
    * - R
-     - `R Docs <https://arrow.apache.org/docs/r>`_
+     - `R Docs <r/index.html>`_ :fa:`external-link-alt`
      - `R Source <https://github.com/apache/arrow/tree/main/r>`_
    * - Ruby
-     - `Ruby Docs <https://github.com/apache/arrow/blob/main/ruby/README.md>`_
+     - `Ruby Docs <https://github.com/apache/arrow/blob/main/ruby/README.md>`_ :fa:`external-link-alt`
      - `Ruby Source <https://github.com/apache/arrow/tree/main/ruby>`_
    * - Rust
-     - `Rust Docs <https://docs.rs/arrow/latest>`_
+     - `Rust Docs <https://docs.rs/arrow/latest>`_ :fa:`external-link-alt`
      - `Rust Source <https://github.com/apache/arrow-rs>`_
    * - Swift
-     - `Swift Docs <https://github.com/apache/arrow/blob/main/swift/Arrow/README.md>`_
-     - `Swift Source <https://github.com/apache/arrow/tree/main/swift>`_
+     - `Swift Docs <https://github.com/apache/arrow-swift/blob/main/Arrow/README.md>`_ :fa:`external-link-alt`
+     - `Swift Source <https://github.com/apache/arrow-swift>`_
 
 In addition to the libraries listed above, the Arrow project hosts the
 **nanoarrow** subproject which provides a set of lightweight libraries
@@ -82,7 +82,7 @@ designed to help produce and consume Arrow data.
    :header-rows: 0
 
    * - nanoarrow
-     - `nanoarrow Docs <https://arrow.apache.org/nanoarrow>`_
+     - `nanoarrow Docs <https://arrow.apache.org/nanoarrow>`_ :fa:`external-link-alt`
      - `nanoarrow Source <http://github.com/apache/arrow-nanoarrow>`_
 
 Implementation Status
@@ -104,3 +104,23 @@ libraries for different programming languages.
 
 The source files for the Cookbook are maintained in the
 `Apache Arrow Cookbooks repository <https://github.com/apache/arrow-cookbook>`_.
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   C++ <cpp/index>
+   C GLib <c_glib/index>
+   C# <https://github.com/apache/arrow/blob/main/csharp/README.md>
+   Go <https://arrow.apache.org/go/>
+   Java <java/index>
+   JavaScript <https://arrow.apache.org/docs/js>
+   Julia <https://arrow.apache.org/julia/>
+   MATLAB <https://github.com/apache/arrow/blob/main/matlab/README.md>
+   Python <python/index>
+   R <https://arrow.apache.org/docs/r>
+   Ruby <https://github.com/apache/arrow/blob/main/ruby/README.md>
+   Rust <https://docs.rs/crate/arrow/>
+   Swift <https://github.com/apache/arrow-swift/blob/main/Arrow/README.md>
+   nanoarrow <https://arrow.apache.org/nanoarrow/>
+   Implementation Status <status>

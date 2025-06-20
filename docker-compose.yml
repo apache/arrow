@@ -142,7 +142,6 @@ x-hierarchy:
     - ubuntu-cpp-static
     - ubuntu-c-glib:
       - ubuntu-ruby
-    - ubuntu-lint
     - ubuntu-python
     - ubuntu-python-sdist-test
     - ubuntu-python-313-freethreading
@@ -158,7 +157,6 @@ x-hierarchy:
   - ubuntu-cpp-thread-sanitizer
   - ubuntu-cpp-emscripten
   - ubuntu-r-valgrind
-  - ubuntu-swift
   - ubuntu-verify-rc
   - r
   - r-revdepcheck
@@ -1040,21 +1038,6 @@ services:
     volumes: *ubuntu-volumes
     command: *python-command
 
-  ubuntu-swift:
-    # Usage:
-    #   docker compose build ubuntu-swift
-    #   docker compose run --rm ubuntu-swift
-    # Parameters:
-    image: ubuntu-swift
-    build:
-      context: .
-      dockerfile: ci/docker/ubuntu-swift.dockerfile
-    shm_size: *shm-size
-    volumes: *ubuntu-volumes
-    command: >
-      /bin/bash -c "/arrow/ci/scripts/swift_test.sh /arrow"
-
-
   fedora-python:
     # Usage:
     #   docker compose build fedora-cpp
@@ -1869,34 +1852,6 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
         /arrow/ci/scripts/r_build.sh /arrow /build"
-
-  ################################# Tools #####################################
-
-  ubuntu-lint:
-    # Usage:
-    #   docker compose build ubuntu-cpp
-    #   docker compose build ubuntu-lint
-    #   docker compose run ubuntu-lint
-    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-lint
-    build:
-      context: .
-      dockerfile: ci/docker/linux-apt-lint.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-lint
-      args:
-        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
-        clang_tools: ${CLANG_TOOLS}
-    environment:
-      <<: [*common, *ccache]
-    volumes: *ubuntu-volumes
-    command: >
-      /bin/bash -c "
-        git config --global --add safe.directory /arrow &&
-        python3 -m venv /build/pyvenv &&
-        source /build/pyvenv/bin/activate &&
-        pip install -U pip setuptools &&
-        pip install arrow/dev/archery[lint] &&
-        archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc --src /arrow"
 
   ######################### Integration Tests #################################
 

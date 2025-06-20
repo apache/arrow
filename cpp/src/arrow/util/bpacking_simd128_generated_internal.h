@@ -24,7 +24,7 @@
 
 #include <xsimd/xsimd.hpp>
 
-#include "arrow/util/dispatch.h"
+#include "arrow/util/dispatch_internal.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow {

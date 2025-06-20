@@ -1012,7 +1012,7 @@ endif()
 set(MAKE_BUILD_ARGS "-j${NPROC}")
 
 include(FetchContent)
-set(FC_DECLARE_COMMON_OPTIONS)
+set(FC_DECLARE_COMMON_OPTIONS SYSTEM)
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.28)
   list(APPEND FC_DECLARE_COMMON_OPTIONS EXCLUDE_FROM_ALL TRUE)
 endif()
@@ -1020,13 +1020,17 @@ endif()
 macro(prepare_fetchcontent)
   set(BUILD_SHARED_LIBS OFF)
   set(BUILD_STATIC_LIBS ON)
-  set(CMAKE_COMPILE_WARNING_AS_ERROR FALSE)
-  set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
+  set(BUILD_TESTING OFF)
+  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "")
+  set(CMAKE_COMPILE_WARNING_AS_ERROR OFF)
+  set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY OFF)
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "")
   set(CMAKE_MACOSX_RPATH ${ARROW_INSTALL_NAME_RPATH})
   # We set CMAKE_POLICY_VERSION_MINIMUM temporarily due to failures with CMake 4
   # We should remove it once we have updated the dependencies:
   # https://github.com/apache/arrow/issues/45985
   set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "")
 
   if(MSVC)
     string(REPLACE "/WX" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
@@ -1058,7 +1062,7 @@ macro(build_boost)
   if(ARROW_BOOST_REQUIRE_LIBRARY)
     set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
     set(BOOST_BUILD_LINK "static")
-    if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+    if("${UPPERCASE_BUILD_TYPE}" STREQUAL "DEBUG")
       set(BOOST_BUILD_VARIANT "debug")
     else()
       set(BOOST_BUILD_VARIANT "release")
@@ -2275,21 +2279,25 @@ if(ARROW_MIMALLOC)
   # We only use a vendored mimalloc as we want to control its build options.
 
   set(MIMALLOC_LIB_BASE_NAME "mimalloc")
-  if(WIN32)
-    set(MIMALLOC_LIB_BASE_NAME "${MIMALLOC_LIB_BASE_NAME}-static")
-  endif()
   if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
     set(MIMALLOC_LIB_BASE_NAME "${MIMALLOC_LIB_BASE_NAME}-${LOWERCASE_BUILD_TYPE}")
   endif()
 
   set(MIMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/mimalloc_ep/src/mimalloc_ep")
-  set(MIMALLOC_INCLUDE_DIR "${MIMALLOC_PREFIX}/include/mimalloc-2.0")
+  set(MIMALLOC_INCLUDE_DIR "${MIMALLOC_PREFIX}/include/mimalloc-2.2")
   set(MIMALLOC_STATIC_LIB
-      "${MIMALLOC_PREFIX}/lib/mimalloc-2.0/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${MIMALLOC_PREFIX}/lib/mimalloc-2.2/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
+
+  set(MIMALLOC_C_FLAGS ${EP_C_FLAGS})
+  if(MINGW)
+    # Workaround https://github.com/microsoft/mimalloc/issues/910 on RTools40
+    set(MIMALLOC_C_FLAGS "${MIMALLOC_C_FLAGS} -DERROR_COMMITMENT_MINIMUM=635")
+  endif()
 
   set(MIMALLOC_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
+      "-DCMAKE_C_FLAGS=${MIMALLOC_C_FLAGS}"
       "-DCMAKE_INSTALL_PREFIX=${MIMALLOC_PREFIX}"
       -DMI_OVERRIDE=OFF
       -DMI_LOCAL_DYNAMIC_TLS=ON
@@ -2653,11 +2661,13 @@ if(ARROW_WITH_ZLIB)
   resolve_dependency(ZLIB PC_PACKAGE_NAMES zlib)
 endif()
 
-macro(build_lz4)
+function(build_lz4)
   message(STATUS "Building LZ4 from source using FetchContent")
 
   # Set LZ4 as vendored
-  set(LZ4_VENDORED TRUE)
+  set(LZ4_VENDORED
+      TRUE
+      PARENT_SCOPE)
 
   # Declare the content
   fetchcontent_declare(lz4
@@ -2688,7 +2698,10 @@ macro(build_lz4)
   # Add to bundled static libs.
   # We must use lz4_static (not imported target) not LZ4::lz4 (imported target).
   list(APPEND ARROW_BUNDLED_STATIC_LIBS lz4_static)
-endmacro()
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
+endfunction()
 
 if(ARROW_WITH_LZ4)
   resolve_dependency(lz4
@@ -4774,7 +4787,7 @@ function(build_orc)
                                 ${ARROW_PROTOBUF_PROTOC}
                                 ${ARROW_ZSTD_LIBZSTD}
                                 ${Snappy_TARGET}
-                                LZ4::lz4
+                                ${ORC_LZ4_TARGET}
                                 ZLIB::ZLIB)
     add_library(orc::orc STATIC IMPORTED)
     set_target_properties(orc::orc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
@@ -5051,439 +5064,218 @@ endif()
 # ----------------------------------------------------------------------
 # AWS SDK for C++
 
-include(AWSSDKVariables)
+function(build_awssdk)
+  message(STATUS "Building AWS SDK for C++ from source")
 
-macro(build_awssdk)
-  message(STATUS "Building AWS C++ SDK from source")
-  set(AWSSDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-install")
-  set(AWSSDK_INCLUDE_DIR "${AWSSDK_PREFIX}/include")
-
-  # The AWS SDK has a few warnings around shortening lengths
-  set(AWS_C_FLAGS "${EP_C_FLAGS}")
-  set(AWS_CXX_FLAGS "${EP_CXX_FLAGS}")
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
-                                                    "Clang")
-    # Negate warnings that AWS SDK cannot build under
-    string(APPEND AWS_C_FLAGS " -Wno-error=shorten-64-to-32")
-    string(APPEND AWS_CXX_FLAGS " -Wno-error=shorten-64-to-32")
+  # aws-c-common must be the first product because others depend on
+  # this.
+  set(AWSSDK_PRODUCTS aws-c-common)
+  if(LINUX)
+    list(APPEND AWSSDK_PRODUCTS aws-lc s2n-tls)
   endif()
-  if(NOT MSVC)
-    string(APPEND AWS_C_FLAGS " -Wno-deprecated")
-    string(APPEND AWS_CXX_FLAGS " -Wno-deprecated")
-  endif()
-  # GH-44950: This is required to build under Rtools40 and we may be able to
-  # remove it if/when we no longer need to build under Rtools40
-  if(WIN32 AND NOT MSVC)
-    string(APPEND
-           AWS_C_FLAGS
-           " -D_WIN32_WINNT=0x0601 -D__USE_MINGW_ANSI_STDIO=1 -Wno-error -Wno-error=format= -Wno-error=format-extra-args -Wno-unused-local-typedefs -Wno-unused-variable"
+  list(APPEND
+       AWSSDK_PRODUCTS
+       # We can't sort this in alphabetical order because some
+       # products depend on other products.
+       aws-checksums
+       aws-c-cal
+       aws-c-io
+       aws-c-event-stream
+       aws-c-sdkutils
+       aws-c-compression
+       aws-c-http
+       aws-c-mqtt
+       aws-c-auth
+       aws-c-s3
+       aws-crt-cpp
+       aws-sdk-cpp)
+  set(AWS_SDK_CPP_SOURCE_URL "${AWSSDK_SOURCE_URL}")
+  set(ARROW_AWS_SDK_CPP_BUILD_SHA256_CHECKSUM "${ARROW_AWSSDK_BUILD_SHA256_CHECKSUM}")
+  foreach(AWSSDK_PRODUCT ${AWSSDK_PRODUCTS})
+    # aws-c-cal ->
+    # AWS-C-CAL
+    string(TOUPPER "${AWSSDK_PRODUCT}" BASE_VARIABLE_NAME)
+    # AWS-C-CAL ->
+    # AWS_C_CAL
+    string(REGEX REPLACE "-" "_" BASE_VARIABLE_NAME "${BASE_VARIABLE_NAME}")
+    if(MINGW AND AWSSDK_PRODUCT STREQUAL "aws-c-common")
+      find_program(PATCH patch REQUIRED)
+      set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
+          ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/aws-c-common-1208.patch)
+    endif()
+    fetchcontent_declare(${AWSSDK_PRODUCT}
+                         ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                         PATCH_COMMAND ${${BASE_VARIABLE_NAME}_PATCH_COMMAND}
+                         URL ${${BASE_VARIABLE_NAME}_SOURCE_URL}
+                         URL_HASH "SHA256=${ARROW_${BASE_VARIABLE_NAME}_BUILD_SHA256_CHECKSUM}"
     )
-    string(APPEND
-           AWS_CXX_FLAGS
-           " -D_WIN32_WINNT=0x0601 -D__USE_MINGW_ANSI_STDIO=1 -Wno-error -Wno-error=format= -Wno-error=format-extra-args -Wno-unused-local-typedefs -Wno-unused-variable"
-    )
-  endif()
-
-  set(AWSSDK_COMMON_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      -DCMAKE_C_FLAGS=${AWS_C_FLAGS}
-      -DCMAKE_CXX_FLAGS=${AWS_CXX_FLAGS}
-      -DCPP_STANDARD=${CMAKE_CXX_STANDARD}
-      -DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}
-      -DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}
-      -DENABLE_TESTING=OFF
-      -DENABLE_UNITY_BUILD=ON
-      -DOPENSSL_CRYPTO_LIBRARY=${OPENSSL_CRYPTO_LIBRARY}
-      -DOPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
-      -DOPENSSL_SSL_LIBRARY=${OPENSSL_SSL_LIBRARY}
-      -Dcrypto_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
-      -Dcrypto_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
-  if(ARROW_OPENSSL_USE_SHARED)
-    list(APPEND AWSSDK_COMMON_CMAKE_ARGS
-         -Dcrypto_SHARED_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
-  else()
-    list(APPEND AWSSDK_COMMON_CMAKE_ARGS
-         -Dcrypto_STATIC_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
-  endif()
-  set(AWSSDK_CMAKE_ARGS
-      ${AWSSDK_COMMON_CMAKE_ARGS}
-      -DBUILD_DEPS=OFF
-      -DBUILD_ONLY=config\\$<SEMICOLON>s3\\$<SEMICOLON>transfer\\$<SEMICOLON>identity-management\\$<SEMICOLON>sts
-      -DMINIMIZE_SIZE=ON)
-  # Remove unused directories to save build directory storage.
-  # 807MB -> 31MB
-  set(AWSSDK_PATCH_COMMAND ${CMAKE_COMMAND} -E)
-  if(CMAKE_VERSION VERSION_LESS 3.17)
-    list(APPEND AWSSDK_PATCH_COMMAND remove_directory)
-  else()
-    list(APPEND AWSSDK_PATCH_COMMAND rm -rf)
-  endif()
-  list(APPEND AWSSDK_PATCH_COMMAND ${AWSSDK_UNUSED_DIRECTORIES})
-
-  # Patch parts of the AWSSDK EP so it builds cleanly under Rtools40
-  if(WIN32 AND NOT MSVC)
-    find_program(PATCH patch REQUIRED)
-    # Patch aws_c_common to build under Rtools40
-    set(AWS_C_COMMON_PATCH_COMMAND ${PATCH} -p1 -i
-                                   ${CMAKE_SOURCE_DIR}/../ci/rtools/aws_c_common_ep.patch)
-    message(STATUS "Hello ${AWS_C_COMMON_PATCH_COMMAND}")
-    # aws_c_io_ep to build under Rtools40
-    set(AWS_C_IO_PATCH_COMMAND ${PATCH} -p1 -i
-                               ${CMAKE_SOURCE_DIR}/../ci/rtools/aws_c_io_ep.patch)
-    message(STATUS "Hello ${AWS_C_IO_PATCH_COMMAND}")
-    # awssdk_ep to build under Rtools40
-    list(APPEND
-         AWSSDK_PATCH_COMMAND
-         &&
-         ${PATCH}
-         -p1
-         -i
-         ${CMAKE_SOURCE_DIR}/../ci/rtools/awssdk_ep.patch)
-    message(STATUS "Hello ${AWSSDK_PATCH_COMMAND}")
-  endif()
-
-  if(UNIX)
-    # on Linux and macOS curl seems to be required
-    find_curl()
-    get_filename_component(CURL_ROOT_HINT "${CURL_INCLUDE_DIRS}" DIRECTORY)
-    get_filename_component(ZLIB_ROOT_HINT "${ZLIB_INCLUDE_DIRS}" DIRECTORY)
-
-    # provide hint for AWS SDK to link with the already located libcurl and zlib
-    list(APPEND
-         AWSSDK_CMAKE_ARGS
-         -DCURL_INCLUDE_DIR=${CURL_ROOT_HINT}/include
-         -DCURL_LIBRARY=${CURL_ROOT_HINT}/lib
-         -DZLIB_INCLUDE_DIR=${ZLIB_ROOT_HINT}/include
-         -DZLIB_LIBRARY=${ZLIB_ROOT_HINT}/lib)
-  endif()
-
-  file(MAKE_DIRECTORY ${AWSSDK_INCLUDE_DIR})
-
-  # AWS C++ SDK related libraries to link statically
-  set(_AWSSDK_LIBS
-      aws-cpp-sdk-identity-management
-      aws-cpp-sdk-sts
-      aws-cpp-sdk-cognito-identity
-      aws-cpp-sdk-s3
-      aws-cpp-sdk-core
-      aws-crt-cpp
-      aws-c-s3
-      aws-c-auth
-      aws-c-mqtt
-      aws-c-http
-      aws-c-compression
-      aws-c-sdkutils
-      aws-c-event-stream
-      aws-c-io
-      aws-c-cal
-      aws-checksums
-      aws-c-common)
-
-  # aws-lc needs to be installed on a separate folder to hide from unintended use
-  set(AWS_LC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/aws_lc_ep-install")
-  set(AWS_LC_INCLUDE_DIR "${AWS_LC_PREFIX}/include")
-
-  if(UNIX AND NOT APPLE) # aws-lc and s2n-tls only needed on linux
-    file(MAKE_DIRECTORY ${AWS_LC_INCLUDE_DIR})
-    list(APPEND _AWSSDK_LIBS s2n-tls aws-lc)
-  endif()
-
-  set(AWSSDK_LIBRARIES)
-  foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
-    # aws-c-common -> AWS-C-COMMON
-    string(TOUPPER ${_AWSSDK_LIB} _AWSSDK_LIB_UPPER)
-    # AWS-C-COMMON -> AWS_C_COMMON
-    string(REPLACE "-" "_" _AWSSDK_LIB_NAME_PREFIX ${_AWSSDK_LIB_UPPER})
-    set(_AWSSDK_STATIC_LIBRARY
-        "${AWSSDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${_AWSSDK_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-    if(${_AWSSDK_LIB} STREQUAL "s2n-tls") # Build output of s2n-tls is libs2n.a
-      set(_AWSSDK_STATIC_LIBRARY
-          "${AWSSDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}s2n${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    elseif(${_AWSSDK_LIB} STREQUAL "aws-lc") # We only need libcrypto from aws-lc
-      set(_AWSSDK_STATIC_LIBRARY
-          "${AWS_LC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}crypto${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    endif()
-    if(${_AWSSDK_LIB} MATCHES "^aws-cpp-sdk-")
-      set(_AWSSDK_TARGET_NAME ${_AWSSDK_LIB})
-    elseif(${_AWSSDK_LIB} STREQUAL "aws-lc")
-      set(_AWSSDK_TARGET_NAME AWS::crypto)
-    else()
-      set(_AWSSDK_TARGET_NAME AWS::${_AWSSDK_LIB})
-    endif()
-    add_library(${_AWSSDK_TARGET_NAME} STATIC IMPORTED)
-    set_target_properties(${_AWSSDK_TARGET_NAME} PROPERTIES IMPORTED_LOCATION
-                                                            ${_AWSSDK_STATIC_LIBRARY})
-    target_include_directories(${_AWSSDK_TARGET_NAME} BEFORE
-                               INTERFACE "${AWSSDK_INCLUDE_DIR}")
-    if(${_AWSSDK_LIB} STREQUAL "aws-lc")
-      set_target_properties(${_AWSSDK_TARGET_NAME} PROPERTIES IMPORTED_LOCATION
-                                                              ${_AWSSDK_STATIC_LIBRARY})
-      target_include_directories(${_AWSSDK_TARGET_NAME} BEFORE
-                                 INTERFACE "${AWS_LC_INCLUDE_DIR}")
-    endif()
-    set("${_AWSSDK_LIB_NAME_PREFIX}_STATIC_LIBRARY" ${_AWSSDK_STATIC_LIBRARY})
-
-    if(NOT ${_AWSSDK_LIB} STREQUAL "aws-lc")
-      # aws-lc only linked against s2n but not arrow
-      list(APPEND AWSSDK_LIBRARIES ${_AWSSDK_TARGET_NAME})
-    endif()
   endforeach()
 
-  externalproject_add(aws_c_common_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_COMMON_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_COMMON_BUILD_SHA256_CHECKSUM}"
-                      PATCH_COMMAND ${AWS_C_COMMON_PATCH_COMMAND}
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_COMMON_STATIC_LIBRARY})
-  add_dependencies(AWS::aws-c-common aws_c_common_ep)
+  prepare_fetchcontent()
+  set(BUILD_DEPS OFF)
+  set(BUILD_TOOL OFF)
+  set(CMAKE_UNITY_BUILD OFF) # Unity build causes some build errors.
+  set(ENABLE_TESTING OFF)
+  set(IN_SOURCE_BUILD ON)
+  set(MINIMIZE_SIZE ON)
+  set(USE_OPENSSL ON)
 
-  set(AWS_CHECKSUMS_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
+  # For aws-c-common
+  if(MINGW)
+    # PPROCESSOR_NUMBER requires Windows 7 or later.
+    #
+    # 0x0601 == _WIN32_WINNT_WIN7
+    string(APPEND CMAKE_C_FLAGS " -D_WIN32_WINNT=0x0601")
+    string(APPEND CMAKE_CXX_FLAGS " -D_WIN32_WINNT=0x0601")
+  endif()
+
+  # For aws-lc
+  set(DISABLE_GO ON)
+  set(DISABLE_PERL ON)
+
+  # For s2n-tls
+  set(crypto_INCLUDE_DIR "$<TARGET_PROPERTY:crypto,INTERFACE_INCLUDE_DIRECTORIES>")
+  set(crypto_STATIC_LIBRARY "$<TARGET_FILE:crypto>")
+  set(S2N_INTERN_LIBCRYPTO ON)
+
+  # For aws-lc and s2n-tls
+  #
+  # Link time optimization is causing trouble like GH-34349
+  string(REPLACE "-flto=auto" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REPLACE "-ffat-lto-objects" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+
+  # For aws-c-io
+  if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
+    # This is for RTools 40. We can remove this after we dropped
+    # support for R < 4.2. schannel.h in RTools 40 is old.
+
+    # For schannel.h
+    #
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/api/schannel/ns-schannel-schannel_cred
+    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_0_SERVER=0x00000040")
+    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_0_CLIENT=0x00000080")
+    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_1_SERVER=0x00000100")
+    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_1_CLIENT=0x00000200")
+    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_2_SERVER=0x00000400")
+    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_2_CLIENT=0x00000800")
+    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_3_SERVER=0x00001000")
+    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_3_CLIENT=0x00002000")
+    string(APPEND CMAKE_C_FLAGS " -DSCH_USE_STRONG_CRYPTO=0x00400000")
+
+    # For sspi.h
+    #
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/api/sspi/ne-sspi-sec_application_protocol_negotiation_ext
+    string(APPEND CMAKE_C_FLAGS " -DSecApplicationProtocolNegotiationExt_ALPN=2")
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/api/sspi/ns-sspi-secbuffer
+    string(APPEND CMAKE_C_FLAGS " -DSECBUFFER_ALERT=17")
+  endif()
+
+  # For aws-sdk-cpp
+  #
+  # We need to use CACHE variables because aws-sdk-cpp < 12.0.0 uses
+  # CMP0077 OLD policy. We can use normal variables when we use
+  # aws-sdk-cpp >= 12.0.0.
+  set(AWS_SDK_WARNINGS_ARE_ERRORS
+      OFF
+      CACHE BOOL "" FORCE)
+  set(BUILD_DEPS
+      OFF
+      CACHE BOOL "" FORCE)
+  set(BUILD_ONLY
+      ""
+      CACHE STRING "" FORCE)
+  list(APPEND
+       BUILD_ONLY
+       config
+       core
+       identity-management
+       s3
+       sts
+       transfer)
+  set(BUILD_SHARED_LIBS
+      OFF
+      CACHE BOOL "" FORCE)
+  set(ENABLE_TESTING
+      OFF
+      CACHE BOOL "" FORCE)
   if(NOT WIN32)
-    # On non-Windows, always build in release mode.
-    # Especially with gcc, debug builds can fail with "asm constraint" errors:
-    # https://github.com/TileDB-Inc/TileDB/issues/1351
-    list(APPEND AWS_CHECKSUMS_CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release)
+    set(ZLIB_INCLUDE_DIR
+        "$<TARGET_PROPERTY:ZLIB::ZLIB,INTERFACE_INCLUDE_DIRECTORIES>"
+        CACHE STRING "" FORCE)
+    set(ZLIB_LIBRARY
+        "$<TARGET_FILE:ZLIB::ZLIB>"
+        CACHE STRING "" FORCE)
   endif()
-  externalproject_add(aws_checksums_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_CHECKSUMS_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_CHECKSUMS_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWS_CHECKSUMS_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_CHECKSUMS_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep)
-  add_dependencies(AWS::aws-checksums aws_checksums_ep)
+  if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
+    # This is for RTools 40. We can remove this after we dropped
+    # support for R < 4.2. schannel.h in RTools 40 is old.
 
-  if("s2n-tls" IN_LIST _AWSSDK_LIBS)
-    # Remove unused directories to save build directory storage.
-    # 169MB -> 105MB
-    set(AWS_LC_PATCH_COMMAND ${CMAKE_COMMAND} -E)
-    if(CMAKE_VERSION VERSION_LESS 3.17)
-      list(APPEND AWS_LC_PATCH_COMMAND remove_directory)
-    else()
-      list(APPEND AWS_LC_PATCH_COMMAND rm -rf)
+    # For winhttp.h
+    #
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/winhttp/error-messages
+    string(APPEND CMAKE_CXX_FLAGS " -DERROR_WINHTTP_UNHANDLED_SCRIPT_TYPE=12176")
+    string(APPEND CMAKE_CXX_FLAGS " -DERROR_WINHTTP_SCRIPT_EXECUTION_ERROR=12177")
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/api/winhttp/ns-winhttp-winhttp_async_result
+    string(APPEND CMAKE_CXX_FLAGS " -DAPI_GET_PROXY_FOR_URL=6")
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/api/winhttp/nc-winhttp-winhttp_status_callback
+    string(APPEND CMAKE_CXX_FLAGS " -DWINHTTP_CALLBACK_STATUS_CLOSE_COMPLETE=0x02000000")
+    string(APPEND CMAKE_CXX_FLAGS
+           " -DWINHTTP_CALLBACK_STATUS_SHUTDOWN_COMPLETE=0x04000000")
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/winhttp/option-flags
+    string(APPEND CMAKE_CXX_FLAGS " -DWINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2=0x00000800")
+    string(APPEND CMAKE_CXX_FLAGS " -DWINHTTP_NO_CLIENT_CERT_CONTEXT=0")
+  endif()
+
+  set(AWSSDK_LINK_LIBRARIES)
+  foreach(AWSSDK_PRODUCT ${AWSSDK_PRODUCTS})
+    if("${AWSSDK_PRODUCT}" STREQUAL "s2n-tls")
+      # Use aws-lc's openssl/*.h not openssl/*.h in system.
+      set(ADDITIONAL_FLAGS "-DCOMPILE_DEFINITIONS=-I${aws-lc_SOURCE_DIR}/include")
     endif()
-    list(APPEND AWS_LC_PATCH_COMMAND fuzz)
-
-    set(AWS_LC_C_FLAGS ${EP_C_FLAGS})
-    string(APPEND AWS_LC_C_FLAGS " -Wno-error=overlength-strings -Wno-error=pedantic")
-    # Link time optimization is causing trouble like #34349
-    string(REPLACE "-flto=auto" "" AWS_LC_C_FLAGS "${AWS_LC_C_FLAGS}")
-    string(REPLACE "-ffat-lto-objects" "" AWS_LC_C_FLAGS "${AWS_LC_C_FLAGS}")
-
-    set(AWS_LC_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
-    list(APPEND AWS_LC_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${AWS_LC_PREFIX}
-         -DCMAKE_C_FLAGS=${AWS_LC_C_FLAGS})
-
-    externalproject_add(aws_lc_ep
-                        ${EP_COMMON_OPTIONS}
-                        URL ${AWS_LC_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_AWS_LC_BUILD_SHA256_CHECKSUM}"
-                        PATCH_COMMAND ${AWS_LC_PATCH_COMMAND}
-                        CMAKE_ARGS ${AWS_LC_CMAKE_ARGS}
-                        BUILD_BYPRODUCTS ${AWS_LC_STATIC_LIBRARY})
-    add_dependencies(AWS::crypto aws_lc_ep)
-
-    set(S2N_TLS_C_FLAGS ${EP_C_FLAGS})
-    # Link time optimization is causing trouble like #34349
-    string(REPLACE "-flto=auto" "" S2N_TLS_C_FLAGS "${S2N_TLS_C_FLAGS}")
-    string(REPLACE "-ffat-lto-objects" "" S2N_TLS_C_FLAGS "${S2N_TLS_C_FLAGS}")
-
-    set(S2N_TLS_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
-    list(APPEND
-         S2N_TLS_CMAKE_ARGS
-         # internalize libcrypto to avoid name conflict with OpenSSL
-         -DS2N_INTERN_LIBCRYPTO=ON
-         # path to find crypto provided by aws-lc
-         -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX}
-         -DCMAKE_C_FLAGS=${S2N_TLS_C_FLAGS}
-         # paths to find crypto provided by aws-lc
-         -Dcrypto_INCLUDE_DIR=${AWS_LC_PREFIX}/include
-         -Dcrypto_LIBRARY=${AWS_LC_STATIC_LIBRARY}
-         -Dcrypto_STATIC_LIBRARY=${AWS_LC_STATIC_LIBRARY})
-
-    externalproject_add(s2n_tls_ep
-                        ${EP_COMMON_OPTIONS}
-                        URL ${S2N_TLS_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_S2N_TLS_BUILD_SHA256_CHECKSUM}"
-                        CMAKE_ARGS ${S2N_TLS_CMAKE_ARGS}
-                        BUILD_BYPRODUCTS ${S2N_TLS_STATIC_LIBRARY}
-                        DEPENDS aws_lc_ep)
-    add_dependencies(AWS::s2n-tls s2n_tls_ep)
-  endif()
-
-  externalproject_add(aws_c_cal_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_CAL_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_CAL_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_CAL_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep)
-  add_dependencies(AWS::aws-c-cal aws_c_cal_ep)
-
-  set(AWS_C_IO_DEPENDS aws_c_common_ep aws_c_cal_ep)
-  if(TARGET s2n_tls_ep)
-    list(APPEND AWS_C_IO_DEPENDS s2n_tls_ep)
-  endif()
-  externalproject_add(aws_c_io_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_IO_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_IO_BUILD_SHA256_CHECKSUM}"
-                      PATCH_COMMAND ${AWS_C_IO_PATCH_COMMAND}
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_IO_STATIC_LIBRARY}
-                      DEPENDS ${AWS_C_IO_DEPENDS})
-  add_dependencies(AWS::aws-c-io aws_c_io_ep)
-
-  externalproject_add(aws_c_event_stream_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_EVENT_STREAM_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_EVENT_STREAM_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_EVENT_STREAM_STATIC_LIBRARY}
-                      DEPENDS aws_checksums_ep aws_c_io_ep)
-  add_dependencies(AWS::aws-c-event-stream aws_c_event_stream_ep)
-
-  externalproject_add(aws_c_sdkutils_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_SDKUTILS_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_SDKUTILS_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_SDKUTILS_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep)
-  add_dependencies(AWS::aws-c-sdkutils aws_c_sdkutils_ep)
-
-  externalproject_add(aws_c_compression_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_COMPRESSION_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_COMPRESSION_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_COMPRESSION_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep)
-  add_dependencies(AWS::aws-c-compression aws_c_compression_ep)
-
-  externalproject_add(aws_c_http_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_HTTP_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_HTTP_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_HTTP_STATIC_LIBRARY}
-                      DEPENDS aws_c_io_ep aws_c_compression_ep)
-  add_dependencies(AWS::aws-c-http aws_c_http_ep)
-
-  externalproject_add(aws_c_mqtt_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_MQTT_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_MQTT_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_MQTT_STATIC_LIBRARY}
-                      DEPENDS aws_c_http_ep)
-  add_dependencies(AWS::aws-c-mqtt aws_c_mqtt_ep)
-
-  externalproject_add(aws_c_auth_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_AUTH_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_AUTH_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_AUTH_STATIC_LIBRARY}
-                      DEPENDS aws_c_sdkutils_ep aws_c_cal_ep aws_c_http_ep)
-  add_dependencies(AWS::aws-c-auth aws_c_auth_ep)
-
-  externalproject_add(aws_c_s3_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_S3_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_S3_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_S3_STATIC_LIBRARY}
-                      DEPENDS aws_checksums_ep aws_c_auth_ep)
-  add_dependencies(AWS::aws-c-s3 aws_c_s3_ep)
-
-  externalproject_add(aws_crt_cpp_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_CRT_CPP_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_CRT_CPP_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_CRT_CPP_STATIC_LIBRARY}
-                      DEPENDS aws_c_auth_ep
-                              aws_c_cal_ep
-                              aws_c_common_ep
-                              aws_c_event_stream_ep
-                              aws_c_http_ep
-                              aws_c_io_ep
-                              aws_c_mqtt_ep
-                              aws_c_s3_ep
-                              aws_checksums_ep)
-  add_dependencies(AWS::aws-crt-cpp aws_crt_cpp_ep)
-
-  externalproject_add(awssdk_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWSSDK_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWSSDK_BUILD_SHA256_CHECKSUM}"
-                      PATCH_COMMAND ${AWSSDK_PATCH_COMMAND}
-                      CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
-                                       ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
-                                       ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY}
-                                       ${AWS_CPP_SDK_S3_STATIC_LIBRARY}
-                                       ${AWS_CPP_SDK_STS_STATIC_LIBRARY}
-                      DEPENDS aws_crt_cpp_ep)
-  foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
-    if(${_AWSSDK_LIB} MATCHES "^aws-cpp-sdk-")
-      add_dependencies(${_AWSSDK_LIB} awssdk_ep)
+    fetchcontent_makeavailable(${AWSSDK_PRODUCT})
+    if(CMAKE_VERSION VERSION_LESS 3.28)
+      set_property(DIRECTORY ${${AWSSDK_PRODUCT}_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL
+                                                                      TRUE)
+    endif()
+    list(PREPEND CMAKE_MODULE_PATH "${${AWSSDK_PRODUCT}_SOURCE_DIR}/cmake")
+    if(NOT "${AWSSDK_PRODUCT}" STREQUAL "aws-sdk-cpp")
+      if("${AWSSDK_PRODUCT}" STREQUAL "aws-lc")
+        # We don't need to link aws-lc. It's used only by s2n-tls.
+      elseif("${AWSSDK_PRODUCT}" STREQUAL "s2n-tls")
+        list(PREPEND AWSSDK_LINK_LIBRARIES s2n)
+      else()
+        list(PREPEND AWSSDK_LINK_LIBRARIES ${AWSSDK_PRODUCT})
+        # This is for find_package(aws-*) in aws-crt-cpp and aws-sdk-cpp.
+        add_library(AWS::${AWSSDK_PRODUCT} ALIAS ${AWSSDK_PRODUCT})
+      endif()
     endif()
   endforeach()
+  list(PREPEND
+       AWSSDK_LINK_LIBRARIES
+       aws-cpp-sdk-identity-management
+       aws-cpp-sdk-sts
+       aws-cpp-sdk-cognito-identity
+       aws-cpp-sdk-s3
+       aws-cpp-sdk-core)
 
-  set(AWSSDK_VENDORED TRUE)
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${AWSSDK_LIBRARIES})
-  set(AWSSDK_LINK_LIBRARIES ${AWSSDK_LIBRARIES})
-  if(UNIX)
-    # on Linux and macOS curl seems to be required
-    set_property(TARGET aws-cpp-sdk-core
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES CURL::libcurl)
-    set_property(TARGET AWS::aws-c-cal
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::Crypto OpenSSL::SSL)
-    if(APPLE)
-      set_property(TARGET AWS::aws-c-cal
-                   APPEND
-                   PROPERTY INTERFACE_LINK_LIBRARIES "-framework Security")
-    endif()
-    if(ZLIB_VENDORED)
-      set_property(TARGET aws-cpp-sdk-core
-                   APPEND
-                   PROPERTY INTERFACE_LINK_LIBRARIES ZLIB::ZLIB)
-      add_dependencies(awssdk_ep zlib_ep)
-    endif()
-    set_property(TARGET AWS::aws-c-io
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES ${CMAKE_DL_LIBS})
-  elseif(WIN32)
-    set_property(TARGET aws-cpp-sdk-core
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES
-                          "winhttp.lib"
-                          "bcrypt.lib"
-                          "wininet.lib"
-                          "userenv.lib"
-                          "version.lib")
-    set_property(TARGET AWS::aws-c-cal
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES
-                          "bcrypt.lib"
-                          "ncrypt.lib"
-                          "Secur32.lib"
-                          "Shlwapi.lib")
-    set_property(TARGET AWS::aws-c-io
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES "crypt32.lib")
-  endif()
-
-  # AWSSDK is static-only build
-endmacro()
+  set(AWSSDK_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${AWSSDK_LINK_LIBRARIES})
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
+  set(AWSSDK_LINK_LIBRARIES
+      ${AWSSDK_LINK_LIBRARIES}
+      PARENT_SCOPE)
+endfunction()
 
 if(ARROW_S3)
   resolve_dependency(AWSSDK HAVE_ALT TRUE)
@@ -5505,16 +5297,6 @@ if(ARROW_S3)
         string(APPEND ARROW_PC_LIBS_PRIVATE " -framework Security")
       endif()
     endif()
-  endif()
-
-  if(APPLE)
-    # CoreFoundation's path is hardcoded in the CMake files provided by
-    # aws-sdk-cpp to use the macOS SDK provided by XCode which makes
-    # XCode a hard dependency. Command Line Tools is often used instead
-    # of the full XCode suite, so let the linker to find it.
-    set_target_properties(AWS::aws-c-common
-                          PROPERTIES INTERFACE_LINK_LIBRARIES
-                                     "-pthread;pthread;-framework CoreFoundation")
   endif()
 endif()
 
