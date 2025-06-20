@@ -29,7 +29,6 @@
 #include "arrow/util/hashing.h"
 
 #include "arrow/array/builder_primitive.h"
-#include "arrow/compute/key_hash_internal.h"
 
 namespace arrow {
 namespace internal {
@@ -137,78 +136,6 @@ static void HashLargeStrings(benchmark::State& state) {  // NOLINT non-const ref
   BenchmarkStringHashing(state, values);
 }
 
-static void KeyHashIntegers32(benchmark::State& state) {  // NOLINT non-const reference
-  auto test_vals = hashing_rng.Int32(10000, 0, std::numeric_limits<int32_t>::max());
-
-  // initialize the stack allocator
-  util::TempVectorStack stack_memallocator;
-  ASSERT_OK(
-      stack_memallocator.Init(compute::default_exec_context()->memory_pool(),
-                              3 * sizeof(int32_t) * util::MiniBatch::kMiniBatchLength));
-
-  // prepare the execution context for Hashing32
-  compute::LightContext hash_ctx;
-  hash_ctx.hardware_flags = compute::default_exec_context()->cpu_info()->hardware_flags();
-  hash_ctx.stack = &stack_memallocator;
-
-  // allocate memory for results
-  ASSERT_OK_AND_ASSIGN(std::unique_ptr<Buffer> hash_buffer,
-                       AllocateBuffer(test_vals->length() * sizeof(int32_t)));
-
-  // run the benchmark
-  while (state.KeepRunning()) {
-    // Prepare input data structure for propagation to hash function
-    ASSERT_OK_AND_ASSIGN(
-        compute::KeyColumnArray input_keycol,
-        compute::ColumnArrayFromArrayData(test_vals->data(), 0, test_vals->length()));
-
-    compute::Hashing32::HashMultiColumn(
-        {input_keycol}, &hash_ctx,
-        reinterpret_cast<uint32_t*>(hash_buffer->mutable_data()));
-
-    // benchmark::DoNotOptimize(hash_buffer);
-  }
-
-  state.SetBytesProcessed(state.iterations() * test_vals->length() * sizeof(int32_t));
-  state.SetItemsProcessed(state.iterations() * test_vals->length());
-}
-
-static void KeyHashIntegers64(benchmark::State& state) {  // NOLINT non-const reference
-  auto test_vals = hashing_rng.Int64(10000, 0, std::numeric_limits<int64_t>::max());
-
-  // initialize the stack allocator
-  util::TempVectorStack stack_memallocator;
-  ASSERT_OK(
-      stack_memallocator.Init(compute::default_exec_context()->memory_pool(),
-                              3 * sizeof(int32_t) * util::MiniBatch::kMiniBatchLength));
-
-  // prepare the execution context for Hashing32
-  compute::LightContext hash_ctx;
-  hash_ctx.hardware_flags = compute::default_exec_context()->cpu_info()->hardware_flags();
-  hash_ctx.stack = &stack_memallocator;
-
-  // allocate memory for results
-  ASSERT_OK_AND_ASSIGN(std::unique_ptr<Buffer> hash_buffer,
-                       AllocateBuffer(test_vals->length() * sizeof(int64_t)));
-
-  // run the benchmark
-  while (state.KeepRunning()) {
-    // Prepare input data structure for propagation to hash function
-    ASSERT_OK_AND_ASSIGN(
-        compute::KeyColumnArray input_keycol,
-        compute::ColumnArrayFromArrayData(test_vals->data(), 0, test_vals->length()));
-
-    compute::Hashing64::HashMultiColumn(
-        {input_keycol}, &hash_ctx,
-        reinterpret_cast<uint64_t*>(hash_buffer->mutable_data()));
-
-    // benchmark::DoNotOptimize(hash_buffer);
-  }
-
-  state.SetBytesProcessed(state.iterations() * test_vals->length() * sizeof(int64_t));
-  state.SetItemsProcessed(state.iterations() * test_vals->length());
-}
-
 // ----------------------------------------------------------------------
 // Benchmark declarations
 
@@ -218,10 +145,6 @@ BENCHMARK(HashIntegers64);
 BENCHMARK(HashSmallStrings);
 BENCHMARK(HashMediumStrings);
 BENCHMARK(HashLargeStrings);
-
-// Directly uses "KeyHash" hash functions from key_hash.h (xxHash-like)
-BENCHMARK(KeyHashIntegers32);
-BENCHMARK(KeyHashIntegers64);
 
 }  // namespace internal
 }  // namespace arrow
