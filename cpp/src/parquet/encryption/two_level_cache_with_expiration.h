@@ -103,30 +103,22 @@ class TwoLevelCacheWithExpiration {
     if (external_cache_entry == cache_.end() ||
         external_cache_entry->second.IsExpired()) {
       cache_.insert({access_token, internal::ExpiringCacheMapEntry<V>(
-                                       std::shared_ptr<ConcurrentMap<std::string, V>>(
-                                           new ConcurrentMap<std::string, V>()),
+                                       std::make_shared<ConcurrentMap<std::string, V>>(),
                                        cache_entry_lifetime_seconds)});
     }
 
     return cache_[access_token].cached_item();
   }
 
-  void CheckCacheForExpiredTokens(double cache_cleanup_period_seconds) {
+  void CheckCacheForExpiredTokens(double cache_cleanup_period_seconds = 0.0) {
     auto lock = mutex_.Lock();
 
     const auto now = internal::CurrentTimePoint();
     if (now > (last_cache_cleanup_timestamp_ +
                std::chrono::duration<double>(cache_cleanup_period_seconds))) {
       RemoveExpiredEntriesNoMutex();
-      last_cache_cleanup_timestamp_ =
-          now + std::chrono::duration<double>(cache_cleanup_period_seconds);
+      last_cache_cleanup_timestamp_ = now;
     }
-  }
-
-  void RemoveExpiredEntriesFromCache() {
-    auto lock = mutex_.Lock();
-
-    RemoveExpiredEntriesNoMutex();
   }
 
   void Remove(const std::string& access_token) {
