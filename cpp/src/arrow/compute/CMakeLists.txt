@@ -138,6 +138,15 @@ add_arrow_compute_test(row_test
 
 add_arrow_benchmark(function_benchmark PREFIX "arrow-compute")
 
+if(ARROW_BUILD_BENCHMARKS AND ARROW_COMPUTE)
+  add_arrow_benchmark(key_hash_benchmark PREFIX "arrow-compute")
+  if(ARROW_BUILD_STATIC)
+    target_link_libraries(arrow-compute-key-hash-benchmark PUBLIC arrow_compute_static)
+  else()
+    target_link_libraries(arrow-compute-key-hash-benchmark PUBLIC arrow_compute_shared)
+  endif()
+endif()
+
 add_subdirectory(kernels)
 
 add_subdirectory(row)
