@@ -100,7 +100,11 @@ void BloomFilterWriterImpl<ParquetType>::UpdateBloomFilterSpaced(
 template <>
 void BloomFilterWriterImpl<BooleanType>::UpdateBloomFilterSpaced(const bool*, int64_t,
                                                                  const uint8_t*,
-                                                                 int64_t) {}
+                                                                 int64_t) {
+  if (ARROW_PREDICT_FALSE(bloom_filter_ != nullptr)) {
+    throw ParquetException("BooleanType does not support bloom filters");
+  }
+}
 
 template <>
 void BloomFilterWriterImpl<FLBAType>::UpdateBloomFilterSpaced(const FLBA* values,

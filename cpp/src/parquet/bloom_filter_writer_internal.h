@@ -18,13 +18,10 @@
 #pragma once
 
 #include "parquet/bloom_filter.h"
+#include "parquet/type_fwd.h"
 
 namespace arrow {
 class Array;
-}
-
-namespace parquet {
-class ColumnDescriptor;
 }
 
 namespace parquet::internal {
@@ -41,6 +38,7 @@ class PARQUET_EXPORT BloomFilterWriterImpl {
                                const uint8_t* valid_bits, int64_t valid_bits_offset);
   void UpdateBloomFilterArray(const ::arrow::Array& values);
 
+  /// @brief Check if this writer has enabled bloom filter.
   bool HasBloomFilter() const;
 
  private:

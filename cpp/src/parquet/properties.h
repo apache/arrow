@@ -242,9 +242,9 @@ class PARQUET_EXPORT ColumnProperties {
 
   void set_bloom_filter_options(std::optional<BloomFilterOptions> bloom_filter_options) {
     if (bloom_filter_options) {
-      if (bloom_filter_options->fpp > 1.0 || bloom_filter_options->fpp < 0.0) {
+      if (bloom_filter_options->fpp >= 1.0 || bloom_filter_options->fpp <= 0.0) {
         throw ParquetException(
-            "Bloom filter false-positive probability must fall in [0.0, 1.0], got " +
+            "Bloom filter false-positive probability must fall in (0.0, 1.0), got " +
             std::to_string(bloom_filter_options->fpp));
       }
     }
@@ -705,7 +705,7 @@ class PARQUET_EXPORT WriterProperties {
     /// Disable bloom filter for the column specified by `path`.
     /// Default disabled.
     Builder* disable_bloom_filter(const std::string& path) {
-      bloom_filter_options_[path] = std::nullopt;
+      bloom_filter_options_.erase(path);
       return this;
     }
 

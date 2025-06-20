@@ -22,7 +22,7 @@
 
 namespace parquet {
 
-/// @brief Interface for collecting bloom filter of a parquet file.
+/// @brief Interface for building bloom filters of a parquet file.
 class PARQUET_EXPORT BloomFilterBuilder {
  public:
   /// @brief API to create a BloomFilterBuilder.

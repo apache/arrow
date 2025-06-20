@@ -101,7 +101,7 @@ using parquet::schema::GroupNode;
 using parquet::schema::NodePtr;
 using parquet::schema::PrimitiveNode;
 
-namespace arrow::parquet {
+namespace parquet::arrow {
 
 namespace {
 
@@ -748,4 +748,4 @@ TEST_F(ParquetBloomFilterRoundTripTest, ThrowForBoolean) {
               ::testing::HasSubstr("BloomFilterBuilder does not support boolean type"));
 }
 
-}  // namespace arrow::parquet
+}  // namespace parquet::arrow
