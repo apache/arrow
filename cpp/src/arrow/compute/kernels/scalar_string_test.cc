@@ -2246,6 +2246,47 @@ TYPED_TEST(TestStringKernels, PadUTF8) {
                                   CallFunction("utf8_lpad", {input}, &options_bad));
 }
 
+TYPED_TEST(TestStringKernels, Utf8ZFill) {
+  PadOptions options{/*width=*/3, "0"};
+  this->CheckUnary("utf8_zfill", R"(["A", "AB", "ABC", null])", this->type(),
+                   R"(["00A", "0AB", "ABC", null])", &options);
+
+  options.width = 4;
+  this->CheckUnary("utf8_zfill", R"(["-1", "+1", "1"])", this->type(),
+                   R"(["-001", "+001", "0001"])", &options);
+
+  // width smaller than string → no padding
+  options.width = 2;
+  this->CheckUnary("utf8_zfill", R"(["AB", "-12", "+12", "XYZ"])", this->type(),
+                   R"(["AB", "-12", "+12", "XYZ"])", &options);
+
+  // Non-ASCII input strings
+  options.width = 4;
+  this->CheckUnary("utf8_zfill", R"(["ñ", "-ö", "+ß"])", this->type(),
+                   R"(["000ñ", "-00ö", "+00ß"])", &options);
+
+  // custom padding character
+  options = PadOptions{/*width=*/4, "x"};
+  this->CheckUnary("utf8_zfill", R"(["1", "-2", "+3"])", this->type(),
+                   R"(["xxx1", "-xx2", "+xx3"])", &options);
+
+  // Non-ASCII padding character
+  options = PadOptions{/*width=*/5, u8"💠"};
+  this->CheckUnary("utf8_zfill", R"(["1", "-2", "+3"])", this->type(),
+                   R"(["💠💠💠💠1", "-💠💠💠2", "+💠💠💠3"])", &options);
+
+  // padding error check
+  PadOptions options_bad{/*width=*/3, "spam"};
+  auto input = ArrayFromJSON(this->type(), R"(["foo"])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("Padding must be one codepoint"),
+                                  CallFunction("utf8_zfill", {input}, &options_bad));
+  options_bad.padding = "";
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("Padding must be one codepoint"),
+                                  CallFunction("utf8_zfill", {input}, &options_bad));
+}
+
 #ifdef ARROW_WITH_UTF8PROC
 
 TYPED_TEST(TestStringKernels, TrimWhitespaceUTF8) {
