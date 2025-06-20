@@ -468,7 +468,7 @@ TEST_F(TestScalarHash, RandomMap) {
   }
 }
 
-TEST_F(TestScalarHash, UnsuppoertedTypes) {
+TEST_F(TestScalarHash, UnsupportedTypes) {
   auto rand = random::RandomArrayGenerator(kSeed);
   auto types = {list_view(int64()),
                 large_list_view(int64()),
