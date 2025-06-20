@@ -17,16 +17,16 @@
 
 #pragma once
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h>
 #include <sql.h>
 #include <sqlext.h>
 #include <algorithm>
 #include <cstring>
 #include <memory>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/encoding_utils.h>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/encoding_utils.h"
 
 namespace ODBC {
 using driver::odbcabstraction::WcsToUtf8;
@@ -45,12 +45,12 @@ inline void GetAttribute(T attributeValue, SQLPOINTER output, O outputSize,
 }
 
 template <typename O>
-inline SQLRETURN GetAttributeUTF8(const std::string& attributeValue, SQLPOINTER output,
-                                  O outputSize, O* outputLenPtr) {
+inline SQLRETURN GetAttributeUTF8(const std::string_view& attributeValue,
+                                  SQLPOINTER output, O outputSize, O* outputLenPtr) {
   if (output) {
     size_t outputLenBeforeNul =
         std::min(static_cast<O>(attributeValue.size()), static_cast<O>(outputSize - 1));
-    memcpy(output, attributeValue.c_str(), outputLenBeforeNul);
+    memcpy(output, attributeValue.data(), outputLenBeforeNul);
     reinterpret_cast<char*>(output)[outputLenBeforeNul] = '\0';
   }
 
@@ -65,8 +65,8 @@ inline SQLRETURN GetAttributeUTF8(const std::string& attributeValue, SQLPOINTER 
 }
 
 template <typename O>
-inline SQLRETURN GetAttributeUTF8(const std::string& attributeValue, SQLPOINTER output,
-                                  O outputSize, O* outputLenPtr,
+inline SQLRETURN GetAttributeUTF8(const std::string_view& attributeValue,
+                                  SQLPOINTER output, O outputSize, O* outputLenPtr,
                                   driver::odbcabstraction::Diagnostics& diagnostics) {
   SQLRETURN result = GetAttributeUTF8(attributeValue, output, outputSize, outputLenPtr);
   if (SQL_SUCCESS_WITH_INFO == result) {
@@ -76,26 +76,30 @@ inline SQLRETURN GetAttributeUTF8(const std::string& attributeValue, SQLPOINTER 
 }
 
 template <typename O>
-inline SQLRETURN GetAttributeSQLWCHAR(const std::string& attributeValue,
+inline SQLRETURN GetAttributeSQLWCHAR(const std::string_view& attributeValue,
                                       bool isLengthInBytes, SQLPOINTER output,
                                       O outputSize, O* outputLenPtr) {
-  size_t result =
+  size_t length =
       ConvertToSqlWChar(attributeValue, reinterpret_cast<SQLWCHAR*>(output),
                         isLengthInBytes ? outputSize : outputSize * GetSqlWCharSize());
 
+  if (!isLengthInBytes) {
+    length = length / GetSqlWCharSize();
+  }
+
   if (outputLenPtr) {
-    *outputLenPtr = static_cast<O>(isLengthInBytes ? result : result / GetSqlWCharSize());
+    *outputLenPtr = static_cast<O>(length);
   }
 
   if (output &&
-      outputSize < static_cast<O>(result + (isLengthInBytes ? GetSqlWCharSize() : 1))) {
+      outputSize < static_cast<O>(length + (isLengthInBytes ? GetSqlWCharSize() : 1))) {
     return SQL_SUCCESS_WITH_INFO;
   }
   return SQL_SUCCESS;
 }
 
 template <typename O>
-inline SQLRETURN GetAttributeSQLWCHAR(const std::string& attributeValue,
+inline SQLRETURN GetAttributeSQLWCHAR(const std::string_view& attributeValue,
                                       bool isLengthInBytes, SQLPOINTER output,
                                       O outputSize, O* outputLenPtr,
                                       driver::odbcabstraction::Diagnostics& diagnostics) {
@@ -108,7 +112,8 @@ inline SQLRETURN GetAttributeSQLWCHAR(const std::string& attributeValue,
 }
 
 template <typename O>
-inline SQLRETURN GetStringAttribute(bool isUnicode, const std::string& attributeValue,
+inline SQLRETURN GetStringAttribute(bool isUnicode,
+                                    const std::string_view& attributeValue,
                                     bool isLengthInBytes, SQLPOINTER output, O outputSize,
                                     O* outputLenPtr,
                                     driver::odbcabstraction::Diagnostics& diagnostics) {
