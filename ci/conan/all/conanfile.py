@@ -268,7 +268,9 @@ class ArrowConan(ConanFile):
             raise ConanInvalidConfiguration("arrow:parquet requires arrow:with_thrift")
 
     def build_requirements(self):
-        if Version(self.version) >= "13.0.0":
+        if Version(self.version) >= "20.0.0":
+            self.tool_requires("cmake/[>=3.25 <4]")
+        else:
             self.tool_requires("cmake/[>=3.16 <4]")
 
     def source(self):
