@@ -28,7 +28,7 @@ BugReports: https://github.com/apache/arrow/issues
 Encoding: UTF-8
 Language: en-US
 SystemRequirements: C++17; for AWS S3 support on Linux, libcurl and openssl (optional);
-    cmake >= 3.16 (build-time only, and only for full source build)
+    cmake >= 3.25 (build-time only, and only for full source build)
 Biarch: true
 Imports:
     assertthat,
