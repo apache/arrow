@@ -112,6 +112,12 @@ class RleDecoder {
   }
 
   /// Gets the next value.  Returns false if there are no more.
+  ///
+  /// NB: Because the encoding only supports literal runs with lengths
+  /// that are multiples of 8, RleEncoder sometimes pads the end of its
+  /// input with zeros. Since the encoding does not differentiate between
+  /// input values and padding, Get() returns true even for these padding
+  /// values.
   template <typename T>
   bool Get(T* val);
 
