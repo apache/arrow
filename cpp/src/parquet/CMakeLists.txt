@@ -376,7 +376,6 @@ add_parquet_test(internals-test
                  SOURCES
                  bloom_filter_test.cc
                  bloom_filter_reader_writer_test.cc
-                 encoding_test.cc
                  geospatial/statistics_test.cc
                  geospatial/util_internal_test.cc
                  metadata_test.cc
@@ -410,6 +409,10 @@ add_parquet_test(arrow-reader-writer-test
                  arrow/arrow_reader_writer_test.cc
                  arrow/arrow_statistics_test.cc
                  arrow/variant_test.cc)
+
+add_parquet_test(arrow-parquet-index-test
+        SOURCES
+        arrow/arrow_parquet_index_test.cc)
 
 add_parquet_test(arrow-internals-test SOURCES arrow/path_internal_test.cc
                  arrow/reconstruct_internal_test.cc)

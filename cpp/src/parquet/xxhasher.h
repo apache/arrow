@@ -34,6 +34,7 @@ class PARQUET_EXPORT XxHasher : public Hasher {
   uint64_t Hash(const Int96* value) const override;
   uint64_t Hash(const ByteArray* value) const override;
   uint64_t Hash(const FLBA* val, uint32_t len) const override;
+  uint64_t Hash(std::string_view value) const override;
 
   void Hashes(const int32_t* values, int num_values, uint64_t* hashes) const override;
   void Hashes(const int64_t* values, int num_values, uint64_t* hashes) const override;

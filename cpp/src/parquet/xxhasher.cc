@@ -62,6 +62,10 @@ uint64_t XxHasher::Hash(const Int96* value) const {
                kParquetBloomXxHashSeed);
 }
 
+uint64_t XxHasher::Hash(std::string_view value) const {
+  return XXH64(value.data(), value.size(), kParquetBloomXxHashSeed);
+}
+
 uint64_t XxHasher::Hash(const ByteArray* value) const {
   return XXH64(reinterpret_cast<const void*>(value->ptr), value->len,
                kParquetBloomXxHashSeed);
