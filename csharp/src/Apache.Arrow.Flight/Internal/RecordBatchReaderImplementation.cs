@@ -15,7 +15,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Apache.Arrow.Flatbuf;
@@ -84,7 +83,7 @@ namespace Apache.Arrow.Flight.Internal
 
                 // AppMetadata will never be null, but length 0 if empty
                 // Those are skipped
-                if(_flightDataStream.Current.AppMetadata.Length > 0)
+                if (_flightDataStream.Current.AppMetadata.Length > 0)
                 {
                     _applicationMetadatas.Add(_flightDataStream.Current.AppMetadata);
                 }
@@ -101,7 +100,7 @@ namespace Apache.Arrow.Flight.Internal
                 switch (message.HeaderType)
                 {
                     case MessageHeader.Schema:
-                        _schema = FlightMessageSerializer.DecodeSchema(message.ByteBuffer);
+                        _schema = FlightMessageSerializer.DecodeSchema(message.ByteBuffer, ref _dictionaryMemo);
                         break;
                     default:
                         throw new Exception($"Expected schema as the first message, but got: {message.HeaderType.ToString()}");
@@ -117,8 +116,10 @@ namespace Apache.Arrow.Flight.Internal
             {
                 await ReadSchemaAsync(cancellationToken).ConfigureAwait(false);
             }
-            var moveNextResult = await _flightDataStream.MoveNext().ConfigureAwait(false);
-            if (moveNextResult)
+
+            // Keep reading dictionary batches until we get a record batch
+            var keepGoing = await _flightDataStream.MoveNext().ConfigureAwait(false);
+            while (keepGoing)
             {
                 //AppMetadata will never be null, but length 0 if empty
                 //Those are skipped
@@ -135,8 +136,17 @@ namespace Apache.Arrow.Flight.Internal
                     case MessageHeader.RecordBatch:
                         var body = _flightDataStream.Current.DataBody.Memory;
                         return CreateArrowObjectFromMessage(message, CreateByteBuffer(body.Slice(0, (int)message.BodyLength)), null);
+                    case MessageHeader.DictionaryBatch:
+                        var dictionaryBody = _flightDataStream.Current.DataBody.Memory;
+                        CreateArrowObjectFromMessage(message, CreateByteBuffer(dictionaryBody.Slice(0, (int)message.BodyLength)), null);
+                        keepGoing = await _flightDataStream.MoveNext().ConfigureAwait(false);
+                        if (!keepGoing)
+                        {
+                            throw new InvalidOperationException("Flight Data Stream ended after reading dictionaries");
+                        }
+                        break;
                     default:
-                        throw new NotImplementedException();
+                        throw new NotImplementedException($"Message type {message.HeaderType} is not implemented.");
                 }
             }
             return null;
