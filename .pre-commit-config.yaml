@@ -315,6 +315,7 @@ repos:
           ?^ci/scripts/install_chromedriver\.sh$|
           ?^ci/scripts/install_cmake\.sh$|
           ?^ci/scripts/install_conda\.sh$|
+          ?^ci/scripts/install_dask\.sh$|
           ?^ci/scripts/install_emscripten\.sh$|
           ?^ci/scripts/install_iwyu\.sh$|
           ?^ci/scripts/install_ninja\.sh$|
