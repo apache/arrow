@@ -536,6 +536,32 @@ def test_array_slice_negative_step():
         assert result.equals(expected)
 
 
+def test_arange():
+    cases = [
+        (5, 103),        # Default step
+        (-2, 128, 3),
+        (4, 103, 5),
+        (10, -7, -1),
+        (100, -20, -3),
+        (0, 0),         # Empty array
+        (2, 10, -1),    # Empty array
+        (10, 3, 1),     # Empty array
+    ]
+    for case in cases:
+        result = pa.arange(*case)
+        result.validate(full=True)
+        assert result.equals(pa.array(list(range(*case)), type=pa.int64()))
+
+    # Validate memory_pool keyword argument
+    result = pa.arange(-1, 101, memory_pool=pa.default_memory_pool())
+    result.validate(full=True)
+    assert result.equals(pa.array(list(range(-1, 101)), type=pa.int64()))
+
+    # Special case for invalid step (arange does not accept step of 0)
+    with pytest.raises(pa.ArrowInvalid):
+        pa.arange(0, 10, 0)
+
+
 def test_array_diff():
     # ARROW-6252
     arr1 = pa.array(['foo'], type=pa.utf8())
