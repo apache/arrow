@@ -66,6 +66,15 @@ cdef class AzureFileSystem(FileSystem):
         SAS token for the storage account, used as an alternative to account_key. If sas_token
         and account_key are None the default credential will be used. The parameters 
         account_key and sas_token are mutually exclusive.
+    tenant_id : str, default None
+        Tenant ID for Azure Active Directory authentication. Must be provided together with
+        `client_id` and `client_secret` to use ClientSecretCredential.
+    client_id : str, default None
+        Client ID for Azure Active Directory authentication. Must be provided together with
+        `tenant_id` and `client_secret` to use ClientSecretCredential.
+    client_secret : str, default None
+        Client secret for Azure Active Directory authentication. Must be provided together
+        with `tenant_id` and `client_id` to use ClientSecretCredential.
 
     Examples
     --------
@@ -86,10 +95,14 @@ cdef class AzureFileSystem(FileSystem):
         CAzureFileSystem* azurefs
         c_string account_key
         c_string sas_token
+        c_string tenant_id
+        c_string client_id
+        c_string client_secret
 
     def __init__(self, account_name, *, account_key=None, blob_storage_authority=None,
                  dfs_storage_authority=None, blob_storage_scheme=None,
-                 dfs_storage_scheme=None, sas_token=None):
+                 dfs_storage_scheme=None, sas_token=None,
+                 tenant_id=None, client_id=None, client_secret=None):
         cdef:
             CAzureOptions options
             shared_ptr[CAzureFileSystem] wrapped
@@ -107,7 +120,17 @@ cdef class AzureFileSystem(FileSystem):
         if account_key and sas_token:
             raise ValueError("Cannot specify both account_key and sas_token.")
 
-        if account_key:
+        if (tenant_id or client_id or client_secret):
+            if not (tenant_id and client_id and client_secret):
+                raise ValueError(
+                    "All of tenant_id, client_id, and client_secret must be provided for ClientSecretCredential.")
+            options.ConfigureClientSecretCredential(
+                tobytes(tenant_id), tobytes(client_id), tobytes(client_secret)
+            )
+            self.tenant_id = tobytes(tenant_id)
+            self.client_id = tobytes(client_id)
+            self.client_secret = tobytes(client_secret)
+        elif account_key:
             options.ConfigureAccountKeyCredential(tobytes(account_key))
             self.account_key = tobytes(account_key)
         elif sas_token:
@@ -141,5 +164,8 @@ cdef class AzureFileSystem(FileSystem):
                 dfs_storage_authority=frombytes(opts.dfs_storage_authority),
                 blob_storage_scheme=frombytes(opts.blob_storage_scheme),
                 dfs_storage_scheme=frombytes(opts.dfs_storage_scheme),
-                sas_token=frombytes(self.sas_token)
+                sas_token=frombytes(self.sas_token),
+                tenant_id=frombytes(self.tenant_id),
+                client_id=frombytes(self.client_id),
+                client_secret=frombytes(self.client_secret)
             ),))
