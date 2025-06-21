@@ -1398,7 +1398,7 @@ test_that("Can convert R integer/double to decimal (ARROW-11631)", {
   )
 })
 
-test_that("Array handles sub-day precision Date correctly", {
+test_that("Array handles negative fractional dates correctly (GH-46873)", {
   d <- as.Date(-0.1)
   arr <- arrow_array(d)
   expect_equal(as.vector(arr), as.Date("1969-12-31"))
