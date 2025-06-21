@@ -239,12 +239,6 @@ class ArrayPrinter : public PrettyPrinter {
     return WritePrimitiveValues(array);
   }
 
-  Status WriteDataValues(const HalfFloatArray& array) {
-    // XXX do not know how to format half floats yet
-    StringFormatter<Int16Type> formatter{array.type().get()};
-    return WritePrimitiveValues(array, &formatter);
-  }
-
   template <typename ArrayType, typename T = typename ArrayType::TypeClass>
   enable_if_has_string_view<T, Status> WriteDataValues(const ArrayType& array) {
     return WriteValues(array, [&](int64_t i) {

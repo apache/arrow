@@ -35,6 +35,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -813,6 +814,21 @@ TEST_F(DiffTest, CompareRandomStruct) {
       }
     }
   }
+}
+
+TEST_F(DiffTest, CompareHalfFloat) {
+  auto first = ArrayFromJSON(float16(), "[1.1, 2.0, 2.5, 3.3]");
+  auto second = ArrayFromJSON(float16(), "[1.1, 4.0, 3.5, 3.3]");
+  auto expected_diff = R"(
+@@ -1, +1 @@
+-2
+-2.5
++4
++3.5
+)";
+
+  auto diff = first->Diff(*second);
+  ASSERT_EQ(diff, expected_diff);
 }
 
 }  // namespace arrow

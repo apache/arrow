@@ -4459,8 +4459,8 @@ def float16():
     >>> a
     <pyarrow.lib.HalfFloatArray object at ...>
     [
-      15872,
-      32256
+      1.5,
+      nan
     ]
 
     Note that unlike other float types, if you convert this array

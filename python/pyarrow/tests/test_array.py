@@ -568,6 +568,8 @@ def test_array_diff():
     arr2 = pa.array(['foo', 'bar', None], type=pa.utf8())
     arr3 = pa.array([1, 2, 3])
     arr4 = pa.array([[], [1], None], type=pa.list_(pa.int64()))
+    arr5 = pa.array([1.5, 3, 6], type=pa.float16())
+    arr6 = pa.array([1, 3], type=pa.float16())
 
     assert arr1.diff(arr1) == ''
     assert arr1.diff(arr2) == '''
@@ -579,6 +581,14 @@ def test_array_diff():
     assert arr1.diff(arr3).strip() == '# Array types differed: string vs int64'
     assert arr1.diff(arr4).strip() == ('# Array types differed: string vs '
                                        'list<item: int64>')
+    assert arr5.diff(arr5) == ''
+    assert arr5.diff(arr6) == '''
+@@ -0, +0 @@
+-1.5
++1
+@@ -2, +2 @@
+-6
+'''
 
 
 def test_array_iter():
@@ -1706,9 +1716,13 @@ def test_floating_point_truncate_unsafe():
 
 def test_half_float_array_from_python():
     # GH-46611
-    arr = pa.array([1.0, 2.0, 3, None, 12345.6789, 1.234567], type=pa.float16())
+    vals = [-5, 0, 1.0, 2.0, 3, None, 12345.6789, 1.234567, float('inf')]
+    arr = pa.array(vals, type=pa.float16())
     assert arr.type == pa.float16()
-    assert arr.to_pylist() == [1.0, 2.0, 3.0, None, 12344.0, 1.234375]
+    assert arr.to_pylist() == [-5, 0, 1.0, 2.0, 3, None, 12344.0,
+                               1.234375, float('inf')]
+    assert str(arr) == ("[\n  -5,\n  0,\n  1,\n  2,\n  3,\n  null,\n  12344,"
+                        "\n  1.234375,\n  inf\n]")
     msg1 = "Could not convert 'a' with type str: tried to convert to float16"
     with pytest.raises(pa.ArrowInvalid, match=msg1):
         arr = pa.array(['a', 3, None], type=pa.float16())
