@@ -18,6 +18,7 @@
 #include "libmexclass/proxy/ProxyManager.h"
 
 #include "arrow/matlab/array/proxy/array.h"
+
 #include "arrow/matlab/array/proxy/chunked_array.h"
 #include "arrow/matlab/array/proxy/wrap.h"
 
@@ -25,6 +26,7 @@
 #include "arrow/matlab/tabular/get_row_as_string.h"
 #include "arrow/matlab/tabular/proxy/schema.h"
 #include "arrow/matlab/tabular/proxy/table.h"
+#include "arrow/matlab/tabular/proxy/record_batch.h"
 
 #include "arrow/type.h"
 #include "arrow/util/utf8.h"
@@ -33,6 +35,8 @@
 #include "libmexclass/proxy/ProxyManager.h"
 
 namespace arrow::matlab::tabular::proxy {
+
+namespace mda = ::matlab::data;
 
 namespace {
 libmexclass::error::Error makeEmptyTableError() {
@@ -69,8 +73,8 @@ Table::Table(std::shared_ptr<arrow::Table> table) : table{table} {
 
 std::shared_ptr<arrow::Table> Table::unwrap() { return table; }
 
+
 void Table::toString(libmexclass::proxy::method::Context& context) {
-  namespace mda = ::matlab::data;
   MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto utf16_string,
                                       arrow::util::UTF8StringToUTF16(table->ToString()),
                                       context, error::UNICODE_CONVERSION_ERROR_ID);
@@ -79,44 +83,97 @@ void Table::toString(libmexclass::proxy::method::Context& context) {
   context.outputs[0] = str_mda;
 }
 
+namespace {
+  libmexclass::proxy::MakeResult from_arrays(const mda::StructArray& opts) {
+    using ArrayProxy = arrow::matlab::array::proxy::Array;
+    using TableProxy = arrow::matlab::tabular::proxy::Table;
+
+    const mda::TypedArray<uint64_t> arrow_array_proxy_ids = opts[0]["ArrayProxyIDs"];
+    const mda::StringArray column_names = opts[0]["ColumnNames"];
+
+    std::vector<std::shared_ptr<arrow::Array>> arrow_arrays;
+    // Retrieve all of the Arrow Array Proxy instances from the libmexclass ProxyManager.
+    for (const auto& arrow_array_proxy_id : arrow_array_proxy_ids) {
+      auto proxy = libmexclass::proxy::ProxyManager::getProxy(arrow_array_proxy_id);
+      auto arrow_array_proxy = std::static_pointer_cast<ArrayProxy>(proxy);
+      auto arrow_array = arrow_array_proxy->unwrap();
+      arrow_arrays.push_back(arrow_array);
+    }
+
+    std::vector<std::shared_ptr<Field>> fields;
+    for (size_t i = 0; i < arrow_arrays.size(); ++i) {
+      const auto type = arrow_arrays[i]->type();
+      const auto column_name_utf16 = std::u16string(column_names[i]);
+      MATLAB_ASSIGN_OR_ERROR(const auto column_name_utf8,
+                            arrow::util::UTF16StringToUTF8(column_name_utf16),
+                            error::UNICODE_CONVERSION_ERROR_ID);
+      fields.push_back(std::make_shared<arrow::Field>(column_name_utf8, type));
+    }
+
+    arrow::SchemaBuilder schema_builder;
+    MATLAB_ERROR_IF_NOT_OK(schema_builder.AddFields(fields),
+                          error::SCHEMA_BUILDER_ADD_FIELDS_ERROR_ID);
+    MATLAB_ASSIGN_OR_ERROR(const auto schema, schema_builder.Finish(),
+                          error::SCHEMA_BUILDER_FINISH_ERROR_ID);
+    const auto num_rows = arrow_arrays.size() == 0 ? 0 : arrow_arrays[0]->length();
+    const auto table = arrow::Table::Make(schema, arrow_arrays, num_rows);
+    return std::make_shared<TableProxy>(table);
+  }
+
+  libmexclass::proxy::MakeResult from_record_batches(const mda::StructArray& opts) {
+    using RecordBatchProxy = arrow::matlab::tabular::proxy::RecordBatch;
+    using TableProxy = arrow::matlab::tabular::proxy::Table;
+
+    size_t num_rows = 0;
+    const mda::TypedArray<uint64_t> record_batch_proxy_ids = opts[0]["RecordBatchProxyIDs"];
+
+    std::vector<std::shared_ptr<arrow::RecordBatch>> record_batches;
+    // Retrieve all of the Arrow RecordBatch Proxy instances from the libmexclass ProxyManager.
+    for (const auto& proxy_id : record_batch_proxy_ids) {
+      auto proxy = libmexclass::proxy::ProxyManager::getProxy(proxy_id);
+      auto record_batch_proxy = std::static_pointer_cast<RecordBatch>(proxy);
+      auto record_batch = record_batch_proxy->unwrap();
+      record_batches.push_back(record_batch);
+      num_rows += record_batches.back()->num_rows();
+    }
+
+    // This function can only be invoked if there's at least 1 RecordBatch,
+    // so this should be safe.
+    auto schema = record_batches[0]->schema();
+    // We've already validated the schemas are consistent.
+    // Just create a vector of columns.
+    size_t num_columns = schema->num_fields();
+    std::vector<std::shared_ptr<ChunkedArray>> columns(num_columns);
+
+    size_t num_batches = record_batches.size();
+
+    for (size_t i = 0; i < num_columns; ++i) {
+      std::vector<std::shared_ptr<Array>> column_arrays(num_batches);
+      for (size_t j = 0; j < num_batches; ++j) {
+        column_arrays[j] = record_batches[j]->column(i);
+      }
+      columns[i] = std::make_shared<ChunkedArray>(column_arrays, schema->field(i)->type());
+    }
+    const auto table = arrow::Table::Make(std::move(schema), std::move(columns), num_rows);
+    return std::make_shared<TableProxy>(table);
+  }
+} // anonymous namespace
+
 libmexclass::proxy::MakeResult Table::make(
     const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-  using ArrayProxy = arrow::matlab::array::proxy::Array;
-  using TableProxy = arrow::matlab::tabular::proxy::Table;
-  namespace mda = ::matlab::data;
+  
   mda::StructArray opts = constructor_arguments[0];
-  const mda::TypedArray<uint64_t> arrow_array_proxy_ids = opts[0]["ArrayProxyIDs"];
-  const mda::StringArray column_names = opts[0]["ColumnNames"];
-
-  std::vector<std::shared_ptr<arrow::Array>> arrow_arrays;
-  // Retrieve all of the Arrow Array Proxy instances from the libmexclass ProxyManager.
-  for (const auto& arrow_array_proxy_id : arrow_array_proxy_ids) {
-    auto proxy = libmexclass::proxy::ProxyManager::getProxy(arrow_array_proxy_id);
-    auto arrow_array_proxy = std::static_pointer_cast<ArrayProxy>(proxy);
-    auto arrow_array = arrow_array_proxy->unwrap();
-    arrow_arrays.push_back(arrow_array);
+  const mda::StringArray method = opts[0]["Method"];
+  
+  if (method[0] == u"FromArrays") {
+    return from_arrays(opts);
+  } else if (method[0] == u"FromRecordBatches") {
+    return from_record_batches(opts);
+  } else {
+    const std::string error_msg = "Unknown method";
+    return libmexclass::error::Error{error::TABLE_NUMERIC_INDEX_WITH_EMPTY_TABLE,
+                                   error_msg};
   }
-
-  std::vector<std::shared_ptr<Field>> fields;
-  for (size_t i = 0; i < arrow_arrays.size(); ++i) {
-    const auto type = arrow_arrays[i]->type();
-    const auto column_name_utf16 = std::u16string(column_names[i]);
-    MATLAB_ASSIGN_OR_ERROR(const auto column_name_utf8,
-                           arrow::util::UTF16StringToUTF8(column_name_utf16),
-                           error::UNICODE_CONVERSION_ERROR_ID);
-    fields.push_back(std::make_shared<arrow::Field>(column_name_utf8, type));
-  }
-
-  arrow::SchemaBuilder schema_builder;
-  MATLAB_ERROR_IF_NOT_OK(schema_builder.AddFields(fields),
-                         error::SCHEMA_BUILDER_ADD_FIELDS_ERROR_ID);
-  MATLAB_ASSIGN_OR_ERROR(const auto schema, schema_builder.Finish(),
-                         error::SCHEMA_BUILDER_FINISH_ERROR_ID);
-  const auto num_rows = arrow_arrays.size() == 0 ? 0 : arrow_arrays[0]->length();
-  const auto table = arrow::Table::Make(schema, arrow_arrays, num_rows);
-  auto table_proxy = std::make_shared<TableProxy>(table);
-
-  return table_proxy;
 }
 
 void Table::getNumRows(libmexclass::proxy::method::Context& context) {
