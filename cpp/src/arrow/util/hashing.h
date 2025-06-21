@@ -40,6 +40,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
@@ -138,6 +139,21 @@ struct ScalarHelper<Scalar, AlgNum, enable_if_t<std::is_floating_point<Scalar>::
     if (std::isnan(u)) {
       // XXX should we do a bit-precise comparison?
       return std::isnan(v);
+    }
+    return u == v;
+  }
+};
+
+template <typename Scalar, uint64_t AlgNum>
+struct ScalarHelper<Scalar, AlgNum,
+                    enable_if_t<std::is_same_v<Scalar, ::arrow::util::Float16>>>
+    : public ScalarHelperBase<Scalar, AlgNum> {
+  // ScalarHelper specialization for Float16
+
+  static bool CompareScalars(Scalar u, Scalar v) {
+    if (u.is_nan()) {
+      // XXX should we do a bit-precise comparison?
+      return v.is_nan();
     }
     return u == v;
   }
@@ -406,7 +422,9 @@ class ScalarMemoTable : public MemoTable {
   explicit ScalarMemoTable(MemoryPool* pool, int64_t entries = 0)
       : hash_table_(pool, static_cast<uint64_t>(entries)) {}
 
-  int32_t Get(const Scalar& value) const {
+  template <typename Value>
+  int32_t Get(Value&& v) const {
+    const Scalar value(std::forward<Value>(v));
     auto cmp_func = [value](const Payload* payload) -> bool {
       return ScalarHelper<Scalar, 0>::CompareScalars(payload->value, value);
     };
@@ -419,9 +437,10 @@ class ScalarMemoTable : public MemoTable {
     }
   }
 
-  template <typename Func1, typename Func2>
-  Status GetOrInsert(const Scalar& value, Func1&& on_found, Func2&& on_not_found,
+  template <typename Value, typename Func1, typename Func2>
+  Status GetOrInsert(Value&& v, Func1&& on_found, Func2&& on_not_found,
                      int32_t* out_memo_index) {
+    const Scalar value(std::forward<Value>(v));
     auto cmp_func = [value](const Payload* payload) -> bool {
       return ScalarHelper<Scalar, 0>::CompareScalars(value, payload->value);
     };
@@ -440,7 +459,8 @@ class ScalarMemoTable : public MemoTable {
     return Status::OK();
   }
 
-  Status GetOrInsert(const Scalar& value, int32_t* out_memo_index) {
+  template <typename Value>
+  Status GetOrInsert(Value&& value, int32_t* out_memo_index) {
     return GetOrInsert(
         value, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
   }
@@ -470,23 +490,30 @@ class ScalarMemoTable : public MemoTable {
   }
 
   // Copy values starting from index `start` into `out_data`
-  void CopyValues(int32_t start, Scalar* out_data) const {
+  template <typename Value>
+  void CopyValues(int32_t start, Value* out_data) const {
+    // So that both uint16_t and Float16 are allowed
+    static_assert(sizeof(Value) == sizeof(Scalar));
+    Scalar* out = reinterpret_cast<Scalar*>(out_data);
     hash_table_.VisitEntries([=](const HashTableEntry* entry) {
       int32_t index = entry->payload.memo_index - start;
       if (index >= 0) {
-        out_data[index] = entry->payload.value;
+        out[index] = entry->payload.value;
       }
     });
     // Zero-initialize the null entry
     if (null_index_ != kKeyNotFound) {
       int32_t index = null_index_ - start;
       if (index >= 0) {
-        out_data[index] = Scalar{};
+        out[index] = Scalar{};
       }
     }
   }
 
-  void CopyValues(Scalar* out_data) const { CopyValues(0, out_data); }
+  template <typename Value>
+  void CopyValues(Value* out_data) const {
+    CopyValues(0, out_data);
+  }
 
  protected:
   struct Payload {
@@ -901,6 +928,11 @@ template <typename T>
 struct HashTraits<T, enable_if_t<has_c_type<T>::value && !is_8bit_int<T>::value>> {
   using c_type = typename T::c_type;
   using MemoTableType = ScalarMemoTable<c_type, HashTable>;
+};
+
+template <>
+struct HashTraits<HalfFloatType> {
+  using MemoTableType = ScalarMemoTable<::arrow::util::Float16>;
 };
 
 template <typename T>
