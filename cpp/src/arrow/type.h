@@ -1014,7 +1014,9 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
   static Result<std::shared_ptr<DataType>> Make(Type::type type_id, int32_t precision,
                                                 int32_t scale);
 
+  /// \brief Returns the precision
   int32_t precision() const { return precision_; }
+  /// \brief Returns the scale
   int32_t scale() const { return scale_; }
 
   /// \brief Returns the number of bytes needed for precision.
@@ -1337,20 +1339,25 @@ class ARROW_EXPORT MapType : public ListType {
 
   explicit MapType(std::shared_ptr<Field> value_field, bool keys_sorted = false);
 
-  // Validating constructor
+  /// Validating constructor
   static Result<std::shared_ptr<DataType>> Make(std::shared_ptr<Field> value_field,
                                                 bool keys_sorted = false);
 
+  /// \brief Returns the key field
   std::shared_ptr<Field> key_field() const { return value_type()->field(0); }
+  /// \brief Returns the key type
   std::shared_ptr<DataType> key_type() const { return key_field()->type(); }
 
+  /// \brief Returns the item field
   std::shared_ptr<Field> item_field() const { return value_type()->field(1); }
+  /// \brief Returns the item type
   std::shared_ptr<DataType> item_type() const { return item_field()->type(); }
 
   std::string ToString(bool show_metadata = false) const override;
 
   std::string name() const override { return "map"; }
 
+  /// \brief Returns the keys sorted
   bool keys_sorted() const { return keys_sorted_; }
 
  private:
@@ -1387,6 +1394,7 @@ class ARROW_EXPORT FixedSizeListType : public BaseListType {
 
   std::string name() const override { return "fixed_size_list"; }
 
+  /// \brief Returns the list size
   int32_t list_size() const { return list_size_; }
 
  protected:
@@ -1471,8 +1479,10 @@ class ARROW_EXPORT UnionType : public NestedType {
   /// An array mapping logical type ids to physical child ids.
   const std::vector<int>& child_ids() const { return child_ids_; }
 
+  /// \brief Returns the max type code
   uint8_t max_type_code() const;
 
+  /// \brief Returns the mode
   UnionMode::type mode() const;
 
  protected:
@@ -1508,7 +1518,7 @@ class ARROW_EXPORT SparseUnionType : public UnionType {
 
   SparseUnionType(FieldVector fields, std::vector<int8_t> type_codes);
 
-  // A constructor variant that validates input parameters
+  /// A constructor variant that validates input parameters
   static Result<std::shared_ptr<DataType>> Make(FieldVector fields,
                                                 std::vector<int8_t> type_codes);
 
@@ -1537,7 +1547,7 @@ class ARROW_EXPORT DenseUnionType : public UnionType {
 
   DenseUnionType(FieldVector fields, std::vector<int8_t> type_codes);
 
-  // A constructor variant that validates input parameters
+  /// A constructor variant that validates input parameters
   static Result<std::shared_ptr<DataType>> Make(FieldVector fields,
                                                 std::vector<int8_t> type_codes);
 
@@ -1560,13 +1570,16 @@ class ARROW_EXPORT RunEndEncodedType : public NestedType {
     return DataTypeLayout({DataTypeLayout::AlwaysNull()});
   }
 
+  /// \brief Returns the run-end encoded type
   const std::shared_ptr<DataType>& run_end_type() const { return fields()[0]->type(); }
+  /// \brief Returns the run-end encoded value type
   const std::shared_ptr<DataType>& value_type() const { return fields()[1]->type(); }
 
   std::string ToString(bool show_metadata = false) const override;
 
   std::string name() const override { return "run_end_encoded"; }
 
+  /// \brief Returns run-end encoded type is valid
   static bool RunEndTypeValid(const DataType& run_end_type);
 
  private:
@@ -1599,6 +1612,7 @@ class ARROW_EXPORT TemporalType : public FixedWidthType {
 /// \brief Base type class for date data
 class ARROW_EXPORT DateType : public TemporalType {
  public:
+  /// \brief Returns the unit
   virtual DateUnit unit() const = 0;
 
  protected:
@@ -1773,6 +1787,7 @@ class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
  public:
   enum type { MONTHS, DAY_TIME, MONTH_DAY_NANO };
 
+  /// \brief Returns the interval type
   virtual type interval_type() const = 0;
 
  protected:
@@ -1907,6 +1922,7 @@ class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
   std::string ToString(bool show_metadata = false) const override;
   std::string name() const override { return "duration"; }
 
+  /// \brief Returns the unit
   TimeUnit::type unit() const { return unit_; }
 
  protected:
@@ -1945,9 +1961,12 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 
   DataTypeLayout layout() const override;
 
+  /// \brief Returns the index type
   const std::shared_ptr<DataType>& index_type() const { return index_type_; }
+  /// \brief Returns the value type
   const std::shared_ptr<DataType>& value_type() const { return value_type_; }
 
+  /// \brief Returns the ordered
   bool ordered() const { return ordered_; }
 
  protected:
@@ -2362,8 +2381,10 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// Return the ith schema element. Does not boundscheck
   const std::shared_ptr<Field>& field(int i) const;
 
+  /// \brief Returns fields
   const FieldVector& fields() const;
 
+  /// \brief Returns field names
   std::vector<std::string> field_names() const;
 
   /// Returns null if name not found
