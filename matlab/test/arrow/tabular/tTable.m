@@ -664,13 +664,12 @@ classdef tTable < matlab.unittest.TestCase
             testCase.verifyFalse(isequal(t1, t2, t3, t4));
         end
 
-
         function FromRecordBatchesZeroInputsError(testCase)
             % Verify the arrow.tabular.Table.fromRecordBatches function
             % throws an exception if called with zero input arguments.
             import arrow.tabular.Table
             fcn = @() Table.fromRecordBatches();
-            testCase.verifyError(fcn, "MATLAB:narginchk:notEnoughInputs");
+            testCase.verifyError(fcn, "arrow:Table:FromRecordBatches:ZeroBatches");
         end
 
         function FromRecordBatchesOneInput(testCase)
@@ -699,6 +698,20 @@ classdef tTable < matlab.unittest.TestCase
 
             arrowTable = Table.fromRecordBatches(recordBatch1, recordBatch2, recordBatch3);
             testCase.verifyTable(arrowTable, ["Number", "Letter"], ["arrow.type.Float64Type", "arrow.type.StringType"], [matlabTable1; matlabTable2; matlabTable3]);
+        end
+
+        function FromRecordBatchesInconsistentSchemaError(testCase)
+            % Verify the arrow.tabular.Table.fromRecordBatches function
+            % throws an expcetion if the RecordBatches provided do not have
+            % consistent Schemas.
+            import arrow.tabular.Table
+            matlabTable1 = table("A", 1);
+            matlabTable2 = table(2, "B");
+            recordBatch1 = arrow.recordBatch(matlabTable1);
+            recordBatch2 = arrow.recordBatch(matlabTable2);
+
+            fcn = @() Table.fromRecordBatches(recordBatch1, recordBatch2);
+            testCase.verifyError(fcn, "arrow:Table:FromRecordBatches:InconsistentSchema");
         end
     end
 

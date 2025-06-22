@@ -149,14 +149,21 @@ classdef Table < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
             arguments(Repeating)
                 batches(1, 1) arrow.tabular.RecordBatch
             end
-
-            narginchk(1, inf);
-
-            if numel(batches) > 1
-                schemas = cellfun(@(rb) rb.Schema, batches, UniformOutput=false);
-                if ~isequal(schemas{:})
-                    schemaString = arrow.tabular.internal.display.getSchemaString(schemas{1});
-                    msg = compose("Expect all RecordBatches to have the following Schema:\n\n\t%s",  schemaString);
+            if numel(batches) == 0
+                msg = "Must supply at least one RecordBatch";
+                error("arrow:Table:FromRecordBatches:ZeroBatches", msg);
+            elseif numel(batches) > 1
+                % Verify the RecordBatches have consistent Schema values.
+                firstSchema = batches{1}.Schema;
+                otherSchemas = cellfun(@(rb) rb.Schema, batches(2:end), UniformOutput=false);
+                idx = cellfun(@(other) ~isequal(firstSchema, other), otherSchemas, UniformOutput=true);
+                badIndex = find(idx, 1,"first");
+                if ~isempty(badIndex)
+                    badIndex = badIndex + 1;
+                    expectedSchema = arrow.tabular.internal.display.getSchemaString(firstSchema);
+                    unexpectedSchema = arrow.tabular.internal.display.getSchemaString(batches{badIndex}.Schema);
+                    msg = "Schema of RecordBatch %d is\n\n\t%s\n\nExpected RecordBatch Schema to be\n\n\t%s";
+                    msg = compose(msg, badIndex, unexpectedSchema, expectedSchema);
                     error("arrow:Table:FromRecordBatches:InconsistentSchema", msg);
                 end
             end
