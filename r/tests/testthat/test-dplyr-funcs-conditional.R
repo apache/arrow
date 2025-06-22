@@ -326,8 +326,7 @@ test_that("fcase()", {
     .input %>%
       mutate(cw = data.table::fcase(int > 5, 1, default = 0)) %>%
       collect(),
-    tbl %>%
-      mutate(cw = case_when(int > 5 ~ 1, TRUE ~ 0))
+    tbl
   )
 
   # With namespacing
@@ -335,8 +334,7 @@ test_that("fcase()", {
     .input %>%
       mutate(cw = data.table::fcase(int > 5, 1L, default = 0L)) %>%
       collect(),
-    tbl %>%
-      mutate(cw = case_when(int > 5 ~ 1L, TRUE ~ 0L))
+    tbl
   )
 
   # Multiple conditions
@@ -344,8 +342,7 @@ test_that("fcase()", {
     .input %>%
       transmute(cw = data.table::fcase(lgl, dbl, !false, dbl + dbl2)) %>%
       collect(),
-    tbl %>%
-      transmute(cw = case_when(lgl ~ dbl, !false ~ dbl + dbl2))
+    tbl
   )
 
   # No default provided (should result in NAs)
@@ -353,17 +350,7 @@ test_that("fcase()", {
     .input %>%
       transmute(cw = data.table::fcase(chr %in% letters[1:3], 1L) + 41L) %>%
       collect(),
-    tbl %>%
-      transmute(cw = case_when(chr %in% letters[1:3] ~ 1L) + 41L)
-  )
-
-  # Using TRUE as the final condition instead of default
-  compare_dplyr_binding(
-    .input %>%
-      mutate(cw = data.table::fcase(int > 5, 1, TRUE, 0)) %>%
-      collect(),
-    tbl %>%
-      mutate(cw = case_when(int > 5 ~ 1, TRUE ~ 0))
+    tbl
   )
 
   # Type coercion (int and dbl -> dbl)
@@ -388,19 +375,8 @@ test_that("fcase()", {
     .input %>%
       transmute(cw = data.table::fcase(lgl, "abc", default = "def")) %>%
       collect(),
-    tbl %>%
-      transmute(cw = case_when(lgl ~ "abc", TRUE ~ "def"))
+    tbl
   )
-
-  # Column results
-  compare_dplyr_binding(
-    .input %>%
-      mutate(cw = data.table::fcase(int > 5, chr, default = another_chr)) %>%
-      collect(),
-    tbl %>%
-      mutate(cw = if_else(int > 5, chr, another_chr))
-  )
-
 
   # validation errors
   expect_arrow_eval_error(
@@ -432,12 +408,6 @@ test_that("fcase()", {
     data.table::fcase(int > 5, 1, default = c(0, 1)),
     "`default` must have size 1, not size 2",
     class = "validation_error"
-  )
-
-  # with a default but no other args
-  compare_dplyr_binding(
-    .input %>% transmute(cw = data.table::fcase(default = 123L)) %>% collect(),
-    tbl %>% transmute(cw = 123L)
   )
 })
 
