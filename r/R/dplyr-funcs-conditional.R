@@ -138,4 +138,61 @@ register_bindings_conditional <- function() {
       )
     )
   }, notes = "`.ptype` and `.size` arguments not supported")
+
+  register_binding("data.table::fcase", function(..., default = NULL) {
+    n_inputs <- ...length()
+
+    if (n_inputs == 0 && is.null(default)) {
+      validation_error("No cases provided to fcase()")
+    }
+
+    if (n_inputs %% 2L != 0L) {
+      validation_error(paste0("fcase() must have an even number of arguments, but ", n_inputs, " were provided."))
+    }
+
+    mask <- caller_env()
+    # Separate conditions (query) and results (value)
+    args <- list2(...)
+    query <- args[seq(1L, n_inputs, by = 2L)]
+    value <- args[seq(2L, n_inputs, by = 2L)]
+
+
+    # Evaluate all arguments in the arrow context
+    for (i in seq_along(query)) {
+      query[[i]] <- arrow_eval(query[[i]], mask)
+      if (!call_binding("is.logical", query[[i]])) {
+        validation_error(paste0(
+          "Element ", 2L * i - 1L,
+          " of `...` in fcase() must be a logical expression"
+        ))
+      }
+      value[[i]] <- arrow_eval(value[[i]], mask)
+    }
+
+    # Handle the default value
+    if (!is.null(default)) {
+      if (length(default) != 1) {
+        validation_error(paste0(
+          "`default` must have size 1, not size ",
+          length(default),
+          "."
+        ))
+      }
+      query[[n_inputs / 2L + 1L]] <- TRUE
+      value[[n_inputs / 2L + 1L]] <- arrow_eval(default, mask)
+    }
+
+    # Re-use the case_when kernel
+    Expression$create(
+      "case_when",
+      args = c(
+        Expression$create(
+          "make_struct",
+          args = query,
+          options = list(field_names = as.character(seq_along(query)))
+        ),
+        value
+      )
+    )
+  })
 }
