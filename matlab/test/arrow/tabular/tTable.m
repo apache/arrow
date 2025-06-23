@@ -666,7 +666,8 @@ classdef tTable < matlab.unittest.TestCase
 
         function FromRecordBatchesZeroInputsError(testCase)
             % Verify the arrow.tabular.Table.fromRecordBatches function
-            % throws an `arrow:Table:FromRecordBatches:ZeroBatches` exception if called with zero input arguments.
+            % throws an `arrow:Table:FromRecordBatches:ZeroBatches` 
+            % exception if called with zero input arguments.
             import arrow.tabular.Table
             fcn = @() Table.fromRecordBatches();
             testCase.verifyError(fcn, "arrow:Table:FromRecordBatches:ZeroBatches");
@@ -702,8 +703,9 @@ classdef tTable < matlab.unittest.TestCase
 
         function FromRecordBatchesInconsistentSchemaError(testCase)
             % Verify the arrow.tabular.Table.fromRecordBatches function
-            % throws an `arrow:Table:FromRecordBatches:InconsistentSchem` exception if the Schemas of the provided 
-            % RecordBatches are inconsistent
+            % throws an `arrow:Table:FromRecordBatches:InconsistentSchema`
+            % exception if the Schemas of the provided  RecordBatches are 
+            % inconsistent.
             import arrow.tabular.Table
             matlabTable1 = table("A", 1);
             matlabTable2 = table(2, "B");
