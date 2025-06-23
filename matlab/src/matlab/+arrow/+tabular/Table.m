@@ -170,7 +170,7 @@ classdef Table < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
 
             % TODO: Rename getArrayProxyIDs to getProxyIDs
             proxyIDs = arrow.array.internal.getArrayProxyIDs(batches);
-            args = struct(Method="FromRecordBatches", RecordBatchProxyIDs=proxyIDs);
+            args = struct(Method="from_record_batches", RecordBatchProxyIDs=proxyIDs);
             proxyName = "arrow.tabular.proxy.Table";
             proxy = arrow.internal.proxy.create(proxyName, args);
             arrowTable = arrow.tabular.Table(proxy);
