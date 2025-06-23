@@ -161,7 +161,7 @@ classdef Table < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
                 if ~isempty(badIndex)
                     badIndex = badIndex + 1;
                     expectedSchema = arrow.tabular.internal.display.getSchemaString(firstSchema);
-                    unexpectedSchema = arrow.tabular.internal.display.getSchemaString(batches{badIndex}.Schema);
+                    inconsistentSchema = arrow.tabular.internal.display.getSchemaString(batches{inconsistentSchemaIndex }.Schema);
                     msg = "Schema of RecordBatch %d is\n\n\t%s\n\nExpected RecordBatch Schema to be\n\n\t%s";
                     msg = compose(msg, badIndex, unexpectedSchema, expectedSchema);
                     error("arrow:Table:FromRecordBatches:InconsistentSchema", msg);
