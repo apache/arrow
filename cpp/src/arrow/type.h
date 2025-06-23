@@ -1357,7 +1357,11 @@ class ARROW_EXPORT MapType : public ListType {
 
   std::string name() const override { return "map"; }
 
-  /// \brief Returns the keys sorted
+  /// \brief Return the keys_sorted flag
+  ///
+  /// If keys_sorted is true, then the keys for each map item should appear
+  /// in sorted order in the map data. If keys_sorted is false, then no assumption
+  /// can be made on keys order.
   bool keys_sorted() const { return keys_sorted_; }
 
  private:
