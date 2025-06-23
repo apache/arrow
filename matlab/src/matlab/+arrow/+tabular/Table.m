@@ -150,7 +150,7 @@ classdef Table < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
                 batches(1, 1) arrow.tabular.RecordBatch
             end
             if numel(batches) == 0
-                msg = "Must supply at least one RecordBatch";
+                msg = "Must supply at least one RecordBatch.";
                 error("arrow:Table:FromRecordBatches:ZeroBatches", msg);
             elseif numel(batches) > 1
                 % Verify the RecordBatches have consistent Schema values.
