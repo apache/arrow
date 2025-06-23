@@ -157,7 +157,7 @@ classdef Table < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
                 firstSchema = batches{1}.Schema;
                 otherSchemas = cellfun(@(rb) rb.Schema, batches(2:end), UniformOutput=false);
                 idx = cellfun(@(other) ~isequal(firstSchema, other), otherSchemas, UniformOutput=true);
-                badIndex = find(idx, 1,"first");
+                inconsistentSchemaIndex = find(idx, 1,"first");
                 if ~isempty(badIndex)
                     badIndex = badIndex + 1;
                     expectedSchema = arrow.tabular.internal.display.getSchemaString(firstSchema);
