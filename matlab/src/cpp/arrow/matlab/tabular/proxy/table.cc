@@ -169,11 +169,10 @@ libmexclass::proxy::MakeResult Table::make(
   } else {
     const auto method_name_utf16 = std::u16string(method[0]);
     MATLAB_ASSIGN_OR_ERROR(const auto method_name_utf8,
-                            arrow::util::UTF16StringToUTF8(method_name_utf16),
-                            error::UNICODE_CONVERSION_ERROR_ID);
+                           arrow::util::UTF16StringToUTF8(method_name_utf16),
+                           error::UNICODE_CONVERSION_ERROR_ID);
     const std::string error_msg = "Unknown make method: " + method_name_utf8;
-    return libmexclass::error::Error{error::TABLE_MAKE_UNKNOWN_METHOD,
-                                     error_msg};
+    return libmexclass::error::Error{error::TABLE_MAKE_UNKNOWN_METHOD, error_msg};
   }
 }
 
