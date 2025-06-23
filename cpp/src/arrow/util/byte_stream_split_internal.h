@@ -59,9 +59,13 @@ void ByteStreamSplitDecodeSimd128(const uint8_t* data, int width, int64_t num_va
                                   int64_t stride, uint8_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<int8_t, 16>;
 
+  static_assert(kNumStreams <= simd_batch::size,
+                "The algorithm works when the number of streams is smaller than the SIMD "
+                "batch size.");
   assert(width == kNumStreams);
   constexpr int kNumStreamsLog2 = ReversePow2(kNumStreams);
-  static_assert(kNumStreamsLog2 != 0);
+  static_assert(kNumStreamsLog2 != 0,
+                "The algorithm works for a number of streams being a power of two.");
   constexpr int64_t kBlockSize = simd_batch::size * kNumStreams;
 
   const int64_t size = num_values * kNumStreams;
@@ -135,7 +139,7 @@ struct grouped_bytes_impl<8> {
 template <int kNumBytes>
 using grouped_bytes_t = typename grouped_bytes_impl<kNumBytes>::type;
 
-// Like xsimd::zlip_lo, but zip groups of NBytes at once
+// Like xsimd::zip_lo, but zip groups of kNumBytes at once.
 template <int kNumBytes, int kBatchSize = 16,
           typename Batch = xsimd::make_sized_batch_t<int8_t, kBatchSize>>
 auto zip_lo_n(Batch const& a, Batch const& b) -> Batch {
@@ -148,7 +152,7 @@ auto zip_lo_n(Batch const& a, Batch const& b) -> Batch {
   }
 }
 
-// Like xsimd::zlip_hi, but zip groups of NBytes at once
+// Like xsimd::zip_hi, but zip groups of kNumBytes at once.
 template <int kNumBytes, int kBatchSize = 16,
           typename Batch = xsimd::make_sized_batch_t<int8_t, kBatchSize>>
 auto zip_hi_n(Batch const& a, Batch const& b) -> Batch {
@@ -167,7 +171,12 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
   using simd_batch = xsimd::make_sized_batch_t<int8_t, 16>;
 
   assert(width == kNumStreams);
+  static_assert(kNumStreams <= simd_batch::size,
+                "The algorithm works when the number of streams is smaller than the SIMD "
+                "batch size.");
   constexpr int kBlockSize = simd_batch::size * kNumStreams;
+  static_assert(ReversePow2(kNumStreams) != 0,
+                "The algorithm works for a number of streams being a power of two.");
 
   const int64_t size = num_values * kNumStreams;
   const int64_t num_blocks = size / kBlockSize;
@@ -200,6 +209,7 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
       ReversePow2(static_cast<int>(simd_batch::size) / kNumBytes);
   // Total number of steps
   constexpr int kNumSteps = kNumStepsByte + kNumStepsLarge;
+  static_assert(kNumSteps == ReversePow2(simd_batch::size));
 
   // Two step shuffling algorithm that starts with bytes and ends with a larger data type.
   // An algorithm similar to the decoding one with log2(simd_batch::size) + 1 stages is
@@ -228,7 +238,8 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
     // which uses the shuffle intrinsics.
     //
     // Loop order does not matter so we prefer higher locality
-    for (int i = 0; i < kNumStreams / 2; ++i) {
+    constexpr int kNumStreamsHalf = kNumStreams / 2;
+    for (int i = 0; i < kNumStreamsHalf; ++i) {
       for (int step = 0; step < kNumStepsByte; ++step) {
         stage[step + 1][i * 2] =
             xsimd::zip_lo(stage[step][i * 2], stage[step][i * 2 + 1]);
@@ -244,7 +255,6 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
     // The large data type is int64_t with NumBytes=8 bytes:
     //
     // 4: A0A1A2A3 A4A5A6A7 A8A9AAAB ACADAEAF | B0B1B2B3 B4B5B6B7 B8B9BABB BCBDBEBF | ...
-    constexpr int kNumStreamsHalf = kNumStreams / 2;
     for (int step = kNumStepsByte; step < kNumSteps; ++step) {
       for (int i = 0; i < kNumStreamsHalf; ++i) {
         stage[step + 1][i * 2] =
