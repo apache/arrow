@@ -666,7 +666,7 @@ classdef tTable < matlab.unittest.TestCase
 
         function FromRecordBatchesZeroInputsError(testCase)
             % Verify the arrow.tabular.Table.fromRecordBatches function
-            % throws an exception if called with zero input arguments.
+            % throws an `arrow:Table:FromRecordBatches:ZeroBatches` exception if called with zero input arguments.
             import arrow.tabular.Table
             fcn = @() Table.fromRecordBatches();
             testCase.verifyError(fcn, "arrow:Table:FromRecordBatches:ZeroBatches");
