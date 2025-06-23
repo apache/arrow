@@ -686,7 +686,7 @@ classdef tTable < matlab.unittest.TestCase
         function FromRecordBatchesMultipleInputs(testCase)
             % Verify the arrow.tabular.Table.fromRecordBatches function
             % returns the expected arrow.tabular.Table instance when 
-            % provided a single RecordBatch as input.
+            % provided mulitple RecordBatches as input.
             import arrow.tabular.Table
             matlabTable1 = table([1; 2], ["A"; "B"], VariableNames=["Number" "Letter"]);
             matlabTable2 = table([10; 20; 30], ["A1"; "B1"; "C1"], VariableNames=["Number" "Letter"]);
@@ -702,8 +702,8 @@ classdef tTable < matlab.unittest.TestCase
 
         function FromRecordBatchesInconsistentSchemaError(testCase)
             % Verify the arrow.tabular.Table.fromRecordBatches function
-            % throws an expcetion if the RecordBatches provided do not have
-            % consistent Schemas.
+            % throws an exception if the Schemas of the provided 
+            % RecordBatches are not consistent.
             import arrow.tabular.Table
             matlabTable1 = table("A", 1);
             matlabTable2 = table(2, "B");
