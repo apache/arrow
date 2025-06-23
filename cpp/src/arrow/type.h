@@ -1014,7 +1014,10 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
   static Result<std::shared_ptr<DataType>> Make(Type::type type_id, int32_t precision,
                                                 int32_t scale);
 
-  /// \brief Returns the precision
+  /// \brief Return the decimal precision
+  ///
+  /// The decimal precision is a positive integer smaller or equal
+  /// than the concrete decimal's type `kMaxPrecision`.
   int32_t precision() const { return precision_; }
   /// \brief Returns the scale
   int32_t scale() const { return scale_; }
