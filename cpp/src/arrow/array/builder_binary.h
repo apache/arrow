@@ -656,10 +656,6 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
     UnsafeAppend(reinterpret_cast<const uint8_t*>(value), length);
   }
 
-  void UnsafeAppend(const std::string& value) {
-    UnsafeAppend(value.c_str(), static_cast<int64_t>(value.size()));
-  }
-
   void UnsafeAppend(std::string_view value) {
     UnsafeAppend(value.data(), static_cast<int64_t>(value.size()));
   }
@@ -688,10 +684,6 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
     return AppendBuffer(reinterpret_cast<const uint8_t*>(value), length);
   }
 
-  Result<int32_t> AppendBuffer(const std::string& value) {
-    return AppendBuffer(value.data(), static_cast<int64_t>(value.size()));
-  }
-
   Result<int32_t> AppendBuffer(const std::string_view value) {
     return AppendBuffer(value.data(), static_cast<int64_t>(value.size()));
   }
@@ -700,8 +692,9 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
                               const int32_t length) {
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(true);
-    ARROW_ASSIGN_OR_RAISE(const auto v, data_heap_builder_.GetViewFromBuffer<true>(
-                                            buffer_idx, start, length));
+    ARROW_ASSIGN_OR_RAISE(
+        const auto v,
+        data_heap_builder_.GetViewFromBuffer</*Safe=*/true>(buffer_idx, start, length));
     data_builder_.UnsafeAppend(v);
     return Status::OK();
   }
@@ -712,7 +705,8 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
   void UnsafeAppendViewFromBuffer(const int32_t buffer_idx, const int32_t start,
                                   const int32_t length) {
     UnsafeAppendToBitmap(true);
-    const auto v = data_heap_builder_.GetViewFromBuffer<false>(buffer_idx, start, length);
+    const auto v =
+        data_heap_builder_.GetViewFromBuffer</*Safe=*/false>(buffer_idx, start, length);
     data_builder_.UnsafeAppend(v);
   }
 
