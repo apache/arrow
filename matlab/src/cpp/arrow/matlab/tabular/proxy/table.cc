@@ -166,7 +166,7 @@ libmexclass::proxy::MakeResult Table::make(
 
   if (method[0] == u"FromArrays") {
     return from_arrays(opts);
-  } else if (method[0] == u"FromRecordBatches") {
+  } else if (method[0] == u"from_record_batches") {
     return from_record_batches(opts);
   } else {
     const std::string error_msg = "Unknown method";
