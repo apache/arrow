@@ -164,7 +164,7 @@ libmexclass::proxy::MakeResult Table::make(
   mda::StructArray opts = constructor_arguments[0];
   const mda::StringArray method = opts[0]["Method"];
 
-  if (method[0] == u"FromArrays") {
+  if (method[0] == u"from_arrays") {
     return from_arrays(opts);
   } else if (method[0] == u"from_record_batches") {
     return from_record_batches(opts);
