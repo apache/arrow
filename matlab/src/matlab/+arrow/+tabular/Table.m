@@ -153,7 +153,7 @@ classdef Table < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
                 msg = "The fromRecordBatches method requires at least one RecordBatch to be supplied.";
                 error("arrow:Table:FromRecordBatches:ZeroBatches", msg);
             elseif numel(batches) > 1
-                % Verify the RecordBatches have consistent Schema values.
+                % Verify that all supplied RecordBatches have a consistent Schema.
                 firstSchema = batches{1}.Schema;
                 otherSchemas = cellfun(@(rb) rb.Schema, batches(2:end), UniformOutput=false);
                 idx = cellfun(@(other) ~isequal(firstSchema, other), otherSchemas, UniformOutput=true);
