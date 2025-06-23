@@ -703,7 +703,7 @@ classdef tTable < matlab.unittest.TestCase
         function FromRecordBatchesInconsistentSchemaError(testCase)
             % Verify the arrow.tabular.Table.fromRecordBatches function
             % throws an `arrow:Table:FromRecordBatches:InconsistentSchem` exception if the Schemas of the provided 
-            % RecordBatches are not consistent.
+            % RecordBatches are inconsistent
             import arrow.tabular.Table
             matlabTable1 = table("A", 1);
             matlabTable2 = table(2, "B");
