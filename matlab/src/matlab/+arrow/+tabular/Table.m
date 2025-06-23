@@ -139,7 +139,7 @@ classdef Table < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
             validateColumnNames(opts.ColumnNames, numColumns);
 
             arrayProxyIDs = getArrayProxyIDs(arrowArrays);
-            args = struct(Method="FromArrays", ArrayProxyIDs=arrayProxyIDs, ColumnNames=opts.ColumnNames);
+            args = struct(Method="from_arrays", ArrayProxyIDs=arrayProxyIDs, ColumnNames=opts.ColumnNames);
             proxyName = "arrow.tabular.proxy.Table";
             proxy = arrow.internal.proxy.create(proxyName, args);
             arrowTable = arrow.tabular.Table(proxy);
