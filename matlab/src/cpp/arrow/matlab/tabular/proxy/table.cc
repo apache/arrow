@@ -141,7 +141,7 @@ libmexclass::proxy::MakeResult from_record_batches(const mda::StructArray& opts)
   // so this should be safe.
   auto schema = record_batches[0]->schema();
   // The MATLAB client code should have already validated that the schemas are consistent.
-  // Just create a vector of columns.
+  // Create a vector of columns.
   size_t num_columns = schema->num_fields();
   std::vector<std::shared_ptr<ChunkedArray>> columns(num_columns);
 
