@@ -137,11 +137,9 @@ libmexclass::proxy::MakeResult from_record_batches(const mda::StructArray& opts)
     num_rows += record_batches.back()->num_rows();
   }
 
-  // This function can only be invoked if there's at least 1 RecordBatch,
-  // so this should be safe.
+  // The MATLAB client code that calls this function is responsible for pre-validating
+  // that this function is called with at least one RecordBatch.
   auto schema = record_batches[0]->schema();
-  // The MATLAB client code should have already validated that the schemas are consistent.
-  // Create a vector of columns.
   size_t num_columns = schema->num_fields();
   std::vector<std::shared_ptr<ChunkedArray>> columns(num_columns);
 
