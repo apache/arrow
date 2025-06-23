@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# nolint next: cyclomatic_complexity_linter.
+# nolint next: cyclocomp_linter.
 register_bindings_conditional <- function() {
   register_binding("%in%", function(x, table) {
     # We use `is_in` here, unlike with Arrays, which use `is_in_meta_binary`
