@@ -162,7 +162,7 @@ classdef Table < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
                     inconsistentSchemaIndex = inconsistentSchemaIndex + 1;
                     expectedSchema = arrow.tabular.internal.display.getSchemaString(firstSchema);
                     inconsistentSchema = arrow.tabular.internal.display.getSchemaString(batches{inconsistentSchemaIndex}.Schema);
-                    msg = "All RecordBatches must have a the same Schema.\n\nSchema of RecordBatch %d is\n\n\t%s\n\nExpected RecordBatch Schema to be\n\n\t%s";
+                    msg = "All RecordBatches must have the same Schema.\n\nSchema of RecordBatch %d is\n\n\t%s\n\nExpected RecordBatch Schema to be\n\n\t%s";
                     msg = compose(msg, inconsistentSchemaIndex, inconsistentSchema, expectedSchema);
                     error("arrow:Table:FromRecordBatches:InconsistentSchema", msg);
                 end
