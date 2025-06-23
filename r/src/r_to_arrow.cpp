@@ -595,11 +595,13 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
     return VisitVector(it, size, append_null, append_value);
   }
 
-  static int FromRDate(const Date32Type*, double from) { return static_cast<int>(from); }
+  static int FromRDate(const Date32Type*, double from) {
+    return static_cast<int>(std::floor(from));
+  }
 
   static int64_t FromRDate(const Date64Type*, double from) {
     constexpr int64_t kMilliSecondsPerDay = 86400000;
-    return static_cast<int64_t>(from * kMilliSecondsPerDay);
+    return static_cast<int64_t>(std::floor(from * kMilliSecondsPerDay));
   }
 
   static int FromPosixct(const Date32Type*, double from) {
