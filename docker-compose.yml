@@ -1839,6 +1839,7 @@ services:
       ARROW_HOME: "/tmp/local"
       ARROW_JAVA_SKIP_GIT_PLUGIN:
       ARROW_SUBSTRAIT: "ON"
+      ARROW_AZURE: "ON"
       BUILD_DOCS_C_GLIB: "ON"
       BUILD_DOCS_CPP: "ON"
       BUILD_DOCS_PYTHON: "ON"
