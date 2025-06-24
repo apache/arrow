@@ -33,5 +33,4 @@ namespace arrow::matlab::proxy {
     ///
     /// \return arrow::Result<mda::StructArray>. The mda::StructArray has two fields: ProxyID (uint64) and TypeID (int32).
     arrow::Result<::matlab::data::StructArray> wrap_and_manage(const std::shared_ptr<arrow::Array>& array);
-
 }
