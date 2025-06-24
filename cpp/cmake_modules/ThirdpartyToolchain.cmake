@@ -5278,7 +5278,12 @@ function(build_awssdk)
 endfunction()
 
 if(ARROW_S3)
-  resolve_dependency(AWSSDK HAVE_ALT TRUE)
+  # Keep this in sync with s3fs.cc
+  resolve_dependency(AWSSDK
+                     HAVE_ALT
+                     TRUE
+                     REQUIRED_VERSION
+                     1.11.0)
 
   message(STATUS "Found AWS SDK headers: ${AWSSDK_INCLUDE_DIR}")
   message(STATUS "Found AWS SDK libraries: ${AWSSDK_LINK_LIBRARIES}")
