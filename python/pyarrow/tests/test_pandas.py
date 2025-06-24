@@ -1007,14 +1007,14 @@ class TestConvertPrimitiveTypes:
         arr = np.array([1.5, np.nan], dtype=np.float16)
         a = pa.array(arr, type=pa.float16())
         x, y = a.to_pylist()
-        assert isinstance(x, np.float16)
+        assert isinstance(x, float)
         assert x == 1.5
-        assert isinstance(y, np.float16)
+        assert isinstance(y, float)
         assert np.isnan(y)
 
         a = pa.array(arr, type=pa.float16(), from_pandas=True)
         x, y = a.to_pylist()
-        assert isinstance(x, np.float16)
+        assert isinstance(x, float)
         assert x == 1.5
         assert y is None
 
@@ -3876,7 +3876,7 @@ def test_to_pandas_split_blocks():
         pa.array([1, 2, 3, 4, 5]*100, type='f8'),
         pa.array([1, 2, 3, 4, 5]*100, type='f8'),
         pa.array([1, 2, 3, 4, 5]*100, type='f8'),
-    ], ['f{}'.format(i) for i in range(8)])
+    ], [f'f{i}' for i in range(8)])
 
     _check_blocks_created(t, 8)
     _check_to_pandas_memory_unchanged(t, split_blocks=True)
@@ -3902,7 +3902,7 @@ def test_to_pandas_self_destruct():
             # Slice to force a copy
             pa.array(np.random.randn(10000)[::2])
             for i in range(K)
-        ], ['f{}'.format(i) for i in range(K)])
+        ], [f'f{i}' for i in range(K)])
 
     t = _make_table()
     _check_to_pandas_memory_unchanged(t, split_blocks=True, self_destruct=True)

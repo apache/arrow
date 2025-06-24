@@ -294,7 +294,7 @@ sapien. Quisque pretium vestibulum urna eu vehicula."""
                                     metadata={"key3": "value3"})],
                           metadata={"lorem": lorem})
 
-    assert my_schema.to_string() == """\
+    assert my_schema.to_string() == f"""\
 foo: int32 not null
   -- field metadata --
   key1: 'value1'
@@ -302,7 +302,7 @@ bar: string
   -- field metadata --
   key3: 'value3'
 -- schema metadata --
-lorem: '""" + lorem[:65] + "' + " + str(len(lorem) - 65)
+lorem: '{lorem[:65]}' + {len(lorem) - 65}"""
 
     # Metadata that exactly fits
     result = pa.schema([('f0', 'int32')],
@@ -313,7 +313,7 @@ f0: int32
 key: 'valuexxxxxxxxxxxxxxxxxxxxxxxxxxxxx\
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'"""
 
-    assert my_schema.to_string(truncate_metadata=False) == """\
+    assert my_schema.to_string(truncate_metadata=False) == f"""\
 foo: int32 not null
   -- field metadata --
   key1: 'value1'
@@ -321,14 +321,15 @@ bar: string
   -- field metadata --
   key3: 'value3'
 -- schema metadata --
-lorem: '{}'""".format(lorem)
+lorem: '{lorem[:92]} (... {len(lorem) - 91} chars omitted)"""
 
     assert my_schema.to_string(truncate_metadata=False,
-                               show_field_metadata=False) == """\
+                               show_field_metadata=False,
+                               element_size_limit=50) == f"""\
 foo: int32 not null
 bar: string
 -- schema metadata --
-lorem: '{}'""".format(lorem)
+lorem: '{lorem[:50 - 8]} (... {len(lorem) - (50 - 9)} chars omitted)"""
 
     assert my_schema.to_string(truncate_metadata=False,
                                show_schema_metadata=False) == """\
@@ -461,6 +462,24 @@ def test_schema_add_remove_metadata():
     # idempotent
     s4 = s3.remove_metadata()
     assert s4.metadata is None
+
+
+def test_schema_set_field():
+    fields = [
+        pa.field('foo', pa.int32()),
+        pa.field('bar', pa.string()),
+        pa.field('baz', pa.list_(pa.int8()))
+    ]
+    s1 = pa.schema(fields)
+
+    s2 = s1.set(0, s1.field(0).with_type(pa.int64()))
+
+    assert s2.field(0).type == pa.int64()
+    assert s1.field(0).type == pa.int32()
+
+    s3 = s2.set(0, s2.field(0).with_nullable(False))
+    assert s2.field(0).nullable is True
+    assert s3.field(0).nullable is False
 
 
 def test_schema_equals():
@@ -639,7 +658,7 @@ def test_type_schema_pickling(pickle_module):
         if isinstance(f, pa.Field):
             fields.append(f)
         else:
-            fields.append(pa.field('_f{}'.format(i), f))
+            fields.append(pa.field(f'_f{i}', f))
 
     schema = pa.schema(fields, metadata={b'foo': b'bar'})
     roundtripped = pickle_module.loads(pickle_module.dumps(schema))

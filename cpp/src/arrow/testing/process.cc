@@ -281,6 +281,8 @@ class Process::Impl {
 
 #  if defined(__linux__)
     path = filesystem::canonical("/proc/self/exe", error_code);
+#  elif defined(__FreeBSD__)
+    path = filesystem::canonical("/proc/curproc/file", error_code);
 #  elif defined(__APPLE__)
     char buf[PATH_MAX + 1];
     uint32_t bufsize = sizeof(buf);

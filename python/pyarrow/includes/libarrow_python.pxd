@@ -55,7 +55,7 @@ cdef extern from "arrow/python/arrow_to_pandas.h" namespace "arrow::py::MapConve
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)
 
-    object PyHalf_FromHalf(npy_half value)
+    object PyFloat_FromHalf(uint16_t value)
 
     cdef cppclass PyConversionOptions:
         PyConversionOptions()
@@ -72,6 +72,9 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     CResult[shared_ptr[CChunkedArray]] ConvertPySequence(
         object obj, object mask, const PyConversionOptions& options,
         CMemoryPool* pool)
+
+    CResult[shared_ptr[CArray]] Arange(int64_t start, int64_t stop,
+                                       int64_t step, CMemoryPool* pool)
 
     CResult[shared_ptr[CDataType]] NumPyDtypeToArrow(object dtype)
 

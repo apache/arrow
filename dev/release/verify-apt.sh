@@ -143,6 +143,7 @@ echo "::endgroup::"
 
 
 echo "::group::Test Apache Arrow C++"
+mkdir -p build
 ${APT_INSTALL} libarrow-dev=${package_version}
 required_packages=()
 required_packages+=(cmake)
@@ -152,15 +153,25 @@ required_packages+=(make)
 required_packages+=(pkg-config)
 required_packages+=(${workaround_missing_packages[@]})
 ${APT_INSTALL} ${required_packages[@]}
-mkdir -p build
-cp -a "${TOP_SOURCE_DIR}/cpp/examples/minimal_build" build/
-pushd build/minimal_build
-cmake .
-make -j$(nproc)
-./arrow-example
-c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++17
-./arrow-example
-popd
+# cmake version 3.31.6 -> 3.31.6
+cmake_version=$(cmake --version | head -n1 | sed -e 's/^cmake version //')
+# 3.31.6 -> 3.31
+cmake_version_major_minor=${cmake_version%.*}
+# 3.31 -> 3
+cmake_version_major=${cmake_version_major_minor%.*}
+# 3.31 -> 31
+cmake_version_minor=${cmake_version_major_minor#*.}
+if [ "${cmake_version_major}" -gt "3" ] || \
+   [ "${cmake_version_major}" -eq "3" -a "${cmake_version_minor}" -ge "25" ]; then
+  cp -a "${TOP_SOURCE_DIR}/cpp/examples/minimal_build" build/
+  pushd build/minimal_build
+  cmake .
+  make -j$(nproc)
+  ./arrow-example
+  c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++17
+  ./arrow-example
+  popd
+fi
 echo "::endgroup::"
 
 

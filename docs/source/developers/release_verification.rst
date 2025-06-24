@@ -141,6 +141,7 @@ along with the vote the command that was executed and the local versions used.
 As an example:
 
 .. code-block::
+
    +1
 
    I've verified successfully the sources and binaries with:

@@ -19,6 +19,7 @@
 
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
+#include "arrow/extension_type.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/type_fwd.h"
@@ -27,6 +28,8 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
+
+using internal::checked_cast;
 
 namespace util {
 
@@ -44,9 +47,13 @@ namespace {
 Type::type GetTypeForBuffers(const ArrayData& array) {
   Type::type type_id = array.type->storage_id();
   if (type_id == Type::DICTIONARY) {
-    return ::arrow::internal::checked_pointer_cast<DictionaryType>(array.type)
-        ->index_type()
-        ->id();
+    // return index type id, provided by the DictionaryType array.type or
+    // array.type->storage_type() if array.type is an ExtensionType
+    DataType* dict_type = array.type.get();
+    if (array.type->id() == Type::EXTENSION) {
+      dict_type = checked_cast<ExtensionType*>(dict_type)->storage_type().get();
+    }
+    return checked_cast<DictionaryType*>(dict_type)->index_type()->id();
   }
   return type_id;
 }

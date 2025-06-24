@@ -147,7 +147,13 @@ if arrow_cpp_build_lib_dir == ''
         modules: ['ArrowCUDA::arrow_cuda_shared'],
         required: false,
     )
-    # we do not support compiling GLib without Acero engine
+    # we do not support compiling GLib without Compute and Acero engine
+    arrow_compute = dependency(
+        'arrow-compute',
+        'ArrowCompute',
+        kwargs: common_args,
+        modules: ['ArrowCompute::arrow_compute_shared'],
+    )
     arrow_acero = dependency(
         'arrow-acero',
         'ArrowAcero',
@@ -215,6 +221,11 @@ main(void)
         dirs: [arrow_cpp_build_lib_dir],
         required: false,
     )
+    arrow_compute = cpp_compiler.find_library(
+        'arrow_compute',
+        dirs: [arrow_cpp_build_lib_dir],
+        required: true,
+    )
     arrow_acero = cpp_compiler.find_library(
         'arrow_acero',
         dirs: [arrow_cpp_build_lib_dir],
@@ -257,6 +268,19 @@ add_project_arguments(cxx.get_supported_arguments(cxx_flags), language: 'cpp')
 python = import('python')
 python3 = python.find_installation('python3')
 generate_version_header_py = project_source_root / 'tool' / 'generate-version-header.py'
+
+c_compiler = meson.get_compiler('c')
+# Specify -fPIE explicitly for g-ir-scanner because PIE is disabled by
+# default on AlmaLinux 9 RPM build by
+# LDFLAGS="-specs=/usr/lib/rpm/redhat/redhat-hardened-ld".
+gir_scanner_cflags = c_compiler.get_supported_arguments('-fPIE')
+if gir_scanner_cflags.length() == 0
+    gir_scanner_extra_args = []
+else
+    gir_scanner_extra_args = ['--cflags-begin'] + gir_scanner_cflags + [
+        '--cflags-end',
+    ]
+endif
 
 subdir('arrow-glib')
 if arrow_cuda.found()

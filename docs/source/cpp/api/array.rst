@@ -34,6 +34,14 @@ Base classes
    :project: arrow_cpp
    :members:
 
+.. doxygenclass:: arrow::FlatArray
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::PrimitiveArray
+   :project: arrow_cpp
+   :members:
+
 Factory functions
 =================
 
@@ -84,6 +92,11 @@ Extension arrays
 .. doxygenclass:: arrow::ExtensionArray
    :members:
 
+Run-End Encoded Array
+---------------------
+
+.. doxygenclass:: arrow::RunEndEncodedArray
+   :members:
 
 Chunked Arrays
 ==============
@@ -110,3 +123,11 @@ Utilities
    :project: arrow_cpp
    :members:
    :undoc-members:
+
+.. _api-array-from-json-string:
+
+FromJSONString Helpers
+----------------------
+
+.. doxygengroup:: array-from-json-string
+   :members:

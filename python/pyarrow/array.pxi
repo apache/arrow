@@ -340,11 +340,10 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 if value_type is not None:
                     warnings.warn(
                         "The dtype of the 'categories' of the passed "
-                        "categorical values ({0}) does not match the "
-                        "specified type ({1}). For now ignoring the specified "
+                        f"categorical values ({values.categories.dtype}) does not match the "
+                        f"specified type ({value_type}). For now ignoring the specified "
                         "type, but in the future this mismatch will raise a "
-                        "TypeError".format(
-                            values.categories.dtype, value_type),
+                        "TypeError",
                         FutureWarning, stacklevel=2)
                     dictionary = array(
                         values.categories.values, memory_pool=memory_pool)
@@ -573,20 +572,53 @@ def infer_type(values, mask=None, from_pandas=False):
     return pyarrow_wrap_data_type(out)
 
 
+def arange(int64_t start, int64_t stop, int64_t step=1, *, memory_pool=None):
+    """
+    Create an array of evenly spaced values within a given interval.
+
+    This function is similar to Python's `range` function.
+    The resulting array will contain values starting from `start` up to but not
+    including `stop`, with a step size of `step`.
+
+    Parameters
+    ----------
+    start : int
+        The starting value for the sequence. The returned array will include this value.
+    stop : int
+        The stopping value for the sequence. The returned array will not include this value.
+    step : int, default 1
+        The spacing between values.
+    memory_pool : MemoryPool, optional
+        A memory pool to use for memory allocations.
+
+    Raises
+    ------
+    ArrowInvalid
+        If `step` is zero.
+
+    Returns
+    -------
+    arange : Array
+    """
+    cdef CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+    with nogil:
+        c_array = GetResultValue(Arange(start, stop, step, pool))
+    return pyarrow_wrap_array(c_array)
+
+
 def _normalize_slice(object arrow_obj, slice key):
     """
     Slices with step not equal to 1 (or None) will produce a copy
     rather than a zero-copy view
     """
     cdef:
-        Py_ssize_t start, stop, step
+        int64_t start, stop, step
         Py_ssize_t n = len(arrow_obj)
 
     start, stop, step = key.indices(n)
 
     if step != 1:
-        indices = np.arange(start, stop, step)
-        return arrow_obj.take(indices)
+        return arrow_obj.take(arange(start, stop, step))
     else:
         length = max(stop - start, 0)
         return arrow_obj.slice(start, length)
@@ -1028,9 +1060,9 @@ cdef class Array(_PandasConvertible):
     """
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use one of "
-                        "the `pyarrow.Array.from_*` functions instead."
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor "
+                        "directly, use one of the `pyarrow.Array.from_*` "
+                        "functions instead.")
 
     cdef void init(self, const shared_ptr[CArray]& sp_array) except *:
         self.sp_array = sp_array
@@ -1272,18 +1304,18 @@ cdef class Array(_PandasConvertible):
 
         if type.num_fields != len(children):
             raise ValueError("Type's expected number of children "
-                             "({0}) did not match the passed number "
-                             "({1}).".format(type.num_fields, len(children)))
+                             f"({type.num_fields}) did not match the passed number "
+                             f"({len(children)})")
 
         if type.has_variadic_buffers:
             if type.num_buffers > len(buffers):
                 raise ValueError("Type's expected number of buffers is at least "
-                                 "{0}, but the passed number is "
-                                 "{1}.".format(type.num_buffers, len(buffers)))
+                                 f"{type.num_buffers}, but the passed number is "
+                                 f"{len(buffers)}.")
         elif type.num_buffers != len(buffers):
             raise ValueError("Type's expected number of buffers "
-                             "({0}) did not match the passed number "
-                             "({1}).".format(type.num_buffers, len(buffers)))
+                             f"({type.num_buffers}) did not match the passed number "
+                             f"({len(buffers)}).")
 
         for buf in buffers:
             # None will produce a null buffer pointer
@@ -1355,10 +1387,11 @@ cdef class Array(_PandasConvertible):
 
     def __repr__(self):
         type_format = object.__repr__(self)
-        return '{0}\n{1}'.format(type_format, str(self))
+        return f'{type_format}\n{self}'
 
     def to_string(self, *, int indent=2, int top_level_indent=0, int window=10,
-                  int container_window=2, c_bool skip_new_lines=False):
+                  int container_window=2, c_bool skip_new_lines=False,
+                  int element_size_limit=100):
         """
         Render a "pretty-printed" string representation of the Array.
 
@@ -1384,6 +1417,8 @@ cdef class Array(_PandasConvertible):
         skip_new_lines : bool
             If the array should be rendered as a single line of text
             or if each element should be on its own line.
+        element_size_limit : int, default 100
+            Maximum number of characters of a single element before it is truncated.
         """
         cdef:
             c_string result
@@ -1393,6 +1428,7 @@ cdef class Array(_PandasConvertible):
             options = PrettyPrintOptions(top_level_indent, window)
             options.skip_new_lines = skip_new_lines
             options.indent_size = indent
+            options.element_size_limit = element_size_limit
             check_status(
                 PrettyPrint(
                     deref(self.ap),
@@ -2139,7 +2175,8 @@ cdef class Array(_PandasConvertible):
         return pyarrow_wrap_array(array)
 
     def __dlpack__(self, stream=None):
-        """Export a primitive array as a DLPack capsule.
+        """
+        Export a primitive array as a DLPack capsule.
 
         Parameters
         ----------
@@ -2154,7 +2191,7 @@ cdef class Array(_PandasConvertible):
             A DLPack capsule for the array, pointing to a DLManagedTensor.
         """
         if stream is None:
-            dlm_tensor = GetResultValue(ExportToDLPack(self.sp_array))
+            dlm_tensor = GetResultValue(ExportArrayToDLPack(self.sp_array))
 
             return PyCapsule_New(dlm_tensor, 'dltensor', dlpack_pycapsule_deleter)
         else:
@@ -3713,7 +3750,7 @@ cdef class UnionArray(Array):
         result = (<CUnionArray*> self.ap).field(pos)
         if result != NULL:
             return pyarrow_wrap_array(result)
-        raise KeyError("UnionArray does not have child {}".format(pos))
+        raise KeyError(f"UnionArray does not have child {pos}")
 
     @property
     def type_codes(self):
@@ -4382,8 +4419,8 @@ cdef class RunEndEncodedArray(Array):
 
         if type.num_fields != len(children):
             raise ValueError("RunEndEncodedType's expected number of children "
-                             "({0}) did not match the passed number "
-                             "({1}).".format(type.num_fields, len(children)))
+                             f"({type.num_fields}) did not match the passed number "
+                             f"({len(children)})")
 
         # buffers are validated as if we needed to pass them to C++, but
         # _make_from_arrays will take care of filling in the expected
@@ -4395,13 +4432,13 @@ cdef class RunEndEncodedArray(Array):
                              "bitmap, buffers[0] is not None")
         if type.num_buffers != len(buffers):
             raise ValueError("RunEndEncodedType's expected number of buffers "
-                             "({0}) did not match the passed number "
-                             "({1}).".format(type.num_buffers, len(buffers)))
+                             f"({type.num_buffers}) did not match the passed number "
+                             f"({len(buffers)}).")
 
         # null_count is also validated as if we needed it
         if null_count != -1 and null_count != 0:
             raise ValueError("RunEndEncodedType's expected null_count (0) "
-                             "did not match passed number ({0})".format(null_count))
+                             f"did not match passed number ({null_count})")
 
         return RunEndEncodedArray._from_arrays(type, False, length, children[0],
                                                children[1], offset)
@@ -4484,8 +4521,8 @@ cdef class ExtensionArray(Array):
             shared_ptr[CExtensionArray] ext_array
 
         if storage.type != typ.storage_type:
-            raise TypeError("Incompatible storage type {0} "
-                            "for extension type {1}".format(storage.type, typ))
+            raise TypeError(f"Incompatible storage type {storage.type} "
+                            f"for extension type {typ}")
 
         ext_array = make_shared[CExtensionArray](typ.sp_type, storage.sp_array)
         cdef Array result = pyarrow_wrap_array(<shared_ptr[CArray]> ext_array)
@@ -4963,7 +5000,7 @@ def concat_arrays(arrays, MemoryPool memory_pool=None):
     for array in arrays:
         if not isinstance(array, Array):
             raise TypeError("Iterable should contain Array objects, "
-                            "got {0} instead".format(type(array)))
+                            f"got {type(array)} instead")
         c_arrays.push_back(pyarrow_unwrap_array(array))
 
     with nogil:

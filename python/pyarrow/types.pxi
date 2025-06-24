@@ -225,9 +225,9 @@ cdef class DataType(_Weakrefable):
         pass
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use public "
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use public "
                         "functions like pyarrow.int64, pyarrow.list_, etc. "
-                        "instead.".format(self.__class__.__name__))
+                        "instead.")
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
         assert type != nullptr
@@ -359,7 +359,7 @@ cdef class DataType(_Weakrefable):
         return type_for_alias, (str(self),)
 
     def __repr__(self):
-        return '{0.__class__.__name__}({0})'.format(self)
+        return f'{self.__class__.__name__}({self})'
 
     def __eq__(self, other):
         try:
@@ -1882,8 +1882,7 @@ cdef class ExtensionType(BaseExtensionType):
             return NotImplemented
 
     def __repr__(self):
-        fmt = '{0.__class__.__name__}({1})'
-        return fmt.format(self, repr(self.storage_type))
+        return f'{self.__class__.__name__}({repr(self.storage_type)})'
 
     def __arrow_ext_serialize__(self):
         """
@@ -2531,8 +2530,7 @@ cdef class Field(_Weakrefable):
         return field, (self.name, self.type, self.nullable, self.metadata)
 
     def __str__(self):
-        return 'pyarrow.Field<{0}>'.format(
-            frombytes(self.field.ToString(), safe=True))
+        return f'pyarrow.Field<{frombytes(self.field.ToString(), safe=True)}>'
 
     def __repr__(self):
         return self.__str__()
@@ -3187,7 +3185,7 @@ cdef class Schema(_Weakrefable):
         if isinstance(i, (bytes, str)):
             field_index = self.get_field_index(i)
             if field_index < 0:
-                raise KeyError("Column {} does not exist in schema".format(i))
+                raise KeyError(f"Column {i} does not exist in schema")
             else:
                 return self._field(field_index)
         elif isinstance(i, int):
@@ -3568,7 +3566,7 @@ cdef class Schema(_Weakrefable):
         return pyarrow_wrap_schema(new_schema)
 
     def to_string(self, truncate_metadata=True, show_field_metadata=True,
-                  show_schema_metadata=True):
+                  show_schema_metadata=True, element_size_limit=100):
         """
         Return human-readable representation of Schema
 
@@ -3581,6 +3579,8 @@ cdef class Schema(_Weakrefable):
             Display Field-level KeyValueMetadata
         show_schema_metadata : boolean, default True
             Display Schema-level KeyValueMetadata
+        element_size_limit : int, default 100
+            Maximum number of characters of a single element before it is truncated.
 
         Returns
         -------
@@ -3594,6 +3594,7 @@ cdef class Schema(_Weakrefable):
         options.truncate_metadata = truncate_metadata
         options.show_field_metadata = show_field_metadata
         options.show_schema_metadata = show_schema_metadata
+        options.element_size_limit = element_size_limit
 
         with nogil:
             check_status(
@@ -3716,7 +3717,7 @@ def unify_schemas(schemas, *, promote_options="default"):
         vector[shared_ptr[CSchema]] c_schemas
     for schema in schemas:
         if not isinstance(schema, Schema):
-            raise TypeError("Expected Schema, got {}".format(type(schema)))
+            raise TypeError(f"Expected Schema, got {type(schema)}")
         c_schemas.push_back(pyarrow_unwrap_schema(schema))
 
     if promote_options == "default":
@@ -4458,15 +4459,15 @@ def float16():
     >>> a
     <pyarrow.lib.HalfFloatArray object at ...>
     [
-      15872,
-      32256
+      1.5,
+      nan
     ]
 
     Note that unlike other float types, if you convert this array
     to a python list, the types of its elements will be ``np.float16``
 
     >>> [type(val) for val in a.to_pylist()]
-    [<class 'numpy.float16'>, <class 'numpy.float16'>]
+    [<class 'float'>, <class 'float'>]
     """
     return primitive_type(_Type_HALF_FLOAT)
 
@@ -5452,14 +5453,14 @@ def union(child_fields, mode, type_codes=None):
     """
     if isinstance(mode, int):
         if mode not in (_UnionMode_SPARSE, _UnionMode_DENSE):
-            raise ValueError("Invalid union mode {0!r}".format(mode))
+            raise ValueError(f"Invalid union mode {mode!r}")
     else:
         if mode == 'sparse':
             mode = _UnionMode_SPARSE
         elif mode == 'dense':
             mode = _UnionMode_DENSE
         else:
-            raise ValueError("Invalid union mode {0!r}".format(mode))
+            raise ValueError(f"Invalid union mode {mode!r}")
 
     if mode == _UnionMode_SPARSE:
         return sparse_union(child_fields, type_codes)
@@ -5824,7 +5825,7 @@ def type_for_alias(name):
     try:
         alias = _type_aliases[name]
     except KeyError:
-        raise ValueError('No type alias for {0}'.format(name))
+        raise ValueError(f'No type alias for {name}')
 
     if isinstance(alias, DataType):
         return alias
@@ -5839,7 +5840,7 @@ cpdef DataType ensure_type(object ty, bint allow_none=False):
     elif isinstance(ty, str):
         return type_for_alias(ty)
     else:
-        raise TypeError('DataType expected, got {!r}'.format(type(ty)))
+        raise TypeError(f'DataType expected, got {type(ty)!r}')
 
 
 def schema(fields, metadata=None):

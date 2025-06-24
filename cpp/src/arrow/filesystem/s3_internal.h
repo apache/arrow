@@ -37,29 +37,8 @@
 #include "arrow/status.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/print.h"
+#include "arrow/util/print_internal.h"
 #include "arrow/util/string.h"
-
-#ifndef ARROW_AWS_SDK_VERSION_CHECK
-// AWS_SDK_VERSION_{MAJOR,MINOR,PATCH} are available since 1.9.7.
-#  if defined(AWS_SDK_VERSION_MAJOR) && defined(AWS_SDK_VERSION_MINOR) && \
-      defined(AWS_SDK_VERSION_PATCH)
-// Redundant "(...)" are for suppressing "Weird number of spaces at
-// line-start. Are you using a 2-space indent? [whitespace/indent]
-// [3]" errors...
-#    define ARROW_AWS_SDK_VERSION_CHECK(major, minor, patch)                      \
-      ((AWS_SDK_VERSION_MAJOR > (major) ||                                        \
-        (AWS_SDK_VERSION_MAJOR == (major) && AWS_SDK_VERSION_MINOR > (minor)) ||  \
-        ((AWS_SDK_VERSION_MAJOR == (major) && AWS_SDK_VERSION_MINOR == (minor) && \
-          AWS_SDK_VERSION_PATCH >= (patch)))))
-#  else
-#    define ARROW_AWS_SDK_VERSION_CHECK(major, minor, patch) 0
-#  endif
-#endif  // !ARROW_AWS_SDK_VERSION_CHECK
-
-#if ARROW_AWS_SDK_VERSION_CHECK(1, 9, 201)
-#  define ARROW_S3_HAS_SSE_CUSTOMER_KEY
-#endif
 
 namespace arrow {
 namespace fs {
@@ -350,14 +329,9 @@ inline Result<std::optional<SSECustomerKeyHeaders>> GetSSECustomerKeyHeaders(
   if (sse_customer_key.empty()) {
     return std::nullopt;
   }
-#ifdef ARROW_S3_HAS_SSE_CUSTOMER_KEY
   ARROW_ASSIGN_OR_RAISE(auto md5, internal::CalculateSSECustomerKeyMD5(sse_customer_key));
   return SSECustomerKeyHeaders{arrow::util::base64_encode(sse_customer_key), md5,
                                "AES256"};
-#else
-  return Status::NotImplemented(
-      "SSE customer key not supported by this version of the AWS SDK");
-#endif
 }
 
 template <typename S3RequestType>
@@ -366,16 +340,11 @@ Status SetSSECustomerKey(S3RequestType* request, const std::string& sse_customer
   if (!maybe_headers.has_value()) {
     return Status::OK();
   }
-#ifdef ARROW_S3_HAS_SSE_CUSTOMER_KEY
   auto headers = std::move(maybe_headers).value();
   request->SetSSECustomerKey(headers.sse_customer_key);
   request->SetSSECustomerKeyMD5(headers.sse_customer_key_md5);
   request->SetSSECustomerAlgorithm(headers.sse_customer_algorithm);
   return Status::OK();
-#else
-  return Status::NotImplemented(
-      "SSE customer key not supported by this version of the AWS SDK");
-#endif
 }
 
 }  // namespace internal

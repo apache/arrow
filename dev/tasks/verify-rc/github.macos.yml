@@ -89,6 +89,8 @@ jobs:
           PYTHON_VERSION: "3.12"
           {% endif %}
           USE_CONDA: 1
+        {% else %}
+          GTest_SOURCE: SYSTEM
         {% endif %}
         run: |
           arrow/dev/release/verify-release-candidate.sh {{ release|default("") }} {{ rc|default("") }}

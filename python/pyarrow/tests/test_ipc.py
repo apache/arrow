@@ -535,10 +535,16 @@ def test_read_options():
     options = pa.ipc.IpcReadOptions()
     assert options.use_threads is True
     assert options.ensure_native_endian is True
+    assert options.ensure_alignment == pa.ipc.Alignment.Any
     assert options.included_fields == []
 
     options.ensure_native_endian = False
     assert options.ensure_native_endian is False
+
+    options.ensure_alignment = pa.ipc.Alignment.DataTypeSpecific
+    assert options.ensure_alignment == pa.ipc.Alignment.DataTypeSpecific
+    options.ensure_alignment = pa.ipc.Alignment.At64Byte
+    assert options.ensure_alignment == pa.ipc.Alignment.At64Byte
 
     options.use_threads = False
     assert options.use_threads is False
@@ -551,10 +557,11 @@ def test_read_options():
 
     options = pa.ipc.IpcReadOptions(
         use_threads=False, ensure_native_endian=False,
-        included_fields=[1]
+        ensure_alignment=pa.ipc.Alignment.DataTypeSpecific, included_fields=[1]
     )
     assert options.use_threads is False
     assert options.ensure_native_endian is False
+    assert options.ensure_alignment == pa.ipc.Alignment.DataTypeSpecific
     assert options.included_fields == [1]
 
 
@@ -1304,3 +1311,30 @@ def test_record_batch_reader_cast_nulls():
     casted_reader = reader.cast(schema_dst)
     with pytest.raises(pa.lib.ArrowInvalid, match="Can't cast array"):
         casted_reader.read_all()
+
+
+def test_record_batch_file_writer_with_metadata():
+    # https://github.com/apache/arrow/issues/46222
+    tbl = pa.table({"a": [1, 2, 3]})
+    meta = {b"creator": b"test", b"version": b"0.1.0"}
+    sink = pa.BufferOutputStream()
+
+    with pa.ipc.new_file(sink, tbl.schema, metadata=meta) as w:
+        w.write_table(tbl)
+
+    buffer = sink.getvalue()
+    with pa.ipc.open_file(buffer) as r:
+        assert r.metadata == meta
+
+
+def test_record_batch_file_writer_with_empty_metadata():
+    # https://github.com/apache/arrow/issues/46222
+    tbl = pa.table({"a": [1, 2, 3]})
+    sink = pa.BufferOutputStream()
+
+    with pa.ipc.new_file(sink, tbl.schema) as w:
+        w.write_table(tbl)
+
+    buffer = sink.getvalue()
+    with pa.ipc.open_file(buffer) as r:
+        assert r.metadata is None

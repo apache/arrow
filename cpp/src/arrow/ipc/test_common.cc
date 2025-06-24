@@ -421,7 +421,7 @@ Status MakeNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
+Status MakeListRecordBatchSized(const int length, std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = field("f0", list(int32()));
   auto f1 = field("f1", list(list(int32())));
@@ -431,7 +431,6 @@ Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
   // Example data
 
   MemoryPool* pool = default_memory_pool();
-  const int length = 200;
   std::shared_ptr<Array> leaf_values, list_array, list_list_array, large_list_array;
   const bool include_nulls = true;
   RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool, &leaf_values));
@@ -446,7 +445,11 @@ Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeListViewRecordBatch(std::shared_ptr<RecordBatch>* out) {
+Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
+  return MakeListRecordBatchSized(200, out);
+}
+
+Status MakeListViewRecordBatchSized(const int length, std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = field("f0", list_view(int32()));
   auto f1 = field("f1", list_view(list_view(int32())));
@@ -456,7 +459,6 @@ Status MakeListViewRecordBatch(std::shared_ptr<RecordBatch>* out) {
   // Example data
 
   MemoryPool* pool = default_memory_pool();
-  const int length = 200;
   std::shared_ptr<Array> leaf_values, list_array, list_list_array, large_list_array;
   const bool include_nulls = true;
   RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool, &leaf_values));
@@ -469,6 +471,10 @@ Status MakeListViewRecordBatch(std::shared_ptr<RecordBatch>* out) {
   *out =
       RecordBatch::Make(schema, length, {list_array, list_list_array, large_list_array});
   return Status::OK();
+}
+
+Status MakeListViewRecordBatch(std::shared_ptr<RecordBatch>* out) {
+  return MakeListViewRecordBatchSized(200, out);
 }
 
 Status MakeFixedSizeListRecordBatch(std::shared_ptr<RecordBatch>* out) {

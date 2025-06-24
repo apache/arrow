@@ -77,8 +77,7 @@ class IntegrationRunner(object):
         self.match = match
 
         if self.match is not None:
-            print("-- Only running tests with {} in their name"
-                  .format(self.match))
+            print(f"-- Only running tests with {self.match} in their name")
             self.json_files = [json_file for json_file in self.json_files
                                if self.match in json_file.name]
 
@@ -115,7 +114,7 @@ class IntegrationRunner(object):
                 with group(f"Integration: Test: IPC: Gold: {consumer.name}"):
                     log('\n')
                     log('******************************************************')
-                    log('Tests against golden files in {}'.format(gold_dir))
+                    log(f'Tests against golden files in {gold_dir}')
                     log('******************************************************')
 
                     def run_gold(_, consumer, test_case: datagen.File):
@@ -280,8 +279,7 @@ class IntegrationRunner(object):
         """
         with group(f"Integration: Test: IPC: {producer.name} -> {consumer.name}"):
             log('##########################################################')
-            log('IPC: {0} producing, {1} consuming'
-                .format(producer.name, consumer.name))
+            log(f'IPC: {producer.name} producing, {consumer.name} consuming')
             log('##########################################################')
 
             case_runner = partial(self._run_ipc_test_case,
@@ -302,7 +300,7 @@ class IntegrationRunner(object):
 
         json_path = test_case.path
         log('=' * 70)
-        log('Testing file {0}'.format(json_path))
+        log(f'Testing file {json_path}')
 
         if test_case.should_skip(producer.name, SKIP_IPC):
             log(f'-- Skipping test because producer {producer.name} does '
@@ -405,8 +403,7 @@ class IntegrationRunner(object):
     ):
         with group(f"Integration: Test: Flight: {producer.name} -> {consumer.name}"):
             log('##########################################################')
-            log('Flight: {0} serving, {1} requesting'
-                .format(producer.name, consumer.name))
+            log(f'Flight: {producer.name} serving, {consumer.name} requesting')
             log('##########################################################')
 
             case_runner = partial(self._run_flight_test_case, producer, consumer)
@@ -423,7 +420,7 @@ class IntegrationRunner(object):
         outcome = Outcome()
 
         log('=' * 70)
-        log('Testing file {0}'.format(test_case.name))
+        log(f'Testing file {test_case.name}')
 
         if test_case.should_skip(producer.name, SKIP_FLIGHT):
             log(f'-- Skipping test because producer {producer.name} does '

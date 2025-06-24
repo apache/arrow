@@ -28,7 +28,8 @@ Compute Functions
 The generic Compute API
 =======================
 
-.. TODO: describe API and how to invoke compute functions
+.. seealso::
+   :doc:`Compute Functions API reference <api/compute>`
 
 Functions and function registry
 -------------------------------
@@ -41,6 +42,17 @@ whether the inputs are integral or floating-point).
 
 Functions are stored in a global :class:`FunctionRegistry` where
 they can be looked up by name.
+
+Compute Initialization
+----------------------
+
+The compute library requires a call to :func:`arrow::compute::Initialize`
+in order to register the individual functions into the global :class:`FunctionRegistry`,
+otherwise only the functions required for Arrow core functionality will be available.
+
+.. note::
+   The set of functions required for Arrow core functionality are an implementation detail
+   of the library, and should not be considered stable.
 
 Input shapes
 ------------
@@ -214,15 +226,15 @@ the input to a single output value.
 +--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
 | count_distinct     | Unary   | Non-nested types                              | Scalar Int64           | :struct:`CountOptions`           | \(2)  |
 +--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| first              | Unary   | Numeric, Binary                               | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(3) |
+| first              | Unary   | Numeric, Binary                               | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(3)  |
 +--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| first_last         | Unary   | Numeric, Binary                               | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(3) |
+| first_last         | Unary   | Numeric, Binary                               | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(3)  |
 +--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
 | index              | Unary   | Any                                           | Scalar Int64           | :struct:`IndexOptions`           | \(4)  |
 +--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
 | kurtosis           | Unary   | Numeric                                       | Scalar Float64         | :struct:`SkewOptions`            | \(11) |
 +--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| last               | Unary   | Numeric, Binary                               | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(3) |
+| last               | Unary   | Numeric, Binary                               | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(3)  |
 +--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
 | max                | Unary   | Non-nested types                              | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |
 +--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+

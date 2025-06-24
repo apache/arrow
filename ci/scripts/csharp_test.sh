@@ -30,8 +30,9 @@ if [ -z "${PYTHON}" ]; then
   fi
 fi
 ${PYTHON} -m pip install pyarrow find-libpython
-export PYTHONNET_PYDLL=$(${PYTHON} -m find_libpython)
+PYTHONNET_PYDLL=$(${PYTHON} -m find_libpython)
+export PYTHONNET_PYDLL
 
-pushd ${source_dir}
+pushd "${source_dir}"
 dotnet test
 popd

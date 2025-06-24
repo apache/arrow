@@ -122,7 +122,13 @@ static std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
 
 std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_data,
                                             const ColumnDescriptor* descr) {
-  switch (static_cast<Type::type>(meta_data.type)) {
+  auto metadata_type = LoadEnumSafe(&meta_data.type);
+  if (descr->physical_type() != metadata_type) {
+    throw ParquetException(
+        "ColumnMetaData type does not match ColumnDescriptor physical type: " +
+        TypeToString(metadata_type) + " vs. " + TypeToString(descr->physical_type()));
+  }
+  switch (metadata_type) {
     case Type::BOOLEAN:
       return MakeTypedColumnStats<BooleanType>(meta_data, descr);
     case Type::INT32:
@@ -280,6 +286,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       size_statistics_->Validate(descr_);
     }
     possible_stats_ = nullptr;
+    possible_encoded_stats_ = nullptr;
     possible_geo_stats_ = nullptr;
     InitKeyValueMetadata();
   }
@@ -312,19 +319,17 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       return false;
     }
     {
-      // Because we are modifying possible_stats_ in a const method
       const std::lock_guard<std::mutex> guard(stats_mutex_);
-      if (possible_stats_ == nullptr) {
-        possible_stats_ = MakeColumnStats(*column_metadata_, descr_);
+      if (possible_encoded_stats_ == nullptr) {
+        possible_encoded_stats_ =
+            std::make_shared<EncodedStatistics>(FromThrift(column_metadata_->statistics));
       }
     }
-    EncodedStatistics encodedStatistics = possible_stats_->Encode();
-    return writer_version_->HasCorrectStatistics(type(), encodedStatistics,
+    return writer_version_->HasCorrectStatistics(type(), *possible_encoded_stats_,
                                                  descr_->sort_order());
   }
 
   inline bool is_geo_stats_set() const {
-    // Because we are modifying possible_geo_stats_ in a const method
     const std::lock_guard<std::mutex> guard(stats_mutex_);
     if (possible_geo_stats_ == nullptr &&
         column_metadata_->__isset.geospatial_statistics) {
@@ -334,8 +339,19 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     return possible_geo_stats_ != nullptr && possible_geo_stats_->is_valid();
   }
 
+  inline std::shared_ptr<EncodedStatistics> encoded_statistics() const {
+    return is_stats_set() ? possible_encoded_stats_ : nullptr;
+  }
+
   inline std::shared_ptr<Statistics> statistics() const {
-    return is_stats_set() ? possible_stats_ : nullptr;
+    if (is_stats_set()) {
+      const std::lock_guard<std::mutex> guard(stats_mutex_);
+      if (possible_stats_ == nullptr) {
+        possible_stats_ = MakeColumnStats(*column_metadata_, descr_);
+      }
+      return possible_stats_;
+    }
+    return nullptr;
   }
 
   inline std::shared_ptr<SizeStatistics> size_statistics() const {
@@ -425,6 +441,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   }
 
   mutable std::mutex stats_mutex_;
+  mutable std::shared_ptr<EncodedStatistics> possible_encoded_stats_;
   mutable std::shared_ptr<Statistics> possible_stats_;
   mutable std::shared_ptr<geospatial::GeoStatistics> possible_geo_stats_;
   std::vector<Encoding::type> encodings_;
@@ -472,6 +489,10 @@ int64_t ColumnChunkMetaData::num_values() const { return impl_->num_values(); }
 
 std::shared_ptr<schema::ColumnPath> ColumnChunkMetaData::path_in_schema() const {
   return impl_->path_in_schema();
+}
+
+std::shared_ptr<EncodedStatistics> ColumnChunkMetaData::encoded_statistics() const {
+  return impl_->encoded_statistics();
 }
 
 std::shared_ptr<Statistics> ColumnChunkMetaData::statistics() const {
@@ -1526,7 +1547,7 @@ bool ApplicationVersion::VersionEq(const ApplicationVersion& other_version) cons
 // parquet-mr/parquet-column/src/main/java/org/apache/parquet/CorruptStatistics.java
 // PARQUET-686 has more discussion on statistics
 bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
-                                              EncodedStatistics& statistics,
+                                              const EncodedStatistics& statistics,
                                               SortOrder::type sort_order) const {
   // parquet-cpp version 1.3.0 and parquet-mr 1.10.0 onwards stats are computed
   // correctly for all types

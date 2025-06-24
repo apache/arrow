@@ -22,8 +22,29 @@
 ## Minor improvements and fixes
 
 - Added bindings for atan, sinh, cosh, tanh, asinh, acosh, and tanh, and expm1 (#44953)
+- Expose an option `check_directory_existence_before_creation` in `S3FileSystem`
+  to reduce I/O calls on cloud storage (@HaochengLIU, #41998)
+- `case_when()` now correctly detects objects that are not in the global 
+  environment (@etiennebacher, #46667).
+
+# arrow 20.0.0.1
+
+## Minor improvements and fixes
+
+- Updated internal C++ code to comply with CRAN's gcc-UBSAN checks
+  ([#46394](https://github.com/apache/arrow/issues/46394))
 
 # arrow 20.0.0
+
+## Minor improvements and fixes
+
+- Binary Arrays now inherit from `blob::blob` in addition to `arrow_binary` when
+  [converted to R
+  objects](https://arrow.apache.org/docs/r/articles/data_types.html#translations-from-arrow-to-r).
+  This change is the first step in eventually deprecating the `arrow_binary`
+  class in favor of the `blob` class in the
+  [`blob`](https://cran.r-project.org/package=blob) package (See
+  [GH-45709](https://github.com/apache/arrow/issues/45709)).
 
 # arrow 19.0.1.1
 

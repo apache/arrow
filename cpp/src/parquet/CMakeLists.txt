@@ -160,6 +160,7 @@ set(PARQUET_SRCS
     arrow/writer.cc
     bloom_filter.cc
     bloom_filter_reader.cc
+    chunker_internal.cc
     column_reader.cc
     column_scanner.cc
     column_writer.cc
@@ -257,24 +258,23 @@ else()
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal_nossl.cc)
 endif()
 
-if(NOT PARQUET_MINIMAL_DEPENDENCY)
-  list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
+list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
 
-  # Add RapidJSON libraries
-  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS RapidJSON)
-  list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON)
+# Add RapidJSON libraries
+list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS RapidJSON)
+list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON)
 
-  # These are libraries that we will link privately with parquet_shared (as they
-  # do not need to be linked transitively by other linkers)
-  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS thrift::thrift)
+# These are libraries that we will link privately with parquet_shared (as they
+# do not need to be linked transitively by other linkers)
+list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS thrift::thrift)
 
-  # Link publicly with parquet_static (because internal users need to
-  # transitively link all dependencies)
-  list(APPEND PARQUET_STATIC_LINK_LIBS thrift::thrift)
-  if(NOT THRIFT_VENDORED)
-    list(APPEND PARQUET_STATIC_INSTALL_INTERFACE_LIBS thrift::thrift)
-  endif()
+# Link publicly with parquet_static (because internal users need to
+# transitively link all dependencies)
+list(APPEND PARQUET_STATIC_LINK_LIBS thrift::thrift)
+if(NOT THRIFT_VENDORED)
+  list(APPEND PARQUET_STATIC_INSTALL_INTERFACE_LIBS thrift::thrift)
 endif()
+
 if(ARROW_WITH_OPENTELEMETRY)
   list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
 endif()
@@ -368,11 +368,12 @@ configure_file(parquet_version.h.in "${CMAKE_CURRENT_BINARY_DIR}/parquet_version
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet")
 
+set_source_files_properties(public_api_test.cc PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+
 add_parquet_test(internals-test
                  SOURCES
                  bloom_filter_reader_test.cc
                  bloom_filter_test.cc
-                 encoding_test.cc
                  geospatial/statistics_test.cc
                  geospatial/util_internal_test.cc
                  metadata_test.cc
@@ -383,7 +384,7 @@ add_parquet_test(internals-test
                  statistics_test.cc
                  types_test.cc)
 
-set_source_files_properties(public_api_test.cc PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+add_parquet_test(encoding-test SOURCES encoding_test.cc)
 
 add_parquet_test(reader-test
                  SOURCES
@@ -399,16 +400,19 @@ add_parquet_test(writer-test
                  file_serialize_test.cc
                  stream_writer_test.cc)
 
-add_parquet_test(arrow-test
+add_parquet_test(chunker-test SOURCES chunker_internal_test.cc)
+
+add_parquet_test(arrow-reader-writer-test
                  SOURCES
-                 arrow/arrow_metadata_test.cc
                  arrow/arrow_reader_writer_test.cc
-                 arrow/arrow_schema_test.cc
                  arrow/arrow_statistics_test.cc
                  arrow/variant_test.cc)
 
 add_parquet_test(arrow-internals-test SOURCES arrow/path_internal_test.cc
                  arrow/reconstruct_internal_test.cc)
+
+add_parquet_test(arrow-metadata-test SOURCES arrow/arrow_metadata_test.cc
+                 arrow/arrow_schema_test.cc)
 
 if(PARQUET_REQUIRE_ENCRYPTION)
   add_parquet_test(encryption-test

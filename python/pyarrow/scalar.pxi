@@ -18,6 +18,7 @@
 import collections
 import warnings
 from uuid import UUID
+from collections.abc import Sequence, Mapping
 
 
 cdef class Scalar(_Weakrefable):
@@ -26,8 +27,8 @@ cdef class Scalar(_Weakrefable):
     """
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use "
-                        "pa.scalar() instead.".format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, "
+                        "use pa.scalar() instead.")
 
     cdef void init(self, const shared_ptr[CScalar]& wrapped):
         self.wrapped = wrapped
@@ -117,9 +118,7 @@ cdef class Scalar(_Weakrefable):
                 check_status(self.wrapped.get().Validate())
 
     def __repr__(self):
-        return '<pyarrow.{}: {!r}>'.format(
-            self.__class__.__name__, self.as_py()
-        )
+        return f'<pyarrow.{self.__class__.__name__}: {self.as_py()!r}>'
 
     def __str__(self):
         return str(self.as_py())
@@ -221,6 +220,8 @@ cdef class BooleanScalar(Scalar):
         cdef CBooleanScalar* sp = <CBooleanScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
+    def __bool__(self):
+        return self.as_py() or False
 
 cdef class UInt8Scalar(Scalar):
     """
@@ -239,6 +240,9 @@ cdef class UInt8Scalar(Scalar):
         """
         cdef CUInt8Scalar* sp = <CUInt8Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
+
+    def __index__(self):
+        return self.as_py()
 
 
 cdef class Int8Scalar(Scalar):
@@ -259,6 +263,9 @@ cdef class Int8Scalar(Scalar):
         cdef CInt8Scalar* sp = <CInt8Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
+    def __index__(self):
+        return self.as_py()
+
 
 cdef class UInt16Scalar(Scalar):
     """
@@ -277,6 +284,9 @@ cdef class UInt16Scalar(Scalar):
         """
         cdef CUInt16Scalar* sp = <CUInt16Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
+
+    def __index__(self):
+        return self.as_py()
 
 
 cdef class Int16Scalar(Scalar):
@@ -297,6 +307,9 @@ cdef class Int16Scalar(Scalar):
         cdef CInt16Scalar* sp = <CInt16Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
+    def __index__(self):
+        return self.as_py()
+
 
 cdef class UInt32Scalar(Scalar):
     """
@@ -315,6 +328,9 @@ cdef class UInt32Scalar(Scalar):
         """
         cdef CUInt32Scalar* sp = <CUInt32Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
+
+    def __index__(self):
+        return self.as_py()
 
 
 cdef class Int32Scalar(Scalar):
@@ -335,6 +351,9 @@ cdef class Int32Scalar(Scalar):
         cdef CInt32Scalar* sp = <CInt32Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
+    def __index__(self):
+        return self.as_py()
+
 
 cdef class UInt64Scalar(Scalar):
     """
@@ -353,6 +372,9 @@ cdef class UInt64Scalar(Scalar):
         """
         cdef CUInt64Scalar* sp = <CUInt64Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
+
+    def __index__(self):
+        return self.as_py()
 
 
 cdef class Int64Scalar(Scalar):
@@ -373,6 +395,9 @@ cdef class Int64Scalar(Scalar):
         cdef CInt64Scalar* sp = <CInt64Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
+    def __index__(self):
+        return self.as_py()
+
 
 cdef class HalfFloatScalar(Scalar):
     """
@@ -390,7 +415,13 @@ cdef class HalfFloatScalar(Scalar):
             This parameter is ignored for non-nested Scalars.
         """
         cdef CHalfFloatScalar* sp = <CHalfFloatScalar*> self.wrapped.get()
-        return PyHalf_FromHalf(sp.value) if sp.is_valid else None
+        return PyFloat_FromHalf(sp.value) if sp.is_valid else None
+
+    def __float__(self):
+        return self.as_py()
+
+    def __int__(self):
+        return int(self.as_py())
 
 
 cdef class FloatScalar(Scalar):
@@ -411,6 +442,12 @@ cdef class FloatScalar(Scalar):
         cdef CFloatScalar* sp = <CFloatScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
+    def __float__(self):
+        return self.as_py()
+
+    def __int__(self):
+        return int(float(self))
+
 
 cdef class DoubleScalar(Scalar):
     """
@@ -429,6 +466,12 @@ cdef class DoubleScalar(Scalar):
         """
         cdef CDoubleScalar* sp = <CDoubleScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
+
+    def __float__(self):
+        return self.as_py()
+
+    def __int__(self):
+        return int(float(self))
 
 
 cdef class Decimal32Scalar(Scalar):
@@ -611,10 +654,10 @@ def _datetime_from_int(int64_t value, TimeUnit unit, tzinfo=None):
         # otherwise safely truncate to microsecond resolution datetime
         if value % 1000 != 0:
             raise ValueError(
-                "Nanosecond resolution temporal type {} is not safely "
+                f"Nanosecond resolution temporal type {value} is not safely "
                 "convertible to microseconds to convert to datetime.datetime. "
                 "Install pandas to return as Timestamp with nanosecond "
-                "support or access the .value attribute.".format(value)
+                "support or access the .value attribute."
             )
         delta = datetime.timedelta(microseconds=value // 1000)
 
@@ -735,9 +778,7 @@ cdef class TimestampScalar(Scalar):
             type_format = str(_pc().strftime(self, format="%Y-%m-%dT%H:%M:%S%z"))
         else:
             type_format = str(_pc().strftime(self))
-        return '<pyarrow.{}: {!r}>'.format(
-            self.__class__.__name__, type_format
-        )
+        return f'<pyarrow.{self.__class__.__name__}: {type_format!r}>'
 
 
 cdef class DurationScalar(Scalar):
@@ -783,10 +824,10 @@ cdef class DurationScalar(Scalar):
             # otherwise safely truncate to microsecond resolution timedelta
             if sp.value % 1000 != 0:
                 raise ValueError(
-                    "Nanosecond duration {} is not safely convertible to "
+                    f"Nanosecond duration {sp.value} is not safely convertible to "
                     "microseconds to convert to datetime.timedelta. Install "
                     "pandas to return as Timedelta with nanosecond support or "
-                    "access the .value attribute.".format(sp.value)
+                    "access the .value attribute."
                 )
             return datetime.timedelta(microseconds=sp.value // 1000)
 
@@ -847,6 +888,15 @@ cdef class BinaryScalar(Scalar):
         buffer = self.as_buffer()
         return None if buffer is None else buffer.to_pybytes()
 
+    def __bytes__(self):
+        return self.as_py()
+
+    def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
+        buf = self.as_buffer()
+        if buf is None:
+            raise ValueError("Cannot export buffer from null Arrow Scalar")
+        cp.PyObject_GetBuffer(buf, buffer, flags)
+
 
 cdef class LargeBinaryScalar(BinaryScalar):
     pass
@@ -887,7 +937,7 @@ cdef class StringViewScalar(StringScalar):
     pass
 
 
-cdef class ListScalar(Scalar):
+cdef class ListScalar(Scalar, Sequence):
     """
     Concrete class for list-like scalars.
     """
@@ -956,7 +1006,7 @@ cdef class LargeListViewScalar(ListScalar):
     pass
 
 
-cdef class StructScalar(Scalar, collections.abc.Mapping):
+cdef class StructScalar(Scalar, Mapping):
     """
     Concrete class for struct scalars.
     """
@@ -1049,28 +1099,40 @@ cdef class StructScalar(Scalar, collections.abc.Mapping):
             return None
 
     def __repr__(self):
-        return '<pyarrow.{}: {!r}>'.format(
-            self.__class__.__name__, self._as_py_tuple()
-        )
+        return f'<pyarrow.{self.__class__.__name__}: {self._as_py_tuple()!r}>'
 
     def __str__(self):
         return str(self._as_py_tuple())
 
 
-cdef class MapScalar(ListScalar):
+cdef class MapScalar(ListScalar, Mapping):
     """
     Concrete class for map scalars.
     """
 
     def __getitem__(self, i):
         """
-        Return the value at the given index.
+        Return the value at the given index or key.
         """
+
         arr = self.values
         if arr is None:
-            raise IndexError(i)
+            raise IndexError(i) if isinstance(i, int) else KeyError(i)
+
+        key_field = self.type.key_field.name
+        item_field = self.type.item_field.name
+
+        if isinstance(i, (bytes, str)):
+            try:
+                key_index = list(self.keys()).index(i)
+            except ValueError:
+                raise KeyError(i)
+
+            dct = arr[_normalize_index(key_index, len(arr))]
+            return dct[item_field]
+
         dct = arr[_normalize_index(i, len(arr))]
-        return (dct[self.type.key_field.name], dct[self.type.item_field.name])
+        return (dct[key_field], dct[item_field])
 
     def __iter__(self):
         """
@@ -1123,6 +1185,16 @@ cdef class MapScalar(ListScalar):
                         f"Encountered key '{key}' which was already encountered.")
             result_dict[key] = value
         return result_dict
+
+    def keys(self):
+        """
+        Return the keys of the map as a list.
+        """
+        arr = self.values
+        if arr is None:
+            return []
+        key_field = self.type.key_field.name
+        return [k.as_py() for k in arr.field(key_field)]
 
 
 cdef class DictionaryScalar(Scalar):
@@ -1356,9 +1428,8 @@ cdef class ExtensionScalar(Scalar):
             storage = None
         elif isinstance(value, Scalar):
             if value.type != typ.storage_type:
-                raise TypeError("Incompatible storage type {0} "
-                                "for extension type {1}"
-                                .format(value.type, typ))
+                raise TypeError(f"Incompatible storage type {value.type} "
+                                f"for extension type {typ}")
             storage = value
         else:
             storage = scalar(value, typ.storage_type)

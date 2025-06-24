@@ -566,7 +566,7 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
 
             level_dir = pathsep.join([
                 str(base_dir),
-                '{}={}'.format(name, value)
+                f'{name}={value}'
             ])
             fs.create_dir(level_dir)
 
@@ -648,7 +648,7 @@ def test_read_multiple_files(tempdir):
         # Hack so that we don't have a dtype cast in v1 files
         df['uint32'] = df['uint32'].astype(np.int64)
 
-        path = dirpath / '{}.parquet'.format(i)
+        path = dirpath / f'{i}.parquet'
 
         table = pa.Table.from_pandas(df)
         _write_table(table, path)
@@ -683,7 +683,7 @@ def test_read_multiple_files(tempdir):
 
     # Test failure modes with non-uniform metadata
     bad_apple = _test_dataframe(size, seed=i).iloc[:, :4]
-    bad_apple_path = tempdir / '{}.parquet'.format(guid())
+    bad_apple_path = tempdir / f'{guid()}.parquet'
 
     t = pa.Table.from_pandas(bad_apple)
     _write_table(t, bad_apple_path)
@@ -720,7 +720,7 @@ def test_dataset_read_pandas(tempdir):
         df.index = np.arange(i * size, (i + 1) * size)
         df.index.name = 'index'
 
-        path = dirpath / '{}.parquet'.format(i)
+        path = dirpath / f'{i}.parquet'
 
         table = pa.Table.from_pandas(df)
         _write_table(table, path)
@@ -749,7 +749,7 @@ def test_dataset_memory_map(tempdir):
     dirpath.mkdir()
 
     df = _test_dataframe(10, seed=0)
-    path = dirpath / '{}.parquet'.format(0)
+    path = dirpath / '0.parquet'
     table = pa.Table.from_pandas(df)
     _write_table(table, path, version='2.6')
 
@@ -764,7 +764,7 @@ def test_dataset_enable_buffered_stream(tempdir):
     dirpath.mkdir()
 
     df = _test_dataframe(10, seed=0)
-    path = dirpath / '{}.parquet'.format(0)
+    path = dirpath / '0.parquet'
     table = pa.Table.from_pandas(df)
     _write_table(table, path, version='2.6')
 
@@ -784,7 +784,7 @@ def test_dataset_enable_pre_buffer(tempdir):
     dirpath.mkdir()
 
     df = _test_dataframe(10, seed=0)
-    path = dirpath / '{}.parquet'.format(0)
+    path = dirpath / '0.parquet'
     table = pa.Table.from_pandas(df)
     _write_table(table, path, version='2.6')
 
@@ -801,7 +801,7 @@ def _make_example_multifile_dataset(base_path, nfiles=10, file_nrows=5):
     paths = []
     for i in range(nfiles):
         df = _test_dataframe(file_nrows, seed=i)
-        path = base_path / '{}.parquet'.format(i)
+        path = base_path / f'{i}.parquet'
 
         test_data.append(_write_table(df, path))
         paths.append(path)
@@ -823,7 +823,7 @@ def test_ignore_private_directories(tempdir, dir_prefix):
                                             file_nrows=5)
 
     # private directory
-    (dirpath / '{}staging'.format(dir_prefix)).mkdir()
+    (dirpath / f'{dir_prefix}staging').mkdir()
 
     dataset = pq.ParquetDataset(dirpath)
 
@@ -873,7 +873,7 @@ def test_ignore_hidden_files_underscore(tempdir):
 def test_ignore_no_private_directories_in_base_path(tempdir, dir_prefix):
     # ARROW-8427 - don't ignore explicitly listed files if parent directory
     # is a private directory
-    dirpath = tempdir / "{0}data".format(dir_prefix) / guid()
+    dirpath = tempdir / f'{dir_prefix}data' / guid()
     dirpath.mkdir(parents=True)
 
     paths = _make_example_multifile_dataset(dirpath, nfiles=10,

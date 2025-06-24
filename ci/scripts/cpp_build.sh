@@ -143,6 +143,7 @@ if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
     --prefix=${MESON_PREFIX:-${ARROW_HOME}} \
     --buildtype=${ARROW_BUILD_TYPE:-debug} \
     -Dauto_features=enabled \
+    -Dfuzzing=disabled \
     -Dgcs=disabled \
     -Ds3=disabled \
     . \
@@ -282,10 +283,18 @@ else
     ${source_dir}
 fi
 
+: ${ARROW_BUILD_PARALLEL:=$[${n_jobs} + 1]}
 if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
-  time meson install
+  time meson compile -j ${ARROW_BUILD_PARALLEL}
+  meson install
+  # Remove all added files in cpp/subprojects/ because they may have
+  # unreadable permissions on Docker host.
+  pushd "${source_dir}"
+  meson subprojects purge --confirm --include-cache
+  popd
 else
-  export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$[${n_jobs} + 1]}
+  : ${CMAKE_BUILD_PARALLEL_LEVEL:=${ARROW_BUILD_PARALLEL}}
+  export CMAKE_BUILD_PARALLEL_LEVEL
   time cmake --build . --target install
 fi
 

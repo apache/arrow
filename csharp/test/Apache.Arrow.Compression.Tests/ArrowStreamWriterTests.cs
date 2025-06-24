@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Apache.Arrow.Ipc;
+using Apache.Arrow.Memory;
 using Apache.Arrow.Tests;
 using K4os.Compression.LZ4;
 using Xunit;
@@ -111,6 +112,20 @@ namespace Apache.Arrow.Compression.Tests
                 writer.WriteEnd();
             });
         }
+        [Theory]
+        [InlineData(CompressionCodecType.Zstd)]
+        [InlineData(CompressionCodecType.Lz4Frame)]
+        public async Task MemoryOwnerDisposal(CompressionCodecType codec)
+        {
+            var allocator = new TestMemoryAllocator();
+            var originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            var options = new IpcOptions() { CompressionCodecFactory = new CompressionCodecFactory(), CompressionCodec = codec };
+            await TestRoundTripRecordBatchesAsync(new List<RecordBatch> () {originalBatch}, options, options.CompressionCodecFactory,
+                allocator);
+            Assert.True(allocator.Statistics.Allocations > 0);
+            // make sure all memory allocated by the writer was disposed
+            Assert.Equal(0,allocator.Rented);
+        }
 
         private static void TestRoundTripRecordBatches(
             IReadOnlyList<RecordBatch> originalBatches, IpcOptions options, ICompressionCodecFactory codecFactory)
@@ -147,11 +162,11 @@ namespace Apache.Arrow.Compression.Tests
         }
 
         private static async Task TestRoundTripRecordBatchesAsync(
-            IReadOnlyList<RecordBatch> originalBatches, IpcOptions options, ICompressionCodecFactory codecFactory)
+            IReadOnlyList<RecordBatch> originalBatches, IpcOptions options, ICompressionCodecFactory codecFactory, MemoryAllocator writerAllocator = null)
         {
             using var stream = new MemoryStream();
 
-            using (var writer = new ArrowStreamWriter(stream, originalBatches[0].Schema, leaveOpen: true, options))
+            using (var writer = new ArrowStreamWriter(stream, originalBatches[0].Schema, leaveOpen: true, options, writerAllocator))
             {
                 foreach (var originalBatch in originalBatches)
                 {

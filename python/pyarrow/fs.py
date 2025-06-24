@@ -74,11 +74,11 @@ def __getattr__(name):
     if name in _not_imported:
         raise ImportError(
             "The pyarrow installation is not built with support for "
-            "'{0}'".format(name)
+            f"'{name}'"
         )
 
     raise AttributeError(
-        "module 'pyarrow.fs' has no attribute '{0}'".format(name)
+        f"module 'pyarrow.fs' has no attribute '{name}'"
     )
 
 
@@ -93,10 +93,9 @@ def _filesystem_from_str(uri):
         if prefix_info.type != FileType.Directory:
             raise ValueError(
                 "The path component of the filesystem URI must point to a "
-                "directory but it has a type: `{}`. The path component "
-                "is `{}` and the given filesystem URI is `{}`".format(
-                    prefix_info.type.name, prefix_info.path, uri
-                )
+                f"directory but it has a type: `{prefix_info.type.name}`. The path "
+                f"component is `{prefix_info.path}` and the given filesystem URI is "
+                f"`{uri}`"
             )
         filesystem = SubTreeFileSystem(prefix, filesystem)
     return filesystem
@@ -126,9 +125,8 @@ def _ensure_filesystem(filesystem, *, use_mmap=False):
             return PyFileSystem(FSSpecHandler(filesystem))
 
     raise TypeError(
-        "Unrecognized filesystem: {}. `filesystem` argument must be a "
-        "FileSystem instance or a valid file system URI'".format(
-            type(filesystem))
+        f"Unrecognized filesystem: {type(filesystem)}. `filesystem` argument must be a "
+        "FileSystem instance or a valid file system URI"
     )
 
 
@@ -234,7 +232,7 @@ def copy_files(source, destination,
     Copy one file from S3 bucket to a local directory:
 
     >>> fs.copy_files("s3://registry.opendata.aws/roda/ndjson/index.ndjson",
-    ...               "file:///{}/index_copy.ndjson".format(local_path))
+    ...               f"file:///{local_path}/index_copy.ndjson")
 
     >>> fs.LocalFileSystem().get_file_info(str(local_path)+
     ...                                    '/index_copy.ndjson')
@@ -243,7 +241,7 @@ def copy_files(source, destination,
     Copy file using a FileSystem object:
 
     >>> fs.copy_files("registry.opendata.aws/roda/ndjson/index.ndjson",
-    ...               "file:///{}/index_copy.ndjson".format(local_path),
+    ...               f"file:///{local_path}/index_copy.ndjson",
     ...               source_filesystem=fs.S3FileSystem())
     """
     source_fs, source_path = _resolve_filesystem_and_path(
@@ -297,7 +295,7 @@ class FSSpecHandler(FileSystemHandler):
         protocol = self.fs.protocol
         if isinstance(protocol, list):
             protocol = protocol[0]
-        return "fsspec+{0}".format(protocol)
+        return f"fsspec+{protocol}"
 
     def normalize_path(self, path):
         return path

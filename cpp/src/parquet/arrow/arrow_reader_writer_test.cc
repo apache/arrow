@@ -47,6 +47,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"  // for ARROW_CSV definition
@@ -71,6 +72,7 @@
 #include "parquet/column_writer.h"
 #include "parquet/file_writer.h"
 #include "parquet/page_index.h"
+#include "parquet/properties.h"
 #include "parquet/test_util.h"
 
 using arrow::Array;
@@ -88,6 +90,7 @@ using arrow::DictionaryArray;
 using arrow::ListArray;
 using arrow::PrimitiveArray;
 using arrow::ResizableBuffer;
+using arrow::Result;
 using arrow::Scalar;
 using arrow::Status;
 using arrow::Table;
@@ -120,6 +123,19 @@ static constexpr int LARGE_SIZE = 10000;
 #endif
 
 static constexpr uint32_t kDefaultSeed = 0;
+
+struct ListCase {
+  ::arrow::Type::type type_id;
+  std::function<std::shared_ptr<::arrow::DataType>(std::shared_ptr<::arrow::Field>)>
+      type_factory;
+};
+
+static const std::vector<ListCase> kListCases = {
+    {::arrow::Type::LIST,
+     [](std::shared_ptr<::arrow::Field> field) { return ::arrow::list(field); }},
+    {::arrow::Type::LARGE_LIST,
+     [](std::shared_ptr<::arrow::Field> field) { return ::arrow::large_list(field); }},
+};
 
 std::shared_ptr<const LogicalType> get_logical_type(const DataType& type) {
   switch (type.id()) {
@@ -423,10 +439,13 @@ void CheckConfiguredRoundtrip(
     const std::shared_ptr<::parquet::WriterProperties>& writer_properties =
         ::parquet::default_writer_properties(),
     const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties =
-        default_arrow_writer_properties()) {
+        default_arrow_writer_properties(),
+    const ArrowReaderProperties& arrow_reader_properties =
+        default_arrow_reader_properties()) {
   std::shared_ptr<Table> actual_table;
   ASSERT_NO_FATAL_FAILURE(DoRoundtrip(input_table, input_table->num_rows(), &actual_table,
-                                      writer_properties, arrow_writer_properties));
+                                      writer_properties, arrow_writer_properties,
+                                      arrow_reader_properties));
   if (expected_table) {
     ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*actual_table->schema(),
                                                        *expected_table->schema(),
@@ -443,14 +462,18 @@ void CheckConfiguredRoundtrip(
 void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, bool use_threads,
                        int64_t row_group_size, const std::vector<int>& column_subset,
                        std::shared_ptr<Table>* out,
-                       const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
-                           default_arrow_writer_properties()) {
+                       const std::shared_ptr<ArrowWriterProperties>&
+                           arrow_writer_properties = default_arrow_writer_properties(),
+                       const ArrowReaderProperties& arrow_reader_properties =
+                           default_arrow_reader_properties()) {
   std::shared_ptr<Buffer> buffer;
   ASSERT_NO_FATAL_FAILURE(
-      WriteTableToBuffer(table, row_group_size, arrow_properties, &buffer));
+      WriteTableToBuffer(table, row_group_size, arrow_writer_properties, &buffer));
 
-  ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
-                                             ::arrow::default_memory_pool()));
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(builder.properties(arrow_reader_properties)->Build(&reader));
 
   reader->set_use_threads(use_threads);
   if (column_subset.size() > 0) {
@@ -465,7 +488,8 @@ void DoRoundTripWithBatches(
     const std::shared_ptr<Table>& table, bool use_threads, int64_t row_group_size,
     const std::vector<int>& column_subset, std::shared_ptr<Table>* out,
     const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties =
-        default_arrow_writer_properties()) {
+        default_arrow_writer_properties(),
+    ArrowReaderProperties arrow_reader_properties = default_arrow_reader_properties()) {
   std::shared_ptr<Buffer> buffer;
   ASSERT_NO_FATAL_FAILURE(
       WriteTableToBuffer(table, row_group_size, arrow_writer_properties, &buffer));
@@ -473,7 +497,6 @@ void DoRoundTripWithBatches(
   std::unique_ptr<FileReader> reader;
   FileReaderBuilder builder;
   ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
-  ArrowReaderProperties arrow_reader_properties;
   arrow_reader_properties.set_batch_size(row_group_size - 1);
   ASSERT_OK_NO_THROW(builder.memory_pool(::arrow::default_memory_pool())
                          ->properties(arrow_reader_properties)
@@ -494,23 +517,24 @@ void DoRoundTripWithBatches(
   ASSERT_OK_AND_ASSIGN(*out, Table::FromRecordBatchReader(batch_reader.get()));
 }
 
-void CheckSimpleRoundtrip(
-    const std::shared_ptr<Table>& table, int64_t row_group_size,
-    const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties =
-        default_arrow_writer_properties()) {
+void CheckSimpleRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group_size,
+                          const std::shared_ptr<ArrowWriterProperties>&
+                              arrow_writer_properties = default_arrow_writer_properties(),
+                          const ArrowReaderProperties& arrow_reader_properties =
+                              default_arrow_reader_properties()) {
   std::shared_ptr<Table> result;
-  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(table, false /* use_threads */,
-                                            row_group_size, {}, &result,
-                                            arrow_writer_properties));
+  ASSERT_NO_FATAL_FAILURE(
+      DoSimpleRoundtrip(table, false /* use_threads */, row_group_size, {}, &result,
+                        arrow_writer_properties, arrow_reader_properties));
   ::arrow::AssertSchemaEqual(*table->schema(), *result->schema(),
                              /*check_metadata=*/false);
   ASSERT_OK(result->ValidateFull());
 
   ::arrow::AssertTablesEqual(*table, *result, false);
 
-  ASSERT_NO_FATAL_FAILURE(DoRoundTripWithBatches(table, false /* use_threads */,
-                                                 row_group_size, {}, &result,
-                                                 arrow_writer_properties));
+  ASSERT_NO_FATAL_FAILURE(
+      DoRoundTripWithBatches(table, false /* use_threads */, row_group_size, {}, &result,
+                             arrow_writer_properties, arrow_reader_properties));
   ::arrow::AssertSchemaEqual(*table->schema(), *result->schema(),
                              /*check_metadata=*/false);
   ASSERT_OK(result->ValidateFull());
@@ -621,15 +645,28 @@ class ParquetIOTestBase : public ::testing::Test {
     return ParquetFileWriter::Open(sink_, schema);
   }
 
+  Result<std::unique_ptr<FileReader>> ReaderFromBuffer(
+      const std::shared_ptr<Buffer>& buffer,
+      const ArrowReaderProperties& properties = default_arrow_reader_properties()) {
+    FileReaderBuilder builder;
+    std::unique_ptr<FileReader> out;
+    RETURN_NOT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+    RETURN_NOT_OK(builder.memory_pool(::arrow::default_memory_pool())
+                      ->properties(properties)
+                      ->Build(&out));
+    return out;
+  }
+
+  Result<std::unique_ptr<FileReader>> ReaderFromSink(
+      const ArrowReaderProperties& properties = default_arrow_reader_properties()) {
+    ARROW_ASSIGN_OR_RAISE(auto buffer, sink_->Finish());
+    return ReaderFromBuffer(buffer, properties);
+  }
+
   void ReaderFromSink(
       std::unique_ptr<FileReader>* out,
       const ArrowReaderProperties& properties = default_arrow_reader_properties()) {
-    ASSERT_OK_AND_ASSIGN(auto buffer, sink_->Finish());
-    FileReaderBuilder builder;
-    ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
-    ASSERT_OK_NO_THROW(builder.memory_pool(::arrow::default_memory_pool())
-                           ->properties(properties)
-                           ->Build(out));
+    ASSERT_OK_NO_THROW(ReaderFromSink(properties).Value(out));
   }
 
   void ReadSingleColumnFile(std::unique_ptr<FileReader> file_reader,
@@ -647,14 +684,18 @@ class ParquetIOTestBase : public ::testing::Test {
     ASSERT_OK((*out)->ValidateFull());
   }
 
-  void ReadAndCheckSingleColumnFile(const Array& values) {
+  void ReadAndCheckSingleColumnFile(std::unique_ptr<FileReader> file_reader,
+                                    const Array& values) {
     std::shared_ptr<Array> out;
-
-    std::unique_ptr<FileReader> reader;
-    ReaderFromSink(&reader);
-    ReadSingleColumnFile(std::move(reader), &out);
-
+    ReadSingleColumnFile(std::move(file_reader), &out);
     AssertArraysEqual(values, *out);
+  }
+
+  void ReadAndCheckSingleColumnFile(
+      const Array& values,
+      const ArrowReaderProperties& properties = default_arrow_reader_properties()) {
+    ASSERT_OK_AND_ASSIGN(auto file_reader, ReaderFromSink(properties));
+    ReadAndCheckSingleColumnFile(std::move(file_reader), values);
   }
 
   void ReadTableFromFile(std::unique_ptr<FileReader> reader, bool expect_metadata,
@@ -776,8 +817,16 @@ class TestReadDecimals : public ParquetIOTestBase {
                              /*rep_levels=*/nullptr, byte_arrays.data());
     column_writer->Close();
     file_writer->Close();
+    ASSERT_OK_AND_ASSIGN(auto buffer, sink_->Finish());
 
-    ReadAndCheckSingleColumnFile(expected);
+    // The binary_type setting shouldn't affect the results
+    for (auto binary_type : {::arrow::Type::BINARY, ::arrow::Type::LARGE_BINARY,
+                             ::arrow::Type::BINARY_VIEW}) {
+      ArrowReaderProperties properties;
+      properties.set_binary_type(binary_type);
+      ASSERT_OK_AND_ASSIGN(auto reader, ReaderFromBuffer(buffer, properties));
+      ReadAndCheckSingleColumnFile(std::move(reader), expected);
+    }
   }
 };
 
@@ -1390,50 +1439,56 @@ TEST_F(TestStringParquetIO, EmptyStringColumnRequiredWrite) {
   AssertArraysEqual(*values, *chunked_array->chunk(0));
 }
 
-using TestLargeBinaryParquetIO = TestParquetIO<::arrow::LargeBinaryType>;
+class TestBinaryLikeParquetIO : public ParquetIOTestBase {
+ public:
+  void CheckRoundTrip(std::string_view json, ::arrow::Type::type binary_type,
+                      const std::shared_ptr<DataType>& specific_type,
+                      const std::shared_ptr<DataType>& fallback_type) {
+    const auto specific_array = ::arrow::ArrayFromJSON(specific_type, json);
+    const auto fallback_array = ::arrow::ArrayFromJSON(fallback_type, json);
 
-TEST_F(TestLargeBinaryParquetIO, Basics) {
-  const char* json = "[\"foo\", \"\", null, \"\xff\"]";
+    // When the original Arrow schema isn't stored, the array is decoded as
+    // the fallback type (since there is no specific Parquet logical
+    // type for it).
+    this->RoundTripSingleColumn(specific_array, /*expected=*/fallback_array,
+                                default_arrow_writer_properties());
 
-  const auto large_type = ::arrow::large_binary();
-  const auto narrow_type = ::arrow::binary();
-  const auto large_array = ::arrow::ArrayFromJSON(large_type, json);
-  const auto narrow_array = ::arrow::ArrayFromJSON(narrow_type, json);
+    // When the original Arrow schema isn't stored and a binary_type is set,
+    // the array is decoded as the specific type.
+    ArrowReaderProperties reader_properties;
+    reader_properties.set_binary_type(binary_type);
+    this->RoundTripSingleColumn(specific_array, /*expected=*/specific_array,
+                                default_arrow_writer_properties(), reader_properties);
+    this->RoundTripSingleColumn(fallback_array, /*expected=*/specific_array,
+                                default_arrow_writer_properties(), reader_properties);
 
-  // When the original Arrow schema isn't stored, a LargeBinary array
-  // is decoded as Binary (since there is no specific Parquet logical
-  // type for it).
-  this->RoundTripSingleColumn(large_array, narrow_array,
-                              default_arrow_writer_properties());
+    // When the original Arrow schema is stored, the array is decoded as the
+    // specific type.
+    const auto writer_properties =
+        ArrowWriterProperties::Builder().store_schema()->build();
+    this->RoundTripSingleColumn(specific_array, /*expected=*/specific_array,
+                                writer_properties);
+  }
+};
 
-  // When the original Arrow schema is stored, the LargeBinary array
-  // is read back as LargeBinary.
-  const auto arrow_properties =
-      ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
-  this->RoundTripSingleColumn(large_array, large_array, arrow_properties);
+TEST_F(TestBinaryLikeParquetIO, LargeBinary) {
+  CheckRoundTrip("[\"foo\", \"\", null, \"\xff\"]", ::arrow::Type::LARGE_BINARY,
+                 ::arrow::large_binary(), ::arrow::binary());
 }
 
-using TestLargeStringParquetIO = TestParquetIO<::arrow::LargeStringType>;
+TEST_F(TestBinaryLikeParquetIO, BinaryView) {
+  CheckRoundTrip("[\"foo\", \"\", null, \"\xff\"]", ::arrow::Type::BINARY_VIEW,
+                 ::arrow::binary_view(), ::arrow::binary());
+}
 
-TEST_F(TestLargeStringParquetIO, Basics) {
-  const char* json = R"(["foo", "", null, "bar"])";
+TEST_F(TestBinaryLikeParquetIO, LargeString) {
+  CheckRoundTrip(R"(["foo", "", null, "bar"])", ::arrow::Type::LARGE_BINARY,
+                 ::arrow::large_utf8(), ::arrow::utf8());
+}
 
-  const auto large_type = ::arrow::large_utf8();
-  const auto narrow_type = ::arrow::utf8();
-  const auto large_array = ::arrow::ArrayFromJSON(large_type, json);
-  const auto narrow_array = ::arrow::ArrayFromJSON(narrow_type, json);
-
-  // When the original Arrow schema isn't stored, a LargeBinary array
-  // is decoded as Binary (since there is no specific Parquet logical
-  // type for it).
-  this->RoundTripSingleColumn(large_array, narrow_array,
-                              default_arrow_writer_properties());
-
-  // When the original Arrow schema is stored, the LargeBinary array
-  // is read back as LargeBinary.
-  const auto arrow_properties =
-      ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
-  this->RoundTripSingleColumn(large_array, large_array, arrow_properties);
+TEST_F(TestBinaryLikeParquetIO, StringView) {
+  CheckRoundTrip(R"(["foo", "", null, "bar"])", ::arrow::Type::BINARY_VIEW,
+                 ::arrow::utf8_view(), ::arrow::utf8());
 }
 
 using TestJsonParquetIO = TestParquetIO<::arrow::extension::JsonExtensionType>;
@@ -3164,8 +3219,22 @@ TEST(ArrowReadWrite, LargeList) {
       [7, 8, 9]])";
   auto array = ::arrow::ArrayFromJSON(type, json);
   auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
-  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
-  CheckSimpleRoundtrip(table, 2, props_store_schema);
+  {
+    // If the schema is stored, the large_list is restored regardless of
+    // the list_type setting
+    for (auto list_type : {::arrow::Type::LIST, ::arrow::Type::LARGE_LIST}) {
+      ArrowReaderProperties reader_props;
+      reader_props.set_list_type(list_type);
+      auto writer_props = ArrowWriterProperties::Builder().store_schema()->build();
+      CheckSimpleRoundtrip(table, 2, writer_props, reader_props);
+    }
+  }
+  {
+    // If the schema is not stored, large_list is read depending on the list_type setting
+    ArrowReaderProperties reader_props;
+    reader_props.set_list_type(::arrow::Type::LARGE_LIST);
+    CheckSimpleRoundtrip(table, 2, default_arrow_writer_properties(), reader_props);
+  }
 }
 
 TEST(ArrowReadWrite, FixedSizeList) {
@@ -3190,20 +3259,25 @@ TEST(ArrowReadWrite, ListOfStructOfList2) {
   using ::arrow::list;
   using ::arrow::struct_;
 
-  auto type =
-      list(field("item",
-                 struct_({field("a", ::arrow::int16(), /*nullable=*/false),
-                          field("b", list(::arrow::int64()), /*nullable=*/false)}),
-                 /*nullable=*/false));
+  for (const auto& list_case : kListCases) {
+    auto type = list_case.type_factory(
+        field("item",
+              struct_({field("a", ::arrow::int16(), /*nullable=*/false),
+                       field("b", list_case.type_factory(field("item", ::arrow::int64())),
+                             /*nullable=*/false)}),
+              /*nullable=*/false));
 
-  const char* json = R"([
-      [{"a": 123, "b": [1, 2, 3]}],
-      null,
-      [],
-      [{"a": 456, "b": []}, {"a": 789, "b": [null]}, {"a": 876, "b": [4, 5, 6]}]])";
-  auto array = ::arrow::ArrayFromJSON(type, json);
-  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
-  CheckSimpleRoundtrip(table, 2);
+    const char* json = R"([
+        [{"a": 123, "b": [1, 2, 3]}],
+        null,
+        [],
+        [{"a": 456, "b": []}, {"a": 789, "b": [null]}, {"a": 876, "b": [4, 5, 6]}]])";
+    auto array = ::arrow::ArrayFromJSON(type, json);
+    auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+    ArrowReaderProperties reader_props;
+    reader_props.set_list_type(list_case.type_id);
+    CheckSimpleRoundtrip(table, 2, default_arrow_writer_properties(), reader_props);
+  }
 }
 
 TEST(ArrowReadWrite, StructOfLists) {

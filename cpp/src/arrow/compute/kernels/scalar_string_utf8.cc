@@ -138,9 +138,12 @@ static inline bool IsDecimalCharacterUnicode(uint32_t codepoint) {
 }
 
 static inline bool IsDigitCharacterUnicode(uint32_t codepoint) {
-  // Python defines this as Numeric_Type=Digit or Numeric_Type=Decimal.
-  // utf8proc has no support for this, this is the best we can do:
-  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND);
+  // Approximates Python's str.isnumeric():
+  // returns true for Nd and No (e.g., '٣', '³'), but excludes Nl like Roman numerals
+  // ('Ⅷ') due to utf8proc limits.
+  // '¾' (vulgar fraction) is treated as a digit by utf8proc 'No'
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND,
+                                      UTF8PROC_CATEGORY_NO);
 }
 
 static inline bool IsNumericCharacterUnicode(uint32_t codepoint) {

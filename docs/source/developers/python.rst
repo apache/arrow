@@ -26,33 +26,18 @@ Python Development
 This page provides general Python development guidelines and source build
 instructions for all platforms.
 
+.. _python-coding-style:
+
 Coding Style
 ============
 
 We follow a similar PEP8-like coding style to the `pandas project
-<https://github.com/pandas-dev/pandas>`_.  To check style issues, use the
-:ref:`Archery <archery>` subcommand ``lint``:
+<https://github.com/pandas-dev/pandas>`_.  To fix style issues, use the
+``pre-commit`` command:
 
 .. code-block::
 
-   $ pip install -e "arrow/dev/archery[lint]"
-
-.. code-block::
-
-   $ archery lint --python
-
-Some of the issues can be automatically fixed by passing the ``--fix`` option:
-
-.. code-block::
-
-   $ archery lint --python --fix
-
-The Python code base also includes some C++ files. To fix formatting in those
-files, add the ``--clang-format`` option:
-
-.. code-block::
-
-   $ archery lint --python --clang-format --fix
+   $ pre-commit run --show-diff-on-failure --color=always --all-files python
 
 .. _python-unit-testing:
 
@@ -318,6 +303,7 @@ The presets are provided as a convenience, but you may instead opt to
 specify the individual components:
 
 .. code-block::
+
    $ cmake -S arrow/cpp -B arrow/cpp/build \
            -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
            -DCMAKE_BUILD_TYPE=Debug \
@@ -646,7 +632,7 @@ PyArrow are:
      - Number of processes used to compile PyArrow’s C++/Cython components
      - ``''``
 
-The components being disabled or enabled when building PyArrrow is by default
+The components being disabled or enabled when building PyArrow is by default
 based on how Arrow C++ is build (i.e. it follows the ``ARROW_$COMPONENT`` flags).
 However, the ``PYARROW_WITH_$COMPONENT`` environment variables can still be used
 to override this when building PyArrow (e.g. to disable components, or to enforce

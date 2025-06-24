@@ -24,7 +24,7 @@ project(
     meson_version: '>=1.3.0',
     default_options: [
         'buildtype=release',
-        'c_std=c99',
+        'c_std=gnu11,c11',
         'warning_level=2',
         'cpp_std=c++17',
     ],
@@ -47,12 +47,12 @@ cpp_args = cpp_compiler.get_supported_arguments(project_args)
 add_project_arguments(cpp_args, language: 'cpp')
 
 git_id = get_option('git_id')
-if git_id == ''
+if git_id == '' and not meson.is_subproject()
     git_id = run_command('git', 'log', '-n1', '--format=%H', check: false).stdout().strip()
 endif
 
 git_description = get_option('git_description')
-if git_description == ''
+if git_description == '' and not meson.is_subproject()
     git_description = run_command('git', 'describe', '--tags', check: false).stdout().strip()
 endif
 
@@ -66,8 +66,23 @@ needs_s3 = get_option('s3').enabled()
 needs_filesystem = get_option('filesystem').enabled() or needs_azure or needs_gcs or needs_hdfs or needs_s3
 needs_integration = get_option('integration').enabled()
 needs_tests = get_option('tests').enabled()
-needs_ipc = get_option('ipc').enabled() or needs_tests or needs_benchmarks
-needs_testing = get_option('testing').enabled() or needs_tests or needs_benchmarks or needs_integration
+needs_acero = get_option('acero').enabled()
+needs_flight = get_option('flight').enabled()
+needs_ipc = get_option('ipc').enabled() or needs_tests or needs_acero or needs_benchmarks or needs_flight
+needs_fuzzing = get_option('fuzzing').enabled()
+needs_testing = (get_option('testing').enabled()
+or needs_tests
+or needs_benchmarks
+or needs_fuzzing
+or needs_integration
+)
 needs_json = get_option('json').enabled() or needs_testing
+needs_brotli = get_option('brotli').enabled() or needs_fuzzing
+needs_bz2 = get_option('bz2').enabled()
+needs_lz4 = get_option('lz4').enabled()
+needs_snappy = get_option('snappy').enabled()
+needs_zlib = get_option('zlib').enabled()
+needs_zstd = get_option('zstd').enabled()
+needs_utilities = get_option('utilities').enabled()
 
 subdir('src/arrow')
