@@ -48,4 +48,12 @@ class TestArrayStatistics < Test::Unit::TestCase
   test("#null_count") do
     assert_equal(1, @statistics.null_count)
   end
+
+  test("#distinct_count") do
+    assert_equal(false, @statistics.has_distinct_count?)
+    assert_equal(-1, @statistics.distinct_count)
+    @statistics.set_distinct_count(2)
+    assert_equal(true, @statistics.has_distinct_count?)
+    assert_equal(2, @statistics.distinct_count)
+  end
 end
