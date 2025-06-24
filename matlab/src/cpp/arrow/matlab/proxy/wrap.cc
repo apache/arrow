@@ -15,14 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/visitor.h"
-#include "arrow/matlab/proxy/wrap.h"
 
 #include "arrow/matlab/array/proxy/boolean_array.h"
 #include "arrow/matlab/array/proxy/list_array.h"
 #include "arrow/matlab/array/proxy/numeric_array.h"
 #include "arrow/matlab/array/proxy/string_array.h"
 #include "arrow/matlab/array/proxy/struct_array.h"
+#include "arrow/matlab/error/error.h"
+#include "arrow/matlab/proxy/wrap.h"
+#include "arrow/visitor.h"
+#include "libmexclass/proxy/ProxyManager.h"
 
 namespace arrow::matlab::proxy {
 
@@ -188,5 +190,20 @@ namespace arrow::matlab::proxy {
     arrow::Result<std::shared_ptr<arrow::matlab::array::proxy::Array>> wrap(const std::shared_ptr<arrow::Array>& array) {
         ArrayProxyWrapperVisitor visitor{array};
         return visitor.wrap();
+    }
+
+    arrow::Result<std::shared_ptr<arrow::matlab::array::proxy::Array>> wrap(const std::shared_ptr<arrow::Array>& array) {
+        namespace mda = ::matlab::data;
+        mda::ArrayFactory factory;
+
+        ArrayProxyWrapperVisitor visitor{array};
+        ARROW_ASSIGN_OR_RAISE(auto proxy, visitor.wrap());
+        const auto proxy_id = ProxyManager::manageProxy(proxy);
+
+        mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
+        output[0]["ProxyID"] = factory.createScalar(proxy_id);
+        output[0]["TypeID"] = factory.createScalar(array->type()->type_id());
+
+        return output;
     }
 }
