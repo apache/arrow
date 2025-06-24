@@ -5809,7 +5809,7 @@ cdef class Table(_Tabular):
             The tolerance for inexact "on" key matching. A right row is considered
             a match with a left row if ``right.on - left.on`` is between 0
             and ``tolerance``. ``tolerance`` may be:
-            
+
             - negative, in which case a past-as-of-join occurs
               (match iff ``tolerance <= right.on - left.on <= 0``);
             - or positive, in which case a future-as-of-join occurs
