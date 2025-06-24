@@ -139,7 +139,38 @@ classdef Table < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
             validateColumnNames(opts.ColumnNames, numColumns);
 
             arrayProxyIDs = getArrayProxyIDs(arrowArrays);
-            args = struct(ArrayProxyIDs=arrayProxyIDs, ColumnNames=opts.ColumnNames);
+            args = struct(Method="from_arrays", ArrayProxyIDs=arrayProxyIDs, ColumnNames=opts.ColumnNames);
+            proxyName = "arrow.tabular.proxy.Table";
+            proxy = arrow.internal.proxy.create(proxyName, args);
+            arrowTable = arrow.tabular.Table(proxy);
+        end
+
+        function arrowTable = fromRecordBatches(batches)
+            arguments(Repeating)
+                batches(1, 1) arrow.tabular.RecordBatch
+            end
+            if numel(batches) == 0
+                msg = "The fromRecordBatches method requires at least one RecordBatch to be supplied.";
+                error("arrow:Table:FromRecordBatches:ZeroBatches", msg);
+            elseif numel(batches) > 1
+                % Verify that all supplied RecordBatches have a consistent Schema.
+                firstSchema = batches{1}.Schema;
+                otherSchemas = cellfun(@(rb) rb.Schema, batches(2:end), UniformOutput=false);
+                idx = cellfun(@(other) ~isequal(firstSchema, other), otherSchemas, UniformOutput=true);
+                inconsistentSchemaIndex = find(idx, 1,"first");
+                if ~isempty(inconsistentSchemaIndex)
+                    inconsistentSchemaIndex = inconsistentSchemaIndex + 1;
+                    expectedSchema = arrow.tabular.internal.display.getSchemaString(firstSchema);
+                    inconsistentSchema = arrow.tabular.internal.display.getSchemaString(batches{inconsistentSchemaIndex}.Schema);
+                    msg = "All RecordBatches must have the same Schema.\n\nSchema of RecordBatch %d is\n\n\t%s\n\nExpected RecordBatch Schema to be\n\n\t%s";
+                    msg = compose(msg, inconsistentSchemaIndex, inconsistentSchema, expectedSchema);
+                    error("arrow:Table:FromRecordBatches:InconsistentSchema", msg);
+                end
+            end
+
+            % TODO: Rename getArrayProxyIDs to getProxyIDs
+            proxyIDs = arrow.array.internal.getArrayProxyIDs(batches);
+            args = struct(Method="from_record_batches", RecordBatchProxyIDs=proxyIDs);
             proxyName = "arrow.tabular.proxy.Table";
             proxy = arrow.internal.proxy.create(proxyName, args);
             arrowTable = arrow.tabular.Table(proxy);

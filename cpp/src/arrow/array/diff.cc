@@ -43,6 +43,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
 #include "arrow/util/ree_util.h"
@@ -623,6 +624,14 @@ class MakeFormatterImpl {
   Status Visit(const BooleanType&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
       *os << (checked_cast<const BooleanArray&>(array).Value(index) ? "true" : "false");
+    };
+    return Status::OK();
+  }
+
+  Status Visit(const HalfFloatType&) {
+    impl_ = [](const Array& array, int64_t index, std::ostream* os) {
+      const auto& float16_arr = checked_cast<const HalfFloatArray&>(array);
+      *os << arrow::util::Float16::FromBits(float16_arr.Value(index));
     };
     return Status::OK();
   }
