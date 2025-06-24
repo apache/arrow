@@ -20,6 +20,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/simd.h"
 #include "arrow/util/small_vector.h"
+#include "arrow/util/type_traits.h"
 #include "arrow/util/ubsan.h"
 
 #include <algorithm>
@@ -112,43 +113,18 @@ void ByteStreamSplitDecodeSimd128(const uint8_t* data, int width, int64_t num_va
   }
 }
 
-template <int kNumBytes>
-struct grouped_bytes_impl;
-
-template <>
-struct grouped_bytes_impl<1> {
-  using type = int8_t;
-};
-
-template <>
-struct grouped_bytes_impl<2> {
-  using type = int16_t;
-};
-
-template <>
-struct grouped_bytes_impl<4> {
-  using type = int32_t;
-};
-
-template <>
-struct grouped_bytes_impl<8> {
-  using type = int64_t;
-};
-
-// Map a number of bytes to a type
-template <int kNumBytes>
-using grouped_bytes_t = typename grouped_bytes_impl<kNumBytes>::type;
-
 // Like xsimd::zip_lo, but zip groups of kNumBytes at once.
 template <int kNumBytes, int kBatchSize = 16,
           typename Batch = xsimd::make_sized_batch_t<int8_t, kBatchSize>>
 auto zip_lo_n(Batch const& a, Batch const& b) -> Batch {
+  using arrow::internal::SizedInt;
+
   if constexpr (kNumBytes == kBatchSize) {
     return a;
   } else {
     return xsimd::bitwise_cast<int8_t>(
-        xsimd::zip_lo(xsimd::bitwise_cast<grouped_bytes_t<kNumBytes>>(a),
-                      xsimd::bitwise_cast<grouped_bytes_t<kNumBytes>>(b)));
+        xsimd::zip_lo(xsimd::bitwise_cast<SizedInt<kNumBytes>>(a),
+                      xsimd::bitwise_cast<SizedInt<kNumBytes>>(b)));
   }
 }
 
@@ -156,12 +132,14 @@ auto zip_lo_n(Batch const& a, Batch const& b) -> Batch {
 template <int kNumBytes, int kBatchSize = 16,
           typename Batch = xsimd::make_sized_batch_t<int8_t, kBatchSize>>
 auto zip_hi_n(Batch const& a, Batch const& b) -> Batch {
+  using arrow::internal::SizedInt;
+
   if constexpr (kNumBytes == kBatchSize) {
     return b;
   } else {
     return xsimd::bitwise_cast<int8_t>(
-        xsimd::zip_hi(xsimd::bitwise_cast<grouped_bytes_t<kNumBytes>>(a),
-                      xsimd::bitwise_cast<grouped_bytes_t<kNumBytes>>(b)));
+        xsimd::zip_hi(xsimd::bitwise_cast<SizedInt<kNumBytes>>(a),
+                      xsimd::bitwise_cast<SizedInt<kNumBytes>>(b)));
   }
 }
 
