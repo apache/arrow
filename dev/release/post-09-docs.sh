@@ -88,7 +88,7 @@ find docs \
   -e '/^[[:space:]]\{8\}DOCUMENTATION_OPTIONS\.show_version_warning_banner =[[:space:]]*$/{
 N
 s/^\([[:space:]]\{8\}DOCUMENTATION_OPTIONS\.show_version_warning_banner =[[:space:]]*\)\n[[:space:]]\{12\}true;/\1\n            false;/g
-}'
+}' \
   {} \;
 find ./ -name '*.bak' -delete
 popd
