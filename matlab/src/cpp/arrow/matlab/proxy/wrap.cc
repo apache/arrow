@@ -38,6 +38,10 @@ namespace {
 template <typename T>
 struct ProxyTraits {};
 
+// Using MATLAB_PROXY_TRAITS_DEF enables for the wrap functions defined
+// below to construct appropriate Proxy objects. The arguments to the macro 
+// are used to automatically define a ProxyTraits struct which follows a "type
+// traits pattern".
 #define MATLAB_PROXY_TRAITS_DEF(ArrowType_, ArrayProxyName_, TypeProxyName_) \
   template <>                                                                \
   struct ProxyTraits<ArrowType_> {                                           \
