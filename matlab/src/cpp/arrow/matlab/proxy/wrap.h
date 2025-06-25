@@ -38,7 +38,7 @@ arrow::Result<std::shared_ptr<arrow::matlab::array::proxy::Array>> wrap(
 arrow::Result<::matlab::data::StructArray> wrap_and_manage(
     const std::shared_ptr<arrow::Array>& array);
 
-/// \brief Wraps an DataType within a proxy::DataType.
+/// \brief Wraps a DataType within a proxy::DataType.
 ///
 /// \return arrow::result<std::shared_ptr<arrow::matlab::type::proxy::Type>>
 arrow::Result<std::shared_ptr<arrow::matlab::type::proxy::Type>> wrap(
