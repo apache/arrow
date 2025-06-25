@@ -157,6 +157,8 @@ void RecordBatch::getColumnNames(libmexclass::proxy::method::Context& context) {
 }
 
 void RecordBatch::getColumnByIndex(libmexclass::proxy::method::Context& context) {
+  namespace mda = ::matlab::data;
+
   mda::StructArray args = context.inputs[0];
   const mda::TypedArray<int32_t> index_mda = args[0]["Index"];
   const auto matlab_index = int32_t(index_mda[0]);
@@ -183,6 +185,8 @@ void RecordBatch::getColumnByIndex(libmexclass::proxy::method::Context& context)
 }
 
 void RecordBatch::getColumnByName(libmexclass::proxy::method::Context& context) {
+  namespace mda = ::matlab::data;
+
   mda::StructArray args = context.inputs[0];
   const mda::StringArray name_mda = args[0]["Name"];
   const auto name_utf16 = std::u16string(name_mda[0]);
