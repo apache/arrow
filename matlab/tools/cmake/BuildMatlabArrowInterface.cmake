@@ -49,7 +49,6 @@ set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/a
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/struct_array.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/list_array.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/chunked_array.cc"
-                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/wrap.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/tabular/proxy/record_batch.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/tabular/proxy/table.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/tabular/proxy/schema.cc"
