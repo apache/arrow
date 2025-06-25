@@ -1793,14 +1793,14 @@ ARROW_EXPORT Result<Datum> MapLookup(const Datum& map, MapLookupOptions options,
 /// shall be a UInt32Array, with each element being a hash constructed from each row of
 /// the input. If the input Array is a NestedArray, this means that each "attribute" or
 /// "field" of the input NestedArray corresponding to the same "row" will collectively
-/// produce a single uint64_t hash. At the moment, this function does not take options,
+/// produce a single uint32_t hash. At the moment, this function does not take options,
 /// though these may be added in the future.
 ///
 /// \param[in] input_array input data to hash
 /// \param[in] ctx function execution context, optional
 /// \return elementwise hash values
 ///
-/// \since 19.0.0
+/// \since 21.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Hash32(const Datum& input_array, ExecContext* ctx = NULLPTR);
@@ -1818,7 +1818,7 @@ Result<Datum> Hash32(const Datum& input_array, ExecContext* ctx = NULLPTR);
 /// \param[in] ctx function execution context, optional
 /// \return elementwise hash values
 ///
-/// \since 19.0.0
+/// \since 21.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Hash64(const Datum& input_array, ExecContext* ctx = NULLPTR);

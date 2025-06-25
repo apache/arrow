@@ -85,7 +85,7 @@ static void Hash64StructSmallStrings(
   // 2nd column (index 1) is a string column, which has offset type of int32_t
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> values_second,
                        values_array->GetFlattenedField(1));
-  std::shared_ptr<StringArray> str_vals =
+  auto str_vals =
       std::static_pointer_cast<StringArray>(values_second);
   int32_t total_string_size = str_vals->total_values_length();
 
@@ -110,7 +110,7 @@ static void Hash64StructMediumStrings(
   // 2nd column (index 1) is a string column, which has offset type of int32_t
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> values_second,
                        values_array->GetFlattenedField(1));
-  std::shared_ptr<StringArray> str_vals =
+  auto str_vals =
       std::static_pointer_cast<StringArray>(values_second);
   int32_t total_string_size = str_vals->total_values_length();
 
@@ -135,7 +135,7 @@ static void Hash64StructLargeStrings(
   // 2nd column (index 1) is a string column, which has offset type of int32_t
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> values_second,
                        values_array->GetFlattenedField(1));
-  std::shared_ptr<StringArray> str_vals =
+  auto str_vals =
       std::static_pointer_cast<StringArray>(values_second);
   int32_t total_string_size = str_vals->total_values_length();
 
