@@ -39,119 +39,34 @@ namespace arrow::matlab::proxy {
         template <typename T>
         struct ProxyTraits {};
 
-        template <>
-        struct ProxyTraits<arrow::BooleanType> {
-            using ArrayProxy = arrow::matlab::array::proxy::BooleanArray;
-            using TypeProxy = arrow::matlab::type::proxy::PrimitiveCType<bool>;
-        };
+        #define MATLAB_PROXY_TRAITS_DEF(ArrowType_, ArrayProxyName_, TypeProxyName_) \
+            template <>                                                              \
+            struct ProxyTraits<ArrowType_> {                                         \
+                using ArrayProxy = arrow::matlab::array::proxy::ArrayProxyName_;     \
+                using TypeProxy = arrow::matlab::type::proxy::TypeProxyName_;        \
+            };
+        
+        MATLAB_PROXY_TRAITS_DEF(arrow::BooleanType, BooleanArray, PrimitiveCType<bool>)
+        MATLAB_PROXY_TRAITS_DEF(arrow::Int8Type, NumericArray<arrow::Int8Type>, PrimitiveCType<int8_t>)
+        MATLAB_PROXY_TRAITS_DEF(arrow::Int16Type, NumericArray<arrow::Int16Type>, PrimitiveCType<int16_t>)
+        MATLAB_PROXY_TRAITS_DEF(arrow::Int32Type, NumericArray<arrow::Int32Type>, PrimitiveCType<int32_t>)
+        MATLAB_PROXY_TRAITS_DEF(arrow::Int64Type, NumericArray<arrow::Int64Type>, PrimitiveCType<int64_t>)
+        MATLAB_PROXY_TRAITS_DEF(arrow::UInt8Type, NumericArray<arrow::UInt8Type>, PrimitiveCType<uint8_t>)
+        MATLAB_PROXY_TRAITS_DEF(arrow::UInt16Type, NumericArray<arrow::UInt16Type>, PrimitiveCType<uint16_t>)
+        MATLAB_PROXY_TRAITS_DEF(arrow::UInt32Type, NumericArray<arrow::UInt32Type>, PrimitiveCType<uint32_t>)
+        MATLAB_PROXY_TRAITS_DEF(arrow::UInt64Type, NumericArray<arrow::UInt64Type>, PrimitiveCType<uint64_t>)
+        MATLAB_PROXY_TRAITS_DEF(arrow::FloatType, NumericArray<arrow::FloatType>, PrimitiveCType<float>)
+        MATLAB_PROXY_TRAITS_DEF(arrow::DoubleType, NumericArray<arrow::DoubleType>, PrimitiveCType<double>)
+        MATLAB_PROXY_TRAITS_DEF(arrow::Time32Type, NumericArray<arrow::Time32Type>, Time32Type)
+        MATLAB_PROXY_TRAITS_DEF(arrow::Time64Type, NumericArray<arrow::Time64Type>, Time64Type)
+        MATLAB_PROXY_TRAITS_DEF(arrow::Date32Type, NumericArray<arrow::Date32Type>, Date32Type)
+        MATLAB_PROXY_TRAITS_DEF(arrow::Date64Type, NumericArray<arrow::Date64Type>, Date64Type)
+        MATLAB_PROXY_TRAITS_DEF(arrow::TimestampType, NumericArray<arrow::TimestampType>, TimestampType)
+        MATLAB_PROXY_TRAITS_DEF(arrow::StringType, StringArray, StringType)
+        MATLAB_PROXY_TRAITS_DEF(arrow::ListType, ListArray, ListType)
+        MATLAB_PROXY_TRAITS_DEF(arrow::StructType, StructArray, StructType)
 
-        template <>
-        struct ProxyTraits<arrow::Int8Type> {
-            using ArrayProxy = arrow::matlab::array::proxy::NumericArray<arrow::Int8Type>;
-            using TypeProxy = arrow::matlab::type::proxy::PrimitiveCType<int8_t>;
-        };
-
-        template <>
-        struct ProxyTraits<arrow::Int16Type> {
-            using ArrayProxy = arrow::matlab::array::proxy::NumericArray<arrow::Int16Type>;
-            using TypeProxy = arrow::matlab::type::proxy::PrimitiveCType<int16_t>;
-        };
-
-        template <>
-        struct ProxyTraits<arrow::Int32Type> {
-            using ArrayProxy = arrow::matlab::array::proxy::NumericArray<arrow::Int32Type>;
-            using TypeProxy = arrow::matlab::type::proxy::PrimitiveCType<int32_t>;
-        };
-
-        template <>
-        struct ProxyTraits<arrow::Int64Type> {
-            using ArrayProxy = arrow::matlab::array::proxy::NumericArray<arrow::Int64Type>;
-            using TypeProxy = arrow::matlab::type::proxy::PrimitiveCType<int64_t>;
-        };
-
-        template <>
-        struct ProxyTraits<arrow::UInt8Type> {
-            using ArrayProxy = arrow::matlab::array::proxy::NumericArray<arrow::UInt8Type>;
-            using TypeProxy = arrow::matlab::type::proxy::PrimitiveCType<uint8_t>;
-        };
-
-        template <>
-        struct ProxyTraits<arrow::UInt16Type> {
-            using ArrayProxy = arrow::matlab::array::proxy::NumericArray<arrow::UInt16Type>;
-            using TypeProxy = arrow::matlab::type::proxy::PrimitiveCType<uint16_t>;
-        };
-
-        template <>
-        struct ProxyTraits<arrow::UInt32Type> {
-            using ArrayProxy = arrow::matlab::array::proxy::NumericArray<arrow::UInt32Type>;
-            using TypeProxy = arrow::matlab::type::proxy::PrimitiveCType<uint32_t>;
-        };
-
-        template <>
-        struct ProxyTraits<arrow::UInt64Type> {
-            using ArrayProxy = arrow::matlab::array::proxy::NumericArray<arrow::UInt64Type>;
-            using TypeProxy = arrow::matlab::type::proxy::PrimitiveCType<uint64_t>;
-        };
-
-        template <>
-        struct ProxyTraits<arrow::FloatType> {
-            using ArrayProxy = arrow::matlab::array::proxy::NumericArray<arrow::FloatType>;
-            using TypeProxy = arrow::matlab::type::proxy::PrimitiveCType<float>;
-        };
-
-        template <>
-        struct ProxyTraits<arrow::DoubleType> {
-            using ArrayProxy = arrow::matlab::array::proxy::NumericArray<arrow::DoubleType>;
-            using TypeProxy = arrow::matlab::type::proxy::PrimitiveCType<double>;
-        };
-
-        template <>
-        struct ProxyTraits<arrow::Time32Type> {
-            using ArrayProxy = arrow::matlab::array::proxy::NumericArray<arrow::Time32Type>;
-            using TypeProxy = arrow::matlab::type::proxy::Time32Type;
-        };
-
-        template <>
-        struct ProxyTraits<arrow::Time64Type> {
-            using ArrayProxy = arrow::matlab::array::proxy::NumericArray<arrow::Time64Type>;
-            using TypeProxy = arrow::matlab::type::proxy::Time64Type;
-        };
-
-        template <>
-        struct ProxyTraits<arrow::Date32Type> {
-            using ArrayProxy = arrow::matlab::array::proxy::NumericArray<arrow::Date32Type>;
-            using TypeProxy = arrow::matlab::type::proxy::Date32Type;
-        };
-
-        template <>
-        struct ProxyTraits<arrow::Date64Type> {
-            using ArrayProxy = arrow::matlab::array::proxy::NumericArray<arrow::Date64Type>;
-            using TypeProxy = arrow::matlab::type::proxy::Date64Type;
-        };
-
-        template <>
-        struct ProxyTraits<arrow::TimestampType> {
-            using ArrayProxy = arrow::matlab::array::proxy::NumericArray<arrow::TimestampType>;
-            using TypeProxy = arrow::matlab::type::proxy::TimestampType;
-        };
-
-        template <>
-        struct ProxyTraits<arrow::StringType> {
-            using ArrayProxy = arrow::matlab::array::proxy::StringArray;
-            using TypeProxy = arrow::matlab::type::proxy::StringType;
-        };
-
-        template <>
-        struct ProxyTraits<arrow::ListType> {
-            using ArrayProxy = arrow::matlab::array::proxy::ListArray;
-            using TypeProxy = arrow::matlab::type::proxy::ListType;
-        };
-
-        template <>
-        struct ProxyTraits<arrow::StructType> {
-            using ArrayProxy = arrow::matlab::array::proxy::StructArray;
-            using TypeProxy = arrow::matlab::type::proxy::StructType;
-        };
+        #undef MATLAB_PROXY_TRAITS_DEF
 
         template <typename ArrowType> 
         std::shared_ptr<typename ProxyTraits<ArrowType>::ArrayProxy> make_proxy(const std::shared_ptr<arrow::Array>& array) {
@@ -191,7 +106,6 @@ namespace arrow::matlab::proxy {
                 return make_proxy<ArrowType>(input);
             }
         };
-
 
         struct WrapTypeFunctor {
             using InputType = arrow::DataType;
