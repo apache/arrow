@@ -128,9 +128,14 @@ class PARQUET_EXPORT EncodedStatistics {
   const std::string& max() const { return max_; }
   const std::string& min() const { return min_; }
 
+  bool is_max_value_exact = false;
+  bool is_min_value_exact = false;
+
   int64_t null_count = 0;
   int64_t distinct_count = 0;
 
+  bool has_is_min_value_exact = false;
+  bool has_is_max_value_exact = false;
   bool has_min = false;
   bool has_max = false;
   bool has_null_count = false;
@@ -159,6 +164,7 @@ class PARQUET_EXPORT EncodedStatistics {
   }
 
   bool is_set() const {
+    // has_is_{min/max}_value_exact are only set if has_min or has_max
     return has_min || has_max || has_null_count || has_distinct_count;
   }
 
@@ -187,6 +193,18 @@ class PARQUET_EXPORT EncodedStatistics {
   EncodedStatistics& set_distinct_count(int64_t value) {
     distinct_count = value;
     has_distinct_count = true;
+    return *this;
+  }
+
+  EncodedStatistics& set_is_max_value_exact(bool value) {
+    is_max_value_exact = value;
+    has_is_max_value_exact = true;
+    return *this;
+  }
+
+  EncodedStatistics& set_is_min_value_exact(bool value) {
+    is_min_value_exact = value;
+    has_is_min_value_exact = true;
     return *this;
   }
 };
