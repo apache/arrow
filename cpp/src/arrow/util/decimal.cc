@@ -1110,10 +1110,6 @@ Result<Decimal32> Decimal32::FromBigEndian(const uint8_t* bytes, int32_t length)
   return Decimal32(value);
 }
 
-Status Decimal32::ToArrowStatus(DecimalStatus dstatus) const {
-  return arrow::ToArrowStatus(dstatus, 32);
-}
-
 ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const Decimal32& decimal) {
   os << decimal.ToIntegerString();
   return os;
@@ -1135,10 +1131,6 @@ Result<Decimal64> Decimal64::FromBigEndian(const uint8_t* bytes, int32_t length)
 
   const auto value = bit_util::FromBigEndian(result);
   return Decimal64(value);
-}
-
-Status Decimal64::ToArrowStatus(DecimalStatus dstatus) const {
-  return arrow::ToArrowStatus(dstatus, 64);
 }
 
 ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const Decimal64& decimal) {
@@ -1197,10 +1189,6 @@ Result<Decimal128> Decimal128::FromBigEndian(const uint8_t* bytes, int32_t lengt
   }
 
   return Decimal128(high, static_cast<uint64_t>(low));
-}
-
-Status Decimal128::ToArrowStatus(DecimalStatus dstatus) const {
-  return arrow::ToArrowStatus(dstatus, 128);
 }
 
 ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const Decimal128& decimal) {
