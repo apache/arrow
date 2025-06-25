@@ -44,7 +44,7 @@ arrow::Result<::matlab::data::StructArray> wrap_and_manage(
 arrow::Result<std::shared_ptr<arrow::matlab::type::proxy::Type>> wrap(
     const std::shared_ptr<arrow::DataType>& datatype);
 
-/// \brief Wraps an DataType within a proxy::DataType and adds the proxy to the
+/// \brief Wraps a DataType within a proxy::DataType and adds the proxy to the
 /// ProxyManager.
 ///
 /// \return arrow::Result<mda::StructArray>. The mda::StructArray has two fields: ProxyID
