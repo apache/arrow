@@ -70,8 +70,16 @@ cdef class AzureFileSystem(FileSystem):
         Tenant ID for Azure Active Directory authentication. Must be provided together with
         `client_id` and `client_secret` to use ClientSecretCredential.
     client_id : str, default None
-        Client ID for Azure Active Directory authentication. Must be provided together with
-        `tenant_id` and `client_secret` to use ClientSecretCredential.
+        The client ID (Application ID) for Azure Active Directory authentication.
+        Its interpretation depends on the credential type being used:
+        - For `ClientSecretCredential`: It is the Application (client) ID of your
+          registered Azure AD application (Service Principal). It must be provided
+          together with `tenant_id` and `client_secret` to use ClientSecretCredential.
+        - For `ManagedIdentityCredential`: It is the client ID of a specific
+          user-assigned managed identity. This is only necessary if you are using a
+          user-assigned managed identity and need to explicitly specify which one
+          (e.g., if the resource has multiple user-assigned identities). For
+          system-assigned managed identities, this parameter is typically not required.
     client_secret : str, default None
         Client secret for Azure Active Directory authentication. Must be provided together
         with `tenant_id` and `client_id` to use ClientSecretCredential.
@@ -121,15 +129,21 @@ cdef class AzureFileSystem(FileSystem):
             raise ValueError("Cannot specify both account_key and sas_token.")
 
         if (tenant_id or client_id or client_secret):
-            if not (tenant_id and client_id and client_secret):
+            if not client_id:
+                raise ValueError("client_id must be specified")
+            if not tenant_id and not client_secret:
+                options.ConfigureManagedIdentityCredential(tobytes(client_id))
+                self.client_id = tobytes(client_id)
+            elif tenant_id and client_secret:
+                options.ConfigureClientSecretCredential(
+                    tobytes(tenant_id), tobytes(client_id), tobytes(client_secret)
+                )
+                self.tenant_id = tobytes(tenant_id)
+                self.client_id = tobytes(client_id)
+                self.client_secret = tobytes(client_secret)
+            else:
                 raise ValueError(
-                    "All of tenant_id, client_id, and client_secret must be provided for ClientSecretCredential.")
-            options.ConfigureClientSecretCredential(
-                tobytes(tenant_id), tobytes(client_id), tobytes(client_secret)
-            )
-            self.tenant_id = tobytes(tenant_id)
-            self.client_id = tobytes(client_id)
-            self.client_secret = tobytes(client_secret)
+                    "Both of tenant_id and client_secret must be specified")
         elif account_key:
             options.ConfigureAccountKeyCredential(tobytes(account_key))
             self.account_key = tobytes(account_key)
