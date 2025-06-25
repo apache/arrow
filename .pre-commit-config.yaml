@@ -321,6 +321,7 @@ repos:
           ?^ci/scripts/install_iwyu\.sh$|
           ?^ci/scripts/install_minio\.sh$|
           ?^ci/scripts/install_ninja\.sh$|
+          ?^ci/scripts/install_numba\.sh$|
           ?^ci/scripts/install_numpy\.sh$|
           ?^ci/scripts/install_pandas\.sh$|
           ?^ci/scripts/install_python\.sh$|
