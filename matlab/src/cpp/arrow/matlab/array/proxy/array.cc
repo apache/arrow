@@ -109,8 +109,9 @@ void Array::getValid(libmexclass::proxy::method::Context& context) {
 }
 
 void Array::getType(libmexclass::proxy::method::Context& context) {
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0], arrow::matlab::proxy::wrap_and_manage(array->type()),
-                                      context, error::ARRAY_FAILED_TO_CREATE_TYPE_PROXY);
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(
+      context.outputs[0], arrow::matlab::proxy::wrap_and_manage(array->type()), context,
+      error::ARRAY_FAILED_TO_CREATE_TYPE_PROXY);
 }
 
 void Array::isEqual(libmexclass::proxy::method::Context& context) {
@@ -154,8 +155,9 @@ void Array::slice(libmexclass::proxy::method::Context& context) {
                                       context, error::ARRAY_SLICE_NEGATIVE_LENGTH);
 
   auto sliced_array = array->Slice(offset, length);
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0], arrow::matlab::proxy::wrap_and_manage(sliced_array),
-                                      context, error::ARRAY_SLICE_FAILED_TO_CREATE_ARRAY_PROXY);
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(
+      context.outputs[0], arrow::matlab::proxy::wrap_and_manage(sliced_array), context,
+      error::ARRAY_SLICE_FAILED_TO_CREATE_ARRAY_PROXY);
 }
 
 void Array::exportToC(libmexclass::proxy::method::Context& context) {

@@ -113,7 +113,8 @@ void StructArray::getFieldByIndex(libmexclass::proxy::method::Context& context) 
   const int32_t index = matlab_index - 1;
 
   auto field_array = struct_array->field(index);
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0], arrow::matlab::proxy::wrap_and_manage(field_array),
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0],
+                                      arrow::matlab::proxy::wrap_and_manage(field_array),
                                       context, error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
 }
 
@@ -140,7 +141,8 @@ void StructArray::getFieldByName(libmexclass::proxy::method::Context& context) {
   }
 
   // Wrap the array within a proxy object if possible.
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0], arrow::matlab::proxy::wrap_and_manage(field_array),
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0],
+                                      arrow::matlab::proxy::wrap_and_manage(field_array),
                                       context, error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
 }
 

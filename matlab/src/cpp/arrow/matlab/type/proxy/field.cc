@@ -49,8 +49,9 @@ void Field::getName(libmexclass::proxy::method::Context& context) {
 
 void Field::getType(libmexclass::proxy::method::Context& context) {
   const auto& datatype = field->type();
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0], arrow::matlab::proxy::wrap_and_manage(datatype), context,
-                                      error::FIELD_FAILED_TO_CREATE_TYPE_PROXY);
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0],
+                                      arrow::matlab::proxy::wrap_and_manage(datatype),
+                                      context, error::FIELD_FAILED_TO_CREATE_TYPE_PROXY);
 }
 
 libmexclass::proxy::MakeResult Field::make(

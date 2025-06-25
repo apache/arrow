@@ -79,7 +79,8 @@ void ListArray::getValues(libmexclass::proxy::method::Context& context) {
   auto list_array = std::static_pointer_cast<arrow::ListArray>(array);
   auto value_array = list_array->values();
 
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0], arrow::matlab::proxy::wrap_and_manage(value_array),
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0],
+                                      arrow::matlab::proxy::wrap_and_manage(value_array),
                                       context, error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
 }
 

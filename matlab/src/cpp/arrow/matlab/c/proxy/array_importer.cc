@@ -50,8 +50,8 @@ void ArrayImporter::import(libmexclass::proxy::method::Context& context) {
                                       context, error::C_IMPORT_FAILED);
 
   MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0],
-                                      arrow::matlab::proxy::wrap_and_manage(array), context,
-                                      error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
+                                      arrow::matlab::proxy::wrap_and_manage(array),
+                                      context, error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
 }
 
 }  // namespace arrow::matlab::c::proxy

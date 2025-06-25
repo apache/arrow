@@ -32,9 +32,9 @@ void ListType::getValueType(libmexclass::proxy::method::Context& context) {
   const auto list_type = std::static_pointer_cast<arrow::ListType>(data_type);
   const auto value_type = list_type->value_type();
 
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0],
-                                      arrow::matlab::proxy::wrap_and_manage(value_type), context,
-                                      error::LIST_TYPE_FAILED_TO_CREATE_VALUE_TYPE_PROXY);
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(
+      context.outputs[0], arrow::matlab::proxy::wrap_and_manage(value_type), context,
+      error::LIST_TYPE_FAILED_TO_CREATE_VALUE_TYPE_PROXY);
 }
 
 libmexclass::proxy::MakeResult ListType::make(

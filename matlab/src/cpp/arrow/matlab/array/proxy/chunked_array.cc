@@ -126,15 +126,14 @@ void ChunkedArray::getChunk(libmexclass::proxy::method::Context& context) {
 
   const auto array = chunked_array->chunk(index);
   MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0],
-                                      arrow::matlab::proxy::wrap_and_manage(array), context,
-                                      error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
+                                      arrow::matlab::proxy::wrap_and_manage(array),
+                                      context, error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
 }
 
 void ChunkedArray::getType(libmexclass::proxy::method::Context& context) {
-
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0],
-                                    arrow::matlab::proxy::wrap_and_manage(chunked_array->type()), context,
-                                    error::ARRAY_FAILED_TO_CREATE_TYPE_PROXY);
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(
+      context.outputs[0], arrow::matlab::proxy::wrap_and_manage(chunked_array->type()),
+      context, error::ARRAY_FAILED_TO_CREATE_TYPE_PROXY);
 }
 
 void ChunkedArray::isEqual(libmexclass::proxy::method::Context& context) {

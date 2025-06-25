@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/c/bridge.h"
 #include "arrow/matlab/array/proxy/array.h"
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/proxy/wrap.h"
 #include "arrow/matlab/tabular/get_row_as_string.h"
-#include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/matlab/tabular/proxy/schema.h"
 #include "arrow/type.h"
 #include "arrow/util/utf8.h"
@@ -180,8 +180,8 @@ void RecordBatch::getColumnByIndex(libmexclass::proxy::method::Context& context)
 
   const auto array = record_batch->column(index);
   MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0],
-                                      arrow::matlab::proxy::wrap_and_manage(array), context,
-                                      error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
+                                      arrow::matlab::proxy::wrap_and_manage(array),
+                                      context, error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
 }
 
 void RecordBatch::getColumnByName(libmexclass::proxy::method::Context& context) {
@@ -201,8 +201,8 @@ void RecordBatch::getColumnByName(libmexclass::proxy::method::Context& context) 
 
   const auto array = record_batch->GetColumnByName(name);
   MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0],
-                                      arrow::matlab::proxy::wrap_and_manage(array), context,
-                                      error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
+                                      arrow::matlab::proxy::wrap_and_manage(array),
+                                      context, error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
 }
 
 void RecordBatch::getSchema(libmexclass::proxy::method::Context& context) {
