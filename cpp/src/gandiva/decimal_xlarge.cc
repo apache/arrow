@@ -29,16 +29,16 @@
 #include <vector>
 
 #include "arrow/util/basic_decimal.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "gandiva/decimal_type_util.h"
 
 #ifndef GANDIVA_UNIT_TEST
-#include "gandiva/engine.h"
-#include "gandiva/exported_funcs.h"
+#  include "gandiva/engine.h"
+#  include "gandiva/exported_funcs.h"
 
 namespace gandiva {
 
-void ExportedDecimalFunctions::AddMappings(Engine* engine) const {
+arrow::Status ExportedDecimalFunctions::AddMappings(Engine* engine) const {
   std::vector<llvm::Type*> args;
   auto types = engine->types();
 
@@ -93,6 +93,7 @@ void ExportedDecimalFunctions::AddMappings(Engine* engine) const {
 
   engine->AddGlobalMappingForFunc("gdv_xlarge_compare", types->i32_type() /*return_type*/,
                                   args, reinterpret_cast<void*>(gdv_xlarge_compare));
+  return arrow::Status::OK();
 }
 
 }  // namespace gandiva

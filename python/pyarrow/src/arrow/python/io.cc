@@ -92,9 +92,12 @@ class PythonFile {
   Status Seek(int64_t position, int whence) {
     RETURN_NOT_OK(CheckClosed());
 
+    // NOTE: `long long` is at least 64 bits in the C standard, the cast below is
+    // therefore safe.
+
     // whence: 0 for relative to start of file, 2 for end of file
-    PyObject* result = cpp_PyObject_CallMethod(file_.obj(), "seek", "(ni)",
-                                               static_cast<Py_ssize_t>(position), whence);
+    PyObject* result = cpp_PyObject_CallMethod(file_.obj(), "seek", "(Li)",
+                                               static_cast<long long>(position), whence);
     Py_XDECREF(result);
     PY_RETURN_IF_ERROR(StatusCode::IOError);
     return Status::OK();
@@ -103,16 +106,16 @@ class PythonFile {
   Status Read(int64_t nbytes, PyObject** out) {
     RETURN_NOT_OK(CheckClosed());
 
-    PyObject* result = cpp_PyObject_CallMethod(file_.obj(), "read", "(n)",
-                                               static_cast<Py_ssize_t>(nbytes));
+    PyObject* result = cpp_PyObject_CallMethod(file_.obj(), "read", "(L)",
+                                               static_cast<long long>(nbytes));
     PY_RETURN_IF_ERROR(StatusCode::IOError);
     *out = result;
     return Status::OK();
   }
 
   Status ReadBuffer(int64_t nbytes, PyObject** out) {
-    PyObject* result = cpp_PyObject_CallMethod(file_.obj(), "read_buffer", "(n)",
-                                               static_cast<Py_ssize_t>(nbytes));
+    PyObject* result = cpp_PyObject_CallMethod(file_.obj(), "read_buffer", "(L)",
+                                               static_cast<long long>(nbytes));
     PY_RETURN_IF_ERROR(StatusCode::IOError);
     *out = result;
     return Status::OK();
@@ -217,7 +220,7 @@ Result<int64_t> PyReadableFile::Read(int64_t nbytes, void* out) {
     OwnedRef bytes;
     RETURN_NOT_OK(file_->Read(nbytes, bytes.ref()));
     PyObject* bytes_obj = bytes.obj();
-    DCHECK(bytes_obj != NULL);
+    ARROW_DCHECK(bytes_obj != NULL);
 
     Py_buffer py_buf;
     if (!PyObject_GetBuffer(bytes_obj, &py_buf, PyBUF_ANY_CONTIGUOUS)) {
@@ -243,7 +246,7 @@ Result<std::shared_ptr<Buffer>> PyReadableFile::Read(int64_t nbytes) {
     } else {
       RETURN_NOT_OK(file_->Read(nbytes, buffer_obj.ref()));
     }
-    DCHECK(buffer_obj.obj() != NULL);
+    ARROW_DCHECK(buffer_obj.obj() != NULL);
 
     return PyBuffer::FromPyObject(buffer_obj.obj());
   });

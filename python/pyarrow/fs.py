@@ -39,6 +39,10 @@ from pyarrow._fs import (  # noqa
 FileStats = FileInfo
 
 _not_imported = []
+try:
+    from pyarrow._azurefs import AzureFileSystem  # noqa
+except ImportError:
+    _not_imported.append("AzureFileSystem")
 
 try:
     from pyarrow._hdfs import HadoopFileSystem  # noqa
@@ -70,11 +74,11 @@ def __getattr__(name):
     if name in _not_imported:
         raise ImportError(
             "The pyarrow installation is not built with support for "
-            "'{0}'".format(name)
+            f"'{name}'"
         )
 
     raise AttributeError(
-        "module 'pyarrow.fs' has no attribute '{0}'".format(name)
+        f"module 'pyarrow.fs' has no attribute '{name}'"
     )
 
 
@@ -89,18 +93,15 @@ def _filesystem_from_str(uri):
         if prefix_info.type != FileType.Directory:
             raise ValueError(
                 "The path component of the filesystem URI must point to a "
-                "directory but it has a type: `{}`. The path component "
-                "is `{}` and the given filesystem URI is `{}`".format(
-                    prefix_info.type.name, prefix_info.path, uri
-                )
+                f"directory but it has a type: `{prefix_info.type.name}`. The path "
+                f"component is `{prefix_info.path}` and the given filesystem URI is "
+                f"`{uri}`"
             )
         filesystem = SubTreeFileSystem(prefix, filesystem)
     return filesystem
 
 
-def _ensure_filesystem(
-    filesystem, use_mmap=False, allow_legacy_filesystem=False
-):
+def _ensure_filesystem(filesystem, *, use_mmap=False):
     if isinstance(filesystem, FileSystem):
         return filesystem
     elif isinstance(filesystem, str):
@@ -123,25 +124,13 @@ def _ensure_filesystem(
                 return LocalFileSystem(use_mmap=use_mmap)
             return PyFileSystem(FSSpecHandler(filesystem))
 
-    # map old filesystems to new ones
-    import pyarrow.filesystem as legacyfs
-
-    if isinstance(filesystem, legacyfs.LocalFileSystem):
-        return LocalFileSystem(use_mmap=use_mmap)
-    # TODO handle HDFS?
-    if allow_legacy_filesystem and isinstance(filesystem, legacyfs.FileSystem):
-        return filesystem
-
     raise TypeError(
-        "Unrecognized filesystem: {}. `filesystem` argument must be a "
-        "FileSystem instance or a valid file system URI'".format(
-            type(filesystem))
+        f"Unrecognized filesystem: {type(filesystem)}. `filesystem` argument must be a "
+        "FileSystem instance or a valid file system URI"
     )
 
 
-def _resolve_filesystem_and_path(
-    path, filesystem=None, allow_legacy_filesystem=False, memory_map=False
-):
+def _resolve_filesystem_and_path(path, filesystem=None, *, memory_map=False):
     """
     Return filesystem/path from path which could be an URI or a plain
     filesystem path.
@@ -155,10 +144,7 @@ def _resolve_filesystem_and_path(
         return filesystem, path
 
     if filesystem is not None:
-        filesystem = _ensure_filesystem(
-            filesystem, use_mmap=memory_map,
-            allow_legacy_filesystem=allow_legacy_filesystem
-        )
+        filesystem = _ensure_filesystem(filesystem, use_mmap=memory_map)
         if isinstance(filesystem, LocalFileSystem):
             path = _stringify_path(path)
         elif not isinstance(path, str):
@@ -166,8 +152,7 @@ def _resolve_filesystem_and_path(
                 "Expected string path; path-like objects are only allowed "
                 "with a local filesystem"
             )
-        if not allow_legacy_filesystem:
-            path = filesystem.normalize_path(path)
+        path = filesystem.normalize_path(path)
         return filesystem, path
 
     path = _stringify_path(path)
@@ -247,7 +232,7 @@ def copy_files(source, destination,
     Copy one file from S3 bucket to a local directory:
 
     >>> fs.copy_files("s3://registry.opendata.aws/roda/ndjson/index.ndjson",
-    ...               "file:///{}/index_copy.ndjson".format(local_path))
+    ...               f"file:///{local_path}/index_copy.ndjson")
 
     >>> fs.LocalFileSystem().get_file_info(str(local_path)+
     ...                                    '/index_copy.ndjson')
@@ -256,7 +241,7 @@ def copy_files(source, destination,
     Copy file using a FileSystem object:
 
     >>> fs.copy_files("registry.opendata.aws/roda/ndjson/index.ndjson",
-    ...               "file:///{}/index_copy.ndjson".format(local_path),
+    ...               f"file:///{local_path}/index_copy.ndjson",
     ...               source_filesystem=fs.S3FileSystem())
     """
     source_fs, source_path = _resolve_filesystem_and_path(
@@ -310,7 +295,7 @@ class FSSpecHandler(FileSystemHandler):
         protocol = self.fs.protocol
         if isinstance(protocol, list):
             protocol = protocol[0]
-        return "fsspec+{0}".format(protocol)
+        return f"fsspec+{protocol}"
 
     def normalize_path(self, path):
         return path

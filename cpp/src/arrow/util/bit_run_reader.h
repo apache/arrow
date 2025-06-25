@@ -457,6 +457,26 @@ using ReverseSetBitRunReader = BaseSetBitRunReader</*Reverse=*/true>;
 
 // Functional-style bit run visitors.
 
+template <typename Visit>
+inline Status VisitBitRuns(const uint8_t* bitmap, int64_t offset, int64_t length,
+                           Visit&& visit) {
+  if (bitmap == NULLPTR) {
+    // Assuming all set (as in a null bitmap)
+    return visit(static_cast<int64_t>(0), length, true);
+  }
+  BitRunReader reader(bitmap, offset, length);
+  int64_t position = 0;
+  while (true) {
+    const auto run = reader.NextRun();
+    if (run.length == 0) {
+      break;
+    }
+    ARROW_RETURN_NOT_OK(visit(position, run.length, run.set));
+    position += run.length;
+  }
+  return Status::OK();
+}
+
 // XXX: Try to make this function small so the compiler can inline and optimize
 // the `visit` function, which is normally a hot loop with vectorizable code.
 // - don't inline SetBitRunReader constructor, it doesn't hurt performance

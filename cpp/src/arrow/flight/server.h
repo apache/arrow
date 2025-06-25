@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Interfaces to use for defining Flight RPC servers. API should be considered
-// experimental for now
+// Interfaces to use for defining Flight RPC servers.
 
 #pragma once
 
@@ -226,7 +225,7 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// \brief Shut down the server, blocking until current requests finish.
   ///
   /// Can be called from a signal handler or another thread while Serve()
-  /// blocks. Optionally a deadline can be set. Once the the deadline expires
+  /// blocks. Optionally a deadline can be set. Once the deadline expires
   /// server will wait until remaining running calls complete.
   ///
   /// Should only be called once.
@@ -262,7 +261,7 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// \brief Retrieve the current status of the target query
   /// \param[in] context The call context.
   /// \param[in] request the dataset request or a descriptor returned by a
-  /// prioir PollFlightInfo call
+  /// prior PollFlightInfo call
   /// \param[out] info the returned retry info provider
   /// \return Status
   virtual Status PollFlightInfo(const ServerCallContext& context,

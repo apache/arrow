@@ -23,7 +23,6 @@
 
 #include <arrow-flight-sql-glib/client.h>
 
-
 GAFlightSQLPreparedStatement *
 gaflightsql_prepared_statement_new_raw(
   std::shared_ptr<arrow::flight::sql::PreparedStatement> *flight_sql_statement,
@@ -32,8 +31,7 @@ std::shared_ptr<arrow::flight::sql::PreparedStatement>
 gaflightsql_prepared_statement_get_raw(GAFlightSQLPreparedStatement *statement);
 
 GAFlightSQLClient *
-gaflightsql_client_new_raw(
-  arrow::flight::sql::FlightSqlClient *flight_sql_client,
-  GAFlightClient *client);
+gaflightsql_client_new_raw(arrow::flight::sql::FlightSqlClient *flight_sql_client,
+                           GAFlightClient *client);
 arrow::flight::sql::FlightSqlClient *
 gaflightsql_client_get_raw(GAFlightSQLClient *client);

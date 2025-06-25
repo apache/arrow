@@ -18,7 +18,7 @@
 #include "arrow/util/async_util.h"
 
 #include "arrow/util/future.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/tracing_internal.h"
 
@@ -117,6 +117,8 @@ class FifoQueue : public ThrottledAsyncTaskScheduler::Queue {
   bool Empty() override { return tasks_.empty(); }
 
   void Purge() override { tasks_.clear(); }
+
+  std::size_t Size() const override { return tasks_.size(); }
 
  private:
   std::list<std::unique_ptr<Task>> tasks_;
@@ -314,15 +316,11 @@ class ThrottledAsyncTaskSchedulerImpl
 #endif
       queue_->Push(std::move(task));
       lk.unlock();
-      maybe_backoff->AddCallback(
-          [weak_self = std::weak_ptr<ThrottledAsyncTaskSchedulerImpl>(
-               shared_from_this())](const Status& st) {
-            if (st.ok()) {
-              if (auto self = weak_self.lock()) {
-                self->ContinueTasks();
-              }
-            }
-          });
+      maybe_backoff->AddCallback([weak_self = weak_from_this()](const Status& st) {
+        if (auto self = weak_self.lock(); self && st.ok()) {
+          self->ContinueTasks();
+        }
+      });
       return true;
     } else {
       lk.unlock();
@@ -332,6 +330,10 @@ class ThrottledAsyncTaskSchedulerImpl
 
   void Pause() override { throttle_->Pause(); }
   void Resume() override { throttle_->Resume(); }
+  std::size_t QueueSize() override {
+    std::lock_guard lk(mutex_);
+    return queue_->Size();
+  }
   const util::tracing::Span& span() const override { return target_->span(); }
 
  private:
@@ -344,8 +346,9 @@ class ThrottledAsyncTaskSchedulerImpl
          self = shared_from_this()]() mutable -> Result<Future<>> {
           ARROW_ASSIGN_OR_RAISE(Future<> inner_fut, (*inner_task)());
           if (!inner_fut.TryAddCallback([&] {
-                return [latched_cost, self = std::move(self)](const Status& st) -> void {
-                  if (st.ok()) {
+                return [latched_cost,
+                        weak_self = self->weak_from_this()](const Status& st) -> void {
+                  if (auto self = weak_self.lock(); self && st.ok()) {
                     self->throttle_->Release(latched_cost);
                     self->ContinueTasks();
                   }
@@ -354,6 +357,7 @@ class ThrottledAsyncTaskSchedulerImpl
             // If the task is already finished then don't run ContinueTasks
             // if we are already running it so we can avoid stack overflow
             self->throttle_->Release(latched_cost);
+            inner_task.reset();
             if (!in_continue) {
               self->ContinueTasks();
             }
@@ -371,8 +375,8 @@ class ThrottledAsyncTaskSchedulerImpl
       if (maybe_backoff) {
         lk.unlock();
         if (!maybe_backoff->TryAddCallback([&] {
-              return [self = shared_from_this()](const Status& st) {
-                if (st.ok()) {
+              return [weak_self = weak_from_this()](const Status& st) {
+                if (auto self = weak_self.lock(); self && st.ok()) {
                   self->ContinueTasks();
                 }
               };
@@ -499,6 +503,7 @@ class ThrottledAsyncTaskGroup : public ThrottledAsyncTaskScheduler {
       : throttle_(std::move(throttle)), task_group_(std::move(task_group)) {}
   void Pause() override { throttle_->Pause(); }
   void Resume() override { throttle_->Resume(); }
+  std::size_t QueueSize() override { return throttle_->QueueSize(); }
   const util::tracing::Span& span() const override { return task_group_->span(); }
   bool AddTask(std::unique_ptr<Task> task) override {
     return task_group_->AddTask(std::move(task));

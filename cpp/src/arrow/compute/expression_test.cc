@@ -27,6 +27,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/expression_internal.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
@@ -65,8 +66,6 @@ const std::shared_ptr<Schema> kBoringSchema = schema({
     field("binary", binary()),
     field("ts_s_utc", timestamp(TimeUnit::SECOND, "UTC")),
 });
-
-#define EXPECT_OK ARROW_EXPECT_OK
 
 Expression cast(Expression argument, std::shared_ptr<DataType> to_type) {
   return call("cast", {std::move(argument)},
@@ -337,6 +336,15 @@ TEST(Expression, Equality) {
               literal(std::numeric_limits<double>::signaling_NaN()));
   }
 
+  // Equality when underlying `impl_` is null.
+  Expression expr1;
+  Expression expr2(literal(1));
+  EXPECT_NE(literal("a"), expr1);
+  EXPECT_NE(expr1, literal("a"));
+
+  EXPECT_FALSE(expr1.Equals(expr2));
+  EXPECT_FALSE(expr2.Equals(expr1));
+
   EXPECT_EQ(field_ref("a"), field_ref("a"));
   EXPECT_NE(field_ref("a"), field_ref("b"));
   EXPECT_NE(field_ref("a"), literal(2));
@@ -604,6 +612,31 @@ TEST(Expression, BindCall) {
                 add(cast(field_ref("i32"), float32()), literal(3.5F)));
 }
 
+TEST(Expression, BindWithAliasCasts) {
+  auto fm = GetFunctionRegistry();
+  EXPECT_OK(fm->AddAlias("alias_cast", "cast"));
+
+  auto expr = call("alias_cast", {field_ref("f1")}, CastOptions::Unsafe(arrow::int32()));
+  EXPECT_FALSE(expr.IsBound());
+
+  auto schema = arrow::schema({field("f1", decimal128(30, 3))});
+  ExpectBindsTo(expr, no_change, &expr, *schema);
+}
+
+TEST(Expression, BindWithDecimalArithmeticOps) {
+  for (std::string arith_op : {"add", "subtract", "multiply", "divide"}) {
+    auto expr = call(arith_op, {field_ref("d1"), field_ref("d2")});
+    EXPECT_FALSE(expr.IsBound());
+
+    static const std::vector<std::pair<int, int>> scales = {{3, 9}, {6, 6}, {9, 3}};
+    for (auto s : scales) {
+      auto schema = arrow::schema(
+          {field("d1", decimal256(30, s.first)), field("d2", decimal256(20, s.second))});
+      ExpectBindsTo(expr, no_change, &expr, *schema);
+    }
+  }
+}
+
 TEST(Expression, BindWithImplicitCasts) {
   for (auto cmp : {equal, not_equal, less, less_equal, greater, greater_equal}) {
     // cast arguments to common numeric type
@@ -860,6 +893,62 @@ TEST(Expression, ExecuteCall) {
     {"a": {"a": 6.125, "b": 3.375}},
     {"a": {"a": 0.0,   "b": 1}},
     {"a": {"a": -1,    "b": 4.75}}
+  ])"));
+}
+
+TEST(Expression, ExecuteCallWithNoArguments) {
+  const int kCount = 10;
+  auto random_options = RandomOptions::FromSeed(/*seed=*/0);
+  ExecBatch input({}, kCount);
+
+  Expression random_expr = call("random", {}, random_options);
+  ASSERT_OK_AND_ASSIGN(random_expr, random_expr.Bind(float64()));
+  ASSERT_OK_AND_ASSIGN(auto simplify_expr,
+                       SimplifyWithGuarantee(random_expr, input.guarantee));
+
+  ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(simplify_expr, input));
+  compute::ExecContext* exec_context = default_exec_context();
+  ASSERT_OK_AND_ASSIGN(auto function,
+                       exec_context->func_registry()->GetFunction("random"));
+  ASSERT_OK_AND_ASSIGN(Datum expected,
+                       function->Execute(input, &random_options, exec_context));
+  AssertDatumsEqual(actual, expected, /*verbose=*/true);
+
+  EXPECT_EQ(actual.length(), kCount);
+}
+
+TEST(Expression, ExecuteChunkedArray) {
+  // GH-41923: compute should generate the right result if input
+  // ExecBatch is `chunked_array`.
+  auto input_schema = struct_({field("a", struct_({
+                                              field("a", float64()),
+                                              field("b", float64()),
+                                          }))});
+
+  auto chunked_array_input = ChunkedArrayFromJSON(input_schema, {R"([
+    {"a": {"a": 6.125, "b": 3.375}},
+    {"a": {"a": 0.0,   "b": 1}}
+  ])",
+                                                                 R"([
+    {"a": {"a": -1,    "b": 4.75}}
+  ])"});
+
+  ASSERT_OK_AND_ASSIGN(auto table_input,
+                       Table::FromChunkedStructArray(chunked_array_input));
+
+  auto expr = add(field_ref(FieldRef("a", "a")), field_ref(FieldRef("a", "b")));
+
+  ASSERT_OK_AND_ASSIGN(expr, expr.Bind(input_schema));
+  std::vector<Datum> inputs{table_input->column(0)};
+  ExecBatch batch{inputs, 3};
+
+  ASSERT_OK_AND_ASSIGN(Datum res, ExecuteScalarExpression(expr, batch));
+
+  AssertDatumsEqual(res, ArrayFromJSON(float64(),
+                                       R"([
+    9.5,
+    1,
+    3.75
   ])"));
 }
 
@@ -1352,6 +1441,36 @@ TEST(Expression, SingleComparisonGuarantees) {
   }
 }
 
+static Status RegisterMyRandom() {
+  const std::string name = "my_random";
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), FunctionDoc::Empty(),
+                                               nullptr, /*is_pure=*/false);
+
+  auto func_exec = [](KernelContext* /*ctx*/, const ExecSpan& /*batch*/,
+                      ExecResult* /*out*/) -> Status { return Status::OK(); };
+
+  ScalarKernel kernel({int32()}, float64(), func_exec);
+  ARROW_RETURN_NOT_OK(func->AddKernel(kernel));
+
+  auto registry = GetFunctionRegistry();
+  ARROW_RETURN_NOT_OK(registry->AddFunction(std::move(func)));
+
+  return Status::OK();
+}
+
+TEST(Expression, SimplifyImpureFunctionCall) {
+  // skip simplification for impure function with no arguments
+  auto impure_expr = call("random", {});
+  Simplify{impure_expr}.WithGuarantee(literal("")).Expect(impure_expr);
+
+  // simplify impure function's arguments
+  ASSERT_OK(RegisterMyRandom());
+  auto pure_expr = call("add", {field_ref("i32"), literal(3)});
+  Simplify{call("my_random", {pure_expr})}
+      .WithGuarantee(equal(field_ref("i32"), literal(1)))
+      .Expect(call("my_random", {literal(4)}));
+}
+
 TEST(Expression, SimplifyWithGuarantee) {
   // drop both members of a conjunctive filter
   Simplify{
@@ -1505,6 +1624,144 @@ TEST(Expression, SimplifyWithComparisonAndNullableCaveat) {
           true_unless_null(field_ref("i32"))));  // not satisfiable, will drop row group
 }
 
+TEST(Expression, SimplifyIsIn) {
+  auto is_in = [](Expression field, std::shared_ptr<DataType> value_set_type,
+                  std::string json_array,
+                  SetLookupOptions::NullMatchingBehavior null_matching_behavior) {
+    SetLookupOptions options{ArrayFromJSON(value_set_type, json_array),
+                             null_matching_behavior};
+    return call("is_in", {field}, options);
+  };
+
+  for (SetLookupOptions::NullMatchingBehavior null_matching : {
+           SetLookupOptions::MATCH,
+           SetLookupOptions::SKIP,
+           SetLookupOptions::EMIT_NULL,
+           SetLookupOptions::INCONCLUSIVE,
+       }) {
+    Simplify{is_in(field_ref("i32"), int32(), "[]", null_matching)}
+        .WithGuarantee(greater(field_ref("i32"), literal(2)))
+        .Expect(false);
+
+    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching)}
+        .WithGuarantee(equal(field_ref("i32"), literal(6)))
+        .Expect(false);
+
+    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching)}
+        .WithGuarantee(greater(field_ref("i32"), literal(3)))
+        .Expect(is_in(field_ref("i32"), int32(), "[5,7,9]", null_matching));
+
+    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching)}
+        .WithGuarantee(greater(field_ref("i32"), literal(9)))
+        .Expect(false);
+
+    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching)}
+        .WithGuarantee(less_equal(field_ref("i32"), literal(0)))
+        .Expect(false);
+
+    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching)}
+        .WithGuarantee(greater(field_ref("i32"), literal(0)))
+        .ExpectUnchanged();
+
+    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching)}
+        .WithGuarantee(less_equal(field_ref("i32"), literal(9)))
+        .ExpectUnchanged();
+
+    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching)}
+        .WithGuarantee(and_(less_equal(field_ref("i32"), literal(7)),
+                            greater(field_ref("i32"), literal(4))))
+        .Expect(is_in(field_ref("i32"), int32(), "[5,7]", null_matching));
+
+    Simplify{is_in(field_ref("u32"), int8(), "[1,3,5,7,9]", null_matching)}
+        .WithGuarantee(greater(field_ref("u32"), literal(3)))
+        .Expect(is_in(field_ref("u32"), int8(), "[5,7,9]", null_matching));
+
+    Simplify{is_in(field_ref("u32"), int64(), "[1,3,5,7,9]", null_matching)}
+        .WithGuarantee(greater(field_ref("u32"), literal(3)))
+        .Expect(is_in(field_ref("u32"), int64(), "[5,7,9]", null_matching));
+  }
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3]", SetLookupOptions::MATCH),
+  }
+      .WithGuarantee(
+          or_(greater(field_ref("i32"), literal(2)), is_null(field_ref("i32"))))
+      .Expect(is_in(field_ref("i32"), int32(), "[3]", SetLookupOptions::MATCH));
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3,null]", SetLookupOptions::MATCH),
+  }
+      .WithGuarantee(greater(field_ref("i32"), literal(2)))
+      .Expect(is_in(field_ref("i32"), int32(), "[3]", SetLookupOptions::MATCH));
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3,null]", SetLookupOptions::MATCH),
+  }
+      .WithGuarantee(
+          or_(greater(field_ref("i32"), literal(2)), is_null(field_ref("i32"))))
+      .Expect(is_in(field_ref("i32"), int32(), "[3,null]", SetLookupOptions::MATCH));
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3]", SetLookupOptions::SKIP),
+  }
+      .WithGuarantee(
+          or_(greater(field_ref("i32"), literal(2)), is_null(field_ref("i32"))))
+      .Expect(is_in(field_ref("i32"), int32(), "[3]", SetLookupOptions::SKIP));
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3,null]", SetLookupOptions::SKIP),
+  }
+      .WithGuarantee(greater(field_ref("i32"), literal(2)))
+      .Expect(is_in(field_ref("i32"), int32(), "[3]", SetLookupOptions::SKIP));
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3,null]", SetLookupOptions::SKIP),
+  }
+      .WithGuarantee(
+          or_(greater(field_ref("i32"), literal(2)), is_null(field_ref("i32"))))
+      .Expect(is_in(field_ref("i32"), int32(), "[3]", SetLookupOptions::SKIP));
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3]", SetLookupOptions::EMIT_NULL),
+  }
+      .WithGuarantee(
+          or_(greater(field_ref("i32"), literal(2)), is_null(field_ref("i32"))))
+      .ExpectUnchanged();
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3,null]", SetLookupOptions::EMIT_NULL),
+  }
+      .WithGuarantee(greater(field_ref("i32"), literal(2)))
+      .Expect(is_in(field_ref("i32"), int32(), "[3]", SetLookupOptions::EMIT_NULL));
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3,null]", SetLookupOptions::EMIT_NULL),
+  }
+      .WithGuarantee(
+          or_(greater(field_ref("i32"), literal(2)), is_null(field_ref("i32"))))
+      .ExpectUnchanged();
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3]", SetLookupOptions::INCONCLUSIVE),
+  }
+      .WithGuarantee(
+          or_(greater(field_ref("i32"), literal(2)), is_null(field_ref("i32"))))
+      .ExpectUnchanged();
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3,null]", SetLookupOptions::INCONCLUSIVE),
+  }
+      .WithGuarantee(greater(field_ref("i32"), literal(2)))
+      .ExpectUnchanged();
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3,null]", SetLookupOptions::INCONCLUSIVE),
+  }
+      .WithGuarantee(
+          or_(greater(field_ref("i32"), literal(2)), is_null(field_ref("i32"))))
+      .ExpectUnchanged();
+}
+
 TEST(Expression, SimplifyThenExecute) {
   auto filter =
       or_({equal(field_ref("f32"), literal(0)),
@@ -1530,6 +1787,40 @@ TEST(Expression, SimplifyThenExecute) {
   ExpectExecute(filter, input, &evaluated);
   ExpectExecute(simplified, input, &simplified_evaluated);
   AssertDatumsEqual(evaluated, simplified_evaluated, /*verbose=*/true);
+}
+
+TEST(Expression, SimplifyIsInThenExecute) {
+  auto input = RecordBatchFromJSON(kBoringSchema, R"([
+      {"i64": 2, "i32": 5},
+      {"i64": 5, "i32": 6},
+      {"i64": 3, "i32": 6},
+      {"i64": 3, "i32": 5},
+      {"i64": 4, "i32": 5},
+      {"i64": 2, "i32": 7},
+      {"i64": 5, "i32": 5}
+  ])");
+
+  std::vector<Expression> guarantees{greater(field_ref("i64"), literal(1)),
+                                     greater_equal(field_ref("i32"), literal(5)),
+                                     less_equal(field_ref("i64"), literal(5))};
+
+  for (const Expression& guarantee : guarantees) {
+    auto filter =
+        call("is_in", {guarantee.call()->arguments[0]},
+             compute::SetLookupOptions{ArrayFromJSON(int32(), "[1,2,3]"), true});
+    ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(filter, guarantee));
+
+    Datum evaluated, simplified_evaluated;
+    ExpectExecute(filter, input, &evaluated);
+    ExpectExecute(simplified, input, &simplified_evaluated);
+    if (simplified_evaluated.is_scalar()) {
+      ASSERT_OK_AND_ASSIGN(
+          simplified_evaluated,
+          MakeArrayFromScalar(*simplified_evaluated.scalar(), evaluated.length()));
+    }
+    AssertDatumsEqual(evaluated, simplified_evaluated, /*verbose=*/true);
+  }
 }
 
 TEST(Expression, Filter) {

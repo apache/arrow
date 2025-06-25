@@ -17,7 +17,183 @@
   under the License.
 -->
 
-# arrow 14.0.0.9000
+# arrow 20.0.0.9000
+
+## Minor improvements and fixes
+
+- Added bindings for atan, sinh, cosh, tanh, asinh, acosh, and tanh, and expm1 (#44953)
+- Expose an option `check_directory_existence_before_creation` in `S3FileSystem`
+  to reduce I/O calls on cloud storage (@HaochengLIU, #41998)
+- `case_when()` now correctly detects objects that are not in the global 
+  environment (@etiennebacher, #46667).
+
+# arrow 20.0.0.1
+
+## Minor improvements and fixes
+
+- Updated internal C++ code to comply with CRAN's gcc-UBSAN checks
+  ([#46394](https://github.com/apache/arrow/issues/46394))
+
+# arrow 20.0.0
+
+## Minor improvements and fixes
+
+- Binary Arrays now inherit from `blob::blob` in addition to `arrow_binary` when
+  [converted to R
+  objects](https://arrow.apache.org/docs/r/articles/data_types.html#translations-from-arrow-to-r).
+  This change is the first step in eventually deprecating the `arrow_binary`
+  class in favor of the `blob` class in the
+  [`blob`](https://cran.r-project.org/package=blob) package (See
+  [GH-45709](https://github.com/apache/arrow/issues/45709)).
+
+# arrow 19.0.1.1
+
+## Minor improvements and fixes
+
+- Updated internal code to comply with new CRAN requirements on non-API calls ([#45949](https://github.com/apache/arrow/issues/45949))
+- Enable building the bundled third-party libraries under CMake 4.0 ([#45987](https://github.com/apache/arrow/issues/45987))
+
+# arrow 19.0.1
+
+This release primarily updates the underlying Arrow C++ version used by the
+package to version 19.0.1 and includes all changes from the 19.0.0 and 19.0.1
+releases. For what's changed in Arrow C++ 19.0.0, please see the [blog
+post](https://arrow.apache.org/blog/2025/01/16/19.0.0-release/) and
+[changelog](https://arrow.apache.org/release/19.0.0.html#changelog).
+For what's changed in Arrow C++ 19.0.1, please see the [blog
+post](https://arrow.apache.org/blog/2025/02/16/19.0.1-release/) and
+[changelog](https://arrow.apache.org/release/19.0.1.html#changelog).
+
+# arrow 18.1.0
+
+## Minor improvements and fixes
+
+* Fix bindings to allow filtering a factor column in a Dataset using `%in%` (#43446)
+* Update `str_sub` binding to properly handle negative `end` values (@coussens, #44141)
+* Fix altrep string columns from readr (#43351)
+* Fix crash in ParquetFileWriter$WriteTable and add WriteBatch (#42241)
+* Fix bindings in Math group generics (@aboyoun, #43162)
+* Fix pull on a grouped query returns the wrong column (#43172)
+
+# arrow 17.0.0
+
+## New features
+
+* R functions that users write that use functions that Arrow supports in dataset
+  queries now can be used in queries too. Previously, only functions that used
+  arithmetic operators worked.
+  For example, `time_hours <- function(mins) mins / 60` worked,
+  but `time_hours_rounded <- function(mins) round(mins / 60)` did not;
+  now both work. These are automatic translations rather than true user-defined
+  functions (UDFs); for UDFs, see `register_scalar_function()`. (#41223)
+* `mutate()` expressions can now include aggregations, such as `x - mean(x)`. (#41350)
+* `summarize()` supports more complex expressions, and correctly handles cases
+  where column names are reused in expressions. (#41223)
+* The `na_matches` argument to the `dplyr::*_join()` functions is now supported.
+  This argument controls whether `NA` values are considered equal when joining. (#41358)
+* R metadata, stored in the Arrow schema to support round-tripping data between
+  R and Arrow/Parquet, is now serialized and deserialized more strictly.
+  This makes it safer to load data from files from unknown sources into R data.frames. (#41969)
+
+## Minor improvements and fixes
+* Turn on the S3 and ZSTD features by default for macOS. (#42210)
+* Fix bindings in Math group generics. (#43162)
+* Fix a bug in our implementation of `pull` on grouped datasets, it now
+  returns the expected column. (#43172)
+* The minimum version of the Arrow C++ library the Arrow R package can be built
+  with has been bumped to 15.0.0 (#42241)
+
+# arrow 16.1.0
+
+## New features
+
+* Streams can now be written to socket connections (#38897)
+* The Arrow R package now can be built with older versions of the Arrow C++ library (back to 13.0.0) (#39738)
+
+## Minor improvements and fixes
+
+* Dataset and table output printing now truncates schemas longer than 20 items long (#38916)
+* Fixed pointer conversion to Python for latest reticulate to ensure data can be passed between Arrow and PyArrow (#39969)
+* Check on macOS if we are using GNU libtool is and ensure we use macOS libtool instead (#40259)
+* Fix an error where creating a bundled tarball with all dependencies was failing on Windows (@hutch3232, #40232)
+
+
+# arrow 15.0.1
+
+##  New features
+
+* Bindings for `base::prod` have been added so you can now use it in your dplyr
+  pipelines (i.e., `tbl |> summarize(prod(col))`) without having to pull the
+  data into R (@m-muecke, #38601).
+* Calling `dimnames` or `colnames` on `Dataset` objects now returns a useful
+  result rather than just `NULL` (#38377).
+* The `code()` method on Schema objects now takes an optional `namespace`
+  argument which, when `TRUE`, prefixes names with `arrow::` which makes
+  the output more portable (@orgadish, #38144).
+
+##  Minor improvements and fixes
+
+* Don't download cmake when ARROW_OFFLINE_BUILD=true and update `SystemRequirements` (#39602).
+* Fallback to source build gracefully if binary download fails (#39587).
+* An error is now thrown instead of warning and pulling the data into R when any
+  of `sub`, `gsub`, `stringr::str_replace`, `stringr::str_replace_all` are
+  passed a length > 1 vector of values in `pattern` (@abfleishman, #39219).
+* Missing documentation was added to `?open_dataset` documenting how to use the
+  ND-JSON support added in arrow 13.0.0 (@Divyansh200102, #38258).
+* To make debugging problems easier when using arrow with AWS S3
+  (e.g., `s3_bucket`, `S3FileSystem`), the debug log level for S3 can be set
+  with the `AWS_S3_LOG_LEVEL` environment variable.
+  See `?S3FileSystem` for more information. (#38267)
+* Using arrow with duckdb (i.e., `to_duckdb()`) no longer results in warnings
+  when quitting your R session. (#38495)
+* A large number of minor spelling mistakes were fixed (@jsoref, #38929, #38257)
+* The developer documentation has been updated to match changes made in recent releases (#38220)
+
+# arrow 14.0.2.1
+
+##  Minor improvements and fixes
+
+* Check for internet access when building from source and fallback to a
+  minimally scoped Arrow C++ build (#39699).
+* Build from source by default on macOS, use `LIBARROW_BINARY=true` for old behavior (#39861).
+* Support building against older versions of Arrow C++. This is currently opt-in
+  (`ARROW_R_ALLOW_CPP_VERSION_MISMATCH=true`) and requires atleast Arrow C++ 13.0.0 (#39739).
+* Make it possible to use Arrow C++ from Rtools on windows (in future Rtools versions). (#39986).
+
+# arrow 14.0.2
+
+##  Minor improvements and fixes
+
+* Fixed C++ compiler warnings caused by implicit conversions (#39138, #39186).
+* Fixed confusing dplyr warnings during tests (#39076).
+* Added missing "-framework Security" pkg-config flag to prevent
+  issues when compiling with strict linker settings (#38861).
+
+# arrow 14.0.0.2
+
+## Minor improvements and fixes
+
+* Fixed the printf syntax to align with format checking (#38894)
+* Removed bashism in configure script (#38716).
+* Fixed a broken link in the README (#38657)
+* Properly escape the license header in the lintr config (#38639).
+* Removed spurious warnings from installation-script test suite (#38571).
+* Polished installation-script after refactor (#38534)
+
+## Installation
+
+* If pkg-config fails to detect the required libraries an additional search
+  without pkg-config is run (#38970).
+* Fetch the latest nightly Arrow C++ binary when installing a development
+  Version (#38236).
+
+# arrow 14.0.0.1
+
+## Minor improvements and fixes
+
+* Add more debug output for build failures (#38819)
+* Increase timeout during static library download (#38767)
+* Fix bug where rosetta detection was causing installation failure (#38754)
 
 # arrow 14.0.0
 
@@ -33,7 +209,7 @@
 * `schema()` can now be called on `data.frame` objects to retrieve their
   inferred Arrow schema  (#37843).
 * CSVs with a comma or other character as decimal mark can now be read in
-  by the dataset reading functions and new function `read_csv2_arrow()` 
+  by the dataset reading functions and new function `read_csv2_arrow()`
   (#38002).
 
 ## Minor improvements and fixes
@@ -54,10 +230,10 @@
 
 ## Installation
 
-* MacOS builds now use the same installation pathway as on Linux (@assignUser,
+* macOS builds now use the same installation pathway as on Linux (@assignUser,
   #37684).
 * A warning message is now issued on package load when running under emulation
-  on MacOS (i.e., use of x86 installation of R on M1/aarch64; #37777).
+  on macOS (i.e., use of x86 installation of R on M1/aarch64; #37777).
 * R scripts that run during configuration and installation are now run
   using the correct R interpreter (@meztez, #37225).
 * Failed libarrow builds now return more detailed output (@amoeba, #37727).
@@ -111,7 +287,7 @@
 
 # arrow 12.0.1
 
-* Update the version of the date library vendored with Arrow C++ library 
+* Update the version of the date library vendored with Arrow C++ library
   for compatibility with tzdb 0.4.0 (#35594, #35612).
 * Update some tests for compatibility with waldo 0.5.1 (#35131, #35308).
 
@@ -292,7 +468,7 @@ Arrow query engine. See `?acero`.
 A few new features and bugfixes were implemented for joins:
 
 * Extension arrays are now supported in joins, allowing, for example, joining
-  datasets that contain [geoarrow](https://paleolimbot.github.io/geoarrow/) data.
+  datasets that contain [geoarrow](https://github.com/geoarrow/geoarrow) data.
 * The `keep` argument is now supported, allowing separate columns for the left
   and right hand side join keys in join output. Full joins now coalesce the
   join keys (when `keep = FALSE`), avoiding the issue where the join keys would
@@ -390,7 +566,7 @@ As of version 10.0.0, `arrow` requires C++17 to build. This means that:
 
 * The `arrow.dev_repo` for nightly builds of the R package and prebuilt
   libarrow binaries is now <https://nightlies.apache.org/arrow/r/>.
-* Brotli and BZ2 are shipped with MacOS binaries. BZ2 is shipped with Windows binaries. (#13484)
+* Brotli and BZ2 are shipped with macOS binaries. BZ2 is shipped with Windows binaries. (#13484)
 
 # arrow 8.0.0
 
@@ -523,7 +699,7 @@ Arrow arrays and tables can be easily concatenated:
 ## Other improvements and fixes
 
 * Many of the vignettes have been reorganized, restructured and expanded to improve their usefulness and clarity.
-* Code to generate schemas (and individual data type specficiations) are accessible with the `$code()` method on a `schema` or `type`. This allows you to easily get the code needed to create a schema from an object that already has one.
+* Code to generate schemas (and individual data type specifications) are accessible with the `$code()` method on a `schema` or `type`. This allows you to easily get the code needed to create a schema from an object that already has one.
 * Arrow `Duration` type has been mapped to R's `difftime` class.
 * The `decimal256()` type is supported. The `decimal()` function has been revised to call either `decimal256()` or `decimal128()` based on the value of the `precision` argument.
 * `write_parquet()` uses a reasonable guess at `chunk_size` instead of always writing a single chunk. This improves the speed of reading and writing large Parquet files.
@@ -798,7 +974,7 @@ to send and receive data. See `vignette("flight", package = "arrow")` for an ove
 
 * `arrow` now depends on [`cpp11`](https://cpp11.r-lib.org/), which brings more robust UTF-8 handling and faster compilation
 * The Linux build script now succeeds on older versions of R
-* MacOS binary packages now ship with zstandard compression enabled
+* macOS binary packages now ship with zstandard compression enabled
 
 ## Bug fixes and other enhancements
 

@@ -18,5 +18,13 @@
 arrow_install_all_headers("arrow/testing")
 
 if(ARROW_BUILD_TESTS)
+  add_arrow_test(generator_test)
+  add_arrow_test(gtest_util_test)
   add_arrow_test(random_test)
+
+  if(ARROW_FILESYSTEM)
+    add_library(arrow_filesystem_example MODULE examplefs.cc)
+    target_link_libraries(arrow_filesystem_example ${ARROW_TEST_LINK_LIBS}
+                          ${ARROW_EXAMPLE_LINK_LIBS})
+  endif()
 endif()

@@ -21,19 +21,20 @@
 
 namespace arrow::matlab::io::feather::proxy {
 
-    class Reader : public libmexclass::proxy::Proxy {
-        public:
-            Reader(const std::string& filename);
+class Reader : public libmexclass::proxy::Proxy {
+ public:
+  Reader(const std::string& filename);
 
-            virtual ~Reader() {}
+  virtual ~Reader() {}
 
-            static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+  static libmexclass::proxy::MakeResult make(
+      const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
-        protected:
-            void read(libmexclass::proxy::method::Context& context);
-            void getFilename(libmexclass::proxy::method::Context& context);
+ protected:
+  void read(libmexclass::proxy::method::Context& context);
+  void getFilename(libmexclass::proxy::method::Context& context);
 
-            const std::string filename;
-    };
+  const std::string filename;
+};
 
-}
+}  // namespace arrow::matlab::io::feather::proxy

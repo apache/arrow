@@ -184,4 +184,9 @@ function(cython_add_module _name pyx_target_name generated_files)
   add_dependencies(${_name} ${pyx_target_name})
 endfunction()
 
+execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "from Cython.Compiler.Version import version; print(version)"
+                OUTPUT_VARIABLE CYTHON_VERSION_OUTPUT
+                OUTPUT_STRIP_TRAILING_WHITESPACE)
+set(CYTHON_VERSION "${CYTHON_VERSION_OUTPUT}")
+
 include(CMakeParseArguments)

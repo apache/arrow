@@ -115,7 +115,7 @@ Docker container.
 
 .. code-block:: shell
 
-  archery docker run -v "${PWD}/docs:/build/docs" ubuntu-docs
+  archery docker run -v "${PWD}/docs:/build/docs" debian-docs
 
 The final output is located under the ``${PWD}/docs`` directory.
 
@@ -136,7 +136,7 @@ GitHub Actions response, where you need to click on the Crossbow build badge:
 
 .. figure:: ./images/docs_preview_1.jpeg
    :scale: 70 %
-   :alt: Github-actions response with the crossbow build status.
+   :alt: GitHub Actions response with the crossbow build status.
 
    Crossbow build status
 
@@ -259,7 +259,7 @@ Build the docs in the target directory:
    sphinx-build ./source/developers ./source/developers/_build -c ./source -D master_doc=temp_index
 
 This builds everything in the target directory to a folder inside of it
-called ``_build`` using the config file in the `source` directory.
+called ``_build`` using the config file in the ``source`` directory.
 
 Once you have verified the HTML documents, you can remove temporary index file:
 

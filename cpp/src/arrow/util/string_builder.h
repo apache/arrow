@@ -20,6 +20,7 @@
 #include <memory>
 #include <ostream>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 #include "arrow/util/visibility.h"
@@ -46,7 +47,12 @@ class ARROW_EXPORT StringStreamWrapper {
 
 template <typename Head>
 void StringBuilderRecursive(std::ostream& stream, Head&& head) {
-  stream << head;
+  if constexpr (std::is_floating_point_v<std::decay_t<Head>>) {
+    // Avoid losing precision when printing floating point numbers
+    stream << std::to_string(head);
+  } else {
+    stream << head;
+  }
 }
 
 template <typename Head, typename... Tail>

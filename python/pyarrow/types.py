@@ -32,7 +32,8 @@ _UNSIGNED_INTEGER_TYPES = {lib.Type_UINT8, lib.Type_UINT16, lib.Type_UINT32,
                            lib.Type_UINT64}
 _INTEGER_TYPES = _SIGNED_INTEGER_TYPES | _UNSIGNED_INTEGER_TYPES
 _FLOATING_TYPES = {lib.Type_HALF_FLOAT, lib.Type_FLOAT, lib.Type_DOUBLE}
-_DECIMAL_TYPES = {lib.Type_DECIMAL128, lib.Type_DECIMAL256}
+_DECIMAL_TYPES = {lib.Type_DECIMAL32, lib.Type_DECIMAL64, lib.Type_DECIMAL128,
+                  lib.Type_DECIMAL256}
 _DATE_TYPES = {lib.Type_DATE32, lib.Type_DATE64}
 _TIME_TYPES = {lib.Type_TIME32, lib.Type_TIME64}
 _INTERVAL_TYPES = {lib.Type_INTERVAL_MONTH_DAY_NANO}
@@ -40,8 +41,9 @@ _TEMPORAL_TYPES = ({lib.Type_TIMESTAMP,
                     lib.Type_DURATION} | _TIME_TYPES | _DATE_TYPES |
                    _INTERVAL_TYPES)
 _UNION_TYPES = {lib.Type_SPARSE_UNION, lib.Type_DENSE_UNION}
-_NESTED_TYPES = {lib.Type_LIST, lib.Type_LARGE_LIST, lib.Type_STRUCT,
-                 lib.Type_MAP} | _UNION_TYPES
+_NESTED_TYPES = {lib.Type_LIST, lib.Type_FIXED_SIZE_LIST, lib.Type_LARGE_LIST,
+                 lib.Type_LIST_VIEW, lib.Type_LARGE_LIST_VIEW,
+                 lib.Type_STRUCT, lib.Type_MAP} | _UNION_TYPES
 
 
 @doc(datatype="null")
@@ -151,6 +153,16 @@ def is_fixed_size_list(t):
     return t.id == lib.Type_FIXED_SIZE_LIST
 
 
+@doc(is_null, datatype="list view")
+def is_list_view(t):
+    return t.id == lib.Type_LIST_VIEW
+
+
+@doc(is_null, datatype="large list view")
+def is_large_list_view(t):
+    return t.id == lib.Type_LARGE_LIST_VIEW
+
+
 @doc(is_null, datatype="struct")
 def is_struct(t):
     return t.id == lib.Type_STRUCT
@@ -243,6 +255,16 @@ def is_fixed_size_binary(t):
     return t.id == lib.Type_FIXED_SIZE_BINARY
 
 
+@doc(is_null, datatype="variable-length binary view")
+def is_binary_view(t):
+    return t.id == lib.Type_BINARY_VIEW
+
+
+@doc(is_null, datatype="variable-length string (utf-8) view")
+def is_string_view(t):
+    return t.id == lib.Type_STRING_VIEW
+
+
 @doc(is_null, datatype="date")
 def is_date(t):
     return t.id in _DATE_TYPES
@@ -266,6 +288,16 @@ def is_map(t):
 @doc(is_null, datatype="decimal")
 def is_decimal(t):
     return t.id in _DECIMAL_TYPES
+
+
+@doc(is_null, datatype="decimal32")
+def is_decimal32(t):
+    return t.id == lib.Type_DECIMAL32
+
+
+@doc(is_null, datatype="decimal64")
+def is_decimal64(t):
+    return t.id == lib.Type_DECIMAL64
 
 
 @doc(is_null, datatype="decimal128")

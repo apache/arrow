@@ -25,19 +25,23 @@ import math
 import os
 import pathlib
 import pytest
+import random
 import sys
 import tempfile
 import weakref
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 from pyarrow.util import guid
 from pyarrow import Codec
 import pyarrow as pa
 
 
-def check_large_seeks(file_factory):
-    if sys.platform in ('win32', 'darwin'):
+def check_large_seeks(file_factory, expected_error=None):
+    if sys.platform in ('win32', 'darwin', 'emscripten'):
         pytest.skip("need sparse file support")
     try:
         filename = tempfile.mktemp(prefix='test_io')
@@ -45,11 +49,16 @@ def check_large_seeks(file_factory):
             f.truncate(2 ** 32 + 10)
             f.seek(2 ** 32 + 5)
             f.write(b'mark\n')
-        with file_factory(filename) as f:
-            assert f.seek(2 ** 32 + 5) == 2 ** 32 + 5
-            assert f.tell() == 2 ** 32 + 5
-            assert f.read(5) == b'mark\n'
-            assert f.tell() == 2 ** 32 + 10
+        if expected_error:
+            with expected_error:
+                file_factory(filename)
+        else:
+            with file_factory(filename) as f:
+                assert f.size() == 2 ** 32 + 10
+                assert f.seek(2 ** 32 + 5) == 2 ** 32 + 5
+                assert f.tell() == 2 ** 32 + 5
+                assert f.read(5) == b'mark\n'
+                assert f.tell() == 2 ** 32 + 10
     finally:
         os.unlink(filename)
 
@@ -229,7 +238,7 @@ def test_python_file_read_buffer():
         buf = f.read_buffer(length)
         assert len(buf) == length
         assert memoryview(buf).tobytes() == dst_buf[:length]
-        # buf should point to the same memory, so modyfing it
+        # buf should point to the same memory, so modifying it
         memoryview(buf)[0] = ord(b'x')
         # should modify the original
         assert dst_buf[0] == ord(b'x')
@@ -459,6 +468,7 @@ def test_buffer_hex(val, expected_hex_buffer):
     assert buf.hex() == expected_hex_buffer
 
 
+@pytest.mark.numpy
 def test_buffer_to_numpy():
     # Make sure creating a numpy array from an arrow buffer works
     byte_array = bytearray(20)
@@ -471,6 +481,7 @@ def test_buffer_to_numpy():
     assert array.base == buf
 
 
+@pytest.mark.numpy
 def test_buffer_from_numpy():
     # C-contiguous
     arr = np.arange(12, dtype=np.int8).reshape((3, 4))
@@ -488,6 +499,7 @@ def test_buffer_from_numpy():
         buf = pa.py_buffer(arr.T[::2])
 
 
+@pytest.mark.numpy
 def test_buffer_address():
     b1 = b'some data!'
     b2 = bytearray(b1)
@@ -508,6 +520,7 @@ def test_buffer_address():
     assert buf.address == arr.ctypes.data
 
 
+@pytest.mark.numpy
 def test_buffer_equals():
     # Buffer.equals() returns true iff the buffers have the same contents
     def eq(a, b):
@@ -619,6 +632,7 @@ def test_buffer_hashing():
         hash(pa.py_buffer(b'123'))
 
 
+@pytest.mark.numpy
 def test_buffer_protocol_respects_immutability():
     # ARROW-3228; NumPy's frombuffer ctor determines whether a buffer-like
     # object is mutable by first attempting to get a mutable buffer using
@@ -630,6 +644,7 @@ def test_buffer_protocol_respects_immutability():
     assert not numpy_ref.flags.writeable
 
 
+@pytest.mark.numpy
 def test_foreign_buffer():
     obj = np.array([1, 2], dtype=np.int32)
     addr = obj.__array_interface__["data"][0]
@@ -664,6 +679,137 @@ def test_allocate_buffer_resizable():
     assert buf.size == 200
 
 
+@pytest.mark.numpy
+def test_non_cpu_buffer(pickle_module):
+    cuda = pytest.importorskip("pyarrow.cuda")
+    ctx = cuda.Context(0)
+
+    data = np.array([b'testing'])
+    cuda_buf = ctx.buffer_from_data(data)
+    arr = pa.FixedSizeBinaryArray.from_buffers(pa.binary(7), 1, [None, cuda_buf])
+    buf_on_gpu = arr.buffers()[1]
+
+    assert buf_on_gpu.size == cuda_buf.size
+    assert buf_on_gpu.address == cuda_buf.address
+    assert buf_on_gpu.is_cpu == cuda_buf.is_cpu
+    assert buf_on_gpu.is_mutable
+
+    repr1 = "<pyarrow.Buffer address="
+    repr2 = "size=7 is_cpu=False is_mutable=True>"
+    assert repr1 in repr(buf_on_gpu)
+    assert repr2 in repr(buf_on_gpu)
+
+    buf_on_gpu_sliced = buf_on_gpu.slice(2)
+    cuda_sliced = cuda.CudaBuffer.from_buffer(buf_on_gpu_sliced)
+    assert cuda_sliced.to_pybytes() == b'sting'
+
+    buf_on_gpu_sliced = buf_on_gpu[2:4]
+    cuda_sliced = cuda.CudaBuffer.from_buffer(buf_on_gpu_sliced)
+    assert cuda_sliced.to_pybytes() == b'st'
+
+    # Sliced buffers with same address
+    assert buf_on_gpu_sliced.equals(cuda_buf[2:4])
+
+    # Buffers on different devices
+    msg_device = "Device on which the data resides differs between buffers"
+    with pytest.raises(ValueError, match=msg_device):
+        buf_on_gpu.equals(pa.py_buffer(data))
+
+    msg = "Implemented only for data on CPU device"
+    # Buffers with different addresses
+    arr_short = np.array([b'sting'])
+    cuda_buf_short = ctx.buffer_from_data(arr_short)
+    with pytest.raises(NotImplementedError, match=msg):
+        buf_on_gpu_sliced.equals(cuda_buf_short)
+    arr_short = pa.FixedSizeBinaryArray.from_buffers(
+        pa.binary(5), 1, [None, cuda_buf_short]
+    )
+    buf_on_gpu_short = arr_short.buffers()[1]
+    with pytest.raises(NotImplementedError, match=msg):
+        buf_on_gpu_sliced.equals(buf_on_gpu_short)
+
+    with pytest.raises(NotImplementedError, match=msg):
+        buf_on_gpu.hex()
+
+    with pytest.raises(NotImplementedError, match=msg):
+        cuda_buf.hex()
+
+    with pytest.raises(NotImplementedError, match=msg):
+        buf_on_gpu[1]
+
+    with pytest.raises(NotImplementedError, match=msg):
+        buf_on_gpu.to_pybytes()
+
+    with pytest.raises(NotImplementedError, match=msg):
+        pickle_module.dumps(buf_on_gpu, protocol=4)
+
+    with pytest.raises(NotImplementedError, match=msg):
+        pickle_module.dumps(cuda_buf, protocol=4)
+
+    with pytest.raises(NotImplementedError, match=msg):
+        memoryview(buf_on_gpu)
+
+
+def test_cache_options():
+    opts1 = pa.CacheOptions()
+    opts2 = pa.CacheOptions(hole_size_limit=1024)
+    opts3 = pa.CacheOptions(hole_size_limit=4096, range_size_limit=8192)
+    opts4 = pa.CacheOptions(hole_size_limit=4096,
+                            range_size_limit=8192, prefetch_limit=5)
+    opts5 = pa.CacheOptions(hole_size_limit=4096,
+                            range_size_limit=8192, lazy=False)
+    opts6 = pa.CacheOptions.from_network_metrics(time_to_first_byte_millis=100,
+                                                 transfer_bandwidth_mib_per_sec=200,
+                                                 ideal_bandwidth_utilization_frac=0.9,
+                                                 max_ideal_request_size_mib=64)
+
+    assert opts1.hole_size_limit == 8192
+    assert opts1.range_size_limit == 32 * 1024 * 1024
+    assert opts1.lazy is True
+    assert opts1.prefetch_limit == 0
+
+    assert opts2.hole_size_limit == 1024
+    assert opts2.range_size_limit == 32 * 1024 * 1024
+    assert opts2.lazy is True
+    assert opts2.prefetch_limit == 0
+
+    assert opts3.hole_size_limit == 4096
+    assert opts3.range_size_limit == 8192
+    assert opts3.lazy is True
+    assert opts3.prefetch_limit == 0
+
+    assert opts4.hole_size_limit == 4096
+    assert opts4.range_size_limit == 8192
+    assert opts4.lazy is True
+    assert opts4.prefetch_limit == 5
+
+    assert opts5.hole_size_limit == 4096
+    assert opts5.range_size_limit == 8192
+    assert opts5.lazy is False
+    assert opts5.prefetch_limit == 0
+
+    assert opts6.lazy is False
+
+    assert opts1 == opts1
+    assert opts1 != opts2
+    assert opts2 != opts3
+    assert opts3 != opts4
+    assert opts4 != opts5
+    assert opts6 != opts1
+
+
+def test_cache_options_pickling(pickle_module):
+    options = [
+        pa.CacheOptions(),
+        pa.CacheOptions(hole_size_limit=4096, range_size_limit=8192,
+                        lazy=True, prefetch_limit=5),
+    ]
+
+    for option in options:
+        assert pickle_module.loads(pickle_module.dumps(option)) == option
+
+
+@pytest.mark.numpy
 @pytest.mark.parametrize("compression", [
     pytest.param(
         "bz2", marks=pytest.mark.xfail(raises=pa.lib.ArrowNotImplementedError)
@@ -676,7 +822,7 @@ def test_allocate_buffer_resizable():
 ])
 def test_compress_decompress(compression):
     if not Codec.is_available(compression):
-        pytest.skip("{} support is not built".format(compression))
+        pytest.skip(f"{compression} support is not built")
 
     INPUT_SIZE = 10000
     test_data = (np.random.randint(0, 255, size=INPUT_SIZE)
@@ -704,6 +850,7 @@ def test_compress_decompress(compression):
         pa.decompress(compressed_bytes, codec=compression)
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize("compression", [
     pytest.param(
         "bz2", marks=pytest.mark.xfail(raises=pa.lib.ArrowNotImplementedError)
@@ -716,7 +863,7 @@ def test_compress_decompress(compression):
 ])
 def test_compression_level(compression):
     if not Codec.is_available(compression):
-        pytest.skip("{} support is not built".format(compression))
+        pytest.skip(f"{compression} support is not built")
 
     codec = Codec(compression)
     if codec.name == "snappy":
@@ -862,6 +1009,7 @@ def test_buffer_protocol_ref_counting():
     assert refcount_before == sys.getrefcount(val)
 
 
+@pytest.mark.numpy
 def test_nativefile_write_memoryview():
     f = pa.BufferOutputStream()
     data = b'ok'
@@ -924,8 +1072,8 @@ def test_mock_output_stream():
 @pytest.fixture
 def sample_disk_data(request, tmpdir):
     SIZE = 4096
-    arr = np.random.randint(0, 256, size=SIZE).astype('u1')
-    data = arr.tobytes()[:SIZE]
+    arr = [random.randint(0, 255) for _ in range(SIZE)]
+    data = bytes(arr[:SIZE])
 
     path = os.path.join(str(tmpdir), guid())
 
@@ -1009,9 +1157,11 @@ def _try_delete(path):
 
 
 def test_memory_map_writer(tmpdir):
+    if sys.platform == "emscripten":
+        pytest.xfail("Multiple memory maps to same file don't work on emscripten")
     SIZE = 4096
-    arr = np.random.randint(0, 256, size=SIZE).astype('u1')
-    data = arr.tobytes()[:SIZE]
+    arr = [random.randint(0, 255) for _ in range(SIZE)]
+    data = bytes(arr[:SIZE])
 
     path = os.path.join(str(tmpdir), guid())
     with open(path, 'wb') as f:
@@ -1051,9 +1201,9 @@ def test_memory_map_writer(tmpdir):
 
 def test_memory_map_resize(tmpdir):
     SIZE = 4096
-    arr = np.random.randint(0, 256, size=SIZE).astype(np.uint8)
-    data1 = arr.tobytes()[:(SIZE // 2)]
-    data2 = arr.tobytes()[(SIZE // 2):]
+    arr = [random.randint(0, 255) for _ in range(SIZE)]
+    data1 = bytes(arr[:(SIZE // 2)])
+    data2 = bytes(arr[(SIZE // 2):])
 
     path = os.path.join(str(tmpdir), guid())
 
@@ -1066,7 +1216,7 @@ def test_memory_map_resize(tmpdir):
     mmap.close()
 
     with open(path, 'rb') as f:
-        assert f.read() == arr.tobytes()
+        assert f.read() == bytes(arr[:SIZE])
 
 
 def test_memory_zero_length(tmpdir):
@@ -1078,7 +1228,14 @@ def test_memory_zero_length(tmpdir):
 
 
 def test_memory_map_large_seeks():
-    check_large_seeks(pa.memory_map)
+    if sys.maxsize >= 2**32:
+        expected_error = None
+    else:
+        expected_error = pytest.raises(
+            pa.ArrowCapacityError,
+            match="Requested memory map length 4294967306 "
+                  "does not fit in a C size_t")
+    check_large_seeks(pa.memory_map, expected_error=expected_error)
 
 
 def test_memory_map_close_remove(tmpdir):
@@ -1098,8 +1255,8 @@ def test_memory_map_deref_remove(tmpdir):
 
 def test_os_file_writer(tmpdir):
     SIZE = 4096
-    arr = np.random.randint(0, 256, size=SIZE).astype('u1')
-    data = arr.tobytes()[:SIZE]
+    arr = [random.randint(0, 255) for _ in range(SIZE)]
+    data = bytes(arr[:SIZE])
 
     path = os.path.join(str(tmpdir), guid())
     with open(path, 'wb') as f:
@@ -1114,6 +1271,13 @@ def test_os_file_writer(tmpdir):
 
     with pytest.raises(IOError):
         f2.read(5)
+    f2.close()
+
+    # Append
+    with pa.OSFile(path, mode='ab') as f4:
+        f4.write(b'bar')
+    with pa.OSFile(path) as f5:
+        assert f5.size() == 6  # foo + bar
 
 
 def test_native_file_write_reject_unicode():
@@ -1152,6 +1316,18 @@ def test_native_file_modes(tmpdir):
         assert f.writable()
         assert not f.seekable()
 
+    with pa.OSFile(path, mode='ab') as f:
+        assert f.mode == 'ab'
+        assert not f.readable()
+        assert f.writable()
+        assert not f.seekable()
+
+    with pa.OSFile(path, mode='a') as f:
+        assert f.mode == 'ab'
+        assert not f.readable()
+        assert f.writable()
+        assert not f.seekable()
+
     with open(path, 'wb') as f:
         f.write(b'foooo')
 
@@ -1174,6 +1350,9 @@ def test_native_file_modes(tmpdir):
         assert f.seekable()
 
 
+@pytest.mark.xfail(
+    sys.platform == "emscripten", reason="umask doesn't work on Emscripten"
+)
 def test_native_file_permissions(tmpdir):
     # ARROW-10124: permissions of created files should follow umask
     cur_umask = os.umask(0o002)
@@ -1358,6 +1537,7 @@ def test_buffered_input_stream_detach_non_seekable():
         raw.seek(2)
 
 
+@pytest.mark.numpy
 def test_buffered_output_stream():
     np_buf = np.zeros(100, dtype=np.int8)  # zero-initialized buffer
     buf = pa.py_buffer(np_buf)
@@ -1375,6 +1555,7 @@ def test_buffered_output_stream():
     assert np_buf[:10].tobytes() == b'123456789\0'
 
 
+@pytest.mark.numpy
 def test_buffered_output_stream_detach():
     np_buf = np.zeros(100, dtype=np.int8)  # zero-initialized buffer
     buf = pa.py_buffer(np_buf)
@@ -1574,7 +1755,7 @@ def test_unknown_compression_raises():
 ])
 def test_compressed_roundtrip(compression):
     if not Codec.is_available(compression):
-        pytest.skip("{} support is not built".format(compression))
+        pytest.skip(f"{compression} support is not built")
 
     data = b"some test data\n" * 10 + b"eof\n"
     raw = pa.BufferOutputStream()
@@ -1595,7 +1776,7 @@ def test_compressed_roundtrip(compression):
 )
 def test_compressed_recordbatch_stream(compression):
     if not Codec.is_available(compression):
-        pytest.skip("{} support is not built".format(compression))
+        pytest.skip(f"{compression} support is not built")
 
     # ARROW-4836: roundtrip a RecordBatch through a compressed stream
     table = pa.Table.from_arrays([pa.array([1, 2, 3, 4, 5])], ['a'])

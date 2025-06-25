@@ -49,7 +49,7 @@ test_that("CSV dataset", {
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   expect_r6_class(ds$format, "CsvFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
-  expect_identical(names(ds), c(names(df1), "part"))
+  expect_named(ds, c(names(df1), "part"))
   expect_identical(dim(ds), c(20L, 7L))
 
   expect_equal(
@@ -349,7 +349,7 @@ test_that("Can use col_names readr parameter", {
     format = "csv",
     col_names = expected_names
   )
-  expect_equal(names(ds), expected_names)
+  expect_named(ds, expected_names)
   expect_equal(ds %>% collect(), set_names(tbl, expected_names))
 
   # WITHOUT header, makes up names
@@ -358,7 +358,7 @@ test_that("Can use col_names readr parameter", {
     format = "csv",
     col_names = FALSE
   )
-  expect_equal(names(ds), c("f0", "f1"))
+  expect_named(ds, c("f0", "f1"))
   expect_equal(ds %>% collect(), set_names(tbl, c("f0", "f1")))
 
   # WITH header, gets names
@@ -367,7 +367,7 @@ test_that("Can use col_names readr parameter", {
     format = "csv",
     col_names = TRUE
   )
-  expect_equal(names(ds), c("int", "dbl"))
+  expect_named(ds, c("int", "dbl"))
   expect_equal(ds %>% collect(), tbl)
 
   ds <- open_dataset(
@@ -376,7 +376,7 @@ test_that("Can use col_names readr parameter", {
     col_names = FALSE,
     skip = 1
   )
-  expect_equal(names(ds), c("f0", "f1"))
+  expect_named(ds, c("f0", "f1"))
   expect_equal(ds %>% collect(), set_names(tbl, c("f0", "f1")))
 
   expect_error(
@@ -481,7 +481,7 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   ds <- open_delim_dataset(csv_dir, delim = ",", partitioning = "part")
   expect_r6_class(ds$format, "CsvFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
-  expect_identical(names(ds), c(names(df1), "part"))
+  expect_named(ds, c(names(df1), "part"))
   expect_identical(dim(ds), c(20L, 7L))
 
   # quote
@@ -523,6 +523,21 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   ds_strings <- open_csv_dataset(dst_dir, col_types = data_schema)
   expect_equal(ds_strings$schema, schema(a = string(), b = string()))
 
+  # col_types - as compact schema
+  compact_schema <- schema(
+    int = int32(), dbl = float64(), lgl = bool(), chr = utf8(),
+    fct = dictionary(), ts = timestamp(unit = "ns")
+  )
+
+  ds <- open_csv_dataset(
+    csv_dir,
+    col_names = c("int", "dbl", "lgl", "chr", "fct", "ts"),
+    col_types = "idlcfT",
+    skip = 1
+  )
+
+  expect_equal(schema(ds), compact_schema)
+
   # skip_empty_rows
   tf <- tempfile()
   writeLines('"x"\n"y"\nNA\nNA\n"NULL"\n\n\n', tf)
@@ -553,7 +568,7 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   ds <- open_csv_dataset(
     csv_dir,
     schema = schema(
-      int = int64(), dbl = int64(), lgl = bool(), chr = utf8(),
+      int = int64(), dbl = float64(), lgl = bool(), chr = utf8(),
       fct = utf8(), ts = timestamp(unit = "s")
     ),
     skip = 1
@@ -629,8 +644,8 @@ test_that("GH-34640 - CSV datasets are read in correctly when both schema and pa
   )
   expect_r6_class(ds$format, "CsvFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
-  expect_identical(names(ds), c(names(df1), "part"))
-  expect_identical(names(collect(ds)), c(names(df1), "part"))
+  expect_named(ds, c(names(df1), "part"))
+  expect_named(collect(ds), c(names(df1), "part"))
 
   expect_identical(dim(ds), c(20L, 7L))
   expect_equal(schema(ds), target_schema)

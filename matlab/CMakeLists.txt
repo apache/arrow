@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.25)
 
 # Build the Arrow C++ libraries using ExternalProject_Add.
 function(build_arrow)
@@ -34,9 +34,15 @@ function(build_arrow)
 
   set(ARROW_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep-prefix")
   set(ARROW_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep-build")
+
+  # Supply -DARROW_CXXFLAGS=-D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR to fix
+  # a segfault on windows. See https://github.com/apache/arrow/issues/42015.
   set(ARROW_CMAKE_ARGS
-      "-DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}" "-DCMAKE_INSTALL_LIBDIR=lib"
-      "-DARROW_BUILD_STATIC=OFF" "-DARROW_CSV=ON")
+      "-DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}"
+      "-DCMAKE_INSTALL_LIBDIR=lib"
+      "-DARROW_BUILD_STATIC=OFF"
+      "-DARROW_CSV=ON"
+      "-DARROW_CXXFLAGS=-D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR")
 
   add_library(arrow_shared SHARED IMPORTED)
   set(ARROW_LIBRARY_TARGET arrow_shared)
@@ -94,7 +100,7 @@ endfunction()
 
 set(CMAKE_CXX_STANDARD 17)
 
-set(MLARROW_VERSION "15.0.0-SNAPSHOT")
+set(MLARROW_VERSION "21.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" MLARROW_BASE_VERSION "${MLARROW_VERSION}")
 
 project(mlarrow VERSION "${MLARROW_BASE_VERSION}")
@@ -201,9 +207,6 @@ get_filename_component(ARROW_SHARED_LIB_DIR ${ARROW_SHARED_LIB} DIRECTORY)
 get_filename_component(ARROW_SHARED_LIB_FILENAME ${ARROW_SHARED_LIB} NAME_WE)
 
 if(NOT Arrow_FOUND)
-  # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
-  # to be copied to CMAKE_PACKAGED_INSTALL_DIR.
-
   if(APPLE)
     # Install libarrow.dylib (symlink) and the real files it points to.
     # on macOS, we need to match these files: libarrow.dylib
@@ -226,20 +229,6 @@ if(NOT Arrow_FOUND)
     set(SHARED_LIBRARY_VERSION_REGEX
         ${ARROW_SHARED_LIB_FILENAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
   endif()
-
-  # The subfolders cmake and pkgconfig are excluded as they will be empty.
-  # Note: The following CMake Issue suggests enabling an option to exclude all
-  # folders that would be empty after installation:
-  # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
-
-  set(CMAKE_PACKAGED_INSTALL_DIR "${CMAKE_INSTALL_DIR}/+arrow")
-
-  install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
-          DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
-          FILES_MATCHING
-          REGEX ${SHARED_LIBRARY_VERSION_REGEX}
-          PATTERN "cmake" EXCLUDE
-          PATTERN "pkgconfig" EXCLUDE)
 endif()
 
 # MATLAB_ADD_INSTALL_DIR_TO_STARTUP_FILE toggles whether an addpath command to add the install

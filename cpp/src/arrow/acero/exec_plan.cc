@@ -38,7 +38,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/tracing_internal.h"
 #include "arrow/util/vector.h"
@@ -128,7 +128,7 @@ struct ExecPlanImpl : public ExecPlan {
     Future<> scheduler_finished = arrow::util::AsyncTaskScheduler::Make(
         [this](arrow::util::AsyncTaskScheduler* async_scheduler) {
           QueryContext* ctx = query_context();
-          RETURN_NOT_OK(ctx->Init(ctx->max_concurrency(), async_scheduler));
+          RETURN_NOT_OK(ctx->Init(async_scheduler));
 
 #ifdef ARROW_WITH_OPENTELEMETRY
           if (HasMetadata()) {
@@ -1114,6 +1114,7 @@ void RegisterAggregateNode(ExecFactoryRegistry*);
 void RegisterSinkNode(ExecFactoryRegistry*);
 void RegisterHashJoinNode(ExecFactoryRegistry*);
 void RegisterAsofJoinNode(ExecFactoryRegistry*);
+void RegisterSortedMergeNode(ExecFactoryRegistry*);
 
 }  // namespace internal
 
@@ -1132,6 +1133,7 @@ ExecFactoryRegistry* default_exec_factory_registry() {
       internal::RegisterSinkNode(this);
       internal::RegisterHashJoinNode(this);
       internal::RegisterAsofJoinNode(this);
+      internal::RegisterSortedMergeNode(this);
     }
 
     Result<Factory> GetFactory(const std::string& factory_name) override {

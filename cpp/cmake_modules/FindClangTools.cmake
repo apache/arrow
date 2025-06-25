@@ -40,7 +40,8 @@ set(CLANG_TOOLS_SEARCH_PATHS
     /usr/local/bin
     /usr/bin
     "C:/Program Files/LLVM/bin" # Windows, non-conda
-    "$ENV{CONDA_PREFIX}/Library/bin") # Windows, conda
+    "$ENV{CONDA_PREFIX}/Library/bin" # Windows, conda
+    "$ENV{CONDA_PREFIX}/bin") # Unix, conda
 if(APPLE)
   find_program(BREW brew)
   if(BREW)

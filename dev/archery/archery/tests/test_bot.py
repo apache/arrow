@@ -50,7 +50,7 @@ def set_env_vars():
 
 
 def github_url(path):
-    return 'https://api.github.com:443/{}'.format(path.strip('/'))
+    return f'https://api.github.com:443/{path.strip("/")}'
 
 
 @group()
@@ -103,7 +103,7 @@ def test_noop_events(load_fixture, fixture_name):
     handler.assert_not_called()
 
 
-def test_unathorized_user_comment(load_fixture, responses):
+def test_unauthorized_user_comment(load_fixture, responses):
     responses.add(
         responses.GET,
         github_url('/repositories/169101701/issues/26'),

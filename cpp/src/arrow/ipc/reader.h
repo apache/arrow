@@ -258,7 +258,7 @@ class ARROW_EXPORT Listener {
   virtual Status OnEOS();
 
   /// \brief Called when a record batch is decoded and
-  /// OnRecordBatchWithMetadataDecoded() isn't overrided.
+  /// OnRecordBatchWithMetadataDecoded() isn't overridden.
   ///
   /// The default implementation just returns
   /// arrow::Status::NotImplemented().

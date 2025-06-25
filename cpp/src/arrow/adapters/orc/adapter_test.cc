@@ -33,8 +33,10 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace liborc = orc;
@@ -233,7 +235,7 @@ void AssertTableWriteReadEqual(const std::vector<std::shared_ptr<Table>>& input_
   write_options.compression = Compression::UNCOMPRESSED;
 #endif
   write_options.file_version = adapters::orc::FileVersion(0, 11);
-  write_options.compression_block_size = 32768;
+  write_options.compression_block_size = 64 * 1024;
   write_options.row_index_stride = 5000;
   EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
                                         buffer_output_stream.get(), write_options));
@@ -270,7 +272,7 @@ void AssertBatchWriteReadEqual(
   write_options.compression = Compression::UNCOMPRESSED;
 #endif
   write_options.file_version = adapters::orc::FileVersion(0, 11);
-  write_options.compression_block_size = 32768;
+  write_options.compression_block_size = 64 * 1024;
   write_options.row_index_stride = 5000;
   EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
                                         buffer_output_stream.get(), write_options));
@@ -328,7 +330,7 @@ std::unique_ptr<liborc::Writer> CreateWriter(uint64_t stripe_size,
                                              liborc::OutputStream* stream) {
   liborc::WriterOptions options;
   options.setStripeSize(stripe_size);
-  options.setCompressionBlockSize(1024);
+  options.setCompressionBlockSize(64 * 1024);
   options.setMemoryPool(liborc::getDefaultPool());
   options.setRowIndexStride(0);
   return liborc::createWriter(type, stream, options);
@@ -636,6 +638,23 @@ TEST(TestAdapterReadWrite, FieldAttributesRoundTrip) {
   AssertSchemaEqual(schema, read_schema, /*check_metadata=*/true);
 }
 
+TEST(TestAdapterReadWrite, ThrowWhenTZDBUnavaiable) {
+  if (adapters::orc::GetOrcMajorVersion() >= 2) {
+    GTEST_SKIP() << "Only ORC pre-2.0.0 versions have the time zone database check";
+  }
+
+  EnvVarGuard tzdir_guard("TZDIR", "/wrong/path");
+  const char* expect_str = "IANA time zone database is unavailable but required by ORC";
+  EXPECT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create(1024));
+  EXPECT_THAT(
+      adapters::orc::ORCFileWriter::Open(out_stream.get(), adapters::orc::WriteOptions()),
+      Raises(StatusCode::Invalid, testing::HasSubstr(expect_str)));
+  EXPECT_OK_AND_ASSIGN(auto buffer, out_stream->Finish());
+  EXPECT_THAT(adapters::orc::ORCFileReader::Open(
+                  std::make_shared<io::BufferReader>(buffer), default_memory_pool()),
+              Raises(StatusCode::Invalid, testing::HasSubstr(expect_str)));
+}
+
 // Trivial
 
 class TestORCWriterTrivialNoWrite : public ::testing::Test {};
@@ -649,7 +668,7 @@ TEST_F(TestORCWriterTrivialNoWrite, noWrite) {
   write_options.compression = Compression::UNCOMPRESSED;
 #endif
   write_options.file_version = adapters::orc::FileVersion(0, 11);
-  write_options.compression_block_size = 32768;
+  write_options.compression_block_size = 64 * 1024;
   write_options.row_index_stride = 5000;
   EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
                                         buffer_output_stream.get(), write_options));

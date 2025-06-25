@@ -34,7 +34,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/reflection_internal.h"
 
 namespace arrow {
@@ -48,6 +48,7 @@ using compute::DictionaryEncodeOptions;
 using compute::FilterOptions;
 using compute::NullPlacement;
 using compute::RankOptions;
+using compute::RankQuantileOptions;
 
 template <>
 struct EnumTraits<FilterOptions::NullSelectionBehavior>
@@ -140,6 +141,9 @@ static auto kSortOptionsType =
 static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOptions>(
     DataMember("pivot", &PartitionNthOptions::pivot),
     DataMember("null_placement", &PartitionNthOptions::null_placement));
+static auto kWinsorizeOptionsType = GetFunctionOptionsType<WinsorizeOptions>(
+    DataMember("lower_limit", &WinsorizeOptions::lower_limit),
+    DataMember("upper_limit", &WinsorizeOptions::upper_limit));
 static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
     DataMember("k", &SelectKOptions::k),
     DataMember("sort_keys", &SelectKOptions::sort_keys));
@@ -149,8 +153,19 @@ static auto kCumulativeOptionsType = GetFunctionOptionsType<CumulativeOptions>(
 static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
     DataMember("sort_keys", &RankOptions::sort_keys),
     DataMember("tiebreaker", &RankOptions::tiebreaker));
+static auto kRankQuantileOptionsType = GetFunctionOptionsType<RankQuantileOptions>(
+    DataMember("sort_keys", &RankQuantileOptions::sort_keys),
+    DataMember("null_placement", &RankQuantileOptions::null_placement));
 static auto kPairwiseOptionsType = GetFunctionOptionsType<PairwiseOptions>(
     DataMember("periods", &PairwiseOptions::periods));
+static auto kListFlattenOptionsType = GetFunctionOptionsType<ListFlattenOptions>(
+    DataMember("recursive", &ListFlattenOptions::recursive));
+static auto kInversePermutationOptionsType =
+    GetFunctionOptionsType<InversePermutationOptions>(
+        DataMember("max_index", &InversePermutationOptions::max_index),
+        DataMember("output_type", &InversePermutationOptions::output_type));
+static auto kScatterOptionsType = GetFunctionOptionsType<ScatterOptions>(
+    DataMember("max_index", &ScatterOptions::max_index));
 }  // namespace
 }  // namespace internal
 
@@ -190,6 +205,11 @@ PartitionNthOptions::PartitionNthOptions(int64_t pivot, NullPlacement null_place
       null_placement(null_placement) {}
 constexpr char PartitionNthOptions::kTypeName[];
 
+WinsorizeOptions::WinsorizeOptions(double lower_limit, double upper_limit)
+    : FunctionOptions(internal::kWinsorizeOptionsType),
+      lower_limit(lower_limit),
+      upper_limit(upper_limit) {}
+
 SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
     : FunctionOptions(internal::kSelectKOptionsType),
       k(k),
@@ -213,9 +233,31 @@ RankOptions::RankOptions(std::vector<SortKey> sort_keys,
       tiebreaker(tiebreaker) {}
 constexpr char RankOptions::kTypeName[];
 
+RankQuantileOptions::RankQuantileOptions(std::vector<SortKey> sort_keys,
+                                         NullPlacement null_placement)
+    : FunctionOptions(internal::kRankQuantileOptionsType),
+      sort_keys(std::move(sort_keys)),
+      null_placement(null_placement) {}
+constexpr char RankQuantileOptions::kTypeName[];
+
 PairwiseOptions::PairwiseOptions(int64_t periods)
     : FunctionOptions(internal::kPairwiseOptionsType), periods(periods) {}
 constexpr char PairwiseOptions::kTypeName[];
+
+ListFlattenOptions::ListFlattenOptions(bool recursive)
+    : FunctionOptions(internal::kListFlattenOptionsType), recursive(recursive) {}
+constexpr char ListFlattenOptions::kTypeName[];
+
+InversePermutationOptions::InversePermutationOptions(
+    int64_t max_index, std::shared_ptr<DataType> output_type)
+    : FunctionOptions(internal::kInversePermutationOptionsType),
+      max_index(max_index),
+      output_type(std::move(output_type)) {}
+constexpr char InversePermutationOptions::kTypeName[];
+
+ScatterOptions::ScatterOptions(int64_t max_index)
+    : FunctionOptions(internal::kScatterOptionsType), max_index(max_index) {}
+constexpr char ScatterOptions::kTypeName[];
 
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
@@ -229,7 +271,12 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kCumulativeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRankOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRankQuantileOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPairwiseOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kListFlattenOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kInversePermutationOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kScatterOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kWinsorizeOptionsType));
 }
 }  // namespace internal
 
@@ -413,6 +460,20 @@ Result<Datum> CumulativeMin(const Datum& values, const CumulativeOptions& option
 Result<Datum> CumulativeMean(const Datum& values, const CumulativeOptions& options,
                              ExecContext* ctx) {
   return CallFunction("cumulative_mean", {Datum(values)}, &options, ctx);
+}
+
+// ----------------------------------------------------------------------
+// Swizzle functions
+
+Result<Datum> InversePermutation(const Datum& indices,
+                                 const InversePermutationOptions& options,
+                                 ExecContext* ctx) {
+  return CallFunction("inverse_permutation", {indices}, &options, ctx);
+}
+
+Result<Datum> Scatter(const Datum& values, const Datum& indices,
+                      const ScatterOptions& options, ExecContext* ctx) {
+  return CallFunction("scatter", {values, indices}, &options, ctx);
 }
 
 }  // namespace compute

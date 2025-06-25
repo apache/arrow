@@ -90,7 +90,7 @@ test_that("read_csv_arrow parsing options: col_names", {
 
   tab1 <- read_csv_arrow(tf, col_names = names(tbl))
 
-  expect_identical(names(tab1), names(tbl))
+  expect_named(tab1, names(tbl))
   expect_equal(tbl, tab1)
 
   # This errors (correctly) because I haven't given enough names
@@ -114,7 +114,7 @@ test_that("read_csv_arrow parsing options: skip", {
 
   tab1 <- read_csv_arrow(tf, skip = 2)
 
-  expect_identical(names(tab1), names(tbl))
+  expect_named(tab1, names(tbl))
   expect_equal(tbl, tab1)
 })
 
@@ -209,10 +209,22 @@ test_that("read_csv_arrow(col_types=string, col_names)", {
   df <- read_csv_arrow(tf, col_names = "int", col_types = "d", skip = 1)
   expect_identical(df, tibble::tibble(int = as.numeric(tbl$int)))
 
-  expect_error(read_csv_arrow(tf, col_types = c("i", "d")))
-  expect_error(read_csv_arrow(tf, col_types = "d"))
-  expect_error(read_csv_arrow(tf, col_types = "i", col_names = c("a", "b")))
-  expect_error(read_csv_arrow(tf, col_types = "y", col_names = "a"))
+  expect_error(
+    read_csv_arrow(tf, col_types = c("i", "d")),
+    "`col_types` must be a character vector of size 1"
+  )
+  expect_error(
+    read_csv_arrow(tf, col_types = "d"),
+    "Compact specification for `col_types` requires `col_names` of matching length"
+  )
+  expect_error(
+    read_csv_arrow(tf, col_types = "i", col_names = c("a", "b")),
+    "Compact specification for `col_types` requires `col_names` of matching length"
+  )
+  expect_error(
+    read_csv_arrow(tf, col_types = "y", col_names = "a"),
+    "Unsupported compact specification: 'y' for column 'a'"
+  )
 })
 
 test_that("read_csv_arrow() can read timestamps", {
@@ -738,5 +750,22 @@ test_that("read_csv2_arrow correctly parses comma decimals", {
   tf <- tempfile()
   writeLines("x;y\n1,2;c", con = tf)
   expect_equal(read_csv2_arrow(tf), tibble(x = 1.2, y = "c"))
+})
 
+test_that("altrep columns can roundtrip to table", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write.csv(tbl, tf, row.names = FALSE)
+
+  # read in, some columns will be altrep by default
+  new_df <- read_csv_arrow(tf)
+  expect_equal(tbl, as_tibble(arrow_table(new_df)))
+
+  # but also if we materialize the vector
+  # this could also be accomplished with printing
+  new_df <- read_csv_arrow(tf)
+  test_arrow_altrep_force_materialize(new_df$chr)
+
+  # we should still be able to turn this into a table
+  expect_equal(tbl, as_tibble(arrow_table(new_df)))
 })

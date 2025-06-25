@@ -21,9 +21,11 @@
 
 #include "arrow/builder.h"
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/time.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/vendored/datetime.h"
@@ -1510,7 +1512,7 @@ struct ISOCalendar {
     for (int i = 0; i < 3; i++) {
       field_builders.push_back(
           checked_cast<BuilderType*>(struct_builder->field_builder(i)));
-      RETURN_NOT_OK(field_builders[i]->Reserve(1));
+      RETURN_NOT_OK(field_builders[i]->Reserve(in.length));
     }
     auto visit_null = [&]() { return struct_builder->AppendNull(); };
     std::function<Status(typename InType::c_type arg)> visit_value;
@@ -1741,7 +1743,7 @@ const FunctionDoc millisecond_doc{
 
 const FunctionDoc microsecond_doc{
     "Extract microsecond values",
-    ("Millisecond returns number of microseconds since the last full millisecond.\n"
+    ("Microsecond returns number of microseconds since the last full millisecond.\n"
      "Null values emit null.\n"
      "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),

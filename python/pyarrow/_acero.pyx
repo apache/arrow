@@ -30,7 +30,7 @@ from pyarrow.lib cimport (Table, pyarrow_unwrap_table, pyarrow_wrap_table,
 from pyarrow.lib import frombytes, tobytes
 from pyarrow._compute cimport (
     Expression, FunctionOptions, _ensure_field_ref, _true,
-    unwrap_null_placement, unwrap_sort_order
+    unwrap_null_placement, unwrap_sort_keys
 )
 
 
@@ -155,7 +155,7 @@ class ProjectNodeOptions(_ProjectNodeOptions):
         List of expressions to evaluate against the source batch. This must
         be scalar expressions.
     names : list of str, optional
-        List of names for each of the ouptut columns (same length as
+        List of names for each of the output columns (same length as
         `expressions`). If `names` is not provided, the string
         representations of exprs will be used.
     """
@@ -213,7 +213,7 @@ class AggregateNodeOptions(_AggregateNodeOptions):
     Parameters
     ----------
     aggregates : list of tuples
-        Aggregations which will be applied to the targetted fields.
+        Aggregations which will be applied to the targeted fields.
         Specified as a list of tuples, where each tuple is one aggregation
         specification and consists of: aggregation target column(s) followed
         by function name, aggregation function options object and the
@@ -233,19 +233,11 @@ class AggregateNodeOptions(_AggregateNodeOptions):
 
 cdef class _OrderByNodeOptions(ExecNodeOptions):
 
-    def _set_options(self, sort_keys):
-        cdef:
-            vector[CSortKey] c_sort_keys
-
-        for name, order, null_placement in sort_keys:
-            c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(name), unwrap_sort_order(
-                    order), unwrap_null_placement(null_placement))
-            )
-
+    def _set_options(self, sort_keys, null_placement):
         self.wrapped.reset(
             new COrderByNodeOptions(
-                COrdering(c_sort_keys)
+                COrdering(unwrap_sort_keys(sort_keys, allow_str=False),
+                          unwrap_null_placement(null_placement))
             )
         )
 
@@ -262,23 +254,27 @@ class OrderByNodeOptions(_OrderByNodeOptions):
 
     Parameters
     ----------
-    sort_keys : sequence of (name, order, null_placement) tuples
+    sort_keys : sequence of (name, order, null_placement="at_end") tuples
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
+        Each field reference can be a string column name or expression.
         Accepted values for `order` are "ascending", "descending".
         Accepted values for `null_placement` are "at_start", "at_end".
-        Each field reference can be a string column name or expression.
+    null_placement : str, optional
+        Where nulls in input should be sorted, only applying to
+        columns/fields mentioned in `sort_keys`.
+        Accepted values are "at_start", "at_end", with "at_end" being the default.
     """
 
-    def __init__(self, sort_keys=(), *):
-        self._set_options(sort_keys)
+    def __init__(self, sort_keys=(), *, null_placement=None):
+        self._set_options(sort_keys, null_placement)
 
 
 cdef class _HashJoinNodeOptions(ExecNodeOptions):
 
     def _set_options(
         self, join_type, left_keys, right_keys, left_output=None, right_output=None,
-        output_suffix_for_left="", output_suffix_for_right="",
+        output_suffix_for_left="", output_suffix_for_right="", Expression filter_expression=None,
     ):
         cdef:
             CJoinType c_join_type
@@ -286,6 +282,7 @@ cdef class _HashJoinNodeOptions(ExecNodeOptions):
             vector[CFieldRef] c_right_keys
             vector[CFieldRef] c_left_output
             vector[CFieldRef] c_right_output
+            CExpression c_filter_expression
 
         # join type
         if join_type == "left semi":
@@ -317,6 +314,11 @@ cdef class _HashJoinNodeOptions(ExecNodeOptions):
         for key in right_keys:
             c_right_keys.push_back(_ensure_field_ref(key))
 
+        if filter_expression is None:
+            c_filter_expression = _true
+        else:
+            c_filter_expression = filter_expression.unwrap()
+
         # left/right output fields
         if left_output is not None and right_output is not None:
             for colname in left_output:
@@ -328,7 +330,7 @@ cdef class _HashJoinNodeOptions(ExecNodeOptions):
                 new CHashJoinNodeOptions(
                     c_join_type, c_left_keys, c_right_keys,
                     c_left_output, c_right_output,
-                    _true,
+                    c_filter_expression,
                     <c_string>tobytes(output_suffix_for_left),
                     <c_string>tobytes(output_suffix_for_right)
                 )
@@ -337,7 +339,7 @@ cdef class _HashJoinNodeOptions(ExecNodeOptions):
             self.wrapped.reset(
                 new CHashJoinNodeOptions(
                     c_join_type, c_left_keys, c_right_keys,
-                    _true,
+                    c_filter_expression,
                     <c_string>tobytes(output_suffix_for_left),
                     <c_string>tobytes(output_suffix_for_right)
                 )
@@ -378,16 +380,97 @@ class HashJoinNodeOptions(_HashJoinNodeOptions):
     output_suffix_for_right : str
         Suffix added to names of output fields coming from right input,
         see `output_suffix_for_left` for details.
+    filter_expression : pyarrow.compute.Expression
+        Residual filter which is applied to matching row.
     """
 
     def __init__(
         self, join_type, left_keys, right_keys, left_output=None, right_output=None,
-        output_suffix_for_left="", output_suffix_for_right=""
+        output_suffix_for_left="", output_suffix_for_right="", filter_expression=None,
     ):
         self._set_options(
             join_type, left_keys, right_keys, left_output, right_output,
-            output_suffix_for_left, output_suffix_for_right
+            output_suffix_for_left, output_suffix_for_right, filter_expression
         )
+
+
+cdef class _AsofJoinNodeOptions(ExecNodeOptions):
+
+    def _set_options(self, left_on, left_by, right_on, right_by, tolerance):
+        cdef:
+            vector[CFieldRef] c_left_by
+            vector[CFieldRef] c_right_by
+            CAsofJoinKeys c_left_keys
+            CAsofJoinKeys c_right_keys
+            vector[CAsofJoinKeys] c_input_keys
+
+        # Prepare left AsofJoinNodeOption::Keys
+        if not isinstance(left_by, (list, tuple)):
+            left_by = [left_by]
+        for key in left_by:
+            c_left_by.push_back(_ensure_field_ref(key))
+
+        c_left_keys.on_key = _ensure_field_ref(left_on)
+        c_left_keys.by_key = c_left_by
+
+        c_input_keys.push_back(c_left_keys)
+
+        # Prepare right AsofJoinNodeOption::Keys
+        if not isinstance(right_by, (list, tuple)):
+            right_by = [right_by]
+        for key in right_by:
+            c_right_by.push_back(_ensure_field_ref(key))
+
+        c_right_keys.on_key = _ensure_field_ref(right_on)
+        c_right_keys.by_key = c_right_by
+
+        c_input_keys.push_back(c_right_keys)
+
+        self.wrapped.reset(
+            new CAsofJoinNodeOptions(
+                c_input_keys,
+                tolerance,
+            )
+        )
+
+
+class AsofJoinNodeOptions(_AsofJoinNodeOptions):
+    """
+    Make a node which implements 'as of join' operation.
+
+    This is the option class for the "asofjoin" node factory.
+
+    Parameters
+    ----------
+    left_on : str, Expression
+        The left key on which the join operation should be performed.
+        Can be a string column name or a field expression.
+
+        An inexact match is used on the "on" key, i.e. a row is considered a
+        match if and only if left_on - tolerance <= right_on <= left_on.
+
+        The input dataset must be sorted by the "on" key. Must be a single
+        field of a common type.
+
+        Currently, the "on" key must be an integer, date, or timestamp type.
+    left_by: str, Expression or list
+        The left keys on which the join operation should be performed.
+        Exact equality is used for each field of the "by" keys.
+        Each key can be a string column name or a field expression,
+        or a list of such field references.
+    right_on : str, Expression
+        The right key on which the join operation should be performed.
+        See `left_on` for details.
+    right_by: str, Expression or list
+        The right keys on which the join operation should be performed.
+        See `left_by` for details.
+    tolerance : int
+        The tolerance to use for the asof join. The tolerance is interpreted in
+        the same units as the "on" key.
+    """
+
+    def __init__(self, left_on, left_by, right_on, right_by, tolerance):
+        self._set_options(left_on, left_by, right_on, right_by, tolerance)
 
 
 cdef class Declaration(_Weakrefable):
@@ -479,7 +562,7 @@ cdef class Declaration(_Weakrefable):
         return frombytes(GetResultValue(DeclarationToString(self.decl)))
 
     def __repr__(self):
-        return "<pyarrow.acero.Declaration>\n{0}".format(str(self))
+        return f"<pyarrow.acero.Declaration>\n{self}"
 
     def to_table(self, bint use_threads=True):
         """

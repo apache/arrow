@@ -22,7 +22,7 @@
 
 #include <vector>
 
-#include "arrow/compute/function.h"
+#include "arrow/compute/function_options.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
@@ -114,6 +114,25 @@ class ARROW_EXPORT VarianceOptions : public FunctionOptions {
   uint32_t min_count;
 };
 
+/// \brief Control Skew and Kurtosis kernel behavior
+class ARROW_EXPORT SkewOptions : public FunctionOptions {
+ public:
+  explicit SkewOptions(bool skip_nulls = true, bool biased = true,
+                       uint32_t min_count = 0);
+  static constexpr char const kTypeName[] = "SkewOptions";
+  static SkewOptions Defaults() { return SkewOptions{}; }
+
+  /// If true (the default), null values are ignored. Otherwise, if any value is null,
+  /// emit null.
+  bool skip_nulls;
+  /// If true (the default), the calculated value is biased. If false, the calculated
+  /// value includes a correction factor to reduce bias, making it more accurate for
+  /// small sample sizes.
+  bool biased;
+  /// If less than this many non-null values are observed, emit null.
+  uint32_t min_count;
+};
+
 /// \brief Control Quantile kernel behavior
 ///
 /// By default, returns the median value.
@@ -173,6 +192,89 @@ class ARROW_EXPORT TDigestOptions : public FunctionOptions {
   bool skip_nulls;
   /// If less than this many non-null values are observed, emit null.
   uint32_t min_count;
+};
+
+/// \brief Control Pivot kernel behavior
+///
+/// These options apply to the "pivot_wider" and "hash_pivot_wider" functions.
+///
+/// Constraints:
+/// - The corresponding `Aggregate::target` must have two FieldRef elements;
+///   the first one points to the pivot key column, the second points to the
+///   pivoted data column.
+/// - The pivot key column can be string, binary or integer; its values will be
+///   matched against `key_names` in order to dispatch the pivoted data into
+///   the output. If the pivot key column is not string-like, the `key_names`
+///   will be cast to the pivot key type.
+///
+/// "pivot_wider" example
+/// ---------------------
+///
+/// Assuming the following two input columns with types utf8 and int16 (respectively):
+/// ```
+/// width   |  11
+/// height  |  13
+/// ```
+/// and the options `PivotWiderOptions(.key_names = {"height", "width"})`
+///
+/// then the output will be a scalar with the type
+/// `struct{"height": int16, "width": int16}`
+/// and the value `{"height": 13, "width": 11}`.
+///
+/// "hash_pivot_wider" example
+/// --------------------------
+///
+/// Assuming the following input with schema
+/// `{"group": int32, "key": utf8, "value": int16}`:
+/// ```
+///  group |  key     |  value
+/// -----------------------------
+///   1    |  height  |    11
+///   1    |  width   |    12
+///   2    |  width   |    13
+///   3    |  height  |    14
+///   3    |  depth   |    15
+/// ```
+/// and the following settings:
+/// - a hash grouping key "group"
+/// - Aggregate(
+///     .function = "hash_pivot_wider",
+///     .options = PivotWiderOptions(.key_names = {"height", "width"}),
+///     .target = {"key", "value"},
+///     .name = {"properties"})
+///
+/// then the output will have the schema
+/// `{"group": int32, "properties": struct{"height": int16, "width": int16}}`
+/// and the following value:
+/// ```
+///  group |     properties
+///        |  height  |   width
+/// -----------------------------
+///   1    |   11     |    12
+///   2    |   null   |    13
+///   3    |   14     |    null
+/// ```
+class ARROW_EXPORT PivotWiderOptions : public FunctionOptions {
+ public:
+  /// Configure the behavior of pivot keys not in `key_names`
+  enum UnexpectedKeyBehavior {
+    /// Unexpected pivot keys are ignored silently
+    kIgnore,
+    /// Unexpected pivot keys return a KeyError
+    kRaise
+  };
+
+  explicit PivotWiderOptions(std::vector<std::string> key_names,
+                             UnexpectedKeyBehavior unexpected_key_behavior = kIgnore);
+  // Default constructor for serialization
+  PivotWiderOptions();
+  static constexpr char const kTypeName[] = "PivotWiderOptions";
+  static PivotWiderOptions Defaults() { return PivotWiderOptions{}; }
+
+  /// The values expected in the pivot key column
+  std::vector<std::string> key_names;
+  /// The behavior when pivot keys not in `key_names` are encountered
+  UnexpectedKeyBehavior unexpected_key_behavior = kIgnore;
 };
 
 /// \brief Control Index kernel behavior
@@ -421,6 +523,34 @@ Result<Datum> Variance(const Datum& value,
                        const VarianceOptions& options = VarianceOptions::Defaults(),
                        ExecContext* ctx = NULLPTR);
 
+/// \brief Calculate the skewness of a numeric array
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see SkewOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed skewness as a DoubleScalar
+///
+/// \since 20.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Skew(const Datum& value,
+                   const SkewOptions& options = SkewOptions::Defaults(),
+                   ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate the kurtosis of a numeric array
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see SkewOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed kurtosis as a DoubleScalar
+///
+/// \since 20.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Kurtosis(const Datum& value,
+                       const SkewOptions& options = SkewOptions::Defaults(),
+                       ExecContext* ctx = NULLPTR);
+
 /// \brief Calculate the quantiles of a numeric array
 ///
 /// \param[in] value input datum, expecting Array or ChunkedArray
@@ -452,7 +582,7 @@ Result<Datum> TDigest(const Datum& value,
 /// \brief Find the first index of a value in an array.
 ///
 /// \param[in] value The array to search.
-/// \param[in] options The array to search for. See IndexOoptions.
+/// \param[in] options The array to search for. See IndexOptions.
 /// \param[in] ctx the function execution context, optional
 /// \return out a Scalar containing the index (or -1 if not found).
 ///

@@ -85,8 +85,118 @@ namespace Apache.Arrow.Tests
             Assert.Equal(new KeyValuePair<string, int?>[] { kv1, kv2 }, array.GetKeyValuePairs<StringArray, string, Int32Array, int?>(2, GetKey, GetValue).ToArray());
         }
 
+        [Fact]
+        public void MapArray_Should_AcceptMapVisitor()
+        {
+            var mapArray = BuildMapArray();
+            var visitor = new MapOnlyVisitor();
+            mapArray.Accept(visitor);
+
+            Assert.True(visitor.MapVisited);
+            Assert.False(visitor.BaseVisited);
+        }
+
+        [Fact]
+        public void MapArray_Should_AcceptListVisitor()
+        {
+            var mapArray = BuildMapArray();
+            var visitor = new ListOnlyVisitor();
+            mapArray.Accept(visitor);
+
+            Assert.True(visitor.ListVisited);
+            Assert.False(visitor.BaseVisited);
+        }
+
+        [Fact]
+        public void MapArray_Should_AcceptListAndMapVisitor()
+        {
+            var mapArray = BuildMapArray();
+            var visitor = new MapAndListVisitor();
+            mapArray.Accept(visitor);
+
+            Assert.True(visitor.MapVisited);
+            Assert.False(visitor.ListVisited);
+            Assert.False(visitor.BaseVisited);
+        }
+
+        private static MapArray BuildMapArray()
+        {
+            MapType type = new MapType(StringType.Default, Int64Type.Default);
+            MapArray.Builder builder = new MapArray.Builder(type);
+            var keyBuilder = builder.KeyBuilder as StringArray.Builder;
+            var valueBuilder = builder.ValueBuilder as Int64Array.Builder;
+
+            builder.Append();
+            keyBuilder.Append("test");
+            valueBuilder.Append(1);
+
+            builder.AppendNull();
+
+            builder.Append();
+            keyBuilder.Append("other");
+            valueBuilder.Append(123);
+            keyBuilder.Append("kv");
+            valueBuilder.AppendNull();
+
+            return builder.Build();
+        }
+
         private static string GetKey(StringArray array, int index) => array.GetString(index);
         private static int? GetValue(Int32Array array, int index) => array.GetValue(index);
         private static long? GetValue(Int64Array array, int index) => array.GetValue(index);
+
+        private sealed class MapOnlyVisitor : IArrowArrayVisitor<MapArray>
+        {
+            public bool MapVisited = false;
+            public bool BaseVisited = false;
+
+            public void Visit(MapArray array)
+            {
+                MapVisited = true;
+            }
+
+            public void Visit(IArrowArray array)
+            {
+                BaseVisited = true;
+            }
+        }
+
+        private sealed class ListOnlyVisitor : IArrowArrayVisitor<ListArray>
+        {
+            public bool ListVisited = false;
+            public bool BaseVisited = false;
+
+            public void Visit(ListArray array)
+            {
+                ListVisited = true;
+            }
+
+            public void Visit(IArrowArray array)
+            {
+                BaseVisited = true;
+            }
+        }
+
+        private sealed class MapAndListVisitor : IArrowArrayVisitor<MapArray>, IArrowArrayVisitor<ListArray>
+        {
+            public bool MapVisited = false;
+            public bool ListVisited = false;
+            public bool BaseVisited = false;
+
+            public void Visit(MapArray array)
+            {
+                MapVisited = true;
+            }
+
+            public void Visit(ListArray array)
+            {
+                ListVisited = true;
+            }
+
+            public void Visit(IArrowArray array)
+            {
+                BaseVisited = true;
+            }
+        }
     }
 }

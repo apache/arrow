@@ -27,9 +27,6 @@ ENV R_BIN=${r_bin}
 ARG r_dev=FALSE
 ENV ARROW_R_DEV=${r_dev}
 
-ARG devtoolset_version=
-ENV DEVTOOLSET_VERSION=${devtoolset_version}
-
 ARG r_prune_deps=FALSE
 ENV R_PRUNE_DEPS=${r_prune_deps}
 
@@ -53,6 +50,10 @@ RUN /arrow/ci/scripts/r_docker_configure.sh
 # this has to come after r_docker_configure to ensure curl is installed
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+
+ARG cmake
+COPY ci/scripts/install_cmake.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_cmake.sh ${cmake} /usr/local/
 
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/

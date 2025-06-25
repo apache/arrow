@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-add_custom_target(arrow_compute)
+add_custom_target(arrow-compute-tests)
 
 arrow_install_all_headers("arrow/compute")
 
@@ -27,9 +27,40 @@ endif()
 #
 # Unit tests
 #
+if(ARROW_TEST_LINKAGE STREQUAL "static")
+  set(ARROW_COMPUTE_TEST_LINK_LIBS arrow_compute_static ${ARROW_TEST_STATIC_LINK_LIBS})
+else()
+  set(ARROW_COMPUTE_TEST_LINK_LIBS arrow_compute_shared ${ARROW_TEST_SHARED_LINK_LIBS})
+endif()
+
+# Define arrow_compute_core_testing object library for common test files requiring
+# only core compute. No extra kernels are required.
+if(ARROW_TESTING)
+  add_library(arrow_compute_core_testing OBJECT test_util_internal.cc)
+  # Even though this is still just an object library we still need to "link" our
+  # dependencies so that include paths are configured correctly
+  target_link_libraries(arrow_compute_core_testing PUBLIC ${ARROW_GTEST_GMOCK})
+endif()
+
+# Define arrow_compute_testing object library for test files requiring extra kernels.
+if(ARROW_TESTING AND ARROW_COMPUTE)
+  set(ARROW_COMPUTE_TESTING_SRCS test_env.cc)
+  add_library(arrow_compute_testing OBJECT ${ARROW_COMPUTE_TESTING_SRCS})
+  # Even though this is still just an object library we still need to "link"
+  # arrow_compute_core_testing so that is also included correctly
+  if(MSVC AND MSVC_VERSION LESS 1930)
+    target_link_libraries(arrow_compute_testing
+                          PUBLIC $<TARGET_OBJECTS:arrow_compute_core_testing>
+                          PUBLIC ${ARROW_GTEST_GTEST_MAIN})
+  else()
+    target_link_libraries(arrow_compute_testing
+                          PUBLIC $<TARGET_OBJECTS:arrow_compute_core_testing>
+                          PUBLIC ${ARROW_GTEST_GTEST})
+  endif()
+endif()
 
 set(ARROW_COMPUTE_TEST_PREFIX "arrow-compute")
-set(ARROW_COMPUTE_TEST_LABELS "arrow_compute")
+set(ARROW_COMPUTE_TEST_LABELS "arrow-compute-tests")
 set(ARROW_COMPUTE_TEST_ARGS PREFIX ${ARROW_COMPUTE_TEST_PREFIX} LABELS
                             ${ARROW_COMPUTE_TEST_LABELS})
 
@@ -78,6 +109,8 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
                  ${PREFIX}
                  LABELS
                  ${LABELS}
+                 STATIC_LINK_LIBS
+                 ${ARROW_COMPUTE_TEST_LINK_LIBS}
                  ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
@@ -87,11 +120,27 @@ add_arrow_test(internals_test
                function_test.cc
                exec_test.cc
                kernel_test.cc
-               light_array_test.cc
                registry_test.cc
-               key_hash_test.cc)
+               EXTRA_LINK_LIBS
+               arrow_compute_core_testing)
 
-add_arrow_compute_test(expression_test SOURCES expression_test.cc)
+add_arrow_compute_test(expression_test
+                       SOURCES
+                       expression_test.cc
+                       EXTRA_LINK_LIBS
+                       arrow_compute_testing)
+
+add_arrow_compute_test(row_test
+                       SOURCES
+                       key_hash_test.cc
+                       light_array_test.cc
+                       row/compare_test.cc
+                       row/grouper_test.cc
+                       row/row_encoder_internal_test.cc
+                       row/row_test.cc
+                       util_internal_test.cc
+                       EXTRA_LINK_LIBS
+                       arrow_compute_testing)
 
 add_arrow_benchmark(function_benchmark PREFIX "arrow-compute")
 

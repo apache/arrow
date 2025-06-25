@@ -16,10 +16,12 @@
 // under the License.
 
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/copy_data_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace compute {

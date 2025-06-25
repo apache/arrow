@@ -64,7 +64,7 @@ pull.Dataset <- function(.data,
   .data <- as_adq(.data)
   var <- vars_pull(names(.data), !!enquo(var))
   .data$selected_columns <- set_names(.data$selected_columns[var], var)
-  out <- dplyr::compute(.data)[[1]]
+  out <- dplyr::compute(.data)[[var]]
   handle_pull_as_vector(out, as_vector)
 }
 pull.RecordBatchReader <- pull.arrow_dplyr_query <- pull.Dataset

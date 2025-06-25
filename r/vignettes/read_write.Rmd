@@ -140,7 +140,7 @@ write_csv_arrow(mtcars, file_path)
 read_csv_arrow(file_path, col_select = starts_with("d"))
 ```
 
-In addition to the options provided by the readr-style arguments (`delim`, `quote`, `escape_doubple`, `escape_backslash`, etc), you can use the `schema` argument to specify column types: see `schema()` help for details. There is also the option of using `parse_options`, `convert_options`, and `read_options` to exercise fine-grained control over the arrow csv reader: see `help("CsvReadOptions", package = "arrow")` for details. 
+In addition to the options provided by the readr-style arguments (`delim`, `quote`, `escape_double`, `escape_backslash`, etc), you can use the `schema` argument to specify column types: see `schema()` help for details. There is also the option of using `parse_options`, `convert_options`, and `read_options` to exercise fine-grained control over the arrow csv reader: see `help("CsvReadOptions", package = "arrow")` for details. 
 
 ## JSON format
 

@@ -47,13 +47,14 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/align_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/parallel.h"
 #include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"
@@ -254,7 +255,12 @@ class ArrayLoader {
     if (i >= static_cast<int>(variadic_counts->size())) {
       return Status::IOError("variadic_count_index out of range.");
     }
-    return static_cast<size_t>(variadic_counts->Get(i));
+    int64_t count = variadic_counts->Get(i);
+    if (count < 0 || count > std::numeric_limits<int32_t>::max()) {
+      return Status::IOError(
+          "variadic_count must be representable as a positive int32_t, got ", count, ".");
+    }
+    return static_cast<size_t>(count);
   }
 
   Status GetFieldMetadata(int field_index, ArrayData* out) {
@@ -300,7 +306,7 @@ class ArrayLoader {
       RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
     } else {
       buffer_index_++;
-      out_->buffers[1].reset(new Buffer(nullptr, 0));
+      out_->buffers[1] = std::make_shared<Buffer>(nullptr, 0);
     }
     return Status::OK();
   }
@@ -321,6 +327,22 @@ class ArrayLoader {
 
     RETURN_NOT_OK(LoadCommon(type.id()));
     RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
+
+    const int num_children = type.num_fields();
+    if (num_children != 1) {
+      return Status::Invalid("Wrong number of children: ", num_children);
+    }
+
+    return LoadChildren(type.fields());
+  }
+
+  template <typename TYPE>
+  Status LoadListView(const TYPE& type) {
+    out_->buffers.resize(3);
+
+    RETURN_NOT_OK(LoadCommon(type.id()));
+    RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
+    RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[2]));
 
     const int num_children = type.num_fields();
     if (num_children != 1) {
@@ -372,10 +394,10 @@ class ArrayLoader {
     RETURN_NOT_OK(LoadCommon(type.id()));
     RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
 
-    ARROW_ASSIGN_OR_RAISE(auto character_buffer_count,
+    ARROW_ASSIGN_OR_RAISE(auto data_buffer_count,
                           GetVariadicCount(variadic_count_index_++));
-    out_->buffers.resize(character_buffer_count + 2);
-    for (size_t i = 0; i < character_buffer_count; ++i) {
+    out_->buffers.resize(data_buffer_count + 2);
+    for (size_t i = 0; i < data_buffer_count; ++i) {
       RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[i + 2]));
     }
     return Status::OK();
@@ -390,6 +412,11 @@ class ArrayLoader {
   template <typename T>
   enable_if_var_size_list<T, Status> Visit(const T& type) {
     return LoadList(type);
+  }
+
+  template <typename T>
+  enable_if_list_view<T, Status> Visit(const T& type) {
+    return LoadListView(type);
   }
 
   Status Visit(const MapType& type) {
@@ -514,7 +541,8 @@ Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& 
                            actual_decompressed);
   }
 
-  return std::move(uncompressed);
+  // R build with openSUSE155 requires an explicit shared_ptr construction
+  return std::shared_ptr<Buffer>(std::move(uncompressed));
 }
 
 Status DecompressBuffers(Compression::type compression, const IpcReadOptions& options,
@@ -609,19 +637,28 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
                             arrow::internal::SwapEndianArrayData(filtered_column));
     }
   }
-  return RecordBatch::Make(std::move(filtered_schema), metadata->length(),
-                           std::move(filtered_columns));
+  auto batch = RecordBatch::Make(std::move(filtered_schema), metadata->length(),
+                                 std::move(filtered_columns));
+
+  if (ARROW_PREDICT_FALSE(context.options.ensure_alignment != Alignment::kAnyAlignment)) {
+    return util::EnsureAlignment(batch,
+                                 // the numerical value of ensure_alignment enum is taken
+                                 // literally as byte alignment
+                                 static_cast<int64_t>(context.options.ensure_alignment),
+                                 context.options.memory_pool);
+  }
+  return batch;
 }
 
 Result<std::shared_ptr<RecordBatch>> LoadRecordBatch(
     const flatbuf::RecordBatch* metadata, const std::shared_ptr<Schema>& schema,
     const std::vector<bool>& inclusion_mask, const IpcReadContext& context,
     io::RandomAccessFile* file) {
-  if (inclusion_mask.size() > 0) {
-    return LoadRecordBatchSubset(metadata, schema, &inclusion_mask, context, file);
-  } else {
+  if (inclusion_mask.empty()) {
     return LoadRecordBatchSubset(metadata, schema, /*inclusion_mask=*/nullptr, context,
                                  file);
+  } else {
+    return LoadRecordBatchSubset(metadata, schema, &inclusion_mask, context, file);
   }
 }
 
@@ -632,14 +669,15 @@ Status GetCompression(const flatbuf::RecordBatch* batch, Compression::type* out)
   *out = Compression::UNCOMPRESSED;
   const flatbuf::BodyCompression* compression = batch->compression();
   if (compression != nullptr) {
-    if (compression->method() != flatbuf::BodyCompressionMethod::BUFFER) {
+    if (compression->method() !=
+        flatbuf::BodyCompressionMethod::BodyCompressionMethod_BUFFER) {
       // Forward compatibility
       return Status::Invalid("This library only supports BUFFER compression method");
     }
 
-    if (compression->codec() == flatbuf::CompressionType::LZ4_FRAME) {
+    if (compression->codec() == flatbuf::CompressionType::CompressionType_LZ4_FRAME) {
       *out = Compression::LZ4_FRAME;
-    } else if (compression->codec() == flatbuf::CompressionType::ZSTD) {
+    } else if (compression->codec() == flatbuf::CompressionType::CompressionType_ZSTD) {
       *out = Compression::ZSTD;
     } else {
       return Status::Invalid("Unsupported codec in RecordBatch::compression metadata");
@@ -690,7 +728,7 @@ Result<RecordBatchWithMetadata> ReadRecordBatchInternal(
   Compression::type compression;
   RETURN_NOT_OK(GetCompression(batch, &compression));
   if (context.compression == Compression::UNCOMPRESSED &&
-      message->version() == flatbuf::MetadataVersion::V4) {
+      message->version() == flatbuf::MetadataVersion::MetadataVersion_V4) {
     // Possibly obtain codec information from experimental serialization format
     // in 0.17.x
     RETURN_NOT_OK(GetCompressionExperimental(message, &compression));
@@ -793,7 +831,7 @@ Status ReadDictionary(const Buffer& metadata, const IpcReadContext& context,
   Compression::type compression;
   RETURN_NOT_OK(GetCompression(batch_meta, &compression));
   if (compression == Compression::UNCOMPRESSED &&
-      message->version() == flatbuf::MetadataVersion::V4) {
+      message->version() == flatbuf::MetadataVersion::MetadataVersion_V4) {
     // Possibly obtain codec information from experimental serialization format
     // in 0.17.x
     RETURN_NOT_OK(GetCompressionExperimental(message, &compression));
@@ -1148,7 +1186,7 @@ static Result<std::unique_ptr<Message>> ReadMessageFromBlock(
 
   ARROW_ASSIGN_OR_RAISE(auto message, ReadMessage(block.offset, block.metadata_length,
                                                   file, fields_loader));
-  return std::move(message);
+  return message;
 }
 
 static Future<std::shared_ptr<Message>> ReadMessageFromBlockAsync(
@@ -1420,7 +1458,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     // Prebuffering's read patterns are also slightly worse than the alternative
     // when doing whole-file reads because the logic is not in place to recognize
     // we can just read the entire file up-front
-    if (options_.included_fields.size() != 0 &&
+    if (!options_.included_fields.empty() &&
         options_.included_fields.size() != schema_->fields().size() &&
         !file_->supports_zero_copy()) {
       RETURN_NOT_OK(state->PreBufferMetadata({}));
@@ -1510,7 +1548,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     ARROW_ASSIGN_OR_RAISE(auto message,
                           arrow::ipc::ReadMessageFromBlock(block, file_, fields_loader));
     stats_.num_messages.fetch_add(1, std::memory_order_relaxed);
-    return std::move(message);
+    return message;
   }
 
   Status ReadDictionaries() {
@@ -1599,14 +1637,14 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     Compression::type compression;
     RETURN_NOT_OK(GetCompression(batch, &compression));
     if (context.compression == Compression::UNCOMPRESSED &&
-        message->version() == flatbuf::MetadataVersion::V4) {
+        message->version() == flatbuf::MetadataVersion::MetadataVersion_V4) {
       // Possibly obtain codec information from experimental serialization format
       // in 0.17.x
       RETURN_NOT_OK(GetCompressionExperimental(message, &compression));
     }
     context.compression = compression;
     context.metadata_version = internal::GetMetadataVersion(message->version());
-    return std::move(context);
+    return context;
   }
 
   Result<const flatbuf::RecordBatch*> GetBatchFromMessage(
@@ -1880,7 +1918,7 @@ Result<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::Open(
 Future<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::OpenAsync(
     const std::shared_ptr<io::RandomAccessFile>& file, const IpcReadOptions& options) {
   ARROW_ASSIGN_OR_RAISE(int64_t footer_offset, file->GetSize());
-  return OpenAsync(std::move(file), footer_offset, options);
+  return OpenAsync(file, footer_offset, options);
 }
 
 Future<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::OpenAsync(
@@ -2231,7 +2269,7 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
   }
 
   switch (sparse_index->compressedAxis()) {
-    case flatbuf::SparseMatrixCompressedAxis::Row: {
+    case flatbuf::SparseMatrixCompressedAxis::SparseMatrixCompressedAxis_Row: {
       std::vector<int64_t> indptr_shape({shape[0] + 1});
       const int64_t indptr_minimum_bytes = indptr_shape[0] * indptr_byte_width;
       if (indptr_minimum_bytes > indptr_buffer->length()) {
@@ -2241,7 +2279,7 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
           std::make_shared<Tensor>(indptr_type, indptr_data, indptr_shape),
           std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
     }
-    case flatbuf::SparseMatrixCompressedAxis::Column: {
+    case flatbuf::SparseMatrixCompressedAxis::SparseMatrixCompressedAxis_Column: {
       std::vector<int64_t> indptr_shape({shape[1] + 1});
       const int64_t indptr_minimum_bytes = indptr_shape[0] * indptr_byte_width;
       if (indptr_minimum_bytes > indptr_buffer->length()) {
@@ -2678,7 +2716,7 @@ Result<std::shared_ptr<Buffer>> IoRecordedRandomAccessFile::Read(int64_t nbytes)
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, ReadAt(position_, nbytes));
   auto num_bytes_read = std::min(file_size_, position_ + nbytes) - position_;
   position_ += num_bytes_read;
-  return std::move(buffer);
+  return buffer;
 }
 
 const io::IOContext& IoRecordedRandomAccessFile::io_context() const {

@@ -100,3 +100,11 @@ __debug_bin
 
 # direnv
 .envrc
+
+# Develocity
+java/.mvn/.gradle-enterprise/
+java/.mvn/.develocity/
+
+# rat
+filtered_rat.txt
+rat.txt

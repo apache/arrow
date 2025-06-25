@@ -221,7 +221,7 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   /// kMaximumBloomFilterBytes, and the return value is always a power of 2
   static uint32_t OptimalNumOfBytes(uint32_t ndv, double fpp) {
     uint32_t optimal_num_of_bits = OptimalNumOfBits(ndv, fpp);
-    DCHECK(::arrow::bit_util::IsMultipleOf8(optimal_num_of_bits));
+    ARROW_DCHECK(::arrow::bit_util::IsMultipleOf8(optimal_num_of_bits));
     return optimal_num_of_bits >> 3;
   }
 
@@ -233,7 +233,7 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   /// @return it always return a value between kMinimumBloomFilterBytes * 8 and
   /// kMaximumBloomFilterBytes * 8, and the return value is always a power of 16
   static uint32_t OptimalNumOfBits(uint32_t ndv, double fpp) {
-    DCHECK(fpp > 0.0 && fpp < 1.0);
+    ARROW_DCHECK(fpp > 0.0 && fpp < 1.0);
     const double m = -8.0 * ndv / log(1 - pow(fpp, 1.0 / 8));
     uint32_t num_bits;
 
@@ -310,10 +310,13 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   /// a Bloom filter from a parquet filter.
   ///
   /// @param properties The parquet reader properties.
-  /// @param input_stream The input stream from which to construct the Bloom filter.
+  /// @param input_stream The input stream from which to construct the bloom filter.
+  /// @param bloom_filter_length The length of the serialized bloom filter including
+  /// header.
   /// @return The BlockSplitBloomFilter.
-  static BlockSplitBloomFilter Deserialize(const ReaderProperties& properties,
-                                           ArrowInputStream* input_stream);
+  static BlockSplitBloomFilter Deserialize(
+      const ReaderProperties& properties, ArrowInputStream* input_stream,
+      std::optional<int64_t> bloom_filter_length = std::nullopt);
 
  private:
   inline void InsertHashImpl(uint64_t hash);

@@ -16,15 +16,22 @@
 # under the License.
 
 ARG arch
-ARG python
-FROM ${arch}/python:${python}
-
-# RUN pip install --upgrade pip
+ARG python_image_tag
+FROM ${arch}/python:${python_image_tag}
 
 # pandas doesn't provide wheel for aarch64 yet, so cache the compiled
 # test dependencies in a docker image
 COPY python/requirements-wheel-test.txt /arrow/python/
 RUN pip install -r /arrow/python/requirements-wheel-test.txt
 
+# Install the GCS testbench with the system Python
+RUN apt-get update -y -q && \
+    apt-get install -y -q \
+        build-essential \
+        python3-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists*
+
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
-RUN PYTHON=python /arrow/ci/scripts/install_gcs_testbench.sh default
+ENV PIPX_PYTHON=/usr/bin/python3 PIPX_PIP_ARGS=--prefer-binary
+RUN /arrow/ci/scripts/install_gcs_testbench.sh default

@@ -541,7 +541,7 @@ TEST_F(TestStructBuilder, TestEquality) {
   ASSERT_OK(char_vb->Reserve(list_values.size()));
   ASSERT_OK(int_vb->Reserve(int_values.size()));
 
-  // setup two equal arrays, one of which takes an unequal bitmap
+  // set up two equal arrays, one of which takes an unequal bitmap
   ASSERT_OK(builder_->AppendValues(struct_is_valid.size(), struct_is_valid.data()));
   ASSERT_OK(list_vb->AppendValues(list_offsets.data(), list_offsets.size(),
                                   list_is_valid.data()));
@@ -574,7 +574,7 @@ TEST_F(TestStructBuilder, TestEquality) {
   ASSERT_OK(char_vb->Resize(list_values.size()));
   ASSERT_OK(int_vb->Resize(int_values.size()));
 
-  // setup an unequal one with the unequal bitmap
+  // set up an unequal one with the unequal bitmap
   ASSERT_OK(builder_->AppendValues(unequal_struct_is_valid.size(),
                                    unequal_struct_is_valid.data()));
   ASSERT_OK(list_vb->AppendValues(list_offsets.data(), list_offsets.size(),
@@ -592,7 +592,7 @@ TEST_F(TestStructBuilder, TestEquality) {
   ASSERT_OK(char_vb->Resize(list_values.size()));
   ASSERT_OK(int_vb->Resize(int_values.size()));
 
-  // setup an unequal one with unequal offsets
+  // set up an unequal one with unequal offsets
   ASSERT_OK(builder_->AppendValues(struct_is_valid.size(), struct_is_valid.data()));
   ASSERT_OK(list_vb->AppendValues(unequal_list_offsets.data(),
                                   unequal_list_offsets.size(),
@@ -610,7 +610,7 @@ TEST_F(TestStructBuilder, TestEquality) {
   ASSERT_OK(char_vb->Resize(list_values.size()));
   ASSERT_OK(int_vb->Resize(int_values.size()));
 
-  // setup anunequal one with unequal values
+  // set up an unequal one with unequal values
   ASSERT_OK(builder_->AppendValues(struct_is_valid.size(), struct_is_valid.data()));
   ASSERT_OK(list_vb->AppendValues(list_offsets.data(), list_offsets.size(),
                                   list_is_valid.data()));

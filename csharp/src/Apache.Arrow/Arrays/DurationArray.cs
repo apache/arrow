@@ -14,11 +14,13 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class DurationArray : PrimitiveArray<long>
+    public class DurationArray : PrimitiveArray<long>, IReadOnlyList<TimeSpan?>
     {
         public class Builder : PrimitiveArrayBuilder<long, DurationArray, Builder>
         {
@@ -80,5 +82,18 @@ namespace Apache.Arrow
         }
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
+
+        int IReadOnlyCollection<TimeSpan?>.Count => Length;
+        TimeSpan? IReadOnlyList<TimeSpan?>.this[int index] => GetTimeSpan(index);
+
+        IEnumerator<TimeSpan?> IEnumerable<TimeSpan?>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetTimeSpan(index);
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<TimeSpan?>)this).GetEnumerator();
     }
 }

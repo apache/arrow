@@ -511,13 +511,8 @@ TEST(TestBuffer, CopySliceEmpty) {
 }
 
 TEST(TestBuffer, ToHexString) {
-  const uint8_t data_array[] = "\a0hex string\xa9";
-  std::basic_string<uint8_t> data_str = data_array;
-
-  auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
-
-  Buffer buf(data, data_str.size());
-
+  const std::string data_str = "\a0hex string\xa9";
+  Buffer buf(data_str);
   ASSERT_EQ(buf.ToHexString(), std::string("073068657820737472696E67A9"));
 }
 
@@ -1021,6 +1016,19 @@ TEST(TestBufferConcatenation, EmptyBuffer) {
   auto empty_buffer = std::make_shared<Buffer>(/*data=*/nullptr, /*size=*/0);
   ASSERT_OK_AND_ASSIGN(auto result, ConcatenateBuffers({buffer, empty_buffer}));
   AssertMyBufferEqual(*result, contents);
+}
+
+TEST(TestDeviceRegistry, Basics) {
+  // Test the error cases for the device registry
+
+  // CPU is already registered
+  ASSERT_RAISES(KeyError,
+                RegisterDeviceMapper(DeviceAllocationType::kCPU, [](int64_t device_id) {
+                  return default_cpu_memory_manager();
+                }));
+
+  // VPI is not registered
+  ASSERT_RAISES(KeyError, GetDeviceMapper(DeviceAllocationType::kVPI));
 }
 
 }  // namespace arrow

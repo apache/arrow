@@ -131,17 +131,14 @@ void AggregatesToString(std::stringstream* ss, const Schema& input_schema,
 template <typename BatchHandler>
 Status HandleSegments(RowSegmenter* segmenter, const ExecBatch& batch,
                       const std::vector<int>& ids, const BatchHandler& handle_batch) {
-  int64_t offset = 0;
   ARROW_ASSIGN_OR_RAISE(auto segment_exec_batch, batch.SelectValues(ids));
   ExecSpan segment_batch(segment_exec_batch);
 
-  while (true) {
-    ARROW_ASSIGN_OR_RAISE(compute::Segment segment,
-                          segmenter->GetNextSegment(segment_batch, offset));
-    if (segment.offset >= segment_batch.length) break;  // condition of no-next-segment
+  ARROW_ASSIGN_OR_RAISE(auto segments, segmenter->GetSegments(segment_batch));
+  for (const auto& segment : segments) {
     ARROW_RETURN_NOT_OK(handle_batch(batch, segment));
-    offset = segment.offset + segment.length;
   }
+
   return Status::OK();
 }
 
@@ -174,6 +171,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
         TracedNode(this),
         segmenter_(std::move(segmenter)),
         segment_field_ids_(std::move(segment_field_ids)),
+        segmenter_values_(segment_field_ids_.size()),
         target_fieldsets_(std::move(target_fieldsets)),
         aggs_(std::move(aggs)),
         kernels_(std::move(kernels)),
@@ -224,7 +222,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
   // Field indices corresponding to the segment-keys
   const std::vector<int> segment_field_ids_;
   // Holds the value of segment keys of the most recent input batch
-  // The values are updated everytime an input batch is processed
+  // The values are updated every time an input batch is processed
   std::vector<Datum> segmenter_values_;
 
   const std::vector<std::vector<int>> target_fieldsets_;
@@ -252,6 +250,7 @@ class GroupByNode : public ExecNode, public TracedNode {
       : ExecNode(input->plan(), {input}, {"groupby"}, std::move(output_schema)),
         TracedNode(this),
         segmenter_(std::move(segmenter)),
+        segmenter_values_(segment_key_field_ids.size()),
         key_field_ids_(std::move(key_field_ids)),
         segment_key_field_ids_(std::move(segment_key_field_ids)),
         agg_src_types_(std::move(agg_src_types)),

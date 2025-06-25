@@ -25,7 +25,7 @@ import tempfile
 import numpy as np
 
 from .util import frombytes, tobytes, random_bytes, random_utf8
-from .util import SKIP_C_SCHEMA, SKIP_C_ARRAY
+from .util import SKIP_C_SCHEMA, SKIP_C_ARRAY, SKIP_FLIGHT
 
 
 def metadata_key_values(pairs):
@@ -609,9 +609,12 @@ class BinaryField(PrimitiveField):
 
         sizes = self._random_sizes(size)
 
-        for i, nbytes in enumerate(sizes):
+        for i, np_nbytes in enumerate(sizes):
             if is_valid[i]:
-                values.append(random_bytes(nbytes))
+                # We have to cast to int because Python 3.13.4 has a bug
+                # on random_bytes. See the comment here:
+                # https://github.com/apache/arrow/pull/46823#issuecomment-2979376852
+                values.append(random_bytes(int(np_nbytes)))
             else:
                 values.append(b"")
 
@@ -924,6 +927,83 @@ class ListColumn(_BaseListColumn, _NarrowOffsetsMixin):
 
 
 class LargeListColumn(_BaseListColumn, _LargeOffsetsMixin):
+    pass
+
+
+class ListViewField(Field):
+
+    def __init__(self, name, value_field, *, nullable=True,
+                 metadata=None):
+        super().__init__(name, nullable=nullable,
+                         metadata=metadata)
+        self.value_field = value_field
+
+    @property
+    def column_class(self):
+        return ListViewColumn
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'listview')
+        ])
+
+    def _get_children(self):
+        return [self.value_field.get_json()]
+
+    def generate_column(self, size, name=None):
+        MAX_LIST_SIZE = 4
+        VALUES_SIZE = size * MAX_LIST_SIZE
+
+        is_valid = self._make_is_valid(size)
+
+        MAX_OFFSET = VALUES_SIZE - MAX_LIST_SIZE
+        offsets = np.random.randint(0, MAX_OFFSET + 1, size=size)
+        sizes = np.random.randint(0, MAX_LIST_SIZE + 1, size=size)
+
+        values = self.value_field.generate_column(VALUES_SIZE)
+
+        if name is None:
+            name = self.name
+        return self.column_class(name, size, is_valid, offsets, sizes, values)
+
+
+class LargeListViewField(ListViewField):
+
+    @property
+    def column_class(self):
+        return LargeListViewColumn
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'largelistview')
+        ])
+
+
+class _BaseListViewColumn(Column):
+
+    def __init__(self, name, count, is_valid, offsets, sizes, values):
+        super().__init__(name, count)
+        self.is_valid = is_valid
+        self.offsets = offsets
+        self.sizes = sizes
+        self.values = values
+
+    def _get_buffers(self):
+        return [
+            ('VALIDITY', [int(v) for v in self.is_valid]),
+            ('OFFSET', self._encode_offsets(self.offsets)),
+            ('SIZE', self._encode_offsets(self.sizes)),
+        ]
+
+    def _get_children(self):
+        return [self.values.get_json()]
+
+
+class ListViewColumn(_BaseListViewColumn, _NarrowOffsetsMixin):
+    pass
+
+
+class LargeListViewColumn(_BaseListViewColumn, _LargeOffsetsMixin):
     pass
 
 
@@ -1513,15 +1593,33 @@ def generate_null_trivial_case(batch_sizes):
     return _generate_file('null_trivial', fields, batch_sizes)
 
 
+def generate_decimal32_case():
+    fields = [
+        DecimalField(name=f'f{i}', precision=precision, scale=2, bit_width=32)
+        for i, precision in enumerate(range(3, 10))
+    ]
+
+    batch_sizes = [7, 10]
+    return _generate_file('decimal32', fields, batch_sizes)
+
+
+def generate_decimal64_case():
+    fields = [
+        DecimalField(name=f'f{i}', precision=precision, scale=2, bit_width=64)
+        for i, precision in enumerate(range(3, 19))
+    ]
+
+    batch_sizes = [7, 10]
+    return _generate_file('decimal64', fields, batch_sizes)
+
+
 def generate_decimal128_case():
     fields = [
-        DecimalField(name='f{}'.format(i), precision=precision, scale=2,
-                     bit_width=128)
+        DecimalField(name=f'f{i}', precision=precision, scale=2, bit_width=128)
         for i, precision in enumerate(range(3, 39))
     ]
 
-    possible_batch_sizes = 7, 10
-    batch_sizes = [possible_batch_sizes[i % 2] for i in range(len(fields))]
+    batch_sizes = [7, 10]
     # 'decimal' is the original name for the test, and it must match
     # provide "gold" files that test backwards compatibility, so they
     # can be appropriately skipped.
@@ -1530,13 +1628,11 @@ def generate_decimal128_case():
 
 def generate_decimal256_case():
     fields = [
-        DecimalField(name='f{}'.format(i), precision=precision, scale=5,
-                     bit_width=256)
+        DecimalField(name=f'f{i}', precision=precision, scale=5, bit_width=256)
         for i, precision in enumerate(range(37, 70))
     ]
 
-    possible_batch_sizes = 7, 10
-    batch_sizes = [possible_batch_sizes[i % 2] for i in range(len(fields))]
+    batch_sizes = [7, 10]
     return _generate_file('decimal256', fields, batch_sizes)
 
 
@@ -1665,6 +1761,15 @@ def generate_binary_view_case():
     return _generate_file("binary_view", fields, batch_sizes)
 
 
+def generate_list_view_case():
+    fields = [
+        ListViewField('lv', get_field('item', 'float32')),
+        LargeListViewField('llv', get_field('item', 'float32')),
+    ]
+    batch_sizes = [0, 7, 256]
+    return _generate_file("list_view", fields, batch_sizes)
+
+
 def generate_nested_large_offsets_case():
     fields = [
         LargeListField('large_list_nullable', get_field('item', 'int32')),
@@ -1761,7 +1866,7 @@ def generate_nested_dictionary_case():
 def generate_extension_case():
     dict0 = Dictionary(0, StringField('dictionary0'), size=5, name='DICT0')
 
-    uuid_type = ExtensionType('uuid', 'uuid-serialized',
+    uuid_type = ExtensionType('arrow.uuid', '',
                               FixedSizeBinaryField('', 16))
     dict_ext_type = ExtensionType(
         'dict-extension', 'dict-extension-serialized',
@@ -1788,9 +1893,7 @@ def get_generated_json_files(tempdir=None):
         generate_primitive_case([17, 20], name='primitive'),
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
 
-        generate_primitive_large_offsets_case([17, 20])
-        .skip_tester('C#')
-        .skip_tester('JS'),
+        generate_primitive_large_offsets_case([17, 20]),
 
         generate_null_case([10, 0]),
 
@@ -1801,22 +1904,31 @@ def get_generated_json_files(tempdir=None):
         generate_decimal256_case()
         .skip_tester('JS'),
 
+        generate_decimal32_case()
+        .skip_tester('Java')
+        .skip_tester('JS')
+        .skip_tester('nanoarrow')
+        .skip_tester('Rust')
+        .skip_tester('Go'),
+
+        generate_decimal64_case()
+        .skip_tester('Java')
+        .skip_tester('JS')
+        .skip_tester('nanoarrow')
+        .skip_tester('Rust')
+        .skip_tester('Go'),
+
         generate_datetime_case(),
 
         generate_duration_case(),
 
-        generate_interval_case()
-        .skip_tester('C#')
-        .skip_tester('JS'),  # TODO(ARROW-5239): Intervals + JS
+        generate_interval_case(),
 
-        generate_month_day_nano_interval_case()
-        .skip_tester('C#')
-        .skip_tester('JS'),
+        generate_month_day_nano_interval_case(),
 
         generate_map_case(),
 
         generate_non_canonical_map_case()
-        .skip_tester('C#')
         .skip_tester('Java')  # TODO(ARROW-8715)
         # Canonical map names are restored on import, so the schemas are unequal
         .skip_format(SKIP_C_SCHEMA, 'C++'),
@@ -1826,49 +1938,61 @@ def get_generated_json_files(tempdir=None):
         generate_recursive_nested_case(),
 
         generate_nested_large_offsets_case()
-        .skip_tester('C#')
         .skip_tester('JS'),
 
         generate_unions_case(),
 
-        generate_custom_metadata_case()
-        .skip_tester('C#'),
+        generate_custom_metadata_case(),
 
         generate_duplicate_fieldnames_case()
-        .skip_tester('C#')
         .skip_tester('JS'),
 
         generate_dictionary_case()
-        .skip_tester('C#'),
+        # TODO(https://github.com/apache/arrow-nanoarrow/issues/622)
+        .skip_tester('nanoarrow')
+        # TODO(https://github.com/apache/arrow/issues/38045)
+        .skip_format(SKIP_FLIGHT, 'C#'),
 
         generate_dictionary_unsigned_case()
-        .skip_tester('C#')
-        .skip_tester('Java'),  # TODO(ARROW-9377)
+        .skip_tester('nanoarrow')
+        .skip_tester('Java')  # TODO(ARROW-9377)
+        # TODO(https://github.com/apache/arrow/issues/38045)
+        .skip_format(SKIP_FLIGHT, 'C#'),
 
         generate_nested_dictionary_case()
-        .skip_tester('C#')
-        .skip_tester('Java'),  # TODO(ARROW-7779)
+        # TODO(https://github.com/apache/arrow-nanoarrow/issues/622)
+        .skip_tester('nanoarrow')
+        .skip_tester('Java')  # TODO(ARROW-7779)
+        # TODO(https://github.com/apache/arrow/issues/38045)
+        .skip_format(SKIP_FLIGHT, 'C#'),
 
         generate_run_end_encoded_case()
         .skip_tester('C#')
-        .skip_tester('Java')
         .skip_tester('JS')
+        # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
+        .skip_tester('nanoarrow')
         .skip_tester('Rust'),
 
         generate_binary_view_case()
-        .skip_tester('C#')
-        .skip_tester('Go')
-        .skip_tester('Java')
         .skip_tester('JS')
-        .skip_tester('Rust')
-        .skip_format(SKIP_C_SCHEMA, 'C++')
-        .skip_format(SKIP_C_ARRAY, 'C++'),
+        # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
+        .skip_tester('nanoarrow')
+        .skip_tester('Rust'),
+
+        generate_list_view_case()
+        .skip_tester('C#')     # Doesn't support large list views
+        .skip_tester('JS')
+        # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
+        .skip_tester('nanoarrow')
+        .skip_tester('Rust'),
 
         generate_extension_case()
-        .skip_tester('C#')
+        .skip_tester('nanoarrow')
         # TODO: ensure the extension is registered in the C++ entrypoint
         .skip_format(SKIP_C_SCHEMA, 'C++')
-        .skip_format(SKIP_C_ARRAY, 'C++'),
+        .skip_format(SKIP_C_ARRAY, 'C++')
+        # TODO(https://github.com/apache/arrow/issues/38045)
+        .skip_format(SKIP_FLIGHT, 'C#'),
     ]
 
     generated_paths = []

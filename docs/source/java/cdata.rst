@@ -366,7 +366,7 @@ This application uses JNI to call Java code, but transfers data (zero-copy) via 
        JavaVMOption options[2];
        options[0].optionString = "-Djava.class.path=cpptojava.jar";
        options[1].optionString = "-DXcheck:jni:pedantic";
-       vm_args.version = JNI_VERSION_1_8;
+       vm_args.version = JNI_VERSION_10;
        vm_args.nOptions = 2;
        vm_args.options = options;
        int status = JNI_CreateJavaVM(jvm, (void **) &env, &vm_args);

@@ -26,7 +26,7 @@
 #include "arrow/scalar.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_overflow.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/ree_util.h"
 
 namespace arrow {
@@ -162,8 +162,7 @@ Status RunCompressorBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 RunEndEncodedBuilder::ValueRunBuilder::ValueRunBuilder(
     MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& value_builder,
     const std::shared_ptr<DataType>& value_type, RunEndEncodedBuilder& ree_builder)
-    : RunCompressorBuilder(pool, std::move(value_builder), std::move(value_type)),
-      ree_builder_(ree_builder) {}
+    : RunCompressorBuilder(pool, value_builder, value_type), ree_builder_(ree_builder) {}
 
 RunEndEncodedBuilder::RunEndEncodedBuilder(
     MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& run_end_builder,
@@ -290,6 +289,9 @@ Status RunEndEncodedBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   ARROW_ASSIGN_OR_RAISE(auto ree_array,
                         RunEndEncodedArray::Make(length_, run_ends_array, values_array));
   *out = std::move(ree_array->data());
+
+  Reset();
+
   return Status::OK();
 }
 

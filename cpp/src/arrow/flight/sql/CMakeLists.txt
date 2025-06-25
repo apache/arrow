@@ -19,6 +19,15 @@ add_custom_target(arrow_flight_sql)
 
 arrow_install_all_headers("arrow/flight/sql")
 
+# If libarrow_flight_sql.a is only built, "pkg-config --cflags --libs
+# arrow-flight-sql" outputs build flags for static linking not shared
+# linking. ARROW_FLIGHT_SQL_PC_* except ARROW_FLIGHT_PC_SQL_*_PRIVATE
+# are for the static linking case.
+if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+  string(APPEND ARROW_FLIGHT_SQL_PC_CFLAGS "${ARROW_FLIGHT_SQL_PC_CFLAGS_PRIVATE}")
+  set(ARROW_FLIGHT_SQL_PC_CFLAGS_PRIVATE "")
+endif()
+
 set(FLIGHT_SQL_PROTO_PATH "${ARROW_SOURCE_DIR}/../format")
 set(FLIGHT_SQL_PROTO ${ARROW_SOURCE_DIR}/../format/FlightSql.proto)
 
@@ -47,7 +56,8 @@ set(ARROW_FLIGHT_SQL_SRCS
     sql_info_internal.cc
     column_metadata.cc
     client.cc
-    protocol_internal.cc)
+    protocol_internal.cc
+    server_session_middleware.cc)
 
 add_arrow_lib(arrow_flight_sql
               CMAKE_PACKAGE_NAME
@@ -104,9 +114,12 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
       example/sqlite_server.cc
       example/sqlite_tables_schema_batch_reader.cc)
 
-  set(ARROW_FLIGHT_SQL_TEST_SRCS server_test.cc)
+  set(ARROW_FLIGHT_SQL_TEST_SRCS server_test.cc
+                                 server_session_middleware_internals_test.cc)
+
   set(ARROW_FLIGHT_SQL_TEST_LIBS ${SQLite3_LIBRARIES})
   set(ARROW_FLIGHT_SQL_ACERO_SRCS example/acero_server.cc)
+  set(ARROW_FLIGHT_SQL_EXTRA_LINK_LIBS "")
 
   if(ARROW_COMPUTE
      AND ARROW_PARQUET
@@ -117,6 +130,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
     else()
       list(APPEND ARROW_FLIGHT_SQL_TEST_LIBS arrow_substrait_shared)
     endif()
+    list(APPEND ARROW_FLIGHT_SQL_EXTRA_LINK_LIBS arrow_compute_testing)
 
     if(ARROW_BUILD_EXAMPLES)
       add_executable(acero-flight-sql-server ${ARROW_FLIGHT_SQL_ACERO_SRCS}
@@ -134,6 +148,8 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                  STATIC_LINK_LIBS
                  ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
                  ${ARROW_FLIGHT_SQL_TEST_LIBS}
+                 EXTRA_LINK_LIBS
+                 ${ARROW_FLIGHT_SQL_EXTRA_LINK_LIBS}
                  EXTRA_INCLUDES
                  "${CMAKE_CURRENT_BINARY_DIR}/../"
                  LABELS
@@ -155,4 +171,8 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                                                        ARROW_FLIGHT_SQL_STATIC)
     endforeach()
   endif()
+endif()
+
+if(ARROW_FLIGHT_SQL_ODBC)
+  add_subdirectory(odbc)
 endif()

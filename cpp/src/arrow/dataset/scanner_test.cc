@@ -17,6 +17,7 @@
 
 #include "arrow/dataset/scanner.h"
 
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <utility>
@@ -269,8 +270,8 @@ struct MockFragment : public Fragment {
   std::string type_name() const override { return "mock"; }
 
   Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
-    return physical_schema_;
-  };
+    return given_physical_schema_;
+  }
 
   // ### Unit Test API ###
 
@@ -922,6 +923,23 @@ std::ostream& operator<<(std::ostream& out, const TestScannerParams& params) {
   return out;
 }
 
+// An InMemoryFragment subclass that tracks the calls to ClearCachedMetadata()
+class ClearCachedMetadataFragment : public InMemoryFragment {
+ public:
+  using InMemoryFragment::InMemoryFragment;
+
+  Status ClearCachedMetadata() override {
+    RETURN_NOT_OK(InMemoryFragment::ClearCachedMetadata());
+    metadata_clear_count_.fetch_add(1);
+    return Status::OK();
+  }
+
+  int metadata_clear_count() const { return metadata_clear_count_.load(); }
+
+ protected:
+  std::atomic<int> metadata_clear_count_{0};
+};
+
 class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
  protected:
   std::shared_ptr<Scanner> MakeScanner(std::shared_ptr<Dataset> dataset) {
@@ -977,6 +995,39 @@ class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
     auto expected = ConstantArrayGenerator::Repeat(total_batches, batch);
 
     AssertScanBatchesUnorderedEquals(expected.get(), scanner.get(), 1);
+  }
+
+  void TestCacheMetadata(std::function<Status(Scanner*)> consume_scanner) {
+    // Test that ClearCachedMetadata() is called if ScanOptions::cache_metadata is false.
+    SetSchema({field("i32", int32())});
+    auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+    RecordBatchVector batches{batch, batch};
+    auto frag1 = std::make_shared<ClearCachedMetadataFragment>(batches);
+    auto frag2 = std::make_shared<ClearCachedMetadataFragment>(batches);
+    auto check_metadata_clear_counts = [&](const std::vector<int>& expected) {
+      auto actual =
+          std::vector<int>{frag1->metadata_clear_count(), frag2->metadata_clear_count()};
+      ASSERT_EQ(expected, actual);
+    };
+    {
+      ScannerBuilder builder(
+          std::make_shared<FragmentDataset>(schema_, FragmentVector{frag1, frag2}),
+          options_);
+      ASSERT_OK(builder.UseThreads(GetParam().use_threads));
+      ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+      ASSERT_OK(consume_scanner(scanner.get()));
+      check_metadata_clear_counts({0, 0});
+    }
+    options_->cache_metadata = false;
+    {
+      ScannerBuilder builder(
+          std::make_shared<FragmentDataset>(schema_, FragmentVector{frag1, frag2}),
+          options_);
+      ASSERT_OK(builder.UseThreads(GetParam().use_threads));
+      ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+      ASSERT_OK(consume_scanner(scanner.get()));
+      check_metadata_clear_counts({1, 1});
+    }
   }
 };
 
@@ -1103,7 +1154,8 @@ TEST_P(TestScanner, ProjectionDefaults) {
   }
   // If we only specify a projection expression then infer the projected schema
   // from the projection expression
-  auto projection_desc = ProjectionDescr::FromNames({"i32"}, *schema_);
+  auto projection_desc =
+      ProjectionDescr::FromNames({"i32"}, *schema_, /*add_augmented_fields=*/true);
   {
     ARROW_SCOPED_TRACE("User only specifies projection");
     options_->projection = projection_desc->expression;
@@ -1148,7 +1200,8 @@ TEST_P(TestScanner, ProjectedScanNestedFromNames) {
   });
   ASSERT_OK_AND_ASSIGN(auto descr,
                        ProjectionDescr::FromNames({".struct.i32", "nested.right.f64"},
-                                                  *options_->dataset_schema))
+                                                  *options_->dataset_schema,
+                                                  options_->add_augmented_fields))
   SetProjection(options_.get(), std::move(descr));
   auto batch_in = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   auto batch_out = ConstantArrayGenerator::Zeroes(
@@ -1325,6 +1378,22 @@ TEST_P(TestScanner, EmptyFragment) {
   ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches(batches));
   ASSERT_OK_AND_ASSIGN(auto actual, Table::FromRecordBatches(std::move(actual_batches)));
   AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
+}
+
+TEST_P(TestScanner, CacheMetadataScanBatches) {
+  auto consume_scanner = [](Scanner* scanner) -> Status {
+    ARROW_ASSIGN_OR_RAISE(auto batches_it, scanner->ScanBatches());
+    return batches_it.ToVector().status();
+  };
+  TestCacheMetadata(consume_scanner);
+}
+
+TEST_P(TestScanner, CacheMetadataScanBatchesUnordered) {
+  auto consume_scanner = [](Scanner* scanner) -> Status {
+    ARROW_ASSIGN_OR_RAISE(auto batches_it, scanner->ScanBatchesUnordered());
+    return batches_it.ToVector().status();
+  };
+  TestCacheMetadata(consume_scanner);
 }
 
 class CountRowsOnlyFragment : public InMemoryFragment {
@@ -1642,7 +1711,7 @@ class ControlledFragment : public Fragment {
         tracking_generator_(record_batch_generator_) {}
 
   Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
-    return physical_schema_;
+    return given_physical_schema_;
   }
   std::string type_name() const override { return "scanner_test.cc::ControlledFragment"; }
 
@@ -1655,7 +1724,7 @@ class ControlledFragment : public Fragment {
 
   void Finish() { ARROW_UNUSED(record_batch_generator_.producer().Close()); }
   void DeliverBatch(uint32_t num_rows) {
-    auto batch = ConstantArrayGenerator::Zeroes(num_rows, physical_schema_);
+    auto batch = ConstantArrayGenerator::Zeroes(num_rows, given_physical_schema_);
     record_batch_generator_.producer().Push(std::move(batch));
   }
 
@@ -2106,7 +2175,8 @@ TEST(ScanOptions, TestMaterializedFields) {
 
   auto set_projection_from_names = [&opts](std::vector<std::string> names) {
     ASSERT_OK_AND_ASSIGN(auto projection, ProjectionDescr::FromNames(
-                                              std::move(names), *opts->dataset_schema));
+                                              std::move(names), *opts->dataset_schema,
+                                              opts->add_augmented_fields));
     SetProjection(opts.get(), std::move(projection));
   };
 
@@ -2160,7 +2230,8 @@ TEST(ScanOptions, TestMaterializedFields) {
   // project top-level field, filter nothing
   opts->filter = literal(true);
   ASSERT_OK_AND_ASSIGN(projection,
-                       ProjectionDescr::FromNames({"nested"}, *opts->dataset_schema));
+                       ProjectionDescr::FromNames({"nested"}, *opts->dataset_schema,
+                                                  opts->add_augmented_fields));
   SetProjection(opts.get(), std::move(projection));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre(FieldRef("nested")));
 
@@ -2328,7 +2399,7 @@ DatasetAndBatches MakeNestedDataset() {
       field("b", boolean()),
       field("c", struct_({
                      field("d", int64()),
-                     field("e", float64()),
+                     field("e", int64()),
                  })),
   });
   const auto physical_schema = ::arrow::schema({
@@ -2531,14 +2602,14 @@ TEST(ScanNode, MaterializationOfVirtualColumn) {
 TEST(ScanNode, MaterializationOfNestedVirtualColumn) {
   TestPlan plan;
 
-  auto basic = MakeNestedDataset();
+  auto nested = MakeNestedDataset();
 
   auto options = std::make_shared<ScanOptions>();
   options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
 
   ASSERT_OK(acero::Declaration::Sequence(
                 {
-                    {"scan", ScanNodeOptions{basic.dataset, options}},
+                    {"scan", ScanNodeOptions{nested.dataset, options}},
                     {"augmented_project",
                      acero::ProjectNodeOptions{
                          {field_ref("a"), field_ref("b"), field_ref("c")}}},
@@ -2546,11 +2617,20 @@ TEST(ScanNode, MaterializationOfNestedVirtualColumn) {
                 })
                 .AddToPlan(plan.get()));
 
-  // TODO(ARROW-1888): allow scanner to "patch up" structs with casts
-  EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
-      TypeError,
-      ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-      plan.Run());
+  auto expected = nested.batches;
+
+  for (auto& batch : expected) {
+    // Scan will fill in "c.d" with nulls.
+    ASSERT_OK_AND_ASSIGN(auto nulls,
+                         MakeArrayOfNull(int64()->GetSharedPtr(), batch.length));
+    auto c_data = batch.values[2].array()->Copy();
+    c_data->child_data.insert(c_data->child_data.begin(), nulls->data());
+    c_data->type = nested.dataset->schema()->field(2)->type();
+    auto c_array = std::make_shared<StructArray>(c_data);
+    batch.values[2] = c_array;
+  }
+
+  ASSERT_THAT(plan.Run(), Finishes(ResultWith(UnorderedElementsAreArray(expected))));
 }
 
 TEST(ScanNode, MinimalEndToEnd) {
@@ -2591,7 +2671,7 @@ TEST(ScanNode, MinimalEndToEnd) {
   // for now, specify the projection as the full project expression (eventually this can
   // just be a list of materialized field names)
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
-  // set the projection such that required project experssion field is included as a
+  // set the projection such that required project expression field is included as a
   // field_ref
   compute::Expression project_expr = field_ref("a");
   options->projection =
@@ -2686,7 +2766,7 @@ TEST(ScanNode, MinimalScalarAggEndToEnd) {
   // for now, specify the projection as the full project expression (eventually this can
   // just be a list of materialized field names)
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
-  // set the projection such that required project experssion field is included as a
+  // set the projection such that required project expression field is included as a
   // field_ref
   compute::Expression project_expr = field_ref("a");
   options->projection =
@@ -2778,7 +2858,7 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   // for now, specify the projection as the full project expression (eventually this can
   // just be a list of materialized field names)
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
-  // set the projection such that required project experssion field is included as a
+  // set the projection such that required project expression field is included as a
   // field_ref
   compute::Expression a = field_ref("a");
   compute::Expression b = field_ref("b");
@@ -2888,12 +2968,12 @@ TEST(ScanNode, OnlyLoadProjectedFields) {
       {acero::Declaration({"scan", dataset::ScanNodeOptions{dataset, scan_options}})});
   ASSERT_OK_AND_ASSIGN(auto actual, acero::DeclarationToTable(declarations));
   // Scan node always emits augmented fields so we drop those
-  ASSERT_OK_AND_ASSIGN(auto actualMinusAgumented, actual->SelectColumns({0, 1, 2}));
+  ASSERT_OK_AND_ASSIGN(auto actualMinusAugmented, actual->SelectColumns({0, 1, 2}));
   auto expected = TableFromJSON(dummy_schema, {R"([
       [null, 1, null],
       [null, 4, null]
   ])"});
-  AssertTablesEqual(*expected, *actualMinusAgumented, /*same_chunk_layout=*/false);
+  AssertTablesEqual(*expected, *actualMinusAugmented, /*same_chunk_layout=*/false);
 }
 
 }  // namespace dataset

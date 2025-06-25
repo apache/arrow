@@ -142,20 +142,11 @@ test_that("Properties of collapsed query", {
     summarize(total = sum(int, na.rm = TRUE)) %>%
     mutate(extra = total * 5)
 
-  # print(tbl %>%
-  #   filter(dbl > 2) %>%
-  #   select(chr, int, lgl) %>%
-  #   mutate(twice = int * 2L) %>%
-  #   group_by(lgl) %>%
-  #   summarize(total = sum(int, na.rm = TRUE)) %>%
-  #   mutate(extra = total * 5))
-
-  #   # A tibble: 3 × 3
+  #  # A tibble: 2 × 3
   #   lgl   total extra
   #   <lgl> <int> <dbl>
-  # 1 FALSE     8    40
-  # 2 TRUE      8    40
-  # 3 NA       25   125
+  # 1 TRUE      5    25
+  # 2 NA       36   180
 
   # Avoid evaluating just for nrow
   expect_identical(dim(q), c(NA_integer_, 3L))
@@ -171,30 +162,7 @@ extra: int64 (multiply_checked(total, 5))
 See $.data for the source Arrow object",
     fixed = TRUE
   )
-  expect_output(
-    print(q$.data),
-    "Table (query)
-int: int32
-lgl: bool
 
-* Aggregations:
-total: sum(int)
-* Filter: (dbl > 2)
-* Grouped by lgl
-See $.data for the source Arrow object",
-    fixed = TRUE
-  )
-
-  skip_if(getRversion() < "3.6.0", "TODO investigate why these aren't equal")
-  # On older R versions:
-  #  ── Failure (test-dplyr-collapse.R:172:3): Properties of collapsed query ────────
-  # head(q, 1) %>% collect() not equal to tibble::tibble(lgl = FALSE, total = 8L, extra = 40).
-  # Component "total": Mean relative difference: 0.3846154
-  # Component "extra": Mean relative difference: 0.3846154
-  # ── Failure (test-dplyr-collapse.R:176:3): Properties of collapsed query ────────
-  # tail(q, 1) %>% collect() not equal to tibble::tibble(lgl = NA, total = 25L, extra = 125).
-  # Component "total": Mean relative difference: 0.9230769
-  # Component "extra": Mean relative difference: 0.9230769
   expect_equal(
     q %>%
       arrange(lgl) %>%

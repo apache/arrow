@@ -45,7 +45,7 @@ For Visual Studio 2019, the script is:
 
   "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\Common7\Tools\VsDevCmd.bat" -arch=amd64
 
-One can configure a console emulator like `cmder <https://cmder.net/>`_ to
+One can configure a console emulator like `cmder <https://cmder.app/>`_ to
 automatically launch this when starting a new development console.
 
 Using conda-forge for build dependencies
@@ -170,12 +170,12 @@ an out of source build by generating a MSVC solution:
    cd cpp
    mkdir build
    cd build
-   cmake .. -G "Visual Studio 15 2017" -A x64 ^
+   cmake .. -G "Visual Studio 16 2019" -A x64 ^
          -DARROW_BUILD_TESTS=ON
    cmake --build . --config Release
 
 For newer versions of Visual Studio, specify the generator
-``Visual Studio 16 2019`` or see ``cmake --help`` for available
+``Visual Studio 17 2022`` or see ``cmake --help`` for available
 generators.
 
 Building with Ninja and sccache
@@ -379,9 +379,9 @@ Downloading the Timezone Database
 =================================
 
 To run some of the compute unit tests on Windows, the IANA timezone database
-and the Windows timezone mapping need to be downloaded first. See 
+and the Windows timezone mapping need to be downloaded first. See
 :ref:`download-timezone-database` for download instructions. To set a non-default
-path for the timezone database while running the unit tests, set the 
+path for the timezone database while running the unit tests, set the
 ``ARROW_TIMEZONE_DATABASE`` environment variable.
 
 Replicating Appveyor Builds

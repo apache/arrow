@@ -95,7 +95,7 @@ namespace Apache.Arrow
 
         public int Offset => Data.Offset;
 
-        public int NullCount => Data.NullCount;
+        public int NullCount => Data.GetNullCount();
 
         public void Dispose() { }
         public bool IsNull(int index) => true;

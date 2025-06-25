@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/compute/function.h"
+#include "arrow/compute/function_options.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/result.h"
 #include "arrow/status.h"

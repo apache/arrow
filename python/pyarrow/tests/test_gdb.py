@@ -409,7 +409,7 @@ def test_types_stack(gdb_arrow):
 
     check_stack_repr(
         gdb_arrow, "uuid_type",
-        ('arrow::ExtensionType "extension<uuid>" '
+        ('arrow::ExtensionType "extension<arrow.uuid>" '
          'with storage type arrow::fixed_size_binary(16)'))
 
 
@@ -447,7 +447,7 @@ def test_types_heap(gdb_arrow):
 
     check_heap_repr(
         gdb_arrow, "heap_uuid_type",
-        ('arrow::ExtensionType "extension<uuid>" '
+        ('arrow::ExtensionType "extension<arrow.uuid>" '
          'with storage type arrow::fixed_size_binary(16)'))
 
 
@@ -716,12 +716,12 @@ def test_scalars_stack(gdb_arrow):
 
     check_stack_repr(
         gdb_arrow, "extension_scalar",
-        ('arrow::ExtensionScalar of type "extension<uuid>", '
+        ('arrow::ExtensionScalar of type "extension<arrow.uuid>", '
          'value arrow::FixedSizeBinaryScalar of size 16, '
          'value "0123456789abcdef"'))
     check_stack_repr(
         gdb_arrow, "extension_scalar_null",
-        'arrow::ExtensionScalar of type "extension<uuid>", null value')
+        'arrow::ExtensionScalar of type "extension<arrow.uuid>", null value')
 
 
 def test_scalars_heap(gdb_arrow):
@@ -885,32 +885,61 @@ def test_arrays_heap(gdb_arrow):
         ("arrow::DurationArray of type arrow::duration"
          "(arrow::TimeUnit::NANO), length 2, offset 0, null count 1 = {"
          "[0] = null, [1] = -1234567890123456789ns}"))
-    check_heap_repr(
-        gdb_arrow, "heap_timestamp_array_s",
-        ("arrow::TimestampArray of type arrow::timestamp"
-         "(arrow::TimeUnit::SECOND), length 4, offset 0, null count 1 = {"
-         "[0] = null, [1] = 0s [1970-01-01 00:00:00], "
-         "[2] = -2203932304s [1900-02-28 12:34:56], "
-         "[3] = 63730281600s [3989-07-14 00:00:00]}"))
-    check_heap_repr(
-        gdb_arrow, "heap_timestamp_array_ms",
-        ("arrow::TimestampArray of type arrow::timestamp"
-         "(arrow::TimeUnit::MILLI), length 3, offset 0, null count 1 = {"
-         "[0] = null, [1] = -2203932303877ms [1900-02-28 12:34:56.123], "
-         "[2] = 63730281600789ms [3989-07-14 00:00:00.789]}"))
-    check_heap_repr(
-        gdb_arrow, "heap_timestamp_array_us",
-        ("arrow::TimestampArray of type arrow::timestamp"
-         "(arrow::TimeUnit::MICRO), length 3, offset 0, null count 1 = {"
-         "[0] = null, "
-         "[1] = -2203932303345679us [1900-02-28 12:34:56.654321], "
-         "[2] = 63730281600456789us [3989-07-14 00:00:00.456789]}"))
-    check_heap_repr(
-        gdb_arrow, "heap_timestamp_array_ns",
-        ("arrow::TimestampArray of type arrow::timestamp"
-         "(arrow::TimeUnit::NANO), length 2, offset 0, null count 1 = {"
-         "[0] = null, "
-         "[1] = -2203932303012345679ns [1900-02-28 12:34:56.987654321]}"))
+    if sys.maxsize > 2**32:
+        check_heap_repr(
+            gdb_arrow, "heap_timestamp_array_s",
+            ("arrow::TimestampArray of type arrow::timestamp"
+             "(arrow::TimeUnit::SECOND), length 4, offset 0, null count 1 = {"
+             "[0] = null, [1] = 0s [1970-01-01 00:00:00], "
+             "[2] = -2203932304s [1900-02-28 12:34:56], "
+             "[3] = 63730281600s [3989-07-14 00:00:00]}"))
+        check_heap_repr(
+            gdb_arrow, "heap_timestamp_array_ms",
+            ("arrow::TimestampArray of type arrow::timestamp"
+             "(arrow::TimeUnit::MILLI), length 3, offset 0, null count 1 = {"
+             "[0] = null, [1] = -2203932303877ms [1900-02-28 12:34:56.123], "
+             "[2] = 63730281600789ms [3989-07-14 00:00:00.789]}"))
+        check_heap_repr(
+            gdb_arrow, "heap_timestamp_array_us",
+            ("arrow::TimestampArray of type arrow::timestamp"
+             "(arrow::TimeUnit::MICRO), length 3, offset 0, null count 1 = {"
+             "[0] = null, "
+             "[1] = -2203932303345679us [1900-02-28 12:34:56.654321], "
+             "[2] = 63730281600456789us [3989-07-14 00:00:00.456789]}"))
+        check_heap_repr(
+            gdb_arrow, "heap_timestamp_array_ns",
+            ("arrow::TimestampArray of type arrow::timestamp"
+             "(arrow::TimeUnit::NANO), length 2, offset 0, null count 1 = {"
+             "[0] = null, "
+             "[1] = -2203932303012345679ns [1900-02-28 12:34:56.987654321]}"))
+    else:
+        # Python's datetime is limited to smaller timestamps on 32-bit platforms
+        check_heap_repr(
+            gdb_arrow, "heap_timestamp_array_s",
+            ("arrow::TimestampArray of type arrow::timestamp"
+             "(arrow::TimeUnit::SECOND), length 4, offset 0, null count 1 = {"
+             "[0] = null, [1] = 0s [1970-01-01 00:00:00], "
+             "[2] = -2203932304s [too large to represent], "
+             "[3] = 63730281600s [too large to represent]}"))
+        check_heap_repr(
+            gdb_arrow, "heap_timestamp_array_ms",
+            ("arrow::TimestampArray of type arrow::timestamp"
+             "(arrow::TimeUnit::MILLI), length 3, offset 0, null count 1 = {"
+             "[0] = null, [1] = -2203932303877ms [too large to represent], "
+             "[2] = 63730281600789ms [too large to represent]}"))
+        check_heap_repr(
+            gdb_arrow, "heap_timestamp_array_us",
+            ("arrow::TimestampArray of type arrow::timestamp"
+             "(arrow::TimeUnit::MICRO), length 3, offset 0, null count 1 = {"
+             "[0] = null, "
+             "[1] = -2203932303345679us [too large to represent], "
+             "[2] = 63730281600456789us [too large to represent]}"))
+        check_heap_repr(
+            gdb_arrow, "heap_timestamp_array_ns",
+            ("arrow::TimestampArray of type arrow::timestamp"
+             "(arrow::TimeUnit::NANO), length 2, offset 0, null count 1 = {"
+             "[0] = null, "
+             "[1] = -2203932303012345679ns [too large to represent]}"))
 
     # Decimal
     check_heap_repr(

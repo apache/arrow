@@ -18,12 +18,19 @@
 import contextlib
 import functools
 import os
+from pathlib import Path
 import subprocess
 
 from . import cdata
 from .tester import Tester, CDataExporter, CDataImporter
 from .util import run_cmd, log
 from ..utils.source import ARROW_ROOT_DEFAULT
+
+
+ARROW_BUILD_ROOT = os.environ.get(
+    'ARROW_BUILD_ROOT',
+    Path(__file__).resolve().parents[4]
+)
 
 
 def load_version_from_pom():
@@ -34,18 +41,22 @@ def load_version_from_pom():
     return version_tag.text
 
 
-# XXX Should we add "-Darrow.memory.debug.allocator=true"? It adds a couple
-# minutes to total CPU usage of the integration test suite.
+# NOTE: we don't add "-Darrow.memory.debug.allocator=true" here as it adds a
+# couple minutes to total CPU usage of the integration test suite
+# (see setup_jpype() below).
 _JAVA_OPTS = [
     "-Dio.netty.tryReflectionSetAccessible=true",
     "-Darrow.struct.conflict.policy=CONFLICT_APPEND",
+    "--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED",
+    # GH-39113: avoid failures accessing files in `/tmp/hsperfdata_...`
+    "-XX:-UsePerfData",
 ]
 
 _arrow_version = load_version_from_pom()
 _ARROW_TOOLS_JAR = os.environ.get(
     "ARROW_JAVA_INTEGRATION_JAR",
     os.path.join(
-        ARROW_ROOT_DEFAULT,
+        ARROW_BUILD_ROOT,
         "java/tools/target",
         f"arrow-tools-{_arrow_version}-jar-with-dependencies.jar"
     )
@@ -53,7 +64,7 @@ _ARROW_TOOLS_JAR = os.environ.get(
 _ARROW_C_DATA_JAR = os.environ.get(
     "ARROW_C_DATA_JAVA_INTEGRATION_JAR",
     os.path.join(
-        ARROW_ROOT_DEFAULT,
+        ARROW_BUILD_ROOT,
         "java/c/target",
         f"arrow-c-data-{_arrow_version}.jar"
     )
@@ -61,7 +72,7 @@ _ARROW_C_DATA_JAR = os.environ.get(
 _ARROW_FLIGHT_JAR = os.environ.get(
     "ARROW_FLIGHT_JAVA_INTEGRATION_JAR",
     os.path.join(
-        ARROW_ROOT_DEFAULT,
+        ARROW_BUILD_ROOT,
         "java/flight/flight-integration-tests/target",
         f"flight-integration-tests-{_arrow_version}-jar-with-dependencies.jar"
     )
@@ -80,7 +91,12 @@ def setup_jpype():
     jar_path = f"{_ARROW_TOOLS_JAR}:{_ARROW_C_DATA_JAR}"
     # XXX Didn't manage to tone down the logging level here (DEBUG -> INFO)
     jpype.startJVM(jpype.getDefaultJVMPath(),
-                   "-Djava.class.path=" + jar_path, *_JAVA_OPTS)
+                   "-Djava.class.path=" + jar_path,
+                   # This flag is too heavy for IPC and Flight tests
+                   "-Darrow.memory.debug.allocator=true",
+                   # Reduce internal use of signals by the JVM
+                   "-Xrs",
+                   *_JAVA_OPTS)
 
 
 class _CDataBase:
@@ -228,17 +244,9 @@ class JavaTester(Tester):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Detect whether we're on Java 8 or Java 9+
         self._java_opts = _JAVA_OPTS[:]
-        proc = subprocess.run(
-            ['java', '--add-opens'],
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            text=True)
-        if 'Unrecognized option: --add-opens' not in proc.stderr:
-            # Java 9+
-            self._java_opts.append(
-                '--add-opens=java.base/java.nio=ALL-UNNAMED')
+        self._java_opts.append(
+            '--add-reads=org.apache.arrow.flight.core=ALL-UNNAMED')
 
     def _run(self, arrow_path=None, json_path=None, command='VALIDATE'):
         cmd = (
@@ -331,10 +339,8 @@ class JavaTester(Tester):
                 server.kill()
                 out, err = server.communicate()
                 raise RuntimeError(
-                    'Flight-Java server did not start properly, '
-                    'stdout:\n{}\n\nstderr:\n{}\n'.format(
-                        output + out.decode(), err.decode()
-                    )
+                    "Flight-Java server did not start properly, "
+                    f"stdout:\n{output + out.decode()}\n\nstderr:\n{err.decode()}\n"
                 )
             port = int(output.split(':')[1])
             yield port

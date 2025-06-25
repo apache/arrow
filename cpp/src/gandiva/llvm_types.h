@@ -55,7 +55,9 @@ class GANDIVA_EXPORT LLVMTypes {
 
   llvm::Type* double_type() { return llvm::Type::getDoubleTy(context_); }
 
-  llvm::PointerType* ptr_type(llvm::Type* type) { return type->getPointerTo(); }
+  llvm::PointerType* ptr_type(llvm::Type* type) {
+    return llvm::PointerType::get(type, 0);
+  }
 
   llvm::PointerType* i8_ptr_type() { return ptr_type(i8_type()); }
 
@@ -97,7 +99,7 @@ class GANDIVA_EXPORT LLVMTypes {
     } else if (type->isFloatingPointTy()) {
       return llvm::ConstantFP::get(type, 0);
     } else {
-      DCHECK(type->isPointerTy());
+      ARROW_DCHECK(type->isPointerTy());
       return llvm::ConstantPointerNull::getNullValue(type);
     }
   }

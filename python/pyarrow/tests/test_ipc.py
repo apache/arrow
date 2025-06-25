@@ -16,14 +16,19 @@
 # under the License.
 
 from collections import UserList
+import datetime
 import io
 import pathlib
 import pytest
+import random
 import socket
 import threading
 import weakref
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 import pyarrow as pa
 from pyarrow.tests.util import changed_environ, invoke_script
@@ -58,7 +63,7 @@ class IpcFixture:
         batches = []
         for i in range(num_batches):
             batch = pa.record_batch(
-                [np.random.randn(nrows),
+                [[random.random() for _ in range(nrows)],
                  ['foo', None, 'bar', 'bazbaz', 'qux']],
                 schema=schema)
             batches.append(batch)
@@ -114,7 +119,6 @@ class StreamFormatFixture(IpcFixture):
         return pa.ipc.new_stream(
             sink,
             schema,
-            use_legacy_format=self.use_legacy_ipc_format,
             options=self.options,
         )
 
@@ -142,16 +146,16 @@ def stream_fixture():
 
 @pytest.fixture(params=[
     pytest.param(
-        pytest.lazy_fixture('file_fixture'),
+        'file_fixture',
         id='File Format'
     ),
     pytest.param(
-        pytest.lazy_fixture('stream_fixture'),
+        'stream_fixture',
         id='Stream Format'
     )
 ])
 def format_fixture(request):
-    return request.param
+    return request.getfixturevalue(request.param)
 
 
 def test_empty_file():
@@ -241,6 +245,7 @@ def test_empty_stream():
 
 
 @pytest.mark.pandas
+@pytest.mark.processes
 def test_read_year_month_nano_interval(tmpdir):
     """ARROW-15783: Verify to_pandas works for interval types.
 
@@ -397,9 +402,7 @@ def test_stream_write_table_batches(stream_fixture):
                                  ignore_index=True))
 
 
-@pytest.mark.parametrize('use_legacy_ipc_format', [False, True])
-def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
-    stream_fixture.use_legacy_ipc_format = use_legacy_ipc_format
+def test_stream_simple_roundtrip(stream_fixture):
     batches = stream_fixture.write_batches()
     file_contents = pa.BufferReader(stream_fixture.get_source())
     reader = pa.ipc.open_stream(file_contents)
@@ -420,7 +423,7 @@ def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
 @pytest.mark.zstd
 def test_compression_roundtrip():
     sink = io.BytesIO()
-    values = np.random.randint(0, 3, 10000)
+    values = [random.randint(0, 3) for _ in range(10000)]
     table = pa.Table.from_arrays([values], names=["values"])
 
     options = pa.ipc.IpcWriteOptions(compression='zstd')
@@ -497,15 +500,6 @@ def test_write_options():
         assert options.use_threads is False
 
 
-def test_write_options_legacy_exclusive(stream_fixture):
-    with pytest.raises(
-            ValueError,
-            match="provide at most one of options and use_legacy_format"):
-        stream_fixture.use_legacy_ipc_format = True
-        stream_fixture.options = pa.ipc.IpcWriteOptions()
-        stream_fixture.write_batches()
-
-
 @pytest.mark.parametrize('options', [
     pa.ipc.IpcWriteOptions(),
     pa.ipc.IpcWriteOptions(allow_64bit=True),
@@ -515,7 +509,6 @@ def test_write_options_legacy_exclusive(stream_fixture):
                            metadata_version=pa.ipc.MetadataVersion.V4),
 ])
 def test_stream_options_roundtrip(stream_fixture, options):
-    stream_fixture.use_legacy_ipc_format = None
     stream_fixture.options = options
     batches = stream_fixture.write_batches()
     file_contents = pa.BufferReader(stream_fixture.get_source())
@@ -542,10 +535,16 @@ def test_read_options():
     options = pa.ipc.IpcReadOptions()
     assert options.use_threads is True
     assert options.ensure_native_endian is True
+    assert options.ensure_alignment == pa.ipc.Alignment.Any
     assert options.included_fields == []
 
     options.ensure_native_endian = False
     assert options.ensure_native_endian is False
+
+    options.ensure_alignment = pa.ipc.Alignment.DataTypeSpecific
+    assert options.ensure_alignment == pa.ipc.Alignment.DataTypeSpecific
+    options.ensure_alignment = pa.ipc.Alignment.At64Byte
+    assert options.ensure_alignment == pa.ipc.Alignment.At64Byte
 
     options.use_threads = False
     assert options.use_threads is False
@@ -558,10 +557,11 @@ def test_read_options():
 
     options = pa.ipc.IpcReadOptions(
         use_threads=False, ensure_native_endian=False,
-        included_fields=[1]
+        ensure_alignment=pa.ipc.Alignment.DataTypeSpecific, included_fields=[1]
     )
     assert options.use_threads is False
     assert options.ensure_native_endian is False
+    assert options.ensure_alignment == pa.ipc.Alignment.DataTypeSpecific
     assert options.included_fields == [1]
 
 
@@ -894,6 +894,7 @@ def socket_fixture():
     return SocketStreamFixture()
 
 
+@pytest.mark.sockets
 def test_socket_simple_roundtrip(socket_fixture):
     socket_fixture.start_server(do_read_all=False)
     writer_batches = socket_fixture.write_batches()
@@ -905,6 +906,7 @@ def test_socket_simple_roundtrip(socket_fixture):
         assert reader_batches[i].equals(batch)
 
 
+@pytest.mark.sockets
 def test_socket_read_all(socket_fixture):
     socket_fixture.start_server(do_read_all=True)
     writer_batches = socket_fixture.write_batches()
@@ -1194,3 +1196,145 @@ def test_py_record_batch_reader():
     with pytest.raises(TypeError):
         reader = pa.RecordBatchReader.from_batches(None, batches)
         pass
+
+
+def test_record_batch_reader_from_arrow_stream():
+
+    class StreamWrapper:
+        def __init__(self, batches):
+            self.batches = batches
+
+        def __arrow_c_stream__(self, requested_schema=None):
+            reader = pa.RecordBatchReader.from_batches(
+                self.batches[0].schema, self.batches)
+            return reader.__arrow_c_stream__(requested_schema)
+
+    data = [
+        pa.record_batch([pa.array([1, 2, 3], type=pa.int64())], names=['a']),
+        pa.record_batch([pa.array([4, 5, 6], type=pa.int64())], names=['a'])
+    ]
+    wrapper = StreamWrapper(data)
+
+    # Can roundtrip a pyarrow stream-like object
+    expected = pa.Table.from_batches(data)
+    reader = pa.RecordBatchReader.from_stream(expected)
+    assert reader.read_all() == expected
+
+    # Can roundtrip through the wrapper.
+    reader = pa.RecordBatchReader.from_stream(wrapper)
+    assert reader.read_all() == expected
+
+    # Passing schema works if already that schema
+    reader = pa.RecordBatchReader.from_stream(wrapper, schema=data[0].schema)
+    assert reader.read_all() == expected
+
+    # Passing a different but castable schema works
+    good_schema = pa.schema([pa.field("a", pa.int32())])
+    reader = pa.RecordBatchReader.from_stream(wrapper, schema=good_schema)
+    assert reader.read_all() == expected.cast(good_schema)
+
+    # If schema doesn't match, raises TypeError
+    with pytest.raises(pa.lib.ArrowTypeError, match='Field 0 cannot be cast'):
+        pa.RecordBatchReader.from_stream(
+            wrapper, schema=pa.schema([pa.field('a', pa.list_(pa.int32()))])
+        )
+
+    # Proper type errors for wrong input
+    with pytest.raises(TypeError):
+        pa.RecordBatchReader.from_stream(data[0]['a'])
+
+    with pytest.raises(TypeError):
+        pa.RecordBatchReader.from_stream(expected, schema=data[0])
+
+
+def test_record_batch_reader_cast():
+    schema_src = pa.schema([pa.field('a', pa.int64())])
+    data = [
+        pa.record_batch([pa.array([1, 2, 3], type=pa.int64())], names=['a']),
+        pa.record_batch([pa.array([4, 5, 6], type=pa.int64())], names=['a']),
+    ]
+    table_src = pa.Table.from_batches(data)
+
+    # Cast to same type should always work
+    reader = pa.RecordBatchReader.from_batches(schema_src, data)
+    assert reader.cast(schema_src).read_all() == table_src
+
+    # Check non-trivial cast
+    schema_dst = pa.schema([pa.field('a', pa.int32())])
+    reader = pa.RecordBatchReader.from_batches(schema_src, data)
+    assert reader.cast(schema_dst).read_all() == table_src.cast(schema_dst)
+
+    # Check error for field name/length mismatch
+    reader = pa.RecordBatchReader.from_batches(schema_src, data)
+    with pytest.raises(ValueError, match="Target schema's field names"):
+        reader.cast(pa.schema([]))
+
+    # Check error for impossible cast in call to .cast()
+    reader = pa.RecordBatchReader.from_batches(schema_src, data)
+    with pytest.raises(pa.lib.ArrowTypeError, match='Field 0 cannot be cast'):
+        reader.cast(pa.schema([pa.field('a', pa.list_(pa.int32()))]))
+
+    # Cast to same type should always work (also for types without a T->T cast function)
+    # (https://github.com/apache/arrow/issues/41884)
+    schema_src = pa.schema([pa.field('a', pa.date32())])
+    arr = pa.array([datetime.date(2024, 6, 11)], type=pa.date32())
+    data = [pa.record_batch([arr], names=['a']), pa.record_batch([arr], names=['a'])]
+    table_src = pa.Table.from_batches(data)
+    reader = pa.RecordBatchReader.from_batches(schema_src, data)
+    assert reader.cast(schema_src).read_all() == table_src
+
+
+def test_record_batch_reader_cast_nulls():
+    schema_src = pa.schema([pa.field('a', pa.int64())])
+    data_with_nulls = [
+        pa.record_batch([pa.array([1, 2, None], type=pa.int64())], names=['a']),
+    ]
+    data_without_nulls = [
+        pa.record_batch([pa.array([1, 2, 3], type=pa.int64())], names=['a']),
+    ]
+    table_with_nulls = pa.Table.from_batches(data_with_nulls)
+    table_without_nulls = pa.Table.from_batches(data_without_nulls)
+
+    # Cast to nullable destination should work
+    reader = pa.RecordBatchReader.from_batches(schema_src, data_with_nulls)
+    schema_dst = pa.schema([pa.field('a', pa.int32())])
+    assert reader.cast(schema_dst).read_all() == table_with_nulls.cast(schema_dst)
+
+    # Cast to non-nullable destination should work if there are no nulls
+    reader = pa.RecordBatchReader.from_batches(schema_src, data_without_nulls)
+    schema_dst = pa.schema([pa.field('a', pa.int32(), nullable=False)])
+    assert reader.cast(schema_dst).read_all() == table_without_nulls.cast(schema_dst)
+
+    # Cast to non-nullable destination should error if there are nulls
+    # when the batch is pulled
+    reader = pa.RecordBatchReader.from_batches(schema_src, data_with_nulls)
+    casted_reader = reader.cast(schema_dst)
+    with pytest.raises(pa.lib.ArrowInvalid, match="Can't cast array"):
+        casted_reader.read_all()
+
+
+def test_record_batch_file_writer_with_metadata():
+    # https://github.com/apache/arrow/issues/46222
+    tbl = pa.table({"a": [1, 2, 3]})
+    meta = {b"creator": b"test", b"version": b"0.1.0"}
+    sink = pa.BufferOutputStream()
+
+    with pa.ipc.new_file(sink, tbl.schema, metadata=meta) as w:
+        w.write_table(tbl)
+
+    buffer = sink.getvalue()
+    with pa.ipc.open_file(buffer) as r:
+        assert r.metadata == meta
+
+
+def test_record_batch_file_writer_with_empty_metadata():
+    # https://github.com/apache/arrow/issues/46222
+    tbl = pa.table({"a": [1, 2, 3]})
+    sink = pa.BufferOutputStream()
+
+    with pa.ipc.new_file(sink, tbl.schema) as w:
+        w.write_table(tbl)
+
+    buffer = sink.getvalue()
+    with pa.ipc.open_file(buffer) as r:
+        assert r.metadata is None

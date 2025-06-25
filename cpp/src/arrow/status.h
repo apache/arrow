@@ -28,23 +28,23 @@
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
 /// \brief Return with given status if condition is met.
-#define ARROW_RETURN_IF_(condition, status, expr)   \
-  do {                                              \
-    if (ARROW_PREDICT_FALSE(condition)) {           \
-      ::arrow::Status _st = (status);               \
-      _st.AddContextLine(__FILE__, __LINE__, expr); \
-      return _st;                                   \
-    }                                               \
-  } while (0)
+#  define ARROW_RETURN_IF_(condition, status, expr)   \
+    do {                                              \
+      if (ARROW_PREDICT_FALSE(condition)) {           \
+        ::arrow::Status _st = (status);               \
+        _st.AddContextLine(__FILE__, __LINE__, expr); \
+        return _st;                                   \
+      }                                               \
+    } while (0)
 
 #else
 
-#define ARROW_RETURN_IF_(condition, status, _) \
-  do {                                         \
-    if (ARROW_PREDICT_FALSE(condition)) {      \
-      return (status);                         \
-    }                                          \
-  } while (0)
+#  define ARROW_RETURN_IF_(condition, status, _) \
+    do {                                         \
+      if (ARROW_PREDICT_FALSE(condition)) {      \
+        return (status);                         \
+      }                                          \
+    } while (0)
 
 #endif  // ARROW_EXTRA_ERROR_CONTEXT
 
@@ -78,10 +78,13 @@
 
 // This is an internal-use macro and should not be used in public headers.
 #ifndef RETURN_NOT_OK
-#define RETURN_NOT_OK(s) ARROW_RETURN_NOT_OK(s)
+#  define RETURN_NOT_OK(s) ARROW_RETURN_NOT_OK(s)
 #endif
 
 namespace arrow {
+namespace internal {
+class StatusConstant;
+}
 
 enum class StatusCode : char {
   OK = 0,
@@ -135,10 +138,10 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
   // Create a success status.
   constexpr Status() noexcept : state_(NULLPTR) {}
   ~Status() noexcept {
-    // ARROW-2400: On certain compilers, splitting off the slow path improves
-    // performance significantly.
     if (ARROW_PREDICT_FALSE(state_ != NULL)) {
-      DeleteState();
+      if (!state_->is_constant) {
+        DeleteState();
+      }
     }
   }
 
@@ -329,16 +332,10 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
   constexpr StatusCode code() const { return ok() ? StatusCode::OK : state_->code; }
 
   /// \brief Return the specific error message attached to this status.
-  const std::string& message() const {
-    static const std::string no_message = "";
-    return ok() ? no_message : state_->msg;
-  }
+  const std::string& message() const;
 
   /// \brief Return the status detail attached to this message.
-  const std::shared_ptr<StatusDetail>& detail() const {
-    static std::shared_ptr<StatusDetail> no_detail = NULLPTR;
-    return state_ ? state_->detail : no_detail;
-  }
+  const std::shared_ptr<StatusDetail>& detail() const;
 
   /// \brief Return a new Status copying the existing status, but
   /// updating with the existing detail.
@@ -366,6 +363,7 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
  private:
   struct State {
     StatusCode code;
+    bool is_constant;
     std::string msg;
     std::shared_ptr<StatusDetail> detail;
   };
@@ -373,22 +371,28 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
   // a `State` structure containing the error code and message(s)
   State* state_;
 
-  void DeleteState() {
+  void DeleteState() noexcept {
+    // ARROW-2400: On certain compilers, splitting off the slow path improves
+    // performance significantly.
     delete state_;
-    state_ = NULLPTR;
   }
   void CopyFrom(const Status& s);
   inline void MoveFrom(Status& s);
+
+  friend class internal::StatusConstant;
 };
 
 void Status::MoveFrom(Status& s) {
-  delete state_;
+  if (ARROW_PREDICT_FALSE(state_ != NULL)) {
+    if (!state_->is_constant) {
+      DeleteState();
+    }
+  }
   state_ = s.state_;
   s.state_ = NULLPTR;
 }
 
-Status::Status(const Status& s)
-    : state_((s.state_ == NULLPTR) ? NULLPTR : new State(*s.state_)) {}
+Status::Status(const Status& s) : state_{NULLPTR} { CopyFrom(s); }
 
 Status& Status::operator=(const Status& s) {
   // The following condition catches both aliasing (when this == &s),

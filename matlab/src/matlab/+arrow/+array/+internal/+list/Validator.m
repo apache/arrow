@@ -16,7 +16,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Validator
+classdef Validator < matlab.mixin.Heterogeneous
 
     methods (Abstract)
         tf = validateElement(obj, element)

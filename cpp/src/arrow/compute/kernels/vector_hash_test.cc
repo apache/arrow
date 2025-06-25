@@ -41,9 +41,7 @@
 #include "arrow/util/decimal.h"
 
 #include "arrow/compute/api.h"
-#include "arrow/compute/kernels/test_util.h"
-
-#include "arrow/ipc/json_simple.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 
 namespace arrow {
 
@@ -616,7 +614,7 @@ TEST_F(TestHashKernel, UniqueDecimal) {
   std::vector<Decimal128> values{12, 12, 11, 12};
   std::vector<Decimal128> expected{12, 0, 11};
 
-  CheckUnique<Decimal128Type, Decimal128>(decimal(2, 0), values,
+  CheckUnique<Decimal128Type, Decimal128>(decimal128(2, 0), values,
                                           {true, false, true, true}, expected, {1, 0, 1});
 }
 
@@ -630,15 +628,16 @@ TEST_F(TestHashKernel, ValueCountsDecimal) {
   std::vector<Decimal128> values{12, 12, 11, 12};
   std::vector<Decimal128> expected{12, 0, 11};
 
-  CheckValueCounts<Decimal128Type, Decimal128>(
-      decimal(2, 0), values, {true, false, true, true}, expected, {1, 0, 1}, {2, 1, 1});
+  CheckValueCounts<Decimal128Type, Decimal128>(decimal128(2, 0), values,
+                                               {true, false, true, true}, expected,
+                                               {1, 0, 1}, {2, 1, 1});
 }
 
 TEST_F(TestHashKernel, DictEncodeDecimal) {
   std::vector<Decimal128> values{12, 12, 11, 12, 13};
   std::vector<Decimal128> expected{12, 11, 13};
 
-  CheckDictEncode<Decimal128Type, Decimal128>(decimal(2, 0), values,
+  CheckDictEncode<Decimal128Type, Decimal128>(decimal128(2, 0), values,
                                               {true, false, true, true, true}, expected,
                                               {}, {0, 0, 1, 0, 2});
 }
@@ -685,6 +684,15 @@ TEST_F(TestHashKernel, DictEncodeIntervalMonth) {
       month_day_nano_interval(), {{2, 1, 1}, {2, 1, 1}, {3, 2, 1}, {2, 1, 1}, {1, 2, 1}},
       {true, false, true, true, true}, {{2, 1, 1}, {3, 2, 1}, {1, 2, 1}}, {},
       {0, 0, 1, 0, 2});
+}
+
+TEST_F(TestHashKernel, DictEncodeDictInput) {
+  // Dictionary encode a dictionary is a no-op
+  auto dict_ty = dictionary(int32(), utf8());
+  auto dict = ArrayFromJSON(utf8(), R"(["a", "b", "c"])");
+  auto indices = ArrayFromJSON(int32(), "[0, 1, 2, 0, 1, 2, 0, 1, 2]");
+  auto input = std::make_shared<DictionaryArray>(dict_ty, indices, dict);
+  CheckDictEncode(input, dict, indices);
 }
 
 TEST_F(TestHashKernel, DictionaryUniqueAndValueCounts) {

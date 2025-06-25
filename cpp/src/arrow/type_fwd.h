@@ -79,7 +79,9 @@ using ScalarVector = std::vector<std::shared_ptr<Scalar>>;
 
 class ChunkedArray;
 class RecordBatch;
+struct RecordBatchWithMetadata;
 class RecordBatchReader;
+class AsyncRecordBatchReader;
 class Table;
 
 struct Datum;
@@ -150,6 +152,16 @@ class LargeListArray;
 class LargeListBuilder;
 struct LargeListScalar;
 
+class ListViewType;
+class ListViewArray;
+class ListViewBuilder;
+struct ListViewScalar;
+
+class LargeListViewType;
+class LargeListViewArray;
+class LargeListViewBuilder;
+struct LargeListViewScalar;
+
 class MapType;
 class MapArray;
 class MapBuilder;
@@ -165,15 +177,25 @@ class StructArray;
 class StructBuilder;
 struct StructScalar;
 
+class Decimal32;
+class Decimal64;
 class Decimal128;
 class Decimal256;
 class DecimalType;
+class Decimal32Type;
+class Decimal64Type;
 class Decimal128Type;
 class Decimal256Type;
+class Decimal32Array;
+class Decimal64Array;
 class Decimal128Array;
 class Decimal256Array;
+class Decimal32Builder;
+class Decimal64Builder;
 class Decimal128Builder;
 class Decimal256Builder;
+struct Decimal32Scalar;
+struct Decimal64Scalar;
 struct Decimal128Scalar;
 struct Decimal256Scalar;
 
@@ -432,6 +454,18 @@ struct Type {
     /// Bytes view type with 4-byte prefix and inline small string optimization
     BINARY_VIEW = 40,
 
+    /// A list of some logical data type represented by offset and size.
+    LIST_VIEW = 41,
+
+    /// Like LIST_VIEW, but with 64-bit offsets and sizes
+    LARGE_LIST_VIEW = 42,
+
+    /// Precision- and scale-based decimal type with 32 bits.
+    DECIMAL32 = 43,
+
+    /// Precision- and scale-based decimal type with 64 bits.
+    DECIMAL64 = 44,
+
     // Leave this at the end
     MAX_ID
   };
@@ -496,8 +530,28 @@ std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
 ///
 /// If the precision is greater than 38, a Decimal256Type is returned,
 /// otherwise a Decimal128Type.
+///
+/// Deprecated: prefer `smallest_decimal` instead.
+ARROW_DEPRECATED("Deprecated in 18.0. Use `smallest_decimal` instead")
 ARROW_EXPORT
 std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale);
+
+/// \brief Create a the smallest DecimalType instance depending on precision
+///
+/// Given the requested precision and scale, the smallest DecimalType which
+/// is able to represent that precision will be returned. As different
+/// bit-widths for decimal types are added, the concrete data type returned
+/// here can potentially change accordingly.
+ARROW_EXPORT
+std::shared_ptr<DataType> smallest_decimal(int32_t precision, int32_t scale);
+
+/// \brief Create a Decimal32Type instance
+ARROW_EXPORT
+std::shared_ptr<DataType> decimal32(int32_t precision, int32_t scale);
+
+/// \brief Create a Decimal64Type instance
+ARROW_EXPORT
+std::shared_ptr<DataType> decimal64(int32_t precision, int32_t scale);
 
 /// \brief Create a Decimal128Type instance
 ARROW_EXPORT
@@ -509,19 +563,32 @@ std::shared_ptr<DataType> decimal256(int32_t precision, int32_t scale);
 
 /// \brief Create a ListType instance from its child Field type
 ARROW_EXPORT
-std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_type);
+std::shared_ptr<DataType> list(std::shared_ptr<Field> value_type);
 
 /// \brief Create a ListType instance from its child DataType
 ARROW_EXPORT
-std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type);
+std::shared_ptr<DataType> list(std::shared_ptr<DataType> value_type);
 
 /// \brief Create a LargeListType instance from its child Field type
 ARROW_EXPORT
-std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_type);
+std::shared_ptr<DataType> large_list(std::shared_ptr<Field> value_type);
 
 /// \brief Create a LargeListType instance from its child DataType
 ARROW_EXPORT
-std::shared_ptr<DataType> large_list(const std::shared_ptr<DataType>& value_type);
+std::shared_ptr<DataType> large_list(std::shared_ptr<DataType> value_type);
+
+/// \brief Create a ListViewType instance
+ARROW_EXPORT std::shared_ptr<DataType> list_view(std::shared_ptr<DataType> value_type);
+
+/// \brief Create a ListViewType instance from its child Field type
+ARROW_EXPORT std::shared_ptr<DataType> list_view(std::shared_ptr<Field> value_type);
+
+/// \brief Create a LargetListViewType instance
+ARROW_EXPORT std::shared_ptr<DataType> large_list_view(
+    std::shared_ptr<DataType> value_type);
+
+/// \brief Create a LargetListViewType instance from its child Field type
+ARROW_EXPORT std::shared_ptr<DataType> large_list_view(std::shared_ptr<Field> value_type);
 
 /// \brief Create a MapType instance from its key and value DataTypes
 ARROW_EXPORT
@@ -539,12 +606,12 @@ std::shared_ptr<DataType> map(std::shared_ptr<DataType> key_type,
 
 /// \brief Create a FixedSizeListType instance from its child Field type
 ARROW_EXPORT
-std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_type,
+std::shared_ptr<DataType> fixed_size_list(std::shared_ptr<Field> value_type,
                                           int32_t list_size);
 
 /// \brief Create a FixedSizeListType instance from its child DataType
 ARROW_EXPORT
-std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,
+std::shared_ptr<DataType> fixed_size_list(std::shared_ptr<DataType> value_type,
                                           int32_t list_size);
 /// \brief Return a Duration instance (naming use _type to avoid namespace conflict with
 /// built in time classes).
@@ -694,5 +761,26 @@ std::shared_ptr<Schema> schema(
 ARROW_EXPORT MemoryPool* default_memory_pool();
 
 constexpr int64_t kDefaultBufferAlignment = 64;
+
+/// \brief EXPERIMENTAL: Device type enum which matches up with C Data Device types
+enum class DeviceAllocationType : char {
+  kCPU = 1,
+  kCUDA = 2,
+  kCUDA_HOST = 3,
+  kOPENCL = 4,
+  kVULKAN = 7,
+  kMETAL = 8,
+  kVPI = 9,
+  kROCM = 10,
+  kROCM_HOST = 11,
+  kEXT_DEV = 12,
+  kCUDA_MANAGED = 13,
+  kONEAPI = 14,
+  kWEBGPU = 15,
+  kHEXAGON = 16,
+};
+constexpr int kDeviceAllocationTypeMax = 16;
+
+class DeviceAllocationTypeSet;
 
 }  // namespace arrow

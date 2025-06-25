@@ -31,8 +31,8 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/config.h"
-#include "arrow/util/stopwatch.h"
-#include "arrow/util/tdigest.h"
+#include "arrow/util/stopwatch_internal.h"
+#include "arrow/util/tdigest_internal.h"
 #include "arrow/util/thread_pool.h"
 
 #include "arrow/flight/api.h"
@@ -40,20 +40,13 @@
 #include "arrow/flight/test_util.h"
 
 #ifdef ARROW_CUDA
-#include <cuda.h>
-#include "arrow/gpu/cuda_api.h"
-#endif
-#ifdef ARROW_WITH_UCX
-#include "arrow/flight/transport/ucx/ucx.h"
+#  include <cuda.h>
+#  include "arrow/gpu/cuda_api.h"
 #endif
 
 DEFINE_bool(cuda, false, "Allocate results in CUDA memory");
 DEFINE_string(transport, "grpc",
-              "The network transport to use. Supported: \"grpc\" (default)"
-#ifdef ARROW_WITH_UCX
-              ", \"ucx\""
-#endif  // ARROW_WITH_UCX
-              ".");
+              "The network transport to use. Supported: \"grpc\" (default).");
 DEFINE_string(server_host, "",
               "An existing performance server to benchmark against (leave blank to spawn "
               "one automatically)");
@@ -131,7 +124,8 @@ struct PerformanceStats {
 Status WaitForReady(FlightClient* client, const FlightCallOptions& call_options) {
   Action action{"ping", nullptr};
   for (int attempt = 0; attempt < 10; attempt++) {
-    if (client->DoAction(call_options, action).ok()) {
+    auto result_stream_result = client->DoAction(call_options, action);
+    if (result_stream_result.ok() && (*result_stream_result)->Drain().ok()) {
       return Status::OK();
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -490,7 +484,7 @@ int main(int argc, char** argv) {
         if (FLAGS_cuda && FLAGS_test_put) {
           server_args.push_back("-cuda");
         }
-        server->Start(server_args);
+        ABORT_NOT_OK(server->Start(server_args));
       }
       std::cout << "Server host: " << FLAGS_server_host << std::endl
                 << "Server port: " << FLAGS_server_port << std::endl;
@@ -505,21 +499,6 @@ int main(int argc, char** argv) {
         options.disable_server_verification = true;
       }
     }
-  } else if (FLAGS_transport == "ucx") {
-#ifdef ARROW_WITH_UCX
-    arrow::flight::transport::ucx::InitializeFlightUcx();
-    if (FLAGS_test_unix || !FLAGS_server_unix.empty()) {
-      std::cerr << "Transport does not support domain sockets: " << FLAGS_transport
-                << std::endl;
-      return EXIT_FAILURE;
-    }
-    ARROW_CHECK_OK(arrow::flight::Location::Parse("ucx://" + FLAGS_server_host + ":" +
-                                                  std::to_string(FLAGS_server_port))
-                       .Value(&location));
-#else
-    std::cerr << "Not built with transport: " << FLAGS_transport << std::endl;
-    return EXIT_FAILURE;
-#endif
   } else {
     std::cerr << "Unknown transport: " << FLAGS_transport << std::endl;
     return EXIT_FAILURE;

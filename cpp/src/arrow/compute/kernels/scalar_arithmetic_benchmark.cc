@@ -19,8 +19,10 @@
 
 #include <vector>
 
+#include "arrow/array.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/datum.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"
@@ -33,7 +35,7 @@ constexpr auto kSeed = 0x94378165;
 using BinaryOp = Result<Datum>(const Datum&, const Datum&, ArithmeticOptions,
                                ExecContext*);
 
-// Add explicit overflow-checked shortcuts, for easy benchmark parametering.
+// Add explicit overflow-checked shortcuts, for easy benchmark parameterizing.
 static Result<Datum> AddChecked(const Datum& left, const Datum& right,
                                 ArithmeticOptions options = ArithmeticOptions(),
                                 ExecContext* ctx = NULLPTR) {

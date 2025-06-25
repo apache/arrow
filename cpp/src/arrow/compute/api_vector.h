@@ -20,9 +20,8 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/compute/function.h"
+#include "arrow/compute/function_options.h"
 #include "arrow/compute/ordering.h"
-#include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 
@@ -192,6 +191,25 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
   Tiebreaker tiebreaker;
 };
 
+/// \brief Quantile rank options
+class ARROW_EXPORT RankQuantileOptions : public FunctionOptions {
+ public:
+  explicit RankQuantileOptions(std::vector<SortKey> sort_keys = {},
+                               NullPlacement null_placement = NullPlacement::AtEnd);
+  /// Convenience constructor for array inputs
+  explicit RankQuantileOptions(SortOrder order,
+                               NullPlacement null_placement = NullPlacement::AtEnd)
+      : RankQuantileOptions({SortKey("", order)}, null_placement) {}
+
+  static constexpr char const kTypeName[] = "RankQuantileOptions";
+  static RankQuantileOptions Defaults() { return RankQuantileOptions(); }
+
+  /// Column key(s) to order by and how to order by these sort keys.
+  std::vector<SortKey> sort_keys;
+  /// Whether nulls and NaNs are placed at the start or at the end
+  NullPlacement null_placement;
+};
+
 /// \brief Partitioning options for NthToIndices
 class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
  public:
@@ -204,6 +222,25 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
   int64_t pivot;
   /// Whether nulls and NaNs are partitioned at the start or at the end
   NullPlacement null_placement;
+};
+
+class ARROW_EXPORT WinsorizeOptions : public FunctionOptions {
+ public:
+  WinsorizeOptions(double lower_limit, double upper_limit);
+  WinsorizeOptions() : WinsorizeOptions(0, 1) {}
+  static constexpr char const kTypeName[] = "WinsorizeOptions";
+
+  /// The quantile below which all values are replaced with the quantile's value.
+  ///
+  /// For example, if lower_limit = 0.05, then all values in the lower 5% percentile
+  /// will be replaced with the 5% percentile value.
+  double lower_limit;
+
+  /// The quantile above which all values are replaced with the quantile's value.
+  ///
+  /// For example, if upper_limit = 0.95, then all values in the upper 95% percentile
+  /// will be replaced with the 95% percentile value.
+  double upper_limit;
 };
 
 /// \brief Options for cumulative functions
@@ -240,6 +277,52 @@ class ARROW_EXPORT PairwiseOptions : public FunctionOptions {
 
   /// Periods to shift for applying the binary operation, accepts negative values.
   int64_t periods = 1;
+};
+
+/// \brief Options for list_flatten function
+class ARROW_EXPORT ListFlattenOptions : public FunctionOptions {
+ public:
+  explicit ListFlattenOptions(bool recursive = false);
+  static constexpr char const kTypeName[] = "ListFlattenOptions";
+  static ListFlattenOptions Defaults() { return ListFlattenOptions(); }
+
+  /// \brief If true, the list is flattened recursively until a non-list
+  /// array is formed.
+  bool recursive = false;
+};
+
+/// \brief Options for inverse_permutation function
+class ARROW_EXPORT InversePermutationOptions : public FunctionOptions {
+ public:
+  explicit InversePermutationOptions(int64_t max_index = -1,
+                                     std::shared_ptr<DataType> output_type = NULLPTR);
+  static constexpr char const kTypeName[] = "InversePermutationOptions";
+  static InversePermutationOptions Defaults() { return InversePermutationOptions(); }
+
+  /// \brief The max value in the input indices to allow. The length of the function's
+  /// output will be this value plus 1. If negative, this value will be set to the length
+  /// of the input indices minus 1 and the length of the function's output will be the
+  /// length of the input indices.
+  int64_t max_index = -1;
+  /// \brief The type of the output inverse permutation. If null, the output will be of
+  /// the same type as the input indices, otherwise must be signed integer type. An
+  /// invalid error will be reported if this type is not able to store the length of the
+  /// input indices.
+  std::shared_ptr<DataType> output_type = NULLPTR;
+};
+
+/// \brief Options for scatter function
+class ARROW_EXPORT ScatterOptions : public FunctionOptions {
+ public:
+  explicit ScatterOptions(int64_t max_index = -1);
+  static constexpr char const kTypeName[] = "ScatterOptions";
+  static ScatterOptions Defaults() { return ScatterOptions(); }
+
+  /// \brief The max value in the input indices to allow. The length of the function's
+  /// output will be this value plus 1. If negative, this value will be set to the length
+  /// of the input indices minus 1 and the length of the function's output will be the
+  /// length of the input indices.
+  int64_t max_index = -1;
 };
 
 /// @}
@@ -398,7 +481,7 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
 
 /// \brief Return indices that partition an array around n-th sorted element.
 ///
-/// This overload takes a PartitionNthOptions specifiying the pivot index
+/// This overload takes a PartitionNthOptions specifying the pivot index
 /// and the null handling.
 ///
 /// \param[in] values array to be partitioned
@@ -449,7 +532,7 @@ Result<std::shared_ptr<Array>> SortIndices(const Array& array,
 
 /// \brief Return the indices that would sort an array.
 ///
-/// This overload takes a ArraySortOptions specifiying the sort order
+/// This overload takes a ArraySortOptions specifying the sort order
 /// and the null handling.
 ///
 /// \param[in] array array to sort
@@ -483,7 +566,7 @@ Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
 
 /// \brief Return the indices that would sort a chunked array.
 ///
-/// This overload takes a ArraySortOptions specifiying the sort order
+/// This overload takes a ArraySortOptions specifying the sort order
 /// and the null handling.
 ///
 /// \param[in] chunked_array chunked array to sort
@@ -689,6 +772,59 @@ Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
                                             const PairwiseOptions& options,
                                             bool check_overflow = false,
                                             ExecContext* ctx = NULLPTR);
+
+/// \brief Return the inverse permutation of the given indices.
+///
+/// For indices[i] = x, inverse_permutation[x] = i. And inverse_permutation[x] = null if x
+/// does not appear in the input indices. Indices must be in the range of [0, max_index],
+/// or null, which will be ignored. If multiple indices point to the same value, the last
+/// one is used.
+///
+/// For example, with
+///   indices = [null, 0, null, 2, 4, 1, 1]
+/// the inverse permutation is
+///   [1, 6, 3, null, 4, null, null]
+/// if max_index = 6.
+///
+/// \param[in] indices array-like indices
+/// \param[in] options configures the max index and the output type
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting inverse permutation
+///
+/// \since 20.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> InversePermutation(
+    const Datum& indices,
+    const InversePermutationOptions& options = InversePermutationOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Scatter the values into specified positions according to the indices.
+///
+/// For indices[i] = x, output[x] = values[i]. And output[x] = null if x does not appear
+/// in the input indices. Indices must be in the range of [0, max_index], or null, in
+/// which case the corresponding value will be ignored. If multiple indices point to the
+/// same value, the last one is used.
+///
+/// For example, with
+///   values = [a, b, c, d, e, f, g]
+///   indices = [null, 0, null, 2, 4, 1, 1]
+/// the output is
+///   [b, g, d, null, e, null, null]
+/// if max_index = 6.
+///
+/// \param[in] values datum to scatter
+/// \param[in] indices array-like indices
+/// \param[in] options configures the max index of to scatter
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 20.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Scatter(const Datum& values, const Datum& indices,
+                      const ScatterOptions& options = ScatterOptions::Defaults(),
+                      ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

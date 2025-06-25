@@ -75,7 +75,7 @@ checklist for using ``git``:
     locally, for example if additional commits have been made by a colleague.  By using
     ``--force-with-lease`` instead of ``--force``, you ensure those commits are not overwritten
     and can fetch those changes if desired.
-    
+
   .. dropdown:: Setting rebase to be default
     :animate: fade-in-slide-down
     :class-container: sd-shadow-none
@@ -100,9 +100,6 @@ When contributing a patch, use this list as a checklist of Apache Arrow workflow
 * So that your pull request syncs with the GitHub issue, **prefix your pull request
   title with the GitHub issue id** (ex:
   `GH-14866: [C++] Remove internal GroupBy implementation <https://github.com/apache/arrow/pull/14867>`_).
-  Similarly **prefix your pull request name with the JIRA issue id** (ex:
-  `ARROW-767: [C++] Filesystem abstraction <https://github.com/apache/arrow/pull/4225>`_)
-  in case the issue is still located in Jira.
 * Give the pull request a **clear, brief description**: when the pull request is
   merged, this will be retained in the extended commit message.
 * Make sure that your code **passes the unit tests**. You can find instructions how
@@ -202,4 +199,3 @@ Implementations that do not intend to implement cross endian support:
 
 For other libraries, a discussion to gather consensus on the mailing-list
 should be had before submitting PRs.
-

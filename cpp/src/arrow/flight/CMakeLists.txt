@@ -19,10 +19,34 @@ add_custom_target(arrow_flight)
 
 arrow_install_all_headers("arrow/flight")
 
-set(ARROW_FLIGHT_LINK_LIBS gRPC::grpc++ ${ARROW_PROTOBUF_LIBPROTOBUF})
+# If libarrow_flight.a is only built, "pkg-config --cflags --libs
+# arrow-flight" outputs build flags for static linking not shared
+# linking. ARROW_FLIGHT_PC_* except ARROW_FLIGHT_PC_*_PRIVATE are for
+# the static linking case.
+if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+  string(APPEND ARROW_FLIGHT_PC_CFLAGS "${ARROW_FLIGHT_PC_CFLAGS_PRIVATE}")
+  set(ARROW_FLIGHT_PC_CFLAGS_PRIVATE "")
+endif()
 
+set(ARROW_FLIGHT_LINK_LIBS gRPC::grpc++ ${ARROW_PROTOBUF_LIBPROTOBUF})
+if(ARROW_WITH_OPENTELEMETRY)
+  list(APPEND ARROW_FLIGHT_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
+endif()
 if(WIN32)
   list(APPEND ARROW_FLIGHT_LINK_LIBS ws2_32.lib)
+endif()
+# Updating the MACOSX_DEPLOYMENT_TARGET to 12 required us to explicitly
+# link Flight with OpenSSL on macOS. Read this comment for more details:
+# https://github.com/apache/arrow/pull/43137#pullrequestreview-2267476893
+if(APPLE AND ARROW_USE_OPENSSL)
+  list(APPEND ARROW_FLIGHT_LINK_LIBS ${ARROW_OPENSSL_LIBS})
+endif()
+
+set(ARROW_FLIGHT_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
+if(ARROW_PROTOBUF_ARROW_CMAKE_PACKAGE_NAME STREQUAL "ArrowFlight")
+  if(Protobuf_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_FLIGHT_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
+  endif()
 endif()
 
 set(ARROW_FLIGHT_TEST_LINKAGE "${ARROW_TEST_LINKAGE}")
@@ -62,12 +86,6 @@ if(ARROW_BUILD_BENCHMARKS
     endif()
   endif()
 endif()
-list(APPEND
-     ARROW_FLIGHT_TEST_INTERFACE_LIBS
-     Boost::headers
-     Boost::filesystem
-     Boost::system
-     ${ARROW_GTEST_GMOCK})
 list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS gRPC::grpc++)
 
 # TODO(wesm): Protobuf shared vs static linking
@@ -144,7 +162,6 @@ set(ARROW_FLIGHT_SRCS
     serialization_internal.cc
     server.cc
     server_auth.cc
-    server_middleware.cc
     server_tracing_middleware.cc
     transport.cc
     transport_server.cc
@@ -155,6 +172,10 @@ set(ARROW_FLIGHT_SRCS
     transport/grpc/protocol_grpc_internal.cc
     transport/grpc/util_internal.cc
     types.cc)
+
+if(ARROW_WITH_OPENTELEMETRY)
+  list(APPEND ARROW_FLIGHT_SRCS otel_logging.cc)
+endif()
 
 if(MSVC)
   # Protobuf generated files trigger spurious warnings on MSVC.
@@ -177,8 +198,6 @@ add_arrow_lib(arrow_flight
               ARROW_FLIGHT_LIBRARIES
               SOURCES
               ${ARROW_FLIGHT_SRCS}
-              PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:arrow/flight/pch.h>"
               DEPENDENCIES
               flight_grpc_gen
               SHARED_LINK_FLAGS
@@ -198,7 +217,7 @@ add_arrow_lib(arrow_flight
               ${ARROW_FLIGHT_LINK_LIBS}
               arrow_static
               STATIC_INSTALL_INTERFACE_LIBS
-              Arrow::arrow_static)
+              ${ARROW_FLIGHT_STATIC_INSTALL_INTERFACE_LIBS})
 
 if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_flight_static PUBLIC ARROW_FLIGHT_STATIC)
@@ -257,12 +276,12 @@ if(ARROW_TESTING)
                 OUTPUTS
                 ARROW_FLIGHT_TESTING_LIBRARIES
                 SOURCES
+                test_auth_handlers.cc
                 test_definitions.cc
+                test_flight_server.cc
                 test_util.cc
                 DEPENDENCIES
-                ${ARROW_GTEST_GTEST}
                 flight_grpc_gen
-                arrow_dependencies
                 SHARED_LINK_LIBS
                 ${ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS}
                 SHARED_INSTALL_INTERFACE_LIBS
@@ -326,20 +345,7 @@ if(ARROW_BUILD_BENCHMARKS)
 
   add_dependencies(arrow_flight arrow-flight-benchmark)
 
-  if(ARROW_WITH_UCX)
-    if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
-      target_link_libraries(arrow-flight-benchmark arrow_flight_transport_ucx_static)
-      target_link_libraries(arrow-flight-perf-server arrow_flight_transport_ucx_static)
-    else()
-      target_link_libraries(arrow-flight-benchmark arrow_flight_transport_ucx_shared)
-      target_link_libraries(arrow-flight-perf-server arrow_flight_transport_ucx_shared)
-    endif()
-  endif()
 endif(ARROW_BUILD_BENCHMARKS)
-
-if(ARROW_WITH_UCX)
-  add_subdirectory(transport/ucx)
-endif()
 
 if(ARROW_FLIGHT_SQL)
   add_subdirectory(sql)

@@ -19,10 +19,12 @@
 
 namespace arrow::matlab::type::proxy {
 
-    StringType::StringType(std::shared_ptr<arrow::StringType> string_type) : Type(std::move(string_type)) {}
+StringType::StringType(std::shared_ptr<arrow::StringType> string_type)
+    : Type(std::move(string_type)) {}
 
-    libmexclass::proxy::MakeResult StringType::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-        auto string_type = std::static_pointer_cast<arrow::StringType>(arrow::utf8());
-        return std::make_shared<StringType>(std::move(string_type));
-    }
+libmexclass::proxy::MakeResult StringType::make(
+    const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+  auto string_type = std::static_pointer_cast<arrow::StringType>(arrow::utf8());
+  return std::make_shared<StringType>(std::move(string_type));
 }
+}  // namespace arrow::matlab::type::proxy

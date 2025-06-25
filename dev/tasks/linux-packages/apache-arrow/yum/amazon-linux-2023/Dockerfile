@@ -38,7 +38,7 @@ RUN \
     gobject-introspection-devel \
     grpc-devel \
     grpc-plugins \
-    gtk-doc \
+    libxml2-devel \
     libzstd-devel \
     llvm-devel \
     lz4-devel \
@@ -49,6 +49,7 @@ RUN \
     pkg-config \
     protobuf-compiler \
     protobuf-devel \
+    python3-pip \
     rapidjson-devel \
     re2-devel \
     rpmdevtools \
@@ -56,5 +57,12 @@ RUN \
     tar \
     utf8proc-devel \
     vala \
+    which \
     zlib-devel && \
   dnf clean ${quiet} all
+
+ARG cmake=3.25.0
+RUN curl -L \
+    "https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-linux-$(uname -m).tar.gz" | \
+    tar -xzf - --directory /usr/local --strip-components=1 && \
+    ln -fs /usr/local/bin/cmake /usr/bin/cmake

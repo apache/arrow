@@ -15,14 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/util/config.h"
+
 #include "arrow/compute/function_internal.h"
 
 #include "arrow/array/util.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/registry.h"
 #include "arrow/io/memory.h"
-#include "arrow/ipc/reader.h"
-#include "arrow/ipc/writer.h"
+#ifdef ARROW_IPC
+#  include "arrow/ipc/reader.h"
+#  include "arrow/ipc/writer.h"
+#endif
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/util/checked_cast.h"
@@ -65,6 +69,7 @@ Result<std::unique_ptr<FunctionOptions>> FunctionOptionsFromStructScalar(
 
 Result<std::shared_ptr<Buffer>> GenericOptionsType::Serialize(
     const FunctionOptions& options) const {
+#ifdef ARROW_IPC
   ARROW_ASSIGN_OR_RAISE(auto scalar, FunctionOptionsToStructScalar(options));
   ARROW_ASSIGN_OR_RAISE(auto array, MakeArrayFromScalar(*scalar, 1));
   auto batch =
@@ -74,6 +79,9 @@ Result<std::shared_ptr<Buffer>> GenericOptionsType::Serialize(
   RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   RETURN_NOT_OK(writer->Close());
   return stream->Finish();
+#else
+  return Status::NotImplemented("IPC feature isn't enabled");
+#endif
 }
 
 Result<std::unique_ptr<FunctionOptions>> GenericOptionsType::Deserialize(
@@ -83,6 +91,7 @@ Result<std::unique_ptr<FunctionOptions>> GenericOptionsType::Deserialize(
 
 Result<std::unique_ptr<FunctionOptions>> DeserializeFunctionOptions(
     const Buffer& buffer) {
+#ifdef ARROW_IPC
   // Copying the buffer here is not ideal, but we need to do it to avoid
   // use-after-free issues with the zero-copy buffer read.
   auto stream = io::BufferReader::FromString(buffer.ToString());
@@ -108,6 +117,9 @@ Result<std::unique_ptr<FunctionOptions>> DeserializeFunctionOptions(
                         checked_cast<const StructArray&>(*column).GetScalar(0));
   auto scalar = checked_cast<const StructScalar&>(*raw_scalar);
   return FunctionOptionsFromStructScalar(scalar);
+#else
+  return Status::NotImplemented("IPC feature isn't enabled");
+#endif
 }
 
 Status CheckAllArrayOrScalar(const std::vector<Datum>& values) {

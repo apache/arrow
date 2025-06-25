@@ -79,9 +79,9 @@ module Arrow
     #     target and corresponding order is used. `"+"` uses ascending
     #     order and `"-"` uses ascending order.
     #
-    #     If `target` is not a String nor `target` doesn't start with the
-    #     leading order mark, sort column target is `target` as-is and
-    #     ascending order is used.
+    #     If `target` is either not a String or `target` doesn't start
+    #     with the leading order mark, sort column is `target` as-is
+    #     and ascending order is used.
     #
     #   @example String without the leading order mark
     #     key = Arrow::SortKey.new("count")

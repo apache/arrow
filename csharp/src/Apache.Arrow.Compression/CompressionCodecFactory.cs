@@ -25,10 +25,15 @@ namespace Apache.Arrow.Compression
     {
         public ICompressionCodec CreateCodec(CompressionCodecType compressionCodecType)
         {
+            return CreateCodec(compressionCodecType, null);
+        }
+
+        public ICompressionCodec CreateCodec(CompressionCodecType compressionCodecType, int? compressionLevel)
+        {
             return compressionCodecType switch
             {
-                CompressionCodecType.Lz4Frame => Lz4CompressionCodec.Instance,
-                CompressionCodecType.Zstd => new ZstdCompressionCodec(),
+                CompressionCodecType.Lz4Frame => new Lz4CompressionCodec(compressionLevel),
+                CompressionCodecType.Zstd => new ZstdCompressionCodec(compressionLevel),
                 _ => throw new NotImplementedException($"Compression type {compressionCodecType} is not supported")
             };
         }

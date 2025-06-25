@@ -30,13 +30,25 @@ namespace Apache.Arrow.Ipc
 {
     internal abstract class ArrowReaderImplementation : IDisposable
     {
-        public Schema Schema { get; protected set; }
-        protected bool HasReadSchema => Schema != null;
+        public Schema Schema
+        {
+            get
+            {
+                if (!HasReadSchema)
+                {
+                    ReadSchema();
+                }
+                return _schema;
+            }
+        }
+
+        protected internal bool HasReadSchema => _schema != null;
 
         private protected DictionaryMemo _dictionaryMemo;
         private protected DictionaryMemo DictionaryMemo => _dictionaryMemo ??= new DictionaryMemo();
         private protected readonly MemoryAllocator _allocator;
         private readonly ICompressionCodecFactory _compressionCodecFactory;
+        private protected Schema _schema;
 
         private protected ArrowReaderImplementation() : this(null, null)
         { }
@@ -56,6 +68,9 @@ namespace Apache.Arrow.Ipc
         protected virtual void Dispose(bool disposing)
         {
         }
+
+        public abstract ValueTask ReadSchemaAsync(CancellationToken cancellationToken);
+        public abstract void ReadSchema();
 
         public abstract ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken);
         public abstract RecordBatch ReadNextRecordBatch();
@@ -191,9 +206,7 @@ namespace Apache.Arrow.Ipc
                 Field field = schema.GetFieldByIndex(schemaFieldIndex++);
                 Flatbuf.FieldNode fieldNode = recordBatchEnumerator.CurrentNode;
 
-                ArrayData arrayData = field.DataType.IsFixedPrimitive()
-                    ? LoadPrimitiveField(version, ref recordBatchEnumerator, field, in fieldNode, messageBuffer, bufferCreator)
-                    : LoadVariableField(version, ref recordBatchEnumerator, field, in fieldNode, messageBuffer, bufferCreator);
+                ArrayData arrayData = LoadField(version, ref recordBatchEnumerator, field, in fieldNode, messageBuffer, bufferCreator);
 
                 arrays.Add(ArrowArrayFactory.BuildArray(arrayData));
             } while (recordBatchEnumerator.MoveNextNode());
@@ -229,7 +242,7 @@ namespace Apache.Arrow.Ipc
             return new DecompressingBufferCreator(decompressor, _allocator);
         }
 
-        private ArrayData LoadPrimitiveField(
+        private ArrayData LoadField(
             MetadataVersion version,
             ref RecordBatchEnumerator recordBatchEnumerator,
             Field field,
@@ -248,7 +261,7 @@ namespace Apache.Arrow.Ipc
 
             if (fieldNullCount < 0)
             {
-                throw new InvalidDataException("Null count length must be >= 0"); // TODO:Localize exception message
+                throw new InvalidDataException("Null count must be >= 0"); // TODO:Localize exception message
             }
 
             int buffers;
@@ -276,6 +289,18 @@ namespace Apache.Arrow.Ipc
                 case ArrowTypeId.FixedSizeList:
                     buffers = 1;
                     break;
+                case ArrowTypeId.String:
+                case ArrowTypeId.Binary:
+                case ArrowTypeId.LargeString:
+                case ArrowTypeId.LargeBinary:
+                case ArrowTypeId.ListView:
+                    buffers = 3;
+                    break;
+                case ArrowTypeId.StringView:
+                case ArrowTypeId.BinaryView:
+                    buffers = checked((int)(2 + recordBatchEnumerator.CurrentVariadicCount));
+                    recordBatchEnumerator.MoveNextVariadicCount();
+                    break;
                 default:
                     buffers = 2;
                     break;
@@ -288,54 +313,6 @@ namespace Apache.Arrow.Ipc
                 recordBatchEnumerator.MoveNextBuffer();
             }
 
-            ArrayData[] children = GetChildren(version, ref recordBatchEnumerator, field, bodyData, bufferCreator);
-
-            IArrowArray dictionary = null;
-            if (field.DataType.TypeId == ArrowTypeId.Dictionary)
-            {
-                long id = DictionaryMemo.GetId(field);
-                dictionary = DictionaryMemo.GetDictionary(id);
-            }
-
-            return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children, dictionary?.Data);
-        }
-
-        private ArrayData LoadVariableField(
-            MetadataVersion version,
-            ref RecordBatchEnumerator recordBatchEnumerator,
-            Field field,
-            in Flatbuf.FieldNode fieldNode,
-            ByteBuffer bodyData,
-            IBufferCreator bufferCreator)
-        {
-
-            ArrowBuffer nullArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer, bufferCreator);
-            if (!recordBatchEnumerator.MoveNextBuffer())
-            {
-                throw new Exception("Unable to move to the next buffer.");
-            }
-            ArrowBuffer offsetArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer, bufferCreator);
-            if (!recordBatchEnumerator.MoveNextBuffer())
-            {
-                throw new Exception("Unable to move to the next buffer.");
-            }
-            ArrowBuffer valueArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer, bufferCreator);
-            recordBatchEnumerator.MoveNextBuffer();
-
-            int fieldLength = (int)fieldNode.Length;
-            int fieldNullCount = (int)fieldNode.NullCount;
-
-            if (fieldLength < 0)
-            {
-                throw new InvalidDataException("Field length must be >= 0"); // TODO: Localize exception message
-            }
-
-            if (fieldNullCount < 0)
-            {
-                throw new InvalidDataException("Null count length must be >= 0"); //TODO: Localize exception message
-            }
-
-            ArrowBuffer[] arrowBuff = new[] { nullArrowBuffer, offsetArrowBuffer, valueArrowBuffer };
             ArrayData[] children = GetChildren(version, ref recordBatchEnumerator, field, bodyData, bufferCreator);
 
             IArrowArray dictionary = null;
@@ -365,11 +342,7 @@ namespace Apache.Arrow.Ipc
                 Flatbuf.FieldNode childFieldNode = recordBatchEnumerator.CurrentNode;
 
                 Field childField = type.Fields[index];
-                ArrayData child = childField.DataType.IsFixedPrimitive()
-                    ? LoadPrimitiveField(version, ref recordBatchEnumerator, childField, in childFieldNode, bodyData, bufferCreator)
-                    : LoadVariableField(version, ref recordBatchEnumerator, childField, in childFieldNode, bodyData, bufferCreator);
-
-                children[index] = child;
+                children[index] = LoadField(version, ref recordBatchEnumerator, childField, in childFieldNode, bodyData, bufferCreator);
             }
             return children;
         }
@@ -394,10 +367,13 @@ namespace Apache.Arrow.Ipc
         private Flatbuf.RecordBatch RecordBatch { get; }
         internal int CurrentBufferIndex { get; private set; }
         internal int CurrentNodeIndex { get; private set; }
+        internal int CurrentVariadicCountIndex { get; private set; }
 
         internal Flatbuf.Buffer CurrentBuffer => RecordBatch.Buffers(CurrentBufferIndex).GetValueOrDefault();
 
         internal Flatbuf.FieldNode CurrentNode => RecordBatch.Nodes(CurrentNodeIndex).GetValueOrDefault();
+
+        internal long CurrentVariadicCount => RecordBatch.VariadicBufferCounts(CurrentVariadicCountIndex);
 
         internal bool MoveNextBuffer()
         {
@@ -409,11 +385,17 @@ namespace Apache.Arrow.Ipc
             return ++CurrentNodeIndex < RecordBatch.NodesLength;
         }
 
+        internal bool MoveNextVariadicCount()
+        {
+            return ++CurrentVariadicCountIndex < RecordBatch.VariadicBufferCountsLength;
+        }
+
         internal RecordBatchEnumerator(in Flatbuf.RecordBatch recordBatch)
         {
             RecordBatch = recordBatch;
             CurrentBufferIndex = 0;
             CurrentNodeIndex = 0;
+            CurrentVariadicCountIndex = 0;
         }
     }
 }

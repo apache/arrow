@@ -147,9 +147,6 @@ class PARQUET_EXPORT ParquetFileWriter {
     // Perform any cleanup associated with the file contents
     virtual void Close() = 0;
 
-    /// \note Deprecated since 1.3.0
-    RowGroupWriter* AppendRowGroup(int64_t num_rows);
-
     virtual RowGroupWriter* AppendRowGroup() = 0;
     virtual RowGroupWriter* AppendBufferedRowGroup() = 0;
 
@@ -190,15 +187,6 @@ class PARQUET_EXPORT ParquetFileWriter {
   void Open(std::unique_ptr<Contents> contents);
   void Close();
 
-  // Construct a RowGroupWriter for the indicated number of rows.
-  //
-  // Ownership is solely within the ParquetFileWriter. The RowGroupWriter is only valid
-  // until the next call to AppendRowGroup or AppendBufferedRowGroup or Close.
-  // @param num_rows The number of rows that are stored in the new RowGroup
-  //
-  // \deprecated Since 1.3.0
-  RowGroupWriter* AppendRowGroup(int64_t num_rows);
-
   /// Construct a RowGroupWriter with an arbitrary number of rows.
   ///
   /// Ownership is solely within the ParquetFileWriter. The RowGroupWriter is only valid
@@ -214,7 +202,7 @@ class PARQUET_EXPORT ParquetFileWriter {
 
   /// \brief Add key-value metadata to the file.
   /// \param[in] key_value_metadata the metadata to add.
-  /// \note This will overwrite any existing metadata with the same key.
+  /// \note This will overwrite any existing metadata with the same key(s).
   /// \throw ParquetException if Close() has been called.
   void AddKeyValueMetadata(
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata);

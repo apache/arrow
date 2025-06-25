@@ -31,6 +31,7 @@
 #include "arrow/util/compare.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -50,7 +51,7 @@ struct IterationTraits {
   static T End() { return T(NULLPTR); }
 
   /// \brief Checks to see if the value is a terminal value.
-  /// A method is used here since T is not neccesarily comparable in many
+  /// A method is used here since T is not necessarily comparable in many
   /// cases even though it has a distinct final value
   static bool IsEnd(const T& val) { return val == End(); }
 };
@@ -82,6 +83,12 @@ struct IterationTraits<std::optional<T>> {
   // is nullopt. Add IterationTraits::GetRangeElement() to handle this case
 };
 
+template <typename T>
+struct IterationTraits<Enumerated<T>> {
+  static Enumerated<T> End() { return Enumerated<T>{IterationEnd<T>(), -1, false}; }
+  static bool IsEnd(const Enumerated<T>& val) { return val.index < 0; }
+};
+
 /// \brief A generic Iterator that can return errors
 template <typename T>
 class Iterator : public util::EqualityComparable<Iterator<T>> {
@@ -105,9 +112,18 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
   Iterator() : ptr_(NULLPTR, [](void*) {}) {}
 
   /// \brief Return the next element of the sequence, IterationTraits<T>::End() when the
-  /// iteration is completed. Calling this on a default constructed Iterator
-  /// will result in undefined behavior.
-  Result<T> Next() { return next_(ptr_.get()); }
+  /// iteration is completed.
+  Result<T> Next() {
+    if (ptr_) {
+      auto next_result = next_(ptr_.get());
+      if (next_result.ok() && IsIterationEnd(next_result.ValueUnsafe())) {
+        ptr_.reset(NULLPTR);
+      }
+      return next_result;
+    } else {
+      return IterationTraits<T>::End();
+    }
+  }
 
   /// Pass each element of the sequence to a visitor. Will return any error status
   /// returned by the visitor, terminating iteration.
@@ -180,9 +196,7 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
       ARROW_ASSIGN_OR_RAISE(auto element, maybe_element);
       out.push_back(std::move(element));
     }
-    // ARROW-8193: On gcc-4.8 without the explicit move it tries to use the
-    // copy constructor, which may be deleted on the elements of type T
-    return std::move(out);
+    return out;
   }
 
  private:
@@ -285,7 +299,7 @@ class TransformIterator {
         finished_ = true;
         return next_res.status();
       }
-      auto next = *next_res;
+      auto next = std::move(*next_res);
       if (next.ReadyForNext()) {
         if (IsIterationEnd(*last_value_)) {
           finished_ = true;

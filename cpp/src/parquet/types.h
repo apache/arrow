@@ -157,12 +157,25 @@ class PARQUET_EXPORT LogicalType {
       JSON,
       BSON,
       UUID,
+      FLOAT16,
+      GEOMETRY,
+      GEOGRAPHY,
+      VARIANT,
       NONE  // Not a real logical type; should always be last element
     };
   };
 
   struct TimeUnit {
     enum unit { UNKNOWN = 0, MILLIS = 1, MICROS, NANOS };
+  };
+
+  enum class EdgeInterpolationAlgorithm {
+    UNKNOWN = 0,
+    SPHERICAL = 1,
+    VINCENTY = 2,
+    THOMAS = 3,
+    ANDOYER = 4,
+    KARNEY = 5
   };
 
   /// \brief If possible, return a logical type equivalent to the given legacy
@@ -210,6 +223,14 @@ class PARQUET_EXPORT LogicalType {
   static std::shared_ptr<const LogicalType> JSON();
   static std::shared_ptr<const LogicalType> BSON();
   static std::shared_ptr<const LogicalType> UUID();
+  static std::shared_ptr<const LogicalType> Float16();
+  static std::shared_ptr<const LogicalType> Variant();
+
+  static std::shared_ptr<const LogicalType> Geometry(std::string crs = "");
+
+  static std::shared_ptr<const LogicalType> Geography(
+      std::string crs = "", LogicalType::EdgeInterpolationAlgorithm algorithm =
+                                EdgeInterpolationAlgorithm::SPHERICAL);
 
   /// \brief Create a placeholder for when no logical type is specified
   static std::shared_ptr<const LogicalType> None();
@@ -263,6 +284,10 @@ class PARQUET_EXPORT LogicalType {
   bool is_JSON() const;
   bool is_BSON() const;
   bool is_UUID() const;
+  bool is_float16() const;
+  bool is_geometry() const;
+  bool is_geography() const;
+  bool is_variant() const;
   bool is_none() const;
   /// \brief Return true if this logical type is of a known type.
   bool is_valid() const;
@@ -431,6 +456,49 @@ class PARQUET_EXPORT UUIDLogicalType : public LogicalType {
 
  private:
   UUIDLogicalType() = default;
+};
+
+/// \brief Allowed for physical type FIXED_LEN_BYTE_ARRAY with length 2,
+/// must encode raw FLOAT16 bytes.
+class PARQUET_EXPORT Float16LogicalType : public LogicalType {
+ public:
+  static std::shared_ptr<const LogicalType> Make();
+
+ private:
+  Float16LogicalType() = default;
+};
+
+class PARQUET_EXPORT GeometryLogicalType : public LogicalType {
+ public:
+  static std::shared_ptr<const LogicalType> Make(std::string crs = "");
+
+  const std::string& crs() const;
+
+ private:
+  GeometryLogicalType() = default;
+};
+
+class PARQUET_EXPORT GeographyLogicalType : public LogicalType {
+ public:
+  static std::shared_ptr<const LogicalType> Make(
+      std::string crs = "", LogicalType::EdgeInterpolationAlgorithm algorithm =
+                                EdgeInterpolationAlgorithm::SPHERICAL);
+
+  const std::string& crs() const;
+  LogicalType::EdgeInterpolationAlgorithm algorithm() const;
+  std::string_view algorithm_name() const;
+
+ private:
+  GeographyLogicalType() = default;
+};
+
+/// \brief Allowed for group nodes only.
+class PARQUET_EXPORT VariantLogicalType : public LogicalType {
+ public:
+  static std::shared_ptr<const LogicalType> Make();
+
+ private:
+  VariantLogicalType() = default;
 };
 
 /// \brief Allowed for any physical type.
@@ -783,6 +851,8 @@ PARQUET_EXPORT std::string ConvertedTypeToString(ConvertedType::type t);
 
 PARQUET_EXPORT std::string TypeToString(Type::type t);
 
+PARQUET_EXPORT std::string TypeToString(Type::type t, int type_length);
+
 PARQUET_EXPORT std::string FormatStatValue(Type::type parquet_type,
                                            ::std::string_view val);
 
@@ -795,5 +865,11 @@ PARQUET_EXPORT SortOrder::type GetSortOrder(ConvertedType::type converted,
 
 PARQUET_EXPORT SortOrder::type GetSortOrder(
     const std::shared_ptr<const LogicalType>& logical_type, Type::type primitive);
+
+// PLAIN_DICTIONARY is deprecated but used to be used as a dictionary index
+// encoding.
+constexpr bool IsDictionaryIndexEncoding(Encoding::type e) {
+  return e == Encoding::RLE_DICTIONARY || e == Encoding::PLAIN_DICTIONARY;
+}
 
 }  // namespace parquet

@@ -37,11 +37,12 @@
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/plan.h"
+#include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/config.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
@@ -211,7 +212,8 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
         // create the projected schema only if the provided expressions
         // produces valid set of fields.
         ARROW_ASSIGN_OR_RAISE(auto projection_descr,
-                              ProjectionDescr::Default(*projected_schema));
+                              ProjectionDescr::Default(
+                                  *projected_schema, scan_options->add_augmented_fields));
         scan_options->projected_schema = std::move(projection_descr.schema);
         scan_options->projection = projection_descr.expression;
         ARROW_ASSIGN_OR_RAISE(scan_options->projection,
@@ -220,7 +222,8 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
         // if projected_fields are not found, we default to creating the projected_schema
         // and projection from the dataset_schema.
         ARROW_ASSIGN_OR_RAISE(auto projection_descr,
-                              ProjectionDescr::Default(*dataset_schema));
+                              ProjectionDescr::Default(
+                                  *dataset_schema, scan_options->add_augmented_fields));
         scan_options->projected_schema = std::move(projection_descr.schema);
         scan_options->projection = projection_descr.expression;
       }
@@ -231,7 +234,7 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
     ARROW_ASSIGN_OR_RAISE(
         auto projection_descr,
         ProjectionDescr::FromNames(scan_options->projected_schema->field_names(),
-                                   *dataset_schema));
+                                   *dataset_schema, scan_options->add_augmented_fields));
     scan_options->projection = projection_descr.expression;
   }
 
@@ -316,10 +319,14 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
       RecordBatch::Make(options->dataset_schema, /*num_rows=*/0, std::move(columns)));
   auto enumerated_batch_gen = MakeEnumeratedGenerator(std::move(batch_gen));
 
-  auto combine_fn =
-      [fragment](const Enumerated<std::shared_ptr<RecordBatch>>& record_batch) {
-        return EnumeratedRecordBatch{record_batch, fragment};
-      };
+  auto combine_fn = [fragment, cache_metadata = options->cache_metadata](
+                        const Enumerated<std::shared_ptr<RecordBatch>>& record_batch) {
+    if (!cache_metadata && record_batch.last) {
+      ARROW_WARN_NOT_OK(fragment.value->ClearCachedMetadata(),
+                        "Could not clear cached metadata on fragment");
+    }
+    return EnumeratedRecordBatch{record_batch, fragment};
+  };
 
   return MakeMappedGenerator(enumerated_batch_gen, std::move(combine_fn));
 }
@@ -341,7 +348,7 @@ class OneShotFragment : public Fragment {
   OneShotFragment(std::shared_ptr<Schema> schema, RecordBatchIterator batch_it)
       : Fragment(compute::literal(true), std::move(schema)),
         batch_it_(std::move(batch_it)) {
-    DCHECK_NE(physical_schema_, nullptr);
+    DCHECK_NE(given_physical_schema_, nullptr);
   }
   Status CheckConsumed() {
     if (!batch_it_) return Status::Invalid("OneShotFragment was already scanned");
@@ -360,7 +367,7 @@ class OneShotFragment : public Fragment {
 
  protected:
   Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
-    return physical_schema_;
+    return given_physical_schema_;
   }
 
   RecordBatchIterator batch_it_;
@@ -730,7 +737,8 @@ Future<int64_t> AsyncScanner::CountRowsAsync(Executor* executor) {
   const auto options = std::make_shared<ScanOptions>(*scan_options_);
   ARROW_ASSIGN_OR_RAISE(auto empty_projection,
                         ProjectionDescr::FromNames(std::vector<std::string>(),
-                                                   *scan_options_->dataset_schema));
+                                                   *scan_options_->dataset_schema,
+                                                   scan_options_->add_augmented_fields));
   SetProjection(options.get(), empty_projection);
 
   auto total = std::make_shared<std::atomic<int64_t>>(0);
@@ -828,7 +836,8 @@ Result<ProjectionDescr> ProjectionDescr::FromExpressions(
 }
 
 Result<ProjectionDescr> ProjectionDescr::FromNames(std::vector<std::string> names,
-                                                   const Schema& dataset_schema) {
+                                                   const Schema& dataset_schema,
+                                                   bool add_augmented_fields) {
   std::vector<compute::Expression> exprs(names.size());
   for (size_t i = 0; i < exprs.size(); ++i) {
     // If name isn't in schema, try finding it by dotted path.
@@ -846,15 +855,19 @@ Result<ProjectionDescr> ProjectionDescr::FromNames(std::vector<std::string> name
     }
   }
   auto fields = dataset_schema.fields();
-  for (const auto& aug_field : kAugmentedFields) {
-    fields.push_back(aug_field);
+  if (add_augmented_fields) {
+    for (const auto& aug_field : kAugmentedFields) {
+      fields.push_back(aug_field);
+    }
   }
   return ProjectionDescr::FromExpressions(std::move(exprs), std::move(names),
                                           Schema(fields, dataset_schema.metadata()));
 }
 
-Result<ProjectionDescr> ProjectionDescr::Default(const Schema& dataset_schema) {
-  return ProjectionDescr::FromNames(dataset_schema.field_names(), dataset_schema);
+Result<ProjectionDescr> ProjectionDescr::Default(const Schema& dataset_schema,
+                                                 bool add_augmented_fields) {
+  return ProjectionDescr::FromNames(dataset_schema.field_names(), dataset_schema,
+                                    add_augmented_fields);
 }
 
 void SetProjection(ScanOptions* options, ProjectionDescr projection) {
@@ -899,7 +912,8 @@ const std::shared_ptr<Schema>& ScannerBuilder::projected_schema() const {
 Status ScannerBuilder::Project(std::vector<std::string> columns) {
   ARROW_ASSIGN_OR_RAISE(
       auto projection,
-      ProjectionDescr::FromNames(std::move(columns), *scan_options_->dataset_schema));
+      ProjectionDescr::FromNames(std::move(columns), *scan_options_->dataset_schema,
+                                 scan_options_->add_augmented_fields));
   SetProjection(scan_options_.get(), std::move(projection));
   return Status::OK();
 }
@@ -924,6 +938,11 @@ Status ScannerBuilder::Filter(const compute::Expression& filter) {
 
 Status ScannerBuilder::UseThreads(bool use_threads) {
   scan_options_->use_threads = use_threads;
+  return Status::OK();
+}
+
+Status ScannerBuilder::CacheMetadata(bool cache_metadata) {
+  scan_options_->cache_metadata = cache_metadata;
   return Status::OK();
 }
 
@@ -991,6 +1010,7 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
   auto scan_options = scan_node_options.scan_options;
   auto dataset = scan_node_options.dataset;
   bool require_sequenced_output = scan_node_options.require_sequenced_output;
+  bool implicit_ordering = scan_node_options.implicit_ordering;
 
   RETURN_NOT_OK(NormalizeScanOptions(scan_options, dataset->schema()));
 
@@ -1051,14 +1071,18 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
         return batch;
       });
 
+  auto ordering = implicit_ordering ? Ordering::Implicit() : Ordering::Unordered();
+
   auto fields = scan_options->dataset_schema->fields();
-  for (const auto& aug_field : kAugmentedFields) {
-    fields.push_back(aug_field);
+  if (scan_options->add_augmented_fields) {
+    for (const auto& aug_field : kAugmentedFields) {
+      fields.push_back(aug_field);
+    }
   }
 
   return acero::MakeExecNode(
       "source", plan, {},
-      acero::SourceNodeOptions{schema(std::move(fields)), std::move(gen)});
+      acero::SourceNodeOptions{schema(std::move(fields)), std::move(gen), ordering});
 }
 
 Result<acero::ExecNode*> MakeAugmentedProjectNode(acero::ExecPlan* plan,

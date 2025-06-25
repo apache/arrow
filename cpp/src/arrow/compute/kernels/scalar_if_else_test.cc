@@ -23,7 +23,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/checked_cast.h"
@@ -69,7 +69,7 @@ template <typename Type>
 class TestIfElsePrimitive : public ::testing::Test {};
 
 // There are a lot of tests here if we cover all the types and it gets slow on valgrind
-// so we overrdie the standard type sets with a smaller range
+// so we override the standard type sets with a smaller range
 #ifdef ARROW_VALGRIND
 using IfElseNumericBasedTypes =
     ::testing::Types<UInt32Type, FloatType, Date32Type, Time32Type, TimestampType,
@@ -737,12 +737,15 @@ TEST_F(TestIfElseKernel, Decimal) {
   }
 }
 
+using ListAndListViewArrowTypes =
+    ::testing::Types<ListType, LargeListType, ListViewType, LargeListViewType>;
+
 template <typename Type>
-class TestIfElseList : public ::testing::Test {};
+class TestIfElseVarLengthListLike : public ::testing::Test {};
 
-TYPED_TEST_SUITE(TestIfElseList, ListArrowTypes);
+TYPED_TEST_SUITE(TestIfElseVarLengthListLike, ListAndListViewArrowTypes);
 
-TYPED_TEST(TestIfElseList, ListOfInt) {
+TYPED_TEST(TestIfElseVarLengthListLike, ListOfInt) {
   auto type = std::make_shared<TypeParam>(int32());
   CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, false, false]"),
                            ArrayFromJSON(type, "[[], null, [1, null], [2, 3]]"),
@@ -755,7 +758,7 @@ TYPED_TEST(TestIfElseList, ListOfInt) {
                            ArrayFromJSON(type, "[null, null, null, null]"));
 }
 
-TYPED_TEST(TestIfElseList, ListOfString) {
+TYPED_TEST(TestIfElseVarLengthListLike, ListOfString) {
   auto type = std::make_shared<TypeParam>(utf8());
   CheckWithDifferentShapes(
       ArrayFromJSON(boolean(), "[true, true, false, false]"),
@@ -891,6 +894,21 @@ TEST_F(TestIfElseKernel, ParameterizedTypes) {
                            "timestamp[s, tz=America/Phoenix]"),
       CallFunction("if_else",
                    {cond, ArrayFromJSON(type0, "[0]"), ArrayFromJSON(type1, "[1]")}));
+}
+
+TEST_F(TestIfElseKernel, MapNested) {
+  auto type = map(int64(), utf8());
+  CheckWithDifferentShapes(
+      ArrayFromJSON(boolean(), "[true, true, false, false]"),
+      ArrayFromJSON(type, R"([null, [[2, "foo"], [4, null]], [[3, "test"]], []])"),
+      ArrayFromJSON(type, R"([[[1, "b"]], [[2, "c"]], [[7, "abc"]], null])"),
+      ArrayFromJSON(type, R"([null, [[2, "foo"], [4, null]], [[7, "abc"]], null])"));
+
+  CheckWithDifferentShapes(
+      ArrayFromJSON(boolean(), "[null, null, null, null]"),
+      ArrayFromJSON(type, R"([null, [[1, "c"]], [[4, null]], [[6, "ok"]]])"),
+      ArrayFromJSON(type, R"([[[-1, null]], [[3, "c"]], null, [[6, "ok"]]])"),
+      ArrayFromJSON(type, R"([null, null, null, null])"));
 }
 
 template <typename Type>
@@ -1917,7 +1935,7 @@ TYPED_TEST(TestCaseWhenBinary, Random) {
 template <typename Type>
 class TestCaseWhenList : public ::testing::Test {};
 
-TYPED_TEST_SUITE(TestCaseWhenList, ListArrowTypes);
+TYPED_TEST_SUITE(TestCaseWhenList, ListAndListViewArrowTypes);
 
 TYPED_TEST(TestCaseWhenList, ListOfString) {
   auto type = std::make_shared<TypeParam>(utf8());
@@ -2482,16 +2500,14 @@ TEST(TestCaseWhen, UnionBoolString) {
   }
 }
 
-// FIXME(GH-15192): enabling this test produces test failures
-
-// TEST(TestCaseWhen, UnionBoolStringRandom) {
-//   for (const auto& type : std::vector<std::shared_ptr<DataType>>{
-//            sparse_union({field("a", boolean()), field("b", utf8())}, {2, 7}),
-//            dense_union({field("a", boolean()), field("b", utf8())}, {2, 7})}) {
-//     ARROW_SCOPED_TRACE(type->ToString());
-//     TestCaseWhenRandom(type);
-//   }
-// }
+TEST(TestCaseWhen, UnionBoolStringRandom) {
+  for (const auto& type : std::vector<std::shared_ptr<DataType>>{
+           sparse_union({field("a", boolean()), field("b", utf8())}, {2, 7}),
+           dense_union({field("a", boolean()), field("b", utf8())}, {2, 7})}) {
+    ARROW_SCOPED_TRACE(type->ToString());
+    TestCaseWhenRandom(type);
+  }
+}
 
 TEST(TestCaseWhen, DispatchBest) {
   CheckDispatchBest("case_when", {struct_({field("", boolean())}), int64(), int32()},
@@ -2554,7 +2570,7 @@ class TestCoalesceList : public ::testing::Test {};
 
 TYPED_TEST_SUITE(TestCoalesceNumeric, IfElseNumericBasedTypes);
 TYPED_TEST_SUITE(TestCoalesceBinary, BaseBinaryArrowTypes);
-TYPED_TEST_SUITE(TestCoalesceList, ListArrowTypes);
+TYPED_TEST_SUITE(TestCoalesceList, ListAndListViewArrowTypes);
 
 TYPED_TEST(TestCoalesceNumeric, Basics) {
   auto type = default_type_instance<TypeParam>();

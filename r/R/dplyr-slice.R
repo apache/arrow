@@ -101,7 +101,7 @@ slice_sample.arrow_dplyr_query <- function(.data,
   # just to make sure we get enough, then head(n)
   sampling_n <- missing(prop)
   if (sampling_n) {
-    prop <- min(n_to_prop(.data, n) + .05, 1)
+    prop <- min(n_to_prop(.data, n) + 0.05, 1)
   }
   validate_prop(prop)
 
@@ -148,7 +148,7 @@ prop_to_n <- function(.data, prop) {
 
 validate_prop <- function(prop) {
   if (!is.numeric(prop) || length(prop) != 1 || is.na(prop) || prop < 0 || prop > 1) {
-    stop("`prop` must be a single numeric value between 0 and 1", call. = FALSE)
+    validation_error("`prop` must be a single numeric value between 0 and 1")
   }
 }
 

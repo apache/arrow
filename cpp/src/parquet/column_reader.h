@@ -22,6 +22,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/type_fwd.h"
+#include "arrow/util/macros.h"
 #include "parquet/exception.h"
 #include "parquet/level_conversion.h"
 #include "parquet/metadata.h"
@@ -31,9 +33,6 @@
 #include "parquet/types.h"
 
 namespace arrow {
-
-class Array;
-class ChunkedArray;
 
 namespace bit_util {
 class BitReader;
@@ -102,20 +101,11 @@ class PARQUET_EXPORT LevelDecoder {
 };
 
 struct CryptoContext {
-  CryptoContext(bool start_with_dictionary_page, int16_t rg_ordinal, int16_t col_ordinal,
-                std::shared_ptr<Decryptor> meta, std::shared_ptr<Decryptor> data)
-      : start_decrypt_with_dictionary_page(start_with_dictionary_page),
-        row_group_ordinal(rg_ordinal),
-        column_ordinal(col_ordinal),
-        meta_decryptor(std::move(meta)),
-        data_decryptor(std::move(data)) {}
-  CryptoContext() {}
-
   bool start_decrypt_with_dictionary_page = false;
   int16_t row_group_ordinal = -1;
   int16_t column_ordinal = -1;
-  std::shared_ptr<Decryptor> meta_decryptor;
-  std::shared_ptr<Decryptor> data_decryptor;
+  std::function<std::unique_ptr<Decryptor>()> meta_decryptor_factory;
+  std::function<std::unique_ptr<Decryptor>()> data_decryptor_factory;
 };
 
 // Abstract page iterator interface. This way, we can feed column pages to the
@@ -197,7 +187,7 @@ class PARQUET_EXPORT ColumnReader {
 template <typename DType>
 class TypedColumnReader : public ColumnReader {
  public:
-  typedef typename DType::c_type T;
+  using T = typename DType::c_type;
 
   // Read a batch of repetition levels, definition levels, and values from the
   // column.
@@ -218,48 +208,6 @@ class TypedColumnReader : public ColumnReader {
   // @returns: actual number of levels read (see values_read for number of values read)
   virtual int64_t ReadBatch(int64_t batch_size, int16_t* def_levels, int16_t* rep_levels,
                             T* values, int64_t* values_read) = 0;
-
-  /// Read a batch of repetition levels, definition levels, and values from the
-  /// column and leave spaces for null entries on the lowest level in the values
-  /// buffer.
-  ///
-  /// In comparison to ReadBatch the length of repetition and definition levels
-  /// is the same as of the number of values read for max_definition_level == 1.
-  /// In the case of max_definition_level > 1, the repetition and definition
-  /// levels are larger than the values but the values include the null entries
-  /// with definition_level == (max_definition_level - 1).
-  ///
-  /// To fully exhaust a row group, you must read batches until the number of
-  /// values read reaches the number of stored values according to the metadata.
-  ///
-  /// @param batch_size the number of levels to read
-  /// @param[out] def_levels The Parquet definition levels, output has
-  ///   the length levels_read.
-  /// @param[out] rep_levels The Parquet repetition levels, output has
-  ///   the length levels_read.
-  /// @param[out] values The values in the lowest nested level including
-  ///   spacing for nulls on the lowest levels; output has the length
-  ///   values_read.
-  /// @param[out] valid_bits Memory allocated for a bitmap that indicates if
-  ///   the row is null or on the maximum definition level. For performance
-  ///   reasons the underlying buffer should be able to store 1 bit more than
-  ///   required. If this requires an additional byte, this byte is only read
-  ///   but never written to.
-  /// @param valid_bits_offset The offset in bits of the valid_bits where the
-  ///   first relevant bit resides.
-  /// @param[out] levels_read The number of repetition/definition levels that were read.
-  /// @param[out] values_read The number of values read, this includes all
-  ///   non-null entries as well as all null-entries on the lowest level
-  ///   (i.e. definition_level == max_definition_level - 1)
-  /// @param[out] null_count The number of nulls on the lowest levels.
-  ///   (i.e. (values_read - null_count) is total number of non-null entries)
-  ///
-  /// \deprecated Since 4.0.0
-  ARROW_DEPRECATED("Doesn't handle nesting correctly and unused outside of unit tests.")
-  virtual int64_t ReadBatchSpaced(int64_t batch_size, int16_t* def_levels,
-                                  int16_t* rep_levels, T* values, uint8_t* valid_bits,
-                                  int64_t valid_bits_offset, int64_t* levels_read,
-                                  int64_t* values_read, int64_t* null_count) = 0;
 
   // Skip reading values. This method will work for both repeated and
   // non-repeated fields. Note that this method is skipping values and not
@@ -318,10 +266,13 @@ class PARQUET_EXPORT RecordReader {
   /// @param read_dictionary True if reading directly as Arrow dictionary-encoded
   /// @param read_dense_for_nullable True if reading dense and not leaving space for null
   /// values
+  /// @param arrow_type Which type to read this column as (optional). Currently
+  /// only used for byte array columns (see BinaryRecordReader::GetBuilderChunks).
   static std::shared_ptr<RecordReader> Make(
       const ColumnDescriptor* descr, LevelInfo leaf_info,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-      bool read_dictionary = false, bool read_dense_for_nullable = false);
+      bool read_dictionary = false, bool read_dense_for_nullable = false,
+      const std::shared_ptr<::arrow::DataType>& arrow_type = NULLPTR);
 
   virtual ~RecordReader() = default;
 
@@ -367,6 +318,16 @@ class PARQUET_EXPORT RecordReader {
   virtual const ColumnDescriptor* descr() const = 0;
 
   virtual void DebugPrintState() = 0;
+
+  /// \brief Returns the dictionary owned by the current decoder. Throws an
+  /// exception if the current decoder is not for dictionary encoding. The caller is
+  /// responsible for casting the returned pointer to proper type depending on the
+  /// column's physical type. An example:
+  ///   const ByteArray* dict = reinterpret_cast<const ByteArray*>(ReadDictionary(&len));
+  /// or:
+  ///   const float* dict = reinterpret_cast<const float*>(ReadDictionary(&len));
+  /// \param[out] dictionary_length The number of dictionary entries.
+  virtual const void* ReadDictionary(int32_t* dictionary_length) = 0;
 
   /// \brief Decoded definition levels
   int16_t* def_levels() const {
@@ -436,7 +397,9 @@ class PARQUET_EXPORT RecordReader {
   int64_t null_count_;
 
   /// \brief Each bit corresponds to one element in 'values_' and specifies if it
-  /// is null or not null. Not set if read_dense_for_nullable_ is true.
+  /// is null or not null.
+  ///
+  /// Not set if leaf type is not nullable or read_dense_for_nullable_ is true.
   std::shared_ptr<::arrow::ResizableBuffer> valid_bits_;
 
   /// \brief Buffer for definition levels. May contain more levels than
@@ -461,7 +424,10 @@ class PARQUET_EXPORT RecordReader {
 
   bool read_dictionary_ = false;
   // If true, we will not leave any space for the null values in the values_
-  // vector.
+  // vector or fill nulls values in BinaryRecordReader/DictionaryRecordReader.
+  //
+  // If read_dense_for_nullable_ is true, the BinaryRecordReader/DictionaryRecordReader
+  // might still populate the validity bitmap buffer.
   bool read_dense_for_nullable_ = false;
 };
 

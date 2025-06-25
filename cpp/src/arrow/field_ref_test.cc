@@ -135,7 +135,7 @@ struct FieldPathTestCase {
     out.schema = arrow::schema({out.v0.field, out.v1.field});
     out.type = struct_(out.schema->fields());
 
-    // Create null bitmaps for the struct fields independent of its childrens'
+    // Create null bitmaps for the struct fields independent of its children's
     // bitmaps. For FieldPath::GetFlattened, parent/child bitmaps should be combined
     // - for FieldPath::Get, higher-level nulls are ignored.
     auto bitmap1_1 = gen.NullBitmap(kNumRows, 0.15);
@@ -199,7 +199,7 @@ struct FieldPathTestCase {
         Table::Make(out.schema, {out.v0.chunked_array, out.v1.chunked_array}, kNumRows);
     ARROW_RETURN_NOT_OK(out.table->ValidateFull());
 
-    return std::move(out);
+    return out;
   }
 
  private:

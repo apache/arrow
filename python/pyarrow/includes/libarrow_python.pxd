@@ -55,7 +55,7 @@ cdef extern from "arrow/python/arrow_to_pandas.h" namespace "arrow::py::MapConve
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)
 
-    object PyHalf_FromHalf(npy_half value)
+    object PyFloat_FromHalf(uint16_t value)
 
     cdef cppclass PyConversionOptions:
         PyConversionOptions()
@@ -73,7 +73,10 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         object obj, object mask, const PyConversionOptions& options,
         CMemoryPool* pool)
 
-    CStatus NumPyDtypeToArrow(object dtype, shared_ptr[CDataType]* type)
+    CResult[shared_ptr[CArray]] Arange(int64_t start, int64_t stop,
+                                       int64_t step, CMemoryPool* pool)
+
+    CResult[shared_ptr[CDataType]] NumPyDtypeToArrow(object dtype)
 
     CStatus NdarrayToArrow(CMemoryPool* pool, object ao, object mo,
                            c_bool from_pandas,
@@ -199,41 +202,6 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         unordered_set[c_string] extension_columns
         c_bool to_numpy
 
-    cdef cppclass CSerializedPyObject" arrow::py::SerializedPyObject":
-        shared_ptr[CRecordBatch] batch
-        vector[shared_ptr[CTensor]] tensors
-
-        CStatus WriteTo(COutputStream* dst)
-        CStatus GetComponents(CMemoryPool* pool, PyObject** dst)
-
-    CStatus SerializeObject(object context, object sequence,
-                            CSerializedPyObject* out)
-
-    CStatus DeserializeObject(object context,
-                              const CSerializedPyObject& obj,
-                              PyObject* base, PyObject** out)
-
-    CStatus ReadSerializedObject(CRandomAccessFile* src,
-                                 CSerializedPyObject* out)
-
-    cdef cppclass SparseTensorCounts:
-        SparseTensorCounts()
-        int coo
-        int csr
-        int csc
-        int csf
-        int ndim_csf
-        int num_total_tensors() const
-        int num_total_buffers() const
-
-    CStatus GetSerializedFromComponents(
-        int num_tensors,
-        const SparseTensorCounts& num_sparse_tensors,
-        int num_ndarrays,
-        int num_buffers,
-        object buffers,
-        CSerializedPyObject* out)
-
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
     cdef cppclass CTimePoint "arrow::py::internal::TimePoint":
@@ -248,7 +216,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
     CResult[PyObject*] StringToTzinfo(c_string)
 
 
-cdef extern from "arrow/python/init.h":
+cdef extern from "arrow/python/numpy_init.h" namespace "arrow::py":
     int arrow_init_numpy() except -1
 
 
@@ -259,6 +227,14 @@ cdef extern from "arrow/python/pyarrow.h" namespace "arrow::py":
 cdef extern from "arrow/python/common.h" namespace "arrow::py":
     c_bool IsPyError(const CStatus& status)
     void RestorePyError(const CStatus& status) except *
+
+
+cdef extern from "arrow/python/common.h" namespace "arrow::py" nogil:
+    cdef cppclass SharedPtrNoGIL[T](shared_ptr[T]):
+        # This looks like the only way to satisfy both Cython 2 and Cython 3
+        SharedPtrNoGIL& operator=(...)
+    cdef cppclass UniquePtrNoGIL[T, DELETER=*](unique_ptr[T, DELETER]):
+        UniquePtrNoGIL& operator=(...)
 
 
 cdef extern from "arrow/python/inference.h" namespace "arrow::py":
@@ -273,6 +249,14 @@ cdef extern from "arrow/python/ipc.h" namespace "arrow::py":
         @staticmethod
         CResult[shared_ptr[CRecordBatchReader]] Make(shared_ptr[CSchema],
                                                      object)
+
+
+cdef extern from "arrow/python/ipc.h" namespace "arrow::py" nogil:
+    cdef cppclass CCastingRecordBatchReader" arrow::py::CastingRecordBatchReader" \
+            (CRecordBatchReader):
+        @staticmethod
+        CResult[shared_ptr[CRecordBatchReader]] Make(shared_ptr[CRecordBatchReader],
+                                                     shared_ptr[CSchema])
 
 
 cdef extern from "arrow/python/extension_type.h" namespace "arrow::py":
@@ -301,3 +285,6 @@ cdef extern from "arrow/python/benchmark.h" namespace "arrow::py::benchmark":
 
 cdef extern from "arrow/python/gdb.h" namespace "arrow::gdb" nogil:
     void GdbTestSession "arrow::gdb::TestSession"()
+
+cdef extern from "arrow/python/helpers.h" namespace "arrow::py::internal":
+    c_bool IsThreadingEnabled()

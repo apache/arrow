@@ -239,7 +239,17 @@ Memory management
 -----------------
 
 Flight tries to reuse allocations made by gRPC to avoid redundant
-data copies. However, this means that those allocations may not
+data copies. However, experience shows that such data is frequently
+misaligned. Some use cases might require data to have data type-specific
+alignment (for example, for the data buffer of an Int32 array to be aligned
+on a 4-byte boundary), which can be enforced
+by setting :member:`arrow::ipc::IpcReadOptions::ensure_alignment`
+to :member:`arrow::ipc::Alignment::kDataTypeSpecificAlignment`.
+This uses the :member:`arrow::ipc::IpcReadOptions::memory_pool`
+to allocate memory with aligned addresses, but only for mis-aligned data.
+However, this creates data copies of your data received via Flight.
+
+Unless gRPC data are copied as described above, allocations made by gRPC may not
 be tracked by the Arrow memory pool, and that memory usage behavior,
 such as whether free memory is returned to the system, is dependent
 on the allocator that gRPC uses (usually the system allocator).
@@ -350,10 +360,10 @@ Closing unresponsive connections
    calls Cancel() on a timer, with the main thread resetting the timer every time
    an operation completes successfully. For a fully-worked out example, see the
    Cookbook.
-   
+
    .. note:: There is a long standing ticket for a per-write/per-read timeout
              instead of a per call timeout (ARROW-6062_), but this is not (easily)
-             possible to implement with the blocking gRPC API. 
+             possible to implement with the blocking gRPC API.
 
 .. _best gRPC practices: https://grpc.io/docs/guides/performance/#general
 .. _gRPC keys: https://grpc.github.io/grpc/cpp/group__grpc__arg__keys.html
@@ -361,39 +371,4 @@ Closing unresponsive connections
 .. _ARROW-15764: https://issues.apache.org/jira/browse/ARROW-15764
 .. _ARROW-16697: https://issues.apache.org/jira/browse/ARROW-16697
 .. _ARROW-6062: https://issues.apache.org/jira/browse/ARROW-6062
-
-
-Alternative Transports
-======================
-
-The standard transport for Arrow Flight is gRPC_. The C++
-implementation also experimentally supports a transport based on
-UCX_. To use it, use the protocol scheme ``ucx:`` when starting a
-server or creating a client.
-
-UCX Transport
--------------
-
-Not all features of the gRPC transport are supported. See
-:ref:`status-flight-rpc` for details. Also note these specific
-caveats:
-
-- The server creates an independent UCP worker for each client. This
-  consumes more resources but provides better throughput.
-- The client creates an independent UCP worker for each RPC
-  call. Again, this trades off resource consumption for
-  performance. This also means that unlike with gRPC, it is
-  essentially equivalent to make all calls with a single client or
-  with multiple clients.
-- The UCX transport attempts to avoid copies where possible. In some
-  cases, it can directly reuse UCX-allocated buffers to back
-  :class:`arrow::Buffer` objects, however, this will also extend the
-  lifetime of associated UCX resources beyond the lifetime of the
-  Flight client or server object.
-- Depending on the transport that UCX itself selects, you may find
-  that increasing ``UCX_MM_SEG_SIZE`` from the default (around 8KB) to
-  around 60KB improves performance (UCX will copy more data in a
-  single call).
-
 .. _gRPC: https://grpc.io/
-.. _UCX: https://openucx.org/

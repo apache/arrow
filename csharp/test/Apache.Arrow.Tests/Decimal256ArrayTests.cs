@@ -14,10 +14,9 @@
 // limitations under the License.
 
 using System;
-#if !NETSTANDARD1_3
+using System.Collections.Generic;
 using System.Data.SqlTypes;
 using System.Linq;
-#endif
 using Apache.Arrow.Types;
 using Xunit;
 
@@ -25,7 +24,6 @@ namespace Apache.Arrow.Tests
 {
     public class Decimal256ArrayTests
     {
-#if !NETSTANDARD1_3
         static SqlDecimal? GetSqlDecimal(Decimal256Array array, int index)
         {
             SqlDecimal? result;
@@ -42,7 +40,11 @@ namespace Apache.Arrow.Tests
         {
             return value == null ? null : value.Value.Value;
         }
-#endif
+
+        static decimal? Convert(string value)
+        {
+            return value == null ? null : decimal.Parse(value);
+        }
 
         public class Builder
         {
@@ -68,11 +70,9 @@ namespace Apache.Arrow.Tests
                     Assert.Null(array.GetValue(1));
                     Assert.Null(array.GetValue(2));
 
-#if !NETSTANDARD1_3
                     Assert.Null(GetSqlDecimal(array, 0));
                     Assert.Null(GetSqlDecimal(array, 1));
                     Assert.Null(GetSqlDecimal(array, 2));
-#endif
                 }
             }
 
@@ -106,9 +106,7 @@ namespace Apache.Arrow.Tests
                     for (int i = 0; i < count; i++)
                     {
                         Assert.Equal(testData[i], array.GetValue(i));
-#if !NETSTANDARD1_3
                         Assert.Equal(Convert(testData[i]), GetSqlDecimal(array, i));
-#endif
                     }
                 }
 
@@ -127,10 +125,8 @@ namespace Apache.Arrow.Tests
                     Assert.Equal(large, array.GetValue(0));
                     Assert.Equal(-large, array.GetValue(1));
 
-#if !NETSTANDARD1_3
                     Assert.Equal(Convert(large), GetSqlDecimal(array, 0));
                     Assert.Equal(Convert(-large), GetSqlDecimal(array, 1));
-#endif
                 }
 
                 [Fact]
@@ -152,12 +148,10 @@ namespace Apache.Arrow.Tests
                     Assert.Equal(Decimal.MaxValue - 10, array.GetValue(2));
                     Assert.Equal(Decimal.MinValue + 10, array.GetValue(3));
 
-#if !NETSTANDARD1_3
                     Assert.Equal(Convert(Decimal.MaxValue), GetSqlDecimal(array, 0));
                     Assert.Equal(Convert(Decimal.MinValue), GetSqlDecimal(array, 1));
                     Assert.Equal(Convert(Decimal.MaxValue) - 10, GetSqlDecimal(array, 2));
                     Assert.Equal(Convert(Decimal.MinValue) + 10, GetSqlDecimal(array, 3));
-#endif
                 }
 
                 [Fact]
@@ -175,10 +169,8 @@ namespace Apache.Arrow.Tests
                     Assert.Equal(fraction, array.GetValue(0));
                     Assert.Equal(-fraction, array.GetValue(1));
 
-#if !NETSTANDARD1_3
                     Assert.Equal(Convert(fraction), GetSqlDecimal(array, 0));
                     Assert.Equal(Convert(-fraction), GetSqlDecimal(array, 1));
-#endif
                 }
 
                 [Fact]
@@ -197,9 +189,7 @@ namespace Apache.Arrow.Tests
                     for(int i = 0; i < range.Length; i ++)
                     {
                         Assert.Equal(range[i], array.GetValue(i));
-#if !NETSTANDARD1_3
                         Assert.Equal(Convert(range[i]), GetSqlDecimal(array, i));
-#endif
                     }
 
                     Assert.Null( array.GetValue(range.Length));
@@ -308,7 +298,6 @@ namespace Apache.Arrow.Tests
                 }
             }
 
-#if !NETSTANDARD1_3
             public class SqlDecimals
             {
                 [Theory]
@@ -341,6 +330,18 @@ namespace Apache.Arrow.Tests
                     {
                         Assert.Equal(testData[i], GetSqlDecimal(array, i));
                         Assert.Equal(Convert(testData[i]), array.GetValue(i));
+                    }
+
+                    IReadOnlyList<SqlDecimal?> asDecimalList = array;
+                    for (int i = 0; i < asDecimalList.Count; i++)
+                    {
+                        Assert.Equal(testData[i], asDecimalList[i]);
+                    }
+
+                    IReadOnlyList<string> asStringList = array;
+                    for (int i = 0; i < asStringList.Count; i++)
+                    {
+                        Assert.Equal(Convert(testData[i]?.ToString()), Convert(asStringList[i]));
                     }
                 }
 
@@ -474,7 +475,57 @@ namespace Apache.Arrow.Tests
                     Assert.Null(array.GetValue(range.Length));
                 }
             }
-#endif
+        }
+
+        [Fact]
+        public void SliceDecimal256Array()
+        {
+            // Arrange
+            const int originalLength = 50;
+            const int offset = 3;
+            const int sliceLength = 32;
+
+            var builder = new Decimal256Array.Builder(new Decimal256Type(14, 10));
+            var random = new Random();
+
+            for (int i = 0; i < originalLength; i++)
+            {
+                if (random.NextDouble() < 0.2)
+                {
+                    builder.AppendNull();
+                }
+                else
+                {
+                    builder.Append(i * (decimal)Math.Round(random.NextDouble(), 10));
+                }
+            }
+
+            var array = builder.Build();
+
+            // Act
+            var slice = (Decimal256Array)array.Slice(offset, sliceLength);
+
+            // Assert
+            Assert.NotNull(slice);
+            Assert.Equal(sliceLength, slice.Length);
+            for (int i = 0; i < sliceLength; ++i)
+            {
+                Assert.Equal(array.GetValue(offset + i), slice.GetValue(i));
+                if (array.TryGetSqlDecimal(offset + i, out var expectedSqlDecimal))
+                {
+                    Assert.True(slice.TryGetSqlDecimal(i, out var actualSqlDecimal));
+                    Assert.Equal(expectedSqlDecimal, actualSqlDecimal);
+                }
+                else
+                {
+                    Assert.False(slice.TryGetSqlDecimal(i, out _));
+                }
+                Assert.Equal(array.GetString(offset + i), slice.GetString(i));
+            }
+
+            Assert.Equal(
+                array.ToList(includeNulls: true).Skip(offset).Take(sliceLength).ToList(),
+                slice.ToList(includeNulls: true));
         }
     }
 }

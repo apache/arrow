@@ -2,63 +2,28 @@
 % Please edit documentation in R/dplyr-funcs.R
 \name{register_binding}
 \alias{register_binding}
-\alias{register_binding_agg}
 \title{Register compute bindings}
 \usage{
-register_binding(
-  fun_name,
-  fun,
-  registry = nse_funcs,
-  update_cache = FALSE,
-  notes = character(0)
-)
-
-register_binding_agg(
-  fun_name,
-  agg_fun,
-  registry = agg_funcs,
-  notes = character(0)
-)
+register_binding(fun_name, fun, notes = character(0))
 }
 \arguments{
 \item{fun_name}{A string containing a function name in the form \code{"function"} or
-\code{"package::function"}. The package name is currently not used but
-may be used in the future to allow these types of function calls.}
+\code{"package::function"}.}
 
-\item{fun}{A function or \code{NULL} to un-register a previous function.
+\item{fun}{A function, or \code{NULL} to un-register a previous function.
 This function must accept \code{Expression} objects as arguments and return
 \code{Expression} objects instead of regular R objects.}
 
-\item{registry}{An environment in which the functions should be
-assigned.}
-
-\item{update_cache}{Update .cache$functions at the time of registration.
-the default is FALSE because the majority of usage is to register
-bindings at package load, after which we create the cache once. The
-reason why .cache$functions is needed in addition to nse_funcs for
-non-aggregate functions could be revisited...it is currently used
-as the data mask in mutate, filter, and aggregate (but not
-summarise) because the data mask has to be a list.}
-
 \item{notes}{string for the docs: note any limitations or differences in
 behavior between the Arrow version and the R function.}
-
-\item{agg_fun}{An aggregate function or \code{NULL} to un-register a previous
-aggregate function. This function must accept \code{Expression} objects as
-arguments and return a \code{list()} with components:
-\itemize{
-\item \code{fun}: string function name
-\item \code{data}: list of 0 or more \code{Expression}s
-\item \code{options}: list of function options, as passed to call_function
-}}
 }
 \value{
 The previously registered binding or \code{NULL} if no previously
 registered function existed.
 }
 \description{
-The \code{register_binding()} and \code{register_binding_agg()} functions
-are used to populate a list of functions that operate on (and return)
+\code{register_binding()} is used to populate a list of functions that operate on
+(and return)
 Expressions. These are the basis for the \code{.data} mask inside dplyr methods.
 }
 \section{Writing bindings}{

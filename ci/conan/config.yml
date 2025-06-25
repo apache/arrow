@@ -21,17 +21,17 @@
 # SOFTWARE.
 
 versions:
-  "10.0.1":
+  "19.0.1":
     folder: all
-  "10.0.0":
+  "18.1.0":
     folder: all
-  "8.0.1":
+  "18.0.0":
     folder: all
-  "8.0.0":
+  "17.0.0":
     folder: all
-  "7.0.0":
+  "16.1.0":
     folder: all
-  "2.0.0":
+  "15.0.0":
     folder: all
-  "1.0.0":
+  "14.0.2":
     folder: all

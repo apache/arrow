@@ -25,6 +25,16 @@
 
 #include <arrow-glib/decimal.h>
 
+GArrowDecimal32 *
+garrow_decimal32_new_raw(std::shared_ptr<arrow::Decimal32> *arrow_decimal32);
+std::shared_ptr<arrow::Decimal32>
+garrow_decimal32_get_raw(GArrowDecimal32 *decimal);
+
+GArrowDecimal64 *
+garrow_decimal64_new_raw(std::shared_ptr<arrow::Decimal64> *arrow_decimal64);
+std::shared_ptr<arrow::Decimal64>
+garrow_decimal64_get_raw(GArrowDecimal64 *decimal);
+
 GArrowDecimal128 *
 garrow_decimal128_new_raw(std::shared_ptr<arrow::Decimal128> *arrow_decimal128);
 std::shared_ptr<arrow::Decimal128>

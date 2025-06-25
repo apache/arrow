@@ -34,6 +34,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/int_util_overflow.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/visit_scalar_inline.h"
 #include "arrow/visit_type_inline.h"
@@ -747,7 +748,7 @@ struct Round {
       } else {
         round_val = RoundImpl<CType, RndMode>::Round(round_val);
       }
-      // Equality check is ommitted so that the common case of 10^0 (integer rounding)
+      // Equality check is omitted so that the common case of 10^0 (integer rounding)
       // uses multiply-only
       round_val = ndigits > 0 ? (round_val / pow10) : (round_val * pow10);
       if (!std::isfinite(round_val)) {

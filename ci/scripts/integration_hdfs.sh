@@ -61,9 +61,8 @@ export PYARROW_TEST_HDFS=ON
 export PYARROW_HDFS_TEST_LIBHDFS_REQUIRE=ON
 
 pytest -vs --pyargs pyarrow.tests.test_fs
-pytest -vs --pyargs pyarrow.tests.test_hdfs
 
 use_libhdfs_dir
 pytest -vs --pyargs pyarrow.tests.test_fs
-pytest -vs --pyargs pyarrow.tests.test_hdfs
+
 use_hadoop_home

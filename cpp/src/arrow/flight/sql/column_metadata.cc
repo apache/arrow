@@ -55,6 +55,7 @@ const char* ColumnMetadata::kIsAutoIncrement = "ARROW:FLIGHT:SQL:IS_AUTO_INCREME
 const char* ColumnMetadata::kIsCaseSensitive = "ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE";
 const char* ColumnMetadata::kIsReadOnly = "ARROW:FLIGHT:SQL:IS_READ_ONLY";
 const char* ColumnMetadata::kIsSearchable = "ARROW:FLIGHT:SQL:IS_SEARCHABLE";
+const char* ColumnMetadata::kRemarks = "ARROW:FLIGHT:SQL:REMARKS";
 
 ColumnMetadata::ColumnMetadata(
     std::shared_ptr<const arrow::KeyValueMetadata> metadata_map)
@@ -112,6 +113,10 @@ arrow::Result<bool> ColumnMetadata::GetIsSearchable() const {
   std::string is_case_sensitive;
   ARROW_ASSIGN_OR_RAISE(is_case_sensitive, metadata_map_->Get(kIsAutoIncrement));
   return StringToBoolean(is_case_sensitive);
+}
+
+arrow::Result<std::string> ColumnMetadata::GetRemarks() const {
+  return metadata_map_->Get(kRemarks);
 }
 
 ColumnMetadata::ColumnMetadataBuilder ColumnMetadata::Builder() {
@@ -182,6 +187,12 @@ ColumnMetadata::ColumnMetadataBuilder& ColumnMetadata::ColumnMetadataBuilder::Is
 ColumnMetadata::ColumnMetadataBuilder&
 ColumnMetadata::ColumnMetadataBuilder::IsSearchable(bool is_searchable) {
   metadata_map_->Append(ColumnMetadata::kIsSearchable, BooleanToString(is_searchable));
+  return *this;
+}
+
+ColumnMetadata::ColumnMetadataBuilder& ColumnMetadata::ColumnMetadataBuilder::Remarks(
+    const std::string& remarks) {
+  metadata_map_->Append(ColumnMetadata::kRemarks, remarks);
   return *this;
 }
 

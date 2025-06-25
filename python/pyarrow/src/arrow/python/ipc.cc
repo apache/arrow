@@ -19,6 +19,7 @@
 
 #include <memory>
 
+#include "arrow/compute/cast.h"
 #include "arrow/python/pyarrow.h"
 
 namespace arrow {
@@ -62,6 +63,73 @@ Result<std::shared_ptr<RecordBatchReader>> PyRecordBatchReader::Make(
   RETURN_NOT_OK(reader->Init(std::move(schema), iterable));
   return reader;
 }
+
+CastingRecordBatchReader::CastingRecordBatchReader() = default;
+
+Status CastingRecordBatchReader::Init(std::shared_ptr<RecordBatchReader> parent,
+                                      std::shared_ptr<Schema> schema) {
+  std::shared_ptr<Schema> src = parent->schema();
+
+  // The check for names has already been done in Python where it's easier to
+  // generate a nice error message.
+  int num_fields = schema->num_fields();
+  if (src->num_fields() != num_fields) {
+    return Status::Invalid("Number of fields not equal");
+  }
+
+  // Ensure all columns can be cast before succeeding
+  for (int i = 0; i < num_fields; i++) {
+    auto& src_type = src->field(i)->type();
+    auto& schema_type = schema->field(i)->type();
+    if (!src_type->Equals(schema_type) && !compute::CanCast(*src_type, *schema_type)) {
+      return Status::TypeError("Field ", i, " cannot be cast from ",
+                               src->field(i)->type()->ToString(), " to ",
+                               schema->field(i)->type()->ToString());
+    }
+  }
+
+  parent_ = std::move(parent);
+  schema_ = std::move(schema);
+
+  return Status::OK();
+}
+
+std::shared_ptr<Schema> CastingRecordBatchReader::schema() const { return schema_; }
+
+Status CastingRecordBatchReader::ReadNext(std::shared_ptr<RecordBatch>* batch) {
+  std::shared_ptr<RecordBatch> out;
+  ARROW_RETURN_NOT_OK(parent_->ReadNext(&out));
+  if (!out) {
+    batch->reset();
+    return Status::OK();
+  }
+
+  auto num_columns = out->num_columns();
+  auto options = compute::CastOptions::Safe();
+  ArrayVector columns(num_columns);
+  for (int i = 0; i < num_columns; i++) {
+    const Array& src = *out->column(i);
+    if (!schema_->field(i)->nullable() && src.null_count() > 0) {
+      return Status::Invalid(
+          "Can't cast array that contains nulls to non-nullable field at index ", i);
+    }
+
+    ARROW_ASSIGN_OR_RAISE(columns[i],
+                          compute::Cast(src, schema_->field(i)->type(), options));
+  }
+
+  *batch = RecordBatch::Make(schema_, out->num_rows(), std::move(columns));
+  return Status::OK();
+}
+
+Result<std::shared_ptr<RecordBatchReader>> CastingRecordBatchReader::Make(
+    std::shared_ptr<RecordBatchReader> parent, std::shared_ptr<Schema> schema) {
+  auto reader = std::shared_ptr<CastingRecordBatchReader>(new CastingRecordBatchReader());
+  ARROW_RETURN_NOT_OK(reader->Init(parent, schema));
+  return reader;
+}
+
+Status CastingRecordBatchReader::Close() { return parent_->Close(); }
 
 }  // namespace py
 }  // namespace arrow

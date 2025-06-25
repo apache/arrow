@@ -21,7 +21,7 @@
 Reading JSON files
 ==================
 
-Arrow supports reading columnar data from line-delimited JSON files. 
+Arrow supports reading columnar data from line-delimited JSON files.
 In this context, a JSON file consists of multiple JSON objects, one per line,
 representing individual data rows.  For example, this file represents
 two rows of data with four columns "a", "b", "c", "d":
@@ -115,3 +115,15 @@ and pass it to :func:`read_json`.  For example, you can pass an explicit
 
 Similarly, you can choose performance settings by passing a
 :class:`ReadOptions` instance to :func:`read_json`.
+
+
+Incremental reading
+-------------------
+
+For memory-constrained environments, it is also possible to read a JSON file
+one batch at a time, using :func:`open_json`.
+
+In this case, type inference is done on the first block and types are frozen afterwards.
+To make sure the right data types are inferred, either set
+:attr:`ReadOptions.block_size` to a large enough value, or use
+:attr:`ParseOptions.explicit_schema` to set the desired data types explicitly.

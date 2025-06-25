@@ -47,7 +47,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
 
@@ -480,7 +480,7 @@ struct NullGeneralization {
     if (dtype_id == Type::NA) {
       return ALL_NULL;
     }
-    if (!arrow::internal::HasValidityBitmap(dtype_id)) {
+    if (!arrow::internal::may_have_validity_bitmap(dtype_id)) {
       return ALL_VALID;
     }
     if (value.is_scalar()) {
@@ -923,7 +923,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
       DCHECK(output.is_array_data());
 
       // Emit a result for each chunk
-      RETURN_NOT_OK(EmitResult(std::move(output.array_data()), listener));
+      RETURN_NOT_OK(EmitResult(output.array_data(), listener));
     }
     return Status::OK();
   }
@@ -1107,7 +1107,7 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
       RETURN_NOT_OK(PropagateNulls(kernel_ctx_, span, out.array_data().get()));
     }
     RETURN_NOT_OK(kernel_->exec(kernel_ctx_, span, &out));
-    return EmitResult(std::move(out.array_data()), listener);
+    return EmitResult(out.array_data(), listener);
   }
 
   Status ExecChunked(const ExecBatch& batch, ExecListener* listener) {
@@ -1116,10 +1116,10 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
     ARROW_ASSIGN_OR_RAISE(out.value, PrepareOutput(batch.length));
     RETURN_NOT_OK(kernel_->exec_chunked(kernel_ctx_, batch, &out));
     if (out.is_array()) {
-      return EmitResult(std::move(out.array()), listener);
+      return EmitResult(out.array(), listener);
     } else {
       DCHECK(out.is_chunked_array());
-      return EmitResult(std::move(out.chunked_array()), listener);
+      return EmitResult(out.chunked_array(), listener);
     }
   }
 
@@ -1164,7 +1164,7 @@ class ScalarAggExecutor : public KernelExecutorImpl<ScalarAggregateKernel> {
     // TODO(wesm): this is odd and should be examined soon -- only one state
     // "should" be needed per thread of execution
 
-    // FIXME(ARROW-11840) don't merge *any* aggegates for every batch
+    // FIXME(ARROW-11840) don't merge *any* aggregates for every batch
     ARROW_ASSIGN_OR_RAISE(auto batch_state,
                           kernel_->init(kernel_ctx_, {kernel_, *input_types_, options_}));
 

@@ -15,16 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import base64
 from datetime import timedelta
+import random
 import pyarrow.fs as fs
 import pyarrow as pa
+
 import pytest
 
 encryption_unavailable = False
 
 try:
+    import pyarrow.parquet as pq
     import pyarrow.dataset as ds
 except ImportError:
+    pq = None
     ds = None
 
 try:
@@ -123,7 +128,7 @@ def test_dataset_encryption_decryption():
         filesystem=mockfs,
     )
 
-    # read without descryption config -> should error is dataset was properly encrypted
+    # read without decryption config -> should error is dataset was properly encrypted
     pformat = pa.dataset.ParquetFileFormat()
     with pytest.raises(IOError, match=r"no decryption"):
         ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
@@ -132,6 +137,18 @@ def test_dataset_encryption_decryption():
     pq_scan_opts = ds.ParquetFragmentScanOptions(
         decryption_config=parquet_decryption_cfg
     )
+    pformat = pa.dataset.ParquetFileFormat(default_fragment_scan_options=pq_scan_opts)
+    dataset = ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
+
+    assert table.equals(dataset.to_table())
+
+    # set decryption properties for parquet fragment scan options
+    decryption_properties = crypto_factory.file_decryption_properties(
+        kms_connection_config, decryption_config)
+    pq_scan_opts = ds.ParquetFragmentScanOptions(
+        decryption_properties=decryption_properties
+    )
+
     pformat = pa.dataset.ParquetFileFormat(default_fragment_scan_options=pq_scan_opts)
     dataset = ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
 
@@ -151,3 +168,65 @@ def test_write_dataset_parquet_without_encryption():
 
     with pytest.raises(NotImplementedError):
         _ = pformat.make_write_options(encryption_config="some value")
+
+
+@pytest.mark.skipif(
+    encryption_unavailable, reason="Parquet Encryption is not currently enabled"
+)
+def test_large_row_encryption_decryption():
+    """Test encryption and decryption of a large number of rows."""
+
+    class NoOpKmsClient(pe.KmsClient):
+        def wrap_key(self, key_bytes: bytes, _: str) -> bytes:
+            b = base64.b64encode(key_bytes)
+            return b
+
+        def unwrap_key(self, wrapped_key: bytes, _: str) -> bytes:
+            b = base64.b64decode(wrapped_key)
+            return b
+
+    row_count = 2**15 + 1
+    table = pa.Table.from_arrays(
+        [pa.array(
+            [random.random() for _ in range(row_count)],
+            type=pa.float32()
+        )], names=["foo"]
+    )
+
+    kms_config = pe.KmsConnectionConfig()
+    crypto_factory = pe.CryptoFactory(lambda _: NoOpKmsClient())
+    encryption_config = pe.EncryptionConfiguration(
+        footer_key="UNIMPORTANT_KEY",
+        column_keys={"UNIMPORTANT_KEY": ["foo"]},
+        double_wrapping=True,
+        plaintext_footer=False,
+        data_key_length_bits=128,
+    )
+    pqe_config = ds.ParquetEncryptionConfig(
+        crypto_factory, kms_config, encryption_config
+    )
+    pqd_config = ds.ParquetDecryptionConfig(
+        crypto_factory, kms_config, pe.DecryptionConfiguration()
+    )
+    scan_options = ds.ParquetFragmentScanOptions(decryption_config=pqd_config)
+    file_format = ds.ParquetFileFormat(default_fragment_scan_options=scan_options)
+    write_options = file_format.make_write_options(encryption_config=pqe_config)
+    file_decryption_properties = crypto_factory.file_decryption_properties(kms_config)
+
+    mockfs = fs._MockFileSystem()
+    mockfs.create_dir("/")
+
+    path = "large-row-test-dataset"
+    ds.write_dataset(table, path, format=file_format,
+                     file_options=write_options, filesystem=mockfs)
+
+    file_path = path + "/part-0.parquet"
+    new_table = pq.ParquetFile(
+        file_path, decryption_properties=file_decryption_properties,
+        filesystem=mockfs
+    ).read()
+    assert table == new_table
+
+    dataset = ds.dataset(path, format=file_format, filesystem=mockfs)
+    new_table = dataset.to_table()
+    assert table == new_table

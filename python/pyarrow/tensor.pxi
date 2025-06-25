@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Avoid name clash with `pa.struct` function
+import struct as _struct
+
 
 cdef class Tensor(_Weakrefable):
     """
@@ -40,12 +43,20 @@ cdef class Tensor(_Weakrefable):
         self.sp_tensor = sp_tensor
         self.tp = sp_tensor.get()
         self.type = pyarrow_wrap_data_type(self.tp.type())
+        self._ssize_t_shape = self._make_shape_or_strides_buffer(self.shape)
+        self._ssize_t_strides = self._make_shape_or_strides_buffer(self.strides)
+
+    def _make_shape_or_strides_buffer(self, values):
+        """
+        Make a bytes object holding an array of `values` cast to `Py_ssize_t`.
+        """
+        return _struct.pack(f"{len(values)}n", *values)
 
     def __repr__(self):
-        return """<pyarrow.Tensor>
-type: {0.type}
-shape: {0.shape}
-strides: {0.strides}""".format(self)
+        return f"""<pyarrow.Tensor>
+type: {self.type}
+shape: {self.shape}
+strides: {self.strides}"""
 
     @staticmethod
     def from_numpy(obj, dim_names=None):
@@ -96,6 +107,9 @@ strides: {0.strides}""".format(self)
         array([[  2,   2,   4],
                [  4,   5, 100]], dtype=int32)
         """
+        if np is None:
+            raise ImportError(
+                "Cannot return a numpy.ndarray if NumPy is not present")
         cdef PyObject* out
 
         check_status(TensorToNdarray(self.sp_tensor, self, &out))
@@ -282,11 +296,48 @@ strides: {0.strides}""".format(self)
             buffer.readonly = 0
         else:
             buffer.readonly = 1
-        # NOTE: This assumes Py_ssize_t == int64_t, and that the shape
-        # and strides arrays lifetime is tied to the tensor's
-        buffer.shape = <Py_ssize_t *> &self.tp.shape()[0]
-        buffer.strides = <Py_ssize_t *> &self.tp.strides()[0]
+        buffer.shape = <Py_ssize_t *> cp.PyBytes_AsString(self._ssize_t_shape)
+        buffer.strides = <Py_ssize_t *> cp.PyBytes_AsString(self._ssize_t_strides)
         buffer.suboffsets = NULL
+
+    def __dlpack__(self, stream=None):
+        """
+        Export a Tensor as a DLPack capsule.
+
+        Parameters
+        ----------
+        stream : int, optional
+            A Python integer representing a pointer to a stream. Currently not supported.
+            Stream is provided by the consumer to the producer to instruct the producer
+            to ensure that operations can safely be performed on the array.
+
+        Returns
+        -------
+        capsule : PyCapsule
+            A DLPack capsule for the tensor, pointing to a DLManagedTensor.
+        """
+        if stream is None:
+            dlm_tensor = GetResultValue(ExportTensorToDLPack(self.sp_tensor))
+
+            return PyCapsule_New(dlm_tensor, 'dltensor', dlpack_pycapsule_deleter)
+        else:
+            raise NotImplementedError(
+                "Only stream=None is supported."
+            )
+
+    def __dlpack_device__(self):
+        """
+        Return the DLPack device tuple this tensor resides on.
+
+        Returns
+        -------
+        tuple : Tuple[int, int]
+            Tuple with index specifying the type of the device (where
+            CPU = 1, see cpp/src/arrow/c/dpack_abi.h) and index of the
+            device which is 0 by default for CPU.
+        """
+        device = GetResultValue(ExportDevice(self.sp_tensor))
+        return device.device_type, device.device_id
 
 
 ctypedef CSparseCOOIndex* _CSparseCOOIndexPtr
@@ -309,8 +360,8 @@ cdef class SparseCOOTensor(_Weakrefable):
 
     def __repr__(self):
         return """<pyarrow.SparseCOOTensor>
-type: {0.type}
-shape: {0.shape}""".format(self)
+type: {self.type}
+shape: {self.shape}"""
 
     @classmethod
     def from_dense_numpy(cls, obj, dim_names=None):
@@ -382,7 +433,7 @@ shape: {0.shape}""".format(self)
         import scipy.sparse
         if not isinstance(obj, scipy.sparse.coo_matrix):
             raise TypeError(
-                "Expected scipy.sparse.coo_matrix, got {}".format(type(obj)))
+                f"Expected scipy.sparse.coo_matrix, got {type(obj)}")
 
         cdef shared_ptr[CSparseCOOTensor] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -428,7 +479,7 @@ shape: {0.shape}""".format(self)
         import sparse
         if not isinstance(obj, sparse.COO):
             raise TypeError(
-                "Expected sparse.COO, got {}".format(type(obj)))
+                f"Expected sparse.COO, got {type(obj)}")
 
         cdef shared_ptr[CSparseCOOTensor] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -469,6 +520,9 @@ shape: {0.shape}""".format(self)
         """
         Convert arrow::SparseCOOTensor to numpy.ndarrays with zero copy.
         """
+        if np is None:
+            raise ImportError(
+                "Cannot return a numpy.ndarray if NumPy is not present")
         cdef PyObject* out_data
         cdef PyObject* out_coords
 
@@ -609,9 +663,9 @@ cdef class SparseCSRMatrix(_Weakrefable):
         self.type = pyarrow_wrap_data_type(self.stp.type())
 
     def __repr__(self):
-        return """<pyarrow.SparseCSRMatrix>
-type: {0.type}
-shape: {0.shape}""".format(self)
+        return f"""<pyarrow.SparseCSRMatrix>
+type: {self.type}
+shape: {self.shape}"""
 
     @classmethod
     def from_dense_numpy(cls, obj, dim_names=None):
@@ -690,7 +744,7 @@ shape: {0.shape}""".format(self)
         import scipy.sparse
         if not isinstance(obj, scipy.sparse.csr_matrix):
             raise TypeError(
-                "Expected scipy.sparse.csr_matrix, got {}".format(type(obj)))
+                f"Expected scipy.sparse.csr_matrix, got {type(obj)}")
 
         cdef shared_ptr[CSparseCSRMatrix] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -734,6 +788,9 @@ shape: {0.shape}""".format(self)
         """
         Convert arrow::SparseCSRMatrix to numpy.ndarrays with zero copy.
         """
+        if np is None:
+            raise ImportError(
+                "Cannot return a numpy.ndarray if NumPy is not present")
         cdef PyObject* out_data
         cdef PyObject* out_indptr
         cdef PyObject* out_indices
@@ -847,9 +904,9 @@ cdef class SparseCSCMatrix(_Weakrefable):
         self.type = pyarrow_wrap_data_type(self.stp.type())
 
     def __repr__(self):
-        return """<pyarrow.SparseCSCMatrix>
-type: {0.type}
-shape: {0.shape}""".format(self)
+        return f"""<pyarrow.SparseCSCMatrix>
+type: {self.type}
+shape: {self.shape}"""
 
     @classmethod
     def from_dense_numpy(cls, obj, dim_names=None):
@@ -928,7 +985,7 @@ shape: {0.shape}""".format(self)
         import scipy.sparse
         if not isinstance(obj, scipy.sparse.csc_matrix):
             raise TypeError(
-                "Expected scipy.sparse.csc_matrix, got {}".format(type(obj)))
+                f"Expected scipy.sparse.csc_matrix, got {type(obj)}")
 
         cdef shared_ptr[CSparseCSCMatrix] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -972,6 +1029,9 @@ shape: {0.shape}""".format(self)
         """
         Convert arrow::SparseCSCMatrix to numpy.ndarrays with zero copy
         """
+        if np is None:
+            raise ImportError(
+                "Cannot return a numpy.ndarray if NumPy is not present")
         cdef PyObject* out_data
         cdef PyObject* out_indptr
         cdef PyObject* out_indices
@@ -1094,9 +1154,9 @@ cdef class SparseCSFTensor(_Weakrefable):
         self.type = pyarrow_wrap_data_type(self.stp.type())
 
     def __repr__(self):
-        return """<pyarrow.SparseCSFTensor>
-type: {0.type}
-shape: {0.shape}""".format(self)
+        return f"""<pyarrow.SparseCSFTensor>
+type: {self.type}
+shape: {self.shape}"""
 
     @classmethod
     def from_dense_numpy(cls, obj, dim_names=None):
@@ -1162,14 +1222,14 @@ shape: {0.shape}""".format(self)
         # Enforce preconditions for SparseCSFTensor indices
         if not (isinstance(indptr, (list, tuple)) and
                 isinstance(indices, (list, tuple))):
-            raise TypeError("Expected list or tuple, got {}, {}"
-                            .format(type(indptr), type(indices)))
+            raise TypeError(
+                f"Expected list or tuple, got {type(indptr)}, {type(indices)}")
         if len(indptr) != len(shape) - 1:
-            raise ValueError("Expected list of {ndim} np.arrays for "
-                             "SparseCSFTensor.indptr".format(ndim=len(shape)))
+            raise ValueError(f"Expected list of {len(shape)} np.arrays for "
+                             "SparseCSFTensor.indptr")
         if len(indices) != len(shape):
-            raise ValueError("Expected list of {ndim} np.arrays for "
-                             "SparseCSFTensor.indices".format(ndim=len(shape)))
+            raise ValueError(f"Expected list of {len(shape)} np.arrays for "
+                             "SparseCSFTensor.indices")
         if any([x.ndim != 1 for x in indptr]):
             raise ValueError("Expected a list of 1-dimensional arrays for "
                              "SparseCSFTensor.indptr")
@@ -1207,6 +1267,9 @@ shape: {0.shape}""".format(self)
         """
         Convert arrow::SparseCSFTensor to numpy.ndarrays with zero copy
         """
+        if np is None:
+            raise ImportError(
+                "Cannot return a numpy.ndarray if NumPy is not present")
         cdef PyObject* out_data
         cdef PyObject* out_indptr
         cdef PyObject* out_indices

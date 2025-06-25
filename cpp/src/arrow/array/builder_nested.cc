@@ -26,9 +26,23 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
+
+// ----------------------------------------------------------------------
+// VarLengthListLikeBuilder / BaseListBuilder / BaseListViewBuilder
+
+template class VarLengthListLikeBuilder<ListType>;
+template class VarLengthListLikeBuilder<LargeListType>;
+template class VarLengthListLikeBuilder<ListViewType>;
+template class VarLengthListLikeBuilder<LargeListViewType>;
+
+template class BaseListBuilder<ListType>;
+template class BaseListBuilder<LargeListType>;
+
+template class BaseListViewBuilder<ListViewType>;
+template class BaseListViewBuilder<LargeListViewType>;
 
 // ----------------------------------------------------------------------
 // MapBuilder

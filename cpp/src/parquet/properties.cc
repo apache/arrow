@@ -38,7 +38,7 @@ std::shared_ptr<ArrowInputStream> ReaderProperties::GetStream(
     PARQUET_ASSIGN_OR_THROW(
         auto stream, ::arrow::io::BufferedInputStream::Create(buffer_size_, pool_,
                                                               safe_stream, num_bytes));
-    return std::move(stream);
+    return stream;
   } else {
     PARQUET_ASSIGN_OR_THROW(auto data, source->ReadAt(start, num_bytes));
 

@@ -23,20 +23,21 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#ifdef ARROW_WITH_UTF8PROC
-#include <utf8proc.h>
-#endif
-
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernels/codegen_internal.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/config.h"
 #include "arrow/util/value_parsing.h"
 
-namespace arrow {
-namespace compute {
+#ifdef ARROW_WITH_UTF8PROC
+#  include <utf8proc.h>
+#endif
+
+namespace arrow::compute {
 
 // interesting utf8 characters for testing (lower case / upper case):
 //  * ῦ / Υ͂ (3 to 4 code units) (Note, we don't support this yet, utf8proc does not use
@@ -314,13 +315,26 @@ TYPED_TEST(TestBinaryKernels, NonUtf8Regex) {
                      this->MakeArray({"bazz", "this bazz that \xfc\x40"}), &options);
   }
   {
-    ExtractRegexOptions options("(?P<letter>[\\xfc])(?P<digit>\\d)");
-    auto null_bitmap = std::make_shared<Buffer>("0");
-    auto output = StructArray::Make(
-        {this->MakeArray({"\xfc", "1"}), this->MakeArray({"\xfc", "2"})},
-        {field("letter", this->type()), field("digit", this->type())}, null_bitmap);
-    this->CheckUnary("extract_regex", this->MakeArray({"foo\xfc 1bar", "\x02\xfc\x40"}),
-                     std::static_pointer_cast<Array>(*output), &options);
+    ExtractRegexOptions options("(?P<letter>[\xfc])(?P<digit>\\d+)");
+    ASSERT_OK_AND_ASSIGN(
+        auto output,
+        StructArray::Make(
+            {this->MakeArray({"\xfc", "\xfc"}), this->MakeArray({"14", "2"})},
+            {field("letter", this->type()), field("digit", this->type())}));
+    this->CheckUnary("extract_regex",
+                     this->MakeArray({"foo\xfc\x31\x34 bar", "\x02\xfc\x32"}), output,
+                     &options);
+  }
+  {
+    ExtractRegexSpanOptions options("(?P<letter>[\xfc])(?P<digit>\\d+)");
+    auto offset_type = is_binary_like(this->type()->id()) ? int32() : int64();
+    auto out_type = struct_({field("letter", fixed_size_list(offset_type, 2)),
+                             field("digit", fixed_size_list(offset_type, 2))});
+    this->CheckUnary("extract_regex_span",
+                     this->MakeArray({"foo\xfc\x31\x34 bar", "\x02\xfc\x32"}), out_type,
+                     R"([{"letter": [3, 1], "digit": [4, 2]},
+                         {"letter": [1, 1], "digit": [2, 1]}])",
+                     &options);
   }
 }
 
@@ -370,16 +384,29 @@ TYPED_TEST(TestBinaryKernels, NonUtf8WithNullRegex) {
                      this->type(), R"(["bazz"])", &options);
   }
   {
-    ExtractRegexOptions options("(?P<null>[\\x00])(?P<digit>\\d)");
-    auto null_bitmap = std::make_shared<Buffer>("0");
-    auto output = StructArray::Make(
-        {this->template MakeArray<std::string>({{"\x00", 1}, {"1", 1}}),
-         this->template MakeArray<std::string>({{"\x00", 1}, {"2", 1}})},
-        {field("null", this->type()), field("digit", this->type())}, null_bitmap);
-    this->CheckUnary(
-        "extract_regex",
-        this->template MakeArray<std::string>({{"foo\x00 1bar", 9}, {"\x02\x00\x40", 3}}),
-        std::static_pointer_cast<Array>(*output), &options);
+    ExtractRegexOptions options(std::string("(?P<null>[\x00])(?P<digit>\\d+)", 27));
+    ASSERT_OK_AND_ASSIGN(
+        auto output,
+        StructArray::Make(
+            {this->template MakeArray<std::string>({{"\x00", 1}, {"\x00", 1}}),
+             this->template MakeArray<std::string>({"14", "2"})},
+            {field("null", this->type()), field("digit", this->type())}));
+    this->CheckUnary("extract_regex",
+                     this->template MakeArray<std::string>(
+                         {{"foo\x00\x31\x34 bar", 10}, {"\x02\x00\x32", 3}}),
+                     output, &options);
+  }
+  {
+    ExtractRegexSpanOptions options(std::string("(?P<null>[\x00])(?P<digit>\\d+)", 27));
+    auto offset_type = is_binary_like(this->type()->id()) ? int32() : int64();
+    auto out_type = struct_({field("null", fixed_size_list(offset_type, 2)),
+                             field("digit", fixed_size_list(offset_type, 2))});
+    this->CheckUnary("extract_regex_span",
+                     this->template MakeArray<std::string>(
+                         {{"foo\x00\x31\x34 bar", 10}, {"\x02\x00\x32", 3}}),
+                     out_type, R"([{"null": [3, 1], "digit": [4, 2]},
+                                   {"null": [1, 1], "digit": [2, 1]}])",
+                     &options);
   }
   {
     ReplaceSliceOptions options(1, 2, std::string("\x00\x40", 2));
@@ -712,11 +739,140 @@ TEST_F(TestFixedSizeBinaryKernels, BinaryLength) {
              "[6, null, 6]");
 }
 
+TEST_F(TestFixedSizeBinaryKernels, BinarySliceEmpty) {
+  SliceOptions options{2, 4};
+  CheckScalarUnary("binary_slice", ArrayFromJSON(fixed_size_binary(0), R"([""])"),
+                   ArrayFromJSON(fixed_size_binary(0), R"([""])"), &options);
+
+  CheckScalarUnary("binary_slice",
+                   ArrayFromJSON(fixed_size_binary(0), R"(["", null, ""])"),
+                   ArrayFromJSON(fixed_size_binary(0), R"(["", null, ""])"), &options);
+
+  CheckUnary("binary_slice", R"([null, null])", fixed_size_binary(2), R"([null, null])",
+             &options);
+}
+
+TEST_F(TestFixedSizeBinaryKernels, BinarySliceBasic) {
+  SliceOptions options{2, 4};
+  CheckUnary("binary_slice", R"(["abcdef", null, "foobaz"])", fixed_size_binary(2),
+             R"(["cd", null, "ob"])", &options);
+
+  SliceOptions options_edgecase_1{-3, 1};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(0),
+             R"(["", ""])", &options_edgecase_1);
+
+  SliceOptions options_edgecase_2{-10, -3};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz", null])", fixed_size_binary(3),
+             R"(["abc", "foo", null])", &options_edgecase_2);
+
+  auto input = ArrayFromJSON(this->type(), R"(["foobaz"])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Function 'binary_slice' cannot be called without options"),
+      CallFunction("binary_slice", {input}));
+
+  SliceOptions options_invalid{2, 4, 0};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Slice step cannot be zero"),
+      CallFunction("binary_slice", {input}, &options_invalid));
+}
+
+TEST_F(TestFixedSizeBinaryKernels, BinarySlicePosPos) {
+  SliceOptions options_step{1, 5, 2};
+  CheckUnary("binary_slice", R"([null, "abcdef", "foobaz"])", fixed_size_binary(2),
+             R"([null, "bd", "ob"])", &options_step);
+
+  SliceOptions options_step_neg{5, 0, -2};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(3),
+             R"(["fdb", "zbo"])", &options_step_neg);
+}
+
+TEST_F(TestFixedSizeBinaryKernels, BinarySlicePosNeg) {
+  SliceOptions options{2, -1};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(3),
+             R"(["cde", "oba"])", &options);
+
+  SliceOptions options_step{1, -1, 2};
+  CheckUnary("binary_slice", R"(["abcdef", null, "foobaz"])", fixed_size_binary(2),
+             R"(["bd", null, "ob"])", &options_step);
+
+  SliceOptions options_step_neg{5, -4, -2};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(2),
+             R"(["fd", "zb"])", &options_step_neg);
+
+  options_step_neg.stop = -6;
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(3),
+             R"(["fdb", "zbo"])", &options_step_neg);
+}
+
+TEST_F(TestFixedSizeBinaryKernels, BinarySliceNegNeg) {
+  SliceOptions options{-2, -1};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(1),
+             R"(["e", "a"])", &options);
+
+  SliceOptions options_step{-4, -1, 2};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz", null, null])", fixed_size_binary(2),
+             R"(["ce", "oa", null, null])", &options_step);
+
+  SliceOptions options_step_neg{-1, -3, -2};
+  CheckUnary("binary_slice", R"([null, "abcdef", null, "foobaz"])", fixed_size_binary(1),
+             R"([null, "f", null, "z"])", &options_step_neg);
+
+  options_step_neg.stop = -4;
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(2),
+             R"(["fd", "zb"])", &options_step_neg);
+}
+
+TEST_F(TestFixedSizeBinaryKernels, BinarySliceNegPos) {
+  SliceOptions options{-2, 4};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(0),
+             R"(["", ""])", &options);
+
+  SliceOptions options_step{-4, 5, 2};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(2),
+             R"(["ce", "oa"])", &options_step);
+
+  SliceOptions options_step_neg{-1, 1, -2};
+  CheckUnary("binary_slice", R"([null, "abcdef", "foobaz", null])", fixed_size_binary(2),
+             R"([null, "fd", "zb", null])", &options_step_neg);
+
+  options_step_neg.stop = 0;
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(3),
+             R"(["fdb", "zbo"])", &options_step_neg);
+}
+
+TEST_F(TestFixedSizeBinaryKernels, BinarySliceConsistentyWithVarLenBinary) {
+  std::string source_str = "abcdef";
+  for (size_t str_len = 0; str_len < source_str.size(); ++str_len) {
+    auto input_str = source_str.substr(0, str_len);
+    auto fixed_input = ArrayFromJSON(fixed_size_binary(static_cast<int32_t>(str_len)),
+                                     R"([")" + input_str + R"("])");
+    auto varlen_input = ArrayFromJSON(binary(), R"([")" + input_str + R"("])");
+    for (auto start = -6; start <= 6; ++start) {
+      for (auto stop = -6; stop <= 6; ++stop) {
+        for (auto step = -3; step <= 4; ++step) {
+          if (step == 0) {
+            continue;
+          }
+          SliceOptions options{start, stop, step};
+          auto expected =
+              CallFunction("binary_slice", {varlen_input}, &options).ValueOrDie();
+          auto actual =
+              CallFunction("binary_slice", {fixed_input}, &options).ValueOrDie();
+          actual = Cast(actual, binary()).ValueOrDie();
+          ASSERT_OK(actual.make_array()->ValidateFull());
+          AssertDatumsEqual(expected, actual);
+        }
+      }
+    }
+  }
+}
+
 TEST_F(TestFixedSizeBinaryKernels, BinaryReplaceSlice) {
   ReplaceSliceOptions options{0, 1, "XX"};
   CheckUnary("binary_replace_slice", "[]", fixed_size_binary(7), "[]", &options);
-  CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(7),
-             R"([null, "XXbcdef"])", &options);
+  CheckUnary("binary_replace_slice", R"(["foobaz", null, "abcdef"])",
+             fixed_size_binary(7), R"(["XXoobaz", null, "XXbcdef"])", &options);
 
   ReplaceSliceOptions options_shrink{0, 2, ""};
   CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(4),
@@ -731,8 +887,8 @@ TEST_F(TestFixedSizeBinaryKernels, BinaryReplaceSlice) {
              R"([null, "abXXef"])", &options_middle);
 
   ReplaceSliceOptions options_neg_start{-3, -2, "XX"};
-  CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(7),
-             R"([null, "abcXXef"])", &options_neg_start);
+  CheckUnary("binary_replace_slice", R"(["foobaz", null, "abcdef"])",
+             fixed_size_binary(7), R"(["fooXXaz", null, "abcXXef"])", &options_neg_start);
 
   ReplaceSliceOptions options_neg_end{2, -2, "XX"};
   CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(6),
@@ -807,7 +963,7 @@ TEST_F(TestFixedSizeBinaryKernels, CountSubstringIgnoreCase) {
       offset_type(), "[0, null, 0, 1, 1, 1, 2, 2, 1]", &options);
 
   MatchSubstringOptions options_empty{"", /*ignore_case=*/true};
-  CheckUnary("count_substring", R"(["      ", null, "abcABc"])", offset_type(),
+  CheckUnary("count_substring", R"(["      ", null, "abcdef"])", offset_type(),
              "[7, null, 7]", &options_empty);
 }
 
@@ -1228,10 +1384,15 @@ TYPED_TEST(TestStringKernels, IsDecimalUnicode) {
 }
 
 TYPED_TEST(TestStringKernels, IsDigitUnicode) {
-  // These are digits according to Python, but we don't have the information in
-  // utf8proc for this
-  // this->CheckUnary("utf8_is_digit", "[\"²\", \"①\"]", boolean(), "[true,
-  // true]");
+  // Tests for digits across various Unicode scripts.
+  // ٤: Arabic 4, ³: Superscript 3, ५: Devanagari 5, Ⅷ: Roman 8 (not digit),
+  // １２３: Fullwidth 123.
+  // '¾' (vulgar fraction) is treated as a digit by utf8proc
+  this->CheckUnary(
+      "utf8_is_digit",
+      R"(["0", "٤", "۵", "३", "१२३", "٣٣", "²", "１２３", "٣٢", "٩", "①", "Ⅷ", "abc" , "⻁", ""])",
+      boolean(),
+      R"([true, true, true, true, true, true, true, true, true, true, true, false, false, false, false])");
 }
 
 TYPED_TEST(TestStringKernels, IsNumericUnicode) {
@@ -1285,7 +1446,7 @@ TYPED_TEST(TestStringKernels, IsTitleUnicode) {
 }
 
 // Older versions of utf8proc fail
-#if !(UTF8PROC_VERSION_MAJOR <= 2 && UTF8PROC_VERSION_MINOR < 5)
+#  if !(UTF8PROC_VERSION_MAJOR <= 2 && UTF8PROC_VERSION_MINOR < 5)
 
 TYPED_TEST(TestStringKernels, IsUpperUnicode) {
   // ٣ is arabic 3 (decimal), Φ capital
@@ -1307,7 +1468,7 @@ TYPED_TEST(TestStringKernels, IsUpperUnicode) {
                    boolean(), "[true, true, true, false, true, false]");
 }
 
-#endif  // UTF8PROC_VERSION_MINOR >= 5
+#  endif  // UTF8PROC_VERSION_MINOR >= 5
 
 #endif  // ARROW_WITH_UTF8PROC
 
@@ -1829,6 +1990,62 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegex) {
                    &options);
 }
 
+TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpan) {
+  ExtractRegexSpanOptions options{"(?P<letter>[ab]+)(?P<digit>\\d+)"};
+  auto type_fixe_size_list = is_binary_like(this->type()->id()) ? int32() : int64();
+  auto out_type = struct_({field("letter", fixed_size_list(type_fixe_size_list, 2)),
+                           field("digit", fixed_size_list(type_fixe_size_list, 2))});
+  this->CheckUnary("extract_regex_span", R"([])", out_type, R"([])", &options);
+  this->CheckUnary("extract_regex_span", R"([ null,"123ab","cd123ab","cd123abef"])",
+                   out_type, R"([null,null,null,null])", &options);
+  this->CheckUnary(
+      "extract_regex_span",
+      R"(["a1", "b2", "c3", null,"123ab","abb12","abc13","cedbb15","cedaabb125efg"])",
+      out_type,
+      R"([{"letter":[0,1], "digit":[1,1]},
+                    {"letter":[0,1], "digit":[1,1]},
+                    null,
+                    null,
+                    null,
+                    {"letter":[0,3], "digit":[3,2]},
+                    null,
+                    {"letter":[3,2], "digit":[5,2]},
+                    {"letter":[3,4], "digit":[7,3]}])",
+      &options);
+  this->CheckUnary("extract_regex_span", R"([ "a3","b2","cdaa123","cdab123ef"])",
+                   out_type,
+                   R"([{"letter":[0,1], "digit":[1,1]},
+                                  {"letter":[0,1], "digit":[1,1]},
+                                  {"letter":[2,2], "digit":[4,3]},
+                                  {"letter":[2,2], "digit":[4,3]}])",
+                   &options);
+}
+
+TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpanCaptureOption) {
+  ExtractRegexSpanOptions options{"(?P<foo>foo)?(?P<digit>\\d+)?"};
+  auto type_fixe_size_list = is_binary_like(this->type()->id()) ? int32() : int64();
+  auto out_type = struct_({field("foo", fixed_size_list(type_fixe_size_list, 2)),
+                           field("digit", fixed_size_list(type_fixe_size_list, 2))});
+  this->CheckUnary("extract_regex_span", R"([])", out_type, R"([])", &options);
+  this->CheckUnary("extract_regex_span", R"(["foo","foo123","abcfoo123","abc",null])",
+                   out_type,
+                   R"([{"foo":[0,3],"digit":null},
+                                  {"foo":[0,3],"digit":[3,3]},
+                                  {"foo":null,"digit":null},
+                                  {"foo":null,"digit":null},
+                                  null])",
+                   &options);
+  options = ExtractRegexSpanOptions{"(?P<foo>foo)(?P<digit>\\d+)?"};
+  this->CheckUnary("extract_regex_span", R"(["foo123","foo","123","abc","abcfoo"])",
+                   out_type,
+                   R"([{"foo":[0,3],"digit":[3,3]},
+                                  {"foo":[0,3],"digit":null},
+                                  null,
+                                  null,
+                                  {"foo":[3,3],"digit":null}])",
+                   &options);
+}
+
 TYPED_TEST(TestBaseBinaryKernels, ExtractRegexNoCapture) {
   // XXX Should we accept this or is it a user error?
   ExtractRegexOptions options{"foo"};
@@ -1837,9 +2054,22 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegexNoCapture) {
                    R"([{}, null, null])", &options);
 }
 
+TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpanNoCapture) {
+  // XXX Should we accept this or is it a user error?
+  ExtractRegexSpanOptions options{"foo"};
+  auto type = struct_({});
+  this->CheckUnary("extract_regex_span", R"(["oofoo", "bar", null])", type,
+                   R"([{}, null, null])", &options);
+}
+
 TYPED_TEST(TestBaseBinaryKernels, ExtractRegexNoOptions) {
   Datum input = ArrayFromJSON(this->type(), "[]");
   ASSERT_RAISES(Invalid, CallFunction("extract_regex", {input}));
+}
+
+TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpanNoOptions) {
+  Datum input = ArrayFromJSON(this->type(), "[]");
+  ASSERT_RAISES(Invalid, CallFunction("extract_regex_span", {input}));
 }
 
 TYPED_TEST(TestBaseBinaryKernels, ExtractRegexInvalid) {
@@ -1855,9 +2085,26 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegexInvalid) {
       CallFunction("extract_regex", {input}, &options));
 }
 
+TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpanInvalid) {
+  Datum input = ArrayFromJSON(this->type(), "[]");
+  ExtractRegexSpanOptions options{"invalid["};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Invalid regular expression: missing ]"),
+      CallFunction("extract_regex_span", {input}, &options));
+  options = ExtractRegexSpanOptions{"(.)"};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Regular expression contains unnamed groups"),
+      CallFunction("extract_regex_span", {input}, &options));
+}
+
 #endif
 
 TYPED_TEST(TestStringKernels, Strptime) {
+#ifdef __EMSCRIPTEN__
+  GTEST_SKIP() << "Skipping some strptime tests due to emscripten bug "
+                  "https://github.com/emscripten-core/emscripten/issues/20466";
+#endif
+
   std::string input1 = R"(["5/1/2020", null, null, "12/13/1900", null])";
   std::string input2 = R"(["5-1-2020", "12/13/1900"])";
   std::string input3 = R"(["5/1/2020", "AA/BB/CCCC"])";
@@ -1878,6 +2125,7 @@ TYPED_TEST(TestStringKernels, Strptime) {
   this->CheckUnary("strptime", input4, unit, output4, &options);
 
   options.format = "%m/%d/%Y %%z";
+  // emscripten bug https://github.com/emscripten-core/emscripten/issues/20466
   this->CheckUnary("strptime", input5, unit, output1, &options);
 
   options.error_is_null = false;
@@ -1889,6 +2137,11 @@ TYPED_TEST(TestStringKernels, Strptime) {
 }
 
 TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {
+#ifdef __EMSCRIPTEN__
+  GTEST_SKIP()
+      << "Emscripten bug https://github.com/emscripten-core/emscripten/issues/20467";
+#endif
+
   if (!arrow::internal::kStrptimeSupportsZone) {
     GTEST_SKIP() << "strptime does not support %z on this platform";
   }
@@ -1976,6 +2229,12 @@ TYPED_TEST(TestStringKernels, PadUTF8) {
       R"([null, "a\u2008\u2008\u2008\u2008", "bb\u2008\u2008\u2008", "b\u00E1r\u2008\u2008", "foobar"])",
       &options);
 
+  PadOptions options2{/*width=*/5, "\xe2\x80\x88", /*lean_left_on_odd_padding=*/false};
+  this->CheckUnary(
+      "utf8_center", R"([null, "a", "bb", "b\u00E1r", "foobar"])", this->type(),
+      R"([null, "\u2008\u2008a\u2008\u2008", "\u2008\u2008bb\u2008", "\u2008b\u00E1r\u2008", "foobar"])",
+      &options2);
+
   PadOptions options_bad{/*width=*/3, /*padding=*/"spam"};
   auto input = ArrayFromJSON(this->type(), R"(["foo"])");
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
@@ -2060,7 +2319,7 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsBasic) {
   this->CheckUnary("utf8_slice_codeunits", R"(["𝑓öõḍš"])", this->type(), R"([""])",
                    &options_edgecase_1);
 
-  // this is a safeguard agains an optimization path possible, but actually a tricky case
+  // this is a safeguard against an optimization path possible, but actually a tricky case
   SliceOptions options_edgecase_2{-6, -2};
   this->CheckUnary("utf8_slice_codeunits", R"(["𝑓öõḍš"])", this->type(), R"(["𝑓öõ"])",
                    &options_edgecase_2);
@@ -2189,7 +2448,7 @@ TYPED_TEST(TestBinaryKernels, SliceBytesBasic) {
                    "ds\"]",
                    this->type(), R"([""])", &options_edgecase_1);
 
-  // this is a safeguard agains an optimization path possible, but actually a tricky case
+  // this is a safeguard against an optimization path possible, but actually a tricky case
   SliceOptions options_edgecase_2{-6, -2};
   this->CheckUnary("binary_slice",
                    "[\"f\xc2\xa2"
@@ -2318,6 +2577,10 @@ TYPED_TEST(TestStringKernels, PadAscii) {
   this->CheckUnary("ascii_rpad", R"([null, "a", "bb", "bar", "foobar"])", this->type(),
                    R"([null, "a    ", "bb   ", "bar  ", "foobar"])", &options);
 
+  PadOptions options2{/*width=*/5, " ", /*lean_left_on_odd_padding=*/false};
+  this->CheckUnary("ascii_center", R"([null, "a", "bb", "bar", "foobar"])", this->type(),
+                   R"([null, "  a  ", "  bb ", " bar ", "foobar"])", &options2);
+
   PadOptions options_bad{/*width=*/3, /*padding=*/"spam"};
   auto input = ArrayFromJSON(this->type(), R"(["foo"])");
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
@@ -2382,5 +2645,4 @@ TEST(TestStringKernels, UnicodeLibraryAssumptions) {
 }
 #endif
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

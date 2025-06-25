@@ -23,18 +23,28 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "MINOR: [CI] "
-  - package-ecosystem: "npm"
-    directory: "/js/"
+    open-pull-requests-limit: 10
+  - package-ecosystem: "gomod"
+    directory: "/swift/CDataWGo/"
     schedule:
-      interval: "monthly"
+      interval: "weekly"
     commit-message:
-      prefix: "MINOR: [JS] "
+      prefix: "MINOR: [Swift] "
+    open-pull-requests-limit: 10
+  - package-ecosystem: "gomod"
+    directory: "/swift/data-generator/swift-datagen/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "MINOR: [Swift] "
+    open-pull-requests-limit: 10
   - package-ecosystem: "nuget"
     directory: "/csharp/"
     schedule:
       interval: "weekly"
     commit-message:
       prefix: "MINOR: [C#] "
+    open-pull-requests-limit: 10
     ignore:
       - dependency-name: "Microsoft.Extensions.*"
         update-types:

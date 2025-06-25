@@ -29,6 +29,7 @@
 #include "arrow/io/caching.h"
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
@@ -54,8 +55,35 @@ using arrow::internal::AddWithOverflow;
 
 namespace parquet {
 
-// PARQUET-978: Minimize footer reads by reading 64 KB from the end of the file
-static constexpr int64_t kDefaultFooterReadSize = 64 * 1024;
+namespace {
+bool IsColumnChunkFullyDictionaryEncoded(const ColumnChunkMetaData& col) {
+  // Check the encoding_stats to see if all data pages are dictionary encoded.
+  const std::vector<PageEncodingStats>& encoding_stats = col.encoding_stats();
+  if (encoding_stats.empty()) {
+    // Some parquet files may have empty encoding_stats. In this case we are
+    // not sure whether all data pages are dictionary encoded.
+    return false;
+  }
+  // The 1st page should be the dictionary page.
+  if (encoding_stats[0].page_type != PageType::DICTIONARY_PAGE ||
+      (encoding_stats[0].encoding != Encoding::PLAIN &&
+       encoding_stats[0].encoding != Encoding::PLAIN_DICTIONARY)) {
+    return false;
+  }
+  // The following pages should be dictionary encoded data pages.
+  for (size_t idx = 1; idx < encoding_stats.size(); ++idx) {
+    if (!IsDictionaryIndexEncoding(encoding_stats[idx].encoding) ||
+        (encoding_stats[idx].page_type != PageType::DATA_PAGE &&
+         encoding_stats[idx].page_type != PageType::DATA_PAGE_V2)) {
+      // Return false if any following page is not a dictionary encoded data
+      // page.
+      return false;
+    }
+  }
+  return true;
+}
+}  // namespace
+
 static constexpr uint32_t kFooterSize = 8;
 
 // For PARQUET-816
@@ -82,7 +110,8 @@ std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
       const_cast<ReaderProperties*>(contents_->properties())->memory_pool());
 }
 
-std::shared_ptr<internal::RecordReader> RowGroupReader::RecordReader(int i) {
+std::shared_ptr<internal::RecordReader> RowGroupReader::RecordReader(
+    int i, bool read_dictionary) {
   if (i >= metadata()->num_columns()) {
     std::stringstream ss;
     ss << "Trying to read column index " << i << " but row group metadata has only "
@@ -96,8 +125,8 @@ std::shared_ptr<internal::RecordReader> RowGroupReader::RecordReader(int i) {
   internal::LevelInfo level_info = internal::LevelInfo::ComputeLevelInfo(descr);
 
   auto reader = internal::RecordReader::Make(
-      descr, level_info, contents_->properties()->memory_pool(),
-      /* read_dictionary = */ false, contents_->properties()->read_dense_for_nullable());
+      descr, level_info, contents_->properties()->memory_pool(), read_dictionary,
+      contents_->properties()->read_dense_for_nullable());
   reader->SetPageReader(std::move(page_reader));
   return reader;
 }
@@ -106,39 +135,21 @@ std::shared_ptr<ColumnReader> RowGroupReader::ColumnWithExposeEncoding(
     int i, ExposedEncoding encoding_to_expose) {
   std::shared_ptr<ColumnReader> reader = Column(i);
 
-  if (encoding_to_expose == ExposedEncoding::DICTIONARY) {
-    // Check the encoding_stats to see if all data pages are dictionary encoded.
-    std::unique_ptr<ColumnChunkMetaData> col = metadata()->ColumnChunk(i);
-    const std::vector<PageEncodingStats>& encoding_stats = col->encoding_stats();
-    if (encoding_stats.empty()) {
-      // Some parquet files may have empty encoding_stats. In this case we are
-      // not sure whether all data pages are dictionary encoded. So we do not
-      // enable exposing dictionary.
-      return reader;
-    }
-    // The 1st page should be the dictionary page.
-    if (encoding_stats[0].page_type != PageType::DICTIONARY_PAGE ||
-        (encoding_stats[0].encoding != Encoding::PLAIN &&
-         encoding_stats[0].encoding != Encoding::PLAIN_DICTIONARY)) {
-      return reader;
-    }
-    // The following pages should be dictionary encoded data pages.
-    for (size_t idx = 1; idx < encoding_stats.size(); ++idx) {
-      if ((encoding_stats[idx].encoding != Encoding::RLE_DICTIONARY &&
-           encoding_stats[idx].encoding != Encoding::PLAIN_DICTIONARY) ||
-          (encoding_stats[idx].page_type != PageType::DATA_PAGE &&
-           encoding_stats[idx].page_type != PageType::DATA_PAGE_V2)) {
-        return reader;
-      }
-    }
-  } else {
-    // Exposing other encodings are not supported for now.
-    return reader;
+  if (encoding_to_expose == ExposedEncoding::DICTIONARY &&
+      IsColumnChunkFullyDictionaryEncoded(*metadata()->ColumnChunk(i))) {
+    // Set exposed encoding.
+    reader->SetExposedEncoding(encoding_to_expose);
   }
 
-  // Set exposed encoding.
-  reader->SetExposedEncoding(encoding_to_expose);
   return reader;
+}
+
+std::shared_ptr<internal::RecordReader> RowGroupReader::RecordReaderWithExposeEncoding(
+    int i, ExposedEncoding encoding_to_expose) {
+  return RecordReader(
+      i,
+      /*read_dictionary=*/encoding_to_expose == ExposedEncoding::DICTIONARY &&
+          IsColumnChunkFullyDictionaryEncoded(*metadata()->ColumnChunk(i)));
 }
 
 std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReader(int i) {
@@ -202,16 +213,14 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                      std::shared_ptr<::arrow::io::internal::ReadRangeCache> cached_source,
                      int64_t source_size, FileMetaData* file_metadata,
                      int row_group_number, ReaderProperties props,
-                     std::shared_ptr<Buffer> prebuffered_column_chunks_bitmap,
-                     std::shared_ptr<InternalFileDecryptor> file_decryptor = nullptr)
+                     std::shared_ptr<Buffer> prebuffered_column_chunks_bitmap)
       : source_(std::move(source)),
         cached_source_(std::move(cached_source)),
         source_size_(source_size),
         file_metadata_(file_metadata),
         properties_(std::move(props)),
         row_group_ordinal_(row_group_number),
-        prebuffered_column_chunks_bitmap_(std::move(prebuffered_column_chunks_bitmap)),
-        file_decryptor_(std::move(file_decryptor)) {
+        prebuffered_column_chunks_bitmap_(std::move(prebuffered_column_chunks_bitmap)) {
     row_group_metadata_ = file_metadata->RowGroup(row_group_number);
   }
 
@@ -250,20 +259,24 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     }
 
     // The column is encrypted
-    std::shared_ptr<Decryptor> meta_decryptor =
-        GetColumnMetaDecryptor(crypto_metadata.get(), file_decryptor_.get());
-    std::shared_ptr<Decryptor> data_decryptor =
-        GetColumnDataDecryptor(crypto_metadata.get(), file_decryptor_.get());
-    ARROW_DCHECK_NE(meta_decryptor, nullptr);
-    ARROW_DCHECK_NE(data_decryptor, nullptr);
+    auto* file_decryptor = file_metadata_->file_decryptor().get();
+    auto meta_decryptor_factory = InternalFileDecryptor::GetColumnMetaDecryptorFactory(
+        file_decryptor, crypto_metadata.get());
+    auto data_decryptor_factory = InternalFileDecryptor::GetColumnDataDecryptorFactory(
+        file_decryptor, crypto_metadata.get());
 
-    constexpr auto kEncryptedRowGroupsLimit = 32767;
-    if (i > kEncryptedRowGroupsLimit) {
+    constexpr auto kEncryptedOrdinalLimit = 32767;
+    if (ARROW_PREDICT_FALSE(row_group_ordinal_ > kEncryptedOrdinalLimit)) {
       throw ParquetException("Encrypted files cannot contain more than 32767 row groups");
     }
+    if (ARROW_PREDICT_FALSE(i > kEncryptedOrdinalLimit)) {
+      throw ParquetException("Encrypted files cannot contain more than 32767 columns");
+    }
 
-    CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
-                      static_cast<int16_t>(i), meta_decryptor, data_decryptor);
+    CryptoContext ctx{col->has_dictionary_page(),
+                      static_cast<int16_t>(row_group_ordinal_), static_cast<int16_t>(i),
+                      std::move(meta_decryptor_factory),
+                      std::move(data_decryptor_factory)};
     return PageReader::Open(stream, col->num_values(), col->compression(), properties_,
                             always_compressed, &ctx);
   }
@@ -278,7 +291,6 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   ReaderProperties properties_;
   int row_group_ordinal_;
   const std::shared_ptr<const Buffer> prebuffered_column_chunks_bitmap_;
-  std::shared_ptr<InternalFileDecryptor> file_decryptor_;
 };
 
 // ----------------------------------------------------------------------
@@ -302,9 +314,7 @@ class SerializedFile : public ParquetFileReader::Contents {
     }
   }
 
-  void Close() override {
-    if (file_decryptor_) file_decryptor_->WipeOutDecryptionKeys();
-  }
+  void Close() override {}
 
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
     std::shared_ptr<Buffer> prebuffered_column_chunks_bitmap;
@@ -317,7 +327,7 @@ class SerializedFile : public ParquetFileReader::Contents {
 
     std::unique_ptr<SerializedRowGroup> contents = std::make_unique<SerializedRowGroup>(
         source_, cached_source_, source_size_, file_metadata_.get(), i, properties_,
-        std::move(prebuffered_column_chunks_bitmap), file_decryptor_);
+        std::move(prebuffered_column_chunks_bitmap));
     return std::make_shared<RowGroupReader>(std::move(contents));
   }
 
@@ -333,8 +343,9 @@ class SerializedFile : public ParquetFileReader::Contents {
           "forget to call ParquetFileReader::Open() first?");
     }
     if (!page_index_reader_) {
-      page_index_reader_ = PageIndexReader::Make(source_.get(), file_metadata_,
-                                                 properties_, file_decryptor_.get());
+      page_index_reader_ =
+          PageIndexReader::Make(source_.get(), file_metadata_, properties_,
+                                file_metadata_->file_decryptor().get());
     }
     return page_index_reader_;
   }
@@ -349,8 +360,8 @@ class SerializedFile : public ParquetFileReader::Contents {
           "forget to call ParquetFileReader::Open() first?");
     }
     if (!bloom_filter_reader_) {
-      bloom_filter_reader_ =
-          BloomFilterReader::Make(source_, file_metadata_, properties_, file_decryptor_);
+      bloom_filter_reader_ = BloomFilterReader::Make(source_, file_metadata_, properties_,
+                                                     file_metadata_->file_decryptor());
       if (bloom_filter_reader_ == nullptr) {
         throw ParquetException("Cannot create BloomFilterReader");
       }
@@ -388,6 +399,21 @@ class SerializedFile : public ParquetFileReader::Contents {
       }
     }
     PARQUET_THROW_NOT_OK(cached_source_->Cache(ranges));
+  }
+
+  ::arrow::Result<std::vector<::arrow::io::ReadRange>> GetReadRanges(
+      const std::vector<int>& row_groups, const std::vector<int>& column_indices,
+      int64_t hole_size_limit, int64_t range_size_limit) {
+    std::vector<::arrow::io::ReadRange> ranges;
+    for (int row_group : row_groups) {
+      for (int col : column_indices) {
+        ranges.push_back(
+            ComputeColumnChunkRange(file_metadata_.get(), source_size_, row_group, col));
+      }
+    }
+
+    return ::arrow::io::internal::CoalesceReadRanges(std::move(ranges), hole_size_limit,
+                                                     range_size_limit);
   }
 
   ::arrow::Future<> WhenBuffered(const std::vector<int>& row_groups,
@@ -428,10 +454,12 @@ class SerializedFile : public ParquetFileReader::Contents {
     // Parse the footer depending on encryption type
     const bool is_encrypted_footer =
         memcmp(footer_buffer->data() + footer_read_size - 4, kParquetEMagic, 4) == 0;
+    std::shared_ptr<InternalFileDecryptor> file_decryptor;
     if (is_encrypted_footer) {
       // Encrypted file with Encrypted footer.
       const std::pair<int64_t, uint32_t> read_size =
-          ParseMetaDataOfEncryptedFileWithEncryptedFooter(metadata_buffer, metadata_len);
+          ParseMetaDataOfEncryptedFileWithEncryptedFooter(metadata_buffer, metadata_len,
+                                                          &file_decryptor);
       // Read the actual footer
       metadata_start = read_size.first;
       metadata_len = read_size.second;
@@ -440,9 +468,9 @@ class SerializedFile : public ParquetFileReader::Contents {
       // Fall through
     }
 
-    const uint32_t read_metadata_len =
-        ParseUnencryptedFileMetadata(metadata_buffer, metadata_len);
-    auto file_decryption_properties = properties_.file_decryption_properties().get();
+    const uint32_t read_metadata_len = ParseUnencryptedFileMetadata(
+        metadata_buffer, metadata_len, std::move(file_decryptor));
+    auto file_decryption_properties = properties_.file_decryption_properties();
     if (is_encrypted_footer) {
       // Nothing else to do here.
       return;
@@ -468,7 +496,8 @@ class SerializedFile : public ParquetFileReader::Contents {
           "Parquet file size is ", source_size_,
           " bytes, smaller than the minimum file footer (", kFooterSize, " bytes)");
     }
-    return std::min(source_size_, kDefaultFooterReadSize);
+
+    return std::min(static_cast<size_t>(source_size_), properties_.footer_read_size());
   }
 
   // Validate the magic bytes and get the length of the full footer.
@@ -483,9 +512,10 @@ class SerializedFile : public ParquetFileReader::Contents {
           "is not a parquet file.");
     }
     // Both encrypted/unencrypted footers have the same footer length check.
-    uint32_t metadata_len = ::arrow::util::SafeLoadAs<uint32_t>(
-        reinterpret_cast<const uint8_t*>(footer_buffer->data()) + footer_read_size -
-        kFooterSize);
+    uint32_t metadata_len =
+        ::arrow::bit_util::FromLittleEndian(::arrow::util::SafeLoadAs<uint32_t>(
+            reinterpret_cast<const uint8_t*>(footer_buffer->data()) + footer_read_size -
+            kFooterSize));
     if (metadata_len > source_size_ - kFooterSize) {
       throw ParquetInvalidOrCorruptedFileException(
           "Parquet file size is ", source_size_,
@@ -537,35 +567,39 @@ class SerializedFile : public ParquetFileReader::Contents {
     // Parse the footer depending on encryption type
     const bool is_encrypted_footer =
         memcmp(footer_buffer->data() + footer_read_size - 4, kParquetEMagic, 4) == 0;
+    std::shared_ptr<InternalFileDecryptor> file_decryptor;
     if (is_encrypted_footer) {
       // Encrypted file with Encrypted footer.
       std::pair<int64_t, uint32_t> read_size;
       BEGIN_PARQUET_CATCH_EXCEPTIONS
-      read_size =
-          ParseMetaDataOfEncryptedFileWithEncryptedFooter(metadata_buffer, metadata_len);
+      read_size = ParseMetaDataOfEncryptedFileWithEncryptedFooter(
+          metadata_buffer, metadata_len, &file_decryptor);
       END_PARQUET_CATCH_EXCEPTIONS
       // Read the actual footer
       int64_t metadata_start = read_size.first;
       metadata_len = read_size.second;
       return source_->ReadAsync(metadata_start, metadata_len)
-          .Then([this, metadata_len, is_encrypted_footer](
+          .Then([this, metadata_len, is_encrypted_footer,
+                 file_decryptor = std::move(file_decryptor)](
                     const std::shared_ptr<::arrow::Buffer>& metadata_buffer) {
             // Continue and read the file footer
-            return ParseMetaDataFinal(metadata_buffer, metadata_len, is_encrypted_footer);
+            return ParseMetaDataFinal(metadata_buffer, metadata_len, is_encrypted_footer,
+                                      file_decryptor);
           });
     }
     return ParseMetaDataFinal(std::move(metadata_buffer), metadata_len,
-                              is_encrypted_footer);
+                              is_encrypted_footer, std::move(file_decryptor));
   }
 
   // Continuation
-  ::arrow::Status ParseMetaDataFinal(std::shared_ptr<::arrow::Buffer> metadata_buffer,
-                                     uint32_t metadata_len,
-                                     const bool is_encrypted_footer) {
+  ::arrow::Status ParseMetaDataFinal(
+      std::shared_ptr<::arrow::Buffer> metadata_buffer, uint32_t metadata_len,
+      const bool is_encrypted_footer,
+      std::shared_ptr<InternalFileDecryptor> file_decryptor) {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
-    const uint32_t read_metadata_len =
-        ParseUnencryptedFileMetadata(metadata_buffer, metadata_len);
-    auto file_decryption_properties = properties_.file_decryption_properties().get();
+    const uint32_t read_metadata_len = ParseUnencryptedFileMetadata(
+        metadata_buffer, metadata_len, std::move(file_decryptor));
+    auto file_decryption_properties = properties_.file_decryption_properties();
     if (is_encrypted_footer) {
       // Nothing else to do here.
       return ::arrow::Status::OK();
@@ -595,27 +629,30 @@ class SerializedFile : public ParquetFileReader::Contents {
   // Maps row group ordinal and prebuffer status of its column chunks in the form of a
   // bitmap buffer.
   std::unordered_map<int, std::shared_ptr<Buffer>> prebuffered_column_chunks_;
-  std::shared_ptr<InternalFileDecryptor> file_decryptor_;
 
   // \return The true length of the metadata in bytes
-  uint32_t ParseUnencryptedFileMetadata(const std::shared_ptr<Buffer>& footer_buffer,
-                                        const uint32_t metadata_len);
+  uint32_t ParseUnencryptedFileMetadata(
+      const std::shared_ptr<Buffer>& footer_buffer, const uint32_t metadata_len,
+      std::shared_ptr<InternalFileDecryptor> file_decryptor);
 
-  std::string HandleAadPrefix(FileDecryptionProperties* file_decryption_properties,
-                              EncryptionAlgorithm& algo);
+  std::string HandleAadPrefix(
+      const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties,
+      const EncryptionAlgorithm& algo);
 
   void ParseMetaDataOfEncryptedFileWithPlaintextFooter(
-      FileDecryptionProperties* file_decryption_properties,
+      const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties,
       const std::shared_ptr<Buffer>& metadata_buffer, uint32_t metadata_len,
       uint32_t read_metadata_len);
 
   // \return The position and size of the actual footer
   std::pair<int64_t, uint32_t> ParseMetaDataOfEncryptedFileWithEncryptedFooter(
-      const std::shared_ptr<Buffer>& crypto_metadata_buffer, uint32_t footer_len);
+      const std::shared_ptr<Buffer>& crypto_metadata_buffer, uint32_t footer_len,
+      std::shared_ptr<InternalFileDecryptor>* file_decryptor);
 };
 
 uint32_t SerializedFile::ParseUnencryptedFileMetadata(
-    const std::shared_ptr<Buffer>& metadata_buffer, const uint32_t metadata_len) {
+    const std::shared_ptr<Buffer>& metadata_buffer, const uint32_t metadata_len,
+    std::shared_ptr<InternalFileDecryptor> file_decryptor) {
   if (metadata_buffer->size() != metadata_len) {
     throw ParquetException("Failed reading metadata buffer (requested " +
                            std::to_string(metadata_len) + " bytes but got " +
@@ -624,7 +661,7 @@ uint32_t SerializedFile::ParseUnencryptedFileMetadata(
   uint32_t read_metadata_len = metadata_len;
   // The encrypted read path falls through to here, so pass in the decryptor
   file_metadata_ = FileMetaData::Make(metadata_buffer->data(), &read_metadata_len,
-                                      properties_, file_decryptor_);
+                                      properties_, std::move(file_decryptor));
   return read_metadata_len;
 }
 
@@ -632,7 +669,7 @@ std::pair<int64_t, uint32_t>
 SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
     const std::shared_ptr<::arrow::Buffer>& crypto_metadata_buffer,
     // both metadata & crypto metadata length
-    const uint32_t footer_len) {
+    const uint32_t footer_len, std::shared_ptr<InternalFileDecryptor>* file_decryptor) {
   // encryption with encrypted footer
   // Check if the footer_buffer contains the entire metadata
   if (crypto_metadata_buffer->size() != footer_len) {
@@ -640,7 +677,7 @@ SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
                            std::to_string(footer_len) + " bytes but got " +
                            std::to_string(crypto_metadata_buffer->size()) + " bytes)");
   }
-  auto file_decryption_properties = properties_.file_decryption_properties().get();
+  auto file_decryption_properties = properties_.file_decryption_properties();
   if (file_decryption_properties == nullptr) {
     throw ParquetException(
         "Could not read encrypted metadata, no decryption found in reader's properties");
@@ -651,7 +688,7 @@ SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
   // Handle AAD prefix
   EncryptionAlgorithm algo = file_crypto_metadata->encryption_algorithm();
   std::string file_aad = HandleAadPrefix(file_decryption_properties, algo);
-  file_decryptor_ = std::make_shared<InternalFileDecryptor>(
+  *file_decryptor = std::make_shared<InternalFileDecryptor>(
       file_decryption_properties, file_aad, algo.algorithm,
       file_crypto_metadata->key_metadata(), properties_.memory_pool());
 
@@ -661,7 +698,7 @@ SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
 }
 
 void SerializedFile::ParseMetaDataOfEncryptedFileWithPlaintextFooter(
-    FileDecryptionProperties* file_decryption_properties,
+    const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties,
     const std::shared_ptr<Buffer>& metadata_buffer, uint32_t metadata_len,
     uint32_t read_metadata_len) {
   // Providing decryption properties in plaintext footer mode is not mandatory, for
@@ -670,12 +707,12 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithPlaintextFooter(
     EncryptionAlgorithm algo = file_metadata_->encryption_algorithm();
     // Handle AAD prefix
     std::string file_aad = HandleAadPrefix(file_decryption_properties, algo);
-    file_decryptor_ = std::make_shared<InternalFileDecryptor>(
+    auto file_decryptor = std::make_shared<InternalFileDecryptor>(
         file_decryption_properties, file_aad, algo.algorithm,
         file_metadata_->footer_signing_key_metadata(), properties_.memory_pool());
     // set the InternalFileDecryptor in the metadata as well, as it's used
     // for signature verification and for ColumnChunkMetaData creation.
-    file_metadata_->set_file_decryptor(file_decryptor_);
+    file_metadata_->set_file_decryptor(std::move(file_decryptor));
 
     if (file_decryption_properties->check_plaintext_footer_integrity()) {
       if (metadata_len - read_metadata_len !=
@@ -695,7 +732,8 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithPlaintextFooter(
 }
 
 std::string SerializedFile::HandleAadPrefix(
-    FileDecryptionProperties* file_decryption_properties, EncryptionAlgorithm& algo) {
+    const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties,
+    const EncryptionAlgorithm& algo) {
   std::string aad_prefix_in_properties = file_decryption_properties->aad_prefix();
   std::string aad_prefix = aad_prefix_in_properties;
   bool file_has_aad_prefix = algo.aad.aad_prefix.empty() ? false : true;
@@ -882,6 +920,16 @@ void ParquetFileReader::PreBuffer(const std::vector<int>& row_groups,
   SerializedFile* file =
       ::arrow::internal::checked_cast<SerializedFile*>(contents_.get());
   file->PreBuffer(row_groups, column_indices, ctx, options);
+}
+
+::arrow::Result<std::vector<::arrow::io::ReadRange>> ParquetFileReader::GetReadRanges(
+    const std::vector<int>& row_groups, const std::vector<int>& column_indices,
+    int64_t hole_size_limit, int64_t range_size_limit) {
+  // Access private methods here
+  SerializedFile* file =
+      ::arrow::internal::checked_cast<SerializedFile*>(contents_.get());
+  return file->GetReadRanges(row_groups, column_indices, hole_size_limit,
+                             range_size_limit);
 }
 
 ::arrow::Future<> ParquetFileReader::WhenBuffered(

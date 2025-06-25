@@ -25,6 +25,7 @@
 
 #include "arrow/chunk_resolver.h"
 #include "arrow/compare.h"
+#include "arrow/device_allocation_type_set.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
@@ -116,6 +117,13 @@ class ARROW_EXPORT ChunkedArray {
   /// \return an ArrayVector of chunks
   const ArrayVector& chunks() const { return chunks_; }
 
+  /// \return The set of device allocation types used by the chunks in this
+  /// chunked array.
+  DeviceAllocationTypeSet device_types() const;
+
+  /// \return true if all chunks are allocated on CPU-accessible memory.
+  bool is_cpu() const { return device_types().is_cpu_only(); }
+
   /// \brief Construct a zero-copy slice of the chunked array with the
   /// indicated offset and length
   ///
@@ -152,9 +160,11 @@ class ARROW_EXPORT ChunkedArray {
   ///
   /// Two chunked arrays can be equal only if they have equal datatypes.
   /// However, they may be equal even if they have different chunkings.
-  bool Equals(const ChunkedArray& other) const;
+  bool Equals(const ChunkedArray& other,
+              const EqualOptions& opts = EqualOptions::Defaults()) const;
   /// \brief Determine if two chunked arrays are equal.
-  bool Equals(const std::shared_ptr<ChunkedArray>& other) const;
+  bool Equals(const std::shared_ptr<ChunkedArray>& other,
+              const EqualOptions& opts = EqualOptions::Defaults()) const;
   /// \brief Determine if two chunked arrays approximately equal
   bool ApproxEquals(const ChunkedArray& other,
                     const EqualOptions& = EqualOptions::Defaults()) const;
@@ -189,7 +199,7 @@ class ARROW_EXPORT ChunkedArray {
  private:
   template <typename T, typename V>
   friend class ::arrow::stl::ChunkedArrayIterator;
-  internal::ChunkResolver chunk_resolver_;
+  ChunkResolver chunk_resolver_;
   ARROW_DISALLOW_COPY_AND_ASSIGN(ChunkedArray);
 };
 

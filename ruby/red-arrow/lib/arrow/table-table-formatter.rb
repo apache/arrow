@@ -26,6 +26,13 @@ module Arrow
         text << "\t"
         text << column_formatter.aligned_name
       end
+      if show_column_type?
+        text << "\n"
+        column_formatters.each do |column_formatter|
+          text << "\t"
+          text << column_formatter.aligned_data_type_name
+        end
+      end
       text << "\n"
     end
 

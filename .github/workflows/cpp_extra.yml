@@ -1,0 +1,168 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: C++ Extra
+
+on:
+  push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    paths:
+      - '.dockerignore'
+      - '.github/workflows/cpp_extra.yml'
+      - 'ci/conda_env_*'
+      - 'ci/docker/**'
+      - 'ci/scripts/ccache_setup.sh'
+      - 'ci/scripts/cpp_*'
+      - 'ci/scripts/install_azurite.sh'
+      - 'ci/scripts/install_gcs_testbench.sh'
+      - 'ci/scripts/install_minio.sh'
+      - 'ci/scripts/msys2_*'
+      - 'ci/scripts/util_*'
+      - 'cpp/**'
+      - 'docker-compose.yml'
+      - 'format/Flight.proto'
+      - 'testing'
+    tags:
+      - '**'
+  pull_request:
+    paths:
+      - '.dockerignore'
+      - '.github/workflows/cpp_extra.yml'
+      - 'ci/conda_env_*'
+      - 'ci/docker/**'
+      - 'ci/scripts/ccache_setup.sh'
+      - 'ci/scripts/cpp_*'
+      - 'ci/scripts/install_azurite.sh'
+      - 'ci/scripts/install_gcs_testbench.sh'
+      - 'ci/scripts/install_minio.sh'
+      - 'ci/scripts/msys2_*'
+      - 'ci/scripts/util_*'
+      - 'cpp/**'
+      - 'docker-compose.yml'
+      - 'format/Flight.proto'
+      - 'testing'
+    types:
+      - labeled
+      - opened
+      - reopened
+      - synchronize
+  schedule:
+    - cron: |
+        0 0 * * *
+
+concurrency:
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check-labels:
+    name: Check labels
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ci-extra: ${{ steps.check.outputs.ci-extra }}
+    steps:
+      - name: Check
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          case "${GITHUB_EVENT_NAME}" in
+            push|schedule)
+              ci_extra=true
+              ;;
+            pull_request)
+              n_ci_extra_labels=$(
+                gh pr view ${{ github.event.number }} \
+                  --jq '.labels[].name | select(. == "CI: Extra")' \
+                  --json labels \
+                  --repo ${GITHUB_REPOSITORY} | wc -l)
+              if [ "${n_ci_extra_labels}" -eq 1 ]; then
+                ci_extra=true
+              else
+                ci_extra=false
+              fi
+              ;;
+          esac
+
+          echo "ci-extra=${ci_extra}" >> "${GITHUB_OUTPUT}"
+
+  docker:
+    needs: check-labels
+    name: ${{ matrix.title }}
+    runs-on: ${{ matrix.runs-on }}
+    if: needs.check-labels.outputs.ci-extra == 'true'
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: alpine-linux-cpp
+            runs-on: ubuntu-latest
+            title: AMD64 Alpine Linux
+          - image: conda-cpp
+            run-options: >-
+              -e ARROW_USE_MESON=ON
+            runs-on: ubuntu-latest
+            title: AMD64 Ubuntu Meson
+    env:
+      ARCHERY_DEBUG: 1
+      ARROW_ENABLE_TIMING_TESTS: OFF
+      DOCKER_VOLUME_PREFIX: ".docker/"
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Cache Docker Volumes
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: .docker
+          key: extra-${{ matrix.image }}-${{ hashFiles('cpp/**') }}
+          restore-keys: extra-${{ matrix.image }}-
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: 3
+      - name: Setup Archery
+        run: python3 -m pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
+          sudo sysctl -w vm.mmap_rnd_bits=28
+          source ci/scripts/util_enable_core_dumps.sh
+          archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
+      - name: Docker Push
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+        continue-on-error: true
+        run: archery docker push ${{ matrix.image }}

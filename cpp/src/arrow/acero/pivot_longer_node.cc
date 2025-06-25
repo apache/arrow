@@ -28,6 +28,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/tracing_internal.h"
 
@@ -135,7 +136,7 @@ class PivotLongerNode : public ExecNode, public TracedNode {
     for (std::size_t i = 0; i < measurement_types.size(); i++) {
       if (!measurement_types[i]) {
         return Status::Invalid(
-            "All row templates had nullopt for the meausrement column at index ", i, " (",
+            "All row templates had nullopt for the measurement column at index ", i, " (",
             options.measurement_field_names[i], ")");
       }
       fields.push_back(

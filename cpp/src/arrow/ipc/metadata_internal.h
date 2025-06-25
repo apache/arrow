@@ -60,13 +60,13 @@ using KVVector = flatbuffers::Vector<KeyValueOffset>;
 constexpr int32_t kIpcContinuationToken = -1;
 
 static constexpr flatbuf::MetadataVersion kCurrentMetadataVersion =
-    flatbuf::MetadataVersion::V5;
+    flatbuf::MetadataVersion::MetadataVersion_V5;
 
 static constexpr flatbuf::MetadataVersion kLatestMetadataVersion =
-    flatbuf::MetadataVersion::V5;
+    flatbuf::MetadataVersion::MetadataVersion_V5;
 
 static constexpr flatbuf::MetadataVersion kMinMetadataVersion =
-    flatbuf::MetadataVersion::V4;
+    flatbuf::MetadataVersion::MetadataVersion_V4;
 
 // These functions are used in unit tests
 ARROW_EXPORT
@@ -238,7 +238,8 @@ static inline Result<std::shared_ptr<Buffer>> WriteFlatbufferBuilder(
 
   uint8_t* dst = result->mutable_data();
   memcpy(dst, fbb.GetBufferPointer(), size);
-  return std::move(result);
+  // R build with openSUSE155 requires an explicit shared_ptr construction
+  return std::shared_ptr<Buffer>(std::move(result));
 }
 
 ARROW_EXPORT

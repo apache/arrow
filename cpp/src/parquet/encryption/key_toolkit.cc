@@ -31,12 +31,11 @@ namespace parquet::encryption {
 
 std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
     const KmsConnectionConfig& kms_connection_config, double cache_entry_lifetime_ms) {
-  if (kms_client_factory_ == NULL) {
+  if (kms_client_factory_ == nullptr) {
     throw ParquetException("No KmsClientFactory is registered.");
   }
-  auto kms_client_per_kms_instance_cache =
-      kms_client_cache_per_token().GetOrCreateInternalCache(
-          kms_connection_config.key_access_token(), cache_entry_lifetime_ms);
+  auto kms_client_per_kms_instance_cache = kms_client_cache_.GetOrCreateInternalCache(
+      kms_connection_config.key_access_token(), cache_entry_lifetime_ms);
 
   return kms_client_per_kms_instance_cache->GetOrInsert(
       kms_connection_config.kms_instance_id, [this, kms_connection_config]() {

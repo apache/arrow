@@ -42,8 +42,7 @@ static constexpr int kRowsPerBatch = 4;
 static constexpr int kNumBatches = 32;
 
 std::shared_ptr<Table> TestTable() {
-  return gen::Gen({{"up", gen::Step()},
-                   {"down", gen::Step(/*start=*/0, /*step=*/-1, /*signed_int=*/true)}})
+  return gen::Gen({{"up", gen::Step()}, {"down", gen::Step(/*start=*/0, /*step=*/-1)}})
       ->FailOnError()
       ->Table(kRowsPerBatch, kNumBatches);
 }

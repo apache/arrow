@@ -19,6 +19,7 @@
 
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
+#include "arrow/extension_type.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/type_fwd.h"
@@ -27,6 +28,8 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
+
+using internal::checked_cast;
 
 namespace util {
 
@@ -44,9 +47,13 @@ namespace {
 Type::type GetTypeForBuffers(const ArrayData& array) {
   Type::type type_id = array.type->storage_id();
   if (type_id == Type::DICTIONARY) {
-    return ::arrow::internal::checked_pointer_cast<DictionaryType>(array.type)
-        ->index_type()
-        ->id();
+    // return index type id, provided by the DictionaryType array.type or
+    // array.type->storage_type() if array.type is an ExtensionType
+    DataType* dict_type = array.type.get();
+    if (array.type->id() == Type::EXTENSION) {
+      dict_type = checked_cast<ExtensionType*>(dict_type)->storage_type().get();
+    }
+    return checked_cast<DictionaryType*>(dict_type)->index_type()->id();
   }
   return type_id;
 }
@@ -159,9 +166,10 @@ Result<std::shared_ptr<Buffer>> EnsureAlignment(std::shared_ptr<Buffer> buffer,
         auto new_buffer,
         AllocateBuffer(buffer->size(), minimum_desired_alignment, memory_pool));
     std::memcpy(new_buffer->mutable_data(), buffer->data(), buffer->size());
-    return std::move(new_buffer);
+    // R build with openSUSE155 requires an explicit shared_ptr construction
+    return std::shared_ptr<Buffer>(std::move(new_buffer));
   } else {
-    return std::move(buffer);
+    return buffer;
   }
 }
 
@@ -197,9 +205,9 @@ Result<std::shared_ptr<ArrayData>> EnsureAlignment(std::shared_ptr<ArrayData> ar
     auto new_array_data = ArrayData::Make(
         array_data->type, array_data->length, std::move(buffers), array_data->child_data,
         array_data->dictionary, array_data->GetNullCount(), array_data->offset);
-    return std::move(new_array_data);
+    return new_array_data;
   } else {
-    return std::move(array_data);
+    return array_data;
   }
 }
 
@@ -210,7 +218,7 @@ Result<std::shared_ptr<Array>> EnsureAlignment(std::shared_ptr<Array> array,
                         EnsureAlignment(array->data(), alignment, memory_pool));
 
   if (new_array_data.get() == array->data().get()) {
-    return std::move(array);
+    return array;
   } else {
     return MakeArray(std::move(new_array_data));
   }
@@ -230,7 +238,7 @@ Result<std::shared_ptr<ChunkedArray>> EnsureAlignment(std::shared_ptr<ChunkedArr
     }
     return ChunkedArray::Make(std::move(chunks_), array->type());
   } else {
-    return std::move(array);
+    return array;
   }
 }
 
@@ -248,7 +256,7 @@ Result<std::shared_ptr<RecordBatch>> EnsureAlignment(std::shared_ptr<RecordBatch
     }
     return RecordBatch::Make(batch->schema(), batch->num_rows(), std::move(columns_));
   } else {
-    return std::move(batch);
+    return batch;
   }
 }
 
@@ -275,7 +283,7 @@ Result<std::shared_ptr<Table>> EnsureAlignment(std::shared_ptr<Table> table,
     }
     return Table::Make(table->schema(), std::move(columns_), table->num_rows());
   } else {
-    return std::move(table);
+    return table;
   }
 }
 

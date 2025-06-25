@@ -38,7 +38,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/delimiting.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
@@ -324,8 +324,8 @@ Result<RecordBatchGenerator> MakeBatchGenerator(
     const std::shared_ptr<FileFragment>& file) {
   ARROW_ASSIGN_OR_RAISE(auto future, DoOpenReader(file->source(), format, scan_options));
   auto maybe_reader = future.result();
-  // Defer errors that occured during reader instantiation since they're likely related to
-  // batch-processing.
+  // Defer errors that occurred during reader instantiation since they're likely related
+  // to batch-processing.
   if (!maybe_reader.ok()) {
     return MakeFailingGenerator<std::shared_ptr<RecordBatch>>(maybe_reader.status());
   }

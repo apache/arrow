@@ -40,10 +40,12 @@ namespace Apache.Arrow.Memory
             _owner = owner;
         }
 
+#pragma warning disable CA2015 // TODO: is this correct?
         ~NativeMemoryManager()
         {
             Dispose(false);
         }
+#pragma warning restore CA2015
 
         public override unsafe Span<byte> GetSpan()
         {

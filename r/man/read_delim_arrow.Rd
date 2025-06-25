@@ -90,8 +90,9 @@ read_tsv_arrow(
 )
 }
 \arguments{
-\item{file}{A character file name or URI, literal data (either a single string or a \link{raw} vector),
-an Arrow input stream, or a \code{FileSystem} with path (\code{SubTreeFileSystem}).
+\item{file}{A character file name or URI, connection, literal data (either a
+single string or a \link{raw} vector), an Arrow input stream, or a \code{FileSystem}
+with path (\code{SubTreeFileSystem}).
 
 If a file name, a memory-mapped Arrow \link{InputStream} will be opened and
 closed when finished; compression will be detected from the file extension
@@ -230,7 +231,7 @@ be dropped.
 
 Note that if you are specifying column names, whether by \code{schema} or
 \code{col_names}, and the CSV file has a header row that would otherwise be used
-to idenfity column names, you'll need to add \code{skip = 1} to skip that row.
+to identify column names, you'll need to add \code{skip = 1} to skip that row.
 }
 
 \examples{

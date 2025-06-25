@@ -53,7 +53,7 @@ classdef tSchema < matlab.unittest.TestCase
 
         function ConstructSchemaFromProxy(testCase)
             % Verify that an arrow.tabular.Schema instance can be
-            % constructred directly from an existing
+            % constructed directly from an existing
             % arrow.tabular.proxy.Schema Proxy instance.
             schema1 = arrow.schema(arrow.field("a", arrow.uint8));
             % Construct an instance of arrow.tabular.Schema directly from a
@@ -117,7 +117,7 @@ classdef tSchema < matlab.unittest.TestCase
         end
 
         function NumFields(testCase)
-            % Verify that the NumFields property returns an execpted number
+            % Verify that the NumFields property returns an expected number
             % of fields.
             schema = arrow.schema([...
                 arrow.field("A", arrow.uint8), ...
@@ -262,7 +262,7 @@ classdef tSchema < matlab.unittest.TestCase
                 arrow.field("C", arrow.uint32) ...
             ]);
 
-            % Matching should be case sensitive.
+            % Matching should be case-sensitive.
             fieldName = "a";
             testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:AmbiguousFieldName");
 

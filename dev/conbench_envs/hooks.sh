@@ -49,8 +49,9 @@ set_arrow_build_and_run_env_vars() {
 }
 
 build_arrow_cpp() {
+  export ARROW_BUILD_DIR="/tmp/$(uuidgen)"
   # Ignore the error when a cache can't be created
-  if ! ci/scripts/cpp_build.sh $(pwd) $(pwd) 2> error.log; then
+  if ! ci/scripts/cpp_build.sh $(pwd) $ARROW_BUILD_DIR 2> error.log; then
       if ! grep -q -F "Can\'t create temporary cache file" error.log; then
          cat error.log
       fi
@@ -58,7 +59,8 @@ build_arrow_cpp() {
 }
 
 build_arrow_python() {
-  ci/scripts/python_build.sh $(pwd) $(pwd)
+  mkdir -p /tmp/arrow
+  ci/scripts/python_build.sh $(pwd) /tmp/arrow
 }
 
 build_arrow_r() {
@@ -68,7 +70,8 @@ build_arrow_r() {
 }
 
 build_arrow_java() {
-  ci/scripts/java_build.sh $(pwd) $(pwd)
+  mkdir -p /tmp/arrow
+  ci/scripts/java_build.sh $(pwd) /tmp/arrow
 }
 
 install_archery() {

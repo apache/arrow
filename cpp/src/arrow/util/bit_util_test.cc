@@ -43,14 +43,14 @@
 #include "arrow/testing/util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/bit_run_reader.h"
-#include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/bitmap_visit.h"
 #include "arrow/util/bitmap_writer.h"
-#include "arrow/util/bitset_stack.h"
+#include "arrow/util/bitset_stack_internal.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/ubsan.h"
 
@@ -924,7 +924,7 @@ TEST(FirstTimeBitmapWriter, AppendWordOffsetOverwritesCorrectBitsOnExistingByte)
     writer.Finish();
     EXPECT_EQ(BitmapToString(valid_bits, kBitsAfterAppend), expected_bits);
   };
-  // 0ffset zero would not be a valid mask.
+  // Offset zero would not be a valid mask.
   check_with_set("11111111", 1);
   check_with_set("10111111", 2);
   check_with_set("10011111", 3);
@@ -1591,14 +1591,21 @@ TEST(BitUtilTests, TestCopyBitmap) {
   std::vector<int64_t> offsets = {0, 12, 16, 32, 37, 63, 64, 128};
   for (int64_t num_bits : lengths) {
     for (int64_t offset : offsets) {
-      const int64_t copy_length = num_bits - offset;
+      std::vector<int64_t> dest_offsets = {0, offset - 1, offset + 1};
+      for (int64_t dest_offset : dest_offsets) {
+        if (dest_offset < 0) {
+          continue;
+        }
+        const int64_t copy_length = num_bits - offset;
 
-      std::shared_ptr<Buffer> copy;
-      ASSERT_OK_AND_ASSIGN(copy,
-                           CopyBitmap(default_memory_pool(), src, offset, copy_length));
+        std::shared_ptr<Buffer> copy;
+        ASSERT_OK_AND_ASSIGN(copy, CopyBitmap(default_memory_pool(), src, offset,
+                                              copy_length, dest_offset));
 
-      for (int64_t i = 0; i < copy_length; ++i) {
-        ASSERT_EQ(bit_util::GetBit(src, i + offset), bit_util::GetBit(copy->data(), i));
+        for (int64_t i = 0; i < copy_length; ++i) {
+          ASSERT_EQ(bit_util::GetBit(src, i + offset),
+                    bit_util::GetBit(copy->data(), i + dest_offset));
+        }
       }
     }
   }

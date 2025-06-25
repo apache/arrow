@@ -35,6 +35,7 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/config.h"
 
 namespace arrow {
 
@@ -318,6 +319,24 @@ TEST_P(TestFeather, SliceBooleanRoundTrip) {
   CheckSlices(batch);
 }
 
+TEST_P(TestFeather, SliceListRoundTrip) {
+  if (GetParam().version == kFeatherV1Version) {
+    GTEST_SKIP() << "Feather V1 does not support list types";
+  }
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(ipc::test::MakeListRecordBatchSized(600, &batch));
+  CheckSlices(batch);
+}
+
+TEST_P(TestFeather, SliceListViewRoundTrip) {
+  if (GetParam().version == kFeatherV1Version) {
+    GTEST_SKIP() << "Feather V1 does not support list view types";
+  }
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(ipc::test::MakeListViewRecordBatchSized(600, &batch));
+  CheckSlices(batch);
+}
+
 INSTANTIATE_TEST_SUITE_P(
     FeatherTests, TestFeather,
     ::testing::Values(TestParam(kFeatherV1Version), TestParam(kFeatherV2Version),
@@ -329,9 +348,11 @@ namespace {
 const std::vector<test::MakeRecordBatch*> kBatchCases = {
     &ipc::test::MakeIntRecordBatch,
     &ipc::test::MakeListRecordBatch,
+    &ipc::test::MakeListViewRecordBatch,
     &ipc::test::MakeFixedSizeListRecordBatch,
     &ipc::test::MakeNonNullRecordBatch,
     &ipc::test::MakeDeeplyNestedList,
+    &ipc::test::MakeDeeplyNestedListView,
     &ipc::test::MakeStringTypesRecordBatchWithNulls,
     &ipc::test::MakeStruct,
     &ipc::test::MakeUnion,

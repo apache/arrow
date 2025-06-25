@@ -24,7 +24,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
@@ -80,6 +80,9 @@ class UnionNode : public ExecNode, public TracedNode {
     NoteInputReceived(batch);
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
+    if (inputs_.size() > 1) {
+      batch.index = compute::kUnsequencedIndex;
+    }
     return output_->InputReceived(this, std::move(batch));
   }
 

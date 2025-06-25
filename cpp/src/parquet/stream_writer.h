@@ -185,7 +185,7 @@ class PARQUET_EXPORT StreamWriter {
     writer->WriteBatch(kBatchSizeOne, &kDefLevelOne, &kRepLevelZero, &v);
 
     if (max_row_group_size_ > 0) {
-      row_group_size_ += writer->EstimatedBufferedValueBytes();
+      row_group_size_ += writer->estimated_buffered_value_bytes();
     }
     return *this;
   }

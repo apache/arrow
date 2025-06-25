@@ -353,7 +353,7 @@ test_that("suffix and implicit schema", {
   join_op <- inner_join(left_suf, right_suf, by = "key", suffix = c("_left", "_right"))
   output <- collect(join_op)
   impl_schema <- implicit_schema(join_op)
-  expect_equal(names(output), names(implicit_schema(join_op)))
+  expect_named(output, names(implicit_schema(join_op)))
 })
 
 test_that("summarize and join", {
@@ -439,5 +439,37 @@ test_that("full joins handle keep", {
       arrange(index) %>%
       collect(),
     small_dataset_df
+  )
+})
+
+left <- tibble::tibble(
+  x = c(1, NA, 3),
+)
+right <- tibble::tibble(
+  x = c(1, NA, 3),
+  y = c("a", "b", "c")
+)
+na_matches_na <- right
+na_matches_never <- tibble::tibble(
+  x = c(1, NA, 3),
+  y = c("a", NA, "c")
+)
+test_that("na_matches argument to join: na (default)", {
+  expect_equal(
+    arrow_table(left) %>%
+      left_join(right, by = "x", na_matches = "na") %>%
+      arrange(x) %>%
+      collect(),
+    na_matches_na %>% arrange(x)
+  )
+})
+
+test_that("na_matches argument to join: never", {
+  expect_equal(
+    arrow_table(left) %>%
+      left_join(right, by = "x", na_matches = "never") %>%
+      arrange(x) %>%
+      collect(),
+    na_matches_never %>% arrange(x)
   )
 })

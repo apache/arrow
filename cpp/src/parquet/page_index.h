@@ -19,15 +19,13 @@
 
 #include "arrow/io/interfaces.h"
 #include "parquet/encryption/type_fwd.h"
+#include "parquet/type_fwd.h"
 #include "parquet/types.h"
 
 #include <optional>
 #include <vector>
 
 namespace parquet {
-
-class EncodedStatistics;
-struct PageIndexLocation;
 
 /// \brief ColumnIndex is a proxy around format::ColumnIndex.
 class PARQUET_EXPORT ColumnIndex {
@@ -76,6 +74,18 @@ class PARQUET_EXPORT ColumnIndex {
 
   /// \brief A vector of page indices for non-null pages.
   virtual const std::vector<int32_t>& non_null_page_indices() const = 0;
+
+  /// \brief Whether definition level histogram is available.
+  virtual bool has_definition_level_histograms() const = 0;
+
+  /// \brief Whether repetition level histogram is available.
+  virtual bool has_repetition_level_histograms() const = 0;
+
+  /// \brief List of definition level histograms for each page concatenated together.
+  virtual const std::vector<int64_t>& definition_level_histograms() const = 0;
+
+  /// \brief List of repetition level histograms for each page concatenated together.
+  virtual const std::vector<int64_t>& repetition_level_histograms() const = 0;
 };
 
 /// \brief Typed implementation of ColumnIndex.
@@ -129,6 +139,10 @@ class PARQUET_EXPORT OffsetIndex {
 
   /// \brief A vector of locations for each data page in this column.
   virtual const std::vector<PageLocation>& page_locations() const = 0;
+
+  /// \brief A vector of unencoded/uncompressed size of each page for BYTE_ARRAY types,
+  /// or empty for other types.
+  virtual const std::vector<int64_t>& unencoded_byte_array_data_bytes() const = 0;
 };
 
 /// \brief Interface for reading the page index for a Parquet row group.
@@ -231,13 +245,13 @@ class PARQUET_EXPORT PageIndexReader {
                         const std::vector<int32_t>& column_indices,
                         const PageIndexSelection& selection) = 0;
 
-  /// \brief Advise the reader page index of these row groups will not be read any more.
+  /// \brief Advise the reader page index of these row groups will not be read anymore.
   ///
   /// The PageIndexReader implementation has the opportunity to cancel any prefetch or
   /// release resource that are related to these row groups.
   ///
   /// \param[in] row_group_indices list of row group ordinal that whose page index will
-  /// not be accessed any more.
+  /// not be accessed anymore.
   virtual void WillNotNeed(const std::vector<int32_t>& row_group_indices) = 0;
 
   /// \brief Determine the column index and offset index ranges for the given row group.
@@ -263,10 +277,12 @@ class PARQUET_EXPORT ColumnIndexBuilder {
   /// \brief Add statistics of a data page.
   ///
   /// If the ColumnIndexBuilder has seen any corrupted statistics, it will
-  /// not update statistics any more.
+  /// not update statistics anymore.
   ///
   /// \param stats Page statistics in the encoded form.
-  virtual void AddPage(const EncodedStatistics& stats) = 0;
+  /// \param size_stats Size statistics of the page if available.
+  virtual void AddPage(const EncodedStatistics& stats,
+                       const SizeStatistics& size_stats) = 0;
 
   /// \brief Complete the column index.
   ///
@@ -299,15 +315,13 @@ class PARQUET_EXPORT OffsetIndexBuilder {
 
   virtual ~OffsetIndexBuilder() = default;
 
-  /// \brief Add page location of a data page.
+  /// \brief Add page location and size stats of a data page.
   virtual void AddPage(int64_t offset, int32_t compressed_page_size,
-                       int64_t first_row_index) = 0;
+                       int64_t first_row_index,
+                       std::optional<int64_t> unencoded_byte_array_length = {}) = 0;
 
-  /// \brief Add page location of a data page.
-  void AddPage(const PageLocation& page_location) {
-    AddPage(page_location.offset, page_location.compressed_page_size,
-            page_location.first_row_index);
-  }
+  /// \brief Add page location and size stats of a data page.
+  void AddPage(const PageLocation& page_location, const SizeStatistics& size_stats);
 
   /// \brief Complete the offset index.
   ///

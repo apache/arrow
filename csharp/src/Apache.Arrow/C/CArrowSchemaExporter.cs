@@ -161,13 +161,21 @@ namespace Apache.Arrow.C
                 case FloatType _: return "f";
                 case DoubleType _: return "g";
                 // Decimal
+                case Decimal32Type decimalType:
+                    return $"d:{decimalType.Precision},{decimalType.Scale},32";
+                case Decimal64Type decimalType:
+                    return $"d:{decimalType.Precision},{decimalType.Scale},64";
                 case Decimal128Type decimalType:
                     return $"d:{decimalType.Precision},{decimalType.Scale}";
                 case Decimal256Type decimalType:
                     return $"d:{decimalType.Precision},{decimalType.Scale},256";
                 // Binary
                 case BinaryType _: return "z";
+                case BinaryViewType _: return "vz";
+                case LargeBinaryType _: return "Z";
                 case StringType _: return "u";
+                case StringViewType _: return "vu";
+                case LargeStringType _: return "U";
                 case FixedSizeBinaryType binaryType:
                     return $"w:{binaryType.ByteWidth}";
                 // Date
@@ -185,8 +193,19 @@ namespace Apache.Arrow.C
                 // Timestamp
                 case TimestampType timestampType:
                     return String.Format("ts{0}:{1}", FormatTimeUnit(timestampType.Unit), timestampType.Timezone);
+                // Interval
+                case IntervalType intervalType:
+                    return intervalType.Unit switch
+                    {
+                        IntervalUnit.YearMonth => "tiM",
+                        IntervalUnit.DayTime => "tiD",
+                        IntervalUnit.MonthDayNanosecond => "tin",
+                        _ => throw new InvalidDataException($"Unsupported interval unit for export: {intervalType.Unit}"),
+                    };
                 // Nested
                 case ListType _: return "+l";
+                case ListViewType _: return "+vl";
+                case LargeListType _: return "+L";
                 case FixedSizeListType fixedListType:
                     return $"+w:{fixedListType.ListSize}";
                 case StructType _: return "+s";
@@ -196,7 +215,7 @@ namespace Apache.Arrow.C
                 case DictionaryType dictionaryType:
                     return GetFormat(dictionaryType.IndexType);
                 default: throw new NotImplementedException($"Exporting {datatype.Name} not implemented");
-            };
+            }
         }
 
         private static long GetFlags(IArrowType datatype, bool nullable = true)

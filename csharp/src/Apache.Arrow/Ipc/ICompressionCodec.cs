@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System;
+using System.IO;
 
 namespace Apache.Arrow.Ipc
 {
@@ -29,5 +30,19 @@ namespace Apache.Arrow.Ipc
         /// <param name="destination">Data buffer to write decompressed data to</param>
         /// <returns>The number of decompressed bytes written into the destination</returns>
         int Decompress(ReadOnlyMemory<byte> source, Memory<byte> destination);
+
+        /// <summary>
+        /// Write compressed data
+        /// </summary>
+        /// <param name="source">The data to compress</param>
+        /// <param name="destination">The stream to write compressed data to</param>
+        void Compress(ReadOnlyMemory<byte> source, Stream destination)
+#if NET6_0_OR_GREATER
+        {
+            throw new NotImplementedException("This codec does not support compression");
+        }
+#else
+        ;
+#endif
     }
 }

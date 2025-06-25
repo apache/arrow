@@ -225,11 +225,12 @@ class Tester:
         self.args = args
         self.debug = debug
 
-    def run_shell_command(self, cmd):
+    def run_shell_command(self, cmd, **kwargs):
         cmd = ' '.join(cmd)
         if self.debug:
             log(cmd)
-        subprocess.check_call(cmd, shell=True)
+        kwargs.update(shell=True)
+        subprocess.check_call(cmd, **kwargs)
 
     def json_to_file(self, json_path, arrow_path):
         """

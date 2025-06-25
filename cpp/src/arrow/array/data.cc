@@ -27,14 +27,17 @@
 
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
+#include "arrow/device.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/binary_view_util.h"
 #include "arrow/util/bitmap_ops.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/dict_util_internal.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/range.h"
 #include "arrow/util/ree_util.h"
 #include "arrow/util/slice_util_internal.h"
 #include "arrow/util/union_util.h"
@@ -50,7 +53,7 @@ static inline void AdjustNonNullable(Type::type type_id, int64_t length,
   if (type_id == Type::NA) {
     *null_count = length;
     (*buffers)[0] = nullptr;
-  } else if (internal::HasValidityBitmap(type_id)) {
+  } else if (internal::may_have_validity_bitmap(type_id)) {
     if (*null_count == 0) {
       // In case there are no nulls, don't keep an allocated null bitmap around
       (*buffers)[0] = nullptr;
@@ -90,6 +93,10 @@ bool UnionMayHaveLogicalNulls(const ArrayData& data) {
 }
 
 bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data) {
+  return ArraySpan(data).MayHaveLogicalNulls();
+}
+
+bool DictionaryMayHaveLogicalNulls(const ArrayData& data) {
   return ArraySpan(data).MayHaveLogicalNulls();
 }
 
@@ -135,6 +142,45 @@ std::shared_ptr<ArrayData> ArrayData::Make(std::shared_ptr<DataType> type, int64
   return std::make_shared<ArrayData>(std::move(type), length, null_count, offset);
 }
 
+namespace {
+template <typename Fn>
+Result<std::shared_ptr<ArrayData>> CopyToImpl(const ArrayData& data,
+                                              const std::shared_ptr<MemoryManager>& to,
+                                              Fn&& copy_fn) {
+  auto output = ArrayData::Make(data.type, data.length, data.null_count, data.offset);
+  output->buffers.resize(data.buffers.size());
+  for (auto&& [buf, out_buf] : internal::Zip(data.buffers, output->buffers)) {
+    if (buf) {
+      ARROW_ASSIGN_OR_RAISE(out_buf, copy_fn(buf, to));
+    }
+  }
+
+  output->child_data.reserve(data.child_data.size());
+  for (const auto& child : data.child_data) {
+    ARROW_ASSIGN_OR_RAISE(auto copied, CopyToImpl(*child, to, copy_fn));
+    output->child_data.push_back(std::move(copied));
+  }
+
+  if (data.dictionary) {
+    ARROW_ASSIGN_OR_RAISE(output->dictionary, CopyToImpl(*data.dictionary, to, copy_fn));
+  }
+
+  output->statistics = data.statistics;
+
+  return output;
+}
+}  // namespace
+
+Result<std::shared_ptr<ArrayData>> ArrayData::CopyTo(
+    const std::shared_ptr<MemoryManager>& to) const {
+  return CopyToImpl(*this, to, MemoryManager::CopyBuffer);
+}
+
+Result<std::shared_ptr<ArrayData>> ArrayData::ViewOrCopyTo(
+    const std::shared_ptr<MemoryManager>& to) const {
+  return CopyToImpl(*this, to, Buffer::ViewOrCopy);
+}
+
 std::shared_ptr<ArrayData> ArrayData::Slice(int64_t off, int64_t len) const {
   ARROW_CHECK_LE(off, length) << "Slice offset (" << off
                               << ") greater than array length (" << length << ")";
@@ -151,6 +197,7 @@ std::shared_ptr<ArrayData> ArrayData::Slice(int64_t off, int64_t len) const {
   } else {
     copy->null_count = null_count != 0 ? kUnknownNullCount : 0;
   }
+  copy->statistics = nullptr;
   return copy;
 }
 
@@ -174,10 +221,58 @@ int64_t ArrayData::GetNullCount() const {
 }
 
 int64_t ArrayData::ComputeLogicalNullCount() const {
-  if (this->buffers[0]) {
+  if (this->buffers[0] && this->type->id() != Type::DICTIONARY) {
     return GetNullCount();
   }
   return ArraySpan(*this).ComputeLogicalNullCount();
+}
+
+DeviceAllocationType ArrayData::device_type() const {
+  // we're using 0 as a sentinel value for NOT YET ASSIGNED
+  // there is explicitly no constant DeviceAllocationType to represent
+  // the "UNASSIGNED" case as it is invalid for data to not have an
+  // assigned device type. If it's still 0 at the end, then we return
+  // CPU as the allocation device type
+  int type = 0;
+  for (const auto& buf : buffers) {
+    if (!buf) continue;
+#ifdef NDEBUG
+    return buf->device_type();
+#else
+    if (type == 0) {
+      type = static_cast<int>(buf->device_type());
+    } else {
+      DCHECK_EQ(type, static_cast<int>(buf->device_type()));
+    }
+#endif
+  }
+
+  for (const auto& child : child_data) {
+    if (!child) continue;
+#ifdef NDEBUG
+    return child->device_type();
+#else
+    if (type == 0) {
+      type = static_cast<int>(child->device_type());
+    } else {
+      DCHECK_EQ(type, static_cast<int>(child->device_type()));
+    }
+#endif
+  }
+
+  if (dictionary) {
+#ifdef NDEBUG
+    return dictionary->device_type();
+#else
+    if (type == 0) {
+      type = static_cast<int>(dictionary->device_type());
+    } else {
+      DCHECK_EQ(type, static_cast<int>(dictionary->device_type()));
+    }
+#endif
+  }
+
+  return type == 0 ? DeviceAllocationType::kCPU : static_cast<DeviceAllocationType>(type);
 }
 
 // ----------------------------------------------------------------------
@@ -216,7 +311,7 @@ void ArraySpan::SetMembers(const ArrayData& data) {
     this->null_count = 0;
   }
 
-  // Makes sure any other buffers are seen as null / non-existent
+  // Makes sure any other buffers are seen as null / nonexistent
   for (int i = static_cast<int>(data.buffers.size()); i < 3; ++i) {
     this->buffers[i] = {};
   }
@@ -239,12 +334,15 @@ void ArraySpan::SetMembers(const ArrayData& data) {
 
 namespace {
 
-template <typename offset_type>
-BufferSpan OffsetsForScalar(uint8_t* scratch_space, offset_type value_size) {
-  auto* offsets = reinterpret_cast<offset_type*>(scratch_space);
-  offsets[0] = 0;
-  offsets[1] = static_cast<offset_type>(value_size);
-  return {scratch_space, sizeof(offset_type) * 2};
+BufferSpan OffsetsForScalar(uint8_t* scratch_space, int64_t offset_width) {
+  return {scratch_space, offset_width * 2};
+}
+
+std::pair<BufferSpan, BufferSpan> OffsetsAndSizesForScalar(uint8_t* scratch_space,
+                                                           int64_t offset_width) {
+  auto* offsets = scratch_space;
+  auto* sizes = scratch_space + offset_width;
+  return {BufferSpan{offsets, offset_width}, BufferSpan{sizes, offset_width}};
 }
 
 int GetNumBuffers(const DataType& type) {
@@ -261,6 +359,8 @@ int GetNumBuffers(const DataType& type) {
     case Type::STRING_VIEW:
     case Type::BINARY_VIEW:
     case Type::DENSE_UNION:
+    case Type::LIST_VIEW:
+    case Type::LARGE_LIST_VIEW:
       return 3;
     case Type::EXTENSION:
       // The number of buffers depends on the storage type
@@ -286,7 +386,7 @@ void FillZeroLengthArray(const DataType* type, ArraySpan* span) {
     span->buffers[i].size = 0;
   }
 
-  if (!HasValidityBitmap(type->id())) {
+  if (!may_have_validity_bitmap(type->id())) {
     span->buffers[0] = {};
   }
 
@@ -321,7 +421,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
 
   if (type_id == Type::NA) {
     this->null_count = 1;
-  } else if (!internal::HasValidityBitmap(type_id)) {
+  } else if (!internal::may_have_validity_bitmap(type_id)) {
     this->null_count = 0;
   } else {
     // Populate null count and validity bitmap
@@ -356,40 +456,35 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       data_size = scalar.value->size();
     }
     if (is_binary_like(type_id)) {
-      this->buffers[1] =
-          OffsetsForScalar(scalar.scratch_space_, static_cast<int32_t>(data_size));
+      const auto& binary_scalar = checked_cast<const BinaryScalar&>(value);
+      this->buffers[1] = OffsetsForScalar(binary_scalar.scratch_space_, sizeof(int32_t));
     } else {
       // is_large_binary_like
-      this->buffers[1] = OffsetsForScalar(scalar.scratch_space_, data_size);
+      const auto& large_binary_scalar = checked_cast<const LargeBinaryScalar&>(value);
+      this->buffers[1] =
+          OffsetsForScalar(large_binary_scalar.scratch_space_, sizeof(int64_t));
     }
     this->buffers[2].data = const_cast<uint8_t*>(data_buffer);
     this->buffers[2].size = data_size;
   } else if (type_id == Type::BINARY_VIEW || type_id == Type::STRING_VIEW) {
-    const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
+    const auto& scalar = checked_cast<const BinaryViewScalar&>(value);
 
     this->buffers[1].size = BinaryViewType::kSize;
     this->buffers[1].data = scalar.scratch_space_;
-    static_assert(sizeof(BinaryViewType::c_type) <= sizeof(scalar.scratch_space_));
-    auto* view = new (&scalar.scratch_space_) BinaryViewType::c_type;
     if (scalar.is_valid) {
-      *view = util::ToBinaryView(std::string_view{*scalar.value}, 0, 0);
       this->buffers[2] = internal::PackVariadicBuffers({&scalar.value, 1});
-    } else {
-      *view = {};
     }
   } else if (type_id == Type::FIXED_SIZE_BINARY) {
     const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
     this->buffers[1].data = const_cast<uint8_t*>(scalar.value->data());
     this->buffers[1].size = scalar.value->size();
-  } else if (is_list_like(type_id)) {
+  } else if (is_var_length_list_like(type_id) || type_id == Type::FIXED_SIZE_LIST) {
     const auto& scalar = checked_cast<const BaseListScalar&>(value);
 
-    int64_t value_length = 0;
     this->child_data.resize(1);
     if (scalar.value != nullptr) {
       // When the scalar is null, scalar.value can also be null
       this->child_data[0].SetMembers(*scalar.value->data());
-      value_length = scalar.value->length();
     } else {
       // Even when the value is null, we still must populate the
       // child_data to yield a valid array. Tedious
@@ -397,12 +492,27 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
                                     &this->child_data[0]);
     }
 
-    if (type_id == Type::LIST || type_id == Type::MAP) {
-      this->buffers[1] =
-          OffsetsForScalar(scalar.scratch_space_, static_cast<int32_t>(value_length));
+    if (type_id == Type::LIST) {
+      const auto& list_scalar = checked_cast<const ListScalar&>(value);
+      this->buffers[1] = OffsetsForScalar(list_scalar.scratch_space_, sizeof(int32_t));
+    } else if (type_id == Type::MAP) {
+      const auto& map_scalar = checked_cast<const MapScalar&>(value);
+      this->buffers[1] = OffsetsForScalar(map_scalar.scratch_space_, sizeof(int32_t));
     } else if (type_id == Type::LARGE_LIST) {
-      this->buffers[1] = OffsetsForScalar(scalar.scratch_space_, value_length);
+      const auto& large_list_scalar = checked_cast<const LargeListScalar&>(value);
+      this->buffers[1] =
+          OffsetsForScalar(large_list_scalar.scratch_space_, sizeof(int64_t));
+    } else if (type_id == Type::LIST_VIEW) {
+      const auto& list_view_scalar = checked_cast<const ListViewScalar&>(value);
+      std::tie(this->buffers[1], this->buffers[2]) =
+          OffsetsAndSizesForScalar(list_view_scalar.scratch_space_, sizeof(int32_t));
+    } else if (type_id == Type::LARGE_LIST_VIEW) {
+      const auto& large_list_view_scalar =
+          checked_cast<const LargeListViewScalar&>(value);
+      std::tie(this->buffers[1], this->buffers[2]) = OffsetsAndSizesForScalar(
+          large_list_view_scalar.scratch_space_, sizeof(int64_t));
     } else {
+      DCHECK_EQ(type_id, Type::FIXED_SIZE_LIST);
       // FIXED_SIZE_LIST: does not have a second buffer
       this->buffers[1] = {};
     }
@@ -414,27 +524,19 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       this->child_data[i].FillFromScalar(*scalar.value[i]);
     }
   } else if (is_union(type_id)) {
-    // Dense union needs scratch space to store both offsets and a type code
-    struct UnionScratchSpace {
-      alignas(int64_t) int8_t type_code;
-      alignas(int64_t) uint8_t offsets[sizeof(int32_t) * 2];
-    };
-    static_assert(sizeof(UnionScratchSpace) <= sizeof(UnionScalar::scratch_space_));
-    auto* union_scratch_space = reinterpret_cast<UnionScratchSpace*>(
-        &checked_cast<const UnionScalar&>(value).scratch_space_);
-
     // First buffer is kept null since unions have no validity vector
     this->buffers[0] = {};
-
-    union_scratch_space->type_code = checked_cast<const UnionScalar&>(value).type_code;
-    this->buffers[1].data = reinterpret_cast<uint8_t*>(&union_scratch_space->type_code);
-    this->buffers[1].size = 1;
 
     this->child_data.resize(this->type->num_fields());
     if (type_id == Type::DENSE_UNION) {
       const auto& scalar = checked_cast<const DenseUnionScalar&>(value);
-      this->buffers[2] =
-          OffsetsForScalar(union_scratch_space->offsets, static_cast<int32_t>(1));
+      auto* union_scratch_space =
+          reinterpret_cast<UnionScalar::UnionScratchSpace*>(&scalar.scratch_space_);
+
+      this->buffers[1].data = reinterpret_cast<uint8_t*>(&union_scratch_space->type_code);
+      this->buffers[1].size = 1;
+
+      this->buffers[2] = OffsetsForScalar(union_scratch_space->offsets, sizeof(int32_t));
       // We can't "see" the other arrays in the union, but we put the "active"
       // union array in the right place and fill zero-length arrays for the
       // others
@@ -451,6 +553,12 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       }
     } else {
       const auto& scalar = checked_cast<const SparseUnionScalar&>(value);
+      auto* union_scratch_space =
+          reinterpret_cast<UnionScalar::UnionScratchSpace*>(&scalar.scratch_space_);
+
+      this->buffers[1].data = reinterpret_cast<uint8_t*>(&union_scratch_space->type_code);
+      this->buffers[1].size = 1;
+
       // Sparse union scalars have a full complement of child values even
       // though only one of them is relevant, so we just fill them in here
       for (int i = 0; i < static_cast<int>(this->child_data.size()); ++i) {
@@ -475,7 +583,6 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       e.null_count = 0;
       e.buffers[1].data = scalar.scratch_space_;
       e.buffers[1].size = sizeof(run_end);
-      reinterpret_cast<decltype(run_end)*>(scalar.scratch_space_)[0] = run_end;
     };
 
     switch (scalar.run_end_type()->id()) {
@@ -519,6 +626,9 @@ int64_t ArraySpan::ComputeLogicalNullCount() const {
   }
   if (t == Type::RUN_END_ENCODED) {
     return ree_util::LogicalNullCount(*this);
+  }
+  if (t == Type::DICTIONARY) {
+    return dict_util::LogicalNullCount(*this);
   }
   return GetNullCount();
 }
@@ -568,7 +678,7 @@ std::shared_ptr<ArrayData> ArraySpan::ToArrayData() const {
 util::span<const std::shared_ptr<Buffer>> ArraySpan::GetVariadicBuffers() const {
   DCHECK(HasVariadicBuffers());
   return {buffers[2].data_as<std::shared_ptr<Buffer>>(),
-          buffers[2].size / sizeof(std::shared_ptr<Buffer>)};
+          static_cast<size_t>(buffers[2].size) / sizeof(std::shared_ptr<Buffer>)};
 }
 
 bool ArraySpan::HasVariadicBuffers() const {
@@ -615,6 +725,10 @@ bool ArraySpan::UnionMayHaveLogicalNulls() const {
 
 bool ArraySpan::RunEndEncodedMayHaveLogicalNulls() const {
   return ree_util::ValuesArray(*this).MayHaveLogicalNulls();
+}
+
+bool ArraySpan::DictionaryMayHaveLogicalNulls() const {
+  return this->GetNullCount() != 0 || this->dictionary().GetNullCount() != 0;
 }
 
 // ----------------------------------------------------------------------

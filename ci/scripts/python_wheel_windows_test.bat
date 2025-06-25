@@ -24,39 +24,39 @@ set PYARROW_TEST_FLIGHT=ON
 set PYARROW_TEST_GANDIVA=OFF
 set PYARROW_TEST_GCS=ON
 set PYARROW_TEST_HDFS=ON
-set PYARROW_TEST_ORC=OFF
+set PYARROW_TEST_ORC=ON
+set PYARROW_TEST_PANDAS=ON
 set PYARROW_TEST_PARQUET=ON
+set PYARROW_TEST_PARQUET_ENCRYPTION=ON
 set PYARROW_TEST_SUBSTRAIT=ON
-set PYARROW_TEST_S3=OFF
+set PYARROW_TEST_S3=ON
 set PYARROW_TEST_TENSORFLOW=ON
 
-@REM Enable again once https://github.com/scipy/oldest-supported-numpy/pull/27 gets merged
-@REM set PYARROW_TEST_PANDAS=ON
-
 set ARROW_TEST_DATA=C:\arrow\testing\data
-set PARQUET_TEST_DATA=C:\arrow\submodules\parquet-testing\data
+set PARQUET_TEST_DATA=C:\arrow\cpp\submodules\parquet-testing\data
 
-@REM Install testing dependencies
-pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
-
-@REM Install GCS testbench
-call "C:\arrow\ci\scripts\install_gcs_testbench.bat"
+@REM List installed Pythons
+py -0p
 
 @REM Install the built wheels
-python -m pip install --no-index --find-links=C:\arrow\python\dist\ pyarrow || exit /B 1 
+%PYTHON_CMD% -m pip install --no-index --find-links=C:\arrow\python\repaired_wheels pyarrow || exit /B 1
 
 @REM Test that the modules are importable
-python -c "import pyarrow" || exit /B 1
-python -c "import pyarrow._gcsfs" || exit /B 1
-python -c "import pyarrow._hdfs" || exit /B 1 
-python -c "import pyarrow._s3fs" || exit /B 1
-python -c "import pyarrow.csv" || exit /B 1
-python -c "import pyarrow.dataset" || exit /B 1
-python -c "import pyarrow.flight" || exit /B 1
-python -c "import pyarrow.fs" || exit /B 1
-python -c "import pyarrow.json" || exit /B 1
-python -c "import pyarrow.parquet" || exit /B 1
-python -c "import pyarrow.substrait" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow._gcsfs" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow._hdfs" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow._s3fs" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow.csv" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow.dataset" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow.flight" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow.fs" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow.json" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow.orc" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow.parquet" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow.substrait" || exit /B 1
+
+@REM Validate wheel contents
+%PYTHON_CMD% C:\arrow\ci\scripts\python_wheel_validate_contents.py --path C:\arrow\python\repaired_wheels || exit /B 1
 
 @REM Execute unittest
-pytest -r s --pyargs pyarrow || exit /B 1
+%PYTHON_CMD% -m pytest -r s --pyargs pyarrow || exit /B 1

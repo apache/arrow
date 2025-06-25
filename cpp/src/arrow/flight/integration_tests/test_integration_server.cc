@@ -40,7 +40,7 @@
 #include "arrow/flight/test_util.h"
 
 DEFINE_int32(port, 31337, "Server port to listen on");
-DEFINE_string(scenario, "", "Integration test senario to run");
+DEFINE_string(scenario, "", "Integration test scenario to run");
 
 namespace arrow {
 namespace flight {

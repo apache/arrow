@@ -60,6 +60,8 @@ class ARROW_TESTING_EXPORT TrackedRandomAccessFile : public io::RandomAccessFile
   virtual int64_t num_reads() const = 0;
   virtual int64_t bytes_read() const = 0;
   virtual const std::vector<io::ReadRange>& get_read_ranges() const = 0;
+  virtual void ResetStats() = 0;
+
   static std::unique_ptr<TrackedRandomAccessFile> Make(io::RandomAccessFile* target);
 };
 

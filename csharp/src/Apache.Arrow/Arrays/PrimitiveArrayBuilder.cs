@@ -20,7 +20,7 @@ using System.Linq;
 
 namespace Apache.Arrow
 {
-    public abstract class PrimitiveArrayBuilder<TFrom, TTo, TArray, TBuilder> : IArrowArrayBuilder<TArray, TBuilder>
+    public abstract class PrimitiveArrayBuilder<TFrom, TTo, TArray, TBuilder> : IArrowArrayBuilder<TFrom, TArray, TBuilder>
         where TTo : struct
         where TArray : IArrowArray
         where TBuilder : class, IArrowArrayBuilder<TArray>
@@ -30,7 +30,7 @@ namespace Apache.Arrow
 
         public int Length => ArrayBuilder.Length;
 
-        internal PrimitiveArrayBuilder(IArrowArrayBuilder<TTo, TArray, IArrowArrayBuilder<TArray>> builder)
+        public PrimitiveArrayBuilder(IArrowArrayBuilder<TTo, TArray, IArrowArrayBuilder<TArray>> builder)
         {
             ArrayBuilder = builder ?? throw new ArgumentNullException(nameof(builder));
         }
@@ -110,7 +110,7 @@ namespace Apache.Arrow
         public int Length => ValueBuffer.Length;
         protected int NullCount => ValidityBuffer.UnsetBitCount;
 
-        internal PrimitiveArrayBuilder()
+        public PrimitiveArrayBuilder()
         {
             ValueBuffer = new ArrowBuffer.Builder<T>();
             ValidityBuffer = new ArrowBuffer.BitmapBuilder();

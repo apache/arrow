@@ -15,19 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/counting_semaphore.h"
+#include "arrow/util/counting_semaphore_internal.h"
 
 #include <atomic>
 #include <thread>
 #include <vector>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/config.h"
 #include "gtest/gtest.h"
 
 namespace arrow {
 namespace util {
 
 TEST(CountingSemaphore, Basic) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   CountingSemaphore semaphore;
   std::atomic<bool> acquired{false};
   std::atomic<bool> started{false};
@@ -50,6 +55,10 @@ TEST(CountingSemaphore, Basic) {
 }
 
 TEST(CountingSemaphore, CloseAborts) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   CountingSemaphore semaphore;
   std::atomic<bool> cleanup{false};
   std::thread acquirer([&] {
@@ -64,6 +73,10 @@ TEST(CountingSemaphore, CloseAborts) {
 }
 
 TEST(CountingSemaphore, Stress) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   constexpr uint32_t NTHREADS = 10;
   CountingSemaphore semaphore;
   std::vector<uint32_t> max_allowed_cases = {1, 3};

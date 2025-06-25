@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.25)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
 # https://www.cmake.org/cmake/help/latest/policy/CMP0025.html
@@ -56,6 +56,11 @@ cmake_policy(SET CMP0068 NEW)
 # find_package() uses <PackageName>_ROOT variables.
 cmake_policy(SET CMP0074 NEW)
 
+# https://cmake.org/cmake/help/latest/policy/CMP0077.html
+#
+# option() honors normal variables.
+cmake_policy(SET CMP0077 NEW)
+
 # https://cmake.org/cmake/help/latest/policy/CMP0091.html
 #
 # MSVC runtime library flags are selected by an abstraction.
@@ -71,12 +76,27 @@ if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
 
-set(ARROW_VERSION "15.0.0-SNAPSHOT")
+# https://cmake.org/cmake/help/latest/policy/CMP0167.html
+#
+# Use Boost's CMake packages instead of FindBoost.cmake in CMake.
+if(POLICY CMP0167)
+  cmake_policy(SET CMP0167 NEW)
+endif()
+
+# https://cmake.org/cmake/help/latest/policy/CMP0170.html
+#
+# CMP0170 is for enforcing dependency populations by users with
+# FETCHCONTENT_FULLY_DISCONNECTED=ON.
+if(POLICY CMP0170)
+  cmake_policy(SET CMP0170 NEW)
+endif()
+
+set(ARROW_VERSION "21.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
-# if no build build type is specified, default to release builds
-if(NOT DEFINED CMAKE_BUILD_TYPE)
+# if no build type is specified, default to release builds
+if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE
       Release
       CACHE STRING "Choose the type of build.")
@@ -84,7 +104,7 @@ endif()
 string(TOLOWER ${CMAKE_BUILD_TYPE} LOWERCASE_BUILD_TYPE)
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
 
 # this must be included before the project() command, because of the way
 # vcpkg (ab)uses CMAKE_TOOLCHAIN_FILE to inject its logic into CMake
@@ -152,6 +172,9 @@ set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
 set(ARROW_LLVM_VERSIONS
+    "20.1"
+    "19.1"
+    "18.1"
     "17.0"
     "16.0"
     "15.0"
@@ -190,7 +213,7 @@ if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1"
   set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 endif()
 
-# Needed for linting targets, etc.
+# Needed for Gandiva.
 # Use the first Python installation on PATH, not the newest one
 set(Python3_FIND_STRATEGY "LOCATION")
 # On Windows, use registry last, not first
@@ -255,125 +278,8 @@ if(ARROW_USE_CCACHE
 endif()
 
 if(ARROW_OPTIONAL_INSTALL)
-  # Don't make the "install" target depend on the "all" target
-  set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)
-
   set(INSTALL_IS_OPTIONAL OPTIONAL)
 endif()
-
-#
-# "make lint" target
-#
-if(NOT ARROW_VERBOSE_LINT)
-  set(ARROW_LINT_QUIET "--quiet")
-endif()
-
-if(NOT LINT_EXCLUSIONS_FILE)
-  # source files matching a glob from a line in this file
-  # will be excluded from linting (cpplint, clang-tidy, clang-format)
-  set(LINT_EXCLUSIONS_FILE ${BUILD_SUPPORT_DIR}/lint_exclusions.txt)
-endif()
-
-find_program(CPPLINT_BIN
-             NAMES cpplint cpplint.py
-             HINTS ${BUILD_SUPPORT_DIR})
-message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
-
-set(COMMON_LINT_OPTIONS
-    --exclude_globs
-    ${LINT_EXCLUSIONS_FILE}
-    --source_dir
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    --source_dir
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples
-    --source_dir
-    ${CMAKE_CURRENT_SOURCE_DIR}/tools)
-
-add_custom_target(lint
-                  ${PYTHON_EXECUTABLE}
-                  ${BUILD_SUPPORT_DIR}/run_cpplint.py
-                  --cpplint_binary
-                  ${CPPLINT_BIN}
-                  ${COMMON_LINT_OPTIONS}
-                  ${ARROW_LINT_QUIET})
-
-#
-# "make format" and "make check-format" targets
-#
-if(${CLANG_FORMAT_FOUND})
-  # runs clang format and updates files in place.
-  add_custom_target(format
-                    ${PYTHON_EXECUTABLE}
-                    ${BUILD_SUPPORT_DIR}/run_clang_format.py
-                    --clang_format_binary
-                    ${CLANG_FORMAT_BIN}
-                    ${COMMON_LINT_OPTIONS}
-                    --fix
-                    ${ARROW_LINT_QUIET})
-
-  # runs clang format and exits with a non-zero exit code if any files need to be reformatted
-  add_custom_target(check-format
-                    ${PYTHON_EXECUTABLE}
-                    ${BUILD_SUPPORT_DIR}/run_clang_format.py
-                    --clang_format_binary
-                    ${CLANG_FORMAT_BIN}
-                    ${COMMON_LINT_OPTIONS}
-                    ${ARROW_LINT_QUIET})
-endif()
-
-add_custom_target(lint_cpp_cli ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/lint_cpp_cli.py
-                               ${CMAKE_CURRENT_SOURCE_DIR}/src)
-
-if(ARROW_LINT_ONLY)
-  message("ARROW_LINT_ONLY was specified, this is only a partial build directory")
-  return()
-endif()
-
-#
-# "make clang-tidy" and "make check-clang-tidy" targets
-#
-if(${CLANG_TIDY_FOUND})
-  # TODO check to make sure .clang-tidy is being respected
-
-  # runs clang-tidy and attempts to fix any warning automatically
-  add_custom_target(clang-tidy
-                    ${PYTHON_EXECUTABLE}
-                    ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
-                    --clang_tidy_binary
-                    ${CLANG_TIDY_BIN}
-                    --compile_commands
-                    ${CMAKE_BINARY_DIR}/compile_commands.json
-                    ${COMMON_LINT_OPTIONS}
-                    --fix
-                    ${ARROW_LINT_QUIET})
-
-  # runs clang-tidy and exits with a non-zero exit code if any errors are found.
-  add_custom_target(check-clang-tidy
-                    ${PYTHON_EXECUTABLE}
-                    ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
-                    --clang_tidy_binary
-                    ${CLANG_TIDY_BIN}
-                    --compile_commands
-                    ${CMAKE_BINARY_DIR}/compile_commands.json
-                    ${COMMON_LINT_OPTIONS}
-                    ${ARROW_LINT_QUIET})
-endif()
-
-if(UNIX)
-  add_custom_target(iwyu
-                    ${CMAKE_COMMAND}
-                    -E
-                    env
-                    "PYTHON=${PYTHON_EXECUTABLE}"
-                    ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh)
-  add_custom_target(iwyu-all
-                    ${CMAKE_COMMAND}
-                    -E
-                    env
-                    "PYTHON=${PYTHON_EXECUTABLE}"
-                    ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh
-                    all)
-endif(UNIX)
 
 # datetime code used by iOS requires zlib support
 if(IOS)
@@ -433,10 +339,6 @@ endif()
 # Compiler flags
 #
 
-if(ARROW_NO_DEPRECATED_API)
-  add_definitions(-DARROW_NO_DEPRECATED_API)
-endif()
-
 if(ARROW_EXTRA_ERROR_CONTEXT)
   add_definitions(-DARROW_EXTRA_ERROR_CONTEXT)
 endif()
@@ -490,14 +392,10 @@ endif()
 
 # where to put generated archives (.a files)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-set(ARCHIVE_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-
 # where to put generated libraries (.so files)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-set(LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-
 # where to put generated binaries
-set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 if(CMAKE_GENERATOR STREQUAL Xcode)
   # Xcode projects support multi-configuration builds.  This forces a single output directory
@@ -520,22 +418,93 @@ enable_testing()
 # For arrow.pc. Cflags.private, Libs.private and Requires.private are
 # used when "pkg-config --cflags --libs --static arrow" is used.
 set(ARROW_PC_CFLAGS "")
-set(ARROW_PC_CFLAGS_PRIVATE " -DARROW_STATIC")
+set(ARROW_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  # We add -DARROW_STATIC only when static build is enabled because
+  # pkgconf 1.7.4 or later on Windows uses "--static" by default. If
+  # Cflags.private (-DARROW_STATIC) is used for shared linking, it
+  # will cause linke error. We recommend users to not use pkgconf for
+  # shared linking on Windows but we also provide a workaround here.
+  # If users don't enable ARROW_BUILD_STATIC, users can use pkgconf on
+  # Windows because Cflags.private is used but it has nothing.
+  string(APPEND ARROW_PC_CFLAGS_PRIVATE " -DARROW_STATIC")
+endif()
 set(ARROW_PC_LIBS_PRIVATE "")
 set(ARROW_PC_REQUIRES_PRIVATE "")
 
+# For arrow-acero.pc.
+set(ARROW_ACERO_PC_CFLAGS "")
+set(ARROW_ACERO_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_ACERO_PC_CFLAGS_PRIVATE " -DARROW_ACERO_STATIC")
+endif()
+
+# For arrow-compute.pc.
+set(ARROW_COMPUTE_PC_CFLAGS "")
+set(ARROW_COMPUTE_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_COMPUTE_PC_CFLAGS_PRIVATE " -DARROW_COMPUTE_STATIC")
+endif()
+
+# For arrow-cuda.pc.
+set(ARROW_CUDA_PC_CFLAGS "")
+set(ARROW_CUDA_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_CUDA_PC_CFLAGS_PRIVATE " -DARROW_CUDA_STATIC")
+endif()
+
+# For arrow-dataset.pc.
+set(ARROW_DATASET_PC_CFLAGS "")
+set(ARROW_DATASET_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_DATASET_PC_CFLAGS_PRIVATE " -DARROW_DS_STATIC")
+endif()
+
 # For arrow-flight.pc.
+set(ARROW_FLIGHT_PC_CFLAGS "")
+set(ARROW_FLIGHT_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_FLIGHT_PC_CFLAGS_PRIVATE " -DARROW_FLIGHT_STATIC")
+endif()
 set(ARROW_FLIGHT_PC_REQUIRES_PRIVATE "")
+
+# For arrow-flight-sql.pc.
+set(ARROW_FLIGHT_SQL_PC_CFLAGS "")
+set(ARROW_FLIGHT_SQL_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_FLIGHT_SQL_PC_CFLAGS_PRIVATE " -DARROW_FLIGHT_SQL_STATIC")
+endif()
+set(ARROW_FLIGHT_PC_REQUIRES_PRIVATE "")
+
+# For arrow-substrait.pc.
+set(ARROW_SUBSTRAIT_PC_CFLAGS "")
+set(ARROW_SUBSTRAIT_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_SUBSTRAIT_PC_CFLAGS_PRIVATE " -DARROW_ENGINE_STATIC")
+endif()
 
 # For arrow-testing.pc.
 set(ARROW_TESTING_PC_CFLAGS "")
-set(ARROW_TESTING_PC_CFLAGS_PRIVATE " -DARROW_TESTING_STATIC")
+set(ARROW_TESTING_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_TESTING_PC_CFLAGS_PRIVATE " -DARROW_TESTING_STATIC")
+endif()
 set(ARROW_TESTING_PC_LIBS "")
 set(ARROW_TESTING_PC_REQUIRES "")
 
+# For gandiva.pc.
+set(GANDIVA_PC_CFLAGS "")
+set(GANDIVA_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND GANDIVA_PC_CFLAGS_PRIVATE " -DGANDIVA_STATIC")
+endif()
+
 # For parquet.pc.
 set(PARQUET_PC_CFLAGS "")
-set(PARQUET_PC_CFLAGS_PRIVATE " -DPARQUET_STATIC")
+set(PARQUET_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND PARQUET_PC_CFLAGS_PRIVATE " -DPARQUET_STATIC")
+endif()
 set(PARQUET_PC_REQUIRES "")
 set(PARQUET_PC_REQUIRES_PRIVATE "")
 
@@ -682,305 +651,37 @@ if(${INFER_FOUND})
 endif()
 
 #
-# Linker and Dependencies
+# Link targets
 #
-
-# Libraries to link statically with libarrow.so.
-#
-# Note that arrow::hadoop is a header only target that refers
-# cpp/thirdparty/hadoop/include/. See
-# cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
-set(ARROW_SHARED_LINK_LIBS arrow::flatbuffers arrow::hadoop)
-set(ARROW_SHARED_INSTALL_INTERFACE_LIBS)
-set(ARROW_STATIC_LINK_LIBS arrow::flatbuffers arrow::hadoop)
-set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
-
-# We must use google-cloud-cpp::storage first. If
-# google-cloud-cpp::storage depends on bundled Abseil, bundled Abseil
-# and system Abseil may be mixed.
-#
-# For example, if Boost::headers is used before
-# google-cloud-cpp::storage AND Boost::headers has
-# -I/opt/homebrew/include AND /opt/homebrew/include/absl/ exists,
-# /opt/homebrew/include/absl/**/*.h are used instead of .h provided by
-# bundled Abseil.
-if(ARROW_GCS)
-  list(APPEND ARROW_SHARED_LINK_LIBS google-cloud-cpp::storage)
-  list(APPEND ARROW_STATIC_LINK_LIBS google-cloud-cpp::storage)
-  if(google_cloud_cpp_storage_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS google-cloud-cpp::storage)
-  endif()
-endif()
-
-if(ARROW_USE_BOOST)
-  list(APPEND ARROW_SHARED_LINK_LIBS Boost::headers)
-  list(APPEND ARROW_STATIC_LINK_LIBS Boost::headers)
-endif()
-
-if(ARROW_USE_OPENSSL)
-  set(ARROW_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
-  list(APPEND ARROW_SHARED_LINK_LIBS ${ARROW_OPENSSL_LIBS})
-  list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_OPENSSL_LIBS})
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_OPENSSL_LIBS})
-endif()
-
-if(ARROW_WITH_BROTLI)
-  # Order is important for static linking
-  set(ARROW_BROTLI_LIBS Brotli::brotlienc Brotli::brotlidec Brotli::brotlicommon)
-  list(APPEND ARROW_SHARED_LINK_LIBS ${ARROW_BROTLI_LIBS})
-  list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_BROTLI_LIBS})
-  if(Brotli_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_BROTLI_LIBS})
-  endif()
-endif()
-
-if(ARROW_WITH_BZ2)
-  list(APPEND ARROW_STATIC_LINK_LIBS BZip2::BZip2)
-  if(BZip2_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS BZip2::BZip2)
-  endif()
-endif()
-
-if(ARROW_WITH_LZ4)
-  list(APPEND ARROW_STATIC_LINK_LIBS LZ4::lz4)
-  if(lz4_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS LZ4::lz4)
-  endif()
-endif()
-
-if(ARROW_WITH_SNAPPY)
-  list(APPEND ARROW_STATIC_LINK_LIBS ${Snappy_TARGET})
-  if(Snappy_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${Snappy_TARGET})
-  endif()
-endif()
-
-if(ARROW_WITH_ZLIB)
-  list(APPEND ARROW_STATIC_LINK_LIBS ZLIB::ZLIB)
-  if(ZLIB_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ZLIB::ZLIB)
-  endif()
-endif()
-
-if(ARROW_WITH_ZSTD)
-  list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_ZSTD_LIBZSTD})
-  if(zstd_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_ZSTD_LIBZSTD})
-  endif()
-endif()
-
-if(ARROW_ORC)
-  list(APPEND ARROW_SHARED_LINK_LIBS orc::orc ${ARROW_PROTOBUF_LIBPROTOBUF})
-  list(APPEND ARROW_STATIC_LINK_LIBS orc::orc ${ARROW_PROTOBUF_LIBPROTOBUF})
-  if(ORC_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS orc::orc
-         ${ARROW_PROTOBUF_LIBPROTOBUF})
-  endif()
-endif()
-
-if(ARROW_USE_GLOG)
-  list(APPEND ARROW_SHARED_LINK_LIBS glog::glog)
-  list(APPEND ARROW_STATIC_LINK_LIBS glog::glog)
-  if(GLOG_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS glog::glog)
-  endif()
-  add_definitions("-DARROW_USE_GLOG")
-endif()
-
-if(ARROW_S3)
-  list(APPEND ARROW_SHARED_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
-  list(APPEND ARROW_STATIC_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
-  if(AWSSDK_SOURCE STREQUAL "SYSTEM")
-    list(APPEND
-         ARROW_STATIC_INSTALL_INTERFACE_LIBS
-         aws-cpp-sdk-identity-management
-         aws-cpp-sdk-sts
-         aws-cpp-sdk-cognito-identity
-         aws-cpp-sdk-s3
-         aws-cpp-sdk-core)
-  elseif(AWSSDK_SOURCE STREQUAL "BUNDLED")
-    if(UNIX)
-      list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
-    endif()
-  endif()
-endif()
-
-if(ARROW_WITH_OPENTELEMETRY)
-  list(APPEND
-       ARROW_SHARED_LINK_LIBS
-       opentelemetry-cpp::trace
-       opentelemetry-cpp::ostream_span_exporter
-       opentelemetry-cpp::otlp_http_exporter)
-  list(APPEND
-       ARROW_STATIC_LINK_LIBS
-       opentelemetry-cpp::trace
-       opentelemetry-cpp::ostream_span_exporter
-       opentelemetry-cpp::otlp_http_exporter)
-  if(opentelemetry_SOURCE STREQUAL "SYSTEM")
-    list(APPEND
-         ARROW_STATIC_INSTALL_INTERFACE_LIBS
-         opentelemetry-cpp::trace
-         opentelemetry-cpp::ostream_span_exporter
-         opentelemetry-cpp::otlp_http_exporter)
-  endif()
-  if(Protobuf_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
-  endif()
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
-endif()
-
-if(ARROW_WITH_AZURE_SDK)
-  list(APPEND ARROW_SHARED_LINK_LIBS ${AZURE_SDK_LINK_LIBRARIES})
-  list(APPEND ARROW_STATIC_LINK_LIBS ${AZURE_SDK_LINK_LIBRARIES})
-endif()
-
-if(ARROW_WITH_UTF8PROC)
-  list(APPEND ARROW_SHARED_LINK_LIBS utf8proc::utf8proc)
-  list(APPEND ARROW_STATIC_LINK_LIBS utf8proc::utf8proc)
-  if(utf8proc_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS utf8proc::utf8proc)
-  endif()
-endif()
-
-if(ARROW_WITH_RE2)
-  list(APPEND ARROW_SHARED_LINK_LIBS re2::re2)
-  list(APPEND ARROW_STATIC_LINK_LIBS re2::re2)
-  if(re2_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS re2::re2)
-  endif()
-endif()
-
-if(ARROW_WITH_RAPIDJSON)
-  list(APPEND ARROW_SHARED_LINK_LIBS rapidjson::rapidjson)
-  list(APPEND ARROW_STATIC_LINK_LIBS rapidjson::rapidjson)
-endif()
-
-if(ARROW_USE_XSIMD)
-  list(APPEND ARROW_SHARED_LINK_LIBS ${ARROW_XSIMD})
-  list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_XSIMD})
-endif()
-
-add_custom_target(arrow_dependencies)
-add_custom_target(arrow_benchmark_dependencies)
-add_custom_target(arrow_test_dependencies)
-
-# ARROW-4581: CMake can be finicky about invoking the ExternalProject builds
-# for some of the library dependencies, so we "nuke it from orbit" by making
-# the toolchain dependency explicit using these "dependencies" targets
-add_dependencies(arrow_dependencies toolchain)
-add_dependencies(arrow_test_dependencies toolchain-tests)
-
-if(ARROW_STATIC_LINK_LIBS)
-  add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
-  if(ARROW_HDFS OR ARROW_ORC)
-    if(Protobuf_SOURCE STREQUAL "SYSTEM")
-      list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
-    endif()
-    if(NOT MSVC_TOOLCHAIN)
-      list(APPEND ARROW_STATIC_LINK_LIBS ${CMAKE_DL_LIBS})
-      list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
-    endif()
-  endif()
-endif()
-
-set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
-
-if(NOT MSVC_TOOLCHAIN)
-  list(APPEND ARROW_SHARED_LINK_LIBS ${CMAKE_DL_LIBS})
-endif()
-
-set(ARROW_TEST_LINK_TOOLCHAIN arrow::flatbuffers ${ARROW_GTEST_GMOCK}
-                              ${ARROW_GTEST_GTEST_MAIN})
-
-if(ARROW_BUILD_TESTS)
-  add_dependencies(arrow_test_dependencies ${ARROW_TEST_LINK_TOOLCHAIN})
-endif()
-
-if(ARROW_BUILD_BENCHMARKS)
-  # Some benchmarks use gtest
-  add_dependencies(arrow_benchmark_dependencies arrow_test_dependencies
-                   toolchain-benchmarks)
-endif()
-
-set(ARROW_TEST_STATIC_LINK_LIBS arrow_testing_static arrow_static
-                                ${ARROW_SHARED_LINK_LIBS} ${ARROW_TEST_LINK_TOOLCHAIN})
-
-set(ARROW_TEST_SHARED_LINK_LIBS arrow_testing_shared arrow_shared
-                                ${ARROW_SHARED_LINK_LIBS} ${ARROW_TEST_LINK_TOOLCHAIN})
-
-if(NOT MSVC)
-  list(APPEND ARROW_TEST_SHARED_LINK_LIBS ${CMAKE_DL_LIBS})
-endif()
 
 if("${ARROW_TEST_LINKAGE}" STREQUAL "shared")
   if(ARROW_BUILD_TESTS AND NOT ARROW_BUILD_SHARED)
-    message(FATAL_ERROR "If using shared linkage for unit tests, must also \
+    message(FATAL_ERROR "If using ARROW_TEST_LINKAGE=shared, must also \
 pass ARROW_BUILD_SHARED=on")
   endif()
   # Use shared linking for unit tests if it's available
-  set(ARROW_TEST_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS})
+  set(ARROW_TEST_LINK_LIBS arrow_testing_shared)
   set(ARROW_EXAMPLE_LINK_LIBS arrow_shared)
 else()
   if(ARROW_BUILD_TESTS AND NOT ARROW_BUILD_STATIC)
     message(FATAL_ERROR "If using static linkage for unit tests, must also \
 pass ARROW_BUILD_STATIC=on")
   endif()
-  set(ARROW_TEST_LINK_LIBS ${ARROW_TEST_STATIC_LINK_LIBS})
+  set(ARROW_TEST_LINK_LIBS arrow_testing_static)
   set(ARROW_EXAMPLE_LINK_LIBS arrow_static)
 endif()
+# arrow::flatbuffers isn't needed for all tests but we specify it as
+# the first link library. It's for prioritizing bundled FlatBuffers
+# than system FlatBuffers.
+list(PREPEND ARROW_TEST_LINK_LIBS arrow::flatbuffers)
+list(APPEND ARROW_TEST_LINK_LIBS ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN})
 
 if(ARROW_BUILD_BENCHMARKS)
-  # In the case that benchmark::benchmark_main is not available,
-  # we need to provide our own version. This only happens for older versions
-  # of benchmark.
-  if(NOT TARGET benchmark::benchmark_main)
-    add_library(arrow_benchmark_main STATIC src/arrow/util/benchmark_main.cc)
-    add_library(benchmark::benchmark_main ALIAS arrow_benchmark_main)
-  endif()
-
-  set(ARROW_BENCHMARK_LINK_LIBS benchmark::benchmark_main benchmark::benchmark
-                                ${ARROW_TEST_LINK_LIBS})
+  set(ARROW_BENCHMARK_LINK_LIBS benchmark::benchmark_main ${ARROW_TEST_LINK_LIBS})
   if(WIN32)
-    set(ARROW_BENCHMARK_LINK_LIBS Shlwapi.dll ${ARROW_BENCHMARK_LINK_LIBS})
+    list(APPEND ARROW_BENCHMARK_LINK_LIBS shlwapi)
   endif()
 endif()
-
-if(ARROW_JEMALLOC)
-  list(APPEND ARROW_SHARED_LINK_LIBS jemalloc::jemalloc)
-  list(APPEND ARROW_STATIC_LINK_LIBS jemalloc::jemalloc)
-endif()
-
-if(ARROW_MIMALLOC)
-  add_definitions(-DARROW_MIMALLOC)
-  list(APPEND ARROW_SHARED_LINK_LIBS mimalloc::mimalloc)
-  list(APPEND ARROW_STATIC_LINK_LIBS mimalloc::mimalloc)
-endif()
-
-# ----------------------------------------------------------------------
-# Handle platform-related libraries like -pthread
-
-set(ARROW_SYSTEM_LINK_LIBS)
-
-if(ARROW_ENABLE_THREADING)
-  list(APPEND ARROW_SYSTEM_LINK_LIBS Threads::Threads)
-endif()
-if(CMAKE_THREAD_LIBS_INIT)
-  string(APPEND ARROW_PC_LIBS_PRIVATE " ${CMAKE_THREAD_LIBS_INIT}")
-endif()
-
-if(WIN32)
-  # Winsock
-  list(APPEND ARROW_SYSTEM_LINK_LIBS "ws2_32.dll")
-endif()
-
-if(NOT WIN32 AND NOT APPLE)
-  # Pass -lrt on Linux only
-  list(APPEND ARROW_SYSTEM_LINK_LIBS rt)
-endif()
-
-list(APPEND ARROW_SHARED_LINK_LIBS ${ARROW_SYSTEM_LINK_LIBS})
-list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_SYSTEM_LINK_LIBS})
-list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_SYSTEM_LINK_LIBS})
 
 #
 # Subdirectories

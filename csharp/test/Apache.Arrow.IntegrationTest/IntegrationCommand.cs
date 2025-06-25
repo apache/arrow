@@ -14,14 +14,9 @@
 // limitations under the License.
 
 using System;
-using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
-using System.Numerics;
-using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
-using Apache.Arrow.Arrays;
+using Apache.Arrow.Compression;
 using Apache.Arrow.Ipc;
 using Apache.Arrow.Tests;
 using Apache.Arrow.Types;
@@ -49,6 +44,7 @@ namespace Apache.Arrow.IntegrationTest
                 "json-to-arrow" => JsonToArrow,
                 "stream-to-file" => StreamToFile,
                 "file-to-stream" => FileToStream,
+                "round-trip-json-arrow" => RoundTripJsonArrow,
                 _ => () =>
                 {
                     Console.WriteLine($"Mode '{Mode}' is not supported.");
@@ -58,12 +54,21 @@ namespace Apache.Arrow.IntegrationTest
             return await commandDelegate();
         }
 
+        private async Task<int> RoundTripJsonArrow()
+        {
+            int status = await JsonToArrow();
+            if (status != 0) { return status; }
+
+            return await Validate();
+        }
+
         private async Task<int> Validate()
         {
             JsonFile jsonFile = await ParseJsonFile();
 
+            var compressionFactory = new CompressionCodecFactory();
             using FileStream arrowFileStream = ArrowFileInfo.OpenRead();
-            using ArrowFileReader reader = new ArrowFileReader(arrowFileStream);
+            using ArrowFileReader reader = new ArrowFileReader(arrowFileStream, compressionCodecFactory: compressionFactory);
             int batchCount = await reader.RecordBatchCountAsync();
 
             if (batchCount != jsonFile.Batches.Count)
@@ -72,7 +77,7 @@ namespace Apache.Arrow.IntegrationTest
                 return -1;
             }
 
-            Schema jsonFileSchema = jsonFile.Schema.ToArrow();
+            Schema jsonFileSchema = jsonFile.GetSchemaAndDictionaries(out Func<DictionaryType, IArrowArray> dictionaries);
             Schema arrowFileSchema = reader.Schema;
 
             SchemaComparer.Compare(jsonFileSchema, arrowFileSchema);
@@ -80,7 +85,7 @@ namespace Apache.Arrow.IntegrationTest
             for (int i = 0; i < batchCount; i++)
             {
                 RecordBatch arrowFileRecordBatch = reader.ReadNextRecordBatch();
-                RecordBatch jsonFileRecordBatch = jsonFile.Batches[i].ToArrow(jsonFileSchema);
+                RecordBatch jsonFileRecordBatch = jsonFile.Batches[i].ToArrow(jsonFileSchema, dictionaries);
 
                 ArrowReaderVerifier.CompareBatches(jsonFileRecordBatch, arrowFileRecordBatch, strictCompare: false);
             }
@@ -98,7 +103,7 @@ namespace Apache.Arrow.IntegrationTest
         private async Task<int> JsonToArrow()
         {
             JsonFile jsonFile = await ParseJsonFile();
-            Schema schema = jsonFile.Schema.ToArrow();
+            Schema schema = jsonFile.GetSchemaAndDictionaries(out Func<DictionaryType, IArrowArray> dictionaries);
 
             using (FileStream fs = ArrowFileInfo.Create())
             {
@@ -107,7 +112,7 @@ namespace Apache.Arrow.IntegrationTest
 
                 foreach (var jsonRecordBatch in jsonFile.Batches)
                 {
-                    RecordBatch batch = jsonRecordBatch.ToArrow(schema);
+                    RecordBatch batch = jsonRecordBatch.ToArrow(schema, dictionaries);
                     await writer.WriteRecordBatchAsync(batch);
                 }
                 await writer.WriteEndAsync();
@@ -119,7 +124,8 @@ namespace Apache.Arrow.IntegrationTest
 
         private async Task<int> StreamToFile()
         {
-            using ArrowStreamReader reader = new ArrowStreamReader(Console.OpenStandardInput());
+            var compressionFactory = new CompressionCodecFactory();
+            using ArrowStreamReader reader = new ArrowStreamReader(Console.OpenStandardInput(), compressionCodecFactory: compressionFactory);
 
             RecordBatch batch = await reader.ReadNextRecordBatchAsync();
 
@@ -142,7 +148,8 @@ namespace Apache.Arrow.IntegrationTest
         private async Task<int> FileToStream()
         {
             using FileStream fileStream = ArrowFileInfo.OpenRead();
-            using ArrowFileReader fileReader = new ArrowFileReader(fileStream);
+            var compressionFactory = new CompressionCodecFactory();
+            using ArrowFileReader fileReader = new ArrowFileReader(fileStream, compressionCodecFactory: compressionFactory);
 
             // read the record batch count to initialize the Schema
             await fileReader.RecordBatchCountAsync();

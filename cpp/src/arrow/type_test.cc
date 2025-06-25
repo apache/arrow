@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -612,7 +613,7 @@ TEST_F(TestSchema, TestMetadataConstruction) {
   AssertSchemaEqual(schema2, schema1);
   AssertSchemaNotEqual(schema2, schema1, /*check_metadata=*/true);
 
-  // Field has different metatadata
+  // Field has different metadata
   AssertSchemaEqual(schema2, schema3);
   AssertSchemaNotEqual(schema2, schema3, /*check_metadata=*/true);
 
@@ -745,25 +746,31 @@ TEST(TestSchemaBuilder, WithMetadata) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8(), false);
   auto metadata = key_value_metadata({{"foo", "bar"}});
+  auto metadata2 = key_value_metadata({{"foo2", "bar2"}});
+  auto merged_metadata = metadata->Merge(*metadata2);
 
   SchemaBuilder builder;
   ASSERT_OK(builder.AddMetadata(*metadata));
   ASSERT_OK_AND_ASSIGN(auto schema, builder.Finish());
   AssertSchemaEqual(schema, ::arrow::schema({})->WithMetadata(metadata));
 
+  ASSERT_OK(builder.AddMetadata(*metadata2));
+  ASSERT_OK_AND_ASSIGN(schema, builder.Finish());
+  AssertSchemaEqual(schema, ::arrow::schema({})->WithMetadata(merged_metadata));
+
   ASSERT_OK(builder.AddField(f0));
   ASSERT_OK_AND_ASSIGN(schema, builder.Finish());
-  AssertSchemaEqual(schema, ::arrow::schema({f0})->WithMetadata(metadata));
+  AssertSchemaEqual(schema, ::arrow::schema({f0})->WithMetadata(merged_metadata));
 
-  SchemaBuilder other_builder{::arrow::schema({})->WithMetadata(metadata)};
+  SchemaBuilder other_builder{::arrow::schema({})->WithMetadata(merged_metadata)};
   ASSERT_OK(other_builder.AddField(f1));
   ASSERT_OK_AND_ASSIGN(schema, other_builder.Finish());
-  AssertSchemaEqual(schema, ::arrow::schema({f1})->WithMetadata(metadata));
+  AssertSchemaEqual(schema, ::arrow::schema({f1})->WithMetadata(merged_metadata));
 
   other_builder.Reset();
-  ASSERT_OK(other_builder.AddField(f1->WithMetadata(metadata)));
+  ASSERT_OK(other_builder.AddField(f1->WithMetadata(merged_metadata)));
   ASSERT_OK_AND_ASSIGN(schema, other_builder.Finish());
-  AssertSchemaEqual(schema, ::arrow::schema({f1->WithMetadata(metadata)}));
+  AssertSchemaEqual(schema, ::arrow::schema({f1->WithMetadata(merged_metadata)}));
 }
 
 TEST(TestSchemaBuilder, IncrementalConstruction) {
@@ -1218,12 +1225,16 @@ TEST_F(TestUnifySchemas, Decimal) {
   auto options = Field::MergeOptions::Defaults();
 
   options.promote_decimal_to_float = true;
+  CheckPromoteTo(decimal32(3, 2), {float32(), float64()}, options);
+  CheckPromoteTo(decimal64(3, 2), {float32(), float64()}, options);
   CheckPromoteTo(decimal128(3, 2), {float32(), float64()}, options);
   CheckPromoteTo(decimal256(3, 2), {float32(), float64()}, options);
 
   options.promote_integer_to_decimal = true;
-  CheckPromoteTo(int32(), decimal128(3, 2), decimal128(12, 2), options);
-  CheckPromoteTo(int32(), decimal128(3, -2), decimal128(10, 0), options);
+  CheckPromoteTo(int32(), decimal32(3, 2), decimal64(11, 2), options);
+  CheckPromoteTo(int32(), decimal64(3, -2), decimal64(9, 0), options);
+  CheckPromoteTo(int32(), decimal128(3, 2), decimal128(11, 2), options);
+  CheckPromoteTo(int32(), decimal128(3, -2), decimal128(9, 0), options);
 
   options.promote_decimal = true;
   CheckPromoteTo(decimal128(3, 2), decimal128(5, 2), decimal128(5, 2), options);
@@ -1240,15 +1251,15 @@ TEST_F(TestUnifySchemas, Decimal) {
   CheckPromoteTo(decimal256(3, -2), decimal256(5, -2), decimal256(5, -2), options);
 
   // int32() is essentially decimal128(10, 0)
-  CheckPromoteTo(int32(), decimal128(3, 2), decimal128(12, 2), options);
-  CheckPromoteTo(int32(), decimal128(3, -2), decimal128(10, 0), options);
-  CheckPromoteTo(int64(), decimal128(38, 37), decimal256(56, 37), options);
+  CheckPromoteTo(int32(), decimal128(3, 2), decimal128(11, 2), options);
+  CheckPromoteTo(int32(), decimal128(3, -2), decimal128(9, 0), options);
+  CheckPromoteTo(int64(), decimal128(38, 37), decimal256(55, 37), options);
 
   CheckUnifyFailsTypeError(decimal256(1, 0), decimal128(1, 0), options);
 
   options.promote_numeric_width = true;
   CheckPromoteTo(decimal128(3, 2), decimal256(5, 2), decimal256(5, 2), options);
-  CheckPromoteTo(int32(), decimal128(38, 37), decimal256(47, 37), options);
+  CheckPromoteTo(int32(), decimal128(38, 37), decimal256(46, 37), options);
   CheckUnifyFailsInvalid(decimal128(38, 10), decimal256(76, 5), options);
 
   CheckUnifyFailsInvalid(int64(), decimal256(76, 75), options);
@@ -1306,6 +1317,7 @@ TEST_F(TestUnifySchemas, Binary) {
   options.promote_binary = false;
   CheckUnifyFailsTypeError({utf8(), binary()}, {large_utf8(), large_binary()});
   CheckUnifyFailsTypeError(fixed_size_binary(2), BaseBinaryTypes());
+  CheckUnifyFailsTypeError(fixed_size_binary(2), BinaryViewTypes());
   CheckUnifyFailsTypeError(utf8(), {binary(), large_binary(), fixed_size_binary(2)});
 }
 
@@ -1551,6 +1563,46 @@ TEST(TestLargeListType, Basics) {
 
   LargeListType lt2(lt);
   ASSERT_EQ("large_list<item: large_list<item: string>>", lt2.ToString());
+}
+
+TEST(TestListViewType, Basics) {
+  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+
+  ListViewType list_view_type(vt);
+  ASSERT_EQ(list_view_type.id(), Type::LIST_VIEW);
+
+  ASSERT_EQ("list_view", list_view_type.name());
+  ASSERT_EQ("list_view<item: uint8>", list_view_type.ToString());
+
+  ASSERT_EQ(list_view_type.value_type()->id(), vt->id());
+  ASSERT_EQ(list_view_type.value_type()->id(), vt->id());
+
+  std::shared_ptr<DataType> st = std::make_shared<StringType>();
+  std::shared_ptr<DataType> lt = std::make_shared<ListViewType>(st);
+  ASSERT_EQ("list_view<item: string>", lt->ToString());
+
+  ListViewType lt2(lt);
+  ASSERT_EQ("list_view<item: list_view<item: string>>", lt2.ToString());
+}
+
+TEST(TestLargeListViewType, Basics) {
+  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+
+  LargeListViewType list_view_type(vt);
+  ASSERT_EQ(list_view_type.id(), Type::LARGE_LIST_VIEW);
+
+  ASSERT_EQ("large_list_view", list_view_type.name());
+  ASSERT_EQ("large_list_view<item: uint8>", list_view_type.ToString());
+
+  ASSERT_EQ(list_view_type.value_type()->id(), vt->id());
+  ASSERT_EQ(list_view_type.value_type()->id(), vt->id());
+
+  std::shared_ptr<DataType> st = std::make_shared<StringType>();
+  std::shared_ptr<DataType> lt = std::make_shared<LargeListViewType>(st);
+  ASSERT_EQ("large_list_view<item: string>", lt->ToString());
+
+  LargeListViewType lt2(lt);
+  ASSERT_EQ("large_list_view<item: large_list_view<item: string>>", lt2.ToString());
 }
 
 TEST(TestMapType, Basics) {
@@ -1829,7 +1881,37 @@ TEST(TestListType, Equals) {
   ASSERT_FALSE(list_type.Equals(list_type_named, /*check_metadata=*/true));
 }
 
-TEST(TestListType, Metadata) {
+TEST(TestListViewType, Equals) {
+  auto t1 = list_view(utf8());
+  auto t2 = list_view(utf8());
+  auto t3 = list_view(binary());
+  auto t4 = list_view(field("item", utf8(), /*nullable=*/false));
+  auto tl1 = large_list_view(binary());
+  auto tl2 = large_list_view(binary());
+  auto tl3 = large_list_view(float64());
+
+  AssertTypeEqual(*t1, *t2);
+  AssertTypeNotEqual(*t1, *t3);
+  AssertTypeNotEqual(*t1, *t4);
+  AssertTypeNotEqual(*t3, *tl1);
+  AssertTypeEqual(*tl1, *tl2);
+  AssertTypeNotEqual(*tl2, *tl3);
+
+  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+  std::shared_ptr<Field> inner_field = std::make_shared<Field>("non_default_name", vt);
+
+  ListViewType list_view_type(vt);
+  ListViewType list_view_type_named(inner_field);
+
+  AssertTypeEqual(list_view_type, list_view_type_named);
+  ASSERT_FALSE(list_view_type.Equals(list_view_type_named, /*check_metadata=*/true));
+  ASSERT_NE(list_view_type.ToString(), list_view_type_named.ToString());
+}
+
+using ListListTypeFactory =
+    std::function<std::shared_ptr<DataType>(std::shared_ptr<Field>)>;
+
+void CheckListListTypeMetadata(ListListTypeFactory list_type_factory) {
   auto md1 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
   auto md2 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
   auto md3 = key_value_metadata({"foo"}, {"foo value"});
@@ -1840,23 +1922,49 @@ TEST(TestListType, Metadata) {
   auto f4 = field("item", utf8());
   auto f5 = field("item", utf8(), /*nullable =*/false, md1);
 
-  auto t1 = list(f1);
-  auto t2 = list(f2);
-  auto t3 = list(f3);
-  auto t4 = list(f4);
-  auto t5 = list(f5);
+  auto t1 = list_type_factory(f1);
+  auto t2 = list_type_factory(f2);
+  auto t3 = list_type_factory(f3);
+  auto t4 = list_type_factory(f4);
+  auto t5 = list_type_factory(f5);
 
   AssertTypeEqual(*t1, *t2);
   AssertTypeEqual(*t1, *t2, /*check_metadata =*/false);
+  ASSERT_EQ(t1->ToString(/*show_metadata=*/true), t2->ToString(/*show_metadata=*/true));
 
   AssertTypeEqual(*t1, *t3);
   AssertTypeNotEqual(*t1, *t3, /*check_metadata =*/true);
+  ASSERT_EQ(t1->ToString(/*show_metadata=*/false), t3->ToString(/*show_metadata=*/false));
+  ASSERT_NE(t1->ToString(/*show_metadata=*/true), t3->ToString(/*show_metadata=*/true));
 
   AssertTypeEqual(*t1, *t4);
   AssertTypeNotEqual(*t1, *t4, /*check_metadata =*/true);
+  ASSERT_EQ(t1->ToString(/*show_metadata=*/false), t4->ToString(/*show_metadata=*/false));
+  ASSERT_NE(t1->ToString(/*show_metadata=*/true), t4->ToString(/*show_metadata=*/true));
 
   AssertTypeNotEqual(*t1, *t5);
   AssertTypeNotEqual(*t1, *t5, /*check_metadata =*/true);
+  ASSERT_NE(t1->ToString(/*show_metadata=*/false), t5->ToString(/*show_metadata=*/false));
+  ASSERT_NE(t1->ToString(/*show_metadata=*/true), t5->ToString(/*show_metadata=*/true));
+}
+
+TEST(TestListType, Metadata) {
+  CheckListListTypeMetadata([](std::shared_ptr<Field> field) { return list(field); });
+}
+
+TEST(TestLargeListType, Metadata) {
+  CheckListListTypeMetadata(
+      [](std::shared_ptr<Field> field) { return large_list(field); });
+}
+
+TEST(TestListViewType, Metadata) {
+  CheckListListTypeMetadata(
+      [](std::shared_ptr<Field> field) { return list_view(field); });
+}
+
+TEST(TestLargeListViewType, Metadata) {
+  CheckListListTypeMetadata(
+      [](std::shared_ptr<Field> field) { return large_list_view(field); });
 }
 
 TEST(TestNestedType, Equals) {
@@ -1998,6 +2106,12 @@ TEST(TestStructType, TestFieldsDifferOnlyInMetadata) {
 
   AssertTypeEqual(s0, s1);
   AssertTypeNotEqual(s0, s1, /* check_metadata = */ true);
+  ASSERT_NE(s0.ToString(), s1.ToString(/*show_metadata=*/true));
+
+  std::string expected = R"(struct<f: string
+-- metadata --
+foo: baz, f: string>)";
+  ASSERT_EQ(s1.ToString(/*show_metadata=*/true), expected);
 
   ASSERT_EQ(s0.fingerprint(), s1.fingerprint());
   ASSERT_NE(s0.metadata_fingerprint(), s1.metadata_fingerprint());
@@ -2113,6 +2227,50 @@ TEST(TestDictionaryType, Equals) {
   auto t5 = dictionary(int8(), int32(), /*ordered=*/false);
   auto t6 = dictionary(int8(), int32(), /*ordered=*/true);
   AssertTypeNotEqual(*t5, *t6);
+}
+
+TEST(TypesTest, SmallestDecimal) {
+  for (int32_t i = 1; i < 76; ++i) {
+    auto t = smallest_decimal(i, 4);
+
+    if (i <= 9) {
+      EXPECT_EQ(t->id(), Type::DECIMAL32);
+    } else if (i <= 18) {
+      EXPECT_EQ(t->id(), Type::DECIMAL64);
+    } else if (i <= 38) {
+      EXPECT_EQ(t->id(), Type::DECIMAL128);
+    } else {
+      EXPECT_EQ(t->id(), Type::DECIMAL256);
+    }
+  }
+}
+
+TEST(TypesTest, TestDecimal32) {
+  Decimal32Type t1(4, 4);
+
+  EXPECT_EQ(t1.id(), Type::DECIMAL32);
+  EXPECT_EQ(t1.precision(), 4);
+  EXPECT_EQ(t1.scale(), 4);
+
+  EXPECT_EQ(t1.ToString(), std::string("decimal32(4, 4)"));
+
+  // Test properties
+  EXPECT_EQ(t1.byte_width(), 4);
+  EXPECT_EQ(t1.bit_width(), 32);
+}
+
+TEST(TypesTest, TestDecimal64) {
+  Decimal64Type t1(12, 4);
+
+  EXPECT_EQ(t1.id(), Type::DECIMAL64);
+  EXPECT_EQ(t1.precision(), 12);
+  EXPECT_EQ(t1.scale(), 4);
+
+  EXPECT_EQ(t1.ToString(), std::string("decimal64(12, 4)"));
+
+  // Test properties
+  EXPECT_EQ(t1.byte_width(), 8);
+  EXPECT_EQ(t1.bit_width(), 64);
 }
 
 TEST(TypesTest, TestDecimal128Small) {
@@ -2258,6 +2416,44 @@ TEST(TypesTest, TestRunEndEncodedType) {
             "run_end_encoded<run_ends: int64, values: list<item: int32>>");
 }
 
+TEST(TypesTest, TestListViewType) {
+  auto int32_expected = std::make_shared<ListViewType>(int32());
+  auto int32_list_view_type = list_view(int32());
+
+  ASSERT_EQ(*int32_expected, *int32_list_view_type);
+
+  auto int32_list_view_type_cast =
+      std::dynamic_pointer_cast<ListViewType>(int32_list_view_type);
+  ASSERT_EQ(*int32_list_view_type_cast->value_type(), *int32());
+
+  ASSERT_TRUE(int32_list_view_type->field(0)->Equals(Field("item", int32(), true)));
+
+  auto int64_list_view_type = list_view(int64());
+  ASSERT_NE(*int32_list_view_type, *int64_list_view_type);
+
+  ASSERT_EQ(int32_list_view_type->ToString(), "list_view<item: int32>");
+  ASSERT_EQ(int64_list_view_type->ToString(), "list_view<item: int64>");
+}
+
+TEST(TypesTest, TestLargeListViewType) {
+  auto int32_expected = std::make_shared<LargeListViewType>(int32());
+  auto int32_list_view_type = large_list_view(int32());
+
+  ASSERT_EQ(*int32_expected, *int32_list_view_type);
+
+  auto int32_list_view_type_cast =
+      std::dynamic_pointer_cast<LargeListViewType>(int32_list_view_type);
+  ASSERT_EQ(*int32_list_view_type_cast->value_type(), *int32());
+
+  ASSERT_TRUE(int32_list_view_type->field(0)->Equals(Field("item", int32(), true)));
+
+  auto int64_list_view_type = large_list_view(int64());
+  ASSERT_NE(*int32_list_view_type, *int64_list_view_type);
+
+  ASSERT_EQ(int32_list_view_type->ToString(), "large_list_view<item: int32>");
+  ASSERT_EQ(int64_list_view_type->ToString(), "large_list_view<item: int64>");
+}
+
 #define TEST_PREDICATE(all_types, type_predicate)                 \
   for (auto type : all_types) {                                   \
     ASSERT_EQ(type_predicate(type->id()), type_predicate(*type)); \
@@ -2289,6 +2485,7 @@ TEST(TypesTest, TestMembership) {
   TEST_PREDICATE(all_types, is_large_binary_like);
   TEST_PREDICATE(all_types, is_binary);
   TEST_PREDICATE(all_types, is_string);
+  TEST_PREDICATE(all_types, is_binary_view_like);
   TEST_PREDICATE(all_types, is_temporal);
   TEST_PREDICATE(all_types, is_interval);
   TEST_PREDICATE(all_types, is_dictionary);
@@ -2296,6 +2493,7 @@ TEST(TypesTest, TestMembership) {
   TEST_PREDICATE(all_types, is_fixed_width);
   TEST_PREDICATE(all_types, is_var_length_list);
   TEST_PREDICATE(all_types, is_list_like);
+  TEST_PREDICATE(all_types, is_var_length_list_like);
   TEST_PREDICATE(all_types, is_nested);
   TEST_PREDICATE(all_types, is_union);
 }

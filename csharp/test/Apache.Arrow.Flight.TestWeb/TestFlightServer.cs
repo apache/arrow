@@ -51,9 +51,10 @@ namespace Apache.Arrow.Flight.TestWeb
 
             if(_flightStore.Flights.TryGetValue(flightDescriptor, out var flightHolder))
             {
+                await responseStream.SetupStream(flightHolder.GetFlightInfo().Schema);
+
                 var batches = flightHolder.GetRecordBatches();
 
-                
                 foreach(var batch in batches)
                 {
                     await responseStream.WriteAsync(batch.RecordBatch, batch.Metadata);
@@ -67,14 +68,16 @@ namespace Apache.Arrow.Flight.TestWeb
 
             if(!_flightStore.Flights.TryGetValue(flightDescriptor, out var flightHolder))
             {
-                flightHolder = new FlightHolder(flightDescriptor, await requestStream.Schema, $"http://{context.Host}");
+                flightHolder = new FlightHolder(flightDescriptor, await requestStream.Schema, $"grpc+tcp://{context.Host}");
                 _flightStore.Flights.Add(flightDescriptor, flightHolder);
             }
 
             while (await requestStream.MoveNext())
             {
-                flightHolder.AddBatch(new RecordBatchWithMetadata(requestStream.Current, requestStream.ApplicationMetadata.FirstOrDefault()));
-                await responseStream.WriteAsync(FlightPutResult.Empty);
+                var applicationMetadata = requestStream.ApplicationMetadata.FirstOrDefault();
+                flightHolder.AddBatch(new RecordBatchWithMetadata(requestStream.Current, applicationMetadata));
+                await responseStream.WriteAsync(
+                    applicationMetadata == null ? FlightPutResult.Empty : new FlightPutResult(applicationMetadata));
             }
         }
 
@@ -126,6 +129,14 @@ namespace Apache.Arrow.Flight.TestWeb
             foreach(var flightInfo in flightInfos)
             {
                 await responseStream.WriteAsync(flightInfo);
+            }
+        }
+
+        public override async Task DoExchange(FlightServerRecordBatchStreamReader requestStream, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context)
+        {
+            while(await requestStream.MoveNext().ConfigureAwait(false))
+            {
+                await responseStream.WriteAsync(requestStream.Current, requestStream.ApplicationMetadata.FirstOrDefault()).ConfigureAwait(false);
             }
         }
     }

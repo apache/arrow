@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
     parquet::WriterProperties::Builder builder;
     // Add the current encryption configuration to WriterProperties.
     builder.encryption(file_encryption_builder.footer_key_metadata("kf")
-                           ->encrypted_columns(encryption_cols)
+                           ->encrypted_columns(std::move(encryption_cols))
                            ->build());
 
     // Add other writer properties
@@ -189,7 +189,7 @@ int main(int argc, char** argv) {
     file_writer->Close();
 
     // Write the bytes to file
-    DCHECK(out_file->Close().ok());
+    ARROW_DCHECK(out_file->Close().ok());
   } catch (const std::exception& e) {
     std::cerr << "Parquet write error: " << e.what() << std::endl;
     return -1;
@@ -216,7 +216,7 @@ int main(int argc, char** argv) {
 
     // Add the current decryption configuration to ReaderProperties.
     reader_properties.file_decryption_properties(
-        file_decryption_builder.key_retriever(kr1)->build());
+        file_decryption_builder.key_retriever(std::move(kr1))->build());
 
     // Create a ParquetReader instance
     std::unique_ptr<parquet::ParquetFileReader> parquet_reader =

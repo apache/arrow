@@ -17,8 +17,10 @@
 
 #include <queue>
 
+#include "arrow/compute/function.h"
 #include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/compute/registry.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -185,9 +187,9 @@ class HeapSorter {
   MemoryPool* pool_;
 };
 
-class ArraySelecter : public TypeVisitor {
+class ArraySelector : public TypeVisitor {
  public:
-  ArraySelecter(ExecContext* ctx, const Array& array, const SelectKOptions& options,
+  ArraySelector(ExecContext* ctx, const Array& array, const SelectKOptions& options,
                 Datum* output)
       : TypeVisitor(),
         ctx_(ctx),
@@ -460,9 +462,9 @@ class ChunkedHeapSorter {
   MemoryPool* pool_;
 };
 
-class ChunkedArraySelecter : public TypeVisitor {
+class ChunkedArraySelector : public TypeVisitor {
  public:
-  ChunkedArraySelecter(ExecContext* ctx, const ChunkedArray& chunked_array,
+  ChunkedArraySelector(ExecContext* ctx, const ChunkedArray& chunked_array,
                        const SelectKOptions& options, Datum* output)
       : TypeVisitor(),
         chunked_array_(chunked_array),
@@ -513,13 +515,13 @@ class ChunkedArraySelecter : public TypeVisitor {
   Datum* output_;
 };
 
-class RecordBatchSelecter : public TypeVisitor {
+class RecordBatchSelector : public TypeVisitor {
  private:
   using ResolvedSortKey = ResolvedRecordBatchSortKey;
   using Comparator = MultipleKeyComparator<ResolvedSortKey>;
 
  public:
-  RecordBatchSelecter(ExecContext* ctx, const RecordBatch& record_batch,
+  RecordBatchSelector(ExecContext* ctx, const RecordBatch& record_batch,
                       const SelectKOptions& options, Datum* output)
       : TypeVisitor(),
         ctx_(ctx),
@@ -634,38 +636,35 @@ class RecordBatchSelecter : public TypeVisitor {
   Comparator comparator_;
 };
 
-class TableSelecter : public TypeVisitor {
+class TableSelector : public TypeVisitor {
  private:
   struct ResolvedSortKey {
     ResolvedSortKey(const std::shared_ptr<ChunkedArray>& chunked_array,
-                    const SortOrder order, NullPlacement null_placement)
+                    const SortOrder order, const NullPlacement null_placement)
         : order(order),
+          null_placement(null_placement),
           type(GetPhysicalType(chunked_array->type())),
           chunks(GetPhysicalChunks(*chunked_array, type)),
           null_count(chunked_array->null_count()),
-          resolver(GetArrayPointers(chunks)),
-          null_placement(null_placement) {}
+          resolver(GetArrayPointers(chunks)) {}
 
     using LocationType = int64_t;
 
     // Find the target chunk and index in the target chunk from an
     // index in chunked array.
-    template <typename ArrayType>
-    ResolvedChunk<ArrayType> GetChunk(int64_t index) const {
-      return resolver.Resolve<ArrayType>(index);
-    }
+    ResolvedChunk GetChunk(int64_t index) const { return resolver.Resolve(index); }
 
     const SortOrder order;
+    const NullPlacement null_placement;
     const std::shared_ptr<DataType> type;
     const ArrayVector chunks;
     const int64_t null_count;
     const ChunkedArrayResolver resolver;
-    NullPlacement null_placement;
   };
   using Comparator = MultipleKeyComparator<ResolvedSortKey>;
 
  public:
-  TableSelecter(ExecContext* ctx, const Table& table, const SelectKOptions& options,
+  TableSelector(ExecContext* ctx, const Table& table, const SelectKOptions& options,
                 Datum* output)
       : TypeVisitor(),
         ctx_(ctx),
@@ -748,7 +747,6 @@ class TableSelecter : public TypeVisitor {
 
   template <typename InType, SortOrder sort_order>
   Status SelectKthInternal() {
-    using ArrayType = typename TypeTraits<InType>::ArrayType;
     auto& comparator = comparator_;
     const auto& first_sort_key = sort_keys_[0];
 
@@ -762,12 +760,12 @@ class TableSelecter : public TypeVisitor {
     std::function<bool(const uint64_t&, const uint64_t&)> cmp;
     SelectKComparator<sort_order> select_k_comparator;
     cmp = [&](const uint64_t& left, const uint64_t& right) -> bool {
-      auto chunk_left = first_sort_key.template GetChunk<ArrayType>(left);
-      auto chunk_right = first_sort_key.template GetChunk<ArrayType>(right);
+      auto chunk_left = first_sort_key.GetChunk(left);
+      auto chunk_right = first_sort_key.GetChunk(right);
       const bool is_null_left = chunk_left.IsNull();
       const bool is_null_right = chunk_right.IsNull();
-      auto value_left = chunk_left.Value();
-      auto value_right = chunk_right.Value();
+      auto value_left = chunk_left.Value<InType>();
+      auto value_right = chunk_right.Value<InType>();
       if ((value_left == value_right) || (is_null_left && is_null_right)) {
         return comparator.Compare(left, right, 1);
       }
@@ -867,32 +865,32 @@ class SelectKUnstableMetaFunction : public MetaFunction {
   Result<Datum> SelectKth(const Array& array, const SelectKOptions& options,
                           ExecContext* ctx) const {
     Datum output;
-    ArraySelecter selecter(ctx, array, options, &output);
-    ARROW_RETURN_NOT_OK(selecter.Run());
+    ArraySelector selector(ctx, array, options, &output);
+    ARROW_RETURN_NOT_OK(selector.Run());
     return output;
   }
 
   Result<Datum> SelectKth(const ChunkedArray& chunked_array,
                           const SelectKOptions& options, ExecContext* ctx) const {
     Datum output;
-    ChunkedArraySelecter selecter(ctx, chunked_array, options, &output);
-    ARROW_RETURN_NOT_OK(selecter.Run());
+    ChunkedArraySelector selector(ctx, chunked_array, options, &output);
+    ARROW_RETURN_NOT_OK(selector.Run());
     return output;
   }
   Result<Datum> SelectKth(const RecordBatch& record_batch, const SelectKOptions& options,
                           ExecContext* ctx) const {
     ARROW_RETURN_NOT_OK(CheckConsistency(*record_batch.schema(), options.sort_keys));
     Datum output;
-    RecordBatchSelecter selecter(ctx, record_batch, options, &output);
-    ARROW_RETURN_NOT_OK(selecter.Run());
+    RecordBatchSelector selector(ctx, record_batch, options, &output);
+    ARROW_RETURN_NOT_OK(selector.Run());
     return output;
   }
   Result<Datum> SelectKth(const Table& table, const SelectKOptions& options,
                           ExecContext* ctx) const {
     ARROW_RETURN_NOT_OK(CheckConsistency(*table.schema(), options.sort_keys));
     Datum output;
-    TableSelecter selecter(ctx, table, options, &output);
-    ARROW_RETURN_NOT_OK(selecter.Run());
+    TableSelector selector(ctx, table, options, &output);
+    ARROW_RETURN_NOT_OK(selector.Run());
     return output;
   }
 };

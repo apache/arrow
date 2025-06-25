@@ -23,10 +23,14 @@
 
 #include <arrow-glib/ipc-options.h>
 
+GARROW_EXTERN
 arrow::ipc::IpcReadOptions *
 garrow_read_options_get_raw(GArrowReadOptions *options);
+
+GARROW_EXTERN
 arrow::ipc::DictionaryMemo *
 garrow_read_options_get_dictionary_memo_raw(GArrowReadOptions *options);
 
+GARROW_EXTERN
 arrow::ipc::IpcWriteOptions *
 garrow_write_options_get_raw(GArrowWriteOptions *options);

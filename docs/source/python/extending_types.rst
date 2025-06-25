@@ -21,6 +21,63 @@
 Extending pyarrow
 =================
 
+Controlling conversion to (Py)Arrow with the PyCapsule Interface
+----------------------------------------------------------------
+
+The :ref:`Arrow C data interface <c-data-interface>` allows moving Arrow data between
+different implementations of Arrow. This is a generic, cross-language interface not
+specific to Python, but for Python libraries this interface is extended with a Python
+specific layer: :ref:`arrow-pycapsule-interface`.
+
+This Python interface ensures that different libraries that support the C Data interface
+can export Arrow data structures in a standard way and recognize each other's objects.
+
+If you have a Python library providing data structures that hold Arrow-compatible data
+under the hood, you can implement the following methods on those objects:
+
+- ``__arrow_c_schema__`` for schema or type-like objects.
+- ``__arrow_c_array__`` for arrays and record batches (contiguous tables).
+- ``__arrow_c_stream__`` for chunked arrays, tables and streams of data.
+
+Those methods return `PyCapsule <https://docs.python.org/3/c-api/capsule.html>`__
+objects, and more details on the exact semantics can be found in the
+:ref:`specification <arrow-pycapsule-interface>`.
+
+When your data structures have those methods defined, the PyArrow constructors
+(see below) will recognize those objects as
+supporting this protocol, and convert them to PyArrow data structures zero-copy. And the
+same can be true for any other library supporting this protocol on ingesting data.
+
+Similarly, if your library has functions that accept user-provided data, you can add
+support for this protocol by checking for the presence of those methods, and
+therefore accept any Arrow data (instead of harcoding support for a specific
+Arrow producer such as PyArrow).
+
+For consuming data through this protocol with PyArrow, the following constructors
+can be used to create the various PyArrow objects:
+
++----------------------------+-----------------------------------------------+--------------------+
+| Result class               | PyArrow constructor                           | Supported protocol |
++============================+===============================================+====================+
+| :class:`Array`             | :func:`pyarrow.array`                         | array              |
++----------------------------+-----------------------------------------------+--------------------+
+| :class:`ChunkedArray`      | :func:`pyarrow.chunked_array`                 | array, stream      |
++----------------------------+-----------------------------------------------+--------------------+
+| :class:`RecordBatch`       | :func:`pyarrow.record_batch`                  | array              |
++----------------------------+-----------------------------------------------+--------------------+
+| :class:`Table`             | :func:`pyarrow.table`                         | array, stream      |
++----------------------------+-----------------------------------------------+--------------------+
+| :class:`RecordBatchReader` | :meth:`pyarrow.RecordBatchReader.from_stream` | stream             |
++----------------------------+-----------------------------------------------+--------------------+
+| :class:`Field`             | :func:`pyarrow.field`                         | schema             |
++----------------------------+-----------------------------------------------+--------------------+
+| :class:`Schema`            | :func:`pyarrow.schema`                        | schema             |
++----------------------------+-----------------------------------------------+--------------------+
+
+A :class:`DataType` can be created by consuming the schema-compatible object
+using :func:`pyarrow.field` and then accessing the ``.type`` of the resulting
+Field.
+
 .. _arrow_array_protocol:
 
 Controlling conversion to pyarrow.Array with the ``__arrow_array__`` protocol
@@ -44,7 +101,7 @@ define the ``__arrow_array__`` method to return an Arrow array::
             import pyarrow
             return pyarrow.array(..., type=type)
 
-The ``__arrow_array__`` method takes an optional `type` keyword which is passed
+The ``__arrow_array__`` method takes an optional ``type`` keyword which is passed
 through from :func:`pyarrow.array`. The method is allowed to return either
 a :class:`~pyarrow.Array` or a :class:`~pyarrow.ChunkedArray`.
 
@@ -59,61 +116,103 @@ a :class:`~pyarrow.Array` or a :class:`~pyarrow.ChunkedArray`.
 Defining extension types ("user-defined types")
 -----------------------------------------------
 
-Arrow has the notion of extension types in the metadata specification as a
-possibility to extend the built-in types. This is done by annotating any of the
-built-in Arrow logical types (the "storage type") with a custom type name and
-optional serialized representation ("ARROW:extension:name" and
-"ARROW:extension:metadata" keys in the Field’s custom_metadata of an IPC
-message).
-See the :ref:`format_metadata_extension_types` section of the metadata
-specification for more details.
+Arrow affords a notion of extension types which allow users to annotate data
+types with additional semantics. This allows developers both to
+specify custom serialization and deserialization routines (for example,
+to :ref:`Python scalars <custom-scalar-conversion>` and
+:ref:`pandas <conversion-to-pandas>`) and to more easily interpret data.
 
-Pyarrow allows you to define such extension types from Python.
+In Arrow, :ref:`extension types <format_metadata_extension_types>`
+are specified by annotating any of the built-in Arrow data types
+(the "storage type") with a custom type name and, optionally, a
+bytestring that can be used to provide additional metadata (referred to as
+"parameters" in this documentation). These appear as the
+``ARROW:extension:name`` and ``ARROW:extension:metadata`` keys in the
+Field's ``custom_metadata``.
 
-There are currently two ways:
+Note that since these annotations are part of the Arrow specification,
+they can potentially be recognized by other (non-Python) Arrow consumers
+such as PySpark.
 
-* Subclassing :class:`PyExtensionType`: the (de)serialization is based on pickle.
-  This is a good option for an extension type that is only used from Python.
-* Subclassing :class:`ExtensionType`: this allows to give a custom
-  Python-independent name and serialized metadata, that can potentially be
-  recognized by other (non-Python) Arrow implementations such as PySpark.
+PyArrow allows you to define extension types from Python by subclassing
+:class:`ExtensionType` and giving the derived class its own extension name
+and mechanism to (de)serialize any parameters. For example, we could define
+a custom rational type for fractions which can be represented as a pair of
+integers::
 
-For example, we could define a custom UUID type for 128-bit numbers which can
-be represented as ``FixedSizeBinary`` type with 16 bytes.
-Using the first approach, we create a ``UuidType`` subclass, and implement the
-``__reduce__`` method to ensure the class can be properly pickled::
+    class RationalType(pa.ExtensionType):
 
-    class UuidType(pa.PyExtensionType):
+        def __init__(self, data_type: pa.DataType):
+            if not pa.types.is_integer(data_type):
+                raise TypeError(f"data_type must be an integer type not {data_type}")
 
-        def __init__(self):
-            pa.PyExtensionType.__init__(self, pa.binary(16))
+            super().__init__(
+                pa.struct(
+                    [
+                        ("numer", data_type),
+                        ("denom", data_type),
+                    ],
+                ),
+                "my_package.rational",
+            )
 
-        def __reduce__(self):
-            return UuidType, ()
+        def __arrow_ext_serialize__(self) -> bytes:
+            # No parameters are necessary
+            return b""
+
+        @classmethod
+        def __arrow_ext_deserialize__(cls, storage_type, serialized):
+            # Sanity checks, not required but illustrate the method signature.
+            assert pa.types.is_struct(storage_type)
+            assert pa.types.is_integer(storage_type[0].type)
+            assert storage_type[0].type == storage_type[1].type
+            assert serialized == b""
+
+            # return an instance of this subclass
+            return RationalType(storage_type[0].type)
+
+
+The special methods ``__arrow_ext_serialize__`` and ``__arrow_ext_deserialize__``
+define the serialization and deserialization of an extension type instance.
 
 This can now be used to create arrays and tables holding the extension type::
 
-    >>> uuid_type = UuidType()
-    >>> uuid_type.extension_name
-    'arrow.py_extension_type'
-    >>> uuid_type.storage_type
-    FixedSizeBinaryType(fixed_size_binary[16])
+    >>> rational_type = RationalType(pa.int32())
+    >>> rational_type.extension_name
+    'my_package.rational'
+    >>> rational_type.storage_type
+    StructType(struct<numer: int32, denom: int32>)
 
-    >>> import uuid
-    >>> storage_array = pa.array([uuid.uuid4().bytes for _ in range(4)], pa.binary(16))
-    >>> arr = pa.ExtensionArray.from_storage(uuid_type, storage_array)
+    >>> storage_array = pa.array(
+    ...     [
+    ...         {"numer": 10, "denom": 17},
+    ...         {"numer": 20, "denom": 13},
+    ...     ],
+    ...     type=rational_type.storage_type,
+    ... )
+    >>> arr = rational_type.wrap_array(storage_array)
+    >>> # or equivalently
+    >>> arr = pa.ExtensionArray.from_storage(rational_type, storage_array)
     >>> arr
-    <pyarrow.lib.ExtensionArray object at 0x7f75c2f300a0>
-    [
-      A6861959108644B797664AEEE686B682,
-      718747F48E5F4058A7261E2B6B228BE8,
-      7FE201227D624D96A5CD8639DEF2A68B,
-      C6CA8C7F95744BFD9462A40B3F57A86C
-    ]
+    <pyarrow.lib.ExtensionArray object at 0x1067f5420>
+    -- is_valid: all not null
+    -- child 0 type: int32
+      [
+        10,
+        20
+      ]
+    -- child 1 type: int32
+      [
+        17,
+        13
+      ]
 
 This array can be included in RecordBatches, sent over IPC and received in
-another Python process. The custom UUID type will be preserved there, as long
-as the definition of the class is available (the type can be unpickled).
+another Python process. The receiving process must explicitly register the
+extension type for deserialization, otherwise it will fall back to the
+storage type::
+
+    >>> pa.register_extension_type(RationalType(pa.int32()))
 
 For example, creating a RecordBatch and writing it to a stream using the
 IPC protocol::
@@ -128,50 +227,45 @@ and then reading it back yields the proper type::
 
     >>> with pa.ipc.open_stream(buf) as reader:
     ...    result = reader.read_all()
-    >>> result.column('ext').type
-    UuidType(extension<arrow.py_extension_type>)
+    >>> result.column("ext").type
+    RationalType(StructType(struct<numer: int32, denom: int32>))
 
-We can define the same type using the other option::
+Further, note that while we registered the concrete type
+``RationalType(pa.int32())``, the same extension name
+(``"my_package.rational"``) is used by ``RationalType(integer_type)``
+for *all* Arrow integer types. As such, the above code also allows users to
+(de)serialize these data types::
 
-    class UuidType(pa.ExtensionType):
-
-        def __init__(self):
-            pa.ExtensionType.__init__(self, pa.binary(16), "my_package.uuid")
-
-        def __arrow_ext_serialize__(self):
-            # since we don't have a parameterized type, we don't need extra
-            # metadata to be deserialized
-            return b''
-
-        @classmethod
-        def __arrow_ext_deserialize__(self, storage_type, serialized):
-            # return an instance of this subclass given the serialized
-            # metadata.
-            return UuidType()
-
-This is a slightly longer implementation (you need to implement the special
-methods ``__arrow_ext_serialize__`` and ``__arrow_ext_deserialize__``), and the
-extension type needs to be registered to be received through IPC (using
-:func:`register_extension_type`), but it has
-now a unique name::
-
-    >>> uuid_type = UuidType()
-    >>> uuid_type.extension_name
-    'my_package.uuid'
-
-    >>> pa.register_extension_type(uuid_type)
+    >>> big_rational_type = RationalType(pa.int64())
+    >>> storage_array = pa.array(
+    ...     [
+    ...         {"numer": 10, "denom": 17},
+    ...         {"numer": 20, "denom": 13},
+    ...     ],
+    ...     type=big_rational_type.storage_type,
+    ... )
+    >>> arr = big_rational_type.wrap_array(storage_array)
+    >>> batch = pa.RecordBatch.from_arrays([arr], ["ext"])
+    >>> sink = pa.BufferOutputStream()
+    >>> with pa.RecordBatchStreamWriter(sink, batch.schema) as writer:
+    ...    writer.write_batch(batch)
+    >>> buf = sink.getvalue()
+    >>> with pa.ipc.open_stream(buf) as reader:
+    ...    result = reader.read_all()
+    >>> result.column("ext").type
+    RationalType(StructType(struct<numer: int64, denom: int64>))
 
 The receiving application doesn't need to be Python but can still recognize
-the extension type as a "uuid" type, if it has implemented its own extension
-type to receive it.
-If the type is not registered in the receiving application, it will fall back
-to the storage type.
+the extension type as a "my_package.rational" type if it has implemented its own
+extension type to receive it. If the type is not registered in the receiving
+application, it will fall back to the storage type.
 
 Parameterized extension type
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The above example used a fixed storage type with no further metadata. But
-more flexible, parameterized extension types are also possible.
+The above example illustrated how to construct an extension type that requires
+no additional metadata beyond its storage type. But Arrow also provides more
+flexible, parameterized extension types.
 
 The example given here implements an extension type for the `pandas "period"
 data type <https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#time-span-representation>`__,
@@ -187,7 +281,7 @@ of the given frequency since 1970.
             # attributes need to be set first before calling
             # super init (as that calls serialize)
             self._freq = freq
-            pa.ExtensionType.__init__(self, pa.int64(), 'my_package.period')
+            super().__init__(pa.int64(), "my_package.period")
 
         @property
         def freq(self):
@@ -198,41 +292,20 @@ of the given frequency since 1970.
 
         @classmethod
         def __arrow_ext_deserialize__(cls, storage_type, serialized):
-            # return an instance of this subclass given the serialized
+            # Return an instance of this subclass given the serialized
             # metadata.
             serialized = serialized.decode()
             assert serialized.startswith("freq=")
-            freq = serialized.split('=')[1]
+            freq = serialized.split("=")[1]
             return PeriodType(freq)
 
 Here, we ensure to store all information in the serialized metadata that is
 needed to reconstruct the instance (in the ``__arrow_ext_deserialize__`` class
 method), in this case the frequency string.
 
-Note that, once created, the data type instance is considered immutable. If,
-in the example above, the ``freq`` parameter would change after instantiation,
-the reconstruction of the type instance after IPC will be incorrect.
+Note that, once created, the data type instance is considered immutable.
 In the example above, the ``freq`` parameter is therefore stored in a private
 attribute with a public read-only property to access it.
-
-Parameterized extension types are also possible using the pickle-based type
-subclassing :class:`PyExtensionType`. The equivalent example for the period
-data type from above would look like::
-
-    class PeriodType(pa.PyExtensionType):
-
-        def __init__(self, freq):
-            self._freq = freq
-            pa.PyExtensionType.__init__(self, pa.int64())
-
-        @property
-        def freq(self):
-            return self._freq
-
-        def __reduce__(self):
-            return PeriodType, (self.freq,)
-
-Also the storage type does not need to be fixed but can be parameterized.
 
 Custom extension array class
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -252,12 +325,16 @@ the data as a 2-D Numpy array ``(N, 3)`` without any copy::
             return self.storage.flatten().to_numpy().reshape((-1, 3))
 
 
-    class Point3DType(pa.PyExtensionType):
+    class Point3DType(pa.ExtensionType):
         def __init__(self):
-            pa.PyExtensionType.__init__(self, pa.list_(pa.float32(), 3))
+            super().__init__(pa.list_(pa.float32(), 3), "my_package.Point3DType")
 
-        def __reduce__(self):
-            return Point3DType, ()
+        def __arrow_ext_serialize__(self):
+            return b""
+
+        @classmethod
+        def __arrow_ext_deserialize__(cls, storage_type, serialized):
+            return Point3DType()
 
         def __arrow_ext_class__(self):
             return Point3DArray
@@ -289,11 +366,10 @@ The additional methods in the extension class are then available to the user::
 
 
 This array can be sent over IPC, received in another Python process, and the custom
-extension array class will be preserved (as long as the definitions of the classes above
-are available).
+extension array class will be preserved (as long as the receiving process registers
+the extension type using :func:`register_extension_type` before reading the IPC data).
 
-The same ``__arrow_ext_class__`` specialization can be used with custom types defined
-by subclassing :class:`ExtensionType`.
+.. _custom-scalar-conversion:
 
 Custom scalar conversion
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -304,18 +380,24 @@ If you want scalars of your custom extension type to convert to a custom type wh
 For example, if we wanted the above example 3D point type to return a custom
 3D point class instead of a list, we would implement::
 
+    from collections import namedtuple
+
     Point3D = namedtuple("Point3D", ["x", "y", "z"])
 
     class Point3DScalar(pa.ExtensionScalar):
         def as_py(self) -> Point3D:
             return Point3D(*self.value.as_py())
 
-    class Point3DType(pa.PyExtensionType):
+    class Point3DType(pa.ExtensionType):
         def __init__(self):
-            pa.PyExtensionType.__init__(self, pa.list_(pa.float32(), 3))
+            super().__init__(pa.list_(pa.float32(), 3), "my_package.Point3DType")
 
-        def __reduce__(self):
-            return Point3DType, ()
+        def __arrow_ext_serialize__(self):
+            return b""
+
+        @classmethod
+        def __arrow_ext_deserialize__(cls, storage_type, serialized):
+            return Point3DType()
 
         def __arrow_ext_scalar_class__(self):
             return Point3DScalar
@@ -330,6 +412,7 @@ Arrays built using this extension type now provide scalars that convert to our `
     >>> arr.to_pylist()
     [Point3D(x=1.0, y=2.0, z=3.0), Point3D(x=4.0, y=5.0, z=6.0)]
 
+.. _conversion-to-pandas:
 
 Conversion to pandas
 ~~~~~~~~~~~~~~~~~~~~
@@ -412,16 +495,16 @@ Extension arrays can be used as columns in  ``pyarrow.Table`` or
 
    >>> data = [
    ...     pa.array([1, 2, 3]),
-   ...     pa.array(['foo', 'bar', None]),
+   ...     pa.array(["foo", "bar", None]),
    ...     pa.array([True, None, True]),
    ...     tensor_array,
    ...     tensor_array_2
    ... ]
-   >>> my_schema = pa.schema([('f0', pa.int8()),
-   ...                        ('f1', pa.string()),
-   ...                        ('f2', pa.bool_()),
-   ...                        ('tensors_int', tensor_type),
-   ...                        ('tensors_float', tensor_type_2)])
+   >>> my_schema = pa.schema([("f0", pa.int8()),
+   ...                        ("f1", pa.string()),
+   ...                        ("f2", pa.bool_()),
+   ...                        ("tensors_int", tensor_type),
+   ...                        ("tensors_float", tensor_type_2)])
    >>> table = pa.Table.from_arrays(data, schema=my_schema)
    >>> table
    pyarrow.Table
@@ -517,7 +600,7 @@ or
 
 .. code-block:: python
 
-    >>> tensor_type = pa.fixed_shape_tensor(pa.bool_(), [2, 2, 3], dim_names=['C', 'H', 'W'])
+    >>> tensor_type = pa.fixed_shape_tensor(pa.bool_(), [2, 2, 3], dim_names=["C", "H", "W"])
 
 for ``NCHW`` format where:
 

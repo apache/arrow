@@ -23,19 +23,19 @@
 
 // Don't use the deprecated Numpy functions
 #ifdef NPY_1_7_API_VERSION
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#  define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #else
-#define NPY_ARRAY_NOTSWAPPED NPY_NOTSWAPPED
-#define NPY_ARRAY_ALIGNED NPY_ALIGNED
-#define NPY_ARRAY_WRITEABLE NPY_WRITEABLE
-#define NPY_ARRAY_UPDATEIFCOPY NPY_UPDATEIFCOPY
+#  define NPY_ARRAY_NOTSWAPPED NPY_NOTSWAPPED
+#  define NPY_ARRAY_ALIGNED NPY_ALIGNED
+#  define NPY_ARRAY_WRITEABLE NPY_WRITEABLE
+#  define NPY_ARRAY_UPDATEIFCOPY NPY_UPDATEIFCOPY
 #endif
 
 // This is required to be able to access the NumPy C API properly in C++ files
 // other than init.cc.
 #define PY_ARRAY_UNIQUE_SYMBOL arrow_ARRAY_API
 #ifndef NUMPY_IMPORT_ARRAY
-#define NO_IMPORT_ARRAY
+#  define NO_IMPORT_ARRAY
 #endif
 
 #include <numpy/arrayobject.h>   // IWYU pragma: export
@@ -56,15 +56,22 @@
 // NPY_INT needs to be handled separately.
 
 #if NPY_BITSOF_LONG == 32 && NPY_BITSOF_LONGLONG == 64
-#define NPY_INT64_IS_LONG_LONG 1
+#  define NPY_INT64_IS_LONG_LONG 1
 #else
-#define NPY_INT64_IS_LONG_LONG 0
+#  define NPY_INT64_IS_LONG_LONG 0
 #endif
 
 #if NPY_BITSOF_INT == 32 && NPY_BITSOF_LONG == 64
-#define NPY_INT32_IS_INT 1
+#  define NPY_INT32_IS_INT 1
 #else
-#define NPY_INT32_IS_INT 0
+#  define NPY_INT32_IS_INT 0
+#endif
+
+// Backported NumPy 2 API (can be removed if numpy 2 is required)
+#if NPY_ABI_VERSION < 0x02000000
+#  define PyDataType_ELSIZE(descr) ((descr)->elsize)
+#  define PyDataType_C_METADATA(descr) ((descr)->c_metadata)
+#  define PyDataType_FIELDS(descr) ((descr)->fields)
 #endif
 
 namespace arrow {

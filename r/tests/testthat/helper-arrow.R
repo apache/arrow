@@ -37,7 +37,7 @@ with_language <- function(lang, expr) {
   skip_on_cran()
   old <- Sys.getenv("LANGUAGE")
   # Check what this message is before changing languages; this will
-  # trigger caching the transations if the OS does that (some do).
+  # trigger caching the translations if the OS does that (some do).
   # If the OS does cache, then we can't test changing languages safely.
   before <- i18ize_error_messages()
   Sys.setenv(LANGUAGE = lang)
@@ -69,4 +69,10 @@ make_temp_dir <- function() {
   path <- tempfile()
   dir.create(path)
   normalizePath(path, winslash = "/")
+}
+
+arrow_cpp_version_at_least <- function(version) {
+  cpp_version <- arrow::arrow_info()$build_info$cpp_version
+  cpp_version_parsed <- package_version(sub("-SNAPSHOT$", "", cpp_version))
+  numeric_version(cpp_version_parsed) >= numeric_version(version)
 }

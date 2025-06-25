@@ -96,7 +96,15 @@ end
 
 module VersionDetectable
   def release_type
-    (data || {})[:release_type] || :major
+    (data || {})[:release_type]
+  end
+
+  def next_release_type
+    (data || {})[:next_release_type] || :major
+  end
+
+  def compute_compatible_version(version)
+    version.split(".")[0, 2].join(".")
   end
 
   def detect_versions
@@ -104,29 +112,46 @@ module VersionDetectable
     cpp_cmake_lists = top_dir + "cpp" + "CMakeLists.txt"
     @snapshot_version = cpp_cmake_lists.read[/ARROW_VERSION "(.+?)"/, 1]
     @snapshot_major_version = @snapshot_version.split(".")[0]
-    @release_version = @snapshot_version.gsub(/-SNAPSHOT\z/, "")
-    @release_compatible_version = @release_version.split(".")[0, 2].join(".")
-    @so_version = compute_so_version(@release_version)
-    next_version_components = @release_version.split(".")
+    @snapshot_so_version = compute_so_version(@snapshot_version.split("-")[0])
+    release_version = @snapshot_version.gsub(/-SNAPSHOT\z/, "")
+    release_version_components = release_version.split(".")
     case release_type
+    when nil
     when :major
-      next_version_components[0].succ!
+      release_version_components[0].succ!
     when :minor
-      next_version_components[1].succ!
+      release_version_components[1].succ!
     when :patch
-      next_version_components[2].succ!
+      release_version_components[2].succ!
     else
       raise "unknown release type: #{release_type.inspect}"
     end
+    @release_version = release_version_components.join(".")
+    @release_compatible_version = compute_compatible_version(@release_version)
+    @so_version = compute_so_version(@release_version)
+    next_version_components = @release_version.split(".")
+    case next_release_type
+    when :major
+      next_version_components[0].succ!
+      next_version_components[1] = 0
+      next_version_components[2] = 0
+    when :minor
+      next_version_components[1].succ!
+      next_version_components[2] = 0
+    when :patch
+      next_version_components[2].succ!
+    else
+      raise "unknown next release type: #{next_release_type.inspect}"
+    end
     @next_version = next_version_components.join(".")
     @next_major_version = @next_version.split(".")[0]
-    @next_compatible_version = @next_version.split(".")[0, 2].join(".")
+    @next_compatible_version = compute_compatible_version(@next_version)
     @next_snapshot_version = "#{@next_version}-SNAPSHOT"
     @next_so_version = compute_so_version(@next_version)
     r_description = top_dir + "r" + "DESCRIPTION"
     @previous_version = r_description.read[/^Version: (.+?)\.9000$/, 1]
     if @previous_version
-      @previous_compatible_version = @previous_version.split(".")[0, 2].join(".")
+      @previous_compatible_version = compute_compatible_version(@previous_version)
     else
       @previous_compatible_version = nil
     end

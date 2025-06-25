@@ -122,7 +122,7 @@ static void Decimal128Conversion(benchmark::State& state) {  // NOLINT non-const
   auto parser = BuildDecimal128Data(num_rows);
   auto options = ConvertOptions::Defaults();
 
-  BenchmarkConversion(state, *parser, decimal(24, 9), options);
+  BenchmarkConversion(state, *parser, decimal128(24, 9), options);
 }
 
 static void StringConversion(benchmark::State& state) {  // NOLINT non-const reference

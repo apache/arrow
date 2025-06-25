@@ -17,15 +17,22 @@
 
 # Requirements for building the documentation
 breathe
+cython>3.1.1
 doxygen
 ipython
+linkify-it-py
+# We can't install linuxdoc by conda. We install linuxdoc by pip in
+# ci/dockerfiles/conda-python-pandas.dockerfile.
+# linuxdoc
+myst-parser
 numpydoc
-pydata-sphinx-theme
+pydata-sphinx-theme=0.14
 sphinx-autobuild
 sphinx-design
 sphinx-copybutton
+sphinx-lint
 sphinxcontrib-jquery
+sphinxcontrib-mermaid
 sphinx==6.2
-# Requirement for doctest-cython
 pytest-cython
 pandas

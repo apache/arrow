@@ -27,7 +27,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
-#include "arrow/result_internal.h"
+#include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/type.h"
@@ -73,17 +73,17 @@ WriteOptions DefaultTestOptions(bool include_header = false,
 }
 
 std::string UtilGetExpectedWithEOL(const std::string& eol) {
-  return std::string("1,,-1,,,,") + eol +        // line 1
-         R"(1,"abc""efg",2324,,,,)" + eol +      // line 2
-         R"(,"abcd",5467,,,,)" + eol +           // line 3
-         R"(,,,,,,)" + eol +                     // line 4
-         R"(546,"",517,,,,)" + eol +             // line 5
-         R"(124,"a""""b""",,,,,)" + eol +        // line 6
-         R"(,,,1970-01-01,,,)" + eol +           // line 7
-         R"(,,,,1970-01-02,,)" + eol +           // line 8
-         R"(,,,,,2004-02-29 01:02:03,)" + eol +  // line 9
-         R"(,,,,,,3600)" + eol +                 // line 10
-         R"(,"NA",,,,,)" + eol;                  // line 11
+  return std::string("1,,-1,,,,,") + eol +        // line 1
+         R"(1,"abc""efg",2324,,,,,)" + eol +      // line 2
+         R"(,"abcd",5467,,,,,"efghi")" + eol +    // line 3
+         R"(,,,,,,,)" + eol +                     // line 4
+         R"(546,"",517,,,,,)" + eol +             // line 5
+         R"(124,"a""""b""",,,,,,)" + eol +        // line 6
+         R"(,,,1970-01-01,,,,"jklm")" + eol +     // line 7
+         R"(,,,,1970-01-02,,,)" + eol +           // line 8
+         R"(,,,,,2004-02-29 01:02:03,,)" + eol +  // line 9
+         R"(,,,,,,3600,)" + eol +                 // line 10
+         R"(,"NA",,,,,,)" + eol;                  // line 11
 }
 
 std::vector<WriterTestParams> GenerateTestCases() {
@@ -100,20 +100,22 @@ std::vector<WriterTestParams> GenerateTestCases() {
       field("e", date64()),
       field("f", timestamp(TimeUnit::SECOND)),
       field("g", duration(TimeUnit::SECOND)),
+      field("h", large_utf8()),
   });
   auto populated_batch = R"([{"a": 1, "c ": -1},
                              { "a": 1, "b\"": "abc\"efg", "c ": 2324},
-                             { "b\"": "abcd", "c ": 5467},
+                             { "b\"": "abcd", "c ": 5467, "h": "efghi"},
                              { },
                              { "a": 546, "b\"": "", "c ": 517 },
                              { "a": 124, "b\"": "a\"\"b\"" },
-                             { "d": 0 },
+                             { "d": 0, "h": "jklm" },
                              { "e": 86400000 },
                              { "f": 1078016523 },
                              { "g": 3600 },
                              { "b\"": "NA" }])";
 
-  std::string expected_header = std::string(R"("a","b""","c ","d","e","f","g")") + "\n";
+  std::string expected_header =
+      std::string(R"("a","b""","c ","d","e","f","g","h")") + "\n";
 
   // Expected output without header when using default QuotingStyle::Needed.
   std::string expected_without_header = UtilGetExpectedWithEOL("\n");
@@ -122,42 +124,42 @@ std::vector<WriterTestParams> GenerateTestCases() {
 
   // Expected output without header when using QuotingStyle::AllValid.
   std::string expected_quoting_style_all_valid =
-      std::string(R"("1",,"-1",,,,)") + "\n" +   // line 1
-      R"("1","abc""efg","2324",,,,)" + "\n" +    // line 2
-      R"(,"abcd","5467",,,,)" + "\n" +           // line 3
-      R"(,,,,,,)" + "\n" +                       // line 4
-      R"("546","","517",,,,)" + "\n" +           // line 5
-      R"("124","a""""b""",,,,,)" + "\n" +        // line 6
-      R"(,,,"1970-01-01",,,)" + "\n" +           // line 7
-      R"(,,,,"1970-01-02",,)" + "\n" +           // line 8
-      R"(,,,,,"2004-02-29 01:02:03",)" + "\n" +  // line 9
-      R"(,,,,,,"3600")" + "\n" +                 // line 10
-      R"(,"NA",,,,,)" + "\n";                    // line 11
+      std::string(R"("1",,"-1",,,,,)") + "\n" +   // line 1
+      R"("1","abc""efg","2324",,,,,)" + "\n" +    // line 2
+      R"(,"abcd","5467",,,,,"efghi")" + "\n" +    // line 3
+      R"(,,,,,,,)" + "\n" +                       // line 4
+      R"("546","","517",,,,,)" + "\n" +           // line 5
+      R"("124","a""""b""",,,,,,)" + "\n" +        // line 6
+      R"(,,,"1970-01-01",,,,"jklm")" + "\n" +     // line 7
+      R"(,,,,"1970-01-02",,,)" + "\n" +           // line 8
+      R"(,,,,,"2004-02-29 01:02:03",,)" + "\n" +  // line 9
+      R"(,,,,,,"3600",)" + "\n" +                 // line 10
+      R"(,"NA",,,,,,)" + "\n";                    // line 11
 
   // Batch when testing QuotingStyle::None. The values may not contain any quotes for this
   // style according to RFC4180.
   auto populated_batch_quoting_style_none = R"([{"a": 1, "c ": -1},
                              { "a": 1, "b\"": "abcefg", "c ": 2324},
-                             { "b\"": "abcd", "c ": 5467},
+                             { "b\"": "abcd", "c ": 5467, "h": "efghi"},
                              { },
                              { "a": 546, "b\"": "", "c ": 517 },
                              { "a": 124, "b\"": "ab" },
-                             { "d": 0 },
+                             { "d": 0, "h": "jklm" },
                              { "e": 86400000 },
                              { "f": 1078016523 },
                              { "g": 3600 }])";
   // Expected output for QuotingStyle::None.
-  std::string expected_quoting_style_none = std::string("1,,-1,,,,") + "\n" +  // line 1
-                                            R"(1,abcefg,2324,,,,)" + "\n" +    // line 2
-                                            R"(,abcd,5467,,,,)" + "\n" +       // line 3
-                                            R"(,,,,,,)" + "\n" +               // line 4
-                                            R"(546,,517,,,,)" + "\n" +         // line 5
-                                            R"(124,ab,,,,,)" + "\n" +          // line 6
-                                            R"(,,,1970-01-01,,,)" + "\n" +     // line 7
-                                            R"(,,,,1970-01-02,,)" + "\n" +     // line 8
-                                            R"(,,,,,2004-02-29 01:02:03,)" +
-                                            "\n" +                   // line 9
-                                            R"(,,,,,,3600)" + "\n";  // line 10
+  std::string expected_quoting_style_none = std::string("1,,-1,,,,,") + "\n" +   // line 1
+                                            R"(1,abcefg,2324,,,,,)" + "\n" +     // line 2
+                                            R"(,abcd,5467,,,,,efghi)" + "\n" +   // line 3
+                                            R"(,,,,,,,)" + "\n" +                // line 4
+                                            R"(546,,517,,,,,)" + "\n" +          // line 5
+                                            R"(124,ab,,,,,,)" + "\n" +           // line 6
+                                            R"(,,,1970-01-01,,,,jklm)" + "\n" +  // line 7
+                                            R"(,,,,1970-01-02,,,)" + "\n" +      // line 8
+                                            R"(,,,,,2004-02-29 01:02:03,,)" +
+                                            "\n" +                    // line 9
+                                            R"(,,,,,,3600,)" + "\n";  // line 10
 
   // Schema and data to test custom null value string.
   auto schema_custom_na = schema({field("g", uint64()), field("h", utf8())});
@@ -285,19 +287,19 @@ class TestWriteCSV : public ::testing::TestWithParam<WriterTestParams> {
   template <typename Data>
   Result<std::string> ToCsvString(const Data& data, const WriteOptions& options) {
     std::shared_ptr<io::BufferOutputStream> out;
-    ASSIGN_OR_RAISE(out, io::BufferOutputStream::Create());
+    ARROW_ASSIGN_OR_RAISE(out, io::BufferOutputStream::Create());
 
     RETURN_NOT_OK(WriteCSV(data, options, out.get()));
-    ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, out->Finish());
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, out->Finish());
     return std::string(reinterpret_cast<const char*>(buffer->data()), buffer->size());
   }
 
   Result<std::string> ToCsvStringUsingWriter(const Table& data,
                                              const WriteOptions& options) {
     std::shared_ptr<io::BufferOutputStream> out;
-    ASSIGN_OR_RAISE(out, io::BufferOutputStream::Create());
+    ARROW_ASSIGN_OR_RAISE(out, io::BufferOutputStream::Create());
     // Write row-by-row
-    ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(out, data.schema(), options));
+    ARROW_ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(out, data.schema(), options));
     TableBatchReader reader(data);
     reader.set_chunksize(1);
     std::shared_ptr<RecordBatch> batch;
@@ -308,7 +310,7 @@ class TestWriteCSV : public ::testing::TestWithParam<WriterTestParams> {
     }
     RETURN_NOT_OK(writer->Close());
     EXPECT_EQ(data.num_rows(), writer->stats().num_record_batches);
-    ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, out->Finish());
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, out->Finish());
     return std::string(reinterpret_cast<const char*>(buffer->data()), buffer->size());
   }
 };

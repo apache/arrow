@@ -39,8 +39,8 @@ class GANDIVA_EXPORT IntervalHolder : public FunctionHolder {
   ~IntervalHolder() override = default;
 
  protected:
-  static Status Make(const FunctionNode& node, std::shared_ptr<INTERVAL_TYPE>* holder,
-                     const std::string& function_name) {
+  static Result<std::shared_ptr<INTERVAL_TYPE>> Make(const FunctionNode& node,
+                                                     const std::string& function_name) {
     ARROW_RETURN_IF(node.children().size() != 1 && node.children().size() != 2,
                     Status::Invalid(function_name + " requires one or two parameters"));
 
@@ -63,17 +63,14 @@ class GANDIVA_EXPORT IntervalHolder : public FunctionHolder {
       suppress_errors = std::get<int>(literal_suppress_errors->holder());
     }
 
-    return Make(suppress_errors, holder);
+    return Make(suppress_errors);
   }
 
-  static Status Make(int32_t suppress_errors, std::shared_ptr<INTERVAL_TYPE>* holder) {
-    auto lholder = std::make_shared<INTERVAL_TYPE>(suppress_errors);
-
-    *holder = lholder;
-    return Status::OK();
+  static Result<std::shared_ptr<INTERVAL_TYPE>> Make(int32_t suppress_errors) {
+    return std::make_shared<INTERVAL_TYPE>(suppress_errors);
   }
 
-  explicit IntervalHolder(int32_t supress_errors) : suppress_errors_(supress_errors) {}
+  explicit IntervalHolder(int32_t suppress_errors) : suppress_errors_(suppress_errors) {}
 
   // If the flag is equals to 0, the errors will not be suppressed, any other value
   // will made the errors being suppressed
@@ -94,27 +91,25 @@ class GANDIVA_EXPORT IntervalDaysHolder : public IntervalHolder<IntervalDaysHold
  public:
   ~IntervalDaysHolder() override = default;
 
-  static Status Make(const FunctionNode& node,
-                     std::shared_ptr<IntervalDaysHolder>* holder);
+  static Result<std::shared_ptr<IntervalDaysHolder>> Make(const FunctionNode& node);
 
-  static Status Make(int32_t suppress_errors,
-                     std::shared_ptr<IntervalDaysHolder>* holder);
+  static Result<std::shared_ptr<IntervalDaysHolder>> Make(int32_t suppress_errors);
 
   /// Cast a generic string to an interval
   int64_t operator()(ExecutionContext* ctx, const char* data, int32_t data_len,
                      bool in_valid, bool* out_valid);
 
-  explicit IntervalDaysHolder(int32_t supress_errors)
-      : IntervalHolder<IntervalDaysHolder>(supress_errors) {}
+  explicit IntervalDaysHolder(int32_t suppress_errors)
+      : IntervalHolder<IntervalDaysHolder>(suppress_errors) {}
 
  private:
-  /// Retrieves the day interval from the number of milliseconds enconded as
+  /// Retrieves the day interval from the number of milliseconds encoded as
   /// a string
   static int64_t GetIntervalDayFromMillis(ExecutionContext* context,
                                           std::string& number_as_string,
                                           int32_t suppress_errors, bool* out_valid);
 
-  /// Retrieves the day interval from the number of weeks enconded as
+  /// Retrieves the day interval from the number of weeks encoded as
   /// a string.
   static int64_t GetIntervalDayFromWeeks(ExecutionContext* context,
                                          std::string& number_as_string,
@@ -131,18 +126,16 @@ class GANDIVA_EXPORT IntervalYearsHolder : public IntervalHolder<IntervalYearsHo
  public:
   ~IntervalYearsHolder() override = default;
 
-  static Status Make(const FunctionNode& node,
-                     std::shared_ptr<IntervalYearsHolder>* holder);
+  static Result<std::shared_ptr<IntervalYearsHolder>> Make(const FunctionNode& node);
 
-  static Status Make(int32_t suppress_errors,
-                     std::shared_ptr<IntervalYearsHolder>* holder);
+  static Result<std::shared_ptr<IntervalYearsHolder>> Make(int32_t suppress_errors);
 
   /// Cast a generic string to an interval
   int32_t operator()(ExecutionContext* ctx, const char* data, int32_t data_len,
                      bool in_valid, bool* out_valid);
 
-  explicit IntervalYearsHolder(int32_t supress_errors)
-      : IntervalHolder<IntervalYearsHolder>(supress_errors) {}
+  explicit IntervalYearsHolder(int32_t suppress_errors)
+      : IntervalHolder<IntervalYearsHolder>(suppress_errors) {}
 
  private:
   static int32_t GetIntervalYearFromNumber(ExecutionContext* context,

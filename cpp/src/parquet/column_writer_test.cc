@@ -15,26 +15,32 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <memory>
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/io/buffered.h"
+#include "arrow/io/file.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
+#include "arrow/util/config.h"
+#include "arrow/util/key_value_metadata.h"
 
+#include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
+#include "parquet/geospatial/statistics.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
 #include "parquet/test_util.h"
-#include "parquet/thrift_internal.h"
 #include "parquet/types.h"
 
 namespace bit_util = arrow::bit_util;
@@ -46,6 +52,9 @@ using schema::NodePtr;
 using schema::PrimitiveNode;
 
 namespace test {
+
+using ::testing::IsNull;
+using ::testing::NotNull;
 
 // The default size used in most tests.
 const int SMALL_SIZE = 100;
@@ -308,8 +317,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     ColumnProperties column_properties(encoding, compression, enable_dictionary,
                                        enable_statistics);
     column_properties.set_codec_options(codec_options);
-    std::shared_ptr<TypedColumnWriter<TestType>> writer = this->BuildWriter(
-        num_rows, column_properties, ParquetVersion::PARQUET_1_0, enable_checksum);
+    std::shared_ptr<TypedColumnWriter<TestType>> writer =
+        this->BuildWriter(num_rows, column_properties, ParquetVersion::PARQUET_1_0,
+                          ParquetDataPageVersion::V1, enable_checksum);
     writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
     // The behaviour should be independent from the number of Close() calls
     writer->Close();
@@ -380,6 +390,34 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     return metadata_accessor->encoding_stats();
   }
 
+  std::shared_ptr<const KeyValueMetadata> metadata_key_value_metadata() {
+    // Metadata accessor must be created lazily.
+    // This is because the ColumnChunkMetaData semantics dictate the metadata object is
+    // complete (no changes to the metadata buffer can be made after instantiation)
+    auto metadata_accessor =
+        ColumnChunkMetaData::Make(metadata_->contents(), this->descr_);
+    return metadata_accessor->key_value_metadata();
+  }
+
+  std::unique_ptr<ColumnChunkMetaData> metadata_accessor() {
+    // Metadata accessor must be created lazily.
+    // This is because the ColumnChunkMetaData semantics dictate the metadata object is
+    // complete (no changes to the metadata buffer can be made after instantiation)
+    ApplicationVersion app_version(this->writer_properties_->created_by());
+    return ColumnChunkMetaData::Make(metadata_->contents(), this->descr_,
+                                     default_reader_properties(), &app_version);
+  }
+
+  EncodedStatistics metadata_encoded_stats() { return metadata_stats()->Encode(); }
+
+  std::shared_ptr<Statistics> metadata_stats() {
+    return metadata_accessor()->statistics();
+  }
+
+  std::shared_ptr<geospatial::GeoStatistics> metadata_geo_stats() {
+    return metadata_accessor()->geo_statistics();
+  }
+
  protected:
   int64_t values_read_;
   // Keep the reader alive as for ByteArray the lifetime of the ByteArray
@@ -391,7 +429,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
   const ColumnDescriptor* descr_;
 
- private:
+ protected:
   std::unique_ptr<ColumnChunkMetaDataBuilder> metadata_;
   std::shared_ptr<::arrow::io::BufferOutputStream> sink_;
   std::shared_ptr<WriterProperties> writer_properties_;
@@ -478,6 +516,8 @@ using TestValuesWriterInt64Type = TestPrimitiveWriter<Int64Type>;
 using TestByteArrayValuesWriter = TestPrimitiveWriter<ByteArrayType>;
 using TestFixedLengthByteArrayValuesWriter = TestPrimitiveWriter<FLBAType>;
 
+using ::testing::HasSubstr;
+
 TYPED_TEST(TestPrimitiveWriter, RequiredPlain) {
   this->TestRequiredWithEncoding(Encoding::PLAIN);
 }
@@ -500,23 +540,33 @@ TEST_F(TestValuesWriterInt32Type, RequiredDeltaBinaryPacked) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BINARY_PACKED);
 }
 
+TEST_F(TestValuesWriterInt32Type, RequiredByteStreamSplit) {
+  this->TestRequiredWithEncoding(Encoding::BYTE_STREAM_SPLIT);
+}
+
 TEST_F(TestValuesWriterInt64Type, RequiredDeltaBinaryPacked) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BINARY_PACKED);
+}
+
+TEST_F(TestValuesWriterInt64Type, RequiredByteStreamSplit) {
+  this->TestRequiredWithEncoding(Encoding::BYTE_STREAM_SPLIT);
 }
 
 TEST_F(TestByteArrayValuesWriter, RequiredDeltaLengthByteArray) {
   this->TestRequiredWithEncoding(Encoding::DELTA_LENGTH_BYTE_ARRAY);
 }
 
-/*
-TYPED_TEST(TestByteArrayValuesWriter, RequiredDeltaByteArray) {
+TEST_F(TestByteArrayValuesWriter, RequiredDeltaByteArray) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BYTE_ARRAY);
 }
 
 TEST_F(TestFixedLengthByteArrayValuesWriter, RequiredDeltaByteArray) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BYTE_ARRAY);
 }
-*/
+
+TEST_F(TestFixedLengthByteArrayValuesWriter, RequiredByteStreamSplit) {
+  this->TestRequiredWithEncoding(Encoding::BYTE_STREAM_SPLIT);
+}
 
 TYPED_TEST(TestPrimitiveWriter, RequiredRLEDictionary) {
   this->TestRequiredWithEncoding(Encoding::RLE_DICTIONARY);
@@ -557,7 +607,7 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndBrotliCompression) {
 
 #endif
 
-#ifdef ARROW_WITH_GZIP
+#ifdef ARROW_WITH_ZLIB
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithGzipCompression) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::GZIP, false, false,
                                  LARGE_SIZE);
@@ -888,6 +938,52 @@ TEST_F(TestByteArrayValuesWriter, CheckDefaultStats) {
   ASSERT_TRUE(this->metadata_is_stats_set());
 }
 
+TEST(TestPageWriter, ThrowsOnPagesTooLarge) {
+  NodePtr item = schema::Int32("item");  // optional item
+  NodePtr list(GroupNode::Make("b", Repetition::REPEATED, {item}, ConvertedType::LIST));
+  NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));  // optional list
+  std::vector<NodePtr> fields = {bag};
+  NodePtr root = GroupNode::Make("schema", Repetition::REPEATED, fields);
+
+  SchemaDescriptor schema;
+  schema.Init(root);
+
+  auto sink = CreateOutputStream();
+  auto props = WriterProperties::Builder().build();
+
+  auto metadata = ColumnChunkMetaDataBuilder::Make(props, schema.Column(0));
+  std::unique_ptr<PageWriter> pager =
+      PageWriter::Open(sink, Compression::UNCOMPRESSED, metadata.get());
+
+  uint8_t data;
+  std::shared_ptr<Buffer> buffer =
+      std::make_shared<Buffer>(&data, std::numeric_limits<int32_t>::max() + int64_t{1});
+  DataPageV1 over_compressed_limit(buffer, /*num_values=*/100, Encoding::BIT_PACKED,
+                                   Encoding::BIT_PACKED, Encoding::BIT_PACKED,
+                                   /*uncompressed_size=*/100);
+  EXPECT_THROW_THAT([&]() { pager->WriteDataPage(over_compressed_limit); },
+                    ParquetException,
+                    ::testing::Property(&ParquetException::what,
+                                        ::testing::HasSubstr("overflows INT32_MAX")));
+  DictionaryPage dictionary_over_compressed_limit(buffer, /*num_values=*/100,
+                                                  Encoding::PLAIN);
+  EXPECT_THROW_THAT(
+      [&]() { pager->WriteDictionaryPage(dictionary_over_compressed_limit); },
+      ParquetException,
+      ::testing::Property(&ParquetException::what,
+                          ::testing::HasSubstr("overflows INT32_MAX")));
+
+  buffer = std::make_shared<Buffer>(&data, 1);
+  DataPageV1 over_uncompressed_limit(
+      buffer, /*num_values=*/100, Encoding::BIT_PACKED, Encoding::BIT_PACKED,
+      Encoding::BIT_PACKED,
+      /*uncompressed_size=*/std::numeric_limits<int32_t>::max() + int64_t{1});
+  EXPECT_THROW_THAT([&]() { pager->WriteDataPage(over_compressed_limit); },
+                    ParquetException,
+                    ::testing::Property(&ParquetException::what,
+                                        ::testing::HasSubstr("overflows INT32_MAX")));
+}
+
 TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
   // In ARROW-3930 we discovered a bug when writing from Arrow when we had data
   // that looks like this:
@@ -924,8 +1020,8 @@ TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
   auto values_data = reinterpret_cast<const int32_t*>(values_buffer->data());
 
   std::shared_ptr<Buffer> valid_bits;
-  ASSERT_OK_AND_ASSIGN(valid_bits, ::arrow::internal::BytesToBits(
-                                       {1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1}));
+  std::vector<uint8_t> bitmap_bytes = {1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1};
+  ASSERT_OK_AND_ASSIGN(valid_bits, ::arrow::internal::BytesToBits(bitmap_bytes));
 
   // valgrind will warn about out of bounds access into def_levels_data
   typed_writer->WriteBatchSpaced(14, def_levels.data(), rep_levels.data(),
@@ -975,7 +1071,7 @@ void EncodeLevels(Encoding::type encoding, int16_t max_level, int num_levels,
 }
 
 void VerifyDecodingLevels(Encoding::type encoding, int16_t max_level,
-                          std::vector<int16_t>& input_levels,
+                          const std::vector<int16_t>& input_levels,
                           std::vector<uint8_t>& bytes) {
   LevelDecoder decoder;
   int levels_count = 0;
@@ -1014,7 +1110,7 @@ void VerifyDecodingLevels(Encoding::type encoding, int16_t max_level,
 }
 
 void VerifyDecodingMultipleSetData(Encoding::type encoding, int16_t max_level,
-                                   std::vector<int16_t>& input_levels,
+                                   const std::vector<int16_t>& input_levels,
                                    std::vector<std::vector<uint8_t>>& bytes) {
   LevelDecoder decoder;
   int levels_count = 0;
@@ -1640,6 +1736,288 @@ TEST(TestColumnWriter, WriteDataPageV2HeaderNullCount) {
     EXPECT_EQ(num_rows, num_rows_read);
     EXPECT_EQ(num_rows, num_values_read);
   }
+}
+
+using TestInt32Writer = TestPrimitiveWriter<Int32Type>;
+
+TEST_F(TestInt32Writer, NoWriteKeyValueMetadata) {
+  auto writer = this->BuildWriter();
+  writer->Close();
+  auto key_value_metadata = metadata_key_value_metadata();
+  ASSERT_THAT(key_value_metadata, IsNull());
+}
+
+TEST_F(TestInt32Writer, WriteKeyValueMetadata) {
+  auto writer = this->BuildWriter();
+  writer->AddKeyValueMetadata(
+      KeyValueMetadata::Make({"hello", "bye"}, {"world", "earth"}));
+  // overwrite the previous value
+  writer->AddKeyValueMetadata(KeyValueMetadata::Make({"bye"}, {"moon"}));
+  writer->Close();
+  auto key_value_metadata = metadata_key_value_metadata();
+  ASSERT_THAT(key_value_metadata, NotNull());
+  ASSERT_EQ(2, key_value_metadata->size());
+  ASSERT_OK_AND_ASSIGN(auto value, key_value_metadata->Get("hello"));
+  ASSERT_EQ("world", value);
+  ASSERT_OK_AND_ASSIGN(value, key_value_metadata->Get("bye"));
+  ASSERT_EQ("moon", value);
+}
+
+TEST_F(TestInt32Writer, ResetKeyValueMetadata) {
+  auto writer = this->BuildWriter();
+  writer->AddKeyValueMetadata(KeyValueMetadata::Make({"hello"}, {"world"}));
+  writer->ResetKeyValueMetadata();
+  writer->Close();
+  auto key_value_metadata = metadata_key_value_metadata();
+  ASSERT_THAT(key_value_metadata, IsNull());
+}
+
+TEST_F(TestInt32Writer, WriteKeyValueMetadataEndToEnd) {
+  auto sink = CreateOutputStream();
+  {
+    auto file_writer = ParquetFileWriter::Open(
+        sink, std::dynamic_pointer_cast<schema::GroupNode>(schema_.schema_root()));
+    auto rg_writer = file_writer->AppendRowGroup();
+    auto col_writer = rg_writer->NextColumn();
+    col_writer->AddKeyValueMetadata(KeyValueMetadata::Make({"foo"}, {"bar"}));
+    file_writer->Close();
+  }
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+  auto file_reader =
+      ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
+  auto key_value_metadata =
+      file_reader->metadata()->RowGroup(0)->ColumnChunk(0)->key_value_metadata();
+  ASSERT_THAT(key_value_metadata, NotNull());
+  ASSERT_EQ(1U, key_value_metadata->size());
+  ASSERT_OK_AND_ASSIGN(auto value, key_value_metadata->Get("foo"));
+  ASSERT_EQ("bar", value);
+}
+
+TEST_F(TestValuesWriterInt32Type, AllNullsCompressionInPageV2) {
+  // GH-31992: In DataPageV2, the levels and data will not be compressed together,
+  // so, when all values are null, the compressed values should be empty. And
+  // we should handle this case correctly.
+  std::vector<Compression::type> compressions = {Compression::SNAPPY, Compression::GZIP,
+                                                 Compression::ZSTD, Compression::BROTLI,
+                                                 Compression::LZ4};
+  for (auto compression : compressions) {
+    if (!Codec::IsAvailable(compression)) {
+      continue;
+    }
+    ARROW_SCOPED_TRACE("compression = ", Codec::GetCodecAsString(compression));
+    // Optional and non-repeated, with definition levels
+    // but no repetition levels
+    this->SetUpSchema(Repetition::OPTIONAL);
+    this->GenerateData(SMALL_SIZE);
+    std::fill(this->def_levels_.begin(), this->def_levels_.end(), 0);
+    ColumnProperties column_properties;
+    column_properties.set_compression(compression);
+
+    auto writer =
+        this->BuildWriter(SMALL_SIZE, column_properties, ParquetVersion::PARQUET_2_LATEST,
+                          ParquetDataPageVersion::V2);
+    writer->WriteBatch(this->values_.size(), this->def_levels_.data(), nullptr,
+                       this->values_ptr_);
+    writer->Close();
+
+    ASSERT_EQ(100, this->metadata_num_values());
+    this->ReadColumn(compression);
+    ASSERT_EQ(0, this->values_read_);
+  }
+}
+
+#ifdef ARROW_WITH_ZSTD
+TEST_F(TestValuesWriterInt32Type, AvoidCompressedInDataPageV2) {
+  Compression::type compression = Compression::ZSTD;
+  auto verify_only_one_uncompressed_page = [&](int total_num_values) {
+    ColumnProperties column_properties;
+    column_properties.set_compression(compression);
+
+    auto writer =
+        this->BuildWriter(SMALL_SIZE, column_properties, ParquetVersion::PARQUET_2_LATEST,
+                          ParquetDataPageVersion::V2);
+    writer->WriteBatch(static_cast<int64_t>(values_.size()), this->def_levels_.data(),
+                       nullptr, this->values_ptr_);
+    writer->Close();
+    ASSERT_OK_AND_ASSIGN(auto buffer, this->sink_->Finish());
+    auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+    ReaderProperties readerProperties;
+    std::unique_ptr<PageReader> page_reader = PageReader::Open(
+        std::move(source), total_num_values, compression, readerProperties);
+    auto data_page = std::static_pointer_cast<DataPageV2>(page_reader->NextPage());
+    ASSERT_TRUE(data_page != nullptr);
+    ASSERT_FALSE(data_page->is_compressed());
+    ASSERT_TRUE(page_reader->NextPage() == nullptr);
+  };
+  {
+    // zero-sized data buffer should be handled correctly.
+    this->SetUpSchema(Repetition::OPTIONAL);
+    this->GenerateData(SMALL_SIZE);
+    std::fill(this->def_levels_.begin(), this->def_levels_.end(), 0);
+    verify_only_one_uncompressed_page(SMALL_SIZE);
+  }
+  {
+    // When only compress little data, the compressed size would even be
+    // larger than the original size. In this case, the `is_compressed` flag
+    // should be set to false.
+    this->SetUpSchema(Repetition::OPTIONAL);
+    this->GenerateData(1);
+    std::fill(this->def_levels_.begin(), this->def_levels_.end(), 1);
+    values_[0] = 142857;
+    verify_only_one_uncompressed_page(/*total_num_values=*/1);
+  }
+}
+#endif
+
+// Test writing and reading geometry columns
+class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
+ public:
+  void SetUpSchema(Repetition::type repetition, int num_columns) override {
+    std::vector<schema::NodePtr> fields;
+
+    for (int i = 0; i < num_columns; ++i) {
+      std::string name = TestColumnName(i);
+      std::shared_ptr<const LogicalType> logical_type =
+          GeometryLogicalType::Make("srid:1234");
+      fields.push_back(schema::PrimitiveNode::Make(name, repetition, logical_type,
+                                                   ByteArrayType::type_num));
+    }
+    node_ = schema::GroupNode::Make("schema", Repetition::REQUIRED, fields);
+    schema_.Init(node_);
+  }
+
+  void GenerateData(int64_t num_values, uint32_t seed = 0) {
+    values_.resize(num_values);
+
+    buffer_.resize(num_values * kWkbPointXYSize);
+    uint8_t* ptr = buffer_.data();
+    for (int k = 0; k < num_values; k++) {
+      std::string item = test::MakeWKBPoint(
+          {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
+      std::memcpy(ptr, item.data(), item.size());
+      values_[k].len = kWkbPointXYSize;
+      values_[k].ptr = ptr;
+      ptr += kWkbPointXYSize;
+    }
+
+    values_ptr_ = values_.data();
+  }
+};
+
+TEST_F(TestGeometryValuesWriter, TestWriteAndRead) {
+  this->SetUpSchema(Repetition::REQUIRED, 1);
+  this->GenerateData(SMALL_SIZE);
+  size_t num_values = this->values_.size();
+  auto writer = this->BuildWriter(num_values, ColumnProperties());
+  writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_.data());
+
+  writer->Close();
+  this->ReadColumn();
+  for (size_t i = 0; i < num_values; i++) {
+    const ByteArray& value = this->values_out_[i];
+    auto xy = GetWKBPointCoordinateXY(value);
+    EXPECT_TRUE(xy.has_value());
+    auto expected_x = static_cast<double>(i);
+    auto expected_y = static_cast<double>(i + 1);
+    EXPECT_EQ(*xy, std::make_pair(expected_x, expected_y));
+  }
+
+  // Statistics are unset because the sort order is unknown
+  ASSERT_FALSE(metadata_accessor()->is_stats_set());
+  ASSERT_EQ(metadata_accessor()->statistics(), nullptr);
+
+  ASSERT_TRUE(metadata_accessor()->is_geo_stats_set());
+  std::shared_ptr<geospatial::GeoStatistics> geospatial_statistics = metadata_geo_stats();
+  ASSERT_TRUE(geospatial_statistics != nullptr);
+  EXPECT_THAT(*geospatial_statistics->geometry_types(), ::testing::ElementsAre(1));
+  EXPECT_DOUBLE_EQ(0, geospatial_statistics->lower_bound()[0]);
+  EXPECT_DOUBLE_EQ(1, geospatial_statistics->lower_bound()[1]);
+  EXPECT_DOUBLE_EQ(99, geospatial_statistics->upper_bound()[0]);
+  EXPECT_DOUBLE_EQ(100, geospatial_statistics->upper_bound()[1]);
+  EXPECT_THAT(geospatial_statistics->dimension_valid(),
+              ::testing::ElementsAre(true, true, false, false));
+}
+
+TEST_F(TestGeometryValuesWriter, TestWriteAndReadSpaced) {
+  this->SetUpSchema(Repetition::OPTIONAL, 1);
+  this->GenerateData(SMALL_SIZE);
+  size_t num_values = this->values_.size();
+
+  std::vector<int16_t> definition_levels(num_values, 1);
+  std::vector<int16_t> repetition_levels(num_values, 0);
+  std::vector<size_t> non_null_indices;
+
+  // Replace some of the generated data with NULL
+  for (size_t i = 0; i < num_values; i++) {
+    if (i % 3 == 0) {
+      definition_levels[i] = 0;
+    } else {
+      non_null_indices.push_back(i);
+    }
+  }
+
+  // Construct valid bits using definition levels
+  std::vector<uint8_t> valid_bytes(num_values);
+  std::transform(definition_levels.begin(), definition_levels.end(), valid_bytes.begin(),
+                 [&](int64_t level) { return static_cast<uint8_t>(level); });
+  std::shared_ptr<Buffer> valid_bits;
+  ASSERT_OK_AND_ASSIGN(valid_bits, ::arrow::internal::BytesToBits(valid_bytes));
+
+  auto writer = this->BuildWriter(num_values, ColumnProperties());
+  writer->WriteBatchSpaced(this->values_.size(), definition_levels.data(),
+                           repetition_levels.data(), valid_bits->data(), 0,
+                           this->values_.data());
+
+  writer->Close();
+  this->ReadColumn();
+  size_t expected_values_read = non_null_indices.size();
+  EXPECT_EQ(expected_values_read, values_read_);
+  for (int64_t i = 0; i < values_read_; i++) {
+    const ByteArray& value = this->values_out_[i];
+    auto xy = GetWKBPointCoordinateXY(value);
+    EXPECT_TRUE(xy.has_value());
+    auto expected_x = static_cast<double>(non_null_indices[i]);
+    auto expected_y = static_cast<double>(non_null_indices[i] + 1);
+    EXPECT_EQ(*xy, std::make_pair(expected_x, expected_y));
+  }
+
+  std::shared_ptr<geospatial::GeoStatistics> geospatial_statistics = metadata_geo_stats();
+  ASSERT_TRUE(geospatial_statistics != nullptr);
+  EXPECT_DOUBLE_EQ(1, geospatial_statistics->lower_bound()[0]);
+  EXPECT_DOUBLE_EQ(2, geospatial_statistics->lower_bound()[1]);
+  EXPECT_DOUBLE_EQ(98, geospatial_statistics->upper_bound()[0]);
+  EXPECT_DOUBLE_EQ(99, geospatial_statistics->upper_bound()[1]);
+  EXPECT_THAT(geospatial_statistics->dimension_valid(),
+              ::testing::ElementsAre(true, true, false, false));
+}
+
+TEST_F(TestGeometryValuesWriter, TestWriteAndReadAllNull) {
+  this->SetUpSchema(Repetition::OPTIONAL, 1);
+  this->values_.resize(SMALL_SIZE);
+  std::fill(this->values_.begin(), this->values_.end(), ByteArray{0, nullptr});
+  this->def_levels_.resize(SMALL_SIZE);
+  std::fill(this->def_levels_.begin(), this->def_levels_.end(), 0);
+  auto writer = this->BuildWriter(SMALL_SIZE);
+  writer->WriteBatch(this->values_.size(), this->def_levels_.data(), nullptr,
+                     this->values_.data());
+
+  writer->Close();
+  this->ReadColumn();
+  for (int i = 0; i < SMALL_SIZE; i++) {
+    EXPECT_EQ(this->definition_levels_out_[i], 0);
+  }
+
+  // Statistics are unset because the sort order is unknown
+  ASSERT_FALSE(metadata_accessor()->is_stats_set());
+  ASSERT_EQ(metadata_accessor()->statistics(), nullptr);
+
+  // GeoStatistics should exist but all components should be marked as uncalculated
+  ASSERT_TRUE(metadata_accessor()->is_geo_stats_set());
+  std::shared_ptr<geospatial::GeoStatistics> geospatial_statistics = metadata_geo_stats();
+  ASSERT_TRUE(geospatial_statistics != nullptr);
+  EXPECT_THAT(geospatial_statistics->dimension_valid(),
+              ::testing::ElementsAre(false, false, false, false));
+  EXPECT_EQ(geospatial_statistics->geometry_types(), std::nullopt);
 }
 
 }  // namespace test

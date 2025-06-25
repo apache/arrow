@@ -125,6 +125,8 @@ class FunctionRegistry::FunctionRegistryImpl {
            static_cast<int>(name_to_function_.size());
   }
 
+  const Function* cast_function() { return cast_function_; }
+
  private:
   // must not acquire mutex
   Status CanAddFunctionName(const std::string& name, bool allow_overwrite) {
@@ -169,6 +171,9 @@ class FunctionRegistry::FunctionRegistryImpl {
     RETURN_NOT_OK(CanAddFunctionName(name, allow_overwrite));
     if (add) {
       name_to_function_[name] = std::move(function);
+      if (name == "cast") {
+        cast_function_ = name_to_function_[name].get();
+      }
     }
     return Status::OK();
   }
@@ -205,6 +210,8 @@ class FunctionRegistry::FunctionRegistryImpl {
   std::mutex lock_;
   std::unordered_map<std::string, std::shared_ptr<Function>> name_to_function_;
   std::unordered_map<std::string, const FunctionOptionsType*> name_to_options_type_;
+
+  const Function* cast_function_;
 };
 
 std::unique_ptr<FunctionRegistry> FunctionRegistry::Make() {
@@ -268,6 +275,8 @@ Result<const FunctionOptionsType*> FunctionRegistry::GetFunctionOptionsType(
 
 int FunctionRegistry::num_functions() const { return impl_->num_functions(); }
 
+const Function* FunctionRegistry::cast_function() const { return impl_->cast_function(); }
+
 namespace internal {
 
 static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
@@ -282,45 +291,6 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterScalarOptions(registry.get());
   RegisterVectorOptions(registry.get());
   RegisterAggregateOptions(registry.get());
-
-#ifdef ARROW_COMPUTE
-  // Register additional kernels
-
-  // Scalar functions
-  RegisterScalarArithmetic(registry.get());
-  RegisterScalarBoolean(registry.get());
-  RegisterScalarComparison(registry.get());
-  RegisterScalarIfElse(registry.get());
-  RegisterScalarNested(registry.get());
-  RegisterScalarRandom(registry.get());  // Nullary
-  RegisterScalarRoundArithmetic(registry.get());
-  RegisterScalarSetLookup(registry.get());
-  RegisterScalarStringAscii(registry.get());
-  RegisterScalarStringUtf8(registry.get());
-  RegisterScalarTemporalBinary(registry.get());
-  RegisterScalarTemporalUnary(registry.get());
-  RegisterScalarValidity(registry.get());
-
-  // Vector functions
-  RegisterVectorArraySort(registry.get());
-  RegisterVectorCumulativeSum(registry.get());
-  RegisterVectorNested(registry.get());
-  RegisterVectorRank(registry.get());
-  RegisterVectorReplace(registry.get());
-  RegisterVectorSelectK(registry.get());
-  RegisterVectorSort(registry.get());
-  RegisterVectorRunEndEncode(registry.get());
-  RegisterVectorRunEndDecode(registry.get());
-  RegisterVectorPairwise(registry.get());
-
-  // Aggregate functions
-  RegisterHashAggregateBasic(registry.get());
-  RegisterScalarAggregateBasic(registry.get());
-  RegisterScalarAggregateMode(registry.get());
-  RegisterScalarAggregateQuantile(registry.get());
-  RegisterScalarAggregateTDigest(registry.get());
-  RegisterScalarAggregateVariance(registry.get());
-#endif
 
   return registry;
 }

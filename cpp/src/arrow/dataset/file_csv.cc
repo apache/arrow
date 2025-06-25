@@ -40,7 +40,7 @@
 #include "arrow/util/async_generator.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/tracing_internal.h"
 #include "arrow/util/utf8.h"
 
@@ -106,7 +106,7 @@ class CsvFileScanner : public FragmentScanner {
     }
     convert_options.include_columns = std::move(columns);
     convert_options.column_types = std::move(column_types);
-    return std::move(convert_options);
+    return convert_options;
   }
 
   static Future<std::shared_ptr<FragmentScanner>> Make(

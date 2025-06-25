@@ -40,13 +40,13 @@ test_that("slice_head/tail, ungrouped", {
 
   expect_equal(
     tab %>%
-      slice_head(prop = .25) %>%
+      slice_head(prop = 0.25) %>%
       nrow(),
     2
   )
   expect_equal(
     tab %>%
-      slice_tail(prop = .25) %>%
+      slice_tail(prop = 0.25) %>%
       nrow(),
     2
   )
@@ -78,13 +78,13 @@ test_that("slice_min/max, ungrouped", {
 
   compare_dplyr_binding(
     .input %>%
-      slice_max(int, prop = .25, with_ties = FALSE) %>%
+      slice_max(int, prop = 0.25, with_ties = FALSE) %>%
       collect(),
     tbl
   )
   compare_dplyr_binding(
     .input %>%
-      slice_min(int, prop = .25, with_ties = FALSE) %>%
+      slice_min(int, prop = 0.25, with_ties = FALSE) %>%
       collect(),
     tbl
   )
@@ -108,7 +108,7 @@ test_that("slice_sample, ungrouped", {
   # Because this is random (and we only have 10 rows), try several times
   for (i in 1:50) {
     sampled_prop <- tab %>%
-      slice_sample(prop = .2) %>%
+      slice_sample(prop = 0.2) %>%
       collect() %>%
       nrow()
     if (sampled_prop == 2) break
@@ -184,7 +184,7 @@ test_that("slice_* not supported with groups", {
 
 test_that("input validation", {
   tab <- arrow_table(tbl)
-  for (p in list("a", -1, 2, c(.01, .02), NA_real_)) {
+  for (p in list("a", -1, 2, c(0.01, 0.02), NA_real_)) {
     expect_error(
       slice_head(tab, prop = !!p),
       "`prop` must be a single numeric value between 0 and 1",
@@ -206,7 +206,7 @@ test_that("n <-> prop conversion when nrow is not known", {
 
   expect_error(
     joined %>%
-      slice_min(int, prop = .25, with_ties = FALSE),
+      slice_min(int, prop = 0.25, with_ties = FALSE),
     "Slicing with `prop` when"
   )
 

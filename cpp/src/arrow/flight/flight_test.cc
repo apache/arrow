@@ -44,7 +44,7 @@
 #include "arrow/util/logging.h"
 
 #ifdef GRPCPP_GRPCPP_H
-#error "gRPC headers should not be in public API"
+#  error "gRPC headers should not be in public API"
 #endif
 
 #include <grpcpp/grpcpp.h>
@@ -52,7 +52,9 @@
 // Include before test_util.h (boost), contains Windows fixes
 #include "arrow/flight/platform.h"
 #include "arrow/flight/serialization_internal.h"
+#include "arrow/flight/test_auth_handlers.h"
 #include "arrow/flight/test_definitions.h"
+#include "arrow/flight/test_flight_server.h"
 #include "arrow/flight/test_util.h"
 // OTel includes must come after any gRPC includes, and
 // client_header_internal.h includes gRPC. See:
@@ -68,11 +70,14 @@
 // > other API headers. This approach efficiently avoids the conflict
 // > between the two different versions of Abseil.
 #include "arrow/util/tracing_internal.h"
-#ifdef ARROW_WITH_OPENTELEMETRY
-#include <opentelemetry/context/propagation/global_propagator.h>
-#include <opentelemetry/context/propagation/text_map_propagator.h>
-#include <opentelemetry/sdk/trace/tracer_provider.h>
-#include <opentelemetry/trace/propagation/http_trace_context.h>
+// When running with OTel, ASAN reports false-positives that can't be easily suppressed.
+// Disable OTel for ASAN. See GH-46509.
+#if defined(ARROW_WITH_OPENTELEMETRY) && !defined(ADDRESS_SANITIZER)
+#  include <opentelemetry/context/propagation/global_propagator.h>
+#  include <opentelemetry/context/propagation/text_map_propagator.h>
+#  include <opentelemetry/sdk/trace/processor.h>
+#  include <opentelemetry/sdk/trace/tracer_provider.h>
+#  include <opentelemetry/trace/propagation/http_trace_context.h>
 #endif
 
 namespace arrow {
@@ -92,7 +97,9 @@ const char kAuthHeader[] = "authorization";
 class OtelEnvironment : public ::testing::Environment {
  public:
   void SetUp() override {
-#ifdef ARROW_WITH_OPENTELEMETRY
+// When running with OTel, ASAN reports false-positives that can't be easily suppressed.
+// Disable OTel for ASAN. See GH-46509.
+#if defined(ARROW_WITH_OPENTELEMETRY) && !defined(ADDRESS_SANITIZER)
     // The default tracer always generates no-op spans which have no
     // span/trace ID. Set up a different tracer. Note, this needs to be run
     // before Arrow uses OTel as GetTracer() gets a tracer once and keeps it
@@ -201,7 +208,7 @@ ARROW_FLIGHT_TEST_ASYNC_CLIENT(GrpcAsyncClientTest);
 
 TEST(TestFlight, ConnectUri) {
   TestServer server("flight-test-server");
-  server.Start();
+  ASSERT_OK(server.Start());
   ASSERT_TRUE(server.IsRunning());
 
   std::stringstream ss;
@@ -227,7 +234,7 @@ TEST(TestFlight, InvalidUriScheme) {
 #ifndef _WIN32
 TEST(TestFlight, ConnectUriUnix) {
   TestServer server("flight-test-server", "/tmp/flight-test.sock");
-  server.Start();
+  ASSERT_OK(server.Start());
   ASSERT_TRUE(server.IsRunning());
 
   std::stringstream ss;
@@ -246,7 +253,7 @@ TEST(TestFlight, ConnectUriUnix) {
 
 // CI environments don't have an IPv6 interface configured
 TEST(TestFlight, DISABLED_IpV6Port) {
-  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
+  std::unique_ptr<FlightServerBase> server = TestFlightServer::Make();
 
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("[::1]", 0));
   FlightServerOptions options(location);
@@ -260,7 +267,7 @@ TEST(TestFlight, DISABLED_IpV6Port) {
 }
 
 TEST(TestFlight, ServerCallContextIncomingHeaders) {
-  auto server = ExampleTestServer();
+  auto server = TestFlightServer::Make();
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 0));
   FlightServerOptions options(location);
   ASSERT_OK(server->Init(options));
@@ -289,7 +296,7 @@ TEST(TestFlight, ServerCallContextIncomingHeaders) {
 class TestFlightClient : public ::testing::Test {
  public:
   void SetUp() {
-    server_ = ExampleTestServer();
+    server_ = TestFlightServer::Make();
 
     ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 0));
     FlightServerOptions options(location);
@@ -453,7 +460,7 @@ class TestTls : public ::testing::Test {
     // get initialized.
     // https://github.com/grpc/grpc/issues/13856
     // https://github.com/grpc/grpc/issues/20311
-    // In general, gRPC on MacOS struggles with TLS (both in the sense
+    // In general, gRPC on macOS struggles with TLS (both in the sense
     // of thread-locals and encryption)
     grpc_init();
 
@@ -997,7 +1004,8 @@ TEST_F(TestFlightClient, ListFlights) {
 }
 
 TEST_F(TestFlightClient, ListFlightsWithCriteria) {
-  ASSERT_OK_AND_ASSIGN(auto listing, client_->ListFlights(FlightCallOptions(), {"foo"}));
+  ASSERT_OK_AND_ASSIGN(auto listing,
+                       client_->ListFlights(FlightCallOptions{}, Criteria{"foo"}));
   std::unique_ptr<FlightInfo> info;
   ASSERT_OK_AND_ASSIGN(info, listing->Next());
   ASSERT_TRUE(info == nullptr);
@@ -1678,7 +1686,9 @@ class TracingTestServer : public FlightServerBase {
     auto* middleware =
         reinterpret_cast<TracingServerMiddleware*>(call_context.GetMiddleware("tracing"));
     if (!middleware) return Status::Invalid("Could not find middleware");
-#ifdef ARROW_WITH_OPENTELEMETRY
+// When running with OTel, ASAN reports false-positives that can't be easily suppressed.
+// Disable OTel for ASAN. See GH-46509.
+#if defined(ARROW_WITH_OPENTELEMETRY) && !defined(ADDRESS_SANITIZER)
     // Ensure the trace context is present (but the value is random so
     // we cannot assert any particular value)
     EXPECT_FALSE(middleware->GetTraceContext().empty());
@@ -1727,7 +1737,9 @@ class TestTracing : public ::testing::Test {
   std::unique_ptr<FlightServerBase> server_;
 };
 
-#ifdef ARROW_WITH_OPENTELEMETRY
+// When running with OTel, ASAN reports false-positives that can't be easily suppressed.
+// Disable OTel for ASAN. See GH-46509.
+#if defined(ARROW_WITH_OPENTELEMETRY) && !defined(ADDRESS_SANITIZER)
 // Must define it ourselves to avoid a linker error
 constexpr size_t kSpanIdSize = opentelemetry::trace::SpanId::kSize;
 constexpr size_t kTraceIdSize = opentelemetry::trace::TraceId::kSize;

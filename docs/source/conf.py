@@ -114,6 +114,8 @@ extensions = [
     'breathe',
     'IPython.sphinxext.ipython_console_highlighting',
     'IPython.sphinxext.ipython_directive',
+    'linuxdoc.rstFlatTable',
+    'myst_parser',
     'numpydoc',
     'sphinx_design',
     'sphinx_copybutton',
@@ -124,6 +126,7 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
+    'sphinxcontrib.mermaid',
 ]
 
 # Show members for classes in .. autosummary
@@ -136,10 +139,12 @@ autodoc_default_options = {
 }
 
 # Breathe configuration
-breathe_projects = {"arrow_cpp": "../../cpp/apidoc/xml"}
+breathe_projects = {
+    "arrow_cpp": os.environ.get("ARROW_CPP_DOXYGEN_XML", "../../cpp/apidoc/xml"),
+}
 breathe_default_project = "arrow_cpp"
 
-# Overriden conditionally below
+# Overridden conditionally below
 autodoc_mock_imports = []
 
 # copybutton configuration
@@ -149,6 +154,24 @@ copybutton_line_continuation_character = "\\"
 
 # ipython directive options
 ipython_mplbackend = ''
+
+# MyST-Parser configuration
+myst_enable_extensions = [
+    'amsmath',
+    'attrs_inline',
+    # 'colon_fence',
+    'deflist',
+    'dollarmath',
+    'fieldlist',
+    'html_admonition',
+    'html_image',
+    'linkify',
+    # 'replacements',
+    # 'smartquotes',
+    'strikethrough',
+    'substitution',
+    'tasklist',
+]
 
 # numpydoc configuration
 numpydoc_xref_param_type = True
@@ -188,7 +211,16 @@ templates_path = ['_templates']
 # You can specify multiple suffix as a list of string:
 #
 
-source_suffix = ['.rst']
+source_suffix = {
+    # We need to keep "'.rst': 'restructuredtext'" as the first item.
+    # This is a workaround of
+    # https://github.com/sphinx-doc/sphinx/issues/12147 .
+    #
+    # We can sort these items in alphabetical order with Sphinx 7.3.0
+    # or later that will include the fix of this problem.
+    '.rst': 'restructuredtext',
+    '.md': 'markdown',
+}
 
 autosummary_generate = True
 
@@ -201,7 +233,12 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Apache Arrow'
-copyright = f'2016-{datetime.datetime.now().year} Apache Software Foundation'
+copyright = (
+    f"2016-{datetime.datetime.now().year} Apache Software Foundation.\n"
+    "Apache Arrow, Arrow, Apache, the Apache feather logo, and the Apache Arrow "
+    "project logo are either registered trademarks or trademarks of The Apache "
+    "Software Foundation in the United States and other countries"
+)
 author = u'Apache Software Foundation'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -270,6 +307,7 @@ pygments_style = 'sphinx'
 todo_include_todos = False
 
 intersphinx_mapping = {
+    'adbc': ('https://arrow.apache.org/adbc/current/', None),
     'python': ('https://docs.python.org/3', None),
     'numpy': ('https://numpy.org/doc/stable/', None),
     'pandas': ('https://pandas.pydata.org/docs/', None)
@@ -303,9 +341,9 @@ html_theme_options = {
       "image_light": "_static/arrow.png",
       "image_dark": "_static/arrow-dark.png",
     },
-    "header_links_before_dropdown": 2,
-    "header_dropdown_text": "Implementations",
-    "navbar_end": ["version-switcher", "theme-switcher", "navbar-icon-links"],
+    "header_links_before_dropdown": 3,
+    "navbar_align": "left",
+    "navbar_end": ["kapa-ai-bot.html", "version-switcher", "theme-switcher", "navbar-icon-links"],
     "icon_links": [
         {
             "name": "GitHub",
@@ -313,9 +351,14 @@ html_theme_options = {
             "icon": "fa-brands fa-square-github",
         },
         {
-            "name": "Twitter",
-            "url": "https://twitter.com/ApacheArrow",
-            "icon": "fa-brands fa-square-twitter",
+            "name": "LinkedIn",
+            "url": "https://www.linkedin.com/company/apache-arrow/",
+            "icon": "fa-brands fa-linkedin",
+        },
+        {
+            "name": "BlueSky",
+            "url": "https://bsky.app/profile/arrow.apache.org",
+            "icon": "fa-brands fa-bluesky",
         },
     ],
     "show_version_warning_banner": True,
@@ -338,7 +381,7 @@ html_context = {
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.
 #
-html_title = u'Apache Arrow v{}'.format(version)
+html_title = f"Apache Arrow v{version}"
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 #
@@ -386,6 +429,12 @@ html_css_files = ['theme_overrides.css']
 #    '**': ['sidebar-logo.html', 'sidebar-search-bs.html', 'sidebar-nav-bs.html'],
 # }
 
+# Hide the primary sidebar (section navigation) for these pages
+html_sidebars = {
+    "implementations": [],
+    "status": [],
+}
+
 # The base URL which points to the root of the HTML documentation,
 # used for canonical url
 html_baseurl = "https://arrow.apache.org/docs/"
@@ -409,7 +458,7 @@ html_baseurl = "https://arrow.apache.org/docs/"
 
 # If true, links to the reST sources are added to the pages.
 #
-# html_show_sourcelink = True
+html_show_sourcelink = False
 
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
 #
@@ -499,7 +548,7 @@ latex_documents = [
 #
 # latex_appendices = []
 
-# It false, will not define \strong, \code, 	itleref, \crossref ... but only
+# It false, will not define \strong, \code, \titleref, \crossref ... but only
 # \sphinxstrong, ..., \sphinxtitleref, ... To help avoid clash with user added
 # packages.
 #
@@ -551,6 +600,9 @@ texinfo_documents = [
 #
 # texinfo_no_detailmenu = False
 
+# -- Options for mermaid output -------------------------------------------
+
+mermaid_output_format = 'svg'
 
 def setup(app):
     # Use a config value to indicate whether CUDA API docs can be generated.

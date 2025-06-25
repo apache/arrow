@@ -41,8 +41,10 @@
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"
+#include "parquet/geospatial/statistics.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
+#include "parquet/size_statistics.h"
 #include "parquet/statistics.h"
 #include "parquet/types.h"
 
@@ -55,16 +57,16 @@ namespace parquet {
 
 // Unsafe enum converters (input is not checked for validity)
 
-static inline Type::type FromThriftUnsafe(format::Type::type type) {
+constexpr Type::type FromThriftUnsafe(format::Type::type type) {
   return static_cast<Type::type>(type);
 }
 
-static inline ConvertedType::type FromThriftUnsafe(format::ConvertedType::type type) {
+constexpr ConvertedType::type FromThriftUnsafe(format::ConvertedType::type type) {
   // item 0 is NONE
   return static_cast<ConvertedType::type>(static_cast<int>(type) + 1);
 }
 
-static inline Repetition::type FromThriftUnsafe(format::FieldRepetitionType::type type) {
+constexpr Repetition::type FromThriftUnsafe(format::FieldRepetitionType::type type) {
   return static_cast<Repetition::type>(type);
 }
 
@@ -72,11 +74,11 @@ static inline Encoding::type FromThriftUnsafe(format::Encoding::type type) {
   return static_cast<Encoding::type>(type);
 }
 
-static inline PageType::type FromThriftUnsafe(format::PageType::type type) {
+constexpr PageType::type FromThriftUnsafe(format::PageType::type type) {
   return static_cast<PageType::type>(type);
 }
 
-static inline Compression::type FromThriftUnsafe(format::CompressionCodec::type type) {
+constexpr Compression::type FromThriftUnsafe(format::CompressionCodec::type type) {
   switch (type) {
     case format::CompressionCodec::UNCOMPRESSED:
       return Compression::UNCOMPRESSED;
@@ -95,13 +97,32 @@ static inline Compression::type FromThriftUnsafe(format::CompressionCodec::type 
     case format::CompressionCodec::ZSTD:
       return Compression::ZSTD;
     default:
-      DCHECK(false) << "Cannot reach here";
+      ARROW_DCHECK(false) << "Cannot reach here";
       return Compression::UNCOMPRESSED;
   }
 }
 
-static inline BoundaryOrder::type FromThriftUnsafe(format::BoundaryOrder::type type) {
+constexpr BoundaryOrder::type FromThriftUnsafe(format::BoundaryOrder::type type) {
   return static_cast<BoundaryOrder::type>(type);
+}
+
+constexpr GeometryLogicalType::EdgeInterpolationAlgorithm FromThriftUnsafe(
+    format::EdgeInterpolationAlgorithm::type type) {
+  switch (type) {
+    case format::EdgeInterpolationAlgorithm::SPHERICAL:
+      return GeometryLogicalType::EdgeInterpolationAlgorithm::SPHERICAL;
+    case format::EdgeInterpolationAlgorithm::VINCENTY:
+      return GeometryLogicalType::EdgeInterpolationAlgorithm::VINCENTY;
+    case format::EdgeInterpolationAlgorithm::THOMAS:
+      return GeometryLogicalType::EdgeInterpolationAlgorithm::THOMAS;
+    case format::EdgeInterpolationAlgorithm::ANDOYER:
+      return GeometryLogicalType::EdgeInterpolationAlgorithm::ANDOYER;
+    case format::EdgeInterpolationAlgorithm::KARNEY:
+      return GeometryLogicalType::EdgeInterpolationAlgorithm::KARNEY;
+    default:
+      ARROW_DCHECK(false) << "Cannot reach here";
+      return GeometryLogicalType::EdgeInterpolationAlgorithm::UNKNOWN;
+  }
 }
 
 namespace internal {
@@ -219,6 +240,16 @@ inline typename Compression::type LoadEnumSafe(const format::CompressionCodec::t
   return FromThriftUnsafe(*in);
 }
 
+inline typename LogicalType::EdgeInterpolationAlgorithm LoadEnumSafe(
+    const format::EdgeInterpolationAlgorithm::type* in) {
+  const auto raw_value = internal::LoadEnumRaw(in);
+  if (ARROW_PREDICT_FALSE(raw_value < format::EdgeInterpolationAlgorithm::SPHERICAL ||
+                          raw_value > format::EdgeInterpolationAlgorithm::KARNEY)) {
+    return LogicalType::EdgeInterpolationAlgorithm::UNKNOWN;
+  }
+  return FromThriftUnsafe(*in);
+}
+
 // Safe non-enum converters
 
 static inline AadMetadata FromThrift(format::AesGcmV1 aesGcmV1) {
@@ -229,6 +260,86 @@ static inline AadMetadata FromThrift(format::AesGcmV1 aesGcmV1) {
 static inline AadMetadata FromThrift(format::AesGcmCtrV1 aesGcmCtrV1) {
   return AadMetadata{aesGcmCtrV1.aad_prefix, aesGcmCtrV1.aad_file_unique,
                      aesGcmCtrV1.supply_aad_prefix};
+}
+
+static inline EncodedStatistics FromThrift(const format::Statistics& stats) {
+  EncodedStatistics out;
+
+  // Use the new V2 min-max statistics over the former one if it is filled
+  if (stats.__isset.max_value || stats.__isset.min_value) {
+    // TODO: check if the column_order is TYPE_DEFINED_ORDER.
+    if (stats.__isset.max_value) {
+      out.set_max(stats.max_value);
+    }
+    if (stats.__isset.min_value) {
+      out.set_min(stats.min_value);
+    }
+  } else if (stats.__isset.max || stats.__isset.min) {
+    // TODO: check created_by to see if it is corrupted for some types.
+    // TODO: check if the sort_order is SIGNED.
+    if (stats.__isset.max) {
+      out.set_max(stats.max);
+    }
+    if (stats.__isset.min) {
+      out.set_min(stats.min);
+    }
+  }
+  if (stats.__isset.null_count) {
+    out.set_null_count(stats.null_count);
+  }
+  if (stats.__isset.distinct_count) {
+    out.set_distinct_count(stats.distinct_count);
+  }
+
+  return out;
+}
+
+static inline geospatial::EncodedGeoStatistics FromThrift(
+    const format::GeospatialStatistics& geo_stats) {
+  geospatial::EncodedGeoStatistics out;
+
+  out.geospatial_types = geo_stats.geospatial_types;
+
+  if (geo_stats.__isset.bbox) {
+    out.xmin = geo_stats.bbox.xmin;
+    out.xmax = geo_stats.bbox.xmax;
+    out.ymin = geo_stats.bbox.ymin;
+    out.ymax = geo_stats.bbox.ymax;
+    out.xy_bounds_present = true;
+
+    if (geo_stats.bbox.__isset.zmin && geo_stats.bbox.__isset.zmax) {
+      out.zmin = geo_stats.bbox.zmin;
+      out.zmax = geo_stats.bbox.zmax;
+      out.z_bounds_present = true;
+    }
+
+    if (geo_stats.bbox.__isset.mmin && geo_stats.bbox.__isset.mmax) {
+      out.mmin = geo_stats.bbox.mmin;
+      out.mmax = geo_stats.bbox.mmax;
+      out.m_bounds_present = true;
+    }
+  }
+
+  return out;
+}
+
+static inline format::EdgeInterpolationAlgorithm::type ToThrift(
+    LogicalType::EdgeInterpolationAlgorithm algorithm) {
+  switch (algorithm) {
+    case LogicalType::EdgeInterpolationAlgorithm::SPHERICAL:
+      return format::EdgeInterpolationAlgorithm::SPHERICAL;
+    case LogicalType::EdgeInterpolationAlgorithm::VINCENTY:
+      return format::EdgeInterpolationAlgorithm::VINCENTY;
+    case LogicalType::EdgeInterpolationAlgorithm::THOMAS:
+      return format::EdgeInterpolationAlgorithm::THOMAS;
+    case LogicalType::EdgeInterpolationAlgorithm::ANDOYER:
+      return format::EdgeInterpolationAlgorithm::ANDOYER;
+    case LogicalType::EdgeInterpolationAlgorithm::KARNEY:
+      return format::EdgeInterpolationAlgorithm::KARNEY;
+    default:
+      throw ParquetException("Unknown value for geometry algorithm: ",
+                             static_cast<int>(algorithm));
+  }
 }
 
 static inline EncryptionAlgorithm FromThrift(format::EncryptionAlgorithm encryption) {
@@ -254,31 +365,39 @@ static inline SortingColumn FromThrift(format::SortingColumn thrift_sorting_colu
   return sorting_column;
 }
 
+static inline SizeStatistics FromThrift(const format::SizeStatistics& size_stats) {
+  return SizeStatistics{
+      size_stats.definition_level_histogram, size_stats.repetition_level_histogram,
+      size_stats.__isset.unencoded_byte_array_data_bytes
+          ? std::make_optional(size_stats.unencoded_byte_array_data_bytes)
+          : std::nullopt};
+}
+
 // ----------------------------------------------------------------------
 // Convert Thrift enums from Parquet enums
 
-static inline format::Type::type ToThrift(Type::type type) {
+constexpr format::Type::type ToThrift(Type::type type) {
   return static_cast<format::Type::type>(type);
 }
 
-static inline format::ConvertedType::type ToThrift(ConvertedType::type type) {
+constexpr format::ConvertedType::type ToThrift(ConvertedType::type type) {
   // item 0 is NONE
-  DCHECK_NE(type, ConvertedType::NONE);
+  ARROW_DCHECK_NE(type, ConvertedType::NONE);
   // it is forbidden to emit "NA" (PARQUET-1990)
-  DCHECK_NE(type, ConvertedType::NA);
-  DCHECK_NE(type, ConvertedType::UNDEFINED);
+  ARROW_DCHECK_NE(type, ConvertedType::NA);
+  ARROW_DCHECK_NE(type, ConvertedType::UNDEFINED);
   return static_cast<format::ConvertedType::type>(static_cast<int>(type) - 1);
 }
 
-static inline format::FieldRepetitionType::type ToThrift(Repetition::type type) {
+constexpr format::FieldRepetitionType::type ToThrift(Repetition::type type) {
   return static_cast<format::FieldRepetitionType::type>(type);
 }
 
-static inline format::Encoding::type ToThrift(Encoding::type type) {
+constexpr format::Encoding::type ToThrift(Encoding::type type) {
   return static_cast<format::Encoding::type>(type);
 }
 
-static inline format::CompressionCodec::type ToThrift(Compression::type type) {
+constexpr format::CompressionCodec::type ToThrift(Compression::type type) {
   switch (type) {
     case Compression::UNCOMPRESSED:
       return format::CompressionCodec::UNCOMPRESSED;
@@ -298,19 +417,19 @@ static inline format::CompressionCodec::type ToThrift(Compression::type type) {
     case Compression::ZSTD:
       return format::CompressionCodec::ZSTD;
     default:
-      DCHECK(false) << "Cannot reach here";
+      ARROW_DCHECK(false) << "Cannot reach here";
       return format::CompressionCodec::UNCOMPRESSED;
   }
 }
 
-static inline format::BoundaryOrder::type ToThrift(BoundaryOrder::type type) {
+constexpr format::BoundaryOrder::type ToThrift(BoundaryOrder::type type) {
   switch (type) {
     case BoundaryOrder::Unordered:
     case BoundaryOrder::Ascending:
     case BoundaryOrder::Descending:
       return static_cast<format::BoundaryOrder::type>(type);
     default:
-      DCHECK(false) << "Cannot reach here";
+      ARROW_DCHECK(false) << "Cannot reach here";
       return format::BoundaryOrder::UNORDERED;
   }
 }
@@ -321,6 +440,35 @@ static inline format::SortingColumn ToThrift(SortingColumn sorting_column) {
   thrift_sorting_column.descending = sorting_column.descending;
   thrift_sorting_column.nulls_first = sorting_column.nulls_first;
   return thrift_sorting_column;
+}
+
+static inline format::GeospatialStatistics ToThrift(
+    const geospatial::EncodedGeoStatistics& encoded_geo_stats) {
+  format::GeospatialStatistics geospatial_statistics;
+
+  geospatial_statistics.__set_geospatial_types(encoded_geo_stats.geospatial_types);
+
+  if (encoded_geo_stats.xy_bounds_present) {
+    format::BoundingBox bbox;
+    bbox.__set_xmin(encoded_geo_stats.xmin);
+    bbox.__set_xmax(encoded_geo_stats.xmax);
+    bbox.__set_ymin(encoded_geo_stats.ymin);
+    bbox.__set_ymax(encoded_geo_stats.ymax);
+
+    if (encoded_geo_stats.z_bounds_present) {
+      bbox.__set_zmin(encoded_geo_stats.zmin);
+      bbox.__set_zmax(encoded_geo_stats.zmax);
+    }
+
+    if (encoded_geo_stats.m_bounds_present) {
+      bbox.__set_mmin(encoded_geo_stats.mmin);
+      bbox.__set_mmax(encoded_geo_stats.mmax);
+    }
+
+    geospatial_statistics.__set_bbox(std::move(bbox));
+  }
+
+  return geospatial_statistics;
 }
 
 static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
@@ -383,6 +531,17 @@ static inline format::EncryptionAlgorithm ToThrift(EncryptionAlgorithm encryptio
   return encryption_algorithm;
 }
 
+static inline format::SizeStatistics ToThrift(const SizeStatistics& size_stats) {
+  format::SizeStatistics size_statistics;
+  size_statistics.__set_definition_level_histogram(size_stats.definition_level_histogram);
+  size_statistics.__set_repetition_level_histogram(size_stats.repetition_level_histogram);
+  if (size_stats.unencoded_byte_array_data_bytes.has_value()) {
+    size_statistics.__set_unencoded_byte_array_data_bytes(
+        size_stats.unencoded_byte_array_data_bytes.value());
+  }
+  return size_statistics;
+}
+
 // ----------------------------------------------------------------------
 // Thrift struct serialization / deserialization utilities
 
@@ -411,17 +570,21 @@ class ThriftDeserializer {
       // thrift message is encrypted
       uint32_t clen;
       clen = *len;
+      if (clen > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
+        std::stringstream ss;
+        ss << "Cannot decrypt buffer with length " << clen << ", which overflows int32\n";
+        throw ParquetException(ss.str());
+      }
       // decrypt
-      auto decrypted_buffer = std::static_pointer_cast<ResizableBuffer>(
-          AllocateBuffer(decryptor->pool(),
-                         static_cast<int64_t>(clen - decryptor->CiphertextSizeDelta())));
-      const uint8_t* cipher_buf = buf;
+      auto decrypted_buffer = AllocateBuffer(
+          decryptor->pool(), decryptor->PlaintextLength(static_cast<int32_t>(clen)));
+      ::arrow::util::span<const uint8_t> cipher_buf(buf, clen);
       uint32_t decrypted_buffer_len =
-          decryptor->Decrypt(cipher_buf, 0, decrypted_buffer->mutable_data());
+          decryptor->Decrypt(cipher_buf, decrypted_buffer->mutable_span_as<uint8_t>());
       if (decrypted_buffer_len <= 0) {
         throw ParquetException("Couldn't decrypt buffer\n");
       }
-      *len = decrypted_buffer_len + decryptor->CiphertextSizeDelta();
+      *len = decryptor->CiphertextLength(static_cast<int32_t>(decrypted_buffer_len));
       DeserializeUnencryptedMessage(decrypted_buffer->data(), &decrypted_buffer_len,
                                     deserialized_msg);
     }
@@ -446,13 +609,12 @@ class ThriftDeserializer {
                                      T* deserialized_msg) {
     // Deserialize msg bytes into c++ thrift msg using memory transport.
     auto tmem_transport = CreateReadOnlyMemoryBuffer(const_cast<uint8_t*>(buf), *len);
-    apache::thrift::protocol::TCompactProtocolFactoryT<ThriftBuffer> tproto_factory;
-    // Protect against CPU and memory bombs
-    tproto_factory.setStringSizeLimit(string_size_limit_);
-    tproto_factory.setContainerSizeLimit(container_size_limit_);
-    auto tproto = tproto_factory.getProtocol(tmem_transport);
+    auto tproto = apache::thrift::protocol::TCompactProtocolT<ThriftBuffer>(
+        tmem_transport, string_size_limit_, container_size_limit_);
     try {
-      deserialized_msg->read(tproto.get());
+      deserialized_msg
+          ->template read<apache::thrift::protocol::TCompactProtocolT<ThriftBuffer>>(
+              &tproto);
     } catch (std::exception& e) {
       std::stringstream ss;
       ss << "Couldn't deserialize thrift: " << e.what() << "\n";
@@ -522,13 +684,13 @@ class ThriftSerializer {
     }
   }
 
-  int64_t SerializeEncryptedObj(ArrowOutputStream* out, uint8_t* out_buffer,
+  int64_t SerializeEncryptedObj(ArrowOutputStream* out, const uint8_t* out_buffer,
                                 uint32_t out_length, Encryptor* encryptor) {
-    auto cipher_buffer = std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(
-        encryptor->pool(),
-        static_cast<int64_t>(encryptor->CiphertextSizeDelta() + out_length)));
-    int cipher_buffer_len =
-        encryptor->Encrypt(out_buffer, out_length, cipher_buffer->mutable_data());
+    auto cipher_buffer =
+        AllocateBuffer(encryptor->pool(), encryptor->CiphertextLength(out_length));
+    ::arrow::util::span<const uint8_t> out_span(out_buffer, out_length);
+    int32_t cipher_buffer_len =
+        encryptor->Encrypt(out_span, cipher_buffer->mutable_span_as<uint8_t>());
 
     PARQUET_THROW_NOT_OK(out->Write(cipher_buffer->data(), cipher_buffer_len));
     return static_cast<int64_t>(cipher_buffer_len);

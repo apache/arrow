@@ -24,24 +24,23 @@
 namespace arrow::matlab::type::proxy {
 
 class Type : public libmexclass::proxy::Proxy {
-    public:
-        Type(std::shared_ptr<arrow::DataType> type);
-    
-        virtual ~Type() {}
+ public:
+  Type(std::shared_ptr<arrow::DataType> type);
 
-        std::shared_ptr<arrow::DataType> unwrap();
+  virtual ~Type() {}
 
-    protected:
+  std::shared_ptr<arrow::DataType> unwrap();
 
-        void getTypeID(libmexclass::proxy::method::Context& context);
+ protected:
+  void getTypeID(libmexclass::proxy::method::Context& context);
 
-        void getNumFields(libmexclass::proxy::method::Context& context);
+  void getNumFields(libmexclass::proxy::method::Context& context);
 
-        void getFieldByIndex(libmexclass::proxy::method::Context& context);
+  void getFieldByIndex(libmexclass::proxy::method::Context& context);
 
-        void isEqual(libmexclass::proxy::method::Context& context);
+  void isEqual(libmexclass::proxy::method::Context& context);
 
-        std::shared_ptr<arrow::DataType> data_type;
+  std::shared_ptr<arrow::DataType> data_type;
 };
 
-}
+}  // namespace arrow::matlab::type::proxy

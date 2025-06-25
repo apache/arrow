@@ -27,7 +27,7 @@ namespace Apache.Arrow.Flight.Internal
     /// This is a helper class that allows conversions from gRPC types to the Arrow types.
     /// It maintains the stream so data can be read as soon as possible.
     /// </summary>
-    /// <typeparam name="TIn">In paramter from gRPC</typeparam>
+    /// <typeparam name="TIn">In parameter from gRPC</typeparam>
     /// <typeparam name="TOut">The arrow type returned</typeparam>
     internal class StreamReader<TIn, TOut> : IAsyncStreamReader<TOut>
     {

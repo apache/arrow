@@ -23,6 +23,7 @@
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/stl_allocator.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace compute {
@@ -76,6 +77,12 @@ template <typename T>
 double DataPointToDouble(T value, const DataType&) {
   return static_cast<double>(value);
 }
+double DataPointToDouble(const Decimal32& value, const DataType& ty) {
+  return value.ToDouble(checked_cast<const DecimalType&>(ty).scale());
+}
+double DataPointToDouble(const Decimal64& value, const DataType& ty) {
+  return value.ToDouble(checked_cast<const DecimalType&>(ty).scale());
+}
 double DataPointToDouble(const Decimal128& value, const DataType& ty) {
   return value.ToDouble(checked_cast<const DecimalType&>(ty).scale());
 }
@@ -120,7 +127,7 @@ struct SortQuantiler {
                 });
 
       // input array is partitioned around data point at `last_index` (pivot)
-      // for next quatile which is smaller, we only consider inputs left of the pivot
+      // for next quantile which is smaller, we only consider inputs left of the pivot
       uint64_t last_index = in_buffer.size();
       if (is_datapoint) {
         CType* out_buffer = out_data->template GetMutableValues<CType>(1);
@@ -524,23 +531,13 @@ void AddQuantileKernels(VectorFunction* func) {
     base.signature = KernelSignature::Make({InputType(ty)}, OutputType(ResolveOutput));
     // output type is determined at runtime, set template argument to nulltype
     base.exec = GenerateNumeric<QuantileExecutor, NullType>(*ty);
-    base.exec_chunked =
-        GenerateNumeric<QuantileExecutorChunked, NullType, VectorKernel::ChunkedExec>(
-            *ty);
+    base.exec_chunked = GenerateNumeric<QuantileExecutorChunked, NullType>(*ty);
     DCHECK_OK(func->AddKernel(base));
   }
-  {
-    base.signature =
-        KernelSignature::Make({InputType(Type::DECIMAL128)}, OutputType(ResolveOutput));
-    base.exec = QuantileExecutor<NullType, Decimal128Type>::Exec;
-    base.exec_chunked = QuantileExecutorChunked<NullType, Decimal128Type>::Exec;
-    DCHECK_OK(func->AddKernel(base));
-  }
-  {
-    base.signature =
-        KernelSignature::Make({InputType(Type::DECIMAL256)}, OutputType(ResolveOutput));
-    base.exec = QuantileExecutor<NullType, Decimal256Type>::Exec;
-    base.exec_chunked = QuantileExecutorChunked<NullType, Decimal256Type>::Exec;
+  for (auto type_id : DecimalTypeIds()) {
+    base.signature = KernelSignature::Make({type_id}, OutputType(ResolveOutput));
+    base.exec = GenerateDecimal<QuantileExecutor, NullType>(type_id);
+    base.exec_chunked = GenerateDecimal<QuantileExecutorChunked, NullType>(type_id);
     DCHECK_OK(func->AddKernel(base));
   }
 }

@@ -39,7 +39,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/vector.h"
 
 namespace arrow {
@@ -249,6 +249,7 @@ Table::Table() : num_rows_(0) {}
 
 std::vector<std::shared_ptr<Field>> Table::fields() const {
   std::vector<std::shared_ptr<Field>> result;
+  result.reserve(this->num_columns());
   for (int i = 0; i < this->num_columns(); ++i) {
     result.emplace_back(this->field(i));
   }
@@ -274,7 +275,7 @@ Result<std::shared_ptr<Table>> Table::MakeEmpty(std::shared_ptr<Schema> schema,
     ARROW_ASSIGN_OR_RAISE(empty_table[i],
                           ChunkedArray::MakeEmpty(schema->field(i)->type(), memory_pool));
   }
-  return Table::Make(schema, empty_table, 0);
+  return Table::Make(std::move(schema), empty_table, 0);
 }
 
 Result<std::shared_ptr<Table>> Table::FromRecordBatchReader(RecordBatchReader* reader) {
@@ -619,6 +620,7 @@ TableBatchReader::TableBatchReader(const Table& table)
   for (int i = 0; i < table.num_columns(); ++i) {
     column_data_[i] = table.column(i).get();
   }
+  DCHECK(table_.Validate().ok());
 }
 
 TableBatchReader::TableBatchReader(std::shared_ptr<Table> table)
@@ -632,6 +634,7 @@ TableBatchReader::TableBatchReader(std::shared_ptr<Table> table)
   for (int i = 0; i < owned_table_->num_columns(); ++i) {
     column_data_[i] = owned_table_->column(i).get();
   }
+  DCHECK(table_.Validate().ok());
 }
 
 std::shared_ptr<Schema> TableBatchReader::schema() const { return table_.schema(); }

@@ -17,13 +17,26 @@
 
 FROM centos:centos7
 
+# Update mirrors to use vault.centos.org as CentOS 7
+# is EOL since 2024-06-30
+RUN sed -i \
+      -e 's/^mirrorlist/#mirrorlist/' \
+      -e 's/^#baseurl/baseurl/' \
+      -e 's/mirror\.centos\.org/vault.centos.org/' \
+      /etc/yum.repos.d/*.repo
+
 # devtoolset is required for C++17
 RUN \
   yum install -y \
     centos-release-scl \
     epel-release && \
+  sed -i \
+    -e 's/^mirrorlist/#mirrorlist/' \
+    -e 's/^#baseurl/baseurl/' \
+    -e 's/^# baseurl/baseurl/' \
+    -e 's/mirror\.centos\.org/vault.centos.org/' \
+    /etc/yum.repos.d/CentOS-SCLo-scl*.repo && \
   yum install -y \
-    cmake3 \
     curl \
     devtoolset-8 \
     diffutils \
@@ -35,9 +48,13 @@ RUN \
     wget \
     which
 
+ARG cmake
+COPY ci/scripts/install_cmake.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_cmake.sh ${cmake} /usr/local/
+
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN bash /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
 ENV \
   ARROW_R_DEV=TRUE \
-  CMAKE=/usr/bin/cmake3
+  CMAKE=/usr/local/bin/cmake

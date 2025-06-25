@@ -93,14 +93,14 @@ Result<std::unique_ptr<OrderByImpl>> OrderByImpl::MakeSort(
     ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
     const SortOptions& options) {
   std::unique_ptr<OrderByImpl> impl{new SortBasicImpl(ctx, output_schema, options)};
-  return std::move(impl);
+  return impl;
 }
 
 Result<std::unique_ptr<OrderByImpl>> OrderByImpl::MakeSelectK(
     ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
     const SelectKOptions& options) {
   std::unique_ptr<OrderByImpl> impl{new SelectKBasicImpl(ctx, output_schema, options)};
-  return std::move(impl);
+  return impl;
 }
 
 }  // namespace acero

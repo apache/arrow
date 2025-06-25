@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Array accessor classes for List, LargeList, FixedSizeList, Map, Struct, and
-// Union
+// Array accessor classes for List, LargeList, ListView, LargeListView, FixedSizeList,
+// Map, Struct, and Union
 
 #pragma once
 
@@ -43,30 +43,45 @@ namespace arrow {
 /// @{
 
 // ----------------------------------------------------------------------
-// ListArray
+// VarLengthListLikeArray
 
 template <typename TYPE>
-class BaseListArray;
+class VarLengthListLikeArray;
 
 namespace internal {
 
-// Private helper for ListArray::SetData.
-// Unfortunately, trying to define BaseListArray::SetData outside of this header
+// Private helper for [Large]List[View]Array::SetData.
+// Unfortunately, trying to define VarLengthListLikeArray::SetData outside of this header
 // doesn't play well with MSVC.
 template <typename TYPE>
-void SetListData(BaseListArray<TYPE>* self, const std::shared_ptr<ArrayData>& data,
+void SetListData(VarLengthListLikeArray<TYPE>* self,
+                 const std::shared_ptr<ArrayData>& data,
                  Type::type expected_type_id = TYPE::type_id);
+
+/// \brief A version of Flatten that keeps recursively flattening until an array of
+/// non-list values is reached.
+///
+/// Array types considered to be lists by this function:
+///  - list
+///  - large_list
+///  - list_view
+///  - large_list_view
+///  - fixed_size_list
+///
+/// \see ListArray::Flatten
+ARROW_EXPORT Result<std::shared_ptr<Array>> FlattenLogicalListRecursively(
+    const Array& in_array, MemoryPool* memory_pool);
 
 }  // namespace internal
 
-/// Base class for variable-sized list arrays, regardless of offset size.
+/// Base class for variable-sized list and list-view arrays, regardless of offset size.
 template <typename TYPE>
-class BaseListArray : public Array {
+class VarLengthListLikeArray : public Array {
  public:
   using TypeClass = TYPE;
   using offset_type = typename TypeClass::offset_type;
 
-  const TypeClass* list_type() const { return list_type_; }
+  const TypeClass* var_length_list_like_type() const { return this->list_type_; }
 
   /// \brief Return array object containing the list's values
   ///
@@ -79,30 +94,64 @@ class BaseListArray : public Array {
   const std::shared_ptr<DataType>& value_type() const { return list_type_->value_type(); }
 
   /// Return pointer to raw value offsets accounting for any slice offset
-  const offset_type* raw_value_offsets() const {
-    return raw_value_offsets_ + data_->offset;
-  }
+  const offset_type* raw_value_offsets() const { return raw_value_offsets_; }
 
   // The following functions will not perform boundschecking
-  offset_type value_offset(int64_t i) const {
-    return raw_value_offsets_[i + data_->offset];
-  }
-  offset_type value_length(int64_t i) const {
-    i += data_->offset;
-    return raw_value_offsets_[i + 1] - raw_value_offsets_[i];
-  }
+
+  offset_type value_offset(int64_t i) const { return raw_value_offsets_[i]; }
+
+  /// \brief Return the size of the value at a particular index
+  ///
+  /// Since non-empty null lists and list-views are possible, avoid calling this
+  /// function when the list at slot i is null.
+  ///
+  /// \pre IsValid(i)
+  virtual offset_type value_length(int64_t i) const = 0;
+
+  /// \pre IsValid(i)
   std::shared_ptr<Array> value_slice(int64_t i) const {
     return values_->Slice(value_offset(i), value_length(i));
   }
 
+  /// \brief Flatten all level recursively until reach a non-list type, and return
+  /// a non-list type Array.
+  ///
+  /// \see internal::FlattenLogicalListRecursively
+  Result<std::shared_ptr<Array>> FlattenRecursively(
+      MemoryPool* memory_pool = default_memory_pool()) const {
+    return internal::FlattenLogicalListRecursively(*this, memory_pool);
+  }
+
  protected:
-  friend void internal::SetListData<TYPE>(BaseListArray<TYPE>* self,
+  friend void internal::SetListData<TYPE>(VarLengthListLikeArray<TYPE>* self,
                                           const std::shared_ptr<ArrayData>& data,
                                           Type::type expected_type_id);
 
   const TypeClass* list_type_ = NULLPTR;
   std::shared_ptr<Array> values_;
   const offset_type* raw_value_offsets_ = NULLPTR;
+};
+
+// ----------------------------------------------------------------------
+// ListArray / LargeListArray
+
+template <typename TYPE>
+class BaseListArray : public VarLengthListLikeArray<TYPE> {
+ public:
+  using TypeClass = TYPE;
+  using offset_type = typename TYPE::offset_type;
+
+  const TypeClass* list_type() const { return this->var_length_list_like_type(); }
+
+  /// \brief Return the size of the value at a particular index
+  ///
+  /// Since non-empty null lists are possible, avoid calling this
+  /// function when the list at slot i is null.
+  ///
+  /// \pre IsValid(i)
+  offset_type value_length(int64_t i) const final {
+    return this->raw_value_offsets_[i + 1] - this->raw_value_offsets_[i];
+  }
 };
 
 /// Concrete Array class for list data
@@ -120,10 +169,13 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
   /// This function does the bare minimum of validation of the offsets and
   /// input types, and will allocate a new offsets array if necessary (i.e. if
   /// the offsets contain any nulls). If the offsets do not have nulls, they
-  /// are assumed to be well-formed
+  /// are assumed to be well-formed.
   ///
-  /// Offsets of an Array's null bitmap can be present or an explicit
-  /// null_bitmap, but not both.
+  /// If a null_bitmap is not provided, the nulls will be inferred from the offsets'
+  /// null bitmap. But if a null_bitmap is provided, the offsets array can't have nulls.
+  ///
+  /// And when a null_bitmap is provided, the offsets array cannot be a slice (i.e. an
+  /// array with offset() > 0).
   ///
   /// \param[in] offsets Array containing n + 1 offsets encoding length and
   /// size. Must be of int32 type
@@ -142,6 +194,10 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
       MemoryPool* pool = default_memory_pool(),
       std::shared_ptr<Buffer> null_bitmap = NULLPTR,
       int64_t null_count = kUnknownNullCount);
+
+  /// \brief Build a ListArray from a ListViewArray
+  static Result<std::shared_ptr<ListArray>> FromListView(const ListViewArray& source,
+                                                         MemoryPool* pool);
 
   /// \brief Return an Array that is a concatenation of the lists in this array.
   ///
@@ -181,7 +237,13 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
   /// This function does the bare minimum of validation of the offsets and
   /// input types, and will allocate a new offsets array if necessary (i.e. if
   /// the offsets contain any nulls). If the offsets do not have nulls, they
-  /// are assumed to be well-formed
+  /// are assumed to be well-formed.
+  ///
+  /// If a null_bitmap is not provided, the nulls will be inferred from the offsets'
+  /// null bitmap. But if a null_bitmap is provided, the offsets array can't have nulls.
+  ///
+  /// And when a null_bitmap is provided, the offsets array cannot be a slice (i.e. an
+  /// array with offset() > 0).
   ///
   /// \param[in] offsets Array containing n + 1 offsets encoding length and
   /// size. Must be of int64 type
@@ -201,6 +263,10 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
       std::shared_ptr<Buffer> null_bitmap = NULLPTR,
       int64_t null_count = kUnknownNullCount);
 
+  /// \brief Build a LargeListArray from a LargeListViewArray
+  static Result<std::shared_ptr<LargeListArray>> FromListView(
+      const LargeListViewArray& source, MemoryPool* pool);
+
   /// \brief Return an Array that is a concatenation of the lists in this array.
   ///
   /// Note that it's different from `values()` in that it takes into
@@ -213,6 +279,207 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
   std::shared_ptr<Array> offsets() const;
 
  protected:
+  void SetData(const std::shared_ptr<ArrayData>& data);
+};
+
+// ----------------------------------------------------------------------
+// ListViewArray / LargeListViewArray
+
+template <typename TYPE>
+class BaseListViewArray : public VarLengthListLikeArray<TYPE> {
+ public:
+  using TypeClass = TYPE;
+  using offset_type = typename TYPE::offset_type;
+
+  const TypeClass* list_view_type() const { return this->var_length_list_like_type(); }
+
+  /// \brief Note that this buffer does not account for any slice offset or length.
+  const std::shared_ptr<Buffer>& value_sizes() const { return this->data_->buffers[2]; }
+
+  /// \brief Return pointer to raw value offsets accounting for any slice offset
+  const offset_type* raw_value_sizes() const { return raw_value_sizes_; }
+
+  /// \brief Return the size of the value at a particular index
+  ///
+  /// This should not be called if the list-view at slot i is null.
+  /// The returned size in those cases could be any value from 0 to the
+  /// length of the child values array.
+  ///
+  /// \pre IsValid(i)
+  offset_type value_length(int64_t i) const final { return this->raw_value_sizes_[i]; }
+
+ protected:
+  const offset_type* raw_value_sizes_ = NULLPTR;
+};
+
+/// \brief Concrete Array class for list-view data
+class ARROW_EXPORT ListViewArray : public BaseListViewArray<ListViewType> {
+ public:
+  explicit ListViewArray(std::shared_ptr<ArrayData> data);
+
+  ListViewArray(std::shared_ptr<DataType> type, int64_t length,
+                std::shared_ptr<Buffer> value_offsets,
+                std::shared_ptr<Buffer> value_sizes, std::shared_ptr<Array> values,
+                std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+                int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  /// \brief Construct ListViewArray from array of offsets, sizes, and child
+  /// value array
+  ///
+  /// Construct a ListViewArray using buffers from offsets and sizes arrays
+  /// that project views into the child values array.
+  ///
+  /// This function does the bare minimum of validation of the offsets/sizes and
+  /// input types. The offset and length of the offsets and sizes arrays must
+  /// match and that will be checked, but their contents will be assumed to be
+  /// well-formed.
+  ///
+  /// If a null_bitmap is not provided, the nulls will be inferred from the
+  /// offsets's null bitmap. But if a null_bitmap is provided, the offsets array
+  /// can't have nulls.
+  ///
+  /// And when a null_bitmap is provided, neither the offsets or sizes array can be a
+  /// slice (i.e. an array with offset() > 0).
+  ///
+  /// \param[in] offsets An array of int32 offsets into the values array. NULL values are
+  /// supported if the corresponding values in sizes is NULL or 0.
+  /// \param[in] sizes An array containing the int32 sizes of every view. NULL values are
+  /// taken to represent a NULL list-view in the array being created.
+  /// \param[in] values Array containing list values
+  /// \param[in] pool MemoryPool
+  /// \param[in] null_bitmap Optional validity bitmap
+  /// \param[in] null_count Optional null count in null_bitmap
+  static Result<std::shared_ptr<ListViewArray>> FromArrays(
+      const Array& offsets, const Array& sizes, const Array& values,
+      MemoryPool* pool = default_memory_pool(),
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+      int64_t null_count = kUnknownNullCount);
+
+  static Result<std::shared_ptr<ListViewArray>> FromArrays(
+      std::shared_ptr<DataType> type, const Array& offsets, const Array& sizes,
+      const Array& values, MemoryPool* pool = default_memory_pool(),
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+      int64_t null_count = kUnknownNullCount);
+
+  /// \brief Build a ListViewArray from a ListArray
+  static Result<std::shared_ptr<ListViewArray>> FromList(const ListArray& list_array,
+                                                         MemoryPool* pool);
+
+  /// \brief Return an Array that is a concatenation of the list-views in this array.
+  ///
+  /// Note that it's different from `values()` in that it takes into
+  /// consideration this array's offsets (which can be in any order)
+  /// and sizes. Nulls are skipped.
+  ///
+  /// This function invokes Concatenate() if list-views are non-contiguous. It
+  /// will try to minimize the number of array slices passed to Concatenate() by
+  /// maximizing the size of each slice (containing as many contiguous
+  /// list-views as possible).
+  Result<std::shared_ptr<Array>> Flatten(
+      MemoryPool* memory_pool = default_memory_pool()) const;
+
+  /// \brief Return list-view offsets as an Int32Array
+  ///
+  /// The returned array will not have a validity bitmap, so you cannot expect
+  /// to pass it to ListArray::FromArrays() and get back the same list array
+  /// if the original one has nulls.
+  std::shared_ptr<Array> offsets() const;
+
+  /// \brief Return list-view sizes as an Int32Array
+  ///
+  /// The returned array will not have a validity bitmap, so you cannot expect
+  /// to pass it to ListViewArray::FromArrays() and get back the same list
+  /// array if the original one has nulls.
+  std::shared_ptr<Array> sizes() const;
+
+ protected:
+  // This constructor defers SetData to a derived array class
+  ListViewArray() = default;
+
+  void SetData(const std::shared_ptr<ArrayData>& data);
+};
+
+/// \brief Concrete Array class for large list-view data (with 64-bit offsets
+/// and sizes)
+class ARROW_EXPORT LargeListViewArray : public BaseListViewArray<LargeListViewType> {
+ public:
+  explicit LargeListViewArray(std::shared_ptr<ArrayData> data);
+
+  LargeListViewArray(std::shared_ptr<DataType> type, int64_t length,
+                     std::shared_ptr<Buffer> value_offsets,
+                     std::shared_ptr<Buffer> value_sizes, std::shared_ptr<Array> values,
+                     std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+                     int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  /// \brief Construct LargeListViewArray from array of offsets, sizes, and child
+  /// value array
+  ///
+  /// Construct an LargeListViewArray using buffers from offsets and sizes arrays
+  /// that project views into the values array.
+  ///
+  /// This function does the bare minimum of validation of the offsets/sizes and
+  /// input types. The offset and length of the offsets and sizes arrays must
+  /// match and that will be checked, but their contents will be assumed to be
+  /// well-formed.
+  ///
+  /// If a null_bitmap is not provided, the nulls will be inferred from the offsets' or
+  /// sizes' null bitmap. Only one of these two is allowed to have a null bitmap. But if a
+  /// null_bitmap is provided, the offsets array and the sizes array can't have nulls.
+  ///
+  /// And when a null_bitmap is provided, neither the offsets or sizes array can be a
+  /// slice (i.e. an array with offset() > 0).
+  ///
+  /// \param[in] offsets An array of int64 offsets into the values array. NULL values are
+  /// supported if the corresponding values in sizes is NULL or 0.
+  /// \param[in] sizes An array containing the int64 sizes of every view. NULL values are
+  /// taken to represent a NULL list-view in the array being created.
+  /// \param[in] values Array containing list values
+  /// \param[in] pool MemoryPool
+  /// \param[in] null_bitmap Optional validity bitmap
+  /// \param[in] null_count Optional null count in null_bitmap
+  static Result<std::shared_ptr<LargeListViewArray>> FromArrays(
+      const Array& offsets, const Array& sizes, const Array& values,
+      MemoryPool* pool = default_memory_pool(),
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+      int64_t null_count = kUnknownNullCount);
+
+  static Result<std::shared_ptr<LargeListViewArray>> FromArrays(
+      std::shared_ptr<DataType> type, const Array& offsets, const Array& sizes,
+      const Array& values, MemoryPool* pool = default_memory_pool(),
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+      int64_t null_count = kUnknownNullCount);
+
+  /// \brief Build a LargeListViewArray from a LargeListArray
+  static Result<std::shared_ptr<LargeListViewArray>> FromList(
+      const LargeListArray& list_array, MemoryPool* pool);
+
+  /// \brief Return an Array that is a concatenation of the large list-views in this
+  /// array.
+  ///
+  /// Note that it's different from `values()` in that it takes into
+  /// consideration this array's offsets (which can be in any order)
+  /// and sizes. Nulls are skipped.
+  Result<std::shared_ptr<Array>> Flatten(
+      MemoryPool* memory_pool = default_memory_pool()) const;
+
+  /// \brief Return list-view offsets as an Int64Array
+  ///
+  /// The returned array will not have a validity bitmap, so you cannot expect
+  /// to pass it to LargeListArray::FromArrays() and get back the same list array
+  /// if the original one has nulls.
+  std::shared_ptr<Array> offsets() const;
+
+  /// \brief Return list-view sizes as an Int64Array
+  ///
+  /// The returned array will not have a validity bitmap, so you cannot expect
+  /// to pass it to LargeListViewArray::FromArrays() and get back the same list
+  /// array if the original one has nulls.
+  std::shared_ptr<Array> sizes() const;
+
+ protected:
+  // This constructor defers SetData to a derived array class
+  LargeListViewArray() = default;
+
   void SetData(const std::shared_ptr<ArrayData>& data);
 };
 
@@ -256,15 +523,18 @@ class ARROW_EXPORT MapArray : public ListArray {
   /// \param[in] keys Array containing key values
   /// \param[in] items Array containing item values
   /// \param[in] pool MemoryPool in case new offsets array needs to be
+  /// \param[in] null_bitmap Optional validity bitmap
   /// allocated because of null values
   static Result<std::shared_ptr<Array>> FromArrays(
       const std::shared_ptr<Array>& offsets, const std::shared_ptr<Array>& keys,
-      const std::shared_ptr<Array>& items, MemoryPool* pool = default_memory_pool());
+      const std::shared_ptr<Array>& items, MemoryPool* pool = default_memory_pool(),
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR);
 
   static Result<std::shared_ptr<Array>> FromArrays(
       std::shared_ptr<DataType> type, const std::shared_ptr<Array>& offsets,
       const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& items,
-      MemoryPool* pool = default_memory_pool());
+      MemoryPool* pool = default_memory_pool(),
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR);
 
   const MapType* map_type() const { return map_type_; }
 
@@ -284,7 +554,7 @@ class ARROW_EXPORT MapArray : public ListArray {
   static Result<std::shared_ptr<Array>> FromArraysInternal(
       std::shared_ptr<DataType> type, const std::shared_ptr<Array>& offsets,
       const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& items,
-      MemoryPool* pool);
+      MemoryPool* pool, std::shared_ptr<Buffer> null_bitmap = NULLPTR);
 
  private:
   const MapType* map_type_;
@@ -319,10 +589,18 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
     i += data_->offset;
     return list_size_ * i;
   }
+  /// \brief Return the fixed-size of the values
+  ///
+  /// No matter the value of the index parameter, the result is the same.
+  /// So even when the value at slot i is null, this function will return a
+  /// non-zero size.
+  ///
+  /// \pre IsValid(i)
   int32_t value_length(int64_t i = 0) const {
     ARROW_UNUSED(i);
     return list_size_;
   }
+  /// \pre IsValid(i)
   std::shared_ptr<Array> value_slice(int64_t i) const {
     return values_->Slice(value_offset(i), value_length(i));
   }
@@ -334,21 +612,38 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
   Result<std::shared_ptr<Array>> Flatten(
       MemoryPool* memory_pool = default_memory_pool()) const;
 
+  /// \brief Flatten all level recursively until reach a non-list type, and return
+  /// a non-list type Array.
+  ///
+  /// \see internal::FlattenLogicalListRecursively
+  Result<std::shared_ptr<Array>> FlattenRecursively(
+      MemoryPool* memory_pool = default_memory_pool()) const {
+    return internal::FlattenLogicalListRecursively(*this, memory_pool);
+  }
+
   /// \brief Construct FixedSizeListArray from child value array and value_length
   ///
   /// \param[in] values Array containing list values
   /// \param[in] list_size The fixed length of each list
+  /// \param[in] null_bitmap Optional validity bitmap
+  /// \param[in] null_count Optional null count in null_bitmap
   /// \return Will have length equal to values.length() / list_size
-  static Result<std::shared_ptr<Array>> FromArrays(const std::shared_ptr<Array>& values,
-                                                   int32_t list_size);
+  static Result<std::shared_ptr<Array>> FromArrays(
+      const std::shared_ptr<Array>& values, int32_t list_size,
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+      int64_t null_count = kUnknownNullCount);
 
   /// \brief Construct FixedSizeListArray from child value array and type
   ///
   /// \param[in] values Array containing list values
   /// \param[in] type The fixed sized list type
+  /// \param[in] null_bitmap Optional validity bitmap
+  /// \param[in] null_count Optional null count in null_bitmap
   /// \return Will have length equal to values.length() / type.list_size()
-  static Result<std::shared_ptr<Array>> FromArrays(const std::shared_ptr<Array>& values,
-                                                   std::shared_ptr<DataType> type);
+  static Result<std::shared_ptr<Array>> FromArrays(
+      const std::shared_ptr<Array>& values, std::shared_ptr<DataType> type,
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+      int64_t null_count = kUnknownNullCount);
 
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);
@@ -440,15 +735,13 @@ class ARROW_EXPORT UnionArray : public Array {
   /// Note that this buffer does not account for any slice offset
   const std::shared_ptr<Buffer>& type_codes() const { return data_->buffers[1]; }
 
-  const type_code_t* raw_type_codes() const { return raw_type_codes_ + data_->offset; }
+  const type_code_t* raw_type_codes() const { return raw_type_codes_; }
 
   /// The logical type code of the value at index.
-  type_code_t type_code(int64_t i) const { return raw_type_codes_[i + data_->offset]; }
+  type_code_t type_code(int64_t i) const { return raw_type_codes_[i]; }
 
   /// The physical child id containing value at index.
-  int child_id(int64_t i) const {
-    return union_type_->child_ids()[raw_type_codes_[i + data_->offset]];
-  }
+  int child_id(int64_t i) const { return union_type_->child_ids()[raw_type_codes_[i]]; }
 
   const UnionType* union_type() const { return union_type_; }
 
@@ -579,9 +872,9 @@ class ARROW_EXPORT DenseUnionArray : public UnionArray {
   /// Note that this buffer does not account for any slice offset
   const std::shared_ptr<Buffer>& value_offsets() const { return data_->buffers[2]; }
 
-  int32_t value_offset(int64_t i) const { return raw_value_offsets_[i + data_->offset]; }
+  int32_t value_offset(int64_t i) const { return raw_value_offsets_[i]; }
 
-  const int32_t* raw_value_offsets() const { return raw_value_offsets_ + data_->offset; }
+  const int32_t* raw_value_offsets() const { return raw_value_offsets_; }
 
  protected:
   const int32_t* raw_value_offsets_;

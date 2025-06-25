@@ -20,17 +20,17 @@ function link = makeLinkString(opts)
         opts.FullClassName(1, 1) string
         opts.ClassName(1, 1) string
         % When displaying heterogeneous arrays, only the name of the 
-        % closest shared anscestor class is displayed in bold. All other
+        % closest shared ancestor class is displayed in bold. All other
         % class names are not bolded.
         opts.BoldFont(1, 1) logical
     end
         
     if opts.BoldFont
-        link = compose("<a href=""matlab:helpPopup %s""" + ...
+        link = compose("<a href=""matlab:helpPopup('%s')""" + ...
             " style=""font-weight:bold"">%s</a>", ...
             opts.FullClassName, opts.ClassName);
     else
-        link = compose("<a href=""matlab:helpPopup %s"">%s</a>", ...
+        link = compose("<a href=""matlab:helpPopup('%s')"">%s</a>", ...
             opts.FullClassName, opts.ClassName);
     end
 end

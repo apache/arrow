@@ -22,7 +22,7 @@ FROM ${repo}:${arch}-conda
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts
 RUN /arrow/ci/scripts/install_minio.sh latest /opt/conda
 
-# Unless overriden use Python 3.10
+# Unless overridden use Python 3.10
 # Google GCS fails building with Python 3.11 at the moment.
 ARG python=3.10
 
@@ -37,19 +37,27 @@ RUN mamba install -q -y \
         doxygen \
         libnuma \
         python=${python} \
-        ucx \
-        ucx-proc=*=cpu \
         valgrind && \
-    mamba clean --all
+    mamba clean --all --yes
 
-# We want to install the GCS testbench using the same Python binary that the Conda code will use.
+# We want to install the GCS testbench using the Conda base environment's Python,
+# because the test environment's Python may later change.
+ENV PIPX_BASE_PYTHON=/opt/conda/bin/python3
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
+
+# Ensure npm, node and azurite are on path. npm and node are required to install azurite, which will then need to
+# be on the path for the tests to run.
+ENV PATH=/opt/conda/envs/arrow/bin:$PATH
+
+COPY ci/scripts/install_azurite.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_azurite.sh
 
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
 ENV ARROW_ACERO=ON \
+    ARROW_AZURE=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_DEPENDENCY_SOURCE=CONDA \
@@ -58,9 +66,11 @@ ENV ARROW_ACERO=ON \
     ARROW_GANDIVA=ON \
     ARROW_GCS=ON \
     ARROW_HOME=$CONDA_PREFIX \
+    ARROW_JEMALLOC=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \
+    ARROW_S3_MODULE=ON \
     ARROW_SUBSTRAIT=ON \
     ARROW_USE_CCACHE=ON \
     ARROW_WITH_BROTLI=ON \

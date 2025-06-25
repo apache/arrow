@@ -25,7 +25,6 @@ du -hsc /usr/local/*
 echo "::endgroup::"
 # ~1GB
 sudo rm -rf \
-  /usr/local/aws-cli \
   /usr/local/aws-sam-cil \
   /usr/local/julia* || :
 echo "::group::/usr/local/bin/*"
@@ -34,8 +33,6 @@ echo "::endgroup::"
 # ~1GB (From 1.2GB to 214MB)
 sudo rm -rf \
   /usr/local/bin/aliyun \
-  /usr/local/bin/aws \
-  /usr/local/bin/aws_completer \
   /usr/local/bin/azcopy \
   /usr/local/bin/bicep \
   /usr/local/bin/cmake-gui \

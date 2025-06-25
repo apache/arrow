@@ -60,7 +60,7 @@ a username and password each time you execute a git command.
    RStudio project and will create a ``.Rproj`` file in the root directory.
    For this reason it is *highly recommended* to clone the repository using
    the command line or a Git client.
-   
+
 Get the source code
 ===================
 
@@ -118,10 +118,10 @@ Should give you a result similar to this:
 
 .. code:: console
 
-   origin	https://github.com/<your username>/arrow.git (fetch)
-   origin	https://github.com/<your username>/arrow.git (push)
-   upstream	https://github.com/apache/arrow (fetch)
-   upstream	https://github.com/apache/arrow (push)
+   origin    https://github.com/<your username>/arrow.git (fetch)
+   origin    https://github.com/<your username>/arrow.git (push)
+   upstream  https://github.com/apache/arrow (fetch)
+   upstream  https://github.com/apache/arrow (push)
 
 If you did everything correctly, you should now have a copy of the code
 in the ``arrow`` directory and two remotes that refer to your own GitHub

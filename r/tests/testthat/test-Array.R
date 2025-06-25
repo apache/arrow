@@ -371,19 +371,19 @@ test_that("support for NaN (ARROW-3615)", {
   expect_equal(y$null_count, 1L)
 })
 
-test_that("is.nan() evalutes to FALSE on NA (for consistency with base R)", {
+test_that("is.nan() evaluates to FALSE on NA (for consistency with base R)", {
   x <- c(1.0, NA, NaN, -1.0)
   compare_expression(is.nan(.input), x)
 })
 
-test_that("is.nan() evalutes to FALSE on non-floats (for consistency with base R)", {
+test_that("is.nan() evaluates to FALSE on non-floats (for consistency with base R)", {
   x <- c(1L, 2L, 3L)
   y <- c("foo", "bar")
   compare_expression(is.nan(.input), x)
   compare_expression(is.nan(.input), y)
 })
 
-test_that("is.na() evalutes to TRUE on NaN (for consistency with base R)", {
+test_that("is.na() evaluates to TRUE on NaN (for consistency with base R)", {
   x <- c(1, NA, NaN, -1)
   compare_expression(is.na(.input), x)
 })
@@ -539,14 +539,14 @@ test_that("StructArray methods", {
   expect_equal(a$x, arrow_array(df$x))
   expect_equal(a[["x"]], arrow_array(df$x))
   expect_equal(a[[1]], arrow_array(df$x))
-  expect_identical(names(a), c("x", "y", "z"))
+  expect_named(a, c("x", "y", "z"))
   expect_identical(dim(a), c(10L, 3L))
 })
 
 test_that("StructArray creation", {
   # from data.frame
   a <- StructArray$create(example_data)
-  expect_identical(names(a), c("int", "dbl", "dbl2", "lgl", "false", "chr", "fct"))
+  expect_named(a, c("int", "dbl", "dbl2", "lgl", "false", "chr", "fct"))
   expect_identical(dim(a), c(10L, 7L))
   expect_r6_class(a, "StructArray")
 
@@ -800,7 +800,7 @@ test_that("arrow_array() handles vector -> fixed size list arrays", {
 })
 
 test_that("Handling string data with embedded nuls", {
-  raws <- structure(
+  raws <- blob::as_blob(
     list(
       as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
       as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
@@ -808,8 +808,7 @@ test_that("Handling string data with embedded nuls", {
       as.raw(c(0x66, 0x00, 0x00, 0x61, 0x00, 0x6e)), # multiple nuls
       as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
       as.raw(c(0x74, 0x76))
-    ),
-    class = c("arrow_binary", "vctrs_vctr", "list")
+    )
   )
   expect_error(
     rawToChar(raws[[3]]),
@@ -817,11 +816,6 @@ test_that("Handling string data with embedded nuls", {
     fixed = TRUE
   )
   array_with_nul <- arrow_array(raws)$cast(utf8())
-
-  # The behavior of the warnings/errors is slightly different with and without
-  # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
-  # on `as.vector()` where as with it, the error only happens on materialization)
-  skip_on_r_older_than("3.6")
 
   # no error on conversion, because altrep laziness
   v <- expect_error(as.vector(array_with_nul), NA)
@@ -1266,7 +1260,7 @@ test_that("concat_arrays works", {
 
   concat_int <- concat_arrays(arrow_array(1:3), arrow_array(4:5))
   expect_true(concat_int$type == int32())
-  expect_true(all(concat_int == arrow_array(1:5)))
+  expect_equal(concat_int,  arrow_array(1:5))
 
   concat_int64 <- concat_arrays(
     arrow_array(1:3),
@@ -1274,7 +1268,7 @@ test_that("concat_arrays works", {
     type = int64()
   )
   expect_true(concat_int64$type == int64())
-  expect_true(all(concat_int == arrow_array(1:5)))
+  expect_equal(concat_int, arrow_array(1:5))
 
   expect_error(
     concat_arrays(
@@ -1288,7 +1282,7 @@ test_that("concat_arrays works", {
 test_that("concat_arrays() coerces its input to Array", {
   concat_ints <- concat_arrays(1L, 2L)
   expect_true(concat_ints$type == int32())
-  expect_true(all(concat_ints == arrow_array(c(1L, 2L))))
+  expect_equal(concat_ints, arrow_array(c(1L, 2L)))
 
   expect_error(
     concat_arrays(1L, "not a number", type = int32()),
@@ -1327,7 +1321,14 @@ test_that("Array to C-interface", {
 })
 
 test_that("Can convert R integer/double to decimal (ARROW-11631)", {
-  # Check both decimal128 and decimal256
+  # Check all of decimal32, decimal64, decimal128 and decimal256
+
+
+  decimal32_from_dbl <- arrow_array(c(1, NA_real_), type = decimal32(9, 2))
+  decimal64_from_dbl <- arrow_array(c(1, NA_real_), type = decimal64(12, 2))
+  decimal32_from_int <- arrow_array(c(1L, NA_integer_), type = decimal32(9, 2))
+  decimal64_from_int <- arrow_array(c(1L, NA_integer_), type = decimal64(12, 2))
+
   decimal128_from_dbl <- arrow_array(c(1, NA_real_), type = decimal128(12, 2))
   decimal256_from_dbl <- arrow_array(c(1, NA_real_), type = decimal256(12, 2))
   decimal128_from_int <- arrow_array(c(1L, NA_integer_), type = decimal128(12, 2))
@@ -1340,6 +1341,16 @@ test_that("Can convert R integer/double to decimal (ARROW-11631)", {
   decimal_from_altrep_int <- arrow_array(altrep_int, type = decimal128(12, 2))
 
   expect_equal(
+    decimal32_from_dbl,
+    arrow_array(c(1, NA))$cast(decimal32(9, 2))
+  )
+
+  expect_equal(
+    decimal64_from_dbl,
+    arrow_array(c(1, NA))$cast(decimal64(12, 2))
+  )
+
+  expect_equal(
     decimal128_from_dbl,
     arrow_array(c(1, NA))$cast(decimal128(12, 2))
   )
@@ -1348,6 +1359,17 @@ test_that("Can convert R integer/double to decimal (ARROW-11631)", {
     decimal256_from_dbl,
     arrow_array(c(1, NA))$cast(decimal256(12, 2))
   )
+
+  expect_equal(
+    decimal32_from_int,
+    arrow_array(c(1, NA))$cast(decimal32(9, 2))
+  )
+
+  expect_equal(
+    decimal64_from_int,
+    arrow_array(c(1, NA))$cast(decimal64(12, 2))
+  )
+
 
   expect_equal(
     decimal128_from_int,
@@ -1374,4 +1396,10 @@ test_that("Can convert R integer/double to decimal (ARROW-11631)", {
     arrow_array(complex(), decimal128(12, 2)),
     "Conversion to decimal from non-integer/double"
   )
+})
+
+test_that("Array handles negative fractional dates correctly (GH-46873)", {
+  d <- as.Date(-0.1)
+  arr <- arrow_array(d)
+  expect_equal(as.vector(arr), as.Date("1969-12-31"))
 })

@@ -16,7 +16,7 @@
 // under the License.
 
 #ifndef M_PI
-#define M_PI 3.14159265358979323846
+#  define M_PI 3.14159265358979323846
 #endif
 
 #include "gandiva/projector.h"
@@ -26,6 +26,7 @@
 #include <cmath>
 
 #include "arrow/memory_pool.h"
+#include "gandiva/function_registry.h"
 #include "gandiva/literal_holder.h"
 #include "gandiva/node.h"
 #include "gandiva/tests/test_util.h"
@@ -176,7 +177,7 @@ TEST_F(TestProjector, TestProjectCacheFloat) {
 
 TEST_F(TestProjector, TestProjectCacheLiteral) {
   auto schema = arrow::schema({});
-  auto res = field("result", arrow::decimal(38, 5));
+  auto res = field("result", arrow::decimal128(38, 5));
 
   DecimalScalar128 d0("12345678", 38, 5);
   DecimalScalar128 d1("98756432", 38, 5);
@@ -198,21 +199,21 @@ TEST_F(TestProjector, TestProjectCacheDecimalCast) {
   auto field_float64 = field("float64", arrow::float64());
   auto schema = arrow::schema({field_float64});
 
-  auto res_31_13 = field("result", arrow::decimal(31, 13));
+  auto res_31_13 = field("result", arrow::decimal128(31, 13));
   auto expr0 = TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_13);
   std::shared_ptr<Projector> projector0;
   ASSERT_OK(Projector::Make(schema, {expr0}, TestConfiguration(), &projector0));
   EXPECT_FALSE(projector0->GetBuiltFromCache());
 
   // if the output scale is different, the cache can't be used.
-  auto res_31_14 = field("result", arrow::decimal(31, 14));
+  auto res_31_14 = field("result", arrow::decimal128(31, 14));
   auto expr1 = TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_14);
   std::shared_ptr<Projector> projector1;
   ASSERT_OK(Projector::Make(schema, {expr1}, TestConfiguration(), &projector1));
   EXPECT_FALSE(projector1->GetBuiltFromCache());
 
   // if the output scale/precision are same, should get a cache hit.
-  auto res_31_13_alt = field("result", arrow::decimal(31, 13));
+  auto res_31_13_alt = field("result", arrow::decimal128(31, 13));
   auto expr2 =
       TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_13_alt);
   std::shared_ptr<Projector> projector2;
@@ -2816,27 +2817,18 @@ TEST_F(TestProjector, TestAesEncryptDecrypt) {
   std::shared_ptr<Projector> projector_en;
   ASSERT_OK(Projector::Make(schema, {encrypt_expr}, TestConfiguration(), &projector_en));
 
-  int num_records = 4;
+  int num_records = 3;
 
+  const char* key_16_bytes = "12345678abcdefgh";
+  const char* key_24_bytes = "12345678abcdefgh12345678";
   const char* key_32_bytes = "12345678abcdefgh12345678abcdefgh";
-  const char* key_64_bytes =
-      "12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh";
-  const char* key_128_bytes =
-      "12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12"
-      "345678abcdefgh12345678abcdefgh12345678abcdefgh";
-  const char* key_256_bytes =
-      "12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12"
-      "345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh1234"
-      "5678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh123456"
-      "78abcdefgh";
 
-  auto array_data = MakeArrowArrayUtf8({"abc", "some words", "to be encrypted", "hyah\n"},
-                                       {true, true, true, true});
+  auto array_data =
+      MakeArrowArrayUtf8({"abc", "some words", "to be encrypted"}, {true, true, true});
   auto array_key =
-      MakeArrowArrayUtf8({key_32_bytes, key_64_bytes, key_128_bytes, key_256_bytes},
-                         {true, true, true, true});
+      MakeArrowArrayUtf8({key_16_bytes, key_24_bytes, key_32_bytes}, {true, true, true});
 
-  auto array_holder_en = MakeArrowArrayUtf8({"", "", "", ""}, {true, true, true, true});
+  auto array_holder_en = MakeArrowArrayUtf8({"", "", ""}, {true, true, true});
 
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_data, array_key});
 
@@ -3579,6 +3571,106 @@ TEST_F(TestProjector, TestSqrtFloat64) {
   arrow::ArrayVector outs;
   ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
 
+  EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
+
+TEST_F(TestProjector, TestExtendedFunctions) {
+  auto in_field = field("in", arrow::int32());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::int64());
+  // the multiply_by_two function is only available in the external function's IR bitcode
+  auto multiply =
+      TreeExprBuilder::MakeExpression("multiply_by_two", {in_field}, out_field);
+
+  std::shared_ptr<Projector> projector;
+  auto external_registry = std::make_shared<FunctionRegistry>();
+  auto config_with_func_registry =
+      TestConfigWithFunctionRegistry(std::move(external_registry));
+  ARROW_EXPECT_OK(
+      Projector::Make(schema, {multiply}, config_with_func_registry, &projector));
+
+  int num_records = 4;
+  auto array = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+  auto out = MakeArrowArrayInt64({2, 4, 6, 8}, {true, true, true, true});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+  EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
+
+TEST_F(TestProjector, TestExtendedCFunctions) {
+  auto in_field = field("in", arrow::int32());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::int64());
+  auto multiply =
+      TreeExprBuilder::MakeExpression("multiply_by_three", {in_field}, out_field);
+
+  std::shared_ptr<Projector> projector;
+  auto external_registry = std::make_shared<FunctionRegistry>();
+  auto config_with_func_registry = TestConfigWithCFunction(std::move(external_registry));
+  ARROW_EXPECT_OK(
+      Projector::Make(schema, {multiply}, config_with_func_registry, &projector));
+
+  int num_records = 4;
+  auto array = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+  auto out = MakeArrowArrayInt64({3, 6, 9, 12}, {true, true, true, true});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+  EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
+
+TEST_F(TestProjector, TestExtendedCFunctionsWithFunctionHolder) {
+  auto multiple = TreeExprBuilder::MakeLiteral(5);
+  auto in_field = field("in", arrow::int32());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::int64());
+
+  auto in_node = TreeExprBuilder::MakeField(in_field);
+  auto multiply_by_n_func =
+      TreeExprBuilder::MakeFunction("multiply_by_n", {in_node, multiple}, arrow::int64());
+  auto multiply = TreeExprBuilder::MakeExpression(multiply_by_n_func, out_field);
+
+  std::shared_ptr<Projector> projector;
+  auto external_registry = std::make_shared<FunctionRegistry>();
+  auto config_with_func_registry =
+      TestConfigWithHolderFunction(std::move(external_registry));
+  ARROW_EXPECT_OK(
+      Projector::Make(schema, {multiply}, config_with_func_registry, &projector));
+
+  int num_records = 4;
+  auto array = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+  auto out = MakeArrowArrayInt64({5, 10, 15, 20}, {true, true, true, true});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+  EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
+
+TEST_F(TestProjector, TestExtendedCFunctionThatNeedsContext) {
+  auto in_field = field("in", arrow::utf8());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::utf8());
+  auto multiply =
+      TreeExprBuilder::MakeExpression("multiply_by_two_formula", {in_field}, out_field);
+
+  std::shared_ptr<Projector> projector;
+  auto external_registry = std::make_shared<FunctionRegistry>();
+  auto config_with_func_registry =
+      TestConfigWithContextFunction(std::move(external_registry));
+  ARROW_EXPECT_OK(
+      Projector::Make(schema, {multiply}, config_with_func_registry, &projector));
+
+  int num_records = 4;
+  auto array = MakeArrowArrayUtf8({"1", "2", "3", "10"}, {true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+  auto out = MakeArrowArrayUtf8({"1x2", "2x2", "3x2", "10x2"}, {true, true, true, true});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
 }
 

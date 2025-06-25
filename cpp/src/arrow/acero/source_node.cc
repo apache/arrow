@@ -36,7 +36,7 @@
 #include "arrow/util/async_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 #include "arrow/util/unreachable.h"
@@ -106,7 +106,8 @@ struct SourceNode : ExecNode, public TracedNode {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, "SourceNode"));
     const auto& source_options = checked_cast<const SourceNodeOptions&>(options);
     return plan->EmplaceNode<SourceNode>(plan, source_options.output_schema,
-                                         source_options.generator);
+                                         source_options.generator,
+                                         source_options.ordering);
   }
 
   const char* kind_name() const override { return "SourceNode"; }

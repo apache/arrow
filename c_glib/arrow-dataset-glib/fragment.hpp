@@ -26,10 +26,9 @@
 std::shared_ptr<arrow::dataset::Fragment>
 gadataset_fragment_get_raw(GADatasetFragment *fragment);
 
-GADatasetFragment*
-gadataset_fragment_new_raw(
-  std::shared_ptr<arrow::dataset::Fragment> *arrow_fragment);
+GADatasetFragment *
+gadataset_fragment_new_raw(std::shared_ptr<arrow::dataset::Fragment> *arrow_fragment);
 
-GADatasetInMemoryFragment*
+GADatasetInMemoryFragment *
 gadataset_in_memory_fragment_new_raw(
   std::shared_ptr<arrow::dataset::InMemoryFragment> *arrow_fragment);

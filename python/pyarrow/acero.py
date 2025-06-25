@@ -22,7 +22,7 @@
 # distutils: language = c++
 # cython: language_level = 3
 
-from pyarrow.lib import Table
+from pyarrow.lib import Table, RecordBatch, array
 from pyarrow.compute import Expression, field
 
 try:
@@ -35,6 +35,7 @@ try:
         AggregateNodeOptions,
         OrderByNodeOptions,
         HashJoinNodeOptions,
+        AsofJoinNodeOptions,
     )
 except ImportError as exc:
     raise ImportError(
@@ -55,8 +56,10 @@ except ImportError:
     ds = DatasetModuleStub
 
 
-def _dataset_to_decl(dataset, use_threads=True):
-    decl = Declaration("scan", ScanNodeOptions(dataset, use_threads=use_threads))
+def _dataset_to_decl(dataset, use_threads=True, implicit_ordering=False):
+    decl = Declaration("scan", ScanNodeOptions(
+        dataset, use_threads=use_threads,
+        implicit_ordering=implicit_ordering))
 
     # Get rid of special dataset columns
     # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
@@ -80,7 +83,7 @@ def _perform_join(join_type, left_operand, left_keys,
                   right_operand, right_keys,
                   left_suffix=None, right_suffix=None,
                   use_threads=True, coalesce_keys=False,
-                  output_type=Table):
+                  output_type=Table, filter_expression=None):
     """
     Perform join of two tables or datasets.
 
@@ -111,6 +114,8 @@ def _perform_join(join_type, left_operand, left_keys,
         in the join result.
     output_type: Table or InMemoryDataset
         The output type for the exec plan result.
+    filter_expression : pyarrow.compute.Expression
+        Residual filter which is applied to matching row.
 
     Returns
     -------
@@ -180,12 +185,14 @@ def _perform_join(join_type, left_operand, left_keys,
             join_type, left_keys, right_keys, left_columns, right_columns,
             output_suffix_for_left=left_suffix or "",
             output_suffix_for_right=right_suffix or "",
+            filter_expression=filter_expression,
         )
     else:
         join_opts = HashJoinNodeOptions(
             join_type, left_keys, right_keys,
             output_suffix_for_left=left_suffix or "",
             output_suffix_for_right=right_suffix or "",
+            filter_expression=filter_expression,
         )
     decl = Declaration(
         "hashjoin", options=join_opts, inputs=[left_source, right_source]
@@ -221,7 +228,7 @@ def _perform_join(join_type, left_operand, left_keys,
                 # Do not include right table keys. As they would lead to duplicated keys
                 continue
             else:
-                # For all the other columns incude them as they are.
+                # For all the other columns include them as they are.
                 # Just recompute the suffixes that the join produced as the projection
                 # would lose them otherwise.
                 if (
@@ -253,6 +260,97 @@ def _perform_join(join_type, left_operand, left_keys,
         raise TypeError("Unsupported output type")
 
 
+def _perform_join_asof(left_operand, left_on, left_by,
+                       right_operand, right_on, right_by,
+                       tolerance, use_threads=True,
+                       output_type=Table):
+    """
+    Perform asof join of two tables or datasets.
+
+    The result will be an output table with the result of the join operation
+
+    Parameters
+    ----------
+    left_operand : Table or Dataset
+        The left operand for the join operation.
+    left_on : str
+        The left key (or keys) on which the join operation should be performed.
+    left_by: str or list[str]
+        The left key (or keys) on which the join operation should be performed.
+    right_operand : Table or Dataset
+        The right operand for the join operation.
+    right_on : str or list[str]
+        The right key (or keys) on which the join operation should be performed.
+    right_by: str or list[str]
+        The right key (or keys) on which the join operation should be performed.
+    tolerance : int
+        The tolerance to use for the asof join. The tolerance is interpreted in
+        the same units as the "on" key.
+    output_type: Table or InMemoryDataset
+        The output type for the exec plan result.
+
+    Returns
+    -------
+    result_table : Table or InMemoryDataset
+    """
+    if not isinstance(left_operand, (Table, ds.Dataset)):
+        raise TypeError(f"Expected Table or Dataset, got {type(left_operand)}")
+    if not isinstance(right_operand, (Table, ds.Dataset)):
+        raise TypeError(f"Expected Table or Dataset, got {type(right_operand)}")
+
+    if not isinstance(left_by, (tuple, list)):
+        left_by = [left_by]
+    if not isinstance(right_by, (tuple, list)):
+        right_by = [right_by]
+
+    # AsofJoin does not return on or by columns for right_operand.
+    right_columns = [
+        col for col in right_operand.schema.names
+        if col not in [right_on] + right_by
+    ]
+    columns_collisions = set(left_operand.schema.names) & set(right_columns)
+    if columns_collisions:
+        raise ValueError(
+            f"Columns {columns_collisions} present in both tables. "
+            "AsofJoin does not support column collisions."
+        )
+
+    # Add the join node to the execplan
+    if isinstance(left_operand, ds.Dataset):
+        left_source = _dataset_to_decl(
+            left_operand,
+            use_threads=use_threads,
+            implicit_ordering=True)
+    else:
+        left_source = Declaration(
+            "table_source", TableSourceNodeOptions(left_operand),
+        )
+    if isinstance(right_operand, ds.Dataset):
+        right_source = _dataset_to_decl(
+            right_operand, use_threads=use_threads,
+            implicit_ordering=True)
+    else:
+        right_source = Declaration(
+            "table_source", TableSourceNodeOptions(right_operand)
+        )
+
+    join_opts = AsofJoinNodeOptions(
+        left_on, left_by, right_on, right_by, tolerance
+    )
+    decl = Declaration(
+        "asofjoin", options=join_opts, inputs=[left_source, right_source]
+    )
+
+    result_table = decl.to_table(use_threads=use_threads)
+
+    if output_type == Table:
+        return result_table
+    elif output_type == ds.InMemoryDataset:
+        return ds.InMemoryDataset(result_table)
+    else:
+        raise TypeError("Unsupported output type")
+
+
 def _filter_table(table, expression):
     """Filter rows of a table based on the provided expression.
 
@@ -261,20 +359,32 @@ def _filter_table(table, expression):
 
     Parameters
     ----------
-    table : Table or Dataset
-        Table or Dataset that should be filtered.
+    table : Table or RecordBatch
+        Table that should be filtered.
     expression : Expression
         The expression on which rows should be filtered.
 
     Returns
     -------
-    Table
+    Table or RecordBatch
     """
+    is_batch = False
+    if isinstance(table, RecordBatch):
+        table = Table.from_batches([table])
+        is_batch = True
+
     decl = Declaration.from_sequence([
         Declaration("table_source", options=TableSourceNodeOptions(table)),
         Declaration("filter", options=FilterNodeOptions(expression))
     ])
-    return decl.to_table(use_threads=True)
+    result = decl.to_table(use_threads=True)
+    if is_batch:
+        if result.num_rows > 0:
+            result = result.combine_chunks().to_batches()[0]
+        else:
+            arrays = [array([], type=field.type) for field in result.schema]
+            result = RecordBatch.from_arrays(arrays, schema=result.schema)
+    return result
 
 
 def _sort_source(table_or_dataset, sort_keys, output_type=Table, **kwargs):

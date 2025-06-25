@@ -214,6 +214,9 @@ class ARROW_EXPORT Table {
   /// All the underlying chunks in the ChunkedArray of each column are
   /// concatenated into zero or one chunk.
   ///
+  /// To avoid buffer overflow, binary columns may be combined into
+  /// multiple chunks. Chunks will have the maximum possible length.
+  ///
   /// \param[in] pool The pool for buffer allocations
   Result<std::shared_ptr<Table>> CombineChunks(
       MemoryPool* pool = default_memory_pool()) const;
@@ -241,6 +244,8 @@ class ARROW_EXPORT Table {
 ///
 /// The conversion is zero-copy: each record batch is a view over a slice
 /// of the table's columns.
+///
+/// The table is expected to be valid prior to using it with the batch reader.
 class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
  public:
   /// \brief Construct a TableBatchReader for the given table
@@ -251,9 +256,9 @@ class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
 
   Status ReadNext(std::shared_ptr<RecordBatch>* out) override;
 
-  /// \brief Set the desired maximum chunk size of record batches
+  /// \brief Set the desired maximum number of rows for record batches
   ///
-  /// The actual chunk size of each record batch may be smaller, depending
+  /// The actual number of rows in each record batch may be smaller, depending
   /// on actual chunking characteristics of each table column.
   void set_chunksize(int64_t chunksize);
 
@@ -266,11 +271,6 @@ class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
   int64_t absolute_row_position_;
   int64_t max_chunksize_;
 };
-
-/// \defgroup concat-tables ConcatenateTables function.
-///
-/// ConcatenateTables function.
-/// @{
 
 /// \brief Controls the behavior of ConcatenateTables().
 struct ARROW_EXPORT ConcatenateTablesOptions {
@@ -306,7 +306,6 @@ struct ARROW_EXPORT ConcatenateTablesOptions {
 /// \param[in] memory_pool MemoryPool to be used if null-filled arrays need to
 /// be created or if existing column chunks need to endure type conversion
 /// \return new Table
-
 ARROW_EXPORT
 Result<std::shared_ptr<Table>> ConcatenateTables(
     const std::vector<std::shared_ptr<Table>>& tables,

@@ -16,7 +16,7 @@
 // under the License.
 
 // Interfaces for defining middleware for Flight clients and
-// servers. Currently experimental.
+// servers.
 
 #pragma once
 

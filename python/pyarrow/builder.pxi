@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import math
+
 
 cdef class StringBuilder(_Weakrefable):
     """
@@ -42,12 +44,78 @@ cdef class StringBuilder(_Weakrefable):
         value : string/bytes or np.nan/None
             The value to append to the string array builder.
         """
-        if value is None or value is np.nan:
-            self.builder.get().AppendNull()
-        elif isinstance(value, (bytes, str)):
+        if isinstance(value, (bytes, str)):
             self.builder.get().Append(tobytes(value))
+        elif value is None or math.isnan(value):
+            self.builder.get().AppendNull()
         else:
             raise TypeError('StringBuilder only accepts string objects')
+
+    def append_values(self, values):
+        """
+        Append all the values from an iterable.
+
+        Parameters
+        ----------
+        values : iterable of string/bytes or np.nan/None values
+            The values to append to the string array builder.
+        """
+        for value in values:
+            self.append(value)
+
+    def finish(self):
+        """
+        Return result of builder as an Array object; also resets the builder.
+
+        Returns
+        -------
+        array : pyarrow.Array
+        """
+        cdef shared_ptr[CArray] out
+        with nogil:
+            self.builder.get().Finish(&out)
+        return pyarrow_wrap_array(out)
+
+    @property
+    def null_count(self):
+        return self.builder.get().null_count()
+
+    def __len__(self):
+        return self.builder.get().length()
+
+
+cdef class StringViewBuilder(_Weakrefable):
+    """
+    Builder class for UTF8 string views.
+
+    This class exposes facilities for incrementally adding string values and
+    building the null bitmap for a pyarrow.Array (type='string_view').
+    """
+    cdef:
+        unique_ptr[CStringViewBuilder] builder
+
+    def __cinit__(self, MemoryPool memory_pool=None):
+        cdef CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+        self.builder.reset(new CStringViewBuilder(pool))
+
+    def append(self, value):
+        """
+        Append a single value to the builder.
+
+        The value can either be a string/bytes object or a null value
+        (np.nan or None).
+
+        Parameters
+        ----------
+        value : string/bytes or np.nan/None
+            The value to append to the string array builder.
+        """
+        if isinstance(value, (bytes, str)):
+            self.builder.get().Append(tobytes(value))
+        elif value is None or math.isnan(value):
+            self.builder.get().AppendNull()
+        else:
+            raise TypeError('StringViewBuilder only accepts string objects')
 
     def append_values(self, values):
         """

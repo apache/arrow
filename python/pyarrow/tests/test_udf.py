@@ -18,7 +18,10 @@
 
 import pytest
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 import pyarrow as pa
 from pyarrow import compute as pc
@@ -26,7 +29,7 @@ from pyarrow import compute as pc
 # UDFs are all tested with a dataset scan
 pytestmark = pytest.mark.dataset
 
-# For convience, most of the test here doesn't care about udf func docs
+# For convenience, most of the test here doesn't care about udf func docs
 empty_udf_doc = {"summary": "", "description": ""}
 
 try:
@@ -220,6 +223,31 @@ def nullary_func_fixture():
 
 
 @pytest.fixture(scope="session")
+def ephemeral_nullary_func_fixture():
+    """
+    Register a nullary scalar function with an ephemeral Python function.
+    This stresses that the Python function object is properly kept alive by the
+    registered function.
+    """
+    def nullary_func(context):
+        return pa.array([42] * context.batch_length, type=pa.int64(),
+                        memory_pool=context.memory_pool)
+
+    func_doc = {
+        "summary": "random function",
+        "description": "generates a random value"
+    }
+    func_name = "test_ephemeral_nullary_func"
+    pc.register_scalar_function(nullary_func,
+                                func_name,
+                                func_doc,
+                                {},
+                                pa.int64())
+
+    return func_name
+
+
+@pytest.fixture(scope="session")
 def wrong_output_type_func_fixture():
     """
     Register a scalar function which returns something that is neither
@@ -302,7 +330,7 @@ def raising_func_fixture():
 @pytest.fixture(scope="session")
 def unary_vector_func_fixture():
     """
-    Reigster a vector function
+    Register a vector function
     """
     def pct_rank(ctx, x):
         # copy here to get around pandas 1.0 issue
@@ -319,7 +347,7 @@ def unary_vector_func_fixture():
 @pytest.fixture(scope="session")
 def struct_vector_func_fixture():
     """
-    Reigster a vector function that returns a struct array
+    Register a vector function that returns a struct array
     """
     def pivot(ctx, k, v, c):
         df = pa.RecordBatch.from_arrays([k, v, c], names=['k', 'v', 'c']).to_pandas()
@@ -486,7 +514,7 @@ def test_function_doc_validation():
                                     func_doc, in_types,
                                     out_type)
 
-    # doc with no decription
+    # doc with no description
     func_doc = {
         "summary": "test summary"
     }
@@ -503,6 +531,12 @@ def test_nullary_function(nullary_func_fixture):
     # so only test with the default value of 1.
     check_scalar_function(nullary_func_fixture, [], run_in_dataset=False,
                           batch_length=1)
+
+
+def test_ephemeral_function(ephemeral_nullary_func_fixture):
+    name = ephemeral_nullary_func_fixture
+    result = pc.call_function(name, [], length=1)
+    assert result.to_pylist() == [42]
 
 
 def test_wrong_output_type(wrong_output_type_func_fixture):
@@ -718,6 +752,7 @@ def test_udt_datasource1_exception():
         _test_datasource1_udt(datasource1_exception)
 
 
+@pytest.mark.numpy
 def test_scalar_agg_basic(unary_agg_func_fixture):
     arr = pa.array([10.0, 20.0, 30.0, 40.0, 50.0], pa.float64())
     result = pc.call_function("mean_udf", [arr])
@@ -725,6 +760,7 @@ def test_scalar_agg_basic(unary_agg_func_fixture):
     assert result == expected
 
 
+@pytest.mark.numpy
 def test_scalar_agg_empty(unary_agg_func_fixture):
     empty = pa.array([], pa.float64())
 
@@ -744,6 +780,7 @@ def test_scalar_agg_wrong_output_type(wrong_output_type_agg_func_fixture):
         pc.call_function("y=wrong_output_type(x)", [arr])
 
 
+@pytest.mark.numpy
 def test_scalar_agg_varargs(varargs_agg_func_fixture):
     arr1 = pa.array([10, 20, 30, 40, 50], pa.int64())
     arr2 = pa.array([1.0, 2.0, 3.0, 4.0, 5.0], pa.float64())
@@ -755,6 +792,7 @@ def test_scalar_agg_varargs(varargs_agg_func_fixture):
     assert result == expected
 
 
+@pytest.mark.numpy
 def test_scalar_agg_exception(exception_agg_func_fixture):
     arr = pa.array([10, 20, 30, 40, 50, 60], pa.int64())
 
@@ -762,6 +800,7 @@ def test_scalar_agg_exception(exception_agg_func_fixture):
         pc.call_function("y=exception_len(x)", [arr])
 
 
+@pytest.mark.numpy
 def test_hash_agg_basic(unary_agg_func_fixture):
     arr1 = pa.array([10.0, 20.0, 30.0, 40.0, 50.0], pa.float64())
     arr2 = pa.array([4, 2, 1, 2, 1], pa.int32())
@@ -780,6 +819,7 @@ def test_hash_agg_basic(unary_agg_func_fixture):
     assert result.sort_by('id') == expected.sort_by('id')
 
 
+@pytest.mark.numpy
 def test_hash_agg_empty(unary_agg_func_fixture):
     arr1 = pa.array([], pa.float64())
     arr2 = pa.array([], pa.int32())
@@ -810,6 +850,7 @@ def test_hash_agg_wrong_output_type(wrong_output_type_agg_func_fixture):
         table.group_by("id").aggregate([("value", "y=wrong_output_type(x)")])
 
 
+@pytest.mark.numpy
 def test_hash_agg_exception(exception_agg_func_fixture):
     arr1 = pa.array([10, 20, 30, 40, 50], pa.int64())
     arr2 = pa.array([4, 2, 1, 2, 1], pa.int32())
@@ -819,6 +860,7 @@ def test_hash_agg_exception(exception_agg_func_fixture):
         table.group_by("id").aggregate([("value", "y=exception_len(x)")])
 
 
+@pytest.mark.numpy
 def test_hash_agg_random(sum_agg_func_fixture):
     """Test hash aggregate udf with randomly sampled data"""
 

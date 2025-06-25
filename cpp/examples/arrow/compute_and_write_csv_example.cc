@@ -16,7 +16,7 @@
 // under the License.
 
 #include <arrow/api.h>
-#include <arrow/compute/api_aggregate.h>
+#include <arrow/compute/api.h>
 #include <arrow/csv/api.h>
 #include <arrow/csv/writer.h>
 #include <arrow/io/api.h>
@@ -41,6 +41,7 @@
 // in the current directory
 
 arrow::Status RunMain(int argc, char** argv) {
+  ARROW_RETURN_NOT_OK(arrow::compute::Initialize());
   // Make Arrays
   arrow::NumericBuilder<arrow::Int64Type> int64_builder;
   arrow::BooleanBuilder boolean_builder;

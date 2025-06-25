@@ -90,7 +90,7 @@ read_parquet <- function(file,
 #' article} for examples of this.
 #'
 #' @param x `data.frame`, [RecordBatch], or [Table]
-#' @param sink A string file path, URI, or [OutputStream], or path in a file
+#' @param sink A string file path, connection, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
 #' @param chunk_size how many rows of data to write to disk at once. This
 #'    directly corresponds to how many rows will be in each row group in
@@ -98,8 +98,8 @@ read_parquet <- function(file,
 #'    the number of columns and number of rows), though if the data has fewer
 #'    than 250 million cells (rows x cols), then the total number of rows is
 #'    used.
-#' @param version parquet version: "1.0", "2.0" (deprecated), "2.4" (default),
-#'    "2.6", or "latest" (currently equivalent to 2.6). Numeric values are
+#' @param version parquet version: "1.0", "2.4" (default), "2.6", or
+#'    "latest" (currently equivalent to 2.6). Numeric values are
 #'    coerced to character.
 #' @param compression compression algorithm. Default "snappy". See details.
 #' @param compression_level compression level. Meaning depends on compression
@@ -128,7 +128,7 @@ read_parquet <- function(file,
 #'  - A named vector, to specify the value for the named columns, the default
 #'    value for the setting is used when not supplied
 #'
-#' The `compression` argument can be any of the following (case insensitive):
+#' The `compression` argument can be any of the following (case-insensitive):
 #' "uncompressed", "snappy", "gzip", "brotli", "zstd", "lz4", "lzo" or "bz2".
 #' Only "uncompressed" is guaranteed to be available, but "snappy" and "gzip"
 #' are almost always included. See [codec_is_available()].
@@ -232,7 +232,6 @@ ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps 
 
 valid_parquet_version <- c(
   "1.0" = ParquetVersionType$PARQUET_1_0,
-  "2.0" = ParquetVersionType$PARQUET_2_0,
   "2.4" = ParquetVersionType$PARQUET_2_4,
   "2.6" = ParquetVersionType$PARQUET_2_6,
   "latest" = ParquetVersionType$PARQUET_2_6
@@ -252,15 +251,7 @@ make_valid_parquet_version <- function(version, valid_versions = valid_parquet_v
       call. = FALSE
     )
   }
-  out <- valid_versions[[arg_match(version, values = names(valid_versions))]]
-
-  if (identical(out, ParquetVersionType$PARQUET_2_0)) {
-    warning(
-      'Parquet format version "2.0" is deprecated. Use "2.4" or "2.6" to select format features.',
-      call. = FALSE
-    )
-  }
-  out
+  valid_versions[[arg_match(version, values = names(valid_versions))]]
 }
 
 #' @title ParquetWriterProperties class
@@ -419,6 +410,7 @@ ParquetWriterProperties$create <- function(column_names,
 #' @section Methods:
 #'
 #' - `WriteTable` Write a [Table] to `sink`
+#' - `WriteBatch` Write a [RecordBatch] to `sink`
 #' - `Close` Close the writer. Note: does not close the `sink`.
 #'   [arrow::io::OutputStream][OutputStream] has its own `close()` method.
 #'
@@ -428,7 +420,13 @@ ParquetFileWriter <- R6Class("ParquetFileWriter",
   inherit = ArrowObject,
   public = list(
     WriteTable = function(table, chunk_size) {
+      assert_is(table, "Table")
       parquet___arrow___FileWriter__WriteTable(self, table, chunk_size)
+    },
+    WriteBatch = function(batch, ...) {
+      assert_is(batch, "RecordBatch")
+      table <- Table$create(batch)
+      self$WriteTable(table, ...)
     },
     Close = function() parquet___arrow___FileWriter__Close(self)
   )

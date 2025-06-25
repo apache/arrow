@@ -19,13 +19,15 @@
 
 namespace arrow::matlab::type::proxy {
 
-    Date32Type::Date32Type(std::shared_ptr<arrow::Date32Type> date32_type) : DateType(std::move(date32_type)) {}
+Date32Type::Date32Type(std::shared_ptr<arrow::Date32Type> date32_type)
+    : DateType(std::move(date32_type)) {}
 
-    libmexclass::proxy::MakeResult Date32Type::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-        using Date32TypeProxy = arrow::matlab::type::proxy::Date32Type;
+libmexclass::proxy::MakeResult Date32Type::make(
+    const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+  using Date32TypeProxy = arrow::matlab::type::proxy::Date32Type;
 
-        const auto type = arrow::date32();
-        const auto date32_type = std::static_pointer_cast<arrow::Date32Type>(type);
-        return std::make_shared<Date32TypeProxy>(std::move(date32_type));
-    }
+  const auto type = arrow::date32();
+  const auto date32_type = std::static_pointer_cast<arrow::Date32Type>(type);
+  return std::make_shared<Date32TypeProxy>(std::move(date32_type));
 }
+}  // namespace arrow::matlab::type::proxy

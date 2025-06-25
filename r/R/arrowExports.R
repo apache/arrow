@@ -484,8 +484,8 @@ ExecNode_Aggregate <- function(input, options, key_names) {
   .Call(`_arrow_ExecNode_Aggregate`, input, options, key_names)
 }
 
-ExecNode_Join <- function(input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right) {
-  .Call(`_arrow_ExecNode_Join`, input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right)
+ExecNode_Join <- function(input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right, na_matches) {
+  .Call(`_arrow_ExecNode_Join`, input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right, na_matches)
 }
 
 ExecNode_Union <- function(input, right_data) {
@@ -534,6 +534,10 @@ compute__CallFunction <- function(func_name, args, options) {
 
 compute__GetFunctionNames <- function() {
   .Call(`_arrow_compute__GetFunctionNames`)
+}
+
+compute__Initialize <- function() {
+  invisible(.Call(`_arrow_compute__Initialize`))
 }
 
 RegisterScalarUDF <- function(name, func_sexp) {
@@ -920,6 +924,14 @@ Null__initialize <- function() {
   .Call(`_arrow_Null__initialize`)
 }
 
+Decimal32Type__initialize <- function(precision, scale) {
+  .Call(`_arrow_Decimal32Type__initialize`, precision, scale)
+}
+
+Decimal64Type__initialize <- function(precision, scale) {
+  .Call(`_arrow_Decimal64Type__initialize`, precision, scale)
+}
+
 Decimal128Type__initialize <- function(precision, scale) {
   .Call(`_arrow_Decimal128Type__initialize`, precision, scale)
 }
@@ -1130,6 +1142,10 @@ compute___expr__is_field_ref <- function(x) {
 
 compute___expr__get_field_ref_name <- function(x) {
   .Call(`_arrow_compute___expr__get_field_ref_name`, x)
+}
+
+compute___expr__field_names_in_expression <- function(x) {
+  .Call(`_arrow_compute___expr__field_names_in_expression`, x)
 }
 
 compute___expr__field_ref <- function(name) {
@@ -1348,10 +1364,6 @@ fs___FileSystem__type_name <- function(file_system) {
   .Call(`_arrow_fs___FileSystem__type_name`, file_system)
 }
 
-fs___LocalFileSystem__create <- function() {
-  .Call(`_arrow_fs___LocalFileSystem__create`)
-}
-
 fs___SubTreeFileSystem__create <- function(base_path, base_fs) {
   .Call(`_arrow_fs___SubTreeFileSystem__create`, base_path, base_fs)
 }
@@ -1372,8 +1384,8 @@ fs___CopyFiles <- function(source_fs, source_sel, destination_fs, destination_ba
   invisible(.Call(`_arrow_fs___CopyFiles`, source_fs, source_sel, destination_fs, destination_base_dir, chunk_size, use_threads))
 }
 
-fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, connect_timeout, request_timeout) {
-  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, connect_timeout, request_timeout)
+fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, check_directory_existence_before_creation, connect_timeout, request_timeout) {
+  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, check_directory_existence_before_creation, connect_timeout, request_timeout)
 }
 
 fs___S3FileSystem__region <- function(fs) {

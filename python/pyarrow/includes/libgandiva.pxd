@@ -81,7 +81,7 @@ cdef inline CSelectionVector_Mode _ensure_selection_mode(str name) except *:
     elif uppercase == 'UINT64':
         return CSelectionVector_Mode_UINT64
     else:
-        raise ValueError('Invalid value for Selection Mode: {!r}'.format(name))
+        raise ValueError(f'Invalid value for Selection Mode: {name!r}')
 
 cdef inline str _selection_mode_name(CSelectionVector_Mode ctype):
     if ctype == CSelectionVector_Mode_NONE:
@@ -252,6 +252,7 @@ cdef extern from "gandiva/filter.h" namespace "gandiva" nogil:
     cdef CStatus Filter_Make \
         "gandiva::Filter::Make"(
             shared_ptr[CSchema] schema, shared_ptr[CCondition] condition,
+            shared_ptr[CConfiguration] configuration,
             shared_ptr[CFilter]* filter)
 
 cdef extern from "gandiva/function_signature.h" namespace "gandiva" nogil:
@@ -278,9 +279,20 @@ cdef extern from "gandiva/expression_registry.h" namespace "gandiva" nogil:
 cdef extern from "gandiva/configuration.h" namespace "gandiva" nogil:
 
     cdef cppclass CConfiguration" gandiva::Configuration":
-        pass
+
+        CConfiguration()
+
+        CConfiguration(bint optimize, bint dump_ir)
+
+        void set_optimize(bint optimize)
+
+        void set_dump_ir(bint dump_ir)
 
     cdef cppclass CConfigurationBuilder \
             " gandiva::ConfigurationBuilder":
         @staticmethod
         shared_ptr[CConfiguration] DefaultConfiguration()
+
+        CConfigurationBuilder()
+
+        shared_ptr[CConfiguration] build()

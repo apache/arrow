@@ -24,6 +24,22 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+namespace internal {
+
+/// \brief Concatenate arrays
+///
+/// \param[in] arrays a vector of arrays to be concatenated
+/// \param[in] pool memory to store the result will be allocated from this memory pool
+/// \param[out] out_suggested_cast if a non-OK Result is returned, the function might set
+///   out_suggested_cast to a cast suggestion that would allow concatenating the arrays
+///   without overflow of offsets (e.g. string to large_string)
+///
+/// \return the concatenated array
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool* pool,
+                                           std::shared_ptr<DataType>* out_suggested_cast);
+
+}  // namespace internal
 
 /// \brief Concatenate arrays
 ///

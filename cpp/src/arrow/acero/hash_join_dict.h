@@ -22,7 +22,7 @@
 
 #include "arrow/acero/schema_util.h"
 #include "arrow/compute/exec.h"
-#include "arrow/compute/kernels/row_encoder_internal.h"
+#include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"

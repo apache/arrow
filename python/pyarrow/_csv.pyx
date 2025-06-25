@@ -26,8 +26,7 @@ from collections.abc import Mapping
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_python cimport (MakeInvalidRowHandler,
-                                               PyInvalidRowCallback)
+from pyarrow.includes.libarrow_python cimport *
 from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
                           RecordBatchReader, ensure_type,
                           maybe_unbox_memory_pool, get_input_stream,
@@ -1151,9 +1150,8 @@ cdef class CSVStreamingReader(RecordBatchReader):
         Schema schema
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, "
-                        "use pyarrow.csv.open_csv() instead."
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, "
+                        "use pyarrow.csv.open_csv() instead.")
 
     # Note about cancellation: we cannot create a SignalStopHandler
     # by default here, as several CSVStreamingReader instances may be
@@ -1251,7 +1249,7 @@ def read_csv(input_file, read_options=None, parse_options=None,
         CCSVParseOptions c_parse_options
         CCSVConvertOptions c_convert_options
         CIOContext io_context
-        shared_ptr[CCSVReader] reader
+        SharedPtrNoGIL[CCSVReader] reader
         shared_ptr[CTable] table
 
     _get_reader(input_file, read_options, &stream)
@@ -1296,7 +1294,7 @@ def open_csv(input_file, read_options=None, parse_options=None,
         Options for converting CSV data
         (see pyarrow.csv.ConvertOptions constructor for defaults)
     memory_pool : MemoryPool, optional
-        Pool to allocate Table memory from
+        Pool to allocate RecordBatch memory from
 
     Returns
     -------

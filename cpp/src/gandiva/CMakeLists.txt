@@ -25,11 +25,23 @@ add_custom_target(gandiva-benchmarks)
 
 add_dependencies(gandiva-all gandiva gandiva-tests gandiva-benchmarks)
 
+# If libgandiva.a is only built, "pkg-config --cflags --libs
+# arrow-flight" outputs build flags for static linking not shared
+# linking. GANDIVA_PC_* except GANDIVA_PC_*_PRIVATE are for the static
+# linking case.
+if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+  string(APPEND GANDIVA_PC_CFLAGS "${GANDIVA_PC_CFLAGS_PRIVATE}")
+  set(GANDIVA_PC_CFLAGS_PRIVATE "")
+endif()
+
+include(GandivaAddBitcode)
+
 find_package(LLVMAlt REQUIRED)
 provide_find_module(LLVMAlt "Gandiva")
 if(ARROW_WITH_ZSTD AND "${zstd_SOURCE}" STREQUAL "SYSTEM")
   provide_find_module(zstdAlt "Gandiva")
 endif()
+provide_cmake_module(GandivaAddBitcode "Gandiva")
 
 # Set the path where the bitcode file generated, see precompiled/CMakeLists.txt
 set(GANDIVA_PRECOMPILED_BC_PATH "${CMAKE_CURRENT_BINARY_DIR}/irhelpers.bc")
@@ -59,7 +71,9 @@ set(SRC_FILES
     expression_registry.cc
     exported_funcs_registry.cc
     exported_funcs.cc
+    external_c_functions.cc
     filter.cc
+    function_holder_maker_registry.cc
     function_ir_builder.cc
     function_registry.cc
     function_registry_arithmetic.cc
@@ -87,20 +101,24 @@ set(SRC_FILES
     random_generator_holder.cc
     ${GANDIVA_PRECOMPILED_CC_PATH})
 
-set(GANDIVA_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
+set(GANDIVA_OPENSSL_LIBS ${ARROW_OPENSSL_LIBS})
 if(WIN32 AND NOT CMAKE_VERSION VERSION_LESS 3.18)
-  list(APPEND GANDIVA_OPENSSL_TARGETS OpenSSL::applink)
+  list(APPEND GANDIVA_OPENSSL_LIBS OpenSSL::applink)
 endif()
 
 set(GANDIVA_SHARED_LINK_LIBS arrow_shared LLVM::LLVM_HEADERS)
-set(GANDIVA_SHARED_PRIVATE_LINK_LIBS LLVM::LLVM_LIBS ${GANDIVA_OPENSSL_TARGETS}
+set(GANDIVA_SHARED_PRIVATE_LINK_LIBS LLVM::LLVM_LIBS ${GANDIVA_OPENSSL_LIBS}
                                      Boost::headers)
 set(GANDIVA_STATIC_LINK_LIBS
     arrow_static
     LLVM::LLVM_HEADERS
     LLVM::LLVM_LIBS
-    ${GANDIVA_OPENSSL_TARGETS}
+    ${GANDIVA_OPENSSL_LIBS}
     Boost::headers)
+if(ARROW_USE_XSIMD)
+  list(APPEND GANDIVA_SHARED_PRIVATE_LINK_LIBS ${ARROW_XSIMD})
+  list(APPEND GANDIVA_STATIC_LINK_LIBS ${ARROW_XSIMD})
+endif()
 if(ARROW_WITH_RE2)
   list(APPEND GANDIVA_SHARED_PRIVATE_LINK_LIBS re2::re2)
   list(APPEND GANDIVA_STATIC_LINK_LIBS re2::re2)
@@ -112,8 +130,7 @@ endif()
 
 if(ARROW_GANDIVA_STATIC_LIBSTDCPP AND (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX
                                       ))
-  set(GANDIVA_STATIC_LINK_LIBS ${GANDIVA_STATIC_LINK_LIBS} -static-libstdc++
-                               -static-libgcc)
+  list(APPEND GANDIVA_STATIC_LINK_LIBS -static-libstdc++ -static-libgcc)
 endif()
 
 # if (MSVC)
@@ -125,10 +142,8 @@ endif()
 #   endforeach()
 # endif()
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
-  set(GANDIVA_VERSION_SCRIPT_FLAGS
-      "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
-  set(GANDIVA_SHARED_LINK_FLAGS
-      "${GANDIVA_SHARED_LINK_FLAGS} ${GANDIVA_VERSION_SCRIPT_FLAGS}")
+  string(APPEND GANDIVA_SHARED_LINK_FLAGS
+         " -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
 endif()
 
 add_arrow_lib(gandiva
@@ -138,12 +153,9 @@ add_arrow_lib(gandiva
               gandiva
               SOURCES
               ${SRC_FILES}
-              PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:gandiva/pch.h>"
               OUTPUTS
               GANDIVA_LIBRARIES
               DEPENDENCIES
-              arrow_dependencies
               precompiled
               SHARED_LINK_FLAGS
               ${GANDIVA_SHARED_LINK_FLAGS}
@@ -173,16 +185,18 @@ add_dependencies(gandiva ${GANDIVA_LIBRARIES})
 
 arrow_install_all_headers("gandiva")
 
-set(GANDIVA_STATIC_TEST_LINK_LIBS gandiva_static ${ARROW_TEST_LINK_LIBS})
-set(GANDIVA_SHARED_TEST_LINK_LIBS gandiva_shared ${ARROW_TEST_LINK_LIBS} LLVM::LLVM_LIBS)
+set(GANDIVA_STATIC_TEST_LINK_LIBS gandiva_static arrow_testing_static)
+set(GANDIVA_SHARED_TEST_LINK_LIBS gandiva_shared arrow_testing_shared LLVM::LLVM_LIBS)
 if(ARROW_WITH_UTF8PROC)
   list(APPEND GANDIVA_SHARED_TEST_LINK_LIBS utf8proc::utf8proc)
   list(APPEND GANDIVA_STATIC_TEST_LINK_LIBS utf8proc::utf8proc)
 endif()
 if(WIN32)
-  list(APPEND GANDIVA_STATIC_TEST_LINK_LIBS ${GANDIVA_OPENSSL_TARGETS})
-  list(APPEND GANDIVA_SHARED_TEST_LINK_LIBS ${GANDIVA_OPENSSL_TARGETS})
+  list(APPEND GANDIVA_STATIC_TEST_LINK_LIBS ${GANDIVA_OPENSSL_LIBS})
+  list(APPEND GANDIVA_SHARED_TEST_LINK_LIBS ${GANDIVA_OPENSSL_LIBS})
 endif()
+list(APPEND GANDIVA_STATIC_TEST_LINK_LIBS ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN})
+list(APPEND GANDIVA_SHARED_TEST_LINK_LIBS ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN})
 
 function(ADD_GANDIVA_TEST REL_TEST_NAME)
   set(options USE_STATIC_LINKING)
@@ -224,11 +238,21 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
 
   set(TEST_NAME gandiva-${REL_TEST_NAME})
   string(REPLACE "_" "-" TEST_NAME ${TEST_NAME})
+
+  if(ARG_USE_STATIC_LINKING OR ARROW_TEST_LINKAGE STREQUAL "static")
+    # LLVM 17 or later requires that an executable exports
+    # "llvm_orc_registerEHFrameSectionWrapper()" and
+    # "llvm_orc_unregisterEHFrameSectionWrapper()". We need to do
+    # nothing when we use libLLVM.so. But we need to export symbols
+    # explicitly when we use libLLVM*.a.
+    set_target_properties(${TEST_NAME} PROPERTIES ENABLE_EXPORTS TRUE)
+  endif()
 endfunction()
 
 add_gandiva_test(internals-test
                  SOURCES
                  bitmap_accumulator_test.cc
+                 cache_test.cc
                  engine_llvm_test.cc
                  function_registry_test.cc
                  function_signature_test.cc
@@ -249,7 +273,11 @@ add_gandiva_test(internals-test
                  random_generator_holder_test.cc
                  hash_utils_test.cc
                  gdv_function_stubs_test.cc
-                 interval_holder_test.cc)
+                 interval_holder_test.cc
+                 tests/test_util.cc
+                 EXTRA_LINK_LIBS
+                 re2::re2
+                 ${GANDIVA_OPENSSL_LIBS})
 
 add_subdirectory(precompiled)
 add_subdirectory(tests)

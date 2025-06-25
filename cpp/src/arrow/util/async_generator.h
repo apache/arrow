@@ -715,7 +715,7 @@ AsyncGenerator<T> MakeSerialReadaheadGenerator(AsyncGenerator<T> source_generato
 /// generator() once before it returns.  The returned generator will otherwise
 /// mirror the source.
 ///
-/// This generator forwards aysnc-reentrant pressure to the source
+/// This generator forwards async-reentrant pressure to the source
 /// This generator buffers one item (the first result) until it is delivered.
 template <typename T>
 AsyncGenerator<T> MakeAutoStartingGenerator(AsyncGenerator<T> generator) {
@@ -748,21 +748,31 @@ class ReadaheadGenerator {
     auto state = state_;
     return fut.Then(
         [state](const T& result) -> Future<T> {
-          state->MarkFinishedIfDone(result);
-          if (state->finished.load()) {
-            if (state->num_running.fetch_sub(1) == 1) {
-              state->final_future.MarkFinished();
+          bool mark_finished = false;
+          {
+            auto guard = state->mutex.Lock();
+            state->MarkFinishedIfDone(result);
+            --state->num_running;
+            if (state->finished) {
+              mark_finished = state->num_running == 0;
             }
-          } else {
-            state->num_running.fetch_sub(1);
+          }
+          if (mark_finished) {
+            state->final_future.MarkFinished();
           }
           return result;
         },
         [state](const Status& err) -> Future<T> {
           // If there is an error we need to make sure all running
           // tasks finish before we return the error.
-          state->finished.store(true);
-          if (state->num_running.fetch_sub(1) == 1) {
+          bool mark_finished = false;
+          {
+            auto guard = state->mutex.Lock();
+            state->finished = true;
+            --state->num_running;
+            mark_finished = state->num_running == 0;
+          }
+          if (mark_finished) {
             state->final_future.MarkFinished();
           }
           return state->final_future.Then([err]() -> Result<T> { return err; });
@@ -772,7 +782,12 @@ class ReadaheadGenerator {
   Future<T> operator()() {
     if (state_->readahead_queue.empty()) {
       // This is the first request, let's pump the underlying queue
-      state_->num_running.store(state_->max_readahead);
+      {
+        auto guard = state_->mutex.Lock();
+        // We're going to push to the queue below, but we need
+        // to update `num_running` while we're holding the lock.
+        state_->num_running = state_->max_readahead;
+      }
       for (int i = 0; i < state_->max_readahead; i++) {
         auto next = state_->source_generator();
         auto next_after_check = AddMarkFinishedContinuation(std::move(next));
@@ -780,12 +795,21 @@ class ReadaheadGenerator {
       }
     }
     // Pop one and add one
-    auto result = state_->readahead_queue.front();
+    auto result = std::move(state_->readahead_queue.front());
     state_->readahead_queue.pop();
-    if (state_->finished.load()) {
+    bool is_finished = false;
+    {
+      auto guard = state_->mutex.Lock();
+      is_finished = state_->finished;
+      if (!is_finished) {
+        // We're going to push to the queue below, but we need
+        // to update `num_running` while we're holding the lock.
+        ++state_->num_running;
+      }
+    }
+    if (is_finished) {
       state_->readahead_queue.push(AsyncGeneratorEnd<T>());
     } else {
-      state_->num_running.fetch_add(1);
       auto back_of_queue = state_->source_generator();
       auto back_of_queue_after_check =
           AddMarkFinishedContinuation(std::move(back_of_queue));
@@ -800,16 +824,18 @@ class ReadaheadGenerator {
         : source_generator(std::move(source_generator)), max_readahead(max_readahead) {}
 
     void MarkFinishedIfDone(const T& next_result) {
+      // ASSERT_HELD(mutex)
       if (IsIterationEnd(next_result)) {
-        finished.store(true);
+        finished = true;
       }
     }
 
     AsyncGenerator<T> source_generator;
     int max_readahead;
     Future<> final_future = Future<>::Make();
-    std::atomic<int> num_running{0};
-    std::atomic<bool> finished{false};
+    int num_running{0};    // GUARDED_BY(mutex)
+    bool finished{false};  // GUARDED_BY(mutex)
+    arrow::util::Mutex mutex;
     std::queue<Future<T>> readahead_queue;
   };
 
@@ -1489,19 +1515,6 @@ AsyncGenerator<T> MakeConcatenatedGenerator(AsyncGenerator<AsyncGenerator<T>> so
   return MergedGenerator<T>(std::move(source), 1);
 }
 
-template <typename T>
-struct Enumerated {
-  T value;
-  int index;
-  bool last;
-};
-
-template <typename T>
-struct IterationTraits<Enumerated<T>> {
-  static Enumerated<T> End() { return Enumerated<T>{IterationEnd<T>(), -1, false}; }
-  static bool IsEnd(const Enumerated<T>& val) { return val.index < 0; }
-};
-
 /// \see MakeEnumeratedGenerator
 template <typename T>
 class EnumeratingGenerator {
@@ -1843,7 +1856,7 @@ constexpr int kDefaultBackgroundQRestart = 16;
 /// active background thread task at any given time.  You MUST transfer away from this
 /// background generator.  Otherwise there could be a race condition if a callback on the
 /// background thread deletes the last consumer reference to the background generator. You
-/// can transfer onto the same executor as the background thread, it is only neccesary to
+/// can transfer onto the same executor as the background thread, it is only necessary to
 /// create a new thread task, not to switch executors.
 ///
 /// This generator is not async-reentrant
@@ -1962,7 +1975,7 @@ AsyncGenerator<T> MakeFailingGenerator(Status st) {
   return [state]() -> Future<T> {
     auto st = std::move(*state);
     if (!st.ok()) {
-      return std::move(st);
+      return st;
     } else {
       return AsyncGeneratorEnd<T>();
     }

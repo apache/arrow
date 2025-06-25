@@ -24,7 +24,8 @@ module Arrow
       attr_reader :head_values
       attr_reader :tail_values
       attr_reader :sample_values
-      def initialize(column, head_values, tail_values)
+      def initialize(table_formatter, column, head_values, tail_values)
+        @table_formatter = table_formatter
         @column = column
         @head_values = head_values
         @tail_values = tail_values
@@ -34,6 +35,15 @@ module Arrow
 
       def data_type
         @data_type ||= @column.data_type
+      end
+
+      def formatted_data_type_name
+        @formatted_data_type_name ||= "(#{data_type.name})"
+      end
+
+      def aligned_data_type_name
+        @aligned_data_type_name ||=
+          "%*s" % [aligned_name.size, formatted_data_type_name]
       end
 
       def name
@@ -63,7 +73,7 @@ module Arrow
             formatted_value = format_value(value[field_name], field_value_width)
             "#{formatted_name}: #{formatted_value}"
           end
-          formatted = "{"
+          formatted = +"{"
           formatted << formatted_values.join(", ")
           formatted << "}"
           "%-*s" % [width, formatted]
@@ -90,9 +100,16 @@ module Arrow
       end
 
       def format_aligned_name(name, data_type, sample_values)
+        if @table_formatter.show_column_type?
+          min_width = formatted_data_type_name.size
+        else
+          min_width = 0
+        end
         case data_type
         when TimestampDataType
-          "%*s" % [::Time.now.iso8601.size, name]
+          width = ::Time.now.iso8601.size
+          width = min_width if width < min_width
+          "%*s" % [width, name]
         when IntegerDataType
           have_null = false
           have_negative = false
@@ -118,9 +135,12 @@ module Arrow
           end
           width += 1 if have_negative # Need "-"
           width = [width, FORMATTED_NULL.size].max if have_null
+          width = min_width if width < min_width
           "%*s" % [width, name]
         when FloatDataType, DoubleDataType
-          "%*s" % [FLOAT_N_DIGITS, name]
+          width = FLOAT_N_DIGITS
+          width = min_width if width < min_width
+          "%*s" % [width, name]
         when StructDataType
           field_widths = data_type.fields.collect do |field|
             field_value_width = compute_field_value_width(field, sample_values)
@@ -130,9 +150,11 @@ module Arrow
           if field_widths.size > 0
             width += (", ".size * (field_widths.size - 1))
           end
+          width = min_width if width < min_width
           "%*s" % [width, name]
         else
-          name
+          width = min_width
+          "%*s" % [width, name]
         end
       end
     end
@@ -143,7 +165,7 @@ module Arrow
     end
 
     def format
-      text = ""
+      text = +""
       n_rows = @table.n_rows
       border = @options[:border] || 10
 
@@ -159,7 +181,7 @@ module Arrow
         else
           tail_values = []
         end
-        ColumnFormatter.new(column, head_values, tail_values)
+        ColumnFormatter.new(self, column, head_values, tail_values)
       end
 
       format_header(text, column_formatters)
@@ -185,6 +207,10 @@ module Arrow
                   tail_start)
 
       text
+    end
+
+    def show_column_type?
+      @options.fetch(:show_column_type, true)
     end
   end
 end

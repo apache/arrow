@@ -29,6 +29,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     cdef:
         CParquetFragmentScanOptions* parquet_options
         object _parquet_decryption_config
+        object _decryption_properties
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp)
     cdef CReaderProperties* reader_properties(self)

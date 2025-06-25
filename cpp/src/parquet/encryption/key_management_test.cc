@@ -22,12 +22,13 @@
 #include <thread>
 #include <unordered_map>
 
-#include <arrow/io/file.h>
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
+#include "arrow/io/file.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 
 #include "parquet/encryption/crypto_factory.h"
@@ -68,7 +69,7 @@ class TestEncryptionKeyManagement : public ::testing::Test {
     wrap_locally_ = wrap_locally;
     std::shared_ptr<KmsClientFactory> kms_client_factory =
         std::make_shared<TestOnlyInMemoryKmsClientFactory>(wrap_locally, key_list_);
-    crypto_factory_.RegisterKmsClientFactory(kms_client_factory);
+    crypto_factory_.RegisterKmsClientFactory(std::move(kms_client_factory));
   }
 
   std::string GetFileName(bool double_wrapping, bool wrap_locally,
@@ -191,6 +192,26 @@ class TestEncryptionKeyManagement : public ::testing::Test {
                                      double_wrapping);
     TestOnlyInServerWrapKms::FinishKeyRotation();
     crypto_factory_.RemoveCacheEntriesForAllTokens();
+  }
+
+  // Create encryption properties without keeping the creating CryptoFactory alive
+  std::shared_ptr<FileEncryptionProperties> GetOrphanedFileEncryptionProperties(
+      std::shared_ptr<KmsClientFactory> kms_client_factory,
+      EncryptionConfiguration encryption_config) {
+    std::shared_ptr<CryptoFactory> crypto_factory = std::make_shared<CryptoFactory>();
+    crypto_factory->RegisterKmsClientFactory(kms_client_factory);
+    return crypto_factory->GetFileEncryptionProperties(kms_connection_config_,
+                                                       encryption_config);
+  }
+
+  // Create decryption properties without keeping the creating CryptoFactory alive
+  std::shared_ptr<FileDecryptionProperties> GetOrphanedFileDecryptionProperties(
+      std::shared_ptr<KmsClientFactory> kms_client_factory,
+      DecryptionConfiguration decryption_config) {
+    std::shared_ptr<CryptoFactory> crypto_factory = std::make_shared<CryptoFactory>();
+    crypto_factory->RegisterKmsClientFactory(kms_client_factory);
+    return crypto_factory->GetFileDecryptionProperties(kms_connection_config_,
+                                                       decryption_config);
   }
 };
 
@@ -323,6 +344,35 @@ TEST_F(TestEncryptionKeyManagement, KeyRotationWithInternalMaterial) {
   EXPECT_THROW(this->RotateKeys(double_wrapping, encryption_no), ParquetException);
 }
 
+TEST_F(TestEncryptionKeyManagement, UsePropertiesAfterCrytoFactoryDestroyed) {
+  constexpr bool wrap_locally = true;
+  std::shared_ptr<KmsClientFactory> kms_client_factory =
+      std::make_shared<TestOnlyInMemoryKmsClientFactory>(wrap_locally, key_list_);
+
+  constexpr bool double_wrapping = true;
+  constexpr bool internal_key_material = true;
+  constexpr int encryption_no = 0;
+
+  std::string file_name =
+      GetFileName(double_wrapping, wrap_locally, internal_key_material, encryption_no);
+  std::string file_path = temp_dir_->path().ToString() + file_name;
+
+  // Encrypt file using encryption properties without holding a reference to the
+  // CryptoFactory that created them
+  auto encryption_config =
+      GetEncryptionConfiguration(double_wrapping, internal_key_material, encryption_no);
+  auto file_encryption_properties =
+      GetOrphanedFileEncryptionProperties(kms_client_factory, encryption_config);
+  encryptor_.EncryptFile(file_path, file_encryption_properties);
+
+  // Decrypt file using decryption properties without holding a reference to the
+  // CryptoFactory that created them
+  auto decryption_config = GetDecryptionConfiguration();
+  auto file_decryption_properties =
+      GetOrphanedFileDecryptionProperties(kms_client_factory, decryption_config);
+  decryptor_.DecryptFile(file_path, file_decryption_properties);
+}
+
 TEST_F(TestEncryptionKeyManagementMultiThread, WrapLocally) {
 #ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";
@@ -355,7 +405,7 @@ TEST_F(TestEncryptionKeyManagement, ReadParquetMRExternalKeyMaterialFile) {
       kms_connection_config_, decryption_config, file_path, file_system);
 
   parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
-  reader_properties.file_decryption_properties(file_decryption_properties->DeepClone());
+  reader_properties.file_decryption_properties(file_decryption_properties);
 
   std::shared_ptr<::arrow::io::RandomAccessFile> source;
   PARQUET_ASSIGN_OR_THROW(source, ::arrow::io::ReadableFile::Open(

@@ -21,16 +21,14 @@
 
 namespace arrow::matlab::type::proxy {
 
-    class Date64Type : public arrow::matlab::type::proxy::DateType {
+class Date64Type : public arrow::matlab::type::proxy::DateType {
+ public:
+  Date64Type(std::shared_ptr<arrow::Date64Type> date64_type);
 
-        public:
-            Date64Type(std::shared_ptr<arrow::Date64Type> date64_type);
+  ~Date64Type() {}
 
-            ~Date64Type() {}
+  static libmexclass::proxy::MakeResult make(
+      const libmexclass::proxy::FunctionArguments& constructor_arguments);
+};
 
-            static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
-
-    };
-
-}
-
+}  // namespace arrow::matlab::type::proxy

@@ -23,8 +23,9 @@
 TESTING <- TRUE
 # The functions use `on_macos` from the env they were sourced in, so we need tool
 # explicitly set it in that environment.
+# We capture.output for a cleaner testthat output.
 nixlibs_env <- environment()
-source("nixlibs.R", local = nixlibs_env)
+capture.output(source("nixlibs.R", local = nixlibs_env))
 
 test_that("identify_binary() based on LIBARROW_BINARY", {
   expect_null(identify_binary("FALSE"))
@@ -146,6 +147,13 @@ test_that("select_binary() with test program", {
 })
 
 test_that("check_allowlist", {
+  # because we read from a file when we can't get the allow list from github,
+  # we need to make sure we are in the same directory as we would be when building
+  # (which is one level higher, so we can find `tools/nixlibs.R`)
+  # TODO: it's possible that we don't want to run this whole file in that directory
+  # like we do currently.
+  withr::local_dir("..")
+
   tf <- tempfile()
   cat("tu$\n^cent\n^dar\n", file = tf)
   expect_true(check_allowlist("ubuntu", tf))
@@ -154,4 +162,69 @@ test_that("check_allowlist", {
   expect_false(check_allowlist("redhat", tf)) # remote allowlist doesn't have this
   expect_true(check_allowlist("redhat", tempfile())) # remote allowlist doesn't exist, so we fall back to the default list, which contains redhat
   expect_false(check_allowlist("debian", tempfile()))
+})
+
+test_that("find_latest_nightly()", {
+  tf <- tempfile()
+  tf_uri <- paste0("file://", tf)
+  on.exit(unlink(tf))
+
+  writeLines(
+    c(
+      "Version: 13.0.0.100000333",
+      "Version: 13.0.0.100000334",
+      "Version: 13.0.0.100000335",
+      "Version: 14.0.0.100000001"
+    ),
+    tf
+  )
+
+  expect_output(
+    expect_identical(
+      find_latest_nightly(package_version("13.0.1.9000"), list_uri = tf_uri),
+      package_version("13.0.0.100000335")
+    ),
+    "Latest available nightly"
+  )
+
+  expect_output(
+    expect_identical(
+      find_latest_nightly(package_version("14.0.0.9000"), list_uri = tf_uri),
+      package_version("14.0.0.100000001")
+    ),
+    "Latest available nightly"
+  )
+
+  expect_output(
+    expect_identical(
+      find_latest_nightly(package_version("15.0.0.9000"), list_uri = tf_uri),
+      package_version("15.0.0.9000")
+    ),
+    "No nightly binaries were found for version"
+  )
+
+  # Check empty input
+  writeLines(character(), tf)
+  expect_output(
+    expect_identical(
+      find_latest_nightly(package_version("15.0.0.9000"), list_uri = tf_uri),
+      package_version("15.0.0.9000")
+    ),
+    "No nightly binaries were found for version"
+  )
+
+  # Check input that will throw an error
+  expect_output(
+    expect_identical(
+      suppressWarnings(
+        find_latest_nightly(
+          package_version("15.0.0.9000"),
+          list_uri = "this is not a URI",
+          hush = TRUE
+        )
+      ),
+      package_version("15.0.0.9000")
+    ),
+    "Failed to find latest nightly"
+  )
 })

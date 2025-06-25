@@ -119,7 +119,8 @@ TEST_P(TestMessage, SerializeTo) {
   const int64_t body_length = 64;
 
   flatbuffers::FlatBufferBuilder fbb;
-  fbb.Finish(flatbuf::CreateMessage(fbb, fb_version_, flatbuf::MessageHeader::RecordBatch,
+  fbb.Finish(flatbuf::CreateMessage(fbb, fb_version_,
+                                    flatbuf::MessageHeader::MessageHeader_RecordBatch,
                                     0 /* header */, body_length));
 
   std::shared_ptr<Buffer> metadata;
@@ -140,7 +141,7 @@ TEST_P(TestMessage, SerializeTo) {
               output_length);
     ASSERT_OK_AND_EQ(output_length, stream->Tell());
     ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
-    // chech whether length is written in little endian
+    // check whether length is written in little endian
     auto buffer_ptr = buffer.get()->data();
     ASSERT_EQ(output_length - body_length - prefix_size,
               bit_util::FromLittleEndian(*(uint32_t*)(buffer_ptr + 4)));
@@ -336,7 +337,7 @@ TEST_F(TestSchemaMetadata, NestedDictionaryFields) {
     auto dict_type1 = dictionary(int8(), utf8(), /*ordered=*/true);
     auto dict_type2 = dictionary(int32(), fixed_size_binary(24));
     auto dict_type3 = dictionary(int32(), binary());
-    auto dict_type4 = dictionary(int8(), decimal(19, 7));
+    auto dict_type4 = dictionary(int8(), decimal128(19, 7));
 
     auto struct_type1 = struct_({field("s1", dict_type1), field("s2", dict_type2)});
     auto struct_type2 = struct_({field("s3", dict_type3), field("s4", dict_type4)});
@@ -363,7 +364,7 @@ TEST_F(TestSchemaMetadata, MetadataVersionForwardCompatibility) {
   std::string root;
   ASSERT_OK(GetTestResourceRoot(&root));
 
-  // schema_v6.arrow with currently non-existent MetadataVersion::V6
+  // schema_v6.arrow with currently nonexistent MetadataVersion::V6
   std::stringstream schema_v6_path;
   schema_v6_path << root << "/forward-compatibility/schema_v6.arrow";
 
@@ -376,10 +377,12 @@ TEST_F(TestSchemaMetadata, MetadataVersionForwardCompatibility) {
 const std::vector<test::MakeRecordBatch*> kBatchCases = {
     &MakeIntRecordBatch,
     &MakeListRecordBatch,
+    &MakeListViewRecordBatch,
     &MakeFixedSizeListRecordBatch,
     &MakeNonNullRecordBatch,
     &MakeZeroLengthRecordBatch,
     &MakeDeeplyNestedList,
+    &MakeDeeplyNestedListView,
     &MakeStringTypesRecordBatchWithNulls,
     &MakeStruct,
     &MakeUnion,
@@ -518,8 +521,9 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
 };
 
 TEST(MetadataVersion, ForwardsCompatCheck) {
-  // Verify UBSAN is ok with casting out of range metdata version.
-  EXPECT_LT(flatbuf::MetadataVersion::MAX, static_cast<flatbuf::MetadataVersion>(72));
+  // Verify UBSAN is ok with casting out of range metadata version.
+  EXPECT_LT(flatbuf::MetadataVersion::MetadataVersion_MAX,
+            static_cast<flatbuf::MetadataVersion>(72));
 }
 
 class TestWriteRecordBatch : public ::testing::Test, public IpcTestFixture {
@@ -575,6 +579,29 @@ TEST_F(TestIpcRoundTrip, SpecificMetadataVersion) {
   TestMetadataVersion(MetadataVersion::V5);
 }
 
+TEST_F(TestIpcRoundTrip, ListWithSlicedValues) {
+  // This tests serialization of a sliced ListArray that got sliced "the Rust
+  // way": by slicing the value_offsets buffer, but keeping top-level offset at
+  // 0.
+  auto child_data = ArrayFromJSON(int32(), "[1, 2, 3, 4, 5]")->data();
+
+  // Offsets buffer [2, 5]
+  TypedBufferBuilder<int32_t> offsets_builder;
+  ASSERT_OK(offsets_builder.Reserve(2));
+  ASSERT_OK(offsets_builder.Append(2));
+  ASSERT_OK(offsets_builder.Append(5));
+  ASSERT_OK_AND_ASSIGN(auto offsets_buffer, offsets_builder.Finish());
+
+  auto list_data = ArrayData::Make(list(int32()),
+                                   /*num_rows=*/1,
+                                   /*buffers=*/{nullptr, offsets_buffer});
+  list_data->child_data = {child_data};
+  std::shared_ptr<Array> list_array = MakeArray(list_data);
+  ASSERT_OK(list_array->ValidateFull());
+
+  CheckRoundtrip(list_array);
+}
+
 TEST(TestReadMessage, CorruptedSmallInput) {
   std::string data = "abc";
   auto reader = io::BufferReader::FromString(data);
@@ -587,20 +614,20 @@ TEST(TestReadMessage, CorruptedSmallInput) {
 }
 
 TEST(TestMetadata, GetMetadataVersion) {
-  ASSERT_EQ(MetadataVersion::V1,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V1));
-  ASSERT_EQ(MetadataVersion::V2,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V2));
-  ASSERT_EQ(MetadataVersion::V3,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V3));
-  ASSERT_EQ(MetadataVersion::V4,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V4));
-  ASSERT_EQ(MetadataVersion::V5,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V5));
-  ASSERT_EQ(MetadataVersion::V1,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::MIN));
-  ASSERT_EQ(MetadataVersion::V5,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::MAX));
+  ASSERT_EQ(MetadataVersion::V1, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_V1));
+  ASSERT_EQ(MetadataVersion::V2, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_V2));
+  ASSERT_EQ(MetadataVersion::V3, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_V3));
+  ASSERT_EQ(MetadataVersion::V4, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_V4));
+  ASSERT_EQ(MetadataVersion::V5, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_V5));
+  ASSERT_EQ(MetadataVersion::V1, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_MIN));
+  ASSERT_EQ(MetadataVersion::V5, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_MAX));
 }
 
 TEST_P(TestIpcRoundTrip, SliceRoundTrip) {
@@ -974,6 +1001,9 @@ TEST_F(TestWriteRecordBatch, IntegerGetRecordBatchSize) {
   ASSERT_OK(MakeListRecordBatch(&batch));
   TestGetRecordBatchSize(options_, batch);
 
+  ASSERT_OK(MakeListViewRecordBatch(&batch));
+  TestGetRecordBatchSize(options_, batch);
+
   ASSERT_OK(MakeZeroLengthRecordBatch(&batch));
   TestGetRecordBatchSize(options_, batch);
 
@@ -981,6 +1011,9 @@ TEST_F(TestWriteRecordBatch, IntegerGetRecordBatchSize) {
   TestGetRecordBatchSize(options_, batch);
 
   ASSERT_OK(MakeDeeplyNestedList(&batch));
+  TestGetRecordBatchSize(options_, batch);
+
+  ASSERT_OK(MakeDeeplyNestedListView(&batch));
   TestGetRecordBatchSize(options_, batch);
 }
 
@@ -1038,6 +1071,9 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
 };
 
 TEST_F(RecursionLimits, WriteLimit) {
+#ifdef __EMSCRIPTEN__
+  GTEST_SKIP() << "This crashes the Emscripten runtime.";
+#endif
   int32_t metadata_length = -1;
   int64_t body_length = -1;
   std::shared_ptr<Schema> schema;
@@ -1070,6 +1106,10 @@ TEST_F(RecursionLimits, ReadLimit) {
 // Test fails with a structured exception on Windows + Debug
 #if !defined(_WIN32) || defined(NDEBUG)
 TEST_F(RecursionLimits, StressLimit) {
+#  ifdef __EMSCRIPTEN__
+  GTEST_SKIP() << "This crashes the Emscripten runtime.";
+#  endif
+
   auto CheckDepth = [this](int recursion_depth, bool* it_works) {
     int32_t metadata_length = -1;
     int64_t body_length = -1;
@@ -1097,10 +1137,10 @@ TEST_F(RecursionLimits, StressLimit) {
   ASSERT_TRUE(it_works);
 
 // Mitigate Valgrind's slowness
-#if !defined(ARROW_VALGRIND)
+#  if !defined(ARROW_VALGRIND)
   CheckDepth(500, &it_works);
   ASSERT_TRUE(it_works);
-#endif
+#  endif
 }
 #endif  // !defined(_WIN32) || defined(NDEBUG)
 
@@ -1322,11 +1362,25 @@ struct StreamWriterHelper {
   std::shared_ptr<RecordBatchWriter> writer_;
 };
 
+class CopyCollectListener : public CollectListener {
+ public:
+  CopyCollectListener() : CollectListener() {}
+
+  Status OnRecordBatchWithMetadataDecoded(
+      RecordBatchWithMetadata record_batch_with_metadata) override {
+    ARROW_ASSIGN_OR_RAISE(
+        record_batch_with_metadata.batch,
+        record_batch_with_metadata.batch->CopyTo(default_cpu_memory_manager()));
+
+    return CollectListener::OnRecordBatchWithMetadataDecoded(record_batch_with_metadata);
+  }
+};
+
 struct StreamDecoderWriterHelper : public StreamWriterHelper {
   Status ReadBatches(const IpcReadOptions& options, RecordBatchVector* out_batches,
                      ReadStats* out_stats = nullptr,
                      MetadataVector* out_metadata_list = nullptr) override {
-    auto listener = std::make_shared<CollectListener>();
+    auto listener = std::make_shared<CopyCollectListener>();
     StreamDecoder decoder(listener, options);
     RETURN_NOT_OK(DoConsume(&decoder));
     *out_batches = listener->record_batches();
@@ -1350,7 +1404,10 @@ struct StreamDecoderWriterHelper : public StreamWriterHelper {
 
 struct StreamDecoderDataWriterHelper : public StreamDecoderWriterHelper {
   Status DoConsume(StreamDecoder* decoder) override {
-    return decoder->Consume(buffer_->data(), buffer_->size());
+    // This data is valid only in this function.
+    ARROW_ASSIGN_OR_RAISE(auto temporary_buffer,
+                          Buffer::Copy(buffer_, arrow::default_cpu_memory_manager()));
+    return decoder->Consume(temporary_buffer->data(), temporary_buffer->size());
   }
 };
 
@@ -1361,7 +1418,9 @@ struct StreamDecoderBufferWriterHelper : public StreamDecoderWriterHelper {
 struct StreamDecoderSmallChunksWriterHelper : public StreamDecoderWriterHelper {
   Status DoConsume(StreamDecoder* decoder) override {
     for (int64_t offset = 0; offset < buffer_->size() - 1; ++offset) {
-      RETURN_NOT_OK(decoder->Consume(buffer_->data() + offset, 1));
+      // This data is valid only in this block.
+      ARROW_ASSIGN_OR_RAISE(auto temporary_buffer, buffer_->CopySlice(offset, 1));
+      RETURN_NOT_OK(decoder->Consume(temporary_buffer->data(), temporary_buffer->size()));
     }
     return Status::OK();
   }
@@ -2164,7 +2223,6 @@ TEST(TestRecordBatchStreamReader, MalformedInput) {
   ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&garbage_reader));
 }
 
-namespace {
 class EndlessCollectListener : public CollectListener {
  public:
   EndlessCollectListener() : CollectListener(), decoder_(nullptr) {}
@@ -2176,7 +2234,6 @@ class EndlessCollectListener : public CollectListener {
  private:
   StreamDecoder* decoder_;
 };
-};  // namespace
 
 TEST(TestStreamDecoder, Reset) {
   auto listener = std::make_shared<EndlessCollectListener>();
@@ -3011,14 +3068,14 @@ TEST(TestRecordBatchFileReaderIo, SkipTheFieldInTheMiddle) {
   GetReadRecordBatchReadRanges({0, 2}, {1, 40});
 }
 
-TEST(TestRecordBatchFileReaderIo, ReadTwoContinousFields) {
+TEST(TestRecordBatchFileReaderIo, ReadTwoContinuousFields) {
   // read the int32 field and the int64 field
   // + 5 int32: 5 * 4 bytes
   // + 5 int64: 5 * 8 bytes
   GetReadRecordBatchReadRanges({1, 2}, {20, 40});
 }
 
-TEST(TestRecordBatchFileReaderIo, ReadTwoContinousFieldsWithIoMerged) {
+TEST(TestRecordBatchFileReaderIo, ReadTwoContinuousFieldsWithIoMerged) {
   // change the array length to 64 so that bool field and int32 are continuous without
   // padding
   // read the bool field and the int32 field since the bool field's aligned offset

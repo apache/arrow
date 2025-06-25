@@ -33,14 +33,26 @@ from pyarrow.util import _DEPR_MSG
 from libcpp cimport bool as c_bool
 
 import inspect
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import warnings
+
+
+# Call to initialize the compute module (register kernels) on import
+check_status(InitializeCompute())
 
 
 __pas = None
 _substrait_msg = (
     "The pyarrow installation is not built with support for Substrait."
 )
+
+
+SUPPORTED_INPUT_ARR_TYPES = (list, tuple)
+if np is not None:
+    SUPPORTED_INPUT_ARR_TYPES += (np.ndarray, )
 
 
 def _pas():
@@ -55,15 +67,25 @@ def _pas():
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
-    msg = '{} is an abstract class thus cannot be initialized.'.format(
-        klass.__name__
-    )
+    msg = f'{klass.__name__} is an abstract class thus cannot be initialized.'
     if subclasses_instead:
         subclasses = [cls.__name__ for cls in klass.__subclasses__]
-        msg += ' Use one of the subclasses instead: {}'.format(
-            ', '.join(subclasses)
-        )
+        msg += f' Use one of the subclasses instead: {", ".join(subclasses)}'
     raise TypeError(msg)
+
+
+cdef vector[CSortKey] unwrap_sort_keys(sort_keys, allow_str=True):
+    cdef vector[CSortKey] c_sort_keys
+    if allow_str and isinstance(sort_keys, str):
+        c_sort_keys.push_back(
+            CSortKey(_ensure_field_ref(""), unwrap_sort_order(sort_keys))
+        )
+    else:
+        for name, order, null_placement in sort_keys:
+            c_sort_keys.push_back(
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order), unwrap_null_placement(null_placement))
+            )
+    return c_sort_keys
 
 
 cdef wrap_scalar_function(const shared_ptr[CFunction]& sp_func):
@@ -179,8 +201,7 @@ cdef class Kernel(_Weakrefable):
     """
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
 
 cdef class ScalarKernel(Kernel):
@@ -190,8 +211,7 @@ cdef class ScalarKernel(Kernel):
         self.kernel = kernel
 
     def __repr__(self):
-        return ("ScalarKernel<{}>"
-                .format(frombytes(self.kernel.signature.get().ToString())))
+        return f"ScalarKernel<{frombytes(self.kernel.signature.get().ToString())}>"
 
 
 cdef class VectorKernel(Kernel):
@@ -201,8 +221,7 @@ cdef class VectorKernel(Kernel):
         self.kernel = kernel
 
     def __repr__(self):
-        return ("VectorKernel<{}>"
-                .format(frombytes(self.kernel.signature.get().ToString())))
+        return f"VectorKernel<{frombytes(self.kernel.signature.get().ToString())}>"
 
 
 cdef class ScalarAggregateKernel(Kernel):
@@ -212,8 +231,7 @@ cdef class ScalarAggregateKernel(Kernel):
         self.kernel = kernel
 
     def __repr__(self):
-        return ("ScalarAggregateKernel<{}>"
-                .format(frombytes(self.kernel.signature.get().ToString())))
+        return f"ScalarAggregateKernel<{frombytes(self.kernel.signature.get().ToString())}>"
 
 
 cdef class HashAggregateKernel(Kernel):
@@ -223,8 +241,7 @@ cdef class HashAggregateKernel(Kernel):
         self.kernel = kernel
 
     def __repr__(self):
-        return ("HashAggregateKernel<{}>"
-                .format(frombytes(self.kernel.signature.get().ToString())))
+        return f"HashAggregateKernel<{frombytes(self.kernel.signature.get().ToString())}>"
 
 
 FunctionDoc = namedtuple(
@@ -276,17 +293,14 @@ cdef class Function(_Weakrefable):
     }
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
     cdef void init(self, const shared_ptr[CFunction]& sp_func) except *:
         self.sp_func = sp_func
         self.base_func = sp_func.get()
 
     def __repr__(self):
-        return ("arrow.compute.Function<name={}, kind={}, "
-                "arity={}, num_kernels={}>"
-                .format(self.name, self.kind, self.arity, self.num_kernels))
+        return f"arrow.compute.Function<name={self.name}, kind={self.kind}, arity={self.arity}, num_kernels={self.num_kernels}>"
 
     def __reduce__(self):
         # Reduction uses the global registry
@@ -473,7 +487,7 @@ cdef class MetaFunction(Function):
 
 cdef _pack_compute_args(object values, vector[CDatum]* out):
     for val in values:
-        if isinstance(val, (list, np.ndarray)):
+        if isinstance(val, SUPPORTED_INPUT_ARR_TYPES):
             val = lib.asarray(val)
 
         if isinstance(val, Array):
@@ -1108,8 +1122,8 @@ class MatchSubstringOptions(_MatchSubstringOptions):
 
 
 cdef class _PadOptions(FunctionOptions):
-    def _set_options(self, width, padding):
-        self.wrapped.reset(new CPadOptions(width, tobytes(padding)))
+    def _set_options(self, width, padding, lean_left_on_odd_padding):
+        self.wrapped.reset(new CPadOptions(width, tobytes(padding), lean_left_on_odd_padding))
 
 
 class PadOptions(_PadOptions):
@@ -1122,10 +1136,14 @@ class PadOptions(_PadOptions):
         Desired string length.
     padding : str, default " "
         What to pad the string with. Should be one byte or codepoint.
+    lean_left_on_odd_padding : bool, default True
+        What to do if there is an odd number of padding characters (in case
+        of centered padding). Defaults to aligning on the left (i.e. adding
+        the extra padding character on the right).
     """
 
-    def __init__(self, width, padding=' '):
-        self._set_options(width, padding)
+    def __init__(self, width, padding=' ', lean_left_on_odd_padding=True):
+        self._set_options(width, padding, lean_left_on_odd_padding)
 
 
 cdef class _TrimOptions(FunctionOptions):
@@ -1185,6 +1203,25 @@ cdef class _ExtractRegexOptions(FunctionOptions):
 class ExtractRegexOptions(_ExtractRegexOptions):
     """
     Options for the `extract_regex` function.
+
+    Parameters
+    ----------
+    pattern : str
+        Regular expression with named capture fields.
+    """
+
+    def __init__(self, pattern):
+        self._set_options(pattern)
+
+
+cdef class _ExtractRegexSpanOptions(FunctionOptions):
+    def _set_options(self, pattern):
+        self.wrapped.reset(new CExtractRegexSpanOptions(tobytes(pattern)))
+
+
+class ExtractRegexSpanOptions(_ExtractRegexSpanOptions):
+    """
+    Options for the `extract_regex_span` function.
 
     Parameters
     ----------
@@ -1390,7 +1427,7 @@ class TakeOptions(_TakeOptions):
     ----------
     boundscheck : boolean, default True
         Whether to check indices are within bounds. If False and an
-        index is out of boundes, behavior is undefined (the process
+        index is out of bounds, behavior is undefined (the process
         may crash).
     """
 
@@ -1468,7 +1505,7 @@ cdef class _StructFieldOptions(FunctionOptions):
     def _set_options(self, indices):
 
         if isinstance(indices, (list, tuple)) and not len(indices):
-            # Allow empty indices; effecitively return same array
+            # Allow empty indices; effectively return same array
             self.wrapped.reset(
                 new CStructFieldOptions(<vector[int]>indices))
             return
@@ -1682,6 +1719,9 @@ class StrptimeOptions(_StrptimeOptions):
     ----------
     format : str
         Pattern for parsing input strings as timestamps, such as "%Y/%m/%d".
+        Note that the semantics of the format follow the C/C++ strptime, not the Python one.
+        There are differences in behavior, for example how the "%y" placeholder
+        handles years with less than four digits.
     unit : str
         Timestamp unit of the output.
         Accepted values are "s", "ms", "us", "ns".
@@ -1860,6 +1900,28 @@ class VarianceOptions(_VarianceOptions):
         self._set_options(ddof, skip_nulls, min_count)
 
 
+cdef class _SkewOptions(FunctionOptions):
+    def _set_options(self, skip_nulls, biased, min_count):
+        self.wrapped.reset(new CSkewOptions(skip_nulls, biased, min_count))
+
+
+class SkewOptions(_SkewOptions):
+    __doc__ = f"""
+    Options for the `skew` and `kurtosis` functions.
+
+    Parameters
+    ----------
+    {_skip_nulls_doc()}
+    biased : bool, default True
+        Whether the calculated value is biased.
+        If False, the value computed includes a correction factor to reduce bias.
+    {_min_count_doc(default=0)}
+    """
+
+    def __init__(self, *, skip_nulls=True, biased=True, min_count=0):
+        self._set_options(skip_nulls, biased, min_count)
+
+
 cdef class _SplitOptions(FunctionOptions):
     def _set_options(self, max_splits, reverse):
         self.wrapped.reset(new CSplitOptions(max_splits, reverse))
@@ -1951,6 +2013,27 @@ class PartitionNthOptions(_PartitionNthOptions):
         self._set_options(pivot, null_placement)
 
 
+cdef class _WinsorizeOptions(FunctionOptions):
+    def _set_options(self, lower_limit, upper_limit):
+        self.wrapped.reset(new CWinsorizeOptions(lower_limit, upper_limit))
+
+
+class WinsorizeOptions(_WinsorizeOptions):
+    """
+    Options for the `winsorize` function.
+
+    Parameters
+    ----------
+    lower_limit : float, between 0 and 1
+        The quantile below which all values are replaced with the quantile's value.
+    upper_limit : float, between 0 and 1
+        The quantile above which all values are replaced with the quantile's value.
+    """
+
+    def __init__(self, lower_limit, upper_limit):
+        self._set_options(lower_limit, upper_limit)
+
+
 cdef class _CumulativeOptions(FunctionOptions):
     def _set_options(self, start, skip_nulls):
         if start is None:
@@ -2032,6 +2115,26 @@ class PairwiseOptions(_PairwiseOptions):
         self._set_options(period)
 
 
+cdef class _ListFlattenOptions(FunctionOptions):
+    def _set_options(self, recursive):
+        self.wrapped.reset(new CListFlattenOptions(recursive))
+
+
+class ListFlattenOptions(_ListFlattenOptions):
+    """
+    Options for `list_flatten` function
+
+    Parameters
+    ----------
+    recursive : bool, default False
+        When True, the list array is flattened recursively until an array
+        of non-list values is formed.
+    """
+
+    def __init__(self, recursive=False):
+        self._set_options(recursive)
+
+
 cdef class _ArraySortOptions(FunctionOptions):
     def _set_options(self, order, null_placement):
         self.wrapped.reset(new CArraySortOptions(
@@ -2057,14 +2160,10 @@ class ArraySortOptions(_ArraySortOptions):
 
 
 cdef class _SortOptions(FunctionOptions):
-    def _set_options(self, sort_keys):
-        cdef vector[CSortKey] c_sort_keys
-        for name, order, null_placement in sort_keys:
-            c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(name), unwrap_sort_order(
-                    order), unwrap_null_placement(null_placement))
-            )
-        self.wrapped.reset(new CSortOptions(c_sort_keys))
+    def _set_options(self, sort_keys, null_placement):
+        self.wrapped.reset(new CSortOptions(
+            unwrap_sort_keys(sort_keys, allow_str=False),
+            unwrap_null_placement(null_placement)))
 
 
 class SortOptions(_SortOptions):
@@ -2073,26 +2172,25 @@ class SortOptions(_SortOptions):
 
     Parameters
     ----------
-    sort_keys : sequence of (name, order) tuples
+    sort_keys : sequence of (name, order, null_placement) tuples
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
+        Accepted values for `null_placement` are "at_start", "at_end".
         The field name can be a string column name or expression.
+    null_placement : str, default None
+        Where nulls in input should be sorted, overwrites
+         `null_placement` in `sort_keys`.
+        Accepted values are "at_start", "at_end".
     """
 
-    def __init__(self, sort_keys=(), *):
-        self._set_options(sort_keys)
+    def __init__(self, sort_keys=(), *, null_placement=None):
+        self._set_options(sort_keys, null_placement)
 
 
 cdef class _SelectKOptions(FunctionOptions):
     def _set_options(self, k, sort_keys):
-        cdef vector[CSortKey] c_sort_keys
-        for name, order, null_placement in sort_keys:
-            c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(name), unwrap_sort_order(
-                    order), unwrap_null_placement(null_placement))
-            )
-        self.wrapped.reset(new CSelectKOptions(k, c_sort_keys))
+        self.wrapped.reset(new CSelectKOptions(k, unwrap_sort_keys(sort_keys, allow_str=False)))
 
 
 class SelectKOptions(_SelectKOptions):
@@ -2159,7 +2257,7 @@ class QuantileOptions(_QuantileOptions):
 
     def __init__(self, q=0.5, *, interpolation="linear", skip_nulls=True,
                  min_count=0):
-        if not isinstance(q, (list, tuple, np.ndarray)):
+        if not isinstance(q, SUPPORTED_INPUT_ARR_TYPES):
             q = [q]
         self._set_options(q, interpolation, skip_nulls, min_count)
 
@@ -2192,7 +2290,7 @@ class TDigestOptions(_TDigestOptions):
 
     def __init__(self, q=0.5, *, delta=100, buffer_size=500, skip_nulls=True,
                  min_count=0):
-        if not isinstance(q, (list, tuple, np.ndarray)):
+        if not isinstance(q, SUPPORTED_INPUT_ARR_TYPES):
             q = [q]
         self._set_options(q, delta, buffer_size, skip_nulls, min_count)
 
@@ -2279,21 +2377,11 @@ cdef class _RankOptions(FunctionOptions):
     }
 
     def _set_options(self, sort_keys, null_placement, tiebreaker):
-        cdef vector[CSortKey] c_sort_keys
-        if isinstance(sort_keys, str):
-            c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(""),
-                         unwrap_sort_order(sort_keys), unwrap_null_placement(null_placement))
-            )
-        else:
-            for name, order, placement in sort_keys:
-                c_sort_keys.push_back(
-                    CSortKey(_ensure_field_ref(name), unwrap_sort_order(
-                        order), unwrap_null_placement(placement))
-                )
         try:
             self.wrapped.reset(
-                new CRankOptions(c_sort_keys, self._tiebreaker_map[tiebreaker])
+                new CRankOptions(unwrap_sort_keys(sort_keys),
+                                 unwrap_null_placement(null_placement),
+                                 self._tiebreaker_map[tiebreaker])
             )
         except KeyError:
             _raise_invalid_function_option(tiebreaker, "tiebreaker")
@@ -2331,6 +2419,82 @@ class RankOptions(_RankOptions):
 
     def __init__(self, sort_keys="ascending", *, null_placement="at_end", tiebreaker="first"):
         self._set_options(sort_keys, null_placement, tiebreaker)
+
+
+cdef class _RankQuantileOptions(FunctionOptions):
+
+    def _set_options(self, sort_keys, null_placement):
+        self.wrapped.reset(
+            new CRankQuantileOptions(unwrap_sort_keys(sort_keys),
+                                     unwrap_null_placement(null_placement))
+        )
+
+
+class RankQuantileOptions(_RankQuantileOptions):
+    """
+    Options for the `rank_quantile` function.
+
+    Parameters
+    ----------
+    sort_keys : sequence of (name, order, null_placement) tuples or str, default "ascending"
+        Names of field/column keys to sort the input on,
+        along with the order each field/column is sorted in.
+        Accepted values for `order` are "ascending", "descending".
+        Accepted values for `null_placement` are "at_start", "at_end".
+        The field name can be a string column name or expression.
+        Alternatively, one can simply pass "ascending" or "descending" as a string
+        if the input is array-like.
+    null_placement : str, default "at_end"
+        Where nulls in input should be sorted.
+        Accepted values are "at_start", "at_end".
+    """
+
+    def __init__(self, sort_keys="ascending", *, null_placement="at_end"):
+        self._set_options(sort_keys, null_placement)
+
+
+cdef class _PivotWiderOptions(FunctionOptions):
+
+    def _set_options(self, key_names, unexpected_key_behavior):
+        cdef:
+            vector[c_string] c_key_names
+            PivotWiderUnexpectedKeyBehavior c_unexpected_key_behavior
+        if unexpected_key_behavior == "ignore":
+            c_unexpected_key_behavior = PivotWiderUnexpectedKeyBehavior_Ignore
+        elif unexpected_key_behavior == "raise":
+            c_unexpected_key_behavior = PivotWiderUnexpectedKeyBehavior_Raise
+        else:
+            raise ValueError(
+                f"Unsupported value for unexpected_key_behavior: "
+                f"expected 'ignore' or 'raise', got {unexpected_key_behavior!r}")
+
+        for k in key_names:
+            c_key_names.push_back(tobytes(k))
+
+        self.wrapped.reset(
+            new CPivotWiderOptions(move(c_key_names), c_unexpected_key_behavior)
+        )
+
+
+class PivotWiderOptions(_PivotWiderOptions):
+    """
+    Options for the `pivot_wider` function.
+
+    Parameters
+    ----------
+    key_names : sequence of str
+        The pivot key names expected in the pivot key column.
+        For each entry in `key_names`, a column with the same name is emitted
+        in the struct output.
+    unexpected_key_behavior : str, default "ignore"
+        The behavior when pivot keys not in `key_names` are encountered.
+        Accepted values are "ignore", "raise".
+        If "ignore", unexpected keys are silently ignored.
+        If "raise", unexpected keys raise a KeyError.
+    """
+
+    def __init__(self, key_names, *, unexpected_key_behavior="ignore"):
+        self._set_options(key_names, unexpected_key_behavior)
 
 
 cdef class Expression(_Weakrefable):
@@ -2399,12 +2563,10 @@ cdef class Expression(_Weakrefable):
         return frombytes(self.expr.ToString())
 
     def __repr__(self):
-        return "<pyarrow.compute.{0} {1}>".format(
-            self.__class__.__name__, str(self)
-        )
+        return f"<pyarrow.compute.{self.__class__.__name__} {self}>"
 
     @staticmethod
-    def from_substrait(object buffer not None):
+    def from_substrait(object message not None):
         """
         Deserialize an expression from Substrait
 
@@ -2416,7 +2578,7 @@ cdef class Expression(_Weakrefable):
 
         Parameters
         ----------
-        buffer : bytes or Buffer
+        message : bytes or Buffer or a protobuf Message
             The Substrait message to deserialize
 
         Returns
@@ -2424,7 +2586,7 @@ cdef class Expression(_Weakrefable):
         Expression
             The deserialized expression
         """
-        expressions = _pas().deserialize_expressions(buffer).expressions
+        expressions = _pas().BoundExpressions.from_substrait(message).expressions
         if len(expressions) == 0:
             raise ValueError("Substrait message did not contain any expressions")
         if len(expressions) > 1:
@@ -2705,8 +2867,7 @@ cdef class UdfContext:
     """
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
     cdef void init(self, const CUdfContext &c_context):
         self.c_context = c_context
@@ -2841,7 +3002,7 @@ def register_scalar_function(func, function_name, function_doc, in_types, out_ty
         all arguments are scalar, else it must return an Array.
 
         To define a varargs function, pass a callable that takes
-        *args. The last in_type will be the type of all varargs
+        ``*args``. The last in_type will be the type of all varargs
         arguments.
     function_name : str
         Name of the function. There should only be one function
@@ -2986,7 +3147,7 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
     This is often used with ordered or segmented aggregation where groups
     can be emit before accumulating all of the input data.
 
-    Note that currently the size of any input column can not exceed 2 GB
+    Note that currently the size of any input column cannot exceed 2 GB
     for a single segment (all groups combined).
 
     Parameters
@@ -3071,7 +3232,7 @@ def register_tabular_function(func, function_name, function_doc, in_types, out_t
     UdfContext and returning a generator of struct arrays.
     The in_types argument must be empty and the out_type argument
     specifies a schema. Each struct array must have field types
-    correspoding to the schema.
+    corresponding to the schema.
 
     Parameters
     ----------

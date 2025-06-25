@@ -30,7 +30,12 @@
 namespace arrow {
 namespace dataset {
 
-static std::shared_ptr<Dataset> GetDataset() {
+struct SampleDataset {
+  std::shared_ptr<Dataset> dataset;
+  int64_t num_fragments;
+};
+
+static SampleDataset GetDataset() {
   std::vector<fs::FileInfo> files;
   std::vector<std::string> paths;
   for (int a = 0; a < 100; a++) {
@@ -50,25 +55,35 @@ static std::shared_ptr<Dataset> GetDataset() {
   FinishOptions finish_options;
   finish_options.inspect_options.fragments = 0;
   EXPECT_OK_AND_ASSIGN(auto dataset, factory->Finish(finish_options));
-  return dataset;
+  return {dataset, static_cast<int64_t>(paths.size())};
 }
 
 // A benchmark of filtering fragments in a dataset.
 static void GetAllFragments(benchmark::State& state) {
   auto dataset = GetDataset();
   for (auto _ : state) {
-    ASSERT_OK_AND_ASSIGN(auto fragments, dataset->GetFragments());
+    ASSERT_OK_AND_ASSIGN(auto fragments, dataset.dataset->GetFragments());
     ABORT_NOT_OK(fragments.Visit([](std::shared_ptr<Fragment>) { return Status::OK(); }));
   }
+  state.SetItemsProcessed(state.iterations() * dataset.num_fragments);
+  state.counters["num_fragments"] = static_cast<double>(dataset.num_fragments);
 }
 
 static void GetFilteredFragments(benchmark::State& state, compute::Expression filter) {
   auto dataset = GetDataset();
-  ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*dataset->schema()));
+  ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*dataset.dataset->schema()));
+  int64_t num_filtered_fragments = 0;
   for (auto _ : state) {
-    ASSERT_OK_AND_ASSIGN(auto fragments, dataset->GetFragments(filter));
-    ABORT_NOT_OK(fragments.Visit([](std::shared_ptr<Fragment>) { return Status::OK(); }));
+    num_filtered_fragments = 0;
+    ASSERT_OK_AND_ASSIGN(auto fragments, dataset.dataset->GetFragments(filter));
+    ABORT_NOT_OK(fragments.Visit([&](std::shared_ptr<Fragment>) {
+      ++num_filtered_fragments;
+      return Status::OK();
+    }));
   }
+  state.SetItemsProcessed(state.iterations() * dataset.num_fragments);
+  state.counters["num_fragments"] = static_cast<double>(dataset.num_fragments);
+  state.counters["num_filtered_fragments"] = static_cast<double>(num_filtered_fragments);
 }
 
 using compute::field_ref;

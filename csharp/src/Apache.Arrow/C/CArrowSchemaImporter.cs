@@ -165,7 +165,7 @@ namespace Apache.Arrow.C
                 }
 
                 // Special handling for nested types
-                if (format == "+l")
+                if (format == "+l" || format == "+vl" || format == "+L")
                 {
                     if (_cSchema->n_children != 1)
                     {
@@ -180,7 +180,13 @@ namespace Apache.Arrow.C
 
                     Field childField = childSchema.GetAsField();
 
-                    return new ListType(childField);
+                    return format[1] switch
+                    {
+                        'l' => new ListType(childField),
+                        'v' => new ListViewType(childField),
+                        'L' => new LargeListType(childField),
+                        _ => throw new InvalidDataException($"Invalid format for list: '{format}'"),
+                    };
                 }
                 else if (format == "+s")
                 {
@@ -218,19 +224,17 @@ namespace Apache.Arrow.C
                 // Decimals
                 if (format.StartsWith("d:"))
                 {
-                    bool is256 = format.EndsWith(",256");
-                    string parameters_part = format.Remove(0, 2);
-                    if (is256) parameters_part.Substring(0, parameters_part.Length - 5);
-                    string[] parameters = parameters_part.Split(',');
+                    string[] parameters = format.Substring(2).Split(',');
                     int precision = Int32.Parse(parameters[0]);
                     int scale = Int32.Parse(parameters[1]);
-                    if (is256)
+                    int bitWidth = parameters.Length == 2 ? 128 : Int32.Parse(parameters[2]);
+                    switch (bitWidth)
                     {
-                        return new Decimal256Type(precision, scale);
-                    }
-                    else
-                    {
-                        return new Decimal128Type(precision, scale);
+                        case 32: return new Decimal32Type(precision, scale);
+                        case 64: return new Decimal64Type(precision, scale);
+                        case 128: return new Decimal128Type(precision, scale);
+                        case 256: return new Decimal256Type(precision, scale);
+                        default: throw new InvalidDataException($"Unexpected bit width {bitWidth}");
                     }
                 }
 
@@ -303,9 +307,11 @@ namespace Apache.Arrow.C
                     "g" => DoubleType.Default,
                     // Binary data
                     "z" => BinaryType.Default,
-                    //"Z" => new LargeBinaryType() // Not yet implemented
+                    "vz" => BinaryViewType.Default,
+                    "Z" => LargeBinaryType.Default,
                     "u" => StringType.Default,
-                    //"U" => new LargeStringType(), // Not yet implemented
+                    "vu" => StringViewType.Default,
+                    "U" => LargeStringType.Default,
                     // Date and time
                     "tdD" => Date32Type.Default,
                     "tdm" => Date64Type.Default,
@@ -319,7 +325,7 @@ namespace Apache.Arrow.C
                     "tDn" => DurationType.Nanosecond,
                     "tiM" => IntervalType.YearMonth,
                     "tiD" => IntervalType.DayTime,
-                    //"tin" => IntervalType.MonthDayNanosecond, // Not yet implemented
+                    "tin" => IntervalType.MonthDayNanosecond,
                     _ => throw new NotSupportedException("Data type is not yet supported in import.")
                 };
             }

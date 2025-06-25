@@ -46,8 +46,8 @@ file into an executable linked with the Arrow C++ shared library:
 
 .. code-block:: cmake
 
-   cmake_minimum_required(VERSION 3.16)
-   
+   cmake_minimum_required(VERSION 3.25)
+
    project(MyExample)
 
    find_package(Arrow REQUIRED)
@@ -167,7 +167,7 @@ file into an executable linked with the Arrow C++ shared library:
 .. code-block:: makefile
 
    my_example: my_example.cc
-   	$(CXX) -o $@ $(CXXFLAGS) $< $$(pkg-config --cflags --libs arrow)
+       $(CXX) -o $@ $(CXXFLAGS) $< $$(pkg-config --cflags --libs arrow)
 
 Many build systems support pkg-config. For example:
 

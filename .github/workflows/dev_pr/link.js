@@ -48,30 +48,6 @@ async function haveComment(github, context, pullRequestNumber, message) {
 }
 
 /**
- * Adds a comment on the Pull Request linking the JIRA issue.
- *
- * @param {Object} github
- * @param {Object} context
- * @param {String} pullRequestNumber
- * @param {String} jiraID
- */
-async function commentJIRAURL(github, context, pullRequestNumber, jiraID) {
-  const issueInfo = await helpers.getJiraInfo(jiraID);
-  const jiraURL = `https://issues.apache.org/jira/browse/${jiraID}`;
-  if (await haveComment(github, context, pullRequestNumber, jiraURL)) {
-    return;
-  }
-  if (issueInfo){
-    await github.rest.issues.createComment({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      issue_number: pullRequestNumber,
-      body: jiraURL
-    });
-  }
-}
-
-/**
  * Adds a comment on the Pull Request linking the GitHub issue.
  *
  * @param {Object} github
@@ -82,7 +58,7 @@ async function commentJIRAURL(github, context, pullRequestNumber, jiraID) {
 async function commentGitHubURL(github, context, pullRequestNumber, issueID) {
   // Make the call to ensure issue exists before adding comment
   const issueInfo = await helpers.getGitHubInfo(github, context, issueID, pullRequestNumber);
-  const message = "* Closes: #" + issueInfo.number
+  const message = "* GitHub Issue: #" + issueInfo.number
   if (issueInfo) {
     const body = context.payload.pull_request.body || "";
     if (body.includes(message)) {
@@ -101,11 +77,7 @@ module.exports = async ({github, context}) => {
   const pullRequestNumber = context.payload.number;
   const title = context.payload.pull_request.title;
   const issue = helpers.detectIssue(title);
-  if (issue){
-    if (issue.kind == "jira") {
-      await commentJIRAURL(github, context, pullRequestNumber, issue.id);
-    } else if (issue.kind == "github") {
-      await commentGitHubURL(github, context, pullRequestNumber, issue.id);
-    }
+  if (issue && issue.kind === "github") {
+    await commentGitHubURL(github, context, pullRequestNumber, issue.id);
   }
 };

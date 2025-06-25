@@ -46,7 +46,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
 #include "arrow/util/span.h"
 #include "arrow/util/string.h"
@@ -236,7 +236,7 @@ class SchemaWriter {
   enable_if_t<is_null_type<T>::value || is_primitive_ctype<T>::value ||
               is_base_binary_type<T>::value || is_binary_view_like_type<T>::value ||
               is_var_length_list_type<T>::value || is_struct_type<T>::value ||
-              is_run_end_encoded_type<T>::value>
+              is_run_end_encoded_type<T>::value || is_list_view_type<T>::value>
   WriteTypeMetadata(const T& type) {}
 
   void WriteTypeMetadata(const MapType& type) {
@@ -314,14 +314,7 @@ class SchemaWriter {
     writer_->Int(type.list_size());
   }
 
-  void WriteTypeMetadata(const Decimal128Type& type) {
-    writer_->Key("precision");
-    writer_->Int(type.precision());
-    writer_->Key("scale");
-    writer_->Int(type.scale());
-  }
-
-  void WriteTypeMetadata(const Decimal256Type& type) {
+  void WriteTypeMetadata(const DecimalType& type) {
     writer_->Key("precision");
     writer_->Int(type.precision());
     writer_->Key("scale");
@@ -399,6 +392,8 @@ class SchemaWriter {
     return WritePrimitive("fixedsizebinary", type);
   }
 
+  Status Visit(const Decimal32Type& type) { return WritePrimitive("decimal32", type); }
+  Status Visit(const Decimal64Type& type) { return WritePrimitive("decimal64", type); }
   Status Visit(const Decimal128Type& type) { return WritePrimitive("decimal", type); }
   Status Visit(const Decimal256Type& type) { return WritePrimitive("decimal256", type); }
   Status Visit(const TimestampType& type) { return WritePrimitive("timestamp", type); }
@@ -419,6 +414,16 @@ class SchemaWriter {
 
   Status Visit(const LargeListType& type) {
     WriteName("largelist", type);
+    return Status::OK();
+  }
+
+  Status Visit(const ListViewType& type) {
+    WriteName("listview", type);
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListViewType& type) {
+    WriteName("largelistview", type);
     return Status::OK();
   }
 
@@ -582,6 +587,30 @@ class ArrayWriter {
         writer_->Int(dm.milliseconds);
       }
       writer_->EndObject();
+    }
+  }
+
+  void WriteDataValues(const Decimal32Array& arr) {
+    static const char null_string[] = "0";
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (arr.IsValid(i)) {
+        const Decimal32 value(arr.GetValue(i));
+        writer_->String(value.ToIntegerString());
+      } else {
+        writer_->String(null_string, sizeof(null_string));
+      }
+    }
+  }
+
+  void WriteDataValues(const Decimal64Array& arr) {
+    static const char null_string[] = "0";
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (arr.IsValid(i)) {
+        const Decimal64 value(arr.GetValue(i));
+        writer_->String(value.ToIntegerString());
+      } else {
+        writer_->String(null_string, sizeof(null_string));
+      }
     }
   }
 
@@ -777,6 +806,15 @@ class ArrayWriter {
     return WriteChildren(array.type()->fields(), {array.values()});
   }
 
+  template <typename ArrayType>
+  enable_if_list_view<typename ArrayType::TypeClass, Status> Visit(
+      const ArrayType& array) {
+    WriteValidityField(array);
+    WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length());
+    WriteIntegerField("SIZE", array.raw_value_sizes(), array.length());
+    return WriteChildren(array.type()->fields(), {array.values()});
+  }
+
   Status Visit(const FixedSizeListArray& array) {
     WriteValidityField(array);
     const auto& type = checked_cast<const FixedSizeListType&>(*array.type());
@@ -950,12 +988,18 @@ Result<std::shared_ptr<DataType>> GetDecimal(const RjObject& json_type) {
     bit_width = maybe_bit_width.ValueOrDie();
   }
 
-  if (bit_width == 128) {
-    return decimal128(precision, scale);
-  } else if (bit_width == 256) {
-    return decimal256(precision, scale);
+  switch (bit_width) {
+    case 32:
+      return decimal32(precision, scale);
+    case 64:
+      return decimal64(precision, scale);
+    case 128:
+      return decimal128(precision, scale);
+    case 256:
+      return decimal256(precision, scale);
   }
-  return Status::Invalid("Only 128 bit and 256 Decimals are supported. Received",
+
+  return Status::Invalid("Only 32/64/128/256-bit Decimals are supported. Received ",
                          bit_width);
 }
 
@@ -1050,9 +1094,9 @@ Result<std::shared_ptr<DataType>> GetUnion(const RjObject& json_type,
   }
 
   if (mode == UnionMode::SPARSE) {
-    return sparse_union(std::move(children), std::move(type_codes));
+    return sparse_union(children, std::move(type_codes));
   } else {
-    return dense_union(std::move(children), std::move(type_codes));
+    return dense_union(children, std::move(type_codes));
   }
 }
 
@@ -1132,6 +1176,16 @@ Result<std::shared_ptr<DataType>> GetType(const RjObject& json_type,
       return Status::Invalid("Large list must have exactly one child");
     }
     return large_list(children[0]);
+  } else if (type_name == "listview") {
+    if (children.size() != 1) {
+      return Status::Invalid("List-view must have exactly one child");
+    }
+    return list_view(children[0]);
+  } else if (type_name == "largelistview") {
+    if (children.size() != 1) {
+      return Status::Invalid("Large list-view must have exactly one child");
+    }
+    return large_list_view(children[0]);
   } else if (type_name == "map") {
     return GetMap(json_type, children);
   } else if (type_name == "fixedsizelist") {
@@ -1651,6 +1705,26 @@ class ArrayReader {
     return CreateList<T>(type_);
   }
 
+  template <typename T>
+  Status CreateListView(const std::shared_ptr<DataType>& type) {
+    using offset_type = typename T::offset_type;
+
+    RETURN_NOT_OK(InitializeData(3));
+
+    RETURN_NOT_OK(GetNullBitmap());
+    ARROW_ASSIGN_OR_RAISE(const auto json_offsets, GetMemberArray(obj_, "OFFSET"));
+    RETURN_NOT_OK(GetIntArray<offset_type>(json_offsets, length_, &data_->buffers[1]));
+    ARROW_ASSIGN_OR_RAISE(const auto json_sizes, GetMemberArray(obj_, "SIZE"));
+    RETURN_NOT_OK(GetIntArray<offset_type>(json_sizes, length_, &data_->buffers[2]));
+    RETURN_NOT_OK(GetChildren(obj_, *type));
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_list_view<T, Status> Visit(const T& type) {
+    return CreateListView<T>(type_);
+  }
+
   Status Visit(const MapType& type) {
     auto list_type = std::make_shared<ListType>(type.value_field());
     RETURN_NOT_OK(CreateList<ListType>(list_type));
@@ -1800,7 +1874,7 @@ class ArrayReader {
   Result<std::shared_ptr<ArrayData>> Parse() {
     ARROW_ASSIGN_OR_RAISE(length_, GetMemberInt<int32_t>(obj_, "count"));
 
-    if (::arrow::internal::HasValidityBitmap(type_->id())) {
+    if (::arrow::internal::may_have_validity_bitmap(type_->id())) {
       // Null and union types don't have a validity bitmap
       RETURN_NOT_OK(ParseValidityBitmap());
     }

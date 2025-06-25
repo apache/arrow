@@ -24,6 +24,7 @@
 #include "arrow/json/rapidjson_defs.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/logging_internal.h"
 
 #include "rapidjson/ostreamwrapper.h"
 #include "rapidjson/writer.h"
@@ -162,7 +163,7 @@ std::shared_ptr<FileSource> ToFileSource(std::string json) {
   return std::make_shared<FileSource>(Buffer::FromString(std::move(json)));
 }
 
-// Mixin for additional JSON-specific tests, compatibile with both format APIs.
+// Mixin for additional JSON-specific tests, compatible with both format APIs.
 template <typename T>
 class JsonScanMixin {
  public:
@@ -245,7 +246,7 @@ class JsonScanMixin {
 
 // Use a reduced number of rows in valgrind to avoid timeouts.
 #ifndef ARROW_VALGRIND
-constexpr static int64_t kTestMaxNumRows = json::kMaxParserNumRows;
+constexpr static int64_t kTestMaxNumRows = (1UL << 17);
 #else
 constexpr static int64_t kTestMaxNumRows = 1024;
 #endif

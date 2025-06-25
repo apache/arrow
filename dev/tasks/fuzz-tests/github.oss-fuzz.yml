@@ -33,6 +33,12 @@ jobs:
         run: |
           git clone --depth=50 https://github.com/google/oss-fuzz.git
 
+      - uses: actions/setup-python@v5
+        # Use a Python version that's compatible with the pinned requirements
+        # for dependencies below.
+        with:
+          python-version: '3.11'
+
       - name: Install dependencies
         working-directory: oss-fuzz
         run: |

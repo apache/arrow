@@ -17,9 +17,9 @@
 
 import numpy as np
 import pandas as pd
-import pandas.util.testing as tm
 
 import pyarrow as pa
+from pyarrow.tests.util import rands
 
 
 class PandasConversionsBase(object):
@@ -60,7 +60,7 @@ class ToPandasStrings(object):
 
     def setup(self, uniqueness, total):
         nunique = int(total * uniqueness)
-        unique_values = [tm.rands(self.string_length) for i in range(nunique)]
+        unique_values = [rands(self.string_length) for i in range(nunique)]
         values = unique_values * (total // nunique)
         self.arr = pa.array(values, type=pa.string())
         self.table = pa.Table.from_arrays([self.arr], ['f0'])

@@ -50,20 +50,32 @@ namespace Apache.Arrow.Ipc
             IArrowTypeVisitor<UInt16Type>,
             IArrowTypeVisitor<UInt32Type>,
             IArrowTypeVisitor<UInt64Type>,
+#if NET5_0_OR_GREATER
+            IArrowTypeVisitor<HalfFloatType>,
+#endif
             IArrowTypeVisitor<FloatType>,
             IArrowTypeVisitor<DoubleType>,
             IArrowTypeVisitor<StringType>,
+            IArrowTypeVisitor<StringViewType>,
+            IArrowTypeVisitor<LargeStringType>,
             IArrowTypeVisitor<Date32Type>,
             IArrowTypeVisitor<Date64Type>,
             IArrowTypeVisitor<Time32Type>,
             IArrowTypeVisitor<Time64Type>,
             IArrowTypeVisitor<DurationType>,
+            IArrowTypeVisitor<IntervalType>,
             IArrowTypeVisitor<BinaryType>,
+            IArrowTypeVisitor<BinaryViewType>,
+            IArrowTypeVisitor<LargeBinaryType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<ListType>,
+            IArrowTypeVisitor<ListViewType>,
+            IArrowTypeVisitor<LargeListType>,
             IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<UnionType>,
             IArrowTypeVisitor<StructType>,
+            IArrowTypeVisitor<Decimal32Type>,
+            IArrowTypeVisitor<Decimal64Type>,
             IArrowTypeVisitor<Decimal128Type>,
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<DictionaryType>,
@@ -105,12 +117,44 @@ namespace Apache.Arrow.Ipc
                     Flatbuf.Binary.EndBinary(Builder));
             }
 
+            public void Visit(BinaryViewType type)
+            {
+                Flatbuf.BinaryView.StartBinaryView(Builder);
+                Offset<BinaryView> offset = Flatbuf.BinaryView.EndBinaryView(Builder);
+                Result = FieldType.Build(
+                    Flatbuf.Type.BinaryView, offset);
+            }
+
+            public void Visit(LargeBinaryType type)
+            {
+                Flatbuf.LargeBinary.StartLargeBinary(Builder);
+                Offset<LargeBinary> offset = Flatbuf.LargeBinary.EndLargeBinary(Builder);
+                Result = FieldType.Build(
+                    Flatbuf.Type.LargeBinary, offset);
+            }
+
             public void Visit(ListType type)
             {
                 Flatbuf.List.StartList(Builder);
                 Result = FieldType.Build(
                     Flatbuf.Type.List,
                     Flatbuf.List.EndList(Builder));
+            }
+
+            public void Visit(ListViewType type)
+            {
+                Flatbuf.ListView.StartListView(Builder);
+                Result = FieldType.Build(
+                    Flatbuf.Type.ListView,
+                    Flatbuf.ListView.EndListView(Builder));
+            }
+
+            public void Visit(LargeListType type)
+            {
+                Flatbuf.LargeList.StartLargeList(Builder);
+                Result = FieldType.Build(
+                    Flatbuf.Type.LargeList,
+                    Flatbuf.LargeList.EndLargeList(Builder));
             }
 
             public void Visit(FixedSizeListType type)
@@ -133,6 +177,22 @@ namespace Apache.Arrow.Ipc
                 Offset<Utf8> offset = Flatbuf.Utf8.EndUtf8(Builder);
                 Result = FieldType.Build(
                     Flatbuf.Type.Utf8, offset);
+            }
+
+            public void Visit(StringViewType type)
+            {
+                Flatbuf.Utf8View.StartUtf8View(Builder);
+                Offset<Utf8View> offset = Flatbuf.Utf8View.EndUtf8View(Builder);
+                Result = FieldType.Build(
+                    Flatbuf.Type.Utf8View, offset);
+            }
+
+            public void Visit(LargeStringType type)
+            {
+                Flatbuf.LargeUtf8.StartLargeUtf8(Builder);
+                Offset<LargeUtf8> offset = Flatbuf.LargeUtf8.EndLargeUtf8(Builder);
+                Result = FieldType.Build(
+                    Flatbuf.Type.LargeUtf8, offset);
             }
 
             public void Visit(TimestampType type)
@@ -168,6 +228,15 @@ namespace Apache.Arrow.Ipc
                     Flatbuf.Time.CreateTime(Builder, ToFlatBuffer(type.Unit)));
             }
 
+#if NET5_0_OR_GREATER
+            public void Visit(HalfFloatType type)
+            {
+                Result = FieldType.Build(
+                    Flatbuf.Type.FloatingPoint,
+                    Flatbuf.FloatingPoint.CreateFloatingPoint(Builder, Precision.HALF));
+            }
+#endif
+
             public void Visit(FloatType type)
             {
                 Result = FieldType.Build(
@@ -196,10 +265,31 @@ namespace Apache.Arrow.Ipc
                     Flatbuf.Duration.CreateDuration(Builder, ToFlatBuffer(type.Unit)));
             }
 
+            public void Visit(IntervalType type)
+            {
+                Result = FieldType.Build(
+                    Flatbuf.Type.Interval,
+                    Flatbuf.Interval.CreateInterval(Builder, ToFlatBuffer(type.Unit)));
+            }
+
             public void Visit(StructType type)
             {
                 Flatbuf.Struct_.StartStruct_(Builder);
                 Result = FieldType.Build(Flatbuf.Type.Struct_, Flatbuf.Struct_.EndStruct_(Builder));
+            }
+
+            public void Visit(Decimal32Type type)
+            {
+                Result = FieldType.Build(
+                    Flatbuf.Type.Decimal,
+                    Flatbuf.Decimal.CreateDecimal(Builder, type.Precision, type.Scale, type.BitWidth));
+            }
+
+            public void Visit(Decimal64Type type)
+            {
+                Result = FieldType.Build(
+                    Flatbuf.Type.Decimal,
+                    Flatbuf.Decimal.CreateDecimal(Builder, type.Precision, type.Scale, type.BitWidth));
             }
 
             public void Visit(Decimal128Type type)
@@ -305,6 +395,17 @@ namespace Apache.Arrow.Ipc
                 Types.UnionMode.Dense => Flatbuf.UnionMode.Dense,
                 Types.UnionMode.Sparse => Flatbuf.UnionMode.Sparse,
                 _ => throw new ArgumentException($"unsupported union mode <{mode}>", nameof(mode)),
+            };
+        }
+
+        private static Flatbuf.IntervalUnit ToFlatBuffer(Types.IntervalUnit unit)
+        {
+            return unit switch
+            {
+                Types.IntervalUnit.YearMonth => Flatbuf.IntervalUnit.YEAR_MONTH,
+                Types.IntervalUnit.DayTime => Flatbuf.IntervalUnit.DAY_TIME,
+                Types.IntervalUnit.MonthDayNanosecond => Flatbuf.IntervalUnit.MONTH_DAY_NANO,
+                _ => throw new ArgumentException($"unsupported interval unit <{unit}>", nameof(unit))
             };
         }
     }

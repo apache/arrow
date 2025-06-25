@@ -21,18 +21,19 @@
 
 namespace arrow::matlab::io::csv::proxy {
 
-    class TableReader : public libmexclass::proxy::Proxy {
-        public:
-            TableReader(const std::string& filename);
-            ~TableReader() {}
-            static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+class TableReader : public libmexclass::proxy::Proxy {
+ public:
+  TableReader(const std::string& filename);
+  ~TableReader() {}
+  static libmexclass::proxy::MakeResult make(
+      const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
-        protected:
-            void read(libmexclass::proxy::method::Context& context);
-            void getFilename(libmexclass::proxy::method::Context& context);
+ protected:
+  void read(libmexclass::proxy::method::Context& context);
+  void getFilename(libmexclass::proxy::method::Context& context);
 
-        private:
-            const std::string filename;
-    };
+ private:
+  const std::string filename;
+};
 
-}
+}  // namespace arrow::matlab::io::csv::proxy

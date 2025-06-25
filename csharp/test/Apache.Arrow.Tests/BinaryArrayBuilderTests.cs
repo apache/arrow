@@ -83,7 +83,7 @@ namespace Apache.Arrow.Tests
                     builder.AppendRange(initialContents);
                 int initialLength = builder.Length;
                 int expectedLength = initialLength + 1;
-                var expectedArrayContents = initialContents.Append(new[] { singleByte });
+                var expectedArrayContents = initialContents.Concat(new[] { new[] { singleByte } });
 
                 // Act
                 var actualReturnValue = builder.Append(singleByte);
@@ -130,7 +130,7 @@ namespace Apache.Arrow.Tests
                     builder.AppendRange(initialContents);
                 int initialLength = builder.Length;
                 int expectedLength = initialLength + 1;
-                var expectedArrayContents = initialContents.Append(null);
+                var expectedArrayContents = initialContents.Concat(new byte[][] { null });
 
                 // Act
                 var actualReturnValue = builder.AppendNull();
@@ -180,7 +180,7 @@ namespace Apache.Arrow.Tests
                 int initialLength = builder.Length;
                 var span = (ReadOnlySpan<byte>)bytes;
                 int expectedLength = initialLength + 1;
-                var expectedArrayContents = initialContents.Append(bytes);
+                var expectedArrayContents = initialContents.Concat(new[] { bytes });
 
                 // Act
                 var actualReturnValue = builder.Append(span);
@@ -230,7 +230,7 @@ namespace Apache.Arrow.Tests
                 int initialLength = builder.Length;
                 int expectedLength = initialLength + 1;
                 var enumerable = (IEnumerable<byte>)bytes;
-                var expectedArrayContents = initialContents.Append(bytes);
+                var expectedArrayContents = initialContents.Concat(new[] { bytes });
 
                 // Act
                 var actualReturnValue = builder.Append(enumerable);

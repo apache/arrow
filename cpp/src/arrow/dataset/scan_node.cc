@@ -34,7 +34,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/tracing_internal.h"
 #include "arrow/util/unreachable.h"
@@ -94,7 +94,7 @@ Future<AsyncGenerator<std::shared_ptr<Fragment>>> GetFragments(
 /// fragment on disk actually had a column x, and the value was not 7, then we will prefer
 /// the guarantee in this invalid case.
 ///
-/// Ths next step is to fetch the metadata for the fragment.  For some formats (e.g.
+/// The next step is to fetch the metadata for the fragment.  For some formats (e.g.
 /// CSV) this may be quite simple (get the size of the file).  For other formats (e.g.
 /// parquet) this is more involved and requires reading data.  There is one metadata
 /// io-task per fragment.  The metadata io-task creates an AsyncGenerator<RecordBatch>
@@ -150,7 +150,7 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
     }
 
     if (normalized.filter.call() && normalized.filter.IsBound()) {
-      // There is no easy way to make sure a filter was bound agaisnt the same
+      // There is no easy way to make sure a filter was bound against the same
       // function registry as the one in ctx so we just require it to be unbound
       // FIXME - Do we care if it was bound to a different function registry?
       return Status::Invalid("Scan filter must be unbound");
@@ -166,7 +166,7 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
       return Status::Invalid("A scan filter must be a boolean expression");
     }
 
-    return std::move(normalized);
+    return normalized;
   }
 
   static Result<acero::ExecNode*> Make(acero::ExecPlan* plan,
@@ -334,7 +334,7 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
           extracted.known_values.push_back({i, *maybe_casted});
         }
       }
-      return std::move(extracted);
+      return extracted;
     }
 
     Future<> BeginScan(const std::shared_ptr<InspectedFragment>& inspected_fragment) {
@@ -427,7 +427,7 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
             /*queue=*/nullptr,
             [this]() { return output_->InputFinished(this, num_batches_.load()); });
     fragment_tasks->AddAsyncGenerator<std::shared_ptr<Fragment>>(
-        std::move(frag_gen),
+        frag_gen,
         [this, fragment_tasks =
                    std::move(fragment_tasks)](const std::shared_ptr<Fragment>& fragment) {
           fragment_tasks->AddTask(std::make_unique<ListFragmentTask>(this, fragment));

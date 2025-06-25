@@ -17,6 +17,7 @@
 
 #include "arrow/filesystem/util_internal.h"
 
+#include <algorithm>
 #include <cerrno>
 
 #include "arrow/buffer.h"
@@ -25,14 +26,13 @@
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/string.h"
+#include "arrow/util/uri.h"
 
 namespace arrow {
 
 using internal::StatusDetailFromErrno;
-using internal::Uri;
 
-namespace fs {
-namespace internal {
+namespace fs::internal {
 
 TimePoint CurrentTimePoint() {
   auto now = std::chrono::system_clock::now();
@@ -63,9 +63,19 @@ Status PathNotFound(std::string_view path) {
       .WithDetail(StatusDetailFromErrno(ENOENT));
 }
 
+Status IsADir(std::string_view path) {
+  return Status::IOError("Is a directory: '", path, "'")
+      .WithDetail(StatusDetailFromErrno(EISDIR));
+}
+
 Status NotADir(std::string_view path) {
   return Status::IOError("Not a directory: '", path, "'")
       .WithDetail(StatusDetailFromErrno(ENOTDIR));
+}
+
+Status NotEmpty(std::string_view path) {
+  return Status::IOError("Directory not empty: '", path, "'")
+      .WithDetail(StatusDetailFromErrno(ENOTEMPTY));
 }
 
 Status NotAFile(std::string_view path) {
@@ -92,7 +102,7 @@ Result<Uri> ParseFileSystemUri(const std::string& uri_string) {
     return status;
 #endif
   }
-  return std::move(uri);
+  return uri;
 }
 
 #ifdef _WIN32
@@ -251,6 +261,6 @@ Result<FileInfoVector> GlobFiles(const std::shared_ptr<FileSystem>& filesystem,
 
 FileSystemGlobalOptions global_options;
 
-}  // namespace internal
-}  // namespace fs
+}  // namespace fs::internal
+
 }  // namespace arrow

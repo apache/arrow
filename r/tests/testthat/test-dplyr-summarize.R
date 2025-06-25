@@ -91,6 +91,27 @@ test_that("Group by sum on dataset", {
   )
 })
 
+test_that("Group by prod on dataset", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(some_grouping) %>%
+      summarize(prod = prod(int, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      group_by(some_grouping) %>%
+      summarize(
+        prod = prod(int, na.rm = FALSE),
+        prod2 = base::prod(int, na.rm = TRUE)
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("Group by mean on dataset", {
   compare_dplyr_binding(
     .input %>%
@@ -316,24 +337,25 @@ test_that("Functions that take ... but we only accept a single arg", {
   )
 
   # Now that we've demonstrated that the whole machinery works, let's test
-  # the agg_funcs directly
-  expect_error(call_binding_agg("n_distinct"), "n_distinct() with 0 arguments", fixed = TRUE)
-  expect_error(call_binding_agg("sum"), "sum() with 0 arguments", fixed = TRUE)
-  expect_error(call_binding_agg("any"), "any() with 0 arguments", fixed = TRUE)
-  expect_error(call_binding_agg("all"), "all() with 0 arguments", fixed = TRUE)
-  expect_error(call_binding_agg("min"), "min() with 0 arguments", fixed = TRUE)
-  expect_error(call_binding_agg("max"), "max() with 0 arguments", fixed = TRUE)
-  expect_error(call_binding_agg("n_distinct", 1, 2), "Multiple arguments to n_distinct()")
-  expect_error(call_binding_agg("sum", 1, 2), "Multiple arguments to sum")
-  expect_error(call_binding_agg("any", 1, 2), "Multiple arguments to any()")
-  expect_error(call_binding_agg("all", 1, 2), "Multiple arguments to all()")
-  expect_error(call_binding_agg("min", 1, 2), "Multiple arguments to min()")
-  expect_error(call_binding_agg("max", 1, 2), "Multiple arguments to max()")
+  # the agg funcs directly
+  expect_error(call_binding("n_distinct"), "n_distinct() with 0 arguments", fixed = TRUE)
+  expect_error(call_binding("sum"), "sum() with 0 arguments", fixed = TRUE)
+  expect_error(call_binding("prod"), "prod() with 0 arguments", fixed = TRUE)
+  expect_error(call_binding("any"), "any() with 0 arguments", fixed = TRUE)
+  expect_error(call_binding("all"), "all() with 0 arguments", fixed = TRUE)
+  expect_error(call_binding("min"), "min() with 0 arguments", fixed = TRUE)
+  expect_error(call_binding("max"), "max() with 0 arguments", fixed = TRUE)
+  expect_error(call_binding("n_distinct", 1, 2), "Multiple arguments to n_distinct()")
+  expect_error(call_binding("sum", 1, 2), "Multiple arguments to sum")
+  expect_error(call_binding("any", 1, 2), "Multiple arguments to any()")
+  expect_error(call_binding("all", 1, 2), "Multiple arguments to all()")
+  expect_error(call_binding("min", 1, 2), "Multiple arguments to min()")
+  expect_error(call_binding("max", 1, 2), "Multiple arguments to max()")
 })
 
 test_that("median()", {
   # When medians are integer-valued, stats::median() sometimes returns output of
-  # type integer, whereas whereas the Arrow approx_median kernels always return
+  # type integer, whereas the Arrow approx_median kernels always return
   # output of type float64. The calls to median(int, ...) in the tests below
   # are enclosed in as.double() to work around this known difference.
 
@@ -392,6 +414,8 @@ test_that("median()", {
 })
 
 test_that("quantile()", {
+  skip_if_not_available("dataset")
+
   # The default method for stats::quantile() throws an error when na.rm = FALSE
   # and the input contains NA or NaN, whereas the Arrow tdigest kernels return
   # null in this situation. To work around this known difference, the tests
@@ -410,7 +434,7 @@ test_that("quantile()", {
   # returned by Arrow.
 
   # When quantiles are integer-valued, stats::quantile() sometimes returns
-  # output of type integer, whereas whereas the Arrow tdigest kernels always
+  # output of type integer, whereas the Arrow tdigest kernels always
   # return output of type float64. The calls to quantile(int, ...) in the tests
   # below are enclosed in as.double() to work around this known difference.
 
@@ -488,9 +512,9 @@ test_that("quantile()", {
   )
 
   # with a vector of 2+ probs
-  expect_warning(
-    Table$create(tbl) %>%
-      summarize(q = quantile(dbl, probs = c(0.2, 0.8), na.rm = TRUE)),
+  expect_error(
+    InMemoryDataset$create(data.frame(x = 1)) %>%
+      summarize(q = quantile(x, probs = c(0.2, 0.8), na.rm = TRUE)),
     "quantile() with length(probs) != 1 not supported in Arrow",
     fixed = TRUE
   )
@@ -642,6 +666,7 @@ test_that("summarise() with !!sym()", {
       group_by(false) %>%
       summarise(
         sum = sum(!!sym(test_dbl_col)),
+        prod = prod(!!sym(test_dbl_col)),
         any = any(!!sym(test_lgl_col)),
         all = all(!!sym(test_lgl_col)),
         mean = mean(!!sym(test_dbl_col)),
@@ -767,7 +792,6 @@ test_that("Expressions on aggregations", {
         any = any(lgl),
         all = all(lgl)
       ) %>%
-      ungroup() %>% # TODO: loosen the restriction on mutate after group_by
       mutate(some = any & !all) %>%
       select(some_grouping, some) %>%
       collect(),
@@ -808,28 +832,116 @@ test_that("Expressions on aggregations", {
   )
 
   # Aggregates on aggregates are not supported
-  expect_warning(
-    record_batch(tbl) %>% summarise(any(any(lgl))),
-    paste(
-      "Aggregate within aggregate expression",
-      "any\\(any\\(lgl\\)\\) not supported in Arrow"
-    )
+  expect_snapshot(
+    record_batch(tbl) %>% summarise(any(any(lgl)))
   )
 
-  # Check aggregates on aggeregates with more complex calls
+  # Check aggregates on aggregates with more complex calls
   expect_warning(
     record_batch(tbl) %>% summarise(any(any(!lgl))),
-    paste(
-      "Aggregate within aggregate expression",
-      "any\\(any\\(!lgl\\)\\) not supported in Arrow"
-    )
+    "aggregate within aggregate expression not supported in Arrow"
   )
   expect_warning(
     record_batch(tbl) %>% summarise(!any(any(lgl))),
-    paste(
-      "Aggregate within aggregate expression",
-      "any\\(any\\(lgl\\)\\) not supported in Arrow"
-    )
+    "aggregate within aggregate expression not supported in Arrow"
+  )
+})
+
+test_that("Re-using/overwriting column names", {
+  compare_dplyr_binding(
+    .input %>%
+      summarize(
+        # These are both aggregations
+        y = sum(int, na.rm = TRUE),
+        y = sum(dbl, na.rm = TRUE)
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      summarize(
+        # This is just aggregation
+        y = sum(int, na.rm = TRUE),
+        # This is aggregations and a projection after
+        y = mean(int, na.rm = TRUE) * n()
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      summarize(
+        # Same thing, but in the other order
+        y = mean(int, na.rm = TRUE) * n(),
+        y = sum(dbl, na.rm = TRUE),
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      summarize(
+        int = sum(int, na.rm = TRUE),
+        # This needs to pick up *that* int, not the column in the data
+        y = int / n()
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      summarize(
+        # No one should do this! But it's valid right?
+        int = sum(int, na.rm = TRUE),
+        int = int / n()
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("Weighted mean", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(some_grouping) %>%
+      summarize(
+        weighted_mean = sum(int * dbl) / sum(dbl)
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  division <- function(x, y) x / y
+  compare_dplyr_binding(
+    .input %>%
+      group_by(some_grouping) %>%
+      summarize(
+        weighted_mean = division(sum(int * dbl), sum(dbl))
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  # We can also define functions that call supported aggregation functions
+  # and it just works
+  wtd_mean <- function(x, w) sum(x * w) / sum(w)
+  withr::local_options(list(arrow.debug = TRUE))
+  expect_output(
+    compare_dplyr_binding(
+      .input %>%
+        group_by(some_grouping) %>%
+        summarize(
+          weighted_mean = wtd_mean(int, dbl)
+        ) %>%
+        collect(),
+      tbl
+    ),
+    "Adding wtd_mean to the function environment"
   )
 })
 
@@ -843,8 +955,45 @@ test_that("Summarize with 0 arguments", {
   )
 })
 
-test_that("Not (yet) supported: implicit join", {
-  withr::local_options(list(arrow.debug = TRUE))
+test_that("Printing aggregation expressions", {
+  q <- tbl %>%
+    arrow_table() %>%
+    summarize(
+      total = sum(int, na.rm = TRUE),
+      prod = prod(int, na.rm = TRUE),
+      any = any(lgl, na.rm = TRUE),
+      all = all(lgl, na.rm = TRUE),
+      mean = mean(int, na.rm = TRUE),
+      sd = sd(int, na.rm = TRUE),
+      var = var(int, na.rm = TRUE),
+      n_distinct = n_distinct(chr),
+      min = min(int, na.rm = TRUE),
+      max = max(int, na.rm = TRUE)
+    )
+  expect_output(
+    print(q$.data),
+    "Table (query)
+int: int32
+lgl: bool
+chr: string
+
+* Aggregations:
+total: sum(int, {skip_nulls=true, min_count=0})
+prod: product(int, {skip_nulls=true, min_count=0})
+any: any(lgl, {skip_nulls=true, min_count=0})
+all: all(lgl, {skip_nulls=true, min_count=0})
+mean: mean(int, {skip_nulls=true, min_count=0})
+sd: stddev(int, {ddof=1, skip_nulls=true, min_count=0})
+var: variance(int, {ddof=1, skip_nulls=true, min_count=0})
+n_distinct: count_distinct(chr, {mode=ALL})
+min: min(int, {skip_nulls=true, min_count=0})
+max: max(int, {skip_nulls=true, min_count=0})
+See $.data for the source Arrow object",
+    fixed = TRUE
+  )
+})
+
+test_that("Not supported: window functions", {
   compare_dplyr_binding(
     .input %>%
       group_by(some_grouping) %>%
@@ -853,10 +1002,7 @@ test_that("Not (yet) supported: implicit join", {
       ) %>%
       collect(),
     tbl,
-    warning = paste(
-      "Aggregate within aggregate expression sum\\(\\(dbl - mean\\(dbl\\)\\)\\^2\\)",
-      "not supported in Arrow; pulling data into R"
-    )
+    warning = "aggregate within aggregate expression not supported in Arrow"
   )
   compare_dplyr_binding(
     .input %>%
@@ -866,10 +1012,7 @@ test_that("Not (yet) supported: implicit join", {
       ) %>%
       collect(),
     tbl,
-    warning = paste(
-      "Aggregate within aggregate expression sum\\(dbl - mean\\(dbl\\)\\)",
-      "not supported in Arrow; pulling data into R"
-    )
+    warning = "aggregate within aggregate expression not supported in Arrow"
   )
   compare_dplyr_binding(
     .input %>%
@@ -879,53 +1022,35 @@ test_that("Not (yet) supported: implicit join", {
       ) %>%
       collect(),
     tbl,
-    warning = paste(
-      "Aggregate within aggregate expression sum\\(\\(dbl - mean\\(dbl\\)\\)\\^2\\)",
-      "not supported in Arrow; pulling data into R"
-    )
+    warning = "aggregate within aggregate expression not supported in Arrow"
   )
 
   compare_dplyr_binding(
     .input %>%
-      group_by(some_grouping) %>%
-      summarize(
-        dbl - mean(dbl)
-      ) %>%
+      group_by(x) %>%
+      summarize(y - mean(y)) %>%
       collect(),
-    tbl,
-    warning = paste(
-      "Expression dbl - mean\\(dbl\\) is not an aggregate expression",
-      "or is not supported in Arrow; pulling data into R"
-    )
+    data.frame(x = 1, y = 2),
+    warning = "Expression is not a valid aggregation expression or is not supported in Arrow"
   )
 
   compare_dplyr_binding(
     .input %>%
-      group_by(some_grouping) %>%
-      summarize(
-        dbl
-      ) %>%
+      group_by(x) %>%
+      summarize(y) %>%
       collect(),
-    tbl,
-    warning = paste(
-      "Expression dbl is not an aggregate expression",
-      "or is not supported in Arrow; pulling data into R"
-    )
+    data.frame(x = 1, y = 2),
+    warning = "Expression is not a valid aggregation expression or is not supported in Arrow"
   )
 
   # This one could possibly be supported--in mutate()
   compare_dplyr_binding(
     .input %>%
-      group_by(some_grouping) %>%
-      summarize(
-        dbl - int
-      ) %>%
+      group_by(x) %>%
+      summarize(x - y) %>%
       collect(),
-    tbl,
-    warning = paste(
-      "Expression dbl - int is not an aggregate expression",
-      "or is not supported in Arrow; pulling data into R"
-    )
+    data.frame(x = 1, y = 2, z = 3),
+    warning = "Expression is not a valid aggregation expression or is not supported in Arrow"
   )
 })
 
@@ -1065,11 +1190,6 @@ test_that("summarise() can handle scalars and literal values", {
   )
 
   expect_identical(
-    record_batch(tbl) %>% summarise(y = Expression$scalar(1L)) %>% collect(),
-    tibble(y = 1L)
-  )
-
-  expect_identical(
     record_batch(tbl) %>% summarise(y = Scalar$create(1L)) %>% collect(),
     tibble(y = 1L)
   )
@@ -1164,13 +1284,12 @@ test_that("Can use across() within summarise()", {
   )
 
   # across() doesn't work in summarise when input expressions evaluate to bare field references
-  expect_warning(
-    example_data %>%
+  expect_snapshot(
+    data.frame(x = 1, y = 2) %>%
       arrow_table() %>%
-      group_by(lgl) %>%
+      group_by(x) %>%
       summarise(across(everything())) %>%
-      collect(),
-    regexp = "Expression int is not an aggregate expression or is not supported in Arrow; pulling data into R"
+      collect()
   )
 })
 

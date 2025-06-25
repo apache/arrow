@@ -32,15 +32,20 @@ Working on the Arrow codebase 🧐
 Finding your way around Arrow
 =============================
 
-The Apache Arrow repository includes implementations for
-most of the libraries for which Arrow is available.
+The `Apache Arrow repository <https://github.com/apache/arrow>`_ includes
+implementations for most of the libraries for which Arrow is available.
 
 Languages like GLib (``c_glib/``), C++ (``cpp/``), C# (``csharp/``),
-Go (``go/``), Java (``java/``), JavaScript (``js/``), MATLAB
-(``matlab/``), Python (``python/``), R (``r/``) and Ruby (``ruby/``)
+MATLAB (``matlab/``), Python (``python/``), R (``r/``) and Ruby (``ruby/``)
 have their own subdirectories in the main folder as written here.
 
-Rust has its own repository available `here <https://github.com/apache/arrow-rs>`_.
+The following language implementations have their own repositories:
+
+- `Rust <https://github.com/apache/arrow-rs>`_
+- `Go <https://github.com/apache/arrow-go>`_
+- `Java <https://github.com/apache/arrow-java>`_
+- `JavaScript <https://github.com/apache/arrow-js>`_
+- `Julia <https://github.com/apache/arrow-julia>`_
 
 In the **language-specific subdirectories** you can find the code
 connected to that language. For example:
@@ -99,8 +104,8 @@ can be called from a function in another language.  After a function is defined 
 C++ we must create the binding manually to use it in that implementation.
 
 .. note::
-	There is much you can learn by checking **Pull Requests**
-	and **unit tests** for similar issues.
+  There is much you can learn by checking **Pull Requests**
+  and **unit tests** for similar issues.
 
 .. tab-set::
 
@@ -150,6 +155,3 @@ C++ we must create the binding manually to use it in that implementation.
       When writing bindings between C++ compute functions and R functions,
       the aim is to expose the C++ functionality via the same interface as
       existing R functions.
-
-      To read the full content on the topic of R bindings read through the
-      `Writing Bindings article <https://arrow.apache.org/docs/r/articles/developers/bindings.html>`_.

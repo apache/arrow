@@ -19,10 +19,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Apache.Arrow.Memory;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public partial class RecordBatch : IDisposable
+    public partial class RecordBatch : IArrowRecord
     {
         public Schema Schema { get; }
         public int ColumnCount => _arrays.Count;
@@ -41,7 +42,12 @@ namespace Apache.Arrow
 
         public IArrowArray Column(string columnName)
         {
-            int fieldIndex = Schema.GetFieldIndex(columnName);
+            return Column(columnName, null);
+        }
+
+        public IArrowArray Column(string columnName, IEqualityComparer<string> comparer)
+        {
+            int fieldIndex = Schema.GetFieldIndex(columnName, comparer);
             return _arrays[fieldIndex];
         }
 
@@ -94,6 +100,41 @@ namespace Apache.Arrow
             return new RecordBatch(Schema, arrays, Length);
         }
 
+        public RecordBatch Slice(int offset, int length)
+        {
+            if (offset > Length)
+            {
+                throw new ArgumentException($"Offset {offset} cannot be greater than Length {Length} for RecordBatch.Slice");
+            }
+
+            length = Math.Min(Length - offset, length);
+            return new RecordBatch(Schema, _arrays.Select(a => ArrowArrayFactory.Slice(a, offset, length)), length);
+        }
+
+        public void Accept(IArrowArrayVisitor visitor)
+        {
+            switch (visitor)
+            {
+                case IArrowArrayVisitor<RecordBatch> recordBatchVisitor:
+                    recordBatchVisitor.Visit(this);
+                    break;
+                case IArrowArrayVisitor<IArrowRecord> arrowStructVisitor:
+                    arrowStructVisitor.Visit(this);
+                    break;
+                default:
+                    visitor.Visit(this);
+                    break;
+            }
+        }
+
         public override string ToString() => $"{nameof(RecordBatch)}: {ColumnCount} columns by {Length} rows";
+
+        IRecordType IArrowRecord.Schema => this.Schema;
+        int IArrowArray.NullCount => 0;
+        int IArrowArray.Offset => 0;
+        ArrayData IArrowArray.Data => throw new NotSupportedException("Unable to get data for RecordBatch");
+
+        bool IArrowArray.IsNull(int index) => false;
+        bool IArrowArray.IsValid(int index) => true;
     }
 }

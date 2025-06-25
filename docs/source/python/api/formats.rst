@@ -66,6 +66,7 @@ JSON Files
 
    ReadOptions
    ParseOptions
+   open_json
    read_json
 
 .. _api.parquet:
@@ -97,6 +98,7 @@ Parquet Metadata
 
    FileMetaData
    RowGroupMetaData
+   SortingColumn
    ColumnChunkMetaData
    Statistics
    ParquetSchema

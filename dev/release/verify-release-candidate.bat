@@ -56,7 +56,7 @@ if "%VERSION%"=="" (
 
 set ARROW_TEST_DATA=!ARROW_SOURCE!\testing\data
 set PARQUET_TEST_DATA=!ARROW_SOURCE!\cpp\submodules\parquet-testing\data
-set PYTHON=3.8
+set PYTHON=3.9
 
 @rem Using call with conda.bat seems necessary to avoid terminating the batch
 @rem script execution
@@ -69,7 +69,7 @@ call conda create --no-shortcuts -c conda-forge -f -q -y -p %_VERIFICATION_CONDA
 
 call activate %_VERIFICATION_CONDA_ENV% || exit /B 1
 
-set GENERATOR=Visual Studio 16 2019
+set GENERATOR=Visual Studio 17 2022
 set ARCHITECTURE=x64
 set CONFIGURATION=release
 
@@ -84,7 +84,7 @@ mkdir !ARROW_SOURCE!\cpp\build
 pushd !ARROW_SOURCE!\cpp\build
 
 @rem This is the path for Visual Studio Community 2017
-call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tools\VsDevCmd.bat" -arch=amd64
+call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
 
 @rem NOTE(wesm): not using Ninja for now to be able to more easily control the
 @rem generator used
@@ -122,7 +122,10 @@ cmake --build . --target INSTALL --config Release || exit /B 1
 @rem Needed so python-test.exe works
 set PYTHONPATH_ORIGINAL=%PYTHONPATH%
 set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%;%PYTHONPATH%
-ctest -j%NUMBER_OF_PROCESSORS% --output-on-failure  || exit /B 1
+ctest ^
+  --build-config Release ^
+  --output-on-failure ^
+  --parallel %NUMBER_OF_PROCESSORS% || exit /B 1
 set PYTHONPATH=%PYTHONPATH_ORIGINAL%
 popd
 

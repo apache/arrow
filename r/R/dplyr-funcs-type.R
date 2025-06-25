@@ -105,7 +105,7 @@ register_bindings_type_cast <- function() {
     } else if (inherits(class2, "DataType")) {
       object$type() == as_type(class2)
     } else {
-      stop("Second argument to is() is not a string or DataType", call. = FALSE)
+      validation_error("Second argument to is() is not a string or DataType")
     }
   })
 
@@ -140,7 +140,7 @@ register_bindings_type_cast <- function() {
              fix.empty.names = TRUE,
              stringsAsFactors = FALSE) {
       # we need a specific value of stringsAsFactors because the default was
-      # TRUE in R <= 3.6
+      # TRUE in R <= 3.6 and folks might still be cargoculting to stay in the past.
       if (!identical(stringsAsFactors, FALSE)) {
         arrow_not_supported("stringsAsFactors = TRUE")
       }
@@ -158,8 +158,8 @@ register_bindings_type_cast <- function() {
         if (identical(fix.empty.names, TRUE)) {
           names(args) <- make.names(names(args), unique = TRUE)
         } else {
-          name_emtpy <- names(args) == ""
-          names(args)[!name_emtpy] <- make.names(names(args)[!name_emtpy], unique = TRUE)
+          name_empty <- names(args) == ""
+          names(args)[!name_empty] <- make.names(names(args)[!name_empty], unique = TRUE)
         }
       }
 
@@ -186,7 +186,7 @@ register_bindings_type_inspect <- function() {
     is.numeric(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
       "UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
       "UINT64", "INT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
-      "DECIMAL128", "DECIMAL256"
+      "DECIMAL32", "DECIMAL64", "DECIMAL128", "DECIMAL256"
     )])
   })
   register_binding("base::is.double", function(x) {
@@ -219,7 +219,10 @@ register_bindings_type_inspect <- function() {
     call_binding("is.character", x)
   })
   register_binding("rlang::is_double", function(x, n = NULL, finite = NULL) {
-    assert_that(is.null(n) && is.null(finite))
+    assert_that(is.null(n))
+    if (!is.null(finite)) {
+      arrow_not_supported("`finite` argument")
+    }
     call_binding("is.double", x)
   })
   register_binding("rlang::is_integer", function(x, n = NULL) {

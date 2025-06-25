@@ -27,9 +27,10 @@
 #include "arrow/acero/options.h"
 #include "arrow/acero/schema_util.h"
 #include "arrow/acero/util.h"
-#include "arrow/compute/key_hash.h"
+#include "arrow/compute/key_hash_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 
@@ -61,30 +62,30 @@ Result<std::vector<FieldRef>> HashJoinSchema::ComputePayload(
     const std::vector<FieldRef>& filter, const std::vector<FieldRef>& keys) {
   // payload = (output + filter) - keys, with no duplicates
   std::unordered_set<int> payload_fields;
-  for (auto ref : output) {
+  for (const auto& ref : output) {
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
     payload_fields.insert(match[0]);
   }
 
-  for (auto ref : filter) {
+  for (const auto& ref : filter) {
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
     payload_fields.insert(match[0]);
   }
 
-  for (auto ref : keys) {
+  for (const auto& ref : keys) {
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
     payload_fields.erase(match[0]);
   }
 
   std::vector<FieldRef> payload_refs;
-  for (auto ref : output) {
+  for (const auto& ref : output) {
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
     if (payload_fields.find(match[0]) != payload_fields.end()) {
       payload_refs.push_back(ref);
       payload_fields.erase(match[0]);
     }
   }
-  for (auto ref : filter) {
+  for (const auto& ref : filter) {
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
     if (payload_fields.find(match[0]) != payload_fields.end()) {
       payload_refs.push_back(ref);
@@ -198,7 +199,7 @@ Status HashJoinSchema::ValidateSchemas(JoinType join_type, const Schema& left_sc
     return Status::Invalid("Different number of key fields on left (", left_keys.size(),
                            ") and right (", right_keys.size(), ") side of the join");
   }
-  if (left_keys.size() < 1) {
+  if (left_keys.empty()) {
     return Status::Invalid("Join key cannot be empty");
   }
   for (size_t i = 0; i < left_keys.size() + right_keys.size(); ++i) {
@@ -351,7 +352,7 @@ Result<Expression> HashJoinSchema::BindFilter(Expression filter,
                                               const Schema& right_schema,
                                               ExecContext* exec_context) {
   if (filter.IsBound() || filter == literal(true)) {
-    return std::move(filter);
+    return filter;
   }
   // Step 1: Construct filter schema
   FieldVector fields;
@@ -386,7 +387,7 @@ Result<Expression> HashJoinSchema::BindFilter(Expression filter,
                              filter.ToString(), " evaluates to ",
                              filter.type()->ToString());
   }
-  return std::move(filter);
+  return filter;
 }
 
 Expression HashJoinSchema::RewriteFilterToUseFilterSchema(
@@ -432,7 +433,7 @@ Status HashJoinSchema::CollectFilterColumns(std::vector<FieldRef>& left_filter,
         indices[0] -= left_schema.num_fields();
         FieldPath corrected_path(std::move(indices));
         if (right_seen_paths.find(*path) == right_seen_paths.end()) {
-          right_filter.push_back(corrected_path);
+          right_filter.emplace_back(corrected_path);
           right_seen_paths.emplace(std::move(corrected_path));
         }
       } else if (left_seen_paths.find(*path) == left_seen_paths.end()) {
@@ -497,11 +498,11 @@ struct BloomFilterPushdownContext {
   using BuildFinishedCallback = std::function<Status(size_t, AccumulationQueue)>;
   using FiltersReceivedCallback = std::function<Status(size_t)>;
   using FilterFinishedCallback = std::function<Status(size_t, AccumulationQueue)>;
-  void Init(HashJoinNode* owner, size_t num_threads,
-            RegisterTaskGroupCallback register_task_group_callback,
-            StartTaskGroupCallback start_task_group_callback,
-            FiltersReceivedCallback on_bloom_filters_received, bool disable_bloom_filter,
-            bool use_sync_execution);
+  Status Init(HashJoinNode* owner, size_t num_threads,
+              RegisterTaskGroupCallback register_task_group_callback,
+              StartTaskGroupCallback start_task_group_callback,
+              FiltersReceivedCallback on_bloom_filters_received,
+              bool disable_bloom_filter, bool use_sync_execution);
 
   Status StartProducing(size_t thread_index);
 
@@ -559,8 +560,7 @@ struct BloomFilterPushdownContext {
     std::vector<uint32_t> hashes(batch.length);
     std::vector<uint8_t> bv(bit_vector_bytes);
 
-    ARROW_ASSIGN_OR_RAISE(arrow::util::TempVectorStack * stack,
-                          ctx_->GetTempStack(thread_index));
+    arrow::util::TempVectorStack* stack = &tld_[thread_index].stack;
 
     // Start with full selection for the current batch
     memset(selected.data(), 0xff, bit_vector_bytes);
@@ -654,7 +654,17 @@ struct BloomFilterPushdownContext {
     FiltersReceivedCallback all_received_callback_;
     FilterFinishedCallback on_finished_;
   } eval_;
+
+  static constexpr auto kTempStackUsage =
+      Hashing32::kHashBatchTempStackUsage +
+      (sizeof(uint32_t) + /*extra=*/1) * arrow::util::MiniBatch::kMiniBatchLength;
+
+  struct ThreadLocalData {
+    arrow::util::TempVectorStack stack;
+  };
+  std::vector<ThreadLocalData> tld_;
 };
+
 bool HashJoinSchema::HasDictionaries() const {
   for (int side = 0; side <= 1; ++side) {
     for (int icol = 0; icol < proj_maps[side].num_cols(HashJoinProjection::INPUT);
@@ -689,7 +699,7 @@ class HashJoinNode : public ExecNode, public TracedNode {
                std::shared_ptr<Schema> output_schema,
                std::unique_ptr<HashJoinSchema> schema_mgr, Expression filter,
                std::unique_ptr<HashJoinImpl> impl)
-      : ExecNode(plan, inputs, {"left", "right"},
+      : ExecNode(plan, std::move(inputs), {"left", "right"},
                  /*output_schema=*/std::move(output_schema)),
         TracedNode(this),
         join_type_(join_options.join_type),
@@ -740,13 +750,11 @@ class HashJoinNode : public ExecNode, public TracedNode {
     // Create hash join implementation object
     // SwissJoin does not support:
     // a) 64-bit string offsets
-    // b) residual predicates
-    // c) dictionaries
+    // b) dictionaries
     //
     bool use_swiss_join;
 #if ARROW_LITTLE_ENDIAN
-    use_swiss_join = (filter == literal(true)) && !schema_mgr->HasDictionaries() &&
-                     !schema_mgr->HasLargeBinary();
+    use_swiss_join = !schema_mgr->HasDictionaries() && !schema_mgr->HasLargeBinary();
 #else
     use_swiss_join = false;
 #endif
@@ -765,6 +773,9 @@ class HashJoinNode : public ExecNode, public TracedNode {
   const char* kind_name() const override { return "HashJoinNode"; }
 
   Status OnBuildSideBatch(size_t thread_index, ExecBatch batch) {
+    if (batch.length == 0) {
+      return Status::OK();
+    }
     std::lock_guard<std::mutex> guard(build_side_mutex_);
     build_accumulator_.InsertBatch(std::move(batch));
     return Status::OK();
@@ -932,7 +943,7 @@ class HashJoinNode : public ExecNode, public TracedNode {
     // we will change it back to just the CPU's thread pool capacity.
     size_t num_threads = (GetCpuThreadPoolCapacity() + io::GetIOThreadPoolCapacity() + 1);
 
-    pushdown_context_.Init(
+    RETURN_NOT_OK(pushdown_context_.Init(
         this, num_threads,
         [ctx](std::function<Status(size_t, int64_t)> fn,
               std::function<Status(size_t)> on_finished) {
@@ -942,7 +953,7 @@ class HashJoinNode : public ExecNode, public TracedNode {
           return ctx->StartTaskGroup(task_group_id, num_tasks);
         },
         [this](size_t thread_index) { return OnFiltersReceived(thread_index); },
-        disable_bloom_filter_, use_sync_execution);
+        disable_bloom_filter_, use_sync_execution));
 
     RETURN_NOT_OK(impl_->Init(
         ctx, join_type_, num_threads, &(schema_mgr_->proj_maps[0]),
@@ -1039,7 +1050,7 @@ class HashJoinNode : public ExecNode, public TracedNode {
   BloomFilterPushdownContext pushdown_context_;
 };
 
-void BloomFilterPushdownContext::Init(
+Status BloomFilterPushdownContext::Init(
     HashJoinNode* owner, size_t num_threads,
     RegisterTaskGroupCallback register_task_group_callback,
     StartTaskGroupCallback start_task_group_callback,
@@ -1076,6 +1087,12 @@ void BloomFilterPushdownContext::Init(
         return eval_.on_finished_(thread_index, std::move(eval_.batches_));
       });
   start_task_group_callback_ = std::move(start_task_group_callback);
+  tld_.resize(num_threads);
+  for (auto& local_data : tld_) {
+    RETURN_NOT_OK(local_data.stack.Init(ctx_->memory_pool(), kTempStackUsage));
+  }
+
+  return Status::OK();
 }
 
 Status BloomFilterPushdownContext::StartProducing(size_t thread_index) {
@@ -1126,8 +1143,7 @@ Status BloomFilterPushdownContext::BuildBloomFilter_exec_task(size_t thread_inde
   }
   ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(std::move(key_columns)));
 
-  ARROW_ASSIGN_OR_RAISE(arrow::util::TempVectorStack * stack,
-                        ctx_->GetTempStack(thread_index));
+  arrow::util::TempVectorStack* stack = &tld_[thread_index].stack;
   arrow::util::TempVectorHolder<uint32_t> hash_holder(
       stack, arrow::util::MiniBatch::kMiniBatchLength);
   uint32_t* hashes = hash_holder.mutable_data();

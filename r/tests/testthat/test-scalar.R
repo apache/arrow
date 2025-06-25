@@ -94,10 +94,6 @@ test_that("Handling string data with embedded nuls", {
   )
   scalar_with_nul <- scalar(raws, binary())$cast(utf8())
 
-  # The behavior of the warnings/errors is slightly different with and without
-  # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
-  # on `as.vector()` where as with it, the error only happens on materialization)
-  skip_on_r_older_than("3.6")
   v <- expect_error(as.vector(scalar_with_nul), NA)
   expect_error(
     v[1],

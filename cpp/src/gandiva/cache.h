@@ -20,13 +20,22 @@
 #include <cstdlib>
 #include <mutex>
 
+#include "arrow/util/macros.h"
 #include "gandiva/lru_cache.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {
 
+namespace internal {
+// Only called once by GetCacheCapacity().
+// Do the actual work of getting the cache capacity from env var.
+// Also makes the testing easier.
 GANDIVA_EXPORT
-int GetCapacity();
+int GetCacheCapacityFromEnvVar();
+}  // namespace internal
+
+GANDIVA_EXPORT
+int GetCacheCapacity();
 
 GANDIVA_EXPORT
 void LogCacheSize(size_t capacity);
@@ -36,7 +45,7 @@ class Cache {
  public:
   explicit Cache(size_t capacity) : cache_(capacity) { LogCacheSize(capacity); }
 
-  Cache() : Cache(GetCapacity()) {}
+  Cache() : Cache(GetCacheCapacity()) {}
 
   ValueType GetObjectCode(const KeyType& cache_key) {
     std::optional<ValueType> result;

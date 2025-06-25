@@ -22,6 +22,8 @@
 
 #include <glib-object.h>
 
+#include <arrow-dataset-glib/version.h>
+
 G_BEGIN_DECLS
 /*** END file-header ***/
 
@@ -31,6 +33,7 @@ G_BEGIN_DECLS
 /*** END file-production ***/
 
 /*** BEGIN value-header ***/
+GADATASET_AVAILABLE_IN_ALL
 GType @enum_name@_get_type(void) G_GNUC_CONST;
 #define @ENUMPREFIX@_TYPE_@ENUMSHORT@ (@enum_name@_get_type())
 /*** END value-header ***/

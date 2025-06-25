@@ -237,7 +237,7 @@ class ChunkedArrayIterator {
   }
 
  private:
-  arrow::internal::ChunkLocation GetChunkLocation(int64_t index) const {
+  arrow::ChunkLocation GetChunkLocation(int64_t index) const {
     assert(chunked_array_);
     return chunked_array_->chunk_resolver_.Resolve(index);
   }

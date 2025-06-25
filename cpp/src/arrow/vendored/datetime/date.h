@@ -84,9 +84,7 @@
 #   pragma warning(disable : 4127)
 #endif
 
-namespace arrow_vendored
-{
-namespace date
+namespace arrow_vendored::date
 {
 
 //---------------+
@@ -965,8 +963,8 @@ operator<<(std::basic_ostream<CharT, Traits>& os, const year_month_weekday_last&
 inline namespace literals
 {
 
-CONSTCD11 date::day  operator "" _d(unsigned long long d) NOEXCEPT;
-CONSTCD11 date::year operator "" _y(unsigned long long y) NOEXCEPT;
+CONSTCD11 date::day  operator ""_d(unsigned long long d) NOEXCEPT;
+CONSTCD11 date::year operator ""_y(unsigned long long y) NOEXCEPT;
 
 }  // inline namespace literals
 #endif // !defined(_MSC_VER) || (_MSC_VER >= 1900)
@@ -1974,7 +1972,7 @@ inline namespace literals
 CONSTCD11
 inline
 date::day
-operator "" _d(unsigned long long d) NOEXCEPT
+operator ""_d(unsigned long long d) NOEXCEPT
 {
     return date::day{static_cast<unsigned>(d)};
 }
@@ -1982,7 +1980,7 @@ operator "" _d(unsigned long long d) NOEXCEPT
 CONSTCD11
 inline
 date::year
-operator "" _y(unsigned long long y) NOEXCEPT
+operator ""_y(unsigned long long y) NOEXCEPT
 {
     return date::year(static_cast<int>(y));
 }
@@ -4230,7 +4228,7 @@ inline
 std::basic_ostream<CharT, Traits>&
 operator<<(std::basic_ostream<CharT, Traits>& os, const local_time<Duration>& ut)
 {
-    return (os << sys_time<Duration>{ut.time_since_epoch()});
+    return (date::operator<<(os, sys_time<Duration>{ut.time_since_epoch()}));
 }
 
 namespace detail
@@ -6353,7 +6351,10 @@ read_signed(std::basic_istream<CharT, Traits>& is, unsigned m = 1, unsigned M = 
         if (('0' <= c && c <= '9') || c == '-' || c == '+')
         {
             if (c == '-' || c == '+')
+            {
                 (void)is.get();
+                --M;
+            }
             auto x = static_cast<int>(read_unsigned(is, std::max(m, 1u), M));
             if (!is.fail())
             {
@@ -6526,7 +6527,14 @@ read(std::basic_istream<CharT, Traits>& is, int a0, Args&& ...args)
             *e++ = static_cast<CharT>(CharT(u % 10) + CharT{'0'});
             u /= 10;
         } while (u > 0);
+#if defined(__GNUC__) && __GNUC__ >= 11
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
+#endif
         std::reverse(buf, e);
+#if defined(__GNUC__) && __GNUC__ >= 11
+#pragma GCC diagnostic pop
+#endif
         for (auto p = buf; p != e && is.rdstate() == std::ios::goodbit; ++p)
             read(is, *p);
     }
@@ -6592,7 +6600,7 @@ from_stream(std::basic_istream<CharT, Traits>& is, const CharT* fmt,
 
         CONSTDATA int not_a_year = numeric_limits<short>::min();
         CONSTDATA int not_a_2digit_year = 100;
-        CONSTDATA int not_a_century = not_a_year / 100;
+        CONSTDATA int not_a_century = numeric_limits<int>::min();
         CONSTDATA int not_a_month = 0;
         CONSTDATA int not_a_day = 0;
         CONSTDATA int not_a_hour = numeric_limits<int>::min();
@@ -7519,7 +7527,12 @@ from_stream(std::basic_istream<CharT, Traits>& is, const CharT* fmt,
                     {
                         auto c = static_cast<char>(Traits::to_char_type(ic));
                         if (c == '-')
+                        {
                             neg = true;
+                            (void)is.get();
+                        }
+                        else if (c == '+')
+                            (void)is.get();
                     }
                     if (modified == CharT{})
                     {
@@ -7735,9 +7748,7 @@ from_stream(std::basic_istream<CharT, Traits>& is, const CharT* fmt,
                 year_month_day ymd_trial = sys_days(year{Y}/January/Sunday[1]) +
                                            weeks{U-1} +
                                            (weekday{static_cast<unsigned>(wd)} - Sunday);
-                if (Y == not_a_year)
-                    Y = static_cast<int>(ymd_trial.year());
-                else if (year{Y} != ymd_trial.year())
+                if (year{Y} != ymd_trial.year())
                     goto broken;
                 if (m == not_a_month)
                     m = static_cast<int>(static_cast<unsigned>(ymd_trial.month()));
@@ -7754,9 +7765,7 @@ from_stream(std::basic_istream<CharT, Traits>& is, const CharT* fmt,
                 year_month_day ymd_trial = sys_days(year{Y}/January/Monday[1]) +
                                            weeks{W-1} +
                                            (weekday{static_cast<unsigned>(wd)} - Monday);
-                if (Y == not_a_year)
-                    Y = static_cast<int>(ymd_trial.year());
-                else if (year{Y} != ymd_trial.year())
+                if (year{Y} != ymd_trial.year())
                     goto broken;
                 if (m == not_a_month)
                     m = static_cast<int>(static_cast<unsigned>(ymd_trial.month()));
@@ -8223,8 +8232,7 @@ operator<<(std::basic_ostream<CharT, Traits>& os,
                  detail::get_units<CharT>(typename Period::type{});
 }
 
-}  // namespace date
-}  // namespace arrow_vendored
+}  // namespace arrow_vendored::date
 
 #ifdef _MSC_VER
 #   pragma warning(pop)

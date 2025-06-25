@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/filesystem/filesystem.h"
@@ -150,6 +151,18 @@ TEST(PathUtil, GetAbstractPathParent) {
   AssertPairEqual(pair, {"abc/def", "ghi"});
   pair = GetAbstractPathParent("abc/def\\ghi");
   AssertPairEqual(pair, {"abc", "def\\ghi"});
+}
+
+TEST(PathUtil, ValidateAbstractPath) {
+  ASSERT_OK(ValidateAbstractPath(""));
+  ASSERT_OK(ValidateAbstractPath("abc"));
+  ASSERT_OK(ValidateAbstractPath("abc/def"));
+  ASSERT_OK(ValidateAbstractPath("abc/def.ghi"));
+  ASSERT_OK(ValidateAbstractPath("abc/def\\ghi"));
+
+  // Extraneous separators
+  ASSERT_RAISES(Invalid, ValidateAbstractPath("//"));
+  ASSERT_RAISES(Invalid, ValidateAbstractPath("abc//def"));
 }
 
 TEST(PathUtil, ValidateAbstractPathParts) {
@@ -619,6 +632,13 @@ TEST_F(TestMockFS, FileSystemFromUri) {
   CheckDirs({});
   ASSERT_OK_AND_ASSIGN(fs_, FileSystemFromUri("mock:///foo/bar?q=zzz", &path));
   ASSERT_EQ(path, "foo/bar");
+  CheckDirs({});
+  ASSERT_OK_AND_ASSIGN(fs_, FileSystemFromUri("mock:/folder+name/bar?q=zzz", &path));
+  ASSERT_EQ(path, "folder+name/bar");
+  CheckDirs({});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("syntax error at character ' ' (position 12)"),
+      FileSystemFromUri("mock:/folder name/bar", &path));
   CheckDirs({});
 }
 

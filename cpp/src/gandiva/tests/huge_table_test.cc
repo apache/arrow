@@ -139,8 +139,11 @@ TEST_F(LARGE_MEMORY_TEST(TestHugeFilter), TestSimpleHugeFilter) {
   auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
   EXPECT_TRUE(status.ok());
 
+  auto array1 = MakeArrowArray<arrow::Int32Type, int32_t>(arr1, validity);
+  auto array2 = MakeArrowArray<arrow::Int32Type, int32_t>(arr2, validity);
+
   // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {arr1, arr2});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array1, array2});
 
   std::shared_ptr<SelectionVector> selection_vector;
   status = SelectionVector::MakeInt64(num_records, pool_, &selection_vector);

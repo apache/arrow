@@ -157,7 +157,7 @@ StreamWriter& StreamWriter::WriteVariableLength(const char* data_ptr,
     writer->WriteBatch(kBatchSizeOne, &kDefLevelZero, &kRepLevelZero, nullptr);
   }
   if (max_row_group_size_ > 0) {
-    row_group_size_ += writer->EstimatedBufferedValueBytes();
+    row_group_size_ += writer->estimated_buffered_value_bytes();
   }
   return *this;
 }
@@ -178,7 +178,7 @@ StreamWriter& StreamWriter::WriteFixedLength(const char* data_ptr, std::size_t d
     writer->WriteBatch(kBatchSizeOne, &kDefLevelZero, &kRepLevelZero, nullptr);
   }
   if (max_row_group_size_ > 0) {
-    row_group_size_ += writer->EstimatedBufferedValueBytes();
+    row_group_size_ += writer->estimated_buffered_value_bytes();
   }
   return *this;
 }

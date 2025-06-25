@@ -190,6 +190,13 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
   virtual Future<std::optional<int64_t>> CountRows(
       compute::Expression predicate, const std::shared_ptr<ScanOptions>& options);
 
+  /// \brief Clear any metadata that may have been cached by this object.
+  ///
+  /// A fragment may typically cache metadata to speed up repeated accesses.
+  /// In use cases when memory use is more critical than CPU time, calling
+  /// this function can help reclaim memory.
+  virtual Status ClearCachedMetadata();
+
   virtual std::string type_name() const = 0;
   virtual std::string ToString() const { return type_name(); }
 
@@ -210,7 +217,10 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
 
   util::Mutex physical_schema_mutex_;
   compute::Expression partition_expression_ = compute::literal(true);
+  // The physical schema that is inferred from the Fragment
   std::shared_ptr<Schema> physical_schema_;
+  // The physical schema that was passed to the Fragment constructor
+  std::shared_ptr<Schema> given_physical_schema_;
 };
 
 /// \brief Per-scan options for fragment(s) in a dataset.
@@ -398,7 +408,7 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   ///
   /// Currently, `executor` is always the same as `internal::GetCPUThreadPool()`,
   /// which means the results from the underlying fragment generator will be
-  /// transfered to the default CPU thread pool. The generator itself is
+  /// transferred to the default CPU thread pool. The generator itself is
   /// offloaded to run on the default IO thread pool.
   virtual Result<FragmentGenerator> GetFragmentsAsyncImpl(
       compute::Expression predicate, arrow::internal::Executor* executor);

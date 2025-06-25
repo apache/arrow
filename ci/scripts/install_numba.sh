@@ -26,10 +26,18 @@ fi
 
 numba=$1
 
+if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
+  # We don't need to follow this external file.
+  # See also: https://www.shellcheck.net/wiki/SC1091
+  #
+  # shellcheck source=/dev/null
+  . "${ARROW_PYTHON_VENV}/bin/activate"
+fi
+
 if [ "${numba}" = "master" ]; then
   pip install https://github.com/numba/numba/archive/main.tar.gz#egg=numba
 elif [ "${numba}" = "latest" ]; then
   pip install numba
 else
-  pip install numba==${numba}
+  pip install "numba==${numba}"
 fi

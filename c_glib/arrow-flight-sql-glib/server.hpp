@@ -23,20 +23,17 @@
 
 #include <arrow-flight-sql-glib/server.h>
 
-
 GAFlightSQLStatementQuery *
 gaflightsql_statement_query_new_raw(
   const arrow::flight::sql::StatementQuery *flight_command);
 const arrow::flight::sql::StatementQuery *
-gaflightsql_statement_query_get_raw(
-  GAFlightSQLStatementQuery *command);
+gaflightsql_statement_query_get_raw(GAFlightSQLStatementQuery *command);
 
 GAFlightSQLStatementUpdate *
 gaflightsql_statement_update_new_raw(
   const arrow::flight::sql::StatementUpdate *flight_command);
 const arrow::flight::sql::StatementUpdate *
-gaflightsql_statement_update_get_raw(
-  GAFlightSQLStatementUpdate *command);
+gaflightsql_statement_update_get_raw(GAFlightSQLStatementUpdate *command);
 
 GAFlightSQLPreparedStatementUpdate *
 gaflightsql_prepared_statement_update_new_raw(
@@ -49,8 +46,7 @@ GAFlightSQLStatementQueryTicket *
 gaflightsql_statement_query_ticket_new_raw(
   const arrow::flight::sql::StatementQueryTicket *flight_command);
 const arrow::flight::sql::StatementQueryTicket *
-gaflightsql_statement_query_ticket_get_raw(
-  GAFlightSQLStatementQueryTicket *command);
+gaflightsql_statement_query_ticket_get_raw(GAFlightSQLStatementQueryTicket *command);
 
 GAFlightSQLCreatePreparedStatementRequest *
 gaflightsql_create_prepared_statement_request_new_raw(

@@ -344,9 +344,10 @@ TEST(EnsureAlignment, Table) {
 using TypesRequiringSomeKindOfAlignment =
     testing::Types<Int16Type, Int32Type, Int64Type, UInt16Type, UInt32Type, UInt64Type,
                    FloatType, DoubleType, Date32Type, Date64Type, Time32Type, Time64Type,
-                   Decimal128Type, Decimal256Type, TimestampType, DurationType, MapType,
-                   DenseUnionType, LargeBinaryType, LargeListType, LargeStringType,
-                   MonthIntervalType, DayTimeIntervalType, MonthDayNanoIntervalType>;
+                   Decimal32Type, Decimal64Type, Decimal128Type, Decimal256Type,
+                   TimestampType, DurationType, MapType, DenseUnionType, LargeBinaryType,
+                   LargeListType, LargeStringType, MonthIntervalType, DayTimeIntervalType,
+                   MonthDayNanoIntervalType>;
 
 using TypesNotRequiringAlignment =
     testing::Types<NullType, Int8Type, UInt8Type, FixedSizeListType, FixedSizeBinaryType,
@@ -365,6 +366,16 @@ std::shared_ptr<DataType> sample_type<FixedSizeBinaryType>() {
 template <>
 std::shared_ptr<DataType> sample_type<FixedSizeListType>() {
   return fixed_size_list(uint8(), 16);
+}
+
+template <>
+std::shared_ptr<DataType> sample_type<Decimal32Type>() {
+  return decimal32(8, 6);
+}
+
+template <>
+std::shared_ptr<DataType> sample_type<Decimal64Type>() {
+  return decimal64(16, 6);
 }
 
 template <>

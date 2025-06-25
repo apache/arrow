@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 #include "arrow/extension_type.h"
 
 namespace arrow {
@@ -61,16 +63,16 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
         dim_names_(dim_names) {}
 
   std::string extension_name() const override { return "arrow.fixed_shape_tensor"; }
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
 
   /// Number of dimensions of tensor elements
-  size_t ndim() { return shape_.size(); }
+  size_t ndim() const { return shape_.size(); }
 
   /// Shape of tensor elements
-  const std::vector<int64_t> shape() const { return shape_; }
+  const std::vector<int64_t>& shape() const { return shape_; }
 
   /// Value type of tensor elements
-  const std::shared_ptr<DataType> value_type() const { return value_type_; }
+  const std::shared_ptr<DataType>& value_type() const { return value_type_; }
 
   /// Strides of tensor elements. Strides state offset in bytes between adjacent
   /// elements along each dimension. In case permutation is non-empty strides are
@@ -93,6 +95,15 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
 
   /// Create a FixedShapeTensorArray from ArrayData
   std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
+
+  /// \brief Create a Tensor from an ExtensionScalar from a FixedShapeTensorArray
+  ///
+  /// This method will return a Tensor from ExtensionScalar with strides
+  /// derived from shape and permutation of FixedShapeTensorType. Shape and
+  /// dim_names will be permuted according to permutation stored in the
+  /// FixedShapeTensorType metadata.
+  static Result<std::shared_ptr<Tensor>> MakeTensor(
+      const std::shared_ptr<ExtensionScalar>& scalar);
 
   /// \brief Create a FixedShapeTensorType instance
   static Result<std::shared_ptr<DataType>> Make(

@@ -80,6 +80,9 @@ void DeletePointer(std::shared_ptr<T>* ptr) {
 template <typename T>
 using Pointer = cpp11::external_pointer<std::shared_ptr<T>, DeletePointer<T>>;
 
+using ChunkResolver = arrow::ChunkResolver;
+using ChunkLocation = arrow::ChunkLocation;
+
 class ArrowAltrepData {
  public:
   explicit ArrowAltrepData(const std::shared_ptr<ChunkedArray>& chunked_array)
@@ -87,13 +90,11 @@ class ArrowAltrepData {
 
   const std::shared_ptr<ChunkedArray>& chunked_array() { return chunked_array_; }
 
-  arrow::internal::ChunkLocation locate(int64_t index) {
-    return resolver_.Resolve(index);
-  }
+  ChunkLocation locate(int64_t index) { return resolver_.Resolve(index); }
 
  private:
   std::shared_ptr<ChunkedArray> chunked_array_;
-  arrow::internal::ChunkResolver resolver_;
+  ChunkResolver resolver_;
 };
 
 // the ChunkedArray that is being wrapped by the altrep object
@@ -109,7 +110,7 @@ const std::shared_ptr<ChunkedArray>& GetChunkedArray(SEXP alt) {
 //        materialization is needed.
 // data2: starts as NULL, and becomes a standard R vector with the same
 //        data if necessary: if materialization is needed, e.g. if we need
-//        to access its data pointer, with DATAPTR().
+//        to access its data pointer, with INTEGER(), REAL(), etc.
 template <typename Impl>
 struct AltrepVectorBase {
   // store the Array as an external pointer in data1, mark as immutable
@@ -152,12 +153,15 @@ struct AltrepVectorBase {
     const char* class_name = CHAR(PRINTNAME(data_class_sym));
 
     if (IsMaterialized(alt)) {
-      Rprintf("materialized %s len=%d\n", class_name, Rf_xlength(Representation(alt)));
+      Rprintf("materialized %s len=%ld\n", class_name,
+              static_cast<long>(Rf_xlength(Representation(alt))));  // NOLINT: runtime/int
     } else {
       const auto& chunked_array = GetChunkedArray(alt);
-      Rprintf("%s<%p, %s, %d chunks, %d nulls> len=%d\n", class_name, chunked_array.get(),
+      Rprintf("%s<%p, %s, %d chunks, %ld nulls> len=%ld\n", class_name,
+              reinterpret_cast<void*>(chunked_array.get()),
               chunked_array->type()->ToString().c_str(), chunked_array->num_chunks(),
-              chunked_array->null_count(), chunked_array->length());
+              static_cast<long>(chunked_array->null_count()),  // NOLINT: runtime/int
+              static_cast<long>(chunked_array->length()));     // NOLINT: runtime/int
     }
 
     return TRUE;
@@ -211,7 +215,14 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
       SEXP copy = PROTECT(Rf_allocVector(sexp_type, size));
 
       // copy the data from the array, through Get_region
-      Get_region(alt, 0, size, reinterpret_cast<c_type*>(DATAPTR(copy)));
+      if constexpr (std::is_same_v<c_type, double>) {
+        Get_region(alt, 0, size, REAL(copy));
+      } else if constexpr (std::is_same_v<c_type, int>) {
+        Get_region(alt, 0, size, INTEGER(copy));
+      } else {
+        static_assert(std::is_same_v<c_type, double> || std::is_same_v<c_type, int>,
+                      "ALTREP not implemented for this c_type");
+      }
 
       // store as data2, this is now considered materialized
       SetRepresentation(alt, copy);
@@ -260,19 +271,34 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     }
 
     // Otherwise we have to materialize and hand the pointer to data2
-    return DATAPTR(Materialize(alt));
+    if constexpr (std::is_same_v<c_type, double>) {
+      return REAL(Materialize(alt));
+    } else if constexpr (std::is_same_v<c_type, int>) {
+      return INTEGER(Materialize(alt));
+    } else {
+      static_assert(std::is_same_v<c_type, double> || std::is_same_v<c_type, int>,
+                    "ALTREP not implemented for this c_type");
+    }
   }
 
   // The value at position i
   static c_type Elt(SEXP alt, R_xlen_t i) {
     if (IsMaterialized(alt)) {
-      return reinterpret_cast<c_type*>(DATAPTR(Representation(alt)))[i];
+      if constexpr (std::is_same_v<c_type, double>) {
+        return REAL(Representation(alt))[i];
+      } else if constexpr (std::is_same_v<c_type, int>) {
+        return INTEGER(Representation(alt))[i];
+      } else {
+        static_assert(std::is_same_v<c_type, double> || std::is_same_v<c_type, int>,
+                      "ALTREP not implemented for this c_type");
+      }
     }
 
     auto altrep_data =
         reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
-    const auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
+    const auto& array =
+        altrep_data->chunked_array()->chunk(static_cast<int>(resolve.chunk_index));
     auto j = resolve.index_in_chunk;
 
     return array->IsNull(j) ? cpp11::na<c_type>()
@@ -463,10 +489,10 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
       std::unique_ptr<arrow::DictionaryUnifier> unifier_ =
           ValueOrStop(DictionaryUnifier::Make(arr_type.value_type()));
 
-      size_t n_arrays = chunked_array->num_chunks();
+      int n_arrays = chunked_array->num_chunks();
       BufferVector arrays_transpose(n_arrays);
 
-      for (size_t i = 0; i < n_arrays; i++) {
+      for (int i = 0; i < n_arrays; i++) {
         const auto& dict_i =
             *internal::checked_cast<const DictionaryArray&>(*chunked_array->chunk(i))
                  .dictionary();
@@ -521,7 +547,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
       SEXP copy = PROTECT(Rf_allocVector(INTSXP, size));
 
       // copy the data from the array, through Get_region
-      Get_region(alt, 0, size, reinterpret_cast<int*>(DATAPTR(copy)));
+      Get_region(alt, 0, size, INTEGER(copy));
 
       // store as data2, this is now considered materialized
       SetRepresentation(alt, copy);
@@ -542,7 +568,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
     return nullptr;
   }
 
-  static void* Dataptr(SEXP alt, Rboolean writeable) { return DATAPTR(Materialize(alt)); }
+  static void* Dataptr(SEXP alt, Rboolean writeable) { return INTEGER(Materialize(alt)); }
 
   static SEXP Duplicate(SEXP alt, Rboolean /* deep */) {
     // the representation integer vector
@@ -556,17 +582,14 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
     return dup;
   }
 
-  // The value at position i
-  static int Elt(SEXP alt, R_xlen_t i) {
-    if (Base::IsMaterialized(alt)) {
-      return INTEGER_ELT(Representation(alt), i);
-    }
-
+  // The value at position i as an int64_t (to make bounds checking less verbose)
+  static int64_t Elt64(SEXP alt, R_xlen_t i) {
     auto altrep_data =
         reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
 
-    const auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
+    const auto& array =
+        altrep_data->chunked_array()->chunk(static_cast<int>(resolve.chunk_index));
     auto j = resolve.index_in_chunk;
 
     if (!array->IsNull(j)) {
@@ -575,7 +598,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
       if (WasUnified(alt)) {
         const auto* transpose_data = reinterpret_cast<const int32_t*>(
-            GetArrayTransposed(alt, resolve.chunk_index)->data());
+            GetArrayTransposed(alt, static_cast<int>(resolve.chunk_index))->data());
 
         switch (indices->type_id()) {
           case Type::UINT8:
@@ -614,7 +637,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
           case Type::INT64:
             return indices->data()->GetValues<int64_t>(1)[j] + 1;
           case Type::UINT64:
-            return indices->data()->GetValues<uint64_t>(1)[j] + 1;
+            return static_cast<int64_t>(indices->data()->GetValues<uint64_t>(1)[j] + 1);
           default:
             break;
         }
@@ -623,6 +646,18 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
     // not reached
     return NA_INTEGER;
+  }
+
+  // The value at position i as an int (which R needs because this is a factor)
+  static int Elt(SEXP alt, R_xlen_t i) {
+    if (Base::IsMaterialized(alt)) {
+      return INTEGER_ELT(Representation(alt), i);
+    }
+
+    int64_t elt64 = Elt64(alt, i);
+    ARROW_R_DCHECK(elt64 == NA_INTEGER || elt64 >= 1);
+    ARROW_R_DCHECK(elt64 <= std::numeric_limits<int>::max());
+    return static_cast<int>(elt64);
   }
 
   static R_xlen_t Get_region(SEXP alt, R_xlen_t start, R_xlen_t n, int* buf) {
@@ -664,7 +699,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
         // using the transpose data for this chunk
         const auto* transpose_data =
             reinterpret_cast<const int32_t*>(GetArrayTransposed(alt, j)->data());
-        auto transpose = [transpose_data](int x) { return transpose_data[x]; };
+        auto transpose = [transpose_data](int64_t x) { return transpose_data[x]; };
 
         GetRegionDispatch(array, indices, transpose, out);
 
@@ -674,7 +709,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
     } else {
       // simpler case, identity transpose
-      auto transpose = [](int x) { return x; };
+      auto transpose = [](int64_t x) { return static_cast<int>(x); };
 
       int* out = buf;
       for (const auto& array : slice->chunks()) {
@@ -715,7 +750,13 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
     VisitArraySpanInline<Type>(
         *array->data(),
-        /*valid_func=*/[&](index_type index) { *out++ = transpose(index) + 1; },
+        /*valid_func=*/
+        [&](index_type index) {
+          int64_t transposed = transpose(index) + 1;
+          ARROW_R_DCHECK(transposed >= 1);
+          ARROW_R_DCHECK(transposed <= std::numeric_limits<int>::max());
+          *out++ = static_cast<int>(transposed);
+        },
         /*null_func=*/[&]() { *out++ = cpp11::na<int>(); });
   }
 
@@ -744,7 +785,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
   // Helper class to convert to R strings. We declare one of these for the
   // class to avoid having to stack-allocate one for every STRING_ELT call.
   // This class does not own a reference to any arrays: it is the caller's
-  // responsibility to ensure the Array lifetime exeeds that of the viewer.
+  // responsibility to ensure the Array lifetime exceeds that of the viewer.
   struct RStringViewer {
     RStringViewer() : strip_out_nuls_(false), nul_was_stripped_(false) {}
 
@@ -762,7 +803,8 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
       bool no_nul = std::find(view_.begin(), view_.end(), '\0') == view_.end();
 
       if (no_nul) {
-        return Rf_mkCharLenCE(view_.data(), view_.size(), CE_UTF8);
+        ARROW_R_DCHECK(view_.size() <= std::numeric_limits<int>::max());
+        return Rf_mkCharLenCE(view_.data(), static_cast<int>(view_.size()), CE_UTF8);
       } else if (strip_out_nuls_) {
         return ConvertStripNul();
       } else {
@@ -799,7 +841,9 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
       }
 
       nul_was_stripped_ = true;
-      return Rf_mkCharLenCE(stripped_string_.data(), stripped_len, CE_UTF8);
+      ARROW_R_DCHECK(stripped_len <= std::numeric_limits<int>::max());
+      return Rf_mkCharLenCE(stripped_string_.data(), static_cast<int>(stripped_len),
+                            CE_UTF8);
     }
 
     bool nul_was_stripped() const { return nul_was_stripped_; }
@@ -819,7 +863,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
           "'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul "
           "= TRUE)";
 
-      Rf_error(stripped_string_.c_str());
+      Rf_error("%s", stripped_string_.c_str());
     }
 
     void SetArray(const std::shared_ptr<Array>& array) {
@@ -844,7 +888,8 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     auto altrep_data =
         reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
-    const auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
+    const auto& array =
+        altrep_data->chunked_array()->chunk(static_cast<int>(resolve.chunk_index));
     auto j = resolve.index_in_chunk;
 
     SEXP s = NA_STRING;
@@ -863,7 +908,9 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     return s;
   }
 
-  static void* Dataptr(SEXP alt, Rboolean writeable) { return DATAPTR(Materialize(alt)); }
+  static void* Dataptr(SEXP alt, Rboolean writeable) {
+    return const_cast<void*>(DATAPTR_RO(Materialize(alt)));
+  }
 
   static SEXP Materialize(SEXP alt) {
     if (Base::IsMaterialized(alt)) {
@@ -902,7 +949,9 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
   }
 
   static const void* Dataptr_or_null(SEXP alt) {
-    if (Base::IsMaterialized(alt)) return DATAPTR(Representation(alt));
+    if (Base::IsMaterialized(alt)) {
+      return DATAPTR_RO(alt);
+    }
 
     // otherwise give up
     return nullptr;
@@ -1238,21 +1287,14 @@ sexp test_arrow_altrep_copy_by_dataptr(sexp x) {
 
   if (TYPEOF(x) == INTSXP) {
     cpp11::writable::integers out(Rf_xlength(x));
-    int* ptr = reinterpret_cast<int*>(DATAPTR(x));
+    int* ptr = INTEGER(x);
     for (R_xlen_t i = 0; i < n; i++) {
       out[i] = ptr[i];
     }
     return out;
   } else if (TYPEOF(x) == REALSXP) {
     cpp11::writable::doubles out(Rf_xlength(x));
-    double* ptr = reinterpret_cast<double*>(DATAPTR(x));
-    for (R_xlen_t i = 0; i < n; i++) {
-      out[i] = ptr[i];
-    }
-    return out;
-  } else if (TYPEOF(x) == STRSXP) {
-    cpp11::writable::strings out(Rf_xlength(x));
-    SEXP* ptr = reinterpret_cast<SEXP*>(DATAPTR(x));
+    double* ptr = REAL(x);
     for (R_xlen_t i = 0; i < n; i++) {
       out[i] = ptr[i];
     }

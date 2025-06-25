@@ -24,21 +24,20 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_ORC_FILE_READER (garrow_orc_file_reader_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowORCFileReader,
-                         garrow_orc_file_reader,
-                         GARROW,
-                         ORC_FILE_READER,
-                         GObject)
+GARROW_AVAILABLE_IN_ALL
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowORCFileReader, garrow_orc_file_reader, GARROW, ORC_FILE_READER, GObject)
 struct _GArrowORCFileReaderClass
 {
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 GArrowORCFileReader *
-garrow_orc_file_reader_new(GArrowSeekableInputStream *file,
-                           GError **error);
+garrow_orc_file_reader_new(GArrowSeekableInputStream *file, GError **error);
 
 #ifndef GARROW_DISABLE_DEPRECATED
+GARROW_AVAILABLE_IN_ALL
 GARROW_DEPRECATED_IN_0_12_FOR(garrow_orc_file_reader_set_field_indices)
 void
 garrow_orc_file_reader_set_field_indexes(GArrowORCFileReader *reader,
@@ -51,6 +50,7 @@ garrow_orc_file_reader_set_field_indices(GArrowORCFileReader *reader,
                                          const gint *field_indices,
                                          guint n_field_indices);
 #ifndef GARROW_DISABLE_DEPRECATED
+GARROW_AVAILABLE_IN_ALL
 GARROW_DEPRECATED_IN_0_12_FOR(garrow_orc_file_reader_get_field_indices)
 const gint *
 garrow_orc_file_reader_get_field_indexes(GArrowORCFileReader *reader,
@@ -60,17 +60,25 @@ GARROW_AVAILABLE_IN_0_12
 const gint *
 garrow_orc_file_reader_get_field_indices(GArrowORCFileReader *reader,
                                          guint *n_field_indices);
+
+GARROW_AVAILABLE_IN_ALL
 GArrowSchema *
-garrow_orc_file_reader_read_type(GArrowORCFileReader *reader,
-                                 GError **error);
+garrow_orc_file_reader_read_type(GArrowORCFileReader *reader, GError **error);
+
+GARROW_AVAILABLE_IN_ALL
 GArrowTable *
-garrow_orc_file_reader_read_stripes(GArrowORCFileReader *reader,
-                                    GError **error);
+garrow_orc_file_reader_read_stripes(GArrowORCFileReader *reader, GError **error);
+
+GARROW_AVAILABLE_IN_ALL
 GArrowRecordBatch *
-garrow_orc_file_reader_read_stripe(GArrowORCFileReader *reader,
-                                   gint64 i,
-                                   GError **error);
-gint64 garrow_orc_file_reader_get_n_stripes(GArrowORCFileReader *reader);
-gint64 garrow_orc_file_reader_get_n_rows(GArrowORCFileReader *reader);
+garrow_orc_file_reader_read_stripe(GArrowORCFileReader *reader, gint64 i, GError **error);
+
+GARROW_AVAILABLE_IN_ALL
+gint64
+garrow_orc_file_reader_get_n_stripes(GArrowORCFileReader *reader);
+
+GARROW_AVAILABLE_IN_ALL
+gint64
+garrow_orc_file_reader_get_n_rows(GArrowORCFileReader *reader);
 
 G_END_DECLS

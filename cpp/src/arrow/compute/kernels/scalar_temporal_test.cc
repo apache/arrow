@@ -21,7 +21,7 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
@@ -30,7 +30,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/formatting.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -1722,12 +1722,12 @@ TEST_F(ScalarTemporalTest, TestTemporalDivideDuration) {
   }
 
   // div(duration, duration) -> float64
-  auto left = ArrayFromJSON(duration(TimeUnit::SECOND), "[1, 2, 3, 4]");
-  auto right = ArrayFromJSON(duration(TimeUnit::MILLI), "[4000, 300, 20, 1]");
+  auto left = ArrayFromJSON(duration(TimeUnit::SECOND), "[1, 2, -3, 4]");
+  auto right = ArrayFromJSON(duration(TimeUnit::MILLI), "[4000, -300, 20, 1]");
   auto expected_left_by_right =
-      ArrayFromJSON(float64(), "[0.25, 6.666666666666667, 150, 4000]");
+      ArrayFromJSON(float64(), "[0.25, -6.666666666666667, -150, 4000]");
   auto expected_right_by_left =
-      ArrayFromJSON(float64(), "[4, 0.15, 0.006666666666666667, 0.00025]");
+      ArrayFromJSON(float64(), "[4, -0.15, -0.006666666666666667, 0.00025]");
   CheckScalarBinary("divide", left, right, expected_left_by_right);
   CheckScalarBinary("divide_checked", left, right, expected_left_by_right);
   CheckScalarBinary("divide", right, left, expected_right_by_left);
@@ -1878,7 +1878,7 @@ TEST_F(ScalarTemporalTest, TestLocalTimestamp) {
 TEST_F(ScalarTemporalTest, TestAssumeTimezone) {
   std::string timezone_utc = "UTC";
   std::string timezone_kolkata = "Asia/Kolkata";
-  std::string timezone_us_central = "US/Central";
+  std::string timezone_us_central = "America/Chicago";
   const char* times_utc = R"(["1970-01-01T00:00:00", null])";
   const char* times_kolkata = R"(["1970-01-01T05:30:00", null])";
   const char* times_us_central = R"(["1969-12-31T18:00:00", null])";
@@ -2004,7 +2004,7 @@ TEST_F(ScalarTemporalTest, Strftime) {
                    string_milliseconds, &options);
   CheckScalarUnary("strftime", timestamp(TimeUnit::MICRO, "Asia/Kolkata"), microseconds,
                    utf8(), string_microseconds, &options);
-  CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "US/Hawaii"), nanoseconds,
+  CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "Pacific/Honolulu"), nanoseconds,
                    utf8(), string_nanoseconds, &options);
 
   auto options_hms = StrftimeOptions("%H:%M:%S");
@@ -2101,9 +2101,9 @@ TEST_F(ScalarTemporalTest, StrftimeNoTimezone) {
 
 TEST_F(ScalarTemporalTest, StrftimeInvalidTimezone) {
   const char* seconds = R"(["1970-01-01T00:00:59", null])";
-  auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND, "non-existent"), seconds);
+  auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND, "nonexistent"), seconds);
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("Cannot locate timezone 'non-existent'"),
+      Invalid, testing::HasSubstr("Cannot locate timezone 'nonexistent'"),
       Strftime(arr, StrftimeOptions()));
 }
 
@@ -2143,7 +2143,10 @@ TEST_F(ScalarTemporalTest, StrftimeCLocale) {
 TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
 #ifdef _WIN32
   GTEST_SKIP() << "There is a known bug in strftime for locales on Windows (ARROW-15922)";
-#else
+#elif defined(__EMSCRIPTEN__)
+  GTEST_SKIP() << "Emscripten doesn't build with multiple locales as default";
+#endif
+
   if (!LocaleExists("fr_FR.UTF-8")) {
     GTEST_SKIP() << "locale 'fr_FR.UTF-8' doesn't exist on this system";
   }
@@ -2151,20 +2154,32 @@ TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
   auto options = StrftimeOptions("%d %B %Y %H:%M:%S", "fr_FR.UTF-8");
   const char* milliseconds = R"(
       ["1970-01-01T00:00:59.123", "2021-08-18T15:11:50.456", null])";
+#ifdef ARROW_WITH_MUSL
+  // musl-locales uses Capital case for month name.
+  // musl doesn't use "," for milliseconds separator.
+  const char* expected = R"(
+      ["01 Janvier 1970 00:00:59.123", "18 Août 2021 15:11:50.456", null])";
+#else
   const char* expected = R"(
       ["01 janvier 1970 00:00:59,123", "18 août 2021 15:11:50,456", null])";
+#endif
   CheckScalarUnary("strftime", timestamp(TimeUnit::MILLI, "UTC"), milliseconds, utf8(),
                    expected, &options);
-#endif
 }
 
 TEST_F(ScalarTemporalTest, StrftimeInvalidLocale) {
-  auto options = StrftimeOptions("%d %B %Y %H:%M:%S", "non-existent");
+#ifdef ARROW_WITH_MUSL
+  GTEST_SKIP() << "musl doesn't report an error for invalid locale";
+#endif
+#ifdef __EMSCRIPTEN__
+  GTEST_SKIP() << "Emscripten doesn't build with multiple locales as default";
+#endif
+  auto options = StrftimeOptions("%d %B %Y %H:%M:%S", "nonexistent");
   const char* seconds = R"(["1970-01-01T00:00:59", null])";
   auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), seconds);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                  testing::HasSubstr("Cannot find locale 'non-existent'"),
+                                  testing::HasSubstr("Cannot find locale 'nonexistent'"),
                                   Strftime(arr, options));
 }
 
@@ -2601,7 +2616,7 @@ TEST_F(ScalarTemporalTestStrictCeil, TestCeilTemporalStrictCeil) {
 TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, CeilUTC) {
   std::string op = "ceil_temporal";
 
-  // Data for tests below was generaed via lubridate with the exception
+  // Data for tests below was generated via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
   // multiple of week.
   const char* ceil_15_nanosecond =
@@ -2989,7 +3004,7 @@ TEST_F(ScalarTemporalTest, TestFloorTemporal) {
 TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, FloorUTC) {
   std::string op = "floor_temporal";
 
-  // Data for tests below was generaed via lubridate with the exception
+  // Data for tests below was generated via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
   // multiple of week.
   const char* floor_15_nanosecond =
@@ -3402,7 +3417,7 @@ TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalBrussels) {
 TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, RoundUTC) {
   std::string op = "round_temporal";
 
-  // Data for tests below was generaed via lubridate with the exception
+  // Data for tests below was generated via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
   // multiple of week.
   const char* round_15_nanosecond =
@@ -3665,5 +3680,17 @@ TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalDate) {
   CheckScalarUnary("ceil_temporal", arr_ns, arr_ns, &round_to_2_hours);
 }
 
+TEST_F(ScalarTemporalTest, DurationUnaryArithmetics) {
+  auto arr = ArrayFromJSON(duration(TimeUnit::SECOND), "[2, -1, null, 3, 0]");
+  CheckScalarUnary("negate", arr,
+                   ArrayFromJSON(duration(TimeUnit::SECOND), "[-2, 1, null, -3, 0]"));
+  CheckScalarUnary("negate_checked", arr,
+                   ArrayFromJSON(duration(TimeUnit::SECOND), "[-2, 1, null, -3, 0]"));
+  CheckScalarUnary("abs", arr,
+                   ArrayFromJSON(duration(TimeUnit::SECOND), "[2, 1, null, 3, 0]"));
+  CheckScalarUnary("abs_checked", arr,
+                   ArrayFromJSON(duration(TimeUnit::SECOND), "[2, 1, null, 3, 0]"));
+  CheckScalarUnary("sign", arr, ArrayFromJSON(int8(), "[1, -1, null, 1, 0]"));
+}
 }  // namespace compute
 }  // namespace arrow

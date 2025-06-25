@@ -27,8 +27,10 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
-#include "arrow/array/builder_time.h"
+#include "arrow/io/memory.h"
+#include "arrow/ipc/reader.h"
 #include "arrow/ipc/test_common.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -45,7 +47,7 @@
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/ree_util.h"
 
 namespace arrow {
@@ -189,6 +191,32 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
   return MakeListArray<ListType>(child_array, num_lists, include_nulls, pool, out);
 }
 
+Status MakeRandomListViewArray(const std::shared_ptr<Array>& child_array, int num_lists,
+                               bool include_nulls, MemoryPool* pool,
+                               std::shared_ptr<Array>* out) {
+  const auto seed = static_cast<uint32_t>(child_array->length());
+  random::RandomArrayGenerator rand(seed);
+
+  const double null_probability = include_nulls ? 0.5 : 0.0;
+  *out = rand.ListView(*child_array, /*length=*/num_lists, null_probability,
+                       /*force_empty_nulls=*/false, /*coverage=*/0.9,
+                       kDefaultBufferAlignment, pool);
+  return Status::OK();
+}
+
+Status MakeRandomLargeListViewArray(const std::shared_ptr<Array>& child_array,
+                                    int num_lists, bool include_nulls, MemoryPool* pool,
+                                    std::shared_ptr<Array>* out) {
+  const auto seed = static_cast<uint32_t>(child_array->length());
+  random::RandomArrayGenerator rand(seed);
+
+  const double null_probability = include_nulls ? 0.5 : 0.0;
+  *out = rand.LargeListView(*child_array, /*length=*/num_lists, null_probability,
+                            /*force_empty_nulls=*/false,
+                            /*force_empty_nulls=*/0.9, kDefaultBufferAlignment, pool);
+  return Status::OK();
+}
+
 Status MakeRandomLargeListArray(const std::shared_ptr<Array>& child_array, int num_lists,
                                 bool include_nulls, MemoryPool* pool,
                                 std::shared_ptr<Array>* out) {
@@ -216,11 +244,11 @@ Status MakeRandomBooleanArray(const int length, bool include_nulls,
                               std::shared_ptr<Array>* out) {
   std::vector<uint8_t> values(length);
   random_null_bytes(length, 0.5, values.data());
-  ARROW_ASSIGN_OR_RAISE(auto data, internal::BytesToBits(values));
+  ARROW_ASSIGN_OR_RAISE(auto data, arrow::internal::BytesToBits(values));
 
   if (include_nulls) {
     std::vector<uint8_t> valid_bytes(length);
-    ARROW_ASSIGN_OR_RAISE(auto null_bitmap, internal::BytesToBits(valid_bytes));
+    ARROW_ASSIGN_OR_RAISE(auto null_bitmap, arrow::internal::BytesToBits(valid_bytes));
     random_null_bytes(length, 0.1, valid_bytes.data());
     *out = std::make_shared<BooleanArray>(length, data, null_bitmap, -1);
   } else {
@@ -393,7 +421,7 @@ Status MakeNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
+Status MakeListRecordBatchSized(const int length, std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = field("f0", list(int32()));
   auto f1 = field("f1", list(list(int32())));
@@ -403,7 +431,6 @@ Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
   // Example data
 
   MemoryPool* pool = default_memory_pool();
-  const int length = 200;
   std::shared_ptr<Array> leaf_values, list_array, list_list_array, large_list_array;
   const bool include_nulls = true;
   RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool, &leaf_values));
@@ -416,6 +443,38 @@ Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
   *out =
       RecordBatch::Make(schema, length, {list_array, list_list_array, large_list_array});
   return Status::OK();
+}
+
+Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
+  return MakeListRecordBatchSized(200, out);
+}
+
+Status MakeListViewRecordBatchSized(const int length, std::shared_ptr<RecordBatch>* out) {
+  // Make the schema
+  auto f0 = field("f0", list_view(int32()));
+  auto f1 = field("f1", list_view(list_view(int32())));
+  auto f2 = field("f2", large_list_view(int32()));
+  auto schema = ::arrow::schema({f0, f1, f2});
+
+  // Example data
+
+  MemoryPool* pool = default_memory_pool();
+  std::shared_ptr<Array> leaf_values, list_array, list_list_array, large_list_array;
+  const bool include_nulls = true;
+  RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool, &leaf_values));
+  RETURN_NOT_OK(
+      MakeRandomListViewArray(leaf_values, length, include_nulls, pool, &list_array));
+  RETURN_NOT_OK(
+      MakeRandomListViewArray(list_array, length, include_nulls, pool, &list_list_array));
+  RETURN_NOT_OK(MakeRandomLargeListViewArray(leaf_values, length, include_nulls, pool,
+                                             &large_list_array));
+  *out =
+      RecordBatch::Make(schema, length, {list_array, list_list_array, large_list_array});
+  return Status::OK();
+}
+
+Status MakeListViewRecordBatch(std::shared_ptr<RecordBatch>* out) {
+  return MakeListViewRecordBatchSized(200, out);
 }
 
 Status MakeFixedSizeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
@@ -505,6 +564,27 @@ Status MakeDeeplyNestedList(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
+Status MakeDeeplyNestedListView(std::shared_ptr<RecordBatch>* out) {
+  const int batch_length = 5;
+  auto type = int32();
+
+  MemoryPool* pool = default_memory_pool();
+  std::shared_ptr<Array> array;
+  const bool include_nulls = true;
+  RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool, &array));
+  for (int i = 0; i < 63; ++i) {
+    type = std::static_pointer_cast<DataType>(list_view(type));
+    RETURN_NOT_OK(
+        MakeRandomListViewArray(array, batch_length, include_nulls, pool, &array));
+  }
+
+  auto f0 = field("f0", type);
+  auto schema = ::arrow::schema({f0});
+  std::vector<std::shared_ptr<Array>> arrays = {array};
+  *out = RecordBatch::Make(schema, batch_length, arrays);
+  return Status::OK();
+}
+
 Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
   // reuse constructed list columns
   std::shared_ptr<RecordBatch> list_batch;
@@ -524,7 +604,7 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Array> no_nulls(new StructArray(type, list_batch->num_rows(), columns));
   std::vector<uint8_t> null_bytes(list_batch->num_rows(), 1);
   null_bytes[0] = 0;
-  ARROW_ASSIGN_OR_RAISE(auto null_bitmap, internal::BytesToBits(null_bytes));
+  ARROW_ASSIGN_OR_RAISE(auto null_bitmap, arrow::internal::BytesToBits(null_bytes));
   std::shared_ptr<Array> with_nulls(
       new StructArray(type, list_batch->num_rows(), columns, null_bitmap, 1));
 
@@ -1016,9 +1096,9 @@ Status MakeUuid(std::shared_ptr<RecordBatch>* out) {
   auto f1 = field("f1", uuid_type, /*nullable=*/false);
   auto schema = ::arrow::schema({f0, f1});
 
-  auto a0 = std::make_shared<UuidArray>(
+  auto a0 = std::make_shared<ExampleUuidArray>(
       uuid_type, ArrayFromJSON(storage_type, R"(["0123456789abcdef", null])"));
-  auto a1 = std::make_shared<UuidArray>(
+  auto a1 = std::make_shared<ExampleUuidArray>(
       uuid_type,
       ArrayFromJSON(storage_type, R"(["ZYXWVUTSRQPONMLK", "JIHGFEDBA9876543"])"));
 
@@ -1104,12 +1184,13 @@ enable_if_t<std::is_floating_point<CValueType>::value, void> FillRandomData(
 Status MakeRandomTensor(const std::shared_ptr<DataType>& type,
                         const std::vector<int64_t>& shape, bool row_major_p,
                         std::shared_ptr<Tensor>* out, uint32_t seed) {
-  const auto& element_type = internal::checked_cast<const FixedWidthType&>(*type);
+  const auto& element_type = arrow::internal::checked_cast<const FixedWidthType&>(*type);
   std::vector<int64_t> strides;
   if (row_major_p) {
-    RETURN_NOT_OK(internal::ComputeRowMajorStrides(element_type, shape, &strides));
+    RETURN_NOT_OK(arrow::internal::ComputeRowMajorStrides(element_type, shape, &strides));
   } else {
-    RETURN_NOT_OK(internal::ComputeColumnMajorStrides(element_type, shape, &strides));
+    RETURN_NOT_OK(
+        arrow::internal::ComputeColumnMajorStrides(element_type, shape, &strides));
   }
 
   const int64_t element_size = element_type.bit_width() / CHAR_BIT;
@@ -1159,6 +1240,21 @@ Status MakeRandomTensor(const std::shared_ptr<DataType>& type,
   }
 
   return Tensor::Make(type, buf, shape, strides).Value(out);
+}
+
+Status RoundtripBatch(const std::shared_ptr<RecordBatch>& batch,
+                      std::shared_ptr<RecordBatch>* out) {
+  ARROW_ASSIGN_OR_RAISE(auto out_stream, io::BufferOutputStream::Create());
+  RETURN_NOT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcWriteOptions::Defaults(),
+                                            out_stream.get()));
+
+  ARROW_ASSIGN_OR_RAISE(auto complete_ipc_stream, out_stream->Finish());
+
+  io::BufferReader reader(complete_ipc_stream);
+  std::shared_ptr<RecordBatchReader> batch_reader;
+  ARROW_ASSIGN_OR_RAISE(batch_reader, ipc::RecordBatchStreamReader::Open(&reader));
+  RETURN_NOT_OK(batch_reader->ReadNext(out));
+  return Status::OK();
 }
 
 }  // namespace test

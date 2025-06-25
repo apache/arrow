@@ -15,9 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <immintrin.h>
-
 #include "arrow/compute/row/encode_internal.h"
+#include "arrow/util/simd.h"
 
 namespace arrow {
 namespace compute {
@@ -75,13 +74,10 @@ uint32_t EncoderBinaryPair::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows
   uint8_t* col_vals_B = col2->mutable_data(1);
 
   uint32_t fixed_length = rows.metadata().fixed_length;
-  const uint32_t* offsets;
-  const uint8_t* src_base;
+  const RowTableImpl::offset_type* offsets;
   if (is_row_fixed_length) {
-    src_base = rows.data(1) + fixed_length * start_row + offset_within_row;
     offsets = nullptr;
   } else {
-    src_base = rows.data(2) + offset_within_row;
     offsets = rows.offsets() + start_row;
   }
 
@@ -93,14 +89,15 @@ uint32_t EncoderBinaryPair::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows
     for (uint32_t i = 0; i < num_rows / unroll; ++i) {
       const __m128i *src0, *src1, *src2, *src3;
       if (is_row_fixed_length) {
-        const uint8_t* src = src_base + (i * unroll) * fixed_length;
+        const uint8_t* src =
+            rows.fixed_length_rows(start_row + i * unroll) + offset_within_row;
         src0 = reinterpret_cast<const __m128i*>(src);
         src1 = reinterpret_cast<const __m128i*>(src + fixed_length);
         src2 = reinterpret_cast<const __m128i*>(src + fixed_length * 2);
         src3 = reinterpret_cast<const __m128i*>(src + fixed_length * 3);
       } else {
-        const uint32_t* row_offsets = offsets + i * unroll;
-        const uint8_t* src = src_base;
+        const uint8_t* src = rows.var_length_rows() + offset_within_row;
+        const RowTableImpl::offset_type* row_offsets = offsets + i * unroll;
         src0 = reinterpret_cast<const __m128i*>(src + row_offsets[0]);
         src1 = reinterpret_cast<const __m128i*>(src + row_offsets[1]);
         src2 = reinterpret_cast<const __m128i*>(src + row_offsets[2]);
@@ -126,7 +123,8 @@ uint32_t EncoderBinaryPair::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows
     uint8_t buffer[64];
     for (uint32_t i = 0; i < num_rows / unroll; ++i) {
       if (is_row_fixed_length) {
-        const uint8_t* src = src_base + (i * unroll) * fixed_length;
+        const uint8_t* src =
+            rows.fixed_length_rows(start_row + i * unroll) + offset_within_row;
         for (int j = 0; j < unroll; ++j) {
           if (col_width == 1) {
             reinterpret_cast<uint16_t*>(buffer)[j] =
@@ -140,8 +138,8 @@ uint32_t EncoderBinaryPair::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows
           }
         }
       } else {
-        const uint32_t* row_offsets = offsets + i * unroll;
-        const uint8_t* src = src_base;
+        const uint8_t* src = rows.var_length_rows() + offset_within_row;
+        const RowTableImpl::offset_type* row_offsets = offsets + i * unroll;
         for (int j = 0; j < unroll; ++j) {
           if (col_width == 1) {
             reinterpret_cast<uint16_t*>(buffer)[j] =

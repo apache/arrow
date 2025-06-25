@@ -23,6 +23,7 @@
 #include "arrow/compute/kernels/ree_util_internal.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/ree_util.h"
 
 namespace arrow {
@@ -30,11 +31,11 @@ namespace compute {
 namespace internal {
 namespace {
 
-struct RunEndEncondingState : public KernelState {
-  explicit RunEndEncondingState(std::shared_ptr<DataType> run_end_type)
+struct RunEndEncodingState : public KernelState {
+  explicit RunEndEncodingState(std::shared_ptr<DataType> run_end_type)
       : run_end_type{std::move(run_end_type)} {}
 
-  ~RunEndEncondingState() override = default;
+  ~RunEndEncodingState() override = default;
 
   std::shared_ptr<DataType> run_end_type;
 };
@@ -273,7 +274,7 @@ struct RunEndEncodeExec {
 
   template <typename ValueType>
   static Status Exec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
-    auto state = checked_cast<const RunEndEncondingState*>(ctx->state());
+    auto state = checked_cast<const RunEndEncodingState*>(ctx->state());
     switch (state->run_end_type->id()) {
       case Type::INT16:
         return DoExec<Int16Type, ValueType>(ctx, span, result);
@@ -290,7 +291,7 @@ struct RunEndEncodeExec {
   /// \brief The OutputType::Resolver of the "run_end_decode" function.
   static Result<TypeHolder> ResolveOutputType(
       KernelContext* ctx, const std::vector<TypeHolder>& input_types) {
-    auto state = checked_cast<const RunEndEncondingState*>(ctx->state());
+    auto state = checked_cast<const RunEndEncodingState*>(ctx->state());
     return TypeHolder(std::make_shared<RunEndEncodedType>(state->run_end_type,
                                                           input_types[0].GetSharedPtr()));
   }
@@ -301,7 +302,7 @@ Result<std::unique_ptr<KernelState>> RunEndEncodeInit(KernelContext*,
   auto* options = checked_cast<const RunEndEncodeOptions*>(args.options);
   auto run_end_type =
       options ? options->run_end_type : RunEndEncodeOptions::Defaults().run_end_type;
-  return std::make_unique<RunEndEncondingState>(std::move(run_end_type));
+  return std::make_unique<RunEndEncodingState>(std::move(run_end_type));
 }
 
 template <typename RunEndType, typename ValueType, bool has_validity_buffer>

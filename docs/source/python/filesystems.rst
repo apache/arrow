@@ -42,6 +42,7 @@ Pyarrow implements natively the following filesystem subclasses:
 * :ref:`filesystem-s3` (:class:`S3FileSystem`)
 * :ref:`filesystem-gcs` (:class:`GcsFileSystem`)
 * :ref:`filesystem-hdfs` (:class:`HadoopFileSystem`)
+* :ref:`filesystem-azurefs` (:class:`AzureFileSystem`)
 
 It is also possible to use your own fsspec-compliant filesystem with pyarrow functionalities as described in the section :ref:`filesystem-fsspec`.
 
@@ -182,7 +183,7 @@ Example how you can read contents from a S3 bucket::
 
 
 Note that it is important to configure :class:`S3FileSystem` with the correct
-region for the bucket being used. If `region` is not set, the AWS SDK will
+region for the bucket being used. If ``region`` is not set, the AWS SDK will
 choose a value, defaulting to 'us-east-1' if the SDK version is <1.8.
 Otherwise it will try to use a variety of heuristics (environment variables,
 configuration profile, EC2 metadata server) to resolve the region.
@@ -233,7 +234,7 @@ generate a credentials file in the default location::
 
 To connect to a public bucket without using any credentials, you must pass
 ``anonymous=True`` to :class:`GcsFileSystem`. Otherwise, the filesystem
-will report ``Couldn't resolve host name`` since there are different host 
+will report ``Couldn't resolve host name`` since there are different host
 names for authenticated and public access.
 
 Example showing how you can read contents from a GCS bucket::
@@ -277,7 +278,7 @@ load time, since the library may not be in your LD_LIBRARY_PATH), and relies on
 some environment variables.
 
 * ``HADOOP_HOME``: the root of your installed Hadoop distribution. Often has
-  `lib/native/libhdfs.so`.
+  ``lib/native/libhdfs.so``.
 
 * ``JAVA_HOME``: the location of your Java SDK installation.
 
@@ -294,6 +295,46 @@ some environment variables.
 
   In contrast to the legacy HDFS filesystem with ``pa.hdfs.connect``, setting
   ``CLASSPATH`` is not optional (pyarrow will not attempt to infer it).
+
+.. _filesystem-azurefs:
+
+Azure Storage File System
+-------------------------
+
+PyArrow implements natively an Azure filesystem for Azure Blob Storage with or
+without heirarchical namespace enabled.
+
+The :class:`AzureFileSystem` constructor has several options to configure the
+Azure Blob Storage connection (e.g. account name, account key, SAS token, etc.).
+
+If neither ``account_key`` or ``sas_token`` is specified a `DefaultAzureCredential <https://github.com/Azure/azure-sdk-for-cpp/blob/main/sdk/identity/azure-identity/README.md#defaultazurecredential>`__
+is used for authentication. This means it will try several types of authentication
+and go with the first one that works. If any authentication parameters are provided when
+initialising the FileSystem, they will be used instead of the default credential.
+
+Example showing how you can read contents from an Azure Blob Storage account::
+
+   >>> from pyarrow import fs
+   >>> azure_fs = fs.AzureFileSystem(account_name='myaccount')
+
+   # List all contents in a container, recursively
+   >>> azure_fs.get_file_info(fs.FileSelector('my-container', recursive=True))
+   [<FileInfo for 'my-container/File1': type=FileType.File, size=10>,
+    <FileInfo for 'my-container/File2': type=FileType.File, size=20>,
+    <FileInfo for 'my-container/Dir1': type=FileType.Directory>,
+    <FileInfo for 'my-container/Dir1/File3': type=FileType.File, size=30>]
+
+   # Open a file for reading and download its contents
+   >>> f = azure_fs.open_input_stream('my-container/File1')
+   >>> f.readall()
+   b'some data'
+
+For more details on the parameters and usage, refer to the :class:`AzureFileSystem` class documentation.
+
+.. seealso::
+
+   See the `Azure SDK for C++ documentation <https://github.com/Azure/azure-sdk-for-cpp>`__
+   for more information on authentication and configuration options.
 
 .. _filesystem-fsspec:
 
@@ -314,7 +355,7 @@ For example::
    # using this to read a partitioned dataset
    import pyarrow.dataset as ds
    ds.dataset("data/", filesystem=fs)
-   
+
 Similarly for Azure Blob Storage::
 
    import adlfs

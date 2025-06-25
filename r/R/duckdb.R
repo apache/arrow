@@ -64,7 +64,7 @@ to_duckdb <- function(.data,
   tbl <- dplyr::tbl(con, table_name)
   groups <- dplyr::groups(.data)
   if (length(groups)) {
-    tbl <- dplyr::group_by(tbl, groups)
+    tbl <- dplyr::group_by(tbl, !!!groups)
   }
 
   if (auto_disconnect) {
@@ -89,7 +89,7 @@ arrow_duck_connection <- function() {
     # but if we don't explicitly run dbDisconnect() the user gets a warning
     # that they may not expect (since they did not open a duckdb connection).
     # This bit of code will run when the package namespace is cleaned up (i.e.,
-    # at exit). This is more reliable than .onUnload() or .onDetatch(), which
+    # at exit). This is more reliable than .onUnload() or .onDetach(), which
     # don't necessarily run on exit.
     reg.finalizer(arrow_duck_finalizer, function(...) {
       con <- getOption("arrow_duck_con")
@@ -137,7 +137,13 @@ duckdb_disconnector <- function(con, tbl_name) {
 
 #' Create an Arrow object from a DuckDB connection
 #'
-#' This can be used in pipelines that pass data back and forth between Arrow and DuckDB
+#' This can be used in pipelines that pass data back and forth between Arrow and
+#' DuckDB.
+#'
+#' Note that you can only call `collect()` or `compute()` on the result of this
+#' function once. To work around this limitation, you should either only call
+#' `collect()` as the final step in a pipeline or call `as_arrow_table()` on the
+#' result to materialize the entire Table in-memory.
 #'
 #' @param .data the object to be converted
 #' @return A `RecordBatchReader`.

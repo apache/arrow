@@ -25,12 +25,13 @@
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/function.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/row/grouper.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -101,7 +102,7 @@ Result<std::unique_ptr<KernelState>> InitKernel(const HashAggregateKernel* kerne
   ARROW_ASSIGN_OR_RAISE(
       auto state,
       kernel->init(&kernel_ctx, KernelInitArgs{kernel, aggr_in_types, options}));
-  return std::move(state);
+  return state;
 }
 
 Result<std::vector<const HashAggregateKernel*>> GetKernels(
@@ -128,7 +129,7 @@ Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
     ARROW_ASSIGN_OR_RAISE(states[i],
                           InitKernel(kernels[i], ctx, aggregates[i], in_types[i]));
   }
-  return std::move(states);
+  return states;
 }
 
 Result<FieldVector> ResolveKernels(
@@ -181,9 +182,8 @@ Status ExtractSegmenterValues(std::vector<Datum>* values_ptr,
                               const std::vector<int>& field_ids) {
   DCHECK_GT(input_batch.length, 0);
   std::vector<Datum>& values = *values_ptr;
+  DCHECK_EQ(values.size(), field_ids.size());
   int64_t row = input_batch.length - 1;
-  values.clear();
-  values.resize(field_ids.size());
   for (size_t i = 0; i < field_ids.size(); i++) {
     const Datum& value = input_batch.values[field_ids[i]];
     if (value.is_scalar()) {
@@ -241,7 +241,7 @@ Result<std::vector<Datum>> ExtractValues(const ExecBatch& input_batch,
       DCHECK(false);
     }
   }
-  return std::move(values);
+  return values;
 }
 
 }  // namespace aggregate

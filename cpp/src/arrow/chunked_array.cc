@@ -27,12 +27,13 @@
 #include "arrow/array/array_nested.h"
 #include "arrow/array/util.h"
 #include "arrow/array/validate.h"
+#include "arrow/device_allocation_type_set.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -50,11 +51,11 @@ ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
       null_count_(0),
       chunk_resolver_{chunks_} {
   if (type_ == nullptr) {
-    ARROW_CHECK_GT(chunks_.size(), 0)
+    ARROW_CHECK_GT(chunks_.size(), static_cast<size_t>(0))
         << "cannot construct ChunkedArray from empty vector and omitted type";
     type_ = chunks_[0]->type();
   }
-
+  ARROW_CHECK_LE(chunks.size(), static_cast<size_t>(std::numeric_limits<int>::max()));
   for (const auto& chunk : chunks_) {
     length_ += chunk->length();
     null_count_ += chunk->null_count();
@@ -82,11 +83,23 @@ Result<std::shared_ptr<ChunkedArray>> ChunkedArray::Make(ArrayVector chunks,
 Result<std::shared_ptr<ChunkedArray>> ChunkedArray::MakeEmpty(
     std::shared_ptr<DataType> type, MemoryPool* memory_pool) {
   std::vector<std::shared_ptr<Array>> new_chunks(1);
-  ARROW_ASSIGN_OR_RAISE(new_chunks[0], MakeEmptyArray(type, memory_pool));
+  ARROW_ASSIGN_OR_RAISE(new_chunks[0], MakeEmptyArray(std::move(type), memory_pool));
   return std::make_shared<ChunkedArray>(std::move(new_chunks));
 }
 
-bool ChunkedArray::Equals(const ChunkedArray& other) const {
+DeviceAllocationTypeSet ChunkedArray::device_types() const {
+  if (chunks_.empty()) {
+    // An empty ChunkedArray is considered to be CPU-only.
+    return DeviceAllocationTypeSet::CpuOnly();
+  }
+  DeviceAllocationTypeSet set;
+  for (const auto& chunk : chunks_) {
+    set.add(chunk->device_type());
+  }
+  return set;
+}
+
+bool ChunkedArray::Equals(const ChunkedArray& other, const EqualOptions& opts) const {
   if (length_ != other.length()) {
     return false;
   }
@@ -102,9 +115,9 @@ bool ChunkedArray::Equals(const ChunkedArray& other) const {
   // the underlying data independently of the chunk size.
   return internal::ApplyBinaryChunked(
              *this, other,
-             [](const Array& left_piece, const Array& right_piece,
-                int64_t ARROW_ARG_UNUSED(position)) {
-               if (!left_piece.Equals(right_piece)) {
+             [&](const Array& left_piece, const Array& right_piece,
+                 int64_t ARROW_ARG_UNUSED(position)) {
+               if (!left_piece.Equals(right_piece, opts)) {
                  return Status::Invalid("Unequal piece");
                }
                return Status::OK();
@@ -129,14 +142,15 @@ bool mayHaveNaN(const arrow::DataType& type) {
 
 }  //  namespace
 
-bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
+bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other,
+                          const EqualOptions& opts) const {
   if (!other) {
     return false;
   }
   if (this == other.get() && !mayHaveNaN(*type_)) {
     return true;
   }
-  return Equals(*other.get());
+  return Equals(*other.get(), opts);
 }
 
 bool ChunkedArray::ApproxEquals(const ChunkedArray& other,
@@ -238,7 +252,7 @@ Result<std::shared_ptr<ChunkedArray>> ChunkedArray::View(
   for (int i = 0; i < this->num_chunks(); ++i) {
     ARROW_ASSIGN_OR_RAISE(out_chunks[i], chunks_[i]->View(type));
   }
-  return std::make_shared<ChunkedArray>(out_chunks, type);
+  return std::make_shared<ChunkedArray>(std::move(out_chunks), type);
 }
 
 std::string ChunkedArray::ToString() const {

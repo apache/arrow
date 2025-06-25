@@ -18,9 +18,9 @@
 # under the License.
 
 # Usage:
-#   python bpacking_simd_codegen.py 128 > bpacking_simd128_generated.h
-#   python bpacking_simd_codegen.py 256 > bpacking_simd256_generated.h
-#   python bpacking_simd_codegen.py 512 > bpacking_simd512_generated.h
+#   python bpacking_simd_codegen.py 128 > bpacking_simd128_generated_internal.h
+#   python bpacking_simd_codegen.py 256 > bpacking_simd256_generated_internal.h
+#   python bpacking_simd_codegen.py 512 > bpacking_simd512_generated_internal.h
 
 from functools import partial
 import sys
@@ -164,7 +164,7 @@ def main(simd_width):
 
         #include <xsimd/xsimd.hpp>
 
-        #include "arrow/util/dispatch.h"
+        #include "arrow/util/dispatch_internal.h"
         #include "arrow/util/ubsan.h"
 
         namespace arrow {{

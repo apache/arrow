@@ -76,10 +76,11 @@
 #'
 #' Note that if you are specifying column names, whether by `schema` or
 #' `col_names`, and the CSV file has a header row that would otherwise be used
-#' to idenfity column names, you'll need to add `skip = 1` to skip that row.
+#' to identify column names, you'll need to add `skip = 1` to skip that row.
 #'
-#' @param file A character file name or URI, literal data (either a single string or a [raw] vector),
-#' an Arrow input stream, or a `FileSystem` with path (`SubTreeFileSystem`).
+#' @param file A character file name or URI, connection, literal data (either a
+#' single string or a [raw] vector), an Arrow input stream, or a `FileSystem`
+#' with path (`SubTreeFileSystem`).
 #'
 #' If a file name, a memory-mapped Arrow [InputStream] will be opened and
 #' closed when finished; compression will be detected from the file extension
@@ -841,35 +842,7 @@ readr_to_csv_convert_options <- function(na,
   include_columns <- character()
 
   if (is.character(col_types)) {
-    if (length(col_types) != 1L) {
-      abort("`col_types` is a character vector that is not of size 1")
-    }
-    n <- nchar(col_types)
-    specs <- substring(col_types, seq_len(n), seq_len(n))
-    if (!is_bare_character(col_names, n)) {
-      abort("Compact specification for `col_types` requires `col_names`")
-    }
-
-    col_types <- set_names(nm = col_names, map2(specs, col_names, ~ {
-      switch(.x,
-        "c" = utf8(),
-        "i" = int32(),
-        "n" = float64(),
-        "d" = float64(),
-        "l" = bool(),
-        "f" = dictionary(),
-        "D" = date32(),
-        "T" = timestamp(unit = "ns"),
-        "t" = time32(),
-        "_" = null(),
-        "-" = null(),
-        "?" = NULL,
-        abort("Unsupported compact specification: '", .x, "' for column '", .y, "'")
-      )
-    }))
-    # To "guess" types, omit them from col_types
-    col_types <- keep(col_types, ~ !is.null(.x))
-    col_types <- schema(col_types)
+    col_types <- parse_compact_col_spec(col_types, col_names)
   }
 
   if (!is.null(col_types)) {
@@ -894,7 +867,7 @@ readr_to_csv_convert_options <- function(na,
 #' Write CSV file to disk
 #'
 #' @param x `data.frame`, [RecordBatch], or [Table]
-#' @param sink A string file path, URI, or [OutputStream], or path in a file
+#' @param sink A string file path, connection, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
 #' @param file file name. Specify this or `sink`, not both.
 #' @param include_header Whether to write an initial header line with column names

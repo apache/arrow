@@ -23,26 +23,24 @@
 
 namespace arrow::matlab::buffer {
 
-    namespace mda = ::matlab::data;
+namespace mda = ::matlab::data;
 
-    class MatlabBuffer : public arrow::Buffer {
-    public:
-    
-        template<typename CType>
-        MatlabBuffer(const mda::TypedArray<CType> typed_array)  
-            : arrow::Buffer{nullptr, 0}
-            , array{typed_array} {
-                
-                // Get raw pointer of mxArray
-                auto it(typed_array.cbegin());
-                auto dt = it.operator->();
-            
-                data_ = reinterpret_cast<const uint8_t*>(dt);
-                size_ = sizeof(CType) * static_cast<int64_t>(typed_array.getNumberOfElements());
-                capacity_ = size_;
-                is_mutable_ = false;
-            }
-    private:
-        const mda::Array array;
-    };
-}
+class MatlabBuffer : public arrow::Buffer {
+ public:
+  template <typename CType>
+  MatlabBuffer(const mda::TypedArray<CType> typed_array)
+      : arrow::Buffer{nullptr, 0}, array{typed_array} {
+    // Get raw pointer of mxArray
+    auto it(typed_array.cbegin());
+    auto dt = it.operator->();
+
+    data_ = reinterpret_cast<const uint8_t*>(dt);
+    size_ = sizeof(CType) * static_cast<int64_t>(typed_array.getNumberOfElements());
+    capacity_ = size_;
+    is_mutable_ = false;
+  }
+
+ private:
+  const mda::Array array;
+};
+}  // namespace arrow::matlab::buffer

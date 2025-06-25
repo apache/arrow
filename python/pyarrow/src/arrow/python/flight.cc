@@ -37,7 +37,8 @@ PyServerAuthHandler::PyServerAuthHandler(PyObject* handler,
   handler_.reset(handler);
 }
 
-Status PyServerAuthHandler::Authenticate(arrow::flight::ServerAuthSender* outgoing,
+Status PyServerAuthHandler::Authenticate(const arrow::flight::ServerCallContext& context,
+                                         arrow::flight::ServerAuthSender* outgoing,
                                          arrow::flight::ServerAuthReader* incoming) {
   return SafeCallIntoPython([=] {
     const Status status = vtable_.authenticate(handler_.obj(), outgoing, incoming);
@@ -267,11 +268,11 @@ PyServerMiddlewareFactory::PyServerMiddlewareFactory(PyObject* factory,
 }
 
 Status PyServerMiddlewareFactory::StartCall(
-    const arrow::flight::CallInfo& info,
-    const arrow::flight::CallHeaders& incoming_headers,
+    const arrow::flight::CallInfo& info, const arrow::flight::ServerCallContext& context,
     std::shared_ptr<arrow::flight::ServerMiddleware>* middleware) {
   return SafeCallIntoPython([&] {
-    const Status status = start_call_(factory_.obj(), info, incoming_headers, middleware);
+    const Status status =
+        start_call_(factory_.obj(), info, context.incoming_headers(), middleware);
     RETURN_NOT_OK(CheckPyError());
     return status;
   });
@@ -368,11 +369,12 @@ void PyClientMiddleware::CallCompleted(const Status& call_status) {
 Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
                         const arrow::flight::FlightDescriptor& descriptor,
                         const std::vector<arrow::flight::FlightEndpoint>& endpoints,
-                        int64_t total_records, int64_t total_bytes,
+                        int64_t total_records, int64_t total_bytes, bool ordered,
+                        const std::string& app_metadata,
                         std::unique_ptr<arrow::flight::FlightInfo>* out) {
-  ARROW_ASSIGN_OR_RAISE(auto result,
-                        arrow::flight::FlightInfo::Make(*schema, descriptor, endpoints,
-                                                        total_records, total_bytes));
+  ARROW_ASSIGN_OR_RAISE(auto result, arrow::flight::FlightInfo::Make(
+                                         schema, descriptor, endpoints, total_records,
+                                         total_bytes, ordered, app_metadata));
   *out = std::unique_ptr<arrow::flight::FlightInfo>(
       new arrow::flight::FlightInfo(std::move(result)));
   return Status::OK();

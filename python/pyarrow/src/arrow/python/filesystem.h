@@ -26,9 +26,7 @@
 #include "arrow/python/visibility.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace py {
-namespace fs {
+namespace arrow::py::fs {
 
 class ARROW_PYTHON_EXPORT PyFileSystemVtable {
  public:
@@ -83,16 +81,24 @@ class ARROW_PYTHON_EXPORT PyFileSystem : public arrow::fs::FileSystem {
 
   bool Equals(const FileSystem& other) const override;
 
+  /// \cond FALSE
+  using FileSystem::CreateDir;
+  using FileSystem::DeleteDirContents;
+  using FileSystem::GetFileInfo;
+  using FileSystem::OpenAppendStream;
+  using FileSystem::OpenOutputStream;
+  /// \endcond
+
   Result<arrow::fs::FileInfo> GetFileInfo(const std::string& path) override;
   Result<std::vector<arrow::fs::FileInfo>> GetFileInfo(
       const std::vector<std::string>& paths) override;
   Result<std::vector<arrow::fs::FileInfo>> GetFileInfo(
       const arrow::fs::FileSelector& select) override;
 
-  Status CreateDir(const std::string& path, bool recursive = true) override;
+  Status CreateDir(const std::string& path, bool recursive) override;
 
   Status DeleteDir(const std::string& path) override;
-  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok) override;
   Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;
@@ -107,10 +113,10 @@ class ARROW_PYTHON_EXPORT PyFileSystem : public arrow::fs::FileSystem {
       const std::string& path) override;
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
       const std::string& path,
-      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
+      const std::shared_ptr<const KeyValueMetadata>& metadata) override;
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
-      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
+      const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 
   Result<std::string> NormalizePath(std::string path) override;
 
@@ -121,6 +127,4 @@ class ARROW_PYTHON_EXPORT PyFileSystem : public arrow::fs::FileSystem {
   PyFileSystemVtable vtable_;
 };
 
-}  // namespace fs
-}  // namespace py
-}  // namespace arrow
+}  // namespace arrow::py::fs

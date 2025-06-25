@@ -40,7 +40,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -212,7 +212,7 @@ Result<std::shared_ptr<ArrayData>> TransposeDictIndices(
   return out_data;
 }
 
-struct CompactTransposeMapVistor {
+struct CompactTransposeMapVisitor {
   const std::shared_ptr<ArrayData>& data;
   arrow::MemoryPool* pool;
   std::unique_ptr<Buffer> output_map;
@@ -306,11 +306,11 @@ Result<std::unique_ptr<Buffer>> CompactTransposeMap(
   }
 
   const auto& dict_type = checked_cast<const DictionaryType&>(*data->type);
-  CompactTransposeMapVistor vistor{data, pool, nullptr, nullptr};
-  RETURN_NOT_OK(VisitTypeInline(*dict_type.index_type(), &vistor));
+  CompactTransposeMapVisitor visitor{data, pool, nullptr, nullptr};
+  RETURN_NOT_OK(VisitTypeInline(*dict_type.index_type(), &visitor));
 
-  out_compact_dictionary = vistor.out_compact_dictionary;
-  return std::move(vistor.output_map);
+  out_compact_dictionary = visitor.out_compact_dictionary;
+  return std::move(visitor.output_map);
 }
 }  // namespace
 
@@ -349,7 +349,7 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
   using MemoTableType = typename DictTraits::MemoTableType;
 
   DictionaryUnifierImpl(MemoryPool* pool, std::shared_ptr<DataType> value_type)
-      : pool_(pool), value_type_(value_type), memo_table_(pool) {}
+      : pool_(pool), value_type_(std::move(value_type)), memo_table_(pool) {}
 
   Status Unify(const Array& dictionary, std::shared_ptr<Buffer>* out) override {
     if (dictionary.null_count() > 0) {
@@ -432,7 +432,7 @@ struct MakeUnifier {
   std::unique_ptr<DictionaryUnifier> result;
 
   MakeUnifier(MemoryPool* pool, std::shared_ptr<DataType> value_type)
-      : pool(pool), value_type(value_type) {}
+      : pool(pool), value_type(std::move(value_type)) {}
 
   template <typename T>
   enable_if_no_memoize<T, Status> Visit(const T&) {

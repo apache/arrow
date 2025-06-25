@@ -27,6 +27,7 @@ register_bindings_datetime <- function() {
   register_bindings_duration_helpers()
   register_bindings_datetime_parsers()
   register_bindings_datetime_rounding()
+  register_bindings_hms()
 }
 
 register_bindings_datetime_utility <- function() {
@@ -121,7 +122,7 @@ register_bindings_datetime_utility <- function() {
       precision <- "ymdhms"
     }
     if (!precision %in% names(ISO8601_precision_map)) {
-      abort(
+      validation_error(
         paste(
           "`precision` must be one of the following values:",
           paste(names(ISO8601_precision_map), collapse = ", "),
@@ -325,10 +326,10 @@ register_bindings_datetime_conversion <- function() {
              origin = "1970-01-01",
              tz = "UTC") {
       if (is.null(format) && length(tryFormats) > 1) {
-        abort(
-          paste(
-            "`as.Date()` with multiple `tryFormats` is not supported in Arrow.",
-            "Consider using the lubridate specialised parsing functions `ymd()`, `ymd()`, etc."
+        arrow_not_supported(
+          "`as.Date()` with multiple `tryFormats`",
+          body = c(
+            ">" = "Consider using the lubridate specialised parsing functions `ymd()`, `ymd()`, etc."
           )
         )
       }
@@ -455,19 +456,17 @@ register_bindings_datetime_timezone <- function() {
         arrow_not_supported("`roll_dst` must be 1 or 2 items long; other lengths")
       }
 
-      nonexistent <- switch(
-        roll_dst[1],
+      nonexistent <- switch(roll_dst[1],
         "error" = 0L,
         "boundary" = 2L,
-        arrow_not_supported("`roll_dst` value must be 'error' or 'boundary' for non-existent times; other values")
+        arrow_not_supported("`roll_dst` value must be 'error' or 'boundary' for nonexistent times; other values")
       )
 
-      ambiguous <- switch(
-        roll_dst[2],
+      ambiguous <- switch(roll_dst[2],
         "error" = 0L,
         "pre" = 1L,
         "post" = 2L,
-        arrow_not_supported("`roll_dst` value must be 'error', 'pre', or 'post' for non-existent times")
+        arrow_not_supported("`roll_dst` value must be 'error', 'pre', or 'post' for nonexistent times")
       )
 
       if (identical(tzone, "")) {
@@ -651,7 +650,7 @@ register_bindings_duration_helpers <- function() {
   register_binding(
     "lubridate::dpicoseconds",
     function(x = 1) {
-      abort("Duration in picoseconds not supported in Arrow.")
+      arrow_not_supported("Duration in picoseconds")
     },
     notes = "not supported"
   )
@@ -816,7 +815,7 @@ register_bindings_datetime_rounding <- function() {
              week_start = getOption("lubridate.week.start", 7)) {
       opts <- parse_period_unit(unit)
       if (is.null(change_on_boundary)) {
-        change_on_boundary <- ifelse(call_binding("is.Date", x), TRUE, FALSE)
+        change_on_boundary <- call_binding("is.Date", x)
       }
       opts$ceil_is_strictly_greater <- change_on_boundary
 
@@ -826,5 +825,63 @@ register_bindings_datetime_rounding <- function() {
 
       Expression$create("ceil_temporal", x, options = opts)
     }
+  )
+}
+
+register_bindings_hms <- function() {
+  numeric_to_time32 <- function(x) {
+    # The only numeric which can be cast to time32 is int32 so double cast to make sure
+    cast(cast(x, int32()), time32(unit = "s"))
+  }
+
+  datetime_to_time32 <- function(datetime) {
+    hour <- call_binding("hour", datetime)
+    min <- call_binding("minute", datetime)
+    sec <- call_binding("second", datetime)
+
+    return(call_binding("hms::hms", seconds = sec, minutes = min, hours = hour))
+  }
+
+  register_binding(
+    "hms::hms",
+    function(seconds = 0, minutes = 0, hours = 0, days = 0) {
+      if (!call_binding("is.numeric", seconds) || !call_binding("is.numeric", minutes) ||
+        !call_binding("is.numeric", hours) || !call_binding("is.numeric", days)) {
+        abort("All arguments must be numeric or NA_real_")
+      }
+
+      total_secs <- seconds +
+        Expression$create("multiply_checked", minutes, 60) +
+        Expression$create("multiply_checked", hours, 3600) +
+        Expression$create("multiply_checked", days, 86400)
+
+      return(numeric_to_time32(total_secs))
+    },
+    notes = "subsecond times not supported"
+  )
+
+  register_binding(
+    "hms::as_hms",
+    function(x = numeric()) {
+      if (call_binding("is.POSIXct", x)) {
+        return(datetime_to_time32(x))
+      }
+
+      if (call_binding("is.numeric", x)) {
+        return(numeric_to_time32(x))
+      }
+
+      if (call_binding("is.character", x)) {
+        dash <- call_binding("gsub", ":", "-", x)
+        as_date_time_string <- call_binding("str_c", "1970-01-01", dash, sep = "-")
+        as_date_time <- Expression$create(
+          "strptime",
+          as_date_time_string,
+          options = list(format = "%Y-%m-%d-%H-%M-%S", unit = 0L)
+        )
+        return(datetime_to_time32(as_date_time))
+      }
+    },
+    notes = "subsecond times not supported"
   )
 }

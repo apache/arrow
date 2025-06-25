@@ -33,7 +33,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
-#include "arrow/util/tdigest.h"
+#include "arrow/util/tdigest_internal.h"
 
 namespace arrow {
 namespace internal {
@@ -44,7 +44,7 @@ TEST(TDigestTest, SingleValue) {
   TDigest td;
   td.Add(value);
   ASSERT_OK(td.Validate());
-  // all quantiles equal to same single vaue
+  // all quantiles equal to same single value
   for (double q = 0; q <= 1; q += 0.1) {
     EXPECT_EQ(td.Quantile(q), value);
   }

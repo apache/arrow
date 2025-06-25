@@ -32,6 +32,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/time.h"
 #include "arrow/util/visibility.h"
@@ -135,6 +136,10 @@ bool StringToFloat(const char* s, size_t length, char decimal_point, float* out)
 ARROW_EXPORT
 bool StringToFloat(const char* s, size_t length, char decimal_point, double* out);
 
+ARROW_EXPORT
+bool StringToFloat(const char* s, size_t length, char decimal_point,
+                   ::arrow::util::Float16* out);
+
 template <>
 struct StringConverter<FloatType> {
   using value_type = float;
@@ -156,6 +161,20 @@ struct StringConverter<DoubleType> {
   explicit StringConverter(char decimal_point = '.') : decimal_point(decimal_point) {}
 
   bool Convert(const DoubleType&, const char* s, size_t length, value_type* out) {
+    return ARROW_PREDICT_TRUE(StringToFloat(s, length, decimal_point, out));
+  }
+
+ private:
+  const char decimal_point;
+};
+
+template <>
+struct StringConverter<HalfFloatType> {
+  using value_type = ::arrow::util::Float16;
+
+  explicit StringConverter(char decimal_point = '.') : decimal_point(decimal_point) {}
+
+  bool Convert(const HalfFloatType&, const char* s, size_t length, value_type* out) {
     return ARROW_PREDICT_TRUE(StringToFloat(s, length, decimal_point, out));
   }
 
@@ -805,7 +824,7 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   if (!ignore_time_in_day) {
     secs += (std::chrono::hours(result.tm_hour) + std::chrono::minutes(result.tm_min) +
              std::chrono::seconds(result.tm_sec));
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(_AIX)
     secs -= std::chrono::seconds(result.tm_gmtoff);
 #endif
   }

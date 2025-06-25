@@ -102,7 +102,7 @@ classdef tFloat32Array < hNumericArray
             testCase.verifyEqual(toMATLAB(arrowArray), single([NaN; 2; 3]));
         end
 
-        function NumericlValidNVPair(testCase)
+        function NumericValidNVPair(testCase)
             matlabArray = single([1 2 3]); 
 
             % Supply a numeric vector for Valid 

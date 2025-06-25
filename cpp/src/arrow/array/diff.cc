@@ -43,7 +43,8 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/float16.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
 #include "arrow/util/ree_util.h"
 #include "arrow/util/string.h"
@@ -288,6 +289,13 @@ class ValueComparatorFactory {
 
   Status Visit(const NullType&, const Array&, const Array&) {
     return Status::NotImplemented("null type");
+  }
+  Status Visit(const ListViewType&, const Array&, const Array&) {
+    return Status::NotImplemented("list-view type");
+  }
+
+  Status Visit(const LargeListViewType&, const Array&, const Array&) {
+    return Status::NotImplemented("list-view type");
   }
 
   Status Visit(const ExtensionType&, const Array&, const Array&) {
@@ -589,6 +597,9 @@ Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target
     return Diff(*base_storage, *target_storage, pool);
   } else if (base.type()->id() == Type::DICTIONARY) {
     return Status::NotImplemented("diffing arrays of type ", *base.type());
+  } else if (base.type()->id() == Type::LIST_VIEW ||
+             base.type()->id() == Type::LARGE_LIST_VIEW) {
+    return Status::NotImplemented("diffing arrays of type ", *base.type());
   } else {
     return QuadraticSpaceMyersDiff(base, target, pool).Diff();
   }
@@ -613,6 +624,14 @@ class MakeFormatterImpl {
   Status Visit(const BooleanType&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
       *os << (checked_cast<const BooleanArray&>(array).Value(index) ? "true" : "false");
+    };
+    return Status::OK();
+  }
+
+  Status Visit(const HalfFloatType&) {
+    impl_ = [](const Array& array, int64_t index, std::ostream* os) {
+      const auto& float16_arr = checked_cast<const HalfFloatArray&>(array);
+      *os << arrow::util::Float16::FromBits(float16_arr.Value(index));
     };
     return Status::OK();
   }
@@ -697,11 +716,9 @@ class MakeFormatterImpl {
   template <typename T>
   enable_if_decimal<T, Status> Visit(const T&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
-      if constexpr (T::type_id == Type::DECIMAL128) {
-        *os << checked_cast<const Decimal128Array&>(array).FormatValue(index);
-      } else {
-        *os << checked_cast<const Decimal256Array&>(array).FormatValue(index);
-      }
+      const auto& decimal_array =
+          checked_cast<const typename TypeTraits<T>::ArrayType&>(array);
+      *os << decimal_array.FormatValue(index);
     };
     return Status::OK();
   }
@@ -730,6 +747,14 @@ class MakeFormatterImpl {
     ARROW_ASSIGN_OR_RAISE(auto values_formatter, MakeFormatter(*t.value_type()));
     impl_ = ListImpl(std::move(values_formatter));
     return Status::OK();
+  }
+
+  Status Visit(const ListViewType& t) {
+    return Status::NotImplemented("formatting diffs between arrays of type ", t);
+  }
+
+  Status Visit(const LargeListViewType& t) {
+    return Status::NotImplemented("formatting diffs between arrays of type ", t);
   }
 
   // TODO(bkietz) format maps better

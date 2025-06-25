@@ -24,23 +24,24 @@
 
 namespace arrow::matlab::tabular::proxy {
 
-    class Schema : public libmexclass::proxy::Proxy {
-        public:
-            Schema(std::shared_ptr<arrow::Schema> Schema);
+class Schema : public libmexclass::proxy::Proxy {
+ public:
+  Schema(std::shared_ptr<arrow::Schema> Schema);
 
-            virtual ~Schema() {}
+  virtual ~Schema() {}
 
-            static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+  static libmexclass::proxy::MakeResult make(
+      const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
-            std::shared_ptr<arrow::Schema> unwrap();
+  std::shared_ptr<arrow::Schema> unwrap();
 
-        protected:
-            void getFieldByIndex(libmexclass::proxy::method::Context& context);
-            void getFieldByName(libmexclass::proxy::method::Context& context);
-            void getNumFields(libmexclass::proxy::method::Context& context);
-            void getFieldNames(libmexclass::proxy::method::Context& context);
+ protected:
+  void getFieldByIndex(libmexclass::proxy::method::Context& context);
+  void getFieldByName(libmexclass::proxy::method::Context& context);
+  void getNumFields(libmexclass::proxy::method::Context& context);
+  void getFieldNames(libmexclass::proxy::method::Context& context);
 
-            std::shared_ptr<arrow::Schema> schema;
-    };
+  std::shared_ptr<arrow::Schema> schema;
+};
 
-}
+}  // namespace arrow::matlab::tabular::proxy

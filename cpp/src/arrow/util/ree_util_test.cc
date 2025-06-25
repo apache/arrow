@@ -22,7 +22,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/ree_util.h"
 
 namespace arrow {
@@ -101,7 +101,7 @@ TYPED_TEST_P(ReeUtilTest, PhysicalLength) {
   ASSERT_EQ(internal::FindPhysicalLength(run_ends246, 4, 0, 7), 0);
 }
 
-TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
+TYPED_TEST_P(ReeUtilTest, MergedRunsIteratorTest) {
   // Construct the following two test arrays with a lot of different offsets to test the
   // REE iterator: left:
   //
@@ -387,7 +387,7 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
 }
 
 REGISTER_TYPED_TEST_SUITE_P(ReeUtilTest, PhysicalIndex, PhysicalLength,
-                            MergedRunsInterator);
+                            MergedRunsIteratorTest);
 
 using RunEndsTypes = testing::Types<int16_t, int32_t, int64_t>;
 INSTANTIATE_TYPED_TEST_SUITE_P(ReeUtilTest, ReeUtilTest, RunEndsTypes);

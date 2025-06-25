@@ -29,15 +29,12 @@
 #include "arrow/compute/expression.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/dataset/dataset.h"
-#include "arrow/dataset/projector.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/io/interfaces.h"
-#include "arrow/memory_pool.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/async_generator.h"
+#include "arrow/util/async_generator_fwd.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/thread_pool.h"
 #include "arrow/util/type_fwd.h"
 
 namespace arrow {
@@ -114,6 +111,17 @@ struct ARROW_DS_EXPORT ScanOptions {
   /// Note: This  must be true in order for any readahead to happen
   bool use_threads = false;
 
+  /// If true the scanner will add augmented fields to the output schema.
+  bool add_augmented_fields = true;
+
+  /// Whether to cache metadata when scanning.
+  ///
+  /// Fragments may typically cache metadata to speed up repeated accesses.
+  /// However, in use cases where a single scan is done, or if memory use
+  /// is more critical than CPU time, setting this option to false can
+  /// lessen memory use.
+  bool cache_metadata = true;
+
   /// Fragment-specific scan options.
   std::shared_ptr<FragmentScanOptions> fragment_scan_options;
 
@@ -141,7 +149,7 @@ struct ARROW_DS_EXPORT ScanOptions {
 /// Scan-specific options, which can be changed between scans of the same dataset.
 ///
 /// A dataset consists of one or more individual fragments.  A fragment is anything
-/// that is indepedently scannable, often a file.
+/// that is independently scannable, often a file.
 ///
 /// Batches from all fragments will be converted to a single schema. This unified
 /// schema is referred to as the "dataset schema" and is the output schema for
@@ -230,7 +238,7 @@ struct ARROW_DS_EXPORT ScanV2Options : public acero::ExecNodeOptions {
   /// for example, if scanning a parquet file that has batches with 100MiB of data
   /// then the actual readahead will be at least 100MiB
   ///
-  /// Set to 0 to disable readhead.  When disabled, the scanner will read the
+  /// Set to 0 to disable readahead.  When disabled, the scanner will read the
   /// dataset one batch at a time
   ///
   /// This limit applies across all fragments.  If the limit is 32MiB and the
@@ -287,10 +295,12 @@ struct ARROW_DS_EXPORT ProjectionDescr {
 
   /// \brief Create a default projection referencing fields in the dataset schema
   static Result<ProjectionDescr> FromNames(std::vector<std::string> names,
-                                           const Schema& dataset_schema);
+                                           const Schema& dataset_schema,
+                                           bool add_augmented_fields = true);
 
   /// \brief Make a projection that projects every field in the dataset schema
-  static Result<ProjectionDescr> Default(const Schema& dataset_schema);
+  static Result<ProjectionDescr> Default(const Schema& dataset_schema,
+                                         bool add_augmented_fields = true);
 };
 
 /// \brief Utility method to set the projection expression and schema
@@ -304,7 +314,13 @@ ARROW_DS_EXPORT void SetProjection(ScanOptions* options, ProjectionDescr project
 struct TaggedRecordBatch {
   std::shared_ptr<RecordBatch> record_batch;
   std::shared_ptr<Fragment> fragment;
+
+  friend inline bool operator==(const TaggedRecordBatch& left,
+                                const TaggedRecordBatch& right) {
+    return left.record_batch == right.record_batch && left.fragment == right.fragment;
+  }
 };
+
 using TaggedRecordBatchGenerator = std::function<Future<TaggedRecordBatch>()>;
 using TaggedRecordBatchIterator = Iterator<TaggedRecordBatch>;
 
@@ -315,7 +331,13 @@ using TaggedRecordBatchIterator = Iterator<TaggedRecordBatch>;
 struct EnumeratedRecordBatch {
   Enumerated<std::shared_ptr<RecordBatch>> record_batch;
   Enumerated<std::shared_ptr<Fragment>> fragment;
+
+  friend inline bool operator==(const EnumeratedRecordBatch& left,
+                                const EnumeratedRecordBatch& right) {
+    return left.record_batch == right.record_batch && left.fragment == right.fragment;
+  }
 };
+
 using EnumeratedRecordBatchGenerator = std::function<Future<EnumeratedRecordBatch>()>;
 using EnumeratedRecordBatchIterator = Iterator<EnumeratedRecordBatch>;
 
@@ -500,6 +522,14 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///        ThreadPool found in ScanOptions;
   Status UseThreads(bool use_threads = true);
 
+  /// \brief Indicate if metadata should be cached when scanning
+  ///
+  /// Fragments may typically cache metadata to speed up repeated accesses.
+  /// However, in use cases where a single scan is done, or if memory use
+  /// is more critical than CPU time, setting this option to false can
+  /// lessen memory use.
+  Status CacheMetadata(bool cache_metadata = true);
+
   /// \brief Set the maximum number of rows per RecordBatch.
   ///
   /// \param[in] batch_size the maximum number of rows.
@@ -552,20 +582,27 @@ class ARROW_DS_EXPORT ScannerBuilder {
 /// \brief Construct a source ExecNode which yields batches from a dataset scan.
 ///
 /// Does not construct associated filter or project nodes.
-/// Yielded batches will be augmented with fragment/batch indices to enable stable
-/// ordering for simple ExecPlans.
+///
+/// Batches are yielded sequentially, like single-threaded,
+/// when require_sequenced_output=true.
+///
+/// Yielded batches will be augmented with fragment/batch indices when
+/// implicit_ordering=true to enable stable ordering for simple ExecPlans.
 class ARROW_DS_EXPORT ScanNodeOptions : public acero::ExecNodeOptions {
  public:
   explicit ScanNodeOptions(std::shared_ptr<Dataset> dataset,
                            std::shared_ptr<ScanOptions> scan_options,
-                           bool require_sequenced_output = false)
+                           bool require_sequenced_output = false,
+                           bool implicit_ordering = false)
       : dataset(std::move(dataset)),
         scan_options(std::move(scan_options)),
-        require_sequenced_output(require_sequenced_output) {}
+        require_sequenced_output(require_sequenced_output),
+        implicit_ordering(implicit_ordering) {}
 
   std::shared_ptr<Dataset> dataset;
   std::shared_ptr<ScanOptions> scan_options;
   bool require_sequenced_output;
+  bool implicit_ordering;
 };
 
 /// @}

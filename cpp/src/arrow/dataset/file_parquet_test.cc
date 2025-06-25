@@ -37,6 +37,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
 
 #include "parquet/arrow/writer.h"
@@ -47,6 +48,7 @@
 
 namespace arrow {
 
+using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 namespace dataset {
@@ -85,7 +87,6 @@ class ParquetFormatHelper {
   static Status WriteRecordBatch(const RecordBatch& batch,
                                  parquet::arrow::FileWriter* writer) {
     auto schema = batch.schema();
-    auto size = batch.num_rows();
 
     if (!schema->Equals(*writer->schema(), false)) {
       return Status::Invalid("RecordBatch schema does not match this writer's. batch:'",
@@ -93,7 +94,7 @@ class ParquetFormatHelper {
                              "'");
     }
 
-    RETURN_NOT_OK(writer->NewRowGroup(size));
+    RETURN_NOT_OK(writer->NewRowGroup());
     for (int i = 0; i < batch.num_columns(); i++) {
       RETURN_NOT_OK(writer->WriteColumnChunk(*batch.column(i)));
     }
@@ -326,27 +327,40 @@ TEST_F(TestParquetFileFormat, CachedMetadata) {
   FileSource source(tracked_input);
   ASSERT_OK_AND_ASSIGN(auto fragment,
                        format_->MakeFragment(std::move(source), literal(true)));
+  auto pq_fragment = checked_cast<ParquetFileFragment*>(fragment.get());
 
   // Read the file the first time, will read metadata
   auto options = std::make_shared<ScanOptions>();
   options->filter = literal(true);
-  ASSERT_OK_AND_ASSIGN(auto projection_descr,
-                       ProjectionDescr::FromNames({"x"}, *test_schema));
+  ASSERT_OK_AND_ASSIGN(
+      auto projection_descr,
+      ProjectionDescr::FromNames({"x"}, *test_schema, options->add_augmented_fields));
   options->projected_schema = projection_descr.schema;
   options->projection = projection_descr.expression;
   ASSERT_OK_AND_ASSIGN(auto generator, fragment->ScanBatchesAsync(options));
   ASSERT_FINISHES_OK(CollectAsyncGenerator(std::move(generator)));
+  ASSERT_NE(nullptr, pq_fragment->metadata());
 
   ASSERT_GT(tracked_input->bytes_read(), 0);
   int64_t bytes_read_first_time = tracked_input->bytes_read();
-
   ASSERT_OK(tracked_input->Seek(0));
 
   // Read the file the second time, should not read metadata
+  tracked_input->ResetStats();
   ASSERT_OK_AND_ASSIGN(generator, fragment->ScanBatchesAsync(options));
   ASSERT_FINISHES_OK(CollectAsyncGenerator(std::move(generator)));
-  int64_t bytes_read_second_time = tracked_input->bytes_read() - bytes_read_first_time;
-  ASSERT_LT(bytes_read_second_time, bytes_read_first_time);
+  ASSERT_LT(tracked_input->bytes_read(), bytes_read_first_time);
+
+  // Clear cached metadata
+  ASSERT_OK(fragment->ClearCachedMetadata());
+  ASSERT_EQ(nullptr, pq_fragment->metadata());
+
+  // Read the file a third time, should read metadata
+  tracked_input->ResetStats();
+  ASSERT_OK_AND_ASSIGN(generator, fragment->ScanBatchesAsync(options));
+  ASSERT_FINISHES_OK(CollectAsyncGenerator(std::move(generator)));
+  ASSERT_EQ(tracked_input->bytes_read(), bytes_read_first_time);
+  ASSERT_NE(nullptr, pq_fragment->metadata());
 }
 
 TEST_F(TestParquetFileFormat, MultithreadedScan) {
@@ -655,6 +669,12 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragments) {
   CountRowGroupsInFragment(fragment, {5, 6},
                            and_(greater_equal(field_ref("i64"), literal(6)),
                                 less(field_ref("i64"), literal(8))));
+
+  // nested field reference
+  CountRowGroupsInFragment(fragment, {0, 1, 2, 3, 4},
+                           less(field_ref(FieldRef("struct", "i32")), literal(6)));
+  CountRowGroupsInFragment(fragment, {1},
+                           equal(field_ref(FieldRef("struct", "str")), literal("2")));
 }
 
 TEST_P(TestParquetFileFormatScan, ExplicitRowGroupSelection) {
@@ -832,6 +852,125 @@ TEST(TestParquetStatistics, NullMax) {
   auto stat_expression =
       ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *statistics);
   EXPECT_EQ(stat_expression->ToString(), "(x >= 1)");
+}
+
+TEST(TestParquetStatistics, NoNullCount) {
+  auto field = ::arrow::field("x", int32());
+  auto parquet_node_ptr = ::parquet::schema::Int32("x", ::parquet::Repetition::REQUIRED);
+  ::parquet::ColumnDescriptor descr(parquet_node_ptr, /*max_definition_level=*/1,
+                                    /*max_repetition_level=*/0);
+
+  auto int32_to_parquet_stats = [](int32_t v) {
+    std::string value;
+    value.resize(sizeof(int32_t));
+    memcpy(value.data(), &v, sizeof(int32_t));
+    return value;
+  };
+  {
+    // Base case: when null_count is not set, the expression might contain null
+    ::parquet::EncodedStatistics encoded_stats;
+    encoded_stats.set_min(int32_to_parquet_stats(1));
+    encoded_stats.set_max(int32_to_parquet_stats(100));
+    encoded_stats.has_null_count = false;
+    encoded_stats.all_null_value = false;
+    encoded_stats.null_count = 0;
+    auto stats = ::parquet::Statistics::Make(&descr, &encoded_stats, /*num_values=*/10);
+
+    auto stat_expression =
+        ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
+    ASSERT_TRUE(stat_expression.has_value());
+    EXPECT_EQ(stat_expression->ToString(),
+              "(((x >= 1) and (x <= 100)) or is_null(x, {nan_is_null=false}))");
+  }
+  {
+    // Special case: when num_value is 0, it would return
+    // "is_null".
+    ::parquet::EncodedStatistics encoded_stats;
+    encoded_stats.has_null_count = true;
+    encoded_stats.null_count = 1;
+    encoded_stats.all_null_value = true;
+    auto stats = ::parquet::Statistics::Make(&descr, &encoded_stats, /*num_values=*/0);
+    auto stat_expression =
+        ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
+    ASSERT_TRUE(stat_expression.has_value());
+    EXPECT_EQ(stat_expression->ToString(), "is_null(x, {nan_is_null=false})");
+
+    encoded_stats.has_null_count = false;
+    encoded_stats.all_null_value = false;
+    stats = ::parquet::Statistics::Make(&descr, &encoded_stats, /*num_values=*/0);
+    stat_expression = ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
+    ASSERT_TRUE(stat_expression.has_value());
+    EXPECT_EQ(stat_expression->ToString(), "is_null(x, {nan_is_null=false})");
+  }
+}
+
+class DelayedBufferReader : public ::arrow::io::BufferReader {
+ public:
+  explicit DelayedBufferReader(const std::shared_ptr<::arrow::Buffer>& buffer)
+      : ::arrow::io::BufferReader(buffer) {}
+
+  ::arrow::Future<std::shared_ptr<Buffer>> ReadAsync(
+      const ::arrow::io::IOContext& io_context, int64_t position,
+      int64_t nbytes) override {
+    read_async_count.fetch_add(1);
+    auto self = std::dynamic_pointer_cast<DelayedBufferReader>(shared_from_this());
+    return DeferNotOk(::arrow::io::internal::SubmitIO(
+        io_context, [self, position, nbytes]() -> Result<std::shared_ptr<Buffer>> {
+          std::this_thread::sleep_for(std::chrono::seconds(1));
+          return self->DoReadAt(position, nbytes);
+        }));
+  }
+
+  std::atomic<int> read_async_count{0};
+};
+
+TEST_F(TestParquetFileFormat, MultithreadedScanRegression) {
+  // GH-38438: This test is similar to MultithreadedScan, but it try to use self
+  // designed Executor and DelayedBufferReader to mock async execution to make
+  // the state machine more complex.
+  auto reader = MakeGeneratedRecordBatch(schema({field("utf8", utf8())}), 10000, 100);
+
+  ASSERT_OK_AND_ASSIGN(auto buffer, ParquetFormatHelper::Write(reader.get()));
+
+  std::vector<Future<>> completes;
+  std::vector<std::shared_ptr<arrow::internal::ThreadPool>> pools;
+
+  for (int idx = 0; idx < 2; ++idx) {
+    auto buffer_reader = std::make_shared<DelayedBufferReader>(buffer);
+    auto source = std::make_shared<FileSource>(buffer_reader, buffer->size());
+    auto fragment = MakeFragment(*source);
+    std::shared_ptr<Scanner> scanner;
+
+    {
+      auto options = std::make_shared<ScanOptions>();
+      ASSERT_OK_AND_ASSIGN(auto thread_pool, arrow::internal::ThreadPool::Make(1));
+      pools.emplace_back(thread_pool);
+      options->io_context =
+          ::arrow::io::IOContext(::arrow::default_memory_pool(), pools.back().get());
+      auto fragment_scan_options = std::make_shared<ParquetFragmentScanOptions>();
+      fragment_scan_options->arrow_reader_properties->set_pre_buffer(true);
+
+      options->fragment_scan_options = fragment_scan_options;
+      ScannerBuilder builder(ArithmeticDatasetFixture::schema(), fragment, options);
+
+      ASSERT_OK(builder.UseThreads(true));
+      ASSERT_OK(builder.BatchSize(10000));
+      ASSERT_OK_AND_ASSIGN(scanner, builder.Finish());
+    }
+
+    ASSERT_OK_AND_ASSIGN(auto batch, scanner->Head(10000));
+    [[maybe_unused]] auto fut = scanner->ScanBatchesUnorderedAsync();
+    // Random ReadAsync calls, generate some futures to make the state machine
+    // more complex.
+    for (int yy = 0; yy < 16; yy++) {
+      completes.emplace_back(buffer_reader->ReadAsync(::arrow::io::IOContext(), 0, 1001));
+    }
+    scanner = nullptr;
+  }
+
+  for (auto& f : completes) {
+    f.Wait();
+  }
 }
 
 }  // namespace dataset

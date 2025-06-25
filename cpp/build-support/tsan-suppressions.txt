@@ -17,3 +17,6 @@
 
 # Thread leak in CUDA
 thread:libcuda.so
+
+# False-positives in OpenTelemetry because of non-instrumented code.
+race:^opentelemetry

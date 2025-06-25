@@ -793,8 +793,6 @@ void CheckPrimitive(const std::shared_ptr<DataType>& type,
 }
 
 TEST(TestJsonSchemaWriter, FlatTypes) {
-  // TODO
-  // field("f14", date32())
   std::vector<std::shared_ptr<Field>> fields = {
       field("f0", int8()),
       field("f1", int16(), false),
@@ -822,6 +820,8 @@ TEST(TestJsonSchemaWriter, FlatTypes) {
       field("f21", run_end_encoded(int16(), utf8())),
       field("f22", run_end_encoded(int32(), utf8())),
       field("f23", run_end_encoded(int64(), utf8())),
+      field("f24", list_view(int32())),
+      field("f25", large_list_view(uint8())),
   };
 
   auto schema = ::arrow::schema(fields);
@@ -1046,7 +1046,7 @@ TEST(TestJsonFileReadWrite, JsonExample2) {
 
     auto storage_array =
         ArrayFromJSON(fixed_size_binary(16), R"(["0123456789abcdef", null])");
-    AssertArraysEqual(*batch->column(0), UuidArray(uuid_type, storage_array));
+    AssertArraysEqual(*batch->column(0), ExampleUuidArray(uuid_type, storage_array));
 
     AssertArraysEqual(*batch->column(1), NullArray(2));
   }
@@ -1147,10 +1147,12 @@ TEST_P(TestJsonRoundTrip, RoundTrip) {
 const std::vector<ipc::test::MakeRecordBatch*> kBatchCases = {
     &MakeIntRecordBatch,
     &MakeListRecordBatch,
+    &MakeListViewRecordBatch,
     &MakeFixedSizeListRecordBatch,
     &MakeNonNullRecordBatch,
     &MakeZeroLengthRecordBatch,
     &MakeDeeplyNestedList,
+    &MakeDeeplyNestedListView,
     &MakeStringTypesRecordBatchWithNulls,
     &MakeStruct,
     &MakeUnion,

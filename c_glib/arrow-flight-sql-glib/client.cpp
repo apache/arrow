@@ -37,7 +37,8 @@ G_BEGIN_DECLS
  * Since: 9.0.0
  */
 
-struct GAFlightSQLPreparedStatementPrivate {
+struct GAFlightSQLPreparedStatementPrivate
+{
   std::shared_ptr<arrow::flight::sql::PreparedStatement> statement;
   GAFlightSQLClient *client;
 };
@@ -51,9 +52,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GAFlightSQLPreparedStatement,
                            gaflightsql_prepared_statement,
                            G_TYPE_OBJECT)
 
-#define GAFLIGHTSQL_PREPARED_STATEMENT_GET_PRIVATE(object)      \
-  static_cast<GAFlightSQLPreparedStatementPrivate *>(           \
-    gaflightsql_prepared_statement_get_instance_private(        \
+#define GAFLIGHTSQL_PREPARED_STATEMENT_GET_PRIVATE(object)                               \
+  static_cast<GAFlightSQLPreparedStatementPrivate *>(                                    \
+    gaflightsql_prepared_statement_get_instance_private(                                 \
       GAFLIGHTSQL_PREPARED_STATEMENT(object)))
 
 static void
@@ -122,12 +123,11 @@ static void
 gaflightsql_prepared_statement_init(GAFlightSQLPreparedStatement *object)
 {
   auto priv = GAFLIGHTSQL_PREPARED_STATEMENT_GET_PRIVATE(object);
-  new(&priv->statement) std::shared_ptr<arrow::flight::sql::PreparedStatement>;
+  new (&priv->statement) std::shared_ptr<arrow::flight::sql::PreparedStatement>;
 }
 
 static void
-gaflightsql_prepared_statement_class_init(
-  GAFlightSQLPreparedStatementClass *klass)
+gaflightsql_prepared_statement_class_init(GAFlightSQLPreparedStatementClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
@@ -137,11 +137,11 @@ gaflightsql_prepared_statement_class_init(
   gobject_class->get_property = gaflightsql_prepared_statement_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("statement",
-                              nullptr,
-                              nullptr,
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "statement",
+    nullptr,
+    nullptr,
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_STATEMENT, spec);
 
   /**
@@ -151,15 +151,13 @@ gaflightsql_prepared_statement_class_init(
    *
    * Since: 14.0.0
    */
-  spec = g_param_spec_object("client",
-                             nullptr,
-                             nullptr,
-                             GAFLIGHTSQL_TYPE_CLIENT,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class,
-                                  PROP_PREPARED_STATEMENT_CLIENT,
-                                  spec);
+  spec = g_param_spec_object(
+    "client",
+    nullptr,
+    nullptr,
+    GAFLIGHTSQL_TYPE_CLIENT,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_PREPARED_STATEMENT_CLIENT, spec);
 }
 
 /**
@@ -185,9 +183,7 @@ gaflightsql_prepared_statement_execute(GAFlightSQLPreparedStatement *statement,
     flight_options = gaflight_call_options_get_raw(options);
   }
   auto result = flight_sql_statement->Execute(*flight_options);
-  if (!garrow::check(error,
-                     result,
-                     "[flight-sql-prepared-statement][execute]")) {
+  if (!garrow::check(error, result, "[flight-sql-prepared-statement][execute]")) {
     return nullptr;
   }
   auto flight_info = std::move(*result);
@@ -205,10 +201,9 @@ gaflightsql_prepared_statement_execute(GAFlightSQLPreparedStatement *statement,
  * Since: 14.0.0
  */
 gint64
-gaflightsql_prepared_statement_execute_update(
-  GAFlightSQLPreparedStatement *statement,
-  GAFlightCallOptions *options,
-  GError **error)
+gaflightsql_prepared_statement_execute_update(GAFlightSQLPreparedStatement *statement,
+                                              GAFlightCallOptions *options,
+                                              GError **error)
 {
   auto flight_sql_statement = gaflightsql_prepared_statement_get_raw(statement);
   arrow::flight::FlightCallOptions flight_default_options;
@@ -217,9 +212,7 @@ gaflightsql_prepared_statement_execute_update(
     flight_options = gaflight_call_options_get_raw(options);
   }
   auto result = flight_sql_statement->ExecuteUpdate(*flight_options);
-  if (!garrow::check(error,
-                     result,
-                     "[flight-sql-prepared-statement][execute-update]")) {
+  if (!garrow::check(error, result, "[flight-sql-prepared-statement][execute-update]")) {
     return 0;
   }
   return *result;
@@ -251,8 +244,7 @@ gaflightsql_prepared_statement_get_parameter_schema(
  * Since: 14.0.0
  */
 GArrowSchema *
-gaflightsql_prepared_statement_get_dataset_schema(
-  GAFlightSQLPreparedStatement *statement)
+gaflightsql_prepared_statement_get_dataset_schema(GAFlightSQLPreparedStatement *statement)
 {
   auto flight_sql_statement = gaflightsql_prepared_statement_get_raw(statement);
   auto arrow_schema = flight_sql_statement->dataset_schema();
@@ -271,10 +263,9 @@ gaflightsql_prepared_statement_get_dataset_schema(
  * Since: 14.0.0
  */
 gboolean
-gaflightsql_prepared_statement_set_record_batch(
-  GAFlightSQLPreparedStatement *statement,
-  GArrowRecordBatch *record_batch,
-  GError **error)
+gaflightsql_prepared_statement_set_record_batch(GAFlightSQLPreparedStatement *statement,
+                                                GArrowRecordBatch *record_batch,
+                                                GError **error)
 {
   auto flight_sql_statement = gaflightsql_prepared_statement_get_raw(statement);
   auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
@@ -350,8 +341,8 @@ gaflightsql_prepared_statement_is_closed(GAFlightSQLPreparedStatement *statement
   return flight_sql_statement->IsClosed();
 }
 
-
-struct GAFlightSQLClientPrivate {
+struct GAFlightSQLClientPrivate
+{
   arrow::flight::sql::FlightSqlClient *client;
   GAFlightClient *flight_client;
 };
@@ -361,14 +352,11 @@ enum {
   PROP_FLIGHT_CLIENT,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GAFlightSQLClient,
-                           gaflightsql_client,
-                           G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GAFlightSQLClient, gaflightsql_client, G_TYPE_OBJECT)
 
-#define GAFLIGHTSQL_CLIENT_GET_PRIVATE(object)      \
-  static_cast<GAFlightSQLClientPrivate *>(          \
-    gaflightsql_client_get_instance_private(        \
-      GAFLIGHTSQL_CLIENT(object)))
+#define GAFLIGHTSQL_CLIENT_GET_PRIVATE(object)                                           \
+  static_cast<GAFlightSQLClientPrivate *>(                                               \
+    gaflightsql_client_get_instance_private(GAFLIGHTSQL_CLIENT(object)))
 
 static void
 gaflightsql_client_dispose(GObject *object)
@@ -404,8 +392,7 @@ gaflightsql_client_set_property(GObject *object,
   switch (prop_id) {
   case PROP_CLIENT:
     priv->client =
-      static_cast<arrow::flight::sql::FlightSqlClient *>(
-        g_value_get_pointer(value));
+      static_cast<arrow::flight::sql::FlightSqlClient *>(g_value_get_pointer(value));
     break;
   case PROP_FLIGHT_CLIENT:
     priv->flight_client = GAFLIGHT_CLIENT(g_value_dup_object(value));
@@ -450,11 +437,11 @@ gaflightsql_client_class_init(GAFlightSQLClientClass *klass)
   gobject_class->get_property = gaflightsql_client_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("client",
-                              "Client",
-                              "The raw arrow::flight::sql::FlightSqlClient *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "client",
+    "Client",
+    "The raw arrow::flight::sql::FlightSqlClient *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_CLIENT, spec);
 
   /**
@@ -464,12 +451,12 @@ gaflightsql_client_class_init(GAFlightSQLClientClass *klass)
    *
    * Since: 9.0.0
    */
-  spec = g_param_spec_object("flight-client",
-                             "Flight client",
-                             "The underlying Flight client",
-                             GAFLIGHT_TYPE_CLIENT,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "flight-client",
+    "Flight client",
+    "The underlying Flight client",
+    GAFLIGHT_TYPE_CLIENT,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_FLIGHT_CLIENT, spec);
 }
 
@@ -485,8 +472,7 @@ GAFlightSQLClient *
 gaflightsql_client_new(GAFlightClient *client)
 {
   auto flight_client = gaflight_client_get_raw(client);
-  auto flight_sql_client =
-    new arrow::flight::sql::FlightSqlClient(flight_client);
+  auto flight_sql_client = new arrow::flight::sql::FlightSqlClient(flight_client);
   return gaflightsql_client_new_raw(flight_sql_client, client);
 }
 
@@ -515,9 +501,7 @@ gaflightsql_client_execute(GAFlightSQLClient *client,
     flight_options = gaflight_call_options_get_raw(options);
   }
   auto result = flight_sql_client->Execute(*flight_options, query);
-  if (!garrow::check(error,
-                     result,
-                     "[flight-sql-client][execute]")) {
+  if (!garrow::check(error, result, "[flight-sql-client][execute]")) {
     return nullptr;
   }
   auto flight_info = std::move(*result);
@@ -548,9 +532,7 @@ gaflightsql_client_execute_update(GAFlightSQLClient *client,
     flight_options = gaflight_call_options_get_raw(options);
   }
   auto result = flight_sql_client->ExecuteUpdate(*flight_options, query);
-  if (!garrow::check(error,
-                     result,
-                     "[flight-sql-client][execute-update]")) {
+  if (!garrow::check(error, result, "[flight-sql-client][execute-update]")) {
     return 0;
   }
   return *result;
@@ -583,9 +565,7 @@ gaflightsql_client_do_get(GAFlightSQLClient *client,
     flight_options = gaflight_call_options_get_raw(options);
   }
   auto result = flight_sql_client->DoGet(*flight_options, *flight_ticket);
-  if (!garrow::check(error,
-                     result,
-                     "[flight-sql-client][do-get]")) {
+  if (!garrow::check(error, result, "[flight-sql-client][do-get]")) {
     return nullptr;
   }
   auto flight_reader = std::move(*result);
@@ -617,30 +597,26 @@ gaflightsql_client_prepare(GAFlightSQLClient *client,
     flight_options = gaflight_call_options_get_raw(options);
   }
   auto result = flight_sql_client->Prepare(*flight_options, query);
-  if (!garrow::check(error,
-                     result,
-                     "[flight-sql-client][prepare]")) {
+  if (!garrow::check(error, result, "[flight-sql-client][prepare]")) {
     return nullptr;
   }
   auto flight_sql_statement = std::move(*result);
-  return gaflightsql_prepared_statement_new_raw(&flight_sql_statement,
-                                                client);
+  return gaflightsql_prepared_statement_new_raw(&flight_sql_statement, client);
 }
 
-
 G_END_DECLS
-
 
 GAFlightSQLPreparedStatement *
 gaflightsql_prepared_statement_new_raw(
   std::shared_ptr<arrow::flight::sql::PreparedStatement> *flight_sql_statement,
   GAFlightSQLClient *client)
 {
-  return GAFLIGHTSQL_PREPARED_STATEMENT(
-    g_object_new(GAFLIGHTSQL_TYPE_PREPARED_STATEMENT,
-                 "statement", flight_sql_statement,
-                 "client", client,
-                 nullptr));
+  return GAFLIGHTSQL_PREPARED_STATEMENT(g_object_new(GAFLIGHTSQL_TYPE_PREPARED_STATEMENT,
+                                                     "statement",
+                                                     flight_sql_statement,
+                                                     "client",
+                                                     client,
+                                                     nullptr));
 }
 
 std::shared_ptr<arrow::flight::sql::PreparedStatement>
@@ -650,17 +626,16 @@ gaflightsql_prepared_statement_get_raw(GAFlightSQLPreparedStatement *statement)
   return priv->statement;
 }
 
-
 GAFlightSQLClient *
-gaflightsql_client_new_raw(
-  arrow::flight::sql::FlightSqlClient *flight_sql_client,
-  GAFlightClient *client)
+gaflightsql_client_new_raw(arrow::flight::sql::FlightSqlClient *flight_sql_client,
+                           GAFlightClient *client)
 {
-  return GAFLIGHTSQL_CLIENT(
-    g_object_new(GAFLIGHTSQL_TYPE_CLIENT,
-                 "client", flight_sql_client,
-                 "flight_client", client,
-                 nullptr));
+  return GAFLIGHTSQL_CLIENT(g_object_new(GAFLIGHTSQL_TYPE_CLIENT,
+                                         "client",
+                                         flight_sql_client,
+                                         "flight_client",
+                                         client,
+                                         nullptr));
 }
 
 arrow::flight::sql::FlightSqlClient *

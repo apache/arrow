@@ -21,6 +21,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/status.h"
+#include "arrow/status_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 
@@ -74,6 +75,27 @@ TEST(StatusTest, TestWithDetail) {
 
 TEST(StatusTest, TestCoverageWarnNotOK) {
   ARROW_WARN_NOT_OK(Status::Invalid("invalid"), "Expected warning");
+}
+
+TEST(StatusTest, StatusConstant) {
+  internal::StatusConstant constant{StatusCode::Invalid, "default error"};
+  Status st = constant;
+
+  ASSERT_EQ(st.code(), StatusCode::Invalid);
+  ASSERT_EQ(st.message(), "default error");
+  ASSERT_EQ(st.detail(), nullptr);
+
+  Status copy = st;
+  ASSERT_EQ(&st.message(), &copy.message());
+  Status moved = std::move(st);
+  ASSERT_EQ(&copy.message(), &moved.message());
+  ASSERT_OK(st);
+
+  Status other = constant;
+  ASSERT_EQ(other.code(), StatusCode::Invalid);
+  ASSERT_EQ(other.message(), "default error");
+  ASSERT_EQ(other.detail(), nullptr);
+  ASSERT_EQ(&other.message(), &moved.message());
 }
 
 TEST(StatusTest, AndStatus) {

@@ -19,13 +19,14 @@
 
 #include "arrow/array.h"
 #include "arrow/compute/api.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/float16.h"
 
 namespace arrow {
 namespace compute {
@@ -103,6 +104,9 @@ TEST(TestValidityKernels, IsFinite) {
   }
   CheckScalar("is_finite", {std::make_shared<NullArray>(4)},
               ArrayFromJSON(boolean(), "[null, null, null, null]"));
+  CheckScalar("is_finite",
+              {ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 42, null]")},
+              ArrayFromJSON(boolean(), "[true, true, true, null]"));
 }
 
 TEST(TestValidityKernels, IsInf) {
@@ -116,6 +120,8 @@ TEST(TestValidityKernels, IsInf) {
   }
   CheckScalar("is_inf", {std::make_shared<NullArray>(4)},
               ArrayFromJSON(boolean(), "[null, null, null, null]"));
+  CheckScalar("is_inf", {ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 42, null]")},
+              ArrayFromJSON(boolean(), "[false, false, false, null]"));
 }
 
 TEST(TestValidityKernels, IsNan) {
@@ -129,6 +135,8 @@ TEST(TestValidityKernels, IsNan) {
   }
   CheckScalar("is_nan", {std::make_shared<NullArray>(4)},
               ArrayFromJSON(boolean(), "[null, null, null, null]"));
+  CheckScalar("is_nan", {ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 42, null]")},
+              ArrayFromJSON(boolean(), "[false, false, false, null]"));
 }
 
 TEST(TestValidityKernels, IsValidIsNullNullType) {
@@ -243,7 +251,8 @@ class TestFloatingPointValidityKernels : public TestValidityKernels<ArrowType> {
   }
 };
 
-TYPED_TEST_SUITE(TestFloatingPointValidityKernels, RealArrowTypes);
+using RealTypesWithHalfFloat = testing::Types<FloatType, DoubleType, HalfFloatType>;
+TYPED_TEST_SUITE(TestFloatingPointValidityKernels, RealTypesWithHalfFloat);
 
 TYPED_TEST(TestFloatingPointValidityKernels, IsNull) { this->TestIsNull(); }
 

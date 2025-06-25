@@ -20,6 +20,7 @@ namespace Apache.Arrow.Types
 {
     public sealed class DictionaryType : FixedWidthType
     {
+        [Obsolete]
         public static readonly DictionaryType Default = new DictionaryType(Int64Type.Default, Int64Type.Default, false);
 
         public DictionaryType(IArrowType indexType, IArrowType valueType, bool ordered)
@@ -36,7 +37,7 @@ namespace Apache.Arrow.Types
 
         public override ArrowTypeId TypeId => ArrowTypeId.Dictionary;
         public override string Name => "dictionary";
-        public override int BitWidth => 64;
+        public override int BitWidth => ((IntegerType)IndexType).BitWidth;
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
 
         public IArrowType IndexType { get; private set; }

@@ -18,7 +18,6 @@
 import contextlib
 import functools
 import os
-import sys
 import subprocess
 
 from . import cdata
@@ -43,17 +42,10 @@ _FLIGHT_CLIENT_CMD = [
     "localhost",
 ]
 
-if sys.platform == "darwin":
-    _dll_suffix = ".dylib"
-elif os.name == "nt":
-    _dll_suffix = ".dll"
-else:
-    _dll_suffix = ".so"
-
 _DLL_PATH = os.path.join(
     ARROW_ROOT_DEFAULT,
     "go/arrow/internal/cdata_integration")
-_INTEGRATION_DLL = os.path.join(_DLL_PATH, "arrow_go_integration" + _dll_suffix)
+_INTEGRATION_DLL = os.path.join(_DLL_PATH, "arrow_go_integration" + cdata.dll_suffix)
 
 
 class GoTester(Tester):
@@ -114,10 +106,8 @@ class GoTester(Tester):
                 server.kill()
                 out, err = server.communicate()
                 raise RuntimeError(
-                    'Flight-Go server did not start properly, '
-                    'stdout: \n{}\n\nstderr:\n{}\n'.format(
-                        output + out.decode(), err.decode()
-                    )
+                    "Flight-Go server did not start properly, "
+                    f"stdout: \n{output + out.decode()}\n\nstderr:\n{err.decode()}\n"
                 )
             port = int(output.split(':')[1])
             yield port
@@ -167,6 +157,9 @@ _go_c_data_entrypoints = """
 
 @functools.lru_cache
 def _load_ffi(ffi, lib_path=_INTEGRATION_DLL):
+    # NOTE that setting Go environment variables here (such as GODEBUG)
+    # would be ignored by the Go runtime. The environment variables need
+    # to be set from the process calling Archery.
     ffi.cdef(_go_c_data_entrypoints)
     dll = ffi.dlopen(lib_path)
     return dll

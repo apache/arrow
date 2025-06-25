@@ -80,10 +80,10 @@ test_that("read_json_arrow() supports col_select=", {
   ', tf)
 
   tab1 <- read_json_arrow(tf, col_select = c(hello, world))
-  expect_equal(names(tab1), c("hello", "world"))
+  expect_named(tab1, c("hello", "world"))
 
   tab2 <- read_json_arrow(tf, col_select = 1:2)
-  expect_equal(names(tab2), c("hello", "world"))
+  expect_named(tab2, c("hello", "world"))
 })
 
 test_that("read_json_arrow(schema=) with empty schema", {

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Array accessor classes for Binary, LargeBinart, String, LargeString,
+// Array accessor classes for Binary, LargeBinary, String, LargeString,
 // FixedSizeBinary
 
 #pragma once
@@ -57,8 +57,6 @@ class BaseBinaryArray : public FlatArray {
   /// Return the pointer to the given elements bytes
   // XXX should GetValue(int64_t i) return a string_view?
   const uint8_t* GetValue(int64_t i, offset_type* out_length) const {
-    // Account for base offset
-    i += data_->offset;
     const offset_type pos = raw_value_offsets_[i];
     *out_length = raw_value_offsets_[i + 1] - pos;
     return raw_data_ + pos;
@@ -69,8 +67,6 @@ class BaseBinaryArray : public FlatArray {
   /// \param i the value index
   /// \return the view over the selected value
   std::string_view GetView(int64_t i) const {
-    // Account for base offset
-    i += data_->offset;
     const offset_type pos = raw_value_offsets_[i];
     return std::string_view(reinterpret_cast<const char*>(raw_data_ + pos),
                             raw_value_offsets_[i + 1] - pos);
@@ -99,9 +95,7 @@ class BaseBinaryArray : public FlatArray {
   /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> value_data() const { return data_->buffers[2]; }
 
-  const offset_type* raw_value_offsets() const {
-    return raw_value_offsets_ + data_->offset;
-  }
+  const offset_type* raw_value_offsets() const { return raw_value_offsets_; }
 
   const uint8_t* raw_data() const { return raw_data_; }
 
@@ -109,15 +103,12 @@ class BaseBinaryArray : public FlatArray {
   /// at the passed index.
   ///
   /// Does not perform boundschecking
-  offset_type value_offset(int64_t i) const {
-    return raw_value_offsets_[i + data_->offset];
-  }
+  offset_type value_offset(int64_t i) const { return raw_value_offsets_[i]; }
 
   /// \brief Return the length of the data for the value at the passed index.
   ///
   /// Does not perform boundschecking
   offset_type value_length(int64_t i) const {
-    i += data_->offset;
     return raw_value_offsets_[i + 1] - raw_value_offsets_[i];
   }
 
@@ -126,8 +117,7 @@ class BaseBinaryArray : public FlatArray {
   /// less than the size of the data buffer (data_->buffers[2]).
   offset_type total_values_length() const {
     if (data_->length > 0) {
-      return raw_value_offsets_[data_->length + data_->offset] -
-             raw_value_offsets_[data_->offset];
+      return raw_value_offsets_[data_->length] - raw_value_offsets_[0];
     } else {
       return 0;
     }
@@ -144,7 +134,7 @@ class BaseBinaryArray : public FlatArray {
   // Protected method for constructors
   void SetData(const std::shared_ptr<ArrayData>& data) {
     this->Array::SetData(data);
-    raw_value_offsets_ = data->GetValuesSafe<offset_type>(1, /*offset=*/0);
+    raw_value_offsets_ = data->GetValuesSafe<offset_type>(1);
     raw_data_ = data->GetValuesSafe<uint8_t>(2, /*offset=*/0);
   }
 
@@ -293,11 +283,11 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
                        const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
                        int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
-  const uint8_t* GetValue(int64_t i) const;
+  const uint8_t* GetValue(int64_t i) const { return values_ + i * byte_width_; }
   const uint8_t* Value(int64_t i) const { return GetValue(i); }
 
   std::string_view GetView(int64_t i) const {
-    return std::string_view(reinterpret_cast<const char*>(GetValue(i)), byte_width());
+    return std::string_view(reinterpret_cast<const char*>(GetValue(i)), byte_width_);
   }
 
   std::optional<std::string_view> operator[](int64_t i) const {
@@ -308,7 +298,7 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
 
   int32_t byte_width() const { return byte_width_; }
 
-  const uint8_t* raw_values() const { return raw_values_ + data_->offset * byte_width_; }
+  const uint8_t* raw_values() const { return values_; }
 
   IteratorType begin() const { return IteratorType(*this); }
 
@@ -319,8 +309,10 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
     this->PrimitiveArray::SetData(data);
     byte_width_ =
         internal::checked_cast<const FixedSizeBinaryType&>(*type()).byte_width();
+    values_ = raw_values_ + data_->offset * byte_width_;
   }
 
+  const uint8_t* values_;
   int32_t byte_width_;
 };
 

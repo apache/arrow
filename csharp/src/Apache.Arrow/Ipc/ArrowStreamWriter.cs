@@ -19,9 +19,11 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Apache.Arrow.Arrays;
+using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 using Google.FlatBuffers;
 
@@ -29,7 +31,7 @@ namespace Apache.Arrow.Ipc
 {
     public class ArrowStreamWriter : IDisposable
     {
-        internal class ArrowRecordBatchFlatBufferBuilder :
+        private class ArrowRecordBatchFlatBufferBuilder :
             IArrowArrayVisitor<Int8Array>,
             IArrowArrayVisitor<Int16Array>,
             IArrowArrayVisitor<Int32Array>,
@@ -50,128 +52,283 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<Time32Array>,
             IArrowArrayVisitor<Time64Array>,
             IArrowArrayVisitor<DurationArray>,
+            IArrowArrayVisitor<YearMonthIntervalArray>,
+            IArrowArrayVisitor<DayTimeIntervalArray>,
+            IArrowArrayVisitor<MonthDayNanosecondIntervalArray>,
             IArrowArrayVisitor<ListArray>,
+            IArrowArrayVisitor<ListViewArray>,
+            IArrowArrayVisitor<LargeListArray>,
             IArrowArrayVisitor<FixedSizeListArray>,
             IArrowArrayVisitor<StringArray>,
+            IArrowArrayVisitor<StringViewArray>,
+            IArrowArrayVisitor<LargeStringArray>,
             IArrowArrayVisitor<BinaryArray>,
+            IArrowArrayVisitor<BinaryViewArray>,
+            IArrowArrayVisitor<LargeBinaryArray>,
             IArrowArrayVisitor<FixedSizeBinaryArray>,
             IArrowArrayVisitor<StructArray>,
             IArrowArrayVisitor<UnionArray>,
+            IArrowArrayVisitor<Decimal32Array>,
+            IArrowArrayVisitor<Decimal64Array>,
             IArrowArrayVisitor<Decimal128Array>,
             IArrowArrayVisitor<Decimal256Array>,
             IArrowArrayVisitor<DictionaryArray>,
             IArrowArrayVisitor<NullArray>
         {
-            public readonly struct Buffer
+            public readonly struct FieldNode
             {
-                public readonly ArrowBuffer DataBuffer;
-                public readonly int Offset;
+                public readonly int Length;
+                public readonly int NullCount;
 
-                public Buffer(ArrowBuffer buffer, int offset)
+                public FieldNode(int length, int nullCount)
                 {
-                    DataBuffer = buffer;
-                    Offset = offset;
+                    Length = length;
+                    NullCount = nullCount;
                 }
             }
 
-            private readonly List<Buffer> _buffers;
+            public readonly struct Buffer : IDisposable
+            {
+                public readonly ReadOnlyMemory<byte> DataBuffer;
+                public readonly int Offset;
+                private readonly IDisposable _owner;
 
+                public Buffer(ReadOnlyMemory<byte> buffer, int offset, IDisposable owner)
+                {
+                    DataBuffer = buffer;
+                    Offset = offset;
+                    _owner = owner;
+                }
+                public void Dispose() => _owner?.Dispose();
+            }
+
+            private readonly List<FieldNode> _fieldNodes;
+            private readonly List<Buffer> _buffers;
+            private readonly ICompressionCodec _compressionCodec;
+            private readonly MemoryAllocator _allocator;
+            private readonly MemoryStream _fallbackCompressionStream;
+            public IReadOnlyList<FieldNode> FieldNodes => _fieldNodes;
             public IReadOnlyList<Buffer> Buffers => _buffers;
 
+            public List<long> VariadicCounts { get; private set; }
             public int TotalLength { get; private set; }
 
-            public ArrowRecordBatchFlatBufferBuilder()
+            public ArrowRecordBatchFlatBufferBuilder(
+                ICompressionCodec compressionCodec, MemoryAllocator allocator, MemoryStream fallbackCompressionStream)
             {
+                _compressionCodec = compressionCodec;
+                _allocator = allocator;
+                _fallbackCompressionStream = fallbackCompressionStream;
+                _fieldNodes = new List<FieldNode>();
                 _buffers = new List<Buffer>();
                 TotalLength = 0;
             }
 
-            public void Visit(Int8Array array) => CreateBuffers(array);
-            public void Visit(Int16Array array) => CreateBuffers(array);
-            public void Visit(Int32Array array) => CreateBuffers(array);
-            public void Visit(Int64Array array) => CreateBuffers(array);
-            public void Visit(UInt8Array array) => CreateBuffers(array);
-            public void Visit(UInt16Array array) => CreateBuffers(array);
-            public void Visit(UInt32Array array) => CreateBuffers(array);
-            public void Visit(UInt64Array array) => CreateBuffers(array);
+            public void VisitArray(IArrowArray array)
+            {
+                _fieldNodes.Add(new FieldNode(array.Length, array.NullCount));
+
+                array.Accept(this);
+            }
+
+            public void Visit(Int8Array array) => VisitPrimitiveArray(array);
+            public void Visit(Int16Array array) => VisitPrimitiveArray(array);
+            public void Visit(Int32Array array) => VisitPrimitiveArray(array);
+            public void Visit(Int64Array array) => VisitPrimitiveArray(array);
+            public void Visit(UInt8Array array) => VisitPrimitiveArray(array);
+            public void Visit(UInt16Array array) => VisitPrimitiveArray(array);
+            public void Visit(UInt32Array array) => VisitPrimitiveArray(array);
+            public void Visit(UInt64Array array) => VisitPrimitiveArray(array);
 #if NET5_0_OR_GREATER
-            public void Visit(HalfFloatArray array) => CreateBuffers(array);
+            public void Visit(HalfFloatArray array) => VisitPrimitiveArray(array);
 #endif
-            public void Visit(FloatArray array) => CreateBuffers(array);
-            public void Visit(DoubleArray array) => CreateBuffers(array);
-            public void Visit(TimestampArray array) => CreateBuffers(array);
-            public void Visit(BooleanArray array) => CreateBuffers(array);
-            public void Visit(Date32Array array) => CreateBuffers(array);
-            public void Visit(Date64Array array) => CreateBuffers(array);
-            public void Visit(Time32Array array) => CreateBuffers(array);
-            public void Visit(Time64Array array) => CreateBuffers(array);
-            public void Visit(DurationArray array) => CreateBuffers(array);
+            public void Visit(FloatArray array) => VisitPrimitiveArray(array);
+            public void Visit(DoubleArray array) => VisitPrimitiveArray(array);
+            public void Visit(TimestampArray array) => VisitPrimitiveArray(array);
+            public void Visit(Date32Array array) => VisitPrimitiveArray(array);
+            public void Visit(Date64Array array) => VisitPrimitiveArray(array);
+            public void Visit(Time32Array array) => VisitPrimitiveArray(array);
+            public void Visit(Time64Array array) => VisitPrimitiveArray(array);
+            public void Visit(DurationArray array) => VisitPrimitiveArray(array);
+            public void Visit(YearMonthIntervalArray array) => VisitPrimitiveArray(array);
+            public void Visit(DayTimeIntervalArray array) => VisitPrimitiveArray(array);
+            public void Visit(MonthDayNanosecondIntervalArray array) => VisitPrimitiveArray(array);
+
+            private void VisitPrimitiveArray<T>(PrimitiveArray<T> array)
+                where T : struct, IEquatable<T>
+            {
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
+                _buffers.Add(CreateSlicedBuffer<T>(array.ValueBuffer, array.Offset, array.Length, false));
+            }
+
+            public void Visit(BooleanArray array)
+            {
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
+                _buffers.Add(CreateBitmapBuffer(array.ValueBuffer, array.Offset, array.Length, false));
+            }
 
             public void Visit(ListArray array)
             {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                _buffers.Add(CreateBuffer(array.ValueOffsetsBuffer));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
+                _buffers.Add(CreateBuffer(GetZeroBasedValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length), true));
 
-                array.Values.Accept(this);
+                int valuesOffset = 0;
+                int valuesLength = 0;
+                if (array.Length > 0)
+                {
+                    valuesOffset = array.ValueOffsets[0];
+                    valuesLength = array.ValueOffsets[array.Length] - valuesOffset;
+                }
+
+                var values = array.Values;
+                if (valuesOffset > 0 || valuesLength < values.Length)
+                {
+                    values = ArrowArrayFactory.Slice(values, valuesOffset, valuesLength);
+                }
+
+                VisitArray(values);
+            }
+
+            public void Visit(ListViewArray array)
+            {
+                var (valueOffsetsBuffer, minOffset, maxEnd) = GetZeroBasedListViewOffsets(array);
+
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
+                _buffers.Add(CreateBuffer(valueOffsetsBuffer, true));
+                _buffers.Add(CreateSlicedBuffer<int>(array.SizesBuffer, array.Offset, array.Length, false));
+
+                IArrowArray values = array.Values;
+                if (minOffset != 0 || values.Length != maxEnd)
+                {
+                    values = ArrowArrayFactory.Slice(values, minOffset, maxEnd - minOffset);
+                }
+
+                VisitArray(values);
+            }
+
+            public void Visit(LargeListArray array)
+            {
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
+                _buffers.Add(CreateBuffer(GetZeroBasedLongValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length), true));
+
+                int valuesOffset = 0;
+                int valuesLength = 0;
+                if (array.Length > 0)
+                {
+                    valuesOffset = checked((int)array.ValueOffsets[0]);
+                    valuesLength = checked((int)array.ValueOffsets[array.Length] - valuesOffset);
+                }
+
+                var values = array.Values;
+                if (valuesOffset > 0 || valuesLength < values.Length)
+                {
+                    values = ArrowArrayFactory.Slice(values, valuesOffset, valuesLength);
+                }
+
+                VisitArray(values);
             }
 
             public void Visit(FixedSizeListArray array)
             {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
 
-                array.Values.Accept(this);
+                var listSize = ((FixedSizeListType)array.Data.DataType).ListSize;
+                var valuesSlice =
+                    ArrowArrayFactory.Slice(array.Values, array.Offset * listSize, array.Length * listSize);
+
+                VisitArray(valuesSlice);
             }
 
             public void Visit(StringArray array) => Visit(array as BinaryArray);
 
+            public void Visit(StringViewArray array) => Visit(array as BinaryViewArray);
+
+            public void Visit(LargeStringArray array) => Visit(array as LargeBinaryArray);
+
             public void Visit(BinaryArray array)
             {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                _buffers.Add(CreateBuffer(array.ValueOffsetsBuffer));
-                _buffers.Add(CreateBuffer(array.ValueBuffer));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
+                _buffers.Add(CreateBuffer(GetZeroBasedValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length), true));
+
+                int valuesOffset = 0;
+                int valuesLength = 0;
+                if (array.Length > 0)
+                {
+                    valuesOffset = array.ValueOffsets[0];
+                    valuesLength = array.ValueOffsets[array.Length] - valuesOffset;
+                }
+
+                _buffers.Add(CreateSlicedBuffer<byte>(array.ValueBuffer, valuesOffset, valuesLength, false));
+            }
+
+            public void Visit(BinaryViewArray array)
+            {
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
+                _buffers.Add(CreateSlicedBuffer<Scalars.BinaryView>(array.ViewsBuffer, array.Offset, array.Length, false));
+                for (int i = 0; i < array.DataBufferCount; i++)
+                {
+                    _buffers.Add(CreateBuffer(array.DataBuffer(i), false));
+                }
+                VariadicCounts = VariadicCounts ?? new List<long>();
+                VariadicCounts.Add(array.DataBufferCount);
+            }
+
+            public void Visit(LargeBinaryArray array)
+            {
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
+                _buffers.Add(CreateBuffer(GetZeroBasedLongValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length), true));
+
+                int valuesOffset = 0;
+                int valuesLength = 0;
+                if (array.Length > 0)
+                {
+                    valuesOffset = checked((int)array.ValueOffsets[0]);
+                    valuesLength = checked((int)array.ValueOffsets[array.Length]) - valuesOffset;
+                }
+
+                _buffers.Add(CreateSlicedBuffer<byte>(array.ValueBuffer, valuesOffset, valuesLength, false));
             }
 
             public void Visit(FixedSizeBinaryArray array)
             {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                _buffers.Add(CreateBuffer(array.ValueBuffer));
+                var itemSize = ((FixedSizeBinaryType)array.Data.DataType).ByteWidth;
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
+                _buffers.Add(CreateSlicedBuffer(array.ValueBuffer, itemSize, array.Offset, array.Length, false));
             }
 
-            public void Visit(Decimal128Array array)
-            {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                _buffers.Add(CreateBuffer(array.ValueBuffer));
-            }
+            public void Visit(Decimal32Array array) => Visit(array as FixedSizeBinaryArray);
 
-            public void Visit(Decimal256Array array)
-            {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                _buffers.Add(CreateBuffer(array.ValueBuffer));
-            }
+            public void Visit(Decimal64Array array) => Visit(array as FixedSizeBinaryArray);
+
+            public void Visit(Decimal128Array array) => Visit(array as FixedSizeBinaryArray);
+
+            public void Visit(Decimal256Array array) => Visit(array as FixedSizeBinaryArray);
 
             public void Visit(StructArray array)
             {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length, false));
 
                 for (int i = 0; i < array.Fields.Count; i++)
                 {
-                    array.Fields[i].Accept(this);
+                    // Fields property accessor handles slicing field arrays if required
+                    VisitArray(array.Fields[i]);
                 }
             }
 
             public void Visit(UnionArray array)
             {
-                _buffers.Add(CreateBuffer(array.TypeBuffer));
+                _buffers.Add(CreateSlicedBuffer<byte>(array.TypeBuffer, array.Offset, array.Length, false));
 
                 ArrowBuffer? offsets = (array as DenseUnionArray)?.ValueOffsetBuffer;
                 if (offsets != null)
                 {
-                    _buffers.Add(CreateBuffer(offsets.Value));
+                    _buffers.Add(CreateSlicedBuffer<int>(offsets.Value, array.Offset, array.Length, false));
                 }
 
                 for (int i = 0; i < array.Fields.Count; i++)
                 {
-                    array.Fields[i].Accept(this);
+                    // Fields property accessor handles slicing field arrays for sparse union arrays if required
+                    VisitArray(array.Fields[i]);
                 }
             }
 
@@ -180,8 +337,7 @@ namespace Apache.Arrow.Ipc
                 // Dictionary is serialized separately in Dictionary serialization.
                 // We are only interested in indices at this context.
 
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                _buffers.Add(CreateBuffer(array.IndicesBuffer));
+                array.Indices.Accept(this);
             }
 
             public void Visit(NullArray array)
@@ -189,27 +345,262 @@ namespace Apache.Arrow.Ipc
                 // There are no buffers for a NullArray
             }
 
-            private void CreateBuffers(BooleanArray array)
+            private ArrowBuffer GetZeroBasedValueOffsets(ArrowBuffer valueOffsetsBuffer, int arrayOffset, int arrayLength)
             {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                _buffers.Add(CreateBuffer(array.ValueBuffer));
+                var requiredBytes = CalculatePaddedBufferLength(sizeof(int) * (arrayLength + 1));
+
+                if (arrayOffset != 0)
+                {
+                    // Array has been sliced, so we need to shift and adjust the offsets
+                    var originalOffsets = valueOffsetsBuffer.Span.CastTo<int>().Slice(arrayOffset, arrayLength + 1);
+                    int firstOffset = arrayLength > 0 ? originalOffsets[0] : 0;
+
+                    var newValueOffsetsBuffer = _allocator.Allocate(requiredBytes);
+                    var newValueOffsets = newValueOffsetsBuffer.Memory.Span.CastTo<int>();
+
+                    for (int i = 0; i < arrayLength + 1; ++i)
+                    {
+                        newValueOffsets[i] = originalOffsets[i] - firstOffset;
+                    }
+
+                    return new ArrowBuffer(newValueOffsetsBuffer);
+                }
+                else if (valueOffsetsBuffer.Length > requiredBytes)
+                {
+                    // Array may have been sliced but the offset is zero,
+                    // so we can truncate the existing offsets
+                    return new ArrowBuffer(valueOffsetsBuffer.Memory.Slice(0, requiredBytes));
+                }
+                else
+                {
+                    // Use the full buffer, but create a copy that is externally owned
+                    return new ArrowBuffer(valueOffsetsBuffer.Memory);
+                }
             }
 
-            private void CreateBuffers<T>(PrimitiveArray<T> array)
+            private ArrowBuffer GetZeroBasedLongValueOffsets(ArrowBuffer valueOffsetsBuffer, int arrayOffset, int arrayLength)
+            {
+                var requiredBytes = CalculatePaddedBufferLength(checked(sizeof(long) * (arrayLength + 1)));
+
+                if (arrayOffset != 0)
+                {
+                    // Array has been sliced, so we need to shift and adjust the offsets
+                    var originalOffsets = valueOffsetsBuffer.Span.CastTo<long>().Slice(arrayOffset, arrayLength + 1);
+                    var firstOffset = arrayLength > 0 ? originalOffsets[0] : 0L;
+
+                    var newValueOffsetsBuffer = _allocator.Allocate(requiredBytes);
+                    var newValueOffsets = newValueOffsetsBuffer.Memory.Span.CastTo<long>();
+
+                    for (int i = 0; i < arrayLength + 1; ++i)
+                    {
+                        newValueOffsets[i] = originalOffsets[i] - firstOffset;
+                    }
+                    return new ArrowBuffer(newValueOffsetsBuffer);
+                }
+                else if (valueOffsetsBuffer.Length > requiredBytes)
+                {
+                    // Array may have been sliced but the offset is zero,
+                    // so we can truncate the existing offsets
+                    return new ArrowBuffer(valueOffsetsBuffer.Memory.Slice(0, requiredBytes));
+                }
+                else
+                {
+                    // Use the full buffer, create new buffer that is externally owned
+                    return new ArrowBuffer(valueOffsetsBuffer.Memory);
+                }
+            }
+
+            private (ArrowBuffer Buffer, int minOffset, int maxEnd) GetZeroBasedListViewOffsets(ListViewArray array)
+            {
+                if (array.Length == 0)
+                {
+                    return (ArrowBuffer.Empty, 0, 0);
+                }
+
+                var offsets = array.ValueOffsets;
+                var sizes = array.Sizes;
+
+                int minOffset = offsets[0];
+                int maxEnd = offsets[array.Length - 1] + sizes[array.Length - 1];
+
+                // Min possible offset is zero, and max possible end is the values length.
+                // If these match the first offset and last end we don't need to do anything further,
+                // but otherwise we need to iterate over each index in case the offsets aren't ordered.
+                if (minOffset != 0 || maxEnd != array.Values.Length)
+                {
+                    for (int i = 0; i < array.Length; ++i)
+                    {
+                        minOffset = Math.Min(minOffset, offsets[i]);
+                        maxEnd = Math.Max(maxEnd, offsets[i] + sizes[i]);
+                    }
+                }
+
+                var requiredBytes = CalculatePaddedBufferLength(sizeof(int) * array.Length);
+
+                if (minOffset == 0)
+                {
+                    // No need to adjust the offsets, but we may need to slice the offsets buffer.
+                    ArrowBuffer buffer;
+                    if (array.Offset != 0 || array.ValueOffsetsBuffer.Length > requiredBytes)
+                    {
+                        var byteOffset = sizeof(int) * array.Offset;
+                        var sliceLength = Math.Min(requiredBytes, array.ValueOffsetsBuffer.Length - byteOffset);
+                        buffer = new ArrowBuffer(array.ValueOffsetsBuffer.Memory.Slice(byteOffset, sliceLength));
+                    }
+                    else
+                    {
+                        // create a copy that's externally owned
+                        buffer = new ArrowBuffer(array.ValueOffsetsBuffer.Memory);
+                    }
+
+                    return (buffer, minOffset, maxEnd);
+                }
+
+                // Compute shifted offsets
+                var newOffsetsBuffer = _allocator.Allocate(requiredBytes);
+                var newOffsets = newOffsetsBuffer.Memory.Span.CastTo<int>();
+                for (int i = 0; i < array.Length; ++i)
+                {
+                    newOffsets[i] = offsets[i] - minOffset;
+                }
+
+                return (new ArrowBuffer(newOffsetsBuffer), minOffset, maxEnd);
+            }
+
+            private Buffer CreateBitmapBuffer(ArrowBuffer buffer, int offset, int length, bool locallyOwned)
+            {
+                if (buffer.IsEmpty)
+                {
+                    return CreateBuffer(buffer, locallyOwned);
+                }
+
+                var paddedLength = CalculatePaddedBufferLength(BitUtility.ByteCount(length));
+                if (offset % 8 == 0)
+                {
+                    var byteOffset = offset / 8;
+                    var sliceLength = Math.Min(paddedLength, buffer.Length - byteOffset);
+
+                    return CreateBuffer(buffer.Memory.Slice(byteOffset, sliceLength), locallyOwned ? buffer : null);
+                }
+                else
+                {
+                    // Need to copy bitmap so the first bit is aligned with the first byte
+                    var memoryOwner = _allocator.Allocate(paddedLength);
+                    var outputSpan = memoryOwner.Memory.Span;
+                    var inputSpan = buffer.Span;
+                    for (var i = 0; i < length; ++i)
+                    {
+                        BitUtility.SetBit(outputSpan, i, BitUtility.GetBit(inputSpan, offset + i));
+                    }
+
+                    return CreateBuffer(memoryOwner);
+                }
+            }
+
+            private Buffer CreateSlicedBuffer<T>(ArrowBuffer buffer, int offset, int length, bool owned)
                 where T : struct
             {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                _buffers.Add(CreateBuffer(array.ValueBuffer));
+                return CreateSlicedBuffer(buffer, Unsafe.SizeOf<T>(), offset, length, owned);
             }
 
-            private Buffer CreateBuffer(ArrowBuffer buffer)
+            private Buffer CreateSlicedBuffer(ArrowBuffer buffer, int itemSize, int offset, int length, bool owned)
+            {
+                var byteLength = length * itemSize;
+                var paddedLength = CalculatePaddedBufferLength(byteLength);
+                if (offset != 0 || paddedLength < buffer.Length)
+                {
+                    var byteOffset = offset * itemSize;
+                    var sliceLength = Math.Min(paddedLength, buffer.Length - byteOffset);
+                    return CreateBuffer(buffer.Memory.Slice(byteOffset, sliceLength),
+                        owned ? buffer : null);
+                }
+
+                return CreateBuffer(buffer, owned);
+            }
+
+            private Buffer CreateBuffer(ArrowBuffer buffer, bool locallyOwned)
+            {
+                if (locallyOwned)
+                {
+                    // this buffer is locally owned, we can dispose it
+                    return CreateBuffer(buffer.Memory, buffer);
+                }
+                return CreateBuffer(buffer.Memory, null);
+            }
+
+            private Buffer CreateBuffer(IMemoryOwner<byte>  bufferOwner)
+            {
+                return CreateBuffer(bufferOwner.Memory, bufferOwner);
+            }
+
+            private Buffer CreateBuffer(ReadOnlyMemory<byte> buffer, IDisposable localBufferOwner)
             {
                 int offset = TotalLength;
+                const int UncompressedLengthSize = 8;
 
-                int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(buffer.Length));
+                ReadOnlyMemory<byte> bufferToWrite;
+                IMemoryOwner<byte> bufferOwner=null;
+                if (_compressionCodec == null)
+                {
+                    bufferToWrite = buffer;
+                }
+                else if (buffer.Length == 0)
+                {
+                    // Write zero length and skip compression
+                    bufferOwner = _allocator.Allocate(UncompressedLengthSize);
+                    BinaryPrimitives.WriteInt64LittleEndian(bufferOwner.Memory.Span, 0);
+                    bufferToWrite = bufferOwner.Memory.Slice(0, UncompressedLengthSize);
+                    // the local source buffer owner can be disposed, its memory is no longer needed
+                    localBufferOwner?.Dispose();
+                }
+                else
+                {
+                    // See format/Message.fbs, and the BUFFER BodyCompressionMethod for documentation on how
+                    // compressed buffers are stored.
+                    int newBufferLength = UncompressedLengthSize + buffer.Length;
+                    bufferOwner = _allocator.Allocate(newBufferLength);
+
+                    if(TryCompress(buffer, bufferOwner.Memory.Slice(UncompressedLengthSize, buffer.Length), out int bytesWritten))
+                    {
+                        // Write the uncompressed length to the start of the buffer
+                        BinaryPrimitives.WriteInt64LittleEndian(bufferOwner.Memory.Span, buffer.Length);
+                        bufferToWrite = bufferOwner.Memory.Slice(0, bytesWritten+UncompressedLengthSize);
+                    }
+                    else
+                    {
+                        // TryCompress failed, because the buffer is too small.
+                        // If the compressed buffer is larger than the uncompressed buffer, use the uncompressed
+                        // buffer instead, and indicate this by setting the uncompressed length to -1
+                        BinaryPrimitives.WriteInt64LittleEndian(bufferOwner.Memory.Span, -1);
+                        buffer.CopyTo(bufferOwner.Memory.Slice(UncompressedLengthSize));
+                        bufferToWrite = bufferOwner.Memory.Slice(0, newBufferLength);
+                    }
+                    // the local source buffer owner can be disposed, its memory was copied
+                    localBufferOwner?.Dispose();
+                }
+
+                int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(bufferToWrite.Length));
                 TotalLength += paddedLength;
+                // if the buffer is owned locally or allocated in the method, we can dispose it after writing the buffer to the stream
+                return new Buffer(bufferToWrite, offset, (IDisposable)bufferOwner ?? localBufferOwner);
+            }
 
-                return new Buffer(buffer, offset);
+            private bool TryCompress(ReadOnlyMemory<byte> source, Memory<byte> destination, out int bytesWritten)
+            {
+                if(_compressionCodec is ITryCompressionCodec tryCompressionCodec)
+                    return tryCompressionCodec.TryCompress(source, destination, out bytesWritten);
+                // Fallback to using a memory stream for compression
+                _fallbackCompressionStream.Seek(0, SeekOrigin.Begin);
+                _fallbackCompressionStream.SetLength(0);
+                _compressionCodec.Compress(source, _fallbackCompressionStream);
+                if (_fallbackCompressionStream.Length >= destination.Length)
+                {
+                    bytesWritten = 0;
+                    return false;
+                }
+                _fallbackCompressionStream.Seek(0, SeekOrigin.Begin);
+                bytesWritten = _fallbackCompressionStream.ReadFullBuffer(destination);
+                return true;
             }
 
             public void Visit(IArrowArray array)
@@ -236,6 +627,10 @@ namespace Apache.Arrow.Ipc
 
         private readonly bool _leaveOpen;
         private readonly IpcOptions _options;
+        private readonly MemoryAllocator _allocator;
+        // Fallback for compression codec, not implementing TryCompress.
+        // Reuse a single memory stream for writing compressed
+        private readonly MemoryStream _fallbackCompressionStream = new MemoryStream();
 
         private protected const Flatbuf.MetadataVersion CurrentMetadataVersion = Flatbuf.MetadataVersion.V5;
 
@@ -252,15 +647,21 @@ namespace Apache.Arrow.Ipc
         }
 
         public ArrowStreamWriter(Stream baseStream, Schema schema, bool leaveOpen)
-            : this(baseStream, schema, leaveOpen, options: null)
+            : this(baseStream, schema, leaveOpen, options: null, allocator: null)
         {
         }
 
         public ArrowStreamWriter(Stream baseStream, Schema schema, bool leaveOpen, IpcOptions options)
+            : this(baseStream, schema, leaveOpen, options, allocator: null)
+        {
+        }
+
+        public ArrowStreamWriter(Stream baseStream, Schema schema, bool leaveOpen, IpcOptions options, MemoryAllocator allocator)
         {
             BaseStream = baseStream ?? throw new ArgumentNullException(nameof(baseStream));
             Schema = schema ?? throw new ArgumentNullException(nameof(schema));
             _leaveOpen = leaveOpen;
+            _allocator = allocator ?? MemoryAllocator.Default.Value;
 
             Buffers = ArrayPool<byte>.Create();
             Builder = new FlatBufferBuilder(1024);
@@ -268,42 +669,30 @@ namespace Apache.Arrow.Ipc
 
             _fieldTypeBuilder = new ArrowTypeFlatbufferBuilder(Builder);
             _options = options ?? IpcOptions.Default;
+
+            if (_options.CompressionCodec.HasValue && _options.CompressionCodecFactory == null)
+            {
+                throw new ArgumentException(
+                    $"A {nameof(_options.CompressionCodecFactory)} must be provided when a {nameof(_options.CompressionCodec)} is specified",
+                    nameof(options));
+            }
         }
 
-
-        private void CreateSelfAndChildrenFieldNodes(ArrayData data)
+        private Offset<Flatbuf.BodyCompression> GetBodyCompression()
         {
-            if (data.DataType is NestedType)
+            if (_options.CompressionCodec == null)
             {
-                // flatbuffer struct vectors have to be created in reverse order
-                for (int i = data.Children.Length - 1; i >= 0; i--)
-                {
-                    CreateSelfAndChildrenFieldNodes(data.Children[i]);
-                }
+                return default;
             }
-            Flatbuf.FieldNode.CreateFieldNode(Builder, data.Length, data.NullCount);
-        }
 
-        private static int CountAllNodes(IReadOnlyList<Field> fields)
-        {
-            int count = 0;
-            foreach (Field arrowArray in fields)
+            var compressionType = _options.CompressionCodec.Value switch
             {
-                CountSelfAndChildrenNodes(arrowArray.DataType, ref count);
-            }
-            return count;
-        }
-
-        private static void CountSelfAndChildrenNodes(IArrowType type, ref int count)
-        {
-            if (type is NestedType nestedType)
-            {
-                foreach (Field childField in nestedType.Fields)
-                {
-                    CountSelfAndChildrenNodes(childField.DataType, ref count);
-                }
-            }
-            count++;
+                CompressionCodecType.Lz4Frame => Flatbuf.CompressionType.LZ4_FRAME,
+                CompressionCodecType.Zstd => Flatbuf.CompressionType.ZSTD,
+                _ => throw new ArgumentOutOfRangeException()
+            };
+            return Flatbuf.BodyCompression.CreateBodyCompression(
+                Builder, compressionType, Flatbuf.BodyCompressionMethod.BUFFER);
         }
 
         private protected void WriteRecordBatchInternal(RecordBatch recordBatch)
@@ -319,12 +708,12 @@ namespace Apache.Arrow.Ipc
             if (!HasWrittenDictionaryBatch)
             {
                 DictionaryCollector.Collect(recordBatch, ref _dictionaryMemo);
-                WriteDictionaries(recordBatch);
+                WriteDictionaries(_dictionaryMemo);
                 HasWrittenDictionaryBatch = true;
             }
 
-            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset) =
-                PreparingWritingRecordBatch(recordBatch);
+            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset, VectorOffset variadicCountsOffset) =
+                PrepareWritingRecordBatch(recordBatch);
 
             VectorOffset buffersVectorOffset = Builder.EndVector();
 
@@ -334,7 +723,9 @@ namespace Apache.Arrow.Ipc
 
             Offset<Flatbuf.RecordBatch> recordBatchOffset = Flatbuf.RecordBatch.CreateRecordBatch(Builder, recordBatch.Length,
                 fieldNodesVectorOffset,
-                buffersVectorOffset);
+                buffersVectorOffset,
+                GetBodyCompression(),
+                variadicCountsOffset);
 
             long metadataLength = WriteMessage(Flatbuf.MessageHeader.RecordBatch,
                 recordBatchOffset, recordBatchBuilder.TotalLength);
@@ -347,8 +738,6 @@ namespace Apache.Arrow.Ipc
         private protected async Task WriteRecordBatchInternalAsync(RecordBatch recordBatch,
             CancellationToken cancellationToken = default)
         {
-            // TODO: Truncate buffers with extraneous padding / unused capacity
-
             if (!HasWrittenSchema)
             {
                 await WriteSchemaAsync(Schema, cancellationToken).ConfigureAwait(false);
@@ -358,12 +747,12 @@ namespace Apache.Arrow.Ipc
             if (!HasWrittenDictionaryBatch)
             {
                 DictionaryCollector.Collect(recordBatch, ref _dictionaryMemo);
-                await WriteDictionariesAsync(recordBatch, cancellationToken).ConfigureAwait(false);
+                await WriteDictionariesAsync(_dictionaryMemo, cancellationToken).ConfigureAwait(false);
                 HasWrittenDictionaryBatch = true;
             }
 
-            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset) =
-                PreparingWritingRecordBatch(recordBatch);
+            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset, VectorOffset variadicCountsOffset) =
+                PrepareWritingRecordBatch(recordBatch);
 
             VectorOffset buffersVectorOffset = Builder.EndVector();
 
@@ -373,7 +762,9 @@ namespace Apache.Arrow.Ipc
 
             Offset<Flatbuf.RecordBatch> recordBatchOffset = Flatbuf.RecordBatch.CreateRecordBatch(Builder, recordBatch.Length,
                 fieldNodesVectorOffset,
-                buffersVectorOffset);
+                buffersVectorOffset,
+                GetBodyCompression(),
+                variadicCountsOffset);
 
             long metadataLength = await WriteMessageAsync(Flatbuf.MessageHeader.RecordBatch,
                 recordBatchOffset, recordBatchBuilder.TotalLength,
@@ -390,19 +781,17 @@ namespace Apache.Arrow.Ipc
 
             for (int i = 0; i < buffers.Count; i++)
             {
-                ArrowBuffer buffer = buffers[i].DataBuffer;
-                if (buffer.IsEmpty)
+                using var buffer = buffers[i]; // Dispose the buffer after writing
+                ReadOnlyMemory<byte> dataBuffer = buffer.DataBuffer;
+                if (dataBuffer.IsEmpty)
                     continue;
-
-                WriteBuffer(buffer);
-
-                int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(buffer.Length));
-                int padding = paddedLength - buffer.Length;
+                BaseStream.Write(dataBuffer);
+                int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(dataBuffer.Length));
+                int padding = paddedLength - dataBuffer.Length;
                 if (padding > 0)
                 {
                     WritePadding(padding);
                 }
-
                 bodyLength += paddedLength;
             }
 
@@ -421,14 +810,15 @@ namespace Apache.Arrow.Ipc
 
             for (int i = 0; i < buffers.Count; i++)
             {
-                ArrowBuffer buffer = buffers[i].DataBuffer;
-                if (buffer.IsEmpty)
+                using var buffer = buffers[i]; // Dispose the buffer after writing
+                ReadOnlyMemory<byte> dataBuffer = buffer.DataBuffer;
+                if (dataBuffer.IsEmpty)
                     continue;
 
-                await WriteBufferAsync(buffer, cancellationToken).ConfigureAwait(false);
+                await BaseStream.WriteAsync(dataBuffer, cancellationToken).ConfigureAwait(false);
 
-                int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(buffer.Length));
-                int padding = paddedLength - buffer.Length;
+                int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(dataBuffer.Length));
+                int padding = paddedLength - dataBuffer.Length;
                 if (padding > 0)
                 {
                     await WritePaddingAsync(padding).ConfigureAwait(false);
@@ -446,40 +836,50 @@ namespace Apache.Arrow.Ipc
             return bodyLength + bodyPaddingLength;
         }
 
-        private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset> PreparingWritingRecordBatch(RecordBatch recordBatch)
+        private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset, VectorOffset> PrepareWritingRecordBatch(RecordBatch recordBatch)
         {
-            return PreparingWritingRecordBatch(recordBatch.Schema.FieldsList, recordBatch.ArrayList);
+            return PrepareWritingRecordBatch(recordBatch.Schema.FieldsList, recordBatch.ArrayList);
         }
 
-        private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset> PreparingWritingRecordBatch(IReadOnlyList<Field> fields, IReadOnlyList<IArrowArray> arrays)
+        private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset, VectorOffset> PrepareWritingRecordBatch(IReadOnlyList<Field> fields, IReadOnlyList<IArrowArray> arrays)
         {
             Builder.Clear();
 
+            // CompressionCodec can be disposed after all data is visited by the builder,
+            // and doesn't need to be alive for the full lifetime of the ArrowRecordBatchFlatBufferBuilder
+            using var compressionCodec = _options.CompressionCodec.HasValue
+                ? _options.CompressionCodecFactory.CreateCodec(_options.CompressionCodec.Value, _options.CompressionLevel)
+                : null;
+
+            var recordBatchBuilder = new ArrowRecordBatchFlatBufferBuilder(compressionCodec, _allocator, _fallbackCompressionStream);
+
+            // Visit all arrays recursively
+            for (int i = 0; i < fields.Count; i++)
+            {
+                IArrowArray fieldArray = arrays[i];
+                recordBatchBuilder.VisitArray(fieldArray);
+            }
+
             // Serialize field nodes
-
-            int fieldCount = fields.Count;
-
-            Flatbuf.RecordBatch.StartNodesVector(Builder, CountAllNodes(fields));
+            IReadOnlyList<ArrowRecordBatchFlatBufferBuilder.FieldNode> fieldNodes = recordBatchBuilder.FieldNodes;
+            Flatbuf.RecordBatch.StartNodesVector(Builder, fieldNodes.Count);
 
             // flatbuffer struct vectors have to be created in reverse order
-            for (int i = fieldCount - 1; i >= 0; i--)
+            for (int i = fieldNodes.Count - 1; i >= 0; i--)
             {
-                CreateSelfAndChildrenFieldNodes(arrays[i].Data);
+                Flatbuf.FieldNode.CreateFieldNode(Builder, fieldNodes[i].Length, fieldNodes[i].NullCount);
             }
 
             VectorOffset fieldNodesVectorOffset = Builder.EndVector();
 
-            // Serialize buffers
-
-            var recordBatchBuilder = new ArrowRecordBatchFlatBufferBuilder();
-            for (int i = 0; i < fieldCount; i++)
+            VectorOffset variadicCountOffset = default;
+            if (recordBatchBuilder.VariadicCounts != null)
             {
-                IArrowArray fieldArray = arrays[i];
-                fieldArray.Accept(recordBatchBuilder);
+                variadicCountOffset = Flatbuf.RecordBatch.CreateVariadicCountsVectorBlock(Builder, recordBatchBuilder.VariadicCounts.ToArray());
             }
 
+            // Serialize buffers
             IReadOnlyList<ArrowRecordBatchFlatBufferBuilder.Buffer> buffers = recordBatchBuilder.Buffers;
-
             Flatbuf.RecordBatch.StartBuffersVector(Builder, buffers.Count);
 
             // flatbuffer struct vectors have to be created in reverse order
@@ -489,91 +889,84 @@ namespace Apache.Arrow.Ipc
                     buffers[i].Offset, buffers[i].DataBuffer.Length);
             }
 
-            return Tuple.Create(recordBatchBuilder, fieldNodesVectorOffset);
+            return Tuple.Create(recordBatchBuilder, fieldNodesVectorOffset, variadicCountOffset);
         }
 
-
-        private protected void WriteDictionaries(RecordBatch recordBatch)
+        private protected virtual void StartingWritingDictionary()
         {
-            foreach (Field field in recordBatch.Schema.FieldsList)
+        }
+
+        private protected virtual void FinishedWritingDictionary(long bodyLength, long metadataLength)
+        {
+        }
+
+        private protected void WriteDictionaries(DictionaryMemo dictionaryMemo)
+        {
+            int fieldCount = dictionaryMemo?.DictionaryCount ?? 0;
+            for (int i = 0; i < fieldCount; i++)
             {
-                WriteDictionary(field);
+                WriteDictionary(i, dictionaryMemo.GetDictionaryType(i), dictionaryMemo.GetDictionary(i));
             }
         }
 
-        private protected void WriteDictionary(Field field)
+        private protected void WriteDictionary(long id, IArrowType valueType, IArrowArray dictionary)
         {
-            if (field.DataType.TypeId != ArrowTypeId.Dictionary)
-            {
-                if (field.DataType is NestedType nestedType)
-                {
-                    foreach (Field child in nestedType.Fields)
-                    {
-                        WriteDictionary(child);
-                    }
-                }
-                return;
-            }
+            StartingWritingDictionary();
 
             (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, Offset<Flatbuf.DictionaryBatch> dictionaryBatchOffset) =
-                CreateDictionaryBatchOffset(field);
+                CreateDictionaryBatchOffset(id, valueType, dictionary);
 
-            WriteMessage(Flatbuf.MessageHeader.DictionaryBatch,
+            long metadataLength = WriteMessage(Flatbuf.MessageHeader.DictionaryBatch,
                 dictionaryBatchOffset, recordBatchBuilder.TotalLength);
 
-            WriteBufferData(recordBatchBuilder.Buffers);
+            long bufferLength = WriteBufferData(recordBatchBuilder.Buffers);
+
+            FinishedWritingDictionary(bufferLength, metadataLength);
         }
 
-        private protected async Task WriteDictionariesAsync(RecordBatch recordBatch, CancellationToken cancellationToken)
+        private protected async Task WriteDictionariesAsync(DictionaryMemo dictionaryMemo, CancellationToken cancellationToken)
         {
-            foreach (Field field in recordBatch.Schema.FieldsList)
+            int fieldCount = dictionaryMemo?.DictionaryCount ?? 0;
+            for (int i = 0; i < fieldCount; i++)
             {
-                await WriteDictionaryAsync(field, cancellationToken).ConfigureAwait(false);
+                await WriteDictionaryAsync(i, dictionaryMemo.GetDictionaryType(i), dictionaryMemo.GetDictionary(i), cancellationToken).ConfigureAwait(false);
             }
         }
 
-        private protected async Task WriteDictionaryAsync(Field field, CancellationToken cancellationToken)
+        private protected async Task WriteDictionaryAsync(long id, IArrowType valueType, IArrowArray dictionary, CancellationToken cancellationToken)
         {
-            if (field.DataType.TypeId != ArrowTypeId.Dictionary)
-            {
-                if (field.DataType is NestedType nestedType)
-                {
-                    foreach (Field child in nestedType.Fields)
-                    {
-                        await WriteDictionaryAsync(child, cancellationToken).ConfigureAwait(false);
-                    }
-                }
-                return;
-            }
+            StartingWritingDictionary();
 
             (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, Offset<Flatbuf.DictionaryBatch> dictionaryBatchOffset) =
-                CreateDictionaryBatchOffset(field);
+                CreateDictionaryBatchOffset(id, valueType, dictionary);
 
-            await WriteMessageAsync(Flatbuf.MessageHeader.DictionaryBatch,
+            long metadataLength = await WriteMessageAsync(Flatbuf.MessageHeader.DictionaryBatch,
                 dictionaryBatchOffset, recordBatchBuilder.TotalLength, cancellationToken).ConfigureAwait(false);
 
-            await WriteBufferDataAsync(recordBatchBuilder.Buffers, cancellationToken).ConfigureAwait(false);
+            long bufferLength = await WriteBufferDataAsync(recordBatchBuilder.Buffers, cancellationToken).ConfigureAwait(false);
+
+            FinishedWritingDictionary(bufferLength, metadataLength);
         }
 
-        private Tuple<ArrowRecordBatchFlatBufferBuilder, Offset<Flatbuf.DictionaryBatch>> CreateDictionaryBatchOffset(Field field)
+        private Tuple<ArrowRecordBatchFlatBufferBuilder, Offset<Flatbuf.DictionaryBatch>> CreateDictionaryBatchOffset(long id, IArrowType valueType, IArrowArray dictionary)
         {
-            Field dictionaryField = new Field("dummy", ((DictionaryType)field.DataType).ValueType, false);
-            long id = DictionaryMemo.GetId(field);
-            IArrowArray dictionary = DictionaryMemo.GetDictionary(id);
+            Field dictionaryField = new Field("dummy", valueType, false);
 
             var fields = new Field[] { dictionaryField };
 
             var arrays = new List<IArrowArray> { dictionary };
 
-            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset) =
-                PreparingWritingRecordBatch(fields, arrays);
+            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset, VectorOffset variadicCountsOffset) =
+                PrepareWritingRecordBatch(fields, arrays);
 
             VectorOffset buffersVectorOffset = Builder.EndVector();
 
             // Serialize record batch
             Offset<Flatbuf.RecordBatch> recordBatchOffset = Flatbuf.RecordBatch.CreateRecordBatch(Builder, dictionary.Length,
                 fieldNodesVectorOffset,
-                buffersVectorOffset);
+                buffersVectorOffset,
+                GetBodyCompression(),
+                variadicCountsOffset);
 
             // TODO: Support delta.
             Offset<Flatbuf.DictionaryBatch> dictionaryBatchOffset = Flatbuf.DictionaryBatch.CreateDictionaryBatch(Builder, id, recordBatchOffset, false);
@@ -660,16 +1053,6 @@ namespace Apache.Arrow.Ipc
                 await WriteEndInternalAsync(cancellationToken);
                 HasWrittenEnd = true;
             }
-        }
-
-        private void WriteBuffer(ArrowBuffer arrowBuffer)
-        {
-            BaseStream.Write(arrowBuffer.Memory);
-        }
-
-        private ValueTask WriteBufferAsync(ArrowBuffer arrowBuffer, CancellationToken cancellationToken = default)
-        {
-            return BaseStream.WriteAsync(arrowBuffer.Memory, cancellationToken);
         }
 
         private protected Offset<Flatbuf.Schema> SerializeSchema(Schema schema)
@@ -894,7 +1277,7 @@ namespace Apache.Arrow.Ipc
 
         private void WriteIpcMessageLength(int length)
         {
-            Buffers.RentReturn(_options.SizeOfIpcLength, (buffer) =>
+            using (Buffers.RentReturn(_options.SizeOfIpcLength, out Memory<byte> buffer))
             {
                 Memory<byte> currentBufferPosition = buffer;
                 if (!_options.WriteLegacyIpcFormat)
@@ -906,12 +1289,12 @@ namespace Apache.Arrow.Ipc
 
                 BinaryPrimitives.WriteInt32LittleEndian(currentBufferPosition.Span, length);
                 BaseStream.Write(buffer);
-            });
+            }
         }
 
         private async ValueTask WriteIpcMessageLengthAsync(int length, CancellationToken cancellationToken)
         {
-            await Buffers.RentReturnAsync(_options.SizeOfIpcLength, async (buffer) =>
+            using (Buffers.RentReturn(_options.SizeOfIpcLength, out Memory<byte> buffer))
             {
                 Memory<byte> currentBufferPosition = buffer;
                 if (!_options.WriteLegacyIpcFormat)
@@ -923,12 +1306,21 @@ namespace Apache.Arrow.Ipc
 
                 BinaryPrimitives.WriteInt32LittleEndian(currentBufferPosition.Span, length);
                 await BaseStream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
-            }).ConfigureAwait(false);
+            }
         }
 
         protected int CalculatePadding(long offset, int alignment = 8)
         {
             long result = BitUtility.RoundUpToMultiplePowerOfTwo(offset, alignment) - offset;
+            checked
+            {
+                return (int)result;
+            }
+        }
+
+        private static int CalculatePaddedBufferLength(int length)
+        {
+            long result = BitUtility.RoundUpToMultiplePowerOfTwo(length, MemoryAllocator.DefaultAlignment);
             checked
             {
                 return (int)result;
@@ -959,6 +1351,7 @@ namespace Apache.Arrow.Ipc
             {
                 BaseStream.Dispose();
             }
+            _fallbackCompressionStream.Dispose();
         }
     }
 
@@ -987,12 +1380,12 @@ namespace Apache.Arrow.Ipc
                 arrayData.Dictionary.EnsureDataType(dictionaryType.ValueType.TypeId);
 
                 IArrowArray dictionary = ArrowArrayFactory.BuildArray(arrayData.Dictionary);
+                WalkChildren(dictionary.Data, ref dictionaryMemo);
 
                 dictionaryMemo ??= new DictionaryMemo();
                 long id = dictionaryMemo.GetOrAssignId(field);
 
                 dictionaryMemo.AddOrReplaceDictionary(id, dictionary);
-                WalkChildren(dictionary.Data, ref dictionaryMemo);
             }
             else
             {

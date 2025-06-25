@@ -15,20 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 #include "arrow/matlab/type/proxy/fixed_width_type.h"
 
 namespace arrow::matlab::type::proxy {
 
-    FixedWidthType::FixedWidthType(std::shared_ptr<arrow::FixedWidthType> type) : Type(std::move(type)) {
-        REGISTER_METHOD(FixedWidthType, getBitWidth);
-    }
-
-    void FixedWidthType::getBitWidth(libmexclass::proxy::method::Context& context) {
-        namespace mda = ::matlab::data;
-         mda::ArrayFactory factory;
-     
-         auto bit_width_mda = factory.createScalar(data_type->bit_width());
-         context.outputs[0] = bit_width_mda;
-    }
+FixedWidthType::FixedWidthType(std::shared_ptr<arrow::FixedWidthType> type)
+    : Type(std::move(type)) {
+  REGISTER_METHOD(FixedWidthType, getBitWidth);
 }
+
+void FixedWidthType::getBitWidth(libmexclass::proxy::method::Context& context) {
+  namespace mda = ::matlab::data;
+  mda::ArrayFactory factory;
+
+  auto bit_width_mda = factory.createScalar(data_type->bit_width());
+  context.outputs[0] = bit_width_mda;
+}
+}  // namespace arrow::matlab::type::proxy

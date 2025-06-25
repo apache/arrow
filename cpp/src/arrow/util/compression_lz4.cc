@@ -29,12 +29,12 @@
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/endian.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
 
 #ifndef LZ4F_HEADER_SIZE_MAX
-#define LZ4F_HEADER_SIZE_MAX 19
+#  define LZ4F_HEADER_SIZE_MAX 19
 #endif
 
 namespace arrow {
@@ -109,6 +109,7 @@ class LZ4Decompressor : public Decompressor {
     auto dst_capacity = static_cast<size_t>(output_len);
     size_t ret;
 
+    DCHECK_NE(src, nullptr);
     ret =
         LZ4F_decompress(ctx_, dst, &dst_capacity, src, &src_size, nullptr /* options */);
     if (LZ4F_isError(ret)) {

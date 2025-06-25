@@ -21,16 +21,19 @@
 #include <memory>
 #include <string>
 
-#ifdef ARROW_WITH_RE2
-#include <re2/re2.h>
-#endif
-
 #include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/kernels/scalar_string_internal.h"
 #include "arrow/result.h"
+#include "arrow/util/config.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
+
+#ifdef ARROW_WITH_RE2
+#  include <re2/re2.h>
+#endif
 
 namespace arrow {
 
@@ -95,7 +98,7 @@ struct FixedSizeBinaryTransformExecBase {
                           ctx->Allocate(output_width * input_nstrings));
     uint8_t* output_str = values_buffer->mutable_data();
 
-    const uint8_t* input_data = input.GetValues<uint8_t>(1);
+    const uint8_t* input_data = input.GetValues<uint8_t>(1, input.offset * input_width);
     for (int64_t i = 0; i < input_nstrings; i++) {
       if (!input.IsNull(i)) {
         const uint8_t* input_string = input_data + i * input_width;
@@ -132,7 +135,8 @@ struct FixedSizeBinaryTransformExecWithState
     DCHECK_EQ(1, types.size());
     const auto& options = State::Get(ctx);
     const int32_t input_width = types[0].type->byte_width();
-    const int32_t output_width = StringTransform::FixedOutputSize(options, input_width);
+    ARROW_ASSIGN_OR_RAISE(const int32_t output_width,
+                          StringTransform::FixedOutputSize(options, input_width));
     return fixed_size_binary(output_width);
   }
 };
@@ -1140,9 +1144,13 @@ struct AsciiPadTransform : public StringTransformBase {
     int64_t left = 0;
     int64_t right = 0;
     if (PadLeft && PadRight) {
-      // If odd number of spaces, put the extra space on the right
-      left = spaces / 2;
-      right = spaces - left;
+      if (options_.lean_left_on_odd_padding) {
+        left = spaces / 2;
+        right = spaces - left;
+      } else {
+        right = spaces / 2;
+        left = spaces - right;
+      }
     } else if (PadLeft) {
       left = spaces;
     } else if (PadRight) {
@@ -1313,7 +1321,7 @@ struct RegexSubstringMatcher {
       const MatchSubstringOptions& options, bool is_utf8 = true, bool literal = false) {
     auto matcher = std::make_unique<RegexSubstringMatcher>(options, is_utf8, literal);
     RETURN_NOT_OK(RegexStatus(matcher->regex_match_));
-    return std::move(matcher);
+    return matcher;
   }
 
   explicit RegexSubstringMatcher(const MatchSubstringOptions& options,
@@ -1683,7 +1691,7 @@ struct FindSubstringRegex {
                                          bool is_utf8 = true, bool literal = false) {
     auto matcher = FindSubstringRegex(options, is_utf8, literal);
     RETURN_NOT_OK(RegexStatus(*matcher.regex_match_));
-    return std::move(matcher);
+    return matcher;
   }
 
   explicit FindSubstringRegex(const MatchSubstringOptions& options, bool is_utf8 = true,
@@ -1830,7 +1838,7 @@ struct CountSubstringRegex {
                                           bool is_utf8 = true, bool literal = false) {
     CountSubstringRegex counter(options, is_utf8, literal);
     RETURN_NOT_OK(RegexStatus(*counter.regex_match_));
-    return std::move(counter);
+    return counter;
   }
 
   template <typename OutValue, typename... Ignored>
@@ -2053,7 +2061,7 @@ struct RegexSubstringReplacer {
                              std::move(replacement_error));
     }
 
-    return std::move(replacer);
+    return replacer;
   }
 
   // Using RE2::FindAndConsume we can only find the pattern if it is a group, therefore
@@ -2178,20 +2186,12 @@ void AddAsciiStringReplaceSubstring(FunctionRegistry* registry) {
 
 using ExtractRegexState = OptionsWrapper<ExtractRegexOptions>;
 
-// TODO cache this once per ExtractRegexOptions
-struct ExtractRegexData {
-  // Use unique_ptr<> because RE2 is non-movable (for ARROW_ASSIGN_OR_RAISE)
-  std::unique_ptr<RE2> regex;
-  std::vector<std::string> group_names;
-
-  static Result<ExtractRegexData> Make(const ExtractRegexOptions& options,
-                                       bool is_utf8 = true) {
-    ExtractRegexData data(options.pattern, is_utf8);
-    RETURN_NOT_OK(RegexStatus(*data.regex));
-
-    const int group_count = data.regex->NumberOfCapturingGroups();
-    const auto& name_map = data.regex->CapturingGroupNames();
-    data.group_names.reserve(group_count);
+struct BaseExtractRegexData {
+  Status Init() {
+    RETURN_NOT_OK(RegexStatus(*regex));
+    const int group_count = regex->NumberOfCapturingGroups();
+    const auto& name_map = regex->CapturingGroupNames();
+    group_names.reserve(group_count);
 
     for (int i = 0; i < group_count; i++) {
       auto item = name_map.find(i + 1);  // re2 starts counting from 1
@@ -2199,22 +2199,33 @@ struct ExtractRegexData {
         // XXX should we instead just create fields with an empty name?
         return Status::Invalid("Regular expression contains unnamed groups");
       }
-      data.group_names.emplace_back(item->second);
+      group_names.emplace_back(item->second);
     }
-    return std::move(data);
+    return Status::OK();
+  }
+
+  int64_t num_groups() const { return static_cast<int64_t>(group_names.size()); }
+
+  std::unique_ptr<RE2> regex;
+  std::vector<std::string> group_names;
+
+ protected:
+  explicit BaseExtractRegexData(const std::string& pattern, bool is_utf8)
+      : regex(new RE2(pattern, MakeRE2Options(is_utf8))) {}
+};
+
+// TODO cache this once per ExtractRegexOptions
+struct ExtractRegexData : public BaseExtractRegexData {
+  static Result<ExtractRegexData> Make(const ExtractRegexOptions& options, bool is_utf8) {
+    ExtractRegexData data(options.pattern, is_utf8);
+    ARROW_RETURN_NOT_OK(data.Init());
+    return data;
   }
 
   Result<TypeHolder> ResolveOutputType(const std::vector<TypeHolder>& types) const {
     const DataType* input_type = types[0].type;
-    if (input_type == nullptr) {
-      // No input type specified
-      return nullptr;
-    }
-    // Input type is either [Large]Binary or [Large]String and is also the type
-    // of each field in the output struct type.
-    DCHECK(is_base_binary_like(input_type->id()));
     FieldVector fields;
-    fields.reserve(group_names.size());
+    fields.reserve(num_groups());
     std::shared_ptr<DataType> owned_type = input_type->GetSharedPtr();
     std::transform(group_names.begin(), group_names.end(), std::back_inserter(fields),
                    [&](const std::string& name) { return field(name, owned_type); });
@@ -2222,19 +2233,26 @@ struct ExtractRegexData {
   }
 
  private:
-  explicit ExtractRegexData(const std::string& pattern, bool is_utf8 = true)
-      : regex(new RE2(pattern, MakeRE2Options(is_utf8))) {}
+  explicit ExtractRegexData(const std::string& pattern, bool is_utf8)
+      : BaseExtractRegexData(pattern, is_utf8) {}
 };
 
 Result<TypeHolder> ResolveExtractRegexOutput(KernelContext* ctx,
                                              const std::vector<TypeHolder>& types) {
+  auto input_type = types[0].type;
+  if (input_type == nullptr) {
+    // No input type specified
+    return nullptr;
+  }
+  DCHECK(is_base_binary_like(input_type->id()));
+  auto is_utf8 = is_string(input_type->id());
   ExtractRegexOptions options = ExtractRegexState::Get(ctx);
-  ARROW_ASSIGN_OR_RAISE(auto data, ExtractRegexData::Make(options));
+  ARROW_ASSIGN_OR_RAISE(auto data, ExtractRegexData::Make(options, is_utf8));
   return data.ResolveOutputType(types);
 }
 
 struct ExtractRegexBase {
-  const ExtractRegexData& data;
+  const BaseExtractRegexData& data;
   const int group_count;
   std::vector<re2::StringPiece> found_values;
   std::vector<RE2::Arg> args;
@@ -2242,9 +2260,9 @@ struct ExtractRegexBase {
   const RE2::Arg** args_pointers_start;
   const RE2::Arg* null_arg = nullptr;
 
-  explicit ExtractRegexBase(const ExtractRegexData& data)
+  explicit ExtractRegexBase(const BaseExtractRegexData& data)
       : data(data),
-        group_count(static_cast<int>(data.group_names.size())),
+        group_count(static_cast<int>(data.num_groups())),
         found_values(group_count) {
     args.reserve(group_count);
     args_pointers.reserve(group_count);
@@ -2274,25 +2292,23 @@ struct ExtractRegex : public ExtractRegexBase {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     ExtractRegexOptions options = ExtractRegexState::Get(ctx);
     ARROW_ASSIGN_OR_RAISE(auto data, ExtractRegexData::Make(options, Type::is_utf8));
-    return ExtractRegex{data}.Extract(ctx, batch, out);
+    return ExtractRegex(data).Extract(ctx, batch, out);
   }
 
   Status Extract(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    // TODO: why is this needed? Type resolution should already be
-    // done and the output type set in the output variable
-    ARROW_ASSIGN_OR_RAISE(TypeHolder out_type, data.ResolveOutputType(batch.GetTypes()));
-    DCHECK_NE(out_type.type, nullptr);
-    std::shared_ptr<DataType> type = out_type.GetSharedPtr();
-
-    std::unique_ptr<ArrayBuilder> array_builder;
-    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), type, &array_builder));
+    DCHECK_NE(out->array_data(), nullptr);
+    std::shared_ptr<DataType> type = out->array_data()->type;
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<ArrayBuilder> array_builder,
+                          MakeBuilder(type, ctx->memory_pool()));
     StructBuilder* struct_builder = checked_cast<StructBuilder*>(array_builder.get());
+    ARROW_RETURN_NOT_OK(struct_builder->Reserve(batch[0].length()));
 
     std::vector<BuilderType*> field_builders;
     field_builders.reserve(group_count);
     for (int i = 0; i < group_count; i++) {
       field_builders.push_back(
           checked_cast<BuilderType*>(struct_builder->field_builder(i)));
+      RETURN_NOT_OK(field_builders.back()->Reserve(batch[0].length()));
     }
 
     auto visit_null = [&]() { return struct_builder->AppendNull(); };
@@ -2341,6 +2357,145 @@ void AddAsciiStringExtractRegex(FunctionRegistry* registry) {
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
+
+struct ExtractRegexSpanData : public BaseExtractRegexData {
+  static Result<ExtractRegexSpanData> Make(const std::string& pattern, bool is_utf8) {
+    auto data = ExtractRegexSpanData(pattern, is_utf8);
+    ARROW_RETURN_NOT_OK(data.Init());
+    return data;
+  }
+
+  Result<TypeHolder> ResolveOutputType(const std::vector<TypeHolder>& types) const {
+    const DataType* input_type = types[0].type;
+    FieldVector fields;
+    fields.reserve(num_groups());
+    auto index_type = is_binary_like(input_type->id()) ? int32() : int64();
+    for (const auto& group_name : group_names) {
+      // list size is 2 as every span contains position and length
+      fields.push_back(field(group_name, fixed_size_list(index_type, 2)));
+    }
+    return struct_(std::move(fields));
+  }
+
+ private:
+  ExtractRegexSpanData(const std::string& pattern, const bool is_utf8)
+      : BaseExtractRegexData(pattern, is_utf8) {}
+};
+
+template <typename Type>
+struct ExtractRegexSpan : ExtractRegexBase {
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+  using offset_type = typename Type::offset_type;
+  using OffsetBuilderType =
+      typename TypeTraits<typename CTypeTraits<offset_type>::ArrowType>::BuilderType;
+  using OffsetCType =
+      typename TypeTraits<typename CTypeTraits<offset_type>::ArrowType>::CType;
+
+  using ExtractRegexBase::ExtractRegexBase;
+
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    auto options = OptionsWrapper<ExtractRegexSpanOptions>::Get(ctx);
+    ARROW_ASSIGN_OR_RAISE(auto data,
+                          ExtractRegexSpanData::Make(options.pattern, Type::is_utf8));
+    return ExtractRegexSpan{data}.Extract(ctx, batch, out);
+  }
+
+  Status Extract(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    DCHECK_NE(out->array_data(), nullptr);
+    std::shared_ptr<DataType> out_type = out->array_data()->type;
+    ARROW_ASSIGN_OR_RAISE(auto out_builder, MakeBuilder(out_type, ctx->memory_pool()));
+    StructBuilder* struct_builder = checked_cast<StructBuilder*>(out_builder.get());
+    ARROW_RETURN_NOT_OK(struct_builder->Reserve(batch[0].array.length));
+
+    std::vector<FixedSizeListBuilder*> span_builders;
+    std::vector<OffsetBuilderType*> array_builders;
+    span_builders.reserve(group_count);
+    array_builders.reserve(group_count);
+    for (int i = 0; i < group_count; i++) {
+      span_builders.push_back(
+          checked_cast<FixedSizeListBuilder*>(struct_builder->field_builder(i)));
+      array_builders.push_back(
+          checked_cast<OffsetBuilderType*>(span_builders.back()->value_builder()));
+      RETURN_NOT_OK(span_builders.back()->Reserve(batch[0].length()));
+      RETURN_NOT_OK(array_builders.back()->Reserve(2 * batch[0].length()));
+    }
+
+    auto visit_null = [&]() { return struct_builder->AppendNull(); };
+    auto visit_value = [&](std::string_view element) -> Status {
+      if (Match(element)) {
+        for (int i = 0; i < group_count; i++) {
+          // https://github.com/google/re2/issues/24#issuecomment-97653183
+          if (found_values[i].data() != nullptr) {
+            int64_t begin = found_values[i].data() - element.data();
+            int64_t size = found_values[i].size();
+            array_builders[i]->UnsafeAppend(static_cast<OffsetCType>(begin));
+            array_builders[i]->UnsafeAppend(static_cast<OffsetCType>(size));
+            ARROW_RETURN_NOT_OK(span_builders[i]->Append());
+          } else {
+            ARROW_RETURN_NOT_OK(span_builders[i]->AppendNull());
+          }
+        }
+        ARROW_RETURN_NOT_OK(struct_builder->Append());
+      } else {
+        ARROW_RETURN_NOT_OK(struct_builder->AppendNull());
+      }
+      return Status::OK();
+    };
+    ARROW_RETURN_NOT_OK(
+        VisitArraySpanInline<Type>(batch[0].array, visit_value, visit_null));
+
+    ARROW_ASSIGN_OR_RAISE(auto out_array, struct_builder->Finish());
+    out->value = std::move(out_array->data());
+    return Status::OK();
+  }
+};
+
+const FunctionDoc extract_regex_span_doc(
+    "Extract string spans captured by a regex pattern",
+    ("For each string in strings, match the regular expression and, if\n"
+     "successful, emit a struct with field names and values coming from the\n"
+     "regular expression's named capture groups. Each struct field value\n"
+     "will be a fixed_size_list(offset_type, 2) where offset_type is int32\n"
+     "or int64, depending on the input string type. The two elements in\n"
+     "each fixed-size list are the index and the length of the substring\n"
+     "matched by the corresponding named capture group.\n"
+     "\n"
+     "If the input is null or the regular expression fails matching,\n"
+     "a null output value is emitted.\n"
+     "\n"
+     "Regular expression matching is done using the Google RE2 library."),
+    {"strings"}, "ExtractRegexSpanOptions", /*options_required=*/true);
+
+Result<TypeHolder> ResolveExtractRegexSpanOutputType(
+    KernelContext* ctx, const std::vector<TypeHolder>& types) {
+  auto input_type = types[0].type;
+  if (input_type == nullptr) {
+    // No input type specified
+    return nullptr;
+  }
+  DCHECK(is_base_binary_like(input_type->id()));
+  auto is_utf8 = is_string(input_type->id());
+  auto options = OptionsWrapper<ExtractRegexSpanOptions>::Get(*ctx->state());
+
+  ARROW_ASSIGN_OR_RAISE(auto span, ExtractRegexSpanData::Make(options.pattern, is_utf8));
+  return span.ResolveOutputType(types);
+}
+
+void AddAsciiStringExtractRegexSpan(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>("extract_regex_span", Arity::Unary(),
+                                               extract_regex_span_doc);
+  OutputType output_type(ResolveExtractRegexSpanOutputType);
+  for (const auto& type : BaseBinaryTypes()) {
+    ScalarKernel kernel({type}, output_type,
+                        GenerateVarBinaryToVarBinary<ExtractRegexSpan>(type),
+                        OptionsWrapper<ExtractRegexSpanOptions>::Init);
+    kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
+  }
+  DCHECK_OK(registry->AddFunction(func));
+}
 #endif  // ARROW_WITH_RE2
 
 // ----------------------------------------------------------------------
@@ -2377,7 +2532,8 @@ struct BinaryReplaceSliceTransform : ReplaceStringSliceTransformBase {
     return output - output_start;
   }
 
-  static int32_t FixedOutputSize(const ReplaceSliceOptions& opts, int32_t input_width) {
+  static Result<int32_t> FixedOutputSize(const ReplaceSliceOptions& opts,
+                                         int32_t input_width) {
     int32_t before_slice = 0;
     int32_t after_slice = 0;
     const int32_t start = static_cast<int32_t>(opts.start);
@@ -2436,6 +2592,7 @@ void AddAsciiStringReplaceSlice(FunctionRegistry* registry) {
 
 namespace {
 struct SliceBytesTransform : StringSliceTransformBase {
+  using StringSliceTransformBase::StringSliceTransformBase;
   int64_t MaxCodeunits(int64_t ninputs, int64_t input_bytes) override {
     const SliceOptions& opt = *this->options;
     if ((opt.start >= 0) != (opt.stop >= 0)) {
@@ -2454,22 +2611,15 @@ struct SliceBytesTransform : StringSliceTransformBase {
     return SliceBackward(input, input_string_bytes, output);
   }
 
-  int64_t SliceForward(const uint8_t* input, int64_t input_string_bytes,
-                       uint8_t* output) {
-    // Slice in forward order (step > 0)
-    const SliceOptions& opt = *this->options;
-    const uint8_t* begin = input;
-    const uint8_t* end = input + input_string_bytes;
-    const uint8_t* begin_sliced;
-    const uint8_t* end_sliced;
-
-    if (!input_string_bytes) {
-      return 0;
-    }
-    // First, compute begin_sliced and end_sliced
+  static std::pair<int64_t, int64_t> SliceForwardRange(const SliceOptions& opt,
+                                                       int64_t input_string_bytes) {
+    int64_t begin = 0;
+    int64_t end = input_string_bytes;
+    int64_t begin_sliced = 0;
+    int64_t end_sliced = 0;
     if (opt.start >= 0) {
       // start counting from the left
-      begin_sliced = std::min(begin + opt.start, end);
+      begin_sliced = std::min(opt.start, end);
       if (opt.stop > opt.start) {
         // continue counting from begin_sliced
         const int64_t length = opt.stop - opt.start;
@@ -2479,7 +2629,7 @@ struct SliceBytesTransform : StringSliceTransformBase {
         end_sliced = std::max(end + opt.stop, begin_sliced);
       } else {
         // zero length slice
-        return 0;
+        return {0, 0};
       }
     } else {
       // start counting from the right
@@ -2491,7 +2641,7 @@ struct SliceBytesTransform : StringSliceTransformBase {
         // and therefore we also need this
         if (end_sliced <= begin_sliced) {
           // zero length slice
-          return 0;
+          return {0, 0};
         }
       } else if ((opt.stop < 0) && (opt.stop > opt.start)) {
         // stop is negative, but larger than start, so we count again from the right
@@ -2501,12 +2651,30 @@ struct SliceBytesTransform : StringSliceTransformBase {
         end_sliced = std::max(end + opt.stop, begin_sliced);
       } else {
         // zero length slice
-        return 0;
+        return {0, 0};
       }
+    }
+    return {begin_sliced, end_sliced};
+  }
+
+  int64_t SliceForward(const uint8_t* input, int64_t input_string_bytes,
+                       uint8_t* output) {
+    // Slice in forward order (step > 0)
+    if (!input_string_bytes) {
+      return 0;
+    }
+
+    const SliceOptions& opt = *this->options;
+    auto [begin_index, end_index] = SliceForwardRange(opt, input_string_bytes);
+    const uint8_t* begin_sliced = input + begin_index;
+    const uint8_t* end_sliced = input + end_index;
+
+    if (begin_sliced == end_sliced) {
+      return 0;
     }
 
     // Second, copy computed slice to output
-    DCHECK(begin_sliced <= end_sliced);
+    DCHECK(begin_sliced < end_sliced);
     if (opt.step == 1) {
       // fast case, where we simply can finish with a memcpy
       std::copy(begin_sliced, end_sliced, output);
@@ -2525,18 +2693,13 @@ struct SliceBytesTransform : StringSliceTransformBase {
     return dest - output;
   }
 
-  int64_t SliceBackward(const uint8_t* input, int64_t input_string_bytes,
-                        uint8_t* output) {
+  static std::pair<int64_t, int64_t> SliceBackwardRange(const SliceOptions& opt,
+                                                        int64_t input_string_bytes) {
     // Slice in reverse order (step < 0)
-    const SliceOptions& opt = *this->options;
-    const uint8_t* begin = input;
-    const uint8_t* end = input + input_string_bytes;
-    const uint8_t* begin_sliced = begin;
-    const uint8_t* end_sliced = end;
-
-    if (!input_string_bytes) {
-      return 0;
-    }
+    int64_t begin = 0;
+    int64_t end = input_string_bytes;
+    int64_t begin_sliced = begin;
+    int64_t end_sliced = end;
 
     if (opt.start >= 0) {
       // +1 because begin_sliced acts as as the end of a reverse iterator
@@ -2555,6 +2718,28 @@ struct SliceBytesTransform : StringSliceTransformBase {
     }
     end_sliced--;
 
+    if (begin_sliced <= end_sliced) {
+      // zero length slice
+      return {0, 0};
+    }
+
+    return {begin_sliced, end_sliced};
+  }
+
+  int64_t SliceBackward(const uint8_t* input, int64_t input_string_bytes,
+                        uint8_t* output) {
+    if (!input_string_bytes) {
+      return 0;
+    }
+
+    const SliceOptions& opt = *this->options;
+    auto [begin_index, end_index] = SliceBackwardRange(opt, input_string_bytes);
+    const uint8_t* begin_sliced = input + begin_index;
+    const uint8_t* end_sliced = input + end_index;
+
+    if (begin_sliced == end_sliced) {
+      return 0;
+    }
     // Copy computed slice to output
     uint8_t* dest = output;
     const uint8_t* i = begin_sliced;
@@ -2567,6 +2752,22 @@ struct SliceBytesTransform : StringSliceTransformBase {
     }
 
     return dest - output;
+  }
+
+  static Result<int32_t> FixedOutputSize(SliceOptions options, int32_t input_width_32) {
+    auto step = options.step;
+    if (step == 0) {
+      return Status::Invalid("Slice step cannot be zero");
+    }
+    if (step > 0) {
+      // forward slice
+      auto [begin_index, end_index] = SliceForwardRange(options, input_width_32);
+      return static_cast<int32_t>((end_index - begin_index + step - 1) / step);
+    } else {
+      // backward slice
+      auto [begin_index, end_index] = SliceBackwardRange(options, input_width_32);
+      return static_cast<int32_t>((end_index - begin_index + step + 1) / step);
+    }
   }
 };
 
@@ -2594,6 +2795,12 @@ void AddAsciiStringSlice(FunctionRegistry* registry) {
     DCHECK_OK(
         func->AddKernel({ty}, ty, std::move(exec), SliceBytesTransform::State::Init));
   }
+  using TransformExec = FixedSizeBinaryTransformExecWithState<SliceBytesTransform>;
+  ScalarKernel fsb_kernel({InputType(Type::FIXED_SIZE_BINARY)},
+                          OutputType(TransformExec::OutputType), TransformExec::Exec,
+                          StringSliceTransformBase::State::Init);
+  fsb_kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  DCHECK_OK(func->AddKernel(std::move(fsb_kernel)));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -3399,6 +3606,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddAsciiStringSplitWhitespace(registry);
 #ifdef ARROW_WITH_RE2
   AddAsciiStringSplitRegex(registry);
+  AddAsciiStringExtractRegexSpan(registry);
 #endif
   AddAsciiStringJoin(registry);
   AddAsciiStringRepeat(registry);

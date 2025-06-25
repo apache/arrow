@@ -55,25 +55,30 @@ echo "Creating branch: ${branch}"
 git branch -D ${branch} || :
 git checkout -b ${branch}
 
-pkgbuild=mingw-w64-arrow/PKGBUILD
-echo "Updating PKGBUILD: ${pkgbuild}"
-sha256sum=$(curl \
-              --location \
-              "https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha256" | \
-              cut -d' ' -f1)
-sed \
-  -i.bak \
-  -e "s/^pkgver=.*\$/pkgver=${version}/" \
-  -e "s/^pkgrel=.*\$/pkgrel=1/" \
-  -e "s/^sha256sums=.*\$/sha256sums=('${sha256sum}'/" \
-  ${pkgbuild}
-rm ${pkgbuild}.bak
-git add ${pkgbuild}
-git commit -m "arrow: Update to ${version}"
+for package in arrow python-pyarrow; do
+  pkgbuild=mingw-w64-${package}/PKGBUILD
+  echo "Updating PKGBUILD: ${pkgbuild}"
+  sha256sum=$(curl \
+                --location \
+                "https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha256" | \
+                cut -d' ' -f1)
+  sed \
+    -i.bak \
+    -e "s/^pkgver=.*\$/pkgver=${version}/" \
+    -e "s/^pkgrel=.*\$/pkgrel=1/" \
+    -e "s/^sha256sums=.*\$/sha256sums=('${sha256sum}'/" \
+    ${pkgbuild}
+  rm ${pkgbuild}.bak
+  git add ${pkgbuild}
+  git commit -m "${package}: Update to ${version}"
+done
 
 for pkgbuild in $(grep -l -r '${MINGW_PACKAGE_PREFIX}-arrow' ./); do
   dir=${pkgbuild%/PKGBUILD}
   name=${dir#./mingw-w64-}
+  if [ ${name} = "python-pyarrow" ]; then
+    continue
+  fi
   echo "Incrementing ${name}'s pkgrel: ${pkgbuild}"
   pkgrel=$(grep -o '^pkgrel=.*' ${pkgbuild} | cut -d= -f2)
   sed \

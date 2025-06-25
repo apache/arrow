@@ -34,7 +34,7 @@ class GANDIVA_EXPORT ExportedFuncsRegistry {
   using list_type = std::vector<std::shared_ptr<ExportedFuncsBase>>;
 
   // Add functions from all the registered classes to the engine.
-  static void AddMappings(Engine* engine);
+  static arrow::Status AddMappings(Engine* engine);
 
   static bool Register(std::shared_ptr<ExportedFuncsBase> entry) {
     registered()->emplace_back(std::move(entry));

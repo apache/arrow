@@ -34,7 +34,7 @@
 #include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/parallel.h"
 
 #include "parquet/arrow/path_internal.h"
@@ -294,7 +294,7 @@ class FileWriterImpl : public FileWriter {
       for (int i = 0; i < schema_->num_fields(); ++i) {
         // Explicitly create each ArrowWriteContext object to avoid unintentional
         // call of the copy constructor. Otherwise, the buffers in the type of
-        // sharad_ptr will be shared among all contexts.
+        // shared_ptr will be shared among all contexts.
         parallel_column_write_contexts_.emplace_back(pool, arrow_properties_.get());
       }
     }
@@ -305,7 +305,8 @@ class FileWriterImpl : public FileWriter {
                                 default_arrow_reader_properties(), &schema_manifest_);
   }
 
-  Status NewRowGroup(int64_t chunk_size) override {
+  Status NewRowGroup() override {
+    RETURN_NOT_OK(CheckClosed());
     if (row_group_writer_ != nullptr) {
       PARQUET_CATCH_NOT_OK(row_group_writer_->Close());
     }
@@ -325,6 +326,13 @@ class FileWriterImpl : public FileWriter {
     return Status::OK();
   }
 
+  Status CheckClosed() const {
+    if (closed_) {
+      return Status::Invalid("Operation on closed file");
+    }
+    return Status::OK();
+  }
+
   Status WriteColumnChunk(const Array& data) override {
     // A bit awkward here since cannot instantiate ChunkedArray from const Array&
     auto chunk = ::arrow::MakeArray(data.data());
@@ -334,6 +342,7 @@ class FileWriterImpl : public FileWriter {
 
   Status WriteColumnChunk(const std::shared_ptr<ChunkedArray>& data, int64_t offset,
                           int64_t size) override {
+    RETURN_NOT_OK(CheckClosed());
     if (arrow_properties_->engine_version() == ArrowWriterProperties::V2 ||
         arrow_properties_->engine_version() == ArrowWriterProperties::V1) {
       if (row_group_writer_->buffered()) {
@@ -356,6 +365,7 @@ class FileWriterImpl : public FileWriter {
   std::shared_ptr<::arrow::Schema> schema() const override { return schema_; }
 
   Status WriteTable(const Table& table, int64_t chunk_size) override {
+    RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(table.Validate());
 
     if (chunk_size <= 0 && table.num_rows() > 0) {
@@ -369,7 +379,7 @@ class FileWriterImpl : public FileWriter {
     }
 
     auto WriteRowGroup = [&](int64_t offset, int64_t size) {
-      RETURN_NOT_OK(NewRowGroup(size));
+      RETURN_NOT_OK(NewRowGroup());
       for (int i = 0; i < table.num_columns(); i++) {
         RETURN_NOT_OK(WriteColumnChunk(table.column(i), offset, size));
       }
@@ -392,6 +402,7 @@ class FileWriterImpl : public FileWriter {
   }
 
   Status NewBufferedRowGroup() override {
+    RETURN_NOT_OK(CheckClosed());
     if (row_group_writer_ != nullptr) {
       PARQUET_CATCH_NOT_OK(row_group_writer_->Close());
     }
@@ -400,6 +411,7 @@ class FileWriterImpl : public FileWriter {
   }
 
   Status WriteRecordBatch(const RecordBatch& batch) override {
+    RETURN_NOT_OK(CheckClosed());
     if (batch.num_rows() == 0) {
       return Status::OK();
     }
@@ -407,6 +419,7 @@ class FileWriterImpl : public FileWriter {
     // Max number of rows allowed in a row group.
     const int64_t max_row_group_length = this->properties().max_row_group_length();
 
+    // Initialize a new buffered row group writer if necessary.
     if (row_group_writer_ == nullptr || !row_group_writer_->buffered() ||
         row_group_writer_->num_rows() >= max_row_group_length) {
       RETURN_NOT_OK(NewBufferedRowGroup());
@@ -449,8 +462,9 @@ class FileWriterImpl : public FileWriter {
       RETURN_NOT_OK(WriteBatch(offset, batch_size));
       offset += batch_size;
 
-      // Flush current row group if it is full.
-      if (row_group_writer_->num_rows() >= max_row_group_length) {
+      // Flush current row group writer and create a new writer if it is full.
+      if (row_group_writer_->num_rows() >= max_row_group_length &&
+          offset < batch.num_rows()) {
         RETURN_NOT_OK(NewBufferedRowGroup());
       }
     }
@@ -466,6 +480,14 @@ class FileWriterImpl : public FileWriter {
 
   const std::shared_ptr<FileMetaData> metadata() const override {
     return writer_->metadata();
+  }
+
+  /// \brief Append the key-value metadata to the file metadata
+  ::arrow::Status AddKeyValueMetadata(
+      const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata)
+      override {
+    PARQUET_CATCH_NOT_OK(writer_->AddKeyValueMetadata(key_value_metadata));
+    return Status::OK();
   }
 
  private:
@@ -501,16 +523,6 @@ Status FileWriter::Make(::arrow::MemoryPool* pool,
   return Status::OK();
 }
 
-Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
-                        std::shared_ptr<::arrow::io::OutputStream> sink,
-                        std::shared_ptr<WriterProperties> properties,
-                        std::unique_ptr<FileWriter>* writer) {
-  ARROW_ASSIGN_OR_RAISE(
-      *writer, Open(std::move(schema), pool, std::move(sink), std::move(properties),
-                    default_arrow_writer_properties()));
-  return Status::OK();
-}
-
 Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
                          const ArrowWriterProperties& properties,
                          std::shared_ptr<const KeyValueMetadata>* out) {
@@ -533,18 +545,8 @@ Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* poo
   // The serialized schema is not UTF-8, which is required for Thrift
   std::string schema_as_string = serialized->ToString();
   std::string schema_base64 = ::arrow::util::base64_encode(schema_as_string);
-  result->Append(kArrowSchemaKey, schema_base64);
-  *out = result;
-  return Status::OK();
-}
-
-Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
-                        std::shared_ptr<::arrow::io::OutputStream> sink,
-                        std::shared_ptr<WriterProperties> properties,
-                        std::shared_ptr<ArrowWriterProperties> arrow_properties,
-                        std::unique_ptr<FileWriter>* writer) {
-  ARROW_ASSIGN_OR_RAISE(*writer, Open(std::move(schema), pool, std::move(sink),
-                                      std::move(properties), arrow_properties));
+  result->Append(kArrowSchemaKey, std::move(schema_base64));
+  *out = std::move(result);
   return Status::OK();
 }
 

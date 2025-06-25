@@ -1,3 +1,81 @@
+apache-arrow (20.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Jacob Wujciak-Jens <jacob@wujciak.de>  Tue, 22 Apr 2025 17:58:15 -0000
+
+apache-arrow (19.0.1-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Bryce Mecum <petridish@gmail.com>  Tue, 11 Feb 2025 22:16:06 -0000
+
+apache-arrow (19.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Bryce Mecum <petridish@gmail.com>  Tue, 07 Jan 2025 19:36:45 -0000
+
+apache-arrow (18.1.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Bryce Mecum <petridish@gmail.com>  Wed, 13 Nov 2024 21:34:10 -0000
+
+apache-arrow (18.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Sutou Kouhei <kou@clear-code.com>  Wed, 16 Oct 2024 09:20:06 -0000
+
+apache-arrow (17.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Thu, 11 Jul 2024 08:57:21 -0000
+
+apache-arrow (16.1.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Thu, 09 May 2024 07:21:29 -0000
+
+apache-arrow (16.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Tue, 16 Apr 2024 14:48:07 -0000
+
+apache-arrow (15.0.2-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Wed, 13 Mar 2024 13:37:23 -0000
+
+apache-arrow (15.0.1-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Fri, 23 Feb 2024 13:06:19 -0000
+
+apache-arrow (15.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Tue, 16 Jan 2024 14:38:51 -0000
+
+apache-arrow (14.0.2-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Tue, 12 Dec 2023 09:31:43 -0000
+
+apache-arrow (14.0.1-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Mon, 06 Nov 2023 22:23:27 -0000
+
 apache-arrow (14.0.0-1) unstable; urgency=low
 
   * New upstream release.

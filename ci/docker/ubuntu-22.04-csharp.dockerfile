@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-ARG dotnet=7.0
+ARG dotnet=8.0
 ARG platform=jammy
 FROM mcr.microsoft.com/dotnet/sdk:${dotnet}-${platform}-${arch}
 
