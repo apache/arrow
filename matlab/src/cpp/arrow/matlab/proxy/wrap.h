@@ -31,7 +31,7 @@ namespace arrow::matlab::proxy {
 arrow::Result<std::shared_ptr<arrow::matlab::array::proxy::Array>> wrap(
     const std::shared_ptr<arrow::Array>& array);
 
-/// \brief Wraps an array within a proxy::Array and adds the proxy to the ProxyManager.
+/// \brief Wraps an array within a proxy::Array and adds the Proxy to the ProxyManager.
 ///
 /// \return arrow::Result<mda::StructArray>. The mda::StructArray has two fields: ProxyID
 /// (uint64) and TypeID (int32).
