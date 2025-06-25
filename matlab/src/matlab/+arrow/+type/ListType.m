@@ -42,8 +42,8 @@ classdef ListType < arrow.type.Type
     methods
         function valueType = get.ValueType(obj)
             valueTypeStruct = obj.Proxy.getValueType();
-            traits = arrow.type.traits.traits(arrow.type.ID(valueTypeStruct.ValueTypeID));
-            proxy = libmexclass.proxy.Proxy(Name=traits.TypeProxyClassName, ID=valueTypeStruct.ValueTypeProxyID);
+            traits = arrow.type.traits.traits(arrow.type.ID(valueTypeStruct.TypeID));
+            proxy = libmexclass.proxy.Proxy(Name=traits.TypeProxyClassName, ID=valueTypeStruct.ProxyID);
             valueType = traits.TypeConstructor(proxy);
         end
     end

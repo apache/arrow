@@ -97,7 +97,7 @@ namespace arrow::matlab::proxy {
             return datatype->ToString();
         }
 
-        struct WrapArrayFunctor {
+        struct ArrayProxyWrapper {
             using InputType = arrow::Array;
             using OutputType = arrow::matlab::array::proxy::Array;
 
@@ -107,7 +107,7 @@ namespace arrow::matlab::proxy {
             }
         };
 
-        struct WrapTypeFunctor {
+        struct TypeProxyWrapper {
             using InputType = arrow::DataType;
             using OutputType = arrow::matlab::type::proxy::Type;
 
@@ -118,48 +118,48 @@ namespace arrow::matlab::proxy {
 
         };
 
-        template <typename Function>
-        arrow::Result<std::shared_ptr<typename Function::OutputType>> wrap(const std::shared_ptr<typename Function::InputType>& input, const Function& func) {
+        template <typename Wrapper>
+        arrow::Result<std::shared_ptr<typename Wrapper::OutputType>> wrap(const std::shared_ptr<typename Wrapper::InputType>& input, const Wrapper& wrapper) {
             using ID = arrow::Type::type;
             switch (get_type_id(input)) {
                 case ID::BOOL:
-                    return func.template wrap<arrow::BooleanType>(input);
+                    return wrapper.template wrap<arrow::BooleanType>(input);
                 case ID::UINT8:
-                    return func.template wrap<arrow::UInt8Type>(input);
+                    return wrapper.template wrap<arrow::UInt8Type>(input);
                 case ID::UINT16:
-                    return func.template wrap<arrow::UInt16Type>(input);
+                    return wrapper.template wrap<arrow::UInt16Type>(input);
                 case ID::UINT32:
-                    return func.template wrap<arrow::UInt32Type>(input);
+                    return wrapper.template wrap<arrow::UInt32Type>(input);
                 case ID::UINT64:
-                    return func.template wrap<arrow::UInt64Type>(input);
+                    return wrapper.template wrap<arrow::UInt64Type>(input);
                 case ID::INT8:
-                    return func.template wrap<arrow::Int8Type>(input);
+                    return wrapper.template wrap<arrow::Int8Type>(input);
                 case ID::INT16:
-                    return func.template wrap<arrow::Int16Type>(input);
+                    return wrapper.template wrap<arrow::Int16Type>(input);
                 case ID::INT32:
-                    return func.template wrap<arrow::Int32Type>(input);
+                    return wrapper.template wrap<arrow::Int32Type>(input);
                 case ID::INT64:
-                    return func.template wrap<arrow::Int64Type>(input);
+                    return wrapper.template wrap<arrow::Int64Type>(input);
                 case ID::FLOAT:
-                    return func.template wrap<arrow::FloatType>(input);
+                    return wrapper.template wrap<arrow::FloatType>(input);
                 case ID::DOUBLE:
-                    return func.template wrap<arrow::DoubleType>(input);
+                    return wrapper.template wrap<arrow::DoubleType>(input);
                 case ID::TIMESTAMP:
-                    return func.template wrap<arrow::TimestampType>(input);
+                    return wrapper.template wrap<arrow::TimestampType>(input);
                 case ID::TIME32:
-                    return func.template wrap<arrow::Time32Type>(input);
+                    return wrapper.template wrap<arrow::Time32Type>(input);
                 case ID::TIME64:
-                    return func.template wrap<arrow::Time64Type>(input);
+                    return wrapper.template wrap<arrow::Time64Type>(input);
                 case ID::DATE32:
-                    return func.template wrap<arrow::Date32Type>(input);
+                    return wrapper.template wrap<arrow::Date32Type>(input);
                 case ID::DATE64:
-                    return func.template wrap<arrow::Date64Type>(input);
+                    return wrapper.template wrap<arrow::Date64Type>(input);
                 case ID::STRING:
-                    return func.template wrap<arrow::StringType>(input);
+                    return wrapper.template wrap<arrow::StringType>(input);
                 case ID::LIST:
-                    return func.template wrap<arrow::ListType>(input);
+                    return wrapper.template wrap<arrow::ListType>(input);
                 case ID::STRUCT:
-                    return func.template wrap<arrow::StructType>(input);
+                    return wrapper.template wrap<arrow::StructType>(input);
                 default:
                 return arrow::Status::NotImplemented("Unsupported DataType: " + get_type_string(input));                                      
             }
@@ -168,8 +168,7 @@ namespace arrow::matlab::proxy {
     } // anonymous namespace
 
     arrow::Result<std::shared_ptr<arrow::matlab::array::proxy::Array>> wrap(const std::shared_ptr<arrow::Array>& array) {
-        WrapArrayFunctor functor;
-        return wrap(array, functor);
+        return wrap(array, ArrayProxyWrapper{});
     }
 
     arrow::Result<::matlab::data::StructArray> wrap_and_manage(const std::shared_ptr<arrow::Array>& array) {
@@ -186,8 +185,7 @@ namespace arrow::matlab::proxy {
     }
 
     arrow::Result<std::shared_ptr<arrow::matlab::type::proxy::Type>> wrap(const std::shared_ptr<arrow::DataType>& datatype) {
-        WrapTypeFunctor functor;
-        return wrap(datatype, functor);
+        return wrap(datatype, TypeProxyWrapper{});
     }
 
     arrow::Result<::matlab::data::StructArray> wrap_and_manage(const std::shared_ptr<arrow::DataType>& datatype) {
