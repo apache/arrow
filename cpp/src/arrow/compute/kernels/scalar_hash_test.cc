@@ -61,7 +61,7 @@ class TestScalarHash : public ::testing::Test {
     std::vector<c_type> hashes(arr->length());
     // Choose the Hasher type conditionally based on c_type
 
-    if constexpr (std::is_same<c_type, uint64_t>::value) {
+    if constexpr (std::is_same_v<c_type, uint64_t>) {
       Hashing64::HashFixed(false, static_cast<uint32_t>(arr->length()),
                            arr->type()->bit_width() / 8,
                            arr->data()->GetValues<uint8_t>(1), hashes.data());
@@ -80,7 +80,7 @@ class TestScalarHash : public ::testing::Test {
     std::vector<c_type> hashes(arr->length());
     auto length = static_cast<uint32_t>(arr->length());
     auto values = arr->data()->GetValues<uint8_t>(2);
-    if constexpr (std::is_same<c_type, uint64_t>::value) {
+    if constexpr (std::is_same_v<c_type, uint64_t>) {
       if (arr->type_id() == Type::LARGE_BINARY || arr->type_id() == Type::LARGE_STRING) {
         Hashing64::HashVarLen(false, length, arr->data()->GetValues<uint64_t>(1), values,
                               hashes.data());
