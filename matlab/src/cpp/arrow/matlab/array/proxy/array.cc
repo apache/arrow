@@ -19,11 +19,10 @@
 #include "arrow/util/utf8.h"
 
 #include "arrow/matlab/array/proxy/array.h"
-#include "arrow/matlab/array/proxy/wrap.h"
 #include "arrow/matlab/bit/unpack.h"
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/index/validate.h"
-#include "arrow/matlab/type/proxy/wrap.h"
+#include "arrow/matlab/proxy/wrap.h"
 #include "arrow/pretty_print.h"
 #include "arrow/type_traits.h"
 
@@ -110,20 +109,8 @@ void Array::getValid(libmexclass::proxy::method::Context& context) {
 }
 
 void Array::getType(libmexclass::proxy::method::Context& context) {
-  namespace mda = ::matlab::data;
-
-  mda::ArrayFactory factory;
-
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto type_proxy, type::proxy::wrap(array->type()),
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0], arrow::matlab::proxy::wrap_and_manage(array->type()),
                                       context, error::ARRAY_FAILED_TO_CREATE_TYPE_PROXY);
-
-  const auto type_id = static_cast<int32_t>(type_proxy->unwrap()->id());
-  const auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(type_proxy);
-
-  mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
-  output[0]["ProxyID"] = factory.createScalar(proxy_id);
-  output[0]["TypeID"] = factory.createScalar(type_id);
-  context.outputs[0] = output;
 }
 
 void Array::isEqual(libmexclass::proxy::method::Context& context) {
@@ -167,18 +154,8 @@ void Array::slice(libmexclass::proxy::method::Context& context) {
                                       context, error::ARRAY_SLICE_NEGATIVE_LENGTH);
 
   auto sliced_array = array->Slice(offset, length);
-  const auto type_id = static_cast<int32_t>(sliced_array->type_id());
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto sliced_array_proxy,
-                                      array::proxy::wrap(sliced_array), context,
-                                      error::ARRAY_SLICE_FAILED_TO_CREATE_ARRAY_PROXY);
-
-  const auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(sliced_array_proxy);
-
-  mda::ArrayFactory factory;
-  mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
-  output[0]["ProxyID"] = factory.createScalar(proxy_id);
-  output[0]["TypeID"] = factory.createScalar(type_id);
-  context.outputs[0] = output;
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0], arrow::matlab::proxy::wrap_and_manage(sliced_array),
+                                      context, error::ARRAY_SLICE_FAILED_TO_CREATE_ARRAY_PROXY);
 }
 
 void Array::exportToC(libmexclass::proxy::method::Context& context) {
