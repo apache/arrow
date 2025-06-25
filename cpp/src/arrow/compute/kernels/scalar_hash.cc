@@ -96,7 +96,7 @@ struct FastHashScalar {
                                                       const ArraySpan& child,
                                                       LightContext* hash_ctx,
                                                       MemoryPool* memory_pool) {
-    auto arrow_type = std::make_shared<ArrowType>();
+    auto arrow_type = TypeTraits<ArrowType>::type_singleton();
     auto buffer_size = child.length * sizeof(c_type);
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(buffer_size, memory_pool));
     ARROW_RETURN_NOT_OK(
