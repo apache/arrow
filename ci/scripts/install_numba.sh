@@ -27,8 +27,8 @@ fi
 numba=$1
 
 if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
-  # This comment avoids shellcheck SC1091 error.
-  # https://www.shellcheck.net/wiki/SC1091
+  # We don't need to follow this external file.
+  # See also: https://www.shellcheck.net/wiki/SC1091
   #
   # shellcheck source=/dev/null
   . "${ARROW_PYTHON_VENV}/bin/activate"
