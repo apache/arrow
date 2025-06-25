@@ -64,10 +64,6 @@ garrow_array_statistics_has_distinct_count(GArrowArrayStatistics *statistics);
 GARROW_AVAILABLE_IN_21_0
 gint64
 garrow_array_statistics_get_distinct_count(GArrowArrayStatistics *statistics);
-GARROW_AVAILABLE_IN_21_0
-void
-garrow_array_statistics_set_distinct_count(GArrowArrayStatistics *statistics,
-                                           gint64 distinct_count);
 
 GARROW_AVAILABLE_IN_6_0
 GArrowArray *

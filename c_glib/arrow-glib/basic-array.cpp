@@ -512,23 +512,6 @@ garrow_array_statistics_get_distinct_count(GArrowArrayStatistics *statistics)
   }
 }
 
-/**
- * garrow_array_statistics_set_distinct_count:
- * @statistics: A #GArrowArrayStatistics.
- * @distinct_count: The distinct count value to set.
- *
- * Sets the distinct count for the array statistics.
- *
- * Since: 21.0.0
- */
-void
-garrow_array_statistics_set_distinct_count(GArrowArrayStatistics *statistics,
-                                           gint64 distinct_count)
-{
-  auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(statistics);
-  priv->statistics.distinct_count = distinct_count;
-}
-
 typedef struct GArrowArrayPrivate_
 {
   std::shared_ptr<arrow::Array> array;
