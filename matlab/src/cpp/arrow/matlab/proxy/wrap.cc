@@ -165,6 +165,16 @@ namespace arrow::matlab::proxy {
             }
         }
 
+        ::matlab::data::StructArray manage_proxy(const std::shared_ptr<libmexclass::proxy::Proxy>& proxy, const arrow::Type::type type_id) {
+            namespace mda = ::matlab::data;
+            mda::ArrayFactory factory;
+            const auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(proxy);
+            mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
+            output[0]["ProxyID"] = factory.createScalar(proxy_id);
+            output[0]["TypeID"] = factory.createScalar(static_cast<int32_t>(type_id));
+            return output;
+        }
+
     } // anonymous namespace
 
     arrow::Result<std::shared_ptr<arrow::matlab::array::proxy::Array>> wrap(const std::shared_ptr<arrow::Array>& array) {
@@ -172,16 +182,8 @@ namespace arrow::matlab::proxy {
     }
 
     arrow::Result<::matlab::data::StructArray> wrap_and_manage(const std::shared_ptr<arrow::Array>& array) {
-        namespace mda = ::matlab::data;
-        mda::ArrayFactory factory;
-
         ARROW_ASSIGN_OR_RAISE(auto proxy, wrap(array));
-        const auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(proxy);
-
-        mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
-        output[0]["ProxyID"] = factory.createScalar(proxy_id);
-        output[0]["TypeID"] = factory.createScalar( static_cast<int32_t>(array->type_id()));
-        return output;
+        return manage_proxy(proxy, array->type_id());
     }
 
     arrow::Result<std::shared_ptr<arrow::matlab::type::proxy::Type>> wrap(const std::shared_ptr<arrow::DataType>& datatype) {
@@ -189,15 +191,7 @@ namespace arrow::matlab::proxy {
     }
 
     arrow::Result<::matlab::data::StructArray> wrap_and_manage(const std::shared_ptr<arrow::DataType>& datatype) {
-        namespace mda = ::matlab::data;
-        mda::ArrayFactory factory;
-
         ARROW_ASSIGN_OR_RAISE(auto proxy, wrap(datatype));
-        const auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(proxy);
-
-        mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
-        output[0]["ProxyID"] = factory.createScalar(proxy_id);
-        output[0]["TypeID"] = factory.createScalar( static_cast<int32_t>(datatype->id()));
-        return output;
+        return manage_proxy(proxy, datatype->id());
     }
 }
