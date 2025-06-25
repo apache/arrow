@@ -44,6 +44,7 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -60,6 +61,7 @@ using internal::GenerateBitsUnrolled;
 using internal::VisitBitBlocks;
 using internal::VisitBitBlocksVoid;
 using internal::VisitTwoBitBlocksVoid;
+using util::Float16;
 
 namespace compute {
 namespace internal {
@@ -131,6 +133,14 @@ struct GetViewType<Type, enable_if_has_c_type<Type>> {
   static T LogicalValue(PhysicalType value) { return value; }
 };
 
+template <>
+struct GetViewType<HalfFloatType> {
+  using T = Float16;
+  using PhysicalType = uint16_t;
+
+  static T LogicalValue(PhysicalType value) { return T::FromBits(value); }
+};
+
 template <typename Type>
 struct GetViewType<Type, enable_if_t<is_base_binary_type<Type>::value ||
                                      is_fixed_size_binary_type<Type>::value ||
@@ -197,6 +207,11 @@ struct GetOutputType<Type, enable_if_has_c_type<Type>> {
   using T = typename Type::c_type;
 };
 
+template <>
+struct GetOutputType<HalfFloatType> {
+  using T = Float16;
+};
+
 template <typename Type>
 struct GetOutputType<Type, enable_if_t<is_string_like_type<Type>::value>> {
   using T = std::string;
@@ -258,6 +273,9 @@ template <typename T, typename R = T>
 using enable_if_not_floating_value = enable_if_t<!std::is_floating_point<T>::value, R>;
 
 template <typename T, typename R = T>
+using enable_if_half_float_value = enable_if_t<std::is_same_v<T, Float16>, R>;
+
+template <typename T, typename R = T>
 using enable_if_decimal_value =
     enable_if_t<std::is_same<Decimal32, T>::value || std::is_same<Decimal64, T>::value ||
                     std::is_same<Decimal128, T>::value ||
@@ -279,6 +297,15 @@ struct ArrayIterator;
 template <typename Type>
 struct ArrayIterator<Type, enable_if_c_number_or_decimal<Type>> {
   using T = typename TypeTraits<Type>::ScalarType::ValueType;
+  const T* values;
+
+  explicit ArrayIterator(const ArraySpan& arr) : values(arr.GetValues<T>(1)) {}
+  T operator()() { return *values++; }
+};
+
+template <>
+struct ArrayIterator<HalfFloatType> {
+  using T = Float16;
   const T* values;
 
   explicit ArrayIterator(const ArraySpan& arr) : values(arr.GetValues<T>(1)) {}
@@ -378,6 +405,14 @@ struct UnboxScalar<Type, enable_if_has_c_type<Type>> {
         checked_cast<const ::arrow::internal::PrimitiveScalarBase&>(val).view();
     ARROW_DCHECK_EQ(view.size(), sizeof(T));
     return *reinterpret_cast<const T*>(view.data());
+  }
+};
+
+template <>
+struct UnboxScalar<HalfFloatType> {
+  using T = Float16;
+  static T Unbox(const Scalar& val) {
+    return T(checked_cast<const HalfFloatScalar&>(val).value);
   }
 };
 
@@ -559,7 +594,8 @@ struct OutputAdapter<Type, enable_if_boolean<Type>> {
 
 template <typename Type>
 struct OutputAdapter<Type, enable_if_c_number_or_decimal<Type>> {
-  using T = typename TypeTraits<Type>::ScalarType::ValueType;
+  using T = std::conditional_t<std::is_same_v<Type, HalfFloatType>, Float16,
+                               typename TypeTraits<Type>::ScalarType::ValueType>;
 
   template <typename Generator>
   static Status Write(KernelContext*, ArraySpan* out, Generator&& generator) {
