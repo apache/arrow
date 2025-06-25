@@ -189,4 +189,17 @@ namespace arrow::matlab::proxy {
         WrapTypeFunctor functor;
         return wrap(datatype, functor);
     }
+
+    arrow::Result<::matlab::data::StructArray> wrap_and_manage(const std::shared_ptr<arrow::DataType>& datatype) {
+        namespace mda = ::matlab::data;
+        mda::ArrayFactory factory;
+
+        ARROW_ASSIGN_OR_RAISE(auto proxy, wrap(datatype));
+        const auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(proxy);
+
+        mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
+        output[0]["ProxyID"] = factory.createScalar(proxy_id);
+        output[0]["TypeID"] = factory.createScalar( static_cast<int32_t>(datatype->id()));
+        return output;
+    }
 }
