@@ -937,7 +937,7 @@ TYPED_TEST(TestBinaryArithmeticSigned, Modulo) {
 TYPED_TEST(TestBinaryArithmeticIntegral, ModuloByZero) {
   for (auto check_overflow : {false, true}) {
     this->SetOverflowCheck(check_overflow);
-    this->AssertBinopRaises(Modulo, "[3, 2, 6]", "[1, 1, 0]", "divide by zero");
+    this->AssertBinopRaises(Modulo, "[3, 2, 6]", "[1, 1, 0]", "Modulo by zero");
   }
 }
 

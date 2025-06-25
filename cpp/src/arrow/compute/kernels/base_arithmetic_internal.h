@@ -477,7 +477,7 @@ struct Modulo {
   static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
                                          Status* st) {
     if (ARROW_PREDICT_FALSE(right == 0)) {
-      *st = Status::Invalid("Divide by zero");
+      *st = Status::Invalid("Modulo by zero");
       return 0;
     }
 
@@ -506,9 +506,9 @@ struct ModuloChecked {
     T result;
     if (ARROW_PREDICT_FALSE(ModuloWithOverflow(left, right, &result))) {
       if (right == 0) {
-        *st = Status::Invalid("divide by zero");
+        *st = Status::Invalid("Modulo by zero");
       } else {
-        *st = Status::Invalid("overflow");
+        *st = Status::Invalid("Overflow");
       }
     }
     return result;
