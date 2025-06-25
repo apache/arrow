@@ -1293,7 +1293,7 @@ TYPED_TEST_SUITE(TestVarArgsCompareBinary, BaseBinaryArrowTypes);
 TYPED_TEST_SUITE(TestVarArgsCompareFixedSizeBinary, CompareFixedSizeBinaryTypes);
 
 TYPED_TEST(TestVarArgsCompareNumeric, MinElementWise) {
-  this->AssertNullArrayZeroLen(MinElementWise, {});
+  this->AssertNullScalar(MinElementWise, {});
   this->AssertNullScalar(MinElementWise, {this->scalar("null"), this->scalar("null")});
 
   if (std::is_same<TypeParam, Date64Type>::value) {
@@ -1555,7 +1555,7 @@ TYPED_TEST(TestVarArgsCompareFloating, MinElementWise) {
 
 TYPED_TEST(TestVarArgsCompareParametricTemporal, MinElementWise) {
   // Temporal kernel is implemented with numeric kernel underneath
-  this->AssertNullArrayZeroLen(MinElementWise, {});
+  this->AssertNullScalar(MinElementWise, {});
   this->AssertNullScalar(MinElementWise, {this->scalar("null"), this->scalar("null")});
 
   this->Assert(MinElementWise, this->scalar("0"), {this->scalar("0")});
@@ -1575,7 +1575,7 @@ TYPED_TEST(TestVarArgsCompareParametricTemporal, MinElementWise) {
 }
 
 TYPED_TEST(TestVarArgsCompareBinary, MinElementWise) {
-  this->AssertNullArrayZeroLen(MinElementWise, {});
+  this->AssertNullScalar(MinElementWise, {});
   this->AssertNullScalar(MinElementWise, {this->scalar("null"), this->scalar("null")});
 
   this->Assert(MinElementWise, this->scalar(R"("")"),
@@ -1642,7 +1642,7 @@ TYPED_TEST(TestVarArgsCompareBinary, MinElementWise) {
 }
 
 TYPED_TEST(TestVarArgsCompareFixedSizeBinary, MinElementWise) {
-  this->AssertNullArrayZeroLen(MinElementWise, {});
+  this->AssertNullScalar(MinElementWise, {});
   this->AssertNullScalar(MinElementWise, {this->scalar("null"), this->scalar("null")});
 
   this->Assert(MinElementWise, this->scalar(R"("aaa")"), {this->scalar(R"("aaa")")});
@@ -1700,7 +1700,7 @@ TYPED_TEST(TestVarArgsCompareFixedSizeBinary, MinElementWise) {
 }
 
 TYPED_TEST(TestVarArgsCompareNumeric, MaxElementWise) {
-  this->AssertNullArrayZeroLen(MaxElementWise, {});
+  this->AssertNullScalar(MaxElementWise, {});
   this->AssertNullScalar(MaxElementWise, {this->scalar("null"), this->scalar("null")});
   this->Assert(MaxElementWise, this->scalar("0"), {this->scalar("0")});
 
@@ -1962,7 +1962,7 @@ TYPED_TEST(TestVarArgsCompareFloating, MaxElementWise) {
 
 TYPED_TEST(TestVarArgsCompareParametricTemporal, MaxElementWise) {
   // Temporal kernel is implemented with numeric kernel underneath
-  this->AssertNullArrayZeroLen(MaxElementWise, {});
+  this->AssertNullScalar(MaxElementWise, {});
   this->AssertNullScalar(MaxElementWise, {this->scalar("null"), this->scalar("null")});
 
   this->Assert(MaxElementWise, this->scalar("0"), {this->scalar("0")});
@@ -1982,7 +1982,7 @@ TYPED_TEST(TestVarArgsCompareParametricTemporal, MaxElementWise) {
 }
 
 TYPED_TEST(TestVarArgsCompareBinary, MaxElementWise) {
-  this->AssertNullArrayZeroLen(MaxElementWise, {});
+  this->AssertNullScalar(MaxElementWise, {});
   this->AssertNullScalar(MaxElementWise, {this->scalar("null"), this->scalar("null")});
 
   this->Assert(MaxElementWise, this->scalar(R"("")"),
@@ -2049,7 +2049,7 @@ TYPED_TEST(TestVarArgsCompareBinary, MaxElementWise) {
 }
 
 TYPED_TEST(TestVarArgsCompareFixedSizeBinary, MaxElementWise) {
-  this->AssertNullArrayZeroLen(MaxElementWise, {});
+  this->AssertNullScalar(MaxElementWise, {});
   this->AssertNullScalar(MaxElementWise, {this->scalar("null"), this->scalar("null")});
 
   this->Assert(MaxElementWise, this->scalar(R"("aaa")"), {this->scalar(R"("aaa")")});
