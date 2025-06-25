@@ -206,6 +206,15 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
                        Tiebreaker tiebreaker = RankOptions::First)
       : RankOptions({SortKey("", order)}, null_placement, tiebreaker) {}
 
+  explicit RankOptions(std::vector<SortKey> sort_keys,
+                       Tiebreaker tiebreaker = RankOptions::First)
+      : RankOptions(std::move(sort_keys), std::nullopt, tiebreaker) {}
+
+  /// Convenience constructor for array inputs
+  explicit RankOptions(SortOrder order,
+                       Tiebreaker tiebreaker = RankOptions::First)
+      : RankOptions({SortKey("", order)}, std::nullopt, tiebreaker) {}
+
   static constexpr char const kTypeName[] = "RankOptions";
   static RankOptions Defaults() { return RankOptions(); }
 

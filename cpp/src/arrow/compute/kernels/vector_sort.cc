@@ -1104,7 +1104,7 @@ struct SortFieldPopulator {
       if (type.id() == Type::STRUCT) {
         AddLeafFields(type.fields(), order, null_placement);
       } else {
-        sort_fields_.emplace_back(FieldPath(tmp_indices_), order, &type, null_placement);
+        sort_fields_.emplace_back(FieldPath(tmp_indices_), order, null_placement, &type);
       }
       ++tmp_indices_.back();
     }
@@ -1117,7 +1117,7 @@ struct SortFieldPopulator {
       tmp_indices_ = path.indices();
       AddLeafFields(type.fields(), order, null_placement);
     } else {
-      sort_fields_.emplace_back(path, order, &type, null_placement);
+      sort_fields_.emplace_back(path, order, null_placement, &type);
     }
   }
 
