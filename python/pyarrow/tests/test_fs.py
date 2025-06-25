@@ -1496,39 +1496,44 @@ def test_azurefs_options(pickle_module):
     with pytest.raises(ValueError, match="client_id must be specified"):
         AzureFileSystem(
             account_name='fake-account-name',
-            tenant_id=None,
-            client_secret=None
+            tenant_id='fake-tenant-id',
+            client_secret='fake-client-secret'
         )
 
-    error_msg1 = "Both of tenant_id and client_secret must be specified"
-    with pytest.raises(ValueError, match=error_msg1):
+    ambiguous_msg = (
+        "Ambiguous Azure credential configuration: "
+        "You provided client_id and one of tenant_id or client_secret. "
+        "For ClientSecretCredential, provide tenant_id, client_id, and client_secret. "
+        "For ManagedIdentityCredential, provide only client_id."
+    )
+
+    with pytest.raises(ValueError, match="client_id must be specified"):
         AzureFileSystem(
             account_name='fake-account-name',
             tenant_id='fake-tenant-id'
         )
 
-    with pytest.raises(ValueError, match=error_msg1):
+    with pytest.raises(ValueError, match="client_id must be specified"):
         AzureFileSystem(
             account_name='fake-account-name',
             client_secret='fake-client-secret'
         )
 
-    error_msg2 = "All of tenant_id, client_id, and client_secret must be provided"
-    with pytest.raises(ValueError, match=error_msg2):
+    with pytest.raises(ValueError, match=ambiguous_msg):
         AzureFileSystem(
             account_name='fake-account-name',
             client_id='fake-client-id',
             client_secret='fake-client-secret'
         )
 
-    with pytest.raises(ValueError, match=error_msg2):
+    with pytest.raises(ValueError, match="client_id must be specified"):
         AzureFileSystem(
             account_name='fake-account-name',
             tenant_id='fake-tenant-id',
             client_secret='fake-client-secret'
         )
 
-    with pytest.raises(ValueError, match=error_msg2):
+    with pytest.raises(ValueError, match=ambiguous_msg):
         AzureFileSystem(
             account_name='fake-account-name',
             tenant_id='fake-tenant-id',

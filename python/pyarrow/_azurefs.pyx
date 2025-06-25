@@ -53,22 +53,9 @@ cdef class AzureFileSystem(FileSystem):
     blob_storage_authority : str, default None
         hostname[:port] of the Blob Service. Defaults to `.blob.core.windows.net`. Useful
         for connecting to a local emulator, like Azurite.
-    dfs_storage_authority : str, default None
-        hostname[:port] of the Data Lake Gen 2 Service. Defaults to 
-        `.dfs.core.windows.net`. Useful for connecting to a local emulator, like Azurite.
     blob_storage_scheme : str, default None
         Either `http` or `https`. Defaults to `https`. Useful for connecting to a local 
         emulator, like Azurite.
-    dfs_storage_scheme : str, default None
-        Either `http` or `https`. Defaults to `https`. Useful for connecting to a local 
-        emulator, like Azurite.
-    sas_token : str, default None
-        SAS token for the storage account, used as an alternative to account_key. If sas_token
-        and account_key are None the default credential will be used. The parameters 
-        account_key and sas_token are mutually exclusive.
-    tenant_id : str, default None
-        Tenant ID for Azure Active Directory authentication. Must be provided together with
-        `client_id` and `client_secret` to use ClientSecretCredential.
     client_id : str, default None
         The client ID (Application ID) for Azure Active Directory authentication.
         Its interpretation depends on the credential type being used:
@@ -83,6 +70,19 @@ cdef class AzureFileSystem(FileSystem):
     client_secret : str, default None
         Client secret for Azure Active Directory authentication. Must be provided together
         with `tenant_id` and `client_id` to use ClientSecretCredential.
+    dfs_storage_authority : str, default None
+        hostname[:port] of the Data Lake Gen 2 Service. Defaults to
+        `.dfs.core.windows.net`. Useful for connecting to a local emulator, like Azurite.
+    dfs_storage_scheme : str, default None
+        Either `http` or `https`. Defaults to `https`. Useful for connecting to a local
+        emulator, like Azurite.
+    sas_token : str, default None
+        SAS token for the storage account, used as an alternative to account_key. If sas_token
+        and account_key are None the default credential will be used. The parameters
+        account_key and sas_token are mutually exclusive.
+    tenant_id : str, default None
+        Tenant ID for Azure Active Directory authentication. Must be provided together with
+        `client_id` and `client_secret` to use ClientSecretCredential.
 
     Examples
     --------
@@ -129,21 +129,30 @@ cdef class AzureFileSystem(FileSystem):
             raise ValueError("Cannot specify both account_key and sas_token.")
 
         if (tenant_id or client_id or client_secret):
-            if not client_id:
-                raise ValueError("client_id must be specified")
-            if not tenant_id and not client_secret:
-                options.ConfigureManagedIdentityCredential(tobytes(client_id))
-                self.client_id = tobytes(client_id)
-            elif tenant_id and client_secret:
+            if tenant_id and client_id and client_secret:
                 options.ConfigureClientSecretCredential(
                     tobytes(tenant_id), tobytes(client_id), tobytes(client_secret)
                 )
                 self.tenant_id = tobytes(tenant_id)
                 self.client_id = tobytes(client_id)
                 self.client_secret = tobytes(client_secret)
-            else:
+            elif client_id and not tenant_id and not client_secret:
+                options.ConfigureManagedIdentityCredential(tobytes(client_id))
+                self.client_id = tobytes(client_id)
+            elif not client_id:
                 raise ValueError(
-                    "Both of tenant_id and client_secret must be specified")
+                    "client_id must be specified for both ClientSecretCredential and ManagedIdentityCredential. "
+                    "For ClientSecretCredential, provide tenant_id, client_id, and client_secret. "
+                    "For ManagedIdentityCredential, provide only client_id."
+                )
+            else:
+                if client_id and (tenant_id or client_secret):
+                    raise ValueError(
+                        "Ambiguous Azure credential configuration: "
+                        "You provided client_id and one of tenant_id or client_secret. "
+                        "For ClientSecretCredential, provide tenant_id, client_id, and client_secret. "
+                        "For ManagedIdentityCredential, provide only client_id."
+                    )
         elif account_key:
             options.ConfigureAccountKeyCredential(tobytes(account_key))
             self.account_key = tobytes(account_key)
