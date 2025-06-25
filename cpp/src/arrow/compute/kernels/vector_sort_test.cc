@@ -1207,7 +1207,7 @@ TEST_F(TestRecordBatchSortIndices, NoNull) {
 
   for (auto null_placement : AllNullPlacements()) {
     SortOptions options(
-        {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)},
+        {SortKey("a", SortOrder::Ascending, null_placement), SortKey("b", SortOrder::Descending, null_placement)},
         null_placement);
 
     AssertSortIndices(batch, options, "[3, 5, 1, 6, 4, 0, 2]");
@@ -1234,6 +1234,33 @@ TEST_F(TestRecordBatchSortIndices, Null) {
   SortOptions options(sort_keys, NullPlacement::AtEnd);
   AssertSortIndices(batch, options, "[5, 1, 4, 6, 2, 0, 3]");
   options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(batch, options, "[3, 0, 5, 1, 4, 2, 6]");
+}
+
+TEST_F(TestRecordBatchSortIndices, MixedNullOrdering) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+  auto batch = RecordBatchFromJSON(schema,
+                                   R"([{"a": null, "b": 5},
+                                       {"a": 1,    "b": 3},
+                                       {"a": 3,    "b": null},
+                                       {"a": null, "b": null},
+                                       {"a": 2,    "b": 5},
+                                       {"a": 1,    "b": 5},
+                                       {"a": 3,    "b": 5}
+                                       ])");
+  const std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending, NullPlacement::AtEnd),
+                                       SortKey("b", SortOrder::Descending, NullPlacement::AtEnd)};
+
+  SortOptions options(sort_keys, std::nullopt);
+  AssertSortIndices(batch, options, "[5, 1, 4, 6, 2, 0, 3]");
+
+  options.sort_keys_.at(0).null_placement = NullPlacement::AtStart;
+  AssertSortIndices(batch, options, "[0, 3, 5, 1, 4, 6, 2]");
+
+  options.sort_keys_.at(1).null_placement = NullPlacement::AtStart;
   AssertSortIndices(batch, options, "[3, 0, 5, 1, 4, 2, 6]");
 }
 
@@ -1858,25 +1885,25 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
   class Comparator {
    public:
     Comparator(const Table& table, const SortOptions& options) : options_(options) {
-      for (const auto& sort_key : options_.sort_keys) {
+      for (const auto& sort_key : options_.GetSortKeys()) {
         DCHECK(!sort_key.target.IsNested());
 
         if (auto name = sort_key.target.name()) {
-          sort_columns_.emplace_back(table.GetColumnByName(*name).get(), sort_key.order);
+          sort_columns_.emplace_back(table.GetColumnByName(*name).get(), sort_key.order, sort_key.null_placement);
           continue;
         }
 
         auto index = sort_key.target.field_path()->indices()[0];
-        sort_columns_.emplace_back(table.column(index).get(), sort_key.order);
+        sort_columns_.emplace_back(table.column(index).get(), sort_key.order, sort_key.null_placement);
       }
     }
 
     // Return true if the left record is less or equals to the right record,
     // false otherwise.
     bool operator()(uint64_t lhs, uint64_t rhs) {
-      for (const auto& pair : sort_columns_) {
-        ColumnComparator comparator(pair.second, options_.null_placement);
-        const auto& chunked_array = *pair.first;
+      for (const auto& tuple : sort_columns_) {
+        ColumnComparator comparator(std::get<1>(tuple), std::get<2>(tuple));
+        const auto& chunked_array = *std::get<0>(tuple);
         int64_t lhs_index = 0, rhs_index = 0;
         const Array* lhs_array = FindTargetArray(chunked_array, lhs, &lhs_index);
         const Array* rhs_array = FindTargetArray(chunked_array, rhs, &rhs_index);
@@ -1904,7 +1931,7 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
     }
 
     const SortOptions& options_;
-    std::vector<std::pair<const ChunkedArray*, SortOrder>> sort_columns_;
+    std::vector<std::tuple<const ChunkedArray*, SortOrder, NullPlacement>> sort_columns_;
   };
 
  public:
@@ -2182,7 +2209,7 @@ class TestNestedSortIndices : public ::testing::Test {
     // Implementations may have an optimized path for cases with one sort key.
     // Additionally, this key references a struct containing another struct, which should
     // work recursively
-    options.sort_keys = {SortKey(FieldRef("a"), SortOrder::Ascending)};
+    options.sort_keys_ = {SortKey(FieldRef("a"), SortOrder::Ascending)};
     options.null_placement = NullPlacement::AtEnd;
     AssertSortIndices(datum, options, "[6, 7, 3, 4, 0, 8, 1, 2, 5]");
     options.null_placement = NullPlacement::AtStart;

@@ -81,7 +81,7 @@ class ArraySelector : public TypeVisitor {
         ctx_(ctx),
         array_(array),
         k_(options.k),
-        order_(options.sort_keys[0].order),
+        order_(options.GetSortKeys()[0].order),
         physical_type_(GetPhysicalType(array.type())),
         output_(output) {}
 
@@ -287,8 +287,8 @@ class RecordBatchSelector : public TypeVisitor {
         record_batch_(record_batch),
         k_(options.k),
         output_(output),
-        sort_keys_(ResolveSortKeys(record_batch, options.sort_keys, &status_)),
-        comparator_(sort_keys_, NullPlacement::AtEnd) {}
+        sort_keys_(ResolveSortKeys(record_batch, options.GetSortKeys(), &status_)),
+        comparator_(sort_keys_) {}
 
   Status Run() {
     RETURN_NOT_OK(status_);
@@ -314,7 +314,7 @@ class RecordBatchSelector : public TypeVisitor {
         *status = maybe_array.status();
         return {};
       }
-      resolved.emplace_back(*std::move(maybe_array), key.order);
+      resolved.emplace_back(*std::move(maybe_array), key.order, key.null_placement);
     }
     return resolved;
   }
@@ -396,8 +396,9 @@ class TableSelector : public TypeVisitor {
  private:
   struct ResolvedSortKey {
     ResolvedSortKey(const std::shared_ptr<ChunkedArray>& chunked_array,
-                    const SortOrder order)
+                    const SortOrder order, NullPlacement null_placement)
         : order(order),
+          null_placement(null_placement),
           type(GetPhysicalType(chunked_array->type())),
           chunks(GetPhysicalChunks(*chunked_array, type)),
           null_count(chunked_array->null_count()),
@@ -410,6 +411,7 @@ class TableSelector : public TypeVisitor {
     ResolvedChunk GetChunk(int64_t index) const { return resolver.Resolve(index); }
 
     const SortOrder order;
+    const NullPlacement null_placement;
     const std::shared_ptr<DataType> type;
     const ArrayVector chunks;
     const int64_t null_count;
@@ -425,8 +427,8 @@ class TableSelector : public TypeVisitor {
         table_(table),
         k_(options.k),
         output_(output),
-        sort_keys_(ResolveSortKeys(table, options.sort_keys, &status_)),
-        comparator_(sort_keys_, NullPlacement::AtEnd) {}
+        sort_keys_(ResolveSortKeys(table, options.GetSortKeys(), &status_)),
+        comparator_(sort_keys_) {}
 
   Status Run() {
     RETURN_NOT_OK(status_);
@@ -453,7 +455,7 @@ class TableSelector : public TypeVisitor {
         *status = maybe_chunked_array.status();
         return {};
       }
-      resolved.emplace_back(*std::move(maybe_chunked_array), key.order);
+      resolved.emplace_back(*std::move(maybe_chunked_array), key.order, key.null_placement);
     }
     return resolved;
   }
@@ -621,7 +623,7 @@ class SelectKUnstableMetaFunction : public MetaFunction {
   }
   Result<Datum> SelectKth(const RecordBatch& record_batch, const SelectKOptions& options,
                           ExecContext* ctx) const {
-    ARROW_RETURN_NOT_OK(CheckConsistency(*record_batch.schema(), options.sort_keys));
+    ARROW_RETURN_NOT_OK(CheckConsistency(*record_batch.schema(), options.GetSortKeys()));
     Datum output;
     RecordBatchSelector selector(ctx, record_batch, options, &output);
     ARROW_RETURN_NOT_OK(selector.Run());
@@ -629,7 +631,7 @@ class SelectKUnstableMetaFunction : public MetaFunction {
   }
   Result<Datum> SelectKth(const Table& table, const SelectKOptions& options,
                           ExecContext* ctx) const {
-    ARROW_RETURN_NOT_OK(CheckConsistency(*table.schema(), options.sort_keys));
+    ARROW_RETURN_NOT_OK(CheckConsistency(*table.schema(), options.GetSortKeys()));
     Datum output;
     TableSelector selector(ctx, table, options, &output);
     ARROW_RETURN_NOT_OK(selector.Run());

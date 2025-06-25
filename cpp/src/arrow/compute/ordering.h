@@ -46,8 +46,8 @@ enum class NullPlacement {
 /// \brief One sort key for PartitionNthIndices (TODO) and SortIndices
 class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
  public:
-  explicit SortKey(FieldRef target, SortOrder order = SortOrder::Ascending)
-      : target(std::move(target)), order(order) {}
+  explicit SortKey(FieldRef target, SortOrder order = SortOrder::Ascending, NullPlacement null_placement = NullPlacement::AtEnd)
+      : target(std::move(target)), order(order), null_placement(null_placement) {}
 
   bool Equals(const SortKey& other) const;
   std::string ToString() const;
@@ -56,12 +56,14 @@ class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
   FieldRef target;
   /// How to order by this sort key.
   SortOrder order;
+  /// Null placement for this sort key.
+  NullPlacement null_placement;
 };
 
 class ARROW_EXPORT Ordering : public util::EqualityComparable<Ordering> {
  public:
   Ordering(std::vector<SortKey> sort_keys,
-           NullPlacement null_placement = NullPlacement::AtStart)
+           std::optional<NullPlacement> null_placement = NullPlacement::AtStart)
       : sort_keys_(std::move(sort_keys)), null_placement_(null_placement) {}
   /// true if data ordered by other is also ordered by this
   ///
@@ -91,7 +93,9 @@ class ARROW_EXPORT Ordering : public util::EqualityComparable<Ordering> {
   bool is_unordered() const { return !is_implicit_ && sort_keys_.empty(); }
 
   const std::vector<SortKey>& sort_keys() const { return sort_keys_; }
-  NullPlacement null_placement() const { return null_placement_; }
+
+  // DEPRECATED(will be removed after member null_placement_ has been removed)
+  std::optional<NullPlacement> null_placement() const { return null_placement_; }
 
   static const Ordering& Implicit() {
     static const Ordering kImplicit(true);
@@ -111,8 +115,11 @@ class ARROW_EXPORT Ordering : public util::EqualityComparable<Ordering> {
       : null_placement_(NullPlacement::AtStart), is_implicit_(is_implicit) {}
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys_;
+
+  // DEPRECATED(set null_placement in  instead)
   /// Whether nulls and NaNs are placed at the start or at the end
-  NullPlacement null_placement_;
+  /// Will overwrite null ordering of sort keys
+  std::optional<NullPlacement> null_placement_;
   bool is_implicit_ = false;
 };
 

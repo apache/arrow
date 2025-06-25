@@ -487,15 +487,16 @@ Result<NullPartitionResult> SortStructArray(ExecContext* ctx, uint64_t* indices_
 
 struct SortField {
   SortField() = default;
-  SortField(FieldPath path, SortOrder order, const DataType* type)
-      : path(std::move(path)), order(order), type(type) {}
-  SortField(int index, SortOrder order, const DataType* type)
-      : SortField(FieldPath({index}), order, type) {}
+  SortField(FieldPath path, SortOrder order, NullPlacement null_placement, const DataType* type)
+      : path(std::move(path)), order(order), null_placement(null_placement), type(type) {}
+  SortField(int index, SortOrder order, NullPlacement null_placement, const DataType* type)
+      : SortField(FieldPath({index}), order, null_placement, type) {}
 
   bool is_nested() const { return path.indices().size() > 1; }
 
   FieldPath path;
   SortOrder order;
+  NullPlacement null_placement;
   const DataType* type;
 };
 
@@ -542,9 +543,9 @@ Result<std::vector<ResolvedSortKey>> ResolveSortKeys(
           // paths [0,0,0,0] and [0,0,0,1], we shouldn't need to flatten the first three
           // components more than once.
           ARROW_ASSIGN_OR_RAISE(auto child, f.path.GetFlattened(table_or_batch));
-          return ResolvedSortKey{std::move(child), f.order};
+          return ResolvedSortKey{std::move(child), f.order, f.null_placement};
         }
-        return ResolvedSortKey{table_or_batch.column(f.path[0]), f.order};
+        return ResolvedSortKey{table_or_batch.column(f.path[0]), f.order, f.null_placement};
       });
 }
 
@@ -594,15 +595,14 @@ template <typename ResolvedSortKey>
 struct ColumnComparator {
   using Location = typename ResolvedSortKey::LocationType;
 
-  ColumnComparator(const ResolvedSortKey& sort_key, NullPlacement null_placement)
-      : sort_key_(sort_key), null_placement_(null_placement) {}
+  ColumnComparator(const ResolvedSortKey& sort_key)
+      : sort_key_(sort_key) {}
 
   virtual ~ColumnComparator() = default;
 
   virtual int Compare(const Location& left, const Location& right) const = 0;
 
   ResolvedSortKey sort_key_;
-  NullPlacement null_placement_;
 };
 
 template <typename ResolvedSortKey, typename Type>
@@ -622,14 +622,14 @@ struct ConcreteColumnComparator : public ColumnComparator<ResolvedSortKey> {
       if (is_null_left && is_null_right) {
         return 0;
       } else if (is_null_left) {
-        return this->null_placement_ == NullPlacement::AtStart ? -1 : 1;
+        return sort_key.null_placement == NullPlacement::AtStart ? -1 : 1;
       } else if (is_null_right) {
-        return this->null_placement_ == NullPlacement::AtStart ? 1 : -1;
+        return sort_key.null_placement == NullPlacement::AtStart ? 1 : -1;
       }
     }
     return CompareTypeValues<Type>(chunk_left.template Value<Type>(),
                                    chunk_right.template Value<Type>(), sort_key.order,
-                                   this->null_placement_);
+                                   sort_key.null_placement);
   }
 };
 
@@ -650,9 +650,8 @@ class MultipleKeyComparator {
  public:
   using Location = typename ResolvedSortKey::LocationType;
 
-  MultipleKeyComparator(const std::vector<ResolvedSortKey>& sort_keys,
-                        NullPlacement null_placement)
-      : sort_keys_(sort_keys), null_placement_(null_placement) {
+  explicit MultipleKeyComparator(const std::vector<ResolvedSortKey>& sort_keys)
+      : sort_keys_(sort_keys) {
     status_ &= MakeComparators();
   }
 
@@ -687,12 +686,11 @@ class MultipleKeyComparator {
     template <typename Type>
     Status VisitGeneric(const Type& type) {
       res.reset(
-          new ConcreteColumnComparator<ResolvedSortKey, Type>{sort_key, null_placement});
+          new ConcreteColumnComparator<ResolvedSortKey, Type>{sort_key});
       return Status::OK();
     }
 
     const ResolvedSortKey& sort_key;
-    NullPlacement null_placement;
     std::unique_ptr<ColumnComparator<ResolvedSortKey>> res;
   };
 
@@ -700,7 +698,7 @@ class MultipleKeyComparator {
     column_comparators_.reserve(sort_keys_.size());
 
     for (const auto& sort_key : sort_keys_) {
-      ColumnComparatorFactory factory{sort_key, null_placement_, nullptr};
+      ColumnComparatorFactory factory{sort_key, nullptr};
       RETURN_NOT_OK(VisitTypeInline(*sort_key.type, &factory));
       column_comparators_.push_back(std::move(factory.res));
     }
@@ -728,17 +726,17 @@ class MultipleKeyComparator {
   }
 
   const std::vector<ResolvedSortKey>& sort_keys_;
-  const NullPlacement null_placement_;
   std::vector<std::unique_ptr<ColumnComparator<ResolvedSortKey>>> column_comparators_;
   Status status_;
 };
 
 struct ResolvedRecordBatchSortKey {
-  ResolvedRecordBatchSortKey(const std::shared_ptr<Array>& array, SortOrder order)
+  ResolvedRecordBatchSortKey(const std::shared_ptr<Array>& array, SortOrder order, NullPlacement null_placement)
       : type(GetPhysicalType(array->type())),
         owned_array(GetPhysicalArray(*array, type)),
         array(*owned_array),
         order(order),
+        null_placement(null_placement),
         null_count(array->null_count()) {}
 
   using LocationType = int64_t;
@@ -749,16 +747,18 @@ struct ResolvedRecordBatchSortKey {
   std::shared_ptr<Array> owned_array;
   const Array& array;
   SortOrder order;
+  NullPlacement null_placement;
   int64_t null_count;
 };
 
 struct ResolvedTableSortKey {
   ResolvedTableSortKey(const std::shared_ptr<DataType>& type, ArrayVector chunks,
-                       SortOrder order, int64_t null_count)
+                       SortOrder order, NullPlacement null_placement, int64_t null_count)
       : type(GetPhysicalType(type)),
         owned_chunks(std::move(chunks)),
         chunks(GetArrayPointers(owned_chunks)),
         order(order),
+        null_placement(null_placement),
         null_count(null_count) {}
 
   using LocationType = ::arrow::ChunkLocation;
@@ -784,7 +784,7 @@ struct ResolvedTableSortKey {
         chunks.push_back(std::move(child));
       }
 
-      return ResolvedTableSortKey(f.type->GetSharedPtr(), std::move(chunks), f.order,
+      return ResolvedTableSortKey(f.type->GetSharedPtr(), std::move(chunks), f.order, f.null_placement,
                                   null_count);
     };
 
@@ -796,6 +796,7 @@ struct ResolvedTableSortKey {
   ArrayVector owned_chunks;
   std::vector<const Array*> chunks;
   SortOrder order;
+  NullPlacement null_placement;
   int64_t null_count;
 };
 

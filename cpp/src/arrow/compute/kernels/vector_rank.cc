@@ -346,8 +346,11 @@ class RankMetaFunctionBase : public MetaFunction {
         checked_cast<const typename Derived::FunctionOptionsType&>(function_options);
 
     SortOrder order = SortOrder::Ascending;
-    if (!options.sort_keys.empty()) {
-      order = options.sort_keys[0].order;
+    NullPlacement null_placement = NullPlacement::AtStart;
+    auto sort_keys = options.GetSortKeys();
+    if (!sort_keys.empty()) {
+      order = sort_keys[0].order;
+      null_placement = sort_keys[0].null_placement;
     }
 
     int64_t length = input.length();
@@ -359,7 +362,7 @@ class RankMetaFunctionBase : public MetaFunction {
     auto needs_duplicates = Derived::NeedsDuplicates(options);
     ARROW_ASSIGN_OR_RAISE(
         auto sorted, SortAndMarkDuplicate(ctx, indices_begin, indices_end, input, order,
-                                          options.null_placement, needs_duplicates)
+                                          null_placement, needs_duplicates)
                          .Run());
 
     auto ranker = Derived::GetRanker(options);

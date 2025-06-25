@@ -38,6 +38,14 @@ std::string SortKey::ToString() const {
       ss << "DESC";
       break;
   }
+  switch (null_placement) {
+    case NullPlacement::AtStart:
+      ss << " NULLS FIRST";
+      break;
+    case NullPlacement::AtEnd:
+      ss << " NULLS LAST";
+      break;
+  }
   return ss.str();
 }
 
@@ -78,15 +86,17 @@ std::string Ordering::ToString() const {
     ss << key.ToString();
   }
   ss << "]";
-  switch (null_placement_) {
-    case NullPlacement::AtEnd:
-      ss << " nulls last";
-      break;
-    case NullPlacement::AtStart:
-      ss << " nulls first";
-      break;
-    default:
-      Unreachable();
+  if(null_placement_.has_value()){
+    switch (null_placement_.value()) {
+      case NullPlacement::AtEnd:
+        ss << " nulls last";
+        break;
+      case NullPlacement::AtStart:
+        ss << " nulls first";
+        break;
+      default:
+        Unreachable();
+    }
   }
   return ss.str();
 }
