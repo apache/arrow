@@ -270,9 +270,15 @@ static inline EncodedStatistics FromThrift(const format::Statistics& stats) {
     // TODO: check if the column_order is TYPE_DEFINED_ORDER.
     if (stats.__isset.max_value) {
       out.set_max(stats.max_value);
+      if (stats.__isset.is_max_value_exact) {
+        out.set_is_max_value_exact(stats.is_max_value_exact);
+      }
     }
     if (stats.__isset.min_value) {
       out.set_min(stats.min_value);
+      if (stats.__isset.is_min_value_exact) {
+        out.set_is_min_value_exact(stats.is_min_value_exact);
+      }
     }
   } else if (stats.__isset.max || stats.__isset.min) {
     // TODO: check created_by to see if it is corrupted for some types.
