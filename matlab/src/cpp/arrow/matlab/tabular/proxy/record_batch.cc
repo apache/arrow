@@ -17,9 +17,8 @@
 
 #include "arrow/c/bridge.h"
 #include "arrow/matlab/array/proxy/array.h"
-#include "arrow/matlab/array/proxy/wrap.h"
-
 #include "arrow/matlab/error/error.h"
+#include "arrow/matlab/proxy/wrap.h"
 #include "arrow/matlab/tabular/get_row_as_string.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/matlab/tabular/proxy/schema.h"
@@ -158,10 +157,6 @@ void RecordBatch::getColumnNames(libmexclass::proxy::method::Context& context) {
 }
 
 void RecordBatch::getColumnByIndex(libmexclass::proxy::method::Context& context) {
-  namespace mda = ::matlab::data;
-  using namespace libmexclass::proxy;
-  mda::ArrayFactory factory;
-
   mda::StructArray args = context.inputs[0];
   const mda::TypedArray<int32_t> index_mda = args[0]["Index"];
   const auto matlab_index = int32_t(index_mda[0]);
@@ -182,24 +177,12 @@ void RecordBatch::getColumnByIndex(libmexclass::proxy::method::Context& context)
   }
 
   const auto array = record_batch->column(index);
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto array_proxy,
-                                      arrow::matlab::array::proxy::wrap(array), context,
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0],
+                                      arrow::matlab::proxy::wrap_and_manage(array), context,
                                       error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
-
-  const auto array_proxy_id = ProxyManager::manageProxy(array_proxy);
-  const auto array_proxy_id_mda = factory.createScalar(array_proxy_id);
-  const auto array_type_id_mda =
-      factory.createScalar(static_cast<int32_t>(array->type_id()));
-
-  context.outputs[0] = array_proxy_id_mda;
-  context.outputs[1] = array_type_id_mda;
 }
 
 void RecordBatch::getColumnByName(libmexclass::proxy::method::Context& context) {
-  namespace mda = ::matlab::data;
-  using namespace libmexclass::proxy;
-  mda::ArrayFactory factory;
-
   mda::StructArray args = context.inputs[0];
   const mda::StringArray name_mda = args[0]["Name"];
   const auto name_utf16 = std::u16string(name_mda[0]);
@@ -213,17 +196,9 @@ void RecordBatch::getColumnByName(libmexclass::proxy::method::Context& context) 
                                       error::ARROW_TABULAR_SCHEMA_AMBIGUOUS_FIELD_NAME);
 
   const auto array = record_batch->GetColumnByName(name);
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto array_proxy,
-                                      arrow::matlab::array::proxy::wrap(array), context,
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0],
+                                      arrow::matlab::proxy::wrap_and_manage(array), context,
                                       error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
-
-  const auto array_proxy_id = ProxyManager::manageProxy(array_proxy);
-  const auto array_proxy_id_mda = factory.createScalar(array_proxy_id);
-  const auto array_type_id_mda =
-      factory.createScalar(static_cast<int32_t>(array->type_id()));
-
-  context.outputs[0] = array_proxy_id_mda;
-  context.outputs[1] = array_type_id_mda;
 }
 
 void RecordBatch::getSchema(libmexclass::proxy::method::Context& context) {
