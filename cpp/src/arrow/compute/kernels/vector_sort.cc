@@ -392,17 +392,14 @@ class RadixRecordBatchSorter {
   using ResolvedSortKey = ResolvedRecordBatchSortKey;
 
   RadixRecordBatchSorter(uint64_t* indices_begin, uint64_t* indices_end,
-                         std::vector<ResolvedSortKey> sort_keys,
-                         const SortOptions& options)
+                         std::vector<ResolvedSortKey> sort_keys)
       : sort_keys_(std::move(sort_keys)),
-        options_(options),
         indices_begin_(indices_begin),
         indices_end_(indices_end) {}
 
   RadixRecordBatchSorter(uint64_t* indices_begin, uint64_t* indices_end,
                          const RecordBatch& batch, const SortOptions& options)
-      : sort_keys_(ResolveRecordBatchSortKeys(batch, options.sort_keys, &status_)),
-        options_(options),
+      : sort_keys_(ResolveRecordBatchSortKeys(batch, options.GetSortKeys(), &status_)),
         indices_begin_(indices_begin),
         indices_end_(indices_end) {}
 
@@ -414,7 +411,7 @@ class RadixRecordBatchSorter {
     std::vector<std::unique_ptr<RecordBatchColumnSorter>> column_sorts(sort_keys_.size());
     RecordBatchColumnSorter* next_column = nullptr;
     for (int64_t i = static_cast<int64_t>(sort_keys_.size() - 1); i >= 0; --i) {
-      ColumnSortFactory factory(sort_keys_[i], options_, next_column);
+      ColumnSortFactory factory(sort_keys_[i], next_column);
       ARROW_ASSIGN_OR_RAISE(column_sorts[i], factory.MakeColumnSort());
       next_column = column_sorts[i].get();
     }
@@ -425,7 +422,7 @@ class RadixRecordBatchSorter {
 
  protected:
   struct ColumnSortFactory {
-    ColumnSortFactory(const ResolvedSortKey& sort_key, const SortOptions& options,
+    ColumnSortFactory(const ResolvedSortKey& sort_key,
                       RecordBatchColumnSorter* next_column)
         : physical_type(sort_key.type),
           array(sort_key.owned_array),
@@ -473,7 +470,6 @@ class RadixRecordBatchSorter {
   }
 
   const std::vector<ResolvedSortKey> sort_keys_;
-  const SortOptions& options_;
   uint64_t* indices_begin_;
   uint64_t* indices_end_;
   Status status_;
@@ -485,8 +481,7 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
   using ResolvedSortKey = ResolvedRecordBatchSortKey;
 
   MultipleKeyRecordBatchSorter(uint64_t* indices_begin, uint64_t* indices_end,
-                               std::vector<ResolvedSortKey> sort_keys,
-                               const SortOptions& options)
+                               std::vector<ResolvedSortKey> sort_keys)
       : indices_begin_(indices_begin),
         indices_end_(indices_end),
         sort_keys_(std::move(sort_keys)),
@@ -496,7 +491,7 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
                                const RecordBatch& batch, const SortOptions& options)
       : indices_begin_(indices_begin),
         indices_end_(indices_end),
-        sort_keys_(ResolveSortKeys(batch, options.sort_keys, &status_)),
+        sort_keys_(ResolveSortKeys(batch, options.GetSortKeys(), &status_)),
         comparator_(sort_keys_) {}
 
   // This is optimized for the first sort key. The first sort key sort
@@ -632,7 +627,7 @@ class TableSorter {
         table_(table),
         batches_(MakeBatches(table, &status_)),
         options_(options),
-        sort_keys_(ResolveSortKeys(table, batches_, options.sort_keys, &status_)),
+        sort_keys_(ResolveSortKeys(table, batches_, options.GetSortKeys(), &status_)),
         indices_begin_(indices_begin),
         indices_end_(indices_end),
         comparator_(sort_keys_) {}
@@ -964,10 +959,11 @@ class SortIndicesMetaFunction : public MetaFunction {
   Result<Datum> SortIndices(const Array& values, const SortOptions& options,
                             ExecContext* ctx) const {
     SortOrder order = SortOrder::Ascending;
-    NullPlacement null_placement = NullPlacement::AtEnd;
-    if (!options.sort_keys.empty()) {
-      order = options.sort_keys[0].order;
-      null_placement = options.sort_keys[0].null_placement;
+    NullPlacement null_placement = NullPlacement::AtStart;
+    auto sort_keys = options.GetSortKeys();
+    if (!sort_keys.empty()) {
+      order = sort_keys[0].order;
+      null_placement = sort_keys[0].null_placement;
     }
     ArraySortOptions array_options(order, null_placement);
     return CallFunction("array_sort_indices", {values}, &array_options, ctx);
@@ -976,10 +972,11 @@ class SortIndicesMetaFunction : public MetaFunction {
   Result<Datum> SortIndices(const ChunkedArray& chunked_array, const SortOptions& options,
                             ExecContext* ctx) const {
     SortOrder order = SortOrder::Ascending;
-    NullPlacement null_placement = NullPlacement::AtEnd;
-    if (!options.sort_keys.empty()) {
-      order = options.sort_keys[0].order;
-      null_placement = options.sort_keys[0].null_placement;
+    NullPlacement null_placement = NullPlacement::AtStart;
+    auto sort_keys = options.GetSortKeys();
+    if (!sort_keys.empty()) {
+      order = sort_keys[0].order;
+      null_placement = sort_keys[0].null_placement;
     }
 
     auto out_type = uint64();
@@ -994,15 +991,15 @@ class SortIndicesMetaFunction : public MetaFunction {
     auto out_end = out_begin + length;
     std::iota(out_begin, out_end, 0);
 
-    RETURN_NOT_OK(
-        SortChunkedArray(ctx, out_begin, out_end, chunked_array, order, null_placement));
+    RETURN_NOT_OK(SortChunkedArray(ctx, out_begin, out_end, chunked_array, order,
+                                   null_placement));
     return Datum(out);
   }
 
   Result<Datum> SortIndices(const RecordBatch& batch, const SortOptions& options,
                             ExecContext* ctx) const {
     ARROW_ASSIGN_OR_RAISE(auto sort_keys,
-                          ResolveRecordBatchSortKeys(batch, options.sort_keys));
+                          ResolveRecordBatchSortKeys(batch, options.GetSortKeys()));
 
     auto n_sort_keys = sort_keys.size();
     if (n_sort_keys == 0) {
@@ -1025,11 +1022,10 @@ class SortIndicesMetaFunction : public MetaFunction {
     std::iota(out_begin, out_end, 0);
 
     if (n_sort_keys <= kMaxRadixSortKeys) {
-      RadixRecordBatchSorter sorter(out_begin, out_end, std::move(sort_keys), options);
+      RadixRecordBatchSorter sorter(out_begin, out_end, std::move(sort_keys));
       ARROW_RETURN_NOT_OK(sorter.Sort());
     } else {
-      MultipleKeyRecordBatchSorter sorter(out_begin, out_end, std::move(sort_keys),
-                                          options);
+      MultipleKeyRecordBatchSorter sorter(out_begin, out_end, std::move(sort_keys));
       ARROW_RETURN_NOT_OK(sorter.Sort());
     }
     return Datum(out);
@@ -1037,7 +1033,7 @@ class SortIndicesMetaFunction : public MetaFunction {
 
   Result<Datum> SortIndices(const Table& table, const SortOptions& options,
                             ExecContext* ctx) const {
-    auto n_sort_keys = options.sort_keys.size();
+    auto n_sort_keys = options.sort_keys_.size();
     if (n_sort_keys == 0) {
       return Status::Invalid("Must specify one or more sort keys");
     }
@@ -1047,7 +1043,7 @@ class SortIndicesMetaFunction : public MetaFunction {
       // need to do here.
       ARROW_ASSIGN_OR_RAISE(
           auto chunked_array,
-          PrependInvalidColumn(options.sort_keys[0].target.GetOneFlattened(table)));
+          PrependInvalidColumn(options.GetSortKeys()[0].target.GetOneFlattened(table)));
       if (chunked_array->type()->id() != Type::STRUCT) {
         return SortIndices(*chunked_array, options, ctx);
       }
@@ -1169,20 +1165,18 @@ Result<NullPartitionResult> SortStructArray(ExecContext* ctx, uint64_t* indices_
                                  std::move(columns));
 
   auto options = SortOptions::Defaults();
-  options.sort_keys.reserve(array.num_fields());
+  options.sort_keys_.reserve(array.num_fields());
   for (int i = 0; i < array.num_fields(); ++i) {
-    options.sort_keys.push_back(SortKey(FieldRef(i), sort_order, null_placement));
+    options.sort_keys_.push_back(SortKey(FieldRef(i), sort_order, null_placement));
   }
 
   ARROW_ASSIGN_OR_RAISE(auto sort_keys,
-                        ResolveRecordBatchSortKeys(*batch, options.sort_keys));
+                        ResolveRecordBatchSortKeys(*batch, options.GetSortKeys()));
   if (sort_keys.size() <= kMaxRadixSortKeys) {
-    RadixRecordBatchSorter sorter(indices_begin, indices_end, std::move(sort_keys),
-                                  options);
+    RadixRecordBatchSorter sorter(indices_begin, indices_end, std::move(sort_keys));
     return sorter.Sort();
   } else {
-    MultipleKeyRecordBatchSorter sorter(indices_begin, indices_end, std::move(sort_keys),
-                                        options);
+    MultipleKeyRecordBatchSorter sorter(indices_begin, indices_end, std::move(sort_keys));
     return sorter.Sort();
   }
 }

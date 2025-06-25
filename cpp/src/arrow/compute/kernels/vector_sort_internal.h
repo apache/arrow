@@ -487,19 +487,17 @@ Result<NullPartitionResult> SortStructArray(ExecContext* ctx, uint64_t* indices_
 
 struct SortField {
   SortField() = default;
-  SortField(FieldPath path, SortOrder order, const DataType* type,
-            NullPlacement null_placement)
-      : path(std::move(path)), order(order), type(type), null_placement(null_placement) {}
-  SortField(int index, SortOrder order, const DataType* type,
-            NullPlacement null_placement)
-      : SortField(FieldPath({index}), order, type, null_placement) {}
+  SortField(FieldPath path, SortOrder order, NullPlacement null_placement, const DataType* type)
+      : path(std::move(path)), order(order), null_placement(null_placement), type(type) {}
+  SortField(int index, SortOrder order, NullPlacement null_placement, const DataType* type)
+      : SortField(FieldPath({index}), order, null_placement, type) {}
 
   bool is_nested() const { return path.indices().size() > 1; }
 
   FieldPath path;
   SortOrder order;
-  const DataType* type;
   NullPlacement null_placement;
+  const DataType* type;
 };
 
 inline Status CheckNonNested(const FieldRef& ref) {
@@ -738,8 +736,8 @@ struct ResolvedRecordBatchSortKey {
         owned_array(GetPhysicalArray(*array, type)),
         array(*owned_array),
         order(order),
-        null_count(array->null_count()),
-        null_placement(null_placement) {}
+        null_placement(null_placement),
+        null_count(array->null_count()) {}
 
   using LocationType = int64_t;
 
@@ -749,19 +747,19 @@ struct ResolvedRecordBatchSortKey {
   std::shared_ptr<Array> owned_array;
   const Array& array;
   SortOrder order;
-  int64_t null_count;
   NullPlacement null_placement;
+  int64_t null_count;
 };
 
 struct ResolvedTableSortKey {
   ResolvedTableSortKey(const std::shared_ptr<DataType>& type, ArrayVector chunks,
-                       SortOrder order, int64_t null_count, NullPlacement null_placement)
+                       SortOrder order, NullPlacement null_placement, int64_t null_count)
       : type(GetPhysicalType(type)),
         owned_chunks(std::move(chunks)),
         chunks(GetArrayPointers(owned_chunks)),
         order(order),
-        null_count(null_count),
-        null_placement(null_placement) {}
+        null_placement(null_placement),
+        null_count(null_count) {}
 
   using LocationType = ::arrow::ChunkLocation;
 
@@ -786,8 +784,8 @@ struct ResolvedTableSortKey {
         chunks.push_back(std::move(child));
       }
 
-      return ResolvedTableSortKey(f.type->GetSharedPtr(), std::move(chunks), f.order,
-                                  null_count, f.null_placement);
+      return ResolvedTableSortKey(f.type->GetSharedPtr(), std::move(chunks), f.order, f.null_placement,
+                                  null_count);
     };
 
     return ::arrow::compute::internal::ResolveSortKeys<ResolvedTableSortKey>(
@@ -798,8 +796,8 @@ struct ResolvedTableSortKey {
   ArrayVector owned_chunks;
   std::vector<const Array*> chunks;
   SortOrder order;
-  int64_t null_count;
   NullPlacement null_placement;
+  int64_t null_count;
 };
 
 inline Result<std::shared_ptr<ArrayData>> MakeMutableUInt64Array(

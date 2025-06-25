@@ -39,13 +39,12 @@ std::string SortKey::ToString() const {
       ss << "DESC";
       break;
   }
-
   switch (null_placement) {
     case NullPlacement::AtStart:
-      ss << " AtStart";
+      ss << " NULLS FIRST";
       break;
     case NullPlacement::AtEnd:
-      ss << " AtEnd";
+      ss << " NULLS LAST";
       break;
   }
   return ss.str();
@@ -56,6 +55,9 @@ bool Ordering::IsSuborderOf(const Ordering& other) const {
     // The implicit ordering is a subordering of nothing.  The unordered ordering
     // is a subordering of everything
     return !is_implicit_;
+  }
+  if (null_placement_ != other.null_placement_) {
+    return false;
   }
   if (sort_keys_.size() > other.sort_keys_.size()) {
     return false;
@@ -69,7 +71,7 @@ bool Ordering::IsSuborderOf(const Ordering& other) const {
 }
 
 bool Ordering::Equals(const Ordering& other) const {
-  return sort_keys_ == other.sort_keys_;
+  return null_placement_ == other.null_placement_ && sort_keys_ == other.sort_keys_;
 }
 
 std::string Ordering::ToString() const {
@@ -85,6 +87,18 @@ std::string Ordering::ToString() const {
     ss << key.ToString();
   }
   ss << "]";
+  if(null_placement_.has_value()){
+    switch (null_placement_.value()) {
+      case NullPlacement::AtEnd:
+        ss << " nulls last";
+        break;
+      case NullPlacement::AtStart:
+        ss << " nulls first";
+        break;
+      default:
+        Unreachable();
+    }
+  }
   return ss.str();
 }
 

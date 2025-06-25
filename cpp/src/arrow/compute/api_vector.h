@@ -104,8 +104,8 @@ class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
 
 class ARROW_EXPORT SortOptions : public FunctionOptions {
  public:
-  /// DEPRECATED(null_placement has been removed, please use SortKey.null_placement)
-  explicit SortOptions(std::vector<SortKey> sort_keys = {});
+  explicit SortOptions(std::vector<SortKey> sort_keys = {},
+                       std::optional<NullPlacement> null_placement = std::nullopt);
   explicit SortOptions(const Ordering& ordering);
   static constexpr char const kTypeName[] = "SortOptions";
   static SortOptions Defaults() { return SortOptions(); }
@@ -114,11 +114,29 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
   /// Note: Both classes contain the exact same information.  However,
   /// sort_options should only be used in a "function options" context while Ordering
   /// is used more generally.
-  Ordering AsOrdering() && { return Ordering(std::move(sort_keys)); }
-  Ordering AsOrdering() const& { return Ordering(sort_keys); }
+  Ordering AsOrdering() && { return Ordering(std::move(sort_keys_), null_placement); }
+  Ordering AsOrdering() const& { return Ordering(sort_keys_, null_placement); }
 
   /// Column key(s) to order by and how to order by these sort keys.
-  std::vector<SortKey> sort_keys;
+  std::vector<SortKey> sort_keys_;
+
+  // DEPRECATED(will be removed after null_placement has been removed)
+  /// Get sort_keys with overwritten null_placement
+  std::vector<SortKey> GetSortKeys() const {
+    if(!null_placement.has_value()){
+      return sort_keys_;
+    }
+    auto overwritten_sort_keys = sort_keys_;
+    for(auto& sort_key : overwritten_sort_keys){
+      sort_key.null_placement = null_placement.value();
+    }
+    return overwritten_sort_keys;
+  }
+
+  // DEPRECATED(set null_placement in sort_keys instead)
+  /// Whether nulls and NaNs are placed at the start or at the end
+  /// Will overwrite null ordering of sort keys
+  std::optional<NullPlacement> null_placement;
 };
 
 /// \brief SelectK options
@@ -154,6 +172,12 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
   int64_t k;
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
+
+  // DEPRECATED(will be removed after null_placement has been removed from other SortOptions-like structs)
+  /// Get sort_keys
+  std::vector<SortKey> GetSortKeys() const{
+    return sort_keys;
+  }
 };
 
 /// \brief Rank options
@@ -173,20 +197,38 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
     Dense
   };
 
-  /// DEPRECATED(null_placement has been removed, please use SortKey.null_placement)
   explicit RankOptions(std::vector<SortKey> sort_keys = {},
+                       std::optional<NullPlacement> null_placement = std::nullopt,
                        Tiebreaker tiebreaker = RankOptions::First);
   /// Convenience constructor for array inputs
   explicit RankOptions(SortOrder order,
-                       NullPlacement null_placement = NullPlacement::AtEnd,
+                       std::optional<NullPlacement> null_placement = std::nullopt,
                        Tiebreaker tiebreaker = RankOptions::First)
-      : RankOptions({SortKey("", order, null_placement)}, tiebreaker) {}
+      : RankOptions({SortKey("", order)}, null_placement, tiebreaker) {}
 
   static constexpr char const kTypeName[] = "RankOptions";
   static RankOptions Defaults() { return RankOptions(); }
 
   /// Column key(s) to order by and how to order by these sort keys.
-  std::vector<SortKey> sort_keys;
+  std::vector<SortKey> sort_keys_;
+
+  // DEPRECATED(will be removed after null_placement has been removed)
+  /// Get sort_keys with overwritten null_placement
+  std::vector<SortKey> GetSortKeys() const {
+    if(!null_placement.has_value()){
+      return sort_keys_;
+    }
+    auto overwritten_sort_keys = sort_keys_;
+    for(auto& sort_key : overwritten_sort_keys){
+      sort_key.null_placement = null_placement.value();
+    }
+    return overwritten_sort_keys;
+  }
+
+  // DEPRECATED(set null_placement in sort_keys instead)
+  /// Whether nulls and NaNs are placed at the start or at the end
+  /// Will overwrite null ordering of sort keys
+  std::optional<NullPlacement> null_placement;
   /// Tiebreaker for dealing with equal values in ranks
   Tiebreaker tiebreaker;
 };
@@ -195,19 +237,35 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
 class ARROW_EXPORT RankQuantileOptions : public FunctionOptions {
  public:
   explicit RankQuantileOptions(std::vector<SortKey> sort_keys = {},
-                               NullPlacement null_placement = NullPlacement::AtEnd);
+                               std::optional<NullPlacement> null_placement = std::nullopt);
   /// Convenience constructor for array inputs
   explicit RankQuantileOptions(SortOrder order,
-                               NullPlacement null_placement = NullPlacement::AtEnd)
+                               std::optional<NullPlacement> null_placement = std::nullopt)
       : RankQuantileOptions({SortKey("", order)}, null_placement) {}
 
   static constexpr char const kTypeName[] = "RankQuantileOptions";
   static RankQuantileOptions Defaults() { return RankQuantileOptions(); }
 
   /// Column key(s) to order by and how to order by these sort keys.
-  std::vector<SortKey> sort_keys;
+  std::vector<SortKey> sort_keys_;
+
+  // DEPRECATED(will be removed after null_placement has been removed)
+  /// Get sort_keys with overwritten null_placement
+  std::vector<SortKey> GetSortKeys() const {
+    if(!null_placement.has_value()){
+      return sort_keys_;
+    }
+    auto overwritten_sort_keys = sort_keys_;
+    for(auto& sort_key : overwritten_sort_keys){
+      sort_key.null_placement = null_placement.value();
+    }
+    return overwritten_sort_keys;
+  }
+
+  // DEPRECATED(set null_placement in sort_keys instead)
   /// Whether nulls and NaNs are placed at the start or at the end
-  NullPlacement null_placement;
+  /// Will overwrite null ordering of sort keys
+  std::optional<NullPlacement> null_placement;
 };
 
 /// \brief Partitioning options for NthToIndices

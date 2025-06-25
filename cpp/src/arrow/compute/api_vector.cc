@@ -123,6 +123,7 @@ namespace compute {
 
 namespace internal {
 namespace {
+using ::arrow::internal::CoercedDataMember;
 using ::arrow::internal::DataMember;
 static auto kFilterOptionsType = GetFunctionOptionsType<FilterOptions>(
     DataMember("null_selection_behavior", &FilterOptions::null_selection_behavior));
@@ -136,8 +137,9 @@ static auto kRunEndEncodeOptionsType = GetFunctionOptionsType<RunEndEncodeOption
 static auto kArraySortOptionsType = GetFunctionOptionsType<ArraySortOptions>(
     DataMember("order", &ArraySortOptions::order),
     DataMember("null_placement", &ArraySortOptions::null_placement));
-static auto kSortOptionsType =
-    GetFunctionOptionsType<SortOptions>(DataMember("sort_keys", &SortOptions::sort_keys));
+static auto kSortOptionsType = GetFunctionOptionsType<SortOptions>(
+    CoercedDataMember("sort_keys", &SortOptions::sort_keys_,
+                      &SortOptions::GetSortKeys));
 static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOptions>(
     DataMember("pivot", &PartitionNthOptions::pivot),
     DataMember("null_placement", &PartitionNthOptions::null_placement));
@@ -151,11 +153,12 @@ static auto kCumulativeOptionsType = GetFunctionOptionsType<CumulativeOptions>(
     DataMember("start", &CumulativeOptions::start),
     DataMember("skip_nulls", &CumulativeOptions::skip_nulls));
 static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
-    DataMember("sort_keys", &RankOptions::sort_keys),
+    CoercedDataMember("sort_keys", &RankOptions::sort_keys_,
+                      &RankOptions::GetSortKeys),
     DataMember("tiebreaker", &RankOptions::tiebreaker));
 static auto kRankQuantileOptionsType = GetFunctionOptionsType<RankQuantileOptions>(
-    DataMember("sort_keys", &RankQuantileOptions::sort_keys),
-    DataMember("null_placement", &RankQuantileOptions::null_placement));
+    CoercedDataMember("sort_keys", &RankQuantileOptions::sort_keys_,
+                      &RankQuantileOptions::GetSortKeys));
 static auto kPairwiseOptionsType = GetFunctionOptionsType<PairwiseOptions>(
     DataMember("periods", &PairwiseOptions::periods));
 static auto kListFlattenOptionsType = GetFunctionOptionsType<ListFlattenOptions>(
@@ -193,10 +196,14 @@ ArraySortOptions::ArraySortOptions(SortOrder order, NullPlacement null_placement
       null_placement(null_placement) {}
 constexpr char ArraySortOptions::kTypeName[];
 
-SortOptions::SortOptions(std::vector<SortKey> sort_keys)
-    : FunctionOptions(internal::kSortOptionsType), sort_keys(std::move(sort_keys)) {}
+SortOptions::SortOptions(std::vector<SortKey> sort_keys, std::optional<NullPlacement> null_placement)
+    : FunctionOptions(internal::kSortOptionsType),
+      sort_keys_(std::move(sort_keys)),
+      null_placement(null_placement) {}
 SortOptions::SortOptions(const Ordering& ordering)
-    : FunctionOptions(internal::kSortOptionsType), sort_keys(ordering.sort_keys()) {}
+    : FunctionOptions(internal::kSortOptionsType),
+      sort_keys_(ordering.sort_keys()),
+      null_placement(ordering.null_placement()) {}
 constexpr char SortOptions::kTypeName[];
 
 PartitionNthOptions::PartitionNthOptions(int64_t pivot, NullPlacement null_placement)
@@ -226,17 +233,18 @@ CumulativeOptions::CumulativeOptions(std::shared_ptr<Scalar> start, bool skip_nu
       skip_nulls(skip_nulls) {}
 constexpr char CumulativeOptions::kTypeName[];
 
-RankOptions::RankOptions(std::vector<SortKey> sort_keys,
+RankOptions::RankOptions(std::vector<SortKey> sort_keys, std::optional<NullPlacement> null_placement,
                          RankOptions::Tiebreaker tiebreaker)
     : FunctionOptions(internal::kRankOptionsType),
-      sort_keys(std::move(sort_keys)),
+      sort_keys_(std::move(sort_keys)),
+      null_placement(null_placement),
       tiebreaker(tiebreaker) {}
 constexpr char RankOptions::kTypeName[];
 
 RankQuantileOptions::RankQuantileOptions(std::vector<SortKey> sort_keys,
-                                         NullPlacement null_placement)
+                                         std::optional<NullPlacement> null_placement)
     : FunctionOptions(internal::kRankQuantileOptionsType),
-      sort_keys(std::move(sort_keys)),
+      sort_keys_(std::move(sort_keys)),
       null_placement(null_placement) {}
 constexpr char RankQuantileOptions::kTypeName[];
 

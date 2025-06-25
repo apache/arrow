@@ -46,11 +46,8 @@ enum class NullPlacement {
 /// \brief One sort key for PartitionNthIndices (TODO) and SortIndices
 class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
  public:
-  explicit SortKey(FieldRef target, SortOrder order = SortOrder::Ascending,
-                   NullPlacement null_placement = NullPlacement::AtEnd)
+  explicit SortKey(FieldRef target, SortOrder order = SortOrder::Ascending, NullPlacement null_placement = NullPlacement::AtEnd)
       : target(std::move(target)), order(order), null_placement(null_placement) {}
-  explicit SortKey(FieldRef target, NullPlacement null_placement)
-      : SortKey(std::move(target), SortOrder::Ascending, null_placement) {}
 
   bool Equals(const SortKey& other) const;
   std::string ToString() const;
@@ -59,14 +56,15 @@ class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
   FieldRef target;
   /// How to order by this sort key.
   SortOrder order;
-  /// Whether nulls and NaNs are placed at the start or at the end
+  /// Null placement for this sort key.
   NullPlacement null_placement;
 };
 
 class ARROW_EXPORT Ordering : public util::EqualityComparable<Ordering> {
  public:
-  /// DEPRECATED(null_placement has been removed, please use SortKey.null_placement)
-  explicit Ordering(std::vector<SortKey> sort_keys) : sort_keys_(std::move(sort_keys)) {}
+  Ordering(std::vector<SortKey> sort_keys,
+           std::optional<NullPlacement> null_placement = NullPlacement::AtStart)
+      : sort_keys_(std::move(sort_keys)), null_placement_(null_placement) {}
   /// true if data ordered by other is also ordered by this
   ///
   /// For example, if data is ordered by [a, b, c] then it is also ordered
@@ -96,6 +94,9 @@ class ARROW_EXPORT Ordering : public util::EqualityComparable<Ordering> {
 
   const std::vector<SortKey>& sort_keys() const { return sort_keys_; }
 
+  // DEPRECATED(will be removed after member null_placement_ has been removed)
+  std::optional<NullPlacement> null_placement() const { return null_placement_; }
+
   static const Ordering& Implicit() {
     static const Ordering kImplicit(true);
     return kImplicit;
@@ -110,9 +111,15 @@ class ARROW_EXPORT Ordering : public util::EqualityComparable<Ordering> {
   }
 
  private:
-  explicit Ordering(bool is_implicit) : is_implicit_(is_implicit) {}
+  explicit Ordering(bool is_implicit)
+      : null_placement_(NullPlacement::AtStart), is_implicit_(is_implicit) {}
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys_;
+
+  // DEPRECATED(set null_placement in  instead)
+  /// Whether nulls and NaNs are placed at the start or at the end
+  /// Will overwrite null ordering of sort keys
+  std::optional<NullPlacement> null_placement_;
   bool is_implicit_ = false;
 };
 
