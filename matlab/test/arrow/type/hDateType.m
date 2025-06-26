@@ -24,21 +24,21 @@ classdef hDateType < hFixedWidthType
 
     methods (Test)
         function TestClass(testCase)
-            % Verify ArrowType is an object of the expected class type.
+            % Verify ArrowType is an instance of the expected class type.
             name = string(class(testCase.ArrowType()));
             testCase.verifyEqual(name, testCase.ClassName);
         end
 
         function DateUnitNoSetter(testCase)
-            % Verify that an error is thrown when trying to set the value
-            % of the DateUnit property.
+            % Verify an exception is thrown when attempting to modify
+            % the DateUnit property.
             type = testCase.ConstructionFcn();
             testCase.verifyError(@() setfield(type, "DateUnit", "Millisecond"), "MATLAB:class:SetProhibited");
         end
 
         function InvalidProxy(testCase)
-            % Verify that an error is thrown when a Proxy of an unexpected
-            % type is passed to its constructor.
+            % Verify that an exception is thrown when a Proxy of an 
+            % unexpected type is passed to the DateType's constructor.
             array = arrow.array([1, 2, 3]);
             proxy = array.Proxy;
             testCase.verifyError(@() testCase.ClassConstructorFcn(proxy), "arrow:proxy:ProxyNameMismatch");
