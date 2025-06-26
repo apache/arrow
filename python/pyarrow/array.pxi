@@ -1694,7 +1694,7 @@ cdef class Array(_PandasConvertible):
         self._assert_cpu()
         indices = _pc().sort_indices(
             self,
-            options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
+            options=_pc().SortOptions(sort_keys=[("", order, null_placement)], **kwargs)
         )
         return self.take(indices)
 
@@ -4322,7 +4322,7 @@ cdef class StructArray(Array):
         result : StructArray
         """
         if by is not None:
-            tosort, sort_keys = self._flattened_field(by), [("", order)]
+            tosort, sort_keys = self._flattened_field(by), [("", order, null_placement)]
         else:
             tosort, sort_keys = self, [
                 (field.name, order, null_placement) for field in self.type]
