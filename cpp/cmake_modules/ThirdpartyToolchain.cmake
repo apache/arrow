@@ -1050,25 +1050,54 @@ function(build_boost)
   message(STATUS "Building from source")
 
   fetchcontent_declare(boost
-                       ${FC_DECLARE_COMMON_OPTIONS}
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
                        URL ${BOOST_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}")
 
   prepare_fetchcontent()
-
   set(BOOST_ENABLE_COMPATIBILITY_TARGETS ON)
   set(BOOST_SKIP_INSTALL_RULES ON)
-  set(BOOST_INCLUDE_LIBRARIES ${ARROW_BOOST_COMPONENTS}
-                              ${ARROW_BOOST_OPTIONAL_COMPONENTS})
+  set(BOOST_INCLUDE_LIBRARIES
+      ${ARROW_BOOST_COMPONENTS}
+      ${ARROW_BOOST_OPTIONAL_COMPONENTS}
+      algorithm
+      crc
+      locale
+      multiprecision
+      numeric/conversion
+      scope_exit
+      thread
+      throw_exception)
   if(ARROW_WITH_THRIFT)
     list(APPEND BOOST_INCLUDE_LIBRARIES uuid)
   endif()
+  if(MSVC)
+    string(APPEND CMAKE_C_FLAGS " /EHsc")
+    string(APPEND CMAKE_CXX_FLAGS " /EHsc")
+  endif()
+  set(CMAKE_UNITY_BUILD OFF)
 
   fetchcontent_makeavailable(boost)
 
   foreach(library ${BOOST_INCLUDE_LIBRARIES})
-    target_link_libraries(boost_${library} INTERFACE Boost::disable_autolinking)
+    # boost_numeric/conversion ->
+    # boost_numeric_conversion
+    string(REPLACE "/" "_" target_name "boost_${library}")
+    target_link_libraries(${target_name} INTERFACE Boost::disable_autolinking)
   endforeach()
+  target_link_libraries(boost_headers
+                        INTERFACE Boost::algorithm
+                                  Boost::crc
+                                  Boost::multiprecision
+                                  Boost::numeric_conversion
+                                  Boost::scope_exit
+                                  Boost::throw_exception)
+  target_compile_definitions(boost_mpl INTERFACE "BOOST_MPL_CFG_NO_PREPROCESSED_HEADERS")
+
+  # Dummy. This directory is empty.
+  set(Boost_INCLUDE_DIRS
+      "${boost_SOURCE_DIR}/libs/headers/include"
+      PARENT_SCOPE)
 
   set(BOOST_VENDORED
       TRUE
@@ -1630,102 +1659,76 @@ endif()
 # ----------------------------------------------------------------------
 # Thrift
 
-macro(build_thrift)
-  message(STATUS "Building Apache Thrift from source")
-  set(THRIFT_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/thrift_ep-install")
-  set(THRIFT_INCLUDE_DIR "${THRIFT_PREFIX}/include")
-  set(THRIFT_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      "-DCMAKE_INSTALL_PREFIX=${THRIFT_PREFIX}"
-      "-DCMAKE_INSTALL_RPATH=${THRIFT_PREFIX}/lib"
-      # Work around https://gitlab.kitware.com/cmake/cmake/issues/18865
-      -DBoost_NO_BOOST_CMAKE=ON
-      -DBUILD_COMPILER=OFF
-      -DBUILD_EXAMPLES=OFF
-      -DBUILD_TUTORIALS=OFF
-      -DCMAKE_DEBUG_POSTFIX=
-      -DWITH_AS3=OFF
-      -DWITH_CPP=ON
-      -DWITH_C_GLIB=OFF
-      -DWITH_JAVA=OFF
-      -DWITH_JAVASCRIPT=OFF
-      -DWITH_LIBEVENT=OFF
-      -DWITH_NODEJS=OFF
-      -DWITH_PYTHON=OFF
-      -DWITH_QT5=OFF
-      -DWITH_ZLIB=OFF)
+function(build_thrift)
+  list(APPEND CMAKE_MESSAGE_INDENT "Thrift: ")
+  message(STATUS "Building from source")
 
-  # Thrift also uses boost. Forward important boost settings if there were ones passed.
-  if(DEFINED BOOST_ROOT)
-    list(APPEND THRIFT_CMAKE_ARGS "-DBOOST_ROOT=${BOOST_ROOT}")
-  endif()
-  list(APPEND
-       THRIFT_CMAKE_ARGS
-       "-DBoost_INCLUDE_DIR=$<TARGET_PROPERTY:Boost::headers,INTERFACE_INCLUDE_DIRECTORIES>"
-  )
-  if(DEFINED Boost_NAMESPACE)
-    list(APPEND THRIFT_CMAKE_ARGS "-DBoost_NAMESPACE=${Boost_NAMESPACE}")
-  endif()
+  fetchcontent_declare(thrift
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${THRIFT_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}")
 
+  prepare_fetchcontent()
+  set(BUILD_COMPILER OFF)
+  set(BUILD_EXAMPLES OFF)
+  set(BUILD_TUTORIALS OFF)
+  set(CMAKE_UNITY_BUILD OFF)
+  set(WITH_AS3 OFF)
+  set(WITH_CPP ON)
+  set(WITH_C_GLIB OFF)
+  set(WITH_JAVA OFF)
+  set(WITH_JAVASCRIPT OFF)
+  set(WITH_LIBEVENT OFF)
   if(MSVC)
     if(ARROW_USE_STATIC_CRT)
-      set(THRIFT_LIB_SUFFIX "mt")
-      list(APPEND THRIFT_CMAKE_ARGS "-DWITH_MT=ON")
+      set(WITH_MT ON)
     else()
-      set(THRIFT_LIB_SUFFIX "md")
-      list(APPEND THRIFT_CMAKE_ARGS "-DWITH_MT=OFF")
+      set(WITH_MT OFF)
     endif()
-    # NOTE(amoeba): When you bump Thrift to >=0.21.0, change bin to lib
-    set(THRIFT_LIB
-        "${THRIFT_PREFIX}/bin/${CMAKE_IMPORT_LIBRARY_PREFIX}thrift${THRIFT_LIB_SUFFIX}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
-    )
+  endif()
+  set(WITH_NODEJS OFF)
+  set(WITH_PYTHON OFF)
+  set(WITH_QT5 OFF)
+  set(WITH_ZLIB OFF)
+
+  # Remove Apache Arrow's CMAKE_MODULE_PATH to ensure using Apache
+  # Thrift's cmake_modules/.
+  list(POP_FRONT CMAKE_MODULE_PATH)
+  fetchcontent_makeavailable(thrift)
+
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${thrift_sdk_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
+
+  if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.26)
+    set(build_local_interface BUILD_LOCAL_INTERFACE)
   else()
-    set(THRIFT_LIB
-        "${THRIFT_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}thrift${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
+    set(build_local_interface BUILD_INTERFACE)
   endif()
-
+  target_include_directories(thrift
+                             INTERFACE $<${build_local_interface}:${thrift_BINARY_DIR}>
+                                       $<${build_local_interface}:${thrift_SOURCE_DIR}/lib/cpp/src>
+  )
   if(BOOST_VENDORED)
-    set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} Boost::headers)
+    target_link_libraries(thrift PUBLIC $<${build_local_interface}:Boost::headers>)
+    target_link_libraries(thrift PRIVATE $<${build_local_interface}:Boost::locale>)
   endif()
 
-  set(THRIFT_PATCH_COMMAND)
-  if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 15.0)
-    # Thrift 0.21.0 doesn't support GCC 15.
-    # https://github.com/apache/arrow/issues/45096
-    # https://github.com/apache/thrift/pull/3078
-    find_program(PATCH patch REQUIRED)
-    list(APPEND
-         THRIFT_PATCH_COMMAND
-         ${PATCH}
-         -p1
-         -i
-         ${CMAKE_CURRENT_LIST_DIR}/thrift-cstdint.patch)
-  endif()
+  add_library(thrift::thrift INTERFACE IMPORTED)
+  target_link_libraries(thrift::thrift INTERFACE thrift)
 
-  externalproject_add(thrift_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${THRIFT_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS "${THRIFT_LIB}"
-                      CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
-                      DEPENDS ${THRIFT_DEPENDENCIES}
-                      PATCH_COMMAND ${THRIFT_PATCH_COMMAND})
+  set(Thrift_VERSION
+      ${ARROW_THRIFT_BUILD_VERSION}
+      PARENT_SCOPE)
+  set(THRIFT_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} thrift
+      PARENT_SCOPE)
 
-  add_library(thrift::thrift STATIC IMPORTED)
-  # The include directory must exist before it is referenced by a target.
-  file(MAKE_DIRECTORY "${THRIFT_INCLUDE_DIR}")
-  set_target_properties(thrift::thrift PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}")
-  target_include_directories(thrift::thrift BEFORE INTERFACE "${THRIFT_INCLUDE_DIR}")
-  if(ARROW_USE_BOOST)
-    target_link_libraries(thrift::thrift INTERFACE Boost::headers)
-  endif()
-  add_dependencies(thrift::thrift thrift_ep)
-  set(Thrift_VERSION ${ARROW_THRIFT_BUILD_VERSION})
-  set(THRIFT_VENDORED TRUE)
-
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS thrift::thrift)
-endmacro()
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_THRIFT)
   # Thrift C++ code generated by 0.13 requires 0.11 or greater
@@ -2580,9 +2583,8 @@ function(build_lz4)
 
   # Add to bundled static libs.
   # We must use lz4_static (not imported target) not LZ4::lz4 (imported target).
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS lz4_static)
   set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS}
+      ${ARROW_BUNDLED_STATIC_LIBS} lz4_static
       PARENT_SCOPE)
 endfunction()
 
@@ -5151,9 +5153,8 @@ function(build_awssdk)
   set(AWSSDK_VENDORED
       TRUE
       PARENT_SCOPE)
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${AWSSDK_LINK_LIBRARIES})
   set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS}
+      ${ARROW_BUNDLED_STATIC_LIBS} ${AWSSDK_LINK_LIBRARIES}
       PARENT_SCOPE)
   set(AWSSDK_LINK_LIBRARIES
       ${AWSSDK_LINK_LIBRARIES}
@@ -5219,15 +5220,13 @@ function(build_azure_sdk)
   set(AZURE_SDK_VENDORED
       TRUE
       PARENT_SCOPE)
-  list(APPEND
-       ARROW_BUNDLED_STATIC_LIBS
-       Azure::azure-core
-       Azure::azure-identity
-       Azure::azure-storage-blobs
-       Azure::azure-storage-common
-       Azure::azure-storage-files-datalake)
   set(ARROW_BUNDLED_STATIC_LIBS
       ${ARROW_BUNDLED_STATIC_LIBS}
+      Azure::azure-core
+      Azure::azure-identity
+      Azure::azure-storage-blobs
+      Azure::azure-storage-common
+      Azure::azure-storage-files-datalake
       PARENT_SCOPE)
 endfunction()
 
