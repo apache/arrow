@@ -19,7 +19,7 @@
 
 set -e
 
-if [  "$#" -lt 1 ] || [ "$#" -gt 3 ]; then
+if [  "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
     echo "Usage: $0 <build> <prefix> <version>"
     echo "Will default to version=0.3.0 "
     exit 1
