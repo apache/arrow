@@ -25,7 +25,7 @@ classdef hDateType < hFixedWidthType
     methods (Test)
         function TestClass(testCase)
             % Verify ArrowType is an object of the expected class type.
-            name = string(class(testCase.ConstructionFcn()));
+            name = string(class(testCase.ArrowType()));
             testCase.verifyEqual(name, testCase.ClassName);
         end
 
