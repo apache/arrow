@@ -84,18 +84,30 @@ add_arrow_compute_test(scalar_utility_test
                        arrow_compute_kernels_testing
                        arrow_compute_testing)
 
-add_arrow_benchmark(scalar_arithmetic_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(scalar_boolean_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(scalar_cast_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(scalar_compare_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(scalar_if_else_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(scalar_list_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(scalar_random_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(scalar_round_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(scalar_set_lookup_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(scalar_string_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(scalar_temporal_benchmark PREFIX "arrow-compute")
-
+if(ARROW_BUILD_BENCHMARKS)
+  add_arrow_benchmark(scalar_cast_benchmark PREFIX "arrow-compute")
+  add_arrow_benchmark(scalar_arithmetic_benchmark PREFIX "arrow-compute")
+  add_arrow_benchmark(scalar_boolean_benchmark PREFIX "arrow-compute")
+  add_arrow_benchmark(scalar_compare_benchmark PREFIX "arrow-compute")
+  add_arrow_benchmark(scalar_if_else_benchmark PREFIX "arrow-compute")
+  add_arrow_benchmark(scalar_list_benchmark PREFIX "arrow-compute")
+  add_arrow_benchmark(scalar_random_benchmark PREFIX "arrow-compute")
+  add_arrow_benchmark(scalar_round_benchmark PREFIX "arrow-compute")
+  add_arrow_benchmark(scalar_set_lookup_benchmark PREFIX "arrow-compute")
+  add_arrow_benchmark(scalar_string_benchmark PREFIX "arrow-compute")
+  add_arrow_benchmark(scalar_temporal_benchmark PREFIX "arrow-compute")
+  if(ARROW_BUILD_STATIC)
+    target_link_libraries(arrow-compute-scalar-compare-benchmark
+                          PUBLIC arrow_compute_static)
+    target_link_libraries(arrow-compute-scalar-arithmetic-benchmark
+                          PUBLIC arrow_compute_static)
+  else()
+    target_link_libraries(arrow-compute-scalar-compare-benchmark
+                          PUBLIC arrow_compute_shared)
+    target_link_libraries(arrow-compute-scalar-arithmetic-benchmark
+                          PUBLIC arrow_compute_static)
+  endif()
+endif()
 # ----------------------------------------------------------------------
 # Vector kernels
 
@@ -133,13 +145,14 @@ add_arrow_compute_test(vector_swizzle_test
                        EXTRA_LINK_LIBS
                        arrow_compute_kernels_testing
                        arrow_compute_testing)
-
-add_arrow_benchmark(vector_hash_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(vector_sort_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(vector_partition_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(vector_topk_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(vector_replace_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(vector_selection_benchmark PREFIX "arrow-compute")
+if(ARROW_BUILD_BENCHMARKS)
+  add_arrow_benchmark(vector_hash_benchmark PREFIX "arrow-compute")
+  add_arrow_benchmark(vector_sort_benchmark PREFIX "arrow-compute")
+  add_arrow_benchmark(vector_partition_benchmark PREFIX "arrow-compute")
+  add_arrow_benchmark(vector_topk_benchmark PREFIX "arrow-compute")
+  add_arrow_benchmark(vector_replace_benchmark PREFIX "arrow-compute")
+  add_arrow_benchmark(vector_selection_benchmark PREFIX "arrow-compute")
+endif()
 
 # ----------------------------------------------------------------------
 # Aggregate kernels
