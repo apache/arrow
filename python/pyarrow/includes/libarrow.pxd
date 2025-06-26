@@ -2769,7 +2769,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             "arrow::compute::SortOptions"(CFunctionOptions):
         CSortOptions(vector[CSortKey] sort_keys, CNullPlacement)
         vector[CSortKey] sort_keys
-        CNullPlacement null_placement
+        optional[CNullPlacement] null_placement
 
     cdef cppclass CSelectKOptions \
             "arrow::compute::SelectKOptions"(CFunctionOptions):
@@ -2842,17 +2842,19 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CRankOptions \
             "arrow::compute::RankOptions"(CFunctionOptions):
+        CRankOptions(vector[CSortKey] sort_keys, CRankOptionsTiebreaker tiebreaker)
         CRankOptions(vector[CSortKey] sort_keys, CNullPlacement,
                      CRankOptionsTiebreaker tiebreaker)
         vector[CSortKey] sort_keys
-        CNullPlacement null_placement
+        optional[CNullPlacement] null_placement
         CRankOptionsTiebreaker tiebreaker
 
     cdef cppclass CRankQuantileOptions \
             "arrow::compute::RankQuantileOptions"(CFunctionOptions):
+        CRankQuantileOptions(vector[CSortKey] sort_keys)
         CRankQuantileOptions(vector[CSortKey] sort_keys, CNullPlacement)
         vector[CSortKey] sort_keys
-        CNullPlacement null_placement
+        optional[CNullPlacement] null_placement
 
     cdef enum PivotWiderUnexpectedKeyBehavior \
             "arrow::compute::PivotWiderOptions::UnexpectedKeyBehavior":

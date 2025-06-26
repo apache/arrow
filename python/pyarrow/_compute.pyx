@@ -2170,8 +2170,7 @@ cdef class _SortOptions(FunctionOptions):
     def _set_options(self, sort_keys, null_placement):
         if null_placement is None:
             self.wrapped.reset(new CSortOptions(
-                unwrap_sort_keys(sort_keys, allow_str=False),
-                None))
+               unwrap_sort_keys(sort_keys, allow_str=False)))
         else:
             self.wrapped.reset(new CSortOptions(
                 unwrap_sort_keys(sort_keys, allow_str=False),
@@ -2390,14 +2389,21 @@ cdef class _RankOptions(FunctionOptions):
 
     def _set_options(self, sort_keys, null_placement, tiebreaker):
         try:
-            self.wrapped.reset(
-                new CRankOptions(
-                    unwrap_sort_keys(sort_keys),
-                    unwrap_null_placement(
-                        null_placement) if null_placement is not None else None,
-                    self._tiebreaker_map[tiebreaker]
+            if null_placement is None:
+                self.wrapped.reset(
+                    new CRankOptions(
+                        unwrap_sort_keys(sort_keys),
+                        self._tiebreaker_map[tiebreaker]
+                    )
                 )
-            )
+            else:
+                self.wrapped.reset(
+                    new CRankOptions(
+                        unwrap_sort_keys(sort_keys),
+                        unwrap_null_placement(null_placement),
+                        self._tiebreaker_map[tiebreaker]
+                    )
+                )
         except KeyError:
             _raise_invalid_function_option(tiebreaker, "tiebreaker")
 
@@ -2440,13 +2446,19 @@ class RankOptions(_RankOptions):
 cdef class _RankQuantileOptions(FunctionOptions):
 
     def _set_options(self, sort_keys, null_placement):
-        self.wrapped.reset(
-            new CRankQuantileOptions(
-                unwrap_sort_keys(sort_keys),
-                unwrap_null_placement(
-                    null_placement) if null_placement is not None else None
+        if null_placement is None:
+            self.wrapped.reset(
+                new CRankQuantileOptions(
+                    unwrap_sort_keys(sort_keys)
+                )
             )
-        )
+        else:
+            self.wrapped.reset(
+                new CRankQuantileOptions(
+                    unwrap_sort_keys(sort_keys),
+                    unwrap_null_placement(null_placement)
+                )
+            )
 
 
 class RankQuantileOptions(_RankQuantileOptions):
