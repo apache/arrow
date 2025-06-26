@@ -1210,7 +1210,6 @@ TEST_F(TestRecordBatchSortIndices, NoNull) {
                          SortKey("b", SortOrder::Descending, null_placement)},
                         null_placement);
 
-
     AssertSortIndices(batch, options, "[3, 5, 1, 6, 4, 0, 2]");
   }
 }
