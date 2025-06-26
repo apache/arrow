@@ -459,6 +459,10 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     EXPECT_TRUE(enc_stats->has_max);
     EXPECT_EQ(expected_stats->EncodeMin(), enc_stats->min());
     EXPECT_EQ(expected_stats->EncodeMax(), enc_stats->max());
+    EXPECT_TRUE(enc_stats->has_is_min_value_exact);
+    EXPECT_TRUE(enc_stats->has_is_max_value_exact);
+    EXPECT_TRUE(enc_stats->is_min_value_exact);
+    EXPECT_TRUE(enc_stats->is_max_value_exact);
   }
 };
 
@@ -693,6 +697,8 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
       EXPECT_FALSE(statistics1->HasMinMax());
       EXPECT_FALSE(encoded_stats1.has_min);
       EXPECT_FALSE(encoded_stats1.has_max);
+      EXPECT_FALSE(encoded_stats1.is_min_value_exact);
+      EXPECT_FALSE(encoded_stats1.is_max_value_exact);
     }
     // Create a statistics object with min-max.
     std::shared_ptr<TypedStatistics<TestType>> statistics2;
@@ -703,12 +709,16 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
       EXPECT_TRUE(statistics2->HasMinMax());
       EXPECT_TRUE(encoded_stats2.has_min);
       EXPECT_TRUE(encoded_stats2.has_max);
+      EXPECT_TRUE(encoded_stats2.is_min_value_exact);
+      EXPECT_TRUE(encoded_stats2.is_max_value_exact);
     }
     VerifyMergedStatistics(*statistics1, *statistics2,
                            [](TypedStatistics<TestType>* merged_statistics) {
                              EXPECT_TRUE(merged_statistics->HasMinMax());
                              EXPECT_TRUE(merged_statistics->Encode().has_min);
                              EXPECT_TRUE(merged_statistics->Encode().has_max);
+                             EXPECT_TRUE(merged_statistics->Encode().is_min_value_exact);
+                             EXPECT_TRUE(merged_statistics->Encode().is_max_value_exact);
                            });
   }
 
@@ -775,6 +785,8 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
     EXPECT_FALSE(encoded.has_distinct_count);
     EXPECT_FALSE(encoded.has_min);
     EXPECT_FALSE(encoded.has_max);
+    EXPECT_FALSE(encoded.has_is_min_value_exact);
+    EXPECT_FALSE(encoded.has_is_max_value_exact);
   }
 };
 
@@ -971,6 +983,9 @@ class TestStatisticsSortOrder : public ::testing::Test {
           rg_metadata->ColumnChunk(i);
       EXPECT_EQ(stats_[i].min(), cc_metadata->statistics()->EncodeMin());
       EXPECT_EQ(stats_[i].max(), cc_metadata->statistics()->EncodeMax());
+      // TODO: Investigate why those are not true?
+      // ASSERT_TRUE(stats_[i].is_max_value_exact);
+      // ASSERT_TRUE(stats_[i].is_min_value_exact);
     }
   }
 
@@ -1243,6 +1258,8 @@ void AssertMinMaxAre(Stats stats, const Array& values, T expected_min, T expecte
   ASSERT_TRUE(stats->HasMinMax());
   EXPECT_EQ(stats->EncodeMin(), EncodeValue(expected_min));
   EXPECT_EQ(stats->EncodeMax(), EncodeValue(expected_max));
+  ASSERT_TRUE(stats->HasIsMinValueExact());
+  ASSERT_TRUE(stats->HasIsMaxValueExact());
 }
 
 template <typename Stats, typename Array, typename T = typename Stats::T>
@@ -1256,12 +1273,16 @@ void AssertMinMaxAre(Stats stats, const Array& values, const uint8_t* valid_bitm
   ASSERT_TRUE(stats->HasMinMax());
   EXPECT_EQ(stats->EncodeMin(), EncodeValue(expected_min));
   EXPECT_EQ(stats->EncodeMax(), EncodeValue(expected_max));
+  ASSERT_TRUE(stats->HasIsMinValueExact());
+  ASSERT_TRUE(stats->HasIsMaxValueExact());
 }
 
 template <typename Stats, typename Array>
 void AssertUnsetMinMax(Stats stats, const Array& values) {
   stats->Update(values.data(), values.size(), 0);
   ASSERT_FALSE(stats->HasMinMax());
+  ASSERT_FALSE(stats->HasIsMinValueExact());
+  ASSERT_FALSE(stats->HasIsMaxValueExact());
 }
 
 template <typename Stats, typename Array>
@@ -1272,6 +1293,8 @@ void AssertUnsetMinMax(Stats stats, const Array& values, const uint8_t* valid_bi
   stats->UpdateSpaced(values.data(), valid_bitmap, 0, non_null_count + null_count,
                       non_null_count, null_count);
   ASSERT_FALSE(stats->HasMinMax());
+  ASSERT_FALSE(stats->HasIsMinValueExact());
+  ASSERT_FALSE(stats->HasIsMaxValueExact());
 }
 
 template <typename ParquetType, typename T = typename ParquetType::c_type>
@@ -1639,26 +1662,34 @@ TEST(TestStatisticsTruncatedMinMax, Unsigned) {
 TEST(TestEncodedStatistics, CopySafe) {
   EncodedStatistics encoded_statistics;
   encoded_statistics.set_max("abc");
-  encoded_statistics.has_max = true;
+  ASSERT_TRUE(encoded_statistics.has_max);
+  encoded_statistics.set_is_max_value_exact(true);
+  ASSERT_TRUE(encoded_statistics.has_is_max_value_exact);
 
   encoded_statistics.set_min("abc");
-  encoded_statistics.has_min = true;
+  ASSERT_TRUE(encoded_statistics.has_min);
+  encoded_statistics.set_is_min_value_exact(true);
+  ASSERT_TRUE(encoded_statistics.has_is_min_value_exact);
 
   EncodedStatistics copy_statistics = encoded_statistics;
   copy_statistics.set_max("abcd");
   copy_statistics.set_min("a");
+  copy_statistics.set_is_max_value_exact(false);
+  copy_statistics.set_is_min_value_exact(false);
 
   EXPECT_EQ("abc", encoded_statistics.min());
   EXPECT_EQ("abc", encoded_statistics.max());
+  ASSERT_TRUE(encoded_statistics.is_min_value_exact);
+  ASSERT_TRUE(encoded_statistics.is_max_value_exact);
 }
 
 TEST(TestEncodedStatistics, ApplyStatSizeLimits) {
   EncodedStatistics encoded_statistics;
   encoded_statistics.set_min("a");
-  encoded_statistics.has_min = true;
+  ASSERT_TRUE(encoded_statistics.has_min);
 
   encoded_statistics.set_max("abc");
-  encoded_statistics.has_max = true;
+  ASSERT_TRUE(encoded_statistics.has_max);
 
   encoded_statistics.ApplyStatSizeLimits(2);
 
