@@ -270,7 +270,7 @@ class OrderByNodeOptions(_OrderByNodeOptions):
     null_placement : str, optional
         Where nulls in input should be sorted, only applying to
         columns/fields mentioned in `sort_keys`.
-        Accepted values are "at_start", "at_end", with "at_end" being the default.
+        Accepted values are "at_start", "at_end",
     """
 
     def __init__(self, sort_keys=(), *, null_placement=None):
