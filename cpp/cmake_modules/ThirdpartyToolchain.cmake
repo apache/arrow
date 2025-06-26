@@ -598,15 +598,8 @@ endif()
 if(DEFINED ENV{ARROW_BOOST_URL})
   set(BOOST_SOURCE_URL "$ENV{ARROW_BOOST_URL}")
 else()
-  string(REPLACE "." "_" ARROW_BOOST_BUILD_VERSION_UNDERSCORES
-                 ${ARROW_BOOST_BUILD_VERSION})
   set_urls(BOOST_SOURCE_URL
-           # These are trimmed boost bundles we maintain.
-           # See cpp/build-support/trim-boost.sh
-           # FIXME(ARROW-6407) automate uploading this archive to ensure it reflects
-           # our currently used packages and doesn't fall out of sync with
-           # ${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}
-           "${THIRDPARTY_MIRROR_URL}/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
+           "https://github.com/boostorg/boost/releases/download/boost-${ARROW_BOOST_BUILD_VERSION}/boost-${ARROW_BOOST_BUILD_VERSION}-cmake.tar.gz"
   )
 endif()
 
@@ -1052,119 +1045,36 @@ endif()
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu)
 
-macro(build_boost)
-  set(BOOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/boost_ep-prefix/src/boost_ep")
+function(build_boost)
+  list(APPEND CMAKE_MESSAGE_INDENT "Boost: ")
+  message(STATUS "Building from source")
 
-  # This is needed by the thrift_ep build
-  set(BOOST_ROOT ${BOOST_PREFIX})
-  set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
+  fetchcontent_declare(boost
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${BOOST_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}")
 
-  if(ARROW_BOOST_REQUIRE_LIBRARY)
-    set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
-    set(BOOST_BUILD_LINK "static")
-    if("${UPPERCASE_BUILD_TYPE}" STREQUAL "DEBUG")
-      set(BOOST_BUILD_VARIANT "debug")
-    else()
-      set(BOOST_BUILD_VARIANT "release")
-    endif()
-    if(MSVC)
-      set(BOOST_CONFIGURE_COMMAND ".\\\\bootstrap.bat")
-    else()
-      set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh")
-    endif()
+  prepare_fetchcontent()
 
-    set(BOOST_BUILD_WITH_LIBRARIES "filesystem" "system")
-    string(REPLACE ";" "," BOOST_CONFIGURE_LIBRARIES "${BOOST_BUILD_WITH_LIBRARIES}")
-    list(APPEND BOOST_CONFIGURE_COMMAND "--prefix=${BOOST_PREFIX}"
-         "--with-libraries=${BOOST_CONFIGURE_LIBRARIES}")
-    set(BOOST_BUILD_COMMAND "./b2" "-j${NPROC}" "link=${BOOST_BUILD_LINK}"
-                            "variant=${BOOST_BUILD_VARIANT}")
-    if(MSVC)
-      string(REGEX REPLACE "([0-9])$" ".\\1" BOOST_TOOLSET_MSVC_VERSION
-                           ${MSVC_TOOLSET_VERSION})
-      list(APPEND BOOST_BUILD_COMMAND "toolset=msvc-${BOOST_TOOLSET_MSVC_VERSION}")
-      set(BOOST_BUILD_WITH_LIBRARIES_MSVC)
-      foreach(_BOOST_LIB ${BOOST_BUILD_WITH_LIBRARIES})
-        list(APPEND BOOST_BUILD_WITH_LIBRARIES_MSVC "--with-${_BOOST_LIB}")
-      endforeach()
-      list(APPEND BOOST_BUILD_COMMAND ${BOOST_BUILD_WITH_LIBRARIES_MSVC})
-    else()
-      list(APPEND BOOST_BUILD_COMMAND "cxxflags=-fPIC")
-    endif()
-
-    if(MSVC)
-      string(REGEX
-             REPLACE "^([0-9]+)\\.([0-9]+)\\.[0-9]+$" "\\1_\\2"
-                     ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE
-                     ${ARROW_BOOST_BUILD_VERSION})
-      set(BOOST_LIBRARY_SUFFIX "-vc${MSVC_TOOLSET_VERSION}-mt")
-      if(BOOST_BUILD_VARIANT STREQUAL "debug")
-        set(BOOST_LIBRARY_SUFFIX "${BOOST_LIBRARY_SUFFIX}-gd")
-      endif()
-      set(BOOST_LIBRARY_SUFFIX
-          "${BOOST_LIBRARY_SUFFIX}-x64-${ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE}")
-    else()
-      set(BOOST_LIBRARY_SUFFIX "")
-    endif()
-    set(BOOST_STATIC_SYSTEM_LIBRARY
-        "${BOOST_LIB_DIR}/libboost_system${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-    set(BOOST_STATIC_FILESYSTEM_LIBRARY
-        "${BOOST_LIB_DIR}/libboost_filesystem${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-    set(BOOST_SYSTEM_LIBRARY boost_system_static)
-    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-    set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
-                             ${BOOST_STATIC_FILESYSTEM_LIBRARY})
-
-    add_thirdparty_lib(Boost::system
-                       STATIC
-                       "${BOOST_STATIC_SYSTEM_LIBRARY}"
-                       INCLUDE_DIRECTORIES
-                       "${Boost_INCLUDE_DIR}")
-    add_thirdparty_lib(Boost::filesystem
-                       STATIC
-                       "${BOOST_STATIC_FILESYSTEM_LIBRARY}"
-                       INCLUDE_DIRECTORIES
-                       "${Boost_INCLUDE_DIR}")
-
-    externalproject_add(boost_ep
-                        ${EP_COMMON_OPTIONS}
-                        URL ${BOOST_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}"
-                        BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
-                        BUILD_IN_SOURCE 1
-                        CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
-                        BUILD_COMMAND ${BOOST_BUILD_COMMAND}
-                        INSTALL_COMMAND "")
-    add_dependencies(Boost::system boost_ep)
-    add_dependencies(Boost::filesystem boost_ep)
-  else()
-    externalproject_add(boost_ep
-                        ${EP_COMMON_OPTIONS}
-                        BUILD_COMMAND ""
-                        CONFIGURE_COMMAND ""
-                        INSTALL_COMMAND ""
-                        URL ${BOOST_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}")
+  set(BOOST_ENABLE_COMPATIBILITY_TARGETS ON)
+  set(BOOST_SKIP_INSTALL_RULES ON)
+  set(BOOST_INCLUDE_LIBRARIES ${ARROW_BOOST_COMPONENTS}
+                              ${ARROW_BOOST_OPTIONAL_COMPONENTS})
+  if(ARROW_WITH_THRIFT)
+    list(APPEND BOOST_INCLUDE_LIBRARIES uuid)
   endif()
-  add_library(Boost::headers INTERFACE IMPORTED)
-  target_include_directories(Boost::headers INTERFACE "${Boost_INCLUDE_DIR}")
-  add_dependencies(Boost::headers boost_ep)
-  # If Boost is found but one of system or filesystem components aren't found,
-  # Boost::disable_autolinking and Boost::dynamic_linking are already defined.
-  if(NOT TARGET Boost::disable_autolinking)
-    add_library(Boost::disable_autolinking INTERFACE IMPORTED)
-    if(WIN32)
-      target_compile_definitions(Boost::disable_autolinking INTERFACE "BOOST_ALL_NO_LIB")
-    endif()
-  endif()
-  if(NOT TARGET Boost::dynamic_linking)
-    # This doesn't add BOOST_ALL_DYN_LINK because bundled Boost is a static library.
-    add_library(Boost::dynamic_linking INTERFACE IMPORTED)
-  endif()
-  set(BOOST_VENDORED TRUE)
-endmacro()
+
+  fetchcontent_makeavailable(boost)
+
+  foreach(library ${BOOST_INCLUDE_LIBRARIES})
+    target_link_libraries(boost_${library} INTERFACE Boost::disable_autolinking)
+  endforeach()
+
+  set(BOOST_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER
                                               15)
@@ -1181,7 +1091,16 @@ set(Boost_USE_MULTITHREADED ON)
 if(MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
+# CMake 3.25.0 has 1.80 and older versions.
 set(Boost_ADDITIONAL_VERSIONS
+    "1.88.0"
+    "1.88"
+    "1.87.0"
+    "1.87"
+    "1.86.0"
+    "1.86"
+    "1.85.0"
+    "1.85"
     "1.84.0"
     "1.84"
     "1.83.0"
@@ -1189,49 +1108,7 @@ set(Boost_ADDITIONAL_VERSIONS
     "1.82.0"
     "1.82"
     "1.81.0"
-    "1.81"
-    "1.80.0"
-    "1.80"
-    "1.79.0"
-    "1.79"
-    "1.78.0"
-    "1.78"
-    "1.77.0"
-    "1.77"
-    "1.76.0"
-    "1.76"
-    "1.75.0"
-    "1.75"
-    "1.74.0"
-    "1.74"
-    "1.73.0"
-    "1.73"
-    "1.72.0"
-    "1.72"
-    "1.71.0"
-    "1.71"
-    "1.70.0"
-    "1.70"
-    "1.69.0"
-    "1.69"
-    "1.68.0"
-    "1.68"
-    "1.67.0"
-    "1.67"
-    "1.66.0"
-    "1.66"
-    "1.65.0"
-    "1.65"
-    "1.64.0"
-    "1.64"
-    "1.63.0"
-    "1.63"
-    "1.62.0"
-    "1.61"
-    "1.61.0"
-    "1.62"
-    "1.60.0"
-    "1.60")
+    "1.81")
 
 # Compilers that don't support int128_t have a compile-time
 # (header-only) dependency on Boost for int128_t.
@@ -1310,36 +1187,41 @@ if(ARROW_USE_BOOST)
     unset(BUILD_SHARED_LIBS_KEEP)
   endif()
 
-  foreach(BOOST_LIBRARY Boost::headers Boost::filesystem Boost::system)
-    if(NOT TARGET ${BOOST_LIBRARY})
-      continue()
-    endif()
-    target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::disable_autolinking)
-    if(ARROW_BOOST_USE_SHARED)
-      target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::dynamic_linking)
-    endif()
-  endforeach()
+  if(NOT BOOST_VENDORED)
+    foreach(BOOST_COMPONENT ${ARROW_BOOST_COMPONENTS} ${ARROW_BOOST_OPTIONAL_COMPONENTS})
+      set(BOOST_LIBRARY Boost::${BOOST_COMPONENT})
+      if(NOT TARGET ${BOOST_LIBRARY})
+        continue()
+      endif()
+      target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::disable_autolinking)
+      if(ARROW_BOOST_USE_SHARED)
+        target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::dynamic_linking)
+      endif()
+    endforeach()
+  endif()
 
   set(BOOST_PROCESS_HAVE_V2 FALSE)
   if(TARGET Boost::process)
     # Boost >= 1.86
-    target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V1")
-    target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
+    add_library(arrow::Boost::process INTERFACE IMPORTED)
+    target_link_libraries(arrow::Boost::process INTERFACE Boost::process)
+    target_compile_definitions(arrow::Boost::process INTERFACE "BOOST_PROCESS_HAVE_V1")
+    target_compile_definitions(arrow::Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
     set(BOOST_PROCESS_HAVE_V2 TRUE)
   else()
     # Boost < 1.86
-    add_library(Boost::process INTERFACE IMPORTED)
+    add_library(arrow::Boost::process INTERFACE IMPORTED)
     if(TARGET Boost::filesystem)
-      target_link_libraries(Boost::process INTERFACE Boost::filesystem)
+      target_link_libraries(arrow::Boost::process INTERFACE Boost::filesystem)
     endif()
     if(TARGET Boost::system)
-      target_link_libraries(Boost::process INTERFACE Boost::system)
+      target_link_libraries(arrow::Boost::process INTERFACE Boost::system)
     endif()
     if(TARGET Boost::headers)
-      target_link_libraries(Boost::process INTERFACE Boost::headers)
+      target_link_libraries(arrow::Boost::process INTERFACE Boost::headers)
     endif()
     if(Boost_VERSION VERSION_GREATER_EQUAL 1.80)
-      target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
+      target_compile_definitions(arrow::Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
       set(BOOST_PROCESS_HAVE_V2 TRUE)
       # Boost < 1.86 has a bug that
       # boost::process::v2::process_environment::on_setup() isn't
@@ -1347,9 +1229,10 @@ if(ARROW_USE_BOOST)
       #
       # See also:
       # https://github.com/boostorg/process/issues/312
-      target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_NEED_SOURCE")
+      target_compile_definitions(arrow::Boost::process
+                                 INTERFACE "BOOST_PROCESS_NEED_SOURCE")
       if(WIN32)
-        target_link_libraries(Boost::process INTERFACE bcrypt ntdll)
+        target_link_libraries(arrow::Boost::process INTERFACE bcrypt ntdll)
       endif()
     endif()
   endif()
@@ -1365,7 +1248,7 @@ if(ARROW_USE_BOOST)
          #
          # [3] https://github.com/boostorg/process/commit/aea22dbf6be1695ceb42367590b6ca34d9433500
          (NOT (ARROW_WITH_MUSL AND (Boost_VERSION VERSION_LESS 1.86))))
-    target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_USE_V2")
+    target_compile_definitions(arrow::Boost::process INTERFACE "BOOST_PROCESS_USE_V2")
   endif()
 
   message(STATUS "Boost include dir: ${Boost_INCLUDE_DIRS}")
@@ -1803,7 +1686,7 @@ macro(build_thrift)
   endif()
 
   if(BOOST_VENDORED)
-    set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} boost_ep)
+    set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} Boost::headers)
   endif()
 
   set(THRIFT_PATCH_COMMAND)
