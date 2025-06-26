@@ -56,8 +56,8 @@ ARROW_AWSSDK_BUILD_SHA256_CHECKSUM=b9944ba9905a68d6e53abb4f36ab2b3bd18ac88d85716
 # Despite the confusing version name this is still the whole Azure SDK for C++ including core, keyvault, storage-common, etc.
 ARROW_AZURE_SDK_BUILD_VERSION=azure-identity_1.9.0
 ARROW_AZURE_SDK_BUILD_SHA256_CHECKSUM=97065bfc971ac8df450853ce805f820f52b59457bd7556510186a1569502e4a1
-ARROW_BOOST_BUILD_VERSION=1.81.0
-ARROW_BOOST_BUILD_SHA256_CHECKSUM=9e0ffae35528c35f90468997bc8d99500bf179cbae355415a89a600c38e13574
+ARROW_BOOST_BUILD_VERSION=1.88.0
+ARROW_BOOST_BUILD_SHA256_CHECKSUM=dcea50f40ba1ecfc448fdf886c0165cf3e525fef2c9e3e080b9804e8117b9694
 ARROW_BROTLI_BUILD_VERSION=v1.0.9
 ARROW_BROTLI_BUILD_SHA256_CHECKSUM=f9e8d81d0405ba66d181529af42a3354f838c939095ff99930da6aa9cdf6fe46
 ARROW_BZIP2_BUILD_VERSION=1.0.8
@@ -139,7 +139,7 @@ DEPENDENCIES=(
   "ARROW_AWS_CRT_CPP_URL aws-crt-cpp-${ARROW_AWS_CRT_CPP_BUILD_VERSION}.tar.gz https://github.com/awslabs/aws-crt-cpp/archive/${ARROW_AWS_CRT_CPP_BUILD_VERSION}.tar.gz"
   "ARROW_AWS_LC_URL aws-lc-${ARROW_AWS_LC_BUILD_VERSION}.tar.gz https://github.com/awslabs/aws-lc/archive/${ARROW_AWS_LC_BUILD_VERSION}.tar.gz"
   "ARROW_AWSSDK_URL aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
-  "ARROW_BOOST_URL boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz https://apache.jfrog.io/artifactory/arrow/thirdparty/7.0.0/boost_${ARROW_BOOST_BUILD_VERSION//./_}.tar.gz"
+  "ARROW_BOOST_URL boost-${ARROW_BOOST_BUILD_VERSION}-cmake.tar.gz https://github.com/boostorg/boost/releases/download/boost-${ARROW_BOOST_BUILD_VERSION}/boost-${ARROW_BOOST_BUILD_VERSION}-cmake.tar.gz"
   "ARROW_BROTLI_URL brotli-${ARROW_BROTLI_BUILD_VERSION}.tar.gz https://github.com/google/brotli/archive/${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
   "ARROW_BZIP2_URL bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
   "ARROW_CARES_URL cares-${ARROW_CARES_BUILD_VERSION}.tar.gz https://github.com/c-ares/c-ares/releases/download/cares-${ARROW_CARES_BUILD_VERSION//./_}/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"

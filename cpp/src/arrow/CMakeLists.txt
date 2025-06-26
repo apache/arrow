@@ -638,11 +638,12 @@ else()
 endif()
 
 set(ARROW_TESTING_SHARED_LINK_LIBS arrow_shared ${ARROW_GTEST_GTEST})
-set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON Boost::process)
+set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON
+                                           arrow::Boost::process)
 set(ARROW_TESTING_STATIC_LINK_LIBS
     arrow::flatbuffers
     RapidJSON
-    Boost::process
+    arrow::Boost::process
     arrow_static
     ${ARROW_GTEST_GTEST})
 set(ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
