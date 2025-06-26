@@ -85,6 +85,10 @@ find docs \
   -exec \
   sed -i.bak \
   -e "s/DOCUMENTATION_OPTIONS.show_version_warning_banner = true/DOCUMENTATION_OPTIONS.show_version_warning_banner = false/g" \
+  -e '/^[[:space:]]\{8\}DOCUMENTATION_OPTIONS\.show_version_warning_banner =[[:space:]]*$/{
+N
+s/^\([[:space:]]\{8\}DOCUMENTATION_OPTIONS\.show_version_warning_banner =[[:space:]]*\)\n[[:space:]]\{12\}true;/\1\n            false;/g
+}' \
   {} \;
 find ./ -name '*.bak' -delete
 popd
@@ -108,6 +112,10 @@ if [ "$is_major_release" = "yes" ]; then
     sed -i.bak \
     -e "s/DOCUMENTATION_OPTIONS.theme_switcher_version_match = '';/DOCUMENTATION_OPTIONS.theme_switcher_version_match = '${previous_series}';/g" \
     -e "s/DOCUMENTATION_OPTIONS.show_version_warning_banner = false/DOCUMENTATION_OPTIONS.show_version_warning_banner = true/g" \
+    -e '/^[[:space:]]\{8\}DOCUMENTATION_OPTIONS\.show_version_warning_banner =[[:space:]]*$/{
+N
+s/^\([[:space:]]\{8\}DOCUMENTATION_OPTIONS\.show_version_warning_banner =[[:space:]]*\)\n[[:space:]]\{12\}false;/\1\n            true;/g
+}' \
     {} \;
   find ./ -name '*.bak' -delete
   popd
