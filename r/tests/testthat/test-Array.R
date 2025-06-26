@@ -1260,7 +1260,7 @@ test_that("concat_arrays works", {
 
   concat_int <- concat_arrays(arrow_array(1:3), arrow_array(4:5))
   expect_true(concat_int$type == int32())
-  expect_equal(concat_int,  arrow_array(1:5))
+  expect_equal(concat_int, arrow_array(1:5))
 
   concat_int64 <- concat_arrays(
     arrow_array(1:3),
