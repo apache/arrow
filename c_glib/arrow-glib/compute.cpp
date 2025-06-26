@@ -3049,13 +3049,13 @@ garrow_sort_key_class_init(GArrowSortKeyClass *klass)
    *
    * Since: 15.0.0
    */
-  spec = g_param_spec_enum("null-placement",
-                           "Null Placement",
-                           "Whether nulls and NaNs are placed at the start or at the end",
-                           GARROW_TYPE_NULL_PLACEMENT,
-                           0,
-                           static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                    G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_enum(
+    "null-placement",
+    "Null Placement",
+    "Whether nulls and NaNs are placed at the start or at the end",
+    GARROW_TYPE_NULL_PLACEMENT,
+    0,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_SORT_KEY_NULL_PLACEMENT, spec);
 }
 
@@ -3080,8 +3080,10 @@ garrow_sort_key_new(const gchar *target,
     return NULL;
   }
   auto sort_key = g_object_new(GARROW_TYPE_SORT_KEY,
-                               "order", order,
-                               "null-placement", null_placement,
+                               "order",
+                               order,
+                               "null-placement",
+                               null_placement,
                                NULL);
   auto priv = GARROW_SORT_KEY_GET_PRIVATE(sort_key);
   priv->sort_key.target = *arrow_reference_result;

@@ -487,9 +487,11 @@ Result<NullPartitionResult> SortStructArray(ExecContext* ctx, uint64_t* indices_
 
 struct SortField {
   SortField() = default;
-  SortField(FieldPath path, SortOrder order, NullPlacement null_placement, const DataType* type)
+  SortField(FieldPath path, SortOrder order, NullPlacement null_placement,
+            const DataType* type)
       : path(std::move(path)), order(order), null_placement(null_placement), type(type) {}
-  SortField(int index, SortOrder order, NullPlacement null_placement, const DataType* type)
+  SortField(int index, SortOrder order, NullPlacement null_placement,
+            const DataType* type)
       : SortField(FieldPath({index}), order, null_placement, type) {}
 
   bool is_nested() const { return path.indices().size() > 1; }
@@ -784,8 +786,8 @@ struct ResolvedTableSortKey {
         chunks.push_back(std::move(child));
       }
 
-      return ResolvedTableSortKey(f.type->GetSharedPtr(), std::move(chunks), f.order, f.null_placement,
-                                  null_count);
+      return ResolvedTableSortKey(f.type->GetSharedPtr(), std::move(chunks), f.order,
+                                  f.null_placement, null_count);
     };
 
     return ::arrow::compute::internal::ResolveSortKeys<ResolvedTableSortKey>(

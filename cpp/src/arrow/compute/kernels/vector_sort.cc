@@ -748,7 +748,7 @@ class TableSorter {
         };
 
     ChunkedMergeImpl merge_impl(sort_keys_[0].null_placement, std::move(merge_nulls),
-                         std::move(merge_non_nulls));
+                                std::move(merge_non_nulls));
     RETURN_NOT_OK(merge_impl.Init(ctx_, table_.num_rows()));
 
     while (sorted->size() > 1) {
@@ -991,8 +991,8 @@ class SortIndicesMetaFunction : public MetaFunction {
     auto out_end = out_begin + length;
     std::iota(out_begin, out_end, 0);
 
-    RETURN_NOT_OK(SortChunkedArray(ctx, out_begin, out_end, chunked_array, order,
-                                   null_placement));
+    RETURN_NOT_OK(
+        SortChunkedArray(ctx, out_begin, out_end, chunked_array, order, null_placement));
     return Datum(out);
   }
 

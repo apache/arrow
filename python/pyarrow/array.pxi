@@ -4324,7 +4324,8 @@ cdef class StructArray(Array):
         if by is not None:
             tosort, sort_keys = self._flattened_field(by), [("", order)]
         else:
-            tosort, sort_keys = self, [(field.name, order, null_placement) for field in self.type]
+            tosort, sort_keys = self, [
+                (field.name, order, null_placement) for field in self.type]
         indices = _pc().sort_indices(
             tosort, options=_pc().SortOptions(sort_keys=sort_keys, **kwargs)
         )

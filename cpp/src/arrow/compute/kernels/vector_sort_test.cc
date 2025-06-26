@@ -1206,9 +1206,10 @@ TEST_F(TestRecordBatchSortIndices, NoNull) {
                                        ])");
 
   for (auto null_placement : AllNullPlacements()) {
-    SortOptions options(
-        {SortKey("a", SortOrder::Ascending, null_placement), SortKey("b", SortOrder::Descending, null_placement)},
-        null_placement);
+    SortOptions options({SortKey("a", SortOrder::Ascending, null_placement),
+                         SortKey("b", SortOrder::Descending, null_placement)},
+                        null_placement);
+
 
     AssertSortIndices(batch, options, "[3, 5, 1, 6, 4, 0, 2]");
   }
@@ -1253,8 +1254,9 @@ TEST_F(TestRecordBatchSortIndices, MixedNullOrdering) {
                                        {"a": 1,    "b": 5},
                                        {"a": 3,    "b": 5}
                                        ])");
-  const std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending, NullPlacement::AtEnd),
-                                       SortKey("b", SortOrder::Descending, NullPlacement::AtEnd)};
+  const std::vector<SortKey> sort_keys{
+      SortKey("a", SortOrder::Ascending, NullPlacement::AtEnd),
+      SortKey("b", SortOrder::Descending, NullPlacement::AtEnd)};
 
   SortOptions options(sort_keys, std::nullopt);
   AssertSortIndices(batch, options, "[5, 1, 4, 6, 2, 0, 3]");

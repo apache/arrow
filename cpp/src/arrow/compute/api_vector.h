@@ -123,11 +123,11 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
   // DEPRECATED(will be removed after null_placement has been removed)
   /// Get sort_keys with overwritten null_placement
   std::vector<SortKey> GetSortKeys() const {
-    if(!null_placement.has_value()){
+    if (!null_placement.has_value()){
       return sort_keys_;
     }
     auto overwritten_sort_keys = sort_keys_;
-    for(auto& sort_key : overwritten_sort_keys){
+    for (auto& sort_key : overwritten_sort_keys){
       sort_key.null_placement = null_placement.value();
     }
     return overwritten_sort_keys;
@@ -173,11 +173,10 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
 
-  // DEPRECATED(will be removed after null_placement has been removed from other SortOptions-like structs)
+  // DEPRECATED(will be removed after null_placement has been removed from other
+  // SortOptions-like structs)
   /// Get sort_keys
-  std::vector<SortKey> GetSortKeys() const{
-    return sort_keys;
-  }
+  std::vector<SortKey> GetSortKeys() const { return sort_keys; }
 };
 
 /// \brief Rank options
@@ -211,8 +210,7 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
       : RankOptions(std::move(sort_keys), std::nullopt, tiebreaker) {}
 
   /// Convenience constructor for array inputs
-  explicit RankOptions(SortOrder order,
-                       Tiebreaker tiebreaker = RankOptions::First)
+  explicit RankOptions(SortOrder order, Tiebreaker tiebreaker = RankOptions::First)
       : RankOptions({SortKey("", order)}, std::nullopt, tiebreaker) {}
 
   static constexpr char const kTypeName[] = "RankOptions";
@@ -224,11 +222,11 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
   // DEPRECATED(will be removed after null_placement has been removed)
   /// Get sort_keys with overwritten null_placement
   std::vector<SortKey> GetSortKeys() const {
-    if(!null_placement.has_value()){
+    if (!null_placement.has_value()){
       return sort_keys_;
     }
     auto overwritten_sort_keys = sort_keys_;
-    for(auto& sort_key : overwritten_sort_keys){
+    for (auto& sort_key : overwritten_sort_keys){
       sort_key.null_placement = null_placement.value();
     }
     return overwritten_sort_keys;
@@ -245,8 +243,10 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
 /// \brief Quantile rank options
 class ARROW_EXPORT RankQuantileOptions : public FunctionOptions {
  public:
-  explicit RankQuantileOptions(std::vector<SortKey> sort_keys = {},
-                               std::optional<NullPlacement> null_placement = std::nullopt);
+  explicit RankQuantileOptions(
+      std::vector<SortKey> sort_keys = {},
+      std::optional<NullPlacement> null_placement = std::nullopt);
+
   /// Convenience constructor for array inputs
   explicit RankQuantileOptions(SortOrder order,
                                std::optional<NullPlacement> null_placement = std::nullopt)
@@ -261,11 +261,11 @@ class ARROW_EXPORT RankQuantileOptions : public FunctionOptions {
   // DEPRECATED(will be removed after null_placement has been removed)
   /// Get sort_keys with overwritten null_placement
   std::vector<SortKey> GetSortKeys() const {
-    if(!null_placement.has_value()){
+    if (!null_placement.has_value()){
       return sort_keys_;
     }
     auto overwritten_sort_keys = sort_keys_;
-    for(auto& sort_key : overwritten_sort_keys){
+    for (auto& sort_key : overwritten_sort_keys){
       sort_key.null_placement = null_placement.value();
     }
     return overwritten_sort_keys;

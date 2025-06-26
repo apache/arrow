@@ -83,7 +83,8 @@ cdef vector[CSortKey] unwrap_sort_keys(sort_keys, allow_str=True):
     else:
         for name, order, null_placement in sort_keys:
             c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order), unwrap_null_placement(null_placement))
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(
+                    order), unwrap_null_placement(null_placement))
             )
     return c_sort_keys
 
