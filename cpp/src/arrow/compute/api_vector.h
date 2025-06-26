@@ -114,19 +114,19 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
   /// Note: Both classes contain the exact same information.  However,
   /// sort_options should only be used in a "function options" context while Ordering
   /// is used more generally.
-  Ordering AsOrdering() && { return Ordering(std::move(sort_keys_), null_placement); }
-  Ordering AsOrdering() const& { return Ordering(sort_keys_, null_placement); }
+  Ordering AsOrdering() && { return Ordering(std::move(sort_keys), null_placement); }
+  Ordering AsOrdering() const& { return Ordering(sort_keys, null_placement); }
 
   /// Column key(s) to order by and how to order by these sort keys.
-  std::vector<SortKey> sort_keys_;
+  std::vector<SortKey> sort_keys;
 
   // DEPRECATED(will be removed after null_placement has been removed)
   /// Get sort_keys with overwritten null_placement
   std::vector<SortKey> GetSortKeys() const {
     if (!null_placement.has_value()) {
-      return sort_keys_;
+      return sort_keys;
     }
-    auto overwritten_sort_keys = sort_keys_;
+    auto overwritten_sort_keys = sort_keys;
     for (auto& sort_key : overwritten_sort_keys) {
       sort_key.null_placement = null_placement.value();
     }
@@ -217,15 +217,15 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
   static RankOptions Defaults() { return RankOptions(); }
 
   /// Column key(s) to order by and how to order by these sort keys.
-  std::vector<SortKey> sort_keys_;
+  std::vector<SortKey> sort_keys;
 
   // DEPRECATED(will be removed after null_placement has been removed)
   /// Get sort_keys with overwritten null_placement
   std::vector<SortKey> GetSortKeys() const {
     if (!null_placement.has_value()) {
-      return sort_keys_;
+      return sort_keys;
     }
-    auto overwritten_sort_keys = sort_keys_;
+    auto overwritten_sort_keys = sort_keys;
     for (auto& sort_key : overwritten_sort_keys) {
       sort_key.null_placement = null_placement.value();
     }
@@ -256,15 +256,15 @@ class ARROW_EXPORT RankQuantileOptions : public FunctionOptions {
   static RankQuantileOptions Defaults() { return RankQuantileOptions(); }
 
   /// Column key(s) to order by and how to order by these sort keys.
-  std::vector<SortKey> sort_keys_;
+  std::vector<SortKey> sort_keys;
 
   // DEPRECATED(will be removed after null_placement has been removed)
   /// Get sort_keys with overwritten null_placement
   std::vector<SortKey> GetSortKeys() const {
     if (!null_placement.has_value()) {
-      return sort_keys_;
+      return sort_keys;
     }
-    auto overwritten_sort_keys = sort_keys_;
+    auto overwritten_sort_keys = sort_keys;
     for (auto& sort_key : overwritten_sort_keys) {
       sort_key.null_placement = null_placement.value();
     }

@@ -138,7 +138,7 @@ static auto kArraySortOptionsType = GetFunctionOptionsType<ArraySortOptions>(
     DataMember("order", &ArraySortOptions::order),
     DataMember("null_placement", &ArraySortOptions::null_placement));
 static auto kSortOptionsType = GetFunctionOptionsType<SortOptions>(
-    CoercedDataMember("sort_keys", &SortOptions::sort_keys_, &SortOptions::GetSortKeys));
+    CoercedDataMember("sort_keys", &SortOptions::sort_keys, &SortOptions::GetSortKeys));
 static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOptions>(
     DataMember("pivot", &PartitionNthOptions::pivot),
     DataMember("null_placement", &PartitionNthOptions::null_placement));
@@ -152,10 +152,10 @@ static auto kCumulativeOptionsType = GetFunctionOptionsType<CumulativeOptions>(
     DataMember("start", &CumulativeOptions::start),
     DataMember("skip_nulls", &CumulativeOptions::skip_nulls));
 static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
-    CoercedDataMember("sort_keys", &RankOptions::sort_keys_, &RankOptions::GetSortKeys),
+    CoercedDataMember("sort_keys", &RankOptions::sort_keys, &RankOptions::GetSortKeys),
     DataMember("tiebreaker", &RankOptions::tiebreaker));
 static auto kRankQuantileOptionsType = GetFunctionOptionsType<RankQuantileOptions>(
-    CoercedDataMember("sort_keys", &RankQuantileOptions::sort_keys_,
+    CoercedDataMember("sort_keys", &RankQuantileOptions::sort_keys,
                       &RankQuantileOptions::GetSortKeys));
 static auto kPairwiseOptionsType = GetFunctionOptionsType<PairwiseOptions>(
     DataMember("periods", &PairwiseOptions::periods));
@@ -197,11 +197,11 @@ constexpr char ArraySortOptions::kTypeName[];
 SortOptions::SortOptions(std::vector<SortKey> sort_keys,
                          std::optional<NullPlacement> null_placement)
     : FunctionOptions(internal::kSortOptionsType),
-      sort_keys_(std::move(sort_keys)),
+      sort_keys(std::move(sort_keys)),
       null_placement(null_placement) {}
 SortOptions::SortOptions(const Ordering& ordering)
     : FunctionOptions(internal::kSortOptionsType),
-      sort_keys_(ordering.sort_keys()),
+      sort_keys(ordering.sort_keys()),
       null_placement(ordering.null_placement()) {}
 constexpr char SortOptions::kTypeName[];
 
@@ -236,7 +236,7 @@ RankOptions::RankOptions(std::vector<SortKey> sort_keys,
                          std::optional<NullPlacement> null_placement,
                          RankOptions::Tiebreaker tiebreaker)
     : FunctionOptions(internal::kRankOptionsType),
-      sort_keys_(std::move(sort_keys)),
+      sort_keys(std::move(sort_keys)),
       null_placement(null_placement),
       tiebreaker(tiebreaker) {}
 constexpr char RankOptions::kTypeName[];
@@ -244,7 +244,7 @@ constexpr char RankOptions::kTypeName[];
 RankQuantileOptions::RankQuantileOptions(std::vector<SortKey> sort_keys,
                                          std::optional<NullPlacement> null_placement)
     : FunctionOptions(internal::kRankQuantileOptionsType),
-      sort_keys_(std::move(sort_keys)),
+      sort_keys(std::move(sort_keys)),
       null_placement(null_placement) {}
 constexpr char RankQuantileOptions::kTypeName[];
 

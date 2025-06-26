@@ -1033,7 +1033,7 @@ class SortIndicesMetaFunction : public MetaFunction {
 
   Result<Datum> SortIndices(const Table& table, const SortOptions& options,
                             ExecContext* ctx) const {
-    auto n_sort_keys = options.sort_keys_.size();
+    auto n_sort_keys = options.sort_keys.size();
     if (n_sort_keys == 0) {
       return Status::Invalid("Must specify one or more sort keys");
     }
@@ -1165,9 +1165,9 @@ Result<NullPartitionResult> SortStructArray(ExecContext* ctx, uint64_t* indices_
                                  std::move(columns));
 
   auto options = SortOptions::Defaults();
-  options.sort_keys_.reserve(array.num_fields());
+  options.sort_keys.reserve(array.num_fields());
   for (int i = 0; i < array.num_fields(); ++i) {
-    options.sort_keys_.push_back(SortKey(FieldRef(i), sort_order, null_placement));
+    options.sort_keys.push_back(SortKey(FieldRef(i), sort_order, null_placement));
   }
 
   ARROW_ASSIGN_OR_RAISE(auto sort_keys,
