@@ -20,7 +20,6 @@
 #include "arrow/matlab/array/proxy/array.h"
 
 #include "arrow/matlab/array/proxy/chunked_array.h"
-#include "arrow/matlab/array/proxy/wrap.h"
 
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/tabular/get_row_as_string.h"
