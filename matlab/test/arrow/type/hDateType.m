@@ -56,7 +56,7 @@ classdef hDateType < hFixedWidthType
 
             % Scalar arrays
             dateType1 = testCase.ConstructionFcn();
-            dateType2 = arrow.ConstructionFcn();
+            dateType2 = testCase.ConstructionFcn();
             testCase.verifyTrue(isequal(dateType1, dateType2));
 
             % Non-scalar arrays
@@ -74,7 +74,7 @@ classdef hDateType < hFixedWidthType
             % 2. All inputs have the same size.
 
             % Pass a different arrow.type.Type subclass to isequal.
-            dateType = testCase.ClassConstructorFcn();
+            dateType = testCase.ConstructionFcn();
             int32Type = arrow.int32();
             testCase.verifyFalse(isequal(dateType, int32Type));
             testCase.verifyFalse(isequal([dateType dateType], [int32Type int32Type]));
