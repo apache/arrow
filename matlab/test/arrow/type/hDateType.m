@@ -38,7 +38,7 @@ classdef hDateType < hFixedWidthType
 
         function InvalidProxy(testCase)
             % Verify that an error is thrown when a Proxy of an unexpected
-            % type is passed to construction method.
+            % type is passed to its constructor.
             array = arrow.array([1, 2, 3]);
             proxy = array.Proxy;
             testCase.verifyError(@() testCase.ClassConstructorFcn(proxy), "arrow:proxy:ProxyNameMismatch");
