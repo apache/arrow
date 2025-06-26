@@ -18,51 +18,13 @@
 classdef tDate64Type < hDateType
 
     properties
-        ConstructionFcn = @arrow.date64
         ArrowType = arrow.date64
         TypeID = arrow.type.ID.Date64
         BitWidth = int32(64)
         ClassName = "arrow.type.Date64Type"
         DefaultDateUnit = arrow.type.DateUnit.Millisecond
+        ConstructionFcn = @arrow.date64
         ClassConstructorFcn = @arrow.type.Date64Type
-    end
-
-    methods(Test)
-
-        function IsEqualTrue(testCase)
-            % Verifies isequal method of arrow.type.Date64Type returns true if
-            % these conditions are met:
-            %
-            % 1. All input arguments have a class type arrow.type.Date64Type
-            % 2. All inputs have the same size
-
-            % Scalar Date64Type arrays
-            date64Type1 = arrow.date64();
-            date64Type2 = arrow.date64();
-            testCase.verifyTrue(isequal(date64Type1, date64Type2));
-
-            % Non-scalar Date64Type arrays
-            typeArray1 = [date64Type1 date64Type1];
-            typeArray2 = [date64Type2 date64Type2];
-            testCase.verifyTrue(isequal(typeArray1, typeArray2));
-        end
-
-        function IsEqualFalse(testCase)
-            % Verifies the isequal method of arrow.type.Date64Type returns
-            % false when expected.
-
-            % Pass a different arrow.type.Type subclass to isequal
-            date64Type = arrow.date64();
-            int32Type = arrow.int32();
-            testCase.verifyFalse(isequal(date64Type, int32Type));
-            testCase.verifyFalse(isequal([date64Type date64Type], [int32Type int32Type]));
-
-            % Date64Type arrays have different sizes
-            typeArray1 = [date64Type date64Type];
-            typeArray2 = [date64Type date64Type]';
-            testCase.verifyFalse(isequal(typeArray1, typeArray2));
-        end
-
     end
 
 end
