@@ -87,7 +87,7 @@ std::string Ordering::ToString() const {
     ss << key.ToString();
   }
   ss << "]";
-  if (null_placement_.has_value()){
+  if (null_placement_.has_value()) {
     switch (null_placement_.value()) {
       case NullPlacement::AtEnd:
         ss << " nulls last";

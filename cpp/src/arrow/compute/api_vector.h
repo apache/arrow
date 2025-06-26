@@ -123,11 +123,11 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
   // DEPRECATED(will be removed after null_placement has been removed)
   /// Get sort_keys with overwritten null_placement
   std::vector<SortKey> GetSortKeys() const {
-    if (!null_placement.has_value()){
+    if (!null_placement.has_value()) {
       return sort_keys_;
     }
     auto overwritten_sort_keys = sort_keys_;
-    for (auto& sort_key : overwritten_sort_keys){
+    for (auto& sort_key : overwritten_sort_keys) {
       sort_key.null_placement = null_placement.value();
     }
     return overwritten_sort_keys;
@@ -222,11 +222,11 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
   // DEPRECATED(will be removed after null_placement has been removed)
   /// Get sort_keys with overwritten null_placement
   std::vector<SortKey> GetSortKeys() const {
-    if (!null_placement.has_value()){
+    if (!null_placement.has_value()) {
       return sort_keys_;
     }
     auto overwritten_sort_keys = sort_keys_;
-    for (auto& sort_key : overwritten_sort_keys){
+    for (auto& sort_key : overwritten_sort_keys) {
       sort_key.null_placement = null_placement.value();
     }
     return overwritten_sort_keys;
@@ -261,11 +261,11 @@ class ARROW_EXPORT RankQuantileOptions : public FunctionOptions {
   // DEPRECATED(will be removed after null_placement has been removed)
   /// Get sort_keys with overwritten null_placement
   std::vector<SortKey> GetSortKeys() const {
-    if (!null_placement.has_value()){
+    if (!null_placement.has_value()) {
       return sort_keys_;
     }
     auto overwritten_sort_keys = sort_keys_;
-    for (auto& sort_key : overwritten_sort_keys){
+    for (auto& sort_key : overwritten_sort_keys) {
       sort_key.null_placement = null_placement.value();
     }
     return overwritten_sort_keys;
