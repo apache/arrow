@@ -20,6 +20,7 @@ classdef hDateType < hFixedWidthType
 
     properties(Abstract)
         DefaultDateUnit(1, 1) arrow.type.DateUnit
+        ConstructionFcn
         ClassConstructorFcn
     end
 
@@ -43,6 +44,25 @@ classdef hDateType < hFixedWidthType
             array = arrow.array([1, 2, 3]);
             proxy = array.Proxy;
             testCase.verifyError(@() testCase.ClassConstructorFcn(proxy), "arrow:proxy:ProxyNameMismatch");
+        end
+
+        function IsEqualTrue(testCase)
+            % Verifies the isequal method returns true if both conditions
+            % listed below are satisfied:
+            %
+            % 1. All input arguments have the same class type (either
+            %       arrow.type.Date32Type or arrow.type.Date64Type).
+            % 2. All inputs have the same size.
+
+            % Scalar arrays
+            dateType1 = testCase.ConstructionFcn();
+            dateType2 = arrow.ConstructionFcn();
+            testCase.verifyTrue(isequal(dateType1, dateType2));
+
+            % Non-scalar arrays
+            typeArray1 = [dateType1 dateType1];
+            typeArray2 = [dateType2 dateType2];
+            testCase.verifyTrue(isequal(typeArray1, typeArray2));
         end
     end
 
