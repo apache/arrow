@@ -64,6 +64,27 @@ classdef hDateType < hFixedWidthType
             typeArray2 = [dateType2 dateType2];
             testCase.verifyTrue(isequal(typeArray1, typeArray2));
         end
+
+        function IsEqualFalse(testCase)
+            % Verifies the isequal method returns false when at least of
+            % these conditions is not satisfied:
+            %
+            % 1. All input arguments have the same class type (either
+            %       arrow.type.Date32Type or arrow.type.Date64Type).
+            % 2. All inputs have the same size.
+
+            % Pass a different arrow.type.Type subclass to isequal.
+            dateType = testCase.ClassConstructorFcn();
+            int32Type = arrow.int32();
+            testCase.verifyFalse(isequal(dateType, int32Type));
+            testCase.verifyFalse(isequal([dateType dateType], [int32Type int32Type]));
+
+            % The array sizes are not equal.
+            typeArray1 = [dateType dateType];
+            typeArray2 = [dateType dateType]';
+            testCase.verifyFalse(isequal(typeArray1, typeArray2));
+        end
+
     end
 
 end
