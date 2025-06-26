@@ -481,6 +481,7 @@ static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
   format::Statistics statistics;
   if (stats.has_min) {
     statistics.__set_min_value(stats.min());
+    statistics.__set_is_min_value_exact(stats.is_min_value_exact);
     // If the order is SIGNED, then the old min value must be set too.
     // This for backward compatibility
     if (stats.is_signed()) {
@@ -489,6 +490,7 @@ static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
   }
   if (stats.has_max) {
     statistics.__set_max_value(stats.max());
+    statistics.__set_is_max_value_exact(stats.is_max_value_exact);
     // If the order is SIGNED, then the old max value must be set too.
     // This for backward compatibility
     if (stats.is_signed()) {
