@@ -154,9 +154,9 @@ static auto kCumulativeOptionsType = GetFunctionOptionsType<CumulativeOptions>(
 static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
     CoercedDataMember("sort_keys", &RankOptions::sort_keys, &RankOptions::GetSortKeys),
     DataMember("tiebreaker", &RankOptions::tiebreaker));
-static auto kRankQuantileOptionsType = GetFunctionOptionsType<RankQuantileOptions>(
-    CoercedDataMember("sort_keys", &RankQuantileOptions::sort_keys,
-                      &RankQuantileOptions::GetSortKeys));
+static auto kRankQuantileOptionsType =
+    GetFunctionOptionsType<RankQuantileOptions>(CoercedDataMember(
+        "sort_keys", &RankQuantileOptions::sort_keys, &RankQuantileOptions::GetSortKeys));
 static auto kPairwiseOptionsType = GetFunctionOptionsType<PairwiseOptions>(
     DataMember("periods", &PairwiseOptions::periods));
 static auto kListFlattenOptionsType = GetFunctionOptionsType<ListFlattenOptions>(
