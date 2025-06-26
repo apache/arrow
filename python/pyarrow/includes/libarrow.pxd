@@ -2757,6 +2757,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CNullPlacement null_placement
 
     cdef cppclass CSortKey" arrow::compute::SortKey":
+        CSortKey(CFieldRef target, CSortOrder order)
         CSortKey(CFieldRef target, CSortOrder order, CNullPlacement null_placement)
         CFieldRef target
         CSortOrder order
@@ -2767,6 +2768,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CSortOptions \
             "arrow::compute::SortOptions"(CFunctionOptions):
+        CSortOptions(vector[CSortKey] sort_keys)
         CSortOptions(vector[CSortKey] sort_keys, CNullPlacement)
         vector[CSortKey] sort_keys
         optional[CNullPlacement] null_placement
