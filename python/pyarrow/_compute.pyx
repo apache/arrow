@@ -78,7 +78,8 @@ cdef vector[CSortKey] unwrap_sort_keys(sort_keys, allow_str=True):
     cdef vector[CSortKey] c_sort_keys
     if allow_str and isinstance(sort_keys, str):
         c_sort_keys.push_back(
-            CSortKey(_ensure_field_ref(""), unwrap_sort_order(sort_keys))
+            CSortKey(_ensure_field_ref(name), unwrap_sort_order(order),
+            unwrap_null_placement(null_placement))
         )
     else:
         for name, order, null_placement in sort_keys:
