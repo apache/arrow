@@ -1050,29 +1050,123 @@ function(build_boost)
   message(STATUS "Building from source")
 
   fetchcontent_declare(boost
-                       ${FC_DECLARE_COMMON_OPTIONS}
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
                        URL ${BOOST_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}")
 
   prepare_fetchcontent()
-
   set(BOOST_ENABLE_COMPATIBILITY_TARGETS ON)
-  set(BOOST_SKIP_INSTALL_RULES ON)
-  set(BOOST_INCLUDE_LIBRARIES ${ARROW_BOOST_COMPONENTS}
-                              ${ARROW_BOOST_OPTIONAL_COMPONENTS})
+  set(BOOST_EXCLUDE_LIBRARIES)
+  set(BOOST_INCLUDE_LIBRARIES
+      ${ARROW_BOOST_COMPONENTS}
+      ${ARROW_BOOST_OPTIONAL_COMPONENTS}
+      algorithm
+      crc
+      numeric/conversion
+      scope_exit
+      throw_exception
+      tokenizer)
+  if(ARROW_TESTING
+     OR ARROW_GANDIVA
+     OR (NOT ARROW_USE_NATIVE_INT128))
+    set(ARROW_BOOST_NEED_MULTIPRECISION TRUE)
+  else()
+    set(ARROW_BOOST_NEED_MULTIPRECISION FALSE)
+  endif()
+  if(ARROW_ENABLE_THREADING)
+    if(ARROW_WITH_THRIFT OR (ARROW_FLIGHT_SQL_ODBC AND MSVC))
+      list(APPEND BOOST_INCLUDE_LIBRARIES locale)
+    endif()
+    if(ARROW_BOOST_NEED_MULTIPRECISION)
+      list(APPEND BOOST_INCLUDE_LIBRARIES multiprecision)
+    endif()
+    list(APPEND BOOST_INCLUDE_LIBRARIES thread)
+  else()
+    list(APPEND
+         BOOST_EXCLUDE_LIBRARIES
+         asio
+         container
+         date_time
+         lexical_cast
+         locale
+         lockfree
+         math
+         thread)
+  endif()
   if(ARROW_WITH_THRIFT)
     list(APPEND BOOST_INCLUDE_LIBRARIES uuid)
   endif()
+  set(BOOST_SKIP_INSTALL_RULES ON)
+  if(NOT ARROW_ENABLE_THREADING)
+    set(BOOST_UUID_LINK_LIBATOMIC OFF)
+  endif()
+  if(MSVC)
+    string(APPEND CMAKE_C_FLAGS " /EHsc")
+    string(APPEND CMAKE_CXX_FLAGS " /EHsc")
+  else()
+    # This is for https://github.com/boostorg/container/issues/305
+    string(APPEND CMAKE_C_FLAGS " -Wno-strict-prototypes")
+  endif()
+  set(CMAKE_UNITY_BUILD OFF)
 
   fetchcontent_makeavailable(boost)
 
+  set(boost_include_dirs)
   foreach(library ${BOOST_INCLUDE_LIBRARIES})
-    target_link_libraries(boost_${library} INTERFACE Boost::disable_autolinking)
+    # boost_numeric/conversion ->
+    # boost_numeric_conversion
+    string(REPLACE "/" "_" target_name "boost_${library}")
+    target_link_libraries(${target_name} INTERFACE Boost::disable_autolinking)
+    list(APPEND boost_include_dirs
+         $<TARGET_PROPERTY:${target_name},INTERFACE_INCLUDE_DIRECTORIES>)
   endforeach()
+  target_link_libraries(boost_headers
+                        INTERFACE Boost::algorithm
+                                  Boost::crc
+                                  Boost::numeric_conversion
+                                  Boost::scope_exit
+                                  Boost::throw_exception
+                                  Boost::tokenizer)
+  target_compile_definitions(boost_mpl INTERFACE "BOOST_MPL_CFG_NO_PREPROCESSED_HEADERS")
 
+  if(ARROW_BOOST_NEED_MULTIPRECISION)
+    if(ARROW_ENABLE_THREADING)
+      target_link_libraries(boost_headers INTERFACE Boost::multiprecision)
+    else()
+      # We want to use Boost.multiprecision as standalone mode
+      # without threading because non-standalone mode requires
+      # threading. We can't use BOOST_MP_STANDALONE CMake variable for
+      # this with Boost CMake build. So we create our CMake target for
+      # it.
+      add_library(arrow::Boost::multiprecision INTERFACE IMPORTED)
+      target_include_directories(arrow::Boost::multiprecision
+                                 INTERFACE "${boost_SOURCE_DIR}/libs/multiprecision/include"
+      )
+      target_compile_definitions(arrow::Boost::multiprecision
+                                 INTERFACE BOOST_MP_STANDALONE=1)
+      target_link_libraries(boost_headers INTERFACE arrow::Boost::multiprecision)
+    endif()
+  endif()
+  if(ARROW_WITH_THRIFT)
+    if(ARROW_ENABLE_THREADING)
+      add_library(arrow::Boost::locale ALIAS boost_locale)
+    else()
+      # Apache Parquet depends on Apache Thrift.
+      # Apache Thrift uses Boost.locale but it only uses header files.
+      # So we can use this for building Apache Thrift.
+      add_library(arrow::Boost::locale INTERFACE IMPORTED)
+      target_include_directories(arrow::Boost::locale
+                                 INTERFACE "${boost_SOURCE_DIR}/libs/locale/include")
+    endif()
+  endif()
+
+  set(Boost_INCLUDE_DIRS
+      ${boost_include_dirs}
+      PARENT_SCOPE)
   set(BOOST_VENDORED
       TRUE
       PARENT_SCOPE)
+
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
@@ -1167,7 +1261,9 @@ if(ARROW_USE_BOOST)
     if(ARROW_FLIGHT_SQL_ODBC AND MSVC)
       list(APPEND ARROW_BOOST_COMPONENTS locale)
     endif()
-    set(ARROW_BOOST_OPTIONAL_COMPONENTS process)
+    if(ARROW_ENABLE_THREADING)
+      set(ARROW_BOOST_OPTIONAL_COMPONENTS process)
+    endif()
   else()
     set(ARROW_BOOST_COMPONENTS)
     set(ARROW_BOOST_OPTIONAL_COMPONENTS)
@@ -1200,55 +1296,58 @@ if(ARROW_USE_BOOST)
     endforeach()
   endif()
 
-  set(BOOST_PROCESS_HAVE_V2 FALSE)
-  if(TARGET Boost::process)
-    # Boost >= 1.86
-    add_library(arrow::Boost::process INTERFACE IMPORTED)
-    target_link_libraries(arrow::Boost::process INTERFACE Boost::process)
-    target_compile_definitions(arrow::Boost::process INTERFACE "BOOST_PROCESS_HAVE_V1")
-    target_compile_definitions(arrow::Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
-    set(BOOST_PROCESS_HAVE_V2 TRUE)
-  else()
-    # Boost < 1.86
-    add_library(arrow::Boost::process INTERFACE IMPORTED)
-    if(TARGET Boost::filesystem)
-      target_link_libraries(arrow::Boost::process INTERFACE Boost::filesystem)
-    endif()
-    if(TARGET Boost::system)
-      target_link_libraries(arrow::Boost::process INTERFACE Boost::system)
-    endif()
-    if(TARGET Boost::headers)
-      target_link_libraries(arrow::Boost::process INTERFACE Boost::headers)
-    endif()
-    if(Boost_VERSION VERSION_GREATER_EQUAL 1.80)
+  if(ARROW_ENABLE_THREADING)
+    set(BOOST_PROCESS_HAVE_V2 FALSE)
+    if(TARGET Boost::process)
+      # Boost >= 1.86
+      add_library(arrow::Boost::process INTERFACE IMPORTED)
+      target_link_libraries(arrow::Boost::process INTERFACE Boost::process)
+      target_compile_definitions(arrow::Boost::process INTERFACE "BOOST_PROCESS_HAVE_V1")
       target_compile_definitions(arrow::Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
       set(BOOST_PROCESS_HAVE_V2 TRUE)
-      # Boost < 1.86 has a bug that
-      # boost::process::v2::process_environment::on_setup() isn't
-      # defined. We need to build Boost Process source to define it.
-      #
-      # See also:
-      # https://github.com/boostorg/process/issues/312
-      target_compile_definitions(arrow::Boost::process
-                                 INTERFACE "BOOST_PROCESS_NEED_SOURCE")
-      if(WIN32)
-        target_link_libraries(arrow::Boost::process INTERFACE bcrypt ntdll)
+    else()
+      # Boost < 1.86
+      add_library(arrow::Boost::process INTERFACE IMPORTED)
+      if(TARGET Boost::filesystem)
+        target_link_libraries(arrow::Boost::process INTERFACE Boost::filesystem)
+      endif()
+      if(TARGET Boost::system)
+        target_link_libraries(arrow::Boost::process INTERFACE Boost::system)
+      endif()
+      if(TARGET Boost::headers)
+        target_link_libraries(arrow::Boost::process INTERFACE Boost::headers)
+      endif()
+      if(Boost_VERSION VERSION_GREATER_EQUAL 1.80)
+        target_compile_definitions(arrow::Boost::process
+                                   INTERFACE "BOOST_PROCESS_HAVE_V2")
+        set(BOOST_PROCESS_HAVE_V2 TRUE)
+        # Boost < 1.86 has a bug that
+        # boost::process::v2::process_environment::on_setup() isn't
+        # defined. We need to build Boost Process source to define it.
+        #
+        # See also:
+        # https://github.com/boostorg/process/issues/312
+        target_compile_definitions(arrow::Boost::process
+                                   INTERFACE "BOOST_PROCESS_NEED_SOURCE")
+        if(WIN32)
+          target_link_libraries(arrow::Boost::process INTERFACE bcrypt ntdll)
+        endif()
       endif()
     endif()
-  endif()
-  if(BOOST_PROCESS_HAVE_V2
-     AND # We can't use v2 API on Windows because v2 API doesn't support
-         # process group[1] and GCS testbench uses multiple processes[2].
-         #
-         # [1] https://github.com/boostorg/process/issues/259
-         # [2] https://github.com/googleapis/storage-testbench/issues/669
-         (NOT WIN32)
-     AND # We can't use v2 API with musl libc with Boost Process < 1.86
-         # because Boost Process < 1.86 doesn't support musl libc[3].
-         #
-         # [3] https://github.com/boostorg/process/commit/aea22dbf6be1695ceb42367590b6ca34d9433500
-         (NOT (ARROW_WITH_MUSL AND (Boost_VERSION VERSION_LESS 1.86))))
-    target_compile_definitions(arrow::Boost::process INTERFACE "BOOST_PROCESS_USE_V2")
+    if(BOOST_PROCESS_HAVE_V2
+       AND # We can't use v2 API on Windows because v2 API doesn't support
+           # process group[1] and GCS testbench uses multiple processes[2].
+           #
+           # [1] https://github.com/boostorg/process/issues/259
+           # [2] https://github.com/googleapis/storage-testbench/issues/669
+           (NOT WIN32)
+       AND # We can't use v2 API with musl libc with Boost Process < 1.86
+           # because Boost Process < 1.86 doesn't support musl libc[3].
+           #
+           # [3] https://github.com/boostorg/process/commit/aea22dbf6be1695ceb42367590b6ca34d9433500
+           (NOT (ARROW_WITH_MUSL AND (Boost_VERSION VERSION_LESS 1.86))))
+      target_compile_definitions(arrow::Boost::process INTERFACE "BOOST_PROCESS_USE_V2")
+    endif()
   endif()
 
   message(STATUS "Boost include dir: ${Boost_INCLUDE_DIRS}")
@@ -1630,102 +1729,77 @@ endif()
 # ----------------------------------------------------------------------
 # Thrift
 
-macro(build_thrift)
-  message(STATUS "Building Apache Thrift from source")
-  set(THRIFT_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/thrift_ep-install")
-  set(THRIFT_INCLUDE_DIR "${THRIFT_PREFIX}/include")
-  set(THRIFT_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      "-DCMAKE_INSTALL_PREFIX=${THRIFT_PREFIX}"
-      "-DCMAKE_INSTALL_RPATH=${THRIFT_PREFIX}/lib"
-      # Work around https://gitlab.kitware.com/cmake/cmake/issues/18865
-      -DBoost_NO_BOOST_CMAKE=ON
-      -DBUILD_COMPILER=OFF
-      -DBUILD_EXAMPLES=OFF
-      -DBUILD_TUTORIALS=OFF
-      -DCMAKE_DEBUG_POSTFIX=
-      -DWITH_AS3=OFF
-      -DWITH_CPP=ON
-      -DWITH_C_GLIB=OFF
-      -DWITH_JAVA=OFF
-      -DWITH_JAVASCRIPT=OFF
-      -DWITH_LIBEVENT=OFF
-      -DWITH_NODEJS=OFF
-      -DWITH_PYTHON=OFF
-      -DWITH_QT5=OFF
-      -DWITH_ZLIB=OFF)
+function(build_thrift)
+  list(APPEND CMAKE_MESSAGE_INDENT "Thrift: ")
+  message(STATUS "Building from source")
 
-  # Thrift also uses boost. Forward important boost settings if there were ones passed.
-  if(DEFINED BOOST_ROOT)
-    list(APPEND THRIFT_CMAKE_ARGS "-DBOOST_ROOT=${BOOST_ROOT}")
+  if(CMAKE_VERSION VERSION_LESS 3.26)
+    message(FATAL_ERROR "Require CMake 3.26 or later for building bundled Apache Thrift")
   endif()
-  list(APPEND
-       THRIFT_CMAKE_ARGS
-       "-DBoost_INCLUDE_DIR=$<TARGET_PROPERTY:Boost::headers,INTERFACE_INCLUDE_DIRECTORIES>"
-  )
-  if(DEFINED Boost_NAMESPACE)
-    list(APPEND THRIFT_CMAKE_ARGS "-DBoost_NAMESPACE=${Boost_NAMESPACE}")
-  endif()
+  fetchcontent_declare(thrift
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${THRIFT_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}")
 
+  prepare_fetchcontent()
+  set(BUILD_COMPILER OFF)
+  set(BUILD_EXAMPLES OFF)
+  set(BUILD_TUTORIALS OFF)
+  set(CMAKE_UNITY_BUILD OFF)
+  set(WITH_AS3 OFF)
+  set(WITH_CPP ON)
+  set(WITH_C_GLIB OFF)
+  set(WITH_JAVA OFF)
+  set(WITH_JAVASCRIPT OFF)
+  set(WITH_LIBEVENT OFF)
   if(MSVC)
     if(ARROW_USE_STATIC_CRT)
-      set(THRIFT_LIB_SUFFIX "mt")
-      list(APPEND THRIFT_CMAKE_ARGS "-DWITH_MT=ON")
+      set(WITH_MT ON)
     else()
-      set(THRIFT_LIB_SUFFIX "md")
-      list(APPEND THRIFT_CMAKE_ARGS "-DWITH_MT=OFF")
+      set(WITH_MT OFF)
     endif()
-    # NOTE(amoeba): When you bump Thrift to >=0.21.0, change bin to lib
-    set(THRIFT_LIB
-        "${THRIFT_PREFIX}/bin/${CMAKE_IMPORT_LIBRARY_PREFIX}thrift${THRIFT_LIB_SUFFIX}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
-    )
-  else()
-    set(THRIFT_LIB
-        "${THRIFT_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}thrift${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
+  endif()
+  set(WITH_NODEJS OFF)
+  set(WITH_PYTHON OFF)
+  set(WITH_QT5 OFF)
+  set(WITH_ZLIB OFF)
+
+  # Remove Apache Arrow's CMAKE_MODULE_PATH to ensure using Apache
+  # Thrift's cmake_modules/.
+  #
+  # We can remove this once https://github.com/apache/thrift/pull/3176
+  # is merged.
+  list(POP_FRONT CMAKE_MODULE_PATH)
+  fetchcontent_makeavailable(thrift)
+
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${thrift_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
 
+  target_include_directories(thrift
+                             INTERFACE $<BUILD_LOCAL_INTERFACE:${thrift_BINARY_DIR}>
+                                       $<BUILD_LOCAL_INTERFACE:${thrift_SOURCE_DIR}/lib/cpp/src>
+  )
   if(BOOST_VENDORED)
-    set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} Boost::headers)
+    target_link_libraries(thrift PUBLIC $<BUILD_LOCAL_INTERFACE:Boost::headers>)
+    target_link_libraries(thrift PRIVATE $<BUILD_LOCAL_INTERFACE:arrow::Boost::locale>)
   endif()
 
-  set(THRIFT_PATCH_COMMAND)
-  if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 15.0)
-    # Thrift 0.21.0 doesn't support GCC 15.
-    # https://github.com/apache/arrow/issues/45096
-    # https://github.com/apache/thrift/pull/3078
-    find_program(PATCH patch REQUIRED)
-    list(APPEND
-         THRIFT_PATCH_COMMAND
-         ${PATCH}
-         -p1
-         -i
-         ${CMAKE_CURRENT_LIST_DIR}/thrift-cstdint.patch)
-  endif()
+  add_library(thrift::thrift INTERFACE IMPORTED)
+  target_link_libraries(thrift::thrift INTERFACE thrift)
 
-  externalproject_add(thrift_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${THRIFT_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS "${THRIFT_LIB}"
-                      CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
-                      DEPENDS ${THRIFT_DEPENDENCIES}
-                      PATCH_COMMAND ${THRIFT_PATCH_COMMAND})
+  set(Thrift_VERSION
+      ${ARROW_THRIFT_BUILD_VERSION}
+      PARENT_SCOPE)
+  set(THRIFT_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} thrift
+      PARENT_SCOPE)
 
-  add_library(thrift::thrift STATIC IMPORTED)
-  # The include directory must exist before it is referenced by a target.
-  file(MAKE_DIRECTORY "${THRIFT_INCLUDE_DIR}")
-  set_target_properties(thrift::thrift PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}")
-  target_include_directories(thrift::thrift BEFORE INTERFACE "${THRIFT_INCLUDE_DIR}")
-  if(ARROW_USE_BOOST)
-    target_link_libraries(thrift::thrift INTERFACE Boost::headers)
-  endif()
-  add_dependencies(thrift::thrift thrift_ep)
-  set(Thrift_VERSION ${ARROW_THRIFT_BUILD_VERSION})
-  set(THRIFT_VENDORED TRUE)
-
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS thrift::thrift)
-endmacro()
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_THRIFT)
   # Thrift C++ code generated by 0.13 requires 0.11 or greater
@@ -2580,9 +2654,8 @@ function(build_lz4)
 
   # Add to bundled static libs.
   # We must use lz4_static (not imported target) not LZ4::lz4 (imported target).
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS lz4_static)
   set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS}
+      ${ARROW_BUNDLED_STATIC_LIBS} lz4_static
       PARENT_SCOPE)
 endfunction()
 
@@ -5151,9 +5224,8 @@ function(build_awssdk)
   set(AWSSDK_VENDORED
       TRUE
       PARENT_SCOPE)
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${AWSSDK_LINK_LIBRARIES})
   set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS}
+      ${ARROW_BUNDLED_STATIC_LIBS} ${AWSSDK_LINK_LIBRARIES}
       PARENT_SCOPE)
   set(AWSSDK_LINK_LIBRARIES
       ${AWSSDK_LINK_LIBRARIES}
@@ -5219,15 +5291,13 @@ function(build_azure_sdk)
   set(AZURE_SDK_VENDORED
       TRUE
       PARENT_SCOPE)
-  list(APPEND
-       ARROW_BUNDLED_STATIC_LIBS
-       Azure::azure-core
-       Azure::azure-identity
-       Azure::azure-storage-blobs
-       Azure::azure-storage-common
-       Azure::azure-storage-files-datalake)
   set(ARROW_BUNDLED_STATIC_LIBS
       ${ARROW_BUNDLED_STATIC_LIBS}
+      Azure::azure-core
+      Azure::azure-identity
+      Azure::azure-storage-blobs
+      Azure::azure-storage-common
+      Azure::azure-storage-files-datalake
       PARENT_SCOPE)
 endfunction()
 
