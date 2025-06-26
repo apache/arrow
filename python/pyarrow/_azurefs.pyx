@@ -129,30 +129,24 @@ cdef class AzureFileSystem(FileSystem):
             raise ValueError("Cannot specify both account_key and sas_token.")
 
         if (tenant_id or client_id or client_secret):
-            if tenant_id and client_id and client_secret:
+            if not client_id:
+                raise ValueError("client_id must be specified")
+            if not tenant_id and not client_secret:
+                options.ConfigureManagedIdentityCredential(tobytes(client_id))
+                self.client_id = tobytes(client_id)
+            elif tenant_id and client_secret:
                 options.ConfigureClientSecretCredential(
                     tobytes(tenant_id), tobytes(client_id), tobytes(client_secret)
                 )
                 self.tenant_id = tobytes(tenant_id)
                 self.client_id = tobytes(client_id)
                 self.client_secret = tobytes(client_secret)
-            elif client_id and not tenant_id and not client_secret:
-                options.ConfigureManagedIdentityCredential(tobytes(client_id))
-                self.client_id = tobytes(client_id)
-            elif not client_id:
-                raise ValueError(
-                    "client_id must be specified for both ClientSecretCredential and ManagedIdentityCredential. "
-                    "For ClientSecretCredential, provide tenant_id, client_id, and client_secret. "
-                    "For ManagedIdentityCredential, provide only client_id."
-                )
             else:
-                if client_id and (tenant_id or client_secret):
-                    raise ValueError(
-                        "Ambiguous Azure credential configuration: "
-                        "You provided client_id and one of tenant_id or client_secret. "
-                        "For ClientSecretCredential, provide tenant_id, client_id, and client_secret. "
-                        "For ManagedIdentityCredential, provide only client_id."
-                    )
+                raise ValueError(
+                    "Invalid Azure credential configuration: "
+                    "For ManagedIdentityCredential, provide only client_id. "
+                    "For ClientSecretCredential, provide tenant_id, client_id, and client_secret."
+                )
         elif account_key:
             options.ConfigureAccountKeyCredential(tobytes(account_key))
             self.account_key = tobytes(account_key)

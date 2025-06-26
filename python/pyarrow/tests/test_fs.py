@@ -1496,20 +1496,6 @@ def test_azurefs_options(pickle_module):
     with pytest.raises(ValueError, match="client_id must be specified"):
         AzureFileSystem(
             account_name='fake-account-name',
-            tenant_id='fake-tenant-id',
-            client_secret='fake-client-secret'
-        )
-
-    ambiguous_msg = (
-        "Ambiguous Azure credential configuration: "
-        "You provided client_id and one of tenant_id or client_secret. "
-        "For ClientSecretCredential, provide tenant_id, client_id, and client_secret. "
-        "For ManagedIdentityCredential, provide only client_id."
-    )
-
-    with pytest.raises(ValueError, match="client_id must be specified"):
-        AzureFileSystem(
-            account_name='fake-account-name',
             tenant_id='fake-tenant-id'
         )
 
@@ -1519,7 +1505,13 @@ def test_azurefs_options(pickle_module):
             client_secret='fake-client-secret'
         )
 
-    with pytest.raises(ValueError, match=ambiguous_msg):
+    invalid_msg = (
+        "Invalid Azure credential configuration: "
+        "For ManagedIdentityCredential, provide only client_id. "
+        "For ClientSecretCredential, provide tenant_id, client_id, and client_secret."
+    )
+
+    with pytest.raises(ValueError, match=invalid_msg):
         AzureFileSystem(
             account_name='fake-account-name',
             client_id='fake-client-id',
@@ -1533,7 +1525,7 @@ def test_azurefs_options(pickle_module):
             client_secret='fake-client-secret'
         )
 
-    with pytest.raises(ValueError, match=ambiguous_msg):
+    with pytest.raises(ValueError, match=invalid_msg):
         AzureFileSystem(
             account_name='fake-account-name',
             tenant_id='fake-tenant-id',
