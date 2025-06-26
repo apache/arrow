@@ -2393,7 +2393,8 @@ cdef class _RankOptions(FunctionOptions):
             self.wrapped.reset(
                 new CRankOptions(
                     unwrap_sort_keys(sort_keys),
-                    unwrap_null_placement(null_placement) if null_placement is not None else None,
+                    unwrap_null_placement(
+                        null_placement) if null_placement is not None else None,
                     self._tiebreaker_map[tiebreaker]
                 )
             )
@@ -2442,7 +2443,8 @@ cdef class _RankQuantileOptions(FunctionOptions):
         self.wrapped.reset(
             new CRankQuantileOptions(
                 unwrap_sort_keys(sort_keys),
-                unwrap_null_placement(null_placement) if null_placement is not None else None
+                unwrap_null_placement(
+                    null_placement) if null_placement is not None else None
             )
         )
 
