@@ -688,7 +688,7 @@ namespace {
 void SortBy(std::vector<std::string> names, Datum* aggregated_and_grouped) {
   SortOptions options;
   for (auto&& name : names) {
-    options.sort_keys.emplace_back(std::move(name), SortOrder::Ascending);
+    options.sort_keys_.emplace_back(std::move(name), SortOrder::Ascending);
   }
 
   ASSERT_OK_AND_ASSIGN(
