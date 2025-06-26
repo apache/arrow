@@ -476,7 +476,7 @@ struct OrderBySinkNode final : public SinkNode {
   }
 
   static Status ValidateOrderByOptions(const OrderBySinkNodeOptions& options) {
-    if (options.sort_options.sort_keys.empty()) {
+    if (options.sort_options.sort_keys_.empty()) {
       return Status::Invalid("At least one sort key should be specified");
     }
     return ValidateCommonOrderOptions(options);
