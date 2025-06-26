@@ -156,10 +156,14 @@ class PARQUET_EXPORT EncodedStatistics {
     if (max_.length() > length) {
       has_max = false;
       max_.clear();
+      has_is_max_value_exact = false;
+      is_max_value_exact = false;
     }
     if (min_.length() > length) {
       has_min = false;
       min_.clear();
+      has_is_min_value_exact = false;
+      is_min_value_exact = false;
     }
   }
 
@@ -276,6 +280,18 @@ class PARQUET_EXPORT Statistics {
 
   /// \brief Plain-encoded maximum value
   virtual std::string EncodeMax() const = 0;
+
+  /// \brief Return true if the minimum value exact value is set
+  virtual bool HasIsMinValueExact() const = 0;
+
+  /// \brief Return true if the minimum value is exact, there was no truncation.
+  virtual bool is_min_value_exact() const = 0;
+
+  /// \brief Return true if the maximum value exact value is set
+  virtual bool HasIsMaxValueExact() const = 0;
+
+  /// \brief Return true if the maximum value is exact, there was no truncation.
+  virtual bool is_max_value_exact() const = 0;
 
   /// \brief The finalized encoded form of the statistics for transport
   virtual EncodedStatistics Encode() = 0;
