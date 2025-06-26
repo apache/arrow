@@ -2170,7 +2170,7 @@ cdef class _SortOptions(FunctionOptions):
     def _set_options(self, sort_keys, null_placement):
         if null_placement is None:
             self.wrapped.reset(new CSortOptions(
-               unwrap_sort_keys(sort_keys, allow_str=False)))
+                unwrap_sort_keys(sort_keys, allow_str=False)))
         else:
             self.wrapped.reset(new CSortOptions(
                 unwrap_sort_keys(sort_keys, allow_str=False),
