@@ -1233,9 +1233,9 @@ TEST_F(TestRecordBatchSortIndices, Null) {
 
   SortOptions options(sort_keys);
   AssertSortIndices(batch, options, "[5, 1, 4, 6, 2, 0, 3]");
-  options.sort_keys_[0].null_placement = NullPlacement::AtStart;
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
   AssertSortIndices(batch, options, "[0, 3, 5, 1, 4, 6, 2]");
-  options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(batch, options, "[3, 0, 5, 1, 4, 2, 6]");
 }
 
@@ -1260,10 +1260,10 @@ TEST_F(TestRecordBatchSortIndices, MixedNullOrdering) {
   SortOptions options(sort_keys, std::nullopt);
   AssertSortIndices(batch, options, "[5, 1, 4, 6, 2, 0, 3]");
 
-  options.sort_keys_.at(0).null_placement = NullPlacement::AtStart;
+  options.sort_keys.at(0).null_placement = NullPlacement::AtStart;
   AssertSortIndices(batch, options, "[0, 3, 5, 1, 4, 6, 2]");
 
-  options.sort_keys_.at(1).null_placement = NullPlacement::AtStart;
+  options.sort_keys.at(1).null_placement = NullPlacement::AtStart;
   AssertSortIndices(batch, options, "[3, 0, 5, 1, 4, 2, 6]");
 }
 
@@ -1287,9 +1287,9 @@ TEST_F(TestRecordBatchSortIndices, NaN) {
 
   SortOptions options(sort_keys);
   AssertSortIndices(batch, options, "[3, 7, 1, 0, 2, 4, 6, 5]");
-  options.sort_keys_[0].null_placement = NullPlacement::AtStart;
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
   AssertSortIndices(batch, options, "[4, 6, 5, 3, 7, 1, 0, 2]");
-  options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(batch, options, "[5, 4, 6, 3, 1, 7, 0, 2]");
 }
 
@@ -1313,9 +1313,9 @@ TEST_F(TestRecordBatchSortIndices, NaNAndNull) {
 
   SortOptions options(sort_keys);
   AssertSortIndices(batch, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
-  options.sort_keys_[0].null_placement = NullPlacement::AtStart;
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
   AssertSortIndices(batch, options, "[0, 3, 6, 5, 4, 7, 1, 2]");
-  options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(batch, options, "[3, 0, 4, 5, 6, 7, 1, 2]");
 }
 
@@ -1339,9 +1339,9 @@ TEST_F(TestRecordBatchSortIndices, Boolean) {
 
   SortOptions options(sort_keys);
   AssertSortIndices(batch, options, "[3, 1, 6, 2, 4, 0, 7, 5]");
-  options.sort_keys_[0].null_placement = NullPlacement::AtStart;
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
   AssertSortIndices(batch, options, "[7, 5, 3, 1, 6, 2, 4, 0]");
-  options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(batch, options, "[7, 5, 1, 6, 3, 0, 2, 4]");
 }
 
@@ -1366,7 +1366,7 @@ TEST_F(TestRecordBatchSortIndices, MoreTypes) {
   for (auto null_placement : AllNullPlacements()) {
     SortOptions options(sort_keys);
     for (size_t i = 0; i < sort_keys.size(); i++) {
-      options.sort_keys_[i].null_placement = null_placement;
+      options.sort_keys[i].null_placement = null_placement;
     }
     AssertSortIndices(batch, options, "[3, 5, 1, 4, 0, 2]");
   }
@@ -1389,9 +1389,9 @@ TEST_F(TestRecordBatchSortIndices, Decimal) {
 
   SortOptions options(sort_keys);
   AssertSortIndices(batch, options, "[4, 3, 0, 2, 1]");
-  options.sort_keys_[0].null_placement = NullPlacement::AtStart;
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
   AssertSortIndices(batch, options, "[4, 3, 0, 2, 1]");
-  options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(batch, options, "[3, 4, 0, 2, 1]");
 }
 
@@ -1471,9 +1471,9 @@ TEST_F(TestRecordBatchSortIndices, DuplicateSortKeys) {
 
   SortOptions options(sort_keys);
   AssertSortIndices(batch, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
-  options.sort_keys_[0].null_placement = NullPlacement::AtStart;
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
   AssertSortIndices(batch, options, "[0, 3, 6, 5, 4, 7, 1, 2]");
-  options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(batch, options, "[3, 0, 4, 5, 6, 7, 1, 2]");
 }
 
@@ -1494,10 +1494,10 @@ TEST_F(TestTableSortIndices, EmptyTable) {
   SortOptions options(sort_keys);
   AssertSortIndices(table, options, "[]");
   AssertSortIndices(chunked_table, options, "[]");
-  options.sort_keys_[0].null_placement = NullPlacement::AtStart;
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[]");
   AssertSortIndices(chunked_table, options, "[]");
-  options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[]");
   AssertSortIndices(chunked_table, options, "[]");
 }
@@ -1541,9 +1541,9 @@ TEST_F(TestTableSortIndices, Null) {
                                     ])"});
   SortOptions options(sort_keys);
   AssertSortIndices(table, options, "[5, 1, 4, 6, 2, 0, 3]");
-  options.sort_keys_[0].null_placement = NullPlacement::AtStart;
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[0, 3, 5, 1, 4, 6, 2]");
-  options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[3, 0, 5, 1, 4, 2, 6]");
 
   // Same data, several chunks
@@ -1556,12 +1556,12 @@ TEST_F(TestTableSortIndices, Null) {
                                      {"a": 1,    "b": 5},
                                      {"a": 3,    "b": 5}
                                     ])"});
-  options.sort_keys_[0].null_placement = NullPlacement::AtEnd;
-  options.sort_keys_[1].null_placement = NullPlacement::AtEnd;
+  options.sort_keys[0].null_placement = NullPlacement::AtEnd;
+  options.sort_keys[1].null_placement = NullPlacement::AtEnd;
   AssertSortIndices(table, options, "[5, 1, 4, 6, 2, 0, 3]");
-  options.sort_keys_[0].null_placement = NullPlacement::AtStart;
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[0, 3, 5, 1, 4, 6, 2]");
-  options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[3, 0, 5, 1, 4, 2, 6]");
 }
 
@@ -1585,9 +1585,9 @@ TEST_F(TestTableSortIndices, NaN) {
                                     ])"});
   SortOptions options(sort_keys);
   AssertSortIndices(table, options, "[3, 7, 1, 0, 2, 4, 6, 5]");
-  options.sort_keys_[0].null_placement = NullPlacement::AtStart;
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[4, 6, 5, 3, 7, 1, 0, 2]");
-  options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[5, 4, 6, 3, 1, 7, 0, 2]");
 
   // Same data, several chunks
@@ -1601,12 +1601,12 @@ TEST_F(TestTableSortIndices, NaN) {
                                      {"a": NaN,  "b": 5},
                                      {"a": 1,    "b": 5}
                                     ])"});
-  options.sort_keys_[0].null_placement = NullPlacement::AtEnd;
-  options.sort_keys_[1].null_placement = NullPlacement::AtEnd;
+  options.sort_keys[0].null_placement = NullPlacement::AtEnd;
+  options.sort_keys[1].null_placement = NullPlacement::AtEnd;
   AssertSortIndices(table, options, "[3, 7, 1, 0, 2, 4, 6, 5]");
-  options.sort_keys_[0].null_placement = NullPlacement::AtStart;
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[4, 6, 5, 3, 7, 1, 0, 2]");
-  options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[5, 4, 6, 3, 1, 7, 0, 2]");
 }
 
@@ -1630,9 +1630,9 @@ TEST_F(TestTableSortIndices, NaNAndNull) {
                                     ])"});
   SortOptions options(sort_keys);
   AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
-  options.sort_keys_[0].null_placement = NullPlacement::AtStart;
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[0, 3, 6, 5, 4, 7, 1, 2]");
-  options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[3, 0, 4, 5, 6, 7, 1, 2]");
 
   // Same data, several chunks
@@ -1646,12 +1646,12 @@ TEST_F(TestTableSortIndices, NaNAndNull) {
                                      {"a": NaN,  "b": 5},
                                      {"a": 1,    "b": 5}
                                     ])"});
-  options.sort_keys_[0].null_placement = NullPlacement::AtEnd;
-  options.sort_keys_[1].null_placement = NullPlacement::AtEnd;
+  options.sort_keys[0].null_placement = NullPlacement::AtEnd;
+  options.sort_keys[1].null_placement = NullPlacement::AtEnd;
   AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
-  options.sort_keys_[0].null_placement = NullPlacement::AtStart;
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[0, 3, 6, 5, 4, 7, 1, 2]");
-  options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[3, 0, 4, 5, 6, 7, 1, 2]");
 }
 
@@ -1675,9 +1675,9 @@ TEST_F(TestTableSortIndices, Boolean) {
                                          ])"});
   SortOptions options(sort_keys);
   AssertSortIndices(table, options, "[3, 1, 6, 2, 4, 0, 7, 5]");
-  options.sort_keys_[0].null_placement = NullPlacement::AtStart;
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[7, 5, 3, 1, 6, 2, 4, 0]");
-  options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[7, 5, 1, 6, 3, 0, 2, 4]");
 }
 
@@ -1701,8 +1701,8 @@ TEST_F(TestTableSortIndices, BinaryLike) {
                                          ])"});
   SortOptions options(sort_keys);
   AssertSortIndices(table, options, "[1, 5, 2, 6, 4, 0, 7, 3]");
-  options.sort_keys_[0].null_placement = NullPlacement::AtStart;
-  options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[1, 5, 2, 6, 0, 4, 7, 3]");
 }
 
@@ -1723,9 +1723,9 @@ TEST_F(TestTableSortIndices, Decimal) {
                                           ])"});
   SortOptions options(sort_keys);
   AssertSortIndices(table, options, "[4, 3, 0, 2, 1]");
-  options.sort_keys_[0].null_placement = NullPlacement::AtStart;
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[4, 3, 0, 2, 1]");
-  options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[3, 4, 0, 2, 1]");
 }
 
@@ -1789,9 +1789,9 @@ TEST_F(TestTableSortIndices, DuplicateSortKeys) {
                                     ])"});
   SortOptions options(sort_keys);
   AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
-  options.sort_keys_[0].null_placement = NullPlacement::AtStart;
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[0, 3, 6, 5, 4, 7, 1, 2]");
-  options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[3, 0, 4, 5, 6, 7, 1, 2]");
 }
 
@@ -1811,17 +1811,17 @@ TEST_F(TestTableSortIndices, HeterogenousChunking) {
   SortOptions options(
       {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
   AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
-  options.sort_keys_[0].null_placement = NullPlacement::AtStart;
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[0, 3, 6, 5, 4, 7, 1, 2]");
-  options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[3, 0, 4, 5, 6, 7, 1, 2]");
 
   options = SortOptions(
       {SortKey("b", SortOrder::Ascending), SortKey("a", SortOrder::Descending)});
   AssertSortIndices(table, options, "[1, 7, 6, 0, 5, 2, 4, 3]");
-  options.sort_keys_[0].null_placement = NullPlacement::AtStart;
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[2, 4, 3, 5, 1, 7, 6, 0]");
-  options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[3, 4, 2, 5, 1, 0, 6, 7]");
 }
 
@@ -1853,7 +1853,7 @@ TYPED_TEST(TestTableSortIndicesForTemporal, NoNull) {
   for (auto null_placement : AllNullPlacements()) {
     SortOptions options(sort_keys);
     for (size_t i = 0; i < sort_keys.size(); i++) {
-      options.sort_keys_[i].null_placement = null_placement;
+      options.sort_keys[i].null_placement = null_placement;
     }
     AssertSortIndices(table, options, "[0, 6, 1, 4, 7, 3, 2, 5]");
   }
@@ -2245,17 +2245,17 @@ class TestNestedSortIndices : public ::testing::Test {
 
     SortOptions options(sort_keys);
     AssertSortIndices(datum, options, "[7, 6, 3, 4, 0, 2, 1, 8, 5]");
-    options.sort_keys_[0].null_placement = NullPlacement::AtStart;
-    options.sort_keys_[1].null_placement = NullPlacement::AtStart;
+    options.sort_keys[0].null_placement = NullPlacement::AtStart;
+    options.sort_keys[1].null_placement = NullPlacement::AtStart;
     AssertSortIndices(datum, options, "[5, 2, 1, 8, 3, 7, 6, 0, 4]");
 
     // Implementations may have an optimized path for cases with one sort key.
     // Additionally, this key references a struct containing another struct, which should
     // work recursively
-    options.sort_keys_ = {SortKey(FieldRef("a"), SortOrder::Ascending)};
-    options.sort_keys_[0].null_placement = NullPlacement::AtEnd;
+    options.sort_keys = {SortKey(FieldRef("a"), SortOrder::Ascending)};
+    options.sort_keys[0].null_placement = NullPlacement::AtEnd;
     AssertSortIndices(datum, options, "[6, 7, 3, 4, 0, 8, 1, 2, 5]");
-    options.sort_keys_[0].null_placement = NullPlacement::AtStart;
+    options.sort_keys[0].null_placement = NullPlacement::AtStart;
     AssertSortIndices(datum, options, "[5, 8, 1, 2, 3, 6, 7, 0, 4]");
   }
 
