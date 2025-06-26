@@ -1,4 +1,5 @@
-% Test class for the arrow.type.DateType interface.
+% Test class that contains shared unit tests for classes that subclass
+% arrow.type.DateType.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
