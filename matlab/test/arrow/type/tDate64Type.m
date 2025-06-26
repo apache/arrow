@@ -15,7 +15,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tDate64Type < hFixedWidthType
+classdef tDate64Type < hDateType
 
     properties
         ConstructionFcn = @arrow.date64
@@ -23,37 +23,11 @@ classdef tDate64Type < hFixedWidthType
         TypeID = arrow.type.ID.Date64
         BitWidth = int32(64)
         ClassName = "arrow.type.Date64Type"
+        DefaultDateUnit = arrow.type.DateUnit.Millisecond
+        ClassConstructorFcn = @arrow.type.Date64Type
     end
 
     methods(Test)
-        function TestClass(testCase)
-            % Verify ArrowType is an object of the expected class type.
-            name = string(class(testCase.ArrowType));
-            testCase.verifyEqual(name, testCase.ClassName);
-        end
-
-        function DefaultDateUnit(testCase)
-            % Verify the default DateUnit is Millisecond.
-            type = testCase.ArrowType;
-            actualUnit = type.DateUnit;
-            expectedUnit = arrow.type.DateUnit.Millisecond;
-            testCase.verifyEqual(actualUnit, expectedUnit);
-        end
-
-        function DateUnitNoSetter(testCase)
-            % Verify that an error is thrown when trying to set the value
-            % of the DateUnit property.
-            type = arrow.date64();
-            testCase.verifyError(@() setfield(type, "DateUnit", "Day"), "MATLAB:class:SetProhibited");
-        end
-
-        function InvalidProxy(testCase)
-            % Verify that an error is thrown when a Proxy of an unexpected
-            % type is passed to the arrow.type.Date64Type constructor.
-            array = arrow.array([1, 2, 3]);
-            proxy = array.Proxy;
-            testCase.verifyError(@() arrow.type.Date64Type(proxy), "arrow:proxy:ProxyNameMismatch");
-        end
 
         function IsEqualTrue(testCase)
             % Verifies isequal method of arrow.type.Date64Type returns true if
