@@ -3428,6 +3428,7 @@ def test_record_batch_sort():
     assert sorted_rb_dict["b"] == [2, 3, 4, 1]
     assert sorted_rb_dict["c"] == ["foobar", "bar", "foo", "car"]
 
+
 @pytest.mark.numpy
 @pytest.mark.parametrize("constructor", [pa.table, pa.record_batch])
 def test_numpy_asarray(constructor):
