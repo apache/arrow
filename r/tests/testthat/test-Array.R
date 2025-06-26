@@ -1399,6 +1399,7 @@ test_that("Can convert R integer/double to decimal (ARROW-11631)", {
 })
 
 test_that("Array handles negative fractional dates correctly (GH-46873)", {
+  # `origin` must be specified for compatibility with R versions < 4.2.0
   d <- as.Date(-0.1, origin = "1970-01-01")
   arr <- arrow_array(d)
   expect_equal(as.vector(arr), as.Date("1969-12-31", origin = "1970-01-01"))
