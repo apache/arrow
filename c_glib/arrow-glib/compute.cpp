@@ -4391,7 +4391,7 @@ garrow_rank_options_get_property(GObject *object,
 
   switch (prop_id) {
   case PROP_RANK_OPTIONS_NULL_PLACEMENT:
-    g_value_set_enum(value, static_cast<GArrowNullPlacement>(options->null_placement));
+    g_value_set_enum(value, static_cast<GArrowOptionalNullPlacement>(options->null_placement));
     break;
   case PROP_RANK_OPTIONS_TIEBREAKER:
     g_value_set_enum(value, static_cast<GArrowRankTiebreaker>(options->tiebreaker));
@@ -4432,8 +4432,8 @@ garrow_rank_options_class_init(GArrowRankOptionsClass *klass)
                            "Null placement",
                            "Whether nulls and NaNs are placed "
                            "at the start or at the end.",
-                           GARROW_TYPE_NULL_PLACEMENT,
-                           static_cast<GArrowNullPlacement>(options.null_placement),
+                           GARROW_TYPE_OPTIONAL_NULL_PLACEMENT,
+                           static_cast<GArrowOptionalNullPlacement>(options.null_placement),
                            static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_RANK_OPTIONS_NULL_PLACEMENT, spec);
 

@@ -508,6 +508,28 @@ typedef enum /*<prefix=GARROW_NULL_PLACEMENT_>*/ {
   GARROW_NULL_PLACEMENT_AT_END,
 } GArrowNullPlacement;
 
+/**
+ * GArrowOptionalNullPlacement:
+ * @GARROW_OPTIONAL_NULL_PLACEMENT_AT_START:
+ *   Place nulls and NaNs before any non-null values.
+ *   NaNs will come after nulls.
+ * @GARROW_OPTIONAL_NULL_PLACEMENT_AT_END:
+ *   Place nulls and NaNs after any non-null values.
+ *   NaNs will come before nulls.
+ * @GARROW_OPTIONAL_NULL_PLACEMENT_UNSET:
+ *   Do not specify null placement.
+ *   Null placement should instead
+ *
+ * They are corresponding to `std::optional<arrow::compute::NullPlacement>` values.
+ *
+ * Since: 12.0.0
+ */
+typedef enum /*<prefix=GARROW_OPTIONAL_NULL_PLACEMENT_>*/ {
+  GARROW_OPTIONAL_NULL_PLACEMENT_AT_START,
+  GARROW_OPTIONAL_NULL_PLACEMENT_AT_END,
+  GARROW_OPTIONAL_NULL_PLACEMENT_UNSET,
+} GArrowOptionalNullPlacement;
+
 #define GARROW_TYPE_ARRAY_SORT_OPTIONS (garrow_array_sort_options_get_type())
 GARROW_AVAILABLE_IN_3_0
 G_DECLARE_DERIVABLE_TYPE(GArrowArraySortOptions,
