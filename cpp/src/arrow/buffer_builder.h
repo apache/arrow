@@ -295,6 +295,10 @@ class TypedBufferBuilder<
     return bytes_builder_.Advance(length * sizeof(T));
   }
 
+  void UnsafeAdvance(const int64_t length) {
+    bytes_builder_.UnsafeAdvance(length * sizeof(T));
+  }
+
   Status Finish(std::shared_ptr<Buffer>* out, bool shrink_to_fit = true) {
     return bytes_builder_.Finish(out, shrink_to_fit);
   }
