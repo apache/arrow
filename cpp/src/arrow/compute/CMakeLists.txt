@@ -114,6 +114,47 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
                  ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
+# This function is used to add a custom main to the benchmarks in order
+# to initialize the compute kernels registry before running them.
+# This is necessary for benchmarks that use compute kernels that are not
+# part of libarrow.
+# It will also link the compute libraries to the benchmark target.
+function(ADD_ARROW_COMPUTE_BENCHMARK REL_TEST_NAME)
+  set(options)
+  set(one_value_args PREFIX)
+  set(multi_value_args EXTRA_SOURCES)
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
+  if(ARG_PREFIX)
+    set(PREFIX ${ARG_PREFIX})
+  else()
+    set(PREFIX "arrow-compute")
+  endif()
+  if(ARG_EXTRA_SOURCES)
+    set(EXTRA_SOURCES ${ARG_EXTRA_SOURCES})
+  else()
+    set(EXTRA_SOURCES "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/main_compute_benchmark.cc")
+  endif()
+  add_benchmark(${REL_TEST_NAME}
+                PREFIX
+                ${PREFIX}
+                LABELS
+                "arrow-benchmarks"
+                EXTRA_SOURCES
+                ${EXTRA_SOURCES}
+                OUTPUT_BENCHMARK_NAME
+                COMPUTE_BENCHMARK_NAME
+                ${ARG_UNPARSED_ARGUMENTS})
+  if(ARROW_BUILD_STATIC)
+    target_link_libraries(${COMPUTE_BENCHMARK_NAME} PUBLIC arrow_compute_static)
+  else()
+    target_link_libraries(${COMPUTE_BENCHMARK_NAME} PUBLIC arrow_compute_shared)
+  endif()
+endfunction()
+
 add_arrow_test(internals_test
                ${ARROW_COMPUTE_TEST_ARGS}
                SOURCES
@@ -142,7 +183,9 @@ add_arrow_compute_test(row_test
                        EXTRA_LINK_LIBS
                        arrow_compute_testing)
 
-add_arrow_benchmark(function_benchmark PREFIX "arrow-compute")
+if(ARROW_BUILD_BENCHMARKS)
+  add_arrow_benchmark(function_benchmark PREFIX "arrow-compute")
+endif()
 
 add_subdirectory(kernels)
 

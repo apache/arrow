@@ -516,12 +516,13 @@ endfunction()
 # group names must exist
 function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   set(options)
-  set(one_value_args PREFIX)
+  set(one_value_args PREFIX OUTPUT_BENCHMARK_NAME)
   set(multi_value_args
       EXTRA_LINK_LIBS
       STATIC_LINK_LIBS
       DEPENDENCIES
       SOURCES
+      EXTRA_SOURCES
       LABELS)
   cmake_parse_arguments(ARG
                         "${options}"
@@ -541,10 +542,16 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
     set(BENCHMARK_NAME "${ARG_PREFIX}-${BENCHMARK_NAME}")
   endif()
 
+  set(SOURCES "")
+
+  if(ARG_EXTRA_SOURCES)
+    list(APPEND SOURCES ${ARG_EXTRA_SOURCES})
+  endif()
+
   if(ARG_SOURCES)
-    set(SOURCES ${ARG_SOURCES})
+    list(APPEND SOURCES ${ARG_SOURCES})
   else()
-    set(SOURCES "${REL_BENCHMARK_NAME}.cc")
+    list(APPEND SOURCES "${REL_BENCHMARK_NAME}.cc")
   endif()
 
   # Make sure the executable name contains only hyphens, not underscores
@@ -614,6 +621,12 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   set_property(TEST ${BENCHMARK_NAME}
                APPEND
                PROPERTY LABELS ${ARG_LABELS})
+  # Return the benchmark test name to the caller if requested
+  if(ARG_OUTPUT_BENCHMARK_NAME)
+    set(${ARG_OUTPUT_BENCHMARK_NAME}
+        ${BENCHMARK_NAME}
+        PARENT_SCOPE)
+  endif()
 endfunction()
 
 #

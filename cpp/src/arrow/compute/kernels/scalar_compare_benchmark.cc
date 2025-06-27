@@ -20,7 +20,6 @@
 #include <vector>
 
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/initialize.h"
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -101,15 +100,3 @@ BENCHMARK(MaxElementWiseArrayScalarString)->Apply(RegressionSetArgs);
 
 }  // namespace compute
 }  // namespace arrow
-
-int main(int argc, char** argv) {
-  // Initialize compute functions before any benchmarks run
-  ABORT_NOT_OK(arrow::compute::Initialize());
-
-  // Initialize and run benchmarks
-  ::benchmark::Initialize(&argc, argv);
-  if (::benchmark::ReportUnrecognizedArguments(argc, argv)) return 1;
-  ::benchmark::RunSpecifiedBenchmarks();
-  ::benchmark::Shutdown();
-  return 0;
-}
