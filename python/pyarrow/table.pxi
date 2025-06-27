@@ -1994,8 +1994,9 @@ cdef class _Tabular(_PandasConvertible):
 
         Parameters
         ----------
-        mapping : list of dicts of rows
-            A mapping of strings to row values.
+        mapping : list of dict/list/tuple of rows
+            If dict, each row contains strings to row values.
+            If list or tuple, schema is required and each row contains corresponding values
         schema : Schema, default None
             If not passed, will be inferred from the first row of the
             mapping values.
@@ -2014,7 +2015,7 @@ cdef class _Tabular(_PandasConvertible):
         >>> pylist = [{'n_legs': 2, 'animals': 'Flamingo'},
         ...           {'n_legs': 4, 'animals': 'Dog'}]
 
-        Construct a Table from a list of rows:
+        Construct a Table from a list of dict rows:
 
         >>> pa.Table.from_pylist(pylist)
         pyarrow.Table
@@ -2024,7 +2025,7 @@ cdef class _Tabular(_PandasConvertible):
         n_legs: [[2,4]]
         animals: [["Flamingo","Dog"]]
 
-        Construct a Table from a list of rows with metadata:
+        Construct a Table from a list of dict rows with metadata:
 
         >>> my_metadata={"n_legs": "Number of legs per animal"}
         >>> pa.Table.from_pylist(pylist, metadata=my_metadata).schema
@@ -2033,7 +2034,7 @@ cdef class _Tabular(_PandasConvertible):
         -- schema metadata --
         n_legs: 'Number of legs per animal'
 
-        Construct a Table from a list of rows with pyarrow schema:
+        Construct a Table from a list of dict rows with pyarrow schema:
 
         >>> my_schema = pa.schema([
         ...     pa.field('n_legs', pa.int64()),
@@ -2044,6 +2045,16 @@ cdef class _Tabular(_PandasConvertible):
         animals: string
         -- schema metadata --
         n_legs: 'Number of legs per animal'
+
+        Construct a Table from a list of list rows with schema
+        >>> pylist = [[ 2, 'Flamingo'], [4, 'Dog']]
+        >>> pa.Table.from_pylist(pylist, schema=my_schema)
+        pyarrow.Table
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [[2,4]]
+        animals: [["Flamingo","Dog"]]
         """
 
         return _from_pylist(cls=cls,
@@ -6428,8 +6439,9 @@ def _from_pylist(cls, mapping, schema, metadata):
     Parameters
     ----------
     cls : Class Table/RecordBatch
-    mapping : list of dicts of rows
-        A mapping of strings to row values.
+    mapping : list of dict/list/tuple of rows
+            If dict, each row contains strings to row values.
+            If list or tuple, schema is required and each row contains corresponding values
     schema : Schema, default None
         If not passed, will be inferred from the first row of the
         mapping values.
@@ -6452,9 +6464,16 @@ def _from_pylist(cls, mapping, schema, metadata):
         return cls.from_arrays(arrays, names, metadata=metadata)
     else:
         if isinstance(schema, Schema):
-            for n in schema.names:
-                v = [row[n] if n in row else None for row in mapping]
-                arrays.append(v)
+            if all(isinstance(row, (list, tuple)) for row in mapping):
+                for i in range(len(schema)):
+                    v = [row[i] if i < len(row) else None for row in mapping]
+                    arrays.append(v)
+            elif all(isinstance(row, dict) for row in mapping):
+                for n in schema.names:
+                    v = [row[n] if n in row else None for row in mapping]
+                    arrays.append(v)
+            else:
+                raise TypeError("pylist elements should be the same type")
             # Will raise if metadata is not None
             return cls.from_arrays(arrays, schema=schema, metadata=metadata)
         else:
