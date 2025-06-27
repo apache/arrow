@@ -36,8 +36,10 @@
 
 namespace arrow::util::internal {
 
+#if defined(ARROW_HAVE_SIMD_SPLIT)
+
 //
-// SIMD implementations
+// XSIMD implementations
 //
 
 template <typename T>
@@ -54,20 +56,31 @@ static_assert(ReversePow2(8) == 3);
 static_assert(ReversePow2(4) == 2);
 static_assert(ReversePow2(2) == 1);
 
-#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
-template <int kNumStreams>
-void ByteStreamSplitDecodeSimd128(const uint8_t* data, int width, int64_t num_values,
-                                  int64_t stride, uint8_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<int8_t, 16>;
+template <typename Arch, int kNumStreams>
+void ByteStreamSplitDecodeSimd(const uint8_t* data, int width, int64_t num_values,
+                               int64_t stride, uint8_t* out) {
+  using simd_batch = xsimd::batch<int8_t, Arch>;
+  // For signed arithmetic
+  constexpr int kBatchSize = static_cast<int>(simd_batch::size);
 
-  static_assert(kNumStreams <= simd_batch::size,
+  static_assert(kBatchSize >= 16, "The smallest SIMD size is 128 bits");
+
+  if constexpr (kBatchSize > 16) {
+    if (num_values < kBatchSize) {
+      using Arch128 = xsimd::make_sized_batch_t<int8_t, 16>::arch_type;
+      return ByteStreamSplitDecodeSimd<Arch128, kNumStreams>(data, width, num_values,
+                                                             stride, out);
+    }
+  }
+
+  static_assert(kNumStreams <= kBatchSize,
                 "The algorithm works when the number of streams is smaller than the SIMD "
                 "batch size.");
   assert(width == kNumStreams);
   constexpr int kNumStreamsLog2 = ReversePow2(kNumStreams);
   static_assert(kNumStreamsLog2 != 0,
                 "The algorithm works for a number of streams being a power of two.");
-  constexpr int64_t kBlockSize = simd_batch::size * kNumStreams;
+  constexpr int64_t kBlockSize = kBatchSize * kNumStreams;
 
   const int64_t size = num_values * kNumStreams;
   const int64_t num_blocks = size / kBlockSize;
@@ -95,7 +108,7 @@ void ByteStreamSplitDecodeSimd128(const uint8_t* data, int width, int64_t num_va
   for (int64_t i = 0; i < num_blocks; ++i) {
     simd_batch stage[kNumStreamsLog2 + 1][kNumStreams];
     for (int j = 0; j < kNumStreams; ++j) {
-      stage[0][j] = simd_batch::load_unaligned(&data[i * simd_batch::size + j * stride]);
+      stage[0][j] = simd_batch::load_unaligned(&data[i * kBatchSize + j * stride]);
     }
     for (int step = 0; step < kNumStreamsLog2; ++step) {
       for (int j = 0; j < kNumStreamsHalf; ++j) {
@@ -107,52 +120,84 @@ void ByteStreamSplitDecodeSimd128(const uint8_t* data, int width, int64_t num_va
     }
     for (int j = 0; j < kNumStreams; ++j) {
       xsimd::store_unaligned(
-          reinterpret_cast<int8_t*>(out + (i * kNumStreams + j) * simd_batch::size),
+          reinterpret_cast<int8_t*>(out + (i * kNumStreams + j) * kBatchSize),
           stage[kNumStreamsLog2][j]);
     }
   }
 }
 
 // Like xsimd::zip_lo, but zip groups of kNumBytes at once.
-template <int kNumBytes, int kBatchSize = 16,
-          typename Batch = xsimd::make_sized_batch_t<int8_t, kBatchSize>>
-auto zip_lo_n(Batch const& a, Batch const& b) -> Batch {
+template <typename Arch, int kNumBytes>
+auto zip_lo_n(xsimd::batch<int8_t, Arch> const& a, xsimd::batch<int8_t, Arch> const& b)
+    -> xsimd::batch<int8_t, Arch> {
   using arrow::internal::SizedInt;
+  using simd_batch = xsimd::batch<int8_t, Arch>;
+  // For signed arithmetic
+  constexpr int kBatchSize = static_cast<int>(simd_batch::size);
 
   if constexpr (kNumBytes == kBatchSize) {
     return a;
-  } else {
+  } else if constexpr (kNumBytes <= 8) {
     return xsimd::bitwise_cast<int8_t>(
         xsimd::zip_lo(xsimd::bitwise_cast<SizedInt<kNumBytes>>(a),
                       xsimd::bitwise_cast<SizedInt<kNumBytes>>(b)));
   }
+  // No data type for 128 bits.
+  // This could be made generic by simply computing the shuffle permute constant
+  else if constexpr (kNumBytes == 16 && kBatchSize == 32) {
+    return xsimd::bitwise_cast<int8_t>(
+        xsimd::shuffle(xsimd::bitwise_cast<int64_t>(a), xsimd::bitwise_cast<int64_t>(b),
+                       xsimd::batch_constant<int64_t, Arch, 0, 1, 4, 5>{}));
+  }
 }
 
 // Like xsimd::zip_hi, but zip groups of kNumBytes at once.
-template <int kNumBytes, int kBatchSize = 16,
-          typename Batch = xsimd::make_sized_batch_t<int8_t, kBatchSize>>
-auto zip_hi_n(Batch const& a, Batch const& b) -> Batch {
+template <typename Arch, int kNumBytes>
+auto zip_hi_n(xsimd::batch<int8_t, Arch> const& a, xsimd::batch<int8_t, Arch> const& b)
+    -> xsimd::batch<int8_t, Arch> {
+  using simd_batch = xsimd::batch<int8_t, Arch>;
   using arrow::internal::SizedInt;
+  // For signed arithmetic
+  constexpr int kBatchSize = static_cast<int>(simd_batch::size);
 
   if constexpr (kNumBytes == kBatchSize) {
     return b;
-  } else {
+  } else if constexpr (kNumBytes <= 8) {
     return xsimd::bitwise_cast<int8_t>(
         xsimd::zip_hi(xsimd::bitwise_cast<SizedInt<kNumBytes>>(a),
                       xsimd::bitwise_cast<SizedInt<kNumBytes>>(b)));
   }
+  // No data type for 128 bits
+  // This could be made generic by simply computing the shuffle permute constant
+  else if constexpr (kNumBytes == 16 && kBatchSize == 32) {
+    return xsimd::bitwise_cast<int8_t>(
+        xsimd::shuffle(xsimd::bitwise_cast<int64_t>(a), xsimd::bitwise_cast<int64_t>(b),
+                       xsimd::batch_constant<int64_t, Arch, 2, 3, 6, 7>{}));
+  }
 }
 
-template <int kNumStreams>
-void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
-                                  const int64_t num_values, uint8_t* output_buffer_raw) {
-  using simd_batch = xsimd::make_sized_batch_t<int8_t, 16>;
+template <typename Arch, int kNumStreams>
+void ByteStreamSplitEncodeSimd(const uint8_t* raw_values, int width,
+                               const int64_t num_values, uint8_t* output_buffer_raw) {
+  using simd_batch = xsimd::batch<int8_t, Arch>;
+  // For signed arithmetic
+  constexpr int kBatchSize = static_cast<int>(simd_batch::size);
+
+  static_assert(kBatchSize >= 16, "The smallest SIMD size is 128 bits");
+
+  if constexpr (kBatchSize > 16) {
+    if (num_values < kBatchSize) {
+      using Arch128 = xsimd::make_sized_batch_t<int8_t, 16>::arch_type;
+      return ByteStreamSplitEncodeSimd<Arch128, kNumStreams>(
+          raw_values, width, num_values, output_buffer_raw);
+    }
+  }
 
   assert(width == kNumStreams);
-  static_assert(kNumStreams <= simd_batch::size,
+  static_assert(kNumStreams <= kBatchSize,
                 "The algorithm works when the number of streams is smaller than the SIMD "
                 "batch size.");
-  constexpr int kBlockSize = simd_batch::size * kNumStreams;
+  constexpr int kBlockSize = kBatchSize * kNumStreams;
   static_assert(ReversePow2(kNumStreams) != 0,
                 "The algorithm works for a number of streams being a power of two.");
 
@@ -174,7 +219,7 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
   }
 
   // Number of input values we can fit in a simd register
-  constexpr int kNumValuesInBatch = simd_batch::size / kNumStreams;
+  constexpr int kNumValuesInBatch = kBatchSize / kNumStreams;
   static_assert(kNumValuesInBatch > 0);
   // Number of bytes we'll bring together in the first byte-level part of the algorithm.
   // Since we zip with the next batch, the number of values in a batch determines how many
@@ -183,14 +228,13 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
   // Number of steps in the first part of the algorithm with byte-level zipping
   constexpr int kNumStepsByte = ReversePow2(kNumValuesInBatch) + 1;
   // Number of steps in the first part of the algorithm with large data type zipping
-  constexpr int kNumStepsLarge =
-      ReversePow2(static_cast<int>(simd_batch::size) / kNumBytes);
+  constexpr int kNumStepsLarge = ReversePow2(static_cast<int>(kBatchSize) / kNumBytes);
   // Total number of steps
   constexpr int kNumSteps = kNumStepsByte + kNumStepsLarge;
-  static_assert(kNumSteps == ReversePow2(simd_batch::size));
+  static_assert(kNumSteps == ReversePow2(kBatchSize));
 
   // Two step shuffling algorithm that starts with bytes and ends with a larger data type.
-  // An algorithm similar to the decoding one with log2(simd_batch::size) + 1 stages is
+  // An algorithm similar to the decoding one with log2(kBatchSize) + 1 stages is
   // also valid but not as performant.
   for (int64_t block_index = 0; block_index < num_blocks; ++block_index) {
     simd_batch stage[kNumSteps + 1][kNumStreams];
@@ -198,7 +242,7 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
     // First copy the data to stage 0.
     for (int i = 0; i < kNumStreams; ++i) {
       stage[0][i] = simd_batch::load_unaligned(
-          &raw_values[(block_index * kNumStreams + i) * simd_batch::size]);
+          &raw_values[(block_index * kNumStreams + i) * kBatchSize]);
     }
 
     // We first make byte-level shuffling, until we have gather enough bytes together
@@ -236,23 +280,21 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
     for (int step = kNumStepsByte; step < kNumSteps; ++step) {
       for (int i = 0; i < kNumStreamsHalf; ++i) {
         stage[step + 1][i * 2] =
-            zip_lo_n<kNumBytes>(stage[step][i], stage[step][i + kNumStreamsHalf]);
+            zip_lo_n<Arch, kNumBytes>(stage[step][i], stage[step][i + kNumStreamsHalf]);
         stage[step + 1][i * 2 + 1] =
-            zip_hi_n<kNumBytes>(stage[step][i], stage[step][i + kNumStreamsHalf]);
+            zip_hi_n<Arch, kNumBytes>(stage[step][i], stage[step][i + kNumStreamsHalf]);
       }
     }
 
     // Save the encoded data to the output buffer
     for (int i = 0; i < kNumStreams; ++i) {
-      xsimd::store_unaligned(&output_buffer_streams[i][block_index * simd_batch::size],
+      xsimd::store_unaligned(&output_buffer_streams[i][block_index * kBatchSize],
                              stage[kNumSteps][i]);
     }
   }
 }
 
-#endif
-
-#if defined(ARROW_HAVE_AVX2)
+#  if defined(ARROW_HAVE_AVX2)
 template <int kNumStreams>
 void ByteStreamSplitDecodeAvx2(const uint8_t* data, int width, int64_t num_values,
                                int64_t stride, uint8_t* out) {
@@ -263,8 +305,8 @@ void ByteStreamSplitDecodeAvx2(const uint8_t* data, int width, int64_t num_value
 
   const int64_t size = num_values * kNumStreams;
   if (size < kBlockSize)  // Back to SSE for small size
-    return ByteStreamSplitDecodeSimd128<kNumStreams>(data, width, num_values, stride,
-                                                     out);
+    return ByteStreamSplitDecodeSimd<xsimd::sse4_2, kNumStreams>(data, width, num_values,
+                                                                 stride, out);
   const int64_t num_blocks = size / kBlockSize;
 
   // First handle suffix.
@@ -348,8 +390,8 @@ void ByteStreamSplitEncodeAvx2(const uint8_t* raw_values, int width,
 
   const int64_t size = num_values * kNumStreams;
   if (size < kBlockSize)  // Back to SSE for small size
-    return ByteStreamSplitEncodeSimd128<kNumStreams>(raw_values, width, num_values,
-                                                     output_buffer_raw);
+    return ByteStreamSplitEncodeSimd<xsimd::sse4_2, kNumStreams>(
+        raw_values, width, num_values, output_buffer_raw);
   const int64_t num_blocks = size / kBlockSize;
   const __m256i* raw_values_simd = reinterpret_cast<const __m256i*>(raw_values);
   __m256i* output_buffer_streams[kNumStreams];
@@ -407,45 +449,51 @@ void ByteStreamSplitEncodeAvx2(const uint8_t* raw_values, int width,
     }
   }
 }
-#endif  // ARROW_HAVE_AVX2
+#  endif  // ARROW_HAVE_AVX2
 
-#if defined(ARROW_HAVE_SIMD_SPLIT)
-template <int kNumStreams>
-void inline ByteStreamSplitDecodeSimd(const uint8_t* data, int width, int64_t num_values,
-                                      int64_t stride, uint8_t* out) {
 #  if defined(ARROW_HAVE_AVX2)
-  // Not implemented
-  if constexpr (kNumStreams == 2) {
-    return ByteStreamSplitDecodeSimd128<2>(data, width, num_values, stride, out);
-  } else {
+using SimdArch = xsimd::avx2;
+#  elif defined(ARROW_HAVE_SSE4_2)
+using SimdArch = xsimd::sse4_2;
+#  elif defined(ARROW_HAVE_NEON)
+using SimdArch = xsimd::neon64;
+#  else
+#    error "No valid arch found"
+#  endif
+
+template <int kNumStreams>
+void inline ByteStreamSplitDecodeSimdDispatch(const uint8_t* data, int width,
+                                              int64_t num_values, int64_t stride,
+                                              uint8_t* out) {
+// Faster implementation in AVX2 using native intrinsics because the zip/unpack
+// on AVX2 really work on two bits lanes, which is not general enough for xsimd to
+// abstract.
+#  if defined(ARROW_HAVE_AVX2)
+  // Not implemented for other sizes
+  if constexpr (kNumStreams == 4 || kNumStreams == 8) {
     return ByteStreamSplitDecodeAvx2<kNumStreams>(data, width, num_values, stride, out);
   }
-#  elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
-  return ByteStreamSplitDecodeSimd128<kNumStreams>(data, width, num_values, stride, out);
-#  else
-#    error "ByteStreamSplitDecodeSimd not implemented"
 #  endif
+  return ByteStreamSplitDecodeSimd<SimdArch, kNumStreams>(data, width, num_values, stride,
+                                                          out);
 }
 
 template <int kNumStreams>
-void inline ByteStreamSplitEncodeSimd(const uint8_t* raw_values, int width,
-                                      const int64_t num_values,
-                                      uint8_t* output_buffer_raw) {
+void inline ByteStreamSplitEncodeSimdDispatch(const uint8_t* raw_values, int width,
+                                              const int64_t num_values,
+                                              uint8_t* output_buffer_raw) {
+// Faster implementation in AVX2 using native intrinsics because the zip/unpack
+// on AVX2 really work on two bits lanes, which is not general enough for xsimd to
+// abstract.
 #  if defined(ARROW_HAVE_AVX2)
-  // Not implemented
-  if constexpr (kNumStreams == 2 || kNumStreams == 8) {
-    return ByteStreamSplitEncodeSimd128<kNumStreams>(raw_values, width, num_values,
-                                                     output_buffer_raw);
-  } else {
+  // Not implemented for other sizes
+  if constexpr (kNumStreams == 4) {
     return ByteStreamSplitEncodeAvx2<kNumStreams>(raw_values, width, num_values,
                                                   output_buffer_raw);
   }
-#  elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
-  return ByteStreamSplitEncodeSimd128<kNumStreams>(raw_values, width, num_values,
-                                                   output_buffer_raw);
-#  else
-#    error "ByteStreamSplitEncodeSimd not implemented"
 #  endif
+  return ByteStreamSplitEncodeSimd<SimdArch, kNumStreams>(raw_values, width, num_values,
+                                                          output_buffer_raw);
 }
 #endif
 
@@ -587,7 +635,7 @@ inline void ByteStreamSplitDecodeScalarDynamic(const uint8_t* data, int width,
 inline void ByteStreamSplitEncode(const uint8_t* raw_values, int width,
                                   const int64_t num_values, uint8_t* out) {
 #if defined(ARROW_HAVE_SIMD_SPLIT)
-#  define ByteStreamSplitEncodePerhapsSimd ByteStreamSplitEncodeSimd
+#  define ByteStreamSplitEncodePerhapsSimd ByteStreamSplitEncodeSimdDispatch
 #else
 #  define ByteStreamSplitEncodePerhapsSimd ByteStreamSplitEncodeScalar
 #endif
@@ -611,7 +659,7 @@ inline void ByteStreamSplitEncode(const uint8_t* raw_values, int width,
 inline void ByteStreamSplitDecode(const uint8_t* data, int width, int64_t num_values,
                                   int64_t stride, uint8_t* out) {
 #if defined(ARROW_HAVE_SIMD_SPLIT)
-#  define ByteStreamSplitDecodePerhapsSimd ByteStreamSplitDecodeSimd
+#  define ByteStreamSplitDecodePerhapsSimd ByteStreamSplitDecodeSimdDispatch
 #else
 #  define ByteStreamSplitDecodePerhapsSimd ByteStreamSplitDecodeScalar
 #endif

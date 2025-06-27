@@ -511,32 +511,38 @@ BENCHMARK(BM_ByteStreamSplitEncode_Double_Scalar)->Apply(ByteStreamSplitApply);
 #if defined(ARROW_HAVE_SSE4_2)
 static void BM_ByteStreamSplitDecode_Int16_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitDecode<int16_t>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeSimd128<sizeof(int16_t)>);
+      state,
+      ::arrow::util::internal::ByteStreamSplitDecodeSimd<xsimd::sse4_2, sizeof(int16_t)>);
 }
 
 static void BM_ByteStreamSplitDecode_Float_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitDecode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeSimd128<sizeof(float)>);
+      state,
+      ::arrow::util::internal::ByteStreamSplitDecodeSimd<xsimd::sse4_2, sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitDecode_Double_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitDecode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeSimd128<sizeof(double)>);
+      state,
+      ::arrow::util::internal::ByteStreamSplitDecodeSimd<xsimd::sse4_2, sizeof(double)>);
 }
 
 static void BM_ByteStreamSplitEncode_Int16_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitEncode<int16_t>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeSimd128<sizeof(int16_t)>);
+      state,
+      ::arrow::util::internal::ByteStreamSplitEncodeSimd<xsimd::sse4_2, sizeof(int16_t)>);
 }
 
 static void BM_ByteStreamSplitEncode_Float_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitEncode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeSimd128<sizeof(float)>);
+      state,
+      ::arrow::util::internal::ByteStreamSplitEncodeSimd<xsimd::sse4_2, sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitEncode_Double_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitEncode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeSimd128<sizeof(double)>);
+      state,
+      ::arrow::util::internal::ByteStreamSplitEncodeSimd<xsimd::sse4_2, sizeof(double)>);
 }
 
 BENCHMARK(BM_ByteStreamSplitDecode_Int16_Sse2)->Apply(ByteStreamSplitApply);
@@ -548,6 +554,49 @@ BENCHMARK(BM_ByteStreamSplitEncode_Double_Sse2)->Apply(ByteStreamSplitApply);
 #endif
 
 #if defined(ARROW_HAVE_AVX2)
+static void BM_ByteStreamSplitDecode_Int16_xsimd_Avx2(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<int16_t>(
+      state,
+      ::arrow::util::internal::ByteStreamSplitDecodeSimd<xsimd::avx2, sizeof(int16_t)>);
+}
+
+static void BM_ByteStreamSplitDecode_Float_xsimd_Avx2(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<float>(
+      state,
+      ::arrow::util::internal::ByteStreamSplitDecodeSimd<xsimd::avx2, sizeof(float)>);
+}
+
+static void BM_ByteStreamSplitDecode_Double_xsimd_Avx2(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<double>(
+      state,
+      ::arrow::util::internal::ByteStreamSplitDecodeSimd<xsimd::avx2, sizeof(double)>);
+}
+
+static void BM_ByteStreamSplitEncode_Int16_xsimd_Avx2(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<int16_t>(
+      state,
+      ::arrow::util::internal::ByteStreamSplitEncodeSimd<xsimd::avx2, sizeof(int16_t)>);
+}
+
+static void BM_ByteStreamSplitEncode_Float_xsimd_Avx2(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<float>(
+      state,
+      ::arrow::util::internal::ByteStreamSplitEncodeSimd<xsimd::avx2, sizeof(float)>);
+}
+
+static void BM_ByteStreamSplitEncode_Double_xsimd_Avx2(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<double>(
+      state,
+      ::arrow::util::internal::ByteStreamSplitEncodeSimd<xsimd::avx2, sizeof(double)>);
+}
+
+BENCHMARK(BM_ByteStreamSplitDecode_Int16_xsimd_Avx2)->Apply(ByteStreamSplitApply);
+BENCHMARK(BM_ByteStreamSplitDecode_Float_xsimd_Avx2)->Apply(ByteStreamSplitApply);
+BENCHMARK(BM_ByteStreamSplitDecode_Double_xsimd_Avx2)->Apply(ByteStreamSplitApply);
+BENCHMARK(BM_ByteStreamSplitEncode_Int16_xsimd_Avx2)->Apply(ByteStreamSplitApply);
+BENCHMARK(BM_ByteStreamSplitEncode_Float_xsimd_Avx2)->Apply(ByteStreamSplitApply);
+BENCHMARK(BM_ByteStreamSplitEncode_Double_xsimd_Avx2)->Apply(ByteStreamSplitApply);
+
 static void BM_ByteStreamSplitDecode_Float_Avx2(benchmark::State& state) {
   BM_ByteStreamSplitDecode<float>(
       state, ::arrow::util::internal::ByteStreamSplitDecodeAvx2<sizeof(float)>);
@@ -571,32 +620,38 @@ BENCHMARK(BM_ByteStreamSplitEncode_Float_Avx2)->Apply(ByteStreamSplitApply);
 #if defined(ARROW_HAVE_NEON)
 static void BM_ByteStreamSplitDecode_Int16_Neon(benchmark::State& state) {
   BM_ByteStreamSplitDecode<int16_t>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeSimd128<sizeof(int16_t)>);
+      state,
+      ::arrow::util::internal::ByteStreamSplitDecodeSimd<xsimd::neon64, sizeof(int16_t)>);
 }
 
 static void BM_ByteStreamSplitDecode_Float_Neon(benchmark::State& state) {
   BM_ByteStreamSplitDecode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeSimd128<sizeof(float)>);
+      state,
+      ::arrow::util::internal::ByteStreamSplitDecodeSimd<xsimd::neon64, sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitDecode_Double_Neon(benchmark::State& state) {
   BM_ByteStreamSplitDecode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeSimd128<sizeof(double)>);
+      state,
+      ::arrow::util::internal::ByteStreamSplitDecodeSimd<xsimd::neon64, sizeof(double)>);
 }
 
 static void BM_ByteStreamSplitEncode_Int16_Neon(benchmark::State& state) {
   BM_ByteStreamSplitEncode<int16_t>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeSimd128<sizeof(int16_t)>);
+      state,
+      ::arrow::util::internal::ByteStreamSplitEncodeSimd<xsimd::neon64, sizeof(int16_t)>);
 }
 
 static void BM_ByteStreamSplitEncode_Float_Neon(benchmark::State& state) {
   BM_ByteStreamSplitEncode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeSimd128<sizeof(float)>);
+      state,
+      ::arrow::util::internal::ByteStreamSplitEncodeSimd<xsimd::neon64, sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitEncode_Double_Neon(benchmark::State& state) {
   BM_ByteStreamSplitEncode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeSimd128<sizeof(double)>);
+      state,
+      ::arrow::util::internal::ByteStreamSplitEncodeSimd<xsimd::neon64, sizeof(double)>);
 }
 
 BENCHMARK(BM_ByteStreamSplitDecode_Int16_Neon)->Range(MIN_RANGE, MAX_RANGE);
