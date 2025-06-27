@@ -129,6 +129,10 @@ if(ARROW_TESTING)
   if(ARROW_WITH_OPENTELEMETRY)
     target_link_libraries(arrow_acero_testing PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
   endif()
+  # Do not link arrow_compute_testing for benchmarks as we need to define main
+  # for Google Benchmark instead of Google Test.
+  set(ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS arrow_acero_testing
+                                            ${ARROW_ACERO_TEST_LINK_LIBS})
   list(APPEND ARROW_ACERO_TEST_LINK_LIBS arrow_acero_testing arrow_compute_testing)
 endif()
 # Only for hash_aggregate_test.cc.
@@ -211,14 +215,14 @@ if(ARROW_BUILD_BENCHMARKS)
       set(LABELS "arrow_acero")
     endif()
 
-    add_arrow_benchmark(${REL_BENCHMARK_NAME}
-                        EXTRA_LINK_LIBS
-                        ${ARROW_ACERO_TEST_LINK_LIBS}
-                        PREFIX
-                        ${PREFIX}
-                        LABELS
-                        ${LABELS}
-                        ${ARG_UNPARSED_ARGUMENTS})
+    add_arrow_compute_benchmark(${REL_BENCHMARK_NAME}
+                                EXTRA_LINK_LIBS
+                                ${ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS}
+                                PREFIX
+                                ${PREFIX}
+                                LABELS
+                                ${LABELS}
+                                ${ARG_UNPARSED_ARGUMENTS})
   endfunction()
 
   add_arrow_acero_benchmark(expression_benchmark SOURCES expression_benchmark.cc)
