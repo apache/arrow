@@ -133,10 +133,9 @@ function(ADD_ARROW_COMPUTE_BENCHMARK REL_TEST_NAME)
   else()
     set(PREFIX "arrow-compute")
   endif()
+  set(EXTRA_SOURCES "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/main_compute_benchmark.cc")
   if(ARG_EXTRA_SOURCES)
-    set(EXTRA_SOURCES ${ARG_EXTRA_SOURCES})
-  else()
-    set(EXTRA_SOURCES "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/main_compute_benchmark.cc")
+    list(APPEND EXTRA_SOURCES ${ARG_EXTRA_SOURCES})
   endif()
   add_benchmark(${REL_TEST_NAME}
                 PREFIX
@@ -184,7 +183,7 @@ add_arrow_compute_test(row_test
                        arrow_compute_testing)
 
 if(ARROW_BUILD_BENCHMARKS)
-  add_arrow_benchmark(function_benchmark PREFIX "arrow-compute")
+  add_arrow_compute_benchmark(function_benchmark)
 endif()
 
 add_subdirectory(kernels)
