@@ -32,7 +32,7 @@ example_execs = {
     },
 }
 
-if get_option('parquet_require_encryption').enabled()
+if needs_parquet_encryption
     example_execs += {
         'parquet-encryption-example': {
             'sources': files('low_level_api/encryption_reader_writer.cc'),

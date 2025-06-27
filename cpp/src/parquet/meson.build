@@ -60,7 +60,8 @@ parquet_srcs = files(
 thrift_dep = dependency('thrift')
 parquet_deps = [arrow_dep, rapidjson_dep, thrift_dep]
 
-if needs_parquet_encryption
+openssl_dep = dependency('openssl', required: needs_parquet_encryption)
+if openssl_dep.found()
     openssl_dep = dependency('openssl')
     parquet_deps += openssl_dep
 
