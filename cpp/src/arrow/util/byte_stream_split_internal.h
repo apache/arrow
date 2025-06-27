@@ -298,9 +298,12 @@ void ByteStreamSplitEncodeSimd(const uint8_t* raw_values, int width,
 template <int kNumStreams>
 void ByteStreamSplitDecodeAvx2(const uint8_t* data, int width, int64_t num_values,
                                int64_t stride, uint8_t* out) {
+  static_assert(kNumStreams <= 16,
+                "The algorithm works when the number of streams is smaller than 16.");
   assert(width == kNumStreams);
-  static_assert(kNumStreams == 4 || kNumStreams == 8, "Invalid number of streams.");
-  constexpr int kNumStreamsLog2 = (kNumStreams == 8 ? 3 : 2);
+  constexpr int kNumStreamsLog2 = ReversePow2(kNumStreams);
+  static_assert(kNumStreamsLog2 != 0,
+                "The algorithm works for a number of streams being a power of two.");
   constexpr int64_t kBlockSize = sizeof(__m256i) * kNumStreams;
 
   const int64_t size = num_values * kNumStreams;
@@ -360,7 +363,7 @@ void ByteStreamSplitDecodeAvx2(const uint8_t* data, int width, int64_t num_value
                                                   stage[kNumStreamsLog2][5], 0b00110001);
       final_result[7] = _mm256_permute2x128_si256(stage[kNumStreamsLog2][6],
                                                   stage[kNumStreamsLog2][7], 0b00110001);
-    } else {
+    } else if constexpr (kNumStreams == 4) {
       // path for float, 128i index:
       //   {0x00, 0x04}, {0x01, 0x05}, {0x02, 0x06}, {0x03, 0x07}
       final_result[0] = _mm256_permute2x128_si256(stage[kNumStreamsLog2][0],
@@ -371,6 +374,14 @@ void ByteStreamSplitDecodeAvx2(const uint8_t* data, int width, int64_t num_value
                                                   stage[kNumStreamsLog2][1], 0b00110001);
       final_result[3] = _mm256_permute2x128_si256(stage[kNumStreamsLog2][2],
                                                   stage[kNumStreamsLog2][3], 0b00110001);
+    } else if constexpr (kNumStreams == 2) {
+      // path for int16/uint16, 128i index:
+      //   {0x00, 0x02}
+      final_result[0] = _mm256_permute2x128_si256(stage[kNumStreamsLog2][0],
+                                                  stage[kNumStreamsLog2][1], 0b00100000);
+      final_result[1] = _mm256_permute2x128_si256(stage[kNumStreamsLog2][0],
+                                                  stage[kNumStreamsLog2][1], 0b00110001);
+                                                  stage[kNumStreamsLog2][1], 0b00100000);
     }
 
     for (int j = 0; j < kNumStreams; ++j) {
@@ -469,10 +480,7 @@ void inline ByteStreamSplitDecodeSimdDispatch(const uint8_t* data, int width,
 // on AVX2 really work on two bits lanes, which is not general enough for xsimd to
 // abstract.
 #  if defined(ARROW_HAVE_AVX2)
-  // Not implemented for other sizes
-  if constexpr (kNumStreams == 4 || kNumStreams == 8) {
-    return ByteStreamSplitDecodeAvx2<kNumStreams>(data, width, num_values, stride, out);
-  }
+  return ByteStreamSplitDecodeAvx2<kNumStreams>(data, width, num_values, stride, out);
 #  endif
   return ByteStreamSplitDecodeSimd<SimdArch, kNumStreams>(data, width, num_values, stride,
                                                           out);
