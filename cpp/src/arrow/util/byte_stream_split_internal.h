@@ -298,13 +298,14 @@ void ByteStreamSplitEncodeSimd(const uint8_t* raw_values, int width,
 template <int kNumStreams>
 void ByteStreamSplitDecodeAvx2(const uint8_t* data, int width, int64_t num_values,
                                int64_t stride, uint8_t* out) {
+  constexpr int kBatchSize = static_cast<int>(sizeof(__m256i));
   static_assert(kNumStreams <= 16,
                 "The algorithm works when the number of streams is smaller than 16.");
   assert(width == kNumStreams);
   constexpr int kNumStreamsLog2 = ReversePow2(kNumStreams);
   static_assert(kNumStreamsLog2 != 0,
                 "The algorithm works for a number of streams being a power of two.");
-  constexpr int64_t kBlockSize = sizeof(__m256i) * kNumStreams;
+  constexpr int64_t kBlockSize = kBatchSize * kNumStreams;
 
   const int64_t size = num_values * kNumStreams;
   if (size < kBlockSize)  // Back to SSE for small size
@@ -343,45 +344,13 @@ void ByteStreamSplitDecodeAvx2(const uint8_t* data, int width, int64_t num_value
       }
     }
 
-    if constexpr (kNumStreams == 8) {
-      // path for double, 128i index:
-      //   {0x00, 0x08}, {0x01, 0x09}, {0x02, 0x0A}, {0x03, 0x0B},
-      //   {0x04, 0x0C}, {0x05, 0x0D}, {0x06, 0x0E}, {0x07, 0x0F},
-      final_result[0] = _mm256_permute2x128_si256(stage[kNumStreamsLog2][0],
-                                                  stage[kNumStreamsLog2][1], 0b00100000);
-      final_result[1] = _mm256_permute2x128_si256(stage[kNumStreamsLog2][2],
-                                                  stage[kNumStreamsLog2][3], 0b00100000);
-      final_result[2] = _mm256_permute2x128_si256(stage[kNumStreamsLog2][4],
-                                                  stage[kNumStreamsLog2][5], 0b00100000);
-      final_result[3] = _mm256_permute2x128_si256(stage[kNumStreamsLog2][6],
-                                                  stage[kNumStreamsLog2][7], 0b00100000);
-      final_result[4] = _mm256_permute2x128_si256(stage[kNumStreamsLog2][0],
-                                                  stage[kNumStreamsLog2][1], 0b00110001);
-      final_result[5] = _mm256_permute2x128_si256(stage[kNumStreamsLog2][2],
-                                                  stage[kNumStreamsLog2][3], 0b00110001);
-      final_result[6] = _mm256_permute2x128_si256(stage[kNumStreamsLog2][4],
-                                                  stage[kNumStreamsLog2][5], 0b00110001);
-      final_result[7] = _mm256_permute2x128_si256(stage[kNumStreamsLog2][6],
-                                                  stage[kNumStreamsLog2][7], 0b00110001);
-    } else if constexpr (kNumStreams == 4) {
-      // path for float, 128i index:
-      //   {0x00, 0x04}, {0x01, 0x05}, {0x02, 0x06}, {0x03, 0x07}
-      final_result[0] = _mm256_permute2x128_si256(stage[kNumStreamsLog2][0],
-                                                  stage[kNumStreamsLog2][1], 0b00100000);
-      final_result[1] = _mm256_permute2x128_si256(stage[kNumStreamsLog2][2],
-                                                  stage[kNumStreamsLog2][3], 0b00100000);
-      final_result[2] = _mm256_permute2x128_si256(stage[kNumStreamsLog2][0],
-                                                  stage[kNumStreamsLog2][1], 0b00110001);
-      final_result[3] = _mm256_permute2x128_si256(stage[kNumStreamsLog2][2],
-                                                  stage[kNumStreamsLog2][3], 0b00110001);
-    } else if constexpr (kNumStreams == 2) {
-      // path for int16/uint16, 128i index:
-      //   {0x00, 0x02}
-      final_result[0] = _mm256_permute2x128_si256(stage[kNumStreamsLog2][0],
-                                                  stage[kNumStreamsLog2][1], 0b00100000);
-      final_result[1] = _mm256_permute2x128_si256(stage[kNumStreamsLog2][0],
-                                                  stage[kNumStreamsLog2][1], 0b00110001);
-                                                  stage[kNumStreamsLog2][1], 0b00100000);
+    for (int j = 0; j < kNumStreamsHalf; ++j) {
+      // Concatenate inputs lower 128-bit lanes: src1 to upper, src2 to lower
+      final_result[j] = _mm256_permute2x128_si256(
+          stage[kNumStreamsLog2][2 * j], stage[kNumStreamsLog2][2 * j + 1], 0b00100000);
+      // Concatenate inputs upper 128-bit lanes: src1 to upper, src2 to lower
+      final_result[j + kNumStreamsHalf] = _mm256_permute2x128_si256(
+          stage[kNumStreamsLog2][2 * j], stage[kNumStreamsLog2][2 * j + 1], 0b00110001);
     }
 
     for (int j = 0; j < kNumStreams; ++j) {
