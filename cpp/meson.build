@@ -77,9 +77,7 @@ needs_fuzzing = get_option('fuzzing').enabled()
 if needs_fuzzing
     if meson.version() < '1.8.0'
         error(
-            ' Meson >= 1.8.0 is required for fuzzing support, found @0@'.format(
-                meson.version(),
-            ),
+            f'Meson >= 1.8.0 is required for fuzzing support, found @meson.version()@',
         )
     endif
 endif
