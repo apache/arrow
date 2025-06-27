@@ -1481,6 +1481,63 @@ def test_azurefs_options(pickle_module):
     assert pickle_module.loads(pickle_module.dumps(fs4)) == fs4
     assert fs4 != fs3
 
+    fs5 = AzureFileSystem(
+        account_name='fake-account-name',
+        tenant_id='fake-tenant-id',
+        client_id='fake-client-id',
+        client_secret='fake-client-secret'
+    )
+    assert isinstance(fs5, AzureFileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs5)) == fs5
+    assert fs5 != fs4
+
+    fs6 = AzureFileSystem(
+        account_name='fake-account-name',
+        client_id='fake-client-id'
+    )
+    assert isinstance(fs6, AzureFileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs6)) == fs6
+    assert fs6 != fs5
+
+    with pytest.raises(ValueError, match="client_id must be specified"):
+        AzureFileSystem(
+            account_name='fake-account-name',
+            tenant_id='fake-tenant-id'
+        )
+
+    with pytest.raises(ValueError, match="client_id must be specified"):
+        AzureFileSystem(
+            account_name='fake-account-name',
+            client_secret='fake-client-secret'
+        )
+
+    invalid_msg = (
+        "Invalid Azure credential configuration: "
+        "For ManagedIdentityCredential, provide only client_id. "
+        "For ClientSecretCredential, provide tenant_id, client_id, and client_secret."
+    )
+
+    with pytest.raises(ValueError, match=invalid_msg):
+        AzureFileSystem(
+            account_name='fake-account-name',
+            client_id='fake-client-id',
+            client_secret='fake-client-secret'
+        )
+
+    with pytest.raises(ValueError, match="client_id must be specified"):
+        AzureFileSystem(
+            account_name='fake-account-name',
+            tenant_id='fake-tenant-id',
+            client_secret='fake-client-secret'
+        )
+
+    with pytest.raises(ValueError, match=invalid_msg):
+        AzureFileSystem(
+            account_name='fake-account-name',
+            tenant_id='fake-tenant-id',
+            client_id='fake-client-id'
+        )
+
     with pytest.raises(ValueError):
         AzureFileSystem(account_name='fake-account-name', account_key='fakeaccount',
                         sas_token='fakesastoken')
