@@ -422,6 +422,8 @@ arrow_lib = library(
     include_directories: arrow_includes,
     dependencies: arrow_deps,
     install: true,
+    gnu_symbol_visibility: 'hidden',
+    cpp_shared_args: ['-DARROW_EXPORTING'],
 )
 
 arrow_dep = declare_dependency(
@@ -484,6 +486,7 @@ if needs_compute
         sources: arrow_compute_lib_sources,
         dependencies: arrow_dep,
         install: true,
+        cpp_shared_args: ['-DARROW_COMPUTE_EXPORTING'],
     )
     arrow_compute_dep = declare_dependency(
         link_with: arrow_compute_lib,
