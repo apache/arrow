@@ -17,9 +17,6 @@
 
 include_directories(include)
 
-# Ensure fmt is loaded as header only
-add_compile_definitions(FMT_HEADER_ONLY)
-
 add_library(odbcabstraction
             include/odbcabstraction/calendar_utils.h
             include/odbcabstraction/diagnostics.h
@@ -66,19 +63,4 @@ set_target_properties(odbcabstraction
                                  RUNTIME_OUTPUT_DIRECTORY
                                  ${CMAKE_BINARY_DIR}/$<CONFIG>/lib)
 
-include(FetchContent)
-fetchcontent_declare(spdlog
-                     URL https://github.com/gabime/spdlog/archive/76fb40d95455f249bd70824ecfcae7a8f0930fa3.zip
-                         CONFIGURE_COMMAND
-                         ""
-                         BUILD_COMMAND
-                         "")
-fetchcontent_getproperties(spdlog)
-if(NOT spdlog_POPULATED)
-  fetchcontent_populate(spdlog)
-endif()
-
-add_library(spdlog INTERFACE)
-target_include_directories(spdlog INTERFACE ${spdlog_SOURCE_DIR}/include)
-
-target_link_libraries(odbcabstraction PUBLIC spdlog)
+target_link_libraries(odbcabstraction PUBLIC spdlog::spdlog)

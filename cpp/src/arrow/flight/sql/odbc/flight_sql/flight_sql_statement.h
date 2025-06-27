@@ -50,6 +50,7 @@ class FlightSqlStatement : public odbcabstraction::Statement {
                      arrow::flight::sql::FlightSqlClient& sql_client,
                      arrow::flight::FlightCallOptions call_options,
                      const odbcabstraction::MetadataSettings& metadata_settings);
+  ~FlightSqlStatement();
 
   bool SetAttribute(StatementAttributeId attribute, const Attribute& value) override;
 

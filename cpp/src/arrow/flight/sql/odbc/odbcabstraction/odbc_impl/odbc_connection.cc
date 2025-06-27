@@ -17,6 +17,9 @@
 
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h"
 
+#include "arrow/result.h"
+#include "arrow/util/utf8.h"
+
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/attribute_utils.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_descriptor.h"
@@ -56,41 +59,43 @@ const boost::xpressive::sregex CONNECTION_STR_REGEX(
 void loadPropertiesFromDSN(const std::string& dsn,
                            Connection::ConnPropertyMap& properties) {
   const size_t BUFFER_SIZE = 1024 * 10;
-  std::vector<char> outputBuffer;
+  std::vector<wchar_t> outputBuffer;
   outputBuffer.resize(BUFFER_SIZE, '\0');
   SQLSetConfigMode(ODBC_BOTH_DSN);
 
-  SQLGetPrivateProfileString(dsn.c_str(), NULL, "", &outputBuffer[0], BUFFER_SIZE,
-                             "odbc.ini");
+  std::wstring wDsn = arrow::util::UTF8ToWideString(dsn).ValueOr(L"");
+
+  SQLGetPrivateProfileString(wDsn.c_str(), NULL, L"", &outputBuffer[0], BUFFER_SIZE,
+                             L"odbc.ini");
 
   // The output buffer holds the list of keys in a series of NUL-terminated strings.
   // The series is terminated with an empty string (eg a NUL-terminator terminating the
   // last key followed by a NUL terminator after).
-  std::vector<std::string_view> keys;
+  std::vector<std::wstring_view> keys;
   size_t pos = 0;
   while (pos < BUFFER_SIZE) {
-    std::string key(&outputBuffer[pos]);
-    if (key.empty()) {
+    std::wstring wKey(&outputBuffer[pos]);
+    if (wKey.empty()) {
       break;
     }
-    size_t len = key.size();
+    size_t len = wKey.size();
 
     // Skip over Driver or DSN keys.
-    if (!boost::iequals(key, "DSN") && !boost::iequals(key, "Driver")) {
-      keys.emplace_back(std::move(key));
+    if (!boost::iequals(wKey, L"DSN") && !boost::iequals(wKey, L"Driver")) {
+      keys.emplace_back(std::move(wKey));
     }
     pos += len + 1;
   }
 
-  for (auto& key : keys) {
+  for (auto& wKey : keys) {
     outputBuffer.clear();
     outputBuffer.resize(BUFFER_SIZE, '\0');
+    SQLGetPrivateProfileString(wDsn.c_str(), wKey.data(), L"", &outputBuffer[0],
+                               BUFFER_SIZE, L"odbc.ini");
 
-    std::string key_str = std::string(key);
-    SQLGetPrivateProfileString(dsn.c_str(), key_str.c_str(), "", &outputBuffer[0],
-                               BUFFER_SIZE, "odbc.ini");
-
-    std::string value = std::string(&outputBuffer[0]);
+    std::wstring wValue = std::wstring(&outputBuffer[0]);
+    std::string value = arrow::util::WideStringToUTF8(wValue).ValueOr("");
+    std::string key = arrow::util::WideStringToUTF8(std::wstring(wKey)).ValueOr("");
     auto propIter = properties.find(key);
     if (propIter == properties.end()) {
       properties.emplace(std::make_pair(std::move(key), std::move(value)));
@@ -463,7 +468,7 @@ void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
   bool successfully_written = false;
   switch (attribute) {
     // Internal connection attributes
-#ifdef SQL_ATR_ASYNC_DBC_EVENT
+#ifdef SQL_ATTR_ASYNC_DBC_EVENT
     case SQL_ATTR_ASYNC_DBC_EVENT:
       throw DriverException("Optional feature not supported.", "HYC00");
 #endif
@@ -471,7 +476,7 @@ void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
     case SQL_ATTR_ASYNC_DBC_FUNCTIONS_ENABLE:
       throw DriverException("Optional feature not supported.", "HYC00");
 #endif
-#ifdef SQL_ATTR_ASYNC_PCALLBACK
+#ifdef SQL_ATTR_ASYNC_DBC_PCALLBACK
     case SQL_ATTR_ASYNC_DBC_PCALLBACK:
       throw DriverException("Optional feature not supported.", "HYC00");
 #endif
@@ -499,7 +504,7 @@ void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
       throw DriverException("Cannot set read-only attribute", "HY092");
     case SQL_ATTR_TRACE:  // DM-only
       throw DriverException("Cannot set read-only attribute", "HY092");
-    case SQL_ATTR_TRACEFILE:
+    case SQL_ATTR_TRACEFILE:  // DM-only
       throw DriverException("Optional feature not supported.", "HYC00");
     case SQL_ATTR_TRANSLATE_LIB:
       throw DriverException("Optional feature not supported.", "HYC00");
@@ -573,59 +578,59 @@ void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
   }
 }
 
-void ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
-                                    SQLINTEGER bufferLength, SQLINTEGER* outputLength,
-                                    bool isUnicode) {
+SQLRETURN ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
+                                         SQLINTEGER bufferLength,
+                                         SQLINTEGER* outputLength, bool isUnicode) {
   using driver::odbcabstraction::Connection;
   boost::optional<Connection::Attribute> spiAttribute;
 
   switch (attribute) {
     // Internal connection attributes
-#ifdef SQL_ATR_ASYNC_DBC_EVENT
+#ifdef SQL_ATTR_ASYNC_DBC_EVENT
     case SQL_ATTR_ASYNC_DBC_EVENT:
       GetAttribute(static_cast<SQLPOINTER>(NULL), value, bufferLength, outputLength);
-      return;
+      return SQL_SUCCESS;
 #endif
 #ifdef SQL_ATTR_ASYNC_DBC_FUNCTIONS_ENABLE
     case SQL_ATTR_ASYNC_DBC_FUNCTIONS_ENABLE:
       GetAttribute(static_cast<SQLUINTEGER>(SQL_ASYNC_DBC_ENABLE_OFF), value,
                    bufferLength, outputLength);
-      return;
+      return SQL_SUCCESS;
 #endif
-#ifdef SQL_ATTR_ASYNC_PCALLBACK
+#ifdef SQL_ATTR_ASYNC_DBC_PCALLBACK
     case SQL_ATTR_ASYNC_DBC_PCALLBACK:
       GetAttribute(static_cast<SQLPOINTER>(NULL), value, bufferLength, outputLength);
-      return;
+      return SQL_SUCCESS;
 #endif
 #ifdef SQL_ATTR_ASYNC_DBC_PCONTEXT
     case SQL_ATTR_ASYNC_DBC_PCONTEXT:
       GetAttribute(static_cast<SQLPOINTER>(NULL), value, bufferLength, outputLength);
-      return;
+      return SQL_SUCCESS;
 #endif
     case SQL_ATTR_ASYNC_ENABLE:
       GetAttribute(static_cast<SQLULEN>(SQL_ASYNC_ENABLE_OFF), value, bufferLength,
                    outputLength);
-      return;
+      return SQL_SUCCESS;
     case SQL_ATTR_AUTO_IPD:
       GetAttribute(static_cast<SQLUINTEGER>(SQL_FALSE), value, bufferLength,
                    outputLength);
-      return;
+      return SQL_SUCCESS;
     case SQL_ATTR_AUTOCOMMIT:
       GetAttribute(static_cast<SQLUINTEGER>(SQL_AUTOCOMMIT_ON), value, bufferLength,
                    outputLength);
-      return;
+      return SQL_SUCCESS;
 #ifdef SQL_ATTR_DBC_INFO_TOKEN
     case SQL_ATTR_DBC_INFO_TOKEN:
       throw DriverException("Cannot read set-only attribute", "HY092");
 #endif
     case SQL_ATTR_ENLIST_IN_DTC:
       GetAttribute(static_cast<SQLPOINTER>(NULL), value, bufferLength, outputLength);
-      return;
+      return SQL_SUCCESS;
     case SQL_ATTR_ODBC_CURSORS:  // DM-only.
       throw DriverException("Invalid attribute", "HY092");
     case SQL_ATTR_QUIET_MODE:
       GetAttribute(static_cast<SQLPOINTER>(NULL), value, bufferLength, outputLength);
-      return;
+      return SQL_SUCCESS;
     case SQL_ATTR_TRACE:  // DM-only
       throw DriverException("Invalid attribute", "HY092");
     case SQL_ATTR_TRACEFILE:
@@ -635,7 +640,7 @@ void ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
     case SQL_ATTR_TRANSLATE_OPTION:
       throw DriverException("Optional feature not supported.", "HYC00");
     case SQL_ATTR_TXN_ISOLATION:
-      throw DriverException("Optional feature not supported.", "HCY00");
+      throw DriverException("Optional feature not supported.", "HYC00");
 
     // ODBCAbstraction-level connection attributes.
     case SQL_ATTR_CURRENT_CATALOG: {
@@ -644,9 +649,8 @@ void ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
         throw DriverException("Optional feature not supported.", "HYC00");
       }
       const std::string& infoValue = boost::get<std::string>(*catalog);
-      GetStringAttribute(isUnicode, infoValue, true, value, bufferLength, outputLength,
-                         GetDiagnostics());
-      return;
+      return GetStringAttribute(isUnicode, infoValue, true, value, bufferLength,
+                                outputLength, GetDiagnostics());
     }
 
     // These all are uint32_t attributes.
@@ -675,6 +679,7 @@ void ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
 
   GetAttribute(static_cast<SQLUINTEGER>(boost::get<uint32_t>(*spiAttribute)), value,
                bufferLength, outputLength);
+  return SQL_SUCCESS;
 }
 
 void ODBCConnection::disconnect() {
@@ -761,7 +766,6 @@ std::string ODBCConnection::getPropertiesFromConnString(
       if (!isDsnFirst) {
         isDriverFirst = true;
       }
-      continue;
     }
 
     // Strip wrapping curly braces.

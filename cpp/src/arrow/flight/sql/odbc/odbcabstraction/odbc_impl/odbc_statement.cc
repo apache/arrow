@@ -15,16 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_statement.h>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_statement.h"
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/attribute_utils.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_descriptor.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/result_set.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/result_set_metadata.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/statement.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/attribute_utils.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_descriptor.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/result_set.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/result_set_metadata.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/statement.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
+
 #include <sql.h>
 #include <sqlext.h>
 #include <sqltypes.h>
@@ -580,6 +581,7 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statementAttribute, SQLPOINTER value,
       return;
 
     case SQL_ATTR_ASYNC_ENABLE:
+      throw DriverException("Unsupported attribute", "HYC00");
 #ifdef SQL_ATTR_ASYNC_STMT_EVENT
     case SQL_ATTR_ASYNC_STMT_EVENT:
       throw DriverException("Unsupported attribute", "HYC00");
