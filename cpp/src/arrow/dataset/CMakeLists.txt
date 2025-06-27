@@ -207,8 +207,8 @@ if(ARROW_PARQUET)
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)
-  add_arrow_benchmark(file_benchmark PREFIX "arrow-dataset")
-  add_arrow_benchmark(scanner_benchmark PREFIX "arrow-dataset")
+  add_arrow_compute_benchmark(file_benchmark PREFIX "arrow-dataset")
+  add_arrow_compute_benchmark(scanner_benchmark PREFIX "arrow-dataset")
 
   if(ARROW_BUILD_STATIC)
     target_link_libraries(arrow-dataset-file-benchmark PUBLIC arrow_dataset_static)
