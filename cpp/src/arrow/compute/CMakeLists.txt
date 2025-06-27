@@ -184,7 +184,7 @@ add_arrow_compute_test(row_test
                        arrow_compute_testing)
 
 if(ARROW_BUILD_BENCHMARKS)
-  add_arrow_benchmark(function_benchmark PREFIX "arrow-compute")
+  add_arrow_compute_benchmark(function_benchmark)
 endif()
 
 add_subdirectory(kernels)
