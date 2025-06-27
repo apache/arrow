@@ -4369,7 +4369,7 @@ garrow_rank_options_set_property(GObject *object,
   switch (prop_id) {
   case PROP_RANK_OPTIONS_NULL_PLACEMENT:
     options->null_placement =
-      static_cast<arrow::compute::NullPlacement>(g_value_get_enum(value));
+      static_cast<std::optional<arrow::compute::NullPlacement>>(g_value_get_enum(value));
     break;
   case PROP_RANK_OPTIONS_TIEBREAKER:
     options->tiebreaker =
