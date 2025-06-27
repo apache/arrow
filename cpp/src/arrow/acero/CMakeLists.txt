@@ -129,10 +129,10 @@ if(ARROW_TESTING)
   if(ARROW_WITH_OPENTELEMETRY)
     target_link_libraries(arrow_acero_testing PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
   endif()
-  # Do not link arrow_compute_testing for benchmarks as we need to define main
-  # for Google Benchmark instead of Google Test.
-  set(ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS arrow_acero_testing
-                                            ${ARROW_ACERO_TEST_LINK_LIBS})
+  # arrow_compute_testing will register the kernels for Gtest. In order to register the kernels
+  # for Google benchmark we use a custom main function used on add_arrow_compute_benchmark.
+  set(ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS
+      ${ARROW_ACERO_TEST_LINK_LIBS} arrow_acero_testing arrow_compute_core_testing)
   list(APPEND ARROW_ACERO_TEST_LINK_LIBS arrow_acero_testing arrow_compute_testing)
 endif()
 # Only for hash_aggregate_test.cc.
