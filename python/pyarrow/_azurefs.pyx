@@ -108,9 +108,9 @@ cdef class AzureFileSystem(FileSystem):
         c_string client_secret
 
     def __init__(self, account_name, *, account_key=None, blob_storage_authority=None,
-                 dfs_storage_authority=None, blob_storage_scheme=None,
-                 dfs_storage_scheme=None, sas_token=None,
-                 tenant_id=None, client_id=None, client_secret=None):
+                 blob_storage_scheme=None, client_id=None, client_secret=None,
+                 dfs_storage_authority=None, dfs_storage_scheme=None,
+                 sas_token=None, tenant_id=None):
         cdef:
             CAzureOptions options
             shared_ptr[CAzureFileSystem] wrapped
@@ -178,11 +178,11 @@ cdef class AzureFileSystem(FileSystem):
                 account_name=frombytes(opts.account_name),
                 account_key=frombytes(self.account_key),
                 blob_storage_authority=frombytes(opts.blob_storage_authority),
-                dfs_storage_authority=frombytes(opts.dfs_storage_authority),
                 blob_storage_scheme=frombytes(opts.blob_storage_scheme),
+                client_id=frombytes(self.client_id),
+                client_secret=frombytes(self.client_secret),
+                dfs_storage_authority=frombytes(opts.dfs_storage_authority),
                 dfs_storage_scheme=frombytes(opts.dfs_storage_scheme),
                 sas_token=frombytes(self.sas_token),
-                tenant_id=frombytes(self.tenant_id),
-                client_id=frombytes(self.client_id),
-                client_secret=frombytes(self.client_secret)
+                tenant_id=frombytes(self.tenant_id)
             ),))
