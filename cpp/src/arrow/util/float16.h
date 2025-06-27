@@ -176,6 +176,7 @@ class ARROW_EXPORT Float16 {
 };
 
 static_assert(std::is_trivial_v<Float16>);
+static_assert(std::is_standard_layout_v<Float16>);
 
 }  // namespace util
 }  // namespace arrow
