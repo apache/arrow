@@ -201,6 +201,7 @@ def test_option_class_equality(request):
         pc.WinsorizeOptions(0.05, 0.9),
         pc.WeekOptions(week_starts_monday=True, count_from_zero=False,
                        first_week_is_fully_in_year=False),
+        pc.ZeroFillOptions(4, "0"),
     ]
     # Timezone database might not be installed on Windows or Emscripten
     if request.config.pyarrow.is_enabled["timezone_data"]:
@@ -1049,6 +1050,37 @@ def test_pad():
     assert pc.utf8_center(arr, 3).tolist() == [None, ' á ', 'abcd']
     assert pc.utf8_lpad(arr, 3).tolist() == [None, '  á', 'abcd']
     assert pc.utf8_rpad(arr, 3).tolist() == [None, 'á  ', 'abcd']
+
+
+def test_utf8_zfill():
+    assert pc.utf8_zfill is pc.utf8_zero_fill
+
+    # match str.zfill behavior
+    examples = ['A', 'AB', 'ABC', '', '-1', '+1', '1', None]
+    for width in range(0, 6):
+        arr = pa.array(examples)
+        result = pc.utf8_zero_fill(arr, width=width).to_pylist()
+        expected = [x.zfill(width) if x is not None else None for x in examples]
+        assert result == expected, f"Mismatch at width={width}: {result} vs {expected}"
+
+    # unicode padding character
+    arr = pa.array(["1", "-2", "+3"])
+    result = pc.utf8_zero_fill(arr, options=pc.ZeroFillOptions(
+        width=5, padding="💠")).to_pylist()
+    assert result == ["💠💠💠💠1", "-💠💠💠2", "+💠💠💠3"]
+
+    # custom ASCII padding character
+    arr = pa.array(["1", "-2", "+3"])
+    result = pc.utf8_zero_fill(arr, options=pc.ZeroFillOptions(
+        width=4, padding="x")).to_pylist()
+    assert result == ["xxx1", "-xx2", "+xx3"]
+
+    # multi-codepoint padding — should raise
+    arr = pa.array(["foo"])
+    with pytest.raises(pa.ArrowInvalid, match="Padding must be one codepoint"):
+        pc.utf8_zero_fill(arr, options=pc.ZeroFillOptions(width=4, padding="spam"))
+    with pytest.raises(pa.ArrowInvalid, match="Padding must be one codepoint"):
+        pc.utf8_zero_fill(arr, options=pc.ZeroFillOptions(width=4, padding=""))
 
 
 @pytest.mark.pandas

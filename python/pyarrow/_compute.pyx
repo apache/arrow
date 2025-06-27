@@ -1146,6 +1146,36 @@ class PadOptions(_PadOptions):
         self._set_options(width, padding, lean_left_on_odd_padding)
 
 
+cdef class _ZeroFillOptions(FunctionOptions):
+    def _set_options(self, width, padding):
+        self.wrapped.reset(new CZeroFillOptions(width, tobytes(padding)))
+
+
+class ZeroFillOptions(_ZeroFillOptions):
+    """
+    Options for utf8_zero_fill.
+
+    Parameters
+    ----------
+    width : int
+        Desired string length.
+    padding : str, default "0"
+        Padding character. Should be one Unicode codepoint.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr = pa.array(["1", "-2", "+3"])
+    >>> opts = pc.ZeroFillOptions(width=4)
+    >>> pc.utf8_zero_fill(arr, options=opts).to_pylist()
+    ['0001', '-002', '+003']
+    """
+
+    def __init__(self, width, padding='0'):
+        self._set_options(width, padding)
+
+
 cdef class _TrimOptions(FunctionOptions):
     def _set_options(self, characters):
         self.wrapped.reset(new CTrimOptions(tobytes(characters)))
