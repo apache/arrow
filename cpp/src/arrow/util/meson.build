@@ -160,7 +160,7 @@ install_headers(
         'simd.h',
         'small_vector.h',
         'span.h',
-        'string_builder.h',
+        'string_util.h',
         'string.h',
         'task_group.h',
         'test_common.h',
