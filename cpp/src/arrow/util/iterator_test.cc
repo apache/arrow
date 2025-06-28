@@ -350,10 +350,10 @@ TEST(TestFunctionIterator, RangeForLoop) {
   int expected_i = 0;
   for (auto maybe_i : fails_at_3) {
     if (expected_i < 3) {
-      ASSERT_OK(maybe_i.status());
+      ASSERT_OK(maybe_i);
       ASSERT_EQ(*maybe_i, expected_i);
     } else if (expected_i == 3) {
-      ASSERT_RAISES(IndexError, maybe_i.status());
+      ASSERT_RAISES(IndexError, maybe_i);
     }
     ASSERT_LE(expected_i, 3) << "iteration stops after an error is encountered";
     ++expected_i;
@@ -499,7 +499,7 @@ TEST(ReadaheadIterator, NextError) {
   ASSERT_OK_AND_ASSIGN(
       auto it, MakeReadaheadIterator(Iterator<TestInt>(std::move(tracing_it)), 2));
 
-  ASSERT_RAISES(IOError, it.Next().status());
+  ASSERT_RAISES(IOError, it.Next());
 
   AssertIteratorExhausted(it);
   SleepABit();

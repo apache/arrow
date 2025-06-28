@@ -38,7 +38,7 @@ static void BenchArrayScalar(benchmark::State& state, const std::string& op) {
   auto array = rand.ArrayOf(ty, args.size, args.null_proportion);
   auto scalar = *rand.ArrayOf(ty, 1, 0)->GetScalar(0);
   for (auto _ : state) {
-    ABORT_NOT_OK(CallFunction(op, {array, Datum(scalar)}).status());
+    ABORT_NOT_OK(CallFunction(op, {array, Datum(scalar)}));
   }
 }
 
@@ -50,7 +50,7 @@ static void BenchArrayArray(benchmark::State& state, const std::string& op) {
   auto lhs = rand.ArrayOf(ty, args.size, args.null_proportion);
   auto rhs = rand.ArrayOf(ty, args.size, args.null_proportion);
   for (auto _ : state) {
-    ABORT_NOT_OK(CallFunction(op, {lhs, rhs}).status());
+    ABORT_NOT_OK(CallFunction(op, {lhs, rhs}));
   }
 }
 

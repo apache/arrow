@@ -2150,7 +2150,7 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
       auto maybe_field =
           FieldPathGetImpl::Get(&path, FieldSelector(fields_), &out_of_range_depth);
 
-      DCHECK_OK(maybe_field.status());
+      DCHECK_OK(maybe_field);
 
       if (maybe_field.ValueOrDie() != nullptr) {
         return {path};
@@ -2188,7 +2188,7 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
       void Add(const FieldPath& prefix, const FieldPath& suffix,
                const FieldVector& fields) {
         auto maybe_field = suffix.Get(fields);
-        DCHECK_OK(maybe_field.status());
+        DCHECK_OK(maybe_field);
         referents.push_back(std::move(maybe_field).ValueOrDie());
 
         std::vector<int> concatenated_indices(prefix.indices().size() +

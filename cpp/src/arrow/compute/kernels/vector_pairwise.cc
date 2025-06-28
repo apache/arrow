@@ -147,7 +147,7 @@ void RegisterPairwiseDiffKernels(std::string_view func_name,
                                                doc, GetDefaultPairwiseOptions());
 
   auto base_func_result = registry->GetFunction(std::string(base_func_name));
-  DCHECK_OK(base_func_result.status());
+  DCHECK_OK(base_func_result);
   const auto& base_func = checked_cast<const ScalarFunction&>(**base_func_result);
   DCHECK_EQ(base_func.arity().num_args, 2);
 

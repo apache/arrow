@@ -33,6 +33,18 @@ namespace arrow {
 
 class Decimal64;
 
+namespace internal {
+
+ARROW_EXPORT
+Status ToArrowStatus(DecimalStatus);
+
+}  // namespace internal
+
+template <>
+struct IntoStatus<DecimalStatus> {
+  static inline Status ToStatus(DecimalStatus st) { return internal::ToArrowStatus(st); }
+};
+
 /// Represents a signed 32-bit decimal value in two's complement.
 /// Calulations wrap around and overflow is ignored.
 /// The max decimal precision that can be safely represented is
@@ -75,8 +87,7 @@ class ARROW_EXPORT Decimal32 : public BasicDecimal32 {
   /// \return the pair of the quotient and the remainder
   Result<std::pair<Decimal32, Decimal32>> Divide(const Decimal32& divisor) const {
     std::pair<Decimal32, Decimal32> result;
-    auto dstatus = BasicDecimal32::Divide(divisor, &result.first, &result.second);
-    ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
+    ARROW_RETURN_NOT_OK(BasicDecimal32::Divide(divisor, &result.first, &result.second));
     return result;
   }
 
@@ -114,8 +125,7 @@ class ARROW_EXPORT Decimal32 : public BasicDecimal32 {
   /// \brief Convert Decimal32 from one scale to another
   Result<Decimal32> Rescale(int32_t original_scale, int32_t new_scale) const {
     Decimal32 out;
-    auto dstatus = BasicDecimal32::Rescale(original_scale, new_scale, &out);
-    ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
+    ARROW_RETURN_NOT_OK(BasicDecimal32::Rescale(original_scale, new_scale, &out));
     return out;
   }
 
@@ -150,10 +160,6 @@ class ARROW_EXPORT Decimal32 : public BasicDecimal32 {
 
   ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream& os,
                                                       const Decimal32& decimal);
-
- private:
-  /// Converts internal error code to Status
-  Status ToArrowStatus(DecimalStatus dstatus) const;
 };
 
 class ARROW_EXPORT Decimal64 : public BasicDecimal64 {
@@ -189,8 +195,7 @@ class ARROW_EXPORT Decimal64 : public BasicDecimal64 {
   /// \return the pair of the quotient and the remainder
   Result<std::pair<Decimal64, Decimal64>> Divide(const Decimal64& divisor) const {
     std::pair<Decimal64, Decimal64> result;
-    auto dstatus = BasicDecimal64::Divide(divisor, &result.first, &result.second);
-    ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
+    ARROW_RETURN_NOT_OK(BasicDecimal64::Divide(divisor, &result.first, &result.second));
     return result;
   }
 
@@ -226,8 +231,7 @@ class ARROW_EXPORT Decimal64 : public BasicDecimal64 {
   /// \brief Convert Decimal64 from one scale to another
   Result<Decimal64> Rescale(int32_t original_scale, int32_t new_scale) const {
     Decimal64 out;
-    auto dstatus = BasicDecimal64::Rescale(original_scale, new_scale, &out);
-    ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
+    ARROW_RETURN_NOT_OK(BasicDecimal64::Rescale(original_scale, new_scale, &out));
     return out;
   }
 
@@ -262,10 +266,6 @@ class ARROW_EXPORT Decimal64 : public BasicDecimal64 {
 
   ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream& os,
                                                       const Decimal64& decimal);
-
- private:
-  /// Converts internal error code to Status
-  Status ToArrowStatus(DecimalStatus dstatus) const;
 };
 
 /// Represents a signed 128-bit integer in two's complement.
@@ -315,8 +315,7 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
   /// \return the pair of the quotient and the remainder
   Result<std::pair<Decimal128, Decimal128>> Divide(const Decimal128& divisor) const {
     std::pair<Decimal128, Decimal128> result;
-    auto dstatus = BasicDecimal128::Divide(divisor, &result.first, &result.second);
-    ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
+    ARROW_RETURN_NOT_OK(BasicDecimal128::Divide(divisor, &result.first, &result.second));
     return result;
   }
 
@@ -353,8 +352,7 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
   /// \brief Convert Decimal128 from one scale to another
   Result<Decimal128> Rescale(int32_t original_scale, int32_t new_scale) const {
     Decimal128 out;
-    auto dstatus = BasicDecimal128::Rescale(original_scale, new_scale, &out);
-    ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
+    ARROW_RETURN_NOT_OK(BasicDecimal128::Rescale(original_scale, new_scale, &out));
     return out;
   }
 
@@ -396,10 +394,6 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
 
   ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream& os,
                                                       const Decimal128& decimal);
-
- private:
-  /// Converts internal error code to Status
-  Status ToArrowStatus(DecimalStatus dstatus) const;
 };
 
 /// Represents a signed 256-bit integer in two's complement.
@@ -453,8 +447,7 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
   /// \brief Convert Decimal256 from one scale to another
   Result<Decimal256> Rescale(int32_t original_scale, int32_t new_scale) const {
     Decimal256 out;
-    auto dstatus = BasicDecimal256::Rescale(original_scale, new_scale, &out);
-    ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
+    ARROW_RETURN_NOT_OK(BasicDecimal256::Rescale(original_scale, new_scale, &out));
     return out;
   }
 
@@ -470,8 +463,7 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
   /// \return the pair of the quotient and the remainder
   Result<std::pair<Decimal256, Decimal256>> Divide(const Decimal256& divisor) const {
     std::pair<Decimal256, Decimal256> result;
-    auto dstatus = BasicDecimal256::Divide(divisor, &result.first, &result.second);
-    ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
+    ARROW_RETURN_NOT_OK(BasicDecimal256::Divide(divisor, &result.first, &result.second));
     return result;
   }
 
@@ -503,10 +495,6 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
 
   ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream& os,
                                                       const Decimal256& decimal);
-
- private:
-  /// Converts internal error code to Status
-  Status ToArrowStatus(DecimalStatus dstatus) const;
 };
 
 /// For an integer type, return the max number of decimal digits

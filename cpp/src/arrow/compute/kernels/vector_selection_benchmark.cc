@@ -211,7 +211,7 @@ struct TakeBenchmark {
     }
 
     for (auto _ : state) {
-      ABORT_NOT_OK(Take(values, indices).status());
+      ABORT_NOT_OK(Take(values, indices));
     }
     state.SetItemsProcessed(state.iterations() * num_indices);
     state.counters["selection_factor"] = selection_factor;
@@ -253,11 +253,11 @@ struct TakeBenchmark {
 
     if (chunk_indices_too) {
       for (auto _ : state) {
-        ABORT_NOT_OK(Take(values, chunked_indices).status());
+        ABORT_NOT_OK(Take(values, chunked_indices));
       }
     } else {
       for (auto _ : state) {
-        ABORT_NOT_OK(Take(values, indices).status());
+        ABORT_NOT_OK(Take(values, indices));
       }
     }
     state.SetItemsProcessed(state.iterations() * num_indices);
@@ -321,7 +321,7 @@ struct FilterBenchmark {
     auto filter = rand.Boolean(values->length(), args.selected_proportion,
                                args.filter_null_proportion);
     for (auto _ : state) {
-      ABORT_NOT_OK(Filter(values, filter).status());
+      ABORT_NOT_OK(Filter(values, filter));
     }
     state.SetItemsProcessed(state.iterations() * values->length());
   }
@@ -356,7 +356,7 @@ struct FilterBenchmark {
 
     auto batch = RecordBatch::Make(schema(fields), num_rows, columns);
     for (auto _ : state) {
-      ABORT_NOT_OK(Filter(batch, filter).status());
+      ABORT_NOT_OK(Filter(batch, filter));
     }
     state.SetItemsProcessed(state.iterations() * num_rows);
   }

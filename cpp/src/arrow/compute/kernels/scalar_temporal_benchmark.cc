@@ -59,7 +59,7 @@ static void BenchmarkTemporalRounding(benchmark::State& state) {
   EXPECT_OK_AND_ASSIGN(auto timestamp_array, array->View(timestamp_type));
 
   for (auto _ : state) {
-    ABORT_NOT_OK(Op(timestamp_array, options, ctx).status());
+    ABORT_NOT_OK(Op(timestamp_array, options, ctx));
   }
 
   state.SetItemsProcessed(state.iterations() * array_size);
@@ -78,7 +78,7 @@ static void BenchmarkTemporal(benchmark::State& state) {
   EXPECT_OK_AND_ASSIGN(auto timestamp_array, array->View(timestamp_type));
 
   for (auto _ : state) {
-    ABORT_NOT_OK(Op(timestamp_array, ctx).status());
+    ABORT_NOT_OK(Op(timestamp_array, ctx));
   }
 
   state.SetItemsProcessed(state.iterations() * array_size);
@@ -96,7 +96,7 @@ static void BenchmarkTemporalBinary(benchmark::State& state) {
   auto rhs = rand.ArrayOf(timestamp_type, args.size, args.null_proportion);
 
   for (auto _ : state) {
-    ABORT_NOT_OK(Op(lhs, rhs, ctx).status());
+    ABORT_NOT_OK(Op(lhs, rhs, ctx));
   }
 
   state.SetItemsProcessed(state.iterations() * array_size);
@@ -116,7 +116,7 @@ static void BenchmarkStrftime(benchmark::State& state) {
 
   auto options = StrftimeOptions();
   for (auto _ : state) {
-    ABORT_NOT_OK(Strftime(timestamp_array, options, ctx).status());
+    ABORT_NOT_OK(Strftime(timestamp_array, options, ctx));
   }
 
   state.SetItemsProcessed(state.iterations() * array_size);
@@ -139,7 +139,7 @@ static void BenchmarkStrptime(benchmark::State& state) {
   auto strptime_options = StrptimeOptions("%Y-%m-%dT%H:%M:%S", TimeUnit::MICRO, true);
 
   for (auto _ : state) {
-    ABORT_NOT_OK(Strptime(string_array, strptime_options, ctx).status());
+    ABORT_NOT_OK(Strptime(string_array, strptime_options, ctx));
   }
 
   state.SetItemsProcessed(state.iterations() * array_size);
@@ -160,7 +160,7 @@ static void BenchmarkAssumeTimezone(benchmark::State& state) {
       "Pacific/Marquesas", AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_LATEST,
       AssumeTimezoneOptions::Nonexistent::NONEXISTENT_EARLIEST);
   for (auto _ : state) {
-    ABORT_NOT_OK(AssumeTimezone(timestamp_array, options, ctx).status());
+    ABORT_NOT_OK(AssumeTimezone(timestamp_array, options, ctx));
   }
 
   state.SetItemsProcessed(state.iterations() * array_size);

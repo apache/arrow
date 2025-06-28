@@ -76,7 +76,7 @@ class DiffTest : public ::testing::Test {
 
   void DoDiff() {
     auto edits = Diff(*base_, *target_, default_memory_pool());
-    ASSERT_OK(edits.status());
+    ASSERT_OK(edits);
     edits_ = edits.ValueOrDie();
     ASSERT_OK(edits_->ValidateFull());
     ASSERT_TRUE(edits_->type()->Equals(edits_type));
@@ -87,7 +87,7 @@ class DiffTest : public ::testing::Test {
   void DoDiffAndFormat(std::stringstream* out) {
     DoDiff();
     auto formatter = MakeUnifiedDiffFormatter(*base_->type(), out);
-    ASSERT_OK(formatter.status());
+    ASSERT_OK(formatter);
     ASSERT_OK(formatter.ValueOrDie()(*edits_, *base_, *target_));
   }
 
@@ -800,10 +800,10 @@ TEST_F(DiffTest, CompareRandomStruct) {
 
       auto type = struct_({field("i", int32()), field("s", utf8())});
       auto base_res = StructArray::Make({int32_base, utf8_base}, type->fields());
-      ASSERT_OK(base_res.status());
+      ASSERT_OK(base_res);
       base_ = base_res.ValueOrDie();
       auto target_res = StructArray::Make({int32_target, utf8_target}, type->fields());
-      ASSERT_OK(target_res.status());
+      ASSERT_OK(target_res);
       target_ = target_res.ValueOrDie();
 
       std::stringstream formatted;

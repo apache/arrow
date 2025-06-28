@@ -42,7 +42,7 @@ static void ArrayArrayKernel(benchmark::State& state) {
   auto rhs = rand.Boolean(array_size, /*true_probability=*/0.5, args.null_proportion);
 
   for (auto _ : state) {
-    ABORT_NOT_OK(Op(lhs, rhs, nullptr).status());
+    ABORT_NOT_OK(Op(lhs, rhs, nullptr));
   }
   state.SetItemsProcessed(state.iterations() * array_size);
 }

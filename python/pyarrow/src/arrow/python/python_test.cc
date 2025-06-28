@@ -94,18 +94,17 @@
     }                                                                             \
   }
 
-#define ASSERT_OK(expr)                                                                \
-  {                                                                                    \
-    for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr)); !_st.ok();) \
-      return Status::Invalid("`", #expr, "` failed with ", _st.ToString());            \
+#define ASSERT_OK(expr)                                                     \
+  {                                                                         \
+    for (::arrow::Status _st = ::arrow::ToStatus((expr)); !_st.ok();)       \
+      return Status::Invalid("`", #expr, "` failed with ", _st.ToString()); \
   }
 
-#define ASSERT_RAISES(code, expr)                                               \
-  {                                                                             \
-    for (::arrow::Status _st_expr = ::arrow::internal::GenericToStatus((expr)); \
-         !_st_expr.Is##code();)                                                 \
-      return Status::Invalid("Expected `", #expr, "` to fail with ", #code,     \
-                             ", but got ", _st_expr.ToString());                \
+#define ASSERT_RAISES(code, expr)                                                     \
+  {                                                                                   \
+    for (::arrow::Status _st_expr = ::arrow::ToStatus((expr)); !_st_expr.Is##code();) \
+      return Status::Invalid("Expected `", #expr, "` to fail with ", #code,           \
+                             ", but got ", _st_expr.ToString());                      \
   }
 
 namespace arrow {

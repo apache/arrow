@@ -489,19 +489,11 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
   ARROW_ASSIGN_OR_RAISE_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
                              lhs, rexpr);
 
-namespace internal {
-
 template <typename T>
-inline const Status& GenericToStatus(const Result<T>& res) {
-  return res.status();
-}
-
-template <typename T>
-inline Status GenericToStatus(Result<T>&& res) {
-  return std::move(res).status();
-}
-
-}  // namespace internal
+struct IntoStatus<Result<T>> {
+  static constexpr const Status& ToStatus(const Result<T>& res) { return res.status(); }
+  static inline Status ToStatus(Result<T>&& res) { return std::move(res).status(); }
+};
 
 template <typename T, typename R = typename EnsureResult<T>::type>
 R ToResult(T t) {

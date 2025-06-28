@@ -158,8 +158,7 @@ auto SafeCallIntoPython(Function&& func) -> decltype(func()) {
   auto maybe_status = std::forward<Function>(func)();
   // If the return Status is a "Python error", the current Python error status
   // describes the error and shouldn't be clobbered.
-  if (!IsPyError(::arrow::internal::GenericToStatus(maybe_status)) &&
-      exc_type != NULLPTR) {
+  if (!IsPyError(::arrow::ToStatus(maybe_status)) && exc_type != NULLPTR) {
     PyErr_Restore(exc_type, exc_value, exc_traceback);
   }
   return maybe_status;

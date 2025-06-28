@@ -48,7 +48,7 @@ static void BuildDictionary(benchmark::State& state) {  // NOLINT non-const refe
   ArrayFromVector<Int64Type, int64_t>(is_valid, values, &arr);
 
   while (state.KeepRunning()) {
-    ABORT_NOT_OK(DictionaryEncode(arr).status());
+    ABORT_NOT_OK(DictionaryEncode(arr));
   }
   state.counters["null_percent"] =
       static_cast<double>(arr->null_count()) / arr->length() * 100;
@@ -75,7 +75,7 @@ static void BuildStringDictionary(
   ArrayFromVector<StringType, std::string>(data, &arr);
 
   while (state.KeepRunning()) {
-    ABORT_NOT_OK(DictionaryEncode(arr).status());
+    ABORT_NOT_OK(DictionaryEncode(arr));
   }
   state.SetBytesProcessed(state.iterations() * total_bytes);
   state.SetItemsProcessed(state.iterations() * data.size());
@@ -133,7 +133,7 @@ void BenchUnique(benchmark::State& state, const ParamType& params) {
   params.GenerateTestData(&arr);
 
   while (state.KeepRunning()) {
-    ABORT_NOT_OK(Unique(arr).status());
+    ABORT_NOT_OK(Unique(arr));
   }
   params.SetMetadata(state);
 }
@@ -143,7 +143,7 @@ void BenchDictionaryEncode(benchmark::State& state, const ParamType& params) {
   std::shared_ptr<Array> arr;
   params.GenerateTestData(&arr);
   while (state.KeepRunning()) {
-    ABORT_NOT_OK(DictionaryEncode(arr).status());
+    ABORT_NOT_OK(DictionaryEncode(arr));
   }
   params.SetMetadata(state);
 }
@@ -215,7 +215,7 @@ void BenchValueCountsDictionaryChunks(benchmark::State& state, const ParamType& 
   auto chunked_array = std::make_shared<ChunkedArray>(chunks);
 
   while (state.KeepRunning()) {
-    ABORT_NOT_OK(ValueCounts(chunked_array).status());
+    ABORT_NOT_OK(ValueCounts(chunked_array));
   }
   params.SetMetadata(state);
 }

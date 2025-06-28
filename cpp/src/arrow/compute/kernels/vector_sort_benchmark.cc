@@ -309,7 +309,7 @@ static void ChunkedArraySortIndicesString(benchmark::State& state) {
 static void DatumSortIndicesBenchmark(benchmark::State& state, const Datum& datum,
                                       const SortOptions& options) {
   for (auto _ : state) {
-    ABORT_NOT_OK(SortIndices(datum, options).status());
+    ABORT_NOT_OK(SortIndices(datum, options));
   }
 }
 
