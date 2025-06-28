@@ -1014,6 +1014,12 @@ Result<std::unique_ptr<RecordBatchReader>> FileReaderImpl::GetRecordBatchReader(
   if (readers.empty()) {
     // Just generate all batches right now; they're cheap since they have no columns.
     int64_t batch_size = properties().batch_size();
+
+    if (batch_size <= 0) {
+      return ::arrow::Status::Invalid(
+          "batch_size must be greater than 0 but got batch size of ", batch_size);
+    }
+
     auto max_sized_batch =
         ::arrow::RecordBatch::Make(batch_schema, batch_size, ::arrow::ArrayVector{});
 
