@@ -5102,6 +5102,10 @@ function(build_awssdk)
       find_program(PATCH patch REQUIRED)
       set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
           ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/aws-c-common-1208.patch)
+    elseif(MINGW AND AWSSDK_PRODUCT STREQUAL "aws-sdk-cpp")
+      find_program(PATCH patch REQUIRED)
+      set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
+          ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/aws-sdk-cpp.diff)
     endif()
     fetchcontent_declare(${AWSSDK_PRODUCT}
                          ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
