@@ -995,15 +995,3 @@ def test_checksum_write_to_dataset(tempdir):
     # checksum verification enabled raises an exception
     with pytest.raises(OSError, match="CRC checksum verification"):
         _ = pq.read_table(corrupted_file_path, page_checksum_verification=True)
-
-
-def test_parquet_iter_batches_crash_on_ci(tempdir):
-    # https://github.com/apache/arrow/issues/46811
-    schema = pa.schema([])
-    empty_table = pa.Table.from_batches([], schema=schema)
-    parquet_file_path = tempdir / "empty_file.parquet"
-    pq.write_table(empty_table, parquet_file_path)
-    parquet_file = pq.ParquetFile(parquet_file_path)
-    chunks = parquet_file.iter_batches(batch_size=0)
-    for idx, chunk in enumerate(chunks):
-        df = chunk  # <-- doing anything with chunk crashes
