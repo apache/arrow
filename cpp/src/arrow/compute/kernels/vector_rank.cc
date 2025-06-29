@@ -347,10 +347,12 @@ class RankMetaFunctionBase : public MetaFunction {
 
     SortOrder order = SortOrder::Ascending;
     NullPlacement null_placement = NullPlacement::AtEnd;
-    auto sort_keys = options.GetSortKeys();
-    if (!sort_keys.empty()) {
-      order = sort_keys[0].order;
-      null_placement = sort_keys[0].null_placement;
+    if (!options.sort_keys.empty()) {
+      order = options.sort_keys[0].order;
+      null_placement = options.sort_keys[0].null_placement;
+    }
+    if(options.null_placement.has_value()){
+      null_placement = options.null_placement.value();
     }
 
     int64_t length = input.length();
