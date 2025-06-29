@@ -4364,6 +4364,7 @@ namespace {
     default:
       return GARROW_OPTIONAL_NULL_PLACEMENT_UNSET;
     }
+  }
 
   static std::optional<arrow::compute::NullPlacement>
   garrow_optional_null_placement_to_raw(GArrowOptionalNullPlacement garrow_placement)
