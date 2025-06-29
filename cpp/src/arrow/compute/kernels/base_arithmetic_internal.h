@@ -33,6 +33,7 @@ namespace arrow {
 
 using internal::AddWithOverflow;
 using internal::DivideWithOverflow;
+using internal::ModuloWithOverflow;
 using internal::MultiplyWithOverflow;
 using internal::NegateWithOverflow;
 using internal::SubtractWithOverflow;
@@ -465,6 +466,62 @@ struct FloatingDivideChecked {
     return Call<double>(ctx, static_cast<double>(left), static_cast<double>(right), st);
   }
   // TODO: Add decimal
+};
+
+struct Modulo {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                          Status* st) {
+    *st = Status::Invalid("Not implemented");
+    return 0;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
+    if (ARROW_PREDICT_FALSE(right == 0)) {
+      *st = Status::Invalid("Modulo by zero");
+      return 0;
+    }
+
+    return left % right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(KernelContext* ctx, Arg0 left, Arg1 right,
+                                         Status* st) {
+    return Divide::Call<T>(ctx, left, right, st);
+  }
+};
+
+struct ModuloChecked {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                          Status* st) {
+    *st = Status::Invalid("Not implemented");
+    return 0;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    T result;
+    if (ARROW_PREDICT_FALSE(ModuloWithOverflow(left, right, &result))) {
+      if (right == 0) {
+        *st = Status::Invalid("Modulo by zero");
+      } else {
+        *st = Status::Invalid("Overflow");
+      }
+    }
+    return result;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(KernelContext* ctx, Arg0 left, Arg1 right,
+                                         Status* st) {
+    return Divide::Call<T>(ctx, left, right, st);
+  }
 };
 
 struct Negate {

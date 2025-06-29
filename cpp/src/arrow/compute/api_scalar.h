@@ -632,6 +632,21 @@ Result<Datum> Subtract(const Datum& left, const Datum& right,
                        ArithmeticOptions options = ArithmeticOptions(),
                        ExecContext* ctx = NULLPTR);
 
+/// \brief Get the modulo of dividing two values.
+/// Array values must be the same length.
+/// If either argument is null the result will be null.
+/// For integer types, if there is a zero divisor, an error will be raised.
+///
+/// \param[in] left the dividend
+/// \param[in] right the divisor
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise remainder
+ARROW_EXPORT
+Result<Datum> Modulo(const Datum& left, const Datum& right,
+                     ArithmeticOptions options = ArithmeticOptions(),
+                     ExecContext* ctx = NULLPTR);
+
 /// \brief Multiply two values. Array values must be the same length. If either
 /// factor is null the result will be null.
 ///
