@@ -54,6 +54,7 @@ add_arrow_test(utility-test
                cache_test.cc
                checked_cast_test.cc
                compression_test.cc
+               cpu_info_test.cc
                decimal_test.cc
                float16_test.cc
                fixed_width_test.cc
