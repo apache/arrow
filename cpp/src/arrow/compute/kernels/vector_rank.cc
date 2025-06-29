@@ -351,7 +351,7 @@ class RankMetaFunctionBase : public MetaFunction {
       order = options.sort_keys[0].order;
       null_placement = options.sort_keys[0].null_placement;
     }
-    if(options.null_placement.has_value()){
+    if (options.null_placement.has_value()) {
       null_placement = options.null_placement.value();
     }
 

@@ -4348,37 +4348,37 @@ garrow_index_options_new(void)
 }
 
 namespace {
-static GArrowOptionalNullPlacement
-garrow_optional_null_placement_from_raw(const std::optional<arrow::compute::NullPlacement>& arrow_placement)
-{
-  if (!arrow_placement.has_value()) {
-    return GARROW_OPTIONAL_NULL_PLACEMENT_UNSET;
-  }
+  static GArrowOptionalNullPlacement
+  garrow_optional_null_placement_from_raw(
+    const std::optional<arrow::compute::NullPlacement> &arrow_placement)
+  {
+    if (!arrow_placement.has_value()) {
+      return GARROW_OPTIONAL_NULL_PLACEMENT_UNSET;
+    }
 
-  switch (arrow_placement.value()) {
-  case arrow::compute::NullPlacement::AtStart:
-    return GARROW_OPTIONAL_NULL_PLACEMENT_AT_START;
-  case arrow::compute::NullPlacement::AtEnd:
-    return GARROW_OPTIONAL_NULL_PLACEMENT_AT_END;
-  default:
-    return GARROW_OPTIONAL_NULL_PLACEMENT_UNSET;
-  }
-}
+    switch (arrow_placement.value()) {
+    case arrow::compute::NullPlacement::AtStart:
+      return GARROW_OPTIONAL_NULL_PLACEMENT_AT_START;
+    case arrow::compute::NullPlacement::AtEnd:
+      return GARROW_OPTIONAL_NULL_PLACEMENT_AT_END;
+    default:
+      return GARROW_OPTIONAL_NULL_PLACEMENT_UNSET;
+    }
 
-static std::optional<arrow::compute::NullPlacement>
-garrow_optional_null_placement_to_raw(GArrowOptionalNullPlacement garrow_placement)
-{
-  switch (garrow_placement) {
-  case GARROW_OPTIONAL_NULL_PLACEMENT_AT_START:
-    return arrow::compute::NullPlacement::AtStart;
-  case GARROW_OPTIONAL_NULL_PLACEMENT_AT_END:
-    return arrow::compute::NullPlacement::AtEnd;
-  case GARROW_OPTIONAL_NULL_PLACEMENT_UNSET:
-  default:
-    return std::nullopt;
+  static std::optional<arrow::compute::NullPlacement>
+  garrow_optional_null_placement_to_raw(GArrowOptionalNullPlacement garrow_placement)
+  {
+    switch (garrow_placement) {
+    case GARROW_OPTIONAL_NULL_PLACEMENT_AT_START:
+      return arrow::compute::NullPlacement::AtStart;
+    case GARROW_OPTIONAL_NULL_PLACEMENT_AT_END:
+      return arrow::compute::NullPlacement::AtEnd;
+    case GARROW_OPTIONAL_NULL_PLACEMENT_UNSET:
+    default:
+      return std::nullopt;
+    }
   }
-}
-}
+} // namespace
 
 enum {
   PROP_RANK_OPTIONS_NULL_PLACEMENT = 1,
@@ -4401,10 +4401,8 @@ garrow_rank_options_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_RANK_OPTIONS_NULL_PLACEMENT:
-    options->null_placement =
-      garrow_optional_null_placement_to_raw(
-        static_cast<GArrowOptionalNullPlacement>(g_value_get_enum(value))
-        );
+    options->null_placement = garrow_optional_null_placement_to_raw(
+      static_cast<GArrowOptionalNullPlacement>(g_value_get_enum(value)));
     break;
   case PROP_RANK_OPTIONS_TIEBREAKER:
     options->tiebreaker =
@@ -4464,13 +4462,15 @@ garrow_rank_options_class_init(GArrowRankOptionsClass *klass)
    *
    * Since: 12.0.0
    */
-  spec = g_param_spec_enum("null-placement",
-                           "Null placement",
-                           "Whether nulls and NaNs are placed "
-                           "at the start or at the end.",
-                           GARROW_TYPE_OPTIONAL_NULL_PLACEMENT,
-                           garrow_optional_null_placement_from_raw(options.null_placement),
-                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  spec =
+    g_param_spec_enum("null-placement",
+                      "Null placement",
+                      "Whether nulls and NaNs are placed "
+                      "at the start or at the end.",
+                      GARROW_TYPE_OPTIONAL_NULL_PLACEMENT,
+                      garrow_optional_null_placement_from_raw(options.null_placement),
+                      static_cast<GParamFlags>(G_PARAM_READWRITE));
+
   g_object_class_install_property(gobject_class, PROP_RANK_OPTIONS_NULL_PLACEMENT, spec);
 
   /**
