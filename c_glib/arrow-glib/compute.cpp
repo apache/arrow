@@ -4399,7 +4399,15 @@ garrow_rank_options_get_property(GObject *object,
 
   switch (prop_id) {
   case PROP_RANK_OPTIONS_NULL_PLACEMENT:
-    g_value_set_enum(value, static_cast<GArrowOptionalNullPlacement>(options->null_placement));
+    if(!options->null_placement.has_value()){
+      g_value_set_enum(value, GARROW_OPTIONAL_NULL_PLACEMENT_UNSET);
+    }
+    else if(options->null_placement.value() == arrow::compute::NullPlacement::AtStart){
+      g_value_set_enum(value, GARROW_OPTIONAL_NULL_PLACEMENT_AT_START);
+    }
+    else {
+      g_value_set_enum(value, GARROW_OPTIONAL_NULL_PLACEMENT_AT_END);
+    }
     break;
   case PROP_RANK_OPTIONS_TIEBREAKER:
     g_value_set_enum(value, static_cast<GArrowRankTiebreaker>(options->tiebreaker));
