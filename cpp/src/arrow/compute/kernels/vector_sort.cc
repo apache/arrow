@@ -959,7 +959,7 @@ class SortIndicesMetaFunction : public MetaFunction {
   Result<Datum> SortIndices(const Array& values, const SortOptions& options,
                             ExecContext* ctx) const {
     SortOrder order = SortOrder::Ascending;
-    NullPlacement null_placement = NullPlacement::AtStart;
+    NullPlacement null_placement = NullPlacement::AtEnd;
     auto sort_keys = options.GetSortKeys();
     if (!sort_keys.empty()) {
       order = sort_keys[0].order;
@@ -972,7 +972,7 @@ class SortIndicesMetaFunction : public MetaFunction {
   Result<Datum> SortIndices(const ChunkedArray& chunked_array, const SortOptions& options,
                             ExecContext* ctx) const {
     SortOrder order = SortOrder::Ascending;
-    NullPlacement null_placement = NullPlacement::AtStart;
+    NullPlacement null_placement = NullPlacement::AtEnd;
     auto sort_keys = options.GetSortKeys();
     if (!sort_keys.empty()) {
       order = sort_keys[0].order;
