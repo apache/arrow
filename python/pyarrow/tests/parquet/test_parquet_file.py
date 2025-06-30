@@ -17,6 +17,7 @@
 
 import io
 import os
+import re
 import sys
 
 import pytest
@@ -381,6 +382,24 @@ def test_parquet_file_fsspec_support():
         pq.read_table("non-existing://example.parquet")
 
 
+def test_parquet_file_fsspec_support_through_filesystem_argument():
+    try:
+        from fsspec.implementations.memory import MemoryFileSystem
+    except ImportError:
+        pytest.skip("fsspec is not installed, skipping test")
+
+    table = pa.table({"b": range(10)})
+
+    fs = MemoryFileSystem()
+    fs.mkdir("/path/to/prefix", create_parents=True)
+    assert fs.exists("/path/to/prefix")
+
+    fs_str = "fsspec+memory://path/to/prefix"
+    pq.write_table(table, "b.parquet", filesystem=fs_str)
+    table2 = pq.read_table("fsspec+memory://path/to/prefix/b.parquet")
+    assert table.equals(table2)
+
+
 def test_parquet_file_hugginface_support():
     try:
         from fsspec.implementations.memory import MemoryFileSystem
@@ -397,6 +416,6 @@ def test_parquet_file_hugginface_support():
 
 def test_fsspec_uri_raises_if_fsspec_is_not_available():
     with mock.patch.dict(sys.modules, {'fsspec': None}):
-        msg = "`fsspec` is required to handle fsspec+<protocol> filesystems."
+        msg = re.escape("`fsspec` is required to handle fsspec+<protocol> filesystems.")
         with pytest.raises(ImportError, match=msg):
             pq.read_table("fsspec+memory://example.parquet")
