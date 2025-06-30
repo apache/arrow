@@ -191,12 +191,52 @@ class PARQUET_EXPORT FileReader {
   ///
   /// \returns error Status if either row_group_indices or column_indices
   ///     contains an invalid index
+  /// \deprecated Deprecated in future release. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in future release. Use arrow::Result version instead.")
   ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                        const std::vector<int>& column_indices,
                                        std::shared_ptr<::arrow::RecordBatchReader>* out);
+
+  /// \brief Return a RecordBatchReader of row groups selected from
+  /// row_group_indices, whose columns are selected by column_indices.
+  ///
+  /// Note that the ordering in row_group_indices and column_indices
+  /// matter. FileReaders must outlive their RecordBatchReaders.
+  ///
+  /// \param row_group_indices which row groups to read (order determines read order).
+  /// \param column_indices which columns to read (order determines output schema).
+  ///
+  /// \returns error Result if either row_group_indices or column_indices
+  ///     contains an invalid index
+  virtual ::arrow::Result<std::shared_ptr<::arrow::RecordBatchReader>>
+  GetRecordBatchReaderSharedPtr(const std::vector<int>& row_group_indices,
+                                const std::vector<int>& column_indices) = 0;
+
+  /// \deprecated Deprecated in future release. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in future release. Use arrow::Result version instead.")
   ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                        std::shared_ptr<::arrow::RecordBatchReader>* out);
+
+  /// \brief Return a RecordBatchReader of row groups selected from row_group_indices.
+  ///
+  /// Note that the ordering in row_group_indices matters. FileReaders must outlive
+  /// their RecordBatchReaders.
+  ///
+  /// \param row_group_indices which row groups to read (order determines read order).
+  ///
+  /// \returns error Result if row_group_indices contains an invalid index
+  virtual ::arrow::Result<std::shared_ptr<::arrow::RecordBatchReader>>
+  GetRecordBatchReaderSharedPtr(const std::vector<int>& row_group_indices) = 0;
+
+  /// \deprecated Deprecated in future release. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in future release. Use arrow::Result version instead.")
   ::arrow::Status GetRecordBatchReader(std::shared_ptr<::arrow::RecordBatchReader>* out);
+
+  /// \brief Return a RecordBatchReader of all row groups and columns.
+  ///
+  /// \returns error Result if row_group_indices contains an invalid index
+  virtual ::arrow::Result<std::shared_ptr<::arrow::RecordBatchReader>>
+  GetRecordBatchReaderSharedPtr() = 0;
 
   /// \brief Return a generator of record batches.
   ///
