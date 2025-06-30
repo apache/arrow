@@ -358,8 +358,8 @@ void AttachStatistics(::arrow::ArrayData* data,
       array_statistics->distinct_count = statistics->distinct_count();
     }
     if (statistics->HasMinMax()) {
-      auto typed_statistics =
-          checked_cast<::parquet::TypedStatistics<ParquetType>*>(statistics);
+      const auto* typed_statistics =
+          checked_cast<const ::parquet::TypedStatistics<ParquetType>*>(statistics.get());
       const ArrowCType min = typed_statistics->min();
       const ArrowCType max = typed_statistics->max();
       if constexpr (std::is_same_v<ArrowCType, bool>) {
