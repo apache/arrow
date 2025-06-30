@@ -464,6 +464,11 @@ static void BM_ByteStreamSplitEncode_FLBA_Generic(benchmark::State& state) {
       state, ::arrow::util::internal::ByteStreamSplitEncode);
 }
 
+static void BM_ByteStreamSplitDecode_Int16_Scalar(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<int16_t>(
+      state, ::arrow::util::internal::ByteStreamSplitDecodeScalar<sizeof(int16_t)>);
+}
+
 static void BM_ByteStreamSplitDecode_Float_Scalar(benchmark::State& state) {
   BM_ByteStreamSplitDecode<float>(
       state, ::arrow::util::internal::ByteStreamSplitDecodeScalar<sizeof(float)>);
@@ -472,6 +477,11 @@ static void BM_ByteStreamSplitDecode_Float_Scalar(benchmark::State& state) {
 static void BM_ByteStreamSplitDecode_Double_Scalar(benchmark::State& state) {
   BM_ByteStreamSplitDecode<double>(
       state, ::arrow::util::internal::ByteStreamSplitDecodeScalar<sizeof(double)>);
+}
+
+static void BM_ByteStreamSplitEncode_Int16_Scalar(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<int16_t>(
+      state, ::arrow::util::internal::ByteStreamSplitEncodeScalar<sizeof(int16_t)>);
 }
 
 static void BM_ByteStreamSplitEncode_Float_Scalar(benchmark::State& state) {
@@ -503,8 +513,10 @@ BENCHMARK_TEMPLATE(BM_ByteStreamSplitEncode_FLBA_Generic, 7)->Apply(ByteStreamSp
 BENCHMARK_TEMPLATE(BM_ByteStreamSplitEncode_FLBA_Generic, 16)
     ->Apply(ByteStreamSplitApply);
 
+BENCHMARK(BM_ByteStreamSplitDecode_Int16_Scalar)->Apply(ByteStreamSplitApply);
 BENCHMARK(BM_ByteStreamSplitDecode_Float_Scalar)->Apply(ByteStreamSplitApply);
 BENCHMARK(BM_ByteStreamSplitDecode_Double_Scalar)->Apply(ByteStreamSplitApply);
+BENCHMARK(BM_ByteStreamSplitEncode_Int16_Scalar)->Apply(ByteStreamSplitApply);
 BENCHMARK(BM_ByteStreamSplitEncode_Float_Scalar)->Apply(ByteStreamSplitApply);
 BENCHMARK(BM_ByteStreamSplitEncode_Double_Scalar)->Apply(ByteStreamSplitApply);
 
