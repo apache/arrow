@@ -82,16 +82,16 @@ def __getattr__(name):
     )
 
 
-def _filesystem_from_str(path, treat_path_as_prefix=True):
+def _filesystem_from_str(uri, treat_path_as_prefix=True):
     # instantiate the file system from an uri, if the uri has a path
     # component then it will be treated as a path prefix
     try:
-        filesystem, path = FileSystem.from_uri(path)
+        filesystem, path = FileSystem.from_uri(uri)
     except ValueError as e:
-        if path.startswith("fsspec+") or path.startswith("hf://"):
+        if uri.startswith("fsspec+") or uri.startswith("hf://"):
             # if the path starts with fsspec+ or hf://, then it is a valid
             # fsspec URI, so try to parse it using fsspec
-            filesystem, path = _fsspec_filesystem_from_str(path)
+            filesystem, path = _fsspec_filesystem_from_str(uri)
         else:
             raise e
 
@@ -105,7 +105,7 @@ def _filesystem_from_str(path, treat_path_as_prefix=True):
                     "The path component of the filesystem URI must point to a "
                     f"directory but it has a type: `{prefix_info.type.name}`. The path "
                     f"component is `{prefix_info.path}` and the given filesystem URI "
-                    f"is `{path}`"
+                    f"is `{uri}`"
                 )
             filesystem = SubTreeFileSystem(prefix, filesystem)
         return filesystem
