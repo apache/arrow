@@ -210,6 +210,7 @@ if(ARROW_BUILD_BENCHMARKS)
   function(add_arrow_dataset_benchmark REL_BENCHMARK_NAME)
     set(options)
     set(one_value_args PREFIX)
+    set(multi_value_args)
     cmake_parse_arguments(ARG
                           "${options}"
                           "${one_value_args}"
