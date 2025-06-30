@@ -186,9 +186,7 @@ add_arrow_compute_test(row_test
                        EXTRA_LINK_LIBS
                        arrow_compute_testing)
 
-if(ARROW_BUILD_BENCHMARKS)
-  add_arrow_compute_benchmark(function_benchmark)
-endif()
+add_arrow_compute_benchmark(function_benchmark)
 
 add_subdirectory(kernels)
 
