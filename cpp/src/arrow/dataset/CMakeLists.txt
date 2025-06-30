@@ -207,8 +207,28 @@ if(ARROW_PARQUET)
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)
-  add_arrow_compute_benchmark(file_benchmark PREFIX "arrow-dataset")
-  add_arrow_compute_benchmark(scanner_benchmark PREFIX "arrow-dataset")
+  function(add_arrow_dataset_benchmark REL_BENCHMARK_NAME)
+    set(options)
+    set(one_value_args PREFIX)
+    cmake_parse_arguments(ARG
+                          "${options}"
+                          "${one_value_args}"
+                          "${multi_value_args}"
+                          ${ARGN})
+
+    if(ARG_PREFIX)
+      set(PREFIX ${ARG_PREFIX})
+    else()
+      set(PREFIX "arrow-dataset")
+    endif()
+
+    # Dataset benchmarks require compute kernels initialization.
+    add_arrow_compute_benchmark(${REL_BENCHMARK_NAME} PREFIX ${PREFIX}
+                                ${ARG_UNPARSED_ARGUMENTS})
+  endfunction()
+
+  add_arrow_dataset_benchmark(file_benchmark)
+  add_arrow_dataset_benchmark(scanner_benchmark)
 
   if(ARROW_BUILD_STATIC)
     target_link_libraries(arrow-dataset-file-benchmark PUBLIC arrow_dataset_static)
