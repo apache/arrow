@@ -182,6 +182,18 @@ TEST_F(TestChunkedArray, EqualsSameAddressWithNaNs) {
   ASSERT_TRUE(chunked_array_without_nan2->Equals(chunked_array_without_nan2));
 }
 
+TEST_F(TestChunkedArray, ApproxEquals) {
+  auto chunk_1 = ArrayFromJSON(float64(), R"([0.0, 0.1, 0.5])");
+  auto chunk_2 = ArrayFromJSON(float64(), R"([0.0, 0.1, 0.5001])");
+  ASSERT_OK_AND_ASSIGN(auto chunked_array_1, ChunkedArray::Make({chunk_1}));
+  ASSERT_OK_AND_ASSIGN(auto chunked_array_2, ChunkedArray::Make({chunk_2}));
+  auto options = EqualOptions::Defaults().atol(1e-3);
+
+  ASSERT_FALSE(chunked_array_1->Equals(chunked_array_2));
+  ASSERT_TRUE(chunked_array_1->Equals(chunked_array_2, options.use_atol(true)));
+  ASSERT_TRUE(chunked_array_1->ApproxEquals(*chunked_array_2, options));
+}
+
 TEST_F(TestChunkedArray, SliceEquals) {
   random::RandomArrayGenerator gen(42);
 

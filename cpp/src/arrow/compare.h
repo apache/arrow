@@ -60,6 +60,9 @@ class EqualOptions {
   }
 
   /// Whether the "atol" property is used in the comparison.
+  ///
+  /// This option only affects the Equals methods
+  /// and has no effect on ApproxEquals methods.
   bool use_atol() const { return use_atol_; }
 
   /// Return a new EqualOptions object with the "use_atol" property changed.
@@ -99,7 +102,7 @@ class EqualOptions {
   double atol_ = kDefaultAbsoluteTolerance;
   bool nans_equal_ = false;
   bool signed_zeros_equal_ = true;
-  bool use_atol_ = true;
+  bool use_atol_ = false;
 
   std::ostream* diff_sink_ = NULLPTR;
 };
