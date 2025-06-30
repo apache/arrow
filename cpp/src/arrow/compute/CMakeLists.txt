@@ -119,10 +119,10 @@ endfunction()
 # This is necessary for benchmarks that use compute kernels that are not
 # part of libarrow.
 # It will also link the compute libraries to the benchmark target.
-function(ADD_ARROW_COMPUTE_BENCHMARK REL_TEST_NAME)
+function(add_arrow_compute_benchmark REL_TEST_NAME)
   set(options)
   set(one_value_args PREFIX)
-  set(multi_value_args EXTRA_SOURCES)
+  set(multi_value_args EXTRA_SOURCES EXTRA_LINK_LIBS)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -133,9 +133,17 @@ function(ADD_ARROW_COMPUTE_BENCHMARK REL_TEST_NAME)
   else()
     set(PREFIX "arrow-compute")
   endif()
-  set(EXTRA_SOURCES "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/main_compute_benchmark.cc")
+  set(EXTRA_SOURCES "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/benchmark_main.cc")
   if(ARG_EXTRA_SOURCES)
     list(APPEND EXTRA_SOURCES ${ARG_EXTRA_SOURCES})
+  endif()
+  if(ARROW_BUILD_STATIC)
+    set(EXTRA_LINK_LIBS arrow_compute_static)
+  else()
+    set(EXTRA_LINK_LIBS arrow_compute_shared)
+  endif()
+  if(ARG_EXTRA_LINK_LIBS)
+    list(APPEND EXTRA_LINK_LIBS ${ARG_EXTRA_LINK_LIBS})
   endif()
   add_benchmark(${REL_TEST_NAME}
                 PREFIX
@@ -144,14 +152,10 @@ function(ADD_ARROW_COMPUTE_BENCHMARK REL_TEST_NAME)
                 "arrow-benchmarks"
                 EXTRA_SOURCES
                 ${EXTRA_SOURCES}
-                OUTPUT_BENCHMARK_NAME
-                COMPUTE_BENCHMARK_NAME
+                EXTRA_LINK_LIBS
+                ${EXTRA_LINK_LIBS}
                 ${ARG_UNPARSED_ARGUMENTS})
-  if(ARROW_BUILD_STATIC)
-    target_link_libraries(${COMPUTE_BENCHMARK_NAME} PUBLIC arrow_compute_static)
-  else()
-    target_link_libraries(${COMPUTE_BENCHMARK_NAME} PUBLIC arrow_compute_shared)
-  endif()
+
 endfunction()
 
 add_arrow_test(internals_test

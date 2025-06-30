@@ -516,7 +516,7 @@ endfunction()
 # group names must exist
 function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   set(options)
-  set(one_value_args PREFIX OUTPUT_BENCHMARK_NAME)
+  set(one_value_args PREFIX)
   set(multi_value_args
       EXTRA_LINK_LIBS
       STATIC_LINK_LIBS
@@ -621,12 +621,6 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   set_property(TEST ${BENCHMARK_NAME}
                APPEND
                PROPERTY LABELS ${ARG_LABELS})
-  # Return the benchmark test name to the caller if requested
-  if(ARG_OUTPUT_BENCHMARK_NAME)
-    set(${ARG_OUTPUT_BENCHMARK_NAME}
-        ${BENCHMARK_NAME}
-        PARENT_SCOPE)
-  endif()
 endfunction()
 
 #
