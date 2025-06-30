@@ -130,10 +130,33 @@ def _ensure_filesystem(filesystem, *, use_mmap=False):
     )
 
 
+def _fsspec_filesystem_from_str(fsspec_uri):
+    try:
+        import fsspec
+    except ImportError:
+        raise ImportError(
+            "`fsspec` is required to handle fsspec+<protocol> filesystems."
+        )
+
+    if fsspec_uri.startswith("hf://"):
+        uri = fsspec_uri
+    elif fsspec_uri.startswith("fsspec+"):
+        uri = fsspec_uri[7:]  # remove the 'fsspec+' prefix
+    else:
+        raise ValueError(
+            f"'{uri}' does not start with 'fsspec+' prefix, "
+            "which is required for fsspec-based filesystems."
+        )
+
+    fs, path = fsspec.url_to_fs(uri)
+    fs = _ensure_filesystem(fs)
+    return fs, path
+
+
 def _resolve_filesystem_and_path(path, filesystem=None, *, memory_map=False):
     """
     Return filesystem/path from path which could be an URI or a plain
-    filesystem path.
+    filesystem path or a combination of fsspec protocol and URI.
     """
     if not _is_path_like(path):
         if filesystem is not None:
@@ -177,14 +200,10 @@ def _resolve_filesystem_and_path(path, filesystem=None, *, memory_map=False):
             filesystem, path = FileSystem.from_uri(path)
         except ValueError as e:
             msg = str(e)
-            if "Unrecognized filesystem type" in msg:
-                # try loading fsspec to handle not recognized filesystems
-                try:
-                    import fsspec
-                    fs, path = fsspec.url_to_fs(path)
-                    filesystem = _ensure_filesystem(fs)
-                except (ImportError, ValueError):
-                    raise e
+            if path.startswith("fsspec+") or path.startswith("hf://"):
+                # if the path starts with fsspec+ or hf://, then it is a valid
+                # fsspec URI, so try to parse it using fsspec
+                filesystem, path = _fsspec_filesystem_from_str(path)
             elif "empty scheme" in msg or "Cannot parse URI" in msg:
                 # neither an URI nor a locally existing path, so assume that
                 # local path was given and propagate a nicer file not found

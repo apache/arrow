@@ -20,6 +20,7 @@ import os
 import sys
 
 import pytest
+from unittest import mock
 
 import pyarrow as pa
 
@@ -367,14 +368,35 @@ def test_read_undefined_logical_type(parquet_test_datadir):
     ]
 
 
-def test_parquet_file_fsspec_fallback():
+def test_parquet_file_fsspec_support():
     pytest.importorskip("fsspec")
 
     table = pa.table({"a": range(10)})
-    pq.write_table(table, "memory://example.parquet")
-    table2 = pq.read_table("memory://example.parquet")
+    pq.write_table(table, "fsspec+memory://example.parquet")
+    table2 = pq.read_table("fsspec+memory://example.parquet")
     assert table.equals(table2)
 
     msg = "Unrecognized filesystem type in URI"
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pq.read_table("non-existing://example.parquet")
+
+
+def test_parquet_file_hugginface_support():
+    try:
+        from fsspec.implementations.memory import MemoryFileSystem
+    except ImportError:
+        pytest.skip("fsspec is not installed, skipping Hugging Face test")
+
+    with mock.patch("huggingface_hub.HfFileSystem", new=MemoryFileSystem):
+        uri = "hf://datasets/kszucs/pq/test.parquet"
+        table = pa.table({"a": range(10)})
+        pq.write_table(table, uri)
+        table2 = pq.read_table(uri)
+        assert table.equals(table2)
+
+
+def test_fsspec_uri_raises_if_fsspec_is_not_available():
+    with mock.patch.dict(sys.modules, {'fsspec': None}):
+        msg = "`fsspec` is required to handle fsspec+<protocol> filesystems."
+        with pytest.raises(ImportError, match=msg):
+            pq.read_table("fsspec+memory://example.parquet")
