@@ -4076,7 +4076,6 @@ TEST_F(TestHalfFloatBuilder, TestBulkAppend) {
     VerifyValue(builder, i, 1.5f);
   }
   ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
-  ArrayData* data = array->data().get();
   ASSERT_EQ(array->null_count(), 2);
   ASSERT_EQ(array->length(), 9);
   auto comp = ArrayFromJSON(float16(), "[1.5,1.5,1.5,1.5,1.5,null,2,null,2]");

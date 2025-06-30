@@ -342,6 +342,22 @@ using Int64Builder = NumericBuilder<Int64Type>;
 using FloatBuilder = NumericBuilder<FloatType>;
 using DoubleBuilder = NumericBuilder<DoubleType>;
 
+/// @}
+
+/// \addtogroup temporal-builders
+///
+/// @{
+
+using Date32Builder = NumericBuilder<Date32Type>;
+using Date64Builder = NumericBuilder<Date64Type>;
+using Time32Builder = NumericBuilder<Time32Type>;
+using Time64Builder = NumericBuilder<Time64Type>;
+using TimestampBuilder = NumericBuilder<TimestampType>;
+using MonthIntervalBuilder = NumericBuilder<MonthIntervalType>;
+using DurationBuilder = NumericBuilder<DurationType>;
+
+/// @}
+
 class ARROW_EXPORT HalfFloatBuilder : public NumericBuilder<HalfFloatType> {
  public:
   using BaseClass = NumericBuilder<HalfFloatType>;
@@ -374,8 +390,8 @@ class ARROW_EXPORT HalfFloatBuilder : public NumericBuilder<HalfFloatType> {
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous array of arrow::util::Float16
   /// \param[in] length the number of values to append
-  /// \param[in] validity a validity bitmap to copy (may be null)
-  /// \param[in] offset an offset into the values and validity bitmaps
+  /// \param[in] bitmap a validity bitmap to copy (may be null)
+  /// \param[in] bitmap_offset an offset into the validity bitmap
   /// \return Status
   Status AppendValues(const Float16* values, int64_t length, const uint8_t* bitmap,
                       int64_t bitmap_offset) {
@@ -436,22 +452,6 @@ class ARROW_EXPORT HalfFloatBuilder : public NumericBuilder<HalfFloatType> {
     }
   }
 };
-
-/// @}
-
-/// \addtogroup temporal-builders
-///
-/// @{
-
-using Date32Builder = NumericBuilder<Date32Type>;
-using Date64Builder = NumericBuilder<Date64Type>;
-using Time32Builder = NumericBuilder<Time32Type>;
-using Time64Builder = NumericBuilder<Time64Type>;
-using TimestampBuilder = NumericBuilder<TimestampType>;
-using MonthIntervalBuilder = NumericBuilder<MonthIntervalType>;
-using DurationBuilder = NumericBuilder<DurationType>;
-
-/// @}
 
 class ARROW_EXPORT BooleanBuilder
     : public ArrayBuilder,
