@@ -105,23 +105,27 @@ void ByteStreamSplitDecodeSimd(const uint8_t* data, int width, int64_t num_value
   // Stage 3: ABCD ABCD ABCD ABCD
   constexpr int kNumStreamsHalf = kNumStreams / 2U;
 
-  for (int64_t i = 0; i < num_blocks; ++i) {
+  for (int64_t block_index = 0; block_index < num_blocks; ++block_index) {
     simd_batch stage[kNumStreamsLog2 + 1][kNumStreams];
-    for (int j = 0; j < kNumStreams; ++j) {
-      stage[0][j] = simd_batch::load_unaligned(&data[i * kBatchSize + j * stride]);
+
+    for (int i = 0; i < kNumStreams; ++i) {
+      stage[0][i] =
+          simd_batch::load_unaligned(&data[block_index * kBatchSize + i * stride]);
     }
+
     for (int step = 0; step < kNumStreamsLog2; ++step) {
-      for (int j = 0; j < kNumStreamsHalf; ++j) {
-        stage[step + 1U][j * 2] =
-            xsimd::zip_lo(stage[step][j], stage[step][kNumStreamsHalf + j]);
-        stage[step + 1U][j * 2 + 1U] =
-            xsimd::zip_hi(stage[step][j], stage[step][kNumStreamsHalf + j]);
+      for (int i = 0; i < kNumStreamsHalf; ++i) {
+        stage[step + 1U][i * 2] =
+            xsimd::zip_lo(stage[step][i], stage[step][kNumStreamsHalf + i]);
+        stage[step + 1U][i * 2 + 1U] =
+            xsimd::zip_hi(stage[step][i], stage[step][kNumStreamsHalf + i]);
       }
     }
-    for (int j = 0; j < kNumStreams; ++j) {
+
+    for (int i = 0; i < kNumStreams; ++i) {
       xsimd::store_unaligned(
-          reinterpret_cast<int8_t*>(out + (i * kNumStreams + j) * kBatchSize),
-          stage[kNumStreamsLog2][j]);
+          reinterpret_cast<int8_t*>(out + (block_index * kNumStreams + i) * kBatchSize),
+          stage[kNumStreamsLog2][i]);
     }
   }
 }
