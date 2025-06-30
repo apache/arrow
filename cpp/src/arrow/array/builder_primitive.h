@@ -141,6 +141,10 @@ class NumericBuilder
 
   value_type GetValue(int64_t index) const { return data_builder_.data()[index]; }
 
+  value_type* GetMutableValue(int64_t index) {
+    return &data_builder_.mutable_data()[index];
+  }
+
   void Reset() override {
     data_builder_.Reset();
     ArrayBuilder::Reset();
@@ -317,6 +321,28 @@ class NumericBuilder
   void UnsafeAppendNull() {
     ArrayBuilder::UnsafeAppendToBitmap(false);
     data_builder_.UnsafeAppend(value_type{});  // zero
+  }
+
+  /// Advance builder without allocating nor writing any values
+  ///
+  /// The internal pointer is advanced by `length` values and the same number
+  /// of non-null entries are appended to the validity bitmap.
+  /// This method assumes that the `length` values were populated directly,
+  /// for example using `GetMutableValue`.
+  void UnsafeAdvance(int64_t length) {
+    data_builder_.UnsafeAdvance(length);
+    UnsafeAppendToBitmap(length, true);
+  }
+
+  /// Advance builder without allocating nor writing any values
+  ///
+  /// The internal pointer is advanced by `length` values and the same number
+  /// of validity bits are appended to the validity bitmap.
+  /// This method assumes that the `length` values were populated directly,
+  /// for example using `GetMutableValue`.
+  void UnsafeAdvance(int64_t length, const uint8_t* validity, int64_t valid_bits_offset) {
+    data_builder_.UnsafeAdvance(length);
+    UnsafeAppendToBitmap(validity, valid_bits_offset, length);
   }
 
   std::shared_ptr<DataType> type() const override { return type_; }

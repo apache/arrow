@@ -905,6 +905,7 @@ class EncodingAdHocTyped : public ::testing::Test {
 
     std::shared_ptr<::arrow::Array> result;
     ASSERT_OK(acc.Finish(&result));
+    ASSERT_OK(result->ValidateFull());
     ASSERT_EQ(values->length(), result->length());
     ::arrow::AssertArraysEqual(*values, *result, /*verbose=*/true);
   }
@@ -937,6 +938,7 @@ class EncodingAdHocTyped : public ::testing::Test {
 
     std::shared_ptr<::arrow::Array> result;
     ASSERT_OK(acc.Finish(&result));
+    ASSERT_OK(result->ValidateFull());
     ASSERT_EQ(50, result->length());
     ::arrow::AssertArraysEqual(*values, *result);
   }
@@ -964,6 +966,7 @@ class EncodingAdHocTyped : public ::testing::Test {
 
     std::shared_ptr<::arrow::Array> result;
     ASSERT_OK(acc.Finish(&result));
+    ASSERT_OK(result->ValidateFull());
     ASSERT_EQ(50, result->length());
     ::arrow::AssertArraysEqual(*values, *result);
   }
@@ -1025,6 +1028,7 @@ class EncodingAdHocTyped : public ::testing::Test {
 
     std::shared_ptr<::arrow::Array> result;
     ASSERT_OK(acc.Finish(&result));
+    ASSERT_OK(result->ValidateFull());
     ::arrow::AssertArraysEqual(*values, *result);
   }
 
@@ -1051,7 +1055,7 @@ class EncodingAdHocTyped : public ::testing::Test {
     auto owned_encoder =
         MakeTypedEncoder<ParquetType>(Encoding::PLAIN,
                                       /*use_dictionary=*/true, column_descr());
-    auto owned_decoder = MakeDictDecoder<ParquetType>();
+    auto owned_decoder = MakeDictDecoder<ParquetType>(column_descr());
 
     auto encoder = dynamic_cast<DictEncoder<ParquetType>*>(owned_encoder.get());
 
@@ -1077,6 +1081,7 @@ class EncodingAdHocTyped : public ::testing::Test {
 
     std::shared_ptr<::arrow::Array> result;
     ASSERT_OK(acc.Finish(&result));
+    ASSERT_OK(result->ValidateFull());
     ::arrow::AssertArraysEqual(*expected, *result);
   }
 
@@ -1158,6 +1163,11 @@ TYPED_TEST(EncodingAdHocTyped, ByteStreamSplitArrowDirectPut) {
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
     this->ByteStreamSplit(seed);
   }
+  // Same, but without nulls (this could trigger different code paths)
+  this->null_probability_ = 0.0;
+  for (auto seed : {0, 1, 2, 3, 4}) {
+    this->ByteStreamSplit(seed);
+  }
 }
 
 TYPED_TEST(EncodingAdHocTyped, RleArrowDirectPut) {
@@ -1173,6 +1183,10 @@ TYPED_TEST(EncodingAdHocTyped, DeltaBitPackArrowDirectPut) {
     this->DeltaBitPack(seed);
   }
 }
+
+TYPED_TEST(EncodingAdHocTyped, DictArrowDirectPut) { this->Dict(0); }
+
+TYPED_TEST(EncodingAdHocTyped, DictArrowDirectPutIndices) { this->DictPutIndices(); }
 
 TEST(DictEncodingAdHoc, ArrowBinaryDirectPut) {
   // Implemented as part of ARROW-3246
@@ -1206,8 +1220,6 @@ TEST(DictEncodingAdHoc, ArrowBinaryDirectPut) {
   ASSERT_OK(acc.builder->Finish(&result));
   ::arrow::AssertArraysEqual(*values, *result);
 }
-
-TYPED_TEST(EncodingAdHocTyped, DictArrowDirectPut) { this->Dict(0); }
 
 TEST(DictEncodingAdHoc, PutDictionaryPutIndices) {
   // Part of ARROW-3246
@@ -1257,8 +1269,6 @@ TEST(DictEncodingAdHoc, PutDictionaryPutIndices) {
     CheckIndexType(ty);
   }
 }
-
-TYPED_TEST(EncodingAdHocTyped, DictArrowDirectPutIndices) { this->DictPutIndices(); }
 
 class DictEncoding : public TestArrowBuilderDecoding {
  public:
@@ -2365,10 +2375,27 @@ class TestDeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
   using Accumulator = typename EncodingTraits<Type>::Accumulator;
 
  public:
-  std::unique_ptr<TypedEncoder<Type>> encoder =
-      MakeTypedEncoder<Type>(Encoding::DELTA_BYTE_ARRAY);
-  std::unique_ptr<TypedDecoder<Type>> decoder =
-      MakeTypedDecoder<Type>(Encoding::DELTA_BYTE_ARRAY);
+  void MakeEncoderDecoder(const ::arrow::DataType& type) {
+    schema::NodePtr node;
+    if constexpr (std::is_same_v<Type, FLBAType>) {
+      node = schema::PrimitiveNode::Make(
+          "name", Repetition::OPTIONAL, ::parquet::Type::FIXED_LEN_BYTE_ARRAY,
+          ConvertedType::NONE,
+          checked_cast<const ::arrow::FixedSizeBinaryType&>(type).byte_width());
+    } else {
+      static_assert(std::is_same_v<Type, ByteArrayType>);
+      node = schema::PrimitiveNode::Make("name", Repetition::OPTIONAL,
+                                         ::parquet::Type::BYTE_ARRAY);
+    }
+    this->descr_ = std::make_shared<ColumnDescriptor>(node, 0, 0);
+    this->encoder = MakeTypedEncoder<Type>(Encoding::DELTA_BYTE_ARRAY,
+                                           /*use_dictionary=*/false, this->descr_.get());
+    this->decoder =
+        MakeTypedDecoder<Type>(Encoding::DELTA_BYTE_ARRAY, this->descr_.get());
+  }
+
+  std::unique_ptr<TypedEncoder<Type>> encoder;
+  std::unique_ptr<TypedDecoder<Type>> decoder;
 
   void CheckDirectPut(std::shared_ptr<::arrow::Array> array);
 
@@ -2381,6 +2408,8 @@ class TestDeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
 template <>
 void TestDeltaByteArrayEncodingDirectPut<ByteArrayType>::CheckDirectPut(
     std::shared_ptr<::arrow::Array> array) {
+  MakeEncoderDecoder(*array->type());
+
   ASSERT_NO_THROW(encoder->Put(*array));
   auto buf = encoder->FlushValues();
 
@@ -2406,6 +2435,8 @@ void TestDeltaByteArrayEncodingDirectPut<ByteArrayType>::CheckDirectPut(
 template <>
 void TestDeltaByteArrayEncodingDirectPut<FLBAType>::CheckDirectPut(
     std::shared_ptr<::arrow::Array> array) {
+  MakeEncoderDecoder(*array->type());
+
   ASSERT_NO_THROW(encoder->Put(*array));
   auto buf = encoder->FlushValues();
 
