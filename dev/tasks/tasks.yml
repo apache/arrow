@@ -396,7 +396,8 @@ tasks:
   {% endfor %}
 {% endfor %}
 
-{% for target in ["almalinux-9",
+{% for target in ["almalinux-10",
+                  "almalinux-9",
                   "almalinux-8",
                   "amazon-linux-2023",
                   "centos-9-stream",
