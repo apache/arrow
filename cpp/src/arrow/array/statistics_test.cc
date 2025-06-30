@@ -148,7 +148,6 @@ TEST_F(TestArrayStatisticsEqualityDoubleValue, NaN) {
 TEST_F(TestArrayStatisticsEqualityDoubleValue, ApproximateEquals) {
   statistics1_.max = 0.5001f;
   statistics2_.max = 0.5;
-
   ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.atol(1e-3)));
   ASSERT_TRUE(statistics1_.Equals(statistics2_, options_.atol(1e-3).use_atol(true)));
 }
