@@ -396,8 +396,6 @@ void ByteStreamSplitEncodeAvx2(const uint8_t* raw_values, int width,
   // 3. Pack final 256i block with _mm256_permute2x128_si256.
   constexpr int kNumUnpack = 3;
   __m256i stage[kNumUnpack + 1][kNumStreams];
-  static const __m256i kPermuteMask =
-      _mm256_set_epi32(0x07, 0x03, 0x06, 0x02, 0x05, 0x01, 0x04, 0x00);
   __m256i permute[kNumStreams];
   __m256i final_result[kNumStreams];
 
@@ -406,8 +404,13 @@ void ByteStreamSplitEncodeAvx2(const uint8_t* raw_values, int width,
       stage[0][i] = _mm256_loadu_si256(&raw_values_simd[block_index * kNumStreams + i]);
     }
 
-    for (int stage_lvl = 0; stage_lvl < kNumUnpack; ++stage_lvl) {
-      for (int i = 0; i < kNumStreams / 2; ++i) {
+    // We first make byte-level shuffling, until we have gather enough bytes together
+    // and in the correct order to use a bigger data type.
+    //
+    // Loop order does not matter so we prefer higher locality
+    constexpr int kNumStreamsHalf = kNumStreams / 2;
+    for (int i = 0; i < kNumStreamsHalf; ++i) {
+      for (int stage_lvl = 0; stage_lvl < kNumUnpack; ++stage_lvl) {
         stage[stage_lvl + 1][i * 2] =
             _mm256_unpacklo_epi8(stage[stage_lvl][i * 2], stage[stage_lvl][i * 2 + 1]);
         stage[stage_lvl + 1][i * 2 + 1] =
@@ -415,14 +418,19 @@ void ByteStreamSplitEncodeAvx2(const uint8_t* raw_values, int width,
       }
     }
 
-    for (int i = 0; i < kNumStreams; ++i) {
-      permute[i] = _mm256_permutevar8x32_epi32(stage[kNumUnpack][i], kPermuteMask);
+    for (int i = 0; i < kNumStreamsHalf; ++i) {
+      permute[i] = _mm256_permute2x128_si256(
+          stage[kNumUnpack][i], stage[kNumUnpack][i + kNumStreamsHalf], 0b00100000);
+      permute[i + kNumStreamsHalf] = _mm256_permute2x128_si256(
+          stage[kNumUnpack][i], stage[kNumUnpack][i + kNumStreamsHalf], 0b00110001);
     }
 
-    final_result[0] = _mm256_permute2x128_si256(permute[0], permute[2], 0b00100000);
-    final_result[1] = _mm256_permute2x128_si256(permute[0], permute[2], 0b00110001);
-    final_result[2] = _mm256_permute2x128_si256(permute[1], permute[3], 0b00100000);
-    final_result[3] = _mm256_permute2x128_si256(permute[1], permute[3], 0b00110001);
+    for (int i = 0; i < kNumStreams / 2; ++i) {
+      final_result[i * 2] =
+          _mm256_unpacklo_epi32(permute[i], permute[i + kNumStreamsHalf]);
+      final_result[i * 2 + 1] =
+          _mm256_unpackhi_epi32(permute[i], permute[i + kNumStreamsHalf]);
+    }
 
     for (int i = 0; i < kNumStreams; ++i) {
       _mm256_storeu_si256(&output_buffer_streams[i][block_index], final_result[i]);
