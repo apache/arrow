@@ -19,6 +19,7 @@ import io
 import os
 import re
 import sys
+import types
 
 import pytest
 from unittest import mock
@@ -406,8 +407,10 @@ def test_parquet_file_hugginface_support():
     except ImportError:
         pytest.skip("fsspec is not installed, skipping Hugging Face test")
 
-    with mock.patch("huggingface_hub.HfFileSystem", new=MemoryFileSystem):
-        uri = "hf://datasets/kszucs/pq/test.parquet"
+    fake_hf_module = types.ModuleType("huggingface_hub")
+    fake_hf_module.HfFileSystem = MemoryFileSystem
+    with mock.patch.dict("sys.modules", {"huggingface_hub": fake_hf_module}):
+        uri = "hf://datasets/apache/arrow/test.parquet"
         table = pa.table({"a": range(10)})
         pq.write_table(table, uri)
         table2 = pq.read_table(uri)
