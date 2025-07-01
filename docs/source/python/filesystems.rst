@@ -408,7 +408,7 @@ Example reading parquet file from GitHub directly::
 
    pq.read_table("fsspec+github://apache:arrow-testing@/data/parquet/alltypes-java.parquet")
 
-Hugging Face's sceheme explicitly allowed as a shortcut without needing to prefix
+Hugging Face URIs are explicitly allowed as a shortcut without needing to prefix
 with ``fsspec+``. This is useful for reading datasets hosted on Hugging Face::
 
    pq.read_table("hf://datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet")

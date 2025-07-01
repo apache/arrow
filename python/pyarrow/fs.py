@@ -86,29 +86,45 @@ def _ensure_filesystem(filesystem, *, use_mmap=False):
     if isinstance(filesystem, FileSystem):
         return filesystem
     elif isinstance(filesystem, str):
+        # create a filesystem from a URI string, note that the `path` part of the URI
+        # is treated as a prefix if specified, so the filesystem is wrapped in a
+        # SubTreeFileSystem
         if use_mmap:
             raise ValueError(
                 "Specifying to use memory mapping not supported for "
                 "filesystem specified as an URI string"
             )
-        return FileSystem.from_uri(filesystem, treat_path_as_prefix=True)
-
-    # handle fsspec-compatible filesystems
-    try:
-        import fsspec
-    except ImportError:
-        pass
+        fs, path = FileSystem.from_uri(filesystem)
+        prefix = fs.normalize_path(path)
+        if prefix:
+            # validate that the prefix is pointing to a directory
+            prefix_info = fs.get_file_info([prefix])[0]
+            if prefix_info.type != FileType.Directory:
+                raise ValueError(
+                    "The path component of the filesystem URI must point to a "
+                    f"directory but it has a type: `{prefix_info.type.name}`. The path "
+                    f"component is `{prefix_info.path}` and the given filesystem URI "
+                    f"is `{filesystem}`"
+                )
+            fs = SubTreeFileSystem(prefix, fs)
+        return fs
     else:
-        if isinstance(filesystem, fsspec.AbstractFileSystem):
-            if type(filesystem).__name__ == 'LocalFileSystem':
-                # In case its a simple LocalFileSystem, use native arrow one
-                return LocalFileSystem(use_mmap=use_mmap)
-            return PyFileSystem(FSSpecHandler(filesystem))
+        # handle fsspec-compatible filesystems
+        try:
+            import fsspec
+        except ImportError:
+            pass
+        else:
+            if isinstance(filesystem, fsspec.AbstractFileSystem):
+                if type(filesystem).__name__ == 'LocalFileSystem':
+                    # In case its a simple LocalFileSystem, use native arrow one
+                    return LocalFileSystem(use_mmap=use_mmap)
+                return PyFileSystem(FSSpecHandler(filesystem))
 
-    raise TypeError(
-        f"Unrecognized filesystem: {type(filesystem)}. `filesystem` argument must be a "
-        "FileSystem instance or a valid file system URI"
-    )
+        raise TypeError(
+            f"Unrecognized filesystem: {type(filesystem)}. `filesystem` argument must "
+            "be a FileSystem instance or a valid file system URI"
+        )
 
 
 def _resolve_filesystem_and_path(path, filesystem=None, *, memory_map=False):

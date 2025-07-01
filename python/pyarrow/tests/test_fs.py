@@ -2175,16 +2175,3 @@ def test_huggingface_filesystem_from_uri():
     expected_fs = PyFileSystem(FSSpecHandler(HfFileSystem()))
     assert fs == expected_fs
     assert path == "datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet"
-
-
-def test_from_uri_treat_path_as_prefix(tempdir):
-    uri = pathlib.Path(tempdir).as_uri()
-
-    fs, local_path = FileSystem.from_uri(uri)
-    assert isinstance(fs, LocalFileSystem)
-    assert pathlib.Path(local_path) == pathlib.Path(tempdir)
-
-    fs = FileSystem.from_uri(uri, treat_path_as_prefix=True)
-    assert isinstance(fs, SubTreeFileSystem)
-    assert fs.base_fs == LocalFileSystem()
-    assert pathlib.Path(fs.base_path) == pathlib.Path(tempdir)
