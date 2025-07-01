@@ -3170,7 +3170,7 @@ cdef class DatasetFactory(_Weakrefable):
         Schema
         """
         cdef:
-            CInspectOptions options = CInspectOptions()
+            CInspectOptions options
             CResult[shared_ptr[CSchema]] result
 
         if promote_options == "permissive":
