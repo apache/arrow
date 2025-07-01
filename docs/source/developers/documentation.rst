@@ -87,6 +87,12 @@ These two steps are mandatory and must be executed in order.
    not sufficiently comprehensive. Portions of the Python API documentation
    will also not build without CUDA support having been built.
 
+.. note::
+
+   To enable the version switcher in a local documentation build, set the
+   environment variable ``DOCS_DEV=1`` before building, or run the build
+   command with it inline, for example: ``DOCS_DEV=1 make html``.
+
 After these steps are completed, the documentation is rendered in HTML
 format in ``arrow/docs/_build/html``.  In particular, you can point your browser
 at ``arrow/docs/_build/html/index.html`` to read the docs and review any changes
