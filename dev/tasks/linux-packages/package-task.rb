@@ -409,6 +409,8 @@ VERSION=#{@deb_upstream_version}
     # Disable aarch64 targets by default for now
     # because they require some setups on host.
     [
+      "almalinux-10",
+      # "almalinux-10-arch64",
       "almalinux-9",
       # "almalinux-9-arch64",
       "almalinux-8",
@@ -417,8 +419,6 @@ VERSION=#{@deb_upstream_version}
       # "amazon-linux-2023-arch64",
       "centos-9-stream",
       # "centos-9-stream-aarch64",
-      "centos-8-stream",
-      # "centos-8-stream-aarch64",
       "centos-7",
       # "centos-7-aarch64",
     ]
