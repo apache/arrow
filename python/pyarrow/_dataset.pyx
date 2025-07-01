@@ -3173,10 +3173,7 @@ cdef class DatasetFactory(_Weakrefable):
             CInspectOptions options
             CResult[shared_ptr[CSchema]] result
 
-        if promote_options == "permissive":
-            options.field_merge_options = CField.CMergeOptions.Permissive()
-        elif promote_options != "default":
-            raise ValueError(f"Invalid promote_options: {promote_options}")
+        options.field_merge_options = _parse_field_merge_options(promote_options, False)
 
         if fragments is None:
             options.fragments = -1  # InspectOptions::kInspectAllFragments
