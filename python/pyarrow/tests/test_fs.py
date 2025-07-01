@@ -2156,11 +2156,12 @@ def test_fsspec_filesystem_from_uri():
 
     # check that if fsspec+ is specified than we don't coerce to the native
     # arrow local filesystem
-    uri = "file:///tmp/my.file"
+    path = "/tmp/my.file"
+    uri = f"file://{path}"
     fs, path = FileSystem.from_uri(f"fsspec+{uri}")
     expected_fs = PyFileSystem(FSSpecHandler(LocalFileSystem()))
     assert fs == expected_fs
-    assert path == str(pathlib.Path.from_uri(uri))
+    assert path == str(pathlib.Path(path))
 
 
 def test_huggingface_filesystem_from_uri():
