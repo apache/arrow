@@ -59,4 +59,20 @@ double NeumaierSum(Range&& inputs) {
   return sum + c;
 }
 
+/// Based-2 logarithm that works only on powers of two.
+template <typename T>
+constexpr T ReversePow2(T x) {
+  constexpr T kByteLen = 8;
+  for (T n = 0, y = 1; n <= (kByteLen * static_cast<T>(sizeof(T))); ++n, y = y * 2) {
+    if (y == x) {
+      return n;
+    }
+  }
+  return 0;
+}
+
+static_assert(ReversePow2(8) == 3);
+static_assert(ReversePow2(4) == 2);
+static_assert(ReversePow2(2) == 1);
+
 }  // namespace arrow::internal
