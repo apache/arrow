@@ -36,7 +36,7 @@ from pyarrow.tests.util import (_filesystem_uri, ProxyHandler,
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
                         FileSystemHandler, PyFileSystem, FSSpecHandler,
-                        copy_files)
+                        copy_files, _resolve_filesystem_and_path)
 from pyarrow.util import find_free_port
 
 
@@ -2140,3 +2140,30 @@ def test_uwsgi_integration():
         proc.terminate()
     # ... and uwsgi should gracefully shutdown after it's been asked above
     assert proc.wait() == 30  # UWSGI_END_CODE = 30
+
+
+def test_fsspec_filesystem_from_uri():
+    try:
+        from fsspec.implementations.memory import MemoryFileSystem
+    except ImportError:
+        pytest.skip("fsspec not installed")
+
+    fs, path = _resolve_filesystem_and_path("fsspec+memory://path/to/data.parquet")
+    expected_fs = PyFileSystem(FSSpecHandler(MemoryFileSystem()))
+    assert fs == expected_fs
+    assert path == "/path/to/data.parquet"
+
+
+def test_huggingface_filesystem_from_uri():
+    pytest.importorskip("fsspec")
+    try:
+        from huggingface_hub import HfFileSystem
+    except ImportError:
+        pytest.skip("huggingface_hub not installed")
+
+    fs, path = _resolve_filesystem_and_path(
+        "hf://datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet"
+    )
+    expected_fs = PyFileSystem(FSSpecHandler(HfFileSystem()))
+    assert fs == expected_fs
+    assert path == "datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet"
