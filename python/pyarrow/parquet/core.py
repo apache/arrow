@@ -579,6 +579,9 @@ class ParquetFile:
         4       5  Brittle stars
         5     100      Centipede
         """
+        if batch_size <= 0:
+            raise ValueError("batch_size must be greater than zero")
+
         if row_groups is None:
             row_groups = range(0, self.metadata.num_row_groups)
         column_indices = self._get_column_indices(
