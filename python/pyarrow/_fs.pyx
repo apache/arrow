@@ -503,11 +503,6 @@ cdef class FileSystem(_Weakrefable):
         >>> fs.FileSystem.from_uri("fsspec+memory:///path/to/file")
         (<pyarrow._fs.PyFileSystem object at ...>, '/path/to/file')
 
-        Or from a Hugging Face dataset URI:
-
-        >>> fs.FileSystem.from_uri("hf://datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet")
-        (<pyarrow._fs.PyFileSystem object at ...>, 'datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet')
-
         Create a subtree FileSystem by treating the path as a prefix:
 
         >>> uri = f'file://{local_path}'
