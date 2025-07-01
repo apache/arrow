@@ -1275,7 +1275,7 @@ test_that("concat_arrays works", {
 
   concat_int <- concat_arrays(arrow_array(1:3), arrow_array(4:5))
   expect_true(concat_int$type == int32())
-  expect_equal(concat_int,  arrow_array(1:5))
+  expect_equal(concat_int, arrow_array(1:5))
 
   concat_int64 <- concat_arrays(
     arrow_array(1:3),
@@ -1414,7 +1414,8 @@ test_that("Can convert R integer/double to decimal (ARROW-11631)", {
 })
 
 test_that("Array handles negative fractional dates correctly (GH-46873)", {
-  d <- as.Date(-0.1)
+  # `origin` must be specified for compatibility with R versions < 4.2.0
+  d <- as.Date(-0.1, origin = "1970-01-01")
   arr <- arrow_array(d)
-  expect_equal(as.vector(arr), as.Date("1969-12-31"))
+  expect_equal(as.vector(arr), as.Date("1969-12-31", origin = "1970-01-01"))
 })
