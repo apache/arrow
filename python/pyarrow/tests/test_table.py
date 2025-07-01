@@ -2337,6 +2337,10 @@ def test_table_from_pydict(cls):
     with pytest.raises(TypeError):
         cls.from_pydict({'a': [1, 2, 3]}, schema={})
 
+    # With dicts containing NaNs
+    table = cls.from_pydict({"foo": [float("nan")]})
+    assert table != table
+
 
 @pytest.mark.parametrize('data, klass', [
     ((['', 'foo', 'bar'], [4.5, 5, None]), pa.array),
