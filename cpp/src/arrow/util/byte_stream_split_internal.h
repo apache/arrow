@@ -23,7 +23,6 @@
 #include "arrow/util/type_traits.h"
 #include "arrow/util/ubsan.h"
 
-#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstdint>
@@ -38,9 +37,9 @@ namespace arrow::util::internal {
 
 #if defined(ARROW_HAVE_SIMD_SPLIT)
 
-//
-// XSIMD implementations
-//
+/***************************
+ *  xsimd implementations  *
+ ***************************/
 
 using ::arrow::internal::ReversePow2;
 
@@ -83,7 +82,7 @@ void ByteStreamSplitDecodeSimd(const uint8_t* data, int width, int64_t num_value
       const int64_t byte_index = b * stride + i;
       gathered_byte_data[b] = data[byte_index];
     }
-    memcpy(out + i * kNumStreams, gathered_byte_data, kNumStreams);
+    std::memcpy(out + i * kNumStreams, gathered_byte_data, kNumStreams);
   }
 
   // The blocks get processed hierarchically using the unpack intrinsics.
