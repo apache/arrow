@@ -430,7 +430,7 @@ cdef class FileSystem(_Weakrefable):
             import fsspec
         except ImportError:
             raise ImportError(
-                "`fsspec` is required to handle fsspec+<protocol> filesystems."
+                "`fsspec` is required to handle `fsspec+<filesystem>://` and `hf://` URIs."
             )
         from .fs import FSSpecHandler
 

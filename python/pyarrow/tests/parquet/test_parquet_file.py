@@ -418,7 +418,15 @@ def test_parquet_file_hugginface_support():
 
 
 def test_fsspec_uri_raises_if_fsspec_is_not_available():
-    with mock.patch.dict(sys.modules, {'fsspec': None}):
-        msg = re.escape("`fsspec` is required to handle fsspec+<protocol> filesystems.")
-        with pytest.raises(ImportError, match=msg):
-            pq.read_table("fsspec+memory://example.parquet")
+    # sadly cannot patch sys.modules because cython will still be able to import fsspec
+    try:
+        import fsspec  # noqa: F401
+    except ImportError:
+        pass
+    else:
+        pytest.skip("fsspec is available, skipping test")
+
+    msg = re.escape(
+        "`fsspec` is required to handle `fsspec+<filesystem>://` and `hf://` URIs.")
+    with pytest.raises(ImportError, match=msg):
+        pq.read_table("fsspec+memory://example.parquet")
