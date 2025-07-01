@@ -4083,12 +4083,14 @@ TEST_F(TestHalfFloatBuilder, TestBulkAppend) {
 
   std::vector<Float16> vals = {Float16(2.5), Float16(3.5)};
   std::vector<bool> is_valid = {true, true};
+  std::vector<uint8_t> bitmap = {1, 1};
   ASSERT_OK(builder.AppendValues(vals));
   ASSERT_OK(builder.AppendValues(vals, is_valid));
   ASSERT_OK(builder.AppendValues(vals.data(), vals.size(), is_valid));
   ASSERT_OK(builder.AppendValues(vals.data(), vals.size()));
+  ASSERT_OK(builder.AppendValues(vals.data(), vals.size(), bitmap.data(), 0));
 
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 5; i++) {
     VerifyValue(builder, (2 * i), 2.5);
     VerifyValue(builder, (2 * i) + 1, 3.5);
   }
