@@ -258,7 +258,8 @@ test_yum() {
 
   case "$(arch)" in
     "x86_64")
-      for target in "almalinux:9" \
+      for target in "almalinux:10" \
+                    "almalinux:9" \
                     "almalinux:8" \
                     "amazonlinux:2023" \
                     "quay.io/centos/centos:stream9" \
@@ -279,7 +280,8 @@ test_yum() {
       done
       ;;
     "aarch64")
-      for target in "arm64v8/almalinux:9" \
+      for target in "arm64v8/almalinux:10" \
+                    "arm64v8/almalinux:9" \
                     "arm64v8/almalinux:8" \
                     "arm64v8/amazonlinux:2023" \
                     "quay.io/centos/centos:stream9" \
