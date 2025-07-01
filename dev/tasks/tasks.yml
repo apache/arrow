@@ -1231,6 +1231,7 @@ tasks:
     params:
       env:
         JDK: 17
+        DOCS_DEV: "1"
       pr_number: Unset
       image: debian-docs
       publish: true
