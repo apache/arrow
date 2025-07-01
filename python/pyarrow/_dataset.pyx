@@ -3183,7 +3183,8 @@ cdef class DatasetFactory(_Weakrefable):
         elif isinstance(fragments, int) and fragments >= 0:
             options.fragments = fragments
         else:
-            raise ValueError(f"Fragment count must be a non-negative int or None; got {fragments!r}")
+            raise ValueError(
+                f"Fragment count must be a non-negative int or None; got {fragments!r}")
 
         with nogil:
             result = self.factory.Inspect(options)
