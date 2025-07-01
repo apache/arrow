@@ -155,7 +155,6 @@ function(add_arrow_compute_benchmark REL_TEST_NAME)
                 EXTRA_LINK_LIBS
                 ${EXTRA_LINK_LIBS}
                 ${ARG_UNPARSED_ARGUMENTS})
-
 endfunction()
 
 add_arrow_test(internals_test
