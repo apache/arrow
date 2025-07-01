@@ -37,7 +37,7 @@
 #include "arrow/util/formatting.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
-#include "arrow/util/string_builder.h"
+#include "arrow/util/string_util.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
@@ -189,8 +189,8 @@ static std::ostream& operator<<(std::ostream& os, std::map<std::string, T> m) {
 // Wrapper types for Flight RPC protobuf messages
 
 std::string BasicAuth::ToString() const {
-  return arrow::util::StringBuilder("<BasicAuth username='", username,
-                                    "' password=(redacted)>");
+  return arrow::internal::JoinToString("<BasicAuth username='", username,
+                                       "' password=(redacted)>");
 }
 
 bool BasicAuth::Equals(const BasicAuth& other) const {
@@ -886,8 +886,8 @@ Status FlightPayload::Validate() const {
 }
 
 std::string ActionType::ToString() const {
-  return arrow::util::StringBuilder("<ActionType type='", type, "' description='",
-                                    description, "'>");
+  return arrow::internal::JoinToString("<ActionType type='", type, "' description='",
+                                       description, "'>");
 }
 
 const ActionType ActionType::kCancelFlightInfo =
@@ -930,7 +930,7 @@ arrow::Status ActionType::Deserialize(std::string_view serialized, ActionType* o
 }
 
 std::string Criteria::ToString() const {
-  return arrow::util::StringBuilder("<Criteria expression='", expression, "'>");
+  return arrow::internal::JoinToString("<Criteria expression='", expression, "'>");
 }
 
 bool Criteria::Equals(const Criteria& other) const {

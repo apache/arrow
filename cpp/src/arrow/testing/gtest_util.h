@@ -40,7 +40,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_builder.h"
+#include "arrow/util/string_util.h"
 #include "arrow/util/type_fwd.h"
 
 // NOTE: failing must be inline in the macros below, to get correct file / line number
@@ -142,7 +142,7 @@
 // A generalized version of GTest's SCOPED_TRACE that takes arbitrary arguments.
 //   ARROW_SCOPED_TRACE("some variable = ", some_variable, ...)
 
-#define ARROW_SCOPED_TRACE(...) SCOPED_TRACE(::arrow::util::StringBuilder(__VA_ARGS__))
+#define ARROW_SCOPED_TRACE(...) SCOPED_TRACE(::arrow::internal::JoinToString(__VA_ARGS__))
 
 namespace arrow {
 
