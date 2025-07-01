@@ -34,6 +34,7 @@ from pyarrow.includes.libarrow_python cimport *
 from pyarrow.includes.common cimport PyObject_to_object
 cimport pyarrow.includes.libarrow_python as libarrow_python
 cimport cpython as cp
+from pyarrow._util cimport _parse_field_merge_options
 
 
 # Initialize NumPy C API only if numpy was able to be imported

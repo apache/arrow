@@ -38,6 +38,7 @@ from pyarrow._csv cimport (
 from pyarrow.util import _is_iterable, _is_path_like, _stringify_path
 from pyarrow._json cimport ParseOptions as JsonParseOptions
 from pyarrow._json cimport ReadOptions as JsonReadOptions
+from pyarrow._util cimport _parse_field_merge_options
 
 try:
     import pyarrow.substrait as pa_substrait
@@ -3151,7 +3152,7 @@ cdef class DatasetFactory(_Weakrefable):
             schemas.append(pyarrow_wrap_schema(s))
         return schemas
 
-    def inspect(self, promote_options="default", fragments=None):
+    def inspect(self, *, promote_options="default", fragments=None):
         """
         Inspect data fragments and return a common Schema.
 
@@ -3173,10 +3174,7 @@ cdef class DatasetFactory(_Weakrefable):
             CInspectOptions options
             CResult[shared_ptr[CSchema]] result
 
-        if promote_options == "permissive":
-            options.field_merge_options = CField.CMergeOptions.Permissive()
-        elif promote_options != "default":
-            raise ValueError(f"Invalid merge mode: {promote_options}")
+        options.field_merge_options = _parse_field_merge_options(promote_options, False)
 
         if fragments is None:
             options.fragments = -1  # InspectOptions::kInspectAllFragments

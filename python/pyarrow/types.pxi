@@ -3720,12 +3720,7 @@ def unify_schemas(schemas, *, promote_options="default"):
             raise TypeError(f"Expected Schema, got {type(schema)}")
         c_schemas.push_back(pyarrow_unwrap_schema(schema))
 
-    if promote_options == "default":
-        c_options = CField.CMergeOptions.Defaults()
-    elif promote_options == "permissive":
-        c_options = CField.CMergeOptions.Permissive()
-    else:
-        raise ValueError(f"Invalid merge mode: {promote_options}")
+    c_options = _parse_field_merge_options(promote_options, False)
 
     return pyarrow_wrap_schema(
         GetResultValue(UnifySchemas(c_schemas, c_options)))
