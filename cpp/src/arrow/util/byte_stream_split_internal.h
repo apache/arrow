@@ -287,15 +287,15 @@ void ByteStreamSplitEncodeSimd(const uint8_t* raw_values, int width,
 
 #  if defined(ARROW_HAVE_RUNTIME_AVX2)
 
-template <int kNumStreams>
-void ByteStreamSplitDecodeAvx2(const uint8_t*, int, int64_t, int64_t, uint8_t*);
-
-extern template void ByteStreamSplitDecodeAvx2<2>(const uint8_t*, int, int64_t, int64_t,
-                                                  uint8_t*);
-extern template void ByteStreamSplitDecodeAvx2<4>(const uint8_t*, int, int64_t, int64_t,
-                                                  uint8_t*);
-extern template void ByteStreamSplitDecodeAvx2<8>(const uint8_t*, int, int64_t, int64_t,
-                                                  uint8_t*);
+extern template void ByteStreamSplitDecodeSimd<xsimd::avx2, 2>(const uint8_t*, int,
+                                                               int64_t, int64_t,
+                                                               uint8_t*);
+extern template void ByteStreamSplitDecodeSimd<xsimd::avx2, 4>(const uint8_t*, int,
+                                                               int64_t, int64_t,
+                                                               uint8_t*);
+extern template void ByteStreamSplitDecodeSimd<xsimd::avx2, 8>(const uint8_t*, int,
+                                                               int64_t, int64_t,
+                                                               uint8_t*);
 
 template <int kNumStreams>
 void ByteStreamSplitEncodeAvx2(const uint8_t*, int, const int64_t, uint8_t*);

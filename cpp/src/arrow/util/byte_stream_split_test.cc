@@ -153,7 +153,6 @@ class TestByteStreamSplitSpecialized : public ::testing::Test {
 #  endif
 #  if defined(ARROW_HAVE_AVX2)
       funcs.push_back({"xsimd_avx2", &ByteStreamSplitDecodeSimd<xsimd::avx2, kWidth>});
-      funcs.push_back({"intrinsics_avx2", &ByteStreamSplitDecodeAvx2<kWidth>});
 #  endif
     }
 #endif  // defined(ARROW_HAVE_SIMD_SPLIT)

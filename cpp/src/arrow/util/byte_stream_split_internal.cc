@@ -49,7 +49,10 @@ struct ByteStreamSplitDecodeDynamic {
 #endif
         },
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-        Implementation{DispatchLevel::AVX2, &ByteStreamSplitDecodeAvx2<kNumStreams>},
+        Implementation{
+            DispatchLevel::AVX2,
+            &ByteStreamSplitDecodeSimd<xsimd::avx2, kNumStreams>,
+        },
 #endif
     };
   }

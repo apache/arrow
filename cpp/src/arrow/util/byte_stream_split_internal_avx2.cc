@@ -30,85 +30,16 @@ namespace arrow::util::internal {
 
 using ::arrow::internal::ReversePow2;
 
-// Faster implementation in AVX2 using native intrinsics because the zip/unpack
-// on AVX2 really work on two bits lanes, which is not general enough for xsimd to
-// abstract.
-template <int kNumStreams>
-void ByteStreamSplitDecodeAvx2(const uint8_t* data, int width, int64_t num_values,
-                               int64_t stride, uint8_t* out) {
-  constexpr int kBatchSize = static_cast<int>(sizeof(__m256i));
-  static_assert(kNumStreams <= 16,
-                "The algorithm works when the number of streams is smaller than 16.");
-  assert(width == kNumStreams);
-  constexpr int kNumStreamsLog2 = ReversePow2(kNumStreams);
-  static_assert(kNumStreamsLog2 != 0,
-                "The algorithm works for a number of streams being a power of two.");
-  constexpr int64_t kBlockSize = kBatchSize * kNumStreams;
+template void ByteStreamSplitDecodeSimd<xsimd::avx2, 2>(const uint8_t*, int, int64_t,
+                                                        int64_t, uint8_t*);
+template void ByteStreamSplitDecodeSimd<xsimd::avx2, 4>(const uint8_t*, int, int64_t,
+                                                        int64_t, uint8_t*);
+template void ByteStreamSplitDecodeSimd<xsimd::avx2, 8>(const uint8_t*, int, int64_t,
+                                                        int64_t, uint8_t*);
 
-  const int64_t size = num_values * kNumStreams;
-  if (size < kBlockSize)  // Back to SSE for small size
-    return ByteStreamSplitDecodeSimd<xsimd::sse4_2, kNumStreams>(data, width, num_values,
-                                                                 stride, out);
-  const int64_t num_blocks = size / kBlockSize;
-
-  // First handle suffix.
-  const int64_t num_processed_elements = (num_blocks * kBlockSize) / kNumStreams;
-  for (int64_t i = num_processed_elements; i < num_values; ++i) {
-    uint8_t gathered_byte_data[kNumStreams];
-    for (int b = 0; b < kNumStreams; ++b) {
-      const int64_t byte_index = b * stride + i;
-      gathered_byte_data[b] = data[byte_index];
-    }
-    std::memcpy(out + i * kNumStreams, gathered_byte_data, kNumStreams);
-  }
-
-  // Processed hierarchically using unpack intrinsics, then permute intrinsics.
-  __m256i stage[kNumStreamsLog2 + 1][kNumStreams];
-  __m256i final_result[kNumStreams];
-  constexpr int kNumStreamsHalf = kNumStreams / 2;
-
-  for (int64_t i = 0; i < num_blocks; ++i) {
-    for (int j = 0; j < kNumStreams; ++j) {
-      stage[0][j] = _mm256_loadu_si256(
-          reinterpret_cast<const __m256i*>(&data[i * sizeof(__m256i) + j * stride]));
-    }
-
-    for (int step = 0; step < kNumStreamsLog2; ++step) {
-      for (int j = 0; j < kNumStreamsHalf; ++j) {
-        stage[step + 1][j * 2] =
-            _mm256_unpacklo_epi8(stage[step][j], stage[step][kNumStreamsHalf + j]);
-        stage[step + 1][j * 2 + 1] =
-            _mm256_unpackhi_epi8(stage[step][j], stage[step][kNumStreamsHalf + j]);
-      }
-    }
-
-    for (int j = 0; j < kNumStreamsHalf; ++j) {
-      // Concatenate inputs lower 128-bit lanes: src1 to upper, src2 to lower
-      final_result[j] = _mm256_permute2x128_si256(
-          stage[kNumStreamsLog2][2 * j], stage[kNumStreamsLog2][2 * j + 1], 0b00100000);
-      // Concatenate inputs upper 128-bit lanes: src1 to upper, src2 to lower
-      final_result[j + kNumStreamsHalf] = _mm256_permute2x128_si256(
-          stage[kNumStreamsLog2][2 * j], stage[kNumStreamsLog2][2 * j + 1], 0b00110001);
-    }
-
-    for (int j = 0; j < kNumStreams; ++j) {
-      _mm256_storeu_si256(
-          reinterpret_cast<__m256i*>(out + (i * kNumStreams + j) * sizeof(__m256i)),
-          final_result[j]);
-    }
-  }
-}
-
-template void ByteStreamSplitDecodeAvx2<2>(const uint8_t*, int, int64_t, int64_t,
-                                           uint8_t*);
-template void ByteStreamSplitDecodeAvx2<4>(const uint8_t*, int, int64_t, int64_t,
-                                           uint8_t*);
-template void ByteStreamSplitDecodeAvx2<8>(const uint8_t*, int, int64_t, int64_t,
-                                           uint8_t*);
-
-// Faster implementation in AVX2 using native intrinsics because the zip/unpack
-// on AVX2 really work on two bits lanes, which is not general enough for xsimd to
-// abstract.
+// Faster implementation in AVX2 using native intrinsics.
+// Probably because the zip/unpack on AVX2 really work on two bits lanes,
+// which is not general enough for xsimd to abstract.
 inline void ByteStreamSplitEncodeAvx2Impl4(const uint8_t* raw_values, int width,
                                            const int64_t num_values,
                                            uint8_t* output_buffer_raw) {
