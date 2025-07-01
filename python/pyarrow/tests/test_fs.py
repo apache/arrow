@@ -2156,12 +2156,10 @@ def test_fsspec_filesystem_from_uri():
 
     # check that if fsspec+ is specified than we don't coerce to the native
     # arrow local filesystem
-    path = "/tmp/my.file"
-    uri = f"file://{path}"
-    fs, path = FileSystem.from_uri(f"fsspec+{uri}")
+    uri = "file:///tmp/my.file"
+    fs, _ = FileSystem.from_uri(f"fsspec+{uri}")
     expected_fs = PyFileSystem(FSSpecHandler(LocalFileSystem()))
     assert fs == expected_fs
-    assert path == str(pathlib.Path(path))
 
 
 def test_huggingface_filesystem_from_uri():
@@ -2182,11 +2180,11 @@ def test_huggingface_filesystem_from_uri():
 def test_from_uri_treat_path_as_prefix(tempdir):
     uri = pathlib.Path(tempdir).as_uri()
 
-    fs, path = FileSystem.from_uri(uri)
+    fs, local_path = FileSystem.from_uri(uri)
     assert isinstance(fs, LocalFileSystem)
-    assert path == str(tempdir)
+    assert pathlib.Path(local_path) == pathlib.Path(tempdir)
 
     fs = FileSystem.from_uri(uri, treat_path_as_prefix=True)
     assert isinstance(fs, SubTreeFileSystem)
     assert fs.base_fs == LocalFileSystem()
-    assert fs.base_path == f"{tempdir}/"
+    assert pathlib.Path(fs.base_path) == pathlib.Path(tempdir)
