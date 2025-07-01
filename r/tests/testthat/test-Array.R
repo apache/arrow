@@ -352,7 +352,7 @@ test_that("array supports integer64", {
   expect_true(as.vector(is.na(all_na)))
 })
 
-test_that("array supports integer64 with new sematics", {
+test_that("array supports integer64 with new semantics", {
   withr::with_options(list(integer64_semantics = "new"), {
     x <- bit64::as.integer64(1:10) + MAX_INT
     expect_array_roundtrip(x, int64())
@@ -364,7 +364,7 @@ test_that("array supports integer64 with new sematics", {
     all_na <- arrow_array(bit64::as.integer64(NA))
     expect_type_equal(all_na, int64())
     expect_true(as.vector(is.na(all_na)))
-  }
+  })
 })
 
 test_that("array supports hms difftime", {
