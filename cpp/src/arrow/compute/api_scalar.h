@@ -383,6 +383,18 @@ class ARROW_EXPORT PadOptions : public FunctionOptions {
   bool lean_left_on_odd_padding = true;
 };
 
+class ARROW_EXPORT ZeroFillOptions : public FunctionOptions {
+ public:
+  explicit ZeroFillOptions(int64_t width, std::string padding = "0");
+  ZeroFillOptions();
+  static constexpr char const kTypeName[] = "ZeroFillOptions";
+
+  /// The desired string length.
+  int64_t width;
+  /// What to pad the string with. Should be one codepoint (Unicode).
+  std::string padding;
+};
+
 class ARROW_EXPORT TrimOptions : public FunctionOptions {
  public:
   explicit TrimOptions(std::string characters);

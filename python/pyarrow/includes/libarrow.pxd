@@ -2463,6 +2463,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_string padding
         c_bool lean_left_on_odd_padding
 
+    cdef cppclass CZeroFillOptions \
+            "arrow::compute::ZeroFillOptions"(CFunctionOptions):
+        CZeroFillOptions(int64_t width, c_string padding)
+        int64_t width
+        c_string padding
+
     cdef cppclass CSliceOptions \
             "arrow::compute::SliceOptions"(CFunctionOptions):
         CSliceOptions(int64_t start, int64_t stop, int64_t step)
