@@ -82,60 +82,6 @@ def __getattr__(name):
     )
 
 
-def _filesystem_from_str(uri, treat_path_as_prefix=True):
-    # instantiate the file system from an uri, if the uri has a path
-    # component then it will be treated as a path prefix
-    try:
-        filesystem, path = FileSystem.from_uri(uri)
-    except ValueError as e:
-        if uri.startswith("fsspec+") or uri.startswith("hf://"):
-            # if the path starts with fsspec+ or hf://, then it is a valid
-            # fsspec URI, so try to parse it using fsspec
-            filesystem, path = _fsspec_filesystem_from_str(uri)
-        else:
-            raise e
-
-    if treat_path_as_prefix:
-        prefix = filesystem.normalize_path(path)
-        if prefix:
-            # validate that the prefix is pointing to a directory
-            prefix_info = filesystem.get_file_info([prefix])[0]
-            if prefix_info.type != FileType.Directory:
-                raise ValueError(
-                    "The path component of the filesystem URI must point to a "
-                    f"directory but it has a type: `{prefix_info.type.name}`. The path "
-                    f"component is `{prefix_info.path}` and the given filesystem URI "
-                    f"is `{uri}`"
-                )
-            filesystem = SubTreeFileSystem(prefix, filesystem)
-        return filesystem
-    else:
-        return filesystem, path
-
-
-def _fsspec_filesystem_from_str(fsspec_uri):
-    try:
-        import fsspec
-    except ImportError:
-        raise ImportError(
-            "`fsspec` is required to handle fsspec+<protocol> filesystems."
-        )
-
-    if fsspec_uri.startswith("hf://"):
-        uri = fsspec_uri
-    elif fsspec_uri.startswith("fsspec+"):
-        uri = fsspec_uri[7:]  # remove the 'fsspec+' prefix
-    else:
-        raise ValueError(
-            f"'{uri}' does not start with 'fsspec+' prefix, "
-            "which is required for fsspec-based filesystems."
-        )
-
-    fs, path = fsspec.url_to_fs(uri)
-    fs = _ensure_filesystem(fs)
-    return fs, path
-
-
 def _ensure_filesystem(filesystem, *, use_mmap=False):
     if isinstance(filesystem, FileSystem):
         return filesystem
@@ -145,7 +91,7 @@ def _ensure_filesystem(filesystem, *, use_mmap=False):
                 "Specifying to use memory mapping not supported for "
                 "filesystem specified as an URI string"
             )
-        return _filesystem_from_str(filesystem, treat_path_as_prefix=True)
+        return FileSystem.from_uri(filesystem, treat_path_as_prefix=True)
 
     # handle fsspec-compatible filesystems
     try:
@@ -209,7 +155,7 @@ def _resolve_filesystem_and_path(path, filesystem=None, *, memory_map=False):
     # the path is an URI describing the file system as well
     if not exists_locally:
         try:
-            filesystem, path = _filesystem_from_str(path, treat_path_as_prefix=False)
+            filesystem, path = FileSystem.from_uri(path)
         except ValueError as e:
             msg = str(e)
             if "empty scheme" in msg or "Cannot parse URI" in msg:

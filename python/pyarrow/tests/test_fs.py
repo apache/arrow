@@ -36,7 +36,7 @@ from pyarrow.tests.util import (_filesystem_uri, ProxyHandler,
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
                         FileSystemHandler, PyFileSystem, FSSpecHandler,
-                        copy_files, _resolve_filesystem_and_path)
+                        copy_files)
 from pyarrow.util import find_free_port
 
 
@@ -2144,14 +2144,22 @@ def test_uwsgi_integration():
 
 def test_fsspec_filesystem_from_uri():
     try:
+        from fsspec.implementations.local import LocalFileSystem
         from fsspec.implementations.memory import MemoryFileSystem
     except ImportError:
         pytest.skip("fsspec not installed")
 
-    fs, path = _resolve_filesystem_and_path("fsspec+memory://path/to/data.parquet")
+    fs, path = FileSystem.from_uri("fsspec+memory://path/to/data.parquet")
     expected_fs = PyFileSystem(FSSpecHandler(MemoryFileSystem()))
     assert fs == expected_fs
     assert path == "/path/to/data.parquet"
+
+    # check that if fsspec+ is specified than we don't coerce to the native
+    # arrow local filesystem
+    fs, path = FileSystem.from_uri("fsspec+local:///tmp/my.file")
+    expected_fs = PyFileSystem(FSSpecHandler(LocalFileSystem()))
+    assert fs == expected_fs
+    assert path == "/tmp/my.file"
 
 
 def test_huggingface_filesystem_from_uri():
@@ -2161,9 +2169,22 @@ def test_huggingface_filesystem_from_uri():
     except ImportError:
         pytest.skip("huggingface_hub not installed")
 
-    fs, path = _resolve_filesystem_and_path(
+    fs, path = FileSystem.from_uri(
         "hf://datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet"
     )
     expected_fs = PyFileSystem(FSSpecHandler(HfFileSystem()))
     assert fs == expected_fs
     assert path == "datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet"
+
+
+def test_from_uri_treat_path_as_prefix(tempdir):
+    uri = f"local://{tempdir}"
+
+    fs, path = FileSystem.from_uri(uri)
+    assert isinstance(fs, LocalFileSystem)
+    assert path == str(tempdir)
+
+    fs = FileSystem.from_uri(uri, treat_path_as_prefix=True)
+    assert isinstance(fs, SubTreeFileSystem)
+    assert fs.base_fs == LocalFileSystem()
+    assert fs.base_path == f"{tempdir}/"

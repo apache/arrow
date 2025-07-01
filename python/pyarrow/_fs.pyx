@@ -424,7 +424,39 @@ cdef class FileSystem(_Weakrefable):
         return fs
 
     @staticmethod
-    def from_uri(uri):
+    def _fsspec_from_uri(uri):
+        """Instantiate FSSpecHandler and path for the given URI."""
+        try:
+            import fsspec
+        except ImportError:
+            raise ImportError(
+                "`fsspec` is required to handle fsspec+<protocol> filesystems."
+            )
+        from .fs import FSSpecHandler
+
+        uri = uri.removeprefix("fsspec+")
+        fs, path = fsspec.url_to_fs(uri)
+        fs = PyFileSystem(FSSpecHandler(fs))
+
+        return fs, path
+
+    @staticmethod
+    def _native_from_uri(uri):
+        """Instantiate native FileSystem and path for the given URI."""
+        cdef:
+            c_string c_path
+            c_string c_uri
+            CResult[shared_ptr[CFileSystem]] result
+
+        if isinstance(uri, pathlib.Path):
+            # Make absolute
+            uri = uri.resolve().absolute()
+        c_uri = tobytes(_stringify_path(uri))
+        with nogil:
+            result = CFileSystemFromUriOrPath(c_uri, &c_path)
+        return FileSystem.wrap(GetResultValue(result)), frombytes(c_path)
+
+    def from_uri(uri, treat_path_as_prefix=False):
         """
         Create a new FileSystem from URI or Path.
 
@@ -436,12 +468,19 @@ cdef class FileSystem(_Weakrefable):
         ----------
         uri : string
             URI-based path, for example: file:///some/local/path.
+        treat_path_as_prefix : bool, default False
+            If True, the path component of the URI is treated as a prefix
+            inside the FileSystem instance. This means that all operations
+            will be relative to this prefix, and the prefix must point to a
+            directory. If False, the path component is treated as an abstract
+            path inside the FileSystem instance.
 
         Returns
         -------
-        tuple of (FileSystem, str path)
-            With (filesystem, path) tuple where path is the abstract path
-            inside the FileSystem instance.
+        tuple of (FileSystem, str path) or FileSystem
+            If `treat_path_as_prefix` is True, returns a single FileSystem instance
+            otherwise returns with (filesystem, path) tuple where path is the abstract
+            path inside the FileSystem instance.
 
         Examples
         --------
@@ -458,19 +497,45 @@ cdef class FileSystem(_Weakrefable):
 
         >>> fs.FileSystem.from_uri("s3://usgs-landsat/collection02/")
         (<pyarrow._s3fs.S3FileSystem object at ...>, 'usgs-landsat/collection02')
-        """
-        cdef:
-            c_string c_path
-            c_string c_uri
-            CResult[shared_ptr[CFileSystem]] result
 
-        if isinstance(uri, pathlib.Path):
-            # Make absolute
-            uri = uri.resolve().absolute()
-        c_uri = tobytes(_stringify_path(uri))
-        with nogil:
-            result = CFileSystemFromUriOrPath(c_uri, &c_path)
-        return FileSystem.wrap(GetResultValue(result)), frombytes(c_path)
+        Or from an fsspec+ URI:
+
+        >>> fs.FileSystem.from_uri("fsspec+memory:///path/to/file")
+        (<pyarrow._fs.PyFileSystem object at ...>, '/path/to/file')
+
+        Or from a Hugging Face dataset URI:
+
+        >>> fs.FileSystem.from_uri("hf://datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet")
+        (<pyarrow._fs.PyFileSystem object at ...>, 'datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet')
+
+        Create a subtree FileSystem by treating the path as a prefix:
+
+        >>> uri = f'file://{local_path}'
+        >>> local_new = fs.FileSystem.from_uri(uri, treat_path_as_prefix=True)
+        >>> local_new
+        SubTreeFileSystem(base_path=..., base_fs=<pyarrow._fs.LocalFileSystem object at ...>)
+        """
+        if isinstance(uri, str) and uri.startswith(("fsspec+", "hf://")):
+            fs, path = FileSystem._fsspec_from_uri(uri)
+        else:
+            fs, path = FileSystem._native_from_uri(uri)
+
+        if treat_path_as_prefix:
+            prefix = fs.normalize_path(path)
+            if prefix:
+                # validate that the prefix is pointing to a directory
+                prefix_info = fs.get_file_info([prefix])[0]
+                if prefix_info.type != FileType.Directory:
+                    raise ValueError(
+                        "The path component of the filesystem URI must point to a "
+                        f"directory but it has a type: `{prefix_info.type.name}`. The path "
+                        f"component is `{prefix_info.path}` and the given filesystem URI "
+                        f"is `{uri}`"
+                    )
+                fs = SubTreeFileSystem(prefix, fs)
+            return fs
+
+        return fs, path
 
     cdef init(self, const shared_ptr[CFileSystem]& wrapped):
         self.wrapped = wrapped
@@ -1016,7 +1081,7 @@ cdef class LocalFileSystem(FileSystem):
 
     Create a FileSystem object inferred from a URI of the saved file:
 
-    >>> local_new, path = fs.LocalFileSystem().from_uri('/tmp/local_fs.dat')
+    >>> local_new, path = fs.LocalFileSystem.from_uri('/tmp/local_fs.dat')
     >>> local_new
     <pyarrow._fs.LocalFileSystem object at ...
     >>> path

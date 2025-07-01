@@ -414,8 +414,6 @@ with ``fsspec+``. This is useful for reading datasets hosted on Hugging Face::
    pq.read_table("hf://datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet")
 
 
-
-
 Using Arrow filesystems with fsspec
 -----------------------------------
 
