@@ -107,14 +107,6 @@ case "${distribution}-${distribution_version}" in
     info_command="yum info"
     fix_eol_repositories
     ;;
-  centos-8)
-    distribution_prefix="centos"
-    repository_version+="-stream"
-    ruby_devel_packages+=(redhat-rpm-config)
-    install_command="dnf install -y --enablerepo=powertools"
-    info_command="dnf info --enablerepo=powertools"
-    fix_eol_repositories
-    ;;
   centos-*)
     distribution_prefix="centos"
     repository_version+="-stream"
