@@ -193,7 +193,7 @@ class NumericBuilder
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous C array of values
   /// \param[in] length the number of values to append
-  /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
+  /// \param[in] is_valid a std::vector<bool> indicating valid (1) or null
   /// (0). Equal in length to values
   /// \return Status
   Status AppendValues(const value_type* values, int64_t length,
@@ -402,7 +402,7 @@ class ARROW_EXPORT HalfFloatBuilder : public NumericBuilder<HalfFloatType> {
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous array of arrow::util::Float16
   /// \param[in] length the number of values to append
-  /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
+  /// \param[in] is_valid a std::vector<bool> indicating valid (1) or null
   /// (0). Equal in length to values
   /// \return Status
   Status AppendValues(const Float16* values, int64_t length,
@@ -412,8 +412,8 @@ class ARROW_EXPORT HalfFloatBuilder : public NumericBuilder<HalfFloatType> {
   }
 
   /// \brief Append a sequence of elements in one shot
-  /// \param[in] values an std::vector<arrow::util::Float16>
-  /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
+  /// \param[in] values a std::vector<arrow::util::Float16>
+  /// \param[in] is_valid a std::vector<bool> indicating valid (1) or null
   /// (0). Equal in length to values
   /// \return Status
   Status AppendValues(const std::vector<Float16>& values,
@@ -422,7 +422,7 @@ class ARROW_EXPORT HalfFloatBuilder : public NumericBuilder<HalfFloatType> {
   }
 
   /// \brief Append a sequence of elements in one shot
-  /// \param[in] values an std::vector<arrow::util::Float16>
+  /// \param[in] values a std::vector<arrow::util::Float16>
   /// \return Status
   Status AppendValues(const std::vector<Float16>& values) {
     return AppendValues(values.data(), static_cast<int64_t>(values.size()));
