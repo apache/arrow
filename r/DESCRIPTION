@@ -50,6 +50,7 @@ Suggests:
     blob,
     curl,
     cli,
+    data.table,
     DBI,
     dbplyr,
     decor,
