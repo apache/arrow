@@ -3677,6 +3677,10 @@ cdef class Schema(_Weakrefable):
 
 
 cdef CField.CMergeOptions _parse_field_merge_options(str promote_options, bint allow_none) except *:
+    """
+    Returns MergeOptions::Permissive() or MergeOptions::Defaults() based on the value
+    of `promote_options`. If `allow_none` is True, this function treats "none" as "default".
+    """
     if promote_options == "permissive":
         return CField.CMergeOptions.Permissive()
     elif promote_options == "default" or (allow_none and promote_options == "none"):
