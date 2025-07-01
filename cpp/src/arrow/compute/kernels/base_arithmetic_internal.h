@@ -24,7 +24,9 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/int_util_overflow.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -34,6 +36,7 @@ using internal::DivideWithOverflow;
 using internal::MultiplyWithOverflow;
 using internal::NegateWithOverflow;
 using internal::SubtractWithOverflow;
+using util::Float16;
 
 namespace compute {
 namespace internal {
@@ -471,6 +474,11 @@ struct Negate {
   }
 
   template <typename T, typename Arg>
+  static constexpr enable_if_half_float_value<T> Call(KernelContext*, Arg arg, Status*) {
+    return -arg;
+  }
+
+  template <typename T, typename Arg>
   static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg arg,
                                                             Status*) {
     return ~arg + 1;
@@ -513,6 +521,12 @@ struct NegateChecked {
   template <typename T, typename Arg>
   static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
                                                          Status* st) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    return -arg;
+  }
+
+  template <typename T, typename Arg>
+  static constexpr enable_if_half_float_value<T> Call(KernelContext*, Arg arg, Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     return -arg;
   }
@@ -634,6 +648,15 @@ struct Sign {
   }
 
   template <typename T, typename Arg>
+  static constexpr enable_if_half_float_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                           Status*) {
+    return arg.is_nan()
+               ? arg
+               : (arg.is_zero() ? Float16::zero()
+                                : (arg.signbit() ? -Float16::one() : Float16::one()));
+  }
+
+  template <typename T, typename Arg>
   static constexpr enable_if_unsigned_integer_value<Arg, T> Call(KernelContext*, Arg arg,
                                                                  Status*) {
     return (arg > 0) ? 1 : 0;
@@ -705,7 +728,13 @@ struct Identity;
 template <>
 struct Identity<Add> {
   template <typename Value>
-  static constexpr Value value{0};
+  static constexpr Value value() {
+    if constexpr (std::is_same_v<Float16, Value>) {
+      return Float16::zero();
+    } else {
+      return 0;
+    }
+  }
 };
 
 template <>
@@ -714,7 +743,13 @@ struct Identity<AddChecked> : Identity<Add> {};
 template <>
 struct Identity<Multiply> {
   template <typename Value>
-  static constexpr Value value{1};
+  static constexpr Value value() {
+    if constexpr (std::is_same_v<Float16, Value>) {
+      return Float16::one();
+    } else {
+      return 1;
+    }
+  }
 };
 
 template <>
@@ -723,13 +758,17 @@ struct Identity<MultiplyChecked> : Identity<Multiply> {};
 template <>
 struct Identity<Max> {
   template <typename Value>
-  static constexpr Value value{std::numeric_limits<Value>::min()};
+  static constexpr Value value() {
+    return std::numeric_limits<Value>::min();
+  }
 };
 
 template <>
 struct Identity<Min> {
   template <typename Value>
-  static constexpr Value value{std::numeric_limits<Value>::max()};
+  static constexpr Value value() {
+    return std::numeric_limits<Value>::max();
+  }
 };
 
 }  // namespace internal

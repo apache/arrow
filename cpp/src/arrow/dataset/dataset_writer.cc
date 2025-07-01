@@ -227,11 +227,8 @@ class DatasetWriterFileQueue
   Status Finish() {
     writer_state_->staged_rows_count -= rows_currently_staged_;
     while (!staged_batches_.empty()) {
-      auto st = PopAndDeliverStagedBatch().status();
-      if (!st.ok()) {
-        file_tasks_.reset();
-        return st;
-      }
+      RETURN_NOT_OK(PopAndDeliverStagedBatch().status().OrElse(
+          [&](auto&&) { file_tasks_.reset(); }));
     }
     // At this point all write tasks have been added.  Because the scheduler
     // is a 1-task FIFO we know this task will run at the very end and can

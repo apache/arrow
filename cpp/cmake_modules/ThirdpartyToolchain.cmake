@@ -5114,6 +5114,7 @@ function(build_awssdk)
   prepare_fetchcontent()
   set(BUILD_DEPS OFF)
   set(BUILD_TOOL OFF)
+  set(CMAKE_UNITY_BUILD OFF) # Unity build causes some build errors.
   set(ENABLE_TESTING OFF)
   set(IN_SOURCE_BUILD ON)
   set(MINIMIZE_SIZE ON)
@@ -5277,7 +5278,12 @@ function(build_awssdk)
 endfunction()
 
 if(ARROW_S3)
-  resolve_dependency(AWSSDK HAVE_ALT TRUE)
+  # Keep this in sync with s3fs.cc
+  resolve_dependency(AWSSDK
+                     HAVE_ALT
+                     TRUE
+                     REQUIRED_VERSION
+                     1.11.0)
 
   message(STATUS "Found AWS SDK headers: ${AWSSDK_INCLUDE_DIR}")
   message(STATUS "Found AWS SDK libraries: ${AWSSDK_LINK_LIBRARIES}")
@@ -5303,16 +5309,6 @@ endif()
 # Azure SDK for C++
 
 function(build_azure_sdk)
-  if(CMAKE_VERSION VERSION_LESS 3.22)
-    # We can't disable installing Azure SDK for C++ by
-    # "set_property(DIRECTORY ${azure_sdk_SOURCE_DIR} PROPERTY
-    # EXCLUDE_FROM_ALL TRUE)" with CMake 3.16.
-    #
-    # At least CMake 3.22 on Ubuntu 22.04 works. So we use 3.22
-    # here. We may be able to use more earlier version here.
-    message(FATAL_ERROR "Building Azure SDK for C++ requires at least CMake 3.22. "
-                        "(At least we can't use CMake 3.16)")
-  endif()
   message(STATUS "Building Azure SDK for C++ from source")
   fetchcontent_declare(azure_sdk
                        ${FC_DECLARE_COMMON_OPTIONS}
