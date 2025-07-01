@@ -207,7 +207,6 @@ class build_ext(_build_ext):
         '_compute',
         '_cuda',
         '_flight',
-        '_util',
         '_dataset',
         '_dataset_orc',
         '_dataset_parquet',

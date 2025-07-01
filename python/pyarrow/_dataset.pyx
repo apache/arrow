@@ -38,7 +38,6 @@ from pyarrow._csv cimport (
 from pyarrow.util import _is_iterable, _is_path_like, _stringify_path
 from pyarrow._json cimport ParseOptions as JsonParseOptions
 from pyarrow._json cimport ReadOptions as JsonReadOptions
-from pyarrow._util cimport _parse_field_merge_options
 
 try:
     import pyarrow.substrait as pa_substrait

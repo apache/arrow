@@ -3676,6 +3676,15 @@ cdef class Schema(_Weakrefable):
         return pyarrow_wrap_schema(result)
 
 
+cdef CField.CMergeOptions _parse_field_merge_options(str promote_options, bint allow_none) except *:
+    if promote_options == "permissive":
+        return CField.CMergeOptions.Permissive()
+    elif promote_options == "default" or (allow_none and promote_options == "none"):
+        return CField.CMergeOptions.Defaults()
+    else:
+        raise ValueError(f"Invalid promote_options: {promote_options}")
+
+
 def unify_schemas(schemas, *, promote_options="default"):
     """
     Unify schemas by merging fields by name.
