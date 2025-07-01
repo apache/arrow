@@ -430,3 +430,14 @@ def test_fsspec_uri_raises_if_fsspec_is_not_available():
         "`fsspec` is required to handle `fsspec+<filesystem>://` and `hf://` URIs.")
     with pytest.raises(ImportError, match=msg):
         pq.read_table("fsspec+memory://example.parquet")
+
+
+def test_iter_batches_raises_batch_size_zero(tempdir):
+    # See https://github.com/apache/arrow/issues/46811
+    schema = pa.schema([])
+    empty_table = pa.Table.from_batches([], schema=schema)
+    parquet_file_path = tempdir / "empty_file.parquet"
+    pq.write_table(empty_table, parquet_file_path)
+    parquet_file = pq.ParquetFile(parquet_file_path)
+    with pytest.raises(ValueError):
+        parquet_file.iter_batches(batch_size=0)
