@@ -17,6 +17,7 @@
 
 # Requirements for building the documentation
 breathe
+cython>3.1.1
 doxygen
 ipython
 linkify-it-py
@@ -25,7 +26,7 @@ linkify-it-py
 # linuxdoc
 myst-parser
 numpydoc
-pydata-sphinx-theme=0.14
+pydata-sphinx-theme=0.16
 sphinx-autobuild
 sphinx-design
 sphinx-copybutton

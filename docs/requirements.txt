@@ -3,11 +3,12 @@
 #
 
 breathe
+cython>3.1.1
 ipython
 linuxdoc
 myst-parser[linkify]
 numpydoc
-pydata-sphinx-theme~=0.14
+pydata-sphinx-theme~=0.16
 sphinx-autobuild
 sphinx-copybutton
 sphinx-design

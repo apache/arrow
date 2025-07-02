@@ -44,8 +44,8 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               FileEncryptionProperties,
                               FileDecryptionProperties,
                               SortingColumn)
-from pyarrow.fs import (LocalFileSystem, FileSystem, FileType,
-                        _resolve_filesystem_and_path, _ensure_filesystem)
+from pyarrow.fs import (LocalFileSystem, FileType, _resolve_filesystem_and_path,
+                        _ensure_filesystem)
 from pyarrow.util import guid, _is_path_like, _stringify_path, _deprecate_api
 
 
@@ -261,7 +261,7 @@ class ParquetFile:
         it will be parsed as an URI to determine the filesystem.
     page_checksum_verification : bool, default False
         If True, verify the checksum for each page read from the file.
-    arrow_extensions_enabled : bool, default False
+    arrow_extensions_enabled : bool, default True
         If True, read Parquet logical types as Arrow extension types where possible,
         (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
         the canonical `arrow.uuid` extension type).
@@ -314,7 +314,7 @@ class ParquetFile:
                  coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None, filesystem=None,
-                 page_checksum_verification=False, arrow_extensions_enabled=False):
+                 page_checksum_verification=False, arrow_extensions_enabled=True):
 
         self._close_source = getattr(source, 'closed', True)
 
@@ -579,6 +579,9 @@ class ParquetFile:
         4       5  Brittle stars
         5     100      Centipede
         """
+        if batch_size <= 0:
+            raise ValueError("batch_size must be greater than zero")
+
         if row_groups is None:
             row_groups = range(0, self.metadata.num_row_groups)
         column_indices = self._get_column_indices(
@@ -1321,7 +1324,7 @@ thrift_container_size_limit : int, default None
     sufficient for most Parquet files.
 page_checksum_verification : bool, default False
     If True, verify the page checksum for each page read from the file.
-arrow_extensions_enabled : bool, default False
+arrow_extensions_enabled : bool, default True
     If True, read Parquet logical types as Arrow extension types where possible,
     (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
     the canonical `arrow.uuid` extension type).
@@ -1339,7 +1342,7 @@ Examples
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
                  page_checksum_verification=False,
-                 arrow_extensions_enabled=False):
+                 arrow_extensions_enabled=True):
         import pyarrow.dataset as ds
 
         # map format arguments
@@ -1392,14 +1395,9 @@ Examples
         self._base_dir = None
         if not isinstance(path_or_paths, list):
             if _is_path_like(path_or_paths):
-                path_or_paths = _stringify_path(path_or_paths)
-                if filesystem is None:
-                    # path might be a URI describing the FileSystem as well
-                    try:
-                        filesystem, path_or_paths = FileSystem.from_uri(
-                            path_or_paths)
-                    except ValueError:
-                        filesystem = LocalFileSystem(use_mmap=memory_map)
+                filesystem, path_or_paths = _resolve_filesystem_and_path(
+                    path_or_paths, filesystem, memory_map=memory_map
+                )
                 finfo = filesystem.get_file_info(path_or_paths)
                 if finfo.type == FileType.Directory:
                     self._base_dir = path_or_paths
@@ -1739,7 +1737,7 @@ thrift_container_size_limit : int, default None
     sufficient for most Parquet files.
 page_checksum_verification : bool, default False
     If True, verify the checksum for each page read from the file.
-arrow_extensions_enabled : bool, default False
+arrow_extensions_enabled : bool, default True
     If True, read Parquet logical types as Arrow extension types where possible,
     (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
     the canonical `arrow.uuid` extension type).
@@ -1839,7 +1837,7 @@ def read_table(source, *, columns=None, use_threads=True,
                decryption_properties=None, thrift_string_size_limit=None,
                thrift_container_size_limit=None,
                page_checksum_verification=False,
-               arrow_extensions_enabled=False):
+               arrow_extensions_enabled=True):
 
     try:
         dataset = ParquetDataset(

@@ -47,7 +47,7 @@ conf_data.set('ARROW_FLIGHT_SQL', false)
 conf_data.set('ARROW_IPC', needs_ipc)
 conf_data.set('ARROW_JEMALLOC', false)
 conf_data.set('ARROW_JEMALLOC_VENDORED', false)
-conf_data.set('ARROW_JSON', false)
+conf_data.set('ARROW_JSON', needs_json)
 conf_data.set('ARROW_MIMALLOC', false)
 conf_data.set('ARROW_ORC', false)
 conf_data.set('ARROW_PARQUET', false)
@@ -160,7 +160,7 @@ install_headers(
         'simd.h',
         'small_vector.h',
         'span.h',
-        'string_builder.h',
+        'string_util.h',
         'string.h',
         'task_group.h',
         'test_common.h',

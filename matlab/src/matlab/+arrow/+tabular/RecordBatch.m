@@ -65,14 +65,14 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
 
             if isnumeric(idx)
                 args = struct(Index=idx);
-                [proxyID, typeID] = obj.Proxy.getColumnByIndex(args);
+                proxyInfo = obj.Proxy.getColumnByIndex(args);
             else
                 args = struct(Name=idx);
-                [proxyID, typeID] = obj.Proxy.getColumnByName(args);
+                proxyInfo = obj.Proxy.getColumnByName(args);
             end
             
-            traits = arrow.type.traits.traits(arrow.type.ID(typeID));
-            proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyID);
+            traits = arrow.type.traits.traits(arrow.type.ID(proxyInfo.TypeID));
+            proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyInfo.ProxyID);
             arrowArray = traits.ArrayConstructor(proxy);
         end
 

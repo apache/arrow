@@ -21,6 +21,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/compute/light_array_internal.h"
+#include "arrow/compute/visibility.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
@@ -29,7 +30,7 @@ namespace arrow {
 namespace compute {
 
 /// Description of the data stored in a RowTable
-struct ARROW_EXPORT RowTableMetadata {
+struct ARROW_COMPUTE_EXPORT RowTableMetadata {
   using offset_type = int64_t;
 
   /// \brief True if there are no variable length columns in the table
@@ -170,7 +171,7 @@ struct ARROW_EXPORT RowTableMetadata {
 /// Can store both fixed-size data types and variable-length data types
 ///
 /// The row table is not safe
-class ARROW_EXPORT RowTableImpl {
+class ARROW_COMPUTE_EXPORT RowTableImpl {
  public:
   using offset_type = RowTableMetadata::offset_type;
 

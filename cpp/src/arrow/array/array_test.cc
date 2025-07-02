@@ -815,6 +815,23 @@ TEST_F(TestArray, TestMakeArrayFromMapScalar) {
   AssertAppendScalar(pool_, std::make_shared<MapScalar>(scalar));
 }
 
+TEST_F(TestArray, TestMakeArrayFromScalarSmallintExtensionType) {
+  auto ext_type = std::make_shared<SmallintType>();
+  auto storage_scalar = std::make_shared<Int16Scalar>(42);
+  auto ext_scalar = std::make_shared<ExtensionScalar>(storage_scalar, ext_type);
+
+  ASSERT_OK_AND_ASSIGN(auto arr, MakeArrayFromScalar(*ext_scalar, 3));
+  ASSERT_EQ(arr->type()->id(), Type::EXTENSION);
+  ASSERT_EQ(arr->length(), 3);
+
+  auto ext_arr = std::static_pointer_cast<ExtensionArray>(arr);
+  ASSERT_EQ(ext_arr->storage()->type_id(), Type::INT16);
+  auto int_arr = std::static_pointer_cast<Int16Array>(ext_arr->storage());
+  for (int i = 0; i < 3; ++i) {
+    ASSERT_EQ(int_arr->Value(i), 42);
+  }
+}
+
 void CheckSpanRoundTrip(const Array& array) {
   ArraySpan span;
   span.SetMembers(*array.data());
@@ -2052,6 +2069,24 @@ void CheckApproxEquals() {
 }
 
 template <typename TYPE>
+void CheckFloatApproxEqualsWithAtol() {
+  using c_type = typename TYPE::c_type;
+  auto type = TypeTraits<TYPE>::type_singleton();
+  std::shared_ptr<Array> a, b;
+  ArrayFromVector<TYPE>(type, {true}, {static_cast<c_type>(0.5)}, &a);
+  ArrayFromVector<TYPE>(type, {true}, {static_cast<c_type>(0.6)}, &b);
+  auto options = EqualOptions::Defaults().atol(0.2);
+
+  ASSERT_FALSE(a->Equals(b));
+  ASSERT_TRUE(a->Equals(b, options.use_atol(true)));
+  ASSERT_TRUE(a->ApproxEquals(b, options));
+
+  ASSERT_FALSE(a->RangeEquals(0, 1, 0, b, options));
+  ASSERT_TRUE(a->RangeEquals(0, 1, 0, b, options.use_atol(true)));
+  ASSERT_TRUE(ArrayRangeApproxEquals(*a, *b, 0, 1, 0, options));
+}
+
+template <typename TYPE>
 void CheckSliceApproxEquals() {
   using T = typename TYPE::c_type;
 
@@ -2253,6 +2288,11 @@ void CheckFloatingZeroEquality() {
 TEST(TestPrimitiveAdHoc, FloatingApproxEquals) {
   CheckApproxEquals<FloatType>();
   CheckApproxEquals<DoubleType>();
+}
+
+TEST(TestPrimitiveAdHoc, FloatingApproxEqualsWithAtol) {
+  CheckFloatApproxEqualsWithAtol<FloatType>();
+  CheckFloatApproxEqualsWithAtol<DoubleType>();
 }
 
 TEST(TestPrimitiveAdHoc, FloatingSliceApproxEquals) {

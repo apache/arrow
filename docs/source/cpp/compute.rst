@@ -28,7 +28,8 @@ Compute Functions
 The generic Compute API
 =======================
 
-.. TODO: describe API and how to invoke compute functions
+.. seealso::
+   :doc:`Compute Functions API reference <api/compute>`
 
 Functions and function registry
 -------------------------------
@@ -41,6 +42,17 @@ whether the inputs are integral or floating-point).
 
 Functions are stored in a global :class:`FunctionRegistry` where
 they can be looked up by name.
+
+Compute Initialization
+----------------------
+
+The compute library requires a call to :func:`arrow::compute::Initialize`
+in order to register the individual functions into the global :class:`FunctionRegistry`,
+otherwise only the functions required for Arrow core functionality will be available.
+
+.. note::
+   The set of functions required for Arrow core functionality are an implementation detail
+   of the library, and should not be considered stable.
 
 Input shapes
 ------------
@@ -478,47 +490,47 @@ floating-point arguments will cast all arguments to floating-point, while mixed
 decimal and integer arguments will cast all arguments to decimals.
 Mixed time resolution temporal inputs will be cast to finest input resolution.
 
-+------------------+--------+-------------------------+---------------------------+-------+
-| Function name    | Arity  | Input types             | Output type               | Notes |
-+==================+========+=========================+===========================+=======+
-| abs              | Unary  | Numeric/Duration        | Numeric/Duration          |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| abs_checked      | Unary  | Numeric/Duration        | Numeric/Duration          |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| add              | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
-+------------------+--------+-------------------------+---------------------------+-------+
-| add_checked      | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
-+------------------+--------+-------------------------+---------------------------+-------+
-| divide           | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
-+------------------+--------+-------------------------+---------------------------+-------+
-| divide_checked   | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
-+------------------+--------+-------------------------+---------------------------+-------+
-| exp              | Unary  | Numeric                 | Float32/Float64           |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| expm1            | Unary  | Numeric                 | Float32/Float64           |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| multiply         | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
-+------------------+--------+-------------------------+---------------------------+-------+
-| multiply_checked | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
-+------------------+--------+-------------------------+---------------------------+-------+
-| negate           | Unary  | Numeric/Duration        | Numeric/Duration          |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| negate_checked   | Unary  | Signed Numeric/Duration | Signed Numeric/Duration   |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| power            | Binary | Numeric                 | Numeric                   |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| power_checked    | Binary | Numeric                 | Numeric                   |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| sign             | Unary  | Numeric/Duration        | Int8/Float32/Float64      | \(2)  |
-+------------------+--------+-------------------------+---------------------------+-------+
-| sqrt             | Unary  | Numeric                 | Numeric                   |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| sqrt_checked     | Unary  | Numeric                 | Numeric                   |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| subtract         | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
-+------------------+--------+-------------------------+---------------------------+-------+
-| subtract_checked | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
-+------------------+--------+-------------------------+---------------------------+-------+
++------------------+--------+-------------------------+-------------------------------+-------+
+| Function name    | Arity  | Input types             | Output type                   | Notes |
++==================+========+=========================+===============================+=======+
+| abs              | Unary  | Numeric/Duration        | Numeric/Duration              |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| abs_checked      | Unary  | Numeric/Duration        | Numeric/Duration              |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| add              | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++------------------+--------+-------------------------+-------------------------------+-------+
+| add_checked      | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++------------------+--------+-------------------------+-------------------------------+-------+
+| divide           | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++------------------+--------+-------------------------+-------------------------------+-------+
+| divide_checked   | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++------------------+--------+-------------------------+-------------------------------+-------+
+| exp              | Unary  | Numeric                 | Float32/Float64               |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| expm1            | Unary  | Numeric                 | Float32/Float64               |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| multiply         | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++------------------+--------+-------------------------+-------------------------------+-------+
+| multiply_checked | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++------------------+--------+-------------------------+-------------------------------+-------+
+| negate           | Unary  | Numeric/Duration        | Numeric/Duration              |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| negate_checked   | Unary  | Signed Numeric/Duration | Signed Numeric/Duration       |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| power            | Binary | Numeric                 | Numeric                       |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| power_checked    | Binary | Numeric                 | Numeric                       |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| sign             | Unary  | Numeric/Duration        | Int8/Float16/Float32/Float64  | \(2)  |
++------------------+--------+-------------------------+-------------------------------+-------+
+| sqrt             | Unary  | Numeric                 | Numeric                       |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| sqrt_checked     | Unary  | Numeric                 | Numeric                       |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| subtract         | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++------------------+--------+-------------------------+-------------------------------+-------+
+| subtract_checked | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++------------------+--------+-------------------------+-------------------------------+-------+
 
 * \(1) Precision and scale of computed DECIMAL results
 
@@ -1044,6 +1056,8 @@ order to center (center), right-align (lpad), or left-align (rpad) a string.
 | utf8_lpad                | Unary      | String-like             | String-like         | :struct:`PadOptions`                   |
 +--------------------------+------------+-------------------------+---------------------+----------------------------------------+
 | utf8_rpad                | Unary      | String-like             | String-like         | :struct:`PadOptions`                   |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+
+| utf8_zero_fill           | Unary      | String-like             | String-like         | :struct:`ZeroFillOptions`              |
 +--------------------------+------------+-------------------------+---------------------+----------------------------------------+
 
 String trimming

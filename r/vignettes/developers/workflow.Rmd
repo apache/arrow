@@ -51,33 +51,30 @@ pkgdown::build_site(preview=TRUE)
 
 ## Styling and linting
 
+Styling and linting can be set up and performed entirely with the [pre-commit](https://pre-commit.com/) tool:
+
+```bash
+pre-commit run --show-diff-on-failure --color=always --all-files r
+```
+
+See also the following subsections our styling and lint details for R and C++ codes.
+
 ### R code
 
 The R code in the package follows [the tidyverse style](https://style.tidyverse.org/). On PR submission (and on pushes) our CI will run linting and will flag possible errors on the pull request with annotations.
 
-To run the linter locally, install the `{lintr}` package (note, we currently use a fork that includes fixes not yet accepted upstream, see how lintr is being installed in the file [`ci/docker/linux-apt-lint.dockerfile`](https://github.com/apache/arrow/blob/main/ci/docker/linux-apt-lint.dockerfile) for the current status) and then run
-
-```r
-lintr::lint_package("arrow/r")
-```
-
 You can automatically change the formatting of the code in the package using the [styler](https://styler.r-lib.org/) package.
 
-Run the styler locally either via Makefile commands:
+The styler package will fix many styling errors, thought not all lintr errors are automatically fixable with styler. The list of files we intentionally do not style is in `r/.styler_excludes.R`.
 
-```bash
-make style # (for only the files changed)
-make style-all # (for all files)
-```
-
-or in R:
+Linting and styling with [pre-commit](https://pre-commit.com/) as described above is the best way to ensure your changes are being checked properly but you can also run the tools individually if you prefer:
 
 ```r
-# note the file that should not be styled
-styler::style_pkg(exclude_files = c("data-raw/codegen.R"))
+lintr::lint_package() # for linting
+styler::style_pkg() # for styling
 ```
 
-The styler package will fix many styling errors, thought not all lintr errors are automatically fixable with styler. The list of files we intentionally do not style is in `r/.styler_excludes.R`.
+Note: To run lintr, we require the `cyclocomp` package to be installed first.
 
 ### C++ code
 
@@ -93,39 +90,6 @@ We use Google C++ style in our C++ code. The easiest way to accomplish this is
 use an editors/IDE that formats your code for you. Many popular editors/IDEs
 have support for running `clang-format` on C++ files when you save them.
 Installing/enabling the appropriate plugin may save you much frustration.
-
-Check for style errors with
-
-```bash
-./lint.sh
-```
-
-Fix any style issues before committing with
-
-```bash
-./lint.sh --fix
-```
-
-The lint script requires Python 3 and `clang-format`. If the command
-isn't found, you can explicitly provide the path to it like:
-
-```bash
-CLANG_FORMAT=/opt/llvm/bin/clang-format ./lint.sh
-```
-
-You can see what version of `clang-format` is required by the following
-command:
-
-```bash
-(. ../.env && echo ${CLANG_TOOLS})
-```
-
-_Note_ that the lint script requires Python 3 and the Python dependencies
-(note that `cmake_format is pinned to a specific version):
-
-* autopep8
-* flake8
-* cmake_format==0.5.2
 
 ## Running tests
 
@@ -209,4 +173,3 @@ This runs each of the R-related CI tasks.
 See the `r:` group definition near the beginning of the [crossbow configuration](https://github.com/apache/arrow/blob/main/dev/tasks/tasks.yml)
 for a list of glob expression patterns that match names of items in the `tasks:`
 list below it.
-

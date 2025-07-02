@@ -59,15 +59,14 @@ ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key(
 }
 
 ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key_metadata(
-    const std::string& key_metadata) {
+    std::string key_metadata) {
   DCHECK(!key_metadata.empty());
-  DCHECK(key_metadata_.empty());
-  key_metadata_ = key_metadata;
+  key_metadata_ = std::move(key_metadata);
   return this;
 }
 
 ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key_id(
-    const std::string& key_id) {
+    std::string key_id) {
   // key_id is expected to be in UTF8 encoding
   ::arrow::util::InitializeUTF8();
   const uint8_t* data = reinterpret_cast<const uint8_t*>(key_id.c_str());
@@ -76,18 +75,18 @@ ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key_id
   }
 
   DCHECK(!key_id.empty());
-  this->key_metadata(key_id);
+  this->key_metadata(std::move(key_id));
   return this;
 }
 
 FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::column_keys(
-    const ColumnPathToDecryptionPropertiesMap& column_decryption_properties) {
+    ColumnPathToDecryptionPropertiesMap column_decryption_properties) {
   if (column_decryption_properties.size() == 0) return this;
 
   if (column_decryption_properties_.size() != 0)
     throw ParquetException("Column properties already set");
 
-  column_decryption_properties_ = column_decryption_properties;
+  column_decryption_properties_ = std::move(column_decryption_properties);
   return this;
 }
 
@@ -107,11 +106,11 @@ FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::footer_key
 }
 
 FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::key_retriever(
-    const std::shared_ptr<DecryptionKeyRetriever>& key_retriever) {
+    std::shared_ptr<DecryptionKeyRetriever> key_retriever) {
   if (key_retriever == nullptr) return this;
 
   DCHECK(key_retriever_ == nullptr);
-  key_retriever_ = key_retriever;
+  key_retriever_ = std::move(key_retriever);
   return this;
 }
 
@@ -158,13 +157,13 @@ FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key
 }
 
 FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::encrypted_columns(
-    const ColumnPathToEncryptionPropertiesMap& encrypted_columns) {
+    ColumnPathToEncryptionPropertiesMap encrypted_columns) {
   if (encrypted_columns.size() == 0) return this;
 
   if (encrypted_columns_.size() != 0)
     throw ParquetException("Column properties already set");
 
-  encrypted_columns_ = encrypted_columns;
+  encrypted_columns_ = std::move(encrypted_columns);
   return this;
 }
 
@@ -197,7 +196,7 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted,
       key_metadata_(std::move(key_metadata)) {
   DCHECK(!column_path_.empty());
   if (!encrypted) {
-    DCHECK(key.empty() && key_metadata.empty());
+    DCHECK(key_.empty() && key_metadata_.empty());
   }
   if (!key_.empty()) {
     DCHECK(key_.length() == 16 || key_.length() == 24 || key_.length() == 32);
@@ -205,7 +204,6 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted,
   if (encrypted_with_footer_key_) {
     DCHECK(key_metadata_.empty());
   }
-}
 
 ColumnDecryptionProperties::ColumnDecryptionProperties(std::string column_path,
                                                        SecureString key)

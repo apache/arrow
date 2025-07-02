@@ -147,6 +147,9 @@ class ARROW_EXPORT Float16 {
 
   ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream& os, Float16 arg);
 
+  static constexpr Float16 zero() { return FromBits(0); }
+  static constexpr Float16 one() { return FromBits(0x3c00); }
+
  protected:
   uint16_t bits_;
 
@@ -176,6 +179,7 @@ class ARROW_EXPORT Float16 {
 };
 
 static_assert(std::is_trivial_v<Float16>);
+static_assert(sizeof(Float16) == sizeof(uint16_t));
 
 }  // namespace util
 }  // namespace arrow

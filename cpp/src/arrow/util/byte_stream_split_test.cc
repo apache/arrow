@@ -136,7 +136,7 @@ class TestByteStreamSplitSpecialized : public ::testing::Test {
     return input;
   }
 
-  template <bool kSimdImplemented = (kWidth == 4 || kWidth == 8)>
+  template <bool kSimdImplemented = (kWidth == 2 || kWidth == 4 || kWidth == 8)>
   static std::vector<DecodeFunc> MakeDecodeFuncs() {
     std::vector<DecodeFunc> funcs;
     funcs.push_back({"scalar_dynamic", &ByteStreamSplitDecodeScalarDynamic});
@@ -146,7 +146,10 @@ class TestByteStreamSplitSpecialized : public ::testing::Test {
       funcs.push_back({"simd", &ByteStreamSplitDecodeSimd<kWidth>});
       funcs.push_back({"simd128", &ByteStreamSplitDecodeSimd128<kWidth>});
 #  if defined(ARROW_HAVE_AVX2)
-      funcs.push_back({"avx2", &ByteStreamSplitDecodeAvx2<kWidth>});
+      // The only available implementations
+      if constexpr (kWidth == 4 || kWidth == 8) {
+        funcs.push_back({"avx2", &ByteStreamSplitDecodeAvx2<kWidth>});
+      }
 #  endif
     }
 #endif  // defined(ARROW_HAVE_SIMD_SPLIT)
@@ -164,7 +167,10 @@ class TestByteStreamSplitSpecialized : public ::testing::Test {
       funcs.push_back({"simd", &ByteStreamSplitEncodeSimd<kWidth>});
       funcs.push_back({"simd128", &ByteStreamSplitEncodeSimd128<kWidth>});
 #  if defined(ARROW_HAVE_AVX2)
-      funcs.push_back({"avx2", &ByteStreamSplitEncodeAvx2<kWidth>});
+      // The only available implementation
+      if constexpr (kWidth == 4) {
+        funcs.push_back({"avx2", &ByteStreamSplitEncodeAvx2<kWidth>});
+      }
 #  endif
     }
 #endif  // defined(ARROW_HAVE_SIMD_SPLIT)

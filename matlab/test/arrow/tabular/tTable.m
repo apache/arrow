@@ -664,6 +664,57 @@ classdef tTable < matlab.unittest.TestCase
             testCase.verifyFalse(isequal(t1, t2, t3, t4));
         end
 
+        function FromRecordBatchesZeroInputsError(testCase)
+            % Verify the arrow.tabular.Table.fromRecordBatches function
+            % throws an `arrow:Table:FromRecordBatches:ZeroBatches` 
+            % exception if called with zero input arguments.
+            import arrow.tabular.Table
+            fcn = @() Table.fromRecordBatches();
+            testCase.verifyError(fcn, "arrow:Table:FromRecordBatches:ZeroBatches");
+        end
+
+        function FromRecordBatchesOneInput(testCase)
+            % Verify the arrow.tabular.Table.fromRecordBatches function
+            % returns the expected arrow.tabular.Table instance when 
+            % provided a single RecordBatch as input.
+            import arrow.tabular.Table
+            matlabTable = table([1; 2], ["A"; "B"], VariableNames=["Number" "Letter"]);
+            recordBatch = arrow.recordBatch(matlabTable);
+            arrowTable = Table.fromRecordBatches(recordBatch);
+            testCase.verifyTable(arrowTable, ["Number", "Letter"], ["arrow.type.Float64Type", "arrow.type.StringType"], matlabTable);
+        end
+
+        function FromRecordBatchesMultipleInputs(testCase)
+            % Verify the arrow.tabular.Table.fromRecordBatches function
+            % returns the expected arrow.tabular.Table instance when 
+            % provided mulitple RecordBatches as input.
+            import arrow.tabular.Table
+            matlabTable1 = table([1; 2], ["A"; "B"], VariableNames=["Number" "Letter"]);
+            matlabTable2 = table([10; 20; 30], ["A1"; "B1"; "C1"], VariableNames=["Number" "Letter"]);
+            matlabTable3 = table([100; 200], ["A2"; "B2"], VariableNames=["Number" "Letter"]);
+
+            recordBatch1 = arrow.recordBatch(matlabTable1);
+            recordBatch2 = arrow.recordBatch(matlabTable2);
+            recordBatch3 = arrow.recordBatch(matlabTable3);
+
+            arrowTable = Table.fromRecordBatches(recordBatch1, recordBatch2, recordBatch3);
+            testCase.verifyTable(arrowTable, ["Number", "Letter"], ["arrow.type.Float64Type", "arrow.type.StringType"], [matlabTable1; matlabTable2; matlabTable3]);
+        end
+
+        function FromRecordBatchesInconsistentSchemaError(testCase)
+            % Verify the arrow.tabular.Table.fromRecordBatches function
+            % throws an `arrow:Table:FromRecordBatches:InconsistentSchema`
+            % exception if the Schemas of the provided  RecordBatches are 
+            % inconsistent.
+            import arrow.tabular.Table
+            matlabTable1 = table("A", 1);
+            matlabTable2 = table(2, "B");
+            recordBatch1 = arrow.recordBatch(matlabTable1);
+            recordBatch2 = arrow.recordBatch(matlabTable2);
+
+            fcn = @() Table.fromRecordBatches(recordBatch1, recordBatch2);
+            testCase.verifyError(fcn, "arrow:Table:FromRecordBatches:InconsistentSchema");
+        end
     end
 
     methods

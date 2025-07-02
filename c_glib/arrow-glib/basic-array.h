@@ -58,6 +58,13 @@ GARROW_AVAILABLE_IN_20_0
 gint64
 garrow_array_statistics_get_null_count(GArrowArrayStatistics *statistics);
 
+GARROW_AVAILABLE_IN_21_0
+gboolean
+garrow_array_statistics_has_distinct_count(GArrowArrayStatistics *statistics);
+GARROW_AVAILABLE_IN_21_0
+gint64
+garrow_array_statistics_get_distinct_count(GArrowArrayStatistics *statistics);
+
 GARROW_AVAILABLE_IN_6_0
 GArrowArray *
 garrow_array_import(gpointer c_abi_array, GArrowDataType *data_type, GError **error);

@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/copy_data_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
@@ -842,6 +843,7 @@ void RegisterVectorFunction(FunctionRegistry* registry,
   }
   add_primitive_kernel(null());
   add_primitive_kernel(boolean());
+  add_primitive_kernel(float16());
   AddKernel(Type::FIXED_SIZE_BINARY,
             Functor<FixedSizeBinaryType>::GetSignature(Type::FIXED_SIZE_BINARY),
             Functor<FixedSizeBinaryType>::Exec, ChunkedFunctor<FixedSizeBinaryType>::Exec,

@@ -40,6 +40,10 @@ except ImportError:
 import warnings
 
 
+# Call to initialize the compute module (register kernels) on import
+check_status(InitializeCompute())
+
+
 __pas = None
 _substrait_msg = (
     "The pyarrow installation is not built with support for Substrait."
@@ -1140,6 +1144,36 @@ class PadOptions(_PadOptions):
 
     def __init__(self, width, padding=' ', lean_left_on_odd_padding=True):
         self._set_options(width, padding, lean_left_on_odd_padding)
+
+
+cdef class _ZeroFillOptions(FunctionOptions):
+    def _set_options(self, width, padding):
+        self.wrapped.reset(new CZeroFillOptions(width, tobytes(padding)))
+
+
+class ZeroFillOptions(_ZeroFillOptions):
+    """
+    Options for utf8_zero_fill.
+
+    Parameters
+    ----------
+    width : int
+        Desired string length.
+    padding : str, default "0"
+        Padding character. Should be one Unicode codepoint.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr = pa.array(["1", "-2", "+3"])
+    >>> opts = pc.ZeroFillOptions(width=4)
+    >>> pc.utf8_zero_fill(arr, options=opts).to_pylist()
+    ['0001', '-002', '+003']
+    """
+
+    def __init__(self, width, padding='0'):
+        self._set_options(width, padding)
 
 
 cdef class _TrimOptions(FunctionOptions):

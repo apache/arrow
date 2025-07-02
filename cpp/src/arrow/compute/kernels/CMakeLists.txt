@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+arrow_install_all_headers("arrow/compute/kernels")
+
 # ----------------------------------------------------------------------
 # Tests that don't require the full kernel library
 
@@ -32,7 +34,7 @@ add_arrow_test(scalar_cast_test
                scalar_cast_test.cc
                EXTRA_LINK_LIBS
                arrow_compute_kernels_testing
-               arrow_compute_testing)
+               arrow_compute_core_testing)
 
 # ----------------------------------------------------------------------
 # Scalar kernels

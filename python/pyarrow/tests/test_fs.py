@@ -1257,6 +1257,12 @@ def test_s3_options(pickle_module):
     assert isinstance(fs, S3FileSystem)
     assert pickle_module.loads(pickle_module.dumps(fs)) == fs
 
+    fs = S3FileSystem(tls_ca_file_path="ca.pem")
+    assert isinstance(fs, S3FileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs)) == fs
+    assert fs != S3FileSystem(tls_ca_file_path="other_ca.pem")
+    assert fs != S3FileSystem()
+
     with pytest.raises(ValueError):
         S3FileSystem(access_key='access')
     with pytest.raises(ValueError):
@@ -1474,6 +1480,63 @@ def test_azurefs_options(pickle_module):
     assert isinstance(fs4, AzureFileSystem)
     assert pickle_module.loads(pickle_module.dumps(fs4)) == fs4
     assert fs4 != fs3
+
+    fs5 = AzureFileSystem(
+        account_name='fake-account-name',
+        tenant_id='fake-tenant-id',
+        client_id='fake-client-id',
+        client_secret='fake-client-secret'
+    )
+    assert isinstance(fs5, AzureFileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs5)) == fs5
+    assert fs5 != fs4
+
+    fs6 = AzureFileSystem(
+        account_name='fake-account-name',
+        client_id='fake-client-id'
+    )
+    assert isinstance(fs6, AzureFileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs6)) == fs6
+    assert fs6 != fs5
+
+    with pytest.raises(ValueError, match="client_id must be specified"):
+        AzureFileSystem(
+            account_name='fake-account-name',
+            tenant_id='fake-tenant-id'
+        )
+
+    with pytest.raises(ValueError, match="client_id must be specified"):
+        AzureFileSystem(
+            account_name='fake-account-name',
+            client_secret='fake-client-secret'
+        )
+
+    invalid_msg = (
+        "Invalid Azure credential configuration: "
+        "For ManagedIdentityCredential, provide only client_id. "
+        "For ClientSecretCredential, provide tenant_id, client_id, and client_secret."
+    )
+
+    with pytest.raises(ValueError, match=invalid_msg):
+        AzureFileSystem(
+            account_name='fake-account-name',
+            client_id='fake-client-id',
+            client_secret='fake-client-secret'
+        )
+
+    with pytest.raises(ValueError, match="client_id must be specified"):
+        AzureFileSystem(
+            account_name='fake-account-name',
+            tenant_id='fake-tenant-id',
+            client_secret='fake-client-secret'
+        )
+
+    with pytest.raises(ValueError, match=invalid_msg):
+        AzureFileSystem(
+            account_name='fake-account-name',
+            tenant_id='fake-tenant-id',
+            client_id='fake-client-id'
+        )
 
     with pytest.raises(ValueError):
         AzureFileSystem(account_name='fake-account-name', account_key='fakeaccount',
@@ -2043,6 +2106,8 @@ def test_concurrent_s3fs_init():
 
 
 @pytest.mark.s3
+@pytest.mark.skip(reason="atexit(ensure_s3_finalized) will be called too late "
+                  "with bundled aws-sdk-cpp 1.11.587")
 @pytest.mark.skipif(running_on_musllinux(), reason="Leaking S3ClientFinalizer causes "
                                                    "segfault on musl based systems")
 def test_uwsgi_integration():
@@ -2075,3 +2140,38 @@ def test_uwsgi_integration():
         proc.terminate()
     # ... and uwsgi should gracefully shutdown after it's been asked above
     assert proc.wait() == 30  # UWSGI_END_CODE = 30
+
+
+def test_fsspec_filesystem_from_uri():
+    try:
+        from fsspec.implementations.local import LocalFileSystem
+        from fsspec.implementations.memory import MemoryFileSystem
+    except ImportError:
+        pytest.skip("fsspec not installed")
+
+    fs, path = FileSystem.from_uri("fsspec+memory://path/to/data.parquet")
+    expected_fs = PyFileSystem(FSSpecHandler(MemoryFileSystem()))
+    assert fs == expected_fs
+    assert path == "/path/to/data.parquet"
+
+    # check that if fsspec+ is specified than we don't coerce to the native
+    # arrow local filesystem
+    uri = "file:///tmp/my.file"
+    fs, _ = FileSystem.from_uri(f"fsspec+{uri}")
+    expected_fs = PyFileSystem(FSSpecHandler(LocalFileSystem()))
+    assert fs == expected_fs
+
+
+def test_huggingface_filesystem_from_uri():
+    pytest.importorskip("fsspec")
+    try:
+        from huggingface_hub import HfFileSystem
+    except ImportError:
+        pytest.skip("huggingface_hub not installed")
+
+    fs, path = FileSystem.from_uri(
+        "hf://datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet"
+    )
+    expected_fs = PyFileSystem(FSSpecHandler(HfFileSystem()))
+    assert fs == expected_fs
+    assert path == "datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet"

@@ -338,6 +338,9 @@ tasks:
       - libarrow-acero-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-acero{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-acero{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-compute-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-compute{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-compute{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
@@ -393,13 +396,13 @@ tasks:
   {% endfor %}
 {% endfor %}
 
-{% for target in ["almalinux-9",
+{% for target in ["almalinux-10",
+                  "almalinux-9",
                   "almalinux-8",
                   "amazon-linux-2023",
                   "centos-9-stream",
-                  "centos-8-stream",
                   "centos-7"] %}
-  {% set is_rhel7_based = (target in ["amazon-linux-2", "centos-7"]) %}
+  {% set is_rhel7_based = (target == "centos-7") %}
   {% for architecture
        in ["amd64", "arm64"]
        if not (target == "centos-7" and architecture == "arm64") %}
@@ -425,6 +428,11 @@ tasks:
       - arrow-acero-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% if not is_rhel7_based %}
       - arrow[0-9]+-acero-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+    {% endif %}
+      - arrow[0-9]+-compute-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow-compute-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+    {% if not is_rhel7_based %}
+      - arrow[0-9]+-compute-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
       - arrow[0-9]+-dataset-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-dataset-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm

@@ -74,6 +74,8 @@ esac
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ARROW_DIR="$(cd "${SOURCE_DIR}/../.." && pwd)"
 
+: ${GITHUB_REPOSITORY:=apache/arrow}
+
 show_header() {
   echo ""
   printf '=%.0s' $(seq ${#1}); printf '\n'
@@ -176,7 +178,7 @@ test_binary() {
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
          --dest=${download_dir} \
-         --repository=${GITHUB_REPOSITORY:-apache/arrow} \
+         --repository=${GITHUB_REPOSITORY} \
          --tag="apache-arrow-$VERSION-rc$RC_NUMBER"
 
   verify_dir_artifact_signatures ${download_dir}
@@ -258,11 +260,11 @@ test_yum() {
 
   case "$(arch)" in
     "x86_64")
-      for target in "almalinux:9" \
+      for target in "almalinux:10" \
+                    "almalinux:9" \
                     "almalinux:8" \
                     "amazonlinux:2023" \
                     "quay.io/centos/centos:stream9" \
-                    "quay.io/centos/centos:stream8" \
                     "centos:7"; do
         if ! docker run \
                --platform linux/x86_64 \
@@ -279,11 +281,11 @@ test_yum() {
       done
       ;;
     "aarch64")
-      for target in "arm64v8/almalinux:9" \
+      for target in "arm64v8/almalinux:10" \
+                    "arm64v8/almalinux:9" \
                     "arm64v8/almalinux:8" \
                     "arm64v8/amazonlinux:2023" \
-                    "quay.io/centos/centos:stream9" \
-                    "quay.io/centos/centos:stream8"; do
+                    "quay.io/centos/centos:stream9"; do
         if ! docker run \
                --platform linux/arm64 \
                --rm \
@@ -548,7 +550,7 @@ test_and_install_cpp() {
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
-    -DGTest_SOURCE=BUNDLED \
+    -DGTest_SOURCE=${GTest_SOURCE:-BUNDLED} \
     -DPARQUET_BUILD_EXAMPLES=ON \
     -DPARQUET_BUILD_EXECUTABLES=ON \
     -DPARQUET_REQUIRE_ENCRYPTION=ON \
@@ -787,6 +789,14 @@ ensure_source_directory() {
     if [ ! -d "${ARROW_SOURCE_DIR}" ]; then
       pushd $ARROW_TMPDIR
       fetch_archive ${dist_name}
+      git clone https://github.com/${GITHUB_REPOSITORY}.git arrow
+      pushd arrow
+      dev/release/utils-create-release-tarball.sh ${VERSION} ${RC_NUMBER}
+      if ! cmp ${dist_name}.tar.gz ../${dist_name}.tar.gz; then
+        echo "Source archive isn't reproducible"
+        return 1
+      fi
+      popd
       tar xf ${dist_name}.tar.gz
       popd
     fi
@@ -988,7 +998,7 @@ test_wheels() {
       --package_type python \
       --regex=${filter_regex} \
       --dest=${download_dir} \
-      --repository=${GITHUB_REPOSITORY:-apache/arrow} \
+      --repository=${GITHUB_REPOSITORY} \
       --tag="apache-arrow-$VERSION-rc$RC_NUMBER"
 
     verify_dir_artifact_signatures ${download_dir}

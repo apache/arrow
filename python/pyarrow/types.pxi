@@ -3566,7 +3566,7 @@ cdef class Schema(_Weakrefable):
         return pyarrow_wrap_schema(new_schema)
 
     def to_string(self, truncate_metadata=True, show_field_metadata=True,
-                  show_schema_metadata=True):
+                  show_schema_metadata=True, element_size_limit=100):
         """
         Return human-readable representation of Schema
 
@@ -3579,6 +3579,8 @@ cdef class Schema(_Weakrefable):
             Display Field-level KeyValueMetadata
         show_schema_metadata : boolean, default True
             Display Schema-level KeyValueMetadata
+        element_size_limit : int, default 100
+            Maximum number of characters of a single element before it is truncated.
 
         Returns
         -------
@@ -3592,6 +3594,7 @@ cdef class Schema(_Weakrefable):
         options.truncate_metadata = truncate_metadata
         options.show_field_metadata = show_field_metadata
         options.show_schema_metadata = show_schema_metadata
+        options.element_size_limit = element_size_limit
 
         with nogil:
             check_status(
@@ -4456,15 +4459,15 @@ def float16():
     >>> a
     <pyarrow.lib.HalfFloatArray object at ...>
     [
-      15872,
-      32256
+      1.5,
+      nan
     ]
 
     Note that unlike other float types, if you convert this array
     to a python list, the types of its elements will be ``np.float16``
 
     >>> [type(val) for val in a.to_pylist()]
-    [<class 'numpy.float16'>, <class 'numpy.float16'>]
+    [<class 'float'>, <class 'float'>]
     """
     return primitive_type(_Type_HALF_FLOAT)
 

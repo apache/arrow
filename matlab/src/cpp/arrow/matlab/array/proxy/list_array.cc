@@ -17,9 +17,10 @@
 
 #include "arrow/matlab/array/proxy/list_array.h"
 #include "arrow/matlab/array/proxy/numeric_array.h"
-#include "arrow/matlab/array/proxy/wrap.h"
 #include "arrow/matlab/array/validation_mode.h"
 #include "arrow/matlab/error/error.h"
+#include "arrow/matlab/proxy/wrap.h"
+
 #include "libmexclass/proxy/ProxyManager.h"
 
 namespace arrow::matlab::array::proxy {
@@ -78,20 +79,9 @@ void ListArray::getValues(libmexclass::proxy::method::Context& context) {
   auto list_array = std::static_pointer_cast<arrow::ListArray>(array);
   auto value_array = list_array->values();
 
-  // Wrap the array within a proxy object if possible.
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto value_array_proxy, proxy::wrap(value_array),
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0],
+                                      arrow::matlab::proxy::wrap_and_manage(value_array),
                                       context, error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
-  const auto value_array_proxy_id = ProxyManager::manageProxy(value_array_proxy);
-  const auto type_id = value_array->type_id();
-
-  // Return a struct with two fields: ProxyID and TypeID. The MATLAB
-  // layer will use these values to construct the appropriate MATLAB
-  // arrow.array.Array subclass.
-  mda::ArrayFactory factory;
-  mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
-  output[0]["ProxyID"] = factory.createScalar(value_array_proxy_id);
-  output[0]["TypeID"] = factory.createScalar(static_cast<int32_t>(type_id));
-  context.outputs[0] = output;
 }
 
 void ListArray::getOffsets(libmexclass::proxy::method::Context& context) {

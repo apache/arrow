@@ -476,6 +476,42 @@ garrow_array_statistics_get_null_count(GArrowArrayStatistics *statistics)
   }
 }
 
+/**
+ * garrow_array_statistics_has_distinct_count:
+ * @statistics: A #GArrowArrayStatistics.
+ *
+ * Returns: %TRUE if the distinct count is available, %FALSE otherwise.
+ *
+ * Since: 21.0.0
+ */
+gboolean
+garrow_array_statistics_has_distinct_count(GArrowArrayStatistics *statistics)
+{
+  auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(statistics);
+  return priv->statistics.distinct_count.has_value();
+}
+
+/**
+ * garrow_array_statistics_get_distinct_count:
+ * @statistics: A #GArrowArrayStatistics.
+ *
+ * Returns: 0 or larger value if @statistics has a valid distinct count value,
+ *   -1 otherwise.
+ *
+ * Since: 21.0.0
+ */
+gint64
+garrow_array_statistics_get_distinct_count(GArrowArrayStatistics *statistics)
+{
+  auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(statistics);
+  const auto &distinct_count = priv->statistics.distinct_count;
+  if (distinct_count) {
+    return distinct_count.value();
+  } else {
+    return -1;
+  }
+}
+
 typedef struct GArrowArrayPrivate_
 {
   std::shared_ptr<arrow::Array> array;

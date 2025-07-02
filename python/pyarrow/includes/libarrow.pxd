@@ -652,6 +652,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool truncate_metadata
         c_bool show_field_metadata
         c_bool show_schema_metadata
+        int element_size_limit
 
         @staticmethod
         PrettyPrintOptions Defaults()
@@ -1451,10 +1452,13 @@ cdef extern from "arrow/c/dlpack_abi.h" nogil:
 
 
 cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
-    CResult[DLManagedTensor*] ExportToDLPack" arrow::dlpack::ExportArray"(
+    CResult[DLManagedTensor*] ExportArrayToDLPack" arrow::dlpack::ExportArray"(
         const shared_ptr[CArray]& arr)
+    CResult[DLManagedTensor*] ExportTensorToDLPack" arrow::dlpack::ExportTensor"(
+        const shared_ptr[CTensor]& tensor)
 
     CResult[DLDevice] ExportDevice(const shared_ptr[CArray]& arr)
+    CResult[DLDevice] ExportDevice(const shared_ptr[CTensor]& tensor)
 
 
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:
@@ -2228,6 +2232,8 @@ cdef extern from "arrow/util/thread_pool.h" namespace "arrow::internal" nogil:
 
 cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
+    CStatus InitializeCompute " arrow::compute::Initialize"()
+
     cdef cppclass CExecBatch "arrow::compute::ExecBatch":
         vector[CDatum] values
         int64_t length
@@ -2456,6 +2462,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         int64_t width
         c_string padding
         c_bool lean_left_on_odd_padding
+
+    cdef cppclass CZeroFillOptions \
+            "arrow::compute::ZeroFillOptions"(CFunctionOptions):
+        CZeroFillOptions(int64_t width, c_string padding)
+        int64_t width
+        c_string padding
 
     cdef cppclass CSliceOptions \
             "arrow::compute::SliceOptions"(CFunctionOptions):
