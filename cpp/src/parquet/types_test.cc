@@ -20,6 +20,7 @@
 #include <string>
 
 #include "arrow/util/endian.h"
+#include "arrow/util/utf8_internal.h"
 #include "parquet/types.h"
 
 namespace parquet {
@@ -73,6 +74,8 @@ TEST(TestConvertedTypeToString, ConvertedTypes) {
 #endif
 
 TEST(TypePrinter, StatisticsTypes) {
+  ::arrow::util::InitializeUTF8();
+
   std::string smin;
   std::string smax;
   int32_t int_min = 1024;

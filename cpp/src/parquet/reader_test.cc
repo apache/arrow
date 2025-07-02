@@ -44,6 +44,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
 #include "arrow/util/range.h"
+#include "arrow/util/utf8_internal.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
@@ -1093,6 +1094,8 @@ Column 1
 
 class TestJSONWithLocalFile : public ::testing::Test {
  public:
+  static void SetUpTestCase() { ::arrow::util::InitializeUTF8(); }
+
   static std::string ReadFromLocalFile(std::string_view local_file_name) {
     std::stringstream ss;
     // empty list means print all
