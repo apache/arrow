@@ -317,7 +317,7 @@ get_macos_openssl_dir <- function() {
   openssl_root_dir
 }
 
-# (built with newer devtoolset but older glibc (2.17) for broader compatibility,# like manylinux2014)
+# (built with newer devtoolset but older glibc (2.17) for broader compatibility, like manylinux2014)
 determine_binary_from_stderr <- function(errs) {
   if (is.null(attr(errs, "status"))) {
     # There was no error in compiling: so we found libcurl and OpenSSL >= 1.1,

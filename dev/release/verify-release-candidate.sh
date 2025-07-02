@@ -892,7 +892,7 @@ test_linux_wheels() {
   fi
 
   local python_versions="${TEST_PYTHON_VERSIONS:-3.9 3.10 3.11 3.12 3.13}"
-  local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux2014_${arch}.manylinux_2_17_${arch} manylinux_2_28_${arch}}"
+  local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_28_${arch}}"
 
   if [ "${SOURCE_KIND}" != "local" ]; then
     local wheel_content="OFF"

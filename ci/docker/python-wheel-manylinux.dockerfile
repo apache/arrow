@@ -25,27 +25,11 @@ ARG manylinux
 ENV LINUX_WHEEL_KIND='manylinux'
 ENV LINUX_WHEEL_VERSION=${manylinux}
 
-# Ensure dnf is installed, especially for the manylinux2014 base
-RUN if [ "${LINUX_WHEEL_VERSION}" = "2014" ]; then \
-      sed -i \
-        -e 's/^mirrorlist/#mirrorlist/' \
-        -e 's/^#baseurl/baseurl/' \
-        -e 's/mirror\.centos\.org/vault.centos.org/' \
-        /etc/yum.repos.d/*.repo; \
-      if [ "${arch}" != "amd64" ]; then \
-        sed -i \
-          -e 's,vault\.centos\.org/centos,vault.centos.org/altarch,' \
-          /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo; \
-      fi; \
-    fi
-RUN yum install -y dnf
-
 # Install basic dependencies
 RUN dnf install -y git flex curl autoconf zip perl-IPC-Cmd wget
 
-# A system Python is required for ninja and vcpkg in this Dockerfile.
-# On manylinux2014 base images, system Python is 2.7.5, while
-# on manylinux_2_28, no system python is installed.
+# A system Python is required for Ninja and vcpkg in this Dockerfile.
+# On manylinux_2_28 base images, no system Python is installed.
 # We therefore override the PATH with Python 3.8 in /opt/python
 # so that we have a consistent Python version across base images.
 ENV CPYTHON_VERSION=cp39
