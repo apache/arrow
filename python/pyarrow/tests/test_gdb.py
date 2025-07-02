@@ -193,9 +193,9 @@ def gdb():
 
 @pytest.fixture(scope='session')
 def gdb_arrow(gdb):
-    if 'deb' not in pa.cpp_build_info.build_type:
+    if 'deb' not in pa.build_info.cpp_build_info.build_type:
         pytest.skip("Arrow C++ debug symbols not available")
-    if pa.build_info().build_type != 'debug':
+    if pa.build_info.build_type != 'debug':
         pytest.skip("PyArrow C++ not built in debug mode")
 
     skip_if_gdb_script_unavailable()
