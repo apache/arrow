@@ -132,7 +132,7 @@ if(ARROW_TESTING)
   # arrow_compute_testing will register the kernels for Gtest. In order to register the kernels
   # for Google benchmark we use a custom main function used on add_arrow_compute_benchmark.
   set(ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS
-      ${ARROW_ACERO_TEST_LINK_LIBS} arrow_acero_testing arrow_compute_core_testing)
+      arrow_acero_testing arrow_compute_core_testing ${ARROW_ACERO_TEST_LINK_LIBS})
   list(APPEND ARROW_ACERO_TEST_LINK_LIBS arrow_acero_testing arrow_compute_testing)
 endif()
 # Only for hash_aggregate_test.cc.
