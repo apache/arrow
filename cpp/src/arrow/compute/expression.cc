@@ -1267,6 +1267,15 @@ struct Inequality {
 
     auto options = checked_pointer_cast<SetLookupOptions>(is_in_call->options);
 
+    // The maximum number of values in the is_in expression set of values
+    // in order to use the simplification.
+    // If the set is large there are performance implications, see:
+    // https://github.com/apache/arrow/issues/46777
+    static constexpr int16_t kIsInSimplificationMaxValueSet = 50;
+    if (options->value_set.length() > kIsInSimplificationMaxValueSet) {
+      return std::nullopt;
+    }
+
     const auto& lhs = Comparison::StripOrderPreservingCasts(is_in_call->arguments[0]);
     if (!lhs.field_ref()) return std::nullopt;
     if (*lhs.field_ref() != guarantee.target) return std::nullopt;
@@ -1333,13 +1342,9 @@ struct Inequality {
       return call->function_name == "is_valid" ? literal(true) : literal(false);
     }
 
-    // The maximum number of values in the expression set of values
-    // in order to use the SimplifyIsIn function.
-    static constexpr int16_t kIsInSimplificationMaxValueSet = 50;
     auto options = checked_pointer_cast<SetLookupOptions>(call->options);
 
-    if (call->function_name == "is_in" &&
-        options->value_set.length() <= kIsInSimplificationMaxValueSet) {
+    if (call->function_name == "is_in") {
       ARROW_ASSIGN_OR_RAISE(std::optional<Expression> result,
                             SimplifyIsIn(guarantee, call));
       return result.value_or(expr);
