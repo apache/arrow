@@ -204,6 +204,7 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted,
   if (encrypted_with_footer_key_) {
     DCHECK(key_metadata_.empty());
   }
+}
 
 ColumnDecryptionProperties::ColumnDecryptionProperties(std::string column_path,
                                                        SecureString key)
