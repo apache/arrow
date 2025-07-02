@@ -175,7 +175,7 @@ class RangeDataEqualsImpl {
   // - the ranges are in bounds
   // - the ArrayData arguments have the same length
   RangeDataEqualsImpl(const EqualOptions& options, bool floating_approximate,
-                      const ArrayData& left, const ArrayData& right,
+                      const ArraySpan& left, const ArraySpan& right,
                       int64_t left_start_idx, int64_t right_start_idx,
                       int64_t range_length)
       : options_(options),
@@ -196,8 +196,8 @@ class RangeDataEqualsImpl {
         return false;
       }
     }
-    if (!OptionalBitmapEquals(left_.buffers[0], left_.offset + left_start_idx_,
-                              right_.buffers[0], right_.offset + right_start_idx_,
+    if (!OptionalBitmapEquals(left_.buffers[0].data, left_.offset + left_start_idx_,
+                              right_.buffers[0].data, right_.offset + right_start_idx_,
                               range_length_)) {
       return false;
     }
@@ -274,8 +274,8 @@ class RangeDataEqualsImpl {
     auto* left_values = left_.GetValues<BinaryViewType::c_type>(1) + left_start_idx_;
     auto* right_values = right_.GetValues<BinaryViewType::c_type>(1) + right_start_idx_;
 
-    auto* left_buffers = left_.buffers.data() + 2;
-    auto* right_buffers = right_.buffers.data() + 2;
+    const auto left_buffers = &left_.buffers[2];
+    const auto right_buffers = &right_.buffers[2];
     VisitValidRuns([&](int64_t i, int64_t length) {
       for (auto end_i = i + length; i < end_i; ++i) {
         if (!util::EqualBinaryView(left_values[i], right_values[i], left_buffers,
@@ -321,8 +321,8 @@ class RangeDataEqualsImpl {
 
   Status Visit(const FixedSizeListType& type) {
     const auto list_size = type.list_size();
-    const ArrayData& left_data = *left_.child_data[0];
-    const ArrayData& right_data = *right_.child_data[0];
+    const auto left_data = left_.child_data[0];
+    const auto right_data = right_.child_data[0];
 
     auto compare_runs = [&](int64_t i, int64_t length) -> bool {
       RangeDataEqualsImpl impl(options_, floating_approximate_, left_data, right_data,
@@ -340,9 +340,8 @@ class RangeDataEqualsImpl {
 
     auto compare_runs = [&](int64_t i, int64_t length) -> bool {
       for (int32_t f = 0; f < num_fields; ++f) {
-        RangeDataEqualsImpl impl(options_, floating_approximate_, *left_.child_data[f],
-                                 *right_.child_data[f],
-                                 left_start_idx_ + left_.offset + i,
+        RangeDataEqualsImpl impl(options_, floating_approximate_, left_.child_data[f],
+                                 right_.child_data[f], left_start_idx_ + left_.offset + i,
                                  right_start_idx_ + right_.offset + i, length);
         if (!impl.Compare()) {
           return false;
@@ -376,8 +375,8 @@ class RangeDataEqualsImpl {
         int64_t run_length = i - run_start;
 
         RangeDataEqualsImpl impl(
-            options_, floating_approximate_, *left_.child_data[previous_child_num],
-            *right_.child_data[previous_child_num],
+            options_, floating_approximate_, left_.child_data[previous_child_num],
+            right_.child_data[previous_child_num],
             left_start_idx_ + left_.offset + run_start,
             right_start_idx_ + right_.offset + run_start, run_length);
 
@@ -397,8 +396,8 @@ class RangeDataEqualsImpl {
       int64_t final_run_length = range_length_ - run_start;
 
       RangeDataEqualsImpl impl(
-          options_, floating_approximate_, *left_.child_data[final_child_num],
-          *right_.child_data[final_child_num], left_start_idx_ + left_.offset + run_start,
+          options_, floating_approximate_, left_.child_data[final_child_num],
+          right_.child_data[final_child_num], left_start_idx_ + left_.offset + run_start,
           right_start_idx_ + right_.offset + run_start, final_run_length);
 
       if (!impl.Compare()) {
@@ -422,10 +421,10 @@ class RangeDataEqualsImpl {
         break;
       }
       const auto child_num = child_ids[type_id];
-      RangeDataEqualsImpl impl(
-          options_, floating_approximate_, *left_.child_data[child_num],
-          *right_.child_data[child_num], left_offsets[left_start_idx_ + i],
-          right_offsets[right_start_idx_ + i], 1);
+      RangeDataEqualsImpl impl(options_, floating_approximate_,
+                               left_.child_data[child_num], right_.child_data[child_num],
+                               left_offsets[left_start_idx_ + i],
+                               right_offsets[right_start_idx_ + i], 1);
       if (!impl.Compare()) {
         result_ = false;
         break;
@@ -437,9 +436,9 @@ class RangeDataEqualsImpl {
   Status Visit(const DictionaryType& type) {
     // Compare dictionaries
     result_ &= CompareArrayRanges(
-        *left_.dictionary, *right_.dictionary,
+        *left_.dictionary().ToArrayData(), *right_.dictionary().ToArrayData(),
         /*left_start_idx=*/0,
-        /*left_end_idx=*/std::max(left_.dictionary->length, right_.dictionary->length),
+        /*left_end_idx=*/std::max(left_.dictionary().length, right_.dictionary().length),
         /*right_start_idx=*/0, options_, floating_approximate_);
     if (result_) {
       // Compare indices
@@ -518,8 +517,8 @@ class RangeDataEqualsImpl {
 
   template <typename TypeClass>
   Status CompareList(const TypeClass&) {
-    const ArrayData& left_data = *left_.child_data[0];
-    const ArrayData& right_data = *right_.child_data[0];
+    const auto left_data = left_.child_data[0];
+    const auto right_data = right_.child_data[0];
 
     const auto compare_ranges = [&](int64_t left_offset, int64_t right_offset,
                                     int64_t length) -> bool {
@@ -534,8 +533,8 @@ class RangeDataEqualsImpl {
 
   template <typename TypeClass>
   Status CompareListView(const TypeClass& type) {
-    const ArrayData& left_values = *left_.child_data[0];
-    const ArrayData& right_values = *right_.child_data[0];
+    const auto left_values = left_.child_data[0];
+    const auto right_values = right_.child_data[0];
 
     using offset_type = typename TypeClass::offset_type;
     const auto* left_offsets = left_.GetValues<offset_type>(1) + left_start_idx_;
@@ -573,8 +572,8 @@ class RangeDataEqualsImpl {
     const ree_util::RunEndEncodedArraySpan<RunEndCType> left(left_span);
     const ree_util::RunEndEncodedArraySpan<RunEndCType> right(right_span);
 
-    const auto& left_values = *left_.child_data[1];
-    const auto& right_values = *right_.child_data[1];
+    const auto left_values = left_.child_data[1];
+    const auto right_values = right_.child_data[1];
 
     auto it = ree_util::MergedRunsIterator(left, right);
     for (; !it.is_end(); ++it) {
@@ -615,7 +614,7 @@ class RangeDataEqualsImpl {
 
   template <typename CompareValues>
   void VisitValues(CompareValues&& compare_values) {
-    internal::VisitSetBitRunsVoid(left_.buffers[0], left_.offset + left_start_idx_,
+    internal::VisitSetBitRunsVoid(left_.buffers[0].data, left_.offset + left_start_idx_,
                                   range_length_, [&](int64_t position, int64_t length) {
                                     for (int64_t i = 0; i < length; ++i) {
                                       result_ &= compare_values(position + i);
@@ -647,8 +646,8 @@ class RangeDataEqualsImpl {
 
   const EqualOptions& options_;
   const bool floating_approximate_;
-  const ArrayData& left_;
-  const ArrayData& right_;
+  const ArraySpan& left_;
+  const ArraySpan& right_;
   const int64_t left_start_idx_;
   const int64_t right_start_idx_;
   const int64_t range_length_;
