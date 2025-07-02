@@ -507,7 +507,8 @@ def test_dataset_factory_inspect_schema_promotion(promotable_mockfs):
     assert unified_schema.equals(expected_schema)
 
     # Inspecting only one fragment should not promote the 'value' field
-    inspected_schema_one_frag = factory.inspect(promote_options='permissive', fragments=1)
+    inspected_schema_one_frag = factory.inspect(
+        promote_options='permissive', fragments=1)
     assert inspected_schema_one_frag.field('value').type != pa.int32()
 
 
