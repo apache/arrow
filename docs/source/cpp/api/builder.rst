@@ -34,6 +34,9 @@ Primitive
 .. doxygenclass:: arrow::BooleanBuilder
    :members:
 
+.. doxygenclass:: arrow::HalfFloatBuilder
+   :members:
+
 .. doxygengroup:: numeric-builders
    :content-only:
    :members:
