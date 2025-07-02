@@ -2882,7 +2882,7 @@ if(ARROW_WITH_BZ2)
     if(BZIP2_TYPE STREQUAL "INTERFACE_LIBRARY")
       # Conan
       string(APPEND ARROW_PC_LIBS_PRIVATE
-             " $<TARGET_FILE:CONAN_LIB::bzip2_bz2_$<CONFIG>>")
+             " $<TARGET_FILE:CONAN_LIB::bzip2_bz2_$<UPPER_CASE:$<CONFIG>>>")
     else()
       string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:BZip2::BZip2>")
     endif()
