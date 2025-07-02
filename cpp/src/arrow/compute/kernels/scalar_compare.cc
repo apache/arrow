@@ -20,6 +20,7 @@
 #include <limits>
 #include <optional>
 
+#include "arrow/compare_internal.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/registry_internal.h"
@@ -43,10 +44,6 @@ struct Equal {
   template <typename T, typename Arg0, typename Arg1>
   static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
     static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
-
-    if constexpr (std::is_same<Arg0, const std::shared_ptr<ArrayData>>::value) {
-      return ArrayDataEquals(*left, *right);
-    }
     return left == right;
   }
 };
@@ -55,12 +52,40 @@ struct NotEqual {
   template <typename T, typename Arg0, typename Arg1>
   static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
     static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
-
-    if constexpr (std::is_same<Arg0, const std::shared_ptr<ArrayData>>::value) {
-      return !ArrayDataEquals(*left, *right);
-    }
-
     return left != right;
+  }
+};
+
+struct ListEqual {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
+    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
+
+    if (left->length != right->length) {
+      return false;
+    } else {
+      RangeDataEqualsImpl range_comparer{
+          EqualOptions::Defaults(), false, *left, *right, 0, 0, 1,
+      };
+      return range_comparer.Compare();
+    }
+  }
+};
+
+struct ListNotEqual {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
+    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
+
+    if (left->length != right->length) {
+      return true;
+    } else {
+      RangeDataEqualsImpl range_comparer{
+          EqualOptions::Defaults(), false, *left, *right, 0, 0, 1,
+      };
+
+      return !range_comparer.Compare();
+    }
   }
 };
 
@@ -456,9 +481,19 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
   }
 
-  if constexpr (std::is_same_v<Op, Equal> || std::is_same_v<Op, NotEqual>) {
+  if constexpr (std::is_same_v<Op, Equal>) {
     for (const auto id : {Type::LIST, Type::LARGE_LIST}) {
-      auto exec = GenerateList<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(id);
+      auto exec =
+          GenerateList<applicator::ScalarBinaryEqualTypes, BooleanType, ListEqual>(id);
+      DCHECK_OK(
+          func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec)));
+    }
+  }
+
+  if constexpr (std::is_same_v<Op, NotEqual>) {
+    for (const auto id : {Type::LIST, Type::LARGE_LIST}) {
+      auto exec =
+          GenerateList<applicator::ScalarBinaryEqualTypes, BooleanType, ListNotEqual>(id);
       DCHECK_OK(
           func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec)));
     }
