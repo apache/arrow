@@ -497,6 +497,7 @@ static ArrayKernelExec GenerateREEKernelExec(Type::type type_id) {
     case Type::DATE32:
     case Type::TIME32:
     case Type::INTERVAL_MONTHS:
+    case Type::DECIMAL32:
       return Functor::template Exec<UInt32Type>;
     case Type::UINT64:
     case Type::INT64:
@@ -506,13 +507,10 @@ static ArrayKernelExec GenerateREEKernelExec(Type::type type_id) {
     case Type::TIME64:
     case Type::DURATION:
     case Type::INTERVAL_DAY_TIME:
+    case Type::DECIMAL64:
       return Functor::template Exec<UInt64Type>;
     case Type::INTERVAL_MONTH_DAY_NANO:
       return Functor::template Exec<MonthDayNanoIntervalType>;
-    case Type::DECIMAL32:
-      return Functor::template Exec<Decimal32Type>;
-    case Type::DECIMAL64:
-      return Functor::template Exec<Decimal64Type>;
     case Type::DECIMAL128:
       return Functor::template Exec<Decimal128Type>;
     case Type::DECIMAL256:
