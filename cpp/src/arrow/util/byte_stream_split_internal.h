@@ -138,7 +138,7 @@ auto zip_lo_n(xsimd::batch<int8_t, Arch> const& a, xsimd::batch<int8_t, Arch> co
     // This could be made generic by simply computing the shuffle permute constant
     return xsimd::bitwise_cast<int8_t>(
         xsimd::shuffle(xsimd::bitwise_cast<int64_t>(a), xsimd::bitwise_cast<int64_t>(b),
-                       xsimd::batch_constant<int64_t, Arch, 0, 1, 4, 5>{}));
+                       xsimd::batch_constant<uint64_t, Arch, 0, 1, 4, 5>{}));
   }
 }
 
@@ -162,7 +162,7 @@ auto zip_hi_n(xsimd::batch<int8_t, Arch> const& a, xsimd::batch<int8_t, Arch> co
     // This could be made generic by simply computing the shuffle permute constant
     return xsimd::bitwise_cast<int8_t>(
         xsimd::shuffle(xsimd::bitwise_cast<int64_t>(a), xsimd::bitwise_cast<int64_t>(b),
-                       xsimd::batch_constant<int64_t, Arch, 2, 3, 6, 7>{}));
+                       xsimd::batch_constant<uint64_t, Arch, 2, 3, 6, 7>{}));
   }
 }
 
