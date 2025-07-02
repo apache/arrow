@@ -214,9 +214,9 @@ function(add_arrow_acero_benchmark REL_BENCHMARK_NAME)
     set(LABELS "arrow_acero")
   endif()
   if(ARROW_BUILD_STATIC)
-    set(EXTRA_LINK_LIBS arrow_acero_static ${ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS})
+    set(EXTRA_LINK_LIBS ${ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS} arrow_acero_static)
   else()
-    set(EXTRA_LINK_LIBS arrow_acero_shared ${ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS})
+    set(EXTRA_LINK_LIBS ${ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS} arrow_acero_shared)
   endif()
   if(ARG_EXTRA_LINK_LIBS)
     list(APPEND EXTRA_LINK_LIBS ${ARG_EXTRA_LINK_LIBS})
@@ -242,10 +242,6 @@ add_arrow_acero_benchmark(asof_join_benchmark)
 
 add_arrow_acero_benchmark(tpch_benchmark)
 
-add_arrow_compute_benchmark(aggregate_benchmark
-                            PREFIX
-                            "arrow-acero"
-                            LABELS
-                            "arrow_acero")
+add_arrow_acero_benchmark(aggregate_benchmark)
 
 add_arrow_acero_benchmark(hash_join_benchmark)
