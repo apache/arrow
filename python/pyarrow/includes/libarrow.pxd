@@ -2183,6 +2183,8 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         unsigned char delimiter
         CQuotingStyle quoting_style
         CQuotingStyle quoting_header
+        c_string eol
+        c_string null_string
         CIOContext io_context
 
         CCSVWriteOptions()
