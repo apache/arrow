@@ -173,6 +173,7 @@ class RangeDataEqualsImpl {
   // PRE-CONDITIONS:
   // - the types are equal
   // - the ranges are in bounds
+  // - the ArrayData arguments have the same length
   RangeDataEqualsImpl(const EqualOptions& options, bool floating_approximate,
                       const ArrayData& left, const ArrayData& right,
                       int64_t left_start_idx, int64_t right_start_idx,
