@@ -223,7 +223,7 @@ function(add_arrow_acero_benchmark REL_BENCHMARK_NAME)
   endif()
   add_arrow_compute_benchmark(${REL_BENCHMARK_NAME}
                               EXTRA_LINK_LIBS
-                              ${ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS}
+                              ${EXTRA_LINK_LIBS}
                               PREFIX
                               ${PREFIX}
                               LABELS
