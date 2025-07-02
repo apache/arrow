@@ -1342,8 +1342,6 @@ struct Inequality {
       return call->function_name == "is_valid" ? literal(true) : literal(false);
     }
 
-    auto options = checked_pointer_cast<SetLookupOptions>(call->options);
-
     if (call->function_name == "is_in") {
       ARROW_ASSIGN_OR_RAISE(std::optional<Expression> result,
                             SimplifyIsIn(guarantee, call));
