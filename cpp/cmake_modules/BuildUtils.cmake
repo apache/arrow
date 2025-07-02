@@ -519,7 +519,6 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   set(one_value_args PREFIX)
   set(multi_value_args
       EXTRA_LINK_LIBS
-      EXTRA_PUBLIC_LINK_LIBS
       STATIC_LINK_LIBS
       DEPENDENCIES
       SOURCES
@@ -573,9 +572,6 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
 
     if(ARG_EXTRA_LINK_LIBS)
       target_link_libraries(${BENCHMARK_NAME} PRIVATE ${ARG_EXTRA_LINK_LIBS})
-    endif()
-    if(ARG_EXTRA_PUBLIC_LINK_LIBS)
-      target_link_libraries(${BENCHMARK_NAME} PUBLIC ${ARG_EXTRA_LINK_LIBS})
     endif()
   else()
     # No executable, just invoke the benchmark (probably a script) directly.

@@ -195,7 +195,7 @@ add_arrow_acero_test(test_util_internal_test SOURCES test_util_internal_test.cc)
 function(add_arrow_acero_benchmark REL_BENCHMARK_NAME)
   set(options)
   set(one_value_args PREFIX)
-  set(multi_value_args LABELS EXTRA_PUBLIC_LINK_LIBS)
+  set(multi_value_args LABELS EXTRA_LINK_LIBS)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -214,18 +214,16 @@ function(add_arrow_acero_benchmark REL_BENCHMARK_NAME)
     set(LABELS "arrow_acero")
   endif()
   if(ARROW_BUILD_STATIC)
-    set(EXTRA_PUBLIC_LINK_LIBS arrow_acero_static)
+    set(EXTRA_LINK_LIBS arrow_acero_static ${ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS})
   else()
-    set(EXTRA_PUBLIC_LINK_LIBS arrow_acero_shared)
+    set(EXTRA_LINK_LIBS arrow_acero_shared ${ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS})
   endif()
-  if(ARG_EXTRA_PUBLIC_LINK_LIBS)
-    list(APPEND EXTRA_PUBLIC_LINK_LIBS ${ARG_EXTRA_PUBLIC_LINK_LIBS})
+  if(ARG_EXTRA_LINK_LIBS)
+    list(APPEND EXTRA_LINK_LIBS ${ARG_EXTRA_LINK_LIBS})
   endif()
   add_arrow_compute_benchmark(${REL_BENCHMARK_NAME}
                               EXTRA_LINK_LIBS
                               ${ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS}
-                              EXTRA_PUBLIC_LINK_LIBS
-                              ${EXTRA_PUBLIC_LINK_LIBS}
                               PREFIX
                               ${PREFIX}
                               LABELS
@@ -233,17 +231,21 @@ function(add_arrow_acero_benchmark REL_BENCHMARK_NAME)
                               ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
-add_arrow_acero_benchmark(expression_benchmark SOURCES expression_benchmark.cc)
+add_arrow_acero_benchmark(expression_benchmark)
 
 add_arrow_acero_benchmark(filter_benchmark SOURCES benchmark_util.cc filter_benchmark.cc)
 
 add_arrow_acero_benchmark(project_benchmark SOURCES benchmark_util.cc
                           project_benchmark.cc)
 
-add_arrow_acero_benchmark(asof_join_benchmark SOURCES asof_join_benchmark.cc)
+add_arrow_acero_benchmark(asof_join_benchmark)
 
-add_arrow_acero_benchmark(tpch_benchmark SOURCES tpch_benchmark.cc)
+add_arrow_acero_benchmark(tpch_benchmark)
 
-add_arrow_acero_benchmark(aggregate_benchmark SOURCES aggregate_benchmark.cc)
+add_arrow_compute_benchmark(aggregate_benchmark
+                            PREFIX
+                            "arrow-acero"
+                            LABELS
+                            "arrow_acero")
 
-add_arrow_acero_benchmark(hash_join_benchmark SOURCES hash_join_benchmark.cc)
+add_arrow_acero_benchmark(hash_join_benchmark)
