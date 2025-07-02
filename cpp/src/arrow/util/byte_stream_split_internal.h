@@ -133,10 +133,9 @@ auto zip_lo_n(xsimd::batch<int8_t, Arch> const& a, xsimd::batch<int8_t, Arch> co
     return xsimd::bitwise_cast<int8_t>(
         xsimd::zip_lo(xsimd::bitwise_cast<SizedInt<kNumBytes>>(a),
                       xsimd::bitwise_cast<SizedInt<kNumBytes>>(b)));
-  }
-  // No data type for 128 bits.
-  // This could be made generic by simply computing the shuffle permute constant
-  else if constexpr (kNumBytes == 16 && kBatchSize == 32) {
+  } else if constexpr (kNumBytes == 16 && kBatchSize == 32) {
+    // No data type for 128 bits.
+    // This could be made generic by simply computing the shuffle permute constant
     return xsimd::bitwise_cast<int8_t>(
         xsimd::shuffle(xsimd::bitwise_cast<int64_t>(a), xsimd::bitwise_cast<int64_t>(b),
                        xsimd::batch_constant<int64_t, Arch, 0, 1, 4, 5>{}));
@@ -158,10 +157,9 @@ auto zip_hi_n(xsimd::batch<int8_t, Arch> const& a, xsimd::batch<int8_t, Arch> co
     return xsimd::bitwise_cast<int8_t>(
         xsimd::zip_hi(xsimd::bitwise_cast<SizedInt<kNumBytes>>(a),
                       xsimd::bitwise_cast<SizedInt<kNumBytes>>(b)));
-  }
-  // No data type for 128 bits
-  // This could be made generic by simply computing the shuffle permute constant
-  else if constexpr (kNumBytes == 16 && kBatchSize == 32) {
+  } else if constexpr (kNumBytes == 16 && kBatchSize == 32) {
+    // No data type for 128 bits
+    // This could be made generic by simply computing the shuffle permute constant
     return xsimd::bitwise_cast<int8_t>(
         xsimd::shuffle(xsimd::bitwise_cast<int64_t>(a), xsimd::bitwise_cast<int64_t>(b),
                        xsimd::batch_constant<int64_t, Arch, 2, 3, 6, 7>{}));
