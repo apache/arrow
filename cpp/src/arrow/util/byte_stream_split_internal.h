@@ -286,25 +286,31 @@ void ByteStreamSplitEncodeSimd(const uint8_t* raw_values, int width,
 
 #  if defined(ARROW_HAVE_RUNTIME_AVX2)
 
-extern template void ByteStreamSplitDecodeSimd<xsimd::avx2, 2>(const uint8_t*, int,
-                                                               int64_t, int64_t,
-                                                               uint8_t*);
-extern template void ByteStreamSplitDecodeSimd<xsimd::avx2, 4>(const uint8_t*, int,
-                                                               int64_t, int64_t,
-                                                               uint8_t*);
-extern template void ByteStreamSplitDecodeSimd<xsimd::avx2, 8>(const uint8_t*, int,
-                                                               int64_t, int64_t,
-                                                               uint8_t*);
+// The extern template declaration are used internally and need export
+// to be used in tests and benchmarks.
+
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitDecodeSimd<xsimd::avx2, 2>(
+    const uint8_t*, int, int64_t, int64_t, uint8_t*);
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitDecodeSimd<xsimd::avx2, 4>(
+    const uint8_t*, int, int64_t, int64_t, uint8_t*);
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitDecodeSimd<xsimd::avx2, 8>(
+    const uint8_t*, int, int64_t, int64_t, uint8_t*);
 
 template <int kNumStreams>
 void ByteStreamSplitEncodeAvx2(const uint8_t*, int, const int64_t, uint8_t*);
 
-extern template void ByteStreamSplitEncodeAvx2<2>(const uint8_t*, int, const int64_t,
-                                                  uint8_t*);
-extern template void ByteStreamSplitEncodeAvx2<4>(const uint8_t*, int, const int64_t,
-                                                  uint8_t*);
-extern template void ByteStreamSplitEncodeAvx2<8>(const uint8_t*, int, const int64_t,
-                                                  uint8_t*);
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitEncodeAvx2<2>(const uint8_t*,
+                                                                        int,
+                                                                        const int64_t,
+                                                                        uint8_t*);
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitEncodeAvx2<4>(const uint8_t*,
+                                                                        int,
+                                                                        const int64_t,
+                                                                        uint8_t*);
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitEncodeAvx2<8>(const uint8_t*,
+                                                                        int,
+                                                                        const int64_t,
+                                                                        uint8_t*);
 
 #  endif
 
