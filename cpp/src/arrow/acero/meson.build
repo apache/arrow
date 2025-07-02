@@ -81,6 +81,7 @@ arrow_acero_lib = library(
     'arrow-acero',
     sources: arrow_acero_srcs,
     dependencies: [arrow_compute_dep, arrow_dep],
+    gnu_symbol_visibility: 'hidden',
 )
 
 arrow_acero_dep = declare_dependency(link_with: [arrow_acero_lib])
