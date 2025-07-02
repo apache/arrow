@@ -39,6 +39,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/float16.h"
 
 namespace arrow {
 
@@ -1181,7 +1182,34 @@ TEST(TestDayTimeIntervalScalars, Basics) {
   ASSERT_TRUE(first->Equals(ts_val2));
 }
 
-// TODO test HalfFloatScalar
+TEST(TestHalfFloatScalar, Basics) {
+  auto f1 = util::Float16::FromDouble(+0.0);
+  auto f2 = util::Float16::FromDouble(-0.0);
+  ASSERT_TRUE(f1.is_zero());
+  ASSERT_TRUE(f2.is_zero());
+  ASSERT_TRUE(f2.signbit());
+  HalfFloatScalar scalar_1(f1.bits());
+  HalfFloatScalar scalar_2(f2.bits());
+
+  f1 = util::Float16::FromBits(scalar_1.value);
+  f2 = util::Float16::FromBits(scalar_2.value);
+  ASSERT_TRUE(f1.is_zero());
+  ASSERT_TRUE(f2.is_zero());
+  ASSERT_TRUE(f2.signbit());
+  EXPECT_FALSE(
+      scalar_1.Equals(scalar_2, EqualOptions::Defaults().signed_zeros_equal(false)));
+  EXPECT_TRUE(
+      scalar_1.Equals(scalar_2, EqualOptions::Defaults().signed_zeros_equal(true)));
+}
+
+TEST(TestHalfFloatArray, Basics) {
+  auto half_float_array = ArrayFromJSON(float16(), R"([16.0,NaN])");
+  auto half_float_array_1 = ArrayFromJSON(float16(), R"([16.0,NaN])");
+  EXPECT_TRUE(half_float_array->Equals(half_float_array_1,
+                                       EqualOptions::Defaults().nans_equal(true)));
+  EXPECT_FALSE(half_float_array->Equals(half_float_array,
+                                        EqualOptions::Defaults().nans_equal(false)));
+}
 
 TYPED_TEST(TestNumericScalar, Cast) {
   auto type = TypeTraits<TypeParam>::type_singleton();
