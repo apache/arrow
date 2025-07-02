@@ -176,7 +176,7 @@ class TestByteStreamSplitSpecialized : public ::testing::Test {
           {"xsimd_sse4_2", &ByteStreamSplitEncodeSimd<xsimd::sse4_2, kWidth>});
 #  endif
 #  if defined(ARROW_HAVE_AVX2)
-      funcs.push_back({"xsimd_avx2", &ByteStreamSplitEncodeSimd<xsimd::sse4_2, kWidth>});
+      funcs.push_back({"xsimd_avx2", &ByteStreamSplitEncodeSimd<xsimd::avx2, kWidth>});
       if constexpr (kWidth == 4) {
         funcs.push_back({"intrinsics_avx2", &ByteStreamSplitEncodeAvx2<kWidth>});
       }

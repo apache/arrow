@@ -36,13 +36,13 @@ struct ByteStreamSplitDecodeDynamic {
 
   constexpr static auto implementations() {
     return std::array{
-        // Limited interest for performance on builds without a minimum SIMD level
-        // So we put SSE4.2 and NEON as a base level.
-        std::pair{
+        Implementation{
             DispatchLevel::NONE,
 #if defined(ARROW_HAVE_NEON)
+            // We always expect Neon to be available on Arm64
             &ByteStreamSplitDecodeSimd<xsimd::neon64, kNumStreams>,
 #elif defined(ARROW_HAVE_SSE4_2)
+            // We always expect SSE4.2 to be available on x86_64
             &ByteStreamSplitDecodeSimd<xsimd::sse4_2, kNumStreams>,
 #else
             &ByteStreamSplitDecodeScalar<kNumStreams>,
@@ -88,8 +88,10 @@ struct ByteStreamSplitEncodeDynamic {
         Implementation{
             DispatchLevel::NONE,
 #if defined(ARROW_HAVE_NEON)
+            // We always expect Neon to be available on Arm64
             &ByteStreamSplitEncodeSimd<xsimd::neon64, kNumStreams>,
 #elif defined(ARROW_HAVE_SSE4_2)
+            // We always expect SSE4.2 to be available on x86_64
             &ByteStreamSplitEncodeSimd<xsimd::sse4_2, kNumStreams>,
 #else
             &ByteStreamSplitEncodeScalar<kNumStreams>,
