@@ -213,14 +213,12 @@ function(add_arrow_acero_benchmark REL_BENCHMARK_NAME)
   else()
     set(LABELS "arrow_acero")
   endif()
-  if(ARROW_BUILD_STATIC)
-    set(EXTRA_LINK_LIBS ${ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS} arrow_acero_static)
-  else()
-    set(EXTRA_LINK_LIBS ${ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS} arrow_acero_shared)
-  endif()
+
+  set(EXTRA_LINK_LIBS ${ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS})
   if(ARG_EXTRA_LINK_LIBS)
     list(APPEND EXTRA_LINK_LIBS ${ARG_EXTRA_LINK_LIBS})
   endif()
+
   add_arrow_compute_benchmark(${REL_BENCHMARK_NAME}
                               EXTRA_LINK_LIBS
                               ${EXTRA_LINK_LIBS}
