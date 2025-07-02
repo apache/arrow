@@ -22,6 +22,7 @@
 #include "arrow/util/small_vector.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/util/ubsan.h"
+#include "arrow/util/visibility.h"
 
 #include <array>
 #include <cassert>
@@ -450,24 +451,24 @@ template <int kNumStreams>
 void ByteStreamSplitDecodeSimdDispatch(const uint8_t* data, int width, int64_t num_values,
                                        int64_t stride, uint8_t* out);
 
-extern template void ByteStreamSplitDecodeSimdDispatch<2>(const uint8_t*, int, int64_t,
-                                                          int64_t, uint8_t*);
-extern template void ByteStreamSplitDecodeSimdDispatch<4>(const uint8_t*, int, int64_t,
-                                                          int64_t, uint8_t*);
-extern template void ByteStreamSplitDecodeSimdDispatch<8>(const uint8_t*, int, int64_t,
-                                                          int64_t, uint8_t*);
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitDecodeSimdDispatch<2>(
+    const uint8_t*, int, int64_t, int64_t, uint8_t*);
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitDecodeSimdDispatch<4>(
+    const uint8_t*, int, int64_t, int64_t, uint8_t*);
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitDecodeSimdDispatch<8>(
+    const uint8_t*, int, int64_t, int64_t, uint8_t*);
 
 template <int kNumStreams>
 void ByteStreamSplitEncodeSimdDispatch(const uint8_t* raw_values, int width,
                                        const int64_t num_values,
                                        uint8_t* output_buffer_raw);
 
-extern template void ByteStreamSplitEncodeSimdDispatch<2>(const uint8_t*, int,
-                                                          const int64_t, uint8_t*);
-extern template void ByteStreamSplitEncodeSimdDispatch<4>(const uint8_t*, int,
-                                                          const int64_t, uint8_t*);
-extern template void ByteStreamSplitEncodeSimdDispatch<8>(const uint8_t*, int,
-                                                          const int64_t, uint8_t*);
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitEncodeSimdDispatch<2>(
+    const uint8_t*, int, const int64_t, uint8_t*);
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitEncodeSimdDispatch<4>(
+    const uint8_t*, int, const int64_t, uint8_t*);
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitEncodeSimdDispatch<8>(
+    const uint8_t*, int, const int64_t, uint8_t*);
 
 inline void ByteStreamSplitEncode(const uint8_t* raw_values, int width,
                                   const int64_t num_values, uint8_t* out) {
