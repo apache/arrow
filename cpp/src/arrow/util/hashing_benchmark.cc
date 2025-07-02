@@ -25,10 +25,20 @@
 #include "benchmark/benchmark.h"
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/util/hashing.h"
+
+#include "arrow/array/builder_primitive.h"
 
 namespace arrow {
 namespace internal {
+
+namespace {
+// copied from scalar_string_benchmark
+constexpr auto kSeed = 0x94378165;
+
+static random::RandomArrayGenerator hashing_rng(kSeed);
+}  // namespace
 
 template <class Integer>
 static std::vector<Integer> MakeIntegers(int32_t n_values) {
@@ -62,7 +72,22 @@ static std::vector<std::string> MakeStrings(int32_t n_values, int32_t min_length
   return values;
 }
 
-static void HashIntegers(benchmark::State& state) {  // NOLINT non-const reference
+static void HashIntegers32(benchmark::State& state) {  // NOLINT non-const reference
+  const std::vector<int32_t> values = MakeIntegers<int32_t>(10000);
+
+  while (state.KeepRunning()) {
+    hash_t total = 0;
+    for (const int32_t v : values) {
+      total += ScalarHelper<int32_t, 0>::ComputeHash(v);
+      total += ScalarHelper<int32_t, 1>::ComputeHash(v);
+    }
+    benchmark::DoNotOptimize(total);
+  }
+  state.SetBytesProcessed(2 * state.iterations() * values.size() * sizeof(int32_t));
+  state.SetItemsProcessed(2 * state.iterations() * values.size());
+}
+
+static void HashIntegers64(benchmark::State& state) {  // NOLINT non-const reference
   const std::vector<int64_t> values = MakeIntegers<int64_t>(10000);
 
   while (state.KeepRunning()) {
@@ -114,7 +139,9 @@ static void HashLargeStrings(benchmark::State& state) {  // NOLINT non-const ref
 // ----------------------------------------------------------------------
 // Benchmark declarations
 
-BENCHMARK(HashIntegers);
+// Directly uses "Hashing" hash functions from hashing.h (xxHash)
+BENCHMARK(HashIntegers32);
+BENCHMARK(HashIntegers64);
 BENCHMARK(HashSmallStrings);
 BENCHMARK(HashMediumStrings);
 BENCHMARK(HashLargeStrings);

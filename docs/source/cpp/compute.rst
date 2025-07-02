@@ -1273,6 +1273,26 @@ Containment tests
 * \(8) Output is true iff :member:`MatchSubstringOptions::pattern`
   matches the corresponding input element at any position.
 
+
+Hash Functions
+~~~~~~~~~~~~~~
+
+Not to be confused with the "group by" functions, Hash functions produce an array of hash
+values corresponding to the length of the input. Currently, these functions take a single
+array as input.
+
++---------------+-------+-------------+-------------+---------------+-------+
+| Function name | Arity | Input types | Output type | Options class | Notes |
++===============+=======+=============+=============+===============+=======+
+| hash32        | Unary | Any         | UInt32      |               | \(1)  |
++---------------+-------+-------------+-------------+---------------+-------+
+| hash64        | Unary | Any         | UInt64      |               | \(1)  |
++---------------+-------+-------------+-------------+---------------+-------+
+
+* \(1) The implementation doesn't guarantee hash stability across different versions of
+       the library. Union-, view- and run end encoded types are not supported yet.
+
+
 Categorizations
 ~~~~~~~~~~~~~~~
 
