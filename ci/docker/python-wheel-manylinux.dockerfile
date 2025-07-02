@@ -30,7 +30,7 @@ RUN dnf install -y git flex curl autoconf zip perl-IPC-Cmd wget
 
 # A system Python is required for Ninja and vcpkg in this Dockerfile.
 # On manylinux_2_28 base images, no system Python is installed.
-# We therefore override the PATH with Python 3.8 in /opt/python
+# We therefore override the PATH with Python 3.9 in /opt/python
 # so that we have a consistent Python version across base images.
 ENV CPYTHON_VERSION=cp39
 ENV PATH=/opt/python/${CPYTHON_VERSION}-${CPYTHON_VERSION}/bin:${PATH}
