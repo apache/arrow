@@ -47,6 +47,7 @@ fi
 github_actions_group_end
 
 export ARROW_BUILD_ROOT=${build_dir}
+export ARROW_JS_ROOT=${build_dir}/js
 
 # Get more detailed context on crashes
 export PYTHONFAULTHANDLER=1
