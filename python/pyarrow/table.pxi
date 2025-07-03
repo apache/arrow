@@ -6307,12 +6307,7 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
     for table in tables:
         c_tables.push_back(table.sp_table)
 
-    if promote_options == "permissive":
-        options.field_merge_options = CField.CMergeOptions.Permissive()
-    elif promote_options in {"default", "none"}:
-        options.field_merge_options = CField.CMergeOptions.Defaults()
-    else:
-        raise ValueError(f"Invalid promote options: {promote_options}")
+    options.field_merge_options = _parse_field_merge_options(promote_options, True)
 
     with nogil:
         options.unify_schemas = promote_options != "none"

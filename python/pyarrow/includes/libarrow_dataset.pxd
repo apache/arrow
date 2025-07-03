@@ -156,6 +156,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CInspectOptions "arrow::dataset::InspectOptions":
         int fragments
+        CField.CMergeOptions field_merge_options
 
     cdef cppclass CFinishOptions "arrow::dataset::FinishOptions":
         shared_ptr[CSchema] schema
