@@ -169,12 +169,12 @@ struct GroupedReducingAggregator : public GroupedAggregator {
     }
   }
 
-  /// If this returns true, then the aggregator will promote a decimal
-  /// to the maximum precision for that type. For instance, a decimal128(3, 2)
-  /// will be promoted to a decimal128(38, 2)
-  ///
-  /// TODO: Ideally this should be configurable via the function options with an
-  /// enum PrecisionPolicy { PROMOTE_TO_MAX, DEMOTE_TO_DOUBLE, NO_PROMOTION }
+  // If this returns true, then the aggregator will promote a decimal to the maximum
+  // precision for that type. For instance, a decimal128(3, 2) will be promoted to a
+  // decimal128(38, 2)
+  //
+  // TODO: Ideally this should be configurable via the function options with an enum
+  // PrecisionPolicy { PROMOTE_TO_MAX, DEMOTE_TO_DOUBLE, NO_PROMOTION }
   virtual bool PromoteDecimal() const { return true; }
 
   int64_t num_groups_ = 0;
