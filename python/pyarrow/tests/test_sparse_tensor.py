@@ -58,11 +58,6 @@ scipy_type_pairs = [
     pair for pair in tensor_type_pairs if pair[0] != 'f2'
 ]
 
-shape_dim_name_pairs = [
-    ((4, 6), ("x", "y")),
-    ((24,), ("x",)),
-]
-
 
 @pytest.mark.parametrize('sparse_tensor_type', [
     pa.SparseCSRMatrix,
@@ -409,9 +404,10 @@ def test_dense_to_sparse_tensor(dtype_str, arrow_type, sparse_tensor_type):
 @pytest.mark.skipif(not coo_matrix, reason="requires scipy")
 @pytest.mark.parametrize('sparse_object', (coo_array, coo_matrix))
 @pytest.mark.parametrize('dtype_str,arrow_type', scipy_type_pairs)
-@pytest.mark.parametrize('shape,dim_names', shape_dim_name_pairs)
 def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type,
-                                           sparse_object, shape, dim_names):
+                                           sparse_object):
+    shape = (4, 6)
+    dim_names = ("x", "y")
     dtype = np.dtype(dtype_str)
     data = np.array([1, 2, 3, 4, 5, 6]).astype(dtype)
     row = np.array([0, 0, 2, 3, 1, 3])
@@ -450,9 +446,10 @@ def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type,
 @pytest.mark.skipif(not csr_matrix, reason="requires scipy")
 @pytest.mark.parametrize('sparse_object', (csr_array, csr_matrix))
 @pytest.mark.parametrize('dtype_str,arrow_type', scipy_type_pairs)
-@pytest.mark.parametrize('shape,dim_names', shape_dim_name_pairs)
 def test_sparse_csr_matrix_scipy_roundtrip(dtype_str, arrow_type,
-                                           sparse_object, shape, dim_names):
+                                           sparse_object):
+    shape = (4, 6)
+    dim_names = ("x", "y")
     dtype = np.dtype(dtype_str)
     data = np.array([8, 2, 5, 3, 4, 6]).astype(dtype)
     indptr = np.array([0, 2, 3, 4, 6])

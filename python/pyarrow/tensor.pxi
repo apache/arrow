@@ -978,7 +978,7 @@ shape: {self.shape}"""
 
         Parameters
         ----------
-        obj : scipy.sparse.csc_array
+        obj : scipy.sparse.csc_array or scipy.sparse.csc_matrix
             The scipy matrix that should be converted.
         dim_names : list, optional
             Names of the dimensions.
