@@ -168,12 +168,12 @@ struct SumLikeInit {
               const ScalarAggregateOptions& options)
       : ctx(ctx), type(type), options(options) {}
 
-  /// If this returns true, then the aggregator will promote a decimal
-  /// to the maximum precision for that type. For instance, a decimal128(3, 2)
-  /// will be promoted to a decimal128(38, 2)
-  ///
-  /// TODO: Ideally this should be configurable via the function options with an
-  /// enum PrecisionPolicy { PROMOTE_TO_MAX, DEMOTE_TO_DOUBLE, NO_PROMOTION }
+  // If this returns true, then the aggregator will promote a decimal to the maximum
+  // precision for that type. For instance, a decimal128(3, 2) will be promoted to a
+  // decimal128(38, 2)
+  //
+  // TODO: Ideally this should be configurable via the function options with an enum
+  // PrecisionPolicy { PROMOTE_TO_MAX, DEMOTE_TO_DOUBLE, NO_PROMOTION }
   virtual bool PromoteDecimal() const { return true; }
 
   Status Visit(const DataType&) { return Status::NotImplemented("No sum implemented"); }
@@ -195,8 +195,8 @@ struct SumLikeInit {
     return Status::OK();
   }
 
-  /// By default, we widen the decimal to max precision for SumLikes
-  /// However, this may not be the desired behaviour (see, e.g., MeanKernelInit)
+  // By default, we widen the decimal to max precision for SumLikes
+  // However, this may not be the desired behaviour (see, e.g., MeanKernelInit)
   template <typename Type>
   enable_if_decimal<Type, Status> Visit(const Type&) {
     if (PromoteDecimal()) {
