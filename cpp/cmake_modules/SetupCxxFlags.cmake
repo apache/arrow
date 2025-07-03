@@ -49,7 +49,7 @@ endif()
 if(ARROW_CPU_FLAG STREQUAL "x86")
   # x86/amd64 compiler flags, msvc/gcc/clang
   if(MSVC)
-    set(ARROW_SSE4_2_FLAG "")
+    set(ARROW_SSE4_2_FLAG "/arch:SSE4.2")
     set(ARROW_AVX2_FLAG "/arch:AVX2")
     # MSVC has no specific flag for BMI2, it seems to be enabled with AVX2
     set(ARROW_BMI2_FLAG "/arch:AVX2")
