@@ -1694,7 +1694,8 @@ TEST(Expression, SimplifyIsIn) {
         .WithGuarantee(greater(field_ref("u32"), literal(10)))
         .Expect(is_in(field_ref("u32"), int64(), make_range_json(11, 40), null_matching));
 
-    // For large ranges we don't do any simplification
+    // For large ranges we don't do any simplification, see
+    // `kIsInSimplificationMaxValueSet` in expression.cc.
     Simplify{is_in(field_ref("u32"), int64(), make_range_json(1, 100), null_matching)}
         .WithGuarantee(greater(field_ref("u32"), literal(3)))
         .ExpectUnchanged();

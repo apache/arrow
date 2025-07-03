@@ -1271,7 +1271,7 @@ struct Inequality {
     // in order to use the simplification.
     // If the set is large there are performance implications, see:
     // https://github.com/apache/arrow/issues/46777
-    static constexpr int16_t kIsInSimplificationMaxValueSet = 50;
+    constexpr int16_t kIsInSimplificationMaxValueSet = 50;
     if (options->value_set.length() > kIsInSimplificationMaxValueSet) {
       return std::nullopt;
     }
