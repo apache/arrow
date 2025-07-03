@@ -47,7 +47,7 @@ SHA_ARGS=(--check --status)
 
 # Busybox sha256sum uses different flags
 if sha256sum --version 2>&1 | grep -q BusyBox; then
-  SHA_ARGS+=(-sc)
+  SHA_ARGS="-sc"
 fi
 
 sha256sum "${SHA_ARGS[@]}" $SCCACHE_ARCHIVE.sha256
