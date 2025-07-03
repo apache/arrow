@@ -222,7 +222,7 @@ function(add_arrow_dataset_benchmark REL_BENCHMARK_NAME)
     set(PREFIX "arrow-dataset")
   endif()
 
-  if(ARROW_BUILD_STATIC)
+  if(ARROW_TEST_LINKAGE STREQUAL "static")
     set(EXTRA_LINK_LIBS arrow_dataset_static)
   else()
     set(EXTRA_LINK_LIBS arrow_dataset_shared)

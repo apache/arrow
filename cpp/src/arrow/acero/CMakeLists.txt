@@ -233,17 +233,11 @@ function(add_arrow_acero_benchmark REL_BENCHMARK_NAME)
                               ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
+add_arrow_acero_benchmark(aggregate_benchmark)
+add_arrow_acero_benchmark(asof_join_benchmark)
 add_arrow_acero_benchmark(expression_benchmark)
-
 add_arrow_acero_benchmark(filter_benchmark SOURCES benchmark_util.cc filter_benchmark.cc)
-
+add_arrow_acero_benchmark(hash_join_benchmark)
 add_arrow_acero_benchmark(project_benchmark SOURCES benchmark_util.cc
                           project_benchmark.cc)
-
-add_arrow_acero_benchmark(asof_join_benchmark)
-
 add_arrow_acero_benchmark(tpch_benchmark)
-
-add_arrow_acero_benchmark(aggregate_benchmark)
-
-add_arrow_acero_benchmark(hash_join_benchmark)
