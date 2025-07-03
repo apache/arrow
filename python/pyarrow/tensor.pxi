@@ -431,7 +431,7 @@ shape: {self.shape}"""
             Names of the dimensions.
         """
         import scipy.sparse
-        if not (isinstance(obj, scipy.sparse.coo_array) or isinstance(obj, scipy.sparse.coo_matrix)):
+        if not isinstance(obj, (scipy.sparse.coo_array, scipy.sparse.coo_matrix)):
             raise TypeError(
                 f"Expected scipy.sparse.coo_array or scipy.sparse.coo_matrix, got {type(obj)}")
 
@@ -743,7 +743,7 @@ shape: {self.shape}"""
             Names of the dimensions.
         """
         import scipy.sparse
-        if not (isinstance(obj, scipy.sparse.csr_array) or isinstance(obj, scipy.sparse.csr_matrix)):
+        if not isinstance(obj, (scipy.sparse.csr_array, scipy.sparse.csr_matrix)):
             raise TypeError(
                 f"Expected scipy.sparse.csr_array or scipy.sparse.csr_matrix, got {type(obj)}")
 
@@ -984,7 +984,7 @@ shape: {self.shape}"""
             Names of the dimensions.
         """
         import scipy.sparse
-        if not (isinstance(obj, scipy.sparse.csc_array) or isinstance(obj, scipy.sparse.csc_matrix)):
+        if not isinstance(obj, (scipy.sparse.csc_array, scipy.sparse.csc_matrix)):
             raise TypeError(
                 f"Expected scipy.sparse.csc_array or scipy.sparse.csc_matrix, got {type(obj)}")
 
