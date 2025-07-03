@@ -34,12 +34,6 @@
 #  define ARROW_HAVE_SIMD_SPLIT
 #endif
 
-#if defined(ARROW_HAVE_SSE4_2)
-static_assert(xsimd::sse2::supported());
-static_assert(xsimd::sse4_1::supported());
-static_assert(xsimd::sse4_2::supported());
-#endif
-
 namespace arrow::util::internal {
 
 #if defined(ARROW_HAVE_SIMD_SPLIT)
