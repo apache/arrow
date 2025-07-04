@@ -1653,8 +1653,8 @@ TEST(AsofJoinTest, PauseProducingAsofJoinSource) {
   };
 
   // Should be able to push kPauseIfAbove batches without triggering back pressure
-  uint32_t l_cnt = 0;
-  uint32_t r_cnt = 0;
+  int64_t l_cnt = 0;
+  int64_t r_cnt = 0;
 
   EXPECT_FALSE(is_l_paused());
   EXPECT_FALSE(is_r_paused());
