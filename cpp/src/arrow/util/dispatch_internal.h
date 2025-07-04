@@ -76,7 +76,8 @@ class DynamicDispatch {
 
  protected:
   // Use the Implementation with the highest DispatchLevel
-  void Resolve(const std::vector<Implementation>& implementations) {
+  template <typename Range>
+  void Resolve(const Range& implementations) {
     Implementation cur{DispatchLevel::NONE, {}};
 
     for (const auto& impl : implementations) {
