@@ -2271,7 +2271,7 @@ TYPED_TEST(TestStringKernels, UTF8ZeroFill) {
                    R"(["xxx1", "-xx2", "+xx3"])", &options);
 
   // Non-ASCII padding character
-  options = ZeroFillOptions{/*width=*/5, u8"💠"};
+  options = ZeroFillOptions{/*width=*/5, "💠"};
   this->CheckUnary("utf8_zero_fill", R"(["1", "-2", "+3"])", this->type(),
                    R"(["💠💠💠💠1", "-💠💠💠2", "+💠💠💠3"])", &options);
 
