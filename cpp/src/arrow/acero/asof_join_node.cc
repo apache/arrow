@@ -1062,7 +1062,13 @@ class AsofJoinNode : public ExecNode {
   bool Process() {
     // Process batches while we have data
     for (;;) {
-      backpressure_future_.Wait();
+      Future<> to_wait;
+      {
+        std::lock_guard<std::mutex> lg(backpressure_mutex_);
+        to_wait = backpressure_future_;
+      }
+      to_wait.Wait();
+
       Result<std::shared_ptr<RecordBatch>> result;
       {
         std::lock_guard<std::mutex> guard(gate_);
