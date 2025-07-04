@@ -43,6 +43,7 @@
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/pcg_random.h"
@@ -54,12 +55,13 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::ToChars;
+using util::Float16;
 
 namespace random {
 
 namespace {
 
-template <typename ValueType, typename DistributionType>
+template <typename ValueType, typename DistributionType, typename ArrowType = void>
 struct GenerateOptions {
   GenerateOptions(SeedType seed, ValueType min, ValueType max, double probability,
                   double nan_probability = 0.0)
@@ -101,8 +103,19 @@ struct GenerateOptions {
     pcg32_fast rng(seed_++);
     DistributionType dist(min_, max_);
 
-    // A static cast is required due to the int16 -> int8 handling.
-    std::generate(data, data + n, [&] { return static_cast<ValueType>(dist(rng)); });
+    if constexpr (std::is_same_v<ArrowType, HalfFloatType>) {
+      // Special handling is required to prevent generating Float16 NaNs
+      std::generate(data, data + n, [&] {
+        Float16 f;
+        do {
+          f = Float16::FromBits(static_cast<ValueType>(dist(rng)));
+        } while (f.is_nan());
+        return f.bits();
+      });
+    } else {
+      // A static cast is required due to the int16 -> int8 handling.
+      std::generate(data, data + n, [&] { return static_cast<ValueType>(dist(rng)); });
+    }
   }
 
   void GenerateBitmap(uint8_t* buffer, size_t n, int64_t* null_count) {
@@ -228,8 +241,6 @@ PRIMITIVE_RAND_INTEGER_IMPL(UInt32, uint32_t, UInt32Type)
 PRIMITIVE_RAND_INTEGER_IMPL(Int32, int32_t, Int32Type)
 PRIMITIVE_RAND_INTEGER_IMPL(UInt64, uint64_t, UInt64Type)
 PRIMITIVE_RAND_INTEGER_IMPL(Int64, int64_t, Int64Type)
-// Generate 16bit values for half-float
-PRIMITIVE_RAND_INTEGER_IMPL(Float16, int16_t, HalfFloatType)
 
 std::shared_ptr<Array> RandomArrayGenerator::Date64(int64_t size, int64_t min,
                                                     int64_t max, double null_probability,
@@ -239,6 +250,20 @@ std::shared_ptr<Array> RandomArrayGenerator::Date64(int64_t size, int64_t min,
   OptionType options(seed(), min, max, null_probability);
   return GenerateNumericArray<Date64Type, OptionType>(size, options, alignment,
                                                       memory_pool);
+}
+
+std::shared_ptr<Array> RandomArrayGenerator::Float16(int64_t size, int16_t min,
+                                                     int16_t max, double null_probability,
+                                                     int64_t alignment,
+                                                     MemoryPool* memory_pool) {
+  using OptionType =
+      GenerateOptions<uint16_t, std::uniform_int_distribution<uint16_t>, HalfFloatType>;
+  // FIXME: Not sure why the input min/max are signed when Float16's ctype is uint16_t
+  uint16_t umin = static_cast<uint16_t>(min);
+  uint16_t umax = static_cast<uint16_t>(max);
+  OptionType options(seed(), umin, umax, null_probability, /*nan_probability=*/0);
+  return GenerateNumericArray<HalfFloatType, OptionType>(size, options, alignment,
+                                                         memory_pool);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::Float32(int64_t size, float min, float max,
@@ -1089,9 +1114,25 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       GENERATE_INTEGRAL_CASE(Int32Type);
       GENERATE_INTEGRAL_CASE(UInt64Type);
       GENERATE_INTEGRAL_CASE(Int64Type);
-      GENERATE_INTEGRAL_CASE_VIEW(Int16Type, HalfFloatType);
       GENERATE_FLOATING_CASE(FloatType, Float32);
       GENERATE_FLOATING_CASE(DoubleType, Float64);
+
+    case Type::type::HALF_FLOAT: {
+      using CType = HalfFloatType::c_type;
+      const CType min_value =
+          GetMetadata<CType>(field.metadata().get(), "min",
+                             std::numeric_limits<::arrow::util::Float16>::min().bits());
+      const CType max_value =
+          GetMetadata<CType>(field.metadata().get(), "max",
+                             std::numeric_limits<::arrow::util::Float16>::max().bits());
+      const double nan_probability =
+          GetMetadata<double>(field.metadata().get(), "nan_probability", 0);
+      VALIDATE_MIN_MAX(Float16::FromBits(min_value), Float16::FromBits(max_value));
+      VALIDATE_RANGE(nan_probability, 0.0, 1.0);
+      // TODO: New interface to allow passing `nan_probability`
+      return Float16(length, min_value, max_value, null_probability, alignment,
+                     memory_pool);
+    }
 
     case Type::type::STRING:
     case Type::type::BINARY: {
