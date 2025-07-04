@@ -17,6 +17,7 @@
 
 #include "odbcabstraction/calendar_utils.h"
 
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <cstdint>
 #include <ctime>
 
@@ -40,12 +41,9 @@ int64_t GetTodayTimeFromEpoch() {
 }
 
 void GetTimeForSecondsSinceEpoch(tm& date, int64_t value) {
-#if defined(_WIN32)
-  gmtime_s(&date, &value);
-#else
-  time_t time_value = static_cast<time_t>(value);
-  gmtime_r(&time_value, &date);
-#endif
+  // Boost date-time library only support years from range 1400-9999
+  // GH-46978: support years before 1400 for date, time, and timestamp types
+  date = boost::posix_time::to_tm(boost::posix_time::from_time_t(value));
 }
 }  // namespace odbcabstraction
 }  // namespace driver
