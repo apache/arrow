@@ -275,7 +275,7 @@ Pipe::Pipe(ExecPlan* plan, std::string pipe_name,
 const Ordering& Pipe::ordering() const { return ordering_; }
 
 void Pipe::Pause(PipeSource* output, int counter) {
-  std::lock_guard<std::mutex> lg(mutex_);
+  auto lock = mutex_.Lock();
   auto& state = state_[output];
   if (state.backpressure_counter < counter) {
     if (!state.paused && !state.stopped) {
@@ -295,7 +295,7 @@ void Pipe::Pause(PipeSource* output, int counter) {
 }
 
 void Pipe::Resume(PipeSource* output, int counter) {
-  std::lock_guard<std::mutex> lg(mutex_);
+  auto lock = mutex_.Lock();
   auto& state = state_[output];
   if (state.backpressure_counter < counter) {
     state.backpressure_counter = counter;
@@ -320,7 +320,7 @@ void Pipe::DoResume(SourceState& state) {
 }
 
 Status Pipe::StopProducing(PipeSource* output) {
-  std::lock_guard<std::mutex> lg(mutex_);
+  auto lock = mutex_.Lock();
   auto& state = state_[output];
   DCHECK(!state.stopped);
   DoResume(state);
@@ -341,7 +341,7 @@ Status Pipe::StopProducing(PipeSource* output) {
 Status Pipe::InputReceived(ExecBatch batch) {
   for (auto& source_node : async_nodes_) {
     {
-      std::lock_guard<std::mutex> lg(mutex_);
+      auto lock = mutex_.Lock();
       if (state_[source_node].stopped) continue;
     }
     plan_->query_context()->ScheduleTask(

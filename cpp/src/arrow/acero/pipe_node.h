@@ -16,11 +16,11 @@
 // under the License.
 
 #pragma once
-#include <mutex>
 #include <string>
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/visibility.h"
+#include "arrow/util/mutex.h"
 
 namespace arrow {
 
@@ -114,10 +114,10 @@ class ARROW_ACERO_EXPORT Pipe {
   Ordering ordering_;
   std::string pipe_name_;
   std::vector<PipeSource*> async_nodes_;
-  PipeSource* sync_node_{nullptr};
+  PipeSource* sync_node_{NULLPTR};
   // backpressure
   std::unordered_map<PipeSource*, SourceState> state_;
-  std::mutex mutex_;
+  util::Mutex mutex_;
   std::atomic_size_t paused_count_{0};
   std::unique_ptr<BackpressureControl> ctrl_;
   // stopProducing
