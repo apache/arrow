@@ -124,7 +124,7 @@ Result<std::vector<To>> MaybeMapVector(Fn&& map, std::vector<From>&& source) {
   ARROW_RETURN_NOT_OK(MaybeTransform(std::make_move_iterator(source.begin()),
                                      std::make_move_iterator(source.end()),
                                      std::back_inserter(out), std::forward<Fn>(map)));
-  return std::move(out);
+  return out;
 }
 
 template <typename T>
