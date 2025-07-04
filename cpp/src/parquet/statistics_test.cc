@@ -983,9 +983,8 @@ class TestStatisticsSortOrder : public ::testing::Test {
           rg_metadata->ColumnChunk(i);
       EXPECT_EQ(stats_[i].min(), cc_metadata->statistics()->EncodeMin());
       EXPECT_EQ(stats_[i].max(), cc_metadata->statistics()->EncodeMax());
-      // TODO: Investigate why those are not true?
-      // ASSERT_TRUE(stats_[i].is_max_value_exact);
-      // ASSERT_TRUE(stats_[i].is_min_value_exact);
+      ASSERT_TRUE(stats_[i].is_max_value_exact);
+      ASSERT_TRUE(stats_[i].is_min_value_exact);
     }
   }
 
@@ -1021,12 +1020,16 @@ void TestStatisticsSortOrder<Int32Type>::SetValues() {
   // Write UINT32 min/max values
   stats_[0]
       .set_min(std::string(reinterpret_cast<const char*>(&values_[5]), sizeof(c_type)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[4]), sizeof(c_type)));
+      .set_max(std::string(reinterpret_cast<const char*>(&values_[4]), sizeof(c_type)))
+      .set_is_min_value_exact(true)
+      .set_is_max_value_exact(true);
 
   // Write INT32 min/max values
   stats_[1]
       .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
+      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)))
+      .set_is_min_value_exact(true)
+      .set_is_max_value_exact(true);
 }
 
 // TYPE::INT64
@@ -1049,12 +1052,16 @@ void TestStatisticsSortOrder<Int64Type>::SetValues() {
   // Write UINT64 min/max values
   stats_[0]
       .set_min(std::string(reinterpret_cast<const char*>(&values_[5]), sizeof(c_type)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[4]), sizeof(c_type)));
+      .set_max(std::string(reinterpret_cast<const char*>(&values_[4]), sizeof(c_type)))
+      .set_is_min_value_exact(true)
+      .set_is_max_value_exact(true);
 
   // Write INT64 min/max values
   stats_[1]
       .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
+      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)))
+      .set_is_min_value_exact(true)
+      .set_is_max_value_exact(true);
 }
 
 // TYPE::FLOAT
@@ -1068,7 +1075,9 @@ void TestStatisticsSortOrder<FloatType>::SetValues() {
   // Write Float min/max values
   stats_[0]
       .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
+      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)))
+      .set_is_min_value_exact(true)
+      .set_is_max_value_exact(true);
 }
 
 // TYPE::DOUBLE
@@ -1082,7 +1091,9 @@ void TestStatisticsSortOrder<DoubleType>::SetValues() {
   // Write Double min/max values
   stats_[0]
       .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
+      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)))
+      .set_is_min_value_exact(true)
+      .set_is_max_value_exact(true);
 }
 
 // TYPE::ByteArray
@@ -1114,7 +1125,9 @@ void TestStatisticsSortOrder<ByteArrayType>::SetValues() {
       .set_min(
           std::string(reinterpret_cast<const char*>(vals[2].c_str()), vals[2].length()))
       .set_max(
-          std::string(reinterpret_cast<const char*>(vals[9].c_str()), vals[9].length()));
+          std::string(reinterpret_cast<const char*>(vals[9].c_str()), vals[9].length()))
+      .set_is_min_value_exact(true)
+      .set_is_max_value_exact(true);
 }
 
 // TYPE::FLBAArray
@@ -1143,7 +1156,9 @@ void TestStatisticsSortOrder<FLBAType>::SetValues() {
   // Write FLBA min,max values
   stats_[0]
       .set_min(std::string(reinterpret_cast<const char*>(&vals[1][0]), FLBA_LENGTH))
-      .set_max(std::string(reinterpret_cast<const char*>(&vals[8][0]), FLBA_LENGTH));
+      .set_max(std::string(reinterpret_cast<const char*>(&vals[8][0]), FLBA_LENGTH))
+      .set_is_min_value_exact(true)
+      .set_is_max_value_exact(true);
 }
 
 template <>
@@ -1176,7 +1191,9 @@ void TestStatisticsSortOrder<Float16LogicalType>::SetValues() {
 
   stats_[0]
       .set_min(std::string(reinterpret_cast<const char*>(values_[7].ptr), kValueLen))
-      .set_max(std::string(reinterpret_cast<const char*>(values_[2].ptr), kValueLen));
+      .set_max(std::string(reinterpret_cast<const char*>(values_[2].ptr), kValueLen))
+      .set_is_min_value_exact(true)
+      .set_is_max_value_exact(true);
 }
 
 TYPED_TEST_SUITE(TestStatisticsSortOrder, CompareTestTypes);
