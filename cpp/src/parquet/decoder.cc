@@ -260,6 +260,12 @@ auto DispatchArrowBinaryHelper(typename EncodingTraits<DType>::Accumulator* acc,
   }
 }
 
+void checkPageOverflow(int32_t remain, int32_t arg1, int32_t arg2) {
+  if (static_cast<int64_t>(remain) < arg1 * static_cast<int64_t>(arg2)) {
+    ParquetException::EofException();
+  }
+}
+
 // Internal decoder class hierarchy
 
 class DecoderImpl : virtual public Decoder {
@@ -385,9 +391,7 @@ int PlainDecoder<DType>::DecodeArrow(
 
   constexpr int value_size = static_cast<int>(sizeof(value_type));
   int values_decoded = num_values - null_count;
-  if (ARROW_PREDICT_FALSE(this->len_ < value_size * values_decoded)) {
-    ParquetException::EofException();
-  }
+  checkPageOverflow(this->len_, value_size, values_decoded);
 
   const uint8_t* data = this->data_;
 
@@ -419,9 +423,7 @@ int PlainDecoder<DType>::DecodeArrow(
 
   constexpr int value_size = static_cast<int>(sizeof(value_type));
   int values_decoded = num_values - null_count;
-  if (ARROW_PREDICT_FALSE(this->len_ < value_size * values_decoded)) {
-    ParquetException::EofException();
-  }
+  checkPageOverflow(this->len_, value_size, values_decoded);
 
   const uint8_t* data = this->data_;
 
@@ -659,9 +661,7 @@ inline int PlainDecoder<FLBAType>::DecodeArrow(
     typename EncodingTraits<FLBAType>::Accumulator* builder) {
   const int byte_width = this->type_length_;
   const int values_decoded = num_values - null_count;
-  if (ARROW_PREDICT_FALSE(len_ < byte_width * values_decoded)) {
-    ParquetException::EofException();
-  }
+  checkPageOverflow(len_, byte_width, values_decoded);
 
   PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
@@ -691,9 +691,7 @@ inline int PlainDecoder<FLBAType>::DecodeArrow(
     typename EncodingTraits<FLBAType>::DictAccumulator* builder) {
   const int byte_width = this->type_length_;
   const int values_decoded = num_values - null_count;
-  if (ARROW_PREDICT_FALSE(len_ < byte_width * values_decoded)) {
-    ParquetException::EofException();
-  }
+  checkPageOverflow(len_, byte_width, values_decoded);
 
   PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
   PARQUET_THROW_NOT_OK(
