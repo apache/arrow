@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/acero/exec_plan.h"
 #include "arrow/acero/type_fwd.h"
 #include "arrow/acero/visibility.h"
 #include "arrow/compute/api_aggregate.h"
@@ -861,6 +862,52 @@ class ARROW_ACERO_EXPORT PivotLongerNodeOptions : public ExecNodeOptions {
   std::vector<std::string> feature_field_names;
   /// The names of the columns which represent the measurements
   std::vector<std::string> measurement_field_names;
+};
+
+/// \brief a node which implements experimental node that enables multiple sink exec nodes
+///
+/// Note, this API is experimental and will change in the future
+///
+/// This node forwards each exec batch to its output and also provides number of
+/// additional source nodes for additional acero pipelines.
+class ARROW_ACERO_EXPORT PipeSourceNodeOptions : public ExecNodeOptions {
+ public:
+  PipeSourceNodeOptions(std::string pipe_name, std::shared_ptr<Schema> output_schema,
+                        Ordering ordering = Ordering::Unordered())
+      : pipe_name(std::move(pipe_name)),
+        output_schema(std::move(output_schema)),
+        ordering(std::move(ordering)) {}
+
+  /// \brief Pipe name used to match with pipe sink
+  std::string pipe_name;
+
+  /// \brief Expected schema of data. Validated during initialization.
+  std::shared_ptr<Schema> output_schema;
+
+  /// \brief Expected ordering of data. Validated during initialization.
+  Ordering ordering;
+};
+
+class ARROW_ACERO_EXPORT PipeSinkNodeOptions : public ExecNodeOptions {
+ public:
+  PipeSinkNodeOptions(std::string pipe_name, bool pause_on_any = true,
+                      bool stop_on_any = false)
+      : pipe_name(std::move(pipe_name)),
+        pause_on_any(pause_on_any),
+        stop_on_any(stop_on_any) {}
+
+  /// \brief Pipe name used to match with pipe sources
+  std::string pipe_name;
+
+  /// \brief pause_on_any controls pausing strategy. If true sink input will be paused
+  /// when any source is paused. If false sink input will be paused hen all sources are
+  /// paused
+  bool pause_on_any;
+
+  /// \brief stop_on_any controls stopping strategy. If true sink input will be stopped
+  /// when any source is stopped. If false sink input will be stopped hen all sources are
+  /// stopped
+  bool stop_on_any;
 };
 
 /// @}
