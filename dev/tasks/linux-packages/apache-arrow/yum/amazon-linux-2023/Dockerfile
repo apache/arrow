@@ -61,7 +61,7 @@ RUN \
     zlib-devel && \
   dnf clean ${quiet} all
 
-ARG cmake=3.25.0
+ARG cmake=3.26.0
 RUN curl -L \
     "https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-linux-$(uname -m).tar.gz" | \
     tar -xzf - --directory /usr/local --strip-components=1 && \
