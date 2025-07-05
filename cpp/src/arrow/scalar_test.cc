@@ -39,6 +39,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/float16.h"
 
 namespace arrow {
 
@@ -46,6 +47,7 @@ using compute::Cast;
 using compute::CastOptions;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using util::Float16;
 
 std::shared_ptr<Scalar> CheckMakeNullScalar(const std::shared_ptr<DataType>& type) {
   const auto scalar = MakeNullScalar(type);
@@ -297,6 +299,26 @@ TYPED_TEST(TestNumericScalar, MakeScalar) {
   AssertParseScalar(type, "3", ScalarType(3));
 }
 
+template <typename ARROW_TYPE>
+auto GetFloat(double d) {
+  if constexpr (std::is_same_v<ARROW_TYPE, HalfFloatType>) {
+    const auto h = Float16::FromDouble(d);
+    // Double check that nan/inf/sign are preserved
+    if (std::isnan(d)) {
+      EXPECT_TRUE(h.is_nan());
+    }
+    if (std::isinf(d)) {
+      EXPECT_TRUE(h.is_infinity());
+    }
+    if (std::signbit(d)) {
+      EXPECT_TRUE(h.signbit());
+    }
+    return h.bits();
+  } else {
+    return static_cast<typename ARROW_TYPE::c_type>(d);
+  }
+}
+
 template <typename T>
 class TestRealScalar : public ::testing::Test {
  public:
@@ -306,21 +328,21 @@ class TestRealScalar : public ::testing::Test {
   void SetUp() {
     type_ = TypeTraits<T>::type_singleton();
 
-    scalar_val_ = std::make_shared<ScalarType>(static_cast<CType>(1));
+    scalar_val_ = std::make_shared<ScalarType>(GetFloat<T>(1));
     ASSERT_TRUE(scalar_val_->is_valid);
 
-    scalar_other_ = std::make_shared<ScalarType>(static_cast<CType>(1.1));
+    scalar_other_ = std::make_shared<ScalarType>(GetFloat<T>(1.1));
     ASSERT_TRUE(scalar_other_->is_valid);
 
-    scalar_zero_ = std::make_shared<ScalarType>(static_cast<CType>(0.0));
-    scalar_other_zero_ = std::make_shared<ScalarType>(static_cast<CType>(0.0));
-    scalar_neg_zero_ = std::make_shared<ScalarType>(static_cast<CType>(-0.0));
+    scalar_zero_ = std::make_shared<ScalarType>(GetFloat<T>(0.0));
+    scalar_other_zero_ = std::make_shared<ScalarType>(GetFloat<T>(0.0));
+    scalar_neg_zero_ = std::make_shared<ScalarType>(GetFloat<T>(-0.0));
 
-    const CType nan_value = std::numeric_limits<CType>::quiet_NaN();
+    const CType nan_value = GetFloat<T>(std::numeric_limits<double>::quiet_NaN());
     scalar_nan_ = std::make_shared<ScalarType>(nan_value);
     ASSERT_TRUE(scalar_nan_->is_valid);
 
-    const CType other_nan_value = std::numeric_limits<CType>::quiet_NaN();
+    const CType other_nan_value = GetFloat<T>(std::numeric_limits<double>::quiet_NaN());
     scalar_other_nan_ = std::make_shared<ScalarType>(other_nan_value);
     ASSERT_TRUE(scalar_other_nan_->is_valid);
   }
@@ -522,7 +544,9 @@ class TestRealScalar : public ::testing::Test {
       scalar_zero_, scalar_other_zero_, scalar_neg_zero_;
 };
 
-TYPED_TEST_SUITE(TestRealScalar, RealArrowTypes);
+using RealArrowTypesPlusHalfFloat =
+    ::testing::Types<FloatType, DoubleType, HalfFloatType>;
+TYPED_TEST_SUITE(TestRealScalar, RealArrowTypesPlusHalfFloat);
 
 TYPED_TEST(TestRealScalar, NanEquals) { this->TestNanEquals(); }
 
@@ -1180,8 +1204,6 @@ TEST(TestDayTimeIntervalScalars, Basics) {
   ASSERT_TRUE(null->Equals(ts_null));
   ASSERT_TRUE(first->Equals(ts_val2));
 }
-
-// TODO test HalfFloatScalar
 
 TYPED_TEST(TestNumericScalar, Cast) {
   auto type = TypeTraits<TypeParam>::type_singleton();
