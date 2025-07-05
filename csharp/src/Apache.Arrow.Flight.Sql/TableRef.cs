@@ -13,15 +13,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
+
 namespace Apache.Arrow.Flight.Sql;
 
-public static class SqlAction
+public class TableRef
 {
-    public const string CreateRequest = "CreatePreparedStatement";
-    public const string CloseRequest = "ClosePreparedStatement";
-    public const string CancelFlightInfoRequest = "CancelFlightInfo";
-    public const string BeginTransactionRequest = "BeginTransaction";
-    public const string CommitRequest = "Commit";
-    public const string RollbackRequest = "Rollback";
-    public const string GetPrimaryKeysRequest = "GetPrimaryKeys";
+    public string? Catalog { get; }
+    public string DbSchema { get; }
+    public string Table { get; }
+
+    public TableRef(string dbSchema, string table)
+    {
+        DbSchema = dbSchema ?? throw new ArgumentNullException(nameof(dbSchema));
+        Table = table ?? throw new ArgumentNullException(nameof(table));
+    }
+
+    public TableRef(string? catalog, string dbSchema, string table)
+    {
+        Catalog = catalog;
+        DbSchema = dbSchema ?? throw new ArgumentNullException(nameof(dbSchema));
+        Table = table ?? throw new ArgumentNullException(nameof(table));
+    }
 }
