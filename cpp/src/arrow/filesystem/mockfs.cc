@@ -108,10 +108,7 @@ struct Directory {
     return p.second;
   }
 
-  void AssignEntry(const std::string& s, std::unique_ptr<Entry> entry) {
-    DCHECK(!s.empty());
-    entries[s] = std::move(entry);
-  }
+  void AssignEntry(const std::string& s, std::unique_ptr<Entry> entry);
 
   bool DeleteEntry(const std::string& s) { return entries.erase(s) > 0; }
 
@@ -186,6 +183,11 @@ class Entry : public EntryBase {
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Entry);
 };
+
+void Directory::AssignEntry(const std::string& s, std::unique_ptr<Entry> entry) {
+  DCHECK(!s.empty());
+  entries[s] = std::move(entry);
+}
 
 ////////////////////////////////////////////////////////////////////////////
 // Streams
