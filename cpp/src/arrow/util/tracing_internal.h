@@ -110,6 +110,7 @@ class SpanImpl : public ::arrow::util::tracing::SpanDetails {
  public:
   ~SpanImpl() override = default;
   bool valid() const { return ot_span != nullptr; }
+  void reset() { ot_span = nullptr; }
   opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> ot_span;
 };
 
