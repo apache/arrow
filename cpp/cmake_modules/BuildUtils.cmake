@@ -522,6 +522,7 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
       STATIC_LINK_LIBS
       DEPENDENCIES
       SOURCES
+      EXTRA_SOURCES
       LABELS)
   cmake_parse_arguments(ARG
                         "${options}"
@@ -541,10 +542,16 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
     set(BENCHMARK_NAME "${ARG_PREFIX}-${BENCHMARK_NAME}")
   endif()
 
+  set(SOURCES "")
+
+  if(ARG_EXTRA_SOURCES)
+    list(APPEND SOURCES ${ARG_EXTRA_SOURCES})
+  endif()
+
   if(ARG_SOURCES)
-    set(SOURCES ${ARG_SOURCES})
+    list(APPEND SOURCES ${ARG_SOURCES})
   else()
-    set(SOURCES "${REL_BENCHMARK_NAME}.cc")
+    list(APPEND SOURCES "${REL_BENCHMARK_NAME}.cc")
   endif()
 
   # Make sure the executable name contains only hyphens, not underscores
