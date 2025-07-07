@@ -5794,8 +5794,8 @@ cdef class Table(_Tabular):
             of the join operation left side.
 
             An inexact match is used on the "on" key, i.e. a row is considered a
-            match if and only if ``right.on - left.on`` is between 0 and
-            ``tolerance``.
+            match if and only if ``right.on - left.on`` is in the range
+            ``[min(0, tolerance), max(0, tolerance)]``.
 
             The input dataset must be sorted by the "on" key. Must be a single
             field of a common type.
@@ -5807,8 +5807,8 @@ cdef class Table(_Tabular):
             only for the matches in these columns.
         tolerance : int
             The tolerance for inexact "on" key matching. A right row is considered
-            a match with a left row if ``right.on - left.on`` is between 0
-            and ``tolerance``. ``tolerance`` may be:
+            a match with a left row if ``right.on - left.on`` is in the range
+            ``[min(0, tolerance), max(0, tolerance)]``. ``tolerance`` may be:
 
             - negative, in which case a past-as-of-join occurs
               (match iff ``tolerance <= right.on - left.on <= 0``);
