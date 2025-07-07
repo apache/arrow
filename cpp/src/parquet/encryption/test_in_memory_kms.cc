@@ -79,7 +79,7 @@ std::string TestOnlyInServerWrapKms::WrapKey(const SecureString& key_bytes,
   return internal::EncryptKeyLocally(key_bytes, master_key, aad);
 }
 
-SecureString TestOnlyInServerWrapKms::UnWrapKey(
+SecureString TestOnlyInServerWrapKms::UnwrapKey(
     const std::string& wrapped_key, const std::string& master_key_identifier) {
   if (unwrapping_master_key_map_.find(master_key_identifier) ==
       unwrapping_master_key_map_.end()) {
