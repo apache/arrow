@@ -27,7 +27,7 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/stale@v9
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639  #v9.1.0
         with:
           stale-pr-message: "Thank you for your contribution. Unfortunately, this pull request has been marked as stale because it has had no activity in the past 365 days. Please remove the stale label or comment below, or this PR will be closed in 14 days.  Feel free to re-open this if it has been closed in error. If you do not have repo permissions to reopen the PR, please tag a relevant maintainer."
           stale-pr-label: "Status: stale-warning"
@@ -43,7 +43,7 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/stale@v9
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639  #v9.1.0
         with:
           # exclude PRs
           days-before-pr-stale: -1
@@ -60,7 +60,7 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/stale@v9
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639  #v9.1.0
         with:
           # exclude PRs
           days-before-pr-stale: -1
