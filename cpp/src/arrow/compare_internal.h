@@ -679,8 +679,10 @@ bool CompareArrayRanges(const ArrayData& left, const ArrayData& right,
     return true;
   }
   // Compare values
-  RangeDataEqualsImpl impl(options, floating_approximate, left, right, left_start_idx,
-                           right_start_idx, range_length);
+  ArraySpan left_span{left};
+  ArraySpan right_span{right};
+  RangeDataEqualsImpl impl(options, floating_approximate, left_span, right_span,
+                           left_start_idx, right_start_idx, range_length);
   return impl.Compare();
 }
 
