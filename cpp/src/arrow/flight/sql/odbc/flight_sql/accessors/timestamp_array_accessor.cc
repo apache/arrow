@@ -45,16 +45,18 @@ int64_t GetConversionToSecondsDivisor(TimeUnit::type unit) {
 }
 
 uint32_t CalculateFraction(TimeUnit::type unit, int64_t units_since_epoch) {
-  if (unit == TimeUnit::SECOND)
+  if (unit == TimeUnit::SECOND) {
     return 0;
+  }
 
   const int64_t divisor = GetConversionToSecondsDivisor(unit);
   const int64_t nano_divisor = GetConversionToSecondsDivisor(TimeUnit::NANO);
 
   // Safe remainder calculation that always gives a non-negative result
   int64_t remainder = units_since_epoch % divisor;
-  if (remainder < 0)
+  if (remainder < 0) {
     remainder += divisor;
+  }
 
   // Scale to nanoseconds
   return static_cast<uint32_t>(remainder * (nano_divisor / divisor));
@@ -84,15 +86,15 @@ RowStatus TimestampArrayFlightSqlAccessor<TARGET_TYPE, UNIT>::MoveSingleCell_imp
   int64_t value = this->GetArray()->Value(arrow_row);
   const auto divisor = GetConversionToSecondsDivisor(UNIT);
   const auto converted_result_seconds =
-    // We want floor division here; C++ will round towards zero
-    (value < 0)
-    // Floor division: Shift all "fractional" (not a multiple of divisor) values so they round towards
-    // zero (and to the same value) along with the "floor" less than them, then add 1 to get back to
-    // the floor.  Alternative we could shift negatively by (divisor - 1) but this breaks near
-    // INT64_MIN causing underflow.
-    ? ((value + 1) / divisor) - 1
-    // Towards zero is already floor
-    : value / divisor;
+      // We want floor division here; C++ will round towards zero
+      (value < 0)
+          // Floor division: Shift all "fractional" (not a multiple of divisor) values so
+          // they round towards zero (and to the same value) along with the "floor" less
+          // than them, then add 1 to get back to the floor.  Alternative we could shift
+          // negatively by (divisor - 1) but this breaks near INT64_MIN causing underflow.
+          ? ((value + 1) / divisor) - 1
+          // Towards zero is already floor
+          : value / divisor;
   tm timestamp = {0};
 
   GetTimeForSecondsSinceEpoch(timestamp, converted_result_seconds);

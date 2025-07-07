@@ -17,9 +17,9 @@
 
 #include "odbcabstraction/calendar_utils.h"
 
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <cstdint>
 #include <ctime>
-#include <boost/date_time/posix_time/posix_time.hpp>
 
 namespace driver {
 namespace odbcabstraction {
@@ -42,8 +42,8 @@ int64_t GetTodayTimeFromEpoch() {
 
 void GetTimeForSecondsSinceEpoch(tm& date, int64_t value) {
   try {
-    boost::posix_time::ptime pt = boost::posix_time::from_time_t(0) +
-                                  boost::posix_time::seconds(value);
+    boost::posix_time::ptime pt =
+        boost::posix_time::from_time_t(0) + boost::posix_time::seconds(value);
     date = boost::posix_time::to_tm(pt);
   } catch (const std::exception&) {
     std::memset(&date, 0, sizeof(tm));
