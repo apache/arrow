@@ -102,6 +102,14 @@ classdef hNumericArray < matlab.unittest.TestCase
             tc.verifyError(fcn, "arrow:array:InvalidShape");
         end
 
+        function ErrorIfInvalidType(tc)
+            data = 1:3;
+            if tc.ArrowType.ID == arrow.type.ID.Float64
+                data = single(data);
+            end
+            tc.verifyError(@() tc.ArrowArrayConstructorFcn(data), "arrow:array:InvalidType");
+        end
+
         function AllowNDimensionalEmptyArray(tc)
             data = tc.MatlabArrayFcn(reshape([], [1 0 0]));
             A = tc.ArrowArrayConstructorFcn(data);

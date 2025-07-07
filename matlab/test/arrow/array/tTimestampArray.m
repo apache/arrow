@@ -164,6 +164,12 @@ classdef tTimestampArray < matlab.unittest.TestCase
             testCase.verifyError(fcn, "arrow:array:InvalidShape");
         end
 
+        function ErrorIfNotDatetime(testCase)
+            data = seconds(1:4);
+            fcn = @() testCase.ArrowArrayConstructorFcn(data);
+            testCase.verifyError(fcn, "arrow:array:InvalidType");
+        end
+
         function EmptyDatetimeVector(testCase)
             import arrow.array.TimestampArray
 
