@@ -457,6 +457,8 @@ endif()
 # Check for only Arrow C++ options
 if(ARROW_CSV)
   list(APPEND PYARROW_CPP_SRCS ${PYARROW_CPP_SOURCE_DIR}/csv.cc)
+else()
+  message(FATAL_ERROR "You must build Arrow C++ with ARROW_CSV=ON")
 endif()
 
 if(ARROW_FILESYSTEM)
