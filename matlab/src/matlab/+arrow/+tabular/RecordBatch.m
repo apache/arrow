@@ -42,7 +42,7 @@ classdef RecordBatch < arrow.tabular.Tabular
     end
 
     methods (Access=protected)
-        function column = constructColumnFromProxy(proxyInfo)
+        function column = constructColumnFromProxy(~, proxyInfo)
             traits = arrow.type.traits.traits(arrow.type.ID(proxyInfo.TypeID));
             proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyInfo.ProxyID);
             column = traits.ArrayConstructor(proxy);

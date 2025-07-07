@@ -33,7 +33,7 @@ classdef Tabular < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
         % appropriate MATLAB class from the proxyInfo argument. The
         % template method arrow.tabular.Tabular/column() invokes this
         % method.
-        column = constructColumnFromProxy(proxyInfo)
+        column = constructColumnFromProxy(obj, proxyInfo)
     end
 
     methods
