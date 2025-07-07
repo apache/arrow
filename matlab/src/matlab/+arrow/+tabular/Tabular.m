@@ -27,12 +27,15 @@ classdef Tabular < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
     properties (Hidden, SetAccess=private, GetAccess=public)
         Proxy
     end
-
-    properties(Access = protected, Abstract)
-        % TODO: add comment
-        ColumnProxyToArrayFcn
-    end
     
+    methods(Access=protected, Abstract)
+        % constructColumnFromProxy must construct an instance of the
+        % appropriate MATLAB class from the proxyInfo argument. The
+        % template method arrow.tabular.Tabular/column() invokes this
+        % method.
+        column = constructColumnFromProxy(proxyInfo)
+    end
+
     methods
         function obj = Tabular(proxy)
             arguments
@@ -73,7 +76,7 @@ classdef Tabular < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
                 proxyInfo = obj.Proxy.getColumnByName(args);
             end
 
-            array = obj.ColumnProxyToArrayFcn(proxyInfo);
+            array = obj.constructColumnFromProxy(proxyInfo);
         end
 
         function T = table(obj)
