@@ -18,11 +18,6 @@
 
 classdef RecordBatch < arrow.tabular.Tabular
 
-    properties(Access = protected)
-        % TODO: add comment
-        ColumnProxyToArrayFcn = @makTypedArrayFromProxyInfo
-    end
-
     methods
         function obj = RecordBatch(proxy)
             arguments
@@ -46,6 +41,13 @@ classdef RecordBatch < arrow.tabular.Tabular
         end
     end
 
+    methods (Access=protected)
+        function column = constructColumnFromProxy(proxyInfo)
+            traits = arrow.type.traits.traits(arrow.type.ID(proxyInfo.TypeID));
+            proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyInfo.ProxyID);
+            column = traits.ArrayConstructor(proxy);
+        end
+    end
 
     methods (Static, Access=public)
         function recordBatch = fromArrays(arrowArrays, opts)
@@ -80,11 +82,4 @@ classdef RecordBatch < arrow.tabular.Tabular
             recordBatch = importer.import(cArray, cSchema);
         end
     end
-end
-
-
-function array = makTypedArrayFromProxyInfo(proxyInfo)
-    traits = arrow.type.traits.traits(arrow.type.ID(proxyInfo.TypeID));
-    proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyInfo.ProxyID);
-    array = traits.ArrayConstructor(proxy);
 end

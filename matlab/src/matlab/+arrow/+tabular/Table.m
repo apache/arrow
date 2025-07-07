@@ -15,11 +15,6 @@
 
 classdef Table < arrow.tabular.Tabular
 
-   properties(Access = protected)
-        % TODO: add comment
-        ColumnProxyToArrayFcn = @makeChunkedArrayFromProxyID
-    end
-
     methods
 
         function obj = Table(proxy)
