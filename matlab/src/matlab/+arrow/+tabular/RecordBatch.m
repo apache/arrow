@@ -19,6 +19,7 @@
 classdef RecordBatch < arrow.tabular.Tabular
 
     methods
+
         function obj = RecordBatch(proxy)
             arguments
                 proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.tabular.proxy.RecordBatch")}
@@ -39,17 +40,21 @@ classdef RecordBatch < arrow.tabular.Tabular
             );
             obj.Proxy.exportToC(args);
         end
+
     end
 
     methods (Access=protected)
+
         function column = constructColumnFromProxy(~, proxyInfo)
             traits = arrow.type.traits.traits(arrow.type.ID(proxyInfo.TypeID));
             proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyInfo.ProxyID);
             column = traits.ArrayConstructor(proxy);
         end
+
     end
 
     methods (Static, Access=public)
+
         function recordBatch = fromArrays(arrowArrays, opts)
             arguments(Repeating)
                 arrowArrays(1, 1) arrow.array.Array
@@ -81,5 +86,7 @@ classdef RecordBatch < arrow.tabular.Tabular
             importer = arrow.c.internal.RecordBatchImporter();
             recordBatch = importer.import(cArray, cSchema);
         end
+
     end
+
 end

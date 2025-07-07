@@ -37,6 +37,7 @@ classdef Tabular < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
     end
 
     methods
+
         function obj = Tabular(proxy)
             arguments
                 proxy(1, 1) libmexclass.proxy.Proxy
@@ -108,6 +109,7 @@ classdef Tabular < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
     end
 
     methods (Access = private)
+
         function str = toString(obj)
             str = obj.Proxy.toString();
         end
@@ -115,6 +117,7 @@ classdef Tabular < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
     end
 
     methods (Access=protected)
+
         function displayScalarObject(obj)
             className = matlab.mixin.CustomDisplay.getClassNameForHeader(obj);
             tabularDisplay = arrow.tabular.internal.display.getTabularDisplay(obj, className);
@@ -122,4 +125,5 @@ classdef Tabular < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
         end
 
     end
+
 end
