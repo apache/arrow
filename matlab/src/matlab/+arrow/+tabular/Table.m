@@ -32,6 +32,13 @@ classdef Table < arrow.tabular.Tabular
 
     end
 
+    methods (Access=protected)
+        function column = constructColumnFromProxy(proxyInfo)
+            proxy = libmexclass.proxy.Proxy(Name="arrow.array.proxy.ChunkedArray", ID=proxyInfo);
+            column = arrow.array.ChunkedArray(proxy);
+        end
+    end
+
     methods (Static, Access=public)
 
         function arrowTable = fromArrays(arrowArrays, opts)
@@ -90,9 +97,4 @@ classdef Table < arrow.tabular.Tabular
 
     end
 
-end
-
-function chunkedArray = makeChunkedArrayFromProxyID(proxyID)
-    proxy = libmexclass.proxy.Proxy(Name="arrow.array.proxy.ChunkedArray", ID=proxyID);
-    chunkedArray = arrow.array.ChunkedArray(proxy);
 end
