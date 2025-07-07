@@ -1658,9 +1658,10 @@ TEST(TestStatisticsTruncatedMinMax, Unsigned) {
   auto metadata = rg_reader->metadata();
   auto column_schema = metadata->schema()->Column(0);
   ASSERT_EQ(SortOrder::UNSIGNED, column_schema->sort_order());
+  ASSERT_EQ(4, metadata->num_columns());
 
-  for (int num_chunk = 0; num_chunk < metadata->num_columns(); ++num_chunk) {
-    auto column_chunk = metadata->ColumnChunk(num_chunk);
+  for (int num_column = 0; num_column < metadata->num_columns(); ++num_column) {
+    auto column_chunk = metadata->ColumnChunk(num_column);
     ASSERT_TRUE(column_chunk->is_stats_set());
 
     std::shared_ptr<EncodedStatistics> encoded_statistics =
@@ -1668,11 +1669,25 @@ TEST(TestStatisticsTruncatedMinMax, Unsigned) {
     ASSERT_TRUE(encoded_statistics != NULL);
     ASSERT_EQ(0, encoded_statistics->null_count);
     EXPECT_EQ("Al", encoded_statistics->min());
-    EXPECT_EQ("Kf", encoded_statistics->max());
     ASSERT_EQ(true, encoded_statistics->has_is_max_value_exact);
     ASSERT_EQ(true, encoded_statistics->has_is_min_value_exact);
-    ASSERT_EQ(false, encoded_statistics->is_max_value_exact);
     ASSERT_EQ(false, encoded_statistics->is_min_value_exact);
+    switch (num_column) {
+      case 2:
+        // Max couldn't truncate the utf-8 string longer than 2 bytes
+        EXPECT_EQ("🚀Kevin Bacon", encoded_statistics->max());
+        ASSERT_EQ(true, encoded_statistics->is_max_value_exact);
+        break;
+      case 3:
+        // Max couldn't truncate 0xFFFF binary string
+        EXPECT_EQ("\xFF\xFF\x1\x2", encoded_statistics->max());
+        ASSERT_EQ(true, encoded_statistics->is_max_value_exact);
+        break;
+      default:
+        // Max truncated to 2 bytes on columns 0 and 1
+        EXPECT_EQ("Kf", encoded_statistics->max());
+        ASSERT_EQ(false, encoded_statistics->is_max_value_exact);
+    }
   }
 }
 
