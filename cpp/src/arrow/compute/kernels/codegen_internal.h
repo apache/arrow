@@ -362,25 +362,23 @@ struct ArrayIterator<Type, enable_if_list_type<Type>> {
   using offset_type = typename Type::offset_type;
 
   const ArraySpan& arr;
-  const std::shared_ptr<ArrayData> array_data;
   const offset_type* offsets;
   offset_type cur_offset;
   int64_t position;
 
   explicit ArrayIterator(const ArraySpan& arr)
       : arr(arr),
-        array_data(arr.child_data[0].ToArrayData()),
         offsets(reinterpret_cast<const offset_type*>(arr.buffers[1].data) + arr.offset),
         cur_offset(offsets[0]),
         position(0) {}
 
-  const ArraySpan operator()() {
+  ArraySpan operator()() {
     offset_type next_offset = offsets[++position];
     const offset_type length = next_offset - cur_offset;
-    ArraySpan child_arr{*array_data};
-    child_arr.SetSlice(cur_offset, length);
+    ArraySpan new_span{arr};
+    new_span.SetSlice(cur_offset, length);
     cur_offset = next_offset;
-    return child_arr;
+    return new_span;
   }
 };
 

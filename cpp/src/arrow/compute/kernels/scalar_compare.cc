@@ -64,7 +64,7 @@ struct ListEqual {
       return false;
     } else {
       RangeDataEqualsImpl range_comparer{
-          EqualOptions::Defaults(), false, left, right, 0, 0, 1,
+          EqualOptions::Defaults(), false, left, right, left.offset, right.offset, 1,
       };
       return range_comparer.Compare();
     }
@@ -80,7 +80,7 @@ struct ListNotEqual {
       return true;
     } else {
       RangeDataEqualsImpl range_comparer{
-          EqualOptions::Defaults(), false, left, right, 0, 0, 1,
+          EqualOptions::Defaults(), false, left, right, left.offset, right.offset, 1,
       };
 
       return !range_comparer.Compare();
