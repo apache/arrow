@@ -1561,8 +1561,11 @@ bool ArrayStatisticsEqualsImpl(const ArrayStatistics& left, const ArrayStatistic
                                const EqualOptions& equal_options) {
   return left.null_count == right.null_count &&
          left.distinct_count == right.distinct_count &&
+         left.is_average_byte_width_exact == right.is_average_byte_width_exact &&
          left.is_min_exact == right.is_min_exact &&
          left.is_max_exact == right.is_max_exact &&
+         ArrayStatisticsValueTypeEquals(left.average_byte_width, right.average_byte_width,
+                                        equal_options) &&
          ArrayStatisticsValueTypeEquals(left.min, right.min, equal_options) &&
          ArrayStatisticsValueTypeEquals(left.max, right.max, equal_options);
 }

@@ -1345,6 +1345,68 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayDistinctCount) {
   AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
 }
 
+TEST_F(TestRecordBatch, MakeStatisticsArrayAverageByteWidthApproximate) {
+  auto schema =
+      ::arrow::schema({field("no-statistics", boolean()), field("utf8", utf8())});
+  auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
+  auto string_array = ArrayFromJSON(utf8(), R"(["aa", "bb", "ccc"])");
+  string_array->data()->statistics = std::make_shared<ArrayStatistics>();
+  string_array->data()->statistics->average_byte_width = 2.3;
+  auto batch = RecordBatch::Make(schema, string_array->length(),
+                                 {no_statistics_array, string_array});
+
+  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_statistics_array,
+      MakeStatisticsArray("[null, 1]",
+                          {{
+                               ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                           },
+                           {
+                               ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_APPROXIMATE,
+                           }},
+                          {{
+                               ArrayStatistics::ValueType{int64_t{3}},
+                           },
+                           {
+                               ArrayStatistics::ValueType{2.3},
+                           }}));
+  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+}
+
+TEST_F(TestRecordBatch, MakeStatisticsArrayAverageByteWidthExact) {
+  auto schema =
+      ::arrow::schema({field("no-statistics", boolean()), field("float64", float64())});
+  auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
+  auto float_array = ArrayFromJSON(float64(), R"([1.0, 2.0, 3.0])");
+  float_array->data()->statistics = std::make_shared<ArrayStatistics>();
+  float_array->data()->statistics->average_byte_width = 8.0;
+  float_array->data()->statistics->is_average_byte_width_exact = true;
+
+  auto batch = RecordBatch::Make(schema, float_array->length(),
+                                 {no_statistics_array, float_array});
+
+  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_statistics_array,
+      MakeStatisticsArray("[null, 1]",
+                          {{
+                               ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                           },
+                           {
+                               ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_EXACT,
+                           }},
+                          {{
+                               ArrayStatistics::ValueType{int64_t{3}},
+                           },
+                           {
+                               ArrayStatistics::ValueType{8.0},
+                           }}));
+  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+}
+
 TEST_F(TestRecordBatch, MakeStatisticsArrayMinExact) {
   auto schema =
       ::arrow::schema({field("no-statistics", boolean()), field("uint32", uint32())});
