@@ -77,6 +77,7 @@ function setup_sanitizers() {
 
   # Set up suppressions for AddressSanitizer
   ASAN_OPTIONS="$ASAN_OPTIONS suppressions=$ROOT/build-support/asan-suppressions.txt"
+  ASAN_OPTIONS="$ASAN_OPTIONS allocator_may_return_null=1"
   export ASAN_OPTIONS
 
   # Set up suppressions for LeakSanitizer
