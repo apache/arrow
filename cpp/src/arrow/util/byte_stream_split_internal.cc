@@ -84,8 +84,6 @@ struct ByteStreamSplitEncodeDynamic {
 
   constexpr static auto implementations() {
     return std::array {
-      // Limited interest for performance on builds without a minimum SIMD level
-      // So we put SSE4.2 and NEON as a base level.
       Implementation {
         DispatchLevel::NONE,
 #if defined(ARROW_HAVE_NEON)
