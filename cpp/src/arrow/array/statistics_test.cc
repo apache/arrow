@@ -171,7 +171,7 @@ TEST_F(TestArrayStatisticsEqualityDoubleValue, ApproximateEquals) {
   ASSERT_TRUE(statistics1_.Equals(statistics2_, options_.atol(1e-3).use_atol(true)));
 }
 
-TEST_F(TestArrayStatisticsEqualityDoubleValue, DoubleAttributesCombination) {
+TEST_F(TestArrayStatisticsEqualityDoubleValue, AverageByteWidth) {
   statistics1_.average_byte_width = 4.2;
   ASSERT_FALSE(statistics1_.Equals(statistics2_));
   statistics2_.average_byte_width = 4.2;
