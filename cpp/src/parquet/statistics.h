@@ -128,8 +128,8 @@ class PARQUET_EXPORT EncodedStatistics {
   const std::string& max() const { return max_; }
   const std::string& min() const { return min_; }
 
-  std::optional<bool> is_max_value_exact = std::nullopt;
-  std::optional<bool> is_min_value_exact = std::nullopt;
+  std::optional<bool> is_max_value_exact;
+  std::optional<bool> is_min_value_exact;
 
   int64_t null_count = 0;
   int64_t distinct_count = 0;
