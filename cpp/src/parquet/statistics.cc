@@ -590,10 +590,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     Copy(min, &min_, min_buffer_.get());
     Copy(max, &max_, max_buffer_.get());
     has_min_max_ = true;
-    has_is_min_value_exact_ = true;
-    has_is_max_value_exact_ = true;
-    statistics_.set_is_min_value_exact(true);
-    statistics_.set_is_max_value_exact(true);
+    statistics_.is_min_value_exact = true;
+    statistics_.is_max_value_exact = true;
   }
 
   // Create stats from a thrift Statistics object.
@@ -617,19 +615,15 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     if (has_min_max) {
       PlainDecode(encoded_min, &min_);
       PlainDecode(encoded_max, &max_);
-      statistics_.set_is_min_value_exact(true);
-      statistics_.set_is_max_value_exact(true);
+      statistics_.is_min_value_exact = true;
+      statistics_.is_max_value_exact = true;
     }
 
     has_min_max_ = has_min_max;
-    has_is_min_value_exact_ = has_min_max;
-    has_is_max_value_exact_ = has_min_max;
   }
 
   bool HasDistinctCount() const override { return has_distinct_count_; };
   bool HasMinMax() const override { return has_min_max_; }
-  bool HasIsMinValueExact() const override { return has_is_min_value_exact_; };
-  bool HasIsMaxValueExact() const override { return has_is_max_value_exact_; };
   bool HasNullCount() const override { return has_null_count_; };
 
   void IncrementNullCount(int64_t n) override {
@@ -753,8 +747,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     if (HasMinMax()) {
       s.set_min(this->EncodeMin());
       s.set_max(this->EncodeMax());
-      s.set_is_min_value_exact(this->is_min_value_exact());
-      s.set_is_max_value_exact(this->is_max_value_exact());
+      s.is_min_value_exact = this->is_min_value_exact();
+      s.is_max_value_exact = this->is_max_value_exact();
     }
     if (HasNullCount()) {
       s.set_null_count(this->null_count());
@@ -770,14 +764,16 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   int64_t null_count() const override { return statistics_.null_count; }
   int64_t distinct_count() const override { return statistics_.distinct_count; }
   int64_t num_values() const override { return num_values_; }
-  bool is_min_value_exact() const override { return statistics_.is_min_value_exact; }
-  bool is_max_value_exact() const override { return statistics_.is_max_value_exact; }
+  std::optional<bool> is_min_value_exact() const override {
+    return statistics_.is_min_value_exact;
+  }
+  std::optional<bool> is_max_value_exact() const override {
+    return statistics_.is_max_value_exact;
+  }
 
  private:
   const ColumnDescriptor* descr_;
   bool has_min_max_ = false;
-  bool has_is_min_value_exact_ = false;
-  bool has_is_max_value_exact_ = false;
   bool has_null_count_ = false;
   bool has_distinct_count_ = false;
   T min_;
@@ -809,15 +805,13 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     this->statistics_.null_count = 0;
     this->statistics_.distinct_count = 0;
     this->num_values_ = 0;
+    this->statistics_.is_min_value_exact = std::nullopt;
+    this->statistics_.is_max_value_exact = std::nullopt;
   }
 
   void ResetHasFlags() {
     // has_min_max_ will only be set when it meets any valid value.
     this->has_min_max_ = false;
-    // has_is_min_value_exact_ and has_is_max_value_exact_ will only be set
-    // when min / max are set.
-    this->has_is_min_value_exact_ = false;
-    this->has_is_max_value_exact_ = false;
     // has_distinct_count_ will only be set once SetDistinctCount()
     // is called because distinct count calculation is not cheap and
     // disabled by default.
@@ -843,10 +837,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       Copy(comparator_->Compare(max_, max) ? max : max_, &max_, max_buffer_.get());
     }
     // Set is_{min/max}_value_exact to true when min/max are set.
-    has_is_min_value_exact_ = true;
-    has_is_max_value_exact_ = true;
-    statistics_.set_is_min_value_exact(true);
-    statistics_.set_is_max_value_exact(true);
+    statistics_.is_min_value_exact = true;
+    statistics_.is_max_value_exact = true;
   }
 };
 

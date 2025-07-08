@@ -128,14 +128,12 @@ class PARQUET_EXPORT EncodedStatistics {
   const std::string& max() const { return max_; }
   const std::string& min() const { return min_; }
 
-  bool is_max_value_exact = false;
-  bool is_min_value_exact = false;
+  std::optional<bool> is_max_value_exact = std::nullopt;
+  std::optional<bool> is_min_value_exact = std::nullopt;
 
   int64_t null_count = 0;
   int64_t distinct_count = 0;
 
-  bool has_is_min_value_exact = false;
-  bool has_is_max_value_exact = false;
   bool has_min = false;
   bool has_max = false;
   bool has_null_count = false;
@@ -156,14 +154,12 @@ class PARQUET_EXPORT EncodedStatistics {
     if (max_.length() > length) {
       has_max = false;
       max_.clear();
-      has_is_max_value_exact = false;
-      is_max_value_exact = false;
+      is_max_value_exact = std::nullopt;
     }
     if (min_.length() > length) {
       has_min = false;
       min_.clear();
-      has_is_min_value_exact = false;
-      is_min_value_exact = false;
+      is_min_value_exact = std::nullopt;
     }
   }
 
@@ -197,18 +193,6 @@ class PARQUET_EXPORT EncodedStatistics {
   EncodedStatistics& set_distinct_count(int64_t value) {
     distinct_count = value;
     has_distinct_count = true;
-    return *this;
-  }
-
-  EncodedStatistics& set_is_max_value_exact(bool value) {
-    is_max_value_exact = value;
-    has_is_max_value_exact = true;
-    return *this;
-  }
-
-  EncodedStatistics& set_is_min_value_exact(bool value) {
-    is_min_value_exact = value;
-    has_is_min_value_exact = true;
     return *this;
   }
 };
@@ -281,17 +265,13 @@ class PARQUET_EXPORT Statistics {
   /// \brief Plain-encoded maximum value
   virtual std::string EncodeMax() const = 0;
 
-  /// \brief Return true if the minimum value exact value is set
-  virtual bool HasIsMinValueExact() const = 0;
+  /// \brief Return the minimum value exact flag if set.
+  /// It will be true if there was no truncation.
+  virtual std::optional<bool> is_min_value_exact() const = 0;
 
-  /// \brief Return true if the minimum value is exact, there was no truncation.
-  virtual bool is_min_value_exact() const = 0;
-
-  /// \brief Return true if the maximum value exact value is set
-  virtual bool HasIsMaxValueExact() const = 0;
-
-  /// \brief Return true if the maximum value is exact, there was no truncation.
-  virtual bool is_max_value_exact() const = 0;
+  /// \brief Return the maximum value exact flag if set.
+  /// It will be true if there was no truncation.
+  virtual std::optional<bool> is_max_value_exact() const = 0;
 
   /// \brief The finalized encoded form of the statistics for transport
   virtual EncodedStatistics Encode() = 0;
