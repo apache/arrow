@@ -18,6 +18,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -39,6 +40,7 @@
 #include "arrow/testing/visibility.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_util.h"
 #include "arrow/util/type_fwd.h"
@@ -571,5 +573,22 @@ ARROW_TESTING_EXPORT std::shared_ptr<ArrayData> UnalignBuffers(const ArrayData& 
 ///
 /// This method does not recurse into the dictionary or children
 ARROW_TESTING_EXPORT std::shared_ptr<Array> UnalignBuffers(const Array& array);
+
+/// \brief Convert a floating point value to it's corresponding C Type
+///
+/// Useful when testing HalfFloat (uint16_t) values alongside native floating point types
+template <typename ARROW_TYPE>
+auto RealToCType(double d) {
+  if constexpr (is_half_float_type<ARROW_TYPE>::value) {
+    const auto h = util::Float16::FromDouble(d);
+    // Double check that nan/inf/sign are preserved
+    EXPECT_EQ(h.is_nan(), std::isnan(d));
+    EXPECT_EQ(h.is_infinity(), std::isinf(d));
+    EXPECT_EQ(h.signbit(), std::signbit(d));
+    return h.bits();
+  } else {
+    return static_cast<typename ARROW_TYPE::c_type>(d);
+  }
+}
 
 }  // namespace arrow
