@@ -499,12 +499,28 @@ def test_dataset_factory_inspect_schema_promotion(promotable_mockfs):
     ):
         factory.inspect()
 
-    unified_schema = factory.inspect(promote_options='permissive')
+    schema = factory.inspect(promote_options='permissive')
     expected_schema = pa.schema([
         pa.field('value', pa.int32()),
         pa.field('dictionary', pa.dictionary(pa.int16(), pa.string())),
     ])
-    assert unified_schema.equals(expected_schema)
+    assert schema.equals(expected_schema)
+    dataset = factory.finish(schema)
+    table = dataset.to_table()
+    expected_table = pa.table({
+        'value': pa.chunked_array([[1, 2], [3, 4]], type=pa.int32()),
+        'dictionary': pa.chunked_array([
+            pa.DictionaryArray.from_arrays(
+                pa.array([0, 1], type=pa.int16()),
+                ['a', 'b']
+            ),
+            pa.DictionaryArray.from_arrays(
+                pa.array([1, 0], type=pa.int16()),
+                ['d', 'c']
+            )
+        ]),
+    })
+    assert table.equals(expected_table)
 
     # Inspecting only one fragment should not promote the 'value' field
     inspected_schema_one_frag = factory.inspect(
