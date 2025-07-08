@@ -117,9 +117,9 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
   set(ARROW_FLIGHT_SQL_TEST_SRCS server_test.cc
                                  server_session_middleware_internals_test.cc)
 
-  set(ARROW_FLIGHT_SQL_TEST_LIBS ${SQLite3_LIBRARIES})
+  set(ARROW_FLIGHT_SQL_TEST_LIBS ${SQLite3_LIBRARIES} Boost::headers)
   set(ARROW_FLIGHT_SQL_ACERO_SRCS example/acero_server.cc)
-  set(ARROW_FLIGHT_SQL_EXTRA_LINK_LIBS "")
+  set(ARROW_FLIGHT_SQL_TEST_EXTRA_LINK_LIBS "")
 
   if(ARROW_COMPUTE
      AND ARROW_PARQUET
@@ -130,7 +130,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
     else()
       list(APPEND ARROW_FLIGHT_SQL_TEST_LIBS arrow_substrait_shared)
     endif()
-    list(APPEND ARROW_FLIGHT_SQL_EXTRA_LINK_LIBS arrow_compute_testing)
+    list(APPEND ARROW_FLIGHT_SQL_TEST_EXTRA_LINK_LIBS arrow_compute_testing)
 
     if(ARROW_BUILD_EXAMPLES)
       add_executable(acero-flight-sql-server ${ARROW_FLIGHT_SQL_ACERO_SRCS}
@@ -149,7 +149,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                  ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
                  ${ARROW_FLIGHT_SQL_TEST_LIBS}
                  EXTRA_LINK_LIBS
-                 ${ARROW_FLIGHT_SQL_EXTRA_LINK_LIBS}
+                 ${ARROW_FLIGHT_SQL_TEST_EXTRA_LINK_LIBS}
                  EXTRA_INCLUDES
                  "${CMAKE_CURRENT_BINARY_DIR}/../"
                  LABELS
@@ -158,12 +158,12 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
   add_executable(flight-sql-test-server test_server_cli.cc
                                         ${ARROW_FLIGHT_SQL_TEST_SERVER_SRCS})
   target_link_libraries(flight-sql-test-server
-                        PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS} ${GFLAGS_LIBRARIES}
-                                ${SQLite3_LIBRARIES})
+                        PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
+                                ${ARROW_FLIGHT_SQL_TEST_LIBS} ${GFLAGS_LIBRARIES})
 
   add_executable(flight-sql-test-app test_app_cli.cc)
   target_link_libraries(flight-sql-test-app PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
-                                                    ${GFLAGS_LIBRARIES})
+                                                    Boost::headers ${GFLAGS_LIBRARIES})
 
   if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static" AND ARROW_BUILD_STATIC)
     foreach(TEST_TARGET arrow-flight-sql-test flight-sql-test-server flight-sql-test-app)
