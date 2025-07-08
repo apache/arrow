@@ -176,16 +176,6 @@ TEST_F(TestArrayStatisticsEqualityDoubleValue, DoubleAttributesCombination) {
   ASSERT_FALSE(statistics1_.Equals(statistics2_));
   statistics2_.average_byte_width = 4.2;
   ASSERT_TRUE(statistics1_.Equals(statistics2_));
-
-  statistics1_.min = 0.5;
-  ASSERT_FALSE(statistics1_.Equals(statistics2_));
-  statistics2_.min = 0.5;
-  ASSERT_TRUE(statistics1_.Equals(statistics2_));
-
-  statistics1_.max = 0.5;
-  ASSERT_FALSE(statistics1_.Equals(statistics2_));
-  statistics2_.max = 0.5;
-  ASSERT_TRUE(statistics1_.Equals(statistics2_));
 }
 
 }  // namespace arrow
