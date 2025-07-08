@@ -661,10 +661,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       if (!MinMaxEqual(other)) return false;
     }
 
-    // TODO Modify comparison to check is_min_value_exact and is_max_value_exact
     return null_count() == other.null_count() &&
            distinct_count() == other.distinct_count() &&
-           num_values() == other.num_values();
+           num_values() == other.num_values() &&
+           is_min_value_exact() == other.is_min_value_exact() &&
+           is_max_value_exact() == other.is_max_value_exact();
   }
 
   bool MinMaxEqual(const TypedStatisticsImpl& other) const;
@@ -805,8 +806,6 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     this->statistics_.null_count = 0;
     this->statistics_.distinct_count = 0;
     this->num_values_ = 0;
-    this->statistics_.is_min_value_exact = std::nullopt;
-    this->statistics_.is_max_value_exact = std::nullopt;
   }
 
   void ResetHasFlags() {
@@ -836,7 +835,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       Copy(comparator_->Compare(min_, min) ? min_ : min, &min_, min_buffer_.get());
       Copy(comparator_->Compare(max_, max) ? max : max_, &max_, max_buffer_.get());
     }
-    // Set is_{min/max}_value_exact to true when min/max are set.
+    // There's no min/max truncation implemented at the moment.
     statistics_.is_min_value_exact = true;
     statistics_.is_max_value_exact = true;
   }
