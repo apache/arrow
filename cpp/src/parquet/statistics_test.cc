@@ -1695,7 +1695,7 @@ TEST(TestStatisticsTruncatedMinMax, Unsigned) {
         break;
       case 4:
       case 5:
-        // Max truncated to 2 bytes on columns 0 and 1
+        // Min and Max are not truncated, fit on 2 bytes
         EXPECT_EQ("Kf", encoded_statistics->max());
         ASSERT_EQ(true, encoded_statistics->is_max_value_exact);
         ASSERT_EQ(true, encoded_statistics->is_min_value_exact);
