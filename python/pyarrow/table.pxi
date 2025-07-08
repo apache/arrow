@@ -6307,7 +6307,9 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
     for table in tables:
         c_tables.push_back(table.sp_table)
 
-    options.field_merge_options = _parse_field_merge_options(promote_options, True)
+    options.field_merge_options = _parse_field_merge_options(
+        "default" if promote_options == "none" else promote_options
+    )
 
     with nogil:
         options.unify_schemas = promote_options != "none"

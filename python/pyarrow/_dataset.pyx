@@ -3161,9 +3161,9 @@ cdef class DatasetFactory(_Weakrefable):
             Control how to unify types. Accepts strings "default" and "permissive".
             Default: types must match exactly, except nulls can be merged with other types.
             Permissive: types are promoted when possible.
-        fragments : int, optional (default None)
+        fragments : int, default None
             How many fragments should be inspected to infer the unified schema.
-            Use None to inspect all fragments
+            Use ``None`` to inspect all fragments.
 
         Returns
         -------
@@ -3173,7 +3173,7 @@ cdef class DatasetFactory(_Weakrefable):
             CInspectOptions options
             CResult[shared_ptr[CSchema]] result
 
-        options.field_merge_options = _parse_field_merge_options(promote_options, False)
+        options.field_merge_options = _parse_field_merge_options(promote_options)
 
         if fragments is None:
             options.fragments = -1  # InspectOptions::kInspectAllFragments
