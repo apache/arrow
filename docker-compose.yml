@@ -1660,8 +1660,9 @@ services:
     environment:
       <<: *common
       LIBARROW_DOWNLOAD: "false"
-      ARROW_SOURCE_HOME: "/arrow"
+      ARROW_MIMALLOC: "OFF"
       ARROW_R_DEV: ${ARROW_R_DEV}
+      ARROW_SOURCE_HOME: "/arrow"
       ARROW_USE_PKG_CONFIG: "false"
     volumes:
       - .:/arrow:delegated
