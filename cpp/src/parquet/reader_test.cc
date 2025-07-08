@@ -1023,7 +1023,7 @@ Column 0
   Uncompressed Size: 103, Compressed Size: 104
 Column 1
   Values: 3, Null Values: 0, Distinct Values: 0
-  Max: 1, Min: 1, Is Max Exact Value: N/A, Is Min Exact Value: N/A
+  Max: 1, Min: 1, Is Max Value Exact: N/A, Is Min Value Exact: N/A
   Compression: SNAPPY, Encodings: PLAIN_DICTIONARY(DICT_PAGE) PLAIN_DICTIONARY
   Uncompressed Size: 52, Compressed Size: 56
 )###";
