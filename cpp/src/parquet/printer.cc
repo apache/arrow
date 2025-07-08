@@ -172,17 +172,17 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
                << FormatStatValue(descr->physical_type(), max, descr->logical_type())
                << ", Min: "
                << FormatStatValue(descr->physical_type(), min, descr->logical_type());
-        if (stats->is_min_value_exact.has_value()) {
-          stream << ", Is Min Value Exact: "
-                 << (stats->is_min_value_exact.value() ? "true" : "false");
-        } else {
-          stream << ", Is Min Value Exact: N/A";
-        }
         if (stats->is_max_value_exact.has_value()) {
           stream << ", Is Max Value Exact: "
                  << (stats->is_max_value_exact.value() ? "true" : "false");
         } else {
           stream << ", Is Max Value Exact: N/A";
+        }
+        if (stats->is_min_value_exact.has_value()) {
+          stream << ", Is Min Value Exact: "
+                 << (stats->is_min_value_exact.value() ? "true" : "false");
+        } else {
+          stream << ", Is Min Value Exact: N/A";
         }
       } else {
         stream << "  Statistics Not Set";
@@ -354,14 +354,6 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
                  << R"("Min": ")"
                  << FormatStatValue(descr->physical_type(), min, descr->logical_type())
                  << "\"";
-          if (stats->is_min_value_exact().has_value()) {
-            stream << ", "
-                   << R"("IsMinValueExact": ")"
-                   << (stats->is_min_value_exact().value() ? "true" : "false") << "\"";
-          } else {
-            stream << ", "
-                   << R"("IsMinValueExact": "N/A")";
-          }
           if (stats->is_max_value_exact().has_value()) {
             stream << ", "
                    << R"("IsMaxValueExact": ")"
@@ -369,6 +361,14 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
           } else {
             stream << ", "
                    << R"("IsMaxValueExact": "N/A")";
+          }
+          if (stats->is_min_value_exact().has_value()) {
+            stream << ", "
+                   << R"("IsMinValueExact": ")"
+                   << (stats->is_min_value_exact().value() ? "true" : "false") << "\"";
+          } else {
+            stream << ", "
+                   << R"("IsMinValueExact": "N/A")";
           }
         }
         stream << " },";
