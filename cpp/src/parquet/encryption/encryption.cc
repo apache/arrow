@@ -30,6 +30,10 @@ using ::arrow::util::SecureString;
 
 namespace parquet {
 
+// any empty SecureString key is interpreted as if no key is given
+// this instance is used when a SecureString reference is returned
+const SecureString no_key_ = SecureString();
+
 // integer key retriever
 void IntegerKeyIdRetriever::PutKey(uint32_t key_id, SecureString key) {
   key_map_.insert({key_id, std::move(key)});

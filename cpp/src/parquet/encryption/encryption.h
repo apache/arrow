@@ -328,12 +328,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
   ::arrow::util::SecureString footer_key_;
   std::string aad_prefix_;
   std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier_;
-
-  // any empty SecureString key is interpreted as if no key is given
-  // this instance is used if a SecureString reference is returned
-  const ::arrow::util::SecureString no_key_ = ::arrow::util::SecureString();
   ColumnPathToDecryptionPropertiesMap column_decryption_properties_;
-
   std::shared_ptr<DecryptionKeyRetriever> key_retriever_;
   bool check_plaintext_footer_integrity_;
   bool plaintext_files_allowed_;
