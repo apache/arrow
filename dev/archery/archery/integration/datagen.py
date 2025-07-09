@@ -210,8 +210,10 @@ class RunEndsField(IntegerField):
         rng = np.random.default_rng()
         if size == 0:
             values = []
+            runs_count = 0
         elif size == 1:
             values = [size]
+            runs_count = 1
         else:
             runs_count = rng.integers(1, size)
             values = rng.choice(range(1, size), size=runs_count - 1, replace=False)
