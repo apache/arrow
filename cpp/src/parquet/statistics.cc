@@ -835,7 +835,6 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       Copy(comparator_->Compare(min_, min) ? min_ : min, &min_, min_buffer_.get());
       Copy(comparator_->Compare(max_, max) ? max : max_, &max_, max_buffer_.get());
     }
-    // There's no min/max truncation implemented at the moment.
     statistics_.is_min_value_exact = true;
     statistics_.is_max_value_exact = true;
   }
