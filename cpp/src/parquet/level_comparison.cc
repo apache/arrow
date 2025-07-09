@@ -17,6 +17,10 @@
 
 #include "parquet/level_comparison.h"
 
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+#  include "parquet/level_comparison_avx2_internal.h"
+#endif
+
 #define PARQUET_IMPL_NAMESPACE standard
 #include "parquet/level_comparison_inc.h"
 #undef PARQUET_IMPL_NAMESPACE
@@ -27,10 +31,8 @@
 
 namespace parquet::internal {
 
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
 MinMax FindMinMaxAvx2(const int16_t* levels, int64_t num_levels);
 uint64_t GreaterThanBitmapAvx2(const int16_t* levels, int64_t num_levels, int16_t rhs);
-#endif
 
 namespace {
 

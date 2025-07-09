@@ -111,7 +111,9 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
       metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count);
 }
 
-static std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
+namespace {
+
+std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
   if (metadata.__isset.geospatial_statistics) {
     geospatial::EncodedGeoStatistics encoded_geo_stats =
@@ -185,6 +187,8 @@ void ToThriftKeyValueMetadata(const KeyValueMetadata& source, Metadata* metadata
   }
   metadata->__set_key_value_metadata(std::move(key_value_metadata));
 }
+
+}  // namespace
 
 // MetaData Accessor
 

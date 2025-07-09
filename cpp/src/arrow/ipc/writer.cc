@@ -1549,12 +1549,6 @@ Result<std::shared_ptr<RecordBatchWriter>> MakeStreamWriter(
       options, /*is_file_format=*/false);
 }
 
-Result<std::shared_ptr<RecordBatchWriter>> NewStreamWriter(
-    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-    const IpcWriteOptions& options) {
-  return MakeStreamWriter(sink, schema, options);
-}
-
 Result<std::shared_ptr<RecordBatchWriter>> MakeFileWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options,
@@ -1572,13 +1566,6 @@ Result<std::shared_ptr<RecordBatchWriter>> MakeFileWriter(
       std::make_unique<internal::PayloadFileWriter>(options, schema, metadata,
                                                     std::move(sink)),
       schema, options, /*is_file_format=*/true);
-}
-
-Result<std::shared_ptr<RecordBatchWriter>> NewFileWriter(
-    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-    const IpcWriteOptions& options,
-    const std::shared_ptr<const KeyValueMetadata>& metadata) {
-  return MakeFileWriter(sink, schema, options, metadata);
 }
 
 namespace internal {
