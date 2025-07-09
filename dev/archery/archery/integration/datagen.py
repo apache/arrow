@@ -215,7 +215,7 @@ class RunEndsField(IntegerField):
             values = [size]
             runs_count = 1
         else:
-            runs_count = rng.integers(1, size)
+            runs_count = int(size / 2)
             values = rng.choice(range(1, size), size=runs_count - 1, replace=False)
             values = sorted(values)
             values.append(size)
@@ -1164,7 +1164,7 @@ class RunEndEncodedField(Field):
         ]
 
     def generate_column(self, size, name=None):
-        values = self.values_field.generate_column(size)
+        values = self.values_field.generate_column(int(size/2))
         run_ends = self.run_ends_field.generate_column(size)
         if name is None:
             name = self.name
