@@ -208,10 +208,12 @@ class RunEndsField(IntegerField):
                 f"Size {size} exceeds the maximum for bit width {self.bit_width}."
             )
         rng = np.random.default_rng()
-        runs_count = rng.integers(1, size + 1)
-        if runs_count == 1:
+        if size == 0:
+            values = []
+        elif size == 1:
             values = [size]
         else:
+            runs_count = rng.integers(1, size)
             values = rng.choice(range(1, size), size=runs_count - 1, replace=False)
             values = sorted(values)
             values.append(size)
