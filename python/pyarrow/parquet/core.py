@@ -1680,9 +1680,10 @@ _read_table_docstring = """
 Parameters
 ----------
 source : str, pyarrow.NativeFile, or file-like object
-    If a string passed, can be a single file name or directory name. For
-    file-like objects, only read a single file. Use pyarrow.BufferReader to
-    read a file contained in a bytes or buffer-like object.
+    If a string is passed, it should be single file name.
+    If the dataset module is enabled, you can also pass a directory name or a list
+    of file names.
+    Use pyarrow.BufferReader to read a file contained in a bytes or buffer-like object.
 columns : list
     If not None, only these columns will be read from the file. A column
     name may be a prefix of a nested field, e.g. 'a' will select 'a.b',
@@ -1881,7 +1882,15 @@ def read_table(source, *, columns=None, use_threads=True,
         filesystem, path = _resolve_filesystem_and_path(source, filesystem)
         if filesystem is not None:
             source = filesystem.open_input_file(path)
-        # TODO test that source is not a directory or a list
+        if not (
+            (isinstance(source, str) and not os.path.isdir(source))
+            or isinstance(source, pa.NativeFile)
+            or hasattr(source, "read")
+        ):
+            raise ValueError(
+                "source should be a file name, a pyarrow.NativeFile or a file-like "
+                "object when the pyarrow.dataset module is not available"
+            )
         dataset = ParquetFile(
             source, read_dictionary=read_dictionary,
             binary_type=binary_type,
