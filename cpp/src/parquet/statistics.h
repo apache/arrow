@@ -164,7 +164,6 @@ class PARQUET_EXPORT EncodedStatistics {
   }
 
   bool is_set() const {
-    // has_is_{min/max}_value_exact are only set if has_min or has_max
     return has_min || has_max || has_null_count || has_distinct_count;
   }
 
