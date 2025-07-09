@@ -223,6 +223,7 @@ class SerializedPageReader : public PageReader {
                        const CryptoContext* crypto_ctx, bool always_compressed)
       : properties_(properties),
         stream_(std::move(stream)),
+        decompression_buffer_(AllocateBuffer(properties_.memory_pool(), 0)),
         page_ordinal_(0),
         seen_num_values_(0),
         total_num_values_(total_num_values) {
@@ -237,8 +238,10 @@ class SerializedPageReader : public PageReader {
 
   // Implement the PageReader interface
   //
-  // The returned Page may contain references that aren't guaranteed to live
-  // beyond the next call to NextPage().
+  // The returned Page contains references that aren't guaranteed to live
+  // beyond the next call to NextPage(). SerializedPageReader reuses the
+  // decryption and decompression buffers internally, so if NextPage() is
+  // called then the content of previous page might be invalidated.
   std::shared_ptr<Page> NextPage() override;
 
   void set_max_page_header_size(uint32_t size) override { max_page_header_size_ = size; }
@@ -264,6 +267,7 @@ class SerializedPageReader : public PageReader {
 
   // Compression codec to use.
   std::unique_ptr<::arrow::util::Codec> decompressor_;
+  std::shared_ptr<ResizableBuffer> decompression_buffer_;
 
   bool always_compressed_;
 
@@ -546,12 +550,13 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
     throw ParquetException("Invalid page header");
   }
 
-  // Allocate a buffer to decompress into
-  auto decompression_buffer = AllocateBuffer(properties_.memory_pool(), uncompressed_len);
+  // Grow the uncompressed buffer if we need to.
+  PARQUET_THROW_NOT_OK(
+      decompression_buffer_->Resize(uncompressed_len, /*shrink_to_fit=*/false));
 
   if (levels_byte_len > 0) {
     // First copy the levels as-is
-    uint8_t* decompressed = decompression_buffer->mutable_data();
+    uint8_t* decompressed = decompression_buffer_->mutable_data();
     memcpy(decompressed, page_buffer->data(), levels_byte_len);
   }
 
@@ -567,7 +572,7 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
         decompressor_->Decompress(
             compressed_len - levels_byte_len, page_buffer->data() + levels_byte_len,
             uncompressed_len - levels_byte_len,
-            decompression_buffer->mutable_data() + levels_byte_len));
+            decompression_buffer_->mutable_data() + levels_byte_len));
   }
 
   if (decompressed_len != uncompressed_len - levels_byte_len) {
@@ -576,7 +581,7 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
                            ", but got:" + std::to_string(decompressed_len));
   }
 
-  return decompression_buffer;
+  return decompression_buffer_;
 }
 
 }  // namespace
