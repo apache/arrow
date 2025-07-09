@@ -23,6 +23,7 @@
 #include "arrow/acero/aggregate_internal.h"
 #include "arrow/acero/aggregate_node.h"
 #include "arrow/acero/exec_plan.h"
+#include "arrow/acero/exec_plan_internal.h"
 #include "arrow/acero/options.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function.h"

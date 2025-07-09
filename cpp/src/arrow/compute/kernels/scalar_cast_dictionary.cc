@@ -33,6 +33,8 @@ using internal::CopyBitmap;
 namespace compute {
 namespace internal {
 
+namespace {
+
 Status CastToDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const CastOptions& options = CastState::Get(ctx);
   const auto& out_type = checked_cast<const DictionaryType&>(*out->type());
@@ -94,6 +96,8 @@ void AddDictionaryCast(CastFunction* func) {
   kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
   DCHECK_OK(func->AddKernel(SrcType::type_id, std::move(kernel)));
 }
+
+}  // namespace
 
 std::vector<std::shared_ptr<CastFunction>> GetDictionaryCasts() {
   auto cast_dict = std::make_shared<CastFunction>("cast_dictionary", Type::DICTIONARY);

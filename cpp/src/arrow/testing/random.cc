@@ -128,6 +128,35 @@ struct GenerateOptions {
   double nan_probability_;
 };
 
+void GenerateFullDayMillisNoNan(uint8_t* buffer, size_t n) {
+  int64_t* data = reinterpret_cast<int64_t*>(buffer);
+  constexpr int64_t kFullDayMillis = 1000 * 60 * 60 * 24;
+  std::for_each(data, data + n, [&](int64_t& v) { return v *= kFullDayMillis; });
+}
+
+template <typename ArrowType, typename OptionType>
+std::shared_ptr<NumericArray<ArrowType>> GenerateNumericArray(int64_t size,
+                                                              OptionType options,
+                                                              int64_t alignment,
+                                                              MemoryPool* memory_pool) {
+  using CType = typename ArrowType::c_type;
+  auto type = TypeTraits<ArrowType>::type_singleton();
+  BufferVector buffers{2};
+
+  int64_t null_count = 0;
+  buffers[0] = *AllocateEmptyBitmap(size, alignment, memory_pool);
+  options.GenerateBitmap(buffers[0]->mutable_data(), size, &null_count);
+
+  buffers[1] = *AllocateBuffer(sizeof(CType) * size, alignment, memory_pool);
+  options.GenerateData(buffers[1]->mutable_data(), size);
+  if (std::is_same<ArrowType, Date64Type>::value) {
+    GenerateFullDayMillisNoNan(buffers[1]->mutable_data(), size);
+  }
+
+  auto array_data = ArrayData::Make(type, size, buffers, null_count);
+  return std::make_shared<NumericArray<ArrowType>>(array_data);
+}
+
 }  // namespace
 
 std::shared_ptr<Buffer> RandomArrayGenerator::NullBitmap(int64_t size,
@@ -174,33 +203,6 @@ std::shared_ptr<Array> RandomArrayGenerator::Boolean(int64_t size,
 
   auto array_data = ArrayData::Make(arrow::boolean(), size, buffers, null_count);
   return std::make_shared<BooleanArray>(array_data);
-}
-
-void GenerateFullDayMillisNoNan(uint8_t* buffer, size_t n) {
-  int64_t* data = reinterpret_cast<int64_t*>(buffer);
-  constexpr int64_t kFullDayMillis = 1000 * 60 * 60 * 24;
-  std::for_each(data, data + n, [&](int64_t& v) { return v *= kFullDayMillis; });
-}
-
-template <typename ArrowType, typename OptionType>
-static std::shared_ptr<NumericArray<ArrowType>> GenerateNumericArray(
-    int64_t size, OptionType options, int64_t alignment, MemoryPool* memory_pool) {
-  using CType = typename ArrowType::c_type;
-  auto type = TypeTraits<ArrowType>::type_singleton();
-  BufferVector buffers{2};
-
-  int64_t null_count = 0;
-  buffers[0] = *AllocateEmptyBitmap(size, alignment, memory_pool);
-  options.GenerateBitmap(buffers[0]->mutable_data(), size, &null_count);
-
-  buffers[1] = *AllocateBuffer(sizeof(CType) * size, alignment, memory_pool);
-  options.GenerateData(buffers[1]->mutable_data(), size);
-  if (std::is_same<ArrowType, Date64Type>::value) {
-    GenerateFullDayMillisNoNan(buffers[1]->mutable_data(), size);
-  }
-
-  auto array_data = ArrayData::Make(type, size, buffers, null_count);
-  return std::make_shared<NumericArray<ArrowType>>(array_data);
 }
 
 #define PRIMITIVE_RAND_IMPL(Name, CType, ArrowType, Distribution)                \

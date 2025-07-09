@@ -30,6 +30,7 @@
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/compute/registry.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
