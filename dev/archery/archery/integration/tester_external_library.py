@@ -16,7 +16,6 @@
 # under the License.
 
 from pathlib import Path
-from typing import Final
 from . import cdata
 from .tester import Tester, CDataExporter, CDataImporter
 from .util import run_cmd, log
