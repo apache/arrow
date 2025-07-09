@@ -47,6 +47,8 @@ class Array : public libmexclass::proxy::Proxy {
 
   void exportToC(libmexclass::proxy::method::Context& context);
 
+  void validate(libmexclass::proxy::method::Context& context);
+
   std::shared_ptr<arrow::Array> array;
 };
 
