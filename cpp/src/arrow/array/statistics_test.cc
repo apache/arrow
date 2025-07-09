@@ -76,7 +76,7 @@ TEST(TestArrayStatistics, Max) {
   ASSERT_FALSE(statistics.is_max_exact);
 }
 
-TEST(TestArrayStatistics, EqualityNonDoulbeValue) {
+TEST(TestArrayStatistics, Equals) {
   ArrayStatistics statistics1;
   ArrayStatistics statistics2;
 
@@ -92,9 +92,11 @@ TEST(TestArrayStatistics, EqualityNonDoulbeValue) {
   statistics2.distinct_count = 2929;
   ASSERT_EQ(statistics1, statistics2);
 
-  // Although this assertion is meaningless without average_byte_width,
-  // the purpose here is simply to check whether is_average_byte_width_exact
-  // is included in the Equality.
+  statistics1.average_byte_width = 2.9;
+  ASSERT_NE(statistics1, statistics2);
+  statistics2.average_byte_width = 2.9;
+  ASSERT_EQ(statistics1, statistics2);
+
   statistics1.is_average_byte_width_exact = true;
   ASSERT_NE(statistics1, statistics2);
   statistics2.is_average_byte_width_exact = true;
@@ -169,13 +171,6 @@ TEST_F(TestArrayStatisticsEqualityDoubleValue, ApproximateEquals) {
   statistics2_.max = 0.5;
   ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.atol(1e-3)));
   ASSERT_TRUE(statistics1_.Equals(statistics2_, options_.atol(1e-3).use_atol(true)));
-}
-
-TEST_F(TestArrayStatisticsEqualityDoubleValue, AverageByteWidth) {
-  statistics1_.average_byte_width = 4.2;
-  ASSERT_FALSE(statistics1_.Equals(statistics2_));
-  statistics2_.average_byte_width = 4.2;
-  ASSERT_TRUE(statistics1_.Equals(statistics2_));
 }
 
 }  // namespace arrow
