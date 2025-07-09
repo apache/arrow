@@ -227,7 +227,7 @@ class RunEndsField(IntegerField):
 
         if name is None:
             name = self.name
-        return PrimitiveColumn(name, runs_count, is_valid, values)
+        return PrimitiveColumn(name, int(runs_count), is_valid, values)
 
 
 class DateField(IntegerField):
