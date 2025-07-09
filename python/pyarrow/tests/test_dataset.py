@@ -501,7 +501,9 @@ def test_dataset_factory_inspect_schema_promotion(promotable_mockfs):
 
     schema = factory.inspect(promote_options='permissive')
     expected_schema = pa.schema([
+        # Promoted from int8 and uint16
         pa.field('value', pa.int32()),
+        # Dictionary index type promoted from int8 and int16
         pa.field('dictionary', pa.dictionary(pa.int16(), pa.string())),
     ])
     assert schema.equals(expected_schema)
