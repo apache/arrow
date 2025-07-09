@@ -240,7 +240,7 @@ class SerializedPageReader : public PageReader {
   //
   // The returned Page contains references that aren't guaranteed to live
   // beyond the next call to NextPage(). SerializedPageReader reuses the
-  // decryption and decompression buffers internally, so if NextPage() is
+  // decompression buffer internally, so if NextPage() is
   // called then the content of previous page might be invalidated.
   std::shared_ptr<Page> NextPage() override;
 
