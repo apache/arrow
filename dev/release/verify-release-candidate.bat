@@ -69,7 +69,8 @@ call conda create --no-shortcuts -c conda-forge -f -q -y -p %_VERIFICATION_CONDA
 
 call activate %_VERIFICATION_CONDA_ENV% || exit /B 1
 
-set GENERATOR=Visual Studio 17 2022
+@rem set GENERATOR=Visual Studio 17 2022
+set GENERATOR=Ninja
 set ARCHITECTURE=x64
 set CONFIGURATION=release
 
@@ -90,7 +91,6 @@ call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Buil
 @rem generator used
 
 cmake -G "%GENERATOR%" ^
-      -A "%ARCHITECTURE%" ^
       -DARROW_BOOST_USE_SHARED=ON ^
       -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BUILD_TESTS=ON ^
@@ -113,11 +113,11 @@ cmake -G "%GENERATOR%" ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       -DCMAKE_PREFIX_PATH=%CONDA_PREFIX%\Library ^
-      -DCMAKE_UNITY_BUILD=OFF ^
+      -DCMAKE_UNITY_BUILD=ON ^
       -DPARQUET_REQUIRE_ENCRYPTION=ON ^
       ..  || exit /B
 
-cmake --build . --target INSTALL --config Release || exit /B 1
+cmake --build . --target install --config Release || exit /B 1
 
 @rem Needed so python-test.exe works
 set PYTHONPATH_ORIGINAL=%PYTHONPATH%
