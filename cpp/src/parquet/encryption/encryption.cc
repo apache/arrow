@@ -32,7 +32,7 @@ namespace parquet {
 
 // any empty SecureString key is interpreted as if no key is given
 // this instance is used when a SecureString reference is returned
-const SecureString no_key_ = SecureString();
+static SecureString kNoKey = SecureString();
 
 // integer key retriever
 void IntegerKeyIdRetriever::PutKey(uint32_t key_id, SecureString key) {
@@ -219,7 +219,7 @@ const SecureString& FileDecryptionProperties::column_key(
       return column_prop->key();
     }
   }
-  return no_key_;
+  return kNoKey;
 }
 
 FileDecryptionProperties::FileDecryptionProperties(
