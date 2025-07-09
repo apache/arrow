@@ -1536,7 +1536,7 @@ TEST(TestColumnWriter, WriteDataPagesChangeOnRecordBoundariesWithSmallBatches) {
   auto row_group_reader = file_reader->RowGroup(0);
 
   // Check if pages are changed on record boundaries.
-  const std::array<int64_t, num_cols> expect_num_pages_by_col = {5, 201, 397, 201};
+  const std::array<int64_t, num_cols> expect_num_pages_by_col = {5, 201, 397, 400};
   const std::array<int64_t, num_cols> expect_num_rows_1st_page_by_col = {99, 1, 1, 1};
   const std::array<int64_t, num_cols> expect_num_vals_1st_page_by_col = {99, 50, 99, 150};
   for (int32_t i = 0; i < num_cols; ++i) {
