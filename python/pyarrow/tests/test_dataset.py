@@ -507,6 +507,7 @@ def test_dataset_factory_inspect_schema_promotion(promotable_mockfs):
     assert schema.equals(expected_schema)
     dataset = factory.finish(schema)
     table = dataset.to_table()
+    table.validate(full=True)
     expected_table = pa.table({
         'value': pa.chunked_array([[1, 2], [3, 4]], type=pa.int32()),
         'dictionary': pa.chunked_array([
