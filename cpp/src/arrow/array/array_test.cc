@@ -4104,7 +4104,7 @@ TYPED_TEST(TestPrimitiveArray, IndexOperator) {
 
 class TestHalfFloatBuilder : public ::testing::Test {
  public:
-  void VerifyValue(HalfFloatBuilder& builder, int64_t index, float expected) {
+  void VerifyValue(const HalfFloatBuilder& builder, int64_t index, float expected) {
     ASSERT_EQ(builder.GetValue(index), Float16(expected).bits());
     ASSERT_EQ(builder.GetValue<Float16>(index), Float16(expected));
     ASSERT_EQ(builder.GetValue<uint16_t>(index), Float16(expected).bits());
@@ -4139,35 +4139,36 @@ TEST_F(TestHalfFloatBuilder, TestBulkAppend) {
   for (int i = 0; i < 5; i++) {
     VerifyValue(builder, i, 1.5f);
   }
-  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
-  ASSERT_EQ(array->null_count(), 2);
-  ASSERT_EQ(array->length(), 9);
-  auto comp = ArrayFromJSON(float16(), "[1.5,1.5,1.5,1.5,1.5,null,2,null,2]");
-  ASSERT_TRUE(array->Equals(*comp));
 
-  std::vector<Float16> vals = {Float16(2.5), Float16(3.5)};
-  std::vector<bool> is_valid = {true, true};
-  std::vector<uint8_t> bitmap = {1, 1};
+  {
+    ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_EQ(array->null_count(), 2);
+    ASSERT_EQ(array->length(), 9);
+    auto comp = ArrayFromJSON(float16(), "[1.5,1.5,1.5,1.5,1.5,null,2,null,2]");
+    AssertArraysEqual(*array, *comp);
+  }
+
+  std::vector<Float16> vals = {Float16(1.0f), Float16(2.0f), Float16(3.0f)};
+  std::vector<bool> is_valid = {true, false, true};
+  std::vector<uint8_t> valid_bytes = {1, 0, 1};
+  std::vector<uint8_t> bitmap = {0b00000101};
   ASSERT_OK(builder.AppendValues(vals));
   ASSERT_OK(builder.AppendValues(vals, is_valid));
   ASSERT_OK(builder.AppendValues(vals.data(), vals.size(), is_valid));
   ASSERT_OK(builder.AppendValues(vals.data(), vals.size()));
+  ASSERT_OK(builder.AppendValues(vals.data(), vals.size(), valid_bytes.data()));
   ASSERT_OK(builder.AppendValues(vals.data(), vals.size(), bitmap.data(), 0));
 
-  for (int i = 0; i < 5; i++) {
-    VerifyValue(builder, (2 * i), 2.5);
-    VerifyValue(builder, (2 * i) + 1, 3.5);
+  {
+    ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_EQ(array->null_count(), 4);
+    ASSERT_EQ(array->length(), 18);
+    auto comp =
+        ArrayFromJSON(float16(), "[1,2,3,1,null,3,1,null,3,1,2,3,1,null,3,1,null,3]");
+    AssertArraysEqual(*array, *comp);
   }
-}
-
-TEST_F(TestHalfFloatBuilder, TestReinterpretCast) {
-  std::vector<Float16> vf{Float16(1.0f), Float16(2.0f), Float16(3.0f)};
-  Float16* fdata = vf.data();
-  uint16_t* udata = reinterpret_cast<uint16_t*>(fdata);
-
-  ASSERT_EQ(udata[0], vf[0].bits());
-  ASSERT_EQ(udata[1], vf[1].bits());
-  ASSERT_EQ(udata[2], vf[2].bits());
 }
 
 }  // namespace arrow
