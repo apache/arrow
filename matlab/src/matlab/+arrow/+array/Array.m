@@ -53,6 +53,20 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
             proxy = libmexclass.proxy.Proxy(Name=traits.TypeProxyClassName, ID=typeStruct.ProxyID);
             type = traits.TypeConstructor(proxy);
         end
+
+        function validate(obj, opts)
+             arguments
+                obj
+                opts.ValidationMode(1, 1) arrow.array.ValidationMode = arrow.array.ValidationMode.Minimal
+             end
+
+             if opts.ValidationMode == arrow.array.ValidationMode.None
+                 id = "arrow:array:InvalidValidationMode";
+                 msg = "Invalid ValidationMode. ValidationMode must be ""Minimum"" or ""Full"".";
+                 error(id, msg);
+             end
+             obj.Proxy.validate(struct(ValidationMode=uint8(opts.ValidationMode)));
+        end
     end
 
     methods (Access = private)
