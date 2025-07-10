@@ -103,7 +103,7 @@ struct GenerateOptions {
     pcg32_fast rng(seed_++);
     DistributionType dist(min_, max_);
 
-    if constexpr (std::is_same_v<ArrowType, HalfFloatType>) {
+    if constexpr (is_half_float_type<ArrowType>::value) {
       // Special handling is required to prevent generating Float16 NaNs
       std::generate(data, data + n, [&] {
         Float16 f;
