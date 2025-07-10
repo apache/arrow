@@ -69,6 +69,7 @@ using FieldVector = std::vector<std::shared_ptr<Field>>;
 
 class Array;
 struct ArrayData;
+struct ArrayStatistics;
 struct ArraySpan;
 class ArrayBuilder;
 struct Scalar;
@@ -782,5 +783,11 @@ enum class DeviceAllocationType : char {
 constexpr int kDeviceAllocationTypeMax = 16;
 
 class DeviceAllocationTypeSet;
+
+// When slicing, we do not know the null count of the sliced range without
+// doing some computation. To avoid doing this eagerly, we set the null count
+// to -1 (any negative number will do). When Array::null_count is called the
+// first time, the null count will be computed. See ARROW-33
+constexpr int64_t kUnknownNullCount = -1;
 
 }  // namespace arrow

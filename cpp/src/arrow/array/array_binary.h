@@ -28,10 +28,9 @@
 #include <vector>
 
 #include "arrow/array/array_base.h"
-#include "arrow/array/data.h"
 #include "arrow/buffer.h"
 #include "arrow/stl_iterator.h"
-#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -90,10 +89,10 @@ class BaseBinaryArray : public FlatArray {
   std::string GetString(int64_t i) const { return std::string(GetView(i)); }
 
   /// Note that this buffer does not account for any slice offset
-  std::shared_ptr<Buffer> value_offsets() const { return data_->buffers[1]; }
+  std::shared_ptr<Buffer> value_offsets() const;
 
   /// Note that this buffer does not account for any slice offset
-  std::shared_ptr<Buffer> value_data() const { return data_->buffers[2]; }
+  std::shared_ptr<Buffer> value_data() const;
 
   const offset_type* raw_value_offsets() const { return raw_value_offsets_; }
 
@@ -115,13 +114,7 @@ class BaseBinaryArray : public FlatArray {
   /// \brief Return the total length of the memory in the data buffer
   /// referenced by this array. If the array has been sliced then this may be
   /// less than the size of the data buffer (data_->buffers[2]).
-  offset_type total_values_length() const {
-    if (data_->length > 0) {
-      return raw_value_offsets_[data_->length] - raw_value_offsets_[0];
-    } else {
-      return 0;
-    }
-  }
+  offset_type total_values_length() const;
 
   IteratorType begin() const { return IteratorType(*this); }
 
@@ -132,11 +125,7 @@ class BaseBinaryArray : public FlatArray {
   BaseBinaryArray() = default;
 
   // Protected method for constructors
-  void SetData(const std::shared_ptr<ArrayData>& data) {
-    this->Array::SetData(data);
-    raw_value_offsets_ = data->GetValuesSafe<offset_type>(1);
-    raw_data_ = data->GetValuesSafe<uint8_t>(2, /*offset=*/0);
-  }
+  void SetData(const std::shared_ptr<ArrayData>& data);
 
   const offset_type* raw_value_offsets_ = NULLPTR;
   const uint8_t* raw_data_ = NULLPTR;
@@ -230,7 +219,7 @@ class ARROW_EXPORT BinaryViewArray : public FlatArray {
   std::string_view GetView(int64_t i) const;
   std::string GetString(int64_t i) const { return std::string{GetView(i)}; }
 
-  const auto& values() const { return data_->buffers[1]; }
+  const std::shared_ptr<Buffer>& values() const;
   const c_type* raw_values() const { return raw_values_; }
 
   std::optional<std::string_view> operator[](int64_t i) const {
@@ -243,10 +232,7 @@ class ARROW_EXPORT BinaryViewArray : public FlatArray {
  protected:
   using FlatArray::FlatArray;
 
-  void SetData(std::shared_ptr<ArrayData> data) {
-    FlatArray::SetData(std::move(data));
-    raw_values_ = data_->GetValuesSafe<c_type>(1);
-  }
+  void SetData(std::shared_ptr<ArrayData> data);
 
   const c_type* raw_values_;
 };
@@ -305,12 +291,7 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
   IteratorType end() const { return IteratorType(*this, length()); }
 
  protected:
-  void SetData(const std::shared_ptr<ArrayData>& data) {
-    this->PrimitiveArray::SetData(data);
-    byte_width_ =
-        internal::checked_cast<const FixedSizeBinaryType&>(*type()).byte_width();
-    values_ = raw_values_ + data_->offset * byte_width_;
-  }
+  void SetData(const std::shared_ptr<ArrayData>& data);
 
   const uint8_t* values_;
   int32_t byte_width_;
