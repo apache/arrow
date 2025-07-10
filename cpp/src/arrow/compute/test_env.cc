@@ -35,7 +35,7 @@ class ComputeKernelEnvironment : public ::testing::Environment {
 
 }  // namespace
 
-#if defined(_MSC_VER) && _MSC_VER < 1930
+#ifdef _MSC_VER
 // Initialize the compute module
 ::testing::Environment* compute_kernels_env =
     ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
@@ -43,7 +43,7 @@ class ComputeKernelEnvironment : public ::testing::Environment {
 
 }  // namespace arrow::compute
 
-#if !(defined(_MSC_VER) && _MSC_VER < 1930)
+#ifndef _MSC_VER
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   ::testing::AddGlobalTestEnvironment(new arrow::compute::ComputeKernelEnvironment);
