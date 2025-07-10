@@ -92,8 +92,8 @@ bool EqualBinaryView(BinaryViewType::c_type l, BinaryViewType::c_type r,
 
   // Sizes are equal and this is not inline, therefore both are out
   // of line and have kPrefixSize first in common.
-  const uint8_t* l_data = l_buffers[l.ref.buffer_index].data + l.ref.offset;
-  const uint8_t* r_data = r_buffers[r.ref.buffer_index].data + r.ref.offset;
+  const uint8_t* l_data = l_buffers[l.ref.buffer_index]->data() + l.ref.offset;
+  const uint8_t* r_data = r_buffers[r.ref.buffer_index]->data() + r.ref.offset;
   return memcmp(l_data + BinaryViewType::kPrefixSize,
                 r_data + BinaryViewType::kPrefixSize,
                 l.size() - BinaryViewType::kPrefixSize) == 0;
