@@ -196,6 +196,8 @@ using StringArrowTypes = ::testing::Types<StringType, LargeStringType>;
 using StringOrStringViewArrowTypes =
     ::testing::Types<StringType, LargeStringType, StringViewType>;
 
+using BinaryViewLikeArrowTypes = ::testing::Types<BinaryViewType, StringViewType>;
+
 using ListArrowTypes = ::testing::Types<ListType, LargeListType>;
 
 using UnionArrowTypes = ::testing::Types<SparseUnionType, DenseUnionType>;

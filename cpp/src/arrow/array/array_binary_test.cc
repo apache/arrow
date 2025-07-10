@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <random>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -34,6 +35,7 @@
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -1013,5 +1015,468 @@ TYPED_TEST_SUITE(TestBaseBinaryDataVisitor, BaseBinaryOrBinaryViewLikeArrowTypes
 TYPED_TEST(TestBaseBinaryDataVisitor, Basics) { this->TestBasics(); }
 
 TYPED_TEST(TestBaseBinaryDataVisitor, Sliced) { this->TestSliced(); }
+
+namespace {
+
+// Should We  move this to arrow/testing/util.cc
+Result<std::shared_ptr<Buffer>> MakeRandomStringBuffer(int64_t size, int64_t seed = 12) {
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(size));
+  random_ascii(size, seed, buffer->mutable_data());
+  return buffer;
+}
+
+BinaryViewType::c_type MakeNoneInlineViewElement(const std::shared_ptr<Buffer>& buffer,
+                                                 int32_t buffer_index, int32_t offset,
+                                                 int32_t size) {
+  return util::ToNonInlineBinaryView(buffer->data() + offset, size, buffer_index, offset);
+}
+
+void ShufflingView(std::shared_ptr<StringViewArray>& array, int32_t seed = 12) {
+  std::mt19937_64 rng(seed);
+  auto view_buffer = const_cast<BinaryViewArray::c_type*>(
+      array->data()->GetValues<BinaryViewArray::c_type>(1));
+  std::shuffle(view_buffer, view_buffer + array->length(), rng);
+}
+
+}  // namespace
+
+class TestCompactArray : public ::testing::Test {};
+
+TEST_F(TestCompactArray, InvalidThresholdValue) {
+  ASSERT_OK_AND_ASSIGN(auto array, MakeBinaryViewArray({}, {}));
+  ASSERT_NOT_OK(array->CompactArray(-0.2));
+  ASSERT_NOT_OK(array->CompactArray(-0.0));
+  ASSERT_NOT_OK(array->CompactArray(1.2));
+}
+
+TEST_F(TestCompactArray, EmptyArray) {
+  ASSERT_OK_AND_ASSIGN(auto array, MakeBinaryViewArray({}, {}));
+  ASSERT_OK_AND_ASSIGN(auto compacted_array, array->CompactArray());
+  ASSERT_EQ(compacted_array->data()->buffers.size(), 2);
+  AssertArraysEqual(*array, *compacted_array);
+}
+
+TEST_F(TestCompactArray, EmptyArrayWithBufferData) {
+  ASSERT_OK_AND_ASSIGN(auto buffer_0, MakeRandomStringBuffer(16, 12));
+  ASSERT_OK_AND_ASSIGN(auto buffer_1, MakeRandomStringBuffer(16, 14));
+
+  ASSERT_OK_AND_ASSIGN(auto array, MakeBinaryViewArray({buffer_0, buffer_1}, {}))
+  ASSERT_OK_AND_ASSIGN(auto compacted_array, array->CompactArray());
+  ASSERT_EQ(compacted_array->data()->buffers.size(), 2);
+  AssertArraysEqual(*array, *compacted_array);
+}
+
+class TestCompactArrayInlinedData : public TestCompactArray {};
+
+TEST_F(TestCompactArrayInlinedData, WithOutDataBuffer) {
+  ASSERT_OK_AND_ASSIGN(auto array,
+                       MakeBinaryViewArray({}, {
+                                                   util::ToInlineBinaryView("inlined 1"),
+                                                   util::ToInlineBinaryView("inlined 2"),
+                                               }));
+  ASSERT_OK_AND_ASSIGN(auto compacted_array, array->CompactArray());
+  ASSERT_EQ(compacted_array->data()->buffers.size(), 2);
+  AssertArraysEqual(*array, *compacted_array);
+}
+
+TEST_F(TestCompactArrayInlinedData, WithDataBuffer) {
+  ASSERT_OK_AND_ASSIGN(auto buffer_0, MakeRandomStringBuffer(16, 12));
+  ASSERT_OK_AND_ASSIGN(auto buffer_1, MakeRandomStringBuffer(16, 14));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto array,
+      MakeBinaryViewArray({buffer_0, buffer_1}, {
+                                                    util::ToInlineBinaryView("inlined 1"),
+                                                    util::ToInlineBinaryView("inlined 2"),
+                                                }));
+  ASSERT_OK_AND_ASSIGN(auto compacted_array, array->CompactArray());
+  ASSERT_EQ(compacted_array->data()->buffers.size(), 2);
+  AssertArraysEqual(*array, *compacted_array);
+}
+
+TEST_F(TestCompactArrayInlinedData, WithSlice) {
+  ASSERT_OK_AND_ASSIGN(auto buffer_0, MakeRandomStringBuffer(16, 12));
+  ASSERT_OK_AND_ASSIGN(auto buffer_1, MakeRandomStringBuffer(16, 14));
+  ASSERT_OK_AND_ASSIGN(
+      auto array,
+      MakeBinaryViewArray({buffer_0, buffer_1}, {
+                                                    util::ToInlineBinaryView("inlined 1"),
+                                                    util::ToInlineBinaryView("inlined 2"),
+                                                }));
+  auto sliced_array = internal::checked_pointer_cast<StringViewArray>(array->Slice(0, 1));
+  ASSERT_OK_AND_ASSIGN(auto compacted_array, sliced_array->CompactArray());
+  ASSERT_EQ(compacted_array->data()->buffers.size(), 2);
+  AssertArraysEqual(*sliced_array, *compacted_array);
+}
+
+class TestCompactArrayNonInlinedDataWithoutOverlap : public TestCompactArray {};
+
+TEST_F(TestCompactArrayNonInlinedDataWithoutOverlap, WithoutSlice) {
+  ASSERT_OK_AND_ASSIGN(auto buffer_0, MakeRandomStringBuffer(64, 12));
+  ASSERT_OK_AND_ASSIGN(auto buffer_1, MakeRandomStringBuffer(256, 14));
+  ASSERT_OK_AND_ASSIGN(auto buffer_2, MakeRandomStringBuffer(256, 16));
+  ASSERT_OK_AND_ASSIGN(auto buffer_3, MakeRandomStringBuffer(64, 18));
+  ASSERT_OK_AND_ASSIGN(auto buffer_4, MakeRandomStringBuffer(256, 20));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto array, MakeBinaryViewArray({buffer_0, buffer_1, buffer_2, buffer_3, buffer_4},
+                                      {
+                                          MakeNoneInlineViewElement(buffer_0, 0, 0, 14),
+                                          MakeNoneInlineViewElement(buffer_0, 0, 24, 16),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 0, 18),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 100, 30),
+                                          MakeNoneInlineViewElement(buffer_2, 2, 0, 18),
+                                          MakeNoneInlineViewElement(buffer_2, 2, 100, 20),
+                                          MakeNoneInlineViewElement(buffer_3, 3, 20, 20),
+                                          MakeNoneInlineViewElement(buffer_3, 3, 40, 20),
+                                          MakeNoneInlineViewElement(buffer_4, 4, 20, 20),
+                                          MakeNoneInlineViewElement(buffer_4, 4, 200, 33),
+                                      }));
+
+  ShufflingView(array);
+
+  ASSERT_OK_AND_ASSIGN(auto compacted_array, array->CompactArray(0.25));
+  // Buffers 1,2,4 are merged into one buffer
+  ASSERT_EQ(compacted_array->data()->buffers.size(), 5);
+  ASSERT_EQ(compacted_array->data()->buffers[2]->size(), 64);
+  ASSERT_EQ(compacted_array->data()->buffers[3]->size(), 139);
+  ASSERT_EQ(compacted_array->data()->buffers[4]->size(), 64);
+  AssertArraysEqual(*compacted_array, *array);
+}
+
+TEST_F(TestCompactArrayNonInlinedDataWithoutOverlap, WithSlice) {
+  ASSERT_OK_AND_ASSIGN(auto buffer_0, MakeRandomStringBuffer(64, 12));
+  ASSERT_OK_AND_ASSIGN(auto buffer_1, MakeRandomStringBuffer(256, 14));
+  ASSERT_OK_AND_ASSIGN(auto buffer_2, MakeRandomStringBuffer(256, 16));
+  ASSERT_OK_AND_ASSIGN(auto buffer_3, MakeRandomStringBuffer(256, 18));
+  ASSERT_OK_AND_ASSIGN(auto buffer_4, MakeRandomStringBuffer(64, 20));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto array, MakeBinaryViewArray({buffer_0, buffer_1, buffer_2, buffer_3, buffer_4},
+                                      {
+                                          MakeNoneInlineViewElement(buffer_0, 0, 0, 14),
+                                          MakeNoneInlineViewElement(buffer_0, 0, 24, 16),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 0, 18),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 100, 30),
+                                          MakeNoneInlineViewElement(buffer_2, 2, 0, 18),
+                                          MakeNoneInlineViewElement(buffer_2, 2, 100, 20),
+                                          MakeNoneInlineViewElement(buffer_3, 3, 20, 20),
+                                          MakeNoneInlineViewElement(buffer_4, 4, 20, 20),
+                                      }));
+
+  auto sliced_array = internal::checked_pointer_cast<StringViewArray>(array->Slice(2, 6));
+  ASSERT_OK_AND_ASSIGN(auto compacted_array, sliced_array->CompactArray(0.25));
+  // Buffers 1,2,3 are merged into one buffer
+  ASSERT_EQ(compacted_array->data()->buffers.size(), 4);
+  ASSERT_EQ(compacted_array->data()->buffers[2]->size(), 106);
+  ASSERT_EQ(compacted_array->data()->buffers[3]->size(), 64);
+  AssertArraysEqual(*compacted_array, *sliced_array);
+}
+
+class TestCompactArrayOverlap : public TestCompactArray {};
+
+// Overlaps
+TEST_F(TestCompactArrayOverlap, HigherThanThreshold) {
+  ASSERT_OK_AND_ASSIGN(auto buffer_0, MakeRandomStringBuffer(64, 12));
+  ASSERT_OK_AND_ASSIGN(auto buffer_1, MakeRandomStringBuffer(64, 14));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto array, MakeBinaryViewArray({buffer_0, buffer_1},
+                                      {
+                                          util::ToInlineBinaryView("inlined 1"),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 0, 14),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 1, 13),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 5, 15),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 19, 13),
+                                      }));
+
+  ShufflingView(array);
+
+  ASSERT_OK_AND_ASSIGN(auto compacted_array, array->CompactArray(0.49));
+  ASSERT_EQ(compacted_array->data()->buffers.size(), 3);
+  ASSERT_EQ(compacted_array->data()->buffers[2]->size(), 64);
+  AssertArraysEqual(*compacted_array, *array);
+}
+
+TEST_F(TestCompactArrayOverlap, LowerThanThreshold) {
+  ASSERT_OK_AND_ASSIGN(auto buffer_0, MakeRandomStringBuffer(64, 12));
+  ASSERT_OK_AND_ASSIGN(auto buffer_1, MakeRandomStringBuffer(64, 14));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto array, MakeBinaryViewArray({buffer_0, buffer_1},
+                                      {
+                                          util::ToInlineBinaryView("inlined 1"),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 0, 15),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 0, 17),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 0, 14),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 1, 14),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 5, 15),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 19, 14),
+                                      }));
+
+  ShufflingView(array);
+
+  ASSERT_OK_AND_ASSIGN(auto compacted_array, array->CompactArray(0.60));
+  ASSERT_EQ(compacted_array->data()->buffers.size(), 3);
+  ASSERT_EQ(compacted_array->data()->buffers[2]->size(), 33);
+  AssertArraysEqual(*compacted_array, *array);
+}
+
+TEST_F(TestCompactArrayOverlap, HigherAndLowerThanThreshold) {
+  ASSERT_OK_AND_ASSIGN(auto buffer_0, MakeRandomStringBuffer(192, 12));
+  ASSERT_OK_AND_ASSIGN(auto buffer_1, MakeRandomStringBuffer(192, 14));
+  ASSERT_OK_AND_ASSIGN(auto buffer_2, MakeRandomStringBuffer(192, 16));
+  ASSERT_OK_AND_ASSIGN(auto buffer_3, MakeRandomStringBuffer(192, 18));
+  ASSERT_OK_AND_ASSIGN(auto buffer_4, MakeRandomStringBuffer(192, 20));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto array, MakeBinaryViewArray({buffer_0, buffer_1, buffer_2, buffer_3, buffer_4},
+                                      {
+                                          util::ToInlineBinaryView("inlined 1"),
+                                          util::ToInlineBinaryView("inlined 2"),
+                                          util::ToInlineBinaryView("inlined 3"),
+                                          util::ToInlineBinaryView("inlined 4"),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 5, 14),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 12, 14),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 40, 14),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 46, 17),
+                                          MakeNoneInlineViewElement(buffer_2, 2, 20, 32),
+                                          MakeNoneInlineViewElement(buffer_2, 2, 30, 22),
+                                          MakeNoneInlineViewElement(buffer_2, 2, 80, 16),
+                                          MakeNoneInlineViewElement(buffer_2, 2, 81, 16),
+                                          MakeNoneInlineViewElement(buffer_3, 3, 5, 14),
+                                          MakeNoneInlineViewElement(buffer_3, 3, 12, 14),
+                                          MakeNoneInlineViewElement(buffer_3, 3, 20, 15),
+                                          MakeNoneInlineViewElement(buffer_3, 3, 81, 18),
+                                          MakeNoneInlineViewElement(buffer_4, 4, 5, 14),
+                                          MakeNoneInlineViewElement(buffer_4, 4, 12, 14),
+                                          MakeNoneInlineViewElement(buffer_4, 4, 20, 15),
+                                          MakeNoneInlineViewElement(buffer_4, 4, 81, 19),
+                                      }));
+
+  ShufflingView(array);
+
+  ASSERT_OK_AND_ASSIGN(auto compacted_array, array->CompactArray(0.25));
+  // Zero Occupancy for buffer 0
+  // Buffers 1 and 3 are merged
+  // Buffers 2 and 4 are not merged
+  ASSERT_EQ(compacted_array->data()->buffers.size(), 5);
+  ASSERT_EQ(compacted_array->data()->buffers[2]->size(), 92);
+  ASSERT_EQ(compacted_array->data()->buffers[3]->size(), 192);
+  ASSERT_EQ(compacted_array->data()->buffers[4]->size(), 192);
+  AssertArraysEqual(*compacted_array, *array);
+}
+
+TEST_F(TestCompactArrayOverlap, WithSlice) {
+  ASSERT_OK_AND_ASSIGN(auto buffer_0, MakeRandomStringBuffer(192, 12));
+  ASSERT_OK_AND_ASSIGN(auto buffer_1, MakeRandomStringBuffer(192, 14));
+  ASSERT_OK_AND_ASSIGN(auto buffer_2, MakeRandomStringBuffer(192, 16));
+  ASSERT_OK_AND_ASSIGN(auto buffer_3, MakeRandomStringBuffer(192, 18));
+  ASSERT_OK_AND_ASSIGN(auto buffer_4, MakeRandomStringBuffer(192, 20));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto array, MakeBinaryViewArray({buffer_0, buffer_1, buffer_2, buffer_3, buffer_4},
+                                      {
+                                          util::ToInlineBinaryView("inlined 1"),
+                                          util::ToInlineBinaryView("inlined 2"),
+                                          util::ToInlineBinaryView("inlined 3"),
+                                          util::ToInlineBinaryView("inlined 4"),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 5, 14),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 12, 14),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 40, 14),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 46, 17),
+                                          MakeNoneInlineViewElement(buffer_2, 2, 20, 32),
+                                          MakeNoneInlineViewElement(buffer_2, 2, 30, 22),
+                                          MakeNoneInlineViewElement(buffer_2, 2, 80, 16),
+                                          MakeNoneInlineViewElement(buffer_2, 2, 81, 16),
+                                          MakeNoneInlineViewElement(buffer_3, 3, 5, 14),
+                                          MakeNoneInlineViewElement(buffer_3, 3, 12, 14),
+                                          MakeNoneInlineViewElement(buffer_3, 3, 20, 15),
+                                          MakeNoneInlineViewElement(buffer_3, 3, 81, 18),
+                                          MakeNoneInlineViewElement(buffer_4, 4, 5, 14),
+                                          MakeNoneInlineViewElement(buffer_4, 4, 12, 14),
+                                          MakeNoneInlineViewElement(buffer_4, 4, 20, 15),
+                                          MakeNoneInlineViewElement(buffer_4, 4, 81, 19),
+                                      }));
+
+  auto sliced_array =
+      internal::checked_pointer_cast<StringViewArray>(array->Slice(6, 10));
+  ASSERT_OK_AND_ASSIGN(auto compacted_array, sliced_array->CompactArray(0.25));
+  // Zero Occupancy for buffers 0 and 4.
+  // Buffers 1,and 3 are merged.
+  // buffe4 2 is not merged
+  ASSERT_EQ(compacted_array->data()->buffers.size(), 4);
+  ASSERT_EQ(compacted_array->data()->buffers[2]->size(), 71);
+  ASSERT_EQ(compacted_array->data()->buffers[3]->size(), 192);
+  AssertArraysEqual(*compacted_array, *sliced_array);
+}
+
+class TestCompactArrayNullValues : public TestCompactArray {};
+
+TEST_F(TestCompactArrayNullValues, FullNull) {
+  std::shared_ptr<Buffer> null_bitmap;
+  BitmapFromVector<bool>({false, false, false, false, false, false}, &null_bitmap);
+  ASSERT_OK_AND_ASSIGN(auto buffer_0, MakeRandomStringBuffer(64, 12));
+  ASSERT_OK_AND_ASSIGN(auto buffer_1, MakeRandomStringBuffer(64, 14));
+  ASSERT_OK_AND_ASSIGN(auto buffer_2, MakeRandomStringBuffer(64, 14));
+  ASSERT_OK_AND_ASSIGN(
+      auto array, MakeBinaryViewArray({buffer_0, buffer_1, buffer_2},
+                                      {
+                                          MakeNoneInlineViewElement(buffer_0, 0, 0, 14),
+                                          util::ToInlineBinaryView("inlined 1"),
+                                          MakeNoneInlineViewElement(buffer_0, 0, 24, 14),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 0, 24),
+                                          util::ToInlineBinaryView("inlined 2"),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 36, 24),
+                                      }));
+  array->data()->buffers[0] = null_bitmap;
+  array->data()->null_count = 6;
+  ASSERT_OK_AND_ASSIGN(auto compacted_array, array->CompactArray(0.5));
+  ASSERT_EQ(compacted_array->data()->buffers.size(), 2);
+  AssertArraysEqual(*compacted_array, *array);
+}
+
+TEST_F(TestCompactArrayNullValues, PartialNull) {
+  std::shared_ptr<Buffer> null_bitmap;
+  BitmapFromVector<bool>({true, true, false, false, false, true, true}, &null_bitmap);
+
+  ASSERT_OK_AND_ASSIGN(auto buffer_0, MakeRandomStringBuffer(64, 12));
+  ASSERT_OK_AND_ASSIGN(auto buffer_1, MakeRandomStringBuffer(64, 14));
+  ASSERT_OK_AND_ASSIGN(auto buffer_2, MakeRandomStringBuffer(64, 14));
+  ASSERT_OK_AND_ASSIGN(
+      auto array, MakeBinaryViewArray({buffer_0, buffer_1, buffer_2},
+                                      {
+                                          MakeNoneInlineViewElement(buffer_0, 0, 0, 14),
+                                          util::ToInlineBinaryView("inlined 1"),
+                                          MakeNoneInlineViewElement(buffer_0, 0, 24, 14),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 0, 24),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 0, 24),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 36, 24),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 40, 24),
+                                      }));
+
+  array->data()->buffers[0] = null_bitmap;
+  array->data()->null_count = 3;
+  ASSERT_OK_AND_ASSIGN(auto compacted_array, array->CompactArray(0.5));
+
+  ASSERT_EQ(compacted_array->data()->buffers.size(), 3);
+  ASSERT_EQ(compacted_array->data()->buffers[2]->size(), 42);
+  AssertArraysEqual(*compacted_array, *array);
+}
+
+TEST_F(TestCompactArrayNullValues, WithSliceMultipleOf8) {
+  std::shared_ptr<Buffer> null_bitmap;
+  BitmapFromVector<bool>({true, true, false, false, false, true, false, true, false},
+                         &null_bitmap);
+
+  ASSERT_OK_AND_ASSIGN(auto buffer_0, MakeRandomStringBuffer(64, 12));
+  ASSERT_OK_AND_ASSIGN(auto buffer_1, MakeRandomStringBuffer(64, 14));
+  ASSERT_OK_AND_ASSIGN(auto buffer_2, MakeRandomStringBuffer(64, 14));
+  ASSERT_OK_AND_ASSIGN(
+      auto array, MakeBinaryViewArray({buffer_0, buffer_1, buffer_2},
+                                      {
+                                          MakeNoneInlineViewElement(buffer_0, 0, 0, 14),
+                                          util::ToInlineBinaryView("inlined 1"),
+                                          MakeNoneInlineViewElement(buffer_0, 0, 24, 14),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 0, 24),
+                                          util::ToInlineBinaryView("inlined 2"),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 36, 24),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 36, 24),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 36, 24),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 36, 24),
+                                      }));
+
+  array->data()->buffers[0] = null_bitmap;
+  array->data()->null_count = 4;
+  auto sliced_array = internal::checked_pointer_cast<StringViewArray>(array->Slice(8, 1));
+
+  ASSERT_OK_AND_ASSIGN(auto compacted_array, sliced_array->CompactArray(0.5));
+
+  ASSERT_EQ(compacted_array->data()->buffers.size(), 2);
+  AssertArraysEqual(*compacted_array, *sliced_array);
+}
+
+TEST_F(TestCompactArrayNullValues, WithSliceNotMultipleOf8) {
+  std::shared_ptr<Buffer> null_bitmap;
+  BitmapFromVector<bool>({true, true, false, false, false, true, false, true, false},
+                         &null_bitmap);
+
+  ASSERT_OK_AND_ASSIGN(auto buffer_0, MakeRandomStringBuffer(64, 12));
+  ASSERT_OK_AND_ASSIGN(auto buffer_1, MakeRandomStringBuffer(64, 14));
+  ASSERT_OK_AND_ASSIGN(auto buffer_2, MakeRandomStringBuffer(64, 14));
+  ASSERT_OK_AND_ASSIGN(
+      auto array, MakeBinaryViewArray({buffer_0, buffer_1, buffer_2},
+                                      {
+                                          MakeNoneInlineViewElement(buffer_0, 0, 0, 14),
+                                          util::ToInlineBinaryView("inlined 1"),
+                                          MakeNoneInlineViewElement(buffer_0, 0, 24, 14),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 0, 24),
+                                          util::ToInlineBinaryView("inlined 2"),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 36, 24),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 36, 24),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 36, 24),
+                                          MakeNoneInlineViewElement(buffer_1, 1, 36, 24),
+                                      }));
+
+  array->data()->buffers[0] = null_bitmap;
+  array->data()->null_count = 4;
+  auto sliced_array = internal::checked_pointer_cast<StringViewArray>(array->Slice(7, 1));
+
+  ASSERT_OK_AND_ASSIGN(auto compacted_array, sliced_array->CompactArray(0.5));
+
+  ASSERT_EQ(compacted_array->data()->buffers.size(), 3);
+  AssertArraysEqual(*compacted_array, *sliced_array);
+}
+
+class TestCompactArrayLargeMemory : public TestCompactArray {};
+
+TEST_F(TestCompactArrayLargeMemory, LARGE_MEMORY_TEST(MaxInt32)) {
+  // Note that MakeRandomStringBuffer is not used as it has a huge impact
+  // negative on the speed of test
+  auto buffer_0 = Buffer::FromString(std::string(static_cast<int64_t>(1) << 33, 'a'));
+  auto buffer_1 = Buffer::FromString(std::string(64, 'b'));
+  auto buffer_2 = Buffer::FromString(std::string(1 << 30, 'c'));
+  auto buffer_3 = Buffer::FromString(std::string(static_cast<int64_t>(1) << 32, 'd'));
+  auto buffer_4 = Buffer::FromString(std::string(64, 'e'));
+  auto buffer_5 = Buffer::FromString(std::string(static_cast<int64_t>(1) << 32, 'f'));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto array,
+      MakeBinaryViewArray(
+          {buffer_0, buffer_1, buffer_2, buffer_3, buffer_4, buffer_5},
+          {
+              MakeNoneInlineViewElement(buffer_0, 0, std::numeric_limits<int32_t>::max(),
+                                        std::numeric_limits<int32_t>::max()),
+              MakeNoneInlineViewElement(buffer_0, 0, std::numeric_limits<int32_t>::max(),
+                                        18),
+              MakeNoneInlineViewElement(buffer_0, 0, std::numeric_limits<int32_t>::max(),
+                                        20),
+              MakeNoneInlineViewElement(buffer_0, 0, 0,
+                                        std::numeric_limits<int32_t>::max()),
+              MakeNoneInlineViewElement(buffer_1, 1, 12, 40),
+              MakeNoneInlineViewElement(buffer_2, 2, 1 << 28, 1 << 29),
+              MakeNoneInlineViewElement(buffer_3, 3, std::numeric_limits<int32_t>::max(),
+                                        1 << 30),
+              MakeNoneInlineViewElement(
+                  buffer_3, 3, std::numeric_limits<int32_t>::max() - 14, 1 << 30),
+              MakeNoneInlineViewElement(buffer_4, 4, 0, 64),
+              MakeNoneInlineViewElement(buffer_5, 5, 1 << 29, 40),
+              MakeNoneInlineViewElement(buffer_5, 5, 1 << 30,
+                                        std::numeric_limits<int32_t>::max()),
+          }));
+
+  ShufflingView(array);
+
+  ASSERT_OK_AND_ASSIGN(auto compacted_array, array->CompactArray(0.5));
+
+  ASSERT_EQ(compacted_array->data()->buffers.size(), 7);
+  ASSERT_EQ(compacted_array->data()->buffers[2]->size(),
+            std::numeric_limits<int32_t>::max() * static_cast<int64_t>(2));
+  ASSERT_EQ(compacted_array->data()->buffers[3]->size(), 64);
+  ASSERT_EQ(compacted_array->data()->buffers[4]->size(), (1 << 29) + (1 << 30) + 14);
+  ASSERT_EQ(compacted_array->data()->buffers[5]->size(), 64);
+  ASSERT_EQ(compacted_array->data()->buffers[6]->size(), static_cast<int64_t>(1) << 32);
+  AssertArraysEqual(*compacted_array, *array);
+}
 
 }  // namespace arrow

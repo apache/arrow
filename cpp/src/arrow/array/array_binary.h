@@ -32,6 +32,7 @@
 #include "arrow/buffer.h"
 #include "arrow/stl_iterator.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -239,6 +240,11 @@ class ARROW_EXPORT BinaryViewArray : public FlatArray {
 
   IteratorType begin() const { return IteratorType(*this); }
   IteratorType end() const { return IteratorType(*this, length()); }
+
+  /// Compact data buffers with occupancy greater than zero and
+  /// less than or equal to occupancy_threshold. Remove zero-occupancy buffers.
+  Result<std::shared_ptr<Array>> CompactArray(
+      double occupancy_threshold = 0.25, MemoryPool* pool = default_memory_pool()) const;
 
  protected:
   using FlatArray::FlatArray;
