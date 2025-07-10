@@ -91,7 +91,8 @@ call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Buil
 
 cmake -G "%GENERATOR%" ^
       -A "%ARCHITECTURE%" ^
-      -DARROW_BOOST_USE_SHARED=ON ^
+      -DARROW_BOOST_USE_SHARED=OFF ^
+      -DBOOST_SOURCE=BUNDLED ^
       -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BUILD_TESTS=ON ^
       -DARROW_COMPUTE=ON ^
