@@ -20,7 +20,6 @@
 #include <cstdint>
 #include <memory>
 
-#include "arrow/array/data.h"
 #include "arrow/result.h"
 #include "arrow/util/visibility.h"
 

@@ -274,8 +274,11 @@ class RangeDataEqualsImpl {
     auto* left_values = left_.GetValues<BinaryViewType::c_type>(1) + left_start_idx_;
     auto* right_values = right_.GetValues<BinaryViewType::c_type>(1) + right_start_idx_;
 
-    const auto left_buffers = &left_.buffers[2];
-    const auto right_buffers = &right_.buffers[2];
+    // TODO: the ToArrayData() is wasteful but EqualBinaryView requires an argument
+    // with a ->data member, so forwarding the raw BufferSpan is not an option at the
+    // moment
+    const auto left_buffers = left_.ToArrayData()->buffers.data() + 2;
+    const auto right_buffers = right_.ToArrayData()->buffers.data() + 2;
     VisitValidRuns([&](int64_t i, int64_t length) {
       for (auto end_i = i + length; i < end_i; ++i) {
         if (!util::EqualBinaryView(left_values[i], right_values[i], left_buffers,
