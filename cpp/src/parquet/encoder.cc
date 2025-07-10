@@ -674,6 +674,9 @@ inline void DictEncoderImpl<DType>::Put(const T& v) {
 
   int32_t memo_index;
   PARQUET_THROW_NOT_OK(memo_table_.GetOrInsert(v, on_found, on_not_found, &memo_index));
+  if constexpr (!std::is_same_v<T, Int96>) {
+    ARROW_LOG(INFO) << "Put(" << v << ") -> memo_index=" << memo_index;
+  }
   buffered_indices_.push_back(memo_index);
 }
 

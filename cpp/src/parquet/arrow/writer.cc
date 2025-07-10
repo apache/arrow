@@ -149,6 +149,10 @@ class ArrowColumnWriterV2 {
               const ElementRange& range = result.post_list_visited_elements[0];
               std::shared_ptr<Array> values_array =
                   result.leaf_array->Slice(range.start, range.Size());
+              ARROW_LOG(INFO) << "ArrowColumnWriterV2: leaf_idx=" << leaf_idx
+                << ", range.start=" << range.start << ", range.end=" << range.end
+                << ", Arrow type=" << values_array->type()->ToString()
+                << ", column descr=" << column_writer->descr()->ToString();
 
               return column_writer->WriteArrow(result.def_levels, result.rep_levels,
                                                result.def_rep_level_count, *values_array,

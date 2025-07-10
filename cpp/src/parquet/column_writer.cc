@@ -1102,6 +1102,7 @@ int64_t ColumnWriterImpl::Close() {
   if (!closed_) {
     closed_ = true;
     if (has_dictionary_ && !fallback_) {
+      ARROW_LOG(INFO) << "Close() => WriteDictionaryPage()";
       WriteDictionaryPage();
     }
 
@@ -1298,6 +1299,13 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     auto WriteChunk = [&](int64_t offset, int64_t batch_size, bool check_page) {
       int64_t values_to_write = WriteLevels(batch_size, AddIfNotNull(def_levels, offset),
                                             AddIfNotNull(rep_levels, offset));
+      if constexpr (std::is_same_v<ParquetType, Int64Type>) {
+        if (values) {
+          ARROW_LOG(INFO) << "WriteChunk offset=" << offset
+            << ", batch_size=" << batch_size << ", values_to_write=" <<values_to_write
+            << ", first value=" << values[value_offset];
+        }
+      }
 
       // PARQUET-780
       if (values_to_write > 0) {
@@ -1490,6 +1498,11 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
 
     DictionaryPage page(buffer, current_dict_encoder_->num_entries(),
                         properties_->dictionary_page_encoding());
+    if constexpr (std::is_same_v<ParquetType, Int64Type>) {
+      ARROW_LOG(INFO) << "WriteDictionaryPage: encoded size=" << current_dict_encoder_->dict_encoded_size()
+          << ", num_entries=" <<current_dict_encoder_->num_entries()
+          << ", first entry=" << *(reinterpret_cast<const T*>(buffer->data()));
+    }
     total_bytes_written_ += pager_->WriteDictionaryPage(page);
   }
 
@@ -1810,6 +1823,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   }
 
   void WriteValues(const T* values, int64_t num_values, int64_t num_nulls) {
+    ARROW_LOG(INFO) << "WriteValues with encoding " << EncodingToString(current_value_encoder_->encoding());
     current_value_encoder_->Put(values, static_cast<int>(num_values));
     if (page_statistics_ != nullptr) {
       page_statistics_->Update(values, num_values, num_nulls);
@@ -2012,6 +2026,7 @@ struct SerializeFunctor {
         out[i] = static_cast<ParquetCType>(input[i]);
       }
     } else {
+      ARROW_LOG(INFO) << "Serialize using std::copy: length=" << array.length();
       std::copy(input, input + array.length(), out);
     }
     return Status::OK();
@@ -2028,6 +2043,15 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowSerialize(
 
   ParquetCType* buffer = nullptr;
   PARQUET_THROW_NOT_OK(ctx->GetScratchData<ParquetCType>(array.length(), &buffer));
+
+  ARROW_LOG(INFO) << "WriteArrowSerialize: def_levels=" <<def_levels
+    << ", rep_levels=" << rep_levels
+    << ", length=" << array.length()
+    << ", offset=" << array.offset()
+    << ", null_count=" << array.null_count()
+    << ", num_levels=" << num_levels
+    << ", Arrow type=" << array.type()->ToString()
+    << ", sizeof(ParquetCType)=" << sizeof(ParquetCType);
 
   SerializeFunctor<ParquetType, ArrowType> functor;
   RETURN_NOT_OK(functor.Serialize(checked_cast<const ArrayType&>(array), ctx, buffer));

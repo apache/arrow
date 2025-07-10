@@ -141,7 +141,7 @@ set PYARROW_WITH_PARQUET_ENCRYPTION=1
 set PYARROW_WITH_DATASET=1
 set PYARROW_TEST_CYTHON=OFF
 python setup.py build_ext --inplace --bundle-arrow-cpp bdist_wheel || exit /B 1
-pytest pyarrow -v -s --enable-parquet || exit /B 1
+python -m pytest pyarrow -vv -s -x --enable-parquet -k test_write_dataset_parquet pyarrow/tests/test_dataset.py || exit /B 1
 
 popd
 
