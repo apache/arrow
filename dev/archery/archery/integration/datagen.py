@@ -219,7 +219,7 @@ class RunEndsField(IntegerField):
             values = rng.choice(range(1, size), size=runs_count - 1, replace=False)
             values = sorted(values)
             values.append(size)
-        
+
         values = list(map(int if self.bit_width < 64 else str, values))
         # RunEnds cannot be null, as such self.nullable == False and this
         # will generate a validity map of all ones.
