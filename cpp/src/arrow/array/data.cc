@@ -499,7 +499,6 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     if (type_id == Type::LIST) {
       const auto& list_scalar = checked_cast<const ListScalar&>(value);
       this->buffers[1] = OffsetsForScalar(list_scalar.scratch_space_, sizeof(int32_t));
-      this->length = list_scalar.value->length();
     } else if (type_id == Type::MAP) {
       const auto& map_scalar = checked_cast<const MapScalar&>(value);
       this->buffers[1] = OffsetsForScalar(map_scalar.scratch_space_, sizeof(int32_t));
@@ -507,7 +506,6 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       const auto& large_list_scalar = checked_cast<const LargeListScalar&>(value);
       this->buffers[1] =
           OffsetsForScalar(large_list_scalar.scratch_space_, sizeof(int64_t));
-      this->length = large_list_scalar.value->length();
     } else if (type_id == Type::LIST_VIEW) {
       const auto& list_view_scalar = checked_cast<const ListViewScalar&>(value);
       std::tie(this->buffers[1], this->buffers[2]) =
