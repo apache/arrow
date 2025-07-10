@@ -25,7 +25,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
             tc.verifyEqual(className, "arrow.tabular.RecordBatch");
         end
 
-        function ConvenienceFunctionZeroArguments(tc)
+        function ConvenienceConstructorZeroArguments(tc)
             % Verify the arrow.recordBatch function returns an 
             % arrow.tabular.RecordBatch instance with zero rows and zero
             % columns if called with zero input arguments.
