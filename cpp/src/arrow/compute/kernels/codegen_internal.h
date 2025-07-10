@@ -375,10 +375,10 @@ struct ArrayIterator<Type, enable_if_list_type<Type>> {
   ArraySpan operator()() {
     offset_type next_offset = offsets[++position];
     const offset_type length = next_offset - cur_offset;
-    ArraySpan new_span{arr};
-    new_span.SetSlice(cur_offset, length);
+    ArraySpan child_span{arr.child_data[0]};
+    child_span.SetSlice(child_span.offset + cur_offset, length);
     cur_offset = next_offset;
-    return new_span;
+    return child_span;
   }
 };
 
@@ -463,7 +463,9 @@ struct UnboxScalar<Type, enable_if_list_type<Type>> {
   using T = ArraySpan;
   using ScalarT = typename TypeTraits<Type>::ScalarType;
 
-  static T Unbox(const Scalar& val) { return T{checked_cast<const ScalarT&>(val)}; }
+  static T Unbox(const Scalar& val) {
+    return T{*checked_cast<const ScalarT&>(val).value->data()};
+  }
 };
 
 template <>
