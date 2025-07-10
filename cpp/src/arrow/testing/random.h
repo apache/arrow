@@ -198,7 +198,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
-  std::shared_ptr<Array> Float16(int64_t size, int16_t min, int16_t max,
+  std::shared_ptr<Array> Float16(int64_t size, uint16_t min, uint16_t max,
                                  double null_probability = 0,
                                  int64_t alignment = kDefaultBufferAlignment,
                                  MemoryPool* memory_pool = default_memory_pool());

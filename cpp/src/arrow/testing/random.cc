@@ -252,16 +252,14 @@ std::shared_ptr<Array> RandomArrayGenerator::Date64(int64_t size, int64_t min,
                                                       memory_pool);
 }
 
-std::shared_ptr<Array> RandomArrayGenerator::Float16(int64_t size, int16_t min,
-                                                     int16_t max, double null_probability,
+std::shared_ptr<Array> RandomArrayGenerator::Float16(int64_t size, uint16_t min,
+                                                     uint16_t max,
+                                                     double null_probability,
                                                      int64_t alignment,
                                                      MemoryPool* memory_pool) {
   using OptionType =
       GenerateOptions<uint16_t, std::uniform_int_distribution<uint16_t>, HalfFloatType>;
-  // FIXME: Not sure why the input min/max are signed when Float16's ctype is uint16_t
-  uint16_t umin = static_cast<uint16_t>(min);
-  uint16_t umax = static_cast<uint16_t>(max);
-  OptionType options(seed(), umin, umax, null_probability, /*nan_probability=*/0);
+  OptionType options(seed(), min, max, null_probability, /*nan_probability=*/0);
   return GenerateNumericArray<HalfFloatType, OptionType>(size, options, alignment,
                                                          memory_pool);
 }
