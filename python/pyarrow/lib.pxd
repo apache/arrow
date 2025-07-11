@@ -678,6 +678,8 @@ cdef shared_ptr[const CKeyValueMetadata] pyarrow_unwrap_metadata(
 cdef object pyarrow_wrap_metadata(
     const shared_ptr[const CKeyValueMetadata]& meta)
 
+cdef CField.CMergeOptions _parse_field_merge_options(str promote_options) except *
+
 #
 # Public Cython API for 3rd party code
 #

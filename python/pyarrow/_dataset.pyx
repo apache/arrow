@@ -3155,9 +3155,19 @@ cdef class DatasetFactory(_Weakrefable):
             schemas.append(pyarrow_wrap_schema(s))
         return schemas
 
-    def inspect(self):
+    def inspect(self, *, promote_options="default", fragments=None):
         """
-        Inspect all data fragments and return a common Schema.
+        Inspect data fragments and return a common Schema.
+
+        Parameters
+        ----------
+        promote_options : str, default "default"
+            Control how to unify types. Accepts strings "default" and "permissive".
+            Default: types must match exactly, except nulls can be merged with other types.
+            Permissive: types are promoted when possible.
+        fragments : int, default None
+            How many fragments should be inspected to infer the unified schema.
+            Use ``None`` to inspect all fragments.
 
         Returns
         -------
@@ -3166,6 +3176,17 @@ cdef class DatasetFactory(_Weakrefable):
         cdef:
             CInspectOptions options
             CResult[shared_ptr[CSchema]] result
+
+        options.field_merge_options = _parse_field_merge_options(promote_options)
+
+        if fragments is None:
+            options.fragments = -1  # InspectOptions::kInspectAllFragments
+        elif isinstance(fragments, int) and fragments >= 0:
+            options.fragments = fragments
+        else:
+            raise ValueError(
+                f"Fragment count must be a non-negative int or None; got {fragments!r}")
+
         with nogil:
             result = self.factory.Inspect(options)
         return pyarrow_wrap_schema(GetResultValue(result))
