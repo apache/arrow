@@ -41,6 +41,7 @@ env:
 
 jobs:
   target:
+    name: Target
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -74,8 +75,8 @@ jobs:
           echo "rc=${rc}" >> "${GITHUB_OUTPUT}"
 
   apt:
-    needs: target
     name: APT
+    needs: target
     runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 30
     strategy:
@@ -103,6 +104,7 @@ jobs:
 
   binary:
     name: Binary
+    needs: target
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -117,6 +119,7 @@ jobs:
 
   wheels-linux:
     name: Wheels Linux
+    needs: target
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -164,6 +167,7 @@ jobs:
 
   wheels-macos:
     name: Wheels macOS
+    needs: target
     runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 30
     strategy:
@@ -186,6 +190,7 @@ jobs:
 
   wheels-windows:
     name: Wheels Windows
+    needs: target
     runs-on: windows-latest
     timeout-minutes: 45
     env:
@@ -214,6 +219,7 @@ jobs:
 
   yum:
     name: Yum
+    needs: target
     runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 30
     strategy:
