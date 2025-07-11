@@ -74,6 +74,7 @@ arrow_acero_srcs = [
     'time_series_util.cc',
     'tpch_node.cc',
     'union_node.cc',
+    'pipe_node.cc',
     'util.cc',
 ]
 
