@@ -54,10 +54,9 @@ jobs:
         run: |
           case "${GITHUB_EVENT_NAME}" in
             workflow_dispatch)
-              tag="${{ input.rc_tag }}"
+              tag="${{ inputs.rc_tag }}"
               ;;
             pull_request)
-              env | sort
               tag="$(gh release list \
                        --jq '.[] | select(.isPrerelease) | .tagName' \
                        --json tagName,isPrerelease \
