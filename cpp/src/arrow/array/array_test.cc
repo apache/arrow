@@ -60,6 +60,7 @@
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/range.h"
@@ -72,6 +73,7 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using util::Float16;
 
 class TestArray : public ::testing::Test {
  public:
@@ -2122,11 +2124,11 @@ void CheckFloatingNanEquality() {
   std::shared_ptr<Array> a, b;
   std::shared_ptr<DataType> type = TypeTraits<TYPE>::type_singleton();
 
-  const auto nan_value = static_cast<typename TYPE::c_type>(NAN);
+  const auto nan_value = RealToCType<TYPE>(NAN);
 
   // NaN in a null entry
-  ArrayFromVector<TYPE>(type, {true, false}, {0.5, nan_value}, &a);
-  ArrayFromVector<TYPE>(type, {true, false}, {0.5, nan_value}, &b);
+  ArrayFromVector<TYPE>(type, {true, false}, {RealToCType<TYPE>(0.5), nan_value}, &a);
+  ArrayFromVector<TYPE>(type, {true, false}, {RealToCType<TYPE>(0.5), nan_value}, &b);
   ASSERT_TRUE(a->Equals(b));
   ASSERT_TRUE(b->Equals(a));
   ASSERT_TRUE(a->ApproxEquals(b));
@@ -2137,8 +2139,8 @@ void CheckFloatingNanEquality() {
   ASSERT_TRUE(b->RangeEquals(a, 1, 2, 1));
 
   // NaN in a valid entry
-  ArrayFromVector<TYPE>(type, {false, true}, {0.5, nan_value}, &a);
-  ArrayFromVector<TYPE>(type, {false, true}, {0.5, nan_value}, &b);
+  ArrayFromVector<TYPE>(type, {false, true}, {RealToCType<TYPE>(0.5), nan_value}, &a);
+  ArrayFromVector<TYPE>(type, {false, true}, {RealToCType<TYPE>(0.5), nan_value}, &b);
   ASSERT_FALSE(a->Equals(b));
   ASSERT_FALSE(b->Equals(a));
   ASSERT_TRUE(a->Equals(b, EqualOptions().nans_equal(true)));
@@ -2157,8 +2159,9 @@ void CheckFloatingNanEquality() {
   ASSERT_TRUE(b->RangeEquals(a, 0, 1, 0));
 
   // NaN != non-NaN
-  ArrayFromVector<TYPE>(type, {false, true}, {0.5, nan_value}, &a);
-  ArrayFromVector<TYPE>(type, {false, true}, {0.5, 0.0}, &b);
+  ArrayFromVector<TYPE>(type, {false, true}, {RealToCType<TYPE>(0.5), nan_value}, &a);
+  ArrayFromVector<TYPE>(type, {false, true},
+                        {RealToCType<TYPE>(0.5), RealToCType<TYPE>(0.0)}, &b);
   ASSERT_FALSE(a->Equals(b));
   ASSERT_FALSE(b->Equals(a));
   ASSERT_FALSE(a->Equals(b, EqualOptions().nans_equal(true)));
@@ -2182,12 +2185,14 @@ void CheckFloatingInfinityEquality() {
   std::shared_ptr<Array> a, b;
   std::shared_ptr<DataType> type = TypeTraits<TYPE>::type_singleton();
 
-  const auto infinity = std::numeric_limits<typename TYPE::c_type>::infinity();
+  const auto infinity = RealToCType<TYPE>(std::numeric_limits<double>::infinity());
 
   for (auto nans_equal : {false, true}) {
     // Infinity in a null entry
-    ArrayFromVector<TYPE>(type, {true, false}, {0.5, infinity}, &a);
-    ArrayFromVector<TYPE>(type, {true, false}, {0.5, -infinity}, &b);
+    ArrayFromVector<TYPE>(type, {true, false},
+                          {RealToCType<TYPE>(0.5), RealToCType<TYPE>(infinity)}, &a);
+    ArrayFromVector<TYPE>(type, {true, false},
+                          {RealToCType<TYPE>(0.5), RealToCType<TYPE>(-infinity)}, &b);
     ASSERT_TRUE(a->Equals(b));
     ASSERT_TRUE(b->Equals(a));
     ASSERT_TRUE(a->ApproxEquals(b, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
@@ -2198,8 +2203,10 @@ void CheckFloatingInfinityEquality() {
     ASSERT_TRUE(b->RangeEquals(a, 1, 2, 1));
 
     // Infinity in a valid entry
-    ArrayFromVector<TYPE>(type, {false, true}, {0.5, infinity}, &a);
-    ArrayFromVector<TYPE>(type, {false, true}, {0.5, infinity}, &b);
+    ArrayFromVector<TYPE>(type, {false, true},
+                          {RealToCType<TYPE>(0.5), RealToCType<TYPE>(infinity)}, &a);
+    ArrayFromVector<TYPE>(type, {false, true},
+                          {RealToCType<TYPE>(0.5), RealToCType<TYPE>(infinity)}, &b);
     ASSERT_TRUE(a->Equals(b));
     ASSERT_TRUE(b->Equals(a));
     ASSERT_TRUE(a->ApproxEquals(b, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
@@ -2216,8 +2223,10 @@ void CheckFloatingInfinityEquality() {
     ASSERT_TRUE(b->RangeEquals(a, 0, 1, 0));
 
     // Infinity != non-infinity
-    ArrayFromVector<TYPE>(type, {false, true}, {0.5, -infinity}, &a);
-    ArrayFromVector<TYPE>(type, {false, true}, {0.5, 0.0}, &b);
+    ArrayFromVector<TYPE>(type, {false, true},
+                          {RealToCType<TYPE>(0.5), RealToCType<TYPE>(-infinity)}, &a);
+    ArrayFromVector<TYPE>(type, {false, true},
+                          {RealToCType<TYPE>(0.5), RealToCType<TYPE>(0.0)}, &b);
     ASSERT_FALSE(a->Equals(b));
     ASSERT_FALSE(b->Equals(a));
     ASSERT_FALSE(a->ApproxEquals(b, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
@@ -2225,8 +2234,10 @@ void CheckFloatingInfinityEquality() {
     ASSERT_FALSE(a->ApproxEquals(b, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
     ASSERT_FALSE(b->ApproxEquals(a, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
     // Infinity != Negative infinity
-    ArrayFromVector<TYPE>(type, {true, true}, {0.5, -infinity}, &a);
-    ArrayFromVector<TYPE>(type, {true, true}, {0.5, infinity}, &b);
+    ArrayFromVector<TYPE>(type, {true, true},
+                          {RealToCType<TYPE>(0.5), RealToCType<TYPE>(-infinity)}, &a);
+    ArrayFromVector<TYPE>(type, {true, true},
+                          {RealToCType<TYPE>(0.5), RealToCType<TYPE>(infinity)}, &b);
     ASSERT_FALSE(a->Equals(b));
     ASSERT_FALSE(b->Equals(a));
     ASSERT_FALSE(a->ApproxEquals(b));
@@ -2249,8 +2260,10 @@ void CheckFloatingZeroEquality() {
   std::shared_ptr<Array> a, b;
   std::shared_ptr<DataType> type = TypeTraits<TYPE>::type_singleton();
 
-  ArrayFromVector<TYPE>(type, {true, false}, {0.0, 1.0}, &a);
-  ArrayFromVector<TYPE>(type, {true, false}, {0.0, 1.0}, &b);
+  ArrayFromVector<TYPE>(type, {true, false},
+                        {RealToCType<TYPE>(0.0), RealToCType<TYPE>(1.0)}, &a);
+  ArrayFromVector<TYPE>(type, {true, false},
+                        {RealToCType<TYPE>(0.0), RealToCType<TYPE>(1.0)}, &b);
   ASSERT_TRUE(a->Equals(b));
   ASSERT_TRUE(b->Equals(a));
   for (auto nans_equal : {false, true}) {
@@ -2266,8 +2279,10 @@ void CheckFloatingZeroEquality() {
     }
   }
 
-  ArrayFromVector<TYPE>(type, {true, false}, {0.0, 1.0}, &a);
-  ArrayFromVector<TYPE>(type, {true, false}, {-0.0, 1.0}, &b);
+  ArrayFromVector<TYPE>(type, {true, false},
+                        {RealToCType<TYPE>(0.0), RealToCType<TYPE>(1.0)}, &a);
+  ArrayFromVector<TYPE>(type, {true, false},
+                        {RealToCType<TYPE>(-0.0), RealToCType<TYPE>(1.0)}, &b);
   for (auto nans_equal : {false, true}) {
     auto opts = EqualOptions().nans_equal(nans_equal);
     ASSERT_TRUE(a->Equals(b, opts));
@@ -2303,16 +2318,19 @@ TEST(TestPrimitiveAdHoc, FloatingSliceApproxEquals) {
 TEST(TestPrimitiveAdHoc, FloatingNanEquality) {
   CheckFloatingNanEquality<FloatType>();
   CheckFloatingNanEquality<DoubleType>();
+  CheckFloatingNanEquality<HalfFloatType>();
 }
 
 TEST(TestPrimitiveAdHoc, FloatingInfinityEquality) {
   CheckFloatingInfinityEquality<FloatType>();
   CheckFloatingInfinityEquality<DoubleType>();
+  CheckFloatingInfinityEquality<HalfFloatType>();
 }
 
 TEST(TestPrimitiveAdHoc, FloatingZeroEquality) {
   CheckFloatingZeroEquality<FloatType>();
   CheckFloatingZeroEquality<DoubleType>();
+  CheckFloatingZeroEquality<HalfFloatType>();
 }
 
 // ----------------------------------------------------------------------
