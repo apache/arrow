@@ -89,8 +89,9 @@ jobs:
             "dev/release/utils-create-release-tarball.sh ${VERSION} ${RC_NUM}" \
             apache-arrow-${VERSION}.tar.gz
           dev/release/utils-create-release-tarball.sh ${VERSION} ${RC_NUM}
-          echo "RELEASE_TARBALL=apache-arrow-${VERSION}.tar.gz" >> ${GITHUB_ENV}
-          dev/release/utils-generate-checksum.sh "apache-arrow-${VERSION}.tar.gz"
+          RELEASE_TARBALL=apache-arrow-${VERSION}.tar.gz
+          echo "RELEASE_TARBALL=${RELEASE_TARBALL}" >> ${GITHUB_ENV}
+          dev/release/utils-generate-checksum.sh "${RELEASE_TARBALL}"
           if [ -n "${ARROW_GPG_SECRET_KEY}" ]; then
             echo "${ARROW_GPG_SECRET_KEY}" | gpg --import
             gpg \
