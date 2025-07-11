@@ -39,7 +39,7 @@ tag=apache-arrow-${version}-rc${rc}
 root_folder=apache-arrow-${version}
 tarball=apache-arrow-${version}.tar.gz
 
-: ${release_hash:=$(git rev-list --max-count=1 ${tag})}
+: ${release_hash:=$(git -C "${SOURCE_TOP_DIR}" rev-list --max-count=1 ${tag})}
 
 rm -rf ${root_folder}
 
@@ -110,7 +110,6 @@ gtar_options=(
 if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
   gtar_options+=(--mtime="$(date +%Y-%m-%dT%H:%M:%S --date=@${SOURCE_DATE_EPOCH})")
 fi
-set -x
 ${gtar} \
   "${gtar_options[@]}" \
   -cf \
