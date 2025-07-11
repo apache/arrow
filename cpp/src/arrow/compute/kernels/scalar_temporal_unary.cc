@@ -669,10 +669,10 @@ struct IsDaylightSavings {
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     if (tz_->index() == 0) {
-      auto tz = tz_->get<time_zone, 0>();
+      auto tz = std::get<const time_zone*>(*tz_);
       return tz->get_info(sys_time<Duration>{Duration{arg}}).save.count() != 0;
     } else {
-      auto tz = tz_->get<OffsetZone, 1>();
+      auto tz = std::get<const OffsetZone*>(*tz_);
       return tz->get_info(sys_time<Duration>{Duration{arg}}).save.count() != 0;
     }
   }
@@ -1364,12 +1364,12 @@ struct AssumeTimezone {
   template <typename T, typename Arg0>
   T get_local_time(Arg0 arg, const ArrowTimeZone* tz) const {
     if (tz->index() == 0) {
-      return static_cast<T>(zoned_time<Duration>(tz->get<time_zone, 0>(), local_time<Duration>(Duration{arg}))
+      return static_cast<T>(zoned_time<Duration>(std::get<const time_zone*>(*tz_), local_time<Duration>(Duration{arg}))
                                 .get_sys_time()
                                 .time_since_epoch()
                                 .count());
     } else {
-      return static_cast<T>(zoned_time<Duration, const OffsetZone*>(tz->get<OffsetZone, 1>(), local_time<Duration>(Duration{arg}))
+      return static_cast<T>(zoned_time<Duration, const OffsetZone*>(std::get<const OffsetZone*>(*tz_), local_time<Duration>(Duration{arg}))
                                 .get_sys_time()
                                 .time_since_epoch()
                                 .count());
@@ -1380,7 +1380,7 @@ struct AssumeTimezone {
   T get_local_time(Arg0 arg, const arrow_vendored::date::choose choose,
                    const ArrowTimeZone* tz) const {
     if (tz->index() == 0) {
-      return static_cast<T>(zoned_time<Duration>(tz->get<time_zone, 0>(),
+      return static_cast<T>(zoned_time<Duration>(std::get<const time_zone*>(*tz_),
                                                  local_time<Duration>(Duration{arg}),
                                                  choose)
                                 .get_sys_time()
@@ -1389,7 +1389,7 @@ struct AssumeTimezone {
     } else {
       return static_cast<T>(
           zoned_time<Duration, const OffsetZone*>(
-              tz->get<OffsetZone, 1>(), local_time<Duration>(Duration{arg}), choose)
+              std::get<const OffsetZone*>(*tz_), local_time<Duration>(Duration{arg}), choose)
               .get_sys_time()
               .time_since_epoch()
               .count());

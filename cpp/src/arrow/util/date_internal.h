@@ -17,8 +17,24 @@
 
 #pragma once
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
+
+using arrow_vendored::date::days;
+using arrow_vendored::date::floor;
+using arrow_vendored::date::local_days;
+using arrow_vendored::date::local_time;
+using arrow_vendored::date::locate_zone;
+using arrow_vendored::date::sys_info;
+using arrow_vendored::date::sys_days;
+using arrow_vendored::date::sys_time;
+using arrow_vendored::date::sys_seconds;
+using arrow_vendored::date::time_zone;
+using arrow_vendored::date::format;
+using arrow_vendored::date::year_month_day;
+using arrow_vendored::date::zoned_time;
+using arrow_vendored::date::zoned_traits;
+using arrow_vendored::date::choose;
+using std::chrono::duration_cast;
 
 class OffsetZone {
   std::chrono::minutes offset_;
@@ -46,16 +62,19 @@ class OffsetZone {
   const OffsetZone* operator->() const { return this; }
 };
 
-template <>
-struct zoned_traits<OffsetZone> {
-  static OffsetZone default_zone() { return OffsetZone{std::chrono::minutes{0}}; }
+}  // namespace arrow::internal
 
-  static OffsetZone locate_zone(const std::string& name) {
-    using namespace std::chrono;
-    if (name == "UTC") return OffsetZone{minutes{0}};
-    throw std::runtime_error{"OffsetZone can't parse " + name};
-  }
-};
+namespace arrow_vendored::date {
+  using arrow::internal::OffsetZone;
 
-}  // namespace date
-}  // namespace arrow_vendored
+  template <>
+  struct zoned_traits<OffsetZone> {
+    static OffsetZone default_zone() { return OffsetZone{std::chrono::minutes{0}}; }
+
+    static OffsetZone locate_zone(const std::string& name) {
+      using namespace std::chrono;
+      if (name == "UTC") return OffsetZone{minutes{0}};
+      throw std::runtime_error{"OffsetZone can't parse " + name};
+    }
+  };
+}  // arrow_vendored::date
