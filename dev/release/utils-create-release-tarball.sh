@@ -62,28 +62,26 @@ rm -rf ${root_folder}.tmp
 # * https://github.com/apache/arrow/pull/4488
 #
 # We need to set constant timestamp for a dummy .git/ directory for
-# Reproducible Builds. We use mtime of csharp/ for it. If
-# SOURCE_DATE_EPOCH is defined, this mtime is overwritten when tar
-# file is created.
-if stat --help > /dev/null 2>&1; then
-  # GNU stat
-  #
-  # touch accepts YYYYMMDDhhmm.ss format but GNU stat doesn't support
-  # for outputting with the format. So we use date for it.
-  csharp_mtime=$(date --date="$(stat --format="%y" csharp)" +%Y%m%d%H%M.%S)
-else
-  # BSD stat
-  csharp_mtime=$(stat -f %Sm -t %Y%m%d%H%M.%S csharp)
-fi
+# Reproducible Builds. We use committer date of the target commit hash
+# for it. If SOURCE_DATE_EPOCH is defined, this mtime is overwritten
+# when tar file is created.
+csharp_mtime=$(TZ=UTC \
+                 git \
+                 -C "${SOURCE_TOP_DIR}" \
+                 log \
+                 --format=%cd \
+                 --date=format:%Y%m%d%H%M.%S \
+                 -n1 \
+                 "${release_hash}")
 dummy_git=${root_folder}/csharp/dummy.git
 mkdir ${dummy_git}
 pushd ${dummy_git}
 echo ${release_hash} > HEAD
 echo "[remote \"origin\"] url = https://github.com/${GITHUB_REPOSITORY:-apache/arrow}.git" >> config
 mkdir objects refs
-find . -exec touch -t "${csharp_mtime}" '{}' ';'
+TZ=UTC find . -exec touch -t "${csharp_mtime}" '{}' ';'
 popd
-touch -t "${csharp_mtime}" ${root_folder}/csharp
+TZ=UTC touch -t "${csharp_mtime}" ${root_folder}/csharp
 
 # Create new tarball from modified source directory.
 #
