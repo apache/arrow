@@ -364,7 +364,16 @@ def _index_level_name(index, i, column_names):
     if index.name is not None and index.name not in column_names:
         return _column_name_to_strings(index.name)
     else:
-        return f'__index_level_{i:d}__'
+        id_name = f'__index_level_{i:d}__'
+        if id_name in column_names:
+            id_name_incremented = f'__index_level_{i+1:d}__'
+            if id_name_incremented in column_names:
+                raise KeyError(f"{id_name} and {id_name_incremented} "
+                               "appear in the columns name list")
+            else:
+                return f'__index_level_{i+1:d}__'
+        else:
+            return id_name
 
 
 def _get_columns_to_convert(df, schema, preserve_index, columns):
