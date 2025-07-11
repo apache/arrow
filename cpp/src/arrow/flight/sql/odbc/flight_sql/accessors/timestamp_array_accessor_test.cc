@@ -34,8 +34,28 @@ using odbcabstraction::TIMESTAMP_STRUCT;
 using odbcabstraction::GetTimeForSecondsSinceEpoch;
 
 TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_MILLI) {
-  std::vector<int64_t> values = {86400370,  172800000, 259200000, 1649793238110LL,
-                                 345600000, 432000000, 518400000};
+  std::vector<int64_t> values = {
+      86400370,  172800000, 259200000, 1649793238110LL, 345600000, 432000000, 518400000,
+      -86399000, 0,         -86399999, -86399001,       86400001,  86400999};
+  std::vector<TIMESTAMP_STRUCT> expected = {
+      /* year(16), month(u16), day(u16), hour(u16), minute(u16), second(u16),
+         fraction(u32) */
+      {1970, 1, 2, 0, 0, 0, 370000000},
+      {1970, 1, 3, 0, 0, 0, 0},
+      {1970, 1, 4, 0, 0, 0, 0},
+      {2022, 4, 12, 19, 53, 58, 110000000},
+      {1970, 1, 5, 0, 0, 0, 0},
+      {1970, 1, 6, 0, 0, 0, 0},
+      {1970, 1, 7, 0, 0, 0, 0},
+      {1969, 12, 31, 0, 0, 1, 0},
+      {1970, 1, 1, 0, 0, 0, 0},
+      /* Tests both ends of the fraction rounding range to ensure we don't tip the wrong
+         way */
+      {1969, 12, 31, 0, 0, 0, 1000000},
+      {1969, 12, 31, 0, 0, 0, 999000000},
+      {1970, 1, 2, 0, 0, 0, 1000000},
+      {1970, 1, 2, 0, 0, 0, 999000000},
+  };
 
   std::shared_ptr<Array> timestamp_array;
 
@@ -60,28 +80,26 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_MILLI) {
   for (size_t i = 0; i < values.size(); ++i) {
     ASSERT_EQ(sizeof(TIMESTAMP_STRUCT), strlen_buffer[i]);
 
-    tm date{};
-
-    auto converted_time = values[i] / odbcabstraction::MILLI_TO_SECONDS_DIVISOR;
-    GetTimeForSecondsSinceEpoch(date, converted_time);
-
-    ASSERT_EQ(buffer[i].year, 1900 + (date.tm_year));
-    ASSERT_EQ(buffer[i].month, date.tm_mon + 1);
-    ASSERT_EQ(buffer[i].day, date.tm_mday);
-    ASSERT_EQ(buffer[i].hour, date.tm_hour);
-    ASSERT_EQ(buffer[i].minute, date.tm_min);
-    ASSERT_EQ(buffer[i].second, date.tm_sec);
-
-    constexpr uint32_t NANOSECONDS_PER_MILLI = 1000000;
-    ASSERT_EQ(
-        buffer[i].fraction,
-        (values[i] % odbcabstraction::MILLI_TO_SECONDS_DIVISOR) * NANOSECONDS_PER_MILLI);
+    ASSERT_EQ(buffer[i].year, expected[i].year);
+    ASSERT_EQ(buffer[i].month, expected[i].month);
+    ASSERT_EQ(buffer[i].day, expected[i].day);
+    ASSERT_EQ(buffer[i].hour, expected[i].hour);
+    ASSERT_EQ(buffer[i].minute, expected[i].minute);
+    ASSERT_EQ(buffer[i].second, expected[i].second);
+    ASSERT_EQ(buffer[i].fraction, expected[i].fraction);
   }
 }
 
 TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_SECONDS) {
-  std::vector<int64_t> values = {86400,  172800, 259200, 1649793238,
-                                 345600, 432000, 518400};
+  std::vector<int64_t> values = {86400,  172800, 259200, 1649793238, 345600,
+                                 432000, 518400, -86399, 0};
+  std::vector<TIMESTAMP_STRUCT> expected = {
+      /* year(16), month(u16), day(u16), hour(u16), minute(u16), second(u16),
+         fraction(u32) */
+      {1970, 1, 2, 0, 0, 0, 0},     {1970, 1, 3, 0, 0, 0, 0},   {1970, 1, 4, 0, 0, 0, 0},
+      {2022, 4, 12, 19, 53, 58, 0}, {1970, 1, 5, 0, 0, 0, 0},   {1970, 1, 6, 0, 0, 0, 0},
+      {1970, 1, 7, 0, 0, 0, 0},     {1969, 12, 31, 0, 0, 1, 0}, {1970, 1, 1, 0, 0, 0, 0},
+  };
 
   std::shared_ptr<Array> timestamp_array;
 
@@ -106,23 +124,26 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_SECONDS) {
 
   for (size_t i = 0; i < values.size(); ++i) {
     ASSERT_EQ(sizeof(TIMESTAMP_STRUCT), strlen_buffer[i]);
-    tm date{};
-
-    auto converted_time = values[i];
-    GetTimeForSecondsSinceEpoch(date, converted_time);
-
-    ASSERT_EQ(buffer[i].year, 1900 + (date.tm_year));
-    ASSERT_EQ(buffer[i].month, date.tm_mon + 1);
-    ASSERT_EQ(buffer[i].day, date.tm_mday);
-    ASSERT_EQ(buffer[i].hour, date.tm_hour);
-    ASSERT_EQ(buffer[i].minute, date.tm_min);
-    ASSERT_EQ(buffer[i].second, date.tm_sec);
+    ASSERT_EQ(buffer[i].year, expected[i].year);
+    ASSERT_EQ(buffer[i].month, expected[i].month);
+    ASSERT_EQ(buffer[i].day, expected[i].day);
+    ASSERT_EQ(buffer[i].hour, expected[i].hour);
+    ASSERT_EQ(buffer[i].minute, expected[i].minute);
+    ASSERT_EQ(buffer[i].second, expected[i].second);
     ASSERT_EQ(buffer[i].fraction, 0);
   }
 }
 
 TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_MICRO) {
-  std::vector<int64_t> values = {86400000000, 1649793238000000};
+  std::vector<int64_t> values = {0, 86400000000, 1649793238000000, -86399999999,
+                                 -86399000001};
+  std::vector<TIMESTAMP_STRUCT> expected = {
+      /* year(16), month(u16), day(u16), hour(u16), minute(u16), second(u16),
+         fraction(u32) */
+      {1970, 1, 1, 0, 0, 0, 0},           {1970, 1, 2, 0, 0, 0, 0},
+      {2022, 4, 12, 19, 53, 58, 0},       {1969, 12, 31, 0, 0, 0, 1000},
+      {1969, 12, 31, 0, 0, 0, 999999000},
+  };
 
   std::shared_ptr<Array> timestamp_array;
 
@@ -148,25 +169,39 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_MICRO) {
   for (size_t i = 0; i < values.size(); ++i) {
     ASSERT_EQ(sizeof(TIMESTAMP_STRUCT), strlen_buffer[i]);
 
-    tm date{};
-
-    auto converted_time = values[i] / odbcabstraction::MICRO_TO_SECONDS_DIVISOR;
-    GetTimeForSecondsSinceEpoch(date, converted_time);
-
-    ASSERT_EQ(buffer[i].year, 1900 + (date.tm_year));
-    ASSERT_EQ(buffer[i].month, date.tm_mon + 1);
-    ASSERT_EQ(buffer[i].day, date.tm_mday);
-    ASSERT_EQ(buffer[i].hour, date.tm_hour);
-    ASSERT_EQ(buffer[i].minute, date.tm_min);
-    ASSERT_EQ(buffer[i].second, date.tm_sec);
-    constexpr uint32_t MICROS_PER_NANO = 1000;
-    ASSERT_EQ(buffer[i].fraction,
-              (values[i] % odbcabstraction::MICRO_TO_SECONDS_DIVISOR) * MICROS_PER_NANO);
+    ASSERT_EQ(buffer[i].year, expected[i].year);
+    ASSERT_EQ(buffer[i].month, expected[i].month);
+    ASSERT_EQ(buffer[i].day, expected[i].day);
+    ASSERT_EQ(buffer[i].hour, expected[i].hour);
+    ASSERT_EQ(buffer[i].minute, expected[i].minute);
+    ASSERT_EQ(buffer[i].second, expected[i].second);
+    ASSERT_EQ(buffer[i].fraction, expected[i].fraction);
   }
 }
 
 TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_NANO) {
-  std::vector<int64_t> values = {86400000010000, 1649793238000000000};
+  std::vector<int64_t> values = {86400000010000,
+                                 1649793238000000000,
+                                 -86399999999999,
+                                 -86399000000001,
+                                 86400000000001,
+                                 86400999999999,
+                                 0,
+                                 -9223372036000000001};
+  std::vector<TIMESTAMP_STRUCT> expected = {
+      /* year(16), month(u16), day(u16), hour(u16), minute(u16), second(u16),
+         fraction(u32) */
+      {1970, 1, 2, 0, 0, 0, 10000},
+      {2022, 4, 12, 19, 53, 58, 0},
+      {1969, 12, 31, 0, 0, 0, 1},
+      {1969, 12, 31, 0, 0, 0, 999999999},
+      {1970, 1, 2, 0, 0, 0, 1},
+      {1970, 1, 2, 0, 0, 0, 999999999},
+      {1970, 1, 1, 0, 0, 0, 0},
+      /* Test within range where floor (seconds) value is below INT64_MIN in nanoseconds
+       */
+      {1677, 9, 21, 0, 12, 43, 999999999},
+  };
 
   std::shared_ptr<Array> timestamp_array;
 
@@ -191,18 +226,14 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_NANO) {
 
   for (size_t i = 0; i < values.size(); ++i) {
     ASSERT_EQ(sizeof(TIMESTAMP_STRUCT), strlen_buffer[i]);
-    tm date{};
 
-    auto converted_time = values[i] / odbcabstraction::NANO_TO_SECONDS_DIVISOR;
-    GetTimeForSecondsSinceEpoch(date, converted_time);
-
-    ASSERT_EQ(buffer[i].year, 1900 + (date.tm_year));
-    ASSERT_EQ(buffer[i].month, date.tm_mon + 1);
-    ASSERT_EQ(buffer[i].day, date.tm_mday);
-    ASSERT_EQ(buffer[i].hour, date.tm_hour);
-    ASSERT_EQ(buffer[i].minute, date.tm_min);
-    ASSERT_EQ(buffer[i].second, date.tm_sec);
-    ASSERT_EQ(buffer[i].fraction, (values[i] % odbcabstraction::NANO_TO_SECONDS_DIVISOR));
+    ASSERT_EQ(buffer[i].year, expected[i].year);
+    ASSERT_EQ(buffer[i].month, expected[i].month);
+    ASSERT_EQ(buffer[i].day, expected[i].day);
+    ASSERT_EQ(buffer[i].hour, expected[i].hour);
+    ASSERT_EQ(buffer[i].minute, expected[i].minute);
+    ASSERT_EQ(buffer[i].second, expected[i].second);
+    ASSERT_EQ(buffer[i].fraction, expected[i].fraction);
   }
 }
 

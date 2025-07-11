@@ -76,6 +76,8 @@ add_library(arrow_odbc_spi_impl
             scalar_function_reporter.h
             system_trust_store.cc
             system_trust_store.h
+            system_dsn.cc
+            system_dsn.h
             utils.cc)
 target_include_directories(arrow_odbc_spi_impl
                            PUBLIC include include/flight_sql
@@ -96,13 +98,15 @@ if(WIN32)
                          ui/window.cc
                          ui/dsn_configuration_window.cc
                          ui/add_property_window.cc
-                         system_dsn.cc)
+                         win_system_dsn.cc)
 endif()
 
-target_link_libraries(arrow_odbc_spi_impl PUBLIC odbcabstraction arrow_flight_sql_shared)
+target_link_libraries(arrow_odbc_spi_impl PUBLIC odbcabstraction arrow_flight_sql_shared
+                                                 arrow_compute_shared Boost::locale)
 
-if(MSVC)
-  target_link_libraries(arrow_odbc_spi_impl PUBLIC Boost::locale)
+# Link libraries on MINGW64 only
+if(MINGW AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  target_link_libraries(arrow_odbc_spi_impl PUBLIC ${ODBCINST})
 endif()
 
 set_target_properties(arrow_odbc_spi_impl

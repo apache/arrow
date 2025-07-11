@@ -1173,6 +1173,7 @@ void GetInfoCache::LoadDefaultsForMissingEntries() {
   SetDefaultIfMissing(info_, SQL_CONVERT_DECIMAL, static_cast<uint32_t>(0));
   SetDefaultIfMissing(info_, SQL_CONVERT_DOUBLE, static_cast<uint32_t>(0));
   SetDefaultIfMissing(info_, SQL_CONVERT_FLOAT, static_cast<uint32_t>(0));
+  SetDefaultIfMissing(info_, SQL_CONVERT_FUNCTIONS, static_cast<uint32_t>(0));
   SetDefaultIfMissing(info_, SQL_CONVERT_GUID, static_cast<uint32_t>(0));
   SetDefaultIfMissing(info_, SQL_CONVERT_INTEGER, static_cast<uint32_t>(0));
   SetDefaultIfMissing(info_, SQL_CONVERT_INTERVAL_YEAR_MONTH, static_cast<uint32_t>(0));
@@ -1251,6 +1252,7 @@ void GetInfoCache::LoadDefaultsForMissingEntries() {
   SetDefaultIfMissing(info_, SQL_MAX_COLUMNS_IN_ORDER_BY, static_cast<uint16_t>(0));
   SetDefaultIfMissing(info_, SQL_MAX_COLUMNS_IN_SELECT, static_cast<uint16_t>(0));
   SetDefaultIfMissing(info_, SQL_MAX_COLUMNS_IN_TABLE, static_cast<uint16_t>(0));
+  SetDefaultIfMissing(info_, SQL_MAX_CONCURRENT_ACTIVITIES, static_cast<uint16_t>(0));
   SetDefaultIfMissing(info_, SQL_MAX_CURSOR_NAME_LEN, static_cast<uint16_t>(0));
   SetDefaultIfMissing(info_, SQL_MAX_DRIVER_CONNECTIONS, static_cast<uint16_t>(0));
   SetDefaultIfMissing(info_, SQL_MAX_IDENTIFIER_LEN, static_cast<uint16_t>(65535));
@@ -1270,6 +1272,7 @@ void GetInfoCache::LoadDefaultsForMissingEntries() {
   SetDefaultIfMissing(info_, SQL_OJ_CAPABILITIES,
                       static_cast<uint32_t>(SQL_OJ_LEFT | SQL_OJ_RIGHT | SQL_OJ_FULL));
   SetDefaultIfMissing(info_, SQL_ORDER_BY_COLUMNS_IN_SELECT, "Y");
+  SetDefaultIfMissing(info_, SQL_OUTER_JOINS, "N");
   SetDefaultIfMissing(info_, SQL_PROCEDURE_TERM, "");
   SetDefaultIfMissing(info_, SQL_PROCEDURES, "N");
   SetDefaultIfMissing(info_, SQL_QUOTED_IDENTIFIER_CASE,
@@ -1278,6 +1281,7 @@ void GetInfoCache::LoadDefaultsForMissingEntries() {
   SetDefaultIfMissing(info_, SQL_SCHEMA_USAGE,
                       static_cast<uint32_t>(SQL_SU_DML_STATEMENTS));
   SetDefaultIfMissing(info_, SQL_SEARCH_PATTERN_ESCAPE, "\\");
+  SetDefaultIfMissing(info_, SQL_SPECIAL_CHARACTERS, "");
   SetDefaultIfMissing(
       info_, SQL_SERVER_NAME,
       "Arrow Flight SQL Server");  // This might actually need to be the hostname.
@@ -1332,6 +1336,16 @@ void GetInfoCache::LoadDefaultsForMissingEntries() {
                           SQL_FN_TSI_FRAC_SECOND | SQL_FN_TSI_SECOND | SQL_FN_TSI_MINUTE |
                           SQL_FN_TSI_HOUR | SQL_FN_TSI_DAY | SQL_FN_TSI_WEEK |
                           SQL_FN_TSI_MONTH | SQL_FN_TSI_QUARTER | SQL_FN_TSI_YEAR));
+  SetDefaultIfMissing(
+      info_, SQL_TIMEDATE_FUNCTIONS,
+      static_cast<uint32_t>(
+          SQL_FN_TD_CURRENT_DATE | SQL_FN_TD_CURRENT_TIME | SQL_FN_TD_CURRENT_TIMESTAMP |
+          SQL_FN_TD_CURDATE | SQL_FN_TD_CURTIME | SQL_FN_TD_DAYNAME |
+          SQL_FN_TD_DAYOFMONTH | SQL_FN_TD_DAYOFWEEK | SQL_FN_TD_DAYOFYEAR |
+          SQL_FN_TD_EXTRACT | SQL_FN_TD_HOUR | SQL_FN_TD_MINUTE | SQL_FN_TD_MONTH |
+          SQL_FN_TD_MONTHNAME | SQL_FN_TD_NOW | SQL_FN_TD_QUARTER | SQL_FN_TD_SECOND |
+          SQL_FN_TD_TIMESTAMPADD | SQL_FN_TD_TIMESTAMPDIFF | SQL_FN_TD_WEEK |
+          SQL_FN_TD_YEAR));
   SetDefaultIfMissing(info_, SQL_UNION,
                       static_cast<uint32_t>(SQL_U_UNION | SQL_U_UNION_ALL));
   SetDefaultIfMissing(info_, SQL_XOPEN_CLI_YEAR, "1995");
