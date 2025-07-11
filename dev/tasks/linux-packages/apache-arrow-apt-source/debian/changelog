@@ -1,3 +1,9 @@
+apache-arrow-apt-source (21.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Sutou Kouhei <kou@clear-code.com>  Fri, 11 Jul 2025 00:43:43 -0000
+
 apache-arrow-apt-source (20.0.0-1) unstable; urgency=low
 
   * New upstream release.
