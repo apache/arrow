@@ -278,6 +278,7 @@ void Pipe::Pause(PipeSource* output, int counter) {
   auto lock = mutex_.Lock();
   auto& state = state_[output];
   if (state.backpressure_counter < counter) {
+    state.backpressure_counter = counter;
     if (!state.paused && !state.stopped) {
       state.paused = true;
       size_t paused_count = ++paused_count_;
