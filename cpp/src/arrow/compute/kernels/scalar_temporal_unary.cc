@@ -16,7 +16,6 @@
 // under the License.
 
 #include <cmath>
-#include <initializer_list>
 #include <sstream>
 
 #include "arrow/builder.h"
@@ -36,8 +35,7 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 namespace {
 
@@ -129,7 +127,7 @@ struct AssumeTimezoneExtractor
     }
     ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(options.timezone));
     using ExecTemplate = Op<Duration>;
-    auto op = ExecTemplate(&options, tz);
+    auto op = ExecTemplate(&options, &tz);
     applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
         op};
     return kernel.Exec(ctx, batch, out);
@@ -149,7 +147,7 @@ struct DaylightSavingsExtractor
     }
     ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
     using ExecTemplate = Op<Duration>;
-    auto op = ExecTemplate(nullptr, tz);
+    auto op = ExecTemplate(nullptr, &tz);
     applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
         op};
     return kernel.Exec(ctx, batch, out);
@@ -665,20 +663,18 @@ struct Nanosecond {
 template <typename Duration>
 struct IsDaylightSavings {
   explicit IsDaylightSavings(const FunctionOptions* options, const ArrowTimeZone* tz)
-      : tz_(tz) {}
+      : tz_(*tz) {}
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    if (tz_->index() == 0) {
-      auto tz = tz_->get<time_zone, 0>();
-      return tz->get_info(sys_time<Duration>{Duration{arg}}).save.count() != 0;
-    } else {
-      auto tz = tz_->get<OffsetZone, 1>();
-      return tz->get_info(sys_time<Duration>{Duration{arg}}).save.count() != 0;
-    }
+    return std::visit(
+        [&arg](const auto& tz) -> bool {
+          return tz->get_info(sys_time<Duration>{Duration{arg}}).save.count() != 0;
+        },
+        tz_);
   }
 
-  const ArrowTimeZone* tz_;
+  const ArrowTimeZone tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -1172,7 +1168,7 @@ Result<std::locale> GetLocale(const std::string& locale) {
 template <typename Duration, typename InType>
 struct Strftime {
   const StrftimeOptions& options;
-  const ArrowTimeZone* tz;
+  const ArrowTimeZone tz;
   const std::locale locale;
 
   static Result<Strftime> Make(KernelContext* ctx, const DataType& type) {
@@ -1193,8 +1189,7 @@ struct Strftime {
             options.format);
       }
     }
-    ARROW_ASSIGN_OR_RAISE(const ArrowTimeZone* tz,
-                          LocateZone(timezone.empty() ? "UTC" : timezone));
+    ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone.empty() ? "UTC" : timezone));
 
     ARROW_ASSIGN_OR_RAISE(std::locale locale, GetLocale(options.locale));
 
@@ -1360,47 +1355,43 @@ Result<TypeHolder> ResolveLocalTimestampOutput(KernelContext* ctx,
 template <typename Duration>
 struct AssumeTimezone {
   explicit AssumeTimezone(const AssumeTimezoneOptions* options, const ArrowTimeZone* tz)
-      : options(*options), tz_(tz) {}
+      : options(*options), tz_(*tz) {}
 
   template <typename T, typename Arg0>
   T get_local_time(Arg0 arg, const ArrowTimeZone* tz) const {
-    if (tz->index() == 0) {
-      return static_cast<T>(zoned_time<Duration>(tz->get<time_zone, 0>(), local_time<Duration>(Duration{arg}))
-                                .get_sys_time()
-                                .time_since_epoch()
-                                .count());
-    } else {
-      return static_cast<T>(zoned_time<Duration, const OffsetZone*>(tz->get<OffsetZone, 1>(), local_time<Duration>(Duration{arg}))
-                                .get_sys_time()
-                                .time_since_epoch()
-                                .count());
-    }
+    const auto visitor =
+        overloads{[arg](const time_zone* tz) {
+                    return zoned_time<Duration>{tz, local_time<Duration>(Duration{arg})}
+                        .get_sys_time();
+                  },
+                  [arg](const OffsetZone* tz) {
+                    return zoned_time<Duration, const OffsetZone*>{
+                        tz, local_time<Duration>(Duration{arg})}
+                        .get_sys_time();
+                  }};
+    return std::visit(visitor, tz_).time_since_epoch().count();
   }
 
   template <typename T, typename Arg0>
   T get_local_time(Arg0 arg, const arrow_vendored::date::choose choose,
                    const ArrowTimeZone* tz) const {
-    if (tz->index() == 0) {
-      return static_cast<T>(zoned_time<Duration>(tz->get<time_zone, 0>(),
-                                                 local_time<Duration>(Duration{arg}),
-                                                 choose)
-                                .get_sys_time()
-                                .time_since_epoch()
-                                .count());
-    } else {
-      return static_cast<T>(
-          zoned_time<Duration, const OffsetZone*>(
-              tz->get<OffsetZone, 1>(), local_time<Duration>(Duration{arg}), choose)
-              .get_sys_time()
-              .time_since_epoch()
-              .count());
-    }
+    const auto visitor = overloads{[arg, choose](const time_zone* tz) {
+                                     return zoned_time<Duration>{
+                                         tz, local_time<Duration>(Duration{arg}), choose}
+                                         .get_sys_time();
+                                   },
+                                   [arg, choose](const OffsetZone* tz) {
+                                     return zoned_time<Duration, const OffsetZone*>{
+                                         tz, local_time<Duration>(Duration{arg}), choose}
+                                         .get_sys_time();
+                                   }};
+    return static_cast<T>(std::visit(visitor, tz_).time_since_epoch().count());
   }
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status* st) const {
     try {
-      return get_local_time<T, Arg0>(arg, tz_);
+      return get_local_time<T, Arg0>(arg, &tz_);
     } catch (const arrow_vendored::date::nonexistent_local_time& e) {
       switch (options.nonexistent) {
         case AssumeTimezoneOptions::Nonexistent::NONEXISTENT_RAISE: {
@@ -1409,11 +1400,12 @@ struct AssumeTimezone {
           return arg;
         }
         case AssumeTimezoneOptions::Nonexistent::NONEXISTENT_EARLIEST: {
-          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest, tz_) -
+          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest,
+                                         &tz_) -
                  1;
         }
         case AssumeTimezoneOptions::Nonexistent::NONEXISTENT_LATEST: {
-          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest, tz_);
+          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest, &tz_);
         }
       }
     } catch (const arrow_vendored::date::ambiguous_local_time& e) {
@@ -1425,17 +1417,17 @@ struct AssumeTimezone {
         }
         case AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_EARLIEST: {
           return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::earliest,
-                                         tz_);
+                                         &tz_);
         }
         case AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_LATEST: {
-          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest, tz_);
+          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest, &tz_);
         }
       }
     }
     return 0;
   }
   AssumeTimezoneOptions options;
-  const ArrowTimeZone* tz_;
+  const ArrowTimeZone tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -2057,6 +2049,5 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(round_temporal)));
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

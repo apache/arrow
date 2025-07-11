@@ -21,22 +21,17 @@
 #include <cstdint>
 
 #include "arrow/compute/api_scalar.h"
-#include "arrow/vendored/datetime.h"
 #include "arrow/util/date_internal.h"
 #include "arrow/util/value_parsing.h"
-#include "arrow/util/variant.h"
 
-namespace arrow {
+namespace arrow::compute::internal {
 
-namespace compute {
-namespace internal {
-
+using arrow::internal::OffsetZone;
 using arrow_vendored::date::days;
 using arrow_vendored::date::floor;
 using arrow_vendored::date::local_days;
 using arrow_vendored::date::local_time;
 using arrow_vendored::date::locate_zone;
-using arrow_vendored::date::OffsetZone;
 using arrow_vendored::date::sys_days;
 using arrow_vendored::date::sys_time;
 using arrow_vendored::date::time_zone;
@@ -44,30 +39,44 @@ using arrow_vendored::date::year_month_day;
 using arrow_vendored::date::zoned_time;
 using std::chrono::duration_cast;
 
-using ArrowTimeZone =
-    util::Variant<const time_zone*, const arrow_vendored::date::OffsetZone*>;
+using ArrowTimeZone = std::variant<const time_zone*, const OffsetZone*>;
+
+template <class... Ts>
+struct overloads : Ts... {
+  using Ts::operator()...;
+};
+template <class... Ts>
+overloads(Ts...) -> overloads<Ts...>;
 
 inline int64_t GetQuarter(const year_month_day& ymd) {
   return static_cast<int64_t>((static_cast<uint32_t>(ymd.month()) - 1) / 3);
 }
 
-static inline Result<const ArrowTimeZone*> LocateZone(const std::string& timezone) {
-  ArrowTimeZone tz;
+static inline Result<const ArrowTimeZone> LocateZone(const std::string& timezone) {
   try {
-    std::chrono::minutes zone_offset;
-    const bool is_offset =
-        arrow::internal::detail::ParseHH_MM(timezone.c_str(), &zone_offset);
-    if (is_offset) {
-      const auto offset_zone = OffsetZone(zone_offset);
-      tz = ArrowTimeZone{&offset_zone};
+    const char* timezone_string = timezone.c_str();
+    if ((timezone_string[0] == '+' || timezone_string[0] == '-') &&
+        (timezone.length() == 5 || timezone.length() == 6)) {
+      // Valid offset strings have to have 4 digits and a sign prefix.
+      // Valid examples: +01:23 and -0123, invalid examples: 1:23, 123, 0123, 01:23.
+      std::chrono::minutes zone_offset;
+      if (timezone.length() == 6) {
+        arrow::internal::detail::ParseHH_MM(timezone_string + 1, &zone_offset);
+      } else {
+        arrow::internal::detail::ParseHHMM(timezone_string + 1, &zone_offset);
+      }
+
+      zone_offset = timezone_string[0] == '-' ? -zone_offset : zone_offset;
+      auto offset_zone = std::make_unique<OffsetZone>(zone_offset);
+      return ArrowTimeZone{offset_zone.release()};
     } else {
-      const auto offset_zone = locate_zone(timezone);
-      tz = ArrowTimeZone{offset_zone};
+      const time_zone* offset_zone = locate_zone(timezone_string);
+      return ArrowTimeZone{offset_zone};
     }
   } catch (const std::runtime_error& ex) {
-    return Status::Invalid("Cannot locate timezone '", timezone, "': ", ex.what());
+    return Status::Invalid("Cannot locate or parse timezone '", timezone,
+                           "': ", ex.what());
   }
-  return &tz;
 }
 
 static inline const std::string& GetInputTimezone(const DataType& type) {
@@ -118,33 +127,27 @@ struct ZonedLocalizer {
   using days_t = local_days;
 
   // Timezone-localizing conversions: UTC -> local time
-  const ArrowTimeZone* tz_;
+  const ArrowTimeZone tz_;
 
   template <typename Duration>
   local_time<Duration> ConvertTimePoint(int64_t t) const {
-    if (tz_->index() == 1) {
-      auto tz = tz_->get<time_zone, 0>();
-      return tz->to_local(sys_time<Duration>(Duration{t}));
-    } else {
-      auto tz = tz_->get<OffsetZone, 1>();
-      return tz->to_local(sys_time<Duration>(Duration{t}));
-    }
+    const auto st = sys_time<Duration>(Duration{t});
+    return std::visit(
+        [st](const auto& tz) -> local_time<Duration> { return tz->to_local(st); }, tz_);
   }
 
   template <typename Duration>
   Duration ConvertLocalToSys(Duration t, Status* st) const {
+    const auto lt = local_time<Duration>(t);
+    const auto visitor =
+        overloads{[lt](const time_zone* tz) {
+                    return zoned_time<Duration>{tz, lt}.get_sys_time();
+                  },
+                  [lt](const OffsetZone* tz) {
+                    return zoned_time<Duration, const OffsetZone*>{tz, lt}.get_sys_time();
+                  }};
     try {
-      if (tz_->index() == 1) {
-        const time_zone* tz = tz_->get<time_zone, 0>();
-        return zoned_time<Duration>{tz, local_time<Duration>(t)}
-            .get_sys_time()
-            .time_since_epoch();
-      } else {
-        const OffsetZone* tz = tz_->get<OffsetZone, 1>();
-        return zoned_time<Duration, const OffsetZone*>{tz, local_time<Duration>(t)}
-            .get_sys_time()
-            .time_since_epoch();
-      }
+      return std::visit(visitor, tz_).time_since_epoch();
     } catch (const arrow_vendored::date::nonexistent_local_time& e) {
       *st = Status::Invalid("Local time does not exist: ", e.what());
       return Duration{0};
@@ -160,10 +163,10 @@ struct ZonedLocalizer {
 template <typename Duration>
 struct TimestampFormatter {
   const char* format;
-  const ArrowTimeZone* tz_;
+  const ArrowTimeZone tz_;
   std::ostringstream bufstream;
 
-  explicit TimestampFormatter(const std::string& format, const ArrowTimeZone* tz,
+  explicit TimestampFormatter(const std::string& format, const ArrowTimeZone tz,
                               const std::locale& locale)
       : format(format.c_str()), tz_(tz) {
     bufstream.imbue(locale);
@@ -173,17 +176,18 @@ struct TimestampFormatter {
 
   Result<std::string> operator()(int64_t arg) {
     bufstream.str("");
+    const auto visitor = overloads{
+        [&](const time_zone* tz) {
+          const auto zt = zoned_time<Duration>{tz, sys_time<Duration>(Duration{arg})};
+          arrow_vendored::date::to_stream(bufstream, format, zt);
+        },
+        [&](const OffsetZone* tz) {
+          const auto zt = zoned_time<Duration, const OffsetZone*>{
+              tz, sys_time<Duration>(Duration{arg})};
+          arrow_vendored::date::to_stream(bufstream, format, zt);
+        }};
     try {
-      if (tz_->index() == 0) {
-        auto tz = tz_->get<time_zone, 0>();
-        const auto zt = zoned_time<Duration>{tz, sys_time<Duration>(Duration{arg})};
-        arrow_vendored::date::to_stream(bufstream, format, zt);
-      } else {
-        auto tz = tz_->get<OffsetZone, 1>();
-        const auto zt = zoned_time<Duration, const OffsetZone*>{
-            tz, sys_time<Duration>(Duration{arg})};
-        arrow_vendored::date::to_stream(bufstream, format, zt);
-      }
+      std::visit(visitor, tz_);
     } catch (const std::runtime_error& ex) {
       bufstream.clear();
       return Status::Invalid("Failed formatting timestamp: ", ex.what());
@@ -358,6 +362,4 @@ struct TemporalComponentExtract
   }
 };
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal
