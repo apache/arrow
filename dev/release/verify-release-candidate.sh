@@ -791,7 +791,7 @@ ensure_source_directory() {
       fetch_archive ${dist_name}
       git clone https://github.com/${GITHUB_REPOSITORY}.git arrow
       pushd arrow
-      "${SOURCE_DIR}/utils-create-release-tarball.sh" ${VERSION} ${RC_NUMBER}
+      dev/release/utils-create-release-tarball.sh ${VERSION} ${RC_NUMBER}
       if ! cmp ${dist_name}.tar.gz ../${dist_name}.tar.gz; then
         echo "Source archive isn't reproducible"
         return 1
