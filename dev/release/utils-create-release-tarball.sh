@@ -103,6 +103,7 @@ else
 fi
 gtar_options=(
   --group=0 \
+  --hard-dereference \
   --mode=a=rX,u+w \
   --numeric-owner \
   --owner=0 \
