@@ -53,6 +53,15 @@ std::string get_bad_data_dir() {
   return ss.str();
 }
 
+std::string get_variant_dir() {
+  // PARQUET_TEST_DATA should point to ARROW_HOME/cpp/submodules/parquet-testing/data
+  // so need to reach one folder up to access the "variant" folder.
+  std::string data_dir(get_data_dir());
+  std::stringstream ss;
+  ss << data_dir << "/../variant";
+  return ss.str();
+}
+
 std::string get_data_file(const std::string& filename, bool is_good) {
   std::stringstream ss;
 
