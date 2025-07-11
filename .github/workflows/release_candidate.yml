@@ -96,7 +96,7 @@ jobs:
             gpg \
               --armor \
               --detach-sign \
-              --local-user "${ARROW_GPG_SECRET_KEY}" \
+              --local-user "${ARROW_GPG_KEY_UID}" \
               --output "${RELEASE_TARBALL}.asc" \
               "${RELEASE_TARBALL}"
           fi
