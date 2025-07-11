@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.includes.libarrow cimport GetBuildInfo
-cimport pyarrow.includes.libarrow_python_config as libarrow_python_config
+cimport pyarrow.includes.libarrow as libarrow
+cimport pyarrow.includes.libarrow_python as libarrow_python
 
 from collections import namedtuple
 import os
@@ -66,11 +66,11 @@ def _build_info():
     info : pyarrow.BuildInfo
     """
     cdef:
-        const libarrow_python_config.CBuildInfo* c_info
-        const CBuildInfo* c_cpp_info
+        const libarrow_python.CBuildInfo* c_info
+        const libarrow.CCppBuildInfo* c_cpp_info
 
-    c_info = &libarrow_python_config.GetBuildInfo()
-    c_cpp_info = &GetBuildInfo()
+    c_info = &libarrow_python.GetBuildInfo()
+    c_cpp_info = &libarrow.GetCppBuildInfo()
 
     cpp_build_info = CppBuildInfo(version=frombytes(c_cpp_info.version_string),
                                   version_info=VersionInfo(c_cpp_info.version_major,
