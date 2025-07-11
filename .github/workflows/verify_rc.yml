@@ -42,7 +42,7 @@ env:
 jobs:
   target:
     runs-on: ubuntu-latest
-    timeout: 5
+    timeout-minutes: 5
     outputs:
       version: ${{ steps.detect.outputs.version }}
       rc: ${{ steps.detect.outputs.rc }}
