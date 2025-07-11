@@ -19,6 +19,7 @@
 #include "arrow/util/utf8.h"
 
 #include "arrow/matlab/array/proxy/array.h"
+#include "arrow/matlab/array/validation_mode.h"
 #include "arrow/matlab/bit/unpack.h"
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/index/validate.h"
@@ -41,6 +42,7 @@ Array::Array(std::shared_ptr<arrow::Array> array) : array{std::move(array)} {
   REGISTER_METHOD(Array, isEqual);
   REGISTER_METHOD(Array, slice);
   REGISTER_METHOD(Array, exportToC);
+  REGISTER_METHOD(Array, validate);
 }
 
 std::shared_ptr<arrow::Array> Array::unwrap() { return array; }
@@ -173,6 +175,39 @@ void Array::exportToC(libmexclass::proxy::method::Context& context) {
   MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(
       arrow::ExportArray(*array, arrow_array, arrow_schema), context,
       error::C_EXPORT_FAILED);
+}
+
+void Array::validate(libmexclass::proxy::method::Context& context) {
+  namespace mda = ::matlab::data;
+  mda::StructArray args = context.inputs[0];
+  const mda::TypedArray<std::uint8_t> validation_mode_mda = args[0]["ValidationMode"];
+  const auto validation_mode_integer = uint8_t(validation_mode_mda[0]);
+  // Convert integer representation to ValidationMode enum.
+  const auto validation_mode = static_cast<ValidationMode>(validation_mode_integer);
+  switch (validation_mode) {
+    case ValidationMode::None: {
+      // Do nothing.
+      break;
+    }
+    case ValidationMode::Minimal: {
+      MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(array->Validate(), context,
+                                          error::ARRAY_VALIDATE_MINIMAL_FAILED);
+      break;
+    }
+    case ValidationMode::Full: {
+      MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(array->ValidateFull(), context,
+                                          error::ARRAY_VALIDATE_FULL_FAILED);
+      break;
+    }
+    default: {
+      // Throw an error if an unsupported enumeration value is provided.
+      const auto msg = "Unsupported ValidationMode enumeration value: " +
+                       std::to_string(validation_mode_integer);
+      context.error =
+          libmexclass::error::Error{error::ARRAY_VALIDATE_UNSUPPORTED_ENUM, msg};
+      return;
+    }
+  }
 }
 
 }  // namespace arrow::matlab::array::proxy
