@@ -17,8 +17,26 @@
 
 #pragma once
 
-namespace arrow {
-namespace internal {
+#include "arrow/vendored/datetime.h"
+
+namespace arrow::internal {
+
+using arrow_vendored::date::choose;
+using arrow_vendored::date::days;
+using arrow_vendored::date::floor;
+using arrow_vendored::date::format;
+using arrow_vendored::date::local_days;
+using arrow_vendored::date::local_time;
+using arrow_vendored::date::locate_zone;
+using arrow_vendored::date::sys_days;
+using arrow_vendored::date::sys_info;
+using arrow_vendored::date::sys_seconds;
+using arrow_vendored::date::sys_time;
+using arrow_vendored::date::time_zone;
+using arrow_vendored::date::year_month_day;
+using arrow_vendored::date::zoned_time;
+using arrow_vendored::date::zoned_traits;
+using std::chrono::minutes;
 
 class OffsetZone {
   std::chrono::minutes offset_;
@@ -38,24 +56,26 @@ class OffsetZone {
 
   template <class Duration>
   sys_info get_info(sys_time<Duration> st) const {
-    return {sys_seconds::min(), sys_seconds::max(), offset_, std::chrono::minutes{0},
-            offset_ >= std::chrono::minutes{0} ? "+" + format("%H%M", offset_)
-                                               : "-" + format("%H%M", -offset_)};
+    return {sys_seconds::min(), sys_seconds::max(), offset_, minutes(0),
+            offset_ >= minutes(0) ? "+" + format("%H%M", offset_)
+                                  : "-" + format("%H%M", -offset_)};
   }
 
   const OffsetZone* operator->() const { return this; }
 };
+
+}  // namespace arrow::internal
+
+namespace arrow_vendored::date {
+using arrow::internal::OffsetZone;
 
 template <>
 struct zoned_traits<OffsetZone> {
   static OffsetZone default_zone() { return OffsetZone{std::chrono::minutes{0}}; }
 
   static OffsetZone locate_zone(const std::string& name) {
-    using namespace std::chrono;
-    if (name == "UTC") return OffsetZone{minutes{0}};
+    if (name == "UTC") return OffsetZone{std::chrono::minutes{0}};
     throw std::runtime_error{"OffsetZone can't parse " + name};
   }
 };
-
-}  // namespace date
-}  // namespace arrow_vendored
+}  // namespace arrow_vendored::date
