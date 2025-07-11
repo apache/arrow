@@ -306,6 +306,14 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         const CIOContext& io_context,
         int64_t chunk_size, c_bool use_threads)
 
+    CStatus HaveLibHdfs()
+
+    cdef cppclass HdfsConnectionConfig:
+        c_string host
+        int port
+        c_string user
+        c_string kerb_ticket
+        unordered_map[c_string, c_string] extra_conf
 
 # Callbacks for implementing Python filesystems
 # Use typedef to emulate syntax for std::function<void(..)>

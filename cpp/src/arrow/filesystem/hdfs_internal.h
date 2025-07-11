@@ -22,6 +22,11 @@
 
 #include <hdfs.h>
 
+#include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/hdfs.h"
+#include "arrow/filesystem/type_fwd.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/visibility.h"
 #include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
 
@@ -33,7 +38,12 @@ namespace arrow {
 
 class Status;
 
-namespace io::internal {
+using internal::IOErrorFromErrno;
+
+namespace fs::internal {
+
+class HdfsReadableFile;
+class HdfsOutputStream;
 
 // NOTE(wesm): cpplint does not like use of short and other imprecise C types
 struct LibHdfsShim {
@@ -210,5 +220,92 @@ struct LibHdfsShim {
 // TODO(wesm): Remove these exports when we are linking statically
 ARROW_EXPORT Status ConnectLibHdfs(LibHdfsShim** driver);
 
-}  // namespace io::internal
+struct HdfsPathInfo {
+  arrow::fs::FileType kind;
+
+  std::string name;
+  std::string owner;
+  std::string group;
+
+  // Access times in UNIX timestamps (seconds)
+  int64_t size;
+  int64_t block_size;
+
+  int32_t last_modified_time;
+  int32_t last_access_time;
+
+  int16_t replication;
+  int16_t permissions;
+};
+
+class ARROW_EXPORT HdfsReadableFile : public io::RandomAccessFile {
+ public:
+  ~HdfsReadableFile() override;
+
+  static Result<std::shared_ptr<HdfsReadableFile>> Make(const std::string& path,
+                                                        int32_t buffer_size,
+                                                        const io::IOContext& io_context,
+                                                        LibHdfsShim* driver, hdfsFS fs,
+                                                        hdfsFile handle);
+
+  Status Close() override;
+
+  bool closed() const override;
+
+  // NOTE: If you wish to read a particular range of a file in a multithreaded
+  // context, you may prefer to use ReadAt to avoid locking issues
+  Result<int64_t> Read(int64_t nbytes, void* out) override;
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override;
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override;
+  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override;
+
+  Status Seek(int64_t position) override;
+  Result<int64_t> Tell() const override;
+  Result<int64_t> GetSize() override;
+
+ private:
+  explicit HdfsReadableFile(const io::IOContext&);
+
+  class ARROW_NO_EXPORT HdfsReadableFileImpl;
+  std::unique_ptr<HdfsReadableFileImpl> impl_;
+
+  friend class arrow::fs::HadoopFileSystem;
+
+  ARROW_DISALLOW_COPY_AND_ASSIGN(HdfsReadableFile);
+};
+
+// Naming this file OutputStream because it does not support seeking (like the
+// WritableFile interface)
+class ARROW_EXPORT HdfsOutputStream : public io::OutputStream {
+ public:
+  ~HdfsOutputStream() override;
+
+  static Result<std::shared_ptr<HdfsOutputStream>> Make(const std::string& path,
+                                                        int32_t buffer_size,
+                                                        LibHdfsShim* driver, hdfsFS fs,
+                                                        hdfsFile handle);
+
+  Status Close() override;
+
+  bool closed() const override;
+
+  using OutputStream::Write;
+  Status Write(const void* buffer, int64_t nbytes) override;
+
+  Status Flush() override;
+
+  Result<int64_t> Tell() const override;
+
+ private:
+  class ARROW_NO_EXPORT HdfsOutputStreamImpl;
+  std::unique_ptr<HdfsOutputStreamImpl> impl_;
+
+  friend class arrow::fs::HadoopFileSystem;
+
+  HdfsOutputStream();
+
+  ARROW_DISALLOW_COPY_AND_ASSIGN(HdfsOutputStream);
+};
+
+}  // namespace fs::internal
 }  // namespace arrow
