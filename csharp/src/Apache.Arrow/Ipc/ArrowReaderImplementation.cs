@@ -209,7 +209,8 @@ namespace Apache.Arrow.Ipc
                 ArrayData arrayData = LoadField(version, ref recordBatchEnumerator, field, in fieldNode, messageBuffer, bufferCreator);
 
                 arrays.Add(ArrowArrayFactory.BuildArray(arrayData));
-            } while (recordBatchEnumerator.MoveNextNode());
+            } while (recordBatchEnumerator.MoveNextNode() && schemaFieldIndex < schema.FieldsList.Count);
+
 
             return arrays;
         }
