@@ -1176,7 +1176,7 @@ inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
   while (offset < num_levels) {
     int64_t end_offset = std::min(offset + batch_size, num_levels);
 
-    // Find next record boundary (i.e. ref_level = 0)
+    // Find next record boundary (i.e. rep_level = 0)
     while (end_offset < num_levels && rep_levels[end_offset] != 0) {
       end_offset++;
     }
@@ -1196,13 +1196,14 @@ inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
         last_record_begin_offset--;
       }
 
-      if (offset < last_record_begin_offset) {
+      if (offset <= last_record_begin_offset) {
         // We have found the beginning of last record and can check page size.
         action(offset, last_record_begin_offset - offset, /*check_page_size=*/true);
         offset = last_record_begin_offset;
       }
 
-      // There is no record boundary in this chunk and cannot check page size.
+      // Write remaining data after the record boundary,
+      // or all data if no boundary was found.
       action(offset, end_offset - offset, /*check_page_size=*/false);
     }
 
