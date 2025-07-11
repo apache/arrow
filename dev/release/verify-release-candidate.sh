@@ -789,14 +789,29 @@ ensure_source_directory() {
     if [ ! -d "${ARROW_SOURCE_DIR}" ]; then
       pushd $ARROW_TMPDIR
       fetch_archive ${dist_name}
-      git clone https://github.com/${GITHUB_REPOSITORY}.git arrow
-      pushd arrow
-      dev/release/utils-create-release-tarball.sh ${VERSION} ${RC_NUMBER}
-      if ! cmp ${dist_name}.tar.gz ../${dist_name}.tar.gz; then
-        echo "Source archive isn't reproducible"
-        return 1
+      verify_reproducible_build=true
+      if [ "${GITHUB_ACTIONS}" != "true" ]; then
+        verify_reproducible_build=false
       fi
-      popd
+      # We need GNU tar to verify reproducible build
+      if ! tar --version | grep --quiet --fixed GNU || \
+          ! gtar --version | grep --quiet --fixed GNU; then
+        verify_reproducible_build=false
+      fi
+      # We need GNU gzip to verify reproducible build
+      if ! gzip --version | grep --quiet --fixed GNU; then
+        verify_reproducible_build=false
+      fi
+      if [ "${verify_reproducible_build}" = "true" ]; then
+        git clone https://github.com/${GITHUB_REPOSITORY}.git arrow
+        pushd arrow
+        dev/release/utils-create-release-tarball.sh ${VERSION} ${RC_NUMBER}
+        if ! cmp ${dist_name}.tar.gz ../${dist_name}.tar.gz; then
+          echo "Source archive isn't reproducible"
+          return 1
+        fi
+        popd
+      fi
       tar xf ${dist_name}.tar.gz
       popd
     fi
