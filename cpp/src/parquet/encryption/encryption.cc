@@ -26,31 +26,35 @@
 #include "arrow/util/utf8.h"
 #include "parquet/encryption/encryption_internal.h"
 
+using ::arrow::util::SecureString;
+
 namespace parquet {
 
+// any empty SecureString key is interpreted as if no key is given
+// this instance is used when a SecureString reference is returned
+static SecureString kNoKey = SecureString();
+
 // integer key retriever
-void IntegerKeyIdRetriever::PutKey(uint32_t key_id, const std::string& key) {
-  key_map_.insert({key_id, key});
-}
-
-std::string IntegerKeyIdRetriever::GetKey(const std::string& key_metadata) {
-  uint32_t key_id;
-  memcpy(reinterpret_cast<uint8_t*>(&key_id), key_metadata.c_str(), 4);
-
-  return key_map_.at(key_id);
+void IntegerKeyIdRetriever::PutKey(uint32_t key_id, SecureString key) {
+  key_map_.insert({key_id, std::move(key)});
 }
 
 // string key retriever
-void StringKeyIdRetriever::PutKey(const std::string& key_id, const std::string& key) {
-  key_map_.insert({key_id, key});
+void StringKeyIdRetriever::PutKey(std::string key_id, SecureString key) {
+  key_map_.insert({std::move(key_id), std::move(key)});
 }
 
-std::string StringKeyIdRetriever::GetKey(const std::string& key_id) {
+SecureString StringKeyIdRetriever::GetKeyById(const std::string& key_id) {
   return key_map_.at(key_id);
 }
 
 ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key(
     std::string column_key) {
+  return key(SecureString(std::move(column_key)));
+}
+
+ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key(
+    SecureString column_key) {
   if (column_key.empty()) return this;
 
   DCHECK(key_.empty());
@@ -92,6 +96,11 @@ FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::column_key
 
 FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::footer_key(
     std::string footer_key) {
+  return this->footer_key(SecureString(std::move(footer_key)));
+}
+
+FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::footer_key(
+    SecureString footer_key) {
   if (footer_key.empty()) {
     return this;
   }
@@ -129,10 +138,10 @@ FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::aad_prefix
 }
 
 ColumnDecryptionProperties::Builder* ColumnDecryptionProperties::Builder::key(
-    std::string key) {
+    SecureString key) {
   if (key.empty()) return this;
 
-  DCHECK(!key.empty());
+  DCHECK(key_.empty());
   key_ = std::move(key);
   return this;
 }
@@ -182,41 +191,37 @@ FileEncryptionProperties::Builder::disable_aad_prefix_storage() {
 
 ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted,
                                                        std::string column_path,
-                                                       std::string key,
-                                                       std::string key_metadata) {
-  DCHECK(!column_path.empty());
-  column_path_ = std::move(column_path);
+                                                       SecureString key,
+                                                       std::string key_metadata)
+    : column_path_(std::move(column_path)),
+      encrypted_(encrypted),
+      encrypted_with_footer_key_(encrypted && key.empty()),
+      key_(std::move(key)),
+      key_metadata_(std::move(key_metadata)) {
+  DCHECK(!column_path_.empty());
   if (!encrypted) {
-    DCHECK(key.empty() && key_metadata.empty());
+    DCHECK(key_.empty() && key_metadata_.empty());
   }
-
-  if (!key.empty()) {
-    DCHECK(key.length() == 16 || key.length() == 24 || key.length() == 32);
+  if (!key_.empty()) {
+    DCHECK(key_.length() == 16 || key_.length() == 24 || key_.length() == 32);
   }
-
-  encrypted_with_footer_key_ = (encrypted && key.empty());
   if (encrypted_with_footer_key_) {
-    DCHECK(key_metadata.empty());
+    DCHECK(key_metadata_.empty());
   }
-
-  encrypted_ = encrypted;
-  key_metadata_ = std::move(key_metadata);
-  key_ = std::move(key);
 }
 
 ColumnDecryptionProperties::ColumnDecryptionProperties(std::string column_path,
-                                                       std::string key) {
-  DCHECK(!column_path.empty());
-  column_path_ = std::move(column_path);
+                                                       SecureString key)
+    : column_path_(std::move(column_path)), key_(std::move(key)) {
+  DCHECK(!column_path_.empty());
 
-  if (!key.empty()) {
-    DCHECK(key.length() == 16 || key.length() == 24 || key.length() == 32);
+  if (!key_.empty()) {
+    DCHECK(key_.length() == 16 || key_.length() == 24 || key_.length() == 32);
   }
-
-  key_ = std::move(key);
 }
 
-std::string FileDecryptionProperties::column_key(const std::string& column_path) const {
+const SecureString& FileDecryptionProperties::column_key(
+    const std::string& column_path) const {
   if (column_decryption_properties_.find(column_path) !=
       column_decryption_properties_.end()) {
     auto column_prop = column_decryption_properties_.at(column_path);
@@ -224,32 +229,31 @@ std::string FileDecryptionProperties::column_key(const std::string& column_path)
       return column_prop->key();
     }
   }
-  return {};
+  return kNoKey;
 }
 
 FileDecryptionProperties::FileDecryptionProperties(
-    std::string footer_key, std::shared_ptr<DecryptionKeyRetriever> key_retriever,
+    SecureString footer_key, std::shared_ptr<DecryptionKeyRetriever> key_retriever,
     bool check_plaintext_footer_integrity, std::string aad_prefix,
     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
     ColumnPathToDecryptionPropertiesMap column_decryption_properties,
-    bool plaintext_files_allowed) {
-  DCHECK(!footer_key.empty() || nullptr != key_retriever ||
-         0 != column_decryption_properties.size());
-
-  if (!footer_key.empty()) {
-    DCHECK(footer_key.length() == 16 || footer_key.length() == 24 ||
-           footer_key.length() == 32);
+    bool plaintext_files_allowed)
+    : footer_key_(std::move(footer_key)),
+      aad_prefix_(std::move(aad_prefix)),
+      aad_prefix_verifier_(std::move(aad_prefix_verifier)),
+      column_decryption_properties_(std::move(column_decryption_properties)),
+      key_retriever_(std::move(key_retriever)),
+      check_plaintext_footer_integrity_(check_plaintext_footer_integrity),
+      plaintext_files_allowed_(plaintext_files_allowed) {
+  DCHECK(!footer_key_.empty() || nullptr != key_retriever_ ||
+         0 != column_decryption_properties_.size());
+  if (!footer_key_.empty()) {
+    DCHECK(footer_key_.length() == 16 || footer_key_.length() == 24 ||
+           footer_key_.length() == 32);
   }
-  if (footer_key.empty() && check_plaintext_footer_integrity) {
-    DCHECK(nullptr != key_retriever);
+  if (footer_key_.empty() && check_plaintext_footer_integrity) {
+    DCHECK(nullptr != key_retriever_);
   }
-  aad_prefix_verifier_ = std::move(aad_prefix_verifier);
-  footer_key_ = std::move(footer_key);
-  check_plaintext_footer_integrity_ = check_plaintext_footer_integrity;
-  key_retriever_ = std::move(key_retriever);
-  aad_prefix_ = std::move(aad_prefix);
-  column_decryption_properties_ = std::move(column_decryption_properties);
-  plaintext_files_allowed_ = plaintext_files_allowed;
 }
 
 FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key_id(
@@ -282,7 +286,7 @@ FileEncryptionProperties::column_encryption_properties(const std::string& column
 }
 
 FileEncryptionProperties::FileEncryptionProperties(
-    ParquetCipher::type cipher, std::string footer_key, std::string footer_key_metadata,
+    ParquetCipher::type cipher, SecureString footer_key, std::string footer_key_metadata,
     bool encrypted_footer, std::string aad_prefix, bool store_aad_prefix_in_file,
     ColumnPathToEncryptionPropertiesMap encrypted_columns)
     : footer_key_(std::move(footer_key)),
