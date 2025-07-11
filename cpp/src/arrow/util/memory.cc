@@ -29,9 +29,13 @@ inline uint8_t* pointer_logical_and(const uint8_t* address, uintptr_t bits) {
   return reinterpret_cast<uint8_t*>(value & bits);
 }
 
+namespace {
+
 // This function is just for avoiding MinGW-w64 32bit crash.
 // See also: https://sourceforge.net/p/mingw-w64/bugs/767/
 void* wrap_memcpy(void* dst, const void* src, size_t n) { return memcpy(dst, src, n); }
+
+}  // namespace
 
 void parallel_memcopy(uint8_t* dst, const uint8_t* src, int64_t nbytes,
                       uintptr_t block_size, int num_threads) {

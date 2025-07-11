@@ -26,7 +26,9 @@ extern "C" {
 // _declspec(dllexport)/[[gnu::visibility("default")]] even when
 // this header is #included by a non-arrow source, as in a third
 // party filesystem implementation.
-ARROW_FORCE_EXPORT void* arrow_filesystem_get_registry() {
+ARROW_FORCE_EXPORT void* arrow_filesystem_get_registry();
+
+void* arrow_filesystem_get_registry() {
   // In the case where libarrow is linked statically both to the executable and to a
   // dynamically loaded filesystem implementation library, the library contains a
   // duplicate definition of the registry into which the library's instances of

@@ -991,11 +991,6 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
   return FileSystemFromUri(uri_string, io_context, out_path);
 }
 
-Status FileSystemFromUri(const std::string& uri, std::shared_ptr<FileSystem>* out_fs,
-                         std::string* out_path) {
-  return FileSystemFromUri(uri, out_path).Value(out_fs);
-}
-
 Status Initialize(const FileSystemGlobalOptions& options) {
   internal::global_options = options;
   return Status::OK();

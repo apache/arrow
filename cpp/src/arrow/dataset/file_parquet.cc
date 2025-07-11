@@ -1048,6 +1048,8 @@ static inline Result<std::string> FileFromRowGroup(
   return filesystem->NormalizePath(std::move(path));
 }
 
+namespace {
+
 Result<std::shared_ptr<Schema>> GetSchema(
     const parquet::FileMetaData& metadata,
     const parquet::ArrowReaderProperties& properties) {
@@ -1056,6 +1058,8 @@ Result<std::shared_ptr<Schema>> GetSchema(
       metadata.schema(), properties, metadata.key_value_metadata(), &schema));
   return schema;
 }
+
+}  // namespace
 
 Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
     const std::string& metadata_path, std::shared_ptr<fs::FileSystem> filesystem,
