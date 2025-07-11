@@ -61,6 +61,11 @@ cmake_policy(SET CMP0074 NEW)
 # option() honors normal variables.
 cmake_policy(SET CMP0077 NEW)
 
+# https://cmake.org/cmake/help/latest/policy/CMP0090.html
+#
+# export(PACKAGE) does nothing by default.
+cmake_policy(SET CMP0090 NEW)
+
 # https://cmake.org/cmake/help/latest/policy/CMP0091.html
 #
 # MSVC runtime library flags are selected by an abstraction.
