@@ -62,7 +62,7 @@ jobs:
           else
             version=$(grep '^set(ARROW_VERSION ' cpp/CMakeLists.txt | \
                         grep -E -o '[0-9]+\.[0-9]+\.[0-9]+')
-            rc_num=0
+            rc_num=999
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git tag \
@@ -91,6 +91,7 @@ jobs:
           dev/release/utils-create-release-tarball.sh ${VERSION} ${RC_NUM}
           RELEASE_TARBALL=apache-arrow-${VERSION}.tar.gz
           echo "RELEASE_TARBALL=${RELEASE_TARBALL}" >> ${GITHUB_ENV}
+          dev/release/run-rat.sh "${RELEASE_TARBALL}"
           dev/release/utils-generate-checksum.sh "${RELEASE_TARBALL}"
           if [ -n "${ARROW_GPG_SECRET_KEY}" ]; then
             echo "${ARROW_GPG_SECRET_KEY}" | gpg --import
