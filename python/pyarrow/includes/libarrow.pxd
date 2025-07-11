@@ -66,7 +66,7 @@ cdef extern from "arrow/util/decimal.h" namespace "arrow" nogil:
 
 
 cdef extern from "arrow/config.h" namespace "arrow" nogil:
-    cdef cppclass CBuildInfo" arrow::BuildInfo":
+    cdef cppclass CCppBuildInfo "arrow::BuildInfo":
         int version
         int version_major
         int version_minor
@@ -82,7 +82,7 @@ cdef extern from "arrow/config.h" namespace "arrow" nogil:
         c_string package_kind
         c_string build_type
 
-    const CBuildInfo& GetBuildInfo()
+    const CCppBuildInfo& GetCppBuildInfo "arrow::GetBuildInfo"()
 
     cdef cppclass CRuntimeInfo" arrow::RuntimeInfo":
         c_string simd_level
