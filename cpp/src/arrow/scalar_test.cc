@@ -206,18 +206,10 @@ TEST(TestScalar, IdentityCast) {
 template <typename ARROW_TYPE>
 struct NumericHelper {
   using ArgType = typename ARROW_TYPE::c_type;
-  template <typename T>
-  static T Arg(T v) {
-    return v;
-  }
 };
 template <>
 struct NumericHelper<HalfFloatType> {
   using ArgType = Float16;
-  template <typename T>
-  static ArgType Arg(T v) {
-    return static_cast<ArgType>(v);
-  }
 };
 
 template <typename T>
@@ -232,8 +224,7 @@ using NumericArrowTypesPlusHalfFloat =
 TYPED_TEST_SUITE(TestNumericScalar, NumericArrowTypesPlusHalfFloat);
 
 TYPED_TEST(TestNumericScalar, Basics) {
-  using Helper = NumericHelper<TypeParam>;
-  using T = typename Helper::ArgType;
+  using T = typename NumericHelper<TypeParam>::ArgType;
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
 
   T value = static_cast<T>(1);
@@ -284,16 +275,16 @@ TYPED_TEST(TestNumericScalar, Basics) {
   ASSERT_OK(two->ValidateFull());
 
   ASSERT_TRUE(null->Equals(*null_value));
-  ASSERT_TRUE(one->Equals(ScalarType(Helper::Arg(1))));
-  ASSERT_FALSE(one->Equals(ScalarType(Helper::Arg(2))));
-  ASSERT_TRUE(two->Equals(ScalarType(Helper::Arg(2))));
-  ASSERT_FALSE(two->Equals(ScalarType(Helper::Arg(3))));
+  ASSERT_TRUE(one->Equals(ScalarType(static_cast<T>(1))));
+  ASSERT_FALSE(one->Equals(ScalarType(static_cast<T>(2))));
+  ASSERT_TRUE(two->Equals(ScalarType(static_cast<T>(2))));
+  ASSERT_FALSE(two->Equals(ScalarType(static_cast<T>(3))));
 
   ASSERT_TRUE(null->ApproxEquals(*null_value));
-  ASSERT_TRUE(one->ApproxEquals(ScalarType(Helper::Arg(1))));
-  ASSERT_FALSE(one->ApproxEquals(ScalarType(Helper::Arg(2))));
-  ASSERT_TRUE(two->ApproxEquals(ScalarType(Helper::Arg(2))));
-  ASSERT_FALSE(two->ApproxEquals(ScalarType(Helper::Arg(3))));
+  ASSERT_TRUE(one->ApproxEquals(ScalarType(static_cast<T>(1))));
+  ASSERT_FALSE(one->ApproxEquals(ScalarType(static_cast<T>(2))));
+  ASSERT_TRUE(two->ApproxEquals(ScalarType(static_cast<T>(2))));
+  ASSERT_FALSE(two->ApproxEquals(ScalarType(static_cast<T>(3))));
 }
 
 TYPED_TEST(TestNumericScalar, Hashing) {
@@ -313,18 +304,17 @@ TYPED_TEST(TestNumericScalar, Hashing) {
 }
 
 TYPED_TEST(TestNumericScalar, MakeScalar) {
-  using Helper = NumericHelper<TypeParam>;
-  using T = typename Helper::ArgType;
+  using T = typename NumericHelper<TypeParam>::ArgType;
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
   auto type = TypeTraits<TypeParam>::type_singleton();
 
   std::shared_ptr<Scalar> three = MakeScalar(static_cast<T>(3));
   ASSERT_OK(three->ValidateFull());
-  ASSERT_EQ(ScalarType(Helper::Arg(3)), *three);
+  ASSERT_EQ(ScalarType(static_cast<T>(3)), *three);
 
-  AssertMakeScalar(ScalarType(Helper::Arg(3)), type, static_cast<T>(3));
+  AssertMakeScalar(ScalarType(static_cast<T>(3)), type, static_cast<T>(3));
 
-  AssertParseScalar(type, "3", ScalarType(Helper::Arg(3)));
+  AssertParseScalar(type, "3", ScalarType(static_cast<T>(3)));
 }
 
 template <typename T>
