@@ -43,17 +43,14 @@ using arrow_vendored::date::floor;
 using arrow_vendored::date::hh_mm_ss;
 using arrow_vendored::date::local_days;
 using arrow_vendored::date::local_time;
-using arrow_vendored::date::locate_zone;
 using arrow_vendored::date::sys_days;
 using arrow_vendored::date::sys_time;
-using arrow_vendored::date::time_zone;
 using arrow_vendored::date::trunc;
 using arrow_vendored::date::weekday;
 using arrow_vendored::date::weeks;
 using arrow_vendored::date::year_month_day;
 using arrow_vendored::date::year_month_weekday;
 using arrow_vendored::date::years;
-using arrow_vendored::date::zoned_time;
 using arrow_vendored::date::literals::dec;
 using arrow_vendored::date::literals::jan;
 using arrow_vendored::date::literals::last;
@@ -98,7 +95,7 @@ struct TemporalBinary {
     } else {
       ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
       using ExecTemplate = Op<Duration, ZonedLocalizer>;
-      auto op = ExecTemplate(options, ZonedLocalizer{tz});
+      auto op = ExecTemplate(options, ZonedLocalizer{&tz});
       applicator::ScalarBinaryNotNullStatefulEqualTypes<OutType, T, ExecTemplate> kernel{
           op};
       return kernel.Exec(ctx, batch, out);

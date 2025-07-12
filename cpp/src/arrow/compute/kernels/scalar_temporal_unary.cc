@@ -128,7 +128,7 @@ struct AssumeTimezoneExtractor
     }
     ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(options.timezone));
     using ExecTemplate = Op<Duration>;
-    auto op = ExecTemplate(&options, tz);
+    auto op = ExecTemplate(&options, &tz);
     applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
         op};
     return kernel.Exec(ctx, batch, out);
@@ -148,7 +148,7 @@ struct DaylightSavingsExtractor
     }
     ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
     using ExecTemplate = Op<Duration>;
-    auto op = ExecTemplate(nullptr, tz);
+    auto op = ExecTemplate(nullptr, &tz);
     applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
         op};
     return kernel.Exec(ctx, batch, out);
@@ -287,7 +287,7 @@ struct YearMonthDayWrapper<Duration, TimestampType> {
       return GetYearMonthDay<Duration>(in_val, NonZonedLocalizer{});
     } else {
       ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
-      return GetYearMonthDay<Duration>(in_val, ZonedLocalizer{tz});
+      return GetYearMonthDay<Duration>(in_val, ZonedLocalizer{&tz});
     }
   }
 };
@@ -324,7 +324,7 @@ struct YearMonthDayVisitValueFunction<Duration, TimestampType, BuilderType> {
     }
     ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
     return [=](TimestampType::c_type arg) {
-      const auto ymd = GetYearMonthDay<Duration>(arg, ZonedLocalizer{tz});
+      const auto ymd = GetYearMonthDay<Duration>(arg, ZonedLocalizer{&tz});
       field_builders[0]->UnsafeAppend(static_cast<const int32_t>(ymd[0]));
       field_builders[1]->UnsafeAppend(static_cast<const uint32_t>(ymd[1]));
       field_builders[2]->UnsafeAppend(static_cast<const uint32_t>(ymd[2]));
@@ -663,15 +663,21 @@ struct Nanosecond {
 
 template <typename Duration>
 struct IsDaylightSavings {
-  explicit IsDaylightSavings(const FunctionOptions* options, const time_zone* tz)
+  explicit IsDaylightSavings(const FunctionOptions* options, const ArrowTimeZone* tz)
       : tz_(tz) {}
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    return tz_->get_info(sys_time<Duration>{Duration{arg}}).save.count() != 0;
+    if (tz_->index() == 0) {
+      auto tz = std::get<const time_zone*>(*tz_);
+      return tz->get_info(sys_time<Duration>{Duration{arg}}).save.count() != 0;
+    } else {
+      auto tz = std::get<const OffsetZone*>(*tz_);
+      return tz->get_info(sys_time<Duration>{Duration{arg}}).save.count() != 0;
+    }
   }
 
-  const time_zone* tz_;
+  const ArrowTimeZone* tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -1165,7 +1171,7 @@ Result<std::locale> GetLocale(const std::string& locale) {
 template <typename Duration, typename InType>
 struct Strftime {
   const StrftimeOptions& options;
-  const time_zone* tz;
+  const ArrowTimeZone tz;
   const std::locale locale;
 
   static Result<Strftime> Make(KernelContext* ctx, const DataType& type) {
@@ -1186,8 +1192,7 @@ struct Strftime {
             options.format);
       }
     }
-
-    ARROW_ASSIGN_OR_RAISE(const time_zone* tz,
+    ARROW_ASSIGN_OR_RAISE(const ArrowTimeZone tz,
                           LocateZone(timezone.empty() ? "UTC" : timezone));
 
     ARROW_ASSIGN_OR_RAISE(std::locale locale, GetLocale(options.locale));
@@ -1198,7 +1203,7 @@ struct Strftime {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ArraySpan& in = batch[0].array;
     ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
-    TimestampFormatter<Duration> formatter{self.options.format, self.tz, self.locale};
+    TimestampFormatter<Duration> formatter{self.options.format, &self.tz, self.locale};
 
     StringBuilder string_builder;
     // Presize string data using a heuristic
@@ -1353,25 +1358,42 @@ Result<TypeHolder> ResolveLocalTimestampOutput(KernelContext* ctx,
 
 template <typename Duration>
 struct AssumeTimezone {
-  explicit AssumeTimezone(const AssumeTimezoneOptions* options, const time_zone* tz)
+  explicit AssumeTimezone(const AssumeTimezoneOptions* options, const ArrowTimeZone* tz)
       : options(*options), tz_(tz) {}
 
   template <typename T, typename Arg0>
-  T get_local_time(Arg0 arg, const time_zone* tz) const {
-    return static_cast<T>(zoned_time<Duration>(tz, local_time<Duration>(Duration{arg}))
-                              .get_sys_time()
-                              .time_since_epoch()
-                              .count());
+  T get_local_time(Arg0 arg, const ArrowTimeZone* tz) const {
+    if (tz->index() == 0) {
+      return static_cast<T>(zoned_time<Duration>(std::get<const time_zone*>(*tz_), local_time<Duration>(Duration{arg}))
+                                .get_sys_time()
+                                .time_since_epoch()
+                                .count());
+    } else {
+      return static_cast<T>(zoned_time<Duration, const OffsetZone*>(std::get<const OffsetZone*>(*tz_), local_time<Duration>(Duration{arg}))
+                                .get_sys_time()
+                                .time_since_epoch()
+                                .count());
+    }
   }
 
   template <typename T, typename Arg0>
   T get_local_time(Arg0 arg, const arrow_vendored::date::choose choose,
-                   const time_zone* tz) const {
-    return static_cast<T>(
-        zoned_time<Duration>(tz, local_time<Duration>(Duration{arg}), choose)
-            .get_sys_time()
-            .time_since_epoch()
-            .count());
+                   const ArrowTimeZone* tz) const {
+    if (tz->index() == 0) {
+      return static_cast<T>(zoned_time<Duration>(std::get<const time_zone*>(*tz_),
+                                                 local_time<Duration>(Duration{arg}),
+                                                 choose)
+                                .get_sys_time()
+                                .time_since_epoch()
+                                .count());
+    } else {
+      return static_cast<T>(
+          zoned_time<Duration, const OffsetZone*>(
+              std::get<const OffsetZone*>(*tz_), local_time<Duration>(Duration{arg}), choose)
+              .get_sys_time()
+              .time_since_epoch()
+              .count());
+    }
   }
 
   template <typename T, typename Arg0>
@@ -1412,7 +1434,7 @@ struct AssumeTimezone {
     return 0;
   }
   AssumeTimezoneOptions options;
-  const time_zone* tz_;
+  const ArrowTimeZone* tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -1450,7 +1472,7 @@ struct ISOCalendarWrapper<Duration, TimestampType> {
       return GetIsoCalendar<Duration>(in_val, NonZonedLocalizer{});
     } else {
       ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
-      return GetIsoCalendar<Duration>(in_val, ZonedLocalizer{tz});
+      return GetIsoCalendar<Duration>(in_val, ZonedLocalizer{&tz});
     }
   }
 };
@@ -1487,7 +1509,7 @@ struct ISOCalendarVisitValueFunction<Duration, TimestampType, BuilderType> {
     }
     ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
     return [=](TimestampType::c_type arg) {
-      const auto iso_calendar = GetIsoCalendar<Duration>(arg, ZonedLocalizer{tz});
+      const auto iso_calendar = GetIsoCalendar<Duration>(arg, ZonedLocalizer{&tz});
       field_builders[0]->UnsafeAppend(iso_calendar[0]);
       field_builders[1]->UnsafeAppend(iso_calendar[1]);
       field_builders[2]->UnsafeAppend(iso_calendar[2]);
