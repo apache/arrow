@@ -69,9 +69,7 @@ std::unique_ptr<Codec> MakeLz4RawCodec(
 std::unique_ptr<Codec> MakeLz4HadoopRawCodec();
 
 // ZSTD codec.
-
-// XXX level = 1 probably doesn't compress very much
-constexpr int kZSTDDefaultCompressionLevel = 1;
+constexpr int kZSTDDefaultCompressionLevel = 9;
 
 std::unique_ptr<Codec> MakeZSTDCodec(
     int compression_level = kZSTDDefaultCompressionLevel);
