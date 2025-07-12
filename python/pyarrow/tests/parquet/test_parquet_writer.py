@@ -448,3 +448,46 @@ def test_parquet_content_defined_chunking_parameters(tempdir):
     # using min_chunk_size, max_chunk_size and norm_level
     cdc_options = {"min_chunk_size": 32_768, "max_chunk_size": 65_536, "norm_level": 1}
     pq.write_table(table, path, use_content_defined_chunking=cdc_options)
+
+
+@pytest.mark.pandas
+def test_parquet_writer_properties_access():
+    df = _test_dataframe(100)
+    table = pa.Table.from_pandas(df, preserve_index=False)
+
+    out = pa.BufferOutputStream()
+
+    with pq.ParquetWriter(
+        out, table.schema,
+        compression='snappy',
+        version='2.6',
+        use_dictionary=True,
+        write_statistics=True,
+        data_page_size=64 * 1024,
+        use_deprecated_int96_timestamps=False,
+        store_schema=True,
+        use_compliant_nested_type=True,
+        writer_engine_version='V2'
+    ) as writer:
+
+        props = writer.properties
+        assert props is not None
+        assert hasattr(props, 'version')
+        assert hasattr(props, 'created_by')
+        assert hasattr(props, 'dictionary_enabled')
+        assert hasattr(props, 'statistics_enabled')
+        assert props.version == 2
+        assert props.dictionary_enabled is True
+        assert props.statistics_enabled is True
+        assert isinstance(props.created_by, str)
+
+        arrow_props = writer.arrow_properties
+        assert arrow_props is not None
+        assert hasattr(arrow_props, 'support_deprecated_int96_timestamps')
+        assert hasattr(arrow_props, 'store_schema')
+        assert hasattr(arrow_props, 'engine_version')
+        assert arrow_props.support_deprecated_int96_timestamps is False
+        assert arrow_props.store_schema is True
+        assert arrow_props.engine_version == 'V2'
+
+        writer.write_table(table)

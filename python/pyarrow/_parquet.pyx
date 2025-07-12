@@ -2289,6 +2289,7 @@ cdef class ParquetWriter(_Weakrefable):
         unique_ptr[FileWriter] writer
         shared_ptr[COutputStream] sink
         bint own_sink
+        shared_ptr[ArrowWriterProperties] _arrow_properties
 
     def __cinit__(self, where, Schema schema not None, use_dictionary=None,
                   compression=None, version=None,
@@ -2358,6 +2359,8 @@ cdef class ParquetWriter(_Weakrefable):
             store_schema=store_schema,
         )
 
+        self._arrow_properties = arrow_properties
+
         pool = maybe_unbox_memory_pool(memory_pool)
         with nogil:
             self.writer = move(GetResultValue(
@@ -2408,3 +2411,77 @@ cdef class ParquetWriter(_Weakrefable):
             return result
         raise RuntimeError(
             'file metadata is only available after writer close')
+
+    @property
+    def properties(self):
+        cdef const WriterProperties* props_ptr
+        cdef WriterPropertiesWrapper result
+
+        props_ptr = &self.writer.get().properties()
+        result = WriterPropertiesWrapper.__new__(WriterPropertiesWrapper)
+        result.init(props_ptr)
+        return result
+
+    @property
+    def arrow_properties(self):
+        cdef ArrowWriterPropertiesWrapper result
+
+        result = ArrowWriterPropertiesWrapper.__new__(ArrowWriterPropertiesWrapper)
+        result.init(self._arrow_properties)
+        return result
+
+
+cdef class WriterPropertiesWrapper(_Weakrefable):
+    cdef:
+        const WriterProperties* props
+
+    def __cinit__(self):
+        self.props = NULL
+
+    cdef init(self, const WriterProperties* props):
+        self.props = props
+
+    @property
+    def version(self):
+        return self.props.version()
+
+    @property
+    def created_by(self):
+        return frombytes(self.props.created_by())
+
+    @property
+    def dictionary_enabled(self):
+        return self.props.default_column_properties().dictionary_enabled()
+
+    @property
+    def statistics_enabled(self):
+        return self.props.default_column_properties().statistics_enabled()
+
+
+cdef class ArrowWriterPropertiesWrapper(_Weakrefable):
+    cdef:
+        shared_ptr[ArrowWriterProperties] props
+
+    def __cinit__(self):
+        self.props.reset()
+
+    cdef init(self, shared_ptr[ArrowWriterProperties] props):
+        self.props = props
+
+    @property
+    def support_deprecated_int96_timestamps(self):
+        return self.props.get().support_deprecated_int96_timestamps()
+
+    @property
+    def store_schema(self):
+        return self.props.get().store_schema()
+
+    @property
+    def engine_version(self):
+        cdef int version_int = self.props.get().engine_version()
+        if version_int == 0:  # V1
+            return "V1"
+        elif version_int == 1:  # V2
+            return "V2"
+        else:
+            return f"unknown({version_int})"

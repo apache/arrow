@@ -471,7 +471,11 @@ class FileWriterImpl : public FileWriter {
     return Status::OK();
   }
 
-  const WriterProperties& properties() const { return *writer_->properties(); }
+  const WriterProperties& properties() const override { return *writer_->properties(); }
+
+  const ArrowWriterProperties& arrow_properties() const override {
+    return *arrow_properties_;
+  }
 
   ::arrow::MemoryPool* memory_pool() const override {
     return column_write_context_.memory_pool;
