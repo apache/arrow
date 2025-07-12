@@ -95,7 +95,7 @@ struct TemporalBinary {
     } else {
       ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
       using ExecTemplate = Op<Duration, ZonedLocalizer>;
-      auto op = ExecTemplate(options, ZonedLocalizer{tz});
+      auto op = ExecTemplate(options, ZonedLocalizer{&tz});
       applicator::ScalarBinaryNotNullStatefulEqualTypes<OutType, T, ExecTemplate> kernel{
           op};
       return kernel.Exec(ctx, batch, out);

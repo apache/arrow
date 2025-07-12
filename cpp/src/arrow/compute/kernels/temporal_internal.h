@@ -50,23 +50,23 @@ inline int64_t GetQuarter(const year_month_day& ymd) {
   return static_cast<int64_t>((static_cast<uint32_t>(ymd.month()) - 1) / 3);
 }
 
-static inline Result<const ArrowTimeZone*> LocateZone(const std::string& timezone) {
+static inline Result<const ArrowTimeZone> LocateZone(const std::string& timezone) {
   ArrowTimeZone tz;
   try {
     std::chrono::minutes zone_offset;
     const bool is_offset =
         arrow::internal::detail::ParseHH_MM(timezone.c_str(), &zone_offset);
     if (is_offset) {
-      const auto offset_zone = OffsetZone(zone_offset);
+      const OffsetZone offset_zone = OffsetZone(zone_offset);
       tz = ArrowTimeZone{&offset_zone};
     } else {
-      const auto offset_zone = locate_zone(timezone);
+      const time_zone* offset_zone = locate_zone(timezone);
       tz = ArrowTimeZone{offset_zone};
     }
   } catch (const std::runtime_error& ex) {
     return Status::Invalid("Cannot locate timezone '", timezone, "': ", ex.what());
   }
-  return &tz;
+  return tz;
 }
 
 static inline const std::string& GetInputTimezone(const DataType& type) {
@@ -121,20 +121,14 @@ struct ZonedLocalizer {
 
   template <typename Duration>
   local_time<Duration> ConvertTimePoint(int64_t t) const {
-    auto z = std::visit([t](const auto& tz) -> local_time<Duration> {
-      auto st = sys_time<Duration>(Duration{0});
-      // auto st = sys_time<Duration>(Duration{t});
-      return tz->to_local(st);
+    return std::visit([t](const auto& tz) -> local_time<Duration> {
+      return tz->to_local(sys_time<Duration>(Duration{t}));
     }, *tz_);
-    return z;
   }
 
   template <typename Duration>
   Duration ConvertLocalToSys(Duration t, Status* st) const {
     try {
-      // return std::visit([t](const auto* tz) -> local_time<Duration> {
-      //   return tz->to_local(sys_time<Duration>(Duration{t}));
-      // }, *tz_);
       if (tz_->index() == 0) {
         auto tz = std::get<const time_zone*>(*tz_);
         return zoned_time<Duration>{tz, local_time<Duration>(t)}
@@ -175,10 +169,6 @@ struct TimestampFormatter {
   Result<std::string> operator()(int64_t arg) {
     bufstream.str("");
     try {
-      // auto zt = std::visit([arg](const auto* tz) -> local_time<Duration> {
-      //   return zoned_time<Duration, const OffsetZone*>{tz, sys_time<Duration>(Duration{arg})};
-      // }, *tz_);
-      // arrow_vendored::date::to_stream(bufstream, format, zt);
       if (tz_->index() == 0) {
         auto tz = std::get<const time_zone*>(*tz_);
         const auto zt = zoned_time<Duration>{tz, sys_time<Duration>(Duration{arg})};
@@ -270,7 +260,7 @@ struct TemporalComponentExtractBase {
     } else {
       ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
       using ExecTemplate = Op<Duration, ZonedLocalizer>;
-      auto op = ExecTemplate(options, ZonedLocalizer{tz}, args...);
+      auto op = ExecTemplate(options, ZonedLocalizer{&tz}, args...);
       applicator::ScalarUnaryNotNullStateful<OutType, InType, ExecTemplate> kernel{op};
       return kernel.Exec(ctx, batch, out);
     }

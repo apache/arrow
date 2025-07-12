@@ -128,7 +128,7 @@ struct AssumeTimezoneExtractor
     }
     ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(options.timezone));
     using ExecTemplate = Op<Duration>;
-    auto op = ExecTemplate(&options, tz);
+    auto op = ExecTemplate(&options, &tz);
     applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
         op};
     return kernel.Exec(ctx, batch, out);
@@ -148,7 +148,7 @@ struct DaylightSavingsExtractor
     }
     ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
     using ExecTemplate = Op<Duration>;
-    auto op = ExecTemplate(nullptr, tz);
+    auto op = ExecTemplate(nullptr, &tz);
     applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
         op};
     return kernel.Exec(ctx, batch, out);
@@ -287,7 +287,7 @@ struct YearMonthDayWrapper<Duration, TimestampType> {
       return GetYearMonthDay<Duration>(in_val, NonZonedLocalizer{});
     } else {
       ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
-      return GetYearMonthDay<Duration>(in_val, ZonedLocalizer{tz});
+      return GetYearMonthDay<Duration>(in_val, ZonedLocalizer{&tz});
     }
   }
 };
@@ -324,7 +324,7 @@ struct YearMonthDayVisitValueFunction<Duration, TimestampType, BuilderType> {
     }
     ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
     return [=](TimestampType::c_type arg) {
-      const auto ymd = GetYearMonthDay<Duration>(arg, ZonedLocalizer{tz});
+      const auto ymd = GetYearMonthDay<Duration>(arg, ZonedLocalizer{&tz});
       field_builders[0]->UnsafeAppend(static_cast<const int32_t>(ymd[0]));
       field_builders[1]->UnsafeAppend(static_cast<const uint32_t>(ymd[1]));
       field_builders[2]->UnsafeAppend(static_cast<const uint32_t>(ymd[2]));
@@ -1171,7 +1171,7 @@ Result<std::locale> GetLocale(const std::string& locale) {
 template <typename Duration, typename InType>
 struct Strftime {
   const StrftimeOptions& options;
-  const ArrowTimeZone* tz;
+  const ArrowTimeZone tz;
   const std::locale locale;
 
   static Result<Strftime> Make(KernelContext* ctx, const DataType& type) {
@@ -1192,7 +1192,7 @@ struct Strftime {
             options.format);
       }
     }
-    ARROW_ASSIGN_OR_RAISE(const ArrowTimeZone* tz,
+    ARROW_ASSIGN_OR_RAISE(const ArrowTimeZone tz,
                           LocateZone(timezone.empty() ? "UTC" : timezone));
 
     ARROW_ASSIGN_OR_RAISE(std::locale locale, GetLocale(options.locale));
@@ -1203,7 +1203,7 @@ struct Strftime {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ArraySpan& in = batch[0].array;
     ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
-    TimestampFormatter<Duration> formatter{self.options.format, self.tz, self.locale};
+    TimestampFormatter<Duration> formatter{self.options.format, &self.tz, self.locale};
 
     StringBuilder string_builder;
     // Presize string data using a heuristic
@@ -1472,7 +1472,7 @@ struct ISOCalendarWrapper<Duration, TimestampType> {
       return GetIsoCalendar<Duration>(in_val, NonZonedLocalizer{});
     } else {
       ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
-      return GetIsoCalendar<Duration>(in_val, ZonedLocalizer{tz});
+      return GetIsoCalendar<Duration>(in_val, ZonedLocalizer{&tz});
     }
   }
 };
@@ -1509,7 +1509,7 @@ struct ISOCalendarVisitValueFunction<Duration, TimestampType, BuilderType> {
     }
     ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
     return [=](TimestampType::c_type arg) {
-      const auto iso_calendar = GetIsoCalendar<Duration>(arg, ZonedLocalizer{tz});
+      const auto iso_calendar = GetIsoCalendar<Duration>(arg, ZonedLocalizer{&tz});
       field_builders[0]->UnsafeAppend(iso_calendar[0]);
       field_builders[1]->UnsafeAppend(iso_calendar[1]);
       field_builders[2]->UnsafeAppend(iso_calendar[2]);
