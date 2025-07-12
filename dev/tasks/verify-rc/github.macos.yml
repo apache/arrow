@@ -94,8 +94,10 @@ jobs:
           USE_CONDA: 1
         {% else %}
           GTest_SOURCE: SYSTEM
+          {% if target == "cpp" %}
+          TEST_SOURCE_REPRODUCIBLE: 1
+          {% endif %}
         {% endif %}
-          VERBOSE: 1
         run: |
           version={{ release|default("") }}
           rc={{ rc|default("") }}

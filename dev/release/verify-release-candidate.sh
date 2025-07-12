@@ -789,29 +789,6 @@ ensure_source_directory() {
     if [ ! -d "${ARROW_SOURCE_DIR}" ]; then
       pushd $ARROW_TMPDIR
       fetch_archive ${dist_name}
-      verify_reproducible_build=true
-      if [ "${GITHUB_ACTIONS}" != "true" ]; then
-        verify_reproducible_build=false
-      fi
-      # We need GNU tar to verify reproducible build
-      if ! tar --version | grep --quiet --fixed GNU || \
-          ! gtar --version | grep --quiet --fixed GNU; then
-        verify_reproducible_build=false
-      fi
-      # We need GNU gzip to verify reproducible build
-      if ! gzip --version | grep --quiet --fixed GNU; then
-        verify_reproducible_build=false
-      fi
-      if [ "${verify_reproducible_build}" = "true" ]; then
-        git clone https://github.com/${GITHUB_REPOSITORY}.git arrow
-        pushd arrow
-        dev/release/utils-create-release-tarball.sh ${VERSION} ${RC_NUMBER}
-        if ! cmp ${dist_name}.tar.gz ../${dist_name}.tar.gz; then
-          echo "Source archive isn't reproducible"
-          return 1
-        fi
-        popd
-      fi
       tar xf ${dist_name}.tar.gz
       popd
     fi
@@ -859,6 +836,27 @@ test_source_distribution() {
   fi
 
   pushd $ARROW_SOURCE_DIR
+
+  if [ "${SOURCE_KIND}" = "tarball" ] && [ "${TEST_SOURCE_REPRODUCIBLE}" -gt 0 ]; then
+    pushd ..
+    git clone "https://github.com/${GITHUB_REPOSITORY}.git" arrow
+    pushd arrow
+    dev/release/utils-create-release-tarball.sh "${VERSION}" "${RC_NUMBER}"
+    tarball="apache-arrow-${VERSION}.tar.gz"
+    if ! cmp "${tarball}" "../${tarball}"; then
+      echo "Source archive isn't reproducible"
+      if ! tar --version | grep --quiet --fixed GNU && \
+          ! gtar --version | grep --quiet --fixed GNU; then
+        echo "We need GNU tar to verify reproducible build"
+      fi
+      if ! gzip --version | grep --quiet --fixed GNU; then
+        echo "We need GNU gzip to verify reproducible build"
+      fi
+      return 1
+    fi
+    popd
+    popd
+  fi
 
   if [ ${TEST_CSHARP} -gt 0 ]; then
     test_csharp
@@ -1048,6 +1046,7 @@ test_wheels() {
 : ${TEST_YUM:=${TEST_BINARIES}}
 
 # Source verification tasks
+: ${TEST_SOURCE_REPRODUCIBLE:=0}
 : ${TEST_CPP:=${TEST_SOURCE}}
 : ${TEST_CSHARP:=${TEST_SOURCE}}
 : ${TEST_GLIB:=${TEST_SOURCE}}
