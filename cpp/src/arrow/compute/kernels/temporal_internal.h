@@ -39,7 +39,7 @@ using arrow_vendored::date::year_month_day;
 using arrow_vendored::date::zoned_time;
 using std::chrono::duration_cast;
 
-using ArrowTimeZone = std::variant<const time_zone*, const OffsetZone*>;
+using ArrowTimeZone = std::variant<const time_zone*, const OffsetZone>;
 
 template <class... Ts>
 struct overloads : Ts... {
@@ -67,8 +67,7 @@ static inline Result<const ArrowTimeZone> LocateZone(const std::string& timezone
       }
 
       zone_offset = timezone_string[0] == '-' ? -zone_offset : zone_offset;
-      auto offset_zone = std::make_unique<OffsetZone>(zone_offset);
-      return ArrowTimeZone{offset_zone.release()};
+      return ArrowTimeZone{OffsetZone(zone_offset)};
     } else {
       const time_zone* offset_zone = locate_zone(timezone_string);
       return ArrowTimeZone{offset_zone};
@@ -139,13 +138,13 @@ struct ZonedLocalizer {
   template <typename Duration>
   Duration ConvertLocalToSys(Duration t, Status* st) const {
     const auto lt = local_time<Duration>(t);
-    const auto visitor =
-        overloads{[lt](const time_zone* tz) {
-                    return zoned_time<Duration>{tz, lt}.get_sys_time();
-                  },
-                  [lt](const OffsetZone* tz) {
-                    return zoned_time<Duration, const OffsetZone*>{tz, lt}.get_sys_time();
-                  }};
+    const auto visitor = overloads{
+        [lt](const time_zone* tz) {
+          return zoned_time<Duration>{tz, lt}.get_sys_time();
+        },
+        [lt](const OffsetZone tz) {
+          return zoned_time<Duration, const OffsetZone*>{&tz, lt}.get_sys_time();
+        }};
     try {
       return std::visit(visitor, tz_).time_since_epoch();
     } catch (const arrow_vendored::date::nonexistent_local_time& e) {
@@ -181,9 +180,9 @@ struct TimestampFormatter {
           const auto zt = zoned_time<Duration>{tz, sys_time<Duration>(Duration{arg})};
           arrow_vendored::date::to_stream(bufstream, format, zt);
         },
-        [&](const OffsetZone* tz) {
+        [&](const OffsetZone tz) {
           const auto zt = zoned_time<Duration, const OffsetZone*>{
-              tz, sys_time<Duration>(Duration{arg})};
+              &tz, sys_time<Duration>(Duration{arg})};
           arrow_vendored::date::to_stream(bufstream, format, zt);
         }};
     try {
