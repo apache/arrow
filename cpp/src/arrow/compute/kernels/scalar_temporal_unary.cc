@@ -1364,9 +1364,9 @@ struct AssumeTimezone {
                     return zoned_time<Duration>{tz, local_time<Duration>(Duration{arg})}
                         .get_sys_time();
                   },
-                  [arg](const OffsetZone* tz) {
+                  [arg](const OffsetZone tz) {
                     return zoned_time<Duration, const OffsetZone*>{
-                        tz, local_time<Duration>(Duration{arg})}
+                        &tz, local_time<Duration>(Duration{arg})}
                         .get_sys_time();
                   }};
     return std::visit(visitor, tz_).time_since_epoch().count();
@@ -1380,9 +1380,9 @@ struct AssumeTimezone {
                                          tz, local_time<Duration>(Duration{arg}), choose}
                                          .get_sys_time();
                                    },
-                                   [arg, choose](const OffsetZone* tz) {
+                                   [arg, choose](const OffsetZone tz) {
                                      return zoned_time<Duration, const OffsetZone*>{
-                                         tz, local_time<Duration>(Duration{arg}), choose}
+                                         &tz, local_time<Duration>(Duration{arg}), choose}
                                          .get_sys_time();
                                    }};
     return static_cast<T>(std::visit(visitor, tz_).time_since_epoch().count());
