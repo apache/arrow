@@ -1,3 +1,5 @@
+%HTABULAR Shared test class for tabular types.
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -487,7 +489,7 @@ classdef hTabular < matlab.unittest.TestCase
             tc.verifyError(@() tabularObj.column(name), "arrow:badsubscript:NonScalar");
         end
 
-        function GetColumnEmptyTabularObjectBatchColumnIndexError(tc)
+        function GetColumnEmptyTabularObjectColumnIndexError(tc)
             % Verify an exception is thrown when the column() method is
             % invoked on a Tabular object with zero columns.
             TOriginal = table();
