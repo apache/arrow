@@ -776,11 +776,19 @@ ensure_source_directory() {
   elif [ "${SOURCE_KIND}" = "git" ]; then
     # Remote arrow repository, testing repositories must be cloned
     : ${SOURCE_REPOSITORY:="https://github.com/apache/arrow"}
-    echo "Verifying Arrow repository ${SOURCE_REPOSITORY} with revision checkout ${VERSION}"
+    case "${VERSION}" in
+      *.*.*)
+        revision="apache-arrow-${VERSION}"
+        ;;
+      *)
+        revision="${VERSION}"
+        ;;
+    esac
+    echo "Verifying Arrow repository ${SOURCE_REPOSITORY} with revision checkout ${revision}"
     export ARROW_SOURCE_DIR="${ARROW_TMPDIR}/arrow"
     if [ ! -d "${ARROW_SOURCE_DIR}" ]; then
       git clone --recurse-submodules $SOURCE_REPOSITORY $ARROW_SOURCE_DIR
-      git -C $ARROW_SOURCE_DIR checkout $VERSION
+      git -C $ARROW_SOURCE_DIR checkout "${revision}"
     fi
   else
     # Release tarball, testing repositories must be cloned separately
