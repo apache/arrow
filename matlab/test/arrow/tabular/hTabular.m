@@ -18,19 +18,37 @@
 classdef hTabular < matlab.unittest.TestCase
 
     properties (Abstract)
+        % Handle to the fromArrays 
         FromArraysFcn
         ConstructionFcn
         ClassName(1, 1) string
         ErrorIdentifierPrefix(1, 1) string
-        
     end
 
     methods (Abstract)
-
+        % Used by test methods to verify arrowTabularObj has the expected
+        % value. Subclasses of hTabular are responsible for implementing
+        % this method.
+        %
+        % columnNames is a string array containing the expected ColumnNames
+        %    property value of arrowTabularObj.
+        %
+        % columnTraits is a cell array containing in which each element is
+        %    a arrow.type.traits.TypeTraits instance. Each TypeTraits instance
+        %    corresponds to a column in arrowTabularObj.
+        %
+        % matlabTable is the expected output of calling the 
+        %    toMATLAB() method on arrowTabularObj.
         verifyTabularObject(tc, arrowTabularObj, columnNames, columnTraits, matlabTable)
     
+        % Used to verify the output of the arrow.tabular.Tabular/column() 
+        % method. Subclasses of hTabular are responsible for implementing
+        % this method.
+        % 
+        % This method must accepts an arrow.array.Array as input and
+        % converts it into an instance of the Arrow type that the column()
+        % method returns.
         col = makeColumnFromArray(tc, array)
-    
     end
 
     methods (Test, TestTags={'construction'})
