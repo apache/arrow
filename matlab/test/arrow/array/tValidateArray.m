@@ -29,7 +29,7 @@ classdef tValidateArray < matlab.unittest.TestCase
             fcn = @() array.validate(ValidationMode="abc");
             test.verifyError(fcn, "MATLAB:validation:UnableToConvert");
 
-            % ValidtionMode must be scalar
+            % ValidationMode must be scalar
             modes = [arrow.array.ValidationMode.Full arrow.array.ValidationMode.Minimal];
             fcn = @() array.validate(ValidationMode=modes);
             test.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
