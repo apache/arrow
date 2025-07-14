@@ -495,7 +495,10 @@ classdef hTabular < matlab.unittest.TestCase
             TOriginal = table();
             tabularObj = tc.ConstructionFcn(TOriginal);
             fcn = @() tabularObj.column(1);
-            tc.verifyError(fcn, tc.ErrorIdentifierPrefix + "NumericIndexWithEmptyRecordBatch");
+            dotPos = strfind(tc.ClassName, ".");
+            shortClassName = extractAfter(tc.ClassName, dotPos(end));
+            id = tc.ErrorIdentifierPrefix + "NumericIndexWithEmpty" + shortClassName;
+            tc.verifyError(fcn, id);
         end
 
         function GetColumnInvalidNumericIndexError(tc)
