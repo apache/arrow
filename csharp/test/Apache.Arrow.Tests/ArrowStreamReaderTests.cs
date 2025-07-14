@@ -131,6 +131,17 @@ namespace Apache.Arrow.Tests
             await verificationFunc(reader, originalBatch);
         }
 
+        [Fact]
+        public void ReadRecordBatch_EmptyStream()
+        {
+            using (MemoryStream stream = new())
+            {
+                ArrowStreamReader reader = new(stream);
+                RecordBatch readBatch = reader.ReadNextRecordBatch();
+                Assert.Null(readBatch);
+            }
+        }
+
         [Theory]
         [InlineData(true, true)]
         [InlineData(true, false)]
@@ -143,6 +154,17 @@ namespace Apache.Arrow.Tests
                 ArrowReaderVerifier.VerifyReader(reader, originalBatch);
                 return Task.CompletedTask;
             }, writeEnd, createDictionaryArray);
+        }
+
+        [Fact]
+        public async Task ReadRecordBatchAsync_EmptyStream()
+        {
+            using (MemoryStream stream = new())
+            {
+                ArrowStreamReader reader = new(stream);
+                RecordBatch readBatch = await reader.ReadNextRecordBatchAsync();
+                Assert.Null(readBatch);
+            }
         }
 
         [Theory]
