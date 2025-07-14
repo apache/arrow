@@ -13,15 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Apache.Arrow.Flight.Sql;
+using System.Dynamic;
+using Apache.Arrow.Flight.Middleware.Interfaces;
+using CallInfo = Apache.Arrow.Flight.Middleware.CallInfo;
 
-public static class SqlAction
+
+namespace Apache.Arrow.Flight.Tests.MiddlewareTests.Stubs;
+
+public class CapturingMiddlewareFactory : IFlightClientMiddlewareFactory
 {
-    public const string CreateRequest = "CreatePreparedStatement";
-    public const string CloseRequest = "ClosePreparedStatement";
-    public const string CancelFlightInfoRequest = "CancelFlightInfo";
-    public const string BeginTransactionRequest = "BeginTransaction";
-    public const string CommitRequest = "CommitTransaction";
-    public const string RollbackRequest = "RollbackTransaction";
-    public const string GetPrimaryKeysRequest = "GetPrimaryKeys";
+    public CapturingMiddleware Instance { get; } = new();
+
+    public IFlightClientMiddleware OnCallStarted(CallInfo callInfo)=> Instance;
 }
