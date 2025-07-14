@@ -42,7 +42,7 @@ classdef tValidateArray < matlab.unittest.TestCase
 
         function ValidationModeMinimalFails(test)
             % Verify arrow.array.Array/validate() throws an exception 
-            % with the ID is arrow:array:ValidateMinimalFailed if
+            % with the ID arrow:array:ValidateMinimalFailed if
             % ValidationMode="Minimal" and the array fails the "Minimal"
             % validation checks.
             offsets = arrow.array(int32([0 1 3 4 5]));
