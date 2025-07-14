@@ -186,7 +186,7 @@ namespace Apache.Arrow.Ipc
 
             // Figure out length of schema
             int schemaMessageLength = ReadMessageLength(throwOnFullRead: true, returnOnEmptyStream: true);
-            if(schemaMessageLength == 0)
+            if (schemaMessageLength == 0)
             {
                 return;
             }
@@ -208,7 +208,7 @@ namespace Apache.Arrow.Ipc
             {
                 int bytesRead = await BaseStream.ReadFullBufferAsync(lengthBuffer, cancellationToken)
                     .ConfigureAwait(false);
-                if (bytesRead == 0)
+                if (bytesRead == 0 && returnOnEmptyStream)
                 {
                     return 0;
                 }
