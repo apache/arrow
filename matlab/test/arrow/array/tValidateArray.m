@@ -25,7 +25,7 @@ classdef tValidateArray < matlab.unittest.TestCase
             % pair.
             array = arrow.array.Float64Array.fromMATLAB(1:5);
 
-            % Cannot convert "abc" to a ValidtionMode value
+            % Cannot convert "abc" to a ValidationMode value
             fcn = @() array.validate(ValidationMode="abc");
             test.verifyError(fcn, "MATLAB:validation:UnableToConvert");
 
