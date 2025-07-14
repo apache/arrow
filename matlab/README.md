@@ -53,6 +53,10 @@ Supported `arrow.array.Array` types are included in the table below.
 | `datetime`        | `TimestampArray` |
 | `duration`        | `Time32Array`    |
 | `duration`        | `Time64Array`    |
+| `datetime`        | `Date32Array`    |
+| `datetime`        | `Date64Array`    |
+| `cell`            | `ListArray`      |
+| `table`           | `StructArray`    |
 
 ## Prerequisites
 
