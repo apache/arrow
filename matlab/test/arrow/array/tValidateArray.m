@@ -80,7 +80,7 @@ classdef tValidateArray < matlab.unittest.TestCase
         function ValidationModeFullPasses(test)
             % Verify arrow.array.Array/validate() does not throw an
             % exception if ValidationMode="Full" and the array passes
-            % the "full" validtion checks.
+            % the "full" validation checks.
             offsets = arrow.array(int32([0 1 3]));
             values = arrow.array([1 2 3]);
             array = arrow.array.ListArray.fromArrays(offsets, values, ValidationMode="None");
