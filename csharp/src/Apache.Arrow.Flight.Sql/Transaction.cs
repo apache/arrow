@@ -15,9 +15,10 @@
 
 namespace Apache.Arrow.Flight.Sql;
 
+using System;
 using Google.Protobuf;
 
-public readonly struct Transaction
+public readonly struct Transaction : IEquatable<Transaction>
 {
     private static readonly ByteString TransactionIdDefaultValue = ByteString.Empty;
 
@@ -37,20 +38,24 @@ public readonly struct Transaction
         _transactionId = ByteString.CopyFromUtf8(transactionId);
     }
 
-    public bool IsValid() => TransactionId.Length > 0;
+    public bool IsValid => TransactionId.Length > 0;
 
     public override bool Equals(object? obj)
     {
         if (obj is not Transaction other)
             return false;
 
+        return Equals(other);
+    }
+
+    public bool Equals(Transaction other)
+    {
         // Safe compare even if _transactionId is null (from default(Transaction))  
         return (_transactionId ?? TransactionIdDefaultValue)
             .Equals(other._transactionId);
     }
 
     public override int GetHashCode() => (_transactionId ?? TransactionIdDefaultValue).GetHashCode();
-    
 
     public static bool operator ==(Transaction left, Transaction right) => left.Equals(right);
     public static bool operator !=(Transaction left, Transaction right) => !left.Equals(right);
