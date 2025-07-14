@@ -110,6 +110,8 @@ To run the MATLAB tests, start MATLAB in the `arrow/matlab` directory and call t
 >> runtests("test", IncludeSubFolders=true);
 ```
 
+Refer to [Testing Guidelines](doc/testing_guidelines_for_the_matlab_interface_to_apache_arrow.md) for more information.
+
 ## Usage
 
 Included below are some example code snippets that illustrate how to use the MATLAB interface.
