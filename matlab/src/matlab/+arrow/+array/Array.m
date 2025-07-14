@@ -57,15 +57,15 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
         function validate(obj, opts)
              arguments
                 obj
-                opts.ValidationMode(1, 1) arrow.array.ValidationMode = arrow.array.ValidationMode.Minimal
+                opts.Mode(1, 1) arrow.array.ValidationMode = arrow.array.ValidationMode.Minimal
              end
 
-             if opts.ValidationMode == arrow.array.ValidationMode.None
+             if opts.Mode == arrow.array.ValidationMode.None
                  id = "arrow:array:InvalidValidationMode";
-                 msg = "Invalid ValidationMode. ValidationMode must be ""Minimum"" or ""Full"".";
+                 msg = "Invalid Mode. Mode must be ""Minimal"" or ""Full"".";
                  error(id, msg);
              end
-             obj.Proxy.validate(struct(ValidationMode=uint8(opts.ValidationMode)));
+             obj.Proxy.validate(struct(ValidationMode=uint8(opts.Mode)));
         end
     end
 
