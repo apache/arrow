@@ -293,6 +293,8 @@ To ensure code quality, we would like to include the following testing infrastru
 
 **Note**: To test internal C++ code, we can use a [MEX function] to call the C++ code from a MATLAB Class-Based Unit Test.
 
+More information on testing is included in [Testing Guidelines](testing_guidelines_for_the_matlab_interface_to_apache_arrow.md).
+
 ## Documentation 
 To ensure usability, discoverability, and accessibility, we would like to include high quality documentation for the MATLAB Interface for Apache Arrow. 
 
