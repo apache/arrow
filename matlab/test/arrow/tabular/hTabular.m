@@ -18,11 +18,32 @@
 classdef hTabular < matlab.unittest.TestCase
 
     properties (Abstract)
-        % Handle to the fromArrays 
+        % Must be a handle function to the fromArrays construction 
+        % function (i.e. @arrow.tabular.Table.fromArrays)
         FromArraysFcn
+        % Must be a handle function to the convenience construction
+        % function. (i.e. @arrow.table)
         ConstructionFcn
+        % Must be full class name (i.e. "arrow.tabular.Table").
         ClassName(1, 1) string
+       
+    end
+
+    properties 
+        ShortClassName(1, 1) string
         ErrorIdentifierPrefix(1, 1) string
+    end
+
+    methods (TestClassSetup)
+        function initializeShortClassName(tc)
+            dotPos = strfind(tc.ClassName, ".");
+            tc.ShortClassName = extractAfter(tc.ClassName, dotPos(end));
+        end
+
+        function initializeErrorIdentifierPrefix(tc)
+            tc.ErrorIdentifierPrefix = "arrow:tabular:" + lower(tc.ShortClassName) + ":";
+        end
+
     end
 
     methods (Abstract)
@@ -513,9 +534,7 @@ classdef hTabular < matlab.unittest.TestCase
             TOriginal = table();
             tabularObj = tc.ConstructionFcn(TOriginal);
             fcn = @() tabularObj.column(1);
-            dotPos = strfind(tc.ClassName, ".");
-            shortClassName = extractAfter(tc.ClassName, dotPos(end));
-            id = tc.ErrorIdentifierPrefix + "NumericIndexWithEmpty" + shortClassName;
+            id = tc.ErrorIdentifierPrefix + "NumericIndexWithEmpty" + tc.ShortClassName;
             tc.verifyError(fcn, id);
         end
 
