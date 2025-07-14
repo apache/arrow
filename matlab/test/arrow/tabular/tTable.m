@@ -23,7 +23,6 @@ classdef tTable < hTabular
         FromArraysFcn = @arrow.tabular.Table.fromArrays
         ConstructionFcn = @arrow.table
         ClassName = "arrow.tabular.Table"
-        ErrorIdentifierPrefix = "arrow:tabular:table:"
     end
 
 

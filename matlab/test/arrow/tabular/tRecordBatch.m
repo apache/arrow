@@ -21,7 +21,6 @@ classdef tRecordBatch < hTabular
         FromArraysFcn = @arrow.tabular.RecordBatch.fromArrays
         ConstructionFcn = @arrow.recordBatch
         ClassName = "arrow.tabular.RecordBatch"
-        ErrorIdentifierPrefix = "arrow:tabular:recordbatch:"
     end
 
     methods
