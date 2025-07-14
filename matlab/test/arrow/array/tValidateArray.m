@@ -95,7 +95,6 @@ classdef tValidateArray < matlab.unittest.TestCase
             array = arrow.array.ListArray.fromArrays(offsets, values, ValidationMode="None");
             fcn = @() array.validate();
             test.verifyWarningFree(fcn, "arrow:array:ValidateMinimalFailed")
-
         end
     end
 
