@@ -67,7 +67,7 @@ classdef tValidateArray < matlab.unittest.TestCase
 
         function ValidationModeFullFails(test)
             % Verify arrow.array.Array/validate() throws an exception 
-            % with the ID is arrow:array:ValidateFullFailed if
+            % with the ID arrow:array:ValidateFullFailed if
             % ValidationMode="Full" and the array fails the "Full"
             % validation checks.
             offsets = arrow.array(int32([0 1 0]));
