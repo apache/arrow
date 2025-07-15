@@ -32,6 +32,7 @@
 #include <thread>
 #include <utility>
 
+#include "arrow/array.h"
 #include "arrow/device.h"
 #include "arrow/flight/transport.h"
 #include "arrow/flight/transport/grpc/grpc_server.h"
@@ -324,6 +325,16 @@ class RecordBatchStream::RecordBatchStreamImpl {
       payload->ipc_message.metadata = nullptr;
       return Status::OK();
     } else {
+      std::vector<std::pair<int64_t, std::shared_ptr<Array>>> new_dictionaries;
+      ARROW_ASSIGN_OR_RAISE(new_dictionaries,
+                            ipc::CollectDictionaries(*current_batch_, mapper_));
+      // Only send dictionaries if there are changes
+      if (ShouldSendDictionaryUpdate(new_dictionaries)) {
+        dictionaries_ = std::move(new_dictionaries);
+        dictionary_index_ = 0;
+        stage_ = Stage::DICTIONARY;
+        return GetNextDictionary(payload);
+      }
       return ipc::GetRecordBatchPayload(*current_batch_, ipc_options_,
                                         &payload->ipc_message);
     }
@@ -336,6 +347,36 @@ class RecordBatchStream::RecordBatchStreamImpl {
     const auto& it = dictionaries_[dictionary_index_++];
     return ipc::GetDictionaryPayload(it.first, it.second, ipc_options_,
                                      &payload->ipc_message);
+  }
+
+  bool ShouldSendDictionaryUpdate(
+      const std::vector<std::pair<int64_t, std::shared_ptr<Array>>>& new_dictionaries) {
+    const auto equal_options = EqualOptions().nans_equal(true);
+
+    for (const auto& pair : new_dictionaries) {
+      int64_t dictionary_id = pair.first;
+      const auto& dictionary_array = pair.second;
+      bool found = false;
+      std::shared_ptr<Array> found_dictionary = nullptr;
+
+      for (const auto& dict_pair : dictionaries_) {
+        if (dict_pair.first == dictionary_id) {
+          found = true;
+          found_dictionary = dict_pair.second;
+          break;
+        }
+      }
+      if (found) {
+        if (!dictionary_array->Equals(found_dictionary, equal_options)) {
+          // dictionary has changed
+          return true;
+        }
+      } else {
+        // New dictionary
+        return true;
+      }
+    }
+    return false;
   }
 
   Stage stage_ = Stage::NEW;
