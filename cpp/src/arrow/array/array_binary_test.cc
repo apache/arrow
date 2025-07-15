@@ -1019,7 +1019,7 @@ TYPED_TEST(TestBaseBinaryDataVisitor, Sliced) { this->TestSliced(); }
 namespace {
 
 // Should We  move this to arrow/testing/util.cc
-Result<std::shared_ptr<Buffer>> MakeRandomStringBuffer(int64_t size, int64_t seed = 12) {
+Result<std::shared_ptr<Buffer>> MakeRandomStringBuffer(int64_t size, uint32_t seed = 12) {
   ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(size));
   random_ascii(size, seed, buffer->mutable_data());
   return buffer;

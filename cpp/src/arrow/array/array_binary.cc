@@ -171,7 +171,8 @@ class IntervalMerger {
 
   // This method should be called After CalculateOffsetAndTotalSize
   int32_t GetRelativeOffset(int32_t view_offset) const {
-    auto it = interval_set.lower_bound({view_offset});
+    // end and offset is included in comparison
+    auto it = interval_set.lower_bound({view_offset, -1, -1});
     if (it == interval_set.end()) {
       --it;
       // offset from the start of interval
@@ -386,7 +387,8 @@ class CompactArrayImpl {
     auto& buffer_info = buffer_infos[c_type.ref.buffer_index];
 
     buffer_info.interval_merger.AddInterval(
-        {c_type.ref.offset, static_cast<int64_t>(c_type.ref.offset) + c_type.ref.size});
+        {c_type.ref.offset, static_cast<int64_t>(c_type.ref.offset) + c_type.ref.size,
+         -1});
   }
 
   // Relocating Buffers which their occupancies are less than threshold
