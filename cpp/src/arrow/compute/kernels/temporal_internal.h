@@ -177,14 +177,14 @@ struct TimestampFormatter {
 
   Result<std::string> operator()(int64_t arg) {
     bufstream.str("");
+    auto st = sys_time<Duration>(Duration{arg});
     const auto visitor = overloads{
         [&](const time_zone* tz) {
-          const auto zt = zoned_time<Duration>{tz, sys_time<Duration>(Duration{arg})};
+          const auto zt = zoned_time<Duration>{tz, st};
           arrow_vendored::date::to_stream(bufstream, format, zt);
         },
         [&](const OffsetZone tz) {
-          const auto zt = zoned_time<Duration, const OffsetZone*>{
-              &tz, sys_time<Duration>(Duration{arg})};
+          const auto zt = zoned_time<Duration, const OffsetZone*>{&tz, st};
           arrow_vendored::date::to_stream(bufstream, format, zt);
         }};
     try {
