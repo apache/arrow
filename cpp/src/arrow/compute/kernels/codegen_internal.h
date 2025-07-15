@@ -56,6 +56,7 @@ using internal::BinaryBitBlockCounter;
 using internal::BitBlockCount;
 using internal::BitmapReader;
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 using internal::FirstTimeBitmapWriter;
 using internal::GenerateBitsUnrolled;
 using internal::VisitBitBlocks;
@@ -515,6 +516,8 @@ ARROW_EXPORT Result<TypeHolder> LastType(KernelContext*,
                                          const std::vector<TypeHolder>& types);
 ARROW_EXPORT Result<TypeHolder> ListValuesType(KernelContext* ctx,
                                                const std::vector<TypeHolder>& types);
+ARROW_EXPORT Result<TypeHolder> MaxPrecisionDecimalType(
+    KernelContext*, const std::vector<TypeHolder>& types);
 
 // ----------------------------------------------------------------------
 // Helpers for iterating over common DataType instances for adding kernels to
@@ -1480,6 +1483,12 @@ Status CastBinaryDecimalArgs(DecimalPromotion promotion, std::vector<TypeHolder>
 /// promote all to an identical type.
 ARROW_EXPORT
 Status CastDecimalArgs(TypeHolder* begin, size_t count);
+
+/// Given a DataType, if it is a DecimalType, return a DecimalType with the same scale
+/// and the maximum precision for that DecimalType.
+ARROW_EXPORT
+Result<std::shared_ptr<DataType>> WidenDecimalToMaxPrecision(
+    std::shared_ptr<DataType> type);
 
 ARROW_EXPORT
 bool HasDecimal(const std::vector<TypeHolder>& types);

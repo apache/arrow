@@ -25,6 +25,17 @@ classdef tRecordBatch < matlab.unittest.TestCase
             tc.verifyEqual(className, "arrow.tabular.RecordBatch");
         end
 
+        function ConvenienceConstructorZeroArguments(tc)
+            % Verify the arrow.recordBatch function returns an 
+            % arrow.tabular.RecordBatch instance with zero rows and zero
+            % columns if called with zero input arguments.
+            recordBatch = arrow.recordBatch();
+            className = string(class(recordBatch));
+            tc.verifyEqual(className, "arrow.tabular.RecordBatch");
+            tc.verifyEqual(recordBatch.NumRows, int64(0));
+            tc.verifyEqual(recordBatch.NumColumns, int32(0));
+        end
+
         function SupportedTypes(tc)
             % Create a table all supported MATLAB types.
             import arrow.internal.test.tabular.createTableWithSupportedTypes

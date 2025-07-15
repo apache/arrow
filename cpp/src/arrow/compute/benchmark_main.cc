@@ -15,38 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
+#include "benchmark/benchmark.h"
 
 #include "arrow/compute/initialize.h"
 #include "arrow/testing/gtest_util.h"
 
-namespace arrow::compute {
-
-namespace {
-
-class ComputeKernelEnvironment : public ::testing::Environment {
- public:
-  // This must be done before using the compute kernels in order to
-  // register them to the FunctionRegistry.
-  ComputeKernelEnvironment() : ::testing::Environment() {}
-
-  void SetUp() override { ASSERT_OK(arrow::compute::Initialize()); }
-};
-
-}  // namespace
-
-#ifdef _MSC_VER
-// Initialize the compute module
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
-#endif
-
-}  // namespace arrow::compute
-
-#ifndef _MSC_VER
 int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  ::testing::AddGlobalTestEnvironment(new arrow::compute::ComputeKernelEnvironment);
-  return RUN_ALL_TESTS();
+  // Initialize compute functions before any benchmarks run
+  ABORT_NOT_OK(arrow::compute::Initialize());
+
+  // Initialize and run benchmarks
+  ::benchmark::Initialize(&argc, argv);
+  if (::benchmark::ReportUnrecognizedArguments(argc, argv)) return 1;
+  ::benchmark::RunSpecifiedBenchmarks();
+  ::benchmark::Shutdown();
+  return 0;
 }
-#endif

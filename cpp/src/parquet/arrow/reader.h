@@ -191,11 +191,19 @@ class PARQUET_EXPORT FileReader {
   ///
   /// \returns error Status if either row_group_indices or column_indices
   ///     contains an invalid index
+  /// \deprecated Deprecated in 21.0.0. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in 21.0.0. Use arrow::Result version instead.")
   ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                        const std::vector<int>& column_indices,
                                        std::shared_ptr<::arrow::RecordBatchReader>* out);
+
+  /// \deprecated Deprecated in 21.0.0. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in 21.0.0. Use arrow::Result version instead.")
   ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                        std::shared_ptr<::arrow::RecordBatchReader>* out);
+
+  /// \deprecated Deprecated in 21.0.0. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in 21.0.0. Use arrow::Result version instead.")
   ::arrow::Status GetRecordBatchReader(std::shared_ptr<::arrow::RecordBatchReader>* out);
 
   /// \brief Return a generator of record batches.

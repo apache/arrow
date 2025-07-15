@@ -368,9 +368,9 @@ struct ProductImpl : public ScalarAggregator {
   Status Finalize(KernelContext*, Datum* out) override {
     if ((!options.skip_nulls && this->nulls_observed) ||
         (this->count < options.min_count)) {
-      out->value = std::make_shared<OutputType>(out_type);
+      out->value = std::make_shared<OutputType>(this->out_type);
     } else {
-      out->value = std::make_shared<OutputType>(this->product, out_type);
+      out->value = std::make_shared<OutputType>(this->product, this->out_type);
     }
     return Status::OK();
   }
@@ -1049,10 +1049,10 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary(), sum_doc,
                                                    &default_scalar_aggregate_options);
   AddArrayScalarAggKernels(SumInit, {boolean()}, uint64(), func.get());
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, FirstType), SumInit, func.get(),
-               SimdLevel::NONE);
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, FirstType), SumInit, func.get(),
-               SimdLevel::NONE);
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, MaxPrecisionDecimalType),
+               SumInit, func.get(), SimdLevel::NONE);
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, MaxPrecisionDecimalType),
+               SumInit, func.get(), SimdLevel::NONE);
   AddArrayScalarAggKernels(SumInit, SignedIntTypes(), int64(), func.get());
   AddArrayScalarAggKernels(SumInit, UnsignedIntTypes(), uint64(), func.get());
   AddArrayScalarAggKernels(SumInit, FloatingPointTypes(), float64(), func.get());

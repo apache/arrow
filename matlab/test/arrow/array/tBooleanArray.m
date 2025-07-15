@@ -139,6 +139,11 @@ classdef tBooleanArray < matlab.unittest.TestCase
             tc.verifyError(fcn, "arrow:array:InvalidShape");
         end
 
+        function ErrorIfNotLogical(tc)
+            data = [1 0 1];
+            tc.verifyError(@() tc.ArrowArrayConstructorFcn(data), "arrow:array:InvalidType");
+        end
+
         function AllowNDimensionalEmptyArray(tc)
             data = tc.MatlabArrayFcn(reshape([], [1 0 0]));
             A = tc.ArrowArrayConstructorFcn(data);

@@ -489,6 +489,7 @@ static ArrayKernelExec GenerateREEKernelExec(Type::type type_id) {
       return Functor::template Exec<UInt8Type>;
     case Type::UINT16:
     case Type::INT16:
+    case Type::HALF_FLOAT:
       return Functor::template Exec<UInt16Type>;
     case Type::UINT32:
     case Type::INT32:
@@ -496,6 +497,7 @@ static ArrayKernelExec GenerateREEKernelExec(Type::type type_id) {
     case Type::DATE32:
     case Type::TIME32:
     case Type::INTERVAL_MONTHS:
+    case Type::DECIMAL32:
       return Functor::template Exec<UInt32Type>;
     case Type::UINT64:
     case Type::INT64:
@@ -505,6 +507,7 @@ static ArrayKernelExec GenerateREEKernelExec(Type::type type_id) {
     case Type::TIME64:
     case Type::DURATION:
     case Type::INTERVAL_DAY_TIME:
+    case Type::DECIMAL64:
       return Functor::template Exec<UInt64Type>;
     case Type::INTERVAL_MONTH_DAY_NANO:
       return Functor::template Exec<MonthDayNanoIntervalType>;
@@ -563,6 +566,7 @@ void RegisterVectorRunEndEncode(FunctionRegistry* registry) {
   for (const auto& ty : NumericTypes()) {
     add_kernel(ty->id());
   }
+  add_kernel(Type::HALF_FLOAT);
   add_kernel(Type::DATE32);
   add_kernel(Type::DATE64);
   add_kernel(Type::TIME32);
@@ -572,8 +576,9 @@ void RegisterVectorRunEndEncode(FunctionRegistry* registry) {
   for (const auto& ty : IntervalTypes()) {
     add_kernel(ty->id());
   }
-  add_kernel(Type::DECIMAL128);
-  add_kernel(Type::DECIMAL256);
+  for (const auto& type_id : DecimalTypeIds()) {
+    add_kernel(type_id);
+  }
   add_kernel(Type::FIXED_SIZE_BINARY);
   add_kernel(Type::STRING);
   add_kernel(Type::BINARY);
@@ -604,6 +609,7 @@ void RegisterVectorRunEndDecode(FunctionRegistry* registry) {
   for (const auto& ty : NumericTypes()) {
     add_kernel(ty->id());
   }
+  add_kernel(Type::HALF_FLOAT);
   add_kernel(Type::DATE32);
   add_kernel(Type::DATE64);
   add_kernel(Type::TIME32);
@@ -613,8 +619,9 @@ void RegisterVectorRunEndDecode(FunctionRegistry* registry) {
   for (const auto& ty : IntervalTypes()) {
     add_kernel(ty->id());
   }
-  add_kernel(Type::DECIMAL128);
-  add_kernel(Type::DECIMAL256);
+  for (const auto& type_id : DecimalTypeIds()) {
+    add_kernel(type_id);
+  }
   add_kernel(Type::FIXED_SIZE_BINARY);
   add_kernel(Type::STRING);
   add_kernel(Type::BINARY);

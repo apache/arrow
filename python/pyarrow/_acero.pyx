@@ -446,7 +446,8 @@ class AsofJoinNodeOptions(_AsofJoinNodeOptions):
         Can be a string column name or a field expression.
 
         An inexact match is used on the "on" key, i.e. a row is considered a
-        match if and only if left_on - tolerance <= right_on <= left_on.
+        match if and only if ``right.on - left.on`` is in the range
+        ``[min(0, tolerance), max(0, tolerance)]``.
 
         The input dataset must be sorted by the "on" key. Must be a single
         field of a common type.

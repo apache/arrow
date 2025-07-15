@@ -126,6 +126,9 @@ fi
 
 if [ "${ARROW_FUZZING}" == "ON" ]; then
     # Fuzzing regression tests
+    # Some fuzz regression files may trigger huge memory allocations,
+    # let the allocator return null instead of aborting.
+    export ASAN_OPTIONS="$ASAN_OPTIONS allocator_may_return_null=1"
     "${binary_output_dir}/arrow-ipc-stream-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-stream/crash-*
     "${binary_output_dir}/arrow-ipc-stream-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-stream/*-testcase-*
     "${binary_output_dir}/arrow-ipc-file-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-file/*-testcase-*

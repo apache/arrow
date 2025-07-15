@@ -325,9 +325,11 @@ repos:
           ?^ci/scripts/install_numpy\.sh$|
           ?^ci/scripts/install_pandas\.sh$|
           ?^ci/scripts/install_python\.sh$|
+          ?^ci/scripts/install_sccache\.sh$|
           ?^ci/scripts/install_spark\.sh$|
           ?^ci/scripts/install_vcpkg\.sh$|
           ?^ci/scripts/integration_arrow_build\.sh$|
+          ?^ci/scripts/integration_arrow\.sh$|
           ?^ci/scripts/integration_dask\.sh$|
           ?^ci/scripts/integration_spark\.sh$|
           ?^ci/scripts/matlab_build\.sh$|
