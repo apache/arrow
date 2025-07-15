@@ -89,7 +89,9 @@ def test_build_info():
     assert isinstance(pa.cpp_version_info, pa.VersionInfo)
     assert isinstance(pa.cpp_version, str)
     assert isinstance(pa.__version__, str)
+    assert pa.build_info.cpp_build_info.version == pa.cpp_version
     assert pa.build_info.cpp_build_info.version_info == pa.cpp_version_info
+    assert pa.build_info.cpp_build_info is pa.cpp_build_info
 
     assert pa.build_info.cpp_build_info.build_type in (
         'debug', 'release', 'minsizerel', 'relwithdebinfo')

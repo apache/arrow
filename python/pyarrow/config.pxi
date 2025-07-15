@@ -93,6 +93,7 @@ def _build_info():
 
 
 build_info = _build_info()
+cpp_build_info = build_info.cpp_build_info
 cpp_version = build_info.cpp_build_info.version
 cpp_version_info = build_info.cpp_build_info.version_info
 
