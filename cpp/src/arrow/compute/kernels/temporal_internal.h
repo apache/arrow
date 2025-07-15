@@ -39,7 +39,7 @@ using arrow_vendored::date::year_month_day;
 using arrow_vendored::date::zoned_time;
 using std::chrono::duration_cast;
 
-using ArrowTimeZone = std::variant<const time_zone*, const OffsetZone>;
+using ArrowTimeZone = std::variant<const time_zone*, OffsetZone>;
 
 template <class... Ts>
 struct overloads : Ts... {
