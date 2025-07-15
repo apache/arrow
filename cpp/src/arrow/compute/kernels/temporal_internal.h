@@ -42,6 +42,9 @@ using std::chrono::duration_cast;
 // https://howardhinnant.github.io/date/tz.html#Examples
 using ArrowTimeZone = std::variant<const time_zone*, OffsetZone>;
 
+// Utility struct for creating overloaded visitor functions from multiple lambdas.
+// Inherits from all provided callable types and exposes their operator().
+// Usage: auto visitor = overloads{[](time_zone*){...}, [](OffsetZone){...}};
 template <class... Ts>
 struct overloads : Ts... {
   using Ts::operator()...;
