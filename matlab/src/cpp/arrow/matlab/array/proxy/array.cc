@@ -89,6 +89,12 @@ void Array::getNumElements(libmexclass::proxy::method::Context& context) {
   context.outputs[0] = length_mda;
 }
 
+void Array::getNumNulls(libmexclass::proxy::method::Context& context) {
+  ::matlab::data::ArrayFactory factory;
+  auto num_nulls_mda = factory.createScalar(array->null_count());
+  context.outputs[0] = num_nulls_mda;
+}
+
 void Array::getValid(libmexclass::proxy::method::Context& context) {
   auto array_length = static_cast<size_t>(array->length());
 
