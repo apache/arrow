@@ -49,10 +49,10 @@ using ColumnPathToEncryptionPropertiesMap =
 class PARQUET_EXPORT DecryptionKeyRetriever {
  public:
   /// \brief Retrieve a key.
-  /// \deprecated Deprecated since 21.0.0.
+  /// \deprecated Deprecated since 22.0.0.
   ///             Implement GetKeyById(const std::string&) instead.
   ARROW_DEPRECATED(
-      "Deprecated in 21.0.0. "
+      "Deprecated in 22.0.0. "
       "Implement GetKeyById(const std::string&) instead.")
   virtual std::string GetKey(const std::string& key_id) {
     throw ParquetException("Not implemented");
@@ -143,8 +143,8 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
     /// be encrypted with the footer key.
     /// keyBytes Key length must be either 16, 24 or 32 bytes.
     /// Caller is responsible for wiping out the input key array.
-    /// \deprecated "Deprecated in 21.0.0. Use key(arrow::util::SecureString) instead."
-    ARROW_DEPRECATED("Deprecated in 21.0.0. Use key(arrow::util::SecureString) instead.")
+    /// \deprecated "Deprecated in 22.0.0. Use key(arrow::util::SecureString) instead."
+    ARROW_DEPRECATED("Deprecated in 22.0.0. Use key(arrow::util::SecureString) instead.")
     Builder* key(std::string column_key);
 
     /// \copydoc key(std::string)
@@ -259,10 +259,10 @@ class PARQUET_EXPORT FileDecryptionProperties {
     /// will be wiped out (array values set to 0).
     /// Caller is responsible for wiping out the input key array.
     /// param footerKey Key length must be either 16, 24 or 32 bytes.
-    /// \deprecated Deprecated since 21.0.0.
+    /// \deprecated Deprecated since 22.0.0.
     ///             Use footer_key(arrow::util::SecureString) instead.
     ARROW_DEPRECATED(
-        "Deprecated in 21.0.0. "
+        "Deprecated in 22.0.0. "
         "Use footer_key(arrow::util::SecureString) instead.")
     Builder* footer_key(std::string footer_key);
 
@@ -376,10 +376,10 @@ class PARQUET_EXPORT FileEncryptionProperties {
  public:
   class PARQUET_EXPORT Builder {
    public:
-    /// \deprecated Deprecated since 21.0.0. Use Builder(arrow::util::SecureString)
+    /// \deprecated Deprecated since 22.0.0. Use Builder(arrow::util::SecureString)
     /// instead.
     ARROW_DEPRECATED(
-        "Deprecated in 21.0.0. "
+        "Deprecated in 22.0.0. "
         "Use Builder(arrow::util::SecureString) instead")
     explicit Builder(std::string footer_key)
         : Builder(::arrow::util::SecureString(std::move(footer_key))) {}
