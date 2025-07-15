@@ -216,5 +216,18 @@ classdef tBooleanArray < matlab.unittest.TestCase
             % Test supplying more than two arrays to isequal
             tc.verifyFalse(isequal(array1, array1, array3, array4, array5)); 
         end
+
+        function TestNumNulls(testCase)
+            % Verify the NumNulls property returns correct value.
+            
+            % array1 has 0 null values.
+            data1 = testCase.MatlabArrayFcn([true false true false]);
+            array1 = testCase.ArrowArrayConstructorFcn(data1);
+            testCase.verifyEqual(array1.NumNulls, int64(0));
+
+            % array2 has 3 null values.
+            array2 = testCase.ArrowArrayConstructorFcn(data1, Valid=3);
+            testCase.verifyEqual(array2.NumNulls, int64(3));
+        end
     end
 end
