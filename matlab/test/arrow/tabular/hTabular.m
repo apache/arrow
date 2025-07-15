@@ -66,7 +66,7 @@ classdef hTabular < matlab.unittest.TestCase
         % this method.
         % 
         % This method must accept an arrow.array.Array as input and
-        % converts it into an instance of the Arrow type that the column()
+        % convert it to an instance of the Arrow type that the column()
         % method returns.
         col = makeColumnFromArray(tc, array)
     end
