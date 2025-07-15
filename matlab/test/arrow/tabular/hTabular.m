@@ -304,7 +304,7 @@ classdef hTabular < matlab.unittest.TestCase
 
         function FromArraysWrongNumberColumnNamesError(tc)
             % Verify the fromArrays function throws an exception with the
-            % identifier is "arrow:tabular:WrongNumberColumnNames" if the
+            % identifier "arrow:tabular:WrongNumberColumnNames" if the
             % size of ColumnNames does not match the number of arrays
             % provided.
             A1 = arrow.array([1, 2]);
