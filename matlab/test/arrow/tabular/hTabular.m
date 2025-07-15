@@ -549,7 +549,7 @@ classdef hTabular < matlab.unittest.TestCase
 
         function GetColumnUnsupportedColumnIndexType(tc)
             % Verify an exception is thrown if the column method is called
-            % with a invalid datatype as the column index.
+            % with an invalid datatype as the column index.
             TOriginal = table(1, 2, 3);
             tabularObj = tc.ConstructionFcn(TOriginal);
             fcn = @() tabularObj.column(datetime(2022, 1, 3));
