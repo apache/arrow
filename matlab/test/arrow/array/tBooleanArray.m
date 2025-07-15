@@ -229,5 +229,14 @@ classdef tBooleanArray < matlab.unittest.TestCase
             array2 = testCase.ArrowArrayConstructorFcn(data1, Valid=3);
             testCase.verifyEqual(array2.NumNulls, int64(3));
         end
+
+        function TestNumNullsNoSetter(tc)
+            % Verify the NumNulls property is read-only.
+
+            data = tc.MatlabArrayFcn([true false true false]);
+            array = tc.ArrowArrayConstructorFcn(data, Valid=[2 3]);
+            fcn = @() setfield(array, "NumNulls", 1);
+            tc.verifyError(fcn, "MATLAB:class:SetProhibited");            
+        end
     end
 end

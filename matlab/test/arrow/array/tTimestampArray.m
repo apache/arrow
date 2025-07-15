@@ -64,6 +64,15 @@ classdef tTimestampArray < matlab.unittest.TestCase
             testCase.verifyEqual(array2.NumNulls, int64(3));
         end
 
+        function TestNumNullsNoSetter(testCase)
+            % Verify the NumNulls property is read-only.
+
+            data =  datetime(2023, 1, 1) + days(1:5)';
+            array = testCase.ArrowArrayConstructorFcn(data, Valid=[2 3]);
+            fcn = @() setfield(array, "NumNulls", 1);
+            testCase.verifyError(fcn, "MATLAB:class:SetProhibited");            
+        end
+
         function TestDefaultTimestampType(testCase, TimeZone)
         % Verify the TimestampArray's units is Microsecond by default and
         % its TimeZone value is taken from the input datetime.

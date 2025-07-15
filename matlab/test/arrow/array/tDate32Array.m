@@ -67,6 +67,15 @@ classdef tDate32Array < matlab.unittest.TestCase
             testCase.verifyEqual(array2.NumNulls, int64(3));
         end
 
+        function TestNumNullsNoSetter(testCase)
+            % Verify the NumNulls property is read-only.
+
+            data =  datetime(2023, 1, 1) + days(1:5)';
+            array = testCase.ArrowArrayConstructorFcn(data, Valid=[2 3]);
+            fcn = @() setfield(array, "NumNulls", 1);
+            testCase.verifyError(fcn, "MATLAB:class:SetProhibited");            
+        end
+
         function TestToMATLAB(testCase)
             % Verify toMATLAB() round-trips the original datetime array.
             dates = testCase.UnixEpoch + days(1:10);
