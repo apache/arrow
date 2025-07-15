@@ -26,7 +26,6 @@ classdef hTabular < matlab.unittest.TestCase
         ConstructionFcn
         % Must be full class name (i.e. "arrow.tabular.Table").
         ClassName(1, 1) string
-       
     end
 
     properties 
