@@ -51,10 +51,10 @@ Supported `arrow.array.Array` types are included in the table below.
 | `logical`         | `BooleanArray`   |
 | `string`          | `StringArray`    |
 | `datetime`        | `TimestampArray` |
-| `duration`        | `Time32Array`    |
-| `duration`        | `Time64Array`    |
 | `datetime`        | `Date32Array`    |
 | `datetime`        | `Date64Array`    |
+| `duration`        | `Time32Array`    |
+| `duration`        | `Time64Array`    |
 | `cell`            | `ListArray`      |
 | `table`           | `StructArray`    |
 
