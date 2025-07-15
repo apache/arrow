@@ -314,7 +314,7 @@ classdef hTabular < matlab.unittest.TestCase
 
         function FromArraysColumnNamesHasMissingString(tc)
             % Verify the fromArrays function throws an exception with the
-            % identifier is "MATLAB:validators:mustBeNonmissing" if 
+            % identifier "MATLAB:validators:mustBeNonmissing" if 
             % ColumnNames is a string array with missing values.
             A1 = arrow.array([1, 2]);
             A2 = arrow.array(["A", "B"]);
