@@ -26,6 +26,7 @@
 #include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/float16.h"
 
 namespace arrow {
 
@@ -364,7 +365,6 @@ using Int16Builder = NumericBuilder<Int16Type>;
 using Int32Builder = NumericBuilder<Int32Type>;
 using Int64Builder = NumericBuilder<Int64Type>;
 
-using HalfFloatBuilder = NumericBuilder<HalfFloatType>;
 using FloatBuilder = NumericBuilder<FloatType>;
 using DoubleBuilder = NumericBuilder<DoubleType>;
 
@@ -381,6 +381,107 @@ using Time64Builder = NumericBuilder<Time64Type>;
 using TimestampBuilder = NumericBuilder<TimestampType>;
 using MonthIntervalBuilder = NumericBuilder<MonthIntervalType>;
 using DurationBuilder = NumericBuilder<DurationType>;
+
+/// @}
+
+/// \addtogroup numeric-builders
+///
+/// @{
+
+class ARROW_EXPORT HalfFloatBuilder : public NumericBuilder<HalfFloatType> {
+ public:
+  using BaseClass = NumericBuilder<HalfFloatType>;
+  using Float16 = arrow::util::Float16;
+
+  using BaseClass::Append;
+  using BaseClass::AppendValues;
+  using BaseClass::BaseClass;
+  using BaseClass::GetValue;
+  using BaseClass::UnsafeAppend;
+
+  /// Scalar append a arrow::util::Float16
+  Status Append(const Float16 val) { return Append(val.bits()); }
+
+  /// Scalar append a arrow::util::Float16, without checking for capacity
+  void UnsafeAppend(const Float16 val) { UnsafeAppend(val.bits()); }
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a contiguous array of arrow::util::Float16
+  /// \param[in] length the number of values to append
+  /// \param[in] valid_bytes an optional sequence of bytes where non-zero
+  /// indicates a valid (non-null) value
+  /// \return Status
+  Status AppendValues(const Float16* values, int64_t length,
+                      const uint8_t* valid_bytes = NULLPTR) {
+    return BaseClass::AppendValues(reinterpret_cast<const uint16_t*>(values), length,
+                                   valid_bytes);
+  }
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a contiguous array of arrow::util::Float16
+  /// \param[in] length the number of values to append
+  /// \param[in] bitmap a validity bitmap to copy (may be null)
+  /// \param[in] bitmap_offset an offset into the validity bitmap
+  /// \return Status
+  Status AppendValues(const Float16* values, int64_t length, const uint8_t* bitmap,
+                      int64_t bitmap_offset) {
+    return BaseClass::AppendValues(reinterpret_cast<const uint16_t*>(values), length,
+                                   bitmap, bitmap_offset);
+  }
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a contiguous array of arrow::util::Float16
+  /// \param[in] length the number of values to append
+  /// \param[in] is_valid a std::vector<bool> indicating valid (1) or null
+  /// (0). Equal in length to values
+  /// \return Status
+  Status AppendValues(const Float16* values, int64_t length,
+                      const std::vector<bool>& is_valid) {
+    return BaseClass::AppendValues(reinterpret_cast<const uint16_t*>(values), length,
+                                   is_valid);
+  }
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a std::vector<arrow::util::Float16>
+  /// \param[in] is_valid a std::vector<bool> indicating valid (1) or null
+  /// (0). Equal in length to values
+  /// \return Status
+  Status AppendValues(const std::vector<Float16>& values,
+                      const std::vector<bool>& is_valid) {
+    return AppendValues(values.data(), static_cast<int64_t>(values.size()), is_valid);
+  }
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a std::vector<arrow::util::Float16>
+  /// \return Status
+  Status AppendValues(const std::vector<Float16>& values) {
+    return AppendValues(values.data(), static_cast<int64_t>(values.size()));
+  }
+
+  /// \brief Append one value many times in one shot
+  /// \param[in] length the number of values to append
+  /// \param[in] value a arrow::util::Float16
+  Status AppendValues(int64_t length, Float16 value) {
+    RETURN_NOT_OK(Reserve(length));
+    data_builder_.UnsafeAppend(length, value.bits());
+    ArrayBuilder::UnsafeSetNotNull(length);
+    return Status::OK();
+  }
+
+  /// \brief Get the value at a certain index
+  /// \param[in] index the zero-based index
+  /// @tparam T arrow::util::Float16 or value_type (uint16_t)
+  template <typename T = BaseClass::value_type>
+  T GetValue(int64_t index) const {
+    static_assert(std::is_same_v<T, BaseClass::value_type> ||
+                  std::is_same_v<T, arrow::util::Float16>);
+    if constexpr (std::is_same_v<T, BaseClass::value_type>) {
+      return BaseClass::GetValue(index);
+    } else {
+      return Float16::FromBits(BaseClass::GetValue(index));
+    }
+  }
+};
 
 /// @}
 
