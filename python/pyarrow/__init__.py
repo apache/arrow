@@ -60,7 +60,7 @@ except ImportError:
 
 import pyarrow.lib as _lib
 from pyarrow.lib import (BuildInfo, CppBuildInfo, RuntimeInfo, set_timezone_db_path,
-                         MonthDayNano, VersionInfo, build_info,
+                         MonthDayNano, VersionInfo, build_info, cpp_build_info,
                          cpp_version, cpp_version_info, runtime_info,
                          cpu_count, set_cpu_count, enable_signal_handlers,
                          io_thread_count, set_io_thread_count)
