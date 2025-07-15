@@ -65,7 +65,7 @@ classdef hTabular < matlab.unittest.TestCase
         % method. Subclasses of hTabular are responsible for implementing
         % this method.
         % 
-        % This method must accepts an arrow.array.Array as input and
+        % This method must accept an arrow.array.Array as input and
         % converts it into an instance of the Arrow type that the column()
         % method returns.
         col = makeColumnFromArray(tc, array)
