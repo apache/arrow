@@ -598,7 +598,7 @@ classdef hTabular < matlab.unittest.TestCase
             tabularObj4 = tc.FromArraysFcn();
             tc.verifyTrue(isequal(tabularObj3, tabularObj4));
 
-            % Compare tabular objects taht have zero rows
+            % Compare tabular objects that have zero rows
             a4 = arrow.array([]);
             a5 = arrow.array(strings(0, 0));
             rb5 = tc.FromArraysFcn(a4, a5, ColumnNames=["D" "E"]);
