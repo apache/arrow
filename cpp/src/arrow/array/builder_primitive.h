@@ -385,6 +385,9 @@ using DurationBuilder = NumericBuilder<DurationType>;
 /// @}
 
 /// \addtogroup numeric-builders
+///
+/// @{
+
 class ARROW_EXPORT HalfFloatBuilder : public NumericBuilder<HalfFloatType> {
  public:
   using BaseClass = NumericBuilder<HalfFloatType>;
@@ -479,6 +482,8 @@ class ARROW_EXPORT HalfFloatBuilder : public NumericBuilder<HalfFloatType> {
     }
   }
 };
+
+/// @}
 
 class ARROW_EXPORT BooleanBuilder
     : public ArrayBuilder,
