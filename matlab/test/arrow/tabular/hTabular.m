@@ -94,7 +94,7 @@ classdef hTabular < matlab.unittest.TestCase
         end
 
         function EmptyTabularObject(tc)
-            % Verify the convenience construction function creates an a
+            % Verify the convenience construction function creates a
             % tabular object (of the correct type) when provided an empty
             % MATLAB table as input.
             matlabTable = table.empty(0, 0);
