@@ -127,7 +127,7 @@ struct AssumeTimezoneExtractor
     }
     ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(options.timezone));
     using ExecTemplate = Op<Duration>;
-    auto op = ExecTemplate(&options, &tz);
+    auto op = ExecTemplate(&options, tz);
     applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
         op};
     return kernel.Exec(ctx, batch, out);
@@ -147,7 +147,7 @@ struct DaylightSavingsExtractor
     }
     ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
     using ExecTemplate = Op<Duration>;
-    auto op = ExecTemplate(nullptr, &tz);
+    auto op = ExecTemplate(nullptr, tz);
     applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
         op};
     return kernel.Exec(ctx, batch, out);
@@ -662,8 +662,8 @@ struct Nanosecond {
 
 template <typename Duration>
 struct IsDaylightSavings {
-  explicit IsDaylightSavings(const FunctionOptions* options, const ArrowTimeZone* tz)
-      : tz_(*tz) {}
+  explicit IsDaylightSavings(const FunctionOptions* options, const ArrowTimeZone tz)
+      : tz_(tz) {}
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
@@ -1354,8 +1354,8 @@ Result<TypeHolder> ResolveLocalTimestampOutput(KernelContext* ctx,
 
 template <typename Duration>
 struct AssumeTimezone {
-  explicit AssumeTimezone(const AssumeTimezoneOptions* options, const ArrowTimeZone* tz)
-      : options(*options), tz_(*tz) {}
+  explicit AssumeTimezone(const AssumeTimezoneOptions* options, const ArrowTimeZone tz)
+      : options(*options), tz_(tz) {}
 
   template <typename T, typename Arg0>
   T get_local_time(Arg0 arg, const ArrowTimeZone* tz) const {
@@ -1375,16 +1375,21 @@ struct AssumeTimezone {
   template <typename T, typename Arg0>
   T get_local_time(Arg0 arg, const arrow_vendored::date::choose choose,
                    const ArrowTimeZone* tz) const {
-    const auto visitor = overloads{[arg, choose](const time_zone* tz) {
-                                     return zoned_time<Duration>{
-                                         tz, local_time<Duration>(Duration{arg}), choose}
-                                         .get_sys_time();
-                                   },
-                                   [arg, choose](const OffsetZone tz) {
-                                     return zoned_time<Duration, const OffsetZone*>{
-                                         &tz, local_time<Duration>(Duration{arg}), choose}
-                                         .get_sys_time();
-                                   }};
+    auto lt = local_time<Duration>(Duration{arg});
+    const auto visitor = overloads{
+      [lt, choose](const time_zone *tz) {
+        return zoned_time<Duration>{
+              tz, lt, choose
+            }
+            .get_sys_time();
+      },
+      [lt, choose](const OffsetZone tz) {
+        return zoned_time<Duration, const OffsetZone *>{
+              &tz, lt, choose
+            }
+            .get_sys_time();
+      }
+    };
     return static_cast<T>(std::visit(visitor, tz_).time_since_epoch().count());
   }
 
