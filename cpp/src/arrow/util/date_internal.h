@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+
 #pragma once
 
 #include "arrow/vendored/datetime.h"
@@ -38,11 +39,14 @@ using arrow_vendored::date::zoned_time;
 using arrow_vendored::date::zoned_traits;
 using std::chrono::minutes;
 
+// OffsetZone object is inspired by an example from date.h documentation:
+// https://howardhinnant.github.io/date/tz.html#Examples
+
 class OffsetZone {
-  std::chrono::minutes offset_;
+  minutes offset_;
 
  public:
-  explicit OffsetZone(std::chrono::minutes offset) : offset_{offset} {}
+  explicit OffsetZone(minutes offset) : offset_{offset} {}
 
   template <class Duration>
   local_time<Duration> to_local(sys_time<Duration> tp) const {
@@ -68,13 +72,13 @@ class OffsetZone {
 
 namespace arrow_vendored::date {
 using arrow::internal::OffsetZone;
+using std::chrono::minutes;
 
 template <>
 struct zoned_traits<OffsetZone> {
-  static OffsetZone default_zone() { return OffsetZone{std::chrono::minutes{0}}; }
+  static OffsetZone default_zone() { return OffsetZone{minutes{0}}; }
 
   static OffsetZone locate_zone(const std::string& name) {
-    if (name == "UTC") return OffsetZone{std::chrono::minutes{0}};
     throw std::runtime_error{"OffsetZone can't parse " + name};
   }
 };
