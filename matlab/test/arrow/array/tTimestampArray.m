@@ -50,6 +50,19 @@ classdef tTimestampArray < matlab.unittest.TestCase
             arrowArray = testCase.ArrowArrayConstructorFcn(dates);
             testCase.verifyEqual(arrowArray.NumElements, int64(5));
         end
+        
+        function TestNumNulls(testCase)
+            % Verify the NumNulls property returns correct value.
+            
+            % array1 has 0 null values.
+            dates = datetime(2023, 1, 1) + days(1:5)';
+            array1 = testCase.ArrowArrayConstructorFcn(dates);
+            testCase.verifyEqual(array1.NumNulls, int64(0));
+
+            % array2 has 3 null values.
+            array2 = testCase.ArrowArrayConstructorFcn(dates, Valid=[1 2]);
+            testCase.verifyEqual(array2.NumNulls, int64(3));
+        end
 
         function TestDefaultTimestampType(testCase, TimeZone)
         % Verify the TimestampArray's units is Microsecond by default and
