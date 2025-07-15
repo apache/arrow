@@ -39,6 +39,7 @@ using arrow_vendored::date::year_month_day;
 using arrow_vendored::date::zoned_time;
 using std::chrono::duration_cast;
 
+// https://howardhinnant.github.io/date/tz.html#Examples
 using ArrowTimeZone = std::variant<const time_zone*, OffsetZone>;
 
 template <class... Ts>
@@ -52,30 +53,30 @@ inline int64_t GetQuarter(const year_month_day& ymd) {
   return static_cast<int64_t>((static_cast<uint32_t>(ymd.month()) - 1) / 3);
 }
 
-static inline Result<const ArrowTimeZone> LocateZone(const std::string& timezone) {
-  try {
-    const char* timezone_string = timezone.c_str();
-    if ((timezone_string[0] == '+' || timezone_string[0] == '-') &&
-        (timezone.length() == 5 || timezone.length() == 6)) {
-      // Valid offset strings have to have 4 digits and a sign prefix.
-      // Valid examples: +01:23 and -0123, invalid examples: 1:23, 123, 0123, 01:23.
-      std::chrono::minutes zone_offset;
-      if (timezone.length() == 6) {
-        arrow::internal::detail::ParseHH_MM(timezone_string + 1, &zone_offset);
-      } else {
-        arrow::internal::detail::ParseHHMM(timezone_string + 1, &zone_offset);
-      }
+static inline Result<ArrowTimeZone> LocateZone(const std::string &timezone) {
+  ArrowTimeZone offset_zone;
 
-      zone_offset = timezone_string[0] == '-' ? -zone_offset : zone_offset;
-      return ArrowTimeZone{OffsetZone(zone_offset)};
+  if ((timezone[0] == '+' || timezone[0] == '-') && (timezone.length() == 5 || timezone.length() == 6)) {
+    // Valid offset strings have to have 4 digits and a sign prefix.
+    // Valid examples: +01:23 and -0123, invalid examples: 1:23, 123, 0123, 01:23.
+    std::chrono::minutes zone_offset;
+    if (timezone.length() == 6) {
+      arrow::internal::detail::ParseHH_MM(timezone.substr(1).c_str(), &zone_offset);
     } else {
-      const time_zone* offset_zone = locate_zone(timezone_string);
-      return ArrowTimeZone{offset_zone};
+      arrow::internal::detail::ParseHHMM(timezone.substr(1).c_str(), &zone_offset);
     }
-  } catch (const std::runtime_error& ex) {
-    return Status::Invalid("Cannot locate or parse timezone '", timezone,
-                           "': ", ex.what());
+    zone_offset = timezone[0] == '-' ? -zone_offset : zone_offset;
+    offset_zone = OffsetZone(zone_offset);
+  } else {
+    try {
+      offset_zone = locate_zone(timezone);
+    } catch (const std::runtime_error &ex) {
+      return Status::Invalid("Cannot locate or parse timezone '", timezone,
+                             "': ", ex.what());
+    }
   }
+
+  return offset_zone;
 }
 
 static inline const std::string& GetInputTimezone(const DataType& type) {
