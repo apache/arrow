@@ -53,7 +53,7 @@ classdef hTabular < matlab.unittest.TestCase
         % columnNames is a string array containing the expected ColumnNames
         %    property value of arrowTabularObj.
         %
-        % columnTraits is a cell array containing in which each element is
+        % columnTraits is a cell array where each element is an
         %    a arrow.type.traits.TypeTraits instance. Each TypeTraits instance
         %    corresponds to a column in arrowTabularObj.
         %
