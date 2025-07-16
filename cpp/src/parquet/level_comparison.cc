@@ -31,9 +31,6 @@
 
 namespace parquet::internal {
 
-MinMax FindMinMaxAvx2(const int16_t* levels, int64_t num_levels);
-uint64_t GreaterThanBitmapAvx2(const int16_t* levels, int64_t num_levels, int16_t rhs);
-
 namespace {
 
 using ::arrow::internal::DispatchLevel;
