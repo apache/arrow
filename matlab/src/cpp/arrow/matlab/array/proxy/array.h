@@ -37,6 +37,8 @@ class Array : public libmexclass::proxy::Proxy {
 
   void getNumElements(libmexclass::proxy::method::Context& context);
 
+  void getNumNulls(libmexclass::proxy::method::Context& context);
+
   void getValid(libmexclass::proxy::method::Context& context);
 
   void getType(libmexclass::proxy::method::Context& context);

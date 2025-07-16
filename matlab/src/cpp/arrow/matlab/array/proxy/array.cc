@@ -37,6 +37,7 @@ Array::Array(std::shared_ptr<arrow::Array> array) : array{std::move(array)} {
   // Register Proxy methods.
   REGISTER_METHOD(Array, toString);
   REGISTER_METHOD(Array, getNumElements);
+  REGISTER_METHOD(Array, getNumNulls);
   REGISTER_METHOD(Array, getValid);
   REGISTER_METHOD(Array, getType);
   REGISTER_METHOD(Array, isEqual);
@@ -87,6 +88,12 @@ void Array::getNumElements(libmexclass::proxy::method::Context& context) {
   ::matlab::data::ArrayFactory factory;
   auto length_mda = factory.createScalar(array->length());
   context.outputs[0] = length_mda;
+}
+
+void Array::getNumNulls(libmexclass::proxy::method::Context& context) {
+  ::matlab::data::ArrayFactory factory;
+  auto num_nulls_mda = factory.createScalar(array->null_count());
+  context.outputs[0] = num_nulls_mda;
 }
 
 void Array::getValid(libmexclass::proxy::method::Context& context) {

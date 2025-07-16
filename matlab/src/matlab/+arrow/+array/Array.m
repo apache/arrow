@@ -23,6 +23,7 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
 
     properties(Dependent, SetAccess=private, GetAccess=public)
         NumElements
+        NumNulls
         Valid % Validity bitmap
         Type(1, 1) arrow.type.Type
     end
@@ -37,6 +38,10 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
 
         function numElements = get.NumElements(obj)
             numElements = obj.Proxy.getNumElements();
+        end
+
+        function numNulls = get.NumNulls(obj)
+            numNulls = obj.Proxy.getNumNulls();
         end
 
         function validElements = get.Valid(obj)
