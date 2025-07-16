@@ -326,7 +326,7 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     string(APPEND CXX_ONLY_FLAGS " -Wredundant-move")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
     # Flag non-static functions that don't have corresponding declaration in a .h file.
-    # Only for libraries, since such functions are not a problem in tests or utilities.
+    # Only for Arrow libraries, since this is not a problem in tests or utilities.
     list(APPEND LIBARROW_CXX_FLAGS "-Wmissing-declarations")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL
                                                    "IntelLLVM")

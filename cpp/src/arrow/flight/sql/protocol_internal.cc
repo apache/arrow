@@ -20,9 +20,19 @@
 ARROW_SUPPRESS_DEPRECATION_WARNING
 #include "arrow/flight/sql/protocol_internal.h"
 
+#if defined(__GNUC__)
+_Pragma("GCC diagnostic push");
+_Pragma("GCC diagnostic ignored \"-Wmissing-declarations\"");
+#endif
+
 // NOTE(lidavidm): Normally this is forbidden, but on Windows to get
 // the dllexport/dllimport macro in the right places, we need to
 // ensure our header gets included (and Protobuf will not insert the
 // include for you)
 #include "arrow/flight/sql/FlightSql.pb.cc"  // NOLINT
+
+#if defined(__GNUC__)
+_Pragma("GCC diagnostic pop");
+#endif
+
 ARROW_UNSUPPRESS_DEPRECATION_WARNING
