@@ -217,17 +217,17 @@ classdef tBooleanArray < matlab.unittest.TestCase
             tc.verifyFalse(isequal(array1, array1, array3, array4, array5)); 
         end
 
-        function TestNumNulls(testCase)
+        function TestNumNulls(tc)
             % Verify the NumNulls property returns correct value.
             
             % array1 has 0 null values.
-            data1 = testCase.MatlabArrayFcn([true false true false]);
-            array1 = testCase.ArrowArrayConstructorFcn(data1);
-            testCase.verifyEqual(array1.NumNulls, int64(0));
+            data1 = tc.MatlabArrayFcn([true false true false]);
+            array1 = tc.ArrowArrayConstructorFcn(data1);
+            tc.verifyEqual(array1.NumNulls, int64(0));
 
             % array2 has 3 null values.
-            array2 = testCase.ArrowArrayConstructorFcn(data1, Valid=3);
-            testCase.verifyEqual(array2.NumNulls, int64(3));
+            array2 = tc.ArrowArrayConstructorFcn(data1, Valid=3);
+            tc.verifyEqual(array2.NumNulls, int64(3));
         end
 
         function TestNumNullsNoSetter(tc)
