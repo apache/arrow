@@ -22,6 +22,7 @@
 #include <mutex>
 #include <unordered_map>
 #include <unordered_set>
+#include <iostream>
 
 #include "arrow/filesystem/path_util.h"
 #include "arrow/record_batch.h"
@@ -70,6 +71,9 @@ class Throttle {
   void Release(uint64_t values) {
     if (Unthrottled()) {
       return;
+    }
+    if(current_value_<values){
+      std::cout<<"Release: "<<current_value_<<"<"<<values<<std::endl;
     }
     Future<> to_complete;
     {
