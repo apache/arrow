@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Threading;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Client;
 using Grpc.Core;
@@ -34,9 +35,9 @@ public class DoPutResult
     /// Reads the metadata asynchronously from the reader.
     /// </summary>
     /// <returns>A ByteString containing the metadata read from the reader.</returns>
-    public async Task<Google.Protobuf.ByteString> ReadMetadataAsync()
+    public async Task<Google.Protobuf.ByteString> ReadMetadataAsync(CancellationToken cancellationToken = default)
     {
-        if (await Reader.MoveNext().ConfigureAwait(false))
+        if (await Reader.MoveNext(cancellationToken).ConfigureAwait(false))
         {
             return Reader.Current.ApplicationMetadata;
         }
