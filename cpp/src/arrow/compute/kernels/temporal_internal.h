@@ -43,37 +43,31 @@ using std::chrono::duration_cast;
 // https://howardhinnant.github.io/date/tz.html#Examples
 using ArrowTimeZone = std::variant<const time_zone*, OffsetZone>;
 
-// Utility struct for creating overloaded visitor functions from multiple lambdas.
-// Inherits from all provided callable types and exposes their operator().
-// Usage: auto visitor = overloads{[](time_zone*){...}, [](OffsetZone){...}};
-// See https://en.cppreference.com/w/cpp/utility/variant/visit for reference
-template <class... Ts>
-struct overloads : Ts... {
-  using Ts::operator()...;
-};
-template <class... Ts>
-overloads(Ts...) -> overloads<Ts...>;
-
-template <class Duration, class Func>
-auto ApplyTimeZone(const ArrowTimeZone& tz, sys_time<Duration> st, Func&& func)
-    -> decltype(func(zoned_time<Duration>{})) {
-  if (tz.index() == 0) {
-    return func(zoned_time<Duration>{std::get<const time_zone*>(tz), st});
-  }
-  return func(zoned_time<Duration, const OffsetZone*>{&std::get<OffsetZone>(tz), st});
+template<class Duration, class Func>
+auto ApplyTimeZone(const ArrowTimeZone &tz, sys_time<Duration> st, Func &&func)
+  -> decltype(func(zoned_time<Duration>{})) {
+  return std::visit([&](auto &&zone) {
+    if constexpr (std::is_pointer_v<std::decay_t<decltype(zone)> >) {
+      return func(zoned_time<Duration>{zone, st});
+    } else {
+      return func(zoned_time<Duration, const OffsetZone *>{&zone, st});
+    }
+  }, tz);
 }
 
-template <class Duration, class Func>
-auto ApplyTimeZone(const ArrowTimeZone& tz, local_time<Duration> lt,
-                   std::optional<choose> c, Func&& func)
-    -> decltype(func(zoned_time<Duration>{})) {
-  if (tz.index() == 0) {
-    if (c.has_value()) {
-      return func(zoned_time<Duration>{std::get<const time_zone*>(tz), lt, c.value()});
+template<class Duration, class Func>
+auto ApplyTimeZone(const ArrowTimeZone &tz, local_time<Duration> lt,
+                   std::optional<choose> c, Func &&func)
+  -> decltype(func(zoned_time<Duration>{})) {
+  return std::visit([&](auto &&zone) {
+    if constexpr (std::is_pointer_v<std::decay_t<decltype(zone)> >) {
+      return c.has_value()
+               ? func(zoned_time<Duration>{zone, lt, c.value()})
+               : func(zoned_time<Duration>{zone, lt});
+    } else {
+      return func(zoned_time<Duration, const OffsetZone *>{&zone, lt});
     }
-    return func(zoned_time<Duration>{std::get<const time_zone*>(tz), lt});
-  }
-  return func(zoned_time<Duration, const OffsetZone*>{&std::get<OffsetZone>(tz), lt});
+  }, tz);
 }
 
 inline int64_t GetQuarter(const year_month_day& ymd) {
