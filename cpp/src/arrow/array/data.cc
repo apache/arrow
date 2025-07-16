@@ -686,7 +686,21 @@ util::span<const std::shared_ptr<Buffer>> ArraySpan::GetVariadicBuffers() const 
 }
 
 bool ArraySpan::HasVariadicBuffers() const {
-  return type->id() == Type::BINARY_VIEW || type->id() == Type::STRING_VIEW;
+  switch (type->id()) {
+    case Type::BINARY_VIEW:
+    case Type::STRING_VIEW:
+      return true;
+    case Type::EXTENSION: {
+      if (type->storage_id() == Type::BINARY_VIEW ||
+          type->storage_id() == Type::STRING_VIEW) {
+        return true;
+      }
+      break;
+    }
+    default:
+      break;
+  }
+  return false;
 }
 
 std::shared_ptr<Array> ArraySpan::ToArray() const {
