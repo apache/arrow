@@ -43,31 +43,34 @@ using std::chrono::duration_cast;
 // https://howardhinnant.github.io/date/tz.html#Examples
 using ArrowTimeZone = std::variant<const time_zone*, OffsetZone>;
 
-template<class Duration, class Func>
-auto ApplyTimeZone(const ArrowTimeZone &tz, sys_time<Duration> st, Func &&func)
-  -> decltype(func(zoned_time<Duration>{})) {
-  return std::visit([&](auto &&zone) {
-    if constexpr (std::is_pointer_v<std::decay_t<decltype(zone)> >) {
-      return func(zoned_time<Duration>{zone, st});
-    } else {
-      return func(zoned_time<Duration, const OffsetZone *>{&zone, st});
-    }
-  }, tz);
+template <class Duration, class Func>
+auto ApplyTimeZone(const ArrowTimeZone& tz, sys_time<Duration> st, Func&& func)
+    -> decltype(func(zoned_time<Duration>{})) {
+  return std::visit(
+      [&](auto&& zone) {
+        if constexpr (std::is_pointer_v<std::decay_t<decltype(zone)> >) {
+          return func(zoned_time<Duration>{zone, st});
+        } else {
+          return func(zoned_time<Duration, const OffsetZone*>{&zone, st});
+        }
+      },
+      tz);
 }
 
-template<class Duration, class Func>
-auto ApplyTimeZone(const ArrowTimeZone &tz, local_time<Duration> lt,
-                   std::optional<choose> c, Func &&func)
-  -> decltype(func(zoned_time<Duration>{})) {
-  return std::visit([&](auto &&zone) {
-    if constexpr (std::is_pointer_v<std::decay_t<decltype(zone)> >) {
-      return c.has_value()
-               ? func(zoned_time<Duration>{zone, lt, c.value()})
-               : func(zoned_time<Duration>{zone, lt});
-    } else {
-      return func(zoned_time<Duration, const OffsetZone *>{&zone, lt});
-    }
-  }, tz);
+template <class Duration, class Func>
+auto ApplyTimeZone(const ArrowTimeZone& tz, local_time<Duration> lt,
+                   std::optional<choose> c, Func&& func)
+    -> decltype(func(zoned_time<Duration>{})) {
+  return std::visit(
+      [&](auto&& zone) {
+        if constexpr (std::is_pointer_v<std::decay_t<decltype(zone)> >) {
+          return c.has_value() ? func(zoned_time<Duration>{zone, lt, c.value()})
+                               : func(zoned_time<Duration>{zone, lt});
+        } else {
+          return func(zoned_time<Duration, const OffsetZone*>{&zone, lt});
+        }
+      },
+      tz);
 }
 
 inline int64_t GetQuarter(const year_month_day& ymd) {
