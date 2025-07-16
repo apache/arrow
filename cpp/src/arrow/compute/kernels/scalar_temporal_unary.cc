@@ -58,7 +58,6 @@ using arrow_vendored::date::year;
 using arrow_vendored::date::year_month_day;
 using arrow_vendored::date::year_month_weekday;
 using arrow_vendored::date::years;
-using arrow_vendored::date::zoned_time;
 using arrow_vendored::date::literals::dec;
 using arrow_vendored::date::literals::jan;
 using arrow_vendored::date::literals::last;
@@ -1359,38 +1358,20 @@ struct AssumeTimezone {
 
   template <typename T, typename Arg0>
   T get_local_time(Arg0 arg, const ArrowTimeZone* tz) const {
-    const auto visitor =
-        overloads{[arg](const time_zone* tz) {
-                    return zoned_time<Duration>{tz, local_time<Duration>(Duration{arg})}
-                        .get_sys_time();
-                  },
-                  [arg](const OffsetZone tz) {
-                    return zoned_time<Duration, const OffsetZone*>{
-                        &tz, local_time<Duration>(Duration{arg})}
-                        .get_sys_time();
-                  }};
-    return std::visit(visitor, tz_).time_since_epoch().count();
+    const auto lt = local_time<Duration>(Duration{arg});
+    auto local_to_sys_time = [&](auto&& t) {
+      return t.get_sys_time().time_since_epoch().count();
+    };
+    return ApplyTimeZone(tz_, lt, std::nullopt, local_to_sys_time);
   }
 
   template <typename T, typename Arg0>
-  T get_local_time(Arg0 arg, const arrow_vendored::date::choose choose,
-                   const ArrowTimeZone* tz) const {
-    auto lt = local_time<Duration>(Duration{arg});
-    const auto visitor = overloads{
-      [lt, choose](const time_zone *tz) {
-        return zoned_time<Duration>{
-              tz, lt, choose
-            }
-            .get_sys_time();
-      },
-      [lt, choose](const OffsetZone tz) {
-        return zoned_time<Duration, const OffsetZone *>{
-              &tz, lt, choose
-            }
-            .get_sys_time();
-      }
+  T get_local_time(Arg0 arg, const choose c, const ArrowTimeZone* tz) const {
+    const auto lt = local_time<Duration>(Duration{arg});
+    auto local_to_sys_time = [&](auto&& t) {
+      return t.get_sys_time().time_since_epoch().count();
     };
-    return static_cast<T>(std::visit(visitor, tz_).time_since_epoch().count());
+    return ApplyTimeZone(tz_, lt, c, local_to_sys_time);
   }
 
   template <typename T, typename Arg0>
