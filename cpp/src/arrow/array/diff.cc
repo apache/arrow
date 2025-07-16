@@ -596,9 +596,6 @@ class MakeFormatterImpl {
     return std::move(impl_);
   }
 
-  // template <typename VISITOR, typename... ARGS>
-  // friend Status VisitTypeInline(const DataType&, VISITOR*, ARGS&&... args);
-
   // factory implementation
   Status Visit(const BooleanType&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
