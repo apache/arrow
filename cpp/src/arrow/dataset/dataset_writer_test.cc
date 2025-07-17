@@ -277,8 +277,6 @@ TEST_F(DatasetWriterTestFixture, BatchGreaterThanMaxRowsQueued) {
   ASSERT_EQ(paused_, false);
 }
 
-#pragma GCC push_options
-#pragma GCC optimize("O0")
 TEST_F(DatasetWriterTestFixture, BatchWriteConcurrent) {
   auto dataset_writer = MakeDatasetWriter(/*max_rows=*/5);
 
@@ -310,7 +308,6 @@ TEST_F(DatasetWriterTestFixture, BatchWriteConcurrent) {
   EndWriterChecked(dataset_writer.get());
   ASSERT_EQ(paused_, false);
 }
-#pragma GCC pop_options
 
 TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
   write_options_.max_rows_per_file = 10;
