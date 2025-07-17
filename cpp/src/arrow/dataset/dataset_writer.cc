@@ -22,7 +22,6 @@
 #include <mutex>
 #include <unordered_map>
 #include <unordered_set>
-#include <iostream>
 
 #include "arrow/filesystem/path_util.h"
 #include "arrow/record_batch.h"

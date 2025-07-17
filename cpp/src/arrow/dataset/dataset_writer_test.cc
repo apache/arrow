@@ -20,9 +20,9 @@
 #include <chrono>
 #include <mutex>
 #include <optional>
-#include <vector>
 #include <random>
 #include <thread>
+#include <vector>
 
 #include "arrow/array/builder_primitive.h"
 #include "arrow/dataset/file_ipc.h"
@@ -278,29 +278,31 @@ TEST_F(DatasetWriterTestFixture, BatchGreaterThanMaxRowsQueued) {
 }
 
 #pragma GCC push_options
-#pragma GCC optimize ("O0")
+#pragma GCC optimize("O0")
 TEST_F(DatasetWriterTestFixture, BatchWriteConcurrent) {
   auto dataset_writer = MakeDatasetWriter(/*max_rows=*/5);
 
-
-  for(int threads=1;threads<5;threads++){
-    for(int iter=2;iter<=256;iter*=2){
-      for(int batch=2;batch<=64;batch*=2){
+  for (int threads = 1; threads < 5; threads++) {
+    for (int iter = 2; iter <= 256; iter *= 2) {
+      for (int batch = 2; batch <= 64; batch *= 2) {
         std::vector<std::thread> workers;
-        for(int i=0;i<threads;++i){
-          workers.push_back(std::thread(
-          [&,i=i](){
-            for(int j=0;j<iter;++j){
-              while(paused_){SleepABit();};
-              dataset_writer->WriteRecordBatch(MakeBatch(batch+i+10*j), "");
+        for (int i = 0; i < threads; ++i) {
+          workers.push_back(std::thread([&, i = i]() {
+            for (int j = 0; j < iter; ++j) {
+              while (paused_) {
+                SleepABit();
+              }
+              dataset_writer->WriteRecordBatch(MakeBatch(batch + i + 10 * j), "");
             }
           }));
         }
-        for (std::thread &t: workers) {
+        for (std::thread& t : workers) {
           if (t.joinable()) {
             t.join();
           }
-          while(paused_){SleepABit();};
+          while (paused_) {
+            SleepABit();
+          }
         }
       }
     }
