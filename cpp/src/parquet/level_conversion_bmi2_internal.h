@@ -18,27 +18,13 @@
 #pragma once
 
 #include <cstdint>
-#include <vector>
 
-#include "arrow/status.h"
-#include "arrow/util/print_internal.h"
+#include "parquet/level_conversion.h"
 
-namespace arrow::internal {
+namespace parquet::internal {
 
-inline Status IsPermutationValid(const std::vector<int64_t>& permutation) {
-  const auto size = static_cast<int64_t>(permutation.size());
-  std::vector<uint8_t> dim_seen(size, 0);
+void DefLevelsToBitmapBmi2WithRepeatedParent(const int16_t* def_levels,
+                                             int64_t num_def_levels, LevelInfo level_info,
+                                             ValidityBitmapInputOutput* output);
 
-  for (const auto p : permutation) {
-    if (p < 0 || p >= size || dim_seen[p] != 0) {
-      return Status::Invalid(
-          "Permutation indices for ", size,
-          " dimensional tensors must be unique and within [0, ", size - 1,
-          "] range. Got: ", ::arrow::internal::PrintVector{permutation, ","});
-    }
-    dim_seen[p] = 1;
-  }
-  return Status::OK();
-}
-
-}  // namespace arrow::internal
+}  // namespace parquet::internal

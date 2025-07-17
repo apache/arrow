@@ -1211,6 +1211,8 @@ inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
   }
 }
 
+namespace {
+
 bool DictionaryDirectWriteSupported(const ::arrow::Array& array) {
   DCHECK_EQ(array.type_id(), ::arrow::Type::DICTIONARY);
   const ::arrow::DictionaryType& dict_type =
@@ -1230,6 +1232,8 @@ Status ConvertDictionaryToDense(const ::arrow::Array& array, MemoryPool* pool,
   *out = cast_output.make_array();
   return Status::OK();
 }
+
+}  // namespace
 
 template <typename ParquetType>
 class TypedColumnWriterImpl : public ColumnWriterImpl,

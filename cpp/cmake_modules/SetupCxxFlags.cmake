@@ -159,6 +159,9 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ${ARROW_POSITION_INDEPENDENT_CODE})
 set(UNKNOWN_COMPILER_MESSAGE
     "Unknown compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 
+# Compiler flags used when building Arrow libraries (but not tests, utilities, etc.)
+set(ARROW_LIBRARIES_ONLY_CXX_FLAGS)
+
 # compiler flags that are common across debug/release builds
 if(WIN32)
   # TODO(wesm): Change usages of C runtime functions that MSVC says are
@@ -322,6 +325,9 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wimplicit-fallthrough")
     string(APPEND CXX_ONLY_FLAGS " -Wredundant-move")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
+    # Flag non-static functions that don't have corresponding declaration in a .h file.
+    # Only for Arrow libraries, since this is not a problem in tests or utilities.
+    list(APPEND ARROW_LIBRARIES_ONLY_CXX_FLAGS "-Wmissing-declarations")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL
                                                    "IntelLLVM")
     if(WIN32)

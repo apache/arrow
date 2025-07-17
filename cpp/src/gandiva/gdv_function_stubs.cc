@@ -41,6 +41,8 @@
 
 extern "C" {
 
+ARROW_SUPPRESS_MISSING_DECLARATIONS_WARNING
+
 static char mask_array[256] = {
     (char)0,  (char)1,  (char)2,  (char)3,   (char)4,   (char)5,   (char)6,   (char)7,
     (char)8,  (char)9,  (char)10, (char)11,  (char)12,  (char)13,  (char)14,  (char)15,
@@ -843,6 +845,8 @@ const char* gdv_mask_show_last_n_utf8_int32(int64_t context, const char* data,
   int32_t n_to_mask = num_of_chars - n_to_show;
   return gdv_mask_first_n_utf8_int32(context, data, data_len, n_to_mask, out_len);
 }
+
+ARROW_UNSUPPRESS_MISSING_DECLARATIONS_WARNING
 }
 
 namespace gandiva {
