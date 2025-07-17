@@ -57,7 +57,7 @@ struct NotEqual {
 
 struct ListEqual {
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
+  static T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
     static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
 
     if (left.length != right.length) {
@@ -73,7 +73,7 @@ struct ListEqual {
 
 struct ListNotEqual {
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
+  static T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
     static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
 
     if (left.length != right.length) {
