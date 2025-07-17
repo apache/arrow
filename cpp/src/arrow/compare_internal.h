@@ -870,6 +870,9 @@ class ScalarEqualsVisitor {
 };
 
 Status PrintDiff(const Array& left, const Array& right, std::ostream* os);
+Status PrintDiff(const Array& left, const Array& right, int64_t left_offset,
+                 int64_t left_length, int64_t right_offset, int64_t right_length,
+                 std::ostream* os);
 
 Status PrintDiff(const Array& left, const Array& right, int64_t left_offset,
                  int64_t left_length, int64_t right_offset, int64_t right_length,
@@ -918,6 +921,9 @@ Status PrintDiff(const Array& left, const Array& right, std::ostream* os) {
   return PrintDiff(left, right, 0, left.length(), 0, right.length(), os);
 }
 
+bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_idx,
+                      int64_t left_end_idx, int64_t right_start_idx,
+                      const EqualOptions& options, bool floating_approximate);
 bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_idx,
                       int64_t left_end_idx, int64_t right_start_idx,
                       const EqualOptions& options, bool floating_approximate) {
