@@ -180,7 +180,6 @@ namespace Apache.Arrow.Flight.Client
         public AsyncDuplexStreamingCall<FlightHandshakeRequest, FlightHandshakeResponse> Handshake(Metadata headers = null)
         {
             return Handshake(headers, null, CancellationToken.None);
-
         }
 
         public AsyncDuplexStreamingCall<FlightHandshakeRequest, FlightHandshakeResponse> Handshake(Metadata headers, System.DateTime? deadline, CancellationToken cancellationToken = default)
