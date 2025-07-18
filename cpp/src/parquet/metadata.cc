@@ -320,8 +320,10 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     DCHECK(writer_version_ != nullptr);
     // If the column statistics don't exist or column sort order is unknown
     // we cannot use the column stats
+    bool is_geometry =
+        descr_->logical_type() != nullptr && descr_->logical_type()->is_geometry();
     if (!column_metadata_->__isset.statistics ||
-        descr_->sort_order() == SortOrder::UNKNOWN) {
+        (descr_->sort_order() == SortOrder::UNKNOWN && !is_geometry)) {
       return false;
     }
     {
@@ -1579,8 +1581,8 @@ bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
     return true;
   }
 
-  // Unknown sort order has incorrect stats
-  if (SortOrder::UNKNOWN == sort_order) {
+  // Unknown sort order has incorrect stats if the min or the max are specified
+  if (SortOrder::UNKNOWN == sort_order && (statistics.has_min || statistics.has_max)) {
     return false;
   }
 
