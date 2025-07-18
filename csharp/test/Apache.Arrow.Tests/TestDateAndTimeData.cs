@@ -36,7 +36,7 @@ namespace Apache.Arrow.Tests
 
         private static readonly TimeSpan[] _exampleTimes =
         {
-            new TimeSpan(0, 0, 1), new TimeSpan(12, 0, 0), new TimeSpan(23, 59, 59),
+            new TimeSpan(0, 0, 0), new TimeSpan(0, 0, 1), new TimeSpan(12, 0, 0), new TimeSpan(23, 59, 59),
         };
 
         private static readonly DateTimeKind[] _exampleKinds =

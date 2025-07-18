@@ -65,12 +65,7 @@ namespace Apache.Arrow
 
             protected override long Convert(DateTimeOffset dateTimeOffset)
             {
-                // The internal value stored for a DateTimeOffset can be thought of as the number of milliseconds,
-                // in multiples of 86400000, that have passed since the UNIX epoch.  It is not the same as what would
-                // result from encoding the date from the DateTimeOffset.Date property.
-                long millis = dateTimeOffset.ToUnixTimeMilliseconds();
-                long days = millis / MillisecondsPerDay;
-                return (millis < 0 ? days - 1 : days) * MillisecondsPerDay;
+                return new DateTimeOffset(dateTimeOffset.UtcDateTime.Date, TimeSpan.Zero).ToUnixTimeMilliseconds();
             }
 
 #if NET6_0_OR_GREATER
