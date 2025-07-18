@@ -152,6 +152,13 @@ struct GetViewType<Type, enable_if_t<is_base_binary_type<Type>::value ||
   static T LogicalValue(PhysicalType value) { return value; }
 };
 
+template <typename Type>
+struct GetViewType<Type, enable_if_list_type<Type>> {
+  using T = const ArraySpan;
+
+  static T LogicalValue(T value) { return value; }
+};
+
 template <>
 struct GetViewType<Decimal32Type> {
   using T = Decimal32;
@@ -350,6 +357,31 @@ struct ArrayIterator<Type, enable_if_base_binary<Type>> {
   }
 };
 
+template <typename Type>
+struct ArrayIterator<Type, enable_if_list_type<Type>> {
+  using offset_type = typename Type::offset_type;
+
+  const ArraySpan& arr;
+  const offset_type* offsets;
+  offset_type cur_offset;
+  int64_t position;
+
+  explicit ArrayIterator(const ArraySpan& arr)
+      : arr(arr),
+        offsets(reinterpret_cast<const offset_type*>(arr.buffers[1].data) + arr.offset),
+        cur_offset(offsets[0]),
+        position(0) {}
+
+  ArraySpan operator()() {
+    offset_type next_offset = offsets[++position];
+    const offset_type length = next_offset - cur_offset;
+    ArraySpan child_span{arr.child_data[0]};
+    child_span.SetSlice(child_span.offset + cur_offset, length);
+    cur_offset = next_offset;
+    return child_span;
+  }
+};
+
 template <>
 struct ArrayIterator<FixedSizeBinaryType> {
   const ArraySpan& arr;
@@ -423,6 +455,16 @@ struct UnboxScalar<Type, enable_if_has_string_view<Type>> {
   static T Unbox(const Scalar& val) {
     if (!val.is_valid) return std::string_view();
     return checked_cast<const ::arrow::internal::PrimitiveScalarBase&>(val).view();
+  }
+};
+
+template <typename Type>
+struct UnboxScalar<Type, enable_if_list_type<Type>> {
+  using T = ArraySpan;
+  using ScalarT = typename TypeTraits<Type>::ScalarType;
+
+  static T Unbox(const Scalar& val) {
+    return T{*checked_cast<const ScalarT&>(val).value->data()};
   }
 };
 
@@ -1423,6 +1465,22 @@ auto GenerateDecimal(detail::GetTypeId get_id) {
     default:
       ARROW_DCHECK(false);
       return KernelType(nullptr);
+  }
+}
+
+// Generate a kernel given a templated functor for list types
+//
+// See "Numeric" above for description of the generator functor
+template <template <typename...> class Generator, typename Type0, typename... Args>
+ArrayKernelExec GenerateList(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::LIST:
+      return Generator<Type0, ListType, Args...>::Exec;
+    case Type::LARGE_LIST:
+      return Generator<Type0, LargeListType, Args...>::Exec;
+    default:
+      ARROW_DCHECK(false);
+      return nullptr;
   }
 }
 
