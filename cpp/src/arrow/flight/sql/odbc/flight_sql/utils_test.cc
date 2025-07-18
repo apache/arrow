@@ -19,6 +19,7 @@
 
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/calendar_utils.h"
 
+#include "arrow/compute/initialize.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
@@ -26,6 +27,13 @@
 
 namespace driver {
 namespace flight_sql {
+
+class UtilTestsWithCompute : public ::testing::Test {
+ public:
+  // This must be done before using the compute kernels in order to
+  // register them to the FunctionRegistry.
+  void SetUp() override { ASSERT_OK(arrow::compute::Initialize()); }
+};
 
 void AssertConvertedArray(const std::shared_ptr<arrow::Array>& expected_array,
                           const std::shared_ptr<arrow::Array>& converted_array,
@@ -80,7 +88,7 @@ void TestTime64ArrayConversion(const std::vector<int64_t>& input,
   AssertConvertedArray(expected_array, converted_array, input.size(), arrow_type);
 }
 
-TEST(Utils, Time32ToTimeStampArray) {
+TEST_F(UtilTestsWithCompute, Time32ToTimeStampArray) {
   std::vector<int32_t> input_data = {14896, 17820};
 
   const auto seconds_from_epoch = odbcabstraction::GetTodayTimeFromEpoch();
@@ -100,7 +108,7 @@ TEST(Utils, Time32ToTimeStampArray) {
                             arrow::Type::TIMESTAMP);
 }
 
-TEST(Utils, Time64ToTimeStampArray) {
+TEST_F(UtilTestsWithCompute, Time64ToTimeStampArray) {
   std::vector<int64_t> input_data = {1579489200000, 1646881200000};
 
   const auto seconds_from_epoch = odbcabstraction::GetTodayTimeFromEpoch();
@@ -120,7 +128,7 @@ TEST(Utils, Time64ToTimeStampArray) {
                             arrow::Type::TIMESTAMP);
 }
 
-TEST(Utils, StringToDateArray) {
+TEST_F(UtilTestsWithCompute, StringToDateArray) {
   std::shared_ptr<arrow::Array> expected;
   arrow::ArrayFromVector<arrow::Date64Type, int64_t>({1579489200000, 1646881200000},
                                                      &expected);
@@ -129,7 +137,7 @@ TEST(Utils, StringToDateArray) {
                       odbcabstraction::CDataType_DATE, arrow::Type::DATE64);
 }
 
-TEST(Utils, StringToTimeArray) {
+TEST_F(UtilTestsWithCompute, StringToTimeArray) {
   std::shared_ptr<arrow::Array> expected;
   arrow::ArrayFromVector<arrow::Time64Type, int64_t>(
       time64(arrow::TimeUnit::MICRO), {36000000000, 43200000000}, &expected);
