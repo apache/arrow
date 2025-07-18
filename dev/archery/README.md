@@ -49,3 +49,89 @@ Additionally, if you would prefer to install everything at once,
 the above subpackages.
 
 For some prior art on benchmarking in Arrow, see [this prototype](https://github.com/apache/arrow/tree/0409498819332fc479f8df38babe3426d707fb9e/dev/benchmarking).
+
+# Usage
+## Integration tests
+
+Archery provides comprehensive integration testing capabilities for Apache Arrow implementations across different languages and formats. The integration tests verify compatibility between Arrow implementations by testing IPC (Inter-Process Communication), Flight, and C Data Interface protocols.
+
+### Basic Usage
+
+Run all integration tests with default settings:
+```bash
+archery integration
+```
+
+Run only specific test types:
+```bash
+# Run only IPC tests
+archery integration --run-ipc
+
+# Run only Flight tests  
+archery integration --run-flight
+
+# Run only C Data Interface tests
+archery integration --run-c-data
+
+# Run multiple test types
+archery integration --run-ipc --run-flight
+```
+
+### Language Implementation Selection
+
+Control which Arrow implementations are tested:
+
+```bash
+# Test only C++ and Java implementations
+archery integration --with-cpp --with-java
+```
+
+### Test Filtering and Control
+
+Filter tests by name pattern:
+```bash
+# Only run tests containing "primitive" in their name
+archery integration --match primitive
+
+# Run tests serially instead of in parallel
+archery integration --serial
+
+# Stop on first error
+archery integration --stop-on-error
+```
+
+### Test Data and Scenarios
+
+The integration tests use various data scenarios:
+
+#### Generated Test Cases
+- **Primitive types**: Basic Arrow types (int8, int32, float64, bool, etc.)
+- **Nested types**: Lists, structs, maps, unions
+- **Dictionary encoding**: Dictionary-encoded arrays
+- **Decimal types**: High-precision decimal values (128-bit, 256-bit)
+- **Date/Time types**: Timestamps, dates, times, intervals
+- **Binary data**: Fixed-size binary, variable binary, string views
+- **Extension types**: Custom extension type implementations
+
+### Common Test Scenarios
+
+#### Testing External Implementation
+```bash
+# Test new implementation against established ones
+archery integration \
+    --with-external-library /path/to/external/impl/ \
+    --external-library-ipc-consumer \
+    --external-library-c-data-schema-importer \
+    --external-library-c-data-array-importer \
+    --external-library-c-data-array-exporter \
+    --external-library-c-data-schema-exporter \
+    --external-library-supports-releasing-memory \
+    --run-c-data \
+    --run-ipc \
+    --run-cpp
+```
+In this case, the external library path must contain the necessary shared libraries (e.g., `.so` or `.dll` files) for the C Data Interface tests. The name of the shared library should match the expected naming conventions for the Arrow C Data Interface: 'c_data_integration.[dll/so]'
+And for executables:
+- 'arrow-json-integration-test'
+- 'arrow-stream-to-file'
+- 'arrow-file-to-stream'
