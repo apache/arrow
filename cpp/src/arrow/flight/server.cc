@@ -27,6 +27,7 @@
 #include <cerrno>
 #include <chrono>
 #include <cstdint>
+#include <list>
 #include <memory>
 #include <string_view>
 #include <thread>
@@ -38,6 +39,7 @@
 #include "arrow/flight/transport_server.h"
 #include "arrow/flight/types.h"
 #include "arrow/status.h"
+#include "arrow/type.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/uri.h"
@@ -275,78 +277,137 @@ Status FlightServerBase::GetSchema(const ServerCallContext& context,
 
 class RecordBatchStream::RecordBatchStreamImpl {
  public:
-  // Stages of the stream when producing payloads
-  enum class Stage {
-    NEW,          // The stream has been created, but Next has not been called yet
-    DICTIONARY,   // Dictionaries have been collected, and are being sent
-    RECORD_BATCH  // Initial have been sent
-  };
-
   RecordBatchStreamImpl(const std::shared_ptr<RecordBatchReader>& reader,
                         const ipc::IpcWriteOptions& options)
-      : reader_(reader), mapper_(*reader_->schema()), ipc_options_(options) {}
+      : reader_(reader), options_(options) {}
 
   std::shared_ptr<Schema> schema() { return reader_->schema(); }
 
   Status GetSchemaPayload(FlightPayload* payload) {
-    return ipc::GetSchemaPayload(*reader_->schema(), ipc_options_, mapper_,
-                                 &payload->ipc_message);
+    if (!writer_) {
+      // Create the IPC writer on first call
+      auto payload_writer =
+          std::make_unique<ServerRecordBatchPayloadWriter>(&payload_list_);
+      auto writer_result = ipc::internal::OpenRecordBatchWriter(
+          std::move(payload_writer), reader_->schema(), options_);
+
+      if (!writer_result.ok()) {
+        return writer_result.status();
+      }
+      writer_ = std::move(writer_result).ValueOrDie();
+    }
+
+    // Return the current payload (schema)
+    if (!payload_list_.empty()) {
+      *payload = std::move(payload_list_.front());
+      payload_list_.pop_front();
+      return Status::OK();
+    }
+    return Status::UnknownError("No schema payload generated");
   }
 
   Status Next(FlightPayload* payload) {
-    if (stage_ == Stage::NEW) {
-      RETURN_NOT_OK(reader_->ReadNext(&current_batch_));
-      if (!current_batch_) {
-        // Signal that iteration is over
-        payload->ipc_message.metadata = nullptr;
-        return Status::OK();
-      }
-      ARROW_ASSIGN_OR_RAISE(dictionaries_,
-                            ipc::CollectDictionaries(*current_batch_, mapper_));
-      stage_ = Stage::DICTIONARY;
+    if (!writer_) {
+      return Status::Invalid("Writer not initialized");
     }
 
-    if (stage_ == Stage::DICTIONARY) {
-      if (dictionary_index_ == static_cast<int>(dictionaries_.size())) {
-        stage_ = Stage::RECORD_BATCH;
-        return ipc::GetRecordBatchPayload(*current_batch_, ipc_options_,
-                                          &payload->ipc_message);
-      } else {
-        return GetNextDictionary(payload);
-      }
+    // If we have previous payloads (dictionary messages or previous record batches)
+    // return them first before reading next record batch.
+    if (!payload_list_.empty()) {
+      *payload = std::move(payload_list_.front());
+      payload_list_.pop_front();
+      return Status::OK();
     }
 
-    RETURN_NOT_OK(reader_->ReadNext(&current_batch_));
+    std::shared_ptr<RecordBatch> batch;
+    RETURN_NOT_OK(reader_->ReadNext(&batch));
 
-    // TODO(ARROW-10787): Delta dictionaries
-    if (!current_batch_) {
-      // Signal that iteration is over
+    if (!batch) {
+      // End of stream
+      RETURN_NOT_OK(writer_->Close());
       payload->ipc_message.metadata = nullptr;
       return Status::OK();
-    } else {
-      return ipc::GetRecordBatchPayload(*current_batch_, ipc_options_,
-                                        &payload->ipc_message);
     }
+
+    // Check if schema has changed and recreate writer if needed
+    // TODO: Investigate why this is needed for a flight-sql specific test.
+    if (!batch->schema()->Equals(*reader_->schema())) {
+      // Close current writer
+      RETURN_NOT_OK(writer_->Close());
+
+      // Create new writer with the batch's schema
+      auto payload_writer =
+          std::make_unique<ServerRecordBatchPayloadWriter>(&payload_list_);
+      auto writer_result = ipc::internal::OpenRecordBatchWriter(
+          std::move(payload_writer), batch->schema(), options_);
+
+      if (!writer_result.ok()) {
+        return writer_result.status();
+      }
+      writer_ = std::move(writer_result).ValueOrDie();
+      if (!payload_list_.empty()) {
+        // Drop new ipc schema message change if it was generated.
+        payload_list_.pop_front();
+      }
+    }
+
+    // One WriteRecordBatch call might generate multiple payloads, so we
+    // need to collect them in a list.
+    RETURN_NOT_OK(writer_->WriteRecordBatch(*batch));
+
+    // Return the first generated payload after WriteRecordBatch. There must be
+    // at least one payload generated.
+    if (!payload_list_.empty()) {
+      *payload = std::move(payload_list_.front());
+      payload_list_.pop_front();
+      return Status::OK();
+    }
+
+    return Status::UnknownError("IPC writer didn't produce any payloads");
   }
 
-  Status Close() { return reader_->Close(); }
+  Status Close() {
+    if (writer_) {
+      RETURN_NOT_OK(writer_->Close());
+    }
+    return reader_->Close();
+  }
 
  private:
-  Status GetNextDictionary(FlightPayload* payload) {
-    const auto& it = dictionaries_[dictionary_index_++];
-    return ipc::GetDictionaryPayload(it.first, it.second, ipc_options_,
-                                     &payload->ipc_message);
-  }
+  // Simple payload writer that uses two pointers
+  class ServerRecordBatchPayloadWriter : public ipc::internal::IpcPayloadWriter {
+   public:
+    explicit ServerRecordBatchPayloadWriter(std::list<FlightPayload>* payload_list)
+        : payload_list_(payload_list), first_payload_(true) {}
 
-  Stage stage_ = Stage::NEW;
+    Status Start() override { return Status::OK(); }
+
+    Status WritePayload(const ipc::IpcPayload& ipc_payload) override {
+      FlightPayload payload;
+      payload.ipc_message = ipc_payload;
+
+      if (first_payload_) {
+        if (ipc_payload.type != ipc::MessageType::SCHEMA) {
+          return Status::Invalid("First IPC message should be schema");
+        }
+        first_payload_ = false;
+      }
+
+      payload_list_->push_back(std::move(payload));
+      return Status::OK();
+    }
+
+    Status Close() override { return Status::OK(); }
+
+   private:
+    std::list<FlightPayload>* payload_list_;
+    bool first_payload_;
+  };
+
   std::shared_ptr<RecordBatchReader> reader_;
-  ipc::DictionaryFieldMapper mapper_;
-  ipc::IpcWriteOptions ipc_options_;
-  std::shared_ptr<RecordBatch> current_batch_;
-  std::vector<std::pair<int64_t, std::shared_ptr<Array>>> dictionaries_;
-
-  // Index of next dictionary to send
-  int dictionary_index_ = 0;
+  ipc::IpcWriteOptions options_;
+  std::unique_ptr<ipc::RecordBatchWriter> writer_;
+  std::list<FlightPayload> payload_list_;
 };
 
 FlightMetadataWriter::~FlightMetadataWriter() = default;
