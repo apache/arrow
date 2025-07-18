@@ -19,10 +19,12 @@
 
 set -e
 
+# shellcheck disable=SC2034
 source_dir=${1}/cpp
 build_dir=${2}/cpp
 
-export CLASSPATH=$($HADOOP_HOME/bin/hadoop classpath --glob)
+HADOOP_CLASSPATH=$("$HADOOP_HOME/bin/hadoop" classpath --glob)
+export CLASSPATH="${HADOOP_CLASSPATH}"
 export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
 export LIBHDFS3_CONF=$HADOOP_CONF_DIR/hdfs-site.xml
 export ARROW_LIBHDFS3_DIR=$CONDA_PREFIX/lib
@@ -42,7 +44,7 @@ function use_libhdfs_dir() {
 
 # execute cpp tests
 export ARROW_HDFS_TEST_LIBHDFS_REQUIRE=ON
-pushd ${build_dir}
+pushd "${build_dir}"
 
 debug/arrow-io-hdfs-test
 debug/arrow-hdfs-test
