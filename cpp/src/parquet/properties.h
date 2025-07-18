@@ -155,8 +155,7 @@ class PARQUET_EXPORT ReaderProperties {
 ReaderProperties PARQUET_EXPORT default_reader_properties();
 
 static constexpr int64_t kDefaultDataPageSize = 1024 * 1024;
-/// FIXME: Switch the default value to 20000 will break UTs.
-static constexpr int64_t kDefaultMaxRowsPerPage = 1000000;
+static constexpr int64_t kDefaultMaxRowsPerPage = 20'000;
 static constexpr bool DEFAULT_IS_DICTIONARY_ENABLED = true;
 static constexpr int64_t DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT = kDefaultDataPageSize;
 static constexpr int64_t DEFAULT_WRITE_BATCH_SIZE = 1024;
@@ -427,7 +426,7 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     /// Specify the maximum number of rows per data page.
-    /// Default 1M rows.
+    /// Default 20K rows.
     Builder* max_rows_per_page(int64_t max_rows) {
       max_rows_per_page_ = max_rows;
       return this;

@@ -1150,11 +1150,11 @@ void ColumnWriterImpl::FlushBufferedDataPages() {
 // ----------------------------------------------------------------------
 // TypedColumnWriter
 
-template <typename Action>
+template <typename Action, typename GetBufferedRows>
 inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
                         int64_t num_levels, int64_t batch_size, Action&& action,
                         bool pages_change_on_record_boundaries, int64_t max_rows_per_page,
-                        const std::function<int64_t()>& curr_page_buffered_rows) {
+                        GetBufferedRows&& curr_page_buffered_rows) {
   int64_t offset = 0;
   while (offset < num_levels) {
     int64_t min_batch_size = std::min(batch_size, num_levels - offset);
@@ -1186,7 +1186,7 @@ inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
       check_page_limit_end_offset = last_record_begin_offset;
     }
 
-    ARROW_DCHECK_LT(offset, end_offset);
+    ARROW_DCHECK_LE(offset, end_offset);
     ARROW_DCHECK_LE(check_page_limit_end_offset, end_offset);
 
     if (end_offset < num_levels) {
