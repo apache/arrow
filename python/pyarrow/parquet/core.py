@@ -1190,6 +1190,20 @@ Examples
         assert self.is_open
         self.writer.add_key_value_metadata(key_value_metadata)
 
+    @property
+    def properties(self):
+        """
+        Return the WriterProperties used to create this writer.
+        """
+        return self.writer.properties
+
+    @property
+    def arrow_properties(self):
+        """
+        Return the ArrowWriterProperties used to create this writer.
+        """
+        return self.writer.arrow_properties
+
 
 def _get_pandas_index_columns(keyvalues):
     return (json.loads(keyvalues[b'pandas'].decode('utf8'))
