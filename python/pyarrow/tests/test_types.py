@@ -1463,4 +1463,3 @@ def test__combine_enums():
     for i in range(4):
         assert i in [val.value for val in Enum3.__members__.values()]
         assert Enum3(i).name == f"VAL{i}"
-
