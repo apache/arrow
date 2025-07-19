@@ -52,6 +52,9 @@ jobs:
             {% endif %}
             -e VERIFY_RC="{{ rc|default("") }}" \
             -e TEST_DEFAULT=0 \
+            {% if target == "cpp" %}
+            -e TEST_SOURCE_REPRODUCIBLE=1 \
+            {% endif %}
             -e TEST_{{ target|upper }}=1 \
             {{ distro }}-verify-rc
 
