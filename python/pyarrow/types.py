@@ -65,7 +65,7 @@ def _combine_enums(name: str, *enums: Enum) -> Enum:
         A combined enum of all enums passed as arguments.
     """
     if not all(issubclass(item, Enum) for item in enums):
-        raise ValueError("All packed values passed to this function should be Enums")
+        raise ValueError("All values passed to this function should be Enums")
     return Enum(name, {item.name: item.value for enum in enums for item in enum})
 
 
@@ -83,7 +83,8 @@ class UnsignedIntegerTypesEnum(Enum):
     UINT64 = lib.Type_UINT64
 
 
-IntegerTypesEnum = _combine_enums("IntegerTypesEnum", SignedIntegerTypesEnum, UnsignedIntegerTypesEnum)
+IntegerTypesEnum = _combine_enums(
+    "IntegerTypesEnum", SignedIntegerTypesEnum, UnsignedIntegerTypesEnum)
 
 
 class FloatingTypesEnum(Enum):
@@ -141,7 +142,8 @@ class UtilNestedTypesEnum(Enum):
     MAP = lib.Type_MAP
 
 
-NestedTypesEnum = _combine_enums("NestedTypesEnum", UtilNestedTypesEnum, UnionTypesEnum)
+NestedTypesEnum = _combine_enums(
+    "NestedTypesEnum", UtilNestedTypesEnum, UnionTypesEnum)
 
 
 @doc(datatype="null")
