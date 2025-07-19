@@ -18,7 +18,7 @@
 # Tools for dealing with Arrow type metadata in Python
 
 
-from enum import Enum, EnumType
+from enum import Enum
 
 from pyarrow.lib import (is_boolean_value,  # noqa
                          is_integer_value,
@@ -64,8 +64,8 @@ def _combine_enums(name: str, *enums: Enum) -> Enum:
     Enum
         A combined enum of all enums passed as arguments.
     """
-    if not all(isinstance(item, EnumType) for item in enums):
-        raise ValueError("All values passed to this function should be Enums")
+    if not all(issubclass(item, Enum) for item in enums):
+        raise ValueError("All packed values passed to this function should be Enums")
     return Enum(name, {item.name: item.value for enum in enums for item in enum})
 
 
