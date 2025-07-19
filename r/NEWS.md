@@ -19,13 +19,23 @@
 
 # arrow 20.0.0.9000
 
+## New features
+
+- Support for Arrow's 32 and 64 bit Decimal types (#46720).
+- `hms::hms()` and `hms::as_hms()` bindings implemented to create and manipulate time of day variables (#46206).
+- `atan()`, `sinh()`, `cosh()`, `tanh()`, `asinh()`, `acosh()`, and `tanh()`, and `expm1()` bindings added (#44953).
+
 ## Minor improvements and fixes
 
-- Added bindings for atan, sinh, cosh, tanh, asinh, acosh, and tanh, and expm1 (#44953)
 - Expose an option `check_directory_existence_before_creation` in `S3FileSystem`
-  to reduce I/O calls on cloud storage (@HaochengLIU, #41998)
+  to reduce I/O calls on cloud storage (@HaochengLIU, #41998).
 - `case_when()` now correctly detects objects that are not in the global 
   environment (@etiennebacher, #46667).
+- Negative fractional dates now correctly converted to integers by flooring values (#46873).
+- Backwards compatibility checks for legacy Arrow C++ versions have been removed 
+  from the R package (#46491). This shouldn't affect most users this package and would only impact you
+  if you were building the R package from source with different R package and Arrow C++ versions.
+- Require CMake 3.25 or greater in bundled build script for full-source builds (#46834). This shouldn't affect most users.
 
 # arrow 20.0.0.1
 
