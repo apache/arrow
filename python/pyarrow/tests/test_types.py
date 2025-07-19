@@ -1445,3 +1445,22 @@ def test_field_import_c_schema_interface():
     assert pa.field(wrapped_field, nullable=False).nullable is False
     result = pa.field(wrapped_field, metadata={"other": "meta"})
     assert result.metadata == {b"other": b"meta"}
+
+
+def test__combine_enums():
+    from enum import Enum
+
+    class Enum1(Enum):
+        VAL0 = 0
+        VAL1 = 1
+
+    class Enum2(Enum):
+        VAL2 = 2
+        VAL3 = 3
+
+    Enum3 = types._combine_enums("Enum3", Enum1, Enum2)
+
+    for i in range(4):
+        assert i in [val.value for val in Enum3.__members__.values()]
+        assert Enum3(i).name == f"VAL{i}"
+
