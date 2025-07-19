@@ -21,8 +21,8 @@
 
 ## Breaking changes
 
-- Backwards compatibility checks for legacy libarrow versions have been removed 
-  from the R package (#46491).
+- Backwards compatibility checks for legacy Arrow C++ versions have been removed 
+  from the R package (#46491). This shouldn't affect most users this package and would only impact you if you were building the R package from source with different R package and Arrow C++ versions.
 - Require cmake 3.25 in bundled build script for full-source builds (#46834).
 
 ## New features
