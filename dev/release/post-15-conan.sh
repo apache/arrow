@@ -62,13 +62,21 @@ sha256sum=$(curl \
               --location \
               "https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha256" | \
               cut -d' ' -f1)
-sed \
+
+# Use gsed on macOS and sed otherwise
+if [ "$(uname)" == "Darwin" ]; then
+  SED_BIN_NAME <- "gsed"
+else
+  SED_BIN_NAME <- "sed"
+fi
+
+SED_BIN_NAME \
   -i.bak \
   -e "1a\ \ \"${version}\":" \
   -e "1a\ \ \ \ folder:\ all" \
   ${recipes_arrow}/config.yml
 rm ${recipes_arrow}/config.yml.bak
-sed \
+SED_BIN_NAME \
   -i.bak \
   -e "1a\ \ \"${version}\":" \
   -e "1a\ \ \ \ url: \"${tar_gz_url}\"" \
