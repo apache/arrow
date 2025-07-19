@@ -23,7 +23,7 @@
 
 - Backwards compatibility checks for legacy Arrow C++ versions have been removed 
   from the R package (#46491). This shouldn't affect most users this package and would only impact you if you were building the R package from source with different R package and Arrow C++ versions.
-- Require cmake 3.25 in bundled build script for full-source builds (#46834).
+- Require CMake 3.25 or greater in bundled build script for full-source builds (#46834). This shouldn't affect most users.
 
 ## New features
 
