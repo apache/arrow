@@ -27,7 +27,7 @@ requires = [
     # configuring setuptools_scm in pyproject.toml requires
     # versions released after 2022
     "setuptools_scm[toml]>=8",
-    "setuptools>=64",
+    "setuptools>=77",
 ]
 build-backend = "setuptools.build_meta"
 
