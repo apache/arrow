@@ -27,11 +27,29 @@ namespace arrow {
 
 class Buffer;
 class MemoryPool;
+struct ArrayData;
 
 namespace internal {
 
 // ----------------------------------------------------------------------
 // Bitmap utilities
+
+/// \brief Return a bitmap buffer representing a bit range from an existing bitmap.
+///
+/// If possible, avoids copying by slicing or reusing the input buffer.
+/// Falls back to copying bits if the offset is not divisible by 8.
+///
+/// \param[in] pool Memory pool to allocate memory from.
+/// \param[in] null_buffer Source bitmap buffer.
+/// \param[in] offset Bit offset into the source data.
+///
+/// \return A sliced or copied bitmap buffer, depending on the alignment of the offset.
+ARROW_EXPORT Result<std::shared_ptr<Buffer>> GetOrCopyNullBitmapBuffer(
+    MemoryPool* pool, const std::shared_ptr<Buffer>& null_buffer, int64_t offset,
+    int64_t length);
+
+ARROW_EXPORT Result<std::shared_ptr<Buffer>> GetOrCopyNullBitmapBuffer(
+    MemoryPool* pool, const ArrayData& array_data);
 
 /// Copy a bit range of an existing bitmap
 ///

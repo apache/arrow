@@ -20,7 +20,6 @@
 #include <cmath>
 #include <cstdint>
 #include <memory>
-#include <set>
 #include <vector>
 
 #include "arrow/array/array_base.h"
@@ -30,8 +29,9 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/binary_view_util.h"
 #include "arrow/util/bit_run_reader.h"
-#include "arrow/util/bitmap.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/interval.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -113,125 +113,6 @@ BinaryViewArray::BinaryViewArray(std::shared_ptr<DataType> type, int64_t length,
 
 namespace {
 
-// TODO Should We move this to bitmap_ops.h and Remove from compute/kernels/util.s
-Result<std::shared_ptr<Buffer>> GetOrCopyNullBitmapBuffer(const ArrayData& in_array,
-                                                          MemoryPool* pool) {
-  if (in_array.buffers[0]->data() == nullptr) {
-    return nullptr;
-  } else if (in_array.offset == 0) {
-    return in_array.buffers[0];
-  } else if (in_array.offset % 8 == 0) {
-    return SliceBuffer(in_array.buffers[0], /*offset=*/in_array.offset / 8);
-  } else {
-    // If a non-zero offset, we need to shift the bitmap
-    return internal::CopyBitmap(pool, in_array.buffers[0]->data(), in_array.offset,
-                                in_array.length);
-  }
-}
-
-struct Interval {
-  int64_t start;
-  int64_t end;
-  int32_t offset = -1;
-};
-
-struct IntervalComparator {
-  bool operator()(const Interval& left, const Interval& right) const {
-    return left.start < right.start;
-  }
-};
-
-// inspired from boost::icl::interval_set
-class IntervalMerger {
- public:
-  using IntervalSet = std::set<Interval, IntervalComparator>;
-  using Iterator = std::set<Interval, IntervalComparator>::iterator;
-
-  void AddInterval(const Interval& interval) {
-    auto [it, is_inserted] = interval_set.insert(interval);
-    if (is_inserted) {
-      JointLeft(it);
-      JoinRight(it);
-    } else {
-      if (it->end < interval.end) {
-        const_cast<int64_t&>(it->end) = interval.end;
-        JoinRight(it);
-      }
-    }
-  }
-
-  int64_t CalculateOffsetAndTotalSize() {
-    int64_t total_size = 0;
-    for (auto& it : interval_set) {
-      const_cast<int32_t&>(it.offset) = static_cast<int32_t>(total_size);
-      total_size += it.end - it.start;
-    }
-    return total_size;
-  }
-
-  // This method should be called After CalculateOffsetAndTotalSize
-  int32_t GetRelativeOffset(int32_t view_offset) const {
-    // end and offset is included in comparison
-    auto it = interval_set.lower_bound({view_offset, -1, -1});
-    if (it == interval_set.end()) {
-      --it;
-      // offset from the start of interval
-      auto offset_from_span = view_offset - it->start;
-      return static_cast<int32_t>(offset_from_span) + it->offset;
-    } else if (it->start == view_offset) {
-      // this is the case where view_offset refers to the beginning of interval
-      return it->offset;
-    } else {
-      --it;
-      // offset from the start of interval
-      auto offset_from_span = view_offset - it->start;
-      return static_cast<int32_t>(offset_from_span) + it->offset;
-    }
-  }
-
-  IntervalSet::const_iterator begin() const { return interval_set.cbegin(); }
-
-  IntervalSet::const_iterator end() const { return interval_set.cend(); }
-
- private:
-  void JointLeft(Iterator& it) {
-    if (it == interval_set.begin()) {
-      return;
-    } else {
-      auto prev_it = std::prev(it);
-      if (Joinable(prev_it, it)) {
-        MergeIntoLeftAndAdvanceRight(prev_it, it);
-        it = prev_it;
-        return;
-      }
-    }
-  }
-
-  void JoinRight(Iterator& it) {
-    auto begin_iterator = std::next(it);
-    auto end_iterator = begin_iterator;
-    while (end_iterator != interval_set.end() && Joinable(it, end_iterator)) {
-      const_cast<int64_t&>(it->end) = std::max(it->end, end_iterator->end);
-      ++end_iterator;
-    }
-    interval_set.erase(begin_iterator, end_iterator);
-  }
-
-  // Update left with a new end value
-  // Advance right to the next iterator
-  void MergeIntoLeftAndAdvanceRight(Iterator& left, Iterator& right) {
-    Interval interval{right->start, right->end};
-    right = interval_set.erase(right);
-    const_cast<int64_t&>(left->end) = std::max(left->end, interval.end);
-  }
-
-  bool Joinable(Iterator left, Iterator right) {
-    return std::max(left->start, right->start) <= std::min(left->end, right->end);
-  }
-
-  IntervalSet interval_set;
-};
-
 class CompactArrayImpl {
  public:
   CompactArrayImpl(const std::shared_ptr<ArrayData>& src_array_data,
@@ -243,7 +124,7 @@ class CompactArrayImpl {
 
   Result<std::shared_ptr<Array>> Compact() {
     // Check occupancy_threshold Parameter Validity
-    if (ARROW_PREDICT_FALSE(ValidateOccupancyThreshold(occupancy_threshold_))) {
+    if (ARROW_PREDICT_FALSE(IsOccupancyThresholdInvalid(occupancy_threshold_))) {
       return Status::Invalid(
           "occupancy_threshold must be between 0 and 1. Current value:",
           occupancy_threshold_);
@@ -287,7 +168,7 @@ class CompactArrayImpl {
     // offset in new buffer
     // it is used when buffer is compacted
     int32_t base_new_offset = -1;
-    IntervalMerger interval_merger;
+    util::IntervalMerger interval_merger;
     // True if occupancy is non-zero and
     // less than or equal to the threshold.
     bool should_be_relocated = false;
@@ -333,7 +214,8 @@ class CompactArrayImpl {
     int32_t current_index = -1;
   };
 
-  bool ValidateOccupancyThreshold(double occupancy_threshold) {
+  // Return true if occupancy_threshold is NaN, negative, or greater than 1.
+  bool IsOccupancyThresholdInvalid(double occupancy_threshold) {
     return std::signbit(occupancy_threshold) || std::isnan(occupancy_threshold) ||
            occupancy_threshold > 1;
   }
@@ -343,8 +225,8 @@ class CompactArrayImpl {
       dst_buffers_.emplace_back(nullptr);
     } else {
       // Handle Bitmap Buffer
-      ARROW_ASSIGN_OR_RAISE(auto bitmap_buffer,
-                            GetOrCopyNullBitmapBuffer(*src_array_data_, memory_pool_));
+      ARROW_ASSIGN_OR_RAISE(auto bitmap_buffer, internal::GetOrCopyNullBitmapBuffer(
+                                                    memory_pool_, *src_array_data_));
       dst_buffers_.push_back(bitmap_buffer);
     }
     return Status::OK();
@@ -423,7 +305,7 @@ class CompactArrayImpl {
   }
 
   void CalculateOccupancyAndOffset(BufferInfo& info) {
-    info.total_size_occupied = info.interval_merger.CalculateOffsetAndTotalSize();
+    info.total_size_occupied = info.interval_merger.CompactIntervalAndGetTotalSize();
   }
 
   Status GenerateDataBufferForDestination(
@@ -452,7 +334,7 @@ class CompactArrayImpl {
         const auto& dst_data_buffer = dst_buffers_[buffer_info.new_index + 2];
         for (auto interval : buffer_info.interval_merger) {
           std::memcpy(dst_data_buffer->mutable_data() + buffer_info.base_new_offset +
-                          interval.offset,
+                          interval.start_offset_in_compacted,
                       src_data_buffers->data() + interval.start,
                       interval.end - interval.start);
         }
@@ -473,7 +355,7 @@ class CompactArrayImpl {
 
           // Buffer is less than threshold and relocated
           if (info.should_be_relocated) {
-            view.ref.offset = info.interval_merger.GetRelativeOffset(view.ref.offset) +
+            view.ref.offset = info.interval_merger.GetCompactedPosition(view.ref.offset) +
                               info.base_new_offset;
           }
         }

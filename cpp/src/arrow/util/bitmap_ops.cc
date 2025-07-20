@@ -22,6 +22,7 @@
 #include <functional>
 #include <memory>
 
+#include "arrow/array/data.h"
 #include "arrow/buffer.h"
 #include "arrow/result.h"
 #include "arrow/util/align_util.h"
@@ -243,6 +244,28 @@ void InvertBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* 
 void ReverseBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* dest,
                    int64_t dest_offset) {
   ReverseBlockOffsets(data, offset, length, dest_offset, dest);
+}
+
+Result<std::shared_ptr<Buffer>> GetOrCopyNullBitmapBuffer(
+    MemoryPool* pool, const std::shared_ptr<Buffer>& null_buffer, int64_t offset,
+    int64_t length) {
+  if (null_buffer->data() == nullptr) {
+    return nullptr;
+  } else if (offset == 0) {
+    return null_buffer;
+  } else if (offset % 8 == 0) {
+    return SliceBuffer(null_buffer, /*offset=*/offset / 8, length);
+  } else {
+    // If a non-zero offset, we need to copy the bitmap
+    return CopyBitmap(pool, null_buffer->data(), offset, length);
+  }
+}
+
+// TODO We should remove from compute/kernels/util.s
+Result<std::shared_ptr<Buffer>> GetOrCopyNullBitmapBuffer(MemoryPool* pool,
+                                                          const ArrayData& array_data) {
+  return GetOrCopyNullBitmapBuffer(pool, array_data.buffers[0], array_data.offset,
+                                   array_data.length);
 }
 
 Result<std::shared_ptr<Buffer>> CopyBitmap(MemoryPool* pool, const uint8_t* data,
