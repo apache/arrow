@@ -275,11 +275,14 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
     else:
         index_descriptors = index_column_metadata = column_indexes = []
 
+    attributes: dict = df.attrs if df.attrs else {}
+
     return {
         b'pandas': json.dumps({
             'index_columns': index_descriptors,
             'column_indexes': column_indexes,
             'columns': column_metadata + index_column_metadata,
+            'attributes': attributes,
             'creator': {
                 'library': 'pyarrow',
                 'version': pa.__version__
@@ -783,11 +786,13 @@ def table_to_dataframe(
     all_columns = []
     column_indexes = []
     pandas_metadata = table.schema.pandas_metadata
+    attributes = {}
 
     if not ignore_metadata and pandas_metadata is not None:
         all_columns = pandas_metadata['columns']
         column_indexes = pandas_metadata.get('column_indexes', [])
         index_descriptors = pandas_metadata['index_columns']
+        attributes = pandas_metadata['attributes']
         table = _add_any_metadata(table, pandas_metadata)
         table, index = _reconstruct_index(table, index_descriptors,
                                           all_columns, types_mapper)
@@ -814,6 +819,8 @@ def table_to_dataframe(
             for item in result
         ]
         df = create_dataframe_from_blocks(blocks, index=index, columns=columns)
+        df.attrs = attributes
+
         return df
     else:
         from pandas.core.internals import BlockManager
@@ -829,6 +836,9 @@ def table_to_dataframe(
             df = DataFrame._from_mgr(mgr, mgr.axes)
         else:
             df = DataFrame(mgr)
+
+        df.attrs = attributes
+
         return df
 
 
