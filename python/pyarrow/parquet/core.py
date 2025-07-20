@@ -1881,7 +1881,26 @@ def read_table(source, *, columns=None, use_threads=True,
         filesystem, path = _resolve_filesystem_and_path(source, filesystem)
         if filesystem is not None:
             source = filesystem.open_input_file(path)
-        # TODO test that source is not a directory or a list
+        if isinstance(source, list):
+            raise ValueError(
+                "Cannot read list of files with ParquetFile when pyarrow.dataset "
+                "module is not available. Install pyarrow with dataset support."
+            )
+
+        if isinstance(source, (str, os.PathLike)):
+            source_path = _stringify_path(source)
+            if filesystem is not None:
+                file_info = filesystem.get_file_info(source_path)
+                if file_info.type == FileType.Directory:
+                    raise ValueError(
+                        "Cannot read directory with ParquetFile when pyarrow.dataset "
+                        "module is not available. Install pyarrow with dataset support."
+                    )
+            elif os.path.isdir(source_path):
+                raise ValueError(
+                    "Cannot read directory with ParquetFile when pyarrow.dataset "
+                    "module is not available. Install pyarrow with dataset support."
+                )
         dataset = ParquetFile(
             source, read_dictionary=read_dictionary,
             binary_type=binary_type,
