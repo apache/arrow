@@ -40,7 +40,12 @@ try:
 except ImportError:
     np = None
 
-from pyarrow.pandas_compat import get_logical_type, _pandas_api
+from pyarrow.pandas_compat import (
+    get_logical_type,
+    _pandas_api,
+    construct_metadata,
+    _get_columns_to_convert,
+)
 from pyarrow.tests.util import invoke_script, random_ascii, rands
 import pyarrow.tests.strategies as past
 import pyarrow.tests.util as test_util
@@ -5267,6 +5272,21 @@ def test_is_data_frame_race_condition():
     test_util.invoke_script('arrow_39313.py')
 
 
+def _get_pandas_df_w_attrs():
+    df = pd.DataFrame({
+        'first_col': [1, 2, 3],
+        'second_col': [4, 5, 6],
+    })
+
+    df.attrs = {
+        'first_col': 'First Column',
+        'second_col': 'Second Column',
+        'desciption': 'Attributes Persistence Test DataFrame',
+    }
+
+    return df
+
+
 @pytest.mark.parquet
 @pytest.mark.pandas
 def test_attributes_metadata_persistence(tempdir):
@@ -5282,19 +5302,44 @@ def test_attributes_metadata_persistence(tempdir):
     # while reading/writing on pandas' side
 
     filename = tempdir / "metadata_persistence.parquet"
-
-    df = pd.DataFrame({
-        "first_col": [1, 2, 3],
-        "second_col": [4, 5, 6],
-    })
-
-    df.attrs = {
-        "first_col": "First Column",
-        "second_col": "Second Column"
-    }
-
+    df = _get_pandas_df_w_attrs()
     df.to_parquet(path=filename, engine="pyarrow")
 
     new_df = pd.read_parquet(path=filename, engine="pyarrow")
 
     assert df.attrs == new_df.attrs
+
+
+@pytest.mark.pandas
+def test_attributes_metadata_in_json():
+    # GH-45382: Add support for pandas DataFrame.attrs
+    # Test if the metadata created from the pandas.DataFrame
+    # has the correct attributes
+
+    df = _get_pandas_df_w_attrs()
+
+    (
+        _,
+        column_names,
+        column_field_names,
+        _,
+        index_descriptors,
+        index_levels,
+        columns_to_convert,
+        _,
+    ) = _get_columns_to_convert(df=df, schema=None, preserve_index=False, columns=None)
+
+    metadata_json = construct_metadata(
+        df=df,
+        column_names=column_names,
+        column_field_names=column_field_names,
+        index_descriptors=index_descriptors,
+        index_levels=index_levels,
+        columns_to_convert=columns_to_convert,
+        types=[],
+        preserve_index=False,
+    )
+    metadata = json.loads(metadata_json[b'pandas'])
+
+    assert 'attributes' in metadata
+    assert metadata['attributes'] == df.attrs
