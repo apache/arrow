@@ -261,7 +261,6 @@ Result<std::shared_ptr<Buffer>> GetOrCopyNullBitmapBuffer(
   }
 }
 
-// TODO We should remove from compute/kernels/util.s
 Result<std::shared_ptr<Buffer>> GetOrCopyNullBitmapBuffer(MemoryPool* pool,
                                                           const ArrayData& array_data) {
   return GetOrCopyNullBitmapBuffer(pool, array_data.buffers[0], array_data.offset,

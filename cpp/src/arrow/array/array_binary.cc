@@ -279,7 +279,7 @@ class CompactArrayImpl {
     BufferIndexAndOffsetMapper buffer_mapper;
 
     for (int32_t i = 0; i < num_src_data_buffers; ++i) {
-      CalculateOccupancyAndOffset(buffer_infos[i]);
+      buffer_infos[i].total_size_occupied = CompactBufferAndGetTotalSize(buffer_infos[i]);
       if (buffer_infos[i].total_size_occupied == 0) {
         // Ignore adding to new buffer
         buffer_infos[i].should_be_relocated = false;
@@ -304,8 +304,8 @@ class CompactArrayImpl {
     return Status::OK();
   }
 
-  void CalculateOccupancyAndOffset(BufferInfo& info) {
-    info.total_size_occupied = info.interval_merger.CompactIntervalAndGetTotalSize();
+  int64_t CompactBufferAndGetTotalSize(BufferInfo& info) {
+    return info.interval_merger.CompactIntervalAndGetTotalSize();
   }
 
   Status GenerateDataBufferForDestination(

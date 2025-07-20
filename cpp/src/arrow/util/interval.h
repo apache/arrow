@@ -82,16 +82,16 @@ class IntervalMerger {
     if (it == interval_set_.end()) {
       --it;
       // offset from the start of interval
-      auto offset_from_span = view_offset - it->start;
-      return static_cast<int32_t>(offset_from_span) + it->start_offset_in_compacted;
+      auto relative_offset = view_offset - it->start;
+      return static_cast<int32_t>(relative_offset) + it->start_offset_in_compacted;
     } else if (it->start == view_offset) {
       // this is the case where view_offset refers to the beginning of interval
       return it->start_offset_in_compacted;
     } else {
       --it;
       // offset from the start of interval
-      auto offset_from_span = view_offset - it->start;
-      return static_cast<int32_t>(offset_from_span) + it->start_offset_in_compacted;
+      auto relative_offset = view_offset - it->start;
+      return static_cast<int32_t>(relative_offset) + it->start_offset_in_compacted;
     }
   }
 
@@ -106,6 +106,7 @@ class IntervalMerger {
     }
     return sink.str();
   }
+
   int64_t size() const { return static_cast<int64_t>(interval_set_.size()); }
 
  private:

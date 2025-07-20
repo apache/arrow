@@ -48,6 +48,7 @@ ARROW_EXPORT Result<std::shared_ptr<Buffer>> GetOrCopyNullBitmapBuffer(
     MemoryPool* pool, const std::shared_ptr<Buffer>& null_buffer, int64_t offset,
     int64_t length);
 
+// TODO We should remove from compute/kernels/util_internal.h
 ARROW_EXPORT Result<std::shared_ptr<Buffer>> GetOrCopyNullBitmapBuffer(
     MemoryPool* pool, const ArrayData& array_data);
 
