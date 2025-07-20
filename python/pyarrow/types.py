@@ -48,102 +48,41 @@ _NESTED_TYPES = {lib.Type_LIST, lib.Type_FIXED_SIZE_LIST, lib.Type_LARGE_LIST,
                  lib.Type_STRUCT, lib.Type_MAP} | _UNION_TYPES
 
 
-def _combine_enums(name: str, *enums: Enum) -> Enum:
+class TypesEnum(Enum):
     """
-    Combine values of two Enums in a new one
-
-    Parameters
-    ----------
-    name : str
-        Name of the result enum
-    *enums : Enum
-        Enums that you want to combine
-
-    Returns
-    -------
-    Enum
-        A combined enum of all enums passed as arguments.
+    An Enum that maps the constant values
+    to underlying data types with the same name.
     """
-    if not all(issubclass(item, Enum) for item in enums):
-        raise ValueError("All values passed to this function should be Enums")
-    return Enum(name, {item.name: item.value for enum in enums for item in enum})
-
-
-class SignedIntegerTypesEnum(Enum):
     INT8 = lib.Type_INT8
     INT16 = lib.Type_INT16
     INT32 = lib.Type_INT32
     INT64 = lib.Type_INT64
-
-
-class UnsignedIntegerTypesEnum(Enum):
     UINT8 = lib.Type_UINT8
     UINT16 = lib.Type_UINT16
     UINT32 = lib.Type_UINT32
     UINT64 = lib.Type_UINT64
-
-
-IntegerTypesEnum = _combine_enums(
-    "IntegerTypesEnum", SignedIntegerTypesEnum, UnsignedIntegerTypesEnum)
-
-
-class FloatingTypesEnum(Enum):
     HALF_FLOAT = lib.Type_HALF_FLOAT
     FLOAT = lib.Type_FLOAT
     DOUBLE = lib.Type_DOUBLE
-
-
-class DecimalTypesEnum(Enum):
     DECIMAL32 = lib.Type_DECIMAL32
     DEIMAL64 = lib.Type_DECIMAL64
     DECIMAL128 = lib.Type_DECIMAL128
     DECIMAL256 = lib.Type_DECIMAL256
-
-
-class DateTypesEnum(Enum):
     DATE32 = lib.Type_DATE32
     DATE64 = lib.Type_DATE64
-
-
-class TimeTypesEnum(Enum):
     TIME32 = lib.Type_TIME32
     TIME64 = lib.Type_TIME64
-
-
-class IntervalTypesEnum(Enum):
     INTERVAL_MONTH_DAY_NANO = lib.Type_INTERVAL_MONTH_DAY_NANO
-
-
-class UtilTemporalTypesEnum(Enum):
     TIMESTAMP = lib.Type_TIMESTAMP
     DURATION = lib.Type_DURATION
-
-
-TemporalTypesEnum = _combine_enums(
-    "TemporalTypesEnum",
-    DateTypesEnum,
-    TimeTypesEnum,
-    IntervalTypesEnum,
-    UtilTemporalTypesEnum,
-)
-
-
-class UnionTypesEnum(Enum):
     SPARSE_UNION = lib.Type_SPARSE_UNION
     DENSE_UNION = lib.Type_DENSE_UNION
-
-
-class UtilNestedTypesEnum(Enum):
     LIST = lib.Type_LIST
     FIXED_SIZE_LIST = lib.Type_FIXED_SIZE_LIST
     LARGE_LIST = lib.Type_LARGE_LIST
     LIST_VIEW = lib.Type_LIST_VIEW
     STRUCT = lib.Type_STRUCT
     MAP = lib.Type_MAP
-
-
-NestedTypesEnum = _combine_enums(
-    "NestedTypesEnum", UtilNestedTypesEnum, UnionTypesEnum)
 
 
 @doc(datatype="null")
