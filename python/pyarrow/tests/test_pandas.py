@@ -5265,3 +5265,36 @@ def test_bytes_column_name_to_pandas():
 def test_is_data_frame_race_condition():
     # See https://github.com/apache/arrow/issues/39313
     test_util.invoke_script('arrow_39313.py')
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_attributes_metadata_persistence(tempdir):
+    # GH-45382: Add support for pandas DataFrame.attrs
+    # During the .parquet file writing,
+    # the attrs are serialised into json
+    # along with the rest of the pandas.DataFrame metadata.
+    # Whilst reading, the attributes are read from the json,
+    # and are added to the pandas.DataFrame object.
+    # This test ensures that this whole processes works as intended.
+    # This test might still pass even if the implementataion is faulty,
+    # since there is attributes injection happening
+    # while reading/writing on pandas' side
+
+    filename = tempdir / "metadata_persistence.parquet"
+
+    df = pd.DataFrame({
+        "first_col": [1, 2, 3],
+        "second_col": [4, 5, 6],
+    })
+
+    df.attrs = {
+        "first_col": "First Column",
+        "second_col": "Second Column"
+    }
+
+    df.to_parquet(path=filename, engine="pyarrow")
+
+    new_df = pd.read_parquet(path=filename, engine="pyarrow")
+
+    assert df.attrs == new_df.attrs

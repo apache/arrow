@@ -785,14 +785,14 @@ def table_to_dataframe(
 ):
     all_columns = []
     column_indexes = []
-    pandas_metadata = table.schema.pandas_metadata
     attributes = {}
+    pandas_metadata = table.schema.pandas_metadata
 
     if not ignore_metadata and pandas_metadata is not None:
         all_columns = pandas_metadata['columns']
         column_indexes = pandas_metadata.get('column_indexes', [])
+        attributes = pandas_metadata.get('attributes', {})
         index_descriptors = pandas_metadata['index_columns']
-        attributes = pandas_metadata['attributes']
         table = _add_any_metadata(table, pandas_metadata)
         table, index = _reconstruct_index(table, index_descriptors,
                                           all_columns, types_mapper)
