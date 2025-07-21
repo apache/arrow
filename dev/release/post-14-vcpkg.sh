@@ -61,16 +61,29 @@ sha512sum=$(curl \
               --location \
               "https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha512" | \
               cut -d' ' -f1)
+
+# update "version"
 sed \
   -i.bak \
   -e "s/^  \"version\": \".*\",$/  \"version\": \"${version}\",/" \
   ${port_arrow}/vcpkg.json
 rm ${port_arrow}/vcpkg.json.bak
+
+# remove "port-version"
+# if we don't remove this, x-add-version fails
+sed \
+  -i.bak \
+  -e "/^.*\"port-version\":.*$/d" \
+  ${port_arrow}/vcpkg.json
+rm ${port_arrow}/vcpkg.json.bak
+
+# update portfile
 sed \
   -i.bak \
   -e "s/^    SHA512 .*$/    SHA512 ${sha512sum}/" \
   ${port_arrow}/portfile.cmake
 rm ${port_arrow}/portfile.cmake.bak
+
 git add ${port_arrow}/vcpkg.json
 git add ${port_arrow}/portfile.cmake
 git commit -m "[arrow] Update to ${version}"
