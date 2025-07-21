@@ -329,9 +329,7 @@ class RecordBatchStream::RecordBatchStreamImpl {
 
     // Check if writer is already initialized or if schema has changed.
     // To recreate the writer.
-    // TODO: Investigate why schema changed is needed for a flight-sql specific test.
     if (!writer_ || !batch->schema()->Equals(*reader_->schema())) {
-      // Close current writer
       if (writer_) {
         RETURN_NOT_OK(writer_->Close());
       }
@@ -376,7 +374,7 @@ class RecordBatchStream::RecordBatchStreamImpl {
   }
 
  private:
-  // Simple payload writer that uses two pointers
+  // Simple payload writer that uses a list of generated payloads.
   class ServerRecordBatchPayloadWriter : public ipc::internal::IpcPayloadWriter {
    public:
     explicit ServerRecordBatchPayloadWriter(std::list<FlightPayload>* payload_list)
