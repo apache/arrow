@@ -50,9 +50,16 @@ _NESTED_TYPES = {lib.Type_LIST, lib.Type_FIXED_SIZE_LIST, lib.Type_LARGE_LIST,
 
 class TypesEnum(Enum):
     """
-    An Enum that maps the constant values
+    An Enum that maps constant values
     to underlying data types with the same name.
+    Please note that this Enum is referential,
+    since some of the types listed here
+    are not supported by PyArrow yet.
+    Please see the list of supported types here:
+    https://arrow.apache.org/docs/python/api/datatypes.html
     """
+    NA = lib.Type_NA
+    BOOL = lib.Type_BOOL
     INT8 = lib.Type_INT8
     INT16 = lib.Type_INT16
     INT32 = lib.Type_INT32
@@ -65,24 +72,34 @@ class TypesEnum(Enum):
     FLOAT = lib.Type_FLOAT
     DOUBLE = lib.Type_DOUBLE
     DECIMAL32 = lib.Type_DECIMAL32
-    DEIMAL64 = lib.Type_DECIMAL64
+    DECIMAL64 = lib.Type_DECIMAL64
     DECIMAL128 = lib.Type_DECIMAL128
     DECIMAL256 = lib.Type_DECIMAL256
     DATE32 = lib.Type_DATE32
     DATE64 = lib.Type_DATE64
+    TIMESTAMP = lib.Type_TIMESTAMP
     TIME32 = lib.Type_TIME32
     TIME64 = lib.Type_TIME64
-    INTERVAL_MONTH_DAY_NANO = lib.Type_INTERVAL_MONTH_DAY_NANO
-    TIMESTAMP = lib.Type_TIMESTAMP
     DURATION = lib.Type_DURATION
-    SPARSE_UNION = lib.Type_SPARSE_UNION
-    DENSE_UNION = lib.Type_DENSE_UNION
+    INTERVAL_MONTH_DAY_NANO = lib.Type_INTERVAL_MONTH_DAY_NANO
+    BINARY = lib.Type_BINARY
+    STRING = lib.Type_STRING
+    LARGE_BINARY = lib.Type_LARGE_BINARY
+    LARGE_STRING = lib.Type_LARGE_STRING
+    FIXED_SIZE_BINARY = lib.Type_FIXED_SIZE_BINARY
+    BINARY_VIEW = lib.Type_BINARY_VIEW
+    STRING_VIEW = lib.Type_STRING_VIEW
     LIST = lib.Type_LIST
-    FIXED_SIZE_LIST = lib.Type_FIXED_SIZE_LIST
     LARGE_LIST = lib.Type_LARGE_LIST
     LIST_VIEW = lib.Type_LIST_VIEW
-    STRUCT = lib.Type_STRUCT
+    LARGE_LIST_VIEW = lib.Type_LARGE_LIST_VIEW
     MAP = lib.Type_MAP
+    FIXED_SIZE_LIST = lib.Type_FIXED_SIZE_LIST
+    STRUCT = lib.Type_STRUCT
+    SPARSE_UNION = lib.Type_SPARSE_UNION
+    DENSE_UNION = lib.Type_DENSE_UNION
+    DICTIONARY = lib.Type_DICTIONARY
+    RUN_END_ENCODED = lib.Type_RUN_END_ENCODED
 
 
 @doc(datatype="null")
