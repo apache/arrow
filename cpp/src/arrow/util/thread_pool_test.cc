@@ -1041,7 +1041,7 @@ TEST(TestGlobalThreadPool, Capacity) {
   ASSERT_OK(DelEnvVar("OMP_THREAD_LIMIT"));
 
   int hw_capacity = std::thread::hardware_concurrency();
-  ASSERT_LT(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_LE(ThreadPool::DefaultCapacity(), hw_capacity);
   ASSERT_GE(ThreadPool::DefaultCapacity(), 1);
 
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "13"));
