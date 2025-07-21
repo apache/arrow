@@ -19,8 +19,8 @@
 
 set -e
 
-if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 <numba version>"
+if [ "$#" -ne 1 ] && [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <numba version> [numba-cuda version]"
   exit 1
 fi
 
@@ -40,4 +40,18 @@ elif [ "${numba}" = "latest" ]; then
   pip install numba
 else
   pip install "numba==${numba}"
+fi
+
+if [ "$#" -eq 1 ]; then
+  exit 0
+fi
+
+numba_cuda=$2
+
+if [ "${numba_cuda}" = "master" ]; then
+  pip install https://github.com/NVIDIA/numba-cuda/archive/main.tar.gz#egg=numba-cuda
+elif [ "${numba_cuda}" = "latest" ]; then
+  pip install numba-cuda
+else
+  pip install "numba-cuda==${numba_cuda}"
 fi
