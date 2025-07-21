@@ -115,6 +115,7 @@
 #elif __linux__
 #  include <sys/sysinfo.h>
 #  include <fstream>
+#  include <limits>
 #endif
 
 #ifdef _WIN32
@@ -2217,6 +2218,21 @@ int64_t GetTotalMemoryBytes() {
 #else
   return 0;
 #endif
+}
+
+Result<uint32_t> GetNumAffinityCores() {
+#if defined(__linux__)
+  cpu_set_t mask;
+  if (sched_getaffinity(0, sizeof(mask), &mask) == 0) {
+    auto count = CPU_COUNT(&mask);
+    if (count > 0 &&
+        static_cast<uint64_t>(count) < std::numeric_limits<uint32_t>::max()) {
+      return {static_cast<uint32_t>(count)};
+    }
+  }
+  return {Status::IOError("Could not read the CPU affinity.")};
+#endif
+  return {Status::NotImplemented("Only implemented for Linux")};
 }
 
 Result<void*> LoadDynamicLibrary(const char* path) {

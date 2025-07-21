@@ -69,13 +69,7 @@ class ARROW_EXPORT CpuInfo {
   int64_t hardware_flags() const;
 
   /// Returns the number of cores (including hyper-threaded) on this machine.
-  // The number returned is guaranteed to be greater or equal to one.
   int num_cores() const;
-
-  /// \brief Return the number of cores the process is allowed to use.
-  ///
-  /// This is currently only implemented on Linux, return -1 on other platforms.
-  int num_affinity_cores() const;
 
   /// Returns the vendor of the cpu.
   Vendor vendor() const;

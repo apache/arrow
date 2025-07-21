@@ -27,10 +27,6 @@
 #  include <unistd.h>
 #endif
 
-#ifdef __linux__
-#  include <sched.h>
-#endif
-
 #ifdef _WIN32
 #  include <intrin.h>
 
@@ -386,14 +382,6 @@ int64_t LinuxParseCpuFlags(const std::string& values) {
 #  endif
 }
 
-// Retrieve the affinity into the out pointer if available.
-void LinuxRetrieveAffinityCpuCount(int* count) {
-  cpu_set_t mask;
-  if (sched_getaffinity(0, sizeof(mask), &mask) == 0) {
-    *count = CPU_COUNT(&mask);
-  }
-}
-
 void OsRetrieveCacheSize(std::array<int64_t, kCacheLevels>* cache_sizes) {
   for (int i = 0; i < kCacheLevels; ++i) {
     const int64_t cache_size = LinuxGetCacheSize(i);
@@ -516,7 +504,6 @@ void ArchVerifyCpuRequirements(const CpuInfo* ci) {}
 struct CpuInfo::Impl {
   int64_t hardware_flags = 0;
   int num_cores = 0;
-  int num_affinity_cores = -1;
   int64_t original_hardware_flags = 0;
   Vendor vendor = Vendor::Unknown;
   std::string model_name = "Unknown";
@@ -526,18 +513,7 @@ struct CpuInfo::Impl {
     OsRetrieveCacheSize(&cache_sizes);
     OsRetrieveCpuInfo(&hardware_flags, &vendor, &model_name);
     original_hardware_flags = hardware_flags;
-
-    num_cores = static_cast<int>(std::thread::hardware_concurrency());
-    if (num_cores <= 0) {
-      num_cores = 4;
-      ARROW_LOG(WARNING) << "Failed to determine the number of available threads, "
-                            "using a hardcoded arbitrary value "
-                         << num_cores;
-    }
-
-#ifdef __linux__
-    LinuxRetrieveAffinityCpuCount(&num_affinity_cores);
-#endif
+    num_cores = std::max(static_cast<int>(std::thread::hardware_concurrency()), 1);
 
     // parse user simd level
     auto maybe_env_var = GetEnvVar("ARROW_USER_SIMD_LEVEL");
@@ -574,9 +550,7 @@ const CpuInfo* CpuInfo::GetInstance() {
 
 int64_t CpuInfo::hardware_flags() const { return impl_->hardware_flags; }
 
-int CpuInfo::num_cores() const { return impl_->num_cores; }
-
-int CpuInfo::num_affinity_cores() const { return impl_->num_affinity_cores; }
+int CpuInfo::num_cores() const { return impl_->num_cores <= 0 ? 1 : impl_->num_cores; }
 
 CpuInfo::Vendor CpuInfo::vendor() const { return impl_->vendor; }
 
