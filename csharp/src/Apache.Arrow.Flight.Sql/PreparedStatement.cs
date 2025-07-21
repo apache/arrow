@@ -30,10 +30,10 @@ public class PreparedStatement : IDisposable, IAsyncDisposable
 {
     private readonly FlightSqlClient _client;
     private readonly string _handle;
-    private Schema _datasetSchema;
-    private Schema _parameterSchema;
     private RecordBatch? _recordsBatch;
     private bool _isClosed;
+    public Schema DatasetSchema { get; }
+    public Schema ParameterSchema { get; }
 
     public bool IsClosed => _isClosed;
     public string Handle => _handle;
@@ -50,8 +50,8 @@ public class PreparedStatement : IDisposable, IAsyncDisposable
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _handle = handle ?? throw new ArgumentNullException(nameof(handle));
-        _datasetSchema = datasetSchema ?? throw new ArgumentNullException(nameof(datasetSchema));
-        _parameterSchema = parameterSchema ?? throw new ArgumentNullException(nameof(parameterSchema));
+        DatasetSchema = datasetSchema ?? throw new ArgumentNullException(nameof(datasetSchema));
+        ParameterSchema = parameterSchema ?? throw new ArgumentNullException(nameof(parameterSchema));
         _isClosed = false;
     }
 
@@ -151,7 +151,6 @@ public class PreparedStatement : IDisposable, IAsyncDisposable
     /// </summary>
     /// <param name="client">The Flight SQL client.</param>
     /// <param name="results">The asynchronous stream of <see cref="FlightData"/> objects.</param>
-    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>A task representing the asynchronous operation, which returns the populated <see cref="PreparedStatement"/>.</returns>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="client"/> or <paramref name="results"/> is null.</exception>
     /// <exception cref="InvalidOperationException">Thrown if the prepared statement handle or data is invalid.</exception>
@@ -341,7 +340,7 @@ public class PreparedStatement : IDisposable, IAsyncDisposable
     {
         if (parameterBatch == null)
         {
-            throw new ArgumentNullException(nameof(parameterBatch), "Parameter batch cannot be null.");
+            throw new ArgumentNullException(nameof(parameterBatch), @"Parameter batch cannot be null.");
         }
         var putResult = await _client.DoPutAsync(descriptor, parameterBatch, options, cancellationToken).ConfigureAwait(false);
         try
