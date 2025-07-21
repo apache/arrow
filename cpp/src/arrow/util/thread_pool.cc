@@ -26,9 +26,9 @@
 #include <thread>
 #include <vector>
 
-#include "arrow/util/affinity.h"
 #include "arrow/util/atfork_internal.h"
 #include "arrow/util/config.h"
+#include "arrow/util/cpu_info.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/mutex.h"
@@ -733,20 +733,21 @@ static int ParseOMPEnvVar(const char* name) {
 }
 
 int ThreadPool::DefaultCapacity() {
-  int capacity, limit;
-  capacity = ParseOMPEnvVar("OMP_NUM_THREADS");
-  if (capacity == 0) {
-    capacity = GetAffinityCpuCount();
+  const CpuInfo* ci = CpuInfo::GetInstance();
+
+  int capacity = ParseOMPEnvVar("OMP_NUM_THREADS");
+  if (capacity <= 0) {
+    capacity = ci->num_affinity_cores();
   }
-  limit = ParseOMPEnvVar("OMP_THREAD_LIMIT");
+  if (capacity <= 0) {
+    capacity = ci->num_cores();
+  }
+
+  int limit = ParseOMPEnvVar("OMP_THREAD_LIMIT");
   if (limit > 0) {
     capacity = std::min(limit, capacity);
   }
-  if (capacity == 0) {
-    ARROW_LOG(WARNING) << "Failed to determine the number of available threads, "
-                          "using a hardcoded arbitrary value";
-    capacity = 4;
-  }
+
   return capacity;
 }
 

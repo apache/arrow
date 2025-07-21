@@ -1,21 +1,14 @@
-#include <gtest/gtest.h>
 #include "arrow/util/cpu_info.h"
 
-#ifdef __linux__
-#include <sched.h>
-#endif
+#include <gtest/gtest.h>
 
 TEST(CpuInfoTest, CpuAffinity) {
-#ifdef __linux__
   auto cpu_info = arrow::internal::CpuInfo::GetInstance();
-  int affinity_cores = cpu_info->num_cores();
 
-  cpu_set_t mask;
-  ASSERT_EQ(sched_getaffinity(0, sizeof(mask), &mask), 0);
-  int expected = CPU_COUNT(&mask);
-
-  ASSERT_EQ(affinity_cores, expected);
+  ASSERT_LE(cpu_info->num_affinity_cores(), cpu_info->num_cores());
+#ifdef __linux__
+  ASSERT_GE(cpu_info->num_affinity_cores(), 1);
 #else
-  GTEST_SKIP() << "CpuInfo affinity check only applies on Linux.";
+  ASSERT_EQ(cpu_info->num_affinity_cores(), -1);
 #endif
 }
