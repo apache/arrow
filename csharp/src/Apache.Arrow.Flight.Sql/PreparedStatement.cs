@@ -34,7 +34,6 @@ public class PreparedStatement : IDisposable, IAsyncDisposable
     private bool _isClosed;
     public Schema DatasetSchema { get; }
     public Schema ParameterSchema { get; }
-
     public bool IsClosed => _isClosed;
     public string Handle => _handle;
     public RecordBatch? ParametersBatch => _recordsBatch;
