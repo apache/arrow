@@ -49,7 +49,11 @@ endif()
 if(ARROW_CPU_FLAG STREQUAL "x86")
   # x86/amd64 compiler flags, msvc/gcc/clang
   if(MSVC)
-    set(ARROW_SSE4_2_FLAG "")
+    set(ARROW_SSE4_2_FLAG "/arch:SSE4.2")
+    # These definitions are needed for xsimd to consider the corresponding instruction
+    # sets available, but they are not set by MSVC (unlike other compilers).
+    # See https://github.com/AcademySoftwareFoundation/OpenImageIO/issues/4265
+    add_definitions(-D__SSE2__ -D__SSE4_1__ -D__SSE4_2__)
     set(ARROW_AVX2_FLAG "/arch:AVX2")
     # MSVC has no specific flag for BMI2, it seems to be enabled with AVX2
     set(ARROW_BMI2_FLAG "/arch:AVX2")
@@ -154,6 +158,9 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ${ARROW_POSITION_INDEPENDENT_CODE})
 
 set(UNKNOWN_COMPILER_MESSAGE
     "Unknown compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+
+# Compiler flags used when building Arrow libraries (but not tests, utilities, etc.)
+set(ARROW_LIBRARIES_ONLY_CXX_FLAGS)
 
 # compiler flags that are common across debug/release builds
 if(WIN32)
@@ -318,6 +325,9 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wimplicit-fallthrough")
     string(APPEND CXX_ONLY_FLAGS " -Wredundant-move")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
+    # Flag non-static functions that don't have corresponding declaration in a .h file.
+    # Only for Arrow libraries, since this is not a problem in tests or utilities.
+    list(APPEND ARROW_LIBRARIES_ONLY_CXX_FLAGS "-Wmissing-declarations")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL
                                                    "IntelLLVM")
     if(WIN32)

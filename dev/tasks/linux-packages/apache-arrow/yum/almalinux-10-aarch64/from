@@ -15,4 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
---platform=linux/arm64 quay.io/centos/centos:stream8
+arm64v8/almalinux:10

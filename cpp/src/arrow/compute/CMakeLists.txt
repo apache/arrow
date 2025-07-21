@@ -48,9 +48,15 @@ if(ARROW_TESTING AND ARROW_COMPUTE)
   add_library(arrow_compute_testing OBJECT ${ARROW_COMPUTE_TESTING_SRCS})
   # Even though this is still just an object library we still need to "link"
   # arrow_compute_core_testing so that is also included correctly
-  target_link_libraries(arrow_compute_testing
-                        PUBLIC $<TARGET_OBJECTS:arrow_compute_core_testing>
-                        PUBLIC ${ARROW_GTEST_GTEST_MAIN})
+  if(MSVC)
+    target_link_libraries(arrow_compute_testing
+                          PUBLIC $<TARGET_OBJECTS:arrow_compute_core_testing>
+                          PUBLIC ${ARROW_GTEST_GTEST_MAIN})
+  else()
+    target_link_libraries(arrow_compute_testing
+                          PUBLIC $<TARGET_OBJECTS:arrow_compute_core_testing>
+                          PUBLIC ${ARROW_GTEST_GTEST})
+  endif()
 endif()
 
 set(ARROW_COMPUTE_TEST_PREFIX "arrow-compute")
@@ -108,6 +114,49 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
                  ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
+# This function is used to add a custom main to the benchmarks in order
+# to initialize the compute kernels registry before running them.
+# This is necessary for benchmarks that use compute kernels that are not
+# part of libarrow.
+# It will also link the compute libraries to the benchmark target.
+function(add_arrow_compute_benchmark REL_TEST_NAME)
+  set(options)
+  set(one_value_args PREFIX)
+  set(multi_value_args EXTRA_SOURCES EXTRA_LINK_LIBS)
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
+  if(ARG_PREFIX)
+    set(PREFIX ${ARG_PREFIX})
+  else()
+    set(PREFIX "arrow-compute")
+  endif()
+  set(EXTRA_SOURCES "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/benchmark_main.cc")
+  if(ARG_EXTRA_SOURCES)
+    list(APPEND EXTRA_SOURCES ${ARG_EXTRA_SOURCES})
+  endif()
+  if(ARROW_TEST_LINKAGE STREQUAL "static")
+    set(EXTRA_LINK_LIBS arrow_compute_static)
+  else()
+    set(EXTRA_LINK_LIBS arrow_compute_shared)
+  endif()
+  if(ARG_EXTRA_LINK_LIBS)
+    list(APPEND EXTRA_LINK_LIBS ${ARG_EXTRA_LINK_LIBS})
+  endif()
+  add_benchmark(${REL_TEST_NAME}
+                PREFIX
+                ${PREFIX}
+                LABELS
+                "arrow-benchmarks"
+                EXTRA_SOURCES
+                ${EXTRA_SOURCES}
+                EXTRA_LINK_LIBS
+                ${EXTRA_LINK_LIBS}
+                ${ARG_UNPARSED_ARGUMENTS})
+endfunction()
+
 add_arrow_test(internals_test
                ${ARROW_COMPUTE_TEST_ARGS}
                SOURCES
@@ -136,7 +185,7 @@ add_arrow_compute_test(row_test
                        EXTRA_LINK_LIBS
                        arrow_compute_testing)
 
-add_arrow_benchmark(function_benchmark PREFIX "arrow-compute")
+add_arrow_compute_benchmark(function_benchmark)
 
 add_subdirectory(kernels)
 

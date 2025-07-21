@@ -64,15 +64,20 @@ sha256sum=$(curl \
               cut -d' ' -f1)
 sed \
   -i.bak \
-  -e "1a\ \ \"${version}\":" \
-  -e "1a\ \ \ \ folder:\ all" \
+  -e "1a\\
+\  \"${version}\":" \
+  -e "1a\\
+\    folder:\ all" \
   ${recipes_arrow}/config.yml
 rm ${recipes_arrow}/config.yml.bak
 sed \
   -i.bak \
-  -e "1a\ \ \"${version}\":" \
-  -e "1a\ \ \ \ url: \"${tar_gz_url}\"" \
-  -e "1a\ \ \ \ sha256: \"${sha256sum}\"" \
+  -e "1a\\
+\  \"${version}\":" \
+  -e "1a\\
+\    url: \"${tar_gz_url}\"" \
+  -e "1a\\
+\    sha256: \"${sha256sum}\"" \
   ${recipes_arrow}/all/conandata.yml
 rm ${recipes_arrow}/all/conandata.yml.bak
 git add ${recipes_arrow}/config.yml

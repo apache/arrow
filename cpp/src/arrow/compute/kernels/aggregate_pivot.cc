@@ -19,6 +19,7 @@
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/pivot_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/scalar.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/logging_internal.h"

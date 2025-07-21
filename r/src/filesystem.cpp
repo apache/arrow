@@ -438,7 +438,7 @@ std::shared_ptr<fs::GcsFileSystem> fs___GcsFileSystem__Make(bool anonymous,
 
 // [[gcs::export]]
 cpp11::list fs___GcsFileSystem__options(const std::shared_ptr<fs::GcsFileSystem>& fs) {
-  using cpp11::literals::operator"" _nm;
+  using cpp11::literals::operator""_nm;
 
   cpp11::writable::list out;
 

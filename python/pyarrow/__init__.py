@@ -59,8 +59,8 @@ except ImportError:
         __version__ = None
 
 import pyarrow.lib as _lib
-from pyarrow.lib import (BuildInfo, RuntimeInfo, set_timezone_db_path,
-                         MonthDayNano, VersionInfo, cpp_build_info,
+from pyarrow.lib import (BuildInfo, CppBuildInfo, RuntimeInfo, set_timezone_db_path,
+                         MonthDayNano, VersionInfo, build_info, cpp_build_info,
                          cpp_version, cpp_version_info, runtime_info,
                          cpu_count, set_cpu_count, enable_signal_handlers,
                          io_thread_count, set_io_thread_count)
@@ -74,16 +74,18 @@ def show_versions():
         print(f"{label: <26}: {value: <8}")
 
     print("pyarrow version info\n--------------------")
-    print_entry("Package kind", cpp_build_info.package_kind
-                if len(cpp_build_info.package_kind) > 0
+    print_entry("Package kind", build_info.cpp_build_info.package_kind
+                if len(build_info.cpp_build_info.package_kind) > 0
                 else "not indicated")
-    print_entry("Arrow C++ library version", cpp_build_info.version)
+    print_entry("Arrow C++ library version", build_info.cpp_build_info.version)
     print_entry("Arrow C++ compiler",
-                f"{cpp_build_info.compiler_id} {cpp_build_info.compiler_version}")
-    print_entry("Arrow C++ compiler flags", cpp_build_info.compiler_flags)
-    print_entry("Arrow C++ git revision", cpp_build_info.git_id)
-    print_entry("Arrow C++ git description", cpp_build_info.git_description)
-    print_entry("Arrow C++ build type", cpp_build_info.build_type)
+                (f"{build_info.cpp_build_info.compiler_id} "
+                 f"{build_info.cpp_build_info.compiler_version}"))
+    print_entry("Arrow C++ compiler flags", build_info.cpp_build_info.compiler_flags)
+    print_entry("Arrow C++ git revision", build_info.cpp_build_info.git_id)
+    print_entry("Arrow C++ git description", build_info.cpp_build_info.git_description)
+    print_entry("Arrow C++ build type", build_info.cpp_build_info.build_type)
+    print_entry("PyArrow build type", build_info.build_type)
 
 
 def _module_is_available(module):

@@ -1155,9 +1155,8 @@ bool ScalarEquals(const Scalar& left, const Scalar& right, const EqualOptions& o
 bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_idx,
                       int64_t left_end_idx, int64_t right_start_idx,
                       const EqualOptions& options) {
-  const bool floating_approximate = false;
   return ArrayRangeEquals(left, right, left_start_idx, left_end_idx, right_start_idx,
-                          options, floating_approximate);
+                          options, options.use_atol());
 }
 
 bool ArrayRangeApproxEquals(const Array& left, const Array& right, int64_t left_start_idx,
@@ -1169,8 +1168,7 @@ bool ArrayRangeApproxEquals(const Array& left, const Array& right, int64_t left_
 }
 
 bool ArrayEquals(const Array& left, const Array& right, const EqualOptions& opts) {
-  const bool floating_approximate = false;
-  return ArrayEquals(left, right, opts, floating_approximate);
+  return ArrayEquals(left, right, opts, opts.use_atol());
 }
 
 bool ArrayApproxEquals(const Array& left, const Array& right, const EqualOptions& opts) {
@@ -1179,8 +1177,7 @@ bool ArrayApproxEquals(const Array& left, const Array& right, const EqualOptions
 }
 
 bool ScalarEquals(const Scalar& left, const Scalar& right, const EqualOptions& options) {
-  const bool floating_approximate = false;
-  return ScalarEquals(left, right, options, floating_approximate);
+  return ScalarEquals(left, right, options, options.use_atol());
 }
 
 bool ScalarApproxEquals(const Scalar& left, const Scalar& right,
@@ -1564,8 +1561,11 @@ bool ArrayStatisticsEqualsImpl(const ArrayStatistics& left, const ArrayStatistic
                                const EqualOptions& equal_options) {
   return left.null_count == right.null_count &&
          left.distinct_count == right.distinct_count &&
+         left.is_average_byte_width_exact == right.is_average_byte_width_exact &&
          left.is_min_exact == right.is_min_exact &&
          left.is_max_exact == right.is_max_exact &&
+         ArrayStatisticsValueTypeEquals(left.average_byte_width, right.average_byte_width,
+                                        equal_options) &&
          ArrayStatisticsValueTypeEquals(left.min, right.min, equal_options) &&
          ArrayStatisticsValueTypeEquals(left.max, right.max, equal_options);
 }

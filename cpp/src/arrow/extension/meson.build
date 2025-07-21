@@ -15,20 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM quay.io/centos/centos:stream8
+canonical_extension_tests = ['bool8_test.cc', 'json_test.cc', 'uuid_test.cc']
 
-ARG DEBUG
+if needs_json
+    canonical_extension_tests += [
+        'fixed_shape_tensor_test.cc',
+        'opaque_test.cc',
+    ]
+endif
 
-# GH-42128
-# Switch repos to point to to vault.centos.org because Centos Stream 8 is EOL
-RUN sed -i \
-  -e 's/^mirrorlist/#mirrorlist/' \
-  -e 's/^#baseurl/baseurl/' \
-  -e 's/mirror\.centos\.org/vault.centos.org/' \
-  /etc/yum.repos.d/*.repo
+exc = executable(
+    'arrow-canonical-extensions-test',
+    sources: canonical_extension_tests,
+    dependencies: [arrow_test_dep],
+)
+test('arrow-canonical-extensions-test', exc)
 
-RUN \
-  quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
-  dnf install --enablerepo=powertools -y ${quiet} \
-    rpmdevtools && \
-  dnf clean ${quiet} all
+install_headers(
+    ['bool8.h', 'fixed_shape_tensor.h', 'json.h', 'opaque.h', 'uuid.h'],
+)

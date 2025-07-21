@@ -56,14 +56,6 @@ void PrintPageEncodingStats(std::ostream& stream,
   }
 }
 
-}  // namespace
-
-// ----------------------------------------------------------------------
-// ParquetFilePrinter::DebugPrint
-
-// the fixed initial size is just for an example
-#define COL_WIDTH 30
-
 void PutChars(std::ostream& stream, char c, int n) {
   for (int i = 0; i < n; ++i) {
     stream.put(c);
@@ -82,6 +74,14 @@ void PrintKeyValueMetadata(std::ostream& stream,
            << key_value_metadata.value(i) << "\n";
   }
 }
+
+// the fixed initial size is just for an example
+constexpr int kColWidth = 30;
+
+}  // namespace
+
+// ----------------------------------------------------------------------
+// ParquetFilePrinter::DebugPrint
 
 void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selected_columns,
                                     bool print_values, bool format_dump,
@@ -196,7 +196,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
     }
     stream << "--- Values ---\n";
 
-    static constexpr int bufsize = COL_WIDTH + 1;
+    static constexpr int bufsize = kColWidth + 1;
     char buffer[bufsize];
 
     // Create readers for selected columns and print contents
@@ -217,7 +217,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
         continue;
       }
 
-      snprintf(buffer, bufsize, "%-*s", COL_WIDTH,
+      snprintf(buffer, bufsize, "%-*s", kColWidth,
                file_metadata->schema()->Column(i)->name().c_str());
       stream << buffer << '|';
     }
@@ -232,7 +232,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
       for (const auto& scanner : scanners) {
         if (scanner->HasNext()) {
           hasRow = true;
-          scanner->PrintNext(stream, COL_WIDTH);
+          scanner->PrintNext(stream, kColWidth);
           stream << '|';
         }
       }

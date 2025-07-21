@@ -17,9 +17,12 @@
 
 import io
 import os
+import re
 import sys
+import types
 
 import pytest
+from unittest import mock
 
 import pyarrow as pa
 
@@ -365,3 +368,76 @@ def test_read_undefined_logical_type(parquet_test_datadir):
         b"unknown string 2",
         b"unknown string 3"
     ]
+
+
+def test_parquet_file_fsspec_support():
+    pytest.importorskip("fsspec")
+
+    table = pa.table({"a": range(10)})
+    pq.write_table(table, "fsspec+memory://example.parquet")
+    table2 = pq.read_table("fsspec+memory://example.parquet")
+    assert table.equals(table2)
+
+    msg = "Unrecognized filesystem type in URI"
+    with pytest.raises(pa.ArrowInvalid, match=msg):
+        pq.read_table("non-existing://example.parquet")
+
+
+def test_parquet_file_fsspec_support_through_filesystem_argument():
+    try:
+        from fsspec.implementations.memory import MemoryFileSystem
+    except ImportError:
+        pytest.skip("fsspec is not installed, skipping test")
+
+    table = pa.table({"b": range(10)})
+
+    fs = MemoryFileSystem()
+    fs.mkdir("/path/to/prefix", create_parents=True)
+    assert fs.exists("/path/to/prefix")
+
+    fs_str = "fsspec+memory://path/to/prefix"
+    pq.write_table(table, "b.parquet", filesystem=fs_str)
+    table2 = pq.read_table("fsspec+memory://path/to/prefix/b.parquet")
+    assert table.equals(table2)
+
+
+def test_parquet_file_hugginface_support():
+    try:
+        from fsspec.implementations.memory import MemoryFileSystem
+    except ImportError:
+        pytest.skip("fsspec is not installed, skipping Hugging Face test")
+
+    fake_hf_module = types.ModuleType("huggingface_hub")
+    fake_hf_module.HfFileSystem = MemoryFileSystem
+    with mock.patch.dict("sys.modules", {"huggingface_hub": fake_hf_module}):
+        uri = "hf://datasets/apache/arrow/test.parquet"
+        table = pa.table({"a": range(10)})
+        pq.write_table(table, uri)
+        table2 = pq.read_table(uri)
+        assert table.equals(table2)
+
+
+def test_fsspec_uri_raises_if_fsspec_is_not_available():
+    # sadly cannot patch sys.modules because cython will still be able to import fsspec
+    try:
+        import fsspec  # noqa: F401
+    except ImportError:
+        pass
+    else:
+        pytest.skip("fsspec is available, skipping test")
+
+    msg = re.escape(
+        "`fsspec` is required to handle `fsspec+<filesystem>://` and `hf://` URIs.")
+    with pytest.raises(ImportError, match=msg):
+        pq.read_table("fsspec+memory://example.parquet")
+
+
+def test_iter_batches_raises_batch_size_zero(tempdir):
+    # See https://github.com/apache/arrow/issues/46811
+    schema = pa.schema([])
+    empty_table = pa.Table.from_batches([], schema=schema)
+    parquet_file_path = tempdir / "empty_file.parquet"
+    pq.write_table(empty_table, parquet_file_path)
+    parquet_file = pq.ParquetFile(parquet_file_path)
+    with pytest.raises(ValueError):
+        parquet_file.iter_batches(batch_size=0)

@@ -17,13 +17,13 @@
 
 #pragma once
 
-#include "arrow/result.h"
-#include "arrow/type.h"
+#include <cstdint>
 
-#include "arrow/matlab/type/proxy/type.h"
+#include "parquet/level_comparison.h"
 
-namespace arrow::matlab::type::proxy {
+namespace parquet::internal {
 
-arrow::Result<std::shared_ptr<Type>> wrap(const std::shared_ptr<arrow::DataType>& type);
+MinMax FindMinMaxAvx2(const int16_t* levels, int64_t num_levels);
+uint64_t GreaterThanBitmapAvx2(const int16_t* levels, int64_t num_levels, int16_t rhs);
 
-}
+}  // namespace parquet::internal

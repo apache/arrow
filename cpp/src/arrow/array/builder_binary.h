@@ -855,10 +855,40 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   /// This pointer becomes invalid on the next modifying operation.
   const uint8_t* GetValue(int64_t i) const;
 
-  /// Temporary access to a value.
+  /// Temporary mutable access to a value.
+  ///
+  /// This pointer becomes invalid on the next modifying operation.
+  uint8_t* GetMutableValue(int64_t i) {
+    uint8_t* data_ptr = byte_builder_.mutable_data();
+    return data_ptr + i * byte_width_;
+  }
+
+  /// Temporary mutable access to a value.
   ///
   /// This view becomes invalid on the next modifying operation.
   std::string_view GetView(int64_t i) const;
+
+  /// Advance builder without allocating nor writing any values
+  ///
+  /// The internal pointer is advanced by `length` values and the same number
+  /// of non-null entries are appended to the validity bitmap.
+  /// This method assumes that the `length` values were populated directly,
+  /// for example using `GetMutableValue`.
+  void UnsafeAdvance(int64_t length) {
+    byte_builder_.UnsafeAdvance(length * byte_width_);
+    UnsafeAppendToBitmap(length, true);
+  }
+
+  /// Advance builder without allocating nor writing any values
+  ///
+  /// The internal pointer is advanced by `length` values and the same number
+  /// of validity bits are appended to the validity bitmap.
+  /// This method assumes that the `length` values were populated directly,
+  /// for example using `GetMutableValue`.
+  void UnsafeAdvance(int64_t length, const uint8_t* validity, int64_t valid_bits_offset) {
+    byte_builder_.UnsafeAdvance(length * byte_width_);
+    UnsafeAppendToBitmap(validity, valid_bits_offset, length);
+  }
 
   static constexpr int64_t memory_limit() {
     return std::numeric_limits<int64_t>::max() - 1;
@@ -871,14 +901,6 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
  protected:
   int32_t byte_width_;
   BufferBuilder byte_builder_;
-
-  /// Temporary access to a value.
-  ///
-  /// This pointer becomes invalid on the next modifying operation.
-  uint8_t* GetMutableValue(int64_t i) {
-    uint8_t* data_ptr = byte_builder_.mutable_data();
-    return data_ptr + i * byte_width_;
-  }
 
   void CheckValueSize(int64_t size);
 };

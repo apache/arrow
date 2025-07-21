@@ -15,23 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG FROM=quay.io/centos/centos:stream8
+ARG FROM=almalinux:10
 FROM ${FROM}
 
 ARG DEBUG
 
-# GH-42128
-# Switch repos to point to to vault.centos.org because Centos Stream 8 is EOL
-RUN sed -i \
-  -e 's/^mirrorlist/#mirrorlist/' \
-  -e 's/^#baseurl/baseurl/' \
-  -e 's/mirror\.centos\.org/vault.centos.org/' \
-  /etc/yum.repos.d/*.repo
-
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
   dnf install -y ${quiet} epel-release && \
-  dnf install --enablerepo=powertools -y ${quiet} \
+  dnf install --enablerepo=crb -y ${quiet} \
     bison \
     boost-devel \
     brotli-devel \
@@ -45,10 +37,11 @@ RUN \
     gcc-c++ \
     gflags-devel \
     git \
-    glog-devel \
     gobject-introspection-devel \
+    grpc-devel \
     json-devel \
     libarchive \
+    liborc-devel \
     libxml2-devel \
     libzstd-devel \
     llvm-devel \
@@ -59,15 +52,17 @@ RUN \
     ninja-build \
     openssl-devel \
     pkg-config \
-    python39 \
-    python39-pip \
-    re2-devel \
+    python3 \
+    python3-pip \
     rapidjson-devel \
+    re2-devel \
     rpmdevtools \
     snappy-devel \
     tar \
     thrift-devel \
+    utf8proc-devel \
     vala \
     which \
+    xsimd-devel \
     zlib-devel && \
   dnf clean ${quiet} all

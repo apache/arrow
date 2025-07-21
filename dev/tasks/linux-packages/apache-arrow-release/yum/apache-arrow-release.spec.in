@@ -61,7 +61,7 @@ Apache Arrow release files.
 distribution=$(. /etc/os-release && echo "${ID}")
 if [ "${distribution}" = "rhel" ]; then
   # We use distribution version explicitly for RHEL because we can't
-  # use symbolic link on Artifactory. CentOS and AlmaLinux uses 7 and
+  # use symbolic link on Artifactory. CentOS and AlmaLinux use 7 and
   # 8 but RHEL uses 7Server and 8Server for $releasever. If we can use
   # symbolic link on Artifactory we can use $releasever directly.
   distribution_version=$(. /etc/os-release && echo "${VERSION_ID}")

@@ -26,6 +26,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
@@ -346,6 +347,9 @@ static auto kNullOptionsType = GetFunctionOptionsType<NullOptions>(
 static auto kPadOptionsType = GetFunctionOptionsType<PadOptions>(
     DataMember("width", &PadOptions::width), DataMember("padding", &PadOptions::padding),
     DataMember("lean_left_on_odd_padding", &PadOptions::lean_left_on_odd_padding));
+static auto kZeroFillOptionsType = GetFunctionOptionsType<ZeroFillOptions>(
+    DataMember("width", &ZeroFillOptions::width),
+    DataMember("padding", &ZeroFillOptions::padding));
 static auto kReplaceSliceOptionsType = GetFunctionOptionsType<ReplaceSliceOptions>(
     DataMember("start", &ReplaceSliceOptions::start),
     DataMember("stop", &ReplaceSliceOptions::stop),
@@ -497,6 +501,13 @@ PadOptions::PadOptions(int64_t width, std::string padding, bool lean_left_on_odd
       lean_left_on_odd_padding(lean_left_on_odd_padding) {}
 PadOptions::PadOptions() : PadOptions(0, " ") {}
 constexpr char PadOptions::kTypeName[];
+
+ZeroFillOptions::ZeroFillOptions(int64_t width, std::string padding)
+    : FunctionOptions(internal::kZeroFillOptionsType),
+      width(width),
+      padding(std::move(padding)) {}
+ZeroFillOptions::ZeroFillOptions() : ZeroFillOptions(0, "0") {}
+constexpr char ZeroFillOptions::kTypeName[];
 
 ReplaceSliceOptions::ReplaceSliceOptions(int64_t start, int64_t stop,
                                          std::string replacement)
@@ -701,6 +712,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kMatchSubstringOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kNullOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPadOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kZeroFillOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSubstringOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRoundBinaryOptionsType));

@@ -16,17 +16,12 @@
 # under the License.
 
 import os
-from pathlib import Path
 
 from .tester import Tester
 from .util import run_cmd, log
 
 
-ARROW_BUILD_ROOT = os.environ.get(
-    'ARROW_BUILD_ROOT',
-    Path(__file__).resolve().parents[4]
-)
-ARROW_JS_ROOT = os.path.join(ARROW_BUILD_ROOT, 'js')
+ARROW_JS_ROOT = os.environ['ARROW_JS_ROOT']
 _EXE_PATH = os.path.join(ARROW_JS_ROOT, 'bin')
 _VALIDATE = os.path.join(_EXE_PATH, 'integration.ts')
 _JSON_TO_ARROW = os.path.join(_EXE_PATH, 'json-to-arrow.ts')

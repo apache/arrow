@@ -41,6 +41,17 @@ TEST(TestArrayStatistics, DistinctCount) {
   ASSERT_EQ(29, statistics.distinct_count.value());
 }
 
+TEST(TestArrayStatistics, AverageByteWidth) {
+  ArrayStatistics statistics;
+  ASSERT_FALSE(statistics.average_byte_width.has_value());
+  ASSERT_FALSE(statistics.is_average_byte_width_exact);
+  statistics.average_byte_width = 4.2;
+  ASSERT_TRUE(statistics.average_byte_width.has_value());
+  ASSERT_DOUBLE_EQ(4.2, statistics.average_byte_width.value());
+  statistics.is_average_byte_width_exact = true;
+  ASSERT_TRUE(statistics.is_average_byte_width_exact);
+}
+
 TEST(TestArrayStatistics, Min) {
   ArrayStatistics statistics;
   ASSERT_FALSE(statistics.min.has_value());
@@ -65,7 +76,7 @@ TEST(TestArrayStatistics, Max) {
   ASSERT_FALSE(statistics.is_max_exact);
 }
 
-TEST(TestArrayStatistics, EqualityNonDoulbeValue) {
+TEST(TestArrayStatistics, Equals) {
   ArrayStatistics statistics1;
   ArrayStatistics statistics2;
 
@@ -79,6 +90,16 @@ TEST(TestArrayStatistics, EqualityNonDoulbeValue) {
   statistics1.distinct_count = 2929;
   ASSERT_NE(statistics1, statistics2);
   statistics2.distinct_count = 2929;
+  ASSERT_EQ(statistics1, statistics2);
+
+  statistics1.average_byte_width = 2.9;
+  ASSERT_NE(statistics1, statistics2);
+  statistics2.average_byte_width = 2.9;
+  ASSERT_EQ(statistics1, statistics2);
+
+  statistics1.is_average_byte_width_exact = true;
+  ASSERT_NE(statistics1, statistics2);
+  statistics2.is_average_byte_width_exact = true;
   ASSERT_EQ(statistics1, statistics2);
 
   statistics1.min = std::string("world");
@@ -148,8 +169,8 @@ TEST_F(TestArrayStatisticsEqualityDoubleValue, NaN) {
 TEST_F(TestArrayStatisticsEqualityDoubleValue, ApproximateEquals) {
   statistics1_.max = 0.5001f;
   statistics2_.max = 0.5;
-  ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.atol(1e-3).use_atol(false)));
-  ASSERT_TRUE(statistics1_.Equals(statistics2_, options_.atol(1e-3)));
+  ASSERT_FALSE(statistics1_.Equals(statistics2_, options_.atol(1e-3)));
+  ASSERT_TRUE(statistics1_.Equals(statistics2_, options_.atol(1e-3).use_atol(true)));
 }
 
 }  // namespace arrow

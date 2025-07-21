@@ -23,6 +23,7 @@
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/copy_data_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_block_counter.h"
@@ -2870,7 +2871,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveIfElseKernels(func, TemporalTypes());
     AddPrimitiveIfElseKernels(func, IntervalTypes());
     AddPrimitiveIfElseKernels(func, DurationTypes());
-    AddPrimitiveIfElseKernels(func, {boolean()});
+    AddPrimitiveIfElseKernels(func, {boolean(), float16()});
     AddNullIfElseKernel(func);
     AddBinaryIfElseKernels(func, BaseBinaryTypes());
     AddFixedWidthIfElseKernel<FixedSizeBinaryType>(func);
@@ -2886,7 +2887,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveCaseWhenKernels(func, TemporalTypes());
     AddPrimitiveCaseWhenKernels(func, IntervalTypes());
     AddPrimitiveCaseWhenKernels(func, DurationTypes());
-    AddPrimitiveCaseWhenKernels(func, {boolean(), null()});
+    AddPrimitiveCaseWhenKernels(func, {boolean(), null(), float16()});
     AddCaseWhenKernel(func, Type::FIXED_SIZE_BINARY,
                       CaseWhenFunctor<FixedSizeBinaryType>::Exec);
     AddCaseWhenKernel(func, Type::DECIMAL128, CaseWhenFunctor<FixedSizeBinaryType>::Exec);
@@ -2902,7 +2903,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveCoalesceKernels(func, TemporalTypes());
     AddPrimitiveCoalesceKernels(func, IntervalTypes());
     AddPrimitiveCoalesceKernels(func, DurationTypes());
-    AddPrimitiveCoalesceKernels(func, {boolean(), null()});
+    AddPrimitiveCoalesceKernels(func, {boolean(), null(), float16()});
     AddCoalesceKernel(func, Type::FIXED_SIZE_BINARY,
                       CoalesceFunctor<FixedSizeBinaryType>::Exec);
     AddCoalesceKernel(func, Type::DECIMAL128, CoalesceFunctor<FixedSizeBinaryType>::Exec);
@@ -2920,7 +2921,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveChooseKernels(func, TemporalTypes());
     AddPrimitiveChooseKernels(func, IntervalTypes());
     AddPrimitiveChooseKernels(func, DurationTypes());
-    AddPrimitiveChooseKernels(func, {boolean(), null()});
+    AddPrimitiveChooseKernels(func, {boolean(), null(), float16()});
     AddChooseKernel(func, Type::FIXED_SIZE_BINARY,
                     ChooseFunctor<FixedSizeBinaryType>::Exec);
     AddChooseKernel(func, Type::DECIMAL128, ChooseFunctor<FixedSizeBinaryType>::Exec);

@@ -44,8 +44,8 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               FileEncryptionProperties,
                               FileDecryptionProperties,
                               SortingColumn)
-from pyarrow.fs import (LocalFileSystem, FileSystem, FileType,
-                        _resolve_filesystem_and_path, _ensure_filesystem)
+from pyarrow.fs import (LocalFileSystem, FileType, _resolve_filesystem_and_path,
+                        _ensure_filesystem)
 from pyarrow.util import guid, _is_path_like, _stringify_path, _deprecate_api
 
 
@@ -579,6 +579,9 @@ class ParquetFile:
         4       5  Brittle stars
         5     100      Centipede
         """
+        if batch_size <= 0:
+            raise ValueError("batch_size must be greater than zero")
+
         if row_groups is None:
             row_groups = range(0, self.metadata.num_row_groups)
         column_indices = self._get_column_indices(
@@ -1392,14 +1395,9 @@ Examples
         self._base_dir = None
         if not isinstance(path_or_paths, list):
             if _is_path_like(path_or_paths):
-                path_or_paths = _stringify_path(path_or_paths)
-                if filesystem is None:
-                    # path might be a URI describing the FileSystem as well
-                    try:
-                        filesystem, path_or_paths = FileSystem.from_uri(
-                            path_or_paths)
-                    except ValueError:
-                        filesystem = LocalFileSystem(use_mmap=memory_map)
+                filesystem, path_or_paths = _resolve_filesystem_and_path(
+                    path_or_paths, filesystem, memory_map=memory_map
+                )
                 finfo = filesystem.get_file_info(path_or_paths)
                 if finfo.type == FileType.Directory:
                     self._base_dir = path_or_paths
@@ -1681,10 +1679,11 @@ _read_table_docstring = """
 
 Parameters
 ----------
-source : str, pyarrow.NativeFile, or file-like object
-    If a string passed, can be a single file name or directory name. For
-    file-like objects, only read a single file. Use pyarrow.BufferReader to
-    read a file contained in a bytes or buffer-like object.
+source : str, list of str, pyarrow.NativeFile, or file-like object
+    If a string is passed, can be a single file name or directory name. If a
+    list of strings is passed, should be file names. For file-like objects,
+    only read a single file. Use pyarrow.BufferReader to read a file contained
+    in a bytes or buffer-like object.
 columns : list
     If not None, only these columns will be read from the file. A column
     name may be a prefix of a nested field, e.g. 'a' will select 'a.b',

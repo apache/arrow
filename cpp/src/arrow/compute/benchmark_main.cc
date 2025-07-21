@@ -15,16 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+#include "benchmark/benchmark.h"
 
-#include "arrow/array.h"
-#include "arrow/result.h"
+#include "arrow/compute/initialize.h"
+#include "arrow/testing/gtest_util.h"
 
-#include "arrow/matlab/array/proxy/array.h"
+int main(int argc, char** argv) {
+  // Initialize compute functions before any benchmarks run
+  ABORT_NOT_OK(arrow::compute::Initialize());
 
-namespace arrow::matlab::array::proxy {
-
-arrow::Result<std::shared_ptr<proxy::Array>> wrap(
-    const std::shared_ptr<arrow::Array>& array);
-
+  // Initialize and run benchmarks
+  ::benchmark::Initialize(&argc, argv);
+  if (::benchmark::ReportUnrecognizedArguments(argc, argv)) return 1;
+  ::benchmark::RunSpecifiedBenchmarks();
+  ::benchmark::Shutdown();
+  return 0;
 }

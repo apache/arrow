@@ -74,6 +74,8 @@ esac
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ARROW_DIR="$(cd "${SOURCE_DIR}/../.." && pwd)"
 
+: ${GITHUB_REPOSITORY:=apache/arrow}
+
 show_header() {
   echo ""
   printf '=%.0s' $(seq ${#1}); printf '\n'
@@ -176,7 +178,7 @@ test_binary() {
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
          --dest=${download_dir} \
-         --repository=${GITHUB_REPOSITORY:-apache/arrow} \
+         --repository=${GITHUB_REPOSITORY} \
          --tag="apache-arrow-$VERSION-rc$RC_NUMBER"
 
   verify_dir_artifact_signatures ${download_dir}
@@ -258,11 +260,11 @@ test_yum() {
 
   case "$(arch)" in
     "x86_64")
-      for target in "almalinux:9" \
+      for target in "almalinux:10" \
+                    "almalinux:9" \
                     "almalinux:8" \
                     "amazonlinux:2023" \
                     "quay.io/centos/centos:stream9" \
-                    "quay.io/centos/centos:stream8" \
                     "centos:7"; do
         if ! docker run \
                --platform linux/x86_64 \
@@ -279,11 +281,11 @@ test_yum() {
       done
       ;;
     "aarch64")
-      for target in "arm64v8/almalinux:9" \
+      for target in "arm64v8/almalinux:10" \
+                    "arm64v8/almalinux:9" \
                     "arm64v8/almalinux:8" \
                     "arm64v8/amazonlinux:2023" \
-                    "quay.io/centos/centos:stream9" \
-                    "quay.io/centos/centos:stream8"; do
+                    "quay.io/centos/centos:stream9"; do
         if ! docker run \
                --platform linux/arm64 \
                --rm \
@@ -774,11 +776,19 @@ ensure_source_directory() {
   elif [ "${SOURCE_KIND}" = "git" ]; then
     # Remote arrow repository, testing repositories must be cloned
     : ${SOURCE_REPOSITORY:="https://github.com/apache/arrow"}
-    echo "Verifying Arrow repository ${SOURCE_REPOSITORY} with revision checkout ${VERSION}"
+    case "${VERSION}" in
+      *.*.*)
+        revision="apache-arrow-${VERSION}"
+        ;;
+      *)
+        revision="${VERSION}"
+        ;;
+    esac
+    echo "Verifying Arrow repository ${SOURCE_REPOSITORY} with revision checkout ${revision}"
     export ARROW_SOURCE_DIR="${ARROW_TMPDIR}/arrow"
     if [ ! -d "${ARROW_SOURCE_DIR}" ]; then
       git clone --recurse-submodules $SOURCE_REPOSITORY $ARROW_SOURCE_DIR
-      git -C $ARROW_SOURCE_DIR checkout $VERSION
+      git -C $ARROW_SOURCE_DIR checkout "${revision}"
     fi
   else
     # Release tarball, testing repositories must be cloned separately
@@ -835,6 +845,27 @@ test_source_distribution() {
 
   pushd $ARROW_SOURCE_DIR
 
+  if [ "${SOURCE_KIND}" = "tarball" ] && [ "${TEST_SOURCE_REPRODUCIBLE}" -gt 0 ]; then
+    pushd ..
+    git clone "https://github.com/${GITHUB_REPOSITORY}.git" arrow
+    pushd arrow
+    dev/release/utils-create-release-tarball.sh "${VERSION}" "${RC_NUMBER}"
+    tarball="apache-arrow-${VERSION}.tar.gz"
+    if ! cmp "${tarball}" "../${tarball}"; then
+      echo "Source archive isn't reproducible"
+      if ! tar --version | grep --quiet --fixed GNU && \
+          ! gtar --version | grep --quiet --fixed GNU; then
+        echo "We need GNU tar to verify reproducible build"
+      fi
+      if ! gzip --version | grep --quiet --fixed GNU; then
+        echo "We need GNU gzip to verify reproducible build"
+      fi
+      return 1
+    fi
+    popd
+    popd
+  fi
+
   if [ ${TEST_CSHARP} -gt 0 ]; then
     test_csharp
   fi
@@ -882,7 +913,7 @@ test_linux_wheels() {
   fi
 
   local python_versions="${TEST_PYTHON_VERSIONS:-3.9 3.10 3.11 3.12 3.13}"
-  local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux2014_${arch}.manylinux_2_17_${arch} manylinux_2_28_${arch}}"
+  local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_28_${arch}}"
 
   if [ "${SOURCE_KIND}" != "local" ]; then
     local wheel_content="OFF"
@@ -988,7 +1019,7 @@ test_wheels() {
       --package_type python \
       --regex=${filter_regex} \
       --dest=${download_dir} \
-      --repository=${GITHUB_REPOSITORY:-apache/arrow} \
+      --repository=${GITHUB_REPOSITORY} \
       --tag="apache-arrow-$VERSION-rc$RC_NUMBER"
 
     verify_dir_artifact_signatures ${download_dir}
@@ -1023,6 +1054,7 @@ test_wheels() {
 : ${TEST_YUM:=${TEST_BINARIES}}
 
 # Source verification tasks
+: ${TEST_SOURCE_REPRODUCIBLE:=0}
 : ${TEST_CPP:=${TEST_SOURCE}}
 : ${TEST_CSHARP:=${TEST_SOURCE}}
 : ${TEST_GLIB:=${TEST_SOURCE}}

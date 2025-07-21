@@ -164,7 +164,6 @@ x-hierarchy:
   # helper services
   - impala
   - postgres
-  - python-wheel-manylinux-2014
   - python-wheel-manylinux-2-28
   - python-wheel-musllinux-1-2
   - python-wheel-manylinux-test-imports
@@ -195,8 +194,6 @@ volumes:
     name: ${ARCH}-fedora-${FEDORA}-ccache
   maven-cache:
     name: maven-cache
-  python-wheel-manylinux2014-ccache:
-    name: python-wheel-manylinux2014-ccache
   python-wheel-manylinux-2-28-ccache:
     name: python-wheel-manylinux-2-28-ccache
   python-wheel-musllinux-1-2-ccache:
@@ -725,7 +722,7 @@ services:
     #   docker compose run --rm fedora-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   FEDORA: 39
+    #   FEDORA: 42
     image: ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
     build:
       context: .
@@ -1045,7 +1042,7 @@ services:
     #   docker compose run --rm fedora-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   FEDORA: 39
+    #   FEDORA: 42
     image: ${REPO}:${ARCH}-fedora-${FEDORA}-python-3
     build:
       context: .
@@ -1137,31 +1134,6 @@ services:
     command: *python-command
 
   ############################ Python wheels ##################################
-
-  # See available versions at:
-  #    https://quay.io/repository/pypa/manylinux2014_x86_64?tab=tags
-  python-wheel-manylinux-2014:
-    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
-    build:
-      args:
-        arch: ${ARCH}
-        arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2024-08-03-32dfa47
-        manylinux: 2014
-        python: ${PYTHON}
-        python_abi_tag: ${PYTHON_ABI_TAG}
-        vcpkg: ${VCPKG}
-      context: .
-      dockerfile: ci/docker/python-wheel-manylinux.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
-      secrets: *vcpkg-build-secrets
-    environment:
-      <<: [*common, *ccache]
-    volumes:
-      - .:/arrow:delegated
-      - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
-    command: /arrow/ci/scripts/python_wheel_xlinux_build.sh
 
   # See available versions at:
   #    https://quay.io/repository/pypa/manylinux_2_28_x86_64?tab=tags
@@ -1688,8 +1660,9 @@ services:
     environment:
       <<: *common
       LIBARROW_DOWNLOAD: "false"
-      ARROW_SOURCE_HOME: "/arrow"
+      ARROW_MIMALLOC: "OFF"
       ARROW_R_DEV: ${ARROW_R_DEV}
+      ARROW_SOURCE_HOME: "/arrow"
       ARROW_USE_PKG_CONFIG: "false"
     volumes:
       - .:/arrow:delegated
@@ -1833,11 +1806,11 @@ services:
       - SYS_ADMIN
     environment:
       <<: [*common, *ccache]
+      ARROW_AZURE: "ON"
       ARROW_CUDA: "ON"
       ARROW_CXX_FLAGS_DEBUG: "-g1"
       ARROW_C_FLAGS_DEBUG: "-g1"
       ARROW_HOME: "/tmp/local"
-      ARROW_JAVA_SKIP_GIT_PLUGIN:
       ARROW_SUBSTRAIT: "ON"
       BUILD_DOCS_C_GLIB: "ON"
       BUILD_DOCS_CPP: "ON"

@@ -38,6 +38,7 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_run_end.h"
 #include "arrow/array/builder_time.h"
 #include "arrow/array/data.h"
@@ -60,6 +61,7 @@
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/range.h"
@@ -72,6 +74,7 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using util::Float16;
 
 class TestArray : public ::testing::Test {
  public:
@@ -2091,6 +2094,24 @@ void CheckApproxEquals() {
 }
 
 template <typename TYPE>
+void CheckFloatApproxEqualsWithAtol() {
+  using c_type = typename TYPE::c_type;
+  auto type = TypeTraits<TYPE>::type_singleton();
+  std::shared_ptr<Array> a, b;
+  ArrayFromVector<TYPE>(type, {true}, {static_cast<c_type>(0.5)}, &a);
+  ArrayFromVector<TYPE>(type, {true}, {static_cast<c_type>(0.6)}, &b);
+  auto options = EqualOptions::Defaults().atol(0.2);
+
+  ASSERT_FALSE(a->Equals(b));
+  ASSERT_TRUE(a->Equals(b, options.use_atol(true)));
+  ASSERT_TRUE(a->ApproxEquals(b, options));
+
+  ASSERT_FALSE(a->RangeEquals(0, 1, 0, b, options));
+  ASSERT_TRUE(a->RangeEquals(0, 1, 0, b, options.use_atol(true)));
+  ASSERT_TRUE(ArrayRangeApproxEquals(*a, *b, 0, 1, 0, options));
+}
+
+template <typename TYPE>
 void CheckSliceApproxEquals() {
   using T = typename TYPE::c_type;
 
@@ -2292,6 +2313,11 @@ void CheckFloatingZeroEquality() {
 TEST(TestPrimitiveAdHoc, FloatingApproxEquals) {
   CheckApproxEquals<FloatType>();
   CheckApproxEquals<DoubleType>();
+}
+
+TEST(TestPrimitiveAdHoc, FloatingApproxEqualsWithAtol) {
+  CheckFloatApproxEqualsWithAtol<FloatType>();
+  CheckFloatApproxEqualsWithAtol<DoubleType>();
 }
 
 TEST(TestPrimitiveAdHoc, FloatingSliceApproxEquals) {
@@ -3896,6 +3922,7 @@ class TestArrayDataStatistics : public ::testing::Test {
   void SetUp() {
     valids_ = {1, 0, 1, 1};
     null_count_ = std::count(valids_.begin(), valids_.end(), 0);
+    average_byte_width_ = 4.0;
     null_buffer_ = *internal::BytesToBits(valids_);
     values_ = {1, 0, 3, -4};
     min_ = *std::min_element(values_.begin(), values_.end());
@@ -3905,6 +3932,8 @@ class TestArrayDataStatistics : public ::testing::Test {
                             null_count_);
     data_->statistics = std::make_shared<ArrayStatistics>();
     data_->statistics->null_count = null_count_;
+    data_->statistics->average_byte_width = average_byte_width_;
+    data_->statistics->is_average_byte_width_exact = true;
     data_->statistics->min = min_;
     data_->statistics->is_min_exact = true;
     data_->statistics->max = max_;
@@ -3914,6 +3943,7 @@ class TestArrayDataStatistics : public ::testing::Test {
  protected:
   std::vector<uint8_t> valids_;
   size_t null_count_;
+  double average_byte_width_;
   std::shared_ptr<Buffer> null_buffer_;
   std::vector<int32_t> values_;
   int64_t min_;
@@ -3928,6 +3958,11 @@ TEST_F(TestArrayDataStatistics, MoveConstructor) {
 
   ASSERT_TRUE(moved_data.statistics->null_count.has_value());
   ASSERT_EQ(null_count_, moved_data.statistics->null_count.value());
+
+  ASSERT_TRUE(moved_data.statistics->average_byte_width.has_value());
+  ASSERT_DOUBLE_EQ(average_byte_width_,
+                   moved_data.statistics->average_byte_width.value());
+  ASSERT_TRUE(moved_data.statistics->is_average_byte_width_exact);
 
   ASSERT_TRUE(moved_data.statistics->min.has_value());
   ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics->min.value()));
@@ -3945,6 +3980,11 @@ TEST_F(TestArrayDataStatistics, CopyConstructor) {
 
   ASSERT_TRUE(copied_data.statistics->null_count.has_value());
   ASSERT_EQ(null_count_, copied_data.statistics->null_count.value());
+
+  ASSERT_TRUE(copied_data.statistics->average_byte_width.has_value());
+  ASSERT_DOUBLE_EQ(average_byte_width_,
+                   copied_data.statistics->average_byte_width.value());
+  ASSERT_TRUE(copied_data.statistics->is_average_byte_width_exact);
 
   ASSERT_TRUE(copied_data.statistics->min.has_value());
   ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics->min.value()));
@@ -3965,6 +4005,11 @@ TEST_F(TestArrayDataStatistics, MoveAssignment) {
   ASSERT_TRUE(moved_data.statistics->null_count.has_value());
   ASSERT_EQ(null_count_, moved_data.statistics->null_count.value());
 
+  ASSERT_TRUE(moved_data.statistics->average_byte_width.has_value());
+  ASSERT_DOUBLE_EQ(average_byte_width_,
+                   moved_data.statistics->average_byte_width.value());
+  ASSERT_TRUE(moved_data.statistics->is_average_byte_width_exact);
+
   ASSERT_TRUE(moved_data.statistics->min.has_value());
   ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics->min.value()));
   ASSERT_EQ(min_, std::get<int64_t>(moved_data.statistics->min.value()));
@@ -3982,6 +4027,11 @@ TEST_F(TestArrayDataStatistics, CopyAssignment) {
 
   ASSERT_TRUE(copied_data.statistics->null_count.has_value());
   ASSERT_EQ(null_count_, copied_data.statistics->null_count.value());
+
+  ASSERT_TRUE(copied_data.statistics->average_byte_width.has_value());
+  ASSERT_DOUBLE_EQ(average_byte_width_,
+                   copied_data.statistics->average_byte_width.value());
+  ASSERT_TRUE(copied_data.statistics->is_average_byte_width_exact);
 
   ASSERT_TRUE(copied_data.statistics->min.has_value());
   ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics->min.value()));
@@ -4071,6 +4121,75 @@ TYPED_TEST(TestPrimitiveArray, IndexOperator) {
       ASSERT_FALSE(res.has_value());
       ASSERT_EQ(res, std::nullopt);
     }
+  }
+}
+
+class TestHalfFloatBuilder : public ::testing::Test {
+ public:
+  void VerifyValue(const HalfFloatBuilder& builder, int64_t index, float expected) {
+    ASSERT_EQ(builder.GetValue(index), Float16(expected).bits());
+    ASSERT_EQ(builder.GetValue<Float16>(index), Float16(expected));
+    ASSERT_EQ(builder.GetValue<uint16_t>(index), Float16(expected).bits());
+    ASSERT_EQ(builder[index], Float16(expected).bits());
+  }
+};
+
+TEST_F(TestHalfFloatBuilder, TestAppend) {
+  HalfFloatBuilder builder;
+  ASSERT_OK(builder.Append(Float16(0.0f)));
+  ASSERT_OK(builder.Append(Float16(1.0f).bits()));
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.Reserve(3));
+  builder.UnsafeAppend(Float16(3.0f));
+  builder.UnsafeAppend(Float16(4.0f).bits());
+  builder.UnsafeAppend(uint16_t{15872});  // 1.5f
+
+  VerifyValue(builder, 0, 0.0f);
+  VerifyValue(builder, 1, 1.0f);
+  VerifyValue(builder, 3, 3.0f);
+  VerifyValue(builder, 4, 4.0f);
+  VerifyValue(builder, 5, 1.5f);
+}
+
+TEST_F(TestHalfFloatBuilder, TestBulkAppend) {
+  HalfFloatBuilder builder;
+
+  ASSERT_OK(builder.AppendValues(5, Float16(1.5)));
+  uint16_t val = Float16(2.0f).bits();
+  ASSERT_OK(builder.AppendValues({val, val, val, val}, {0, 1, 0, 1}));
+  ASSERT_EQ(builder.length(), 9);
+  for (int i = 0; i < 5; i++) {
+    VerifyValue(builder, i, 1.5f);
+  }
+
+  {
+    ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_EQ(array->null_count(), 2);
+    ASSERT_EQ(array->length(), 9);
+    auto comp = ArrayFromJSON(float16(), "[1.5,1.5,1.5,1.5,1.5,null,2,null,2]");
+    AssertArraysEqual(*array, *comp);
+  }
+
+  std::vector<Float16> vals = {Float16(1.0f), Float16(2.0f), Float16(3.0f)};
+  std::vector<bool> is_valid = {true, false, true};
+  std::vector<uint8_t> valid_bytes = {1, 0, 1};
+  std::vector<uint8_t> bitmap = {0b00000101};
+  ASSERT_OK(builder.AppendValues(vals));
+  ASSERT_OK(builder.AppendValues(vals, is_valid));
+  ASSERT_OK(builder.AppendValues(vals.data(), vals.size(), is_valid));
+  ASSERT_OK(builder.AppendValues(vals.data(), vals.size()));
+  ASSERT_OK(builder.AppendValues(vals.data(), vals.size(), valid_bytes.data()));
+  ASSERT_OK(builder.AppendValues(vals.data(), vals.size(), bitmap.data(), 0));
+
+  {
+    ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_EQ(array->null_count(), 4);
+    ASSERT_EQ(array->length(), 18);
+    auto comp =
+        ArrayFromJSON(float16(), "[1,2,3,1,null,3,1,null,3,1,2,3,1,null,3,1,null,3]");
+    AssertArraysEqual(*array, *comp);
   }
 }
 

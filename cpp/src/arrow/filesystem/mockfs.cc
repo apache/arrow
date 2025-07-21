@@ -108,10 +108,7 @@ struct Directory {
     return p.second;
   }
 
-  void AssignEntry(const std::string& s, std::unique_ptr<Entry> entry) {
-    DCHECK(!s.empty());
-    entries[s] = std::move(entry);
-  }
+  void AssignEntry(const std::string& s, std::unique_ptr<Entry> entry);
 
   bool DeleteEntry(const std::string& s) { return entries.erase(s) > 0; }
 
@@ -187,6 +184,11 @@ class Entry : public EntryBase {
   ARROW_DISALLOW_COPY_AND_ASSIGN(Entry);
 };
 
+void Directory::AssignEntry(const std::string& s, std::unique_ptr<Entry> entry) {
+  DCHECK(!s.empty());
+  entries[s] = std::move(entry);
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Streams
 
@@ -255,12 +257,12 @@ class MockFSInputStream : public io::BufferReader {
 
 }  // namespace
 
-std::ostream& operator<<(std::ostream& os, const MockDirInfo& di) {
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const MockDirInfo& di) {
   return os << "'" << di.full_path << "' [mtime=" << di.mtime.time_since_epoch().count()
             << "]";
 }
 
-std::ostream& operator<<(std::ostream& os, const MockFileInfo& di) {
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const MockFileInfo& di) {
   return os << "'" << di.full_path << "' [mtime=" << di.mtime.time_since_epoch().count()
             << ", size=" << di.data.length() << "]";
 }

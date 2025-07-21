@@ -17,6 +17,7 @@
 
 #include <cstring>
 
+#include "arrow/compute/util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/simd.h"
