@@ -52,54 +52,67 @@ class TypesEnum(Enum):
     """
     An Enum that maps constant values
     to underlying data types with the same name.
-    Please note that this Enum is referential,
-    since some of the types listed here
-    are not supported by PyArrow yet.
-    Please see the list of supported types here:
+    Note some of the types listed here
+    are not supported by PyArrow yet
+    (INTERVAL_MONTHS and INTERVAL_DAY_TIME).
+    See the list of supported types here:
     https://arrow.apache.org/docs/python/api/datatypes.html
     """
+
     NA = lib.Type_NA
     BOOL = lib.Type_BOOL
+
     INT8 = lib.Type_INT8
     INT16 = lib.Type_INT16
     INT32 = lib.Type_INT32
     INT64 = lib.Type_INT64
+
     UINT8 = lib.Type_UINT8
     UINT16 = lib.Type_UINT16
     UINT32 = lib.Type_UINT32
     UINT64 = lib.Type_UINT64
+
     HALF_FLOAT = lib.Type_HALF_FLOAT
     FLOAT = lib.Type_FLOAT
     DOUBLE = lib.Type_DOUBLE
+
+    BINARY = lib.Type_BINARY
+    BINARY_VIEW = lib.Type_BINARY_VIEW
+    LARGE_BINARY = lib.Type_LARGE_BINARY
+    STRING = lib.Type_STRING
+    STRING_VIEW = lib.Type_STRING_VIEW
+    LARGE_STRING = lib.Type_LARGE_STRING
+    FIXED_SIZE_BINARY = lib.Type_FIXED_SIZE_BINARY
+
     DECIMAL32 = lib.Type_DECIMAL32
     DECIMAL64 = lib.Type_DECIMAL64
     DECIMAL128 = lib.Type_DECIMAL128
     DECIMAL256 = lib.Type_DECIMAL256
-    DATE32 = lib.Type_DATE32
-    DATE64 = lib.Type_DATE64
-    TIMESTAMP = lib.Type_TIMESTAMP
-    TIME32 = lib.Type_TIME32
-    TIME64 = lib.Type_TIME64
-    DURATION = lib.Type_DURATION
-    INTERVAL_MONTH_DAY_NANO = lib.Type_INTERVAL_MONTH_DAY_NANO
-    BINARY = lib.Type_BINARY
-    STRING = lib.Type_STRING
-    LARGE_BINARY = lib.Type_LARGE_BINARY
-    LARGE_STRING = lib.Type_LARGE_STRING
-    FIXED_SIZE_BINARY = lib.Type_FIXED_SIZE_BINARY
-    BINARY_VIEW = lib.Type_BINARY_VIEW
-    STRING_VIEW = lib.Type_STRING_VIEW
+
     LIST = lib.Type_LIST
     LARGE_LIST = lib.Type_LARGE_LIST
     LIST_VIEW = lib.Type_LIST_VIEW
     LARGE_LIST_VIEW = lib.Type_LARGE_LIST_VIEW
     MAP = lib.Type_MAP
     FIXED_SIZE_LIST = lib.Type_FIXED_SIZE_LIST
+
     STRUCT = lib.Type_STRUCT
     SPARSE_UNION = lib.Type_SPARSE_UNION
     DENSE_UNION = lib.Type_DENSE_UNION
-    DICTIONARY = lib.Type_DICTIONARY
     RUN_END_ENCODED = lib.Type_RUN_END_ENCODED
+
+    DATE32 = lib.Type_DATE32
+    DATE64 = lib.Type_DATE64
+    TIME32 = lib.Type_TIME32
+    TIME64 = lib.Type_TIME64
+    TIMESTAMP = lib.Type_TIMESTAMP
+
+    INTERVAL_MONTHS = lib.Type_INTERVAL_MONTHS
+    INTERVAL_DAY_TIME = lib.Type_INTERVAL_DAY_TIME
+    INTERVAL_MONTH_DAY_NANO = lib.Type_INTERVAL_MONTH_DAY_NANO
+
+    DURATION = lib.Type_DURATION
+    DICTIONARY = lib.Type_DICTIONARY
 
 
 @doc(datatype="null")
