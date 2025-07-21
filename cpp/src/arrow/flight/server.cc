@@ -307,10 +307,6 @@ class RecordBatchStream::RecordBatchStreamImpl {
   }
 
   Status Next(FlightPayload* payload) {
-    if (!writer_) {
-      return Status::Invalid("Writer not initialized");
-    }
-
     // If we have previous payloads (dictionary messages or previous record batches)
     // return them first before reading next record batch.
     if (!payload_list_.empty()) {
@@ -324,16 +320,21 @@ class RecordBatchStream::RecordBatchStreamImpl {
 
     if (!batch) {
       // End of stream
-      RETURN_NOT_OK(writer_->Close());
+      if (writer_) {
+        RETURN_NOT_OK(writer_->Close());
+      }
       payload->ipc_message.metadata = nullptr;
       return Status::OK();
     }
 
-    // Check if schema has changed and recreate writer if needed
-    // TODO: Investigate why this is needed for a flight-sql specific test.
-    if (!batch->schema()->Equals(*reader_->schema())) {
+    // Check if writer is already initialized or if schema has changed.
+    // To recreate the writer.
+    // TODO: Investigate why schema changed is needed for a flight-sql specific test.
+    if (!writer_ || !batch->schema()->Equals(*reader_->schema())) {
       // Close current writer
-      RETURN_NOT_OK(writer_->Close());
+      if (writer_) {
+        RETURN_NOT_OK(writer_->Close());
+      }
 
       // Create new writer with the batch's schema
       auto payload_writer =
@@ -346,7 +347,8 @@ class RecordBatchStream::RecordBatchStreamImpl {
       }
       writer_ = std::move(writer_result).ValueOrDie();
       if (!payload_list_.empty()) {
-        // Drop new ipc schema message change if it was generated.
+        // Drop Schema message if it was generated.
+        // We want new Dictionary or RecordBatch messages only.
         payload_list_.pop_front();
       }
     }
