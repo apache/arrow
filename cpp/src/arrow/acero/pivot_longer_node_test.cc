@@ -198,8 +198,8 @@ TEST(PivotLongerNode, ExamplesFromTidyr2) {
   PivotLongerNodeOptions options;
   options.feature_field_names = {"week"};
   options.measurement_field_names = {"rank"};
-  options.row_templates = {{{std::make_shared<StringScalar>("1")}, {{2}}},
-                           {{std::make_shared<StringScalar>("2")}, {{3}}}};
+  options.row_templates = {{{std::make_shared<UInt32Scalar>(1)}, {{2}}},
+                           {{std::make_shared<UInt32Scalar>(2)}, {{3}}}};
 
   Declaration plan = Declaration::Sequence(
       {{"table_source", TableSourceNodeOptions(std::move(input))},
@@ -212,14 +212,14 @@ TEST(PivotLongerNode, ExamplesFromTidyr2) {
                        DeclarationToTable(std::move(plan)));
 
   std::shared_ptr<Schema> expected_schema =
-      schema({field("artist", utf8()), field("track", utf8()), field("week", utf8()),
+      schema({field("artist", utf8()), field("track", utf8()), field("week", uint32()),
               field("rank", float64())});
   std::shared_ptr<Table> expected = TableFromJSON(expected_schema, {{
                                                                        R"([
-        ["2 Pac", "Baby Don't Cry", "1", 87],
-        ["2Ge+her", "The Hardest Part Of", "1", 91],
-        ["2 Pac", "Baby Don't Cry", "2", 82],
-        ["2Ge+her", "The Hardest Part Of", "2", 87]
+        ["2 Pac", "Baby Don't Cry", 1, 87],
+        ["2Ge+her", "The Hardest Part Of", 1, 91],
+        ["2 Pac", "Baby Don't Cry", 2, 82],
+        ["2Ge+her", "The Hardest Part Of", 2, 87]
     ])"}});
 
   AssertTablesEqual(*expected, *output, /*same_chunk_layout=*/false);
