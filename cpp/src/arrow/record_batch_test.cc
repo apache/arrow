@@ -165,7 +165,7 @@ TEST_F(TestRecordBatchEqualsSameAddress, NonFloatType) {
   ASSERT_TRUE(b0->ApproxEquals(*b1, options.nans_equal(true)));
 }
 
-TEST_F(TestRecordBatchEqualsSameAddress, NestedTypesWithoutFloat) {
+TEST_F(TestRecordBatchEqualsSameAddress, NestedTypesWithoutFloatType) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", struct_({{"f2", int64()}, {"f3", int8()}}));
 
@@ -208,7 +208,7 @@ TEST_F(TestRecordBatchEqualsSameAddress, FloatType) {
   ASSERT_TRUE(b0->ApproxEquals(*b1, options.nans_equal(true)));
 }
 
-TEST_F(TestRecordBatchEqualsSameAddress, NestedTypeWithFloat) {
+TEST_F(TestRecordBatchEqualsSameAddress, NestedTypesWithFloatType) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", struct_({{"f2", int64()}, {"f3", float32()}}));
 
