@@ -100,7 +100,9 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
         metadata.statistics.null_count, metadata.statistics.distinct_count,
         metadata.statistics.__isset.max_value && metadata.statistics.__isset.min_value,
         metadata.statistics.__isset.null_count,
-        metadata.statistics.__isset.distinct_count);
+        metadata.statistics.__isset.distinct_count,
+        metadata.statistics.__isset.is_min_value_exact,
+        metadata.statistics.__isset.is_max_value_exact);
   }
   // Default behavior
   return MakeStatistics<DType>(
@@ -108,7 +110,9 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
       metadata.num_values - metadata.statistics.null_count,
       metadata.statistics.null_count, metadata.statistics.distinct_count,
       metadata.statistics.__isset.max && metadata.statistics.__isset.min,
-      metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count);
+      metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count,
+      metadata.statistics.__isset.is_min_value_exact,
+      metadata.statistics.__isset.is_max_value_exact);
 }
 
 namespace {
