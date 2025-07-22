@@ -66,10 +66,28 @@ find_package_handle_standard_args(
 
 if(orcAlt_FOUND)
   if(NOT TARGET orc::orc)
+    # For old Apache Orc. For example, apache-orc 2.0.3 on Alpine
+    # Linux 3.20 and 3.21.
     add_library(orc::orc STATIC IMPORTED)
     set_target_properties(orc::orc
                           PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
                                      INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
+    if(ARROW_WITH_LZ4 AND TARGET LZ4::lz4)
+      target_link_libraries(orc::orc INTERFACE LZ4::lz4)
+    endif()
+    if(ARROW_WITH_SNAPPY AND TARGET Snappy::snappy)
+      target_link_libraries(orc::orc INTERFACE Snappy::snappy)
+    endif()
+    if(ARROW_WITH_ZSTD)
+      if(TARGET zstd::libzstd_shared)
+        target_link_libraries(orc::orc INTERFACE zstd::libzstd_shared)
+      elseif(TARGET zstd::libzstd_static)
+        target_link_libraries(orc::orc INTERFACE zstd::libzstd_static)
+      endif()
+    endif()
+    if(ARROW_WITH_ZLIB AND TARGET ZLIB::ZLIB)
+      target_link_libraries(orc::orc INTERFACE ZLIB::ZLIB)
+    endif()
   endif()
   set(orcAlt_VERSION ${ORC_VERSION})
 endif()
