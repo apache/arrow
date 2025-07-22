@@ -53,6 +53,8 @@ repos:
     rev: v20.1.8
     hooks:
       - id: clang-format
+        # Fixing pre-commit provided by CI Ubuntu 22
+        types_or: [c++, c, c#, cuda, java, javascript, json, objective-c, proto]
         name: C++ Format
         alias: cpp
         types_or:
@@ -96,6 +98,8 @@ repos:
     rev: v20.1.8
     hooks:
       - id: clang-format
+        # Fixing pre-commit provided by CI Ubuntu 22
+        types_or: [c++, c, c#, cuda, java, javascript, json, objective-c, proto]
         alias: c-glib
         name: C/GLib Format
         files: >-
@@ -104,6 +108,8 @@ repos:
     rev: v20.1.8
     hooks:
       - id: clang-format
+        # Fixing pre-commit provided by CI Ubuntu 22
+        types_or: [c++, c, c#, cuda, java, javascript, json, objective-c, proto]
         name: MATLAB (C++) Format
         alias: matlab-cpp-format
         files: >-
@@ -159,6 +165,8 @@ repos:
     rev: v20.1.8
     hooks:
       - id: clang-format
+        # Fixing pre-commit provided by CI Ubuntu 22
+        types_or: [c++, c, c#, cuda, java, javascript, json, objective-c, proto]
         alias: python
         name: Python (C++) Format
         files: >-
@@ -216,6 +224,8 @@ repos:
     rev: v20.1.8
     hooks:
       - id: clang-format
+        # Fixing pre-commit provided by CI Ubuntu 22
+        types_or: [c++, c, c#, cuda, java, javascript, json, objective-c, proto]
         alias: r
         name: R (C++) Format
         files: >-
