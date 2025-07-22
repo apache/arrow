@@ -43,9 +43,15 @@ TEST(PivotLongerNode, Basic) {
           ->Table(kRowsPerBatch, kNumBatches);
 
   PivotLongerNodeOptions options;
-  options.feature_field_names = {"feature1", "feature2"};
+  options.feature_field_names = {"feature1", "feature2", "feature3"};
   options.measurement_field_names = {"meas1", "meas2"};
-  options.row_templates = {{{"a", "x"}, {{1}, {3}}}, {{"b", "y"}, {{2}, std::nullopt}}};
+  options.row_templates = {
+      {{std::make_shared<StringScalar>("a"), std::make_shared<StringScalar>("x"),
+        std::make_shared<UInt32Scalar>(12)},
+       {{1}, {3}}},
+      {{std::make_shared<StringScalar>("b"), std::make_shared<StringScalar>("y"),
+        std::make_shared<UInt32Scalar>(13)},
+       {{2}, std::nullopt}}};
 
   Declaration plan = Declaration::Sequence({
       {"table_source", TableSourceNodeOptions(std::move(input))},
@@ -62,6 +68,7 @@ TEST(PivotLongerNode, Basic) {
       field("f3", uint32()),
       field("feature1", utf8()),
       field("feature2", utf8()),
+      field("feature3", uint32()),
       field("meas1", uint32()),
       field("meas2", uint32()),
   });
@@ -98,19 +105,27 @@ TEST(PivotLongerNode, Error) {
              "There were names given for 1 feature columns but one of the row templates "
              "only had 0 feature values");
 
-  options.row_templates = {{{"x"}, {}}};
+  options.row_templates = {{{std::make_shared<StringScalar>("x")}, {}}};
   CheckError(
       options,
       "There were names given for 1 measurement columns but one of the row templates "
       "only had 0 field references");
 
-  options.row_templates = {{{"x"}, {{0}}}, {{"y"}, {{1}}}};
+  options.row_templates = {{{std::make_shared<StringScalar>("x")}, {{0}}},
+                           {{std::make_shared<StringScalar>("y")}, {{1}}}};
   CheckError(
       options,
       "Some row templates had the type uint32 but later row templates had the type bool");
 
-  options.row_templates = {{{"x"}, {std::nullopt}}, {{"y"}, {std::nullopt}}};
+  options.row_templates = {{{std::make_shared<StringScalar>("x")}, {std::nullopt}},
+                           {{std::make_shared<StringScalar>("y")}, {std::nullopt}}};
   CheckError(options, "All row templates had nullopt");
+
+  options.row_templates = {{{std::make_shared<StringScalar>("x")}, {{0}}},
+                           {{std::make_shared<UInt32Scalar>(1)}, {{0}}}};
+  CheckError(options,
+             "Some row templates had the type string but later row templates had the "
+             "type uint32");
 }
 
 // The following examples are smaller versions of examples taken from
@@ -130,11 +145,11 @@ TEST(PivotLongerNode, ExamplesFromTidyr1) {
   PivotLongerNodeOptions options;
   options.feature_field_names = {"income"};
   options.measurement_field_names = {"count"};
-  options.row_templates = {{{"<$10k"}, {{1}}},
-                           {{"$10k-20k"}, {{2}}},
-                           {{"$20k-30k"}, {{3}}},
-                           {{"$30k-40k"}, {{4}}},
-                           {{"$40k-50k"}, {{5}}}};
+  options.row_templates = {{{std::make_shared<StringScalar>("<$10k")}, {{1}}},
+                           {{std::make_shared<StringScalar>("$10k-20k")}, {{2}}},
+                           {{std::make_shared<StringScalar>("$20k-30k")}, {{3}}},
+                           {{std::make_shared<StringScalar>("$30k-40k")}, {{4}}},
+                           {{std::make_shared<StringScalar>("$40k-50k")}, {{5}}}};
 
   Declaration plan = Declaration::Sequence(
       {{"table_source", TableSourceNodeOptions(std::move(input))},
@@ -183,7 +198,8 @@ TEST(PivotLongerNode, ExamplesFromTidyr2) {
   PivotLongerNodeOptions options;
   options.feature_field_names = {"week"};
   options.measurement_field_names = {"rank"};
-  options.row_templates = {{{"1"}, {{2}}}, {{"2"}, {{3}}}};
+  options.row_templates = {{{std::make_shared<StringScalar>("1")}, {{2}}},
+                           {{std::make_shared<StringScalar>("2")}, {{3}}}};
 
   Declaration plan = Declaration::Sequence(
       {{"table_source", TableSourceNodeOptions(std::move(input))},
@@ -222,7 +238,13 @@ TEST(PivotLongerNode, ExamplesFromTidyr3) {
   PivotLongerNodeOptions options;
   options.feature_field_names = {"diagnosis", "gender", "age"};
   options.measurement_field_names = {"count"};
-  options.row_templates = {{{"sp", "m", "014"}, {{1}}}, {{"sp", "m", "1524"}, {{2}}}};
+  options.row_templates = {
+      {{std::make_shared<StringScalar>("sp"), std::make_shared<StringScalar>("m"),
+        std::make_shared<StringScalar>("014")},
+       {{1}}},
+      {{std::make_shared<StringScalar>("sp"), std::make_shared<StringScalar>("m"),
+        std::make_shared<StringScalar>("1524")},
+       {{2}}}};
 
   Declaration plan = Declaration::Sequence(
       {{"table_source", TableSourceNodeOptions(std::move(input))},
@@ -261,7 +283,8 @@ TEST(PivotLongerNode, ExamplesFromTidyr4) {
   PivotLongerNodeOptions options;
   options.feature_field_names = {"set"};
   options.measurement_field_names = {"x", "y"};
-  options.row_templates = {{{"1"}, {{0}, {2}}}, {{"2"}, {{1}, {3}}}};
+  options.row_templates = {{{std::make_shared<StringScalar>("1")}, {{0}, {2}}},
+                           {{std::make_shared<StringScalar>("2")}, {{1}, {3}}}};
 
   Declaration plan = Declaration::Sequence(
       {{"table_source", TableSourceNodeOptions(std::move(input))},
