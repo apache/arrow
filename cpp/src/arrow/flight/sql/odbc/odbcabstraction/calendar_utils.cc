@@ -17,8 +17,9 @@
 
 #include "odbcabstraction/calendar_utils.h"
 
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include <chrono>
 #include <cstdint>
+#include <cstring>
 #include <ctime>
 
 namespace driver {
@@ -40,16 +41,29 @@ int64_t GetTodayTimeFromEpoch() {
 #endif
 }
 
-void GetTimeForSecondsSinceEpoch(tm& date, int64_t value) {
+void GetTimeForSecondsSinceEpoch(std::tm& out_tm, int64_t seconds_since_epoch) {
   try {
-    boost::posix_time::ptime pt =
-        boost::posix_time::from_time_t(0) + boost::posix_time::seconds(value);
-    date = boost::posix_time::to_tm(pt);
+    std::chrono::time_point<std::chrono::system_clock, std::chrono::seconds> timepoint{
+        std::chrono::seconds{seconds_since_epoch}};
+
+    std::chrono::year_month_day ymd = std::chrono::floor<std::chrono::days>(timepoint);
+
+    std::chrono::hh_mm_ss<std::chrono::seconds> timeofday{
+        timepoint - std::chrono::floor<std::chrono::days>(timepoint)};
+
+    std::memset(&out_tm, 0, sizeof(std::tm));
+
+    out_tm.tm_year = static_cast<int>(ymd.year()) - 1900;
+    out_tm.tm_mon = static_cast<unsigned>(ymd.month()) - 1;
+    out_tm.tm_mday = static_cast<unsigned>(ymd.day());
+    out_tm.tm_hour = static_cast<int>(timeofday.hours().count());
+    out_tm.tm_min = static_cast<int>(timeofday.minutes().count());
+    out_tm.tm_sec = static_cast<int>(timeofday.seconds().count());
   } catch (const std::exception&) {
-    std::memset(&date, 0, sizeof(tm));
-    date.tm_year = -1900;  // Represents year 0
-    date.tm_mon = 0;
-    date.tm_mday = 1;
+    std::memset(&out_tm, 0, sizeof(tm));
+    out_tm.tm_year = -1900;  // Represents year 0
+    out_tm.tm_mon = 0;
+    out_tm.tm_mday = 1;
   }
 }
 }  // namespace odbcabstraction
