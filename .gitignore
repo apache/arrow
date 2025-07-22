@@ -16,8 +16,7 @@
 # under the License.
 
 apache-rat-*.jar
-arrow-src.tar
-arrow-src.tar.gz
+apache-arrow.tar.gz
 
 # Compiled source
 *.a
