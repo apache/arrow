@@ -220,12 +220,15 @@ class PARQUET_EXPORT Statistics {
   /// \param[in] has_min_max whether the min/max statistics are set
   /// \param[in] has_null_count whether the null_count statistics are set
   /// \param[in] has_distinct_count whether the distinct_count statistics are set
+  /// \param[in] is_min_value_exact whether the min value is exact
+  /// \param[in] is_max_value_exact whether the max value is exact
   /// \param[in] pool a memory pool to use for any memory allocations, optional
   static std::shared_ptr<Statistics> Make(
       const ColumnDescriptor* descr, const std::string& encoded_min,
       const std::string& encoded_max, int64_t num_values, int64_t null_count,
       int64_t distinct_count, bool has_min_max, bool has_null_count,
-      bool has_distinct_count,
+      bool has_distinct_count, std::optional<bool> is_min_value_exact,
+      std::optional<bool> is_max_value_exact,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   // Helper function to convert EncodedStatistics to Statistics.
@@ -386,10 +389,13 @@ std::shared_ptr<TypedStatistics<DType>> MakeStatistics(
     const ColumnDescriptor* descr, const std::string& encoded_min,
     const std::string& encoded_max, int64_t num_values, int64_t null_count,
     int64_t distinct_count, bool has_min_max, bool has_null_count,
-    bool has_distinct_count, ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
-  return std::static_pointer_cast<TypedStatistics<DType>>(Statistics::Make(
-      descr, encoded_min, encoded_max, num_values, null_count, distinct_count,
-      has_min_max, has_null_count, has_distinct_count, pool));
+    bool has_distinct_count, std::optional<bool> is_min_value_exact,
+    std::optional<bool> is_max_value_exact,
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
+  return std::static_pointer_cast<TypedStatistics<DType>>(
+      Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
+                       distinct_count, has_min_max, has_null_count, has_distinct_count,
+                       is_min_value_exact, is_max_value_exact, pool));
 }
 
 }  // namespace parquet
