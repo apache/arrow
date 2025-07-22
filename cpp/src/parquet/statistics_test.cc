@@ -320,9 +320,9 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     std::string encoded_min = statistics1->EncodeMin();
     std::string encoded_max = statistics1->EncodeMax();
 
-    auto statistics2 =
-        MakeStatistics<TestType>(this->schema_.Column(0), encoded_min, encoded_max,
-                                 this->values_.size(), 0, 0, true, true, true);
+    auto statistics2 = MakeStatistics<TestType>(this->schema_.Column(0), encoded_min,
+                                                encoded_max, this->values_.size(), 0, 0,
+                                                true, true, true, true, true);
 
     auto statistics3 = MakeStatistics<TestType>(this->schema_.Column(0));
     std::vector<uint8_t> valid_bits(
@@ -336,10 +336,14 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     ASSERT_EQ(encoded_max, statistics2->EncodeMax());
     ASSERT_EQ(statistics1->min(), statistics2->min());
     ASSERT_EQ(statistics1->max(), statistics2->max());
+    ASSERT_EQ(statistics1->is_min_value_exact(), statistics2->is_min_value_exact());
+    ASSERT_EQ(statistics1->is_max_value_exact(), statistics2->is_max_value_exact());
     ASSERT_EQ(encoded_min_spaced, statistics2->EncodeMin());
     ASSERT_EQ(encoded_max_spaced, statistics2->EncodeMax());
     ASSERT_EQ(statistics3->min(), statistics2->min());
     ASSERT_EQ(statistics3->max(), statistics2->max());
+    ASSERT_EQ(statistics3->is_min_value_exact(), statistics2->is_min_value_exact());
+    ASSERT_EQ(statistics3->is_max_value_exact(), statistics2->is_max_value_exact());
   }
 
   void TestReset() {
@@ -552,9 +556,9 @@ void TestStatistics<ByteArrayType>::TestMinMaxEncode() {
             std::string(reinterpret_cast<const char*>(statistics1->max().ptr),
                         statistics1->max().len));
 
-  auto statistics2 =
-      MakeStatistics<ByteArrayType>(this->schema_.Column(0), encoded_min, encoded_max,
-                                    this->values_.size(), 0, 0, true, true, true);
+  auto statistics2 = MakeStatistics<ByteArrayType>(this->schema_.Column(0), encoded_min,
+                                                   encoded_max, this->values_.size(), 0,
+                                                   0, true, true, true, true, true);
 
   ASSERT_EQ(encoded_min, statistics2->EncodeMin());
   ASSERT_EQ(encoded_max, statistics2->EncodeMax());
