@@ -29,6 +29,7 @@
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/chunked_array.h"
+#include "arrow/compare.h"
 #include "arrow/compute/cast.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -152,7 +153,9 @@ TEST_F(TestTable, AllColumnsAndFields) {
   ASSERT_EQ(0, fields.size());
 }
 
-TEST_F(TestTable, Equals) {
+class TestTableEquality : public TestTable {};
+
+TEST_F(TestTableEquality, NonFloatTypesAndMetaData) {
   const int length = 100;
   MakeExample1(length);
 
@@ -184,6 +187,139 @@ TEST_F(TestTable, Equals) {
   other = Table::Make(other_schema, columns_);
   ASSERT_TRUE(table_->Equals(*other));
   ASSERT_FALSE(table_->Equals(*other, /*check_metadata=*/true));
+}
+
+class TestTableEqualityFloatType : public TestTableEquality {};
+
+TEST_F(TestTableEqualityFloatType, SameValue) {
+  schema_ = schema({field("f0", int32()), field("f1", float64())});
+  table_ = TableFromJSON(
+      schema_, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": 6.0}])"});
+
+  auto other_schema = schema({field("f0", int32()), field("f1", float64())});
+  auto other = TableFromJSON(
+      schema_, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": 6.0}])"});
+  ASSERT_TRUE(table_->Equals(*other));
+}
+
+TEST_F(TestTableEqualityFloatType, SingedZero) {
+  schema_ = schema({field("f0", int32()), field("f1", float64())});
+  table_ = TableFromJSON(
+      schema_,
+      {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": -0.0}, {"f0": 3, "f1": 0.0}])"});
+
+  auto other_schema = schema({field("f0", int32()), field("f1", float64())});
+  auto other = TableFromJSON(
+      schema_,
+      {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 0.0}, {"f0": 3, "f1": -0.0}])"});
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_TRUE(table_->Equals(*other, false, options));
+  ASSERT_FALSE(table_->Equals(*other, false, options.signed_zeros_equal(false)));
+}
+
+TEST_F(TestTableEqualityFloatType, Infinity) {
+  schema_ = schema({field("f0", int32()), field("f1", float64())});
+  table_ = TableFromJSON(
+      schema_, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": Inf}])"});
+
+  auto other_schema = schema({field("f0", int32()), field("f1", float64())});
+  auto other_with_negative_inf = TableFromJSON(
+      schema_,
+      {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": -Inf}])"});
+
+  auto other_with_positive_inf = TableFromJSON(
+      schema_, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": Inf}])"});
+  ASSERT_FALSE(table_->Equals(*other_with_negative_inf));
+  ASSERT_TRUE(table_->Equals(*other_with_positive_inf));
+}
+
+TEST_F(TestTableEqualityFloatType, NaN) {
+  schema_ = schema({field("f0", int32()), field("f1", float64())});
+  table_ = TableFromJSON(
+      schema_, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": NaN}, {"f0": 3, "f1": 6.0}])"});
+
+  auto other_schema = schema({field("f0", int32()), field("f1", float64())});
+  auto other = TableFromJSON(
+      schema_, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": NaN}, {"f0": 3, "f1": 6.0}])"});
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_FALSE(table_->Equals(*other, false, options));
+  ASSERT_TRUE(table_->Equals(*other, false, options.nans_equal(true)));
+}
+
+TEST_F(TestTableEqualityFloatType, Approximate) {
+  schema_ = schema({field("f0", int32()), field("f1", float64())});
+  table_ = TableFromJSON(
+      schema_,
+      {R"([{"f0": 1, "f1": 4.0001}, {"f0": 2, "f1": 5.0001}, {"f0": 3, "f1": 6.0001}])"});
+
+  auto other_schema = schema({field("f0", int32()), field("f1", float64())});
+  auto other = TableFromJSON(
+      schema_, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": 6.0}])"});
+
+  auto options = EqualOptions::Defaults();
+  ASSERT_FALSE(table_->Equals(*other, false, options));
+
+  options = options.use_atol(true).atol(1e-3);
+  ASSERT_TRUE(table_->Equals(*other, false, options));
+
+  options = options.use_atol(true).atol(1e-5);
+  ASSERT_FALSE(table_->Equals(*other, false, options));
+}
+
+class TestTableEqualitySameAddress : public TestTableEquality {};
+
+TEST_F(TestTableEqualitySameAddress, NonFloatType) {
+  schema_ = schema({field("f0", int32()), field("f1", uint8())});
+  table_ = TableFromJSON(
+      schema_, {R"([{"f0": 1, "f1": 4}, {"f0": 2, "f1": 5}, {"f0": 3, "f1": 6}])"});
+
+  auto other = table_;
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_TRUE(table_->Equals(*other, false, options));
+  ASSERT_TRUE(table_->Equals(*other, false, options.nans_equal(true)));
+}
+
+TEST_F(TestTableEqualitySameAddress, NestedTypesWithoutFloatType) {
+  schema_ = schema(
+      {field("f0", int32()), field("f1", struct_({{"f2", utf8()}, {"f3", int64()}}))});
+  table_ = TableFromJSON(
+      schema_,
+      {R"([{"f0": 1, "f1": {"f2": "4", "f3": 7}}, {"f0": 2, "f1": {"f2": "5", "f3": 8}}, {"f0": 3, "f1": {"f2" : "6", "f3": 9}}])"});
+
+  auto other = table_;
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_TRUE(table_->Equals(*other, false, options));
+  ASSERT_TRUE(table_->Equals(*other, false, options.nans_equal(true)));
+}
+
+TEST_F(TestTableEqualitySameAddress, FloatType) {
+  schema_ = schema({field("f0", int32()), field("f1", float64())});
+  table_ = TableFromJSON(
+      schema_, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": NaN}, {"f0": 3, "f1": 6.0}])"});
+
+  auto other = table_;
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_FALSE(table_->Equals(*other, false, options));
+  ASSERT_TRUE(table_->Equals(*other, false, options.nans_equal(true)));
+}
+
+TEST_F(TestTableEqualitySameAddress, NestedTypesWithFloatType) {
+  schema_ = schema(
+      {field("f0", int32()), field("f1", struct_({{"f2", utf8()}, {"f3", float64()}}))});
+  table_ = TableFromJSON(
+      schema_,
+      {R"([{"f0": 1, "f1": {"f2": "4", "f3":  7.0}}, {"f0": 2, "f1": {"f2": "5", "f3": NaN}}, {"f0": 3,"f1": {"f2" : "6", "f3": 9.0}}])"});
+
+  auto other = table_;
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_FALSE(table_->Equals(*other, false, options));
+  ASSERT_TRUE(table_->Equals(*other, false, options.nans_equal(true)));
 }
 
 TEST_F(TestTable, MakeEmpty) {
