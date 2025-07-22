@@ -1533,11 +1533,11 @@ struct ISOCalendar {
 // ----------------------------------------------------------------------
 // Registration helpers
 
-template <template <typename...> class Op,
-          template <template <typename...> class OpExec, typename Duration,
-                    typename InType, typename OutType, typename... Args>
-          class ExecTemplate,
-          typename OutType>
+template <
+    template <typename...> class Op,
+    template <template <typename...> class OpExec, typename Duration, typename InType,
+              typename OutType, typename... Args> class ExecTemplate,
+    typename OutType>
 struct UnaryTemporalFactory {
   OutputType out_type;
   KernelInit init;

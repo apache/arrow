@@ -62,12 +62,12 @@ struct DataMemberProperty {
   constexpr std::string_view name() const { return name_; }
 
   std::string_view name_;
-  Type Class::*ptr_;
+  Type Class::* ptr_;
 };
 
 template <typename Class, typename Type>
 constexpr DataMemberProperty<Class, Type> DataMember(std::string_view name,
-                                                     Type Class::*ptr) {
+                                                     Type Class::* ptr) {
   return {name, ptr};
 }
 
@@ -83,13 +83,13 @@ struct CoercedDataMemberProperty {
   constexpr std::string_view name() const { return name_; }
 
   std::string_view name_;
-  Type Class::*ptr_for_set_;
+  Type Class::* ptr_for_set_;
   Type (Class::*get_coerced_)() const;
 };
 
 template <typename Class, typename Type>
 constexpr CoercedDataMemberProperty<Class, Type> CoercedDataMember(std::string_view name,
-                                                                   Type Class::*ptr,
+                                                                   Type Class::* ptr,
                                                                    Type (Class::*get)()
                                                                        const) {
   return {name, ptr, get};

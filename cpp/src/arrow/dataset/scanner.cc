@@ -753,7 +753,7 @@ Future<int64_t> AsyncScanner::CountRowsAsync(Executor* executor) {
       [options, total](const std::shared_ptr<Fragment>& fragment) {
         return fragment->CountRows(options->filter, options)
             .Then([options, total, fragment](std::optional<int64_t> fast_count) mutable
-                  -> std::shared_ptr<Fragment> {
+                      -> std::shared_ptr<Fragment> {
               if (fast_count) {
                 // fast path: got row count directly; skip scanning this fragment
                 (*total) += *fast_count;

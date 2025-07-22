@@ -541,10 +541,7 @@ BENCHMARK(CopyBitmapWithOffsetBoth)->Arg(kBufferSize);
 BENCHMARK(BitmapEqualsWithoutOffset)->Arg(kBufferSize);
 BENCHMARK(BitmapEqualsWithOffset)->Arg(kBufferSize);
 
-#define AND_BENCHMARK_RANGES                      \
-  {                                               \
-    {kBufferSize * 4, kBufferSize * 16}, { 0, 2 } \
-  }
+#define AND_BENCHMARK_RANGES {{kBufferSize * 4, kBufferSize * 16}, {0, 2}}
 BENCHMARK(BenchmarkBitmapAnd)->Ranges(AND_BENCHMARK_RANGES);
 BENCHMARK(BenchmarkBitmapVisitBitsetAnd)->Ranges(AND_BENCHMARK_RANGES);
 BENCHMARK(BenchmarkBitmapVisitUInt8And)->Ranges(AND_BENCHMARK_RANGES);

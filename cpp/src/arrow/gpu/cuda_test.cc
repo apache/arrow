@@ -785,8 +785,8 @@ class TestCudaDeviceArrayRoundtrip : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(array, factory());
     ASSERT_OK_AND_ASSIGN(device_array, array->CopyTo(mm));
 
-    struct ArrowDeviceArray c_array {};
-    struct ArrowSchema c_schema {};
+    struct ArrowDeviceArray c_array{};
+    struct ArrowSchema c_schema{};
     ArrayExportGuard array_guard(&c_array.array);
     SchemaExportGuard schema_guard(&c_schema);
 

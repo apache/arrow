@@ -1226,8 +1226,8 @@ TEST_F(TestArrayExport, MoveSeveralChildren) {
 }
 
 TEST_F(TestArrayExport, ExportArrayAndType) {
-  struct ArrowSchema c_schema {};
-  struct ArrowArray c_array {};
+  struct ArrowSchema c_schema{};
+  struct ArrowArray c_array{};
   SchemaExportGuard schema_guard(&c_schema);
   ArrayExportGuard array_guard(&c_array);
 
@@ -1244,8 +1244,8 @@ TEST_F(TestArrayExport, ExportArrayAndType) {
 }
 
 TEST_F(TestArrayExport, ExportRecordBatch) {
-  struct ArrowSchema c_schema {};
-  struct ArrowArray c_array {};
+  struct ArrowSchema c_schema{};
+  struct ArrowArray c_array{};
 
   auto schema = ::arrow::schema(
       {field("ints", int16()), field("bools", boolean(), /*nullable=*/false)});
@@ -1704,8 +1704,8 @@ TEST_F(TestDeviceArrayExport, ExportArrayAndType) {
   std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
   auto mm = device->default_memory_manager();
 
-  struct ArrowSchema c_schema {};
-  struct ArrowDeviceArray c_array {};
+  struct ArrowSchema c_schema{};
+  struct ArrowDeviceArray c_array{};
   SchemaExportGuard schema_guard(&c_schema);
   ArrayExportGuard array_guard(&c_array.array);
 
@@ -1726,8 +1726,8 @@ TEST_F(TestDeviceArrayExport, ExportRecordBatch) {
   std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
   auto mm = device->default_memory_manager();
 
-  struct ArrowSchema c_schema {};
-  struct ArrowDeviceArray c_array {};
+  struct ArrowSchema c_schema{};
+  struct ArrowDeviceArray c_array{};
 
   auto schema = ::arrow::schema(
       {field("ints", int16()), field("bools", boolean(), /*nullable=*/false)});
@@ -3619,7 +3619,7 @@ class TestSchemaRoundtrip : public ::testing::Test {
   void TestWithTypeFactory(TypeFactory&& factory,
                            ExpectedTypeFactory&& factory_expected) {
     std::shared_ptr<DataType> type, actual;
-    struct ArrowSchema c_schema {};  // zeroed
+    struct ArrowSchema c_schema{};  // zeroed
     SchemaExportGuard schema_guard(&c_schema);
 
     auto orig_bytes = pool_->bytes_allocated();
@@ -3650,7 +3650,7 @@ class TestSchemaRoundtrip : public ::testing::Test {
   template <typename SchemaFactory>
   void TestWithSchemaFactory(SchemaFactory&& factory) {
     std::shared_ptr<Schema> schema, actual;
-    struct ArrowSchema c_schema {};  // zeroed
+    struct ArrowSchema c_schema{};  // zeroed
     SchemaExportGuard schema_guard(&c_schema);
 
     auto orig_bytes = pool_->bytes_allocated();
@@ -3865,8 +3865,8 @@ class TestArrayRoundtrip : public ::testing::Test {
   void TestWithArrayFactory(ArrayFactory&& factory,
                             ExpectedArrayFactory&& factory_expected) {
     std::shared_ptr<Array> array;
-    struct ArrowArray c_array {};
-    struct ArrowSchema c_schema {};
+    struct ArrowArray c_array{};
+    struct ArrowSchema c_schema{};
     ArrayExportGuard array_guard(&c_array);
     SchemaExportGuard schema_guard(&c_schema);
 
@@ -3910,8 +3910,8 @@ class TestArrayRoundtrip : public ::testing::Test {
   template <typename BatchFactory>
   void TestWithBatchFactory(BatchFactory&& factory) {
     std::shared_ptr<RecordBatch> batch;
-    struct ArrowArray c_array {};
-    struct ArrowSchema c_schema {};
+    struct ArrowArray c_array{};
+    struct ArrowSchema c_schema{};
     ArrayExportGuard array_guard(&c_array);
     SchemaExportGuard schema_guard(&c_schema);
 
@@ -4184,7 +4184,7 @@ TEST_F(TestArrayRoundtrip, RegisteredExtensionNoMetadata) {
       KeyValueMetadata::Make({"ARROW:extension:name"}, {ext_type->extension_name()});
   auto ext_field = field("", ext_type->storage_type(), true, std::move(ext_metadata));
 
-  struct ArrowSchema c_schema {};
+  struct ArrowSchema c_schema{};
   SchemaExportGuard schema_guard(&c_schema);
   ASSERT_OK(ExportField(*ext_field, &c_schema));
 
@@ -4305,8 +4305,8 @@ class TestDeviceArrayRoundtrip : public ::testing::Test {
   void TestWithArrayFactory(ArrayFactory&& factory,
                             ExpectedArrayFactory&& factory_expected) {
     std::shared_ptr<Array> array;
-    struct ArrowDeviceArray c_array {};
-    struct ArrowSchema c_schema {};
+    struct ArrowDeviceArray c_array{};
+    struct ArrowSchema c_schema{};
     ArrayExportGuard array_guard(&c_array.array);
     SchemaExportGuard schema_guard(&c_schema);
 
@@ -4354,8 +4354,8 @@ class TestDeviceArrayRoundtrip : public ::testing::Test {
     auto mm = device->default_memory_manager();
 
     std::shared_ptr<RecordBatch> batch;
-    struct ArrowDeviceArray c_array {};
-    struct ArrowSchema c_schema {};
+    struct ArrowDeviceArray c_array{};
+    struct ArrowSchema c_schema{};
     ArrayExportGuard array_guard(&c_array.array);
     SchemaExportGuard schema_guard(&c_schema);
 

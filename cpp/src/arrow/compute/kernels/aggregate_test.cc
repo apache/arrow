@@ -3889,8 +3889,7 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
 #define INTYPE(x) Datum(static_cast<typename TypeParam::c_type>(x))
 #define DOUBLE(x) Datum(static_cast<double>(x))
 // output type per interpolation: linear, lower, higher, nearest, midpoint
-#define O(a, b, c, d, e) \
-  { DOUBLE(a), INTYPE(b), INTYPE(c), INTYPE(d), DOUBLE(e) }
+#define O(a, b, c, d, e) {DOUBLE(a), INTYPE(b), INTYPE(c), INTYPE(d), DOUBLE(e)}
 
 template <typename ArrowType>
 class TestIntegerQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {};
