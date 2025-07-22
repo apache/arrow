@@ -291,7 +291,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           {
             path: "c_glib/tool/generate-version-header.py",
             hunks: [
-              ["+        (#{@next_major_version}, 0),"],
+              ["+    (#{@next_major_version}, 0),"],
             ],
           },
           {
