@@ -316,12 +316,8 @@ class RecordBatchStream::RecordBatchStreamImpl {
         payload->ipc_message.metadata = nullptr;
         return Status::OK();
       }
-      // Check if writer is already initialized or if schema has changed.
-      // To recreate the writer.
-      if (!writer_ || !batch->schema()->Equals(*reader_->schema())) {
-        if (writer_) {
-          RETURN_NOT_OK(writer_->Close());
-        }
+      // Check if writer is already initialized.
+      if (!writer_) {
         // Create new writer with the batch's schema
         auto payload_writer =
             std::make_unique<ServerRecordBatchPayloadWriter>(&payload_list_);
@@ -329,8 +325,7 @@ class RecordBatchStream::RecordBatchStreamImpl {
             writer_, ipc::internal::OpenRecordBatchWriter(std::move(payload_writer),
                                                           batch->schema(), options_));
         if (!payload_list_.empty()) {
-          // Drop Schema message if it was generated.
-          // We want new Dictionary or RecordBatch messages only.
+          // Drop Schema message we want new Dictionary or RecordBatch messages only.
           payload_list_.pop_front();
         }
       }
