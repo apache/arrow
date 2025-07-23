@@ -316,18 +316,9 @@ class RecordBatchStream::RecordBatchStreamImpl {
         payload->ipc_message.metadata = nullptr;
         return Status::OK();
       }
-      // Check if writer is already initialized.
       if (!writer_) {
-        // Create new writer with the batch's schema
-        auto payload_writer =
-            std::make_unique<ServerRecordBatchPayloadWriter>(&payload_list_);
-        ARROW_ASSIGN_OR_RAISE(
-            writer_, ipc::internal::OpenRecordBatchWriter(std::move(payload_writer),
-                                                          batch->schema(), options_));
-        if (!payload_list_.empty()) {
-          // Drop Schema message we want new Dictionary or RecordBatch messages only.
-          payload_list_.pop_front();
-        }
+        return Status::UnknownError(
+            "Writer should be initialized before reading Next batches");
       }
       // One WriteRecordBatch call might generate multiple payloads, so we
       // need to collect them in a list.
