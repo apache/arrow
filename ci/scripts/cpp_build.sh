@@ -139,6 +139,8 @@ if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
       fi
     fi
   fi
+
+  export CUDA_PATH="${CONDA_PREFIX}/targets/x86_64-linux"
   meson setup \
     --prefix=${MESON_PREFIX:-${ARROW_HOME}} \
     --buildtype=${ARROW_BUILD_TYPE:-debug} \
