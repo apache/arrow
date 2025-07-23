@@ -270,9 +270,15 @@ static inline EncodedStatistics FromThrift(const format::Statistics& stats) {
     // TODO: check if the column_order is TYPE_DEFINED_ORDER.
     if (stats.__isset.max_value) {
       out.set_max(stats.max_value);
+      if (stats.__isset.is_max_value_exact) {
+        out.is_max_value_exact = stats.is_max_value_exact;
+      }
     }
     if (stats.__isset.min_value) {
       out.set_min(stats.min_value);
+      if (stats.__isset.is_min_value_exact) {
+        out.is_min_value_exact = stats.is_min_value_exact;
+      }
     }
   } else if (stats.__isset.max || stats.__isset.min) {
     // TODO: check created_by to see if it is corrupted for some types.
@@ -475,6 +481,9 @@ static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
   format::Statistics statistics;
   if (stats.has_min) {
     statistics.__set_min_value(stats.min());
+    if (stats.is_min_value_exact.has_value()) {
+      statistics.__set_is_min_value_exact(stats.is_min_value_exact.value());
+    }
     // If the order is SIGNED, then the old min value must be set too.
     // This for backward compatibility
     if (stats.is_signed()) {
@@ -483,6 +492,9 @@ static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
   }
   if (stats.has_max) {
     statistics.__set_max_value(stats.max());
+    if (stats.is_max_value_exact.has_value()) {
+      statistics.__set_is_max_value_exact(stats.is_max_value_exact.value());
+    }
     // If the order is SIGNED, then the old max value must be set too.
     // This for backward compatibility
     if (stats.is_signed()) {
