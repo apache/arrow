@@ -288,13 +288,9 @@ class RecordBatchStream::RecordBatchStreamImpl {
       // Create the IPC writer on first call
       auto payload_writer =
           std::make_unique<ServerRecordBatchPayloadWriter>(&payload_list_);
-      auto writer_result = ipc::internal::OpenRecordBatchWriter(
-          std::move(payload_writer), reader_->schema(), options_);
-
-      if (!writer_result.ok()) {
-        return writer_result.status();
-      }
-      writer_ = std::move(writer_result).ValueOrDie();
+      ARROW_ASSIGN_OR_RAISE(
+          writer_, ipc::internal::OpenRecordBatchWriter(std::move(payload_writer),
+                                                        reader_->schema(), options_));
     }
 
     // Return the current payload (schema)
@@ -308,62 +304,50 @@ class RecordBatchStream::RecordBatchStreamImpl {
 
   Status Next(FlightPayload* payload) {
     // If we have previous payloads (dictionary messages or previous record batches)
-    // return them first before reading next record batch.
-    if (!payload_list_.empty()) {
-      *payload = std::move(payload_list_.front());
-      payload_list_.pop_front();
-      return Status::OK();
+    // we will return them before reading the next record batch.
+    if (payload_list_.empty()) {
+      std::shared_ptr<RecordBatch> batch;
+      RETURN_NOT_OK(reader_->ReadNext(&batch));
+      if (!batch) {
+        // End of stream
+        if (writer_) {
+          RETURN_NOT_OK(writer_->Close());
+        }
+        payload->ipc_message.metadata = nullptr;
+        return Status::OK();
+      }
+      // Check if writer is already initialized or if schema has changed.
+      // To recreate the writer.
+      if (!writer_ || !batch->schema()->Equals(*reader_->schema())) {
+        if (writer_) {
+          RETURN_NOT_OK(writer_->Close());
+        }
+        // Create new writer with the batch's schema
+        auto payload_writer =
+            std::make_unique<ServerRecordBatchPayloadWriter>(&payload_list_);
+        ARROW_ASSIGN_OR_RAISE(
+            writer_, ipc::internal::OpenRecordBatchWriter(std::move(payload_writer),
+                                                          batch->schema(), options_));
+        if (!payload_list_.empty()) {
+          // Drop Schema message if it was generated.
+          // We want new Dictionary or RecordBatch messages only.
+          payload_list_.pop_front();
+        }
+      }
+      // One WriteRecordBatch call might generate multiple payloads, so we
+      // need to collect them in a list.
+      RETURN_NOT_OK(writer_->WriteRecordBatch(*batch));
     }
 
-    std::shared_ptr<RecordBatch> batch;
-    RETURN_NOT_OK(reader_->ReadNext(&batch));
-
-    if (!batch) {
-      // End of stream
-      if (writer_) {
-        RETURN_NOT_OK(writer_->Close());
-      }
-      payload->ipc_message.metadata = nullptr;
-      return Status::OK();
+    // There must be at least one payload generated after WriteRecordBatch or
+    // from previous calls to WriteRecordBatch.
+    if (payload_list_.empty()) {
+      return Status::UnknownError("IPC writer didn't produce any payloads");
     }
 
-    // Check if writer is already initialized or if schema has changed.
-    // To recreate the writer.
-    if (!writer_ || !batch->schema()->Equals(*reader_->schema())) {
-      if (writer_) {
-        RETURN_NOT_OK(writer_->Close());
-      }
-
-      // Create new writer with the batch's schema
-      auto payload_writer =
-          std::make_unique<ServerRecordBatchPayloadWriter>(&payload_list_);
-      auto writer_result = ipc::internal::OpenRecordBatchWriter(
-          std::move(payload_writer), batch->schema(), options_);
-
-      if (!writer_result.ok()) {
-        return writer_result.status();
-      }
-      writer_ = std::move(writer_result).ValueOrDie();
-      if (!payload_list_.empty()) {
-        // Drop Schema message if it was generated.
-        // We want new Dictionary or RecordBatch messages only.
-        payload_list_.pop_front();
-      }
-    }
-
-    // One WriteRecordBatch call might generate multiple payloads, so we
-    // need to collect them in a list.
-    RETURN_NOT_OK(writer_->WriteRecordBatch(*batch));
-
-    // Return the first generated payload after WriteRecordBatch. There must be
-    // at least one payload generated.
-    if (!payload_list_.empty()) {
-      *payload = std::move(payload_list_.front());
-      payload_list_.pop_front();
-      return Status::OK();
-    }
-
-    return Status::UnknownError("IPC writer didn't produce any payloads");
+    *payload = std::move(payload_list_.front());
+    payload_list_.pop_front();
+    return Status::OK();
   }
 
   Status Close() {
@@ -378,20 +362,13 @@ class RecordBatchStream::RecordBatchStreamImpl {
   class ServerRecordBatchPayloadWriter : public ipc::internal::IpcPayloadWriter {
    public:
     explicit ServerRecordBatchPayloadWriter(std::list<FlightPayload>* payload_list)
-        : payload_list_(payload_list), first_payload_(true) {}
+        : payload_list_(payload_list) {}
 
     Status Start() override { return Status::OK(); }
 
     Status WritePayload(const ipc::IpcPayload& ipc_payload) override {
       FlightPayload payload;
       payload.ipc_message = ipc_payload;
-
-      if (first_payload_) {
-        if (ipc_payload.type != ipc::MessageType::SCHEMA) {
-          return Status::Invalid("First IPC message should be schema");
-        }
-        first_payload_ = false;
-      }
 
       payload_list_->push_back(std::move(payload));
       return Status::OK();
@@ -401,7 +378,6 @@ class RecordBatchStream::RecordBatchStreamImpl {
 
    private:
     std::list<FlightPayload>* payload_list_;
-    bool first_payload_;
   };
 
   std::shared_ptr<RecordBatchReader> reader_;
