@@ -293,13 +293,13 @@ class RecordBatchStream::RecordBatchStreamImpl {
                                                         reader_->schema(), options_));
     }
 
-    // Return the current payload (schema)
-    if (!payload_list_.empty()) {
-      *payload = std::move(payload_list_.front());
-      payload_list_.pop_front();
-      return Status::OK();
+    // Return the expected schema payload.
+    if (payload_list_.empty()) {
+      return Status::UnknownError("No schema payload generated");
     }
-    return Status::UnknownError("No schema payload generated");
+    *payload = std::move(payload_list_.front());
+    payload_list_.pop_front();
+    return Status::OK();
   }
 
   Status Next(FlightPayload* payload) {
