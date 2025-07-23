@@ -49,7 +49,7 @@ update_versions() {
      [ "${next_version}" = "${major_version}.0.0" ] && \
      ! grep -q -F "(${major_version}, 0)" tool/generate-version-header.py; then
     sed -i.bak -E -e \
-      "s/^ALL_VERSIONS = \[$/&\\n        (${major_version}, 0),/" \
+      "s/^ALL_VERSIONS = \[$/&\\n    (${major_version}, 0),/" \
       tool/generate-version-header.py
     rm -f tool/generate-version-header.py.bak
     git add tool/generate-version-header.py
