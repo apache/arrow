@@ -174,6 +174,21 @@ def _check_array_from_pandas_roundtrip(np_array, type=None):
     npt.assert_array_equal(result, np_array)
 
 
+def _get_pandas_df_w_attrs():
+    df = pd.DataFrame({
+        'first_col': [1, 2, 3],
+        'second_col': [4, 5, 6],
+    })
+
+    df.attrs = {
+        'first_col': 'First Column',
+        'second_col': 'Second Column',
+        'desciption': 'Attributes Persistence Test DataFrame',
+    }
+
+    return df
+
+
 class TestConvertMetadata:
     """
     Conversion tests for Pandas metadata & indices.
@@ -729,6 +744,61 @@ class TestConvertMetadata:
             # convert to pandas
             result = new_table.to_pandas()
             tm.assert_frame_equal(result, expected)
+
+    @pytest.mark.parquet
+    def test_attributes_metadata_persistence(self, tempdir):
+        # GH-45382: Add support for pandas DataFrame.attrs
+        # During the .parquet file writing,
+        # the attrs are serialised into json
+        # along with the rest of the pandas.DataFrame metadata.
+        # Whilst reading, the attributes are read from the json,
+        # and are added to the pandas.DataFrame object.
+        # This test ensures that this whole processes works as intended.
+        # This test might still pass even if the implementataion is faulty,
+        # since there is attributes injection happening
+        # while reading/writing on pandas' side
+
+        filename = tempdir / "metadata_persistence.parquet"
+        df = _get_pandas_df_w_attrs()
+        df.to_parquet(path=filename, engine="pyarrow")
+
+        new_df = pd.read_parquet(path=filename, engine="pyarrow")
+
+        _check_pandas_roundtrip(new_df, expected=df)
+        assert df.attrs == new_df.attrs
+
+    def test_attributes_metadata_in_json(self):
+        # GH-45382: Add support for pandas DataFrame.attrs
+        # Test if the metadata created from the pandas.DataFrame
+        # has the correct attributes
+
+        df = _get_pandas_df_w_attrs()
+
+        (
+            _,
+            column_names,
+            column_field_names,
+            _,
+            index_descriptors,
+            index_levels,
+            columns_to_convert,
+            _,
+        ) = _get_columns_to_convert(df=df, schema=None, preserve_index=False, columns=None)
+
+        metadata_json = construct_metadata(
+            df=df,
+            column_names=column_names,
+            column_field_names=column_field_names,
+            index_descriptors=index_descriptors,
+            index_levels=index_levels,
+            columns_to_convert=columns_to_convert,
+            types=[],
+            preserve_index=False,
+        )
+        metadata = json.loads(metadata_json[b'pandas'])
+
+        assert 'attributes' in metadata
+        assert metadata['attributes'] == df.attrs
 
 
 class TestConvertPrimitiveTypes:
@@ -5270,76 +5340,3 @@ def test_bytes_column_name_to_pandas():
 def test_is_data_frame_race_condition():
     # See https://github.com/apache/arrow/issues/39313
     test_util.invoke_script('arrow_39313.py')
-
-
-def _get_pandas_df_w_attrs():
-    df = pd.DataFrame({
-        'first_col': [1, 2, 3],
-        'second_col': [4, 5, 6],
-    })
-
-    df.attrs = {
-        'first_col': 'First Column',
-        'second_col': 'Second Column',
-        'desciption': 'Attributes Persistence Test DataFrame',
-    }
-
-    return df
-
-
-@pytest.mark.parquet
-@pytest.mark.pandas
-def test_attributes_metadata_persistence(tempdir):
-    # GH-45382: Add support for pandas DataFrame.attrs
-    # During the .parquet file writing,
-    # the attrs are serialised into json
-    # along with the rest of the pandas.DataFrame metadata.
-    # Whilst reading, the attributes are read from the json,
-    # and are added to the pandas.DataFrame object.
-    # This test ensures that this whole processes works as intended.
-    # This test might still pass even if the implementataion is faulty,
-    # since there is attributes injection happening
-    # while reading/writing on pandas' side
-
-    filename = tempdir / "metadata_persistence.parquet"
-    df = _get_pandas_df_w_attrs()
-    df.to_parquet(path=filename, engine="pyarrow")
-
-    new_df = pd.read_parquet(path=filename, engine="pyarrow")
-
-    assert df.attrs == new_df.attrs
-
-
-@pytest.mark.pandas
-def test_attributes_metadata_in_json():
-    # GH-45382: Add support for pandas DataFrame.attrs
-    # Test if the metadata created from the pandas.DataFrame
-    # has the correct attributes
-
-    df = _get_pandas_df_w_attrs()
-
-    (
-        _,
-        column_names,
-        column_field_names,
-        _,
-        index_descriptors,
-        index_levels,
-        columns_to_convert,
-        _,
-    ) = _get_columns_to_convert(df=df, schema=None, preserve_index=False, columns=None)
-
-    metadata_json = construct_metadata(
-        df=df,
-        column_names=column_names,
-        column_field_names=column_field_names,
-        index_descriptors=index_descriptors,
-        index_levels=index_levels,
-        columns_to_convert=columns_to_convert,
-        types=[],
-        preserve_index=False,
-    )
-    metadata = json.loads(metadata_json[b'pandas'])
-
-    assert 'attributes' in metadata
-    assert metadata['attributes'] == df.attrs
