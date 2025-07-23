@@ -24,7 +24,8 @@ namespace arrow {
 namespace compute {
 
 bool SortKey::Equals(const SortKey& other) const {
-  return target == other.target && order == other.order;
+  return target == other.target && order == other.order &&
+         null_placement == other.null_placement;
 }
 
 std::string SortKey::ToString() const {
@@ -36,6 +37,14 @@ std::string SortKey::ToString() const {
       break;
     case SortOrder::Descending:
       ss << "DESC";
+      break;
+  }
+  switch (null_placement) {
+    case NullPlacement::AtStart:
+      ss << " NULLS FIRST";
+      break;
+    case NullPlacement::AtEnd:
+      ss << " NULLS LAST";
       break;
   }
   return ss.str();
@@ -54,7 +63,7 @@ bool Ordering::IsSuborderOf(const Ordering& other) const {
     return false;
   }
   for (std::size_t key_idx = 0; key_idx < sort_keys_.size(); key_idx++) {
-    if (sort_keys_[key_idx] != other.sort_keys_[key_idx]) {
+    if (!sort_keys_[key_idx].Equals(other.sort_keys_[key_idx])) {
       return false;
     }
   }
@@ -78,15 +87,17 @@ std::string Ordering::ToString() const {
     ss << key.ToString();
   }
   ss << "]";
-  switch (null_placement_) {
-    case NullPlacement::AtEnd:
-      ss << " nulls last";
-      break;
-    case NullPlacement::AtStart:
-      ss << " nulls first";
-      break;
-    default:
-      Unreachable();
+  if (null_placement_.has_value()) {
+    switch (null_placement_.value()) {
+      case NullPlacement::AtEnd:
+        ss << " nulls last";
+        break;
+      case NullPlacement::AtStart:
+        ss << " nulls first";
+        break;
+      default:
+        Unreachable();
+    }
   }
   return ss.str();
 }
