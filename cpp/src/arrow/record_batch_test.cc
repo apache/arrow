@@ -142,6 +142,94 @@ TEST_F(TestRecordBatch, ApproxEqualOptions) {
   EXPECT_TRUE(b1->ApproxEquals(*b2, options));
 }
 
+class TestRecordBatchEqualsSameAddress : public TestRecordBatch {};
+
+TEST_F(TestRecordBatchEqualsSameAddress, NonFloatType) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", int64());
+
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto a0 = ArrayFromJSON(f0->type(), "[0, 1, 2]");
+  auto a1 = ArrayFromJSON(f1->type(), "[0, 1, 2]");
+
+  auto b0 = RecordBatch::Make(schema, 3, {a0, a1});
+  auto b1 = b0;
+
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_TRUE(b0->Equals(*b1, true, options));
+  ASSERT_TRUE(b0->Equals(*b1, true, options.nans_equal(true)));
+
+  ASSERT_TRUE(b0->ApproxEquals(*b1, options));
+  ASSERT_TRUE(b0->ApproxEquals(*b1, options.nans_equal(true)));
+}
+
+TEST_F(TestRecordBatchEqualsSameAddress, NestedTypesWithoutFloatType) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", struct_({{"f2", int64()}, {"f3", int8()}}));
+
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto a0 = ArrayFromJSON(f0->type(), "[0, 1, 2]");
+  auto a1 = ArrayFromJSON(
+      f1->type(), R"([{"f2": 1, "f3": 4}, {"f2": 2, "f3": 5}, {"f2":3, "f3": 6}])");
+
+  auto b0 = RecordBatch::Make(schema, 3, {a0, a1});
+  auto b1 = b0;
+
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_TRUE(b0->Equals(*b1, true, options));
+  ASSERT_TRUE(b0->Equals(*b1, true, options.nans_equal(true)));
+
+  ASSERT_TRUE(b0->ApproxEquals(*b1, options));
+  ASSERT_TRUE(b0->ApproxEquals(*b1, options.nans_equal(true)));
+}
+
+TEST_F(TestRecordBatchEqualsSameAddress, FloatType) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", float64());
+
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto a0 = ArrayFromJSON(f0->type(), "[0, 1, 2]");
+  auto a1 = ArrayFromJSON(f1->type(), "[0.0, 1.0, 2.0, NaN]");
+
+  auto b0 = RecordBatch::Make(schema, 3, {a0, a1});
+  auto b1 = b0;
+
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_FALSE(b0->Equals(*b1, true, options));
+  ASSERT_TRUE(b0->Equals(*b1, true, options.nans_equal(true)));
+
+  ASSERT_FALSE(b0->ApproxEquals(*b1, options));
+  ASSERT_TRUE(b0->ApproxEquals(*b1, options.nans_equal(true)));
+}
+
+TEST_F(TestRecordBatchEqualsSameAddress, NestedTypesWithFloatType) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", struct_({{"f2", int64()}, {"f3", float32()}}));
+
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto a0 = ArrayFromJSON(f0->type(), "[0, 1, 2]");
+  auto a1 = ArrayFromJSON(
+      f1->type(), R"([{"f2": 1, "f3": 4.0}, {"f2": 2, "f3": 4.0}, {"f2":3, "f3": NaN}])");
+
+  auto b0 = RecordBatch::Make(schema, 3, {a0, a1});
+  auto b1 = b0;
+
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_FALSE(b0->Equals(*b1, true, options));
+  ASSERT_TRUE(b0->Equals(*b1, true, options.nans_equal(true)));
+
+  ASSERT_FALSE(b0->ApproxEquals(*b1, options));
+  ASSERT_TRUE(b0->ApproxEquals(*b1, options.nans_equal(true)));
+}
+
 TEST_F(TestRecordBatch, Validate) {
   const int length = 10;
 
