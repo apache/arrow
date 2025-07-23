@@ -196,9 +196,10 @@ Status ValidateRunEndEncodedChildren(const RunEndEncodedType& type,
     return Status::Invalid("Null count must be 0 for run ends array, but is ",
                            run_ends_data->GetNullCount());
   }
-  if (run_ends_data->length > values_data->length) {
-    return Status::Invalid("Length of run_ends is greater than the length of values: ",
-                           run_ends_data->length, " > ", values_data->length);
+  if (run_ends_data->length != values_data->length) {
+    return Status::Invalid("Length of run_ends (", run_ends_data->length,
+                           ") does not match the length of values (", values_data->length,
+                           ")");
   }
   if (run_ends_data->length == 0) {
     if (logical_length == 0) {
