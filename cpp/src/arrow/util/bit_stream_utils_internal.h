@@ -190,10 +190,10 @@ class BitReader {
   }
 
   /// Maximum byte length of a vlq encoded int
-  static constexpr int kMaxVlqByteLength = 5;
+  static constexpr int kMaxVlqByteLengthForInt32 = MaxLEB128ByteLenFor<int32_t>;
 
   /// Maximum byte length of a vlq encoded int64
-  static constexpr int kMaxVlqByteLengthForInt64 = 10;
+  static constexpr int kMaxVlqByteLengthForInt64 = MaxLEB128ByteLenFor<int64_t>;
 
  private:
   const uint8_t* buffer_;
@@ -452,7 +452,7 @@ inline bool BitWriter::PutVlqInt(uint32_t v) {
 inline bool BitReader::GetVlqInt(uint32_t* v) {
   uint32_t tmp = 0;
 
-  for (int i = 0; i < kMaxVlqByteLength; i++) {
+  for (int i = 0; i < kMaxVlqByteLengthForInt32; i++) {
     uint8_t byte = 0;
     if (ARROW_PREDICT_FALSE(!GetAligned<uint8_t>(1, &byte))) {
       return false;
