@@ -1061,15 +1061,23 @@ class AsofJoinNode : public ExecNode {
   }
 
   bool Process() {
-    std::lock_guard<std::mutex> guard(gate_);
-    if (!CheckEnded()) {
-      return false;
-    }
-
     // Process batches while we have data
     for (;;) {
-      Result<std::shared_ptr<RecordBatch>> result = ProcessInner();
+      Future<> to_wait;
+      {
+        std::lock_guard<std::mutex> lg(backpressure_mutex_);
+        to_wait = backpressure_future_;
+      }
+      to_wait.Wait();
 
+      Result<std::shared_ptr<RecordBatch>> result;
+      {
+        std::lock_guard<std::mutex> guard(gate_);
+        if (!CheckEnded()) {
+          return false;
+        }
+        result = ProcessInner();
+      }
       if (result.ok()) {
         auto out_rb = *result;
         if (!out_rb) break;
@@ -1519,8 +1527,51 @@ class AsofJoinNode : public ExecNode {
     return Status::OK();
   }
 
-  void PauseProducing(ExecNode* output, int32_t counter) override {}
-  void ResumeProducing(ExecNode* output, int32_t counter) override {}
+  void PauseProducing(ExecNode* output, int32_t counter) override {
+    std::lock_guard<std::mutex> lg(backpressure_mutex_);
+    if (counter <= last_backpressure_counter_) {
+      return;
+    }
+    last_backpressure_counter_ = counter;
+    if (!backpressure_future_.is_finished()) {
+      // Could happen if we get something like Pause(1) Pause(3) Resume(2)
+      return;
+    }
+    backpressure_future_ = Future<>::Make();
+  }
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
+    Future<> to_finish;
+    {
+      std::lock_guard<std::mutex> lg(backpressure_mutex_);
+      if (counter <= last_backpressure_counter_) {
+        return;
+      }
+      last_backpressure_counter_ = counter;
+      if (backpressure_future_.is_finished()) {
+        return;
+      }
+      to_finish = backpressure_future_;
+      backpressure_future_ = Future<>::MakeFinished();
+    }
+    to_finish.MarkFinished();
+  }
+
+  Status StopProducing() override {
+    // GH-35837: ensure node is not paused
+    Future<> to_finish;
+    {
+      std::lock_guard<std::mutex> lg(backpressure_mutex_);
+      if (!backpressure_future_.is_finished()) {
+        to_finish = backpressure_future_;
+        backpressure_future_ = Future<>::MakeFinished();
+      }
+    }
+    if (to_finish.is_valid()) {
+      to_finish.MarkFinished();
+    }
+    // only then stop
+    return ExecNode::StopProducing();
+  }
 
   Status StopProducingImpl() override {
 #ifdef ARROW_ENABLE_THREADING
@@ -1548,6 +1599,11 @@ class AsofJoinNode : public ExecNode {
   // Each input state corresponds to an input table
   std::vector<std::unique_ptr<InputState>> state_;
   std::mutex gate_;
+
+  std::mutex backpressure_mutex_;
+  std::atomic<int32_t> last_backpressure_counter_{0};
+  Future<> backpressure_future_ = Future<>::MakeFinished();
+
   TolType tolerance_;
 #ifndef NDEBUG
   std::ostream* debug_os_;
