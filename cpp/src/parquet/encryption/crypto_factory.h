@@ -86,6 +86,11 @@ struct PARQUET_EXPORT EncryptionConfiguration {
   int32_t data_key_length_bits = kDefaultDataKeyLengthBits;
 };
 
+struct PARQUET_EXPORT ColumnEncryptionPropertiesBuilderParams {
+    ParquetCipher::type encryption_alg_;
+    std::string key_id_;
+};
+
 /// Encryption Configuration for use with External Encryption services. 
 /// Extends the already existing EncryptionConfiguration with more context and with
 /// the capability of specifying encryption algorithm per column.
