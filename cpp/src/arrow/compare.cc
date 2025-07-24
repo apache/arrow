@@ -53,6 +53,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/memory_internal.h"
 #include "arrow/util/ree_util.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/visit_scalar_inline.h"
 #include "arrow/visit_type_inline.h"
 
@@ -1550,7 +1551,31 @@ bool ArrayStatisticsValueTypeEquals(
         return v1 == v2;
       }
       // It is unreachable
-      DCHECK(false);
+      Unreachable("The types are different.");
+      return false;
+    };
+    return std::visit(EqualsVisitor, left.value(), right.value());
+  }
+}
+
+bool ArrayStatisticsNumericTypeEquals(std::optional<ArrayStatistics::NumericType> left,
+                                      std::optional<ArrayStatistics::NumericType> right,
+                                      const EqualOptions& options) {
+  if (!left.has_value() || !right.has_value()) {
+    return left.has_value() == right.has_value();
+  } else if (left->index() != right->index()) {
+    return false;
+  } else {
+    auto EqualsVisitor = [&](auto& v1, auto v2) {
+      using type_1 = std::decay_t<decltype(v1)>;
+      using type_2 = std::decay_t<decltype(v2)>;
+      if constexpr (std::conjunction_v<std::is_same<type_1, double>,
+                                       std::is_same<type_2, double>>) {
+        return DoubleEquals(v1, v2, options);
+      } else if constexpr (std::is_same_v<type_1, type_2>) {
+        return v1 == v2;
+      }
+      Unreachable("The types are different.");
       return false;
     };
     return std::visit(EqualsVisitor, left.value(), right.value());
@@ -1560,7 +1585,8 @@ bool ArrayStatisticsValueTypeEquals(
 bool ArrayStatisticsEqualsImpl(const ArrayStatistics& left, const ArrayStatistics& right,
                                const EqualOptions& equal_options) {
   return left.null_count == right.null_count &&
-         left.distinct_count == right.distinct_count &&
+         ArrayStatisticsNumericTypeEquals(left.distinct_count, right.distinct_count,
+                                          equal_options) &&
          left.is_average_byte_width_exact == right.is_average_byte_width_exact &&
          left.is_min_exact == right.is_min_exact &&
          left.is_max_exact == right.is_max_exact &&
