@@ -50,13 +50,19 @@ _NESTED_TYPES = {lib.Type_LIST, lib.Type_FIXED_SIZE_LIST, lib.Type_LARGE_LIST,
 
 class TypesEnum(Enum):
     """
-    An Enum that maps constant values
-    to underlying data types with the same name.
-    Note some of the types listed here
-    are not supported by PyArrow yet
-    (INTERVAL_MONTHS and INTERVAL_DAY_TIME).
-    See the list of supported types here:
-    https://arrow.apache.org/docs/python/api/datatypes.html
+    An Enum that maps constant values to data types.
+    Exposes the underlying data types implementation for type checking purposes.
+    Note that some of the types listed here are not supported by PyArrow yet:
+    INTERVAL_MONTHS and INTERVAL_DAY_TIME.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> from pyarrow.types import TypesEnum
+    >>>
+    >>> int8_field = pa.field('int8_field', pa.int8())
+    >>> int8_field.type.id == TypesEnum.INT8.value
+    True
     """
 
     NA = lib.Type_NA
