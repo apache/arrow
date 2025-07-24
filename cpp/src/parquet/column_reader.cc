@@ -113,8 +113,8 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
       }
       const uint8_t* decoder_data = data + 4;
       if (!rle_decoder_) {
-        rle_decoder_ = std::make_unique<::arrow::util::RleDecoder>(decoder_data,
-                                                                   num_bytes, bit_width_);
+        rle_decoder_ = std::make_unique<::arrow::util::RleDecoder<int16_t>>(
+            decoder_data, num_bytes, bit_width_);
       } else {
         rle_decoder_->Reset(decoder_data, num_bytes, bit_width_);
       }
@@ -158,7 +158,7 @@ void LevelDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
 
   if (!rle_decoder_) {
     rle_decoder_ =
-        std::make_unique<::arrow::util::RleDecoder>(data, num_bytes, bit_width_);
+        std::make_unique<::arrow::util::RleDecoder<int16_t>>(data, num_bytes, bit_width_);
   } else {
     rle_decoder_->Reset(data, num_bytes, bit_width_);
   }

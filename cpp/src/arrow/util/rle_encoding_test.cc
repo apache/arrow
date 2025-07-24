@@ -240,7 +240,7 @@ void ValidateRle(const std::vector<int>& values, int bit_width,
 
   // Verify read
   {
-    RleDecoder decoder(buffer, len, bit_width);
+    RleDecoder<uint64_t> decoder(buffer, len, bit_width);
     for (size_t i = 0; i < values.size(); ++i) {
       uint64_t val;
       bool result = decoder.Get(&val);
@@ -251,7 +251,7 @@ void ValidateRle(const std::vector<int>& values, int bit_width,
 
   // Verify batch read
   {
-    RleDecoder decoder(buffer, len, bit_width);
+    RleDecoder<int> decoder(buffer, len, bit_width);
     std::vector<int> values_read(values.size());
     ASSERT_EQ(values.size(),
               decoder.GetBatch(values_read.data(), static_cast<int>(values.size())));
@@ -282,7 +282,7 @@ bool CheckRoundTrip(const std::vector<int>& values, int bit_width) {
   int out = 0;
 
   {
-    RleDecoder decoder(buffer, encoded_len, bit_width);
+    RleDecoder<int> decoder(buffer, encoded_len, bit_width);
     for (size_t i = 0; i < values.size(); ++i) {
       EXPECT_TRUE(decoder.Get(&out));
       if (values[i] != out) {
@@ -293,7 +293,7 @@ bool CheckRoundTrip(const std::vector<int>& values, int bit_width) {
 
   // Verify batch read
   {
-    RleDecoder decoder(buffer, encoded_len, bit_width);
+    RleDecoder<int> decoder(buffer, encoded_len, bit_width);
     std::vector<int> values_read(values.size());
     if (static_cast<int>(values.size()) !=
         decoder.GetBatch(values_read.data(), static_cast<int>(values.size()))) {
@@ -419,7 +419,7 @@ TEST(Rle, BitWidthZeroRepeated) {
   uint8_t buffer[1];
   const int num_values = 15;
   buffer[0] = num_values << 1;  // repeated indicator byte
-  RleDecoder decoder(buffer, sizeof(buffer), 0);
+  RleDecoder<uint8_t> decoder(buffer, sizeof(buffer), 0);
   uint8_t val;
   for (int i = 0; i < num_values; ++i) {
     bool result = decoder.Get(&val);
@@ -433,7 +433,7 @@ TEST(Rle, BitWidthZeroLiteral) {
   uint8_t buffer[1];
   const int num_groups = 4;
   buffer[0] = num_groups << 1 | 1;  // literal indicator byte
-  RleDecoder decoder = RleDecoder(buffer, sizeof(buffer), 0);
+  RleDecoder<uint8_t> decoder = {buffer, sizeof(buffer), 0};
   const int num_values = num_groups * 8;
   uint8_t val;
   for (int i = 0; i < num_values; ++i) {
@@ -538,7 +538,7 @@ TEST(BitRle, Overflow) {
     EXPECT_LE(bytes_written, len);
     EXPECT_GT(num_added, 0);
 
-    RleDecoder decoder(buffer.data(), bytes_written, bit_width);
+    RleDecoder<uint32_t> decoder(buffer.data(), bytes_written, bit_width);
     parity = true;
     uint32_t v;
     for (int i = 0; i < num_added; ++i) {
@@ -575,7 +575,7 @@ void CheckRoundTripSpaced(const Array& data, int bit_width) {
   int encoded_size = encoder.Flush();
 
   // Verify batch read
-  RleDecoder decoder(buffer.data(), encoded_size, bit_width);
+  RleDecoder<T> decoder(buffer.data(), encoded_size, bit_width);
   std::vector<T> values_read(num_values);
 
   if (num_values != decoder.GetBatchSpaced(
