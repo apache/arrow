@@ -34,7 +34,7 @@ DIR=/tmp/integration_skyhook
 
 # set environment variables
 pkill ceph || true
-rm -rf ${DIR}/*
+rm -rf "${DIR:?}"/*
 LOG_DIR=${DIR}/log
 MON_DATA=${DIR}/mon
 MDS_DATA=${DIR}/mds
@@ -44,6 +44,8 @@ mkdir -p ${LOG_DIR} ${MON_DATA} ${OSD_DATA} ${MDS_DATA} ${MOUNTPT}
 MDS_NAME="Z"
 MON_NAME="a"
 MGR_NAME="x"
+# Unused variable
+# shellcheck disable=SC2034
 MIRROR_ID="m"
 
 # cluster wide parameters
@@ -88,9 +90,9 @@ ceph-mon --id ${MON_NAME}
 
 # start an osd
 OSD_ID=$(ceph osd create)
-ceph osd crush add osd.${OSD_ID} 1 root=default
-ceph-osd --id ${OSD_ID} --mkjournal --mkfs
-ceph-osd --id ${OSD_ID} || ceph-osd --id ${OSD_ID} || ceph-osd --id ${OSD_ID}
+ceph osd crush add "osd.${OSD_ID}" 1 root=default
+ceph-osd --id "${OSD_ID}" --mkjournal --mkfs
+ceph-osd --id "${OSD_ID}" || ceph-osd --id "${OSD_ID}" || ceph-osd --id "${OSD_ID}"
 
 # start an mds for cephfs
 ceph auth get-or-create mds.${MDS_NAME} mon 'profile mds' mgr 'profile mds' mds 'allow *' osd 'allow *' > ${MDS_DATA}/keyring
@@ -100,7 +102,7 @@ ceph fs new cephfs cephfs_metadata cephfs_data
 ceph fs ls
 ceph-mds -i ${MDS_NAME}
 ceph status
-while [[ ! $(ceph mds stat | grep "up:active") ]]; do sleep 1; done
+while ! ceph mds stat | grep -q "up:active"; do sleep 1; done
 
 # start a manager
 ceph-mgr --id ${MGR_NAME}
@@ -112,7 +114,7 @@ ceph status
 apt update
 apt install -y python3-pip
 
-pushd ${ARROW_BUILD_DIR}
+pushd "${ARROW_BUILD_DIR}"
     # create the rados-classes, if not there already
     mkdir -p /usr/lib/x86_64-linux-gnu/rados-classes/
     cp debug/libcls_skyhook* /usr/lib/x86_64-linux-gnu/rados-classes/
