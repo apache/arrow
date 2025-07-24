@@ -85,8 +85,12 @@ namespace util {
 //
 
 /// Decoder class for RLE encoded data.
+template <typename T>
 class RleDecoder {
  public:
+  /// The type in which the data should be decoded.
+  using value_type = T;
+
   /// Create a decoder object. buffer/buffer_len is the decoded data.
   /// bit_width is the width of each value (before encoding).
   RleDecoder(const uint8_t* buffer, int buffer_len, int bit_width)
@@ -118,29 +122,26 @@ class RleDecoder {
   /// input with zeros. Since the encoding does not differentiate between
   /// input values and padding, Get() returns true even for these padding
   /// values.
-  template <typename T>
-  bool Get(T* val);
+  bool Get(value_type* val);
 
   /// Gets a batch of values.  Returns the number of decoded elements.
-  template <typename T>
-  int GetBatch(T* values, int batch_size);
+  int GetBatch(value_type* values, int batch_size);
 
   /// Like GetBatch but add spacing for null entries
-  template <typename T>
   int GetBatchSpaced(int batch_size, int null_count, const uint8_t* valid_bits,
-                     int64_t valid_bits_offset, T* out);
+                     int64_t valid_bits_offset, value_type* out);
 
   /// Like GetBatch but the values are then decoded using the provided dictionary
-  template <typename T>
-  int GetBatchWithDict(const T* dictionary, int32_t dictionary_length, T* values,
+  template <typename V>
+  int GetBatchWithDict(const V* dictionary, int32_t dictionary_length, V* values,
                        int batch_size);
 
   /// Like GetBatchWithDict but add spacing for null entries
   ///
   /// Null entries will be zero-initialized in `values` to avoid leaking
   /// private data.
-  template <typename T>
-  int GetBatchWithDictSpaced(const T* dictionary, int32_t dictionary_length, T* values,
+  template <typename V>
+  int GetBatchWithDictSpaced(const V* dictionary, int32_t dictionary_length, V* values,
                              int batch_size, int null_count, const uint8_t* valid_bits,
                              int64_t valid_bits_offset);
 
@@ -155,13 +156,12 @@ class RleDecoder {
  private:
   /// Fills literal_count_ and repeat_count_ with next values. Returns false if there
   /// are no more.
-  template <typename T>
   bool NextCounts();
 
   /// Utility methods for retrieving spaced values.
-  template <typename T, typename RunType, typename Converter>
+  template <typename V, typename Converter>
   int GetSpaced(Converter converter, int batch_size, int null_count,
-                const uint8_t* valid_bits, int64_t valid_bits_offset, T* out);
+                const uint8_t* valid_bits, int64_t valid_bits_offset, V* out);
 };
 
 /// Class to incrementally build the rle data.   This class does not allocate any memory.
@@ -300,12 +300,12 @@ class RleEncoder {
 };
 
 template <typename T>
-inline bool RleDecoder::Get(T* val) {
+inline bool RleDecoder<T>::Get(value_type* val) {
   return GetBatch(val, 1) == 1;
 }
 
 template <typename T>
-inline int RleDecoder::GetBatch(T* values, int batch_size) {
+inline int RleDecoder<T>::GetBatch(value_type* values, int batch_size) {
   ARROW_DCHECK_GE(bit_width_, 0);
   int values_read = 0;
 
@@ -316,7 +316,7 @@ inline int RleDecoder::GetBatch(T* values, int batch_size) {
 
     if (repeat_count_ > 0) {  // Repeated value case.
       int repeat_batch = std::min(remaining, repeat_count_);
-      std::fill(out, out + repeat_batch, static_cast<T>(current_value_));
+      std::fill(out, out + repeat_batch, static_cast<value_type>(current_value_));
 
       repeat_count_ -= repeat_batch;
       values_read += repeat_batch;
@@ -332,17 +332,18 @@ inline int RleDecoder::GetBatch(T* values, int batch_size) {
       values_read += literal_batch;
       out += literal_batch;
     } else {
-      if (!NextCounts<T>()) return values_read;
+      if (!NextCounts()) return values_read;
     }
   }
 
   return values_read;
 }
 
-template <typename T, typename RunType, typename Converter>
-inline int RleDecoder::GetSpaced(Converter converter, int batch_size, int null_count,
-                                 const uint8_t* valid_bits, int64_t valid_bits_offset,
-                                 T* out) {
+template <typename T>
+template <typename V, typename Converter>
+inline int RleDecoder<T>::GetSpaced(Converter converter, int batch_size, int null_count,
+                                    const uint8_t* valid_bits, int64_t valid_bits_offset,
+                                    V* out) {
   if (ARROW_PREDICT_FALSE(null_count == batch_size)) {
     converter.FillZero(out, out + batch_size);
     return batch_size;
@@ -366,7 +367,7 @@ inline int RleDecoder::GetSpaced(Converter converter, int batch_size, int null_c
 
     if (valid_run.set) {
       if ((repeat_count_ == 0) && (literal_count_ == 0)) {
-        if (!NextCounts<RunType>()) return values_read;
+        if (!NextCounts()) return values_read;
         ARROW_DCHECK((repeat_count_ > 0) ^ (literal_count_ > 0));
       }
 
@@ -394,7 +395,7 @@ inline int RleDecoder::GetSpaced(Converter converter, int batch_size, int null_c
             valid_run = bit_reader.NextRun();
           }
         }
-        RunType current_value = static_cast<RunType>(current_value_);
+        value_type current_value = static_cast<value_type>(current_value_);
         if (ARROW_PREDICT_FALSE(!converter.IsValid(current_value))) {
           return values_read;
         }
@@ -407,7 +408,7 @@ inline int RleDecoder::GetSpaced(Converter converter, int batch_size, int null_c
 
         // Decode the literals
         constexpr int kBufferSize = 1024;
-        RunType indices[kBufferSize];
+        value_type indices[kBufferSize];
         literal_batch = std::min(literal_batch, kBufferSize);
         int actual_read = bit_reader_.GetBatch(bit_width_, indices, literal_batch);
         if (ARROW_PREDICT_FALSE(actual_read != literal_batch)) {
@@ -469,14 +470,14 @@ struct PlainRleConverter {
 };
 
 template <typename T>
-inline int RleDecoder::GetBatchSpaced(int batch_size, int null_count,
-                                      const uint8_t* valid_bits,
-                                      int64_t valid_bits_offset, T* out) {
+inline int RleDecoder<T>::GetBatchSpaced(int batch_size, int null_count,
+                                         const uint8_t* valid_bits,
+                                         int64_t valid_bits_offset, value_type* out) {
   if (null_count == 0) {
-    return GetBatch<T>(out, batch_size);
+    return GetBatch(out, batch_size);
   }
 
-  PlainRleConverter<T> converter;
+  PlainRleConverter<value_type> converter;
   arrow::internal::BitBlockCounter block_counter(valid_bits, valid_bits_offset,
                                                  batch_size);
 
@@ -490,12 +491,12 @@ inline int RleDecoder::GetBatchSpaced(int batch_size, int null_count,
       break;
     }
     if (block.AllSet()) {
-      processed = GetBatch<T>(out, block.length);
+      processed = GetBatch(out, block.length);
     } else if (block.NoneSet()) {
       converter.FillZero(out, out + block.length);
       processed = block.length;
     } else {
-      processed = GetSpaced<T, /*RunType=*/T, PlainRleConverter<T>>(
+      processed = GetSpaced<value_type, PlainRleConverter<value_type>>(
           converter, block.length, block.length - block.popcount, valid_bits,
           valid_bits_offset, out);
     }
@@ -545,12 +546,13 @@ struct DictionaryConverter {
 };
 
 template <typename T>
-inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_length,
-                                        T* values, int batch_size) {
+template <typename V>
+inline int RleDecoder<T>::GetBatchWithDict(const V* dictionary, int32_t dictionary_length,
+                                           V* values, int batch_size) {
   // Per https://github.com/apache/parquet-format/blob/master/Encodings.md,
   // the maximum dictionary index width in Parquet is 32 bits.
-  using IndexType = int32_t;
-  DictionaryConverter<T> converter;
+  using IndexType = value_type;
+  DictionaryConverter<V> converter;
   converter.dictionary = dictionary;
   converter.dictionary_length = dictionary_length;
 
@@ -567,7 +569,7 @@ inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_
       if (ARROW_PREDICT_FALSE(!IndexInRange(idx, dictionary_length))) {
         return values_read;
       }
-      T val = dictionary[idx];
+      V val = dictionary[idx];
 
       int repeat_batch = std::min(remaining, repeat_count_);
       std::fill(out, out + repeat_batch, val);
@@ -597,7 +599,7 @@ inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_
       values_read += literal_batch;
       out += literal_batch;
     } else {
-      if (!NextCounts<IndexType>()) return values_read;
+      if (!NextCounts()) return values_read;
     }
   }
 
@@ -605,18 +607,18 @@ inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_
 }
 
 template <typename T>
-inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
-                                              int32_t dictionary_length, T* out,
-                                              int batch_size, int null_count,
-                                              const uint8_t* valid_bits,
-                                              int64_t valid_bits_offset) {
+template <typename V>
+inline int RleDecoder<T>::GetBatchWithDictSpaced(const V* dictionary,
+                                                 int32_t dictionary_length, V* out,
+                                                 int batch_size, int null_count,
+                                                 const uint8_t* valid_bits,
+                                                 int64_t valid_bits_offset) {
   if (null_count == 0) {
-    return GetBatchWithDict<T>(dictionary, dictionary_length, out, batch_size);
+    return GetBatchWithDict<V>(dictionary, dictionary_length, out, batch_size);
   }
   arrow::internal::BitBlockCounter block_counter(valid_bits, valid_bits_offset,
                                                  batch_size);
-  using IndexType = int32_t;
-  DictionaryConverter<T> converter;
+  DictionaryConverter<V> converter;
   converter.dictionary = dictionary;
   converter.dictionary_length = dictionary_length;
 
@@ -629,12 +631,12 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
       break;
     }
     if (block.AllSet()) {
-      processed = GetBatchWithDict<T>(dictionary, dictionary_length, out, block.length);
+      processed = GetBatchWithDict<V>(dictionary, dictionary_length, out, block.length);
     } else if (block.NoneSet()) {
       converter.FillZero(out, out + block.length);
       processed = block.length;
     } else {
-      processed = GetSpaced<T, /*RunType=*/IndexType, DictionaryConverter<T>>(
+      processed = GetSpaced<V, DictionaryConverter<V>>(
           converter, block.length, block.length - block.popcount, valid_bits,
           valid_bits_offset, out);
     }
@@ -646,7 +648,7 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
 }
 
 template <typename T>
-bool RleDecoder::NextCounts() {
+bool RleDecoder<T>::NextCounts() {
   // Read the next run's indicator int, it could be a literal or repeated run.
   // The int is encoded as a vlq-encoded value.
   uint32_t indicator_value = 0;
@@ -666,7 +668,7 @@ bool RleDecoder::NextCounts() {
     }
     repeat_count_ = count;
     T value = {};
-    if (!bit_reader_.GetAligned<T>(
+    if (!bit_reader_.GetAligned<value_type>(
             static_cast<int>(::arrow::bit_util::CeilDiv(bit_width_, 8)), &value)) {
       return false;
     }
