@@ -39,6 +39,8 @@ struct ARROW_EXPORT ArrayStatistics {
   /// value exists, one of them is used. `std::nullopt` is used
   /// otherwise.
   using ValueType = std::variant<bool, int64_t, uint64_t, double, std::string>;
+  using NumericType = std::variant<int64_t, double>;
+  using CountType = NumericType;
 
   static const std::shared_ptr<DataType>& ValueToArrowType(
       const std::optional<ValueType>& value,
@@ -76,7 +78,9 @@ struct ARROW_EXPORT ArrayStatistics {
   std::optional<int64_t> null_count = std::nullopt;
 
   /// \brief The number of distinct values, may not be set
-  std::optional<int64_t> distinct_count = std::nullopt;
+  /// Note: when set to `int64_t`, it represents `exact_distinct_count`,
+  /// and when set to `double`, it represents `approximate_distinct_count`.
+  std::optional<CountType> distinct_count = std::nullopt;
 
   /// \brief The average size in bytes of a row in an array, may not be set.
   std::optional<double> average_byte_width = std::nullopt;
