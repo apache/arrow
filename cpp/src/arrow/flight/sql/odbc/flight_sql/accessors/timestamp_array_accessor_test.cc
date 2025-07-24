@@ -34,11 +34,12 @@ using odbcabstraction::TIMESTAMP_STRUCT;
 using odbcabstraction::GetTimeForSecondsSinceEpoch;
 
 TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_MILLI) {
-  std::vector<int64_t> values = {
-      86400370,  172800000,      259200000,      1649793238110LL,
-      345600000, 432000000,      518400000,      -86399000,
-      0,         -86399999,      -86399001,      86400001,
-      86400999,  -3786912000000, -5364662400000, -1500};
+  std::vector<int64_t> values = {86400370,        172800000,      259200000,
+                                 1649793238110LL, 345600000,      432000000,
+                                 518400000,       -86399000,      0,
+                                 -86399999,       -86399001,      86400001,
+                                 86400999,        -3786912000000, -5364662400000,
+                                 -1500,           -24268068949000};
   std::vector<TIMESTAMP_STRUCT> expected = {
       /* year(16), month(u16), day(u16), hour(u16), minute(u16), second(u16),
          fraction(u32) */
@@ -59,7 +60,9 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_MILLI) {
       {1970, 1, 2, 0, 0, 0, 999000000},
       {1849, 12, 31, 0, 0, 0, 0U},
       {1800, 1, 1, 0, 0, 0, 0U},
-      {1969, 12, 31, 23, 59, 58, 500000000U}};
+      {1969, 12, 31, 23, 59, 58, 500000000U},
+      {1200, 12, 22, 13, 44, 11, 0U},
+  };
 
   std::shared_ptr<Array> timestamp_array;
 
