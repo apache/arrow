@@ -1997,8 +1997,15 @@ TEST(BitUtil, RoundUpToPowerOf2) {
 #undef U64
 #undef S64
 
+/// Test the maximum number of bytes needed to write a LEB128 of a give size.
+TEST(BitStreamUtil, MaxLEB128ByteLenFor) {
+  EXPECT_EQ(bit_util::MaxLEB128ByteLenFor<int16_t>, 3);
+  EXPECT_EQ(bit_util::MaxLEB128ByteLenFor<int32_t>, 5);
+  EXPECT_EQ(bit_util::MaxLEB128ByteLenFor<int64_t>, 10);
+}
+
 static void TestZigZag(int32_t v, std::array<uint8_t, 5> buffer_expect) {
-  uint8_t buffer[bit_util::BitReader::kMaxVlqByteLength] = {};
+  uint8_t buffer[bit_util::BitReader::kMaxVlqByteLengthForInt32] = {};
   bit_util::BitWriter writer(buffer, sizeof(buffer));
   bit_util::BitReader reader(buffer, sizeof(buffer));
   writer.PutZigZagVlqInt(v);

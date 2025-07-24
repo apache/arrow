@@ -365,5 +365,10 @@ void PackBits(const uint32_t* values, uint8_t* out) {
   }
 }
 
+constexpr int64_t MaxLEB128ByteLen(int64_t n_bits) { return CeilDiv(n_bits, 7); }
+
+template <typename Int>
+constexpr int64_t MaxLEB128ByteLenFor = MaxLEB128ByteLen(sizeof(Int) * 8);
+
 }  // namespace bit_util
 }  // namespace arrow
