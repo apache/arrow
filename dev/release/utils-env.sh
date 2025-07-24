@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+# shellcheck shell=bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -17,40 +17,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
-set -o pipefail
-
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-: "${GITHUB_REPOSITORY:=apache/arrow}"
-: "${TEST_PYPI:=0}"
 
-if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 <version>"
-  exit
+if [ ! -f "${SOURCE_DIR}/.env" ]; then
+  echo "You must create ${SOURCE_DIR}/.env"
+  echo "You can use ${SOURCE_DIR}/.env.example as template"
+  exit 1
 fi
-
-. "${SOURCE_DIR}/utils-env.sh"
-
-version=$1
-
-cd "${SOURCE_DIR}"
-
-tmp=$(mktemp -d -t "arrow-post-python.XXXXX")
-gh release download \
-  "apache-arrow-${version}" \
-  --dir "${tmp}" \
-  --pattern "pyarrow-*.tar.gz" \
-  --pattern "pyarrow-*.whl" \
-  --repo "${GITHUB_REPOSITORY}"
-
-TWINE_ARGS=()
-if [ "${TEST_PYPI}" -gt 0 ]; then
-  TWINE_ARGS+=("--repository-url" "https://test.pypi.org/legacy/")
-fi
-
-twine upload "${TWINE_ARGS[@]}" "${tmp}"/*
-
-rm -rf "${tmp}"
-
-echo "Success! The released PyPI packages are available here:"
-echo "  https://pypi.org/project/pyarrow/${version}"
+# shellcheck source=SCRIPTDIR/.env.example
+. ${SOURCE_DIR}/.env
+export GH_TOKEN
