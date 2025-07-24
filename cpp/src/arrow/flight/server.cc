@@ -27,7 +27,7 @@
 #include <cerrno>
 #include <chrono>
 #include <cstdint>
-#include <list>
+#include <deque>
 #include <memory>
 #include <string_view>
 #include <thread>
@@ -287,25 +287,25 @@ class RecordBatchStream::RecordBatchStreamImpl {
     if (!writer_) {
       // Create the IPC writer on first call
       auto payload_writer =
-          std::make_unique<ServerRecordBatchPayloadWriter>(&payload_list_);
+          std::make_unique<ServerRecordBatchPayloadWriter>(&payload_deque_);
       ARROW_ASSIGN_OR_RAISE(
           writer_, ipc::internal::OpenRecordBatchWriter(std::move(payload_writer),
                                                         reader_->schema(), options_));
     }
 
     // Return the expected schema payload.
-    if (payload_list_.empty()) {
+    if (payload_deque_.empty()) {
       return Status::UnknownError("No schema payload generated");
     }
-    *payload = std::move(payload_list_.front());
-    payload_list_.pop_front();
+    *payload = std::move(payload_deque_.front());
+    payload_deque_.pop_front();
     return Status::OK();
   }
 
   Status Next(FlightPayload* payload) {
     // If we have previous payloads (dictionary messages or previous record batches)
     // we will return them before reading the next record batch.
-    if (payload_list_.empty()) {
+    if (payload_deque_.empty()) {
       std::shared_ptr<RecordBatch> batch;
       RETURN_NOT_OK(reader_->ReadNext(&batch));
       if (!batch) {
@@ -321,18 +321,18 @@ class RecordBatchStream::RecordBatchStreamImpl {
             "Writer should be initialized before reading Next batches");
       }
       // One WriteRecordBatch call might generate multiple payloads, so we
-      // need to collect them in a list.
+      // need to collect them in a deque.
       RETURN_NOT_OK(writer_->WriteRecordBatch(*batch));
     }
 
     // There must be at least one payload generated after WriteRecordBatch or
     // from previous calls to WriteRecordBatch.
-    if (payload_list_.empty()) {
+    if (payload_deque_.empty()) {
       return Status::UnknownError("IPC writer didn't produce any payloads");
     }
 
-    *payload = std::move(payload_list_.front());
-    payload_list_.pop_front();
+    *payload = std::move(payload_deque_.front());
+    payload_deque_.pop_front();
     return Status::OK();
   }
 
@@ -344,11 +344,11 @@ class RecordBatchStream::RecordBatchStreamImpl {
   }
 
  private:
-  // Simple payload writer that uses a list of generated payloads.
+  // Simple payload writer that uses a deque to store generated payloads.
   class ServerRecordBatchPayloadWriter : public ipc::internal::IpcPayloadWriter {
    public:
-    explicit ServerRecordBatchPayloadWriter(std::list<FlightPayload>* payload_list)
-        : payload_list_(payload_list) {}
+    explicit ServerRecordBatchPayloadWriter(std::deque<FlightPayload>* payload_deque)
+        : payload_deque_(payload_deque) {}
 
     Status Start() override { return Status::OK(); }
 
@@ -356,20 +356,20 @@ class RecordBatchStream::RecordBatchStreamImpl {
       FlightPayload payload;
       payload.ipc_message = ipc_payload;
 
-      payload_list_->push_back(std::move(payload));
+      payload_deque_->push_back(std::move(payload));
       return Status::OK();
     }
 
     Status Close() override { return Status::OK(); }
 
    private:
-    std::list<FlightPayload>* payload_list_;
+    std::deque<FlightPayload>* payload_deque_;
   };
 
   std::shared_ptr<RecordBatchReader> reader_;
   ipc::IpcWriteOptions options_;
   std::unique_ptr<ipc::RecordBatchWriter> writer_;
-  std::list<FlightPayload> payload_list_;
+  std::deque<FlightPayload> payload_deque_;
 };
 
 FlightMetadataWriter::~FlightMetadataWriter() = default;
