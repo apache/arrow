@@ -18,7 +18,7 @@
 # Tools for dealing with Arrow type metadata in Python
 
 
-from enum import Enum
+from enum import IntEnum
 
 from pyarrow.lib import (is_boolean_value,  # noqa
                          is_integer_value,
@@ -48,10 +48,10 @@ _NESTED_TYPES = {lib.Type_LIST, lib.Type_FIXED_SIZE_LIST, lib.Type_LARGE_LIST,
                  lib.Type_STRUCT, lib.Type_MAP} | _UNION_TYPES
 
 
-class TypesEnum(Enum):
+class TypesEnum(IntEnum):
     """
     An Enum that maps constant values to data types.
-    Exposes the underlying data types implementation for type checking purposes.
+    Exposes the underlying data types representation for type checking purposes.
     Note that some of the types listed here are not supported by PyArrow yet:
     INTERVAL_MONTHS and INTERVAL_DAY_TIME.
 
@@ -61,7 +61,14 @@ class TypesEnum(Enum):
     >>> from pyarrow.types import TypesEnum
     >>>
     >>> int8_field = pa.field('int8_field', pa.int8())
-    >>> int8_field.type.id == TypesEnum.INT8.value
+    >>> int8_field.type.id == TypesEnum.INT8
+    True
+
+    >>> fixed_size_list = pa.list(pa.uint16(), 3)
+    >>> fixed_size_list.id == TypesEnum.LIST
+    False
+
+    >>> fixed_size_list.id == TypesEnum.FIXED_SIZE_LIST
     True
     """
 
