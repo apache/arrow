@@ -25,5 +25,5 @@ if [ ! -f "${SOURCE_DIR}/.env" ]; then
   exit 1
 fi
 # shellcheck source=SCRIPTDIR/.env.example
-. ${SOURCE_DIR}/.env
+. "${SOURCE_DIR}/.env"
 export GH_TOKEN
