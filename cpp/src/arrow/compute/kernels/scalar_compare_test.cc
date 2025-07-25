@@ -745,7 +745,8 @@ TYPED_TEST(TestCompareList, ArrayArray) {
       {"equal", "[1, 0, 0, null]"},
       {"not_equal", "[0, 1, 1, null]"},
   };
-  const auto lhs_int = ArrayFromJSON(int_ty, R"([[1, 2, 3], [4, 5, 6], [7], null])");
+  const auto lhs_int =
+      ArrayFromJSON(int_ty, R"([[1, 2, 3], [4, 5, 6], [6, 8, 7], null])");
   const auto lhs_bin = ArrayFromJSON(
       bin_ty, R"([["a", "b", "c"], ["foo", "bar", "baz"], ["hello"], null])");
   const auto rhs_int = ArrayFromJSON(int_ty, R"([[1, 2, 3], [4, 5], [6, 7, 8], null])");
