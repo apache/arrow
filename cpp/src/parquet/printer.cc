@@ -168,8 +168,10 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
         std::string min = stats->min(), max = stats->max();
         stream << ", Null Values: " << stats->null_count
                << ", Distinct Values: " << stats->distinct_count << std::endl
-               << "  Max: " << FormatStatValue(descr->physical_type(), max)
-               << ", Min: " << FormatStatValue(descr->physical_type(), min);
+               << "  Max: "
+               << FormatStatValue(descr->physical_type(), max, descr->logical_type())
+               << ", Min: "
+               << FormatStatValue(descr->physical_type(), min, descr->logical_type());
       } else {
         stream << "  Statistics Not Set";
       }
@@ -334,9 +336,12 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
         if (stats->HasMinMax()) {
           std::string min = stats->EncodeMin(), max = stats->EncodeMax();
           stream << ", "
-                 << R"("Max": ")" << FormatStatValue(descr->physical_type(), max)
+                 << R"("Max": ")"
+                 << FormatStatValue(descr->physical_type(), max, descr->logical_type())
                  << "\", "
-                 << R"("Min": ")" << FormatStatValue(descr->physical_type(), min) << "\"";
+                 << R"("Min": ")"
+                 << FormatStatValue(descr->physical_type(), min, descr->logical_type())
+                 << "\"";
         }
         stream << " },";
       } else {
