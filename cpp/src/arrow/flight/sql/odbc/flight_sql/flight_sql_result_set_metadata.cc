@@ -16,10 +16,10 @@
 // under the License.
 
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_result_set_metadata.h"
-#include <arrow/flight/sql/column_metadata.h>
-#include <arrow/util/key_value_metadata.h>
+#include "arrow/flight/sql/column_metadata.h"
 #include "arrow/flight/sql/odbc/flight_sql/utils.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
+#include "arrow/util/key_value_metadata.h"
 
 #include <utility>
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
@@ -260,18 +260,29 @@ bool FlightSqlResultSetMetadata::IsUnsigned(int column_position) {
   const std::shared_ptr<Field>& field = schema_->field(column_position - 1);
 
   switch (field->type()->id()) {
+    case arrow::Type::INT8:
+    case arrow::Type::INT16:
+    case arrow::Type::INT32:
+    case arrow::Type::INT64:
+    case arrow::Type::DOUBLE:
+    case arrow::Type::FLOAT:
+    case arrow::Type::HALF_FLOAT:
+    case arrow::Type::DECIMAL32:
+    case arrow::Type::DECIMAL64:
+    case arrow::Type::DECIMAL128:
+    case arrow::Type::DECIMAL256:
+      return false;
     case arrow::Type::UINT8:
     case arrow::Type::UINT16:
     case arrow::Type::UINT32:
     case arrow::Type::UINT64:
-      return true;
     default:
-      return false;
+      return true;
   }
 }
 
 bool FlightSqlResultSetMetadata::IsFixedPrecScale(int column_position) {
-  // TODO: Flight SQL column metadata does not have this, should we add to the spec?
+  // Precision for Arrow data types are modifiable by the user
   return false;
 }
 

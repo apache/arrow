@@ -17,10 +17,10 @@
 
 #pragma once
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/error_codes.h>
 #include <cstdint>
 #include <exception>
 #include <string>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/error_codes.h"
 
 namespace driver {
 namespace odbcabstraction {
