@@ -53,6 +53,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/memory_internal.h"
 #include "arrow/util/ree_util.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/visit_scalar_inline.h"
 #include "arrow/visit_type_inline.h"
 
@@ -1532,11 +1533,14 @@ bool DoubleEquals(const double& left, const double& right, const EqualOptions& o
   return result;
 }
 
-bool ArrayStatisticsValueTypeEquals(
-    const std::optional<ArrayStatistics::ValueType>& left,
-    const std::optional<ArrayStatistics::ValueType>& right, const EqualOptions& options) {
+template <typename Type>
+bool ArrayStatisticsValueTypeEquals(const std::optional<Type>& left,
+                                    const std::optional<Type>& right,
+                                    const EqualOptions& options) {
   if (!left.has_value() || !right.has_value()) {
     return left.has_value() == right.has_value();
+  } else if constexpr (std::is_floating_point_v<Type>) {
+    return DoubleEquals(left.value(), right.value(), options);
   } else if (left->index() != right->index()) {
     return false;
   } else {
@@ -1550,7 +1554,7 @@ bool ArrayStatisticsValueTypeEquals(
         return v1 == v2;
       }
       // It is unreachable
-      DCHECK(false);
+      Unreachable("The types are different.");
       return false;
     };
     return std::visit(EqualsVisitor, left.value(), right.value());
@@ -1560,7 +1564,8 @@ bool ArrayStatisticsValueTypeEquals(
 bool ArrayStatisticsEqualsImpl(const ArrayStatistics& left, const ArrayStatistics& right,
                                const EqualOptions& equal_options) {
   return left.null_count == right.null_count &&
-         left.distinct_count == right.distinct_count &&
+         ArrayStatisticsValueTypeEquals(left.distinct_count, right.distinct_count,
+                                        equal_options) &&
          left.is_average_byte_width_exact == right.is_average_byte_width_exact &&
          left.is_min_exact == right.is_min_exact &&
          left.is_max_exact == right.is_max_exact &&

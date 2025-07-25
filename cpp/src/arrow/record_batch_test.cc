@@ -1400,14 +1400,14 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayNullCount) {
   AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
 }
 
-TEST_F(TestRecordBatch, MakeStatisticsArrayDistinctCount) {
+TEST_F(TestRecordBatch, MakeStatisticsArrayDistinctCountExact) {
   auto schema =
       ::arrow::schema({field("no-statistics", boolean()), field("int32", int32())});
   auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
   auto int32_array_data = ArrayFromJSON(int32(), "[1, null, -1]")->data()->Copy();
   int32_array_data->statistics = std::make_shared<ArrayStatistics>();
   int32_array_data->statistics->null_count = 1;
-  int32_array_data->statistics->distinct_count = 2;
+  int32_array_data->statistics->distinct_count = static_cast<int64_t>(2);
   auto int32_array = MakeArray(std::move(int32_array_data));
   auto batch = RecordBatch::Make(schema, int32_array->length(),
                                  {no_statistics_array, int32_array});
@@ -1430,6 +1430,40 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayDistinctCount) {
                                                 ArrayStatistics::ValueType{int64_t{1}},
                                                 ArrayStatistics::ValueType{int64_t{2}},
                                             }}));
+  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+}
+
+TEST_F(TestRecordBatch, MakeStatisticsArrayDistinctCountApproximate) {
+  auto schema =
+      ::arrow::schema({field("no-statistics", boolean()), field("int32", int32())});
+  auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
+  auto int32_array_data = ArrayFromJSON(int32(), "[1, null, -1]")->data()->Copy();
+  int32_array_data->statistics = std::make_shared<ArrayStatistics>();
+  int32_array_data->statistics->null_count = 1;
+  int32_array_data->statistics->distinct_count = 2.0;
+  auto int32_array = MakeArray(std::move(int32_array_data));
+  auto batch = RecordBatch::Make(schema, int32_array->length(),
+                                 {no_statistics_array, int32_array});
+
+  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_statistics_array,
+      MakeStatisticsArray("[null, 1]",
+                          {{
+                               ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                           },
+                           {
+                               ARROW_STATISTICS_KEY_NULL_COUNT_EXACT,
+                               ARROW_STATISTICS_KEY_DISTINCT_COUNT_APPROXIMATE,
+                           }},
+                          {{
+                               ArrayStatistics::ValueType{int64_t{3}},
+                           },
+                           {
+                               ArrayStatistics::ValueType{int64_t{1}},
+                               ArrayStatistics::ValueType{2.0},
+                           }}));
   AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
 }
 

@@ -33,12 +33,20 @@ TEST(TestArrayStatistics, NullCount) {
   ASSERT_EQ(29, statistics.null_count.value());
 }
 
-TEST(TestArrayStatistics, DistinctCount) {
+TEST(TestArrayStatistics, DistinctCountExact) {
   ArrayStatistics statistics;
   ASSERT_FALSE(statistics.distinct_count.has_value());
-  statistics.distinct_count = 29;
+  statistics.distinct_count = static_cast<int64_t>(29);
   ASSERT_TRUE(statistics.distinct_count.has_value());
-  ASSERT_EQ(29, statistics.distinct_count.value());
+  ASSERT_EQ(29, std::get<int64_t>(statistics.distinct_count.value()));
+}
+
+TEST(TestArrayStatistics, DistinctCountApproximate) {
+  ArrayStatistics statistics;
+  ASSERT_FALSE(statistics.distinct_count.has_value());
+  statistics.distinct_count = 29.0;
+  ASSERT_TRUE(statistics.distinct_count.has_value());
+  ASSERT_DOUBLE_EQ(29.0, std::get<double>(statistics.distinct_count.value()));
 }
 
 TEST(TestArrayStatistics, AverageByteWidth) {
@@ -87,9 +95,16 @@ TEST(TestArrayStatistics, Equals) {
   statistics2.null_count = 29;
   ASSERT_EQ(statistics1, statistics2);
 
-  statistics1.distinct_count = 2929;
+  // Test DISTINCT_COUNT_EXACT
+  statistics1.distinct_count = static_cast<int64_t>(2929);
   ASSERT_NE(statistics1, statistics2);
-  statistics2.distinct_count = 2929;
+  statistics2.distinct_count = static_cast<int64_t>(2929);
+  ASSERT_EQ(statistics1, statistics2);
+
+  // Test DISTINCT_COUNT_APPROXIMATE
+  statistics1.distinct_count = 2930.5;
+  ASSERT_NE(statistics1, statistics2);
+  statistics2.distinct_count = 2930.5;
   ASSERT_EQ(statistics1, statistics2);
 
   statistics1.average_byte_width = 2.9;
@@ -124,7 +139,7 @@ TEST(TestArrayStatistics, Equals) {
 
   // Test different ArrayStatistics::ValueType
   statistics1.max = static_cast<uint64_t>(29);
-  statistics1.max = static_cast<int64_t>(29);
+  statistics2.max = static_cast<int64_t>(29);
   ASSERT_NE(statistics1, statistics2);
 }
 
