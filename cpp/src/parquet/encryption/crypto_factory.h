@@ -118,9 +118,8 @@ struct PARQUET_EXPORT ExternalEncryptionConfiguration : public EncryptionConfigu
   /// External encryption services may use additional context provided by the application to
   /// enforce robust access control. The values sent to the external service depend on each
   /// implementation. 
-  /// The string represents a key/value based dictionary that may have nested dictionaries
-  // and or lists. The values are parsed and sent "as is" to the external service.
-  /// Format: "userId:value,location:{lat:value,long:value},roles:[role1,role2]"
+  /// This values must be a valid JSON-formatted string.
+  /// Format: "{}"
   std::string app_context;
   
   /// Key/value list of the location of configuration files needed by the external
