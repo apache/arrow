@@ -496,13 +496,17 @@ inline bool BitReader::GetZigZagVlqInt(int32_t* v) {
 }
 
 inline bool BitWriter::PutVlqInt(uint64_t v) {
-  bool result = true;
-  while ((v & 0xFFFFFFFFFFFFFF80ULL) != 0ULL) {
-    result &= PutAligned<uint8_t>(static_cast<uint8_t>((v & 0x7F) | 0x80), 1);
-    v >>= 7;
+  constexpr auto kMaxBytes = bit_util::MaxLEB128ByteLenFor<decltype(v)>;
+
+  uint8_t leb128[kMaxBytes] = {};
+  auto const bytes_written = bit_util::WriteLEB128(v, leb128, kMaxBytes);
+  ARROW_DCHECK_NE(bytes_written, 0);
+
+  if (auto* out = GetNextBytePtr(bytes_written)) {
+    std::memcpy(out, leb128, bytes_written);
+    return true;
   }
-  result &= PutAligned<uint8_t>(static_cast<uint8_t>(v & 0x7F), 1);
-  return result;
+  return false;
 }
 
 inline bool BitReader::GetVlqInt(uint64_t* v) {
