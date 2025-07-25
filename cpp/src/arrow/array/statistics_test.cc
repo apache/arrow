@@ -36,7 +36,7 @@ TEST(TestArrayStatistics, NullCount) {
 TEST(TestArrayStatistics, DistinctCountExact) {
   ArrayStatistics statistics;
   ASSERT_FALSE(statistics.distinct_count.has_value());
-  statistics.distinct_count = 29;
+  statistics.distinct_count = static_cast<int64_t>(29);
   ASSERT_TRUE(statistics.distinct_count.has_value());
   ASSERT_EQ(29, std::get<int64_t>(statistics.distinct_count.value()));
 }
@@ -96,9 +96,9 @@ TEST(TestArrayStatistics, Equals) {
   ASSERT_EQ(statistics1, statistics2);
 
   // Test DISTINCT_COUNT_EXACT
-  statistics1.distinct_count = 2929;
+  statistics1.distinct_count = static_cast<int64_t>(2929);
   ASSERT_NE(statistics1, statistics2);
-  statistics2.distinct_count = 2929;
+  statistics2.distinct_count = static_cast<int64_t>(2929);
   ASSERT_EQ(statistics1, statistics2);
 
   // Test DISTINCT_COUNT_APPROXIMATE

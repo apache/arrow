@@ -1407,7 +1407,7 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayDistinctCountExact) {
   auto int32_array_data = ArrayFromJSON(int32(), "[1, null, -1]")->data()->Copy();
   int32_array_data->statistics = std::make_shared<ArrayStatistics>();
   int32_array_data->statistics->null_count = 1;
-  int32_array_data->statistics->distinct_count = 2;
+  int32_array_data->statistics->distinct_count = static_cast<int64_t>(2);
   auto int32_array = MakeArray(std::move(int32_array_data));
   auto batch = RecordBatch::Make(schema, int32_array->length(),
                                  {no_statistics_array, int32_array});
