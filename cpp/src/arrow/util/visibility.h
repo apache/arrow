@@ -78,7 +78,7 @@
 #  endif
 
 #  define ARROW_FRIEND_EXPORT
-#  define ARROW_TEMPLATE_EXPORT
+#  define ARROW_TEMPLATE_EXPORT ARROW_EXPORT
 
 // [[gnu::visibility("default")]] even when #included by a non-arrow source
 #  define ARROW_FORCE_EXPORT [[gnu::visibility("default")]]
