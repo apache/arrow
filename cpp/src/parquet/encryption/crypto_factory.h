@@ -88,7 +88,7 @@ struct PARQUET_EXPORT EncryptionConfiguration {
 
 /// Helper struct for use in per column encryption specification.
 /// The ExternalEncryptionConfiguration will use this to send encryption parameters per column.
-struct PARQUET_EXPORT ColumnEncryptionPropertiesParams {
+struct PARQUET_EXPORT ColumnEncryptionAttributes {
     /// Which type of encryptor to use.
     ParquetCipher::type parquet_cipher;
 
@@ -104,7 +104,7 @@ struct PARQUET_EXPORT ExternalEncryptionConfiguration : public EncryptionConfigu
       : EncryptionConfiguration(footer_key) {}
 
   /// Map of the columns to encrypt to their associated encryption parameters. The id of the map
-  /// is the column name, and the value is a ColumnEncryptionPropertiesParams struct that can be
+  /// is the column name, and the value is a ColumnEncryptionAttributes struct that can be
   /// used to construct the ColumnEncryptionProperties in the CryptoFactory.
   /// As with the EncryptionConfiguration, either:
   /// (1) uniform_encryption = true
@@ -116,7 +116,7 @@ struct PARQUET_EXPORT ExternalEncryptionConfiguration : public EncryptionConfigu
   /// If a column name appears in the new per_column_encryption map, it will be encrypted using the
   /// per column specific algorithm and key.
   /// If a column name appears in both, the per_column_encryption values will take precedence.
-  std::unordered_map<std::string, ColumnEncryptionPropertiesParams> per_column_encryption;
+  std::unordered_map<std::string, ColumnEncryptionAttributes> per_column_encryption;
 
   /// External encryption services may use additional context provided by the application to
   /// enforce robust access control. The values sent to the external service depend on each
