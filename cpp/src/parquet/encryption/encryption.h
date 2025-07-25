@@ -147,12 +147,13 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
         : column_path_(path), encrypted_(encrypted) {}
   };
 
-  /// Check whether the optional has a value before using.
   std::string column_path() const { return column_path_; }
   bool is_encrypted() const { return encrypted_; }
   bool is_encrypted_with_footer_key() const { return encrypted_with_footer_key_; }
   std::string key() const { return key_; }
   std::string key_metadata() const { return key_metadata_; }
+
+  /// Check whether the optional has a value before using.
   std::optional<ParquetCipher::type> parquet_cipher() const { return parquet_cipher_; }
 
   ColumnEncryptionProperties() = default;
