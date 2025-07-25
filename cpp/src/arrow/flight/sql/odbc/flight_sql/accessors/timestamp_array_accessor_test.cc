@@ -127,7 +127,7 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_SECONDS) {
     tm date{};
 
     auto converted_time = values[i];
-    GetTimeForSecondsSinceEpoch(date, converted_time);
+    GetTimeForSecondsSinceEpoch(converted_time, date);
 
     ASSERT_EQ(buffer[i].year, 1900 + (date.tm_year));
     ASSERT_EQ(buffer[i].month, date.tm_mon + 1);
@@ -169,7 +169,7 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_MICRO) {
     tm date{};
 
     auto converted_time = values[i] / odbcabstraction::MICRO_TO_SECONDS_DIVISOR;
-    GetTimeForSecondsSinceEpoch(date, converted_time);
+    GetTimeForSecondsSinceEpoch(converted_time, date);
 
     ASSERT_EQ(buffer[i].year, 1900 + (date.tm_year));
     ASSERT_EQ(buffer[i].month, date.tm_mon + 1);
@@ -212,7 +212,7 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_NANO) {
     tm date{};
 
     auto converted_time = values[i] / odbcabstraction::NANO_TO_SECONDS_DIVISOR;
-    GetTimeForSecondsSinceEpoch(date, converted_time);
+    GetTimeForSecondsSinceEpoch(converted_time, date);
 
     ASSERT_EQ(buffer[i].year, 1900 + (date.tm_year));
     ASSERT_EQ(buffer[i].month, date.tm_mon + 1);
