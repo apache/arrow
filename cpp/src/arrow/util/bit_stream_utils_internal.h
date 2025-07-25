@@ -450,22 +450,35 @@ inline bool BitWriter::PutVlqInt(uint32_t v) {
 }
 
 inline bool BitReader::GetVlqInt(uint32_t* v) {
-  uint32_t tmp = 0;
+  // The data that we will pass to the LEB128 parser
+  // In all case, we read an byte-aligned value, skipping remaining bits
+  uint8_t const* data = NULLPTR;
+  int max_size = 0;
 
-  for (int i = 0; i < kMaxVlqByteLengthForInt32; i++) {
-    uint8_t byte = 0;
-    if (ARROW_PREDICT_FALSE(!GetAligned<uint8_t>(1, &byte))) {
-      return false;
-    }
-    tmp |= static_cast<uint32_t>(byte & 0x7F) << (7 * i);
+  // Number of bytes left in the buffered values, not including the current
+  // byte (i.e., there may be an additional fraction of a byte).
+  int const bytes_left_in_cache =
+      sizeof(buffered_values_) - static_cast<int>(bit_util::BytesForBits(bit_offset_));
 
-    if ((byte & 0x80) == 0) {
-      *v = tmp;
-      return true;
-    }
+  // If there are clearly enough bytes left we can try to parse from the cache
+  if (bytes_left_in_cache >= kMaxVlqByteLengthForInt32) {
+    max_size = bytes_left_in_cache;
+    data = reinterpret_cast<uint8_t const*>(&buffered_values_) +
+           bit_util::BytesForBits(bit_offset_);
+    // Otherwise, we try straight from buffer (ignoring few bytes that may be cached)
+  } else {
+    max_size = bytes_left();
+    data = buffer_ + (max_bytes_ - max_size);
   }
 
-  return false;
+  auto const read = bit_util::ParseLeadingLEB128(data, max_size, v);
+  if (ARROW_PREDICT_FALSE(read == 0)) {
+    // Corrupt LEB128
+    return false;
+  }
+
+  // Advance for the bytes we have read + the bit we skipped
+  return Advance((8 * read) + (bit_offset_ % 8));
 }
 
 inline bool BitWriter::PutZigZagVlqInt(int32_t v) {
