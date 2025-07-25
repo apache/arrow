@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include <map>
+#include <optional>
 #include <utility>
 
 #include "arrow/util/logging_internal.h"
@@ -77,6 +78,12 @@ ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key_id
 
   DCHECK(!key_id.empty());
   this->key_metadata(key_id);
+  return this;
+}
+
+ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::parquet_cipher(
+    ParquetCipher::type parquet_cipher) {
+  this->parquet_cipher_ = parquet_cipher;
   return this;
 }
 
@@ -181,11 +188,10 @@ FileEncryptionProperties::Builder::disable_aad_prefix_storage() {
   return this;
 }
 
-ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted,
-                                                       const std::string& column_path,
-                                                       const std::string& key,
-                                                       const std::string& key_metadata)
-    : column_path_(column_path) {
+ColumnEncryptionProperties::ColumnEncryptionProperties(
+        std::optional<ParquetCipher::type> parquet_cipher, bool encrypted,
+        const std::string& column_path, const std::string& key, const std::string& key_metadata)
+    : parquet_cipher_(parquet_cipher), column_path_(column_path) {
   DCHECK(!column_path.empty());
   if (!encrypted) {
     DCHECK(key.empty() && key_metadata.empty());
