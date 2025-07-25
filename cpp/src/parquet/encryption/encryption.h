@@ -133,27 +133,27 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
 
     std::shared_ptr<ColumnEncryptionProperties> build() {
       return std::shared_ptr<ColumnEncryptionProperties>(new ColumnEncryptionProperties(
-        parquet_cipher_, encrypted_, column_path_, key_, key_metadata_));
+        encrypted_, column_path_, key_, key_metadata_, parquet_cipher_));
     }
 
    private:
-    std::optional<ParquetCipher::type> parquet_cipher_;
     const std::string column_path_;
     bool encrypted_;
     std::string key_;
     std::string key_metadata_;
+    std::optional<ParquetCipher::type> parquet_cipher_;
 
     Builder(const std::string path, bool encrypted)
         : column_path_(path), encrypted_(encrypted) {}
   };
 
   /// Check whether the optional has a value before using.
-  std::optional<ParquetCipher::type> parquet_cipher() const { return parquet_cipher_; }
   std::string column_path() const { return column_path_; }
   bool is_encrypted() const { return encrypted_; }
   bool is_encrypted_with_footer_key() const { return encrypted_with_footer_key_; }
   std::string key() const { return key_; }
   std::string key_metadata() const { return key_metadata_; }
+  std::optional<ParquetCipher::type> parquet_cipher() const { return parquet_cipher_; }
 
   ColumnEncryptionProperties() = default;
   ColumnEncryptionProperties(const ColumnEncryptionProperties& other) = default;
@@ -162,15 +162,15 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
   ~ColumnEncryptionProperties() { key_.clear(); }
 
  private:
-  std::optional<ParquetCipher::type> parquet_cipher_;
   const std::string column_path_;
   bool encrypted_;
   bool encrypted_with_footer_key_;
   std::string key_;
   std::string key_metadata_;
-  explicit ColumnEncryptionProperties(std::optional<ParquetCipher::type> parquet_cipher,
-                                      bool encrypted, const std::string& column_path,
-                                      const std::string& key, const std::string& key_metadata);
+  std::optional<ParquetCipher::type> parquet_cipher_;
+  explicit ColumnEncryptionProperties(bool encrypted, const std::string& column_path,
+                                      const std::string& key, const std::string& key_metadata,
+                                      std::optional<ParquetCipher::type> parquet_cipher);
 };
 
 class PARQUET_EXPORT ColumnDecryptionProperties {

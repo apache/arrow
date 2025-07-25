@@ -189,9 +189,9 @@ FileEncryptionProperties::Builder::disable_aad_prefix_storage() {
 }
 
 ColumnEncryptionProperties::ColumnEncryptionProperties(
-        std::optional<ParquetCipher::type> parquet_cipher, bool encrypted,
-        const std::string& column_path, const std::string& key, const std::string& key_metadata)
-    : parquet_cipher_(parquet_cipher), column_path_(column_path) {
+        bool encrypted, const std::string& column_path, const std::string& key,
+        const std::string& key_metadata, std::optional<ParquetCipher::type> parquet_cipher)
+    : column_path_(column_path), parquet_cipher_(parquet_cipher) {
   DCHECK(!column_path.empty());
   if (!encrypted) {
     DCHECK(key.empty() && key_metadata.empty());
