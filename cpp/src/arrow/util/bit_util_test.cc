@@ -2004,6 +2004,58 @@ TEST(BitStreamUtil, MaxLEB128ByteLenFor) {
   EXPECT_EQ(bit_util::MaxLEB128ByteLenFor<int64_t>, 10);
 }
 
+/// Utility function to test LEB128 encoding with known input value and expected byte
+/// array
+template <typename Int, std::size_t N>
+void TestLEB128Encode(Int input_value, std::array<uint8_t, N> const& expected_data,
+                      int32_t expected_bytes_written) {
+  std::array<uint8_t, N> buffer{};
+  auto bytes_written = bit_util::WriteLEB128(input_value, buffer.data(),
+                                             static_cast<int32_t>(buffer.size()));
+  EXPECT_EQ(bytes_written, expected_bytes_written);
+  if (bytes_written > 0) {
+    EXPECT_EQ(buffer, expected_data);
+  }
+}
+
+/// Test encoding to known LEB128 byte sequences
+TEST(WriteLEB128Test, KnownArrayValues) {
+  // Single byte value 0
+  TestLEB128Encode(0U, std::array<uint8_t, 1>{0x00}, 1);
+  // Single byte value 127
+  TestLEB128Encode(127U, std::array<uint8_t, 1>{0x7F}, 1);
+  // Two byte value 128
+  TestLEB128Encode(128U, std::array<uint8_t, 2>{0x80, 0x01}, 2);
+  // Two byte value 300
+  TestLEB128Encode(300U, std::array<uint8_t, 2>{0xAC, 0x02}, 2);
+  // Three byte value 16384
+  TestLEB128Encode(16384U, std::array<uint8_t, 3>{0x80, 0x80, 0x01}, 3);
+  // Four byte value 268435455
+  TestLEB128Encode(268435455U, std::array<uint8_t, 4>{0xFF, 0xFF, 0xFF, 0x7F}, 4);
+  // Five byte uint32_t max value
+  TestLEB128Encode(4294967295U, std::array<uint8_t, 5>{0xFF, 0xFF, 0xFF, 0xFF, 0x0F}, 5);
+  // uint64_t value requiring 10 bytes
+  TestLEB128Encode(
+      18446744073709551615ULL,
+      std::array<uint8_t, 10>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01},
+      10);
+  // Edge case: Exact buffer size match
+  TestLEB128Encode(16384U, std::array<uint8_t, 3>{0x80, 0x80, 0x01}, 3);
+  // Various single byte values
+  TestLEB128Encode(1U, std::array<uint8_t, 1>{0x01}, 1);
+  TestLEB128Encode(63U, std::array<uint8_t, 1>{0x3F}, 1);
+  TestLEB128Encode(64U, std::array<uint8_t, 1>{0x40}, 1);
+  // Two byte boundary values
+  TestLEB128Encode(129U, std::array<uint8_t, 2>{0x81, 0x01}, 2);
+  TestLEB128Encode(16383U, std::array<uint8_t, 2>{0xFF, 0x7F}, 2);
+  // Error case: Buffer too small for value 128 (needs 2 bytes but only 1 provided)
+  TestLEB128Encode(128U, std::array<uint8_t, 1>{}, 0);
+  // Error case: Buffer too small for uint32_t max (needs 5 bytes but only 4 provided)
+  TestLEB128Encode(4294967295U, std::array<uint8_t, 4>{}, 0);
+  // Error case: Zero buffer size
+  TestLEB128Encode(52U, std::array<uint8_t, 0>{}, 0);
+}
+
 /// Utility function to test LEB128 decoding with known byte array and expected result
 template <typename Int, std::size_t N>
 void TestLEB128Decode(std::array<uint8_t, N> const& data, Int expected_value,

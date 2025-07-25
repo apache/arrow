@@ -370,6 +370,49 @@ constexpr int64_t MaxLEB128ByteLen(int64_t n_bits) { return CeilDiv(n_bits, 7); 
 template <typename Int>
 constexpr int64_t MaxLEB128ByteLenFor = MaxLEB128ByteLen(sizeof(Int) * 8);
 
+/// Write a integer as LEB128
+///
+/// Write the input value as LEB128 into the outptu buffer and return the number of bytes
+/// written.
+/// If the output buffer size is insufficient, return 0 but the output may have been
+/// written to.
+///
+/// \see https://en.wikipedia.org/wiki/LEB128
+/// \see MaxLEB128ByteLenFor
+template <typename Int>
+constexpr int32_t WriteLEB128(Int value, uint8_t* out, int32_t max_out_size) {
+  constexpr Int kLow7Mask = Int(0x7F);
+  constexpr Int kHigh7Mask = ~kLow7Mask;
+  constexpr uint8_t kContinuationBit = 0x80;
+
+  auto const out_first = out;
+
+  // Write as many bytes as the could be for the given input
+  while ((value & kHigh7Mask) != Int(0)) {
+    // We do not have enough room to write the LEB128
+    if (out - out_first >= max_out_size) {
+      return 0;
+    }
+
+    // Write the encoded byte with continuation bit
+    *out = static_cast<uint8_t>(value & kLow7Mask) | kContinuationBit;
+    ++out;
+    // Shift remaining data
+    value >>= 7;
+  }
+
+  // We do not have enough room to write the LEB128
+  if (out - out_first >= max_out_size) {
+    return 0;
+  }
+
+  // Write last non-continuing byte
+  *out = static_cast<uint8_t>(value & kLow7Mask);
+  ++out;
+
+  return static_cast<int32_t>(out - out_first);
+}
+
 /// Parse a leading LEB128
 ///
 /// Take as input a data pointer and the maximum number of bytes that can be read from it
