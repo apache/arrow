@@ -63,7 +63,7 @@ class TypesEnum(IntEnum):
     >>> int8_field.type.id == TypesEnum.INT8
     True
 
-    >>> fixed_size_list = pa.list(pa.uint16(), 3)
+    >>> fixed_size_list = pa.list_(pa.uint16(), 3)
     >>> fixed_size_list.id == TypesEnum.LIST
     False
 
