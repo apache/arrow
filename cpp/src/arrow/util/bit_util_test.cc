@@ -2004,11 +2004,53 @@ TEST(BitStreamUtil, MaxLEB128ByteLenFor) {
   EXPECT_EQ(bit_util::MaxLEB128ByteLenFor<int64_t>, 10);
 }
 
+/// Utility function to test LEB128 decoding with known byte array and expected result
+template <typename Int, std::size_t N>
+void TestLEB128Decode(std::array<uint8_t, N> const& data, Int expected_value,
+                      int32_t expected_bytes_read) {
+  Int result = 0;
+  auto bytes_read = bit_util::ParseLeadingLEB128(
+      data.data(), static_cast<int32_t>(data.size()), &result);
+  EXPECT_EQ(bytes_read, expected_bytes_read);
+  if (expected_bytes_read > 0) {
+    EXPECT_EQ(result, expected_value);
+  }
+}
+
+/// Test decoding from known LEB128 byte sequences
+TEST(BitStreamUtil, LEB128) {
+  // Single byte value 0
+  TestLEB128Decode(std::array<uint8_t, 1>{0x00}, 0U, 1);
+  // Single byte value 127
+  TestLEB128Decode(std::array<uint8_t, 1>{0x7F}, 127U, 1);
+  // Two byte value 128
+  TestLEB128Decode(std::array<uint8_t, 2>{0x80, 0x01}, 128U, 2);
+  // Two byte value 300
+  TestLEB128Decode(std::array<uint8_t, 2>{0xAC, 0x02}, 300U, 2);
+  // Three byte value 16384
+  TestLEB128Decode(std::array<uint8_t, 3>{0x80, 0x80, 0x01}, 16384U, 3);
+  // Three byte value 16384, with remaining data
+  TestLEB128Decode(std::array<uint8_t, 5>{0x80, 0x80, 0x01, 0x80, 0x00}, 16384U, 3);
+  // Four byte value 268435455
+  TestLEB128Decode(std::array<uint8_t, 4>{0xFF, 0xFF, 0xFF, 0x7F}, 268435455U, 4);
+  // Five byte uint32_t max value
+  TestLEB128Decode(std::array<uint8_t, 5>{0xFF, 0xFF, 0xFF, 0xFF, 0x0F}, 4294967295U, 5);
+  // uint64_t value requiring 10 bytes
+  TestLEB128Decode(
+      std::array<uint8_t, 10>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01},
+      18446744073709551615ULL, 10);
+  // Error case: Truncated sequence (continuation bit set but no more data)
+  TestLEB128Decode(std::array<uint8_t, 1>{0x80}, 0U, 0);
+  // Error case: Oversized sequence for uint32_t (too many bytes)
+  TestLEB128Decode(std::array<uint8_t, 6>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01}, 0U, 0);
+}
+
 static void TestZigZag(int32_t v, std::array<uint8_t, 5> buffer_expect) {
   uint8_t buffer[bit_util::BitReader::kMaxVlqByteLengthForInt32] = {};
   bit_util::BitWriter writer(buffer, sizeof(buffer));
-  bit_util::BitReader reader(buffer, sizeof(buffer));
   writer.PutZigZagVlqInt(v);
+  // WARN reader buffer input on creation so it must be created after the data is written
+  bit_util::BitReader reader(buffer, sizeof(buffer));
   EXPECT_THAT(buffer, testing::ElementsAreArray(buffer_expect));
   int32_t result;
   EXPECT_TRUE(reader.GetZigZagVlqInt(&result));
