@@ -19,5 +19,5 @@
 source_url = https://github.com/apache/thrift/archive/refs/tags/v0.20.0.tar.gz
 source_filename = thrift-0.20.0.tar.gz
 source_hash = cd7b829d3d9d87f9f7d708e004eef7629789591ee1d416f4741913bc33e5c27d
-directory = thrift
+directory = thrift-0.20.0
 method = cmake

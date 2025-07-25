@@ -57,7 +57,31 @@ parquet_srcs = files(
     'xxhasher.cc',
 )
 
-thrift_dep = dependency('thrift')
+cmake = import('cmake')
+thrift_opts = cmake.subproject_options()
+thrift_opts.add_cmake_defines(
+    {
+        'BUILD_COMPILER': 'OFF',
+        'BUILD_EXAMPLES': 'OFF',
+        'BUILD_TUTORIALS': 'OFF',
+        'CMAKE_UNITY_BUILD': 'OFF',
+        'WITH_AS3': 'OFF',
+        'WITH_CPP': 'ON',
+        'WITH_C_GLIB': 'OFF',
+        'WITH_JAVA': 'OFF',
+        'WITH_JAVASCRIPT': 'OFF',
+        'WITH_LIBEVENT': 'OFF',
+        'WITH_NODEJS': 'OFF',
+        'WITH_PYTHON': 'OFF',
+        'WITH_QT5': 'OFF',
+        'WITH_ZLIB': 'OFF',
+        # dummy value to avoid https://github.com/mesonbuild/meson/issues/13390
+        'CMAKE_POSITION_INDEPENDENT_CODE': 'ON',
+        'THRIFT_COMPILER': 'foo',
+    },
+)
+thrift_proj = cmake.subproject('thrift', options: thrift_opts)
+thrift_dep = thrift_proj.dependency('thrift')
 parquet_deps = [arrow_dep, rapidjson_dep, thrift_dep]
 
 if needs_parquet_encryption
