@@ -28,22 +28,13 @@ if [ $# -ne 2 ]; then
   exit
 fi
 
+. "${SOURCE_DIR}/utils-env.sh"
+
 version=$1
 rc=$2
 
 : ${UPLOAD_DEFAULT=1}
 : ${UPLOAD_FORCE_SIGN=${UPLOAD_DEFAULT}}
-
-if [ ${UPLOAD_FORCE_SIGN} -gt 0 ]; then
-  pushd "${SOURCE_DIR}"
-  if [ ! -f .env ]; then
-    echo "You must create $(pwd)/.env"
-    echo "You can use $(pwd)/.env.example as template"
-    exit 1
-  fi
-  . .env
-  popd
-fi
 
 version_with_rc="${version}-rc${rc}"
 crossbow_job_prefix="release-${version_with_rc}"

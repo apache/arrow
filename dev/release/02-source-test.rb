@@ -26,6 +26,7 @@ class SourceTest < Test::Unit::TestCase
     @archive_name = "apache-arrow-#{@release_version}.tar.gz"
     @script = File.expand_path("dev/release/02-source.sh")
     @tarball_script = File.expand_path("dev/release/utils-create-release-tarball.sh")
+    @env = File.expand_path("dev/release/.env")
 
     Dir.mktmpdir do |dir|
       Dir.chdir(dir) do
@@ -96,7 +97,7 @@ class SourceTest < Test::Unit::TestCase
   end
 
   def test_vote
-    github_token = ENV["ARROW_GITHUB_API_TOKEN"]
+    github_token = File.read(@env)[/^GH_TOKEN=(.*)$/, 1]
     uri = URI.parse("https://api.github.com/graphql")
     n_issues_query = {
       "query" => <<-QUERY,

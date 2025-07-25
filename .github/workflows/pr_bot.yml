@@ -89,7 +89,7 @@ jobs:
         run: pip install -e arrow/dev/archery[bot]
       - name: Handle PR workflow event
         env:
-          ARROW_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ "${GITHUB_EVENT_NAME}" = "workflow_run" ]; then
             # workflow_run is executed on PR review. Update to original event.

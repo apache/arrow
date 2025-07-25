@@ -359,7 +359,7 @@ def _clone_arrow_and_crossbow(dest, crossbow_repo, arrow_repo_url, pr_number):
     git.clone(crossbow_url, str(queue_path))
 
     # 3. initialize crossbow objects
-    github_token = os.environ['CROSSBOW_GITHUB_TOKEN']
+    github_token = os.environ.get('CROSSBOW_GITHUB_TOKEN', os.environ['GH_TOKEN'])
     arrow = Repo(arrow_path)
     queue = Queue(queue_path, github_token=github_token, require_https=True)
 

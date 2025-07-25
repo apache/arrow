@@ -35,7 +35,7 @@ _default_config_path = _default_arrow_path / "dev" / "tasks" / "tasks.yml"
 
 @click.group()
 @click.option('--github-token', '-t', default=None,
-              envvar="CROSSBOW_GITHUB_TOKEN",
+              envvar=['CROSSBOW_GITHUB_TOKEN', 'GH_TOKEN'],
               help='OAuth token for GitHub authentication')
 @click.option('--arrow-path', '-a',
               type=click.Path(), default=_default_arrow_path,

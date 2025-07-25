@@ -66,7 +66,6 @@ default branch after the release maintenance branch has been created.
 
     - The GPG key needs to be added to this `SVN repo <https://dist.apache.org/repos/dist/dev/arrow/>`_ and `this one <https://dist.apache.org/repos/dist/release/arrow/>`_.
     - Have the build requirements for cpp and c_glib installed.
-    - Set the ``CROSSBOW_GITHUB_TOKEN`` environment variable to automatically create the verify release Pull Request.
     - Install ``en_US.UTF-8`` locale. You can confirm available locales by ``locale -a``.
     - Install Python 3 as python
     - Create dev/release/.env from dev/release/.env.example. See the comments in dev/release/.env.example how to set each variable.

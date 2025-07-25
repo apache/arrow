@@ -49,7 +49,7 @@ jobs:
         run: pip install -e arrow/dev/archery[bot]
       - name: Handle GitHub comment event
         env:
-          ARROW_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CROSSBOW_GITHUB_TOKEN: ${{ secrets.CROSSBOW_GITHUB_TOKEN }}
         run: |
           archery --debug trigger-bot \
