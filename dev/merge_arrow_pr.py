@@ -259,6 +259,9 @@ class GitHubAPI(object):
             token = os.environ.get('GH_TOKEN')
         if not token:
             token = os.environ.get('ARROW_GITHUB_API_TOKEN')
+            if token:
+                print('ARROW_GITHUB_API_TOKEN environment variable is '
+                      'deprecated. Use GH_TOKEN environment variable instead.')
         if not token:
             token = cmd.prompt('Env GH_TOKEN nor '
                                'ARROW_GITHUB_API_TOKEN not set, '
