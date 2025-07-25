@@ -64,14 +64,10 @@ struct ListEqual {
     if (left.length != right.length) {
       return false;
     } else {
+      // The offsets are hard-coded to zero because the scalar unboxing and
+      // array iteration routines already set the offset from the list parent
       RangeDataEqualsImpl range_comparer{
-          EqualOptions::Defaults(),
-          false,
-          left,
-          right,
-          left.offset,
-          right.offset,
-          left.length,
+          EqualOptions::Defaults(), false, left, right, 0, 0, left.length,
       };
       return range_comparer.Compare();
     }
@@ -87,7 +83,9 @@ struct ListNotEqual {
       return true;
     } else {
       RangeDataEqualsImpl range_comparer{
-          EqualOptions::Defaults(), false, left, right, 0, 0, 1,
+          // The offsets are hard-coded to zero because the scalar unboxing and
+          // array iteration routines already set the offset from the list parent
+          EqualOptions::Defaults(), false, left, right, 0, 0, left.length,
       };
 
       return !range_comparer.Compare();
