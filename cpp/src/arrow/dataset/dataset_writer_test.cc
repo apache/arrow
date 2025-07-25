@@ -277,6 +277,9 @@ TEST_F(DatasetWriterTestFixture, BatchGreaterThanMaxRowsQueued) {
 }
 
 TEST_F(DatasetWriterTestFixture, BatchWriteConcurrent) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   auto dataset_writer = MakeDatasetWriter(/*max_rows=*/5);
 
   for (int threads = 1; threads < 5; threads++) {
