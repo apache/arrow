@@ -59,7 +59,6 @@ class TypesEnum(IntEnum):
     --------
     >>> import pyarrow as pa
     >>> from pyarrow.types import TypesEnum
-    >>>
     >>> int8_field = pa.field('int8_field', pa.int8())
     >>> int8_field.type.id == TypesEnum.INT8
     True
