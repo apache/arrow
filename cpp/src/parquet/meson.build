@@ -75,8 +75,9 @@ thrift_opts.add_cmake_defines(
         'WITH_PYTHON': 'OFF',
         'WITH_QT5': 'OFF',
         'WITH_ZLIB': 'OFF',
-        # dummy value to avoid https://github.com/mesonbuild/meson/issues/13390
         'CMAKE_POSITION_INDEPENDENT_CODE': 'ON',
+        'CMAKE_POLICY_VERSION_MINIMUM': '3.5',
+        # dummy value to avoid https://github.com/mesonbuild/meson/issues/13390
         'THRIFT_COMPILER': 'foo',
     },
 )
