@@ -56,7 +56,7 @@ Documentation = "https://arrow.apache.org/docs/python"
 Repository = "https://github.com/apache/arrow"
 Issues = "https://github.com/apache/arrow/issues"
 
-[project.optional-dependencies]
+[dependency-groups]
 test = [
     'pytest',
     'hypothesis',
