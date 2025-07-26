@@ -23,7 +23,7 @@ source_dir=${1}/c_glib
 build_dir=${2}/c_glib
 build_root=${2}
 
-: "${ARROW_GLIB_WERROR:=false}"
+: "${ARROW_GLIB_WERROR:=true}"
 : "${ARROW_GLIB_VAPI:=true}"
 : "${BUILD_DOCS_C_GLIB:=OFF}"
 with_doc=$([ "${BUILD_DOCS_C_GLIB}" == "ON" ] && echo "true" || echo "false")
