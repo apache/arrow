@@ -19,8 +19,10 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <iostream>
 #include <memory>
+#include <random>
 #include <sstream>  // IWYU pragma: keep
 #include <string>
 #include <thread>
@@ -36,13 +38,26 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
-// boost/filesystem.hpp should be included after
-// arrow/util/windows_compatibility.h because boost/filesystem.hpp
-// includes windows.h implicitly.
-#include <boost/filesystem.hpp>  // NOLINT
-
 namespace arrow {
 namespace io {
+
+std::string RandomPath(const std::string& prefix, int rand_length) {
+  static const char charset[] =
+      "0123456789"
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      "abcdefghijklmnopqrstuvwxyz";
+  std::string result = prefix;
+  result.reserve(prefix.size() + rand_length);
+
+  std::mt19937 rng(static_cast<unsigned>(std::time(nullptr)));
+  std::uniform_int_distribution<> dist(0, sizeof(charset) - 2);
+
+  for (size_t i = 0; i < rand_length; ++i) {
+    result += charset[dist(rng)];
+  }
+
+  return result;
+}
 
 std::vector<uint8_t> RandomData(int64_t size) {
   std::vector<uint8_t> buffer(size);
@@ -90,8 +105,7 @@ class TestHadoopFileSystem : public ::testing::Test {
 
     client_ = nullptr;
     scratch_dir_ =
-        boost::filesystem::unique_path(boost::filesystem::temp_directory_path() /
-                                       "arrow-hdfs/scratch-%%%%")
+        (std::filesystem::temp_directory_path() / RandomPath("arrow-hdfs/scratch-", 4))
             .string();
 
     loaded_driver_ = false;
