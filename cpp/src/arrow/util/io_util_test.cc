@@ -1123,5 +1123,16 @@ TEST(Memory, TotalMemory) {
 #endif
 }
 
+TEST(CpuInfoTest, CpuAffinity) {
+  auto affinity_cores = GetNumAffinityCores();
+
+#ifdef __linux__
+  ASSERT_TRUE(affinity_cores.ok());
+  ASSERT_LE(affinity_cores.ValueOr(1u), std::thread::hardware_concurrency());
+#else
+  ASSERT_FALSE(affinity_cores.ok());
+#endif
+}
+
 }  // namespace internal
 }  // namespace arrow
