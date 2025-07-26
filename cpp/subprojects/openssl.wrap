@@ -16,12 +16,17 @@
 # under the License.
 
 [wrap-file]
-directory = rapidjson-232389d4f1012dddec4ef84861face2d2ba85709
-source_url = https://github.com/miloyip/rapidjson/archive/232389d4f1012dddec4ef84861face2d2ba85709.tar.gz
-source_filename = rapidjson-232389d4f1012dddec4ef84861face2d2ba85709.tar.gz
-source_hash = b9290a9a6d444c8e049bd589ab804e0ccf2b05dc5984a19ed5ae75d090064806
-source_fallback_url = https://apache.jfrog.io/artifactory/arrow/thirdparty/7.0.0/rapidjson-232389d4f1012dddec4ef84861face2d2ba85709.tar.gz
-patch_directory = rapidjson
+directory = openssl-3.0.8
+source_url = https://www.openssl.org/source/openssl-3.0.8.tar.gz
+source_filename = openssl-3.0.8.tar.gz
+source_hash = 6c13d2bf38fdf31eac3ce2a347073673f5d63263398f1f69d0df4a41253e4b3e
+patch_filename = openssl_3.0.8-3_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/openssl_3.0.8-3/get_patch
+patch_hash = 300da189e106942347d61a4a4295aa2edbcf06184f8d13b4cee0bed9fb936963
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/openssl_3.0.8-3/openssl-3.0.8.tar.gz
+wrapdb_version = 3.0.8-3
 
 [provide]
-rapidjson = rapidjson_dep
+libcrypto = libcrypto_dep
+libssl = libssl_dep
+openssl = openssl_dep
