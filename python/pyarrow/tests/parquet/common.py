@@ -121,6 +121,11 @@ def _test_dataframe(size=10000, seed=0):
     return df
 
 
+def _test_table(size=10000, seed=0):
+    df = _test_dataframe(size, seed)
+    return pa.Table.from_pandas(df, preserve_index=False)
+
+
 def make_sample_file(table_or_df):
     import pyarrow.parquet as pq
 
