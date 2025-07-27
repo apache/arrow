@@ -52,7 +52,7 @@ std::string RandomPath(const std::string& prefix, int rand_length) {
   std::mt19937 rng(static_cast<unsigned>(std::time(nullptr)));
   std::uniform_int_distribution<> dist(0, sizeof(charset) - 2);
 
-  for (size_t i = 0; i < rand_length; ++i) {
+  for (int i = 0; i < rand_length; ++i) {
     result += charset[dist(rng)];
   }
 
