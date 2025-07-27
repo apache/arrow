@@ -121,11 +121,14 @@ class ARROW_EXPORT RecordBatch {
   /// \brief Determine if two record batches are exactly equal
   ///
   /// \param[in] other the RecordBatch to compare with
-  /// \param[in] check_metadata if true, check that Schema metadata is the same
+  /// \param[in] check_metadata If true, the schema metadata will be compared,
+  ///            regardless of the value set in \ref EqualOptions::check_metadata_.
   /// \param[in] opts the options for equality comparisons
   /// \return true if batches are equal
   bool Equals(const RecordBatch& other, bool check_metadata = false,
               const EqualOptions& opts = EqualOptions::Defaults()) const;
+
+  bool Equals(const RecordBatch& other, const EqualOptions& opts) const;
 
   /// \brief Determine if two record batches are approximately equal
   ///
@@ -133,7 +136,9 @@ class ARROW_EXPORT RecordBatch {
   /// \param[in] opts the options for equality comparisons
   /// \return true if batches are approximately equal
   bool ApproxEquals(const RecordBatch& other,
-                    const EqualOptions& opts = EqualOptions::Defaults()) const;
+                    const EqualOptions& opts = EqualOptions::Defaults()) const {
+    return Equals(other, opts.use_schema(false).use_atol(true));
+  }
 
   /// \return the record batch's schema
   const std::shared_ptr<Schema>& schema() const { return schema_; }
