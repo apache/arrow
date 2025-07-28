@@ -349,7 +349,7 @@ bool CanIgnoreNaNInEquality(const RecordBatch& batch, const EqualOptions& opts) 
 
 bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata,
                          const EqualOptions& opts) const {
-  return Equals(other, opts.check_metadata(check_metadata));
+  return Equals(other, opts.use_metadata(check_metadata));
 }
 
 bool RecordBatch::Equals(const RecordBatch& other, const EqualOptions& opts) const {
@@ -361,7 +361,7 @@ bool RecordBatch::Equals(const RecordBatch& other, const EqualOptions& opts) con
     if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
       return false;
     } else if (opts.use_schema() &&
-               !schema_->Equals(*other.schema(), opts.check_metadata())) {
+               !schema_->Equals(*other.schema(), opts.use_metadata())) {
       return false;
     } else if (device_type() != other.device_type()) {
       return false;

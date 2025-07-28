@@ -118,16 +118,21 @@ class ARROW_EXPORT RecordBatch {
   static Result<std::shared_ptr<RecordBatch>> FromStructArray(
       const std::shared_ptr<Array>& array, MemoryPool* pool = default_memory_pool());
 
-  /// \brief Determine if two record batches are exactly equal
+  /// \brief Determine if two record batches are equal.
   ///
   /// \param[in] other the RecordBatch to compare with
   /// \param[in] check_metadata If true, the schema metadata will be compared,
-  ///            regardless of the value set in \ref EqualOptions::check_metadata_.
+  ///            regardless of the value set in \ref EqualOptions::use_metadata_.
   /// \param[in] opts the options for equality comparisons
   /// \return true if batches are equal
   bool Equals(const RecordBatch& other, bool check_metadata = false,
               const EqualOptions& opts = EqualOptions::Defaults()) const;
 
+  /// \brief Determine if two record batches are equal.
+  ///
+  /// \param[in] other the RecordBatch to compare with
+  /// \param[in] opts the options for equality comparisons
+  /// \return true if batches are equal
   bool Equals(const RecordBatch& other, const EqualOptions& opts) const;
 
   /// \brief Determine if two record batches are approximately equal

@@ -90,7 +90,7 @@ class EqualOptions {
   bool use_schema() const { return use_schema_; }
 
   /// Return a new EqualOptions object with the "use_schema_" property changed.
-  /// setting this option is false making the value of \ref EqualOptions::check_metadata_
+  /// setting this option is false making the value of \ref EqualOptions::use_metadata_
   /// is useless.
   EqualOptions use_schema(bool v) const {
     auto res = EqualOptions(*this);
@@ -105,12 +105,12 @@ class EqualOptions {
   ///
   /// Note: This option is only considered when \ref arrow::EqualOptions::use_schema_ is
   /// set to true.
-  bool check_metadata() const { return check_metadata_; }
+  bool use_metadata() const { return use_metadata_; }
 
-  /// Return a new EqualOptions object with the "check_metadata" property changed.
-  EqualOptions check_metadata(bool v) const {
+  /// Return a new EqualOptions object with the "use_metadata" property changed.
+  EqualOptions use_metadata(bool v) const {
     auto res = EqualOptions(*this);
-    res.check_metadata_ = v;
+    res.use_metadata_ = v;
     return res;
   }
 
@@ -135,7 +135,7 @@ class EqualOptions {
   bool signed_zeros_equal_ = true;
   bool use_atol_ = false;
   bool use_schema_ = true;
-  bool check_metadata_ = false;
+  bool use_metadata_ = false;
 
   std::ostream* diff_sink_ = NULLPTR;
 };

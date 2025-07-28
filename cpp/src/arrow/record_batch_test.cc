@@ -139,10 +139,10 @@ TEST_F(TestRecordBatchEqualOptions, MetadataAndSchema) {
   ASSERT_FALSE(b0->Equals(*b1, /*check_metadata=*/true));
   ASSERT_FALSE(b0->Equals(*b1, /*check_metadata=*/true, options.use_schema(true)));
   ASSERT_TRUE(b0->Equals(*b1, /*check_metadata=*/true, options.use_schema(false)));
-  ASSERT_TRUE(b0->Equals(*b1, options.use_schema(true).check_metadata(false)));
-  ASSERT_FALSE(b0->Equals(*b1, options.use_schema(true).check_metadata(true)));
-  ASSERT_TRUE(b0->Equals(*b1, options.use_schema(false).check_metadata(true)));
-  ASSERT_TRUE(b0->ApproxEquals(*b1, options.use_schema(true).check_metadata(true)));
+  ASSERT_TRUE(b0->Equals(*b1, options.use_schema(true).use_metadata(false)));
+  ASSERT_FALSE(b0->Equals(*b1, options.use_schema(true).use_metadata(true)));
+  ASSERT_TRUE(b0->Equals(*b1, options.use_schema(false).use_metadata(true)));
+  ASSERT_TRUE(b0->ApproxEquals(*b1, options.use_schema(true).use_metadata(true)));
 }
 
 TEST_F(TestRecordBatchEqualOptions, NaN) {
