@@ -85,8 +85,13 @@ thrift_proj = cmake.subproject('thrift', options: thrift_opts)
 thrift_dep = thrift_proj.dependency('thrift')
 parquet_deps = [arrow_dep, rapidjson_dep, thrift_dep]
 
-if needs_parquet_encryption
-    openssl_dep = dependency('openssl')
+if needs_parquet_encryption or get_option('parquet_require_encryption') == 'auto'
+    openssl_dep = dependency('openssl', required: needs_parquet_encryption)
+else
+    openssl_dep = disabler()
+endif
+
+if openssl_dep.found()
     parquet_deps += openssl_dep
 
     parquet_srcs += files(
