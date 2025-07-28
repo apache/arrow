@@ -1657,10 +1657,11 @@ services:
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
     shm_size: *shm-size
+    # These environment variables are *not* set by CRAN, so we should be careful about adding
+    # to them. I.E. if we have to add something here to have CI pass, it will likely fail on CRAN.
     environment:
       <<: *common
       LIBARROW_DOWNLOAD: "false"
-      ARROW_MIMALLOC: "OFF"
       ARROW_R_DEV: ${ARROW_R_DEV}
       ARROW_SOURCE_HOME: "/arrow"
       ARROW_USE_PKG_CONFIG: "false"

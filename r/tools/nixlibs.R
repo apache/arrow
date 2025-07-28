@@ -585,6 +585,11 @@ build_libarrow <- function(src_dir, dst_dir) {
     )
   }
 
+  if (on_linux_dev) {
+    # Disable mimalloc on linux devel builds, since mimalloc has spurious sanitizer failures
+    env_var_list <- c(env_var_list, ARROW_MIMALLOC = Sys.getenv("ARROW_MIMALLOC", "OFF"))
+  }
+
   env_var_list <- with_cloud_support(env_var_list)
 
   # turn_off_all_optional_features() needs to happen after
@@ -917,6 +922,7 @@ is_release <- is.na(dev_version) || dev_version < "100"
 
 on_macos <- tolower(Sys.info()[["sysname"]]) == "darwin"
 on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
+on_linux_dev <-  tolower(Sys.info()[["sysname"]]) == "linux" && grepl("devel", R.version.string)
 
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
