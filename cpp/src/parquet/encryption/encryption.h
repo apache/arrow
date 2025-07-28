@@ -410,7 +410,7 @@ class PARQUET_EXPORT FileEncryptionProperties {
           aad_prefix_, store_aad_prefix_in_file_, encrypted_columns_));
     }
 
-   private:
+   protected:
     ParquetCipher::type parquet_cipher_;
     bool encrypted_footer_;
     std::string footer_key_;
@@ -450,10 +450,51 @@ class PARQUET_EXPORT FileEncryptionProperties {
   bool store_aad_prefix_in_file_;
   ColumnPathToEncryptionPropertiesMap encrypted_columns_;
 
+ protected:
   FileEncryptionProperties(ParquetCipher::type cipher, const std::string& footer_key,
                            const std::string& footer_key_metadata, bool encrypted_footer,
                            const std::string& aad_prefix, bool store_aad_prefix_in_file,
                            const ColumnPathToEncryptionPropertiesMap& encrypted_columns);
+};
+
+class PARQUET_EXPORT ExternalFileEncryptionProperties : public FileEncryptionProperties {
+ public:
+
+  class PARQUET_EXPORT Builder : public FileEncryptionProperties::Builder {
+   public:
+   
+    explicit Builder(const std::string& footer_key)
+      : FileEncryptionProperties::Builder(footer_key) {}
+    
+    Builder* app_context(const std::map<std::string, std::string>& context);
+    
+    Builder* connection_config(const std::map<std::string, std::string>& config);
+
+    std::shared_ptr<ExternalFileEncryptionProperties> build_external();
+
+   private:
+    std::map<std::string, std::string> app_context_;
+    std::map<std::string, std::string> connection_config_;
+  };
+
+  const std::map<std::string, std::string>& app_context() const {
+    return app_context_;
+  }
+
+  const std::map<std::string, std::string>& connection_config() const {
+    return connection_config_;
+  }
+
+ private:
+  std::map<std::string, std::string> app_context_;
+  std::map<std::string, std::string> connection_config_;
+
+  ExternalFileEncryptionProperties(ParquetCipher::type cipher, const std::string& footer_key,
+                                   const std::string& footer_key_metadata, bool encrypted_footer,
+                                   const std::string& aad_prefix, bool store_aad_prefix_in_file,
+                                   const ColumnPathToEncryptionPropertiesMap& encrypted_columns,
+                                   const std::map<std::string, std::string>& app_context,
+                                   const std::map<std::string, std::string>& connection_config);
 };
 
 }  // namespace parquet
