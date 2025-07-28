@@ -587,7 +587,7 @@ build_libarrow <- function(src_dir, dst_dir) {
 
   if (on_linux_dev) {
     # Disable mimalloc on linux devel builds, since mimalloc has spurious sanitizer failures
-    env_var_list <- c(env_var_list, Sys.getenv("ARROW_WITH_ZSTD", "OFF"))
+    env_var_list <- c(env_var_list, ARROW_MIMALLOC = Sys.getenv("ARROW_MIMALLOC", "OFF"))
   }
 
   env_var_list <- with_cloud_support(env_var_list)
