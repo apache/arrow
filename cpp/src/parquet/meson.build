@@ -116,6 +116,8 @@ parquet_lib = library(
     'arrow-parquet',
     sources: parquet_srcs,
     dependencies: parquet_deps,
+    # TODO: enable hidden visibility by default
+    #gnu_symbol_visibility: 'hidden',
 )
 
 parquet_dep = declare_dependency(link_with: parquet_lib)
