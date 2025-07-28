@@ -15,6 +15,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Client;
@@ -27,7 +28,7 @@ namespace Apache.Arrow.Flight.Sql.Client;
 public class FlightSqlClient
 {
     private readonly FlightClient _client;
-    
+
     public FlightSqlClient(FlightClient client)
     {
         _client = client;
@@ -39,14 +40,19 @@ public class FlightSqlClient
     /// <param name="query">The UTF8-encoded SQL query to be executed.</param>
     /// <param name="transaction">A transaction to associate this query with.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
-    public async Task<FlightInfo> ExecuteAsync(string query, Transaction transaction = default, FlightCallOptions? options = null)
+    public async Task<FlightInfo> ExecuteAsync(
+        string query,
+        Transaction transaction = default,
+        FlightCallOptions? options = null,
+        CancellationToken cancellationToken = default)
     {
         if (transaction == default)
         {
             transaction = Transaction.NoTransaction;
         }
-        
+
         if (string.IsNullOrEmpty(query))
         {
             throw new ArgumentException($"Query cannot be null or empty: {nameof(query)}");
@@ -55,13 +61,13 @@ public class FlightSqlClient
         try
         {
             var commandQuery = new CommandStatementQuery { Query = query };
-        
-            if (transaction.IsValid())
+
+            if (transaction.IsValid)
             {
                 commandQuery.TransactionId = transaction.TransactionId;
             }
             var descriptor = FlightDescriptor.CreateCommandDescriptor(commandQuery.PackAndSerialize());
-            return await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
+            return await GetFlightInfoAsync(descriptor, options, cancellationToken).ConfigureAwait(false);
         }
         catch (RpcException ex)
         {
@@ -75,8 +81,13 @@ public class FlightSqlClient
     /// <param name="query">The UTF8-encoded SQL query to be executed.</param>
     /// <param name="transaction">A transaction to associate this query with. Defaults to no transaction if not provided.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The number of rows affected by the operation.</returns>
-    public async Task<long> ExecuteUpdateAsync(string query, Transaction transaction = default, FlightCallOptions? options = null)
+    public async Task<long> ExecuteUpdateAsync(
+        string query,
+        Transaction transaction = default,
+        FlightCallOptions? options = null,
+        CancellationToken cancellationToken = default)
     {
         if (transaction == default)
         {
@@ -94,7 +105,7 @@ public class FlightSqlClient
                 new ActionCreatePreparedStatementRequest { Query = query, TransactionId = transaction.TransactionId };
             byte[] serializedUpdateRequestCommand = updateRequestCommand.PackAndSerialize();
             var action = new FlightAction(SqlAction.CreateRequest, serializedUpdateRequestCommand);
-            var call = DoActionAsync(action, options);
+            var call = DoActionAsync(action, options, cancellationToken);
             long affectedRows = 0;
 
             await foreach (var result in call.ConfigureAwait(false))
@@ -106,9 +117,9 @@ public class FlightSqlClient
                 };
 
                 var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-                var flightInfo = await GetFlightInfoAsync(descriptor, options);
-                var doGetResult = DoGetAsync(flightInfo.Endpoints[0].Ticket, options);
-                
+                var flightInfo = await GetFlightInfoAsync(descriptor, options, cancellationToken);
+                var doGetResult = DoGetAsync(flightInfo.Endpoints[0].Ticket, options, cancellationToken);
+
                 await foreach (var recordBatch in doGetResult.ConfigureAwait(false))
                 {
                     affectedRows += recordBatch.ExtractRowCount();
@@ -128,8 +139,12 @@ public class FlightSqlClient
     /// </summary>
     /// <param name="descriptor">The descriptor of the dataset request, whether a named dataset or a command.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the FlightInfo describing where to access the dataset.</returns>
-    public async Task<FlightInfo> GetFlightInfoAsync(FlightDescriptor descriptor, FlightCallOptions? options = default)
+    public async Task<FlightInfo> GetFlightInfoAsync(
+        FlightDescriptor descriptor,
+        FlightCallOptions? options = default,
+        CancellationToken cancellationToken = default)
     {
         if (descriptor is null)
         {
@@ -138,7 +153,7 @@ public class FlightSqlClient
 
         try
         {
-            var flightInfoCall = _client.GetInfo(descriptor, options?.Headers);
+            var flightInfoCall = _client.GetInfo(descriptor, options?.Headers, null, cancellationToken);
             var flightInfo = await flightInfoCall.ResponseAsync.ConfigureAwait(false);
             return flightInfo;
         }
@@ -153,15 +168,19 @@ public class FlightSqlClient
     /// </summary>
     /// <param name="action">The action to be performed</param>
     /// <param name="options">Per-RPC options</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>An async enumerable of results</returns>
-    public async IAsyncEnumerable<FlightResult> DoActionAsync(FlightAction action, FlightCallOptions? options = default)
+    public async IAsyncEnumerable<FlightResult> DoActionAsync(
+        FlightAction action,
+        FlightCallOptions? options = default,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (action is null)
             throw new ArgumentNullException(nameof(action));
 
-        var call = _client.DoAction(action, options?.Headers);
+        var call = _client.DoAction(action, options?.Headers, null, cancellationToken);
 
-        await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
+        await foreach (var result in call.ResponseStream.ReadAllAsync(cancellationToken).ConfigureAwait(false))
         {
             yield return result;
         }
@@ -173,10 +192,14 @@ public class FlightSqlClient
     /// <param name="query">The UTF8-encoded SQL query</param>
     /// <param name="transaction">A transaction to associate this query with</param>
     /// <param name="options">Per-RPC options</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The SchemaResult describing the schema of the result set</returns>
-    public async Task<Schema> GetExecuteSchemaAsync(string query, Transaction transaction = default, FlightCallOptions? options = null)
+    public async Task<Schema> GetExecuteSchemaAsync(
+        string query, Transaction transaction = default,
+        FlightCallOptions? options = null,
+        CancellationToken cancellationToken = default)
     {
-        if (transaction == default) 
+        if (transaction == default)
         {
             transaction = Transaction.NoTransaction;
         }
@@ -188,9 +211,9 @@ public class FlightSqlClient
             var prepareStatementRequest =
                 new ActionCreatePreparedStatementRequest { Query = query, TransactionId = transaction.TransactionId };
             var action = new FlightAction(SqlAction.CreateRequest, prepareStatementRequest.PackAndSerialize());
-            var call = _client.DoAction(action, options?.Headers);
-            
-            var preparedStatementResponse = await ReadPreparedStatementAsync(call).ConfigureAwait(false);
+            var call = _client.DoAction(action, options?.Headers, null, cancellationToken);
+
+            var preparedStatementResponse = await ReadPreparedStatementAsync(call, cancellationToken).ConfigureAwait(false);
 
             if (preparedStatementResponse.PreparedStatementHandle.IsEmpty)
                 throw new InvalidOperationException("Received an empty or invalid PreparedStatementHandle.");
@@ -199,7 +222,7 @@ public class FlightSqlClient
                 PreparedStatementHandle = preparedStatementResponse.PreparedStatementHandle
             };
             var descriptor = FlightDescriptor.CreateCommandDescriptor(commandSqlCall.PackAndSerialize());
-            var schemaResult = await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
+            var schemaResult = await GetFlightInfoAsync(descriptor, options, cancellationToken).ConfigureAwait(false);
             return schemaResult.Schema;
         }
         catch (RpcException ex)
@@ -212,14 +235,15 @@ public class FlightSqlClient
     /// Request a list of catalogs.
     /// </summary>
     /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
-    public async Task<FlightInfo> GetCatalogsAsync(FlightCallOptions? options = default)
+    public async Task<FlightInfo> GetCatalogsAsync(FlightCallOptions? options = default, CancellationToken cancellationToken = default)
     {
         try
         {
             var command = new CommandGetCatalogs();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-            var catalogsInfo = await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
+            var catalogsInfo = await GetFlightInfoAsync(descriptor, options, cancellationToken).ConfigureAwait(false);
             return catalogsInfo;
         }
         catch (RpcException ex)
@@ -232,14 +256,15 @@ public class FlightSqlClient
     /// Get the catalogs schema from the server.
     /// </summary>
     /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The SchemaResult describing the schema of the catalogs.</returns>
-    public async Task<Schema> GetCatalogsSchemaAsync(FlightCallOptions? options = default)
+    public async Task<Schema> GetCatalogsSchemaAsync(FlightCallOptions? options = default, CancellationToken cancellationToken = default)
     {
         try
         {
             var commandGetCatalogsSchema = new CommandGetCatalogs();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(commandGetCatalogsSchema.PackAndSerialize());
-            var schemaResult = await GetSchemaAsync(descriptor, options).ConfigureAwait(false);
+            var schemaResult = await GetSchemaAsync(descriptor, options, cancellationToken).ConfigureAwait(false);
             return schemaResult;
         }
         catch (RpcException ex)
@@ -253,8 +278,12 @@ public class FlightSqlClient
     /// </summary>
     /// <param name="descriptor">The descriptor of the dataset request, whether a named dataset or a command.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the SchemaResult describing the dataset schema.</returns>
-    public virtual async Task<Schema> GetSchemaAsync(FlightDescriptor descriptor, FlightCallOptions? options = default)
+    public virtual async Task<Schema> GetSchemaAsync(
+        FlightDescriptor descriptor,
+        FlightCallOptions? options = default,
+        CancellationToken cancellationToken = default)
     {
         if (descriptor is null)
         {
@@ -263,7 +292,7 @@ public class FlightSqlClient
 
         try
         {
-            var schemaResultCall = _client.GetSchema(descriptor, options?.Headers);
+            var schemaResultCall = _client.GetSchema(descriptor, options?.Headers, null, cancellationToken);
             var schemaResult = await schemaResultCall.ResponseAsync.ConfigureAwait(false);
             return schemaResult;
         }
@@ -279,8 +308,13 @@ public class FlightSqlClient
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="catalog">The catalog.</param>
     /// <param name="dbSchemaFilterPattern">The schema filter pattern.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
-    public async Task<FlightInfo> GetDbSchemasAsync(string? catalog = null, string? dbSchemaFilterPattern = null, FlightCallOptions? options = default)
+    public async Task<FlightInfo> GetDbSchemasAsync(
+        string? catalog = null,
+        string? dbSchemaFilterPattern = null,
+        FlightCallOptions? options = default,
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -298,7 +332,7 @@ public class FlightSqlClient
 
             byte[] serializedAndPackedCommand = command.PackAndSerialize();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(serializedAndPackedCommand);
-            var flightInfoCall = GetFlightInfoAsync(descriptor, options);
+            var flightInfoCall = GetFlightInfoAsync(descriptor, options, cancellationToken);
             var flightInfo = await flightInfoCall.ConfigureAwait(false);
 
             return flightInfo;
@@ -313,14 +347,15 @@ public class FlightSqlClient
     /// Get the database schemas schema from the server.
     /// </summary>
     /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The SchemaResult describing the schema of the database schemas.</returns>
-    public async Task<Schema> GetDbSchemasSchemaAsync(FlightCallOptions? options = default)
+    public async Task<Schema> GetDbSchemasSchemaAsync(FlightCallOptions? options = default, CancellationToken cancellationToken = default)
     {
         try
         {
             var command = new CommandGetDbSchemas();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-            var schemaResult = await GetSchemaAsync(descriptor, options).ConfigureAwait(false);
+            var schemaResult = await GetSchemaAsync(descriptor, options, cancellationToken).ConfigureAwait(false);
             return schemaResult;
         }
         catch (RpcException ex)
@@ -335,7 +370,10 @@ public class FlightSqlClient
     /// <param name="ticket">The flight ticket to use</param>
     /// <param name="options">Per-RPC options</param>
     /// <returns>The returned RecordBatchReader</returns>
-    public async IAsyncEnumerable<RecordBatch> DoGetAsync(FlightTicket ticket, FlightCallOptions? options = default)
+    public async IAsyncEnumerable<RecordBatch> DoGetAsync(
+        FlightTicket ticket,
+        FlightCallOptions? options = default,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (ticket == null)
         {
@@ -343,7 +381,7 @@ public class FlightSqlClient
         }
 
         var call = _client.GetStream(ticket, options?.Headers);
-        await foreach (var recordBatch in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
+        await foreach (var recordBatch in call.ResponseStream.ReadAllAsync(cancellationToken).ConfigureAwait(false))
         {
             yield return recordBatch;
         }
@@ -357,7 +395,11 @@ public class FlightSqlClient
     /// <param name="recordBatch">The record for the data to upload.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>A Task representing the asynchronous operation. The task result contains a DoPutResult struct holding a reader and a writer.</returns>
-    public async Task<FlightPutResult> DoPutAsync(FlightDescriptor descriptor, RecordBatch recordBatch, FlightCallOptions? options = default)
+    public async Task<FlightPutResult> DoPutAsync(
+        FlightDescriptor descriptor,
+        RecordBatch recordBatch,
+        FlightCallOptions? options = default,
+        CancellationToken cancellationToken = default)
     {
         if (descriptor is null)
             throw new ArgumentNullException(nameof(descriptor));
@@ -366,7 +408,7 @@ public class FlightSqlClient
             throw new ArgumentNullException(nameof(recordBatch));
         try
         {
-            var doPutResult = _client.StartPut(descriptor, options?.Headers);
+            var doPutResult = _client.StartPut(descriptor, options?.Headers, null, cancellationToken);
             var writer = doPutResult.RequestStream;
             var reader = doPutResult.ResponseStream;
 
@@ -376,7 +418,7 @@ public class FlightSqlClient
             await writer.WriteAsync(recordBatch).ConfigureAwait(false);
             await writer.CompleteAsync().ConfigureAwait(false);
 
-            if (await reader.MoveNext().ConfigureAwait(false))
+            if (await reader.MoveNext(cancellationToken).ConfigureAwait(false))
             {
                 var putResult = reader.Current;
                 return new FlightPutResult(putResult.ApplicationMetadata);
@@ -395,7 +437,7 @@ public class FlightSqlClient
     /// <param name="tableRef">The table reference.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
-    public async Task<FlightInfo> GetPrimaryKeysAsync(TableRef tableRef, FlightCallOptions? options = default)
+    public async Task<FlightInfo> GetPrimaryKeysAsync(TableRef tableRef, FlightCallOptions? options = default, CancellationToken cancellationToken = default)
     {
         if (tableRef == null)
             throw new ArgumentNullException(nameof(tableRef));
@@ -404,11 +446,13 @@ public class FlightSqlClient
         {
             var getPrimaryKeysRequest = new CommandGetPrimaryKeys
             {
-                Catalog = tableRef.Catalog ?? string.Empty, DbSchema = tableRef.DbSchema, Table = tableRef.Table
+                Catalog = tableRef.Catalog ?? string.Empty,
+                DbSchema = tableRef.DbSchema,
+                Table = tableRef.Table
             };
-            
+
             var descriptor = FlightDescriptor.CreateCommandDescriptor(getPrimaryKeysRequest.PackAndSerialize());
-            var flightInfo = await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
+            var flightInfo = await GetFlightInfoAsync(descriptor, options, cancellationToken).ConfigureAwait(false);
 
             return flightInfo;
         }
@@ -428,7 +472,14 @@ public class FlightSqlClient
     /// <param name="tableTypes">The table types to include.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
-    public async Task<IEnumerable<FlightInfo>> GetTablesAsync(string? catalog = null, string? dbSchemaFilterPattern = null, string? tableFilterPattern = null, bool includeSchema = false, IEnumerable<string>? tableTypes = null, FlightCallOptions? options = default)
+    public async Task<IEnumerable<FlightInfo>> GetTablesAsync(
+        string? catalog = null,
+        string? dbSchemaFilterPattern = null,
+        string? tableFilterPattern = null,
+        bool includeSchema = false,
+        IEnumerable<string>? tableTypes = null,
+        FlightCallOptions? options = default,
+        CancellationToken cancellationToken = default)
     {
         var command = new CommandGetTables
         {
@@ -444,13 +495,12 @@ public class FlightSqlClient
         }
 
         var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-        var flightInfoCall = GetFlightInfoAsync(descriptor, options);
+        var flightInfoCall = GetFlightInfoAsync(descriptor, options, cancellationToken);
         var flightInfo = await flightInfoCall.ConfigureAwait(false);
         var flightInfos = new List<FlightInfo> { flightInfo };
 
         return flightInfos;
     }
-
 
     /// <summary>
     /// Retrieves a description about the foreign key columns that reference the primary key columns of the given table.
@@ -458,7 +508,10 @@ public class FlightSqlClient
     /// <param name="tableRef">The table reference.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
-    public async Task<FlightInfo> GetExportedKeysAsync(TableRef tableRef, FlightCallOptions? options = default)
+    public async Task<FlightInfo> GetExportedKeysAsync(
+        TableRef tableRef,
+        FlightCallOptions? options = default,
+        CancellationToken cancellationToken = default)
     {
         if (tableRef == null)
             throw new ArgumentNullException(nameof(tableRef));
@@ -467,11 +520,13 @@ public class FlightSqlClient
         {
             var getExportedKeysRequest = new CommandGetExportedKeys
             {
-                Catalog = tableRef.Catalog ?? string.Empty, DbSchema = tableRef.DbSchema, Table = tableRef.Table
+                Catalog = tableRef.Catalog ?? string.Empty,
+                DbSchema = tableRef.DbSchema,
+                Table = tableRef.Table
             };
 
             var descriptor = FlightDescriptor.CreateCommandDescriptor(getExportedKeysRequest.PackAndSerialize());
-            var flightInfo = await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
+            var flightInfo = await GetFlightInfoAsync(descriptor, options, cancellationToken).ConfigureAwait(false);
             return flightInfo;
         }
         catch (RpcException ex)
@@ -486,16 +541,21 @@ public class FlightSqlClient
     /// <param name="tableRef">The table reference.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The SchemaResult describing the schema of the exported keys.</returns>
-    public async Task<Schema> GetExportedKeysSchemaAsync(TableRef tableRef, FlightCallOptions? options = default)
+    public async Task<Schema> GetExportedKeysSchemaAsync(
+        TableRef tableRef,
+        FlightCallOptions? options = default,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             var commandGetExportedKeysSchema = new CommandGetExportedKeys
             {
-                Catalog = tableRef.Catalog ?? string.Empty, DbSchema = tableRef.DbSchema, Table = tableRef.Table
+                Catalog = tableRef.Catalog ?? string.Empty,
+                DbSchema = tableRef.DbSchema,
+                Table = tableRef.Table
             };
             var descriptor = FlightDescriptor.CreateCommandDescriptor(commandGetExportedKeysSchema.PackAndSerialize());
-            var schemaResult = await GetSchemaAsync(descriptor, options).ConfigureAwait(false);
+            var schemaResult = await GetSchemaAsync(descriptor, options, cancellationToken).ConfigureAwait(false);
             return schemaResult;
         }
         catch (RpcException ex)
@@ -510,7 +570,10 @@ public class FlightSqlClient
     /// <param name="tableRef">The table reference.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
-    public async Task<FlightInfo> GetImportedKeysAsync(TableRef tableRef, FlightCallOptions? options = default)
+    public async Task<FlightInfo> GetImportedKeysAsync(
+        TableRef tableRef,
+        FlightCallOptions? options = default,
+        CancellationToken cancellationToken = default)
     {
         if (tableRef == null)
             throw new ArgumentNullException(nameof(tableRef));
@@ -519,10 +582,12 @@ public class FlightSqlClient
         {
             var getImportedKeysRequest = new CommandGetImportedKeys
             {
-                Catalog = tableRef.Catalog ?? string.Empty, DbSchema = tableRef.DbSchema, Table = tableRef.Table
+                Catalog = tableRef.Catalog ?? string.Empty,
+                DbSchema = tableRef.DbSchema,
+                Table = tableRef.Table
             };
             var descriptor = FlightDescriptor.CreateCommandDescriptor(getImportedKeysRequest.PackAndSerialize());
-            var flightInfo = await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
+            var flightInfo = await GetFlightInfoAsync(descriptor, options, cancellationToken).ConfigureAwait(false);
             return flightInfo;
         }
         catch (RpcException ex)
@@ -536,13 +601,13 @@ public class FlightSqlClient
     /// </summary>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The SchemaResult describing the schema of the imported keys.</returns>
-    public async Task<Schema> GetImportedKeysSchemaAsync(FlightCallOptions? options = default)
+    public async Task<Schema> GetImportedKeysSchemaAsync(FlightCallOptions? options = default, CancellationToken cancellationToken = default)
     {
         try
         {
             var commandGetImportedKeysSchema = new CommandGetImportedKeys();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(commandGetImportedKeysSchema.PackAndSerialize());
-            var schemaResult = await GetSchemaAsync(descriptor, options).ConfigureAwait(false);
+            var schemaResult = await GetSchemaAsync(descriptor, options, cancellationToken).ConfigureAwait(false);
             return schemaResult;
         }
         catch (RpcException ex)
@@ -558,7 +623,11 @@ public class FlightSqlClient
     /// <param name="fkTableRef">The table reference that imports the key.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
-    public async Task<FlightInfo> GetCrossReferenceAsync(TableRef pkTableRef, TableRef fkTableRef, FlightCallOptions? options = default)
+    public async Task<FlightInfo> GetCrossReferenceAsync(
+        TableRef pkTableRef,
+        TableRef fkTableRef,
+        FlightCallOptions? options = default,
+        CancellationToken cancellationToken = default)
     {
         if (pkTableRef == null)
             throw new ArgumentNullException(nameof(pkTableRef));
@@ -579,7 +648,7 @@ public class FlightSqlClient
             };
 
             var descriptor = FlightDescriptor.CreateCommandDescriptor(commandGetCrossReference.PackAndSerialize());
-            var flightInfo = await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
+            var flightInfo = await GetFlightInfoAsync(descriptor, options, cancellationToken).ConfigureAwait(false);
 
             return flightInfo;
         }
@@ -594,14 +663,14 @@ public class FlightSqlClient
     /// </summary>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The SchemaResult describing the schema of the cross-reference.</returns>
-    public async Task<Schema> GetCrossReferenceSchemaAsync(FlightCallOptions? options = default)
+    public async Task<Schema> GetCrossReferenceSchemaAsync(FlightCallOptions? options = default, CancellationToken cancellationToken = default)
     {
         try
         {
             var commandGetCrossReferenceSchema = new CommandGetCrossReference();
             var descriptor =
                 FlightDescriptor.CreateCommandDescriptor(commandGetCrossReferenceSchema.PackAndSerialize());
-            var schemaResultCall = GetSchemaAsync(descriptor, options);
+            var schemaResultCall = GetSchemaAsync(descriptor, options, cancellationToken);
             var schemaResult = await schemaResultCall.ConfigureAwait(false);
 
             return schemaResult;
@@ -617,13 +686,13 @@ public class FlightSqlClient
     /// </summary>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
-    public async Task<FlightInfo> GetTableTypesAsync(FlightCallOptions? options = default)
+    public async Task<FlightInfo> GetTableTypesAsync(FlightCallOptions? options = default, CancellationToken cancellationToken = default)
     {
         try
         {
             var command = new CommandGetTableTypes();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-            var flightInfo = await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
+            var flightInfo = await GetFlightInfoAsync(descriptor, options, cancellationToken).ConfigureAwait(false);
             return flightInfo;
         }
         catch (RpcException ex)
@@ -637,13 +706,13 @@ public class FlightSqlClient
     /// </summary>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The SchemaResult describing the schema of the table types.</returns>
-    public async Task<Schema> GetTableTypesSchemaAsync(FlightCallOptions? options = default)
+    public async Task<Schema> GetTableTypesSchemaAsync(FlightCallOptions? options = default, CancellationToken cancellationToken = default)
     {
         try
         {
             var command = new CommandGetTableTypes();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-            var schemaResult = await GetSchemaAsync(descriptor, options).ConfigureAwait(false);
+            var schemaResult = await GetSchemaAsync(descriptor, options, cancellationToken).ConfigureAwait(false);
             return schemaResult;
         }
         catch (RpcException ex)
@@ -658,13 +727,13 @@ public class FlightSqlClient
     /// <param name="dataType">The data type to search for as filtering.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
-    public async Task<FlightInfo> GetXdbcTypeInfoAsync(int dataType, FlightCallOptions? options = default)
+    public async Task<FlightInfo> GetXdbcTypeInfoAsync(int dataType, FlightCallOptions? options = default, CancellationToken cancellationToken = default)
     {
         try
         {
             var command = new CommandGetXdbcTypeInfo { DataType = dataType };
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-            var flightInfo = await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
+            var flightInfo = await GetFlightInfoAsync(descriptor, options, cancellationToken).ConfigureAwait(false);
             return flightInfo;
         }
         catch (RpcException ex)
@@ -678,13 +747,13 @@ public class FlightSqlClient
     /// </summary>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
-    public async Task<FlightInfo> GetXdbcTypeInfoAsync(FlightCallOptions? options = default)
+    public async Task<FlightInfo> GetXdbcTypeInfoAsync(FlightCallOptions? options = default, CancellationToken cancellationToken = default)
     {
         try
         {
             var command = new CommandGetXdbcTypeInfo();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-            var flightInfo = await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
+            var flightInfo = await GetFlightInfoAsync(descriptor, options, cancellationToken).ConfigureAwait(false);
             return flightInfo;
         }
         catch (RpcException ex)
@@ -698,13 +767,13 @@ public class FlightSqlClient
     /// </summary>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The SchemaResult describing the schema of the type info.</returns>
-    public async Task<Schema> GetXdbcTypeInfoSchemaAsync(FlightCallOptions? options = default)
+    public async Task<Schema> GetXdbcTypeInfoSchemaAsync(FlightCallOptions? options = default, CancellationToken cancellationToken = default)
     {
         try
         {
             var command = new CommandGetXdbcTypeInfo();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-            var schemaResult = await GetSchemaAsync(descriptor, options).ConfigureAwait(false);
+            var schemaResult = await GetSchemaAsync(descriptor, options, cancellationToken).ConfigureAwait(false);
             return schemaResult;
         }
         catch (RpcException ex)
@@ -719,7 +788,10 @@ public class FlightSqlClient
     /// <param name="sqlInfo">The SQL info required.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
-    public async Task<FlightInfo> GetSqlInfoAsync(List<int>? sqlInfo = default, FlightCallOptions? options = default)
+    public async Task<FlightInfo> GetSqlInfoAsync(
+        List<int>? sqlInfo = default,
+        FlightCallOptions? options = default,
+        CancellationToken cancellationToken = default)
     {
         sqlInfo ??= new List<int>();
         try
@@ -727,7 +799,7 @@ public class FlightSqlClient
             var command = new CommandGetSqlInfo();
             command.Info.AddRange(sqlInfo.ConvertAll(item => (uint)item));
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-            var flightInfo = await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
+            var flightInfo = await GetFlightInfoAsync(descriptor, options, cancellationToken).ConfigureAwait(false);
             return flightInfo;
         }
         catch (RpcException ex)
@@ -741,13 +813,13 @@ public class FlightSqlClient
     /// </summary>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The SchemaResult describing the schema of the SQL information.</returns>
-    public async Task<Schema> GetSqlInfoSchemaAsync(FlightCallOptions? options = default)
+    public async Task<Schema> GetSqlInfoSchemaAsync(FlightCallOptions? options = default, CancellationToken cancellationToken = default)
     {
         try
         {
             var command = new CommandGetSqlInfo();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-             var schemaResultCall = _client.GetSchema(descriptor, options?.Headers);
+            var schemaResultCall = _client.GetSchema(descriptor, options?.Headers, null, cancellationToken);
             var schemaResult = await schemaResultCall.ResponseAsync.ConfigureAwait(false);
 
             return schemaResult;
@@ -764,15 +836,18 @@ public class FlightSqlClient
     /// <param name="request">The CancelFlightInfoRequest.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>A Task representing the asynchronous operation. The task result contains the CancelFlightInfoResult describing the canceled result.</returns>
-    public async Task<FlightInfoCancelResult> CancelFlightInfoAsync(FlightInfoCancelRequest request, FlightCallOptions? options = default)
+    public async Task<FlightInfoCancelResult> CancelFlightInfoAsync(
+        FlightInfoCancelRequest request,
+        FlightCallOptions? options = default,
+        CancellationToken cancellationToken = default)
     {
         if (request == null) throw new ArgumentNullException(nameof(request));
 
         try
         {
             var action = new FlightAction(SqlAction.CancelFlightInfoRequest, request.PackAndSerialize());
-             var call = _client.DoAction(action, options?.Headers);
-            await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
+            var call = _client.DoAction(action, options?.Headers, null, cancellationToken);
+            await foreach (var result in call.ResponseStream.ReadAllAsync(cancellationToken).ConfigureAwait(false))
             {
                 if (Any.Parser.ParseFrom(result.Body) is Any anyResult &&
                     anyResult.TryUnpack(out FlightInfoCancelResult cancelResult))
@@ -795,7 +870,10 @@ public class FlightSqlClient
     /// <param name="info">The FlightInfo of the query to cancel.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>A Task representing the asynchronous operation.</returns>
-    public async Task<FlightInfoCancelResult> CancelQueryAsync(FlightInfo info, FlightCallOptions? options = default)
+    public async Task<FlightInfoCancelResult> CancelQueryAsync(
+        FlightInfo info,
+        FlightCallOptions? options = default,
+        CancellationToken cancellationToken = default)
     {
         if (info == null)
             throw new ArgumentNullException(nameof(info));
@@ -805,9 +883,9 @@ public class FlightSqlClient
             var cancelQueryRequest = new FlightInfoCancelRequest(info);
             var cancelQueryAction =
                 new FlightAction(SqlAction.CancelFlightInfoRequest, cancelQueryRequest.PackAndSerialize());
-             var cancelQueryCall = _client.DoAction(cancelQueryAction, options?.Headers);
+            var cancelQueryCall = _client.DoAction(cancelQueryAction, options?.Headers, null, cancellationToken);
 
-            await foreach (var result in cancelQueryCall.ResponseStream.ReadAllAsync().ConfigureAwait(false))
+            await foreach (var result in cancelQueryCall.ResponseStream.ReadAllAsync(cancellationToken).ConfigureAwait(false))
             {
                 if (Any.Parser.ParseFrom(result.Body) is Any anyResult &&
                     anyResult.TryUnpack(out FlightInfoCancelResult cancelResult))
@@ -828,14 +906,14 @@ public class FlightSqlClient
     /// </summary>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>A Task representing the asynchronous operation. The task result contains the Transaction object representing the new transaction.</returns>
-    public async Task<Transaction> BeginTransactionAsync(FlightCallOptions? options = default)
+    public async Task<Transaction> BeginTransactionAsync(FlightCallOptions? options = default, CancellationToken cancellationToken = default)
     {
         try
         {
             var actionBeginTransaction = new ActionBeginTransactionRequest();
             var action = new FlightAction(SqlAction.BeginTransactionRequest, actionBeginTransaction.PackAndSerialize());
-             var responseStream = _client.DoAction(action, options?.Headers);
-            await foreach (var result in responseStream.ResponseStream.ReadAllAsync().ConfigureAwait(false))
+            var responseStream = _client.DoAction(action, options?.Headers, null, cancellationToken);
+            await foreach (var result in responseStream.ResponseStream.ReadAllAsync(cancellationToken).ConfigureAwait(false))
             {
                 string? beginTransactionResult = result.Body.ToStringUtf8();
                 return new Transaction(beginTransactionResult);
@@ -856,7 +934,10 @@ public class FlightSqlClient
     /// <param name="transaction">The transaction.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>A Task representing the asynchronous operation.</returns>
-    public AsyncServerStreamingCall<FlightResult> CommitAsync(Transaction transaction, FlightCallOptions? options = default)
+    public AsyncServerStreamingCall<FlightResult> CommitAsync(
+        Transaction transaction,
+        FlightCallOptions? options = default,
+        CancellationToken cancellationToken = default)
     {
         if (transaction == null)
             throw new ArgumentNullException(nameof(transaction));
@@ -864,7 +945,7 @@ public class FlightSqlClient
         try
         {
             var actionCommit = new FlightAction(SqlAction.CommitRequest, transaction.TransactionId);
-            return _client.DoAction(actionCommit, options?.Headers);
+            return _client.DoAction(actionCommit, options?.Headers, null, cancellationToken);
         }
         catch (RpcException ex)
         {
@@ -879,7 +960,10 @@ public class FlightSqlClient
     /// <param name="transaction">The transaction to rollback.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>A Task representing the asynchronous operation.</returns>
-    public AsyncServerStreamingCall<FlightResult> RollbackAsync(Transaction transaction, FlightCallOptions? options = default)
+    public AsyncServerStreamingCall<FlightResult> RollbackAsync(
+        Transaction transaction,
+        FlightCallOptions? options = default,
+        CancellationToken cancellationToken = default)
     {
         if (transaction == null)
         {
@@ -889,7 +973,7 @@ public class FlightSqlClient
         try
         {
             var actionRollback = new FlightAction(SqlAction.RollbackRequest, transaction.TransactionId);
-            return _client.DoAction(actionRollback, options?.Headers);
+            return _client.DoAction(actionRollback, options?.Headers, null, cancellationToken);
         }
         catch (RpcException ex)
         {
@@ -904,7 +988,11 @@ public class FlightSqlClient
     /// <param name="transaction">A transaction to associate this query with.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The created prepared statement.</returns>
-    public async Task<PreparedStatement> PrepareAsync(string query, Transaction transaction = default, FlightCallOptions? options = null)
+    public async Task<PreparedStatement> PrepareAsync(
+        string query,
+        Transaction transaction = default,
+        FlightCallOptions? options = null,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(query))
             throw new ArgumentException("Query cannot be null or empty", nameof(query));
@@ -921,16 +1009,15 @@ public class FlightSqlClient
                 Query = query
             };
 
-            if (transaction.IsValid())
+            if (transaction.IsValid)
             {
                 command.TransactionId = transaction.TransactionId;
             }
-            
+
             var action = new FlightAction(SqlAction.CreateRequest, command.PackAndSerialize());
             var call = _client.DoAction(action, options?.Headers);
-            var preparedStatementResponse = await ReadPreparedStatementAsync(call).ConfigureAwait(false);
-            
-            
+            var preparedStatementResponse = await ReadPreparedStatementAsync(call, cancellationToken).ConfigureAwait(false);
+
             return new PreparedStatement(this,
                 preparedStatementResponse.PreparedStatementHandle.ToStringUtf8(),
                 SchemaExtensions.DeserializeSchema(preparedStatementResponse.DatasetSchema.ToByteArray()),
@@ -944,9 +1031,10 @@ public class FlightSqlClient
     }
 
     private static async Task<ActionCreatePreparedStatementResult> ReadPreparedStatementAsync(
-        AsyncServerStreamingCall<FlightResult> call)
+        AsyncServerStreamingCall<FlightResult> call,
+        CancellationToken cancellationToken)
     {
-        await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
+        await foreach (var result in call.ResponseStream.ReadAllAsync(cancellationToken).ConfigureAwait(false))
         {
             var response = Any.Parser.ParseFrom(result.Body);
             if (response.Is(ActionCreatePreparedStatementResult.Descriptor))

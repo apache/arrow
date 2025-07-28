@@ -26,14 +26,14 @@ using Grpc.Core;
 
 namespace Apache.Arrow.Flight.Sql;
 
-public class PreparedStatement : IDisposable
+public class PreparedStatement : IDisposable, IAsyncDisposable
 {
     private readonly FlightSqlClient _client;
     private readonly string _handle;
-    private Schema _datasetSchema;
-    private Schema _parameterSchema;
     private RecordBatch? _recordsBatch;
     private bool _isClosed;
+    public Schema DatasetSchema { get; }
+    public Schema ParameterSchema { get; }
     public bool IsClosed => _isClosed;
     public string Handle => _handle;
     public RecordBatch? ParametersBatch => _recordsBatch;
@@ -49,8 +49,8 @@ public class PreparedStatement : IDisposable
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _handle = handle ?? throw new ArgumentNullException(nameof(handle));
-        _datasetSchema = datasetSchema ?? throw new ArgumentNullException(nameof(datasetSchema));
-        _parameterSchema = parameterSchema ?? throw new ArgumentNullException(nameof(parameterSchema));
+        DatasetSchema = datasetSchema ?? throw new ArgumentNullException(nameof(datasetSchema));
+        ParameterSchema = parameterSchema ?? throw new ArgumentNullException(nameof(parameterSchema));
         _isClosed = false;
     }
 
@@ -58,9 +58,10 @@ public class PreparedStatement : IDisposable
     /// Retrieves the schema associated with the prepared statement asynchronously.
     /// </summary>
     /// <param name="options">The options used to configure the Flight call.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>A task representing the asynchronous operation, which returns the schema of the result set.</returns>
     /// <exception cref="InvalidOperationException">Thrown when the schema is empty or invalid.</exception>
-    public async Task<Schema> GetSchemaAsync(FlightCallOptions? options = default)
+    public async Task<Schema> GetSchemaAsync(FlightCallOptions? options = default, CancellationToken cancellationToken = default)
     {
         EnsureStatementIsNotClosed();
 
@@ -71,7 +72,7 @@ public class PreparedStatement : IDisposable
                 PreparedStatementHandle = ByteString.CopyFrom(_handle, Encoding.UTF8)
             };
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-            var schema = await _client.GetSchemaAsync(descriptor, options).ConfigureAwait(false);
+            var schema = await _client.GetSchemaAsync(descriptor, options, cancellationToken).ConfigureAwait(false);
             if (schema == null || !schema.FieldsList.Any())
             {
                 throw new InvalidOperationException("Schema is empty or invalid.");
@@ -88,9 +89,10 @@ public class PreparedStatement : IDisposable
     /// Closes the prepared statement asynchronously.
     /// </summary>
     /// <param name="options">The options used to configure the Flight call.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <exception cref="InvalidOperationException">Thrown if closing the prepared statement fails.</exception>
-    public async Task CloseAsync(FlightCallOptions? options = default)
+    public async Task CloseAsync(FlightCallOptions? options = default, CancellationToken cancellationToken = default)
     {
         EnsureStatementIsNotClosed();
         try
@@ -101,7 +103,7 @@ public class PreparedStatement : IDisposable
             };
 
             var action = new FlightAction(SqlAction.CloseRequest, closeRequest.PackAndSerialize());
-            await foreach (var result in _client.DoActionAsync(action, options).ConfigureAwait(false))
+            await foreach (var result in _client.DoActionAsync(action, options, cancellationToken).ConfigureAwait(false))
             {
                 // Just drain the results to complete the operation
             }
@@ -142,7 +144,7 @@ public class PreparedStatement : IDisposable
             }
         }
     }
-    
+
     /// <summary>
     /// Parses the response of a prepared statement execution from the FlightData stream.
     /// </summary>
@@ -215,12 +217,12 @@ public class PreparedStatement : IDisposable
     /// <summary>
     /// Executes the prepared statement asynchronously and retrieves the query results as <see cref="FlightInfo"/>.
     /// </summary>
-    /// <param name="cancellationToken">Optional <see cref="CancellationToken"/> to observe while waiting for the task to complete. The task will be canceled if the token is canceled.</param>
     /// <param name="options">Optional <see cref="FlightCallOptions"/>The <see cref="FlightCallOptions"/> for the operation, which may include timeouts, headers, and other options for the call.</param>
+    /// <param name="cancellationToken">Optional <see cref="CancellationToken"/> to observe while waiting for the task to complete. The task will be canceled if the token is canceled.</param>
     /// <returns>A <see cref="Task{FlightInfo}"/> representing the asynchronous operation. The task result contains the <see cref="FlightInfo"/> describing the executed query results.</returns>
     /// <exception cref="InvalidOperationException">Thrown if the prepared statement is closed or if there is an error during execution.</exception>
     /// <exception cref="OperationCanceledException">Thrown if the operation is canceled by the <paramref name="cancellationToken"/>.</exception>
-    public async Task<FlightInfo> ExecuteAsync(CancellationToken cancellationToken = default, FlightCallOptions? options = default)
+    public async Task<FlightInfo> ExecuteAsync(FlightCallOptions? options = default, CancellationToken cancellationToken = default)
     {
         EnsureStatementIsNotClosed();
 
@@ -234,10 +236,10 @@ public class PreparedStatement : IDisposable
         
         if (_recordsBatch != null)
         {
-            await BindParametersAsync(descriptor, _recordsBatch, options).ConfigureAwait(false);
+            await BindParametersAsync(descriptor, _recordsBatch, options, cancellationToken).ConfigureAwait(false);
         }
         cancellationToken.ThrowIfCancellationRequested();
-        return await _client.GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
+        return await _client.GetFlightInfoAsync(descriptor, options, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -255,6 +257,7 @@ public class PreparedStatement : IDisposable
     /// This batch should match the schema expected by the prepared statement.
     /// </param>
     /// <param name="options">The <see cref="FlightCallOptions"/> for this execution, containing headers and other options.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>
     /// A <see cref="Task{TResult}"/> representing the asynchronous operation. 
     /// The task result contains the number of rows affected by the update.
@@ -274,7 +277,10 @@ public class PreparedStatement : IDisposable
     /// Console.WriteLine($"Rows affected: {affectedRows}");
     /// </code>
     /// </example>
-    public async Task<long> ExecuteUpdateAsync(RecordBatch parameterBatch, FlightCallOptions? options = default)
+    public async Task<long> ExecuteUpdateAsync(
+        RecordBatch parameterBatch,
+        FlightCallOptions? options = default,
+        CancellationToken cancellationToken = default)
     {
         if (parameterBatch == null)
         {
@@ -287,7 +293,7 @@ public class PreparedStatement : IDisposable
         };
 
         var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-        var metadata = await BindParametersAsync(descriptor, parameterBatch, options).ConfigureAwait(false);
+        var metadata = await BindParametersAsync(descriptor, parameterBatch, options, cancellationToken).ConfigureAwait(false);
 
         try
         {
@@ -321,16 +327,21 @@ public class PreparedStatement : IDisposable
     /// <param name="descriptor">The <see cref="FlightDescriptor"/> that identifies the statement or command being executed.</param>
     /// <param name="parameterBatch">The <see cref="RecordBatch"/> containing the parameters to bind to the prepared statement.</param>
     /// <param name="options">The <see cref="FlightCallOptions"/> for the operation, which may include timeouts, headers, and other options for the call.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>A <see cref="Task{ByteString}"/> that represents the asynchronous operation. The task result contains the metadata from the server after binding the parameters.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="parameterBatch"/> is null.</exception>
     /// <exception cref="InvalidOperationException">Thrown if the operation is canceled or if there is an error during the DoPut operation.</exception>
-    public async Task<ByteString> BindParametersAsync(FlightDescriptor descriptor, RecordBatch parameterBatch, FlightCallOptions? options = default)
+    public async Task<ByteString> BindParametersAsync(
+        FlightDescriptor descriptor,
+        RecordBatch parameterBatch,
+        FlightCallOptions? options = default,
+        CancellationToken cancellationToken = default)
     {
         if (parameterBatch == null)
         {
-            throw new ArgumentNullException(nameof(parameterBatch), "Parameter batch cannot be null.");
+            throw new ArgumentNullException(nameof(parameterBatch), @"Parameter batch cannot be null.");
         }
-        var putResult = await _client.DoPutAsync(descriptor, parameterBatch, options).ConfigureAwait(false);
+        var putResult = await _client.DoPutAsync(descriptor, parameterBatch, options, cancellationToken).ConfigureAwait(false);
         try
         {
             var metadata = putResult.ApplicationMetadata;
@@ -374,9 +385,18 @@ public class PreparedStatement : IDisposable
 
         if (disposing)
         {
-            CloseAsync(new FlightCallOptions()).GetAwaiter().GetResult();
+            DisposeAsync().GetAwaiter().GetResult();
         }
 
         _isClosed = true;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (!_isClosed)
+        {
+            await CloseAsync(new FlightCallOptions());
+            _isClosed = true;
+        }
     }
 }

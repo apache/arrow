@@ -1899,9 +1899,12 @@ def test_s3_real_aws_region_selection():
     assert fs.region == 'us-east-2'
     # Reading from the wrong region may still work for public buckets...
 
-    # Nonexistent bucket (hopefully, otherwise need to fix this test)
+    # Nonexistent bucket. This bucket can't exist as AWS imposes that
+    # Bucket names must not contain two adjacent periods.
+    # Hopefully this won't fail in the future if a new validation rule applies.
+    # See: https://github.com/apache/arrow/pull/47166
     with pytest.raises(IOError, match="Bucket '.*' not found"):
-        FileSystem.from_uri('s3://x-arrow-nonexistent-bucket')
+        FileSystem.from_uri('s3://x-arrow..nonexistent-bucket')
     fs, path = FileSystem.from_uri('s3://x-arrow-nonexistent-bucket?region=us-east-3')
     assert fs.region == 'us-east-3'
 

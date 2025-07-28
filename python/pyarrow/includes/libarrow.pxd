@@ -142,6 +142,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_TIME64" arrow::Type::TIME64"
         _Type_DURATION" arrow::Type::DURATION"
         _Type_INTERVAL_MONTH_DAY_NANO" arrow::Type::INTERVAL_MONTH_DAY_NANO"
+        _Type_INTERVAL_DAY_TIME" arrow::Type::INTERVAL_DAY_TIME"
+        _Type_INTERVAL_MONTHS" arrow::Type::INTERVAL_MONTHS"
 
         _Type_BINARY" arrow::Type::BINARY"
         _Type_STRING" arrow::Type::STRING"

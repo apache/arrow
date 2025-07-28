@@ -96,12 +96,17 @@ public class FlightSqlClientTests : IDisposable
 
     #region PreparedStatement
 
-    [Fact]
-    public async Task PreparedAsync()
+    [Theory]
+    [InlineData("sample-transaction-id", true)]
+    [InlineData(null, false)]
+    public async Task PreparedAsync(string transactionId, bool expectTransaction)
     {
         // Arrange
         string query = "INSERT INTO users (id, name) VALUES (1, 'John Doe')";
-        var transaction = new Transaction("sample-transaction-id");
+        var transaction = string.IsNullOrEmpty(transactionId)
+            ? Transaction.NoTransaction
+            : new Transaction(transactionId);
+
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
 
         // Create a sample schema for the dataset and parameters
@@ -131,7 +136,15 @@ public class FlightSqlClientTests : IDisposable
         };
 
         // Act
-        var preparedStatement = await _flightSqlClient.PrepareAsync(query, transaction);
+        PreparedStatement preparedStatement;
+        if (expectTransaction)
+        {
+             preparedStatement = await _flightSqlClient.PrepareAsync(query, transaction);
+        }
+        else
+        {
+            preparedStatement = await _flightSqlClient.PrepareAsync(query);
+        }
         var deserializedDatasetSchema =
             SchemaExtensions.DeserializeSchema(preparedStatementResponse.DatasetSchema.ToByteArray());
         var deserializedParameterSchema =
