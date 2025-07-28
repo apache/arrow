@@ -156,6 +156,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CInspectOptions "arrow::dataset::InspectOptions":
         int fragments
+        CField.CMergeOptions field_merge_options
 
     cdef cppclass CFinishOptions "arrow::dataset::FinishOptions":
         shared_ptr[CSchema] schema
@@ -221,6 +222,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         shared_ptr[CFileSystem] filesystem
         c_string base_dir
         shared_ptr[CPartitioning] partitioning
+        c_bool preserve_order
         int max_partitions
         c_string basename_template
         function[cb_writer_finish_internal] writer_pre_finish

@@ -65,6 +65,21 @@ test = [
     'pandas'
 ]
 
+[tool.numpydoc_validation]
+checks = [
+    "GL10",
+    "PR01",
+    "PR03",
+    "PR04",
+    "PR05",
+    "PR10",
+    "RT03",
+    "YD01",
+]
+exclude = [
+    '\._.*$',
+]
+
 [tool.setuptools]
 zip-safe=false
 include-package-data=true

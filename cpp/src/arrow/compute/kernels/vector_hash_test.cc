@@ -43,8 +43,6 @@
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util_internal.h"
 
-#include "arrow/ipc/json_simple.h"
-
 namespace arrow {
 
 using internal::checked_cast;

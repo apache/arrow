@@ -48,6 +48,38 @@ class MemoryPool;
 
 namespace ipc {
 
+namespace {
+
+Status MaybeAlignMetadata(std::shared_ptr<Buffer>* metadata) {
+  if (reinterpret_cast<uintptr_t>((*metadata)->data()) % 8 != 0) {
+    // If the metadata memory is not aligned, we copy it here to avoid
+    // potential UBSAN issues from Flatbuffers
+    ARROW_ASSIGN_OR_RAISE(*metadata, (*metadata)->CopySlice(0, (*metadata)->size()));
+  }
+  return Status::OK();
+}
+
+Status CheckMetadataAndGetBodyLength(const Buffer& metadata, int64_t* body_length) {
+  const flatbuf::Message* fb_message = nullptr;
+  RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &fb_message));
+  *body_length = fb_message->bodyLength();
+  if (*body_length < 0) {
+    return Status::IOError("Invalid IPC message: negative bodyLength");
+  }
+  return Status::OK();
+}
+
+Status WritePadding(io::OutputStream* stream, int64_t nbytes) {
+  while (nbytes > 0) {
+    const int64_t bytes_to_write = std::min<int64_t>(nbytes, kArrowAlignment);
+    RETURN_NOT_OK(stream->Write(kPaddingBytes, bytes_to_write));
+    nbytes -= bytes_to_write;
+  }
+  return Status::OK();
+}
+
+}  // namespace
+
 class Message::MessageImpl {
  public:
   explicit MessageImpl(std::shared_ptr<Buffer> metadata, std::shared_ptr<Buffer> body)
@@ -176,25 +208,6 @@ bool Message::Equals(const Message& other) const {
   }
 }
 
-Status MaybeAlignMetadata(std::shared_ptr<Buffer>* metadata) {
-  if (reinterpret_cast<uintptr_t>((*metadata)->data()) % 8 != 0) {
-    // If the metadata memory is not aligned, we copy it here to avoid
-    // potential UBSAN issues from Flatbuffers
-    ARROW_ASSIGN_OR_RAISE(*metadata, (*metadata)->CopySlice(0, (*metadata)->size()));
-  }
-  return Status::OK();
-}
-
-Status CheckMetadataAndGetBodyLength(const Buffer& metadata, int64_t* body_length) {
-  const flatbuf::Message* fb_message = nullptr;
-  RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &fb_message));
-  *body_length = fb_message->bodyLength();
-  if (*body_length < 0) {
-    return Status::IOError("Invalid IPC message: negative bodyLength");
-  }
-  return Status::OK();
-}
-
 Result<std::unique_ptr<Message>> Message::ReadFrom(std::shared_ptr<Buffer> metadata,
                                                    io::InputStream* stream) {
   std::unique_ptr<Message> result;
@@ -226,15 +239,6 @@ Result<std::unique_ptr<Message>> Message::ReadFrom(const int64_t offset,
   }
   RETURN_NOT_OK(decoder.Consume(body));
   return result;
-}
-
-Status WritePadding(io::OutputStream* stream, int64_t nbytes) {
-  while (nbytes > 0) {
-    const int64_t bytes_to_write = std::min<int64_t>(nbytes, kArrowAlignment);
-    RETURN_NOT_OK(stream->Write(kPaddingBytes, bytes_to_write));
-    nbytes -= bytes_to_write;
-  }
-  return Status::OK();
 }
 
 Status Message::SerializeTo(io::OutputStream* stream, const IpcWriteOptions& options,
@@ -281,6 +285,8 @@ std::string FormatMessageType(MessageType type) {
   return "unknown";
 }
 
+namespace {
+
 Status ReadFieldsSubset(int64_t offset, int32_t metadata_length,
                         io::RandomAccessFile* file,
                         const FieldsLoaderFunction& fields_loader,
@@ -310,6 +316,8 @@ Status ReadFieldsSubset(int64_t offset, int32_t metadata_length,
   }
   return Status::OK();
 }
+
+}  // namespace
 
 Result<std::unique_ptr<Message>> ReadMessage(std::shared_ptr<Buffer> metadata,
                                              std::shared_ptr<Buffer> body) {

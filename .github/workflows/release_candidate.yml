@@ -19,16 +19,25 @@ name: Release
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
     tags:
       # Trigger workflow when a tag whose name matches the pattern
       # "apache-arrow-{MAJOR}.{MINOR}.{PATCH}-rc{RC_NUM}" is pushed.
       - "apache-arrow-[0-9]+.[0-9]+.[0-9]+-rc[0-9]+"
+    paths:
+      - ".github/workflows/release_candidate.sh"
+      - "dev/release/utils-create-release-tarball.sh"
+      - "dev/release/utils-generate-checksum.sh"
+  pull_request:
+    paths:
+      - ".github/workflows/release_candidate.sh"
+      - "dev/release/utils-create-release-tarball.sh"
+      - "dev/release/utils-generate-checksum.sh"
 
 permissions:
   contents: write
-
-env:
-  GH_TOKEN: ${{ github.token }}
 
 jobs:
   publish:
@@ -40,12 +49,27 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y -V gpg reprotest
       - name: Store Version and Release Candidate Number
         run: |
-          version_with_rc=${GITHUB_REF_NAME#apache-arrow-}
-          version=${version_with_rc%-rc*}
-          rc_num=${version_with_rc#${version}-rc}
-          echo "VERSION_WITH_RC=${version_with_rc}" >> ${GITHUB_ENV}
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            version_with_rc=${GITHUB_REF_NAME#apache-arrow-}
+            version=${version_with_rc%-rc*}
+            rc_num=${version_with_rc#${version}-rc}
+          else
+            version=$(grep '^set(ARROW_VERSION ' cpp/CMakeLists.txt | \
+                        grep -E -o '[0-9]+\.[0-9]+\.[0-9]+')
+            rc_num=999
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag \
+              -a \
+              "apache-arrow-${version}-rc${rc_num}" \
+              -m "Apache Arrow ${version} RC${rc_num}"
+          fi
           echo "VERSION=${version}" >> ${GITHUB_ENV}
           echo "RC_NUM=${rc_num}" >> ${GITHUB_ENV}
       - name: Create Release Candidate Title
@@ -57,11 +81,37 @@ jobs:
           release_notes="Release Candidate: ${VERSION} RC${RC_NUM}"
           echo "RELEASE_CANDIDATE_NOTES=${release_notes}" >> ${GITHUB_ENV}
       - name: Create Release tarball
+        env:
+          ARROW_GPG_KEY_UID: A2AC7132B5DA7C273A7A147665F4A8CA9769ECD7
+          ARROW_GPG_SECRET_KEY: ${{ secrets.ARROW_GPG_SECRET_KEY }}
         run: |
+          sudo reprotest \
+            "dev/release/utils-create-release-tarball.sh ${VERSION} ${RC_NUM}" \
+            apache-arrow-${VERSION}.tar.gz
           dev/release/utils-create-release-tarball.sh ${VERSION} ${RC_NUM}
-          echo "RELEASE_TARBALL=apache-arrow-${VERSION}.tar.gz" >> ${GITHUB_ENV}
-          dev/release/utils-generate-checksum.sh "apache-arrow-${VERSION}.tar.gz"
+          RELEASE_TARBALL=apache-arrow-${VERSION}.tar.gz
+          echo "RELEASE_TARBALL=${RELEASE_TARBALL}" >> ${GITHUB_ENV}
+          dev/release/run-rat.sh "${RELEASE_TARBALL}"
+          dev/release/utils-generate-checksum.sh "${RELEASE_TARBALL}"
+          if [ -n "${ARROW_GPG_SECRET_KEY}" ]; then
+            echo "${ARROW_GPG_SECRET_KEY}" | gpg --import
+            gpg \
+              --armor \
+              --detach-sign \
+              --local-user "${ARROW_GPG_KEY_UID}" \
+              --output "${RELEASE_TARBALL}.asc" \
+              "${RELEASE_TARBALL}"
+          fi
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-candidate
+          path: ${{ env.RELEASE_TARBALL }}*
       - name: Create GitHub Release
+        if: |
+          github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh release create ${GITHUB_REF_NAME} \
             --verify-tag \

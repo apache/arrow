@@ -307,6 +307,7 @@ TEST_F(S3OptionsTest, FromUri) {
   ASSERT_EQ(options.region, "");
   ASSERT_EQ(options.scheme, "https");
   ASSERT_EQ(options.endpoint_override, "");
+  ASSERT_EQ(options.smart_defaults, "standard");
   ASSERT_EQ(path, "");
 
   ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3:", &path));
@@ -329,6 +330,12 @@ TEST_F(S3OptionsTest, FromUri) {
   ASSERT_EQ(options.scheme, "https");
   ASSERT_EQ(options.endpoint_override, "");
   ASSERT_EQ(path, "mybucket/foo/bar");
+
+  ASSERT_OK_AND_ASSIGN(
+      options, S3Options::FromUri(
+                   "s3://?allow_bucket_creation=true&smart_defaults=legacy", &path));
+  ASSERT_TRUE(options.allow_bucket_creation);
+  ASSERT_EQ(options.smart_defaults, "legacy");
 
   // Region resolution with a well-known bucket
   ASSERT_OK_AND_ASSIGN(

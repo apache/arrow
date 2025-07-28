@@ -148,6 +148,42 @@ def mockfs():
 
 
 @pytest.fixture
+def promotable_mockfs():
+    """
+    Creates a _MockFileSystem with two parquet files that have promotable schemas.
+    - file1: value: int8, dictionary: dictionary<int8, string>
+    - file2: value: uint16, dictionary: dictionary<int16, string>
+    """
+    mockfs = fs._MockFileSystem()
+
+    table1 = pa.table({
+        'value': pa.array([1, 2], type=pa.int8()),
+        'dictionary': pa.DictionaryArray.from_arrays(
+            pa.array([0, 1], type=pa.int8()),
+            ['a', 'b'],
+        ),
+    })
+    table2 = pa.table({
+        'value': pa.array([3, 4], type=pa.uint16()),
+        'dictionary': pa.DictionaryArray.from_arrays(
+            pa.array([1, 0], type=pa.int16()),
+            ['d', 'c'],
+        ),
+    })
+
+    mockfs.create_dir('subdir/zzz')
+    path1 = 'subdir/zzz/file1.parquet'
+    with mockfs.open_output_stream(path1) as out:
+        pq.write_table(table1, out)
+
+    path2 = 'subdir/zzz/file2.parquet'
+    with mockfs.open_output_stream(path2) as out:
+        pq.write_table(table2, out)
+
+    return mockfs, path1, path2
+
+
+@pytest.fixture
 def open_logging_fs(monkeypatch):
     from pyarrow.fs import LocalFileSystem, PyFileSystem
 
@@ -449,6 +485,70 @@ def test_dataset(dataset, dataset_reader):
     assert result['new'] == [False, False, True, True, False, False,
                              False, False, True, True]
     assert_dataset_fragment_convenience_methods(dataset)
+
+
+def test_dataset_factory_inspect_schema_promotion(promotable_mockfs):
+    mockfs, path1, path2 = promotable_mockfs
+    factory = ds.FileSystemDatasetFactory(
+        mockfs, [path1, path2], ds.ParquetFileFormat()
+    )
+
+    with pytest.raises(
+        pa.ArrowTypeError,
+        match='Unable to merge: Field value has incompatible types: int8 vs uint16',
+    ):
+        factory.inspect()
+
+    schema = factory.inspect(promote_options='permissive')
+    expected_schema = pa.schema([
+        # Promoted from int8 and uint16
+        pa.field('value', pa.int32()),
+        # Dictionary index type promoted from int8 and int16
+        pa.field('dictionary', pa.dictionary(pa.int16(), pa.string())),
+    ])
+    assert schema.equals(expected_schema)
+    dataset = factory.finish(schema)
+    table = dataset.to_table()
+    table.validate(full=True)
+    expected_table = pa.table({
+        'value': pa.chunked_array([[1, 2], [3, 4]], type=pa.int32()),
+        'dictionary': pa.chunked_array([
+            pa.DictionaryArray.from_arrays(
+                pa.array([0, 1], type=pa.int16()),
+                ['a', 'b']
+            ),
+            pa.DictionaryArray.from_arrays(
+                pa.array([1, 0], type=pa.int16()),
+                ['d', 'c']
+            )
+        ]),
+    })
+    assert table.equals(expected_table)
+
+    # Inspecting only one fragment should not promote the 'value' field
+    inspected_schema_one_frag = factory.inspect(
+        promote_options='permissive', fragments=1)
+    assert inspected_schema_one_frag.field('value').type != pa.int32()
+
+
+def test_dataset_factory_inspect_bad_params(promotable_mockfs):
+    mockfs, path1, path2 = promotable_mockfs
+    factory = ds.FileSystemDatasetFactory(
+        mockfs, [path1, path2], ds.ParquetFileFormat()
+    )
+
+    with pytest.raises(ValueError, match='Invalid promote_options: bad_option'):
+        factory.inspect(promote_options='bad_option')
+
+    with pytest.raises(
+        ValueError, match="Fragment count must be a non-negative int or None; got 'one'"
+    ):
+        factory.inspect(fragments="one")
+
+    with pytest.raises(
+        ValueError, match='Fragment count must be a non-negative int or None; got -1'
+    ):
+        factory.inspect(fragments=-1)
 
 
 @pytest.mark.parquet
@@ -845,6 +945,8 @@ def test_parquet_read_options():
     opts1 = ds.ParquetReadOptions()
     opts2 = ds.ParquetReadOptions(dictionary_columns=['a', 'b'])
     opts3 = ds.ParquetReadOptions(coerce_int96_timestamp_unit="ms")
+    opts4 = ds.ParquetReadOptions(binary_type=pa.binary_view())
+    opts5 = ds.ParquetReadOptions(list_type=pa.LargeListType)
 
     assert opts1.dictionary_columns == set()
 
@@ -853,9 +955,31 @@ def test_parquet_read_options():
     assert opts1.coerce_int96_timestamp_unit == "ns"
     assert opts3.coerce_int96_timestamp_unit == "ms"
 
+    assert opts1.binary_type == pa.binary()
+    assert opts4.binary_type == pa.binary_view()
+
+    assert opts1.list_type is pa.ListType
+    assert opts5.list_type is pa.LargeListType
+
     assert opts1 == opts1
     assert opts1 != opts2
     assert opts1 != opts3
+    assert opts1 != opts4
+    assert opts1 != opts5
+
+    opts4.binary_type = None
+    assert opts4.binary_type == pa.binary()
+    assert opts1 == opts4
+    opts4.binary_type = pa.large_binary()
+    assert opts4.binary_type == pa.large_binary()
+    assert opts1 != opts4
+
+    opts5.list_type = pa.ListType
+    assert opts5.list_type is pa.ListType
+    assert opts5 == opts1
+    opts5.list_type = pa.LargeListType
+    assert opts5.list_type is pa.LargeListType
+    assert opts5 != opts1
 
 
 @pytest.mark.parquet
@@ -863,11 +987,17 @@ def test_parquet_file_format_read_options():
     pff1 = ds.ParquetFileFormat()
     pff2 = ds.ParquetFileFormat(dictionary_columns={'a'})
     pff3 = ds.ParquetFileFormat(coerce_int96_timestamp_unit="s")
+    pff4 = ds.ParquetFileFormat(binary_type=pa.binary_view())
+    pff5 = ds.ParquetFileFormat(list_type=pa.LargeListType)
 
     assert pff1.read_options == ds.ParquetReadOptions()
     assert pff2.read_options == ds.ParquetReadOptions(dictionary_columns=['a'])
     assert pff3.read_options == ds.ParquetReadOptions(
         coerce_int96_timestamp_unit="s")
+    assert pff4.read_options == ds.ParquetReadOptions(
+        binary_type=pa.binary_view())
+    assert pff5.read_options == ds.ParquetReadOptions(
+        list_type=pa.LargeListType)
 
 
 @pytest.mark.parquet
@@ -2528,13 +2658,14 @@ def test_construct_from_invalid_sources_raise(multisourcefs):
 
 def test_construct_in_memory(dataset_reader):
     batch = pa.RecordBatch.from_arrays([pa.array(range(10))], names=["a"])
+    reader = pa.RecordBatchReader.from_batches(batch.schema, [batch])
     table = pa.Table.from_batches([batch])
 
     dataset_table = ds.dataset([], format='ipc', schema=pa.schema([])
                                ).to_table()
     assert dataset_table == pa.table([])
 
-    for source in (batch, table, [batch], [table]):
+    for source in (batch, table, [batch], [table], reader):
         dataset = ds.dataset(source)
         assert dataset_reader.to_table(dataset) == table
         assert len(list(dataset.get_fragments())) == 1
@@ -4588,6 +4719,22 @@ def test_write_dataset_use_threads(tempdir):
     result1 = ds.dataset(target1, format="feather", partitioning=partitioning)
     result2 = ds.dataset(target2, format="feather", partitioning=partitioning)
     assert result1.to_table().equals(result2.to_table())
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_write_dataset_use_threads_preserve_order(tempdir):
+    # see GH-26818
+    table = pa.table({"a": range(1024)})
+    batches = table.to_batches(max_chunksize=2)
+    ds.write_dataset(batches, tempdir, format="parquet",
+                     use_threads=True, preserve_order=True)
+    seq = ds.dataset(tempdir).to_table(use_threads=False)['a'].to_numpy()
+    prev = -1
+    for item in seq:
+        curr = int(item)
+        assert curr > prev, f"Sequence expected to be ordered: {seq}"
+        prev = curr
 
 
 def test_write_table(tempdir):

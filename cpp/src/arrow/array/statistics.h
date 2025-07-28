@@ -22,6 +22,7 @@
 #include <string>
 #include <variant>
 
+#include "arrow/compare.h"
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
@@ -77,6 +78,12 @@ struct ARROW_EXPORT ArrayStatistics {
   /// \brief The number of distinct values, may not be set
   std::optional<int64_t> distinct_count = std::nullopt;
 
+  /// \brief The average size in bytes of a row in an array, may not be set.
+  std::optional<double> average_byte_width = std::nullopt;
+
+  /// \brief Whether the average size in bytes is exact or not.
+  bool is_average_byte_width_exact = false;
+
   /// \brief The minimum value, may not be set
   std::optional<ValueType> min = std::nullopt;
 
@@ -127,11 +134,17 @@ struct ARROW_EXPORT ArrayStatistics {
   /// \brief Whether the maximum value is exact or not
   bool is_max_exact = false;
 
-  /// \brief Check two statistics for equality
-  bool Equals(const ArrayStatistics& other) const {
-    return null_count == other.null_count && distinct_count == other.distinct_count &&
-           min == other.min && is_min_exact == other.is_min_exact && max == other.max &&
-           is_max_exact == other.is_max_exact;
+  /// \brief Check two \ref arrow::ArrayStatistics for equality
+  ///
+  /// \param other The \ref arrow::ArrayStatistics instance to compare against.
+  ///
+  /// \param equal_options Options used to compare double values for equality.
+  ///
+  /// \return True if the two \ref arrow::ArrayStatistics instances are equal; otherwise,
+  /// false.
+  bool Equals(const ArrayStatistics& other,
+              const EqualOptions& equal_options = EqualOptions::Defaults()) const {
+    return ArrayStatisticsEquals(*this, other, equal_options);
   }
 
   /// \brief Check two statistics for equality

@@ -350,10 +350,17 @@ endif()
 # PyArrow C++
 set(PYARROW_CPP_ROOT_DIR pyarrow/src)
 set(PYARROW_CPP_SOURCE_DIR ${PYARROW_CPP_ROOT_DIR}/arrow/python)
+
+# Write out compile-time configuration constants
+string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_PYBUILD_TYPE)
+configure_file("${PYARROW_CPP_SOURCE_DIR}/config_internal.h.cmake"
+               "${PYARROW_CPP_SOURCE_DIR}/config_internal.h" ESCAPE_QUOTES)
+
 set(PYARROW_CPP_SRCS
     ${PYARROW_CPP_SOURCE_DIR}/arrow_to_pandas.cc
     ${PYARROW_CPP_SOURCE_DIR}/benchmark.cc
     ${PYARROW_CPP_SOURCE_DIR}/common.cc
+    ${PYARROW_CPP_SOURCE_DIR}/config.cc
     ${PYARROW_CPP_SOURCE_DIR}/datetime.cc
     ${PYARROW_CPP_SOURCE_DIR}/decimal.cc
     ${PYARROW_CPP_SOURCE_DIR}/extension_type.cc
@@ -368,7 +375,8 @@ set(PYARROW_CPP_SRCS
     ${PYARROW_CPP_SOURCE_DIR}/python_test.cc
     ${PYARROW_CPP_SOURCE_DIR}/python_to_arrow.cc
     ${PYARROW_CPP_SOURCE_DIR}/pyarrow.cc
-    ${PYARROW_CPP_SOURCE_DIR}/udf.cc)
+    ${PYARROW_CPP_SOURCE_DIR}/udf.cc
+    ${PYARROW_CPP_SOURCE_DIR}/util.cc)
 set_source_files_properties(${PYARROW_CPP_SOURCE_DIR}/numpy_init.cc
                             PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 
@@ -426,6 +434,19 @@ if(PYARROW_BUILD_ACERO)
   endif()
 endif()
 
+# Currently PyArrow cannot be built without ARROW_COMPUTE
+if(NOT ARROW_COMPUTE)
+  message(FATAL_ERROR "You must build Arrow C++ with ARROW_COMPUTE=ON")
+else()
+  message(STATUS "Building PyArrow with Compute")
+  find_package(ArrowCompute REQUIRED)
+  if(ARROW_BUILD_SHARED)
+    list(APPEND PYARROW_CPP_LINK_LIBS ArrowCompute::arrow_compute_shared)
+  else()
+    list(APPEND PYARROW_CPP_LINK_LIBS ArrowCompute::arrow_compute_static)
+  endif()
+endif()
+
 if(PYARROW_BUILD_PARQUET)
   message(STATUS "Building PyArrow with Parquet")
   if(NOT ARROW_PARQUET)
@@ -443,6 +464,8 @@ endif()
 # Check for only Arrow C++ options
 if(ARROW_CSV)
   list(APPEND PYARROW_CPP_SRCS ${PYARROW_CPP_SOURCE_DIR}/csv.cc)
+else()
+  message(FATAL_ERROR "You must build Arrow C++ with ARROW_CSV=ON")
 endif()
 
 if(ARROW_FILESYSTEM)
@@ -643,12 +666,13 @@ get_filename_component(ARROW_INCLUDE_ARROW_DIR_REAL ${ARROW_INCLUDE_DIR}/arrow R
 install(DIRECTORY ${ARROW_INCLUDE_ARROW_DIR_REAL} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 if(PYARROW_BUNDLE_ARROW_CPP)
-  # Arrow
+  # Arrow and Compute
   bundle_arrow_lib(${ARROW_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
+  bundle_arrow_lib(${ARROW_COMPUTE_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
 
   if(MSVC)
-    # TODO(kszucs): locate msvcp140.dll in a portable fashion and bundle it
     bundle_arrow_import_lib(${ARROW_IMPORT_LIB})
+    bundle_arrow_import_lib(${ARROW_COMPUTE_IMPORT_LIB})
   endif()
 endif()
 

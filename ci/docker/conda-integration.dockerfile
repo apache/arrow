@@ -20,10 +20,12 @@ ARG arch=amd64
 FROM ${repo}:${arch}-conda-cpp
 
 ARG arch=amd64
+# We need to synchronize the following values with the values in .env
+# and services.conda-integration in docker-compose.yml.
 ARG maven=3.8.7
-ARG node=16
+ARG node=20
 ARG yarn=1.22
-ARG jdk=11
+ARG jdk=17
 
 # Install Archery and integration dependencies
 COPY ci/conda_env_archery.txt /arrow/ci/

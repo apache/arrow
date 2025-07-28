@@ -3764,7 +3764,6 @@ test_that("hms::hms", {
     call_binding("hms::hms", seconds = NA),
     regexp = "All arguments must be numeric or NA_real_"
   )
-
 })
 
 test_that("hms::as_hms", {
@@ -3773,13 +3772,12 @@ test_that("hms::as_hms", {
     int = c(30L, 75L),
     integerish_dbl = c(31, 76),
     dbl = c(31.2, 76.4),
-    datetime = as.POSIXct(c(1645243500, 1745243500), tz = "UTC")
+    datetime = as.POSIXct(c(1645243500, 1745243500), tz = "UTC", origin = "1970-01-01")
   )
 
   compare_dplyr_binding(
     .input %>%
       mutate(
-        x = hms::as_hms(hms_string),
         x2 = hms::as_hms(int),
         x3 = hms::as_hms(integerish_dbl),
         x4 = hms::as_hms(datetime)
@@ -3791,5 +3789,16 @@ test_that("hms::as_hms", {
   expect_error(
     arrow_table(test_df) %>% mutate(y = hms::as_hms(dbl)) %>% collect(),
     "was truncated converting to int32"
+  )
+
+  skip_if_not_available("utf8proc")
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        x = hms::as_hms(hms_string),
+      ) %>%
+      collect(),
+    test_df
   )
 })

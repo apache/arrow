@@ -100,11 +100,7 @@ std::string RExtensionType::ToString(bool show_metadata) const {
   // In the event of an error (e.g., we are not on the main thread
   // and we are not inside RunWithCapturedR()), just call the default method
   if (!result.ok()) {
-#if ARROW_VERSION_MAJOR >= 16
     return ExtensionType::ToString(show_metadata);
-#else
-    return ExtensionType::ToString();
-#endif
   } else {
     return result.ValueUnsafe();
   }

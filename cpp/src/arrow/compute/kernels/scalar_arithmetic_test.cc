@@ -35,6 +35,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/math_constants.h"
 #include "arrow/util/string.h"
 
@@ -43,6 +44,9 @@
 #include "arrow/testing/random.h"
 
 namespace arrow {
+
+using util::Float16;
+
 namespace compute {
 namespace {
 
@@ -57,8 +61,11 @@ using SignedIntegerTypes = testing::Types<Int8Type, Int16Type, Int32Type, Int64T
 using UnsignedIntegerTypes =
     testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type>;
 
-// TODO(kszucs): add half-float
-using FloatingTypes = testing::Types<FloatType, DoubleType>;
+using ArithmeticFloatingTypes = testing::Types<FloatType, DoubleType, HalfFloatType>;
+
+float ToCFloat(float v) { return v; }
+double ToCFloat(double v) { return v; }
+float ToCFloat(Float16 v) { return v.ToFloat(); }
 
 // Assert that all-null-type inputs results in a null-type output.
 void AssertNullToNull(const std::string& func_name) {
@@ -80,33 +87,57 @@ void AssertNullToNull(const std::string& func_name) {
   }
 }
 
-template <typename T, typename OptionsType>
-class TestBaseUnaryArithmetic : public ::testing::Test {
+template <typename T>
+class TestBaseArithmetic : public ::testing::Test {
  protected:
   using ArrowType = T;
-  using CType = typename ArrowType::c_type;
+  using CType = std::conditional_t<std::is_same_v<T, HalfFloatType>, Float16,
+                                   typename ArrowType::c_type>;
 
   static std::shared_ptr<DataType> type_singleton() {
     return TypeTraits<ArrowType>::type_singleton();
   }
 
-  using UnaryFunction =
-      std::function<Result<Datum>(const Datum&, OptionsType, ExecContext*)>;
-
   std::shared_ptr<Scalar> MakeNullScalar() {
     return arrow::MakeNullScalar(type_singleton());
   }
 
-  std::shared_ptr<Scalar> MakeScalar(CType value) {
-    return *arrow::MakeScalar(type_singleton(), value);
+  template <typename V>
+  std::shared_ptr<Scalar> MakeScalar(V value) {
+    if constexpr (std::is_same_v<T, HalfFloatType>) {
+      return std::make_shared<HalfFloatScalar>(Float16(value).bits());
+    } else {
+      return *arrow::MakeScalar(type_singleton(), value);
+    }
   }
 
-  void SetUp() override {}
+  static constexpr bool is_half_float() { return std::is_same_v<T, HalfFloatType>; }
+};
+
+// This has to be a macro, the test wouldn't be skipped from a helper function
+#define SKIP_IF_HALF_FLOAT()                     \
+  if (this->is_half_float()) {                   \
+    GTEST_SKIP() << "Unsupported on half-float"; \
+  }
+
+template <typename T, typename R = void>
+using enable_if_numeric_value =
+    std::enable_if_t<std::is_arithmetic_v<T> || std::is_same_v<T, Float16>, R>;
+
+template <typename T, typename OptionsType>
+class TestBaseUnaryArithmetic : public TestBaseArithmetic<T> {
+ protected:
+  using Base = TestBaseArithmetic<T>;
+  using CType = typename Base::CType;
+
+  using UnaryFunction =
+      std::function<Result<Datum>(const Datum&, OptionsType, ExecContext*)>;
 
   // (CScalar, CScalar)
-  void AssertUnaryOp(UnaryFunction func, CType argument, CType expected) {
-    auto arg = MakeScalar(argument);
-    auto exp = MakeScalar(expected);
+  template <typename V>
+  enable_if_numeric_value<V> AssertUnaryOp(UnaryFunction func, V argument, V expected) {
+    auto arg = this->MakeScalar(argument);
+    auto exp = this->MakeScalar(expected);
     ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr));
     AssertScalarsApproxEqual(*exp, *actual.scalar(), /*verbose=*/true);
   }
@@ -121,22 +152,22 @@ class TestBaseUnaryArithmetic : public ::testing::Test {
   // (JSON, JSON)
   void AssertUnaryOp(UnaryFunction func, const std::string& arg_json,
                      const std::string& expected_json) {
-    auto arg = ArrayFromJSON(type_singleton(), arg_json);
-    auto expected = ArrayFromJSON(type_singleton(), expected_json);
+    auto arg = ArrayFromJSON(this->type_singleton(), arg_json);
+    auto expected = ArrayFromJSON(this->type_singleton(), expected_json);
     AssertUnaryOp(func, arg, expected);
   }
 
   // (Array, JSON)
   void AssertUnaryOp(UnaryFunction func, const std::shared_ptr<Array>& arg,
                      const std::string& expected_json) {
-    const auto expected = ArrayFromJSON(type_singleton(), expected_json);
+    const auto expected = ArrayFromJSON(this->type_singleton(), expected_json);
     AssertUnaryOp(func, arg, expected);
   }
 
   // (JSON, Array)
   void AssertUnaryOp(UnaryFunction func, const std::string& arg_json,
                      const std::shared_ptr<Array>& expected) {
-    auto arg = ArrayFromJSON(type_singleton(), arg_json);
+    auto arg = ArrayFromJSON(this->type_singleton(), arg_json);
     AssertUnaryOp(func, arg, expected);
   }
 
@@ -157,16 +188,17 @@ class TestBaseUnaryArithmetic : public ::testing::Test {
   }
 
   // (CScalar, CScalar)
-  void AssertUnaryOpRaises(UnaryFunction func, CType argument,
-                           const std::string& expected_msg) {
-    auto arg = MakeScalar(argument);
+  template <typename V>
+  enable_if_numeric_value<V> AssertUnaryOpRaises(UnaryFunction func, V argument,
+                                                 const std::string& expected_msg) {
+    auto arg = this->MakeScalar(argument);
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
                                     func(arg, options_, nullptr));
   }
 
   void AssertUnaryOpRaises(UnaryFunction func, const std::string& argument,
                            const std::string& expected_msg) {
-    auto arg = ArrayFromJSON(type_singleton(), argument);
+    auto arg = ArrayFromJSON(this->type_singleton(), argument);
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
                                     func(arg, options_, nullptr));
     for (int64_t i = 0; i < arg->length(); i++) {
@@ -177,7 +209,7 @@ class TestBaseUnaryArithmetic : public ::testing::Test {
   }
 
   void AssertUnaryOpNotImplemented(UnaryFunction func, const std::string& argument) {
-    auto arg = ArrayFromJSON(type_singleton(), argument);
+    auto arg = ArrayFromJSON(this->type_singleton(), argument);
     const char* expected_msg = "has no kernel matching input types";
     EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, ::testing::HasSubstr(expected_msg),
                                     func(arg, options_, nullptr));
@@ -185,7 +217,7 @@ class TestBaseUnaryArithmetic : public ::testing::Test {
 
   void ValidateAndAssertApproxEqual(const std::shared_ptr<Array>& actual,
                                     const std::string& expected) {
-    const auto exp = ArrayFromJSON(type_singleton(), expected);
+    const auto exp = ArrayFromJSON(this->type_singleton(), expected);
     ValidateAndAssertApproxEqual(actual, exp);
   }
 
@@ -258,59 +290,51 @@ class TestArithmeticDecimal : public ::testing::Test {
 };
 
 template <typename T>
-class TestBinaryArithmetic : public ::testing::Test {
+class TestBinaryArithmetic : public TestBaseArithmetic<T> {
  protected:
-  using ArrowType = T;
-  using CType = typename ArrowType::c_type;
-
-  static std::shared_ptr<DataType> type_singleton() {
-    return TypeTraits<ArrowType>::type_singleton();
-  }
+  using Base = TestBaseArithmetic<T>;
+  using CType = typename Base::CType;
 
   using BinaryFunction = std::function<Result<Datum>(const Datum&, const Datum&,
                                                      ArithmeticOptions, ExecContext*)>;
 
   void SetUp() override { options_.check_overflow = false; }
 
-  std::shared_ptr<Scalar> MakeNullScalar() {
-    return arrow::MakeNullScalar(type_singleton());
-  }
-
-  std::shared_ptr<Scalar> MakeScalar(CType value) {
-    return *arrow::MakeScalar(type_singleton(), value);
-  }
-
   // (Scalar, Scalar)
-  void AssertBinop(BinaryFunction func, CType lhs, CType rhs, CType expected) {
-    auto left = MakeScalar(lhs);
-    auto right = MakeScalar(rhs);
-    auto exp = MakeScalar(expected);
+  template <typename V>
+  enable_if_numeric_value<V> AssertBinop(BinaryFunction func, V lhs, V rhs, V expected) {
+    auto left = this->MakeScalar(lhs);
+    auto right = this->MakeScalar(rhs);
+    auto exp = this->MakeScalar(expected);
 
     ASSERT_OK_AND_ASSIGN(auto actual, func(left, right, options_, nullptr));
     AssertScalarsApproxEqual(*exp, *actual.scalar(), /*verbose=*/true);
   }
 
   // (Scalar, Array)
-  void AssertBinop(BinaryFunction func, CType lhs, const std::string& rhs,
-                   const std::string& expected) {
-    auto left = MakeScalar(lhs);
+  template <typename V>
+  enable_if_numeric_value<V> AssertBinop(BinaryFunction func, V lhs,
+                                         const std::string& rhs,
+                                         const std::string& expected) {
+    auto left = this->MakeScalar(lhs);
     AssertBinop(func, left, rhs, expected);
   }
 
   // (Scalar, Array)
   void AssertBinop(BinaryFunction func, const std::shared_ptr<Scalar>& left,
                    const std::string& rhs, const std::string& expected) {
-    auto right = ArrayFromJSON(type_singleton(), rhs);
-    auto exp = ArrayFromJSON(type_singleton(), expected);
+    auto right = ArrayFromJSON(this->type_singleton(), rhs);
+    auto exp = ArrayFromJSON(this->type_singleton(), expected);
 
     ASSERT_OK_AND_ASSIGN(auto actual, func(left, right, options_, nullptr));
     ValidateAndAssertApproxEqual(actual.make_array(), expected);
   }
 
   // (Array, Scalar)
-  void AssertBinop(BinaryFunction func, const std::string& lhs, CType rhs,
-                   const std::string& expected) {
-    auto right = MakeScalar(rhs);
+  template <typename V>
+  enable_if_numeric_value<V> AssertBinop(BinaryFunction func, const std::string& lhs,
+                                         V rhs, const std::string& expected) {
+    auto right = this->MakeScalar(rhs);
     AssertBinop(func, lhs, right, expected);
   }
 
@@ -318,7 +342,7 @@ class TestBinaryArithmetic : public ::testing::Test {
   void AssertBinop(BinaryFunction func, const std::string& lhs,
                    const std::shared_ptr<Scalar>& right,
                    const std::shared_ptr<Array>& expected) {
-    auto left = ArrayFromJSON(type_singleton(), lhs);
+    auto left = ArrayFromJSON(this->type_singleton(), lhs);
 
     ASSERT_OK_AND_ASSIGN(auto actual, func(left, right, options_, nullptr));
     ValidateAndAssertApproxEqual(actual.make_array(), expected);
@@ -327,8 +351,8 @@ class TestBinaryArithmetic : public ::testing::Test {
   // (Array, Scalar)
   void AssertBinop(BinaryFunction func, const std::string& lhs,
                    const std::shared_ptr<Scalar>& right, const std::string& expected) {
-    auto left = ArrayFromJSON(type_singleton(), lhs);
-    auto exp = ArrayFromJSON(type_singleton(), expected);
+    auto left = ArrayFromJSON(this->type_singleton(), lhs);
+    auto exp = ArrayFromJSON(this->type_singleton(), expected);
 
     ASSERT_OK_AND_ASSIGN(auto actual, func(left, right, options_, nullptr));
     ValidateAndAssertApproxEqual(actual.make_array(), expected);
@@ -337,8 +361,8 @@ class TestBinaryArithmetic : public ::testing::Test {
   // (Array, Array)
   void AssertBinop(BinaryFunction func, const std::string& lhs, const std::string& rhs,
                    const std::string& expected) {
-    auto left = ArrayFromJSON(type_singleton(), lhs);
-    auto right = ArrayFromJSON(type_singleton(), rhs);
+    auto left = ArrayFromJSON(this->type_singleton(), lhs);
+    auto right = ArrayFromJSON(this->type_singleton(), rhs);
 
     AssertBinop(func, left, right, expected);
   }
@@ -346,8 +370,8 @@ class TestBinaryArithmetic : public ::testing::Test {
   // (Array, Array) => Array
   void AssertBinop(BinaryFunction func, const std::string& lhs, const std::string& rhs,
                    const std::shared_ptr<Array>& expected) {
-    auto left = ArrayFromJSON(type_singleton(), lhs);
-    auto right = ArrayFromJSON(type_singleton(), rhs);
+    auto left = ArrayFromJSON(this->type_singleton(), lhs);
+    auto right = ArrayFromJSON(this->type_singleton(), rhs);
 
     AssertBinop(func, left, right, expected);
   }
@@ -356,7 +380,7 @@ class TestBinaryArithmetic : public ::testing::Test {
   void AssertBinop(BinaryFunction func, const std::shared_ptr<Array>& left,
                    const std::shared_ptr<Array>& right,
                    const std::string& expected_json) {
-    const auto expected = ArrayFromJSON(type_singleton(), expected_json);
+    const auto expected = ArrayFromJSON(this->type_singleton(), expected_json);
     AssertBinop(func, left, right, expected);
   }
 
@@ -379,8 +403,8 @@ class TestBinaryArithmetic : public ::testing::Test {
 
   void AssertBinopRaises(BinaryFunction func, const std::string& lhs,
                          const std::string& rhs, const std::string& expected_msg) {
-    auto left = ArrayFromJSON(type_singleton(), lhs);
-    auto right = ArrayFromJSON(type_singleton(), rhs);
+    auto left = ArrayFromJSON(this->type_singleton(), lhs);
+    auto right = ArrayFromJSON(this->type_singleton(), rhs);
 
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr(expected_msg),
                                     func(left, right, options_, nullptr));
@@ -388,7 +412,7 @@ class TestBinaryArithmetic : public ::testing::Test {
 
   void ValidateAndAssertApproxEqual(const std::shared_ptr<Array>& actual,
                                     const std::string& expected) {
-    ValidateAndAssertApproxEqual(actual, ArrayFromJSON(type_singleton(), expected));
+    ValidateAndAssertApproxEqual(actual, ArrayFromJSON(this->type_singleton(), expected));
   }
 
   void ValidateAndAssertApproxEqual(const std::shared_ptr<Array>& actual,
@@ -497,12 +521,12 @@ class TestBitWiseArithmetic : public ::testing::Test {
 TYPED_TEST_SUITE(TestUnaryArithmeticIntegral, IntegralTypes);
 TYPED_TEST_SUITE(TestUnaryArithmeticSigned, SignedIntegerTypes);
 TYPED_TEST_SUITE(TestUnaryArithmeticUnsigned, UnsignedIntegerTypes);
-TYPED_TEST_SUITE(TestUnaryArithmeticFloating, FloatingTypes);
+TYPED_TEST_SUITE(TestUnaryArithmeticFloating, ArithmeticFloatingTypes);
 
 TYPED_TEST_SUITE(TestBinaryArithmeticIntegral, IntegralTypes);
 TYPED_TEST_SUITE(TestBinaryArithmeticSigned, SignedIntegerTypes);
 TYPED_TEST_SUITE(TestBinaryArithmeticUnsigned, UnsignedIntegerTypes);
-TYPED_TEST_SUITE(TestBinaryArithmeticFloating, FloatingTypes);
+TYPED_TEST_SUITE(TestBinaryArithmeticFloating, ArithmeticFloatingTypes);
 
 TYPED_TEST_SUITE(TestBitWiseArithmetic, IntegralTypes);
 
@@ -786,6 +810,8 @@ TYPED_TEST(TestBinaryArithmeticSigned, Mul) {
 // NOTE: cannot test Inf / -Inf (ARROW-9495)
 
 TYPED_TEST(TestBinaryArithmeticFloating, Add) {
+  SKIP_IF_HALF_FLOAT();
+
   this->AssertBinop(Add, "[]", "[]", "[]");
 
   this->AssertBinop(Add, "[1.5, 0.5]", "[2.0, -3]", "[3.5, -2.5]");
@@ -797,18 +823,22 @@ TYPED_TEST(TestBinaryArithmeticFloating, Add) {
   this->AssertBinop(Add, "[null, 1.5, 0.5]", "[2.0, -3, null]", "[null, -1.5, null]");
 
   // Scalar on the left
-  this->AssertBinop(Add, -1.5f, "[0.0, 2.0]", "[-1.5, 0.5]");
-  this->AssertBinop(Add, -1.5f, "[null, 2.0]", "[null, 0.5]");
+  this->AssertBinop(Add, this->MakeScalar(-1.5f), "[0.0, 2.0]", "[-1.5, 0.5]");
+  this->AssertBinop(Add, this->MakeScalar(-1.5f), "[null, 2.0]", "[null, 0.5]");
   this->AssertBinop(Add, this->MakeNullScalar(), "[0.0, 2.0]", "[null, null]");
   this->AssertBinop(Add, this->MakeNullScalar(), "[null, 2.0]", "[null, null]");
   // Scalar on the right
-  this->AssertBinop(Add, "[0.0, 2.0]", -1.5f, "[-1.5, 0.5]");
-  this->AssertBinop(Add, "[null, 2.0]", -1.5f, "[null, 0.5]");
+  this->AssertBinop(Add, "[0.0, 2.0]", this->MakeScalar(-1.5f), "[-1.5, 0.5]");
+  this->AssertBinop(Add, "[null, 2.0]", this->MakeScalar(-1.5f), "[null, 0.5]");
   this->AssertBinop(Add, "[0.0, 2.0]", this->MakeNullScalar(), "[null, null]");
   this->AssertBinop(Add, "[null, 2.0]", this->MakeNullScalar(), "[null, null]");
 }
 
 TYPED_TEST(TestBinaryArithmeticFloating, Div) {
+  SKIP_IF_HALF_FLOAT();
+
+  using CType = typename TestFixture::CType;
+
   for (auto check_overflow : {false, true}) {
     this->SetOverflowCheck(check_overflow);
     // Empty arrays
@@ -819,10 +849,10 @@ TYPED_TEST(TestBinaryArithmeticFloating, Div) {
     this->AssertBinop(Divide, "[null, 1, 3.3, null, 2]", "[1, 4, 2, 5, 0.1]",
                       "[null, 0.25, 1.65, null, 20]");
     // Scalar divides by array
-    this->AssertBinop(Divide, 10.0F, "[null, 1, 2.5, null, 2, 5]",
+    this->AssertBinop(Divide, this->MakeScalar(10.0f), "[null, 1, 2.5, null, 2, 5]",
                       "[null, 10, 4, null, 5, 2]");
     // Array divides by scalar
-    this->AssertBinop(Divide, "[null, 1, 2.5, null, 2, 5]", 10.0F,
+    this->AssertBinop(Divide, "[null, 1, 2.5, null, 2, 5]", this->MakeScalar(10.0f),
                       "[null, 0.1, 0.25, null, 0.2, 0.5]");
     // Array with infinity
     this->AssertBinop(Divide, "[3.4, Inf, -Inf]", "[1, 2, 3]", "[3.4, Inf, -Inf]");
@@ -830,7 +860,7 @@ TYPED_TEST(TestBinaryArithmeticFloating, Div) {
     this->SetNansEqual(true);
     this->AssertBinop(Divide, "[3.4, NaN, 2.0]", "[1, 2, 2.0]", "[3.4, NaN, 1.0]");
     // Scalar divides by scalar
-    this->AssertBinop(Divide, 21.0F, 3.0F, 7.0F);
+    this->AssertBinop(Divide, CType{21.0f}, CType{3.0f}, CType{7.0f});
   }
 }
 
@@ -876,6 +906,8 @@ TYPED_TEST(TestBinaryArithmeticIntegral, DivideByZero) {
 }
 
 TYPED_TEST(TestBinaryArithmeticFloating, DivideByZero) {
+  SKIP_IF_HALF_FLOAT();
+
   this->SetOverflowCheck(true);
   this->AssertBinopRaises(Divide, "[3.0, 2.0, 6.0]", "[1.0, 1.0, 0.0]", "divide by zero");
   this->AssertBinopRaises(Divide, "[3.0, 2.0, 0.0]", "[1.0, 1.0, 0.0]", "divide by zero");
@@ -901,6 +933,8 @@ TYPED_TEST(TestBinaryArithmeticSigned, DivideOverflowRaises) {
 }
 
 TYPED_TEST(TestBinaryArithmeticFloating, Power) {
+  SKIP_IF_HALF_FLOAT();
+
   using CType = typename TestFixture::CType;
   auto max = std::numeric_limits<CType>::max();
   this->SetNansEqual(true);
@@ -917,10 +951,10 @@ TYPED_TEST(TestBinaryArithmeticFloating, Power) {
     this->AssertBinop(Power, "[null, 1, 3.3, null, 2]", "[1, 4, 2, 5, 0.1]",
                       "[null, 1, 10.89, null, 1.07177346]");
     // Scalar exponentiated by array
-    this->AssertBinop(Power, 4.0F, "[null, 1, 0.5, null, 2, 5]",
+    this->AssertBinop(Power, this->MakeScalar(4.0f), "[null, 1, 0.5, null, 2, 5]",
                       "[null, 4, 2.0, null, 16, 1024]");
     // Array exponentiated by scalar
-    this->AssertBinop(Power, "[null, 1, 0.5, null, 2, 5]", 4.0F,
+    this->AssertBinop(Power, "[null, 1, 0.5, null, 2, 5]", this->MakeScalar(4.0f),
                       "[null, 1, 0.0625, null, 16, 625]");
     // Array with infinity
     this->AssertBinop(Power, "[3.4, Inf, -Inf, 1.1, 100000]", "[1, 2, 3, Inf, 100000]",
@@ -928,11 +962,11 @@ TYPED_TEST(TestBinaryArithmeticFloating, Power) {
     // Array with NaN
     this->AssertBinop(Power, "[3.4, NaN, 2.0]", "[1, 2, 2.0]", "[3.4, NaN, 4.0]");
     // Scalar exponentiated by scalar
-    this->AssertBinop(Power, 21.0F, 3.0F, 9261.0F);
+    this->AssertBinop(Power, CType{21.0f}, CType{3.0f}, CType{9261.0f});
     // Divide by zero
     this->AssertBinop(Power, "[0.0, 0.0]", "[-1.0, -3.0]", "[Inf, Inf]");
     // Check overflow behavior
-    this->AssertBinop(Power, max, 10, INFINITY);
+    this->AssertBinop(Power, CType{max}, CType{10}, CType{INFINITY});
   }
 
   // Edge cases - removing NaNs
@@ -970,7 +1004,7 @@ TYPED_TEST(TestBinaryArithmeticIntegral, Power) {
   this->AssertBinopRaises(Power, MakeArray(max), MakeArray(10), "overflow");
   // Disable overflow check
   this->SetOverflowCheck(false);
-  this->AssertBinop(Power, max, 10, 1);
+  this->AssertBinop(Power, max, CType{10}, CType{1});
 }
 
 TYPED_TEST(TestBinaryArithmeticSigned, Power) {
@@ -1005,10 +1039,12 @@ TYPED_TEST(TestBinaryArithmeticSigned, Power) {
   this->AssertBinopRaises(Power, MakeArray(max), MakeArray(10), "overflow");
   // Disable overflow check
   this->SetOverflowCheck(false);
-  this->AssertBinop(Power, max, 10, 1);
+  this->AssertBinop(Power, max, CType{10}, CType{1});
 }
 
 TYPED_TEST(TestBinaryArithmeticFloating, Sub) {
+  SKIP_IF_HALF_FLOAT();
+
   this->AssertBinop(Subtract, "[]", "[]", "[]");
 
   this->AssertBinop(Subtract, "[1.5, 0.5]", "[2.0, -3]", "[-0.5, 3.5]");
@@ -1020,18 +1056,20 @@ TYPED_TEST(TestBinaryArithmeticFloating, Sub) {
   this->AssertBinop(Subtract, "[null, 1.5, 0.5]", "[2.0, -3, null]", "[null, 4.5, null]");
 
   // Scalar on the left
-  this->AssertBinop(Subtract, -1.5f, "[0.0, 2.0]", "[-1.5, -3.5]");
-  this->AssertBinop(Subtract, -1.5f, "[null, 2.0]", "[null, -3.5]");
+  this->AssertBinop(Subtract, this->MakeScalar(-1.5f), "[0.0, 2.0]", "[-1.5, -3.5]");
+  this->AssertBinop(Subtract, this->MakeScalar(-1.5f), "[null, 2.0]", "[null, -3.5]");
   this->AssertBinop(Subtract, this->MakeNullScalar(), "[0.0, 2.0]", "[null, null]");
   this->AssertBinop(Subtract, this->MakeNullScalar(), "[null, 2.0]", "[null, null]");
   // Scalar on the right
-  this->AssertBinop(Subtract, "[0.0, 2.0]", -1.5f, "[1.5, 3.5]");
-  this->AssertBinop(Subtract, "[null, 2.0]", -1.5f, "[null, 3.5]");
+  this->AssertBinop(Subtract, "[0.0, 2.0]", this->MakeScalar(-1.5f), "[1.5, 3.5]");
+  this->AssertBinop(Subtract, "[null, 2.0]", this->MakeScalar(-1.5f), "[null, 3.5]");
   this->AssertBinop(Subtract, "[0.0, 2.0]", this->MakeNullScalar(), "[null, null]");
   this->AssertBinop(Subtract, "[null, 2.0]", this->MakeNullScalar(), "[null, null]");
 }
 
 TYPED_TEST(TestBinaryArithmeticFloating, Mul) {
+  SKIP_IF_HALF_FLOAT();
+
   this->AssertBinop(Multiply, "[]", "[]", "[]");
 
   this->AssertBinop(Multiply, "[1.5, 0.5]", "[2.0, -3]", "[3.0, -1.5]");
@@ -1050,17 +1088,17 @@ TYPED_TEST(TestBinaryArithmeticFloating, Mul) {
                     "[null, -0.0, -0.0, null]");
 
   // Scalar on the left
-  this->AssertBinop(Multiply, -1.5f, "[0.0, 2.0]", "[-0.0, -3.0]");
-  this->AssertBinop(Multiply, -1.5f, "[null, 2.0]", "[null, -3.0]");
-  this->AssertBinop(Multiply, -0.0f, "[3.0, -2.0]", "[-0.0, 0.0]");
-  this->AssertBinop(Multiply, -0.0f, "[null, 2.0]", "[null, -0.0]");
+  this->AssertBinop(Multiply, this->MakeScalar(-1.5f), "[0.0, 2.0]", "[-0.0, -3.0]");
+  this->AssertBinop(Multiply, this->MakeScalar(-1.5f), "[null, 2.0]", "[null, -3.0]");
+  this->AssertBinop(Multiply, this->MakeScalar(-0.0f), "[3.0, -2.0]", "[-0.0, 0.0]");
+  this->AssertBinop(Multiply, this->MakeScalar(-0.0f), "[null, 2.0]", "[null, -0.0]");
   this->AssertBinop(Multiply, this->MakeNullScalar(), "[0.0, 2.0]", "[null, null]");
   this->AssertBinop(Multiply, this->MakeNullScalar(), "[null, 2.0]", "[null, null]");
   // Scalar on the right
-  this->AssertBinop(Multiply, "[0.0, 2.0]", -1.5f, "[-0.0, -3.0]");
-  this->AssertBinop(Multiply, "[null, 2.0]", -1.5f, "[null, -3.0]");
-  this->AssertBinop(Multiply, "[3.0, -2.0]", -0.0f, "[-0.0, 0.0]");
-  this->AssertBinop(Multiply, "[null, 2.0]", -0.0f, "[null, -0.0]");
+  this->AssertBinop(Multiply, "[0.0, 2.0]", this->MakeScalar(-1.5f), "[-0.0, -3.0]");
+  this->AssertBinop(Multiply, "[null, 2.0]", this->MakeScalar(-1.5f), "[null, -3.0]");
+  this->AssertBinop(Multiply, "[3.0, -2.0]", this->MakeScalar(-0.0f), "[-0.0, 0.0]");
+  this->AssertBinop(Multiply, "[null, 2.0]", this->MakeScalar(-0.0f), "[null, -0.0]");
   this->AssertBinop(Multiply, "[0.0, 2.0]", this->MakeNullScalar(), "[null, null]");
   this->AssertBinop(Multiply, "[null, 2.0]", this->MakeNullScalar(), "[null, null]");
 }
@@ -1174,7 +1212,7 @@ TEST(TestUnaryArithmetic, DispatchBest) {
   // All types
   for (std::string name : {"negate", "sign"}) {
     for (const auto& ty : {int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(),
-                           uint64(), float32(), float64()}) {
+                           uint64(), float16(), float32(), float64()}) {
       CheckDispatchBest(name, {ty}, {ty});
       CheckDispatchBest(name, {dictionary(int8(), ty)}, {ty});
     }
@@ -1182,7 +1220,8 @@ TEST(TestUnaryArithmetic, DispatchBest) {
 
   // Signed types
   for (std::string name : {"negate_checked"}) {
-    for (const auto& ty : {int8(), int16(), int32(), int64(), float32(), float64()}) {
+    for (const auto& ty :
+         {int8(), int16(), int32(), int64(), float16(), float32(), float64()}) {
       CheckDispatchBest(name, {ty}, {ty});
       CheckDispatchBest(name, {dictionary(int8(), ty)}, {ty});
     }
@@ -1274,7 +1313,7 @@ TYPED_TEST(TestUnaryArithmeticSigned, Negate) {
     this->AssertUnaryOp(Negate, -1, 1);
     this->AssertUnaryOp(Negate, MakeArray(-1), "[1]");
     // Min/max (wrap arounds and overflow)
-    this->AssertUnaryOp(Negate, max, min + 1);
+    this->AssertUnaryOp(Negate, max, static_cast<CType>(min + 1));
     if (check_overflow) {
       this->AssertUnaryOpRaises(Negate, MakeArray(min), "overflow");
     } else {
@@ -1303,8 +1342,8 @@ TYPED_TEST(TestUnaryArithmeticUnsigned, Negate) {
   this->AssertUnaryOp(Negate, this->MakeNullScalar(), this->MakeNullScalar());
   // Min/max (wrap around)
   this->AssertUnaryOp(Negate, min, min);
-  this->AssertUnaryOp(Negate, max, 1);
-  this->AssertUnaryOp(Negate, 1, max);
+  this->AssertUnaryOp(Negate, max, CType{1});
+  this->AssertUnaryOp(Negate, CType{1}, max);
   // Not implemented kernels
   this->SetOverflowCheck(true);
   this->AssertUnaryOpNotImplemented(Negate, "[0]");
@@ -1414,6 +1453,8 @@ TYPED_TEST(TestUnaryArithmeticUnsigned, AbsoluteValue) {
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, AbsoluteValue) {
+  SKIP_IF_HALF_FLOAT();
+
   using CType = typename TestFixture::CType;
 
   auto min = std::numeric_limits<CType>::lowest();
@@ -1512,10 +1553,11 @@ TYPED_TEST(TestUnaryArithmeticSigned, Exp) {
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, Exp) {
-  using CType = typename TestFixture::CType;
+  SKIP_IF_HALF_FLOAT();
 
-  auto min = std::numeric_limits<CType>::lowest();
-  auto max = std::numeric_limits<CType>::max();
+  using CType = typename TestFixture::CType;
+  constexpr auto min = std::numeric_limits<CType>::lowest();
+  constexpr auto max = std::numeric_limits<CType>::max();
 
   auto exp = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
     return Exp(arg, ctx);
@@ -1539,7 +1581,7 @@ TYPED_TEST(TestUnaryArithmeticFloating, Exp) {
   this->SetNansEqual(true);
   this->AssertUnaryOp(exp, "[NaN]", "[NaN]");
   // Min/max
-  this->AssertUnaryOp(exp, min, 0.0);
+  this->AssertUnaryOp(exp, min, CType{0.0});
   this->AssertUnaryOp(exp, max, std::numeric_limits<CType>::infinity());
 }
 
@@ -1600,10 +1642,11 @@ TYPED_TEST(TestUnaryArithmeticSigned, Expm1) {
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, Expm1) {
-  using CType = typename TestFixture::CType;
+  SKIP_IF_HALF_FLOAT();
 
-  auto min = std::numeric_limits<CType>::lowest();
-  auto max = std::numeric_limits<CType>::max();
+  using CType = typename TestFixture::CType;
+  constexpr auto min = std::numeric_limits<CType>::lowest();
+  constexpr auto max = std::numeric_limits<CType>::max();
 
   auto expm1 = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
     return Expm1(arg, ctx);
@@ -1631,7 +1674,7 @@ TYPED_TEST(TestUnaryArithmeticFloating, Expm1) {
   this->SetNansEqual(true);
   this->AssertUnaryOp(expm1, "[NaN]", "[NaN]");
   // Min/max
-  this->AssertUnaryOp(expm1, min, -1.0);
+  this->AssertUnaryOp(expm1, min, CType{-1.0});
   this->AssertUnaryOp(expm1, max, std::numeric_limits<CType>::infinity());
 }
 
@@ -2490,6 +2533,8 @@ TYPED_TEST(TestBinaryArithmeticUnsigned, ShiftRightOverflowRaises) {
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, TrigSin) {
+  SKIP_IF_HALF_FLOAT();
+
   this->SetNansEqual(true);
   this->AssertUnaryOp(Sin, "[Inf, -Inf]", "[NaN, NaN]");
   for (auto check_overflow : {false, true}) {
@@ -2502,6 +2547,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, TrigSin) {
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, TrigSinh) {
+  SKIP_IF_HALF_FLOAT();
+
   this->SetNansEqual(true);
   auto sinh = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
     return Sinh(arg, ctx);
@@ -2514,6 +2561,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, TrigSinh) {
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, TrigCos) {
+  SKIP_IF_HALF_FLOAT();
+
   this->SetNansEqual(true);
   this->AssertUnaryOp(Cos, "[Inf, -Inf]", "[NaN, NaN]");
   for (auto check_overflow : {false, true}) {
@@ -2526,6 +2575,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, TrigCos) {
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, TrigCosh) {
+  SKIP_IF_HALF_FLOAT();
+
   this->SetNansEqual(true);
   auto cosh = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
     return Cosh(arg, ctx);
@@ -2538,6 +2589,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, TrigCosh) {
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, TrigTan) {
+  SKIP_IF_HALF_FLOAT();
+
   this->SetNansEqual(true);
   this->AssertUnaryOp(Tan, "[Inf, -Inf]", "[NaN, NaN]");
   for (auto check_overflow : {false, true}) {
@@ -2552,6 +2605,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, TrigTan) {
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, TrigTanh) {
+  SKIP_IF_HALF_FLOAT();
+
   this->SetNansEqual(true);
   auto tanh = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
     return Tanh(arg, ctx);
@@ -2564,6 +2619,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, TrigTanh) {
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, TrigAsin) {
+  SKIP_IF_HALF_FLOAT();
+
   this->SetNansEqual(true);
   this->AssertUnaryOp(Asin, "[Inf, -Inf, -2, 2]", "[NaN, NaN, NaN, NaN]");
   for (auto check_overflow : {false, true}) {
@@ -2576,6 +2633,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, TrigAsin) {
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, TrigAsinh) {
+  SKIP_IF_HALF_FLOAT();
+
   this->SetNansEqual(true);
   auto asinh = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
     return Asinh(arg, ctx);
@@ -2588,6 +2647,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, TrigAsinh) {
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, TrigAcos) {
+  SKIP_IF_HALF_FLOAT();
+
   this->SetNansEqual(true);
   this->AssertUnaryOp(Asin, "[Inf, -Inf, -2, 2]", "[NaN, NaN, NaN, NaN]");
   for (auto check_overflow : {false, true}) {
@@ -2600,6 +2661,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, TrigAcos) {
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, TrigAcosh) {
+  SKIP_IF_HALF_FLOAT();
+
   this->SetNansEqual(true);
   this->AssertUnaryOp(Acosh, "[0, -1, -Inf]", "[NaN, NaN, NaN]");
   for (auto check_overflow : {false, true}) {
@@ -2612,6 +2675,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, TrigAcosh) {
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, TrigAtan) {
+  SKIP_IF_HALF_FLOAT();
+
   this->SetNansEqual(true);
   auto atan = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
     return Atan(arg, ctx);
@@ -2623,6 +2688,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, TrigAtan) {
 }
 
 TYPED_TEST(TestBinaryArithmeticFloating, TrigAtan2) {
+  SKIP_IF_HALF_FLOAT();
+
   this->SetNansEqual(true);
   auto atan2 = [](const Datum& y, const Datum& x, ArithmeticOptions, ExecContext* ctx) {
     return Atan2(y, x, ctx);
@@ -2637,6 +2704,8 @@ TYPED_TEST(TestBinaryArithmeticFloating, TrigAtan2) {
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, TrigAtanh) {
+  SKIP_IF_HALF_FLOAT();
+
   this->SetNansEqual(true);
   this->AssertUnaryOp(Atanh, "[-Inf, Inf, -2, 2]", "[NaN, NaN, NaN, NaN]");
   this->AssertUnaryOp(Atanh, "[-1, 1]", "[-Inf, Inf]");
@@ -2679,27 +2748,31 @@ TYPED_TEST(TestBinaryArithmeticIntegral, Trig) {
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, Log) {
+  SKIP_IF_HALF_FLOAT();
+
   using CType = typename TestFixture::CType;
+  constexpr auto min_val = std::numeric_limits<CType>::min();
+  constexpr auto max_val = std::numeric_limits<CType>::max();
+  const auto lowest_val = this->MakeScalar(std::numeric_limits<CType>::lowest());
+
   this->SetNansEqual(true);
-  auto min_val = std::numeric_limits<CType>::min();
-  auto max_val = std::numeric_limits<CType>::max();
   for (auto check_overflow : {false, true}) {
     this->SetOverflowCheck(check_overflow);
     this->AssertUnaryOp(Ln, "[1, 2.718281828459045, null, NaN, Inf]",
                         "[0, 1, null, NaN, Inf]");
     // N.B. min() for float types is smallest normal number > 0
-    this->AssertUnaryOp(Ln, min_val, std::log(min_val));
-    this->AssertUnaryOp(Ln, max_val, std::log(max_val));
+    this->AssertUnaryOp(Ln, min_val, CType{std::log(ToCFloat(min_val))});
+    this->AssertUnaryOp(Ln, max_val, CType{std::log(ToCFloat(max_val))});
     this->AssertUnaryOp(Log10, "[1, 10, null, NaN, Inf]", "[0, 1, null, NaN, Inf]");
-    this->AssertUnaryOp(Log10, min_val, std::log10(min_val));
-    this->AssertUnaryOp(Log10, max_val, std::log10(max_val));
+    this->AssertUnaryOp(Log10, min_val, CType{std::log10(ToCFloat(min_val))});
+    this->AssertUnaryOp(Log10, max_val, CType{std::log10(ToCFloat(max_val))});
     this->AssertUnaryOp(Log2, "[1, 2, null, NaN, Inf]", "[0, 1, null, NaN, Inf]");
-    this->AssertUnaryOp(Log2, min_val, std::log2(min_val));
-    this->AssertUnaryOp(Log2, max_val, std::log2(max_val));
+    this->AssertUnaryOp(Log2, min_val, CType{std::log2(ToCFloat(min_val))});
+    this->AssertUnaryOp(Log2, max_val, CType{std::log2(ToCFloat(max_val))});
     this->AssertUnaryOp(Log1p, "[0, 1.718281828459045, null, NaN, Inf]",
                         "[0, 1, null, NaN, Inf]");
-    this->AssertUnaryOp(Log1p, min_val, std::log1p(min_val));
-    this->AssertUnaryOp(Log1p, max_val, std::log1p(max_val));
+    this->AssertUnaryOp(Log1p, min_val, CType{std::log1p(ToCFloat(min_val))});
+    this->AssertUnaryOp(Log1p, max_val, CType{std::log1p(ToCFloat(max_val))});
   }
   this->SetOverflowCheck(false);
   this->AssertUnaryOp(Ln, "[-Inf, -1, 0, Inf]", "[NaN, NaN, -Inf, Inf]");
@@ -2711,7 +2784,6 @@ TYPED_TEST(TestUnaryArithmeticFloating, Log) {
   this->AssertUnaryOpRaises(Ln, "[-1]", "logarithm of negative number");
   this->AssertUnaryOpRaises(Ln, "[-Inf]", "logarithm of negative number");
 
-  auto lowest_val = MakeScalar(std::numeric_limits<CType>::lowest());
   // N.B. RapidJSON on some platforms raises "Number too big to be stored in double" so
   // don't bounce through JSON
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
@@ -2759,6 +2831,8 @@ TYPED_TEST(TestBinaryArithmeticIntegral, Log) {
 }
 
 TYPED_TEST(TestBinaryArithmeticFloating, Log) {
+  SKIP_IF_HALF_FLOAT();
+
   using CType = typename TestFixture::CType;
   this->SetNansEqual(true);
   auto min_val = std::numeric_limits<CType>::min();
@@ -2768,26 +2842,26 @@ TYPED_TEST(TestBinaryArithmeticFloating, Log) {
     // N.B. min() for float types is smallest normal number > 0
     this->AssertBinop(Logb, "[1, 10, null, NaN, Inf]", "[100, 10, null, 2, 10]",
                       "[0, 1, null, NaN, Inf]");
-    this->AssertBinop(Logb, min_val, 10,
-                      static_cast<CType>(std::log(min_val) / std::log(10)));
-    this->AssertBinop(Logb, max_val, 10,
-                      static_cast<CType>(std::log(max_val) / std::log(10)));
+    this->AssertBinop(Logb, min_val, CType{10.},
+                      CType{std::log(ToCFloat(min_val)) / std::log(10.f)});
+    this->AssertBinop(Logb, max_val, CType{10.},
+                      CType{std::log(ToCFloat(max_val)) / std::log(10.f)});
   }
   this->AssertBinop(Logb, "[1.0, 10.0, null]", "[10.0, 10.0, null]", "[0.0, 1.0, null]");
   this->AssertBinop(Logb, "[1.0, 2.0, null]", "[2.0, 2.0, null]", "[0.0, 1.0, null]");
-  this->AssertBinop(Logb, "[10.0, 100.0, 1000.0, null]", this->MakeScalar(10),
+  this->AssertBinop(Logb, "[10.0, 100.0, 1000.0, null]", this->MakeScalar(10.),
                     "[1.0, 2.0, 3.0, null]");
   this->AssertBinop(Logb, "[1, 2, 4, 8]", this->MakeScalar(0.25),
                     "[-0.0, -0.5, -1.0, -1.5]");
   this->SetOverflowCheck(false);
-  this->AssertBinop(Logb, "[-Inf, -1, 0, Inf]", this->MakeScalar(10),
+  this->AssertBinop(Logb, "[-Inf, -1, 0, Inf]", this->MakeScalar(10.),
                     "[NaN, NaN, -Inf, Inf]");
-  this->AssertBinop(Logb, "[-Inf, -1, 0, Inf]", this->MakeScalar(2),
+  this->AssertBinop(Logb, "[-Inf, -1, 0, Inf]", this->MakeScalar(2.),
                     "[NaN, NaN, -Inf, Inf]");
   this->AssertBinop(Logb, "[-Inf, -1, 0, Inf]", "[2, 10, 0, 0]", "[NaN, NaN, NaN, NaN]");
-  this->AssertBinop(Logb, "[-Inf, -1, 0, Inf]", this->MakeScalar(0),
+  this->AssertBinop(Logb, "[-Inf, -1, 0, Inf]", this->MakeScalar(0.),
                     "[NaN, NaN, NaN, NaN]");
-  this->AssertBinop(Logb, "[-Inf, -2, -1, Inf]", this->MakeScalar(2),
+  this->AssertBinop(Logb, "[-Inf, -2, -1, Inf]", this->MakeScalar(2.),
                     "[NaN, NaN, NaN, Inf]");
   this->SetOverflowCheck(true);
   this->AssertBinopRaises(Logb, "[0]", "[2]", "logarithm of zero");
@@ -2848,18 +2922,21 @@ TYPED_TEST(TestUnaryArithmeticIntegral, Sqrt) {
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, Sqrt) {
+  SKIP_IF_HALF_FLOAT();
+
   using CType = typename TestFixture::CType;
+  constexpr auto min = std::numeric_limits<CType>::min();
+  constexpr auto max = std::numeric_limits<CType>::max();
+
   this->SetNansEqual(true);
   for (auto check_overflow : {false, true}) {
-    const auto min_val = std::numeric_limits<CType>::min();
     this->SetOverflowCheck(check_overflow);
     this->AssertUnaryOp(Sqrt, "[1, 2, null, NaN, Inf]",
                         "[1, 1.414213562, null, NaN, Inf]");
-    this->AssertUnaryOp(Sqrt, min_val, static_cast<CType>(std::sqrt(min_val)));
+    this->AssertUnaryOp(Sqrt, min, CType(std::sqrt(ToCFloat(min))));
 #ifndef __MINGW32__
     // this is problematic and produces a slight difference on MINGW
-    const auto max_val = std::numeric_limits<CType>::max();
-    this->AssertUnaryOp(Sqrt, max_val, static_cast<CType>(std::sqrt(max_val)));
+    this->AssertUnaryOp(Sqrt, max, CType(std::sqrt(ToCFloat(max))));
 #endif
   }
   this->AssertUnaryOpRaises(Sqrt, "[-1]", "square root of negative number");
@@ -2868,8 +2945,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, Sqrt) {
 
 TYPED_TEST(TestUnaryArithmeticSigned, Sign) {
   using CType = typename TestFixture::CType;
-  auto min = std::numeric_limits<CType>::min();
-  auto max = std::numeric_limits<CType>::max();
+  constexpr auto min = std::numeric_limits<CType>::min();
+  constexpr auto max = std::numeric_limits<CType>::max();
 
   auto sign = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
     return Sign(arg, ctx);
@@ -2887,8 +2964,8 @@ TYPED_TEST(TestUnaryArithmeticSigned, Sign) {
 
 TYPED_TEST(TestUnaryArithmeticUnsigned, Sign) {
   using CType = typename TestFixture::CType;
-  auto min = std::numeric_limits<CType>::min();
-  auto max = std::numeric_limits<CType>::max();
+  constexpr auto min = std::numeric_limits<CType>::min();
+  constexpr auto max = std::numeric_limits<CType>::max();
 
   auto sign = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
     return Sign(arg, ctx);
@@ -2905,8 +2982,8 @@ TYPED_TEST(TestUnaryArithmeticUnsigned, Sign) {
 
 TYPED_TEST(TestUnaryArithmeticFloating, Sign) {
   using CType = typename TestFixture::CType;
-  auto min = std::numeric_limits<CType>::lowest();
-  auto max = std::numeric_limits<CType>::max();
+  constexpr auto min = std::numeric_limits<CType>::lowest();
+  constexpr auto max = std::numeric_limits<CType>::max();
 
   this->SetNansEqual(true);
 
@@ -2925,6 +3002,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, Sign) {
   this->AssertUnaryOp(sign, this->MakeScalar(min), this->MakeScalar(-1));
   this->AssertUnaryOp(sign, this->MakeScalar(max), this->MakeScalar(1));
 }
+
+#undef SKIP_IF_HALF_FLOAT
 
 }  // namespace
 }  // namespace compute

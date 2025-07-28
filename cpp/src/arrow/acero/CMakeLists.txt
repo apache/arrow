@@ -28,6 +28,9 @@ if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
   set(ARROW_ACERO_PC_CFLAGS_PRIVATE "")
 endif()
 
+set(ARROW_ACERO_PKG_CONFIG_REQUIRES "arrow-compute")
+set(ARROW_ACERO_REQUIRED_DEPENDENCIES Arrow ArrowCompute)
+
 set(ARROW_ACERO_SRCS
     accumulation_queue.cc
     scalar_aggregate_node.cc
@@ -73,10 +76,12 @@ if(ARROW_WITH_OPENTELEMETRY)
   list(APPEND ARROW_ACERO_STATIC_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
 endif()
 
-list(APPEND ARROW_ACERO_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
-list(APPEND ARROW_ACERO_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
-list(APPEND ARROW_ACERO_STATIC_LINK_LIBS arrow_static)
-list(APPEND ARROW_ACERO_SHARED_LINK_LIBS arrow_shared)
+list(APPEND ARROW_ACERO_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static
+     ArrowCompute::arrow_compute_static)
+list(APPEND ARROW_ACERO_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared
+     ArrowCompute::arrow_compute_shared)
+list(APPEND ARROW_ACERO_STATIC_LINK_LIBS arrow_static arrow_compute_static)
+list(APPEND ARROW_ACERO_SHARED_LINK_LIBS arrow_shared arrow_compute_shared)
 
 add_arrow_lib(arrow_acero
               CMAKE_PACKAGE_NAME
@@ -124,6 +129,10 @@ if(ARROW_TESTING)
   if(ARROW_WITH_OPENTELEMETRY)
     target_link_libraries(arrow_acero_testing PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
   endif()
+  # arrow_compute_testing will register the kernels for Gtest. In order to register the kernels
+  # for Google benchmark we use a custom main function used on add_arrow_compute_benchmark.
+  set(ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS
+      ${ARROW_ACERO_TEST_LINK_LIBS} arrow_acero_testing arrow_compute_core_testing)
   list(APPEND ARROW_ACERO_TEST_LINK_LIBS arrow_acero_testing arrow_compute_testing)
 endif()
 # Only for hash_aggregate_test.cc.
@@ -183,68 +192,52 @@ add_arrow_acero_test(hash_aggregate_test SOURCES hash_aggregate_test.cc)
 
 add_arrow_acero_test(test_util_internal_test SOURCES test_util_internal_test.cc)
 
-if(ARROW_BUILD_BENCHMARKS)
-  function(add_arrow_acero_benchmark REL_BENCHMARK_NAME)
-    set(options)
-    set(one_value_args PREFIX)
-    set(multi_value_args LABELS)
-    cmake_parse_arguments(ARG
-                          "${options}"
-                          "${one_value_args}"
-                          "${multi_value_args}"
-                          ${ARGN})
+function(add_arrow_acero_benchmark REL_BENCHMARK_NAME)
+  set(options)
+  set(one_value_args PREFIX)
+  set(multi_value_args LABELS EXTRA_LINK_LIBS)
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
 
-    if(ARG_PREFIX)
-      set(PREFIX ${ARG_PREFIX})
-    else()
-      set(PREFIX "arrow-acero")
-    endif()
-
-    if(ARG_LABELS)
-      set(LABELS ${ARG_LABELS})
-    else()
-      set(LABELS "arrow_acero")
-    endif()
-
-    add_arrow_benchmark(${REL_BENCHMARK_NAME}
-                        EXTRA_LINK_LIBS
-                        ${ARROW_ACERO_TEST_LINK_LIBS}
-                        PREFIX
-                        ${PREFIX}
-                        LABELS
-                        ${LABELS}
-                        ${ARG_UNPARSED_ARGUMENTS})
-  endfunction()
-
-  add_arrow_acero_benchmark(expression_benchmark SOURCES expression_benchmark.cc)
-
-  add_arrow_acero_benchmark(filter_benchmark SOURCES benchmark_util.cc
-                            filter_benchmark.cc)
-
-  add_arrow_acero_benchmark(project_benchmark SOURCES benchmark_util.cc
-                            project_benchmark.cc)
-
-  add_arrow_acero_benchmark(asof_join_benchmark SOURCES asof_join_benchmark.cc)
-
-  add_arrow_acero_benchmark(tpch_benchmark SOURCES tpch_benchmark.cc)
-
-  add_arrow_acero_benchmark(aggregate_benchmark SOURCES aggregate_benchmark.cc)
-
-  add_arrow_acero_benchmark(hash_join_benchmark SOURCES hash_join_benchmark.cc)
-
-  if(ARROW_BUILD_STATIC)
-    target_link_libraries(arrow-acero-expression-benchmark PUBLIC arrow_acero_static)
-    target_link_libraries(arrow-acero-filter-benchmark PUBLIC arrow_acero_static)
-    target_link_libraries(arrow-acero-project-benchmark PUBLIC arrow_acero_static)
-    target_link_libraries(arrow-acero-asof-join-benchmark PUBLIC arrow_acero_static)
-    target_link_libraries(arrow-acero-tpch-benchmark PUBLIC arrow_acero_static)
-    target_link_libraries(arrow-acero-hash-join-benchmark PUBLIC arrow_acero_static)
+  if(ARG_PREFIX)
+    set(PREFIX ${ARG_PREFIX})
   else()
-    target_link_libraries(arrow-acero-expression-benchmark PUBLIC arrow_acero_shared)
-    target_link_libraries(arrow-acero-filter-benchmark PUBLIC arrow_acero_shared)
-    target_link_libraries(arrow-acero-project-benchmark PUBLIC arrow_acero_shared)
-    target_link_libraries(arrow-acero-asof-join-benchmark PUBLIC arrow_acero_shared)
-    target_link_libraries(arrow-acero-tpch-benchmark PUBLIC arrow_acero_shared)
-    target_link_libraries(arrow-acero-hash-join-benchmark PUBLIC arrow_acero_shared)
+    set(PREFIX "arrow-acero")
   endif()
-endif()
+
+  if(ARG_LABELS)
+    set(LABELS ${ARG_LABELS})
+  else()
+    set(LABELS "arrow_acero")
+  endif()
+
+  if(ARROW_TEST_LINKAGE STREQUAL "static")
+    set(EXTRA_LINK_LIBS arrow_acero_static ${ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS})
+  else()
+    set(EXTRA_LINK_LIBS arrow_acero_shared ${ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS})
+  endif()
+  if(ARG_EXTRA_LINK_LIBS)
+    list(APPEND EXTRA_LINK_LIBS ${ARG_EXTRA_LINK_LIBS})
+  endif()
+
+  add_arrow_compute_benchmark(${REL_BENCHMARK_NAME}
+                              EXTRA_LINK_LIBS
+                              ${EXTRA_LINK_LIBS}
+                              PREFIX
+                              ${PREFIX}
+                              LABELS
+                              ${LABELS}
+                              ${ARG_UNPARSED_ARGUMENTS})
+endfunction()
+
+add_arrow_acero_benchmark(aggregate_benchmark)
+add_arrow_acero_benchmark(asof_join_benchmark)
+add_arrow_acero_benchmark(expression_benchmark)
+add_arrow_acero_benchmark(filter_benchmark SOURCES benchmark_util.cc filter_benchmark.cc)
+add_arrow_acero_benchmark(hash_join_benchmark)
+add_arrow_acero_benchmark(project_benchmark SOURCES benchmark_util.cc
+                          project_benchmark.cc)
+add_arrow_acero_benchmark(tpch_benchmark)

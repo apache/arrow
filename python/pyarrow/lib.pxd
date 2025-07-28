@@ -666,6 +666,8 @@ cdef shared_ptr[function[StreamWrapFunc]] make_streamwrap_func(
 # Default is allow_none=False
 cpdef DataType ensure_type(object type, bint allow_none=*)
 
+cdef DataType primitive_type(Type type)
+
 cdef timeunit_to_string(TimeUnit unit)
 cdef TimeUnit string_to_timeunit(unit) except *
 
@@ -675,6 +677,8 @@ cdef shared_ptr[const CKeyValueMetadata] pyarrow_unwrap_metadata(
     object meta) except *
 cdef object pyarrow_wrap_metadata(
     const shared_ptr[const CKeyValueMetadata]& meta)
+
+cdef CField.CMergeOptions _parse_field_merge_options(str promote_options) except *
 
 #
 # Public Cython API for 3rd party code

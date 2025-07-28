@@ -681,7 +681,7 @@ TEST(TestInputStreamIterator, Closed) {
   AssertBufferEqual(*buf, "dat");
   // Close stream and read from iterator
   ASSERT_OK(reader->Close());
-  ASSERT_RAISES(Invalid, it.Next().status());
+  ASSERT_RAISES(Invalid, it.Next());
 }
 
 TEST(CoalesceReadRanges, Basics) {

@@ -344,7 +344,7 @@ void AttachStatistics(::arrow::ArrayData* data,
 
   using ArrowCType = typename ArrowType::c_type;
 
-  auto statistics = metadata->statistics().get();
+  auto statistics = metadata->statistics();
   if (data->null_count == ::arrow::kUnknownNullCount && !statistics) {
     return;
   }
@@ -358,17 +358,17 @@ void AttachStatistics(::arrow::ArrayData* data,
       array_statistics->distinct_count = statistics->distinct_count();
     }
     if (statistics->HasMinMax()) {
-      auto typed_statistics =
-          static_cast<::parquet::TypedStatistics<ParquetType>*>(statistics);
+      const auto* typed_statistics =
+          checked_cast<const ::parquet::TypedStatistics<ParquetType>*>(statistics.get());
       const ArrowCType min = typed_statistics->min();
       const ArrowCType max = typed_statistics->max();
-      if constexpr (std::is_same<ArrowCType, bool>::value) {
+      if constexpr (std::is_same_v<ArrowCType, bool>) {
         array_statistics->min = static_cast<bool>(min);
         array_statistics->max = static_cast<bool>(max);
-      } else if constexpr (std::is_floating_point<ArrowCType>::value) {
+      } else if constexpr (std::is_floating_point_v<ArrowCType>) {
         array_statistics->min = static_cast<double>(min);
         array_statistics->max = static_cast<double>(max);
-      } else if constexpr (std::is_signed<ArrowCType>::value) {
+      } else if constexpr (std::is_signed_v<ArrowCType>) {
         array_statistics->min = static_cast<int64_t>(min);
         array_statistics->max = static_cast<int64_t>(max);
       } else {
@@ -883,6 +883,8 @@ Status TransferColumnData(RecordReader* reader,
     case ::arrow::Type::FIXED_SIZE_BINARY:
     case ::arrow::Type::BINARY:
     case ::arrow::Type::STRING:
+    case ::arrow::Type::BINARY_VIEW:
+    case ::arrow::Type::STRING_VIEW:
     case ::arrow::Type::LARGE_BINARY:
     case ::arrow::Type::LARGE_STRING: {
       RETURN_NOT_OK(TransferBinary(reader, pool, value_field, &chunked_result));

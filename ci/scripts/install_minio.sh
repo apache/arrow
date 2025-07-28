@@ -34,7 +34,7 @@ archs=([x86_64]=amd64
        [s390x]=s390x)
 
 arch=$(uname -m)
-if [ -z ${archs[$arch]} ]; then
+if [ -z "${archs[$arch]}" ]; then
   echo "Unsupported architecture: ${arch}"
   exit 0
 fi
@@ -71,23 +71,23 @@ download()
   local output=$1
   local url=$2
 
-  mkdir -p $(dirname ${output})
+  mkdir -p "$(dirname "${output}")"
   if type wget > /dev/null 2>&1; then
-    wget -nv --output-document ${output} ${url}
+    wget -nv --output-document "${output}" "${url}"
   else
-    curl --fail --location --output ${output} ${url}
+    curl --fail --location --output "${output}" "${url}"
   fi
 }
 
 if [[ ! -x ${prefix}/bin/minio ]]; then
   url="https://dl.min.io/server/minio/release/${platform}-${arch}/archive/${minio_version}"
   echo "Fetching ${url}..."
-  download ${prefix}/bin/minio ${url}
-  chmod +x ${prefix}/bin/minio
+  download "${prefix}/bin/minio" "${url}"
+  chmod +x "${prefix}/bin/minio"
 fi
 if [[ ! -x ${prefix}/bin/mc ]]; then
   url="https://dl.min.io/client/mc/release/${platform}-${arch}/archive/${mc_version}"
   echo "Fetching ${url}..."
-  download ${prefix}/bin/mc ${url}
-  chmod +x ${prefix}/bin/mc
+  download "${prefix}/bin/mc" "${url}"
+  chmod +x "${prefix}/bin/mc"
 fi

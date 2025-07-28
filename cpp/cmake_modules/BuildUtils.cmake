@@ -265,6 +265,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_DEFINITIONS)
       target_compile_definitions(${LIB_NAME}_objlib PRIVATE ${ARG_DEFINITIONS})
     endif()
+    target_compile_options(${LIB_NAME}_objlib PRIVATE ${ARROW_LIBRARIES_ONLY_CXX_FLAGS})
     set(LIB_DEPS $<TARGET_OBJECTS:${LIB_NAME}_objlib>)
     set(EXTRA_DEPS)
 
@@ -326,6 +327,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_DEFINITIONS)
       target_compile_definitions(${LIB_NAME}_shared PRIVATE ${ARG_DEFINITIONS})
     endif()
+    target_compile_options(${LIB_NAME}_shared PRIVATE ${ARROW_LIBRARIES_ONLY_CXX_FLAGS})
 
     if(ARG_OUTPUTS)
       list(APPEND ${ARG_OUTPUTS} ${LIB_NAME}_shared)
@@ -416,6 +418,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_DEFINITIONS)
       target_compile_definitions(${LIB_NAME}_static PRIVATE ${ARG_DEFINITIONS})
     endif()
+    target_compile_options(${LIB_NAME}_static PRIVATE ${ARROW_LIBRARIES_ONLY_CXX_FLAGS})
 
     if(ARG_OUTPUTS)
       list(APPEND ${ARG_OUTPUTS} ${LIB_NAME}_static)
@@ -522,6 +525,7 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
       STATIC_LINK_LIBS
       DEPENDENCIES
       SOURCES
+      EXTRA_SOURCES
       LABELS)
   cmake_parse_arguments(ARG
                         "${options}"
@@ -541,10 +545,16 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
     set(BENCHMARK_NAME "${ARG_PREFIX}-${BENCHMARK_NAME}")
   endif()
 
+  set(SOURCES "")
+
+  if(ARG_EXTRA_SOURCES)
+    list(APPEND SOURCES ${ARG_EXTRA_SOURCES})
+  endif()
+
   if(ARG_SOURCES)
-    set(SOURCES ${ARG_SOURCES})
+    list(APPEND SOURCES ${ARG_SOURCES})
   else()
-    set(SOURCES "${REL_BENCHMARK_NAME}.cc")
+    list(APPEND SOURCES "${REL_BENCHMARK_NAME}.cc")
   endif()
 
   # Make sure the executable name contains only hyphens, not underscores
@@ -552,7 +562,7 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
 
   if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME}.cc)
     # This benchmark has a corresponding .cc file, set it up as an executable.
-    set(BENCHMARK_PATH "${EXECUTABLE_OUTPUT_PATH}/${BENCHMARK_NAME}")
+    set(BENCHMARK_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${BENCHMARK_NAME}")
     add_executable(${BENCHMARK_NAME} ${SOURCES})
 
     if(ARG_STATIC_LINK_LIBS)
@@ -581,7 +591,8 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
                           PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE
                                      INSTALL_RPATH_USE_LINK_PATH TRUE
                                      INSTALL_RPATH
-                                     "$ENV{CONDA_PREFIX}/lib;${EXECUTABLE_OUTPUT_PATH}")
+                                     "$ENV{CONDA_PREFIX}/lib;${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+    )
   endif()
 
   # Add test as dependency of relevant label targets
@@ -682,7 +693,7 @@ function(ADD_TEST_CASE REL_TEST_NAME)
   # Make sure the executable name contains only hyphens, not underscores
   string(REPLACE "_" "-" TEST_NAME ${TEST_NAME})
 
-  set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
+  set(TEST_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${TEST_NAME}")
   add_executable(${TEST_NAME} ${SOURCES})
 
   # With OSX and conda, we need to set the correct RPATH so that dependencies
@@ -695,7 +706,8 @@ function(ADD_TEST_CASE REL_TEST_NAME)
                           PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE
                                      INSTALL_RPATH_USE_LINK_PATH TRUE
                                      INSTALL_RPATH
-                                     "${EXECUTABLE_OUTPUT_PATH};$ENV{CONDA_PREFIX}/lib")
+                                     "${CMAKE_RUNTIME_OUTPUT_DIRECTORY};$ENV{CONDA_PREFIX}/lib"
+    )
   endif()
 
   # Ensure using bundled GoogleTest when we use bundled GoogleTest.
@@ -826,7 +838,7 @@ function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
 
   if(EXISTS ${CMAKE_SOURCE_DIR}/examples/arrow/${REL_EXAMPLE_NAME}.cc)
     # This example has a corresponding .cc file, set it up as an executable.
-    set(EXAMPLE_PATH "${EXECUTABLE_OUTPUT_PATH}/${EXAMPLE_NAME}")
+    set(EXAMPLE_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${EXAMPLE_NAME}")
     add_executable(${EXAMPLE_NAME} "${REL_EXAMPLE_NAME}.cc" ${ARG_EXTRA_SOURCES})
     target_link_libraries(${EXAMPLE_NAME} ${ARROW_EXAMPLE_LINK_LIBS})
     add_dependencies(runexample ${EXAMPLE_NAME})

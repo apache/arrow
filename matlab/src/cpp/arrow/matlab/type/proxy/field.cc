@@ -18,12 +18,11 @@
 #include "arrow/util/utf8.h"
 
 #include "arrow/matlab/error/error.h"
+#include "arrow/matlab/proxy/wrap.h"
 #include "arrow/matlab/type/proxy/field.h"
-
 #include "arrow/matlab/type/proxy/primitive_ctype.h"
 #include "arrow/matlab/type/proxy/string_type.h"
 #include "arrow/matlab/type/proxy/timestamp_type.h"
-#include "arrow/matlab/type/proxy/wrap.h"
 
 #include "libmexclass/proxy/ProxyManager.h"
 
@@ -49,19 +48,10 @@ void Field::getName(libmexclass::proxy::method::Context& context) {
 }
 
 void Field::getType(libmexclass::proxy::method::Context& context) {
-  namespace mda = ::matlab::data;
-
   const auto& datatype = field->type();
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto proxy, type::proxy::wrap(datatype), context,
-                                      error::FIELD_FAILED_TO_CREATE_TYPE_PROXY);
-  const auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(proxy);
-  const auto type_id = static_cast<int32_t>(datatype->id());
-
-  mda::ArrayFactory factory;
-  mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
-  output[0]["ProxyID"] = factory.createScalar(proxy_id);
-  output[0]["TypeID"] = factory.createScalar(type_id);
-  context.outputs[0] = output;
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0],
+                                      arrow::matlab::proxy::wrap_and_manage(datatype),
+                                      context, error::FIELD_FAILED_TO_CREATE_TYPE_PROXY);
 }
 
 libmexclass::proxy::MakeResult Field::make(

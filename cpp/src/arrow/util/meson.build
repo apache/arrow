@@ -47,13 +47,13 @@ conf_data.set('ARROW_FLIGHT_SQL', false)
 conf_data.set('ARROW_IPC', needs_ipc)
 conf_data.set('ARROW_JEMALLOC', false)
 conf_data.set('ARROW_JEMALLOC_VENDORED', false)
-conf_data.set('ARROW_JSON', false)
+conf_data.set('ARROW_JSON', needs_json)
 conf_data.set('ARROW_MIMALLOC', false)
 conf_data.set('ARROW_ORC', false)
 conf_data.set('ARROW_PARQUET', false)
 conf_data.set('ARROW_SUBSTRAIT', false)
 conf_data.set('ARROW_AZURE', false)
-conf_data.set('ARROW_ENABLE_THREADING', false)
+conf_data.set('ARROW_ENABLE_THREADING', true)
 conf_data.set('ARROW_GCS', false)
 conf_data.set('ARROW_HDFS', false)
 conf_data.set('ARROW_S3', false)
@@ -117,14 +117,7 @@ install_headers(
         'bitmap_visit.h',
         'bitmap_writer.h',
         'bit_run_reader.h',
-        'bitset_stack.h',
         'bit_util.h',
-        'bpacking64_default.h',
-        'bpacking_avx2.h',
-        'bpacking_avx512.h',
-        'bpacking_default.h',
-        'bpacking.h',
-        'bpacking_neon.h',
         'byte_size.h',
         'cancel.h',
         'checked_cast.h',
@@ -132,15 +125,11 @@ install_headers(
         'compression.h',
         'concurrent_map.h',
         'converter.h',
-        'counting_semaphore.h',
         'cpu_info.h',
         'crc32.h',
         'debug.h',
         'decimal.h',
         'delimiting.h',
-        'dict_util.h',
-        'dispatch.h',
-        'double_conversion.h',
         'endian.h',
         'float16.h',
         'formatting.h',
@@ -158,14 +147,11 @@ install_headers(
         'logger.h',
         'logging.h',
         'macros.h',
-        'map.h',
         'math_constants.h',
-        'memory.h',
         'mutex.h',
         'parallel.h',
         'pcg_random.h',
         'prefetch.h',
-        'print.h',
         'queue.h',
         'range.h',
         'ree_util.h',
@@ -173,19 +159,14 @@ install_headers(
         'rows_to_batches.h',
         'simd.h',
         'small_vector.h',
-        'sort.h',
-        'spaced.h',
         'span.h',
-        'stopwatch.h',
-        'string_builder.h',
+        'string_util.h',
         'string.h',
         'task_group.h',
-        'tdigest.h',
         'test_common.h',
         'thread_pool.h',
         'time.h',
         'tracing.h',
-        'trie.h',
         'type_fwd.h',
         'type_traits.h',
         'ubsan.h',
@@ -246,9 +227,9 @@ if host_machine.system() == 'windows'
     # This manifest enables long file paths on Windows 10+
     # See https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#enable-long-paths-in-windows-10-version-1607-and-later
     if cpp_compiler.get_id() == 'msvc'
-        utility_test_sources += ['io_util_test.manifest']
+        utility_test_srcs += ['io_util_test.manifest']
     else
-        utility_test_sources += ['io_util_test.rc']
+        utility_test_srcs += ['io_util_test.rc']
     endif
 endif
 

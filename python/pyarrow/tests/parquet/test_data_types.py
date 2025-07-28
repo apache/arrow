@@ -27,7 +27,7 @@ import pytest
 
 import pyarrow as pa
 from pyarrow.tests import util
-from pyarrow.tests.parquet.common import _check_roundtrip
+from pyarrow.tests.parquet.common import _check_roundtrip, _roundtrip_table
 
 try:
     import pyarrow.parquet as pq
@@ -351,6 +351,30 @@ def test_large_list_records():
     _check_roundtrip(table)
 
 
+list_types = [
+    (pa.ListType, pa.list_),
+    (pa.LargeListType, pa.large_list),
+]
+
+
+def test_list_types():
+    data = [[1, 2, None]] * 50
+    for _, in_factory in list_types:
+        array = pa.array(data, type=in_factory(pa.int32()))
+        table = pa.Table.from_arrays([array], ['lists'])
+        for out_type, out_factory in list_types:
+            for store_schema in (True, False):
+                if store_schema:
+                    expected_table = table
+                else:
+                    expected_table = pa.Table.from_arrays(
+                        [pa.array(data, type=out_factory(pa.int32()))], ['lists'])
+                result = _roundtrip_table(
+                    table, write_table_kwargs=dict(store_schema=store_schema),
+                    read_table_kwargs=dict(list_type=out_type))
+                assert result == expected_table
+
+
 @pytest.mark.pandas
 def test_parquet_nested_convenience(tempdir):
     # ARROW-1684
@@ -385,6 +409,25 @@ def test_fixed_size_binary():
     table = pa.Table.from_arrays([a0],
                                  ['binary[10]'])
     _check_roundtrip(table)
+
+
+def test_binary_types():
+    types = [pa.binary(), pa.large_binary(), pa.binary_view()]
+    data = [b'abc', None, b'defg', b'x' * 30]
+    for in_type in types:
+        array = pa.array(data, in_type)
+        table = pa.Table.from_arrays([array], ['binary'])
+        for out_type in types:
+            for store_schema in (False, True):
+                result = _roundtrip_table(
+                    table, write_table_kwargs=dict(store_schema=store_schema),
+                    read_table_kwargs=dict(binary_type=out_type))
+                if store_schema:
+                    expected_table = table
+                else:
+                    expected_table = pa.Table.from_arrays(
+                        [pa.array(data, out_type)], ['binary'])
+                assert result == expected_table
 
 
 # Large types
@@ -476,9 +519,9 @@ def test_list_of_binary_large_cell():
     assert table.equals(read_table)
 
 
-def test_large_binary():
+def test_large_binary_and_binary_view():
     data = [b'foo', b'bar'] * 50
-    for type in [pa.large_binary(), pa.large_string()]:
+    for type in [pa.large_binary(), pa.binary_view()]:
         arr = pa.array(data, type=type)
         table = pa.Table.from_arrays([arr], names=['strs'])
         for use_dictionary in [False, True]:
@@ -487,10 +530,10 @@ def test_large_binary():
 
 @pytest.mark.slow
 @pytest.mark.large_memory
-def test_large_binary_huge():
+def test_large_binary_and_binary_view_huge():
     s = b'xy' * 997
     data = [s] * ((1 << 33) // len(s))
-    for type in [pa.large_binary(), pa.large_string()]:
+    for type in [pa.large_binary(), pa.binary_view()]:
         arr = pa.array(data, type=type)
         table = pa.Table.from_arrays([arr], names=['strs'])
         for use_dictionary in [False, True]:
@@ -526,6 +569,7 @@ def test_json_extension_type(storage_type):
     _check_roundtrip(
         table,
         pa.table({"ext": pa.array(data, pa.string())}),
+        {"arrow_extensions_enabled": False},
         store_schema=False)
 
     # With arrow_extensions_enabled=True on read, we get a arrow.json back
@@ -533,7 +577,7 @@ def test_json_extension_type(storage_type):
     _check_roundtrip(
         table,
         pa.table({"ext": pa.array(data, pa.json_(pa.string()))}),
-        read_table_kwargs={"arrow_extensions_enabled": True},
+        {"arrow_extensions_enabled": True},
         store_schema=False)
 
 
@@ -551,11 +595,13 @@ def test_uuid_extension_type():
     _check_roundtrip(
         table,
         pa.table({"ext": pa.array(data, pa.binary(16))}),
+        {"arrow_extensions_enabled": False},
         store_schema=False)
     _check_roundtrip(
         table,
         table,
-        {"arrow_extensions_enabled": True}, store_schema=False)
+        {"arrow_extensions_enabled": True},
+        store_schema=False)
 
 
 def test_undefined_logical_type(parquet_test_datadir):

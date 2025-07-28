@@ -219,7 +219,7 @@ void PrintTo(const Expression& expr, std::ostream* os) {
 }
 
 bool Expression::Equals(const Expression& other) const {
-  if (Identical(*this, other)) return true;
+  if (Expression::Identical(*this, other)) return true;
 
   if (impl_ == nullptr || other.impl_ == nullptr) return false;
 
@@ -260,7 +260,9 @@ bool Expression::Equals(const Expression& other) const {
   return false;
 }
 
-bool Identical(const Expression& l, const Expression& r) { return l.impl_ == r.impl_; }
+bool Expression::Identical(const Expression& l, const Expression& r) {
+  return l.impl_ == r.impl_;
+}
 
 size_t Expression::hash() const {
   if (auto lit = literal()) {
@@ -1265,6 +1267,15 @@ struct Inequality {
 
     auto options = checked_pointer_cast<SetLookupOptions>(is_in_call->options);
 
+    // The maximum number of values in the is_in expression set of values
+    // in order to use the simplification.
+    // If the set is large there are performance implications, see:
+    // https://github.com/apache/arrow/issues/46777
+    constexpr int16_t kIsInSimplificationMaxValueSet = 50;
+    if (options->value_set.length() > kIsInSimplificationMaxValueSet) {
+      return std::nullopt;
+    }
+
     const auto& lhs = Comparison::StripOrderPreservingCasts(is_in_call->arguments[0]);
     if (!lhs.field_ref()) return std::nullopt;
     if (*lhs.field_ref() != guarantee.target) return std::nullopt;
@@ -1452,7 +1463,7 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
                                   return inequality->Simplify(std::move(expr));
                                 }));
 
-      if (Identical(simplified, expr)) continue;
+      if (Expression::Identical(simplified, expr)) continue;
 
       expr = std::move(simplified);
       RETURN_NOT_OK(CanonicalizeAndFoldConstants());
@@ -1463,7 +1474,7 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
           auto simplified,
           SimplifyIsValidGuarantee(std::move(expr), *CallNotNull(guarantee)));
 
-      if (Identical(simplified, expr)) continue;
+      if (Expression::Identical(simplified, expr)) continue;
 
       expr = std::move(simplified);
       RETURN_NOT_OK(CanonicalizeAndFoldConstants());

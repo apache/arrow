@@ -2141,11 +2141,6 @@ uint64_t GetThreadId() {
   return equiv;
 }
 
-uint64_t GetOptionalThreadId() {
-  auto tid = GetThreadId();
-  return (tid == 0) ? tid - 1 : tid;
-}
-
 // Returns the current resident set size (physical memory use) measured
 // in bytes, or zero if the value cannot be determined on this OS.
 int64_t GetCurrentRSS() {

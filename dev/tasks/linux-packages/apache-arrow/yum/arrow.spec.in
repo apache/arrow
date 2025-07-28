@@ -79,8 +79,9 @@
 %define use_s3 0
 %define use_vala (%{_rhel} >= 8 || %{is_amazon_linux})
 
-%define have_grpc (%{_amzn} >= 2023)
+%define have_grpc (%{_rhel} >= 10 || %{_amzn} >= 2023)
 %define have_lz4_libs (%{_rhel} >= 8 || %{_amzn} >= 2023)
+%define have_orc (%{_rhel} >= 10)
 %define have_rapidjson (%{_rhel} != 8)
 %define have_re2 (%{_rhel} >= 8 || %{_amzn} >= 2023)
 %define have_thrift (%{_rhel} >= 8)
@@ -297,6 +298,9 @@ Requires:	json-devel
 Requires:	libzstd-devel
 Requires:	lz4-devel %{lz4_requirement}
 Requires:	openssl-devel
+%if %{have_orc}
+Requires:	liborc-devel
+%endif
 %if %{have_rapidjson}
 Requires:	rapidjson-devel
 %endif
@@ -320,6 +324,7 @@ Libraries and header files for Apache Arrow C++.
 %{_datadir}/gdb/auto-load/
 %{_includedir}/arrow/
 %exclude %{_includedir}/arrow/acero/
+%exclude %{_includedir}/arrow/compute/row
 %exclude %{_includedir}/arrow/dataset/
 %if %{use_flight}
 %exclude %{_includedir}/arrow/flight/
@@ -328,17 +333,49 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/libarrow.a
 %{_libdir}/libarrow.so
 %{_libdir}/libarrow_bundled_dependencies.a
-%{_libdir}/pkgconfig/arrow-compute.pc
 %{_libdir}/pkgconfig/arrow-csv.pc
 %{_libdir}/pkgconfig/arrow-filesystem.pc
 %{_libdir}/pkgconfig/arrow-json.pc
 %{_libdir}/pkgconfig/arrow-orc.pc
 %{_libdir}/pkgconfig/arrow.pc
 
+%package -n %{name}%{so_version}-compute-libs
+Summary:	C++ library for extra compute functions
+License:	Apache-2.0
+Requires:	%{name}%{so_version}-libs = %{version}-%{release}
+
+%description -n %{name}%{so_version}-compute-libs
+This package contains the libraries for Apache Arrow Compute.
+
+%files -n %{name}%{so_version}-compute-libs
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow_compute.so.*
+
+%package compute-devel
+Summary:	Libraries and header files for Apache Arrow Compute
+License:	Apache-2.0
+Requires:	%{name}%{so_version}-compute-libs = %{version}-%{release}
+Requires:	%{name}-devel = %{version}-%{release}
+
+%description compute-devel
+Libraries and header files for Apache Arrow Compute
+
+%files compute-devel
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_includedir}/arrow/compute/row
+%{_libdir}/cmake/ArrowCompute/
+%{_libdir}/libarrow_compute.a
+%{_libdir}/libarrow_compute.so
+%{_libdir}/pkgconfig/arrow-compute.pc
+
 %package -n %{name}%{so_version}-acero-libs
 Summary:	C++ library to execute a query in streaming
 License:	Apache-2.0
-Requires:	%{name}%{so_version}-libs = %{version}-%{release}
+Requires:	%{name}%{so_version}-compute-libs = %{version}-%{release}
 
 %description -n %{name}%{so_version}-acero-libs
 This package contains the libraries for Apache Arrow Acero.

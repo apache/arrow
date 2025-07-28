@@ -352,6 +352,21 @@ test_that("array supports integer64", {
   expect_true(as.vector(is.na(all_na)))
 })
 
+test_that("array supports integer64 with new semantics", {
+  withr::with_options(list(integer64_semantics = "new"), {
+    x <- bit64::as.integer64(1:10) + MAX_INT
+    expect_array_roundtrip(x, int64())
+
+    x[4] <- NA
+    expect_array_roundtrip(x, int64())
+
+    # all NA int64 (ARROW-3795)
+    all_na <- arrow_array(bit64::as.integer64(NA))
+    expect_type_equal(all_na, int64())
+    expect_true(as.vector(is.na(all_na)))
+  })
+})
+
 test_that("array supports hms difftime", {
   time <- hms::hms(56, 34, 12)
   expect_array_roundtrip(c(time, time), time32("s"))
@@ -1260,7 +1275,7 @@ test_that("concat_arrays works", {
 
   concat_int <- concat_arrays(arrow_array(1:3), arrow_array(4:5))
   expect_true(concat_int$type == int32())
-  expect_equal(concat_int,  arrow_array(1:5))
+  expect_equal(concat_int, arrow_array(1:5))
 
   concat_int64 <- concat_arrays(
     arrow_array(1:3),
@@ -1321,7 +1336,14 @@ test_that("Array to C-interface", {
 })
 
 test_that("Can convert R integer/double to decimal (ARROW-11631)", {
-  # Check both decimal128 and decimal256
+  # Check all of decimal32, decimal64, decimal128 and decimal256
+
+
+  decimal32_from_dbl <- arrow_array(c(1, NA_real_), type = decimal32(9, 2))
+  decimal64_from_dbl <- arrow_array(c(1, NA_real_), type = decimal64(12, 2))
+  decimal32_from_int <- arrow_array(c(1L, NA_integer_), type = decimal32(9, 2))
+  decimal64_from_int <- arrow_array(c(1L, NA_integer_), type = decimal64(12, 2))
+
   decimal128_from_dbl <- arrow_array(c(1, NA_real_), type = decimal128(12, 2))
   decimal256_from_dbl <- arrow_array(c(1, NA_real_), type = decimal256(12, 2))
   decimal128_from_int <- arrow_array(c(1L, NA_integer_), type = decimal128(12, 2))
@@ -1334,6 +1356,16 @@ test_that("Can convert R integer/double to decimal (ARROW-11631)", {
   decimal_from_altrep_int <- arrow_array(altrep_int, type = decimal128(12, 2))
 
   expect_equal(
+    decimal32_from_dbl,
+    arrow_array(c(1, NA))$cast(decimal32(9, 2))
+  )
+
+  expect_equal(
+    decimal64_from_dbl,
+    arrow_array(c(1, NA))$cast(decimal64(12, 2))
+  )
+
+  expect_equal(
     decimal128_from_dbl,
     arrow_array(c(1, NA))$cast(decimal128(12, 2))
   )
@@ -1342,6 +1374,17 @@ test_that("Can convert R integer/double to decimal (ARROW-11631)", {
     decimal256_from_dbl,
     arrow_array(c(1, NA))$cast(decimal256(12, 2))
   )
+
+  expect_equal(
+    decimal32_from_int,
+    arrow_array(c(1, NA))$cast(decimal32(9, 2))
+  )
+
+  expect_equal(
+    decimal64_from_int,
+    arrow_array(c(1, NA))$cast(decimal64(12, 2))
+  )
+
 
   expect_equal(
     decimal128_from_int,
@@ -1368,4 +1411,11 @@ test_that("Can convert R integer/double to decimal (ARROW-11631)", {
     arrow_array(complex(), decimal128(12, 2)),
     "Conversion to decimal from non-integer/double"
   )
+})
+
+test_that("Array handles negative fractional dates correctly (GH-46873)", {
+  # `origin` must be specified for compatibility with R versions < 4.2.0
+  d <- as.Date(-0.1, origin = "1970-01-01")
+  arr <- arrow_array(d)
+  expect_equal(as.vector(arr), as.Date("1969-12-31", origin = "1970-01-01"))
 })

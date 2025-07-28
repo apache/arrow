@@ -232,7 +232,7 @@ One way we can do something with :class:`Datasets <dataset::Dataset>` is getting
 them into a :class:`Table`, where we can do anything we’ve learned we can do to
 :class:`Tables <Table>` to that :class:`Table`.
 
-.. seealso:: :doc:`/cpp/streaming_execution` for execution that avoids manifesting the entire dataset in memory.
+.. seealso:: :doc:`/cpp/acero` for execution that avoids manifesting the entire dataset in memory.
 
 In order to move a :class:`Dataset’s <dataset::Dataset>` contents into a :class:`Table`,
 we need a :class:`dataset::Scanner`, which scans the data and outputs it to the :class:`Table`.
@@ -441,7 +441,7 @@ Now you can get larger-than-memory data mapped for use!
 Which means that now we have to be able to process this data without
 pulling it all into memory at once. For this, try Acero.
 
-.. seealso:: :doc:`/cpp/streaming_execution` for more information on Acero.
+.. seealso:: :doc:`/cpp/acero` for more information on Acero.
 
 Refer to the below for a copy of the complete code:
 

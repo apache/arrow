@@ -107,14 +107,6 @@ case "${distribution}-${distribution_version}" in
     info_command="yum info"
     fix_eol_repositories
     ;;
-  centos-8)
-    distribution_prefix="centos"
-    repository_version+="-stream"
-    ruby_devel_packages+=(redhat-rpm-config)
-    install_command="dnf install -y --enablerepo=powertools"
-    info_command="dnf info --enablerepo=powertools"
-    fix_eol_repositories
-    ;;
   centos-*)
     distribution_prefix="centos"
     repository_version+="-stream"
@@ -190,6 +182,7 @@ echo "::endgroup::"
 
 
 echo "::group::Test Apache Arrow C++"
+mkdir -p build
 ${install_command} ${enablerepo_epel} arrow-devel-${package_version}
 if [ -n "${devtoolset}" ]; then
   ${install_command} ${scl_package}
@@ -214,15 +207,25 @@ else
     gcc-c++ \
     make
 fi
-mkdir -p build
-cp -a "${TOP_SOURCE_DIR}/cpp/examples/minimal_build" build/
-pushd build/minimal_build
-${cmake_command} .
-make -j$(nproc)
-./arrow-example
-c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++17
-./arrow-example
-popd
+# cmake version 3.31.6 -> 3.31.6
+cmake_version=$(${cmake_command} --version | head -n1 | sed -e 's/^cmake version //')
+# 3.31.6 -> 3.31
+cmake_version_major_minor=${cmake_version%.*}
+# 3.31 -> 3
+cmake_version_major=${cmake_version_major_minor%.*}
+# 3.31 -> 31
+cmake_version_minor=${cmake_version_major_minor#*.}
+if [ "${cmake_version_major}" -gt "3" ] || \
+   [ "${cmake_version_major}" -eq "3" -a "${cmake_version_minor}" -ge "25" ]; then
+  cp -a "${TOP_SOURCE_DIR}/cpp/examples/minimal_build" build/
+  pushd build/minimal_build
+  ${cmake_command} .
+  make -j$(nproc)
+  ./arrow-example
+  c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++17
+  ./arrow-example
+  popd
+fi
 echo "::endgroup::"
 
 if [ "${have_glib}" = "yes" ]; then

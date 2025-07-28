@@ -41,8 +41,9 @@ env:
 
 jobs:
   target:
+    name: Target
     runs-on: ubuntu-latest
-    timeout: 5
+    timeout-minutes: 5
     outputs:
       version: ${{ steps.detect.outputs.version }}
       rc: ${{ steps.detect.outputs.rc }}
@@ -54,10 +55,9 @@ jobs:
         run: |
           case "${GITHUB_EVENT_NAME}" in
             workflow_dispatch)
-              tag="${{ input.rc_tag }}"
+              tag="${{ inputs.rc_tag }}"
               ;;
             pull_request)
-              env | sort
               tag="$(gh release list \
                        --jq '.[] | select(.isPrerelease) | .tagName' \
                        --json tagName,isPrerelease \
@@ -75,8 +75,8 @@ jobs:
           echo "rc=${rc}" >> "${GITHUB_OUTPUT}"
 
   apt:
-    needs: target
     name: APT
+    needs: target
     runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 30
     strategy:
@@ -91,19 +91,41 @@ jobs:
       VERSION: ${{ needs.target.outputs.version }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
       - name: Run
         run: |
           dev/release/verify-release-candidate.sh ${VERSION} ${RC}
       - name: Verify the previous version
+        # TODO: We may re-enable this in the future.
+        # There are some problems for now:
+        # * We need to specify the previous versions for all
+        #   dependencies explicitly. For example, "apt install
+        #   libarrow-glib-dev=20.0.0-1" doesn't work. We need "apt
+        #   install libarrow-glib-dev=20.0.0-1
+        #   libarrow-acero-dev=20.0.0-1 libparquet-dev=20.0.0-1
+        #   gir1.2-arrow-1.0=20.0.0-1 libparquet-dev=20.0.0-1
+        #   libarrow-dev=20.0.0-1"
+        continue-on-error: true
         run: |
           major_version=${VERSION%%.*}
-          previous_major_version$((major_version - 1))
+          previous_major_version=$((major_version - 1))
           previous_version=${previous_major_version}.0.0
-          rc=0 # This number isn't used for APT verification
-          dev/release/verify-release-candidate.sh ${previous_version} ${rc}
+          previous_tag=apache-arrow-${previous_version}
+          git checkout ${previous_tag}
+          # This is workaround. dev/release/verify-release-candidate.sh
+          # in < 21.0.0 doesn't accept 20.0.0 as the VERSION argument.
+          # We can remove this workaround after 21.0.0 release.
+          sed \
+            -i \
+            -e 's/^\(ensure_source_directory\)$/# \1/' \
+            -e 's/^\(test_source_distribution\)$/# \1/' \
+            dev/release/verify-release-candidate.sh
+          dev/release/verify-release-candidate.sh ${previous_version}
 
   binary:
     name: Binary
+    needs: target
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -118,6 +140,7 @@ jobs:
 
   wheels-linux:
     name: Wheels Linux
+    needs: target
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -165,6 +188,7 @@ jobs:
 
   wheels-macos:
     name: Wheels macOS
+    needs: target
     runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 30
     strategy:
@@ -187,6 +211,7 @@ jobs:
 
   wheels-windows:
     name: Wheels Windows
+    needs: target
     runs-on: windows-latest
     timeout-minutes: 45
     env:
@@ -198,7 +223,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           submodules: recursive
-      - uses: conda-incubator/setup-miniconda@505e6394dae86d6a5c7fbb6e3fb8938e3e863830 # v3.1.1
+      - uses: conda-incubator/setup-miniconda@835234971496cad1653abb28a638a281cf32541f # v3.2.0
       - name: Install System Dependencies
         run: |
           choco install --no-progress --yes boost-msvc-14.1
@@ -215,6 +240,7 @@ jobs:
 
   yum:
     name: Yum
+    needs: target
     runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 30
     strategy:
@@ -229,13 +255,32 @@ jobs:
       VERSION: ${{ needs.target.outputs.version }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
       - name: Run
         run: |
           dev/release/verify-release-candidate.sh ${VERSION} ${RC}
       - name: Verify the previous version
+        # TODO: We may re-enable this in the future.
+        # There are some problems for now:
+        # * x86_64: libLLVM.so.18.1 needed by gandiva2000-libs on AlmaLinux 9
+        # * arm64: libarrow.so.2000.0.0: refers the
+        #   "std::condition_variable::wait(std::unique_lock<std::mutex>&)@GLIBCXX_3.4.30"
+        #   (not "...@@GLIBCXX_3.4.30" nor "...@GLIBCXX_3.4.11") symbol on
+        #   AmazonLinux 2023.
+        continue-on-error: true
         run: |
           major_version=${VERSION%%.*}
-          previous_major_version$((major_version - 1))
+          previous_major_version=$((major_version - 1))
           previous_version=${previous_major_version}.0.0
-          rc=0 # This number isn't used for Yum verification
-          dev/release/verify-release-candidate.sh ${previous_version} ${rc}
+          previous_tag=apache-arrow-${previous_version}
+          git checkout ${previous_tag}
+          # This is workaround. dev/release/verify-release-candidate.sh
+          # in < 21.0.0 doesn't accept 20.0.0 as the VERSION argument.
+          # We can remove this workaround after 21.0.0 release.
+          sed \
+            -i \
+            -e 's/^\(ensure_source_directory\)$/# \1/' \
+            -e 's/^\(test_source_distribution\)$/# \1/' \
+            dev/release/verify-release-candidate.sh
+          dev/release/verify-release-candidate.sh ${previous_version}

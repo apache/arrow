@@ -26,8 +26,12 @@
 
 @PACKAGE_INIT@
 
+set(ARROW_ACERO_REQUIRED_DEPENDENCIES "@ARROW_ACERO_REQUIRED_DEPENDENCIES@")
+
 include(CMakeFindDependencyMacro)
-find_dependency(Arrow CONFIG)
+foreach(dependency ${ARROW_ACERO_REQUIRED_DEPENDENCIES})
+  find_dependency(${dependency} CONFIG)
+endforeach()
 
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowAceroTargets.cmake")
 

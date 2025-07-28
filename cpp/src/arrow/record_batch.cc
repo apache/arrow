@@ -530,6 +530,19 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
       statistics.start_new_column = false;
     }
 
+    if (column_statistics->average_byte_width.has_value()) {
+      statistics.nth_statistics++;
+      if (column_statistics->is_average_byte_width_exact) {
+        statistics.key = ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_EXACT;
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_APPROXIMATE;
+      }
+      statistics.type = float64();
+      statistics.value = column_statistics->average_byte_width.value();
+      RETURN_NOT_OK(on_statistics(statistics));
+      statistics.start_new_column = false;
+    }
+
     if (column_statistics->min.has_value()) {
       statistics.nth_statistics++;
       if (column_statistics->is_min_exact) {
@@ -671,8 +684,10 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
     if (statistics.start_new_column) {
       RETURN_NOT_OK(builder.Append());
       if (statistics.nth_column.has_value()) {
+        // Add Columns
         RETURN_NOT_OK(columns_builder->Append(statistics.nth_column.value()));
       } else {
+        // Add RecordBatch
         RETURN_NOT_OK(columns_builder->AppendNull());
       }
       RETURN_NOT_OK(values_builder->Append());

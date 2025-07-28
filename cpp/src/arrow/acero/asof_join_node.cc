@@ -32,6 +32,7 @@
 #include <unordered_set>
 
 #include "arrow/acero/exec_plan.h"
+#include "arrow/acero/exec_plan_internal.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/unmaterialized_table_internal.h"
 #ifndef NDEBUG
@@ -639,12 +640,10 @@ class InputState : public util::SerialSequencingQueue::Processor {
         // hit the end of the batch, need to get the next batch if possible.
         ++batches_processed_;
         latest_ref_row_ = 0;
-        have_active_batch &= !queue_.TryPop();
-        if (have_active_batch) {
-          DCHECK_GT(queue_.Front()->num_rows(), 0);  // empty batches disallowed
-          memo_.UpdateTime(GetTime(queue_.Front().get(), time_type_id_, time_col_index_,
-                                   0));  // time changed
-        }
+        bool did_pop = queue_.TryPop().has_value();
+        DCHECK(did_pop);
+        ARROW_UNUSED(did_pop);
+        have_active_batch = !queue_.Empty();
       }
     }
     return have_active_batch;

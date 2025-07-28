@@ -27,6 +27,7 @@
 #include "arrow/chunk_resolver.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/util/span.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow::compute::internal {
 
@@ -120,11 +121,11 @@ class ChunkedArrayResolver {
   }
 };
 
-std::vector<const Array*> GetArrayPointers(const ArrayVector& arrays);
+ARROW_EXPORT std::vector<const Array*> GetArrayPointers(const ArrayVector& arrays);
 
 // A class that turns logical (linear) indices into physical (chunked) indices,
 // and vice-versa.
-class ChunkedIndexMapper {
+class ARROW_EXPORT ChunkedIndexMapper {
  public:
   ChunkedIndexMapper(const std::vector<const Array*>& chunks, uint64_t* indices_begin,
                      uint64_t* indices_end)

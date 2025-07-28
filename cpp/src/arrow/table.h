@@ -214,6 +214,9 @@ class ARROW_EXPORT Table {
   /// All the underlying chunks in the ChunkedArray of each column are
   /// concatenated into zero or one chunk.
   ///
+  /// To avoid buffer overflow, binary columns may be combined into
+  /// multiple chunks. Chunks will have the maximum possible length.
+  ///
   /// \param[in] pool The pool for buffer allocations
   Result<std::shared_ptr<Table>> CombineChunks(
       MemoryPool* pool = default_memory_pool()) const;
@@ -269,11 +272,6 @@ class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
   int64_t max_chunksize_;
 };
 
-/// \defgroup concat-tables ConcatenateTables function.
-///
-/// ConcatenateTables function.
-/// @{
-
 /// \brief Controls the behavior of ConcatenateTables().
 struct ARROW_EXPORT ConcatenateTablesOptions {
   /// If true, the schemas of the tables will be first unified with fields of
@@ -308,7 +306,6 @@ struct ARROW_EXPORT ConcatenateTablesOptions {
 /// \param[in] memory_pool MemoryPool to be used if null-filled arrays need to
 /// be created or if existing column chunks need to endure type conversion
 /// \return new Table
-
 ARROW_EXPORT
 Result<std::shared_ptr<Table>> ConcatenateTables(
     const std::vector<std::shared_ptr<Table>>& tables,

@@ -40,8 +40,8 @@ set(ARROW_DATASET_SRCS
     scanner.cc
     scan_node.cc)
 
-set(ARROW_DATASET_PKG_CONFIG_REQUIRES "arrow-acero")
-set(ARROW_DATASET_REQUIRED_DEPENDENCIES Arrow ArrowAcero)
+set(ARROW_DATASET_PKG_CONFIG_REQUIRES "arrow-acero arrow-compute")
+set(ARROW_DATASET_REQUIRED_DEPENDENCIES Arrow ArrowCompute ArrowAcero)
 if(ARROW_PARQUET)
   string(APPEND ARROW_DATASET_PKG_CONFIG_REQUIRES " parquet")
   list(APPEND ARROW_DATASET_REQUIRED_DEPENDENCIES Parquet)
@@ -206,15 +206,39 @@ if(ARROW_PARQUET)
   endif()
 endif()
 
-if(ARROW_BUILD_BENCHMARKS)
-  add_arrow_benchmark(file_benchmark PREFIX "arrow-dataset")
-  add_arrow_benchmark(scanner_benchmark PREFIX "arrow-dataset")
+function(add_arrow_dataset_benchmark REL_BENCHMARK_NAME)
+  set(options)
+  set(one_value_args PREFIX)
+  set(multi_value_args EXTRA_LINK_LIBS)
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
 
-  if(ARROW_BUILD_STATIC)
-    target_link_libraries(arrow-dataset-file-benchmark PUBLIC arrow_dataset_static)
-    target_link_libraries(arrow-dataset-scanner-benchmark PUBLIC arrow_dataset_static)
+  if(ARG_PREFIX)
+    set(PREFIX ${ARG_PREFIX})
   else()
-    target_link_libraries(arrow-dataset-file-benchmark PUBLIC arrow_dataset_shared)
-    target_link_libraries(arrow-dataset-scanner-benchmark PUBLIC arrow_dataset_shared)
+    set(PREFIX "arrow-dataset")
   endif()
-endif()
+
+  if(ARROW_TEST_LINKAGE STREQUAL "static")
+    set(EXTRA_LINK_LIBS arrow_dataset_static)
+  else()
+    set(EXTRA_LINK_LIBS arrow_dataset_shared)
+  endif()
+  if(ARG_EXTRA_LINK_LIBS)
+    list(APPEND EXTRA_LINK_LIBS ${ARG_EXTRA_LINK_LIBS})
+  endif()
+
+  # Dataset benchmarks require compute kernels initialization.
+  add_arrow_compute_benchmark(${REL_BENCHMARK_NAME}
+                              PREFIX
+                              ${PREFIX}
+                              EXTRA_LINK_LIBS
+                              ${EXTRA_LINK_LIBS}
+                              ${ARG_UNPARSED_ARGUMENTS})
+endfunction()
+
+add_arrow_dataset_benchmark(file_benchmark)
+add_arrow_dataset_benchmark(scanner_benchmark)

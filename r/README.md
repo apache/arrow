@@ -92,6 +92,7 @@ API and higher-level access through a dplyr backend and familiar R functions.
 There are a few additional resources that you may find useful for getting started with arrow:
 
 - The official [Arrow R package documentation](https://arrow.apache.org/docs/r/)
+- [Scaling Up With R and Arrow](https://arrowrbook.com)
 - [Arrow for R cheatsheet](https://github.com/apache/arrow/blob/-/r/cheatsheet/arrow-cheatsheet.pdf)
 - [Apache Arrow R Cookbook](https://arrow.apache.org/cookbook/r/index.html)
 - R for Data Science [Chapter on Arrow](https://r4ds.hadley.nz/arrow)
