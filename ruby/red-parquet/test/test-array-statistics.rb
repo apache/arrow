@@ -17,13 +17,14 @@
 
 class TestArrayStatistics < Test::Unit::TestCase
   def setup
-    table = Arrow::Table.new(int64: [nil, -(2 ** 32), 2 ** 32])
-    Tempfile.create(["red-parquet", ".parquet"]) do |file|
+    data = Tempfile.create(["red-parquet", ".parquet"]) do |file|
+      table = Arrow::Table.new(int64: [nil, -(2 ** 32), 2 ** 32])
       table.save(file)
-      loaded_table = Arrow::Table.load(file)
-      @statistics = loaded_table[:int64].data.chunks[0].statistics
-      yield
+      File.read(file, mode: "rb")
     end
+    loaded_table = Arrow::Table.load(Arrow::Buffer.new(data),
+                                     format: :parquet)
+    @statistics = loaded_table[:int64].data.chunks[0].statistics
   end
 
   def test_distinct_count
