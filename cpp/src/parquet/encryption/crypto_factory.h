@@ -86,6 +86,54 @@ struct PARQUET_EXPORT EncryptionConfiguration {
   int32_t data_key_length_bits = kDefaultDataKeyLengthBits;
 };
 
+/// Helper struct for use in per column encryption specification.
+/// The ExternalEncryptionConfiguration will use this to send encryption parameters per column.
+struct PARQUET_EXPORT ColumnEncryptionAttributes {
+    /// Which type of encryptor to use.
+    ParquetCipher::type parquet_cipher;
+
+    /// The key_id to use for this column.
+    std::string key_id;
+};
+
+/// Encryption Configuration for use with External Encryption services. 
+/// Extends the already existing EncryptionConfiguration with more context and with
+/// the capability of specifying encryption algorithm per column.
+struct PARQUET_EXPORT ExternalEncryptionConfiguration : public EncryptionConfiguration {
+  explicit ExternalEncryptionConfiguration(const std::string& footer_key)
+      : EncryptionConfiguration(footer_key) {}
+
+  /// Map of the columns to encrypt to their associated encryption parameters. The id of the map
+  /// is the column name, and the value is a ColumnEncryptionAttributes struct that can be
+  /// used to construct the ColumnEncryptionProperties in the CryptoFactory.
+  /// As with the EncryptionConfiguration, either:
+  /// (1) uniform_encryption = true
+  /// or
+  /// (2) column_keys and/or per_column_encryption is set
+  /// If none of (1) and (2) are true, or if both are true, an exception will be thrown.
+  /// If a column name appears in the original column_keys list, it will be encrypted with the 
+  /// algorithm specified in the encryption_algorithm field. 
+  /// If a column name appears in the new per_column_encryption map, it will be encrypted using the
+  /// per column specific algorithm and key.
+  /// If a column name appears in both, the per_column_encryption values will take precedence.
+  std::unordered_map<std::string, ColumnEncryptionAttributes> per_column_encryption;
+
+  /// External encryption services may use additional context provided by the application to
+  /// enforce robust access control. The values sent to the external service depend on each
+  /// implementation. 
+  /// This values must be a valid JSON-formatted string.
+  /// Format: "{\"user_id\": \"abc123\", \"location\": {\"lat\": 9.7489, \"lon\": -83.7534}}"
+  std::string app_context;
+  
+  /// Key/value map of the location of configuration files needed by the external
+  /// encryption service. This may include location of a dynamically-linked library, or the
+  /// location of a file where the external service can find urls, certificates, and parameters
+  /// needed to make a remote service call. 
+  /// For security, these values should never be sent in this config, only the locations of 
+  /// the files that the external service will know how to access.
+  std::unordered_map<std::string, std::string> connection_config;
+};
+
 struct PARQUET_EXPORT DecryptionConfiguration {
   /// Lifetime of cached entities (key encryption keys, local wrapping keys, KMS client
   /// objects).
