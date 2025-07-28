@@ -466,8 +466,17 @@ class PARQUET_EXPORT ExternalFileEncryptionProperties : public FileEncryptionPro
     explicit Builder(const std::string& footer_key)
       : FileEncryptionProperties::Builder(footer_key) {}
     
+    /// External encryption services may use additional context provided by the application to
+    /// enforce robust access control. The values sent to the external service depend on each
+    /// implementation. 
     Builder* app_context(const std::map<std::string, std::string>& context);
     
+    /// Key/value map of the location of configuration files needed by the external
+    /// encryption service, including location of a dynamically-linked library, or config files
+    /// where the external service can find urls, certificates, and parameters needed to make a
+    /// remote service call. 
+    /// For security, these values should never be sent in this config, only the locations of 
+    /// the files that the external service will know how to access.
     Builder* connection_config(const std::map<std::string, std::string>& config);
 
     std::shared_ptr<ExternalFileEncryptionProperties> build_external();
