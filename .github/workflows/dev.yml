@@ -107,10 +107,9 @@ jobs:
           gem install test-unit
           pip install "cython>=3" setuptools pytest requests setuptools-scm
       - name: Run Release Test
-        env:
-          ARROW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
+          echo "GH_TOKEN=${{ secrets.GITHUB_TOKEN }}" > dev/release/.env
           ci/scripts/release_test.sh $(pwd)
       - name: Run Merge Script Test
         shell: bash

@@ -1,3 +1,5 @@
+# shellcheck shell=bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,22 +17,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# The GPG key ID to sign artifacts. The GPG key ID must be registered
-# to both of the followings:
-#
-#   * https://dist.apache.org/repos/dist/release/arrow/KEYS
-#
-# See these files how to import your GPG key ID to these files.
-#
-# You must set this.
-#GPG_KEY_ID=08D3564B7C6A9CAFBFF6A66791D18FCF079F8007
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# The Artifactory API key to upload artifacts to Artifactory.
-#
-# You must set this.
-#ARTIFACTORY_API_KEY=secret
-
-# The GitHub token used in numerous release scripts.
-#
-# You must set this.
-#GH_TOKEN=secret
+if [ ! -f "${SOURCE_DIR}/.env" ]; then
+  echo "You must create ${SOURCE_DIR}/.env"
+  echo "You can use ${SOURCE_DIR}/.env.example as template"
+  exit 1
+fi
+# shellcheck source=SCRIPTDIR/.env.example
+. "${SOURCE_DIR}/.env"
+export GH_TOKEN
