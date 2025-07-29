@@ -324,4 +324,52 @@ FileEncryptionProperties::FileEncryptionProperties(
   }
 }
 
+ExternalFileEncryptionProperties::Builder* ExternalFileEncryptionProperties::Builder::app_context(
+    const std::string& context) {
+  if (!app_context_.empty()) {
+    throw ParquetException("App context already set");
+  }
+
+  if (context.empty()) {
+    return this;
+  }
+
+  app_context_ = context;
+  return this;
+}
+
+ExternalFileEncryptionProperties::Builder*
+ExternalFileEncryptionProperties::Builder::connection_config(
+    const std::map<std::string, std::string>& config) {
+  if (connection_config_.size() != 0) {
+    throw ParquetException("Connection config already set");
+  }
+  
+  if (config.size() == 0) {
+    return this;
+  }
+
+  connection_config_ = config;
+  return this;
+}
+
+std::shared_ptr<ExternalFileEncryptionProperties> 
+ExternalFileEncryptionProperties::Builder::build_external() {
+  return std::shared_ptr<ExternalFileEncryptionProperties>(new ExternalFileEncryptionProperties(
+    parquet_cipher_, footer_key_, footer_key_metadata_, encrypted_footer_, aad_prefix_,
+    store_aad_prefix_in_file_, encrypted_columns_, app_context_, connection_config_));
+}
+
+ExternalFileEncryptionProperties::ExternalFileEncryptionProperties(
+    ParquetCipher::type cipher, const std::string& footer_key,
+    const std::string& footer_key_metadata, bool encrypted_footer,
+    const std::string& aad_prefix, bool store_aad_prefix_in_file,
+    const ColumnPathToEncryptionPropertiesMap& encrypted_columns,
+    const std::string& app_context,
+    const std::map<std::string, std::string>& connection_config)
+    : FileEncryptionProperties(cipher, footer_key, footer_key_metadata, encrypted_footer,
+                               aad_prefix, store_aad_prefix_in_file, encrypted_columns),
+      app_context_(app_context),
+      connection_config_(connection_config) {}
+
 }  // namespace parquet

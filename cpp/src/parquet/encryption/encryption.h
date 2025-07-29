@@ -410,7 +410,7 @@ class PARQUET_EXPORT FileEncryptionProperties {
           aad_prefix_, store_aad_prefix_in_file_, encrypted_columns_));
     }
 
-   private:
+   protected:
     ParquetCipher::type parquet_cipher_;
     bool encrypted_footer_;
     std::string footer_key_;
@@ -450,10 +450,56 @@ class PARQUET_EXPORT FileEncryptionProperties {
   bool store_aad_prefix_in_file_;
   ColumnPathToEncryptionPropertiesMap encrypted_columns_;
 
+ protected:
   FileEncryptionProperties(ParquetCipher::type cipher, const std::string& footer_key,
                            const std::string& footer_key_metadata, bool encrypted_footer,
                            const std::string& aad_prefix, bool store_aad_prefix_in_file,
                            const ColumnPathToEncryptionPropertiesMap& encrypted_columns);
+};
+
+class PARQUET_EXPORT ExternalFileEncryptionProperties : public FileEncryptionProperties {
+ public:
+
+  class PARQUET_EXPORT Builder : public FileEncryptionProperties::Builder {
+   public:
+   
+    explicit Builder(const std::string& footer_key)
+      : FileEncryptionProperties::Builder(footer_key) {}
+    
+    /// Valid JSON string with additional application context needed for security checks. 
+    Builder* app_context(const std::string& context);
+    
+    /// Key/value map of the location of configuration files needed by the external
+    /// encryption service, including location of a dynamically-linked library, or config files
+    /// where the external service can find urls, certificates, and parameters needed to make a
+    /// remote service call. 
+    Builder* connection_config(const std::map<std::string, std::string>& config);
+
+    std::shared_ptr<ExternalFileEncryptionProperties> build_external();
+
+   private:
+    std::string app_context_;
+    std::map<std::string, std::string> connection_config_;
+  };
+
+  const std::string& app_context() const {
+    return app_context_;
+  }
+
+  const std::map<std::string, std::string>& connection_config() const {
+    return connection_config_;
+  }
+
+ private:
+  std::string app_context_;
+  std::map<std::string, std::string> connection_config_;
+
+  ExternalFileEncryptionProperties(ParquetCipher::type cipher, const std::string& footer_key,
+                                   const std::string& footer_key_metadata, bool encrypted_footer,
+                                   const std::string& aad_prefix, bool store_aad_prefix_in_file,
+                                   const ColumnPathToEncryptionPropertiesMap& encrypted_columns,
+                                   const std::string& app_context,
+                                   const std::map<std::string, std::string>& connection_config);
 };
 
 }  // namespace parquet
