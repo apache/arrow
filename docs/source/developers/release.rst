@@ -162,7 +162,7 @@ Create or update the corresponding maintenance branch
             # of the release respectively. As an example 9.0.0
             archery release cherry-pick X.Y.Z --execute
             # Push the maintenance branch to the remote repository
-            git push -u apache maint-X.Y.Z
+            git push -u upstream maint-X.Y.Z
 
    .. tab-item:: Follow up Release Candidates
 
@@ -175,7 +175,7 @@ Create or update the corresponding maintenance branch
             # Update the maintenance branch with the previous commits
             archery release cherry-pick X.Y.Z --continue --execute
             # Push the updated maintenance branch to the remote repository
-            git push -u apache maint-X.Y.Z
+            git push -u upstream maint-X.Y.Z
 
 Optional: Test Before Creating a Release Candidate
 --------------------------------------------------
@@ -210,9 +210,9 @@ Create the Release Candidate branch from the updated maintenance branch
     dev/release/01-prepare.sh <version> <next-version> <rc-number>
 
     # Push the release candidate tag
-    git push -u apache apache-arrow-<version>-rc<rc-number>
+    git push -u upstream apache-arrow-<version>-rc<rc-number>
     # Push the release candidate branch in order to trigger verification jobs later
-    git push -u apache release-<version>-rc<rc-number>
+    git push -u upstream release-<version>-rc<rc-number>
 
 Build source and binaries and submit them
 -----------------------------------------
@@ -314,8 +314,8 @@ Be sure to go through on the following checklist:
       git checkout maint-X.Y.Z
       # git merge release-10.0.0-rc0
       git merge release-X.Y.Z-rcN
-      # git push -u apache maint-10.0.0
-      git push -u apache maint-X.Y.Z
+      # git push -u upstream maint-10.0.0
+      git push -u upstream maint-X.Y.Z
 
 .. dropdown:: Add the new release to the Apache Reporter System
    :animate: fade-in-slide-down
@@ -374,8 +374,8 @@ Be sure to go through on the following checklist:
       # git clone git@github.com:kou/arrow-site.git ../
       git clone git@github.com:<YOUR_GITHUB_ID>/arrow-site.git ../
       cd ../arrow-site
-      ## Add git@github.com:apache/arrow-site.git as "apache" remote.
-      git remote add apache git@github.com:apache/arrow-site.git
+      ## Add git@github.com:apache/arrow-site.git as "upstream" remote.
+      git remote add upstream git@github.com:apache/arrow-site.git
       cd -
 
       ## Generate a release note for the new version, update the
@@ -623,8 +623,8 @@ Be sure to go through on the following checklist:
       # git clone git@github.com:kou/arrow-site.git ../
       git clone git@github.com:<YOUR_GITHUB_ID>/arrow-site.git ../
       cd ../arrow-site
-      ## Add git@github.com:apache/arrow-site.git as "apache" remote.
-      git remote add apache git@github.com:apache/arrow-site.git
+      ## Add git@github.com:apache/arrow-site.git as "upstream" remote.
+      git remote add upstream git@github.com:apache/arrow-site.git
       cd -
 
       # dev/release/post-09-docs.sh 10.0.0 9.0.0
