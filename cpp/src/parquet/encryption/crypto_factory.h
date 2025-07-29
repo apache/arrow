@@ -160,6 +160,14 @@ class PARQUET_EXPORT CryptoFactory {
       const EncryptionConfiguration& encryption_config, const std::string& file_path = "",
       const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
 
+  /// Get the external encryption properties for a Parquet file. Used when encryption
+  /// will be provided by an external service.
+  std::shared_ptr<ExternalFileEncryptionProperties> GetExternalFileEncryptionProperties(
+      const KmsConnectionConfig& kms_connection_config,
+      const ExternalEncryptionConfiguration& external_encryption_config,
+      const EncryptionConfiguration& encryption_config, const std::string& file_path = "",
+      const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
+
   /// Get decryption properties for a Parquet file.
   /// If external key material is used then a file system and path to the
   /// parquet file must be provided.

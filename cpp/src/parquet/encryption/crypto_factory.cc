@@ -98,6 +98,14 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
   return properties_builder.build();
 }
 
+std::shared_ptr<ExternalFileEncryptionProperties> CryptoFactory::GetExternalFileEncryptionProperties(
+      const KmsConnectionConfig& kms_connection_config,
+      const ExternalEncryptionConfiguration& external_encryption_config,
+      const EncryptionConfiguration& encryption_config, const std::string& file_path,
+      const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
+  return nullptr;
+}
+
 ColumnPathToEncryptionPropertiesMap CryptoFactory::GetColumnEncryptionProperties(
     int dek_length, const std::string& column_keys, FileKeyWrapper* key_wrapper) {
   ColumnPathToEncryptionPropertiesMap encrypted_columns;
