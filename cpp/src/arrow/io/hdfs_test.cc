@@ -41,24 +41,6 @@
 namespace arrow {
 namespace io {
 
-std::string RandomPath(const std::string& prefix, int rand_length) {
-  static const char charset[] =
-      "0123456789"
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-      "abcdefghijklmnopqrstuvwxyz";
-  std::string result = prefix;
-  result.reserve(prefix.size() + rand_length);
-
-  std::mt19937 rng(static_cast<unsigned>(std::time(nullptr)));
-  std::uniform_int_distribution<> dist(0, sizeof(charset) - 2);
-
-  for (int i = 0; i < rand_length; ++i) {
-    result += charset[dist(rng)];
-  }
-
-  return result;
-}
-
 std::vector<uint8_t> RandomData(int64_t size) {
   std::vector<uint8_t> buffer(size);
   random_bytes(size, 0, buffer.data());
@@ -105,8 +87,12 @@ class TestHadoopFileSystem : public ::testing::Test {
 
     client_ = nullptr;
     scratch_dir_ =
-        (std::filesystem::temp_directory_path() / RandomPath("arrow-hdfs/scratch-", 4))
-            .string();
+        (std::filesystem::temp_directory_path() / "arrow-hdfs/scratch-").string();
+    int random_size = 4;
+    scratch_dir_.resize(scratch_dir_.size() + random_size, '%');
+    random_alnum(
+        random_size, 0,
+        reinterpret_cast<uint8_t*>(&scratch_dir_[scratch_dir_.size() - random_size]));
 
     loaded_driver_ = false;
 
