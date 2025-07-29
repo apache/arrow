@@ -1163,6 +1163,17 @@ class ClientBuilder {
     const bool use_virtual_addressing =
         options_.endpoint_override.empty() || options_.force_virtual_addressing;
 
+    if (options_.part_size > 0) {
+      client_config_.partSize = options_.part_size;
+    }
+
+    if (!options_.network_interface_names.empty()) {
+      client_config_.networkInterfaceNames.clear();
+      for (const auto& name : options_.network_interface_names) {
+        client_config_.networkInterfaceNames.push_back(ToAwsString(name));
+      }
+    }
+
     client_config_.useVirtualAddressing = use_virtual_addressing;
     auto endpoint_provider = EndpointProviderCache::Instance()->Lookup(client_config_);
     auto client = std::make_shared<S3Client>(credentials_provider_, client_config_);
