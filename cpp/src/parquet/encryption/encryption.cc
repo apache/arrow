@@ -325,13 +325,13 @@ FileEncryptionProperties::FileEncryptionProperties(
 }
 
 ExternalFileEncryptionProperties::Builder* ExternalFileEncryptionProperties::Builder::app_context(
-    const std::map<std::string, std::string>& context) {
-  if (context.size() == 0) {
-    return this;
+    const std::string& context) {
+  if (!app_context_.empty()) {
+    throw ParquetException("App context already set");
   }
 
-  if (app_context_.size() != 0) {
-    throw ParquetException("App context already set");
+  if (context.empty()) {
+    return this;
   }
 
   app_context_ = context;
@@ -341,12 +341,12 @@ ExternalFileEncryptionProperties::Builder* ExternalFileEncryptionProperties::Bui
 ExternalFileEncryptionProperties::Builder*
 ExternalFileEncryptionProperties::Builder::connection_config(
     const std::map<std::string, std::string>& config) {
-  if (config.size() == 0) {
-    return this;
-  }
-
   if (connection_config_.size() != 0) {
     throw ParquetException("Connection config already set");
+  }
+  
+  if (config.size() == 0) {
+    return this;
   }
 
   connection_config_ = config;
@@ -365,7 +365,7 @@ ExternalFileEncryptionProperties::ExternalFileEncryptionProperties(
     const std::string& footer_key_metadata, bool encrypted_footer,
     const std::string& aad_prefix, bool store_aad_prefix_in_file,
     const ColumnPathToEncryptionPropertiesMap& encrypted_columns,
-    const std::map<std::string, std::string>& app_context,
+    const std::string& app_context,
     const std::map<std::string, std::string>& connection_config)
     : FileEncryptionProperties(cipher, footer_key, footer_key_metadata, encrypted_footer,
                                aad_prefix, store_aad_prefix_in_file, encrypted_columns),
