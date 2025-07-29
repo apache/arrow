@@ -59,29 +59,29 @@
 #include <aws/crt/io/EventLoopGroup.h>
 #include <aws/crt/io/HostResolver.h>
 #include <aws/identity-management/auth/STSAssumeRoleCredentialsProvider.h>
-#include <aws/s3/S3Client.h>
-#include <aws/s3/S3ClientConfiguration.h>
-#include <aws/s3/S3EndpointProvider.h>
-#include <aws/s3/S3Errors.h>
-#include <aws/s3/model/AbortMultipartUploadRequest.h>
-#include <aws/s3/model/CompleteMultipartUploadRequest.h>
-#include <aws/s3/model/CompletedMultipartUpload.h>
-#include <aws/s3/model/CompletedPart.h>
-#include <aws/s3/model/CopyObjectRequest.h>
-#include <aws/s3/model/CreateBucketRequest.h>
-#include <aws/s3/model/CreateMultipartUploadRequest.h>
-#include <aws/s3/model/DeleteBucketRequest.h>
-#include <aws/s3/model/DeleteObjectRequest.h>
-#include <aws/s3/model/DeleteObjectsRequest.h>
-#include <aws/s3/model/GetObjectRequest.h>
-#include <aws/s3/model/HeadBucketRequest.h>
-#include <aws/s3/model/HeadObjectRequest.h>
-#include <aws/s3/model/ListBucketsResult.h>
-#include <aws/s3/model/ListObjectsV2Request.h>
-#include <aws/s3/model/ObjectCannedACL.h>
-#include <aws/s3/model/PutObjectRequest.h>
-#include <aws/s3/model/PutObjectResult.h>
-#include <aws/s3/model/UploadPartRequest.h>
+#include <aws/s3-crt/S3CrtClient.h>
+#include <aws/s3-crt/S3CrtClientConfiguration.h>
+#include <aws/s3-crt/S3CrtEndpointProvider.h>
+#include <aws/s3-crt/S3CrtErrors.h>
+#include <aws/s3-crt/model/AbortMultipartUploadRequest.h>
+#include <aws/s3-crt/model/CompleteMultipartUploadRequest.h>
+#include <aws/s3-crt/model/CompletedMultipartUpload.h>
+#include <aws/s3-crt/model/CompletedPart.h>
+#include <aws/s3-crt/model/CopyObjectRequest.h>
+#include <aws/s3-crt/model/CreateBucketRequest.h>
+#include <aws/s3-crt/model/CreateMultipartUploadRequest.h>
+#include <aws/s3-crt/model/DeleteBucketRequest.h>
+#include <aws/s3-crt/model/DeleteObjectRequest.h>
+#include <aws/s3-crt/model/DeleteObjectsRequest.h>
+#include <aws/s3-crt/model/GetObjectRequest.h>
+#include <aws/s3-crt/model/HeadBucketRequest.h>
+#include <aws/s3-crt/model/HeadObjectRequest.h>
+#include <aws/s3-crt/model/ListBucketsResult.h>
+#include <aws/s3-crt/model/ListObjectsV2Request.h>
+#include <aws/s3-crt/model/ObjectCannedACL.h>
+#include <aws/s3-crt/model/PutObjectRequest.h>
+#include <aws/s3-crt/model/PutObjectResult.h>
+#include <aws/s3-crt/model/UploadPartRequest.h>
 
 // Redundant "(...)" are for suppressing "Weird number of spaces at
 // line-start. Are you using a 2-space indent? [whitespace/indent]
@@ -124,8 +124,8 @@
 namespace arrow::fs {
 
 using ::Aws::Client::AWSError;
-using ::Aws::S3::S3Errors;
-namespace S3Model = Aws::S3::Model;
+using ::Aws::S3Crt::S3CrtErrors;
+namespace S3Model = Aws::S3Crt::Model;
 
 using ::arrow::internal::TaskGroup;
 using ::arrow::internal::ToChars;
@@ -602,9 +602,9 @@ class WrappedRetryStrategy : public Aws::Client::RetryStrategy {
   std::shared_ptr<S3RetryStrategy> s3_retry_strategy_;
 };
 
-class S3Client : public Aws::S3::S3Client {
+class S3Client : public Aws::S3Crt::S3CrtClient {
  public:
-  using Aws::S3::S3Client::S3Client;
+  using Aws::S3Crt::S3CrtClient::S3CrtClient;
 
   static inline constexpr auto kBucketRegionHeaderName = "x-amz-bucket-region";
 
@@ -743,7 +743,8 @@ class S3Client : public Aws::S3::S3Client {
 
     for (int32_t retries = 0;; retries++) {
       aws_error.reset();
-      auto outcome = Aws::S3::S3Client::S3Client::CompleteMultipartUpload(request);
+      auto outcome =
+          Aws::S3Crt::S3CrtClient::S3CrtClient::CompleteMultipartUpload(request);
       if (!outcome.IsSuccess()) {
         // Error returned in HTTP headers (or client failure)
         return outcome;
@@ -769,7 +770,7 @@ class S3Client : public Aws::S3::S3Client {
     }
 
     DCHECK(aws_error.has_value());
-    auto s3_error = AWSError<S3Errors>(std::move(aws_error).value());
+    auto s3_error = AWSError<S3CrtErrors>(std::move(aws_error).value());
     return S3Model::CompleteMultipartUploadOutcome(std::move(s3_error));
   }
 
@@ -957,7 +958,7 @@ Result<std::shared_ptr<S3ClientHolder>> GetClientHolder(
 // bearable - if not ideal.
 
 struct EndpointConfigKey {
-  explicit EndpointConfigKey(const Aws::S3::S3ClientConfiguration& config)
+  explicit EndpointConfigKey(const Aws::S3Crt::S3CrtClientConfiguration& config)
       : region(config.region),
         scheme(config.scheme),
         endpoint_override(config.endpointOverride),
@@ -995,25 +996,27 @@ namespace {
 // a single EndpointProvider from several clients.
 // To work around this, this class ensures reconfiguration of an existing
 // EndpointProvider is a no-op.
-class InitOnceEndpointProvider : public Aws::S3::S3EndpointProviderBase {
+class InitOnceEndpointProvider : public Aws::S3Crt::S3CrtEndpointProviderBase {
  public:
   explicit InitOnceEndpointProvider(
-      std::shared_ptr<Aws::S3::S3EndpointProviderBase> wrapped)
+      std::shared_ptr<Aws::S3Crt::S3CrtEndpointProviderBase> wrapped)
       : wrapped_(std::move(wrapped)) {}
 
-  void InitBuiltInParameters(const Aws::S3::S3ClientConfiguration& config) override {}
+  void InitBuiltInParameters(
+      const Aws::S3Crt::S3CrtClientConfiguration& config) override {}
 
   void OverrideEndpoint(const Aws::String& endpoint) override {
     ARROW_LOG(ERROR) << "unexpected call to InitOnceEndpointProvider::OverrideEndpoint";
   }
-  Aws::S3::Endpoint::S3ClientContextParameters& AccessClientContextParameters() override {
+  Aws::S3Crt::Endpoint::S3CrtClientContextParameters& AccessClientContextParameters()
+      override {
     ARROW_LOG(ERROR)
         << "unexpected call to InitOnceEndpointProvider::AccessClientContextParameters";
     // Need to return a reference to something...
     return wrapped_->AccessClientContextParameters();
   }
 
-  const Aws::S3::Endpoint::S3ClientContextParameters& GetClientContextParameters()
+  const Aws::S3Crt::Endpoint::S3CrtClientContextParameters& GetClientContextParameters()
       const override {
     return wrapped_->GetClientContextParameters();
   }
@@ -1023,7 +1026,7 @@ class InitOnceEndpointProvider : public Aws::S3::S3EndpointProviderBase {
   }
 
  protected:
-  std::shared_ptr<Aws::S3::S3EndpointProviderBase> wrapped_;
+  std::shared_ptr<Aws::S3Crt::S3CrtEndpointProviderBase> wrapped_;
 };
 
 // A class that instantiates a single EndpointProvider per distinct endpoint
@@ -1031,8 +1034,8 @@ class InitOnceEndpointProvider : public Aws::S3::S3EndpointProviderBase {
 // for rationale.
 class EndpointProviderCache {
  public:
-  std::shared_ptr<Aws::S3::S3EndpointProviderBase> Lookup(
-      const Aws::S3::S3ClientConfiguration& config) {
+  std::shared_ptr<Aws::S3Crt::S3CrtEndpointProviderBase> Lookup(
+      const Aws::S3Crt::S3CrtClientConfiguration& config) {
     auto key = EndpointConfigKey(config);
     CacheValue* value;
     {
@@ -1040,7 +1043,7 @@ class EndpointProviderCache {
       value = &cache_[std::move(key)];
     }
     std::call_once(value->once, [&]() {
-      auto endpoint_provider = std::make_shared<Aws::S3::S3EndpointProvider>();
+      auto endpoint_provider = std::make_shared<Aws::S3Crt::S3CrtEndpointProvider>();
       endpoint_provider->InitBuiltInParameters(config);
       value->endpoint_provider =
           std::make_shared<InitOnceEndpointProvider>(std::move(endpoint_provider));
@@ -1063,7 +1066,7 @@ class EndpointProviderCache {
 
   struct CacheValue {
     std::once_flag once;
-    std::shared_ptr<Aws::S3::S3EndpointProviderBase> endpoint_provider;
+    std::shared_ptr<Aws::S3Crt::S3CrtEndpointProviderBase> endpoint_provider;
   };
 
   std::mutex mutex_;
@@ -1162,8 +1165,8 @@ class ClientBuilder {
 
     client_config_.useVirtualAddressing = use_virtual_addressing;
     auto endpoint_provider = EndpointProviderCache::Instance()->Lookup(client_config_);
-    auto client = std::make_shared<S3Client>(credentials_provider_, endpoint_provider,
-                                             client_config_);
+    auto client = std::make_shared<S3Client>(credentials_provider_, client_config_);
+    client->accessEndpointProvider() = endpoint_provider;
     client->s3_retry_strategy_ = options_.retry_strategy;
     return GetClientHolder(std::move(client));
   }
@@ -1172,7 +1175,7 @@ class ClientBuilder {
 
  protected:
   S3Options options_;
-  Aws::S3::S3ClientConfiguration client_config_;
+  Aws::S3Crt::S3CrtClientConfiguration client_config_;
   std::shared_ptr<Aws::Auth::AWSCredentialsProvider> credentials_provider_;
 };
 
@@ -1277,7 +1280,7 @@ Aws::IOStreamFactory AwsWriteableStreamFactory(void* data, int64_t nbytes) {
   return [=]() { return Aws::New<StringViewStream>("", data, nbytes); };
 }
 
-Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3::S3Client* client,
+Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3Crt::S3CrtClient* client,
                                                 const S3Path& path,
                                                 const std::string& sse_customer_key,
                                                 int64_t start, int64_t length,
@@ -1930,15 +1933,15 @@ class ObjectOutputStream final : public io::OutputStream {
       std::function<Status(const RequestType& request, std::shared_ptr<UploadState>,
                            int32_t part_number, OutcomeType outcome)>;
 
-  static Result<Aws::S3::Model::PutObjectOutcome> TriggerUploadRequest(
-      const Aws::S3::Model::PutObjectRequest& request,
+  static Result<Aws::S3Crt::Model::PutObjectOutcome> TriggerUploadRequest(
+      const Aws::S3Crt::Model::PutObjectRequest& request,
       const std::shared_ptr<S3ClientHolder>& holder) {
     ARROW_ASSIGN_OR_RAISE(auto client_lock, holder->Lock());
     return client_lock.Move()->PutObject(request);
   }
 
-  static Result<Aws::S3::Model::UploadPartOutcome> TriggerUploadRequest(
-      const Aws::S3::Model::UploadPartRequest& request,
+  static Result<Aws::S3Crt::Model::UploadPartOutcome> TriggerUploadRequest(
+      const Aws::S3Crt::Model::UploadPartRequest& request,
       const std::shared_ptr<S3ClientHolder>& holder) {
     ARROW_ASSIGN_OR_RAISE(auto client_lock, holder->Lock());
     return client_lock.Move()->UploadPart(request);
@@ -2004,8 +2007,8 @@ class ObjectOutputStream final : public io::OutputStream {
   }
 
   static Status UploadUsingSingleRequestError(
-      const Aws::S3::Model::PutObjectRequest& request,
-      const Aws::S3::Model::PutObjectOutcome& outcome) {
+      const Aws::S3Crt::Model::PutObjectRequest& request,
+      const Aws::S3Crt::Model::PutObjectOutcome& outcome) {
     return ErrorToStatus(
         std::forward_as_tuple("When uploading object with key '", request.GetKey(),
                               "' in bucket '", request.GetBucket(), "': "),
@@ -2018,28 +2021,29 @@ class ObjectOutputStream final : public io::OutputStream {
 
   Status UploadUsingSingleRequest(const void* data, int64_t nbytes,
                                   std::shared_ptr<Buffer> owned_buffer = nullptr) {
-    auto sync_result_callback = [](const Aws::S3::Model::PutObjectRequest& request,
+    auto sync_result_callback = [](const Aws::S3Crt::Model::PutObjectRequest& request,
                                    std::shared_ptr<UploadState> state,
                                    int32_t part_number,
-                                   Aws::S3::Model::PutObjectOutcome outcome) {
+                                   Aws::S3Crt::Model::PutObjectOutcome outcome) {
       if (!outcome.IsSuccess()) {
         return UploadUsingSingleRequestError(request, outcome);
       }
       return Status::OK();
     };
 
-    auto async_result_callback = [](const Aws::S3::Model::PutObjectRequest& request,
+    auto async_result_callback = [](const Aws::S3Crt::Model::PutObjectRequest& request,
                                     std::shared_ptr<UploadState> state,
                                     int32_t part_number,
-                                    Aws::S3::Model::PutObjectOutcome outcome) {
+                                    Aws::S3Crt::Model::PutObjectOutcome outcome) {
       HandleUploadUsingSingleRequestOutcome(state, request, outcome);
       return Status::OK();
     };
 
-    Aws::S3::Model::PutObjectRequest req{};
+    Aws::S3Crt::Model::PutObjectRequest req{};
     RETURN_NOT_OK(SetMetadataInRequest(&req));
 
-    return Upload<Aws::S3::Model::PutObjectRequest, Aws::S3::Model::PutObjectOutcome>(
+    return Upload<Aws::S3Crt::Model::PutObjectRequest,
+                  Aws::S3Crt::Model::PutObjectOutcome>(
         std::move(req), std::move(sync_result_callback), std::move(async_result_callback),
         data, nbytes, std::move(owned_buffer));
   }
@@ -2048,8 +2052,8 @@ class ObjectOutputStream final : public io::OutputStream {
     return UploadPart(buffer->data(), buffer->size(), buffer);
   }
 
-  static Status UploadPartError(const Aws::S3::Model::UploadPartRequest& request,
-                                const Aws::S3::Model::UploadPartOutcome& outcome) {
+  static Status UploadPartError(const Aws::S3Crt::Model::UploadPartRequest& request,
+                                const Aws::S3Crt::Model::UploadPartOutcome& outcome) {
     return ErrorToStatus(
         std::forward_as_tuple("When uploading part for key '", request.GetKey(),
                               "' in bucket '", request.GetBucket(), "': "),
@@ -2062,14 +2066,14 @@ class ObjectOutputStream final : public io::OutputStream {
       RETURN_NOT_OK(CreateMultipartUpload());
     }
 
-    Aws::S3::Model::UploadPartRequest req{};
+    Aws::S3Crt::Model::UploadPartRequest req{};
     req.SetPartNumber(part_number_);
     req.SetUploadId(multipart_upload_id_);
 
-    auto sync_result_callback = [](const Aws::S3::Model::UploadPartRequest& request,
+    auto sync_result_callback = [](const Aws::S3Crt::Model::UploadPartRequest& request,
                                    std::shared_ptr<UploadState> state,
                                    int32_t part_number,
-                                   Aws::S3::Model::UploadPartOutcome outcome) {
+                                   Aws::S3Crt::Model::UploadPartOutcome outcome) {
       if (!outcome.IsSuccess()) {
         return UploadPartError(request, outcome);
       } else {
@@ -2079,15 +2083,16 @@ class ObjectOutputStream final : public io::OutputStream {
       return Status::OK();
     };
 
-    auto async_result_callback = [](const Aws::S3::Model::UploadPartRequest& request,
+    auto async_result_callback = [](const Aws::S3Crt::Model::UploadPartRequest& request,
                                     std::shared_ptr<UploadState> state,
                                     int32_t part_number,
-                                    Aws::S3::Model::UploadPartOutcome outcome) {
+                                    Aws::S3Crt::Model::UploadPartOutcome outcome) {
       HandleUploadPartOutcome(state, part_number, request, outcome);
       return Status::OK();
     };
 
-    return Upload<Aws::S3::Model::UploadPartRequest, Aws::S3::Model::UploadPartOutcome>(
+    return Upload<Aws::S3Crt::Model::UploadPartRequest,
+                  Aws::S3Crt::Model::UploadPartOutcome>(
         std::move(req), std::move(sync_result_callback), std::move(async_result_callback),
         data, nbytes, std::move(owned_buffer));
   }
@@ -2959,7 +2964,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
   }
 
   static Result<std::vector<std::string>> ProcessListBuckets(
-      const Aws::S3::Model::ListBucketsOutcome& outcome) {
+      const Aws::S3Crt::Model::ListBucketsOutcome& outcome) {
     if (!outcome.IsSuccess()) {
       return ErrorToStatus(std::forward_as_tuple("When listing buckets: "), "ListBuckets",
                            outcome.GetError());

@@ -84,7 +84,7 @@ inline bool IsConnectError(const Aws::Client::AWSError<Error>& error) {
 template <typename ErrorType>
 inline std::optional<std::string> BucketRegionFromError(
     const Aws::Client::AWSError<ErrorType>& error) {
-  if constexpr (std::is_same_v<ErrorType, Aws::S3::S3Errors>) {
+  if constexpr (std::is_same_v<ErrorType, Aws::S3Crt::S3CrtErrors>) {
     const auto& headers = error.GetResponseHeaders();
     const auto it = headers.find("x-amz-bucket-region");
     if (it != headers.end()) {
@@ -95,22 +95,22 @@ inline std::optional<std::string> BucketRegionFromError(
   return std::nullopt;
 }
 
-inline bool IsNotFound(const Aws::Client::AWSError<Aws::S3::S3Errors>& error) {
+inline bool IsNotFound(const Aws::Client::AWSError<Aws::S3Crt::S3CrtErrors>& error) {
   const auto error_type = error.GetErrorType();
-  return (error_type == Aws::S3::S3Errors::NO_SUCH_BUCKET ||
-          error_type == Aws::S3::S3Errors::RESOURCE_NOT_FOUND);
+  return (error_type == Aws::S3Crt::S3CrtErrors::NO_SUCH_BUCKET ||
+          error_type == Aws::S3Crt::S3CrtErrors::RESOURCE_NOT_FOUND);
 }
 
-inline bool IsAlreadyExists(const Aws::Client::AWSError<Aws::S3::S3Errors>& error) {
+inline bool IsAlreadyExists(const Aws::Client::AWSError<Aws::S3Crt::S3CrtErrors>& error) {
   const auto error_type = error.GetErrorType();
-  return (error_type == Aws::S3::S3Errors::BUCKET_ALREADY_EXISTS ||
-          error_type == Aws::S3::S3Errors::BUCKET_ALREADY_OWNED_BY_YOU);
+  return (error_type == Aws::S3Crt::S3CrtErrors::BUCKET_ALREADY_EXISTS ||
+          error_type == Aws::S3Crt::S3CrtErrors::BUCKET_ALREADY_OWNED_BY_YOU);
 }
 
-inline std::string S3ErrorToString(Aws::S3::S3Errors error_type) {
+inline std::string S3ErrorToString(Aws::S3Crt::S3CrtErrors error_type) {
   switch (error_type) {
-#define S3_ERROR_CASE(NAME)     \
-  case Aws::S3::S3Errors::NAME: \
+#define S3_ERROR_CASE(NAME)           \
+  case Aws::S3Crt::S3CrtErrors::NAME: \
     return #NAME;
 
     S3_ERROR_CASE(INCOMPLETE_SIGNATURE)
@@ -172,10 +172,10 @@ Status ErrorToStatus(const std::string& prefix, const std::string& operation,
   // XXX Handle fine-grained error types
   // See
   // https://sdk.amazonaws.com/cpp/api/LATEST/namespace_aws_1_1_s3.html#ae3f82f8132b619b6e91c88a9f1bde371
-  auto error_type = static_cast<Aws::S3::S3Errors>(error.GetErrorType());
+  auto error_type = static_cast<Aws::S3Crt::S3CrtErrors>(error.GetErrorType());
   std::stringstream ss;
   ss << S3ErrorToString(error_type);
-  if (error_type == Aws::S3::S3Errors::UNKNOWN) {
+  if (error_type == Aws::S3Crt::S3CrtErrors::UNKNOWN) {
     ss << " (HTTP status " << static_cast<int>(error.GetResponseCode()) << ")";
   }
 
