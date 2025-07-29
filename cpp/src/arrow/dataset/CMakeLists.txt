@@ -191,8 +191,7 @@ if(ARROW_JSON)
 endif()
 
 if(ARROW_ORC)
-  add_arrow_dataset_test(file_orc_test EXTRA_LINK_LIBS ${ARROW_DATASET_TEST_LINK_LIBS}
-                         orc::orc)
+  add_arrow_dataset_test(file_orc_test EXTRA_LINK_LIBS ${ARROW_DATASET_TEST_LINK_LIBS})
 endif()
 
 if(ARROW_PARQUET)
