@@ -99,7 +99,7 @@
 
 namespace parquet {
 
-class ParquetException : public std::exception {
+class PARQUET_EXPORT ParquetException : public std::exception {
  public:
   PARQUET_NORETURN static void EofException(const std::string& msg = "") {
     static std::string prefix = "Unexpected end of stream";
