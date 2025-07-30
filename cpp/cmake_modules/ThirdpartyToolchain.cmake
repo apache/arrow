@@ -1767,6 +1767,10 @@ function(build_thrift)
   set(WITH_QT5 OFF)
   set(WITH_ZLIB OFF)
 
+  # Apache Thrift may change CMAKE_DEBUG_POSTFIX. So we'll restore the
+  # original CMAKE_DEBUG_POSTFIX later.
+  set(CMAKE_DEBUG_POSTFIX_KEEP ${CMAKE_DEBUG_POSTFIX})
+
   # Remove Apache Arrow's CMAKE_MODULE_PATH to ensure using Apache
   # Thrift's cmake_modules/.
   #
@@ -1774,6 +1778,12 @@ function(build_thrift)
   # is merged.
   list(POP_FRONT CMAKE_MODULE_PATH)
   fetchcontent_makeavailable(thrift)
+
+  # Apache Thrift may change CMAKE_DEBUG_POSTFIX. So we restore
+  # CMAKE_DEBUG_POSTFIX.
+  set(CMAKE_DEBUG_POSTFIX
+      ${CMAKE_DEBUG_POSTFIX_KEEP}
+      CACHE BOOL "" FORCE)
 
   if(CMAKE_VERSION VERSION_LESS 3.28)
     set_property(DIRECTORY ${thrift_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
