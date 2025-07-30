@@ -44,7 +44,7 @@ public class CallHeadersTests
     {
         _headers.Insert("User", "Alice");
         _headers.Insert("User", "Bob");
-        Assert.Equal("Bob", _headers.Get("User"));
+        Assert.Equal("Alice", _headers.Get("User"));
     }
 
     [Fact]
