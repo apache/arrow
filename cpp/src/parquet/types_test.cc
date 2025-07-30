@@ -127,6 +127,7 @@ TEST(TypePrinter, StatisticsTypes) {
   ASSERT_EQ(smax, FormatStatValue(Type::BYTE_ARRAY, smax, LogicalType::String()));
   ASSERT_EQ("0x696a6b6c6d6e6f7000", FormatStatValue(Type::BYTE_ARRAY, smax));
 
+  // String
   smin = std::string("abcdefgh");
   smax = std::string("ijklmnop");
   ASSERT_EQ(smin,
@@ -136,6 +137,7 @@ TEST(TypePrinter, StatisticsTypes) {
   ASSERT_EQ("0x6162636465666768", FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smin));
   ASSERT_EQ("0x696a6b6c6d6e6f70", FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smax));
 
+  // Decimal
   int32_t int32_decimal = 1024;
   smin = std::string(reinterpret_cast<char*>(&int32_decimal), sizeof(int32_t));
   ASSERT_EQ("10.24", FormatStatValue(Type::INT32, smin, LogicalType::Decimal(6, 2)));
@@ -153,6 +155,12 @@ TEST(TypePrinter, StatisticsTypes) {
                                           LogicalType::Decimal(10, 4)));
   ASSERT_EQ("0x11223344", FormatStatValue(Type::BYTE_ARRAY, smin));
   ASSERT_EQ("0x11223344", FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smin));
+
+  // Float16
+  bytes = {0x1c, 0x50};
+  smin = std::string(bytes.begin(), bytes.end());
+  ASSERT_EQ("32.875",
+            FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smin, LogicalType::Float16()));
 }
 
 TEST(TestInt96Timestamp, Decoding) {

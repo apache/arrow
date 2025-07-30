@@ -27,6 +27,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
 
 #include <rapidjson/document.h>
@@ -166,14 +167,26 @@ std::string FormatNonUTF8Value(::std::string_view val) {
   return result.str();
 }
 
+std::string FormatFloat16Value(::std::string_view val) {
+  std::stringstream result;
+  auto float16 = ::arrow::util::Float16::FromLittleEndian(
+      reinterpret_cast<const uint8_t*>(val.data()));
+  result << float16.ToFloat();
+  return result.str();
+}
+
 }  // namespace
 
 std::string FormatStatValue(Type::type parquet_type, ::std::string_view val,
                             const std::shared_ptr<const LogicalType>& logical_type) {
+  std::stringstream result;
   const char* bytes = val.data();
   switch (parquet_type) {
     case Type::BOOLEAN: {
-      return FormatNumericValue<bool>(val);
+      bool value{};
+      std::memcpy(&value, bytes, sizeof(bool));
+      result << value;
+      break;
     }
     case Type::INT32: {
       if (logical_type != nullptr && logical_type->is_decimal()) {
@@ -194,11 +207,10 @@ std::string FormatStatValue(Type::type parquet_type, ::std::string_view val,
       return FormatNumericValue<float>(val);
     }
     case Type::INT96: {
-      std::stringstream result;
       std::array<int32_t, 3> values{};
       std::memcpy(values.data(), bytes, 3 * sizeof(int32_t));
       result << values[0] << " " << values[1] << " " << values[2];
-      return result.str();
+      break;
     }
     case Type::BYTE_ARRAY:
     case Type::FIXED_LEN_BYTE_ARRAY: {
@@ -209,6 +221,9 @@ std::string FormatStatValue(Type::type parquet_type, ::std::string_view val,
         if (logical_type->is_string()) {
           return std::string(val);
         }
+        if (logical_type->is_float16()) {
+          return FormatFloat16Value(val);
+        }
       }
       return FormatNonUTF8Value(val);
     }
@@ -216,7 +231,7 @@ std::string FormatStatValue(Type::type parquet_type, ::std::string_view val,
     default:
       break;
   }
-  return "";
+  return result.str();
 }
 
 std::string EncodingToString(Encoding::type t) {
