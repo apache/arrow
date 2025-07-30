@@ -233,7 +233,7 @@ class DatasetWriterTestFixture : public testing::Test {
   util::AsyncTaskScheduler* scheduler_;
   Future<> scheduler_finished_;
   FileSystemDatasetWriteOptions write_options_;
-  bool paused_{false};
+  std::atomic_bool paused_{false};
   uint64_t counter_ = 0;
 };
 
