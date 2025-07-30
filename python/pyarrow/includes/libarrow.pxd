@@ -102,6 +102,11 @@ cdef extern from "arrow/util/future.h" namespace "arrow" nogil:
 
 
 cdef extern from "<variant>" namespace "std" nogil:
+    cdef cppclass CArrayStatisticsCountType" std::variant<int64_t, double>":
+        CArrayStatisticsCountType()
+        CArrayStatisticsCountType(int64_t)
+        CArrayStatisticsCountType(double)
+
     cdef cppclass CArrayStatisticsValueType" std::variant<bool, int64_t, uint64_t, double, std::string>":
         CArrayStatisticsValueType()
         CArrayStatisticsValueType(c_bool)
@@ -202,7 +207,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CArrayStatistics" arrow::ArrayStatistics":
         optional[int64_t] null_count
-        optional[int64_t] distinct_count
+        optional[CArrayStatisticsCountType] distinct_count
         optional[CArrayStatisticsValueType] min
         c_bool is_min_exact
         optional[CArrayStatisticsValueType] max
