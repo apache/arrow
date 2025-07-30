@@ -292,7 +292,7 @@ TEST_F(DatasetWriterTestFixture, BatchWriteConcurrent) {
               while (paused_) {
                 SleepABit();
               }
-              dataset_writer->WriteRecordBatch(MakeBatch(batch + i + 10 * j), "");
+              dataset_writer->WriteRecordBatch(MakeBatch(0, batch + i + 10 * j), "");
             }
           }));
         }
