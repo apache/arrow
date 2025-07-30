@@ -61,12 +61,11 @@ class Throttle {
     if (current_value_ >= max_value_) {
       in_waiting_ = values;
       backpressure_ = Future<>::Make();
-    } else {
-      current_value_ += values;
-      DCHECK(backpressure_.is_finished());
-      return std::nullopt;
+      return backpressure_;
     }
-    return backpressure_;
+    current_value_ += values;
+    DCHECK(backpressure_.is_finished());
+    return std::nullopt;
   }
 
   void Release(uint64_t values) {
