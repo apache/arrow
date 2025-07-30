@@ -21,21 +21,7 @@
 
 namespace arrow::internal {
 
-using arrow_vendored::date::choose;
-using arrow_vendored::date::days;
-using arrow_vendored::date::floor;
-using arrow_vendored::date::format;
-using arrow_vendored::date::local_days;
-using arrow_vendored::date::local_time;
-using arrow_vendored::date::locate_zone;
-using arrow_vendored::date::sys_days;
-using arrow_vendored::date::sys_info;
-using arrow_vendored::date::sys_seconds;
-using arrow_vendored::date::sys_time;
-using arrow_vendored::date::time_zone;
-using arrow_vendored::date::year_month_day;
-using arrow_vendored::date::zoned_time;
-using arrow_vendored::date::zoned_traits;
+namespace date = arrow_vendored::date;
 using std::chrono::minutes;
 
 // OffsetZone object is inspired by an example from date.h documentation:
@@ -48,20 +34,22 @@ class OffsetZone {
   explicit OffsetZone(minutes offset) : offset_{offset} {}
 
   template <class Duration>
-  local_time<Duration> to_local(sys_time<Duration> tp) const {
-    return local_time<Duration>{(tp + offset_).time_since_epoch()};
+  date::local_time<Duration> to_local(date::sys_time<Duration> tp) const {
+    return date::local_time<Duration>{(tp + offset_).time_since_epoch()};
   }
 
   template <class Duration>
-  sys_time<Duration> to_sys(local_time<Duration> tp, choose = choose::earliest) const {
-    return sys_time<Duration>{(tp - offset_).time_since_epoch()};
+  date::sys_time<Duration> to_sys(
+      date::local_time<Duration> tp,
+      [[maybe_unused]] date::choose = date::choose::earliest) const {
+    return date::sys_time<Duration>{(tp - offset_).time_since_epoch()};
   }
 
   template <class Duration>
-  sys_info get_info(sys_time<Duration> st) const {
-    return {sys_seconds::min(), sys_seconds::max(), offset_, minutes(0),
-            offset_ >= minutes(0) ? "+" + format("%H%M", offset_)
-                                  : "-" + format("%H%M", -offset_)};
+  date::sys_info get_info(date::sys_time<Duration> st) const {
+    return {date::sys_seconds::min(), date::sys_seconds::max(), offset_, minutes(0),
+            offset_ >= minutes(0) ? "+" + date::format("%H%M", offset_)
+                                  : "-" + date::format("%H%M", -offset_)};
   }
 
   const OffsetZone* operator->() const { return this; }
@@ -71,11 +59,10 @@ class OffsetZone {
 
 namespace arrow_vendored::date {
 using arrow::internal::OffsetZone;
-using std::chrono::minutes;
 
 template <>
 struct zoned_traits<OffsetZone> {
-  static OffsetZone default_zone() { return OffsetZone{minutes{0}}; }
+  static OffsetZone default_zone() { return OffsetZone{std::chrono::minutes{0}}; }
 
   static OffsetZone locate_zone(const std::string& name) {
     throw std::runtime_error{"OffsetZone can't parse " + name};
