@@ -170,13 +170,6 @@ std::string FormatNonUTF8Value(::std::string_view val) {
 
 std::string FormatStatValue(Type::type parquet_type, ::std::string_view val,
                             const std::shared_ptr<const LogicalType>& logical_type) {
-  std::stringstream result;
-
-  if (logical_type != nullptr && logical_type->is_decimal()) {
-    return FormatDecimalValue(parquet_type, val, logical_type);
-  }
-
-  // Default handling for non-decimal types or when decimal processing fails
   const char* bytes = val.data();
   switch (parquet_type) {
     case Type::BOOLEAN: {
@@ -201,10 +194,11 @@ std::string FormatStatValue(Type::type parquet_type, ::std::string_view val,
       return FormatNumericValue<float>(val);
     }
     case Type::INT96: {
+      std::stringstream result;
       std::array<int32_t, 3> values{};
       std::memcpy(values.data(), bytes, 3 * sizeof(int32_t));
       result << values[0] << " " << values[1] << " " << values[2];
-      break;
+      return result.str();
     }
     case Type::BYTE_ARRAY:
     case Type::FIXED_LEN_BYTE_ARRAY: {
@@ -222,7 +216,7 @@ std::string FormatStatValue(Type::type parquet_type, ::std::string_view val,
     default:
       break;
   }
-  return result.str();
+  return "";
 }
 
 std::string EncodingToString(Encoding::type t) {
