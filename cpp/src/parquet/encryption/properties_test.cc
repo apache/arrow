@@ -230,6 +230,122 @@ TEST(TestEncryptionProperties, UseAES_GCM_CTR_V1Algorithm) {
   ASSERT_EQ(ParquetCipher::AES_GCM_CTR_V1, props->algorithm().algorithm);
 }
 
+TEST(TestExternalFileEncryptionProperties, SuperClassFieldsSetCorrectly) {
+  std::string column_name_1 = "column_1";
+  ColumnEncryptionProperties::Builder column_builder_1(column_name_1);
+  column_builder_1.key(kColumnEncryptionKey1);
+  column_builder_1.key_id("kc1");
+
+  std::string column_name_2 = "column_2";
+  ColumnEncryptionProperties::Builder column_builder_2(column_name_2);
+  column_builder_2.key(kColumnEncryptionKey2);
+  column_builder_2.key_id("kc2");
+
+  std::map<std::string, std::shared_ptr<ColumnEncryptionProperties>> encrypted_columns;
+  encrypted_columns[column_name_1] = column_builder_1.build();
+  encrypted_columns[column_name_2] = column_builder_2.build();
+
+  ExternalFileEncryptionProperties::Builder builder(kFooterEncryptionKey);
+  builder.footer_key_metadata("kf");
+  builder.encrypted_columns(encrypted_columns);
+  std::shared_ptr<ExternalFileEncryptionProperties> props = builder.build_external();
+
+  ASSERT_EQ(true, props->encrypted_footer());
+  ASSERT_EQ(kDefaultEncryptionAlgorithm, props->algorithm().algorithm);
+  ASSERT_EQ(kFooterEncryptionKey, props->footer_key());
+
+  std::shared_ptr<ColumnEncryptionProperties> out_col_props_1 =
+      props->column_encryption_properties(column_name_1);
+
+  ASSERT_EQ(column_name_1, out_col_props_1->column_path());
+  ASSERT_EQ(true, out_col_props_1->is_encrypted());
+  ASSERT_EQ(false, out_col_props_1->is_encrypted_with_footer_key());
+  ASSERT_EQ(kColumnEncryptionKey1, out_col_props_1->key());
+  ASSERT_EQ("kc1", out_col_props_1->key_metadata());
+
+  std::shared_ptr<ColumnEncryptionProperties> out_col_props_2 =
+      props->column_encryption_properties(column_name_2);
+
+  ASSERT_EQ(column_name_2, out_col_props_2->column_path());
+  ASSERT_EQ(true, out_col_props_2->is_encrypted());
+  ASSERT_EQ(false, out_col_props_2->is_encrypted_with_footer_key());
+  ASSERT_EQ(kColumnEncryptionKey2, out_col_props_2->key());
+  ASSERT_EQ("kc2", out_col_props_2->key_metadata());
+
+  std::string column_name_3 = "column_3";
+  std::shared_ptr<ColumnEncryptionProperties> out_col_props_3 =
+      props->column_encryption_properties(column_name_3);
+
+  ASSERT_EQ(NULLPTR, out_col_props_3);
+  ASSERT_EQ(true, props->app_context().empty());
+  ASSERT_EQ(true, props->connection_config().size() == 0);
+}
+
+// The subclass adds two additional fields
+TEST(TestExternalFileEncryptionProperties, SetExternalContextAndConfig) {
+  std::string app_context = "String containing valid JSON with app context. Not parsed here";
+  std::map<std::string, std::string> connection_config;
+  connection_config["lib_location"] = "path/to/lib.so";
+  connection_config["config_file"] = "path/to/config/file";
+
+  ExternalFileEncryptionProperties::Builder builder(kFooterEncryptionKey);
+  builder.app_context(app_context);
+  builder.connection_config(connection_config);
+  std::shared_ptr<ExternalFileEncryptionProperties> props = builder.build_external();
+
+  ASSERT_EQ(false, props->app_context().empty());
+  ASSERT_EQ(app_context, props->app_context());
+  ASSERT_EQ(false, props->connection_config().size() == 0);
+  ASSERT_EQ(connection_config, props->connection_config());
+}
+
+TEST(TestExternalFileEncryptionProperties, EncryptTwoColumnsWithDifferentAlgorithms) {
+  std::string column_name_1 = "column_1";
+  ColumnEncryptionProperties::Builder column_builder_1(column_name_1);
+  column_builder_1.key(kColumnEncryptionKey1);
+  column_builder_1.key_id("kc1");
+  column_builder_1.parquet_cipher(ParquetCipher::AES_GCM_V1);
+
+  std::string column_name_2 = "column_2";
+  ColumnEncryptionProperties::Builder column_builder_2(column_name_2);
+  column_builder_2.key(kColumnEncryptionKey2);
+  column_builder_2.key_id("kc2");
+  column_builder_2.parquet_cipher(ParquetCipher::AES_GCM_CTR_V1);
+
+  std::map<std::string, std::shared_ptr<ColumnEncryptionProperties>> encrypted_columns;
+  encrypted_columns[column_name_1] = column_builder_1.build();
+  encrypted_columns[column_name_2] = column_builder_2.build();
+
+  ExternalFileEncryptionProperties::Builder builder(kFooterEncryptionKey);
+  builder.footer_key_metadata("kf");
+  builder.encrypted_columns(encrypted_columns);
+  std::shared_ptr<ExternalFileEncryptionProperties> props = builder.build_external();
+
+  ASSERT_EQ(true, props->encrypted_footer());
+  ASSERT_EQ(kDefaultEncryptionAlgorithm, props->algorithm().algorithm);
+  ASSERT_EQ(kFooterEncryptionKey, props->footer_key());
+
+  std::shared_ptr<ColumnEncryptionProperties> out_col_props_1 =
+      props->column_encryption_properties(column_name_1);
+
+  ASSERT_EQ(column_name_1, out_col_props_1->column_path());
+  ASSERT_EQ(true, out_col_props_1->is_encrypted());
+  ASSERT_EQ(false, out_col_props_1->is_encrypted_with_footer_key());
+  ASSERT_EQ(kColumnEncryptionKey1, out_col_props_1->key());
+  ASSERT_EQ(ParquetCipher::AES_GCM_V1, out_col_props_1->parquet_cipher());
+  ASSERT_EQ("kc1", out_col_props_1->key_metadata());
+
+  std::shared_ptr<ColumnEncryptionProperties> out_col_props_2 =
+      props->column_encryption_properties(column_name_2);
+
+  ASSERT_EQ(column_name_2, out_col_props_2->column_path());
+  ASSERT_EQ(true, out_col_props_2->is_encrypted());
+  ASSERT_EQ(false, out_col_props_2->is_encrypted_with_footer_key());
+  ASSERT_EQ(kColumnEncryptionKey2, out_col_props_2->key());
+  ASSERT_EQ(ParquetCipher::AES_GCM_CTR_V1, out_col_props_2->parquet_cipher());
+  ASSERT_EQ("kc2", out_col_props_2->key_metadata());
+}
+
 TEST(TestDecryptionProperties, UseKeyRetriever) {
   std::shared_ptr<parquet::StringKeyIdRetriever> string_kr1 =
       std::make_shared<parquet::StringKeyIdRetriever>();

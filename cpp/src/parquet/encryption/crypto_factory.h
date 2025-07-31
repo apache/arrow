@@ -115,13 +115,13 @@ struct PARQUET_EXPORT ExternalEncryptionConfiguration : public EncryptionConfigu
   /// algorithm specified in the encryption_algorithm field. 
   /// If a column name appears in the new per_column_encryption map, it will be encrypted using the
   /// per column specific algorithm and key.
-  /// If a column name appears in both, the per_column_encryption values will take precedence.
+  /// If a column name appears in both, an exception will be thrown.
   std::unordered_map<std::string, ColumnEncryptionAttributes> per_column_encryption;
 
   /// External encryption services may use additional context provided by the application to
   /// enforce robust access control. The values sent to the external service depend on each
   /// implementation. 
-  /// This values must be a valid JSON-formatted string.
+  /// This value must be a valid JSON-formatted string.
   /// Format: "{\"user_id\": \"abc123\", \"location\": {\"lat\": 9.7489, \"lon\": -83.7534}}"
   std::string app_context;
   
@@ -153,7 +153,7 @@ class PARQUET_EXPORT CryptoFactory {
   void RegisterKmsClientFactory(std::shared_ptr<KmsClientFactory> kms_client_factory);
 
   /// Get the encryption properties for a Parquet file.
-  /// If external key material is used then a file system and path to the
+  /// If key material from outside the file is used, then a file system and path to the
   /// parquet file must be provided.
   std::shared_ptr<FileEncryptionProperties> GetFileEncryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
@@ -165,7 +165,7 @@ class PARQUET_EXPORT CryptoFactory {
   std::shared_ptr<ExternalFileEncryptionProperties> GetExternalFileEncryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
       const ExternalEncryptionConfiguration& external_encryption_config,
-      const EncryptionConfiguration& encryption_config, const std::string& file_path = "",
+      const std::string& file_path = "",
       const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
 
   /// Get decryption properties for a Parquet file.

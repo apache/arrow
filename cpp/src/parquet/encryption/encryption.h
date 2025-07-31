@@ -475,6 +475,43 @@ class PARQUET_EXPORT ExternalFileEncryptionProperties : public FileEncryptionPro
     /// remote service call. 
     Builder* connection_config(const std::map<std::string, std::string>& config);
 
+    /// Forward all base class property methods to the base class Builder so we can return the
+    /// correct Builder type.
+    Builder* set_plaintext_footer() {
+      FileEncryptionProperties::Builder::set_plaintext_footer();
+      return this;
+    }
+
+    Builder* algorithm(ParquetCipher::type parquet_cipher) {
+      FileEncryptionProperties::Builder::algorithm(parquet_cipher);
+      return this;
+    }
+
+    Builder* footer_key_id(const std::string& key_id) {
+      FileEncryptionProperties::Builder::footer_key_id(key_id);
+      return this;
+    }
+
+    Builder* footer_key_metadata(const std::string& footer_key_metadata) {
+      FileEncryptionProperties::Builder::footer_key_metadata(footer_key_metadata);
+      return this;
+    }
+
+    Builder* aad_prefix(const std::string& aad_prefix) {
+      FileEncryptionProperties::Builder::aad_prefix(aad_prefix);
+      return this;
+    }
+
+    Builder* disable_aad_prefix_storage() {
+      FileEncryptionProperties::Builder::disable_aad_prefix_storage();
+      return this;
+    }
+
+    Builder* encrypted_columns(const ColumnPathToEncryptionPropertiesMap& encrypted_columns) {
+      FileEncryptionProperties::Builder::encrypted_columns(encrypted_columns);
+      return this;
+    }
+
     std::shared_ptr<ExternalFileEncryptionProperties> build_external();
 
    private:
