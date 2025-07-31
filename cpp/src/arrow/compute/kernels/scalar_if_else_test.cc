@@ -3144,6 +3144,12 @@ TEST(TestCoalesce, Boolean) {
               ArrayFromJSON(type, "[true, true, false, true]"));
   CheckScalar("coalesce", {scalar1, values1},
               ArrayFromJSON(type, "[false, false, false, false]"));
+
+  // Regression test from https://github.com/apache/arrow/issues/47234
+  auto values_with_null = ArrayFromJSON(type, "[true, false, false, false, false, null]");
+  auto expected = ArrayFromJSON(type, "[true, false, false, false, false, true]");
+  auto scalar2 = ScalarFromJSON(type, "true");
+  CheckScalar("coalesce", {values_with_null, scalar2}, expected);
 }
 
 TEST(TestCoalesce, DayTimeInterval) {
