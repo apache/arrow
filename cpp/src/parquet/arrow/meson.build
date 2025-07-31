@@ -15,13 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[wrap-file]
-directory = rapidjson-232389d4f1012dddec4ef84861face2d2ba85709
-source_url = https://github.com/miloyip/rapidjson/archive/232389d4f1012dddec4ef84861face2d2ba85709.tar.gz
-source_filename = rapidjson-232389d4f1012dddec4ef84861face2d2ba85709.tar.gz
-source_hash = b9290a9a6d444c8e049bd589ab804e0ccf2b05dc5984a19ed5ae75d090064806
-source_fallback_url = https://apache.jfrog.io/artifactory/arrow/thirdparty/7.0.0/rapidjson-232389d4f1012dddec4ef84861face2d2ba85709.tar.gz
-patch_directory = rapidjson
+install_headers(
+    ['reader.h', 'schema.h', 'test_util.h', 'writer.h'],
+    subdir: 'parquet/arrow',
+)
 
-[provide]
-rapidjson = rapidjson_dep
+if needs_fuzzing
+    executable(
+        'parquet-arrow-generate-fuzz-corpus',
+        sources: ['generate_fuzz_corpus.cc'],
+        dependencies: [arrow_parquet_dep, arrow_test_dep],
+    )
+
+    exeuctable('parquet-arrow-fuzz', sources: ['fuzz.cc'])
+endif

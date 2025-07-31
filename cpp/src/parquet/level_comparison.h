@@ -25,7 +25,7 @@ namespace parquet::internal {
 
 /// Builds a  bitmap where each set bit indicates the corresponding level is greater
 /// than rhs.
-uint64_t PARQUET_EXPORT GreaterThanBitmap(const int16_t* levels, int64_t num_levels,
+PARQUET_EXPORT uint64_t GreaterThanBitmap(const int16_t* levels, int64_t num_levels,
                                           int16_t rhs);
 
 struct MinMax {

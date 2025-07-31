@@ -64,6 +64,15 @@
 #    ifndef ARROW_EXPORT
 #      define ARROW_EXPORT [[gnu::visibility("default")]]
 #    endif
+#    ifndef ARROW_TEMPLATE_EXPORT
+// clang does not support gnu:visibility attribute in template exports
+// see https://github.com/llvm/llvm-project/issues/29464
+#      if defined(__clang__)
+#        define ARROW_TEMPLATE_EXPORT __attribute__((visibility("default")))
+#      else
+#        define ARROW_TEMPLATE_EXPORT ARROW_EXPORT
+#      endif
+#    endif
 #    ifndef ARROW_NO_EXPORT
 #      define ARROW_NO_EXPORT [[gnu::visibility("hidden")]]
 #    endif
@@ -72,13 +81,15 @@
 #    ifndef ARROW_EXPORT
 #      define ARROW_EXPORT
 #    endif
+#    ifndef ARROW_TEMPLATE_EXPORT
+#      define ARROW_TEMPLATE_EXPORT
+#    endif
 #    ifndef ARROW_NO_EXPORT
 #      define ARROW_NO_EXPORT
 #    endif
 #  endif
 
 #  define ARROW_FRIEND_EXPORT
-#  define ARROW_TEMPLATE_EXPORT
 
 // [[gnu::visibility("default")]] even when #included by a non-arrow source
 #  define ARROW_FORCE_EXPORT [[gnu::visibility("default")]]

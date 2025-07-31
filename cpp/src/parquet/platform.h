@@ -43,19 +43,29 @@
 #    pragma GCC diagnostic ignored "-Wattributes"
 #  endif
 
+#  if defined(__cplusplus) && defined(__GNUC__) && !defined(__clang__)
+// Use C++ attribute syntax where possible to avoid GCC parser bug
+// (https://stackoverflow.com/questions/57993818/gcc-how-to-combine-attribute-dllexport-and-nodiscard-in-a-struct-de)
+#    define PARQUET_DLLEXPORT [[gnu::dllexport]]
+#    define PARQUET_DLLIMPORT [[gnu::dllimport]]
+#  else
+#    define PARQUET_DLLEXPORT __declspec(dllexport)
+#    define PARQUET_DLLIMPORT __declspec(dllimport)
+#  endif
+
 #  ifdef PARQUET_STATIC
 #    define PARQUET_EXPORT
 #  elif defined(PARQUET_EXPORTING)
-#    define PARQUET_EXPORT __declspec(dllexport)
+#    define PARQUET_EXPORT PARQUET_DLLEXPORT
 #  else
-#    define PARQUET_EXPORT __declspec(dllimport)
+#    define PARQUET_EXPORT PARQUET_DLLIMPORT
 #  endif
 
 #  define PARQUET_NO_EXPORT
 
 #else  // Not Windows
 #  ifndef PARQUET_EXPORT
-#    define PARQUET_EXPORT __attribute__((visibility("default")))
+#    define PARQUET_EXPORT [[gnu::visibility("default")]]
 #  endif
 #  ifndef PARQUET_NO_EXPORT
 #    define PARQUET_NO_EXPORT __attribute__((visibility("hidden")))

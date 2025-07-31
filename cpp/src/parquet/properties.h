@@ -152,7 +152,7 @@ class PARQUET_EXPORT ReaderProperties {
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
 };
 
-ReaderProperties PARQUET_EXPORT default_reader_properties();
+PARQUET_EXPORT ReaderProperties default_reader_properties();
 
 static constexpr int64_t kDefaultDataPageSize = 1024 * 1024;
 static constexpr bool DEFAULT_IS_DICTIONARY_ENABLED = true;

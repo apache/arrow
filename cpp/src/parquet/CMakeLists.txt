@@ -312,6 +312,7 @@ if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
   target_link_libraries(parquet_test_support thrift::thrift)
   list(PREPEND PARQUET_TEST_LINK_LIBS parquet_test_support)
   list(APPEND PARQUET_LIBRARIES parquet_test_support)
+  target_compile_definitions(parquet_test_support PUBLIC PARQUET_STATIC)
 endif()
 
 if(ARROW_TESTING)

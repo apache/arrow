@@ -234,7 +234,7 @@ class PARQUET_EXPORT StreamWriter {
   static constexpr int16_t kRepLevelZero = 0;
   static constexpr int64_t kBatchSizeOne = 1;
 
-  static int64_t default_row_group_size_;
+  inline static int64_t default_row_group_size_{512 * 1024 * 1024};  // 512MB;
 };
 
 struct PARQUET_EXPORT EndRowType {};

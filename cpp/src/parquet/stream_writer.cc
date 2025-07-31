@@ -21,8 +21,6 @@
 
 namespace parquet {
 
-int64_t StreamWriter::default_row_group_size_{512 * 1024 * 1024};  // 512MB
-
 constexpr int16_t StreamWriter::kDefLevelZero;
 constexpr int16_t StreamWriter::kDefLevelOne;
 constexpr int16_t StreamWriter::kRepLevelZero;

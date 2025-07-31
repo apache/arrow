@@ -164,13 +164,13 @@ PARQUET_EXPORT
 /// \param chunk_size maximum number of rows to write per row group.
 /// \param properties general Parquet writer properties.
 /// \param arrow_properties Arrow-specific writer properties.
-::arrow::Status PARQUET_EXPORT
-WriteTable(const ::arrow::Table& table, MemoryPool* pool,
-           std::shared_ptr<::arrow::io::OutputStream> sink,
-           int64_t chunk_size = DEFAULT_MAX_ROW_GROUP_LENGTH,
-           std::shared_ptr<WriterProperties> properties = default_writer_properties(),
-           std::shared_ptr<ArrowWriterProperties> arrow_properties =
-               default_arrow_writer_properties());
+PARQUET_EXPORT ::arrow::Status WriteTable(
+    const ::arrow::Table& table, MemoryPool* pool,
+    std::shared_ptr<::arrow::io::OutputStream> sink,
+    int64_t chunk_size = DEFAULT_MAX_ROW_GROUP_LENGTH,
+    std::shared_ptr<WriterProperties> properties = default_writer_properties(),
+    std::shared_ptr<ArrowWriterProperties> arrow_properties =
+        default_arrow_writer_properties());
 
 }  // namespace arrow
 }  // namespace parquet

@@ -179,7 +179,7 @@ struct PARQUET_EXPORT ValidityBitmapInputOutput {
 //  at least one member that is not a list and has no list descendents.
 //  For lists use DefRepLevelsToList and structs where all descendants contain
 //  a list use DefRepLevelsToBitmap.
-void PARQUET_EXPORT DefLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
+PARQUET_EXPORT void DefLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
                                       LevelInfo level_info,
                                       ValidityBitmapInputOutput* output);
 
@@ -190,12 +190,12 @@ void PARQUET_EXPORT DefLevelsToBitmap(const int16_t* def_levels, int64_t num_def
 // method vs the other ones in this file for reconstruction.
 //
 // Offsets must be sized to 1 + values_read_upper_bound.
-void PARQUET_EXPORT DefRepLevelsToList(const int16_t* def_levels,
+PARQUET_EXPORT void DefRepLevelsToList(const int16_t* def_levels,
                                        const int16_t* rep_levels, int64_t num_def_levels,
                                        LevelInfo level_info,
                                        ValidityBitmapInputOutput* output,
                                        int32_t* offsets);
-void PARQUET_EXPORT DefRepLevelsToList(const int16_t* def_levels,
+PARQUET_EXPORT void DefRepLevelsToList(const int16_t* def_levels,
                                        const int16_t* rep_levels, int64_t num_def_levels,
                                        LevelInfo level_info,
                                        ValidityBitmapInputOutput* output,
@@ -204,13 +204,13 @@ void PARQUET_EXPORT DefRepLevelsToList(const int16_t* def_levels,
 // Reconstructs a validity bitmap for a struct every member is a list or has
 // a list descendant.  See documentation on DefLevelsToBitmap for when more
 // details on this method compared to the other ones defined above.
-void PARQUET_EXPORT DefRepLevelsToBitmap(const int16_t* def_levels,
+PARQUET_EXPORT void DefRepLevelsToBitmap(const int16_t* def_levels,
                                          const int16_t* rep_levels,
                                          int64_t num_def_levels, LevelInfo level_info,
                                          ValidityBitmapInputOutput* output);
 
 // This is exposed to ensure we can properly test a software simulated pext function
 // (i.e. it isn't hidden by runtime dispatch).
-uint64_t PARQUET_EXPORT TestOnlyExtractBitsSoftware(uint64_t bitmap, uint64_t selection);
+PARQUET_EXPORT uint64_t TestOnlyExtractBitsSoftware(uint64_t bitmap, uint64_t selection);
 
 }  // namespace parquet::internal

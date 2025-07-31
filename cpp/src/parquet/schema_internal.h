@@ -29,7 +29,7 @@
 namespace parquet {
 
 namespace format {
-class SchemaElement;
+class PARQUET_EXPORT SchemaElement;
 }
 
 namespace schema {

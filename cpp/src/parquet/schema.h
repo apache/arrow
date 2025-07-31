@@ -344,7 +344,7 @@ PRIMITIVE_FACTORY(Float, FLOAT)
 PRIMITIVE_FACTORY(Double, DOUBLE)
 PRIMITIVE_FACTORY(ByteArray, BYTE_ARRAY)
 
-void PARQUET_EXPORT PrintSchema(const schema::Node* schema, std::ostream& stream,
+PARQUET_EXPORT void PrintSchema(const schema::Node* schema, std::ostream& stream,
                                 int indent_width = 2);
 
 }  // namespace schema
