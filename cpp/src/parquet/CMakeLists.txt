@@ -413,7 +413,9 @@ if(PARQUET_REQUIRE_ENCRYPTION)
                    encryption/write_configurations_test.cc
                    encryption/read_configurations_test.cc
                    encryption/properties_test.cc
-                   encryption/test_encryption_util.cc)
+                   encryption/crypto_factory_test.cc
+                   encryption/test_encryption_util.cc
+                   encryption/test_in_memory_kms.cc)
   add_parquet_test(encryption-key-management-test
                    SOURCES
                    encryption/key_management_test.cc

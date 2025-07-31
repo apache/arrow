@@ -1,0 +1,185 @@
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
+
+#include "parquet/encryption/crypto_factory.h"
+#include "parquet/encryption/file_key_material_store.h"
+#include "parquet/encryption/test_encryption_util.h"
+#include "parquet/encryption/test_in_memory_kms.h"
+
+using ::testing::_;
+using ::testing::HasSubstr;
+using ::testing::Return;
+using ::testing::StrEq;
+
+namespace parquet::encryption::test {
+
+class CryptoFactoryTest : public ::testing::Test {
+
+  void SetUp() {
+    key_list_ = BuildKeyMap(kColumnMasterKeyIds, kColumnMasterKeys, kFooterMasterKeyId,
+                            kFooterMasterKey);
+    crypto_factory_.RegisterKmsClientFactory(std::make_shared<TestOnlyInMemoryKmsClientFactory>(
+            true, key_list_));
+  }
+
+  protected:
+    std::unordered_map<std::string, std::string> key_list_;
+    KmsConnectionConfig kms_config_;
+    CryptoFactory crypto_factory_;
+};
+
+TEST_F(CryptoFactoryTest, UniformEncryptionAndColumnKeysThrowsException) {
+    ExternalEncryptionConfiguration config("kf");
+    config.uniform_encryption = true;
+    config.column_keys = "kc1:col1,col2";
+
+    try {
+        auto properties = crypto_factory_.GetExternalFileEncryptionProperties(kms_config_, config);
+        FAIL() << "ParquetException should have been raised";
+    } catch (const ParquetException& xcp) {
+        EXPECT_THAT(xcp.what(), HasSubstr("Cannot set both column encryption and uniform"));
+    } catch (...) {
+        FAIL() << "Caught unexpected exception type";
+    }
+}
+
+TEST_F(CryptoFactoryTest, UniformEncryptionAndPerColumnEncryptionThrowsException) {
+    ExternalEncryptionConfiguration config("kf");
+    config.uniform_encryption = true;
+
+    std::unordered_map<std::string, ColumnEncryptionAttributes> per_column_encryption;
+    ColumnEncryptionAttributes attributes;
+    attributes.parquet_cipher = ParquetCipher::AES_GCM_CTR_V1;
+    attributes.key_id = "kc1";
+    per_column_encryption["col1"] = attributes;
+    config.per_column_encryption = per_column_encryption;
+
+    try {
+        auto properties = crypto_factory_.GetExternalFileEncryptionProperties(kms_config_, config);
+        FAIL() << "ParquetException should have been raised";
+    } catch (const ParquetException& xcp) {
+        EXPECT_THAT(xcp.what(), HasSubstr("Cannot set both column encryption and uniform"));
+    } catch (...) {
+        FAIL() << "Caught unexpected exception type";
+    }
+}
+
+TEST_F(CryptoFactoryTest, NoUniformEncryptionAndNoColumnsThrowsException) {
+    ExternalEncryptionConfiguration config("kf");
+
+    try {
+        auto properties = crypto_factory_.GetExternalFileEncryptionProperties(kms_config_, config);
+        FAIL() << "ParquetException should have been raised";
+    } catch (const ParquetException& xcp) {
+        EXPECT_THAT(xcp.what(), HasSubstr(
+            "uniform_encryption must be set or column encryption must be specified in either"));
+    } catch (...) {
+        FAIL() << "Caught unexpected exception type";
+    }
+}
+
+TEST_F(CryptoFactoryTest, BasicEncryptionConfig) {
+    ExternalEncryptionConfiguration config("kf");
+    config.plaintext_footer = true;
+    config.column_keys = "kc1:col1,col2;kc2:col3,col4";
+
+    auto properties = crypto_factory_.GetExternalFileEncryptionProperties(kms_config_, config);
+    EXPECT_EQ("kf", properties->footer_key());
+    EXPECT_TRUE(properties->footer_key_metadata().size() > 0);
+    EXPECT_EQ(ParquetCipher::AES_GCM_V1, properties->algorithm().algorithm);
+    EXPECT_FALSE(properties->encrypted_footer());
+    EXPECT_TRUE(properties->encrypted_columns().size() == 4);
+
+    auto column_properties_1 = properties->column_encryption_properties("col1");
+    EXPECT_EQ("col1", column_properties_1->column_path());
+    EXPECT_TRUE(column_properties_1->is_encrypted());
+    EXPECT_FALSE(column_properties_1->is_encrypted_with_footer_key());
+    EXPECT_THAT(column_properties_1->key_metadata(), HasSubstr("kc1"));
+    EXPECT_FALSE(column_properties_1->parquet_cipher().has_value());
+
+    auto column_properties_2 = properties->column_encryption_properties("col4");
+    EXPECT_EQ("col4", column_properties_2->column_path());
+    EXPECT_TRUE(column_properties_2->is_encrypted());
+    EXPECT_FALSE(column_properties_2->is_encrypted_with_footer_key());
+    EXPECT_THAT(column_properties_2->key_metadata(), HasSubstr("kc2"));
+    EXPECT_FALSE(column_properties_2->parquet_cipher().has_value());
+}
+
+TEST_F(CryptoFactoryTest, ExternalEncryptionConfig) {
+    ExternalEncryptionConfiguration config("kf");
+    config.plaintext_footer = true;
+    config.column_keys = "kc3:col3,col4";
+
+    std::unordered_map<std::string, ColumnEncryptionAttributes> per_column_encryption;
+    ColumnEncryptionAttributes attributes_1;
+    attributes_1.parquet_cipher = ParquetCipher::AES_GCM_CTR_V1;
+    attributes_1.key_id = "kc1";
+    per_column_encryption["col1"] = attributes_1;
+
+    ColumnEncryptionAttributes attributes_2;
+    attributes_2.parquet_cipher = ParquetCipher::AES_GCM_V1;
+    attributes_2.key_id = "kc2";
+    per_column_encryption["col2"] = attributes_2;
+
+    config.per_column_encryption = per_column_encryption;
+
+    auto properties = crypto_factory_.GetExternalFileEncryptionProperties(kms_config_, config);
+    EXPECT_EQ("kf", properties->footer_key());
+    EXPECT_TRUE(properties->footer_key_metadata().size() > 0);
+    EXPECT_EQ(ParquetCipher::AES_GCM_V1, properties->algorithm().algorithm);
+    EXPECT_FALSE(properties->encrypted_footer());
+    EXPECT_TRUE(properties->encrypted_columns().size() == 4);
+
+    auto column_properties_1 = properties->column_encryption_properties("col1");
+    EXPECT_EQ("col1", column_properties_1->column_path());
+    EXPECT_TRUE(column_properties_1->is_encrypted());
+    EXPECT_FALSE(column_properties_1->is_encrypted_with_footer_key());
+    EXPECT_THAT(column_properties_1->key_metadata(), HasSubstr("kc1"));
+    EXPECT_TRUE(column_properties_1->parquet_cipher().has_value());
+    EXPECT_EQ(ParquetCipher::AES_GCM_CTR_V1, column_properties_1->parquet_cipher().value());
+
+    auto column_properties_2 = properties->column_encryption_properties("col2");
+    EXPECT_EQ("col2", column_properties_2->column_path());
+    EXPECT_TRUE(column_properties_2->is_encrypted());
+    EXPECT_FALSE(column_properties_2->is_encrypted_with_footer_key());
+    EXPECT_THAT(column_properties_2->key_metadata(), HasSubstr("kc2"));
+    EXPECT_TRUE(column_properties_2->parquet_cipher().has_value());
+    EXPECT_EQ(ParquetCipher::AES_GCM_V1, column_properties_2->parquet_cipher().value());
+
+    auto column_properties_3 = properties->column_encryption_properties("col3");
+    EXPECT_EQ("col3", column_properties_3->column_path());
+    EXPECT_TRUE(column_properties_3->is_encrypted());
+    EXPECT_FALSE(column_properties_3->is_encrypted_with_footer_key());
+    EXPECT_THAT(column_properties_3->key_metadata(), HasSubstr("kc3"));
+    EXPECT_FALSE(column_properties_3->parquet_cipher().has_value());
+}
+
+TEST_F(CryptoFactoryTest, ColumnRepeatedInMapsThrowsException) {
+    ExternalEncryptionConfiguration config("kf");
+    config.plaintext_footer = true;
+    config.column_keys = "kc3:col3,col2";
+
+    std::unordered_map<std::string, ColumnEncryptionAttributes> per_column_encryption;
+    ColumnEncryptionAttributes attributes_1;
+    attributes_1.parquet_cipher = ParquetCipher::AES_GCM_CTR_V1;
+    attributes_1.key_id = "kc1";
+    per_column_encryption["col1"] = attributes_1;
+
+    ColumnEncryptionAttributes attributes_2;
+    attributes_2.parquet_cipher = ParquetCipher::AES_GCM_V1;
+    attributes_2.key_id = "kc2";
+    per_column_encryption["col2"] = attributes_2;
+
+    config.per_column_encryption = per_column_encryption;
+
+    try {
+        auto properties = crypto_factory_.GetExternalFileEncryptionProperties(kms_config_, config);
+        FAIL() << "ParquetException should have been raised";
+    } catch (const ParquetException& xcp) {
+        EXPECT_THAT(xcp.what(), HasSubstr("Multiple keys defined for column [col2]"));
+    } catch (...) {
+        FAIL() << "Caught unexpected exception type";
+    }
+}
+
+}  // namespace parquet::encryption::test
