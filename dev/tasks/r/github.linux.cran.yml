@@ -47,7 +47,7 @@ jobs:
         env:
         {{ macros.github_set_sccache_envvars()|indent(8)}}
         # setting ARROW_SOURCE_HOME='' here ensures that we use the cpp source copied into tools/
-        run: archery docker run -e ARROW_SOURCE_HOME='' -e SKIP_VIGNETTES={{ '${{ matrix.config.skip_vignettes }}' }} -e R_UPDATE_CLANG={{ '${{ matrix.config.r_update_clang }}' }} rhub/{{ '${{ matrix.config.r_image }}' }}
+        run: archery docker run -e ARROW_SOURCE_HOME='' -e SKIP_VIGNETTES={{ '${{ matrix.config.skip_vignettes }}' }} -e R_UPDATE_CLANG={{ '${{ matrix.config.r_update_clang }}' }} r
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
         if: always()
