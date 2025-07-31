@@ -613,8 +613,8 @@ TEST_F(DatasetWriterTestFixture, ErrOnExistingData) {
                      fs::File("testdir/chunk-5.arrow"), fs::File("testdir/blah.txt")}));
   filesystem_ = std::dynamic_pointer_cast<MockFileSystem>(fs);
   write_options_.filesystem = filesystem_;
-  ASSERT_RAISES(Invalid, DatasetWriter::Make(
-                             write_options_, scheduler_, [] {}, [] {}, [] {}));
+  ASSERT_RAISES(Invalid,
+                DatasetWriter::Make(write_options_, scheduler_, [] {}, [] {}, [] {}));
   AssertEmptyFiles(
       {"testdir/chunk-0.arrow", "testdir/chunk-5.arrow", "testdir/blah.txt"});
 
@@ -627,8 +627,8 @@ TEST_F(DatasetWriterTestFixture, ErrOnExistingData) {
   filesystem_ = std::dynamic_pointer_cast<MockFileSystem>(fs2);
   write_options_.filesystem = filesystem_;
   write_options_.base_dir = "testdir";
-  ASSERT_RAISES(Invalid, DatasetWriter::Make(
-                             write_options_, scheduler_, [] {}, [] {}, [] {}));
+  ASSERT_RAISES(Invalid,
+                DatasetWriter::Make(write_options_, scheduler_, [] {}, [] {}, [] {}));
   AssertEmptyFiles({"testdir/part-0.arrow"});
 }
 
