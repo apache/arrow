@@ -122,6 +122,8 @@ struct PARQUET_EXPORT ExternalEncryptionConfiguration : public EncryptionConfigu
   /// enforce robust access control. The values sent to the external service depend on each
   /// implementation. 
   /// This value must be a valid JSON-formatted string.
+  /// Validation of the string will be done by the external encryption service, Arrow will only
+  /// forward this value.
   /// Format: "{\"user_id\": \"abc123\", \"location\": {\"lat\": 9.7489, \"lon\": -83.7534}}"
   std::string app_context;
   

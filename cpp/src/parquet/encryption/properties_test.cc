@@ -283,7 +283,13 @@ TEST(TestExternalFileEncryptionProperties, SuperClassFieldsSetCorrectly) {
 
 // The subclass adds two additional fields
 TEST(TestExternalFileEncryptionProperties, SetExternalContextAndConfig) {
-  std::string app_context = "String containing valid JSON with app context. Not parsed here";
+  std::string app_context = "{\n"
+                   "  \"user_id\": \"abc123\",\n"
+                   "  \"location\": {\n"
+                   "    \"lat\": 10.0,\n"
+                   "    \"lon\": -84.0\n"
+                   "  }\n"
+                   "}";
   std::map<std::string, std::string> connection_config;
   connection_config["lib_location"] = "path/to/lib.so";
   connection_config["config_file"] = "path/to/config/file";

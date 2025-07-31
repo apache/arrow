@@ -28,8 +28,11 @@
 
 namespace parquet::encryption {
 
+/// Extracting functionality common to both GetFileEncryptionProperties and
+/// GetExternalFileEncryptionProperties here for reuse.
 namespace {
 
+// Struct to simplify the returned objects in GetFileKeyUtils.
 struct FileKeyUtils {
   std::shared_ptr<FileKeyMaterialStore> key_material_store;
   FileKeyWrapper key_wrapper;
@@ -63,7 +66,7 @@ int ValidateAndGetKeyLength(int32_t dek_length_bits) {
   if (!internal::ValidateKeyLength(dek_length_bits)) {
     std::ostringstream ss;
     ss << "Wrong data key length : " << dek_length_bits;
-    throw ParquetException (ss.str());
+    throw ParquetException(ss.str());
   }
   return dek_length_bits / 8;
 }
@@ -126,6 +129,9 @@ CryptoFactory::GetExternalFileEncryptionProperties(
       const ExternalEncryptionConfiguration& external_encryption_config,
       const std::string& file_path, const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
   // Validate the same rules as FileEncryptionProperties but considering per_column_encryption too.
+  // If uniform_encryption is not set then either column_keys or per_column_encryption must have
+  // values.
+  // If uniform_encryption is set, then both column_keys and per_column_encryption must be empty.
   bool no_columns_encrypted = external_encryption_config.column_keys.empty() &&
                               external_encryption_config.per_column_encryption.empty();
   if (!external_encryption_config.uniform_encryption && no_columns_encrypted) {
@@ -167,10 +173,11 @@ CryptoFactory::GetExternalFileEncryptionProperties(
       const std::string& column_name = pair.first;
       const ColumnEncryptionAttributes& attributes = pair.second;
 
-      // Validate column names are not in both collumn_keys and per_column_encryption maps.
+      // Validate column names are not in both column_keys and per_column_encryption maps.
       if (encrypted_columns.find(column_name) != encrypted_columns.end()) {
         std::stringstream string_stream;
-        string_stream << "Multiple keys defined for column [" << column_name << "] \n";
+        string_stream << "Multiple keys defined for column [" << column_name << "]. ";
+        string_stream << "Keys found in column_keys and in per_column_encryption.";
         throw ParquetException(string_stream.str());
       }
 
