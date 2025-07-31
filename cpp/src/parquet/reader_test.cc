@@ -1196,19 +1196,24 @@ TEST_F(TestJSONWithLocalFile, JSONOutputSortColumns) {
   EXPECT_THAT(json_content, testing::HasSubstr(json_contains));
 }
 
+namespace {
+
+::arrow::Status CheckJsonValid(std::string_view json_string) {
+  rj::Document json_doc;
+  constexpr auto kParseFlags = rj::kParseFullPrecisionFlag | rj::kParseNanAndInfFlag;
+  json_doc.Parse<kParseFlags>(json_string.data(), json_string.length());
+  if (json_doc.HasParseError()) {
+    return ::arrow::Status::Invalid("JSON parse error at offset ",
+                                    json_doc.GetErrorOffset(), ": ",
+                                    rj::GetParseError_En(json_doc.GetParseError()));
+  }
+  return ::arrow::Status::OK();
+}
+
+}  // namespace
+
 // GH-44101: Test that JSON output is valid JSON
 TEST_F(TestJSONWithLocalFile, ValidJsonOutput) {
-  auto check_json_valid = [](std::string_view json_string) -> ::arrow::Status {
-    rj::Document json_doc;
-    constexpr auto kParseFlags = rj::kParseFullPrecisionFlag | rj::kParseNanAndInfFlag;
-    json_doc.Parse<kParseFlags>(json_string.data(), json_string.length());
-    if (json_doc.HasParseError()) {
-      return ::arrow::Status::Invalid("JSON parse error at offset ",
-                                      json_doc.GetErrorOffset(), ": ",
-                                      rj::GetParseError_En(json_doc.GetParseError()));
-    }
-    return ::arrow::Status::OK();
-  };
   std::vector<std::string_view> check_file_lists = {
       "data_index_bloom_encoding_with_length.parquet",
       "data_index_bloom_encoding_stats.parquet",
@@ -1218,9 +1223,60 @@ TEST_F(TestJSONWithLocalFile, ValidJsonOutput) {
       "sort_columns.parquet"};
   for (const auto& file : check_file_lists) {
     std::string json_content = ReadFromLocalFile(file);
-    ASSERT_OK(check_json_valid(json_content))
+    ASSERT_OK(CheckJsonValid(json_content))
         << "Invalid JSON output for file: " << file << ", content:" << json_content;
   }
+}
+
+TEST(TestJSONWithMemoryFile, ValidJsonOutput) {
+  using ::arrow::internal::checked_cast;
+  auto schema = std::static_pointer_cast<GroupNode>(GroupNode::Make(
+      "schema", Repetition::REQUIRED,
+      schema::NodeVector{PrimitiveNode::Make("string_field", Repetition::REQUIRED,
+                                             LogicalType::String(), Type::BYTE_ARRAY),
+                         PrimitiveNode::Make("binary_field", Repetition::REQUIRED,
+                                             LogicalType::None(), Type::BYTE_ARRAY)}));
+
+  ASSERT_OK_AND_ASSIGN(auto out_file, ::arrow::io::BufferOutputStream::Create());
+  auto file_writer = ParquetFileWriter::Open(out_file, schema);
+  auto row_group_writer = file_writer->AppendRowGroup();
+
+  // Write string column with valid UTF8 data
+  auto string_writer = checked_cast<ByteArrayWriter*>(row_group_writer->NextColumn());
+  std::vector<std::string> utf8_strings = {"Hello", "World", "UTF8 测试", "🌟"};
+  std::vector<ByteArray> string_values;
+  for (const auto& str : utf8_strings) {
+    string_values.emplace_back(std::string_view(str));
+  }
+  string_writer->WriteBatch(string_values.size(), nullptr, nullptr, string_values.data());
+
+  // Write binary column with non-UTF8 data
+  auto binary_writer = checked_cast<ByteArrayWriter*>(row_group_writer->NextColumn());
+  std::vector<std::vector<uint8_t>> binary_data = {{0x00, 0x01, 0x02, 0x03},
+                                                   {0xFF, 0xFE, 0xFD, 0xFC},
+                                                   {0x80, 0x81, 0x82, 0x83},
+                                                   {0xC0, 0xC1, 0xF5, 0xF6}};
+  std::vector<ByteArray> binary_values;
+  for (const auto& data : binary_data) {
+    binary_values.emplace_back(
+        std::string_view(reinterpret_cast<const char*>(data.data()), data.size()));
+  }
+  binary_writer->WriteBatch(binary_values.size(), nullptr, nullptr, binary_values.data());
+
+  row_group_writer->Close();
+  file_writer->Close();
+
+  // Read the file back and print as JSON
+  ASSERT_OK_AND_ASSIGN(auto file_buf, out_file->Finish());
+  auto reader =
+      ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(file_buf));
+  ParquetFilePrinter printer(reader.get());
+
+  // Verify the output is valid JSON
+  std::stringstream json_output;
+  printer.JSONPrint(json_output, {});
+  std::string json_content = json_output.str();
+  ASSERT_OK(CheckJsonValid(json_content)) << "Invalid JSON output: " << json_content;
 }
 
 TEST(TestFileReader, BufferedReadsWithDictionary) {
