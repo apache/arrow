@@ -334,6 +334,7 @@ repos:
           ?^ci/scripts/integration_hdfs\.sh$|
           ?^ci/scripts/integration_spark\.sh$|
           ?^ci/scripts/matlab_build\.sh$|
+          ?^ci/scripts/msys2_setup\.sh$|
           ?^ci/scripts/msys2_system_clean\.sh$|
           ?^ci/scripts/msys2_system_upgrade\.sh$|
           ?^ci/scripts/nanoarrow_build\.sh$|
