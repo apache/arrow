@@ -1398,6 +1398,14 @@ BasicDecimal256 operator/(const BasicDecimal256& left, const BasicDecimal256& ri
   return result;
 }
 
+BasicDecimal256 operator%(const BasicDecimal256& left, const BasicDecimal256& right) {
+  BasicDecimal256 remainder;
+  BasicDecimal256 result;
+  auto s = left.Divide(right, &result, &remainder);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
+  return remainder;
+}
+
 // Explicitly instantiate template base class, for DLL linking on Windows
 template class GenericBasicDecimal<BasicDecimal128, 128>;
 template class GenericBasicDecimal<BasicDecimal256, 256>;
