@@ -147,7 +147,6 @@ cmake \
     -DPARQUET_REQUIRE_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION} \
     -DVCPKG_MANIFEST_MODE=OFF \
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
-    -Dxsimd_SOURCE=BUNDLED \
     -G ${CMAKE_GENERATOR} \
     ${source_dir}/cpp
 cmake --build . --target install

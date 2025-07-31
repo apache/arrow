@@ -51,8 +51,6 @@ pushd cpp\build
 @rem TODO(ianmcook): Add -DARROW_BUILD_BENCHMARKS=ON after the issue described
 @rem at https://github.com/google/benchmark/issues/1046 is resolved
 
-@rem xsimd is bundled to get a more recent version.
-
 cmake -G "Visual Studio 17 2022" -A x64 ^
       -DARROW_BOOST_USE_SHARED=ON ^
       -DARROW_BUILD_SHARED=ON ^
@@ -72,7 +70,6 @@ cmake -G "Visual Studio 17 2022" -A x64 ^
       -DARROW_WITH_ZSTD=ON ^
       -DCMAKE_BUILD_TYPE=release ^
       -DCMAKE_UNITY_BUILD=ON ^
-      -Dxsimd_SOURCE=BUNDLED ^
       .. || exit /B 1
 
 cmake --build . --target INSTALL --config Release || exit /B 1
