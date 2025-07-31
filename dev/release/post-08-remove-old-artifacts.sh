@@ -43,7 +43,7 @@ old_releases=$(
   grep -E '^arrow-[0-9]' | \
   sort --version-sort --reverse | \
   tail -n +2 | \
-  tac
+  sort --version-sort
 )
 for old_release_version in $old_releases; do
   echo "Remove old release: ${old_release_version}"
