@@ -20,6 +20,7 @@
 
 #include <arrow/api.h>
 #include <arrow/compute/cast.h>
+#include <arrow/compute/initialize.h>
 #include <arrow/dataset/dataset.h>
 #include <arrow/dataset/discovery.h>
 #include <arrow/dataset/file_base.h>
@@ -326,6 +327,8 @@ arrow::Result<std::shared_ptr<arrow::Table>> FilterPartitionedDataset(
 
 arrow::Status RunDatasetDocumentation(const std::string& format_name,
                                       const std::string& uri, const std::string& mode) {
+  ARROW_RETURN_NOT_OK(arrow::compute::Initialize());
+
   std::string base_path;
   std::shared_ptr<ds::FileFormat> format;
   std::string root_path;
