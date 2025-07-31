@@ -20,12 +20,14 @@
 
 from datetime import timedelta
 
-from cython.operator cimport dereference as deref
+from cython.operator cimport dereference as deref, preincrement
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport _Weakrefable
 from pyarrow.lib import tobytes, frombytes
+
+import json
 
 
 cdef ParquetCipher cipher_from_name(name):
@@ -173,6 +175,177 @@ cdef class EncryptionConfiguration(_Weakrefable):
 
     cdef inline shared_ptr[CEncryptionConfiguration] unwrap(self) nogil:
         return self.configuration
+
+cdef inline str from_c_string(const c_string& s):
+    return s.decode('utf-8')
+
+cdef inline c_string to_c_string(str s):
+    return s.encode('utf-8')
+
+cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
+    """ExternalEncryptionConfiguration is a Cython extension class that inherits from EncryptionConfiguration."""
+    __slots__ = ()
+
+    cdef shared_ptr[CExternalEncryptionConfiguration] _external_config
+    
+    def __init__(self, footer_key, *, column_keys=None,
+                 encryption_algorithm=None,
+                 plaintext_footer=None, double_wrapping=None,
+                 cache_lifetime=None, internal_key_material=None,
+                 data_key_length_bits=None, app_context=None,
+                 connection_config=None, per_column_encryption=None):
+
+        #Holds a shared pointer to the underlying C++ external encryption configuration object.
+        self._external_config = shared_ptr[CExternalEncryptionConfiguration](
+            new CExternalEncryptionConfiguration(tobytes(footer_key))
+        )
+
+        self.configuration = self._external_config
+        
+        if column_keys is not None:
+            self.column_keys = column_keys
+        if encryption_algorithm is not None:
+            self.encryption_algorithm = encryption_algorithm
+        if plaintext_footer is not None:
+            self.plaintext_footer = plaintext_footer
+        if double_wrapping is not None:
+            self.double_wrapping = double_wrapping
+        if cache_lifetime is not None:
+            self.cache_lifetime = cache_lifetime
+        if internal_key_material is not None:
+            self.internal_key_material = internal_key_material
+        if data_key_length_bits is not None:
+            self.data_key_length_bits = data_key_length_bits
+        if app_context is not None:
+            self.app_context = app_context
+        if connection_config is not None:
+            self.connection_config = connection_config
+        if per_column_encryption is not None:
+            self.per_column_encryption = per_column_encryption
+
+    @property
+    def app_context(self):
+        """Get the application context as a dictionary."""
+        app_context_str = frombytes(self._external_config.get().app_context)
+        if not app_context_str:
+            return {}
+        try:
+            return json.loads(app_context_str)
+        except Exception:
+            raise ValueError(f"Invalid JSON stored in app_context: {app_context_str}")
+
+    @app_context.setter
+    def app_context(self, dict value):
+        """Set the application context from a dictionary."""
+        if value is not None:
+            try:
+                serialized = json.dumps(value)
+                self._external_config.get().app_context = tobytes(serialized)
+            except Exception:
+                raise TypeError("app_context must be JSON-serializable")
+
+    @property
+    def connection_config(self):
+        """Get the connection configuration as a Python dictionary."""
+        # Declare cpp_map to match the type specified in your .pxd file
+        # for connection_config: unordered_map[c_string, c_string]
+        cdef unordered_map[c_string, c_string] cpp_map = \
+            self._external_config.get().connection_config
+
+        result = {}
+
+        # Explicitly manage the iterator using a while loop
+        cdef unordered_map[c_string, c_string].iterator it = cpp_map.begin()
+        cdef unordered_map[c_string, c_string].iterator end = cpp_map.end()
+
+        while it != end:
+            # Dereference and access members.
+            # The .first and .second members will be c_string (char*).
+            result[from_c_string(deref(it).first)] = from_c_string(deref(it).second)
+
+            # Increment the iterator. Use preincrement() for robustness if ++it causes issues.
+            preincrement(it) # This is the most reliable way to increment here.
+            # Alternatively, you could try ++it again, but preincrement() is safer when the parser struggles.
+
+        return result
+
+    @connection_config.setter
+    def connection_config(self, dict value):
+        cdef unordered_map[c_string, c_string] cpp_map
+        for k, v in value.items():
+            cpp_map[to_c_string(k)] = to_c_string(v)
+        self._external_config.get().connection_config = cpp_map
+
+    @property
+    def per_column_encryption(self):
+        """Get the per_column_encryption as a Python dictionary."""
+        cdef unordered_map[c_string, CColumnEncryptionAttributes] cpp_map = \
+            self._external_config.get().per_column_encryption # Access the C++ member
+
+        py_dict = {}
+
+        cdef unordered_map[c_string, CColumnEncryptionAttributes].iterator it = cpp_map.begin()
+        cdef unordered_map[c_string, CColumnEncryptionAttributes].iterator end = cpp_map.end()
+
+        while it != end:
+            # --- FIX HERE: Directly access deref(it).first and deref(it).second ---
+            # Do NOT use 'cdef c_string current_key = ...'
+            # Do NOT use 'cdef CColumnEncryptionAttributes current_value = ...'
+
+            # Convert C++ CColumnEncryptionAttributes to a Python dictionary
+            py_dict[from_c_string(deref(it).first)] = {
+                "encryption_algorithm": cipher_to_name(deref(it).second.parquet_cipher),
+                "encryption_key": from_c_string(deref(it).second.key_id)
+            }
+            preincrement(it)
+
+        return py_dict
+
+    @per_column_encryption.setter
+    def per_column_encryption(self, dict py_column_encryption):
+        """Set the per_column_encryption from a Python dictionary."""
+        # Clear the existing C++ map first
+        self._external_config.get().per_column_encryption.clear()
+
+        cdef c_string c_key
+        cdef ParquetCipher c_cipher_enum
+        cdef c_string c_key_id
+        cdef CColumnEncryptionAttributes cpp_attrs
+
+        # Iterate over the Python dictionary
+        for py_key, py_attrs in py_column_encryption.items():
+            if not isinstance(py_key, str) or not isinstance(py_attrs, dict):
+                raise TypeError("column_encryption keys must be strings and values must be dictionaries.")
+
+            c_key = to_c_string(py_key) # Convert Python key to C-string
+
+            # Convert encryption_algorithm string to C++ ParquetCipher enum
+            if "encryption_algorithm" not in py_attrs or not isinstance(py_attrs["encryption_algorithm"], str):
+                raise ValueError("Each column must have 'encryption_algorithm' (string).")
+            c_cipher_enum = cipher_from_name(py_attrs["encryption_algorithm"])
+
+            # Convert encryption_key string to C++ c_string
+            if "encryption_key" not in py_attrs or not isinstance(py_attrs["encryption_key"], str):
+                raise ValueError("Each column must have 'encryption_key' (string).")
+            c_key_id = to_c_string(py_attrs["encryption_key"])
+
+            # Create a C++ CColumnEncryptionAttributes object
+            # Assuming CColumnEncryptionAttributes has a constructor matching this or default.
+            # If not, you'd need to set members after default construction.
+            cpp_attrs.parquet_cipher = c_cipher_enum
+            cpp_attrs.key_id = c_key_id # Directly assign char* (beware of ownership)
+
+            # Insert into the C++ unordered_map
+            # IMPORTANT: For char* keys, the map will copy the pointer value.
+            # If the C++ map is designed to take ownership and deep-copy the char* content,
+            # this might be fine. Otherwise, you'll have dangling pointers if `to_c_string`
+            # creates temporary memory that is freed too soon.
+            # If the C++ map expects `std::string`, use `std_string(py_key.encode('utf-8'))` for the key,
+            # and `std_string(py_attrs["encryption_key"].encode('utf-8'))` for key_id.
+            self._external_config.get().per_column_encryption[c_key] = cpp_attrs
+
+    cdef inline shared_ptr[CExternalEncryptionConfiguration] unwrapExternal(self) nogil:
+        return self._external_config
 
 
 cdef class DecryptionConfiguration(_Weakrefable):
@@ -473,10 +646,13 @@ cdef shared_ptr[CKmsConnectionConfig] pyarrow_unwrap_kmsconnectionconfig(object 
 
 
 cdef shared_ptr[CEncryptionConfiguration] pyarrow_unwrap_encryptionconfig(object encryptionconfig) except *:
-    if isinstance(encryptionconfig, EncryptionConfiguration):
+    if isinstance(encryptionconfig, ExternalEncryptionConfiguration):
+        return shared_ptr[CEncryptionConfiguration](
+            (<ExternalEncryptionConfiguration> encryptionconfig).unwrapExternal().get()
+        )
+    elif isinstance(encryptionconfig, EncryptionConfiguration):
         return (<EncryptionConfiguration> encryptionconfig).unwrap()
     raise TypeError("Expected EncryptionConfiguration, got %s" % type(encryptionconfig))
-
 
 cdef shared_ptr[CDecryptionConfiguration] pyarrow_unwrap_decryptionconfig(object decryptionconfig) except *:
     if isinstance(decryptionconfig, DecryptionConfiguration):

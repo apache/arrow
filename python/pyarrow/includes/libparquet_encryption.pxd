@@ -79,6 +79,27 @@ cdef extern from "parquet/encryption/crypto_factory.h" \
         c_bool internal_key_material
         int32_t data_key_length_bits
 
+    cdef cppclass CColumnEncryptionAttributes\
+            " parquet::encryption::ColumnEncryptionAttributes":
+        CColumnEncryptionAttributes() except +
+        ParquetCipher parquet_cipher
+        c_string key_id
+
+    cdef cppclass CExternalEncryptionConfiguration\
+            " parquet::encryption::ExternalEncryptionConfiguration":
+        CExternalEncryptionConfiguration(const c_string& footer_key) except +
+        c_string footer_key
+        c_string column_keys
+        ParquetCipher encryption_algorithm
+        c_bool plaintext_footer
+        c_bool double_wrapping
+        double cache_lifetime_seconds
+        c_bool internal_key_material
+        int32_t data_key_length_bits
+        unordered_map[c_string, CColumnEncryptionAttributes] per_column_encryption
+        c_string app_context
+        unordered_map[c_string, c_string] connection_config
+
     cdef cppclass CDecryptionConfiguration\
             " parquet::encryption::DecryptionConfiguration":
         CDecryptionConfiguration() except +
