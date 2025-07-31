@@ -67,6 +67,18 @@ sloppiness = include_file_ctime
 hash_dir = false" >> ~/.ccache/ccache.conf
 fi
 
+# Update clang version to latest available
+: ${R_UPDATE_CLANG:=FALSE}
+R_UPDATE_CLANG=`echo $R_UPDATE_CLANG | tr '[:upper:]' '[:lower:]'`
+if [ ${R_UPDATE_CLANG} = "true" ]; then
+  apt-get update &&
+  apt-get install -y curl gnupg &&
+  curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/llvm.gpg &&
+  echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main" > /etc/apt/sources.list.d/llvm20.list &&
+  apt-get update &&
+  apt-get install -y clang-20 lld-20
+fi
+
 if [ -f "${ARROW_SOURCE_HOME}/ci/scripts/r_install_system_dependencies.sh" ]; then
   "${ARROW_SOURCE_HOME}/ci/scripts/r_install_system_dependencies.sh"
 fi
