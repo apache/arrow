@@ -36,6 +36,11 @@
 
 #include "generated/parquet_types.h"
 
+#ifdef _MSC_VER
+// disable warning about inheritance via dominance in the diamond pattern
+#  pragma warning(disable : 4250)
+#endif
+
 using arrow::internal::checked_cast;
 using arrow::util::Codec;
 
