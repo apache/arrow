@@ -78,6 +78,7 @@ $PACKAGE_MANAGER install -y rsync cmake curl
 # Update clang version to latest available
 : ${R_UPDATE_CLANG:=FALSE}
 R_UPDATE_CLANG=`echo $R_UPDATE_CLANG | tr '[:upper:]' '[:lower:]'`
+echo "R_UPDATE_CLANG=${R_UPDATE_CLANG}"
 if [ ${R_UPDATE_CLANG} = "true" ]; then
   $PACKAGE_MANAGER install update -y &&
   $PACKAGE_MANAGER install install -y gnupg &&
