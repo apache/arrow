@@ -48,14 +48,19 @@ jobs:
         {{ macros.github_set_sccache_envvars()|indent(8)}}
         # setting ARROW_SOURCE_HOME='' here ensures that we use the cpp source copied into tools/
         run: |
-          archery docker run -e ARROW_SOURCE_HOME='' -e SKIP_VIGNETTES={{ '${{ matrix.config.skip_vignettes }}' }} r bash -c "
+          archery docker run \
+            -e ARROW_SOURCE_HOME='' \
+            -e SKIP_VIGNETTES={{ '${{ matrix.config.skip_vignettes }}' }} \
+            r \
+            "bash -c '
               apt-get update &&
               apt-get install -y curl gnupg &&
               curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/llvm.gpg &&
-              echo 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main' > /etc/apt/sources.list.d/llvm20.list &&
+              echo \"deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main\" > /etc/apt/sources.list.d/llvm20.list &&
               apt-get update &&
               apt-get install -y clang-20 lld-20 &&
-              exec \"\$@\"" --
+              exec \"\$@\"
+            ' --"
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
         if: always()
