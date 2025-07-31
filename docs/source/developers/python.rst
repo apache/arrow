@@ -384,7 +384,7 @@ Now, build pyarrow:
 
    $ pushd arrow/python
    $ export PYARROW_PARALLEL=4
-   $ python setup.py build_ext --inplace
+   $ python -m pip install --no-build-isolation -e .
    $ popd
 
 If you did build one of the optional components in C++, the equivalent components
@@ -407,21 +407,22 @@ artifacts before rebuilding. You can do this by running:
 
 By default, PyArrow will be built in release mode even if Arrow C++ has been
 built in debug mode. To create a debug build of PyArrow, run
-``export PYARROW_BUILD_TYPE=debug`` prior to running  ``python setup.py
-build_ext --inplace`` above. A ``relwithdebinfo`` build can be created
+``export PYARROW_BUILD_TYPE=debug`` prior to running  ``python -m pip install
+--no-build-isolation -e .`` above. A ``relwithdebinfo`` build can be created
 similarly.
 
 Now you are ready to install test dependencies and run `Unit Testing`_, as
 described above.
 
 If you need to build a self-contained wheel (including the Arrow and Parquet C++
-libraries), you can set ``--bundle-arrow-cpp``:
+libraries), you can set the environment variable ``PYARROW_BUNDLE_ARROW_CPP``:
 
 .. code-block::
 
-   $ pip install wheel  # if not installed
-   $ python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
-            --bundle-arrow-cpp bdist_wheel
+   $ pip install build  # install build frontend
+   $ export PYARROW_BUILD_TYPE=$ARROW_BUILD_TYPE
+   $ export PYARROW_BUNDLE_ARROW_CPP=1
+   $ python -m build --no-isolation .
 
 .. note::
    To install an editable PyArrow build run ``pip install -e . --no-build-isolation``
