@@ -44,25 +44,26 @@ int64_t GetConversionToSecondsDivisor(TimeUnit::type unit) {
   return divisor;
 }
 
-uint32_t CalculateFraction(TimeUnit::type unit, uint64_t units_since_epoch) {
-  // Convert the given remainder and time unit to nanoseconds
-  // since the fraction field on TIMESTAMP_STRUCT is in nanoseconds.
-  switch (unit) {
-    case TimeUnit::SECOND:
-      return 0;
-    case TimeUnit::MILLI:
-      // 1000000 nanoseconds = 1 millisecond.
-      return (units_since_epoch % driver::odbcabstraction::MILLI_TO_SECONDS_DIVISOR) *
-             1000000;
-    case TimeUnit::MICRO:
-      // 1000 nanoseconds = 1 microsecond.
-      return (units_since_epoch % driver::odbcabstraction::MICRO_TO_SECONDS_DIVISOR) *
-             1000;
-    case TimeUnit::NANO:
-      // 1000 nanoseconds = 1 microsecond.
-      return (units_since_epoch % driver::odbcabstraction::NANO_TO_SECONDS_DIVISOR);
+uint32_t CalculateFraction(TimeUnit::type unit, int64_t units_since_epoch) {
+  /**
+   * Convert the given remainder and time unit to nanoseconds
+   * since the fraction field on TIMESTAMP_STRUCT is in nanoseconds.
+   */
+  if (unit == TimeUnit::SECOND) {
+    return 0;
   }
-  return 0;
+
+  const int64_t divisor = GetConversionToSecondsDivisor(unit);
+  const int64_t nano_divisor = GetConversionToSecondsDivisor(TimeUnit::NANO);
+
+  // Safe remainder calculation that always gives a non-negative result
+  int64_t remainder = units_since_epoch % divisor;
+  if (remainder < 0) {
+    remainder += divisor;
+  }
+
+  // Scale to nanoseconds
+  return static_cast<uint32_t>(remainder * (nano_divisor / divisor));
 }
 }  // namespace
 
@@ -88,10 +89,21 @@ RowStatus TimestampArrayFlightSqlAccessor<TARGET_TYPE, UNIT>::MoveSingleCell_imp
 
   int64_t value = this->GetArray()->Value(arrow_row);
   const auto divisor = GetConversionToSecondsDivisor(UNIT);
-  const auto converted_result_seconds = value / divisor;
+  const auto converted_result_seconds =
+      // We want floor division here; C++ will round towards zero
+      (value < 0)
+          /**
+           * Floor division: Shift all "fractional" (not a multiple of divisor) values so
+           * they round towards zero (and to the same value) along with the "floor" less
+           * than them, then add 1 to get back to the floor.  Alternative we could shift
+           * negatively by (divisor - 1) but this breaks near INT64_MIN causing underflow.
+           */
+          ? ((value + 1) / divisor) - 1
+          // Towards zero is already floor
+          : value / divisor;
   tm timestamp = {0};
 
-  GetTimeForSecondsSinceEpoch(timestamp, converted_result_seconds);
+  GetTimeForSecondsSinceEpoch(converted_result_seconds, timestamp);
 
   buffer[cell_counter].year = 1900 + (timestamp.tm_year);
   buffer[cell_counter].month = timestamp.tm_mon + 1;
