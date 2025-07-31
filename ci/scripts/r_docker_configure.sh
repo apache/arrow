@@ -67,18 +67,6 @@ sloppiness = include_file_ctime
 hash_dir = false" >> ~/.ccache/ccache.conf
 fi
 
-# Update clang version to latest available
-: ${R_UPDATE_CLANG:=FALSE}
-R_UPDATE_CLANG=`echo $R_UPDATE_CLANG | tr '[:upper:]' '[:lower:]'`
-if [ ${R_UPDATE_CLANG} = "true" ]; then
-  apt-get update &&
-  apt-get install -y curl gnupg &&
-  curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/llvm.gpg &&
-  echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main" > /etc/apt/sources.list.d/llvm20.list &&
-  apt-get update &&
-  apt-get install -y clang-20 lld-20
-fi
-
 if [ -f "${ARROW_SOURCE_HOME}/ci/scripts/r_install_system_dependencies.sh" ]; then
   "${ARROW_SOURCE_HOME}/ci/scripts/r_install_system_dependencies.sh"
 fi
@@ -86,6 +74,18 @@ fi
 # Install rsync for bundling cpp source and curl to make sure it is installed on all images,
 # cmake is now a listed sys req.
 $PACKAGE_MANAGER install -y rsync cmake curl
+
+# Update clang version to latest available
+: ${R_UPDATE_CLANG:=FALSE}
+R_UPDATE_CLANG=`echo $R_UPDATE_CLANG | tr '[:upper:]' '[:lower:]'`
+if [ ${R_UPDATE_CLANG} = "true" ]; then
+  $PACKAGE_MANAGER install update -y &&
+  $PACKAGE_MANAGER install install -y gnupg &&
+  curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/llvm.gpg &&
+  echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main" > /etc/apt/sources.list.d/llvm20.list &&
+  $PACKAGE_MANAGER install update -y &&
+  $PACKAGE_MANAGER install install -y clang-20 lld-20
+fi
 
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786
 Rscript -e 'x <- file.path(R.home("doc"), "html"); if (!file.exists(x)) {dir.create(x, recursive=TRUE); file.copy(system.file("html/R.css", package="stats"), x)}'
