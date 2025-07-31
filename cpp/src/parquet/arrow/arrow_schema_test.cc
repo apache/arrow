@@ -25,6 +25,7 @@
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/schema.h"
+#include "parquet/arrow/variant_internal.h"
 #include "parquet/file_reader.h"
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
@@ -941,46 +942,57 @@ TEST_F(TestConvertParquetSchema, ParquetVariant) {
       PrimitiveNode::Make("metadata", Repetition::REQUIRED, ParquetType::BYTE_ARRAY);
   auto value =
       PrimitiveNode::Make("value", Repetition::REQUIRED, ParquetType::BYTE_ARRAY);
-
-  auto variant =
-      GroupNode::Make("variant_unshredded", Repetition::OPTIONAL, {metadata, value});
+  auto variant = GroupNode::Make("variant_unshredded", Repetition::OPTIONAL,
+                                 {metadata, value}, LogicalType::Variant());
   parquet_fields.push_back(variant);
 
-  {
-    // Test converting from parquet schema to arrow schema.
-    std::vector<std::shared_ptr<Field>> arrow_fields;
-    auto arrow_metadata =
-        ::arrow::field("metadata", ::arrow::binary(), /*nullable=*/false);
-    auto arrow_value = ::arrow::field("value", ::arrow::binary(), /*nullable=*/false);
-    auto arrow_variant = ::arrow::struct_({arrow_metadata, arrow_value});
-    arrow_fields.push_back(
-        ::arrow::field("variant_unshredded", arrow_variant, /*nullable=*/true));
-    auto arrow_schema = ::arrow::schema(arrow_fields);
+  // Arrow schema for unshredded variant struct.
+  auto arrow_metadata = ::arrow::field("metadata", ::arrow::binary(), /*nullable=*/false);
+  auto arrow_value = ::arrow::field("value", ::arrow::binary(), /*nullable=*/false);
+  auto arrow_variant = ::arrow::struct_({arrow_metadata, arrow_value});
 
+  // Register the variant extension type since it is not registered by default.
+  auto variant_extension = std::make_shared<VariantExtensionType>(arrow_variant);
+  ASSERT_OK(::arrow::ExtensionTypeRegistry::GetGlobalRegistry()->RegisterType(
+      variant_extension));
+
+  {
+    // Parquet file does not contain Arrow schema.
+    // By default, field should be treated as a normal struct in Arrow.
+    auto arrow_schema =
+        ::arrow::schema({::arrow::field("variant_unshredded", arrow_variant)});
     ASSERT_OK(ConvertSchema(parquet_fields));
-    ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
+    ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema, /*check_metadata=*/true));
   }
 
   {
-    // Test converting from parquet schema to arrow schema even though
+    // Parquet file does not contain Arrow schema.
+    // If Arrow extensions are enabled, field should be interpreted as Parquet Variant
+    // extension type.
+    ArrowReaderProperties props;
+    props.set_arrow_extensions_enabled(true);
+
+    auto arrow_schema =
+        ::arrow::schema({::arrow::field("variant_unshredded", variant_extension)});
+
+    ASSERT_OK(ConvertSchema(parquet_fields, /*metadata=*/nullptr, props));
+    ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema, /*check_metadata=*/true));
+  }
+
+  {
+    // Parquet file does contain Arrow schema.
+    // Field should be interpreted as Parquet Variant extension even though
     // extensions are not enabled.
     ArrowReaderProperties props;
     props.set_arrow_extensions_enabled(false);
 
-    // Test converting from parquet schema to arrow schema.
-    std::vector<std::shared_ptr<Field>> arrow_fields;
-    auto arrow_metadata =
-        ::arrow::field("metadata", ::arrow::binary(), /*nullable=*/false);
-    auto arrow_value = ::arrow::field("value", ::arrow::binary(), /*nullable=*/false);
-    auto arrow_variant = ::arrow::struct_({arrow_metadata, arrow_value});
-    arrow_fields.push_back(
-        ::arrow::field("variant_unshredded", arrow_variant, /*nullable=*/true));
-    auto arrow_schema = ::arrow::schema(arrow_fields);
+    auto arrow_schema =
+        ::arrow::schema({::arrow::field("variant_unshredded", variant_extension)});
 
     std::shared_ptr<KeyValueMetadata> metadata;
     ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));
     ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
-    CheckFlatSchema(arrow_schema, true /* check_metadata */);
+    ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema, /*check_metadata=*/true));
   }
 }
 
