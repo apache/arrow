@@ -641,7 +641,7 @@ build_libarrow <- function(src_dir, dst_dir) {
   invisible(status)
 }
 
-ensure_cmake <- function(cmake_minimum_required = "3.25") {
+ensure_cmake <- function(cmake_minimum_required = "3.26") {
   cmake <- find_cmake(version_required = cmake_minimum_required)
 
   if (is.null(cmake)) {
