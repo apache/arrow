@@ -95,11 +95,9 @@ def _range_integers(size, dtype):
     return pa.array(np.arange(size, dtype=dtype))
 
 
-def _test_dataframe(size=10000, seed=0):
-    import pandas as pd
-
+def _test_dict(size=10000, seed=0):
     np.random.seed(seed)
-    df = pd.DataFrame({
+    return {
         'uint8': _random_integers(size, np.uint8),
         'uint16': _random_integers(size, np.uint16),
         'uint32': _random_integers(size, np.uint32),
@@ -114,11 +112,21 @@ def _test_dataframe(size=10000, seed=0):
         'strings': [util.rands(10) for i in range(size)],
         'all_none': [None] * size,
         'all_none_category': [None] * size
-    })
+    }
+
+
+def _test_dataframe(size=10000, seed=0):
+    import pandas as pd
+
+    df = pd.DataFrame(_test_dict(size, seed))
 
     # TODO(PARQUET-1015)
     # df['all_none_category'] = df['all_none_category'].astype('category')
     return df
+
+
+def _test_table(size=10000, seed=0):
+    return pa.Table.from_pydict(_test_dict(size, seed))
 
 
 def make_sample_file(table_or_df):
