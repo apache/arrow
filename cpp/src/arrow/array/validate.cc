@@ -571,8 +571,8 @@ struct ValidateArrayImpl {
           actual_null_count = 0;
         }
         if (!nullable && actual_null_count > 0) {
-          return Status::Invalid("Field is not nullable but array contains ",
-                                 actual_null_count, " nulls");
+          return Status::Invalid("Field is not nullable but contains ", actual_null_count,
+                                 " nulls");
         }
         if (data.null_count != kUnknownNullCount &&
             actual_null_count != data.null_count) {
@@ -714,7 +714,11 @@ struct ValidateArrayImpl {
   template <typename ListType>
   Status ValidateListLike(const ListType& type) {
     const ArrayData& values = *data.child_data[0];
-    const Status child_valid = RecurseInto(values, type.value_field()->nullable()); 
+
+    if (!type.value_field()->nullable() && values.null_count > 0) {
+      return Status::Invalid("List child array contains nulls but field is not nullable");
+    }
+    const Status child_valid = RecurseInto(values, type.value_field()->nullable());
     if (!child_valid.ok()) {
       return Status::Invalid("List child array invalid: ", child_valid.ToString());
     }

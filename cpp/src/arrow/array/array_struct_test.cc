@@ -29,6 +29,7 @@
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
@@ -183,6 +184,46 @@ TEST(StructArray, ValidateFullNullable) {
 
   ASSERT_RAISES(Invalid, struct_arr->ValidateFull());
   ASSERT_OK(struct_arr_nonull->ValidateFull());
+}
+
+// Test Non-nullable struct inside a list
+TEST(StructArray, ValidateStructInsideList) {
+  auto inner_struct_type =
+      struct_({field("x", int32(), false), field("y", utf8(), false)});
+  auto outer_type = list(field("inner", inner_struct_type, false));
+  auto valid_list = ArrayFromJSON(outer_type, R"([
+        [{"x": 1, "y": "ok"}, {"x": 2, "y": "yes"}],
+        [{"x": 3, "y": "good"}],
+        []
+      ])");
+
+  auto invalid_list = ArrayFromJSON(outer_type, R"([
+        [{"x": 1, "y": "ok"}, {"x": 2, "y": null}],
+        [{"x": 3, "y": "good"}],
+        []
+      ])");
+  ASSERT_OK(valid_list->ValidateFull());
+  ASSERT_RAISES(Invalid, invalid_list->ValidateFull());
+}
+
+// Test Non-nullable struct inside a struct
+TEST(StructArray, ValidateStructInsideStruct) {
+  auto inner_struct_type =
+      struct_({field("x", int32(), false), field("y", utf8(), false)});
+  auto outer_type =
+      struct_({field("meta", inner_struct_type, false), field("name", utf8(), false)});
+
+  auto valid_struct = ArrayFromJSON(outer_type, R"([
+        {"meta": {"x": 1, "y": "ok"}, "name": "foo"},
+        {"meta": {"x": 2, "y": "yes"}, "name": "bar"},
+        {"meta": {"x": 3, "y": "good"}, "name": "baz"}
+      ])");
+  auto invalid_struct = ArrayFromJSON(outer_type, R"([
+        {"meta": {"x": null, "y": "ok"}, "name": "bad"},
+        {"meta": null, "name": "null_meta"}
+      ])");
+  ASSERT_OK(valid_struct->ValidateFull());
+  ASSERT_RAISES(Invalid, invalid_struct->ValidateFull());
 }
 
 TEST(StructArray, Validate) {
