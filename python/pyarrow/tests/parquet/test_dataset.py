@@ -742,6 +742,7 @@ def test_dataset_read_pandas(tempdir):
     tm.assert_frame_equal(result.reindex(columns=expected.columns), expected)
 
 
+@pytest.mark.numpy
 def test_dataset_memory_map(tempdir):
     # ARROW-2627: Check that we can use ParquetDataset with memory-mapping
     dirpath = tempdir / guid()
@@ -756,6 +757,7 @@ def test_dataset_memory_map(tempdir):
     assert dataset.read().equals(table)
 
 
+@pytest.mark.numpy
 def test_dataset_enable_buffered_stream(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
@@ -774,6 +776,7 @@ def test_dataset_enable_buffered_stream(tempdir):
         assert dataset.read().equals(table)
 
 
+@pytest.mark.numpy
 def test_dataset_enable_pre_buffer(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
@@ -807,6 +810,7 @@ def _assert_dataset_paths(dataset, paths):
     assert set(paths) == set(dataset.files)
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize('dir_prefix', ['_', '.'])
 def test_ignore_private_directories(tempdir, dir_prefix):
     dirpath = tempdir / guid()
@@ -823,6 +827,7 @@ def test_ignore_private_directories(tempdir, dir_prefix):
     _assert_dataset_paths(dataset, paths)
 
 
+@pytest.mark.numpy
 def test_ignore_hidden_files_dot(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
@@ -841,6 +846,7 @@ def test_ignore_hidden_files_dot(tempdir):
     _assert_dataset_paths(dataset, paths)
 
 
+@pytest.mark.numpy
 def test_ignore_hidden_files_underscore(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
@@ -859,6 +865,7 @@ def test_ignore_hidden_files_underscore(tempdir):
     _assert_dataset_paths(dataset, paths)
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize('dir_prefix', ['_', '.'])
 def test_ignore_no_private_directories_in_base_path(tempdir, dir_prefix):
     # ARROW-8427 - don't ignore explicitly listed files if parent directory

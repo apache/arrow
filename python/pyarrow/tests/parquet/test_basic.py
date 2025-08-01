@@ -76,6 +76,7 @@ def test_set_data_page_size():
         _check_roundtrip(t, data_page_size=target_page_size)
 
 
+@pytest.mark.numpy
 def test_set_write_batch_size():
     table = _test_table(100)
 
@@ -84,6 +85,7 @@ def test_set_write_batch_size():
     )
 
 
+@pytest.mark.numpy
 def test_set_dictionary_pagesize_limit():
     table = _test_table(100)
 
