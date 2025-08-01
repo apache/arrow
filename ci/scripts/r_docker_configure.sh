@@ -76,16 +76,14 @@ fi
 $PACKAGE_MANAGER install -y rsync cmake curl
 
 # Update clang version to latest available
-: ${R_UPDATE_CLANG:=FALSE}
-R_UPDATE_CLANG=`echo $R_UPDATE_CLANG | tr '[:upper:]' '[:lower:]'`
-echo "R_UPDATE_CLANG=${R_UPDATE_CLANG}"
-if [ ${R_UPDATE_CLANG} = "true" ]; then
-  $PACKAGE_MANAGER install update -y &&
-  $PACKAGE_MANAGER install install -y gnupg &&
+
+if [ "$R_UPDATE_CLANG" = true ]; then
+  apt update -y &&
+  apt install -y gnupg &&
   curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/llvm.gpg &&
   echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main" > /etc/apt/sources.list.d/llvm20.list &&
-  $PACKAGE_MANAGER install update -y &&
-  $PACKAGE_MANAGER install install -y clang-20 lld-20
+  apt update -y &&
+  apt install -y clang-20 lld-20
 fi
 
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786
