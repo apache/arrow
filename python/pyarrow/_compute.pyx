@@ -1020,11 +1020,9 @@ class RoundTemporalOptions(_RoundTemporalOptions):
     """
 
     def __init__(self, multiple=1, unit="day", *, week_starts_monday=True,
-                 ceil_is_strictly_greater=False,
-                 calendar_based_origin=False):
+                 ceil_is_strictly_greater=False, calendar_based_origin=False):
         self._set_options(multiple, unit, week_starts_monday,
-                          ceil_is_strictly_greater,
-                          calendar_based_origin)
+                          ceil_is_strictly_greater, calendar_based_origin)
 
 
 cdef class _RoundToMultipleOptions(FunctionOptions):
