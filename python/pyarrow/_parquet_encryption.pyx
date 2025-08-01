@@ -195,27 +195,19 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
                  data_key_length_bits=None, app_context=None,
                  connection_config=None, per_column_encryption=None):
 
+        super().__init__(footer_key,
+            column_keys=column_keys,
+            encryption_algorithm=encryption_algorithm,
+            plaintext_footer=plaintext_footer,
+            double_wrapping=double_wrapping,
+            cache_lifetime=cache_lifetime,
+            internal_key_material=internal_key_material,
+            data_key_length_bits=data_key_length_bits)
         #Holds a shared pointer to the underlying C++ external encryption configuration object.
         self._external_config = shared_ptr[CExternalEncryptionConfiguration](
             new CExternalEncryptionConfiguration(tobytes(footer_key))
         )
 
-        self.configuration = self._external_config
-        
-        if column_keys is not None:
-            self.column_keys = column_keys
-        if encryption_algorithm is not None:
-            self.encryption_algorithm = encryption_algorithm
-        if plaintext_footer is not None:
-            self.plaintext_footer = plaintext_footer
-        if double_wrapping is not None:
-            self.double_wrapping = double_wrapping
-        if cache_lifetime is not None:
-            self.cache_lifetime = cache_lifetime
-        if internal_key_material is not None:
-            self.internal_key_material = internal_key_material
-        if data_key_length_bits is not None:
-            self.data_key_length_bits = data_key_length_bits
         if app_context is not None:
             self.app_context = app_context
         if connection_config is not None:
