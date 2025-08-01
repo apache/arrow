@@ -94,6 +94,7 @@ def _random_integers(size, dtype):
 def _range_integers(size, dtype):
     return pa.array(np.arange(size, dtype=dtype))
 
+
 def _test_dict(size=10000, seed=0):
     np.random.seed(seed)
     return {
@@ -112,6 +113,7 @@ def _test_dict(size=10000, seed=0):
         'all_none': [None] * size,
         'all_none_category': [None] * size
     }
+
 
 def _test_dataframe(size=10000, seed=0):
     import pandas as pd
