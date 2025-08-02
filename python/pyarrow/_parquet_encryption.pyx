@@ -176,12 +176,6 @@ cdef class EncryptionConfiguration(_Weakrefable):
     cdef inline shared_ptr[CEncryptionConfiguration] unwrap(self) nogil:
         return self.configuration
 
-cdef inline str from_c_string(const c_string& s):
-    return s.decode('utf-8')
-
-cdef inline c_string to_c_string(str s):
-    return s.encode('utf-8')
-
 cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
     """ExternalEncryptionConfiguration is a Cython extension class that inherits from EncryptionConfiguration."""
     __slots__ = ()
@@ -253,7 +247,7 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
         while it != end:
             # Dereference and access members.
             # The .first and .second members will be c_string (char*).
-            result[from_c_string(deref(it).first)] = from_c_string(deref(it).second)
+            result[deref(it).first.decode('utf-8')] = deref(it).second.decode('utf-8')
 
             # Increment the iterator. Use preincrement() for robustness if ++it causes issues.
             preincrement(it) # This is the most reliable way to increment here.
@@ -265,7 +259,7 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
     def connection_config(self, dict value):
         cdef unordered_map[c_string, c_string] cpp_map
         for k, v in value.items():
-            cpp_map[to_c_string(k)] = to_c_string(v)
+            cpp_map[k.encode('utf-8')] = v.encode('utf-8')
         self._external_config.get().connection_config = cpp_map
 
     @property
@@ -285,9 +279,9 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
             # Do NOT use 'cdef CColumnEncryptionAttributes current_value = ...'
 
             # Convert C++ CColumnEncryptionAttributes to a Python dictionary
-            py_dict[from_c_string(deref(it).first)] = {
+            py_dict[deref(it).first.decode('utf-8')] = {
                 "encryption_algorithm": cipher_to_name(deref(it).second.parquet_cipher),
-                "encryption_key": from_c_string(deref(it).second.key_id)
+                "encryption_key": deref(it).second.key_id.decode('utf-8')
             }
             preincrement(it)
 
@@ -309,7 +303,7 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
             if not isinstance(py_key, str) or not isinstance(py_attrs, dict):
                 raise TypeError("column_encryption keys must be strings and values must be dictionaries.")
 
-            c_key = to_c_string(py_key) # Convert Python key to C-string
+            c_key = py_key.encode('utf-8') # Convert Python key to C-string
 
             # Convert encryption_algorithm string to C++ ParquetCipher enum
             if "encryption_algorithm" not in py_attrs or not isinstance(py_attrs["encryption_algorithm"], str):
@@ -319,7 +313,7 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
             # Convert encryption_key string to C++ c_string
             if "encryption_key" not in py_attrs or not isinstance(py_attrs["encryption_key"], str):
                 raise ValueError("Each column must have 'encryption_key' (string).")
-            c_key_id = to_c_string(py_attrs["encryption_key"])
+            c_key_id = py_attrs["encryption_key"].encode('utf-8')
 
             # Create a C++ CColumnEncryptionAttributes object
             # Assuming CColumnEncryptionAttributes has a constructor matching this or default.
@@ -327,13 +321,6 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
             cpp_attrs.parquet_cipher = c_cipher_enum
             cpp_attrs.key_id = c_key_id # Directly assign char* (beware of ownership)
 
-            # Insert into the C++ unordered_map
-            # IMPORTANT: For char* keys, the map will copy the pointer value.
-            # If the C++ map is designed to take ownership and deep-copy the char* content,
-            # this might be fine. Otherwise, you'll have dangling pointers if `to_c_string`
-            # creates temporary memory that is freed too soon.
-            # If the C++ map expects `std::string`, use `std_string(py_key.encode('utf-8'))` for the key,
-            # and `std_string(py_attrs["encryption_key"].encode('utf-8'))` for key_id.
             self._external_config.get().per_column_encryption[c_key] = cpp_attrs
 
     cdef inline shared_ptr[CExternalEncryptionConfiguration] unwrapExternal(self) nogil:
