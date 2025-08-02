@@ -17,7 +17,6 @@
 import pytest
 from datetime import timedelta
 
-
 import pyarrow as pa
 try:
     import pyarrow.parquet as pq
