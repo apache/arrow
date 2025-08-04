@@ -21,9 +21,9 @@
 #pragma once
 
 #include <algorithm>
-#include <cmath>
+#include <array>
 #include <limits>
-#include <vector>
+#include <type_traits>
 
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
@@ -83,6 +83,89 @@ namespace util {
 /// <varint((25 << 1) | 1)> <25 bytes of values, bitpacked>
 /// (total 26 bytes, 1 byte overhead)
 //
+
+class RleRun {
+ public:
+  using byte = uint8_t;
+  /// Enough space to store a 64bit value
+  using raw_data_storage = std::array<byte, 8>;
+  using raw_data_const_pointer = const byte*;
+  using raw_data_size_type = int32_t;
+  /// The type of the size of either run, between 1 and 2^31-1 as per Parquet spec
+  using values_count_type = int32_t;
+  /// The type to represent a size in bits
+  using bit_size_type = int32_t;
+
+  constexpr RleRun() noexcept = default;
+  constexpr RleRun(RleRun const&) noexcept = default;
+  constexpr RleRun(RleRun&&) noexcept = default;
+
+  explicit RleRun(raw_data_const_pointer data, values_count_type values_count,
+                  bit_size_type value_bit_width) noexcept;
+
+  constexpr RleRun& operator=(RleRun const&) noexcept = default;
+  constexpr RleRun& operator=(RleRun&&) noexcept = default;
+
+  /// The number of repeated values in this run.
+  [[nodiscard]] constexpr values_count_type ValuesCount() const noexcept;
+
+  /// The size in bits of each encoded value.
+  [[nodiscard]] constexpr bit_size_type ValuesBitWidth() const noexcept;
+
+  /// A pointer to the repeated value raw bytes.
+  [[nodiscard]] constexpr raw_data_const_pointer RawDataPtr() const noexcept;
+
+  /// The number of bytes used for the raw repeated value.
+  [[nodiscard]] constexpr raw_data_size_type RawDataSize() const noexcept;
+
+ private:
+  /// The repeated value raw bytes stored inside the class
+  raw_data_storage data_ = {};
+  /// The number of time the value is repeated
+  values_count_type values_count_ = 0;
+  /// The size in bit of a packed value in the run
+  bit_size_type value_bit_width_ = 0;
+};
+
+class BitPackedRun {
+ public:
+  using byte = uint8_t;
+  using raw_data_const_pointer = const byte*;
+  /// According to the Parquet thrift definition the page size can be written into an
+  /// int32_t.
+  using raw_data_size_type = int32_t;
+  /// The type of the size of either run, between 1 and 2^31-1 as per Parquet spec
+  using values_count_type = int32_t;
+  /// The type to represent a size in bits
+  using bit_size_type = int32_t;
+
+  constexpr BitPackedRun() noexcept = default;
+  constexpr BitPackedRun(BitPackedRun const&) noexcept = default;
+  constexpr BitPackedRun(BitPackedRun&&) noexcept = default;
+
+  constexpr BitPackedRun(raw_data_const_pointer data, values_count_type values_count,
+                         bit_size_type value_bit_width) noexcept;
+
+  constexpr BitPackedRun& operator=(BitPackedRun const&) noexcept = default;
+  constexpr BitPackedRun& operator=(BitPackedRun&&) noexcept = default;
+
+  [[nodiscard]] constexpr values_count_type ValuesCount() const noexcept;
+
+  /// The size in bits of each encoded value.
+  [[nodiscard]] constexpr bit_size_type ValuesBitWidth() const noexcept;
+
+  [[nodiscard]] constexpr raw_data_const_pointer RawDataPtr() const noexcept;
+
+  [[nodiscard]] constexpr raw_data_size_type RawDataSize() const noexcept;
+
+ private:
+  /// The pointer to the beginning of the run
+  raw_data_const_pointer data_ = nullptr;
+  /// Number of values in this run.
+  raw_data_size_type values_count_ = 0;
+  /// The size in bit of a packed value in the run
+  bit_size_type value_bit_width_ = 0;
+};
 
 /// Decoder class for RLE encoded data.
 template <typename T>
