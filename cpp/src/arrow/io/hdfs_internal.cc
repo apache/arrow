@@ -40,13 +40,13 @@
 #include "arrow/util/basic_decimal.h"
 
 #ifndef _WIN32
-#include <dlfcn.h>
+#  include <dlfcn.h>
 #endif
 
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -162,13 +162,13 @@ Result<std::vector<PlatformFilename>> get_potential_libjvm_paths() {
 // SFrame uses /usr/libexec/java_home to find JAVA_HOME; for now we are
 // expecting users to set an environment variable
 #else
-#if defined(__aarch64__)
+#  if defined(__aarch64__)
   const std::string prefix_arch{"arm64"};
   const std::string suffix_arch{"aarch64"};
-#else
+#  else
   const std::string prefix_arch{"amd64"};
   const std::string suffix_arch{"amd64"};
-#endif
+#  endif
   ARROW_ASSIGN_OR_RAISE(
       search_prefixes,
       MakeFilenameVector({

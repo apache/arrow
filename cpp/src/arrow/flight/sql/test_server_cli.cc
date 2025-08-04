@@ -31,12 +31,12 @@
 #include "arrow/util/logging.h"
 
 #ifdef ARROW_WITH_OPENTELEMETRY
-#include "arrow/flight/otel_logging.h"
-#include "arrow/util/tracing_internal.h"
+#  include "arrow/flight/otel_logging.h"
+#  include "arrow/util/tracing_internal.h"
 
-#include <opentelemetry/context/propagation/global_propagator.h>
-#include <opentelemetry/context/propagation/text_map_propagator.h>
-#include <opentelemetry/trace/propagation/http_trace_context.h>
+#  include <opentelemetry/context/propagation/global_propagator.h>
+#  include <opentelemetry/context/propagation/text_map_propagator.h>
+#  include <opentelemetry/trace/propagation/http_trace_context.h>
 #endif
 
 DEFINE_int32(port, 31337, "Server port to listen on");

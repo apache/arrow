@@ -19,6 +19,11 @@ name: C#
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
       - '.github/workflows/csharp.yml'
       - 'ci/scripts/csharp_*'
@@ -39,7 +44,7 @@ permissions:
 jobs:
 
   ubuntu:
-    name: AMD64 Ubuntu 18.04 C# ${{ matrix.dotnet }}
+    name: AMD64 Ubuntu 24.04 C# ${{ matrix.dotnet }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
@@ -49,16 +54,17 @@ jobs:
         dotnet: ['8.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v4.0.1
+        uses: actions/setup-dotnet@v4.3.1
         with:
           dotnet-version: ${{ matrix.dotnet }}
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: 3
       - name: Checkout Arrow
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install Source Link
-        shell: bash
-        run: dotnet tool install --global sourcelink
       - name: Build
         shell: bash
         run: ci/scripts/csharp_build.sh $(pwd)
@@ -67,8 +73,8 @@ jobs:
         run: ci/scripts/csharp_test.sh $(pwd)
 
   windows:
-    name: AMD64 Windows 2019 18.04 C# ${{ matrix.dotnet }}
-    runs-on: windows-2019
+    name: AMD64 Windows C# ${{ matrix.dotnet }}
+    runs-on: windows-2022
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     strategy:
@@ -77,15 +83,13 @@ jobs:
         dotnet: ['8.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v4.0.1
+        uses: actions/setup-dotnet@v4.3.1
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install Source Link
-        run: dotnet tool install --global sourcelink
       - name: Build
         shell: bash
         run: ci/scripts/csharp_build.sh $(pwd)
@@ -95,7 +99,7 @@ jobs:
 
   macos:
     name: AMD64 macOS 13 C# ${{ matrix.dotnet }}
-    runs-on: macos-13 # Pending https://github.com/pythonnet/pythonnet/issues/2396
+    runs-on: macos-13
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     strategy:
@@ -104,23 +108,105 @@ jobs:
         dotnet: ['8.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v4.0.1
+        uses: actions/setup-dotnet@v4.3.1
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Setup Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: 3.12
       - name: Checkout Arrow
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install Source Link
-        shell: bash
-        run: dotnet tool install --global sourcelink
       - name: Build
         shell: bash
         run: ci/scripts/csharp_build.sh $(pwd)
       - name: Test
         shell: bash
         run: ci/scripts/csharp_test.sh $(pwd)
+
+  package:
+    name: Package
+    # Branch or RC tag
+    if: github.ref_type != 'tag' || contains(github.ref_name, 'rc')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout for utilities
+        if: github.ref_type == 'tag'
+        uses: actions/checkout@v4
+        with:
+          path: arrow
+      - name: Download source archive
+        if: github.ref_type == 'tag'
+        run: |
+          arrow/dev/release/utils-watch-gh-workflow.sh \
+            ${GITHUB_REF_NAME} \
+            release_candidate.yml
+          gh release download ${GITHUB_REF_NAME} \
+            --pattern "*.tar.gz" \
+            --repo ${GITHUB_REPOSITORY}
+          tar -xf *.tar.gz --strip-components=1
+          mv csharp/dummy.git .git
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Checkout
+        if: github.ref_type != 'tag'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prepare version
+        if: github.ref_type != 'tag'
+        run: |
+          # apache-arrow-20.0.0.dev-9-g758867f907 ->
+          #              20.0.0.dev-9-g758867f907 ->
+          #              20.0.0.dev-9             ->
+          #              20.0.0-dev-9
+          semver="$(git describe --tags | \
+                     sed -E \
+                         -e 's/^apache-arrow-//' \
+                         -e 's/-[^-]*$//' \
+                         -e 's/^([0-9]*\.[0-9]*\.[0-9])\./\1-/')"
+          sed -i'' -E -e \
+            "s/^    <Version>.+<\/Version>/    <Version>${semver}<\/Version>/" \
+            csharp/Directory.Build.props
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: 3
+      - name: Setup Archery
+        run: |
+          python3 -m pip install -e 'dev/archery[docker]'
+      - name: Build
+        run: |
+          archery docker run ubuntu-csharp
+      - name: Prepare artifacts
+        run: |
+          shopt -s globstar
+          cp csharp/artifacts/**/*.{,s}nupkg ./
+          for artifact in *.{,s}nupkg; do
+            dev/release/utils-generate-checksum.sh "${artifact}"
+          done
+      - name: Upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nuget
+          path: |
+            *.nupkg
+            *.sha256
+            *.sha512
+            *.snupkg
+      - name: Publish
+        if: github.ref_type == 'tag'
+        run: |
+          gh release upload ${GITHUB_REF_NAME} \
+            --repo ${GITHUB_REPOSITORY} \
+            *.nupkg \
+            *.sha256 \
+            *.sha512 \
+            *.snupkg
+        env:
+          GH_TOKEN: ${{ github.token }}

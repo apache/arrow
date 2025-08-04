@@ -26,6 +26,8 @@
 #include <arrow-glib/type.hpp>
 
 #include <arrow/c/bridge.h>
+#include <arrow/extension/fixed_shape_tensor.h>
+#include <arrow/extension/uuid.h>
 
 G_BEGIN_DECLS
 
@@ -114,6 +116,10 @@ G_BEGIN_DECLS
  *
  * #GArrowDecimalDataType is a base class for the decimal data types.
  *
+ * #GArrowDecimal32DataType is a class for the 32-bit decimal data type.
+ *
+ * #GArrowDecimal64DataType is a class for the 64-bit decimal data type.
+ *
  * #GArrowDecimal128DataType is a class for the 128-bit decimal data type.
  *
  * #GArrowDecimal256DataType is a class for the 256-bit decimal data type.
@@ -123,6 +129,14 @@ G_BEGIN_DECLS
  *
  * #GArrowExtensionDataTypeRegistry is a class to manage extension
  * data types.
+ *
+ * #GArrowStringViewDataType is a class for the string view data type.
+ *
+ * #GArrowBinaryViewDataType is a class for the binary view data type.
+ *
+ * #GArrowFixedShapeTensorDataType is a class for the fixed shape tensor data type.
+ *
+ * #GArrowUUIDDataType is a class for UUID data type.
  */
 
 struct GArrowDataTypePrivate
@@ -1491,16 +1505,23 @@ garrow_decimal_data_type_class_init(GArrowDecimalDataTypeClass *klass)
  * Returns: (nullable):
  *   The newly created decimal data type on success, %NULL on error.
  *
- *   #GArrowDecimal256DataType is used if @precision is larger than
- *   garrow_decimal128_data_type_max_precision(),
- *   #GArrowDecimal128DataType is used otherwise.
+ *   * #GArrowDecimal32DataType is used if @precision up to 9
+ *   * #GArrowDecimal64DataType is used if @precision up to 19
+ *   * #GArrowDecimal128DataType is used if @precision up to 38
+ *   * #GArrowDecimal256DataType is used otherwise
  *
  * Since: 0.10.0
  */
 GArrowDecimalDataType *
 garrow_decimal_data_type_new(gint32 precision, gint32 scale, GError **error)
 {
-  if (precision <= garrow_decimal128_data_type_max_precision()) {
+  if (precision <= garrow_decimal32_data_type_max_precision()) {
+    return GARROW_DECIMAL_DATA_TYPE(
+      garrow_decimal32_data_type_new(precision, scale, error));
+  } else if (precision <= garrow_decimal64_data_type_max_precision()) {
+    return GARROW_DECIMAL_DATA_TYPE(
+      garrow_decimal64_data_type_new(precision, scale, error));
+  } else if (precision <= garrow_decimal128_data_type_max_precision()) {
     return GARROW_DECIMAL_DATA_TYPE(
       garrow_decimal128_data_type_new(precision, scale, error));
   } else {
@@ -1543,6 +1564,108 @@ garrow_decimal_data_type_get_scale(GArrowDecimalDataType *decimal_data_type)
   const auto arrow_decimal_type =
     std::static_pointer_cast<arrow::DecimalType>(arrow_data_type);
   return arrow_decimal_type->scale();
+}
+
+G_DEFINE_TYPE(GArrowDecimal32DataType,
+              garrow_decimal32_data_type,
+              GARROW_TYPE_DECIMAL_DATA_TYPE)
+
+static void
+garrow_decimal32_data_type_init(GArrowDecimal32DataType *object)
+{
+}
+
+static void
+garrow_decimal32_data_type_class_init(GArrowDecimal32DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_decimal32_data_type_max_precision:
+ *
+ * Returns: The max precision of 32-bit decimal data type.
+ *
+ * Since: 19.0.0
+ */
+gint32
+garrow_decimal32_data_type_max_precision()
+{
+  return arrow::Decimal32Type::kMaxPrecision;
+}
+
+/**
+ * garrow_decimal32_data_type_new:
+ * @precision: The precision of decimal data.
+ * @scale: The scale of decimal data.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable):
+ *   The newly created 32-bit decimal data type on success, %NULL on error.
+ *
+ * Since: 19.0.0
+ */
+GArrowDecimal32DataType *
+garrow_decimal32_data_type_new(gint32 precision, gint32 scale, GError **error)
+{
+  auto arrow_data_type_result = arrow::Decimal32Type::Make(precision, scale);
+  if (garrow::check(error, arrow_data_type_result, "[decimal32-data-type][new]")) {
+    auto arrow_data_type = *arrow_data_type_result;
+    return GARROW_DECIMAL32_DATA_TYPE(
+      g_object_new(GARROW_TYPE_DECIMAL32_DATA_TYPE, "data-type", &arrow_data_type, NULL));
+  } else {
+    return NULL;
+  }
+}
+
+G_DEFINE_TYPE(GArrowDecimal64DataType,
+              garrow_decimal64_data_type,
+              GARROW_TYPE_DECIMAL_DATA_TYPE)
+
+static void
+garrow_decimal64_data_type_init(GArrowDecimal64DataType *object)
+{
+}
+
+static void
+garrow_decimal64_data_type_class_init(GArrowDecimal64DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_decimal64_data_type_max_precision:
+ *
+ * Returns: The max precision of 64-bit decimal data type.
+ *
+ * Since: 19.0.0
+ */
+gint32
+garrow_decimal64_data_type_max_precision()
+{
+  return arrow::Decimal64Type::kMaxPrecision;
+}
+
+/**
+ * garrow_decimal64_data_type_new:
+ * @precision: The precision of decimal data.
+ * @scale: The scale of decimal data.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable):
+ *   The newly created 64-bit decimal data type on success, %NULL on error.
+ *
+ * Since: 19.0.0
+ */
+GArrowDecimal64DataType *
+garrow_decimal64_data_type_new(gint32 precision, gint32 scale, GError **error)
+{
+  auto arrow_data_type_result = arrow::Decimal64Type::Make(precision, scale);
+  if (garrow::check(error, arrow_data_type_result, "[decimal64-data-type][new]")) {
+    auto arrow_data_type = *arrow_data_type_result;
+    return GARROW_DECIMAL64_DATA_TYPE(
+      g_object_new(GARROW_TYPE_DECIMAL64_DATA_TYPE, "data-type", &arrow_data_type, NULL));
+  } else {
+    return NULL;
+  }
 }
 
 G_DEFINE_TYPE(GArrowDecimal128DataType,
@@ -1660,9 +1783,9 @@ enum {
   PROP_STORAGE_DATA_TYPE = 1
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowExtensionDataType,
-                           garrow_extension_data_type,
-                           GARROW_TYPE_DATA_TYPE)
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowExtensionDataType,
+                                    garrow_extension_data_type,
+                                    GARROW_TYPE_DATA_TYPE)
 
 #define GARROW_EXTENSION_DATA_TYPE_GET_PRIVATE(obj)                                      \
   static_cast<GArrowExtensionDataTypePrivate *>(                                         \
@@ -2094,6 +2217,309 @@ garrow_extension_data_type_registry_lookup(GArrowExtensionDataTypeRegistry *regi
   return GARROW_EXTENSION_DATA_TYPE(data_type);
 }
 
+G_DEFINE_TYPE(GArrowBinaryViewDataType,
+              garrow_binary_view_data_type,
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_binary_view_data_type_init(GArrowBinaryViewDataType *object)
+{
+}
+
+static void
+garrow_binary_view_data_type_class_init(GArrowBinaryViewDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_binary_view_data_type_new:
+ *
+ * Returns: The newly created binary view data type.
+ */
+GArrowBinaryViewDataType *
+garrow_binary_view_data_type_new(void)
+{
+  auto arrow_data_type = arrow::binary_view();
+  GArrowBinaryViewDataType *data_type = GARROW_BINARY_VIEW_DATA_TYPE(
+    g_object_new(GARROW_TYPE_BINARY_VIEW_DATA_TYPE, "data-type", &arrow_data_type, NULL));
+  return data_type;
+}
+
+G_DEFINE_TYPE(GArrowStringViewDataType,
+              garrow_string_view_data_type,
+              GARROW_TYPE_BINARY_VIEW_DATA_TYPE)
+
+static void
+garrow_string_view_data_type_init(GArrowStringViewDataType *object)
+{
+}
+
+static void
+garrow_string_view_data_type_class_init(GArrowStringViewDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_string_view_data_type_new:
+ *
+ * Returns: The newly created string view data type.
+ */
+GArrowStringViewDataType *
+garrow_string_view_data_type_new(void)
+{
+  auto arrow_data_type = arrow::utf8_view();
+  GArrowStringViewDataType *data_type = GARROW_STRING_VIEW_DATA_TYPE(
+    g_object_new(GARROW_TYPE_STRING_VIEW_DATA_TYPE, "data-type", &arrow_data_type, NULL));
+  return data_type;
+}
+
+enum {
+  PROP_N_DIMENSIONS = 1
+};
+
+G_DEFINE_TYPE(GArrowFixedShapeTensorDataType,
+              garrow_fixed_shape_tensor_data_type,
+              GARROW_TYPE_EXTENSION_DATA_TYPE)
+
+static void
+garrow_fixed_shape_tensor_data_type_get_property(GObject *object,
+                                                 guint prop_id,
+                                                 GValue *value,
+                                                 GParamSpec *pspec)
+{
+  switch (prop_id) {
+  case PROP_N_DIMENSIONS:
+    {
+      auto arrow_data_type =
+        std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(
+          garrow_data_type_get_raw(GARROW_DATA_TYPE(object)));
+      g_value_set_uint64(value, arrow_data_type->ndim());
+    }
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_fixed_shape_tensor_data_type_init(GArrowFixedShapeTensorDataType *object)
+{
+}
+
+static void
+garrow_fixed_shape_tensor_data_type_class_init(GArrowFixedShapeTensorDataTypeClass *klass)
+{
+  GParamSpec *spec;
+
+  auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->get_property = garrow_fixed_shape_tensor_data_type_get_property;
+
+  /**
+   * GArrowFixedShapeTensorDataType::n-dimensions:
+   *
+   * The number of dimensions of tensor elements.
+   *
+   * Since: 21.0.0
+   */
+  spec = g_param_spec_uint64("n_dimensions",
+                             "N dimensions",
+                             "Number of dimensions of tensor elements",
+                             0,
+                             G_MAXUINT64,
+                             0,
+                             static_cast<GParamFlags>(G_PARAM_READABLE));
+  g_object_class_install_property(gobject_class, PROP_N_DIMENSIONS, spec);
+}
+
+/**
+ * garrow_fixed_shape_tensor_data_type_new:
+ * @value_type: A #GArrowDataType of individual tensor elements.
+ * @shape: (array length=shape_length): A physical shape of the contained tensors as an
+ *   array.
+ * @shape_length: The length of `shape`.
+ * @permutation: (array length=permutation_length) (nullable): An indices of the desired
+ *   ordering of the original dimensions, defined as an array. This must be `NULL` or
+ *   the same length array of `shape`.
+ * @permutation_length: The length of `permutation`.
+ * @dim_names: (array length=n_dim_names) (nullable): Explicit names to tensor dimensions
+ *   as an array. This must be `NULL` or the same length array of `shape`.
+ * @n_dim_names. The length of `dim_names`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: The newly created fixed shape tensor data type.
+ *
+ * Since: 21.0.0
+ */
+GArrowFixedShapeTensorDataType *
+garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
+                                        const gint64 *shape,
+                                        gsize shape_length,
+                                        const gint64 *permutation,
+                                        gsize permutation_length,
+                                        const gchar **dim_names,
+                                        gsize n_dim_names,
+                                        GError **error)
+{
+  std::vector<int64_t> arrow_shape;
+  std::vector<int64_t> arrow_permutation;
+  std::vector<std::string> arrow_dim_names;
+
+  auto arrow_value_type = garrow_data_type_get_raw(value_type);
+
+  for (gsize i = 0; i < shape_length; i++) {
+    arrow_shape.push_back(shape[i]);
+  }
+
+  for (gsize i = 0; i < permutation_length; i++) {
+    arrow_permutation.push_back(permutation[i]);
+  }
+
+  for (gsize i = 0; i < n_dim_names; i++) {
+    arrow_dim_names.push_back(dim_names[i]);
+  }
+
+  auto arrow_data_type_result =
+    arrow::extension::FixedShapeTensorType::Make(arrow_value_type,
+                                                 arrow_shape,
+                                                 arrow_permutation,
+                                                 arrow_dim_names);
+  if (!garrow::check(error, arrow_data_type_result, "[fixed-shape-tensor][new]")) {
+    return NULL;
+  }
+
+  auto arrow_data_type = *arrow_data_type_result;
+  auto data_type = GARROW_FIXED_SHAPE_TENSOR_DATA_TYPE(
+    g_object_new(GARROW_TYPE_FIXED_SHAPE_TENSOR_DATA_TYPE,
+                 "data-type",
+                 &arrow_data_type,
+                 NULL));
+  return data_type;
+}
+
+/**
+ * garrow_fixed_shape_tensor_data_type_get_shape:
+ * @data_type: A #GArrowFixedShapeTensorDataType.
+ * @length: (out): Return location for the number of dimensions of the tensor.
+ *
+ * Returns: (array length=length): Shape of the tensor.
+ *
+ * Since: 21.0.0
+ */
+const gint64 *
+garrow_fixed_shape_tensor_data_type_get_shape(GArrowFixedShapeTensorDataType *data_type,
+                                              gsize *length)
+{
+  auto arrow_data_type = std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
+
+  const auto &arrow_shape = arrow_data_type->shape();
+  *length = arrow_shape.size();
+  return arrow_shape.data();
+}
+
+/**
+ * garrow_fixed_shape_tensor_data_type_get_permutation:
+ * @data_type: A #GArrowFixedShapeTensorDataType.
+ * @length: (out): Return location for the number of elements of permutation.
+ *
+ * Returns: (array length=length): Permutation of the tensor.
+ *
+ * Since: 21.0.0
+ */
+const gint64 *
+garrow_fixed_shape_tensor_data_type_get_permutation(
+  GArrowFixedShapeTensorDataType *data_type, gsize *length)
+{
+  auto arrow_data_type = std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
+
+  const auto &arrow_permutation = arrow_data_type->permutation();
+  *length = arrow_permutation.size();
+  return arrow_permutation.data();
+}
+
+/**
+ * garrow_fixed_shape_tensor_data_type_get_dim_names:
+ * @data_type: A #GArrowFixedShapeTensorDataType.
+ *
+ * Returns: (array zero-terminated=1) (element-type utf8) (transfer full):
+ *   Dimention names of the tensor.
+ *
+ *   It's a %NULL-terminated string array. It must be freed with
+ *   g_strfreev() when no longer needed.
+ *
+ * Since: 21.0.0
+ */
+gchar **
+garrow_fixed_shape_tensor_data_type_get_dim_names(
+  GArrowFixedShapeTensorDataType *data_type)
+{
+  auto arrow_data_type = std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
+  const auto &arrow_dim_names = arrow_data_type->dim_names();
+  auto n = arrow_dim_names.size();
+  auto dim_names = g_new(gchar *, n + 1);
+  for (size_t i = 0; i < n; ++i) {
+    dim_names[i] = g_strndup(arrow_dim_names[i].data(), arrow_dim_names[i].size());
+  }
+  dim_names[n] = nullptr;
+  return dim_names;
+}
+
+/**
+ * garrow_fixed_shape_tensor_data_type_get_strides:
+ * @data_type: A #GArrowFixedShapeTensorDataType.
+ * @length: (out): Return location for the number of strides of tensor shape.
+ *
+ * Returns: (array length=length): Strides in bytes for each tensor dimension.
+ *
+ * Since: 21.0.0
+ */
+const gint64 *
+garrow_fixed_shape_tensor_data_type_get_strides(GArrowFixedShapeTensorDataType *data_type,
+                                                gsize *length)
+{
+  auto arrow_data_type = std::static_pointer_cast<arrow::extension::FixedShapeTensorType>(
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
+  const auto &arrow_strides = arrow_data_type->strides();
+  *length = arrow_strides.size();
+  return arrow_strides.data();
+}
+
+G_DEFINE_TYPE(GArrowUUIDDataType, garrow_uuid_data_type, GARROW_TYPE_EXTENSION_DATA_TYPE)
+
+static void
+garrow_uuid_data_type_init(GArrowUUIDDataType *object)
+{
+}
+
+static void
+garrow_uuid_data_type_class_init(GArrowUUIDDataTypeClass *klass)
+{
+}
+
+/*
+ * garrow_uuid_data_type_new:
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable):
+ *   The newly created UUID data type on success, %NULL on error.
+ *
+ * Since: 21.0.0
+ */
+GArrowUUIDDataType *
+garrow_uuid_data_type_new(GError **error)
+{
+  auto arrow_data_type_result = arrow::extension::UuidType::Make();
+  if (garrow::check(error, arrow_data_type_result, "[uuid-data-type][new]")) {
+    auto arrow_data_type = *arrow_data_type_result;
+    return GARROW_UUID_DATA_TYPE(
+      g_object_new(GARROW_TYPE_UUID_DATA_TYPE, "data-type", &arrow_data_type, NULL));
+  } else {
+    return NULL;
+  }
+}
 G_END_DECLS
 
 GArrowDataType *
@@ -2193,6 +2619,12 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
   case arrow::Type::type::MAP:
     type = GARROW_TYPE_MAP_DATA_TYPE;
     break;
+  case arrow::Type::type::DECIMAL32:
+    type = GARROW_TYPE_DECIMAL32_DATA_TYPE;
+    break;
+  case arrow::Type::type::DECIMAL64:
+    type = GARROW_TYPE_DECIMAL64_DATA_TYPE;
+    break;
   case arrow::Type::type::DECIMAL128:
     type = GARROW_TYPE_DECIMAL128_DATA_TYPE;
     break;
@@ -2220,8 +2652,17 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
     }
     type = GARROW_TYPE_EXTENSION_DATA_TYPE;
     break;
+  case arrow::Type::type::FIXED_SIZE_LIST:
+    type = GARROW_TYPE_FIXED_SIZE_LIST_DATA_TYPE;
+    break;
   case arrow::Type::type::RUN_END_ENCODED:
     type = GARROW_TYPE_RUN_END_ENCODED_DATA_TYPE;
+    break;
+  case arrow::Type::type::STRING_VIEW:
+    type = GARROW_TYPE_STRING_VIEW_DATA_TYPE;
+    break;
+  case arrow::Type::type::BINARY_VIEW:
+    type = GARROW_TYPE_BINARY_VIEW_DATA_TYPE;
     break;
   default:
     type = GARROW_TYPE_DATA_TYPE;

@@ -43,7 +43,7 @@ namespace arrow {
 // VarLengthListLikeBuilder
 
 template <typename TYPE>
-class ARROW_EXPORT VarLengthListLikeBuilder : public ArrayBuilder {
+class VarLengthListLikeBuilder : public ArrayBuilder {
  public:
   using TypeClass = TYPE;
   using offset_type = typename TypeClass::offset_type;
@@ -261,7 +261,7 @@ class ARROW_EXPORT VarLengthListLikeBuilder : public ArrayBuilder {
 // ListBuilder / LargeListBuilder
 
 template <typename TYPE>
-class ARROW_EXPORT BaseListBuilder : public VarLengthListLikeBuilder<TYPE> {
+class BaseListBuilder : public VarLengthListLikeBuilder<TYPE> {
  private:
   using BASE = VarLengthListLikeBuilder<TYPE>;
 
@@ -401,7 +401,7 @@ class ARROW_EXPORT LargeListBuilder : public BaseListBuilder<LargeListType> {
 // ListViewBuilder / LargeListViewBuilder
 
 template <typename TYPE>
-class ARROW_EXPORT BaseListViewBuilder : public VarLengthListLikeBuilder<TYPE> {
+class BaseListViewBuilder : public VarLengthListLikeBuilder<TYPE> {
  private:
   using BASE = VarLengthListLikeBuilder<TYPE>;
 

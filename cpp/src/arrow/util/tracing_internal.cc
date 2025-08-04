@@ -26,8 +26,8 @@
 #include <thread>
 
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4522)
+#  pragma warning(push)
+#  pragma warning(disable : 4522)
 #endif
 #include <google/protobuf/util/json_util.h>
 
@@ -45,7 +45,7 @@
 #include <opentelemetry/exporters/otlp/protobuf_include_suffix.h>
 #include <opentelemetry/proto/collector/trace/v1/trace_service.pb.h>
 #ifdef _MSC_VER
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
 #include "arrow/util/io_util.h"
@@ -96,6 +96,11 @@ class OtlpOStreamExporter final : public sdktrace::SpanExporter {
   bool Shutdown(std::chrono::microseconds timeout =
                     std::chrono::microseconds(0)) noexcept override {
     return exporter_.Shutdown(timeout);
+  }
+  // XXX: OTel 1.19 silent breaking change: this must be overridden
+  bool ForceFlush(std::chrono::microseconds /*timeout*/) noexcept override {
+    (*out_).flush();
+    return true;
   }
 
  private:

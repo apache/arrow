@@ -20,6 +20,7 @@ skip_on_r_older_than("3.5")
 
 library(lubridate, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
+library(hms)
 
 skip_if_not_available("acero")
 # Skip these tests on CRAN due to build times > 10 mins
@@ -3724,5 +3725,80 @@ test_that("with_tz() and force_tz() can add timezone to timestamp without timezo
     arrow_table(
       timestamps = call_function("assume_timezone", timestamps, options = list(timezone = "America/Chicago"))
     )
+  )
+})
+
+test_that("hms::hms", {
+  test_df <- tibble::tibble(
+    s = c(1, 2, 0, NA),
+    m = c(3, 4, 0, NA),
+    h = c(5, 6, 0, NA),
+    d = c(7, 8, 0, NA)
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        time = hms::hms(s),
+        time2 = hms::hms(s, m),
+        time3 = hms::hms(s, m, h),
+        time4 = hms::hms(s, m, h, d),
+        time5 = hms::hms(days = d)
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  expect_error(
+    call_binding("hms::hms", "nonsense"),
+    regexp = "All arguments must be numeric or NA"
+  )
+
+  # Works for NA_real_
+  expect_silent(
+    call_binding("hms::hms", seconds = NA_real_)
+  )
+
+  # raw NA is logical so we error here
+  expect_error(
+    call_binding("hms::hms", seconds = NA),
+    regexp = "All arguments must be numeric or NA_real_"
+  )
+})
+
+test_that("hms::as_hms", {
+  test_df <- tibble(
+    hms_string = c("0:7:45", "12:34:56"),
+    int = c(30L, 75L),
+    integerish_dbl = c(31, 76),
+    dbl = c(31.2, 76.4),
+    datetime = as.POSIXct(c(1645243500, 1745243500), tz = "UTC", origin = "1970-01-01")
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        x2 = hms::as_hms(int),
+        x3 = hms::as_hms(integerish_dbl),
+        x4 = hms::as_hms(datetime)
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  expect_error(
+    arrow_table(test_df) %>% mutate(y = hms::as_hms(dbl)) %>% collect(),
+    "was truncated converting to int32"
+  )
+
+  skip_if_not_available("utf8proc")
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        x = hms::as_hms(hms_string),
+      ) %>%
+      collect(),
+    test_df
   )
 })

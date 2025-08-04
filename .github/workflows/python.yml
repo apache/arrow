@@ -19,7 +19,13 @@ name: Python
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
+      - '.dockerignore'
       - '.github/workflows/python.yml'
       - 'ci/**'
       - 'cpp/**'
@@ -27,6 +33,7 @@ on:
       - 'python/**'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/python.yml'
       - 'ci/**'
       - 'cpp/**'
@@ -56,36 +63,42 @@ jobs:
       matrix:
         name:
           - conda-python-docs
-          - conda-python-3.9-nopandas
-          - conda-python-3.8-pandas-1.0
-          - conda-python-3.10-pandas-latest
+          - conda-python-3.10-nopandas
+          - conda-python-3.9-pandas-1.1.3
+          - conda-python-3.11-pandas-latest
+          - conda-python-3.11-no-numpy
         include:
           - name: conda-python-docs
-            cache: conda-python-3.9
-            image: conda-python-docs
-            title: AMD64 Conda Python 3.9 Sphinx & Numpydoc
-            python: 3.9
-          - name: conda-python-3.9-nopandas
-            cache: conda-python-3.9
-            image: conda-python
-            title: AMD64 Conda Python 3.9 Without Pandas
-            python: 3.9
-          - name: conda-python-3.8-pandas-1.0
-            cache: conda-python-3.8
-            image: conda-python-pandas
-            title: AMD64 Conda Python 3.8 Pandas 1.0
-            python: 3.8
-            pandas: "1.0"
-            numpy: 1.16
-          - name: conda-python-3.10-pandas-latest
             cache: conda-python-3.10
-            image: conda-python-pandas
-            title: AMD64 Conda Python 3.10 Pandas latest
+            image: conda-python-docs
+            title: AMD64 Conda Python 3.10 Sphinx & Numpydoc
             python: "3.10"
+          - name: conda-python-3.10-nopandas
+            cache: conda-python-3.10
+            image: conda-python
+            title: AMD64 Conda Python 3.10 Without Pandas
+            python: "3.10"
+          - name: conda-python-3.9-pandas-1.1.3
+            cache: conda-python-3.9
+            image: conda-python-pandas
+            title: AMD64 Conda Python 3.9 Pandas 1.1.3
+            python: 3.9
+            pandas: "1.1.3"
+            numpy: 1.19.5
+          - name: conda-python-3.11-pandas-latest
+            cache: conda-python-3.11
+            image: conda-python-pandas
+            title: AMD64 Conda Python 3.11 Pandas latest
+            python: "3.11"
             pandas: latest
+          - name: conda-python-3.11-no-numpy
+            cache: conda-python-3.11
+            image: conda-python-no-numpy
+            title: AMD64 Conda Python 3.11 without NumPy
+            python: "3.11"
     env:
-      PYTHON: ${{ matrix.python || 3.8 }}
-      UBUNTU: ${{ matrix.ubuntu || 20.04 }}
+      PYTHON: ${{ matrix.python || 3.9 }}
+      UBUNTU: ${{ matrix.ubuntu || 22.04 }}
       PANDAS: ${{ matrix.pandas || 'latest' }}
       NUMPY: ${{ matrix.numpy || 'latest' }}
     steps:
@@ -95,15 +108,15 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4.0.0
+        uses: actions/cache@v4
         with:
           path: .docker
           key: ${{ matrix.cache }}-${{ hashFiles('cpp/**') }}
           restore-keys: ${{ matrix.cache }}-
       - name: Setup Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -111,8 +124,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
+          source ci/scripts/util_enable_core_dumps.sh
           archery docker run ${{ matrix.image }}
       - name: Docker Push
         if: >-
@@ -136,7 +148,7 @@ jobs:
       matrix:
         include:
           - architecture: AMD64
-            macos-version: "12"
+            macos-version: "13"
           - architecture: ARM64
             macos-version: "14"
     env:
@@ -163,7 +175,7 @@ jobs:
       ARROW_BUILD_TESTS: OFF
       PYARROW_TEST_LARGE_MEMORY: ON
       # Current oldest supported version according to https://endoflife.date/macos
-      MACOSX_DEPLOYMENT_TARGET: 10.15
+      MACOSX_DEPLOYMENT_TARGET: 12.0
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v4
@@ -171,16 +183,26 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@v5.1.1
+        uses: actions/setup-python@v5.6.0
         with:
           python-version: '3.11'
       - name: Install Dependencies
         shell: bash
         run: |
+          # pkg-config formula is deprecated but it's still installed
+          # in GitHub Actions runner now. We can remove this once
+          # pkg-config formula is removed from GitHub Actions runner.
+          brew uninstall pkg-config || :
+          brew uninstall pkg-config@0.29.2 || :
           brew bundle --file=cpp/Brewfile
+
           python -m pip install \
             -r python/requirements-build.txt \
             -r python/requirements-test.txt
+      - name: Install MinIO
+        run: |
+          $(brew --prefix bash)/bin/bash \
+            ci/scripts/install_minio.sh latest /usr/local
       - name: Setup ccache
         shell: bash
         run: ci/scripts/ccache_setup.sh
@@ -197,6 +219,20 @@ jobs:
       - name: Build
         shell: bash
         run: |
+          if [ "${{ matrix.macos-version }}" = "13" ]; then
+            # This is a workaround.
+            #
+            # Homebrew uses /usr/local as prefix. So packages
+            # installed by Homebrew also use /usr/local/include. We
+            # want to include headers for packages installed by
+            # Homebrew as system headers to ignore warnings in them.
+            # But "-isystem /usr/local/include" isn't used by CMake
+            # because /usr/local/include is marked as the default
+            # include path. So we disable -Werror to avoid build error
+            # by warnings from packages installed by Homebrew.
+            export BUILD_WARNING_LEVEL=PRODUCTION
+          fi
+
           python -m pip install wheel
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
           ci/scripts/python_build.sh $(pwd) $(pwd)/build

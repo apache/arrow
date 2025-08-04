@@ -23,6 +23,7 @@
 #include "arrow/acero/aggregate_internal.h"
 #include "arrow/acero/aggregate_node.h"
 #include "arrow/acero/exec_plan.h"
+#include "arrow/acero/exec_plan_internal.h"
 #include "arrow/acero/options.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function.h"
@@ -31,7 +32,7 @@
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -182,9 +183,8 @@ Status ExtractSegmenterValues(std::vector<Datum>* values_ptr,
                               const std::vector<int>& field_ids) {
   DCHECK_GT(input_batch.length, 0);
   std::vector<Datum>& values = *values_ptr;
+  DCHECK_EQ(values.size(), field_ids.size());
   int64_t row = input_batch.length - 1;
-  values.clear();
-  values.resize(field_ids.size());
   for (size_t i = 0; i < field_ids.size(); i++) {
     const Datum& value = input_batch.values[field_ids[i]];
     if (value.is_scalar()) {

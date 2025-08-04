@@ -26,13 +26,13 @@
 #include "arrow/acero/exec_plan.h"
 #include "arrow/testing/future_util.h"
 #ifndef NDEBUG
-#include <sstream>
+#  include <sstream>
 #endif
 #include <unordered_set>
 
 #include "arrow/acero/options.h"
 #ifndef NDEBUG
-#include "arrow/acero/options_internal.h"
+#  include "arrow/acero/options_internal.h"
 #endif
 #include "arrow/acero/map_node.h"
 #include "arrow/acero/query_context.h"
@@ -41,12 +41,15 @@
 #include "arrow/acero/util.h"
 #include "arrow/api.h"
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/row_encoder_internal.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/cast.h"
+#include "arrow/compute/row/row_encoder_internal.h"
+#include "arrow/compute/test_util_internal.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/thread_pool.h"
 
 #define TRACED_TEST(t_class, t_name, t_body)  \
@@ -67,6 +70,7 @@ namespace arrow {
 
 using compute::Cast;
 using compute::Divide;
+using compute::ExecBatchFromJSON;
 using compute::Multiply;
 using compute::Subtract;
 
@@ -101,6 +105,7 @@ Result<BatchesWithSchema> MakeBatchesFromNumString(
   BatchesWithSchema batches;
   batches.schema = schema;
   int n_fields = schema->num_fields();
+  size_t batch_index = 0;
   for (auto num_batch : num_batches.batches) {
     Datum two(Int32Scalar(2));
     std::vector<Datum> values;
@@ -128,6 +133,7 @@ Result<BatchesWithSchema> MakeBatchesFromNumString(
       }
     }
     ExecBatch batch(values, num_batch.length);
+    batch.index = batch_index++;
     batches.batches.push_back(batch);
   }
   return batches;
@@ -185,6 +191,7 @@ Result<BatchesWithSchema> MutateByKey(BatchesWithSchema& batches, std::string fr
                           replace_key ? batches.schema->SetField(from_index, new_field)
                                       : batches.schema->AddField(from_index, new_field));
   }
+  size_t batch_index = 0;
   for (const ExecBatch& batch : batches.batches) {
     std::vector<Datum> new_values;
     for (int i = 0; i < n_fields; i++) {
@@ -233,6 +240,7 @@ Result<BatchesWithSchema> MutateByKey(BatchesWithSchema& batches, std::string fr
       new_values.push_back(value);
     }
     new_batches.batches.emplace_back(new_values, batch.length);
+    new_batches.batches.back().index = batch_index++;
   }
   return new_batches;
 }
@@ -1571,7 +1579,7 @@ void TestSequencing(BatchesMaker maker, int num_batches, int batch_size) {
       "asofjoin", {l_src, r_src}, GetRepeatedOptions(2, "time", {"key"}, 1000)};
 
   QueryOptions query_options;
-  query_options.use_threads = false;
+  query_options.use_threads = true;
   ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema batches,
                        DeclarationToExecBatches(asofjoin, query_options));
 
@@ -1579,7 +1587,7 @@ void TestSequencing(BatchesMaker maker, int num_batches, int batch_size) {
 }
 
 TEST(AsofJoinTest, BatchSequencing) {
-  return TestSequencing(MakeIntegerBatches, /*num_batches=*/32, /*batch_size=*/1);
+  return TestSequencing(MakeIntegerBatches, /*num_batches=*/1000, /*batch_size=*/1);
 }
 
 template <typename BatchesMaker>
@@ -1730,6 +1738,90 @@ TEST(AsofJoinTest, RhsEmptinessRaceEmptyBy) {
   auto exp_batch =
       ExecBatchFromJSON({int64(), utf8()}, R"([[1, "Z"], [2, "Z"], [3, "B"]])");
   AssertExecBatchesEqualIgnoringOrder(result.schema, {exp_batch}, result.batches);
+}
+
+// Reproduction of GH-44526: Provoke destruction of not started asofjoin node by providing
+// a sink that fails on creation
+TEST(AsofJoinTest, DestroyNonStartedAsofJoinNode) {
+  auto left_batch = ExecBatchFromJSON({int64()}, R"([[1], [2], [3]])");
+  auto right_batch =
+      ExecBatchFromJSON({utf8(), int64()}, R"([["Z", 2], ["B", 3], ["A", 4]])");
+
+  Declaration left{"exec_batch_source",
+                   ExecBatchSourceNodeOptions(schema({field("on", int64())}),
+                                              {std::move(left_batch)})};
+  Declaration right{
+      "exec_batch_source",
+      ExecBatchSourceNodeOptions(schema({field("colVals", utf8()), field("on", int64())}),
+                                 {std::move(right_batch)})};
+  AsofJoinNodeOptions asof_join_opts({{{"on"}, {}}, {{"on"}, {}}}, 1);
+  Declaration asof_join{
+      "asofjoin", {std::move(left), std::move(right)}, std::move(asof_join_opts)};
+
+  // Setting invalid arguments, such as nullptr in generator or schema in SinkNodeOptions,
+  // causes the execution plan to terminate before the asofjoin node is started.
+  arrow::acero::SinkNodeOptions sink_node_options{/*generator=*/nullptr,
+                                                  /*schema=*/nullptr};
+  auto sink = Declaration::Sequence({asof_join, {"sink", sink_node_options}});
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "`generator` is a required SinkNode option and cannot be null"),
+      DeclarationToStatus(std::move(sink)));
+}
+
+// Reproduction of GH-46224: Hang when all left timestamps are greater than right
+// timestamps.
+TEST(AsofJoinTest, OneSideTsAllGreaterThanTheOther) {
+#if defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER)
+  const int rounds = 1;
+#else
+  const int rounds = 42;
+#endif
+  int64_t tolerance = 1;
+  int64_t num_rows_big_ts = 1;
+  int64_t num_rows_small_ts = ExecPlan::kMaxBatchSize + 1;
+  // Make sure the big_ts is outside the horizon of the tolerance regardless of the side.
+  int64_t big_ts = num_rows_small_ts + tolerance + 1;
+
+  // Column of big timestamps.
+  ASSERT_OK_AND_ASSIGN(auto col_big_ts,
+                       gen::Constant(MakeScalar(big_ts))->Generate(num_rows_big_ts));
+  // Column of small timestamps from 0 to num_rows_small_ts - 1.
+  ASSERT_OK_AND_ASSIGN(auto col_small_ts,
+                       gen::Step<int64_t>()->Generate(num_rows_small_ts));
+
+  struct Case {
+    std::shared_ptr<arrow::Array> left_col;
+    std::shared_ptr<arrow::Array> right_col;
+  };
+
+  for (const auto& c : {
+           Case{col_big_ts, col_small_ts},
+           Case{col_small_ts, col_big_ts},
+       }) {
+    auto left_schema = arrow::schema({arrow::field("on", int64())});
+    auto right_schema = arrow::schema({arrow::field("on", int64())});
+
+    ExecBatch left_batch({c.left_col}, c.left_col->length());
+    ExecBatch right_batch({c.right_col}, c.right_col->length());
+    ASSERT_OK_AND_ASSIGN(auto col_null, MakeArrayOfNull(int64(), c.left_col->length()));
+    ExecBatch exp_batch({c.left_col, col_null}, c.left_col->length());
+
+    // Run moderate number of times to ensure that no hangs occur.
+    for (int i = 0; i < rounds; ++i) {
+      AsofJoinNodeOptions opts({{{"on"}, {}}, {{"on"}, {}}}, tolerance);
+      auto left = Declaration("exec_batch_source",
+                              ExecBatchSourceNodeOptions(left_schema, {left_batch}));
+      auto right = Declaration("exec_batch_source",
+                               ExecBatchSourceNodeOptions(right_schema, {right_batch}));
+      auto asof_join = arrow::acero::Declaration{"asofjoin", {left, right}, opts};
+      ASSERT_OK_AND_ASSIGN(auto result,
+                           arrow::acero::DeclarationToExecBatches(std::move(asof_join)));
+      AssertExecBatchesEqualIgnoringOrder(result.schema, {exp_batch}, result.batches);
+    }
+  }
 }
 
 }  // namespace acero

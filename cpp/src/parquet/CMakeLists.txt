@@ -140,10 +140,7 @@ set(PARQUET_THRIFT_SOURCE_DIR "${ARROW_SOURCE_DIR}/src/generated/")
 
 set_source_files_properties("${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
                             "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.h"
-                            "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.cpp"
-                            "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.h"
-                            PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                       SKIP_UNITY_BUILD_INCLUSION ON)
+                            PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 
 if(NOT MSVC)
   set_source_files_properties(src/parquet/parquet_types.cpp
@@ -159,30 +156,36 @@ set(PARQUET_SRCS
     arrow/reader_internal.cc
     arrow/schema.cc
     arrow/schema_internal.cc
+    arrow/variant_internal.cc
     arrow/writer.cc
     bloom_filter.cc
     bloom_filter_reader.cc
+    chunker_internal.cc
     column_reader.cc
     column_scanner.cc
     column_writer.cc
-    encoding.cc
+    decoder.cc
+    encoder.cc
     encryption/encryption.cc
     encryption/internal_file_decryptor.cc
     encryption/internal_file_encryptor.cc
     exception.cc
     file_reader.cc
     file_writer.cc
+    geospatial/statistics.cc
+    geospatial/util_internal.cc
+    geospatial/util_json_internal.cc
     level_comparison.cc
     level_conversion.cc
     metadata.cc
     xxhasher.cc
     page_index.cc
-    "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.cpp"
     "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
     platform.cc
     printer.cc
     properties.cc
     schema.cc
+    size_statistics.cc
     statistics.cc
     stream_reader.cc
     stream_writer.cc
@@ -202,9 +205,8 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   if(NOT MSVC)
     string(APPEND AVX2_FLAGS " ${CMAKE_CXX_FLAGS_RELEASE}")
   endif()
-  set_source_files_properties(level_comparison_avx2.cc
-                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
-                                                                    "${AVX2_FLAGS}")
+  set_source_files_properties(level_comparison_avx2.cc PROPERTIES COMPILE_FLAGS
+                                                                  "${AVX2_FLAGS}")
   # WARNING: DO NOT BLINDLY COPY THIS CODE FOR OTHER BMI2 USE CASES.
   # This code is always guarded by runtime dispatch which verifies
   # BMI2 is present.  For a very small number of CPUs AVX2 does not
@@ -221,9 +223,8 @@ if(ARROW_HAVE_RUNTIME_AVX2)
     # Need to pass ARROW_HAVE_BMI2 for level_conversion_inc.h to compile
     # the BMI2 path.
     set(BMI2_FLAGS "${AVX2_FLAGS} ${ARROW_BMI2_FLAG} -DARROW_HAVE_BMI2")
-    set_source_files_properties(level_conversion_bmi2.cc
-                                PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
-                                                                      "${BMI2_FLAGS}")
+    set_source_files_properties(level_conversion_bmi2.cc PROPERTIES COMPILE_FLAGS
+                                                                    "${BMI2_FLAGS}")
   endif()
 endif()
 
@@ -257,20 +258,23 @@ else()
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal_nossl.cc)
 endif()
 
-if(NOT PARQUET_MINIMAL_DEPENDENCY)
-  list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
+list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
 
-  # These are libraries that we will link privately with parquet_shared (as they
-  # do not need to be linked transitively by other linkers)
-  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS thrift::thrift)
+# Add RapidJSON libraries
+list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS RapidJSON)
+list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON)
 
-  # Link publicly with parquet_static (because internal users need to
-  # transitively link all dependencies)
-  list(APPEND PARQUET_STATIC_LINK_LIBS thrift::thrift)
-  if(NOT THRIFT_VENDORED)
-    list(APPEND PARQUET_STATIC_INSTALL_INTERFACE_LIBS thrift::thrift)
-  endif()
+# These are libraries that we will link privately with parquet_shared (as they
+# do not need to be linked transitively by other linkers)
+list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS thrift::thrift)
+
+# Link publicly with parquet_static (because internal users need to
+# transitively link all dependencies)
+list(APPEND PARQUET_STATIC_LINK_LIBS thrift::thrift)
+if(NOT THRIFT_VENDORED)
+  list(APPEND PARQUET_STATIC_INSTALL_INTERFACE_LIBS thrift::thrift)
 endif()
+
 if(ARROW_WITH_OPENTELEMETRY)
   list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
 endif()
@@ -287,8 +291,6 @@ add_arrow_lib(parquet
               parquet
               SOURCES
               ${PARQUET_SRCS}
-              PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:parquet/pch.h>"
               OUTPUTS
               PARQUET_LIBRARIES
               SHARED_LINK_FLAGS
@@ -306,7 +308,6 @@ add_arrow_lib(parquet
 
 if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
   add_library(parquet_test_support STATIC
-              "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.cpp"
               "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp")
   target_link_libraries(parquet_test_support thrift::thrift)
   list(PREPEND PARQUET_TEST_LINK_LIBS parquet_test_support)
@@ -319,7 +320,7 @@ if(ARROW_TESTING)
   # "link" our dependencies so that include paths are configured
   # correctly
   target_link_libraries(parquet_testing PUBLIC ${ARROW_GTEST_GMOCK})
-  list(APPEND PARQUET_TEST_LINK_LIBS parquet_testing)
+  list(APPEND PARQUET_TEST_LINK_LIBS parquet_testing RapidJSON)
 endif()
 
 if(NOT ARROW_BUILD_SHARED)
@@ -358,6 +359,7 @@ endif()
 add_subdirectory(api)
 add_subdirectory(arrow)
 add_subdirectory(encryption)
+add_subdirectory(geospatial)
 
 arrow_install_all_headers("parquet")
 
@@ -366,20 +368,23 @@ configure_file(parquet_version.h.in "${CMAKE_CURRENT_BINARY_DIR}/parquet_version
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet")
 
+set_source_files_properties(public_api_test.cc PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+
 add_parquet_test(internals-test
                  SOURCES
-                 bloom_filter_test.cc
                  bloom_filter_reader_test.cc
-                 properties_test.cc
-                 statistics_test.cc
-                 encoding_test.cc
+                 bloom_filter_test.cc
+                 geospatial/statistics_test.cc
+                 geospatial/util_internal_test.cc
                  metadata_test.cc
                  page_index_test.cc
+                 properties_test.cc
                  public_api_test.cc
+                 size_statistics_test.cc
+                 statistics_test.cc
                  types_test.cc)
 
-set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                                          SKIP_UNITY_BUILD_INCLUSION ON)
+add_parquet_test(encoding-test SOURCES encoding_test.cc)
 
 add_parquet_test(reader-test
                  SOURCES
@@ -395,15 +400,19 @@ add_parquet_test(writer-test
                  file_serialize_test.cc
                  stream_writer_test.cc)
 
-add_parquet_test(arrow-test
+add_parquet_test(chunker-test SOURCES chunker_internal_test.cc)
+
+add_parquet_test(arrow-reader-writer-test
                  SOURCES
-                 arrow/arrow_metadata_test.cc
                  arrow/arrow_reader_writer_test.cc
-                 arrow/arrow_schema_test.cc
-                 arrow/arrow_statistics_test.cc)
+                 arrow/arrow_statistics_test.cc
+                 arrow/variant_test.cc)
 
 add_parquet_test(arrow-internals-test SOURCES arrow/path_internal_test.cc
                  arrow/reconstruct_internal_test.cc)
+
+add_parquet_test(arrow-metadata-test SOURCES arrow/arrow_metadata_test.cc
+                 arrow/arrow_schema_test.cc)
 
 if(PARQUET_REQUIRE_ENCRYPTION)
   add_parquet_test(encryption-test
@@ -438,3 +447,4 @@ add_parquet_benchmark(metadata_benchmark)
 add_parquet_benchmark(page_index_benchmark SOURCES page_index_benchmark.cc
                       benchmark_util.cc)
 add_parquet_benchmark(arrow/reader_writer_benchmark PREFIX "parquet-arrow")
+add_parquet_benchmark(arrow/size_stats_benchmark PREFIX "parquet-arrow")

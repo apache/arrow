@@ -23,6 +23,7 @@ COPY python/requirements-build.txt \
      /arrow/python/
 
 ENV ARROW_PYTHON_VENV /arrow-dev
+
 RUN python3 -m venv ${ARROW_PYTHON_VENV} && \
     . ${ARROW_PYTHON_VENV}/bin/activate && \
     pip install -U pip setuptools wheel && \

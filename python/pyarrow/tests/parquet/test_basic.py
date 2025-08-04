@@ -22,14 +22,13 @@ import warnings
 from shutil import copytree
 from decimal import Decimal
 
-import numpy as np
 import pytest
 
 import pyarrow as pa
 from pyarrow import fs
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import (_check_roundtrip, _roundtrip_table,
-                                          _test_dataframe)
+                                          _test_table)
 
 try:
     import pyarrow.parquet as pq
@@ -47,6 +46,10 @@ try:
 except ImportError:
     pd = tm = None
 
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not parquet'
@@ -73,20 +76,18 @@ def test_set_data_page_size():
         _check_roundtrip(t, data_page_size=target_page_size)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_set_write_batch_size():
-    df = _test_dataframe(100)
-    table = pa.Table.from_pandas(df, preserve_index=False)
+    table = _test_table(100)
 
     _check_roundtrip(
         table, data_page_size=10, write_batch_size=1, version='2.4'
     )
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_set_dictionary_pagesize_limit():
-    df = _test_dataframe(100)
-    table = pa.Table.from_pandas(df, preserve_index=False)
+    table = _test_table(100)
 
     _check_roundtrip(table, dictionary_pagesize_limit=1,
                      data_page_size=10, version='2.4')
@@ -164,6 +165,31 @@ def test_invalid_source():
 
     with pytest.raises(TypeError, match="None"):
         pq.ParquetFile(None)
+
+
+def test_read_table_without_dataset(tempdir):
+    from unittest import mock
+
+    class MockParquetDataset:
+        def __init__(self, *args, **kwargs):
+            raise ImportError("MockParquetDataset")
+
+    path = tempdir / "test.parquet"
+    table = pa.table({"a": [1, 2, 3]})
+    _write_table(table, path)
+
+    with mock.patch('pyarrow.parquet.core.ParquetDataset', new=MockParquetDataset):
+        with pytest.raises(ValueError, match="the 'filters' keyword"):
+            pq.read_table(path, filters=[('integer', '=', 1)])
+        with pytest.raises(ValueError, match="the 'partitioning' keyword"):
+            pq.read_table(path, partitioning=['week', 'color'])
+        with pytest.raises(ValueError, match="the 'schema' argument"):
+            pq.read_table(path, schema=table.schema)
+        # Error message varies depending on OS
+        with pytest.raises(OSError):
+            pq.read_table(tempdir)
+        result = pq.read_table(path)
+        assert result == table
 
 
 @pytest.mark.slow
@@ -967,23 +993,3 @@ def test_checksum_write_to_dataset(tempdir):
     # checksum verification enabled raises an exception
     with pytest.raises(OSError, match="CRC checksum verification"):
         _ = pq.read_table(corrupted_file_path, page_checksum_verification=True)
-
-
-@pytest.mark.dataset
-def test_deprecated_use_legacy_dataset(tempdir):
-    # Test that specifying use_legacy_dataset in ParquetDataset, write_to_dataset
-    # and read_table doesn't raise an error but gives a warning.
-    table = pa.table({"a": [1, 2, 3]})
-    path = tempdir / "deprecate_legacy"
-
-    msg = "Passing 'use_legacy_dataset'"
-    with pytest.warns(FutureWarning, match=msg):
-        pq.write_to_dataset(table, path, use_legacy_dataset=False)
-
-    pq.write_to_dataset(table, path)
-
-    with pytest.warns(FutureWarning, match=msg):
-        pq.read_table(path, use_legacy_dataset=False)
-
-    with pytest.warns(FutureWarning, match=msg):
-        pq.ParquetDataset(path, use_legacy_dataset=False)

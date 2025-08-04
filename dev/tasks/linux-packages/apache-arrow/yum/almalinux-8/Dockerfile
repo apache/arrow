@@ -41,6 +41,7 @@ RUN \
     gobject-introspection-devel \
     json-devel \
     libarchive \
+    libxml2-devel \
     libzstd-devel \
     llvm-devel \
     llvm-static \
@@ -62,4 +63,5 @@ RUN \
     vala \
     which \
     zlib-devel && \
-  dnf clean ${quiet} all
+  dnf clean ${quiet} all && \
+  ln -s pip3.9 /usr/bin/pip3

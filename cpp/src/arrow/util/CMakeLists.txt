@@ -66,11 +66,13 @@ add_arrow_test(utility-test
                list_util_test.cc
                logger_test.cc
                logging_test.cc
+               math_test.cc
                queue_test.cc
                range_test.cc
                ree_util_test.cc
                reflection_test.cc
                rows_to_batches_test.cc
+               secure_string_test.cc
                small_vector_test.cc
                span_test.cc
                stl_util_test.cc

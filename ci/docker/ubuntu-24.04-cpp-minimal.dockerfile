@@ -29,10 +29,12 @@ RUN apt-get update -y -q && \
         ccache \
         cmake \
         curl \
+        gdb \
         git \
         libssl-dev \
         libcurl4-openssl-dev \
         python3-pip \
+        python3-venv \
         tzdata \
         tzdata-legacy \
         wget && \

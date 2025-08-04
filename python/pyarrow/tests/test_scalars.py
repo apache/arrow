@@ -19,8 +19,12 @@ import datetime
 import decimal
 import pytest
 import weakref
+from collections.abc import Sequence, Mapping
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -39,8 +43,8 @@ import pyarrow.compute as pc
     (1, pa.uint32(), pa.UInt32Scalar),
     (1, pa.int64(), pa.Int64Scalar),
     (1, pa.uint64(), pa.UInt64Scalar),
+    (1.0, pa.float16(), pa.HalfFloatScalar),
     (1.0, None, pa.DoubleScalar),
-    (np.float16(1.0), pa.float16(), pa.HalfFloatScalar),
     (1.0, pa.float32(), pa.FloatScalar),
     (decimal.Decimal("1.123"), None, pa.Decimal128Scalar),
     (decimal.Decimal("1.1234567890123456789012345678901234567890"),
@@ -70,6 +74,40 @@ import pyarrow.compute as pc
     ([('a', 1), ('b', 2)], pa.map_(pa.string(), pa.int8()), pa.MapScalar),
 ])
 def test_basics(value, ty, klass, pickle_module):
+    s = pa.scalar(value, type=ty)
+    s.validate()
+    s.validate(full=True)
+    assert isinstance(s, klass)
+    assert s.as_py() == value
+    assert s == pa.scalar(value, type=ty)
+    assert s != value
+    assert s != "else"
+    assert hash(s) == hash(s)
+    assert s.is_valid is True
+    assert s != None  # noqa: E711
+
+    s = pa.scalar(None, type=s.type)
+    assert s.is_valid is False
+    assert s.as_py() is None
+    assert s != pa.scalar(value, type=ty)
+
+    # test pickle roundtrip
+    restored = pickle_module.loads(pickle_module.dumps(s))
+    assert s.equals(restored)
+
+    # test that scalars are weak-referenceable
+    wr = weakref.ref(s)
+    assert wr() is not None
+    del s
+    assert wr() is None
+
+
+# This test is a copy of test_basics but only for float16 (HalfFloatScalar)
+# which currently requires a numpy scalar to create it. The test collection
+# fails if numpy is used on the parametrization when not present.
+@pytest.mark.numpy
+def test_basics_np_required(pickle_module):
+    value, ty, klass = np.float16(1.0), pa.float16(), pa.HalfFloatScalar
     s = pa.scalar(value, type=ty)
     s.validate()
     s.validate(full=True)
@@ -171,17 +209,26 @@ def test_timestamp_scalar():
 def test_bool():
     false = pa.scalar(False)
     true = pa.scalar(True)
+    null = pa.scalar(None, type=pa.bool_())
 
     assert isinstance(false, pa.BooleanScalar)
     assert isinstance(true, pa.BooleanScalar)
+    assert isinstance(null, pa.BooleanScalar)
 
     assert repr(true) == "<pyarrow.BooleanScalar: True>"
     assert str(true) == "True"
     assert repr(false) == "<pyarrow.BooleanScalar: False>"
     assert str(false) == "False"
+    assert repr(null) == "<pyarrow.BooleanScalar: None>"
+    assert str(null) == "None"
 
     assert true.as_py() is True
     assert false.as_py() is False
+    assert null.as_py() is None
+
+    assert bool(true) is True
+    assert bool(false) is False
+    assert bool(null) is False
 
 
 def test_numerics():
@@ -191,6 +238,7 @@ def test_numerics():
     assert repr(s) == "<pyarrow.Int64Scalar: 1>"
     assert str(s) == "1"
     assert s.as_py() == 1
+    assert int(s) == 1
 
     with pytest.raises(OverflowError):
         pa.scalar(-1, type='uint8')
@@ -201,15 +249,17 @@ def test_numerics():
     assert repr(s) == "<pyarrow.DoubleScalar: 1.5>"
     assert str(s) == "1.5"
     assert s.as_py() == 1.5
+    assert float(s) == 1.5
+    assert int(s) == 1
 
     # float16
-    s = pa.scalar(np.float16(0.5), type='float16')
+    s = pa.scalar(0.5, type='float16')
     assert isinstance(s, pa.HalfFloatScalar)
-    # on numpy2 repr(np.float16(0.5)) == "np.float16(0.5)"
-    # on numpy1 repr(np.float16(0.5)) == "0.5"
-    assert repr(s) == f"<pyarrow.HalfFloatScalar: {np.float16(0.5)!r}>"
+    assert repr(s) == "<pyarrow.HalfFloatScalar: 0.5>"
     assert str(s) == "0.5"
     assert s.as_py() == 0.5
+    assert float(s) == 0.5
+    assert int(s) == 0
 
 
 def test_decimal128():
@@ -367,7 +417,7 @@ def test_timestamp():
     units = ['ns', 'us', 'ms', 's']
 
     for i, unit in enumerate(units):
-        dtype = 'datetime64[{}]'.format(unit)
+        dtype = f'datetime64[{unit}]'
         arrow_arr = pa.Array.from_pandas(arr.astype(dtype))
         expected = pd.Timestamp('2000-01-01 12:34:56')
 
@@ -377,7 +427,7 @@ def test_timestamp():
         tz = 'America/New_York'
         arrow_type = pa.timestamp(unit, tz=tz)
 
-        dtype = 'datetime64[{}]'.format(unit)
+        dtype = f'datetime64[{unit}]'
         arrow_arr = pa.Array.from_pandas(arr.astype(dtype), type=arrow_type)
         expected = (pd.Timestamp('2000-01-01 12:34:56')
                     .tz_localize('utc')
@@ -434,13 +484,14 @@ def test_timestamp_fixed_offset_print():
     assert str(arr[0]) == "1970-01-01 02:00:00+02:00"
 
 
+@pytest.mark.numpy
 def test_duration():
     arr = np.array([0, 3600000000000], dtype='timedelta64[ns]')
 
     units = ['us', 'ms', 's']
 
     for i, unit in enumerate(units):
-        dtype = 'timedelta64[{}]'.format(unit)
+        dtype = f'timedelta64[{unit}]'
         arrow_arr = pa.array(arr.astype(dtype))
         expected = datetime.timedelta(seconds=60*60)
         assert isinstance(arrow_arr[1].as_py(), datetime.timedelta)
@@ -504,7 +555,7 @@ def test_string(value, ty, scalar_typ):
     assert buf.to_pybytes() == value.encode()
 
 
-@pytest.mark.parametrize('value', [b'foo', b'bar'])
+@pytest.mark.parametrize('value', [b'foo', b'bar', b'', None])
 @pytest.mark.parametrize(('ty', 'scalar_typ'), [
     (pa.binary(), pa.BinaryScalar),
     (pa.large_binary(), pa.LargeBinaryScalar),
@@ -520,14 +571,30 @@ def test_binary(value, ty, scalar_typ):
     assert s != b'xxxxx'
 
     buf = s.as_buffer()
-    assert isinstance(buf, pa.Buffer)
-    assert buf.to_pybytes() == value
+
+    if value is None:
+        assert buf is None
+        with pytest.raises(ValueError):
+            memoryview(s)
+    else:
+        assert buf.to_pybytes() == value
+        assert isinstance(buf, pa.Buffer)
+        assert bytes(s) == value
+
+        memview = memoryview(s)
+        assert memview.tobytes() == value
+        assert memview.format == 'b'
+        assert memview.itemsize == 1
+        assert memview.ndim == 1
+        assert memview.shape == (len(value),)
+        assert memview.strides == (1,)
 
 
 def test_fixed_size_binary():
     s = pa.scalar(b'foof', type=pa.binary(4))
     assert isinstance(s, pa.FixedSizeBinaryScalar)
     assert s.as_py() == b'foof'
+    assert bytes(s) == b'foof'
 
     with pytest.raises(pa.ArrowInvalid):
         pa.scalar(b'foof5', type=pa.binary(4))
@@ -557,8 +624,10 @@ def test_list(ty, klass):
         s[-3]
     with pytest.raises(IndexError):
         s[2]
+    assert isinstance(s, Sequence)
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize('ty', [
     pa.list_(pa.int64()),
     pa.large_list(pa.int64()),
@@ -629,6 +698,7 @@ def test_struct():
     v = {'x': 2, 'y': 3.5}
     s = pa.scalar(v, type=ty)
     assert list(s) == list(s.keys()) == ['x', 'y']
+
     assert list(s.values()) == [
         pa.scalar(2, type=pa.int16()),
         pa.scalar(3.5, type=pa.float32())
@@ -650,6 +720,7 @@ def test_struct():
     assert isinstance(s['y'], pa.FloatScalar)
     assert s['x'].as_py() == 2
     assert s['y'].as_py() == 3.5
+    assert isinstance(s, Mapping)
 
     with pytest.raises(KeyError):
         s['nonexistent']
@@ -661,10 +732,13 @@ def test_struct():
     assert 'y' in s
     assert isinstance(s['x'], pa.Int16Scalar)
     assert isinstance(s['y'], pa.FloatScalar)
+    assert isinstance(s[0], pa.Int16Scalar)
+    assert isinstance(s[1], pa.FloatScalar)
     assert s['x'].is_valid is False
     assert s['y'].is_valid is False
     assert s['x'].as_py() is None
     assert s['y'].as_py() is None
+    assert isinstance(s, Mapping)
 
 
 def test_struct_duplicate_fields():
@@ -739,13 +813,34 @@ def test_map(pickle_module):
     )
     assert s[-1] == s[1]
     assert s[-2] == s[0]
+    assert s['b'] == pa.scalar(2, type=pa.int8())
     with pytest.raises(IndexError):
         s[-3]
     with pytest.raises(IndexError):
         s[2]
+    with pytest.raises(KeyError):
+        s['fake_key']
 
     restored = pickle_module.loads(pickle_module.dumps(s))
     assert restored.equals(s)
+
+    assert s.as_py(maps_as_pydicts="strict") == {'a': 1, 'b': 2}
+
+    assert isinstance(s, Mapping)
+
+
+def test_map_duplicate_fields():
+    ty = pa.map_(pa.string(), pa.int8())
+    v = [('a', 1), ('a', 2)]
+    s = pa.scalar(v, type=ty)
+
+    assert s.as_py(maps_as_pydicts=None) == v
+
+    with pytest.raises(KeyError):
+        assert s.as_py(maps_as_pydicts="strict")
+
+    with pytest.warns(match="Encountered key 'a' which was already encountered"):
+        assert s.as_py(maps_as_pydicts="lossy") == {'a': 2}
 
 
 def test_dictionary(pickle_module):
@@ -859,3 +954,15 @@ def test_map_scalar_as_py_with_custom_field_name():
             pa.field("custom_value", pa.string()),
         ),
     ).as_py() == [("foo", "bar")]
+
+
+def test_nested_map_types_with_maps_as_pydicts():
+    ty = pa.struct([
+        pa.field('x', pa.map_(pa.string(), pa.int8())),
+        pa.field('y', pa.list_(pa.map_(pa.string(), pa.int8()))),
+    ])
+
+    v = {'x': {'a': 1}, 'y': [{'b': 2}, {'c': 3}]}
+    s = pa.scalar(v, type=ty)
+
+    assert s.as_py(maps_as_pydicts="strict") == v

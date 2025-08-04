@@ -28,6 +28,13 @@ args <- commandArgs(TRUE)
 VERSION <- args[1]
 tools_root <- ""
 
+# Use gsed on macOS and sed otherwise
+if (identical(unname(Sys.info()["sysname"]), "Darwin")) {
+  SED_BIN <- "gsed"
+} else {
+  SED_BIN <- "sed"
+}
+
 if (length(args) != 1) {
   stop("Usage: Rscript tools/update-checksums.R <version>")
 }
@@ -62,7 +69,7 @@ for (path in binary_paths) {
   if (grepl("windows", path)) {
     cat(paste0("Converting ", path, " to windows style line endings\n"))
     # UNIX style line endings cause errors with mysys2 sha512sum
-    sed_status <- system2("sed", args = c("-i", "s/\\\\r//", file))
+    sed_status <- system2(SED_BIN, args = c("-i", "s/\\\\r//", file))
     if (sed_status != 0) {
       stop("Failed to remove \\r from windows checksum file. Exit code: ", sed_status)
     }

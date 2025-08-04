@@ -111,6 +111,7 @@ class ARROW_EXPORT BufferedInputStream
       int64_t raw_read_bound = -1);
 
   /// \brief Resize internal read buffer; calls to Read(...) will read at least
+  ///        this many bytes from the raw InputStream if possible.
   /// \param[in] new_buffer_size the new read buffer size
   /// \return Status
   Status SetBufferSize(int64_t new_buffer_size);

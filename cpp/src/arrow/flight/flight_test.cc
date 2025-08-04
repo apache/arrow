@@ -44,7 +44,7 @@
 #include "arrow/util/logging.h"
 
 #ifdef GRPCPP_GRPCPP_H
-#error "gRPC headers should not be in public API"
+#  error "gRPC headers should not be in public API"
 #endif
 
 #include <grpcpp/grpcpp.h>
@@ -70,12 +70,14 @@
 // > other API headers. This approach efficiently avoids the conflict
 // > between the two different versions of Abseil.
 #include "arrow/util/tracing_internal.h"
-#ifdef ARROW_WITH_OPENTELEMETRY
-#include <opentelemetry/context/propagation/global_propagator.h>
-#include <opentelemetry/context/propagation/text_map_propagator.h>
-#include <opentelemetry/sdk/trace/processor.h>
-#include <opentelemetry/sdk/trace/tracer_provider.h>
-#include <opentelemetry/trace/propagation/http_trace_context.h>
+// When running with OTel, ASAN reports false-positives that can't be easily suppressed.
+// Disable OTel for ASAN. See GH-46509.
+#if defined(ARROW_WITH_OPENTELEMETRY) && !defined(ADDRESS_SANITIZER)
+#  include <opentelemetry/context/propagation/global_propagator.h>
+#  include <opentelemetry/context/propagation/text_map_propagator.h>
+#  include <opentelemetry/sdk/trace/processor.h>
+#  include <opentelemetry/sdk/trace/tracer_provider.h>
+#  include <opentelemetry/trace/propagation/http_trace_context.h>
 #endif
 
 namespace arrow {
@@ -95,7 +97,9 @@ const char kAuthHeader[] = "authorization";
 class OtelEnvironment : public ::testing::Environment {
  public:
   void SetUp() override {
-#ifdef ARROW_WITH_OPENTELEMETRY
+// When running with OTel, ASAN reports false-positives that can't be easily suppressed.
+// Disable OTel for ASAN. See GH-46509.
+#if defined(ARROW_WITH_OPENTELEMETRY) && !defined(ADDRESS_SANITIZER)
     // The default tracer always generates no-op spans which have no
     // span/trace ID. Set up a different tracer. Note, this needs to be run
     // before Arrow uses OTel as GetTracer() gets a tracer once and keeps it
@@ -204,7 +208,7 @@ ARROW_FLIGHT_TEST_ASYNC_CLIENT(GrpcAsyncClientTest);
 
 TEST(TestFlight, ConnectUri) {
   TestServer server("flight-test-server");
-  server.Start();
+  ASSERT_OK(server.Start());
   ASSERT_TRUE(server.IsRunning());
 
   std::stringstream ss;
@@ -230,7 +234,7 @@ TEST(TestFlight, InvalidUriScheme) {
 #ifndef _WIN32
 TEST(TestFlight, ConnectUriUnix) {
   TestServer server("flight-test-server", "/tmp/flight-test.sock");
-  server.Start();
+  ASSERT_OK(server.Start());
   ASSERT_TRUE(server.IsRunning());
 
   std::stringstream ss;
@@ -1682,7 +1686,9 @@ class TracingTestServer : public FlightServerBase {
     auto* middleware =
         reinterpret_cast<TracingServerMiddleware*>(call_context.GetMiddleware("tracing"));
     if (!middleware) return Status::Invalid("Could not find middleware");
-#ifdef ARROW_WITH_OPENTELEMETRY
+// When running with OTel, ASAN reports false-positives that can't be easily suppressed.
+// Disable OTel for ASAN. See GH-46509.
+#if defined(ARROW_WITH_OPENTELEMETRY) && !defined(ADDRESS_SANITIZER)
     // Ensure the trace context is present (but the value is random so
     // we cannot assert any particular value)
     EXPECT_FALSE(middleware->GetTraceContext().empty());
@@ -1731,7 +1737,9 @@ class TestTracing : public ::testing::Test {
   std::unique_ptr<FlightServerBase> server_;
 };
 
-#ifdef ARROW_WITH_OPENTELEMETRY
+// When running with OTel, ASAN reports false-positives that can't be easily suppressed.
+// Disable OTel for ASAN. See GH-46509.
+#if defined(ARROW_WITH_OPENTELEMETRY) && !defined(ADDRESS_SANITIZER)
 // Must define it ourselves to avoid a linker error
 constexpr size_t kSpanIdSize = opentelemetry::trace::SpanId::kSize;
 constexpr size_t kTraceIdSize = opentelemetry::trace::TraceId::kSize;

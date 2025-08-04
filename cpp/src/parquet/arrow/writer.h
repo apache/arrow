@@ -74,18 +74,6 @@ class PARQUET_EXPORT FileWriter {
       std::shared_ptr<ArrowWriterProperties> arrow_properties =
           default_arrow_writer_properties());
 
-  ARROW_DEPRECATED("Deprecated in 11.0.0. Use Result-returning variants instead.")
-  static ::arrow::Status Open(const ::arrow::Schema& schema, MemoryPool* pool,
-                              std::shared_ptr<::arrow::io::OutputStream> sink,
-                              std::shared_ptr<WriterProperties> properties,
-                              std::unique_ptr<FileWriter>* writer);
-  ARROW_DEPRECATED("Deprecated in 11.0.0. Use Result-returning variants instead.")
-  static ::arrow::Status Open(const ::arrow::Schema& schema, MemoryPool* pool,
-                              std::shared_ptr<::arrow::io::OutputStream> sink,
-                              std::shared_ptr<WriterProperties> properties,
-                              std::shared_ptr<ArrowWriterProperties> arrow_properties,
-                              std::unique_ptr<FileWriter>* writer);
-
   /// Return the Arrow schema to be written to.
   virtual std::shared_ptr<::arrow::Schema> schema() const = 0;
 
@@ -99,9 +87,7 @@ class PARQUET_EXPORT FileWriter {
   /// \brief Start a new row group.
   ///
   /// Returns an error if not all columns have been written.
-  ///
-  /// \param chunk_size the number of rows in the next row group.
-  virtual ::arrow::Status NewRowGroup(int64_t chunk_size) = 0;
+  virtual ::arrow::Status NewRowGroup() = 0;
 
   /// \brief Write ColumnChunk in row group using an array.
   virtual ::arrow::Status WriteColumnChunk(const ::arrow::Array& data) = 0;

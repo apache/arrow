@@ -170,7 +170,7 @@ test_that("element access methods for int32 ALTREP with nulls", {
   expect_identical(test_arrow_altrep_copy_by_region(altrep, 123), original)
   expect_false(test_arrow_altrep_is_materialized(altrep))
 
-  # because there are no nulls, DATAPTR() does not materialize
+  # because there are nulls, DATAPTR() does materialize
   expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
   expect_true(test_arrow_altrep_is_materialized(altrep))
 
@@ -193,7 +193,7 @@ test_that("element access methods for double ALTREP with nulls", {
   expect_identical(test_arrow_altrep_copy_by_region(altrep, 123), original)
   expect_false(test_arrow_altrep_is_materialized(altrep))
 
-  # because there are no nulls, DATAPTR() does not materialize
+  # because there are nulls, DATAPTR() does materialize
   expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
   expect_true(test_arrow_altrep_is_materialized(altrep))
 
@@ -244,14 +244,13 @@ test_that("element access methods for character ALTREP", {
   expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
   expect_false(test_arrow_altrep_is_materialized(altrep))
 
-  # DATAPTR() should always materialize for strings
-  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
+  # match() calls DATAPTR() internally which materializes the vector
+  match(altrep, c("1", "40", "999"))
   expect_true(test_arrow_altrep_is_materialized(altrep))
 
   # test element access after materialization
   expect_true(test_arrow_altrep_is_materialized(altrep))
   expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
-  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
 })
 
 test_that("element access methods for character ALTREP from large_utf8()", {
@@ -265,14 +264,13 @@ test_that("element access methods for character ALTREP from large_utf8()", {
   expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
   expect_false(test_arrow_altrep_is_materialized(altrep))
 
-  # DATAPTR() should always materialize for strings
-  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
+  # match() calls DATAPTR() internally which materializes the vector
+  match(altrep, c("1", "40", "999"))
   expect_true(test_arrow_altrep_is_materialized(altrep))
 
   # test element access after materialization
   expect_true(test_arrow_altrep_is_materialized(altrep))
   expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
-  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
 })
 
 test_that("empty vectors are not altrep", {

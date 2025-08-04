@@ -32,24 +32,6 @@
 
 namespace arrow {
 
-/// \brief EXPERIMENTAL: Device type enum which matches up with C Data Device types
-enum class DeviceAllocationType : char {
-  kCPU = 1,
-  kCUDA = 2,
-  kCUDA_HOST = 3,
-  kOPENCL = 4,
-  kVULKAN = 7,
-  kMETAL = 8,
-  kVPI = 9,
-  kROCM = 10,
-  kROCM_HOST = 11,
-  kEXT_DEV = 12,
-  kCUDA_MANAGED = 13,
-  kONEAPI = 14,
-  kWEBGPU = 15,
-  kHEXAGON = 16,
-};
-
 class MemoryManager;
 
 /// \brief EXPERIMENTAL: Abstract interface for hardware devices

@@ -34,8 +34,10 @@ jobs:
         env:
           ARROW_JAVA_SKIP_GIT_PLUGIN: true
         run: |
+          mkdir -p build
           archery docker run \
             -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
+            -v $PWD/build/:/build/ \
             {{ flags|default("") }} \
             {{ image }} \
             {{ command|default("") }}
@@ -45,7 +47,7 @@ jobs:
           ref: {{ default_branch|default("main") }}
           path: crossbow
           fetch-depth: 1
-      {% if  publish %}
+      {% if publish %}
       - name: Prepare Docs Preview
         run: |
           # build files are created by the docker user

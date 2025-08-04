@@ -29,9 +29,9 @@
 
 #include <signal.h>
 #ifndef _WIN32
-#include <sys/time.h>  // for setitimer()
-#include <sys/types.h>
-#include <unistd.h>
+#  include <sys/time.h>  // for setitimer()
+#  include <sys/types.h>
+#  include <unistd.h>
 #endif
 
 #include "arrow/testing/gtest_util.h"
@@ -269,9 +269,9 @@ TEST_F(SignalCancelTest, RegisterUnregister) {
 #if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
       defined(THREAD_SANITIZER))
 TEST_F(SignalCancelTest, ForkSafetyUnregisteredHandlers) {
-#ifndef ARROW_ENABLE_THREADING
+#  ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";
-#endif
+#  endif
 
   RunInChild([&]() {
     // Child
@@ -296,9 +296,9 @@ TEST_F(SignalCancelTest, ForkSafetyUnregisteredHandlers) {
 }
 
 TEST_F(SignalCancelTest, ForkSafetyRegisteredHandlers) {
-#ifndef ARROW_ENABLE_THREADING
+#  ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";
-#endif
+#  endif
 
   RegisterHandler();
 

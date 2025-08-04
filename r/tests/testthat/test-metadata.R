@@ -149,6 +149,15 @@ arbitrary\040code\040was\040just\040executed
   )
 })
 
+test_that("R metadata processing doesn't choke on packageVersion() output", {
+  metadata <- list(version = packageVersion("base"))
+  expect_identical(safe_r_metadata(metadata), metadata)
+
+  df <- example_data[1:6]
+  attr(df, "version") <- packageVersion("base")
+  expect_equal_data_frame(Table$create(df), df)
+})
+
 test_that("Complex or unsafe attributes are pruned from R metadata, if they exist", {
   tab <- Table$create(example_data[1:6])
   bad <- new.env()
@@ -161,18 +170,24 @@ i Type: \"environment\"
 > If you trust the source, you can set `options(arrow.unsafe_metadata = TRUE)` to preserve them.",
     fixed = TRUE
   )
+  # Try hiding it even further, in attributes
+  bad_meta <- list(attributes = structure(list(), hidden_attr = bad))
+  tab$metadata <- list(r = rawToChar(serialize(bad_meta, NULL, ascii = TRUE)))
+  expect_warning(
+    as.data.frame(tab),
+    "Potentially unsafe or invalid elements have been discarded from R metadata.
+i Type: \"environment\"
+> If you trust the source, you can set `options(arrow.unsafe_metadata = TRUE)` to preserve them.",
+    fixed = TRUE
+  )
+
   # You can set an option to allow them through.
   # It still warns, just differently, and it doesn't prune the attributes
   withr::local_options(list("arrow.unsafe_metadata" = TRUE))
   expect_warning(
-    expect_warning(
-      as.data.frame(tab),
-      "R metadata may have unsafe or invalid elements
+    as.data.frame(tab),
+    "R metadata may have unsafe or invalid elements
 i Type: \"environment\""
-    ),
-    # This particular example ultimately fails because it's not a list
-    "Invalid metadata$r",
-    fixed = TRUE
   )
 })
 

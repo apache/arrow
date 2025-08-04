@@ -68,7 +68,7 @@ jobs:
           EOF
         shell: bash -l {0}
       - name: Save the install script
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: {{ "devdocs-script_os-${{ matrix.os }}_sysinstall-${{ matrix.system-install }}" }}
           path: arrow/r/vignettes/developers/script.sh

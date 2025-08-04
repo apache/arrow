@@ -228,7 +228,7 @@ static void BuildFixedSizeBinaryArray(
 }
 
 static void BuildDecimalArray(benchmark::State& state) {  // NOLINT non-const reference
-  auto type = decimal(10, 5);
+  auto type = decimal128(10, 5);
   Decimal128 value;
   int32_t precision = 0;
   int32_t scale = 0;

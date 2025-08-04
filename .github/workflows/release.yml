@@ -32,13 +32,13 @@ env:
 
 jobs:
   publish:
-    name: Publish 
+    name: Publish
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Get Tag Name of Latest Release Candidate
         run: |
-          rc_tag=$(gh release list --repo apache/arrow | \
+          rc_tag=$(gh release list --repo ${GITHUB_REPOSITORY} | \
                     cut -f3 | \
                     grep -F "${GITHUB_REF_NAME}-rc" | \
                     head -n1)
@@ -52,23 +52,25 @@ jobs:
           echo "VERSION_WITH_RC=${version_with_rc}" >> ${GITHUB_ENV}
           echo "VERSION=${version}" >> ${GITHUB_ENV}
           echo "RC_NUM=${rc_num}" >> ${GITHUB_ENV}
-      - name: Download Release Candidate Artifacts 
+      - name: Download Release Candidate Artifacts
         run: |
           mkdir release_candidate_artifacts
-          gh release download ${RELEASE_CANDIDATE_TAG_NAME} --repo apache/arrow --dir release_candidate_artifacts
+          gh release download ${RELEASE_CANDIDATE_TAG_NAME} \
+            --dir release_candidate_artifacts \
+            --repo ${GITHUB_REPOSITORY}
       - name: Create Release Title
         run: |
           title="Apache Arrow ${VERSION}"
           echo "RELEASE_TITLE=${title}" >> ${GITHUB_ENV}
       # Set the release notes to "TODO" temporarily. After the release notes page
-      # (https://arrow.apache.org/release/{VERSION}.html) is published, use 
-      # gh release edit to update the release notes to refer to the newly 
+      # (https://arrow.apache.org/release/{VERSION}.html) is published, use
+      # gh release edit to update the release notes to refer to the newly
       # pushed web page. See dev/post/post-05-update-gh-release-notes.sh
       - name: Create GitHub Release
         run: |
           gh release create ${GITHUB_REF_NAME} \
-            --repo apache/arrow \
-            --verify-tag \
-            --title "${RELEASE_TITLE}" \
             --notes "TODO" \
+            --repo ${GITHUB_REPOSITORY} \
+            --title "${RELEASE_TITLE}" \
+            --verify-tag \
             release_candidate_artifacts/*

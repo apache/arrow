@@ -22,13 +22,13 @@
 #include "arrow/array.h"
 #include "arrow/c/bridge.h"
 #include "arrow/c/helpers.h"
-#include "arrow/ipc/json_simple.h"
+#include "arrow/json/from_string.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/key_value_metadata.h"
 
-namespace arrow {
+namespace arrow::benchmarks {
 
 std::shared_ptr<Schema> ExampleSchema() {
   auto f0 = field("f0", utf8());
@@ -39,7 +39,7 @@ std::shared_ptr<Schema> ExampleSchema() {
   auto f5 = field("f5", float32());
   auto f6 = field("f6", float32());
   auto f7 = field("f7", float32());
-  auto f8 = field("f8", decimal(19, 10));
+  auto f8 = field("f8", decimal128(19, 10));
   return schema({f0, f1, f2, f3, f4, f5, f6, f7, f8});
 }
 
@@ -60,7 +60,7 @@ static void ExportType(benchmark::State& state) {  // NOLINT non-const reference
   auto type = utf8();
 
   for (auto _ : state) {
-    ABORT_NOT_OK(ExportType(*type, &c_export));
+    ABORT_NOT_OK(::arrow::ExportType(*type, &c_export));
     ArrowSchemaRelease(&c_export);
   }
   state.SetItemsProcessed(state.iterations());
@@ -71,7 +71,7 @@ static void ExportSchema(benchmark::State& state) {  // NOLINT non-const referen
   auto schema = ExampleSchema();
 
   for (auto _ : state) {
-    ABORT_NOT_OK(ExportSchema(*schema, &c_export));
+    ABORT_NOT_OK(::arrow::ExportSchema(*schema, &c_export));
     ArrowSchemaRelease(&c_export);
   }
   state.SetItemsProcessed(state.iterations());
@@ -79,10 +79,10 @@ static void ExportSchema(benchmark::State& state) {  // NOLINT non-const referen
 
 static void ExportArray(benchmark::State& state) {  // NOLINT non-const reference
   struct ArrowArray c_export;
-  auto array = ArrayFromJSON(utf8(), R"(["foo", "bar", null])");
+  auto array = arrow::ArrayFromJSON(utf8(), R"(["foo", "bar", null])");
 
   for (auto _ : state) {
-    ABORT_NOT_OK(ExportArray(*array, &c_export));
+    ABORT_NOT_OK(::arrow::ExportArray(*array, &c_export));
     ArrowArrayRelease(&c_export);
   }
   state.SetItemsProcessed(state.iterations());
@@ -93,7 +93,7 @@ static void ExportRecordBatch(benchmark::State& state) {  // NOLINT non-const re
   auto batch = ExampleRecordBatch();
 
   for (auto _ : state) {
-    ABORT_NOT_OK(ExportRecordBatch(*batch, &c_export));
+    ABORT_NOT_OK(::arrow::ExportRecordBatch(*batch, &c_export));
     ArrowArrayRelease(&c_export);
   }
   state.SetItemsProcessed(state.iterations());
@@ -104,7 +104,7 @@ static void ExportImportType(benchmark::State& state) {  // NOLINT non-const ref
   auto type = utf8();
 
   for (auto _ : state) {
-    ABORT_NOT_OK(ExportType(*type, &c_export));
+    ABORT_NOT_OK(::arrow::ExportType(*type, &c_export));
     ImportType(&c_export).ValueOrDie();
   }
   state.SetItemsProcessed(state.iterations());
@@ -115,7 +115,7 @@ static void ExportImportSchema(benchmark::State& state) {  // NOLINT non-const r
   auto schema = ExampleSchema();
 
   for (auto _ : state) {
-    ABORT_NOT_OK(ExportSchema(*schema, &c_export));
+    ABORT_NOT_OK(::arrow::ExportSchema(*schema, &c_export));
     ImportSchema(&c_export).ValueOrDie();
   }
   state.SetItemsProcessed(state.iterations());
@@ -123,11 +123,11 @@ static void ExportImportSchema(benchmark::State& state) {  // NOLINT non-const r
 
 static void ExportImportArray(benchmark::State& state) {  // NOLINT non-const reference
   struct ArrowArray c_export;
-  auto array = ArrayFromJSON(utf8(), R"(["foo", "bar", null])");
+  auto array = arrow::ArrayFromJSON(utf8(), R"(["foo", "bar", null])");
   auto type = array->type();
 
   for (auto _ : state) {
-    ABORT_NOT_OK(ExportArray(*array, &c_export));
+    ABORT_NOT_OK(::arrow::ExportArray(*array, &c_export));
     ImportArray(&c_export, type).ValueOrDie();
   }
   state.SetItemsProcessed(state.iterations());
@@ -140,7 +140,7 @@ static void ExportImportRecordBatch(
   auto schema = batch->schema();
 
   for (auto _ : state) {
-    ABORT_NOT_OK(ExportRecordBatch(*batch, &c_export));
+    ABORT_NOT_OK(::arrow::ExportRecordBatch(*batch, &c_export));
     ImportRecordBatch(&c_export, schema).ValueOrDie();
   }
   state.SetItemsProcessed(state.iterations());
@@ -156,4 +156,4 @@ BENCHMARK(ExportImportSchema);
 BENCHMARK(ExportImportArray);
 BENCHMARK(ExportImportRecordBatch);
 
-}  // namespace arrow
+}  // namespace arrow::benchmarks

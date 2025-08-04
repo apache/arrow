@@ -134,12 +134,6 @@ test_that("make_valid_parquet_version()", {
     make_valid_parquet_version("1.0"),
     ParquetVersionType$PARQUET_1_0
   )
-  expect_deprecated(
-    expect_equal(
-      make_valid_parquet_version("2.0"),
-      ParquetVersionType$PARQUET_2_0
-    )
-  )
   expect_equal(
     make_valid_parquet_version("2.4"),
     ParquetVersionType$PARQUET_2_4
@@ -154,9 +148,6 @@ test_that("make_valid_parquet_version()", {
   )
 
   expect_equal(make_valid_parquet_version(1), ParquetVersionType$PARQUET_1_0)
-  expect_deprecated(
-    expect_equal(make_valid_parquet_version(2), ParquetVersionType$PARQUET_2_0)
-  )
   expect_equal(make_valid_parquet_version(1.0), ParquetVersionType$PARQUET_1_0)
   expect_equal(make_valid_parquet_version(2.4), ParquetVersionType$PARQUET_2_4)
 })
@@ -455,7 +446,7 @@ test_that("deprecated int96 timestamp unit can be specified when reading Parquet
   )
 
   expect_identical(result$some_datetime$type$unit(), TimeUnit$MILLI)
-  expect_true(result$some_datetime == table$some_datetime)
+  expect_equal(result$some_datetime, table$some_datetime$cast(result$some_datetime$type))
 })
 
 test_that("Can read parquet with nested lists and maps", {
@@ -492,7 +483,6 @@ test_that("Can read Parquet files from a URL", {
 })
 
 test_that("thrift string and container size can be specified when reading Parquet files", {
-
   tf <- tempfile()
   on.exit(unlink(tf))
   table <- arrow_table(example_data)

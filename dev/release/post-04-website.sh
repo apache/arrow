@@ -29,6 +29,12 @@ if [ "$#" -ne 2 ]; then
   exit 1
 fi
 
+# Verify archery is available and stop if not
+if ! archery --help > /dev/null 2>&1; then
+  echo "This script requires archery. Please install it and try again."
+  exit 1
+fi
+
 previous_version=$1
 version=$2
 
@@ -157,8 +163,11 @@ cat <<ANNOUNCE >> "${announce_file}"
 
 ANNOUNCE
 
+# Remove the "# Apache Arrow ..." line and increment section level
+# of "## Bug Fixes"/"## New Features and Improvements" to "### ...".
 archery release changelog generate ${version} | \
-  sed -e 's/^#/##/g' >> "${announce_file}"
+  sed -e '/^# /d' \
+      -e 's/^#/##/g' >> "${announce_file}"
 
 cat <<ANNOUNCE >> "${announce_file}"
 [1]: https://www.apache.org/dyn/closer.lua/arrow/arrow-${version}/
@@ -265,7 +274,6 @@ current:
   mirrors: 'https://www.apache.org/dyn/closer.lua/arrow/arrow-${version}/'
   tarball-name: 'apache-arrow-${version}.tar.gz'
   tarball-url: 'https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/arrow-${version}/apache-arrow-${version}.tar.gz'
-  java-artifacts: 'https://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%22${version}%22'
   asc: '${apache_download_url}/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.asc'
   sha256: '${apache_download_url}/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha256'
   sha512: '${apache_download_url}/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha512'

@@ -161,11 +161,12 @@ auto values = ::testing::Values(
     field("int64", int64()), field("float16", float16()), field("float32", float32()),
     field("float64", float64()), field("string", utf8()), field("binary", binary()),
     field("string_view", utf8_view()), field("binary_view", binary_view()),
-    field("fixed_size_binary", fixed_size_binary(8)),
-    field("decimal128", decimal128(8, 3)), field("decimal128", decimal128(29, -5)),
-    field("decimal256", decimal256(16, 4)), field("decimal256", decimal256(57, -6)),
-    field("date32", date32()), field("date64", date64()),
-    field("timestampns", timestamp(TimeUnit::NANO)),
+    field("fixed_size_binary", fixed_size_binary(8)), field("decimal32", decimal32(8, 3)),
+    field("decimal32", decimal32(9, -5)), field("decimal64", decimal64(16, 3)),
+    field("decimal64", decimal64(16, -5)), field("decimal128", decimal128(8, 3)),
+    field("decimal128", decimal128(29, -5)), field("decimal256", decimal256(16, 4)),
+    field("decimal256", decimal256(57, -6)), field("date32", date32()),
+    field("date64", date64()), field("timestampns", timestamp(TimeUnit::NANO)),
     field("timestamps", timestamp(TimeUnit::SECOND, "America/Phoenix")),
     field("time32ms", time32(TimeUnit::MILLI)), field("time64ns", time64(TimeUnit::NANO)),
     field("time32s", time32(TimeUnit::SECOND)),
@@ -313,14 +314,21 @@ class RandomDecimalArrayTest : public ::testing::Test {
   }
 };
 
-using DecimalTypes = ::testing::Types<Decimal128Type, Decimal256Type>;
+using DecimalTypes =
+    ::testing::Types<Decimal32Type, Decimal64Type, Decimal128Type, Decimal256Type>;
 TYPED_TEST_SUITE(RandomDecimalArrayTest, DecimalTypes);
 
 TYPED_TEST(RandomDecimalArrayTest, Basic) {
   random::RandomArrayGenerator rng(42);
 
+  using DecimalType = typename TestFixture::DecimalValue;
+
   for (const int32_t precision :
        {1, 2, 5, 9, 18, 19, 25, this->max_precision() - 1, this->max_precision()}) {
+    if (precision > DecimalType::kMaxPrecision) {
+      continue;
+    }
+
     ARROW_SCOPED_TRACE("precision = ", precision);
     const auto type = this->type(precision, 5);
     auto array = rng.ArrayOf(type, /*size=*/1000, /*null_probability=*/0.2);

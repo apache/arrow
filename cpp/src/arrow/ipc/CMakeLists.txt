@@ -38,7 +38,6 @@ function(ADD_ARROW_IPC_TEST REL_TEST_NAME)
 endfunction()
 
 add_arrow_test(feather_test)
-add_arrow_ipc_test(json_simple_test)
 add_arrow_ipc_test(message_internal_test)
 add_arrow_ipc_test(read_write_test)
 add_arrow_ipc_test(tensor_test)
@@ -71,7 +70,12 @@ endif()
 
 add_arrow_benchmark(read_write_benchmark PREFIX "arrow-ipc")
 
-if(ARROW_FUZZING)
+if(ARROW_FUZZING
+   OR (ARROW_BUILD_UTILITIES
+       AND ARROW_TESTING
+       AND ARROW_WITH_LZ4
+       AND ARROW_WITH_ZSTD
+      ))
   add_executable(arrow-ipc-generate-fuzz-corpus generate_fuzz_corpus.cc)
   target_link_libraries(arrow-ipc-generate-fuzz-corpus ${ARROW_UTIL_LIB}
                         ${ARROW_TEST_LINK_LIBS})

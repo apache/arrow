@@ -38,6 +38,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
 
 #include "parquet/arrow/writer.h"
@@ -48,6 +49,7 @@
 
 namespace arrow {
 
+using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 namespace dataset {
@@ -86,7 +88,6 @@ class ParquetFormatHelper {
   static Status WriteRecordBatch(const RecordBatch& batch,
                                  parquet::arrow::FileWriter* writer) {
     auto schema = batch.schema();
-    auto size = batch.num_rows();
 
     if (!schema->Equals(*writer->schema(), false)) {
       return Status::Invalid("RecordBatch schema does not match this writer's. batch:'",
@@ -94,7 +95,7 @@ class ParquetFormatHelper {
                              "'");
     }
 
-    RETURN_NOT_OK(writer->NewRowGroup(size));
+    RETURN_NOT_OK(writer->NewRowGroup());
     for (int i = 0; i < batch.num_columns(); i++) {
       RETURN_NOT_OK(writer->WriteColumnChunk(*batch.column(i)));
     }
@@ -327,6 +328,7 @@ TEST_F(TestParquetFileFormat, CachedMetadata) {
   FileSource source(tracked_input);
   ASSERT_OK_AND_ASSIGN(auto fragment,
                        format_->MakeFragment(std::move(source), literal(true)));
+  auto pq_fragment = checked_cast<ParquetFileFragment*>(fragment.get());
 
   // Read the file the first time, will read metadata
   auto options = std::make_shared<ScanOptions>();
@@ -338,17 +340,28 @@ TEST_F(TestParquetFileFormat, CachedMetadata) {
   options->projection = projection_descr.expression;
   ASSERT_OK_AND_ASSIGN(auto generator, fragment->ScanBatchesAsync(options));
   ASSERT_FINISHES_OK(CollectAsyncGenerator(std::move(generator)));
+  ASSERT_NE(nullptr, pq_fragment->metadata());
 
   ASSERT_GT(tracked_input->bytes_read(), 0);
   int64_t bytes_read_first_time = tracked_input->bytes_read();
-
   ASSERT_OK(tracked_input->Seek(0));
 
   // Read the file the second time, should not read metadata
+  tracked_input->ResetStats();
   ASSERT_OK_AND_ASSIGN(generator, fragment->ScanBatchesAsync(options));
   ASSERT_FINISHES_OK(CollectAsyncGenerator(std::move(generator)));
-  int64_t bytes_read_second_time = tracked_input->bytes_read() - bytes_read_first_time;
-  ASSERT_LT(bytes_read_second_time, bytes_read_first_time);
+  ASSERT_LT(tracked_input->bytes_read(), bytes_read_first_time);
+
+  // Clear cached metadata
+  ASSERT_OK(fragment->ClearCachedMetadata());
+  ASSERT_EQ(nullptr, pq_fragment->metadata());
+
+  // Read the file a third time, should read metadata
+  tracked_input->ResetStats();
+  ASSERT_OK_AND_ASSIGN(generator, fragment->ScanBatchesAsync(options));
+  ASSERT_FINISHES_OK(CollectAsyncGenerator(std::move(generator)));
+  ASSERT_EQ(tracked_input->bytes_read(), bytes_read_first_time);
+  ASSERT_NE(nullptr, pq_fragment->metadata());
 }
 
 TEST_F(TestParquetFileFormat, MultithreadedScan) {
@@ -840,6 +853,56 @@ TEST(TestParquetStatistics, NullMax) {
   auto stat_expression =
       ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *statistics);
   EXPECT_EQ(stat_expression->ToString(), "(x >= 1)");
+}
+
+TEST(TestParquetStatistics, NoNullCount) {
+  auto field = ::arrow::field("x", int32());
+  auto parquet_node_ptr = ::parquet::schema::Int32("x", ::parquet::Repetition::REQUIRED);
+  ::parquet::ColumnDescriptor descr(parquet_node_ptr, /*max_definition_level=*/1,
+                                    /*max_repetition_level=*/0);
+
+  auto int32_to_parquet_stats = [](int32_t v) {
+    std::string value;
+    value.resize(sizeof(int32_t));
+    memcpy(value.data(), &v, sizeof(int32_t));
+    return value;
+  };
+  {
+    // Base case: when null_count is not set, the expression might contain null
+    ::parquet::EncodedStatistics encoded_stats;
+    encoded_stats.set_min(int32_to_parquet_stats(1));
+    encoded_stats.set_max(int32_to_parquet_stats(100));
+    encoded_stats.has_null_count = false;
+    encoded_stats.all_null_value = false;
+    encoded_stats.null_count = 0;
+    auto stats = ::parquet::Statistics::Make(&descr, &encoded_stats, /*num_values=*/10);
+
+    auto stat_expression =
+        ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
+    ASSERT_TRUE(stat_expression.has_value());
+    EXPECT_EQ(stat_expression->ToString(),
+              "(((x >= 1) and (x <= 100)) or is_null(x, {nan_is_null=false}))");
+  }
+  {
+    // Special case: when num_value is 0, it would return
+    // "is_null".
+    ::parquet::EncodedStatistics encoded_stats;
+    encoded_stats.has_null_count = true;
+    encoded_stats.null_count = 1;
+    encoded_stats.all_null_value = true;
+    auto stats = ::parquet::Statistics::Make(&descr, &encoded_stats, /*num_values=*/0);
+    auto stat_expression =
+        ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
+    ASSERT_TRUE(stat_expression.has_value());
+    EXPECT_EQ(stat_expression->ToString(), "is_null(x, {nan_is_null=false})");
+
+    encoded_stats.has_null_count = false;
+    encoded_stats.all_null_value = false;
+    stats = ::parquet::Statistics::Make(&descr, &encoded_stats, /*num_values=*/0);
+    stat_expression = ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
+    ASSERT_TRUE(stat_expression.has_value());
+    EXPECT_EQ(stat_expression->ToString(), "is_null(x, {nan_is_null=false})");
+  }
 }
 
 class DelayedBufferReader : public ::arrow::io::BufferReader {

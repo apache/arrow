@@ -199,7 +199,7 @@ def create_config(directory, yml_content, env_content=None):
     if env_content is not None:
         with env_path.open('w') as fp:
             for k, v in env_content.items():
-                fp.write("{}={}\n".format(k, v))
+                fp.write(f"{k}={v}\n")
 
     return config_path
 
@@ -215,6 +215,14 @@ def format_run(args):
 @pytest.fixture
 def arrow_compose_path(tmpdir):
     return create_config(tmpdir, arrow_compose_yml, arrow_compose_env)
+
+
+@pytest.fixture(autouse=True)
+def no_ci_env_variables(monkeypatch):
+    """Make sure that the tests behave the same on CI as when run locally"""
+    monkeypatch.delenv("APPVEYOR", raising=False)
+    monkeypatch.delenv("BUILD_BUILDURI", raising=False)
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
 
 
 def test_config_validation(tmpdir):
@@ -286,7 +294,7 @@ def test_forwarding_env_variables(arrow_compose_path):
             compose.build('conda-cpp')
 
 
-def test_compose_pull(arrow_compose_path):
+def test_compose_pull(arrow_compose_path, monkeypatch):
     compose = DockerCompose(arrow_compose_path)
 
     expected_calls = [
@@ -312,6 +320,16 @@ def test_compose_pull(arrow_compose_path):
     with assert_compose_calls(compose, expected_calls):
         compose.clear_pull_memory()
         compose.pull('conda-python-pandas', pull_leaf=False)
+
+    with monkeypatch.context() as m:
+        # `--quiet` is passed to `docker` on CI
+        m.setenv("GITHUB_ACTIONS", "true")
+        expected_calls = [
+            "pull --quiet --ignore-pull-failures conda-cpp",
+        ]
+        with assert_compose_calls(compose, expected_calls):
+            compose.clear_pull_memory()
+            compose.pull('conda-cpp')
 
 
 def test_compose_pull_params(arrow_compose_path):

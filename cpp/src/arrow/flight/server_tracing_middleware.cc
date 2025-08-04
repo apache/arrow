@@ -27,11 +27,11 @@
 #include "arrow/util/tracing_internal.h"
 
 #ifdef ARROW_WITH_OPENTELEMETRY
-#include <opentelemetry/context/propagation/global_propagator.h>
-#include <opentelemetry/context/propagation/text_map_propagator.h>
-#include <opentelemetry/trace/context.h>
-#include <opentelemetry/trace/propagation/http_trace_context.h>
-#include <opentelemetry/trace/semantic_conventions.h>
+#  include <opentelemetry/context/propagation/global_propagator.h>
+#  include <opentelemetry/context/propagation/text_map_propagator.h>
+#  include <opentelemetry/trace/context.h>
+#  include <opentelemetry/trace/propagation/http_trace_context.h>
+#  include <opentelemetry/trace/semantic_conventions.h>
 #endif
 
 namespace arrow {

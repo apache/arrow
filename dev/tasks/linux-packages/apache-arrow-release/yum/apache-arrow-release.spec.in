@@ -61,7 +61,7 @@ Apache Arrow release files.
 distribution=$(. /etc/os-release && echo "${ID}")
 if [ "${distribution}" = "rhel" ]; then
   # We use distribution version explicitly for RHEL because we can't
-  # use symbolic link on Artifactory. CentOS and AlmaLinux uses 7 and
+  # use symbolic link on Artifactory. CentOS and AlmaLinux use 7 and
   # 8 but RHEL uses 7Server and 8Server for $releasever. If we can use
   # symbolic link on Artifactory we can use $releasever directly.
   distribution_version=$(. /etc/os-release && echo "${VERSION_ID}")
@@ -102,6 +102,24 @@ else
 fi
 
 %changelog
+* Fri Jul 11 2025 Bryce Mecum <petridish@gmail.com> - 21.0.0-1
+- New upstream release.
+
+* Tue Apr 22 2025 Jacob Wujciak-Jens <jacob@wujciak.de> - 20.0.0-1
+- New upstream release.
+
+* Tue Feb 11 2025 Bryce Mecum <petridish@gmail.com> - 19.0.1-1
+- New upstream release.
+
+* Tue Jan 07 2025 Bryce Mecum <petridish@gmail.com> - 19.0.0-1
+- New upstream release.
+
+* Wed Nov 13 2024 Bryce Mecum <petridish@gmail.com> - 18.1.0-1
+- New upstream release.
+
+* Wed Oct 16 2024 Sutou Kouhei <kou@clear-code.com> - 18.0.0-1
+- New upstream release.
+
 * Thu Jul 11 2024 Raúl Cumplido <raulcumplido@gmail.com> - 17.0.0-1
 - New upstream release.
 

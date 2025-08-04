@@ -26,10 +26,12 @@
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/acero/util.h"
 #include "arrow/api.h"
-#include "arrow/compute/kernels/row_encoder_internal.h"
-#include "arrow/compute/kernels/test_util.h"
 #include "arrow/compute/light_array_internal.h"
+#include "arrow/compute/row/row_encoder_internal.h"
+#include "arrow/compute/test_util_internal.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/testing/extension_type.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
@@ -40,9 +42,14 @@ using testing::UnorderedElementsAreArray;
 
 namespace arrow {
 
+using arrow::gen::Constant;
+using arrow::random::kSeedMax;
+using arrow::random::RandomArrayGenerator;
+using compute::and_;
 using compute::call;
 using compute::default_exec_context;
 using compute::ExecBatchBuilder;
+using compute::ExecBatchFromJSON;
 using compute::ExecSpan;
 using compute::field_ref;
 using compute::SortIndices;
@@ -2344,7 +2351,7 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
                             [null, null, "r_payload"],
                             [null, 0, "r_payload"],
-                            [null, 42, "r_payload"], 
+                            [null, 42, "r_payload"],
                             ["both1", null, "r_payload"],
                             ["both2", null, "r_payload"],
                             ["right_only", null, "r_payload"],
@@ -2513,7 +2520,7 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
                             [null, null, "r_payload"],
                             [null, 0, "r_payload"],
-                            [null, 42, "r_payload"], 
+                            [null, 42, "r_payload"],
                             ["both1", null, "r_payload"],
                             ["both1", 0, "r_payload"],
                             ["both1", 42, "r_payload"],
@@ -2698,7 +2705,7 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
                             [null, null, "r_payload"],
                             [null, 0, "r_payload"],
-                            [null, 42, "r_payload"], 
+                            [null, 42, "r_payload"],
                             ["right_only", null, "r_payload"],
                             ["right_only", 0, "r_payload"],
                             ["right_only", 42, "r_payload"]])");
@@ -2873,7 +2880,7 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
                             [null, null, "r_payload"],
                             [null, 0, "r_payload"],
-                            [null, 42, "r_payload"], 
+                            [null, 42, "r_payload"],
                             ["both1", null, "r_payload"],
                             ["both1", 0, "r_payload"],
                             ["both2", null, "r_payload"],
@@ -3048,7 +3055,7 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
                             [null, null, "r_payload"],
                             [null, 0, "r_payload"],
-                            [null, 42, "r_payload"], 
+                            [null, 42, "r_payload"],
                             ["both1", null, "r_payload"],
                             ["both2", null, "r_payload"],
                             ["right_only", null, "r_payload"],
@@ -3251,6 +3258,294 @@ TEST(HashJoin, ManyJoins) {
   }
 
   ASSERT_OK_AND_ASSIGN(std::ignore, DeclarationToTable(std::move(root)));
+}
+
+namespace {
+
+void AssertRowCountEq(Declaration source, int64_t expected) {
+  Declaration count{"aggregate",
+                    {std::move(source)},
+                    AggregateNodeOptions{/*aggregates=*/{{"count_all", "count(*)"}}}};
+  ASSERT_OK_AND_ASSIGN(auto batches, DeclarationToExecBatches(std::move(count)));
+  ASSERT_EQ(batches.batches.size(), 1);
+  ASSERT_EQ(batches.batches[0].values.size(), 1);
+  ASSERT_TRUE(batches.batches[0].values[0].is_scalar());
+  ASSERT_EQ(batches.batches[0].values[0].scalar()->type->id(), Type::INT64);
+  ASSERT_TRUE(batches.batches[0].values[0].scalar_as<Int64Scalar>().is_valid);
+  ASSERT_EQ(batches.batches[0].values[0].scalar_as<Int64Scalar>().value, expected);
+}
+
+}  // namespace
+
+// GH-43495: Test that both the key and the payload of the right side (the build side) are
+// fixed length and larger than 4GB, and the 64-bit offset in the hash table can handle it
+// correctly.
+TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBFixedLength)) {
+  constexpr int64_t k5GB = 5ll * 1024 * 1024 * 1024;
+  constexpr int fixed_length = 128;
+  const auto type = fixed_size_binary(fixed_length);
+  constexpr uint8_t byte_no_match_min = static_cast<uint8_t>('A');
+  constexpr uint8_t byte_no_match_max = static_cast<uint8_t>('y');
+  constexpr uint8_t byte_match = static_cast<uint8_t>('z');
+  const auto value_match =
+      std::make_shared<FixedSizeBinaryScalar>(std::string(fixed_length, byte_match));
+  constexpr int16_t num_rows_per_batch_left = 128;
+  constexpr int16_t num_rows_per_batch_right = 4096;
+  const int64_t num_batches_left = 8;
+  const int64_t num_batches_right =
+      k5GB / (num_rows_per_batch_right * type->byte_width());
+
+  // Left side composed of num_batches_left identical batches of num_rows_per_batch_left
+  // rows of value_match-es.
+  BatchesWithSchema batches_left;
+  {
+    // A column with num_rows_per_batch_left value_match-es.
+    ASSERT_OK_AND_ASSIGN(auto column,
+                         Constant(value_match)->Generate(num_rows_per_batch_left));
+
+    // Use the column as both the key and the payload.
+    ExecBatch batch({column, column}, num_rows_per_batch_left);
+    batches_left =
+        BatchesWithSchema{std::vector<ExecBatch>(num_batches_left, std::move(batch)),
+                          schema({field("l_key", type), field("l_payload", type)})};
+  }
+
+  // Right side composed of num_batches_right identical batches of
+  // num_rows_per_batch_right rows containing only 1 value_match.
+  BatchesWithSchema batches_right;
+  {
+    // A column with (num_rows_per_batch_right - 1) non-value_match-es (possibly null) and
+    // 1 value_match.
+    auto non_matches = RandomArrayGenerator(kSeedMax).FixedSizeBinary(
+        num_rows_per_batch_right - 1, fixed_length,
+        /*null_probability =*/0.01, /*min_byte=*/byte_no_match_min,
+        /*max_byte=*/byte_no_match_max);
+    ASSERT_OK_AND_ASSIGN(auto match, Constant(value_match)->Generate(1));
+    ASSERT_OK_AND_ASSIGN(auto column, Concatenate({non_matches, match}));
+
+    // Use the column as both the key and the payload.
+    ExecBatch batch({column, column}, num_rows_per_batch_right);
+    batches_right =
+        BatchesWithSchema{std::vector<ExecBatch>(num_batches_right, std::move(batch)),
+                          schema({field("r_key", type), field("r_payload", type)})};
+  }
+
+  Declaration left{"exec_batch_source",
+                   ExecBatchSourceNodeOptions(std::move(batches_left.schema),
+                                              std::move(batches_left.batches))};
+
+  Declaration right{"exec_batch_source",
+                    ExecBatchSourceNodeOptions(std::move(batches_right.schema),
+                                               std::move(batches_right.batches))};
+
+  HashJoinNodeOptions join_opts(JoinType::INNER, /*left_keys=*/{"l_key"},
+                                /*right_keys=*/{"r_key"});
+  Declaration join{"hashjoin", {std::move(left), std::move(right)}, join_opts};
+
+  ASSERT_OK_AND_ASSIGN(auto batches_result, DeclarationToExecBatches(std::move(join)));
+  Declaration result{"exec_batch_source",
+                     ExecBatchSourceNodeOptions(std::move(batches_result.schema),
+                                                std::move(batches_result.batches))};
+
+  // The row count of hash join should be (number of value_match-es in left side) *
+  // (number of value_match-es in right side).
+  AssertRowCountEq(result,
+                   num_batches_left * num_rows_per_batch_left * num_batches_right);
+
+  // All rows should be value_match-es.
+  auto predicate = and_({equal(field_ref("l_key"), literal(value_match)),
+                         equal(field_ref("l_payload"), literal(value_match)),
+                         equal(field_ref("r_key"), literal(value_match)),
+                         equal(field_ref("r_payload"), literal(value_match))});
+  Declaration filter{"filter", {result}, FilterNodeOptions{std::move(predicate)}};
+  AssertRowCountEq(std::move(filter),
+                   num_batches_left * num_rows_per_batch_left * num_batches_right);
+}
+
+// GH-43495: Test that both the key and the payload of the right side (the build side) are
+// var length and larger than 4GB, and the 64-bit offset in the hash table can handle it
+// correctly.
+TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBVarLength)) {
+  constexpr int64_t k5GB = 5ll * 1024 * 1024 * 1024;
+  const auto type = utf8();
+  constexpr int value_no_match_length_min = 128;
+  constexpr int value_no_match_length_max = 129;
+  constexpr int value_match_length = 130;
+  // The value "DDD..." will be hashed to the partition over 4GB of the hash table.
+  // Matching at this area gives us more coverage.
+  const auto value_match =
+      std::make_shared<StringScalar>(std::string(value_match_length, 'D'));
+  constexpr int16_t num_rows_per_batch_left = 128;
+  constexpr int16_t num_rows_per_batch_right = 4096;
+  const int64_t num_batches_left = 8;
+  const int64_t num_batches_right =
+      k5GB / (num_rows_per_batch_right * value_no_match_length_min);
+
+  // Left side composed of num_batches_left identical batches of num_rows_per_batch_left
+  // rows of value_match-es.
+  BatchesWithSchema batches_left;
+  {
+    // A column with num_rows_per_batch_left value_match-es.
+    ASSERT_OK_AND_ASSIGN(auto column,
+                         Constant(value_match)->Generate(num_rows_per_batch_left));
+
+    // Use the column as both the key and the payload.
+    ExecBatch batch({column, column}, num_rows_per_batch_left);
+    batches_left =
+        BatchesWithSchema{std::vector<ExecBatch>(num_batches_left, std::move(batch)),
+                          schema({field("l_key", type), field("l_payload", type)})};
+  }
+
+  // Right side composed of num_batches_right identical batches of
+  // num_rows_per_batch_right rows containing only 1 value_match.
+  BatchesWithSchema batches_right;
+  {
+    // A column with (num_rows_per_batch_right - 1) non-value_match-es (possibly null) and
+    // 1 value_match.
+    auto non_matches =
+        RandomArrayGenerator(kSeedMax).String(num_rows_per_batch_right - 1,
+                                              /*min_length=*/value_no_match_length_min,
+                                              /*max_length=*/value_no_match_length_max,
+                                              /*null_probability =*/0.01);
+    ASSERT_OK_AND_ASSIGN(auto match, Constant(value_match)->Generate(1));
+    ASSERT_OK_AND_ASSIGN(auto column, Concatenate({non_matches, match}));
+
+    // Use the column as both the key and the payload.
+    ExecBatch batch({column, column}, num_rows_per_batch_right);
+    batches_right =
+        BatchesWithSchema{std::vector<ExecBatch>(num_batches_right, std::move(batch)),
+                          schema({field("r_key", type), field("r_payload", type)})};
+  }
+
+  Declaration left{"exec_batch_source",
+                   ExecBatchSourceNodeOptions(std::move(batches_left.schema),
+                                              std::move(batches_left.batches))};
+
+  Declaration right{"exec_batch_source",
+                    ExecBatchSourceNodeOptions(std::move(batches_right.schema),
+                                               std::move(batches_right.batches))};
+
+  HashJoinNodeOptions join_opts(JoinType::INNER, /*left_keys=*/{"l_key"},
+                                /*right_keys=*/{"r_key"});
+  Declaration join{"hashjoin", {std::move(left), std::move(right)}, join_opts};
+
+  ASSERT_OK_AND_ASSIGN(auto batches_result, DeclarationToExecBatches(std::move(join)));
+  Declaration result{"exec_batch_source",
+                     ExecBatchSourceNodeOptions(std::move(batches_result.schema),
+                                                std::move(batches_result.batches))};
+
+  // The row count of hash join should be (number of value_match-es in left side) *
+  // (number of value_match-es in right side).
+  AssertRowCountEq(result,
+                   num_batches_left * num_rows_per_batch_left * num_batches_right);
+
+  // All rows should be value_match-es.
+  auto predicate = and_({equal(field_ref("l_key"), literal(value_match)),
+                         equal(field_ref("l_payload"), literal(value_match)),
+                         equal(field_ref("r_key"), literal(value_match)),
+                         equal(field_ref("r_payload"), literal(value_match))});
+  Declaration filter{"filter", {result}, FilterNodeOptions{std::move(predicate)}};
+  AssertRowCountEq(std::move(filter),
+                   num_batches_left * num_rows_per_batch_left * num_batches_right);
+}
+
+// GH-45334: The row ids of the matching rows on the right side (the build side) are very
+// big, causing the index calculation overflow.
+TEST(HashJoin, BuildSideLargeRowIds) {
+  GTEST_SKIP() << "Test disabled due to excessively time and resource consuming, "
+                  "for local debugging only.";
+
+  // A fair amount of match rows to trigger both SIMD and non-SIMD code paths.
+  const int64_t num_match_rows = 35;
+  const int64_t num_rows_per_match_batch = 35;
+  const int64_t num_match_batches = num_match_rows / num_rows_per_match_batch;
+
+  const int64_t num_unmatch_rows_large = 720898048;
+  const int64_t num_rows_per_unmatch_batch_large = 352001;
+  const int64_t num_unmatch_batches_large =
+      num_unmatch_rows_large / num_rows_per_unmatch_batch_large;
+
+  auto schema_small =
+      schema({field("small_key", int64()), field("small_payload", int64())});
+  auto schema_large =
+      schema({field("large_key", int64()), field("large_payload", int64())});
+
+  // A carefully chosen key value which hashes to 0xFFFFFFFE, making the match rows to be
+  // placed at higher address of the row table.
+  const int64_t match_key = 289339070;
+  const int64_t match_payload = 42;
+
+  // Match arrays of length num_rows_per_match_batch.
+  ASSERT_OK_AND_ASSIGN(
+      auto match_key_arr,
+      Constant(MakeScalar(match_key))->Generate(num_rows_per_match_batch));
+  ASSERT_OK_AND_ASSIGN(
+      auto match_payload_arr,
+      Constant(MakeScalar(match_payload))->Generate(num_rows_per_match_batch));
+  // Append 1 row of null to trigger null processing code paths.
+  ASSERT_OK_AND_ASSIGN(auto null_arr, MakeArrayOfNull(int64(), 1));
+  ASSERT_OK_AND_ASSIGN(match_key_arr, Concatenate({match_key_arr, null_arr}));
+  ASSERT_OK_AND_ASSIGN(match_payload_arr, Concatenate({match_payload_arr, null_arr}));
+  // Match batch.
+  ExecBatch match_batch({match_key_arr, match_payload_arr}, num_rows_per_match_batch + 1);
+
+  // Small batch.
+  ExecBatch batch_small = match_batch;
+
+  // Large unmatch batches.
+  const int64_t seed = 42;
+  std::vector<ExecBatch> unmatch_batches_large;
+  unmatch_batches_large.reserve(num_unmatch_batches_large);
+  ASSERT_OK_AND_ASSIGN(auto unmatch_payload_arr_large,
+                       MakeArrayOfNull(int64(), num_rows_per_unmatch_batch_large));
+  int64_t unmatch_range_per_batch =
+      (std::numeric_limits<int64_t>::max() - match_key) / num_unmatch_batches_large;
+  for (int i = 0; i < num_unmatch_batches_large; ++i) {
+    auto unmatch_key_arr_large = RandomArrayGenerator(seed).Int64(
+        num_rows_per_unmatch_batch_large,
+        /*min=*/match_key + 1 + i * unmatch_range_per_batch,
+        /*max=*/match_key + 1 + (i + 1) * unmatch_range_per_batch);
+    unmatch_batches_large.push_back(
+        ExecBatch({unmatch_key_arr_large, unmatch_payload_arr_large},
+                  num_rows_per_unmatch_batch_large));
+  }
+  // Large match batch.
+  ExecBatch match_batch_large = match_batch;
+
+  // Batches with schemas.
+  auto batches_small = BatchesWithSchema{
+      std::vector<ExecBatch>(num_match_batches, batch_small), schema_small};
+  auto batches_large = BatchesWithSchema{std::move(unmatch_batches_large), schema_large};
+  for (int i = 0; i < num_match_batches; i++) {
+    batches_large.batches.push_back(match_batch_large);
+  }
+
+  Declaration source_small{
+      "exec_batch_source",
+      ExecBatchSourceNodeOptions(batches_small.schema, batches_small.batches)};
+  Declaration source_large{
+      "exec_batch_source",
+      ExecBatchSourceNodeOptions(batches_large.schema, batches_large.batches)};
+
+  HashJoinNodeOptions join_opts(JoinType::INNER, /*left_keys=*/{"small_key"},
+                                /*right_keys=*/{"large_key"});
+  Declaration join{
+      "hashjoin", {std::move(source_small), std::move(source_large)}, join_opts};
+
+  // Join should emit num_match_rows * num_match_rows rows.
+  ASSERT_OK_AND_ASSIGN(auto batches_result, DeclarationToExecBatches(std::move(join)));
+  Declaration result{"exec_batch_source",
+                     ExecBatchSourceNodeOptions(std::move(batches_result.schema),
+                                                std::move(batches_result.batches))};
+  AssertRowCountEq(result, num_match_rows * num_match_rows);
+
+  // All rows should be match_key/payload.
+  auto predicate = and_({equal(field_ref("small_key"), literal(match_key)),
+                         equal(field_ref("small_payload"), literal(match_payload)),
+                         equal(field_ref("large_key"), literal(match_key)),
+                         equal(field_ref("large_payload"), literal(match_payload))});
+  Declaration filter{"filter", {result}, FilterNodeOptions{std::move(predicate)}};
+  AssertRowCountEq(std::move(filter), num_match_rows * num_match_rows);
 }
 
 }  // namespace acero

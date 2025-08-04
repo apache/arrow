@@ -231,7 +231,11 @@ namespace Apache.Arrow.IntegrationTest
             return type.BitWidth switch
             {
                 256 => new Decimal256Type(type.DecimalPrecision, type.Scale),
-                _ => new Decimal128Type(type.DecimalPrecision, type.Scale),
+                128 => new Decimal128Type(type.DecimalPrecision, type.Scale),
+                64 => new Decimal64Type(type.DecimalPrecision, type.Scale),
+                32 => new Decimal32Type(type.DecimalPrecision, type.Scale),
+                0 => new Decimal128Type(type.DecimalPrecision, type.Scale),
+                _ => throw new NotSupportedException($"Decimal type not supported. BitWidth: {type.BitWidth}"),
             };
         }
 
@@ -458,6 +462,8 @@ namespace Apache.Arrow.IntegrationTest
             IArrowTypeVisitor<UInt64Type>,
             IArrowTypeVisitor<FloatType>,
             IArrowTypeVisitor<DoubleType>,
+            IArrowTypeVisitor<Decimal32Type>,
+            IArrowTypeVisitor<Decimal64Type>,
             IArrowTypeVisitor<Decimal128Type>,
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<Date32Type>,
@@ -551,6 +557,16 @@ namespace Apache.Arrow.IntegrationTest
                     default:
                         throw new InvalidOperationException($"unsupported interval unit <{type.Unit}>");
                 }
+            }
+
+            public void Visit(Decimal32Type type)
+            {
+                Array = new Decimal32Array(GetDecimalArrayData(type));
+            }
+
+            public void Visit(Decimal64Type type)
+            {
+                Array = new Decimal64Array(GetDecimalArrayData(type));
             }
 
             public void Visit(Decimal128Type type)

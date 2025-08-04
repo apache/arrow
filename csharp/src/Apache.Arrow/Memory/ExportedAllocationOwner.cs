@@ -24,7 +24,7 @@ namespace Apache.Arrow.Memory
     internal sealed class ExportedAllocationOwner : INativeAllocationOwner, IDisposable
     {
         private readonly List<IntPtr> _pointers = new List<IntPtr>();
-        private int _allocationSize;
+        private long _allocationSize;
         private long _referenceCount;
         private bool _disposed;
 

@@ -64,13 +64,16 @@ cdef class Device(_Weakrefable):
         self.init(device)
         return self
 
+    cdef inline shared_ptr[CDevice] unwrap(self) nogil:
+        return self.device
+
     def __eq__(self, other):
         if not isinstance(other, Device):
             return False
         return self.device.get().Equals(deref((<Device>other).device.get()))
 
     def __repr__(self):
-        return "<pyarrow.Device: {}>".format(frombytes(self.device.get().ToString()))
+        return f"<pyarrow.Device: {frombytes(self.device.get().ToString())}>"
 
     @property
     def type_name(self):
@@ -130,10 +133,12 @@ cdef class MemoryManager(_Weakrefable):
         self.init(mm)
         return self
 
+    cdef inline shared_ptr[CMemoryManager] unwrap(self) nogil:
+        return self.memory_manager
+
     def __repr__(self):
-        return "<pyarrow.MemoryManager device: {}>".format(
-            frombytes(self.memory_manager.get().device().get().ToString())
-        )
+        device_str = frombytes(self.memory_manager.get().device().get().ToString())
+        return f"<pyarrow.MemoryManager device: {device_str}>"
 
     @property
     def device(self):

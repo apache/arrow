@@ -21,7 +21,10 @@ import sys
 import pytest
 import hypothesis as h
 import hypothesis.strategies as st
-import hypothesis.extra.numpy as npst
+try:
+    import hypothesis.extra.numpy as npst
+except ImportError:
+    npst = None
 try:
     import hypothesis.extra.pytz as tzst
 except ImportError:
@@ -35,7 +38,10 @@ if sys.platform == 'win32':
         import tzdata  # noqa:F401
     except ImportError:
         zoneinfo = None
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 import pyarrow as pa
 
@@ -86,6 +92,16 @@ floating_types = st.sampled_from([
     pa.float32(),
     pa.float64()
 ])
+decimal32_type = st.builds(
+    pa.decimal32,
+    precision=st.integers(min_value=1, max_value=9),
+    scale=st.integers(min_value=1, max_value=9)
+)
+decimal64_type = st.builds(
+    pa.decimal64,
+    precision=st.integers(min_value=1, max_value=18),
+    scale=st.integers(min_value=1, max_value=18)
+)
 decimal128_type = st.builds(
     pa.decimal128,
     precision=st.integers(min_value=1, max_value=38),

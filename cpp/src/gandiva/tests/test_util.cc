@@ -21,7 +21,7 @@
 #include <utility>
 
 #include "arrow/util/io_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "gandiva/function_holder.h"
 #include "gandiva/gdv_function_stubs.h"
 
@@ -35,7 +35,7 @@ std::shared_ptr<Configuration> TestConfigWithIrDumping() {
 }
 
 #ifndef GANDIVA_EXTENSION_TEST_DIR
-#define GANDIVA_EXTENSION_TEST_DIR "."
+#  define GANDIVA_EXTENSION_TEST_DIR "."
 #endif
 
 std::string GetTestFunctionLLVMIRPath() {

@@ -47,6 +47,12 @@ namespace Apache.Arrow
 #endif
             public FloatArray Float(Action<FloatArray.Builder> action) => Build<FloatArray, FloatArray.Builder>(new FloatArray.Builder(), action);
             public DoubleArray Double(Action<DoubleArray.Builder> action) => Build<DoubleArray, DoubleArray.Builder>(new DoubleArray.Builder(), action);
+            public Decimal32Array Decimal32(Decimal32Type type, Action<Decimal32Array.Builder> action) =>
+                Build<Decimal32Array, Decimal32Array.Builder>(
+                    new Decimal32Array.Builder(type), action);
+            public Decimal64Array Decimal64(Decimal64Type type, Action<Decimal64Array.Builder> action) =>
+                Build<Decimal64Array, Decimal64Array.Builder>(
+                    new Decimal64Array.Builder(type), action);
             public Decimal128Array Decimal128(Decimal128Type type, Action<Decimal128Array.Builder> action) =>
                 Build<Decimal128Array, Decimal128Array.Builder>(
                     new Decimal128Array.Builder(type), action);

@@ -37,7 +37,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/span.h"
-#include "arrow/util/string_builder.h"
+#include "arrow/util/string_util.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

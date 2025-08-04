@@ -18,11 +18,28 @@
 # Includes code assembled from BSD/MIT/Apache-licensed code from some 3rd-party
 # projects, including Kudu, Impala, and libdynd. See python/LICENSE.txt
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.25)
 project(pyarrow)
 
-set(PYARROW_VERSION "18.0.0-SNAPSHOT")
+# This is needed for 3.13 free-threading. CMake used to add Python
+# include directories with `-isystem`, which led to some Python-internal
+# includes to resolve to normal 3.13 includes (cause -isystem includes
+# are searched after system directories), instead of 3.13-freethreading,
+# which in turn meant that Py_GIL_DISABLED was not set.
+set(CMAKE_NO_SYSTEM_FROM_IMPORTED ON)
+
+set(PYARROW_VERSION "22.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PYARROW_BASE_VERSION "${PYARROW_VERSION}")
+
+# Generate SO version and full SO version
+project(pyarrow VERSION "${PYARROW_BASE_VERSION}")
+set(PYARROW_VERSION_MAJOR "${pyarrow_VERSION_MAJOR}")
+set(PYARROW_VERSION_MINOR "${pyarrow_VERSION_MINOR}")
+set(PYARROW_VERSION_PATCH "${pyarrow_VERSION_PATCH}")
+# pyarrow 1.x.y => SO version is "10x", full SO version is "10x.y.0"
+# Example: for 18.0.0 --> PYARROW_SO_VERSION=1800, PYARROW_FULL_SO_VERSION=1800.0.0
+math(EXPR PYARROW_SO_VERSION "${PYARROW_VERSION_MAJOR} * 100 + ${PYARROW_VERSION_MINOR}")
+set(PYARROW_FULL_SO_VERSION "${PYARROW_SO_VERSION}.${PYARROW_VERSION_PATCH}.0")
 
 # Running from a Python sdist tarball
 set(LOCAL_CMAKE_MODULES "${CMAKE_SOURCE_DIR}/cmake_modules")
@@ -84,7 +101,7 @@ set(CMAKE_MACOSX_RPATH 1)
 if(DEFINED ENV{MACOSX_DEPLOYMENT_TARGET})
   set(CMAKE_OSX_DEPLOYMENT_TARGET $ENV{MACOSX_DEPLOYMENT_TARGET})
 else()
-  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET 12.0)
 endif()
 
 # Generate a Clang compile_commands.json "compilation database" file for use
@@ -149,8 +166,17 @@ if($ENV{PYODIDE})
   # modules (at least under Pyodide it does).
   set(Python3_INCLUDE_DIR $ENV{PYTHONINCLUDE})
   set(Python3_LIBRARY $ENV{CPYTHONLIB})
-  set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
   set(Python3_EXECUTABLE)
+  execute_process(COMMAND ${Python3_EXECUTABLE} -c
+                          "import numpy; print(numpy.__version__)"
+                  OUTPUT_VARIABLE PYODIDE_NUMPY_VERSION
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+  string(REGEX MATCH "^([0-9]+)" PYODIDE_NUMPY_MAJOR_VERSION ${PYODIDE_NUMPY_VERSION})
+  if(PYODIDE_NUMPY_MAJOR_VERSION GREATER_EQUAL 2)
+    set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/_core/include)
+  else()
+    set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
+  endif()
   set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})
   # we set the c and cxx compiler manually to bypass pywasmcross
   # which is pyodide's way of messing with C++ build parameters.
@@ -173,10 +199,6 @@ if(MSVC)
   # Converting to/from C++ bool is pretty wonky in Cython. The C4800 warning
   # seem harmless, and probably not worth the effort of working around it
   string(APPEND CMAKE_CXX_FLAGS " /wd4800")
-
-  # See https://github.com/cython/cython/issues/2731. Change introduced in
-  # Cython 0.29.1 causes "unsafe use of type 'bool' in operation"
-  string(APPEND CMAKE_CXX_FLAGS " /wd4804")
 
   # See https://github.com/cython/cython/issues/4445.
   #
@@ -328,30 +350,35 @@ endif()
 # PyArrow C++
 set(PYARROW_CPP_ROOT_DIR pyarrow/src)
 set(PYARROW_CPP_SOURCE_DIR ${PYARROW_CPP_ROOT_DIR}/arrow/python)
+
+# Write out compile-time configuration constants
+string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_PYBUILD_TYPE)
+configure_file("${PYARROW_CPP_SOURCE_DIR}/config_internal.h.cmake"
+               "${PYARROW_CPP_SOURCE_DIR}/config_internal.h" ESCAPE_QUOTES)
+
 set(PYARROW_CPP_SRCS
     ${PYARROW_CPP_SOURCE_DIR}/arrow_to_pandas.cc
     ${PYARROW_CPP_SOURCE_DIR}/benchmark.cc
     ${PYARROW_CPP_SOURCE_DIR}/common.cc
+    ${PYARROW_CPP_SOURCE_DIR}/config.cc
     ${PYARROW_CPP_SOURCE_DIR}/datetime.cc
     ${PYARROW_CPP_SOURCE_DIR}/decimal.cc
-    ${PYARROW_CPP_SOURCE_DIR}/deserialize.cc
     ${PYARROW_CPP_SOURCE_DIR}/extension_type.cc
     ${PYARROW_CPP_SOURCE_DIR}/gdb.cc
     ${PYARROW_CPP_SOURCE_DIR}/helpers.cc
     ${PYARROW_CPP_SOURCE_DIR}/inference.cc
-    ${PYARROW_CPP_SOURCE_DIR}/init.cc
     ${PYARROW_CPP_SOURCE_DIR}/io.cc
     ${PYARROW_CPP_SOURCE_DIR}/ipc.cc
     ${PYARROW_CPP_SOURCE_DIR}/numpy_convert.cc
+    ${PYARROW_CPP_SOURCE_DIR}/numpy_init.cc
     ${PYARROW_CPP_SOURCE_DIR}/numpy_to_arrow.cc
     ${PYARROW_CPP_SOURCE_DIR}/python_test.cc
     ${PYARROW_CPP_SOURCE_DIR}/python_to_arrow.cc
     ${PYARROW_CPP_SOURCE_DIR}/pyarrow.cc
-    ${PYARROW_CPP_SOURCE_DIR}/serialize.cc
-    ${PYARROW_CPP_SOURCE_DIR}/udf.cc)
-set_source_files_properties(${PYARROW_CPP_SOURCE_DIR}/init.cc
-                            PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                       SKIP_UNITY_BUILD_INCLUSION ON)
+    ${PYARROW_CPP_SOURCE_DIR}/udf.cc
+    ${PYARROW_CPP_SOURCE_DIR}/util.cc)
+set_source_files_properties(${PYARROW_CPP_SOURCE_DIR}/numpy_init.cc
+                            PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 
 set(PYARROW_CPP_LINK_LIBS "")
 
@@ -407,6 +434,19 @@ if(PYARROW_BUILD_ACERO)
   endif()
 endif()
 
+# Currently PyArrow cannot be built without ARROW_COMPUTE
+if(NOT ARROW_COMPUTE)
+  message(FATAL_ERROR "You must build Arrow C++ with ARROW_COMPUTE=ON")
+else()
+  message(STATUS "Building PyArrow with Compute")
+  find_package(ArrowCompute REQUIRED)
+  if(ARROW_BUILD_SHARED)
+    list(APPEND PYARROW_CPP_LINK_LIBS ArrowCompute::arrow_compute_shared)
+  else()
+    list(APPEND PYARROW_CPP_LINK_LIBS ArrowCompute::arrow_compute_static)
+  endif()
+endif()
+
 if(PYARROW_BUILD_PARQUET)
   message(STATUS "Building PyArrow with Parquet")
   if(NOT ARROW_PARQUET)
@@ -424,6 +464,8 @@ endif()
 # Check for only Arrow C++ options
 if(ARROW_CSV)
   list(APPEND PYARROW_CPP_SRCS ${PYARROW_CPP_SOURCE_DIR}/csv.cc)
+else()
+  message(FATAL_ERROR "You must build Arrow C++ with ARROW_CSV=ON")
 endif()
 
 if(ARROW_FILESYSTEM)
@@ -447,10 +489,6 @@ endif()
 add_library(arrow_python SHARED ${PYARROW_CPP_SRCS})
 target_include_directories(arrow_python PUBLIC ${PYARROW_CPP_ROOT_DIR}
                                                ${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src)
-if(NOT CMAKE_VERSION VERSION_LESS 3.16)
-  target_precompile_headers(arrow_python PUBLIC
-                            "$<$<COMPILE_LANGUAGE:CXX>:arrow/python/pch.h>")
-endif()
 
 # on static builds we need to be careful not to link PYARROW_CPP_LINK_LIBS
 # into everything depending on arrow_python, or else we get duplicate
@@ -463,6 +501,8 @@ else()
 endif()
 target_link_libraries(arrow_python PUBLIC Python3::NumPy)
 target_compile_definitions(arrow_python PRIVATE ARROW_PYTHON_EXPORTING)
+set_target_properties(arrow_python PROPERTIES VERSION "${PYARROW_FULL_SO_VERSION}"
+                                              SOVERSION "${PYARROW_SO_VERSION}")
 install(TARGETS arrow_python
         ARCHIVE DESTINATION .
         LIBRARY DESTINATION .
@@ -478,6 +518,9 @@ else()
                                                                  ${PARQUET_LINK_LIBS})
     target_compile_definitions(arrow_python_parquet_encryption
                                PRIVATE ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORTING)
+    set_target_properties(arrow_python_parquet_encryption
+                          PROPERTIES VERSION "${PYARROW_FULL_SO_VERSION}"
+                                     SOVERSION "${PYARROW_SO_VERSION}")
     install(TARGETS arrow_python_parquet_encryption
             ARCHIVE DESTINATION .
             LIBRARY DESTINATION .
@@ -508,6 +551,9 @@ if(PYARROW_BUILD_FLIGHT)
   target_link_libraries(arrow_python_flight PUBLIC arrow_python
                                                    ArrowFlight::arrow_flight_shared)
   target_compile_definitions(arrow_python_flight PRIVATE ARROW_PYFLIGHT_EXPORTING)
+  set_target_properties(arrow_python_flight
+                        PROPERTIES VERSION "${PYARROW_FULL_SO_VERSION}"
+                                   SOVERSION "${PYARROW_SO_VERSION}")
   install(TARGETS arrow_python_flight
           ARCHIVE DESTINATION .
           LIBRARY DESTINATION .
@@ -620,12 +666,13 @@ get_filename_component(ARROW_INCLUDE_ARROW_DIR_REAL ${ARROW_INCLUDE_DIR}/arrow R
 install(DIRECTORY ${ARROW_INCLUDE_ARROW_DIR_REAL} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 if(PYARROW_BUNDLE_ARROW_CPP)
-  # Arrow
+  # Arrow and Compute
   bundle_arrow_lib(${ARROW_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
+  bundle_arrow_lib(${ARROW_COMPUTE_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
 
   if(MSVC)
-    # TODO(kszucs): locate msvcp140.dll in a portable fashion and bundle it
     bundle_arrow_import_lib(${ARROW_IMPORT_LIB})
+    bundle_arrow_import_lib(${ARROW_COMPUTE_IMPORT_LIB})
   endif()
 endif()
 

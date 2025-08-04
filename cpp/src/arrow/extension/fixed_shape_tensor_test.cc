@@ -23,16 +23,17 @@
 #include "arrow/array/array_primitive.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
-#include "arrow/ipc/writer.h"
+#include "arrow/ipc/test_common.h"
 #include "arrow/record_batch.h"
 #include "arrow/tensor.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/sort.h"
+#include "arrow/util/sort_internal.h"
 
 namespace arrow {
 
 using FixedShapeTensorType = extension::FixedShapeTensorType;
+using arrow::ipc::test::RoundtripBatch;
 using extension::fixed_shape_tensor;
 using extension::FixedShapeTensorArray;
 
@@ -69,20 +70,6 @@ class TestExtensionType : public ::testing::Test {
   std::vector<int64_t> tensor_strides_;
   std::vector<int64_t> element_strides_;
   std::string serialized_;
-};
-
-auto RoundtripBatch = [](const std::shared_ptr<RecordBatch>& batch,
-                         std::shared_ptr<RecordBatch>* out) {
-  ASSERT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create());
-  ASSERT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcWriteOptions::Defaults(),
-                                        out_stream.get()));
-
-  ASSERT_OK_AND_ASSIGN(auto complete_ipc_stream, out_stream->Finish());
-
-  io::BufferReader reader(complete_ipc_stream);
-  std::shared_ptr<RecordBatchReader> batch_reader;
-  ASSERT_OK_AND_ASSIGN(batch_reader, ipc::RecordBatchStreamReader::Open(&reader));
-  ASSERT_OK(batch_reader->ReadNext(out));
 };
 
 TEST_F(TestExtensionType, CheckDummyRegistration) {
@@ -218,7 +205,7 @@ TEST_F(TestExtensionType, RoundtripBatch) {
   std::shared_ptr<RecordBatch> read_batch;
   auto ext_field = field(/*name=*/"f0", /*type=*/ext_type_);
   auto batch = RecordBatch::Make(schema({ext_field}), ext_arr->length(), {ext_arr});
-  RoundtripBatch(batch, &read_batch);
+  ASSERT_OK(RoundtripBatch(batch, &read_batch));
   CompareBatch(*batch, *read_batch, /*compare_metadata=*/true);
 
   // Pass extension metadata and storage array, expect getting back extension array
@@ -229,7 +216,7 @@ TEST_F(TestExtensionType, RoundtripBatch) {
   ext_field = field(/*name=*/"f0", /*type=*/element_type_, /*nullable=*/true,
                     /*metadata=*/ext_metadata);
   auto batch2 = RecordBatch::Make(schema({ext_field}), fsla_arr->length(), {fsla_arr});
-  RoundtripBatch(batch2, &read_batch2);
+  ASSERT_OK(RoundtripBatch(batch2, &read_batch2));
   CompareBatch(*batch, *read_batch2, /*compare_metadata=*/true);
 }
 
@@ -482,7 +469,7 @@ TEST_F(TestExtensionType, RoundtripBatchFromTensor) {
   auto ext_field = field("f0", ext_type_, true, ext_metadata);
   auto batch = RecordBatch::Make(schema({ext_field}), ext_arr->length(), {ext_arr});
   std::shared_ptr<RecordBatch> read_batch;
-  RoundtripBatch(batch, &read_batch);
+  ASSERT_OK(RoundtripBatch(batch, &read_batch));
   CompareBatch(*batch, *read_batch, /*compare_metadata=*/true);
 }
 

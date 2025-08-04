@@ -36,6 +36,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
 
@@ -43,7 +44,6 @@ namespace arrow {
 
 using compute::Cast;
 using compute::CastOptions;
-
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
@@ -109,7 +109,7 @@ TEST(TestNullScalar, Cast) {
            list(int32()),
            struct_({field("f", int32())}),
            map(utf8(), int32()),
-           decimal(12, 2),
+           decimal128(12, 2),
            list_view(int32()),
            large_list(int32()),
            dense_union({field("string", utf8()), field("number", uint64())}),
@@ -155,6 +155,50 @@ TEST(TestBooleanScalar, Cast) {
       ASSERT_EQ(casted.scalar()->ToString(), scalar.ToString());
     }
   }
+}
+
+TEST(TestScalar, IdentityCast) {
+  random::RandomArrayGenerator gen(/*seed=*/42);
+  auto test_identity_cast_for_type =
+      [&gen](const std::shared_ptr<arrow::DataType>& data_type) {
+        auto tmp_array = gen.ArrayOf(data_type, /*size=*/1, /*null_probability=*/0.0);
+        ARROW_SCOPED_TRACE("data type = ", data_type->ToString());
+        ASSERT_OK_AND_ASSIGN(auto scalar, tmp_array->GetScalar(0));
+        ASSERT_OK_AND_ASSIGN(auto casted_scalar, scalar->CastTo(data_type));
+        ASSERT_TRUE(casted_scalar->Equals(*scalar));
+        ASSERT_TRUE(scalar->Equals(*casted_scalar));
+      };
+  for (auto& type : PrimitiveTypes()) {
+    test_identity_cast_for_type(type);
+  }
+  for (auto& type : DurationTypes()) {
+    test_identity_cast_for_type(type);
+  }
+  for (auto& type : IntervalTypes()) {
+    test_identity_cast_for_type(type);
+  }
+  for (auto& type : {
+           arrow::fixed_size_list(arrow::int32(), 20), arrow::list(arrow::int32()),
+           arrow::large_list(arrow::int32()),
+           // TODO(GH-45430): CastTo for ListView is not implemented yet.
+           // arrow::list_view(arrow::int32()), arrow::large_list_view(arrow::int32())
+           // TODO(GH-45431): CastTo for ComplexType is not implemented yet.
+           // arrow::map(arrow::binary(), arrow::int32()),
+           // struct_({field("float", arrow::float32())}),
+       }) {
+    test_identity_cast_for_type(type);
+  }
+  // TODO(GH-45429): CastTo for Decimal is not implemented yet.
+  /*
+  for (auto& type: {
+    arrow::decimal32(2, 2),
+    arrow::decimal64(4, 4),
+    arrow::decimal128(10, 10),
+    arrow::decimal128(20, 20),
+  }) {
+    test_identity_cast_for_type(type);
+  }
+  */
 }
 
 template <typename T>
@@ -343,6 +387,14 @@ class TestRealScalar : public ::testing::Test {
     ASSERT_FALSE(scalar_zero_->ApproxEquals(*scalar_neg_zero_, options));
   }
 
+  void TestUseAtol() {
+    auto options = EqualOptions::Defaults().atol(0.2f);
+
+    ASSERT_FALSE(scalar_val_->Equals(*scalar_other_, options));
+    ASSERT_TRUE(scalar_val_->Equals(*scalar_other_, options.use_atol(true)));
+    ASSERT_TRUE(scalar_val_->ApproxEquals(*scalar_other_, options));
+  }
+
   void TestStructOf() {
     auto ty = struct_({field("float", type_)});
 
@@ -477,6 +529,8 @@ TYPED_TEST(TestRealScalar, NanEquals) { this->TestNanEquals(); }
 TYPED_TEST(TestRealScalar, SignedZeroEquals) { this->TestSignedZeroEquals(); }
 
 TYPED_TEST(TestRealScalar, ApproxEquals) { this->TestApproxEquals(); }
+
+TYPED_TEST(TestRealScalar, UseAtol) { this->TestUseAtol(); }
 
 TYPED_TEST(TestRealScalar, StructOf) { this->TestStructOf(); }
 
@@ -751,8 +805,8 @@ TEST(TestFixedSizeBinaryScalar, MakeScalar) {
   AssertParseScalar(type, std::string_view(data), FixedSizeBinaryScalar(buf, type));
 
   // Wrong length
-  ASSERT_RAISES(Invalid, MakeScalar(type, Buffer::FromString(data.substr(3))).status());
-  ASSERT_RAISES(Invalid, Scalar::Parse(type, std::string_view(data).substr(3)).status());
+  ASSERT_RAISES(Invalid, MakeScalar(type, Buffer::FromString(data.substr(3))));
+  ASSERT_RAISES(Invalid, Scalar::Parse(type, std::string_view(data).substr(3)));
 }
 
 TEST(TestFixedSizeBinaryScalar, ValidateErrors) {
@@ -867,6 +921,9 @@ TEST(TestTimeScalars, Basics) {
     ASSERT_TRUE(first->Equals(*MakeScalar(ty, 5).ValueOrDie()));
     ASSERT_TRUE(last->Equals(*MakeScalar(ty, 42).ValueOrDie()));
     ASSERT_FALSE(last->Equals(*MakeScalar("string")));
+
+    ASSERT_OK_AND_ASSIGN(auto casted, first->CastTo(ty));
+    ASSERT_TRUE(casted->Equals(*first));
   }
 }
 
@@ -1391,13 +1448,13 @@ TEST(TestStructScalar, FieldAccess) {
   ASSERT_OK_AND_ASSIGN(auto a, abc.field("a"));
   AssertScalarsEqual(*a, *abc.value[0]);
 
-  ASSERT_RAISES(Invalid, abc.field("b").status());
+  ASSERT_RAISES(Invalid, abc.field("b"));
 
   ASSERT_OK_AND_ASSIGN(auto b, abc.field(1));
   AssertScalarsEqual(*b, *abc.value[1]);
 
-  ASSERT_RAISES(Invalid, abc.field(5).status());
-  ASSERT_RAISES(Invalid, abc.field("c").status());
+  ASSERT_RAISES(Invalid, abc.field(5));
+  ASSERT_RAISES(Invalid, abc.field("c"));
 
   ASSERT_OK_AND_ASSIGN(auto d, abc.field("d"));
   ASSERT_TRUE(d->Equals(*MakeNullScalar(int64())));
@@ -2038,7 +2095,7 @@ class TestExtensionScalar : public ::testing::Test {
   void SetUp() {
     type_ = uuid();
     storage_type_ = fixed_size_binary(16);
-    uuid_type_ = checked_cast<const UuidType*>(type_.get());
+    uuid_type_ = checked_cast<const ExampleUuidType*>(type_.get());
   }
 
  protected:
@@ -2049,7 +2106,7 @@ class TestExtensionScalar : public ::testing::Test {
   }
 
   std::shared_ptr<DataType> type_, storage_type_;
-  const UuidType* uuid_type_{nullptr};
+  const ExampleUuidType* uuid_type_{nullptr};
 
   const std::string_view uuid_string1_{UUID_STRING1};
   const std::string_view uuid_string2_{UUID_STRING2};

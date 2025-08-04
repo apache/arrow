@@ -41,3 +41,6 @@ available inside \code{dplyr} verbs.
 available_funcs <- list_compute_functions()
 utf8_funcs <- list_compute_functions(pattern = "^UTF8", ignore.case = TRUE)
 }
+\seealso{
+\link{acero} for R bindings for Arrow functions
+}

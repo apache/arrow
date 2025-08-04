@@ -25,9 +25,9 @@
 #include <vector>
 
 #ifndef _WIN32
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
+#  include <sys/types.h>
+#  include <sys/wait.h>
+#  include <unistd.h>
 #endif
 
 #include <gmock/gmock-matchers.h>
@@ -110,9 +110,9 @@ class TestAtFork : public ::testing::Test {
 #ifndef _WIN32
 
 TEST_F(TestAtFork, EmptyHandlers) {
-#ifndef ARROW_ENABLE_THREADING
+#  ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";
-#endif
+#  endif
 
   auto handlers = std::make_shared<AtForkHandler>();
 
@@ -135,9 +135,9 @@ TEST_F(TestAtFork, EmptyHandlers) {
 }
 
 TEST_F(TestAtFork, SingleThread) {
-#ifndef ARROW_ENABLE_THREADING
+#  ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";
-#endif
+#  endif
 
   auto handlers1 = std::make_shared<AtForkHandler>(PushBefore(1), PushParentAfter(11),
                                                    PushChildAfter(21));
@@ -190,16 +190,17 @@ TEST_F(TestAtFork, SingleThread) {
   ASSERT_THAT(child_after_, ElementsAre());
 }
 
-#if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || defined(THREAD_SANITIZER))
+#  if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
+        defined(THREAD_SANITIZER))
 
 // The two following tests would seem to leak for various reasons.
 // Also, Thread Sanitizer would fail with the same error message as in
 // https://github.com/google/sanitizers/issues/950.
 
 TEST_F(TestAtFork, MultipleThreads) {
-#ifndef ARROW_ENABLE_THREADING
+#    ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";
-#endif
+#    endif
 
   const int kNumThreads = 5;
   const int kNumIterations = 40;
@@ -255,12 +256,12 @@ TEST_F(TestAtFork, MultipleThreads) {
 }
 
 TEST_F(TestAtFork, NestedChild) {
-#ifdef __APPLE__
+#    ifdef __APPLE__
   GTEST_SKIP() << "Nested fork is not supported on macOS";
-#endif
-#ifndef ARROW_ENABLE_THREADING
+#    endif
+#    ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";
-#endif
+#    endif
 
   auto handlers1 = std::make_shared<AtForkHandler>(PushBefore(1), PushParentAfter(11),
                                                    PushChildAfter(21));
@@ -295,16 +296,16 @@ TEST_F(TestAtFork, NestedChild) {
   ASSERT_THAT(child_after_, ElementsAre());
 }
 
-#endif  // !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) ||
-        //   defined(THREAD_SANITIZER))
+#  endif  // !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) ||
+          //   defined(THREAD_SANITIZER))
 
 #endif  // !defined(_WIN32)
 
 #ifdef _WIN32
 TEST_F(TestAtFork, NoOp) {
-#ifndef ARROW_ENABLE_THREADING
+#  ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";
-#endif
+#  endif
 
   auto handlers = std::make_shared<AtForkHandler>(PushBefore(1), PushParentAfter(11),
                                                   PushChildAfter(21));

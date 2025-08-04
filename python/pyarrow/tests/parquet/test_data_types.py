@@ -17,13 +17,17 @@
 
 import decimal
 import io
+import random
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 
 import pyarrow as pa
 from pyarrow.tests import util
-from pyarrow.tests.parquet.common import _check_roundtrip
+from pyarrow.tests.parquet.common import _check_roundtrip, _roundtrip_table
 
 try:
     import pyarrow.parquet as pq
@@ -54,7 +58,7 @@ pytestmark = pytest.mark.parquet
 
 @pytest.mark.pandas
 @pytest.mark.parametrize('chunk_size', [None, 1000])
-def test_parquet_2_0_roundtrip(tempdir, chunk_size):
+def test_parquet_2_6_roundtrip(tempdir, chunk_size):
     df = alltypes_sample(size=10000, categorical=True)
 
     filename = tempdir / 'pandas_roundtrip.parquet'
@@ -173,12 +177,13 @@ def test_direct_read_dictionary_subfield():
     assert result[0].num_chunks == 1
 
 
+@pytest.mark.numpy
 def test_dictionary_array_automatically_read():
     # ARROW-3246
 
     # Make a large dictionary, a little over 4MB of data
     dict_length = 4000
-    dict_values = pa.array([('x' * 1000 + '_{}'.format(i))
+    dict_values = pa.array([('x' * 1000 + f'_{i}')
                             for i in range(dict_length)])
 
     num_chunks = 10
@@ -215,8 +220,7 @@ def test_decimal_roundtrip(tempdir):
                     util.randdecimal(precision, scale)
                     for _ in range(num_values)
                 ]
-            column_name = ('dec_precision_{:d}_scale_{:d}'
-                           .format(precision, scale))
+            column_name = f'dec_precision_{precision}_scale_{scale}'
             columns[column_name] = random_decimal_values
 
     expected = pd.DataFrame(columns)
@@ -250,7 +254,7 @@ def test_decimal_roundtrip_negative_scale(tempdir):
 
 @pytest.mark.parametrize('dtype', [int, float])
 def test_single_pylist_column_roundtrip(tempdir, dtype,):
-    filename = tempdir / 'single_{}_column.parquet'.format(dtype.__name__)
+    filename = tempdir / f'single_{dtype.__name__}_column.parquet'
     data = [pa.array(list(map(dtype, range(5))))]
     table = pa.Table.from_arrays(data, names=['a'])
     _write_table(table, filename)
@@ -334,10 +338,10 @@ def test_column_of_lists(tempdir):
 def test_large_list_records():
     # This was fixed in PARQUET-1100
 
-    list_lengths = np.random.randint(0, 500, size=50)
-    list_lengths[::10] = 0
+    list_lengths = [random.randint(0, 500) for _ in range(50)]
+    list_lengths[::10] = [0, 0, 0, 0, 0]
 
-    list_values = [list(map(int, np.random.randint(0, 100, size=x)))
+    list_values = [list(map(int, [random.randint(0, 100) for _ in range(x)]))
                    if i % 8 else None
                    for i, x in enumerate(list_lengths)]
 
@@ -345,6 +349,30 @@ def test_large_list_records():
 
     table = pa.Table.from_arrays([a1], ['int_lists'])
     _check_roundtrip(table)
+
+
+list_types = [
+    (pa.ListType, pa.list_),
+    (pa.LargeListType, pa.large_list),
+]
+
+
+def test_list_types():
+    data = [[1, 2, None]] * 50
+    for _, in_factory in list_types:
+        array = pa.array(data, type=in_factory(pa.int32()))
+        table = pa.Table.from_arrays([array], ['lists'])
+        for out_type, out_factory in list_types:
+            for store_schema in (True, False):
+                if store_schema:
+                    expected_table = table
+                else:
+                    expected_table = pa.Table.from_arrays(
+                        [pa.array(data, type=out_factory(pa.int32()))], ['lists'])
+                result = _roundtrip_table(
+                    table, write_table_kwargs=dict(store_schema=store_schema),
+                    read_table_kwargs=dict(list_type=out_type))
+                assert result == expected_table
 
 
 @pytest.mark.pandas
@@ -381,6 +409,25 @@ def test_fixed_size_binary():
     table = pa.Table.from_arrays([a0],
                                  ['binary[10]'])
     _check_roundtrip(table)
+
+
+def test_binary_types():
+    types = [pa.binary(), pa.large_binary(), pa.binary_view()]
+    data = [b'abc', None, b'defg', b'x' * 30]
+    for in_type in types:
+        array = pa.array(data, in_type)
+        table = pa.Table.from_arrays([array], ['binary'])
+        for out_type in types:
+            for store_schema in (False, True):
+                result = _roundtrip_table(
+                    table, write_table_kwargs=dict(store_schema=store_schema),
+                    read_table_kwargs=dict(binary_type=out_type))
+                if store_schema:
+                    expected_table = table
+                else:
+                    expected_table = pa.Table.from_arrays(
+                        [pa.array(data, out_type)], ['binary'])
+                assert result == expected_table
 
 
 # Large types
@@ -472,9 +519,9 @@ def test_list_of_binary_large_cell():
     assert table.equals(read_table)
 
 
-def test_large_binary():
+def test_large_binary_and_binary_view():
     data = [b'foo', b'bar'] * 50
-    for type in [pa.large_binary(), pa.large_string()]:
+    for type in [pa.large_binary(), pa.binary_view()]:
         arr = pa.array(data, type=type)
         table = pa.Table.from_arrays([arr], names=['strs'])
         for use_dictionary in [False, True]:
@@ -483,10 +530,10 @@ def test_large_binary():
 
 @pytest.mark.slow
 @pytest.mark.large_memory
-def test_large_binary_huge():
+def test_large_binary_and_binary_view_huge():
     s = b'xy' * 997
     data = [s] * ((1 << 33) // len(s))
-    for type in [pa.large_binary(), pa.large_string()]:
+    for type in [pa.large_binary(), pa.binary_view()]:
         arr = pa.array(data, type=type)
         table = pa.Table.from_arrays([arr], names=['strs'])
         for use_dictionary in [False, True]:
@@ -505,3 +552,65 @@ def test_large_binary_overflow():
                 pa.ArrowInvalid,
                 match="Parquet cannot store strings with size 2GB or more"):
             _write_table(table, writer, use_dictionary=use_dictionary)
+
+
+@pytest.mark.parametrize("storage_type", (
+    pa.string(), pa.large_string()))
+def test_json_extension_type(storage_type):
+    data = ['{"a": 1}', '{"b": 2}', None]
+    arr = pa.array(data, type=pa.json_(storage_type))
+
+    table = pa.table([arr], names=["ext"])
+
+    # With defaults, this should roundtrip (because store_schema=True)
+    _check_roundtrip(table, table)
+
+    # When store_schema is False, we get a string back by default
+    _check_roundtrip(
+        table,
+        pa.table({"ext": pa.array(data, pa.string())}),
+        {"arrow_extensions_enabled": False},
+        store_schema=False)
+
+    # With arrow_extensions_enabled=True on read, we get a arrow.json back
+    # (but with string() storage)
+    _check_roundtrip(
+        table,
+        pa.table({"ext": pa.array(data, pa.json_(pa.string()))}),
+        {"arrow_extensions_enabled": True},
+        store_schema=False)
+
+
+def test_uuid_extension_type():
+    data = [
+        b'\xe4`\xf9p\x83QGN\xac\x7f\xa4g>K\xa8\xcb',
+        b'\x1et\x14\x95\xee\xd5C\xea\x9b\xd7s\xdc\x91BK\xaf',
+        None
+    ]
+    arr = pa.array(data, type=pa.uuid())
+
+    table = pa.table([arr], names=["ext"])
+
+    _check_roundtrip(table, table)
+    _check_roundtrip(
+        table,
+        pa.table({"ext": pa.array(data, pa.binary(16))}),
+        {"arrow_extensions_enabled": False},
+        store_schema=False)
+    _check_roundtrip(
+        table,
+        table,
+        {"arrow_extensions_enabled": True},
+        store_schema=False)
+
+
+def test_undefined_logical_type(parquet_test_datadir):
+    test_file = f"{parquet_test_datadir}/unknown-logical-type.parquet"
+
+    table = _read_table(test_file)
+    assert table.column_names == ["column with known type", "column with unknown type"]
+    assert table["column with unknown type"].to_pylist() == [
+        b"unknown string 1",
+        b"unknown string 2",
+        b"unknown string 3"
+    ]

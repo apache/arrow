@@ -1178,6 +1178,15 @@ test_that("str_sub", {
       collect(),
     df
   )
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        y = str_sub(x, 1, -3),
+        y2 = stringr::str_sub(x, 1, -3)
+      ) %>%
+      collect(),
+    df
+  )
 
   expect_arrow_eval_error(
     str_sub("Apache Arrow", c(1, 2), 3),

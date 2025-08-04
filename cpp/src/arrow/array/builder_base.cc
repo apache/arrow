@@ -29,7 +29,7 @@
 #include "arrow/builder.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -119,6 +119,8 @@ struct AppendScalarImpl {
   }
 
   Status Visit(const FixedSizeBinaryType& t) { return HandleFixedWidth(t); }
+  Status Visit(const Decimal32Type& t) { return HandleFixedWidth(t); }
+  Status Visit(const Decimal64Type& t) { return HandleFixedWidth(t); }
   Status Visit(const Decimal128Type& t) { return HandleFixedWidth(t); }
   Status Visit(const Decimal256Type& t) { return HandleFixedWidth(t); }
 

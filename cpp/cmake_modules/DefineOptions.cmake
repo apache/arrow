@@ -107,6 +107,10 @@ macro(tsort_bool_option_dependencies)
 endmacro()
 
 macro(resolve_option_dependencies)
+  # Arrow Flight SQL ODBC is available only for Windows for now.
+  if(NOT MSVC_TOOLCHAIN)
+    set(ARROW_FLIGHT_SQL_ODBC OFF)
+  endif()
   if(MSVC_TOOLCHAIN)
     set(ARROW_USE_GLOG OFF)
   endif()
@@ -171,9 +175,6 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_USE_LLD "Use the LLVM lld for linking (if available)" OFF)
 
   define_option(ARROW_USE_MOLD "Use mold for linking on Linux (if available)" OFF)
-
-  define_option(ARROW_USE_PRECOMPILED_HEADERS "Use precompiled headers when compiling"
-                OFF)
 
   define_option_string(ARROW_SIMD_LEVEL
                        "Compile-time SIMD optimization level"
@@ -243,9 +244,6 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_BUILD_BENCHMARKS_REFERENCE
                 "Build the Arrow micro reference benchmarks" OFF)
 
-  define_option(ARROW_BUILD_OPENMP_BENCHMARKS
-                "Build the Arrow benchmarks that rely on OpenMP" OFF)
-
   define_option(ARROW_BUILD_DETAILED_BENCHMARKS
                 "Build benchmarks that do a longer exploration of performance" OFF)
 
@@ -271,12 +269,7 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_LARGE_MEMORY_TESTS "Enable unit tests which use large memory" OFF)
 
   #----------------------------------------------------------------------
-  set_option_category("Lint")
-
-  define_option(ARROW_ONLY_LINT "Only define the lint and check-format targets" OFF)
-
-  define_option(ARROW_VERBOSE_LINT
-                "If off, 'quiet' flags will be passed to linting tools" OFF)
+  set_option_category("Coverage")
 
   define_option(ARROW_GENERATE_COVERAGE "Build with C++ code coverage enabled" OFF)
 
@@ -303,7 +296,10 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_IPC)
 
   define_option(ARROW_AZURE
-                "Build Arrow with Azure support (requires the Azure SDK for C++)" OFF)
+                "Build Arrow with Azure support (requires the Azure SDK for C++)"
+                OFF
+                DEPENDS
+                ARROW_FILESYSTEM)
 
   define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" OFF)
 
@@ -338,6 +334,13 @@ takes precedence over ccache if a storage backend is configured" ON)
                 DEPENDS
                 ARROW_FLIGHT)
 
+  define_option(ARROW_FLIGHT_SQL_ODBC
+                "Build the Arrow Flight SQL ODBC extension"
+                OFF
+                DEPENDS
+                ARROW_FLIGHT_SQL
+                ARROW_COMPUTE)
+
   define_option(ARROW_GANDIVA
                 "Build the Gandiva libraries"
                 OFF
@@ -346,31 +349,25 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_WITH_UTF8PROC)
 
   define_option(ARROW_GCS
-                "Build Arrow with GCS support (requires the GCloud SDK for C++)" OFF)
+                "Build Arrow with GCS support (requires the Google Cloud Platform "
+                "C++ Client Libraries)"
+                OFF
+                DEPENDS
+                ARROW_FILESYSTEM)
 
-  define_option(ARROW_HDFS "Build the Arrow HDFS bridge" OFF)
+  define_option(ARROW_HDFS
+                "Build the Arrow HDFS bridge"
+                OFF
+                DEPENDS
+                ARROW_FILESYSTEM)
 
   define_option(ARROW_IPC "Build the Arrow IPC extensions" ON)
 
-  set(ARROW_JEMALLOC_DESCRIPTION "Build the Arrow jemalloc-based allocator")
-  if(WIN32
-     OR "${CMAKE_SYSTEM_NAME}" STREQUAL "FreeBSD"
-     OR NOT ARROW_ENABLE_THREADING)
-    # jemalloc is not supported on Windows.
-    #
-    # jemalloc is the default malloc implementation on FreeBSD and can't
-    # be built with --disable-libdl on FreeBSD. Because lazy-lock feature
-    # is required on FreeBSD. Lazy-lock feature requires libdl.
-    #
-    # jemalloc requires thread.
-    define_option(ARROW_JEMALLOC ${ARROW_JEMALLOC_DESCRIPTION} OFF)
-  else()
-    define_option(ARROW_JEMALLOC ${ARROW_JEMALLOC_DESCRIPTION} ON)
-  endif()
+  define_option(ARROW_JEMALLOC "Build the Arrow jemalloc-based allocator" OFF)
 
   define_option(ARROW_JSON "Build Arrow with JSON support (requires RapidJSON)" OFF)
 
-  define_option(ARROW_MIMALLOC "Build the Arrow mimalloc-based allocator" OFF)
+  define_option(ARROW_MIMALLOC "Build the Arrow mimalloc-based allocator" ON)
 
   define_option(ARROW_PARQUET
                 "Build the Parquet libraries"
@@ -398,7 +395,17 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_HDFS
                 ARROW_JSON)
 
-  define_option(ARROW_S3 "Build Arrow with S3 support (requires the AWS SDK for C++)" OFF)
+  define_option(ARROW_S3
+                "Build Arrow with S3 support (requires the AWS SDK for C++)"
+                OFF
+                DEPENDS
+                ARROW_FILESYSTEM)
+
+  define_option(ARROW_S3_MODULE
+                "Build the Arrow S3 filesystem as a dynamic module"
+                OFF
+                DEPENDS
+                ARROW_S3)
 
   define_option(ARROW_SKYHOOK
                 "Build the Skyhook libraries"
@@ -542,10 +549,6 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_WITH_ZLIB "Build with zlib compression" OFF)
   define_option(ARROW_WITH_ZSTD "Build with zstd compression" OFF)
 
-  define_option(ARROW_WITH_UCX
-                "Build with UCX transport for Arrow Flight;(only used if ARROW_FLIGHT is ON)"
-                OFF)
-
   define_option(ARROW_WITH_UTF8PROC
                 "Build with support for Unicode properties using the utf8proc library;(only used if ARROW_COMPUTE is ON or ARROW_GANDIVA is ON)"
                 ON)
@@ -593,10 +596,6 @@ takes precedence over ccache if a storage backend is configured" ON)
   #----------------------------------------------------------------------
   set_option_category("Parquet")
 
-  define_option(PARQUET_MINIMAL_DEPENDENCY
-                "Depend only on Thirdparty headers to build libparquet.;\
-Always OFF if building binaries" OFF)
-
   define_option(PARQUET_BUILD_EXECUTABLES
                 "Build the Parquet executable CLI tools. Requires static libraries to be built."
                 OFF)
@@ -621,6 +620,11 @@ Always OFF if building binaries" OFF)
   define_option_string(ARROW_GANDIVA_PC_CXX_FLAGS
                        "Compiler flags to append when pre-compiling Gandiva operations"
                        "")
+
+  #----------------------------------------------------------------------
+  set_option_category("Cross compiling")
+
+  define_option_string(ARROW_GRPC_CPP_PLUGIN "grpc_cpp_plugin path to be used" "")
 
   #----------------------------------------------------------------------
   set_option_category("Advanced developer")

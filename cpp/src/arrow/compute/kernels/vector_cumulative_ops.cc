@@ -24,9 +24,11 @@
 #include "arrow/compute/kernels/base_arithmetic_internal.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/result.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow::compute::internal {
@@ -72,7 +74,7 @@ struct CumulativeBinaryOp {
 
   OutValue current_value;
 
-  CumulativeBinaryOp() { current_value = Identity<Op>::template value<OutValue>; }
+  CumulativeBinaryOp() { current_value = Identity<Op>::template value<OutValue>(); }
 
   explicit CumulativeBinaryOp(const std::shared_ptr<Scalar> start) {
     current_value = UnboxScalar<OutType>::Unbox(*start);
@@ -282,6 +284,11 @@ struct CumulativeStatefulKernelFactory {
     kernel.exec = CumulativeKernel<Type, State<Type>, OptionsType>::Exec;
     kernel.exec_chunked = CumulativeKernelChunked<Type, State<Type>, OptionsType>::Exec;
     return arrow::Status::OK();
+  }
+
+  Status Visit(const HalfFloatType& type) {
+    return Status::NotImplemented("Cumulative kernel not implemented for type ",
+                                  type.ToString());
   }
 
   Status Visit(const DataType& type) {

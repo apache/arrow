@@ -21,8 +21,8 @@
 #include "arrow/util/logging.h"
 
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4522)
+#  pragma warning(push)
+#  pragma warning(disable : 4522)
 #endif
 
 #include <google/protobuf/util/json_util.h>
@@ -46,7 +46,7 @@
 
 #include <opentelemetry/exporters/otlp/protobuf_include_suffix.h>
 #ifdef _MSC_VER
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
 namespace arrow {

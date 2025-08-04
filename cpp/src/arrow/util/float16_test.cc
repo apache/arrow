@@ -323,44 +323,53 @@ TEST(Float16Test, Compare) {
 TEST(Float16Test, ToBytes) {
   constexpr auto f16 = Float16::FromBits(0xd01c);
   std::array<uint8_t, 2> bytes;
-  auto load = [&bytes]() { return SafeLoadAs<uint16_t>(bytes.data()); };
+
+  constexpr uint8_t expected_high = 0xd0;
+  constexpr uint8_t expected_low = 0x1c;
 
   // Test native-endian
   f16.ToBytes(bytes.data());
-  ASSERT_EQ(load(), 0xd01c);
-  bytes = f16.ToBytes();
-  ASSERT_EQ(load(), 0xd01c);
-
 #if ARROW_LITTLE_ENDIAN
-  constexpr uint16_t expected_le = 0xd01c;
-  constexpr uint16_t expected_be = 0x1cd0;
+  ASSERT_EQ(bytes[0], expected_low);
+  ASSERT_EQ(bytes[1], expected_high);
 #else
-  constexpr uint16_t expected_le = 0x1cd0;
-  constexpr uint16_t expected_be = 0xd01c;
+  ASSERT_EQ(bytes[0], expected_high);
+  ASSERT_EQ(bytes[1], expected_low);
 #endif
+  bytes = f16.ToBytes();
+#if ARROW_LITTLE_ENDIAN
+  ASSERT_EQ(bytes[0], expected_low);
+  ASSERT_EQ(bytes[1], expected_high);
+#else
+  ASSERT_EQ(bytes[0], expected_high);
+  ASSERT_EQ(bytes[1], expected_low);
+#endif
+
   // Test little-endian
   f16.ToLittleEndian(bytes.data());
-  ASSERT_EQ(load(), expected_le);
+  ASSERT_EQ(bytes[0], expected_low);
+  ASSERT_EQ(bytes[1], expected_high);
   bytes = f16.ToLittleEndian();
-  ASSERT_EQ(load(), expected_le);
+  ASSERT_EQ(bytes[0], expected_low);
+  ASSERT_EQ(bytes[1], expected_high);
   // Test big-endian
   f16.ToBigEndian(bytes.data());
-  ASSERT_EQ(load(), expected_be);
+  ASSERT_EQ(bytes[0], expected_high);
+  ASSERT_EQ(bytes[1], expected_low);
   bytes = f16.ToBigEndian();
-  ASSERT_EQ(load(), expected_be);
+  ASSERT_EQ(bytes[0], expected_high);
+  ASSERT_EQ(bytes[1], expected_low);
 }
 
 TEST(Float16Test, FromBytes) {
-  constexpr uint16_t u16 = 0xd01c;
-  const auto* data = reinterpret_cast<const uint8_t*>(&u16);
-  ASSERT_EQ(Float16::FromBytes(data), Float16::FromBits(0xd01c));
+  const std::array<uint8_t, 2> bytes = {0x1c, 0xd0};
 #if ARROW_LITTLE_ENDIAN
-  ASSERT_EQ(Float16::FromLittleEndian(data), Float16::FromBits(0xd01c));
-  ASSERT_EQ(Float16::FromBigEndian(data), Float16::FromBits(0x1cd0));
+  ASSERT_EQ(Float16::FromBytes(bytes.data()), Float16::FromBits(0xd01c));
 #else
-  ASSERT_EQ(Float16::FromLittleEndian(data), Float16(0x1cd0));
-  ASSERT_EQ(Float16::FromBigEndian(data), Float16(0xd01c));
+  ASSERT_EQ(Float16::FromBytes(bytes.data()), Float16::FromBits(0x1cd0));
 #endif
+  ASSERT_EQ(Float16::FromLittleEndian(bytes.data()), Float16::FromBits(0xd01c));
+  ASSERT_EQ(Float16::FromBigEndian(bytes.data()), Float16::FromBits(0x1cd0));
 }
 
 }  // namespace

@@ -20,6 +20,7 @@ name: Docs
 on:
   pull_request:
     paths:
+      - '.dockerignore'
       - 'docs/**'
       - '.github/workflows/docs_light.yml'
       - 'ci/docker/conda.dockerfile'
@@ -52,13 +53,13 @@ jobs:
         with:
           fetch-depth: 0
       - name: Cache Docker Volumes
-        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4.0.0
+        uses: actions/cache@v4
         with:
           path: .docker
           key: conda-docs-${{ hashFiles('cpp/**') }}
           restore-keys: conda-docs-
       - name: Setup Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: 3.12
       - name: Setup Archery

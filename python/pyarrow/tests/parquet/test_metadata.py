@@ -20,7 +20,10 @@ import decimal
 from collections import OrderedDict
 import io
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 
 import pyarrow as pa
@@ -264,7 +267,7 @@ def test_statistics_convert_logical_types(tempdir):
     for i, (min_val, max_val, typ) in enumerate(cases):
         t = pa.Table.from_arrays([pa.array([min_val, max_val], type=typ)],
                                  ['col'])
-        path = str(tempdir / ('example{}.parquet'.format(i)))
+        path = str(tempdir / f'example{i}.parquet')
         pq.write_table(t, path, version='2.6')
         pf = pq.ParquetFile(path)
         stats = pf.metadata.row_group(0).column(0).statistics
@@ -551,7 +554,7 @@ def test_write_metadata(tempdir):
         assert b'ARROW:schema' not in schema_as_arrow.metadata
 
     # pass through writer keyword arguments
-    for version in ["1.0", "2.0", "2.4", "2.6"]:
+    for version in ["1.0", "2.4", "2.6"]:
         pq.write_metadata(schema, path, version=version)
         parquet_meta = pq.read_metadata(path)
         # The version is stored as a single integer in the Parquet metadata,
@@ -584,7 +587,7 @@ def test_table_large_metadata():
     my_schema = pa.schema([pa.field('f0', 'double')],
                           metadata={'large': 'x' * 10000000})
 
-    table = pa.table([np.arange(10)], schema=my_schema)
+    table = pa.table([range(10)], schema=my_schema)
     _check_roundtrip(table)
 
 
@@ -782,3 +785,32 @@ def test_write_metadata_fs_file_combinations(tempdir, s3_example_s3fs):
     assert meta1.read_bytes() == meta2.read_bytes() \
         == meta3.read_bytes() == meta4.read_bytes() \
         == s3_fs.open(meta5).read()
+
+
+def test_column_chunk_key_value_metadata(parquet_test_datadir):
+    metadata = pq.read_metadata(parquet_test_datadir /
+                                'column_chunk_key_value_metadata.parquet')
+    key_value_metadata1 = metadata.row_group(0).column(0).metadata
+    assert key_value_metadata1 == {b'foo': b'bar', b'thisiskeywithoutvalue': b''}
+    key_value_metadata2 = metadata.row_group(0).column(1).metadata
+    assert key_value_metadata2 is None
+
+
+def test_internal_class_instantiation():
+    def msg(c):
+        return f"Do not call {c}'s constructor directly"
+
+    with pytest.raises(TypeError, match=msg("Statistics")):
+        pq.Statistics()
+
+    with pytest.raises(TypeError, match=msg("ParquetLogicalType")):
+        pq.ParquetLogicalType()
+
+    with pytest.raises(TypeError, match=msg("ColumnChunkMetaData")):
+        pq.ColumnChunkMetaData()
+
+    with pytest.raises(TypeError, match=msg("RowGroupMetaData")):
+        pq.RowGroupMetaData()
+
+    with pytest.raises(TypeError, match=msg("FileMetaData")):
+        pq.FileMetaData()

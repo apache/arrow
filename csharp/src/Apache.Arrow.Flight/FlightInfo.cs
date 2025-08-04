@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Text;
 using Apache.Arrow.Flight.Internal;
 using Apache.Arrow.Ipc;
+using Google.Protobuf;
 
 namespace Apache.Arrow.Flight
 {
@@ -25,7 +26,7 @@ namespace Apache.Arrow.Flight
     {
         internal FlightInfo(Protocol.FlightInfo flightInfo)
         {
-            Schema = FlightMessageSerializer.DecodeSchema(flightInfo.Schema.Memory);
+            Schema = flightInfo.Schema?.Length > 0 ? FlightMessageSerializer.DecodeSchema(flightInfo.Schema.Memory) : null;
             Descriptor = new FlightDescriptor(flightInfo.FlightDescriptor);
 
             var endpoints = new List<FlightEndpoint>();
@@ -37,15 +38,22 @@ namespace Apache.Arrow.Flight
 
             TotalBytes = flightInfo.TotalBytes;
             TotalRecords = flightInfo.TotalRecords;
+            Ordered = flightInfo.Ordered;
+            AppMetadata = flightInfo.AppMetadata;
+        }
+        public FlightInfo(Schema schema, FlightDescriptor descriptor, IReadOnlyList<FlightEndpoint> endpoints, long totalRecords = -1, long totalBytes = -1):this(schema,descriptor,endpoints,totalRecords,totalBytes,false, ByteString.Empty)
+        {
         }
 
-        public FlightInfo(Schema schema, FlightDescriptor descriptor, IReadOnlyList<FlightEndpoint> endpoints, long totalRecords = -1, long totalBytes = -1)
+        public FlightInfo(Schema schema, FlightDescriptor descriptor, IReadOnlyList<FlightEndpoint> endpoints, long totalRecords, long totalBytes, bool ordered = false, ByteString appMetadata=null)
         {
             Schema = schema;
             Descriptor = descriptor;
             Endpoints = endpoints;
             TotalBytes = totalBytes;
             TotalRecords = totalRecords;
+            Ordered = ordered;
+            AppMetadata = appMetadata ?? ByteString.Empty;
         }
 
         public FlightDescriptor Descriptor { get; }
@@ -56,20 +64,27 @@ namespace Apache.Arrow.Flight
 
         public long TotalRecords { get; }
 
+        public bool Ordered { get; }
+
+        public ByteString AppMetadata { get; }
+
         public IReadOnlyList<FlightEndpoint> Endpoints { get; }
 
         internal Protocol.FlightInfo ToProtocol()
         {
-            var serializedSchema = SchemaWriter.SerializeSchema(Schema);
+            var serializedSchema = Schema != null ? SchemaWriter.SerializeSchema(Schema) : ByteString.Empty;
+
             var response = new Protocol.FlightInfo()
             {
                 Schema = serializedSchema,
                 FlightDescriptor = Descriptor.ToProtocol(),
                 TotalBytes = TotalBytes,
-                TotalRecords = TotalRecords
+                TotalRecords = TotalRecords,
+                Ordered = Ordered,
+                AppMetadata = AppMetadata 
             };
 
-            foreach(var endpoint in Endpoints)
+            foreach (var endpoint in Endpoints)
             {
                 response.Endpoint.Add(endpoint.ToProtocol());
             }

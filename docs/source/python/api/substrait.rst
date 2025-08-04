@@ -43,6 +43,9 @@ compute expressions.
    BoundExpressions
    deserialize_expressions
    serialize_expressions
+   serialize_schema
+   deserialize_schema
+   SubstraitSchema
 
 Utility
 -------

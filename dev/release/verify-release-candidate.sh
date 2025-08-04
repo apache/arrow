@@ -20,11 +20,8 @@
 
 # Requirements
 # - Ruby >= 2.3
-# - Maven >= 3.8.7
-# - JDK >= 11
 # - gcc >= 4.8
-# - Node.js >= 18
-# - Go >= 1.21
+# - Go >= 1.22
 # - Docker
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
@@ -77,6 +74,8 @@ esac
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ARROW_DIR="$(cd "${SOURCE_DIR}/../.." && pwd)"
 
+: ${GITHUB_REPOSITORY:=apache/arrow}
+
 show_header() {
   echo ""
   printf '=%.0s' $(seq ${#1}); printf '\n'
@@ -101,26 +100,30 @@ detect_cuda() {
   return $((${n_gpus} < 1))
 }
 
-ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
+ARROW_RC_URL="https://dist.apache.org/repos/dist/dev/arrow"
+ARROW_KEYS_URL="https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/KEYS"
 
-download_dist_file() {
+download_file() {
   curl \
     --silent \
     --show-error \
     --fail \
     --location \
-    --remote-name $ARROW_DIST_URL/$1
+    --output "$2" \
+    "$1"
 }
 
 download_rc_file() {
-  download_dist_file apache-arrow-${VERSION}-rc${RC_NUMBER}/$1
+  download_file \
+    "${ARROW_RC_URL}/apache-arrow-${VERSION}-rc${RC_NUMBER}/$1" \
+    "$1"
 }
 
 import_gpg_keys() {
   if [ "${GPGKEYS_ALREADY_IMPORTED:-0}" -gt 0 ]; then
     return 0
   fi
-  download_dist_file KEYS
+  download_file "${ARROW_KEYS_URL}" KEYS
   gpg --import KEYS
 
   GPGKEYS_ALREADY_IMPORTED=1
@@ -170,6 +173,7 @@ verify_dir_artifact_signatures() {
 }
 
 test_binary() {
+  # this downloads all artifacts and verifies their checksums and signatures
   show_header "Testing binary artifacts"
   maybe_setup_conda
 
@@ -177,111 +181,130 @@ test_binary() {
   mkdir -p ${download_dir}
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
-         --dest=${download_dir}
+         --dest=${download_dir} \
+         --repository=${GITHUB_REPOSITORY} \
+         --tag="apache-arrow-$VERSION-rc$RC_NUMBER"
 
   verify_dir_artifact_signatures ${download_dir}
+}
+
+check_verification_result_on_github() {
+  pushd ${ARROW_TMPDIR}
+  curl \
+    --get \
+    --data "branch=apache-arrow-${VERSION}-rc${RC_NUMBER}" \
+    "https://api.github.com/repos/apache/arrow/actions/workflows/verify_rc.yml/runs" | \
+    jq '.workflow_runs[0]' > latest_verify_rc.json
+  conclusion="$(jq -r '.conclusion' latest_verify_rc.json)"
+  if [ "${conclusion}" != "success" ]; then
+    html_url="$(jq -r '.html_url' latest_verify_rc.json)"
+    echo "Verification on GitHub wasn't successful: ${conclusion}: ${html_url}"
+    exit 1
+  fi
+  popd
 }
 
 test_apt() {
   show_header "Testing APT packages"
 
-  for target in "debian:bookworm" \
-                "arm64v8/debian:bookworm" \
-                "debian:trixie" \
-                "arm64v8/debian:trixie" \
-                "ubuntu:focal" \
-                "arm64v8/ubuntu:focal" \
-                "ubuntu:jammy" \
-                "arm64v8/ubuntu:jammy" \
-                "ubuntu:noble" \
-                "arm64v8/ubuntu:noble"; do \
-    case "${target}" in
-      arm64v8/*)
-        if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
-          case "${target}" in
-            arm64v8/ubuntu:focal)
-              : # OK
-              ;;
-            *)
-              # qemu-user-static in Ubuntu 20.04 has a crash bug:
-              #   https://bugs.launchpad.net/qemu/+bug/1749393
-              continue
-              ;;
-          esac
-        else
-          continue
+  if [ "${GITHUB_ACTIONS}" != "true" ]; then
+    check_verification_result_on_github
+    return 0
+  fi
+
+  case "$(arch)" in
+    "x86_64")
+      for target in "debian:bookworm" \
+                    "debian:trixie" \
+                    "ubuntu:jammy" \
+                    "ubuntu:noble"; do \
+        if ! docker run \
+               --platform=linux/x86_64 \
+               --rm \
+               --security-opt="seccomp=unconfined" \
+               --volume "${ARROW_DIR}":/arrow:delegated \
+               "${target}" \
+               /arrow/dev/release/verify-apt.sh \
+               "${VERSION}" \
+               "rc"; then
+          echo "Failed to verify the APT repository for ${target} on x86_64"
+          exit 1
         fi
-        ;;
-    esac
-    if ! docker run --rm -v "${ARROW_DIR}":/arrow:delegated \
-           --security-opt="seccomp=unconfined" \
-           "${target}" \
-           /arrow/dev/release/verify-apt.sh \
-           "${VERSION}" \
-           "rc"; then
-      echo "Failed to verify the APT repository for ${target}"
-      exit 1
-    fi
-  done
+      done
+      ;;
+    "aarch64")
+      for target in "arm64v8/debian:bookworm" \
+                    "arm64v8/debian:trixie" \
+                    "arm64v8/ubuntu:jammy" \
+                    "arm64v8/ubuntu:noble"; do \
+        if ! docker run \
+               --platform=linux/arm64 \
+               --rm \
+               --security-opt="seccomp=unconfined" \
+               --volume "${ARROW_DIR}":/arrow:delegated \
+               "${target}" \
+               /arrow/dev/release/verify-apt.sh \
+               "${VERSION}" \
+               "rc"; then
+          echo "Failed to verify the APT repository for ${target} on arm64"
+          exit 1
+        fi
+      done
+      ;;
+  esac
 }
 
 test_yum() {
   show_header "Testing Yum packages"
 
-  for target in "almalinux:9" \
-                "arm64v8/almalinux:9" \
-                "almalinux:8" \
-                "arm64v8/almalinux:8" \
-                "amazonlinux:2023" \
-                "quay.io/centos/centos:stream9" \
-                "quay.io/centos/centos:stream8" \
-                "centos:7"; do
-    case "${target}" in
-      arm64v8/*)
-        if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
-          : # OK
-        else
-          continue
-        fi
-        ;;
-      centos:7)
-        if [ "$(arch)" = "x86_64" ]; then
-          : # OK
-        else
-          continue
-        fi
-        ;;
-    esac
-    if ! docker run \
-           --rm \
-           --security-opt="seccomp=unconfined" \
-           --volume "${ARROW_DIR}":/arrow:delegated \
-           "${target}" \
-           /arrow/dev/release/verify-yum.sh \
-           "${VERSION}" \
-           "rc"; then
-      echo "Failed to verify the Yum repository for ${target}"
-      exit 1
-    fi
-  done
-
-  if [ "$(arch)" != "aarch64" -a -e /usr/bin/qemu-aarch64-static ]; then
-    for target in "quay.io/centos/centos:stream9" \
-                  "quay.io/centos/centos:stream8"; do
-      if ! docker run \
-             --platform linux/arm64 \
-             --rm \
-             --security-opt="seccomp=unconfined" \
-             --volume "${ARROW_DIR}":/arrow:delegated \
-             "${target}" \
-             /arrow/dev/release/verify-yum.sh \
-             "${VERSION}" \
-             "rc"; then
-        echo "Failed to verify the Yum repository for ${target} arm64"
-        exit 1
-      fi
-    done
+  if [ "${GITHUB_ACTIONS}" != "true" ]; then
+    check_verification_result_on_github
+    return 0
   fi
+
+  case "$(arch)" in
+    "x86_64")
+      for target in "almalinux:10" \
+                    "almalinux:9" \
+                    "almalinux:8" \
+                    "amazonlinux:2023" \
+                    "quay.io/centos/centos:stream9" \
+                    "centos:7"; do
+        if ! docker run \
+               --platform linux/x86_64 \
+               --rm \
+               --security-opt="seccomp=unconfined" \
+               --volume "${ARROW_DIR}":/arrow:delegated \
+               "${target}" \
+               /arrow/dev/release/verify-yum.sh \
+               "${VERSION}" \
+               "rc"; then
+          echo "Failed to verify the Yum repository for ${target} on x86_64"
+          exit 1
+        fi
+      done
+      ;;
+    "aarch64")
+      for target in "arm64v8/almalinux:10" \
+                    "arm64v8/almalinux:9" \
+                    "arm64v8/almalinux:8" \
+                    "arm64v8/amazonlinux:2023" \
+                    "quay.io/centos/centos:stream9"; do
+        if ! docker run \
+               --platform linux/arm64 \
+               --rm \
+               --security-opt="seccomp=unconfined" \
+               --volume "${ARROW_DIR}":/arrow:delegated \
+               "${target}" \
+               /arrow/dev/release/verify-yum.sh \
+               "${VERSION}" \
+               "rc"; then
+          echo "Failed to verify the Yum repository for ${target} on arm64"
+          exit 1
+        fi
+      done
+      ;;
+  esac
 }
 
 setup_tempdir() {
@@ -305,35 +328,6 @@ setup_tempdir() {
   fi
 
   echo "Working in sandbox ${ARROW_TMPDIR}"
-}
-
-install_nodejs() {
-  # Install NodeJS locally for running the JavaScript tests rather than using the
-  # system Node installation, which may be too old.
-  if [ "${NODEJS_ALREADY_INSTALLED:-0}" -gt 0 ]; then
-    show_info "NodeJS $(node --version) already installed"
-    return 0
-  fi
-
-  node_major_version=$(node --version 2>&1 | grep -o '^v[0-9]*' | sed -e 's/^v//g' || :)
-  node_minor_version=$(node --version 2>&1 | grep -o '^v[0-9]*\.[0-9]*' | sed -e 's/^v[0-9]*\.//g' || :)
-  if [[ -n "${node_major_version}" && -n "${node_minor_version}" &&
-      ("${node_major_version}" -eq 16 ||
-        ("${node_major_version}" -eq 18 && "${node_minor_version}" -ge 14) ||
-        "${node_major_version}" -ge 20) ]]; then
-    show_info "Found NodeJS installation with version v${node_major_version}.${node_minor_version}.x"
-  else
-    export NVM_DIR="$(pwd)/.nvm"
-    mkdir -p $NVM_DIR
-    curl -sL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | \
-      PROFILE=/dev/null bash
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-    nvm install --lts
-    show_info "Installed NodeJS $(node --version)"
-  fi
-
-  NODEJS_ALREADY_INSTALLED=1
 }
 
 install_csharp() {
@@ -367,7 +361,7 @@ install_csharp() {
     local dotnet_download_url=$( \
       curl -sL ${dotnet_download_thank_you_url} | \
         grep 'directLink' | \
-        grep -E -o 'https://download[^"]+' | \
+        grep -E -o 'https://builds.dotnet[^"]+' | \
         sed -n 2p)
     mkdir -p ${csharp_bin}
     curl -sL ${dotnet_download_url} | \
@@ -376,72 +370,13 @@ install_csharp() {
     show_info "Installed C# at $(which csharp) (.NET $(dotnet --version))"
   fi
 
-  # Ensure to have sourcelink installed
-  if ! dotnet tool list | grep sourcelink > /dev/null 2>&1; then
-    dotnet new tool-manifest
-    dotnet tool install --local sourcelink
-    PATH=${csharp_bin}:${PATH}
-    if ! dotnet tool run sourcelink --help > /dev/null 2>&1; then
-      export DOTNET_ROOT=${csharp_bin}
-    fi
-  fi
-
   CSHARP_ALREADY_INSTALLED=1
-}
-
-install_go() {
-  # Install go
-  if [ "${GO_ALREADY_INSTALLED:-0}" -gt 0 ]; then
-    show_info "$(go version) already installed at $(which go)"
-    return 0
-  fi
-
-  if command -v go > /dev/null; then
-    show_info "Found $(go version) at $(command -v go)"
-    export GOPATH=${ARROW_TMPDIR}/gopath
-    mkdir -p $GOPATH
-    return 0
-  fi
-
-  local version=1.21.8
-  show_info "Installing go version ${version}..."
-
-  local arch="$(uname -m)"
-  if [ "$arch" == "x86_64" ]; then
-    arch=amd64
-  elif [ "$arch" == "aarch64" ]; then
-    arch=arm64
-  fi
-
-  if [ "$(uname)" == "Darwin" ]; then
-    local os=darwin
-  else
-    local os=linux
-  fi
-
-  local archive="go${version}.${os}-${arch}.tar.gz"
-  curl -sLO https://go.dev/dl/$archive
-
-  ls -l
-  local prefix=${ARROW_TMPDIR}/go
-  mkdir -p $prefix
-  tar -xzf $archive -C $prefix
-  rm -f $archive
-
-  export GOROOT=${prefix}/go
-  export GOPATH=${prefix}/gopath
-  export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-
-  mkdir -p $GOPATH
-  show_info "$(go version) installed at $(which go)"
-
-  GO_ALREADY_INSTALLED=1
 }
 
 install_conda() {
   # Setup short-lived miniconda for Python and integration tests
   show_info "Ensuring that Conda is installed..."
-  local prefix=$ARROW_TMPDIR/mambaforge
+  local prefix=$ARROW_TMPDIR/miniforge
 
   # Setup miniconda only if the directory doesn't exist yet
   if [ "${CONDA_ALREADY_INSTALLED:-0}" -eq 0 ]; then
@@ -449,7 +384,7 @@ install_conda() {
       show_info "Installing miniconda at ${prefix}..."
       local arch=$(uname -m)
       local platform=$(uname)
-      local url="https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-${platform}-${arch}.sh"
+      local url="https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-${platform}-${arch}.sh"
       curl -sL -o miniconda.sh $url
       bash miniconda.sh -b -p $prefix
       rm -f miniconda.sh
@@ -494,46 +429,6 @@ maybe_setup_conda() {
     echo "Conda environment is active despite that USE_CONDA is set to 0."
     echo "Deactivate the environment using \`conda deactivate\` before running the verification script."
     return 1
-  fi
-}
-
-install_maven() {
-  MAVEN_VERSION=3.8.7
-  if command -v mvn > /dev/null; then
-    # --batch-mode is for disabling output color.
-    SYSTEM_MAVEN_VERSION=$(mvn --batch-mode -v | head -n 1 | awk '{print $3}')
-    show_info "Found Maven version ${SYSTEM_MAVEN_VERSION} at $(command -v mvn)."
-  else
-    SYSTEM_MAVEN_VERSION=0.0.0
-    show_info "Maven installation not found."
-  fi
-
-  if [[ "$MAVEN_VERSION" == "$SYSTEM_MAVEN_VERSION" ]]; then
-    show_info "System Maven version ${SYSTEM_MAVEN_VERSION} matches required Maven version ${MAVEN_VERSION}. Skipping installation."
-  else
-    # Append pipe character to make preview release versions like "X.Y.Z-beta-1" sort
-    # as older than their corresponding release version "X.Y.Z". This works because 
-    # `sort -V` orders the pipe character lower than any version number character.
-    older_version=$(printf '%s\n%s\n' "$SYSTEM_MAVEN_VERSION" "$MAVEN_VERSION" | sed 's/$/|/' | sort -V | sed 's/|$//' | head -n1)
-    if [[ "$older_version" == "$SYSTEM_MAVEN_VERSION" ]]; then
-      show_info "Installing Maven version ${MAVEN_VERSION}..."
-      APACHE_MIRROR="https://www.apache.org/dyn/closer.lua?action=download&filename="
-      curl -sL -o apache-maven-${MAVEN_VERSION}-bin.tar.gz \
-        ${APACHE_MIRROR}/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
-      tar xzf apache-maven-${MAVEN_VERSION}-bin.tar.gz
-      export PATH=$(pwd)/apache-maven-${MAVEN_VERSION}/bin:$PATH
-      # --batch-mode is for disabling output color.
-      show_info "Installed Maven version $(mvn --batch-mode -v | head -n 1 | awk '{print $3}')"
-    else
-      show_info "System Maven version ${SYSTEM_MAVEN_VERSION} is newer than minimum version ${MAVEN_VERSION}. Skipping installation."
-    fi
-  fi
-}
-
-maybe_setup_maven() {
-  show_info "Ensuring that Maven is installed..."
-  if [ "${USE_CONDA}" -eq 0 ]; then
-    install_maven
   fi
 }
 
@@ -584,79 +479,6 @@ maybe_setup_virtualenv() {
       pip install "$@"
     fi
   fi
-}
-
-maybe_setup_go() {
-  show_info "Ensuring that Go is installed..."
-  if [ "${USE_CONDA}" -eq 0 ]; then
-    install_go
-  fi
-}
-
-maybe_setup_nodejs() {
-  show_info "Ensuring that NodeJS is installed..."
-  if [ "${USE_CONDA}" -eq 0 ]; then
-    install_nodejs
-  fi
-}
-
-test_package_java() {
-  show_header "Build and test Java libraries"
-
-  maybe_setup_maven
-  maybe_setup_conda maven openjdk
-
-  pushd java
-
-  if [ ${TEST_INTEGRATION_JAVA} -gt 0 ]; then
-    # Build JNI for C data interface
-    local -a cmake_options=()
-    # Enable only C data interface.
-    cmake_options+=(-DARROW_JAVA_JNI_ENABLE_C=ON)
-    cmake_options+=(-DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF)
-    # Disable Testing because GTest might not be present.
-    cmake_options+=(-DBUILD_TESTING=OFF)
-    if [ ! -z "${CMAKE_GENERATOR}" ]; then
-      cmake_options+=(-G "${CMAKE_GENERATOR}")
-    fi
-    local build_dir="${ARROW_TMPDIR}/java-jni-build"
-    local install_dir="${ARROW_TMPDIR}/java-jni-install"
-    local dist_dir="${ARROW_TMPDIR}/java-jni-dist"
-    cmake \
-      -S . \
-      -B "${build_dir}" \
-      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-release} \
-      -DCMAKE_INSTALL_LIBDIR=lib \
-      -DCMAKE_INSTALL_PREFIX="${install_dir}" \
-      -DCMAKE_PREFIX_PATH="${ARROW_HOME}" \
-      "${cmake_options[@]}"
-    cmake --build "${build_dir}"
-    cmake --install "${build_dir}"
-
-    local normalized_arch=$(arch)
-    case ${normalized_arch} in
-      aarch64|arm64)
-        normalized_arch=aarch_64
-        ;;
-      i386)
-        normalized_arch=x86_64
-        ;;
-    esac
-    mkdir -p ${dist_dir}
-    mv ${install_dir}/lib/* ${dist_dir}
-    mvn install \
-        -Darrow.c.jni.dist.dir=${dist_dir} \
-        -Parrow-c-data
-  fi
-
-  if [ ${TEST_JAVA} -gt 0 ]; then
-    mvn test
-  fi
-
-  # Build jars
-  mvn package
-
-  popd
 }
 
 test_and_install_cpp() {
@@ -732,7 +554,7 @@ test_and_install_cpp() {
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
-    -DGTest_SOURCE=BUNDLED \
+    -DGTest_SOURCE=${GTest_SOURCE:-BUNDLED} \
     -DPARQUET_BUILD_EXAMPLES=ON \
     -DPARQUET_BUILD_EXECUTABLES=ON \
     -DPARQUET_REQUIRE_ENCRYPTION=ON \
@@ -916,68 +738,6 @@ test_csharp() {
     mv ../.git dummy.git
   fi
 
-  if [ "${SOURCE_KIND}" = "local" ]; then
-    echo "Skipping sourcelink verification on local build"
-  else
-    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netstandard2.0/Apache.Arrow.pdb
-    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/net6.0/Apache.Arrow.pdb
-  fi
-
-  popd
-}
-
-test_js() {
-  show_header "Build and test JavaScript libraries"
-
-  maybe_setup_nodejs
-  maybe_setup_conda nodejs=18
-
-  if ! command -v yarn &> /dev/null; then
-    npm install yarn
-    PATH=$PWD/node_modules/yarn/bin:$PATH
-  fi
-
-  pushd js
-  yarn --frozen-lockfile
-  yarn clean:all
-  yarn lint
-  yarn build
-  if [ ${TEST_JS} -gt 0 ]; then
-    yarn test
-    yarn test:bundle
-  fi
-  popd
-}
-
-test_go() {
-  show_header "Build and test Go libraries"
-
-  maybe_setup_go
-  maybe_setup_conda compilers go=1.21
-
-  pushd go
-  go get -v ./...
-  if [ ${TEST_GO} -gt 0 ]; then
-    go test ./...
-  fi
-  go install -buildvcs=false ./...
-  if [ ${TEST_INTEGRATION_GO} -gt 0 ]; then
-    pushd arrow/internal/cdata_integration
-    case "$(uname)" in
-      Linux)
-        go_lib="arrow_go_integration.so"
-        ;;
-      Darwin)
-        go_lib="arrow_go_integration.dylib"
-        ;;
-      MINGW*)
-        go_lib="arrow_go_integration.dll"
-        ;;
-    esac
-    CGO_ENABLED=1 go build -buildvcs=false -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
-    popd
-  fi
-  go clean -modcache
   popd
 }
 
@@ -989,13 +749,9 @@ test_integration() {
   maybe_setup_virtualenv
 
   pip install -e dev/archery[integration]
-  pip install -e dev/archery[integration-java]
 
-  JAVA_DIR=$ARROW_SOURCE_DIR/java
   CPP_BUILD_DIR=$ARROW_TMPDIR/cpp-build
 
-  files=( $JAVA_DIR/tools/target/arrow-tools-*-jar-with-dependencies.jar )
-  export ARROW_JAVA_INTEGRATION_JAR=${files[0]}
   export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/release
 
   INTEGRATION_TEST_ARGS=""
@@ -1007,9 +763,6 @@ test_integration() {
   LD_LIBRARY_PATH=$ARROW_CPP_EXE_PATH:$LD_LIBRARY_PATH archery integration \
     --run-ipc --run-flight --run-c-data \
     --with-cpp=${TEST_INTEGRATION_CPP} \
-    --with-java=${TEST_INTEGRATION_JAVA} \
-    --with-js=${TEST_INTEGRATION_JS} \
-    --with-go=${TEST_INTEGRATION_GO} \
     $INTEGRATION_TEST_ARGS
 }
 
@@ -1027,11 +780,19 @@ ensure_source_directory() {
   elif [ "${SOURCE_KIND}" = "git" ]; then
     # Remote arrow repository, testing repositories must be cloned
     : ${SOURCE_REPOSITORY:="https://github.com/apache/arrow"}
-    echo "Verifying Arrow repository ${SOURCE_REPOSITORY} with revision checkout ${VERSION}"
+    case "${VERSION}" in
+      *.*.*)
+        revision="apache-arrow-${VERSION}"
+        ;;
+      *)
+        revision="${VERSION}"
+        ;;
+    esac
+    echo "Verifying Arrow repository ${SOURCE_REPOSITORY} with revision checkout ${revision}"
     export ARROW_SOURCE_DIR="${ARROW_TMPDIR}/arrow"
     if [ ! -d "${ARROW_SOURCE_DIR}" ]; then
       git clone --recurse-submodules $SOURCE_REPOSITORY $ARROW_SOURCE_DIR
-      git -C $ARROW_SOURCE_DIR checkout $VERSION
+      git -C $ARROW_SOURCE_DIR checkout "${revision}"
     fi
   else
     # Release tarball, testing repositories must be cloned separately
@@ -1088,14 +849,29 @@ test_source_distribution() {
 
   pushd $ARROW_SOURCE_DIR
 
-  if [ ${BUILD_GO} -gt 0 ]; then
-    test_go
+  if [ "${SOURCE_KIND}" = "tarball" ] && [ "${TEST_SOURCE_REPRODUCIBLE}" -gt 0 ]; then
+    pushd ..
+    git clone "https://github.com/${GITHUB_REPOSITORY}.git" arrow
+    pushd arrow
+    dev/release/utils-create-release-tarball.sh "${VERSION}" "${RC_NUMBER}"
+    tarball="apache-arrow-${VERSION}.tar.gz"
+    if ! cmp "${tarball}" "../${tarball}"; then
+      echo "Source archive isn't reproducible"
+      if ! tar --version | grep --quiet --fixed GNU && \
+          ! gtar --version | grep --quiet --fixed GNU; then
+        echo "We need GNU tar to verify reproducible build"
+      fi
+      if ! gzip --version | grep --quiet --fixed GNU; then
+        echo "We need GNU gzip to verify reproducible build"
+      fi
+      return 1
+    fi
+    popd
+    popd
   fi
+
   if [ ${TEST_CSHARP} -gt 0 ]; then
     test_csharp
-  fi
-  if [ ${BUILD_JS} -gt 0 ]; then
-    test_js
   fi
   if [ ${BUILD_CPP} -gt 0 ]; then
     test_and_install_cpp
@@ -1108,9 +884,6 @@ test_source_distribution() {
   fi
   if [ ${TEST_RUBY} -gt 0 ]; then
     test_ruby
-  fi
-  if [ ${BUILD_JAVA} -gt 0 ]; then
-    test_package_java
   fi
   if [ ${TEST_INTEGRATION} -gt 0 ]; then
     test_integration
@@ -1132,9 +905,6 @@ test_binary_distribution() {
   if [ ${TEST_WHEELS} -gt 0 ]; then
     test_wheels
   fi
-  if [ ${TEST_JARS} -gt 0 ]; then
-    test_jars
-  fi
 }
 
 test_linux_wheels() {
@@ -1146,8 +916,18 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="${TEST_PYTHON_VERSIONS:-3.8 3.9 3.10 3.11 3.12}"
-  local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_17_${arch}.manylinux2014_${arch} manylinux_2_28_${arch}}"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.9 3.10 3.11 3.12 3.13}"
+  local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_28_${arch}}"
+
+  if [ "${SOURCE_KIND}" != "local" ]; then
+    local wheel_content="OFF"
+  fi
+
+  if [ "${SOURCE_KIND}" = "tarball" ]; then
+    local check_version="ON"
+  else
+    local check_version="OFF"
+  fi
 
   for python in ${python_versions}; do
     local pyver=${python/m}
@@ -1158,7 +938,12 @@ test_linux_wheels() {
         continue
       fi
       pip install pyarrow-${TEST_PYARROW_VERSION:-${VERSION}}-cp${pyver/.}-cp${python/.}-${platform}.whl
-      INSTALL_PYARROW=OFF ARROW_GCS=${check_gcs} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
+      ARROW_GCS=${check_gcs} \
+        ARROW_VERSION=${VERSION} \
+        CHECK_VERSION=${check_version} \
+        CHECK_WHEEL_CONTENT=${wheel_content:-"ON"} \
+        INSTALL_PYARROW=OFF \
+        ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
 }
@@ -1170,12 +955,22 @@ test_macos_wheels() {
 
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local python_versions="3.8 3.9 3.10 3.11 3.12"
-    local platform_tags="macosx_11_0_arm64"
+    local python_versions="3.9 3.10 3.11 3.12 3.13"
+    local platform_tags="macosx_12_0_arm64"
     local check_flight=OFF
   else
-    local python_versions="3.8 3.9 3.10 3.11 3.12"
-    local platform_tags="macosx_10_15_x86_64"
+    local python_versions="3.9 3.10 3.11 3.12 3.13"
+    local platform_tags="macosx_12_0_x86_64"
+  fi
+
+  if [ "${SOURCE_KIND}" != "local" ]; then
+    local wheel_content="OFF"
+  fi
+
+  if [ "${SOURCE_KIND}" = "tarball" ]; then
+    local check_version="ON"
+  else
+    local check_version="OFF"
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
@@ -1194,7 +989,13 @@ test_macos_wheels() {
       fi
 
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
-      INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_GCS=${check_gcs} ARROW_S3=${check_s3} \
+      ARROW_FLIGHT=${check_flight} \
+        ARROW_GCS=${check_gcs} \
+        ARROW_S3=${check_s3} \
+        ARROW_VERSION=${VERSION} \
+        CHECK_WHEEL_CONTENT=${wheel_content:-"ON"} \
+        CHECK_VERSION=${check_version} \
+        INSTALL_PYARROW=OFF \
         ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
@@ -1221,11 +1022,13 @@ test_wheels() {
       $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
       --package_type python \
       --regex=${filter_regex} \
-      --dest=${download_dir}
+      --dest=${download_dir} \
+      --repository=${GITHUB_REPOSITORY} \
+      --tag="apache-arrow-$VERSION-rc$RC_NUMBER"
 
     verify_dir_artifact_signatures ${download_dir}
 
-    wheels_dir=${download_dir}/python-rc/${VERSION}-rc${RC_NUMBER}
+    wheels_dir=${download_dir}
   fi
 
   pushd ${wheels_dir}
@@ -1237,30 +1040,6 @@ test_wheels() {
   fi
 
   popd
-}
-
-test_jars() {
-  show_header "Testing Java JNI jars"
-
-  maybe_setup_maven
-  maybe_setup_conda maven python
-
-  local download_dir=${ARROW_TMPDIR}/jars
-  mkdir -p ${download_dir}
-
-  ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
-         --dest=${download_dir} \
-         --package_type=jars
-
-  verify_dir_artifact_signatures ${download_dir}
-
-  # TODO: This should be replaced with real verification by ARROW-15486.
-  # https://issues.apache.org/jira/browse/ARROW-15486
-  # [Release][Java] Verify staged maven artifacts
-  if [ ! -d "${download_dir}/arrow-memory/${VERSION}" ]; then
-    echo "Artifacts for ${VERSION} isn't uploaded yet."
-    return 1
-  fi
 }
 
 # By default test all functionalities.
@@ -1275,34 +1054,25 @@ test_jars() {
 # Binary verification tasks
 : ${TEST_APT:=${TEST_BINARIES}}
 : ${TEST_BINARY:=${TEST_BINARIES}}
-: ${TEST_JARS:=${TEST_BINARIES}}
 : ${TEST_WHEELS:=${TEST_BINARIES}}
 : ${TEST_YUM:=${TEST_BINARIES}}
 
 # Source verification tasks
-: ${TEST_JAVA:=${TEST_SOURCE}}
+: ${TEST_SOURCE_REPRODUCIBLE:=0}
 : ${TEST_CPP:=${TEST_SOURCE}}
 : ${TEST_CSHARP:=${TEST_SOURCE}}
 : ${TEST_GLIB:=${TEST_SOURCE}}
 : ${TEST_RUBY:=${TEST_SOURCE}}
 : ${TEST_PYTHON:=${TEST_SOURCE}}
-: ${TEST_JS:=${TEST_SOURCE}}
-: ${TEST_GO:=${TEST_SOURCE}}
 : ${TEST_INTEGRATION:=${TEST_SOURCE}}
 
 # For selective Integration testing, set TEST_DEFAULT=0 TEST_INTEGRATION_X=1 TEST_INTEGRATION_Y=1
 : ${TEST_INTEGRATION_CPP:=${TEST_INTEGRATION}}
-: ${TEST_INTEGRATION_JAVA:=${TEST_INTEGRATION}}
-: ${TEST_INTEGRATION_JS:=${TEST_INTEGRATION}}
-: ${TEST_INTEGRATION_GO:=${TEST_INTEGRATION}}
 
 # Automatically build/test if its activated by a dependent
 TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
 BUILD_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON} + ${TEST_INTEGRATION_CPP}))
-BUILD_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION_JAVA}))
-BUILD_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
-BUILD_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
-TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
+TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP}))
 
 # Execute tests in a conda environment
 : ${USE_CONDA:=0}

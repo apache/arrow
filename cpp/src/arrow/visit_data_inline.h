@@ -249,7 +249,8 @@ VisitArraySpanInline(const ArraySpan& arr, ValidFunc&& valid_func, NullFunc&& nu
 // The scalar value's type depends on the array data type:
 // - the type's `c_type`, if any
 // - for boolean arrays, a `bool`
-// - for binary, string and fixed-size binary arrays, a `std::string_view`
+// - for binary, string, large binary and string, binary and string view, and fixed-size
+//   binary arrays, a `std::string_view`
 
 template <typename T>
 struct ArraySpanVisitor {

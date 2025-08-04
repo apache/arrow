@@ -223,16 +223,12 @@ class ARROW_EXPORT GcsFileSystem : public FileSystem {
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 
-  ARROW_DEPRECATED(
-      "Deprecated. "
-      "OpenAppendStream is unsupported on the GCS FileSystem.")
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 
   /// Create a GcsFileSystem instance from the given options.
-  // TODO(ARROW-16884): make this return Result for consistency
-  static std::shared_ptr<GcsFileSystem> Make(
+  static Result<std::shared_ptr<GcsFileSystem>> Make(
       const GcsOptions& options, const io::IOContext& = io::default_io_context());
 
  private:

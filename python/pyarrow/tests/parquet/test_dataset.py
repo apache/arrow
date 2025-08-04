@@ -19,8 +19,12 @@ import datetime
 import inspect
 import os
 import pathlib
+import sys
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 import unittest.mock as mock
 
@@ -34,7 +38,7 @@ from pyarrow.util import guid
 try:
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import (
-        _read_table, _test_dataframe, _write_table)
+        _read_table, _test_dataframe, _test_table, _write_table)
 except ImportError:
     pq = None
 
@@ -562,7 +566,7 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
 
             level_dir = pathsep.join([
                 str(base_dir),
-                '{}={}'.format(name, value)
+                f'{name}={value}'
             ])
             fs.create_dir(level_dir)
 
@@ -644,7 +648,7 @@ def test_read_multiple_files(tempdir):
         # Hack so that we don't have a dtype cast in v1 files
         df['uint32'] = df['uint32'].astype(np.int64)
 
-        path = dirpath / '{}.parquet'.format(i)
+        path = dirpath / f'{i}.parquet'
 
         table = pa.Table.from_pandas(df)
         _write_table(table, path)
@@ -679,7 +683,7 @@ def test_read_multiple_files(tempdir):
 
     # Test failure modes with non-uniform metadata
     bad_apple = _test_dataframe(size, seed=i).iloc[:, :4]
-    bad_apple_path = tempdir / '{}.parquet'.format(guid())
+    bad_apple_path = tempdir / f'{guid()}.parquet'
 
     t = pa.Table.from_pandas(bad_apple)
     _write_table(t, bad_apple_path)
@@ -716,7 +720,7 @@ def test_dataset_read_pandas(tempdir):
         df.index = np.arange(i * size, (i + 1) * size)
         df.index.name = 'index'
 
-        path = dirpath / '{}.parquet'.format(i)
+        path = dirpath / f'{i}.parquet'
 
         table = pa.Table.from_pandas(df)
         _write_table(table, path)
@@ -738,15 +742,14 @@ def test_dataset_read_pandas(tempdir):
     tm.assert_frame_equal(result.reindex(columns=expected.columns), expected)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_dataset_memory_map(tempdir):
     # ARROW-2627: Check that we can use ParquetDataset with memory-mapping
     dirpath = tempdir / guid()
     dirpath.mkdir()
 
-    df = _test_dataframe(10, seed=0)
-    path = dirpath / '{}.parquet'.format(0)
-    table = pa.Table.from_pandas(df)
+    table = _test_table(10, seed=0)
+    path = dirpath / '0.parquet'
     _write_table(table, path, version='2.6')
 
     dataset = pq.ParquetDataset(
@@ -754,14 +757,13 @@ def test_dataset_memory_map(tempdir):
     assert dataset.read().equals(table)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_dataset_enable_buffered_stream(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
 
-    df = _test_dataframe(10, seed=0)
-    path = dirpath / '{}.parquet'.format(0)
-    table = pa.Table.from_pandas(df)
+    table = _test_table(10, seed=0)
+    path = dirpath / '0.parquet'
     _write_table(table, path, version='2.6')
 
     with pytest.raises(ValueError):
@@ -774,14 +776,13 @@ def test_dataset_enable_buffered_stream(tempdir):
         assert dataset.read().equals(table)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_dataset_enable_pre_buffer(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
 
-    df = _test_dataframe(10, seed=0)
-    path = dirpath / '{}.parquet'.format(0)
-    table = pa.Table.from_pandas(df)
+    table = _test_table(10, seed=0)
+    path = dirpath / '0.parquet'
     _write_table(table, path, version='2.6')
 
     for pre_buffer in (True, False):
@@ -796,10 +797,10 @@ def _make_example_multifile_dataset(base_path, nfiles=10, file_nrows=5):
     test_data = []
     paths = []
     for i in range(nfiles):
-        df = _test_dataframe(file_nrows, seed=i)
-        path = base_path / '{}.parquet'.format(i)
+        table = _test_table(file_nrows, seed=i)
+        path = base_path / f'{i}.parquet'
 
-        test_data.append(_write_table(df, path))
+        test_data.append(_write_table(table, path))
         paths.append(path)
     return paths
 
@@ -809,7 +810,7 @@ def _assert_dataset_paths(dataset, paths):
     assert set(paths) == set(dataset.files)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 @pytest.mark.parametrize('dir_prefix', ['_', '.'])
 def test_ignore_private_directories(tempdir, dir_prefix):
     dirpath = tempdir / guid()
@@ -819,14 +820,14 @@ def test_ignore_private_directories(tempdir, dir_prefix):
                                             file_nrows=5)
 
     # private directory
-    (dirpath / '{}staging'.format(dir_prefix)).mkdir()
+    (dirpath / f'{dir_prefix}staging').mkdir()
 
     dataset = pq.ParquetDataset(dirpath)
 
     _assert_dataset_paths(dataset, paths)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_ignore_hidden_files_dot(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
@@ -845,7 +846,7 @@ def test_ignore_hidden_files_dot(tempdir):
     _assert_dataset_paths(dataset, paths)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_ignore_hidden_files_underscore(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
@@ -864,12 +865,12 @@ def test_ignore_hidden_files_underscore(tempdir):
     _assert_dataset_paths(dataset, paths)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 @pytest.mark.parametrize('dir_prefix', ['_', '.'])
 def test_ignore_no_private_directories_in_base_path(tempdir, dir_prefix):
     # ARROW-8427 - don't ignore explicitly listed files if parent directory
     # is a private directory
-    dirpath = tempdir / "{0}data".format(dir_prefix) / guid()
+    dirpath = tempdir / f'{dir_prefix}data' / guid()
     dirpath.mkdir(parents=True)
 
     paths = _make_example_multifile_dataset(dirpath, nfiles=10,
@@ -1072,6 +1073,9 @@ def test_write_to_dataset_pathlib_nonlocal(tempdir, s3_example_s3fs):
 
 @pytest.mark.pandas
 @pytest.mark.s3
+# See https://github.com/apache/arrow/pull/44225#issuecomment-2378365291
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="test fails because of unsupported characters")
 def test_write_to_dataset_with_partitions_s3fs(s3_example_s3fs):
     fs, path = s3_example_s3fs
 

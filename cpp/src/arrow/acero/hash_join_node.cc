@@ -21,6 +21,7 @@
 #include <utility>
 
 #include "arrow/acero/exec_plan.h"
+#include "arrow/acero/exec_plan_internal.h"
 #include "arrow/acero/hash_join.h"
 #include "arrow/acero/hash_join_dict.h"
 #include "arrow/acero/hash_join_node.h"
@@ -30,6 +31,7 @@
 #include "arrow/compute/key_hash_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 
@@ -43,6 +45,24 @@ using compute::Hashing32;
 using compute::KeyColumnArray;
 
 namespace acero {
+
+namespace {
+
+Status ValidateHashJoinNodeOptions(const HashJoinNodeOptions& join_options) {
+  if (join_options.key_cmp.empty() || join_options.left_keys.empty() ||
+      join_options.right_keys.empty()) {
+    return Status::Invalid("key_cmp and keys cannot be empty");
+  }
+
+  if ((join_options.key_cmp.size() != join_options.left_keys.size()) ||
+      (join_options.key_cmp.size() != join_options.right_keys.size())) {
+    return Status::Invalid("key_cmp and keys must have the same size");
+  }
+
+  return Status::OK();
+}
+
+}  // namespace
 
 // Check if a type is supported in a join (as either a key or non-key column)
 bool HashJoinSchema::IsTypeSupported(const DataType& type) {
@@ -61,30 +81,30 @@ Result<std::vector<FieldRef>> HashJoinSchema::ComputePayload(
     const std::vector<FieldRef>& filter, const std::vector<FieldRef>& keys) {
   // payload = (output + filter) - keys, with no duplicates
   std::unordered_set<int> payload_fields;
-  for (auto ref : output) {
+  for (const auto& ref : output) {
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
     payload_fields.insert(match[0]);
   }
 
-  for (auto ref : filter) {
+  for (const auto& ref : filter) {
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
     payload_fields.insert(match[0]);
   }
 
-  for (auto ref : keys) {
+  for (const auto& ref : keys) {
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
     payload_fields.erase(match[0]);
   }
 
   std::vector<FieldRef> payload_refs;
-  for (auto ref : output) {
+  for (const auto& ref : output) {
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
     if (payload_fields.find(match[0]) != payload_fields.end()) {
       payload_refs.push_back(ref);
       payload_fields.erase(match[0]);
     }
   }
-  for (auto ref : filter) {
+  for (const auto& ref : filter) {
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
     if (payload_fields.find(match[0]) != payload_fields.end()) {
       payload_refs.push_back(ref);
@@ -198,7 +218,7 @@ Status HashJoinSchema::ValidateSchemas(JoinType join_type, const Schema& left_sc
     return Status::Invalid("Different number of key fields on left (", left_keys.size(),
                            ") and right (", right_keys.size(), ") side of the join");
   }
-  if (left_keys.size() < 1) {
+  if (left_keys.empty()) {
     return Status::Invalid("Join key cannot be empty");
   }
   for (size_t i = 0; i < left_keys.size() + right_keys.size(); ++i) {
@@ -432,7 +452,7 @@ Status HashJoinSchema::CollectFilterColumns(std::vector<FieldRef>& left_filter,
         indices[0] -= left_schema.num_fields();
         FieldPath corrected_path(std::move(indices));
         if (right_seen_paths.find(*path) == right_seen_paths.end()) {
-          right_filter.push_back(corrected_path);
+          right_filter.emplace_back(corrected_path);
           right_seen_paths.emplace(std::move(corrected_path));
         }
       } else if (left_seen_paths.find(*path) == left_seen_paths.end()) {
@@ -464,20 +484,6 @@ Status HashJoinSchema::CollectFilterColumns(std::vector<FieldRef>& left_filter,
       }
     }
   }
-  return Status::OK();
-}
-
-Status ValidateHashJoinNodeOptions(const HashJoinNodeOptions& join_options) {
-  if (join_options.key_cmp.empty() || join_options.left_keys.empty() ||
-      join_options.right_keys.empty()) {
-    return Status::Invalid("key_cmp and keys cannot be empty");
-  }
-
-  if ((join_options.key_cmp.size() != join_options.left_keys.size()) ||
-      (join_options.key_cmp.size() != join_options.right_keys.size())) {
-    return Status::Invalid("key_cmp and keys must have the same size");
-  }
-
   return Status::OK();
 }
 
@@ -698,7 +704,7 @@ class HashJoinNode : public ExecNode, public TracedNode {
                std::shared_ptr<Schema> output_schema,
                std::unique_ptr<HashJoinSchema> schema_mgr, Expression filter,
                std::unique_ptr<HashJoinImpl> impl)
-      : ExecNode(plan, inputs, {"left", "right"},
+      : ExecNode(plan, std::move(inputs), {"left", "right"},
                  /*output_schema=*/std::move(output_schema)),
         TracedNode(this),
         join_type_(join_options.join_type),
@@ -772,6 +778,9 @@ class HashJoinNode : public ExecNode, public TracedNode {
   const char* kind_name() const override { return "HashJoinNode"; }
 
   Status OnBuildSideBatch(size_t thread_index, ExecBatch batch) {
+    if (batch.length == 0) {
+      return Status::OK();
+    }
     std::lock_guard<std::mutex> guard(build_side_mutex_);
     build_accumulator_.InsertBatch(std::move(batch));
     return Status::OK();

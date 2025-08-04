@@ -19,6 +19,9 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_python cimport CTimePoint
+
+from libcpp.map cimport multimap
 
 
 cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
@@ -134,6 +137,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
         CTicket ticket
         vector[CLocation] locations
+        optional[CTimePoint] expiration_time
+        c_string app_metadata
 
         bint operator==(CFlightEndpoint)
         CResult[c_string] SerializeToString()
@@ -146,6 +151,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CFlightInfo(CFlightInfo info)
         int64_t total_records()
         int64_t total_bytes()
+        c_bool ordered()
+        c_string app_metadata()
         CResult[shared_ptr[CSchema]] GetSchema(CDictionaryMemo* memo)
         CFlightDescriptor& descriptor()
         const vector[CFlightEndpoint]& endpoints()
@@ -306,20 +313,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CCallInfo" arrow::flight::CallInfo":
         CFlightMethod method
 
-    # This is really std::unordered_multimap, but Cython has no
-    # bindings for it, so treat it as an opaque class and bind the
-    # methods we need
-    cdef cppclass CCallHeaders" arrow::flight::CallHeaders":
-        cppclass const_iterator:
-            pair[c_string, c_string] operator*()
-            # For Cython < 3
-            const_iterator operator++()
-            # For Cython >= 3
-            const_iterator operator++(int)
-            bint operator==(const_iterator)
-            bint operator!=(const_iterator)
-        const_iterator cbegin()
-        const_iterator cend()
+    ctypedef multimap[cpp_string_view, cpp_string_view] CCallHeaders\
+        " arrow::flight::CallHeaders"
 
     cdef cppclass CAddCallHeaders" arrow::flight::AddCallHeaders":
         void AddHeader(const c_string& key, const c_string& value)
@@ -608,6 +603,8 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         vector[CFlightEndpoint] endpoints,
         int64_t total_records,
         int64_t total_bytes,
+        c_bool ordered,
+        const c_string& app_metadata,
         unique_ptr[CFlightInfo]* out)
 
     cdef CStatus CreateSchemaResult" arrow::py::flight::CreateSchemaResult"(

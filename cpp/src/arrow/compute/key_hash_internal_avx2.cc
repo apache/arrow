@@ -15,10 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <immintrin.h>
-
 #include "arrow/compute/key_hash_internal.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/simd.h"
 
 namespace arrow {
 namespace compute {

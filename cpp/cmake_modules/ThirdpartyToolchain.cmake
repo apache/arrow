@@ -67,7 +67,6 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     Snappy
     Substrait
     Thrift
-    ucx
     utf8proc
     xsimd
     ZLIB
@@ -218,8 +217,6 @@ macro(build_dependency DEPENDENCY_NAME)
     build_substrait()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
     build_thrift()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "ucx")
-    build_ucx()
   elseif("${DEPENDENCY_NAME}" STREQUAL "utf8proc")
     build_utf8proc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "xsimd")
@@ -259,7 +256,7 @@ macro(resolve_dependency DEPENDENCY_NAME)
       IS_RUNTIME_DEPENDENCY
       REQUIRED_VERSION
       USE_CONFIG)
-  set(multi_value_args COMPONENTS PC_PACKAGE_NAMES)
+  set(multi_value_args COMPONENTS OPTIONAL_COMPONENTS PC_PACKAGE_NAMES)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -286,6 +283,9 @@ macro(resolve_dependency DEPENDENCY_NAME)
   endif()
   if(ARG_COMPONENTS)
     list(APPEND FIND_PACKAGE_ARGUMENTS COMPONENTS ${ARG_COMPONENTS})
+  endif()
+  if(ARG_OPTIONAL_COMPONENTS)
+    list(APPEND FIND_PACKAGE_ARGUMENTS OPTIONAL_COMPONENTS ${ARG_OPTIONAL_COMPONENTS})
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
     find_package(${FIND_PACKAGE_ARGUMENTS})
@@ -374,21 +374,18 @@ target_include_directories(arrow::flatbuffers
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
 
-if(PARQUET_REQUIRE_ENCRYPTION)
-  set(ARROW_JSON ON)
-endif()
-
 if(ARROW_WITH_OPENTELEMETRY)
   set(ARROW_WITH_NLOHMANN_JSON ON)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
-if(ARROW_THRIFT)
-  set(ARROW_WITH_ZLIB ON)
+if(ARROW_PARQUET)
+  set(ARROW_WITH_RAPIDJSON ON)
+  set(ARROW_WITH_THRIFT ON)
 endif()
 
-if(ARROW_PARQUET)
-  set(ARROW_WITH_THRIFT ON)
+if(ARROW_WITH_THRIFT)
+  set(ARROW_WITH_ZLIB ON)
 endif()
 
 if(ARROW_FLIGHT)
@@ -410,7 +407,7 @@ if(ARROW_AZURE)
   set(ARROW_WITH_AZURE_SDK ON)
 endif()
 
-if(ARROW_JSON)
+if(ARROW_JSON OR ARROW_FLIGHT_SQL_ODBC)
   set(ARROW_WITH_RAPIDJSON ON)
 endif()
 
@@ -601,17 +598,8 @@ endif()
 if(DEFINED ENV{ARROW_BOOST_URL})
   set(BOOST_SOURCE_URL "$ENV{ARROW_BOOST_URL}")
 else()
-  string(REPLACE "." "_" ARROW_BOOST_BUILD_VERSION_UNDERSCORES
-                 ${ARROW_BOOST_BUILD_VERSION})
   set_urls(BOOST_SOURCE_URL
-           # These are trimmed boost bundles we maintain.
-           # See cpp/build-support/trim-boost.sh
-           # FIXME(ARROW-6407) automate uploading this archive to ensure it reflects
-           # our currently used packages and doesn't fall out of sync with
-           # ${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}
-           "${THIRDPARTY_MIRROR_URL}/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
-           "https://boostorg.jfrog.io/artifactory/main/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
-           "https://sourceforge.net/projects/boost/files/boost/${ARROW_BOOST_BUILD_VERSION}/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
+           "https://github.com/boostorg/boost/releases/download/boost-${ARROW_BOOST_BUILD_VERSION}/boost-${ARROW_BOOST_BUILD_VERSION}-cmake.tar.gz"
   )
 endif()
 
@@ -694,8 +682,7 @@ if(DEFINED ENV{ARROW_GTEST_URL})
   set(GTEST_SOURCE_URL "$ENV{ARROW_GTEST_URL}")
 else()
   set_urls(GTEST_SOURCE_URL
-           "https://github.com/google/googletest/archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
-           "https://chromium.googlesource.com/external/github.com/google/googletest/+archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
+           "https://github.com/google/googletest/releases/download/v${ARROW_GTEST_BUILD_VERSION}/googletest-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz")
 endif()
 
@@ -735,9 +722,8 @@ if(DEFINED ENV{ARROW_ORC_URL})
   set(ORC_SOURCE_URL "$ENV{ARROW_ORC_URL}")
 else()
   set_urls(ORC_SOURCE_URL
-           "https://www.apache.org/dyn/closer.cgi?action=download&filename=/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
-           "https://downloads.apache.org/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
-           "https://github.com/apache/orc/archive/rel/release-${ARROW_ORC_BUILD_VERSION}.tar.gz"
+           "https://www.apache.org/dyn/closer.lua/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz?action=download"
+           "https://dlcdn.apache.org/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -813,28 +799,10 @@ endif()
 if(DEFINED ENV{ARROW_THRIFT_URL})
   set(THRIFT_SOURCE_URL "$ENV{ARROW_THRIFT_URL}")
 else()
-  set_urls(THRIFT_SOURCE_URL
-           "https://www.apache.org/dyn/closer.cgi?action=download&filename=/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://downloads.apache.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://apache.claz.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://apache.cs.utah.edu/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://apache.mirrors.lucidnetworks.net/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://apache.osuosl.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://ftp.wayne.edu/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://mirror.olnevhost.net/pub/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://mirrors.gigenet.com/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://mirrors.koehn.com/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://mirrors.ocf.berkeley.edu/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://mirrors.sonic.net/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://us.mirrors.quenda.co/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "${THIRDPARTY_MIRROR_URL}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz")
-endif()
-
-if(DEFINED ENV{ARROW_UCX_URL})
-  set(ARROW_UCX_SOURCE_URL "$ENV{ARROW_UCX_URL}")
-else()
-  set_urls(ARROW_UCX_SOURCE_URL
-           "https://github.com/openucx/ucx/archive/v${ARROW_UCX_BUILD_VERSION}.tar.gz")
+  set(THRIFT_SOURCE_URL
+      "https://www.apache.org/dyn/closer.lua/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz?action=download"
+      "https://dlcdn.apache.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+  )
 endif()
 
 if(DEFINED ENV{ARROW_UTF8PROC_URL})
@@ -976,7 +944,11 @@ set(EP_COMMON_CMAKE_ARGS
     -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=${CMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY}
     -DCMAKE_INSTALL_LIBDIR=lib
     -DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT}
-    -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE})
+    -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE}
+    # We set CMAKE_POLICY_VERSION_MINIMUM temporarily due to failures with CMake 4
+    # We should remove it once we have updated the dependencies:
+    # https://github.com/apache/arrow/issues/45985
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
 
 # if building with a toolchain file, pass that through
 if(CMAKE_TOOLCHAIN_FILE)
@@ -997,9 +969,11 @@ endif()
 
 # Enable s/ccache if set by parent.
 if(CMAKE_C_COMPILER_LAUNCHER AND CMAKE_CXX_COMPILER_LAUNCHER)
+  file(TO_CMAKE_PATH "${CMAKE_C_COMPILER_LAUNCHER}" EP_CMAKE_C_COMPILER_LAUNCHER)
+  file(TO_CMAKE_PATH "${CMAKE_CXX_COMPILER_LAUNCHER}" EP_CMAKE_CXX_COMPILER_LAUNCHER)
   list(APPEND EP_COMMON_CMAKE_ARGS
-       -DCMAKE_C_COMPILER_LAUNCHER=${CMAKE_C_COMPILER_LAUNCHER}
-       -DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER})
+       -DCMAKE_C_COMPILER_LAUNCHER=${EP_CMAKE_C_COMPILER_LAUNCHER}
+       -DCMAKE_CXX_COMPILER_LAUNCHER=${EP_CMAKE_CXX_COMPILER_LAUNCHER})
 endif()
 
 if(NOT ARROW_VERBOSE_THIRDPARTY_BUILD)
@@ -1031,7 +1005,7 @@ endif()
 set(MAKE_BUILD_ARGS "-j${NPROC}")
 
 include(FetchContent)
-set(FC_DECLARE_COMMON_OPTIONS)
+set(FC_DECLARE_COMMON_OPTIONS SYSTEM)
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.28)
   list(APPEND FC_DECLARE_COMMON_OPTIONS EXCLUDE_FROM_ALL TRUE)
 endif()
@@ -1039,9 +1013,19 @@ endif()
 macro(prepare_fetchcontent)
   set(BUILD_SHARED_LIBS OFF)
   set(BUILD_STATIC_LIBS ON)
-  set(CMAKE_COMPILE_WARNING_AS_ERROR FALSE)
-  set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
+  set(BUILD_TESTING OFF)
+  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "")
+  set(CMAKE_COMPILE_WARNING_AS_ERROR OFF)
+  set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY ON)
+  set(CMAKE_EXPORT_PACKAGE_REGISTRY OFF)
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "")
   set(CMAKE_MACOSX_RPATH ${ARROW_INSTALL_NAME_RPATH})
+  # We set CMAKE_POLICY_VERSION_MINIMUM temporarily due to failures with CMake 4
+  # We should remove it once we have updated the dependencies:
+  # https://github.com/apache/arrow/issues/45985
+  set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "")
+
   if(MSVC)
     string(REPLACE "/WX" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
     string(REPLACE "/WX" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
@@ -1062,119 +1046,132 @@ endif()
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu)
 
-macro(build_boost)
-  set(BOOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/boost_ep-prefix/src/boost_ep")
+function(build_boost)
+  list(APPEND CMAKE_MESSAGE_INDENT "Boost: ")
+  message(STATUS "Building from source")
 
-  # This is needed by the thrift_ep build
-  set(BOOST_ROOT ${BOOST_PREFIX})
-  set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
+  fetchcontent_declare(boost
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${BOOST_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}")
 
-  if(ARROW_BOOST_REQUIRE_LIBRARY)
-    set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
-    set(BOOST_BUILD_LINK "static")
-    if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-      set(BOOST_BUILD_VARIANT "debug")
-    else()
-      set(BOOST_BUILD_VARIANT "release")
-    endif()
-    if(MSVC)
-      set(BOOST_CONFIGURE_COMMAND ".\\\\bootstrap.bat")
-    else()
-      set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh")
-    endif()
-
-    set(BOOST_BUILD_WITH_LIBRARIES "filesystem" "system")
-    string(REPLACE ";" "," BOOST_CONFIGURE_LIBRARIES "${BOOST_BUILD_WITH_LIBRARIES}")
-    list(APPEND BOOST_CONFIGURE_COMMAND "--prefix=${BOOST_PREFIX}"
-         "--with-libraries=${BOOST_CONFIGURE_LIBRARIES}")
-    set(BOOST_BUILD_COMMAND "./b2" "-j${NPROC}" "link=${BOOST_BUILD_LINK}"
-                            "variant=${BOOST_BUILD_VARIANT}")
-    if(MSVC)
-      string(REGEX REPLACE "([0-9])$" ".\\1" BOOST_TOOLSET_MSVC_VERSION
-                           ${MSVC_TOOLSET_VERSION})
-      list(APPEND BOOST_BUILD_COMMAND "toolset=msvc-${BOOST_TOOLSET_MSVC_VERSION}")
-      set(BOOST_BUILD_WITH_LIBRARIES_MSVC)
-      foreach(_BOOST_LIB ${BOOST_BUILD_WITH_LIBRARIES})
-        list(APPEND BOOST_BUILD_WITH_LIBRARIES_MSVC "--with-${_BOOST_LIB}")
-      endforeach()
-      list(APPEND BOOST_BUILD_COMMAND ${BOOST_BUILD_WITH_LIBRARIES_MSVC})
-    else()
-      list(APPEND BOOST_BUILD_COMMAND "cxxflags=-fPIC")
-    endif()
-
-    if(MSVC)
-      string(REGEX
-             REPLACE "^([0-9]+)\\.([0-9]+)\\.[0-9]+$" "\\1_\\2"
-                     ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE
-                     ${ARROW_BOOST_BUILD_VERSION})
-      set(BOOST_LIBRARY_SUFFIX "-vc${MSVC_TOOLSET_VERSION}-mt")
-      if(BOOST_BUILD_VARIANT STREQUAL "debug")
-        set(BOOST_LIBRARY_SUFFIX "${BOOST_LIBRARY_SUFFIX}-gd")
-      endif()
-      set(BOOST_LIBRARY_SUFFIX
-          "${BOOST_LIBRARY_SUFFIX}-x64-${ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE}")
-    else()
-      set(BOOST_LIBRARY_SUFFIX "")
-    endif()
-    set(BOOST_STATIC_SYSTEM_LIBRARY
-        "${BOOST_LIB_DIR}/libboost_system${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-    set(BOOST_STATIC_FILESYSTEM_LIBRARY
-        "${BOOST_LIB_DIR}/libboost_filesystem${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-    set(BOOST_SYSTEM_LIBRARY boost_system_static)
-    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-    set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
-                             ${BOOST_STATIC_FILESYSTEM_LIBRARY})
-
-    add_thirdparty_lib(Boost::system
-                       STATIC
-                       "${BOOST_STATIC_SYSTEM_LIBRARY}"
-                       INCLUDE_DIRECTORIES
-                       "${Boost_INCLUDE_DIR}")
-    add_thirdparty_lib(Boost::filesystem
-                       STATIC
-                       "${BOOST_STATIC_FILESYSTEM_LIBRARY}"
-                       INCLUDE_DIRECTORIES
-                       "${Boost_INCLUDE_DIR}")
-
-    externalproject_add(boost_ep
-                        ${EP_COMMON_OPTIONS}
-                        URL ${BOOST_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}"
-                        BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
-                        BUILD_IN_SOURCE 1
-                        CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
-                        BUILD_COMMAND ${BOOST_BUILD_COMMAND}
-                        INSTALL_COMMAND "")
-    add_dependencies(Boost::system boost_ep)
-    add_dependencies(Boost::filesystem boost_ep)
+  prepare_fetchcontent()
+  set(BOOST_ENABLE_COMPATIBILITY_TARGETS ON)
+  set(BOOST_EXCLUDE_LIBRARIES)
+  set(BOOST_INCLUDE_LIBRARIES
+      ${ARROW_BOOST_COMPONENTS}
+      ${ARROW_BOOST_OPTIONAL_COMPONENTS}
+      algorithm
+      crc
+      numeric/conversion
+      scope_exit
+      throw_exception
+      tokenizer)
+  if(ARROW_TESTING
+     OR ARROW_GANDIVA
+     OR (NOT ARROW_USE_NATIVE_INT128))
+    set(ARROW_BOOST_NEED_MULTIPRECISION TRUE)
   else()
-    externalproject_add(boost_ep
-                        ${EP_COMMON_OPTIONS}
-                        BUILD_COMMAND ""
-                        CONFIGURE_COMMAND ""
-                        INSTALL_COMMAND ""
-                        URL ${BOOST_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}")
+    set(ARROW_BOOST_NEED_MULTIPRECISION FALSE)
   endif()
-  add_library(Boost::headers INTERFACE IMPORTED)
-  target_include_directories(Boost::headers INTERFACE "${Boost_INCLUDE_DIR}")
-  add_dependencies(Boost::headers boost_ep)
-  # If Boost is found but one of system or filesystem components aren't found,
-  # Boost::disable_autolinking and Boost::dynamic_linking are already defined.
-  if(NOT TARGET Boost::disable_autolinking)
-    add_library(Boost::disable_autolinking INTERFACE IMPORTED)
-    if(WIN32)
-      target_compile_definitions(Boost::disable_autolinking INTERFACE "BOOST_ALL_NO_LIB")
+  if(ARROW_ENABLE_THREADING)
+    if(ARROW_WITH_THRIFT OR (ARROW_FLIGHT_SQL_ODBC AND MSVC))
+      list(APPEND BOOST_INCLUDE_LIBRARIES locale)
+    endif()
+    if(ARROW_BOOST_NEED_MULTIPRECISION)
+      list(APPEND BOOST_INCLUDE_LIBRARIES multiprecision)
+    endif()
+    list(APPEND BOOST_INCLUDE_LIBRARIES thread)
+  else()
+    list(APPEND
+         BOOST_EXCLUDE_LIBRARIES
+         asio
+         container
+         date_time
+         lexical_cast
+         locale
+         lockfree
+         math
+         thread)
+  endif()
+  if(ARROW_WITH_THRIFT)
+    list(APPEND BOOST_INCLUDE_LIBRARIES uuid)
+  else()
+    list(APPEND BOOST_EXCLUDE_LIBRARIES uuid)
+  endif()
+  set(BOOST_SKIP_INSTALL_RULES ON)
+  if(NOT ARROW_ENABLE_THREADING)
+    set(BOOST_UUID_LINK_LIBATOMIC OFF)
+  endif()
+  if(MSVC)
+    string(APPEND CMAKE_C_FLAGS " /EHsc")
+    string(APPEND CMAKE_CXX_FLAGS " /EHsc")
+  else()
+    # This is for https://github.com/boostorg/container/issues/305
+    string(APPEND CMAKE_C_FLAGS " -Wno-strict-prototypes")
+  endif()
+  set(CMAKE_UNITY_BUILD OFF)
+
+  fetchcontent_makeavailable(boost)
+
+  set(boost_include_dirs)
+  foreach(library ${BOOST_INCLUDE_LIBRARIES})
+    # boost_numeric/conversion ->
+    # boost_numeric_conversion
+    string(REPLACE "/" "_" target_name "boost_${library}")
+    target_link_libraries(${target_name} INTERFACE Boost::disable_autolinking)
+    list(APPEND boost_include_dirs
+         $<TARGET_PROPERTY:${target_name},INTERFACE_INCLUDE_DIRECTORIES>)
+  endforeach()
+  target_link_libraries(boost_headers
+                        INTERFACE Boost::algorithm
+                                  Boost::crc
+                                  Boost::numeric_conversion
+                                  Boost::scope_exit
+                                  Boost::throw_exception
+                                  Boost::tokenizer)
+  target_compile_definitions(boost_mpl INTERFACE "BOOST_MPL_CFG_NO_PREPROCESSED_HEADERS")
+
+  if(ARROW_BOOST_NEED_MULTIPRECISION)
+    if(ARROW_ENABLE_THREADING)
+      target_link_libraries(boost_headers INTERFACE Boost::multiprecision)
+    else()
+      # We want to use Boost.multiprecision as standalone mode
+      # without threading because non-standalone mode requires
+      # threading. We can't use BOOST_MP_STANDALONE CMake variable for
+      # this with Boost CMake build. So we create our CMake target for
+      # it.
+      add_library(arrow::Boost::multiprecision INTERFACE IMPORTED)
+      target_include_directories(arrow::Boost::multiprecision
+                                 INTERFACE "${boost_SOURCE_DIR}/libs/multiprecision/include"
+      )
+      target_compile_definitions(arrow::Boost::multiprecision
+                                 INTERFACE BOOST_MP_STANDALONE=1)
+      target_link_libraries(boost_headers INTERFACE arrow::Boost::multiprecision)
     endif()
   endif()
-  if(NOT TARGET Boost::dynamic_linking)
-    # This doesn't add BOOST_ALL_DYN_LINK because bundled Boost is a static library.
-    add_library(Boost::dynamic_linking INTERFACE IMPORTED)
+  if(ARROW_WITH_THRIFT)
+    if(ARROW_ENABLE_THREADING)
+      add_library(arrow::Boost::locale ALIAS boost_locale)
+    else()
+      # Apache Parquet depends on Apache Thrift.
+      # Apache Thrift uses Boost.locale but it only uses header files.
+      # So we can use this for building Apache Thrift.
+      add_library(arrow::Boost::locale INTERFACE IMPORTED)
+      target_include_directories(arrow::Boost::locale
+                                 INTERFACE "${boost_SOURCE_DIR}/libs/locale/include")
+    endif()
   endif()
-  set(BOOST_VENDORED TRUE)
-endmacro()
+
+  set(Boost_INCLUDE_DIRS
+      ${boost_include_dirs}
+      PARENT_SCOPE)
+  set(BOOST_VENDORED
+      TRUE
+      PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER
                                               15)
@@ -1191,7 +1188,16 @@ set(Boost_USE_MULTITHREADED ON)
 if(MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
+# CMake 3.25.0 has 1.80 and older versions.
 set(Boost_ADDITIONAL_VERSIONS
+    "1.88.0"
+    "1.88"
+    "1.87.0"
+    "1.87"
+    "1.86.0"
+    "1.86"
+    "1.85.0"
+    "1.85"
     "1.84.0"
     "1.84"
     "1.83.0"
@@ -1199,49 +1205,7 @@ set(Boost_ADDITIONAL_VERSIONS
     "1.82.0"
     "1.82"
     "1.81.0"
-    "1.81"
-    "1.80.0"
-    "1.80"
-    "1.79.0"
-    "1.79"
-    "1.78.0"
-    "1.78"
-    "1.77.0"
-    "1.77"
-    "1.76.0"
-    "1.76"
-    "1.75.0"
-    "1.75"
-    "1.74.0"
-    "1.74"
-    "1.73.0"
-    "1.73"
-    "1.72.0"
-    "1.72"
-    "1.71.0"
-    "1.71"
-    "1.70.0"
-    "1.70"
-    "1.69.0"
-    "1.69"
-    "1.68.0"
-    "1.68"
-    "1.67.0"
-    "1.67"
-    "1.66.0"
-    "1.66"
-    "1.65.0"
-    "1.65"
-    "1.64.0"
-    "1.64"
-    "1.63.0"
-    "1.63"
-    "1.62.0"
-    "1.61"
-    "1.61.0"
-    "1.62"
-    "1.60.0"
-    "1.60")
+    "1.81")
 
 # Compilers that don't support int128_t have a compile-time
 # (header-only) dependency on Boost for int128_t.
@@ -1263,13 +1227,20 @@ endif()
 # - Gandiva has a compile-time (header-only) dependency on Boost, not runtime.
 # - Tests need Boost at runtime.
 # - S3FS and Flight benchmarks need Boost at runtime.
+# - arrow_testing uses boost::filesystem. So arrow_testing requires
+#   Boost library. (boost::filesystem isn't header-only.) But if we
+#   use arrow_testing as a static library without
+#   using arrow::util::Process, we don't need boost::filesystem.
 if(ARROW_BUILD_INTEGRATION
    OR ARROW_BUILD_TESTS
    OR (ARROW_FLIGHT AND (ARROW_TESTING OR ARROW_BUILD_BENCHMARKS))
-   OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS))
+   OR ARROW_FLIGHT_SQL_ODBC
+   OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS)
+   OR (ARROW_TESTING AND ARROW_BUILD_SHARED))
   set(ARROW_USE_BOOST TRUE)
   set(ARROW_BOOST_REQUIRE_LIBRARY TRUE)
 elseif(ARROW_GANDIVA
+       OR ARROW_TESTING
        OR ARROW_WITH_THRIFT
        OR (NOT ARROW_USE_NATIVE_INT128))
   set(ARROW_USE_BOOST TRUE)
@@ -1289,15 +1260,24 @@ if(ARROW_USE_BOOST)
     set(Boost_USE_STATIC_LIBS ON)
   endif()
   if(ARROW_BOOST_REQUIRE_LIBRARY)
-    set(ARROW_BOOST_COMPONENTS system filesystem)
+    set(ARROW_BOOST_COMPONENTS filesystem system)
+    if(ARROW_FLIGHT_SQL_ODBC AND MSVC)
+      list(APPEND ARROW_BOOST_COMPONENTS locale)
+    endif()
+    if(ARROW_ENABLE_THREADING)
+      set(ARROW_BOOST_OPTIONAL_COMPONENTS process)
+    endif()
   else()
     set(ARROW_BOOST_COMPONENTS)
+    set(ARROW_BOOST_OPTIONAL_COMPONENTS)
   endif()
   resolve_dependency(Boost
                      REQUIRED_VERSION
                      ${ARROW_BOOST_REQUIRED_VERSION}
                      COMPONENTS
                      ${ARROW_BOOST_COMPONENTS}
+                     OPTIONAL_COMPONENTS
+                     ${ARROW_BOOST_OPTIONAL_COMPONENTS}
                      IS_RUNTIME_DEPENDENCY
                      # libarrow.so doesn't depend on libboost*.
                      FALSE)
@@ -1306,24 +1286,71 @@ if(ARROW_USE_BOOST)
     unset(BUILD_SHARED_LIBS_KEEP)
   endif()
 
-  foreach(BOOST_LIBRARY Boost::headers Boost::filesystem Boost::system)
-    if(NOT TARGET ${BOOST_LIBRARY})
-      continue()
-    endif()
-    target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::disable_autolinking)
-    if(ARROW_BOOST_USE_SHARED)
-      target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::dynamic_linking)
-    endif()
-  endforeach()
+  if(NOT BOOST_VENDORED)
+    foreach(BOOST_COMPONENT ${ARROW_BOOST_COMPONENTS} ${ARROW_BOOST_OPTIONAL_COMPONENTS})
+      set(BOOST_LIBRARY Boost::${BOOST_COMPONENT})
+      if(NOT TARGET ${BOOST_LIBRARY})
+        continue()
+      endif()
+      target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::disable_autolinking)
+      if(ARROW_BOOST_USE_SHARED)
+        target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::dynamic_linking)
+      endif()
+    endforeach()
+  endif()
 
-  if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    # boost/process/detail/windows/handle_workaround.hpp doesn't work
-    # without BOOST_USE_WINDOWS_H with MinGW because MinGW doesn't
-    # provide __kernel_entry without winternl.h.
-    #
-    # See also:
-    # https://github.com/boostorg/process/blob/develop/include/boost/process/detail/windows/handle_workaround.hpp
-    target_compile_definitions(Boost::headers INTERFACE "BOOST_USE_WINDOWS_H=1")
+  if(ARROW_ENABLE_THREADING)
+    set(BOOST_PROCESS_HAVE_V2 FALSE)
+    if(TARGET Boost::process)
+      # Boost >= 1.86
+      add_library(arrow::Boost::process INTERFACE IMPORTED)
+      target_link_libraries(arrow::Boost::process INTERFACE Boost::process)
+      target_compile_definitions(arrow::Boost::process INTERFACE "BOOST_PROCESS_HAVE_V1")
+      target_compile_definitions(arrow::Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
+      set(BOOST_PROCESS_HAVE_V2 TRUE)
+    else()
+      # Boost < 1.86
+      add_library(arrow::Boost::process INTERFACE IMPORTED)
+      if(TARGET Boost::filesystem)
+        target_link_libraries(arrow::Boost::process INTERFACE Boost::filesystem)
+      endif()
+      if(TARGET Boost::system)
+        target_link_libraries(arrow::Boost::process INTERFACE Boost::system)
+      endif()
+      if(TARGET Boost::headers)
+        target_link_libraries(arrow::Boost::process INTERFACE Boost::headers)
+      endif()
+      if(Boost_VERSION VERSION_GREATER_EQUAL 1.80)
+        target_compile_definitions(arrow::Boost::process
+                                   INTERFACE "BOOST_PROCESS_HAVE_V2")
+        set(BOOST_PROCESS_HAVE_V2 TRUE)
+        # Boost < 1.86 has a bug that
+        # boost::process::v2::process_environment::on_setup() isn't
+        # defined. We need to build Boost Process source to define it.
+        #
+        # See also:
+        # https://github.com/boostorg/process/issues/312
+        target_compile_definitions(arrow::Boost::process
+                                   INTERFACE "BOOST_PROCESS_NEED_SOURCE")
+        if(WIN32)
+          target_link_libraries(arrow::Boost::process INTERFACE bcrypt ntdll)
+        endif()
+      endif()
+    endif()
+    if(BOOST_PROCESS_HAVE_V2
+       AND # We can't use v2 API on Windows because v2 API doesn't support
+           # process group[1] and GCS testbench uses multiple processes[2].
+           #
+           # [1] https://github.com/boostorg/process/issues/259
+           # [2] https://github.com/googleapis/storage-testbench/issues/669
+           (NOT WIN32)
+       AND # We can't use v2 API with musl libc with Boost Process < 1.86
+           # because Boost Process < 1.86 doesn't support musl libc[3].
+           #
+           # [3] https://github.com/boostorg/process/commit/aea22dbf6be1695ceb42367590b6ca34d9433500
+           (NOT (ARROW_WITH_MUSL AND (Boost_VERSION VERSION_LESS 1.86))))
+      target_compile_definitions(arrow::Boost::process INTERFACE "BOOST_PROCESS_USE_V2")
+    endif()
   endif()
 
   message(STATUS "Boost include dir: ${Boost_INCLUDE_DIRS}")
@@ -1353,17 +1380,28 @@ macro(build_snappy)
   set(SNAPPY_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS} -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF
       "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
+  # We can remove this once we remove -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+  # from EP_COMMON_CMAKE_ARGS.
+  list(REMOVE_ITEM SNAPPY_CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
   # Snappy unconditionally enables -Werror when building with clang this can lead
   # to build failures by way of new compiler warnings. This adds a flag to disable
-  # Werror to the very end of the invocation to override the snappy internal setting.
+  # -Werror to the very end of the invocation to override the snappy internal setting.
+  set(SNAPPY_ADDITIONAL_CXX_FLAGS "")
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
-      list(APPEND
-           SNAPPY_CMAKE_ARGS
-           "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS_${CONFIG}} -Wno-error"
-      )
-    endforeach()
+    string(APPEND SNAPPY_ADDITIONAL_CXX_FLAGS " -Wno-error")
   endif()
+  # Snappy unconditionally disables RTTI, which is incompatible with some other
+  # build settings (https://github.com/apache/arrow/issues/43688).
+  if(NOT MSVC)
+    string(APPEND SNAPPY_ADDITIONAL_CXX_FLAGS " -frtti")
+  endif()
+
+  foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
+    list(APPEND
+         SNAPPY_CMAKE_ARGS
+         "-DCMAKE_CXX_FLAGS_${CONFIG}=${EP_CXX_FLAGS_${CONFIG}} ${SNAPPY_ADDITIONAL_CXX_FLAGS}"
+    )
+  endforeach()
 
   if(APPLE AND CMAKE_HOST_SYSTEM_VERSION VERSION_LESS 20)
     # On macOS 10.13 we need to explicitly add <functional> to avoid a missing include error
@@ -1616,11 +1654,10 @@ endif()
 if(ARROW_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS
    OR ARROW_BUILD_INTEGRATION
-   OR ARROW_USE_GLOG
-   OR ARROW_WITH_GRPC)
-  set(ARROW_NEED_GFLAGS 1)
+   OR ARROW_USE_GLOG)
+  set(ARROW_NEED_GFLAGS TRUE)
 else()
-  set(ARROW_NEED_GFLAGS 0)
+  set(ARROW_NEED_GFLAGS FALSE)
 endif()
 
 macro(build_gflags)
@@ -1695,85 +1732,87 @@ endif()
 # ----------------------------------------------------------------------
 # Thrift
 
-macro(build_thrift)
-  message(STATUS "Building Apache Thrift from source")
-  set(THRIFT_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/thrift_ep-install")
-  set(THRIFT_INCLUDE_DIR "${THRIFT_PREFIX}/include")
-  set(THRIFT_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      "-DCMAKE_INSTALL_PREFIX=${THRIFT_PREFIX}"
-      "-DCMAKE_INSTALL_RPATH=${THRIFT_PREFIX}/lib"
-      # Work around https://gitlab.kitware.com/cmake/cmake/issues/18865
-      -DBoost_NO_BOOST_CMAKE=ON
-      -DBUILD_COMPILER=OFF
-      -DBUILD_EXAMPLES=OFF
-      -DBUILD_TUTORIALS=OFF
-      -DCMAKE_DEBUG_POSTFIX=
-      -DWITH_AS3=OFF
-      -DWITH_CPP=ON
-      -DWITH_C_GLIB=OFF
-      -DWITH_JAVA=OFF
-      -DWITH_JAVASCRIPT=OFF
-      -DWITH_LIBEVENT=OFF
-      -DWITH_NODEJS=OFF
-      -DWITH_PYTHON=OFF
-      -DWITH_QT5=OFF
-      -DWITH_ZLIB=OFF)
+function(build_thrift)
+  list(APPEND CMAKE_MESSAGE_INDENT "Thrift: ")
+  message(STATUS "Building from source")
 
-  # Thrift also uses boost. Forward important boost settings if there were ones passed.
-  if(DEFINED BOOST_ROOT)
-    list(APPEND THRIFT_CMAKE_ARGS "-DBOOST_ROOT=${BOOST_ROOT}")
+  if(CMAKE_VERSION VERSION_LESS 3.26)
+    message(FATAL_ERROR "Require CMake 3.26 or later for building bundled Apache Thrift")
   endif()
-  if(DEFINED Boost_INCLUDE_DIR)
-    list(APPEND THRIFT_CMAKE_ARGS "-DBoost_INCLUDE_DIR=${Boost_INCLUDE_DIR}")
-  endif()
-  if(DEFINED Boost_NAMESPACE)
-    list(APPEND THRIFT_CMAKE_ARGS "-DBoost_NAMESPACE=${Boost_NAMESPACE}")
-  endif()
+  fetchcontent_declare(thrift
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${THRIFT_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}")
 
+  prepare_fetchcontent()
+  set(BUILD_COMPILER OFF)
+  set(BUILD_EXAMPLES OFF)
+  set(BUILD_TUTORIALS OFF)
+  set(CMAKE_UNITY_BUILD OFF)
+  set(WITH_AS3 OFF)
+  set(WITH_CPP ON)
+  set(WITH_C_GLIB OFF)
+  set(WITH_JAVA OFF)
+  set(WITH_JAVASCRIPT OFF)
+  set(WITH_LIBEVENT OFF)
   if(MSVC)
     if(ARROW_USE_STATIC_CRT)
-      set(THRIFT_LIB_SUFFIX "mt")
-      list(APPEND THRIFT_CMAKE_ARGS "-DWITH_MT=ON")
+      set(WITH_MT ON)
     else()
-      set(THRIFT_LIB_SUFFIX "md")
-      list(APPEND THRIFT_CMAKE_ARGS "-DWITH_MT=OFF")
+      set(WITH_MT OFF)
     endif()
-    set(THRIFT_LIB
-        "${THRIFT_PREFIX}/bin/${CMAKE_IMPORT_LIBRARY_PREFIX}thrift${THRIFT_LIB_SUFFIX}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
-    )
-  else()
-    set(THRIFT_LIB
-        "${THRIFT_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}thrift${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
+  endif()
+  set(WITH_NODEJS OFF)
+  set(WITH_PYTHON OFF)
+  set(WITH_QT5 OFF)
+  set(WITH_ZLIB OFF)
+
+  # Apache Thrift may change CMAKE_DEBUG_POSTFIX. So we'll restore the
+  # original CMAKE_DEBUG_POSTFIX later.
+  set(CMAKE_DEBUG_POSTFIX_KEEP ${CMAKE_DEBUG_POSTFIX})
+
+  # Remove Apache Arrow's CMAKE_MODULE_PATH to ensure using Apache
+  # Thrift's cmake_modules/.
+  #
+  # We can remove this once https://github.com/apache/thrift/pull/3176
+  # is merged.
+  list(POP_FRONT CMAKE_MODULE_PATH)
+  fetchcontent_makeavailable(thrift)
+
+  # Apache Thrift may change CMAKE_DEBUG_POSTFIX. So we restore
+  # CMAKE_DEBUG_POSTFIX.
+  set(CMAKE_DEBUG_POSTFIX
+      ${CMAKE_DEBUG_POSTFIX_KEEP}
+      CACHE BOOL "" FORCE)
+
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${thrift_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
 
+  target_include_directories(thrift
+                             INTERFACE $<BUILD_LOCAL_INTERFACE:${thrift_BINARY_DIR}>
+                                       $<BUILD_LOCAL_INTERFACE:${thrift_SOURCE_DIR}/lib/cpp/src>
+  )
   if(BOOST_VENDORED)
-    set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} boost_ep)
+    target_link_libraries(thrift PUBLIC $<BUILD_LOCAL_INTERFACE:Boost::headers>)
+    target_link_libraries(thrift PRIVATE $<BUILD_LOCAL_INTERFACE:arrow::Boost::locale>)
   endif()
 
-  externalproject_add(thrift_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${THRIFT_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS "${THRIFT_LIB}"
-                      CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
-                      DEPENDS ${THRIFT_DEPENDENCIES})
+  add_library(thrift::thrift INTERFACE IMPORTED)
+  target_link_libraries(thrift::thrift INTERFACE thrift)
 
-  add_library(thrift::thrift STATIC IMPORTED)
-  # The include directory must exist before it is referenced by a target.
-  file(MAKE_DIRECTORY "${THRIFT_INCLUDE_DIR}")
-  set_target_properties(thrift::thrift PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}")
-  target_include_directories(thrift::thrift BEFORE INTERFACE "${THRIFT_INCLUDE_DIR}")
-  if(ARROW_USE_BOOST)
-    target_link_libraries(thrift::thrift INTERFACE Boost::headers)
-  endif()
-  add_dependencies(thrift::thrift thrift_ep)
-  set(Thrift_VERSION ${ARROW_THRIFT_BUILD_VERSION})
-  set(THRIFT_VENDORED TRUE)
+  set(Thrift_VERSION
+      ${ARROW_THRIFT_BUILD_VERSION}
+      PARENT_SCOPE)
+  set(THRIFT_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} thrift
+      PARENT_SCOPE)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS thrift::thrift)
-endmacro()
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_THRIFT)
   # Thrift C++ code generated by 0.13 requires 0.11 or greater
@@ -2036,10 +2075,14 @@ macro(build_substrait)
 
     # Missing dll-interface:
     list(APPEND SUBSTRAIT_SUPPRESSED_FLAGS "/wd4251")
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
-                                                        "Clang")
-    # Protobuf generated files trigger some errors on CLANG TSAN builds
-    list(APPEND SUBSTRAIT_SUPPRESSED_FLAGS "-Wno-error=shorten-64-to-32")
+  else()
+    # GH-44954: silence [[deprecated]] declarations in protobuf-generated code
+    list(APPEND SUBSTRAIT_SUPPRESSED_FLAGS "-Wno-deprecated")
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                      "Clang")
+      # Protobuf generated files trigger some errors on CLANG TSAN builds
+      list(APPEND SUBSTRAIT_SUPPRESSED_FLAGS "-Wno-error=shorten-64-to-32")
+    endif()
   endif()
 
   set(SUBSTRAIT_SOURCES)
@@ -2091,6 +2134,7 @@ macro(build_substrait)
 
   add_library(substrait STATIC ${SUBSTRAIT_SOURCES})
   set_target_properties(substrait PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  target_compile_options(substrait PRIVATE "${SUBSTRAIT_SUPPRESSED_FLAGS}")
   target_include_directories(substrait PUBLIC ${SUBSTRAIT_INCLUDES})
   target_link_libraries(substrait PUBLIC ${ARROW_PROTOBUF_LIBPROTOBUF})
   add_dependencies(substrait substrait_gen)
@@ -2205,21 +2249,25 @@ if(ARROW_MIMALLOC)
   # We only use a vendored mimalloc as we want to control its build options.
 
   set(MIMALLOC_LIB_BASE_NAME "mimalloc")
-  if(WIN32)
-    set(MIMALLOC_LIB_BASE_NAME "${MIMALLOC_LIB_BASE_NAME}-static")
-  endif()
   if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
     set(MIMALLOC_LIB_BASE_NAME "${MIMALLOC_LIB_BASE_NAME}-${LOWERCASE_BUILD_TYPE}")
   endif()
 
   set(MIMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/mimalloc_ep/src/mimalloc_ep")
-  set(MIMALLOC_INCLUDE_DIR "${MIMALLOC_PREFIX}/include/mimalloc-2.0")
+  set(MIMALLOC_INCLUDE_DIR "${MIMALLOC_PREFIX}/include/mimalloc-2.2")
   set(MIMALLOC_STATIC_LIB
-      "${MIMALLOC_PREFIX}/lib/mimalloc-2.0/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${MIMALLOC_PREFIX}/lib/mimalloc-2.2/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
+
+  set(MIMALLOC_C_FLAGS ${EP_C_FLAGS})
+  if(MINGW)
+    # Workaround https://github.com/microsoft/mimalloc/issues/910 on RTools40
+    set(MIMALLOC_C_FLAGS "${MIMALLOC_C_FLAGS} -DERROR_COMMITMENT_MINIMUM=635")
+  endif()
 
   set(MIMALLOC_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
+      "-DCMAKE_C_FLAGS=${MIMALLOC_C_FLAGS}"
       "-DCMAKE_INSTALL_PREFIX=${MIMALLOC_PREFIX}"
       -DMI_OVERRIDE=OFF
       -DMI_LOCAL_DYNAMIC_TLS=ON
@@ -2265,6 +2313,9 @@ function(build_gtest)
                        URL ${GTEST_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_GTEST_BUILD_SHA256_CHECKSUM}")
   prepare_fetchcontent()
+  # We can remove this once we remove set(CMAKE_POLICY_VERSION_MINIMUM
+  # 3.5) from prepare_fetchcontent().
+  unset(CMAKE_POLICY_VERSION_MINIMUM)
   if(APPLE)
     string(APPEND CMAKE_CXX_FLAGS " -Wno-unused-value" " -Wno-ignored-attributes")
   endif()
@@ -2508,7 +2559,7 @@ if(ARROW_USE_XSIMD)
                      IS_RUNTIME_DEPENDENCY
                      FALSE
                      REQUIRED_VERSION
-                     "8.1.0")
+                     "13.0.0")
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
     set(ARROW_XSIMD arrow::xsimd)
@@ -2580,35 +2631,46 @@ if(ARROW_WITH_ZLIB)
   resolve_dependency(ZLIB PC_PACKAGE_NAMES zlib)
 endif()
 
-macro(build_lz4)
-  message(STATUS "Building LZ4 from source")
+function(build_lz4)
+  message(STATUS "Building LZ4 from source using FetchContent")
 
-  set(LZ4_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/lz4_ep-install")
+  # Set LZ4 as vendored
+  set(LZ4_VENDORED
+      TRUE
+      PARENT_SCOPE)
 
-  set(LZ4_STATIC_LIB
-      "${LZ4_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}lz4${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  # Declare the content
+  fetchcontent_declare(lz4
+                       URL ${LZ4_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_LZ4_BUILD_SHA256_CHECKSUM}"
+                       SOURCE_SUBDIR "build/cmake")
 
-  set(LZ4_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-                     -DLZ4_BUILD_CLI=OFF -DLZ4_BUILD_LEGACY_LZ4C=OFF)
+  # Prepare fetch content environment
+  prepare_fetchcontent()
 
-  # We need to copy the header in lib to directory outside of the build
-  externalproject_add(lz4_ep
-                      ${EP_COMMON_OPTIONS}
-                      CMAKE_ARGS ${LZ4_CMAKE_ARGS}
-                      SOURCE_SUBDIR "build/cmake"
-                      INSTALL_DIR ${LZ4_PREFIX}
-                      URL ${LZ4_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_LZ4_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS ${LZ4_STATIC_LIB})
+  # Set LZ4-specific build options as cache variables
+  set(LZ4_BUILD_CLI
+      OFF
+      CACHE BOOL "Don't build LZ4 CLI" FORCE)
+  set(LZ4_BUILD_LEGACY_LZ4C
+      OFF
+      CACHE BOOL "Don't build legacy LZ4 tools" FORCE)
 
-  file(MAKE_DIRECTORY "${LZ4_PREFIX}/include")
-  add_library(LZ4::lz4 STATIC IMPORTED)
-  set_target_properties(LZ4::lz4 PROPERTIES IMPORTED_LOCATION "${LZ4_STATIC_LIB}")
-  target_include_directories(LZ4::lz4 BEFORE INTERFACE "${LZ4_PREFIX}/include")
-  add_dependencies(LZ4::lz4 lz4_ep)
+  # Make the dependency available - this will actually perform the download and configure
+  fetchcontent_makeavailable(lz4)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS LZ4::lz4)
-endmacro()
+  # Use LZ4::lz4 as an imported library not an alias of lz4_static so other targets such as orc
+  # can depend on it as an external library. External libraries are ignored in
+  # install(TARGETS orc EXPORT orc_targets) and install(EXPORT orc_targets).
+  add_library(LZ4::lz4 INTERFACE IMPORTED)
+  target_link_libraries(LZ4::lz4 INTERFACE lz4_static)
+
+  # Add to bundled static libs.
+  # We must use lz4_static (not imported target) not LZ4::lz4 (imported target).
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} lz4_static
+      PARENT_SCOPE)
+endfunction()
 
 if(ARROW_WITH_LZ4)
   resolve_dependency(lz4
@@ -2681,6 +2743,10 @@ if(ARROW_WITH_ZSTD)
       set(ARROW_ZSTD_LIBZSTD zstd::libzstd_shared)
     else()
       set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
+    endif()
+    # vcpkg uses zstd::libzstd
+    if(NOT TARGET ${ARROW_ZSTD_LIBZSTD} AND TARGET zstd::libzstd)
+      set(ARROW_ZSTD_LIBZSTD zstd::libzstd)
     endif()
     if(NOT TARGET ${ARROW_ZSTD_LIBZSTD})
       message(FATAL_ERROR "Zstandard target doesn't exist: ${ARROW_ZSTD_LIBZSTD}")
@@ -2785,7 +2851,7 @@ if(ARROW_WITH_BZ2)
     if(BZIP2_TYPE STREQUAL "INTERFACE_LIBRARY")
       # Conan
       string(APPEND ARROW_PC_LIBS_PRIVATE
-             " $<TARGET_FILE:CONAN_LIB::bzip2_bz2_$<CONFIG>>")
+             " $<TARGET_FILE:CONAN_LIB::bzip2_bz2_$<UPPER_CASE:$<CONFIG>>>")
     else()
       string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:BZip2::BZip2>")
     endif()
@@ -2805,6 +2871,10 @@ macro(build_utf8proc)
 
   set(UTF8PROC_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
                           "-DCMAKE_INSTALL_PREFIX=${UTF8PROC_PREFIX}")
+
+  # We can remove this once we remove -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+  # from EP_COMMON_CMAKE_ARGS.
+  list(REMOVE_ITEM UTF8PROC_CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
 
   externalproject_add(utf8proc_ep
                       ${EP_COMMON_OPTIONS}
@@ -2829,7 +2899,7 @@ endmacro()
 
 if(ARROW_WITH_UTF8PROC)
   set(utf8proc_resolve_dependency_args utf8proc PC_PACKAGE_NAMES libutf8proc)
-  if(NOT VCPKG_TOOLCHAIN)
+  if(NOT ARROW_VCPKG)
     # utf8proc in vcpkg doesn't provide version information:
     # https://github.com/microsoft/vcpkg/issues/39176
     list(APPEND utf8proc_resolve_dependency_args REQUIRED_VERSION "2.2.0")
@@ -3885,9 +3955,6 @@ macro(build_grpc)
                       IMPORTED_LOCATION)
   get_target_property(GRPC_CARES_INCLUDE_DIR c-ares::cares INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(GRPC_CARES_ROOT "${GRPC_CARES_INCLUDE_DIR}" DIRECTORY)
-  get_target_property(GRPC_GFLAGS_INCLUDE_DIR ${GFLAGS_LIBRARIES}
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(GRPC_GFLAGS_ROOT "${GRPC_GFLAGS_INCLUDE_DIR}" DIRECTORY)
   get_target_property(GRPC_RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(GRPC_RE2_ROOT "${GRPC_RE2_INCLUDE_DIR}" DIRECTORY)
 
@@ -3895,7 +3962,6 @@ macro(build_grpc)
   # before (what are likely) system directories
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ABSL_PREFIX}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_PB_ROOT}")
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_GFLAGS_ROOT}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_CARES_ROOT}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_RE2_ROOT}")
 
@@ -3945,7 +4011,6 @@ macro(build_grpc)
       -DgRPC_BUILD_GRPC_RUBY_PLUGIN=OFF
       -DgRPC_BUILD_TESTS=OFF
       -DgRPC_CARES_PROVIDER=package
-      -DgRPC_GFLAGS_PROVIDER=package
       -DgRPC_MSVC_STATIC_RUNTIME=${ARROW_USE_STATIC_CRT}
       -DgRPC_PROTOBUF_PROVIDER=package
       -DgRPC_RE2_PROVIDER=package
@@ -4133,7 +4198,7 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP OR ARROW_WITH_GRPC)
                      ARROW_PC_PACKAGE_NAME
                      ${ARROW_ABSL_PC_PACKAGE_NAME}
                      HAVE_ALT
-                     FALSE
+                     TRUE
                      FORCE_ANY_NEWER_VERSION
                      TRUE
                      REQUIRED_VERSION
@@ -4187,6 +4252,14 @@ if(ARROW_WITH_GRPC)
       target_link_libraries(gRPC::grpc++ INTERFACE gRPC::grpc_asan_suppressed)
     endif()
   endif()
+
+  if(ARROW_GRPC_CPP_PLUGIN)
+    if(NOT TARGET gRPC::grpc_cpp_plugin)
+      add_executable(gRPC::grpc_cpp_plugin IMPORTED)
+    endif()
+    set_target_properties(gRPC::grpc_cpp_plugin PROPERTIES IMPORTED_LOCATION
+                                                           ${ARROW_GRPC_CPP_PLUGIN})
+  endif()
 endif()
 
 # ----------------------------------------------------------------------
@@ -4238,6 +4311,10 @@ macro(build_nlohmann_json)
       ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
       # google-cloud-cpp requires JSON_MultipleHeaders=ON
       -DJSON_BuildTests=OFF -DJSON_MultipleHeaders=ON)
+
+  # We can remove this once we remove -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+  # from EP_COMMON_CMAKE_ARGS.
+  list(REMOVE_ITEM NLOHMANN_JSON_CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
 
   set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/nlohmann/json.hpp)
 
@@ -4503,6 +4580,17 @@ target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
 function(build_orc)
   message(STATUS "Building Apache ORC from source")
 
+  if(LZ4_VENDORED)
+    set(ORC_LZ4_TARGET lz4_static)
+    set(ORC_LZ4_ROOT "${lz4_SOURCE_DIR}")
+    set(ORC_LZ4_INCLUDE_DIR "${lz4_SOURCE_DIR}/lib")
+  else()
+    set(ORC_LZ4_TARGET LZ4::lz4)
+    get_target_property(ORC_LZ4_INCLUDE_DIR ${ORC_LZ4_TARGET}
+                        INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_INCLUDE_DIR}" DIRECTORY)
+  endif()
+
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
@@ -4515,16 +4603,14 @@ function(build_orc)
     set(ORC_PREFER_STATIC_LZ4
         OFF
         CACHE BOOL "" FORCE)
-    get_target_property(LZ4_INCLUDE_DIR LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
-    if(NOT LZ4_INCLUDE_DIR)
-      find_path(LZ4_INCLUDE_DIR NAMES lz4.h)
-    endif()
-    get_filename_component(LZ4_ROOT "${LZ4_INCLUDE_DIR}" DIRECTORY)
     set(LZ4_HOME
-        "${LZ4_ROOT}"
+        "${ORC_LZ4_ROOT}"
+        CACHE STRING "" FORCE)
+    set(LZ4_INCLUDE_DIR
+        "${ORC_LZ4_INCLUDE_DIR}"
         CACHE STRING "" FORCE)
     set(LZ4_LIBRARY
-        LZ4::lz4
+        ${ORC_LZ4_TARGET}
         CACHE STRING "" FORCE)
 
     set(ORC_PREFER_STATIC_PROTOBUF
@@ -4563,6 +4649,10 @@ function(build_orc)
     set(ZLIB_HOME
         ${ZLIB_ROOT}
         CACHE STRING "" FORCE)
+    # From CMake 3.21 onwards the set(CACHE) command does not remove any normal
+    # variable of the same name from the current scope. We have to manually remove
+    # the variable via unset to avoid ORC not finding the ZLIB_LIBRARY.
+    unset(ZLIB_LIBRARY)
     set(ZLIB_LIBRARY
         ZLIB::ZLIB
         CACHE STRING "" FORCE)
@@ -4597,16 +4687,10 @@ function(build_orc)
         OFF
         CACHE BOOL "" FORCE)
 
-    # We can remove this with ORC 2.0.2 or later.
-    list(PREPEND CMAKE_MODULE_PATH
-         ${CMAKE_CURRENT_BINARY_DIR}/_deps/orc-src/cmake_modules)
-
     fetchcontent_makeavailable(orc)
 
     add_library(orc::orc INTERFACE IMPORTED)
     target_link_libraries(orc::orc INTERFACE orc)
-    target_include_directories(orc::orc INTERFACE "${orc_BINARY_DIR}/c++/include"
-                                                  "${orc_SOURCE_DIR}/c++/include")
 
     list(APPEND ARROW_BUNDLED_STATIC_LIBS orc)
   else()
@@ -4625,11 +4709,11 @@ function(build_orc)
                         INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
 
-    get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
-
     get_target_property(ORC_ZSTD_ROOT ${ARROW_ZSTD_LIBZSTD} INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_ZSTD_ROOT "${ORC_ZSTD_ROOT}" DIRECTORY)
+
+    get_target_property(ORC_ZLIB_ROOT ZLIB::ZLIB INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(ORC_ZLIB_ROOT "${ORC_ZLIB_ROOT}" DIRECTORY)
 
     set(ORC_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS}
@@ -4640,7 +4724,6 @@ function(build_orc)
         -DBUILD_TOOLS=OFF
         -DBUILD_CPP_TESTS=OFF
         -DINSTALL_VENDORED_LIBS=OFF
-        "-DLZ4_HOME=${ORC_LZ4_ROOT}"
         "-DPROTOBUF_EXECUTABLE=$<TARGET_FILE:${ARROW_PROTOBUF_PROTOC}>"
         "-DPROTOBUF_HOME=${ORC_PROTOBUF_ROOT}"
         "-DPROTOBUF_INCLUDE_DIR=$<TARGET_PROPERTY:${ARROW_PROTOBUF_LIBPROTOBUF},INTERFACE_INCLUDE_DIRECTORIES>"
@@ -4648,16 +4731,17 @@ function(build_orc)
         "-DPROTOC_LIBRARY=$<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOC}>"
         "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
         "-DSNAPPY_LIBRARY=$<TARGET_FILE:${Snappy_TARGET}>"
-        "-DLZ4_LIBRARY=$<TARGET_FILE:LZ4::lz4>"
-        "-DLZ4_STATIC_LIB=$<TARGET_FILE:LZ4::lz4>"
-        "-DLZ4_INCLUDE_DIR=${ORC_LZ4_ROOT}/include"
+        "-DLZ4_HOME=${ORC_LZ4_ROOT}"
+        "-DLZ4_LIBRARY=$<TARGET_FILE:${ORC_LZ4_TARGET}>"
+        "-DLZ4_STATIC_LIB=$<TARGET_FILE:${ORC_LZ4_TARGET}>"
+        "-DLZ4_INCLUDE_DIR=${ORC_LZ4_INCLUDE_DIR}"
         "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
         "-DZSTD_HOME=${ORC_ZSTD_ROOT}"
         "-DZSTD_INCLUDE_DIR=$<TARGET_PROPERTY:${ARROW_ZSTD_LIBZSTD},INTERFACE_INCLUDE_DIRECTORIES>"
-        "-DZSTD_LIBRARY=$<TARGET_FILE:${ARROW_ZSTD_LIBZSTD}>")
-    if(ZLIB_ROOT)
-      set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS} "-DZLIB_HOME=${ZLIB_ROOT}")
-    endif()
+        "-DZSTD_LIBRARY=$<TARGET_FILE:${ARROW_ZSTD_LIBZSTD}>"
+        "-DZLIB_HOME=${ORC_ZLIB_ROOT}"
+        "-DZLIB_INCLUDE_DIR=$<TARGET_PROPERTY:ZLIB::ZLIB,INTERFACE_INCLUDE_DIRECTORIES>"
+        "-DZLIB_LIBRARY=$<TARGET_FILE:ZLIB::ZLIB>")
 
     # Work around CMake bug
     file(MAKE_DIRECTORY ${ORC_INCLUDE_DIR})
@@ -4672,7 +4756,7 @@ function(build_orc)
                                 ${ARROW_PROTOBUF_PROTOC}
                                 ${ARROW_ZSTD_LIBZSTD}
                                 ${Snappy_TARGET}
-                                LZ4::lz4
+                                ${ORC_LZ4_TARGET}
                                 ZLIB::ZLIB)
     add_library(orc::orc STATIC IMPORTED)
     set_target_properties(orc::orc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
@@ -4824,7 +4908,7 @@ macro(build_opentelemetry)
        -DWITH_OTLP_HTTP_SSL_PREVIEW=OFF
        -DWITH_OTLP_HTTP_SSL_TLS_PREVIEW=OFF
        "-DProtobuf_INCLUDE_DIR=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
-       "-DProtobuf_LIBRARY=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
+       "-DProtobuf_LIBRARY=${OPENTELEMETRY_PROTOBUF_LIBRARY}"
        "-DProtobuf_PROTOC_EXECUTABLE=${OPENTELEMETRY_PROTOC_EXECUTABLE}")
 
   # OpenTelemetry with OTLP enabled requires Protobuf definitions from a
@@ -4933,7 +5017,6 @@ if(ARROW_WITH_OPENTELEMETRY)
   # cURL is required whether we build from source or use an existing installation
   # (OTel's cmake files do not call find_curl for you)
   find_curl()
-  set(opentelemetry-cpp_SOURCE "AUTO")
   resolve_dependency(opentelemetry-cpp)
   set(ARROW_OPENTELEMETRY_LIBS
       opentelemetry-cpp::trace
@@ -4950,390 +5033,225 @@ endif()
 # ----------------------------------------------------------------------
 # AWS SDK for C++
 
-include(AWSSDKVariables)
+function(build_awssdk)
+  message(STATUS "Building AWS SDK for C++ from source")
 
-macro(build_awssdk)
-  message(STATUS "Building AWS C++ SDK from source")
-  set(AWSSDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-install")
-  set(AWSSDK_INCLUDE_DIR "${AWSSDK_PREFIX}/include")
-
-  set(AWSSDK_COMMON_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      -DCPP_STANDARD=${CMAKE_CXX_STANDARD}
-      -DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}
-      -DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}
-      -DENABLE_TESTING=OFF
-      -DENABLE_UNITY_BUILD=ON
-      -DOPENSSL_CRYPTO_LIBRARY=${OPENSSL_CRYPTO_LIBRARY}
-      -DOPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
-      -DOPENSSL_SSL_LIBRARY=${OPENSSL_SSL_LIBRARY}
-      -Dcrypto_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
-      -Dcrypto_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
-  if(ARROW_OPENSSL_USE_SHARED)
-    list(APPEND AWSSDK_COMMON_CMAKE_ARGS
-         -Dcrypto_SHARED_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
-  else()
-    list(APPEND AWSSDK_COMMON_CMAKE_ARGS
-         -Dcrypto_STATIC_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
+  # aws-c-common must be the first product because others depend on
+  # this.
+  set(AWSSDK_PRODUCTS aws-c-common)
+  if(LINUX)
+    list(APPEND AWSSDK_PRODUCTS aws-lc s2n-tls)
   endif()
-  set(AWSSDK_CMAKE_ARGS
-      ${AWSSDK_COMMON_CMAKE_ARGS}
-      -DBUILD_DEPS=OFF
-      -DBUILD_ONLY=config\\$<SEMICOLON>s3\\$<SEMICOLON>transfer\\$<SEMICOLON>identity-management\\$<SEMICOLON>sts
-      -DMINIMIZE_SIZE=ON)
-  # Remove unused directories to save build directory storage.
-  # 807MB -> 31MB
-  set(AWSSDK_PATCH_COMMAND ${CMAKE_COMMAND} -E)
-  if(CMAKE_VERSION VERSION_LESS 3.17)
-    list(APPEND AWSSDK_PATCH_COMMAND remove_directory)
-  else()
-    list(APPEND AWSSDK_PATCH_COMMAND rm -rf)
-  endif()
-  list(APPEND AWSSDK_PATCH_COMMAND ${AWSSDK_UNUSED_DIRECTORIES})
-
-  if(UNIX)
-    # on Linux and macOS curl seems to be required
-    find_curl()
-    get_filename_component(CURL_ROOT_HINT "${CURL_INCLUDE_DIRS}" DIRECTORY)
-    get_filename_component(ZLIB_ROOT_HINT "${ZLIB_INCLUDE_DIRS}" DIRECTORY)
-
-    # provide hint for AWS SDK to link with the already located libcurl and zlib
-    list(APPEND
-         AWSSDK_CMAKE_ARGS
-         -DCURL_INCLUDE_DIR=${CURL_ROOT_HINT}/include
-         -DCURL_LIBRARY=${CURL_ROOT_HINT}/lib
-         -DZLIB_INCLUDE_DIR=${ZLIB_ROOT_HINT}/include
-         -DZLIB_LIBRARY=${ZLIB_ROOT_HINT}/lib)
-  endif()
-
-  file(MAKE_DIRECTORY ${AWSSDK_INCLUDE_DIR})
-
-  # AWS C++ SDK related libraries to link statically
-  set(_AWSSDK_LIBS
-      aws-cpp-sdk-identity-management
-      aws-cpp-sdk-sts
-      aws-cpp-sdk-cognito-identity
-      aws-cpp-sdk-s3
-      aws-cpp-sdk-core
-      aws-crt-cpp
-      aws-c-s3
-      aws-c-auth
-      aws-c-mqtt
-      aws-c-http
-      aws-c-compression
-      aws-c-sdkutils
-      aws-c-event-stream
-      aws-c-io
-      aws-c-cal
-      aws-checksums
-      aws-c-common)
-
-  # aws-lc needs to be installed on a separate folder to hide from unintended use
-  set(AWS_LC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/aws_lc_ep-install")
-  set(AWS_LC_INCLUDE_DIR "${AWS_LC_PREFIX}/include")
-
-  if(UNIX AND NOT APPLE) # aws-lc and s2n-tls only needed on linux
-    file(MAKE_DIRECTORY ${AWS_LC_INCLUDE_DIR})
-    list(APPEND _AWSSDK_LIBS s2n-tls aws-lc)
-  endif()
-
-  set(AWSSDK_LIBRARIES)
-  foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
-    # aws-c-common -> AWS-C-COMMON
-    string(TOUPPER ${_AWSSDK_LIB} _AWSSDK_LIB_UPPER)
-    # AWS-C-COMMON -> AWS_C_COMMON
-    string(REPLACE "-" "_" _AWSSDK_LIB_NAME_PREFIX ${_AWSSDK_LIB_UPPER})
-    set(_AWSSDK_STATIC_LIBRARY
-        "${AWSSDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${_AWSSDK_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  list(APPEND
+       AWSSDK_PRODUCTS
+       # We can't sort this in alphabetical order because some
+       # products depend on other products.
+       aws-checksums
+       aws-c-cal
+       aws-c-io
+       aws-c-event-stream
+       aws-c-sdkutils
+       aws-c-compression
+       aws-c-http
+       aws-c-mqtt
+       aws-c-auth
+       aws-c-s3
+       aws-crt-cpp
+       aws-sdk-cpp)
+  set(AWS_SDK_CPP_SOURCE_URL "${AWSSDK_SOURCE_URL}")
+  set(ARROW_AWS_SDK_CPP_BUILD_SHA256_CHECKSUM "${ARROW_AWSSDK_BUILD_SHA256_CHECKSUM}")
+  foreach(AWSSDK_PRODUCT ${AWSSDK_PRODUCTS})
+    # aws-c-cal ->
+    # AWS-C-CAL
+    string(TOUPPER "${AWSSDK_PRODUCT}" BASE_VARIABLE_NAME)
+    # AWS-C-CAL ->
+    # AWS_C_CAL
+    string(REGEX REPLACE "-" "_" BASE_VARIABLE_NAME "${BASE_VARIABLE_NAME}")
+    if(MINGW AND AWSSDK_PRODUCT STREQUAL "aws-c-common")
+      find_program(PATCH patch REQUIRED)
+      set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
+          ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/aws-c-common-1208.patch)
+    endif()
+    fetchcontent_declare(${AWSSDK_PRODUCT}
+                         ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                         PATCH_COMMAND ${${BASE_VARIABLE_NAME}_PATCH_COMMAND}
+                         URL ${${BASE_VARIABLE_NAME}_SOURCE_URL}
+                         URL_HASH "SHA256=${ARROW_${BASE_VARIABLE_NAME}_BUILD_SHA256_CHECKSUM}"
     )
-    if(${_AWSSDK_LIB} STREQUAL "s2n-tls") # Build output of s2n-tls is libs2n.a
-      set(_AWSSDK_STATIC_LIBRARY
-          "${AWSSDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}s2n${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    elseif(${_AWSSDK_LIB} STREQUAL "aws-lc") # We only need libcrypto from aws-lc
-      set(_AWSSDK_STATIC_LIBRARY
-          "${AWS_LC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}crypto${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    endif()
-    if(${_AWSSDK_LIB} MATCHES "^aws-cpp-sdk-")
-      set(_AWSSDK_TARGET_NAME ${_AWSSDK_LIB})
-    elseif(${_AWSSDK_LIB} STREQUAL "aws-lc")
-      set(_AWSSDK_TARGET_NAME AWS::crypto)
-    else()
-      set(_AWSSDK_TARGET_NAME AWS::${_AWSSDK_LIB})
-    endif()
-    add_library(${_AWSSDK_TARGET_NAME} STATIC IMPORTED)
-    set_target_properties(${_AWSSDK_TARGET_NAME} PROPERTIES IMPORTED_LOCATION
-                                                            ${_AWSSDK_STATIC_LIBRARY})
-    target_include_directories(${_AWSSDK_TARGET_NAME} BEFORE
-                               INTERFACE "${AWSSDK_INCLUDE_DIR}")
-    if(${_AWSSDK_LIB} STREQUAL "aws-lc")
-      set_target_properties(${_AWSSDK_TARGET_NAME} PROPERTIES IMPORTED_LOCATION
-                                                              ${_AWSSDK_STATIC_LIBRARY})
-      target_include_directories(${_AWSSDK_TARGET_NAME} BEFORE
-                                 INTERFACE "${AWS_LC_INCLUDE_DIR}")
-    endif()
-    set("${_AWSSDK_LIB_NAME_PREFIX}_STATIC_LIBRARY" ${_AWSSDK_STATIC_LIBRARY})
-
-    if(NOT ${_AWSSDK_LIB} STREQUAL "aws-lc")
-      # aws-lc only linked against s2n but not arrow
-      list(APPEND AWSSDK_LIBRARIES ${_AWSSDK_TARGET_NAME})
-    endif()
   endforeach()
 
-  externalproject_add(aws_c_common_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_COMMON_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_COMMON_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_COMMON_STATIC_LIBRARY})
-  add_dependencies(AWS::aws-c-common aws_c_common_ep)
+  prepare_fetchcontent()
+  set(BUILD_DEPS OFF)
+  set(BUILD_TOOL OFF)
+  set(CMAKE_UNITY_BUILD OFF) # Unity build causes some build errors.
+  set(ENABLE_TESTING OFF)
+  set(IN_SOURCE_BUILD ON)
+  set(MINIMIZE_SIZE ON)
+  set(USE_OPENSSL ON)
 
-  set(AWS_CHECKSUMS_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
+  # For aws-c-common
+  if(MINGW)
+    # PPROCESSOR_NUMBER requires Windows 7 or later.
+    #
+    # 0x0601 == _WIN32_WINNT_WIN7
+    string(APPEND CMAKE_C_FLAGS " -D_WIN32_WINNT=0x0601")
+    string(APPEND CMAKE_CXX_FLAGS " -D_WIN32_WINNT=0x0601")
+  endif()
+
+  # For aws-lc
+  set(DISABLE_GO ON)
+  set(DISABLE_PERL ON)
+
+  # For s2n-tls
+  set(crypto_INCLUDE_DIR "$<TARGET_PROPERTY:crypto,INTERFACE_INCLUDE_DIRECTORIES>")
+  set(crypto_STATIC_LIBRARY "$<TARGET_FILE:crypto>")
+  set(S2N_INTERN_LIBCRYPTO ON)
+
+  # For aws-lc and s2n-tls
+  #
+  # Link time optimization is causing trouble like GH-34349
+  string(REPLACE "-flto=auto" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REPLACE "-ffat-lto-objects" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+
+  # For aws-c-io
+  if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
+    # This is for RTools 40. We can remove this after we dropped
+    # support for R < 4.2. schannel.h in RTools 40 is old.
+
+    # For schannel.h
+    #
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/api/schannel/ns-schannel-schannel_cred
+    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_0_SERVER=0x00000040")
+    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_0_CLIENT=0x00000080")
+    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_1_SERVER=0x00000100")
+    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_1_CLIENT=0x00000200")
+    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_2_SERVER=0x00000400")
+    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_2_CLIENT=0x00000800")
+    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_3_SERVER=0x00001000")
+    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_3_CLIENT=0x00002000")
+    string(APPEND CMAKE_C_FLAGS " -DSCH_USE_STRONG_CRYPTO=0x00400000")
+
+    # For sspi.h
+    #
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/api/sspi/ne-sspi-sec_application_protocol_negotiation_ext
+    string(APPEND CMAKE_C_FLAGS " -DSecApplicationProtocolNegotiationExt_ALPN=2")
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/api/sspi/ns-sspi-secbuffer
+    string(APPEND CMAKE_C_FLAGS " -DSECBUFFER_ALERT=17")
+  endif()
+
+  # For aws-sdk-cpp
+  #
+  # We need to use CACHE variables because aws-sdk-cpp < 12.0.0 uses
+  # CMP0077 OLD policy. We can use normal variables when we use
+  # aws-sdk-cpp >= 12.0.0.
+  set(AWS_SDK_WARNINGS_ARE_ERRORS
+      OFF
+      CACHE BOOL "" FORCE)
+  set(BUILD_DEPS
+      OFF
+      CACHE BOOL "" FORCE)
+  set(BUILD_ONLY
+      ""
+      CACHE STRING "" FORCE)
+  list(APPEND
+       BUILD_ONLY
+       config
+       core
+       identity-management
+       s3
+       sts
+       transfer)
+  set(BUILD_SHARED_LIBS
+      OFF
+      CACHE BOOL "" FORCE)
+  set(ENABLE_TESTING
+      OFF
+      CACHE BOOL "" FORCE)
   if(NOT WIN32)
-    # On non-Windows, always build in release mode.
-    # Especially with gcc, debug builds can fail with "asm constraint" errors:
-    # https://github.com/TileDB-Inc/TileDB/issues/1351
-    list(APPEND AWS_CHECKSUMS_CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release)
+    set(ZLIB_INCLUDE_DIR
+        "$<TARGET_PROPERTY:ZLIB::ZLIB,INTERFACE_INCLUDE_DIRECTORIES>"
+        CACHE STRING "" FORCE)
+    set(ZLIB_LIBRARY
+        "$<TARGET_FILE:ZLIB::ZLIB>"
+        CACHE STRING "" FORCE)
   endif()
-  externalproject_add(aws_checksums_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_CHECKSUMS_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_CHECKSUMS_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWS_CHECKSUMS_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_CHECKSUMS_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep)
-  add_dependencies(AWS::aws-checksums aws_checksums_ep)
+  if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
+    # This is for RTools 40. We can remove this after we dropped
+    # support for R < 4.2. schannel.h in RTools 40 is old.
 
-  if("s2n-tls" IN_LIST _AWSSDK_LIBS)
-    # Remove unused directories to save build directory storage.
-    # 169MB -> 105MB
-    set(AWS_LC_PATCH_COMMAND ${CMAKE_COMMAND} -E)
-    if(CMAKE_VERSION VERSION_LESS 3.17)
-      list(APPEND AWS_LC_PATCH_COMMAND remove_directory)
-    else()
-      list(APPEND AWS_LC_PATCH_COMMAND rm -rf)
+    # For winhttp.h
+    #
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/winhttp/error-messages
+    string(APPEND CMAKE_CXX_FLAGS " -DERROR_WINHTTP_UNHANDLED_SCRIPT_TYPE=12176")
+    string(APPEND CMAKE_CXX_FLAGS " -DERROR_WINHTTP_SCRIPT_EXECUTION_ERROR=12177")
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/api/winhttp/ns-winhttp-winhttp_async_result
+    string(APPEND CMAKE_CXX_FLAGS " -DAPI_GET_PROXY_FOR_URL=6")
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/api/winhttp/nc-winhttp-winhttp_status_callback
+    string(APPEND CMAKE_CXX_FLAGS " -DWINHTTP_CALLBACK_STATUS_CLOSE_COMPLETE=0x02000000")
+    string(APPEND CMAKE_CXX_FLAGS
+           " -DWINHTTP_CALLBACK_STATUS_SHUTDOWN_COMPLETE=0x04000000")
+    # See also:
+    # https://learn.microsoft.com/en-us/windows/win32/winhttp/option-flags
+    string(APPEND CMAKE_CXX_FLAGS " -DWINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2=0x00000800")
+    string(APPEND CMAKE_CXX_FLAGS " -DWINHTTP_NO_CLIENT_CERT_CONTEXT=0")
+  endif()
+
+  set(AWSSDK_LINK_LIBRARIES)
+  foreach(AWSSDK_PRODUCT ${AWSSDK_PRODUCTS})
+    if("${AWSSDK_PRODUCT}" STREQUAL "s2n-tls")
+      # Use aws-lc's openssl/*.h not openssl/*.h in system.
+      set(ADDITIONAL_FLAGS "-DCOMPILE_DEFINITIONS=-I${aws-lc_SOURCE_DIR}/include")
     endif()
-    list(APPEND AWS_LC_PATCH_COMMAND fuzz)
-
-    set(AWS_LC_C_FLAGS ${EP_C_FLAGS})
-    string(APPEND AWS_LC_C_FLAGS " -Wno-error=overlength-strings -Wno-error=pedantic")
-    # Link time optimization is causing trouble like #34349
-    string(REPLACE "-flto=auto" "" AWS_LC_C_FLAGS "${AWS_LC_C_FLAGS}")
-    string(REPLACE "-ffat-lto-objects" "" AWS_LC_C_FLAGS "${AWS_LC_C_FLAGS}")
-
-    set(AWS_LC_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
-    list(APPEND AWS_LC_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${AWS_LC_PREFIX}
-         -DCMAKE_C_FLAGS=${AWS_LC_C_FLAGS})
-
-    externalproject_add(aws_lc_ep
-                        ${EP_COMMON_OPTIONS}
-                        URL ${AWS_LC_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_AWS_LC_BUILD_SHA256_CHECKSUM}"
-                        PATCH_COMMAND ${AWS_LC_PATCH_COMMAND}
-                        CMAKE_ARGS ${AWS_LC_CMAKE_ARGS}
-                        BUILD_BYPRODUCTS ${AWS_LC_STATIC_LIBRARY})
-    add_dependencies(AWS::crypto aws_lc_ep)
-
-    set(S2N_TLS_C_FLAGS ${EP_C_FLAGS})
-    # Link time optimization is causing trouble like #34349
-    string(REPLACE "-flto=auto" "" S2N_TLS_C_FLAGS "${S2N_TLS_C_FLAGS}")
-    string(REPLACE "-ffat-lto-objects" "" S2N_TLS_C_FLAGS "${S2N_TLS_C_FLAGS}")
-
-    set(S2N_TLS_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
-    list(APPEND
-         S2N_TLS_CMAKE_ARGS
-         # internalize libcrypto to avoid name conflict with OpenSSL
-         -DS2N_INTERN_LIBCRYPTO=ON
-         # path to find crypto provided by aws-lc
-         -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX}
-         -DCMAKE_C_FLAGS=${S2N_TLS_C_FLAGS}
-         # paths to find crypto provided by aws-lc
-         -Dcrypto_INCLUDE_DIR=${AWS_LC_PREFIX}/include
-         -Dcrypto_LIBRARY=${AWS_LC_STATIC_LIBRARY}
-         -Dcrypto_STATIC_LIBRARY=${AWS_LC_STATIC_LIBRARY})
-
-    externalproject_add(s2n_tls_ep
-                        ${EP_COMMON_OPTIONS}
-                        URL ${S2N_TLS_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_S2N_TLS_BUILD_SHA256_CHECKSUM}"
-                        CMAKE_ARGS ${S2N_TLS_CMAKE_ARGS}
-                        BUILD_BYPRODUCTS ${S2N_TLS_STATIC_LIBRARY}
-                        DEPENDS aws_lc_ep)
-    add_dependencies(AWS::s2n-tls s2n_tls_ep)
-  endif()
-
-  externalproject_add(aws_c_cal_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_CAL_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_CAL_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_CAL_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep)
-  add_dependencies(AWS::aws-c-cal aws_c_cal_ep)
-
-  set(AWS_C_IO_DEPENDS aws_c_common_ep aws_c_cal_ep)
-  if(TARGET s2n_tls_ep)
-    list(APPEND AWS_C_IO_DEPENDS s2n_tls_ep)
-  endif()
-  externalproject_add(aws_c_io_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_IO_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_IO_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_IO_STATIC_LIBRARY}
-                      DEPENDS ${AWS_C_IO_DEPENDS})
-  add_dependencies(AWS::aws-c-io aws_c_io_ep)
-
-  externalproject_add(aws_c_event_stream_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_EVENT_STREAM_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_EVENT_STREAM_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_EVENT_STREAM_STATIC_LIBRARY}
-                      DEPENDS aws_checksums_ep aws_c_io_ep)
-  add_dependencies(AWS::aws-c-event-stream aws_c_event_stream_ep)
-
-  externalproject_add(aws_c_sdkutils_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_SDKUTILS_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_SDKUTILS_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_SDKUTILS_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep)
-  add_dependencies(AWS::aws-c-sdkutils aws_c_sdkutils_ep)
-
-  externalproject_add(aws_c_compression_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_COMPRESSION_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_COMPRESSION_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_COMPRESSION_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep)
-  add_dependencies(AWS::aws-c-compression aws_c_compression_ep)
-
-  externalproject_add(aws_c_http_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_HTTP_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_HTTP_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_HTTP_STATIC_LIBRARY}
-                      DEPENDS aws_c_io_ep aws_c_compression_ep)
-  add_dependencies(AWS::aws-c-http aws_c_http_ep)
-
-  externalproject_add(aws_c_mqtt_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_MQTT_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_MQTT_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_MQTT_STATIC_LIBRARY}
-                      DEPENDS aws_c_http_ep)
-  add_dependencies(AWS::aws-c-mqtt aws_c_mqtt_ep)
-
-  externalproject_add(aws_c_auth_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_AUTH_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_AUTH_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_AUTH_STATIC_LIBRARY}
-                      DEPENDS aws_c_sdkutils_ep aws_c_cal_ep aws_c_http_ep)
-  add_dependencies(AWS::aws-c-auth aws_c_auth_ep)
-
-  externalproject_add(aws_c_s3_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_S3_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_S3_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_S3_STATIC_LIBRARY}
-                      DEPENDS aws_checksums_ep aws_c_auth_ep)
-  add_dependencies(AWS::aws-c-s3 aws_c_s3_ep)
-
-  externalproject_add(aws_crt_cpp_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_CRT_CPP_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_CRT_CPP_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_CRT_CPP_STATIC_LIBRARY}
-                      DEPENDS aws_c_auth_ep
-                              aws_c_cal_ep
-                              aws_c_common_ep
-                              aws_c_event_stream_ep
-                              aws_c_http_ep
-                              aws_c_io_ep
-                              aws_c_mqtt_ep
-                              aws_c_s3_ep
-                              aws_checksums_ep)
-  add_dependencies(AWS::aws-crt-cpp aws_crt_cpp_ep)
-
-  externalproject_add(awssdk_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWSSDK_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWSSDK_BUILD_SHA256_CHECKSUM}"
-                      PATCH_COMMAND ${AWSSDK_PATCH_COMMAND}
-                      CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
-                                       ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
-                                       ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY}
-                                       ${AWS_CPP_SDK_S3_STATIC_LIBRARY}
-                                       ${AWS_CPP_SDK_STS_STATIC_LIBRARY}
-                      DEPENDS aws_crt_cpp_ep)
-  foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
-    if(${_AWSSDK_LIB} MATCHES "^aws-cpp-sdk-")
-      add_dependencies(${_AWSSDK_LIB} awssdk_ep)
+    fetchcontent_makeavailable(${AWSSDK_PRODUCT})
+    if(CMAKE_VERSION VERSION_LESS 3.28)
+      set_property(DIRECTORY ${${AWSSDK_PRODUCT}_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL
+                                                                      TRUE)
+    endif()
+    list(PREPEND CMAKE_MODULE_PATH "${${AWSSDK_PRODUCT}_SOURCE_DIR}/cmake")
+    if(NOT "${AWSSDK_PRODUCT}" STREQUAL "aws-sdk-cpp")
+      if("${AWSSDK_PRODUCT}" STREQUAL "aws-lc")
+        # We don't need to link aws-lc. It's used only by s2n-tls.
+      elseif("${AWSSDK_PRODUCT}" STREQUAL "s2n-tls")
+        list(PREPEND AWSSDK_LINK_LIBRARIES s2n)
+      else()
+        list(PREPEND AWSSDK_LINK_LIBRARIES ${AWSSDK_PRODUCT})
+        # This is for find_package(aws-*) in aws-crt-cpp and aws-sdk-cpp.
+        add_library(AWS::${AWSSDK_PRODUCT} ALIAS ${AWSSDK_PRODUCT})
+      endif()
     endif()
   endforeach()
+  list(PREPEND
+       AWSSDK_LINK_LIBRARIES
+       aws-cpp-sdk-identity-management
+       aws-cpp-sdk-sts
+       aws-cpp-sdk-cognito-identity
+       aws-cpp-sdk-s3
+       aws-cpp-sdk-core)
 
-  set(AWSSDK_VENDORED TRUE)
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${AWSSDK_LIBRARIES})
-  set(AWSSDK_LINK_LIBRARIES ${AWSSDK_LIBRARIES})
-  if(UNIX)
-    # on Linux and macOS curl seems to be required
-    set_property(TARGET aws-cpp-sdk-core
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES CURL::libcurl)
-    set_property(TARGET AWS::aws-c-cal
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::Crypto OpenSSL::SSL)
-    if(APPLE)
-      set_property(TARGET AWS::aws-c-cal
-                   APPEND
-                   PROPERTY INTERFACE_LINK_LIBRARIES "-framework Security")
-    endif()
-    if(ZLIB_VENDORED)
-      set_property(TARGET aws-cpp-sdk-core
-                   APPEND
-                   PROPERTY INTERFACE_LINK_LIBRARIES ZLIB::ZLIB)
-      add_dependencies(awssdk_ep zlib_ep)
-    endif()
-    set_property(TARGET AWS::aws-c-io
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES ${CMAKE_DL_LIBS})
-  elseif(WIN32)
-    set_property(TARGET aws-cpp-sdk-core
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES
-                          "winhttp.lib"
-                          "bcrypt.lib"
-                          "wininet.lib"
-                          "userenv.lib"
-                          "version.lib")
-    set_property(TARGET AWS::aws-c-cal
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES
-                          "bcrypt.lib"
-                          "ncrypt.lib"
-                          "Secur32.lib"
-                          "Shlwapi.lib")
-    set_property(TARGET AWS::aws-c-io
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES "crypt32.lib")
-  endif()
-
-  # AWSSDK is static-only build
-endmacro()
+  set(AWSSDK_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} ${AWSSDK_LINK_LIBRARIES}
+      PARENT_SCOPE)
+  set(AWSSDK_LINK_LIBRARIES
+      ${AWSSDK_LINK_LIBRARIES}
+      PARENT_SCOPE)
+endfunction()
 
 if(ARROW_S3)
-  resolve_dependency(AWSSDK HAVE_ALT TRUE)
+  # Keep this in sync with s3fs.cc
+  resolve_dependency(AWSSDK
+                     HAVE_ALT
+                     TRUE
+                     REQUIRED_VERSION
+                     1.11.0)
 
   message(STATUS "Found AWS SDK headers: ${AWSSDK_INCLUDE_DIR}")
   message(STATUS "Found AWS SDK libraries: ${AWSSDK_LINK_LIBRARIES}")
@@ -5353,32 +5271,12 @@ if(ARROW_S3)
       endif()
     endif()
   endif()
-
-  if(APPLE)
-    # CoreFoundation's path is hardcoded in the CMake files provided by
-    # aws-sdk-cpp to use the macOS SDK provided by XCode which makes
-    # XCode a hard dependency. Command Line Tools is often used instead
-    # of the full XCode suite, so let the linker to find it.
-    set_target_properties(AWS::aws-c-common
-                          PROPERTIES INTERFACE_LINK_LIBRARIES
-                                     "-pthread;pthread;-framework CoreFoundation")
-  endif()
 endif()
 
 # ----------------------------------------------------------------------
 # Azure SDK for C++
 
 function(build_azure_sdk)
-  if(CMAKE_VERSION VERSION_LESS 3.22)
-    # We can't disable installing Azure SDK for C++ by
-    # "set_property(DIRECTORY ${azure_sdk_SOURCE_DIR} PROPERTY
-    # EXCLUDE_FROM_ALL TRUE)" with CMake 3.16.
-    #
-    # At least CMake 3.22 on Ubuntu 22.04 works. So we use 3.22
-    # here. We may be able to use more earlier version here.
-    message(FATAL_ERROR "Building Azure SDK for C++ requires at least CMake 3.22. "
-                        "(At least we can't use CMake 3.16)")
-  endif()
   message(STATUS "Building Azure SDK for C++ from source")
   fetchcontent_declare(azure_sdk
                        ${FC_DECLARE_COMMON_OPTIONS}
@@ -5389,6 +5287,12 @@ function(build_azure_sdk)
   set(BUILD_SAMPLES FALSE)
   set(BUILD_TESTING FALSE)
   set(BUILD_WINDOWS_UWP TRUE)
+  # ICU 75.1 or later requires C++17 but Azure SDK for C++ still uses
+  # C++14. So we disable C++ API in ICU.
+  #
+  # We can remove this after
+  # https://github.com/Azure/azure-sdk-for-cpp/pull/6486 is merged.
+  string(APPEND CMAKE_CXX_FLAGS " -DU_SHOW_CPLUSPLUS_API=0")
   set(CMAKE_UNITY_BUILD FALSE)
   set(DISABLE_AZURE_CORE_OPENTELEMETRY TRUE)
   set(ENV{AZURE_SDK_DISABLE_AUTO_VCPKG} TRUE)
@@ -5400,15 +5304,13 @@ function(build_azure_sdk)
   set(AZURE_SDK_VENDORED
       TRUE
       PARENT_SCOPE)
-  list(APPEND
-       ARROW_BUNDLED_STATIC_LIBS
-       Azure::azure-core
-       Azure::azure-identity
-       Azure::azure-storage-blobs
-       Azure::azure-storage-common
-       Azure::azure-storage-files-datalake)
   set(ARROW_BUNDLED_STATIC_LIBS
       ${ARROW_BUNDLED_STATIC_LIBS}
+      Azure::azure-core
+      Azure::azure-identity
+      Azure::azure-storage-blobs
+      Azure::azure-storage-common
+      Azure::azure-storage-files-datalake
       PARENT_SCOPE)
 endfunction()
 
@@ -5417,85 +5319,12 @@ if(ARROW_WITH_AZURE_SDK)
   set(AZURE_SDK_LINK_LIBRARIES Azure::azure-storage-files-datalake
                                Azure::azure-storage-blobs Azure::azure-identity)
 endif()
+
 # ----------------------------------------------------------------------
-# ucx - communication framework for modern, high-bandwidth and low-latency networks
+# Apache Flight SQL ODBC
 
-macro(build_ucx)
-  message(STATUS "Building UCX from source")
-
-  set(UCX_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/ucx_ep-install")
-
-  # link with static ucx libraries leads to test failures, use shared libs instead
-  set(UCX_SHARED_LIB_UCP "${UCX_PREFIX}/lib/libucp${CMAKE_SHARED_LIBRARY_SUFFIX}")
-  set(UCX_SHARED_LIB_UCT "${UCX_PREFIX}/lib/libuct${CMAKE_SHARED_LIBRARY_SUFFIX}")
-  set(UCX_SHARED_LIB_UCS "${UCX_PREFIX}/lib/libucs${CMAKE_SHARED_LIBRARY_SUFFIX}")
-  set(UCX_SHARED_LIB_UCM "${UCX_PREFIX}/lib/libucm${CMAKE_SHARED_LIBRARY_SUFFIX}")
-
-  set(UCX_CONFIGURE_COMMAND ./autogen.sh COMMAND ./configure)
-  list(APPEND
-       UCX_CONFIGURE_COMMAND
-       "CC=${CMAKE_C_COMPILER}"
-       "CXX=${CMAKE_CXX_COMPILER}"
-       "CFLAGS=${EP_C_FLAGS}"
-       "CXXFLAGS=${EP_CXX_FLAGS}"
-       "--prefix=${UCX_PREFIX}"
-       "--enable-mt"
-       "--enable-shared")
-  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
-    list(APPEND
-         UCX_CONFIGURE_COMMAND
-         "--enable-profiling"
-         "--enable-frame-pointer"
-         "--enable-stats"
-         "--enable-fault-injection"
-         "--enable-debug-data")
-  else()
-    list(APPEND
-         UCX_CONFIGURE_COMMAND
-         "--disable-logging"
-         "--disable-debug"
-         "--disable-assertions"
-         "--disable-params-check")
-  endif()
-  set(UCX_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
-  externalproject_add(ucx_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${ARROW_UCX_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_UCX_BUILD_SHA256_CHECKSUM}"
-                      CONFIGURE_COMMAND ${UCX_CONFIGURE_COMMAND}
-                      BUILD_IN_SOURCE 1
-                      BUILD_COMMAND ${UCX_BUILD_COMMAND}
-                      BUILD_BYPRODUCTS "${UCX_SHARED_LIB_UCP}" "${UCX_SHARED_LIB_UCT}"
-                                       "${UCX_SHARED_LIB_UCS}" "${UCX_SHARED_LIB_UCM}"
-                      INSTALL_COMMAND ${MAKE} install)
-
-  # ucx cmake module sets UCX_INCLUDE_DIRS
-  set(UCX_INCLUDE_DIRS "${UCX_PREFIX}/include")
-  file(MAKE_DIRECTORY "${UCX_INCLUDE_DIRS}")
-
-  add_library(ucx::ucp SHARED IMPORTED)
-  set_target_properties(ucx::ucp PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCP}")
-  add_library(ucx::uct SHARED IMPORTED)
-  set_target_properties(ucx::uct PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCT}")
-  add_library(ucx::ucs SHARED IMPORTED)
-  set_target_properties(ucx::ucs PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCS}")
-
-  add_dependencies(ucx::ucp ucx_ep)
-  add_dependencies(ucx::uct ucx_ep)
-  add_dependencies(ucx::ucs ucx_ep)
-endmacro()
-
-if(ARROW_WITH_UCX)
-  resolve_dependency(ucx
-                     ARROW_CMAKE_PACKAGE_NAME
-                     ArrowFlight
-                     ARROW_PC_PACKAGE_NAME
-                     arrow-flight
-                     PC_PACKAGE_NAMES
-                     ucx)
-  add_library(ucx::ucx INTERFACE IMPORTED)
-  target_include_directories(ucx::ucx INTERFACE "${UCX_INCLUDE_DIRS}")
-  target_link_libraries(ucx::ucx INTERFACE ucx::ucp ucx::uct ucx::ucs)
+if(ARROW_FLIGHT_SQL_ODBC)
+  find_package(ODBC REQUIRED)
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")

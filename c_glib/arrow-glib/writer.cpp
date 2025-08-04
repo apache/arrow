@@ -45,14 +45,14 @@ G_BEGIN_DECLS
  * batches in file format into output.
  */
 
-typedef struct GArrowRecordBatchWriterPrivate_
+struct GArrowRecordBatchWriterPrivate
 {
   std::shared_ptr<arrow::ipc::RecordBatchWriter> record_batch_writer;
-} GArrowRecordBatchWriterPrivate;
+  bool is_closed;
+};
 
 enum {
-  PROP_0,
-  PROP_RECORD_BATCH_WRITER
+  PROP_RECORD_BATCH_WRITER = 1,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatchWriter,
@@ -111,6 +111,7 @@ garrow_record_batch_writer_init(GArrowRecordBatchWriter *object)
 {
   auto priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(object);
   new (&priv->record_batch_writer) std::shared_ptr<arrow::ipc::RecordBatchWriter>;
+  priv->is_closed = false;
 }
 
 static void
@@ -193,7 +194,27 @@ garrow_record_batch_writer_close(GArrowRecordBatchWriter *writer, GError **error
   auto arrow_writer = garrow_record_batch_writer_get_raw(writer);
 
   auto status = arrow_writer->Close();
-  return garrow_error_check(error, status, "[record-batch-writer][close]");
+  auto success = garrow_error_check(error, status, "[record-batch-writer][close]");
+  if (success) {
+    auto priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(writer);
+    priv->is_closed = true;
+  }
+  return success;
+}
+
+/**
+ * garrow_record_batch_writer_is_closed:
+ * @writer: A #GArrowRecordBatchWriter.
+ *
+ * Returns: %TRUE if the writer is closed, %FALSE otherwise.
+ *
+ * Since: 18.0.0
+ */
+gboolean
+garrow_record_batch_writer_is_closed(GArrowRecordBatchWriter *writer)
+{
+  auto priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(writer);
+  return priv->is_closed;
 }
 
 G_DEFINE_TYPE(GArrowRecordBatchStreamWriter,

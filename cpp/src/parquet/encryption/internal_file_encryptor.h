@@ -36,17 +36,16 @@ class ColumnEncryptionProperties;
 
 class PARQUET_EXPORT Encryptor {
  public:
-  Encryptor(encryption::AesEncryptor* aes_encryptor, const std::string& key,
-            const std::string& file_aad, const std::string& aad,
-            ::arrow::MemoryPool* pool);
+  Encryptor(encryption::AesEncryptor* aes_encryptor, ::arrow::util::SecureString key,
+            std::string file_aad, std::string aad, ::arrow::MemoryPool* pool);
   const std::string& file_aad() { return file_aad_; }
   void UpdateAad(const std::string& aad) { aad_ = aad; }
   ::arrow::MemoryPool* pool() { return pool_; }
 
   [[nodiscard]] int32_t CiphertextLength(int64_t plaintext_len) const;
 
-  int Encrypt(::arrow::util::span<const uint8_t> plaintext,
-              ::arrow::util::span<uint8_t> ciphertext);
+  int32_t Encrypt(::arrow::util::span<const uint8_t> plaintext,
+                  ::arrow::util::span<uint8_t> ciphertext);
 
   bool EncryptColumnMetaData(
       bool encrypted_footer,
@@ -62,7 +61,7 @@ class PARQUET_EXPORT Encryptor {
 
  private:
   encryption::AesEncryptor* aes_encryptor_;
-  std::string key_;
+  ::arrow::util::SecureString key_;
   std::string file_aad_;
   std::string aad_;
   ::arrow::MemoryPool* pool_;
@@ -77,7 +76,6 @@ class InternalFileEncryptor {
   std::shared_ptr<Encryptor> GetFooterSigningEncryptor();
   std::shared_ptr<Encryptor> GetColumnMetaEncryptor(const std::string& column_path);
   std::shared_ptr<Encryptor> GetColumnDataEncryptor(const std::string& column_path);
-  void WipeOutEncryptionKeys();
 
  private:
   FileEncryptionProperties* properties_;
@@ -103,7 +101,7 @@ class InternalFileEncryptor {
   encryption::AesEncryptor* GetDataAesEncryptor(ParquetCipher::type algorithm,
                                                 size_t key_len);
 
-  int MapKeyLenToEncryptorArrayIndex(int key_len) const;
+  int MapKeyLenToEncryptorArrayIndex(int32_t key_len) const;
 };
 
 }  // namespace parquet

@@ -25,25 +25,18 @@ updates:
       prefix: "MINOR: [CI] "
     open-pull-requests-limit: 10
   - package-ecosystem: "gomod"
-    directory: "/go/"
+    directory: "/swift/CDataWGo/"
     schedule:
       interval: "weekly"
     commit-message:
-      prefix: "MINOR: [Go] "
+      prefix: "MINOR: [Swift] "
     open-pull-requests-limit: 10
-  - package-ecosystem: "maven"
-    directory: "/java/"
+  - package-ecosystem: "gomod"
+    directory: "/swift/data-generator/swift-datagen/"
     schedule:
       interval: "weekly"
     commit-message:
-      prefix: "MINOR: [Java] "
-    open-pull-requests-limit: 10
-  - package-ecosystem: "npm"
-    directory: "/js/"
-    schedule:
-      interval: "monthly"
-    commit-message:
-      prefix: "MINOR: [JS] "
+      prefix: "MINOR: [Swift] "
     open-pull-requests-limit: 10
   - package-ecosystem: "nuget"
     directory: "/csharp/"

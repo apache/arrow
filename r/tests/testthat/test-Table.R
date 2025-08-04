@@ -708,7 +708,6 @@ test_that("as_arrow_table() errors on data.frame with NULL names", {
 })
 
 test_that("# GH-35038 - passing in multiple arguments doesn't affect return type", {
-
   df <- data.frame(x = 1)
   out1 <- as.data.frame(arrow_table(df, name = "1"))
   out2 <- as.data.frame(arrow_table(name = "1", df))

@@ -47,5 +47,49 @@ module ArrowFlight
       end
       options
     end
+
+    alias_method :do_put_raw, :do_put
+    # Upload data to a Flight described by the given descriptor. The
+    # caller must call `#close` on the returned stream once they are
+    # done writing. Note that it's automatically done when you use
+    # block.
+    #
+    # The reader and writer are linked; closing the writer will also
+    # close the reader. Use GArrowFlight::StreamWriter#done_writing to
+    # only close the write side of the channel.
+    #
+    # @param descriptor [GArrowFlight::Descriptor] Descriptor to be uploaded.
+    # @param schema [GArrow::Schema] Schema of uploaded data.
+    # @param options [ArrowFlight::CallOptions, Hash, nil] (nil)
+    #   The options to be used.
+    #
+    # @yieldparam writer [GArrowFlight::StreamWriter] The writer to upload
+    #   data to the given descriptor.
+    #
+    #   This is closed automatically after the given block is finished.
+    #
+    # @yieldparam reader [GArrowFlight::MetadataReader] The reader to read
+    #   metadata from the server.
+    #
+    # @return [Array<GArrowFlight::MetadataReader, GArrowFlight::StreamWriter>, Object]
+    #   The reader and the writer if block isn't given.
+    #
+    #   The return value from block if block is given.
+    #
+    # @since 18.0.0
+    def do_put(descriptor, schema, options=nil)
+      result = do_put_raw(descriptor, schema, options)
+      reader = result.reader
+      writer = result.writer
+      if block_given?
+        begin
+          yield(reader, writer)
+        ensure
+          writer.close unless writer.closed?
+        end
+      else
+        return reader, writer
+      end
+    end
   end
 end

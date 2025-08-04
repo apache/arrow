@@ -318,22 +318,22 @@ void TestDecimalFormatter() {
 
   // Borrow from Decimal::ToString test
   const auto decimalTestData = std::vector<TestParam>{
-      {0, -1, "0.E+1"},
+      {0, -1, "0E+1"},
       {0, 0, "0"},
       {0, 1, "0.0"},
       {0, 6, "0.000000"},
-      {2, 7, "2.E-7"},
-      {2, -1, "2.E+1"},
+      {2, 7, "2E-7"},
+      {2, -1, "2E+1"},
       {2, 0, "2"},
       {2, 1, "0.2"},
       {2, 6, "0.000002"},
-      {-2, 7, "-2.E-7"},
-      {-2, 7, "-2.E-7"},
-      {-2, -1, "-2.E+1"},
+      {-2, 7, "-2E-7"},
+      {-2, 7, "-2E-7"},
+      {-2, -1, "-2E+1"},
       {-2, 0, "-2"},
       {-2, 1, "-0.2"},
       {-2, 6, "-0.000002"},
-      {-2, 7, "-2.E-7"},
+      {-2, 7, "-2E-7"},
       {123, -3, "1.23E+5"},
       {123, -1, "1.23E+3"},
       {123, 1, "12.3"},
@@ -383,15 +383,27 @@ void TestDecimalFormatter() {
   };
 
   for (const auto& data : decimalTestData) {
+    using value_type = typename TypeTraits<T>::CType;
+    if (data.scale > value_type::kMaxScale) {
+      continue;
+    }
+
+    if constexpr (std::is_same_v<T, Decimal32Type>) {
+      if (data.test_value > 999999999 || data.test_value < -999999999) {
+        continue;
+      }
+    }
+
     const auto type = T(T::kMaxPrecision, data.scale);
     StringFormatter<T> formatter(&type);
-    using value_type = typename TypeTraits<T>::CType;
 
     AssertFormatting(formatter, value_type(data.test_value), data.expected_string);
   }
 }
 
 TEST(Formatting, Decimals) {
+  TestDecimalFormatter<Decimal32Type>();
+  TestDecimalFormatter<Decimal64Type>();
   TestDecimalFormatter<Decimal128Type>();
   TestDecimalFormatter<Decimal256Type>();
 }

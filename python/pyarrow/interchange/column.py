@@ -308,7 +308,7 @@ class _PyArrowColumn:
             kind = DtypeKind.DATETIME
             ts = dtype.unit[0]
             tz = dtype.tz if dtype.tz else ""
-            f_string = "ts{ts}:{tz}".format(ts=ts, tz=tz)
+            f_string = f"ts{ts}:{tz}"
             return kind, bit_width, f_string, Endianness.NATIVE
         elif pa.types.is_dictionary(dtype):
             kind = DtypeKind.CATEGORICAL

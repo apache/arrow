@@ -68,7 +68,7 @@ namespace Apache.Arrow.Ipc
 
         protected async ValueTask<ReadResult> ReadMessageAsync(CancellationToken cancellationToken)
         {
-            int messageLength = await ReadMessageLengthAsync(throwOnFullRead: false, cancellationToken)
+            int messageLength = await ReadMessageLengthAsync(throwOnFullRead: false, returnOnEmptyStream: false, cancellationToken)
                 .ConfigureAwait(false);
 
             if (messageLength == 0)
@@ -116,8 +116,7 @@ namespace Apache.Arrow.Ipc
 
         protected ReadResult ReadMessage()
         {
-            int messageLength = ReadMessageLength(throwOnFullRead: false);
-
+            int messageLength = ReadMessageLength(throwOnFullRead: false, returnOnEmptyStream: false);
             if (messageLength == 0)
             {
                 // reached end
@@ -160,8 +159,12 @@ namespace Apache.Arrow.Ipc
             }
 
             // Figure out length of schema
-            int schemaMessageLength = await ReadMessageLengthAsync(throwOnFullRead: true, cancellationToken)
+            int schemaMessageLength = await ReadMessageLengthAsync(throwOnFullRead: true, returnOnEmptyStream: true, cancellationToken)
                 .ConfigureAwait(false);
+            if (schemaMessageLength == 0)
+            {
+                return;
+            }
 
             using (ArrayPool<byte>.Shared.RentReturn(schemaMessageLength, out Memory<byte> buff))
             {
@@ -182,7 +185,11 @@ namespace Apache.Arrow.Ipc
             }
 
             // Figure out length of schema
-            int schemaMessageLength = ReadMessageLength(throwOnFullRead: true);
+            int schemaMessageLength = ReadMessageLength(throwOnFullRead: true, returnOnEmptyStream: true);
+            if (schemaMessageLength == 0)
+            {
+                return;
+            }
 
             using (ArrayPool<byte>.Shared.RentReturn(schemaMessageLength, out Memory<byte> buff))
             {
@@ -194,13 +201,17 @@ namespace Apache.Arrow.Ipc
             }
         }
 
-        private async ValueTask<int> ReadMessageLengthAsync(bool throwOnFullRead, CancellationToken cancellationToken = default)
+        private async ValueTask<int> ReadMessageLengthAsync(bool throwOnFullRead, bool returnOnEmptyStream, CancellationToken cancellationToken = default)
         {
             int messageLength = 0;
             using (ArrayPool<byte>.Shared.RentReturn(4, out Memory<byte> lengthBuffer))
             {
                 int bytesRead = await BaseStream.ReadFullBufferAsync(lengthBuffer, cancellationToken)
                     .ConfigureAwait(false);
+                if (bytesRead == 0 && returnOnEmptyStream)
+                {
+                    return 0;
+                }
                 if (throwOnFullRead)
                 {
                     EnsureFullRead(lengthBuffer, bytesRead);
@@ -233,12 +244,16 @@ namespace Apache.Arrow.Ipc
             return messageLength;
         }
 
-        private int ReadMessageLength(bool throwOnFullRead)
+        private int ReadMessageLength(bool throwOnFullRead, bool returnOnEmptyStream)
         {
             int messageLength = 0;
             using (ArrayPool<byte>.Shared.RentReturn(4, out Memory<byte> lengthBuffer))
             {
                 int bytesRead = BaseStream.ReadFullBuffer(lengthBuffer);
+                if (bytesRead == 0 && returnOnEmptyStream)
+                {
+                    return 0;
+                }
                 if (throwOnFullRead)
                 {
                     EnsureFullRead(lengthBuffer, bytesRead);

@@ -31,24 +31,25 @@
 #include "arrow/c/bridge.h"
 #include "arrow/c/helpers.h"
 #include "arrow/c/util_internal.h"
-#include "arrow/ipc/json_simple.h"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/binary_view_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/range.h"
+#include "arrow/util/thread_pool.h"
 
 // TODO(GH-37221): Remove these ifdef checks when compute dependency is removed
 #ifdef ARROW_COMPUTE
-#include "arrow/compute/api_vector.h"
+#  include "arrow/compute/api_vector.h"
 #endif
 
 namespace arrow {
@@ -363,13 +364,19 @@ TEST_F(TestSchemaExport, Primitive) {
   TestPrimitive(binary_view(), "vz");
   TestPrimitive(utf8_view(), "vu");
 
-  TestPrimitive(decimal(16, 4), "d:16,4");
+  TestPrimitive(smallest_decimal(8, 4), "d:8,4,32");
+  TestPrimitive(smallest_decimal(16, 4), "d:16,4,64");
+  TestPrimitive(decimal128(16, 4), "d:16,4");
   TestPrimitive(decimal256(16, 4), "d:16,4,256");
 
-  TestPrimitive(decimal(15, 0), "d:15,0");
+  TestPrimitive(smallest_decimal(8, 0), "d:8,0,32");
+  TestPrimitive(smallest_decimal(15, 0), "d:15,0,64");
+  TestPrimitive(decimal128(15, 0), "d:15,0");
   TestPrimitive(decimal256(15, 0), "d:15,0,256");
 
-  TestPrimitive(decimal(15, -4), "d:15,-4");
+  TestPrimitive(smallest_decimal(8, -4), "d:8,-4,32");
+  TestPrimitive(smallest_decimal(15, -4), "d:15,-4,64");
+  TestPrimitive(decimal128(15, -4), "d:15,-4");
   TestPrimitive(decimal256(15, -4), "d:15,-4,256");
 }
 
@@ -573,8 +580,10 @@ struct ArrayExportChecker {
       --expected_n_buffers;
       ++expected_buffers;
     }
-    bool has_variadic_buffer_sizes = expected_data.type->id() == Type::STRING_VIEW ||
-                                     expected_data.type->id() == Type::BINARY_VIEW;
+
+    bool has_variadic_buffer_sizes =
+        expected_data.type->storage_id() == Type::BINARY_VIEW ||
+        expected_data.type->storage_id() == Type::STRING_VIEW;
     ASSERT_EQ(c_export->n_buffers, expected_n_buffers + has_variadic_buffer_sizes);
     ASSERT_NE(c_export->buffers, nullptr);
 
@@ -906,7 +915,9 @@ TEST_F(TestArrayExport, Primitive) {
   TestPrimitive(binary_view(), R"(["foo", "bar", null])");
   TestPrimitive(utf8_view(), R"(["foo", "bar", null])");
 
-  TestPrimitive(decimal(16, 4), R"(["1234.5670", null])");
+  TestPrimitive(decimal32(9, 4), R"(["1234.5670", null])");
+  TestPrimitive(decimal64(16, 4), R"(["1234.5670", null])");
+  TestPrimitive(decimal128(16, 4), R"(["1234.5670", null])");
   TestPrimitive(decimal256(16, 4), R"(["1234.5670", null])");
 
   TestPrimitive(month_day_nano_interval(), R"([[-1, 5, 20], null])");
@@ -948,6 +959,13 @@ TEST_F(TestArrayExport, BinaryViewMultipleBuffers) {
   TestPrimitive([&] {
     auto arr = MakeBinaryViewArrayWithMultipleDataBuffers();
     return arr->Slice(1, arr->length() - 2);
+  });
+}
+
+TEST_F(TestArrayExport, BinaryViewExtensionWithMultipleBuffers) {
+  TestPrimitive([&] {
+    auto storage = MakeBinaryViewArrayWithMultipleDataBuffers();
+    return BinaryViewExtensionType::WrapArray(binary_view_extension_type(), storage);
   });
 }
 
@@ -1501,7 +1519,9 @@ TEST_F(TestDeviceArrayExport, Primitive) {
   TestPrimitive(mm, utf8(), R"(["foo", "bar", null])");
   TestPrimitive(mm, large_utf8(), R"(["foo", "bar", null])");
 
-  TestPrimitive(mm, decimal(16, 4), R"(["1234.5670", null])");
+  TestPrimitive(mm, decimal32(9, 4), R"(["1234.5670", null])");
+  TestPrimitive(mm, decimal64(16, 4), R"(["1234.5670", null])");
+  TestPrimitive(mm, decimal128(16, 4), R"(["1234.5670", null])");
   TestPrimitive(mm, decimal256(16, 4), R"(["1234.5670", null])");
 
   TestPrimitive(mm, month_day_nano_interval(), R"([[-1, 5, 20], null])");
@@ -1951,6 +1971,10 @@ TEST_F(TestSchemaImport, Primitive) {
   CheckImport(field("", decimal128(16, 4)));
   FillPrimitive("d:16,4,256");
   CheckImport(field("", decimal256(16, 4)));
+  FillPrimitive("d:4,4,32");
+  CheckImport(field("", decimal32(4, 4)));
+  FillPrimitive("d:16,4,64");
+  CheckImport(field("", decimal64(16, 4)));
 
   FillPrimitive("d:16,0");
   CheckImport(field("", decimal128(16, 0)));
@@ -1958,6 +1982,10 @@ TEST_F(TestSchemaImport, Primitive) {
   CheckImport(field("", decimal128(16, 0)));
   FillPrimitive("d:16,0,256");
   CheckImport(field("", decimal256(16, 0)));
+  FillPrimitive("d:4,0,32");
+  CheckImport(field("", decimal32(4, 0)));
+  FillPrimitive("d:16,0,64");
+  CheckImport(field("", decimal64(16, 0)));
 
   FillPrimitive("d:16,-4");
   CheckImport(field("", decimal128(16, -4)));
@@ -1965,6 +1993,10 @@ TEST_F(TestSchemaImport, Primitive) {
   CheckImport(field("", decimal128(16, -4)));
   FillPrimitive("d:16,-4,256");
   CheckImport(field("", decimal256(16, -4)));
+  FillPrimitive("d:4,-4,32");
+  CheckImport(field("", decimal32(4, -4)));
+  FillPrimitive("d:16,-4,64");
+  CheckImport(field("", decimal64(16, -4)));
 }
 
 TEST_F(TestSchemaImport, Temporal) {
@@ -2034,7 +2066,7 @@ TEST_F(TestSchemaImport, String) {
   FillPrimitive("w:3");
   CheckImport(fixed_size_binary(3));
   FillPrimitive("d:15,4");
-  CheckImport(decimal(15, 4));
+  CheckImport(decimal128(15, 4));
 }
 
 TEST_F(TestSchemaImport, List) {
@@ -2950,26 +2982,26 @@ TEST_F(TestArrayImport, FixedSizeBinary) {
   FillPrimitive(2, 0, 0, primitive_buffers_no_nulls2);
   CheckImport(ArrayFromJSON(fixed_size_binary(3), R"(["abc", "def"])"));
   FillPrimitive(2, 0, 0, primitive_buffers_no_nulls3);
-  CheckImport(ArrayFromJSON(decimal(15, 4), R"(["12345.6789", "98765.4321"])"));
+  CheckImport(ArrayFromJSON(decimal128(15, 4), R"(["12345.6789", "98765.4321"])"));
 
   // Empty array with null data pointers
   FillPrimitive(0, 0, 0, all_buffers_omitted);
   CheckImport(ArrayFromJSON(fixed_size_binary(3), "[]"));
   FillPrimitive(0, 0, 0, all_buffers_omitted);
-  CheckImport(ArrayFromJSON(decimal(15, 4), "[]"));
+  CheckImport(ArrayFromJSON(decimal128(15, 4), "[]"));
 }
 
 TEST_F(TestArrayImport, FixedSizeBinaryWithOffset) {
   FillPrimitive(1, 0, 1, primitive_buffers_no_nulls2);
   CheckImport(ArrayFromJSON(fixed_size_binary(3), R"(["def"])"));
   FillPrimitive(1, 0, 1, primitive_buffers_no_nulls3);
-  CheckImport(ArrayFromJSON(decimal(15, 4), R"(["98765.4321"])"));
+  CheckImport(ArrayFromJSON(decimal128(15, 4), R"(["98765.4321"])"));
 
   // Empty array with null data pointers
   FillPrimitive(0, 0, 1, all_buffers_omitted);
   CheckImport(ArrayFromJSON(fixed_size_binary(3), "[]"));
   FillPrimitive(0, 0, 1, all_buffers_omitted);
-  CheckImport(ArrayFromJSON(decimal(15, 4), "[]"));
+  CheckImport(ArrayFromJSON(decimal128(15, 4), "[]"));
 }
 
 TEST_F(TestArrayImport, List) {
@@ -3624,10 +3656,16 @@ TEST_F(TestSchemaRoundtrip, Primitive) {
   TestWithTypeFactory(boolean);
   TestWithTypeFactory(float16);
 
+  TestWithTypeFactory([] { return decimal32(8, 4); });
+  TestWithTypeFactory([] { return decimal64(16, 4); });
   TestWithTypeFactory([] { return decimal128(19, 4); });
   TestWithTypeFactory([] { return decimal256(19, 4); });
+  TestWithTypeFactory([] { return decimal32(8, 0); });
+  TestWithTypeFactory([] { return decimal64(16, 0); });
   TestWithTypeFactory([] { return decimal128(19, 0); });
   TestWithTypeFactory([] { return decimal256(19, 0); });
+  TestWithTypeFactory([] { return decimal32(8, -5); });
+  TestWithTypeFactory([] { return decimal64(16, -5); });
   TestWithTypeFactory([] { return decimal128(19, -5); });
   TestWithTypeFactory([] { return decimal256(19, -5); });
   TestWithTypeFactory([] { return fixed_size_binary(3); });
@@ -3661,7 +3699,7 @@ TEST_F(TestSchemaRoundtrip, ListView) {
 
 TEST_F(TestSchemaRoundtrip, Struct) {
   auto f1 = field("f1", utf8(), /*nullable=*/false);
-  auto f2 = field("f2", list(decimal(19, 4)));
+  auto f2 = field("f2", list(decimal128(19, 4)));
 
   TestWithTypeFactory([&]() { return struct_({f1, f2}); });
   f2 = f2->WithMetadata(key_value_metadata(kMetadataKeys2, kMetadataValues2));
@@ -3671,7 +3709,7 @@ TEST_F(TestSchemaRoundtrip, Struct) {
 
 TEST_F(TestSchemaRoundtrip, Union) {
   auto f1 = field("f1", utf8(), /*nullable=*/false);
-  auto f2 = field("f2", list(decimal(19, 4)));
+  auto f2 = field("f2", list(decimal128(19, 4)));
   auto type_codes = std::vector<int8_t>{42, 43};
 
   TestWithTypeFactory(
@@ -3739,6 +3777,10 @@ TEST_F(TestSchemaRoundtrip, RegisteredExtension) {
 TEST_F(TestSchemaRoundtrip, Map) {
   TestWithTypeFactory([&]() { return map(utf8(), int32()); });
   TestWithTypeFactory([&]() { return map(utf8(), field("value", int32(), false)); });
+  TestWithTypeFactory([&]() {
+    return map(utf8(), field("value", int32(), false,
+                             KeyValueMetadata::Make({"meta key"}, {"meta value"})));
+  });
   // Field names are brought in line with the spec on import.
   TestWithTypeFactory(
       [&]() {
@@ -3901,6 +3943,8 @@ TEST_F(TestArrayRoundtrip, Primitive) {
   TestWithJSON(int32(), "[]");
   TestWithJSON(int32(), "[4, 5, null]");
 
+  TestWithJSON(decimal32(8, 4), R"(["0.4759", "1234.5670", null])");
+  TestWithJSON(decimal64(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSON(decimal128(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSON(decimal256(16, 4), R"(["0.4759", "1234.5670", null])");
 
@@ -3908,6 +3952,8 @@ TEST_F(TestArrayRoundtrip, Primitive) {
 
   TestWithJSONSliced(int32(), "[4, 5]");
   TestWithJSONSliced(int32(), "[4, 5, 6, null]");
+  TestWithJSONSliced(decimal32(8, 4), R"(["0.4759", "1234.5670", null])");
+  TestWithJSONSliced(decimal64(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSONSliced(decimal128(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSONSliced(decimal256(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSONSliced(month_day_nano_interval(),
@@ -5277,6 +5323,121 @@ TEST_F(TestArrayDeviceStreamRoundtrip, ChunkedArrayRoundtripEmpty) {
     AssertTypeEqual(*dst->type(), *src->type());
     AssertChunkedEqual(*dst, *src);
   });
+}
+
+class TestAsyncDeviceArrayStreamRoundTrip : public BaseArrayStreamTest {
+ public:
+  void SetUp() override {
+    BaseArrayStreamTest::SetUp();
+#ifndef ARROW_ENABLE_THREADING
+    GTEST_SKIP() << "Test requires ARROW_ENABLE_THREADING=ON";
+#endif
+  }
+
+  static Result<std::shared_ptr<ArrayData>> ToDeviceData(
+      const std::shared_ptr<MemoryManager>& mm, const ArrayData& data) {
+    arrow::BufferVector buffers;
+    for (const auto& buf : data.buffers) {
+      if (buf) {
+        ARROW_ASSIGN_OR_RAISE(auto dest, mm->CopyBuffer(buf, mm));
+        buffers.push_back(dest);
+      } else {
+        buffers.push_back(nullptr);
+      }
+    }
+
+    arrow::ArrayDataVector children;
+    for (const auto& child : data.child_data) {
+      ARROW_ASSIGN_OR_RAISE(auto dest, ToDeviceData(mm, *child));
+      children.push_back(dest);
+    }
+
+    return ArrayData::Make(data.type, data.length, buffers, children, data.null_count,
+                           data.offset);
+  }
+
+  static Result<std::shared_ptr<Array>> ToDevice(const std::shared_ptr<MemoryManager>& mm,
+                                                 const ArrayData& data) {
+    ARROW_ASSIGN_OR_RAISE(auto result, ToDeviceData(mm, data));
+    return MakeArray(result);
+  }
+};
+
+TEST_F(TestAsyncDeviceArrayStreamRoundTrip, Simple) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  ASSERT_OK_AND_ASSIGN(auto arr1,
+                       ToDevice(mm, *ArrayFromJSON(int32(), "[1, 2]")->data()));
+  ASSERT_EQ(device->device_type(), arr1->device_type());
+  ASSERT_OK_AND_ASSIGN(auto arr2,
+                       ToDevice(mm, *ArrayFromJSON(int32(), "[4, 5, null]")->data()));
+  ASSERT_EQ(device->device_type(), arr2->device_type());
+  auto orig_schema = arrow::schema({field("ints", int32())});
+  auto batches = MakeBatches(orig_schema, {arr1, arr2});
+
+  struct ArrowAsyncDeviceStreamHandler handler;
+  auto fut_gen = CreateAsyncDeviceStreamHandler(&handler, internal::GetCpuThreadPool(), 1,
+                                                TestDeviceArrayRoundtrip::DeviceMapper);
+  ASSERT_FALSE(fut_gen.is_finished());
+
+  ASSERT_OK_AND_ASSIGN(auto fut, internal::GetCpuThreadPool()->Submit([&]() {
+    return ExportAsyncRecordBatchReader(orig_schema, MakeVectorGenerator(batches),
+                                        device->device_type(), &handler);
+  }));
+
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto generator, fut_gen);
+  ASSERT_NO_FATAL_FAILURE(AssertSchemaEqual(*orig_schema, *generator.schema));
+
+  auto collect_fut = CollectAsyncGenerator(generator.generator);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto results, collect_fut);
+  ASSERT_FINISHES_OK(fut);
+  ASSERT_FINISHES_OK(fut_gen);
+
+  ASSERT_EQ(results.size(), 2);
+  AssertBatchesEqual(*results[0].batch, *batches[0]);
+  AssertBatchesEqual(*results[1].batch, *batches[1]);
+
+  internal::GetCpuThreadPool()->WaitForIdle();
+}
+
+TEST_F(TestAsyncDeviceArrayStreamRoundTrip, NullSchema) {
+  struct ArrowAsyncDeviceStreamHandler handler;
+  auto fut_gen = CreateAsyncDeviceStreamHandler(&handler, internal::GetCpuThreadPool(), 1,
+                                                TestDeviceArrayRoundtrip::DeviceMapper);
+  ASSERT_FALSE(fut_gen.is_finished());
+
+  auto fut = ExportAsyncRecordBatchReader(nullptr, nullptr, DeviceAllocationType::kCPU,
+                                          &handler);
+  ASSERT_FINISHES_AND_RAISES(Invalid, fut);
+  ASSERT_FINISHES_AND_RAISES(UnknownError, fut_gen);
+}
+
+TEST_F(TestAsyncDeviceArrayStreamRoundTrip, PropagateError) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto orig_schema = arrow::schema({field("ints", int32())});
+
+  struct ArrowAsyncDeviceStreamHandler handler;
+  auto fut_gen = CreateAsyncDeviceStreamHandler(&handler, internal::GetCpuThreadPool(), 1,
+                                                TestDeviceArrayRoundtrip::DeviceMapper);
+  ASSERT_FALSE(fut_gen.is_finished());
+
+  ASSERT_OK_AND_ASSIGN(auto fut, internal::GetCpuThreadPool()->Submit([&]() {
+    return ExportAsyncRecordBatchReader(
+        orig_schema,
+        MakeFailingGenerator<std::shared_ptr<RecordBatch>>(
+            Status::UnknownError("expected failure")),
+        device->device_type(), &handler);
+  }));
+
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto generator, fut_gen);
+  ASSERT_NO_FATAL_FAILURE(AssertSchemaEqual(*orig_schema, *generator.schema));
+
+  auto collect_fut = CollectAsyncGenerator(generator.generator);
+  ASSERT_FINISHES_AND_RAISES(UnknownError, collect_fut);
+  ASSERT_FINISHES_AND_RAISES(UnknownError, fut);
+
+  internal::GetCpuThreadPool()->WaitForIdle();
 }
 
 }  // namespace arrow

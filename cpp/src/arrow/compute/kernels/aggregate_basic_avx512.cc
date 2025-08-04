@@ -17,6 +17,10 @@
 
 #include "arrow/compute/kernels/aggregate_basic_internal.h"
 
+// Include templated definitions for aggregate kernels that must compiled here
+// with the SIMD level configured for this compilation unit in the build.
+#include "arrow/compute/kernels/aggregate_basic.inc.cc"  // NOLINT(build/include)
+
 namespace arrow {
 namespace compute {
 namespace internal {
@@ -24,14 +28,11 @@ namespace internal {
 // ----------------------------------------------------------------------
 // Sum implementation
 
+namespace {
+
 template <typename ArrowType>
 struct SumImplAvx512 : public SumImpl<ArrowType, SimdLevel::AVX512> {
   using SumImpl<ArrowType, SimdLevel::AVX512>::SumImpl;
-};
-
-template <typename ArrowType>
-struct MeanImplAvx512 : public MeanImpl<ArrowType, SimdLevel::AVX512> {
-  using MeanImpl<ArrowType, SimdLevel::AVX512>::MeanImpl;
 };
 
 Result<std::unique_ptr<KernelState>> SumInitAvx512(KernelContext* ctx,
@@ -42,6 +43,26 @@ Result<std::unique_ptr<KernelState>> SumInitAvx512(KernelContext* ctx,
   return visitor.Create();
 }
 
+}  // namespace
+
+void AddSumAvx512AggKernels(ScalarAggregateFunction* func) {
+  AddBasicAggKernels(SumInitAvx512, SignedIntTypes(), int64(), func, SimdLevel::AVX512);
+  AddBasicAggKernels(SumInitAvx512, UnsignedIntTypes(), uint64(), func,
+                     SimdLevel::AVX512);
+  AddBasicAggKernels(SumInitAvx512, FloatingPointTypes(), float64(), func,
+                     SimdLevel::AVX512);
+}
+
+// ----------------------------------------------------------------------
+// Mean implementation
+
+namespace {
+
+template <typename ArrowType>
+struct MeanImplAvx512 : public MeanImpl<ArrowType, SimdLevel::AVX512> {
+  using MeanImpl<ArrowType, SimdLevel::AVX512>::MeanImpl;
+};
+
 Result<std::unique_ptr<KernelState>> MeanInitAvx512(KernelContext* ctx,
                                                     const KernelInitArgs& args) {
   SumLikeInit<MeanImplAvx512> visitor(
@@ -50,8 +71,16 @@ Result<std::unique_ptr<KernelState>> MeanInitAvx512(KernelContext* ctx,
   return visitor.Create();
 }
 
+}  // namespace
+
+void AddMeanAvx512AggKernels(ScalarAggregateFunction* func) {
+  AddBasicAggKernels(MeanInitAvx512, NumericTypes(), float64(), func, SimdLevel::AVX512);
+}
+
 // ----------------------------------------------------------------------
 // MinMax implementation
+
+namespace {
 
 Result<std::unique_ptr<KernelState>> MinMaxInitAvx512(KernelContext* ctx,
                                                       const KernelInitArgs& args) {
@@ -63,25 +92,15 @@ Result<std::unique_ptr<KernelState>> MinMaxInitAvx512(KernelContext* ctx,
   return visitor.Create();
 }
 
-void AddSumAvx512AggKernels(ScalarAggregateFunction* func) {
-  AddBasicAggKernels(SumInitAvx512, SignedIntTypes(), int64(), func, SimdLevel::AVX512);
-  AddBasicAggKernels(SumInitAvx512, UnsignedIntTypes(), uint64(), func,
-                     SimdLevel::AVX512);
-  AddBasicAggKernels(SumInitAvx512, FloatingPointTypes(), float64(), func,
-                     SimdLevel::AVX512);
-}
-
-void AddMeanAvx512AggKernels(ScalarAggregateFunction* func) {
-  AddBasicAggKernels(MeanInitAvx512, NumericTypes(), float64(), func, SimdLevel::AVX512);
-}
+}  // namespace
 
 void AddMinMaxAvx512AggKernels(ScalarAggregateFunction* func) {
   // Enable 32/64 int types for avx512 variants, no advantage on 8/16 int.
   AddMinMaxKernels(MinMaxInitAvx512, {int32(), uint32(), int64(), uint64()}, func,
                    SimdLevel::AVX512);
   AddMinMaxKernels(MinMaxInitAvx512, TemporalTypes(), func, SimdLevel::AVX512);
-  AddMinMaxKernels(MinMaxInitAvx512, BaseBinaryTypes(), func, SimdLevel::AVX2);
-  AddMinMaxKernel(MinMaxInitAvx512, Type::FIXED_SIZE_BINARY, func, SimdLevel::AVX2);
+  AddMinMaxKernels(MinMaxInitAvx512, BaseBinaryTypes(), func, SimdLevel::AVX512);
+  AddMinMaxKernel(MinMaxInitAvx512, Type::FIXED_SIZE_BINARY, func, SimdLevel::AVX512);
   AddMinMaxKernel(MinMaxInitAvx512, Type::INTERVAL_MONTHS, func, SimdLevel::AVX512);
 }
 

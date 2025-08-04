@@ -16,12 +16,14 @@
 // under the License.
 
 // helpers.h includes a NumPy header, so we include this first
+#include "arrow/python/numpy_init.h"
 #include "arrow/python/numpy_interop.h"
 
 #include "arrow/python/helpers.h"
 
 #include <cmath>
 #include <limits>
+#include <mutex>
 #include <sstream>
 #include <type_traits>
 
@@ -30,6 +32,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -72,33 +75,34 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
   }
 }
 
-PyObject* PyHalf_FromHalf(npy_half value) {
-  PyObject* result = PyArrayScalar_New(Half);
-  if (result != NULL) {
-    PyArrayScalar_ASSIGN(result, Half, value);
-  }
-  return result;
+PyObject* PyFloat_FromHalf(uint16_t value) {
+  // Convert the uint16_t Float16 value to a PyFloat object
+  arrow::util::Float16 half_val = arrow::util::Float16::FromBits(value);
+  return PyFloat_FromDouble(half_val.ToDouble());
 }
 
-Status PyFloat_AsHalf(PyObject* obj, npy_half* out) {
-  if (PyArray_IsScalar(obj, Half)) {
-    *out = PyArrayScalar_VAL(obj, Half);
-    return Status::OK();
+Result<uint16_t> PyFloat_AsHalf(PyObject* obj) {
+  if (PyFloat_Check(obj)) {
+    arrow::util::Float16 half_val =
+        arrow::util::Float16::FromDouble(PyFloat_AsDouble(obj));
+    return half_val.bits();
+  } else if (has_numpy() && PyArray_IsScalar(obj, Half)) {
+    return PyArrayScalar_VAL(obj, Half);
   } else {
-    // XXX: cannot use npy_double_to_half() without linking with Numpy
-    return Status::TypeError("Expected np.float16 instance");
+    return Status::TypeError("conversion to float16 expects a `float` or ",
+                             "`np.float16` object, got ", Py_TYPE(obj)->tp_name);
   }
 }
 
 namespace internal {
 
 std::string PyBytes_AsStdString(PyObject* obj) {
-  DCHECK(PyBytes_Check(obj));
+  ARROW_DCHECK(PyBytes_Check(obj));
   return std::string(PyBytes_AS_STRING(obj), PyBytes_GET_SIZE(obj));
 }
 
 Status PyUnicode_AsStdString(PyObject* obj, std::string* out) {
-  DCHECK(PyUnicode_Check(obj));
+  ARROW_DCHECK(PyUnicode_Check(obj));
   Py_ssize_t size;
   // The utf-8 representation is cached on the unicode object
   const char* data = PyUnicode_AsUTF8AndSize(obj, &size);
@@ -179,7 +183,7 @@ Result<OwnedRef> PyObjectToPyInt(PyObject* obj) {
     if (!ref) {
       RETURN_IF_PYERROR();
     }
-    DCHECK(ref);
+    ARROW_DCHECK(ref);
     return std::move(ref);
   }
   return Status::TypeError(
@@ -292,7 +296,15 @@ bool PyFloat_IsNaN(PyObject* obj) {
 
 namespace {
 
+// This needs a conditional, because using std::once_flag could introduce
+// a deadlock when the GIL is enabled. See
+// https://github.com/apache/arrow/commit/f69061935e92e36e25bb891177ca8bc4f463b272 for
+// more info.
+#ifdef Py_GIL_DISABLED
+static std::once_flag pandas_static_initialized;
+#else
 static bool pandas_static_initialized = false;
+#endif
 
 // Once initialized, these variables hold borrowed references to Pandas static data.
 // We should not use OwnedRef here because Python destructors would be
@@ -304,15 +316,7 @@ static PyObject* pandas_Timestamp = nullptr;
 static PyTypeObject* pandas_NaTType = nullptr;
 static PyObject* pandas_DateOffset = nullptr;
 
-}  // namespace
-
-void InitPandasStaticData() {
-  // NOTE: This is called with the GIL held.  We needn't (and shouldn't,
-  // to avoid deadlocks) use an additional C++ lock (ARROW-10519).
-  if (pandas_static_initialized) {
-    return;
-  }
-
+void GetPandasStaticSymbols() {
   OwnedRef pandas;
 
   // Import pandas
@@ -321,11 +325,14 @@ void InitPandasStaticData() {
     return;
   }
 
+#ifndef Py_GIL_DISABLED
   // Since ImportModule can release the GIL, another thread could have
   // already initialized the static data.
   if (pandas_static_initialized) {
     return;
   }
+#endif
+
   OwnedRef ref;
 
   // set NaT sentinel and its type
@@ -355,9 +362,25 @@ void InitPandasStaticData() {
   if (ImportFromModule(pandas.obj(), "DateOffset", &ref).ok()) {
     pandas_DateOffset = ref.obj();
   }
+}
 
+}  // namespace
+
+#ifdef Py_GIL_DISABLED
+void InitPandasStaticData() {
+  std::call_once(pandas_static_initialized, GetPandasStaticSymbols);
+}
+#else
+void InitPandasStaticData() {
+  // NOTE: This is called with the GIL held.  We needn't (and shouldn't,
+  // to avoid deadlocks) use an additional C++ lock (ARROW-10519).
+  if (pandas_static_initialized) {
+    return;
+  }
+  GetPandasStaticSymbols();
   pandas_static_initialized = true;
 }
+#endif
 
 bool PandasObjectIsNull(PyObject* obj) {
   if (!MayHaveNaN(obj)) {

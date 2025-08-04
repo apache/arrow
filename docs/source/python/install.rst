@@ -27,7 +27,7 @@ Linux distributions. We strongly recommend using a 64-bit system.
 Python Compatibility
 --------------------
 
-PyArrow is currently compatible with Python 3.8, 3.9, 3.10 and 3.11.
+PyArrow is currently compatible with Python 3.9, 3.10, 3.11, 3.12 and 3.13.
 
 Using Conda
 -----------
@@ -71,12 +71,9 @@ See :ref:`python-development`.
 Dependencies
 ------------
 
-Required dependency
-
-* **NumPy 1.16.6** or higher.
-
 Optional dependencies
 
+* **NumPy 1.16.6** or higher.
 * **pandas 1.0** or higher,
 * **cffi**.
 
@@ -100,6 +97,21 @@ a custom path to the database from Python:
 
    >>> import pyarrow as pa
    >>> pa.set_timezone_db_path("custom_path")
+
+You may encounter problems writing datetime data to an ORC file if you install
+pyarrow with pip. One possible solution to fix this problem:
+
+   1. Install tzdata with ``pip install tzdata``
+   2. Set the environment variable ``TZDIR = path\to\.venv\Lib\site-packages\tzdata\``
+
+You can find where ``tzdata`` is installed with the following python
+command:
+
+.. code-block:: python
+
+   >>> import tzdata
+   >>> print(tzdata.__file__)
+   path\to\.venv\Lib\site-packages\tzdata\__init__.py
 
 
 .. _python-conda-differences:

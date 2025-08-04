@@ -38,6 +38,7 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_run_end.h"
 #include "arrow/array/builder_time.h"
 #include "arrow/array/data.h"
@@ -60,6 +61,7 @@
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/range.h"
@@ -72,6 +74,7 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using util::Float16;
 
 class TestArray : public ::testing::Test {
  public:
@@ -442,7 +445,7 @@ static std::vector<std::shared_ptr<DataType>> TestArrayUtilitiesAgainstTheseType
       large_binary(),
       binary_view(),
       fixed_size_binary(3),
-      decimal(16, 4),
+      decimal128(16, 4),
       utf8(),
       large_utf8(),
       utf8_view(),
@@ -585,6 +588,31 @@ TEST_F(TestArray, TestValidateNullCount) {
   }
 }
 
+TEST_F(TestArray, TestValidValues) {
+  // GH-44541: The value_ should be valid when construct.
+  {
+    std::vector<int32_t> original_data{1, 2, 3, 4, 5, 6, 7};
+    std::shared_ptr<Int32Array> arr =
+        std::make_shared<Int32Array>(::arrow::int32(), 7, Buffer::Wrap(original_data));
+    for (size_t i = 0; i < original_data.size(); ++i) {
+      EXPECT_TRUE(arr->IsValid(i));
+      EXPECT_FALSE(arr->IsNull(i));
+      EXPECT_EQ(original_data[i], arr->Value(i));
+    }
+  }
+  {
+    // Test non parameter free type.
+    std::vector<int64_t> original_data{1, 2, 3, 4, 5, 6, 7};
+    std::shared_ptr<TimestampArray> arr = std::make_shared<TimestampArray>(
+        ::arrow::timestamp(TimeUnit::MICRO), 7, Buffer::Wrap(original_data));
+    for (size_t i = 0; i < original_data.size(); ++i) {
+      EXPECT_TRUE(arr->IsValid(i));
+      EXPECT_FALSE(arr->IsNull(i));
+      EXPECT_EQ(original_data[i], arr->Value(i));
+    }
+  }
+}
+
 void AssertAppendScalar(MemoryPool* pool, const std::shared_ptr<Scalar>& scalar) {
   std::unique_ptr<arrow::ArrayBuilder> builder;
   auto null_scalar = MakeNullScalar(scalar->type);
@@ -667,8 +695,10 @@ static ScalarVector GetScalars() {
       std::make_shared<BinaryViewScalar>(hello),
       std::make_shared<FixedSizeBinaryScalar>(
           hello, fixed_size_binary(static_cast<int32_t>(hello->size()))),
-      std::make_shared<Decimal128Scalar>(Decimal128(10), decimal(16, 4)),
-      std::make_shared<Decimal256Scalar>(Decimal256(10), decimal(76, 38)),
+      std::make_shared<Decimal32Scalar>(Decimal32(10), smallest_decimal(7, 4)),
+      std::make_shared<Decimal64Scalar>(Decimal64(10), smallest_decimal(12, 4)),
+      std::make_shared<Decimal128Scalar>(Decimal128(10), smallest_decimal(20, 4)),
+      std::make_shared<Decimal256Scalar>(Decimal256(10), smallest_decimal(76, 38)),
       std::make_shared<StringScalar>(hello),
       std::make_shared<LargeStringScalar>(hello),
       std::make_shared<StringViewScalar>(hello),
@@ -786,6 +816,23 @@ TEST_F(TestArray, TestMakeArrayFromMapScalar) {
   }
 
   AssertAppendScalar(pool_, std::make_shared<MapScalar>(scalar));
+}
+
+TEST_F(TestArray, TestMakeArrayFromScalarSmallintExtensionType) {
+  auto ext_type = std::make_shared<SmallintType>();
+  auto storage_scalar = std::make_shared<Int16Scalar>(42);
+  auto ext_scalar = std::make_shared<ExtensionScalar>(storage_scalar, ext_type);
+
+  ASSERT_OK_AND_ASSIGN(auto arr, MakeArrayFromScalar(*ext_scalar, 3));
+  ASSERT_EQ(arr->type()->id(), Type::EXTENSION);
+  ASSERT_EQ(arr->length(), 3);
+
+  auto ext_arr = std::static_pointer_cast<ExtensionArray>(arr);
+  ASSERT_EQ(ext_arr->storage()->type_id(), Type::INT16);
+  auto int_arr = std::static_pointer_cast<Int16Array>(ext_arr->storage());
+  for (int i = 0; i < 3; ++i) {
+    ASSERT_EQ(int_arr->Value(i), 42);
+  }
 }
 
 void CheckSpanRoundTrip(const Array& array) {
@@ -2025,6 +2072,24 @@ void CheckApproxEquals() {
 }
 
 template <typename TYPE>
+void CheckFloatApproxEqualsWithAtol() {
+  using c_type = typename TYPE::c_type;
+  auto type = TypeTraits<TYPE>::type_singleton();
+  std::shared_ptr<Array> a, b;
+  ArrayFromVector<TYPE>(type, {true}, {static_cast<c_type>(0.5)}, &a);
+  ArrayFromVector<TYPE>(type, {true}, {static_cast<c_type>(0.6)}, &b);
+  auto options = EqualOptions::Defaults().atol(0.2);
+
+  ASSERT_FALSE(a->Equals(b));
+  ASSERT_TRUE(a->Equals(b, options.use_atol(true)));
+  ASSERT_TRUE(a->ApproxEquals(b, options));
+
+  ASSERT_FALSE(a->RangeEquals(0, 1, 0, b, options));
+  ASSERT_TRUE(a->RangeEquals(0, 1, 0, b, options.use_atol(true)));
+  ASSERT_TRUE(ArrayRangeApproxEquals(*a, *b, 0, 1, 0, options));
+}
+
+template <typename TYPE>
 void CheckSliceApproxEquals() {
   using T = typename TYPE::c_type;
 
@@ -2226,6 +2291,11 @@ void CheckFloatingZeroEquality() {
 TEST(TestPrimitiveAdHoc, FloatingApproxEquals) {
   CheckApproxEquals<FloatType>();
   CheckApproxEquals<DoubleType>();
+}
+
+TEST(TestPrimitiveAdHoc, FloatingApproxEqualsWithAtol) {
+  CheckFloatApproxEqualsWithAtol<FloatType>();
+  CheckFloatApproxEqualsWithAtol<DoubleType>();
 }
 
 TEST(TestPrimitiveAdHoc, FloatingSliceApproxEquals) {
@@ -3092,6 +3162,98 @@ class DecimalTest : public ::testing::TestWithParam<int> {
   }
 };
 
+using Decimal32Test = DecimalTest<Decimal32Type>;
+
+TEST_P(Decimal32Test, NoNulls) {
+  int32_t precision = GetParam();
+  std::vector<Decimal32> draw = {Decimal32(1), Decimal32(-2), Decimal32(2389),
+                                 Decimal32(4), Decimal32(-12348)};
+  std::vector<uint8_t> valid_bytes = {true, true, true, true, true};
+  this->TestCreate(precision, draw, valid_bytes, 0);
+  this->TestCreate(precision, draw, valid_bytes, 2);
+}
+
+TEST_P(Decimal32Test, WithNulls) {
+  int32_t precision = GetParam();
+  std::vector<Decimal32> draw = {Decimal32(1),  Decimal32(2), Decimal32(-1), Decimal32(4),
+                                 Decimal32(-1), Decimal32(1), Decimal32(2)};
+  Decimal32 big;
+  ASSERT_OK_AND_ASSIGN(big, Decimal32::FromString("23034.234"));
+  draw.push_back(big);
+
+  Decimal32 big_negative;
+  ASSERT_OK_AND_ASSIGN(big_negative, Decimal32::FromString("-23049.235"));
+  draw.push_back(big_negative);
+
+  std::vector<uint8_t> valid_bytes = {true, true, false, true, false,
+                                      true, true, true,  true};
+  this->TestCreate(precision, draw, valid_bytes, 0);
+  this->TestCreate(precision, draw, valid_bytes, 2);
+}
+
+TEST_P(Decimal32Test, ValidateFull) {
+  int32_t precision = GetParam();
+  std::vector<Decimal32> draw;
+  Decimal32 val = Decimal32::GetMaxValue(precision) + 1;
+
+  draw = {Decimal32(), val};
+  auto arr = this->TestCreate(precision, draw, {true, false}, 0);
+  ASSERT_OK(arr->ValidateFull());
+
+  draw = {val, Decimal32()};
+  arr = this->TestCreate(precision, draw, {true, false}, 0);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("does not fit in precision of"), arr->ValidateFull());
+}
+
+INSTANTIATE_TEST_SUITE_P(Decimal32Test, Decimal32Test, ::testing::Range(1, 9));
+
+using Decimal64Test = DecimalTest<Decimal64Type>;
+
+TEST_P(Decimal64Test, NoNulls) {
+  int32_t precision = GetParam();
+  std::vector<Decimal64> draw = {Decimal64(1), Decimal64(-2), Decimal64(2389),
+                                 Decimal64(4), Decimal64(-12348)};
+  std::vector<uint8_t> valid_bytes = {true, true, true, true, true};
+  this->TestCreate(precision, draw, valid_bytes, 0);
+  this->TestCreate(precision, draw, valid_bytes, 2);
+}
+
+TEST_P(Decimal64Test, WithNulls) {
+  int32_t precision = GetParam();
+  std::vector<Decimal64> draw = {Decimal64(1),  Decimal64(2), Decimal64(-1), Decimal64(4),
+                                 Decimal64(-1), Decimal64(1), Decimal64(2)};
+  Decimal64 big;
+  ASSERT_OK_AND_ASSIGN(big, Decimal64::FromString("23034.234234"));
+  draw.push_back(big);
+
+  Decimal64 big_negative;
+  ASSERT_OK_AND_ASSIGN(big_negative, Decimal64::FromString("-23049.235234"));
+  draw.push_back(big_negative);
+
+  std::vector<uint8_t> valid_bytes = {true, true, false, true, false,
+                                      true, true, true,  true};
+  this->TestCreate(precision, draw, valid_bytes, 0);
+  this->TestCreate(precision, draw, valid_bytes, 2);
+}
+
+TEST_P(Decimal64Test, ValidateFull) {
+  int32_t precision = GetParam();
+  std::vector<Decimal64> draw;
+  Decimal64 val = Decimal64::GetMaxValue(precision) + 1;
+
+  draw = {Decimal64(), val};
+  auto arr = this->TestCreate(precision, draw, {true, false}, 0);
+  ASSERT_OK(arr->ValidateFull());
+
+  draw = {val, Decimal64()};
+  arr = this->TestCreate(precision, draw, {true, false}, 0);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("does not fit in precision of"), arr->ValidateFull());
+}
+
+INSTANTIATE_TEST_SUITE_P(Decimal64Test, Decimal64Test, ::testing::Range(1, 9));
+
 using Decimal128Test = DecimalTest<Decimal128Type>;
 
 TEST_P(Decimal128Test, NoNulls) {
@@ -3313,6 +3475,28 @@ TEST(TestSwapEndianArrayData, PrimitiveType) {
   data = ArrayData::Make(uint64(), 1, {null_buffer, data_int_buffer}, 0);
   auto data_int64_buffer = Buffer::FromString("76543210");
   expected_data = ArrayData::Make(uint64(), 1, {null_buffer, data_int64_buffer}, 0);
+  AssertArrayDataEqualsWithSwapEndian(data, expected_data);
+
+  auto data_4byte_buffer = Buffer::FromString(
+      "\x01"
+      "12\x01");
+  data = ArrayData::Make(decimal32(9, 8), 1, {null_buffer, data_4byte_buffer});
+  auto data_decimal32_buffer = Buffer::FromString(
+      "\x01"
+      "21\x01");
+  expected_data =
+      ArrayData::Make(decimal32(9, 8), 1, {null_buffer, data_decimal32_buffer}, 0);
+  AssertArrayDataEqualsWithSwapEndian(data, expected_data);
+
+  auto data_8byte_buffer = Buffer::FromString(
+      "\x01"
+      "123456\x01");
+  data = ArrayData::Make(decimal64(18, 8), 1, {null_buffer, data_8byte_buffer});
+  auto data_decimal64_buffer = Buffer::FromString(
+      "\x01"
+      "654321\x01");
+  expected_data =
+      ArrayData::Make(decimal64(18, 8), 1, {null_buffer, data_decimal64_buffer}, 0);
   AssertArrayDataEqualsWithSwapEndian(data, expected_data);
 
   auto data_16byte_buffer = Buffer::FromString(
@@ -3647,6 +3831,8 @@ DataTypeVector SwappableTypes() {
                         uint16(),
                         uint32(),
                         uint64(),
+                        decimal32(8, 1),
+                        decimal64(16, 2),
                         decimal128(19, 4),
                         decimal256(37, 8),
                         timestamp(TimeUnit::MICRO, ""),
@@ -3709,6 +3895,175 @@ TEST(TestSwapEndianArrayData, InvalidLength) {
   }
 }
 
+class TestArrayDataStatistics : public ::testing::Test {
+ public:
+  void SetUp() {
+    valids_ = {1, 0, 1, 1};
+    null_count_ = std::count(valids_.begin(), valids_.end(), 0);
+    distinct_count_ = 3.0;
+    average_byte_width_ = 4.0;
+    null_buffer_ = *internal::BytesToBits(valids_);
+    values_ = {1, 0, 3, -4};
+    min_ = *std::min_element(values_.begin(), values_.end());
+    max_ = *std::max_element(values_.begin(), values_.end());
+    values_buffer_ = Buffer::FromVector(values_);
+    data_ = ArrayData::Make(int32(), values_.size(), {null_buffer_, values_buffer_},
+                            null_count_);
+    data_->statistics = std::make_shared<ArrayStatistics>();
+    data_->statistics->null_count = null_count_;
+    data_->statistics->distinct_count = distinct_count_;
+    data_->statistics->average_byte_width = average_byte_width_;
+    data_->statistics->is_average_byte_width_exact = true;
+    data_->statistics->min = min_;
+    data_->statistics->is_min_exact = true;
+    data_->statistics->max = max_;
+    data_->statistics->is_max_exact = true;
+  }
+
+ protected:
+  std::vector<uint8_t> valids_;
+  size_t null_count_;
+  double distinct_count_;
+  double average_byte_width_;
+  std::shared_ptr<Buffer> null_buffer_;
+  std::vector<int32_t> values_;
+  int64_t min_;
+  int64_t max_;
+  std::shared_ptr<Buffer> values_buffer_;
+  std::shared_ptr<ArrayData> data_;
+};
+
+TEST_F(TestArrayDataStatistics, MoveConstructor) {
+  ArrayData copied_data(*data_);
+  ArrayData moved_data(std::move(copied_data));
+
+  ASSERT_TRUE(moved_data.statistics->null_count.has_value());
+  ASSERT_EQ(null_count_, moved_data.statistics->null_count.value());
+
+  ASSERT_TRUE(moved_data.statistics->distinct_count.has_value());
+  ASSERT_DOUBLE_EQ(distinct_count_,
+                   std::get<double>(moved_data.statistics->distinct_count.value()));
+
+  ASSERT_TRUE(moved_data.statistics->average_byte_width.has_value());
+  ASSERT_DOUBLE_EQ(average_byte_width_,
+                   moved_data.statistics->average_byte_width.value());
+  ASSERT_TRUE(moved_data.statistics->is_average_byte_width_exact);
+
+  ASSERT_TRUE(moved_data.statistics->min.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics->min.value()));
+  ASSERT_EQ(min_, std::get<int64_t>(moved_data.statistics->min.value()));
+  ASSERT_TRUE(moved_data.statistics->is_min_exact);
+
+  ASSERT_TRUE(moved_data.statistics->max.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics->max.value()));
+  ASSERT_EQ(max_, std::get<int64_t>(moved_data.statistics->max.value()));
+  ASSERT_TRUE(moved_data.statistics->is_max_exact);
+}
+
+TEST_F(TestArrayDataStatistics, CopyConstructor) {
+  ArrayData copied_data(*data_);
+
+  ASSERT_TRUE(copied_data.statistics->null_count.has_value());
+  ASSERT_EQ(null_count_, copied_data.statistics->null_count.value());
+
+  ASSERT_TRUE(copied_data.statistics->distinct_count.has_value());
+  ASSERT_DOUBLE_EQ(distinct_count_,
+                   std::get<double>(copied_data.statistics->distinct_count.value()));
+
+  ASSERT_TRUE(copied_data.statistics->average_byte_width.has_value());
+  ASSERT_DOUBLE_EQ(average_byte_width_,
+                   copied_data.statistics->average_byte_width.value());
+  ASSERT_TRUE(copied_data.statistics->is_average_byte_width_exact);
+
+  ASSERT_TRUE(copied_data.statistics->min.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics->min.value()));
+  ASSERT_EQ(min_, std::get<int64_t>(copied_data.statistics->min.value()));
+  ASSERT_TRUE(copied_data.statistics->is_min_exact);
+
+  ASSERT_TRUE(copied_data.statistics->max.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics->max.value()));
+  ASSERT_EQ(max_, std::get<int64_t>(copied_data.statistics->max.value()));
+  ASSERT_TRUE(copied_data.statistics->is_max_exact);
+}
+
+TEST_F(TestArrayDataStatistics, MoveAssignment) {
+  ArrayData copied_data(*data_);
+  ArrayData moved_data;
+  moved_data = std::move(copied_data);
+
+  ASSERT_TRUE(moved_data.statistics->null_count.has_value());
+  ASSERT_EQ(null_count_, moved_data.statistics->null_count.value());
+
+  ASSERT_TRUE(moved_data.statistics->distinct_count.has_value());
+  ASSERT_DOUBLE_EQ(distinct_count_,
+                   std::get<double>(moved_data.statistics->distinct_count.value()));
+
+  ASSERT_TRUE(moved_data.statistics->average_byte_width.has_value());
+  ASSERT_DOUBLE_EQ(average_byte_width_,
+                   moved_data.statistics->average_byte_width.value());
+  ASSERT_TRUE(moved_data.statistics->is_average_byte_width_exact);
+
+  ASSERT_TRUE(moved_data.statistics->min.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics->min.value()));
+  ASSERT_EQ(min_, std::get<int64_t>(moved_data.statistics->min.value()));
+  ASSERT_TRUE(moved_data.statistics->is_min_exact);
+
+  ASSERT_TRUE(moved_data.statistics->max.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics->max.value()));
+  ASSERT_EQ(max_, std::get<int64_t>(moved_data.statistics->max.value()));
+  ASSERT_TRUE(moved_data.statistics->is_max_exact);
+}
+
+TEST_F(TestArrayDataStatistics, CopyAssignment) {
+  ArrayData copied_data;
+  copied_data = *data_;
+
+  ASSERT_TRUE(copied_data.statistics->null_count.has_value());
+  ASSERT_EQ(null_count_, copied_data.statistics->null_count.value());
+
+  ASSERT_TRUE(copied_data.statistics->distinct_count.has_value());
+  ASSERT_DOUBLE_EQ(distinct_count_,
+                   std::get<double>(copied_data.statistics->distinct_count.value()));
+
+  ASSERT_TRUE(copied_data.statistics->average_byte_width.has_value());
+  ASSERT_DOUBLE_EQ(average_byte_width_,
+                   copied_data.statistics->average_byte_width.value());
+  ASSERT_TRUE(copied_data.statistics->is_average_byte_width_exact);
+
+  ASSERT_TRUE(copied_data.statistics->min.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics->min.value()));
+  ASSERT_EQ(min_, std::get<int64_t>(copied_data.statistics->min.value()));
+  ASSERT_TRUE(copied_data.statistics->is_min_exact);
+
+  ASSERT_TRUE(copied_data.statistics->max.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics->max.value()));
+  ASSERT_EQ(max_, std::get<int64_t>(copied_data.statistics->max.value()));
+  ASSERT_TRUE(copied_data.statistics->is_max_exact);
+}
+
+TEST_F(TestArrayDataStatistics, CopyTo) {
+  ASSERT_OK_AND_ASSIGN(auto copied_data,
+                       data_->CopyTo(arrow::default_cpu_memory_manager()));
+
+  ASSERT_TRUE(copied_data->statistics->null_count.has_value());
+  ASSERT_EQ(null_count_, copied_data->statistics->null_count.value());
+
+  ASSERT_TRUE(copied_data->statistics->min.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data->statistics->min.value()));
+  ASSERT_EQ(min_, std::get<int64_t>(copied_data->statistics->min.value()));
+  ASSERT_TRUE(copied_data->statistics->is_min_exact);
+
+  ASSERT_TRUE(copied_data->statistics->max.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data->statistics->max.value()));
+  ASSERT_EQ(max_, std::get<int64_t>(copied_data->statistics->max.value()));
+  ASSERT_TRUE(copied_data->statistics->is_max_exact);
+}
+
+TEST_F(TestArrayDataStatistics, Slice) {
+  auto sliced_data = data_->Slice(0, 1);
+  ASSERT_FALSE(sliced_data->statistics);
+}
+
 template <typename PType>
 class TestPrimitiveArray : public ::testing::Test {
  public:
@@ -3763,6 +4118,75 @@ TYPED_TEST(TestPrimitiveArray, IndexOperator) {
       ASSERT_FALSE(res.has_value());
       ASSERT_EQ(res, std::nullopt);
     }
+  }
+}
+
+class TestHalfFloatBuilder : public ::testing::Test {
+ public:
+  void VerifyValue(const HalfFloatBuilder& builder, int64_t index, float expected) {
+    ASSERT_EQ(builder.GetValue(index), Float16(expected).bits());
+    ASSERT_EQ(builder.GetValue<Float16>(index), Float16(expected));
+    ASSERT_EQ(builder.GetValue<uint16_t>(index), Float16(expected).bits());
+    ASSERT_EQ(builder[index], Float16(expected).bits());
+  }
+};
+
+TEST_F(TestHalfFloatBuilder, TestAppend) {
+  HalfFloatBuilder builder;
+  ASSERT_OK(builder.Append(Float16(0.0f)));
+  ASSERT_OK(builder.Append(Float16(1.0f).bits()));
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.Reserve(3));
+  builder.UnsafeAppend(Float16(3.0f));
+  builder.UnsafeAppend(Float16(4.0f).bits());
+  builder.UnsafeAppend(uint16_t{15872});  // 1.5f
+
+  VerifyValue(builder, 0, 0.0f);
+  VerifyValue(builder, 1, 1.0f);
+  VerifyValue(builder, 3, 3.0f);
+  VerifyValue(builder, 4, 4.0f);
+  VerifyValue(builder, 5, 1.5f);
+}
+
+TEST_F(TestHalfFloatBuilder, TestBulkAppend) {
+  HalfFloatBuilder builder;
+
+  ASSERT_OK(builder.AppendValues(5, Float16(1.5)));
+  uint16_t val = Float16(2.0f).bits();
+  ASSERT_OK(builder.AppendValues({val, val, val, val}, {0, 1, 0, 1}));
+  ASSERT_EQ(builder.length(), 9);
+  for (int i = 0; i < 5; i++) {
+    VerifyValue(builder, i, 1.5f);
+  }
+
+  {
+    ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_EQ(array->null_count(), 2);
+    ASSERT_EQ(array->length(), 9);
+    auto comp = ArrayFromJSON(float16(), "[1.5,1.5,1.5,1.5,1.5,null,2,null,2]");
+    AssertArraysEqual(*array, *comp);
+  }
+
+  std::vector<Float16> vals = {Float16(1.0f), Float16(2.0f), Float16(3.0f)};
+  std::vector<bool> is_valid = {true, false, true};
+  std::vector<uint8_t> valid_bytes = {1, 0, 1};
+  std::vector<uint8_t> bitmap = {0b00000101};
+  ASSERT_OK(builder.AppendValues(vals));
+  ASSERT_OK(builder.AppendValues(vals, is_valid));
+  ASSERT_OK(builder.AppendValues(vals.data(), vals.size(), is_valid));
+  ASSERT_OK(builder.AppendValues(vals.data(), vals.size()));
+  ASSERT_OK(builder.AppendValues(vals.data(), vals.size(), valid_bytes.data()));
+  ASSERT_OK(builder.AppendValues(vals.data(), vals.size(), bitmap.data(), 0));
+
+  {
+    ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_EQ(array->null_count(), 4);
+    ASSERT_EQ(array->length(), 18);
+    auto comp =
+        ArrayFromJSON(float16(), "[1,2,3,1,null,3,1,null,3,1,2,3,1,null,3,1,null,3]");
+    AssertArraysEqual(*array, *comp);
   }
 }
 

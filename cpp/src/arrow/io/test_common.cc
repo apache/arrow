@@ -23,7 +23,7 @@
 #include <vector>
 
 #ifndef _WIN32
-#include <fcntl.h>
+#  include <fcntl.h>
 #endif
 
 #include "arrow/buffer.h"
@@ -157,6 +157,8 @@ class TrackedRandomAccessFileImpl : public TrackedRandomAccessFile {
   const std::vector<io::ReadRange>& get_read_ranges() const override {
     return read_ranges_;
   }
+
+  void ResetStats() override { read_ranges_.clear(); }
 
  private:
   io::RandomAccessFile* delegate_;

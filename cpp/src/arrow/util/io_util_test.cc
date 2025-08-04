@@ -29,9 +29,9 @@
 #include <signal.h>
 
 #ifndef _WIN32
-#include <pthread.h>
-#include <sys/types.h>
-#include <unistd.h>
+#  include <pthread.h>
+#  include <sys/types.h>
+#  include <unistd.h>
 #endif
 
 #include <gmock/gmock-matchers.h>
@@ -48,11 +48,11 @@
 #include "arrow/util/windows_fixup.h"
 
 #ifdef WIN32
-#define PIPE_WRITE _write
-#define PIPE_READ _read
+#  define PIPE_WRITE _write
+#  define PIPE_READ _read
 #else
-#define PIPE_WRITE write
-#define PIPE_READ read
+#  define PIPE_WRITE write
+#  define PIPE_READ read
 #endif
 
 namespace arrow {
@@ -474,9 +474,9 @@ TEST_F(TestSelfPipe, SendFromSignalAndWait) {
 #if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
       defined(THREAD_SANITIZER))
 TEST_F(TestSelfPipe, ForkSafety) {
-#ifndef ARROW_ENABLE_THREADING
+#  ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";
-#endif
+#  endif
 
   self_pipe_->Send(123456789123456789ULL);
 
@@ -974,7 +974,7 @@ TEST(DeleteFile, Basics) {
 TEST(FileUtils, LongPaths) {
   // ARROW-8477: check using long file paths under Windows (> 260 characters).
   bool created, deleted;
-#ifdef _WIN32
+#  ifdef _WIN32
   const char* kRegKeyName = R"(SYSTEM\CurrentControlSet\Control\FileSystem)";
   const char* kRegValueName = "LongPathsEnabled";
   DWORD value = 0;
@@ -990,7 +990,7 @@ TEST(FileUtils, LongPaths) {
         << " to 1 on the test host.";
     return;
   }
-#endif
+#  endif
 
   const std::string BASE = "xxx-io-util-test-dir-long";
   PlatformFilename base_path, long_path, long_filename;

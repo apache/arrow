@@ -26,6 +26,7 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -151,6 +152,8 @@ struct DictionaryBuilderCase {
   Status Visit(const BinaryViewType&) { return CreateFor<BinaryViewType>(); }
   Status Visit(const StringViewType&) { return CreateFor<StringViewType>(); }
   Status Visit(const FixedSizeBinaryType&) { return CreateFor<FixedSizeBinaryType>(); }
+  Status Visit(const Decimal32Type&) { return CreateFor<Decimal32Type>(); }
+  Status Visit(const Decimal64Type&) { return CreateFor<Decimal64Type>(); }
   Status Visit(const Decimal128Type&) { return CreateFor<Decimal128Type>(); }
   Status Visit(const Decimal256Type&) { return CreateFor<Decimal256Type>(); }
 
