@@ -15,11 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <iostream>
 #include <mutex>
 #include <sstream>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 
 #include "arrow/acero/aggregate_internal.h"
 #include "arrow/acero/aggregate_node.h"
@@ -125,17 +127,14 @@ Result<AggregateNodeArgs<HashAggregateKernel>> GroupByNode::MakeAggregateNodeArg
   // Construct aggregates
   ARROW_ASSIGN_OR_RAISE(auto agg_kernels, GetKernels(ctx, aggs, agg_src_types));
 
-  if (is_cpu_parallel) {
-    if (segment_keys.size() > 0) {
-      return Status::NotImplemented(
-          "Segmented aggregation in a multi-threaded execution context");
-    }
+  bool requires_ordering = false;
+  if (segment_keys.size() > 0) {
+    requires_ordering = true;
+  }
 
-    for (auto kernel : agg_kernels) {
-      if (kernel->ordered) {
-        return Status::NotImplemented(
-            "Using ordered aggregator in multiple threaded execution is not supported");
-      }
+  for (auto kernel : agg_kernels) {
+    if (kernel->ordered) {
+      requires_ordering = true;
     }
   }
 
@@ -174,7 +173,8 @@ Result<AggregateNodeArgs<HashAggregateKernel>> GroupByNode::MakeAggregateNodeArg
                                                 std::move(aggs),
                                                 std::move(agg_kernels),
                                                 std::move(agg_src_types),
-                                                /*states=*/{}};
+                                                /*states=*/{},
+                                                requires_ordering};
 }
 
 Result<ExecNode*> GroupByNode::Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -193,12 +193,20 @@ Result<ExecNode*> GroupByNode::Make(ExecPlan* plan, std::vector<ExecNode*> input
   ARROW_ASSIGN_OR_RAISE(
       auto args, MakeAggregateNodeArgs(input_schema, keys, segment_keys, aggs, exec_ctx,
                                        is_cpu_parallel));
+  if (args.requires_ordering) {
+    if (inputs[0]->ordering().is_unordered()) {
+      return Status::Invalid(
+          "Aggregate node's input has no meaningful ordering and so limit/offset will be "
+          "non-deterministic.  Please establish order in some way (e.g. by inserting an "
+          "order_by node)");
+    }
+  }
 
   return input->plan()->EmplaceNode<GroupByNode>(
       input, std::move(args.output_schema), std::move(args.grouping_key_field_ids),
       std::move(args.segment_key_field_ids), std::move(args.segmenter),
       std::move(args.kernel_intypes), std::move(args.target_fieldsets),
-      std::move(args.aggregates), std::move(args.kernels));
+      std::move(args.aggregates), std::move(args.kernels), args.requires_ordering);
 }
 
 Status GroupByNode::ResetKernelStates() {
@@ -338,7 +346,11 @@ Result<ExecBatch> GroupByNode::Finalize() {
 
 Status GroupByNode::OutputNthBatch(int64_t n) {
   int64_t batch_size = output_batch_size();
-  return output_->InputReceived(this, out_data_.Slice(batch_size * n, batch_size));
+  auto batch = out_data_.Slice(batch_size * n, batch_size);
+  if (ordering_.is_implicit()) {
+    batch.index = total_output_batches_ + n - 1;
+  }
+  return output_->InputReceived(this, std::move(batch));
 }
 
 Status GroupByNode::OutputResult(bool is_last) {
@@ -354,9 +366,10 @@ Status GroupByNode::OutputResult(bool is_last) {
   ARROW_ASSIGN_OR_RAISE(out_data_, Finalize());
 
   int64_t num_output_batches = bit_util::CeilDiv(out_data_.length, output_batch_size());
-  total_output_batches_ += static_cast<int>(num_output_batches);
+  total_output_batches_ += num_output_batches;
   if (is_last) {
-    ARROW_RETURN_NOT_OK(output_->InputFinished(this, total_output_batches_));
+    ARROW_RETURN_NOT_OK(
+        output_->InputFinished(this, static_cast<int>(total_output_batches_)));
     RETURN_NOT_OK(plan_->query_context()->StartTaskGroup(output_task_group_id_,
                                                          num_output_batches));
   } else {
@@ -369,9 +382,15 @@ Status GroupByNode::OutputResult(bool is_last) {
 }
 
 Status GroupByNode::InputReceived(ExecNode* input, ExecBatch batch) {
-  auto scope = TraceInputReceived(batch);
-
   DCHECK_EQ(input, inputs_[0]);
+  if (sequencer_) {
+    return sequencer_->InsertBatch(std::move(batch));
+  }
+  return Process(std::move(batch));
+}
+
+Status GroupByNode::Process(ExecBatch batch) {
+  auto scope = TraceInputReceived(batch);
 
   auto handler = [this](const ExecBatch& full_batch, const Segment& segment) {
     if (!segment.extends && segment.offset == 0)

@@ -20,14 +20,19 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
+#include <iostream>
 #include <memory>
+#include <vector>
 
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/ordering.h"
 #include "arrow/compute/test_util_internal.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/string.h"
 
@@ -45,6 +50,15 @@ Result<std::shared_ptr<Table>> TableGroupBy(
       {{"table_source", TableSourceNodeOptions(std::move(table))},
        {"aggregate", AggregateNodeOptions(std::move(aggregates), std::move(keys))}});
   return DeclarationToTable(std::move(plan), use_threads, memory_pool);
+}
+
+std::vector<ExecBatch> TestExecBatches(const std::vector<TypeHolder>& types,
+                                       std::vector<std::string> json_batches) {
+  std::vector<ExecBatch> batches;
+  for (auto&& el : json_batches) {
+    batches.push_back(ExecBatchFromJSON(types, el));
+  }
+  return batches;
 }
 
 TEST(GroupByConvenienceFunc, Basic) {
@@ -233,6 +247,101 @@ TEST(GroupByNode, BasicParallel) {
                                       out_batches.batches);
 }
 
+TEST(GroupByNode, ParallelOrderedAggregator) {
+  // const int64_t num_batches = 8;
+
+  std::vector<ExecBatch> batches = TestExecBatches({int64(), int64()}, {R"([
+    [0,999],
+    [0,1]
+  ])",
+                                                                        R"([
+    [1,333],
+    [1,1]
+  ])",
+                                                                        R"([
+    [2,111],
+    [2,1]
+  ])"});
+
+  std::random_device rd;
+  std::default_random_engine rng(rd());
+  std::shuffle(batches.begin(), batches.end(), rng);
+
+  Declaration plan = Declaration::Sequence(
+      {{"exec_batch_source",
+        ExecBatchSourceNodeOptions(
+            schema({field("key1", int64()), field("value", int64())}), batches)},
+       {"aggregate",
+        AggregateNodeOptions{/*aggregates=*/
+                             {{"hash_first", nullptr, "value", "mean(value)"}},
+                             {"key1"},
+                             {}}}});
+
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema out_batches,
+                       DeclarationToExecBatches(plan));
+
+  ExecBatch expected_batch = ExecBatchFromJSON({int64(), int64()},
+                                               R"([
+    [0, 999],
+    [1, 333],
+    [2, 111] 
+    ])");
+  AssertExecBatchesEqualIgnoringOrder(out_batches.schema, {expected_batch},
+                                      out_batches.batches);
+}
+
+TEST(GroupByNode, ParallelSegmentedAggregator) {
+  // const int64_t num_batches = 3;
+  // std::vector<ExecBatch> batches;
+  // std::vector<ExecBatch> batches_new = TestBatches(1, 1, 3, num_batches);
+
+  std::vector<ExecBatch> batches = TestExecBatches({utf8(), int64(), int64()}, {R"([
+    ["x",0,1],
+    ["y",0,2],
+    ["z",0,3]
+  ])",
+                                                                                R"([
+    ["x",1,1],
+    ["y",1,2],
+    ["z",1,3]
+  ])",
+                                                                                R"([
+    ["x",2,1],
+    ["y",2,2],
+    ["z",2,3]
+  ])"});
+
+  std::random_device rd;
+  std::default_random_engine rng(rd());
+  std::shuffle(batches.begin(), batches.end(), rng);
+
+  Declaration plan = Declaration::Sequence(
+      {{"exec_batch_source",
+        ExecBatchSourceNodeOptions(schema({field("key1", utf8()), field("key2", int64()),
+                                           field("value", int64())}),
+                                   batches)},
+       {"aggregate",
+        AggregateNodeOptions{/*aggregates=*/
+                             {{"hash_mean", nullptr, "value", "mean(value)"}},
+                             {"key1"},
+                             {"key2"}}}});
+
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema out_batches,
+                       DeclarationToExecBatches(plan));
+  std::vector<ExecBatch> batches_ex = TestExecBatches({int64(), utf8(), float64()}, {R"([
+    [0,"x" , 1],[0,"y" , 2],[0,"z" , 3]
+    ])",
+                                                                                     R"([ 
+    [1,"x" , 1],[1,"y" , 2],[1,"z" , 3]
+    ])",
+                                                                                     R"([
+    [2,"x" , 1],[2,"y" , 2],[2,"z" , 3]
+    ])"});
+
+  AssertExecBatchesEqualIgnoringOrder(out_batches.schema, batches_ex,
+                                      out_batches.batches);
+}
+
 TEST(ScalarAggregateNode, AnyAll) {
   // GH-43768: boolean_any and boolean_all with constant input should work well
   // when min_count != 0.
@@ -300,6 +409,82 @@ TEST(ScalarAggregateNode, BasicParallel) {
 
   ExecBatch expected_batch =
       ExecBatchFromJSON({int64()}, "[[" + std::to_string(num_batches) + "]]");
+  AssertExecBatchesEqualIgnoringOrder(out_batches.schema, {expected_batch},
+                                      out_batches.batches);
+}
+
+TEST(ScalarAggregateNode, ParallelOrderedAggregator) {
+  // std::vector<ExecBatch> batches;
+
+  std::vector<ExecBatch> batches = TestExecBatches({int64(), int64()}, {R"([
+    [0,999],
+    [0,1]
+  ])",
+                                                                        R"([
+    [1,999],
+    [1,1]
+  ])",
+                                                                        R"([
+    [2,999],
+    [2,1]
+  ])"});
+
+  std::random_device rd;
+  std::default_random_engine rng(rd());
+  std::shuffle(batches.begin(), batches.end(), rng);
+
+  Declaration plan = Declaration::Sequence(
+      {{"exec_batch_source",
+        ExecBatchSourceNodeOptions(
+            schema({field("key1", int64()), field("value", int64())}), batches)},
+       {"aggregate",
+        AggregateNodeOptions{/*aggregates=*/
+                             {{"first", nullptr, "value", "mean(value)"}}}}});
+
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema out_batches,
+                       DeclarationToExecBatches(plan));
+
+  ExecBatch expected_batch = ExecBatchFromJSON({int64()}, R"([ [999] ])");
+  AssertExecBatchesEqualIgnoringOrder(out_batches.schema, {expected_batch},
+                                      out_batches.batches);
+}
+
+TEST(ScalarAggregateNode, ParallelSegmentedAggregator) {
+  std::vector<ExecBatch> batches = TestExecBatches({int64(), int64(), int64()}, {R"([
+    [0,1,999],
+    [0,2,1]
+  ])",
+                                                                                 R"([
+    [1,11,499],
+    [1,12,1]
+  ])",
+                                                                                 R"([
+    [2,21,299],
+    [2,22,1]
+  ])"});
+
+  std::random_device rd;
+  std::default_random_engine rng(rd());
+  std::shuffle(batches.begin(), batches.end(), rng);
+
+  Declaration plan = Declaration::Sequence(
+      {{"exec_batch_source",
+        ExecBatchSourceNodeOptions(schema({field("key1", int64()), field("key2", int64()),
+                                           field("value", int64())}),
+                                   batches)},
+       {"aggregate", AggregateNodeOptions{/*aggregates=*/
+                                          {{"mean", nullptr, "value", "mean(value)"}},
+                                          {},
+                                          {FieldRef("key1")}}}});
+
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema out_batches,
+                       DeclarationToExecBatches(plan));
+  ExecBatch expected_batch = ExecBatchFromJSON({int64(), float64()},
+                                               R"([ 
+    [0 , 500],
+    [1 , 250],
+    [2 , 150]
+    ])");
   AssertExecBatchesEqualIgnoringOrder(out_batches.schema, {expected_batch},
                                       out_batches.batches);
 }
