@@ -233,25 +233,13 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
     @property
     def connection_config(self):
         """Get the connection configuration as a Python dictionary."""
-        # Declare cpp_map to match the type specified in your .pxd file
-        # for connection_config: unordered_map[c_string, c_string]
         cdef unordered_map[c_string, c_string] cpp_map = \
             self._external_config.get().connection_config
 
         result = {}
 
-        # Explicitly manage the iterator using a while loop
-        cdef unordered_map[c_string, c_string].iterator it = cpp_map.begin()
-        cdef unordered_map[c_string, c_string].iterator end = cpp_map.end()
-
-        while it != end:
-            # Dereference and access members.
-            # The .first and .second members will be c_string (char*).
-            result[deref(it).first.decode('utf-8')] = deref(it).second.decode('utf-8')
-
-            # Increment the iterator. Use preincrement() for robustness if ++it causes issues.
-            preincrement(it) # This is the most reliable way to increment here.
-            # Alternatively, you could try ++it again, but preincrement() is safer when the parser struggles.
+        for pair in cpp_map:
+            result[pair.first.decode('utf-8')] = pair.second.decode('utf-8')
 
         return result
 
@@ -266,24 +254,15 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
     def per_column_encryption(self):
         """Get the per_column_encryption as a Python dictionary."""
         cdef unordered_map[c_string, CColumnEncryptionAttributes] cpp_map = \
-            self._external_config.get().per_column_encryption # Access the C++ member
+            self._external_config.get().per_column_encryption  # Access the C++ member
 
         py_dict = {}
 
-        cdef unordered_map[c_string, CColumnEncryptionAttributes].iterator it = cpp_map.begin()
-        cdef unordered_map[c_string, CColumnEncryptionAttributes].iterator end = cpp_map.end()
-
-        while it != end:
-            # --- FIX HERE: Directly access deref(it).first and deref(it).second ---
-            # Do NOT use 'cdef c_string current_key = ...'
-            # Do NOT use 'cdef CColumnEncryptionAttributes current_value = ...'
-
-            # Convert C++ CColumnEncryptionAttributes to a Python dictionary
-            py_dict[deref(it).first.decode('utf-8')] = {
-                "encryption_algorithm": cipher_to_name(deref(it).second.parquet_cipher),
-                "encryption_key": deref(it).second.key_id.decode('utf-8')
+        for pair in cpp_map:
+            py_dict[pair.first.decode('utf-8')] = {
+                "encryption_algorithm": cipher_to_name(pair.second.parquet_cipher),
+                "encryption_key": pair.second.key_id.decode('utf-8')
             }
-            preincrement(it)
 
         return py_dict
 
