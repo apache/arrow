@@ -169,14 +169,14 @@ class BitPackedRun {
 
 /// Decoder class for RLE encoded data.
 template <typename T>
-class RleDecoder {
+class RleBitPackedDecoder {
  public:
   /// The type in which the data should be decoded.
   using value_type = T;
 
   /// Create a decoder object. buffer/buffer_len is the decoded data.
   /// bit_width is the width of each value (before encoding).
-  RleDecoder(const uint8_t* buffer, int buffer_len, int bit_width)
+  RleBitPackedDecoder(const uint8_t* buffer, int buffer_len, int bit_width)
       : bit_reader_(buffer, buffer_len),
         bit_width_(bit_width),
         current_value_(0),
@@ -186,7 +186,7 @@ class RleDecoder {
     ARROW_DCHECK_LE(bit_width_, 64);
   }
 
-  RleDecoder() : bit_width_(-1) {}
+  RleBitPackedDecoder() : bit_width_(-1) {}
 
   void Reset(const uint8_t* buffer, int buffer_len, int bit_width) {
     ARROW_DCHECK_GE(bit_width, 0);
@@ -383,12 +383,12 @@ class RleEncoder {
 };
 
 template <typename T>
-inline bool RleDecoder<T>::Get(value_type* val) {
+inline bool RleBitPackedDecoder<T>::Get(value_type* val) {
   return GetBatch(val, 1) == 1;
 }
 
 template <typename T>
-inline int RleDecoder<T>::GetBatch(value_type* values, int batch_size) {
+inline int RleBitPackedDecoder<T>::GetBatch(value_type* values, int batch_size) {
   ARROW_DCHECK_GE(bit_width_, 0);
   int values_read = 0;
 
@@ -424,9 +424,9 @@ inline int RleDecoder<T>::GetBatch(value_type* values, int batch_size) {
 
 template <typename T>
 template <typename V, typename Converter>
-inline int RleDecoder<T>::GetSpaced(Converter converter, int batch_size, int null_count,
-                                    const uint8_t* valid_bits, int64_t valid_bits_offset,
-                                    V* out) {
+inline int RleBitPackedDecoder<T>::GetSpaced(Converter converter, int batch_size,
+                                             int null_count, const uint8_t* valid_bits,
+                                             int64_t valid_bits_offset, V* out) {
   if (ARROW_PREDICT_FALSE(null_count == batch_size)) {
     converter.FillZero(out, out + batch_size);
     return batch_size;
@@ -553,9 +553,10 @@ struct PlainRleConverter {
 };
 
 template <typename T>
-inline int RleDecoder<T>::GetBatchSpaced(int batch_size, int null_count,
-                                         const uint8_t* valid_bits,
-                                         int64_t valid_bits_offset, value_type* out) {
+inline int RleBitPackedDecoder<T>::GetBatchSpaced(int batch_size, int null_count,
+                                                  const uint8_t* valid_bits,
+                                                  int64_t valid_bits_offset,
+                                                  value_type* out) {
   if (null_count == 0) {
     return GetBatch(out, batch_size);
   }
@@ -630,8 +631,9 @@ struct DictionaryConverter {
 
 template <typename T>
 template <typename V>
-inline int RleDecoder<T>::GetBatchWithDict(const V* dictionary, int32_t dictionary_length,
-                                           V* values, int batch_size) {
+inline int RleBitPackedDecoder<T>::GetBatchWithDict(const V* dictionary,
+                                                    int32_t dictionary_length, V* values,
+                                                    int batch_size) {
   // Per https://github.com/apache/parquet-format/blob/master/Encodings.md,
   // the maximum dictionary index width in Parquet is 32 bits.
   using IndexType = value_type;
@@ -691,11 +693,9 @@ inline int RleDecoder<T>::GetBatchWithDict(const V* dictionary, int32_t dictiona
 
 template <typename T>
 template <typename V>
-inline int RleDecoder<T>::GetBatchWithDictSpaced(const V* dictionary,
-                                                 int32_t dictionary_length, V* out,
-                                                 int batch_size, int null_count,
-                                                 const uint8_t* valid_bits,
-                                                 int64_t valid_bits_offset) {
+inline int RleBitPackedDecoder<T>::GetBatchWithDictSpaced(
+    const V* dictionary, int32_t dictionary_length, V* out, int batch_size,
+    int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset) {
   if (null_count == 0) {
     return GetBatchWithDict<V>(dictionary, dictionary_length, out, batch_size);
   }
@@ -731,7 +731,7 @@ inline int RleDecoder<T>::GetBatchWithDictSpaced(const V* dictionary,
 }
 
 template <typename T>
-bool RleDecoder<T>::NextCounts() {
+bool RleBitPackedDecoder<T>::NextCounts() {
   // Read the next run's indicator int, it could be a literal or repeated run.
   // The int is encoded as a vlq-encoded value.
   uint32_t indicator_value = 0;

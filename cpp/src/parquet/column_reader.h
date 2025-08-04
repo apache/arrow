@@ -40,7 +40,7 @@ class BitReader;
 
 namespace util {
 template <typename T>
-class RleDecoder;
+class RleBitPackedDecoder;
 }  // namespace util
 
 }  // namespace arrow
@@ -96,7 +96,7 @@ class PARQUET_EXPORT LevelDecoder {
   int bit_width_;
   int num_values_remaining_;
   Encoding::type encoding_;
-  std::unique_ptr<::arrow::util::RleDecoder<int16_t>> rle_decoder_;
+  std::unique_ptr<::arrow::util::RleBitPackedDecoder<int16_t>> rle_decoder_;
   std::unique_ptr<::arrow::bit_util::BitReader> bit_packed_decoder_;
   int16_t max_level_;
 };
