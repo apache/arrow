@@ -602,9 +602,7 @@ cdef shared_ptr[CKmsConnectionConfig] pyarrow_unwrap_kmsconnectionconfig(object 
 
 cdef shared_ptr[CEncryptionConfiguration] pyarrow_unwrap_encryptionconfig(object encryptionconfig) except *:
     if isinstance(encryptionconfig, ExternalEncryptionConfiguration):
-        return shared_ptr[CEncryptionConfiguration](
-            (<ExternalEncryptionConfiguration> encryptionconfig).unwrapExternal().get()
-        )
+        return (<ExternalEncryptionConfiguration> encryptionconfig).unwrapExternal()
     elif isinstance(encryptionconfig, EncryptionConfiguration):
         return (<EncryptionConfiguration> encryptionconfig).unwrap()
     raise TypeError("Expected EncryptionConfiguration, got %s" % type(encryptionconfig))
