@@ -294,11 +294,8 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
                 raise ValueError("Each column must have 'encryption_key' (string).")
             c_key_id = py_attrs["encryption_key"].encode('utf-8')
 
-            # Create a C++ CColumnEncryptionAttributes object
-            # Assuming CColumnEncryptionAttributes has a constructor matching this or default.
-            # If not, you'd need to set members after default construction.
             cpp_attrs.parquet_cipher = c_cipher_enum
-            cpp_attrs.key_id = c_key_id # Directly assign char* (beware of ownership)
+            cpp_attrs.key_id = c_key_id
 
             self._external_config.get().per_column_encryption[c_key] = cpp_attrs
 
