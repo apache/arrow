@@ -128,14 +128,14 @@ inline uint64_t ReadLittleEndianWord(const uint8_t* buffer, int bytes_remaining)
 /// bytes in one read (e.g. encoded int).
 class BitReader {
  public:
-  BitReader() = default;
+  BitReader() noexcept = default;
 
   /// 'buffer' is the buffer to read from.  The buffer's length is 'buffer_len'.
   BitReader(const uint8_t* buffer, int buffer_len) : BitReader() {
     Reset(buffer, buffer_len);
   }
 
-  void Reset(const uint8_t* buffer, int buffer_len) {
+  void Reset(const uint8_t* buffer, int buffer_len) noexcept {
     buffer_ = buffer;
     max_bytes_ = buffer_len;
     byte_offset_ = 0;
