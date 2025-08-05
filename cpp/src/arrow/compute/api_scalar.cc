@@ -799,6 +799,7 @@ Result<Datum> RoundToMultiple(const Datum& arg, RoundToMultipleOptions options,
 SCALAR_ARITHMETIC_BINARY(Add, "add", "add_checked")
 SCALAR_ARITHMETIC_BINARY(Divide, "divide", "divide_checked")
 SCALAR_ARITHMETIC_BINARY(Logb, "logb", "logb_checked")
+SCALAR_ARITHMETIC_BINARY(Modulo, "modulo", "modulo_checked")
 SCALAR_ARITHMETIC_BINARY(Multiply, "multiply", "multiply_checked")
 SCALAR_ARITHMETIC_BINARY(Power, "power", "power_checked")
 SCALAR_ARITHMETIC_BINARY(ShiftLeft, "shift_left", "shift_left_checked")
