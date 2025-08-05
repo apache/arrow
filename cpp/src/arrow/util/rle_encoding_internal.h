@@ -842,6 +842,67 @@ bool RleBitPackedDecoder<T>::NextCounts() {
   return true;
 }
 
+/************
+ *  RleRun  *
+ ************/
+
+inline RleRun::RleRun(raw_data_const_pointer data, values_count_type values_count,
+                      bit_size_type value_bit_width) noexcept
+    : values_count_(values_count), value_bit_width_(value_bit_width) {
+  ARROW_DCHECK_GE(value_bit_width, 0);
+  ARROW_DCHECK_GE(values_count, 0);
+  std::copy(data, data + RawDataSize(), data_.begin());
+}
+
+constexpr auto RleRun::ValuesCount() const noexcept -> values_count_type {
+  return values_count_;
+}
+
+constexpr auto RleRun::ValuesBitWidth() const noexcept -> bit_size_type {
+  return value_bit_width_;
+}
+
+constexpr auto RleRun::RawDataPtr() const noexcept -> raw_data_const_pointer {
+  return data_.data();
+}
+
+constexpr auto RleRun::RawDataSize() const noexcept -> raw_data_size_type {
+  auto out = bit_util::BytesForBits(value_bit_width_);
+  ARROW_DCHECK_LE(out, std::numeric_limits<raw_data_size_type>::max());
+  return static_cast<raw_data_size_type>(out);
+};
+
+/******************
+ *  BitPackedRun  *
+ ******************/
+
+constexpr BitPackedRun::BitPackedRun(raw_data_const_pointer data,
+                                     values_count_type values_count,
+                                     bit_size_type value_bit_width) noexcept
+    : data_(data), values_count_(values_count), value_bit_width_(value_bit_width) {
+  ARROW_CHECK_GE(value_bit_width_, 0);
+  ARROW_CHECK_GE(values_count_, 0);
+}
+
+constexpr auto BitPackedRun::ValuesCount() const noexcept -> values_count_type {
+  return values_count_;
+}
+
+constexpr auto BitPackedRun::ValuesBitWidth() const noexcept -> bit_size_type {
+  return value_bit_width_;
+}
+
+constexpr auto BitPackedRun::RawDataPtr() const noexcept -> raw_data_const_pointer {
+  return data_;
+}
+
+constexpr auto BitPackedRun::RawDataSize() const noexcept -> raw_data_size_type {
+  auto out = bit_util::BytesForBits(static_cast<int64_t>(value_bit_width_) *
+                                    static_cast<int64_t>(values_count_));
+  ARROW_CHECK_LE(out, std::numeric_limits<raw_data_size_type>::max());
+  return static_cast<raw_data_size_type>(out);
+}
+
 /****************
  *  RleDecoder  *
  ****************/
