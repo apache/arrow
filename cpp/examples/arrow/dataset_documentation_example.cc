@@ -19,8 +19,8 @@
 // intended to be paired with the documentation.
 
 #include <arrow/api.h>
+#include <arrow/compute/api.h>
 #include <arrow/compute/cast.h>
-#include <arrow/compute/initialize.h>
 #include <arrow/dataset/dataset.h>
 #include <arrow/dataset/discovery.h>
 #include <arrow/dataset/file_base.h>
