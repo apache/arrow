@@ -169,6 +169,46 @@ class BitPackedRun {
 
 /// Decoder class for RLE encoded data.
 template <typename T>
+class RleDecoder {
+ public:
+  /// The type in which the data should be decoded.
+  using value_type = T;
+  /// The type of run that can be decoded.
+  using run_type = RleRun;
+  using values_count_type = run_type::values_count_type;
+
+  constexpr RleDecoder() noexcept = default;
+
+  explicit RleDecoder(run_type const& run) noexcept;
+
+  void Reset(run_type const& run) noexcept;
+
+  /// Return the number of values that can be advanced.
+  [[nodiscard]] values_count_type Remaining() const;
+
+  /// Return the repeated value of this decoder.
+  [[nodiscard]] constexpr value_type Value() const;
+
+  /// Try to advance by as many values as provided.
+  /// Return the number of values skipped.
+  [[nodiscard]] values_count_type Advance(values_count_type batch_size);
+
+  /// Get the next value and return false if there are no more.
+  [[nodiscard]] constexpr bool Get(value_type* out_value);
+
+  /// Get a batch of values return the number of decoded elements.
+  [[nodiscard]] values_count_type GetBatch(value_type* out, values_count_type batch_size);
+
+ private:
+  value_type value_ = {};
+  values_count_type remaining_count_ = 0;
+
+  static_assert(std::is_integral_v<value_type>,
+                "This class makes assumptions about integer endianness and padding");
+};
+
+/// Decoder class for RLE encoded data.
+template <typename T>
 class RleBitPackedDecoder {
  public:
   /// The type in which the data should be decoded.
@@ -759,6 +799,69 @@ bool RleBitPackedDecoder<T>::NextCounts() {
   }
   return true;
 }
+
+/****************
+ *  RleDecoder  *
+ ****************/
+
+template <typename T>
+RleDecoder<T>::RleDecoder(run_type const& run) noexcept {
+  Reset(run);
+}
+
+template <typename T>
+void RleDecoder<T>::Reset(run_type const& run) noexcept {
+  remaining_count_ = run.ValuesCount();
+  if constexpr (std::is_same_v<value_type, bool>) {
+    // ARROW-18031:  just check the LSB of the next byte and move on.
+    // If we memcpy + FromLittleEndian, we have potential undefined behavior
+    // if the bool value isn't 0 or 1.
+    value_ = *run.RawDataPtr() & 1;
+  }
+  // Memcopy is required to avoid undefined behavior.
+  std::memset(&value_, 0, sizeof(value_type));
+  std::memcpy(&value_, run.RawDataPtr(), run.RawDataSize());
+  value_ = ::arrow::bit_util::FromLittleEndian(value_);
+}
+
+template <typename T>
+auto RleDecoder<T>::Remaining() const -> values_count_type {
+  return remaining_count_;
+}
+
+template <typename T>
+auto constexpr RleDecoder<T>::Value() const -> value_type {
+  return value_;
+}
+
+template <typename T>
+auto RleDecoder<T>::Advance(values_count_type batch_size) -> values_count_type {
+  auto const steps = std::min(batch_size, remaining_count_);
+  remaining_count_ -= steps;
+  return steps;
+}
+
+template <typename T>
+constexpr bool RleDecoder<T>::Get(value_type* out_value) {
+  return GetBatch(out_value, 1) == 1;
+}
+
+template <typename T>
+auto RleDecoder<T>::GetBatch(value_type* out, values_count_type batch_size)
+    -> values_count_type {
+  if (remaining_count_ == 0) {
+    return 0;
+  }
+
+  auto const to_read = std::min(remaining_count_, batch_size);
+  std::fill(out, out + to_read, value_);
+  remaining_count_ -= to_read;
+  return to_read;
+}
+
+/****************
+ *  RleEncoder  *
+ ****************/
 
 /// This function buffers input values 8 at a time.  After seeing all 8 values,
 /// it decides whether they should be encoded as a literal or repeated run.
