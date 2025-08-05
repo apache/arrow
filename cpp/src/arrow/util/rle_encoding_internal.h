@@ -207,6 +207,48 @@ class RleDecoder {
                 "This class makes assumptions about integer endianness and padding");
 };
 
+/// Decoder class for Bit packing encoded data.
+template <typename T>
+class BitPackedDecoder {
+ public:
+  /// The type in which the data should be decoded.
+  using value_type = T;
+  /// The type of run that can be decoded.
+  using run_type = BitPackedRun;
+  using values_count_type = run_type::values_count_type;
+  using bit_size_type = run_type::bit_size_type;
+
+  BitPackedDecoder() noexcept = default;
+
+  explicit BitPackedDecoder(run_type const& run) noexcept;
+
+  void Reset(run_type const& run) noexcept;
+
+  /// Return the number of values that can be advanced.
+  [[nodiscard]] constexpr values_count_type Remaining() const;
+
+  /// Return the size in bit in which each encoded value is written.
+  [[nodiscard]] constexpr bit_size_type ValueBitWidth() const;
+
+  /// Try to advance by as many values as provided.
+  /// Return the number of values skipped.
+  [[nodiscard]] values_count_type Advance(values_count_type batch_size);
+
+  /// Get the next value and return false if there are no more.
+  [[nodiscard]] bool Get(value_type* out_value);
+
+  /// Get a batch of values return the number of decoded elements.
+  [[nodiscard]] values_count_type GetBatch(value_type* out, values_count_type batch_size);
+
+ private:
+  ::arrow::bit_util::BitReader bit_reader_ = {};
+  bit_size_type value_bit_width_ = 0;
+  values_count_type remaining_count_ = 0;
+
+  static_assert(std::is_integral_v<value_type>,
+                "This class makes assumptions about integer endianness and padding");
+};
+
 /// Decoder class for RLE encoded data.
 template <typename T>
 class RleBitPackedDecoder {
@@ -857,6 +899,64 @@ auto RleDecoder<T>::GetBatch(value_type* out, values_count_type batch_size)
   std::fill(out, out + to_read, value_);
   remaining_count_ -= to_read;
   return to_read;
+}
+
+/**********************
+ *  BitPackedDecoder  *
+ **********************/
+
+template <typename T>
+BitPackedDecoder<T>::BitPackedDecoder(run_type const& run) noexcept {
+  Reset(run);
+}
+
+template <typename T>
+void BitPackedDecoder<T>::Reset(run_type const& run) noexcept {
+  value_bit_width_ = run.ValuesBitWidth();
+  remaining_count_ = run.ValuesCount();
+  ARROW_DCHECK_GE(value_bit_width_, 0);
+  ARROW_DCHECK_LE(value_bit_width_, 64);
+  bit_reader_.Reset(run.RawDataPtr(), run.RawDataSize());
+}
+
+template <typename T>
+auto constexpr BitPackedDecoder<T>::Remaining() const -> values_count_type {
+  return remaining_count_;
+}
+
+template <typename T>
+auto constexpr BitPackedDecoder<T>::ValueBitWidth() const -> bit_size_type {
+  return value_bit_width_;
+}
+
+template <typename T>
+auto BitPackedDecoder<T>::Advance(values_count_type batch_size) -> values_count_type {
+  auto const steps = std::min(batch_size, remaining_count_);
+  if (bit_reader_.Advance(steps * value_bit_width_)) {
+    remaining_count_ -= steps;
+    return steps;
+  }
+  return 0;
+}
+
+template <typename T>
+bool BitPackedDecoder<T>::Get(value_type* out_value) {
+  return GetBatch(out_value, 1) == 1;
+}
+
+template <typename T>
+auto BitPackedDecoder<T>::GetBatch(value_type* out, values_count_type batch_size)
+    -> values_count_type {
+  if (remaining_count_ == 0) {
+    return 0;
+  }
+
+  auto const to_read = std::min(remaining_count_, batch_size);
+  auto const actual_read = bit_reader_.GetBatch(value_bit_width_, out, to_read);
+  // There should not be any reason why the actual read would be different
+  // but this is error resistant.
+  remaining_count_ -= actual_read;
+  return actual_read;
 }
 
 /****************
