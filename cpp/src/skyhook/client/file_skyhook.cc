@@ -66,7 +66,7 @@ class SkyhookFileFormat::Impl {
           auto self = format->impl_.get();
 
           /// Retrieve the size of the file using POSIX `stat`.
-          struct stat st {};
+          struct stat st{};
           RETURN_NOT_OK(self->doa_->Stat(file->source().path(), st));
 
           /// Create a ScanRequest instance.
