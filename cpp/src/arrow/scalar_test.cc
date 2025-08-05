@@ -1349,11 +1349,9 @@ class TestListLikeScalar : public ::testing::Test {
     auto invalid_cast_type = fixed_size_list(value_->type(), 5);
     CheckListCastError(scalar, invalid_cast_type);
 
-    // Cast() function doesn't support casting list-like to string, use Scalar::CastTo()
-    // instead.
-    ASSERT_OK_AND_ASSIGN(auto casted_str, scalar.CastTo(utf8()));
-    ASSERT_EQ(casted_str->type->id(), utf8()->id());
-    ASSERT_EQ(casted_str->ToString(), scalar.ToString());
+    ASSERT_OK_AND_ASSIGN(auto casted_str, Cast(scalar, utf8()));
+    ASSERT_EQ(casted_str.scalar()->type->id(), utf8()->id());
+    ASSERT_EQ(casted_str.scalar()->ToString(), scalar.ToString());
   }
 
  protected:
@@ -1394,11 +1392,9 @@ TEST(TestFixedSizeListScalar, Cast) {
   auto invalid_cast_type = fixed_size_list(int16(), 4);
   CheckListCastError(scalar, invalid_cast_type);
 
-  // Cast() function doesn't support casting list-like to string, use Scalar::CastTo()
-  // instead.
-  ASSERT_OK_AND_ASSIGN(auto casted_str, scalar.CastTo(utf8()));
-  ASSERT_EQ(casted_str->type->id(), utf8()->id());
-  ASSERT_EQ(casted_str->ToString(), scalar.ToString());
+  ASSERT_OK_AND_ASSIGN(auto casted_str, Cast(scalar, utf8()));
+  ASSERT_EQ(casted_str.scalar()->type->id(), utf8()->id());
+  ASSERT_EQ(casted_str.scalar()->ToString(), scalar.ToString());
 }
 
 TEST(TestMapScalar, Basics) {
