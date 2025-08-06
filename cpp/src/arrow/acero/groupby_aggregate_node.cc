@@ -16,12 +16,14 @@
 // under the License.
 
 #include <iostream>
+#include <memory>
 #include <mutex>
 #include <sstream>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include "arrow/acero/aggregate_internal.h"
 #include "arrow/acero/aggregate_node.h"
@@ -31,6 +33,7 @@
 #include "arrow/acero/util.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec_internal.h"
+#include "arrow/compute/ordering.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/row/grouper.h"
 #include "arrow/datum.h"
@@ -71,7 +74,7 @@ Status GroupByNode::Init() {
 Result<AggregateNodeArgs<HashAggregateKernel>> GroupByNode::MakeAggregateNodeArgs(
     const std::shared_ptr<Schema>& input_schema, const std::vector<FieldRef>& keys,
     const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggs,
-    ExecContext* ctx, const bool is_cpu_parallel) {
+    ExecContext* ctx, const bool is_cpu_parallel, std::vector<ExecNode*> inputs) {
   // Find input field indices for key fields
   std::vector<int> key_field_ids(keys.size());
   for (size_t i = 0; i < keys.size(); ++i) {
@@ -164,6 +167,25 @@ Result<AggregateNodeArgs<HashAggregateKernel>> GroupByNode::MakeAggregateNodeArg
   for (size_t i = 0; i < aggs.size(); ++i) {
     output_fields[base + i] = agg_result_fields[i]->WithName(aggs[i].name);
   }
+  Ordering out_ordering = Ordering::Unordered();
+  if (requires_ordering && inputs[0]->ordering().is_implicit()) {
+    out_ordering = Ordering::Implicit();
+  } else if (requires_ordering) {
+    std::vector<compute::SortKey> out_sort_keys;
+    // Sort output only by segmented keys excluding sorting by keys since this will break
+    // the segmentation.
+    for (auto key : inputs[0]->ordering().sort_keys()) {
+      ARROW_ASSIGN_OR_RAISE(auto match, key.target.FindOne(*input_schema));
+      if (key_field_id_set.find(match[0]) != key_field_id_set.end()) {
+        break;
+      }
+      out_sort_keys.emplace_back(key);
+    }
+    if (out_sort_keys.size() > 0)
+      out_ordering = Ordering(out_sort_keys);
+    else
+      out_ordering = Ordering::Implicit();
+  }
 
   return AggregateNodeArgs<HashAggregateKernel>{schema(std::move(output_fields)),
                                                 std::move(key_field_ids),
@@ -174,7 +196,8 @@ Result<AggregateNodeArgs<HashAggregateKernel>> GroupByNode::MakeAggregateNodeArg
                                                 std::move(agg_kernels),
                                                 std::move(agg_src_types),
                                                 /*states=*/{},
-                                                requires_ordering};
+                                                requires_ordering,
+                                                std::move(out_ordering)};
 }
 
 Result<ExecNode*> GroupByNode::Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -182,6 +205,7 @@ Result<ExecNode*> GroupByNode::Make(ExecPlan* plan, std::vector<ExecNode*> input
   RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "GroupByNode"));
 
   auto input = inputs[0];
+
   const auto& aggregate_options = checked_cast<const AggregateNodeOptions&>(options);
   const auto& keys = aggregate_options.keys;
   const auto& segment_keys = aggregate_options.segment_keys;
@@ -192,7 +216,7 @@ Result<ExecNode*> GroupByNode::Make(ExecPlan* plan, std::vector<ExecNode*> input
   auto exec_ctx = plan->query_context()->exec_context();
   ARROW_ASSIGN_OR_RAISE(
       auto args, MakeAggregateNodeArgs(input_schema, keys, segment_keys, aggs, exec_ctx,
-                                       is_cpu_parallel));
+                                       is_cpu_parallel, inputs));
   if (args.requires_ordering) {
     if (inputs[0]->ordering().is_unordered()) {
       return Status::Invalid(
@@ -206,7 +230,8 @@ Result<ExecNode*> GroupByNode::Make(ExecPlan* plan, std::vector<ExecNode*> input
       input, std::move(args.output_schema), std::move(args.grouping_key_field_ids),
       std::move(args.segment_key_field_ids), std::move(args.segmenter),
       std::move(args.kernel_intypes), std::move(args.target_fieldsets),
-      std::move(args.aggregates), std::move(args.kernels), args.requires_ordering);
+      std::move(args.aggregates), std::move(args.kernels), args.requires_ordering,
+      std::move(args.ordering));
 }
 
 Status GroupByNode::ResetKernelStates() {
@@ -347,7 +372,7 @@ Result<ExecBatch> GroupByNode::Finalize() {
 Status GroupByNode::OutputNthBatch(int64_t n) {
   int64_t batch_size = output_batch_size();
   auto batch = out_data_.Slice(batch_size * n, batch_size);
-  if (ordering_.is_implicit()) {
+  if (!ordering_.is_unordered()) {
     batch.index = total_output_batches_ + n - 1;
   }
   return output_->InputReceived(this, std::move(batch));

@@ -26,6 +26,7 @@
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 
 #include "arrow/acero/accumulation_queue.h"
 #include "arrow/acero/aggregate_node.h"
@@ -98,6 +99,7 @@ struct AggregateNodeArgs {
   std::vector<std::vector<TypeHolder>> kernel_intypes;
   std::vector<std::vector<std::unique_ptr<KernelState>>> states;
   bool requires_ordering;
+  Ordering ordering;
 };
 
 std::vector<TypeHolder> ExtendWithGroupIdType(const std::vector<TypeHolder>& in_types);
@@ -173,7 +175,7 @@ class ScalarAggregateNode : public ExecNode,
                       std::vector<const ScalarAggregateKernel*> kernels,
                       std::vector<std::vector<TypeHolder>> kernel_intypes,
                       std::vector<std::vector<std::unique_ptr<KernelState>>> states,
-                      bool requires_ordering)
+                      bool requires_ordering, Ordering ordering)
       : ExecNode(plan, std::move(inputs), {"target"},
                  /*output_schema=*/std::move(output_schema)),
         TracedNode(this),
@@ -187,19 +189,17 @@ class ScalarAggregateNode : public ExecNode,
         states_(std::move(states)),
         total_output_batches_(0),
         sequencer_(nullptr),
-        ordering_(Ordering::Unordered()) {
+        ordering_(std::move(ordering)) {
     if (requires_ordering) {
       sequencer_ = acero::util::SerialSequencingQueue::Make(this);
-      if (segment_field_ids.size() > 0) {
-        ordering_ = Ordering::Implicit();
-      }
     }
   }
 
   static Result<AggregateNodeArgs<ScalarAggregateKernel>> MakeAggregateNodeArgs(
       const std::shared_ptr<Schema>& input_schema, const std::vector<FieldRef>& keys,
       const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggs,
-      ExecContext* exec_ctx, size_t concurrency, bool is_cpu_parallel);
+      ExecContext* exec_ctx, size_t concurrency, bool is_cpu_parallel,
+      std::vector<ExecNode*> inputs);
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options);
@@ -272,7 +272,8 @@ class GroupByNode : public ExecNode,
               std::vector<std::vector<TypeHolder>> agg_src_types,
               std::vector<std::vector<int>> agg_src_fieldsets,
               std::vector<Aggregate> aggs,
-              std::vector<const HashAggregateKernel*> agg_kernels, bool requires_ordering)
+              std::vector<const HashAggregateKernel*> agg_kernels, bool requires_ordering,
+              Ordering ordering)
       : ExecNode(input->plan(), {input}, {"groupby"}, std::move(output_schema)),
         TracedNode(this),
         segmenter_(std::move(segmenter)),
@@ -285,12 +286,9 @@ class GroupByNode : public ExecNode,
         agg_kernels_(std::move(agg_kernels)),
         total_output_batches_(0),
         sequencer_(nullptr),
-        ordering_(Ordering::Unordered()) {
+        ordering_(std::move(ordering)) {
     if (requires_ordering) {
       sequencer_ = acero::util::SerialSequencingQueue::Make(this);
-      if (segment_key_field_ids.size() > 0) {
-        ordering_ = Ordering::Implicit();
-      }
     }
   }
 
@@ -299,7 +297,7 @@ class GroupByNode : public ExecNode,
   static Result<AggregateNodeArgs<HashAggregateKernel>> MakeAggregateNodeArgs(
       const std::shared_ptr<Schema>& input_schema, const std::vector<FieldRef>& keys,
       const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggs,
-      ExecContext* ctx, const bool is_cpu_parallel);
+      ExecContext* ctx, const bool is_cpu_parallel, std::vector<ExecNode*> inputs);
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options);

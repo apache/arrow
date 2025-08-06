@@ -18,6 +18,7 @@
 #include <mutex>
 #include <thread>
 #include <unordered_set>
+#include <utility>
 
 #include "arrow/acero/aggregate_internal.h"
 #include "arrow/acero/aggregate_node.h"
@@ -62,7 +63,8 @@ ScalarAggregateNode::MakeAggregateNodeArgs(const std::shared_ptr<Schema>& input_
                                            const std::vector<FieldRef>& segment_keys,
                                            const std::vector<Aggregate>& aggs,
                                            ExecContext* exec_ctx, size_t concurrency,
-                                           bool is_cpu_parallel) {
+                                           bool is_cpu_parallel,
+                                           std::vector<ExecNode*> inputs) {
   // Copy (need to modify options pointer below)
   std::vector<Aggregate> aggregates(aggs);
   std::vector<int> segment_field_ids(segment_keys.size());
@@ -157,6 +159,26 @@ ScalarAggregateNode::MakeAggregateNodeArgs(const std::shared_ptr<Schema>& input_
     fields[base + i] = field(aggregates[i].name, out_type.GetSharedPtr());
   }
 
+  Ordering out_ordering = Ordering::Unordered();
+  if (requires_ordering && inputs[0]->ordering().is_implicit()) {
+    out_ordering = Ordering::Implicit();
+  } else if (requires_ordering) {
+    std::vector<compute::SortKey> out_sort_keys;
+    std::unordered_set<int> segmented_key_field_id_set(segment_field_ids.begin(),
+                                                       segment_field_ids.end());
+    // Sort output only by segmented keys excluding sorting by keys
+    // since this will break the segmentation.
+    for (auto key : inputs[0]->ordering().sort_keys()) {
+      ARROW_ASSIGN_OR_RAISE(auto match, key.target.FindOne(*input_schema));
+      if (segmented_key_field_id_set.find(match[0]) != segmented_key_field_id_set.end()) {
+        out_sort_keys.emplace_back(key);
+      } else {
+        break;
+      }
+    }
+    out_ordering = Ordering(out_sort_keys);
+  }
+
   return AggregateNodeArgs<ScalarAggregateKernel>{schema(std::move(fields)),
                                                   /*grouping_key_field_ids=*/{},
                                                   std::move(segment_field_ids),
@@ -166,7 +188,8 @@ ScalarAggregateNode::MakeAggregateNodeArgs(const std::shared_ptr<Schema>& input_
                                                   std::move(kernels),
                                                   std::move(kernel_intypes),
                                                   std::move(states),
-                                                  requires_ordering};
+                                                  requires_ordering,
+                                                  std::move(out_ordering)};
 }
 
 Result<ExecNode*> ScalarAggregateNode::Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -190,7 +213,7 @@ Result<ExecNode*> ScalarAggregateNode::Make(ExecPlan* plan, std::vector<ExecNode
 
   ARROW_ASSIGN_OR_RAISE(
       auto args, MakeAggregateNodeArgs(input_schema, keys, segment_keys, aggregates,
-                                       exec_ctx, concurrency, is_cpu_parallel));
+                                       exec_ctx, concurrency, is_cpu_parallel, inputs));
   if (args.requires_ordering) {
     if (inputs[0]->ordering().is_unordered()) {
       return Status::Invalid(
@@ -204,7 +227,7 @@ Result<ExecNode*> ScalarAggregateNode::Make(ExecPlan* plan, std::vector<ExecNode
       plan, std::move(inputs), std::move(args.output_schema), std::move(args.segmenter),
       std::move(args.segment_key_field_ids), std::move(args.target_fieldsets),
       std::move(args.aggregates), std::move(args.kernels), std::move(args.kernel_intypes),
-      std::move(args.states), args.requires_ordering);
+      std::move(args.states), args.requires_ordering, std::move(args.ordering));
 }
 
 Status ScalarAggregateNode::DoConsume(const ExecSpan& batch, size_t thread_index) {
@@ -322,7 +345,7 @@ Status ScalarAggregateNode::OutputResult(bool is_last) {
     RETURN_NOT_OK(kernels_[i]->finalize(&ctx, &batch.values[base + i]));
   }
 
-  if (ordering_.is_implicit()) {
+  if (!ordering_.is_unordered()) {
     batch.index = total_output_batches_;
   }
   ++total_output_batches_;

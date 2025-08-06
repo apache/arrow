@@ -20,6 +20,7 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
+#include <cstdint>
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -53,10 +54,13 @@ Result<std::shared_ptr<Table>> TableGroupBy(
 }
 
 std::vector<ExecBatch> TestExecBatches(const std::vector<TypeHolder>& types,
-                                       std::vector<std::string> json_batches) {
+                                       std::vector<std::string> json_batches,
+                                       bool implicit_ordering = true) {
   std::vector<ExecBatch> batches;
+  int64_t index = 0;
   for (auto&& el : json_batches) {
     batches.push_back(ExecBatchFromJSON(types, el));
+    if (implicit_ordering) batches.back().index = index++;
   }
   return batches;
 }
@@ -262,7 +266,6 @@ TEST(GroupByNode, ParallelOrderedAggregator) {
     [2,111],
     [2,1]
   ])"});
-
   std::random_device rd;
   std::default_random_engine rng(rd());
   std::shuffle(batches.begin(), batches.end(), rng);
@@ -290,36 +293,34 @@ TEST(GroupByNode, ParallelOrderedAggregator) {
                                       out_batches.batches);
 }
 
-TEST(GroupByNode, ParallelSegmentedAggregator) {
-  // const int64_t num_batches = 3;
-  // std::vector<ExecBatch> batches;
-  // std::vector<ExecBatch> batches_new = TestBatches(1, 1, 3, num_batches);
-
-  std::vector<ExecBatch> batches = TestExecBatches({utf8(), int64(), int64()}, {R"([
-    ["x",0,1],
-    ["y",0,2],
-    ["z",0,3]
+TEST(GroupByNode, ParallelSegmentedAggregatorGroupBy) {
+  std::vector<ExecBatch> batches =
+      TestExecBatches({utf8(), int64(), int64(), int64()}, {R"([
+    ["x",0,1,1],
+    ["y",0,1,2],
+    ["z",0,1,3]
   ])",
-                                                                                R"([
-    ["x",1,1],
-    ["y",1,2],
-    ["z",1,3]
+                                                            R"([
+    ["x",1,2,1],
+    ["y",1,2,2],
+    ["z",1,3,3]
   ])",
-                                                                                R"([
-    ["x",2,1],
-    ["y",2,2],
-    ["z",2,3]
+                                                            R"([
+    ["x",2,3,1],
+    ["y",2,3,2],
+    ["z",2,3,3]
   ])"});
 
-  std::random_device rd;
-  std::default_random_engine rng(rd());
-  std::shuffle(batches.begin(), batches.end(), rng);
+  Ordering order({compute::SortKey("key2", compute::SortOrder::Ascending),
+                  compute::SortKey("key1", compute::SortOrder::Ascending)});
 
   Declaration plan = Declaration::Sequence(
       {{"exec_batch_source",
-        ExecBatchSourceNodeOptions(schema({field("key1", utf8()), field("key2", int64()),
-                                           field("value", int64())}),
-                                   batches)},
+        ExecBatchSourceNodeOptions(
+            schema({field("key1", utf8()), field("key2", int64()), field("key3", int64()),
+                    field("value", int64())}),
+            batches)},
+       {"order_by", OrderByNodeOptions(order)},
        {"aggregate",
         AggregateNodeOptions{/*aggregates=*/
                              {{"hash_mean", nullptr, "value", "mean(value)"}},
@@ -450,18 +451,20 @@ TEST(ScalarAggregateNode, ParallelOrderedAggregator) {
 }
 
 TEST(ScalarAggregateNode, ParallelSegmentedAggregator) {
-  std::vector<ExecBatch> batches = TestExecBatches({int64(), int64(), int64()}, {R"([
+  std::vector<ExecBatch> batches = TestExecBatches({int64(), int64(), int64()},
+                                                   {R"([
     [0,1,999],
     [0,2,1]
   ])",
-                                                                                 R"([
+                                                    R"([
     [1,11,499],
     [1,12,1]
   ])",
-                                                                                 R"([
+                                                    R"([
     [2,21,299],
     [2,22,1]
-  ])"});
+  ])"},
+                                                   true);
 
   std::random_device rd;
   std::default_random_engine rng(rd());
@@ -472,6 +475,49 @@ TEST(ScalarAggregateNode, ParallelSegmentedAggregator) {
         ExecBatchSourceNodeOptions(schema({field("key1", int64()), field("key2", int64()),
                                            field("value", int64())}),
                                    batches)},
+       {"aggregate", AggregateNodeOptions{/*aggregates=*/
+                                          {{"mean", nullptr, "value", "mean(value)"}},
+                                          {},
+                                          {FieldRef("key1")}}}});
+
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema out_batches,
+                       DeclarationToExecBatches(plan));
+  ExecBatch expected_batch = ExecBatchFromJSON({int64(), float64()},
+                                               R"([ 
+    [0 , 500],
+    [1 , 250],
+    [2 , 150]
+    ])");
+  AssertExecBatchesEqualIgnoringOrder(out_batches.schema, {expected_batch},
+                                      out_batches.batches);
+}
+
+TEST(ScalarAggregateNode, ParallelSegmentedAggregatorKeySorted) {
+  std::vector<ExecBatch> batches = TestExecBatches({int64(), int64(), int64(), int64()},
+                                                   {R"([
+    [0,1,1,999],
+    [0,2,1,1]
+  ])",
+                                                    R"([
+    [1,11,2,499],
+    [1,12,2,1]
+  ])",
+                                                    R"([
+    [2,21,3,299],
+    [2,22,3,1]
+  ])"},
+                                                   true);
+
+  Ordering order({compute::SortKey("key1", compute::SortOrder::Ascending),
+                  compute::SortKey("key3", compute::SortOrder::Ascending)});
+
+  Declaration plan = Declaration::Sequence(
+      {{"exec_batch_source",
+        ExecBatchSourceNodeOptions(
+            schema({field("key1", int64()), field("key2", int64()),
+                    field("key3", int64()), field("value", int64())}),
+            batches)},
+       {"order_by", OrderByNodeOptions{order}},
        {"aggregate", AggregateNodeOptions{/*aggregates=*/
                                           {{"mean", nullptr, "value", "mean(value)"}},
                                           {},
