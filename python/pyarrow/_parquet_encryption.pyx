@@ -20,7 +20,7 @@
 
 from datetime import timedelta
 
-from cython.operator cimport dereference as deref, preincrement
+from cython.operator cimport dereference as deref
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
@@ -179,15 +179,13 @@ cdef class EncryptionConfiguration(_Weakrefable):
 cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
     """ExternalEncryptionConfiguration is a Cython extension class that inherits from EncryptionConfiguration."""
     __slots__ = ()
-
-    cdef shared_ptr[CExternalEncryptionConfiguration] _external_config
-    
+  
     def __init__(self, footer_key, *, column_keys=None,
                  encryption_algorithm=None,
                  plaintext_footer=None, double_wrapping=None,
                  cache_lifetime=None, internal_key_material=None,
-                 data_key_length_bits=None, app_context=None,
-                 connection_config=None, per_column_encryption=None):
+                 data_key_length_bits=None, per_column_encryption=None,
+                 app_context=None,connection_config=None):
 
         super().__init__(footer_key,
             column_keys=column_keys,
@@ -197,11 +195,10 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
             cache_lifetime=cache_lifetime,
             internal_key_material=internal_key_material,
             data_key_length_bits=data_key_length_bits)
-        #Holds a shared pointer to the underlying C++ external encryption configuration object.
-        self._external_config = shared_ptr[CExternalEncryptionConfiguration](
-            new CExternalEncryptionConfiguration(tobytes(footer_key))
-        )
 
+        self.external_configuration.reset(
+            new CExternalEncryptionConfiguration(tobytes(footer_key)))
+        
         if app_context is not None:
             self.app_context = app_context
         if connection_config is not None:
@@ -212,7 +209,7 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
     @property
     def app_context(self):
         """Get the application context as a dictionary."""
-        app_context_str = frombytes(self._external_config.get().app_context)
+        app_context_str = frombytes(self.external_configuration.get().app_context)
         if not app_context_str:
             return {}
         try:
@@ -225,8 +222,8 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
         """Set the application context from a dictionary."""
         if value is not None:
             try:
-                serialized = json.dumps(value)
-                self._external_config.get().app_context = tobytes(serialized)
+                serialized = json.dumps(value)               
+                self.external_configuration.get().app_context = tobytes(serialized)
             except Exception:
                 raise TypeError("app_context must be JSON-serializable")
 
@@ -234,8 +231,7 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
     def connection_config(self):
         """Get the connection configuration as a Python dictionary."""
         cdef unordered_map[c_string, c_string] cpp_map = \
-            self._external_config.get().connection_config
-
+            self.external_configuration.get().connection_config
         result = {}
 
         for pair in cpp_map:
@@ -248,13 +244,15 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
         cdef unordered_map[c_string, c_string] cpp_map
         for k, v in value.items():
             cpp_map[k.encode('utf-8')] = v.encode('utf-8')
-        self._external_config.get().connection_config = cpp_map
+
+        self.external_configuration.get().connection_config = cpp_map
 
     @property
     def per_column_encryption(self):
         """Get the per_column_encryption as a Python dictionary."""
+
         cdef unordered_map[c_string, CColumnEncryptionAttributes] cpp_map = \
-            self._external_config.get().per_column_encryption  # Access the C++ member
+            self.external_configuration.get().per_column_encryption  # Access the C++ member
 
         py_dict = {}
 
@@ -270,7 +268,7 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
     def per_column_encryption(self, dict py_column_encryption):
         """Set the per_column_encryption from a Python dictionary."""
         # Clear the existing C++ map first
-        self._external_config.get().per_column_encryption.clear()
+        self.external_configuration.get().per_column_encryption.clear()
 
         cdef c_string c_key
         cdef ParquetCipher c_cipher_enum
@@ -297,10 +295,10 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
             cpp_attrs.parquet_cipher = c_cipher_enum
             cpp_attrs.key_id = c_key_id
 
-            self._external_config.get().per_column_encryption[c_key] = cpp_attrs
+            self.external_configuration.get().per_column_encryption[c_key] = cpp_attrs
 
-    cdef inline shared_ptr[CExternalEncryptionConfiguration] unwrapExternal(self) nogil:
-        return self._external_config
+    cdef inline shared_ptr[CExternalEncryptionConfiguration] unwrap_external(self) nogil:
+        return self.external_configuration
 
 
 cdef class DecryptionConfiguration(_Weakrefable):
@@ -601,11 +599,14 @@ cdef shared_ptr[CKmsConnectionConfig] pyarrow_unwrap_kmsconnectionconfig(object 
 
 
 cdef shared_ptr[CEncryptionConfiguration] pyarrow_unwrap_encryptionconfig(object encryptionconfig) except *:
-    if isinstance(encryptionconfig, ExternalEncryptionConfiguration):
-        return (<ExternalEncryptionConfiguration> encryptionconfig).unwrapExternal()
-    elif isinstance(encryptionconfig, EncryptionConfiguration):
+    if isinstance(encryptionconfig, EncryptionConfiguration):
         return (<EncryptionConfiguration> encryptionconfig).unwrap()
     raise TypeError("Expected EncryptionConfiguration, got %s" % type(encryptionconfig))
+
+cdef shared_ptr[CExternalEncryptionConfiguration] pyarrow_unwrap_external_encryptionconfig(object encryptionconfig) except *:
+    if isinstance(encryptionconfig, ExternalEncryptionConfiguration):
+        return (<ExternalEncryptionConfiguration> encryptionconfig).unwrap_external()
+    raise TypeError("Expected ExternalEncryptionConfiguration, got %s" % type(encryptionconfig))
 
 cdef shared_ptr[CDecryptionConfiguration] pyarrow_unwrap_decryptionconfig(object decryptionconfig) except *:
     if isinstance(decryptionconfig, DecryptionConfiguration):
