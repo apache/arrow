@@ -17,13 +17,16 @@
 
 #include <any>
 #include <atomic>
+#include <memory>
 #include <mutex>
 #include <sstream>
 #include <thread>
 #include <tuple>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
+#include "arrow/acero/accumulation_queue.h"
 #include "arrow/acero/concurrent_queue_internal.h"
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/exec_plan_internal.h"
@@ -34,6 +37,7 @@
 #include "arrow/acero/util.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/result.h"
+#include "arrow/testing/process.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/logging_internal.h"
 
@@ -99,7 +103,7 @@ class BackpressureController : public BackpressureControl {
 
 /// InputState corresponds to an input. Input record batches are queued up in InputState
 /// until processed and turned into output record batches.
-class InputState {
+class InputState : public util::SerialSequencingQueue::Processor {
  public:
   InputState(size_t index, BackpressureHandler handler,
              const std::shared_ptr<arrow::Schema>& schema, const int time_col_index)
@@ -107,7 +111,9 @@ class InputState {
         queue_(std::move(handler)),
         schema_(schema),
         time_col_index_(time_col_index),
-        time_type_id_(schema_->fields()[time_col_index_]->type()->id()) {}
+        time_type_id_(schema_->fields()[time_col_index_]->type()->id()) {
+    sequencer_ = util::SerialSequencingQueue::Make(this);
+  }
 
   template <typename PtrType>
   static arrow::Result<PtrType> Make(size_t index, arrow::acero::ExecNode* input,
@@ -211,6 +217,15 @@ class InputState {
     return arrow::Status::OK();
   }
 
+  Status InsertBatch(ExecBatch batch) {
+    return sequencer_->InsertBatch(std::move(batch));
+  }
+
+  arrow::Status Process(arrow::ExecBatch batch) final {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> rb, batch.ToRecordBatch(schema_));
+    return Push(rb);
+  }
+
   const std::shared_ptr<arrow::Schema>& get_schema() const { return schema_; }
 
   void set_total_batches(int n) { total_batches_ = n; }
@@ -219,6 +234,7 @@ class InputState {
   size_t index_;
   // Pending record batches. The latest is the front. Batches cannot be empty.
   BackpressureConcurrentQueue<std::shared_ptr<arrow::RecordBatch>> queue_;
+  std::unique_ptr<util::SerialSequencingQueue> sequencer_;
   // Schema associated with the input
   std::shared_ptr<arrow::Schema> schema_;
   // Total number of batches (only int because InputFinished uses int)
@@ -353,13 +369,12 @@ class SortedMergeNode : public ExecNode {
                               arrow::ExecBatch batch) override {
     ARROW_DCHECK(std_has(inputs_, input));
     const size_t index = std_find(inputs_, input) - inputs_.begin();
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> rb,
-                          batch.ToRecordBatch(output_schema_));
 
-    // Push into the queue. Note that we don't need to lock since
+    // Sequencer menages incoming batches order. then pushes it into
+    // the queue. Note that we don't need to lock since
     // InputState's ConcurrentQueue manages locking
-    input_counter[index] += rb->num_rows();
-    ARROW_RETURN_NOT_OK(state[index]->Push(rb));
+    input_counter[index] += batch.length;
+    ARROW_RETURN_NOT_OK(state[index]->InsertBatch(std::move(batch)));
     PushTask(kNewTask);
     return Status::OK();
   }
@@ -426,6 +441,21 @@ class SortedMergeNode : public ExecNode {
   }
 
  private:
+  arrow::Status SequencedInputReceived(arrow::acero::ExecNode* input,
+                                       arrow::ExecBatch batch) {
+    ARROW_DCHECK(std_has(inputs_, input));
+    const size_t index = std_find(inputs_, input) - inputs_.begin();
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> rb,
+                          batch.ToRecordBatch(output_schema_));
+
+    // Push into the queue. Note that we don't need to lock since
+    // InputState's ConcurrentQueue manages locking
+    input_counter[index] += rb->num_rows();
+    ARROW_RETURN_NOT_OK(state[index]->Push(rb));
+    PushTask(kNewTask);
+    return Status::OK();
+  }
+
   void EndFromProcessThread(arrow::Status st = arrow::Status::OK()) {
     ARROW_CHECK(!cleanup_started);
     for (size_t i = 0; i < input_counter.size(); ++i) {
