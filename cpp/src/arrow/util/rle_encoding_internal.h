@@ -23,7 +23,9 @@
 #include <algorithm>
 #include <array>
 #include <limits>
+#include <optional>
 #include <type_traits>
+#include <variant>
 
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
@@ -165,6 +167,55 @@ class BitPackedRun {
   raw_data_size_type values_count_ = 0;
   /// The size in bit of a packed value in the run
   bit_size_type value_bit_width_ = 0;
+};
+
+/// A parser that emits either a ``BitPackedRun`` or a ``RleRun``.
+class RleBitPackedParser {
+ public:
+  using byte = uint8_t;
+  using raw_data_const_pointer = const byte*;
+  /// By Parquet thrift definition the page size can be written into an int32_t.
+  using raw_data_size_type = int32_t;
+  /// The type to represent a size in bits
+  using bit_size_type = int32_t;
+  /// The different types of runs emitted by the parser
+  using dynamic_run_type = std::variant<RleRun, BitPackedRun>;
+
+  constexpr RleBitPackedParser() noexcept = default;
+
+  constexpr RleBitPackedParser(raw_data_const_pointer data, raw_data_size_type data_size,
+                               bit_size_type value_bit_width) noexcept;
+
+  constexpr void Reset(raw_data_const_pointer data, raw_data_size_type data_size,
+                       bit_size_type value_bit_width_) noexcept;
+
+  /// Get the current run with a small parsing cost without advancing the iteration.
+  [[nodiscard]] std::optional<dynamic_run_type> Peek() const;
+
+  /// Move to the next run.
+  [[nodiscard]] bool Advance();
+
+  /// Advance and return the current run.
+  [[nodiscard]] std::optional<dynamic_run_type> Next();
+
+  /// Whether there is still runs to iterate over.
+  ///
+  /// WARN: Due to lack of proper error handling, iteration with Next and Peek could
+  /// return not data while the parser is not exhausted.
+  /// This is how one can check for errors.
+  [[nodiscard]] bool Exhausted() const;
+
+ private:
+  /// The pointer to the beginning of the run
+  raw_data_const_pointer data_ = nullptr;
+  /// Size in bytes of the run.
+  raw_data_size_type data_size_ = 0;
+  /// The size in bit of a packed value in the run
+  bit_size_type value_bit_width_ = 0;
+
+  /// Like Peek but also return the number of bytes to advance after.
+  [[nodiscard]] std::pair<std::optional<dynamic_run_type>, raw_data_size_type> PeekCount()
+      const;
 };
 
 /// Decoder class for RLE encoded data.
@@ -901,6 +952,105 @@ constexpr auto BitPackedRun::RawDataSize() const noexcept -> raw_data_size_type 
                                     static_cast<int64_t>(values_count_));
   ARROW_CHECK_LE(out, std::numeric_limits<raw_data_size_type>::max());
   return static_cast<raw_data_size_type>(out);
+}
+
+/************************
+ *  RleBitPackedParser  *
+ ************************/
+
+constexpr RleBitPackedParser::RleBitPackedParser(raw_data_const_pointer data,
+                                                 raw_data_size_type size,
+                                                 bit_size_type value_bit_width) noexcept {
+  Reset(data, size, value_bit_width);
+}
+
+constexpr void RleBitPackedParser::Reset(raw_data_const_pointer data,
+                                         raw_data_size_type data_size,
+                                         bit_size_type value_bit_width) noexcept {
+  data_ = data;
+  data_size_ = data_size;
+  value_bit_width_ = value_bit_width;
+}
+
+inline auto RleBitPackedParser::Peek() const -> std::optional<dynamic_run_type> {
+  auto [out, count] = PeekCount();
+  return out;
+}
+
+inline auto RleBitPackedParser::Next() -> std::optional<dynamic_run_type> {
+  auto [out, count] = PeekCount();
+  data_ += count;
+  data_size_ -= count;
+  return out;
+}
+
+inline bool RleBitPackedParser::Advance() { return Next().has_value(); }
+
+inline bool RleBitPackedParser::Exhausted() const { return data_size_ == 0; }
+
+namespace internal {
+// The maximal unsigned size that a variable can fit.
+template <typename T>
+constexpr auto max_size_for_v =
+    static_cast<std::make_unsigned_t<T>>(std::numeric_limits<T>::max());
+
+}  // namespace internal
+
+inline auto RleBitPackedParser::PeekCount() const
+    -> std::pair<std::optional<dynamic_run_type>, raw_data_size_type> {
+  if (ARROW_PREDICT_FALSE(Exhausted())) {
+    return {};
+  }
+
+  constexpr auto kMaxSize = bit_util::MaxLEB128ByteLenFor<uint32_t>;
+  uint32_t run_len_type = 0;
+  auto const header_bytes = bit_util::ParseLeadingLEB128(data_, kMaxSize, &run_len_type);
+
+  if (header_bytes == 0) {
+    // Malfomrmed LEB128 data
+    return {};
+  }
+
+  bool const is_bit_packed = run_len_type & 1;
+  uint32_t const count = run_len_type >> 1;
+  if (is_bit_packed) {
+    using values_count_type = BitPackedRun::values_count_type;
+    constexpr auto kMaxCount =
+        bit_util::CeilDiv(internal::max_size_for_v<values_count_type>, 8);
+    if (ARROW_PREDICT_FALSE(count == 0 || count > kMaxCount)) {
+      /// Illegal number of encoded values
+      return {};
+    }
+
+    auto const values_count = static_cast<values_count_type>(count * 8);
+    ARROW_DCHECK_LT(count, internal::max_size_for_v<raw_data_size_type>);
+    // Count Already divided by 8
+    auto const bytes_read =
+        header_bytes + static_cast<raw_data_size_type>(count) * value_bit_width_;
+
+    return {
+        {BitPackedRun(data_ + header_bytes, values_count, value_bit_width_)},
+        bytes_read,
+    };
+  }
+
+  using values_count_type = RleRun::values_count_type;
+  if (ARROW_PREDICT_FALSE(
+          count == 0 ||
+          count > static_cast<uint32_t>(std::numeric_limits<values_count_type>::max()))) {
+    /// Illegal number of encoded values
+    return {};
+  }
+
+  auto const values_count = static_cast<values_count_type>(count);
+  auto const value_bytes = bit_util::BytesForBits(value_bit_width_);
+  ARROW_DCHECK_LT(value_bytes, internal::max_size_for_v<raw_data_size_type>);
+  auto const bytes_read = header_bytes + static_cast<raw_data_size_type>(value_bytes);
+
+  return {
+      {RleRun(data_ + header_bytes, values_count, value_bit_width_)},
+      bytes_read,
+  };
 }
 
 /****************
