@@ -42,7 +42,7 @@ deps:
 # we must rename .env to dotenv and then replace references to it in cpp/CMakeLists.txt
 sync-cpp:
 	cp ../NOTICE.txt inst/NOTICE.txt
-	rsync --archive --delete --exclude 'apidoc' --exclude 'build' --exclude 'build-support/boost_*' --exclude 'examples' --exclude 'src/gandiva' --exclude 'src/arrow/flight/sql/odbc*' --exclude 'src/jni' --exclude 'src/skyhook' --exclude 'submodules' --exclude '**/*_test.cc' ../cpp tools/
+	rsync --archive --delete --exclude 'apidoc' --exclude 'build' --exclude 'build-support/boost_*' --exclude 'examples' --exclude 'src/gandiva' --exclude 'src/arrow/flight/sql/odbc*' --exclude 'src/jni' --exclude 'submodules' --exclude '**/*_test.cc' ../cpp tools/
 	cp -p ../.env tools/dotenv
 	cp -p ../NOTICE.txt tools/
 	cp -p ../LICENSE.txt tools/
