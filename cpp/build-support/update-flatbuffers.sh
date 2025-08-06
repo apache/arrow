@@ -34,7 +34,3 @@ FILES=($(find $FORMAT_DIR -name '*.fbs'))
 FILES+=("$SOURCE_DIR/arrow/ipc/feather.fbs")
 
 $FLATC -o "$OUT_DIR" "${FILES[@]}"
-
-# Skyhook flatbuffers
-$FLATC -o "$SOURCE_DIR/skyhook/protocol" \
-  "$SOURCE_DIR/skyhook/protocol/ScanRequest.fbs"
