@@ -185,7 +185,7 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
                  plaintext_footer=None, double_wrapping=None,
                  cache_lifetime=None, internal_key_material=None,
                  data_key_length_bits=None, per_column_encryption=None,
-                 app_context=None,connection_config=None):
+                 app_context=None, connection_config=None):
 
         super().__init__(footer_key,
             column_keys=column_keys,
@@ -220,12 +220,14 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
     @app_context.setter
     def app_context(self, dict value):
         """Set the application context from a dictionary."""
-        if value is not None:
-            try:
-                serialized = json.dumps(value)               
-                self.external_configuration.get().app_context = tobytes(serialized)
-            except Exception:
-                raise TypeError("app_context must be JSON-serializable")
+        if value is None:
+            raise ValueError("app_context must be JSON-serializable")
+
+        try:
+            serialized = json.dumps(value)               
+            self.external_configuration.get().app_context = tobytes(serialized)
+        except Exception:
+            raise TypeError(f"Failed to serialize app_context: {repr(value)}")
 
     @property
     def connection_config(self):
@@ -239,8 +241,16 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
 
     @connection_config.setter
     def connection_config(self, dict value):
+        """Set the connection configuration from a Python dictionary."""
+        if value is None:
+            raise ValueError("Connection config value cannot be None")
+
         cdef unordered_map[c_string, c_string] cpp_map
         for k, v in value.items():
+            if not isinstance(k, str):
+                raise TypeError(f"Connection config key must be str, got {type(k).__name__}")
+            if not isinstance(v, str):
+                raise TypeError(f"Connection config value must be str, got {type(v).__name__}")
             cpp_map[tobytes(k)] = tobytes(v)
 
         self.external_configuration.get().connection_config = cpp_map
@@ -262,35 +272,30 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
     @per_column_encryption.setter
     def per_column_encryption(self, dict py_column_encryption):
         """Set the per_column_encryption from a Python dictionary."""
+        if py_column_encryption is None:
+            raise TypeError("per_column_encryption cannot be None")
+
         # Clear the existing C++ map first
         self.external_configuration.get().per_column_encryption.clear()
 
-        cdef c_string c_key
-        cdef ParquetCipher c_cipher_enum
-        cdef c_string c_key_id
         cdef CColumnEncryptionAttributes cpp_attrs
-
         # Iterate over the Python dictionary
         for py_key, py_attrs in py_column_encryption.items():
             if not isinstance(py_key, str) or not isinstance(py_attrs, dict):
                 raise TypeError("column_encryption keys must be strings and values must be dictionaries.")
 
-            c_key = tobytes(py_key)
-
             # Convert encryption_algorithm string to C++ ParquetCipher enum
             if "encryption_algorithm" not in py_attrs or not isinstance(py_attrs["encryption_algorithm"], str):
                 raise ValueError("Each column must have 'encryption_algorithm' (string).")
-            c_cipher_enum = cipher_from_name(py_attrs["encryption_algorithm"])
 
             # Convert encryption_key string to C++ c_string
             if "encryption_key" not in py_attrs or not isinstance(py_attrs["encryption_key"], str):
                 raise ValueError("Each column must have 'encryption_key' (string).")
-            c_key_id = tobytes(py_attrs["encryption_key"])
 
-            cpp_attrs.parquet_cipher = c_cipher_enum
-            cpp_attrs.key_id = c_key_id
+            cpp_attrs.parquet_cipher = cipher_from_name(py_attrs["encryption_algorithm"])
+            cpp_attrs.key_id = tobytes(py_attrs["encryption_key"])
 
-            self.external_configuration.get().per_column_encryption[c_key] = cpp_attrs
+            self.external_configuration.get().per_column_encryption[tobytes(py_key)] = cpp_attrs
 
     cdef inline shared_ptr[CExternalEncryptionConfiguration] unwrap_external(self) nogil:
         return self.external_configuration
