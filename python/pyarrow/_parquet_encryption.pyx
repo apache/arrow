@@ -230,12 +230,10 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
     @property
     def connection_config(self):
         """Get the connection configuration as a Python dictionary."""
-        cdef unordered_map[c_string, c_string] cpp_map = \
-            self.external_configuration.get().connection_config
         result = {}
 
-        for pair in cpp_map:
-            result[pair.first.decode('utf-8')] = pair.second.decode('utf-8')
+        for pair in self.external_configuration.get().connection_config:
+            result[frombytes(pair.first)] = frombytes(pair.second)
 
         return result
 
@@ -243,7 +241,7 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
     def connection_config(self, dict value):
         cdef unordered_map[c_string, c_string] cpp_map
         for k, v in value.items():
-            cpp_map[k.encode('utf-8')] = v.encode('utf-8')
+            cpp_map[tobytes(k)] = tobytes(v)
 
         self.external_configuration.get().connection_config = cpp_map
 
@@ -251,15 +249,12 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
     def per_column_encryption(self):
         """Get the per_column_encryption as a Python dictionary."""
 
-        cdef unordered_map[c_string, CColumnEncryptionAttributes] cpp_map = \
-            self.external_configuration.get().per_column_encryption  # Access the C++ member
-
         py_dict = {}
 
-        for pair in cpp_map:
-            py_dict[pair.first.decode('utf-8')] = {
+        for pair in self.external_configuration.get().per_column_encryption:
+            py_dict[frombytes(pair.first)] = {
                 "encryption_algorithm": cipher_to_name(pair.second.parquet_cipher),
-                "encryption_key": pair.second.key_id.decode('utf-8')
+                "encryption_key": frombytes(pair.second.key_id)
             }
 
         return py_dict
@@ -280,7 +275,7 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
             if not isinstance(py_key, str) or not isinstance(py_attrs, dict):
                 raise TypeError("column_encryption keys must be strings and values must be dictionaries.")
 
-            c_key = py_key.encode('utf-8') # Convert Python key to C-string
+            c_key = tobytes(py_key)
 
             # Convert encryption_algorithm string to C++ ParquetCipher enum
             if "encryption_algorithm" not in py_attrs or not isinstance(py_attrs["encryption_algorithm"], str):
@@ -290,7 +285,7 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
             # Convert encryption_key string to C++ c_string
             if "encryption_key" not in py_attrs or not isinstance(py_attrs["encryption_key"], str):
                 raise ValueError("Each column must have 'encryption_key' (string).")
-            c_key_id = py_attrs["encryption_key"].encode('utf-8')
+            c_key_id = tobytes(py_attrs["encryption_key"])
 
             cpp_attrs.parquet_cipher = c_cipher_enum
             cpp_attrs.key_id = c_key_id
