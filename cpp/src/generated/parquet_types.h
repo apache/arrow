@@ -504,7 +504,9 @@ class SizeStatistics {
  public:
 
   SizeStatistics(const SizeStatistics&);
+  SizeStatistics(SizeStatistics&&) noexcept;
   SizeStatistics& operator=(const SizeStatistics&);
+  SizeStatistics& operator=(SizeStatistics&&) noexcept;
   SizeStatistics() noexcept;
 
   virtual ~SizeStatistics() noexcept;
@@ -589,7 +591,9 @@ class BoundingBox {
  public:
 
   BoundingBox(const BoundingBox&) noexcept;
+  BoundingBox(BoundingBox&&) noexcept;
   BoundingBox& operator=(const BoundingBox&) noexcept;
+  BoundingBox& operator=(BoundingBox&&) noexcept;
   BoundingBox() noexcept;
 
   virtual ~BoundingBox() noexcept;
@@ -652,7 +656,9 @@ class GeospatialStatistics {
  public:
 
   GeospatialStatistics(const GeospatialStatistics&);
+  GeospatialStatistics(GeospatialStatistics&&) noexcept;
   GeospatialStatistics& operator=(const GeospatialStatistics&);
+  GeospatialStatistics& operator=(GeospatialStatistics&&) noexcept;
   GeospatialStatistics() noexcept;
 
   virtual ~GeospatialStatistics() noexcept;
@@ -710,7 +716,9 @@ class Statistics {
  public:
 
   Statistics(const Statistics&);
+  Statistics(Statistics&&) noexcept;
   Statistics& operator=(const Statistics&);
+  Statistics& operator=(Statistics&&) noexcept;
   Statistics() noexcept;
 
   virtual ~Statistics() noexcept;
@@ -810,7 +818,9 @@ class StringType {
  public:
 
   StringType(const StringType&) noexcept;
+  StringType(StringType&&) noexcept;
   StringType& operator=(const StringType&) noexcept;
+  StringType& operator=(StringType&&) noexcept;
   StringType() noexcept;
 
   virtual ~StringType() noexcept;
@@ -839,7 +849,9 @@ class UUIDType {
  public:
 
   UUIDType(const UUIDType&) noexcept;
+  UUIDType(UUIDType&&) noexcept;
   UUIDType& operator=(const UUIDType&) noexcept;
+  UUIDType& operator=(UUIDType&&) noexcept;
   UUIDType() noexcept;
 
   virtual ~UUIDType() noexcept;
@@ -868,7 +880,9 @@ class MapType {
  public:
 
   MapType(const MapType&) noexcept;
+  MapType(MapType&&) noexcept;
   MapType& operator=(const MapType&) noexcept;
+  MapType& operator=(MapType&&) noexcept;
   MapType() noexcept;
 
   virtual ~MapType() noexcept;
@@ -897,7 +911,9 @@ class ListType {
  public:
 
   ListType(const ListType&) noexcept;
+  ListType(ListType&&) noexcept;
   ListType& operator=(const ListType&) noexcept;
+  ListType& operator=(ListType&&) noexcept;
   ListType() noexcept;
 
   virtual ~ListType() noexcept;
@@ -926,7 +942,9 @@ class EnumType {
  public:
 
   EnumType(const EnumType&) noexcept;
+  EnumType(EnumType&&) noexcept;
   EnumType& operator=(const EnumType&) noexcept;
+  EnumType& operator=(EnumType&&) noexcept;
   EnumType() noexcept;
 
   virtual ~EnumType() noexcept;
@@ -955,7 +973,9 @@ class DateType {
  public:
 
   DateType(const DateType&) noexcept;
+  DateType(DateType&&) noexcept;
   DateType& operator=(const DateType&) noexcept;
+  DateType& operator=(DateType&&) noexcept;
   DateType() noexcept;
 
   virtual ~DateType() noexcept;
@@ -984,7 +1004,9 @@ class Float16Type {
  public:
 
   Float16Type(const Float16Type&) noexcept;
+  Float16Type(Float16Type&&) noexcept;
   Float16Type& operator=(const Float16Type&) noexcept;
+  Float16Type& operator=(Float16Type&&) noexcept;
   Float16Type() noexcept;
 
   virtual ~Float16Type() noexcept;
@@ -1020,7 +1042,9 @@ class NullType {
  public:
 
   NullType(const NullType&) noexcept;
+  NullType(NullType&&) noexcept;
   NullType& operator=(const NullType&) noexcept;
+  NullType& operator=(NullType&&) noexcept;
   NullType() noexcept;
 
   virtual ~NullType() noexcept;
@@ -1060,7 +1084,9 @@ class DecimalType {
  public:
 
   DecimalType(const DecimalType&) noexcept;
+  DecimalType(DecimalType&&) noexcept;
   DecimalType& operator=(const DecimalType&) noexcept;
+  DecimalType& operator=(DecimalType&&) noexcept;
   DecimalType() noexcept;
 
   virtual ~DecimalType() noexcept;
@@ -1098,7 +1124,9 @@ class MilliSeconds {
  public:
 
   MilliSeconds(const MilliSeconds&) noexcept;
+  MilliSeconds(MilliSeconds&&) noexcept;
   MilliSeconds& operator=(const MilliSeconds&) noexcept;
+  MilliSeconds& operator=(MilliSeconds&&) noexcept;
   MilliSeconds() noexcept;
 
   virtual ~MilliSeconds() noexcept;
@@ -1127,7 +1155,9 @@ class MicroSeconds {
  public:
 
   MicroSeconds(const MicroSeconds&) noexcept;
+  MicroSeconds(MicroSeconds&&) noexcept;
   MicroSeconds& operator=(const MicroSeconds&) noexcept;
+  MicroSeconds& operator=(MicroSeconds&&) noexcept;
   MicroSeconds() noexcept;
 
   virtual ~MicroSeconds() noexcept;
@@ -1156,7 +1186,9 @@ class NanoSeconds {
  public:
 
   NanoSeconds(const NanoSeconds&) noexcept;
+  NanoSeconds(NanoSeconds&&) noexcept;
   NanoSeconds& operator=(const NanoSeconds&) noexcept;
+  NanoSeconds& operator=(NanoSeconds&&) noexcept;
   NanoSeconds() noexcept;
 
   virtual ~NanoSeconds() noexcept;
@@ -1191,7 +1223,9 @@ class TimeUnit {
  public:
 
   TimeUnit(const TimeUnit&) noexcept;
+  TimeUnit(TimeUnit&&) noexcept;
   TimeUnit& operator=(const TimeUnit&) noexcept;
+  TimeUnit& operator=(TimeUnit&&) noexcept;
   TimeUnit() noexcept;
 
   virtual ~TimeUnit() noexcept;
@@ -1236,7 +1270,9 @@ class TimestampType {
  public:
 
   TimestampType(const TimestampType&) noexcept;
+  TimestampType(TimestampType&&) noexcept;
   TimestampType& operator=(const TimestampType&) noexcept;
+  TimestampType& operator=(TimestampType&&) noexcept;
   TimestampType() noexcept;
 
   virtual ~TimestampType() noexcept;
@@ -1276,7 +1312,9 @@ class TimeType {
  public:
 
   TimeType(const TimeType&) noexcept;
+  TimeType(TimeType&&) noexcept;
   TimeType& operator=(const TimeType&) noexcept;
+  TimeType& operator=(TimeType&&) noexcept;
   TimeType() noexcept;
 
   virtual ~TimeType() noexcept;
@@ -1318,7 +1356,9 @@ class IntType {
  public:
 
   IntType(const IntType&) noexcept;
+  IntType(IntType&&) noexcept;
   IntType& operator=(const IntType&) noexcept;
+  IntType& operator=(IntType&&) noexcept;
   IntType() noexcept;
 
   virtual ~IntType() noexcept;
@@ -1358,7 +1398,9 @@ class JsonType {
  public:
 
   JsonType(const JsonType&) noexcept;
+  JsonType(JsonType&&) noexcept;
   JsonType& operator=(const JsonType&) noexcept;
+  JsonType& operator=(JsonType&&) noexcept;
   JsonType() noexcept;
 
   virtual ~JsonType() noexcept;
@@ -1392,7 +1434,9 @@ class BsonType {
  public:
 
   BsonType(const BsonType&) noexcept;
+  BsonType(BsonType&&) noexcept;
   BsonType& operator=(const BsonType&) noexcept;
+  BsonType& operator=(BsonType&&) noexcept;
   BsonType() noexcept;
 
   virtual ~BsonType() noexcept;
@@ -1428,7 +1472,9 @@ class VariantType {
  public:
 
   VariantType(const VariantType&) noexcept;
+  VariantType(VariantType&&) noexcept;
   VariantType& operator=(const VariantType&) noexcept;
+  VariantType& operator=(VariantType&&) noexcept;
   VariantType() noexcept;
 
   virtual ~VariantType() noexcept;
@@ -1480,7 +1526,9 @@ class GeometryType {
  public:
 
   GeometryType(const GeometryType&);
+  GeometryType(GeometryType&&) noexcept;
   GeometryType& operator=(const GeometryType&);
+  GeometryType& operator=(GeometryType&&) noexcept;
   GeometryType() noexcept;
 
   virtual ~GeometryType() noexcept;
@@ -1536,7 +1584,9 @@ class GeographyType {
  public:
 
   GeographyType(const GeographyType&);
+  GeographyType(GeographyType&&) noexcept;
   GeographyType& operator=(const GeographyType&);
+  GeographyType& operator=(GeographyType&&) noexcept;
   GeographyType() noexcept;
 
   virtual ~GeographyType() noexcept;
@@ -1604,7 +1654,9 @@ class LogicalType {
  public:
 
   LogicalType(const LogicalType&);
+  LogicalType(LogicalType&&) noexcept;
   LogicalType& operator=(const LogicalType&);
+  LogicalType& operator=(LogicalType&&) noexcept;
   LogicalType() noexcept;
 
   virtual ~LogicalType() noexcept;
@@ -1704,7 +1756,9 @@ class SchemaElement {
  public:
 
   SchemaElement(const SchemaElement&);
+  SchemaElement(SchemaElement&&) noexcept;
   SchemaElement& operator=(const SchemaElement&);
+  SchemaElement& operator=(SchemaElement&&) noexcept;
   SchemaElement() noexcept;
 
   virtual ~SchemaElement() noexcept;
@@ -1822,7 +1876,9 @@ class DataPageHeader {
  public:
 
   DataPageHeader(const DataPageHeader&);
+  DataPageHeader(DataPageHeader&&) noexcept;
   DataPageHeader& operator=(const DataPageHeader&);
+  DataPageHeader& operator=(DataPageHeader&&) noexcept;
   DataPageHeader() noexcept;
 
   virtual ~DataPageHeader() noexcept;
@@ -1894,7 +1950,9 @@ class IndexPageHeader {
  public:
 
   IndexPageHeader(const IndexPageHeader&) noexcept;
+  IndexPageHeader(IndexPageHeader&&) noexcept;
   IndexPageHeader& operator=(const IndexPageHeader&) noexcept;
+  IndexPageHeader& operator=(IndexPageHeader&&) noexcept;
   IndexPageHeader() noexcept;
 
   virtual ~IndexPageHeader() noexcept;
@@ -1933,7 +1991,9 @@ class DictionaryPageHeader {
  public:
 
   DictionaryPageHeader(const DictionaryPageHeader&) noexcept;
+  DictionaryPageHeader(DictionaryPageHeader&&) noexcept;
   DictionaryPageHeader& operator=(const DictionaryPageHeader&) noexcept;
+  DictionaryPageHeader& operator=(DictionaryPageHeader&&) noexcept;
   DictionaryPageHeader() noexcept;
 
   virtual ~DictionaryPageHeader() noexcept;
@@ -1995,7 +2055,9 @@ class DataPageHeaderV2 {
  public:
 
   DataPageHeaderV2(const DataPageHeaderV2&);
+  DataPageHeaderV2(DataPageHeaderV2&&) noexcept;
   DataPageHeaderV2& operator=(const DataPageHeaderV2&);
+  DataPageHeaderV2& operator=(DataPageHeaderV2&&) noexcept;
   DataPageHeaderV2() noexcept;
 
   virtual ~DataPageHeaderV2() noexcept;
@@ -2087,7 +2149,9 @@ class SplitBlockAlgorithm {
  public:
 
   SplitBlockAlgorithm(const SplitBlockAlgorithm&) noexcept;
+  SplitBlockAlgorithm(SplitBlockAlgorithm&&) noexcept;
   SplitBlockAlgorithm& operator=(const SplitBlockAlgorithm&) noexcept;
+  SplitBlockAlgorithm& operator=(SplitBlockAlgorithm&&) noexcept;
   SplitBlockAlgorithm() noexcept;
 
   virtual ~SplitBlockAlgorithm() noexcept;
@@ -2123,7 +2187,9 @@ class BloomFilterAlgorithm {
  public:
 
   BloomFilterAlgorithm(const BloomFilterAlgorithm&) noexcept;
+  BloomFilterAlgorithm(BloomFilterAlgorithm&&) noexcept;
   BloomFilterAlgorithm& operator=(const BloomFilterAlgorithm&) noexcept;
+  BloomFilterAlgorithm& operator=(BloomFilterAlgorithm&&) noexcept;
   BloomFilterAlgorithm() noexcept;
 
   virtual ~BloomFilterAlgorithm() noexcept;
@@ -2165,7 +2231,9 @@ class XxHash {
  public:
 
   XxHash(const XxHash&) noexcept;
+  XxHash(XxHash&&) noexcept;
   XxHash& operator=(const XxHash&) noexcept;
+  XxHash& operator=(XxHash&&) noexcept;
   XxHash() noexcept;
 
   virtual ~XxHash() noexcept;
@@ -2203,7 +2271,9 @@ class BloomFilterHash {
  public:
 
   BloomFilterHash(const BloomFilterHash&) noexcept;
+  BloomFilterHash(BloomFilterHash&&) noexcept;
   BloomFilterHash& operator=(const BloomFilterHash&) noexcept;
+  BloomFilterHash& operator=(BloomFilterHash&&) noexcept;
   BloomFilterHash() noexcept;
 
   virtual ~BloomFilterHash() noexcept;
@@ -2244,7 +2314,9 @@ class Uncompressed {
  public:
 
   Uncompressed(const Uncompressed&) noexcept;
+  Uncompressed(Uncompressed&&) noexcept;
   Uncompressed& operator=(const Uncompressed&) noexcept;
+  Uncompressed& operator=(Uncompressed&&) noexcept;
   Uncompressed() noexcept;
 
   virtual ~Uncompressed() noexcept;
@@ -2277,7 +2349,9 @@ class BloomFilterCompression {
  public:
 
   BloomFilterCompression(const BloomFilterCompression&) noexcept;
+  BloomFilterCompression(BloomFilterCompression&&) noexcept;
   BloomFilterCompression& operator=(const BloomFilterCompression&) noexcept;
+  BloomFilterCompression& operator=(BloomFilterCompression&&) noexcept;
   BloomFilterCompression() noexcept;
 
   virtual ~BloomFilterCompression() noexcept;
@@ -2316,7 +2390,9 @@ class BloomFilterHeader {
  public:
 
   BloomFilterHeader(const BloomFilterHeader&) noexcept;
+  BloomFilterHeader(BloomFilterHeader&&) noexcept;
   BloomFilterHeader& operator=(const BloomFilterHeader&) noexcept;
+  BloomFilterHeader& operator=(BloomFilterHeader&&) noexcept;
   BloomFilterHeader() noexcept;
 
   virtual ~BloomFilterHeader() noexcept;
@@ -2377,7 +2453,9 @@ class PageHeader {
  public:
 
   PageHeader(const PageHeader&);
+  PageHeader(PageHeader&&) noexcept;
   PageHeader& operator=(const PageHeader&);
+  PageHeader& operator=(PageHeader&&) noexcept;
   PageHeader() noexcept;
 
   virtual ~PageHeader() noexcept;
@@ -2468,7 +2546,9 @@ class KeyValue {
  public:
 
   KeyValue(const KeyValue&);
+  KeyValue(KeyValue&&) noexcept;
   KeyValue& operator=(const KeyValue&);
+  KeyValue& operator=(KeyValue&&) noexcept;
   KeyValue() noexcept;
 
   virtual ~KeyValue() noexcept;
@@ -2508,7 +2588,9 @@ class SortingColumn {
  public:
 
   SortingColumn(const SortingColumn&) noexcept;
+  SortingColumn(SortingColumn&&) noexcept;
   SortingColumn& operator=(const SortingColumn&) noexcept;
+  SortingColumn& operator=(SortingColumn&&) noexcept;
   SortingColumn() noexcept;
 
   virtual ~SortingColumn() noexcept;
@@ -2559,7 +2641,9 @@ class PageEncodingStats {
  public:
 
   PageEncodingStats(const PageEncodingStats&) noexcept;
+  PageEncodingStats(PageEncodingStats&&) noexcept;
   PageEncodingStats& operator=(const PageEncodingStats&) noexcept;
+  PageEncodingStats& operator=(PageEncodingStats&&) noexcept;
   PageEncodingStats() noexcept;
 
   virtual ~PageEncodingStats() noexcept;
@@ -2625,7 +2709,9 @@ class ColumnMetaData {
  public:
 
   ColumnMetaData(const ColumnMetaData&);
+  ColumnMetaData(ColumnMetaData&&) noexcept;
   ColumnMetaData& operator=(const ColumnMetaData&);
+  ColumnMetaData& operator=(ColumnMetaData&&) noexcept;
   ColumnMetaData() noexcept;
 
   virtual ~ColumnMetaData() noexcept;
@@ -2773,7 +2859,9 @@ class EncryptionWithFooterKey {
  public:
 
   EncryptionWithFooterKey(const EncryptionWithFooterKey&) noexcept;
+  EncryptionWithFooterKey(EncryptionWithFooterKey&&) noexcept;
   EncryptionWithFooterKey& operator=(const EncryptionWithFooterKey&) noexcept;
+  EncryptionWithFooterKey& operator=(EncryptionWithFooterKey&&) noexcept;
   EncryptionWithFooterKey() noexcept;
 
   virtual ~EncryptionWithFooterKey() noexcept;
@@ -2806,7 +2894,9 @@ class EncryptionWithColumnKey {
  public:
 
   EncryptionWithColumnKey(const EncryptionWithColumnKey&);
+  EncryptionWithColumnKey(EncryptionWithColumnKey&&) noexcept;
   EncryptionWithColumnKey& operator=(const EncryptionWithColumnKey&);
+  EncryptionWithColumnKey& operator=(EncryptionWithColumnKey&&) noexcept;
   EncryptionWithColumnKey() noexcept;
 
   virtual ~EncryptionWithColumnKey() noexcept;
@@ -2854,7 +2944,9 @@ class ColumnCryptoMetaData {
  public:
 
   ColumnCryptoMetaData(const ColumnCryptoMetaData&);
+  ColumnCryptoMetaData(ColumnCryptoMetaData&&) noexcept;
   ColumnCryptoMetaData& operator=(const ColumnCryptoMetaData&);
+  ColumnCryptoMetaData& operator=(ColumnCryptoMetaData&&) noexcept;
   ColumnCryptoMetaData() noexcept;
 
   virtual ~ColumnCryptoMetaData() noexcept;
@@ -2902,7 +2994,9 @@ class ColumnChunk {
  public:
 
   ColumnChunk(const ColumnChunk&);
+  ColumnChunk(ColumnChunk&&) noexcept;
   ColumnChunk& operator=(const ColumnChunk&);
+  ColumnChunk& operator=(ColumnChunk&&) noexcept;
   ColumnChunk() noexcept;
 
   virtual ~ColumnChunk() noexcept;
@@ -3007,7 +3101,9 @@ class RowGroup {
  public:
 
   RowGroup(const RowGroup&);
+  RowGroup(RowGroup&&) noexcept;
   RowGroup& operator=(const RowGroup&);
+  RowGroup& operator=(RowGroup&&) noexcept;
   RowGroup() noexcept;
 
   virtual ~RowGroup() noexcept;
@@ -3088,7 +3184,9 @@ class TypeDefinedOrder {
  public:
 
   TypeDefinedOrder(const TypeDefinedOrder&) noexcept;
+  TypeDefinedOrder(TypeDefinedOrder&&) noexcept;
   TypeDefinedOrder& operator=(const TypeDefinedOrder&) noexcept;
+  TypeDefinedOrder& operator=(TypeDefinedOrder&&) noexcept;
   TypeDefinedOrder() noexcept;
 
   virtual ~TypeDefinedOrder() noexcept;
@@ -3133,7 +3231,9 @@ class ColumnOrder {
  public:
 
   ColumnOrder(const ColumnOrder&) noexcept;
+  ColumnOrder(ColumnOrder&&) noexcept;
   ColumnOrder& operator=(const ColumnOrder&) noexcept;
+  ColumnOrder& operator=(ColumnOrder&&) noexcept;
   ColumnOrder() noexcept;
 
   virtual ~ColumnOrder() noexcept;
@@ -3220,7 +3320,9 @@ class PageLocation {
  public:
 
   PageLocation(const PageLocation&) noexcept;
+  PageLocation(PageLocation&&) noexcept;
   PageLocation& operator=(const PageLocation&) noexcept;
+  PageLocation& operator=(PageLocation&&) noexcept;
   PageLocation() noexcept;
 
   virtual ~PageLocation() noexcept;
@@ -3281,7 +3383,9 @@ class OffsetIndex {
  public:
 
   OffsetIndex(const OffsetIndex&);
+  OffsetIndex(OffsetIndex&&) noexcept;
   OffsetIndex& operator=(const OffsetIndex&);
+  OffsetIndex& operator=(OffsetIndex&&) noexcept;
   OffsetIndex() noexcept;
 
   virtual ~OffsetIndex() noexcept;
@@ -3344,7 +3448,9 @@ class ColumnIndex {
  public:
 
   ColumnIndex(const ColumnIndex&);
+  ColumnIndex(ColumnIndex&&) noexcept;
   ColumnIndex& operator=(const ColumnIndex&);
+  ColumnIndex& operator=(ColumnIndex&&) noexcept;
   ColumnIndex() noexcept;
 
   virtual ~ColumnIndex() noexcept;
@@ -3454,7 +3560,9 @@ class AesGcmV1 {
  public:
 
   AesGcmV1(const AesGcmV1&);
+  AesGcmV1(AesGcmV1&&) noexcept;
   AesGcmV1& operator=(const AesGcmV1&);
+  AesGcmV1& operator=(AesGcmV1&&) noexcept;
   AesGcmV1() noexcept;
 
   virtual ~AesGcmV1() noexcept;
@@ -3510,7 +3618,9 @@ class AesGcmCtrV1 {
  public:
 
   AesGcmCtrV1(const AesGcmCtrV1&);
+  AesGcmCtrV1(AesGcmCtrV1&&) noexcept;
   AesGcmCtrV1& operator=(const AesGcmCtrV1&);
+  AesGcmCtrV1& operator=(AesGcmCtrV1&&) noexcept;
   AesGcmCtrV1() noexcept;
 
   virtual ~AesGcmCtrV1() noexcept;
@@ -3560,7 +3670,9 @@ class ExternalDBPAV1 {
  public:
 
   ExternalDBPAV1(const ExternalDBPAV1&) noexcept;
+  ExternalDBPAV1(ExternalDBPAV1&&) noexcept;
   ExternalDBPAV1& operator=(const ExternalDBPAV1&) noexcept;
+  ExternalDBPAV1& operator=(ExternalDBPAV1&&) noexcept;
   ExternalDBPAV1() noexcept;
 
   virtual ~ExternalDBPAV1() noexcept;
@@ -3595,7 +3707,9 @@ class EncryptionAlgorithm {
  public:
 
   EncryptionAlgorithm(const EncryptionAlgorithm&);
+  EncryptionAlgorithm(EncryptionAlgorithm&&) noexcept;
   EncryptionAlgorithm& operator=(const EncryptionAlgorithm&);
+  EncryptionAlgorithm& operator=(EncryptionAlgorithm&&) noexcept;
   EncryptionAlgorithm() noexcept;
 
   virtual ~EncryptionAlgorithm() noexcept;
@@ -3646,7 +3760,9 @@ class FileMetaData {
  public:
 
   FileMetaData(const FileMetaData&);
+  FileMetaData(FileMetaData&&) noexcept;
   FileMetaData& operator=(const FileMetaData&);
+  FileMetaData& operator=(FileMetaData&&) noexcept;
   FileMetaData() noexcept;
 
   virtual ~FileMetaData() noexcept;
@@ -3762,7 +3878,9 @@ class FileCryptoMetaData {
  public:
 
   FileCryptoMetaData(const FileCryptoMetaData&);
+  FileCryptoMetaData(FileCryptoMetaData&&) noexcept;
   FileCryptoMetaData& operator=(const FileCryptoMetaData&);
+  FileCryptoMetaData& operator=(FileCryptoMetaData&&) noexcept;
   FileCryptoMetaData() noexcept;
 
   virtual ~FileCryptoMetaData() noexcept;
