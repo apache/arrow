@@ -386,7 +386,7 @@ class RleBitPackedDecoder {
 /// This class does so by buffering 8 values at a time.  If they are not all the same
 /// they are added to the literal run.  If they are the same, they are added to the
 /// repeated run.  When we switch modes, the previous run is flushed out.
-class RleEncoder {
+class RleBitPackedEncoder {
  public:
   /// buffer/buffer_len: preallocated output buffer.
   /// bit_width: max number of bits for value.
@@ -394,7 +394,7 @@ class RleEncoder {
   /// when values should be encoded as repeated runs.  Currently this is derived
   /// based on the bit_width, which can determine a storage optimal choice.
   /// TODO: allow 0 bit_width (and have dict encoder use it)
-  RleEncoder(uint8_t* buffer, int buffer_len, int bit_width)
+  RleBitPackedEncoder(uint8_t* buffer, int buffer_len, int bit_width)
       : bit_width_(bit_width), bit_writer_(buffer, buffer_len) {
     ARROW_DCHECK_GE(bit_width_, 0);
     ARROW_DCHECK_LE(bit_width_, 64);
@@ -1176,7 +1176,7 @@ auto BitPackedDecoder<T>::GetBatch(value_type* out, values_count_type batch_size
 
 /// This function buffers input values 8 at a time.  After seeing all 8 values,
 /// it decides whether they should be encoded as a literal or repeated run.
-inline bool RleEncoder::Put(uint64_t value) {
+inline bool RleBitPackedEncoder::Put(uint64_t value) {
   ARROW_DCHECK(bit_width_ == 64 || value < (1ULL << bit_width_));
   if (ARROW_PREDICT_FALSE(buffer_full_)) return false;
 
@@ -1207,7 +1207,7 @@ inline bool RleEncoder::Put(uint64_t value) {
   return true;
 }
 
-inline void RleEncoder::FlushLiteralRun(bool update_indicator_byte) {
+inline void RleBitPackedEncoder::FlushLiteralRun(bool update_indicator_byte) {
   if (literal_indicator_byte_ == NULL) {
     // The literal indicator byte has not been reserved yet, get one now.
     literal_indicator_byte_ = bit_writer_.GetNextBytePtr();
@@ -1237,7 +1237,7 @@ inline void RleEncoder::FlushLiteralRun(bool update_indicator_byte) {
   }
 }
 
-inline void RleEncoder::FlushRepeatedRun() {
+inline void RleBitPackedEncoder::FlushRepeatedRun() {
   ARROW_DCHECK_GT(repeat_count_, 0);
   bool result = true;
   // The lsb of 0 indicates this is a repeated run
@@ -1253,7 +1253,7 @@ inline void RleEncoder::FlushRepeatedRun() {
 
 /// Flush the values that have been buffered.  At this point we decide whether
 /// we need to switch between the run types or continue the current one.
-inline void RleEncoder::FlushBufferedValues(bool done) {
+inline void RleBitPackedEncoder::FlushBufferedValues(bool done) {
   if (repeat_count_ >= 8) {
     // Clear the buffered values.  They are part of the repeated run now and we
     // don't want to flush them out as literals.
@@ -1283,7 +1283,7 @@ inline void RleEncoder::FlushBufferedValues(bool done) {
   repeat_count_ = 0;
 }
 
-inline int RleEncoder::Flush() {
+inline int RleBitPackedEncoder::Flush() {
   if (literal_count_ > 0 || repeat_count_ > 0 || num_buffered_values_ > 0) {
     bool all_repeat = literal_count_ == 0 && (repeat_count_ == num_buffered_values_ ||
                                               num_buffered_values_ == 0);
@@ -1310,14 +1310,14 @@ inline int RleEncoder::Flush() {
   return bit_writer_.bytes_written();
 }
 
-inline void RleEncoder::CheckBufferFull() {
+inline void RleBitPackedEncoder::CheckBufferFull() {
   int bytes_written = bit_writer_.bytes_written();
   if (bytes_written + max_run_byte_size_ > bit_writer_.buffer_len()) {
     buffer_full_ = true;
   }
 }
 
-inline void RleEncoder::Clear() {
+inline void RleBitPackedEncoder::Clear() {
   buffer_full_ = false;
   current_value_ = 0;
   repeat_count_ = 0;
