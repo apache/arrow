@@ -1978,8 +1978,8 @@ TEST_F(TestGeometryValuesWriter, TestWriteAndRead) {
   }
 
   // Statistics are unset because the sort order is unknown
-  ASSERT_FALSE(metadata_accessor()->is_stats_set());
-  ASSERT_EQ(metadata_accessor()->statistics(), nullptr);
+  ASSERT_TRUE(metadata_accessor()->is_stats_set());
+  ASSERT_EQ(metadata_accessor()->statistics()->null_count(), 0);
 
   ASSERT_TRUE(metadata_accessor()->is_geo_stats_set());
   std::shared_ptr<geospatial::GeoStatistics> geospatial_statistics = metadata_geo_stats();
@@ -2062,9 +2062,11 @@ TEST_F(TestGeometryValuesWriter, TestWriteAndReadAllNull) {
     EXPECT_EQ(this->definition_levels_out_[i], 0);
   }
 
-  // Statistics are unset because the sort order is unknown
-  ASSERT_FALSE(metadata_accessor()->is_stats_set());
-  ASSERT_EQ(metadata_accessor()->statistics(), nullptr);
+  // Statistics are unset because the sort order is unknown?
+  ASSERT_TRUE(metadata_accessor()->is_stats_set());
+  ASSERT_FALSE(metadata_accessor()->statistics()->HasDistinctCount());
+  ASSERT_FALSE(metadata_accessor()->statistics()->HasMinMax());
+  ASSERT_EQ(metadata_accessor()->statistics()->null_count(), SMALL_SIZE);
 
   // GeoStatistics should exist but all components should be marked as uncalculated
   ASSERT_TRUE(metadata_accessor()->is_geo_stats_set());
