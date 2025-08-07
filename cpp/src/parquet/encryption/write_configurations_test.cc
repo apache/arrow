@@ -223,6 +223,31 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterUseAES_GCM_CTR) {
                         "tmp_encrypt_columns_and_footer_ctr.parquet.encrypted"));
 }
 
+TEST_F(TestEncryptionConfiguration, EncryptOneColumnAndUseExternalDBPA) {
+    std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
+        encryption_cols;
+    parquet::ColumnEncryptionProperties::Builder encryption_col_builder(
+        path_to_double_field_);
+        encryption_col_builder.key(kColumnEncryptionKey1_)->key_id("kc1");
+
+    encryption_cols[path_to_double_field_] = encryption_col_builder.build();
+
+    parquet::FileEncryptionProperties::Builder file_encryption_builder(
+        kFooterEncryptionKey_);
+
+    try {
+        this->EncryptFile(file_encryption_builder.footer_key_metadata("kf")
+                            ->encrypted_columns(encryption_cols)
+                            ->algorithm(parquet::ParquetCipher::EXTERNAL_DBPA_V1)
+                            ->build(),
+                        "tmp_encrypt_one_column_and_use_external_dbpa.parquet.encrypted");
+        FAIL() << "Expected ParquetException was not thrown";
+    } catch (const parquet::ParquetException& e) {
+        EXPECT_STREQ("ExternalDataBatchProtectionAgent (DBPA) algorithm is not yet implemented", 
+            e.what());
+    } 
+}
+
 // Set temp_dir before running the write/read tests. The encrypted files will
 // be written/read from this directory.
 void TestEncryptionConfiguration::SetUpTestCase() {
