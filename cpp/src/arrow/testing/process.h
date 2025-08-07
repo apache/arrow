@@ -39,6 +39,14 @@ class ARROW_TESTING_EXPORT Process {
   bool IsRunning();
   uint64_t pid();
 
+  static constexpr bool IsAvailable() {
+#ifdef BOOST_PROCESS_AVAILABLE
+    return true;
+#else
+    return false;
+#endif
+  }
+
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
