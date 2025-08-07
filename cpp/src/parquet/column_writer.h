@@ -36,7 +36,7 @@ class BitWriter;
 }  // namespace bit_util
 
 namespace util {
-class RleEncoder;
+class RleBitPackedEncoder;
 class CodecOptions;
 }  // namespace util
 
@@ -80,7 +80,7 @@ class PARQUET_EXPORT LevelEncoder {
   int bit_width_;
   int rle_length_;
   Encoding::type encoding_;
-  std::unique_ptr<::arrow::util::RleEncoder> rle_encoder_;
+  std::unique_ptr<::arrow::util::RleBitPackedEncoder> rle_encoder_;
   std::unique_ptr<::arrow::bit_util::BitWriter> bit_packed_encoder_;
 };
 
