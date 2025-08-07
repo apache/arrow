@@ -15,7 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-dl_dep = dependency('dl')
+if host_machine.system() != 'windows'
+  dl_dep = dependency('dl')
+else
+  dl_dep = declare_dependency()
+endif
 threads_dep = dependency('threads')
 
 arrow_components = {
@@ -423,12 +427,21 @@ arrow_lib = library(
     dependencies: arrow_deps,
     install: true,
     gnu_symbol_visibility: 'hidden',
-    cpp_shared_args: ['-DARROW_EXPORTING'],
+    c_shared_args: ['-DARROW_EXPORTING', '-DURI_LIBRARY_BUILD', '-DURI_VISIBILITY'],
+    c_static_args: ['-DURI_STATIC_BUILD'],
+    cpp_shared_args: ['-DARROW_EXPORTING', '-DURI_LIBRARY_BUILD'],
+    cpp_static_args: ['-DARROW_STATIC'],
 )
+
+arrow_compile_args = []
+if host_machine.system() == 'windows' and get_option('default_library') != 'shared'
+    arrow_compile_args += ['-DARROW_STATIC']
+endif
 
 arrow_dep = declare_dependency(
     include_directories: [include_dir],
     link_with: arrow_lib,
+    compile_args: arrow_compile_args,
 )
 
 if needs_compute
@@ -487,11 +500,19 @@ if needs_compute
         dependencies: arrow_dep,
         install: true,
         cpp_shared_args: ['-DARROW_COMPUTE_EXPORTING'],
+        cpp_static_args: ['-DARROW_COMPUTE_STATIC'],
     )
+
+    arrow_compute_compile_args = []
+    if host_machine.system() == 'windows' and get_option('default_library') != 'shared'
+        arrow_compute_compile_args += ['-DARROW_COMPUTE_STATIC']
+    endif
+
     arrow_compute_dep = declare_dependency(
         link_with: arrow_compute_lib,
         include_directories: include_dir,
         dependencies: arrow_dep,
+        compile_args: arrow_compute_compile_args,
     )
 else
     arrow_compute_dep = disabler()
