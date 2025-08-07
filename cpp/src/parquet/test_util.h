@@ -71,6 +71,7 @@ class ParquetTestException : public parquet::ParquetException {
 
 const char* get_data_dir();
 std::string get_bad_data_dir();
+std::string get_variant_dir();
 
 std::string get_data_file(const std::string& filename, bool is_good = true);
 
