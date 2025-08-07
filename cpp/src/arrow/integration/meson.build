@@ -17,10 +17,17 @@
 
 install_headers(['json_integration.h'])
 
+deps = [arrow_dep, rapidjson_dep, gflags_dep, gtest_dep]
+if host_machine.system() == 'windows'
+    # gflags uses PathMatchSpecA from the old shlwapi
+    shlwapi_lib = cpp_compiler.find_library('shlwapi')
+    deps += [shlwapi_lib]
+endif
+
 exc = executable(
     'arrow-json-integration-test',
     sources: ['json_integration_test.cc'],
-    dependencies: [arrow_dep, rapidjson_dep, gflags_dep, gtest_dep],
+    dependencies: deps,
     link_with: [arrow_test_lib],
 )
 

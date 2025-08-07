@@ -198,7 +198,6 @@ utility_test_srcs = [
     'key_value_metadata_test.cc',
     'hashing_test.cc',
     'int_util_test.cc',
-    'io_util_test.cc',
     'iterator_test.cc',
     'list_util_test.cc',
     'logger_test.cc',
@@ -224,18 +223,25 @@ utility_test_srcs = [
 ]
 
 if host_machine.system() == 'windows'
+    # meson does not natively support manifest files like CMake does
+'''
     # This manifest enables long file paths on Windows 10+
     # See https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#enable-long-paths-in-windows-10-version-1607-and-later
     if cpp_compiler.get_id() == 'msvc'
-        utility_test_srcs += ['io_util_test.manifest']
+        utility_test_srcs += ['io_util_test.cc', 'io_util_test.manifest']
     else
-        utility_test_srcs += ['io_util_test.rc']
+        utility_test_srcs += ['io_util_test.cc', 'io_util_test.rc']
     endif
+'''
+    io_util_test_sources = []
+else
+    io_util_test_sources = ['io_util_test.cc']
 endif
+
 
 exc = executable(
     'arrow-utility-test',
-    sources: utility_test_srcs,
+    sources: utility_test_srcs + io_util_test_sources,
     dependencies: [arrow_dep, filesystem_dep, gtest_dep, gmock_dep],
     link_with: [arrow_test_lib],
     implicit_include_directories: false,

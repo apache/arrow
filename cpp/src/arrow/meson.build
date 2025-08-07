@@ -217,7 +217,8 @@ arrow_util_srcs = [
     'util/value_parsing.cc',
 ]
 
-arrow_util_deps = [threads_dep]
+boost_dep = dependency('boost')  # TODO: only required when native 128 not available 
+arrow_util_deps = [boost_dep, threads_dep]
 
 if needs_brotli
     arrow_util_srcs += ['util/compression_brotli.cc']
@@ -581,6 +582,7 @@ if needs_testing
     gtest_dep = dependency('gtest')
     gtest_main_dep = dependency('gtest_main')
     gtest_dep = dependency('gtest')
+    gmock_main_dep = dependency('gmock_main')
     gmock_dep = dependency('gmock')
 else
     filesystem_dep = disabler()
@@ -590,16 +592,23 @@ else
     gmock_dep = disabler()
 endif
 
-arrow_test_lib = static_library(
+arrow_test_lib = library(
     'arrow_testing',
     sources: arrow_testing_srcs,
-    dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
+    dependencies: [arrow_dep, filesystem_dep, gmock_main_dep, rapidjson_dep],
+    cpp_shared_args: ['-DARROW_TESTING_EXPORTING'],
+    cpp_static_args: ['-DARROW_TESTING_STATIC'],
 )
+
+arrow_test_compile_args = []
+if host_machine.system() == 'windows' and get_option('default_library') != 'shared'
+    arrow_compute_compile_args += ['-DARROW_TESTING_STATIC']
+endif
 
 if needs_tests
     arrow_test_dep = declare_dependency(
         link_with: [arrow_test_lib],
-        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
+        dependencies: [arrow_dep, filesystem_dep, gmock_main_dep],
     )
     arrow_test_dep_no_main = declare_dependency(
         link_with: [arrow_test_lib],

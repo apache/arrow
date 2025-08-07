@@ -39,7 +39,9 @@ install_headers(
 
 testing_tests = {
     'arrow-generator-test': {'sources': ['generator_test.cc']},
-    'arrow-gtest-util-test': {'sources': ['gtest_util_test.cc']},
+    'arrow-gtest-util-test': {
+        'sources': ['gtest_util_test.cc'],
+    },
     'arrow-random-test': {'sources': ['random_test.cc']},
 }
 
@@ -48,6 +50,7 @@ foreach key, val : testing_tests
         key,
         sources: val['sources'],
         dependencies: [arrow_test_dep, val.get('dependencies', [])],
+        implicit_include_directories: false,  # math.h may conflict with stdlib
     )
     test(key, exc)
 endforeach

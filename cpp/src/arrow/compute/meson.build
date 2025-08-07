@@ -50,7 +50,7 @@ endif
 # Define arrow_compute_core_testing object library for common test files requiring
 # only core compute. No extra kernels are required.
 if needs_testing
-    arrow_compute_core_test_lib = library(
+    arrow_compute_core_test_lib = static_library(
         'arrow-compute-core-testing',
         sources: files('test_util_internal.cc'),
         dependencies: arrow_test_dep,
@@ -85,6 +85,7 @@ else
     arrow_compute_test_dep = disabler()
 endif
 
+
 exc = executable(
     'arrow-internals-test',
     sources: [
@@ -96,6 +97,7 @@ exc = executable(
     dependencies: [arrow_compute_core_test_dep, arrow_test_dep],
 )
 test('arrow-internals-test', exc)
+
 
 compute_tests = {
     'arrow-compute-expression-test': {'sources': ['expression_test.cc']},

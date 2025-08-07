@@ -34,7 +34,7 @@
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
-
+ 
 // Test basic cases for contains NaN.
 class TestAssertContainsNaN : public ::testing::Test {};
 
