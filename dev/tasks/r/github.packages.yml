@@ -57,7 +57,7 @@ jobs:
           path: arrow/r/arrow_*.tar.gz
 
   macos-cpp:
-    name: C++ Binary macOS OpenSSL {{ '${{ matrix.openssl }}' }} {{ '${{ matrix.platform.arch }}' }}
+    name: C++ Binary macOS {{ '${{ matrix.platform.arch }}' }}
 
     runs-on: {{ '${{ matrix.platform.runs_on }}' }}
 
@@ -68,15 +68,13 @@ jobs:
         platform:
           - { runs_on: macos-13, arch: "x86_64" }
           - { runs_on: macos-14, arch: "arm64" }
-        openssl: ['3.0', '1.1']
-
     steps:
       {{ macros.github_checkout_arrow(action_v="3")|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
       - name: Install Deps
         run: |
           brew install sccache ninja
-          brew install openssl@{{ '${{ matrix.openssl }}' }}
+          brew install openssl@3.0
       - name: Build libarrow
         shell: bash
         env:
@@ -89,7 +87,7 @@ jobs:
           LIBARROW_MINIMAL: false
         run: |
           sccache --start-server
-          export EXTRA_CMAKE_FLAGS="-DOPENSSL_ROOT_DIR=$(brew --prefix openssl@{{ '${{ matrix.openssl }}' }})"
+          export EXTRA_CMAKE_FLAGS="-DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3.0)"
           cd arrow
           r/inst/build_arrow_static.sh
       - name: Bundle libarrow
@@ -108,11 +106,11 @@ jobs:
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: r-lib__libarrow__bin__darwin-{{ '${{ matrix.platform.arch }}' }}-openssl-{{ '${{ matrix.openssl }}' }}
+          name: r-lib__libarrow__bin__darwin-{{ '${{ matrix.platform.arch }}' }}
           path: arrow/r/libarrow/dist/arrow-*.zip*
 
   linux-cpp:
-    name: C++ Binary Linux OpenSSL {{ '${{ matrix.openssl }}' }}
+    name: C++ Binary Linux
     runs-on: ubuntu-latest
     needs: source
     strategy:
@@ -122,13 +120,6 @@ jobs:
           - openssl: "3.0"
             os: ubuntu
             ubuntu: "22.04"
-          - extra-cmake-flags: >-
-              -DCMAKE_INCLUDE_PATH=/usr/include/openssl11
-              -DCMAKE_LIBRARY_PATH=/usr/lib64/openssl11
-            openssl: "1.1"
-            os: centos
-          - openssl: "1.0"
-            os: centos
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
@@ -163,7 +154,7 @@ jobs:
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: r-lib__libarrow__bin__linux-openssl-{{ '${{ matrix.openssl }}' }}
+          name: r-lib__libarrow__bin__linux
           path: arrow/r/libarrow/dist/arrow-*.zip*
 
   windows-cpp:

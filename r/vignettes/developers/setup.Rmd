@@ -71,7 +71,7 @@ There are five major steps to the process.
 
 ### Step 1 - Install dependencies
 
-When building libarrow, by default, system dependencies will be used if suitable versions are found.  If system dependencies are not present, libarrow will build them during its own build process. The only dependencies that you need to install _outside_ of the build process are [cmake](https://cmake.org/) (for configuring the build) and [openssl](https://www.openssl.org/) if you are building with S3 support.
+When building libarrow, by default, system dependencies will be used if suitable versions are found.  If system dependencies are not present, libarrow will build them during its own build process. The only dependencies that you need to install _outside_ of the build process are [cmake](https://cmake.org/) (for configuring the build) and [openssl](https://www.openssl.org/) version >= 3.0.0 if you are building with S3 support.
 
 For a faster build, you may choose to pre-install more C++ library dependencies (such as [lz4](http://lz4.github.io/lz4/), [zstd](https://facebook.github.io/zstd/), etc.) on the system  so that they don't need to be built from source in the libarrow build.
 

@@ -179,17 +179,13 @@ download_binary <- function(lib) {
 # of action based on the current system. Other values you can set it to:
 # * "FALSE" (not case-sensitive), to skip this option altogether
 # * "TRUE" (not case-sensitive), to try to discover your current OS, or
-# * Some other string: a "linux-openssl-${OPENSSL_VERSION}" that corresponds to
+# * Some other string: a "macos-amd64" that corresponds to
 #   a binary that is available, to override what this function may discover by
 #   default.
 #   Possible values are:
-#    * "linux-openssl-1.0" (OpenSSL 1.0)
-#    * "linux-openssl-1.1" (OpenSSL 1.1)
-#    * "linux-openssl-3.0" (OpenSSL 3.0)
-#    * "macos-amd64-openssl-1.1" (OpenSSL 1.1)
-#    * "macos-amd64-openssl-3.0" (OpenSSL 3.0)
-#    * "macos-arm64-openssl-1.1" (OpenSSL 1.1)
-#    * "macos-arm64-openssl-3.0" (OpenSSL 3.0)
+#    * "linux"
+#    * "macos-amd64
+#    * "macos-arm64
 #   These string values, along with `NULL`, are the potential return values of
 #   this function.
 identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()) {
@@ -271,11 +267,8 @@ test_for_curl_and_openssl <- "
 
 #include <curl/curl.h>
 #include <openssl/opensslv.h>
-#if OPENSSL_VERSION_NUMBER < 0x10002000L
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
 #error OpenSSL version too old
-#endif
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-#error Using OpenSSL version 1.0
 #endif
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
 #error Using OpenSSL version 3
@@ -320,10 +313,9 @@ get_macos_openssl_dir <- function() {
 # (built with newer devtoolset but older glibc (2.17) for broader compatibility, like manylinux2014)
 determine_binary_from_stderr <- function(errs) {
   if (is.null(attr(errs, "status"))) {
-    # There was no error in compiling: so we found libcurl and OpenSSL >= 1.1,
-    # openssl is < 3.0
-    lg("Found libcurl and OpenSSL >= 1.1")
-    return("openssl-1.1")
+    # There was no error in compiling: so we found libcurl and OpenSSL >= 3.0,
+    lg("Found libcurl and OpenSSL >= 3.0")
+    return("openssl-3.0")
     # Else, check for dealbreakers:
   } else if (!on_macos && any(grepl("Using libc++", errs, fixed = TRUE))) {
     # Our linux binaries are all built with GNU stdlib so they fail with libc++
@@ -336,16 +328,9 @@ determine_binary_from_stderr <- function(errs) {
     lg("OpenSSL not found")
     return(NULL)
   } else if (any(grepl("OpenSSL version too old", errs))) {
-    lg("OpenSSL found but version >= 1.0.2 is required for some features")
+    lg("OpenSSL found but version >= 3.0.0 is required for some features")
     return(NULL)
     # Else, determine which other binary will work
-  } else if (any(grepl("Using OpenSSL version 1.0", errs))) {
-    if (on_macos) {
-      lg("OpenSSL 1.0 is not supported on macOS")
-      return(NULL)
-    }
-    lg("Found libcurl and OpenSSL < 1.1")
-    return("openssl-1.0")
   } else if (any(grepl("Using OpenSSL version 3", errs))) {
     lg("Found libcurl and OpenSSL >= 3.0.0")
     return("openssl-3.0")
@@ -873,8 +858,8 @@ with_cloud_support <- function(env_var_list) {
       print_warning("requires libcurl-devel (rpm) or libcurl4-openssl-dev (deb)")
       arrow_s3 <- FALSE
       arrow_gcs <- FALSE
-    } else if (!cmake_find_package("OpenSSL", "1.0.2", env_var_list)) {
-      print_warning("requires version >= 1.0.2 of openssl-devel (rpm), libssl-dev (deb), or openssl (brew)")
+    } else if (!cmake_find_package("OpenSSL", "3.0.0", env_var_list)) {
+      print_warning("requires version >= 3.0.0 of openssl-devel (rpm), libssl-dev (deb), or openssl (brew)")
       arrow_s3 <- FALSE
       arrow_gcs <- FALSE
     }
