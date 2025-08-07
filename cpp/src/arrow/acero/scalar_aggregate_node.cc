@@ -63,7 +63,6 @@ ScalarAggregateNode::MakeAggregateNodeArgs(const std::shared_ptr<Schema>& input_
                                            const std::vector<FieldRef>& segment_keys,
                                            const std::vector<Aggregate>& aggs,
                                            ExecContext* exec_ctx, size_t concurrency,
-                                           bool is_cpu_parallel,
                                            std::vector<ExecNode*> inputs) {
   // Copy (need to modify options pointer below)
   std::vector<Aggregate> aggregates(aggs);
@@ -166,7 +165,7 @@ ScalarAggregateNode::MakeAggregateNodeArgs(const std::shared_ptr<Schema>& input_
     std::vector<compute::SortKey> out_sort_keys;
     std::unordered_set<int> segmented_key_field_id_set(segment_field_ids.begin(),
                                                        segment_field_ids.end());
-    // Sort output only by segmented keys excluding sorting by keys
+    // Propagate output sorting only by segmented keys excluding sorting by regualr keys
     // since this will break the segmentation.
     for (auto key : inputs[0]->ordering().sort_keys()) {
       ARROW_ASSIGN_OR_RAISE(auto match, key.target.FindOne(*input_schema));
@@ -180,6 +179,15 @@ ScalarAggregateNode::MakeAggregateNodeArgs(const std::shared_ptr<Schema>& input_
       out_ordering = Ordering(out_sort_keys);
     else
       out_ordering = Ordering::Implicit();
+  }
+
+  if (!out_ordering.is_unordered()) {
+    if (inputs[0]->ordering().is_unordered()) {
+      return Status::Invalid(
+          "Aggregate node's input has no meaningful ordering and so limit/offset will be "
+          "non-deterministic.  Please establish order in some way (e.g. by inserting an "
+          "order_by node)");
+    }
   }
 
   return AggregateNodeArgs<ScalarAggregateKernel>{
@@ -200,8 +208,6 @@ Result<ExecNode*> ScalarAggregateNode::Make(ExecPlan* plan, std::vector<ExecNode
   const auto& keys = aggregate_options.keys;
   const auto& segment_keys = aggregate_options.segment_keys;
   const auto concurrency = plan->query_context()->max_concurrency();
-  // We can't use concurrency == 1 because that include I/O concurrency
-  const bool is_cpu_parallel = plan->query_context()->executor()->GetCapacity() > 1;
 
   if (keys.size() > 0) {
     return Status::Invalid("Scalar aggregation with some key");
@@ -212,15 +218,7 @@ Result<ExecNode*> ScalarAggregateNode::Make(ExecPlan* plan, std::vector<ExecNode
 
   ARROW_ASSIGN_OR_RAISE(
       auto args, MakeAggregateNodeArgs(input_schema, keys, segment_keys, aggregates,
-                                       exec_ctx, concurrency, is_cpu_parallel, inputs));
-  if (!args.ordering.is_unordered()) {
-    if (inputs[0]->ordering().is_unordered()) {
-      return Status::Invalid(
-          "Aggregate node's input has no meaningful ordering and so limit/offset will be "
-          "non-deterministic.  Please establish order in some way (e.g. by inserting an "
-          "order_by node)");
-    }
-  }
+                                       exec_ctx, concurrency, inputs));
 
   return plan->EmplaceNode<ScalarAggregateNode>(
       plan, std::move(inputs), std::move(args.output_schema), std::move(args.segmenter),
@@ -350,7 +348,8 @@ Status ScalarAggregateNode::OutputResult(bool is_last) {
   ++total_output_batches_;
   ARROW_RETURN_NOT_OK(output_->InputReceived(this, std::move(batch)));
   if (is_last) {
-    ARROW_RETURN_NOT_OK(output_->InputFinished(this, total_output_batches_));
+    ARROW_RETURN_NOT_OK(
+        output_->InputFinished(this, static_cast<int>(total_output_batches_)));
   } else {
     ARROW_RETURN_NOT_OK(ResetKernelStates());
   }

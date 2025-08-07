@@ -25,6 +25,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/acero/test_nodes.h"
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/ordering.h"
@@ -33,6 +34,7 @@
 #include "arrow/table.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/string.h"
@@ -279,18 +281,18 @@ TEST(GroupByNode, ParallelOrderedAggregator) {
                              {{"hash_first", nullptr, "value", "mean(value)"}},
                              {"key1"},
                              {}}}});
-
   ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema out_batches,
                        DeclarationToExecBatches(plan));
-
   ExecBatch expected_batch = ExecBatchFromJSON({int64(), int64()},
                                                R"([
     [0, 999],
     [1, 333],
     [2, 111] 
     ])");
+
   AssertExecBatchesEqualIgnoringOrder(out_batches.schema, {expected_batch},
                                       out_batches.batches);
+  ASSERT_TRUE(out_batches.batches[0].index == 0);
 }
 
 TEST(GroupByNode, ParallelSegmentedAggregatorGroupBy) {
@@ -339,8 +341,7 @@ TEST(GroupByNode, ParallelSegmentedAggregatorGroupBy) {
     [2,"x" , 1],[2,"y" , 2],[2,"z" , 3]
     ])"});
 
-  AssertExecBatchesEqualIgnoringOrder(out_batches.schema, batches_ex,
-                                      out_batches.batches);
+  AssertExecBatchesEqual(out_batches.schema, batches_ex, out_batches.batches);
 }
 
 TEST(ScalarAggregateNode, AnyAll) {
@@ -430,14 +431,15 @@ TEST(ScalarAggregateNode, ParallelOrderedAggregator) {
     [2,1]
   ])"});
 
-  std::random_device rd;
-  std::default_random_engine rng(rd());
-  std::shuffle(batches.begin(), batches.end(), rng);
+  static constexpr random::SeedType kTestSeed = 42;
+  static constexpr int kMaxJitterMod = 3;
+  RegisterTestNodes();
 
   Declaration plan = Declaration::Sequence(
       {{"exec_batch_source",
         ExecBatchSourceNodeOptions(
             schema({field("key1", int64()), field("value", int64())}), batches)},
+       {"jitter", JitterNodeOptions(kTestSeed, kMaxJitterMod)},
        {"aggregate",
         AggregateNodeOptions{/*aggregates=*/
                              {{"first", nullptr, "value", "mean(value)"}}}}});
@@ -466,15 +468,19 @@ TEST(ScalarAggregateNode, ParallelSegmentedAggregator) {
   ])"},
                                                    true);
 
-  std::random_device rd;
-  std::default_random_engine rng(rd());
-  std::shuffle(batches.begin(), batches.end(), rng);
+  // std::random_device rd;
+  // std::default_random_engine rng(rd());
+  // std::shuffle(batches.begin(), batches.end(), rng);
+  static constexpr random::SeedType kTestSeed = 42;
+  static constexpr int kMaxJitterMod = 3;
+  RegisterTestNodes();
 
   Declaration plan = Declaration::Sequence(
       {{"exec_batch_source",
         ExecBatchSourceNodeOptions(schema({field("key1", int64()), field("key2", int64()),
                                            field("value", int64())}),
                                    batches)},
+       {"jitter", JitterNodeOptions(kTestSeed, kMaxJitterMod)},
        {"aggregate", AggregateNodeOptions{/*aggregates=*/
                                           {{"mean", nullptr, "value", "mean(value)"}},
                                           {},
@@ -482,14 +488,9 @@ TEST(ScalarAggregateNode, ParallelSegmentedAggregator) {
 
   ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema out_batches,
                        DeclarationToExecBatches(plan));
-  ExecBatch expected_batch = ExecBatchFromJSON({int64(), float64()},
-                                               R"([ 
-    [0 , 500],
-    [1 , 250],
-    [2 , 150]
-    ])");
-  AssertExecBatchesEqualIgnoringOrder(out_batches.schema, {expected_batch},
-                                      out_batches.batches);
+  auto expected_batch = TestExecBatches(
+      {int64(), float64()}, {R"([[0 , 500]])", R"([[1 , 250]])", R"([[2 , 150]])"});
+  AssertExecBatchesEqual(out_batches.schema, expected_batch, out_batches.batches);
 }
 
 TEST(ScalarAggregateNode, ParallelSegmentedAggregatorKeySorted) {
@@ -508,6 +509,9 @@ TEST(ScalarAggregateNode, ParallelSegmentedAggregatorKeySorted) {
   ])"},
                                                    true);
 
+  static constexpr random::SeedType kTestSeed = 42;
+  static constexpr int kMaxJitterMod = 3;
+
   Ordering order({compute::SortKey("key1", compute::SortOrder::Ascending),
                   compute::SortKey("key3", compute::SortOrder::Ascending)});
 
@@ -518,6 +522,7 @@ TEST(ScalarAggregateNode, ParallelSegmentedAggregatorKeySorted) {
                     field("key3", int64()), field("value", int64())}),
             batches)},
        {"order_by", OrderByNodeOptions{order}},
+       {"jitter", JitterNodeOptions(kTestSeed, kMaxJitterMod)},
        {"aggregate", AggregateNodeOptions{/*aggregates=*/
                                           {{"mean", nullptr, "value", "mean(value)"}},
                                           {},
@@ -525,14 +530,9 @@ TEST(ScalarAggregateNode, ParallelSegmentedAggregatorKeySorted) {
 
   ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema out_batches,
                        DeclarationToExecBatches(plan));
-  ExecBatch expected_batch = ExecBatchFromJSON({int64(), float64()},
-                                               R"([ 
-    [0 , 500],
-    [1 , 250],
-    [2 , 150]
-    ])");
-  AssertExecBatchesEqualIgnoringOrder(out_batches.schema, {expected_batch},
-                                      out_batches.batches);
+  auto expected_batch = TestExecBatches(
+      {int64(), float64()}, {R"([[0 , 500]])", R"([[1 , 250]])", R"([[2 , 150]])"});
+  AssertExecBatchesEqual(out_batches.schema, expected_batch, out_batches.batches);
 }
 
 }  // namespace acero

@@ -194,8 +194,7 @@ class ScalarAggregateNode : public ExecNode,
   static Result<AggregateNodeArgs<ScalarAggregateKernel>> MakeAggregateNodeArgs(
       const std::shared_ptr<Schema>& input_schema, const std::vector<FieldRef>& keys,
       const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggs,
-      ExecContext* exec_ctx, size_t concurrency, bool is_cpu_parallel,
-      std::vector<ExecNode*> inputs);
+      ExecContext* exec_ctx, size_t concurrency, std::vector<ExecNode*> inputs);
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options);
@@ -292,7 +291,7 @@ class GroupByNode : public ExecNode,
   static Result<AggregateNodeArgs<HashAggregateKernel>> MakeAggregateNodeArgs(
       const std::shared_ptr<Schema>& input_schema, const std::vector<FieldRef>& keys,
       const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggs,
-      ExecContext* ctx, const bool is_cpu_parallel, std::vector<ExecNode*> inputs);
+      ExecContext* ctx, std::vector<ExecNode*> inputs);
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options);
