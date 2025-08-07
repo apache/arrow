@@ -22,10 +22,12 @@ else
 endif
 threads_dep = dependency('threads')
 
-# Boost is required when native 128 not available
-boost_dep = dependency(
-    'boost',
-)
+has_int128 = cpp_compiler.has_define('__SIZEOF_INT128__')
+if has_int128
+    int128_deps = []
+else
+    int128_deps = [dependency('boost')]
+endif
 
 arrow_components = {
     'arrow_array': {
@@ -85,7 +87,7 @@ arrow_components = {
             'compute/kernels/vector_selection_internal.cc',
             'compute/kernels/vector_selection_take_internal.cc',
         ],
-        'dependencies': [boost_dep]
+        'dependencies': int128_deps,
     },
     'arrow_io': {
         'sources': [
@@ -223,7 +225,7 @@ arrow_util_srcs = [
     'util/value_parsing.cc',
 ]
 
-arrow_util_deps = [boost_dep, threads_dep]
+arrow_util_deps = int128_deps + [threads_dep]
 
 if needs_brotli
     arrow_util_srcs += ['util/compression_brotli.cc']
@@ -503,7 +505,7 @@ if needs_compute
     arrow_compute_lib = library(
         'arrow-compute',
         sources: arrow_compute_lib_sources,
-        dependencies: [arrow_dep, boost_dep],
+        dependencies: [arrow_dep] + int128_deps,
         install: true,
         cpp_shared_args: ['-DARROW_COMPUTE_EXPORTING'],
         cpp_static_args: ['-DARROW_COMPUTE_STATIC'],

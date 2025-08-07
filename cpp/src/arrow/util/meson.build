@@ -59,7 +59,6 @@ conf_data.set('ARROW_HDFS', false)
 conf_data.set('ARROW_S3', false)
 conf_data.set('ARROW_USE_GLOG', false)
 
-has_int128 = cpp_compiler.has_define('__SIZEOF_INT128__')
 conf_data.set('ARROW_USE_NATIVE_INT128', has_int128)
 
 conf_data.set('ARROW_WITH_BROTLI', needs_brotli)
