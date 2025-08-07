@@ -211,8 +211,8 @@ TEST(BitUtil, RoundTripIntValues) {
 // expected_encoding != NULL, also validates that the encoded buffer is
 // exactly 'expected_encoding'.
 // if expected_len is not -1, it will validate the encoded size is correct.
-void ValidateRle(const std::vector<int>& values, int bit_width,
-                 uint8_t* expected_encoding, int expected_len) {
+void ValidateRleBitPacked(const std::vector<int>& values, int bit_width,
+                          uint8_t* expected_encoding, int expected_len) {
   const int len = 64 * 1024;
 #ifdef __EMSCRIPTEN__
   // don't make this on the stack as it is
@@ -224,7 +224,7 @@ void ValidateRle(const std::vector<int>& values, int bit_width,
 #endif
   EXPECT_LE(expected_len, len);
 
-  RleEncoder encoder(buffer, len, bit_width);
+  RleBitPackedEncoder encoder(buffer, len, bit_width);
   for (size_t i = 0; i < values.size(); ++i) {
     bool result = encoder.Put(values[i]);
     EXPECT_TRUE(result);
@@ -271,7 +271,7 @@ bool CheckRoundTrip(const std::vector<int>& values, int bit_width) {
 #else
   uint8_t buffer[len];
 #endif
-  RleEncoder encoder(buffer, len, bit_width);
+  RleBitPackedEncoder encoder(buffer, len, bit_width);
   for (size_t i = 0; i < values.size(); ++i) {
     bool result = encoder.Put(values[i]);
     if (!result) {
@@ -308,7 +308,7 @@ bool CheckRoundTrip(const std::vector<int>& values, int bit_width) {
   return true;
 }
 
-TEST(Rle, SpecificSequences) {
+TEST(RleBitPacked, SpecificSequences) {
   const int len = 1024;
   uint8_t expected_buffer[len];
   std::vector<int> values;
@@ -328,12 +328,12 @@ TEST(Rle, SpecificSequences) {
   expected_buffer[2] = (50 << 1);
   expected_buffer[3] = 1;
   for (int width = 1; width <= 8; ++width) {
-    ValidateRle(values, width, expected_buffer, 4);
+    ValidateRleBitPacked(values, width, expected_buffer, 4);
   }
 
   for (int width = 9; width <= MAX_WIDTH; ++width) {
-    ValidateRle(values, width, nullptr,
-                2 * (1 + static_cast<int>(bit_util::CeilDiv(width, 8))));
+    ValidateRleBitPacked(values, width, nullptr,
+                         2 * (1 + static_cast<int>(bit_util::CeilDiv(width, 8))));
   }
 
   // Test 100 0's and 1's alternating
@@ -349,11 +349,11 @@ TEST(Rle, SpecificSequences) {
   expected_buffer[100 / 8 + 1] = 0x0A /* 0b00001010 */;
 
   // num_groups and expected_buffer only valid for bit width = 1
-  ValidateRle(values, 1, expected_buffer, 1 + num_groups);
+  ValidateRleBitPacked(values, 1, expected_buffer, 1 + num_groups);
   for (int width = 2; width <= MAX_WIDTH; ++width) {
     int num_values = static_cast<int>(bit_util::CeilDiv(100, 8)) * 8;
-    ValidateRle(values, width, nullptr,
-                1 + static_cast<int>(bit_util::CeilDiv(width * num_values, 8)));
+    ValidateRleBitPacked(values, width, nullptr,
+                         1 + static_cast<int>(bit_util::CeilDiv(width * num_values, 8)));
   }
 
   // Test 16-bit values to confirm encoded values are stored in little endian
@@ -371,7 +371,7 @@ TEST(Rle, SpecificSequences) {
   expected_buffer[4] = 0x55;
   expected_buffer[5] = 0xaa;
 
-  ValidateRle(values, 16, expected_buffer, 6);
+  ValidateRleBitPacked(values, 16, expected_buffer, 6);
 
   // Test 32-bit values to confirm encoded values are stored in little endian
   values.resize(28);
@@ -392,7 +392,7 @@ TEST(Rle, SpecificSequences) {
   expected_buffer[8] = 0xaa;
   expected_buffer[9] = 0x5a;
 
-  ValidateRle(values, 32, expected_buffer, 10);
+  ValidateRleBitPacked(values, 32, expected_buffer, 10);
 }
 
 // ValidateRle on 'num_vals' values with width 'bit_width'. If 'value' != -1, that value
@@ -403,10 +403,10 @@ void TestRleValues(int bit_width, int num_vals, int value = -1) {
   for (int v = 0; v < num_vals; ++v) {
     values.push_back((value != -1) ? value : static_cast<int>(v % mod));
   }
-  ValidateRle(values, bit_width, NULL, -1);
+  ValidateRleBitPacked(values, bit_width, NULL, -1);
 }
 
-TEST(Rle, TestValues) {
+TEST(RleBitPacked, TestValues) {
   for (int width = 1; width <= MAX_WIDTH; ++width) {
     TestRleValues(width, 1);
     TestRleValues(width, 1024);
@@ -415,7 +415,7 @@ TEST(Rle, TestValues) {
   }
 }
 
-TEST(Rle, BitWidthZeroRepeated) {
+TEST(RleBitPacked, BitWidthZeroRepeated) {
   uint8_t buffer[1];
   const int num_values = 15;
   buffer[0] = num_values << 1;  // repeated indicator byte
@@ -429,7 +429,7 @@ TEST(Rle, BitWidthZeroRepeated) {
   EXPECT_FALSE(decoder.Get(&val));
 }
 
-TEST(Rle, BitWidthZeroLiteral) {
+TEST(RleBitPacked, BitWidthZeroLiteral) {
   uint8_t buffer[1];
   const int num_groups = 4;
   buffer[0] = num_groups << 1 | 1;  // literal indicator byte
@@ -450,13 +450,13 @@ TEST(BitRle, Flush) {
   std::vector<int> values;
   for (int i = 0; i < 16; ++i) values.push_back(1);
   values.push_back(0);
-  ValidateRle(values, 1, NULL, -1);
+  ValidateRleBitPacked(values, 1, NULL, -1);
   values.push_back(1);
-  ValidateRle(values, 1, NULL, -1);
+  ValidateRleBitPacked(values, 1, NULL, -1);
   values.push_back(1);
-  ValidateRle(values, 1, NULL, -1);
+  ValidateRleBitPacked(values, 1, NULL, -1);
   values.push_back(1);
-  ValidateRle(values, 1, NULL, -1);
+  ValidateRleBitPacked(values, 1, NULL, -1);
 }
 
 // Test some random sequences.
@@ -515,17 +515,17 @@ TEST(BitRle, RepeatedPattern) {
     }
   }
 
-  ValidateRle(values, 1, NULL, -1);
+  ValidateRleBitPacked(values, 1, NULL, -1);
 }
 
 TEST(BitRle, Overflow) {
   for (int bit_width = 1; bit_width < 32; bit_width += 3) {
-    int len = RleEncoder::MinBufferSize(bit_width);
+    int len = RleBitPackedEncoder::MinBufferSize(bit_width);
     std::vector<uint8_t> buffer(len);
     int num_added = 0;
     bool parity = true;
 
-    RleEncoder encoder(buffer.data(), len, bit_width);
+    RleBitPackedEncoder encoder(buffer.data(), len, bit_width);
     // Insert alternating true/false until there is no space left
     while (true) {
       bool result = encoder.Put(parity);
@@ -559,12 +559,12 @@ void CheckRoundTripSpaced(const Array& data, int bit_width) {
   using T = typename Type::c_type;
 
   int num_values = static_cast<int>(data.length());
-  int buffer_size = RleEncoder::MaxBufferSize(bit_width, num_values);
+  int buffer_size = RleBitPackedEncoder::MaxBufferSize(bit_width, num_values);
 
   const T* values = static_cast<const ArrayType&>(data).raw_values();
 
   std::vector<uint8_t> buffer(buffer_size);
-  RleEncoder encoder(buffer.data(), buffer_size, bit_width);
+  RleBitPackedEncoder encoder(buffer.data(), buffer_size, bit_width);
   for (int i = 0; i < num_values; ++i) {
     if (data.IsValid(i)) {
       if (!encoder.Put(static_cast<uint64_t>(values[i]))) {
