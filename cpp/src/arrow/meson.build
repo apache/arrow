@@ -22,6 +22,11 @@ else
 endif
 threads_dep = dependency('threads')
 
+# Boost is required when native 128 not available
+boost_dep = dependency(
+    'boost',
+)
+
 arrow_components = {
     'arrow_array': {
         'sources': [
@@ -80,6 +85,7 @@ arrow_components = {
             'compute/kernels/vector_selection_internal.cc',
             'compute/kernels/vector_selection_take_internal.cc',
         ],
+        'dependencies': [boost_dep]
     },
     'arrow_io': {
         'sources': [
@@ -217,7 +223,6 @@ arrow_util_srcs = [
     'util/value_parsing.cc',
 ]
 
-boost_dep = dependency('boost')  # TODO: only required when native 128 not available 
 arrow_util_deps = [boost_dep, threads_dep]
 
 if needs_brotli
@@ -498,7 +503,7 @@ if needs_compute
     arrow_compute_lib = library(
         'arrow-compute',
         sources: arrow_compute_lib_sources,
-        dependencies: arrow_dep,
+        dependencies: [arrow_dep, boost_dep],
         install: true,
         cpp_shared_args: ['-DARROW_COMPUTE_EXPORTING'],
         cpp_static_args: ['-DARROW_COMPUTE_STATIC'],
@@ -612,7 +617,7 @@ if needs_tests
     )
     arrow_test_dep_no_main = declare_dependency(
         link_with: [arrow_test_lib],
-        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_dep],
+        dependencies: [arrow_dep, filesystem_dep, gmock_dep],
     )
 else
     arrow_test_dep = disabler()

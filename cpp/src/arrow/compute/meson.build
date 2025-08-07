@@ -64,7 +64,7 @@ endif
 
 # Define arrow_compute_testing object library for test files requiring extra kernels.
 if needs_testing and needs_compute
-    arrow_compute_testing_lib = library(
+    arrow_compute_testing_lib = static_library(
         'arrow-compute-testing',
         sources: files('test_env.cc'),
         dependencies: [
