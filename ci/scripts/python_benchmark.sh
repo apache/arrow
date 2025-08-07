@@ -20,8 +20,13 @@
 # Check the ASV benchmarking setup.
 # Unfortunately this won't ensure that all benchmarks succeed
 # (see https://github.com/airspeed-velocity/asv/issues/449)
+#
+# We don't need to follow this external file.
+# See also: https://www.shellcheck.net/wiki/SC1091
+#
+# shellcheck source=/dev/null
 source deactivate
-conda create -y -q -n pyarrow_asv python=$PYTHON_VERSION
+conda create -y -q -n pyarrow_asv python="$PYTHON_VERSION"
 conda activate pyarrow_asv
 pip install -q git+https://github.com/pitrou/asv.git@customize_commands
 
@@ -29,12 +34,12 @@ export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_ORC=0
 export PYARROW_WITH_GANDIVA=0
 
-pushd $ARROW_PYTHON_DIR
+pushd "$ARROW_PYTHON_DIR" || exit 1
 # Workaround for https://github.com/airspeed-velocity/asv/issues/631
 DEFAULT_BRANCH=$(git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@)
-git fetch --depth=100 origin $DEFAULT_BRANCH:$DEFAULT_BRANCH
+git fetch --depth=100 origin "${DEFAULT_BRANCH}:${DEFAULT_BRANCH}"
 # Generate machine information (mandatory)
 asv machine --yes
 # Run benchmarks on the changeset being tested
 asv run --no-pull --show-stderr --quick HEAD^!
-popd  # $ARROW_PYTHON_DIR
+popd || exit # $ARROW_PYTHON_DIR
