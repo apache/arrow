@@ -152,7 +152,7 @@ endforeach
 exc = executable(
     'arrow-compute-aggregate-test',
     sources: ['aggregate_test.cc'] + kernel_testing_srcs,
-    dependencies: [arrow_compute_test_dep, filesystem_dep],
+    dependencies: [arrow_compute_test_dep, boost_deps],
 )
 test('arrow-compute-aggregate-test', exc)
 

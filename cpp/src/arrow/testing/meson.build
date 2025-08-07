@@ -48,6 +48,7 @@ foreach key, val : testing_tests
         key,
         sources: val['sources'],
         dependencies: [arrow_test_dep, val.get('dependencies', [])],
+        implicit_include_directories: false,  # math.h may conflict with stdlib
     )
     test(key, exc)
 endforeach
@@ -57,7 +58,11 @@ if needs_tests and needs_filesystem
         'arrow-filesystem-example',
         sources: ['examplefs.cc'],
         dependencies: [arrow_dep, gtest_dep],
+        implicit_include_directories: false,  # math.h may conflict with stdlib
+    )
+    arrow_filesystem_example_dep = declare_dependency(
+        link_with: arrow_filesystem_example,
     )
 else
-    arrow_filesystem_example = disabler()
+    arrow_filesystem_example_dep = disabler()
 endif

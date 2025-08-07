@@ -31,6 +31,7 @@ project_args = [
     '-Wno-stringop-overflow',
     '-Wno-aggressive-loop-optimizations',
     '-Wno-nonnull',
+    '/bigobj',
 ]
 
 c_compiler = meson.get_compiler('c')

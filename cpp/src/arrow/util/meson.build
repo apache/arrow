@@ -53,13 +53,12 @@ conf_data.set('ARROW_ORC', false)
 conf_data.set('ARROW_PARQUET', needs_parquet)
 conf_data.set('ARROW_SUBSTRAIT', false)
 conf_data.set('ARROW_AZURE', false)
-conf_data.set('ARROW_ENABLE_THREADING', true)
+conf_data.set('ARROW_ENABLE_THREADING', arrow_enable_threading)
 conf_data.set('ARROW_GCS', false)
 conf_data.set('ARROW_HDFS', false)
 conf_data.set('ARROW_S3', false)
 conf_data.set('ARROW_USE_GLOG', false)
 
-has_int128 = cpp_compiler.has_define('__SIZEOF_INT128__')
 conf_data.set('ARROW_USE_NATIVE_INT128', has_int128)
 
 conf_data.set('ARROW_WITH_BROTLI', needs_brotli)
@@ -223,13 +222,26 @@ utility_test_srcs = [
     'value_parsing_test.cc',
 ]
 
+arrow_utility_test_link_args = []
 if host_machine.system() == 'windows'
     # This manifest enables long file paths on Windows 10+
     # See https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#enable-long-paths-in-windows-10-version-1607-and-later
     if cpp_compiler.get_id() == 'msvc'
-        utility_test_srcs += ['io_util_test.manifest']
+        arrow_utility_test_link_args += [
+            '/MANIFEST:EMBED',
+            '/MANIFESTINPUT:' + join_paths(
+                meson.current_source_dir(),
+                'io_util_test.manifest',
+            ),
+        ]
     else
-        utility_test_srcs += ['io_util_test.rc']
+        arrow_utility_test_link_args += [
+            '/MANIFEST:EMBED',
+            '/MANIFESTINPUT:' + join_paths(
+                meson.current_source_dir(),
+                'io_util_test.rc',
+            ),
+        ]
     endif
 endif
 
@@ -238,6 +250,7 @@ exc = executable(
     sources: utility_test_srcs,
     dependencies: arrow_test_dep_no_main,
     implicit_include_directories: false,
+    link_args: arrow_utility_test_link_args,
 )
 test('arrow-utility-test', exc)
 
@@ -273,7 +286,7 @@ foreach key, val : util_tests
     exc = executable(
         key,
         sources: val['sources'],
-        dependencies: [arrow_test_dep],
+        dependencies: arrow_test_dep,
         implicit_include_directories: false,
     )
     test(key, exc)

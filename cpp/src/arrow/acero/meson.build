@@ -82,11 +82,19 @@ arrow_acero_lib = library(
     sources: arrow_acero_srcs,
     dependencies: [arrow_compute_dep, arrow_dep, threads_dep],
     gnu_symbol_visibility: 'inlineshidden',
+    cpp_shared_args: ['-DARROW_ACERO_EXPORTING'],
+    cpp_static_args: ['-DARROW_ACERO_STATIC'],
 )
+
+arrow_acero_compile_args = []
+if get_option('default_library') != 'shared'
+    arrow_acero_compile_args += ['-DARROW_ACERO_STATIC']
+endif
 
 arrow_acero_dep = declare_dependency(
     dependencies: [arrow_compute_dep],
     link_with: [arrow_acero_lib],
+    compile_args: arrow_acero_compile_args,
 )
 meson.override_dependency('arrow-acero', arrow_acero_dep)
 
@@ -141,8 +149,7 @@ foreach key, val : arrow_acero_benchmarks
         dependencies: [
             arrow_acero_dep,
             arrow_compute_test_dep,
-            arrow_benchmark_dep,
-            gmock_dep,
+            benchmark_main_dep,
         ],
     )
     benchmark(key, exc)

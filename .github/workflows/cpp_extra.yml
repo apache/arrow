@@ -103,6 +103,7 @@ jobs:
           - image: conda-cpp
             run-options: >-
               -e ARROW_USE_MESON=ON
+              -e MESON_SETUP_ARGS="-Dauto_features=enabled -Dfuzzing=disabled -Dgcs=disabled -Ds3=disabled"
             runs-on: ubuntu-latest
             title: AMD64 Ubuntu Meson
           # TODO: We should remove this "continue-on-error: true" once GH-47207 is resolved
@@ -258,3 +259,70 @@ jobs:
       - jni-macos
     uses: ./.github/workflows/report_ci.yml
     secrets: inherit
+
+  meson-windows:
+    needs: check-labels
+    name: ${{ matrix.title }}
+    runs-on: ${{ matrix.runs-on }}
+    if: needs.check-labels.outputs.ci-extra == 'true'
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+            - runs-on: windows-2022
+              title: AMD64 Windows Meson
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Download Timezone Database
+        shell: bash
+        run: ci/scripts/download_tz_database.sh
+      - name: Install ccache
+        shell: bash
+        run: |
+          ci/scripts/install_ccache.sh 4.6.3 /usr
+      - name: Setup ccache
+        shell: bash
+        run: |
+          ci/scripts/ccache_setup.sh
+      - name: ccache info
+        id: ccache-info
+        shell: bash
+        run: |
+          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: cpp-ccache-windows-meson-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-windows-meson-${{ env.CACHE_VERSION }}-
+        env:
+          # We can invalidate the current cache by updating this.
+          CACHE_VERSION: "2025-08-21"
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: 3
+      - name: Install Meson
+        run: |
+          python3 -m pip install meson
+      - name: Build
+        shell: bash
+        env:
+          ARROW_USE_MESON: ON
+          ARROW_HOME: C:\arrow-dist
+          MESON_SETUP_ARGS: "--vsenv -Dauto_features=enabled -Dfuzzing=disabled -Dgcs=disabled -Ds3=disabled -Dazure=disabled"
+        run: |
+          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      - name: Test
+        shell: bash
+        env:
+          ARROW_USE_MESON: ON
+        run: |
+          # For ORC
+          export TZDIR=/c/msys64/usr/share/zoneinfo
+          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
