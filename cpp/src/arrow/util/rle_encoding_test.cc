@@ -334,6 +334,80 @@ TEST(Rle, RleDecoder) {
   TestRleDecoder<uint64_t>({21, 2, 0, 1}, /* value_count= */ 20, /* bit_width= */ 30);
 }
 
+template <typename T>
+void TestBitPackedDecoder(std::vector<RleRun::byte> bytes,
+                          BitPackedRun::values_count_type value_count,
+                          BitPackedRun::bit_size_type bit_width,
+                          std::vector<T> expected) {
+  // Pre-requisite for this test
+  EXPECT_GT(value_count, 6);
+
+  auto const run = BitPackedRun(bytes.data(), value_count, bit_width);
+
+  auto decoder = BitPackedDecoder<T>(run);
+  std::vector<T> vals = {0, 0};
+
+  EXPECT_EQ(decoder.Remaining(), value_count);
+
+  typename decltype(decoder)::values_count_type read = 0;
+  EXPECT_EQ(decoder.Get(vals.data()), 1);
+  EXPECT_EQ(vals.at(0), expected.at(0 + read));
+  read += 1;
+  EXPECT_EQ(decoder.Remaining(), value_count - read);
+
+  EXPECT_EQ(decoder.Advance(3), 3);
+  read += 3;
+  EXPECT_EQ(decoder.Remaining(), value_count - read);
+
+  vals = {0, 0};
+  EXPECT_EQ(decoder.GetBatch(vals.data(), 2), vals.size());
+  EXPECT_EQ(vals.at(0), expected.at(0 + read));
+  EXPECT_EQ(vals.at(1), expected.at(1 + read));
+  read += static_cast<decltype(read)>(vals.size());
+  EXPECT_EQ(decoder.Remaining(), value_count - read);
+
+  // Exhaust iteration
+  EXPECT_EQ(decoder.Advance(value_count - read), value_count - read);
+  EXPECT_EQ(decoder.Remaining(), 0);
+  EXPECT_EQ(decoder.Advance(1), 0);
+  vals = {0, 0};
+  EXPECT_EQ(decoder.Get(vals.data()), 0);
+  EXPECT_EQ(vals.at(0), 0);
+
+  // Reset the decoder
+  decoder.Reset(run);
+  read = 0;
+  EXPECT_EQ(decoder.Remaining(), value_count);
+  vals = {0, 0};
+  EXPECT_EQ(decoder.GetBatch(vals.data(), 2), vals.size());
+  EXPECT_EQ(vals.at(0), expected.at(0 + read));
+  EXPECT_EQ(vals.at(1), expected.at(1 + read));
+}
+
+TEST(BitPacked, BitPackedDecoder) {
+  /// See parquet encoding for bytes layout
+  TestBitPackedDecoder<uint16_t>(
+      /* bytes= */ {0x88, 0xc6, 0xfa},
+      /* values_count= */ 8,
+      /* bit_width= */ 3,
+      /* expected= */ {0, 1, 2, 3, 4, 5, 6, 7});
+  TestBitPackedDecoder<uint8_t>(
+      /* bytes= */ {0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7},
+      /* values_count= */ 8,
+      /* bit_width= */ 8,
+      /* expected= */ {0, 1, 2, 3, 4, 5, 6, 7});
+  TestBitPackedDecoder<uint32_t>(
+      /* bytes= */ {0x47, 0xc, 0x10, 0x35},
+      /* values_count= */ 8,
+      /* bit_width= */ 4,
+      /* expected= */ {7, 4, 12, 0, 0, 1, 5, 3});
+  TestBitPackedDecoder<uint64_t>(
+      /* bytes= */ {0xe8, 0x7, 0x20, 0xc0, 0x0, 0x4, 0x14, 0x60, 0xc0, 0x1},
+      /* values_count= */ 8,
+      /* bit_width= */ 10,
+      /* expected= */ {1000, 1, 2, 3, 4, 5, 6, 7});
+}
+
 // Validates encoding of values by encoding and decoding them.  If
 // expected_encoding != NULL, also validates that the encoded buffer is
 // exactly 'expected_encoding'.
