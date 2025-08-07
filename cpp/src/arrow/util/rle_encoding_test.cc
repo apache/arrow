@@ -408,6 +408,103 @@ TEST(BitPacked, BitPackedDecoder) {
       /* expected= */ {1000, 1, 2, 3, 4, 5, 6, 7});
 }
 
+template <typename T>
+void TestRleBitPackedParser(std::vector<RleRun::byte> bytes,
+                            RleBitPackedParser::bit_size_type bit_width,
+                            std::vector<T> expected) {
+  auto parser = RleBitPackedParser(
+      bytes.data(), static_cast<BitPackedRun::raw_data_size_type>(bytes.size()),
+      bit_width);
+  EXPECT_FALSE(parser.Exhausted());
+
+  // Peek return the same data
+  auto run1 = parser.Peek();
+  EXPECT_TRUE(run1.has_value());
+  auto run2 = parser.Peek();
+  EXPECT_TRUE(run2.has_value());
+  auto ptr1 = std::visit([](auto const& r) { return r.RawDataPtr(); }, run1.value());
+  auto size1 = std::visit([](auto const& r) { return r.RawDataSize(); }, run1.value());
+  auto ptr2 = std::visit([](auto const& r) { return r.RawDataPtr(); }, run2.value());
+  auto size2 = std::visit([](auto const& r) { return r.RawDataSize(); }, run2.value());
+  EXPECT_TRUE(std::equal(ptr1, ptr1 + size1, ptr2, ptr2 + size2));
+  EXPECT_FALSE(parser.Exhausted());
+
+  // Try to decode all data of all runs in the decoded vector
+  decltype(expected) decoded = {};
+  auto rle_decoder = RleDecoder<T>();
+  auto bit_packed_decoder = BitPackedDecoder<T>();
+  // Iterate over all runs
+  while (auto run = parser.Next()) {
+    EXPECT_TRUE(run.has_value());
+
+    if (std::holds_alternative<RleRun>(run.value())) {
+      rle_decoder.Reset(std::get<RleRun>(run.value()));
+
+      auto const n_decoded = decoded.size();
+      auto const n_to_decode = rle_decoder.Remaining();
+      decoded.resize(n_decoded + n_to_decode);
+      EXPECT_EQ(rle_decoder.GetBatch(decoded.data() + n_decoded, n_to_decode),
+                n_to_decode);
+      EXPECT_EQ(rle_decoder.Remaining(), 0);
+    } else {
+      bit_packed_decoder.Reset(std::get<BitPackedRun>(run.value()));
+
+      auto const n_decoded = decoded.size();
+      auto const n_to_decode = bit_packed_decoder.Remaining();
+      decoded.resize(n_decoded + n_to_decode);
+      EXPECT_EQ(bit_packed_decoder.GetBatch(decoded.data() + n_decoded, n_to_decode),
+                n_to_decode);
+      EXPECT_EQ(bit_packed_decoder.Remaining(), 0);
+    }
+  }
+
+  EXPECT_TRUE(parser.Exhausted());
+  EXPECT_EQ(decoded.size(), expected.size());
+  EXPECT_EQ(decoded, expected);
+}
+
+TEST(RleBitPacked, RleBitPackedParser) {
+  TestRleBitPackedParser<uint16_t>(
+      /* bytes= */
+      {/* LEB128 for 8 values bit packed marker */ 0x3,
+       /* Bitpacked run */ 0x88, 0xc6, 0xfa},
+      /* bit_width= */ 3,
+      /* expected= */ {0, 1, 2, 3, 4, 5, 6, 7});
+
+  {
+    std::vector<uint32_t> expected = {0, 1, 2, 3, 4, 5, 6, 7};
+    expected.resize(expected.size() + 200, 5);
+    TestRleBitPackedParser<uint32_t>(
+        /* bytes= */
+        {/* LEB128 for 8 values bit packed marker */ 0x3,
+         /* Bitpacked run */ 0x88, 0xc6, 0xfa,
+         /* LEB128 for 200 RLE marker */ 0x90, 0x3,
+         /* Value 5 over paded to a byte*/ 0x5},
+        /* bit_width= */ 3,
+        /* expected= */ expected);
+  }
+
+  {
+    std::vector<uint16_t> expected = {0, 0, 0, 0, 1, 1, 1, 1};
+    expected.resize(expected.size() + 200, 1);
+    expected.resize(expected.size() + 10, 3);
+    std::array<uint16_t, 16> run2 = {1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2};
+    expected.insert(expected.end(), run2.begin(), run2.end());
+    TestRleBitPackedParser<uint16_t>(
+        /* bytes= */
+        {/* LEB128 for 8 values bit packed marker */ 0x3,
+         /* Bitpacked run */ 0x0, 0x55,
+         /* LEB128 for 200 RLE marker */ 0x90, 0x3,
+         /* Value 1 over paded to a byte*/ 0x1,
+         /* LEB128 for 10 RLE marker */ 0x14,
+         /* Value 3 over paded to a byte*/ 0x3,
+         /* LEB128 for 16 values bit packed marker */ 0x5,
+         /* Bitpacked run */ 0x99, 0x99, 0x99, 0x99},
+        /* bit_width= */ 2,
+        /* expected= */ expected);
+  }
+}
+
 // Validates encoding of values by encoding and decoding them.  If
 // expected_encoding != NULL, also validates that the encoded buffer is
 // exactly 'expected_encoding'.
