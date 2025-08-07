@@ -715,24 +715,11 @@ SizeStatistics::SizeStatistics(const SizeStatistics& other12) {
   definition_level_histogram = other12.definition_level_histogram;
   __isset = other12.__isset;
 }
-SizeStatistics::SizeStatistics(SizeStatistics&& other13) noexcept {
+SizeStatistics& SizeStatistics::operator=(const SizeStatistics& other13) {
   unencoded_byte_array_data_bytes = other13.unencoded_byte_array_data_bytes;
-  repetition_level_histogram = std::move(other13.repetition_level_histogram);
-  definition_level_histogram = std::move(other13.definition_level_histogram);
+  repetition_level_histogram = other13.repetition_level_histogram;
+  definition_level_histogram = other13.definition_level_histogram;
   __isset = other13.__isset;
-}
-SizeStatistics& SizeStatistics::operator=(const SizeStatistics& other14) {
-  unencoded_byte_array_data_bytes = other14.unencoded_byte_array_data_bytes;
-  repetition_level_histogram = other14.repetition_level_histogram;
-  definition_level_histogram = other14.definition_level_histogram;
-  __isset = other14.__isset;
-  return *this;
-}
-SizeStatistics& SizeStatistics::operator=(SizeStatistics&& other15) noexcept {
-  unencoded_byte_array_data_bytes = other15.unencoded_byte_array_data_bytes;
-  repetition_level_histogram = std::move(other15.repetition_level_histogram);
-  definition_level_histogram = std::move(other15.definition_level_histogram);
-  __isset = other15.__isset;
   return *this;
 }
 void SizeStatistics::printTo(std::ostream& out) const {
@@ -843,50 +830,27 @@ bool BoundingBox::operator==(const BoundingBox & rhs) const
   return true;
 }
 
-BoundingBox::BoundingBox(const BoundingBox& other16) noexcept {
-  xmin = other16.xmin;
-  xmax = other16.xmax;
-  ymin = other16.ymin;
-  ymax = other16.ymax;
-  zmin = other16.zmin;
-  zmax = other16.zmax;
-  mmin = other16.mmin;
-  mmax = other16.mmax;
-  __isset = other16.__isset;
+BoundingBox::BoundingBox(const BoundingBox& other14) noexcept {
+  xmin = other14.xmin;
+  xmax = other14.xmax;
+  ymin = other14.ymin;
+  ymax = other14.ymax;
+  zmin = other14.zmin;
+  zmax = other14.zmax;
+  mmin = other14.mmin;
+  mmax = other14.mmax;
+  __isset = other14.__isset;
 }
-BoundingBox::BoundingBox(BoundingBox&& other17) noexcept {
-  xmin = other17.xmin;
-  xmax = other17.xmax;
-  ymin = other17.ymin;
-  ymax = other17.ymax;
-  zmin = other17.zmin;
-  zmax = other17.zmax;
-  mmin = other17.mmin;
-  mmax = other17.mmax;
-  __isset = other17.__isset;
-}
-BoundingBox& BoundingBox::operator=(const BoundingBox& other18) noexcept {
-  xmin = other18.xmin;
-  xmax = other18.xmax;
-  ymin = other18.ymin;
-  ymax = other18.ymax;
-  zmin = other18.zmin;
-  zmax = other18.zmax;
-  mmin = other18.mmin;
-  mmax = other18.mmax;
-  __isset = other18.__isset;
-  return *this;
-}
-BoundingBox& BoundingBox::operator=(BoundingBox&& other19) noexcept {
-  xmin = other19.xmin;
-  xmax = other19.xmax;
-  ymin = other19.ymin;
-  ymax = other19.ymax;
-  zmin = other19.zmin;
-  zmax = other19.zmax;
-  mmin = other19.mmin;
-  mmax = other19.mmax;
-  __isset = other19.__isset;
+BoundingBox& BoundingBox::operator=(const BoundingBox& other15) noexcept {
+  xmin = other15.xmin;
+  xmax = other15.xmax;
+  ymin = other15.ymin;
+  ymax = other15.ymax;
+  zmin = other15.zmin;
+  zmax = other15.zmax;
+  mmin = other15.mmin;
+  mmax = other15.mmax;
+  __isset = other15.__isset;
   return *this;
 }
 void BoundingBox::printTo(std::ostream& out) const {
@@ -946,26 +910,15 @@ bool GeospatialStatistics::operator==(const GeospatialStatistics & rhs) const
   return true;
 }
 
-GeospatialStatistics::GeospatialStatistics(const GeospatialStatistics& other26) {
-  bbox = other26.bbox;
-  geospatial_types = other26.geospatial_types;
-  __isset = other26.__isset;
+GeospatialStatistics::GeospatialStatistics(const GeospatialStatistics& other22) {
+  bbox = other22.bbox;
+  geospatial_types = other22.geospatial_types;
+  __isset = other22.__isset;
 }
-GeospatialStatistics::GeospatialStatistics(GeospatialStatistics&& other27) noexcept {
-  bbox = std::move(other27.bbox);
-  geospatial_types = std::move(other27.geospatial_types);
-  __isset = other27.__isset;
-}
-GeospatialStatistics& GeospatialStatistics::operator=(const GeospatialStatistics& other28) {
-  bbox = other28.bbox;
-  geospatial_types = other28.geospatial_types;
-  __isset = other28.__isset;
-  return *this;
-}
-GeospatialStatistics& GeospatialStatistics::operator=(GeospatialStatistics&& other29) noexcept {
-  bbox = std::move(other29.bbox);
-  geospatial_types = std::move(other29.geospatial_types);
-  __isset = other29.__isset;
+GeospatialStatistics& GeospatialStatistics::operator=(const GeospatialStatistics& other23) {
+  bbox = other23.bbox;
+  geospatial_types = other23.geospatial_types;
+  __isset = other23.__isset;
   return *this;
 }
 void GeospatialStatistics::printTo(std::ostream& out) const {
@@ -1087,50 +1040,27 @@ bool Statistics::operator==(const Statistics & rhs) const
   return true;
 }
 
-Statistics::Statistics(const Statistics& other30) {
-  max = other30.max;
-  min = other30.min;
-  null_count = other30.null_count;
-  distinct_count = other30.distinct_count;
-  max_value = other30.max_value;
-  min_value = other30.min_value;
-  is_max_value_exact = other30.is_max_value_exact;
-  is_min_value_exact = other30.is_min_value_exact;
-  __isset = other30.__isset;
+Statistics::Statistics(const Statistics& other24) {
+  max = other24.max;
+  min = other24.min;
+  null_count = other24.null_count;
+  distinct_count = other24.distinct_count;
+  max_value = other24.max_value;
+  min_value = other24.min_value;
+  is_max_value_exact = other24.is_max_value_exact;
+  is_min_value_exact = other24.is_min_value_exact;
+  __isset = other24.__isset;
 }
-Statistics::Statistics(Statistics&& other31) noexcept {
-  max = std::move(other31.max);
-  min = std::move(other31.min);
-  null_count = other31.null_count;
-  distinct_count = other31.distinct_count;
-  max_value = std::move(other31.max_value);
-  min_value = std::move(other31.min_value);
-  is_max_value_exact = other31.is_max_value_exact;
-  is_min_value_exact = other31.is_min_value_exact;
-  __isset = other31.__isset;
-}
-Statistics& Statistics::operator=(const Statistics& other32) {
-  max = other32.max;
-  min = other32.min;
-  null_count = other32.null_count;
-  distinct_count = other32.distinct_count;
-  max_value = other32.max_value;
-  min_value = other32.min_value;
-  is_max_value_exact = other32.is_max_value_exact;
-  is_min_value_exact = other32.is_min_value_exact;
-  __isset = other32.__isset;
-  return *this;
-}
-Statistics& Statistics::operator=(Statistics&& other33) noexcept {
-  max = std::move(other33.max);
-  min = std::move(other33.min);
-  null_count = other33.null_count;
-  distinct_count = other33.distinct_count;
-  max_value = std::move(other33.max_value);
-  min_value = std::move(other33.min_value);
-  is_max_value_exact = other33.is_max_value_exact;
-  is_min_value_exact = other33.is_min_value_exact;
-  __isset = other33.__isset;
+Statistics& Statistics::operator=(const Statistics& other25) {
+  max = other25.max;
+  min = other25.min;
+  null_count = other25.null_count;
+  distinct_count = other25.distinct_count;
+  max_value = other25.max_value;
+  min_value = other25.min_value;
+  is_max_value_exact = other25.is_max_value_exact;
+  is_min_value_exact = other25.is_min_value_exact;
+  __isset = other25.__isset;
   return *this;
 }
 void Statistics::printTo(std::ostream& out) const {
@@ -1171,18 +1101,11 @@ bool StringType::operator==(const StringType & /* rhs */) const
   return true;
 }
 
-StringType::StringType(const StringType& other34) noexcept {
-  (void) other34;
+StringType::StringType(const StringType& other26) noexcept {
+  (void) other26;
 }
-StringType::StringType(StringType&& other35) noexcept {
-  (void) other35;
-}
-StringType& StringType::operator=(const StringType& other36) noexcept {
-  (void) other36;
-  return *this;
-}
-StringType& StringType::operator=(StringType&& other37) noexcept {
-  (void) other37;
+StringType& StringType::operator=(const StringType& other27) noexcept {
+  (void) other27;
   return *this;
 }
 void StringType::printTo(std::ostream& out) const {
@@ -1215,18 +1138,11 @@ bool UUIDType::operator==(const UUIDType & /* rhs */) const
   return true;
 }
 
-UUIDType::UUIDType(const UUIDType& other38) noexcept {
-  (void) other38;
+UUIDType::UUIDType(const UUIDType& other28) noexcept {
+  (void) other28;
 }
-UUIDType::UUIDType(UUIDType&& other39) noexcept {
-  (void) other39;
-}
-UUIDType& UUIDType::operator=(const UUIDType& other40) noexcept {
-  (void) other40;
-  return *this;
-}
-UUIDType& UUIDType::operator=(UUIDType&& other41) noexcept {
-  (void) other41;
+UUIDType& UUIDType::operator=(const UUIDType& other29) noexcept {
+  (void) other29;
   return *this;
 }
 void UUIDType::printTo(std::ostream& out) const {
@@ -1259,18 +1175,11 @@ bool MapType::operator==(const MapType & /* rhs */) const
   return true;
 }
 
-MapType::MapType(const MapType& other42) noexcept {
-  (void) other42;
+MapType::MapType(const MapType& other30) noexcept {
+  (void) other30;
 }
-MapType::MapType(MapType&& other43) noexcept {
-  (void) other43;
-}
-MapType& MapType::operator=(const MapType& other44) noexcept {
-  (void) other44;
-  return *this;
-}
-MapType& MapType::operator=(MapType&& other45) noexcept {
-  (void) other45;
+MapType& MapType::operator=(const MapType& other31) noexcept {
+  (void) other31;
   return *this;
 }
 void MapType::printTo(std::ostream& out) const {
@@ -1303,18 +1212,11 @@ bool ListType::operator==(const ListType & /* rhs */) const
   return true;
 }
 
-ListType::ListType(const ListType& other46) noexcept {
-  (void) other46;
+ListType::ListType(const ListType& other32) noexcept {
+  (void) other32;
 }
-ListType::ListType(ListType&& other47) noexcept {
-  (void) other47;
-}
-ListType& ListType::operator=(const ListType& other48) noexcept {
-  (void) other48;
-  return *this;
-}
-ListType& ListType::operator=(ListType&& other49) noexcept {
-  (void) other49;
+ListType& ListType::operator=(const ListType& other33) noexcept {
+  (void) other33;
   return *this;
 }
 void ListType::printTo(std::ostream& out) const {
@@ -1347,18 +1249,11 @@ bool EnumType::operator==(const EnumType & /* rhs */) const
   return true;
 }
 
-EnumType::EnumType(const EnumType& other50) noexcept {
-  (void) other50;
+EnumType::EnumType(const EnumType& other34) noexcept {
+  (void) other34;
 }
-EnumType::EnumType(EnumType&& other51) noexcept {
-  (void) other51;
-}
-EnumType& EnumType::operator=(const EnumType& other52) noexcept {
-  (void) other52;
-  return *this;
-}
-EnumType& EnumType::operator=(EnumType&& other53) noexcept {
-  (void) other53;
+EnumType& EnumType::operator=(const EnumType& other35) noexcept {
+  (void) other35;
   return *this;
 }
 void EnumType::printTo(std::ostream& out) const {
@@ -1391,18 +1286,11 @@ bool DateType::operator==(const DateType & /* rhs */) const
   return true;
 }
 
-DateType::DateType(const DateType& other54) noexcept {
-  (void) other54;
+DateType::DateType(const DateType& other36) noexcept {
+  (void) other36;
 }
-DateType::DateType(DateType&& other55) noexcept {
-  (void) other55;
-}
-DateType& DateType::operator=(const DateType& other56) noexcept {
-  (void) other56;
-  return *this;
-}
-DateType& DateType::operator=(DateType&& other57) noexcept {
-  (void) other57;
+DateType& DateType::operator=(const DateType& other37) noexcept {
+  (void) other37;
   return *this;
 }
 void DateType::printTo(std::ostream& out) const {
@@ -1435,18 +1323,11 @@ bool Float16Type::operator==(const Float16Type & /* rhs */) const
   return true;
 }
 
-Float16Type::Float16Type(const Float16Type& other58) noexcept {
-  (void) other58;
+Float16Type::Float16Type(const Float16Type& other38) noexcept {
+  (void) other38;
 }
-Float16Type::Float16Type(Float16Type&& other59) noexcept {
-  (void) other59;
-}
-Float16Type& Float16Type::operator=(const Float16Type& other60) noexcept {
-  (void) other60;
-  return *this;
-}
-Float16Type& Float16Type::operator=(Float16Type&& other61) noexcept {
-  (void) other61;
+Float16Type& Float16Type::operator=(const Float16Type& other39) noexcept {
+  (void) other39;
   return *this;
 }
 void Float16Type::printTo(std::ostream& out) const {
@@ -1479,18 +1360,11 @@ bool NullType::operator==(const NullType & /* rhs */) const
   return true;
 }
 
-NullType::NullType(const NullType& other62) noexcept {
-  (void) other62;
+NullType::NullType(const NullType& other40) noexcept {
+  (void) other40;
 }
-NullType::NullType(NullType&& other63) noexcept {
-  (void) other63;
-}
-NullType& NullType::operator=(const NullType& other64) noexcept {
-  (void) other64;
-  return *this;
-}
-NullType& NullType::operator=(NullType&& other65) noexcept {
-  (void) other65;
+NullType& NullType::operator=(const NullType& other41) noexcept {
+  (void) other41;
   return *this;
 }
 void NullType::printTo(std::ostream& out) const {
@@ -1537,22 +1411,13 @@ bool DecimalType::operator==(const DecimalType & rhs) const
   return true;
 }
 
-DecimalType::DecimalType(const DecimalType& other66) noexcept {
-  scale = other66.scale;
-  precision = other66.precision;
+DecimalType::DecimalType(const DecimalType& other42) noexcept {
+  scale = other42.scale;
+  precision = other42.precision;
 }
-DecimalType::DecimalType(DecimalType&& other67) noexcept {
-  scale = other67.scale;
-  precision = other67.precision;
-}
-DecimalType& DecimalType::operator=(const DecimalType& other68) noexcept {
-  scale = other68.scale;
-  precision = other68.precision;
-  return *this;
-}
-DecimalType& DecimalType::operator=(DecimalType&& other69) noexcept {
-  scale = other69.scale;
-  precision = other69.precision;
+DecimalType& DecimalType::operator=(const DecimalType& other43) noexcept {
+  scale = other43.scale;
+  precision = other43.precision;
   return *this;
 }
 void DecimalType::printTo(std::ostream& out) const {
@@ -1587,18 +1452,11 @@ bool MilliSeconds::operator==(const MilliSeconds & /* rhs */) const
   return true;
 }
 
-MilliSeconds::MilliSeconds(const MilliSeconds& other70) noexcept {
-  (void) other70;
+MilliSeconds::MilliSeconds(const MilliSeconds& other44) noexcept {
+  (void) other44;
 }
-MilliSeconds::MilliSeconds(MilliSeconds&& other71) noexcept {
-  (void) other71;
-}
-MilliSeconds& MilliSeconds::operator=(const MilliSeconds& other72) noexcept {
-  (void) other72;
-  return *this;
-}
-MilliSeconds& MilliSeconds::operator=(MilliSeconds&& other73) noexcept {
-  (void) other73;
+MilliSeconds& MilliSeconds::operator=(const MilliSeconds& other45) noexcept {
+  (void) other45;
   return *this;
 }
 void MilliSeconds::printTo(std::ostream& out) const {
@@ -1631,18 +1489,11 @@ bool MicroSeconds::operator==(const MicroSeconds & /* rhs */) const
   return true;
 }
 
-MicroSeconds::MicroSeconds(const MicroSeconds& other74) noexcept {
-  (void) other74;
+MicroSeconds::MicroSeconds(const MicroSeconds& other46) noexcept {
+  (void) other46;
 }
-MicroSeconds::MicroSeconds(MicroSeconds&& other75) noexcept {
-  (void) other75;
-}
-MicroSeconds& MicroSeconds::operator=(const MicroSeconds& other76) noexcept {
-  (void) other76;
-  return *this;
-}
-MicroSeconds& MicroSeconds::operator=(MicroSeconds&& other77) noexcept {
-  (void) other77;
+MicroSeconds& MicroSeconds::operator=(const MicroSeconds& other47) noexcept {
+  (void) other47;
   return *this;
 }
 void MicroSeconds::printTo(std::ostream& out) const {
@@ -1675,18 +1526,11 @@ bool NanoSeconds::operator==(const NanoSeconds & /* rhs */) const
   return true;
 }
 
-NanoSeconds::NanoSeconds(const NanoSeconds& other78) noexcept {
-  (void) other78;
+NanoSeconds::NanoSeconds(const NanoSeconds& other48) noexcept {
+  (void) other48;
 }
-NanoSeconds::NanoSeconds(NanoSeconds&& other79) noexcept {
-  (void) other79;
-}
-NanoSeconds& NanoSeconds::operator=(const NanoSeconds& other80) noexcept {
-  (void) other80;
-  return *this;
-}
-NanoSeconds& NanoSeconds::operator=(NanoSeconds&& other81) noexcept {
-  (void) other81;
+NanoSeconds& NanoSeconds::operator=(const NanoSeconds& other49) noexcept {
+  (void) other49;
   return *this;
 }
 void NanoSeconds::printTo(std::ostream& out) const {
@@ -1748,30 +1592,17 @@ bool TimeUnit::operator==(const TimeUnit & rhs) const
   return true;
 }
 
-TimeUnit::TimeUnit(const TimeUnit& other82) noexcept {
-  MILLIS = other82.MILLIS;
-  MICROS = other82.MICROS;
-  NANOS = other82.NANOS;
-  __isset = other82.__isset;
+TimeUnit::TimeUnit(const TimeUnit& other50) noexcept {
+  MILLIS = other50.MILLIS;
+  MICROS = other50.MICROS;
+  NANOS = other50.NANOS;
+  __isset = other50.__isset;
 }
-TimeUnit::TimeUnit(TimeUnit&& other83) noexcept {
-  MILLIS = std::move(other83.MILLIS);
-  MICROS = std::move(other83.MICROS);
-  NANOS = std::move(other83.NANOS);
-  __isset = other83.__isset;
-}
-TimeUnit& TimeUnit::operator=(const TimeUnit& other84) noexcept {
-  MILLIS = other84.MILLIS;
-  MICROS = other84.MICROS;
-  NANOS = other84.NANOS;
-  __isset = other84.__isset;
-  return *this;
-}
-TimeUnit& TimeUnit::operator=(TimeUnit&& other85) noexcept {
-  MILLIS = std::move(other85.MILLIS);
-  MICROS = std::move(other85.MICROS);
-  NANOS = std::move(other85.NANOS);
-  __isset = other85.__isset;
+TimeUnit& TimeUnit::operator=(const TimeUnit& other51) noexcept {
+  MILLIS = other51.MILLIS;
+  MICROS = other51.MICROS;
+  NANOS = other51.NANOS;
+  __isset = other51.__isset;
   return *this;
 }
 void TimeUnit::printTo(std::ostream& out) const {
@@ -1820,22 +1651,13 @@ bool TimestampType::operator==(const TimestampType & rhs) const
   return true;
 }
 
-TimestampType::TimestampType(const TimestampType& other86) noexcept {
-  isAdjustedToUTC = other86.isAdjustedToUTC;
-  unit = other86.unit;
+TimestampType::TimestampType(const TimestampType& other52) noexcept {
+  isAdjustedToUTC = other52.isAdjustedToUTC;
+  unit = other52.unit;
 }
-TimestampType::TimestampType(TimestampType&& other87) noexcept {
-  isAdjustedToUTC = other87.isAdjustedToUTC;
-  unit = std::move(other87.unit);
-}
-TimestampType& TimestampType::operator=(const TimestampType& other88) noexcept {
-  isAdjustedToUTC = other88.isAdjustedToUTC;
-  unit = other88.unit;
-  return *this;
-}
-TimestampType& TimestampType::operator=(TimestampType&& other89) noexcept {
-  isAdjustedToUTC = other89.isAdjustedToUTC;
-  unit = std::move(other89.unit);
+TimestampType& TimestampType::operator=(const TimestampType& other53) noexcept {
+  isAdjustedToUTC = other53.isAdjustedToUTC;
+  unit = other53.unit;
   return *this;
 }
 void TimestampType::printTo(std::ostream& out) const {
@@ -1883,22 +1705,13 @@ bool TimeType::operator==(const TimeType & rhs) const
   return true;
 }
 
-TimeType::TimeType(const TimeType& other90) noexcept {
-  isAdjustedToUTC = other90.isAdjustedToUTC;
-  unit = other90.unit;
+TimeType::TimeType(const TimeType& other54) noexcept {
+  isAdjustedToUTC = other54.isAdjustedToUTC;
+  unit = other54.unit;
 }
-TimeType::TimeType(TimeType&& other91) noexcept {
-  isAdjustedToUTC = other91.isAdjustedToUTC;
-  unit = std::move(other91.unit);
-}
-TimeType& TimeType::operator=(const TimeType& other92) noexcept {
-  isAdjustedToUTC = other92.isAdjustedToUTC;
-  unit = other92.unit;
-  return *this;
-}
-TimeType& TimeType::operator=(TimeType&& other93) noexcept {
-  isAdjustedToUTC = other93.isAdjustedToUTC;
-  unit = std::move(other93.unit);
+TimeType& TimeType::operator=(const TimeType& other55) noexcept {
+  isAdjustedToUTC = other55.isAdjustedToUTC;
+  unit = other55.unit;
   return *this;
 }
 void TimeType::printTo(std::ostream& out) const {
@@ -1947,22 +1760,13 @@ bool IntType::operator==(const IntType & rhs) const
   return true;
 }
 
-IntType::IntType(const IntType& other94) noexcept {
-  bitWidth = other94.bitWidth;
-  isSigned = other94.isSigned;
+IntType::IntType(const IntType& other56) noexcept {
+  bitWidth = other56.bitWidth;
+  isSigned = other56.isSigned;
 }
-IntType::IntType(IntType&& other95) noexcept {
-  bitWidth = other95.bitWidth;
-  isSigned = other95.isSigned;
-}
-IntType& IntType::operator=(const IntType& other96) noexcept {
-  bitWidth = other96.bitWidth;
-  isSigned = other96.isSigned;
-  return *this;
-}
-IntType& IntType::operator=(IntType&& other97) noexcept {
-  bitWidth = other97.bitWidth;
-  isSigned = other97.isSigned;
+IntType& IntType::operator=(const IntType& other57) noexcept {
+  bitWidth = other57.bitWidth;
+  isSigned = other57.isSigned;
   return *this;
 }
 void IntType::printTo(std::ostream& out) const {
@@ -1997,18 +1801,11 @@ bool JsonType::operator==(const JsonType & /* rhs */) const
   return true;
 }
 
-JsonType::JsonType(const JsonType& other98) noexcept {
-  (void) other98;
+JsonType::JsonType(const JsonType& other58) noexcept {
+  (void) other58;
 }
-JsonType::JsonType(JsonType&& other99) noexcept {
-  (void) other99;
-}
-JsonType& JsonType::operator=(const JsonType& other100) noexcept {
-  (void) other100;
-  return *this;
-}
-JsonType& JsonType::operator=(JsonType&& other101) noexcept {
-  (void) other101;
+JsonType& JsonType::operator=(const JsonType& other59) noexcept {
+  (void) other59;
   return *this;
 }
 void JsonType::printTo(std::ostream& out) const {
@@ -2041,18 +1838,11 @@ bool BsonType::operator==(const BsonType & /* rhs */) const
   return true;
 }
 
-BsonType::BsonType(const BsonType& other102) noexcept {
-  (void) other102;
+BsonType::BsonType(const BsonType& other60) noexcept {
+  (void) other60;
 }
-BsonType::BsonType(BsonType&& other103) noexcept {
-  (void) other103;
-}
-BsonType& BsonType::operator=(const BsonType& other104) noexcept {
-  (void) other104;
-  return *this;
-}
-BsonType& BsonType::operator=(BsonType&& other105) noexcept {
-  (void) other105;
+BsonType& BsonType::operator=(const BsonType& other61) noexcept {
+  (void) other61;
   return *this;
 }
 void BsonType::printTo(std::ostream& out) const {
@@ -2095,22 +1885,13 @@ bool VariantType::operator==(const VariantType & rhs) const
   return true;
 }
 
-VariantType::VariantType(const VariantType& other106) noexcept {
-  specification_version = other106.specification_version;
-  __isset = other106.__isset;
+VariantType::VariantType(const VariantType& other62) noexcept {
+  specification_version = other62.specification_version;
+  __isset = other62.__isset;
 }
-VariantType::VariantType(VariantType&& other107) noexcept {
-  specification_version = other107.specification_version;
-  __isset = other107.__isset;
-}
-VariantType& VariantType::operator=(const VariantType& other108) noexcept {
-  specification_version = other108.specification_version;
-  __isset = other108.__isset;
-  return *this;
-}
-VariantType& VariantType::operator=(VariantType&& other109) noexcept {
-  specification_version = other109.specification_version;
-  __isset = other109.__isset;
+VariantType& VariantType::operator=(const VariantType& other63) noexcept {
+  specification_version = other63.specification_version;
+  __isset = other63.__isset;
   return *this;
 }
 void VariantType::printTo(std::ostream& out) const {
@@ -2154,22 +1935,13 @@ bool GeometryType::operator==(const GeometryType & rhs) const
   return true;
 }
 
-GeometryType::GeometryType(const GeometryType& other110) {
-  crs = other110.crs;
-  __isset = other110.__isset;
+GeometryType::GeometryType(const GeometryType& other64) {
+  crs = other64.crs;
+  __isset = other64.__isset;
 }
-GeometryType::GeometryType(GeometryType&& other111) noexcept {
-  crs = std::move(other111.crs);
-  __isset = other111.__isset;
-}
-GeometryType& GeometryType::operator=(const GeometryType& other112) {
-  crs = other112.crs;
-  __isset = other112.__isset;
-  return *this;
-}
-GeometryType& GeometryType::operator=(GeometryType&& other113) noexcept {
-  crs = std::move(other113.crs);
-  __isset = other113.__isset;
+GeometryType& GeometryType::operator=(const GeometryType& other65) {
+  crs = other65.crs;
+  __isset = other65.__isset;
   return *this;
 }
 void GeometryType::printTo(std::ostream& out) const {
@@ -2224,26 +1996,15 @@ bool GeographyType::operator==(const GeographyType & rhs) const
   return true;
 }
 
-GeographyType::GeographyType(const GeographyType& other115) {
-  crs = other115.crs;
-  algorithm = other115.algorithm;
-  __isset = other115.__isset;
+GeographyType::GeographyType(const GeographyType& other67) {
+  crs = other67.crs;
+  algorithm = other67.algorithm;
+  __isset = other67.__isset;
 }
-GeographyType::GeographyType(GeographyType&& other116) noexcept {
-  crs = std::move(other116.crs);
-  algorithm = other116.algorithm;
-  __isset = other116.__isset;
-}
-GeographyType& GeographyType::operator=(const GeographyType& other117) {
-  crs = other117.crs;
-  algorithm = other117.algorithm;
-  __isset = other117.__isset;
-  return *this;
-}
-GeographyType& GeographyType::operator=(GeographyType&& other118) noexcept {
-  crs = std::move(other118.crs);
-  algorithm = other118.algorithm;
-  __isset = other118.__isset;
+GeographyType& GeographyType::operator=(const GeographyType& other68) {
+  crs = other68.crs;
+  algorithm = other68.algorithm;
+  __isset = other68.__isset;
   return *this;
 }
 void GeographyType::printTo(std::ostream& out) const {
@@ -2447,86 +2208,45 @@ bool LogicalType::operator==(const LogicalType & rhs) const
   return true;
 }
 
-LogicalType::LogicalType(const LogicalType& other119) {
-  STRING = other119.STRING;
-  MAP = other119.MAP;
-  LIST = other119.LIST;
-  ENUM = other119.ENUM;
-  DECIMAL = other119.DECIMAL;
-  DATE = other119.DATE;
-  TIME = other119.TIME;
-  TIMESTAMP = other119.TIMESTAMP;
-  INTEGER = other119.INTEGER;
-  UNKNOWN = other119.UNKNOWN;
-  JSON = other119.JSON;
-  BSON = other119.BSON;
-  UUID = other119.UUID;
-  FLOAT16 = other119.FLOAT16;
-  VARIANT = other119.VARIANT;
-  GEOMETRY = other119.GEOMETRY;
-  GEOGRAPHY = other119.GEOGRAPHY;
-  __isset = other119.__isset;
+LogicalType::LogicalType(const LogicalType& other69) {
+  STRING = other69.STRING;
+  MAP = other69.MAP;
+  LIST = other69.LIST;
+  ENUM = other69.ENUM;
+  DECIMAL = other69.DECIMAL;
+  DATE = other69.DATE;
+  TIME = other69.TIME;
+  TIMESTAMP = other69.TIMESTAMP;
+  INTEGER = other69.INTEGER;
+  UNKNOWN = other69.UNKNOWN;
+  JSON = other69.JSON;
+  BSON = other69.BSON;
+  UUID = other69.UUID;
+  FLOAT16 = other69.FLOAT16;
+  VARIANT = other69.VARIANT;
+  GEOMETRY = other69.GEOMETRY;
+  GEOGRAPHY = other69.GEOGRAPHY;
+  __isset = other69.__isset;
 }
-LogicalType::LogicalType(LogicalType&& other120) noexcept {
-  STRING = std::move(other120.STRING);
-  MAP = std::move(other120.MAP);
-  LIST = std::move(other120.LIST);
-  ENUM = std::move(other120.ENUM);
-  DECIMAL = std::move(other120.DECIMAL);
-  DATE = std::move(other120.DATE);
-  TIME = std::move(other120.TIME);
-  TIMESTAMP = std::move(other120.TIMESTAMP);
-  INTEGER = std::move(other120.INTEGER);
-  UNKNOWN = std::move(other120.UNKNOWN);
-  JSON = std::move(other120.JSON);
-  BSON = std::move(other120.BSON);
-  UUID = std::move(other120.UUID);
-  FLOAT16 = std::move(other120.FLOAT16);
-  VARIANT = std::move(other120.VARIANT);
-  GEOMETRY = std::move(other120.GEOMETRY);
-  GEOGRAPHY = std::move(other120.GEOGRAPHY);
-  __isset = other120.__isset;
-}
-LogicalType& LogicalType::operator=(const LogicalType& other121) {
-  STRING = other121.STRING;
-  MAP = other121.MAP;
-  LIST = other121.LIST;
-  ENUM = other121.ENUM;
-  DECIMAL = other121.DECIMAL;
-  DATE = other121.DATE;
-  TIME = other121.TIME;
-  TIMESTAMP = other121.TIMESTAMP;
-  INTEGER = other121.INTEGER;
-  UNKNOWN = other121.UNKNOWN;
-  JSON = other121.JSON;
-  BSON = other121.BSON;
-  UUID = other121.UUID;
-  FLOAT16 = other121.FLOAT16;
-  VARIANT = other121.VARIANT;
-  GEOMETRY = other121.GEOMETRY;
-  GEOGRAPHY = other121.GEOGRAPHY;
-  __isset = other121.__isset;
-  return *this;
-}
-LogicalType& LogicalType::operator=(LogicalType&& other122) noexcept {
-  STRING = std::move(other122.STRING);
-  MAP = std::move(other122.MAP);
-  LIST = std::move(other122.LIST);
-  ENUM = std::move(other122.ENUM);
-  DECIMAL = std::move(other122.DECIMAL);
-  DATE = std::move(other122.DATE);
-  TIME = std::move(other122.TIME);
-  TIMESTAMP = std::move(other122.TIMESTAMP);
-  INTEGER = std::move(other122.INTEGER);
-  UNKNOWN = std::move(other122.UNKNOWN);
-  JSON = std::move(other122.JSON);
-  BSON = std::move(other122.BSON);
-  UUID = std::move(other122.UUID);
-  FLOAT16 = std::move(other122.FLOAT16);
-  VARIANT = std::move(other122.VARIANT);
-  GEOMETRY = std::move(other122.GEOMETRY);
-  GEOGRAPHY = std::move(other122.GEOGRAPHY);
-  __isset = other122.__isset;
+LogicalType& LogicalType::operator=(const LogicalType& other70) {
+  STRING = other70.STRING;
+  MAP = other70.MAP;
+  LIST = other70.LIST;
+  ENUM = other70.ENUM;
+  DECIMAL = other70.DECIMAL;
+  DATE = other70.DATE;
+  TIME = other70.TIME;
+  TIMESTAMP = other70.TIMESTAMP;
+  INTEGER = other70.INTEGER;
+  UNKNOWN = other70.UNKNOWN;
+  JSON = other70.JSON;
+  BSON = other70.BSON;
+  UUID = other70.UUID;
+  FLOAT16 = other70.FLOAT16;
+  VARIANT = other70.VARIANT;
+  GEOMETRY = other70.GEOMETRY;
+  GEOGRAPHY = other70.GEOGRAPHY;
+  __isset = other70.__isset;
   return *this;
 }
 void LogicalType::printTo(std::ostream& out) const {
@@ -2681,58 +2401,31 @@ bool SchemaElement::operator==(const SchemaElement & rhs) const
   return true;
 }
 
-SchemaElement::SchemaElement(const SchemaElement& other126) {
-  type = other126.type;
-  type_length = other126.type_length;
-  repetition_type = other126.repetition_type;
-  name = other126.name;
-  num_children = other126.num_children;
-  converted_type = other126.converted_type;
-  scale = other126.scale;
-  precision = other126.precision;
-  field_id = other126.field_id;
-  logicalType = other126.logicalType;
-  __isset = other126.__isset;
+SchemaElement::SchemaElement(const SchemaElement& other74) {
+  type = other74.type;
+  type_length = other74.type_length;
+  repetition_type = other74.repetition_type;
+  name = other74.name;
+  num_children = other74.num_children;
+  converted_type = other74.converted_type;
+  scale = other74.scale;
+  precision = other74.precision;
+  field_id = other74.field_id;
+  logicalType = other74.logicalType;
+  __isset = other74.__isset;
 }
-SchemaElement::SchemaElement(SchemaElement&& other127) noexcept {
-  type = other127.type;
-  type_length = other127.type_length;
-  repetition_type = other127.repetition_type;
-  name = std::move(other127.name);
-  num_children = other127.num_children;
-  converted_type = other127.converted_type;
-  scale = other127.scale;
-  precision = other127.precision;
-  field_id = other127.field_id;
-  logicalType = std::move(other127.logicalType);
-  __isset = other127.__isset;
-}
-SchemaElement& SchemaElement::operator=(const SchemaElement& other128) {
-  type = other128.type;
-  type_length = other128.type_length;
-  repetition_type = other128.repetition_type;
-  name = other128.name;
-  num_children = other128.num_children;
-  converted_type = other128.converted_type;
-  scale = other128.scale;
-  precision = other128.precision;
-  field_id = other128.field_id;
-  logicalType = other128.logicalType;
-  __isset = other128.__isset;
-  return *this;
-}
-SchemaElement& SchemaElement::operator=(SchemaElement&& other129) noexcept {
-  type = other129.type;
-  type_length = other129.type_length;
-  repetition_type = other129.repetition_type;
-  name = std::move(other129.name);
-  num_children = other129.num_children;
-  converted_type = other129.converted_type;
-  scale = other129.scale;
-  precision = other129.precision;
-  field_id = other129.field_id;
-  logicalType = std::move(other129.logicalType);
-  __isset = other129.__isset;
+SchemaElement& SchemaElement::operator=(const SchemaElement& other75) {
+  type = other75.type;
+  type_length = other75.type_length;
+  repetition_type = other75.repetition_type;
+  name = other75.name;
+  num_children = other75.num_children;
+  converted_type = other75.converted_type;
+  scale = other75.scale;
+  precision = other75.precision;
+  field_id = other75.field_id;
+  logicalType = other75.logicalType;
+  __isset = other75.__isset;
   return *this;
 }
 void SchemaElement::printTo(std::ostream& out) const {
@@ -2816,38 +2509,21 @@ bool DataPageHeader::operator==(const DataPageHeader & rhs) const
   return true;
 }
 
-DataPageHeader::DataPageHeader(const DataPageHeader& other133) {
-  num_values = other133.num_values;
-  encoding = other133.encoding;
-  definition_level_encoding = other133.definition_level_encoding;
-  repetition_level_encoding = other133.repetition_level_encoding;
-  statistics = other133.statistics;
-  __isset = other133.__isset;
+DataPageHeader::DataPageHeader(const DataPageHeader& other79) {
+  num_values = other79.num_values;
+  encoding = other79.encoding;
+  definition_level_encoding = other79.definition_level_encoding;
+  repetition_level_encoding = other79.repetition_level_encoding;
+  statistics = other79.statistics;
+  __isset = other79.__isset;
 }
-DataPageHeader::DataPageHeader(DataPageHeader&& other134) noexcept {
-  num_values = other134.num_values;
-  encoding = other134.encoding;
-  definition_level_encoding = other134.definition_level_encoding;
-  repetition_level_encoding = other134.repetition_level_encoding;
-  statistics = std::move(other134.statistics);
-  __isset = other134.__isset;
-}
-DataPageHeader& DataPageHeader::operator=(const DataPageHeader& other135) {
-  num_values = other135.num_values;
-  encoding = other135.encoding;
-  definition_level_encoding = other135.definition_level_encoding;
-  repetition_level_encoding = other135.repetition_level_encoding;
-  statistics = other135.statistics;
-  __isset = other135.__isset;
-  return *this;
-}
-DataPageHeader& DataPageHeader::operator=(DataPageHeader&& other136) noexcept {
-  num_values = other136.num_values;
-  encoding = other136.encoding;
-  definition_level_encoding = other136.definition_level_encoding;
-  repetition_level_encoding = other136.repetition_level_encoding;
-  statistics = std::move(other136.statistics);
-  __isset = other136.__isset;
+DataPageHeader& DataPageHeader::operator=(const DataPageHeader& other80) {
+  num_values = other80.num_values;
+  encoding = other80.encoding;
+  definition_level_encoding = other80.definition_level_encoding;
+  repetition_level_encoding = other80.repetition_level_encoding;
+  statistics = other80.statistics;
+  __isset = other80.__isset;
   return *this;
 }
 void DataPageHeader::printTo(std::ostream& out) const {
@@ -2885,18 +2561,11 @@ bool IndexPageHeader::operator==(const IndexPageHeader & /* rhs */) const
   return true;
 }
 
-IndexPageHeader::IndexPageHeader(const IndexPageHeader& other137) noexcept {
-  (void) other137;
+IndexPageHeader::IndexPageHeader(const IndexPageHeader& other81) noexcept {
+  (void) other81;
 }
-IndexPageHeader::IndexPageHeader(IndexPageHeader&& other138) noexcept {
-  (void) other138;
-}
-IndexPageHeader& IndexPageHeader::operator=(const IndexPageHeader& other139) noexcept {
-  (void) other139;
-  return *this;
-}
-IndexPageHeader& IndexPageHeader::operator=(IndexPageHeader&& other140) noexcept {
-  (void) other140;
+IndexPageHeader& IndexPageHeader::operator=(const IndexPageHeader& other82) noexcept {
+  (void) other82;
   return *this;
 }
 void IndexPageHeader::printTo(std::ostream& out) const {
@@ -2955,30 +2624,17 @@ bool DictionaryPageHeader::operator==(const DictionaryPageHeader & rhs) const
   return true;
 }
 
-DictionaryPageHeader::DictionaryPageHeader(const DictionaryPageHeader& other142) noexcept {
-  num_values = other142.num_values;
-  encoding = other142.encoding;
-  is_sorted = other142.is_sorted;
-  __isset = other142.__isset;
+DictionaryPageHeader::DictionaryPageHeader(const DictionaryPageHeader& other84) noexcept {
+  num_values = other84.num_values;
+  encoding = other84.encoding;
+  is_sorted = other84.is_sorted;
+  __isset = other84.__isset;
 }
-DictionaryPageHeader::DictionaryPageHeader(DictionaryPageHeader&& other143) noexcept {
-  num_values = other143.num_values;
-  encoding = other143.encoding;
-  is_sorted = other143.is_sorted;
-  __isset = other143.__isset;
-}
-DictionaryPageHeader& DictionaryPageHeader::operator=(const DictionaryPageHeader& other144) noexcept {
-  num_values = other144.num_values;
-  encoding = other144.encoding;
-  is_sorted = other144.is_sorted;
-  __isset = other144.__isset;
-  return *this;
-}
-DictionaryPageHeader& DictionaryPageHeader::operator=(DictionaryPageHeader&& other145) noexcept {
-  num_values = other145.num_values;
-  encoding = other145.encoding;
-  is_sorted = other145.is_sorted;
-  __isset = other145.__isset;
+DictionaryPageHeader& DictionaryPageHeader::operator=(const DictionaryPageHeader& other85) noexcept {
+  num_values = other85.num_values;
+  encoding = other85.encoding;
+  is_sorted = other85.is_sorted;
+  __isset = other85.__isset;
   return *this;
 }
 void DictionaryPageHeader::printTo(std::ostream& out) const {
@@ -3082,50 +2738,27 @@ bool DataPageHeaderV2::operator==(const DataPageHeaderV2 & rhs) const
   return true;
 }
 
-DataPageHeaderV2::DataPageHeaderV2(const DataPageHeaderV2& other147) {
-  num_values = other147.num_values;
-  num_nulls = other147.num_nulls;
-  num_rows = other147.num_rows;
-  encoding = other147.encoding;
-  definition_levels_byte_length = other147.definition_levels_byte_length;
-  repetition_levels_byte_length = other147.repetition_levels_byte_length;
-  is_compressed = other147.is_compressed;
-  statistics = other147.statistics;
-  __isset = other147.__isset;
+DataPageHeaderV2::DataPageHeaderV2(const DataPageHeaderV2& other87) {
+  num_values = other87.num_values;
+  num_nulls = other87.num_nulls;
+  num_rows = other87.num_rows;
+  encoding = other87.encoding;
+  definition_levels_byte_length = other87.definition_levels_byte_length;
+  repetition_levels_byte_length = other87.repetition_levels_byte_length;
+  is_compressed = other87.is_compressed;
+  statistics = other87.statistics;
+  __isset = other87.__isset;
 }
-DataPageHeaderV2::DataPageHeaderV2(DataPageHeaderV2&& other148) noexcept {
-  num_values = other148.num_values;
-  num_nulls = other148.num_nulls;
-  num_rows = other148.num_rows;
-  encoding = other148.encoding;
-  definition_levels_byte_length = other148.definition_levels_byte_length;
-  repetition_levels_byte_length = other148.repetition_levels_byte_length;
-  is_compressed = other148.is_compressed;
-  statistics = std::move(other148.statistics);
-  __isset = other148.__isset;
-}
-DataPageHeaderV2& DataPageHeaderV2::operator=(const DataPageHeaderV2& other149) {
-  num_values = other149.num_values;
-  num_nulls = other149.num_nulls;
-  num_rows = other149.num_rows;
-  encoding = other149.encoding;
-  definition_levels_byte_length = other149.definition_levels_byte_length;
-  repetition_levels_byte_length = other149.repetition_levels_byte_length;
-  is_compressed = other149.is_compressed;
-  statistics = other149.statistics;
-  __isset = other149.__isset;
-  return *this;
-}
-DataPageHeaderV2& DataPageHeaderV2::operator=(DataPageHeaderV2&& other150) noexcept {
-  num_values = other150.num_values;
-  num_nulls = other150.num_nulls;
-  num_rows = other150.num_rows;
-  encoding = other150.encoding;
-  definition_levels_byte_length = other150.definition_levels_byte_length;
-  repetition_levels_byte_length = other150.repetition_levels_byte_length;
-  is_compressed = other150.is_compressed;
-  statistics = std::move(other150.statistics);
-  __isset = other150.__isset;
+DataPageHeaderV2& DataPageHeaderV2::operator=(const DataPageHeaderV2& other88) {
+  num_values = other88.num_values;
+  num_nulls = other88.num_nulls;
+  num_rows = other88.num_rows;
+  encoding = other88.encoding;
+  definition_levels_byte_length = other88.definition_levels_byte_length;
+  repetition_levels_byte_length = other88.repetition_levels_byte_length;
+  is_compressed = other88.is_compressed;
+  statistics = other88.statistics;
+  __isset = other88.__isset;
   return *this;
 }
 void DataPageHeaderV2::printTo(std::ostream& out) const {
@@ -3166,18 +2799,11 @@ bool SplitBlockAlgorithm::operator==(const SplitBlockAlgorithm & /* rhs */) cons
   return true;
 }
 
-SplitBlockAlgorithm::SplitBlockAlgorithm(const SplitBlockAlgorithm& other151) noexcept {
-  (void) other151;
+SplitBlockAlgorithm::SplitBlockAlgorithm(const SplitBlockAlgorithm& other89) noexcept {
+  (void) other89;
 }
-SplitBlockAlgorithm::SplitBlockAlgorithm(SplitBlockAlgorithm&& other152) noexcept {
-  (void) other152;
-}
-SplitBlockAlgorithm& SplitBlockAlgorithm::operator=(const SplitBlockAlgorithm& other153) noexcept {
-  (void) other153;
-  return *this;
-}
-SplitBlockAlgorithm& SplitBlockAlgorithm::operator=(SplitBlockAlgorithm&& other154) noexcept {
-  (void) other154;
+SplitBlockAlgorithm& SplitBlockAlgorithm::operator=(const SplitBlockAlgorithm& other90) noexcept {
+  (void) other90;
   return *this;
 }
 void SplitBlockAlgorithm::printTo(std::ostream& out) const {
@@ -3219,22 +2845,13 @@ bool BloomFilterAlgorithm::operator==(const BloomFilterAlgorithm & rhs) const
   return true;
 }
 
-BloomFilterAlgorithm::BloomFilterAlgorithm(const BloomFilterAlgorithm& other155) noexcept {
-  BLOCK = other155.BLOCK;
-  __isset = other155.__isset;
+BloomFilterAlgorithm::BloomFilterAlgorithm(const BloomFilterAlgorithm& other91) noexcept {
+  BLOCK = other91.BLOCK;
+  __isset = other91.__isset;
 }
-BloomFilterAlgorithm::BloomFilterAlgorithm(BloomFilterAlgorithm&& other156) noexcept {
-  BLOCK = std::move(other156.BLOCK);
-  __isset = other156.__isset;
-}
-BloomFilterAlgorithm& BloomFilterAlgorithm::operator=(const BloomFilterAlgorithm& other157) noexcept {
-  BLOCK = other157.BLOCK;
-  __isset = other157.__isset;
-  return *this;
-}
-BloomFilterAlgorithm& BloomFilterAlgorithm::operator=(BloomFilterAlgorithm&& other158) noexcept {
-  BLOCK = std::move(other158.BLOCK);
-  __isset = other158.__isset;
+BloomFilterAlgorithm& BloomFilterAlgorithm::operator=(const BloomFilterAlgorithm& other92) noexcept {
+  BLOCK = other92.BLOCK;
+  __isset = other92.__isset;
   return *this;
 }
 void BloomFilterAlgorithm::printTo(std::ostream& out) const {
@@ -3268,18 +2885,11 @@ bool XxHash::operator==(const XxHash & /* rhs */) const
   return true;
 }
 
-XxHash::XxHash(const XxHash& other159) noexcept {
-  (void) other159;
+XxHash::XxHash(const XxHash& other93) noexcept {
+  (void) other93;
 }
-XxHash::XxHash(XxHash&& other160) noexcept {
-  (void) other160;
-}
-XxHash& XxHash::operator=(const XxHash& other161) noexcept {
-  (void) other161;
-  return *this;
-}
-XxHash& XxHash::operator=(XxHash&& other162) noexcept {
-  (void) other162;
+XxHash& XxHash::operator=(const XxHash& other94) noexcept {
+  (void) other94;
   return *this;
 }
 void XxHash::printTo(std::ostream& out) const {
@@ -3321,22 +2931,13 @@ bool BloomFilterHash::operator==(const BloomFilterHash & rhs) const
   return true;
 }
 
-BloomFilterHash::BloomFilterHash(const BloomFilterHash& other163) noexcept {
-  XXHASH = other163.XXHASH;
-  __isset = other163.__isset;
+BloomFilterHash::BloomFilterHash(const BloomFilterHash& other95) noexcept {
+  XXHASH = other95.XXHASH;
+  __isset = other95.__isset;
 }
-BloomFilterHash::BloomFilterHash(BloomFilterHash&& other164) noexcept {
-  XXHASH = std::move(other164.XXHASH);
-  __isset = other164.__isset;
-}
-BloomFilterHash& BloomFilterHash::operator=(const BloomFilterHash& other165) noexcept {
-  XXHASH = other165.XXHASH;
-  __isset = other165.__isset;
-  return *this;
-}
-BloomFilterHash& BloomFilterHash::operator=(BloomFilterHash&& other166) noexcept {
-  XXHASH = std::move(other166.XXHASH);
-  __isset = other166.__isset;
+BloomFilterHash& BloomFilterHash::operator=(const BloomFilterHash& other96) noexcept {
+  XXHASH = other96.XXHASH;
+  __isset = other96.__isset;
   return *this;
 }
 void BloomFilterHash::printTo(std::ostream& out) const {
@@ -3370,18 +2971,11 @@ bool Uncompressed::operator==(const Uncompressed & /* rhs */) const
   return true;
 }
 
-Uncompressed::Uncompressed(const Uncompressed& other167) noexcept {
-  (void) other167;
+Uncompressed::Uncompressed(const Uncompressed& other97) noexcept {
+  (void) other97;
 }
-Uncompressed::Uncompressed(Uncompressed&& other168) noexcept {
-  (void) other168;
-}
-Uncompressed& Uncompressed::operator=(const Uncompressed& other169) noexcept {
-  (void) other169;
-  return *this;
-}
-Uncompressed& Uncompressed::operator=(Uncompressed&& other170) noexcept {
-  (void) other170;
+Uncompressed& Uncompressed::operator=(const Uncompressed& other98) noexcept {
+  (void) other98;
   return *this;
 }
 void Uncompressed::printTo(std::ostream& out) const {
@@ -3423,22 +3017,13 @@ bool BloomFilterCompression::operator==(const BloomFilterCompression & rhs) cons
   return true;
 }
 
-BloomFilterCompression::BloomFilterCompression(const BloomFilterCompression& other171) noexcept {
-  UNCOMPRESSED = other171.UNCOMPRESSED;
-  __isset = other171.__isset;
+BloomFilterCompression::BloomFilterCompression(const BloomFilterCompression& other99) noexcept {
+  UNCOMPRESSED = other99.UNCOMPRESSED;
+  __isset = other99.__isset;
 }
-BloomFilterCompression::BloomFilterCompression(BloomFilterCompression&& other172) noexcept {
-  UNCOMPRESSED = std::move(other172.UNCOMPRESSED);
-  __isset = other172.__isset;
-}
-BloomFilterCompression& BloomFilterCompression::operator=(const BloomFilterCompression& other173) noexcept {
-  UNCOMPRESSED = other173.UNCOMPRESSED;
-  __isset = other173.__isset;
-  return *this;
-}
-BloomFilterCompression& BloomFilterCompression::operator=(BloomFilterCompression&& other174) noexcept {
-  UNCOMPRESSED = std::move(other174.UNCOMPRESSED);
-  __isset = other174.__isset;
+BloomFilterCompression& BloomFilterCompression::operator=(const BloomFilterCompression& other100) noexcept {
+  UNCOMPRESSED = other100.UNCOMPRESSED;
+  __isset = other100.__isset;
   return *this;
 }
 void BloomFilterCompression::printTo(std::ostream& out) const {
@@ -3499,30 +3084,17 @@ bool BloomFilterHeader::operator==(const BloomFilterHeader & rhs) const
   return true;
 }
 
-BloomFilterHeader::BloomFilterHeader(const BloomFilterHeader& other175) noexcept {
-  numBytes = other175.numBytes;
-  algorithm = other175.algorithm;
-  hash = other175.hash;
-  compression = other175.compression;
+BloomFilterHeader::BloomFilterHeader(const BloomFilterHeader& other101) noexcept {
+  numBytes = other101.numBytes;
+  algorithm = other101.algorithm;
+  hash = other101.hash;
+  compression = other101.compression;
 }
-BloomFilterHeader::BloomFilterHeader(BloomFilterHeader&& other176) noexcept {
-  numBytes = other176.numBytes;
-  algorithm = std::move(other176.algorithm);
-  hash = std::move(other176.hash);
-  compression = std::move(other176.compression);
-}
-BloomFilterHeader& BloomFilterHeader::operator=(const BloomFilterHeader& other177) noexcept {
-  numBytes = other177.numBytes;
-  algorithm = other177.algorithm;
-  hash = other177.hash;
-  compression = other177.compression;
-  return *this;
-}
-BloomFilterHeader& BloomFilterHeader::operator=(BloomFilterHeader&& other178) noexcept {
-  numBytes = other178.numBytes;
-  algorithm = std::move(other178.algorithm);
-  hash = std::move(other178.hash);
-  compression = std::move(other178.compression);
+BloomFilterHeader& BloomFilterHeader::operator=(const BloomFilterHeader& other102) noexcept {
+  numBytes = other102.numBytes;
+  algorithm = other102.algorithm;
+  hash = other102.hash;
+  compression = other102.compression;
   return *this;
 }
 void BloomFilterHeader::printTo(std::ostream& out) const {
@@ -3633,50 +3205,27 @@ bool PageHeader::operator==(const PageHeader & rhs) const
   return true;
 }
 
-PageHeader::PageHeader(const PageHeader& other180) {
-  type = other180.type;
-  uncompressed_page_size = other180.uncompressed_page_size;
-  compressed_page_size = other180.compressed_page_size;
-  crc = other180.crc;
-  data_page_header = other180.data_page_header;
-  index_page_header = other180.index_page_header;
-  dictionary_page_header = other180.dictionary_page_header;
-  data_page_header_v2 = other180.data_page_header_v2;
-  __isset = other180.__isset;
+PageHeader::PageHeader(const PageHeader& other104) {
+  type = other104.type;
+  uncompressed_page_size = other104.uncompressed_page_size;
+  compressed_page_size = other104.compressed_page_size;
+  crc = other104.crc;
+  data_page_header = other104.data_page_header;
+  index_page_header = other104.index_page_header;
+  dictionary_page_header = other104.dictionary_page_header;
+  data_page_header_v2 = other104.data_page_header_v2;
+  __isset = other104.__isset;
 }
-PageHeader::PageHeader(PageHeader&& other181) noexcept {
-  type = other181.type;
-  uncompressed_page_size = other181.uncompressed_page_size;
-  compressed_page_size = other181.compressed_page_size;
-  crc = other181.crc;
-  data_page_header = std::move(other181.data_page_header);
-  index_page_header = std::move(other181.index_page_header);
-  dictionary_page_header = std::move(other181.dictionary_page_header);
-  data_page_header_v2 = std::move(other181.data_page_header_v2);
-  __isset = other181.__isset;
-}
-PageHeader& PageHeader::operator=(const PageHeader& other182) {
-  type = other182.type;
-  uncompressed_page_size = other182.uncompressed_page_size;
-  compressed_page_size = other182.compressed_page_size;
-  crc = other182.crc;
-  data_page_header = other182.data_page_header;
-  index_page_header = other182.index_page_header;
-  dictionary_page_header = other182.dictionary_page_header;
-  data_page_header_v2 = other182.data_page_header_v2;
-  __isset = other182.__isset;
-  return *this;
-}
-PageHeader& PageHeader::operator=(PageHeader&& other183) noexcept {
-  type = other183.type;
-  uncompressed_page_size = other183.uncompressed_page_size;
-  compressed_page_size = other183.compressed_page_size;
-  crc = other183.crc;
-  data_page_header = std::move(other183.data_page_header);
-  index_page_header = std::move(other183.index_page_header);
-  dictionary_page_header = std::move(other183.dictionary_page_header);
-  data_page_header_v2 = std::move(other183.data_page_header_v2);
-  __isset = other183.__isset;
+PageHeader& PageHeader::operator=(const PageHeader& other105) {
+  type = other105.type;
+  uncompressed_page_size = other105.uncompressed_page_size;
+  compressed_page_size = other105.compressed_page_size;
+  crc = other105.crc;
+  data_page_header = other105.data_page_header;
+  index_page_header = other105.index_page_header;
+  dictionary_page_header = other105.dictionary_page_header;
+  data_page_header_v2 = other105.data_page_header_v2;
+  __isset = other105.__isset;
   return *this;
 }
 void PageHeader::printTo(std::ostream& out) const {
@@ -3735,26 +3284,15 @@ bool KeyValue::operator==(const KeyValue & rhs) const
   return true;
 }
 
-KeyValue::KeyValue(const KeyValue& other184) {
-  key = other184.key;
-  value = other184.value;
-  __isset = other184.__isset;
+KeyValue::KeyValue(const KeyValue& other106) {
+  key = other106.key;
+  value = other106.value;
+  __isset = other106.__isset;
 }
-KeyValue::KeyValue(KeyValue&& other185) noexcept {
-  key = std::move(other185.key);
-  value = std::move(other185.value);
-  __isset = other185.__isset;
-}
-KeyValue& KeyValue::operator=(const KeyValue& other186) {
-  key = other186.key;
-  value = other186.value;
-  __isset = other186.__isset;
-  return *this;
-}
-KeyValue& KeyValue::operator=(KeyValue&& other187) noexcept {
-  key = std::move(other187.key);
-  value = std::move(other187.value);
-  __isset = other187.__isset;
+KeyValue& KeyValue::operator=(const KeyValue& other107) {
+  key = other107.key;
+  value = other107.value;
+  __isset = other107.__isset;
   return *this;
 }
 void KeyValue::printTo(std::ostream& out) const {
@@ -3811,26 +3349,15 @@ bool SortingColumn::operator==(const SortingColumn & rhs) const
   return true;
 }
 
-SortingColumn::SortingColumn(const SortingColumn& other188) noexcept {
-  column_idx = other188.column_idx;
-  descending = other188.descending;
-  nulls_first = other188.nulls_first;
+SortingColumn::SortingColumn(const SortingColumn& other108) noexcept {
+  column_idx = other108.column_idx;
+  descending = other108.descending;
+  nulls_first = other108.nulls_first;
 }
-SortingColumn::SortingColumn(SortingColumn&& other189) noexcept {
-  column_idx = other189.column_idx;
-  descending = other189.descending;
-  nulls_first = other189.nulls_first;
-}
-SortingColumn& SortingColumn::operator=(const SortingColumn& other190) noexcept {
-  column_idx = other190.column_idx;
-  descending = other190.descending;
-  nulls_first = other190.nulls_first;
-  return *this;
-}
-SortingColumn& SortingColumn::operator=(SortingColumn&& other191) noexcept {
-  column_idx = other191.column_idx;
-  descending = other191.descending;
-  nulls_first = other191.nulls_first;
+SortingColumn& SortingColumn::operator=(const SortingColumn& other109) noexcept {
+  column_idx = other109.column_idx;
+  descending = other109.descending;
+  nulls_first = other109.nulls_first;
   return *this;
 }
 void SortingColumn::printTo(std::ostream& out) const {
@@ -3888,26 +3415,15 @@ bool PageEncodingStats::operator==(const PageEncodingStats & rhs) const
   return true;
 }
 
-PageEncodingStats::PageEncodingStats(const PageEncodingStats& other194) noexcept {
-  page_type = other194.page_type;
-  encoding = other194.encoding;
-  count = other194.count;
+PageEncodingStats::PageEncodingStats(const PageEncodingStats& other112) noexcept {
+  page_type = other112.page_type;
+  encoding = other112.encoding;
+  count = other112.count;
 }
-PageEncodingStats::PageEncodingStats(PageEncodingStats&& other195) noexcept {
-  page_type = other195.page_type;
-  encoding = other195.encoding;
-  count = other195.count;
-}
-PageEncodingStats& PageEncodingStats::operator=(const PageEncodingStats& other196) noexcept {
-  page_type = other196.page_type;
-  encoding = other196.encoding;
-  count = other196.count;
-  return *this;
-}
-PageEncodingStats& PageEncodingStats::operator=(PageEncodingStats&& other197) noexcept {
-  page_type = other197.page_type;
-  encoding = other197.encoding;
-  count = other197.count;
+PageEncodingStats& PageEncodingStats::operator=(const PageEncodingStats& other113) noexcept {
+  page_type = other113.page_type;
+  encoding = other113.encoding;
+  count = other113.count;
   return *this;
 }
 void PageEncodingStats::printTo(std::ostream& out) const {
@@ -4098,86 +3614,45 @@ bool ColumnMetaData::operator==(const ColumnMetaData & rhs) const
   return true;
 }
 
-ColumnMetaData::ColumnMetaData(const ColumnMetaData& other225) {
-  type = other225.type;
-  encodings = other225.encodings;
-  path_in_schema = other225.path_in_schema;
-  codec = other225.codec;
-  num_values = other225.num_values;
-  total_uncompressed_size = other225.total_uncompressed_size;
-  total_compressed_size = other225.total_compressed_size;
-  key_value_metadata = other225.key_value_metadata;
-  data_page_offset = other225.data_page_offset;
-  index_page_offset = other225.index_page_offset;
-  dictionary_page_offset = other225.dictionary_page_offset;
-  statistics = other225.statistics;
-  encoding_stats = other225.encoding_stats;
-  bloom_filter_offset = other225.bloom_filter_offset;
-  bloom_filter_length = other225.bloom_filter_length;
-  size_statistics = other225.size_statistics;
-  geospatial_statistics = other225.geospatial_statistics;
-  __isset = other225.__isset;
+ColumnMetaData::ColumnMetaData(const ColumnMetaData& other141) {
+  type = other141.type;
+  encodings = other141.encodings;
+  path_in_schema = other141.path_in_schema;
+  codec = other141.codec;
+  num_values = other141.num_values;
+  total_uncompressed_size = other141.total_uncompressed_size;
+  total_compressed_size = other141.total_compressed_size;
+  key_value_metadata = other141.key_value_metadata;
+  data_page_offset = other141.data_page_offset;
+  index_page_offset = other141.index_page_offset;
+  dictionary_page_offset = other141.dictionary_page_offset;
+  statistics = other141.statistics;
+  encoding_stats = other141.encoding_stats;
+  bloom_filter_offset = other141.bloom_filter_offset;
+  bloom_filter_length = other141.bloom_filter_length;
+  size_statistics = other141.size_statistics;
+  geospatial_statistics = other141.geospatial_statistics;
+  __isset = other141.__isset;
 }
-ColumnMetaData::ColumnMetaData(ColumnMetaData&& other226) noexcept {
-  type = other226.type;
-  encodings = std::move(other226.encodings);
-  path_in_schema = std::move(other226.path_in_schema);
-  codec = other226.codec;
-  num_values = other226.num_values;
-  total_uncompressed_size = other226.total_uncompressed_size;
-  total_compressed_size = other226.total_compressed_size;
-  key_value_metadata = std::move(other226.key_value_metadata);
-  data_page_offset = other226.data_page_offset;
-  index_page_offset = other226.index_page_offset;
-  dictionary_page_offset = other226.dictionary_page_offset;
-  statistics = std::move(other226.statistics);
-  encoding_stats = std::move(other226.encoding_stats);
-  bloom_filter_offset = other226.bloom_filter_offset;
-  bloom_filter_length = other226.bloom_filter_length;
-  size_statistics = std::move(other226.size_statistics);
-  geospatial_statistics = std::move(other226.geospatial_statistics);
-  __isset = other226.__isset;
-}
-ColumnMetaData& ColumnMetaData::operator=(const ColumnMetaData& other227) {
-  type = other227.type;
-  encodings = other227.encodings;
-  path_in_schema = other227.path_in_schema;
-  codec = other227.codec;
-  num_values = other227.num_values;
-  total_uncompressed_size = other227.total_uncompressed_size;
-  total_compressed_size = other227.total_compressed_size;
-  key_value_metadata = other227.key_value_metadata;
-  data_page_offset = other227.data_page_offset;
-  index_page_offset = other227.index_page_offset;
-  dictionary_page_offset = other227.dictionary_page_offset;
-  statistics = other227.statistics;
-  encoding_stats = other227.encoding_stats;
-  bloom_filter_offset = other227.bloom_filter_offset;
-  bloom_filter_length = other227.bloom_filter_length;
-  size_statistics = other227.size_statistics;
-  geospatial_statistics = other227.geospatial_statistics;
-  __isset = other227.__isset;
-  return *this;
-}
-ColumnMetaData& ColumnMetaData::operator=(ColumnMetaData&& other228) noexcept {
-  type = other228.type;
-  encodings = std::move(other228.encodings);
-  path_in_schema = std::move(other228.path_in_schema);
-  codec = other228.codec;
-  num_values = other228.num_values;
-  total_uncompressed_size = other228.total_uncompressed_size;
-  total_compressed_size = other228.total_compressed_size;
-  key_value_metadata = std::move(other228.key_value_metadata);
-  data_page_offset = other228.data_page_offset;
-  index_page_offset = other228.index_page_offset;
-  dictionary_page_offset = other228.dictionary_page_offset;
-  statistics = std::move(other228.statistics);
-  encoding_stats = std::move(other228.encoding_stats);
-  bloom_filter_offset = other228.bloom_filter_offset;
-  bloom_filter_length = other228.bloom_filter_length;
-  size_statistics = std::move(other228.size_statistics);
-  geospatial_statistics = std::move(other228.geospatial_statistics);
-  __isset = other228.__isset;
+ColumnMetaData& ColumnMetaData::operator=(const ColumnMetaData& other142) {
+  type = other142.type;
+  encodings = other142.encodings;
+  path_in_schema = other142.path_in_schema;
+  codec = other142.codec;
+  num_values = other142.num_values;
+  total_uncompressed_size = other142.total_uncompressed_size;
+  total_compressed_size = other142.total_compressed_size;
+  key_value_metadata = other142.key_value_metadata;
+  data_page_offset = other142.data_page_offset;
+  index_page_offset = other142.index_page_offset;
+  dictionary_page_offset = other142.dictionary_page_offset;
+  statistics = other142.statistics;
+  encoding_stats = other142.encoding_stats;
+  bloom_filter_offset = other142.bloom_filter_offset;
+  bloom_filter_length = other142.bloom_filter_length;
+  size_statistics = other142.size_statistics;
+  geospatial_statistics = other142.geospatial_statistics;
+  __isset = other142.__isset;
   return *this;
 }
 void ColumnMetaData::printTo(std::ostream& out) const {
@@ -4227,18 +3702,11 @@ bool EncryptionWithFooterKey::operator==(const EncryptionWithFooterKey & /* rhs 
   return true;
 }
 
-EncryptionWithFooterKey::EncryptionWithFooterKey(const EncryptionWithFooterKey& other229) noexcept {
-  (void) other229;
+EncryptionWithFooterKey::EncryptionWithFooterKey(const EncryptionWithFooterKey& other143) noexcept {
+  (void) other143;
 }
-EncryptionWithFooterKey::EncryptionWithFooterKey(EncryptionWithFooterKey&& other230) noexcept {
-  (void) other230;
-}
-EncryptionWithFooterKey& EncryptionWithFooterKey::operator=(const EncryptionWithFooterKey& other231) noexcept {
-  (void) other231;
-  return *this;
-}
-EncryptionWithFooterKey& EncryptionWithFooterKey::operator=(EncryptionWithFooterKey&& other232) noexcept {
-  (void) other232;
+EncryptionWithFooterKey& EncryptionWithFooterKey::operator=(const EncryptionWithFooterKey& other144) noexcept {
+  (void) other144;
   return *this;
 }
 void EncryptionWithFooterKey::printTo(std::ostream& out) const {
@@ -4288,26 +3756,15 @@ bool EncryptionWithColumnKey::operator==(const EncryptionWithColumnKey & rhs) co
   return true;
 }
 
-EncryptionWithColumnKey::EncryptionWithColumnKey(const EncryptionWithColumnKey& other239) {
-  path_in_schema = other239.path_in_schema;
-  key_metadata = other239.key_metadata;
-  __isset = other239.__isset;
+EncryptionWithColumnKey::EncryptionWithColumnKey(const EncryptionWithColumnKey& other151) {
+  path_in_schema = other151.path_in_schema;
+  key_metadata = other151.key_metadata;
+  __isset = other151.__isset;
 }
-EncryptionWithColumnKey::EncryptionWithColumnKey(EncryptionWithColumnKey&& other240) noexcept {
-  path_in_schema = std::move(other240.path_in_schema);
-  key_metadata = std::move(other240.key_metadata);
-  __isset = other240.__isset;
-}
-EncryptionWithColumnKey& EncryptionWithColumnKey::operator=(const EncryptionWithColumnKey& other241) {
-  path_in_schema = other241.path_in_schema;
-  key_metadata = other241.key_metadata;
-  __isset = other241.__isset;
-  return *this;
-}
-EncryptionWithColumnKey& EncryptionWithColumnKey::operator=(EncryptionWithColumnKey&& other242) noexcept {
-  path_in_schema = std::move(other242.path_in_schema);
-  key_metadata = std::move(other242.key_metadata);
-  __isset = other242.__isset;
+EncryptionWithColumnKey& EncryptionWithColumnKey::operator=(const EncryptionWithColumnKey& other152) {
+  path_in_schema = other152.path_in_schema;
+  key_metadata = other152.key_metadata;
+  __isset = other152.__isset;
   return *this;
 }
 void EncryptionWithColumnKey::printTo(std::ostream& out) const {
@@ -4361,26 +3818,15 @@ bool ColumnCryptoMetaData::operator==(const ColumnCryptoMetaData & rhs) const
   return true;
 }
 
-ColumnCryptoMetaData::ColumnCryptoMetaData(const ColumnCryptoMetaData& other243) {
-  ENCRYPTION_WITH_FOOTER_KEY = other243.ENCRYPTION_WITH_FOOTER_KEY;
-  ENCRYPTION_WITH_COLUMN_KEY = other243.ENCRYPTION_WITH_COLUMN_KEY;
-  __isset = other243.__isset;
+ColumnCryptoMetaData::ColumnCryptoMetaData(const ColumnCryptoMetaData& other153) {
+  ENCRYPTION_WITH_FOOTER_KEY = other153.ENCRYPTION_WITH_FOOTER_KEY;
+  ENCRYPTION_WITH_COLUMN_KEY = other153.ENCRYPTION_WITH_COLUMN_KEY;
+  __isset = other153.__isset;
 }
-ColumnCryptoMetaData::ColumnCryptoMetaData(ColumnCryptoMetaData&& other244) noexcept {
-  ENCRYPTION_WITH_FOOTER_KEY = std::move(other244.ENCRYPTION_WITH_FOOTER_KEY);
-  ENCRYPTION_WITH_COLUMN_KEY = std::move(other244.ENCRYPTION_WITH_COLUMN_KEY);
-  __isset = other244.__isset;
-}
-ColumnCryptoMetaData& ColumnCryptoMetaData::operator=(const ColumnCryptoMetaData& other245) {
-  ENCRYPTION_WITH_FOOTER_KEY = other245.ENCRYPTION_WITH_FOOTER_KEY;
-  ENCRYPTION_WITH_COLUMN_KEY = other245.ENCRYPTION_WITH_COLUMN_KEY;
-  __isset = other245.__isset;
-  return *this;
-}
-ColumnCryptoMetaData& ColumnCryptoMetaData::operator=(ColumnCryptoMetaData&& other246) noexcept {
-  ENCRYPTION_WITH_FOOTER_KEY = std::move(other246.ENCRYPTION_WITH_FOOTER_KEY);
-  ENCRYPTION_WITH_COLUMN_KEY = std::move(other246.ENCRYPTION_WITH_COLUMN_KEY);
-  __isset = other246.__isset;
+ColumnCryptoMetaData& ColumnCryptoMetaData::operator=(const ColumnCryptoMetaData& other154) {
+  ENCRYPTION_WITH_FOOTER_KEY = other154.ENCRYPTION_WITH_FOOTER_KEY;
+  ENCRYPTION_WITH_COLUMN_KEY = other154.ENCRYPTION_WITH_COLUMN_KEY;
+  __isset = other154.__isset;
   return *this;
 }
 void ColumnCryptoMetaData::printTo(std::ostream& out) const {
@@ -4508,54 +3954,29 @@ bool ColumnChunk::operator==(const ColumnChunk & rhs) const
   return true;
 }
 
-ColumnChunk::ColumnChunk(const ColumnChunk& other247) {
-  file_path = other247.file_path;
-  file_offset = other247.file_offset;
-  meta_data = other247.meta_data;
-  offset_index_offset = other247.offset_index_offset;
-  offset_index_length = other247.offset_index_length;
-  column_index_offset = other247.column_index_offset;
-  column_index_length = other247.column_index_length;
-  crypto_metadata = other247.crypto_metadata;
-  encrypted_column_metadata = other247.encrypted_column_metadata;
-  __isset = other247.__isset;
+ColumnChunk::ColumnChunk(const ColumnChunk& other155) {
+  file_path = other155.file_path;
+  file_offset = other155.file_offset;
+  meta_data = other155.meta_data;
+  offset_index_offset = other155.offset_index_offset;
+  offset_index_length = other155.offset_index_length;
+  column_index_offset = other155.column_index_offset;
+  column_index_length = other155.column_index_length;
+  crypto_metadata = other155.crypto_metadata;
+  encrypted_column_metadata = other155.encrypted_column_metadata;
+  __isset = other155.__isset;
 }
-ColumnChunk::ColumnChunk(ColumnChunk&& other248) noexcept {
-  file_path = std::move(other248.file_path);
-  file_offset = other248.file_offset;
-  meta_data = std::move(other248.meta_data);
-  offset_index_offset = other248.offset_index_offset;
-  offset_index_length = other248.offset_index_length;
-  column_index_offset = other248.column_index_offset;
-  column_index_length = other248.column_index_length;
-  crypto_metadata = std::move(other248.crypto_metadata);
-  encrypted_column_metadata = std::move(other248.encrypted_column_metadata);
-  __isset = other248.__isset;
-}
-ColumnChunk& ColumnChunk::operator=(const ColumnChunk& other249) {
-  file_path = other249.file_path;
-  file_offset = other249.file_offset;
-  meta_data = other249.meta_data;
-  offset_index_offset = other249.offset_index_offset;
-  offset_index_length = other249.offset_index_length;
-  column_index_offset = other249.column_index_offset;
-  column_index_length = other249.column_index_length;
-  crypto_metadata = other249.crypto_metadata;
-  encrypted_column_metadata = other249.encrypted_column_metadata;
-  __isset = other249.__isset;
-  return *this;
-}
-ColumnChunk& ColumnChunk::operator=(ColumnChunk&& other250) noexcept {
-  file_path = std::move(other250.file_path);
-  file_offset = other250.file_offset;
-  meta_data = std::move(other250.meta_data);
-  offset_index_offset = other250.offset_index_offset;
-  offset_index_length = other250.offset_index_length;
-  column_index_offset = other250.column_index_offset;
-  column_index_length = other250.column_index_length;
-  crypto_metadata = std::move(other250.crypto_metadata);
-  encrypted_column_metadata = std::move(other250.encrypted_column_metadata);
-  __isset = other250.__isset;
+ColumnChunk& ColumnChunk::operator=(const ColumnChunk& other156) {
+  file_path = other156.file_path;
+  file_offset = other156.file_offset;
+  meta_data = other156.meta_data;
+  offset_index_offset = other156.offset_index_offset;
+  offset_index_length = other156.offset_index_length;
+  column_index_offset = other156.column_index_offset;
+  column_index_length = other156.column_index_length;
+  crypto_metadata = other156.crypto_metadata;
+  encrypted_column_metadata = other156.encrypted_column_metadata;
+  __isset = other156.__isset;
   return *this;
 }
 void ColumnChunk::printTo(std::ostream& out) const {
@@ -4662,46 +4083,25 @@ bool RowGroup::operator==(const RowGroup & rhs) const
   return true;
 }
 
-RowGroup::RowGroup(const RowGroup& other263) {
-  columns = other263.columns;
-  total_byte_size = other263.total_byte_size;
-  num_rows = other263.num_rows;
-  sorting_columns = other263.sorting_columns;
-  file_offset = other263.file_offset;
-  total_compressed_size = other263.total_compressed_size;
-  ordinal = other263.ordinal;
-  __isset = other263.__isset;
+RowGroup::RowGroup(const RowGroup& other169) {
+  columns = other169.columns;
+  total_byte_size = other169.total_byte_size;
+  num_rows = other169.num_rows;
+  sorting_columns = other169.sorting_columns;
+  file_offset = other169.file_offset;
+  total_compressed_size = other169.total_compressed_size;
+  ordinal = other169.ordinal;
+  __isset = other169.__isset;
 }
-RowGroup::RowGroup(RowGroup&& other264) noexcept {
-  columns = std::move(other264.columns);
-  total_byte_size = other264.total_byte_size;
-  num_rows = other264.num_rows;
-  sorting_columns = std::move(other264.sorting_columns);
-  file_offset = other264.file_offset;
-  total_compressed_size = other264.total_compressed_size;
-  ordinal = other264.ordinal;
-  __isset = other264.__isset;
-}
-RowGroup& RowGroup::operator=(const RowGroup& other265) {
-  columns = other265.columns;
-  total_byte_size = other265.total_byte_size;
-  num_rows = other265.num_rows;
-  sorting_columns = other265.sorting_columns;
-  file_offset = other265.file_offset;
-  total_compressed_size = other265.total_compressed_size;
-  ordinal = other265.ordinal;
-  __isset = other265.__isset;
-  return *this;
-}
-RowGroup& RowGroup::operator=(RowGroup&& other266) noexcept {
-  columns = std::move(other266.columns);
-  total_byte_size = other266.total_byte_size;
-  num_rows = other266.num_rows;
-  sorting_columns = std::move(other266.sorting_columns);
-  file_offset = other266.file_offset;
-  total_compressed_size = other266.total_compressed_size;
-  ordinal = other266.ordinal;
-  __isset = other266.__isset;
+RowGroup& RowGroup::operator=(const RowGroup& other170) {
+  columns = other170.columns;
+  total_byte_size = other170.total_byte_size;
+  num_rows = other170.num_rows;
+  sorting_columns = other170.sorting_columns;
+  file_offset = other170.file_offset;
+  total_compressed_size = other170.total_compressed_size;
+  ordinal = other170.ordinal;
+  __isset = other170.__isset;
   return *this;
 }
 void RowGroup::printTo(std::ostream& out) const {
@@ -4741,18 +4141,11 @@ bool TypeDefinedOrder::operator==(const TypeDefinedOrder & /* rhs */) const
   return true;
 }
 
-TypeDefinedOrder::TypeDefinedOrder(const TypeDefinedOrder& other267) noexcept {
-  (void) other267;
+TypeDefinedOrder::TypeDefinedOrder(const TypeDefinedOrder& other171) noexcept {
+  (void) other171;
 }
-TypeDefinedOrder::TypeDefinedOrder(TypeDefinedOrder&& other268) noexcept {
-  (void) other268;
-}
-TypeDefinedOrder& TypeDefinedOrder::operator=(const TypeDefinedOrder& other269) noexcept {
-  (void) other269;
-  return *this;
-}
-TypeDefinedOrder& TypeDefinedOrder::operator=(TypeDefinedOrder&& other270) noexcept {
-  (void) other270;
+TypeDefinedOrder& TypeDefinedOrder::operator=(const TypeDefinedOrder& other172) noexcept {
+  (void) other172;
   return *this;
 }
 void TypeDefinedOrder::printTo(std::ostream& out) const {
@@ -4794,22 +4187,13 @@ bool ColumnOrder::operator==(const ColumnOrder & rhs) const
   return true;
 }
 
-ColumnOrder::ColumnOrder(const ColumnOrder& other271) noexcept {
-  TYPE_ORDER = other271.TYPE_ORDER;
-  __isset = other271.__isset;
+ColumnOrder::ColumnOrder(const ColumnOrder& other173) noexcept {
+  TYPE_ORDER = other173.TYPE_ORDER;
+  __isset = other173.__isset;
 }
-ColumnOrder::ColumnOrder(ColumnOrder&& other272) noexcept {
-  TYPE_ORDER = std::move(other272.TYPE_ORDER);
-  __isset = other272.__isset;
-}
-ColumnOrder& ColumnOrder::operator=(const ColumnOrder& other273) noexcept {
-  TYPE_ORDER = other273.TYPE_ORDER;
-  __isset = other273.__isset;
-  return *this;
-}
-ColumnOrder& ColumnOrder::operator=(ColumnOrder&& other274) noexcept {
-  TYPE_ORDER = std::move(other274.TYPE_ORDER);
-  __isset = other274.__isset;
+ColumnOrder& ColumnOrder::operator=(const ColumnOrder& other174) noexcept {
+  TYPE_ORDER = other174.TYPE_ORDER;
+  __isset = other174.__isset;
   return *this;
 }
 void ColumnOrder::printTo(std::ostream& out) const {
@@ -4865,26 +4249,15 @@ bool PageLocation::operator==(const PageLocation & rhs) const
   return true;
 }
 
-PageLocation::PageLocation(const PageLocation& other275) noexcept {
-  offset = other275.offset;
-  compressed_page_size = other275.compressed_page_size;
-  first_row_index = other275.first_row_index;
+PageLocation::PageLocation(const PageLocation& other175) noexcept {
+  offset = other175.offset;
+  compressed_page_size = other175.compressed_page_size;
+  first_row_index = other175.first_row_index;
 }
-PageLocation::PageLocation(PageLocation&& other276) noexcept {
-  offset = other276.offset;
-  compressed_page_size = other276.compressed_page_size;
-  first_row_index = other276.first_row_index;
-}
-PageLocation& PageLocation::operator=(const PageLocation& other277) noexcept {
-  offset = other277.offset;
-  compressed_page_size = other277.compressed_page_size;
-  first_row_index = other277.first_row_index;
-  return *this;
-}
-PageLocation& PageLocation::operator=(PageLocation&& other278) noexcept {
-  offset = other278.offset;
-  compressed_page_size = other278.compressed_page_size;
-  first_row_index = other278.first_row_index;
+PageLocation& PageLocation::operator=(const PageLocation& other176) noexcept {
+  offset = other176.offset;
+  compressed_page_size = other176.compressed_page_size;
+  first_row_index = other176.first_row_index;
   return *this;
 }
 void PageLocation::printTo(std::ostream& out) const {
@@ -4936,26 +4309,15 @@ bool OffsetIndex::operator==(const OffsetIndex & rhs) const
   return true;
 }
 
-OffsetIndex::OffsetIndex(const OffsetIndex& other291) {
-  page_locations = other291.page_locations;
-  unencoded_byte_array_data_bytes = other291.unencoded_byte_array_data_bytes;
-  __isset = other291.__isset;
+OffsetIndex::OffsetIndex(const OffsetIndex& other189) {
+  page_locations = other189.page_locations;
+  unencoded_byte_array_data_bytes = other189.unencoded_byte_array_data_bytes;
+  __isset = other189.__isset;
 }
-OffsetIndex::OffsetIndex(OffsetIndex&& other292) noexcept {
-  page_locations = std::move(other292.page_locations);
-  unencoded_byte_array_data_bytes = std::move(other292.unencoded_byte_array_data_bytes);
-  __isset = other292.__isset;
-}
-OffsetIndex& OffsetIndex::operator=(const OffsetIndex& other293) {
-  page_locations = other293.page_locations;
-  unencoded_byte_array_data_bytes = other293.unencoded_byte_array_data_bytes;
-  __isset = other293.__isset;
-  return *this;
-}
-OffsetIndex& OffsetIndex::operator=(OffsetIndex&& other294) noexcept {
-  page_locations = std::move(other294.page_locations);
-  unencoded_byte_array_data_bytes = std::move(other294.unencoded_byte_array_data_bytes);
-  __isset = other294.__isset;
+OffsetIndex& OffsetIndex::operator=(const OffsetIndex& other190) {
+  page_locations = other190.page_locations;
+  unencoded_byte_array_data_bytes = other190.unencoded_byte_array_data_bytes;
+  __isset = other190.__isset;
   return *this;
 }
 void OffsetIndex::printTo(std::ostream& out) const {
@@ -5048,46 +4410,25 @@ bool ColumnIndex::operator==(const ColumnIndex & rhs) const
   return true;
 }
 
-ColumnIndex::ColumnIndex(const ColumnIndex& other332) {
-  null_pages = other332.null_pages;
-  min_values = other332.min_values;
-  max_values = other332.max_values;
-  boundary_order = other332.boundary_order;
-  null_counts = other332.null_counts;
-  repetition_level_histograms = other332.repetition_level_histograms;
-  definition_level_histograms = other332.definition_level_histograms;
-  __isset = other332.__isset;
+ColumnIndex::ColumnIndex(const ColumnIndex& other228) {
+  null_pages = other228.null_pages;
+  min_values = other228.min_values;
+  max_values = other228.max_values;
+  boundary_order = other228.boundary_order;
+  null_counts = other228.null_counts;
+  repetition_level_histograms = other228.repetition_level_histograms;
+  definition_level_histograms = other228.definition_level_histograms;
+  __isset = other228.__isset;
 }
-ColumnIndex::ColumnIndex(ColumnIndex&& other333) noexcept {
-  null_pages = std::move(other333.null_pages);
-  min_values = std::move(other333.min_values);
-  max_values = std::move(other333.max_values);
-  boundary_order = other333.boundary_order;
-  null_counts = std::move(other333.null_counts);
-  repetition_level_histograms = std::move(other333.repetition_level_histograms);
-  definition_level_histograms = std::move(other333.definition_level_histograms);
-  __isset = other333.__isset;
-}
-ColumnIndex& ColumnIndex::operator=(const ColumnIndex& other334) {
-  null_pages = other334.null_pages;
-  min_values = other334.min_values;
-  max_values = other334.max_values;
-  boundary_order = other334.boundary_order;
-  null_counts = other334.null_counts;
-  repetition_level_histograms = other334.repetition_level_histograms;
-  definition_level_histograms = other334.definition_level_histograms;
-  __isset = other334.__isset;
-  return *this;
-}
-ColumnIndex& ColumnIndex::operator=(ColumnIndex&& other335) noexcept {
-  null_pages = std::move(other335.null_pages);
-  min_values = std::move(other335.min_values);
-  max_values = std::move(other335.max_values);
-  boundary_order = other335.boundary_order;
-  null_counts = std::move(other335.null_counts);
-  repetition_level_histograms = std::move(other335.repetition_level_histograms);
-  definition_level_histograms = std::move(other335.definition_level_histograms);
-  __isset = other335.__isset;
+ColumnIndex& ColumnIndex::operator=(const ColumnIndex& other229) {
+  null_pages = other229.null_pages;
+  min_values = other229.min_values;
+  max_values = other229.max_values;
+  boundary_order = other229.boundary_order;
+  null_counts = other229.null_counts;
+  repetition_level_histograms = other229.repetition_level_histograms;
+  definition_level_histograms = other229.definition_level_histograms;
+  __isset = other229.__isset;
   return *this;
 }
 void ColumnIndex::printTo(std::ostream& out) const {
@@ -5159,30 +4500,17 @@ bool AesGcmV1::operator==(const AesGcmV1 & rhs) const
   return true;
 }
 
-AesGcmV1::AesGcmV1(const AesGcmV1& other336) {
-  aad_prefix = other336.aad_prefix;
-  aad_file_unique = other336.aad_file_unique;
-  supply_aad_prefix = other336.supply_aad_prefix;
-  __isset = other336.__isset;
+AesGcmV1::AesGcmV1(const AesGcmV1& other230) {
+  aad_prefix = other230.aad_prefix;
+  aad_file_unique = other230.aad_file_unique;
+  supply_aad_prefix = other230.supply_aad_prefix;
+  __isset = other230.__isset;
 }
-AesGcmV1::AesGcmV1(AesGcmV1&& other337) noexcept {
-  aad_prefix = std::move(other337.aad_prefix);
-  aad_file_unique = std::move(other337.aad_file_unique);
-  supply_aad_prefix = other337.supply_aad_prefix;
-  __isset = other337.__isset;
-}
-AesGcmV1& AesGcmV1::operator=(const AesGcmV1& other338) {
-  aad_prefix = other338.aad_prefix;
-  aad_file_unique = other338.aad_file_unique;
-  supply_aad_prefix = other338.supply_aad_prefix;
-  __isset = other338.__isset;
-  return *this;
-}
-AesGcmV1& AesGcmV1::operator=(AesGcmV1&& other339) noexcept {
-  aad_prefix = std::move(other339.aad_prefix);
-  aad_file_unique = std::move(other339.aad_file_unique);
-  supply_aad_prefix = other339.supply_aad_prefix;
-  __isset = other339.__isset;
+AesGcmV1& AesGcmV1::operator=(const AesGcmV1& other231) {
+  aad_prefix = other231.aad_prefix;
+  aad_file_unique = other231.aad_file_unique;
+  supply_aad_prefix = other231.supply_aad_prefix;
+  __isset = other231.__isset;
   return *this;
 }
 void AesGcmV1::printTo(std::ostream& out) const {
@@ -5250,30 +4578,17 @@ bool AesGcmCtrV1::operator==(const AesGcmCtrV1 & rhs) const
   return true;
 }
 
-AesGcmCtrV1::AesGcmCtrV1(const AesGcmCtrV1& other340) {
-  aad_prefix = other340.aad_prefix;
-  aad_file_unique = other340.aad_file_unique;
-  supply_aad_prefix = other340.supply_aad_prefix;
-  __isset = other340.__isset;
+AesGcmCtrV1::AesGcmCtrV1(const AesGcmCtrV1& other232) {
+  aad_prefix = other232.aad_prefix;
+  aad_file_unique = other232.aad_file_unique;
+  supply_aad_prefix = other232.supply_aad_prefix;
+  __isset = other232.__isset;
 }
-AesGcmCtrV1::AesGcmCtrV1(AesGcmCtrV1&& other341) noexcept {
-  aad_prefix = std::move(other341.aad_prefix);
-  aad_file_unique = std::move(other341.aad_file_unique);
-  supply_aad_prefix = other341.supply_aad_prefix;
-  __isset = other341.__isset;
-}
-AesGcmCtrV1& AesGcmCtrV1::operator=(const AesGcmCtrV1& other342) {
-  aad_prefix = other342.aad_prefix;
-  aad_file_unique = other342.aad_file_unique;
-  supply_aad_prefix = other342.supply_aad_prefix;
-  __isset = other342.__isset;
-  return *this;
-}
-AesGcmCtrV1& AesGcmCtrV1::operator=(AesGcmCtrV1&& other343) noexcept {
-  aad_prefix = std::move(other343.aad_prefix);
-  aad_file_unique = std::move(other343.aad_file_unique);
-  supply_aad_prefix = other343.supply_aad_prefix;
-  __isset = other343.__isset;
+AesGcmCtrV1& AesGcmCtrV1::operator=(const AesGcmCtrV1& other233) {
+  aad_prefix = other233.aad_prefix;
+  aad_file_unique = other233.aad_file_unique;
+  supply_aad_prefix = other233.supply_aad_prefix;
+  __isset = other233.__isset;
   return *this;
 }
 void AesGcmCtrV1::printTo(std::ostream& out) const {
@@ -5282,6 +4597,43 @@ void AesGcmCtrV1::printTo(std::ostream& out) const {
   out << "aad_prefix="; (__isset.aad_prefix ? (out << to_string(aad_prefix)) : (out << "<null>"));
   out << ", " << "aad_file_unique="; (__isset.aad_file_unique ? (out << to_string(aad_file_unique)) : (out << "<null>"));
   out << ", " << "supply_aad_prefix="; (__isset.supply_aad_prefix ? (out << to_string(supply_aad_prefix)) : (out << "<null>"));
+  out << ")";
+}
+
+
+ExternalDBPAV1::~ExternalDBPAV1() noexcept {
+}
+
+ExternalDBPAV1::ExternalDBPAV1() noexcept {
+}
+std::ostream& operator<<(std::ostream& out, const ExternalDBPAV1& obj)
+{
+  obj.printTo(out);
+  return out;
+}
+
+
+void swap(ExternalDBPAV1 &a, ExternalDBPAV1 &b) {
+  using ::std::swap;
+  (void) a;
+  (void) b;
+}
+
+bool ExternalDBPAV1::operator==(const ExternalDBPAV1 & /* rhs */) const
+{
+  return true;
+}
+
+ExternalDBPAV1::ExternalDBPAV1(const ExternalDBPAV1& other234) noexcept {
+  (void) other234;
+}
+ExternalDBPAV1& ExternalDBPAV1::operator=(const ExternalDBPAV1& other235) noexcept {
+  (void) other235;
+  return *this;
+}
+void ExternalDBPAV1::printTo(std::ostream& out) const {
+  using ::apache::thrift::to_string;
+  out << "ExternalDBPAV1(";
   out << ")";
 }
 
@@ -5301,6 +4653,11 @@ void EncryptionAlgorithm::__set_AES_GCM_CTR_V1(const AesGcmCtrV1& val) {
   this->AES_GCM_CTR_V1 = val;
 __isset.AES_GCM_CTR_V1 = true;
 }
+
+void EncryptionAlgorithm::__set_EXTERNAL_DBPA_V1(const ExternalDBPAV1& val) {
+  this->EXTERNAL_DBPA_V1 = val;
+__isset.EXTERNAL_DBPA_V1 = true;
+}
 std::ostream& operator<<(std::ostream& out, const EncryptionAlgorithm& obj)
 {
   obj.printTo(out);
@@ -5312,6 +4669,7 @@ void swap(EncryptionAlgorithm &a, EncryptionAlgorithm &b) {
   using ::std::swap;
   swap(a.AES_GCM_V1, b.AES_GCM_V1);
   swap(a.AES_GCM_CTR_V1, b.AES_GCM_CTR_V1);
+  swap(a.EXTERNAL_DBPA_V1, b.EXTERNAL_DBPA_V1);
   swap(a.__isset, b.__isset);
 }
 
@@ -5325,29 +4683,24 @@ bool EncryptionAlgorithm::operator==(const EncryptionAlgorithm & rhs) const
     return false;
   else if (__isset.AES_GCM_CTR_V1 && !(AES_GCM_CTR_V1 == rhs.AES_GCM_CTR_V1))
     return false;
+  if (__isset.EXTERNAL_DBPA_V1 != rhs.__isset.EXTERNAL_DBPA_V1)
+    return false;
+  else if (__isset.EXTERNAL_DBPA_V1 && !(EXTERNAL_DBPA_V1 == rhs.EXTERNAL_DBPA_V1))
+    return false;
   return true;
 }
 
-EncryptionAlgorithm::EncryptionAlgorithm(const EncryptionAlgorithm& other344) {
-  AES_GCM_V1 = other344.AES_GCM_V1;
-  AES_GCM_CTR_V1 = other344.AES_GCM_CTR_V1;
-  __isset = other344.__isset;
+EncryptionAlgorithm::EncryptionAlgorithm(const EncryptionAlgorithm& other236) {
+  AES_GCM_V1 = other236.AES_GCM_V1;
+  AES_GCM_CTR_V1 = other236.AES_GCM_CTR_V1;
+  EXTERNAL_DBPA_V1 = other236.EXTERNAL_DBPA_V1;
+  __isset = other236.__isset;
 }
-EncryptionAlgorithm::EncryptionAlgorithm(EncryptionAlgorithm&& other345) noexcept {
-  AES_GCM_V1 = std::move(other345.AES_GCM_V1);
-  AES_GCM_CTR_V1 = std::move(other345.AES_GCM_CTR_V1);
-  __isset = other345.__isset;
-}
-EncryptionAlgorithm& EncryptionAlgorithm::operator=(const EncryptionAlgorithm& other346) {
-  AES_GCM_V1 = other346.AES_GCM_V1;
-  AES_GCM_CTR_V1 = other346.AES_GCM_CTR_V1;
-  __isset = other346.__isset;
-  return *this;
-}
-EncryptionAlgorithm& EncryptionAlgorithm::operator=(EncryptionAlgorithm&& other347) noexcept {
-  AES_GCM_V1 = std::move(other347.AES_GCM_V1);
-  AES_GCM_CTR_V1 = std::move(other347.AES_GCM_CTR_V1);
-  __isset = other347.__isset;
+EncryptionAlgorithm& EncryptionAlgorithm::operator=(const EncryptionAlgorithm& other237) {
+  AES_GCM_V1 = other237.AES_GCM_V1;
+  AES_GCM_CTR_V1 = other237.AES_GCM_CTR_V1;
+  EXTERNAL_DBPA_V1 = other237.EXTERNAL_DBPA_V1;
+  __isset = other237.__isset;
   return *this;
 }
 void EncryptionAlgorithm::printTo(std::ostream& out) const {
@@ -5355,6 +4708,7 @@ void EncryptionAlgorithm::printTo(std::ostream& out) const {
   out << "EncryptionAlgorithm(";
   out << "AES_GCM_V1="; (__isset.AES_GCM_V1 ? (out << to_string(AES_GCM_V1)) : (out << "<null>"));
   out << ", " << "AES_GCM_CTR_V1="; (__isset.AES_GCM_CTR_V1 ? (out << to_string(AES_GCM_CTR_V1)) : (out << "<null>"));
+  out << ", " << "EXTERNAL_DBPA_V1="; (__isset.EXTERNAL_DBPA_V1 ? (out << to_string(EXTERNAL_DBPA_V1)) : (out << "<null>"));
   out << ")";
 }
 
@@ -5463,54 +4817,29 @@ bool FileMetaData::operator==(const FileMetaData & rhs) const
   return true;
 }
 
-FileMetaData::FileMetaData(const FileMetaData& other372) {
-  version = other372.version;
-  schema = other372.schema;
-  num_rows = other372.num_rows;
-  row_groups = other372.row_groups;
-  key_value_metadata = other372.key_value_metadata;
-  created_by = other372.created_by;
-  column_orders = other372.column_orders;
-  encryption_algorithm = other372.encryption_algorithm;
-  footer_signing_key_metadata = other372.footer_signing_key_metadata;
-  __isset = other372.__isset;
+FileMetaData::FileMetaData(const FileMetaData& other262) {
+  version = other262.version;
+  schema = other262.schema;
+  num_rows = other262.num_rows;
+  row_groups = other262.row_groups;
+  key_value_metadata = other262.key_value_metadata;
+  created_by = other262.created_by;
+  column_orders = other262.column_orders;
+  encryption_algorithm = other262.encryption_algorithm;
+  footer_signing_key_metadata = other262.footer_signing_key_metadata;
+  __isset = other262.__isset;
 }
-FileMetaData::FileMetaData(FileMetaData&& other373) noexcept {
-  version = other373.version;
-  schema = std::move(other373.schema);
-  num_rows = other373.num_rows;
-  row_groups = std::move(other373.row_groups);
-  key_value_metadata = std::move(other373.key_value_metadata);
-  created_by = std::move(other373.created_by);
-  column_orders = std::move(other373.column_orders);
-  encryption_algorithm = std::move(other373.encryption_algorithm);
-  footer_signing_key_metadata = std::move(other373.footer_signing_key_metadata);
-  __isset = other373.__isset;
-}
-FileMetaData& FileMetaData::operator=(const FileMetaData& other374) {
-  version = other374.version;
-  schema = other374.schema;
-  num_rows = other374.num_rows;
-  row_groups = other374.row_groups;
-  key_value_metadata = other374.key_value_metadata;
-  created_by = other374.created_by;
-  column_orders = other374.column_orders;
-  encryption_algorithm = other374.encryption_algorithm;
-  footer_signing_key_metadata = other374.footer_signing_key_metadata;
-  __isset = other374.__isset;
-  return *this;
-}
-FileMetaData& FileMetaData::operator=(FileMetaData&& other375) noexcept {
-  version = other375.version;
-  schema = std::move(other375.schema);
-  num_rows = other375.num_rows;
-  row_groups = std::move(other375.row_groups);
-  key_value_metadata = std::move(other375.key_value_metadata);
-  created_by = std::move(other375.created_by);
-  column_orders = std::move(other375.column_orders);
-  encryption_algorithm = std::move(other375.encryption_algorithm);
-  footer_signing_key_metadata = std::move(other375.footer_signing_key_metadata);
-  __isset = other375.__isset;
+FileMetaData& FileMetaData::operator=(const FileMetaData& other263) {
+  version = other263.version;
+  schema = other263.schema;
+  num_rows = other263.num_rows;
+  row_groups = other263.row_groups;
+  key_value_metadata = other263.key_value_metadata;
+  created_by = other263.created_by;
+  column_orders = other263.column_orders;
+  encryption_algorithm = other263.encryption_algorithm;
+  footer_signing_key_metadata = other263.footer_signing_key_metadata;
+  __isset = other263.__isset;
   return *this;
 }
 void FileMetaData::printTo(std::ostream& out) const {
@@ -5569,26 +4898,15 @@ bool FileCryptoMetaData::operator==(const FileCryptoMetaData & rhs) const
   return true;
 }
 
-FileCryptoMetaData::FileCryptoMetaData(const FileCryptoMetaData& other376) {
-  encryption_algorithm = other376.encryption_algorithm;
-  key_metadata = other376.key_metadata;
-  __isset = other376.__isset;
+FileCryptoMetaData::FileCryptoMetaData(const FileCryptoMetaData& other264) {
+  encryption_algorithm = other264.encryption_algorithm;
+  key_metadata = other264.key_metadata;
+  __isset = other264.__isset;
 }
-FileCryptoMetaData::FileCryptoMetaData(FileCryptoMetaData&& other377) noexcept {
-  encryption_algorithm = std::move(other377.encryption_algorithm);
-  key_metadata = std::move(other377.key_metadata);
-  __isset = other377.__isset;
-}
-FileCryptoMetaData& FileCryptoMetaData::operator=(const FileCryptoMetaData& other378) {
-  encryption_algorithm = other378.encryption_algorithm;
-  key_metadata = other378.key_metadata;
-  __isset = other378.__isset;
-  return *this;
-}
-FileCryptoMetaData& FileCryptoMetaData::operator=(FileCryptoMetaData&& other379) noexcept {
-  encryption_algorithm = std::move(other379.encryption_algorithm);
-  key_metadata = std::move(other379.key_metadata);
-  __isset = other379.__isset;
+FileCryptoMetaData& FileCryptoMetaData::operator=(const FileCryptoMetaData& other265) {
+  encryption_algorithm = other265.encryption_algorithm;
+  key_metadata = other265.key_metadata;
+  __isset = other265.__isset;
   return *this;
 }
 void FileCryptoMetaData::printTo(std::ostream& out) const {
