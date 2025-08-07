@@ -566,9 +566,8 @@ Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_
   Result<const Kernel*> maybe_exact_match = call.function->DispatchExact(types);
   if (maybe_exact_match.ok()) {
     call.kernel = *maybe_exact_match;
-    if (FinishBind().ok()) {
-      return Expression(std::move(call));
-    }
+    RETURN_NOT_OK(FinishBind());
+    return Expression(std::move(call));
   }
 
   if (!insert_implicit_casts) {
