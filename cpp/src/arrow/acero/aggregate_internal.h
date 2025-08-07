@@ -98,7 +98,6 @@ struct AggregateNodeArgs {
   std::vector<const KernelType*> kernels;
   std::vector<std::vector<TypeHolder>> kernel_intypes;
   std::vector<std::vector<std::unique_ptr<KernelState>>> states;
-  bool requires_ordering;
   Ordering ordering;
 };
 
@@ -166,16 +165,13 @@ class ScalarAggregateNode : public ExecNode,
                             public TracedNode,
                             public util::SerialSequencingQueue::Processor {
  public:
-  ScalarAggregateNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                      std::shared_ptr<Schema> output_schema,
-                      std::unique_ptr<RowSegmenter> segmenter,
-                      std::vector<int> segment_field_ids,
-                      std::vector<std::vector<int>> target_fieldsets,
-                      std::vector<Aggregate> aggs,
-                      std::vector<const ScalarAggregateKernel*> kernels,
-                      std::vector<std::vector<TypeHolder>> kernel_intypes,
-                      std::vector<std::vector<std::unique_ptr<KernelState>>> states,
-                      bool requires_ordering, Ordering ordering)
+  ScalarAggregateNode(
+      ExecPlan* plan, std::vector<ExecNode*> inputs,
+      std::shared_ptr<Schema> output_schema, std::unique_ptr<RowSegmenter> segmenter,
+      std::vector<int> segment_field_ids, std::vector<std::vector<int>> target_fieldsets,
+      std::vector<Aggregate> aggs, std::vector<const ScalarAggregateKernel*> kernels,
+      std::vector<std::vector<TypeHolder>> kernel_intypes,
+      std::vector<std::vector<std::unique_ptr<KernelState>>> states, Ordering ordering)
       : ExecNode(plan, std::move(inputs), {"target"},
                  /*output_schema=*/std::move(output_schema)),
         TracedNode(this),
@@ -190,7 +186,7 @@ class ScalarAggregateNode : public ExecNode,
         total_output_batches_(0),
         sequencer_(nullptr),
         ordering_(std::move(ordering)) {
-    if (requires_ordering) {
+    if (!ordering_.is_unordered()) {
       sequencer_ = acero::util::SerialSequencingQueue::Make(this);
     }
   }
@@ -272,8 +268,7 @@ class GroupByNode : public ExecNode,
               std::vector<std::vector<TypeHolder>> agg_src_types,
               std::vector<std::vector<int>> agg_src_fieldsets,
               std::vector<Aggregate> aggs,
-              std::vector<const HashAggregateKernel*> agg_kernels, bool requires_ordering,
-              Ordering ordering)
+              std::vector<const HashAggregateKernel*> agg_kernels, Ordering ordering)
       : ExecNode(input->plan(), {input}, {"groupby"}, std::move(output_schema)),
         TracedNode(this),
         segmenter_(std::move(segmenter)),
@@ -287,7 +282,7 @@ class GroupByNode : public ExecNode,
         total_output_batches_(0),
         sequencer_(nullptr),
         ordering_(std::move(ordering)) {
-    if (requires_ordering) {
+    if (!ordering_.is_unordered()) {
       sequencer_ = acero::util::SerialSequencingQueue::Make(this);
     }
   }

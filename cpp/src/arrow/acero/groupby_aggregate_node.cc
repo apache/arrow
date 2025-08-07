@@ -196,7 +196,6 @@ Result<AggregateNodeArgs<HashAggregateKernel>> GroupByNode::MakeAggregateNodeArg
                                                 std::move(agg_kernels),
                                                 std::move(agg_src_types),
                                                 /*states=*/{},
-                                                requires_ordering,
                                                 std::move(out_ordering)};
 }
 
@@ -217,7 +216,7 @@ Result<ExecNode*> GroupByNode::Make(ExecPlan* plan, std::vector<ExecNode*> input
   ARROW_ASSIGN_OR_RAISE(
       auto args, MakeAggregateNodeArgs(input_schema, keys, segment_keys, aggs, exec_ctx,
                                        is_cpu_parallel, inputs));
-  if (args.requires_ordering) {
+  if (!args.ordering.is_unordered()) {
     if (inputs[0]->ordering().is_unordered()) {
       return Status::Invalid(
           "Aggregate node's input has no meaningful ordering and so limit/offset will be "
@@ -230,8 +229,7 @@ Result<ExecNode*> GroupByNode::Make(ExecPlan* plan, std::vector<ExecNode*> input
       input, std::move(args.output_schema), std::move(args.grouping_key_field_ids),
       std::move(args.segment_key_field_ids), std::move(args.segmenter),
       std::move(args.kernel_intypes), std::move(args.target_fieldsets),
-      std::move(args.aggregates), std::move(args.kernels), args.requires_ordering,
-      std::move(args.ordering));
+      std::move(args.aggregates), std::move(args.kernels), std::move(args.ordering));
 }
 
 Status GroupByNode::ResetKernelStates() {

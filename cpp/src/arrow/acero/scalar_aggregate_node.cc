@@ -176,20 +176,19 @@ ScalarAggregateNode::MakeAggregateNodeArgs(const std::shared_ptr<Schema>& input_
         break;
       }
     }
-    out_ordering = Ordering(out_sort_keys);
+    if (out_sort_keys.size() > 0)
+      out_ordering = Ordering(out_sort_keys);
+    else
+      out_ordering = Ordering::Implicit();
   }
 
-  return AggregateNodeArgs<ScalarAggregateKernel>{schema(std::move(fields)),
-                                                  /*grouping_key_field_ids=*/{},
-                                                  std::move(segment_field_ids),
-                                                  std::move(segmenter),
-                                                  std::move(target_fieldsets),
-                                                  std::move(aggregates),
-                                                  std::move(kernels),
-                                                  std::move(kernel_intypes),
-                                                  std::move(states),
-                                                  requires_ordering,
-                                                  std::move(out_ordering)};
+  return AggregateNodeArgs<ScalarAggregateKernel>{
+      schema(std::move(fields)),
+      /*grouping_key_field_ids=*/{}, std::move(segment_field_ids),
+      std::move(segmenter),          std::move(target_fieldsets),
+      std::move(aggregates),         std::move(kernels),
+      std::move(kernel_intypes),     std::move(states),
+      std::move(out_ordering)};
 }
 
 Result<ExecNode*> ScalarAggregateNode::Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -214,7 +213,7 @@ Result<ExecNode*> ScalarAggregateNode::Make(ExecPlan* plan, std::vector<ExecNode
   ARROW_ASSIGN_OR_RAISE(
       auto args, MakeAggregateNodeArgs(input_schema, keys, segment_keys, aggregates,
                                        exec_ctx, concurrency, is_cpu_parallel, inputs));
-  if (args.requires_ordering) {
+  if (!args.ordering.is_unordered()) {
     if (inputs[0]->ordering().is_unordered()) {
       return Status::Invalid(
           "Aggregate node's input has no meaningful ordering and so limit/offset will be "
@@ -227,7 +226,7 @@ Result<ExecNode*> ScalarAggregateNode::Make(ExecPlan* plan, std::vector<ExecNode
       plan, std::move(inputs), std::move(args.output_schema), std::move(args.segmenter),
       std::move(args.segment_key_field_ids), std::move(args.target_fieldsets),
       std::move(args.aggregates), std::move(args.kernels), std::move(args.kernel_intypes),
-      std::move(args.states), args.requires_ordering, std::move(args.ordering));
+      std::move(args.states), std::move(args.ordering));
 }
 
 Status ScalarAggregateNode::DoConsume(const ExecSpan& batch, size_t thread_index) {
