@@ -38,7 +38,7 @@ jobs:
       R_IMAGE: {{ '${{ matrix.config.r_image }}' }}
       R_TAG: "latest"
       ARROW_R_DEV: "FALSE"
-      R_UPDATE_CLANG: {{ '${{ matrix.config.r_update_clang | default(false) }}' }}
+      R_UPDATE_CLANG: {{ '${{ matrix.config.r_update_clang }}' }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
