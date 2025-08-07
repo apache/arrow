@@ -124,6 +124,7 @@ jobs:
               -e ARROW_USE_MESON=ON
             runs-on: ubuntu-latest
             title: AMD64 Ubuntu Meson
+          # TODO: We should remove this "continue-on-error: true" once GH-47207 is resolved
           - continue-on-error: true
             image: debian-cpp
             run-options: >-
