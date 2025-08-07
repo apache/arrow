@@ -76,7 +76,6 @@ fi
 $PACKAGE_MANAGER install -y rsync cmake curl
 
 # Update clang version to latest available
-
 if [ "$R_UPDATE_CLANG" = true ]; then
   apt update -y &&
   apt install -y gnupg &&
