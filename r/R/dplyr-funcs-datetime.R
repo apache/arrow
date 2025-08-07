@@ -831,7 +831,7 @@ register_bindings_datetime_rounding <- function() {
 register_bindings_hms <- function() {
   numeric_to_time32 <- function(x) {
     # The only numeric which can be cast to time32 is int32 so double cast to make sure
-    cast(cast(x, int32()), time32(unit = "s"))
+    cast(cast(x, int32()), time32(unit = "ms"))
   }
 
   datetime_to_time32 <- function(datetime) {
@@ -850,14 +850,14 @@ register_bindings_hms <- function() {
         abort("All arguments must be numeric or NA_real_")
       }
 
-      total_secs <- seconds +
-        Expression$create("multiply_checked", minutes, 60) +
-        Expression$create("multiply_checked", hours, 3600) +
-        Expression$create("multiply_checked", days, 86400)
+      total_ms <- Expression$create("multiply_checked", seconds, 1000) +
+        Expression$create("multiply_checked", minutes, 60000) +
+        Expression$create("multiply_checked", hours, 3600000) +
+        Expression$create("multiply_checked", days, 86400000)
 
-      return(numeric_to_time32(total_secs))
+      return(numeric_to_time32(total_ms))
     },
-    notes = "subsecond times not supported"
+    notes = "nanosecond times not supported"
   )
 
   register_binding(
@@ -868,7 +868,7 @@ register_bindings_hms <- function() {
       }
 
       if (call_binding("is.numeric", x)) {
-        return(numeric_to_time32(x))
+        return(numeric_to_time32(Expression$create("multiply_checked", x, 1000)))
       }
 
       if (call_binding("is.character", x)) {
