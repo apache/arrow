@@ -29,17 +29,11 @@ if [ "$#" -ne 1 ]; then
   exit
 fi
 
+. "${SOURCE_DIR}/utils-env.sh"
+
 version=$1
 
 cd "${SOURCE_DIR}"
-
-if [ ! -f .env ]; then
-  echo "You must create $(pwd)/.env"
-  echo "You can use $(pwd)/.env.example as template"
-  exit 1
-fi
-# shellcheck source=SCRIPTDIR/.env.example
-. .env
 
 tmp=$(mktemp -d -t "arrow-post-python.XXXXX")
 gh release download \

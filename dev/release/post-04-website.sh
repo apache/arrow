@@ -95,6 +95,7 @@ cat <<ANNOUNCE > "${announce_file}"
 ---
 layout: default
 title: Apache Arrow ${version} Release
+date: "${release_date_iso8601}"
 permalink: /release/${version}.html
 ---
 <!--

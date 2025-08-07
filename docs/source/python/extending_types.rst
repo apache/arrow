@@ -18,7 +18,7 @@
 .. currentmodule:: pyarrow
 .. _extending_types:
 
-Extending pyarrow
+Extending PyArrow
 =================
 
 Controlling conversion to (Py)Arrow with the PyCapsule Interface
@@ -80,8 +80,8 @@ Field.
 
 .. _arrow_array_protocol:
 
-Controlling conversion to pyarrow.Array with the ``__arrow_array__`` protocol
------------------------------------------------------------------------------
+Controlling conversion to ``pyarrow.Array`` with the ``__arrow_array__`` protocol
+---------------------------------------------------------------------------------
 
 The :func:`pyarrow.array` function has built-in support for Python sequences,
 numpy arrays and pandas 1D objects (Series, Index, Categorical, ..) to convert
@@ -97,7 +97,7 @@ define the ``__arrow_array__`` method to return an Arrow array::
         ...
 
         def __arrow_array__(self, type=None):
-            # convert the underlying array values to a pyarrow Array
+            # convert the underlying array values to a PyArrow Array
             import pyarrow
             return pyarrow.array(..., type=type)
 
@@ -436,7 +436,7 @@ Using the pandas period type from above as example, this would look like::
             return pd.PeriodDtype(freq=self.freq)
 
 Secondly, the pandas ``ExtensionDtype`` on its turn needs to have the
-``__from_arrow__`` method implemented: a method that given a pyarrow Array
+``__from_arrow__`` method implemented: a method that given a PyArrow Array
 or ChunkedArray of the extension type can construct the corresponding
 pandas ``ExtensionArray``. This method should have the following signature::
 
@@ -447,7 +447,7 @@ pandas ``ExtensionArray``. This method should have the following signature::
         def __from_arrow__(self, array: pyarrow.Array/ChunkedArray) -> pandas.ExtensionArray:
             ...
 
-This way, you can control the conversion of a pyarrow ``Array`` of your pyarrow
+This way, you can control the conversion of a PyArrow ``Array`` of your PyArrow
 extension type to a pandas ``ExtensionArray`` that can be stored in a DataFrame.
 
 
@@ -456,7 +456,7 @@ Canonical extension types
 
 You can find the official list of canonical extension types in the
 :ref:`format_canonical_extensions` section. Here we add examples on how to
-use them in pyarrow.
+use them in PyArrow.
 
 Fixed size tensor
 """""""""""""""""
@@ -572,7 +572,7 @@ And also the other way around, we can convert a numpy ndarray to a fixed shape t
      ]
    ]
 
-With the conversion the first dimension of the ndarray becomes the length of the pyarrow extension
+With the conversion the first dimension of the ndarray becomes the length of the PyArrow extension
 array. We can see in the example that ndarray of shape ``(3, 2, 2)`` becomes an arrow array of
 length 3 with tensor elements of shape ``(2, 2)``.
 

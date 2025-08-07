@@ -53,7 +53,19 @@ esac
 
 if [ ${BUMP_UPDATE_LOCAL_DEFAULT_BRANCH} -gt 0 ]; then
   echo "Updating local default branch"
-  git fetch --all --prune --tags --force -j$(nproc)
+  case "$(uname)" in
+    Linux)
+      n_jobs=$(nproc)
+      ;;
+    Darwin)
+      n_jobs=$(sysctl -n hw.ncpu)
+      ;;
+    *)
+      n_jobs=${NPROC:-0} # see git-config, 0 means "reasonable default"
+      ;;
+  esac
+
+  git fetch --all --prune --tags --force -j"$n_jobs"
   git checkout ${DEFAULT_BRANCH}
   git rebase apache/${DEFAULT_BRANCH}
 fi
