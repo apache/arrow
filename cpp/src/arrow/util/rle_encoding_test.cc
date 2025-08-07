@@ -207,6 +207,73 @@ TEST(BitUtil, RoundTripIntValues) {
   }
 }
 
+/// A Rle run is a simple class owning some data and a repetition count.
+/// It does not know how to read such data.
+TEST(Rle, RleRun) {
+  const std::array<RleRun::byte, 4> value = {21, 2, 0, 0};
+
+  RleRun::values_count_type value_count = 12;
+
+  // 12 times the value 21 fitting over 5 bits
+  auto const run_5 = RleRun(value.data(), value_count, /* value_bit_width= */ 5);
+  EXPECT_EQ(run_5.ValuesCount(), value_count);
+  EXPECT_EQ(run_5.ValuesBitWidth(), 5);
+  EXPECT_EQ(run_5.RawDataSize(), 1);  // 5 bits fit in one byte
+  EXPECT_EQ(*run_5.RawDataPtr(), 21);
+
+  // 12 times the value 21 fitting over 16 bits
+  auto const run_8 = RleRun(value.data(), value_count, /* value_bit_width= */ 8);
+  EXPECT_EQ(run_8.ValuesCount(), value_count);
+  EXPECT_EQ(run_8.ValuesBitWidth(), 8);
+  EXPECT_EQ(run_8.RawDataSize(), 1);  // 8 bits fit in 1 byte
+  EXPECT_EQ(*run_8.RawDataPtr(), 21);
+
+  // 12 times the value {21, 2} fitting over 10 bits
+  auto const run_10 = RleRun(value.data(), value_count, /* value_bit_width= */ 10);
+
+  EXPECT_EQ(run_10.ValuesCount(), value_count);
+  EXPECT_EQ(run_10.ValuesBitWidth(), 10);
+  EXPECT_EQ(run_10.RawDataSize(), 2);  // 10 bits fit in 2 bytes
+  EXPECT_EQ(*(run_10.RawDataPtr() + 0), 21);
+  EXPECT_EQ(*(run_10.RawDataPtr() + 1), 2);
+
+  // 12 times the value {21, 2} fitting over 32 bits
+  auto const run_32 = RleRun(value.data(), value_count, /* value_bit_width= */ 32);
+  EXPECT_EQ(run_32.ValuesCount(), value_count);
+  EXPECT_EQ(run_32.ValuesBitWidth(), 32);
+  EXPECT_EQ(run_32.RawDataSize(), 4);  // 32 bits fit in 4 bytes
+  EXPECT_EQ(*(run_32.RawDataPtr() + 0), 21);
+  EXPECT_EQ(*(run_32.RawDataPtr() + 1), 2);
+  EXPECT_EQ(*(run_32.RawDataPtr() + 2), 0);
+  EXPECT_EQ(*(run_32.RawDataPtr() + 3), 0);
+}
+
+/// A BitPacked run is a simple class owning some data and its size.
+/// It does not know how to read such data.
+TEST(BitPacked, BitPackedRun) {
+  const std::array<BitPackedRun::byte, 4> value = {0b10101010, 0, 0, 0b1111111};
+
+  /// 16 values of 1 bit for a total of 16 bits
+  BitPackedRun::values_count_type value_count_1 = 16;
+  auto const run_1 = BitPackedRun(value.data(), value_count_1, /* value_bit_width= */ 1);
+  EXPECT_EQ(run_1.ValuesCount(), value_count_1);
+  EXPECT_EQ(run_1.ValuesBitWidth(), 1);
+  EXPECT_EQ(run_1.RawDataSize(), 2);  // 16 bits fit in 2 bytes
+  for (BitPackedRun::raw_data_size_type i = 0; i < run_1.RawDataSize(); ++i) {
+    EXPECT_EQ(*(run_1.RawDataPtr() + i), value[i]);
+  }
+
+  /// 8 values of 3 bits for a total of 24 bits
+  BitPackedRun::values_count_type value_count_3 = 8;
+  auto const run_3 = BitPackedRun(value.data(), value_count_3, /* value_bit_width= */ 3);
+  EXPECT_EQ(run_3.ValuesCount(), value_count_3);
+  EXPECT_EQ(run_3.ValuesBitWidth(), 3);
+  EXPECT_EQ(run_3.RawDataSize(), 3);  // 24 bits fit in 3 bytes
+  for (BitPackedRun::raw_data_size_type i = 0; i < run_3.RawDataSize(); ++i) {
+    EXPECT_EQ(*(run_3.RawDataPtr() + i), value[i]);
+  }
+}
+
 // Validates encoding of values by encoding and decoding them.  If
 // expected_encoding != NULL, also validates that the encoded buffer is
 // exactly 'expected_encoding'.
