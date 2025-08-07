@@ -274,6 +274,66 @@ TEST(BitPacked, BitPackedRun) {
   }
 }
 
+template <typename T>
+void TestRleDecoder(std::vector<RleRun::byte> bytes,
+                    RleRun::values_count_type value_count,
+                    RleRun::bit_size_type bit_width) {
+  // Pre-requisite for this test
+  EXPECT_GT(value_count, 6);
+
+  // Compute value associated with bytes encoded as little endian
+  T value = 0;
+  for (std::size_t i = 0; i < bytes.size(); ++i) {
+    value += static_cast<T>(bytes.at(i)) << (8 * i);
+  }
+
+  auto const run = RleRun(bytes.data(), value_count, bit_width);
+
+  auto decoder = RleDecoder<T>(run);
+  std::vector<T> vals = {0, 0};
+
+  EXPECT_EQ(decoder.Remaining(), value_count);
+
+  typename decltype(decoder)::values_count_type read = 0;
+  EXPECT_EQ(decoder.Get(vals.data()), 1);
+  read += 1;
+  EXPECT_EQ(vals.at(0), value);
+  EXPECT_EQ(decoder.Remaining(), value_count - read);
+
+  EXPECT_EQ(decoder.Advance(3), 3);
+  read += 3;
+  EXPECT_EQ(decoder.Remaining(), value_count - read);
+
+  vals = {0, 0};
+  EXPECT_EQ(decoder.GetBatch(vals.data(), 2), vals.size());
+  EXPECT_EQ(vals.at(0), value);
+  EXPECT_EQ(vals.at(1), value);
+  read += static_cast<decltype(read)>(vals.size());
+  EXPECT_EQ(decoder.Remaining(), value_count - read);
+
+  // Exhaust iteration
+  EXPECT_EQ(decoder.Advance(value_count - read), value_count - read);
+  EXPECT_EQ(decoder.Remaining(), 0);
+  EXPECT_EQ(decoder.Advance(1), 0);
+  vals = {0, 0};
+  EXPECT_EQ(decoder.Get(vals.data()), 0);
+  EXPECT_EQ(vals.at(0), 0);
+
+  // Reset the decoder
+  decoder.Reset(run);
+  EXPECT_EQ(decoder.Remaining(), value_count);
+  vals = {0, 0};
+  EXPECT_EQ(decoder.GetBatch(vals.data(), 2), vals.size());
+  EXPECT_EQ(vals.at(0), value);
+  EXPECT_EQ(vals.at(1), value);
+}
+
+TEST(Rle, RleDecoder) {
+  TestRleDecoder<uint32_t>({21, 0, 0}, /* value_count= */ 21, /* bit_width= */ 5);
+  TestRleDecoder<uint16_t>({1, 0}, /* value_count= */ 13, /* bit_width= */ 1);
+  TestRleDecoder<uint64_t>({21, 2, 0, 1}, /* value_count= */ 20, /* bit_width= */ 30);
+}
+
 // Validates encoding of values by encoding and decoding them.  If
 // expected_encoding != NULL, also validates that the encoded buffer is
 // exactly 'expected_encoding'.
