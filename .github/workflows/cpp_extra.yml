@@ -177,9 +177,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-            - run-options: >-
-                -e ARROW_USE_MESON=ON
-              runs-on: windows-2022
+            - runs-on: windows-2022
               title: AMD64 Windows Meson 
     steps:
       - name: Checkout Arrow
@@ -216,10 +214,10 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build ${{ matrix.run-options || '' }}"
+          bash -c "ARROW_USE_MESON=ON; ci/scripts/cpp_build.sh $(pwd) $(pwd)/build ${{ matrix.run-options || '' }}"
       - name: Test
         shell: bash
         run: |
           # For ORC
           export TZDIR=/c/msys64/usr/share/zoneinfo
-          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build ${{ matrix.run-options || '' }}
+          ARROW_USE_MESON=ON ci/scripts/cpp_test.sh $(pwd) $(pwd)/build ${{ matrix.run-options || '' }}
