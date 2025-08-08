@@ -1802,7 +1802,7 @@ TEST_F(TestConvertArrowSchema, ParquetTimeAdjustedToUTC) {
         LogicalType::Time(write_time_utc_adjusted, LogicalType::TimeUnit::MICROS), ParquetType::INT64, -1},
       {"time64(nanosecond)", ::arrow::time64(::arrow::TimeUnit::NANO),
         LogicalType::Time(write_time_utc_adjusted, LogicalType::TimeUnit::NANOS), ParquetType::INT64, -1}
-      }
+      };
       return cases;
   };
 
@@ -1816,7 +1816,7 @@ TEST_F(TestConvertArrowSchema, ParquetTimeAdjustedToUTC) {
                                                     c.physical_length));
     }
     return std::make_pair(arrow_fields, parquet_fields);
-  }
+  };
 
 
   ArrowWriterProperties::Builder builder;
@@ -1830,8 +1830,8 @@ TEST_F(TestConvertArrowSchema, ParquetTimeAdjustedToUTC) {
 
   arrow_writer_properties = builder.disable_time_adjusted_to_utc()->build();
   EXPECT_FALSE(arrow_writer_properties->write_time_adjusted_to_utc());
-  auto cases = make_cases_fcn(false);
-  auto arrow_parquet_fields = make_fields_schema_fcn(cases);
+  cases = make_cases_fcn(false);
+  arrow_parquet_fields = make_fields_schema_fcn(cases);
   ASSERT_OK(ConvertSchema(arrow_parquet_fields.first, arrow_writer_properties));
   CheckFlatSchema(arrow_parquet_fields.second);
 }
