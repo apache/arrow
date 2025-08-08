@@ -77,11 +77,11 @@ $PACKAGE_MANAGER install -y rsync cmake curl
 
 # Update clang version to latest available
 if [ "$R_UPDATE_CLANG" = true ]; then
-  apt update -y &&
-  apt install -y gnupg &&
-  curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/llvm.gpg &&
-  echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main" > /etc/apt/sources.list.d/llvm20.list &&
-  apt update -y &&
+  apt update -y
+  apt install -y gnupg
+  curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/llvm.gpg
+  echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main" > /etc/apt/sources.list.d/llvm20.list
+  apt update -y
   apt install -y clang-20 lld-20
 fi
 
