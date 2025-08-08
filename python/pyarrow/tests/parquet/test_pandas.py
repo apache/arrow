@@ -121,8 +121,6 @@ def test_attributes_metadata_persistence(tempdir):
 
     _write_table(table, filename)
     metadata = pq.read_metadata(filename).metadata
-    assert b'attributes' in table.schema.metadata[b'pandas']
-
     js = json.loads(metadata[b'pandas'].decode('utf8'))
     assert 'attributes' in js
     assert js['attributes'] == df.attrs

@@ -275,7 +275,7 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
     else:
         index_descriptors = index_column_metadata = column_indexes = []
 
-    attributes: dict = df.attrs if df.attrs else {}
+    attributes = df.attrs if hasattr(df, "attrs") else {}
 
     return {
         b'pandas': json.dumps({
