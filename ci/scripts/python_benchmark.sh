@@ -43,4 +43,4 @@ git fetch --depth=100 origin "${DEFAULT_BRANCH}:${DEFAULT_BRANCH}"
 asv machine --yes
 # Run benchmarks on the changeset being tested
 asv run --no-pull --show-stderr --quick HEAD^!
-popd # $ARROW_PYTHON_DIR
+popd  # $ARROW_PYTHON_DIR
