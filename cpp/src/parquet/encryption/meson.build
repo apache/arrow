@@ -15,13 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[wrap-file]
-directory = rapidjson-232389d4f1012dddec4ef84861face2d2ba85709
-source_url = https://github.com/miloyip/rapidjson/archive/232389d4f1012dddec4ef84861face2d2ba85709.tar.gz
-source_filename = rapidjson-232389d4f1012dddec4ef84861face2d2ba85709.tar.gz
-source_hash = b9290a9a6d444c8e049bd589ab804e0ccf2b05dc5984a19ed5ae75d090064806
-source_fallback_url = https://apache.jfrog.io/artifactory/arrow/thirdparty/7.0.0/rapidjson-232389d4f1012dddec4ef84861face2d2ba85709.tar.gz
-patch_directory = rapidjson
-
-[provide]
-rapidjson = rapidjson_dep
+install_headers(
+    [
+        'crypto_factory.h',
+        'encryption.h',
+        'file_key_material_store.h',
+        'file_key_unwrapper.h',
+        'file_key_wrapper.h',
+        'file_system_key_material_store.h',
+        'key_encryption_key.h',
+        'key_material.h',
+        'key_metadata.h',
+        'key_toolkit.h',
+        'kms_client_factory.h',
+        'kms_client.h',
+        'local_wrap_kms_client.h',
+        'test_encryption_util.h',
+        'test_in_memory_kms.h',
+        'two_level_cache_with_expiration.h',
+        'type_fwd.h',
+    ],
+    subdir: 'parquet/encryption',
+)
