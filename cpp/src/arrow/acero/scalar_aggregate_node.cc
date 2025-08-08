@@ -18,6 +18,7 @@
 #include <mutex>
 #include <thread>
 #include <unordered_set>
+#include <utility>
 
 #include "arrow/acero/aggregate_internal.h"
 #include "arrow/acero/aggregate_node.h"
@@ -62,7 +63,7 @@ ScalarAggregateNode::MakeAggregateNodeArgs(const std::shared_ptr<Schema>& input_
                                            const std::vector<FieldRef>& segment_keys,
                                            const std::vector<Aggregate>& aggs,
                                            ExecContext* exec_ctx, size_t concurrency,
-                                           bool is_cpu_parallel) {
+                                           std::vector<ExecNode*> inputs) {
   // Copy (need to modify options pointer below)
   std::vector<Aggregate> aggregates(aggs);
   std::vector<int> segment_field_ids(segment_keys.size());
@@ -93,6 +94,12 @@ ScalarAggregateNode::MakeAggregateNodeArgs(const std::shared_ptr<Schema>& input_
 
   std::vector<std::vector<int>> target_fieldsets(kernels.size());
   std::size_t base = segment_keys.size();
+  bool requires_ordering = false;
+
+  if (segment_keys.size() > 0) {
+    requires_ordering = true;
+  }
+
   for (size_t i = 0; i < kernels.size(); ++i) {
     const auto& target_fieldset = aggregates[i].target;
     for (const auto& target : target_fieldset) {
@@ -122,9 +129,8 @@ ScalarAggregateNode::MakeAggregateNodeArgs(const std::shared_ptr<Schema>& input_
     ARROW_ASSIGN_OR_RAISE(const Kernel* kernel,
                           function->DispatchExact(kernel_intypes[i]));
     const auto* agg_kernel = static_cast<const ScalarAggregateKernel*>(kernel);
-    if (is_cpu_parallel && agg_kernel->ordered) {
-      return Status::NotImplemented(
-          "Using ordered aggregator in multiple threaded execution is not supported");
+    if (agg_kernel->ordered) {
+      requires_ordering = true;
     }
 
     kernels[i] = agg_kernel;
@@ -152,12 +158,45 @@ ScalarAggregateNode::MakeAggregateNodeArgs(const std::shared_ptr<Schema>& input_
     fields[base + i] = field(aggregates[i].name, out_type.GetSharedPtr());
   }
 
+  Ordering out_ordering = Ordering::Unordered();
+  if (requires_ordering && inputs[0]->ordering().is_implicit()) {
+    out_ordering = Ordering::Implicit();
+  } else if (requires_ordering) {
+    std::vector<compute::SortKey> out_sort_keys;
+    std::unordered_set<int> segmented_key_field_id_set(segment_field_ids.begin(),
+                                                       segment_field_ids.end());
+    // Propagate output sorting only by segmented keys excluding sorting by regualr keys
+    // since this will break the segmentation.
+    for (auto key : inputs[0]->ordering().sort_keys()) {
+      ARROW_ASSIGN_OR_RAISE(auto match, key.target.FindOne(*input_schema));
+      if (segmented_key_field_id_set.find(match[0]) != segmented_key_field_id_set.end()) {
+        out_sort_keys.emplace_back(key);
+      } else {
+        break;
+      }
+    }
+    if (out_sort_keys.size() > 0)
+      out_ordering = Ordering(out_sort_keys);
+    else
+      out_ordering = Ordering::Implicit();
+  }
+
+  if (!out_ordering.is_unordered()) {
+    if (inputs[0]->ordering().is_unordered()) {
+      return Status::Invalid(
+          "Aggregate node's input has no meaningful ordering and so limit/offset will be "
+          "non-deterministic.  Please establish order in some way (e.g. by inserting an "
+          "order_by node)");
+    }
+  }
+
   return AggregateNodeArgs<ScalarAggregateKernel>{
       schema(std::move(fields)),
       /*grouping_key_field_ids=*/{}, std::move(segment_field_ids),
       std::move(segmenter),          std::move(target_fieldsets),
       std::move(aggregates),         std::move(kernels),
-      std::move(kernel_intypes),     std::move(states)};
+      std::move(kernel_intypes),     std::move(states),
+      std::move(out_ordering)};
 }
 
 Result<ExecNode*> ScalarAggregateNode::Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -169,14 +208,9 @@ Result<ExecNode*> ScalarAggregateNode::Make(ExecPlan* plan, std::vector<ExecNode
   const auto& keys = aggregate_options.keys;
   const auto& segment_keys = aggregate_options.segment_keys;
   const auto concurrency = plan->query_context()->max_concurrency();
-  // We can't use concurrency == 1 because that include I/O concurrency
-  const bool is_cpu_parallel = plan->query_context()->executor()->GetCapacity() > 1;
 
   if (keys.size() > 0) {
     return Status::Invalid("Scalar aggregation with some key");
-  }
-  if (is_cpu_parallel && segment_keys.size() > 0) {
-    return Status::NotImplemented("Segmented aggregation in a multi-threaded plan");
   }
 
   const auto& input_schema = inputs[0]->output_schema();
@@ -184,22 +218,13 @@ Result<ExecNode*> ScalarAggregateNode::Make(ExecPlan* plan, std::vector<ExecNode
 
   ARROW_ASSIGN_OR_RAISE(
       auto args, MakeAggregateNodeArgs(input_schema, keys, segment_keys, aggregates,
-                                       exec_ctx, concurrency, is_cpu_parallel));
-
-  if (is_cpu_parallel) {
-    for (auto& kernel : args.kernels) {
-      if (kernel->ordered) {
-        return Status::NotImplemented(
-            "Using ordered aggregator in multiple threaded execution is not supported");
-      }
-    }
-  }
+                                       exec_ctx, concurrency, inputs));
 
   return plan->EmplaceNode<ScalarAggregateNode>(
       plan, std::move(inputs), std::move(args.output_schema), std::move(args.segmenter),
       std::move(args.segment_key_field_ids), std::move(args.target_fieldsets),
       std::move(args.aggregates), std::move(args.kernels), std::move(args.kernel_intypes),
-      std::move(args.states));
+      std::move(args.states), std::move(args.ordering));
 }
 
 Status ScalarAggregateNode::DoConsume(const ExecSpan& batch, size_t thread_index) {
@@ -225,8 +250,16 @@ Status ScalarAggregateNode::DoConsume(const ExecSpan& batch, size_t thread_index
 }
 
 Status ScalarAggregateNode::InputReceived(ExecNode* input, ExecBatch batch) {
-  auto scope = TraceInputReceived(batch);
   DCHECK_EQ(input, inputs_[0]);
+  if (sequencer_) {
+    return sequencer_->InsertBatch(std::move(batch));
+  }
+  return Process(std::move(batch));
+}
+
+Status ScalarAggregateNode::Process(ExecBatch batch) {
+  auto scope = TraceInputReceived(batch);
+  // DCHECK_EQ(input, inputs_[0]);
 
   auto thread_index = plan_->query_context()->GetThreadIndex();
   auto handler = [this, thread_index](const ExecBatch& full_batch,
@@ -309,10 +342,14 @@ Status ScalarAggregateNode::OutputResult(bool is_last) {
     RETURN_NOT_OK(kernels_[i]->finalize(&ctx, &batch.values[base + i]));
   }
 
+  if (!ordering_.is_unordered()) {
+    batch.index = total_output_batches_;
+  }
+  ++total_output_batches_;
   ARROW_RETURN_NOT_OK(output_->InputReceived(this, std::move(batch)));
-  total_output_batches_++;
   if (is_last) {
-    ARROW_RETURN_NOT_OK(output_->InputFinished(this, total_output_batches_));
+    ARROW_RETURN_NOT_OK(
+        output_->InputFinished(this, static_cast<int>(total_output_batches_)));
   } else {
     ARROW_RETURN_NOT_OK(ResetKernelStates());
   }
