@@ -572,7 +572,13 @@ endif
 arrow_test_lib = static_library(
     'arrow_testing',
     sources: arrow_testing_srcs,
-    dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
+    dependencies: [
+        arrow_dep,
+        filesystem_dep,
+        gmock_dep,
+        gtest_main_dep,
+        rapidjson_dep,
+    ],
 )
 
 if needs_tests
