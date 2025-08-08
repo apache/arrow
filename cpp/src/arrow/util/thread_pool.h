@@ -475,6 +475,7 @@ class ARROW_EXPORT ThreadPool : public Executor {
 
   // Heuristic for the default capacity of a thread pool for CPU-bound tasks.
   // This is exposed as a static method to help with testing.
+  // The number returned is guaranteed to be greater or equal to one.
   static int DefaultCapacity();
 
   // Shutdown the pool.  Once the pool starts shutting down, new tasks
