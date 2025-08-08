@@ -424,7 +424,8 @@ arrow_lib = library(
     include_directories: arrow_includes,
     dependencies: arrow_deps,
     install: true,
-    gnu_symbol_visibility: 'hidden',
+    # TODO: re-enable symbol visibility
+    #gnu_symbol_visibility: 'hidden',
     cpp_shared_args: ['-DARROW_EXPORTING'],
 )
 
