@@ -59,7 +59,6 @@ if (dir.exists("../cpp")) {
       "^submodules",
       "^src/gandiva",
       "^src/jni",
-      "^src/skyhook",
       "^src/arrow/flight/sql/odbc",
       "_test\\.cc"
     )
