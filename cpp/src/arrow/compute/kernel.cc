@@ -482,7 +482,7 @@ std::shared_ptr<MatchConstraint> DecimalsHaveSameScale() {
   class DecimalsHaveSameScaleConstraint : public MatchConstraint {
    public:
     bool Validate(const std::vector<TypeHolder>& types) const override {
-      DCHECK(types.size() >= 2);
+      DCHECK_GE(types.size(), 2);
       DCHECK(std::all_of(types.begin(), types.end(),
                          [](const TypeHolder& type) { return is_decimal(type.id()); }));
       auto ty0 = dynamic_cast<const DecimalType*>(types[0].type);
