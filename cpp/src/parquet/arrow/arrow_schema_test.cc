@@ -1806,7 +1806,7 @@ TEST_F(TestConvertArrowSchema, ParquetTimeAdjustedToUTC) {
       return cases;
   };
 
-  auto make_fields_schema_fcn = [](const FieldConstructionArguments& cases) {
+  auto make_fields_schema_fcn = [](const std::vector<FieldConstructionArguments>& cases) {
     std::vector<std::shared_ptr<Field>> arrow_fields;
     std::vector<NodePtr> parquet_fields;
     for (const FieldConstructionArguments& c : cases) {
