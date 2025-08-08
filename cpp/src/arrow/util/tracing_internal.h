@@ -150,14 +150,13 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
                 target_span.details.get(),                       \
                 ::arrow::internal::tracing::GetTracer()->StartSpan(__VA_ARGS__))))
 
-#  define START_SCOPED_SPAN_SV(target_span, name, ...)                             \
-    ::arrow::internal::tracing::Scope(                                             \
-        ::arrow::internal::tracing::GetTracer()->WithActiveSpan(                   \
-            ::arrow::internal::tracing::RewrapSpan(                                \
-                target_span.details.get(),                                         \
-                ::arrow::internal::tracing::GetTracer()->StartSpan(                \
-                    ::opentelemetry::nostd::string_view(name.data(), name.size()), \
-                    ##__VA_ARGS__))))
+#  define START_SCOPED_SPAN_SV(target_span, name)                   \
+    ::arrow::internal::tracing::Scope(                              \
+        ::arrow::internal::tracing::GetTracer()->WithActiveSpan(    \
+            ::arrow::internal::tracing::RewrapSpan(                 \
+                target_span.details.get(),                          \
+                ::arrow::internal::tracing::GetTracer()->StartSpan( \
+                    ::opentelemetry::nostd::string_view(name.data(), name.size())))))
 
 #  define START_SCOPED_SPAN_WITH_PARENT_SV(target_span, parent_span, name, ...)    \
     ::arrow::internal::tracing::Scope(                                             \
@@ -227,7 +226,7 @@ struct Scope {
 
 #  define START_SPAN(target_span, ...)
 #  define START_SCOPED_SPAN(target_span, ...) ::arrow::internal::tracing::Scope()
-#  define START_SCOPED_SPAN_SV(target_span, name, ...) ::arrow::internal::tracing::Scope()
+#  define START_SCOPED_SPAN_SV(target_span, name) ::arrow::internal::tracing::Scope()
 #  define START_COMPUTE_SPAN(target_span, ...)
 #  define ACTIVATE_SPAN(target_span) ::arrow::internal::tracing::Scope()
 #  define MARK_SPAN(target_span, status)
