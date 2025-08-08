@@ -85,7 +85,6 @@ else
     arrow_compute_test_dep = disabler()
 endif
 
-
 exc = executable(
     'arrow-internals-test',
     sources: [
@@ -97,7 +96,6 @@ exc = executable(
     dependencies: [arrow_compute_core_test_dep, arrow_test_dep],
 )
 test('arrow-internals-test', exc)
-
 
 compute_tests = {
     'arrow-compute-expression-test': {'sources': ['expression_test.cc']},
