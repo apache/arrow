@@ -15,20 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-install_headers(['json_integration.h'])
+[wrap-file]
+directory = re2-2023-03-01
+source_url = https://github.com/google/re2/archive/2023-03-01.tar.gz
+source_filename = re2-2023-03-01.tar.gz
+source_hash = 7a9a4824958586980926a300b4717202485c4b4115ac031822e29aa4ef207e48
+patch_filename = re2_20230301-3_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/re2_20230301-3/get_patch
+patch_hash = 9d5036080272a886fee0dec9ea415129ae57ee6bad4b56991b29ed355c0d97e3
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/re2_20230301-3/re2-2023-03-01.tar.gz
+wrapdb_version = 20230301-3
 
-exc = executable(
-    'arrow-json-integration-test',
-    sources: ['json_integration_test.cc'],
-    dependencies: [
-        arrow_dep,
-        arrow_testing_dep,
-        rapidjson_dep,
-        gflags_dep,
-        gtest_dep,
-    ],
-)
-
-if needs_tests
-    test('arrow-json-integration-test', exc)
-endif
+[provide]
+re2 = re2_dep
