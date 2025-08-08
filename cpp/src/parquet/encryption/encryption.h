@@ -189,11 +189,17 @@ class PARQUET_EXPORT ColumnDecryptionProperties {
     /// key length must be either 16, 24 or 32 bytes.
     Builder* key(const std::string& key);
 
+    /// Set ParquetCipher type to use.
+    /// This field is declared as optional. If the value is not set, then the ParquetCipher
+    /// declared in the InternalFileDecryptor will be used.
+    Builder* parquet_cipher(ParquetCipher::type parquet_cipher);
+
     std::shared_ptr<ColumnDecryptionProperties> build();
 
    private:
     const std::string column_path_;
     std::string key_;
+    std::optional<ParquetCipher::type> parquet_cipher_;
   };
 
   ColumnDecryptionProperties() = default;
@@ -205,15 +211,20 @@ class PARQUET_EXPORT ColumnDecryptionProperties {
   std::string column_path() const { return column_path_; }
   std::string key() const { return key_; }
 
+  /// Check whether the optional has a value before using.
+  std::optional<ParquetCipher::type> parquet_cipher() const { return parquet_cipher_; }
+
  private:
   const std::string column_path_;
   std::string key_;
+  std::optional<ParquetCipher::type> parquet_cipher_;
 
   /// This class is only required for setting explicit column decryption keys -
   /// to override key retriever (or to provide keys when key metadata and/or
   /// key retriever are not available)
   explicit ColumnDecryptionProperties(const std::string& column_path,
-                                      const std::string& key);
+                                      const std::string& key,
+                                      std::optional<ParquetCipher::type> parquet_cipher);
 };
 
 class PARQUET_EXPORT AADPrefixVerifier {
@@ -304,7 +315,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
           aad_prefix_verifier_, column_decryption_properties_, plaintext_files_allowed_));
     }
 
-   private:
+   protected:
     std::string footer_key_;
     std::string aad_prefix_;
     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier_;
@@ -349,6 +360,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
   bool check_plaintext_footer_integrity_;
   bool plaintext_files_allowed_;
 
+  protected:
   FileDecryptionProperties(
       const std::string& footer_key,
       std::shared_ptr<DecryptionKeyRetriever> key_retriever,
@@ -356,6 +368,47 @@ class PARQUET_EXPORT FileDecryptionProperties {
       std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
       const ColumnPathToDecryptionPropertiesMap& column_decryption_properties,
       bool plaintext_files_allowed);
+};
+
+class PARQUET_EXPORT ExternalFileDecryptionProperties : public FileDecryptionProperties {
+ public:
+  class PARQUET_EXPORT Builder : public FileDecryptionProperties::Builder {
+   public:
+    Builder() : FileDecryptionProperties::Builder() {}
+
+    Builder* app_context(const std::string& context);
+
+    Builder* connection_config(
+      const std::map<ParquetCipher::type, std::map<std::string, std::string>>& config);
+
+    std::shared_ptr<ExternalFileDecryptionProperties> build_external();
+
+   private:
+    std::string app_context_;
+    std::map<ParquetCipher::type, std::map<std::string, std::string>> connection_config_;
+  };
+
+  const std::string& app_context() const {
+    return app_context_;
+  }
+
+  const std::map<ParquetCipher::type, std::map<std::string, std::string>>& connection_config() const {
+    return connection_config_;
+  }
+
+ private:
+  std::string app_context_;
+  std::map<ParquetCipher::type, std::map<std::string, std::string>> connection_config_;
+
+  ExternalFileDecryptionProperties(
+    const std::string& footer_key,
+    std::shared_ptr<DecryptionKeyRetriever> key_retriever,
+    bool check_plaintext_footer_integrity, const std::string& aad_prefix,
+    std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
+    const ColumnPathToDecryptionPropertiesMap& column_decryption_properties,
+    bool plaintext_files_allowed,
+    const std::string& app_context,
+    const std::map<ParquetCipher::type, std::map<std::string, std::string>>& connection_config);
 };
 
 class PARQUET_EXPORT FileEncryptionProperties {
