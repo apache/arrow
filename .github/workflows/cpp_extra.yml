@@ -223,7 +223,10 @@ jobs:
           ARROW_USE_MESON: ON
           ARROW_HOME: C:\arrow-dist
         run: |
+          echo %PATH%
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          echo %PATH%
+          dir "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64"
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build ${{ matrix.run-options || '' }}"
       - name: Test
         shell: bash
