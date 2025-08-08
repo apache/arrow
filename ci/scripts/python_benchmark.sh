@@ -16,6 +16,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+set -e
 
 # Check the ASV benchmarking setup.
 # Unfortunately this won't ensure that all benchmarks succeed
@@ -34,7 +35,7 @@ export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_ORC=0
 export PYARROW_WITH_GANDIVA=0
 
-pushd "$ARROW_PYTHON_DIR" || exit 1
+pushd "$ARROW_PYTHON_DIR"
 # Workaround for https://github.com/airspeed-velocity/asv/issues/631
 DEFAULT_BRANCH=$(git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@)
 git fetch --depth=100 origin "${DEFAULT_BRANCH}:${DEFAULT_BRANCH}"
@@ -42,4 +43,4 @@ git fetch --depth=100 origin "${DEFAULT_BRANCH}:${DEFAULT_BRANCH}"
 asv machine --yes
 # Run benchmarks on the changeset being tested
 asv run --no-pull --show-stderr --quick HEAD^!
-popd || exit # $ARROW_PYTHON_DIR
+popd # $ARROW_PYTHON_DIR
