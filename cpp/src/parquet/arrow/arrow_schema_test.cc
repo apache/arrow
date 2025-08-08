@@ -1782,6 +1782,61 @@ TEST_F(TestConvertArrowSchema, ParquetFlatDecimals) {
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
 }
 
+TEST_F(TestConvertArrowSchema, ParquetTimeAdjustedToUTC) {
+  // Verify Parquet Time types have the appropriate isAdjustedToUTC value, depending
+  // on the return value of ArrowWriterProperties::write_time_adjusted_to_utc()
+
+  struct FieldConstructionArguments {
+    std::string name;
+    std::shared_ptr<::arrow::DataType> datatype;
+    std::shared_ptr<const LogicalType> logical_type;
+    parquet::Type::type physical_type;
+    int physical_length;
+  };
+
+  auto make_cases_fcn = [](bool write_time_utc_adjusted) {
+    std::vector<FieldConstructionArguments> cases = {
+      {"time32", ::arrow::time32(::arrow::TimeUnit::MILLI),
+        LogicalType::Time(write_time_utc_adjusted, LogicalType::TimeUnit::MILLIS), ParquetType::INT32, -1},
+      {"time64(microsecond)", ::arrow::time64(::arrow::TimeUnit::MICRO),
+        LogicalType::Time(write_time_utc_adjusted, LogicalType::TimeUnit::MICROS), ParquetType::INT64, -1},
+      {"time64(nanosecond)", ::arrow::time64(::arrow::TimeUnit::NANO),
+        LogicalType::Time(write_time_utc_adjusted, LogicalType::TimeUnit::NANOS), ParquetType::INT64, -1}
+      }
+      return cases;
+  };
+
+  auto make_fields_schema_fcn = [](const FieldConstructionArguments& cases) {
+    std::vector<std::shared_ptr<Field>> arrow_fields;
+    std::vector<NodePtr> parquet_fields;
+    for (const FieldConstructionArguments& c : cases) {
+        arrow_fields.push_back(::arrow::field(c.name, c.datatype, false));
+        parquet_fields.push_back(PrimitiveNode::Make(c.name, Repetition::REQUIRED,
+                                                    c.logical_type, c.physical_type,
+                                                    c.physical_length));
+    }
+    return std::make_pair(arrow_fields, parquet_fields);
+  }
+
+
+  ArrowWriterProperties::Builder builder;
+
+  auto arrow_writer_properties = builder.enable_time_adjusted_to_utc()->build();
+  EXPECT_TRUE(arrow_writer_properties->write_time_adjusted_to_utc());
+  auto cases = make_cases_fcn(true);
+  auto arrow_parquet_fields = make_fields_schema_fcn(cases);
+  ASSERT_OK(ConvertSchema(arrow_parquet_fields.first, arrow_writer_properties));
+  CheckFlatSchema(arrow_parquet_fields.second);
+
+  arrow_writer_properties = builder.disable_time_adjusted_to_utc()->build();
+  EXPECT_FALSE(arrow_writer_properties->write_time_adjusted_to_utc());
+  auto cases = make_cases_fcn(false);
+  auto arrow_parquet_fields = make_fields_schema_fcn(cases);
+  ASSERT_OK(ConvertSchema(arrow_parquet_fields.first, arrow_writer_properties));
+  CheckFlatSchema(arrow_parquet_fields.second);
+}
+
+
 class TestConvertRoundTrip : public ::testing::Test {
  public:
   ::arrow::Status RoundTripSchema(
