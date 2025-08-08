@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if host_machine.system() != 'windows'
-  dl_dep = dependency('dl')
-else
+if host_machine.system() == 'windows'
   dl_dep = declare_dependency()
+else
+  dl_dep = dependency('dl')
 endif
 threads_dep = dependency('threads')
 
@@ -447,7 +447,7 @@ arrow_lib = library(
 )
 
 arrow_compile_args = []
-if host_machine.system() == 'windows' and get_option('default_library') != 'shared'
+if get_option('default_library') != 'shared'
     arrow_compile_args += ['-DARROW_STATIC']
 endif
 
