@@ -428,6 +428,11 @@ foreach key, val : arrow_components
     arrow_deps += val.get('dependencies', [])
 endforeach
 
+arrow_lib_cpp_shared_args = ['-DARROW_EXPORTING', '-DURI_LIBRARY_BUILD']
+if needs_compute
+    arrow_lib_cpp_shared_args += ['-DARROW_COMPUTE_EXPORTING']
+endif
+
 arrow_lib = library(
     'arrow',
     sources: arrow_srcs,
@@ -437,7 +442,7 @@ arrow_lib = library(
     gnu_symbol_visibility: 'hidden',
     c_shared_args: ['-DARROW_EXPORTING', '-DURI_LIBRARY_BUILD', '-DURI_VISIBILITY'],
     c_static_args: ['-DURI_STATIC_BUILD'],
-    cpp_shared_args: ['-DARROW_EXPORTING', '-DURI_LIBRARY_BUILD'],
+    cpp_shared_args: arrow_lib_cpp_shared_args,
     cpp_static_args: ['-DARROW_STATIC'],
 )
 
