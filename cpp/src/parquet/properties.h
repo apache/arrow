@@ -1162,7 +1162,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
           engine_version_(V2),
           use_threads_(kArrowDefaultUseThreads),
           executor_(NULLPTR),
-          write_time_adjusted_to_utc_(false) {}
+          write_time_adjusted_to_utc_(true) {}
     virtual ~Builder() = default;
 
     /// \brief Disable writing legacy int96 timestamps (default disabled).
