@@ -538,6 +538,21 @@ cdef class CryptoFactory(_Weakrefable):
             file_encryption_properties_result)
         return FileEncryptionProperties.wrap(file_encryption_properties)
 
+    def external_file_encryption_properties(self,
+                                            KmsConnectionConfig kms_connection_config,
+                                            ExternalEncryptionConfiguration external_encryption_config):
+        cdef:
+            CResult[shared_ptr[CExternalFileEncryptionProperties]] \
+                external_file_encryption_properties_result
+        with nogil:
+            external_file_encryption_properties_result = \
+                self.factory.get().SafeGetExternalFileEncryptionProperties(
+                    deref(kms_connection_config.unwrap().get()),
+                    deref(external_encryption_config.unwrap_external().get()))
+        external_file_encryption_properties = GetResultValue(
+            external_file_encryption_properties_result)
+        return ExternalFileEncryptionProperties.wrap_external(external_file_encryption_properties)
+        
     def file_decryption_properties(
             self,
             KmsConnectionConfig kms_connection_config,
@@ -612,3 +627,23 @@ cdef shared_ptr[CDecryptionConfiguration] pyarrow_unwrap_decryptionconfig(object
     if isinstance(decryptionconfig, DecryptionConfiguration):
         return (<DecryptionConfiguration> decryptionconfig).unwrap()
     raise TypeError("Expected DecryptionConfiguration, got %s" % type(decryptionconfig))
+
+cdef class ExternalConnectionConfiguration(_Weakrefable):
+
+    __slots__ = ()
+
+    def __init__(self, config_path, *):
+        self.configuration.reset(
+            new CExternalConnectionConfiguration(tobytes(config_path)))
+
+    @property
+    def config_path(self):
+        return frombytes(self.configuration.get().config_path)
+
+    cdef inline shared_ptr[CExternalConnectionConfiguration] unwrap(self) nogil:
+        return self.configuration
+
+cdef shared_ptr[CExternalConnectionConfiguration] pyarrow_unwrap_external_connectionconfig(object externalconnectionconfig) except *:
+    if isinstance(externalconnectionconfig, ExternalConnectionConfiguration):
+        return (<ExternalConnectionConfiguration> externalconnectionconfig).unwrap()
+    raise TypeError("Expected ExternalConnectionConfiguration, got %s" % type(externalconnectionconfig))

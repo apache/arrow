@@ -18,6 +18,8 @@ import pytest
 from datetime import  timedelta
 import pyarrow.parquet as pq
 import pyarrow.parquet.encryption as pe
+from pyarrow._parquet_encryption import CryptoFactory, KmsConnectionConfig, ExternalEncryptionConfiguration
+
 
 def test_encryption_configuration_properties(tempdir):
     """Test the standard EncryptionConfiguration properties to avoid regressions."""
@@ -171,3 +173,72 @@ def test_external_encryption_rejects_none_values():
     # connection_config: expect ValueError due to None not being iterable
     with pytest.raises(ValueError, match="Connection config value cannot be None"):
         config.connection_config = None
+
+
+class DummyKmsClient(pe.KmsClient):
+    def __init__(self):
+        super().__init__()
+
+    def wrap_key(self, key_bytes, master_key_identifier):
+        # dummy wrap just returns key_bytes
+        return key_bytes
+
+    def unwrap_key(self, wrapped_key, master_key_identifier):
+        # dummy unwrap just returns wrapped_key
+        return wrapped_key
+
+@pytest.fixture
+def kms_config():
+    return pe.KmsConnectionConfig(
+        custom_kms_conf={
+            "footer_key": "012footer_secret",
+            "orderid_key": "column_secret001",
+            "productid_key": "column_secret002"
+        }
+    )
+
+@pytest.fixture
+def external_encryption_config():
+    return pe.ExternalEncryptionConfiguration(
+        footer_key=b"0123456789abcdef",  # exactly 16 bytes
+        column_keys={
+            "col-key-id": ["a", "b"],
+        },
+        encryption_algorithm="AES_GCM_V1",
+        plaintext_footer=True,
+        double_wrapping=True,
+        cache_lifetime=timedelta(minutes=5.0),
+        internal_key_material=True,
+        data_key_length_bits=256,
+        per_column_encryption={
+            "a": {
+                "encryption_algorithm": "AES_GCM_V1",
+                "encryption_key": "key_1"
+            },
+            "b": {
+                "encryption_algorithm": "AES_GCM_CTR_V1",
+                "encryption_key": "key_n"
+            }
+        },
+        app_context={
+            "user_id": "Picard1701",
+            "location": "Presidio"
+        },
+        connection_config={
+            "config_file": "path/to/config/file",
+            "config_file_decryption_key": "some_key"
+        }
+    )
+
+def kms_client_factory(kms_connection_config):
+    # For test: just return a DummyKmsClient instance, ignoring the config
+    return DummyKmsClient()
+
+def test_external_file_encryption_properties_valid(kms_config, external_encryption_config):
+    factory = pe.CryptoFactory(kms_client_factory)
+    result = factory.external_file_encryption_properties(kms_config, external_encryption_config)
+
+    # Instead of isinstance, check class name and module dynamically because ExternalEncryptionConfiguration is not visbile
+    assert result.__class__.__name__ == "ExternalFileEncryptionProperties"
+    assert result.__class__.__module__ == "pyarrow._parquet"
+

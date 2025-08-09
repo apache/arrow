@@ -20,6 +20,7 @@
 from pyarrow.includes.common cimport *
 from pyarrow._parquet cimport (ParquetCipher,
                                CFileEncryptionProperties,
+                               CExternalFileEncryptionProperties,
                                CFileDecryptionProperties,
                                ParquetCipher_AES_GCM_V1,
                                ParquetCipher_AES_GCM_CTR_V1)
@@ -67,6 +68,13 @@ ctypedef void CallbackCreateKmsClient(
 
 cdef extern from "parquet/encryption/crypto_factory.h" \
         namespace "parquet::encryption" nogil:
+    cdef cppclass CExternalConnectionConfiguration\
+            " parquet::encryption::ExternalConnectionConfiguration":
+        CExternalConnectionConfiguration(const c_string& config_path) except +
+        c_string config_path
+
+cdef extern from "parquet/encryption/crypto_factory.h" \
+        namespace "parquet::encryption" nogil:
     cdef cppclass CEncryptionConfiguration\
             " parquet::encryption::EncryptionConfiguration":
         CEncryptionConfiguration(const c_string& footer_key) except +
@@ -111,6 +119,9 @@ cdef extern from "parquet/encryption/crypto_factory.h" \
         shared_ptr[CFileEncryptionProperties] GetFileEncryptionProperties(
             const CKmsConnectionConfig& kms_connection_config,
             const CEncryptionConfiguration& encryption_config) except +*
+        shared_ptr[CExternalFileEncryptionProperties] GetExternalFileEncryptionProperties(
+            const CKmsConnectionConfig& kms_connection_config,
+            const CExternalEncryptionConfiguration& external_encryption_config) except +*
         shared_ptr[CFileDecryptionProperties] GetFileDecryptionProperties(
             const CKmsConnectionConfig& kms_connection_config,
             const CDecryptionConfiguration& decryption_config) except +*
@@ -145,6 +156,10 @@ cdef extern from "arrow/python/parquet_encryption.h" \
             SafeGetFileEncryptionProperties(
             const CKmsConnectionConfig& kms_connection_config,
             const CEncryptionConfiguration& encryption_config)
+        CResult[shared_ptr[CExternalFileEncryptionProperties]] \
+            SafeGetExternalFileEncryptionProperties(
+            const CKmsConnectionConfig& kms_connection_config,
+            const CExternalEncryptionConfiguration& external_encryption_config)
         CResult[shared_ptr[CFileDecryptionProperties]] \
             SafeGetFileDecryptionProperties(
             const CKmsConnectionConfig& kms_connection_config,
