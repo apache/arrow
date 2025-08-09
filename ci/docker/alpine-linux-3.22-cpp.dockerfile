@@ -40,8 +40,8 @@ RUN apk add \
         grpc-dev \
         gtest-dev \
         libxml2-dev \
-        llvm16-dev \
-        llvm16-static \
+        llvm-dev \
+        llvm-static \
         lz4-dev \
         make \
         musl-locales \
