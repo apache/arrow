@@ -88,6 +88,10 @@ class GeoStatistics;
 struct EncodedGeoStatistics;
 }  // namespace geospatial
 
+class BloomFilter;
+struct BloomFilterLocation;
+struct BloomFilterOptions;
+
 class ColumnIndex;
 class OffsetIndex;
 
