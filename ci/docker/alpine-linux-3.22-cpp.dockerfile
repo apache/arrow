@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/alpine:3.20
+FROM ${arch}/alpine:3.22
 
 RUN apk add \
         apache-orc-dev \
