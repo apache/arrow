@@ -46,27 +46,21 @@ class Configuration {
    */
   ~Configuration();
 
-  /**
-   * Convert configure to connect string.
-   *
-   * @return Connect string.
-   */
-  std::string ToConnectString() const;
-
   void LoadDefaults();
   void LoadDsn(const std::string& dsn);
 
   void Clear();
   bool IsSet(const std::string_view& key) const;
   const std::string& Get(const std::string_view& key) const;
+  void Set(const std::string_view& key, const std::wstring& wValue);
   void Set(const std::string_view& key, const std::string& value);
-
+  void Emplace(const std::string_view& key, std::string&& value);
   /**
    * Get properties map.
    */
   const driver::odbcabstraction::Connection::ConnPropertyMap& GetProperties() const;
 
-  std::vector<std::string_view> GetCustomKeys() const;
+  std::vector<std::string> GetCustomKeys() const;
 
  private:
   driver::odbcabstraction::Connection::ConnPropertyMap properties;

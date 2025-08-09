@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <arrow/type.h>
+#include "arrow/type.h"
 
 namespace driver {
 namespace flight_sql {

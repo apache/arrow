@@ -17,9 +17,11 @@
 
 #pragma once
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_handle.h>
+// platform.h platform.h includes windows.h so it needs to be included first
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_handle.h"
+
 #include <sql.h>
 #include <memory>
 #include <string>
@@ -64,8 +66,10 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
 
   /**
    * @brief Returns true if the number of rows fetch was greater than zero.
+   * rowCountPtr and rowStatusArray are optional arguments, they are only needed for
+   * SQLExtendedFetch
    */
-  bool Fetch(size_t rows);
+  bool Fetch(size_t rows, SQLULEN* rowCountPtr = 0, SQLUSMALLINT* rowStatusArray = 0);
   bool isPrepared() const;
 
   void GetStmtAttr(SQLINTEGER statementAttribute, SQLPOINTER output,
@@ -81,8 +85,20 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
 
   inline SQLULEN GetRowsetSize() { return m_rowsetSize; }
 
-  bool GetData(SQLSMALLINT recordNumber, SQLSMALLINT cType, SQLPOINTER dataPtr,
-               SQLLEN bufferLength, SQLLEN* indicatorPtr);
+  SQLRETURN GetData(SQLSMALLINT recordNumber, SQLSMALLINT cType, SQLPOINTER dataPtr,
+                    SQLLEN bufferLength, SQLLEN* indicatorPtr);
+
+  SQLRETURN getMoreResults();
+
+  /**
+   * @brief Get number of columns from data set
+   */
+  void getColumnCount(SQLSMALLINT* columnCountPtr);
+
+  /**
+   * @brief Get number of rows affected by an UPDATE, INSERT, or DELETE statement
+   */
+  void getRowCount(SQLLEN* rowCountPtr);
 
   /**
    * @brief Closes the cursor. This does _not_ un-prepare the statement or change

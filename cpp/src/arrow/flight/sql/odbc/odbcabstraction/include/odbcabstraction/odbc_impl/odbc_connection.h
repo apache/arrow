@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_handle.h>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_handle.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h"
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h>
 #include <sql.h>
 #include <map>
 #include <memory>
@@ -41,6 +41,9 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
   ODBCConnection(const ODBCConnection&) = delete;
   ODBCConnection& operator=(const ODBCConnection&) = delete;
 
+  /// \brief Constructor for ODBCConnection.
+  /// \param[in] environment the parent environment.
+  /// \param[in] spiConnection the underlying spi connection.
   ODBCConnection(ODBCEnvironment& environment,
                  std::shared_ptr<driver::odbcabstraction::Connection> spiConnection);
 
@@ -48,16 +51,22 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
 
   const std::string& GetDSN() const;
   bool isConnected() const;
+
+  /// \brief Connect to Arrow Flight SQL server.
+  /// \param[in] dsn the dsn name.
+  /// \param[in] properties the connection property map extracted from connection string.
+  /// \param[out] missing_properties report the properties that are missing
   void connect(std::string dsn,
                const driver::odbcabstraction::Connection::ConnPropertyMap& properties,
                std::vector<std::string_view>& missing_properties);
 
-  void GetInfo(SQLUSMALLINT infoType, SQLPOINTER value, SQLSMALLINT bufferLength,
-               SQLSMALLINT* outputLength, bool isUnicode);
+  SQLRETURN GetInfo(SQLUSMALLINT infoType, SQLPOINTER value, SQLSMALLINT bufferLength,
+                    SQLSMALLINT* outputLength, bool isUnicode);
   void SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value, SQLINTEGER stringLength,
                       bool isUnicode);
-  void GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value, SQLINTEGER bufferLength,
-                      SQLINTEGER* outputLength, bool isUnicode);
+  SQLRETURN GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
+                           SQLINTEGER bufferLength, SQLINTEGER* outputLength,
+                           bool isUnicode);
 
   ~ODBCConnection() = default;
 
