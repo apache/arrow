@@ -15,8 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-dl_dep = dependency('dl')
+if host_machine.system() == 'windows'
+  dl_dep = declare_dependency()
+else
+  dl_dep = dependency('dl')
+endif
 threads_dep = dependency('threads')
+
+has_int128 = cpp_compiler.has_define('__SIZEOF_INT128__')
+if has_int128
+    int128_deps = []
+else
+    int128_deps = [dependency('boost')]
+endif
 
 arrow_components = {
     'arrow_array': {
@@ -76,6 +87,7 @@ arrow_components = {
             'compute/kernels/vector_selection_internal.cc',
             'compute/kernels/vector_selection_take_internal.cc',
         ],
+        'dependencies': int128_deps,
     },
     'arrow_io': {
         'sources': [
@@ -213,7 +225,7 @@ arrow_util_srcs = [
     'util/value_parsing.cc',
 ]
 
-arrow_util_deps = [threads_dep]
+arrow_util_deps = int128_deps + [threads_dep]
 
 if needs_brotli
     arrow_util_srcs += ['util/compression_brotli.cc']
@@ -416,6 +428,11 @@ foreach key, val : arrow_components
     arrow_deps += val.get('dependencies', [])
 endforeach
 
+arrow_lib_cpp_shared_args = ['-DARROW_EXPORTING', '-DURI_LIBRARY_BUILD']
+if needs_compute
+    arrow_lib_cpp_shared_args += ['-DARROW_COMPUTE_EXPORTING']
+endif
+
 arrow_lib = library(
     'arrow',
     sources: arrow_srcs,
@@ -423,12 +440,21 @@ arrow_lib = library(
     dependencies: arrow_deps,
     install: true,
     gnu_symbol_visibility: 'hidden',
-    cpp_shared_args: ['-DARROW_EXPORTING'],
+    c_shared_args: ['-DARROW_EXPORTING', '-DURI_LIBRARY_BUILD', '-DURI_VISIBILITY'],
+    c_static_args: ['-DURI_STATIC_BUILD'],
+    cpp_shared_args: arrow_lib_cpp_shared_args,
+    cpp_static_args: ['-DARROW_STATIC'],
 )
+
+arrow_compile_args = []
+if get_option('default_library') != 'shared'
+    arrow_compile_args += ['-DARROW_STATIC']
+endif
 
 arrow_dep = declare_dependency(
     include_directories: [include_dir],
     link_with: arrow_lib,
+    compile_args: arrow_compile_args,
 )
 
 if needs_compute
@@ -484,14 +510,22 @@ if needs_compute
     arrow_compute_lib = library(
         'arrow-compute',
         sources: arrow_compute_lib_sources,
-        dependencies: arrow_dep,
+        dependencies: [arrow_dep] + int128_deps,
         install: true,
         cpp_shared_args: ['-DARROW_COMPUTE_EXPORTING'],
+        cpp_static_args: ['-DARROW_COMPUTE_STATIC'],
     )
+
+    arrow_compute_compile_args = []
+    if host_machine.system() == 'windows' and get_option('default_library') != 'shared'
+        arrow_compute_compile_args += ['-DARROW_COMPUTE_STATIC']
+    endif
+
     arrow_compute_dep = declare_dependency(
         link_with: arrow_compute_lib,
         include_directories: include_dir,
         dependencies: arrow_dep,
+        compile_args: arrow_compute_compile_args,
     )
 else
     arrow_compute_dep = disabler()
@@ -560,6 +594,7 @@ if needs_testing
     gtest_dep = dependency('gtest')
     gtest_main_dep = dependency('gtest_main')
     gtest_dep = dependency('gtest')
+    gmock_main_dep = dependency('gmock_main')
     gmock_dep = dependency('gmock')
 else
     filesystem_dep = disabler()
@@ -569,20 +604,27 @@ else
     gmock_dep = disabler()
 endif
 
-arrow_test_lib = static_library(
+arrow_test_lib = library(
     'arrow_testing',
     sources: arrow_testing_srcs,
-    dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
+    dependencies: [arrow_dep, filesystem_dep, gmock_main_dep, rapidjson_dep],
+    cpp_shared_args: ['-DARROW_TESTING_EXPORTING'],
+    cpp_static_args: ['-DARROW_TESTING_STATIC'],
 )
+
+arrow_test_compile_args = []
+if host_machine.system() == 'windows' and get_option('default_library') != 'shared'
+    arrow_compute_compile_args += ['-DARROW_TESTING_STATIC']
+endif
 
 if needs_tests
     arrow_test_dep = declare_dependency(
         link_with: [arrow_test_lib],
-        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
+        dependencies: [arrow_dep, filesystem_dep, gmock_main_dep],
     )
     arrow_test_dep_no_main = declare_dependency(
         link_with: [arrow_test_lib],
-        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_dep],
+        dependencies: [arrow_dep, filesystem_dep, gmock_dep],
     )
 else
     arrow_test_dep = disabler()
