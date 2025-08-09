@@ -41,6 +41,7 @@ RUN apk add \
         gtest-dev \
         libxml2-dev \
         llvm-dev \
+        llvm-gtest \
         llvm-static \
         lz4-dev \
         make \
