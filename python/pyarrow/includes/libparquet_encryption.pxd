@@ -23,7 +23,8 @@ from pyarrow._parquet cimport (ParquetCipher,
                                CExternalFileEncryptionProperties,
                                CFileDecryptionProperties,
                                ParquetCipher_AES_GCM_V1,
-                               ParquetCipher_AES_GCM_CTR_V1)
+                               ParquetCipher_AES_GCM_CTR_V1,
+                               ParquetCipher_EXTERNAL_DBPA_V1)
 
 
 cdef extern from "parquet/encryption/kms_client.h" \

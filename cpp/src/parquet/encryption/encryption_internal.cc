@@ -61,6 +61,11 @@ class AesCryptoContext {
     length_buffer_length_ = include_length ? kBufferSizeLength : 0;
     ciphertext_size_delta_ = length_buffer_length_ + kNonceLength;
 
+    if (ParquetCipher::EXTERNAL_DBPA_V1 == alg_id) {
+      std::stringstream ss;
+      ss << "ExternalDataBatchProtectionAgent (DBPA) algorithm is not yet implemented";
+      throw ParquetException(ss.str());
+    }
     if (ParquetCipher::AES_GCM_V1 != alg_id && ParquetCipher::AES_GCM_CTR_V1 != alg_id) {
       std::stringstream ss;
       ss << "Crypto algorithm " << alg_id << " is not supported";

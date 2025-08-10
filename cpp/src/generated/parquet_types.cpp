@@ -5286,6 +5286,50 @@ void AesGcmCtrV1::printTo(std::ostream& out) const {
 }
 
 
+ExternalDBPAV1::~ExternalDBPAV1() noexcept {
+}
+
+ExternalDBPAV1::ExternalDBPAV1() noexcept {
+}
+std::ostream& operator<<(std::ostream& out, const ExternalDBPAV1& obj)
+{
+  obj.printTo(out);
+  return out;
+}
+
+
+void swap(ExternalDBPAV1 &a, ExternalDBPAV1 &b) {
+  using ::std::swap;
+  (void) a;
+  (void) b;
+}
+
+bool ExternalDBPAV1::operator==(const ExternalDBPAV1 & /* rhs */) const
+{
+  return true;
+}
+
+ExternalDBPAV1::ExternalDBPAV1(const ExternalDBPAV1& other344) noexcept {
+  (void) other344;
+}
+ExternalDBPAV1::ExternalDBPAV1(ExternalDBPAV1&& other345) noexcept {
+  (void) other345;
+}
+ExternalDBPAV1& ExternalDBPAV1::operator=(const ExternalDBPAV1& other346) noexcept {
+  (void) other346;
+  return *this;
+}
+ExternalDBPAV1& ExternalDBPAV1::operator=(ExternalDBPAV1&& other347) noexcept {
+  (void) other347;
+  return *this;
+}
+void ExternalDBPAV1::printTo(std::ostream& out) const {
+  using ::apache::thrift::to_string;
+  out << "ExternalDBPAV1(";
+  out << ")";
+}
+
+
 EncryptionAlgorithm::~EncryptionAlgorithm() noexcept {
 }
 
@@ -5301,6 +5345,11 @@ void EncryptionAlgorithm::__set_AES_GCM_CTR_V1(const AesGcmCtrV1& val) {
   this->AES_GCM_CTR_V1 = val;
 __isset.AES_GCM_CTR_V1 = true;
 }
+
+void EncryptionAlgorithm::__set_EXTERNAL_DBPA_V1(const ExternalDBPAV1& val) {
+  this->EXTERNAL_DBPA_V1 = val;
+__isset.EXTERNAL_DBPA_V1 = true;
+}
 std::ostream& operator<<(std::ostream& out, const EncryptionAlgorithm& obj)
 {
   obj.printTo(out);
@@ -5312,6 +5361,7 @@ void swap(EncryptionAlgorithm &a, EncryptionAlgorithm &b) {
   using ::std::swap;
   swap(a.AES_GCM_V1, b.AES_GCM_V1);
   swap(a.AES_GCM_CTR_V1, b.AES_GCM_CTR_V1);
+  swap(a.EXTERNAL_DBPA_V1, b.EXTERNAL_DBPA_V1);
   swap(a.__isset, b.__isset);
 }
 
@@ -5325,29 +5375,37 @@ bool EncryptionAlgorithm::operator==(const EncryptionAlgorithm & rhs) const
     return false;
   else if (__isset.AES_GCM_CTR_V1 && !(AES_GCM_CTR_V1 == rhs.AES_GCM_CTR_V1))
     return false;
+  if (__isset.EXTERNAL_DBPA_V1 != rhs.__isset.EXTERNAL_DBPA_V1)
+    return false;
+  else if (__isset.EXTERNAL_DBPA_V1 && !(EXTERNAL_DBPA_V1 == rhs.EXTERNAL_DBPA_V1))
+    return false;
   return true;
 }
 
-EncryptionAlgorithm::EncryptionAlgorithm(const EncryptionAlgorithm& other344) {
-  AES_GCM_V1 = other344.AES_GCM_V1;
-  AES_GCM_CTR_V1 = other344.AES_GCM_CTR_V1;
-  __isset = other344.__isset;
+EncryptionAlgorithm::EncryptionAlgorithm(const EncryptionAlgorithm& other348) {
+  AES_GCM_V1 = other348.AES_GCM_V1;
+  AES_GCM_CTR_V1 = other348.AES_GCM_CTR_V1;
+  EXTERNAL_DBPA_V1 = other348.EXTERNAL_DBPA_V1;
+  __isset = other348.__isset;
 }
-EncryptionAlgorithm::EncryptionAlgorithm(EncryptionAlgorithm&& other345) noexcept {
-  AES_GCM_V1 = std::move(other345.AES_GCM_V1);
-  AES_GCM_CTR_V1 = std::move(other345.AES_GCM_CTR_V1);
-  __isset = other345.__isset;
+EncryptionAlgorithm::EncryptionAlgorithm(EncryptionAlgorithm&& other349) noexcept {
+  AES_GCM_V1 = std::move(other349.AES_GCM_V1);
+  AES_GCM_CTR_V1 = std::move(other349.AES_GCM_CTR_V1);
+  EXTERNAL_DBPA_V1 = std::move(other349.EXTERNAL_DBPA_V1);
+  __isset = other349.__isset;
 }
-EncryptionAlgorithm& EncryptionAlgorithm::operator=(const EncryptionAlgorithm& other346) {
-  AES_GCM_V1 = other346.AES_GCM_V1;
-  AES_GCM_CTR_V1 = other346.AES_GCM_CTR_V1;
-  __isset = other346.__isset;
+EncryptionAlgorithm& EncryptionAlgorithm::operator=(const EncryptionAlgorithm& other350) {
+  AES_GCM_V1 = other350.AES_GCM_V1;
+  AES_GCM_CTR_V1 = other350.AES_GCM_CTR_V1;
+  EXTERNAL_DBPA_V1 = other350.EXTERNAL_DBPA_V1;
+  __isset = other350.__isset;
   return *this;
 }
-EncryptionAlgorithm& EncryptionAlgorithm::operator=(EncryptionAlgorithm&& other347) noexcept {
-  AES_GCM_V1 = std::move(other347.AES_GCM_V1);
-  AES_GCM_CTR_V1 = std::move(other347.AES_GCM_CTR_V1);
-  __isset = other347.__isset;
+EncryptionAlgorithm& EncryptionAlgorithm::operator=(EncryptionAlgorithm&& other351) noexcept {
+  AES_GCM_V1 = std::move(other351.AES_GCM_V1);
+  AES_GCM_CTR_V1 = std::move(other351.AES_GCM_CTR_V1);
+  EXTERNAL_DBPA_V1 = std::move(other351.EXTERNAL_DBPA_V1);
+  __isset = other351.__isset;
   return *this;
 }
 void EncryptionAlgorithm::printTo(std::ostream& out) const {
@@ -5355,6 +5413,7 @@ void EncryptionAlgorithm::printTo(std::ostream& out) const {
   out << "EncryptionAlgorithm(";
   out << "AES_GCM_V1="; (__isset.AES_GCM_V1 ? (out << to_string(AES_GCM_V1)) : (out << "<null>"));
   out << ", " << "AES_GCM_CTR_V1="; (__isset.AES_GCM_CTR_V1 ? (out << to_string(AES_GCM_CTR_V1)) : (out << "<null>"));
+  out << ", " << "EXTERNAL_DBPA_V1="; (__isset.EXTERNAL_DBPA_V1 ? (out << to_string(EXTERNAL_DBPA_V1)) : (out << "<null>"));
   out << ")";
 }
 
@@ -5463,54 +5522,54 @@ bool FileMetaData::operator==(const FileMetaData & rhs) const
   return true;
 }
 
-FileMetaData::FileMetaData(const FileMetaData& other372) {
-  version = other372.version;
-  schema = other372.schema;
-  num_rows = other372.num_rows;
-  row_groups = other372.row_groups;
-  key_value_metadata = other372.key_value_metadata;
-  created_by = other372.created_by;
-  column_orders = other372.column_orders;
-  encryption_algorithm = other372.encryption_algorithm;
-  footer_signing_key_metadata = other372.footer_signing_key_metadata;
-  __isset = other372.__isset;
+FileMetaData::FileMetaData(const FileMetaData& other376) {
+  version = other376.version;
+  schema = other376.schema;
+  num_rows = other376.num_rows;
+  row_groups = other376.row_groups;
+  key_value_metadata = other376.key_value_metadata;
+  created_by = other376.created_by;
+  column_orders = other376.column_orders;
+  encryption_algorithm = other376.encryption_algorithm;
+  footer_signing_key_metadata = other376.footer_signing_key_metadata;
+  __isset = other376.__isset;
 }
-FileMetaData::FileMetaData(FileMetaData&& other373) noexcept {
-  version = other373.version;
-  schema = std::move(other373.schema);
-  num_rows = other373.num_rows;
-  row_groups = std::move(other373.row_groups);
-  key_value_metadata = std::move(other373.key_value_metadata);
-  created_by = std::move(other373.created_by);
-  column_orders = std::move(other373.column_orders);
-  encryption_algorithm = std::move(other373.encryption_algorithm);
-  footer_signing_key_metadata = std::move(other373.footer_signing_key_metadata);
-  __isset = other373.__isset;
+FileMetaData::FileMetaData(FileMetaData&& other377) noexcept {
+  version = other377.version;
+  schema = std::move(other377.schema);
+  num_rows = other377.num_rows;
+  row_groups = std::move(other377.row_groups);
+  key_value_metadata = std::move(other377.key_value_metadata);
+  created_by = std::move(other377.created_by);
+  column_orders = std::move(other377.column_orders);
+  encryption_algorithm = std::move(other377.encryption_algorithm);
+  footer_signing_key_metadata = std::move(other377.footer_signing_key_metadata);
+  __isset = other377.__isset;
 }
-FileMetaData& FileMetaData::operator=(const FileMetaData& other374) {
-  version = other374.version;
-  schema = other374.schema;
-  num_rows = other374.num_rows;
-  row_groups = other374.row_groups;
-  key_value_metadata = other374.key_value_metadata;
-  created_by = other374.created_by;
-  column_orders = other374.column_orders;
-  encryption_algorithm = other374.encryption_algorithm;
-  footer_signing_key_metadata = other374.footer_signing_key_metadata;
-  __isset = other374.__isset;
+FileMetaData& FileMetaData::operator=(const FileMetaData& other378) {
+  version = other378.version;
+  schema = other378.schema;
+  num_rows = other378.num_rows;
+  row_groups = other378.row_groups;
+  key_value_metadata = other378.key_value_metadata;
+  created_by = other378.created_by;
+  column_orders = other378.column_orders;
+  encryption_algorithm = other378.encryption_algorithm;
+  footer_signing_key_metadata = other378.footer_signing_key_metadata;
+  __isset = other378.__isset;
   return *this;
 }
-FileMetaData& FileMetaData::operator=(FileMetaData&& other375) noexcept {
-  version = other375.version;
-  schema = std::move(other375.schema);
-  num_rows = other375.num_rows;
-  row_groups = std::move(other375.row_groups);
-  key_value_metadata = std::move(other375.key_value_metadata);
-  created_by = std::move(other375.created_by);
-  column_orders = std::move(other375.column_orders);
-  encryption_algorithm = std::move(other375.encryption_algorithm);
-  footer_signing_key_metadata = std::move(other375.footer_signing_key_metadata);
-  __isset = other375.__isset;
+FileMetaData& FileMetaData::operator=(FileMetaData&& other379) noexcept {
+  version = other379.version;
+  schema = std::move(other379.schema);
+  num_rows = other379.num_rows;
+  row_groups = std::move(other379.row_groups);
+  key_value_metadata = std::move(other379.key_value_metadata);
+  created_by = std::move(other379.created_by);
+  column_orders = std::move(other379.column_orders);
+  encryption_algorithm = std::move(other379.encryption_algorithm);
+  footer_signing_key_metadata = std::move(other379.footer_signing_key_metadata);
+  __isset = other379.__isset;
   return *this;
 }
 void FileMetaData::printTo(std::ostream& out) const {
@@ -5569,26 +5628,26 @@ bool FileCryptoMetaData::operator==(const FileCryptoMetaData & rhs) const
   return true;
 }
 
-FileCryptoMetaData::FileCryptoMetaData(const FileCryptoMetaData& other376) {
-  encryption_algorithm = other376.encryption_algorithm;
-  key_metadata = other376.key_metadata;
-  __isset = other376.__isset;
+FileCryptoMetaData::FileCryptoMetaData(const FileCryptoMetaData& other380) {
+  encryption_algorithm = other380.encryption_algorithm;
+  key_metadata = other380.key_metadata;
+  __isset = other380.__isset;
 }
-FileCryptoMetaData::FileCryptoMetaData(FileCryptoMetaData&& other377) noexcept {
-  encryption_algorithm = std::move(other377.encryption_algorithm);
-  key_metadata = std::move(other377.key_metadata);
-  __isset = other377.__isset;
+FileCryptoMetaData::FileCryptoMetaData(FileCryptoMetaData&& other381) noexcept {
+  encryption_algorithm = std::move(other381.encryption_algorithm);
+  key_metadata = std::move(other381.key_metadata);
+  __isset = other381.__isset;
 }
-FileCryptoMetaData& FileCryptoMetaData::operator=(const FileCryptoMetaData& other378) {
-  encryption_algorithm = other378.encryption_algorithm;
-  key_metadata = other378.key_metadata;
-  __isset = other378.__isset;
+FileCryptoMetaData& FileCryptoMetaData::operator=(const FileCryptoMetaData& other382) {
+  encryption_algorithm = other382.encryption_algorithm;
+  key_metadata = other382.key_metadata;
+  __isset = other382.__isset;
   return *this;
 }
-FileCryptoMetaData& FileCryptoMetaData::operator=(FileCryptoMetaData&& other379) noexcept {
-  encryption_algorithm = std::move(other379.encryption_algorithm);
-  key_metadata = std::move(other379.key_metadata);
-  __isset = other379.__isset;
+FileCryptoMetaData& FileCryptoMetaData::operator=(FileCryptoMetaData&& other383) noexcept {
+  encryption_algorithm = std::move(other383.encryption_algorithm);
+  key_metadata = std::move(other383.key_metadata);
+  __isset = other383.__isset;
   return *this;
 }
 void FileCryptoMetaData::printTo(std::ostream& out) const {

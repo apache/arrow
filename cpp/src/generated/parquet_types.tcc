@@ -4958,6 +4958,46 @@ uint32_t AesGcmCtrV1::write(Protocol_* oprot) const {
 }
 
 template <class Protocol_>
+uint32_t ExternalDBPAV1::read(Protocol_* iprot) {
+
+  ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
+  uint32_t xfer = 0;
+  std::string fname;
+  ::apache::thrift::protocol::TType ftype;
+  int16_t fid;
+
+  xfer += iprot->readStructBegin(fname);
+
+  using ::apache::thrift::protocol::TProtocolException;
+
+
+  while (true)
+  {
+    xfer += iprot->readFieldBegin(fname, ftype, fid);
+    if (ftype == ::apache::thrift::protocol::T_STOP) {
+      break;
+    }
+    xfer += iprot->skip(ftype);
+    xfer += iprot->readFieldEnd();
+  }
+
+  xfer += iprot->readStructEnd();
+
+  return xfer;
+}
+
+template <class Protocol_>
+uint32_t ExternalDBPAV1::write(Protocol_* oprot) const {
+  uint32_t xfer = 0;
+  ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
+  xfer += oprot->writeStructBegin("ExternalDBPAV1");
+
+  xfer += oprot->writeFieldStop();
+  xfer += oprot->writeStructEnd();
+  return xfer;
+}
+
+template <class Protocol_>
 uint32_t EncryptionAlgorithm::read(Protocol_* iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
@@ -4995,6 +5035,14 @@ uint32_t EncryptionAlgorithm::read(Protocol_* iprot) {
           xfer += iprot->skip(ftype);
         }
         break;
+      case 3:
+        if (ftype == ::apache::thrift::protocol::T_STRUCT) {
+          xfer += this->EXTERNAL_DBPA_V1.read(iprot);
+          this->__isset.EXTERNAL_DBPA_V1 = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
       default:
         xfer += iprot->skip(ftype);
         break;
@@ -5021,6 +5069,11 @@ uint32_t EncryptionAlgorithm::write(Protocol_* oprot) const {
   if (this->__isset.AES_GCM_CTR_V1) {
     xfer += oprot->writeFieldBegin("AES_GCM_CTR_V1", ::apache::thrift::protocol::T_STRUCT, 2);
     xfer += this->AES_GCM_CTR_V1.write(oprot);
+    xfer += oprot->writeFieldEnd();
+  }
+  if (this->__isset.EXTERNAL_DBPA_V1) {
+    xfer += oprot->writeFieldBegin("EXTERNAL_DBPA_V1", ::apache::thrift::protocol::T_STRUCT, 3);
+    xfer += this->EXTERNAL_DBPA_V1.write(oprot);
     xfer += oprot->writeFieldEnd();
   }
   xfer += oprot->writeFieldStop();
@@ -5066,14 +5119,14 @@ uint32_t FileMetaData::read(Protocol_* iprot) {
         if (ftype == ::apache::thrift::protocol::T_LIST) {
           {
             this->schema.clear();
-            uint32_t _size348;
-            ::apache::thrift::protocol::TType _etype351;
-            xfer += iprot->readListBegin(_etype351, _size348);
-            this->schema.resize(_size348);
-            uint32_t _i352;
-            for (_i352 = 0; _i352 < _size348; ++_i352)
+            uint32_t _size352;
+            ::apache::thrift::protocol::TType _etype355;
+            xfer += iprot->readListBegin(_etype355, _size352);
+            this->schema.resize(_size352);
+            uint32_t _i356;
+            for (_i356 = 0; _i356 < _size352; ++_i356)
             {
-              xfer += this->schema[_i352].read(iprot);
+              xfer += this->schema[_i356].read(iprot);
             }
             xfer += iprot->readListEnd();
           }
@@ -5094,14 +5147,14 @@ uint32_t FileMetaData::read(Protocol_* iprot) {
         if (ftype == ::apache::thrift::protocol::T_LIST) {
           {
             this->row_groups.clear();
-            uint32_t _size353;
-            ::apache::thrift::protocol::TType _etype356;
-            xfer += iprot->readListBegin(_etype356, _size353);
-            this->row_groups.resize(_size353);
-            uint32_t _i357;
-            for (_i357 = 0; _i357 < _size353; ++_i357)
+            uint32_t _size357;
+            ::apache::thrift::protocol::TType _etype360;
+            xfer += iprot->readListBegin(_etype360, _size357);
+            this->row_groups.resize(_size357);
+            uint32_t _i361;
+            for (_i361 = 0; _i361 < _size357; ++_i361)
             {
-              xfer += this->row_groups[_i357].read(iprot);
+              xfer += this->row_groups[_i361].read(iprot);
             }
             xfer += iprot->readListEnd();
           }
@@ -5114,14 +5167,14 @@ uint32_t FileMetaData::read(Protocol_* iprot) {
         if (ftype == ::apache::thrift::protocol::T_LIST) {
           {
             this->key_value_metadata.clear();
-            uint32_t _size358;
-            ::apache::thrift::protocol::TType _etype361;
-            xfer += iprot->readListBegin(_etype361, _size358);
-            this->key_value_metadata.resize(_size358);
-            uint32_t _i362;
-            for (_i362 = 0; _i362 < _size358; ++_i362)
+            uint32_t _size362;
+            ::apache::thrift::protocol::TType _etype365;
+            xfer += iprot->readListBegin(_etype365, _size362);
+            this->key_value_metadata.resize(_size362);
+            uint32_t _i366;
+            for (_i366 = 0; _i366 < _size362; ++_i366)
             {
-              xfer += this->key_value_metadata[_i362].read(iprot);
+              xfer += this->key_value_metadata[_i366].read(iprot);
             }
             xfer += iprot->readListEnd();
           }
@@ -5142,14 +5195,14 @@ uint32_t FileMetaData::read(Protocol_* iprot) {
         if (ftype == ::apache::thrift::protocol::T_LIST) {
           {
             this->column_orders.clear();
-            uint32_t _size363;
-            ::apache::thrift::protocol::TType _etype366;
-            xfer += iprot->readListBegin(_etype366, _size363);
-            this->column_orders.resize(_size363);
-            uint32_t _i367;
-            for (_i367 = 0; _i367 < _size363; ++_i367)
+            uint32_t _size367;
+            ::apache::thrift::protocol::TType _etype370;
+            xfer += iprot->readListBegin(_etype370, _size367);
+            this->column_orders.resize(_size367);
+            uint32_t _i371;
+            for (_i371 = 0; _i371 < _size367; ++_i371)
             {
-              xfer += this->column_orders[_i367].read(iprot);
+              xfer += this->column_orders[_i371].read(iprot);
             }
             xfer += iprot->readListEnd();
           }
@@ -5207,10 +5260,10 @@ uint32_t FileMetaData::write(Protocol_* oprot) const {
   xfer += oprot->writeFieldBegin("schema", ::apache::thrift::protocol::T_LIST, 2);
   {
     xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRUCT, static_cast<uint32_t>(this->schema.size()));
-    std::vector<SchemaElement> ::const_iterator _iter368;
-    for (_iter368 = this->schema.begin(); _iter368 != this->schema.end(); ++_iter368)
+    std::vector<SchemaElement> ::const_iterator _iter372;
+    for (_iter372 = this->schema.begin(); _iter372 != this->schema.end(); ++_iter372)
     {
-      xfer += (*_iter368).write(oprot);
+      xfer += (*_iter372).write(oprot);
     }
     xfer += oprot->writeListEnd();
   }
@@ -5223,10 +5276,10 @@ uint32_t FileMetaData::write(Protocol_* oprot) const {
   xfer += oprot->writeFieldBegin("row_groups", ::apache::thrift::protocol::T_LIST, 4);
   {
     xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRUCT, static_cast<uint32_t>(this->row_groups.size()));
-    std::vector<RowGroup> ::const_iterator _iter369;
-    for (_iter369 = this->row_groups.begin(); _iter369 != this->row_groups.end(); ++_iter369)
+    std::vector<RowGroup> ::const_iterator _iter373;
+    for (_iter373 = this->row_groups.begin(); _iter373 != this->row_groups.end(); ++_iter373)
     {
-      xfer += (*_iter369).write(oprot);
+      xfer += (*_iter373).write(oprot);
     }
     xfer += oprot->writeListEnd();
   }
@@ -5236,10 +5289,10 @@ uint32_t FileMetaData::write(Protocol_* oprot) const {
     xfer += oprot->writeFieldBegin("key_value_metadata", ::apache::thrift::protocol::T_LIST, 5);
     {
       xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRUCT, static_cast<uint32_t>(this->key_value_metadata.size()));
-      std::vector<KeyValue> ::const_iterator _iter370;
-      for (_iter370 = this->key_value_metadata.begin(); _iter370 != this->key_value_metadata.end(); ++_iter370)
+      std::vector<KeyValue> ::const_iterator _iter374;
+      for (_iter374 = this->key_value_metadata.begin(); _iter374 != this->key_value_metadata.end(); ++_iter374)
       {
-        xfer += (*_iter370).write(oprot);
+        xfer += (*_iter374).write(oprot);
       }
       xfer += oprot->writeListEnd();
     }
@@ -5254,10 +5307,10 @@ uint32_t FileMetaData::write(Protocol_* oprot) const {
     xfer += oprot->writeFieldBegin("column_orders", ::apache::thrift::protocol::T_LIST, 7);
     {
       xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRUCT, static_cast<uint32_t>(this->column_orders.size()));
-      std::vector<ColumnOrder> ::const_iterator _iter371;
-      for (_iter371 = this->column_orders.begin(); _iter371 != this->column_orders.end(); ++_iter371)
+      std::vector<ColumnOrder> ::const_iterator _iter375;
+      for (_iter375 = this->column_orders.begin(); _iter375 != this->column_orders.end(); ++_iter375)
       {
-        xfer += (*_iter371).write(oprot);
+        xfer += (*_iter375).write(oprot);
       }
       xfer += oprot->writeListEnd();
     }
