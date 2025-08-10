@@ -24,6 +24,6 @@ namespace driver {
 namespace odbcabstraction {
 int64_t GetTodayTimeFromEpoch();
 
-void GetTimeForSecondsSinceEpoch(tm& date, int64_t value);
+void GetTimeForSecondsSinceEpoch(const int64_t seconds_since_epoch, std::tm& out_tm);
 }  // namespace odbcabstraction
 }  // namespace driver

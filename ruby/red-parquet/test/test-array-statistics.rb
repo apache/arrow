@@ -15,25 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class RactorTest < Test::Unit::TestCase
-  include Helper::Omittable
+class TestArrayStatistics < Test::Unit::TestCase
+  def setup
+    data = Tempfile.create(["red-parquet", ".parquet"]) do |file|
+      table = Arrow::Table.new(int64: [nil, -(2 ** 32), 2 ** 32])
+      table.save(file)
+      File.read(file, mode: "rb")
+    end
+    loaded_table = Arrow::Table.load(Arrow::Buffer.new(data),
+                                     format: :parquet)
+    @statistics = loaded_table[:int64].data.chunks[0].statistics
+  end
 
-  ractor
-  test("ChunkedArray") do
-    require_ruby(3, 1, 0)
-    array = Arrow::Array.new([1, 2, 3])
-    chunked_array = Arrow::ChunkedArray.new([array])
-    Ractor.make_shareable(chunked_array)
-    ractor = Ractor.new do
-      recived_chunked_array = Ractor.receive
-      recived_chunked_array.chunks
+  def test_distinct_count
+    assert do
+      not @statistics.has_distinct_count?
     end
-    ractor.send(chunked_array)
-    unless ractor.respond_to?(:value) # For Ruby < 3.5
-      def ractor.value
-        take
-      end
+    assert do
+      not @statistics.distinct_count_exact?
     end
-    assert_equal([array], ractor.value)
+    assert_nil(@statistics.distinct_count)
   end
 end

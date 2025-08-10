@@ -382,7 +382,7 @@ class ARROW_EXPORT KernelSignature {
       std::vector<InputType> in_types, OutputType out_type, bool is_varargs = false,
       std::shared_ptr<MatchConstraint> constraint = NULLPTR);
 
-  /// \brief Return true if the signature if compatible with the list of input
+  /// \brief Return true if the signature is compatible with the list of input
   /// value descriptors and satisfies the match constraint, if any.
   bool MatchesInputs(const std::vector<TypeHolder>& types) const;
 

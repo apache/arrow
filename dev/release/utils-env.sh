@@ -1,3 +1,5 @@
+# shellcheck shell=bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,25 +17,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class RactorTest < Test::Unit::TestCase
-  include Helper::Omittable
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-  ractor
-  test("ChunkedArray") do
-    require_ruby(3, 1, 0)
-    array = Arrow::Array.new([1, 2, 3])
-    chunked_array = Arrow::ChunkedArray.new([array])
-    Ractor.make_shareable(chunked_array)
-    ractor = Ractor.new do
-      recived_chunked_array = Ractor.receive
-      recived_chunked_array.chunks
-    end
-    ractor.send(chunked_array)
-    unless ractor.respond_to?(:value) # For Ruby < 3.5
-      def ractor.value
-        take
-      end
-    end
-    assert_equal([array], ractor.value)
-  end
-end
+if [ ! -f "${SOURCE_DIR}/.env" ]; then
+  echo "You must create ${SOURCE_DIR}/.env"
+  echo "You can use ${SOURCE_DIR}/.env.example as template"
+  exit 1
+fi
+# shellcheck source=SCRIPTDIR/.env.example
+. "${SOURCE_DIR}/.env"
+export GH_TOKEN

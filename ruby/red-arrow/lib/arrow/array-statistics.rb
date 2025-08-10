@@ -15,25 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class RactorTest < Test::Unit::TestCase
-  include Helper::Omittable
-
-  ractor
-  test("ChunkedArray") do
-    require_ruby(3, 1, 0)
-    array = Arrow::Array.new([1, 2, 3])
-    chunked_array = Arrow::ChunkedArray.new([array])
-    Ractor.make_shareable(chunked_array)
-    ractor = Ractor.new do
-      recived_chunked_array = Ractor.receive
-      recived_chunked_array.chunks
-    end
-    ractor.send(chunked_array)
-    unless ractor.respond_to?(:value) # For Ruby < 3.5
-      def ractor.value
-        take
+module Arrow
+  class ArrayStatistics
+    if method_defined?(:distinct_count_exact)
+      alias_method :distinct_count_raw, :distinct_count
+      def distinct_count
+        return nil unless has_distinct_count?
+        if distinct_count_exact?
+          distinct_count_exact
+        else
+          distinct_count_approximate
+        end
       end
     end
-    assert_equal([array], ractor.value)
   end
 end

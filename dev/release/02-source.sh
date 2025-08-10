@@ -38,6 +38,8 @@ fi
 version=$1
 rc=$2
 
+. "${SOURCE_DIR}/utils-env.sh"
+
 tag=apache-arrow-${version}-rc${rc}
 maint_branch=maint-${version}
 rc_branch="release-${version}-rc${rc}"
@@ -115,20 +117,21 @@ if [ ${SOURCE_PR} -gt 0 ]; then
 fi
 
 if [ ${SOURCE_VOTE} -gt 0 ]; then
-  gh_api_url="https://api.github.com/graphql"
-  curl_options=($gh_api_url)
-  curl_options+=(--header "Authorization: Bearer ${ARROW_GITHUB_API_TOKEN}")
+  curl_common_options=(--header "Authorization: Bearer ${GH_TOKEN}")
+
+  curl_options=("${curl_common_options[@]}")
   curl_options+=(--data "{\"query\": \"query {search(query: \\\"repo:apache/arrow is:issue is:closed milestone:${version}\\\", type:ISSUE) {issueCount}}\"}")
+  curl_options+=("https://api.github.com/graphql")
   n_resolved_issues=$(curl "${curl_options[@]}" | jq ".data.search.issueCount")
-  curl_options=(--header "Accept: application/vnd.github+json")
-  if [ -n "${ARROW_GITHUB_API_TOKEN:-}" ]; then
-    curl_options+=(--header "Authorization: Bearer ${ARROW_GITHUB_API_TOKEN}")
-  fi
+
+  curl_options=("${curl_common_options[@]}")
+  curl_options+=(--header "Accept: application/vnd.github+json")
   curl_options+=(--get)
   curl_options+=(--data "state=open")
   curl_options+=(--data "head=apache:${rc_branch}")
   curl_options+=(https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls)
   verify_pr_url=$(curl "${curl_options[@]}" | jq -r ".[0].html_url")
+
   echo "The following draft email has been created to send to the"
   echo "dev@arrow.apache.org mailing list"
   echo ""

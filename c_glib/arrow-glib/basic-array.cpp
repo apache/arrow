@@ -27,6 +27,7 @@
 
 #include <arrow/c/bridge.h>
 
+#include <cmath>
 #include <sstream>
 
 G_BEGIN_DECLS
@@ -492,6 +493,22 @@ garrow_array_statistics_has_distinct_count(GArrowArrayStatistics *statistics)
 }
 
 /**
+ * garrow_array_statistics_is_distinct_count_exact:
+ * @statistics: A #GArrowArrayStatistics.
+ *
+ * Returns: %TRUE if the distinct count is available and exact, %FALSE otherwise.
+ *
+ * Since: 22.0.0
+ */
+gboolean
+garrow_array_statistics_is_distinct_count_exact(GArrowArrayStatistics *statistics)
+{
+  auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(statistics);
+  return priv->statistics.distinct_count.has_value() &&
+         std::holds_alternative<int64_t>(priv->statistics.distinct_count.value());
+}
+
+/**
  * garrow_array_statistics_get_distinct_count:
  * @statistics: A #GArrowArrayStatistics.
  *
@@ -499,16 +516,56 @@ garrow_array_statistics_has_distinct_count(GArrowArrayStatistics *statistics)
  *   -1 otherwise.
  *
  * Since: 21.0.0
+ *
+ * Deprecated: 22.0.0. Use garrow_array_statistics_is_distinct_count_exact(),
+ *   garrow_array_statistics_get_distinct_count_exact() and
+ *   garrow_array_statistics_get_distinct_count_approximate() instead.
  */
 gint64
 garrow_array_statistics_get_distinct_count(GArrowArrayStatistics *statistics)
 {
+  return garrow_array_statistics_get_distinct_count_exact(statistics);
+}
+
+/**
+ * garrow_array_statistics_get_distinct_count_exact:
+ * @statistics: A #GArrowArrayStatistics.
+ *
+ * Returns: 0 or larger value if @statistics has a valid exact distinct count
+ *   value, -1 otherwise.
+ *
+ * Since: 22.0.0
+ */
+gint64
+garrow_array_statistics_get_distinct_count_exact(GArrowArrayStatistics *statistics)
+{
   auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(statistics);
   const auto &distinct_count = priv->statistics.distinct_count;
-  if (distinct_count) {
-    return distinct_count.value();
+  if (distinct_count && std::holds_alternative<int64_t>(distinct_count.value())) {
+    return std::get<int64_t>(distinct_count.value());
   } else {
     return -1;
+  }
+}
+
+/**
+ * garrow_array_statistics_get_distinct_count_approximate:
+ * @statistics: A #GArrowArrayStatistics.
+ *
+ * Returns: Non `NaN` value if @statistics has a valid approximate distinct count
+ *   value, `NaN` otherwise.
+ *
+ * Since: 22.0.0
+ */
+gdouble
+garrow_array_statistics_get_distinct_count_approximate(GArrowArrayStatistics *statistics)
+{
+  auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(statistics);
+  const auto &distinct_count = priv->statistics.distinct_count;
+  if (distinct_count && std::holds_alternative<double>(distinct_count.value())) {
+    return std::get<double>(distinct_count.value());
+  } else {
+    return std::nan("");
   }
 }
 

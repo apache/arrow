@@ -61,9 +61,21 @@ garrow_array_statistics_get_null_count(GArrowArrayStatistics *statistics);
 GARROW_AVAILABLE_IN_21_0
 gboolean
 garrow_array_statistics_has_distinct_count(GArrowArrayStatistics *statistics);
+GARROW_AVAILABLE_IN_22_0
+gboolean
+garrow_array_statistics_is_distinct_count_exact(GArrowArrayStatistics *statistics);
+#ifndef GARROW_DISABLE_DEPRECATED
 GARROW_AVAILABLE_IN_21_0
+GARROW_DEPRECATED_IN_22_0_FOR(garrow_array_statistics_get_distinct_count_exact)
 gint64
 garrow_array_statistics_get_distinct_count(GArrowArrayStatistics *statistics);
+#endif
+GARROW_AVAILABLE_IN_22_0
+gint64
+garrow_array_statistics_get_distinct_count_exact(GArrowArrayStatistics *statistics);
+GARROW_AVAILABLE_IN_22_0
+gdouble
+garrow_array_statistics_get_distinct_count_approximate(GArrowArrayStatistics *statistics);
 
 GARROW_AVAILABLE_IN_6_0
 GArrowArray *
