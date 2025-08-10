@@ -68,6 +68,26 @@ TEST(TestColumnEncryptionProperties, ColumnParquetCipherSpecified) {
   ASSERT_EQ(ParquetCipher::AES_GCM_CTR_V1, properties->parquet_cipher().value());
 }
 
+TEST(TestColumnDecryptionProperties, ColumnParquetCipherNotSpecified) {
+  std::string column_path = "column_path";
+  ColumnDecryptionProperties::Builder column_builder(column_path);
+  std::shared_ptr<ColumnDecryptionProperties> properties = column_builder.build();
+
+  ASSERT_EQ(column_path, properties->column_path());
+  ASSERT_EQ(false, properties->parquet_cipher().has_value());
+}
+
+TEST(TestColumnDecryptionProperties, ColumnParquetCipherSpecified) {
+  std::string column_path = "column_path";
+  ColumnDecryptionProperties::Builder column_builder(column_path);
+  column_builder.parquet_cipher(ParquetCipher::AES_GCM_CTR_V1);
+  std::shared_ptr<ColumnDecryptionProperties> properties = column_builder.build();
+
+  ASSERT_EQ(column_path, properties->column_path());
+  ASSERT_EQ(true, properties->parquet_cipher().has_value());
+  ASSERT_EQ(ParquetCipher::AES_GCM_CTR_V1, properties->parquet_cipher().value());
+}
+
 // Encrypt all columns and the footer with the same key.
 // (uniform encryption)
 TEST(TestEncryptionProperties, UniformEncryption) {

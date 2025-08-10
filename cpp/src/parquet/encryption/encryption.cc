@@ -136,6 +136,58 @@ FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::aad_prefix
   return this;
 }
 
+ExternalFileDecryptionProperties::Builder* ExternalFileDecryptionProperties::Builder::app_context(
+    const std::string& context) {
+  if (!app_context_.empty()) {
+    throw ParquetException("App context already set");
+  }
+
+  if (context.empty()) {
+    return this;
+  }
+
+  app_context_ = context;
+  return this;
+}
+
+ExternalFileDecryptionProperties::Builder* 
+ExternalFileDecryptionProperties::Builder::connection_config(
+    const std::map<ParquetCipher::type, std::map<std::string, std::string>>& config) {
+  if (connection_config_.size() != 0) {
+    throw ParquetException("Connection config already set");
+  }
+
+  if (config.size() == 0) {
+    return this;
+  }
+
+  connection_config_ = config;
+  return this;
+}
+
+std::shared_ptr<ExternalFileDecryptionProperties> 
+ExternalFileDecryptionProperties::Builder::build_external() {
+  return std::shared_ptr<ExternalFileDecryptionProperties>(new ExternalFileDecryptionProperties(
+    footer_key_, key_retriever_, check_plaintext_footer_integrity_, aad_prefix_,
+    aad_prefix_verifier_, column_decryption_properties_, plaintext_files_allowed_,
+    app_context_, connection_config_));
+}
+
+ExternalFileDecryptionProperties::ExternalFileDecryptionProperties(
+    const std::string& footer_key,
+    std::shared_ptr<DecryptionKeyRetriever> key_retriever,
+    bool check_plaintext_footer_integrity, const std::string& aad_prefix,
+    std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
+    const ColumnPathToDecryptionPropertiesMap& column_decryption_properties,
+    bool plaintext_files_allowed,
+    const std::string& app_context,
+    const std::map<ParquetCipher::type, std::map<std::string, std::string>>& connection_config)
+    : FileDecryptionProperties(footer_key, key_retriever, check_plaintext_footer_integrity,
+                               aad_prefix, aad_prefix_verifier, column_decryption_properties,
+                               plaintext_files_allowed),
+      app_context_(app_context),
+      connection_config_(connection_config) {}
+
 ColumnDecryptionProperties::Builder* ColumnDecryptionProperties::Builder::key(
     const std::string& key) {
   if (key.empty()) return this;
@@ -145,9 +197,15 @@ ColumnDecryptionProperties::Builder* ColumnDecryptionProperties::Builder::key(
   return this;
 }
 
+ColumnDecryptionProperties::Builder* ColumnDecryptionProperties::Builder::parquet_cipher(
+    ParquetCipher::type parquet_cipher) {
+  parquet_cipher_ = parquet_cipher;
+  return this;
+}
+
 std::shared_ptr<ColumnDecryptionProperties> ColumnDecryptionProperties::Builder::build() {
   return std::shared_ptr<ColumnDecryptionProperties>(
-      new ColumnDecryptionProperties(column_path_, key_));
+      new ColumnDecryptionProperties(column_path_, key_, parquet_cipher_));
 }
 
 FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key_metadata(
@@ -211,9 +269,10 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(
   key_ = key;
 }
 
-ColumnDecryptionProperties::ColumnDecryptionProperties(const std::string& column_path,
-                                                       const std::string& key)
-    : column_path_(column_path) {
+ColumnDecryptionProperties::ColumnDecryptionProperties(
+        const std::string& column_path, const std::string& key, 
+        std::optional<ParquetCipher::type> parquet_cipher)
+    : column_path_(column_path), parquet_cipher_(parquet_cipher) {
   DCHECK(!column_path.empty());
 
   if (!key.empty()) {

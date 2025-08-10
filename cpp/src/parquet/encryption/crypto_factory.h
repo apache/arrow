@@ -18,12 +18,14 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
 
 #include "parquet/encryption/encryption.h"
 #include "parquet/encryption/file_key_wrapper.h"
 #include "parquet/encryption/key_toolkit.h"
 #include "parquet/encryption/kms_client_factory.h"
 #include "parquet/platform.h"
+#include "parquet/types.h"
 
 namespace parquet::encryption {
 
@@ -141,6 +143,26 @@ struct PARQUET_EXPORT DecryptionConfiguration {
   /// objects).
   /// The default is 600 (10 minutes).
   double cache_lifetime_seconds = kDefaultCacheLifetimeSeconds;
+};
+
+struct PARQUET_EXPORT ExternalDecryptionConfiguration : public DecryptionConfiguration {
+  /// External decryption services may use additional context provided by the application to
+  /// enforce robust access control. The values sent to the external service depend on each
+  /// implementation. 
+  /// This value must be a valid JSON-formatted string.
+  /// Validation of the string will be done by the external decryption service, Arrow will only
+  /// forward this value.
+  /// Format: "{\"user_id\": \"abc123\", \"location\": {\"lat\": 9.7489, \"lon\": -83.7534}}"
+  std::string app_context;
+
+  /// Map of the encryption algorithms to the key/value map of the location of configuration files
+  /// needed by the external decryption service. This may include location of a dynamically-linked
+  /// library, or the location of a file where the external service can find urls, certificates,
+  /// and parameters needed to make a remote service call. 
+  /// For security, these values should never be sent in this config, only the locations of 
+  /// the files that the external service will know how to access.
+  std::unordered_map<ParquetCipher::type, std::unordered_map<std::string, std::string>>
+      connection_config;
 };
 
 /// This is a core class, that translates the parameters of high level encryption (like
