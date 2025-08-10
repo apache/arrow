@@ -21,40 +21,10 @@ import pyarrow.parquet.encryption as pe
 from pyarrow._parquet_encryption import CryptoFactory, KmsConnectionConfig, ExternalEncryptionConfiguration
 
 
-def test_encryption_configuration_properties(tempdir):
-    """Test the standard EncryptionConfiguration properties to avoid regressions."""
-
-    config = pe.EncryptionConfiguration(
-        footer_key="footer-key-name",
-        column_keys={
-            "col-key-id": ["a", "b"],
-        },
-        encryption_algorithm="AES_GCM_V1",
-        plaintext_footer=True,
-        double_wrapping=True,
-        cache_lifetime=timedelta(minutes=5.0),
-        internal_key_material=True,
-        data_key_length_bits=256
-    )
-
-    assert isinstance(config, pe.EncryptionConfiguration)
-
-    assert config.footer_key == "footer-key-name"
-    assert config.column_keys == {
-        "col-key-id": ["a", "b"]
-    }
-    assert config.encryption_algorithm == "AES_GCM_V1"
-    assert config.plaintext_footer is True
-    assert config.double_wrapping is True
-    assert config.cache_lifetime == timedelta(minutes=5.0)
-    assert config.internal_key_material is True
-    assert config.data_key_length_bits == 256
-
-def test_external_encryption_configuration_properties(tempdir):
-    """Test the ExternalEncryptionConfiguration properties including external-specific fields."""
-
-    config_external = pe.ExternalEncryptionConfiguration(
-        footer_key="footer-key-name",
+@pytest.fixture
+def external_encryption_config():
+    return pe.ExternalEncryptionConfiguration(
+        footer_key=b"0123456789abcdef",  # exactly 16 bytes
         column_keys={
             "col-key-id": ["a", "b"],
         },
@@ -84,30 +54,62 @@ def test_external_encryption_configuration_properties(tempdir):
         }
     )
 
-    assert isinstance(config_external, pe.ExternalEncryptionConfiguration)
+def test_encryption_configuration_properties():
+    """Test the standard EncryptionConfiguration properties to avoid regressions."""
 
-    assert config_external.footer_key == "footer-key-name"
-    assert config_external.column_keys == {
+    config = pe.EncryptionConfiguration(
+        footer_key="footer-key-name",
+        column_keys={
+            "col-key-id": ["a", "b"],
+        },
+        encryption_algorithm="AES_GCM_V1",
+        plaintext_footer=True,
+        double_wrapping=True,
+        cache_lifetime=timedelta(minutes=5.0),
+        internal_key_material=True,
+        data_key_length_bits=256
+    )
+
+    assert isinstance(config, pe.EncryptionConfiguration)
+
+    assert config.footer_key == "footer-key-name"
+    assert config.column_keys == {
         "col-key-id": ["a", "b"]
     }
-    assert config_external.encryption_algorithm == "AES_GCM_V1"
-    assert config_external.plaintext_footer is True
-    assert config_external.double_wrapping is True
-    assert config_external.cache_lifetime == timedelta(minutes=5.0)
-    assert config_external.internal_key_material is True
-    assert config_external.data_key_length_bits == 256
+    assert config.encryption_algorithm == "AES_GCM_V1"
+    assert config.plaintext_footer is True
+    assert config.double_wrapping is True
+    assert config.cache_lifetime == timedelta(minutes=5.0)
+    assert config.internal_key_material is True
+    assert config.data_key_length_bits == 256
 
-    assert config_external.app_context == {
+def test_external_encryption_configuration_properties(external_encryption_config):
+    """Test the ExternalEncryptionConfiguration properties including external-specific fields."""
+
+    assert isinstance(external_encryption_config, pe.ExternalEncryptionConfiguration)
+
+    assert external_encryption_config.footer_key == "0123456789abcdef"
+    assert external_encryption_config.column_keys == {
+        "col-key-id": ["a", "b"]
+    }
+    assert external_encryption_config.encryption_algorithm == "AES_GCM_V1"
+    assert external_encryption_config.plaintext_footer is True
+    assert external_encryption_config.double_wrapping is True
+    assert external_encryption_config.cache_lifetime == timedelta(minutes=5.0)
+    assert external_encryption_config.internal_key_material is True
+    assert external_encryption_config.data_key_length_bits == 256
+
+    assert external_encryption_config.app_context == {
         "user_id": "Picard1701",
         "location": "Presidio"
     }
 
-    assert config_external.connection_config == {
+    assert external_encryption_config.connection_config == {
         "config_file": "path/to/config/file",
         "config_file_decryption_key": "some_key"
     }
 
-    assert config_external.per_column_encryption == {
+    assert external_encryption_config.per_column_encryption == {
         "a": {
             "encryption_algorithm": "AES_GCM_V1",
             "encryption_key": "key_1"
@@ -117,8 +119,6 @@ def test_external_encryption_configuration_properties(tempdir):
             "encryption_key": "key_n"
         }
     }
-
-
 
 def test_external_encryption_app_context_invalid_json():
     """Ensure app_context raises TypeError for non-JSON-serializable input."""
@@ -189,22 +189,20 @@ def test_external_encryption_rejects_none_values():
     with pytest.raises(ValueError, match="Connection config value cannot be None"):
         config.connection_config = None
 
+def test_external_file_encryption_properties_valid(external_encryption_config):
+    class DummyKmsClient(pe.KmsClient):
+        def __init__(self, kms_connection_config):
+            super().__init__()
 
-class DummyKmsClient(pe.KmsClient):
-    def __init__(self):
-        super().__init__()
+        def wrap_key(self, key_bytes, master_key_identifier):
+            # dummy wrap just returns key_bytes
+            return key_bytes
 
-    def wrap_key(self, key_bytes, master_key_identifier):
-        # dummy wrap just returns key_bytes
-        return key_bytes
-
-    def unwrap_key(self, wrapped_key, master_key_identifier):
-        # dummy unwrap just returns wrapped_key
-        return wrapped_key
-
-@pytest.fixture
-def kms_config():
-    return pe.KmsConnectionConfig(
+        def unwrap_key(self, wrapped_key, master_key_identifier):
+            # dummy unwrap just returns wrapped_key
+            return wrapped_key
+    
+    kms_config = pe.KmsConnectionConfig(
         custom_kms_conf={
             "footer_key": "012footer_secret",
             "orderid_key": "column_secret001",
@@ -212,48 +210,10 @@ def kms_config():
         }
     )
 
-@pytest.fixture
-def external_encryption_config():
-    return pe.ExternalEncryptionConfiguration(
-        footer_key=b"0123456789abcdef",  # exactly 16 bytes
-        column_keys={
-            "col-key-id": ["a", "b"],
-        },
-        encryption_algorithm="AES_GCM_V1",
-        plaintext_footer=True,
-        double_wrapping=True,
-        cache_lifetime=timedelta(minutes=5.0),
-        internal_key_material=True,
-        data_key_length_bits=256,
-        per_column_encryption={
-            "a": {
-                "encryption_algorithm": "AES_GCM_V1",
-                "encryption_key": "key_1"
-            },
-            "b": {
-                "encryption_algorithm": "AES_GCM_CTR_V1",
-                "encryption_key": "key_n"
-            }
-        },
-        app_context={
-            "user_id": "Picard1701",
-            "location": "Presidio"
-        },
-        connection_config={
-            "config_file": "path/to/config/file",
-            "config_file_decryption_key": "some_key"
-        }
-    )
-
-def kms_client_factory(kms_connection_config):
-    # For test: just return a DummyKmsClient instance, ignoring the config
-    return DummyKmsClient()
-
-def test_external_file_encryption_properties_valid(kms_config, external_encryption_config):
-    factory = pe.CryptoFactory(kms_client_factory)
+    factory = pe.CryptoFactory(DummyKmsClient)
     result = factory.external_file_encryption_properties(kms_config, external_encryption_config)
 
-    # Instead of isinstance, check class name and module dynamically because ExternalEncryptionConfiguration is not visbile
+    # Instead of isinstance, check class name and module dynamically because ExternalFileEncryptionProperties is not visbile
     assert result.__class__.__name__ == "ExternalFileEncryptionProperties"
     assert result.__class__.__module__ == "pyarrow._parquet"
 

@@ -64,8 +64,3 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
     cdef shared_ptr[CExternalEncryptionConfiguration] external_configuration
     cdef inline shared_ptr[CExternalEncryptionConfiguration] unwrap_external(self) nogil
 cdef shared_ptr[CExternalEncryptionConfiguration] pyarrow_unwrap_external_encryptionconfig(object externalencryptionconfig) except *
-
-cdef class ExternalConnectionConfiguration(_Weakrefable):
-    cdef shared_ptr[CExternalConnectionConfiguration] configuration
-    cdef inline shared_ptr[CExternalConnectionConfiguration] unwrap(self) nogil
-cdef shared_ptr[CExternalConnectionConfiguration] pyarrow_unwrap_external_connectionconfig(object externalconnectionconfig) except *

@@ -69,13 +69,6 @@ ctypedef void CallbackCreateKmsClient(
 
 cdef extern from "parquet/encryption/crypto_factory.h" \
         namespace "parquet::encryption" nogil:
-    cdef cppclass CExternalConnectionConfiguration\
-            " parquet::encryption::ExternalConnectionConfiguration":
-        CExternalConnectionConfiguration(const c_string& config_path) except +
-        c_string config_path
-
-cdef extern from "parquet/encryption/crypto_factory.h" \
-        namespace "parquet::encryption" nogil:
     cdef cppclass CEncryptionConfiguration\
             " parquet::encryption::EncryptionConfiguration":
         CEncryptionConfiguration(const c_string& footer_key) except +

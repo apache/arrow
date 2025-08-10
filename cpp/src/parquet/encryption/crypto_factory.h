@@ -136,13 +136,6 @@ struct PARQUET_EXPORT ExternalEncryptionConfiguration : public EncryptionConfigu
   std::unordered_map<std::string, std::string> connection_config;
 };
 
-struct PARQUET_EXPORT ExternalConnectionConfiguration {
-  explicit ExternalConnectionConfiguration(const std::string& config_path)
-    : config_path(config_path) {}
-
-  std::string config_path;
-};
-
 struct PARQUET_EXPORT DecryptionConfiguration {
   /// Lifetime of cached entities (key encryption keys, local wrapping keys, KMS client
   /// objects).
