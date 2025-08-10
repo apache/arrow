@@ -680,7 +680,10 @@ cdef extern from "parquet/encryption/encryption.h" namespace "parquet" nogil:
     cdef cppclass CFileDecryptionProperties\
             " parquet::FileDecryptionProperties":
         pass
-
+   
+    cdef cppclass CExternalFileDecryptionProperties\
+            " parquet::ExternalFileDecryptionProperties":
+        pass
     cdef cppclass CFileEncryptionProperties\
             " parquet::FileEncryptionProperties":
         pass
@@ -703,4 +706,20 @@ cdef class FileDecryptionProperties:
         return result
 
     cdef inline shared_ptr[CFileDecryptionProperties] unwrap(self):
+        return self.properties
+
+cdef class ExternalFileDecryptionProperties:
+    """File-level decryption properties for the low-level API"""
+    cdef:
+        shared_ptr[CExternalFileDecryptionProperties] properties
+
+    @staticmethod
+    cdef inline ExternalFileDecryptionProperties wrap(
+            shared_ptr[CExternalFileDecryptionProperties] properties):
+
+        result = ExternalFileDecryptionProperties()
+        result.properties = properties
+        return result
+
+    cdef inline shared_ptr[CExternalFileDecryptionProperties] unwrap_external(self):
         return self.properties
