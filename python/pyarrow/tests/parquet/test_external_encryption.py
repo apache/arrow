@@ -118,6 +118,8 @@ def test_external_encryption_configuration_properties(tempdir):
         }
     }
 
+
+
 def test_external_encryption_app_context_invalid_json():
     """Ensure app_context raises TypeError for non-JSON-serializable input."""
     with pytest.raises(TypeError, match="Failed to serialize app_context: {'invalid': {1, 2, 3}}"):
@@ -139,6 +141,19 @@ def test_external_encryption_per_column_encryption_invalid_algorithm():
                 }
             }
         )
+
+def test_external_encryption_per_column_encryption_new_algorithm():
+    """Ensure new encryption_algorithm is accepted."""
+
+    pe.ExternalEncryptionConfiguration(
+        footer_key="key",
+        per_column_encryption={
+            "a": {
+                "encryption_algorithm": "EXTERNAL_DBPA_V1",
+                "encryption_key": "some_key"
+            }
+        }
+    )
 
 def test_external_encryption_connection_config_invalid_types():
     """Ensure connection_config rejects non-string keys or values."""
