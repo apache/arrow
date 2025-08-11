@@ -481,15 +481,15 @@ std::string OutputType::ToString() const {
 std::shared_ptr<MatchConstraint> DecimalsHaveSameScale() {
   class DecimalsHaveSameScaleConstraint : public MatchConstraint {
    public:
-    bool Validate(const std::vector<TypeHolder>& types) const override {
+    bool Matches(const std::vector<TypeHolder>& types) const override {
       DCHECK_GE(types.size(), 2);
       DCHECK(std::all_of(types.begin(), types.end(),
                          [](const TypeHolder& type) { return is_decimal(type.id()); }));
-      auto ty0 = dynamic_cast<const DecimalType*>(types[0].type);
+      auto ty0 = checked_cast<const DecimalType*>(types[0].type);
       DCHECK_NE(ty0, nullptr);
       auto s0 = ty0->scale();
       for (size_t i = 1; i < types.size(); ++i) {
-        auto ty = dynamic_cast<const DecimalType*>(types[i].type);
+        auto ty = checked_cast<const DecimalType*>(types[i].type);
         DCHECK_NE(ty, nullptr);
         if (ty->scale() != s0) {
           return false;
@@ -507,13 +507,13 @@ namespace {
 template <typename Op>
 class BinaryDecimalScaleComparisonConstraint : public MatchConstraint {
  public:
-  bool Validate(const std::vector<TypeHolder>& types) const override {
+  bool Matches(const std::vector<TypeHolder>& types) const override {
     DCHECK_EQ(types.size(), 2);
     DCHECK(is_decimal(types[0].id()));
     DCHECK(is_decimal(types[1].id()));
-    auto ty0 = dynamic_cast<const DecimalType*>(types[0].type);
+    auto ty0 = checked_cast<const DecimalType*>(types[0].type);
     DCHECK_NE(ty0, nullptr);
-    auto ty1 = dynamic_cast<const DecimalType*>(types[1].type);
+    auto ty1 = checked_cast<const DecimalType*>(types[1].type);
     DCHECK_NE(ty1, nullptr);
     return Op{}(ty0->scale(), ty1->scale());
   }
@@ -580,7 +580,7 @@ bool KernelSignature::MatchesInputs(const std::vector<TypeHolder>& types) const 
         return false;
       }
     }
-    if (constraint_ && !constraint_->Validate(types)) {
+    if (constraint_ && !constraint_->Matches(types)) {
       return false;
     }
   }

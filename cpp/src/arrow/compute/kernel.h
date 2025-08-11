@@ -355,7 +355,7 @@ class ARROW_EXPORT MatchConstraint {
   virtual ~MatchConstraint() = default;
 
   /// \brief Return true if the input types satisfy the constraint.
-  virtual bool Validate(const std::vector<TypeHolder>& types) const = 0;
+  virtual bool Matches(const std::vector<TypeHolder>& types) const = 0;
 };
 
 /// \brief Constraint that all input types are decimal types and have the same scale.
