@@ -1,0 +1,10 @@
+---
+types:
+  - name: point
+    structure:
+      latitude: i32
+      longitude: i32
+  - name: line
+    structure:
+      start: point
+      end: point

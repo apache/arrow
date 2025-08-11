@@ -1,0 +1,270 @@
+%YAML 1.2
+---
+scalar_functions:
+  -
+    name: "ceil"
+    description: >
+      Rounding to the ceiling of the value `x`.
+    impls:
+      - args:
+          - value: fp32
+            name: "x"
+        return: fp32
+      - args:
+          - value: fp64
+            name: "x"
+        return: fp64
+  -
+    name: "floor"
+    description: >
+      Rounding to the floor of the value `x`.
+    impls:
+      - args:
+          - value: fp32
+            name: "x"
+        return: fp32
+      - args:
+          - value: fp64
+            name: "x"
+        return: fp64
+  -
+    name: "round"
+    description: >
+      Rounding the value `x` to `s` decimal places.
+    impls:
+      - args:
+          - value: i8
+            name: "x"
+            description: >
+              Numerical expression to be rounded.
+          - value: i32
+            name: "s"
+            description: >
+              Number of decimal places to be rounded to.
+
+              When `s` is a positive number, nothing will happen
+              since `x` is an integer value.
+
+              When `s` is a negative number, the rounding is
+              performed to the nearest multiple of `10^(-s)`.
+        options:
+          rounding:
+            description: >
+              When a boundary is computed to lie somewhere between two values,
+              and this value cannot be exactly represented, this specifies how
+              to round it.
+
+                - TIE_TO_EVEN: round to nearest value; if exactly halfway, tie
+                  to the even option.
+                - TIE_AWAY_FROM_ZERO: round to nearest value; if exactly
+                  halfway, tie away from zero.
+                - TRUNCATE: always round toward zero.
+                - CEILING: always round toward positive infinity.
+                - FLOOR: always round toward negative infinity.
+                - AWAY_FROM_ZERO: round negative values with FLOOR rule, round positive values with CEILING rule
+                - TIE_DOWN: round ties with FLOOR rule
+                - TIE_UP: round ties with CEILING rule
+                - TIE_TOWARDS_ZERO: round ties with TRUNCATE rule
+                - TIE_TO_ODD: round to nearest value; if exactly halfway, tie
+                  to the odd option.
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR,
+              AWAY_FROM_ZERO, TIE_DOWN, TIE_UP, TIE_TOWARDS_ZERO, TIE_TO_ODD ]
+        nullability: DECLARED_OUTPUT
+        return: i8?
+      - args:
+          - value: i16
+            name: "x"
+            description: >
+              Numerical expression to be rounded.
+          - value: i32
+            name: "s"
+            description: >
+              Number of decimal places to be rounded to.
+
+              When `s` is a positive number, nothing will happen
+              since `x` is an integer value.
+
+              When `s` is a negative number, the rounding is
+              performed to the nearest multiple of `10^(-s)`.
+        options:
+          rounding:
+            description: >
+              When a boundary is computed to lie somewhere between two values,
+              and this value cannot be exactly represented, this specifies how
+              to round it.
+
+                - TIE_TO_EVEN: round to nearest value; if exactly halfway, tie
+                  to the even option.
+                - TIE_AWAY_FROM_ZERO: round to nearest value; if exactly
+                  halfway, tie away from zero.
+                - TRUNCATE: always round toward zero.
+                - CEILING: always round toward positive infinity.
+                - FLOOR: always round toward negative infinity.
+                - AWAY_FROM_ZERO: round negative values with FLOOR rule, round positive values with CEILING rule
+                - TIE_DOWN: round ties with FLOOR rule
+                - TIE_UP: round ties with CEILING rule
+                - TIE_TOWARDS_ZERO: round ties with TRUNCATE rule
+                - TIE_TO_ODD: round to nearest value; if exactly halfway, tie
+                  to the odd option.
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR,
+              AWAY_FROM_ZERO, TIE_DOWN, TIE_UP, TIE_TOWARDS_ZERO, TIE_TO_ODD ]
+        nullability: DECLARED_OUTPUT
+        return: i16?
+      - args:
+          - value: i32
+            name: "x"
+            description: >
+              Numerical expression to be rounded.
+          - value: i32
+            name: "s"
+            description: >
+              Number of decimal places to be rounded to.
+
+              When `s` is a positive number, nothing will happen
+              since `x` is an integer value.
+
+              When `s` is a negative number, the rounding is
+              performed to the nearest multiple of `10^(-s)`.
+        options:
+          rounding:
+            description: >
+              When a boundary is computed to lie somewhere between two values,
+              and this value cannot be exactly represented, this specifies how
+              to round it.
+
+                - TIE_TO_EVEN: round to nearest value; if exactly halfway, tie
+                  to the even option.
+                - TIE_AWAY_FROM_ZERO: round to nearest value; if exactly
+                  halfway, tie away from zero.
+                - TRUNCATE: always round toward zero.
+                - CEILING: always round toward positive infinity.
+                - FLOOR: always round toward negative infinity.
+                - AWAY_FROM_ZERO: round negative values with FLOOR rule, round positive values with CEILING rule
+                - TIE_DOWN: round ties with FLOOR rule
+                - TIE_UP: round ties with CEILING rule
+                - TIE_TOWARDS_ZERO: round ties with TRUNCATE rule
+                - TIE_TO_ODD: round to nearest value; if exactly halfway, tie
+                  to the odd option.
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR,
+              AWAY_FROM_ZERO, TIE_DOWN, TIE_UP, TIE_TOWARDS_ZERO, TIE_TO_ODD ]
+        nullability: DECLARED_OUTPUT
+        return: i32?
+      - args:
+          - value: i64
+            name: "x"
+            description: >
+              Numerical expression to be rounded.
+          - value: i32
+            name: "s"
+            description: >
+              Number of decimal places to be rounded to.
+
+              When `s` is a positive number, nothing will happen
+              since `x` is an integer value.
+
+              When `s` is a negative number, the rounding is
+              performed to the nearest multiple of `10^(-s)`.
+        options:
+          rounding:
+            description: >
+              When a boundary is computed to lie somewhere between two values,
+              and this value cannot be exactly represented, this specifies how
+              to round it.
+
+                - TIE_TO_EVEN: round to nearest value; if exactly halfway, tie
+                  to the even option.
+                - TIE_AWAY_FROM_ZERO: round to nearest value; if exactly
+                  halfway, tie away from zero.
+                - TRUNCATE: always round toward zero.
+                - CEILING: always round toward positive infinity.
+                - FLOOR: always round toward negative infinity.
+                - AWAY_FROM_ZERO: round negative values with FLOOR rule, round positive values with CEILING rule
+                - TIE_DOWN: round ties with FLOOR rule
+                - TIE_UP: round ties with CEILING rule
+                - TIE_TOWARDS_ZERO: round ties with TRUNCATE rule
+                - TIE_TO_ODD: round to nearest value; if exactly halfway, tie
+                  to the odd option.
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR,
+              AWAY_FROM_ZERO, TIE_DOWN, TIE_UP, TIE_TOWARDS_ZERO, TIE_TO_ODD ]
+        nullability: DECLARED_OUTPUT
+        return: i64?
+      - args:
+          - value: fp32
+            name: "x"
+            description: >
+              Numerical expression to be rounded.
+          - value: i32
+            name: "s"
+            description: >
+              Number of decimal places to be rounded to.
+
+              When `s` is a positive number, the rounding
+              is performed to a `s` number of decimal places.
+
+              When `s` is a negative number, the rounding is
+              performed to the left side of the decimal point
+              as specified by `s`.
+        options:
+          rounding:
+            description: >
+              When a boundary is computed to lie somewhere between two values,
+              and this value cannot be exactly represented, this specifies how
+              to round it.
+
+                - TIE_TO_EVEN: round to nearest value; if exactly halfway, tie
+                  to the even option.
+                - TIE_AWAY_FROM_ZERO: round to nearest value; if exactly
+                  halfway, tie away from zero.
+                - TRUNCATE: always round toward zero.
+                - CEILING: always round toward positive infinity.
+                - FLOOR: always round toward negative infinity.
+                - AWAY_FROM_ZERO: round negative values with FLOOR rule, round positive values with CEILING rule
+                - TIE_DOWN: round ties with FLOOR rule
+                - TIE_UP: round ties with CEILING rule
+                - TIE_TOWARDS_ZERO: round ties with TRUNCATE rule
+                - TIE_TO_ODD: round to nearest value; if exactly halfway, tie
+                  to the odd option.
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR,
+              AWAY_FROM_ZERO, TIE_DOWN, TIE_UP, TIE_TOWARDS_ZERO, TIE_TO_ODD ]
+        nullability: DECLARED_OUTPUT
+        return: fp32?
+      - args:
+          - value: fp64
+            name: "x"
+            description: >
+              Numerical expression to be rounded.
+          - value: i32
+            name: "s"
+            description: >
+              Number of decimal places to be rounded to.
+
+              When `s` is a positive number, the rounding
+              is performed to a `s` number of decimal places.
+
+              When `s` is a negative number, the rounding is
+              performed to the left side of the decimal point
+              as specified by `s`.
+        options:
+          rounding:
+            description: >
+              When a boundary is computed to lie somewhere between two values,
+              and this value cannot be exactly represented, this specifies how
+              to round it.
+
+                - TIE_TO_EVEN: round to nearest value; if exactly halfway, tie
+                  to the even option.
+                - TIE_AWAY_FROM_ZERO: round to nearest value; if exactly
+                  halfway, tie away from zero.
+                - TRUNCATE: always round toward zero.
+                - CEILING: always round toward positive infinity.
+                - FLOOR: always round toward negative infinity.
+                - AWAY_FROM_ZERO: round negative values with FLOOR rule, round positive values with CEILING rule
+                - TIE_DOWN: round ties with FLOOR rule
+                - TIE_UP: round ties with CEILING rule
+                - TIE_TOWARDS_ZERO: round ties with TRUNCATE rule
+                - TIE_TO_ODD: round to nearest value; if exactly halfway, tie
+                  to the odd option.
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR,
+              AWAY_FROM_ZERO, TIE_DOWN, TIE_UP, TIE_TOWARDS_ZERO, TIE_TO_ODD ]
+        nullability: DECLARED_OUTPUT
+        return: fp64?

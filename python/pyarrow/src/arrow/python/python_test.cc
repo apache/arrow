@@ -94,18 +94,17 @@
     }                                                                             \
   }
 
-#define ASSERT_OK(expr)                                                                \
-  {                                                                                    \
-    for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr)); !_st.ok();) \
-      return Status::Invalid("`", #expr, "` failed with ", _st.ToString());            \
+#define ASSERT_OK(expr)                                                     \
+  {                                                                         \
+    for (::arrow::Status _st = ::arrow::ToStatus((expr)); !_st.ok();)       \
+      return Status::Invalid("`", #expr, "` failed with ", _st.ToString()); \
   }
 
-#define ASSERT_RAISES(code, expr)                                               \
-  {                                                                             \
-    for (::arrow::Status _st_expr = ::arrow::internal::GenericToStatus((expr)); \
-         !_st_expr.Is##code();)                                                 \
-      return Status::Invalid("Expected `", #expr, "` to fail with ", #code,     \
-                             ", but got ", _st_expr.ToString());                \
+#define ASSERT_RAISES(code, expr)                                                     \
+  {                                                                                   \
+    for (::arrow::Status _st_expr = ::arrow::ToStatus((expr)); !_st_expr.Is##code();) \
+      return Status::Invalid("Expected `", #expr, "` to fail with ", #code,           \
+                             ", but got ", _st_expr.ToString());                      \
   }
 
 namespace arrow {
@@ -663,7 +662,7 @@ Status TestDecimal128OverflowFails() {
   ASSERT_EQ(38, metadata.precision());
   ASSERT_EQ(1, metadata.scale());
 
-  auto type = ::arrow::decimal(38, 38);
+  auto type = ::arrow::smallest_decimal(38, 38);
   const auto& decimal_type = checked_cast<const DecimalType&>(*type);
   ASSERT_RAISES(Invalid,
                 internal::DecimalFromPythonDecimal(python_decimal, decimal_type, &value));
@@ -689,7 +688,7 @@ Status TestDecimal256OverflowFails() {
   ASSERT_EQ(76, metadata.precision());
   ASSERT_EQ(1, metadata.scale());
 
-  auto type = ::arrow::decimal(76, 76);
+  auto type = ::arrow::smallest_decimal(76, 76);
   const auto& decimal_type = checked_cast<const DecimalType&>(*type);
   ASSERT_RAISES(Invalid,
                 internal::DecimalFromPythonDecimal(python_decimal, decimal_type, &value));

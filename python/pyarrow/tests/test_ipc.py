@@ -119,7 +119,6 @@ class StreamFormatFixture(IpcFixture):
         return pa.ipc.new_stream(
             sink,
             schema,
-            use_legacy_format=self.use_legacy_ipc_format,
             options=self.options,
         )
 
@@ -403,9 +402,7 @@ def test_stream_write_table_batches(stream_fixture):
                                  ignore_index=True))
 
 
-@pytest.mark.parametrize('use_legacy_ipc_format', [False, True])
-def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
-    stream_fixture.use_legacy_ipc_format = use_legacy_ipc_format
+def test_stream_simple_roundtrip(stream_fixture):
     batches = stream_fixture.write_batches()
     file_contents = pa.BufferReader(stream_fixture.get_source())
     reader = pa.ipc.open_stream(file_contents)
@@ -503,15 +500,6 @@ def test_write_options():
         assert options.use_threads is False
 
 
-def test_write_options_legacy_exclusive(stream_fixture):
-    with pytest.raises(
-            ValueError,
-            match="provide at most one of options and use_legacy_format"):
-        stream_fixture.use_legacy_ipc_format = True
-        stream_fixture.options = pa.ipc.IpcWriteOptions()
-        stream_fixture.write_batches()
-
-
 @pytest.mark.parametrize('options', [
     pa.ipc.IpcWriteOptions(),
     pa.ipc.IpcWriteOptions(allow_64bit=True),
@@ -521,7 +509,6 @@ def test_write_options_legacy_exclusive(stream_fixture):
                            metadata_version=pa.ipc.MetadataVersion.V4),
 ])
 def test_stream_options_roundtrip(stream_fixture, options):
-    stream_fixture.use_legacy_ipc_format = None
     stream_fixture.options = options
     batches = stream_fixture.write_batches()
     file_contents = pa.BufferReader(stream_fixture.get_source())
@@ -548,10 +535,16 @@ def test_read_options():
     options = pa.ipc.IpcReadOptions()
     assert options.use_threads is True
     assert options.ensure_native_endian is True
+    assert options.ensure_alignment == pa.ipc.Alignment.Any
     assert options.included_fields == []
 
     options.ensure_native_endian = False
     assert options.ensure_native_endian is False
+
+    options.ensure_alignment = pa.ipc.Alignment.DataTypeSpecific
+    assert options.ensure_alignment == pa.ipc.Alignment.DataTypeSpecific
+    options.ensure_alignment = pa.ipc.Alignment.At64Byte
+    assert options.ensure_alignment == pa.ipc.Alignment.At64Byte
 
     options.use_threads = False
     assert options.use_threads is False
@@ -564,10 +557,11 @@ def test_read_options():
 
     options = pa.ipc.IpcReadOptions(
         use_threads=False, ensure_native_endian=False,
-        included_fields=[1]
+        ensure_alignment=pa.ipc.Alignment.DataTypeSpecific, included_fields=[1]
     )
     assert options.use_threads is False
     assert options.ensure_native_endian is False
+    assert options.ensure_alignment == pa.ipc.Alignment.DataTypeSpecific
     assert options.included_fields == [1]
 
 
@@ -1317,3 +1311,30 @@ def test_record_batch_reader_cast_nulls():
     casted_reader = reader.cast(schema_dst)
     with pytest.raises(pa.lib.ArrowInvalid, match="Can't cast array"):
         casted_reader.read_all()
+
+
+def test_record_batch_file_writer_with_metadata():
+    # https://github.com/apache/arrow/issues/46222
+    tbl = pa.table({"a": [1, 2, 3]})
+    meta = {b"creator": b"test", b"version": b"0.1.0"}
+    sink = pa.BufferOutputStream()
+
+    with pa.ipc.new_file(sink, tbl.schema, metadata=meta) as w:
+        w.write_table(tbl)
+
+    buffer = sink.getvalue()
+    with pa.ipc.open_file(buffer) as r:
+        assert r.metadata == meta
+
+
+def test_record_batch_file_writer_with_empty_metadata():
+    # https://github.com/apache/arrow/issues/46222
+    tbl = pa.table({"a": [1, 2, 3]})
+    sink = pa.BufferOutputStream()
+
+    with pa.ipc.new_file(sink, tbl.schema) as w:
+        w.write_table(tbl)
+
+    buffer = sink.getvalue()
+    with pa.ipc.open_file(buffer) as r:
+        assert r.metadata is None

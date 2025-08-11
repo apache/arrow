@@ -1,0 +1,47 @@
+name: Site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "extensions/**"
+
+jobs:
+  site:
+    name: Build & Deploy Website
+    runs-on: ubuntu-latest
+    if: ${{ github.repository == 'substrait-io/substrait' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+      - name: Upgrade pip
+        run: |
+          # install pip=>20.1 to use "pip cache dir"
+          python3 -m pip install --upgrade pip
+      - name: Get pip cache dir
+        id: pip-cache
+        run: echo "::set-output name=dir::$(pip cache dir)"
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pip-cache.outputs.dir }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('site/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install dependencies
+        run: python3 -m pip install -r ./site/requirements.txt
+      - name: Generate Static Site
+        run: mkdocs build
+        working-directory: ./site
+      - name: Deploy Static Site to GitHub
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          external_repository: substrait-io/substrait.io
+          publish_branch: main
+          deploy_key: ${{ secrets.SUBSTRAIT_SITE_DEPLOY_KEY }}
+          publish_dir: ./site/site
+          cname: substrait.io

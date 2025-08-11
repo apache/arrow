@@ -1,0 +1,37 @@
+%YAML 1.2
+---
+aggregate_functions:
+  - name: "count"
+    description: Count a set of values
+    impls:
+      - args:
+          - name: x
+            value: any
+        options:
+          overflow:
+            values: [SILENT, SATURATE, ERROR]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i64
+        return: i64
+  - name: "count"
+    description: "Count a set of records (not field referenced)"
+    impls:
+      - options:
+          overflow:
+            values: [SILENT, SATURATE, ERROR]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i64
+        return: i64
+  - name: "any_value"
+    description: >
+      Selects an arbitrary value from a group of values.
+
+      If the input is empty, the function returns null.
+    impls:
+      - args:
+          - name: x
+            value: any
+        nullability: DECLARED_OUTPUT
+        return: any?

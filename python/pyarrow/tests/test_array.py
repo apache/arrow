@@ -75,17 +75,32 @@ def test_constructor_raises():
 
 
 def test_list_format():
-    arr = pa.array([[1], None, [2, 3, None]])
+    arr = pa.array([["foo"], None, ["bar", "a longer string", None]])
     result = arr.to_string()
     expected = """\
 [
   [
-    1
+    "foo"
   ],
   null,
   [
-    2,
-    3,
+    "bar",
+    "a longer string",
+    null
+  ]
+]"""
+    assert result == expected
+
+    result = arr.to_string(element_size_limit=10)
+    expected = """\
+[
+  [
+    "foo"
+  ],
+  null,
+  [
+    "bar",
+    "a longer (... 7 chars omitted)",
     null
   ]
 ]"""
@@ -246,7 +261,7 @@ def test_to_numpy_writable():
 @pytest.mark.parametrize('tz', [None, "UTC"])
 def test_to_numpy_datetime64(unit, tz):
     arr = pa.array([1, 2, 3], pa.timestamp(unit, tz=tz))
-    expected = np.array([1, 2, 3], dtype="datetime64[{}]".format(unit))
+    expected = np.array([1, 2, 3], dtype=f"datetime64[{unit}]")
     np_arr = arr.to_numpy()
     np.testing.assert_array_equal(np_arr, expected)
 
@@ -255,7 +270,7 @@ def test_to_numpy_datetime64(unit, tz):
 @pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
 def test_to_numpy_timedelta64(unit):
     arr = pa.array([1, 2, 3], pa.duration(unit))
-    expected = np.array([1, 2, 3], dtype="timedelta64[{}]".format(unit))
+    expected = np.array([1, 2, 3], dtype=f"timedelta64[{unit}]")
     np_arr = arr.to_numpy()
     np.testing.assert_array_equal(np_arr, expected)
 
@@ -488,15 +503,14 @@ def test_array_slice():
                 assert res.to_numpy().tolist() == expected
 
 
-@pytest.mark.numpy
 def test_array_slice_negative_step():
     # ARROW-2714
-    np_arr = np.arange(20)
-    arr = pa.array(np_arr)
+    values = list(range(20))
+    arr = pa.array(values)
     chunked_arr = pa.chunked_array([arr])
 
     cases = [
-        slice(None, None, -1),
+        slice(None, None, -1),  # GH-46606
         slice(None, 6, -2),
         slice(10, 6, -2),
         slice(8, None, -2),
@@ -510,7 +524,7 @@ def test_array_slice_negative_step():
 
     for case in cases:
         result = arr[case]
-        expected = pa.array(np_arr[case])
+        expected = pa.array(values[case], type=arr.type)
         assert result.equals(expected)
 
         result = pa.record_batch([arr], names=['f0'])[case]
@@ -518,8 +532,34 @@ def test_array_slice_negative_step():
         assert result.equals(expected)
 
         result = chunked_arr[case]
-        expected = pa.chunked_array([np_arr[case]])
+        expected = pa.chunked_array([values[case]], type=arr.type)
         assert result.equals(expected)
+
+
+def test_arange():
+    cases = [
+        (5, 103),        # Default step
+        (-2, 128, 3),
+        (4, 103, 5),
+        (10, -7, -1),
+        (100, -20, -3),
+        (0, 0),         # Empty array
+        (2, 10, -1),    # Empty array
+        (10, 3, 1),     # Empty array
+    ]
+    for case in cases:
+        result = pa.arange(*case)
+        result.validate(full=True)
+        assert result.equals(pa.array(list(range(*case)), type=pa.int64()))
+
+    # Validate memory_pool keyword argument
+    result = pa.arange(-1, 101, memory_pool=pa.default_memory_pool())
+    result.validate(full=True)
+    assert result.equals(pa.array(list(range(-1, 101)), type=pa.int64()))
+
+    # Special case for invalid step (arange does not accept step of 0)
+    with pytest.raises(pa.ArrowInvalid):
+        pa.arange(0, 10, 0)
 
 
 def test_array_diff():
@@ -528,6 +568,8 @@ def test_array_diff():
     arr2 = pa.array(['foo', 'bar', None], type=pa.utf8())
     arr3 = pa.array([1, 2, 3])
     arr4 = pa.array([[], [1], None], type=pa.list_(pa.int64()))
+    arr5 = pa.array([1.5, 3, 6], type=pa.float16())
+    arr6 = pa.array([1, 3], type=pa.float16())
 
     assert arr1.diff(arr1) == ''
     assert arr1.diff(arr2) == '''
@@ -539,6 +581,14 @@ def test_array_diff():
     assert arr1.diff(arr3).strip() == '# Array types differed: string vs int64'
     assert arr1.diff(arr4).strip() == ('# Array types differed: string vs '
                                        'list<item: int64>')
+    assert arr5.diff(arr5) == ''
+    assert arr5.diff(arr6) == '''
+@@ -0, +0 @@
+-1.5
++1
+@@ -2, +2 @@
+-6
+'''
 
 
 def test_array_iter():
@@ -1664,6 +1714,20 @@ def test_floating_point_truncate_unsafe():
         _check_cast_case(case, safe=False)
 
 
+def test_half_float_array_from_python():
+    # GH-46611
+    vals = [-5, 0, 1.0, 2.0, 3, None, 12345.6789, 1.234567, float('inf')]
+    arr = pa.array(vals, type=pa.float16())
+    assert arr.type == pa.float16()
+    assert arr.to_pylist() == [-5, 0, 1.0, 2.0, 3, None, 12344.0,
+                               1.234375, float('inf')]
+    assert str(arr) == ("[\n  -5,\n  0,\n  1,\n  2,\n  3,\n  null,\n  12344,"
+                        "\n  1.234375,\n  inf\n]")
+    msg1 = "Could not convert 'a' with type str: tried to convert to float16"
+    with pytest.raises(pa.ArrowInvalid, match=msg1):
+        arr = pa.array(['a', 3, None], type=pa.float16())
+
+
 def test_decimal_to_int_safe():
     safe_cases = [
         (
@@ -1756,7 +1820,7 @@ def test_decimal_to_int_non_integer():
 
     for case in non_integer_cases:
         # test safe casting raises
-        msg_regexp = 'Rescaling Decimal128 value would cause data loss'
+        msg_regexp = 'Rescaling Decimal value would cause data loss'
         with pytest.raises(pa.ArrowInvalid, match=msg_regexp):
             _check_cast_case(case)
 
@@ -1775,7 +1839,7 @@ def test_decimal_to_decimal():
     )
     assert result.equals(expected)
 
-    msg_regexp = 'Rescaling Decimal128 value would cause data loss'
+    msg_regexp = 'Rescaling Decimal value would cause data loss'
     with pytest.raises(pa.ArrowInvalid, match=msg_regexp):
         result = arr.cast(pa.decimal128(9, 1))
 
@@ -2281,10 +2345,11 @@ def test_array_conversions_no_sentinel_values():
 
     assert arr2.type == 'int8'
 
-    arr3 = pa.array(np.array([1, np.nan, 2, 3, np.nan, 4], dtype='float32'),
-                    type='float32')
-    assert arr3.type == 'float32'
-    assert arr3.null_count == 0
+    for ty in ['float16', 'float32', 'float64']:
+        arr3 = pa.array(np.array([1, np.nan, 2, 3, np.nan, 4], dtype=ty),
+                        type=ty)
+        assert arr3.type == ty
+        assert arr3.null_count == 0
 
 
 def test_time32_time64_from_integer():
@@ -2498,32 +2563,40 @@ def test_array_from_numpy_timedelta_incorrect_unit():
 
 
 @pytest.mark.numpy
-def test_array_from_numpy_ascii():
+@pytest.mark.parametrize('binary_type', [
+    None,
+    pa.binary(),
+    pa.large_binary(),
+    pa.binary_view()])
+def test_array_from_numpy_ascii(binary_type):
+    # Default when no type is specified should be binary
+    expected_type = binary_type or pa.binary()
+
     arr = np.array(['abcde', 'abc', ''], dtype='|S5')
 
-    arrow_arr = pa.array(arr)
-    assert arrow_arr.type == 'binary'
-    expected = pa.array(['abcde', 'abc', ''], type='binary')
+    arrow_arr = pa.array(arr, binary_type)
+    assert arrow_arr.type == expected_type
+    expected = pa.array(['abcde', 'abc', ''], type=expected_type)
     assert arrow_arr.equals(expected)
 
     mask = np.array([False, True, False])
-    arrow_arr = pa.array(arr, mask=mask)
-    expected = pa.array(['abcde', None, ''], type='binary')
+    arrow_arr = pa.array(arr, binary_type, mask=mask)
+    expected = pa.array(['abcde', None, ''], type=expected_type)
     assert arrow_arr.equals(expected)
 
     # Strided variant
     arr = np.array(['abcde', 'abc', ''] * 5, dtype='|S5')[::2]
     mask = np.array([False, True, False] * 5)[::2]
-    arrow_arr = pa.array(arr, mask=mask)
+    arrow_arr = pa.array(arr, binary_type, mask=mask)
 
     expected = pa.array(['abcde', '', None, 'abcde', '', None, 'abcde', ''],
-                        type='binary')
+                        type=expected_type)
     assert arrow_arr.equals(expected)
 
     # 0 itemsize
     arr = np.array(['', '', ''], dtype='|S0')
-    arrow_arr = pa.array(arr)
-    expected = pa.array(['', '', ''], type='binary')
+    arrow_arr = pa.array(arr, binary_type)
+    expected = pa.array(['', '', ''], type=expected_type)
     assert arrow_arr.equals(expected)
 
 
@@ -2643,35 +2716,43 @@ def test_interval_array_from_dateoffset():
 
 
 @pytest.mark.numpy
-def test_array_from_numpy_unicode():
+@pytest.mark.parametrize('string_type', [
+    None,
+    pa.utf8(),
+    pa.large_utf8(),
+    pa.string_view()])
+def test_array_from_numpy_unicode(string_type):
+    # Default when no type is specified should be utf8
+    expected_type = string_type or pa.utf8()
+
     dtypes = ['<U5', '>U5']
 
     for dtype in dtypes:
         arr = np.array(['abcde', 'abc', ''], dtype=dtype)
 
-        arrow_arr = pa.array(arr)
-        assert arrow_arr.type == 'utf8'
-        expected = pa.array(['abcde', 'abc', ''], type='utf8')
+        arrow_arr = pa.array(arr, string_type)
+        assert arrow_arr.type == expected_type
+        expected = pa.array(['abcde', 'abc', ''], type=expected_type)
         assert arrow_arr.equals(expected)
 
         mask = np.array([False, True, False])
-        arrow_arr = pa.array(arr, mask=mask)
-        expected = pa.array(['abcde', None, ''], type='utf8')
+        arrow_arr = pa.array(arr, string_type, mask=mask)
+        expected = pa.array(['abcde', None, ''], type=expected_type)
         assert arrow_arr.equals(expected)
 
         # Strided variant
         arr = np.array(['abcde', 'abc', ''] * 5, dtype=dtype)[::2]
         mask = np.array([False, True, False] * 5)[::2]
-        arrow_arr = pa.array(arr, mask=mask)
+        arrow_arr = pa.array(arr, string_type, mask=mask)
 
         expected = pa.array(['abcde', '', None, 'abcde', '', None,
-                             'abcde', ''], type='utf8')
+                             'abcde', ''], type=expected_type)
         assert arrow_arr.equals(expected)
 
     # 0 itemsize
     arr = np.array(['', '', ''], dtype='<U0')
-    arrow_arr = pa.array(arr)
-    expected = pa.array(['', '', ''], type='utf8')
+    arrow_arr = pa.array(arr, string_type)
+    expected = pa.array(['', '', ''], type=expected_type)
     assert arrow_arr.equals(expected)
 
 
@@ -3268,8 +3349,9 @@ def test_array_from_numpy_str_utf8():
 @pytest.mark.numpy
 @pytest.mark.slow
 @pytest.mark.large_memory
-def test_numpy_binary_overflow_to_chunked():
-    # ARROW-3762, ARROW-5966
+@pytest.mark.parametrize('large_types', [False, True])
+def test_numpy_binary_overflow_to_chunked(large_types):
+    # ARROW-3762, ARROW-5966, GH-35289
 
     # 2^31 + 1 bytes
     values = [b'x']
@@ -3286,24 +3368,34 @@ def test_numpy_binary_overflow_to_chunked():
     unicode_values += [unicode_unique_strings[i % 10]
                        for i in range(1 << 11)]
 
-    for case, ex_type in [(values, pa.binary()),
-                          (unicode_values, pa.utf8())]:
+    binary_type = pa.large_binary() if large_types else pa.binary()
+    string_type = pa.large_utf8() if large_types else pa.utf8()
+    for case, ex_type in [(values, binary_type),
+                          (unicode_values, string_type)]:
         arr = np.array(case)
-        arrow_arr = pa.array(arr)
+        arrow_arr = pa.array(arr, ex_type)
         arr = None
 
-        assert isinstance(arrow_arr, pa.ChunkedArray)
         assert arrow_arr.type == ex_type
+        if large_types:
+            # Large types shouldn't be chunked
+            assert isinstance(arrow_arr, pa.Array)
 
-        # Split up into 16MB chunks. 128 * 16 = 2048, so 129
-        assert arrow_arr.num_chunks == 129
+            for i in range(len(arrow_arr)):
+                val = arrow_arr[i]
+                assert val.as_py() == case[i]
+        else:
+            assert isinstance(arrow_arr, pa.ChunkedArray)
 
-        value_index = 0
-        for i in range(arrow_arr.num_chunks):
-            chunk = arrow_arr.chunk(i)
-            for val in chunk:
-                assert val.as_py() == case[value_index]
-                value_index += 1
+            # Split up into 16MB chunks. 128 * 16 = 2048, so 129
+            assert arrow_arr.num_chunks == 129
+
+            value_index = 0
+            for i in range(arrow_arr.num_chunks):
+                chunk = arrow_arr.chunk(i)
+                for val in chunk:
+                    assert val.as_py() == case[value_index]
+                    value_index += 1
 
 
 @pytest.mark.large_memory

@@ -201,6 +201,32 @@ class PARQUET_EXPORT ParquetFileReader {
                  const ::arrow::io::IOContext& ctx,
                  const ::arrow::io::CacheOptions& options);
 
+  /// Retrieve the list of byte ranges that would need to be read to retrieve
+  /// the data for the specified row groups and column indices.
+  ///
+  /// A reader can optionally call this if they wish to handle their own
+  /// caching and management of file reads (or offload them to other readers).
+  /// Unlike PreBuffer, this method will not perform any actual caching or
+  /// reads, instead just using the file metadata to determine the byte ranges
+  /// that would need to be read if you were to consume the entirety of the column
+  /// chunks for the provided columns in the specified row groups.
+  ///
+  /// If row_groups or column_indices are empty, then the result of this will be empty.
+  ///
+  /// hole_size_limit represents the maximum distance, in bytes, between two
+  /// consecutive ranges; beyond this value, ranges will not be combined. The default
+  /// value is 1MB.
+  ///
+  /// range_size_limit is the maximum size in bytes of a combined range; if combining
+  /// two consecutive ranges would produce a range larger than this, they are not
+  /// combined. The default values is 64MB. This *must* be larger than hole_size_limit.
+  ///
+  /// This will not take into account page indexes or any other predicate push down
+  /// benefits that may be available.
+  ::arrow::Result<std::vector<::arrow::io::ReadRange>> GetReadRanges(
+      const std::vector<int>& row_groups, const std::vector<int>& column_indices,
+      int64_t hole_size_limit = 1024 * 1024, int64_t range_size_limit = 64 * 1024 * 1024);
+
   /// Wait for the specified row groups and column indices to be pre-buffered.
   ///
   /// After the returned Future completes, reading the specified row

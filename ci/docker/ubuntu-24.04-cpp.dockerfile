@@ -68,9 +68,6 @@ RUN apt-get update -y -q && \
         autoconf \
         ca-certificates \
         ccache \
-        ceph \
-        ceph-fuse \
-        ceph-mds \
         cmake \
         curl \
         gdb \
@@ -128,32 +125,27 @@ RUN apt-get update -y -q && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
-ARG gcc_version=""
-RUN if [ "${gcc_version}" = "" ]; then \
+ARG gcc=""
+RUN if [ "${gcc}" = "" ]; then \
       apt-get update -y -q && \
       apt-get install -y -q --no-install-recommends \
           g++ \
           gcc; \
     else \
-      if [ "${gcc_version}" -gt "14" ]; then \
-          apt-get update -y -q && \
-          apt-get install -y -q --no-install-recommends software-properties-common && \
-          add-apt-repository ppa:ubuntu-toolchain-r/volatile; \
-      fi; \
       apt-get update -y -q && \
       apt-get install -y -q --no-install-recommends \
-          g++-${gcc_version} \
-          gcc-${gcc_version} && \
-      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 100 && \
-      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc_version} 100 && \
+          g++-${gcc} \
+          gcc-${gcc} && \
+      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc} 100 && \
+      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc} 100 && \
       update-alternatives --install \
         /usr/bin/$(uname --machine)-linux-gnu-gcc \
         $(uname --machine)-linux-gnu-gcc \
-        /usr/bin/$(uname --machine)-linux-gnu-gcc-${gcc_version} 100 && \
+        /usr/bin/$(uname --machine)-linux-gnu-gcc-${gcc} 100 && \
       update-alternatives --install \
         /usr/bin/$(uname --machine)-linux-gnu-g++ \
         $(uname --machine)-linux-gnu-g++ \
-        /usr/bin/$(uname --machine)-linux-gnu-g++-${gcc_version} 100 && \
+        /usr/bin/$(uname --machine)-linux-gnu-g++-${gcc} 100 && \
       update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 100 && \
       update-alternatives --set cc /usr/bin/gcc && \
       update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 100 && \
@@ -169,10 +161,17 @@ RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 COPY ci/scripts/install_azurite.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_azurite.sh
 
+COPY ci/scripts/install_ceph.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_ceph.sh
+
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
-# Prioritize system packages and local installation
+# Prioritize system packages and local installation.
+#
+# The following dependencies will be downloaded due to missing/invalid packages
+# provided by the distribution:
+# - opentelemetry-cpp-dev is not packaged
 ENV ARROW_ACERO=ON \
     ARROW_AZURE=ON \
     ARROW_BUILD_STATIC=ON \
@@ -186,6 +185,7 @@ ENV ARROW_ACERO=ON \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
     ARROW_INSTALL_NAME_RPATH=OFF \
+    ARROW_JEMALLOC=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \
@@ -205,6 +205,7 @@ ENV ARROW_ACERO=ON \
     AWSSDK_SOURCE=BUNDLED \
     Azure_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
+    opentelemetry_cpp_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \

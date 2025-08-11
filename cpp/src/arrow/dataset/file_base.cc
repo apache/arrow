@@ -33,6 +33,7 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/dataset_writer.h"
 #include "arrow/dataset/forest_internal.h"
+#include "arrow/dataset/projector.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/dataset/subtree_internal.h"
 #include "arrow/filesystem/filesystem.h"
@@ -43,8 +44,9 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/map.h"
+#include "arrow/util/map_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/tracing_internal.h"
@@ -471,9 +473,14 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 
   WriteNodeOptions write_node_options(write_options);
   write_node_options.custom_schema = custom_schema;
+  // preserve existing order across fragments by setting require_sequenced_output=true
+  bool require_sequenced_output = write_node_options.write_options.preserve_order;
+  // preserve existing order of sequenced scan output by setting implicit_order=true
+  bool implicit_ordering = write_node_options.write_options.preserve_order;
 
   acero::Declaration plan = acero::Declaration::Sequence({
-      {"scan", ScanNodeOptions{dataset, scanner->options()}},
+      {"scan", ScanNodeOptions{dataset, scanner->options(), require_sequenced_output,
+                               implicit_ordering}},
       {"filter", acero::FilterNodeOptions{scanner->options()->filter}},
       {"project", acero::ProjectNodeOptions{std::move(exprs), std::move(names)}},
       {"write", std::move(write_node_options)},
@@ -481,6 +488,8 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 
   return acero::DeclarationToStatus(std::move(plan), scanner->options()->use_threads);
 }
+
+namespace {
 
 Result<acero::ExecNode*> MakeWriteNode(acero::ExecPlan* plan,
                                        std::vector<acero::ExecNode*> inputs,
@@ -539,13 +548,16 @@ Result<acero::ExecNode*> MakeWriteNode(acero::ExecPlan* plan,
 
   ARROW_ASSIGN_OR_RAISE(
       auto node,
+      // to preserve order explicitly, sequence the exec batches
+      // this requires exec batch index to be set upstream (e.g. by SourceNode)
       acero::MakeExecNode("consuming_sink", plan, std::move(inputs),
-                          acero::ConsumingSinkNodeOptions{std::move(consumer)}));
+                          acero::ConsumingSinkNodeOptions{
+                              std::move(consumer),
+                              {},
+                              /*sequence_output=*/write_options.preserve_order}));
 
   return node;
 }
-
-namespace {
 
 class TeeNode : public acero::MapNode {
  public:

@@ -1,3 +1,4 @@
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -113,10 +114,10 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def __repr__(self):
         type_format = object.__repr__(self)
-        return '{0}\n{1}'.format(type_format, str(self))
+        return f"{type_format}\n{self}"
 
     def to_string(self, *, int indent=0, int window=5, int container_window=2,
-                  c_bool skip_new_lines=False):
+                  c_bool skip_new_lines=False, int element_size_limit=100):
         """
         Render a "pretty-printed" string representation of the ChunkedArray
 
@@ -137,6 +138,8 @@ cdef class ChunkedArray(_PandasConvertible):
         skip_new_lines : bool
             If the array should be rendered as a single line of text
             or if each element should be on its own line.
+        element_size_limit : int, default 100
+            Maximum number of characters of a single element before it is truncated.
 
         Examples
         --------
@@ -153,6 +156,7 @@ cdef class ChunkedArray(_PandasConvertible):
             options = PrettyPrintOptions(indent, window)
             options.skip_new_lines = skip_new_lines
             options.container_window = container_window
+            options.element_size_limit = element_size_limit
             check_status(
                 PrettyPrint(
                     deref(self.chunked_array),
@@ -1349,9 +1353,23 @@ cdef class ChunkedArray(_PandasConvertible):
         for i in range(self.num_chunks):
             yield self.chunk(i)
 
-    def to_pylist(self):
+    def to_pylist(self, *, maps_as_pydicts=None):
         """
         Convert to a list of native Python objects.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
 
         Examples
         --------
@@ -1363,7 +1381,7 @@ cdef class ChunkedArray(_PandasConvertible):
         self._assert_cpu()
         result = []
         for i in range(self.num_chunks):
-            result += self.chunk(i).to_pylist()
+            result += self.chunk(i).to_pylist(maps_as_pydicts=maps_as_pydicts)
         return result
 
     def __arrow_c_stream__(self, requested_schema=None):
@@ -1554,8 +1572,8 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
             schema.reset(new CSchema(c_fields, c_meta))
             return arrays
         else:
-            raise ValueError('Length of names ({}) does not match '
-                             'length of arrays ({})'.format(len(names), K))
+            raise ValueError(f'Length of names ({len(names)}) does not match '
+                             f'length of arrays ({K})')
 
     c_fields.resize(K)
 
@@ -1564,8 +1582,8 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
                          'Table or RecordBatch.')
 
     if len(names) != K:
-        raise ValueError('Length of names ({}) does not match '
-                         'length of arrays ({})'.format(len(names), K))
+        raise ValueError(f'Length of names ({len(names)}) does not match '
+                         f'length of arrays ({K})')
 
     converted_arrays = []
     for i in range(K):
@@ -1712,11 +1730,10 @@ cdef class _Tabular(_PandasConvertible):
             field_indices = self.schema.get_all_field_indices(i)
 
             if len(field_indices) == 0:
-                raise KeyError("Field \"{}\" does not exist in schema"
-                               .format(i))
+                raise KeyError(f'Field "{i}" does not exist in schema')
             elif len(field_indices) > 1:
-                raise KeyError("Field \"{}\" exists {} times in schema"
-                               .format(i, len(field_indices)))
+                raise KeyError(
+                    f'Field "{i}" exists {len(field_indices)} times in schema')
             else:
                 return field_indices[0]
         elif isinstance(i, int):
@@ -2255,9 +2272,23 @@ cdef class _Tabular(_PandasConvertible):
         else:
             return _pc().filter(self, mask, null_selection_behavior)
 
-    def to_pydict(self):
+    def to_pydict(self, *, maps_as_pydicts=None):
         """
         Convert the Table or RecordBatch to a dict or OrderedDict.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
 
         Returns
         -------
@@ -2277,13 +2308,27 @@ cdef class _Tabular(_PandasConvertible):
         entries = []
         for i in range(self.num_columns):
             name = self.field(i).name
-            column = self[i].to_pylist()
+            column = self[i].to_pylist(maps_as_pydicts=maps_as_pydicts)
             entries.append((name, column))
         return ordered_dict(entries)
 
-    def to_pylist(self):
+    def to_pylist(self, *, maps_as_pydicts=None):
         """
         Convert the Table or RecordBatch to a list of rows / dictionaries.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
 
         Returns
         -------
@@ -2300,7 +2345,7 @@ cdef class _Tabular(_PandasConvertible):
         >>> table.to_pylist()
         [{'n_legs': 2, 'animals': 'Flamingo'}, {'n_legs': 4, 'animals': 'Horse'}, ...
         """
-        pydict = self.to_pydict()
+        pydict = self.to_pydict(maps_as_pydicts=maps_as_pydicts)
         names = self.schema.names
         pylist = [{column: pydict[column][row] for column in names}
                   for row in range(self.num_rows)]
@@ -2326,15 +2371,13 @@ cdef class _Tabular(_PandasConvertible):
             show_field_metadata=show_metadata,
             show_schema_metadata=show_metadata
         )
-        title = 'pyarrow.{}\n{}'.format(type(self).__name__, schema_as_string)
+        title = f'pyarrow.{type(self).__name__}\n{schema_as_string}'
         pieces = [title]
         if preview_cols:
             pieces.append('----')
             for i in range(min(self.num_columns, preview_cols)):
-                pieces.append('{}: {}'.format(
-                    self.field(i).name,
-                    self.column(i).to_string(indent=0, skip_new_lines=True)
-                ))
+                pieces.append(
+                    f'{self.field(i).name}: {self.column(i).to_string(indent=0, skip_new_lines=True)}')
             if preview_cols < self.num_columns:
                 pieces.append('...')
         return '\n'.join(pieces)
@@ -2394,7 +2437,7 @@ cdef class _Tabular(_PandasConvertible):
         for col in columns:
             idx = self.schema.get_field_index(col)
             if idx == -1:
-                raise KeyError("Column {!r} not found".format(col))
+                raise KeyError(f"Column {col!r} not found")
             indices.append(idx)
 
         indices.sort()
@@ -3030,7 +3073,7 @@ cdef class RecordBatch(_Tabular):
                 indices = self.schema.get_all_field_indices(name)
 
                 if not indices:
-                    raise KeyError("Column {!r} not found".format(name))
+                    raise KeyError(f"Column {name!r} not found")
 
                 for index in indices:
                     idx_to_new_name[index] = new_name
@@ -3305,14 +3348,13 @@ cdef class RecordBatch(_Tabular):
             list newcols = []
 
         if self.schema.names != target_schema.names:
-            raise ValueError("Target schema's field names are not matching "
-                             "the record batch's field names: {!r}, {!r}"
-                             .format(self.schema.names, target_schema.names))
+            raise ValueError(f"Target schema's field names are not matching "
+                             f"the record batch's field names: {self.schema.names!r}, {target_schema.names!r}")
 
         for column, field in zip(self.itercolumns(), target_schema):
             if not field.nullable and column.null_count > 0:
-                raise ValueError("Casting field {!r} with null values to non-nullable"
-                                 .format(field.name))
+                raise ValueError(
+                    f"Casting field {field.name!r} with null values to non-nullable")
             casted = column.cast(field.type, safe=safe, options=options)
             newcols.append(casted)
 
@@ -3508,7 +3550,7 @@ cdef class RecordBatch(_Tabular):
         for arr in converted_arrays:
             if len(arr) != num_rows:
                 raise ValueError('Arrays were not all the same length: '
-                                 '{0} vs {1}'.format(len(arr), num_rows))
+                                 f'{len(arr)} vs {num_rows}')
             c_arrays.push_back(arr.sp_array)
 
         result = pyarrow_wrap_batch(CRecordBatch.Make(c_schema, num_rows,
@@ -4472,6 +4514,9 @@ cdef class Table(_Tabular):
         All the underlying chunks in the ChunkedArray of each column are
         concatenated into zero or one chunk.
 
+        To avoid buffer overflow, binary columns may be combined into
+        multiple chunks. Chunks will have the maximum possible length.
+
         Parameters
         ----------
         memory_pool : MemoryPool, default None
@@ -4672,14 +4717,13 @@ cdef class Table(_Tabular):
             list newcols = []
 
         if self.schema.names != target_schema.names:
-            raise ValueError("Target schema's field names are not matching "
-                             "the table's field names: {!r}, {!r}"
-                             .format(self.schema.names, target_schema.names))
+            raise ValueError(f"Target schema's field names are not matching "
+                             f"the table's field names: {self.schema.names!r}, {target_schema.names!r}")
 
         for column, field in zip(self.itercolumns(), target_schema):
             if not field.nullable and column.null_count > 0:
-                raise ValueError("Casting field {!r} with null values to non-nullable"
-                                 .format(field.name))
+                raise ValueError(
+                    f"Casting field {field.name!r} with null values to non-nullable")
             casted = column.cast(field.type, safe=safe, options=options)
             newcols.append(casted)
 
@@ -4918,10 +4962,11 @@ cdef class Table(_Tabular):
         ChunkedArray
         """
         self._assert_cpu()
-        return chunked_array([
+        chunks = [
             batch.to_struct_array()
             for batch in self.to_batches(max_chunksize=max_chunksize)
-        ])
+        ]
+        return chunked_array(chunks, type=struct(self.schema))
 
     @staticmethod
     def from_batches(batches, Schema schema=None):
@@ -5515,7 +5560,7 @@ cdef class Table(_Tabular):
                 indices = self.schema.get_all_field_indices(name)
 
                 if not indices:
-                    raise KeyError("Column {!r} not found".format(name))
+                    raise KeyError(f"Column {name!r} not found")
 
                 for index in indices:
                     idx_to_new_name[index] = new_name
@@ -5593,7 +5638,7 @@ cdef class Table(_Tabular):
 
     def join(self, right_table, keys, right_keys=None, join_type="left outer",
              left_suffix=None, right_suffix=None, coalesce_keys=True,
-             use_threads=True):
+             use_threads=True, filter_expression=None):
         """
         Perform a join between this table and another one.
 
@@ -5627,6 +5672,8 @@ cdef class Table(_Tabular):
             in the join result.
         use_threads : bool, default True
             Whether to use multithreading or not.
+        filter_expression : pyarrow.compute.Expression
+            Residual filter which is applied to matching row.
 
         Returns
         -------
@@ -5636,6 +5683,7 @@ cdef class Table(_Tabular):
         --------
         >>> import pandas as pd
         >>> import pyarrow as pa
+        >>> import pyarrow.compute as pc
         >>> df1 = pd.DataFrame({'id': [1, 2, 3],
         ...                     'year': [2020, 2022, 2019]})
         >>> df2 = pd.DataFrame({'id': [3, 4],
@@ -5686,7 +5734,7 @@ cdef class Table(_Tabular):
         n_legs: [[5,100]]
         animal: [["Brittle stars","Centipede"]]
 
-        Right anti join
+        Right anti join:
 
         >>> t1.join(t2, 'id', join_type="right anti")
         pyarrow.Table
@@ -5697,6 +5745,20 @@ cdef class Table(_Tabular):
         id: [[4]]
         n_legs: [[100]]
         animal: [["Centipede"]]
+
+        Inner join with intended mismatch filter expression:
+
+        >>> t1.join(t2, 'id', join_type="inner", filter_expression=pc.equal(pc.field("n_legs"), 100))
+        pyarrow.Table
+        id: int64
+        year: int64
+        n_legs: int64
+        animal: string
+        ----
+        id: []
+        year: []
+        n_legs: []
+        animal: []
         """
         self._assert_cpu()
         if right_keys is None:
@@ -5705,7 +5767,8 @@ cdef class Table(_Tabular):
             join_type, self, keys, right_table, right_keys,
             left_suffix=left_suffix, right_suffix=right_suffix,
             use_threads=use_threads, coalesce_keys=coalesce_keys,
-            output_type=Table
+            output_type=Table,
+            filter_expression=filter_expression,
         )
 
     def join_asof(self, right_table, on, by, tolerance, right_on=None, right_by=None):
@@ -5731,7 +5794,8 @@ cdef class Table(_Tabular):
             of the join operation left side.
 
             An inexact match is used on the "on" key, i.e. a row is considered a
-            match if and only if left_on - tolerance <= right_on <= left_on.
+            match if and only if ``right.on - left.on`` is in the range
+            ``[min(0, tolerance), max(0, tolerance)]``.
 
             The input dataset must be sorted by the "on" key. Must be a single
             field of a common type.
@@ -5743,12 +5807,15 @@ cdef class Table(_Tabular):
             only for the matches in these columns.
         tolerance : int
             The tolerance for inexact "on" key matching. A right row is considered
-            a match with the left row ``right.on - left.on <= tolerance``. The
-            ``tolerance`` may be:
+            a match with a left row if ``right.on - left.on`` is in the range
+            ``[min(0, tolerance), max(0, tolerance)]``. ``tolerance`` may be:
 
-            - negative, in which case a past-as-of-join occurs;
-            - or positive, in which case a future-as-of-join occurs;
-            - or zero, in which case an exact-as-of-join occurs.
+            - negative, in which case a past-as-of-join occurs
+              (match iff ``tolerance <= right.on - left.on <= 0``);
+            - or positive, in which case a future-as-of-join occurs
+              (match iff ``0 <= right.on - left.on <= tolerance``);
+            - or zero, in which case an exact-as-of-join occurs
+              (match iff ``right.on == left.on``).
 
             The tolerance is interpreted in the same units as the "on" key.
         right_on : str or list[str], default None
@@ -6244,12 +6311,9 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
     for table in tables:
         c_tables.push_back(table.sp_table)
 
-    if promote_options == "permissive":
-        options.field_merge_options = CField.CMergeOptions.Permissive()
-    elif promote_options in {"default", "none"}:
-        options.field_merge_options = CField.CMergeOptions.Defaults()
-    else:
-        raise ValueError(f"Invalid promote options: {promote_options}")
+    options.field_merge_options = _parse_field_merge_options(
+        "default" if promote_options == "none" else promote_options
+    )
 
     with nogil:
         options.unify_schemas = promote_options != "none"

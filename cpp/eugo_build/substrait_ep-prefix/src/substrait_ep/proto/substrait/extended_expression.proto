@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: Apache-2.0
+syntax = "proto3";
+
+package substrait;
+
+import "substrait/algebra.proto";
+import "substrait/extensions/extensions.proto";
+import "substrait/plan.proto";
+import "substrait/type.proto";
+
+option csharp_namespace = "Substrait.Protobuf";
+option go_package = "github.com/substrait-io/substrait-go/proto";
+option java_multiple_files = true;
+option java_package = "io.substrait.proto";
+
+message ExpressionReference {
+  oneof expr_type {
+    Expression expression = 1;
+    AggregateFunction measure = 2;
+  }
+  // Field names in depth-first order
+  repeated string output_names = 3;
+}
+
+// Describe a set of operations to complete.
+// For compactness sake, identifiers are normalized at the plan level.
+message ExtendedExpression {
+  // Substrait version of the expression. Optional up to 0.17.0, required for later
+  // versions.
+  Version version = 7;
+
+  // a list of yaml specifications this expression may depend on
+  repeated substrait.extensions.SimpleExtensionURI extension_uris = 1;
+
+  // a list of extensions this expression may depend on
+  repeated substrait.extensions.SimpleExtensionDeclaration extensions = 2;
+
+  // one or more expression trees with same order in plan rel
+  repeated ExpressionReference referred_expr = 3;
+
+  NamedStruct base_schema = 4;
+  // additional extensions associated with this expression.
+  substrait.extensions.AdvancedExtension advanced_extensions = 5;
+
+  // A list of com.google.Any entities that this plan may use. Can be used to
+  // warn if some embedded message types are unknown. Note that this list may
+  // include message types that are ignorable (optimizations) or that are
+  // unused. In many cases, a consumer may be able to work with a plan even if
+  // one or more message types defined here are unknown.
+  repeated string expected_type_urls = 6;
+}

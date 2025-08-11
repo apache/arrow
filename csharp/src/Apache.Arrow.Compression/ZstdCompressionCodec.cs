@@ -20,7 +20,7 @@ using ZstdSharp;
 
 namespace Apache.Arrow.Compression
 {
-    internal sealed class ZstdCompressionCodec : ICompressionCodec
+    internal sealed class ZstdCompressionCodec : ITryCompressionCodec
     {
         private readonly Decompressor _decompressor;
         private readonly Compressor _compressor;
@@ -50,6 +50,11 @@ namespace Apache.Arrow.Compression
             using var compressor = new CompressionStream(
                 destination, _compressor, preserveCompressor: true, leaveOpen: true);
             compressor.Write(source.Span);
+        }
+
+        public bool TryCompress(ReadOnlyMemory<byte> source, Memory<byte> destination, out int bytesWritten)
+        {
+            return _compressor.TryWrap(source.Span, destination.Span, out bytesWritten);
         }
 
         public void Dispose()

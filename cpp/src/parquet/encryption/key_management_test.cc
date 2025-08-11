@@ -46,8 +46,8 @@ class TestEncryptionKeyManagement : public ::testing::Test {
   FileEncryptor encryptor_;
   FileDecryptor decryptor_;
 
-  std::unordered_map<std::string, std::string> key_list_;
-  std::unordered_map<std::string, std::string> new_key_list_;
+  std::unordered_map<std::string, SecureString> key_list_;
+  std::unordered_map<std::string, SecureString> new_key_list_;
   std::string column_key_mapping_;
   KmsConnectionConfig kms_connection_config_;
   CryptoFactory crypto_factory_;
@@ -405,7 +405,7 @@ TEST_F(TestEncryptionKeyManagement, ReadParquetMRExternalKeyMaterialFile) {
       kms_connection_config_, decryption_config, file_path, file_system);
 
   parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
-  reader_properties.file_decryption_properties(file_decryption_properties->DeepClone());
+  reader_properties.file_decryption_properties(file_decryption_properties);
 
   std::shared_ptr<::arrow::io::RandomAccessFile> source;
   PARQUET_ASSIGN_OR_THROW(source, ::arrow::io::ReadableFile::Open(

@@ -1,0 +1,271 @@
+%YAML 1.2
+---
+scalar_functions:
+  -
+    name: "not_equal"
+    description: >
+      Whether two values are not_equal.
+
+      `not_equal(x, y) := (x != y)`
+
+      If either/both of `x` and `y` are `null`, `null` is returned.
+    impls:
+      - args:
+          - value: any1
+            name: x
+          - value: any1
+            name: y
+        return: boolean
+  -
+    name: "equal"
+    description: >
+      Whether two values are equal.
+
+      `equal(x, y) := (x == y)`
+
+      If either/both of `x` and `y` are `null`, `null` is returned.
+    impls:
+      - args:
+          - value: any1
+            name: x
+          - value: any1
+            name: y
+        return: boolean
+  -
+    name: "is_not_distinct_from"
+    description: >
+      Whether two values are equal.
+
+      This function treats `null` values as comparable, so
+
+      `is_not_distinct_from(null, null) == True`
+
+      This is in contrast to `equal`, in which `null` values do not compare.
+    impls:
+      - args:
+          - value: any1
+            name: x
+          - value: any1
+            name: y
+        return: boolean
+        nullability: DECLARED_OUTPUT
+  -
+    name: "lt"
+    description: >
+      Less than.
+
+      lt(x, y) := (x < y)
+
+      If either/both of `x` and `y` are `null`, `null` is returned.
+    impls:
+      - args:
+          - value: any1
+            name: x
+          - value: any1
+            name: y
+        return: boolean
+  -
+    name: "gt"
+    description: >
+      Greater than.
+
+      gt(x, y) := (x > y)
+
+      If either/both of `x` and `y` are `null`, `null` is returned.
+    impls:
+      - args:
+          - value: any1
+            name: x
+          - value: any1
+            name: y
+        return: boolean
+  -
+    name: "lte"
+    description: >
+      Less than or equal to.
+
+      lte(x, y) := (x <= y)
+
+      If either/both of `x` and `y` are `null`, `null` is returned.
+    impls:
+      - args:
+          - value: any1
+            name: x
+          - value: any1
+            name: y
+        return: boolean
+  -
+    name: "gte"
+    description: >
+      Greater than or equal to.
+
+      gte(x, y) := (x >= y)
+
+      If either/both of `x` and `y` are `null`, `null` is returned.
+    impls:
+      - args:
+          - value: any1
+            name: x
+          - value: any1
+            name: y
+        return: boolean
+  -
+    name: "between"
+    description: >-
+      Whether the `expression` is greater than or equal to `low` and less than or equal to `high`.
+
+      `expression` BETWEEN `low` AND `high`
+
+      If `low`, `high`, or `expression` are `null`, `null` is returned.
+    impls:
+      - args:
+          - value: any1
+            name: expression
+            description: The expression to test for in the range defined by `low` and `high`.
+          - value: any1
+            name: low
+            description: The value to check if greater than or equal to.
+          - value: any1
+            name: high
+            description: The value to check if less than or equal to.
+        return: boolean
+  -
+    name: "is_null"
+    description: Whether a value is null. NaN is not null.
+    impls:
+      - args:
+          - value: any1
+            name: x
+        return: boolean
+        nullability: DECLARED_OUTPUT
+  -
+    name: "is_not_null"
+    description: Whether a value is not null. NaN is not null.
+    impls:
+      - args:
+          - value: any1
+            name: x
+        return: boolean
+        nullability: DECLARED_OUTPUT
+  -
+    name: "is_nan"
+    description: >
+      Whether a value is not a number.
+
+      If `x` is `null`, `null` is returned.
+    impls:
+      - args:
+          - value: fp32
+            name: x
+        return: boolean
+      - args:
+          - value: fp64
+            name: x
+        return: boolean
+  -
+    name: "is_finite"
+    description: >
+      Whether a value is finite (neither infinite nor NaN).
+
+      If `x` is `null`, `null` is returned.
+    impls:
+      - args:
+          - value: fp32
+            name: x
+        return: boolean
+      - args:
+          - value: fp64
+            name: x
+        return: boolean
+  -
+    name: "is_infinite"
+    description: >
+      Whether a value is infinite.
+
+      If `x` is `null`, `null` is returned.
+    impls:
+      - args:
+          - value: fp32
+            name: x
+        return: boolean
+      - args:
+          - value: fp64
+            name: x
+        return: boolean
+  -
+    name: "nullif"
+    description: If two values are equal, return null. Otherwise, return the first value.
+    impls:
+      - args:
+          - value: any1
+            name: x
+          - value: any1
+            name: y
+        return: any1
+  -
+    name: "coalesce"
+    description: >-
+      Evaluate arguments from left to right and return the first argument that is not null. Once
+      a non-null argument is found, the remaining arguments are not evaluated.
+
+      If all arguments are null, return null.
+    impls:
+      - args:
+          - value: any1
+        variadic:
+          min: 2
+        return: any1
+  -
+    name: "least"
+    description: >-
+      Evaluates each argument and returns the smallest one.
+      The function will return null if any argument evaluates to null.
+    impls:
+      - args:
+          - value: T
+        variadic:
+          min: 2
+        return: T
+        nullability: MIRROR
+  -
+    name: "least_skip_null"
+    description: >-
+      Evaluates each argument and returns the smallest one.
+      The function will return null only if all arguments evaluate to null.
+    impls:
+      - args:
+          - value: T
+        variadic:
+          min: 2
+        return: T
+        # NOTE: The return type nullability as described above cannot be expressed currently
+        # See https://github.com/substrait-io/substrait/issues/601
+        # Using MIRROR for now until it can be expressed
+        nullability: MIRROR
+  -
+    name: "greatest"
+    description: >-
+      Evaluates each argument and returns the largest one.
+      The function will return null if any argument evaluates to null.
+    impls:
+      - args:
+          - value: T
+        variadic:
+          min: 2
+        return: T
+        nullability: MIRROR
+  -
+    name: "greatest_skip_null"
+    description: >-
+      Evaluates each argument and returns the largest one.
+      The function will return null only if all arguments evaluate to null.
+    impls:
+      - args:
+          - value: T
+        variadic:
+          min: 2
+        return: T
+        # NOTE: The return type nullability as described above cannot be expressed currently
+        # See https://github.com/substrait-io/substrait/issues/601
+        # Using MIRROR for now until it can be expressed
+        nullability: MIRROR

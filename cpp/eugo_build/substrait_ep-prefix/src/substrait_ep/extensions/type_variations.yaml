@@ -1,0 +1,25 @@
+%YAML 1.2
+---
+type_variations:
+  - parent: string
+    name: dict4
+    description: a four-byte dictionary encoded string
+    functions: INHERITS
+  - parent: string
+    name: bigoffset
+    description: >-
+      The arrow large string representation of strings, still restricted to the default string size defined in
+      Substrait.
+    functions: SEPARATE
+  - parent: struct
+    name: avro
+    description: an avro encoded struct
+    functions: SEPARATE
+  - parent: struct
+    name: cstruct
+    description: a cstruct representation of the struct
+    functions: SEPARATE
+  - parent: struct
+    name: dict2
+    description: a 2-byte dictionary encoded string.
+    functions: INHERITS

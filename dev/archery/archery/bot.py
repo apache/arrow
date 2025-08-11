@@ -230,7 +230,7 @@ class CommentBot:
         self.github = github.Github(**kwargs)
 
     def parse_command(self, payload):
-        mention = '@{}'.format(self.name)
+        mention = f'@{self.name}'
         comment = payload['comment']
 
         if payload['sender']['login'] == self.name:
@@ -261,7 +261,7 @@ class CommentBot:
         elif event == 'pull_request_review_comment':
             return self.handle_review_comment(command, payload)
         else:
-            raise ValueError("Unexpected event type {}".format(event))
+            raise ValueError(f"Unexpected event type {event}")
 
     def handle_issue_comment(self, command, payload):
         repo = self.github.get_repo(payload['repository']['id'], lazy=True)
@@ -355,11 +355,11 @@ def _clone_arrow_and_crossbow(dest, crossbow_repo, arrow_repo_url, pr_number):
     git.checkout(local_branch, git_dir=arrow_path)
 
     # 2. clone crossbow repository
-    crossbow_url = 'https://github.com/{}'.format(crossbow_repo)
+    crossbow_url = f'https://github.com/{crossbow_repo}'
     git.clone(crossbow_url, str(queue_path))
 
     # 3. initialize crossbow objects
-    github_token = os.environ['CROSSBOW_GITHUB_TOKEN']
+    github_token = os.environ.get('CROSSBOW_GITHUB_TOKEN', os.environ['GH_TOKEN'])
     arrow = Repo(arrow_path)
     queue = Queue(queue_path, github_token=github_token, require_https=True)
 
@@ -376,8 +376,10 @@ def _clone_arrow_and_crossbow(dest, crossbow_repo, arrow_repo_url, pr_number):
               help='Set target version explicitly.')
 @click.option('--wait', default=60,
               help='Wait the specified seconds before generating a report.')
+@click.option('--prefix', default='actions',
+              help='Prefix for job IDs.')
 @click.pass_obj
-def submit(obj, tasks, groups, params, arrow_version, wait):
+def submit(obj, tasks, groups, params, arrow_version, wait, prefix):
     """
     Submit crossbow testing tasks.
 
@@ -411,7 +413,7 @@ def submit(obj, tasks, groups, params, arrow_version, wait):
                               groups=groups, params=params)
 
         # add the job to the crossbow queue and push to the remote repository
-        queue.put(job, prefix="actions", increment_job_id=False)
+        queue.put(job, prefix=prefix, increment_job_id=False)
         queue.push()
 
         # render the response comment's content

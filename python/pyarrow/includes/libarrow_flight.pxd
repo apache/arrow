@@ -21,6 +21,8 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_python cimport CTimePoint
 
+from libcpp.map cimport multimap
+
 
 cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef char* CTracingServerMiddlewareName\
@@ -311,20 +313,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CCallInfo" arrow::flight::CallInfo":
         CFlightMethod method
 
-    # This is really std::unordered_multimap, but Cython has no
-    # bindings for it, so treat it as an opaque class and bind the
-    # methods we need
-    cdef cppclass CCallHeaders" arrow::flight::CallHeaders":
-        cppclass const_iterator:
-            pair[c_string, c_string] operator*()
-            # For Cython < 3
-            const_iterator operator++()
-            # For Cython >= 3
-            const_iterator operator++(int)
-            bint operator==(const_iterator)
-            bint operator!=(const_iterator)
-        const_iterator cbegin()
-        const_iterator cend()
+    ctypedef multimap[cpp_string_view, cpp_string_view] CCallHeaders\
+        " arrow::flight::CallHeaders"
 
     cdef cppclass CAddCallHeaders" arrow::flight::AddCallHeaders":
         void AddHeader(const c_string& key, const c_string& value)

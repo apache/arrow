@@ -418,33 +418,31 @@ Types
 Physical types
 ~~~~~~~~~~~~~~
 
-+--------------------------+-------------------------+------------+
-| Physical type            | Mapped Arrow type       | Notes      |
-+==========================+=========================+============+
-| BOOLEAN                  | Boolean                 |            |
-+--------------------------+-------------------------+------------+
-| INT32                    | Int32 / other           | \(1)       |
-+--------------------------+-------------------------+------------+
-| INT64                    | Int64 / other           | \(1)       |
-+--------------------------+-------------------------+------------+
-| INT96                    | Timestamp (nanoseconds) | \(2)       |
-+--------------------------+-------------------------+------------+
-| FLOAT                    | Float32                 |            |
-+--------------------------+-------------------------+------------+
-| DOUBLE                   | Float64                 |            |
-+--------------------------+-------------------------+------------+
-| BYTE_ARRAY               | Binary / other          | \(1) \(3)  |
-+--------------------------+-------------------------+------------+
-| FIXED_LENGTH_BYTE_ARRAY  | FixedSizeBinary / other | \(1)       |
-+--------------------------+-------------------------+------------+
++--------------------------+------------------------------------+------------+
+| Physical type            | Mapped Arrow type                  | Notes      |
++==========================+====================================+============+
+| BOOLEAN                  | Boolean                            |            |
++--------------------------+------------------------------------+------------+
+| INT32                    | Int32 / other                      | \(1)       |
++--------------------------+------------------------------------+------------+
+| INT64                    | Int64 / other                      | \(1)       |
++--------------------------+------------------------------------+------------+
+| INT96                    | Timestamp (nanoseconds)            | \(2)       |
++--------------------------+------------------------------------+------------+
+| FLOAT                    | Float32                            |            |
++--------------------------+------------------------------------+------------+
+| DOUBLE                   | Float64                            |            |
++--------------------------+------------------------------------+------------+
+| BYTE_ARRAY               | Binary / LargeBinary / BinaryView  | \(1)       |
++--------------------------+------------------------------------+------------+
+| FIXED_LENGTH_BYTE_ARRAY  | FixedSizeBinary / other            | \(1)       |
++--------------------------+------------------------------------+------------+
 
 * \(1) Can be mapped to other Arrow types, depending on the logical type
-  (see below).
+  (see table below).
 
 * \(2) On the write side, :func:`ArrowWriterProperties::support_deprecated_int96_timestamps`
   must be enabled.
-
-* \(3) On the write side, an Arrow LargeBinary can also mapped to BYTE_ARRAY.
 
 Logical types
 ~~~~~~~~~~~~~
@@ -452,37 +450,46 @@ Logical types
 Specific logical types can override the default Arrow type mapping for a given
 physical type.
 
-+-------------------+-----------------------------+----------------------------+---------+
-| Logical type      | Physical type               | Mapped Arrow type          | Notes   |
-+===================+=============================+============================+=========+
-| NULL              | Any                         | Null                       | \(1)    |
-+-------------------+-----------------------------+----------------------------+---------+
-| INT               | INT32                       | Int8 / UInt8 / Int16 /     |         |
-|                   |                             | UInt16 / Int32 / UInt32    |         |
-+-------------------+-----------------------------+----------------------------+---------+
-| INT               | INT64                       | Int64 / UInt64             |         |
-+-------------------+-----------------------------+----------------------------+---------+
-| DECIMAL           | INT32 / INT64 / BYTE_ARRAY  | Decimal128 / Decimal256    | \(2)    |
-|                   | / FIXED_LENGTH_BYTE_ARRAY   |                            |         |
-+-------------------+-----------------------------+----------------------------+---------+
-| DATE              | INT32                       | Date32                     | \(3)    |
-+-------------------+-----------------------------+----------------------------+---------+
-| TIME              | INT32                       | Time32 (milliseconds)      |         |
-+-------------------+-----------------------------+----------------------------+---------+
-| TIME              | INT64                       | Time64 (micro- or          |         |
-|                   |                             | nanoseconds)               |         |
-+-------------------+-----------------------------+----------------------------+---------+
-| TIMESTAMP         | INT64                       | Timestamp (milli-, micro-  |         |
-|                   |                             | or nanoseconds)            |         |
-+-------------------+-----------------------------+----------------------------+---------+
-| STRING            | BYTE_ARRAY                  | Utf8                       | \(4)    |
-+-------------------+-----------------------------+----------------------------+---------+
-| LIST              | Any                         | List                       | \(5)    |
-+-------------------+-----------------------------+----------------------------+---------+
-| MAP               | Any                         | Map                        | \(6)    |
-+-------------------+-----------------------------+----------------------------+---------+
-| FLOAT16           | FIXED_LENGTH_BYTE_ARRAY     | HalfFloat                  |         |
-+-------------------+-----------------------------+----------------------------+---------+
++-------------------+-----------------------------+------------------------------+-----------+
+| Logical type      | Physical type               | Mapped Arrow type            | Notes     |
++===================+=============================+==============================+===========+
+| NULL              | Any                         | Null                         | \(1)      |
++-------------------+-----------------------------+------------------------------+-----------+
+| INT               | INT32                       | Int8 / UInt8 / Int16 /       |           |
+|                   |                             | UInt16 / Int32 / UInt32      |           |
++-------------------+-----------------------------+------------------------------+-----------+
+| INT               | INT64                       | Int64 / UInt64               |           |
++-------------------+-----------------------------+------------------------------+-----------+
+| DECIMAL           | INT32 / INT64 / BYTE_ARRAY  | Decimal128 / Decimal256      | \(2)      |
+|                   | / FIXED_LENGTH_BYTE_ARRAY   |                              |           |
++-------------------+-----------------------------+------------------------------+-----------+
+| DATE              | INT32                       | Date32                       | \(3)      |
++-------------------+-----------------------------+------------------------------+-----------+
+| TIME              | INT32                       | Time32 (milliseconds)        |           |
++-------------------+-----------------------------+------------------------------+-----------+
+| TIME              | INT64                       | Time64 (micro- or            |           |
+|                   |                             | nanoseconds)                 |           |
++-------------------+-----------------------------+------------------------------+-----------+
+| TIMESTAMP         | INT64                       | Timestamp (milli-, micro-    |           |
+|                   |                             | or nanoseconds)              |           |
++-------------------+-----------------------------+------------------------------+-----------+
+| STRING            | BYTE_ARRAY                  | String / LargeString /       |           |
+|                   |                             | StringView                   |           |
++-------------------+-----------------------------+------------------------------+-----------+
+| LIST              | Any                         | List                         | \(4)      |
++-------------------+-----------------------------+------------------------------+-----------+
+| MAP               | Any                         | Map                          | \(5)      |
++-------------------+-----------------------------+------------------------------+-----------+
+| FLOAT16           | FIXED_LENGTH_BYTE_ARRAY     | HalfFloat                    |           |
++-------------------+-----------------------------+------------------------------+-----------+
+| UUID              | FIXED_LENGTH_BYTE_ARRAY     | Extension (``arrow.uuid``)   | \(6)      |
++-------------------+-----------------------------+------------------------------+-----------+
+| JSON              | BYTE_ARRAY                  | Extension (``arrow.json``)   | \(6)      |
++-------------------+-----------------------------+------------------------------+-----------+
+| GEOMETRY          | BYTE_ARRAY                  | Extension (``geoarrow.wkb``) | \(6) \(7) |
++-------------------+-----------------------------+------------------------------+-----------+
+| GEOGRAPHY         | BYTE_ARRAY                  | Extension (``geoarrow.wkb``) | \(6) \(7) |
++-------------------+-----------------------------+------------------------------+-----------+
 
 * \(1) On the write side, the Parquet physical type INT32 is generated.
 
@@ -490,18 +497,21 @@ physical type.
 
 * \(3) On the write side, an Arrow Date64 is also mapped to a Parquet DATE INT32.
 
-* \(4) On the write side, an Arrow LargeUtf8 is also mapped to a Parquet STRING.
-
-* \(5) On the write side, an Arrow LargeList or FixedSizedList is also mapped to
+* \(4) On the write side, an Arrow LargeList or FixedSizedList is also mapped to
   a Parquet LIST.
 
-* \(6) On the read side, a key with multiple values does not get deduplicated,
+* \(5) On the read side, a key with multiple values does not get deduplicated,
   in contradiction with the
   `Parquet specification <https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#maps>`__.
 
-*Unsupported logical types:* JSON, BSON, UUID.  If such a type is encountered
+* \(6) Requires that ``arrow_extensions_enabled`` in ``ArrowReaderProperties`` is ``true``.
+  When ``false``, the underlying storage type is read.
+
+* \(7) Requires that the ``geoarrow.wkb`` extension type is registered.
+
+*Unsupported logical types:* BSON.  If such a type is encountered
 when reading a Parquet file, the default physical type mapping is used (for
-example, a Parquet JSON column may be read as Arrow Binary or FixedSizeBinary).
+example, a Parquet BSON column may be read as Arrow Binary or FixedSizeBinary).
 
 Converted types
 ~~~~~~~~~~~~~~~
@@ -516,7 +526,10 @@ Special cases
 
 An Arrow Extension type is written out as its storage type.  It can still
 be recreated at read time using Parquet metadata (see "Roundtripping Arrow
-types" below).
+types" below). Some extension types have Parquet LogicalType equivalents
+(e.g., UUID, JSON, GEOMETRY, GEOGRAPHY). These are created automatically
+if the appropriate option is set in the ``ArrowReaderProperties`` even if
+there was no Arrow schema stored in the Parquet metadata.
 
 An Arrow Dictionary type is written out as its value type.  It can still
 be recreated at read time using Parquet metadata (see "Roundtripping Arrow
@@ -584,6 +597,52 @@ More specifically, Parquet C++ supports:
   supported.
 * EncryptionWithFooterKey and EncryptionWithColumnKey modes.
 * Encrypted Footer and Plaintext Footer modes.
+
+Configuration
+~~~~~~~~~~~~~
+
+Parquet encryption uses a ``parquet::encryption::CryptoFactory`` that has access to a
+Key Management System (KMS), which stores actual encryption keys, referenced by key ids.
+The Parquet encryption configuration only uses key ids, no actual keys.
+
+Parquet metadata encryption is configured via ``parquet::encryption::EncryptionConfiguration``:
+
+.. literalinclude:: ../../../cpp/examples/arrow/parquet_column_encryption.cc
+   :language: cpp
+   :start-at: // Set write options with encryption configuration
+   :end-before: encryption_config->column_keys
+   :dedent: 2
+
+If ``encryption_config->uniform_encryption`` is set to ``true``, then all columns are
+encrypted with the same key as the Parquet metadata. Otherwise, individual
+columns are encrypted with individual keys as configured via
+``encryption_config->column_keys``. This field expects a string of the format
+``"columnKeyID1:colName1,colName2;columnKeyID3:colName3..."``.
+
+.. literalinclude:: ../../../cpp/examples/arrow/parquet_column_encryption.cc
+   :language: cpp
+   :start-at: // Set write options with encryption configuration
+   :end-before: auto parquet_encryption_config
+   :emphasize-lines: 4-5
+   :dedent: 2
+
+See the full `Parquet column encryption example <examples/parquet_column_encryption.html>`_.
+
+.. note::
+
+   Encrypting columns that have nested fields (struct, map or list data types)
+   requires column keys for the inner fields, not the outer column itself.
+   Configuring a column key for the outer column causes
+   this error (here the column name is ``col``):
+
+   .. code-block::
+
+      OSError: Encrypted column col not in file schema
+
+   Conventionally, the key and value fields of a map column ``m`` have the names
+   ``m.key_value.key`` and  ``m.key_value.value``, respectively. The inner field of a
+   list column ``l`` has the name ``l.list.element``. An inner field ``f`` of a struct column ``s`` has
+   the name ``s.f``.
 
 Miscellaneous
 -------------

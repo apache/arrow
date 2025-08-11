@@ -34,10 +34,6 @@ GANDIVA_EXPORT
 int GetCacheCapacityFromEnvVar();
 }  // namespace internal
 
-ARROW_DEPRECATED("Deprecated in 17.0.0. Use GetCacheCapacity instead.")
-GANDIVA_EXPORT
-int GetCapacity();
-
 GANDIVA_EXPORT
 int GetCacheCapacity();
 

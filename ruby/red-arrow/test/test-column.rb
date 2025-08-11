@@ -49,6 +49,14 @@ class ColumnTest < Test::Unit::TestCase
     assert_equal([false, nil, true], @column.reverse_each.to_a)
   end
 
+  test("#size") do
+    assert_equal(3, @column.size)
+  end
+
+  test("#length") do
+    assert_equal(3, @column.length)
+  end
+
   test("#n_rows") do
     assert_equal(3, @column.n_rows)
   end

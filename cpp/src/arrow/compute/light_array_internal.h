@@ -23,6 +23,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/util.h"
 #include "arrow/compute/util_internal.h"
+#include "arrow/compute/visibility.h"
 #include "arrow/type.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
@@ -53,7 +54,7 @@ struct LightContext {
 /// and no children.
 ///
 /// This metadata object is a zero-allocation analogue of arrow::DataType
-struct ARROW_EXPORT KeyColumnMetadata {
+struct ARROW_COMPUTE_EXPORT KeyColumnMetadata {
   KeyColumnMetadata() = default;
   KeyColumnMetadata(bool is_fixed_length_in, uint32_t fixed_length_in,
                     bool is_null_type_in = false)
@@ -81,7 +82,7 @@ struct ARROW_EXPORT KeyColumnMetadata {
 /// A "key" column is a non-nested, non-union column \see KeyColumnMetadata
 ///
 /// This metadata object is a zero-allocation analogue of arrow::ArrayData
-class ARROW_EXPORT KeyColumnArray {
+class ARROW_COMPUTE_EXPORT KeyColumnArray {
  public:
   /// \brief Create an uninitialized KeyColumnArray
   KeyColumnArray() = default;
@@ -135,32 +136,32 @@ class ARROW_EXPORT KeyColumnArray {
   ///
   /// Only valid if this is a view into a varbinary type
   uint32_t* mutable_offsets() {
-    DCHECK(!metadata_.is_fixed_length);
-    DCHECK_EQ(metadata_.fixed_length, sizeof(uint32_t));
+    ARROW_DCHECK(!metadata_.is_fixed_length);
+    ARROW_DCHECK_EQ(metadata_.fixed_length, sizeof(uint32_t));
     return reinterpret_cast<uint32_t*>(mutable_data(kFixedLengthBuffer));
   }
   /// \brief Return a read-only version of the offsets buffer
   ///
   /// Only valid if this is a view into a varbinary type
   const uint32_t* offsets() const {
-    DCHECK(!metadata_.is_fixed_length);
-    DCHECK_EQ(metadata_.fixed_length, sizeof(uint32_t));
+    ARROW_DCHECK(!metadata_.is_fixed_length);
+    ARROW_DCHECK_EQ(metadata_.fixed_length, sizeof(uint32_t));
     return reinterpret_cast<const uint32_t*>(data(kFixedLengthBuffer));
   }
   /// \brief Return a mutable version of the large-offsets buffer
   ///
   /// Only valid if this is a view into a large varbinary type
   uint64_t* mutable_large_offsets() {
-    DCHECK(!metadata_.is_fixed_length);
-    DCHECK_EQ(metadata_.fixed_length, sizeof(uint64_t));
+    ARROW_DCHECK(!metadata_.is_fixed_length);
+    ARROW_DCHECK_EQ(metadata_.fixed_length, sizeof(uint64_t));
     return reinterpret_cast<uint64_t*>(mutable_data(kFixedLengthBuffer));
   }
   /// \brief Return a read-only version of the large-offsets buffer
   ///
   /// Only valid if this is a view into a large varbinary type
   const uint64_t* large_offsets() const {
-    DCHECK(!metadata_.is_fixed_length);
-    DCHECK_EQ(metadata_.fixed_length, sizeof(uint64_t));
+    ARROW_DCHECK(!metadata_.is_fixed_length);
+    ARROW_DCHECK_EQ(metadata_.fixed_length, sizeof(uint64_t));
     return reinterpret_cast<const uint64_t*>(data(kFixedLengthBuffer));
   }
   /// \brief Return the type metadata
@@ -218,7 +219,7 @@ class ARROW_EXPORT KeyColumnArray {
 ///
 /// This should only be called on "key" columns.  Calling this with
 /// a non-key column will return Status::TypeError.
-ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(
+ARROW_COMPUTE_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(
     const std::shared_ptr<DataType>& type);
 
 /// \brief Create KeyColumnArray from ArrayData
@@ -228,7 +229,7 @@ ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(
 ///
 /// The caller should ensure this is only called on "key" columns.
 /// \see ColumnMetadataFromDataType for details
-ARROW_EXPORT Result<KeyColumnArray> ColumnArrayFromArrayData(
+ARROW_COMPUTE_EXPORT Result<KeyColumnArray> ColumnArrayFromArrayData(
     const std::shared_ptr<ArrayData>& array_data, int64_t start_row, int64_t num_rows);
 
 /// \brief Create KeyColumnArray from ArrayData and KeyColumnMetadata
@@ -238,7 +239,7 @@ ARROW_EXPORT Result<KeyColumnArray> ColumnArrayFromArrayData(
 ///
 /// The caller should ensure this is only called on "key" columns.
 /// \see ColumnMetadataFromDataType for details
-ARROW_EXPORT KeyColumnArray ColumnArrayFromArrayDataAndMetadata(
+ARROW_COMPUTE_EXPORT KeyColumnArray ColumnArrayFromArrayDataAndMetadata(
     const std::shared_ptr<ArrayData>& array_data, const KeyColumnMetadata& metadata,
     int64_t start_row, int64_t num_rows);
 
@@ -248,7 +249,7 @@ ARROW_EXPORT KeyColumnArray ColumnArrayFromArrayDataAndMetadata(
 ///
 /// All columns in `batch` must be eligible "key" columns and have an array shape
 /// \see ColumnMetadataFromDataType for more details
-ARROW_EXPORT Status ColumnMetadatasFromExecBatch(
+ARROW_COMPUTE_EXPORT Status ColumnMetadatasFromExecBatch(
     const ExecBatch& batch, std::vector<KeyColumnMetadata>* column_metadatas);
 
 /// \brief Create KeyColumnArray instances from a slice of an ExecBatch
@@ -257,9 +258,9 @@ ARROW_EXPORT Status ColumnMetadatasFromExecBatch(
 ///
 /// All columns in `batch` must be eligible "key" columns and have an array shape
 /// \see ColumnArrayFromArrayData for more details
-ARROW_EXPORT Status ColumnArraysFromExecBatch(const ExecBatch& batch, int64_t start_row,
-                                              int64_t num_rows,
-                                              std::vector<KeyColumnArray>* column_arrays);
+ARROW_COMPUTE_EXPORT Status
+ColumnArraysFromExecBatch(const ExecBatch& batch, int64_t start_row, int64_t num_rows,
+                          std::vector<KeyColumnArray>* column_arrays);
 
 /// \brief Create KeyColumnArray instances from an ExecBatch
 ///
@@ -267,8 +268,8 @@ ARROW_EXPORT Status ColumnArraysFromExecBatch(const ExecBatch& batch, int64_t st
 ///
 /// All columns in `batch` must be eligible "key" columns and have an array shape
 /// \see ColumnArrayFromArrayData for more details
-ARROW_EXPORT Status ColumnArraysFromExecBatch(const ExecBatch& batch,
-                                              std::vector<KeyColumnArray>* column_arrays);
+ARROW_COMPUTE_EXPORT Status ColumnArraysFromExecBatch(
+    const ExecBatch& batch, std::vector<KeyColumnArray>* column_arrays);
 
 /// A lightweight resizable array for "key" columns
 ///
@@ -276,7 +277,7 @@ ARROW_EXPORT Status ColumnArraysFromExecBatch(const ExecBatch& batch,
 ///
 /// Resizing is handled by arrow::ResizableBuffer and a doubling approach is
 /// used so that resizes will always grow up to the next power of 2
-class ARROW_EXPORT ResizableArrayData {
+class ARROW_COMPUTE_EXPORT ResizableArrayData {
  public:
   /// \brief Create an uninitialized instance
   ///
@@ -319,6 +320,9 @@ class ARROW_EXPORT ResizableArrayData {
   /// \brief The current length (in rows) of the array
   int num_rows() const { return num_rows_; }
 
+  /// \brief The current allocated length (in rows) of the array
+  int num_rows_allocated() const { return num_rows_allocated_; }
+
   /// \brief A non-owning view into this array
   KeyColumnArray column_array() const;
 
@@ -347,6 +351,11 @@ class ARROW_EXPORT ResizableArrayData {
   /// length binary data
   uint8_t* mutable_data(int i) { return buffers_[i]->mutable_data(); }
 
+  template <typename T>
+  T* mutable_data_as(int i) {
+    return reinterpret_cast<T*>(mutable_data(i));
+  }
+
  private:
   static constexpr int64_t kNumPaddingBytes = 64;
   int log_num_rows_min_;
@@ -364,7 +373,7 @@ class ARROW_EXPORT ResizableArrayData {
 /// \brief A builder to concatenate batches of data into a larger batch
 ///
 /// Will only store num_rows_max() rows
-class ARROW_EXPORT ExecBatchBuilder {
+class ARROW_COMPUTE_EXPORT ExecBatchBuilder {
  public:
   /// \brief Add rows from `source` into `target` column
   ///

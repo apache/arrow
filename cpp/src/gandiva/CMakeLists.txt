@@ -25,6 +25,15 @@ add_custom_target(gandiva-benchmarks)
 
 add_dependencies(gandiva-all gandiva gandiva-tests gandiva-benchmarks)
 
+# If libgandiva.a is only built, "pkg-config --cflags --libs
+# arrow-flight" outputs build flags for static linking not shared
+# linking. GANDIVA_PC_* except GANDIVA_PC_*_PRIVATE are for the static
+# linking case.
+if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+  string(APPEND GANDIVA_PC_CFLAGS "${GANDIVA_PC_CFLAGS_PRIVATE}")
+  set(GANDIVA_PC_CFLAGS_PRIVATE "")
+endif()
+
 include(GandivaAddBitcode)
 
 find_package(LLVMAlt REQUIRED)
@@ -144,8 +153,6 @@ add_arrow_lib(gandiva
               gandiva
               SOURCES
               ${SRC_FILES}
-              PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:gandiva/pch.h>"
               OUTPUTS
               GANDIVA_LIBRARIES
               DEPENDENCIES

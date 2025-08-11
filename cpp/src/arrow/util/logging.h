@@ -24,14 +24,14 @@
 
 #  define ARROW_IGNORE_EXPR(expr) ((void)(expr))
 
-#  define DCHECK(condition) ARROW_IGNORE_EXPR(condition)
-#  define DCHECK_OK(status) ARROW_IGNORE_EXPR(status)
-#  define DCHECK_EQ(val1, val2) ARROW_IGNORE_EXPR(val1)
-#  define DCHECK_NE(val1, val2) ARROW_IGNORE_EXPR(val1)
-#  define DCHECK_LE(val1, val2) ARROW_IGNORE_EXPR(val1)
-#  define DCHECK_LT(val1, val2) ARROW_IGNORE_EXPR(val1)
-#  define DCHECK_GE(val1, val2) ARROW_IGNORE_EXPR(val1)
-#  define DCHECK_GT(val1, val2) ARROW_IGNORE_EXPR(val1)
+#  define ARROW_DCHECK(condition) ARROW_IGNORE_EXPR(condition)
+#  define ARROW_DCHECK_OK(status) ARROW_IGNORE_EXPR(status)
+#  define ARROW_DCHECK_EQ(val1, val2) ARROW_IGNORE_EXPR(val1)
+#  define ARROW_DCHECK_NE(val1, val2) ARROW_IGNORE_EXPR(val1)
+#  define ARROW_DCHECK_LE(val1, val2) ARROW_IGNORE_EXPR(val1)
+#  define ARROW_DCHECK_LT(val1, val2) ARROW_IGNORE_EXPR(val1)
+#  define ARROW_DCHECK_GE(val1, val2) ARROW_IGNORE_EXPR(val1)
+#  define ARROW_DCHECK_GT(val1, val2) ARROW_IGNORE_EXPR(val1)
 
 #else  // !GANDIVA_IR
 
@@ -70,7 +70,7 @@ enum class ArrowLogLevel : int {
 // of 'msg' followed by the status.
 #  define ARROW_CHECK_OK_PREPEND(to_call, msg, level)                 \
     do {                                                              \
-      ::arrow::Status _s = (to_call);                                 \
+      ::arrow::Status _s = ::arrow::ToStatus(to_call);                \
       ARROW_CHECK_OR_LOG(_s.ok(), level)                              \
           << "Operation failed: " << ARROW_STRINGIFY(to_call) << "\n" \
           << (msg) << ": " << _s.ToString();                          \
@@ -137,32 +137,6 @@ enum class ArrowLogLevel : int {
 #    define ARROW_DCHECK_GT ARROW_CHECK_GT
 
 #  endif  // NDEBUG
-
-// These are internal-use macros and should not be used in public headers.
-#  ifndef DCHECK
-#    define DCHECK ARROW_DCHECK
-#  endif
-#  ifndef DCHECK_OK
-#    define DCHECK_OK ARROW_DCHECK_OK
-#  endif
-#  ifndef DCHECK_EQ
-#    define DCHECK_EQ ARROW_DCHECK_EQ
-#  endif
-#  ifndef DCHECK_NE
-#    define DCHECK_NE ARROW_DCHECK_NE
-#  endif
-#  ifndef DCHECK_LE
-#    define DCHECK_LE ARROW_DCHECK_LE
-#  endif
-#  ifndef DCHECK_LT
-#    define DCHECK_LT ARROW_DCHECK_LT
-#  endif
-#  ifndef DCHECK_GE
-#    define DCHECK_GE ARROW_DCHECK_GE
-#  endif
-#  ifndef DCHECK_GT
-#    define DCHECK_GT ARROW_DCHECK_GT
-#  endif
 
 // This code is adapted from
 // https://github.com/ray-project/ray/blob/master/src/ray/util/logging.h.

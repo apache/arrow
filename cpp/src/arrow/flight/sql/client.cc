@@ -31,6 +31,7 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/result.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 
 namespace flight_sql_pb = arrow::flight::protocol::sql;
 
@@ -39,6 +40,7 @@ namespace flight {
 namespace sql {
 
 namespace {
+
 arrow::Result<FlightDescriptor> GetFlightDescriptorForCommand(
     const google::protobuf::Message& command) {
   FlightDescriptor descriptor;
@@ -95,6 +97,25 @@ Status ReadResult(ResultStream* results, google::protobuf::Message* message) {
   }
   return Status::OK();
 }
+
+arrow::Result<std::shared_ptr<Buffer>> BindParameters(FlightClient* client,
+                                                      const FlightCallOptions& options,
+                                                      const FlightDescriptor& descriptor,
+                                                      RecordBatchReader* params) {
+  ARROW_ASSIGN_OR_RAISE(auto stream,
+                        client->DoPut(options, descriptor, params->schema()));
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, params->Next());
+    if (!batch) break;
+    ARROW_RETURN_NOT_OK(stream.writer->WriteRecordBatch(*batch));
+  }
+  ARROW_RETURN_NOT_OK(stream.writer->DoneWriting());
+  std::shared_ptr<Buffer> metadata;
+  ARROW_RETURN_NOT_OK(stream.reader->ReadMetadata(&metadata));
+  ARROW_RETURN_NOT_OK(stream.writer->Close());
+  return metadata;
+}
+
 }  // namespace
 
 const Transaction& no_transaction() {
@@ -614,24 +635,6 @@ arrow::Result<std::shared_ptr<PreparedStatement>> PreparedStatement::ParseRespon
                                              parameter_schema);
 }
 
-arrow::Result<std::shared_ptr<Buffer>> BindParameters(FlightClient* client,
-                                                      const FlightCallOptions& options,
-                                                      const FlightDescriptor& descriptor,
-                                                      RecordBatchReader* params) {
-  ARROW_ASSIGN_OR_RAISE(auto stream,
-                        client->DoPut(options, descriptor, params->schema()));
-  while (true) {
-    ARROW_ASSIGN_OR_RAISE(auto batch, params->Next());
-    if (!batch) break;
-    ARROW_RETURN_NOT_OK(stream.writer->WriteRecordBatch(*batch));
-  }
-  ARROW_RETURN_NOT_OK(stream.writer->DoneWriting());
-  std::shared_ptr<Buffer> metadata;
-  ARROW_RETURN_NOT_OK(stream.reader->ReadMetadata(&metadata));
-  ARROW_RETURN_NOT_OK(stream.writer->Close());
-  return metadata;
-}
-
 arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatement::Execute(
     const FlightCallOptions& options) {
   if (is_closed_) {
@@ -829,6 +832,8 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
   return results->Drain();
 }
 
+// ActionCancelQuery{Request,Result} are deprecated
+ARROW_SUPPRESS_DEPRECATION_WARNING
 ::arrow::Result<CancelResult> FlightSqlClient::CancelQuery(
     const FlightCallOptions& options, const FlightInfo& info) {
   flight_sql_pb::ActionCancelQueryRequest cancel_query;
@@ -855,6 +860,7 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
   }
   return Status::IOError("Server returned unknown result ", result.result());
 }
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 Status FlightSqlClient::Close() { return impl_->Close(); }
 

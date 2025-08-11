@@ -1,8 +1,0 @@
-// TypeScript configuration for the ES2015 ESModules target's tests
-{
-  "extends": "./tsconfig.base.json",
-  "compilerOptions": {
-    "target": "ESNext",
-    "module": "NodeNext"
-  }
-}

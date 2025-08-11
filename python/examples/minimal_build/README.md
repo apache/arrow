@@ -51,7 +51,7 @@ docker compose run --rm minimal-fedora-conda
 docker compose run --rm minimal-fedora-venv
 ```
 
-## Ubuntu 20.04
+## Ubuntu 24.04
 
 First, build the Docker image using:
 ```

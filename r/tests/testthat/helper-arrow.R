@@ -70,3 +70,9 @@ make_temp_dir <- function() {
   dir.create(path)
   normalizePath(path, winslash = "/")
 }
+
+arrow_cpp_version_at_least <- function(version) {
+  cpp_version <- arrow::arrow_info()$build_info$cpp_version
+  cpp_version_parsed <- package_version(sub("-SNAPSHOT$", "", cpp_version))
+  numeric_version(cpp_version_parsed) >= numeric_version(version)
+}

@@ -18,6 +18,7 @@
 #include "arrow/compute/row/row_internal.h"
 
 #include "arrow/compute/util.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace compute {
@@ -406,10 +407,14 @@ bool RowTableImpl::has_any_nulls(const LightContext* ctx) const {
     return true;
   }
   if (num_rows_for_has_any_nulls_ < num_rows_) {
-    auto size_per_row = metadata().null_masks_bytes_per_row;
+    DCHECK_LE(num_rows_for_has_any_nulls_, std::numeric_limits<uint32_t>::max());
+    int64_t num_bytes =
+        metadata().null_masks_bytes_per_row * (num_rows_ - num_rows_for_has_any_nulls_);
+    DCHECK_LE(num_bytes, std::numeric_limits<uint32_t>::max());
     has_any_nulls_ = !util::bit_util::are_all_bytes_zero(
-        ctx->hardware_flags, null_masks() + size_per_row * num_rows_for_has_any_nulls_,
-        static_cast<uint32_t>(size_per_row * (num_rows_ - num_rows_for_has_any_nulls_)));
+        ctx->hardware_flags,
+        null_masks(static_cast<uint32_t>(num_rows_for_has_any_nulls_)),
+        static_cast<uint32_t>(num_bytes));
     num_rows_for_has_any_nulls_ = num_rows_;
   }
   return has_any_nulls_;

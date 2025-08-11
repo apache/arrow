@@ -144,6 +144,9 @@ ARROW_FLIGHT_EXPORT
 std::shared_ptr<Schema> ExampleIntSchema();
 
 ARROW_FLIGHT_EXPORT
+std::shared_ptr<Schema> ExampleFloatSchema();
+
+ARROW_FLIGHT_EXPORT
 std::shared_ptr<Schema> ExampleStringSchema();
 
 ARROW_FLIGHT_EXPORT
@@ -178,6 +181,12 @@ std::vector<ActionType> ExampleActionTypes();
 
 ARROW_FLIGHT_EXPORT
 FlightInfo MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
+                          const std::vector<FlightEndpoint>& endpoints,
+                          int64_t total_records, int64_t total_bytes, bool ordered,
+                          std::string app_metadata);
+
+ARROW_FLIGHT_EXPORT
+FlightInfo MakeFlightInfo(const FlightDescriptor& descriptor,
                           const std::vector<FlightEndpoint>& endpoints,
                           int64_t total_records, int64_t total_bytes, bool ordered,
                           std::string app_metadata);

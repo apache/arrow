@@ -17,8 +17,11 @@
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/array.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/exec.h"
+#include "arrow/datum.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"
@@ -30,7 +33,7 @@ constexpr auto kSeed = 0x0ff1ce;
 static void SelectKBenchmark(benchmark::State& state,
                              const std::shared_ptr<Array>& values, int64_t k) {
   for (auto _ : state) {
-    ABORT_NOT_OK(SelectKUnstable(*values, SelectKOptions::TopKDefault(k)).status());
+    ABORT_NOT_OK(SelectKUnstable(*values, SelectKOptions::TopKDefault(k)));
   }
   state.SetItemsProcessed(state.iterations() * values->length());
 }

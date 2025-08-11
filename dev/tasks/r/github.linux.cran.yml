@@ -21,20 +21,21 @@
 
 jobs:
   as-cran:
-    name: "rhub/{{ MATRIX }}"
+    name: "rhub/{{ '${{ matrix.config.r_image }}' }}"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # See https://hub.docker.com/r/rhub
-        r_image:
-          - ubuntu-gcc12    # ~ r-devel-linux-x86_64-debian-gcc
-          - ubuntu-clang    # ~ r-devel-linux-x86_64-debian-clang
-          - ubuntu-next     # ~ r-patched-linux-x86_64
-          - ubuntu-release  # ~ r-release-linux-x86_64
+        config:
+          # See https://r-hub.github.io/containers/
+          - { r_image: "ubuntu-gcc12" }  # ~ r-devel-linux-x86_64-debian-gcc
+          - { r_image: "ubuntu-clang" }  # ~ r-devel-linux-x86_64-debian-clang
+          - { r_image: "ubuntu-next" }  # ~ r-patched-linux-x86_64
+          - { r_image: "ubuntu-release" }  # ~ r-release-linux-x86_64
+          - { r_image: "clang20", skip_vignettes: true }  # ~ r-devel-linux-x86_64-fedora-clang
     env:
       R_ORG: "rhub"
-      R_IMAGE: {{ MATRIX }}
+      R_IMAGE: {{ '${{ matrix.config.r_image }}' }}
       R_TAG: "latest"
       ARROW_R_DEV: "FALSE"
     steps:
@@ -46,7 +47,7 @@ jobs:
         env:
         {{ macros.github_set_sccache_envvars()|indent(8)}}
         # setting ARROW_SOURCE_HOME='' here ensures that we use the cpp source copied into tools/
-        run: archery docker run -e ARROW_SOURCE_HOME='' r
+        run: archery docker run -e ARROW_SOURCE_HOME='' -e SKIP_VIGNETTES={{ '${{ matrix.config.skip_vignettes }}' }} r
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
         if: always()
@@ -57,5 +58,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-output-{{ "${{ matrix.r_image }}" }}
+          name: test-output-{{ "${{ matrix.config.r_image }}" }}
           path: arrow/r/check/arrow.Rcheck/tests/testthat.Rout*

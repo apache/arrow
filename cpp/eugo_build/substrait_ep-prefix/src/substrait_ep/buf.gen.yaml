@@ -1,0 +1,14 @@
+version: v1
+plugins:
+  - plugin: buf.build/protocolbuffers/cpp:v23.0
+    out: gen/proto/cpp
+  - plugin: buf.build/protocolbuffers/csharp:v23.0
+    out: gen/proto/csharp
+  - plugin: buf.build/protocolbuffers/java:v23.0
+    out: gen/proto/java
+  - plugin: buf.build/protocolbuffers/python:v23.0
+    out: gen/proto/python
+  - plugin: buf.build/protocolbuffers/go:v1.30.0
+    out: gen/proto/go
+    opt:
+      - paths=source_relative

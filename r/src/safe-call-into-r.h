@@ -29,12 +29,8 @@
 #include <functional>
 #include <thread>
 
-// Unwind protection was added in R 3.5 and some calls here use it
-// and crash R in older versions (ARROW-16201). Implementation provided
-// in safe-call-into-r-impl.cpp so that we can skip some tests
-// when this feature is not provided. This also checks that there
-// is not already an event loop registered (via MainRThread::Executor()),
-// because only one of these can exist at any given time.
+// This checks that there is not already an event loop registered (via
+// MainRThread::Executor()), because only one of these can exist at any given time.
 bool CanRunWithCapturedR();
 
 // The MainRThread class keeps track of the thread on which it is safe

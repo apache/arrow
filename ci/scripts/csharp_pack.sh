@@ -21,6 +21,6 @@ set -eux
 
 source_dir=${1}/csharp
 
-pushd ${source_dir}
+pushd "${source_dir}"
 dotnet pack -c Release
 popd

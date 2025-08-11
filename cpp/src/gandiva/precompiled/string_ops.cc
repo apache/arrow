@@ -16,7 +16,7 @@
 // under the License.
 
 // String functions
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/value_parsing.h"
 
 extern "C" {

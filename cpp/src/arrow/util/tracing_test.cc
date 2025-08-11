@@ -46,6 +46,33 @@ TEST(Tracing, OtLifetime) {
   }));
 }
 
+// This test checks that the Span valid invariant is maintained:
+// 1. Span is invalid before START_SPAN
+// 2. Span is valid after START_SPAN
+// 3. Span is invalid after reset
+// 4. Span can be restarted after reset
+TEST(Tracing, ValidInvariant) {
+  Span span;
+
+  EXPECT_FALSE(span.valid());
+
+  START_SPAN(span, "TestSpan");
+
+  EXPECT_TRUE(span.valid());
+
+  span.reset();
+
+  EXPECT_FALSE(span.valid());
+
+  span.reset();
+
+  EXPECT_FALSE(span.valid());
+  {
+    START_SPAN(span, "TestSpan2");
+    EXPECT_TRUE(span.valid());
+  }
+}
+
 #endif
 
 }  // namespace tracing

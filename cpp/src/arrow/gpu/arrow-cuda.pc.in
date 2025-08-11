@@ -24,4 +24,5 @@ Description: CUDA integration library for Apache Arrow
 Version: @ARROW_VERSION@
 Requires: arrow cuda
 Libs: -L${libdir} -larrow_cuda
-Cflags: -I${includedir}
+Cflags: -I${includedir}@ARROW_CUDA_PC_CFLAGS@
+Cflags.private:@ARROW_CUDA_PC_CFLAGS_PRIVATE@

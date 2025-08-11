@@ -30,13 +30,14 @@ RUN apt-get update -y -q && \
         lsb-release \
         wget && \
     if [ ${llvm} -ge 17 ]; then \
-      wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | \
-          gpg \
-              --import - \
-              --keyring /usr/share/keyrings/llvm-snapshot.gpg \
-              --no-default-keyring && \
-      echo "deb[keyring=/usr/share/keyrings/llvm-snapshot.gpg] https://apt.llvm.org/$(lsb_release --codename --short)/ llvm-toolchain-$(lsb_release --codename --short)-${available_llvm} main" > \
-          /etc/apt/sources.list.d/llvm.list; \
+      wget -O /usr/share/keyrings/llvm-snapshot.asc \
+        https://apt.llvm.org/llvm-snapshot.gpg.key && \
+      (echo "Types: deb"; \
+       echo "URIs: https://apt.llvm.org/$(lsb_release --codename --short)/"; \
+       echo "Suites: llvm-toolchain-$(lsb_release --codename --short)-${llvm}"; \
+       echo "Components: main"; \
+       echo "Signed-By: /usr/share/keyrings/llvm-snapshot.asc") | \
+        tee /etc/apt/sources.list.d/llvm.sources; \
     fi && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
@@ -108,6 +109,11 @@ RUN /arrow/ci/scripts/install_azurite.sh
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
+# Prioritize system packages and local installation.
+#
+# The following dependencies will be downloaded due to missing/invalid packages
+# provided by the distribution:
+# - opentelemetry-cpp-dev is not packaged
 ENV ARROW_ACERO=ON \
     ARROW_AZURE=ON \
     ARROW_BUILD_TESTS=ON \
@@ -119,6 +125,7 @@ ENV ARROW_ACERO=ON \
     ARROW_GANDIVA=ON \
     ARROW_GCS=ON \
     ARROW_HOME=/usr/local \
+    ARROW_JEMALLOC=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \
@@ -134,6 +141,7 @@ ENV ARROW_ACERO=ON \
     AWSSDK_SOURCE=BUNDLED \
     Azure_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
+    opentelemetry_cpp_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
     PYTHON=python3 \

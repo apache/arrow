@@ -22,6 +22,7 @@
 #include <optional>
 #include <vector>
 
+#include "arrow/acero/visibility.h"
 #include "arrow/compute/exec.h"
 #include "arrow/result.h"
 
@@ -33,7 +34,7 @@ using arrow::compute::ExecBatch;
 
 /// \brief A container that accumulates batches until they are ready to
 ///        be processed.
-class AccumulationQueue {
+class ARROW_ACERO_EXPORT AccumulationQueue {
  public:
   AccumulationQueue() : row_count_(0) {}
   ~AccumulationQueue() = default;
@@ -70,7 +71,7 @@ class AccumulationQueue {
 /// For example, in a top-n node, the process callback should determine how many
 /// rows need to be delivered for the given batch, and then return a task to actually
 /// deliver those rows.
-class SequencingQueue {
+class ARROW_ACERO_EXPORT SequencingQueue {
  public:
   using Task = std::function<Status()>;
 
@@ -123,7 +124,7 @@ class SequencingQueue {
 ///
 /// It can be helpful to think of this as if a dedicated thread is running Process as
 /// batches arrive
-class SerialSequencingQueue {
+class ARROW_ACERO_EXPORT SerialSequencingQueue {
  public:
   /// Strategy that describes how to handle items
   class Processor {

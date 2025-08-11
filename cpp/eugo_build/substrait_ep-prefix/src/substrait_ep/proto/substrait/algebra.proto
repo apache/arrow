@@ -1,0 +1,1511 @@
+// SPDX-License-Identifier: Apache-2.0
+syntax = "proto3";
+
+package substrait;
+
+import "google/protobuf/any.proto";
+import "substrait/extensions/extensions.proto";
+import "substrait/type.proto";
+
+option csharp_namespace = "Substrait.Protobuf";
+option go_package = "github.com/substrait-io/substrait-go/proto";
+option java_multiple_files = true;
+option java_package = "io.substrait.proto";
+
+// Common fields for all relational operators
+message RelCommon {
+  oneof emit_kind {
+    // The underlying relation is output as is (no reordering or projection of columns)
+    Direct direct = 1;
+    // Allows to control for order and inclusion of fields
+    Emit emit = 2;
+  }
+
+  Hint hint = 3;
+  substrait.extensions.AdvancedExtension advanced_extension = 4;
+
+  // Direct indicates no change on presence and ordering of fields in the output
+  message Direct {}
+
+  // Remap which fields are output and in which order
+  message Emit {
+    repeated int32 output_mapping = 1;
+  }
+
+  // Changes to the operation that can influence efficiency/performance but
+  // should not impact correctness.
+  message Hint {
+    Stats stats = 1;
+    RuntimeConstraint constraint = 2;
+    substrait.extensions.AdvancedExtension advanced_extension = 10;
+
+    // The statistics related to a hint (physical properties of records)
+    message Stats {
+      double row_count = 1;
+      double record_size = 2;
+      substrait.extensions.AdvancedExtension advanced_extension = 10;
+    }
+
+    message RuntimeConstraint {
+      // TODO: nodes, cpu threads/%, memory, iops, etc.
+
+      substrait.extensions.AdvancedExtension advanced_extension = 10;
+    }
+  }
+}
+
+// The scan operator of base data (physical or virtual), including filtering and projection.
+message ReadRel {
+  RelCommon common = 1;
+  NamedStruct base_schema = 2;
+  Expression filter = 3;
+  Expression best_effort_filter = 11;
+  Expression.MaskExpression projection = 4;
+  substrait.extensions.AdvancedExtension advanced_extension = 10;
+
+  // Definition of which type of scan operation is to be performed
+  oneof read_type {
+    VirtualTable virtual_table = 5;
+    LocalFiles local_files = 6;
+    NamedTable named_table = 7;
+    ExtensionTable extension_table = 8;
+  }
+
+  // A base table. The list of string is used to represent namespacing (e.g., mydb.mytable).
+  // This assumes shared catalog between systems exchanging a message.
+  message NamedTable {
+    repeated string names = 1;
+    substrait.extensions.AdvancedExtension advanced_extension = 10;
+  }
+
+  // A table composed of literals.
+  message VirtualTable {
+    repeated Expression.Literal.Struct values = 1;
+  }
+
+  // A stub type that can be used to extend/introduce new table types outside
+  // the specification.
+  message ExtensionTable {
+    google.protobuf.Any detail = 1;
+  }
+
+  // Represents a list of files in input of a scan operation
+  message LocalFiles {
+    repeated FileOrFiles items = 1;
+    substrait.extensions.AdvancedExtension advanced_extension = 10;
+
+    // Many files consist of indivisible chunks (e.g. parquet row groups
+    // or CSV rows).  If a slice partially selects an indivisible chunk
+    // then the consumer should employ some rule to decide which slice to
+    // include the chunk in (e.g. include it in the slice that contains
+    // the midpoint of the chunk)
+    message FileOrFiles {
+      oneof path_type {
+        // A URI that can refer to either a single folder or a single file
+        string uri_path = 1;
+        // A URI where the path portion is a glob expression that can
+        // identify zero or more paths.
+        // Consumers should support the POSIX syntax.  The recursive
+        // globstar (**) may not be supported.
+        string uri_path_glob = 2;
+        // A URI that refers to a single file
+        string uri_file = 3;
+        // A URI that refers to a single folder
+        string uri_folder = 4;
+      }
+
+      // Original file format enum, superseded by the file_format oneof.
+      reserved 5;
+      reserved "format";
+
+      // The index of the partition this item belongs to
+      uint64 partition_index = 6;
+
+      // The start position in byte to read from this item
+      uint64 start = 7;
+
+      // The length in byte to read from this item
+      uint64 length = 8;
+
+      message ParquetReadOptions {}
+      message ArrowReadOptions {}
+      message OrcReadOptions {}
+      message DwrfReadOptions {}
+
+      // The format of the files.
+      oneof file_format {
+        ParquetReadOptions parquet = 9;
+        ArrowReadOptions arrow = 10;
+        OrcReadOptions orc = 11;
+        google.protobuf.Any extension = 12;
+        DwrfReadOptions dwrf = 13;
+      }
+    }
+  }
+}
+
+// This operator allows to represent calculated expressions of fields (e.g., a+b). Direct/Emit are used to represent classical relational projections
+message ProjectRel {
+  RelCommon common = 1;
+  Rel input = 2;
+  repeated Expression expressions = 3;
+  substrait.extensions.AdvancedExtension advanced_extension = 10;
+}
+
+// The binary JOIN relational operator left-join-right, including various join types, a join condition and post_join_filter expression
+message JoinRel {
+  RelCommon common = 1;
+  Rel left = 2;
+  Rel right = 3;
+  Expression expression = 4;
+  Expression post_join_filter = 5;
+
+  JoinType type = 6;
+
+  enum JoinType {
+    JOIN_TYPE_UNSPECIFIED = 0;
+    JOIN_TYPE_INNER = 1;
+    JOIN_TYPE_OUTER = 2;
+    JOIN_TYPE_LEFT = 3;
+    JOIN_TYPE_RIGHT = 4;
+    JOIN_TYPE_SEMI = 5;
+    JOIN_TYPE_ANTI = 6;
+    // This join is useful for nested sub-queries where we need exactly one record in output (or throw exception)
+    // See Section 3.2 of https://15721.courses.cs.cmu.edu/spring2018/papers/16-optimizer2/hyperjoins-btw2017.pdf
+    JOIN_TYPE_SINGLE = 7;
+  }
+
+  substrait.extensions.AdvancedExtension advanced_extension = 10;
+}
+
+// Cartesian product relational operator of two tables (left and right)
+message CrossRel {
+  RelCommon common = 1;
+  Rel left = 2;
+  Rel right = 3;
+
+  substrait.extensions.AdvancedExtension advanced_extension = 10;
+}
+
+// The relational operator representing LIMIT/OFFSET or TOP type semantics.
+message FetchRel {
+  RelCommon common = 1;
+  Rel input = 2;
+  // the offset expressed in number of records
+  int64 offset = 3;
+  // the amount of records to return
+  int64 count = 4;
+  substrait.extensions.AdvancedExtension advanced_extension = 10;
+}
+
+// The relational operator representing a GROUP BY Aggregate
+message AggregateRel {
+  RelCommon common = 1;
+
+  // Input of the aggregation
+  Rel input = 2;
+
+  // A list of one or more grouping expression sets that the aggregation measures should be calculated for.
+  // Required if there are no measures.
+  repeated Grouping groupings = 3;
+
+  // A list of one or more aggregate expressions along with an optional filter.
+  // Required if there are no groupings.
+  repeated Measure measures = 4;
+
+  substrait.extensions.AdvancedExtension advanced_extension = 10;
+
+  message Grouping {
+    repeated Expression grouping_expressions = 1;
+  }
+
+  message Measure {
+    AggregateFunction measure = 1;
+
+    // An optional boolean expression that acts to filter which records are
+    // included in the measure. True means include this record for calculation
+    // within the measure.
+    // Helps to support SUM(<c>) FILTER(WHERE...) syntax without masking opportunities for optimization
+    Expression filter = 2;
+  }
+}
+
+// ConsistentPartitionWindowRel provides the ability to perform calculations across sets of rows
+// that are related to the current query row. It can be used to execute window functions where
+// all the windows share the same partitioning and ordering.
+message ConsistentPartitionWindowRel {
+  RelCommon common = 1;
+  Rel input = 2;
+  repeated WindowRelFunction window_functions = 3;
+  repeated Expression partition_expressions = 4;
+  repeated SortField sorts = 5;
+
+  substrait.extensions.AdvancedExtension advanced_extension = 10;
+
+  // This message mirrors the `WindowFunction` message but removes the fields defining the partition,
+  // sorts, and bounds, since those must be consistent across the various functions in this rel.  Refer
+  // to the `WindowFunction` message for a description of these fields.
+  message WindowRelFunction {
+    uint32 function_reference = 1;
+
+    repeated FunctionArgument arguments = 9;
+
+    repeated FunctionOption options = 11;
+
+    Type output_type = 7;
+
+    AggregationPhase phase = 6;
+
+    AggregateFunction.AggregationInvocation invocation = 10;
+
+    Expression.WindowFunction.Bound lower_bound = 5;
+
+    Expression.WindowFunction.Bound upper_bound = 4;
+
+    Expression.WindowFunction.BoundsType bounds_type = 12;
+  }
+}
+
+// The ORDERY BY (or sorting) relational operator. Beside describing a base relation, it includes a list of fields to sort on
+message SortRel {
+  RelCommon common = 1;
+  Rel input = 2;
+  repeated SortField sorts = 3;
+  substrait.extensions.AdvancedExtension advanced_extension = 10;
+}
+
+// The relational operator capturing simple FILTERs (as in the WHERE clause of SQL)
+message FilterRel {
+  RelCommon common = 1;
+  Rel input = 2;
+  Expression condition = 3;
+  substrait.extensions.AdvancedExtension advanced_extension = 10;
+}
+
+// The relational set operators (intersection/union/etc..)
+message SetRel {
+  RelCommon common = 1;
+  // The first input is the primary input, the remaining are secondary
+  // inputs.  There must be at least two inputs.
+  repeated Rel inputs = 2;
+  SetOp op = 3;
+  substrait.extensions.AdvancedExtension advanced_extension = 10;
+
+  enum SetOp {
+    SET_OP_UNSPECIFIED = 0;
+    SET_OP_MINUS_PRIMARY = 1;
+    SET_OP_MINUS_MULTISET = 2;
+    SET_OP_INTERSECTION_PRIMARY = 3;
+    SET_OP_INTERSECTION_MULTISET = 4;
+    SET_OP_UNION_DISTINCT = 5;
+    SET_OP_UNION_ALL = 6;
+  }
+}
+
+// Stub to support extension with a single input
+message ExtensionSingleRel {
+  RelCommon common = 1;
+  Rel input = 2;
+  google.protobuf.Any detail = 3;
+}
+
+// Stub to support extension with a zero inputs
+message ExtensionLeafRel {
+  RelCommon common = 1;
+  google.protobuf.Any detail = 2;
+}
+
+// Stub to support extension with multiple inputs
+message ExtensionMultiRel {
+  RelCommon common = 1;
+  repeated Rel inputs = 2;
+  google.protobuf.Any detail = 3;
+}
+
+// A redistribution operation
+message ExchangeRel {
+  RelCommon common = 1;
+  Rel input = 2;
+  int32 partition_count = 3;
+  repeated ExchangeTarget targets = 4;
+
+  // the type of exchange used
+  oneof exchange_kind {
+    ScatterFields scatter_by_fields = 5;
+    SingleBucketExpression single_target = 6;
+    MultiBucketExpression multi_target = 7;
+    RoundRobin round_robin = 8;
+    Broadcast broadcast = 9;
+  }
+
+  substrait.extensions.AdvancedExtension advanced_extension = 10;
+
+  message ScatterFields {
+    repeated Expression.FieldReference fields = 1;
+  }
+
+  // Returns a single bucket number per record.
+  message SingleBucketExpression {
+    Expression expression = 1;
+  }
+
+  // Returns zero or more bucket numbers per record
+  message MultiBucketExpression {
+    Expression expression = 1;
+    bool constrained_to_count = 2;
+  }
+
+  // Send all data to every target.
+  message Broadcast {}
+
+  // Route approximately
+  message RoundRobin {
+    // whether the round robin behavior is required to exact (per record) or
+    // approximate. Defaults to approximate.
+    bool exact = 1;
+  }
+
+  // The message to describe partition targets of an exchange
+  message ExchangeTarget {
+    // Describes the partition id(s) to send. If this is empty, all data is sent
+    // to this target.
+    repeated int32 partition_id = 1;
+
+    oneof target_type {
+      string uri = 2;
+      google.protobuf.Any extended = 3;
+    }
+  }
+}
+
+// Duplicates records by emitting one or more rows per input row.  The number of rows emitted per
+// input row is the same for all input rows.
+//
+// In addition to a field being emitted per input field an extra int64 field is emitted which
+// contains a zero-indexed ordinal corresponding to the duplicate definition.
+message ExpandRel {
+  RelCommon common = 1;
+  Rel input = 2;
+  // There should be one definition here for each input field.  Any fields beyond the provided
+  // definitions will be emitted as is (as if a consistent_field record with an identity
+  // expression was provided).
+  repeated ExpandField fields = 4;
+
+  message ExpandField {
+    oneof field_type {
+      // Field that switches output based on which duplicate is being output.  Every
+      // switching_field should contain the same number of duplicates (so that the output rows
+      // are of consistent size and type).  If there are not enough switching field definitions
+      // to match the other field definitions NULL will be returned to fill the extras.
+      SwitchingField switching_field = 2;
+
+      // Field that outputs the same value no matter which duplicate is being output.  Equivalent
+      // to a switching_field that lists the same expression multiple times.
+      Expression consistent_field = 3;
+    }
+  }
+
+  message SwitchingField {
+    // All duplicates must return the same type class but may differ in nullability.  The effective
+    // type of the output field will be nullable if any of the duplicate expressions are nullable.
+    repeated Expression duplicates = 1;
+  }
+}
+
+// A relation with output field names.
+//
+// This is for use at the root of a `Rel` tree.
+message RelRoot {
+  // A relation
+  Rel input = 1;
+  // Field names in depth-first order
+  repeated string names = 2;
+}
+
+// A relation (used internally in a plan)
+message Rel {
+  oneof rel_type {
+    ReadRel read = 1;
+    FilterRel filter = 2;
+    FetchRel fetch = 3;
+    AggregateRel aggregate = 4;
+    SortRel sort = 5;
+    JoinRel join = 6;
+    ProjectRel project = 7;
+    SetRel set = 8;
+    ExtensionSingleRel extension_single = 9;
+    ExtensionMultiRel extension_multi = 10;
+    ExtensionLeafRel extension_leaf = 11;
+    CrossRel cross = 12;
+    ReferenceRel reference = 21;
+    WriteRel write = 19;
+    DdlRel ddl = 20;
+    // Physical relations
+    HashJoinRel hash_join = 13;
+    MergeJoinRel merge_join = 14;
+    NestedLoopJoinRel nested_loop_join = 18;
+    ConsistentPartitionWindowRel window = 17;
+    ExchangeRel exchange = 15;
+    ExpandRel expand = 16;
+  }
+}
+
+// A base object for writing (e.g., a table or a view).
+message NamedObjectWrite {
+  // The list of string is used to represent namespacing (e.g., mydb.mytable).
+  // This assumes shared catalog between systems exchanging a message.
+  repeated string names = 1;
+  substrait.extensions.AdvancedExtension advanced_extension = 10;
+}
+
+// A stub type that can be used to extend/introduce new table types outside
+// the specification.
+message ExtensionObject {
+  google.protobuf.Any detail = 1;
+}
+
+message DdlRel {
+  // Definition of which type of object we are operating on
+  oneof write_type {
+    NamedObjectWrite named_object = 1;
+    ExtensionObject extension_object = 2;
+  }
+
+  // The columns that will be modified (representing after-image of a schema change)
+  NamedStruct table_schema = 3;
+  // The default values for the columns (representing after-image of a schema change)
+  // E.g., in case of an ALTER TABLE that changes some of the column default values, we expect
+  // the table_defaults Struct to report a full list of default values reflecting the result of applying
+  // the ALTER TABLE operator successfully
+  Expression.Literal.Struct table_defaults = 4;
+
+  // Which type of object we operate on
+  DdlObject object = 5;
+
+  // The type of operation to perform
+  DdlOp op = 6;
+
+  // The body of the CREATE VIEW
+  Rel view_definition = 7;
+  RelCommon common = 8;
+
+  enum DdlObject {
+    DDL_OBJECT_UNSPECIFIED = 0;
+    // A Table object in the system
+    DDL_OBJECT_TABLE = 1;
+    // A View object in the system
+    DDL_OBJECT_VIEW = 2;
+  }
+
+  enum DdlOp {
+    DDL_OP_UNSPECIFIED = 0;
+    // A create operation (for any object)
+    DDL_OP_CREATE = 1;
+    // A create operation if the object does not exist, or replaces it (equivalent to a DROP + CREATE) if the object already exists
+    DDL_OP_CREATE_OR_REPLACE = 2;
+    // An operation that modifies the schema (e.g., column names, types, default values) for the target object
+    DDL_OP_ALTER = 3;
+    // An operation that removes an object from the system
+    DDL_OP_DROP = 4;
+    // An operation that removes an object from the system (without throwing an exception if the object did not exist)
+    DDL_OP_DROP_IF_EXIST = 5;
+  }
+  //TODO add PK/constraints/indexes/etc..?
+}
+
+// The operator that modifies the content of a database (operates on 1 table at a time, but record-selection/source can be
+// based on joining of multiple tables).
+message WriteRel {
+  // Definition of which TABLE we are operating on
+  oneof write_type {
+    NamedObjectWrite named_table = 1;
+    ExtensionObject extension_table = 2;
+  }
+
+  // The schema of the table (must align with Rel input (e.g., number of leaf fields must match))
+  NamedStruct table_schema = 3;
+
+  // The type of operation to perform
+  WriteOp op = 4;
+
+  // The relation that determines the records to add/remove/modify
+  // the schema must match with table_schema. Default values must be explicitly stated
+  // in a ProjectRel at the top of the input. The match must also
+  // occur in case of DELETE to ensure multi-engine plans are unequivocal.
+  Rel input = 5;
+
+  // Output mode determines what is the output of executing this rel
+  OutputMode output = 6;
+  RelCommon common = 7;
+
+  enum WriteOp {
+    WRITE_OP_UNSPECIFIED = 0;
+    // The insert of new records in a table
+    WRITE_OP_INSERT = 1;
+    // The removal of records from a table
+    WRITE_OP_DELETE = 2;
+    // The modification of existing records within a table
+    WRITE_OP_UPDATE = 3;
+    // The Creation of a new table, and the insert of new records in the table
+    WRITE_OP_CTAS = 4;
+  }
+
+  enum OutputMode {
+    OUTPUT_MODE_UNSPECIFIED = 0;
+    // return no records at all
+    OUTPUT_MODE_NO_OUTPUT = 1;
+    // this mode makes the operator return all the record INSERTED/DELETED/UPDATED by the operator.
+    // The operator returns the AFTER-image of any change. This can be further manipulated by operators upstreams
+    // (e.g., retunring the typical "count of modified records").
+    // For scenarios in which the BEFORE image is required, the user must implement a spool (via references to
+    // subplans in the body of the Rel input) and return those with anounter PlanRel.relations.
+    OUTPUT_MODE_MODIFIED_RECORDS = 2;
+  }
+}
+
+// Hash joins and merge joins are a specialization of the general join where the join
+// expression is an series of comparisons between fields that are ANDed together.  The
+// behavior of this comparison is flexible
+message ComparisonJoinKey {
+  // The key to compare from the left table
+  Expression.FieldReference left = 1;
+  // The key to compare from the right table
+  Expression.FieldReference right = 2;
+  // Describes how to compare the two keys
+  ComparisonType comparison = 3;
+
+  // Most joins will use one of the following behaviors.  To avoid the complexity
+  // of a function lookup we define the common behaviors here
+  enum SimpleComparisonType {
+    SIMPLE_COMPARISON_TYPE_UNSPECIFIED = 0;
+    // Returns true only if both values are equal and not null
+    SIMPLE_COMPARISON_TYPE_EQ = 1;
+    // Returns true if both values are equal and not null
+    // Returns true if both values are null
+    // Returns false if one value is null and the other value is not null
+    //
+    // This can be expressed as a = b OR (isnull(a) AND isnull(b))
+    SIMPLE_COMPARISON_TYPE_IS_NOT_DISTINCT_FROM = 2;
+    // Returns true if both values are equal and not null
+    // Returns true if either value is null
+    //
+    // This can be expressed as a = b OR isnull(a = b)
+    SIMPLE_COMPARISON_TYPE_MIGHT_EQUAL = 3;
+  }
+
+  // Describes how the relation should consider if two rows are a match
+  message ComparisonType {
+    oneof inner_type {
+      // One of the simple comparison behaviors is used
+      SimpleComparisonType simple = 1;
+      // A custom comparison behavior is used.  This can happen, for example, when using
+      // collations, where we might want to do something like a case-insensitive comparison.
+      //
+      // This must be a binary function with a boolean return type
+      uint32 custom_function_reference = 2;
+    }
+  }
+}
+
+// The hash equijoin join operator will build a hash table out of the right input based on a set of join keys.
+// It will then probe that hash table for incoming inputs, finding matches.
+//
+// Two rows are a match if the comparison function returns true for all keys
+message HashJoinRel {
+  RelCommon common = 1;
+  Rel left = 2;
+  Rel right = 3;
+  // These fields are deprecated in favor of `keys`.  If they are set then
+  // the two lists (left_keys and right_keys) must have the same length and
+  // the comparion function is considered to be SimpleEqualityType::EQ
+  repeated Expression.FieldReference left_keys = 4 [deprecated = true];
+  repeated Expression.FieldReference right_keys = 5 [deprecated = true];
+  // One or more keys to join on.  The relation is invalid if this is empty
+  // (unless the deprecated left_keys/right_keys fields are being used).
+  //
+  // If a custom comparison function is used then it must be consistent with
+  // the hash function used for the keys.
+  //
+  // In other words, the hash function must return the same hash code when the
+  // comparison returns true.  For example, if the comparison function is
+  // "equals ignoring case" then the hash function must return the same hash
+  // code for strings that differ only by case.  Note: the hash function is not
+  // specified here.  It is the responsibility of the consumer to find an appropriate
+  // hash function for a given comparsion function or to reject the plan if it cannot
+  // do so.
+  repeated ComparisonJoinKey keys = 8;
+  Expression post_join_filter = 6;
+
+  JoinType type = 7;
+
+  enum JoinType {
+    JOIN_TYPE_UNSPECIFIED = 0;
+    JOIN_TYPE_INNER = 1;
+    JOIN_TYPE_OUTER = 2;
+    JOIN_TYPE_LEFT = 3;
+    JOIN_TYPE_RIGHT = 4;
+    JOIN_TYPE_LEFT_SEMI = 5;
+    JOIN_TYPE_RIGHT_SEMI = 6;
+    JOIN_TYPE_LEFT_ANTI = 7;
+    JOIN_TYPE_RIGHT_ANTI = 8;
+  }
+
+  substrait.extensions.AdvancedExtension advanced_extension = 10;
+}
+
+// The merge equijoin does a join by taking advantage of two sets that are sorted on the join keys.
+// This allows the join operation to be done in a streaming fashion.
+message MergeJoinRel {
+  RelCommon common = 1;
+  Rel left = 2;
+  Rel right = 3;
+  // These fields are deprecated in favor of `keys`.  If they are set then
+  // the two lists (left_keys and right_keys) must have the same length and
+  // the comparion function is considered to be SimpleEqualityType::EQ
+  repeated Expression.FieldReference left_keys = 4 [deprecated = true];
+  repeated Expression.FieldReference right_keys = 5 [deprecated = true];
+  // One or more keys to join on.  The relation is invalid if this is empty
+  // (unless the deprecated left_keys/right_keys fields are being used).
+  //
+  // If a custom comparison function is used then it must be consistent with
+  // the ordering of the input data.  For example, if the comparison function
+  // is "<" then we generally expect the data to be sorted in ascending order.
+  //
+  // If the comparison function is something like "less than ignoring case" then
+  // the data should be sorted appropriately (e.g. both "A" and "a" should come
+  // before "b")
+  //
+  // The sort order is not specified here.  It is typically the responsibility of
+  // the producer to ensure the plan sorts the data if needed (although the consumer
+  // is free to do so as well).  If possible, the consumer should verify the sort
+  // order and reject invalid plans.
+  repeated ComparisonJoinKey keys = 8;
+  Expression post_join_filter = 6;
+
+  JoinType type = 7;
+
+  enum JoinType {
+    JOIN_TYPE_UNSPECIFIED = 0;
+    JOIN_TYPE_INNER = 1;
+    JOIN_TYPE_OUTER = 2;
+    JOIN_TYPE_LEFT = 3;
+    JOIN_TYPE_RIGHT = 4;
+    JOIN_TYPE_LEFT_SEMI = 5;
+    JOIN_TYPE_RIGHT_SEMI = 6;
+    JOIN_TYPE_LEFT_ANTI = 7;
+    JOIN_TYPE_RIGHT_ANTI = 8;
+  }
+
+  substrait.extensions.AdvancedExtension advanced_extension = 10;
+}
+
+// The nested loop join (NLJ) operator will hold the entire right input and iterate over it using the
+// left input, evaluating the join expression on the Cartesian product of all rows.
+message NestedLoopJoinRel {
+  RelCommon common = 1;
+  Rel left = 2;
+  Rel right = 3;
+  // optional, defaults to true (a cartesian join)
+  Expression expression = 4;
+
+  JoinType type = 5;
+
+  enum JoinType {
+    JOIN_TYPE_UNSPECIFIED = 0;
+    JOIN_TYPE_INNER = 1;
+    JOIN_TYPE_OUTER = 2;
+    JOIN_TYPE_LEFT = 3;
+    JOIN_TYPE_RIGHT = 4;
+    JOIN_TYPE_LEFT_SEMI = 5;
+    JOIN_TYPE_RIGHT_SEMI = 6;
+    JOIN_TYPE_LEFT_ANTI = 7;
+    JOIN_TYPE_RIGHT_ANTI = 8;
+  }
+
+  substrait.extensions.AdvancedExtension advanced_extension = 10;
+}
+
+// The argument of a function
+message FunctionArgument {
+  oneof arg_type {
+    string enum = 1;
+    Type type = 2;
+    Expression value = 3;
+  }
+}
+
+// An optional function argument.  Typically used for specifying behavior in
+// invalid or corner cases.
+message FunctionOption {
+  // Name of the option to set. If the consumer does not recognize the
+  // option, it must reject the plan. The name is matched case-insensitively
+  // with option names defined for the function.
+  string name = 1;
+
+  // List of behavior options allowed by the producer. At least one must be
+  // specified; to leave an option unspecified, simply don't add an entry to
+  // `options`. The consumer must use the first option from the list that it
+  // supports. If the consumer supports none of the specified options, it
+  // must reject the plan. The name is matched case-insensitively and must
+  // match one of the option values defined for the option.
+  repeated string preference = 2;
+}
+
+message Expression {
+  oneof rex_type {
+    Literal literal = 1;
+    FieldReference selection = 2;
+    ScalarFunction scalar_function = 3;
+    WindowFunction window_function = 5;
+    IfThen if_then = 6;
+    SwitchExpression switch_expression = 7;
+    SingularOrList singular_or_list = 8;
+    MultiOrList multi_or_list = 9;
+    Cast cast = 11;
+    Subquery subquery = 12;
+    Nested nested = 13;
+
+    // deprecated: enum literals are only sensible in the context of
+    // function arguments, for which FunctionArgument should now be
+    // used
+    Enum enum = 10 [deprecated = true];
+  }
+
+  message Enum {
+    option deprecated = true;
+
+    oneof enum_kind {
+      string specified = 1;
+      Empty unspecified = 2;
+    }
+
+    message Empty {
+      option deprecated = true;
+    }
+  }
+
+  message Literal {
+    oneof literal_type {
+      bool boolean = 1;
+      int32 i8 = 2;
+      int32 i16 = 3;
+      int32 i32 = 5;
+      int64 i64 = 7;
+      float fp32 = 10;
+      double fp64 = 11;
+      string string = 12;
+      bytes binary = 13;
+      // Timestamp in units of microseconds since the UNIX epoch.
+      // Deprecated in favor of `precision_timestamp`
+      int64 timestamp = 14 [deprecated = true];
+      // Date in units of days since the UNIX epoch.
+      int32 date = 16;
+      // Time in units of microseconds past midnight
+      int64 time = 17;
+      IntervalYearToMonth interval_year_to_month = 19;
+      IntervalDayToSecond interval_day_to_second = 20;
+      string fixed_char = 21;
+      VarChar var_char = 22;
+      bytes fixed_binary = 23;
+      Decimal decimal = 24;
+      // If the precision is 6 or less then this is the microseconds since the UNIX epoch
+      // If the precision is more than 6 then this is the nanoseconds since the UNIX epoch
+      uint64 precision_timestamp = 34;
+      uint64 precision_timestamp_tz = 35;
+      Struct struct = 25;
+      Map map = 26;
+      // Timestamp in units of microseconds since the UNIX epoch.
+      // Deprecated in favor of `precision_timestamp_tz`
+      int64 timestamp_tz = 27 [deprecated = true];
+      bytes uuid = 28;
+      Type null = 29; // a typed null literal
+      List list = 30;
+      Type.List empty_list = 31;
+      Type.Map empty_map = 32;
+      UserDefined user_defined = 33;
+    }
+
+    // whether the literal type should be treated as a nullable type. Applies to
+    // all members of union other than the Typed null (which should directly
+    // declare nullability).
+    bool nullable = 50;
+
+    // optionally points to a type_variation_anchor defined in this plan.
+    // Applies to all members of union other than the Typed null (which should
+    // directly declare the type variation).
+    uint32 type_variation_reference = 51;
+
+    message VarChar {
+      string value = 1;
+      uint32 length = 2;
+    }
+
+    message Decimal {
+      // little-endian twos-complement integer representation of complete value
+      // (ignoring precision) Always 16 bytes in length
+      bytes value = 1;
+      // The maximum number of digits allowed in the value.
+      // the maximum precision is 38.
+      int32 precision = 2;
+      // declared scale of decimal literal
+      int32 scale = 3;
+    }
+
+    message Map {
+      message KeyValue {
+        Literal key = 1;
+        Literal value = 2;
+      }
+
+      repeated KeyValue key_values = 1;
+    }
+
+    message IntervalYearToMonth {
+      int32 years = 1;
+      int32 months = 2;
+    }
+
+    message IntervalDayToSecond {
+      int32 days = 1;
+      int32 seconds = 2;
+      int32 microseconds = 3;
+    }
+
+    message Struct {
+      // A possibly heterogeneously typed list of literals
+      repeated Literal fields = 1;
+    }
+
+    message List {
+      // A homogeneously typed list of literals
+      repeated Literal values = 1;
+    }
+
+    message UserDefined {
+      // points to a type_anchor defined in this plan
+      uint32 type_reference = 1;
+
+      // The parameters to be bound to the type class, if the type class is
+      // parameterizable.
+      repeated Type.Parameter type_parameters = 3;
+
+      // the value of the literal, serialized using some type-specific
+      // protobuf message
+      google.protobuf.Any value = 2;
+    }
+  }
+
+  // Expression to dynamically construct nested types.
+  message Nested {
+    // Whether the returned nested type is nullable.
+    bool nullable = 1;
+
+    // Optionally points to a type_variation_anchor defined in this plan for
+    // the returned nested type.
+    uint32 type_variation_reference = 2;
+
+    oneof nested_type {
+      Struct struct = 3;
+      List list = 4;
+      Map map = 5;
+    }
+
+    message Map {
+      message KeyValue {
+        // Mandatory key/value expressions.
+        Expression key = 1;
+        Expression value = 2;
+      }
+
+      // One or more key-value pairs. To specify an empty map, use
+      // Literal.empty_map (otherwise type information would be missing).
+      repeated KeyValue key_values = 1;
+    }
+
+    message Struct {
+      // Zero or more possibly heterogeneously-typed list of expressions that
+      // form the struct fields.
+      repeated Expression fields = 1;
+    }
+
+    message List {
+      // A homogeneously-typed list of one or more expressions that form the
+      // list entries. To specify an empty list, use Literal.empty_list
+      // (otherwise type information would be missing).
+      repeated Expression values = 1;
+    }
+  }
+
+  // A scalar function call.
+  message ScalarFunction {
+    // Points to a function_anchor defined in this plan, which must refer
+    // to a scalar function in the associated YAML file. Required; avoid
+    // using anchor/reference zero.
+    uint32 function_reference = 1;
+
+    // The arguments to be bound to the function. This must have exactly the
+    // number of arguments specified in the function definition, and the
+    // argument types must also match exactly:
+    //
+    //  - Value arguments must be bound using FunctionArgument.value, and
+    //    the expression in that must yield a value of a type that a function
+    //    overload is defined for.
+    //  - Type arguments must be bound using FunctionArgument.type.
+    //  - Enum arguments must be bound using FunctionArgument.enum
+    //    followed by Enum.specified, with a string that case-insensitively
+    //    matches one of the allowed options.
+    repeated FunctionArgument arguments = 4;
+
+    // Options to specify behavior for corner cases, or leave behavior
+    // unspecified if the consumer does not need specific behavior in these
+    // cases.
+    repeated FunctionOption options = 5;
+
+    // Must be set to the return type of the function, exactly as derived
+    // using the declaration in the extension.
+    Type output_type = 3;
+
+    // Deprecated; use arguments instead.
+    repeated Expression args = 2 [deprecated = true];
+  }
+
+  // A window function call.
+  message WindowFunction {
+    // Points to a function_anchor defined in this plan. The function must be:
+    //  - a window function
+    //  - an aggregate function
+    //
+    // An aggregate function referenced here should be treated as a window
+    // function with Window Type STREAMING
+    //
+    // Required; 0 is considered to be a valid anchor/reference.
+    uint32 function_reference = 1;
+
+    // The arguments to be bound to the function. This must have exactly the
+    // number of arguments specified in the function definition, and the
+    // argument types must also match exactly:
+    //
+    //  - Value arguments must be bound using FunctionArgument.value, and
+    //    the expression in that must yield a value of a type that a function
+    //    overload is defined for.
+    //  - Type arguments must be bound using FunctionArgument.type, and a
+    //    function overload must be defined for that type.
+    //  - Enum arguments must be bound using FunctionArgument.enum
+    //    followed by Enum.specified, with a string that case-insensitively
+    //    matches one of the allowed options.
+    repeated FunctionArgument arguments = 9;
+
+    // Options to specify behavior for corner cases, or leave behavior
+    // unspecified if the consumer does not need specific behavior in these
+    // cases.
+    repeated FunctionOption options = 11;
+
+    // Must be set to the return type of the function, exactly as derived
+    // using the declaration in the extension.
+    Type output_type = 7;
+
+    // Describes which part of the window function to perform within the
+    // context of distributed algorithms. Required. Must be set to
+    // INITIAL_TO_RESULT for window functions that are not decomposable.
+    AggregationPhase phase = 6;
+
+    // If specified, the records that are part of the window defined by
+    // upper_bound and lower_bound are ordered according to this list
+    // before they are aggregated. The first sort field has the highest
+    // priority; only if a sort field determines two records to be equivalent
+    // is the next field queried. This field is optional, and is only allowed
+    // if the window function is defined to support sorting.
+    repeated SortField sorts = 3;
+
+    // Specifies whether equivalent records are merged before being aggregated.
+    // Optional, defaults to AGGREGATION_INVOCATION_ALL.
+    AggregateFunction.AggregationInvocation invocation = 10;
+
+    // When one or more partition expressions are specified, two records are
+    // considered to be in the same partition if and only if these expressions
+    // yield an equal record of values for both. When computing the window
+    // function, only the subset of records within the bounds that are also in
+    // the same partition as the current record are aggregated.
+    repeated Expression partitions = 2;
+
+    // Defines the bounds type: ROWS, RANGE
+    BoundsType bounds_type = 12;
+
+    // Defines the record relative to the current record from which the window
+    // extends. The bound is inclusive. If the lower bound indexes a record
+    // greater than the upper bound, TODO (null range/no records passed?
+    // wrapping around as if lower/upper were swapped? error? null?).
+    // Optional; defaults to the start of the partition.
+    Bound lower_bound = 5;
+
+    // Defines the record relative to the current record up to which the window
+    // extends. The bound is inclusive. If the upper bound indexes a record
+    // less than the lower bound, TODO (null range/no records passed?
+    // wrapping around as if lower/upper were swapped? error? null?).
+    // Optional; defaults to the end of the partition.
+    Bound upper_bound = 4;
+
+    // Deprecated; use arguments instead.
+    repeated Expression args = 8 [deprecated = true];
+
+    enum BoundsType {
+      BOUNDS_TYPE_UNSPECIFIED = 0;
+      // The lower and upper bound specify how many rows before and after the current row
+      // the window should extend.
+      BOUNDS_TYPE_ROWS = 1;
+      // The lower and upper bound describe a range of values.  The window should include all rows
+      // where the value of the ordering column is greater than or equal to (current_value - lower bound)
+      // and less than or equal to (current_value + upper bound).  This bounds type is only valid if there
+      // is a single ordering column.
+      BOUNDS_TYPE_RANGE = 2;
+    }
+
+    // Defines one of the two boundaries for the window of a window function.
+    message Bound {
+      // Defines that the bound extends this far back from the current record.
+      message Preceding {
+        // A strictly positive integer specifying the number of records that
+        // the window extends back from the current record. Required. Use
+        // CurrentRow for offset zero and Following for negative offsets.
+        int64 offset = 1;
+      }
+
+      // Defines that the bound extends this far ahead of the current record.
+      message Following {
+        // A strictly positive integer specifying the number of records that
+        // the window extends ahead of the current record. Required. Use
+        // CurrentRow for offset zero and Preceding for negative offsets.
+        int64 offset = 1;
+      }
+
+      // Defines that the bound extends to or from the current record.
+      message CurrentRow {}
+
+      // Defines an "unbounded bound": for lower bounds this means the start
+      // of the partition, and for upper bounds this means the end of the
+      // partition.
+      message Unbounded {}
+
+      oneof kind {
+        // The bound extends some number of records behind the current record.
+        Preceding preceding = 1;
+
+        // The bound extends some number of records ahead of the current
+        // record.
+        Following following = 2;
+
+        // The bound extends to the current record.
+        CurrentRow current_row = 3;
+
+        // The bound extends to the start of the partition or the end of the
+        // partition, depending on whether this represents the upper or lower
+        // bound.
+        Unbounded unbounded = 4;
+      }
+    }
+  }
+
+  message IfThen {
+    // A list of one or more IfClauses
+    repeated IfClause ifs = 1;
+    // The returned Expression if no IfClauses are satisified
+    Expression else = 2;
+
+    message IfClause {
+      Expression if = 1;
+      Expression then = 2;
+    }
+  }
+
+  message Cast {
+    Type type = 1;
+    Expression input = 2;
+    FailureBehavior failure_behavior = 3;
+
+    enum FailureBehavior {
+      FAILURE_BEHAVIOR_UNSPECIFIED = 0;
+      FAILURE_BEHAVIOR_RETURN_NULL = 1;
+      FAILURE_BEHAVIOR_THROW_EXCEPTION = 2;
+    }
+  }
+
+  message SwitchExpression {
+    Expression match = 3;
+    repeated IfValue ifs = 1;
+    Expression else = 2;
+
+    message IfValue {
+      Literal if = 1;
+      Expression then = 2;
+    }
+  }
+
+  message SingularOrList {
+    Expression value = 1;
+    repeated Expression options = 2;
+  }
+
+  message MultiOrList {
+    repeated Expression value = 1;
+    repeated Record options = 2;
+
+    message Record {
+      repeated Expression fields = 1;
+    }
+  }
+
+  message EmbeddedFunction {
+    repeated Expression arguments = 1;
+    Type output_type = 2;
+    oneof kind {
+      PythonPickleFunction python_pickle_function = 3;
+      WebAssemblyFunction web_assembly_function = 4;
+    }
+
+    message PythonPickleFunction {
+      bytes function = 1;
+      repeated string prerequisite = 2;
+    }
+
+    message WebAssemblyFunction {
+      bytes script = 1;
+      repeated string prerequisite = 2;
+    }
+  }
+
+  // A way to reference the inner property of a complex record. Can reference
+  // either a map key by literal, a struct field by the ordinal position of
+  // the desired field or a particular element in an array. Supports
+  // expressions that would roughly translate to something similar to:
+  // a.b[2].c['my_map_key'].x where a,b,c and x are struct field references
+  // (ordinalized in the internal representation here), [2] is a list offset
+  // and ['my_map_key'] is a reference into a map field.
+  message ReferenceSegment {
+    oneof reference_type {
+      MapKey map_key = 1;
+      StructField struct_field = 2;
+      ListElement list_element = 3;
+    }
+
+    message MapKey {
+      // literal based reference to specific possible value in map.
+      Literal map_key = 1;
+
+      // Optional child segment
+      ReferenceSegment child = 2;
+    }
+
+    message StructField {
+      // zero-indexed ordinal position of field in struct
+      int32 field = 1;
+
+      // Optional child segment
+      ReferenceSegment child = 2;
+    }
+
+    message ListElement {
+      // zero-indexed ordinal position of element in list
+      int32 offset = 1;
+
+      // Optional child segment
+      ReferenceSegment child = 2;
+    }
+  }
+
+  // A reference that takes an existing subtype and selectively removes fields
+  // from it. For example, one might initially have an inner struct with 100
+  // fields but a a particular operation only needs to interact with only 2 of
+  // those 100 fields. In this situation, one would use a mask expression to
+  // eliminate the 98 fields that are not relevant to the rest of the operation
+  // pipeline.
+  //
+  // Note that this does not fundamentally alter the structure of data beyond
+  // the elimination of unnecessary elements.
+  message MaskExpression {
+    StructSelect select = 1;
+    bool maintain_singular_struct = 2;
+
+    message Select {
+      oneof type {
+        StructSelect struct = 1;
+        ListSelect list = 2;
+        MapSelect map = 3;
+      }
+    }
+
+    message StructSelect {
+      repeated StructItem struct_items = 1;
+    }
+
+    message StructItem {
+      int32 field = 1;
+      Select child = 2;
+    }
+
+    message ListSelect {
+      repeated ListSelectItem selection = 1;
+      Select child = 2;
+
+      message ListSelectItem {
+        oneof type {
+          ListElement item = 1;
+          ListSlice slice = 2;
+        }
+
+        message ListElement {
+          int32 field = 1;
+        }
+
+        message ListSlice {
+          int32 start = 1;
+          int32 end = 2;
+        }
+      }
+    }
+
+    message MapSelect {
+      oneof select {
+        MapKey key = 1;
+        MapKeyExpression expression = 2;
+      }
+
+      Select child = 3;
+
+      message MapKey {
+        string map_key = 1;
+      }
+
+      message MapKeyExpression {
+        string map_key_expression = 1;
+      }
+    }
+  }
+
+  // A reference to an inner part of a complex object. Can reference reference a
+  // single element or a masked version of elements
+  message FieldReference {
+    // Whether this is composed of a single element reference or a masked
+    // element subtree
+    oneof reference_type {
+      ReferenceSegment direct_reference = 1;
+      MaskExpression masked_reference = 2;
+    }
+
+    // Whether this reference has an origin of a root struct or is based on the
+    // ouput of an expression. When this is a RootReference and direct_reference
+    // above is used, the direct_reference must be of a type StructField.
+    oneof root_type {
+      Expression expression = 3;
+      RootReference root_reference = 4;
+      OuterReference outer_reference = 5;
+    }
+
+    // Singleton that expresses this FieldReference is rooted off the root
+    // incoming record type
+    message RootReference {}
+
+    // A root reference for the outer relation's subquery
+    message OuterReference {
+      // number of subquery boundaries to traverse up for this field's reference
+      //
+      // This value must be >= 1
+      uint32 steps_out = 1;
+    }
+  }
+
+  // Subquery relation expression
+  message Subquery {
+    oneof subquery_type {
+      // Scalar subquery
+      Scalar scalar = 1;
+      // x IN y predicate
+      InPredicate in_predicate = 2;
+      // EXISTS/UNIQUE predicate
+      SetPredicate set_predicate = 3;
+      // ANY/ALL predicate
+      SetComparison set_comparison = 4;
+    }
+
+    // A subquery with one row and one column. This is often an aggregate
+    // though not required to be.
+    message Scalar {
+      Rel input = 1;
+    }
+
+    // Predicate checking that the left expression is contained in the right
+    // subquery
+    //
+    // Examples:
+    //
+    // x IN (SELECT * FROM t)
+    // (x, y) IN (SELECT a, b FROM t)
+    message InPredicate {
+      repeated Expression needles = 1;
+      Rel haystack = 2;
+    }
+
+    // A predicate over a set of rows in the form of a subquery
+    // EXISTS and UNIQUE are common SQL forms of this operation.
+    message SetPredicate {
+      enum PredicateOp {
+        PREDICATE_OP_UNSPECIFIED = 0;
+        PREDICATE_OP_EXISTS = 1;
+        PREDICATE_OP_UNIQUE = 2;
+      }
+      // TODO: should allow expressions
+      PredicateOp predicate_op = 1;
+      Rel tuples = 2;
+    }
+
+    // A subquery comparison using ANY or ALL.
+    // Examples:
+    //
+    // SELECT *
+    // FROM t1
+    // WHERE x < ANY(SELECT y from t2)
+    message SetComparison {
+      enum ComparisonOp {
+        COMPARISON_OP_UNSPECIFIED = 0;
+        COMPARISON_OP_EQ = 1;
+        COMPARISON_OP_NE = 2;
+        COMPARISON_OP_LT = 3;
+        COMPARISON_OP_GT = 4;
+        COMPARISON_OP_LE = 5;
+        COMPARISON_OP_GE = 6;
+      }
+
+      enum ReductionOp {
+        REDUCTION_OP_UNSPECIFIED = 0;
+        REDUCTION_OP_ANY = 1;
+        REDUCTION_OP_ALL = 2;
+      }
+
+      // ANY or ALL
+      ReductionOp reduction_op = 1;
+      // A comparison operator
+      ComparisonOp comparison_op = 2;
+      // left side of the expression
+      Expression left = 3;
+      // right side of the expression
+      Rel right = 4;
+    }
+  }
+}
+
+// The description of a field to sort on (including the direction of sorting and null semantics)
+message SortField {
+  Expression expr = 1;
+
+  oneof sort_kind {
+    SortDirection direction = 2;
+    uint32 comparison_function_reference = 3;
+  }
+  enum SortDirection {
+    SORT_DIRECTION_UNSPECIFIED = 0;
+    SORT_DIRECTION_ASC_NULLS_FIRST = 1;
+    SORT_DIRECTION_ASC_NULLS_LAST = 2;
+    SORT_DIRECTION_DESC_NULLS_FIRST = 3;
+    SORT_DIRECTION_DESC_NULLS_LAST = 4;
+    SORT_DIRECTION_CLUSTERED = 5;
+  }
+}
+
+// Describes which part of an aggregation or window function to perform within
+// the context of distributed algorithms.
+enum AggregationPhase {
+  // Implies `INTERMEDIATE_TO_RESULT`.
+  AGGREGATION_PHASE_UNSPECIFIED = 0;
+
+  // Specifies that the function should be run only up to the point of
+  // generating an intermediate value, to be further aggregated later using
+  // INTERMEDIATE_TO_INTERMEDIATE or INTERMEDIATE_TO_RESULT.
+  AGGREGATION_PHASE_INITIAL_TO_INTERMEDIATE = 1;
+
+  // Specifies that the inputs of the aggregate or window function are the
+  // intermediate values of the function, and that the output should also be
+  // an intermediate value, to be further aggregated later using
+  // INTERMEDIATE_TO_INTERMEDIATE or INTERMEDIATE_TO_RESULT.
+  AGGREGATION_PHASE_INTERMEDIATE_TO_INTERMEDIATE = 2;
+
+  // A complete invocation: the function should aggregate the given set of
+  // inputs to yield a single return value. This style must be used for
+  // aggregate or window functions that are not decomposable.
+  AGGREGATION_PHASE_INITIAL_TO_RESULT = 3;
+
+  // Specifies that the inputs of the aggregate or window function are the
+  // intermediate values of the function, generated previously using
+  // INITIAL_TO_INTERMEDIATE and possibly INTERMEDIATE_TO_INTERMEDIATE calls.
+  // This call should combine the intermediate values to yield the final
+  // return value.
+  AGGREGATION_PHASE_INTERMEDIATE_TO_RESULT = 4;
+}
+
+// An aggregate function.
+message AggregateFunction {
+  // Points to a function_anchor defined in this plan, which must refer
+  // to an aggregate function in the associated YAML file. Required; 0 is
+  // considered to be a valid anchor/reference.
+  uint32 function_reference = 1;
+
+  // The arguments to be bound to the function. This must have exactly the
+  // number of arguments specified in the function definition, and the
+  // argument types must also match exactly:
+  //
+  //  - Value arguments must be bound using FunctionArgument.value, and
+  //    the expression in that must yield a value of a type that a function
+  //    overload is defined for.
+  //  - Type arguments must be bound using FunctionArgument.type, and a
+  //    function overload must be defined for that type.
+  //  - Enum arguments must be bound using FunctionArgument.enum
+  //    followed by Enum.specified, with a string that case-insensitively
+  //    matches one of the allowed options.
+  //  - Optional enum arguments must be bound using FunctionArgument.enum
+  //    followed by either Enum.specified or Enum.unspecified. If specified,
+  //    the string must case-insensitively match one of the allowed options.
+  repeated FunctionArgument arguments = 7;
+
+  // Options to specify behavior for corner cases, or leave behavior
+  // unspecified if the consumer does not need specific behavior in these
+  // cases.
+  repeated FunctionOption options = 8;
+
+  // Must be set to the return type of the function, exactly as derived
+  // using the declaration in the extension.
+  Type output_type = 5;
+
+  // Describes which part of the aggregation to perform within the context of
+  // distributed algorithms. Required. Must be set to INITIAL_TO_RESULT for
+  // aggregate functions that are not decomposable.
+  AggregationPhase phase = 4;
+
+  // If specified, the aggregated records are ordered according to this list
+  // before they are aggregated. The first sort field has the highest
+  // priority; only if a sort field determines two records to be equivalent is
+  // the next field queried. This field is optional.
+  repeated SortField sorts = 3;
+
+  // Specifies whether equivalent records are merged before being aggregated.
+  // Optional, defaults to AGGREGATION_INVOCATION_ALL.
+  AggregationInvocation invocation = 6;
+
+  // deprecated; use arguments instead
+  repeated Expression args = 2 [deprecated = true];
+
+  // Method in which equivalent records are merged before being aggregated.
+  enum AggregationInvocation {
+    // This default value implies AGGREGATION_INVOCATION_ALL.
+    AGGREGATION_INVOCATION_UNSPECIFIED = 0;
+
+    // Use all values in the aggregation calculation.
+    AGGREGATION_INVOCATION_ALL = 1;
+
+    // Use only distinct values in the aggregation calculation.
+    AGGREGATION_INVOCATION_DISTINCT = 2;
+  }
+}
+
+// This rel is used  to create references,
+// in case we refer to a RelRoot field names will be ignored
+message ReferenceRel {
+  int32 subtree_ordinal = 1;
+}

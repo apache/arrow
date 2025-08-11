@@ -536,6 +536,10 @@ compute__GetFunctionNames <- function() {
   .Call(`_arrow_compute__GetFunctionNames`)
 }
 
+compute__Initialize <- function() {
+  invisible(.Call(`_arrow_compute__Initialize`))
+}
+
 RegisterScalarUDF <- function(name, func_sexp) {
   invisible(.Call(`_arrow_RegisterScalarUDF`, name, func_sexp))
 }
@@ -918,6 +922,14 @@ Date64__initialize <- function() {
 
 Null__initialize <- function() {
   .Call(`_arrow_Null__initialize`)
+}
+
+Decimal32Type__initialize <- function(precision, scale) {
+  .Call(`_arrow_Decimal32Type__initialize`, precision, scale)
+}
+
+Decimal64Type__initialize <- function(precision, scale) {
+  .Call(`_arrow_Decimal64Type__initialize`, precision, scale)
 }
 
 Decimal128Type__initialize <- function(precision, scale) {
@@ -1372,8 +1384,8 @@ fs___CopyFiles <- function(source_fs, source_sel, destination_fs, destination_ba
   invisible(.Call(`_arrow_fs___CopyFiles`, source_fs, source_sel, destination_fs, destination_base_dir, chunk_size, use_threads))
 }
 
-fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, connect_timeout, request_timeout) {
-  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, connect_timeout, request_timeout)
+fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, check_directory_existence_before_creation, connect_timeout, request_timeout) {
+  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, check_directory_existence_before_creation, connect_timeout, request_timeout)
 }
 
 fs___S3FileSystem__region <- function(fs) {

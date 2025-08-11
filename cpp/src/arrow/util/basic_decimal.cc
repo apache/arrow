@@ -33,7 +33,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/int128_internal.h"
 #include "arrow/util/int_util_overflow.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -49,6 +49,11 @@ static constexpr uint64_t kInt64Mask = 0xFFFFFFFFFFFFFFFF;
 #else
 static constexpr uint64_t kInt32Mask = 0xFFFFFFFF;
 #endif
+
+BasicDecimal32& BasicDecimal32::Negate() {
+  value_ = arrow::internal::SafeSignedNegate(value_);
+  return *this;
+}
 
 DecimalStatus BasicDecimal32::Divide(const BasicDecimal32& divisor,
                                      BasicDecimal32* result,
@@ -152,6 +157,11 @@ BasicDecimal32::operator BasicDecimal64() const {
   return BasicDecimal64(static_cast<int64_t>(value()));
 }
 
+BasicDecimal64& BasicDecimal64::Negate() {
+  value_ = arrow::internal::SafeSignedNegate(value_);
+  return *this;
+}
+
 DecimalStatus BasicDecimal64::Divide(const BasicDecimal64& divisor,
                                      BasicDecimal64* result,
                                      BasicDecimal64* remainder) const {
@@ -253,12 +263,18 @@ const BasicDecimal64& BasicDecimal64::GetHalfScaleMultiplier(int32_t scale) {
 bool BasicDecimal32::FitsInPrecision(int32_t precision) const {
   DCHECK_GE(precision, 0);
   DCHECK_LE(precision, kMaxPrecision);
+  if (value_ == INT32_MIN) {
+    return false;
+  }
   return Abs(*this) < DecimalTraits<BasicDecimal32>::powers_of_ten()[precision];
 }
 
 bool BasicDecimal64::FitsInPrecision(int32_t precision) const {
   DCHECK_GE(precision, 0);
   DCHECK_LE(precision, kMaxPrecision);
+  if (value_ == INT64_MIN) {
+    return false;
+  }
   return Abs(*this) < DecimalTraits<BasicDecimal64>::powers_of_ten()[precision];
 }
 

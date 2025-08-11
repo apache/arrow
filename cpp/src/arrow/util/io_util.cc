@@ -97,7 +97,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/mutex.h"
 
 // For filename conversion
@@ -2141,11 +2141,6 @@ uint64_t GetThreadId() {
   return equiv;
 }
 
-uint64_t GetOptionalThreadId() {
-  auto tid = GetThreadId();
-  return (tid == 0) ? tid - 1 : tid;
-}
-
 // Returns the current resident set size (physical memory use) measured
 // in bytes, or zero if the value cannot be determined on this OS.
 int64_t GetCurrentRSS() {
@@ -2232,7 +2227,7 @@ Result<void*> LoadDynamicLibrary(const char* path) {
   constexpr int kFlags =
       // All undefined symbols in the shared object are resolved before dlopen() returns.
       RTLD_NOW
-      // Symbols defined in  this  shared  object are not made available to
+      // Symbols defined in this shared object are not made available to
       // resolve references in subsequently loaded shared objects.
       | RTLD_LOCAL;
   if (void* handle = dlopen(path, kFlags)) return handle;

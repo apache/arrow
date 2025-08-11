@@ -76,7 +76,7 @@ internal class JsonTestScenario : IScenario
         var batches = jsonFile.Batches.Select(batch => batch.ToArrow(schema, dictionaries)).ToArray();
 
         // 1. Put the data to the server.
-        await UploadBatches(client, descriptor, batches).ConfigureAwait(false);
+        await UploadBatches(client, descriptor, schema, batches).ConfigureAwait(false);
 
         // 2. Get the ticket for the data.
         var info = await client.GetInfo(descriptor).ConfigureAwait(false);
@@ -112,9 +112,10 @@ internal class JsonTestScenario : IScenario
         }
     }
 
-    private static async Task UploadBatches(FlightClient client, FlightDescriptor descriptor, RecordBatch[] batches)
+    private static async Task UploadBatches(
+        FlightClient client, FlightDescriptor descriptor, Schema schema, RecordBatch[] batches)
     {
-        using var putCall = client.StartPut(descriptor);
+        using var putCall = await client.StartPut(descriptor, schema);
         using var writer = putCall.RequestStream;
 
         try

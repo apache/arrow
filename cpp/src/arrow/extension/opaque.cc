@@ -20,7 +20,7 @@
 #include <sstream>
 
 #include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>
