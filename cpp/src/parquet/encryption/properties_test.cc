@@ -90,7 +90,7 @@ TEST(TestEncryptionProperties, EncryptFooterAndTwoColumns) {
 
   FileEncryptionProperties::Builder builder(kFooterEncryptionKey);
   builder.footer_key_metadata("kf");
-  builder.encrypted_columns(encrypted_columns);
+  builder.encrypted_columns(std::move(encrypted_columns));
   std::shared_ptr<FileEncryptionProperties> props = builder.build();
 
   ASSERT_EQ(true, props->encrypted_footer());
@@ -128,13 +128,13 @@ TEST(TestEncryptionProperties, EncryptFooterAndTwoColumns) {
 TEST(TestEncryptionProperties, EncryptTwoColumnsNotFooter) {
   std::shared_ptr<parquet::schema::ColumnPath> column_path_1 =
       parquet::schema::ColumnPath::FromDotString("column_1");
-  ColumnEncryptionProperties::Builder column_builder_1(column_path_1);
+  ColumnEncryptionProperties::Builder column_builder_1(*column_path_1);
   column_builder_1.key(kColumnEncryptionKey1);
   column_builder_1.key_id("kc1");
 
   std::shared_ptr<parquet::schema::ColumnPath> column_path_2 =
       parquet::schema::ColumnPath::FromDotString("column_2");
-  ColumnEncryptionProperties::Builder column_builder_2(column_path_2);
+  ColumnEncryptionProperties::Builder column_builder_2(*column_path_2);
   column_builder_2.key(kColumnEncryptionKey2);
   column_builder_2.key_id("kc2");
 
@@ -145,7 +145,7 @@ TEST(TestEncryptionProperties, EncryptTwoColumnsNotFooter) {
   FileEncryptionProperties::Builder builder(kFooterEncryptionKey);
   builder.footer_key_metadata("kf");
   builder.set_plaintext_footer();
-  builder.encrypted_columns(encrypted_columns);
+  builder.encrypted_columns(std::move(encrypted_columns));
   std::shared_ptr<FileEncryptionProperties> props = builder.build();
 
   ASSERT_EQ(false, props->encrypted_footer());
@@ -220,13 +220,13 @@ TEST(TestDecryptionProperties, UseKeyRetriever) {
       std::static_pointer_cast<parquet::StringKeyIdRetriever>(string_kr1);
 
   parquet::FileDecryptionProperties::Builder builder;
-  builder.key_retriever(kr1);
+  builder.key_retriever(std::move(kr1));
   std::shared_ptr<parquet::FileDecryptionProperties> props = builder.build();
 
   auto out_key_retriever = props->key_retriever();
-  ASSERT_EQ(kFooterEncryptionKey, out_key_retriever->GetKey("kf"));
-  ASSERT_EQ(kColumnEncryptionKey1, out_key_retriever->GetKey("kc1"));
-  ASSERT_EQ(kColumnEncryptionKey2, out_key_retriever->GetKey("kc2"));
+  ASSERT_EQ(kFooterEncryptionKey, out_key_retriever->GetKeyById("kf"));
+  ASSERT_EQ(kColumnEncryptionKey1, out_key_retriever->GetKeyById("kc1"));
+  ASSERT_EQ(kColumnEncryptionKey2, out_key_retriever->GetKeyById("kc2"));
 }
 
 TEST(TestDecryptionProperties, SupplyAadPrefix) {
@@ -241,7 +241,7 @@ TEST(TestDecryptionProperties, SupplyAadPrefix) {
 TEST(ColumnDecryptionProperties, SetKey) {
   std::shared_ptr<parquet::schema::ColumnPath> column_path_1 =
       parquet::schema::ColumnPath::FromDotString("column_1");
-  ColumnDecryptionProperties::Builder col_builder_1(column_path_1);
+  ColumnDecryptionProperties::Builder col_builder_1(*column_path_1);
   col_builder_1.key(kColumnEncryptionKey1);
 
   auto props = col_builder_1.build();
@@ -261,7 +261,7 @@ TEST(TestDecryptionProperties, UsingExplicitFooterAndColumnKeys) {
 
   parquet::FileDecryptionProperties::Builder builder;
   builder.footer_key(kFooterEncryptionKey);
-  builder.column_keys(decryption_cols);
+  builder.column_keys(std::move(decryption_cols));
   std::shared_ptr<parquet::FileDecryptionProperties> props = builder.build();
 
   ASSERT_EQ(kFooterEncryptionKey, props->footer_key());

@@ -31,7 +31,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 #include "arrow/gpu/cuda_context.h"
 #include "arrow/gpu/cuda_internal.h"
@@ -206,7 +206,7 @@ CudaHostBuffer::CudaHostBuffer(uint8_t* data, const int64_t size)
 
 CudaHostBuffer::~CudaHostBuffer() {
   auto maybe_manager = CudaDeviceManager::Instance();
-  ARROW_CHECK_OK(maybe_manager.status());
+  ARROW_CHECK_OK(maybe_manager);
   ARROW_CHECK_OK((*maybe_manager)->FreeHost(const_cast<uint8_t*>(data_), size_));
 }
 

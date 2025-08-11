@@ -27,6 +27,7 @@
 #include "arrow/array/data.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/visibility.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_traits.h"
@@ -97,9 +98,9 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
 
   /// \brief Ensure padding is zeroed in validity bitmap.
   void ZeroValidityPadding(int64_t length) const {
-    DCHECK(output_values_);
+    ARROW_DCHECK(output_values_);
     if constexpr (out_has_validity_buffer) {
-      DCHECK(output_validity_);
+      ARROW_DCHECK(output_validity_);
       const int64_t validity_buffer_size = bit_util::BytesForBits(length);
       output_validity_[validity_buffer_size - 1] = 0;
     }
@@ -185,9 +186,9 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
 
   /// \brief Ensure padding is zeroed in validity bitmap.
   void ZeroValidityPadding(int64_t length) const {
-    DCHECK(output_values_);
+    ARROW_DCHECK(output_values_);
     if constexpr (out_has_validity_buffer) {
-      DCHECK(output_validity_);
+      ARROW_DCHECK(output_validity_);
       const int64_t validity_buffer_size = bit_util::BytesForBits(length);
       output_validity_[validity_buffer_size - 1] = 0;
     }
@@ -280,9 +281,9 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
 
   /// \brief Ensure padding is zeroed in validity bitmap.
   void ZeroValidityPadding(int64_t length) const {
-    DCHECK(output_values_);
+    ARROW_DCHECK(output_values_);
     if constexpr (out_has_validity_buffer) {
-      DCHECK(output_validity_);
+      ARROW_DCHECK(output_validity_);
       const int64_t validity_buffer_size = bit_util::BytesForBits(length);
       output_validity_[validity_buffer_size - 1] = 0;
     }
@@ -346,7 +347,7 @@ Result<std::shared_ptr<ArrayData>> PreallocateRunEndsArray(
 /// \param has_validity_buffer a validity buffer must be allocated
 /// \param length the length of the values array
 /// \param data_buffer_size the size of the data buffer for string and binary types
-Result<std::shared_ptr<ArrayData>> PreallocateValuesArray(
+ARROW_COMPUTE_EXPORT Result<std::shared_ptr<ArrayData>> PreallocateValuesArray(
     const std::shared_ptr<DataType>& value_type, bool has_validity_buffer, int64_t length,
     MemoryPool* pool, int64_t data_buffer_size);
 
@@ -362,7 +363,7 @@ Result<std::shared_ptr<ArrayData>> PreallocateValuesArray(
 /// data.child_data[1].buffer[0] != NULLPTR
 ///
 /// \param data_buffer_size the size of the data buffer for string and binary types
-Result<std::shared_ptr<ArrayData>> PreallocateREEArray(
+ARROW_COMPUTE_EXPORT Result<std::shared_ptr<ArrayData>> PreallocateREEArray(
     std::shared_ptr<RunEndEncodedType> ree_type, bool has_validity_buffer,
     int64_t logical_length, int64_t physical_length, MemoryPool* pool,
     int64_t data_buffer_size);
@@ -377,7 +378,7 @@ Result<std::shared_ptr<ArrayData>> PreallocateREEArray(
 /// - run_ends fits in the run-end type without overflow
 void WriteSingleRunEnd(ArrayData* run_ends_data, int64_t run_end);
 
-Result<std::shared_ptr<ArrayData>> MakeNullREEArray(
+ARROW_COMPUTE_EXPORT Result<std::shared_ptr<ArrayData>> MakeNullREEArray(
     const std::shared_ptr<DataType>& run_end_type, int64_t logical_length,
     MemoryPool* pool);
 

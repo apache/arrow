@@ -160,6 +160,12 @@ FileInfo StatToFileInfo(const struct stat& s) {
 #  ifdef __APPLE__
   // macOS doesn't use the POSIX-compliant spelling
   info.set_mtime(ToTimePoint(s.st_mtimespec));
+#  elif defined(_AIX) && defined(_ALL_SOURCE)
+  // In AIX with _ALL_SOURCE, stat struct member st_mtim is of type st_timespec_t.
+  struct timespec times;
+  times.tv_sec = s.st_mtim.tv_sec;
+  times.tv_nsec = static_cast<int64_t>(s.st_mtim.tv_nsec);
+  info.set_mtime(ToTimePoint(times));
 #  else
   info.set_mtime(ToTimePoint(s.st_mtim));
 #  endif
@@ -288,7 +294,14 @@ Result<std::string> LocalFileSystem::PathFromUri(const std::string& uri_string) 
 
 Result<std::string> LocalFileSystem::MakeUri(std::string path) const {
   ARROW_ASSIGN_OR_RAISE(path, DoNormalizePath(std::move(path)));
-  return "file://" + path + (options_.use_mmap ? "?use_mmap" : "");
+  if (!internal::DetectAbsolutePath(path)) {
+    return Status::Invalid("MakeUri requires an absolute path, got ", path);
+  }
+  ARROW_ASSIGN_OR_RAISE(auto uri, util::UriFromAbsolutePath(path));
+  if (uri[0] == '/') {
+    uri = "file://" + uri;
+  }
+  return uri + (options_.use_mmap ? "?use_mmap" : "");
 }
 
 bool LocalFileSystem::Equals(const FileSystem& other) const {

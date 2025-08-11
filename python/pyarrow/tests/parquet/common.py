@@ -67,9 +67,11 @@ def _check_roundtrip(table, expected=None, read_table_kwargs=None,
     # intentionally check twice
     result = _roundtrip_table(table, read_table_kwargs=read_table_kwargs,
                               write_table_kwargs=write_table_kwargs)
+    assert result.schema == expected.schema
     assert result.equals(expected)
     result = _roundtrip_table(result, read_table_kwargs=read_table_kwargs,
                               write_table_kwargs=write_table_kwargs)
+    assert result.schema == expected.schema
     assert result.equals(expected)
 
 

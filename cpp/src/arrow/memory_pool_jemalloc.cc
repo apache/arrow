@@ -17,7 +17,7 @@
 
 #include "arrow/memory_pool_internal.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/logging.h"  // IWYU pragma: keep
+#include "arrow/util/logging_internal.h"  // IWYU pragma: keep
 
 // We can't put the jemalloc memory pool implementation into
 // memory_pool.c because jemalloc.h may redefine malloc() and its
@@ -129,6 +129,10 @@ void JemallocAllocator::DeallocateAligned(uint8_t* ptr, int64_t size, int64_t al
 
 void JemallocAllocator::ReleaseUnused() {
   mallctl("arena." ARROW_STRINGIFY(MALLCTL_ARENAS_ALL) ".purge", NULL, NULL, NULL, 0);
+}
+
+void JemallocAllocator::PrintStats() {
+  malloc_stats_print(nullptr, nullptr, /*opts=*/"");
 }
 
 }  // namespace internal

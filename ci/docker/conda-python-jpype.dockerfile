@@ -26,4 +26,4 @@ RUN mamba install -q -y \
         maven=${maven} \
         openjdk=${jdk} \
         jpype1 && \
-    mamba clean --all
+    mamba clean --all --yes

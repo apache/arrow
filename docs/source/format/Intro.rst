@@ -33,7 +33,7 @@ offered by the language and common in-memory data processing algorithms
 provided by the Apache Arrow implementation in their programming
 language of choice. Some implementations are further ahead and feature a
 vast set of algorithms for in-memory analytical data processing. More detail
-about how implementations differ can be found on the :ref:`status` page.
+about how implementations differ can be found on the :doc:`../status` page.
 
 Apart from this initial vision, Arrow has grown to also develop a
 multi-language collection of libraries for solving problems related to
@@ -71,7 +71,7 @@ In a columnar format, the data is organized column-by-column instead.
 This organization makes analytical operations like filtering, grouping,
 aggregations and others, more efficient thanks to memory locality.
 When processing the data, the memory locations accessed by the CPU tend
-be near one another. By keeping the data contiguous in memory, it also
+to be near one another. By keeping the data contiguous in memory, it also
 enables vectorization of the computations. Most modern CPUs have
 `SIMD instructions`_ (a single instruction that operates on multiple values at
 once) enabling parallel processing and execution of operations on vector data
@@ -439,8 +439,9 @@ of the same length.
 An ordered collection of fields that communicates all the data types of an object
 like a RecordBatch or Table. Schemas can contain optional key/value metadata.
 
-A Field includes a field name, a data type, a nullability flag and optional key-value metadata
-for a specific column in a RecordBatch.
+**Field**
+A Field includes a field name, a data type, a nullability flag and
+optional key-value metadata for a specific column in a RecordBatch.
 
 **Table**
 A discontiguous, two-dimensional chunk of data consisting of an ordered collection of Chunked

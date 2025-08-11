@@ -109,6 +109,14 @@ garrow_record_batch_serialize(GArrowRecordBatch *record_batch,
                               GArrowWriteOptions *options,
                               GError **error);
 
+GARROW_AVAILABLE_IN_20_0
+gboolean
+garrow_record_batch_validate(GArrowRecordBatch *record_batch, GError **error);
+
+GARROW_AVAILABLE_IN_20_0
+gboolean
+garrow_record_batch_validate_full(GArrowRecordBatch *record_batch, GError **error);
+
 #define GARROW_TYPE_RECORD_BATCH_ITERATOR (garrow_record_batch_iterator_get_type())
 GARROW_AVAILABLE_IN_0_17
 G_DECLARE_DERIVABLE_TYPE(GArrowRecordBatchIterator,

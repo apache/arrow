@@ -32,4 +32,4 @@ if [ -z "${ARROW_DEBUG_MEMORY_POOL}" ]; then
   export ARROW_DEBUG_MEMORY_POOL=trap
 fi
 
-rake -f ${source_dir}/Rakefile BUILD_DIR=${build_dir} USE_BUNDLER=yes
+rake -f "${source_dir}/Rakefile" BUILD_DIR="${build_dir}" USE_BUNDLER=yes

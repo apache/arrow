@@ -27,6 +27,7 @@
 
 namespace arrow {
 
+struct ArrayStatistics;
 class Array;
 class DataType;
 class Tensor;
@@ -58,7 +59,21 @@ class EqualOptions {
     return res;
   }
 
+  /// Whether the "atol" property is used in the comparison.
+  ///
+  /// This option only affects the Equals methods
+  /// and has no effect on ApproxEquals methods.
+  bool use_atol() const { return use_atol_; }
+
+  /// Return a new EqualOptions object with the "use_atol" property changed.
+  EqualOptions use_atol(bool v) const {
+    auto res = EqualOptions(*this);
+    res.use_atol_ = v;
+    return res;
+  }
+
   /// The absolute tolerance for approximate comparisons of floating-point values.
+  /// Note that this option is ignored if "use_atol" is set to false.
   double atol() const { return atol_; }
 
   /// Return a new EqualOptions object with the "atol" property changed.
@@ -87,26 +102,35 @@ class EqualOptions {
   double atol_ = kDefaultAbsoluteTolerance;
   bool nans_equal_ = false;
   bool signed_zeros_equal_ = true;
+  bool use_atol_ = false;
 
   std::ostream* diff_sink_ = NULLPTR;
 };
 
 /// Returns true if the arrays are exactly equal
+///
+/// Note that arrow::ArrayStatistics is not included in the comparison.
 ARROW_EXPORT bool ArrayEquals(const Array& left, const Array& right,
                               const EqualOptions& = EqualOptions::Defaults());
 
 /// Returns true if the arrays are approximately equal. For non-floating point
 /// types, this is equivalent to ArrayEquals(left, right)
+///
+/// Note that arrow::ArrayStatistics is not included in the comparison.
 ARROW_EXPORT bool ArrayApproxEquals(const Array& left, const Array& right,
                                     const EqualOptions& = EqualOptions::Defaults());
 
 /// Returns true if indicated equal-length segment of arrays are exactly equal
+///
+/// Note that arrow::ArrayStatistics is not included in the comparison.
 ARROW_EXPORT bool ArrayRangeEquals(const Array& left, const Array& right,
                                    int64_t start_idx, int64_t end_idx,
                                    int64_t other_start_idx,
                                    const EqualOptions& = EqualOptions::Defaults());
 
 /// Returns true if indicated equal-length segment of arrays are approximately equal
+///
+/// Note that arrow::ArrayStatistics is not included in the comparison.
 ARROW_EXPORT bool ArrayRangeApproxEquals(const Array& left, const Array& right,
                                          int64_t start_idx, int64_t end_idx,
                                          int64_t other_start_idx,
@@ -126,6 +150,16 @@ ARROW_EXPORT bool SparseTensorEquals(const SparseTensor& left, const SparseTenso
 /// fields
 ARROW_EXPORT bool TypeEquals(const DataType& left, const DataType& right,
                              bool check_metadata = true);
+
+/// \brief Check two \ref arrow::ArrayStatistics for equality
+/// \param[in] left an \ref arrow::ArrayStatistics
+/// \param[in] right an \ref arrow::ArrayStatistics
+/// \param[in] options Options used to compare double values for equality.
+/// \return True if the two \ref arrow::ArrayStatistics instances are equal; otherwise,
+/// false.
+ARROW_EXPORT bool ArrayStatisticsEquals(
+    const ArrayStatistics& left, const ArrayStatistics& right,
+    const EqualOptions& options = EqualOptions::Defaults());
 
 /// Returns true if scalars are equal
 /// \param[in] left a Scalar

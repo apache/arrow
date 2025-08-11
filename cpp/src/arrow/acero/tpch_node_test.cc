@@ -27,7 +27,6 @@
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/acero/tpch_node.h"
 #include "arrow/acero/util.h"
-#include "arrow/compute/kernels/test_util.h"
 #include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"

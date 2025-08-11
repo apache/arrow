@@ -32,9 +32,9 @@ class TestUIntArrayBuilder < Test::Unit::TestCase
     values = [0, border_value]
     assert_equal(build_uint_array([*values, nil]),
                  Arrow::UInt16Array.new(3,
-                                       Arrow::Buffer.new(values.pack("S*")),
-                                       Arrow::Buffer.new([0b011].pack("C*")),
-                                       -1))
+                                        Arrow::Buffer.new(values.pack("S*")),
+                                        Arrow::Buffer.new([0b011].pack("C*")),
+                                        -1))
   end
 
   def test_uint32
@@ -42,9 +42,9 @@ class TestUIntArrayBuilder < Test::Unit::TestCase
     values = [0, border_value]
     assert_equal(build_uint_array([*values, nil]),
                  Arrow::UInt32Array.new(3,
-                                       Arrow::Buffer.new(values.pack("L*")),
-                                       Arrow::Buffer.new([0b011].pack("C*")),
-                                       -1))
+                                        Arrow::Buffer.new(values.pack("L*")),
+                                        Arrow::Buffer.new([0b011].pack("C*")),
+                                        -1))
   end
 
   def test_uint64

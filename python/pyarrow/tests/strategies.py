@@ -92,6 +92,16 @@ floating_types = st.sampled_from([
     pa.float32(),
     pa.float64()
 ])
+decimal32_type = st.builds(
+    pa.decimal32,
+    precision=st.integers(min_value=1, max_value=9),
+    scale=st.integers(min_value=1, max_value=9)
+)
+decimal64_type = st.builds(
+    pa.decimal64,
+    precision=st.integers(min_value=1, max_value=18),
+    scale=st.integers(min_value=1, max_value=18)
+)
 decimal128_type = st.builds(
     pa.decimal128,
     precision=st.integers(min_value=1, max_value=38),

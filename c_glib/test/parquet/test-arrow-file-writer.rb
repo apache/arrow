@@ -89,10 +89,10 @@ class TestParquetArrowFileWriter < Test::Unit::TestCase
   def test_write_chunked_array
     schema = build_schema("enabled" => :boolean)
     writer = Parquet::ArrowFileWriter.new(schema, @file.path)
-    writer.new_row_group(2)
+    writer.new_row_group
     chunked_array = Arrow::ChunkedArray.new([build_boolean_array([true, nil])])
     writer.write_chunked_array(chunked_array)
-    writer.new_row_group(1)
+    writer.new_row_group
     chunked_array = Arrow::ChunkedArray.new([build_boolean_array([false])])
     writer.write_chunked_array(chunked_array)
     writer.close

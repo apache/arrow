@@ -17,6 +17,7 @@
 
 #include "gandiva/expression_registry.h"
 
+#include "arrow/util/logging_internal.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/llvm_types.h"
 

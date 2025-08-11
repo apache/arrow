@@ -17,8 +17,11 @@
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/array.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/exec.h"
+#include "arrow/datum.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -306,7 +309,7 @@ static void ChunkedArraySortIndicesString(benchmark::State& state) {
 static void DatumSortIndicesBenchmark(benchmark::State& state, const Datum& datum,
                                       const SortOptions& options) {
   for (auto _ : state) {
-    ABORT_NOT_OK(SortIndices(datum, options).status());
+    ABORT_NOT_OK(SortIndices(datum, options));
   }
 }
 

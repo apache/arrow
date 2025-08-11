@@ -85,13 +85,19 @@ def test_env_var_io_thread_count():
 
 
 def test_build_info():
-    assert isinstance(pa.cpp_build_info, pa.BuildInfo)
+    assert isinstance(pa.build_info.cpp_build_info, pa.CppBuildInfo)
     assert isinstance(pa.cpp_version_info, pa.VersionInfo)
     assert isinstance(pa.cpp_version, str)
     assert isinstance(pa.__version__, str)
-    assert pa.cpp_build_info.version_info == pa.cpp_version_info
+    assert pa.build_info.cpp_build_info.version == pa.cpp_version
+    assert pa.build_info.cpp_build_info.version_info == pa.cpp_version_info
+    assert pa.build_info.cpp_build_info is pa.cpp_build_info
 
-    assert pa.cpp_build_info.build_type in (
+    assert pa.build_info.cpp_build_info.build_type in (
+        'debug', 'release', 'minsizerel', 'relwithdebinfo')
+
+    assert isinstance(pa.build_info, pa.BuildInfo)
+    assert pa.build_info.build_type in (
         'debug', 'release', 'minsizerel', 'relwithdebinfo')
 
     # assert pa.version == pa.__version__  # XXX currently false
@@ -165,6 +171,8 @@ def test_set_timezone_db_path_non_windows():
     pa.Time32Type,
     pa.Time64Type,
     pa.TimestampType,
+    pa.Decimal32Type,
+    pa.Decimal64Type,
     pa.Decimal128Type,
     pa.Decimal256Type,
     pa.DictionaryType,
@@ -259,6 +267,6 @@ def test_set_timezone_db_path_non_windows():
 ])
 def test_extension_type_constructor_errors(klass):
     # ARROW-2638: prevent calling extension class constructors directly
-    msg = "Do not call {cls}'s constructor directly, use .* instead."
-    with pytest.raises(TypeError, match=msg.format(cls=klass.__name__)):
+    msg = f"Do not call {klass.__name__}'s constructor directly, use .* instead."
+    with pytest.raises(TypeError, match=msg):
         klass()

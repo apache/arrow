@@ -21,14 +21,10 @@ set -exu
 
 if [ $# -lt 2 ]; then
   echo "Usage: $0 VERSION rc"
-  echo "       $0 VERSION staging-rc"
   echo "       $0 VERSION release"
-  echo "       $0 VERSION staging-release"
   echo "       $0 VERSION local"
   echo " e.g.: $0 0.13.0 rc                # Verify 0.13.0 RC"
-  echo " e.g.: $0 0.13.0 staging-rc        # Verify 0.13.0 RC on staging"
   echo " e.g.: $0 0.13.0 release           # Verify 0.13.0"
-  echo " e.g.: $0 0.13.0 staging-release   # Verify 0.13.0 on staging"
   echo " e.g.: $0 0.13.0-dev20210203 local # Verify 0.13.0-dev20210203 on local"
   exit 1
 fi
@@ -70,13 +66,11 @@ ${APT_INSTALL} \
 
 code_name="$(lsb_release --codename --short)"
 distribution="$(lsb_release --id --short | tr 'A-Z' 'a-z')"
-artifactory_base_url="https://apache.jfrog.io/artifactory/arrow/${distribution}"
-case "${TYPE}" in
-  rc|staging-rc|staging-release)
-    suffix=${TYPE%-release}
-    artifactory_base_url+="-${suffix}"
-    ;;
-esac
+artifactory_base_url="https://packages.apache.org/artifactory/arrow/${distribution}"
+if [ "${TYPE}" = "rc" ]; then
+  suffix=${TYPE%-release}
+  artifactory_base_url+="-${suffix}"
+fi
 
 workaround_missing_packages=()
 case "${distribution}-${code_name}" in
@@ -124,13 +118,17 @@ if [ "${TYPE}" = "local" ]; then
   if [ -f "${keys}" ]; then
     gpg \
       --no-default-keyring \
-      --keyring /usr/share/keyrings/apache-arrow-apt-source.gpg \
+      --keyring /tmp/apache-arrow-apt-source.kbx \
       --import "${keys}"
+    gpg \
+      --no-default-keyring \
+      --keyring /tmp/apache-arrow-apt-source.kbx \
+      --armor \
+      --export > /usr/share/keyrings/apache-arrow-apt-source.asc
   fi
 else
   case "${TYPE}" in
-    rc|staging-rc|staging-release)
-      suffix=${TYPE%-release}
+    rc)
       sed \
         -i"" \
         -e "s,^URIs: \\(.*\\)/,URIs: \\1-${suffix}/,g" \
@@ -145,6 +143,7 @@ echo "::endgroup::"
 
 
 echo "::group::Test Apache Arrow C++"
+mkdir -p build
 ${APT_INSTALL} libarrow-dev=${package_version}
 required_packages=()
 required_packages+=(cmake)
@@ -154,15 +153,25 @@ required_packages+=(make)
 required_packages+=(pkg-config)
 required_packages+=(${workaround_missing_packages[@]})
 ${APT_INSTALL} ${required_packages[@]}
-mkdir -p build
-cp -a "${TOP_SOURCE_DIR}/cpp/examples/minimal_build" build/
-pushd build/minimal_build
-cmake .
-make -j$(nproc)
-./arrow-example
-c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++17
-./arrow-example
-popd
+# cmake version 3.31.6 -> 3.31.6
+cmake_version=$(cmake --version | head -n1 | sed -e 's/^cmake version //')
+# 3.31.6 -> 3.31
+cmake_version_major_minor=${cmake_version%.*}
+# 3.31 -> 3
+cmake_version_major=${cmake_version_major_minor%.*}
+# 3.31 -> 31
+cmake_version_minor=${cmake_version_major_minor#*.}
+if [ "${cmake_version_major}" -gt "3" ] || \
+   [ "${cmake_version_major}" -eq "3" -a "${cmake_version_minor}" -ge "25" ]; then
+  cp -a "${TOP_SOURCE_DIR}/cpp/examples/minimal_build" build/
+  pushd build/minimal_build
+  cmake .
+  make -j$(nproc)
+  ./arrow-example
+  c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++17
+  ./arrow-example
+  popd
+fi
 echo "::endgroup::"
 
 
@@ -181,7 +190,7 @@ popd
 
 
 ${APT_INSTALL} ruby-dev rubygems-integration
-gem install gobject-introspection
+MAKEFLAGS="-j$(nproc)" gem install gobject-introspection
 ruby -r gi -e "p GI.load('Arrow')"
 echo "::endgroup::"
 

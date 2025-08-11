@@ -40,14 +40,14 @@ struct KnownFieldValues {
 
 inline const Expression::Call* CallNotNull(const Expression& expr) {
   auto call = expr.call();
-  DCHECK_NE(call, nullptr);
+  ARROW_DCHECK_NE(call, nullptr);
   return call;
 }
 
 inline std::vector<TypeHolder> GetTypes(const std::vector<Expression>& exprs) {
   std::vector<TypeHolder> types(exprs.size());
   for (size_t i = 0; i < exprs.size(); ++i) {
-    DCHECK(exprs[i].IsBound());
+    ARROW_DCHECK(exprs[i].IsBound());
     types[i] = exprs[i].type();
   }
   return types;
@@ -164,7 +164,7 @@ struct Comparison {
       case GREATER_EQUAL:
         return LESS_EQUAL;
     }
-    DCHECK(false);
+    ARROW_DCHECK(false);
     return NA;
   }
 
@@ -191,7 +191,7 @@ struct Comparison {
   static std::string GetOp(type op) {
     switch (op) {
       case NA:
-        DCHECK(false) << "unreachable";
+        ARROW_DCHECK(false) << "unreachable";
         break;
       case EQUAL:
         return "==";
@@ -206,7 +206,7 @@ struct Comparison {
       case GREATER_EQUAL:
         return ">=";
     }
-    DCHECK(false);
+    ARROW_DCHECK(false);
     return "";
   }
 };
@@ -270,7 +270,7 @@ struct FlattenedAssociativeChain {
       // NB: no increment so we hit sub_call's first argument next iteration
     }
 
-    DCHECK(std::all_of(exprs.begin(), exprs.end(), [](const Expression& expr) {
+    ARROW_DCHECK(std::all_of(exprs.begin(), exprs.end(), [](const Expression& expr) {
       return CallNotNull(expr)->options == nullptr;
     }));
   }

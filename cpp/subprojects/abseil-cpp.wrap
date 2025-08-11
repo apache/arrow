@@ -1,0 +1,125 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+[wrap-file]
+directory = abseil-cpp-20240722.0
+source_url = https://github.com/abseil/abseil-cpp/releases/download/20240722.0/abseil-cpp-20240722.0.tar.gz
+source_filename = abseil-cpp-20240722.0.tar.gz
+source_hash = f50e5ac311a81382da7fa75b97310e4b9006474f9560ac46f54a9967f07d4ae3
+patch_filename = abseil-cpp_20240722.0-3_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/abseil-cpp_20240722.0-3/get_patch
+patch_hash = 12dd8df1488a314c53e3751abd2750cf233b830651d168b6a9f15e7d0cf71f7b
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/abseil-cpp_20240722.0-3/abseil-cpp-20240722.0.tar.gz
+wrapdb_version = 20240722.0-3
+
+[provide]
+absl_base = absl_base_dep
+absl_container = absl_container_dep
+absl_debugging = absl_debugging_dep
+absl_log = absl_log_dep
+absl_flags = absl_flags_dep
+absl_hash = absl_hash_dep
+absl_crc = absl_crc_dep
+absl_numeric = absl_numeric_dep
+absl_profiling = absl_profiling_dep
+absl_random = absl_random_dep
+absl_status = absl_status_dep
+absl_strings = absl_strings_dep
+absl_synchronization = absl_synchronization_dep
+absl_time = absl_time_dep
+absl_types = absl_types_dep
+absl_algorithm_container = absl_base_dep
+absl_any_invocable = absl_base_dep
+absl_bad_any_cast_impl = absl_types_dep
+absl_bad_optional_access = absl_types_dep
+absl_bad_variant_access = absl_types_dep
+absl_bind_front = absl_base_dep
+absl_city = absl_hash_dep
+absl_civil_time = absl_time_dep
+absl_cleanup = absl_base_dep
+absl_cord = absl_strings_dep
+absl_cord_internal = absl_strings_dep
+absl_cordz_functions = absl_strings_dep
+absl_cordz_handle = absl_strings_dep
+absl_cordz_info = absl_strings_dep
+absl_cordz_sample_token = absl_strings_dep
+absl_core_headers = absl_base_dep
+absl_crc32c = absl_crc_dep
+absl_debugging_internal = absl_debugging_dep
+absl_demangle_internal = absl_debugging_dep
+absl_die_if_null = absl_log_dep
+absl_examine_stack = absl_debugging_dep
+absl_exponential_biased = absl_profiling_dep
+absl_failure_signal_handler = absl_debugging_dep
+absl_flags_commandlineflag = absl_flags_dep
+absl_flags_commandlineflag_internal = absl_flags_dep
+absl_flags_config = absl_flags_dep
+absl_flags_internal = absl_flags_dep
+absl_flags_marshalling = absl_flags_dep
+absl_flags_parse = absl_flags_dep
+absl_flags_private_handle_accessor = absl_flags_dep
+absl_flags_program_name = absl_flags_dep
+absl_flags_reflection = absl_flags_dep
+absl_flags_usage = absl_flags_dep
+absl_flags_usage_internal = absl_flags_dep
+absl_flat_hash_map = absl_container_dep
+absl_flat_hash_set = absl_container_dep
+absl_function_ref = absl_base_dep
+absl_graphcycles_internal = absl_synchronization_dep
+absl_hashtablez_sampler = absl_container_dep
+absl_inlined_vector = absl_container_dep
+absl_int128 = absl_numeric_dep
+absl_leak_check = absl_debugging_dep
+absl_log_initialize = absl_log_dep
+absl_log_internal_check_op = absl_log_dep
+absl_log_internal_message = absl_log_dep
+absl_log_severity = absl_base_dep
+absl_low_level_hash = absl_hash_dep
+absl_memory = absl_base_dep
+absl_optional = absl_types_dep
+absl_periodic_sampler = absl_profiling_dep
+absl_random_bit_gen_ref = absl_random_dep
+absl_random_distributions = absl_random_dep
+absl_random_internal_distribution_test_util = absl_random_dep
+absl_random_internal_platform = absl_random_dep
+absl_random_internal_pool_urbg = absl_random_dep
+absl_random_internal_randen = absl_random_dep
+absl_random_internal_randen_hwaes = absl_random_dep
+absl_random_internal_randen_hwaes_impl = absl_random_dep
+absl_random_internal_randen_slow = absl_random_dep
+absl_random_internal_seed_material = absl_random_dep
+absl_random_random = absl_random_dep
+absl_random_seed_gen_exception = absl_random_dep
+absl_random_seed_sequences = absl_random_dep
+absl_raw_hash_set = absl_container_dep
+absl_raw_logging_internal = absl_base_dep
+absl_scoped_set_env = absl_base_dep
+absl_span = absl_types_dep
+absl_spinlock_wait = absl_base_dep
+absl_stacktrace = absl_debugging_dep
+absl_statusor = absl_status_dep
+absl_str_format = absl_strings_dep
+absl_str_format_internal = absl_strings_dep
+absl_strerror = absl_base_dep
+absl_string_view = absl_strings_dep
+absl_strings_internal = absl_strings_dep
+absl_symbolize = absl_debugging_dep
+absl_throw_delegate = absl_base_dep
+absl_time_zone = absl_time_dep
+absl_type_traits = absl_base_dep
+absl_utility = absl_base_dep
+absl_variant = absl_types_dep

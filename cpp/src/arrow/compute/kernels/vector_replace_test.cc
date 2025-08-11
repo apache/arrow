@@ -21,7 +21,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/checked_cast.h"
@@ -233,8 +233,9 @@ class TestReplaceBinary : public TestReplaceKernel<T> {
 
 using NumericBasedTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
-                     Int32Type, Int64Type, FloatType, DoubleType, Date32Type, Date64Type,
-                     Time32Type, Time64Type, TimestampType, MonthIntervalType>;
+                     Int32Type, Int64Type, HalfFloatType, FloatType, DoubleType,
+                     Date32Type, Date64Type, Time32Type, Time64Type, TimestampType,
+                     MonthIntervalType>;
 
 TYPED_TEST_SUITE(TestReplaceNumeric, NumericBasedTypes);
 TYPED_TEST_SUITE(TestReplaceDecimal, DecimalArrowTypes);
@@ -1490,6 +1491,7 @@ TYPED_TEST(TestFillNullNumeric, FillNullForwardLargeInput) {
   ASSERT_OK_AND_ASSIGN(auto array_null, MakeArrayOfNull(array_random->type(), len_null));
   auto array_null_filled =
       ConstantArrayGenerator::Numeric<TypeParam>(len_null, x_ptr[len_random - 1]);
+  ASSERT_NE(array_null_filled, nullptr);
   {
     ASSERT_OK_AND_ASSIGN(auto value_array,
                          Concatenate({array_random, array_null, array_random}));

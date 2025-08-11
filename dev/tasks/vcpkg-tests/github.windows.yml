@@ -22,9 +22,10 @@
 jobs:
   test-vcpkg-win:
     name: Install build deps with vcpkg and build Arrow C++
-    runs-on: windows-2019
+    runs-on: windows-2022
     env:
       VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
+      VCPKG_DEFAULT_TRIPLET: 'x64-windows'
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       # CMake 3.29.1 that is pre-installed on the Windows image has a problem.
@@ -32,7 +33,7 @@ jobs:
       - name: Install CMake 3.29.0
         shell: bash
         run: |
-          arrow/ci/scripts/install_cmake.sh amd64 windows 3.29.0 /c/cmake
+          arrow/ci/scripts/install_cmake.sh 3.29.0 /c/cmake
           echo "c:\\cmake\\bin" >> $GITHUB_PATH
       - name: Download Timezone Database
         shell: bash

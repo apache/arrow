@@ -24,6 +24,7 @@
 
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/test_util_internal.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
@@ -31,6 +32,8 @@
 #include "arrow/util/string.h"
 
 namespace arrow {
+
+using compute::ExecBatchFromJSON;
 
 namespace acero {
 
@@ -210,6 +213,26 @@ TEST(GroupByNode, NoSkipNulls) {
   AssertExecBatchesEqualIgnoringOrder(out_schema, {expected_batch}, out_batches.batches);
 }
 
+TEST(GroupByNode, BasicParallel) {
+  const int64_t num_batches = 8;
+
+  std::vector<ExecBatch> batches(num_batches, ExecBatchFromJSON({int32()}, "[[42]]"));
+
+  Declaration plan = Declaration::Sequence(
+      {{"exec_batch_source",
+        ExecBatchSourceNodeOptions(schema({field("key", int32())}), batches)},
+       {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"hash_count_all", "count(*)"}},
+                                          /*keys=*/{"key"}}}});
+
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema out_batches,
+                       DeclarationToExecBatches(plan));
+
+  ExecBatch expected_batch = ExecBatchFromJSON(
+      {int32(), int64()}, "[[42, " + std::to_string(num_batches) + "]]");
+  AssertExecBatchesEqualIgnoringOrder(out_batches.schema, {expected_batch},
+                                      out_batches.batches);
+}
+
 TEST(ScalarAggregateNode, AnyAll) {
   // GH-43768: boolean_any and boolean_all with constant input should work well
   // when min_count != 0.
@@ -260,6 +283,25 @@ TEST(ScalarAggregateNode, AnyAll) {
                                           out_batches.batches);
     }
   }
+}
+
+TEST(ScalarAggregateNode, BasicParallel) {
+  const int64_t num_batches = 8;
+
+  std::vector<ExecBatch> batches(num_batches, ExecBatchFromJSON({int32()}, "[[42]]"));
+
+  Declaration plan = Declaration::Sequence(
+      {{"exec_batch_source",
+        ExecBatchSourceNodeOptions(schema({field("", int32())}), batches)},
+       {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"count_all", "count(*)"}}}}});
+
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema out_batches,
+                       DeclarationToExecBatches(plan));
+
+  ExecBatch expected_batch =
+      ExecBatchFromJSON({int64()}, "[[" + std::to_string(num_batches) + "]]");
+  AssertExecBatchesEqualIgnoringOrder(out_batches.schema, {expected_batch},
+                                      out_batches.batches);
 }
 
 }  // namespace acero

@@ -26,6 +26,7 @@ class SourceTest < Test::Unit::TestCase
     @archive_name = "apache-arrow-#{@release_version}.tar.gz"
     @script = File.expand_path("dev/release/02-source.sh")
     @tarball_script = File.expand_path("dev/release/utils-create-release-tarball.sh")
+    @env = File.expand_path("dev/release/.env")
 
     Dir.mktmpdir do |dir|
       Dir.chdir(dir) do
@@ -42,7 +43,7 @@ class SourceTest < Test::Unit::TestCase
     targets.each do |target|
       env["SOURCE_#{target}"] = "1"
     end
-    sh(env, @tarball_script, @release_version, "0") 
+    sh(env, @tarball_script, @release_version, "0")
     output = sh(env, @script, @release_version, "0")
     sh("tar", "xf", @archive_name)
     output
@@ -96,7 +97,7 @@ class SourceTest < Test::Unit::TestCase
   end
 
   def test_vote
-    github_token = ENV["ARROW_GITHUB_API_TOKEN"]
+    github_token = File.read(@env)[/^GH_TOKEN=(.*)$/, 1]
     uri = URI.parse("https://api.github.com/graphql")
     n_issues_query = {
       "query" => <<-QUERY,
@@ -113,8 +114,9 @@ class SourceTest < Test::Unit::TestCase
                               "Content-Type" => "application/json",
                               "Authorization" => "Bearer #{github_token}")
     n_resolved_issues = JSON.parse(response.body)["data"]["search"]["issueCount"]
+    github_repository = ENV["GITHUB_REPOSITORY"] || "apache/arrow"
     github_api_url = "https://api.github.com"
-    verify_prs = URI("#{github_api_url}/repos/apache/arrow/pulls" +
+    verify_prs = URI("#{github_api_url}/repos/#{github_repository}/pulls" +
                      "?state=open" +
                      "&head=apache:release-#{@release_version}-rc0")
     verify_pr_url = nil
@@ -143,13 +145,13 @@ This release candidate is based on commit:
 #{@current_commit} [2]
 
 The source release rc0 is hosted at [3].
-The binary artifacts are hosted at [4][5][6][7][8][9][10][11].
-The changelog is located at [12].
+The binary artifacts are hosted at [4][5][6][7][8][9].
+The changelog is located at [10].
 
 Please download, verify checksums and signatures, run the unit tests,
-and vote on the release. See [13] for how to validate a release candidate.
+and vote on the release. See [11] for how to validate a release candidate.
 
-See also a verification result on GitHub pull request [14].
+See also a verification result on GitHub pull request [12].
 
 The vote will be open for at least 72 hours.
 
@@ -160,17 +162,15 @@ The vote will be open for at least 72 hours.
 [1]: https://github.com/apache/arrow/issues?q=is%3Aissue+milestone%3A#{@release_version}+is%3Aclosed
 [2]: https://github.com/apache/arrow/tree/#{@current_commit}
 [3]: https://dist.apache.org/repos/dist/dev/arrow/apache-arrow-#{@release_version}-rc0
-[4]: https://apache.jfrog.io/artifactory/arrow/almalinux-rc/
-[5]: https://apache.jfrog.io/artifactory/arrow/amazon-linux-rc/
-[6]: https://apache.jfrog.io/artifactory/arrow/centos-rc/
-[7]: https://apache.jfrog.io/artifactory/arrow/debian-rc/
-[8]: https://apache.jfrog.io/artifactory/arrow/java-rc/#{@release_version}-rc0
-[9]: https://apache.jfrog.io/artifactory/arrow/nuget-rc/#{@release_version}-rc0
-[10]: https://apache.jfrog.io/artifactory/arrow/python-rc/#{@release_version}-rc0
-[11]: https://apache.jfrog.io/artifactory/arrow/ubuntu-rc/
-[12]: https://github.com/apache/arrow/blob/#{@current_commit}/CHANGELOG.md
-[13]: https://arrow.apache.org/docs/developers/release_verification.html
-[14]: #{verify_pr_url || "null"}
+[4]: https://packages.apache.org/artifactory/arrow/almalinux-rc/
+[5]: https://packages.apache.org/artifactory/arrow/amazon-linux-rc/
+[6]: https://packages.apache.org/artifactory/arrow/centos-rc/
+[7]: https://packages.apache.org/artifactory/arrow/debian-rc/
+[8]: https://packages.apache.org/artifactory/arrow/ubuntu-rc/
+[9]: https://github.com/apache/arrow/releases/tag/apache-arrow-#{@release_version}-rc0
+[10]: https://github.com/apache/arrow/blob/#{@current_commit}/CHANGELOG.md
+[11]: https://arrow.apache.org/docs/developers/release_verification.html
+[12]: #{verify_pr_url || "null"}
     VOTE
   end
 end

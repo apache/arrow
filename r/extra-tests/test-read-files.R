@@ -18,6 +18,22 @@
 library(arrow)
 library(testthat)
 
+# These are similar to functions in tests/testthat/helper-skip.R but we duplicate them
+# here since very old versions don't have arrow_info() with exactly the same shape
+if_version <- function(version, op = `==`) {
+  op(packageVersion("arrow"), version)
+}
+
+if_version_less_than <- function(version) {
+  if_version(version, op = `<`)
+}
+
+skip_if_version_less_than <- function(version, msg) {
+  if (if_version(version, `<`)) {
+    skip(msg)
+  }
+}
+
 pq_file <- "files/ex_data.parquet"
 
 test_that("Can read the file (parquet)", {

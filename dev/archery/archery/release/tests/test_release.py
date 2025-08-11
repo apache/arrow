@@ -21,7 +21,6 @@ from archery.release.core import (
     Release, MajorRelease, MinorRelease, PatchRelease,
     IssueTracker, Version, Issue, CommitTitle, Commit
 )
-from archery.testing import DotDict
 
 
 # subset of issues per revision
@@ -140,22 +139,6 @@ def test_issue(fake_issue_tracker):
     assert i.summary == "another title"
     assert i.project == "PARQUET"
     assert i.number == 1111
-
-    fake_jira_issue = DotDict({
-        'key': 'ARROW-2222',
-        'fields': {
-            'issuetype': {
-                'name': 'Feature'
-            },
-            'summary': 'Issue title'
-        }
-    })
-    i = Issue.from_jira(fake_jira_issue)
-    assert i.key == "ARROW-2222"
-    assert i.type == "Feature"
-    assert i.summary == "Issue title"
-    assert i.project == "ARROW"
-    assert i.number == 2222
 
 
 def test_commit_title():

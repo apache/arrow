@@ -19,4 +19,9 @@ public static class SqlAction
 {
     public const string CreateRequest = "CreatePreparedStatement";
     public const string CloseRequest = "ClosePreparedStatement";
+    public const string CancelFlightInfoRequest = "CancelFlightInfo";
+    public const string BeginTransactionRequest = "BeginTransaction";
+    public const string CommitRequest = "Commit";
+    public const string RollbackRequest = "Rollback";
+    public const string GetPrimaryKeysRequest = "GetPrimaryKeys";
 }

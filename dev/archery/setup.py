@@ -36,12 +36,10 @@ extras = {
     'docker': ['ruamel.yaml', 'python-dotenv'],
     'integration': ['cffi', 'numpy'],
     'integration-java': ['jpype1'],
-    'lint': ['numpydoc==1.1.0', 'autopep8', 'flake8==6.1.0', 'cython-lint',
-             'cmake_format==0.6.13', 'sphinx-lint==0.9.1'],
     'numpydoc': ['numpydoc==1.1.0'],
-    'release': ['pygithub', jinja_req, 'jira', 'semver', 'gitpython'],
+    'release': ['pygithub', jinja_req, 'semver', 'gitpython'],
 }
-extras['bot'] = extras['crossbow'] + ['pygithub', 'jira']
+extras['bot'] = extras['crossbow'] + ['pygithub']
 extras['all'] = list(set(functools.reduce(operator.add, extras.values())))
 
 setup(

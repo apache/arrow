@@ -51,9 +51,10 @@ namespace Apache.Arrow.Flight.TestWeb
 
             if(_flightStore.Flights.TryGetValue(flightDescriptor, out var flightHolder))
             {
+                await responseStream.SetupStream(flightHolder.GetFlightInfo().Schema);
+
                 var batches = flightHolder.GetRecordBatches();
 
-                
                 foreach(var batch in batches)
                 {
                     await responseStream.WriteAsync(batch.RecordBatch, batch.Metadata);

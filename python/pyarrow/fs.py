@@ -74,68 +74,63 @@ def __getattr__(name):
     if name in _not_imported:
         raise ImportError(
             "The pyarrow installation is not built with support for "
-            "'{0}'".format(name)
+            f"'{name}'"
         )
 
     raise AttributeError(
-        "module 'pyarrow.fs' has no attribute '{0}'".format(name)
+        f"module 'pyarrow.fs' has no attribute '{name}'"
     )
-
-
-def _filesystem_from_str(uri):
-    # instantiate the file system from an uri, if the uri has a path
-    # component then it will be treated as a path prefix
-    filesystem, prefix = FileSystem.from_uri(uri)
-    prefix = filesystem.normalize_path(prefix)
-    if prefix:
-        # validate that the prefix is pointing to a directory
-        prefix_info = filesystem.get_file_info([prefix])[0]
-        if prefix_info.type != FileType.Directory:
-            raise ValueError(
-                "The path component of the filesystem URI must point to a "
-                "directory but it has a type: `{}`. The path component "
-                "is `{}` and the given filesystem URI is `{}`".format(
-                    prefix_info.type.name, prefix_info.path, uri
-                )
-            )
-        filesystem = SubTreeFileSystem(prefix, filesystem)
-    return filesystem
 
 
 def _ensure_filesystem(filesystem, *, use_mmap=False):
     if isinstance(filesystem, FileSystem):
         return filesystem
     elif isinstance(filesystem, str):
+        # create a filesystem from a URI string, note that the `path` part of the URI
+        # is treated as a prefix if specified, so the filesystem is wrapped in a
+        # SubTreeFileSystem
         if use_mmap:
             raise ValueError(
                 "Specifying to use memory mapping not supported for "
                 "filesystem specified as an URI string"
             )
-        return _filesystem_from_str(filesystem)
-
-    # handle fsspec-compatible filesystems
-    try:
-        import fsspec
-    except ImportError:
-        pass
+        fs, path = FileSystem.from_uri(filesystem)
+        prefix = fs.normalize_path(path)
+        if prefix:
+            # validate that the prefix is pointing to a directory
+            prefix_info = fs.get_file_info([prefix])[0]
+            if prefix_info.type != FileType.Directory:
+                raise ValueError(
+                    "The path component of the filesystem URI must point to a "
+                    f"directory but it has a type: `{prefix_info.type.name}`. The path "
+                    f"component is `{prefix_info.path}` and the given filesystem URI "
+                    f"is `{filesystem}`"
+                )
+            fs = SubTreeFileSystem(prefix, fs)
+        return fs
     else:
-        if isinstance(filesystem, fsspec.AbstractFileSystem):
-            if type(filesystem).__name__ == 'LocalFileSystem':
-                # In case its a simple LocalFileSystem, use native arrow one
-                return LocalFileSystem(use_mmap=use_mmap)
-            return PyFileSystem(FSSpecHandler(filesystem))
+        # handle fsspec-compatible filesystems
+        try:
+            import fsspec
+        except ImportError:
+            pass
+        else:
+            if isinstance(filesystem, fsspec.AbstractFileSystem):
+                if type(filesystem).__name__ == 'LocalFileSystem':
+                    # In case its a simple LocalFileSystem, use native arrow one
+                    return LocalFileSystem(use_mmap=use_mmap)
+                return PyFileSystem(FSSpecHandler(filesystem))
 
-    raise TypeError(
-        "Unrecognized filesystem: {}. `filesystem` argument must be a "
-        "FileSystem instance or a valid file system URI'".format(
-            type(filesystem))
-    )
+        raise TypeError(
+            f"Unrecognized filesystem: {type(filesystem)}. `filesystem` argument must "
+            "be a FileSystem instance or a valid file system URI"
+        )
 
 
 def _resolve_filesystem_and_path(path, filesystem=None, *, memory_map=False):
     """
     Return filesystem/path from path which could be an URI or a plain
-    filesystem path.
+    filesystem path or a combination of fsspec protocol and URI.
     """
     if not _is_path_like(path):
         if filesystem is not None:
@@ -178,12 +173,14 @@ def _resolve_filesystem_and_path(path, filesystem=None, *, memory_map=False):
         try:
             filesystem, path = FileSystem.from_uri(path)
         except ValueError as e:
-            # neither an URI nor a locally existing path, so assume that
-            # local path was given and propagate a nicer file not found error
-            # instead of a more confusing scheme parsing error
-            if "empty scheme" not in str(e) \
-                    and "Cannot parse URI" not in str(e):
-                raise
+            msg = str(e)
+            if "empty scheme" in msg or "Cannot parse URI" in msg:
+                # neither an URI nor a locally existing path, so assume that
+                # local path was given and propagate a nicer file not found
+                # error instead of a more confusing scheme parsing error
+                pass
+            else:
+                raise e
     else:
         path = filesystem.normalize_path(path)
 
@@ -234,7 +231,7 @@ def copy_files(source, destination,
     Copy one file from S3 bucket to a local directory:
 
     >>> fs.copy_files("s3://registry.opendata.aws/roda/ndjson/index.ndjson",
-    ...               "file:///{}/index_copy.ndjson".format(local_path))
+    ...               f"file:///{local_path}/index_copy.ndjson")
 
     >>> fs.LocalFileSystem().get_file_info(str(local_path)+
     ...                                    '/index_copy.ndjson')
@@ -243,7 +240,7 @@ def copy_files(source, destination,
     Copy file using a FileSystem object:
 
     >>> fs.copy_files("registry.opendata.aws/roda/ndjson/index.ndjson",
-    ...               "file:///{}/index_copy.ndjson".format(local_path),
+    ...               f"file:///{local_path}/index_copy.ndjson",
     ...               source_filesystem=fs.S3FileSystem())
     """
     source_fs, source_path = _resolve_filesystem_and_path(
@@ -297,7 +294,7 @@ class FSSpecHandler(FileSystemHandler):
         protocol = self.fs.protocol
         if isinstance(protocol, list):
             protocol = protocol[0]
-        return "fsspec+{0}".format(protocol)
+        return f"fsspec+{protocol}"
 
     def normalize_path(self, path):
         return path

@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/util/config.h"
+
 #include "arrow/compute/expression.h"
 
 #include <algorithm>
@@ -30,11 +32,13 @@
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/util.h"
 #include "arrow/io/memory.h"
-#include "arrow/ipc/reader.h"
-#include "arrow/ipc/writer.h"
+#ifdef ARROW_IPC
+#  include "arrow/ipc/reader.h"
+#  include "arrow/ipc/writer.h"
+#endif
 #include "arrow/util/hash_util.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/util/vector.h"
@@ -215,7 +219,9 @@ void PrintTo(const Expression& expr, std::ostream* os) {
 }
 
 bool Expression::Equals(const Expression& other) const {
-  if (Identical(*this, other)) return true;
+  if (Expression::Identical(*this, other)) return true;
+
+  if (impl_ == nullptr || other.impl_ == nullptr) return false;
 
   if (impl_->index() != other.impl_->index()) {
     return false;
@@ -254,7 +260,9 @@ bool Expression::Equals(const Expression& other) const {
   return false;
 }
 
-bool Identical(const Expression& l, const Expression& r) { return l.impl_ == r.impl_; }
+bool Expression::Identical(const Expression& l, const Expression& r) {
+  return l.impl_ == r.impl_;
+}
 
 size_t Expression::hash() const {
   if (auto lit = literal()) {
@@ -1259,11 +1267,20 @@ struct Inequality {
 
     auto options = checked_pointer_cast<SetLookupOptions>(is_in_call->options);
 
+    // The maximum number of values in the is_in expression set of values
+    // in order to use the simplification.
+    // If the set is large there are performance implications, see:
+    // https://github.com/apache/arrow/issues/46777
+    constexpr int16_t kIsInSimplificationMaxValueSet = 50;
+    if (options->value_set.length() > kIsInSimplificationMaxValueSet) {
+      return std::nullopt;
+    }
+
     const auto& lhs = Comparison::StripOrderPreservingCasts(is_in_call->arguments[0]);
     if (!lhs.field_ref()) return std::nullopt;
     if (*lhs.field_ref() != guarantee.target) return std::nullopt;
 
-    FilterOptions::NullSelectionBehavior null_selection;
+    FilterOptions::NullSelectionBehavior null_selection{};
     switch (options->null_matching_behavior) {
       case SetLookupOptions::MATCH:
         null_selection =
@@ -1446,7 +1463,7 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
                                   return inequality->Simplify(std::move(expr));
                                 }));
 
-      if (Identical(simplified, expr)) continue;
+      if (Expression::Identical(simplified, expr)) continue;
 
       expr = std::move(simplified);
       RETURN_NOT_OK(CanonicalizeAndFoldConstants());
@@ -1457,7 +1474,7 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
           auto simplified,
           SimplifyIsValidGuarantee(std::move(expr), *CallNotNull(guarantee)));
 
-      if (Identical(simplified, expr)) continue;
+      if (Expression::Identical(simplified, expr)) continue;
 
       expr = std::move(simplified);
       RETURN_NOT_OK(CanonicalizeAndFoldConstants());
@@ -1492,6 +1509,7 @@ Result<Expression> RemoveNamedRefs(Expression src) {
 // this in the schema of a RecordBatch. Embedded arrays and scalars are stored in its
 // columns. Finally, the RecordBatch is written to an IPC file.
 Result<std::shared_ptr<Buffer>> Serialize(const Expression& expr) {
+#ifdef ARROW_IPC
   struct {
     std::shared_ptr<KeyValueMetadata> metadata_ = std::make_shared<KeyValueMetadata>();
     ArrayVector columns_;
@@ -1567,9 +1585,13 @@ Result<std::shared_ptr<Buffer>> Serialize(const Expression& expr) {
   RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   RETURN_NOT_OK(writer->Close());
   return stream->Finish();
+#else
+  return Status::NotImplemented("IPC feature isn't enabled");
+#endif
 }
 
 Result<Expression> Deserialize(std::shared_ptr<Buffer> buffer) {
+#ifdef ARROW_IPC
   io::BufferReader stream(std::move(buffer));
   ARROW_ASSIGN_OR_RAISE(auto reader, ipc::RecordBatchFileReader::Open(&stream));
   ARROW_ASSIGN_OR_RAISE(auto batch, reader->ReadRecordBatch(0));
@@ -1670,6 +1692,9 @@ Result<Expression> Deserialize(std::shared_ptr<Buffer> buffer) {
   };
 
   return FromRecordBatch{*batch, 0}.GetOne();
+#else
+  return Status::NotImplemented("IPC feature isn't enabled");
+#endif
 }
 
 Expression project(std::vector<Expression> values, std::vector<std::string> names) {

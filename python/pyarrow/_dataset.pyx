@@ -300,6 +300,7 @@ cdef class Dataset(_Weakrefable):
                 int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                 FragmentScanOptions fragment_scan_options=None,
                 bint use_threads=True,
+                bint cache_metadata=True,
                 MemoryPool memory_pool=None):
         """
         Build a scan operation against the dataset.
@@ -354,6 +355,9 @@ cdef class Dataset(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
+        cache_metadata : bool, default True
+            If enabled, metadata may be cached when scanning to speed up
+            repeated scans.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -417,6 +421,7 @@ cdef class Dataset(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         )
 
@@ -428,6 +433,7 @@ cdef class Dataset(_Weakrefable):
                    int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                    FragmentScanOptions fragment_scan_options=None,
                    bint use_threads=True,
+                   bint cache_metadata=True,
                    MemoryPool memory_pool=None):
         """
         Read the dataset as materialized record batches.
@@ -476,6 +482,9 @@ cdef class Dataset(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
+        cache_metadata : bool, default True
+            If enabled, metadata may be cached when scanning to speed up
+            repeated scans.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -492,6 +501,7 @@ cdef class Dataset(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).to_batches()
 
@@ -503,6 +513,7 @@ cdef class Dataset(_Weakrefable):
                  int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                  FragmentScanOptions fragment_scan_options=None,
                  bint use_threads=True,
+                 bint cache_metadata=True,
                  MemoryPool memory_pool=None):
         """
         Read the dataset to an Arrow table.
@@ -554,6 +565,9 @@ cdef class Dataset(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
+        cache_metadata : bool, default True
+            If enabled, metadata may be cached when scanning to speed up
+            repeated scans.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -570,6 +584,7 @@ cdef class Dataset(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).to_table()
 
@@ -582,6 +597,7 @@ cdef class Dataset(_Weakrefable):
              int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
              FragmentScanOptions fragment_scan_options=None,
              bint use_threads=True,
+             bint cache_metadata=True,
              MemoryPool memory_pool=None):
         """
         Select rows of data by index.
@@ -632,6 +648,9 @@ cdef class Dataset(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
+        cache_metadata : bool, default True
+            If enabled, metadata may be cached when scanning to speed up
+            repeated scans.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -648,6 +667,7 @@ cdef class Dataset(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).take(indices)
 
@@ -660,6 +680,7 @@ cdef class Dataset(_Weakrefable):
              int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
              FragmentScanOptions fragment_scan_options=None,
              bint use_threads=True,
+             bint cache_metadata=True,
              MemoryPool memory_pool=None):
         """
         Load the first N rows of the dataset.
@@ -710,6 +731,9 @@ cdef class Dataset(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
+        cache_metadata : bool, default True
+            If enabled, metadata may be cached when scanning to speed up
+            repeated scans.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -726,6 +750,7 @@ cdef class Dataset(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).head(num_rows)
 
@@ -736,6 +761,7 @@ cdef class Dataset(_Weakrefable):
                    int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                    FragmentScanOptions fragment_scan_options=None,
                    bint use_threads=True,
+                   bint cache_metadata=True,
                    MemoryPool memory_pool=None):
         """
         Count rows matching the scanner filter.
@@ -765,6 +791,9 @@ cdef class Dataset(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
+        cache_metadata : bool, default True
+            If enabled, metadata may be cached when scanning to speed up
+            repeated scans.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -780,6 +809,7 @@ cdef class Dataset(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).count_rows()
 
@@ -915,7 +945,8 @@ cdef class Dataset(_Weakrefable):
             of the join operation left side.
 
             An inexact match is used on the "on" key, i.e. a row is considered a
-            match if and only if left_on - tolerance <= right_on <= left_on.
+            match if and only if ``right.on - left.on`` is in the range
+            ``[min(0, tolerance), max(0, tolerance)]``.
 
             The input table must be sorted by the "on" key. Must be a single
             field of a common type.
@@ -927,12 +958,15 @@ cdef class Dataset(_Weakrefable):
             only for the matches in these columns.
         tolerance : int
             The tolerance for inexact "on" key matching. A right row is considered
-            a match with the left row `right.on - left.on <= tolerance`. The
-            `tolerance` may be:
+            a match with a left row if ``right.on - left.on`` is in the range
+            ``[min(0, tolerance), max(0, tolerance)]``. ``tolerance`` may be:
 
-            - negative, in which case a past-as-of-join occurs;
-            - or positive, in which case a future-as-of-join occurs;
-            - or zero, in which case an exact-as-of-join occurs.
+            - negative, in which case a past-as-of-join occurs
+              (match iff ``tolerance <= right.on - left.on <= 0``);
+            - or positive, in which case a future-as-of-join occurs
+              (match iff ``0 <= right.on - left.on <= tolerance``);
+            - or zero, in which case an exact-as-of-join occurs
+              (match iff ``right.on == left.on``).
 
             The tolerance is interpreted in the same units as the "on" key.
         right_on : str or list[str], default None
@@ -981,7 +1015,7 @@ cdef class InMemoryDataset(Dataset):
         if isinstance(source, (pa.RecordBatch, pa.Table)):
             source = [source]
 
-        if isinstance(source, (list, tuple)):
+        if isinstance(source, (list, tuple, pa.RecordBatchReader)):
             batches = []
             for item in source:
                 if isinstance(item, pa.RecordBatch):
@@ -1006,8 +1040,8 @@ cdef class InMemoryDataset(Dataset):
                 pyarrow_unwrap_table(table))
         else:
             raise TypeError(
-                'Expected a table, batch, or list of tables/batches '
-                'instead of the given type: ' +
+                'Expected a Table, RecordBatch, list of Table/RecordBatch, '
+                'or RecordBatchReader instead of the given type: ' +
                 type(source).__name__
             )
 
@@ -1098,7 +1132,7 @@ cdef class FileSystemDataset(Dataset):
         elif not isinstance(root_partition, Expression):
             raise TypeError(
                 "Argument 'root_partition' has incorrect type (expected "
-                "Expression, got {0})".format(type(root_partition))
+                f"Expression, got {type(root_partition)})"
             )
 
         for fragment in fragments:
@@ -1190,8 +1224,8 @@ cdef class FileSystemDataset(Dataset):
         ]:
             if not isinstance(arg, class_):
                 raise TypeError(
-                    "Argument '{0}' has incorrect type (expected {1}, "
-                    "got {2})".format(name, class_.__name__, type(arg))
+                    f"Argument '{name}' has incorrect type (expected {class_.__name__}, "
+                    f"got {type(arg)})"
                 )
 
         partitions = partitions or [_true] * len(paths)
@@ -1458,6 +1492,7 @@ cdef class Fragment(_Weakrefable):
                 int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                 FragmentScanOptions fragment_scan_options=None,
                 bint use_threads=True,
+                bint cache_metadata=True,
                 MemoryPool memory_pool=None):
         """
         Build a scan operation against the fragment.
@@ -1514,6 +1549,9 @@ cdef class Fragment(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
+        cache_metadata : bool, default True
+            If enabled, metadata may be cached when scanning to speed up
+            repeated scans.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -1532,6 +1570,7 @@ cdef class Fragment(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         )
 
@@ -1544,6 +1583,7 @@ cdef class Fragment(_Weakrefable):
                    int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                    FragmentScanOptions fragment_scan_options=None,
                    bint use_threads=True,
+                   bint cache_metadata=True,
                    MemoryPool memory_pool=None):
         """
         Read the fragment as materialized record batches.
@@ -1594,6 +1634,9 @@ cdef class Fragment(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
+        cache_metadata : bool, default True
+            If enabled, metadata may be cached when scanning to speed up
+            repeated scans.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -1612,6 +1655,7 @@ cdef class Fragment(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).to_batches()
 
@@ -1624,6 +1668,7 @@ cdef class Fragment(_Weakrefable):
                  int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                  FragmentScanOptions fragment_scan_options=None,
                  bint use_threads=True,
+                 bint cache_metadata=True,
                  MemoryPool memory_pool=None):
         """
         Convert this Fragment into a Table.
@@ -1677,6 +1722,9 @@ cdef class Fragment(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
+        cache_metadata : bool, default True
+            If enabled, metadata may be cached when scanning to speed up
+            repeated scans.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -1694,6 +1742,7 @@ cdef class Fragment(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).to_table()
 
@@ -1706,6 +1755,7 @@ cdef class Fragment(_Weakrefable):
              int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
              FragmentScanOptions fragment_scan_options=None,
              bint use_threads=True,
+             bint cache_metadata=True,
              MemoryPool memory_pool=None):
         """
         Select rows of data by index.
@@ -1756,6 +1806,9 @@ cdef class Fragment(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
+        cache_metadata : bool, default True
+            If enabled, metadata may be cached when scanning to speed up
+            repeated scans.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -1772,6 +1825,7 @@ cdef class Fragment(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).take(indices)
 
@@ -1784,6 +1838,7 @@ cdef class Fragment(_Weakrefable):
              int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
              FragmentScanOptions fragment_scan_options=None,
              bint use_threads=True,
+             bint cache_metadata=True,
              MemoryPool memory_pool=None):
         """
         Load the first N rows of the fragment.
@@ -1834,6 +1889,9 @@ cdef class Fragment(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
+        cache_metadata : bool, default True
+            If enabled, metadata may be cached when scanning to speed up
+            repeated scans.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -1850,6 +1908,7 @@ cdef class Fragment(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).head(num_rows)
 
@@ -1860,6 +1919,7 @@ cdef class Fragment(_Weakrefable):
                    int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                    FragmentScanOptions fragment_scan_options=None,
                    bint use_threads=True,
+                   bint cache_metadata=True,
                    MemoryPool memory_pool=None):
         """
         Count rows matching the scanner filter.
@@ -1889,6 +1949,9 @@ cdef class Fragment(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
+        cache_metadata : bool, default True
+            If enabled, metadata may be cached when scanning to speed up
+            repeated scans.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -1904,6 +1967,7 @@ cdef class Fragment(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).count_rows()
 
@@ -1928,9 +1992,7 @@ cdef class FileFragment(Fragment):
         )
         if partition:
             partition = f" partition=[{partition}]"
-        return "<pyarrow.dataset.{0}{1} path={2}{3}>".format(
-            self.__class__.__name__, typ, self.path, partition
-        )
+        return f"<pyarrow.dataset.{self.__class__.__name__}{typ} path={self.path}{partition}>"
 
     def __reduce__(self):
         buffer = self.buffer
@@ -2519,7 +2581,7 @@ cdef class Partitioning(_Weakrefable):
 
     def format(self, expr):
         """
-        Convert a filter expression into a tuple of (directory, filename) using 
+        Convert a filter expression into a tuple of (directory, filename) using
         the current partitioning scheme
 
         Parameters
@@ -3093,9 +3155,19 @@ cdef class DatasetFactory(_Weakrefable):
             schemas.append(pyarrow_wrap_schema(s))
         return schemas
 
-    def inspect(self):
+    def inspect(self, *, promote_options="default", fragments=None):
         """
-        Inspect all data fragments and return a common Schema.
+        Inspect data fragments and return a common Schema.
+
+        Parameters
+        ----------
+        promote_options : str, default "default"
+            Control how to unify types. Accepts strings "default" and "permissive".
+            Default: types must match exactly, except nulls can be merged with other types.
+            Permissive: types are promoted when possible.
+        fragments : int, default None
+            How many fragments should be inspected to infer the unified schema.
+            Use ``None`` to inspect all fragments.
 
         Returns
         -------
@@ -3104,6 +3176,17 @@ cdef class DatasetFactory(_Weakrefable):
         cdef:
             CInspectOptions options
             CResult[shared_ptr[CSchema]] result
+
+        options.field_merge_options = _parse_field_merge_options(promote_options)
+
+        if fragments is None:
+            options.fragments = -1  # InspectOptions::kInspectAllFragments
+        elif isinstance(fragments, int) and fragments >= 0:
+            options.fragments = fragments
+        else:
+            raise ValueError(
+                f"Fragment count must be a non-negative int or None; got {fragments!r}")
+
         with nogil:
             result = self.factory.Inspect(options)
         return pyarrow_wrap_schema(GetResultValue(result))
@@ -3325,7 +3408,7 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
                     )
         else:
             raise TypeError('Must pass either paths or a FileSelector, but '
-                            'passed {}'.format(type(paths_or_selector)))
+                            f'passed {type(paths_or_selector)}')
 
         self.init(GetResultValue(result))
 
@@ -3446,7 +3529,8 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
                             int batch_size=_DEFAULT_BATCH_SIZE,
                             int batch_readahead=_DEFAULT_BATCH_READAHEAD,
                             int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
-                            bint use_threads=True, MemoryPool memory_pool=None,
+                            bint use_threads=True, bint cache_metadata=True,
+                            MemoryPool memory_pool=None,
                             FragmentScanOptions fragment_scan_options=None)\
         except *:
     cdef:
@@ -3467,7 +3551,7 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
                 if not isinstance(expr, Expression):
                     raise TypeError(
                         "Expected an Expression for a 'column' dictionary "
-                        "value, got {} instead".format(type(expr))
+                        f"value, got {type(expr)} instead"
                     )
                 c_exprs.push_back((<Expression> expr).unwrap())
 
@@ -3479,13 +3563,14 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
         else:
             raise ValueError(
                 "Expected a list or a dict for 'columns', "
-                "got {} instead.".format(type(columns))
+                f"got {type(columns)} instead."
             )
 
     check_status(builder.BatchSize(batch_size))
     check_status(builder.BatchReadahead(batch_readahead))
     check_status(builder.FragmentReadahead(fragment_readahead))
     check_status(builder.UseThreads(use_threads))
+    check_status(builder.CacheMetadata(cache_metadata))
     check_status(builder.Pool(maybe_unbox_memory_pool(memory_pool)))
     if fragment_scan_options:
         check_status(
@@ -3534,6 +3619,7 @@ cdef class Scanner(_Weakrefable):
             fragment_readahead=py_scanoptions.get(
                 "fragment_readahead", _DEFAULT_FRAGMENT_READAHEAD),
             use_threads=py_scanoptions.get("use_threads", True),
+            cache_metadata=py_scanoptions.get("cache_metadata", True),
             memory_pool=py_scanoptions.get("memory_pool"),
             fragment_scan_options=py_scanoptions.get("fragment_scan_options"))
 
@@ -3547,7 +3633,8 @@ cdef class Scanner(_Weakrefable):
                      int batch_readahead=_DEFAULT_BATCH_READAHEAD,
                      int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                      FragmentScanOptions fragment_scan_options=None,
-                     bint use_threads=True, MemoryPool memory_pool=None):
+                     bint use_threads=True, bint cache_metadata=True,
+                     MemoryPool memory_pool=None):
         """
         Create Scanner from Dataset,
 
@@ -3597,6 +3684,9 @@ cdef class Scanner(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
+        cache_metadata : bool, default True
+            If enabled, metadata may be cached when scanning to speed up
+            repeated scans.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -3611,7 +3701,8 @@ cdef class Scanner(_Weakrefable):
             dict(columns=columns, filter=filter, batch_size=batch_size,
                  batch_readahead=batch_readahead,
                  fragment_readahead=fragment_readahead, use_threads=use_threads,
-                 memory_pool=memory_pool, fragment_scan_options=fragment_scan_options)
+                 cache_metadata=cache_metadata, memory_pool=memory_pool,
+                 fragment_scan_options=fragment_scan_options)
         )
         builder = make_shared[CScannerBuilder](dataset.unwrap(), options)
         scanner = GetResultValue(builder.get().Finish())
@@ -3624,7 +3715,8 @@ cdef class Scanner(_Weakrefable):
                       int batch_readahead=_DEFAULT_BATCH_READAHEAD,
                       int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                       FragmentScanOptions fragment_scan_options=None,
-                      bint use_threads=True, MemoryPool memory_pool=None):
+                      bint use_threads=True, bint cache_metadata=True,
+                      MemoryPool memory_pool=None):
         """
         Create Scanner from Fragment,
 
@@ -3676,6 +3768,9 @@ cdef class Scanner(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
+        cache_metadata : bool, default True
+            If enabled, metadata may be cached when scanning to speed up
+            repeated scans.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -3692,7 +3787,7 @@ cdef class Scanner(_Weakrefable):
         _populate_builder(builder, columns=columns, filter=filter,
                           batch_size=batch_size, batch_readahead=batch_readahead,
                           fragment_readahead=fragment_readahead,
-                          use_threads=use_threads,
+                          use_threads=use_threads, cache_metadata=cache_metadata,
                           memory_pool=memory_pool,
                           fragment_scan_options=fragment_scan_options)
 
@@ -3705,7 +3800,8 @@ cdef class Scanner(_Weakrefable):
                      int batch_readahead=_DEFAULT_BATCH_READAHEAD,
                      int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                      FragmentScanOptions fragment_scan_options=None,
-                     bint use_threads=True, MemoryPool memory_pool=None):
+                     bint use_threads=True, bint cache_metadata=True,
+                     MemoryPool memory_pool=None):
         """
         Create a Scanner from an iterator of batches.
 
@@ -3765,6 +3861,9 @@ cdef class Scanner(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
+        cache_metadata : bool, default True
+            If enabled, metadata may be cached when scanning to speed up
+            repeated scans.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -3797,7 +3896,7 @@ cdef class Scanner(_Weakrefable):
         _populate_builder(builder, columns=columns, filter=filter,
                           batch_size=batch_size, batch_readahead=batch_readahead,
                           fragment_readahead=fragment_readahead, use_threads=use_threads,
-                          memory_pool=memory_pool,
+                          cache_metadata=cache_metadata, memory_pool=memory_pool,
                           fragment_scan_options=fragment_scan_options)
         scanner = GetResultValue(builder.get().Finish())
         return Scanner.wrap(scanner)
@@ -4016,6 +4115,7 @@ def _filesystemdataset_write(
     str basename_template not None,
     FileSystem filesystem not None,
     Partitioning partitioning not None,
+    bool preserve_order,
     FileWriteOptions file_options not None,
     int max_partitions,
     object file_visitor,
@@ -4038,6 +4138,7 @@ def _filesystemdataset_write(
     c_options.filesystem = filesystem.unwrap()
     c_options.base_dir = tobytes(_stringify_path(base_dir))
     c_options.partitioning = partitioning.unwrap()
+    c_options.preserve_order = preserve_order
     c_options.max_partitions = max_partitions
     c_options.max_open_files = max_open_files
     c_options.max_rows_per_file = max_rows_per_file
@@ -4077,13 +4178,15 @@ cdef class _ScanNodeOptions(ExecNodeOptions):
         cdef:
             shared_ptr[CScanOptions] c_scan_options
             bint require_sequenced_output=False
+            bint implicit_ordering=False
 
         c_scan_options = Scanner._make_scan_options(dataset, scan_options)
 
         require_sequenced_output=scan_options.get("require_sequenced_output", False)
+        implicit_ordering=scan_options.get("implicit_ordering", False)
 
         self.wrapped.reset(
-            new CScanNodeOptions(dataset.unwrap(), c_scan_options, require_sequenced_output)
+            new CScanNodeOptions(dataset.unwrap(), c_scan_options, require_sequenced_output, implicit_ordering)
         )
 
 
@@ -4101,17 +4204,19 @@ class ScanNodeOptions(_ScanNodeOptions):
     expression or projection to the scan node that you also supply
     to the filter or project node.
 
-    Yielded batches will be augmented with fragment/batch indices to
-    enable stable ordering for simple ExecPlans.
+    Yielded batches will be augmented with fragment/batch indices when
+    implicit_ordering=True to enable stable ordering for simple ExecPlans.
 
     Parameters
     ----------
     dataset : pyarrow.dataset.Dataset
         The table which acts as the data source.
     **kwargs : dict, optional
-        Scan options. See `Scanner.from_dataset` for possible arguments.        
+        Scan options. See `Scanner.from_dataset` for possible arguments.
     require_sequenced_output : bool, default False
-        Assert implicit ordering on data.
+        Batches are yielded sequentially, like single-threaded
+    implicit_ordering : bool, default False
+        Preserve implicit ordering of data.
     """
 
     def __init__(self, Dataset dataset, **kwargs):

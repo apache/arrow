@@ -38,16 +38,18 @@ update_versions() {
 
   pushd "${ARROW_DIR}/c_glib"
   sed -i.bak -E -e \
-    "s/^version = '.+'/version = '${version}'/" \
+    "s/^    version: '.+'/    version: '${version}'/" \
     meson.build
   rm -f meson.build.bak
   git add meson.build
 
-  # Add a new version entry only when the next release is a new major release
-  if [ "${type}" = "snapshot" -a \
-       "${next_version}" = "${major_version}.0.0" ]; then
+  # Add a new version entry only when the next release is a new major
+  # release and it doesn't exist yet.
+  if [ "${type}" = "snapshot" ] && \
+     [ "${next_version}" = "${major_version}.0.0" ] && \
+     ! grep -q -F "(${major_version}, 0)" tool/generate-version-header.py; then
     sed -i.bak -E -e \
-      "s/^ALL_VERSIONS = \[$/&\\n        (${major_version}, 0),/" \
+      "s/^ALL_VERSIONS = \[$/&\\n    (${major_version}, 0),/" \
       tool/generate-version-header.py
     rm -f tool/generate-version-header.py.bak
     git add tool/generate-version-header.py
@@ -76,21 +78,16 @@ update_versions() {
   git add CMakeLists.txt
 
   sed -i.bak -E -e \
+    "s/^    version: '.+'/    version: '${version}'/" \
+    meson.build
+  rm -f meson.build.bak
+  git add meson.build
+
+  sed -i.bak -E -e \
     "s/\"version-string\": \".+\"/\"version-string\": \"${version}\"/" \
     vcpkg.json
   rm -f vcpkg.json.bak
   git add vcpkg.json
-  popd
-
-  pushd "${ARROW_DIR}/java"
-  mvn versions:set -DnewVersion=${version} -DprocessAllModules -DgenerateBackupPoms=false
-  if [ "${type}" = "release" ]; then
-    # versions-maven-plugin:set-scm-tag does not update the whole reactor. Invoking separately
-    mvn versions:set-scm-tag -DnewTag=apache-arrow-${version} -DgenerateBackupPoms=false -pl :arrow-java-root
-    mvn versions:set-scm-tag -DnewTag=apache-arrow-${version} -DgenerateBackupPoms=false -pl :arrow-bom
-  fi
-  git add "pom.xml"
-  git add "**/pom.xml"
   popd
 
   pushd "${ARROW_DIR}/csharp"
@@ -112,14 +109,6 @@ update_versions() {
   git add \
     apache-arrow-glib.rb \
     apache-arrow.rb
-  popd
-
-  pushd "${ARROW_DIR}/js"
-  sed -i.bak -E -e \
-    "s/^  \"version\": \".+\"/  \"version\": \"${version}\"/" \
-    package.json
-  rm -f package.json.bak
-  git add package.json
   popd
 
   pushd "${ARROW_DIR}/matlab"

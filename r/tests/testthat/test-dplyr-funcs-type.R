@@ -249,57 +249,131 @@ test_that("is.na() evaluates to TRUE on NaN (ARROW-12055)", {
 
 test_that("type checks with is() giving Arrow types", {
   # with class2=DataType
+  extract_logicals <- function(x) {
+    x %>%
+      collect() %>%
+      t() %>%
+      as.vector()
+  }
+
+  expect_equal(
+    Table$create(i32 = Array$create(1, int32())) %>%
+      transmute(
+        i32_is_i32 = is(i32, int32()),
+        i32_is_dec = is(i32, decimal(3, 2)),
+        i32_is_dec32 = is(i32, decimal32(3, 2)),
+        i32_is_dec64 = is(i32, decimal64(3, 2)),
+        i32_is_dec128 = is(i32, decimal128(3, 2)),
+        i32_is_dec256 = is(i32, decimal256(3, 2)),
+        i32_is_f64 = is(i32, float64()),
+        i32_is_str = is(i32, string())
+      ) %>%
+      extract_logicals(),
+    c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)
+  )
+
+  expect_equal(
+    Table$create(dec = Array$create(pi)$cast(decimal(3, 2))) %>%
+      transmute(
+        dec_is_i32 = is(dec, int32()),
+        dec_is_dec = is(dec, decimal(3, 2)),
+        dec_is_dec32 = is(dec, decimal32(3, 2)),
+        dec_is_dec64 = is(dec, decimal64(3, 2)),
+        dec_is_dec128 = is(dec, decimal128(3, 2)),
+        dec_is_dec256 = is(dec, decimal256(3, 2)),
+        dec_is_f64 = is(dec, float64()),
+        dec_is_str = is(dec, string())
+      ) %>%
+      extract_logicals(),
+    c(FALSE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE)
+  )
+
+  expect_equal(
+    Table$create(dec32 = Array$create(pi)$cast(decimal32(3, 2))) %>%
+      transmute(
+        dec32_is_i32 = is(dec32, int32()),
+        dec32_is_dec32 = is(dec32, decimal32(3, 2)),
+        dec32_is_dec64 = is(dec32, decimal64(3, 2)),
+        dec32_is_dec128 = is(dec32, decimal128(3, 2)),
+        dec32_is_dec256 = is(dec32, decimal256(3, 2)),
+        dec32_is_f64 = is(dec32, float64()),
+        dec32_is_str = is(dec32, string())
+      ) %>%
+      extract_logicals(),
+    c(FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE)
+  )
+
+  expect_equal(
+    Table$create(dec64 = Array$create(pi)$cast(decimal64(3, 2))) %>%
+      transmute(
+        dec64_is_i32 = is(dec64, int32()),
+        dec64_is_dec32 = is(dec64, decimal32(3, 2)),
+        dec64_is_dec64 = is(dec64, decimal64(3, 2)),
+        dec64_is_dec128 = is(dec64, decimal128(3, 2)),
+        dec64_is_dec256 = is(dec64, decimal256(3, 2)),
+        dec64_is_f64 = is(dec64, float64()),
+        dec64_is_str = is(dec64, string())
+      ) %>%
+      extract_logicals(),
+    c(FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE)
+  )
+
+  expect_equal(
+    Table$create(dec128 = Array$create(pi)$cast(decimal128(3, 2))) %>%
+      transmute(
+        dec128_is_i32 = is(dec128, int32()),
+        dec128_is_dec32 = is(dec128, decimal32(3, 2)),
+        dec128_is_dec64 = is(dec128, decimal64(3, 2)),
+        dec128_is_dec128 = is(dec128, decimal128(3, 2)),
+        dec128_is_dec256 = is(dec128, decimal256(3, 2)),
+        dec128_is_f64 = is(dec128, float64()),
+        dec128_is_str = is(dec128, string())
+      ) %>%
+      extract_logicals(),
+    c(FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE)
+  )
+
+  expect_equal(
+    Table$create(dec256 = Array$create(pi)$cast(decimal256(3, 2))) %>%
+      transmute(
+        dec256_is_i32 = is(dec256, int32()),
+        dec256_is_dec32 = is(dec256, decimal32(3, 2)),
+        dec256_is_dec64 = is(dec256, decimal64(3, 2)),
+        dec256_is_dec128 = is(dec256, decimal128(3, 2)),
+        dec256_is_dec256 = is(dec256, decimal256(3, 2)),
+        dec256_is_f64 = is(dec256, float64()),
+        dec256_is_str = is(dec256, string())
+      ) %>%
+      extract_logicals(),
+    c(FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE)
+  )
+
   expect_equal(
     Table$create(
-      i32 = Array$create(1, int32()),
-      dec = Array$create(pi)$cast(decimal(3, 2)),
-      dec128 = Array$create(pi)$cast(decimal128(3, 2)),
-      dec256 = Array$create(pi)$cast(decimal256(3, 2)),
       f64 = Array$create(1.1, float64()),
       str = Array$create("a", arrow::string())
     ) %>%
       transmute(
-        i32_is_i32 = is(i32, int32()),
-        i32_is_dec = is(i32, decimal(3, 2)),
-        i32_is_dec128 = is(i32, decimal128(3, 2)),
-        i32_is_dec256 = is(i32, decimal256(3, 2)),
-        i32_is_f64 = is(i32, float64()),
-        i32_is_str = is(i32, string()),
-        dec_is_i32 = is(dec, int32()),
-        dec_is_dec = is(dec, decimal(3, 2)),
-        dec_is_dec128 = is(dec, decimal128(3, 2)),
-        dec_is_dec256 = is(dec, decimal256(3, 2)),
-        dec_is_f64 = is(dec, float64()),
-        dec_is_str = is(dec, string()),
-        dec128_is_i32 = is(dec128, int32()),
-        dec128_is_dec128 = is(dec128, decimal128(3, 2)),
-        dec128_is_dec256 = is(dec128, decimal256(3, 2)),
-        dec128_is_f64 = is(dec128, float64()),
-        dec128_is_str = is(dec128, string()),
-        dec256_is_i32 = is(dec128, int32()),
-        dec256_is_dec128 = is(dec128, decimal128(3, 2)),
-        dec256_is_dec256 = is(dec128, decimal256(3, 2)),
-        dec256_is_f64 = is(dec128, float64()),
-        dec256_is_str = is(dec128, string()),
         f64_is_i32 = is(f64, int32()),
         f64_is_dec = is(f64, decimal(3, 2)),
+        f64_is_dec32 = is(f64, decimal32(3, 2)),
+        f64_is_dec64 = is(f64, decimal64(3, 2)),
         f64_is_dec128 = is(f64, decimal128(3, 2)),
         f64_is_dec256 = is(f64, decimal256(3, 2)),
         f64_is_f64 = is(f64, float64()),
         f64_is_str = is(f64, string()),
         str_is_i32 = is(str, int32()),
+        str_is_dec32 = is(str, decimal32(3, 2)),
+        str_is_dec64 = is(str, decimal64(3, 2)),
         str_is_dec128 = is(str, decimal128(3, 2)),
         str_is_dec256 = is(str, decimal256(3, 2)),
         str_is_i64 = is(str, float64()),
         str_is_str = is(str, string())
       ) %>%
-      collect() %>%
-      t() %>%
-      as.vector(),
+      extract_logicals(),
     c(
-      TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, FALSE,
-      FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE,
-      FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE
+      FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE,
+      FALSE, FALSE, FALSE, FALSE, FALSE, TRUE
     )
   )
   # with class2=string
@@ -322,9 +396,7 @@ test_that("type checks with is() giving Arrow types", {
       str_is_i64 = is(str, "double"),
       str_is_str = is(str, "string")
     ) %>%
-      collect() %>%
-      t() %>%
-      as.vector(),
+      extract_logicals(),
     c(TRUE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, TRUE)
   )
   # with class2=string alias
@@ -362,9 +434,7 @@ test_that("type checks with is() giving Arrow types", {
       str_is_lgl = is(str, "boolean"),
       str_is_str = is(str, "utf8")
     ) %>%
-      collect() %>%
-      t() %>%
-      as.vector(),
+      extract_logicals(),
     c(
       TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE,
       FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE,
@@ -675,7 +745,6 @@ test_that("as.factor()/dictionary_encode()", {
 })
 
 test_that("bad explicit type conversions with as.*()", {
-
   # Arrow returns lowercase "true", "false" (instead of "TRUE", "FALSE" like R)
   expect_error(
     compare_dplyr_binding(

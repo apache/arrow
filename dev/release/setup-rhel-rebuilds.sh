@@ -35,16 +35,14 @@ dnf -y install \
   cmake \
   git \
   gobject-introspection-devel \
-  java-11-openjdk-devel \
   libcurl-devel \
   llvm-devel \
   llvm-toolset \
-  maven \
   ncurses-devel \
   ninja-build \
   nodejs \
   openssl-devel \
-  python3.11-devel \
+  python3.12-devel \
   ruby-devel \
   sqlite-devel \
   vala-devel \
@@ -54,6 +52,3 @@ dnf -y install \
 npm install -g yarn
 
 python3 -m ensurepip --upgrade
-alternatives --set python /usr/bin/python3
-alternatives --set java java-11-openjdk.$(uname -i)
-alternatives --set javac java-11-openjdk.$(uname -i)
