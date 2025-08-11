@@ -317,6 +317,9 @@ class SortedMergeNode : public ExecNode {
             "was: ",
             schema->ToString(), " got schema: ", input->output_schema()->ToString());
       }
+      if (input->ordering().is_unordered()) {
+        return Status::Invalid("Input have to be ordered");
+      }
     }
 
     const auto& order_options =
@@ -338,15 +341,15 @@ class SortedMergeNode : public ExecNode {
   arrow::Status Init() override {
     ARROW_CHECK(ordering_.sort_keys().size() == 1) << "Only one sort key supported";
 
+    const auto& sort_key = ordering_.sort_keys()[0];
+    if (sort_key.order != arrow::compute::SortOrder::Ascending) {
+      return Status::NotImplemented("Only ascending sort order is supported");
+    }
+
     auto inputs = this->inputs();
     for (size_t i = 0; i < inputs.size(); i++) {
       ExecNode* input = inputs[i];
       const auto& schema = input->output_schema();
-
-      const auto& sort_key = ordering_.sort_keys()[0];
-      if (sort_key.order != arrow::compute::SortOrder::Ascending) {
-        return Status::NotImplemented("Only ascending sort order is supported");
-      }
 
       const FieldRef& ref = sort_key.target;
       auto match_res = ref.FindOne(*schema);
@@ -441,21 +444,6 @@ class SortedMergeNode : public ExecNode {
   }
 
  private:
-  arrow::Status SequencedInputReceived(arrow::acero::ExecNode* input,
-                                       arrow::ExecBatch batch) {
-    ARROW_DCHECK(std_has(inputs_, input));
-    const size_t index = std_find(inputs_, input) - inputs_.begin();
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> rb,
-                          batch.ToRecordBatch(output_schema_));
-
-    // Push into the queue. Note that we don't need to lock since
-    // InputState's ConcurrentQueue manages locking
-    input_counter[index] += rb->num_rows();
-    ARROW_RETURN_NOT_OK(state[index]->Push(rb));
-    PushTask(kNewTask);
-    return Status::OK();
-  }
-
   void EndFromProcessThread(arrow::Status st = arrow::Status::OK()) {
     ARROW_CHECK(!cleanup_started);
     for (size_t i = 0; i < input_counter.size(); ++i) {
