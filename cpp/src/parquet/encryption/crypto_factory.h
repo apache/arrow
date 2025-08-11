@@ -98,7 +98,7 @@ struct PARQUET_EXPORT ColumnEncryptionAttributes {
     std::string key_id;
 };
 
-/// Encryption Configuration for use with External Encryption services. 
+/// Encryption Configuration for use with External Encryptions. 
 /// Extends the already existing EncryptionConfiguration with more context and with
 /// the capability of specifying encryption algorithm per column.
 struct PARQUET_EXPORT ExternalEncryptionConfiguration : public EncryptionConfiguration {
@@ -120,21 +120,21 @@ struct PARQUET_EXPORT ExternalEncryptionConfiguration : public EncryptionConfigu
   /// If a column name appears in both, an exception will be thrown.
   std::unordered_map<std::string, ColumnEncryptionAttributes> per_column_encryption;
 
-  /// External encryption services may use additional context provided by the application to
-  /// enforce robust access control. The values sent to the external service depend on each
+  /// External encryptors may use additional context provided by the application to
+  /// enforce robust access control. The values sent to the external encryptor depend on each
   /// implementation. 
   /// This value must be a valid JSON-formatted string.
-  /// Validation of the string will be done by the external encryption service, Arrow will only
+  /// Validation of the string will be done by the external encryptor, Arrow will only
   /// forward this value.
   /// Format: "{\"user_id\": \"abc123\", \"location\": {\"lat\": 9.7489, \"lon\": -83.7534}}"
   std::string app_context;
   
   /// Key/value map of the location of configuration files needed by the external
-  /// encryption service. This may include location of a dynamically-linked library, or the
-  /// location of a file where the external service can find urls, certificates, and parameters
-  /// needed to make a remote service call. 
+  /// encryptors. This may include location of a dynamically-linked library, or the
+  /// location of a file where the external encryptor can find urls, certificates, and parameters
+  /// needed to make a remote call. 
   /// For security, these values should never be sent in this config, only the locations of 
-  /// the files that the external service will know how to access.
+  /// the files that the external encryptor will know how to access.
   std::unordered_map<std::string, std::string> connection_config;
 };
 
@@ -146,21 +146,21 @@ struct PARQUET_EXPORT DecryptionConfiguration {
 };
 
 struct PARQUET_EXPORT ExternalDecryptionConfiguration : public DecryptionConfiguration {
-  /// External decryption services may use additional context provided by the application to
-  /// enforce robust access control. The values sent to the external service depend on each
+  /// External decryptors may use additional context provided by the application to
+  /// enforce robust access control. The values sent to the external decryptor depend on each
   /// implementation. 
   /// This value must be a valid JSON-formatted string.
-  /// Validation of the string will be done by the external decryption service, Arrow will only
+  /// Validation of the string will be done by the external decryptors, Arrow will only
   /// forward this value.
   /// Format: "{\"user_id\": \"abc123\", \"location\": {\"lat\": 9.7489, \"lon\": -83.7534}}"
   std::string app_context;
 
   /// Map of the encryption algorithms to the key/value map of the location of configuration files
-  /// needed by the external decryption service. This may include location of a dynamically-linked
-  /// library, or the location of a file where the external service can find urls, certificates,
-  /// and parameters needed to make a remote service call. 
+  /// needed by the external decryptors. This may include location of a dynamically-linked
+  /// library, or the location of a file where the external decryptor can find urls, certificates,
+  /// and parameters needed to make a remote call. 
   /// For security, these values should never be sent in this config, only the locations of 
-  /// the files that the external service will know how to access.
+  /// the files that the external decryptor will know how to access.
   std::unordered_map<ParquetCipher::type, std::unordered_map<std::string, std::string>>
       connection_config;
 };
@@ -184,8 +184,8 @@ class PARQUET_EXPORT CryptoFactory {
       const EncryptionConfiguration& encryption_config, const std::string& file_path = "",
       const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
 
-  /// Get the external encryption properties for a Parquet file. Used when encryption
-  /// will be provided by an external service.
+  /// Get the external encryption properties for a Parquet file. Used when an external encryptor
+  /// will be used to encrypt the file.
   std::shared_ptr<ExternalFileEncryptionProperties> GetExternalFileEncryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
       const ExternalEncryptionConfiguration& external_encryption_config,
