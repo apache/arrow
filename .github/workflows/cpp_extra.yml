@@ -124,6 +124,13 @@ jobs:
               -e ARROW_USE_MESON=ON
             runs-on: ubuntu-latest
             title: AMD64 Ubuntu Meson
+          # TODO: We should remove this "continue-on-error: true" once GH-47207 is resolved
+          - continue-on-error: true
+            image: debian-cpp
+            run-options: >-
+              -e CMAKE_CXX_STANDARD=23
+            runs-on: ubuntu-latest
+            title: AMD64 Debian C++23
     env:
       ARCHERY_DEBUG: 1
       ARROW_ENABLE_TIMING_TESTS: OFF
@@ -147,6 +154,7 @@ jobs:
       - name: Setup Archery
         run: python3 -m pip install -e dev/archery[docker]
       - name: Execute Docker Build
+        continue-on-error: ${{ matrix.continue-on-error || false }}
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
