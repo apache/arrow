@@ -37,6 +37,7 @@ libprotobuf
 libutf8proc
 lz4-c
 make
+meson
 ninja
 nodejs
 orc

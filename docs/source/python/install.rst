@@ -98,6 +98,21 @@ a custom path to the database from Python:
    >>> import pyarrow as pa
    >>> pa.set_timezone_db_path("custom_path")
 
+You may encounter problems writing datetime data to an ORC file if you install
+pyarrow with pip. One possible solution to fix this problem:
+
+   1. Install tzdata with ``pip install tzdata``
+   2. Set the environment variable ``TZDIR = path\to\.venv\Lib\site-packages\tzdata\``
+
+You can find where ``tzdata`` is installed with the following python
+command:
+
+.. code-block:: python
+
+   >>> import tzdata
+   >>> print(tzdata.__file__)
+   path\to\.venv\Lib\site-packages\tzdata\__init__.py
+
 
 .. _python-conda-differences:
 

@@ -26,6 +26,7 @@
 
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/span.h"
 
 namespace arrow {
 
@@ -76,11 +77,14 @@ class ARROW_EXPORT ChunkResolver {
 
  public:
   explicit ChunkResolver(const ArrayVector& chunks) noexcept;
-
-  explicit ChunkResolver(const std::vector<const Array*>& chunks) noexcept;
-
+  explicit ChunkResolver(util::span<const Array* const> chunks) noexcept;
   explicit ChunkResolver(const RecordBatchVector& batches) noexcept;
 
+  /// \brief Construct a ChunkResolver from a vector of chunks.size() + 1 offsets.
+  ///
+  /// The first offset must be 0 and the last offset must be the logical length of the
+  /// chunked array. Each offset before the last represents the starting logical index of
+  /// the corresponding chunk.
   explicit ChunkResolver(std::vector<int64_t> offsets) noexcept
       : offsets_(std::move(offsets)), cached_chunk_(0) {
 #ifndef NDEBUG

@@ -609,9 +609,12 @@ class BinaryField(PrimitiveField):
 
         sizes = self._random_sizes(size)
 
-        for i, nbytes in enumerate(sizes):
+        for i, np_nbytes in enumerate(sizes):
             if is_valid[i]:
-                values.append(random_bytes(nbytes))
+                # We have to cast to int because Python 3.13.4 has a bug
+                # on random_bytes. See the comment here:
+                # https://github.com/apache/arrow/pull/46823#issuecomment-2979376852
+                values.append(random_bytes(int(np_nbytes)))
             else:
                 values.append(b"")
 
@@ -1592,8 +1595,7 @@ def generate_null_trivial_case(batch_sizes):
 
 def generate_decimal32_case():
     fields = [
-        DecimalField(name='f{}'.format(i), precision=precision, scale=2,
-                     bit_width=32)
+        DecimalField(name=f'f{i}', precision=precision, scale=2, bit_width=32)
         for i, precision in enumerate(range(3, 10))
     ]
 
@@ -1603,8 +1605,7 @@ def generate_decimal32_case():
 
 def generate_decimal64_case():
     fields = [
-        DecimalField(name='f{}'.format(i), precision=precision, scale=2,
-                     bit_width=64)
+        DecimalField(name=f'f{i}', precision=precision, scale=2, bit_width=64)
         for i, precision in enumerate(range(3, 19))
     ]
 
@@ -1614,8 +1615,7 @@ def generate_decimal64_case():
 
 def generate_decimal128_case():
     fields = [
-        DecimalField(name='f{}'.format(i), precision=precision, scale=2,
-                     bit_width=128)
+        DecimalField(name=f'f{i}', precision=precision, scale=2, bit_width=128)
         for i, precision in enumerate(range(3, 39))
     ]
 
@@ -1628,8 +1628,7 @@ def generate_decimal128_case():
 
 def generate_decimal256_case():
     fields = [
-        DecimalField(name='f{}'.format(i), precision=precision, scale=5,
-                     bit_width=256)
+        DecimalField(name=f'f{i}', precision=precision, scale=5, bit_width=256)
         for i, precision in enumerate(range(37, 70))
     ]
 
@@ -1890,10 +1889,7 @@ def get_generated_json_files(tempdir=None):
         return
 
     file_objs = [
-        generate_primitive_case([], name='primitive_no_batches')
-        # TODO(https://github.com/apache/arrow/issues/44363)
-        .skip_format(SKIP_FLIGHT, 'C#'),
-
+        generate_primitive_case([], name='primitive_no_batches'),
         generate_primitive_case([17, 20], name='primitive'),
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
 
@@ -1926,11 +1922,9 @@ def get_generated_json_files(tempdir=None):
 
         generate_duration_case(),
 
-        generate_interval_case()
-        .skip_tester('JS'),  # TODO(ARROW-5239): Intervals + JS
+        generate_interval_case(),
 
-        generate_month_day_nano_interval_case()
-        .skip_tester('JS'),
+        generate_month_day_nano_interval_case(),
 
         generate_map_case(),
 

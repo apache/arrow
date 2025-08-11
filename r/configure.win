@@ -61,10 +61,9 @@ function configure_binaries() {
   OPENSSL_LIBS="-lcrypto -lcrypt32"
   MIMALLOC_LIBS="-lbcrypt -lpsapi"
   BROTLI_LIBS="-lbrotlienc -lbrotlidec -lbrotlicommon" # Common goes last since dec and enc depend on it
-  AWS_LIBS="-laws-cpp-sdk-config -laws-cpp-sdk-transfer -laws-cpp-sdk-identity-management \
-            -laws-cpp-sdk-cognito-identity -laws-cpp-sdk-sts -laws-cpp-sdk-s3 \
-            -laws-cpp-sdk-core -laws-c-event-stream -laws-checksums -laws-c-common \
-            -luserenv -lversion -lws2_32 -lbcrypt -lwininet -lwinhttp"
+  # We build aws-sdk-cpp bundled now, so the AWS libs are included in arrow_bundled_dependencies
+  # but we also need to include these Windows system libraries
+  AWS_LIBS="-luserenv -lversion -lws2_32 -lbcrypt -lwininet -lwinhttp -lsecur32 -lshlwapi -lncrypt"
   # pkg-config --libs libcurl
   GCS_LIBS="-lcurl -lnormaliz -lssh2 -lgdi32 -lssl -lcrypto -lcrypt32 -lwldap32 \
             -lz -lws2_32 -lnghttp2 -ldbghelp"
@@ -82,13 +81,14 @@ function configure_binaries() {
 
   # NOTE: If you make changes to the libraries below, you should also change
   # ci/scripts/r_windows_build.sh and ci/scripts/PKGBUILD
-  PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_DS_STATIC \
-              -DARROW_ACERO_STATIC -DARROW_R_WITH_PARQUET -DARROW_R_WITH_ACERO \
+  PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DARROW_COMPUTE_STATIC -DPARQUET_STATIC \
+              -DARROW_DS_STATIC -DARROW_ACERO_STATIC -DARROW_R_WITH_PARQUET \
+              -DARROW_R_WITH_COMPUTE -DARROW_R_WITH_ACERO \
               -DARROW_R_WITH_DATASET -DARROW_R_WITH_JSON"
   PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '
   PKG_LIBS="$PKG_LIBS -L${RWINLIB}/lib"'$(R_ARCH)$(CRT) '
-  PKG_LIBS="$PKG_LIBS -larrow_dataset -larrow_acero -lparquet -larrow -larrow_bundled_dependencies \
-            -lutf8proc -lthrift -lsnappy -lz -lzstd -llz4 -lbz2 ${BROTLI_LIBS} -lole32 \
+  PKG_LIBS="$PKG_LIBS -larrow_dataset -larrow_acero -lparquet -larrow_compute -larrow -larrow_bundled_dependencies \
+            -lutf8proc -lsnappy -lz -lzstd -llz4 -lbz2 ${BROTLI_LIBS} -lole32 \
             ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
 
   # S3, GCS, and re2 support only for Rtools40 (i.e. R >= 4.0)
@@ -159,6 +159,13 @@ add_feature_flags () {
       PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES parquet"
       PKG_LIBS_FEATURES_WITHOUT_PC="-lparquet $PKG_LIBS_FEATURES_WITHOUT_PC"
       # NOTE: parquet is assumed to have the same -L flag as arrow
+      # so there is no need to add its location to PKG_DIRS
+    fi
+   if arrow_built_with ARROW_COMPUTE; then
+      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_COMPUTE"
+      PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES arrow-compute"
+      PKG_LIBS_FEATURES_WITHOUT_PC="-larrow_compute $PKG_LIBS_FEATURES_WITHOUT_PC"
+      # NOTE: arrow_compute is assumed to have the same -L flag as arrow
       # so there is no need to add its location to PKG_DIRS
     fi
     if arrow_built_with ARROW_DATASET; then
@@ -268,6 +275,11 @@ function configure_dev() {
   if [ $(cmake_option ARROW_PARQUET) -eq 1 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
     PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES parquet"
+  fi
+
+  if [ $(cmake_option ARROW_COMPUTE) -eq 1 ]; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_COMPUTE"
+    PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES arrow-compute"
   fi
 
   if [ $(cmake_option ARROW_ACERO) -eq 1 ]; then

@@ -24,6 +24,7 @@ using Apache.Arrow.Tests;
 using Google.Protobuf;
 using Grpc.Core;
 using Grpc.Core.Utils;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Apache.Arrow.Flight.Tests
@@ -57,6 +58,13 @@ namespace Apache.Arrow.Flight.Tests
             return batchBuilder.Build();
         }
 
+        private Schema GetStoreSchema(FlightDescriptor flightDescriptor)
+        {
+            Assert.Contains(flightDescriptor, (IReadOnlyDictionary<FlightDescriptor, FlightHolder>)_flightStore.Flights);
+
+            var flightHolder = _flightStore.Flights[flightDescriptor];
+            return flightHolder.GetFlightInfo().Schema;
+        }
 
         private IEnumerable<RecordBatchWithMetadata> GetStoreBatch(FlightDescriptor flightDescriptor)
         {
@@ -88,7 +96,7 @@ namespace Apache.Arrow.Flight.Tests
             var flightDescriptor = FlightDescriptor.CreatePathDescriptor("test");
             var expectedBatch = CreateTestBatch(0, 100);
 
-            var putStream = _flightClient.StartPut(flightDescriptor);
+            var putStream = await _flightClient.StartPut(flightDescriptor, expectedBatch.Schema);
             await putStream.RequestStream.WriteAsync(expectedBatch);
             await putStream.RequestStream.CompleteAsync();
             var putResults = await putStream.ResponseStream.ToListAsync();
@@ -108,7 +116,7 @@ namespace Apache.Arrow.Flight.Tests
             var expectedBatch1 = CreateTestBatch(0, 100);
             var expectedBatch2 = CreateTestBatch(0, 100);
 
-            var putStream = _flightClient.StartPut(flightDescriptor);
+            var putStream = await _flightClient.StartPut(flightDescriptor, expectedBatch1.Schema);
             await putStream.RequestStream.WriteAsync(expectedBatch1);
             await putStream.RequestStream.WriteAsync(expectedBatch2);
             await putStream.RequestStream.CompleteAsync();
@@ -121,6 +129,23 @@ namespace Apache.Arrow.Flight.Tests
 
             ArrowReaderVerifier.CompareBatches(expectedBatch1, actualBatches[0].RecordBatch);
             ArrowReaderVerifier.CompareBatches(expectedBatch2, actualBatches[1].RecordBatch);
+        }
+
+        [Fact]
+        public async Task TestPutZeroRecordBatches()
+        {
+            var flightDescriptor = FlightDescriptor.CreatePathDescriptor("test");
+            var schema = CreateTestBatch(0, 1).Schema;
+
+            var putStream = await _flightClient.StartPut(flightDescriptor, schema);
+            await putStream.RequestStream.CompleteAsync();
+            var putResults = await putStream.ResponseStream.ToListAsync();
+
+            Assert.Empty(putResults);
+
+            var actualSchema = GetStoreSchema(flightDescriptor);
+
+            SchemaComparer.Compare(schema, actualSchema);
         }
 
         [Fact]
@@ -230,7 +255,7 @@ namespace Apache.Arrow.Flight.Tests
             var expectedBatch = CreateTestBatch(0, 100);
             var expectedMetadata = ByteString.CopyFromUtf8("test metadata");
 
-            var putStream = _flightClient.StartPut(flightDescriptor);
+            var putStream = await _flightClient.StartPut(flightDescriptor, expectedBatch.Schema);
             await putStream.RequestStream.WriteAsync(expectedBatch, expectedMetadata);
             await putStream.RequestStream.CompleteAsync();
             var putResults = await putStream.ResponseStream.ToListAsync();
@@ -471,8 +496,7 @@ namespace Apache.Arrow.Flight.Tests
             exception = await Assert.ThrowsAsync<RpcException>(async () => await duplexStreamingCall.RequestStream.WriteAsync(batch));
             Assert.Equal(StatusCode.DeadlineExceeded, exception.StatusCode);
 
-            var putStream = _flightClient.StartPut(flightDescriptor, null, deadline);
-            exception = await Assert.ThrowsAsync<RpcException>(async () => await putStream.RequestStream.WriteAsync(batch));
+            exception = await Assert.ThrowsAsync<RpcException>(async () => await _flightClient.StartPut(flightDescriptor, batch.Schema, null, deadline));
             Assert.Equal(StatusCode.DeadlineExceeded, exception.StatusCode);
 
             exception = await Assert.ThrowsAsync<RpcException>(async () => await _flightClient.GetSchema(flightDescriptor, null, deadline));
@@ -514,8 +538,7 @@ namespace Apache.Arrow.Flight.Tests
             exception = await Assert.ThrowsAsync<RpcException>(async () => await duplexStreamingCall.RequestStream.WriteAsync(batch));
             Assert.Equal(StatusCode.Cancelled, exception.StatusCode);
 
-            var putStream = _flightClient.StartPut(flightDescriptor, null, null, cts.Token);
-            exception = await Assert.ThrowsAsync<RpcException>(async () => await putStream.RequestStream.WriteAsync(batch));
+            exception = await Assert.ThrowsAsync<RpcException>(async () => await _flightClient.StartPut(flightDescriptor, batch.Schema, null, null, cts.Token));
             Assert.Equal(StatusCode.Cancelled, exception.StatusCode);
 
             exception = await Assert.ThrowsAsync<RpcException>(async () => await _flightClient.GetSchema(flightDescriptor, null, null, cts.Token));
@@ -524,7 +547,30 @@ namespace Apache.Arrow.Flight.Tests
             var handshakeStreamingCall = _flightClient.Handshake(null, null, cts.Token);
             exception = await Assert.ThrowsAsync<RpcException>(async () => await handshakeStreamingCall.RequestStream.WriteAsync(new FlightHandshakeRequest(ByteString.Empty)));
             Assert.Equal(StatusCode.Cancelled, exception.StatusCode);
+        }
 
+        [Fact]
+        public async Task TestIntegrationWithGrpcNetClientFactory()
+        {
+            IServiceCollection services = new ServiceCollection();
+
+            services.AddGrpcClient<FlightClient>(grpc => grpc.Address = new Uri(_testWebFactory.GetAddress()));
+
+            IServiceProvider provider = services.BuildServiceProvider();
+
+            // Test that an instance of the FlightClient can be resolved whilst using the Grpc.Net.ClientFactory library.
+            FlightClient flightClient = provider.GetRequiredService<FlightClient>();
+
+            // Test that the resolved client is functional.
+            var flightDescriptor = FlightDescriptor.CreatePathDescriptor("test");
+            var expectedBatch = CreateTestBatch(0, 100);
+            var expectedSchema = expectedBatch.Schema;
+
+            GivenStoreBatches(flightDescriptor, new RecordBatchWithMetadata(expectedBatch));
+
+            var actualSchema = await flightClient.GetSchema(flightDescriptor);
+
+            SchemaComparer.Compare(expectedSchema, actualSchema);
         }
     }
 }

@@ -48,9 +48,9 @@ is_emscripten = (
 )
 
 
-if Cython.__version__ < '0.29.31':
+if Cython.__version__ < '3':
     raise Exception(
-        'Please update your Cython version. Supported Cython >= 0.29.31')
+        'Please update your Cython version. Supported Cython >= 3')
 
 setup_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -272,8 +272,7 @@ class build_ext(_build_ext):
             ]
 
             def append_cmake_bool(value, varname):
-                cmake_options.append('-D{0}={1}'.format(
-                    varname, 'on' if value else 'off'))
+                cmake_options.append(f'-D{varname}={"on" if value else "off"}')
 
             def append_cmake_component(flag, varname):
                 # only pass this to cmake if the user pass the --with-component

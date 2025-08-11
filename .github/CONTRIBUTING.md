@@ -45,8 +45,8 @@ issues][3] for the Apache Arrow project. Comment on the issue and/or contact
 [dev@arrow.apache.org](https://lists.apache.org/list.html?dev@arrow.apache.org)
 with your questions and ideas.
 
-If you’d like to report a bug but don’t have time to fix it, you can still post
-it on JIRA, or email the mailing list
+If you’d like to report a bug but don’t have time to fix it, you can still create
+a GitHub issue, or email the mailing list
 [dev@arrow.apache.org](https://lists.apache.org/list.html?dev@arrow.apache.org)
 
 To contribute a patch:
@@ -57,8 +57,8 @@ harder to merge in a large change with a lot of disjoint features.
 GitHub](https://github.com/apache/arrow/issues).
 3. Submit the patch as a GitHub pull request against the main branch. For a
 tutorial, see the GitHub guides on [forking a repo](https://help.github.com/en/articles/fork-a-repo)
-and [sending a pull request](https://help.github.com/en/articles/creating-a-pull-request-from-a-fork). So that your pull request syncs with the JIRA issue, prefix your pull request
-name with the JIRA issue id (ex: [ARROW-767: [C++] Filesystem abstraction](https://github.com/apache/arrow/pull/4225))
+and [sending a pull request](https://help.github.com/en/articles/creating-a-pull-request-from-a-fork). Prefix your pull request
+name with the GitHub issue id (ex: [GH-767: [C++] Filesystem abstraction](https://github.com/apache/arrow/pull/4225))
 4. Make sure that your code passes the unit tests. You can find instructions
 how to run the unit tests for each Arrow component in its respective README
 file.

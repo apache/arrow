@@ -19,6 +19,7 @@ add_arrow_example(row_wise_conversion_example)
 
 if(ARROW_WITH_RAPIDJSON)
   add_arrow_example(rapidjson_row_converter EXTRA_LINK_LIBS RapidJSON)
+  add_arrow_example(from_json_string_example EXTRA_LINK_LIBS RapidJSON)
 endif()
 
 if(ARROW_ACERO)
@@ -42,7 +43,13 @@ if(ARROW_SUBSTRAIT)
 endif()
 
 if(ARROW_COMPUTE AND ARROW_CSV)
-  add_arrow_example(compute_and_write_csv_example)
+  if(ARROW_BUILD_SHARED)
+    set(COMPUTE_KERNELS_LINK_LIBS arrow_compute_shared)
+  else()
+    set(COMPUTE_KERNELS_LINK_LIBS arrow_compute_static)
+  endif()
+  add_arrow_example(compute_and_write_csv_example EXTRA_LINK_LIBS
+                    ${COMPUTE_KERNELS_LINK_LIBS})
 endif()
 
 if(ARROW_FLIGHT)
@@ -165,6 +172,15 @@ if(ARROW_PARQUET AND ARROW_DATASET)
   add_arrow_example(execution_plan_documentation_examples EXTRA_LINK_LIBS
                     ${DATASET_EXAMPLES_LINK_LIBS})
   add_dependencies(execution-plan-documentation-examples parquet)
+
+  if(PARQUET_REQUIRE_ENCRYPTION)
+    add_arrow_example(parquet_column_encryption
+                      EXTRA_SOURCES
+                      ${PROJECT_SOURCE_DIR}/src/parquet/encryption/test_in_memory_kms.cc
+                      EXTRA_LINK_LIBS
+                      ${DATASET_EXAMPLES_LINK_LIBS})
+    add_dependencies(parquet-column-encryption parquet)
+  endif()
 
   if(ARROW_CSV)
     add_arrow_example(join_example EXTRA_LINK_LIBS ${DATASET_EXAMPLES_LINK_LIBS})

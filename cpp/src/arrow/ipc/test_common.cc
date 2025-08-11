@@ -47,7 +47,7 @@
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/ree_util.h"
 
 namespace arrow {
@@ -183,14 +183,6 @@ Status MakeListArray(const std::shared_ptr<Array>& child_array, int num_lists,
   return (**out).Validate();
 }
 
-}  // namespace
-
-Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_lists,
-                           bool include_nulls, MemoryPool* pool,
-                           std::shared_ptr<Array>* out) {
-  return MakeListArray<ListType>(child_array, num_lists, include_nulls, pool, out);
-}
-
 Status MakeRandomListViewArray(const std::shared_ptr<Array>& child_array, int num_lists,
                                bool include_nulls, MemoryPool* pool,
                                std::shared_ptr<Array>* out) {
@@ -217,12 +209,6 @@ Status MakeRandomLargeListViewArray(const std::shared_ptr<Array>& child_array,
   return Status::OK();
 }
 
-Status MakeRandomLargeListArray(const std::shared_ptr<Array>& child_array, int num_lists,
-                                bool include_nulls, MemoryPool* pool,
-                                std::shared_ptr<Array>* out) {
-  return MakeListArray<LargeListType>(child_array, num_lists, include_nulls, pool, out);
-}
-
 Status MakeRandomMapArray(const std::shared_ptr<Array>& key_array,
                           const std::shared_ptr<Array>& item_array, int num_maps,
                           bool include_nulls, MemoryPool* pool,
@@ -238,6 +224,20 @@ Status MakeRandomMapArray(const std::shared_ptr<Array>& key_array,
   map_data->type = map(key_array->type(), item_array->type());
   out->reset(new MapArray(map_data));
   return (**out).Validate();
+}
+
+}  // namespace
+
+Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_lists,
+                           bool include_nulls, MemoryPool* pool,
+                           std::shared_ptr<Array>* out) {
+  return MakeListArray<ListType>(child_array, num_lists, include_nulls, pool, out);
+}
+
+Status MakeRandomLargeListArray(const std::shared_ptr<Array>& child_array, int num_lists,
+                                bool include_nulls, MemoryPool* pool,
+                                std::shared_ptr<Array>* out) {
+  return MakeListArray<LargeListType>(child_array, num_lists, include_nulls, pool, out);
 }
 
 Status MakeRandomBooleanArray(const int length, bool include_nulls,
@@ -421,7 +421,7 @@ Status MakeNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
+Status MakeListRecordBatchSized(const int length, std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = field("f0", list(int32()));
   auto f1 = field("f1", list(list(int32())));
@@ -431,7 +431,6 @@ Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
   // Example data
 
   MemoryPool* pool = default_memory_pool();
-  const int length = 200;
   std::shared_ptr<Array> leaf_values, list_array, list_list_array, large_list_array;
   const bool include_nulls = true;
   RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool, &leaf_values));
@@ -446,7 +445,11 @@ Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeListViewRecordBatch(std::shared_ptr<RecordBatch>* out) {
+Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
+  return MakeListRecordBatchSized(200, out);
+}
+
+Status MakeListViewRecordBatchSized(const int length, std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = field("f0", list_view(int32()));
   auto f1 = field("f1", list_view(list_view(int32())));
@@ -456,7 +459,6 @@ Status MakeListViewRecordBatch(std::shared_ptr<RecordBatch>* out) {
   // Example data
 
   MemoryPool* pool = default_memory_pool();
-  const int length = 200;
   std::shared_ptr<Array> leaf_values, list_array, list_list_array, large_list_array;
   const bool include_nulls = true;
   RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool, &leaf_values));
@@ -469,6 +471,10 @@ Status MakeListViewRecordBatch(std::shared_ptr<RecordBatch>* out) {
   *out =
       RecordBatch::Make(schema, length, {list_array, list_list_array, large_list_array});
   return Status::OK();
+}
+
+Status MakeListViewRecordBatch(std::shared_ptr<RecordBatch>* out) {
+  return MakeListViewRecordBatchSized(200, out);
 }
 
 Status MakeFixedSizeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
@@ -608,6 +614,8 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
+namespace {
+
 Status AddArtificialOffsetInChildArray(ArrayData* array, int64_t offset) {
   auto& child = array->child_data[1];
   auto builder = MakeBuilder(child->type).ValueOrDie();
@@ -616,6 +624,8 @@ Status AddArtificialOffsetInChildArray(ArrayData* array, int64_t offset) {
   array->child_data[1] = builder->Finish().ValueOrDie()->Slice(offset)->data();
   return Status::OK();
 }
+
+}  // namespace
 
 Status MakeRunEndEncoded(std::shared_ptr<RecordBatch>* out) {
   const int64_t logical_length = 10000;

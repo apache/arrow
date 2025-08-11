@@ -21,6 +21,6 @@ set -ex
 
 source_dir=${1}/csharp
 
-pushd ${source_dir}
+pushd "${source_dir}"
 dotnet build
 popd

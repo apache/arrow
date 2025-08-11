@@ -465,7 +465,7 @@ TEST_F(TestPrimitiveReader, TestRepetitionLvlBytesWithMaxRepetitionZero) {
   int32_t values[batch_size];
   int64_t values_read;
   ASSERT_TRUE(reader->HasNext());
-  EXPECT_EQ(4, reader->ReadBatch(batch_size, def_levels_out, /*replevels=*/nullptr,
+  EXPECT_EQ(4, reader->ReadBatch(batch_size, def_levels_out, /*rep_levels=*/nullptr,
                                  values, &values_read));
   EXPECT_EQ(3, values_read);
 }

@@ -43,7 +43,7 @@ class Ndarray1DIndexer {
 
   explicit Ndarray1DIndexer(PyArrayObject* arr) : Ndarray1DIndexer() {
     arr_ = arr;
-    DCHECK_EQ(1, PyArray_NDIM(arr)) << "Only works with 1-dimensional arrays";
+    ARROW_DCHECK_EQ(1, PyArray_NDIM(arr)) << "Only works with 1-dimensional arrays";
     data_ = reinterpret_cast<uint8_t*>(PyArray_DATA(arr));
     stride_ = PyArray_STRIDES(arr)[0];
   }

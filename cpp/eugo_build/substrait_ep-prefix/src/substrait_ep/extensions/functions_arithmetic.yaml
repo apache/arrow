@@ -1,0 +1,1847 @@
+%YAML 1.2
+---
+scalar_functions:
+  -
+    name: "add"
+    description: "Add two values."
+    impls:
+      - args:
+          - name: x
+            value: i8
+          - name: y
+            value: i8
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i8
+      - args:
+          - name: x
+            value: i16
+          - name: y
+            value: i16
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i16
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i32
+      - args:
+          - value: i64
+          - value: i64
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i64
+      - args:
+          - name: x
+            value: fp32
+          - name: y
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+          - name: y
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp64
+  -
+    name: "subtract"
+    description: "Subtract one value from another."
+    impls:
+      - args:
+          - name: x
+            value: i8
+          - name: y
+            value: i8
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i8
+      - args:
+          - name: x
+            value: i16
+          - name: y
+            value: i16
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i16
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i32
+      - args:
+          - name: x
+            value: i64
+          - name: y
+            value: i64
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i64
+      - args:
+          - name: x
+            value: fp32
+          - name: y
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+          - name: y
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp64
+  -
+    name: "multiply"
+    description: "Multiply two values."
+    impls:
+      - args:
+          - name: x
+            value: i8
+          - name: y
+            value: i8
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i8
+      - args:
+          - name: x
+            value: i16
+          - name: y
+            value: i16
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i16
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i32
+      - args:
+          - name: x
+            value: i64
+          - name: y
+            value: i64
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i64
+      - args:
+          - name: x
+            value: fp32
+          - name: y
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+          - name: y
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp64
+  -
+    name: "divide"
+    description: >
+      Divide x by y. In the case of integer division, partial values are truncated (i.e. rounded towards 0).
+      The `on_division_by_zero` option governs behavior in cases where y is 0 and x is not 0.
+      `LIMIT` means positive or negative infinity (depending on the sign of x and y).
+      If x and y are both 0 or both +/-infinity, behavior will be governed by `on_domain_error`.
+    impls:
+      - args:
+          - name: x
+            value: i8
+          - name: y
+            value: i8
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i8
+      - args:
+          - name: x
+            value: i16
+          - name: y
+            value: i16
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i16
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i32
+      - args:
+          - name: x
+            value: i64
+          - name: y
+            value: i64
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i64
+      - args:
+          - name: x
+            value: fp32
+          - name: y
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, ERROR ]
+          on_division_by_zero:
+            values: [ LIMIT, NAN, ERROR ]
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+          - name: y
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, ERROR ]
+          on_division_by_zero:
+            values: [ LIMIT, NAN, ERROR ]
+        return: fp64
+  -
+    name: "negate"
+    description: "Negation of the value"
+    impls:
+      - args:
+          - name: x
+            value: i8
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i8
+      - args:
+          - name: x
+            value: i16
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i16
+      - args:
+          - name: x
+            value: i32
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i32
+      - args:
+          - name: x
+            value: i64
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i64
+      - args:
+          - name: x
+            value: fp32
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+        return: fp64
+  -
+    name: "modulus"
+    description: >
+      Calculate the remainder (r) when dividing dividend (x) by divisor (y).
+
+      In mathematics, many conventions for the modulus (mod) operation exists. The result of a mod operation
+      depends on the software implementation and underlying hardware. Substrait is a format for describing compute
+      operations on structured data and designed for interoperability. Therefore the user is responsible for determining
+      a definition of division as defined by the quotient (q).
+
+      The following basic conditions of division are satisfied:
+      (1) q ∈ ℤ (the quotient is an integer)
+      (2) x = y * q + r (division rule)
+      (3) abs(r) < abs(y)
+      where q is the quotient.
+
+      The `division_type` option determines the mathematical definition of quotient to use in the above definition of
+      division.
+
+      When `division_type`=TRUNCATE, q = trunc(x/y).
+      When `division_type`=FLOOR, q = floor(x/y).
+
+      In the cases of TRUNCATE and FLOOR division: remainder r = x - round_func(x/y)
+
+      The `on_domain_error` option governs behavior in cases where y is 0, y is +/-inf, or x is +/-inf. In these cases
+      the mod is undefined.
+      The `overflow` option governs behavior when integer overflow occurs.
+      If x and y are both 0 or both +/-infinity, behavior will be governed by `on_domain_error`.
+    impls:
+      - args:
+          - name: x
+            value: i8
+          - name: y
+            value: i8
+        options:
+          division_type:
+            values: [ TRUNCATE, FLOOR ]
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+          on_domain_error:
+            values: [ "NULL", ERROR ]
+        return: i8
+      - args:
+          - name: x
+            value: i16
+          - name: y
+            value: i16
+        options:
+          division_type:
+            values: [ TRUNCATE, FLOOR ]
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+          on_domain_error:
+            values: [ "NULL", ERROR ]
+        return: i16
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        options:
+          division_type:
+            values: [ TRUNCATE, FLOOR ]
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+          on_domain_error:
+            values: [ "NULL", ERROR ]
+        return: i32
+      - args:
+          - name: x
+            value: i64
+          - name: y
+            value: i64
+        options:
+          division_type:
+            values: [ TRUNCATE, FLOOR ]
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+          on_domain_error:
+            values: [ "NULL", ERROR ]
+        return: i64
+  -
+    name: "power"
+    description: "Take the power with x as the base and y as exponent."
+    impls:
+      - args:
+          - name: x
+            value: i64
+          - name: y
+            value: i64
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i64
+      - args:
+          - name: x
+            value: fp32
+          - name: y
+            value: fp32
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+          - name: y
+            value: fp64
+        return: fp64
+  -
+    name: "sqrt"
+    description: "Square root of the value"
+    impls:
+      - args:
+          - name: x
+            value: i64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, ERROR ]
+        return: fp64
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, ERROR ]
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, ERROR ]
+        return: fp64
+  -
+    name: "exp"
+    description: "The mathematical constant e, raised to the power of the value."
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp64
+  -
+    name: "cos"
+    description: "Get the cosine of a value in radians."
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp64
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp64
+  -
+    name: "sin"
+    description: "Get the sine of a value in radians."
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp64
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp64
+  -
+    name: "tan"
+    description: "Get the tangent of a value in radians."
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp64
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp64
+  -
+    name: "cosh"
+    description: "Get the hyperbolic cosine of a value in radians."
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp64
+  -
+    name: "sinh"
+    description: "Get the hyperbolic sine of a value in radians."
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp64
+  -
+    name: "tanh"
+    description: "Get the hyperbolic tangent of a value in radians."
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp64
+  -
+    name: "acos"
+    description: "Get the arccosine of a value in radians."
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, ERROR ]
+        return: fp64
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, ERROR ]
+        return: fp64
+  -
+    name: "asin"
+    description: "Get the arcsine of a value in radians."
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, ERROR ]
+        return: fp64
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, ERROR ]
+        return: fp64
+  -
+    name: "atan"
+    description: "Get the arctangent of a value in radians."
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp64
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp64
+  -
+    name: "acosh"
+    description: "Get the hyperbolic arccosine of a value in radians."
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, ERROR ]
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, ERROR ]
+        return: fp64
+  -
+    name: "asinh"
+    description: "Get the hyperbolic arcsine of a value in radians."
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp64
+  -
+    name: "atanh"
+    description: "Get the hyperbolic arctangent of a value in radians."
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, ERROR ]
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, ERROR ]
+        return: fp64
+  -
+    name: "atan2"
+    description: "Get the arctangent of values given as x/y pairs."
+    impls:
+      - args:
+          - name: x
+            value: fp32
+          - name: y
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, ERROR ]
+        return: fp64
+      - args:
+          - name: x
+            value: fp64
+          - name: y
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, ERROR ]
+        return: fp64
+  -
+    name: "radians"
+    description: >
+      Converts angle `x` in degrees to radians.
+
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp64
+  -
+    name: "degrees"
+    description: >
+      Converts angle `x` in radians to degrees.
+
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        return: fp64
+  -
+    name: "abs"
+    description: >
+      Calculate the absolute value of the argument.
+
+      Integer values allow the specification of overflow behavior to handle the
+      unevenness of the twos complement, e.g. Int8 range [-128 : 127].
+    impls:
+      - args:
+          - name: x
+            value: i8
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i8
+      - args:
+          - name: x
+            value: i16
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i16
+      - args:
+          - name: x
+            value: i32
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i32
+      - args:
+          - name: x
+            value: i64
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i64
+      - args:
+          - name: x
+            value: fp32
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+        return: fp64
+  -
+    name: "sign"
+    description: >
+      Return the signedness of the argument.
+
+      Integer values return signedness with the same type as the input.
+      Possible return values are [-1, 0, 1]
+
+      Floating point values return signedness with the same type as the input.
+      Possible return values are [-1.0, -0.0, 0.0, 1.0, NaN]
+    impls:
+      - args:
+          - name: x
+            value: i8
+        return: i8
+      - args:
+          - name: x
+            value: i16
+        return: i16
+      - args:
+          - name: x
+            value: i32
+        return: i32
+      - args:
+          - name: x
+            value: i64
+        return: i64
+      - args:
+          - name: x
+            value: fp32
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+        return: fp64
+  -
+    name: "factorial"
+    description: >
+      Return the factorial of a given integer input.
+
+      The factorial of 0! is 1 by convention.
+
+      Negative inputs will raise an error.
+    impls:
+      - args:
+          - value: i32
+            name: "n"
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i32
+      - args:
+          - value: i64
+            name: "n"
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i64
+  -
+    name: "bitwise_not"
+    description: >
+      Return the bitwise NOT result for one integer input.
+
+    impls:
+      - args:
+          - name: x
+            value: i8
+        return: i8
+      - args:
+          - name: x
+            value: i16
+        return: i16
+      - args:
+          - name: x
+            value: i32
+        return: i32
+      - args:
+          - name: x
+            value: i64
+        return: i64
+  -
+    name: "bitwise_and"
+    description: >
+      Return the bitwise AND result for two integer inputs.
+
+    impls:
+      - args:
+          - name: x
+            value: i8
+          - name: y
+            value: i8
+        return: i8
+      - args:
+          - name: x
+            value: i16
+          - name: y
+            value: i16
+        return: i16
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        return: i32
+      - args:
+          - name: x
+            value: i64
+          - name: y
+            value: i64
+        return: i64
+  -
+    name: "bitwise_or"
+    description: >
+      Return the bitwise OR result for two given integer inputs.
+
+    impls:
+      - args:
+          - name: x
+            value: i8
+          - name: y
+            value: i8
+        return: i8
+      - args:
+          - name: x
+            value: i16
+          - name: y
+            value: i16
+        return: i16
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        return: i32
+      - args:
+          - name: x
+            value: i64
+          - name: y
+            value: i64
+        return: i64
+  -
+    name: "bitwise_xor"
+    description: >
+      Return the bitwise XOR result for two integer inputs.
+
+    impls:
+      - args:
+          - name: x
+            value: i8
+          - name: y
+            value: i8
+        return: i8
+      - args:
+          - name: x
+            value: i16
+          - name: y
+            value: i16
+        return: i16
+      - args:
+          - name: x
+            value: i32
+          - name: y
+            value: i32
+        return: i32
+      - args:
+          - name: x
+            value: i64
+          - name: y
+            value: i64
+        return: i64
+
+aggregate_functions:
+  - name: "sum"
+    description: Sum a set of values. The sum of zero elements yields null.
+    impls:
+      - args:
+          - name: x
+            value: i8
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i64?
+        return: i64?
+      - args:
+          - name: x
+            value: i16
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i64?
+        return: i64?
+      - args:
+          - name: x
+            value: i32
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i64?
+        return: i64?
+      - args:
+          - name: x
+            value: i64
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i64?
+        return: i64?
+      - args:
+          - name: x
+            value: fp32
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: fp64?
+        return: fp64?
+      - args:
+          - name: x
+            value: fp64
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: fp64?
+        return: fp64?
+  - name: "sum0"
+    description: >
+      Sum a set of values. The sum of zero elements yields zero.
+
+      Null values are ignored.
+    impls:
+      - args:
+          - name: x
+            value: i8
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i64
+        return: i64
+      - args:
+          - name: x
+            value: i16
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i64
+        return: i64
+      - args:
+          - name: x
+            value: i32
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i64
+        return: i64
+      - args:
+          - name: x
+            value: i64
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i64
+        return: i64
+      - args:
+          - name: x
+            value: fp32
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: fp64
+        return: fp64
+      - args:
+          - name: x
+            value: fp64
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: fp64
+        return: fp64
+  - name: "avg"
+    description: Average a set of values. For integral types, this truncates partial values.
+    impls:
+      - args:
+          - name: x
+            value: i8
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: "STRUCT<i64,i64>"
+        return: i8?
+      - args:
+          - name: x
+            value: i16
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: "STRUCT<i64,i64>"
+        return: i16?
+      - args:
+          - name: x
+            value: i32
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: "STRUCT<i64,i64>"
+        return: i32?
+      - args:
+          - name: x
+            value: i64
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: "STRUCT<i64,i64>"
+        return: i64?
+      - args:
+          - name: x
+            value: fp32
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: "STRUCT<fp64,i64>"
+        return: fp32?
+      - args:
+          - name: x
+            value: fp64
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: "STRUCT<fp64,i64>"
+        return: fp64?
+  - name: "min"
+    description: Min a set of values.
+    impls:
+      - args:
+          - name: x
+            value: i8
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i8?
+        return: i8?
+      - args:
+          - name: x
+            value: i16
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i16?
+        return: i16?
+      - args:
+          - name: x
+            value: i32
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i32?
+        return: i32?
+      - args:
+          - name: x
+            value: i64
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i64?
+        return: i64?
+      - args:
+          - name: x
+            value: fp32
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: fp32?
+        return: fp32?
+      - args:
+          - name: x
+            value: fp64
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: fp64?
+        return: fp64?
+      - args:
+          - name: x
+            value: timestamp
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: timestamp?
+        return: timestamp?
+      - args:
+          - name: x
+            value: timestamp_tz
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: timestamp_tz?
+        return: timestamp_tz?
+  - name: "max"
+    description: Max a set of values.
+    impls:
+      - args:
+          - name: x
+            value: i8
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i8?
+        return: i8?
+      - args:
+          - name: x
+            value: i16
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i16?
+        return: i16?
+      - args:
+          - name: x
+            value: i32
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i32?
+        return: i32?
+      - args:
+          - name: x
+            value: i64
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: i64?
+        return: i64?
+      - args:
+          - name: x
+            value: fp32
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: fp32?
+        return: fp32?
+      - args:
+          - name: x
+            value: fp64
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: fp64?
+        return: fp64?
+      - args:
+          - name: x
+            value: timestamp
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: timestamp?
+        return: timestamp?
+      - args:
+          - name: x
+            value: timestamp_tz
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: timestamp_tz?
+        return: timestamp_tz?
+  - name: "product"
+    description: Product of a set of values. Returns 1 for empty input.
+    impls:
+      - args:
+          - name: x
+            value: i8
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: MIRROR
+        decomposable: MANY
+        intermediate: i64
+        return: i8
+      - args:
+          - name: x
+            value: i16
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: MIRROR
+        decomposable: MANY
+        intermediate: i64
+        return: i16
+      - args:
+          - name: x
+            value: i32
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: MIRROR
+        decomposable: MANY
+        intermediate: i64
+        return: i32
+      - args:
+          - name: x
+            value: i64
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: MIRROR
+        decomposable: MANY
+        intermediate: i64
+        return: i64
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        nullability: MIRROR
+        decomposable: MANY
+        intermediate: fp64
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        nullability: MIRROR
+        decomposable: MANY
+        intermediate: fp64
+        return: fp64
+  - name: "std_dev"
+    description: Calculates standard-deviation for a set of values.
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          distribution:
+            values: [ SAMPLE, POPULATION]
+        nullability: DECLARED_OUTPUT
+        return: fp32?
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          distribution:
+            values: [ SAMPLE, POPULATION]
+        nullability: DECLARED_OUTPUT
+        return: fp64?
+  - name: "variance"
+    description: Calculates variance for a set of values.
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          distribution:
+            values: [ SAMPLE, POPULATION]
+        nullability: DECLARED_OUTPUT
+        return: fp32?
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          distribution:
+            values: [ SAMPLE, POPULATION]
+        nullability: DECLARED_OUTPUT
+        return: fp64?
+  - name: "corr"
+    description: >
+      Calculates the value of Pearson's correlation coefficient between `x` and `y`.
+      If there is no input, null is returned.
+    impls:
+      - args:
+          - name: x
+            value: fp32
+          - name: y
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        nullability: DECLARED_OUTPUT
+        return: fp32?
+      - args:
+          - name: x
+            value: fp64
+          - name: y
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        nullability: DECLARED_OUTPUT
+        return: fp64?
+  - name: "mode"
+    description: >
+      Calculates mode for a set of values.
+      If there is no input, null is returned.
+    impls:
+      - args:
+          - name: x
+            value: i8
+        nullability: DECLARED_OUTPUT
+        return: i8?
+      - args:
+          - name: x
+            value: i16
+        nullability: DECLARED_OUTPUT
+        return: i16?
+      - args:
+          - name: x
+            value: i32
+        nullability: DECLARED_OUTPUT
+        return: i32?
+      - args:
+          - name: x
+            value: i64
+        nullability: DECLARED_OUTPUT
+        return: i64?
+      - args:
+          - name: x
+            value: fp32
+        nullability: DECLARED_OUTPUT
+        return: fp32?
+      - args:
+          - name: x
+            value: fp64
+        nullability: DECLARED_OUTPUT
+        return: fp64?
+  - name: "median"
+    description: >
+      Calculate the median for a set of values.
+
+      Returns null if applied to zero records. For the integer implementations,
+      the rounding option determines how the median should be rounded if it ends
+      up midway between two values. For the floating point implementations,
+      they specify the usual floating point rounding mode.
+    impls:
+      - args:
+          - name: precision
+            description: >
+              Based on required operator performance and configured optimizations
+              on saving memory bandwidth, the precision of the end result can be
+              the highest possible accuracy or an approximation.
+
+                - EXACT: provides the exact result, rounded if needed according
+                  to the rounding option.
+                - APPROXIMATE: provides only an estimate; the result must lie
+                  between the minimum and maximum values in the input
+                  (inclusive), but otherwise the accuracy is left up to the
+                  consumer.
+            options: [ EXACT, APPROXIMATE ]
+          - name: x
+            value: i8
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        nullability: DECLARED_OUTPUT
+        return: i8?
+      - args:
+          - name: precision
+            description: >
+              Based on required operator performance and configured optimizations
+              on saving memory bandwidth, the precision of the end result can be
+              the highest possible accuracy or an approximation.
+
+                - EXACT: provides the exact result, rounded if needed according
+                  to the rounding option.
+                - APPROXIMATE: provides only an estimate; the result must lie
+                  between the minimum and maximum values in the input
+                  (inclusive), but otherwise the accuracy is left up to the
+                  consumer.
+            options: [ EXACT, APPROXIMATE ]
+          - name: x
+            value: i16
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        nullability: DECLARED_OUTPUT
+        return: i16?
+      - args:
+          - name: precision
+            description: >
+              Based on required operator performance and configured optimizations
+              on saving memory bandwidth, the precision of the end result can be
+              the highest possible accuracy or an approximation.
+
+                - EXACT: provides the exact result, rounded if needed according
+                  to the rounding option.
+                - APPROXIMATE: provides only an estimate; the result must lie
+                  between the minimum and maximum values in the input
+                  (inclusive), but otherwise the accuracy is left up to the
+                  consumer.
+            options: [ EXACT, APPROXIMATE ]
+          - name: x
+            value: i32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        nullability: DECLARED_OUTPUT
+        return: i32?
+      - args:
+          - name: precision
+            description: >
+              Based on required operator performance and configured optimizations
+              on saving memory bandwidth, the precision of the end result can be
+              the highest possible accuracy or an approximation.
+
+                - EXACT: provides the exact result, rounded if needed according
+                  to the rounding option.
+                - APPROXIMATE: provides only an estimate; the result must lie
+                  between the minimum and maximum values in the input
+                  (inclusive), but otherwise the accuracy is left up to the
+                  consumer.
+            options: [ EXACT, APPROXIMATE ]
+          - name: x
+            value: i64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        nullability: DECLARED_OUTPUT
+        return: i64?
+      - args:
+          - name: precision
+            description: >
+              Based on required operator performance and configured optimizations
+              on saving memory bandwidth, the precision of the end result can be
+              the highest possible accuracy or an approximation.
+
+                - EXACT: provides the exact result, rounded if needed according
+                  to the rounding option.
+                - APPROXIMATE: provides only an estimate; the result must lie
+                  between the minimum and maximum values in the input
+                  (inclusive), but otherwise the accuracy is left up to the
+                  consumer.
+            options: [ EXACT, APPROXIMATE ]
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        nullability: DECLARED_OUTPUT
+        return: fp32?
+      - args:
+          - name: precision
+            description: >
+              Based on required operator performance and configured optimizations
+              on saving memory bandwidth, the precision of the end result can be
+              the highest possible accuracy or an approximation.
+
+                - EXACT: provides the exact result, rounded if needed according
+                  to the rounding option.
+                - APPROXIMATE: provides only an estimate; the result must lie
+                  between the minimum and maximum values in the input
+                  (inclusive), but otherwise the accuracy is left up to the
+                  consumer.
+            options: [ EXACT, APPROXIMATE ]
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        nullability: DECLARED_OUTPUT
+        return: fp64?
+  - name: "quantile"
+    description: >
+      Calculates quantiles for a set of values.
+
+      This function will divide the aggregated values (passed via the
+      distribution argument) over N equally-sized bins, where N is passed
+      via a constant argument. It will then return the values at the
+      boundaries of these bins in list form. If the input is appropriately
+      sorted, this computes the quantiles of the distribution.
+
+      The function can optionally return the first and/or last element of
+      the input, as specified by the `boundaries` argument. If the input is
+      appropriately sorted, this will thus be the minimum and/or maximum
+      values of the distribution.
+
+      When the boundaries do not lie exactly on elements of the incoming
+      distribution, the function will interpolate between the two nearby
+      elements. If the interpolated value cannot be represented exactly,
+      the `rounding` option controls how the value should be selected or
+      computed.
+
+      The function fails and returns null in the following cases:
+        - `n` is null or less than one;
+        - any value in `distribution` is null.
+
+      The function returns an empty list if `n` equals 1 and `boundaries` is
+      set to `NEITHER`.
+
+    impls:
+      - args:
+          - name: boundaries
+            description: >
+              Which boundaries to include. For NEITHER, the output will have
+              n-1 elements, for MINIMUM and MAXIMUM it will have n elements,
+              and for BOTH it will have n+1 elements.
+            options: [ NEITHER, MINIMUM, MAXIMUM, BOTH ]
+          - name: precision
+            description: >
+              Based on required operator performance and configured optimizations
+              on saving memory bandwidth, the precision of the end result can be
+              the highest possible accuracy or an approximation.
+
+                - EXACT: provides the exact result, rounded if needed according
+                  to the rounding option.
+                - APPROXIMATE: provides only an estimate; the result must lie
+                  between the minimum and maximum values in the input
+                  (inclusive), but otherwise the accuracy is left up to the
+                  consumer.
+            options: [ EXACT, APPROXIMATE ]
+          - value: i64
+            constant: true
+            name: n
+            description: >
+              A positive integer which defines the number of quantile
+              partitions.
+          - value: any
+            name: distribution
+            description: >
+              The data for which the quantiles should be computed.
+        options:
+          rounding:
+            description: >
+              When a boundary is computed to lie somewhere between two values,
+              and this value cannot be exactly represented, this specifies how
+              to round it. For floating point numbers, it specifies the IEEE
+              754 rounding mode (as it does for all other floating point
+              operations). For integer types:
+
+                - TIE_TO_EVEN: round to nearest value; if exactly halfway, tie
+                  to the even option.
+                - TIE_AWAY_FROM_ZERO: round to nearest value; if exactly
+                  halfway, tie away from zero.
+                - TRUNCATE: always round toward zero.
+                - CEILING: always round toward positive infinity.
+                - FLOOR: always round toward negative infinity.
+
+              For non-numeric types, the behavior is the same as for integer
+              types, but applied to the index of the value in distribution.
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+        nullability: DECLARED_OUTPUT
+        ordered: true
+        return: LIST?<any>
+
+window_functions:
+  - name: "row_number"
+    description: "the number of the current row within its partition."
+    impls:
+      - args: []
+        nullability: DECLARED_OUTPUT
+        decomposable: NONE
+        return: i64?
+        window_type: PARTITION
+  - name: "rank"
+    description: "the rank of the current row, with gaps."
+    impls:
+      - args: []
+        nullability: DECLARED_OUTPUT
+        decomposable: NONE
+        return: i64?
+        window_type: PARTITION
+  - name: "dense_rank"
+    description: "the rank of the current row, without gaps."
+    impls:
+      - args: []
+        nullability: DECLARED_OUTPUT
+        decomposable: NONE
+        return: i64?
+        window_type: PARTITION
+  - name: "percent_rank"
+    description: "the relative rank of the current row."
+    impls:
+      - args: []
+        nullability: DECLARED_OUTPUT
+        decomposable: NONE
+        return: fp64?
+        window_type: PARTITION
+  - name: "cume_dist"
+    description: "the cumulative distribution."
+    impls:
+      - args: []
+        nullability: DECLARED_OUTPUT
+        decomposable: NONE
+        return: fp64?
+        window_type: PARTITION
+  - name: "ntile"
+    description: "Return an integer ranging from 1 to the argument value,dividing the partition as equally as possible."
+    impls:
+      - args:
+          - name: x
+            value: i32
+        nullability: DECLARED_OUTPUT
+        decomposable: NONE
+        return: i32?
+        window_type: PARTITION
+      - args:
+          - name: x
+            value: i64
+        nullability: DECLARED_OUTPUT
+        decomposable: NONE
+        return: i64?
+        window_type: PARTITION
+  - name: "first_value"
+    description: >
+      Returns the first value in the window.
+    impls:
+      - args:
+          - value: any1
+            name: expression
+        nullability: DECLARED_OUTPUT
+        decomposable: NONE
+        return: any1
+        window_type: PARTITION
+  - name: "last_value"
+    description: >
+      Returns the last value in the window.
+    impls:
+      - args:
+          - value: any1
+            name: expression
+        nullability: DECLARED_OUTPUT
+        decomposable: NONE
+        return: any1
+        window_type: PARTITION
+  - name: "nth_value"
+    description: >
+      Returns a value from the nth row based on the `window_offset`. `window_offset` should
+      be a positive integer. If the value of the `window_offset` is outside the range
+      of the window, `null` is returned.
+
+      The `on_domain_error` option governs behavior in cases where `window_offset` is not
+      a positive integer or `null`.
+    impls:
+      - args:
+          - value: any1
+            name: expression
+          - value: i32
+            name: window_offset
+        options:
+          on_domain_error:
+            values: [ NAN, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: NONE
+        return: any1?
+        window_type: PARTITION
+  - name: "lead"
+    description: >
+      Return a value from a following row based on a specified physical offset.
+      This allows you to compare a value in the current row against a following row.
+
+      The `expression` is evaluated against a row that comes after the current row based
+      on the `row_offset`.  The `row_offset` should be a positive integer and is set to
+      1 if not specified explicitly. If the `row_offset` is negative, the expression
+      will be evaluated against a row coming before the current row, similar to the `lag`
+      function. A `row_offset` of `null` will return `null`. The function returns the
+      `default` input value if `row_offset` goes beyond the scope of the window.
+      If a `default` value is not specified, it is set to `null`.
+
+      Example comparing the sales of the current year to the following year.
+      `row_offset` of 1.
+      | year | sales  | next_year_sales |
+      | 2019 | 20.50  | 30.00           |
+      | 2020 | 30.00  | 45.99           |
+      | 2021 | 45.99  | null            |
+    impls:
+      - args:
+          - value: any1
+            name: expression
+        nullability: DECLARED_OUTPUT
+        decomposable: NONE
+        return: any1?
+        window_type: PARTITION
+      - args:
+          - value: any1
+            name: expression
+          - value: i32
+            name: row_offset
+        nullability: DECLARED_OUTPUT
+        decomposable: NONE
+        return: any1?
+        window_type: PARTITION
+      - args:
+          - value: any1
+            name: expression
+          - value: i32
+            name: row_offset
+          - value: any1
+            name: default
+        nullability: DECLARED_OUTPUT
+        decomposable: NONE
+        return: any1?
+        window_type: PARTITION
+  - name: "lag"
+    description: >
+      Return a column value from a previous row based on a specified physical offset.
+      This allows you to compare a value in the current row against a previous row.
+
+      The `expression` is evaluated against a row that comes before the current row based
+      on the `row_offset`.  The `expression` can be a column, expression or subquery that
+      evaluates to a single value. The `row_offset` should be a positive integer and is set to
+      1 if not specified explicitly. If the `row_offset` is negative, the expression will
+      be evaluated against a row coming after the current row, similar to the `lead` function.
+      A `row_offset` of `null` will return `null`. The function returns the `default`
+      input value if `row_offset` goes beyond the scope of the partition. If a `default`
+      value is not specified, it is set to `null`.
+
+      Example comparing the sales of the current year to the previous year.
+      `row_offset` of 1.
+      | year | sales  | previous_year_sales |
+      | 2019 | 20.50  | null                |
+      | 2020 | 30.00  | 20.50               |
+      | 2021 | 45.99  | 30.00               |
+    impls:
+      - args:
+          - value: any1
+            name: expression
+        nullability: DECLARED_OUTPUT
+        decomposable: NONE
+        return: any1?
+        window_type: PARTITION
+      - args:
+          - value: any1
+            name: expression
+          - value: i32
+            name: row_offset
+        nullability: DECLARED_OUTPUT
+        decomposable: NONE
+        return: any1?
+        window_type: PARTITION
+      - args:
+          - value: any1
+            name: expression
+          - value: i32
+            name: row_offset
+          - value: any1
+            name: default
+        nullability: DECLARED_OUTPUT
+        decomposable: NONE
+        return: any1?
+        window_type: PARTITION

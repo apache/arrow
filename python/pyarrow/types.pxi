@@ -69,11 +69,18 @@ def _get_pandas_type_map():
                 'ns': np.dtype('timedelta64[ns]'),
             },
             _Type_BINARY: np.object_,
+            _Type_LARGE_BINARY: np.object_,
+            _Type_BINARY_VIEW: np.object_,
             _Type_FIXED_SIZE_BINARY: np.object_,
             _Type_STRING: np.object_,
+            _Type_LARGE_STRING: np.object_,
+            _Type_STRING_VIEW: np.object_,
             _Type_LIST: np.object_,
             _Type_MAP: np.object_,
+            _Type_DECIMAL32: np.object_,
+            _Type_DECIMAL64: np.object_,
             _Type_DECIMAL128: np.object_,
+            _Type_DECIMAL256: np.object_,
         })
     return _pandas_type_map
 
@@ -218,9 +225,9 @@ cdef class DataType(_Weakrefable):
         pass
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use public "
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use public "
                         "functions like pyarrow.int64, pyarrow.list_, etc. "
-                        "instead.".format(self.__class__.__name__))
+                        "instead.")
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
         assert type != nullptr
@@ -352,7 +359,7 @@ cdef class DataType(_Weakrefable):
         return type_for_alias, (str(self),)
 
     def __repr__(self):
-        return '{0.__class__.__name__}({0})'.format(self)
+        return f'{self.__class__.__name__}({self})'
 
     def __eq__(self, other):
         try:
@@ -1417,6 +1424,104 @@ cdef class FixedSizeBinaryType(DataType):
         return binary, (self.byte_width,)
 
 
+cdef class Decimal32Type(FixedSizeBinaryType):
+    """
+    Concrete class for decimal32 data types.
+
+    Examples
+    --------
+    Create an instance of decimal32 type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal32(5, 2)
+    Decimal32Type(decimal32(5, 2))
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        FixedSizeBinaryType.init(self, type)
+        self.decimal32_type = <const CDecimal32Type*> type.get()
+
+    def __reduce__(self):
+        return decimal32, (self.precision, self.scale)
+
+    @property
+    def precision(self):
+        """
+        The decimal precision, in number of decimal digits (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal32(5, 2)
+        >>> t.precision
+        5
+        """
+        return self.decimal32_type.precision()
+
+    @property
+    def scale(self):
+        """
+        The decimal scale (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal32(5, 2)
+        >>> t.scale
+        2
+        """
+        return self.decimal32_type.scale()
+
+
+cdef class Decimal64Type(FixedSizeBinaryType):
+    """
+    Concrete class for decimal64 data types.
+
+    Examples
+    --------
+    Create an instance of decimal64 type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal64(5, 2)
+    Decimal64Type(decimal64(5, 2))
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        FixedSizeBinaryType.init(self, type)
+        self.decimal64_type = <const CDecimal64Type*> type.get()
+
+    def __reduce__(self):
+        return decimal64, (self.precision, self.scale)
+
+    @property
+    def precision(self):
+        """
+        The decimal precision, in number of decimal digits (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal64(5, 2)
+        >>> t.precision
+        5
+        """
+        return self.decimal64_type.precision()
+
+    @property
+    def scale(self):
+        """
+        The decimal scale (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal64(5, 2)
+        >>> t.scale
+        2
+        """
+        return self.decimal64_type.scale()
+
+
 cdef class Decimal128Type(FixedSizeBinaryType):
     """
     Concrete class for decimal128 data types.
@@ -1777,8 +1882,7 @@ cdef class ExtensionType(BaseExtensionType):
             return NotImplemented
 
     def __repr__(self):
-        fmt = '{0.__class__.__name__}({1})'
-        return fmt.format(self, repr(self.storage_type))
+        return f'{self.__class__.__name__}({repr(self.storage_type)})'
 
     def __arrow_ext_serialize__(self):
         """
@@ -2031,91 +2135,7 @@ cdef class OpaqueType(BaseExtensionType):
         return OpaqueScalar
 
 
-_py_extension_type_auto_load = False
-
-
-cdef class PyExtensionType(ExtensionType):
-    """
-    Concrete base class for Python-defined extension types based on pickle
-    for (de)serialization.
-
-    .. warning::
-       This class is deprecated and its deserialization is disabled by default.
-       :class:`ExtensionType` is recommended instead.
-
-    Parameters
-    ----------
-    storage_type : DataType
-        The storage type for which the extension is built.
-    """
-
-    def __cinit__(self):
-        if type(self) is PyExtensionType:
-            raise TypeError("Can only instantiate subclasses of "
-                            "PyExtensionType")
-
-    def __init__(self, DataType storage_type):
-        warnings.warn(
-            "pyarrow.PyExtensionType is deprecated "
-            "and will refuse deserialization by default. "
-            "Instead, please derive from pyarrow.ExtensionType and implement "
-            "your own serialization mechanism.",
-            FutureWarning)
-        ExtensionType.__init__(self, storage_type, "arrow.py_extension_type")
-
-    def __reduce__(self):
-        raise NotImplementedError("Please implement {0}.__reduce__"
-                                  .format(type(self).__name__))
-
-    def __arrow_ext_serialize__(self):
-        return pickle.dumps(self)
-
-    @classmethod
-    def __arrow_ext_deserialize__(cls, storage_type, serialized):
-        if not _py_extension_type_auto_load:
-            warnings.warn(
-                "pickle-based deserialization of pyarrow.PyExtensionType subclasses "
-                "is disabled by default; if you only ingest "
-                "trusted data files, you may re-enable this using "
-                "`pyarrow.PyExtensionType.set_auto_load(True)`.\n"
-                "In the future, Python-defined extension subclasses should "
-                "derive from pyarrow.ExtensionType (not pyarrow.PyExtensionType) "
-                "and implement their own serialization mechanism.\n",
-                RuntimeWarning)
-            return UnknownExtensionType(storage_type, serialized)
-        try:
-            ty = pickle.loads(serialized)
-        except Exception:
-            # For some reason, it's impossible to deserialize the
-            # ExtensionType instance.  Perhaps the serialized data is
-            # corrupt, or more likely the type is being deserialized
-            # in an environment where the original Python class or module
-            # is not available.  Fall back on a generic BaseExtensionType.
-            return UnknownExtensionType(storage_type, serialized)
-
-        if ty.storage_type != storage_type:
-            raise TypeError("Expected storage type {0} but got {1}"
-                            .format(ty.storage_type, storage_type))
-        return ty
-
-    # XXX Cython marks extension types as immutable, so cannot expose this
-    # as a writable class attribute.
-    @classmethod
-    def set_auto_load(cls, value):
-        """
-        Enable or disable auto-loading of serialized PyExtensionType instances.
-
-        Parameters
-        ----------
-        value : bool
-            Whether to enable auto-loading.
-        """
-        global _py_extension_type_auto_load
-        assert isinstance(value, bool)
-        _py_extension_type_auto_load = value
-
-
-cdef class UnknownExtensionType(PyExtensionType):
+cdef class UnknownExtensionType(ExtensionType):
     """
     A concrete class for Python-defined extension types that refer to
     an unknown Python implementation.
@@ -2133,10 +2153,14 @@ cdef class UnknownExtensionType(PyExtensionType):
 
     def __init__(self, DataType storage_type, serialized):
         self.serialized = serialized
-        PyExtensionType.__init__(self, storage_type)
+        super().__init__(storage_type, "pyarrow.unknown")
 
     def __arrow_ext_serialize__(self):
         return self.serialized
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        return UnknownExtensionType()
 
 
 _python_extension_types_registry = []
@@ -2506,8 +2530,7 @@ cdef class Field(_Weakrefable):
         return field, (self.name, self.type, self.nullable, self.metadata)
 
     def __str__(self):
-        return 'pyarrow.Field<{0}>'.format(
-            frombytes(self.field.ToString(), safe=True))
+        return f'pyarrow.Field<{frombytes(self.field.ToString(), safe=True)}>'
 
     def __repr__(self):
         return self.__str__()
@@ -2549,7 +2572,11 @@ cdef class Field(_Weakrefable):
     @property
     def metadata(self):
         """
-        The field metadata.
+        The field metadata (if any is set).
+
+        Returns
+        -------
+        metadata : dict or None
 
         Examples
         --------
@@ -2982,11 +3009,11 @@ cdef class Schema(_Weakrefable):
     @property
     def metadata(self):
         """
-        The schema's metadata.
+        The schema's metadata (if any is set).
 
         Returns
         -------
-        metadata: dict
+        metadata: dict or None
 
         Examples
         --------
@@ -3158,7 +3185,7 @@ cdef class Schema(_Weakrefable):
         if isinstance(i, (bytes, str)):
             field_index = self.get_field_index(i)
             if field_index < 0:
-                raise KeyError("Column {} does not exist in schema".format(i))
+                raise KeyError(f"Column {i} does not exist in schema")
             else:
                 return self._field(field_index)
         elif isinstance(i, int):
@@ -3539,7 +3566,7 @@ cdef class Schema(_Weakrefable):
         return pyarrow_wrap_schema(new_schema)
 
     def to_string(self, truncate_metadata=True, show_field_metadata=True,
-                  show_schema_metadata=True):
+                  show_schema_metadata=True, element_size_limit=100):
         """
         Return human-readable representation of Schema
 
@@ -3552,6 +3579,8 @@ cdef class Schema(_Weakrefable):
             Display Field-level KeyValueMetadata
         show_schema_metadata : boolean, default True
             Display Schema-level KeyValueMetadata
+        element_size_limit : int, default 100
+            Maximum number of characters of a single element before it is truncated.
 
         Returns
         -------
@@ -3565,6 +3594,7 @@ cdef class Schema(_Weakrefable):
         options.truncate_metadata = truncate_metadata
         options.show_field_metadata = show_field_metadata
         options.show_schema_metadata = show_schema_metadata
+        options.element_size_limit = element_size_limit
 
         with nogil:
             check_status(
@@ -3646,6 +3676,19 @@ cdef class Schema(_Weakrefable):
         return pyarrow_wrap_schema(result)
 
 
+cdef CField.CMergeOptions _parse_field_merge_options(str promote_options) except *:
+    """
+    Returns MergeOptions::Permissive() or MergeOptions::Defaults() based on the value
+    of `promote_options`.
+    """
+    if promote_options == "permissive":
+        return CField.CMergeOptions.Permissive()
+    elif promote_options == "default":
+        return CField.CMergeOptions.Defaults()
+    else:
+        raise ValueError(f"Invalid promote_options: {promote_options}")
+
+
 def unify_schemas(schemas, *, promote_options="default"):
     """
     Unify schemas by merging fields by name.
@@ -3687,15 +3730,10 @@ def unify_schemas(schemas, *, promote_options="default"):
         vector[shared_ptr[CSchema]] c_schemas
     for schema in schemas:
         if not isinstance(schema, Schema):
-            raise TypeError("Expected Schema, got {}".format(type(schema)))
+            raise TypeError(f"Expected Schema, got {type(schema)}")
         c_schemas.push_back(pyarrow_unwrap_schema(schema))
 
-    if promote_options == "default":
-        c_options = CField.CMergeOptions.Defaults()
-    elif promote_options == "permissive":
-        c_options = CField.CMergeOptions.Permissive()
-    else:
-        raise ValueError(f"Invalid merge mode: {promote_options}")
+    c_options = _parse_field_merge_options(promote_options)
 
     return pyarrow_wrap_schema(
         GetResultValue(UnifySchemas(c_schemas, c_options)))
@@ -4429,15 +4467,15 @@ def float16():
     >>> a
     <pyarrow.lib.HalfFloatArray object at ...>
     [
-      15872,
-      32256
+      1.5,
+      nan
     ]
 
     Note that unlike other float types, if you convert this array
     to a python list, the types of its elements will be ``np.float16``
 
     >>> [type(val) for val in a.to_pylist()]
-    [<class 'numpy.float16'>, <class 'numpy.float16'>]
+    [<class 'float'>, <class 'float'>]
     """
     return primitive_type(_Type_HALF_FLOAT)
 
@@ -4494,6 +4532,116 @@ def float64():
     ]
     """
     return primitive_type(_Type_DOUBLE)
+
+
+cpdef DataType decimal32(int precision, int scale=0):
+    """
+    Create decimal type with precision and scale and 32-bit width.
+
+    Arrow decimals are fixed-point decimal numbers encoded as a scaled
+    integer.  The precision is the number of significant digits that the
+    decimal type can represent; the scale is the number of digits after
+    the decimal point (note the scale can be negative).
+
+    As an example, ``decimal32(7, 3)`` can exactly represent the numbers
+    1234.567 and -1234.567 (encoded internally as the 32-bit integers
+    1234567 and -1234567, respectively), but neither 12345.67 nor 123.4567.
+
+    ``decimal32(5, -3)`` can exactly represent the number 12345000
+    (encoded internally as the 32-bit integer 12345), but neither
+    123450000 nor 1234500.
+
+    If you need a precision higher than 9 significant digits, consider
+    using ``decimal64``, ``decimal128``, or ``decimal256``.
+
+    Parameters
+    ----------
+    precision : int
+        Must be between 1 and 9
+    scale : int
+
+    Returns
+    -------
+    decimal_type : Decimal32Type
+
+    Examples
+    --------
+    Create an instance of decimal type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal32(5, 2)
+    Decimal32Type(decimal32(5, 2))
+
+    Create an array with decimal type:
+
+    >>> import decimal
+    >>> a = decimal.Decimal('123.45')
+    >>> pa.array([a], pa.decimal32(5, 2))
+    <pyarrow.lib.Decimal32Array object at ...>
+    [
+      123.45
+    ]
+    """
+    cdef shared_ptr[CDataType] decimal_type
+    if precision < 1 or precision > 9:
+        raise ValueError("precision should be between 1 and 9")
+    decimal_type.reset(new CDecimal32Type(precision, scale))
+    return pyarrow_wrap_data_type(decimal_type)
+
+
+cpdef DataType decimal64(int precision, int scale=0):
+    """
+    Create decimal type with precision and scale and 64-bit width.
+
+    Arrow decimals are fixed-point decimal numbers encoded as a scaled
+    integer.  The precision is the number of significant digits that the
+    decimal type can represent; the scale is the number of digits after
+    the decimal point (note the scale can be negative).
+
+    As an example, ``decimal64(7, 3)`` can exactly represent the numbers
+    1234.567 and -1234.567 (encoded internally as the 64-bit integers
+    1234567 and -1234567, respectively), but neither 12345.67 nor 123.4567.
+
+    ``decimal64(5, -3)`` can exactly represent the number 12345000
+    (encoded internally as the 64-bit integer 12345), but neither
+    123450000 nor 1234500.
+
+    If you need a precision higher than 18 significant digits, consider
+    using ``decimal128``, or ``decimal256``.
+
+    Parameters
+    ----------
+    precision : int
+        Must be between 1 and 18
+    scale : int
+
+    Returns
+    -------
+    decimal_type : Decimal64Type
+
+    Examples
+    --------
+    Create an instance of decimal type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal64(5, 2)
+    Decimal64Type(decimal64(5, 2))
+
+    Create an array with decimal type:
+
+    >>> import decimal
+    >>> a = decimal.Decimal('123.45')
+    >>> pa.array([a], pa.decimal64(5, 2))
+    <pyarrow.lib.Decimal64Array object at ...>
+    [
+      123.45
+    ]
+    """
+    cdef shared_ptr[CDataType] decimal_type
+    if precision < 1 or precision > 18:
+        raise ValueError("precision should be between 1 and 18")
+    decimal_type.reset(new CDecimal64Type(precision, scale))
+    return pyarrow_wrap_data_type(decimal_type)
 
 
 cpdef DataType decimal128(int precision, int scale=0):
@@ -5313,14 +5461,14 @@ def union(child_fields, mode, type_codes=None):
     """
     if isinstance(mode, int):
         if mode not in (_UnionMode_SPARSE, _UnionMode_DENSE):
-            raise ValueError("Invalid union mode {0!r}".format(mode))
+            raise ValueError(f"Invalid union mode {mode!r}")
     else:
         if mode == 'sparse':
             mode = _UnionMode_SPARSE
         elif mode == 'dense':
             mode = _UnionMode_DENSE
         else:
-            raise ValueError("Invalid union mode {0!r}".format(mode))
+            raise ValueError(f"Invalid union mode {mode!r}")
 
     if mode == _UnionMode_SPARSE:
         return sparse_union(child_fields, type_codes)
@@ -5685,7 +5833,7 @@ def type_for_alias(name):
     try:
         alias = _type_aliases[name]
     except KeyError:
-        raise ValueError('No type alias for {0}'.format(name))
+        raise ValueError(f'No type alias for {name}')
 
     if isinstance(alias, DataType):
         return alias
@@ -5700,7 +5848,7 @@ cpdef DataType ensure_type(object ty, bint allow_none=False):
     elif isinstance(ty, str):
         return type_for_alias(ty)
     else:
-        raise TypeError('DataType expected, got {!r}'.format(type(ty)))
+        raise TypeError(f'DataType expected, got {type(ty)!r}')
 
 
 def schema(fields, metadata=None):
@@ -5873,39 +6021,6 @@ cdef class _ExtensionRegistryNanny(_Weakrefable):
 
 
 _registry_nanny = _ExtensionRegistryNanny()
-
-
-def _register_py_extension_type():
-    cdef:
-        DataType storage_type
-        shared_ptr[CExtensionType] cpy_ext_type
-        c_string c_extension_name = tobytes("arrow.py_extension_type")
-
-    # Make a dummy C++ ExtensionType
-    storage_type = null()
-    check_status(CPyExtensionType.FromClass(
-        storage_type.sp_type, c_extension_name, PyExtensionType,
-        &cpy_ext_type))
-    check_status(
-        RegisterPyExtensionType(<shared_ptr[CDataType]> cpy_ext_type))
-
-
-def _unregister_py_extension_types():
-    # This needs to be done explicitly before the Python interpreter is
-    # finalized.  If the C++ type is destroyed later in the process
-    # teardown stage, it will invoke CPython APIs such as Py_DECREF
-    # with a destroyed interpreter.
-    unregister_extension_type("arrow.py_extension_type")
-    for ext_type in _python_extension_types_registry:
-        try:
-            unregister_extension_type(ext_type.extension_name)
-        except KeyError:
-            pass
-    _registry_nanny.release_registry()
-
-
-_register_py_extension_type()
-atexit.register(_unregister_py_extension_types)
 
 
 #

@@ -26,10 +26,12 @@ except ImportError:
 import pyarrow as pa
 
 try:
-    from scipy.sparse import csr_matrix, coo_matrix
+    from scipy.sparse import csr_array, coo_array, csr_matrix, coo_matrix
 except ImportError:
     coo_matrix = None
     csr_matrix = None
+    csr_array = None
+    coo_array = None
 
 try:
     import sparse
@@ -49,6 +51,11 @@ tensor_type_pairs = [
     ('f2', pa.float16()),
     ('f4', pa.float32()),
     ('f8', pa.float64())
+]
+
+# scipy.sparse does not support float16
+scipy_type_pairs = [
+    pair for pair in tensor_type_pairs if pair[0] != 'f2'
 ]
 
 
@@ -395,17 +402,19 @@ def test_dense_to_sparse_tensor(dtype_str, arrow_type, sparse_tensor_type):
 
 
 @pytest.mark.skipif(not coo_matrix, reason="requires scipy")
-@pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
-def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type):
+@pytest.mark.parametrize('sparse_object', (coo_array, coo_matrix))
+@pytest.mark.parametrize('dtype_str,arrow_type', scipy_type_pairs)
+def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type,
+                                           sparse_object):
+    shape = (4, 6)
+    dim_names = ("x", "y")
     dtype = np.dtype(dtype_str)
     data = np.array([1, 2, 3, 4, 5, 6]).astype(dtype)
     row = np.array([0, 0, 2, 3, 1, 3])
     col = np.array([0, 2, 0, 4, 5, 5])
-    shape = (4, 6)
-    dim_names = ('x', 'y')
 
     # non-canonical sparse coo matrix
-    scipy_matrix = coo_matrix((data, (row, col)), shape=shape)
+    scipy_matrix = sparse_object((data, (row, col)), shape=shape)
     sparse_tensor = pa.SparseCOOTensor.from_scipy(scipy_matrix,
                                                   dim_names=dim_names)
     out_scipy_matrix = sparse_tensor.to_scipy()
@@ -420,11 +429,7 @@ def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type):
     assert np.array_equal(scipy_matrix.row, out_scipy_matrix.row)
     assert np.array_equal(scipy_matrix.col, out_scipy_matrix.col)
 
-    if dtype_str == 'f2':
-        dense_array = \
-            scipy_matrix.astype(np.float32).toarray().astype(np.float16)
-    else:
-        dense_array = scipy_matrix.toarray()
+    dense_array = scipy_matrix.toarray()
     assert np.array_equal(dense_array, sparse_tensor.to_tensor().to_numpy())
 
     # canonical sparse coo matrix
@@ -439,16 +444,18 @@ def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type):
 
 
 @pytest.mark.skipif(not csr_matrix, reason="requires scipy")
-@pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
-def test_sparse_csr_matrix_scipy_roundtrip(dtype_str, arrow_type):
+@pytest.mark.parametrize('sparse_object', (csr_array, csr_matrix))
+@pytest.mark.parametrize('dtype_str,arrow_type', scipy_type_pairs)
+def test_sparse_csr_matrix_scipy_roundtrip(dtype_str, arrow_type,
+                                           sparse_object):
+    shape = (4, 6)
+    dim_names = ("x", "y")
     dtype = np.dtype(dtype_str)
     data = np.array([8, 2, 5, 3, 4, 6]).astype(dtype)
     indptr = np.array([0, 2, 3, 4, 6])
     indices = np.array([0, 2, 5, 0, 4, 5])
-    shape = (4, 6)
-    dim_names = ('x', 'y')
 
-    sparse_array = csr_matrix((data, indices, indptr), shape=shape)
+    sparse_array = sparse_object((data, indices, indptr), shape=shape)
     sparse_tensor = pa.SparseCSRMatrix.from_scipy(sparse_array,
                                                   dim_names=dim_names)
     out_sparse_array = sparse_tensor.to_scipy()
@@ -460,11 +467,7 @@ def test_sparse_csr_matrix_scipy_roundtrip(dtype_str, arrow_type):
     assert np.array_equal(sparse_array.indptr, out_sparse_array.indptr)
     assert np.array_equal(sparse_array.indices, out_sparse_array.indices)
 
-    if dtype_str == 'f2':
-        dense_array = \
-            sparse_array.astype(np.float32).toarray().astype(np.float16)
-    else:
-        dense_array = sparse_array.toarray()
+    dense_array = sparse_array.toarray()
     assert np.array_equal(dense_array, sparse_tensor.to_tensor().to_numpy())
 
 

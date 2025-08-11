@@ -34,13 +34,14 @@ constexpr const char FileSystemKeyMaterialStore::kTempFilePrefix[];
 constexpr const char FileSystemKeyMaterialStore::kKeyMaterialFileSuffix[];
 
 FileSystemKeyMaterialStore::FileSystemKeyMaterialStore(
-    const std::string& key_material_file_path,
-    const std::shared_ptr<::arrow::fs::FileSystem>& file_system)
-    : key_material_file_path_{key_material_file_path}, file_system_{file_system} {}
+    std::string key_material_file_path,
+    std::shared_ptr<::arrow::fs::FileSystem> file_system)
+    : key_material_file_path_{std::move(key_material_file_path)},
+      file_system_{std::move(file_system)} {}
 
 std::shared_ptr<FileSystemKeyMaterialStore> FileSystemKeyMaterialStore::Make(
-    const std::string& parquet_file_path,
-    const std::shared_ptr<::arrow::fs::FileSystem>& file_system, bool use_tmp_prefix) {
+    std::string parquet_file_path, std::shared_ptr<::arrow::fs::FileSystem> file_system,
+    bool use_tmp_prefix) {
   if (parquet_file_path.empty()) {
     throw ParquetException(
         "The Parquet file path must be specified when using external key material");
@@ -50,7 +51,7 @@ std::shared_ptr<FileSystemKeyMaterialStore> FileSystemKeyMaterialStore::Make(
         "A file system must be specified when using external key material");
   }
 
-  ::arrow::fs::FileInfo file_info(parquet_file_path);
+  ::arrow::fs::FileInfo file_info(std::move(parquet_file_path));
   std::stringstream key_material_file_name;
   if (use_tmp_prefix) {
     key_material_file_name << FileSystemKeyMaterialStore::kTempFilePrefix;
@@ -61,8 +62,8 @@ std::shared_ptr<FileSystemKeyMaterialStore> FileSystemKeyMaterialStore::Make(
 
   std::string key_material_file_path = ::arrow::fs::internal::ConcatAbstractPath(
       file_info.dir_name(), key_material_file_name.str());
-  return std::make_shared<FileSystemKeyMaterialStore>(key_material_file_path,
-                                                      file_system);
+  return std::make_shared<FileSystemKeyMaterialStore>(std::move(key_material_file_path),
+                                                      std::move(file_system));
 }
 
 void FileSystemKeyMaterialStore::LoadKeyMaterialMap() {

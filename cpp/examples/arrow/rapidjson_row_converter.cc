@@ -516,7 +516,7 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> ConvertToRecordBatch(
   ARROW_ASSIGN_OR_RAISE(batch, batch_builder->Flush());
 
   // Use RecordBatch::ValidateFull() to make sure arrays were correctly constructed.
-  DCHECK_OK(batch->ValidateFull());
+  ARROW_RETURN_NOT_OK(batch->ValidateFull());
   return batch;
 }  // ConvertToRecordBatch
 

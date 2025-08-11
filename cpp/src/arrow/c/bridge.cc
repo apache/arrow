@@ -45,7 +45,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/range.h"
 #include "arrow/util/small_vector.h"
@@ -586,8 +586,8 @@ struct ArrayExporter {
       ++buffers_begin;
     }
 
-    bool need_variadic_buffer_sizes =
-        data->type->id() == Type::BINARY_VIEW || data->type->id() == Type::STRING_VIEW;
+    bool need_variadic_buffer_sizes = data->type->storage_id() == Type::BINARY_VIEW ||
+                                      data->type->storage_id() == Type::STRING_VIEW;
     if (need_variadic_buffer_sizes) {
       ++n_buffers;
     }
@@ -713,6 +713,8 @@ Status ExportRecordBatch(const RecordBatch& batch, struct ArrowArray* out,
 //////////////////////////////////////////////////////////////////////////
 // C device arrays
 
+namespace {
+
 Status ValidateDeviceInfo(const ArrayData& data,
                           std::optional<DeviceAllocationType>* device_type,
                           int64_t* device_id) {
@@ -752,6 +754,8 @@ Result<std::pair<std::optional<DeviceAllocationType>, int64_t>> ValidateDeviceIn
   RETURN_NOT_OK(ValidateDeviceInfo(data, &device_type, &device_id));
   return std::make_pair(device_type, device_id);
 }
+
+}  // namespace
 
 Status ExportDeviceArray(const Array& array, std::shared_ptr<Device::SyncEvent> sync,
                          struct ArrowDeviceArray* out, struct ArrowSchema* out_schema) {

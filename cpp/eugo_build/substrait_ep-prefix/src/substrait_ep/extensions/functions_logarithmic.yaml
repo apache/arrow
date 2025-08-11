@@ -1,0 +1,147 @@
+%YAML 1.2
+---
+scalar_functions:
+  -
+    name: "ln"
+    description: "Natural logarithm of the value"
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, "NULL", ERROR ]
+          on_log_zero:
+            values: [NAN, ERROR, MINUS_INFINITY]
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, "NULL", ERROR ]
+          on_log_zero:
+            values: [NAN, ERROR, MINUS_INFINITY]
+        return: fp64
+  -
+    name: "log10"
+    description: "Logarithm to base 10 of the value"
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, "NULL", ERROR ]
+          on_log_zero:
+            values: [NAN, ERROR, MINUS_INFINITY]
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, "NULL", ERROR ]
+          on_log_zero:
+            values: [NAN, ERROR, MINUS_INFINITY]
+        return: fp64
+  -
+    name: "log2"
+    description: "Logarithm to base 2 of the value"
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, "NULL", ERROR ]
+          on_log_zero:
+            values: [NAN, ERROR, MINUS_INFINITY]
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, "NULL", ERROR ]
+          on_log_zero:
+            values: [NAN, ERROR, MINUS_INFINITY]
+        return: fp64
+  -
+    name: "logb"
+    description: >
+      Logarithm of the value with the given base
+
+      logb(x, b) => log_{b} (x)
+    impls:
+      - args:
+          - value: fp32
+            name: "x"
+            description: "The number `x` to compute the logarithm of"
+          - value: fp32
+            name: "base"
+            description: "The logarithm base `b` to use"
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, "NULL", ERROR ]
+          on_log_zero:
+            values: [NAN, ERROR, MINUS_INFINITY]
+        return: fp32
+      - args:
+          - value: fp64
+            name: "x"
+            description: "The number `x` to compute the logarithm of"
+          - value: fp64
+            name: "base"
+            description: "The logarithm base `b` to use"
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, "NULL", ERROR ]
+          on_log_zero:
+            values: [NAN, ERROR, MINUS_INFINITY]
+        return: fp64
+  -
+    name: "log1p"
+    description: >
+      Natural logarithm (base e) of 1 + x
+
+      log1p(x) => log(1+x)
+    impls:
+      - args:
+          - name: x
+            value: fp32
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, "NULL", ERROR ]
+          on_log_zero:
+            values: [NAN, ERROR, MINUS_INFINITY]
+        return: fp32
+      - args:
+          - name: x
+            value: fp64
+        options:
+          rounding:
+            values: [ TIE_TO_EVEN, TIE_AWAY_FROM_ZERO, TRUNCATE, CEILING, FLOOR ]
+          on_domain_error:
+            values: [ NAN, "NULL", ERROR ]
+          on_log_zero:
+            values: [NAN, ERROR, MINUS_INFINITY]
+        return: fp64

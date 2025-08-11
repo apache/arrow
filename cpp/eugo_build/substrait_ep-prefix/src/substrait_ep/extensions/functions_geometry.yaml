@@ -1,0 +1,239 @@
+%YAML 1.2
+---
+types:
+  - name: geometry
+    structure: "BINARY"
+#    description: |
+#      An opaque type that can represent one or many points, lines, or shapes encompassing
+#      2, 3 or 4 dimension.
+scalar_functions:
+  -
+    name: "point"
+    description: >
+      Returns a 2D point with the given `x` and `y` coordinate values.
+    impls:
+      - args:
+          - name: x
+            value: fp64
+          - name: y
+            value: fp64
+        return: u!geometry
+  -
+    name: "make_line"
+    description: >
+      Returns a linestring connecting the endpoint of geometry `geom1` to the begin point of
+      geometry `geom2`. Repeated points at the beginning of input geometries are collapsed to a single point.
+
+      A linestring can be closed or simple.  A closed linestring starts and ends on the same
+      point. A simple linestring does not cross or touch itself.
+    impls:
+      - args:
+          - name: geom1
+            value: u!geometry
+          - name: geom2
+            value: u!geometry
+        return: u!geometry
+  -
+    name: "x_coordinate"
+    description: >
+      Return the x coordinate of the point.  Return null if not available.
+    impls:
+      - args:
+          - name: point
+            value: u!geometry
+        return: fp64
+  -
+    name: "y_coordinate"
+    description: >
+      Return the y coordinate of the point.  Return null if not available.
+    impls:
+      - args:
+          - name: point
+            value: u!geometry
+        return: fp64
+  -
+    name: "num_points"
+    description: >
+      Return the number of points in the geometry.  The geometry should be an linestring
+      or circularstring.
+    impls:
+      - args:
+          - name: geom
+            value: u!geometry
+        return: i64
+  -
+    name: "is_empty"
+    description: >
+      Return true is the geometry is an empty geometry.
+    impls:
+      - args:
+          - name: geom
+            value: u!geometry
+        return: boolean
+  -
+    name: "is_closed"
+    description: >
+      Return true if the geometry's start and end points are the same.
+    impls:
+      - args:
+          - name: geom
+            value: geometry
+        return: boolean
+  -
+    name: "is_simple"
+    description: >
+      Return true if the geometry does not self intersect.
+    impls:
+      - args:
+          - name: geom
+            value: u!geometry
+        return: boolean
+  -
+    name: "is_ring"
+    description: >
+      Return true if the geometry's start and end points are the same and it does not self
+      intersect.
+    impls:
+      - args:
+          - name: geom
+            value: u!geometry
+        return: boolean
+  -
+    name: "geometry_type"
+    description: >
+      Return the type of geometry as a string.
+    impls:
+      - args:
+          - name: geom
+            value: u!geometry
+        return: string
+  -
+    name: "envelope"
+    description: >
+      Return the minimum bounding box for the input geometry as a geometry.
+
+      The returned geometry is defined by the corner points of the bounding box.  If the
+      input geometry is a point or a line, the returned geometry can also be a point or line.
+    impls:
+      - args:
+          - name: geom
+            value: u!geometry
+        return: u!geometry
+  -
+    name: "dimension"
+    description: >
+      Return the dimension of the input geometry.  If the input is a collection of geometries,
+      return the largest dimension from the collection. Dimensionality is determined by
+      the complexity of the input and not the coordinate system being used.
+
+      Type dimensions:
+      POINT   - 0
+      LINE    - 1
+      POLYGON - 2
+    impls:
+      - args:
+          - name: geom
+            value: u!geometry
+        return: i8
+  -
+    name: "is_valid"
+    description: >
+      Return true if the input geometry is a valid 2D geometry.
+
+      For 3 dimensional and 4 dimensional geometries, the validity is still only tested
+      in 2 dimensions.
+    impls:
+      - args:
+          - name: geom
+            value: u!geometry
+        return: boolean
+  -
+    name: "collection_extract"
+    description: >
+      Given the input geometry collection, return a homogenous multi-geometry.  All geometries
+      in the multi-geometry will have the same dimension.
+
+      If type is not specified, the multi-geometry will only contain geometries of the highest
+      dimension.  If type is specified, the multi-geometry will only contain geometries
+      of that type.  If there are no geometries of the specified type, an empty geometry
+      is returned.  Only points, linestrings, and polygons are supported.
+
+      Type numbers:
+      POINT   - 0
+      LINE    - 1
+      POLYGON - 2
+    impls:
+      - args:
+          - name: geom_collection
+            value: u!geometry
+        return: u!geometry
+      - args:
+          - name: geom_collection
+            value: u!geometry
+          - name: type
+            value: i8
+        return: u!geometry
+  -
+    name: "flip_coordinates"
+    description: >
+      Return a version of the input geometry with the X and Y axis flipped.
+
+      This operation can be performed on geometries with more than 2 dimensions. However,
+      only X and Y axis will be flipped.
+    impls:
+      - args:
+          - name: geom_collection
+            value: u!geometry
+        return: u!geometry
+  -
+    name: "remove_repeated_points"
+    description: >
+      Return a version of the input geometry with duplicate consecutive points removed.
+
+      If the `tolerance` argument is provided, consecutive points within the tolerance
+      distance of one another are considered to be duplicates.
+    impls:
+      - args:
+          - name: geom
+            value: u!geometry
+        return: u!geometry
+      - args:
+          - name: geom
+            value: u!geometry
+          - name: tolerance
+            value: fp64
+        return: u!geometry
+  -
+    name: "buffer"
+    description: >
+      Compute and return an expanded version of the input geometry. All the points
+      of the returned geometry are at a distance of `buffer_radius` away from the points
+      of the input geometry. If a negative `buffer_radius` is provided, the geometry will
+      shrink instead of expand.  A negative `buffer_radius` may shrink the geometry completely,
+      in which case an empty geometry is returned. For input the geometries of points or lines,
+      a negative `buffer_radius` will always return an emtpy geometry.
+    impls:
+      - args:
+          - name: geom
+            value: u!geometry
+          - name: buffer_radius
+            value: fp64
+        return: u!geometry
+  -
+    name: "centroid"
+    description: >
+      Return a point which is the geometric center of mass of the input geometry.
+    impls:
+      - args:
+          - name: geom
+            value: u!geometry
+        return: u!geometry
+  -
+    name: "minimum_bounding_circle"
+    description: >
+      Return the smallest circle polygon that contains the input geometry.
+    impls:
+      - args:
+          - name: geom
+            value: u!geometry
+        return: u!geometry

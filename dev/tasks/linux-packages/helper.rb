@@ -28,7 +28,7 @@ module Helper
     def latest_commit_time(git_directory)
       return nil unless git_directory?(git_directory)
       cd(git_directory) do
-        return Time.iso8601(`git log -n 1 --format=%aI`.chomp).utc
+        return Time.iso8601(`git log -n 1 --no-show-signature --format=%aI`.chomp).utc
       end
     end
 
@@ -49,9 +49,9 @@ module Helper
       version_env = ENV["ARROW_VERSION"]
       return version_env if version_env
 
-      pom_xml_path = File.join(arrow_source_dir, "java", "pom.xml")
-      pom_xml_content = File.read(pom_xml_path)
-      version = pom_xml_content[/^  <version>(.+?)<\/version>/, 1]
+      cmakelists_txt_path = File.join(arrow_source_dir, "cpp", "CMakeLists.txt")
+      cmakelists_txt_content = File.read(cmakelists_txt_path)
+      version = cmakelists_txt_content[/^set\(ARROW_VERSION "(.+?)"/, 1]
       formatted_release_time = release_time.strftime("%Y%m%d")
       version.gsub(/-SNAPSHOT\z/) {"-dev#{formatted_release_time}"}
     end

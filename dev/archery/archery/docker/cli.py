@@ -28,12 +28,13 @@ from .core import DockerCompose, UndefinedImage
 def _mock_compose_calls(compose):
     from types import MethodType
     from subprocess import CompletedProcess
+    from itertools import chain
 
     def _mock(compose, command_tuple):
         def _execute(self, *args, **kwargs):
             params = [f'{k}={v}'
                       for k, v in self.config.params.items()]
-            command = ' '.join(params + command_tuple + args)
+            command = ' '.join(chain(params, command_tuple, args))
             click.echo(command)
             return CompletedProcess([], 0)
         return MethodType(_execute, compose)
@@ -75,7 +76,7 @@ def docker(ctx, src, dry_run, using_legacy_docker_compose, using_docker_cli,
     if not config_path.exists():
         raise click.ClickException(
             "Docker compose configuration cannot be found in directory {}, "
-            "try to pass the arrow source directory explicitly.".format(src)
+            f"try to pass the arrow source directory explicitly. {src}"
         )
 
     # take the Docker Compose parameters like PYTHON, PANDAS, UBUNTU from the
@@ -123,7 +124,7 @@ def docker_pull(obj, image, *, pull_leaf, ignore_pull_failures):
     except UndefinedImage as e:
         raise click.ClickException(
             "There is no service/image defined in docker-compose.yml with "
-            "name: {}".format(str(e))
+            f"name: {e}"
         )
     except RuntimeError as e:
         raise click.ClickException(str(e))
@@ -156,7 +157,7 @@ def docker_build(obj, image, *, force_pull, use_cache, use_leaf_cache):
     except UndefinedImage as e:
         raise click.ClickException(
             "There is no service/image defined in docker-compose.yml with "
-            "name: {}".format(str(e))
+            f"name: {e}"
         )
     except RuntimeError as e:
         raise click.ClickException(str(e))
@@ -250,7 +251,7 @@ def docker_run(obj, image, command, *, env, user, force_pull, force_build,
     except UndefinedImage as e:
         raise click.ClickException(
             "There is no service/image defined in docker-compose.yml with "
-            "name: {}".format(str(e))
+            f"name: {e}"
         )
     except RuntimeError as e:
         raise click.ClickException(str(e))

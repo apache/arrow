@@ -55,8 +55,13 @@
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
 #include <aws/core/utils/stream/PreallocatedStreamBuf.h>
 #include <aws/core/utils/xml/XmlSerializer.h>
+#include <aws/crt/io/Bootstrap.h>
+#include <aws/crt/io/EventLoopGroup.h>
+#include <aws/crt/io/HostResolver.h>
 #include <aws/identity-management/auth/STSAssumeRoleCredentialsProvider.h>
 #include <aws/s3/S3Client.h>
+#include <aws/s3/S3ClientConfiguration.h>
+#include <aws/s3/S3EndpointProvider.h>
 #include <aws/s3/S3Errors.h>
 #include <aws/s3/model/AbortMultipartUploadRequest.h>
 #include <aws/s3/model/CompleteMultipartUploadRequest.h>
@@ -78,42 +83,18 @@
 #include <aws/s3/model/PutObjectResult.h>
 #include <aws/s3/model/UploadPartRequest.h>
 
-// AWS_SDK_VERSION_{MAJOR,MINOR,PATCH} are available since 1.9.7.
-#if defined(AWS_SDK_VERSION_MAJOR) && defined(AWS_SDK_VERSION_MINOR) && \
-    defined(AWS_SDK_VERSION_PATCH)
 // Redundant "(...)" are for suppressing "Weird number of spaces at
 // line-start. Are you using a 2-space indent? [whitespace/indent]
 // [3]" errors...
-#  define ARROW_AWS_SDK_VERSION_CHECK(major, minor, patch)                      \
-    ((AWS_SDK_VERSION_MAJOR > (major) ||                                        \
-      (AWS_SDK_VERSION_MAJOR == (major) && AWS_SDK_VERSION_MINOR > (minor)) ||  \
-      ((AWS_SDK_VERSION_MAJOR == (major) && AWS_SDK_VERSION_MINOR == (minor) && \
-        AWS_SDK_VERSION_PATCH >= (patch)))))
-#else
-#  define ARROW_AWS_SDK_VERSION_CHECK(major, minor, patch) 0
-#endif
+#define ARROW_AWS_SDK_VERSION_CHECK(major, minor, patch)                      \
+  ((AWS_SDK_VERSION_MAJOR > (major) ||                                        \
+    (AWS_SDK_VERSION_MAJOR == (major) && AWS_SDK_VERSION_MINOR > (minor)) ||  \
+    ((AWS_SDK_VERSION_MAJOR == (major) && AWS_SDK_VERSION_MINOR == (minor) && \
+      AWS_SDK_VERSION_PATCH >= (patch)))))
 
-// This feature is available since 1.9.0 but
-// AWS_SDK_VERSION_{MAJOR,MINOR,PATCH} are available since 1.9.7. So
-// we can't use this feature for [1.9.0,1.9.6]. If it's a problem,
-// please report it to our issue tracker.
-#if ARROW_AWS_SDK_VERSION_CHECK(1, 9, 0)
-#  define ARROW_S3_HAS_CRT
-#endif
-
-#if ARROW_AWS_SDK_VERSION_CHECK(1, 10, 0)
-#  define ARROW_S3_HAS_S3CLIENT_CONFIGURATION
-#endif
-
-#ifdef ARROW_S3_HAS_CRT
-#  include <aws/crt/io/Bootstrap.h>
-#  include <aws/crt/io/EventLoopGroup.h>
-#  include <aws/crt/io/HostResolver.h>
-#endif
-
-#ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
-#  include <aws/s3/S3ClientConfiguration.h>
-#  include <aws/s3/S3EndpointProvider.h>
+// Keep this in sync with ThirdPartyToolChain.cmake
+#if !defined(AWS_SDK_VERSION_MAJOR) || !ARROW_AWS_SDK_VERSION_CHECK(1, 11, 0)
+#  error "AWS SDK version 1.11.0 or later is required"
 #endif
 
 #include "arrow/util/windows_fixup.h"
@@ -134,10 +115,11 @@
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow::fs {
 
@@ -168,6 +150,8 @@ static constexpr const char kSep = '/';
 static constexpr const char kAwsEndpointUrlEnvVar[] = "AWS_ENDPOINT_URL";
 static constexpr const char kAwsEndpointUrlS3EnvVar[] = "AWS_ENDPOINT_URL_S3";
 static constexpr const char kAwsDirectoryContentType[] = "application/x-directory";
+
+using namespace std::string_literals;  // NOLINT(build/namespaces)
 
 // -----------------------------------------------------------------------
 // S3ProxyOptions implementation
@@ -398,6 +382,9 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
       options.scheme = kv.second;
     } else if (kv.first == "endpoint_override") {
       options.endpoint_override = kv.second;
+    } else if (kv.first == "allow_delayed_open") {
+      ARROW_ASSIGN_OR_RAISE(options.allow_delayed_open,
+                            ::arrow::internal::ParseBoolean(kv.second));
     } else if (kv.first == "allow_bucket_creation") {
       ARROW_ASSIGN_OR_RAISE(options.allow_bucket_creation,
                             ::arrow::internal::ParseBoolean(kv.second));
@@ -411,6 +398,8 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
     } else if (kv.first == "tls_verify_certificates") {
       ARROW_ASSIGN_OR_RAISE(options.tls_verify_certificates,
                             ::arrow::internal::ParseBoolean(kv.second));
+    } else if (kv.first == "smart_defaults") {
+      options.smart_defaults = kv.second;
     } else {
       return Status::Invalid("Unexpected query parameter in S3 URI: '", kv.first, "'");
     }
@@ -437,7 +426,8 @@ bool S3Options::Equals(const S3Options& other) const {
       default_metadata_size
           ? (other.default_metadata && other.default_metadata->Equals(*default_metadata))
           : (!other.default_metadata || other.default_metadata->size() == 0);
-  return (region == other.region && connect_timeout == other.connect_timeout &&
+  return (smart_defaults == other.smart_defaults && region == other.region &&
+          connect_timeout == other.connect_timeout &&
           request_timeout == other.request_timeout &&
           endpoint_override == other.endpoint_override && scheme == other.scheme &&
           role_arn == other.role_arn && session_name == other.session_name &&
@@ -445,6 +435,7 @@ bool S3Options::Equals(const S3Options& other) const {
           proxy_options.Equals(other.proxy_options) &&
           credentials_kind == other.credentials_kind &&
           background_writes == other.background_writes &&
+          allow_delayed_open == other.allow_delayed_open &&
           allow_bucket_creation == other.allow_bucket_creation &&
           allow_bucket_deletion == other.allow_bucket_deletion &&
           tls_ca_file_path == other.tls_ca_file_path &&
@@ -785,22 +776,6 @@ class S3Client : public Aws::S3::S3Client {
   std::shared_ptr<S3RetryStrategy> s3_retry_strategy_;
 };
 
-// In AWS SDK < 1.8, Aws::Client::ClientConfiguration::followRedirects is a bool.
-template <bool Never = false>
-void DisableRedirectsImpl(bool* followRedirects) {
-  *followRedirects = false;
-}
-
-// In AWS SDK >= 1.8, it's a Aws::Client::FollowRedirectsPolicy scoped enum.
-template <typename PolicyEnum, PolicyEnum Never = PolicyEnum::NEVER>
-void DisableRedirectsImpl(PolicyEnum* followRedirects) {
-  *followRedirects = Never;
-}
-
-void DisableRedirects(Aws::Client::ClientConfiguration* c) {
-  DisableRedirectsImpl(&c->followRedirects);
-}
-
 // -----------------------------------------------------------------------
 // S3 client protection against use after finalization
 //
@@ -971,8 +946,6 @@ Result<std::shared_ptr<S3ClientHolder>> GetClientHolder(
 // -----------------------------------------------------------------------
 // S3 client factory: build S3Client from S3Options
 
-#ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
-
 // GH-40279: standard initialization of S3Client creates a new `S3EndpointProvider`
 // every time. Its construction takes 1ms, which makes instantiating every S3Client
 // very costly (see upstream bug report
@@ -1097,11 +1070,17 @@ class EndpointProviderCache {
   std::unordered_map<EndpointConfigKey, CacheValue> cache_;
 };
 
-#endif  // ARROW_S3_HAS_S3CLIENT_CONFIGURATION
-
 class ClientBuilder {
  public:
-  explicit ClientBuilder(S3Options options) : options_(std::move(options)) {}
+  // Make sure the default S3ClientConfiguration constructor is never invoked (see below)
+  ClientBuilder() = delete;
+
+  explicit ClientBuilder(S3Options options)
+      : options_(std::move(options)),
+        // The S3ClientConfiguration constructor always does EC2 metadata lookups,
+        // unless IMDS is disabled (GH-46214).
+        client_config_(/*useSmartDefaults=*/true, options_.smart_defaults.c_str(),
+                       /*shouldDisableIMDS=*/true) {}
 
   const Aws::Client::ClientConfiguration& config() const { return client_config_; }
 
@@ -1181,17 +1160,10 @@ class ClientBuilder {
     const bool use_virtual_addressing =
         options_.endpoint_override.empty() || options_.force_virtual_addressing;
 
-#ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
     client_config_.useVirtualAddressing = use_virtual_addressing;
     auto endpoint_provider = EndpointProviderCache::Instance()->Lookup(client_config_);
     auto client = std::make_shared<S3Client>(credentials_provider_, endpoint_provider,
                                              client_config_);
-#else
-    auto client = std::make_shared<S3Client>(
-        credentials_provider_, client_config_,
-        Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
-        use_virtual_addressing);
-#endif
     client->s3_retry_strategy_ = options_.retry_strategy;
     return GetClientHolder(std::move(client));
   }
@@ -1200,11 +1172,7 @@ class ClientBuilder {
 
  protected:
   S3Options options_;
-#ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
   Aws::S3::S3ClientConfiguration client_config_;
-#else
-  Aws::Client::ClientConfiguration client_config_;
-#endif
   std::shared_ptr<Aws::Auth::AWSCredentialsProvider> credentials_provider_;
 };
 
@@ -1268,7 +1236,8 @@ class RegionResolver {
   Status Init() {
     DCHECK(builder_.options().endpoint_override.empty());
     // On Windows with AWS SDK >= 1.8, it is necessary to disable redirects (ARROW-10085).
-    DisableRedirects(builder_.mutable_config());
+    builder_.mutable_config()->followRedirects =
+        Aws::Client::FollowRedirectsPolicy::NEVER;
     return builder_.BuildClient().Value(&holder_);
   }
 
@@ -1983,27 +1952,33 @@ class ObjectOutputStream final : public io::OutputStream {
       const void* data, int64_t nbytes, std::shared_ptr<Buffer> owned_buffer = nullptr) {
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
-    req.SetBody(std::make_shared<StringViewStream>(data, nbytes));
     req.SetContentLength(nbytes);
     RETURN_NOT_OK(SetSSECustomerKey(&req, sse_customer_key_));
 
     if (!background_writes_) {
-      req.SetBody(std::make_shared<StringViewStream>(data, nbytes));
+      // GH-45304: avoid setting a body stream if length is 0.
+      // This workaround can be removed once we require AWS SDK 1.11.489 or later.
+      if (nbytes != 0) {
+        req.SetBody(std::make_shared<StringViewStream>(data, nbytes));
+      }
 
       ARROW_ASSIGN_OR_RAISE(auto outcome, TriggerUploadRequest(req, holder_));
 
       RETURN_NOT_OK(sync_result_callback(req, upload_state_, part_number_, outcome));
     } else {
-      // If the data isn't owned, make an immutable copy for the lifetime of the closure
-      if (owned_buffer == nullptr) {
-        ARROW_ASSIGN_OR_RAISE(owned_buffer, AllocateBuffer(nbytes, io_context_.pool()));
-        memcpy(owned_buffer->mutable_data(), data, nbytes);
-      } else {
-        DCHECK_EQ(data, owned_buffer->data());
-        DCHECK_EQ(nbytes, owned_buffer->size());
+      // (GH-45304: avoid setting a body stream if length is 0, see above)
+      if (nbytes != 0) {
+        // If the data isn't owned, make an immutable copy for the lifetime of the closure
+        if (owned_buffer == nullptr) {
+          ARROW_ASSIGN_OR_RAISE(owned_buffer, AllocateBuffer(nbytes, io_context_.pool()));
+          memcpy(owned_buffer->mutable_data(), data, nbytes);
+        } else {
+          DCHECK_EQ(data, owned_buffer->data());
+          DCHECK_EQ(nbytes, owned_buffer->size());
+        }
+        req.SetBody(std::make_shared<StringViewStream>(owned_buffer->data(),
+                                                       owned_buffer->size()));
       }
-      req.SetBody(
-          std::make_shared<StringViewStream>(owned_buffer->data(), owned_buffer->size()));
 
       {
         std::unique_lock<std::mutex> lock(upload_state_->mutex);
@@ -2345,7 +2320,6 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     req.SetBucket(ToAwsString(bucket));
     req.SetKey(ToAwsString(key));
     req.SetContentType(kAwsDirectoryContentType);
-    req.SetBody(std::make_shared<std::stringstream>(""));
     return OutcomeToStatus(
         std::forward_as_tuple("When creating key '", key, "' in bucket '", bucket, "': "),
         "PutObject", client_lock.Move()->PutObject(req));
@@ -2379,8 +2353,6 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
       req.SetCopySourceSSECustomerKeyMD5(sse_headers.sse_customer_key_md5);
       req.SetCopySourceSSECustomerAlgorithm(sse_headers.sse_customer_algorithm);
     }
-    // ARROW-13048: Copy source "Must be URL-encoded" according to AWS SDK docs.
-    // However at least in 1.8 and 1.9 the SDK URL-encodes the path for you
     req.SetCopySource(src_path.ToAwsString());
     return OutcomeToStatus(
         std::forward_as_tuple("When copying key '", src_path.key, "' in bucket '",
@@ -3082,6 +3054,30 @@ Result<std::string> S3FileSystem::PathFromUri(const std::string& uri_string) con
                                      internal::AuthorityHandlingBehavior::kPrepend);
 }
 
+Result<std::string> S3FileSystem::MakeUri(std::string path) const {
+  if (path.length() <= 1 || path[0] != '/') {
+    return Status::Invalid("MakeUri requires an absolute, non-root path, got ", path);
+  }
+  ARROW_ASSIGN_OR_RAISE(auto uri, util::UriFromAbsolutePath(path));
+  if (!options().GetAccessKey().empty()) {
+    uri = "s3://" + options().GetAccessKey() + ":" + options().GetSecretKey() + "@" +
+          uri.substr("file:///"s.size());
+  } else {
+    uri = "s3" + uri.substr("file"s.size());
+  }
+  uri += "?";
+  uri += "region=" + util::UriEscape(options().region);
+  uri += "&";
+  uri += "scheme=" + util::UriEscape(options().scheme);
+  uri += "&";
+  uri += "endpoint_override=" + util::UriEscape(options().endpoint_override);
+  uri += "&";
+  uri += "allow_bucket_creation="s + (options().allow_bucket_creation ? "1" : "0");
+  uri += "&";
+  uri += "allow_bucket_deletion="s + (options().allow_bucket_deletion ? "1" : "0");
+  return uri;
+}
+
 S3Options S3FileSystem::options() const { return impl_->options(); }
 
 std::string S3FileSystem::region() const { return impl_->region(); }
@@ -3464,9 +3460,7 @@ struct AwsInstance {
         return;
       }
       GetClientFinalizer()->Finalize();
-#ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
       EndpointProviderCache::Instance()->Reset();
-#endif
       Aws::ShutdownAPI(aws_options_);
     }
   }
@@ -3493,7 +3487,6 @@ struct AwsInstance {
 
 #undef LOG_LEVEL_CASE
 
-#ifdef ARROW_S3_HAS_CRT
     aws_options_.ioOptions.clientBootstrap_create_fn =
         [ev_threads = options.num_event_loop_threads]() {
           // https://github.com/aws/aws-sdk-cpp/blob/1.11.15/src/aws-cpp-sdk-core/source/Aws.cpp#L65
@@ -3505,18 +3498,15 @@ struct AwsInstance {
           client_bootstrap->EnableBlockingShutdown();
           return client_bootstrap;
         };
-#endif
     aws_options_.loggingOptions.logLevel = aws_log_level;
     // By default the AWS SDK logs to files, log to console instead
     aws_options_.loggingOptions.logger_create_fn = [this] {
       return std::make_shared<Aws::Utils::Logging::ConsoleLogSystem>(
           aws_options_.loggingOptions.logLevel);
     };
-#if ARROW_AWS_SDK_VERSION_CHECK(1, 9, 272)
     // ARROW-18290: escape all special chars for compatibility with non-AWS S3 backends.
-    // This configuration options is only available with AWS SDK 1.9.272 and later.
     aws_options_.httpOptions.compliantRfc3986Encoding = true;
-#endif
+    aws_options_.httpOptions.installSigPipeHandler = options.install_sigpipe_handler;
     Aws::InitAPI(aws_options_);
   }
 
@@ -3572,32 +3562,33 @@ bool IsS3Finalized() { return GetAwsInstance()->IsFinalized(); }
 
 S3GlobalOptions S3GlobalOptions::Defaults() {
   auto log_level = S3LogLevel::Fatal;
-
-  auto result = arrow::internal::GetEnvVar("ARROW_S3_LOG_LEVEL");
-
-  if (result.ok()) {
-    // Extract, trim, and downcase the value of the environment variable
-    auto value =
-        arrow::internal::AsciiToLower(arrow::internal::TrimString(result.ValueUnsafe()));
-
-    if (value == "fatal") {
-      log_level = S3LogLevel::Fatal;
-    } else if (value == "error") {
-      log_level = S3LogLevel::Error;
-    } else if (value == "warn") {
-      log_level = S3LogLevel::Warn;
-    } else if (value == "info") {
-      log_level = S3LogLevel::Info;
-    } else if (value == "debug") {
-      log_level = S3LogLevel::Debug;
-    } else if (value == "trace") {
-      log_level = S3LogLevel::Trace;
-    } else if (value == "off") {
-      log_level = S3LogLevel::Off;
-    }
+  int num_event_loop_threads = 1;
+  // Extract, trim, and downcase the value of the environment variable
+  auto value = arrow::internal::GetEnvVar("ARROW_S3_LOG_LEVEL")
+                   .Map(arrow::internal::AsciiToLower)
+                   .Map(arrow::internal::TrimString)
+                   .ValueOr("fatal");
+  if (value == "fatal") {
+    log_level = S3LogLevel::Fatal;
+  } else if (value == "error") {
+    log_level = S3LogLevel::Error;
+  } else if (value == "warn") {
+    log_level = S3LogLevel::Warn;
+  } else if (value == "info") {
+    log_level = S3LogLevel::Info;
+  } else if (value == "debug") {
+    log_level = S3LogLevel::Debug;
+  } else if (value == "trace") {
+    log_level = S3LogLevel::Trace;
+  } else if (value == "off") {
+    log_level = S3LogLevel::Off;
   }
 
-  return S3GlobalOptions{log_level};
+  value = arrow::internal::GetEnvVar("ARROW_S3_THREADS").ValueOr("1");
+  if (uint32_t u; ::arrow::internal::ParseUnsigned(value.data(), value.size(), &u)) {
+    num_event_loop_threads = u;
+  }
+  return S3GlobalOptions{log_level, num_event_loop_threads};
 }
 
 // -----------------------------------------------------------------------
@@ -3614,5 +3605,15 @@ Result<std::string> ResolveS3BucketRegion(const std::string& bucket) {
   ARROW_ASSIGN_OR_RAISE(auto resolver, RegionResolver::DefaultInstance());
   return resolver->ResolveRegion(bucket);
 }
+
+auto kS3FileSystemModule = ARROW_REGISTER_FILESYSTEM(
+    "s3",
+    [](const arrow::util::Uri& uri, const io::IOContext& io_context,
+       std::string* out_path) -> Result<std::shared_ptr<fs::FileSystem>> {
+      RETURN_NOT_OK(EnsureS3Initialized());
+      ARROW_ASSIGN_OR_RAISE(auto options, S3Options::FromUri(uri, out_path));
+      return S3FileSystem::Make(options, io_context);
+    },
+    [] { DCHECK_OK(EnsureS3Finalized()); });
 
 }  // namespace arrow::fs

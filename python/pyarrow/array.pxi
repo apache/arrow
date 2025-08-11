@@ -17,10 +17,14 @@
 
 from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCapsule_New
 
+from collections.abc import Sequence
 import os
 import warnings
 from cython import sizeof
 
+cdef extern from "<variant>" namespace "std":
+    c_bool holds_alternative[T](...)
+    T get[T](...)
 
 cdef _sequence_to_array(object sequence, object mask, object size,
                         DataType type, CMemoryPool* pool, c_bool from_pandas):
@@ -117,6 +121,8 @@ def _handle_arrow_array_protocol(obj, type, mask, size):
                         "return a pyarrow Array or ChunkedArray.")
     if isinstance(res, ChunkedArray) and res.num_chunks==1:
         res = res.chunk(0)
+    if type is not None and res.type != type:
+        res = res.cast(type)
     return res
 
 
@@ -334,11 +340,10 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 if value_type is not None:
                     warnings.warn(
                         "The dtype of the 'categories' of the passed "
-                        "categorical values ({0}) does not match the "
-                        "specified type ({1}). For now ignoring the specified "
+                        f"categorical values ({values.categories.dtype}) does not match the "
+                        f"specified type ({value_type}). For now ignoring the specified "
                         "type, but in the future this mismatch will raise a "
-                        "TypeError".format(
-                            values.categories.dtype, value_type),
+                        "TypeError",
                         FutureWarning, stacklevel=2)
                     dictionary = array(
                         values.categories.values, memory_pool=memory_pool)
@@ -567,20 +572,53 @@ def infer_type(values, mask=None, from_pandas=False):
     return pyarrow_wrap_data_type(out)
 
 
+def arange(int64_t start, int64_t stop, int64_t step=1, *, memory_pool=None):
+    """
+    Create an array of evenly spaced values within a given interval.
+
+    This function is similar to Python's `range` function.
+    The resulting array will contain values starting from `start` up to but not
+    including `stop`, with a step size of `step`.
+
+    Parameters
+    ----------
+    start : int
+        The starting value for the sequence. The returned array will include this value.
+    stop : int
+        The stopping value for the sequence. The returned array will not include this value.
+    step : int, default 1
+        The spacing between values.
+    memory_pool : MemoryPool, optional
+        A memory pool to use for memory allocations.
+
+    Raises
+    ------
+    ArrowInvalid
+        If `step` is zero.
+
+    Returns
+    -------
+    arange : Array
+    """
+    cdef CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+    with nogil:
+        c_array = GetResultValue(Arange(start, stop, step, pool))
+    return pyarrow_wrap_array(c_array)
+
+
 def _normalize_slice(object arrow_obj, slice key):
     """
     Slices with step not equal to 1 (or None) will produce a copy
     rather than a zero-copy view
     """
     cdef:
-        Py_ssize_t start, stop, step
+        int64_t start, stop, step
         Py_ssize_t n = len(arrow_obj)
 
     start, stop, step = key.indices(n)
 
     if step != 1:
-        indices = np.arange(start, stop, step)
-        return arrow_obj.take(indices)
+        return arrow_obj.take(arange(start, stop, step))
     else:
         length = max(stop - start, 0)
         return arrow_obj.slice(start, length)
@@ -700,6 +738,113 @@ def _restore_array(data):
     """
     cdef shared_ptr[CArrayData] ad = _reconstruct_array_data(data)
     return pyarrow_wrap_array(MakeArray(ad))
+
+
+cdef class ArrayStatistics(_Weakrefable):
+    """
+    The class for statistics of an array.
+    """
+
+    def __init__(self):
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor "
+                        "directly")
+
+    cdef void init(self, const shared_ptr[CArrayStatistics]& sp_statistics):
+        self.sp_statistics = sp_statistics
+
+    def __repr__(self):
+        return (f"arrow.ArrayStatistics<null_count={self.null_count}, "
+                f"distinct_count={self.distinct_count}, min={self.min}, "
+                f"is_min_exact={self.is_min_exact}, max={self.max}, "
+                f"is_max_exact={self.is_max_exact}>")
+
+    @property
+    def null_count(self):
+        """
+        The number of nulls.
+        """
+        null_count = self.sp_statistics.get().null_count
+        # We'll be able to simplify this after
+        # https://github.com/cython/cython/issues/6692 is solved.
+        if null_count.has_value():
+            return null_count.value()
+        else:
+            return None
+
+    @property
+    def distinct_count(self):
+        """
+        The number of distinct values.
+        """
+        distinct_count = self.sp_statistics.get().distinct_count
+        if not distinct_count.has_value():
+            return None
+        value = distinct_count.value()
+        if holds_alternative[int64_t](value):
+            return get[int64_t](value)
+        else:
+            return get[double](value)
+
+    @property
+    def is_distinct_count_exact(self):
+        """
+        Whether the number of distinct values is a valid exact value or not.
+        """
+        distinct_count = self.sp_statistics.get().distinct_count
+        if not distinct_count.has_value():
+            return False
+        value = distinct_count.value()
+        return holds_alternative[int64_t](value)
+
+    @property
+    def min(self):
+        """
+        The minimum value.
+        """
+        return self._get_value(self.sp_statistics.get().min)
+
+    @property
+    def is_min_exact(self):
+        """
+        Whether the minimum value is an exact value or not.
+        """
+        return self.sp_statistics.get().is_min_exact
+
+    @property
+    def max(self):
+        """
+        The maximum value.
+        """
+        return self._get_value(self.sp_statistics.get().max)
+
+    @property
+    def is_max_exact(self):
+        """
+        Whether the maximum value is an exact value or not.
+        """
+        return self.sp_statistics.get().is_max_exact
+
+    cdef _get_value(self, const optional[CArrayStatisticsValueType]& optional_value):
+        """
+        Get a raw value from
+        std::optional<arrow::ArrayStatistics::ValueType>> data.
+
+        arrow::ArrayStatistics::ValueType is
+        std::variant<bool, int64_t, uint64_t, double, std::string>.
+        """
+        if not optional_value.has_value():
+            return None
+        value = optional_value.value()
+        if holds_alternative[c_bool](value):
+            return get[c_bool](value)
+        elif holds_alternative[int64_t](value):
+            return get[int64_t](value)
+        elif holds_alternative[uint64_t](value):
+            return get[uint64_t](value)
+        elif holds_alternative[double](value):
+            return get[double](value)
+        else:
+            return get[c_string](value)
 
 
 cdef class _PandasConvertible(_Weakrefable):
@@ -927,9 +1072,9 @@ cdef class Array(_PandasConvertible):
     """
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use one of "
-                        "the `pyarrow.Array.from_*` functions instead."
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor "
+                        "directly, use one of the `pyarrow.Array.from_*` "
+                        "functions instead.")
 
     cdef void init(self, const shared_ptr[CArray]& sp_array) except *:
         self.sp_array = sp_array
@@ -1171,18 +1316,18 @@ cdef class Array(_PandasConvertible):
 
         if type.num_fields != len(children):
             raise ValueError("Type's expected number of children "
-                             "({0}) did not match the passed number "
-                             "({1}).".format(type.num_fields, len(children)))
+                             f"({type.num_fields}) did not match the passed number "
+                             f"({len(children)})")
 
         if type.has_variadic_buffers:
             if type.num_buffers > len(buffers):
                 raise ValueError("Type's expected number of buffers is at least "
-                                 "{0}, but the passed number is "
-                                 "{1}.".format(type.num_buffers, len(buffers)))
+                                 f"{type.num_buffers}, but the passed number is "
+                                 f"{len(buffers)}.")
         elif type.num_buffers != len(buffers):
             raise ValueError("Type's expected number of buffers "
-                             "({0}) did not match the passed number "
-                             "({1}).".format(type.num_buffers, len(buffers)))
+                             f"({type.num_buffers}) did not match the passed number "
+                             f"({len(buffers)}).")
 
         for buf in buffers:
             # None will produce a null buffer pointer
@@ -1254,10 +1399,11 @@ cdef class Array(_PandasConvertible):
 
     def __repr__(self):
         type_format = object.__repr__(self)
-        return '{0}\n{1}'.format(type_format, str(self))
+        return f'{type_format}\n{self}'
 
     def to_string(self, *, int indent=2, int top_level_indent=0, int window=10,
-                  int container_window=2, c_bool skip_new_lines=False):
+                  int container_window=2, c_bool skip_new_lines=False,
+                  int element_size_limit=100):
         """
         Render a "pretty-printed" string representation of the Array.
 
@@ -1283,6 +1429,8 @@ cdef class Array(_PandasConvertible):
         skip_new_lines : bool
             If the array should be rendered as a single line of text
             or if each element should be on its own line.
+        element_size_limit : int, default 100
+            Maximum number of characters of a single element before it is truncated.
         """
         cdef:
             c_string result
@@ -1292,6 +1440,7 @@ cdef class Array(_PandasConvertible):
             options = PrettyPrintOptions(top_level_indent, window)
             options.skip_new_lines = skip_new_lines
             options.indent_size = indent
+            options.element_size_limit = element_size_limit
             check_status(
                 PrettyPrint(
                     deref(self.ap),
@@ -1649,16 +1798,30 @@ cdef class Array(_PandasConvertible):
             array = array.copy()
         return array
 
-    def to_pylist(self):
+    def to_pylist(self, *, maps_as_pydicts=None):
         """
         Convert to a list of native Python objects.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
 
         Returns
         -------
         lst : list
         """
         self._assert_cpu()
-        return [x.as_py() for x in self]
+        return [x.as_py(maps_as_pydicts=maps_as_pydicts) for x in self]
 
     def tolist(self):
         """
@@ -2024,7 +2187,8 @@ cdef class Array(_PandasConvertible):
         return pyarrow_wrap_array(array)
 
     def __dlpack__(self, stream=None):
-        """Export a primitive array as a DLPack capsule.
+        """
+        Export a primitive array as a DLPack capsule.
 
         Parameters
         ----------
@@ -2039,7 +2203,7 @@ cdef class Array(_PandasConvertible):
             A DLPack capsule for the array, pointing to a DLManagedTensor.
         """
         if stream is None:
-            dlm_tensor = GetResultValue(ExportToDLPack(self.sp_array))
+            dlm_tensor = GetResultValue(ExportArrayToDLPack(self.sp_array))
 
             return PyCapsule_New(dlm_tensor, 'dltensor', dlpack_pycapsule_deleter)
         else:
@@ -2082,6 +2246,20 @@ cdef class Array(_PandasConvertible):
     cdef void _assert_cpu(self) except *:
         if self.sp_array.get().device_type() != CDeviceAllocationType_kCPU:
             raise NotImplementedError("Implemented only for data on CPU device")
+
+    @property
+    def statistics(self):
+        """
+        Statistics of the array.
+        """
+        cdef ArrayStatistics stat
+        sp_stat = self.sp_array.get().statistics()
+        if sp_stat.get() == nullptr:
+            return None
+        else:
+            stat = ArrayStatistics.__new__(ArrayStatistics)
+            stat.init(sp_stat)
+            return stat
 
 
 cdef _array_like_to_pandas(obj, options, types_mapper):
@@ -2284,11 +2462,17 @@ cdef class MonthDayNanoIntervalArray(Array):
     Concrete class for Arrow arrays of interval[MonthDayNano] type.
     """
 
-    def to_pylist(self):
+    def to_pylist(self, *, maps_as_pydicts=None):
         """
         Convert to a list of native Python objects.
 
         pyarrow.MonthDayNano is used as the native representation.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
 
         Returns
         -------
@@ -2327,6 +2511,15 @@ cdef class FixedSizeBinaryArray(Array):
     Concrete class for Arrow arrays of a fixed-size binary data type.
     """
 
+cdef class Decima32Array(FixedSizeBinaryArray):
+    """
+    Concrete class for Arrow arrays of decimal32 data type.
+    """
+
+cdef class Decimal64Array(FixedSizeBinaryArray):
+    """
+    Concrete class for Arrow arrays of decimal64 data type.
+    """
 
 cdef class Decimal128Array(FixedSizeBinaryArray):
     """
@@ -3485,7 +3678,7 @@ cdef class FixedSizeListArray(BaseListArray):
     def values(self):
         """
         Return the underlying array of values which backs the
-        FixedSizeListArray.
+        FixedSizeListArray ignoring the array's offset.
 
         Note even null elements are included.
 
@@ -3569,7 +3762,7 @@ cdef class UnionArray(Array):
         result = (<CUnionArray*> self.ap).field(pos)
         if result != NULL:
             return pyarrow_wrap_array(result)
-        raise KeyError("UnionArray does not have child {}".format(pos))
+        raise KeyError(f"UnionArray does not have child {pos}")
 
     @property
     def type_codes(self):
@@ -4043,7 +4236,7 @@ cdef class StructArray(Array):
         memory_pool : MemoryPool (optional)
             For memory allocations, if required, otherwise uses default pool.
         type : pyarrow.StructType (optional)
-            Struct type for name and type of each child. 
+            Struct type for name and type of each child.
 
         Returns
         -------
@@ -4238,8 +4431,8 @@ cdef class RunEndEncodedArray(Array):
 
         if type.num_fields != len(children):
             raise ValueError("RunEndEncodedType's expected number of children "
-                             "({0}) did not match the passed number "
-                             "({1}).".format(type.num_fields, len(children)))
+                             f"({type.num_fields}) did not match the passed number "
+                             f"({len(children)})")
 
         # buffers are validated as if we needed to pass them to C++, but
         # _make_from_arrays will take care of filling in the expected
@@ -4251,13 +4444,13 @@ cdef class RunEndEncodedArray(Array):
                              "bitmap, buffers[0] is not None")
         if type.num_buffers != len(buffers):
             raise ValueError("RunEndEncodedType's expected number of buffers "
-                             "({0}) did not match the passed number "
-                             "({1}).".format(type.num_buffers, len(buffers)))
+                             f"({type.num_buffers}) did not match the passed number "
+                             f"({len(buffers)}).")
 
         # null_count is also validated as if we needed it
         if null_count != -1 and null_count != 0:
             raise ValueError("RunEndEncodedType's expected null_count (0) "
-                             "did not match passed number ({0})".format(null_count))
+                             f"did not match passed number ({null_count})")
 
         return RunEndEncodedArray._from_arrays(type, False, length, children[0],
                                                children[1], offset)
@@ -4340,8 +4533,8 @@ cdef class ExtensionArray(Array):
             shared_ptr[CExtensionArray] ext_array
 
         if storage.type != typ.storage_type:
-            raise TypeError("Incompatible storage type {0} "
-                            "for extension type {1}".format(storage.type, typ))
+            raise TypeError(f"Incompatible storage type {storage.type} "
+                            f"for extension type {typ}")
 
         ext_array = make_shared[CExtensionArray](typ.sp_type, storage.sp_array)
         cdef Array result = pyarrow_wrap_array(<shared_ptr[CArray]> ext_array)
@@ -4467,7 +4660,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         return pyarrow_wrap_tensor(GetResultValue(ctensor))
 
     @staticmethod
-    def from_numpy_ndarray(obj):
+    def from_numpy_ndarray(obj, dim_names=None):
         """
         Convert numpy tensors (ndarrays) to a fixed shape tensor extension array.
         The first dimension of ndarray will become the length of the fixed
@@ -4477,6 +4670,8 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         Parameters
         ----------
         obj : numpy.ndarray
+        dim_names : tuple or list of strings, default None
+            Explicit names to tensor dimensions.
 
         Examples
         --------
@@ -4512,6 +4707,17 @@ cdef class FixedShapeTensorArray(ExtensionArray):
                 "Cannot convert 1D array or scalar to fixed shape tensor array")
         if np.prod(obj.shape) == 0:
             raise ValueError("Expected a non-empty ndarray")
+        if dim_names is not None:
+            if not isinstance(dim_names, Sequence):
+                raise TypeError("dim_names must be a tuple or list")
+            if len(dim_names) != len(obj.shape[1:]):
+                raise ValueError(
+                    (f"The length of dim_names ({len(dim_names)}) does not match"
+                     f"the number of tensor dimensions ({len(obj.shape[1:])})."
+                     )
+                )
+            if not all(isinstance(name, str) for name in dim_names):
+                raise TypeError("Each element of dim_names must be a string")
 
         permutation = (-np.array(obj.strides)).argsort(kind='stable')
         if permutation[0] != 0:
@@ -4523,7 +4729,9 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         values = np.ravel(obj, order="K")
 
         return ExtensionArray.from_storage(
-            fixed_shape_tensor(arrow_type, shape[1:], permutation=permutation[1:] - 1),
+            fixed_shape_tensor(arrow_type, shape[1:],
+                               dim_names=dim_names,
+                               permutation=permutation[1:] - 1),
             FixedSizeListArray.from_arrays(values, shape[1:].prod())
         )
 
@@ -4705,6 +4913,8 @@ cdef dict _array_classes = {
     _Type_STRING_VIEW: StringViewArray,
     _Type_DICTIONARY: DictionaryArray,
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryArray,
+    _Type_DECIMAL32: Decimal32Array,
+    _Type_DECIMAL64: Decimal64Array,
     _Type_DECIMAL128: Decimal128Array,
     _Type_DECIMAL256: Decimal256Array,
     _Type_STRUCT: StructArray,
@@ -4802,7 +5012,7 @@ def concat_arrays(arrays, MemoryPool memory_pool=None):
     for array in arrays:
         if not isinstance(array, Array):
             raise TypeError("Iterable should contain Array objects, "
-                            "got {0} instead".format(type(array)))
+                            f"got {type(array)} instead")
         c_arrays.push_back(pyarrow_unwrap_array(array))
 
     with nogil:

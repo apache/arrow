@@ -20,18 +20,13 @@ from functools import wraps
 import gc
 import pytest
 
-try:
-    import numpy as np
-except ImportError:
-    np = None
-
 import pyarrow as pa
 from pyarrow.vendored.version import Version
-
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not numpy'
 pytestmark = pytest.mark.numpy
+np = pytest.importorskip("numpy")
 
 
 def PyCapsule_IsValid(capsule, name):
@@ -87,6 +82,9 @@ def test_dlpack(value_type, np_type_str):
     arr = pa.array(expected, type=value_type)
     check_dlpack_export(arr, expected)
 
+    t = pa.Tensor.from_numpy(expected)
+    check_dlpack_export(t, expected)
+
     arr_sliced = arr.slice(1, 1)
     expected = np.array([2], dtype=np.dtype(np_type_str))
     check_dlpack_export(arr_sliced, expected)
@@ -102,6 +100,30 @@ def test_dlpack(value_type, np_type_str):
     arr_zero = pa.array([], type=value_type)
     expected = np.array([], dtype=np.dtype(np_type_str))
     check_dlpack_export(arr_zero, expected)
+
+    t = pa.Tensor.from_numpy(expected)
+    check_dlpack_export(t, expected)
+
+
+@check_bytes_allocated
+@pytest.mark.parametrize('np_type',
+                         [np.uint8, np.uint16, np.uint32, np.uint64,
+                          np.int8, np.int16, np.int32, np.int64,
+                          np.float16, np.float32, np.float64,])
+def test_tensor_dlpack(np_type):
+    if Version(np.__version__) < Version("1.24.0"):
+        pytest.skip("No dlpack support in numpy versions older than 1.22.0, "
+                    "strict keyword in assert_array_equal added in numpy version "
+                    "1.24.0")
+
+    arr = np.array([1, 2, 3, 4, 5, 6, 1, 1])
+    expected = np.array(arr, dtype=np_type).reshape((2, 2, 2), order='C')
+    t = pa.Tensor.from_numpy(expected)
+    check_dlpack_export(t, expected)
+
+    expected = np.array(arr, dtype=np_type).reshape((2, 2, 2), order='F')
+    t = pa.Tensor.from_numpy(expected)
+    check_dlpack_export(t, expected)
 
 
 def test_dlpack_not_supported():

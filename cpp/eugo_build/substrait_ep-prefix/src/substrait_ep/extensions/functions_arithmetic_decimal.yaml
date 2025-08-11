@@ -1,0 +1,151 @@
+%YAML 1.2
+---
+scalar_functions:
+  -
+    name: "add"
+    description: "Add two decimal values."
+    impls:
+      - args:
+          - name: x
+            value: decimal<P1,S1>
+          - name: y
+            value: decimal<P2,S2>
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: |-
+          init_scale = max(S1,S2)
+          init_prec = init_scale + max(P1 - S1, P2 - S2) + 1
+          min_scale = min(init_scale, 6)
+          delta = init_prec - 38
+          prec = min(init_prec, 38)
+          scale_after_borrow = max(init_scale - delta, min_scale)
+          scale = init_prec > 38 ? scale_after_borrow : init_scale
+          DECIMAL<prec, scale>
+  -
+    name: "subtract"
+    impls:
+      - args:
+          - name: x
+            value: decimal<P1,S1>
+          - name: y
+            value: decimal<P2,S2>
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: |-
+          init_scale = max(S1,S2)
+          init_prec = init_scale + max(P1 - S1, P2 - S2) + 1
+          min_scale = min(init_scale, 6)
+          delta = init_prec - 38
+          prec = min(init_prec, 38)
+          scale_after_borrow = max(init_scale - delta, min_scale)
+          scale = init_prec > 38 ? scale_after_borrow : init_scale
+          DECIMAL<prec, scale>
+  -
+    name: "multiply"
+    impls:
+      - args:
+          - name: x
+            value: decimal<P1,S1>
+          - name: y
+            value: decimal<P2,S2>
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: |-
+          init_scale = S1 + S2
+          init_prec = P1 + P2 + 1
+          min_scale = min(init_scale, 6)
+          delta = init_prec - 38
+          prec = min(init_prec, 38)
+          scale_after_borrow = max(init_scale - delta, min_scale)
+          scale = init_prec > 38 ? scale_after_borrow : init_scale
+          DECIMAL<prec, scale>
+  -
+    name: "divide"
+    impls:
+      - args:
+          - name: x
+            value: decimal<P1,S1>
+          - name: y
+            value: decimal<P2,S2>
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: |-
+          init_scale = max(6, S1 + P2 + 1)
+          init_prec = P1 - S1 + P2 + init_scale
+          min_scale = min(init_scale, 6)
+          delta = init_prec - 38
+          prec = min(init_prec, 38)
+          scale_after_borrow = max(init_scale - delta, min_scale)
+          scale = init_prec > 38 ? scale_after_borrow : init_scale
+          DECIMAL<prec, scale>
+  -
+    name: "modulus"
+    impls:
+      - args:
+          - name: x
+            value: decimal<P1,S1>
+          - name: y
+            value: decimal<P2,S2>
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: |-
+          init_scale = max(S1,S2)
+          init_prec = min(P1 - S1, P2 - S2) + init_scale
+          min_scale = min(init_scale, 6)
+          delta = init_prec - 38
+          prec = min(init_prec, 38)
+          scale_after_borrow = max(init_scale - delta, min_scale)
+          scale = init_prec > 38 ? scale_after_borrow : init_scale
+          DECIMAL<prec, scale>
+aggregate_functions:
+  - name: "sum"
+    description: Sum a set of values.
+    impls:
+      - args:
+          - name: x
+            value: "DECIMAL<P, S>"
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: "DECIMAL?<38,S>"
+        return: "DECIMAL?<38,S>"
+  - name: "avg"
+    description: Average a set of values.
+    impls:
+      - args:
+          - name: x
+            value: "DECIMAL<P,S>"
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: "STRUCT<DECIMAL<38,S>,i64>"
+        return: "DECIMAL<38,S>"
+  - name: "min"
+    description: Min a set of values.
+    impls:
+      - args:
+          - name: x
+            value: "DECIMAL<P, S>"
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: "DECIMAL?<P, S>"
+        return: "DECIMAL?<P, S>"
+  - name: "max"
+    description: Max a set of values.
+    impls:
+      - args:
+          - name: x
+            value: "DECIMAL<P,S>"
+        nullability: DECLARED_OUTPUT
+        decomposable: MANY
+        intermediate: "DECIMAL?<P, S>"
+        return: "DECIMAL?<P, S>"

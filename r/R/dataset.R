@@ -131,7 +131,6 @@
 #' # Set up directory for examples
 #' tf <- tempfile()
 #' dir.create(tf)
-#' on.exit(unlink(tf))
 #'
 #' write_dataset(mtcars, tf, partitioning = "cyl")
 #'
@@ -145,7 +144,6 @@
 #' ## You must specify the file format if using a format other than parquet.
 #' tf2 <- tempfile()
 #' dir.create(tf2)
-#' on.exit(unlink(tf2))
 #' write_dataset(mtcars, tf2, format = "ipc")
 #' # This line will results in errors when you try to work with the data
 #' \dontrun{
@@ -158,7 +156,6 @@
 #' # Create a temporary directory and write example dataset
 #' tf3 <- tempfile()
 #' dir.create(tf3)
-#' on.exit(unlink(tf3))
 #' write_dataset(airquality, tf3, partitioning = c("Month", "Day"), hive_style = FALSE)
 #'
 #' # View files - you can see the partitioning means that files have been written
@@ -248,15 +245,23 @@ open_dataset <- function(sources,
 #' # Set up directory for examples
 #' tf <- tempfile()
 #' dir.create(tf)
-#' df <- data.frame(x = c("1", "2", "NULL"))
 #'
+#' df <- data.frame(x = c("1", "2", "NULL"))
 #' file_path <- file.path(tf, "file1.txt")
 #' write.table(df, file_path, sep = ",", row.names = FALSE)
 #'
+#' # Use readr-style params identically in both `read_csv_dataset()` and `open_csv_dataset()`
 #' read_csv_arrow(file_path, na = c("", "NA", "NULL"), col_names = "y", skip = 1)
 #' open_csv_dataset(file_path, na = c("", "NA", "NULL"), col_names = "y", skip = 1)
 #'
-#' unlink(tf)
+#' # Use `col_types` to specify a schema, partial schema, or compact representation
+#' tf2 <- tempfile()
+#' write_csv_dataset(cars, tf2)
+#'
+#' open_csv_dataset(tf2, col_types = schema(speed = int32(), dist = int32()))
+#' open_csv_dataset(tf2, col_types = schema(speed = int32()))
+#' open_csv_dataset(tf2, col_types = "ii", col_names = c("speed", "dist"), skip = 1)
+#'
 #' @seealso [open_dataset()]
 #' @export
 open_delim_dataset <- function(sources,

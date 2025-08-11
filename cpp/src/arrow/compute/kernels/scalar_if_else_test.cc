@@ -23,7 +23,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/checked_cast.h"
@@ -80,9 +80,9 @@ using IntegralArrowTypes = ::testing::Types<Int32Type>;
 #else
 using IfElseNumericBasedTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
-                     Int32Type, Int64Type, FloatType, DoubleType, Date32Type, Date64Type,
-                     Time32Type, Time64Type, TimestampType, MonthIntervalType,
-                     DurationType>;
+                     Int32Type, Int64Type, HalfFloatType, FloatType, DoubleType,
+                     Date32Type, Date64Type, Time32Type, Time64Type, TimestampType,
+                     MonthIntervalType, DurationType>;
 #endif
 
 TYPED_TEST_SUITE(TestIfElsePrimitive, IfElseNumericBasedTypes);

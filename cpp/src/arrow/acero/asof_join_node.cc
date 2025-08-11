@@ -32,6 +32,7 @@
 #include <unordered_set>
 
 #include "arrow/acero/exec_plan.h"
+#include "arrow/acero/exec_plan_internal.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/unmaterialized_table_internal.h"
 #ifndef NDEBUG
@@ -56,6 +57,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
 #include "arrow/util/future.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 
 namespace arrow {
@@ -411,11 +413,11 @@ class InputState : public util::SerialSequencingQueue::Processor {
              const std::vector<col_index_t>& key_col_index);
 
   static Result<std::unique_ptr<InputState>> Make(
-    size_t index, TolType tolerance, bool must_hash, bool may_rehash,
-    KeyHasher* key_hasher, ExecNode* asof_input, AsofJoinNode* asof_node,
-    std::atomic<int32_t>& backpressure_counter,
-    const std::shared_ptr<arrow::Schema>& schema, const col_index_t time_col_index,
-    const std::vector<col_index_t>& key_col_index);
+      size_t index, TolType tolerance, bool must_hash, bool may_rehash,
+      KeyHasher* key_hasher, ExecNode* asof_input, AsofJoinNode* asof_node,
+      std::atomic<int32_t>& backpressure_counter,
+      const std::shared_ptr<arrow::Schema>& schema, const col_index_t time_col_index,
+      const std::vector<col_index_t>& key_col_index);
 
   col_index_t InitSrcToDstMapping(col_index_t dst_offset, bool skip_time_and_key_fields);
 
@@ -443,7 +445,9 @@ class InputState : public util::SerialSequencingQueue::Processor {
   int total_batches() const;
 
   // Gets latest batch (precondition: must not be empty)
-  const std::shared_ptr<arrow::RecordBatch>& GetLatestBatch() const;
+  const std::shared_ptr<arrow::RecordBatch>& GetLatestBatch() const {
+    return queue_.Front();
+  }
 
   inline ByType GetLatestKey() const;
 
@@ -451,9 +455,35 @@ class InputState : public util::SerialSequencingQueue::Processor {
 
   inline OnType GetLatestTime() const;
 
-  bool Finished() const;
+#undef LATEST_VAL_CASE
 
-  Result<bool> Advance();
+  bool Finished() const { return batches_processed_ == total_batches_; }
+
+  Result<bool> Advance() {
+    // Try advancing to the next row and update latest_ref_row_
+    // Returns true if able to advance, false if not.
+    bool have_active_batch =
+        (latest_ref_row_ > 0 /*short circuit the lock on the queue*/) || !queue_.Empty();
+
+    if (have_active_batch) {
+      OnType next_time = GetLatestTime();
+      if (latest_time_ > next_time) {
+        return Status::Invalid("AsofJoin does not allow out-of-order on-key values");
+      }
+      latest_time_ = next_time;
+      // If we have an active batch
+      if (++latest_ref_row_ >= (row_index_t)queue_.Front()->num_rows()) {
+        // hit the end of the batch, need to get the next batch if possible.
+        ++batches_processed_;
+        latest_ref_row_ = 0;
+        bool did_pop = queue_.TryPop().has_value();
+        DCHECK(did_pop);
+        ARROW_UNUSED(did_pop);
+        have_active_batch = !queue_.Empty();
+      }
+    }
+    return have_active_batch;
+  }
 
   // Advance the data to be immediately past the tolerance's horizon for the specified
   // timestamp, update latest_time and latest_ref_row to the value that immediately pass
@@ -601,11 +631,11 @@ class AsofJoinNode : public ExecNode {
 
  public:
   AsofJoinNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
-             const std::vector<col_index_t>& indices_of_on_key,
-             const std::vector<std::vector<col_index_t>>& indices_of_by_key,
-             AsofJoinNodeOptions join_options, std::shared_ptr<Schema> output_schema,
-             std::vector<std::unique_ptr<KeyHasher>> key_hashers, bool must_hash,
-             bool may_rehash);
+               const std::vector<col_index_t>& indices_of_on_key,
+               const std::vector<std::vector<col_index_t>>& indices_of_by_key,
+               AsofJoinNodeOptions join_options, std::shared_ptr<Schema> output_schema,
+               std::vector<std::unique_ptr<KeyHasher>> key_hashers, bool must_hash,
+               bool may_rehash);
 
   Status Init() override;
 
@@ -629,22 +659,22 @@ class AsofJoinNode : public ExecNode {
       const std::vector<std::vector<col_index_t>>& indices_of_by_key);
 
   static inline Result<col_index_t> FindColIndex(const Schema& schema,
-                                               const FieldRef& field_ref,
-                                               std::string_view key_kind);
+                                                 const FieldRef& field_ref,
+                                                 std::string_view key_kind);
 
   static Result<size_t> GetByKeySize(
-    const std::vector<asofjoin::AsofJoinKeys>& input_keys);
+      const std::vector<asofjoin::AsofJoinKeys>& input_keys);
 
   static Result<std::vector<col_index_t>> GetIndicesOfOnKey(
-    const std::vector<std::shared_ptr<Schema>>& input_schema,
-    const std::vector<asofjoin::AsofJoinKeys>& input_keys);
+      const std::vector<std::shared_ptr<Schema>>& input_schema,
+      const std::vector<asofjoin::AsofJoinKeys>& input_keys);
 
   static Result<std::vector<std::vector<col_index_t>>> GetIndicesOfByKey(
-    const std::vector<std::shared_ptr<Schema>>& input_schema,
-    const std::vector<asofjoin::AsofJoinKeys>& input_keys);
+      const std::vector<std::shared_ptr<Schema>>& input_schema,
+      const std::vector<asofjoin::AsofJoinKeys>& input_keys);
 
   static arrow::Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                                     const ExecNodeOptions& options);
+                                       const ExecNodeOptions& options);
 
   const char* kind_name() const override;
   const Ordering& ordering() const override;
@@ -707,24 +737,25 @@ class AsofJoinNode : public ExecNode {
 };
 
 InputState::InputState(size_t index, TolType tolerance, bool must_hash, bool may_rehash,
-             KeyHasher* key_hasher, AsofJoinNode* node, BackpressureHandler handler,
-             const std::shared_ptr<arrow::Schema>& schema,
-             const col_index_t time_col_index,
-             const std::vector<col_index_t>& key_col_index)
-      : sequencer_(util::SerialSequencingQueue::Make(this)),
-        queue_(std::move(handler)),
-        schema_(schema),
-        time_col_index_(time_col_index),
-        key_col_index_(key_col_index),
-        time_type_id_(schema_->fields()[time_col_index_]->type()->id()),
-        key_type_id_(key_col_index.size()),
-        key_hasher_(key_hasher),
-        node_(node),
-        index_(index),
-        must_hash_(must_hash),
-        may_rehash_(may_rehash),
-        tolerance_(tolerance),
-        memo_(DEBUG_ADD(/*no_future=*/index == 0 || !tolerance.positive, node, index)) {
+                       KeyHasher* key_hasher, AsofJoinNode* node,
+                       BackpressureHandler handler,
+                       const std::shared_ptr<arrow::Schema>& schema,
+                       const col_index_t time_col_index,
+                       const std::vector<col_index_t>& key_col_index)
+    : sequencer_(util::SerialSequencingQueue::Make(this)),
+      queue_(std::move(handler)),
+      schema_(schema),
+      time_col_index_(time_col_index),
+      key_col_index_(key_col_index),
+      time_type_id_(schema_->fields()[time_col_index_]->type()->id()),
+      key_type_id_(key_col_index.size()),
+      key_hasher_(key_hasher),
+      node_(node),
+      index_(index),
+      must_hash_(must_hash),
+      may_rehash_(may_rehash),
+      tolerance_(tolerance),
+      memo_(DEBUG_ADD(/*no_future=*/index == 0 || !tolerance.positive, node, index)) {
   for (size_t k = 0; k < key_col_index_.size(); k++) {
     key_type_id_[k] = schema_->fields()[key_col_index_[k]]->type()->id();
   }
@@ -743,12 +774,13 @@ Result<std::unique_ptr<InputState>> InputState::Make(
   ARROW_ASSIGN_OR_RAISE(
       auto handler, BackpressureHandler::Make(asof_input, low_threshold, high_threshold,
                                               std::move(backpressure_control)));
-  return std::make_unique<InputState>(index, tolerance, must_hash, may_rehash,
-                                      key_hasher, asof_node, std::move(handler), schema,
+  return std::make_unique<InputState>(index, tolerance, must_hash, may_rehash, key_hasher,
+                                      asof_node, std::move(handler), schema,
                                       time_col_index, key_col_index);
 }
 
-col_index_t InputState::InitSrcToDstMapping(col_index_t dst_offset, bool skip_time_and_key_fields) {
+col_index_t InputState::InitSrcToDstMapping(col_index_t dst_offset,
+                                            bool skip_time_and_key_fields) {
   src_to_dst_.resize(schema_->num_fields());
   for (int i = 0; i < schema_->num_fields(); ++i)
     if (!(skip_time_and_key_fields && IsTimeOrKeyColumn(i)))
@@ -820,53 +852,17 @@ inline ByType InputState::GetKey(const RecordBatch* batch, row_index_t row) cons
     LATEST_VAL_CASE(TIMESTAMP, key_value)
     default:
       DCHECK(false);
-    return 0;  // cannot happen
+      return 0;  // cannot happen
   }
 }
 
 #undef LATEST_VAL_CASE
 
 inline OnType InputState::GetLatestTime() const {
-  return GetTime(GetLatestBatch().get(), time_type_id_, time_col_index_,
-                 latest_ref_row_);
+  return GetTime(GetLatestBatch().get(), time_type_id_, time_col_index_, latest_ref_row_);
 }
 
 int InputState::total_batches() const { return total_batches_; }
-
-const std::shared_ptr<arrow::RecordBatch>& InputState::GetLatestBatch() const {
-  return queue_.UnsyncFront();
-}
-
-bool InputState::Finished() const { return batches_processed_ == total_batches_; }
-
-Result<bool> InputState::Advance() {
-  // Try advancing to the next row and update latest_ref_row_
-  // Returns true if able to advance, false if not.
-  bool have_active_batch =
-      (latest_ref_row_ > 0 /*short circuit the lock on the queue*/) || !queue_.Empty();
-
-  if (have_active_batch) {
-    OnType next_time = GetLatestTime();
-    if (latest_time_ > next_time) {
-      return Status::Invalid("AsofJoin does not allow out-of-order on-key values");
-    }
-    latest_time_ = next_time;
-    // If we have an active batch
-    if (++latest_ref_row_ >= (row_index_t)queue_.UnsyncFront()->num_rows()) {
-      // hit the end of the batch, need to get the next batch if possible.
-      ++batches_processed_;
-      latest_ref_row_ = 0;
-      have_active_batch &= !queue_.TryPop();
-      if (have_active_batch) {
-        DCHECK_GT(queue_.UnsyncFront()->num_rows(), 0);  // empty batches disallowed
-        memo_.UpdateTime(GetTime(queue_.UnsyncFront().get(), time_type_id_,
-                                 time_col_index_,
-                                 0));  // time changed
-      }
-    }
-  }
-  return have_active_batch;
-}
 
 Result<bool> InputState::AdvanceAndMemoize(OnType ts, bool empty) {
   // Advance the right side row index until we reach the latest right row (for each key)
@@ -997,7 +993,8 @@ KeyHasher::KeyHasher(size_t index, const std::vector<col_index_t>& indices)
   column_arrays_.resize(indices.size());
 }
 
-Status KeyHasher::Init(ExecContext* exec_context, const std::shared_ptr<arrow::Schema>& schema) {
+Status KeyHasher::Init(ExecContext* exec_context,
+                       const std::shared_ptr<arrow::Schema>& schema) {
   ctx_.hardware_flags = exec_context->cpu_info()->hardware_flags();
   const auto& fields = schema->fields();
   for (size_t k = 0; k < metadata_.size(); k++) {
@@ -1135,7 +1132,7 @@ bool AsofJoinNode::Process() {
 
 void AsofJoinNode::ProcessThread() {
   for (;;) {
-    if (!process_.Pop()) {
+    if (!process_.WaitAndPop()) {
       EndFromProcessThread();
       return;
     }
@@ -1178,7 +1175,9 @@ AsofJoinNode::~AsofJoinNode() {
 #endif
 }
 
-const std::vector<col_index_t>& AsofJoinNode::indices_of_on_key() { return indices_of_on_key_; }
+const std::vector<col_index_t>& AsofJoinNode::indices_of_on_key() {
+  return indices_of_on_key_;
+}
 const std::vector<std::vector<col_index_t>>& AsofJoinNode::indices_of_by_key() {
   return indices_of_by_key_;
 }
@@ -1330,8 +1329,8 @@ arrow::Result<std::shared_ptr<Schema>> AsofJoinNode::MakeOutputSchema(
 }
 
 inline Result<col_index_t> AsofJoinNode::FindColIndex(const Schema& schema,
-                                               const FieldRef& field_ref,
-                                               std::string_view key_kind) {
+                                                      const FieldRef& field_ref,
+                                                      std::string_view key_kind) {
   auto match_res = field_ref.FindOne(schema);
   if (!match_res.ok()) {
     return Status::Invalid("Bad join key on table : ", match_res.status().message());
@@ -1382,8 +1381,8 @@ Result<std::vector<std::vector<col_index_t>>> AsofJoinNode::GetIndicesOfByKey(
   }
   ARROW_ASSIGN_OR_RAISE(size_t n_by, GetByKeySize(input_keys));
   size_t n_input = input_schema.size();
-  std::vector<std::vector<col_index_t>> indices_of_by_key(
-      n_input, std::vector<col_index_t>(n_by));
+  std::vector<std::vector<col_index_t>> indices_of_by_key(n_input,
+                                                          std::vector<col_index_t>(n_by));
   for (size_t i = 0; i < n_input; ++i) {
     for (size_t k = 0; k < n_by; k++) {
       const auto& by_key = input_keys[i].by_key;
@@ -1395,7 +1394,7 @@ Result<std::vector<std::vector<col_index_t>>> AsofJoinNode::GetIndicesOfByKey(
 }
 
 arrow::Result<ExecNode*> AsofJoinNode::Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                                     const ExecNodeOptions& options) {
+                                            const ExecNodeOptions& options) {
   DCHECK_GE(inputs.size(), 2) << "Must have at least two inputs";
   const auto& join_options = checked_cast<const AsofJoinNodeOptions&>(options);
   ARROW_ASSIGN_OR_RAISE(size_t n_by, GetByKeySize(join_options.input_keys));

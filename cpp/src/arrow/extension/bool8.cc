@@ -18,7 +18,7 @@
 #include <sstream>
 
 #include "arrow/extension/bool8.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow::extension {
 

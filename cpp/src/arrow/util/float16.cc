@@ -220,7 +220,9 @@ Float16 Float16::FromDouble(double d) {
   return FromBits(BinaryConverter<uint64_t>::ToBinary16(d_bits));
 }
 
-std::ostream& operator<<(std::ostream& os, Float16 arg) { return (os << arg.ToFloat()); }
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, Float16 arg) {
+  return (os << arg.ToFloat());
+}
 
 }  // namespace util
 }  // namespace arrow

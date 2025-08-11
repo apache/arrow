@@ -58,11 +58,11 @@ module Arrow
       @data.reverse_each(&block)
     end
 
-    def n_rows
-      @data.n_rows
+    def size
+      @data.size
     end
-    alias_method :size, :n_rows
-    alias_method :length, :n_rows
+    alias_method :length, :size
+    alias_method :n_rows, :size
 
     def n_nulls
       @data.n_nulls

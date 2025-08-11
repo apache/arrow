@@ -21,7 +21,7 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
@@ -30,7 +30,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/formatting.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -1878,7 +1878,7 @@ TEST_F(ScalarTemporalTest, TestLocalTimestamp) {
 TEST_F(ScalarTemporalTest, TestAssumeTimezone) {
   std::string timezone_utc = "UTC";
   std::string timezone_kolkata = "Asia/Kolkata";
-  std::string timezone_us_central = "US/Central";
+  std::string timezone_us_central = "America/Chicago";
   const char* times_utc = R"(["1970-01-01T00:00:00", null])";
   const char* times_kolkata = R"(["1970-01-01T05:30:00", null])";
   const char* times_us_central = R"(["1969-12-31T18:00:00", null])";
@@ -2004,7 +2004,7 @@ TEST_F(ScalarTemporalTest, Strftime) {
                    string_milliseconds, &options);
   CheckScalarUnary("strftime", timestamp(TimeUnit::MICRO, "Asia/Kolkata"), microseconds,
                    utf8(), string_microseconds, &options);
-  CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "US/Hawaii"), nanoseconds,
+  CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "Pacific/Honolulu"), nanoseconds,
                    utf8(), string_nanoseconds, &options);
 
   auto options_hms = StrftimeOptions("%H:%M:%S");
@@ -2154,13 +2154,23 @@ TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
   auto options = StrftimeOptions("%d %B %Y %H:%M:%S", "fr_FR.UTF-8");
   const char* milliseconds = R"(
       ["1970-01-01T00:00:59.123", "2021-08-18T15:11:50.456", null])";
+#ifdef ARROW_WITH_MUSL
+  // musl-locales uses Capital case for month name.
+  // musl doesn't use "," for milliseconds separator.
+  const char* expected = R"(
+      ["01 Janvier 1970 00:00:59.123", "18 Août 2021 15:11:50.456", null])";
+#else
   const char* expected = R"(
       ["01 janvier 1970 00:00:59,123", "18 août 2021 15:11:50,456", null])";
+#endif
   CheckScalarUnary("strftime", timestamp(TimeUnit::MILLI, "UTC"), milliseconds, utf8(),
                    expected, &options);
 }
 
 TEST_F(ScalarTemporalTest, StrftimeInvalidLocale) {
+#ifdef ARROW_WITH_MUSL
+  GTEST_SKIP() << "musl doesn't report an error for invalid locale";
+#endif
 #ifdef __EMSCRIPTEN__
   GTEST_SKIP() << "Emscripten doesn't build with multiple locales as default";
 #endif

@@ -98,6 +98,28 @@ classdef tTime32Array < matlab.unittest.TestCase
             testCase.verifyEqual(array.NumElements, int64(5));
         end
 
+        function TestNumNulls(testCase)
+            % Verify the NumNulls property returns correct value.
+            
+            % array1 has 0 null values.
+            dates = seconds(1:10);
+            array1 = testCase.ArrowArrayConstructorFcn(dates);
+            testCase.verifyEqual(array1.NumNulls, int64(0));
+
+            % array2 has 8 null values.
+            array2 = testCase.ArrowArrayConstructorFcn(dates, Valid=[1 2]);
+            testCase.verifyEqual(array2.NumNulls, int64(8));
+        end
+
+        function TestNumNullsNoSetter(testCase)
+            % Verify the NumNulls property is read-only.
+
+            data =  seconds(1:10);
+            array = testCase.ArrowArrayConstructorFcn(data, Valid=[2 3]);
+            fcn = @() setfield(array, "NumNulls", 1);
+            testCase.verifyError(fcn, "MATLAB:class:SetProhibited");            
+        end
+
         function TestToMATLAB(testCase, Unit)
             % Verify toMATLAB() round-trips the original duration array.
             times = seconds([100 200 355 400]);

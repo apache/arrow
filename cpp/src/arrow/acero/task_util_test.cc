@@ -231,5 +231,97 @@ TEST(TaskScheduler, StressTwo) {
   }
 }
 
+TEST(TaskScheduler, AbortContOnTaskErrorSerial) {
+  constexpr int kNumTasks = 16;
+
+  auto scheduler = TaskScheduler::Make();
+  auto task = [&](std::size_t, int64_t task_id) {
+    if (task_id == kNumTasks / 2) {
+      return Status::Invalid("Task failed");
+    }
+    return Status::OK();
+  };
+
+  int task_group =
+      scheduler->RegisterTaskGroup(task, [](std::size_t) { return Status::OK(); });
+  scheduler->RegisterEnd();
+
+  ASSERT_OK(scheduler->StartScheduling(
+      /*thread_id=*/0,
+      /*schedule_impl=*/
+      [](TaskScheduler::TaskGroupContinuationImpl) { return Status::OK(); },
+      /*num_concurrent_tasks=*/1, /*use_sync_execution=*/true));
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid, "Invalid: Task failed",
+      scheduler->StartTaskGroup(/*thread_id=*/0, task_group, kNumTasks));
+
+  int num_abort_cont_calls = 0;
+  auto abort_cont = [&]() { ++num_abort_cont_calls; };
+
+  scheduler->Abort(abort_cont);
+
+  ASSERT_EQ(num_abort_cont_calls, 1);
+}
+
+TEST(TaskScheduler, AbortContOnTaskErrorParallel) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+  constexpr int kNumThreads = 16;
+
+  ThreadIndexer thread_indexer;
+  int num_threads = std::min(static_cast<int>(thread_indexer.Capacity()), kNumThreads);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ThreadPool> thread_pool,
+                       MakePrimedThreadPool(num_threads));
+  TaskScheduler::ScheduleImpl schedule =
+      [&](TaskScheduler::TaskGroupContinuationImpl task) {
+        return thread_pool->Spawn([&, task] {
+          std::size_t thread_id = thread_indexer();
+          auto status = task(thread_id);
+          ASSERT_TRUE(status.ok() || status.IsInvalid() || status.IsCancelled())
+              << status;
+        });
+      };
+
+  for (int num_tasks :
+       {2, num_threads - 1, num_threads, num_threads + 1, 2 * num_threads}) {
+    ARROW_SCOPED_TRACE("num_tasks = ", num_tasks);
+    for (int num_concurrent_tasks :
+         {1, num_tasks - 1, num_tasks, num_tasks + 1, 2 * num_tasks}) {
+      ARROW_SCOPED_TRACE("num_concurrent_tasks = ", num_concurrent_tasks);
+      for (int aborting_task_id = 0; aborting_task_id < num_tasks; ++aborting_task_id) {
+        ARROW_SCOPED_TRACE("aborting_task_id = ", aborting_task_id);
+        auto scheduler = TaskScheduler::Make();
+
+        int num_abort_cont_calls = 0;
+        auto abort_cont = [&]() { ++num_abort_cont_calls; };
+
+        auto task = [&](std::size_t, int64_t task_id) {
+          if (task_id == aborting_task_id) {
+            scheduler->Abort(abort_cont);
+          }
+          if (task_id % 2 == 0) {
+            return Status::Invalid("Task failed");
+          }
+          return Status::OK();
+        };
+
+        int task_group =
+            scheduler->RegisterTaskGroup(task, [](std::size_t) { return Status::OK(); });
+        scheduler->RegisterEnd();
+
+        ASSERT_OK(scheduler->StartScheduling(/*thread_id=*/0, schedule,
+                                             num_concurrent_tasks,
+                                             /*use_sync_execution=*/false));
+        ASSERT_OK(scheduler->StartTaskGroup(/*thread_id=*/0, task_group, num_tasks));
+
+        thread_pool->WaitForIdle();
+
+        ASSERT_EQ(num_abort_cont_calls, 1);
+      }
+    }
+  }
+}
+
 }  // namespace acero
 }  // namespace arrow

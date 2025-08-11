@@ -16,7 +16,7 @@
 % permissions and limitations under the License.
 function rb = recordBatch(T)
     arguments
-        T table
+        T table = table.empty(0, 0)
     end
 
     arrowArrays = arrow.tabular.internal.decompose(T);

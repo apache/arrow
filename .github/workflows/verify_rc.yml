@@ -1,0 +1,286 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Verify RC
+
+on:
+  push:
+    tags:
+      - "*-rc*"
+  pull_request:
+    paths:
+      - ".github/workflows/verify_rc.yml"
+  workflow_dispatch:
+    inputs:
+      rc_tag:
+        description: "Tag of the rc to verify"
+        type: string
+        required: true
+
+
+permissions:
+  contents: read
+
+env:
+  TEST_DEFAULT: "0"
+  VERBOSE: "1"
+
+jobs:
+  target:
+    name: Target
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.detect.outputs.version }}
+      rc: ${{ steps.detect.outputs.rc }}
+    steps:
+      - name: Detect
+        id: detect
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          case "${GITHUB_EVENT_NAME}" in
+            workflow_dispatch)
+              tag="${{ inputs.rc_tag }}"
+              ;;
+            pull_request)
+              tag="$(gh release list \
+                       --jq '.[] | select(.isPrerelease) | .tagName' \
+                       --json tagName,isPrerelease \
+                       --repo ${GITHUB_REPOSITORY} | \
+                       head -n1)"
+              ;;
+            *)
+              tag="${GITHUB_REF_NAME}"
+              ;;
+          esac
+          package_id=${tag%-rc*}
+          version=${package_id#apache-arrow-}
+          rc=${tag#*-rc}
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "rc=${rc}" >> "${GITHUB_OUTPUT}"
+
+  apt:
+    name: APT
+    needs: target
+    runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+    env:
+      RC: ${{ needs.target.outputs.rc }}
+      TEST_APT: "1"
+      VERSION: ${{ needs.target.outputs.version }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Run
+        run: |
+          dev/release/verify-release-candidate.sh ${VERSION} ${RC}
+      - name: Verify the previous version
+        # TODO: We may re-enable this in the future.
+        # There are some problems for now:
+        # * We need to specify the previous versions for all
+        #   dependencies explicitly. For example, "apt install
+        #   libarrow-glib-dev=20.0.0-1" doesn't work. We need "apt
+        #   install libarrow-glib-dev=20.0.0-1
+        #   libarrow-acero-dev=20.0.0-1 libparquet-dev=20.0.0-1
+        #   gir1.2-arrow-1.0=20.0.0-1 libparquet-dev=20.0.0-1
+        #   libarrow-dev=20.0.0-1"
+        continue-on-error: true
+        run: |
+          major_version=${VERSION%%.*}
+          previous_major_version=$((major_version - 1))
+          previous_version=${previous_major_version}.0.0
+          previous_tag=apache-arrow-${previous_version}
+          git checkout ${previous_tag}
+          # This is workaround. dev/release/verify-release-candidate.sh
+          # in < 21.0.0 doesn't accept 20.0.0 as the VERSION argument.
+          # We can remove this workaround after 21.0.0 release.
+          sed \
+            -i \
+            -e 's/^\(ensure_source_directory\)$/# \1/' \
+            -e 's/^\(test_source_distribution\)$/# \1/' \
+            dev/release/verify-release-candidate.sh
+          dev/release/verify-release-candidate.sh ${previous_version}
+
+  binary:
+    name: Binary
+    needs: target
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RC: ${{ needs.target.outputs.rc }}
+      TEST_BINARY: "1"
+      VERSION: ${{ needs.target.outputs.version }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Run
+        run: |
+          dev/release/verify-release-candidate.sh ${VERSION} ${RC}
+
+  wheels-linux:
+    name: Wheels Linux
+    needs: target
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        distro:
+          - almalinux-8
+          - conda
+          - ubuntu-22.04
+          - ubuntu-24.04
+    env:
+      RC: ${{ needs.target.outputs.rc }}
+      TEST_WHEELS: "1"
+      VERSION: ${{ needs.target.outputs.version }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: 3
+      - name: Setup Archery
+        run: python -m pip install -e dev/archery[docker]
+      - name: Prepare
+        run: |
+          distro=${{ matrix.distro }}
+          if [ "${distro}" = "conda" ]; then
+            echo "SERVICE=${distro}-verify-rc" >> ${GITHUB_ENV}
+          else
+            os=${distro%-*}
+            version=${distro#*-}
+            echo "SERVICE=${os}-verify-rc" >> ${GITHUB_ENV}
+            echo "$(echo ${os} | tr a-z A-Z)=${version}" >> ${GITHUB_ENV}
+          fi
+      - name: Run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          archery docker run \
+            -e TEST_DEFAULT="${TEST_DEFAULT}" \
+            -e TEST_WHEELS="${TEST_WHEELS}" \
+            -e VERBOSE="${VERBOSE}" \
+            -e VERIFY_RC="${RC}" \
+            -e VERIFY_VERSION="${VERSION}" \
+            -e GH_TOKEN="$GH_TOKEN" \
+            ${SERVICE}
+
+  wheels-macos:
+    name: Wheels macOS
+    needs: target
+    runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on:
+          - macos-13
+          - macos-14
+    env:
+      RC: ${{ needs.target.outputs.rc }}
+      TEST_WHEELS: "1"
+      VERSION: ${{ needs.target.outputs.version }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          dev/release/verify-release-candidate.sh ${VERSION} ${RC}
+
+  wheels-windows:
+    name: Wheels Windows
+    needs: target
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      PYARROW_TEST_GDB: "OFF"
+      RC: ${{ needs.target.outputs.rc }}
+      TEST_WHEELS: "1"
+      VERSION: ${{ needs.target.outputs.version }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          submodules: recursive
+      - uses: conda-incubator/setup-miniconda@835234971496cad1653abb28a638a281cf32541f # v3.2.0
+      - name: Install System Dependencies
+        run: |
+          choco install --no-progress --yes boost-msvc-14.1
+          choco install --no-progress --yes wget
+      - name: Download Timezone Database
+        shell: bash
+        run: ci/scripts/download_tz_database.sh
+      - name: Run verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: cmd
+        run: |
+          dev/release/verify-release-candidate-wheels.bat %VERSION% %RC%
+
+  yum:
+    name: Yum
+    needs: target
+    runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+    env:
+      RC: ${{ needs.target.outputs.rc }}
+      TEST_YUM: "1"
+      VERSION: ${{ needs.target.outputs.version }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Run
+        run: |
+          dev/release/verify-release-candidate.sh ${VERSION} ${RC}
+      - name: Verify the previous version
+        # TODO: We may re-enable this in the future.
+        # There are some problems for now:
+        # * x86_64: libLLVM.so.18.1 needed by gandiva2000-libs on AlmaLinux 9
+        # * arm64: libarrow.so.2000.0.0: refers the
+        #   "std::condition_variable::wait(std::unique_lock<std::mutex>&)@GLIBCXX_3.4.30"
+        #   (not "...@@GLIBCXX_3.4.30" nor "...@GLIBCXX_3.4.11") symbol on
+        #   AmazonLinux 2023.
+        continue-on-error: true
+        run: |
+          major_version=${VERSION%%.*}
+          previous_major_version=$((major_version - 1))
+          previous_version=${previous_major_version}.0.0
+          previous_tag=apache-arrow-${previous_version}
+          git checkout ${previous_tag}
+          # This is workaround. dev/release/verify-release-candidate.sh
+          # in < 21.0.0 doesn't accept 20.0.0 as the VERSION argument.
+          # We can remove this workaround after 21.0.0 release.
+          sed \
+            -i \
+            -e 's/^\(ensure_source_directory\)$/# \1/' \
+            -e 's/^\(test_source_distribution\)$/# \1/' \
+            dev/release/verify-release-candidate.sh
+          dev/release/verify-release-candidate.sh ${previous_version}

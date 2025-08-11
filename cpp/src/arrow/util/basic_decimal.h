@@ -276,10 +276,7 @@ class ARROW_EXPORT BasicDecimal32 : public SmallBasicDecimal<int32_t> {
   using ValueType = int32_t;
 
   /// \brief Negate the current value (in-place)
-  BasicDecimal32& Negate() {
-    value_ = -value_;
-    return *this;
-  }
+  BasicDecimal32& Negate();
 
   /// \brief Absolute value (in-place)
   BasicDecimal32& Abs() { return *this < 0 ? Negate() : *this; }
@@ -429,10 +426,7 @@ class ARROW_EXPORT BasicDecimal64 : public SmallBasicDecimal<int64_t> {
   using ValueType = int64_t;
 
   /// \brief Negate the current value (in-place)
-  BasicDecimal64& Negate() {
-    value_ = -value_;
-    return *this;
-  }
+  BasicDecimal64& Negate();
 
   /// \brief Absolute value (in-place)
   BasicDecimal64& Abs() { return *this < 0 ? Negate() : *this; }
@@ -738,6 +732,16 @@ class ARROW_EXPORT BasicDecimal256 : public GenericBasicDecimal<BasicDecimal256,
       : BasicDecimal256(bit_util::little_endian::ToNative<uint64_t, 4>(
             {value.low_bits(), static_cast<uint64_t>(value.high_bits()),
              SignExtend(value.high_bits()), SignExtend(value.high_bits())})) {}
+
+  explicit BasicDecimal256(const BasicDecimal64& value) noexcept
+      : BasicDecimal256(bit_util::little_endian::ToNative<uint64_t, 4>(
+            {value.low_bits(), SignExtend(value.value()), SignExtend(value.value()),
+             SignExtend(value.value())})) {}
+
+  explicit BasicDecimal256(const BasicDecimal32& value) noexcept
+      : BasicDecimal256(bit_util::little_endian::ToNative<uint64_t, 4>(
+            {value.low_bits(), SignExtend(value.value()), SignExtend(value.value()),
+             SignExtend(value.value())})) {}
 
   /// \brief Negate the current value (in-place)
   BasicDecimal256& Negate();

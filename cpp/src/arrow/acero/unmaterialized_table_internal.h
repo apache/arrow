@@ -76,7 +76,7 @@ class UnmaterializedCompositeTable {
     if (Empty()) {
       return std::nullopt;
     }
-    DCHECK_LE(Size(), (uint64_t)std::numeric_limits<int64_t>::max());
+    ARROW_DCHECK_LE(Size(), (uint64_t)std::numeric_limits<int64_t>::max());
     std::vector<std::shared_ptr<arrow::Array>> arrays(schema->num_fields());
 
 #define MATERIALIZE_CASE(id)                                                          \
@@ -248,8 +248,9 @@ class UnmaterializedSliceBuilder {
     }
     if (slice.num_components) {
       size_t last_index = slice.num_components - 1;
-      DCHECK_EQ(slice.components[last_index].end - slice.components[last_index].start,
-                end - start)
+      ARROW_DCHECK_EQ(
+          slice.components[last_index].end - slice.components[last_index].start,
+          end - start)
           << "Slices should be the same length. ";
     }
     slice.components[slice.num_components++] = CompositeEntry{rb.get(), start, end};

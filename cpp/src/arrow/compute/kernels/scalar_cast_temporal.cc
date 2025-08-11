@@ -24,6 +24,7 @@
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/util/bitmap_reader.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/time.h"
 #include "arrow/util/value_parsing.h"
 
@@ -34,6 +35,8 @@ using internal::ParseYYYY_MM_DD;
 
 namespace compute {
 namespace internal {
+
+namespace {
 
 constexpr int64_t kMillisecondsInDay = 86400000;
 
@@ -140,6 +143,8 @@ Status ExtractTemporal(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   }
   return Status::Invalid("Unknown timestamp unit: ", ty);
 }
+
+}  // namespace
 
 // <TimestampType, TimestampType> and <DurationType, DurationType>
 template <typename O, typename I>
@@ -490,6 +495,8 @@ struct CastFunctor<O, I,
   }
 };
 
+namespace {
+
 template <typename Type>
 void AddCrossUnitCast(CastFunction* func) {
   ScalarKernel kernel;
@@ -650,6 +657,8 @@ std::shared_ptr<CastFunction> GetTimestampCast() {
 
   return func;
 }
+
+}  // namespace
 
 std::vector<std::shared_ptr<CastFunction>> GetTemporalCasts() {
   std::vector<std::shared_ptr<CastFunction>> functions;

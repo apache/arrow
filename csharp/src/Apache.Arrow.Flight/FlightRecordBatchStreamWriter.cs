@@ -38,9 +38,22 @@ namespace Apache.Arrow.Flight
             _flightDescriptor = flightDescriptor;
         }
 
-        private void SetupStream(Schema schema)
+        /// <summary>
+        /// Configure the data stream to write to.
+        /// </summary>
+        /// <remarks>
+        /// The stream will be set up automatically when writing a RecordBatch if required,
+        /// but calling this method before writing any data allows handling empty streams.
+        /// </remarks>
+        /// <param name="schema">The schema of data to be written to this stream</param>
+        public async Task SetupStream(Schema schema)
         {
+            if (_flightDataStream != null)
+            {
+                throw new InvalidOperationException("Flight data stream is already set");
+            }
             _flightDataStream = new FlightDataStream(_clientStreamWriter, _flightDescriptor, schema);
+            await _flightDataStream.SendSchema().ConfigureAwait(false);
         }
 
         public WriteOptions WriteOptions { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
@@ -50,14 +63,14 @@ namespace Apache.Arrow.Flight
             return WriteAsync(message, default);
         }
 
-        public Task WriteAsync(RecordBatch message, ByteString applicationMetadata)
+        public async Task WriteAsync(RecordBatch message, ByteString applicationMetadata)
         {
             if (_flightDataStream == null)
             {
-                SetupStream(message.Schema);
+                await SetupStream(message.Schema).ConfigureAwait(false);
             }
 
-            return _flightDataStream.Write(message, applicationMetadata);
+            await _flightDataStream.Write(message, applicationMetadata);
         }
 
         protected virtual void Dispose(bool disposing)

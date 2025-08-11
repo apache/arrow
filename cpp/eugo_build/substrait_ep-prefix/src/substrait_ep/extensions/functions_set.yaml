@@ -1,0 +1,27 @@
+%YAML 1.2
+---
+scalar_functions:
+  -
+    name: "index_in"
+    description: >
+      Checks the membership of a value in a list of values
+
+      Returns the first 0-based index value of some input `T` if `T` is equal to
+      any element in `List<T>`.  Returns `NULL` if not found.
+
+      If `T` is `NULL`, returns `NULL`.
+
+      If `T` is `NaN`:
+        - Returns 0-based index of `NaN` in `List<T>` (default)
+        - Returns `NULL` (if `NAN_IS_NOT_NAN` is specified)
+    impls:
+      - args:
+          - name: x
+            value: T
+          - name: y
+            value: List<T>
+        options:
+          nan_equality:
+            values: [ NAN_IS_NAN, NAN_IS_NOT_NAN ]
+        nullability: DECLARED_OUTPUT
+        return: int64?

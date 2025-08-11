@@ -114,7 +114,7 @@ def __getattr__(name):
         raise ImportError(_parquet_msg)
 
     raise AttributeError(
-        "module 'pyarrow.dataset' has no attribute '{0}'".format(name)
+        f"module 'pyarrow.dataset' has no attribute '{name}'"
     )
 
 
@@ -234,8 +234,7 @@ def partitioning(schema=None, field_names=None, flavor=None,
                 return DirectoryPartitioning.discover(field_names)
             else:
                 raise ValueError(
-                    "Expected list of field names, got {}".format(
-                        type(field_names)))
+                    f"Expected list of field names, got {type(field_names)}")
         else:
             raise ValueError(
                 "For the default directory flavor, need to specify "
@@ -253,8 +252,7 @@ def partitioning(schema=None, field_names=None, flavor=None,
                 return FilenamePartitioning.discover(field_names)
             else:
                 raise ValueError(
-                    "Expected list of field names, got {}".format(
-                        type(field_names)))
+                    f"Expected list of field names, got {type(field_names)}")
         else:
             raise ValueError(
                 "For the filename flavor, need to specify "
@@ -269,8 +267,7 @@ def partitioning(schema=None, field_names=None, flavor=None,
                 return HivePartitioning(schema, dictionaries)
             else:
                 raise ValueError(
-                    "Expected Schema for 'schema', got {}".format(
-                        type(schema)))
+                    f"Expected Schema for 'schema', got {type(schema)}")
         else:
             return HivePartitioning.discover()
     else:
@@ -292,8 +289,8 @@ def _ensure_partitioning(scheme):
     elif isinstance(scheme, (Partitioning, PartitioningFactory)):
         pass
     else:
-        raise ValueError("Expected Partitioning or PartitioningFactory, got {}"
-                         .format(type(scheme)))
+        raise ValueError(
+            f"Expected Partitioning or PartitioningFactory, got {type(scheme)}")
     return scheme
 
 
@@ -317,7 +314,7 @@ def _ensure_format(obj):
     elif obj == "json":
         return JsonFileFormat()
     else:
-        raise ValueError("format '{}' is not supported".format(obj))
+        raise ValueError(f"format '{obj}' is not supported")
 
 
 def _ensure_multiple_sources(paths, filesystem=None):
@@ -382,16 +379,15 @@ def _ensure_multiple_sources(paths, filesystem=None):
                 raise FileNotFoundError(info.path)
             elif file_type == FileType.Directory:
                 raise IsADirectoryError(
-                    'Path {} points to a directory, but only file paths are '
+                    f'Path {info.path} points to a directory, but only file paths are '
                     'supported. To construct a nested or union dataset pass '
-                    'a list of dataset objects instead.'.format(info.path)
+                    'a list of dataset objects instead.'
                 )
             else:
                 raise IOError(
-                    'Path {} exists but its type is unknown (could be a '
+                    f'Path {info.path} exists but its type is unknown (could be a '
                     'special file such as a Unix socket or character device, '
-                    'or Windows NUL / CON / ...)'.format(info.path)
-                )
+                    'or Windows NUL / CON / ...)')
 
     return filesystem, paths
 
@@ -802,18 +798,18 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
             return _in_memory_dataset(source, **kwargs)
         else:
             unique_types = set(type(elem).__name__ for elem in source)
-            type_names = ', '.join('{}'.format(t) for t in unique_types)
+            type_names = ', '.join(f'{t}' for t in unique_types)
             raise TypeError(
                 'Expected a list of path-like or dataset objects, or a list '
                 'of batches or tables. The given list contains the following '
-                'types: {}'.format(type_names)
+                f'types: {type_names}'
             )
-    elif isinstance(source, (pa.RecordBatch, pa.Table)):
+    elif isinstance(source, (pa.RecordBatch, pa.Table, pa.RecordBatchReader)):
         return _in_memory_dataset(source, **kwargs)
     else:
         raise TypeError(
             'Expected a path-like, list of path-likes or a list of Datasets '
-            'instead of the given type: {}'.format(type(source).__name__)
+            f'instead of the given type: {type(source).__name__}'
         )
 
 
@@ -848,9 +844,9 @@ def _ensure_write_partitioning(part, schema, flavor):
 
 
 def write_dataset(data, base_dir, *, basename_template=None, format=None,
-                  partitioning=None, partitioning_flavor=None, schema=None,
-                  filesystem=None, file_options=None, use_threads=True,
-                  max_partitions=None, max_open_files=None,
+                  partitioning=None, partitioning_flavor=None,
+                  schema=None, filesystem=None, file_options=None, use_threads=True,
+                  preserve_order=False, max_partitions=None, max_open_files=None,
                   max_rows_per_file=None, min_rows_per_group=None,
                   max_rows_per_group=None, file_visitor=None,
                   existing_data_behavior='error', create_dir=True):
@@ -893,7 +889,13 @@ Table/RecordBatch, or iterable of RecordBatch
         ``FileFormat.make_write_options()`` function.
     use_threads : bool, default True
         Write files in parallel. If enabled, then maximum parallelism will be
-        used determined by the number of available CPU cores.
+        used determined by the number of available CPU cores. Using multiple
+        threads may change the order of rows in the written dataset if
+        preserve_order is set to False.
+    preserve_order : bool, default False
+        Preserve the order of rows. If enabled, order of rows in the dataset are
+        guaranteed to be preserved even if use_threads is set to True. This may
+        cause notable performance degradation.
     max_partitions : int, default 1024
         Maximum number of partitions any batch may be written into.
     max_open_files : int, default 1024
@@ -987,9 +989,8 @@ Table/RecordBatch, or iterable of RecordBatch
         file_options = format.make_write_options()
 
     if format != file_options.format:
-        raise TypeError("Supplied FileWriteOptions have format {}, "
-                        "which doesn't match supplied FileFormat {}".format(
-                            format, file_options))
+        raise TypeError(f"Supplied FileWriteOptions have format {format}, "
+                        f"which doesn't match supplied FileFormat {file_options}")
 
     if basename_template is None:
         basename_template = "part-{i}." + format.default_extname
@@ -1033,7 +1034,7 @@ Table/RecordBatch, or iterable of RecordBatch
 
     _filesystemdataset_write(
         scanner, base_dir, basename_template, filesystem, partitioning,
-        file_options, max_partitions, file_visitor, existing_data_behavior,
-        max_open_files, max_rows_per_file,
+        preserve_order, file_options, max_partitions, file_visitor,
+        existing_data_behavior, max_open_files, max_rows_per_file,
         min_rows_per_group, max_rows_per_group, create_dir
     )

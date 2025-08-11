@@ -21,7 +21,7 @@ set -eux
 
 arrow_dir=${1}
 
-pushd ${arrow_dir}
+pushd "${arrow_dir}"
 
 dev/release/run-test.rb -vv
 

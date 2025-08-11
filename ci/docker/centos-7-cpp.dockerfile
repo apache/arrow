@@ -37,7 +37,6 @@ RUN \
     -e 's/mirror\.centos\.org/vault.centos.org/' \
     /etc/yum.repos.d/CentOS-SCLo-scl*.repo && \
   yum install -y \
-    cmake3 \
     curl \
     devtoolset-8 \
     diffutils \
@@ -49,9 +48,13 @@ RUN \
     wget \
     which
 
+ARG cmake
+COPY ci/scripts/install_cmake.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_cmake.sh ${cmake} /usr/local/
+
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN bash /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
 ENV \
   ARROW_R_DEV=TRUE \
-  CMAKE=/usr/bin/cmake3
+  CMAKE=/usr/local/bin/cmake

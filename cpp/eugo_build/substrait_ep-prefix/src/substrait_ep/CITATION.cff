@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+title: >-
+  Substrait: Cross-Language Serialization for Relational
+  Algebra
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: substrait-io
+identifiers:
+  - type: url
+    value: 'https://github.com/substrait-io/substrait'
+repository-code: 'https://github.com/substrait-io/substrait'
+url: 'https://substrait.io/'
+license: Apache-2.0
+date-released: '2021-09-01'

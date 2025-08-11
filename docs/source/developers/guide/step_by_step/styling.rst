@@ -31,14 +31,7 @@ linters and styling of the code.
 
    .. tab-item:: PyArrow
 
-      We use flake8 linting for styling issues in Python. To help
-      developers check styling of the code, among other common
-      development tasks, :ref:`Archery utility<archery>` tool was
-      developed within Apache Arrow.
-
-      The instructions on how to set up and use Archery
-      can be found in the Coding Style section of the
-      :ref:`python-development`.
+      :ref:`python-coding-style`.
 
    .. tab-item:: R package
 

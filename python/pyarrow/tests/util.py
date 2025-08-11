@@ -32,6 +32,7 @@ import string
 import subprocess
 import sys
 import time
+from packaging import tags
 
 import pytest
 
@@ -104,7 +105,7 @@ def randdecimal(precision, scale):
     fractional = random.randint(0, max_fractional_value)
 
     return decimal.Decimal(
-        '{}.{}'.format(whole, str(fractional).rjust(scale, '0'))
+        f'{whole}.{str(fractional).rjust(scale, "0")}'
     )
 
 
@@ -153,9 +154,10 @@ def memory_leak_check(f, metric='rss', threshold=1 << 17, iterations=10,
     def _leak_check():
         current_use = _get_use()
         if current_use - baseline_use > threshold:
-            raise Exception("Memory leak detected. "
-                            "Departure from baseline {} after {} iterations"
-                            .format(current_use - baseline_use, i))
+            raise Exception(
+                "Memory leak detected. Departure from baseline "
+                f"{current_use - baseline_use} after {i} iterations"
+            )
 
     for i in range(iterations):
         f()
@@ -229,9 +231,9 @@ def disabled_gc():
 def _filesystem_uri(path):
     # URIs on Windows must follow 'file:///C:...' or 'file:/C:...' patterns.
     if os.name == 'nt':
-        uri = 'file:///{}'.format(path)
+        uri = f'file:///{path}'
     else:
-        uri = 'file://{}'.format(path)
+        uri = f'file://{path}'
     return uri
 
 
@@ -395,7 +397,7 @@ def _configure_s3_limited_user(s3_server, policy, username, password):
 
         tempdir = s3_server['tempdir']
         host, port, access_key, secret_key = s3_server['connection']
-        address = '{}:{}'.format(host, port)
+        address = f'{host}:{port}'
 
         mcdir = os.path.join(tempdir, 'mc')
         if os.path.exists(mcdir):
@@ -435,3 +437,13 @@ def windows_has_tzdata():
         tzdata_bool = os.path.exists(tzdata_path)
 
     return tzdata_bool
+
+
+def running_on_musllinux():
+    """
+    Checks whether it's running on musl systems or not.
+    """
+    for platform_tag in tags.platform_tags():
+        if platform_tag.startswith('musllinux'):
+            return True
+    return False

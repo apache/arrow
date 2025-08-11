@@ -21,7 +21,7 @@
 #include <utility>
 
 #include "arrow/util/io_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "gandiva/function_holder.h"
 #include "gandiva/gdv_function_stubs.h"
 

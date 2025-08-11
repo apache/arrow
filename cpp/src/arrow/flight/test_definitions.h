@@ -306,12 +306,13 @@ class ARROW_FLIGHT_EXPORT AsyncClientTest : public FlightTest {
   std::unique_ptr<FlightServerBase> server_;
 };
 
+// DISABLED TestListenerLifetime: https://github.com/apache/arrow/issues/45120
 #define ARROW_FLIGHT_TEST_ASYNC_CLIENT(FIXTURE)                                 \
   static_assert(std::is_base_of<AsyncClientTest, FIXTURE>::value,               \
                 ARROW_STRINGIFY(FIXTURE) " must inherit from AsyncClientTest"); \
   TEST_F(FIXTURE, TestGetFlightInfo) { TestGetFlightInfo(); }                   \
   TEST_F(FIXTURE, TestGetFlightInfoFuture) { TestGetFlightInfoFuture(); }       \
-  TEST_F(FIXTURE, TestListenerLifetime) { TestListenerLifetime(); }
+  TEST_F(FIXTURE, DISABLED_TestListenerLifetime) { TestListenerLifetime(); }
 
 }  // namespace flight
 }  // namespace arrow

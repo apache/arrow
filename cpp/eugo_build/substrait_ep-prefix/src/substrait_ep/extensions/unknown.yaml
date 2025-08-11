@@ -1,0 +1,66 @@
+%YAML 1.2
+---
+types:
+  - name: unknown
+scalar_functions:
+  - name: "add"
+    impls:
+      - args:
+          - value: unknown
+          - value: unknown
+        return: unknown
+  - name: "subtract"
+    impls:
+      - args:
+          - value: unknown
+          - value: unknown
+        return: unknown
+  - name: "multiply"
+    impls:
+      - args:
+          - value: unknown
+          - value: unknown
+        return: unknown
+  - name: "divide"
+    impls:
+      - args:
+          - value: unknown
+          - value: unknown
+        return: unknown
+  - name: "modulus"
+    impls:
+      - args:
+          - value: unknown
+          - value: unknown
+        return: unknown
+aggregate_functions:
+  - name: "sum"
+    impls:
+      - args:
+          - value: unknown
+        intermediate: unknown
+        return: unknown
+  - name: "avg"
+    impls:
+      - args:
+          - value: unknown
+        intermediate: unknown
+        return: unknown
+  - name: "min"
+    impls:
+      - args:
+          - value: unknown
+        intermediate: unknown
+        return: unknown
+  - name: "max"
+    impls:
+      - args:
+          - value: unknown
+        intermediate: unknown
+        return: unknown
+  - name: "count"
+    impls:
+      - args:
+          - value: unknown
+        intermediate: unknown
+        return: unknown

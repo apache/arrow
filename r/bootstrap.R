@@ -60,6 +60,7 @@ if (dir.exists("../cpp")) {
       "^src/gandiva",
       "^src/jni",
       "^src/skyhook",
+      "^src/arrow/flight/sql/odbc",
       "_test\\.cc"
     )
   )

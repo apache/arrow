@@ -1,0 +1,8 @@
+header:
+  license:
+    spdx-id: Apache-2.0
+
+  paths: 
+    - 'proto/substrait/**'  
+
+  comment: never

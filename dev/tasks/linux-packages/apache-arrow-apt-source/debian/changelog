@@ -1,3 +1,33 @@
+apache-arrow-apt-source (21.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Bryce Mecum <petridish@gmail.com>  Fri, 11 Jul 2025 07:44:45 -0000
+
+apache-arrow-apt-source (20.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Jacob Wujciak-Jens <jacob@wujciak.de>  Tue, 22 Apr 2025 17:58:15 -0000
+
+apache-arrow-apt-source (19.0.1-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Bryce Mecum <petridish@gmail.com>  Tue, 11 Feb 2025 22:16:06 -0000
+
+apache-arrow-apt-source (19.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Bryce Mecum <petridish@gmail.com>  Tue, 07 Jan 2025 19:36:45 -0000
+
+apache-arrow-apt-source (18.1.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Bryce Mecum <petridish@gmail.com>  Wed, 13 Nov 2024 21:34:10 -0000
+
 apache-arrow-apt-source (18.0.0-1) unstable; urgency=low
 
   * New upstream release.

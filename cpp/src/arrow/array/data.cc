@@ -34,8 +34,8 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/binary_view_util.h"
 #include "arrow/util/bitmap_ops.h"
-#include "arrow/util/dict_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/dict_util_internal.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/range.h"
 #include "arrow/util/ree_util.h"
@@ -100,10 +100,14 @@ bool DictionaryMayHaveLogicalNulls(const ArrayData& data) {
   return ArraySpan(data).MayHaveLogicalNulls();
 }
 
+namespace {
+
 BufferSpan PackVariadicBuffers(util::span<const std::shared_ptr<Buffer>> buffers) {
   return {const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(buffers.data())),
           static_cast<int64_t>(buffers.size() * sizeof(std::shared_ptr<Buffer>))};
 }
+
+}  // namespace
 
 }  // namespace internal
 
