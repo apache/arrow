@@ -236,13 +236,7 @@ endif
 exc = executable(
     'arrow-utility-test',
     sources: utility_test_srcs,
-    dependencies: [
-        arrow_dep,
-        arrow_testing_dep,
-        filesystem_dep,
-        gtest_dep,
-        gmock_dep,
-    ],
+    dependencies: arrow_test_dep_no_main,
     implicit_include_directories: false,
 )
 test('arrow-utility-test', exc)
