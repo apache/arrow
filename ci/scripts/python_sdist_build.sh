@@ -23,5 +23,5 @@ source_dir=${1}/python
 
 pushd "${source_dir}"
 export SETUPTOOLS_SCM_PRETEND_VERSION=${PYARROW_VERSION:-}
-${PYTHON:-python} setup.py sdist
+${PYTHON:-python} -m build --sdist --no-isolation .
 popd

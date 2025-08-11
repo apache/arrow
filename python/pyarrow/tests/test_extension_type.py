@@ -1346,8 +1346,8 @@ def test_cpp_extension_in_python(tmpdir):
         subprocess_env = test_util.get_modified_env_with_pythonpath()
 
         # Compile extension module
-        subprocess.check_call([sys.executable, 'setup.py',
-                               'build_ext', '--inplace'],
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install',
+                               '--no-build-isolation', '.'],
                               env=subprocess_env)
 
     sys.path.insert(0, str(tmpdir))

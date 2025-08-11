@@ -70,6 +70,5 @@ export PYARROW_WITH_GCS=1
 export PYARROW_WITH_ORC=1
 export PYARROW_WITH_PARQUET=1
 
-python setup.py clean
 find pyarrow -name "*.so" -delete
-python setup.py develop
+python -m pip install --no-build-isolation -e .
