@@ -1364,26 +1364,13 @@ def test_make_parquet_fragment_from_buffer(dataset_reader, pickle_module):
         pickled = pickle_module.loads(pickle_module.dumps(fragment))
         assert dataset_reader.to_table(pickled).equals(table)
 
-
-@pytest.mark.parquet
-def test_make_parquet_fragment_from_random_access_file(dataset_reader):
-    table = pa.table([
-        pa.array(['a', 'b', 'c']),
-        pa.array([12, 11, 10]),
-        pa.array(['dog', 'cat', 'rabbit'])
-    ], names=['alpha', 'num', 'animal'])
-
-    out = pa.BufferOutputStream()
-    pq.write_table(table, out)
-    buffer = out.getvalue()
-    file_like = pa.BufferReader(buffer)
-    parquet_format = ds.ParquetFileFormat()
-    fragment = parquet_format.make_fragment(file_like)
-
-    opened_file = fragment.open()
-    assert isinstance(opened_file, pa.NativeFile)
-    assert opened_file.readable
-    assert dataset_reader.to_table(fragment).equals(table)
+        # GH-47301: Ensure fragment.open() works for file-like objects.
+        file_like = pa.BufferReader(buffer)
+        fragment = format_.make_fragment(file_like)
+        opened_file = fragment.open()
+        assert isinstance(opened_file, pa.NativeFile)
+        assert opened_file.readable
+        assert pq.ParquetFile(fragment.open()).read().equals(table)
 
 
 @pytest.mark.parquet
