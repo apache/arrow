@@ -268,14 +268,14 @@ TEST(GroupByNode, ParallelOrderedAggregator) {
     [2,111],
     [2,1]
   ])"});
-  std::random_device rd;
-  std::default_random_engine rng(rd());
-  std::shuffle(batches.begin(), batches.end(), rng);
-
+  static constexpr random::SeedType kTestSeed = 42;
+  static constexpr int kMaxJitterMod = 3;
+  RegisterTestNodes();
   Declaration plan = Declaration::Sequence(
       {{"exec_batch_source",
         ExecBatchSourceNodeOptions(
             schema({field("key1", int64()), field("value", int64())}), batches)},
+       {"jitter", JitterNodeOptions(kTestSeed, kMaxJitterMod)},
        {"aggregate",
         AggregateNodeOptions{/*aggregates=*/
                              {{"hash_first", nullptr, "value", "mean(value)"}},
@@ -290,9 +290,7 @@ TEST(GroupByNode, ParallelOrderedAggregator) {
     [2, 111] 
     ])");
 
-  AssertExecBatchesEqualIgnoringOrder(out_batches.schema, {expected_batch},
-                                      out_batches.batches);
-  ASSERT_TRUE(out_batches.batches[0].index == 0);
+  AssertExecBatchesEqual(out_batches.schema, {expected_batch}, out_batches.batches);
 }
 
 TEST(GroupByNode, ParallelSegmentedAggregatorGroupBy) {
@@ -315,7 +313,9 @@ TEST(GroupByNode, ParallelSegmentedAggregatorGroupBy) {
 
   Ordering order({compute::SortKey("key2", compute::SortOrder::Ascending),
                   compute::SortKey("key1", compute::SortOrder::Ascending)});
-
+  static constexpr random::SeedType kTestSeed = 42;
+  static constexpr int kMaxJitterMod = 3;
+  RegisterTestNodes();
   Declaration plan = Declaration::Sequence(
       {{"exec_batch_source",
         ExecBatchSourceNodeOptions(
@@ -323,6 +323,7 @@ TEST(GroupByNode, ParallelSegmentedAggregatorGroupBy) {
                     field("value", int64())}),
             batches)},
        {"order_by", OrderByNodeOptions(order)},
+       {"jitter", JitterNodeOptions(kTestSeed, kMaxJitterMod)},
        {"aggregate",
         AggregateNodeOptions{/*aggregates=*/
                              {{"hash_mean", nullptr, "value", "mean(value)"}},
@@ -416,8 +417,6 @@ TEST(ScalarAggregateNode, BasicParallel) {
 }
 
 TEST(ScalarAggregateNode, ParallelOrderedAggregator) {
-  // std::vector<ExecBatch> batches;
-
   std::vector<ExecBatch> batches = TestExecBatches({int64(), int64()}, {R"([
     [0,999],
     [0,1]
@@ -448,8 +447,7 @@ TEST(ScalarAggregateNode, ParallelOrderedAggregator) {
                        DeclarationToExecBatches(plan));
 
   ExecBatch expected_batch = ExecBatchFromJSON({int64()}, R"([ [999] ])");
-  AssertExecBatchesEqualIgnoringOrder(out_batches.schema, {expected_batch},
-                                      out_batches.batches);
+  AssertExecBatchesEqual(out_batches.schema, {expected_batch}, out_batches.batches);
 }
 
 TEST(ScalarAggregateNode, ParallelSegmentedAggregator) {
@@ -468,9 +466,6 @@ TEST(ScalarAggregateNode, ParallelSegmentedAggregator) {
   ])"},
                                                    true);
 
-  // std::random_device rd;
-  // std::default_random_engine rng(rd());
-  // std::shuffle(batches.begin(), batches.end(), rng);
   static constexpr random::SeedType kTestSeed = 42;
   static constexpr int kMaxJitterMod = 3;
   RegisterTestNodes();
