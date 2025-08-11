@@ -3772,14 +3772,16 @@ test_that("hms::as_hms", {
     int = c(30L, 75L),
     integerish_dbl = c(31, 76),
     dbl = c(31.2, 76.4),
+    nanosecs = c(31.21234564, 76.412345),
     datetime = as.POSIXct(c(1645243500, 1745243500), tz = "UTC", origin = "1970-01-01")
   )
 
   compare_dplyr_binding(
     .input %>%
       mutate(
-        x2 = hms::as_hms(int),
-        x3 = hms::as_hms(integerish_dbl),
+        x1 = hms::as_hms(int),
+        x2 = hms::as_hms(integerish_dbl),
+        x3 = hms::as_hms(dbl),
         x4 = hms::as_hms(datetime)
       ) %>%
       collect(),
@@ -3787,7 +3789,7 @@ test_that("hms::as_hms", {
   )
 
   expect_error(
-    arrow_table(test_df) %>% mutate(y = hms::as_hms(dbl)) %>% collect(),
+    arrow_table(test_df) %>% mutate(y = hms::as_hms(nanosecs)) %>% collect(),
     "was truncated converting to int32"
   )
 
