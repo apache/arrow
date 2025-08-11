@@ -127,8 +127,9 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
     Builder* key_id(const std::string& key_id);
 
     /// Set ParquetCipher type to use.
-    /// This field is declared as optional. If the value is not set, then the ParquetCipher
-    /// declared in the FileEncryptionProperties will be used.
+    /// This field is declared as optional, present when per column encryption was used. If the
+    /// value is not set, then the ParquetCipher declared in the FileEncryptionProperties will be
+    /// used.
     Builder* parquet_cipher(ParquetCipher::type parquet_cipher);
 
     std::shared_ptr<ColumnEncryptionProperties> build() {
@@ -190,8 +191,8 @@ class PARQUET_EXPORT ColumnDecryptionProperties {
     Builder* key(const std::string& key);
 
     /// Set ParquetCipher type to use.
-    /// This field is declared as optional. If the value is not set, then the ParquetCipher
-    /// declared in the InternalFileDecryptor will be used.
+    /// This field is declared as optional, present when per column encryption was used. If the
+    /// value is not set, then the ParquetCipher declared in the InternalFileDecryptor will be used.
     Builder* parquet_cipher(ParquetCipher::type parquet_cipher);
 
     std::shared_ptr<ColumnDecryptionProperties> build();
