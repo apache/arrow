@@ -26,6 +26,7 @@
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
+#include <iostream>
 
 namespace parquet {
 
@@ -377,10 +378,48 @@ class PARQUET_EXPORT ExternalFileDecryptionProperties : public FileDecryptionPro
    public:
     Builder() : FileDecryptionProperties::Builder() {}
 
-    Builder* app_context(const std::string& context);
+    Builder* app_context(const std::string context);
 
     Builder* connection_config(
       const std::map<ParquetCipher::type, std::map<std::string, std::string>>& config);
+
+    /// Forward all base class property methods to the base class Builder so we can return the
+    /// correct Builder type.
+    Builder* footer_key(const std::string footer_key) {
+      FileDecryptionProperties::Builder::footer_key(footer_key);
+      return this;
+    }
+
+    Builder* column_keys(
+        const ColumnPathToDecryptionPropertiesMap& column_decryption_properties) {
+      FileDecryptionProperties::Builder::column_keys(column_decryption_properties);
+      return this;
+    }
+
+    Builder* key_retriever(const std::shared_ptr<DecryptionKeyRetriever>& key_retriever) {
+      FileDecryptionProperties::Builder::key_retriever(key_retriever);
+      return this;
+    }
+
+    Builder* disable_footer_signature_verification() {
+      FileDecryptionProperties::Builder::disable_footer_signature_verification();
+      return this;
+    }
+
+    Builder* aad_prefix(const std::string& aad_prefix) {
+      FileDecryptionProperties::Builder::aad_prefix(aad_prefix);
+      return this;
+    }
+
+    Builder* aad_prefix_verifier(std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier) {
+      FileDecryptionProperties::Builder::aad_prefix_verifier(aad_prefix_verifier);
+      return this;
+    }
+
+    Builder* plaintext_files_allowed() {
+      FileDecryptionProperties::Builder::plaintext_files_allowed();
+      return this;
+    }
 
     std::shared_ptr<ExternalFileDecryptionProperties> build_external();
 
@@ -389,11 +428,16 @@ class PARQUET_EXPORT ExternalFileDecryptionProperties : public FileDecryptionPro
     std::map<ParquetCipher::type, std::map<std::string, std::string>> connection_config_;
   };
 
-  const std::string& app_context() const {
+  std::string app_context() const {
+    std::cout << "app_context() getter called" << std::endl;
+    std::cout << "app_context_ memory address: " << (void*)app_context_.data() << std::endl;
+    std::cout << "app_context_ size: " << app_context_.size() << std::endl;
+    std::cout << "app_context_ content: [" << app_context_ << "]" << std::endl;
     return app_context_;
   }
 
-  const std::map<ParquetCipher::type, std::map<std::string, std::string>>& connection_config() const {
+  const std::map<ParquetCipher::type, std::map<std::string, std::string>>& 
+  connection_config() const {
     return connection_config_;
   }
 

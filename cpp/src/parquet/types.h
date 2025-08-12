@@ -521,6 +521,8 @@ struct ParquetCipher {
   enum type { AES_GCM_V1 = 0, AES_GCM_CTR_V1 = 1, EXTERNAL_DBPA_V1 = 2 };
 };
 
+bool IsParquetCipherSupported(ParquetCipher::type cipher);
+
 struct AadMetadata {
   std::string aad_prefix;
   std::string aad_file_unique;

@@ -163,6 +163,17 @@ TEST(TestInt96Timestamp, Decoding) {
   check(2547339, 0xffffffffffffffffULL);
 }
 
+TEST(TestIsParquetCipherSupported, SupportedCiphers) {
+  ASSERT_TRUE(IsParquetCipherSupported(ParquetCipher::AES_GCM_V1));
+  ASSERT_TRUE(IsParquetCipherSupported(ParquetCipher::AES_GCM_CTR_V1));
+  ASSERT_TRUE(IsParquetCipherSupported(ParquetCipher::EXTERNAL_DBPA_V1));
+}
+
+TEST(TestIsParquetCipherSupported, UnsupportedCiphers) {
+  ParquetCipher::type unsupported_cipher = static_cast<ParquetCipher::type>(100);
+  ASSERT_FALSE(IsParquetCipherSupported(unsupported_cipher));
+}
+
 #if !(defined(_WIN32) || defined(__CYGWIN__))
 #  pragma GCC diagnostic pop
 #elif _MSC_VER

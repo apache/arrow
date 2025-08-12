@@ -200,6 +200,14 @@ class PARQUET_EXPORT CryptoFactory {
       const DecryptionConfiguration& decryption_config, const std::string& file_path = "",
       const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
 
+  /// Get the external decryption properties for a Parquet file. Used when an external decryptor
+  /// will be used to decrypt the file.
+  std::shared_ptr<ExternalFileDecryptionProperties> GetExternalFileDecryptionProperties(
+      const KmsConnectionConfig& kms_connection_config,
+      const ExternalDecryptionConfiguration& external_decryption_config,
+      const std::string& file_path = "",
+      const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
+
   void RemoveCacheEntriesForToken(const std::string& access_token) {
     key_toolkit_->RemoveCacheEntriesForToken(access_token);
   }
