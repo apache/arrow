@@ -64,7 +64,6 @@ flight_proto_files = custom_target(
     ],
 )
 
-grpc_cpp = dependency('grpc++')
 grpc_cpp_plugin = find_program('grpc_cpp_plugin')
 flight_proto_grpc_files = custom_target(
     'arrow-flight-proto-grpc-files',
