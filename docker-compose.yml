@@ -219,7 +219,7 @@ services:
     #   docker compose build alpine-linux-cpp
     #   docker compose run --rm alpine-linux-cpp
     # Parameters:
-    #   ALPINE_LINUX: 3.18
+    #   ALPINE_LINUX: 3.22
     #   ARCH: amd64, arm64v8, ...
     image: ${REPO}:${ARCH}-alpine-linux-${ALPINE_LINUX}-cpp
     build:
