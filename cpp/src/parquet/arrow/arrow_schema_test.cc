@@ -1796,28 +1796,29 @@ TEST_F(TestConvertArrowSchema, ParquetTimeAdjustedToUTC) {
 
   auto make_cases_fcn = [](bool write_time_utc_adjusted) {
     std::vector<FieldConstructionArguments> cases = {
-      {"time32", ::arrow::time32(::arrow::TimeUnit::MILLI),
-        LogicalType::Time(write_time_utc_adjusted, LogicalType::TimeUnit::MILLIS), ParquetType::INT32, -1},
-      {"time64(microsecond)", ::arrow::time64(::arrow::TimeUnit::MICRO),
-        LogicalType::Time(write_time_utc_adjusted, LogicalType::TimeUnit::MICROS), ParquetType::INT64, -1},
-      {"time64(nanosecond)", ::arrow::time64(::arrow::TimeUnit::NANO),
-        LogicalType::Time(write_time_utc_adjusted, LogicalType::TimeUnit::NANOS), ParquetType::INT64, -1}
-      };
-      return cases;
+        {"time32", ::arrow::time32(::arrow::TimeUnit::MILLI),
+         LogicalType::Time(write_time_utc_adjusted, LogicalType::TimeUnit::MILLIS),
+         ParquetType::INT32, -1},
+        {"time64(microsecond)", ::arrow::time64(::arrow::TimeUnit::MICRO),
+         LogicalType::Time(write_time_utc_adjusted, LogicalType::TimeUnit::MICROS),
+         ParquetType::INT64, -1},
+        {"time64(nanosecond)", ::arrow::time64(::arrow::TimeUnit::NANO),
+         LogicalType::Time(write_time_utc_adjusted, LogicalType::TimeUnit::NANOS),
+         ParquetType::INT64, -1}};
+    return cases;
   };
 
   auto make_fields_schema_fcn = [](const std::vector<FieldConstructionArguments>& cases) {
     std::vector<std::shared_ptr<Field>> arrow_fields;
     std::vector<NodePtr> parquet_fields;
     for (const FieldConstructionArguments& c : cases) {
-        arrow_fields.push_back(::arrow::field(c.name, c.datatype, false));
-        parquet_fields.push_back(PrimitiveNode::Make(c.name, Repetition::REQUIRED,
-                                                    c.logical_type, c.physical_type,
-                                                    c.physical_length));
+      arrow_fields.push_back(::arrow::field(c.name, c.datatype, false));
+      parquet_fields.push_back(PrimitiveNode::Make(c.name, Repetition::REQUIRED,
+                                                   c.logical_type, c.physical_type,
+                                                   c.physical_length));
     }
     return std::make_pair(arrow_fields, parquet_fields);
   };
-
 
   ArrowWriterProperties::Builder builder;
 
@@ -1835,7 +1836,6 @@ TEST_F(TestConvertArrowSchema, ParquetTimeAdjustedToUTC) {
   ASSERT_OK(ConvertSchema(arrow_parquet_fields.first, arrow_writer_properties));
   CheckFlatSchema(arrow_parquet_fields.second);
 }
-
 
 class TestConvertRoundTrip : public ::testing::Test {
  public:
