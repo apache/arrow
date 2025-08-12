@@ -214,12 +214,12 @@ Result<std::shared_ptr<Schema>> MakeOutputSchema(
     ARROW_ASSIGN_OR_RAISE(auto args,
                           ScalarAggregateNode::MakeAggregateNodeArgs(
                               input_schema, keys, segment_keys, aggregates, exec_ctx,
-                              /*concurrency=*/1, {}));
+                              /*concurrency=*/1));
     return std::move(args.output_schema);
   } else {
     ARROW_ASSIGN_OR_RAISE(
         auto args, GroupByNode::MakeAggregateNodeArgs(input_schema, keys, segment_keys,
-                                                      aggregates, exec_ctx, {}));
+                                                      aggregates, exec_ctx));
     return std::move(args.output_schema);
   }
 }

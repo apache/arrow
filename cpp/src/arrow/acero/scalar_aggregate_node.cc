@@ -62,8 +62,7 @@ ScalarAggregateNode::MakeAggregateNodeArgs(const std::shared_ptr<Schema>& input_
                                            const std::vector<FieldRef>& keys,
                                            const std::vector<FieldRef>& segment_keys,
                                            const std::vector<Aggregate>& aggs,
-                                           ExecContext* exec_ctx, size_t concurrency,
-                                           std::vector<ExecNode*> inputs) {
+                                           ExecContext* exec_ctx, size_t concurrency) {
   // Copy (need to modify options pointer below)
   std::vector<Aggregate> aggregates(aggs);
   std::vector<int> segment_field_ids(segment_keys.size());
@@ -158,45 +157,16 @@ ScalarAggregateNode::MakeAggregateNodeArgs(const std::shared_ptr<Schema>& input_
     fields[base + i] = field(aggregates[i].name, out_type.GetSharedPtr());
   }
 
-  Ordering out_ordering = Ordering::Unordered();
-  if (requires_ordering && inputs[0]->ordering().is_implicit()) {
-    out_ordering = Ordering::Implicit();
-  } else if (requires_ordering) {
-    std::vector<compute::SortKey> out_sort_keys;
-    std::unordered_set<int> segmented_key_field_id_set(segment_field_ids.begin(),
-                                                       segment_field_ids.end());
-    // Propagate output sorting only by segmented keys excluding sorting by regualr keys
-    // since this will break the segmentation.
-    for (auto key : inputs[0]->ordering().sort_keys()) {
-      ARROW_ASSIGN_OR_RAISE(auto match, key.target.FindOne(*input_schema));
-      if (segmented_key_field_id_set.find(match[0]) != segmented_key_field_id_set.end()) {
-        out_sort_keys.emplace_back(key);
-      } else {
-        break;
-      }
-    }
-    if (out_sort_keys.size() > 0)
-      out_ordering = Ordering(out_sort_keys);
-    else
-      out_ordering = Ordering::Implicit();
-  }
-
-  if (!out_ordering.is_unordered()) {
-    if (inputs[0]->ordering().is_unordered()) {
-      return Status::Invalid(
-          "Aggregate node's input has no meaningful ordering and so limit/offset will be "
-          "non-deterministic.  Please establish order in some way (e.g. by inserting an "
-          "order_by node)");
-    }
-  }
-
-  return AggregateNodeArgs<ScalarAggregateKernel>{
-      schema(std::move(fields)),
-      /*grouping_key_field_ids=*/{}, std::move(segment_field_ids),
-      std::move(segmenter),          std::move(target_fieldsets),
-      std::move(aggregates),         std::move(kernels),
-      std::move(kernel_intypes),     std::move(states),
-      std::move(out_ordering)};
+  return AggregateNodeArgs<ScalarAggregateKernel>{schema(std::move(fields)),
+                                                  /*grouping_key_field_ids=*/{},
+                                                  std::move(segment_field_ids),
+                                                  std::move(segmenter),
+                                                  std::move(target_fieldsets),
+                                                  std::move(aggregates),
+                                                  std::move(kernels),
+                                                  std::move(kernel_intypes),
+                                                  std::move(states),
+                                                  requires_ordering};
 }
 
 Result<ExecNode*> ScalarAggregateNode::Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -207,6 +177,7 @@ Result<ExecNode*> ScalarAggregateNode::Make(ExecPlan* plan, std::vector<ExecNode
   auto aggregates = aggregate_options.aggregates;
   const auto& keys = aggregate_options.keys;
   const auto& segment_keys = aggregate_options.segment_keys;
+  const auto input = inputs[0];
   const auto concurrency = plan->query_context()->max_concurrency();
 
   if (keys.size() > 0) {
@@ -218,13 +189,44 @@ Result<ExecNode*> ScalarAggregateNode::Make(ExecPlan* plan, std::vector<ExecNode
 
   ARROW_ASSIGN_OR_RAISE(
       auto args, MakeAggregateNodeArgs(input_schema, keys, segment_keys, aggregates,
-                                       exec_ctx, concurrency, inputs));
+                                       exec_ctx, concurrency));
+  Ordering out_ordering = Ordering::Unordered();
+  if (args.requires_ordering && input->ordering().is_implicit()) {
+    out_ordering = Ordering::Implicit();
+  } else if (args.requires_ordering) {
+    std::vector<compute::SortKey> out_sort_keys;
+    std::unordered_set<int> segmented_key_field_id_set(args.segment_key_field_ids.begin(),
+                                                       args.segment_key_field_ids.end());
+    // Propagate output sorting only by segmented keys excluding sorting by regular keys
+    // since this will break the segmentation.
+    for (auto key : input->ordering().sort_keys()) {
+      ARROW_ASSIGN_OR_RAISE(auto match, key.target.FindOne(*input_schema));
+      if (segmented_key_field_id_set.find(match[0]) != segmented_key_field_id_set.end()) {
+        out_sort_keys.emplace_back(key);
+      } else {
+        break;
+      }
+    }
+    if (out_sort_keys.size() > 0) {
+      out_ordering = Ordering(out_sort_keys);
+    } else {
+      out_ordering = Ordering::Implicit();
+    }
+  }
 
+  if (!out_ordering.is_unordered()) {
+    if (inputs[0]->ordering().is_unordered()) {
+      return Status::Invalid(
+          "Aggregate node's input has no meaningful ordering and so limit/offset will be "
+          "non-deterministic.  Please establish order in some way (e.g. by inserting an "
+          "order_by node)");
+    }
+  }
   return plan->EmplaceNode<ScalarAggregateNode>(
       plan, std::move(inputs), std::move(args.output_schema), std::move(args.segmenter),
       std::move(args.segment_key_field_ids), std::move(args.target_fieldsets),
       std::move(args.aggregates), std::move(args.kernels), std::move(args.kernel_intypes),
-      std::move(args.states), std::move(args.ordering));
+      std::move(args.states), std::move(out_ordering));
 }
 
 Status ScalarAggregateNode::DoConsume(const ExecSpan& batch, size_t thread_index) {

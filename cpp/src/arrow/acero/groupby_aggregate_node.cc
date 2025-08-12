@@ -74,7 +74,7 @@ Status GroupByNode::Init() {
 Result<AggregateNodeArgs<HashAggregateKernel>> GroupByNode::MakeAggregateNodeArgs(
     const std::shared_ptr<Schema>& input_schema, const std::vector<FieldRef>& keys,
     const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggs,
-    ExecContext* ctx, std::vector<ExecNode*> inputs) {
+    ExecContext* ctx) {
   // Find input field indices for key fields
   std::vector<int> key_field_ids(keys.size());
   for (size_t i = 0; i < keys.size(); ++i) {
@@ -167,37 +167,6 @@ Result<AggregateNodeArgs<HashAggregateKernel>> GroupByNode::MakeAggregateNodeArg
   for (size_t i = 0; i < aggs.size(); ++i) {
     output_fields[base + i] = agg_result_fields[i]->WithName(aggs[i].name);
   }
-  Ordering out_ordering = Ordering::Unordered();
-  if (requires_ordering && inputs[0]->ordering().is_implicit()) {
-    out_ordering = Ordering::Implicit();
-  } else if (requires_ordering) {
-    std::vector<compute::SortKey> out_sort_keys;
-    std::unordered_set<int> segmented_key_field_id_set(segment_key_field_ids.begin(),
-                                                       segment_key_field_ids.end());
-    // Propagate output sorting only by segmented keys excluding sorting by regualr keys
-    // since this will break the segmentation.
-    for (auto key : inputs[0]->ordering().sort_keys()) {
-      ARROW_ASSIGN_OR_RAISE(auto match, key.target.FindOne(*input_schema));
-      if (segmented_key_field_id_set.find(match[0]) != segmented_key_field_id_set.end()) {
-        out_sort_keys.emplace_back(key);
-      } else {
-        break;
-      }
-    }
-    if (out_sort_keys.size() > 0)
-      out_ordering = Ordering(out_sort_keys);
-    else
-      out_ordering = Ordering::Implicit();
-  }
-
-  if (!out_ordering.is_unordered()) {
-    if (inputs[0]->ordering().is_unordered()) {
-      return Status::Invalid(
-          "Aggregate node's input has no meaningful ordering and so limit/offset will be "
-          "non-deterministic.  Please establish order in some way (e.g. by inserting an "
-          "order_by node)");
-    }
-  }
 
   return AggregateNodeArgs<HashAggregateKernel>{schema(std::move(output_fields)),
                                                 std::move(key_field_ids),
@@ -208,7 +177,7 @@ Result<AggregateNodeArgs<HashAggregateKernel>> GroupByNode::MakeAggregateNodeArg
                                                 std::move(agg_kernels),
                                                 std::move(agg_src_types),
                                                 /*states=*/{},
-                                                std::move(out_ordering)};
+                                                requires_ordering};
 }
 
 Result<ExecNode*> GroupByNode::Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -224,14 +193,45 @@ Result<ExecNode*> GroupByNode::Make(ExecPlan* plan, std::vector<ExecNode*> input
 
   const auto& input_schema = input->output_schema();
   auto exec_ctx = plan->query_context()->exec_context();
-  ARROW_ASSIGN_OR_RAISE(auto args, MakeAggregateNodeArgs(input_schema, keys, segment_keys,
-                                                         aggs, exec_ctx, inputs));
+  ARROW_ASSIGN_OR_RAISE(
+      auto args, MakeAggregateNodeArgs(input_schema, keys, segment_keys, aggs, exec_ctx));
 
+  Ordering out_ordering = Ordering::Unordered();
+  if (args.requires_ordering && input->ordering().is_implicit()) {
+    out_ordering = Ordering::Implicit();
+  } else if (args.requires_ordering) {
+    std::vector<compute::SortKey> out_sort_keys;
+    std::unordered_set<int> segmented_key_field_id_set(args.segment_key_field_ids.begin(),
+                                                       args.segment_key_field_ids.end());
+    // Propagate output sorting only by segmented keys excluding sorting by regular keys
+    // since this will break the segmentation.
+    for (auto key : input->ordering().sort_keys()) {
+      ARROW_ASSIGN_OR_RAISE(auto match, key.target.FindOne(*input_schema));
+      if (segmented_key_field_id_set.find(match[0]) != segmented_key_field_id_set.end()) {
+        out_sort_keys.emplace_back(key);
+      } else {
+        break;
+      }
+    }
+    if (out_sort_keys.size() > 0) {
+      out_ordering = Ordering(out_sort_keys);
+    } else {
+      out_ordering = Ordering::Implicit();
+    }
+  }
+  if (!out_ordering.is_unordered()) {
+    if (inputs[0]->ordering().is_unordered()) {
+      return Status::Invalid(
+          "Aggregate node's input has no meaningful ordering and so limit/offset will be "
+          "non-deterministic.  Please establish order in some way (e.g. by inserting an "
+          "order_by node)");
+    }
+  }
   return input->plan()->EmplaceNode<GroupByNode>(
       input, std::move(args.output_schema), std::move(args.grouping_key_field_ids),
       std::move(args.segment_key_field_ids), std::move(args.segmenter),
       std::move(args.kernel_intypes), std::move(args.target_fieldsets),
-      std::move(args.aggregates), std::move(args.kernels), std::move(args.ordering));
+      std::move(args.aggregates), std::move(args.kernels), std::move(out_ordering));
 }
 
 Status GroupByNode::ResetKernelStates() {

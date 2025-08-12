@@ -98,7 +98,7 @@ struct AggregateNodeArgs {
   std::vector<const KernelType*> kernels;
   std::vector<std::vector<TypeHolder>> kernel_intypes;
   std::vector<std::vector<std::unique_ptr<KernelState>>> states;
-  Ordering ordering;
+  bool requires_ordering;
 };
 
 std::vector<TypeHolder> ExtendWithGroupIdType(const std::vector<TypeHolder>& in_types);
@@ -194,7 +194,7 @@ class ScalarAggregateNode : public ExecNode,
   static Result<AggregateNodeArgs<ScalarAggregateKernel>> MakeAggregateNodeArgs(
       const std::shared_ptr<Schema>& input_schema, const std::vector<FieldRef>& keys,
       const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggs,
-      ExecContext* exec_ctx, size_t concurrency, std::vector<ExecNode*> inputs);
+      ExecContext* exec_ctx, size_t concurrency);
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options);
@@ -291,7 +291,7 @@ class GroupByNode : public ExecNode,
   static Result<AggregateNodeArgs<HashAggregateKernel>> MakeAggregateNodeArgs(
       const std::shared_ptr<Schema>& input_schema, const std::vector<FieldRef>& keys,
       const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggs,
-      ExecContext* ctx, std::vector<ExecNode*> inputs);
+      ExecContext* ctx);
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options);
