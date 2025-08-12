@@ -329,21 +329,20 @@ CryptoFactory::GetExternalFileDecryptionProperties(
       key_toolkit_, kms_connection_config, external_decryption_config.cache_lifetime_seconds,
       file_path, file_system);
   
-  ExternalFileDecryptionProperties::Builder* builder =
-      ExternalFileDecryptionProperties::Builder()
-          .key_retriever(key_retriever)
-          ->plaintext_files_allowed();
+  ExternalFileDecryptionProperties::Builder builder;
+  builder.key_retriever(key_retriever);
+  builder.plaintext_files_allowed();
   
   if (!external_decryption_config.app_context.empty()) {
-    builder->app_context(external_decryption_config.app_context);
+    builder.app_context(external_decryption_config.app_context);
   }
   
   if (!external_decryption_config.connection_config.empty()) {
-    builder->connection_config(ConvertConnectionConfig(
+    builder.connection_config(ConvertConnectionConfig(
       external_decryption_config.connection_config));
   }
 
-  return builder->build_external();
+  return builder.build_external();
 }
 
 void CryptoFactory::RotateMasterKeys(

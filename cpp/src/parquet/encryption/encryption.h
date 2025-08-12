@@ -26,7 +26,7 @@
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include <iostream>
+
 
 namespace parquet {
 
@@ -376,9 +376,9 @@ class PARQUET_EXPORT ExternalFileDecryptionProperties : public FileDecryptionPro
  public:
   class PARQUET_EXPORT Builder : public FileDecryptionProperties::Builder {
    public:
-    Builder() : FileDecryptionProperties::Builder() {}
+    explicit Builder() : FileDecryptionProperties::Builder() {}
 
-    Builder* app_context(const std::string context);
+    Builder* app_context(const std::string& context);
 
     Builder* connection_config(
       const std::map<ParquetCipher::type, std::map<std::string, std::string>>& config);
@@ -428,11 +428,7 @@ class PARQUET_EXPORT ExternalFileDecryptionProperties : public FileDecryptionPro
     std::map<ParquetCipher::type, std::map<std::string, std::string>> connection_config_;
   };
 
-  std::string app_context() const {
-    std::cout << "app_context() getter called" << std::endl;
-    std::cout << "app_context_ memory address: " << (void*)app_context_.data() << std::endl;
-    std::cout << "app_context_ size: " << app_context_.size() << std::endl;
-    std::cout << "app_context_ content: [" << app_context_ << "]" << std::endl;
+  const std::string& app_context() const {
     return app_context_;
   }
 

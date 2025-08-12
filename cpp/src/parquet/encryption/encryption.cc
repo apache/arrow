@@ -32,13 +32,8 @@ namespace parquet {
 namespace {
   /// Helper method for validating JSON strings in app_context.
   bool IsValidJson(const std::string& json_str) {
-    std::cout << "Validating JSON: " << json_str << std::endl;
     rapidjson::Document doc;
-    std::cout << "Parsing JSON" << std::endl;
     doc.Parse(json_str.c_str());
-    std::cout << "Parsed JSON" << std::endl;
-    std::cout << "IsObject: " << doc.IsObject() << std::endl;
-    std::cout << "HasParseError: " << doc.HasParseError() << std::endl;
     return doc.IsObject() && !doc.HasParseError();
   }
 }  // Anonymous namespace
@@ -151,34 +146,24 @@ FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::aad_prefix
 }
 
 ExternalFileDecryptionProperties::Builder* ExternalFileDecryptionProperties::Builder::app_context(
-    const std::string context) {
-      std::cout << "--------------------------------" << std::endl;
-      std::cout << "Setting app_context" << std::endl;
-      std::cout << "app_context_: [" << context << "]" << std::endl;
+    const std::string& context) {
   if (!app_context_.empty()) {
     throw ParquetException("App context already set");
   }
   if (context.empty()) {
-    std::cout << "App context is empty" << std::endl;
     return this;
   }
 
   if (!IsValidJson(context)) {
-    std::cout << "Invalid JSON" << std::endl;
     throw ParquetException("App context is not a valid JSON string");
   }
-  std::cout << "Valid JSON" << std::endl;
   app_context_ = context;
-  std::cout << "App context set" << std::endl;
-  std::cout << "app_context_: [" << app_context_ << "]" << std::endl;
-  std::cout << "--------------------------------" << std::endl;
   return this;
 }
 
 ExternalFileDecryptionProperties::Builder* 
 ExternalFileDecryptionProperties::Builder::connection_config(
     const std::map<ParquetCipher::type, std::map<std::string, std::string>>& config) {
-  std::cout << "Setting connection config" << std::endl;
   if (connection_config_.size() != 0) {
     throw ParquetException("Connection config already set");
   }
@@ -186,16 +171,12 @@ ExternalFileDecryptionProperties::Builder::connection_config(
   if (config.size() == 0) {
     return this;
   }
-  std::cout << "Setting connection config" << std::endl;
   connection_config_ = config;
   return this;
 }
 
 std::shared_ptr<ExternalFileDecryptionProperties> 
 ExternalFileDecryptionProperties::Builder::build_external() {
-  std::cout << "\n\n--------------------------------" << std::endl;
-  std::cout << "Building external" << std::endl;
-  std::cout << "app_context_: [" << app_context_ << "]" << std::endl;
   return std::shared_ptr<ExternalFileDecryptionProperties>(new ExternalFileDecryptionProperties(
     footer_key_, key_retriever_, check_plaintext_footer_integrity_, aad_prefix_,
     aad_prefix_verifier_, column_decryption_properties_, plaintext_files_allowed_,
@@ -215,16 +196,7 @@ ExternalFileDecryptionProperties::ExternalFileDecryptionProperties(
                                aad_prefix, aad_prefix_verifier, column_decryption_properties,
                                plaintext_files_allowed),
       app_context_(app_context),
-      connection_config_(connection_config) {
-            // Debug: Check what was actually stored
-    std::cout << "Constructor received app_context: [" << app_context << "]" << std::endl;
-    std::cout << "Constructor stored app_context_: [" << app_context_ << "]" << std::endl;
-    std::cout << "Constructor stored connection_config_ size: " << connection_config_.size() << std::endl;
-    
-    // Debug: Check memory addresses
-    std::cout << "app_context_ memory address: " << (void*)app_context_.data() << std::endl;
-    std::cout << "app_context_ size: " << app_context_.size() << std::endl;
-      }
+      connection_config_(connection_config) {}
 
 ColumnDecryptionProperties::Builder* ColumnDecryptionProperties::Builder::key(
     const std::string& key) {
@@ -337,8 +309,6 @@ FileDecryptionProperties::FileDecryptionProperties(
     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
     const ColumnPathToDecryptionPropertiesMap& column_decryption_properties,
     bool plaintext_files_allowed) {
-      std::cout << "FileDecryptionProperties constructor" << std::endl;
-      std::cout << "Are you going to crash me here?" << std::endl;
   DCHECK(!footer_key.empty() || nullptr != key_retriever ||
          0 != column_decryption_properties.size());
 
@@ -356,7 +326,6 @@ FileDecryptionProperties::FileDecryptionProperties(
   aad_prefix_ = aad_prefix;
   column_decryption_properties_ = column_decryption_properties;
   plaintext_files_allowed_ = plaintext_files_allowed;
-  std::cout << "FileDecryptionProperties constructor finished" << std::endl;
 }
 
 FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key_id(
@@ -426,25 +395,19 @@ FileEncryptionProperties::FileEncryptionProperties(
 
 ExternalFileEncryptionProperties::Builder* ExternalFileEncryptionProperties::Builder::app_context(
     const std::string& context) {
-  std::cout << "Setting app_context" << std::endl;
-  std::cout << "app_context_: [" << context << "]" << std::endl;
   if (!app_context_.empty()) {
     throw ParquetException("App context already set");
   }
 
   if (context.empty()) {
-    std::cout << "App context is empty" << std::endl;
     return this;
   }
 
   if (!IsValidJson(context)) {
-    std::cout << "App context is not a valid JSON string" << std::endl;
     throw ParquetException("App context is not a valid JSON string");
   }
 
   app_context_ = context;
-  std::cout << "App context set" << std::endl;
-  std::cout << "app_context_: [" << app_context_ << "]" << std::endl;
   return this;
 }
 

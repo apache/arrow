@@ -461,8 +461,6 @@ TEST(TestExternalFileDecryptionProperties, SuperClassFieldsSetCorrectly) {
 TEST(TestExternalFileDecryptionProperties, SetExternalContextAndConfig) {
   std::shared_ptr<parquet::StringKeyIdRetriever> string_kr1 =
       std::make_shared<parquet::StringKeyIdRetriever>();
-  std::cout << "--------------------------------" << std::endl;
-  std::cout << "TestExternalFileDecryptionProperties, SetExternalContextAndConfig" << std::endl;
   std::string app_context = "{\n"
                    "  \"user_id\": \"abc123\",\n"
                    "  \"location\": {\n"
@@ -476,37 +474,24 @@ TEST(TestExternalFileDecryptionProperties, SetExternalContextAndConfig) {
   inner_config["config_file"] = "path/to/config/file";
   connection_config[ParquetCipher::AES_GCM_CTR_V1] = inner_config;
 
-  parquet::ExternalFileDecryptionProperties::Builder* builder =
-      parquet::ExternalFileDecryptionProperties::Builder()
-          .footer_key(kFooterEncryptionKey)
-          ->app_context(app_context)
-          ->key_retriever(string_kr1);
-          //->connection_config(connection_config);
-  //builder->app_context(app_context);
-  builder->connection_config(connection_config);
+  ExternalFileDecryptionProperties::Builder builder;
+  builder.app_context(app_context);
+  builder.connection_config(connection_config);
     
-  std::shared_ptr<parquet::ExternalFileDecryptionProperties> props = builder->build_external();
+  std::shared_ptr<parquet::ExternalFileDecryptionProperties> props = builder.build_external();
   
 
-  std::cout << "Finished building, now asserting" << std::endl;
-  std::cout << "app_context: [" << props->app_context() << "]" << std::endl;
   ASSERT_EQ(false, props->app_context().empty());
   ASSERT_EQ(app_context, props->app_context());
   ASSERT_EQ(false, props->connection_config().size() == 0);
   ASSERT_EQ(connection_config, props->connection_config());
-  std::cout << "Finished asserting" << std::endl;
-  std::cout << "--------------------------------" << std::endl;
 }
 
-/*TEST(TestExternalFileDecryptionProperties, SetInvalidAppContext) {
-  std::cout << "--------------------------------" << std::endl;
-  std::cout << "TestExternalFileDecryptionProperties, SetInvalidAppContext" << std::endl;
+TEST(TestExternalFileDecryptionProperties, SetInvalidAppContext) {
   std::string invalid_app_context = "invalid_app_context";
-  parquet::ExternalFileDecryptionProperties::Builder* builder =
-      parquet::ExternalFileDecryptionProperties::Builder()
-          .footer_key(kFooterEncryptionKey)
-          ->app_context(invalid_app_context);
-  ASSERT_THROW(builder->build_external(), parquet::ParquetException);
-}*/
+  parquet::ExternalFileDecryptionProperties::Builder builder;
+  builder.footer_key(kFooterEncryptionKey);
+  ASSERT_THROW(builder.app_context(invalid_app_context), parquet::ParquetException);
+}
 
 }  // namespace parquet::encryption::test
