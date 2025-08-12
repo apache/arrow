@@ -2983,10 +2983,10 @@ def test_table_group_by_first():
     table2 = pa.table({'a': [1, 2, 3, 4], 'b': ['b', 'a'] * 2})
     table = pa.concat_tables([table1, table2])
 
-    with pytest.raises(NotImplementedError):
-        table.group_by("b").aggregate([("a", "first")])
+    # with pytest.raises(NotImplementedError):
+    #     table.group_by("b").aggregate([("a", "first")])
 
-    result = table.group_by("b", use_threads=False).aggregate([("a", "first")])
+    result = table.group_by("b", use_threads=True).aggregate([("a", "first")])
     expected = pa.table({"b": ["a", "b"], "a_first": [1, 2]})
     assert result.equals(expected)
 
