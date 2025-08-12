@@ -573,7 +573,7 @@ if needs_testing
     arrow_testing_lib = static_library(
         'arrow_testing',
         sources: arrow_testing_srcs,
-        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
+        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_dep],
     )
 
     arrow_testing_dep = declare_dependency(link_with: [arrow_testing_lib])
