@@ -38,15 +38,16 @@ SHELL ["cmd", "/S", "/C"]
 RUN %PYTHON_CMD% -m pip install -U pip setuptools
 
 COPY python/requirements-wheel-test.txt C:/arrow/python/
+
+# Free-threaded CPython 3.13 needs pinned cffi version
 # Cython and Pandas wheels for 3.13 free-threaded are not released yet
-RUN %PYTHON_CMD% -m pip install \
+RUN findstr /V cffi C:\arrow\python\requirements-wheel-test.txt > C:\arrow\python\requirements-patched.txt && \
+    echo cffi^<2.0.0 >> C:\arrow\python\requirements-patched.txt && \
+    %PYTHON_CMD% -m pip install \
     --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple \
     --pre \
     --prefer-binary \
-    -r C:/arrow/python/requirements-wheel-test.txt
-# cffi-based tests would crash when importing cffi.
-# hadolint ignore=DL3059
-RUN %PYTHON_CMD% -m pip uninstall -y cffi
+    -r C:/arrow/python/requirements-patched.txt
 
 ENV PYTHON="${python}t"
 ENV PYTHON_GIL=0

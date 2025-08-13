@@ -107,6 +107,11 @@ def test_cython_api(tmpdir):
         # PYTHONPATH, for local dev environments
         subprocess_env = test_util.get_modified_env_with_pythonpath()
 
+        # Add Windows SDK include path manually
+        subprocess_env["INCLUDE"] = (
+            "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0\\ucrt;"
+            + subprocess_env.get("INCLUDE", "")
+        )
         # Compile extension module
         subprocess.check_call([sys.executable, 'setup.py',
                                'build_ext', '--inplace'],
@@ -181,6 +186,11 @@ def test_visit_strings(tmpdir):
 
         subprocess_env = test_util.get_modified_env_with_pythonpath()
 
+        # Add Windows SDK include path manually
+        subprocess_env["INCLUDE"] = (
+            "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0\\ucrt;"
+            + subprocess_env.get("INCLUDE", "")
+        )
         # Compile extension module
         subprocess.check_call([sys.executable, 'setup.py',
                                'build_ext', '--inplace'],
