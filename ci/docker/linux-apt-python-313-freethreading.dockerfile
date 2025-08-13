@@ -32,18 +32,13 @@ COPY python/requirements-build.txt \
 
 ENV ARROW_PYTHON_VENV /arrow-dev
 RUN python3.13t -m venv ${ARROW_PYTHON_VENV}
-
-# Free-threaded CPython 3.13 needs pinned cffi version
-RUN sed '/^cffi/d' /arrow/python/requirements-test.txt > /arrow/python/requirements-patched.txt && \
-    echo "cffi<2.0.0" >> /arrow/python/requirements-patched.txt
-
 RUN ${ARROW_PYTHON_VENV}/bin/python -m pip install -U pip setuptools wheel
 RUN ${ARROW_PYTHON_VENV}/bin/python -m pip install \
       --pre \
       --prefer-binary \
       --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" \
       -r arrow/python/requirements-build.txt \
-      -r arrow/python/requirements-patched.txt
+      -r arrow/python/requirements-test.txt
 
 # We want to run the PyArrow test suite with the GIL disabled, but cffi
 # (more precisely, the `_cffi_backend` module) currently doesn't declare
