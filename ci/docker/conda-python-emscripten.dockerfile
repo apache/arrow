@@ -18,14 +18,14 @@
 ARG repo
 ARG arch
 ARG arch_short
-ARG python="3.12"
+ARG python="3.13"
 FROM --platform=linux/${arch} ${repo}:${arch_short}-conda-python-${python}
 
 ARG selenium_version="4.41.0"
-ARG pyodide_version="0.27.1"
+ARG pyodide_version="0.28.1"
 ARG chrome_version="latest"
-ARG required_python_min="(3,12)"
-# fail if python version < 3.12
+ARG required_python_min="(3,13)"
+# fail if python version < 3.13
 RUN echo "check PYTHON>=${required_python_min}" && python -c "import sys;sys.exit(0 if sys.version_info>=${required_python_min} else 1)"
 
 # install selenium and recent pyodide-build and recent python
@@ -40,10 +40,10 @@ RUN python -m pip install --no-cache-dir selenium==${selenium_version} && \
 RUN pyodide_dist_url="https://github.com/pyodide/pyodide/releases/download/${pyodide_version}/pyodide-${pyodide_version}.tar.bz2" && \
     wget -q "${pyodide_dist_url}" -O- | tar -xj -C /
 
-# install node 20 (needed for async call support)
+# install node 22 (needed for async call support and JSPI)
 # and pthread-stubs for build, and unzip needed for chrome build to work
 # xz is needed by emsdk to extract node tarballs
-RUN conda install nodejs=20 unzip pthread-stubs make xz -c conda-forge
+RUN conda install nodejs=22 unzip pthread-stubs make xz -c conda-forge
 
 # install correct version of emscripten for this pyodide
 COPY ci/scripts/install_emscripten.sh /arrow/ci/scripts/
