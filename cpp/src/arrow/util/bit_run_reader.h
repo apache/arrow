@@ -52,6 +52,8 @@ inline bool operator!=(const BitRun& lhs, const BitRun& rhs) {
 
 class BitRunReaderLinear {
  public:
+  BitRunReaderLinear() = default;
+
   BitRunReaderLinear(const uint8_t* bitmap, int64_t start_offset, int64_t length)
       : reader_(bitmap, start_offset, length) {}
 
@@ -74,6 +76,8 @@ class BitRunReaderLinear {
 /// in a bitmap.
 class ARROW_EXPORT BitRunReader {
  public:
+  BitRunReader() = default;
+
   /// \brief Constructs new BitRunReader.
   ///
   /// \param[in] bitmap source data
