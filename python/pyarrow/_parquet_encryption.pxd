@@ -64,3 +64,8 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
     cdef shared_ptr[CExternalEncryptionConfiguration] external_configuration
     cdef inline shared_ptr[CExternalEncryptionConfiguration] unwrap_external(self) nogil
 cdef shared_ptr[CExternalEncryptionConfiguration] pyarrow_unwrap_external_encryptionconfig(object externalencryptionconfig) except *
+
+cdef class ExternalDecryptionConfiguration(DecryptionConfiguration):
+    cdef shared_ptr[CExternalDecryptionConfiguration] external_configuration
+    cdef inline shared_ptr[CExternalDecryptionConfiguration] unwrap_external(self) nogil
+cdef shared_ptr[CExternalDecryptionConfiguration] pyarrow_unwrap_external_decryptionconfig(object externaldecryptionconfig) except *

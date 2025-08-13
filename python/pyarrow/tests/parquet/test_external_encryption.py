@@ -54,6 +54,24 @@ def external_encryption_config():
         }
     )
 
+@pytest.fixture
+def external_decryption_config():
+    config = pe.ExternalDecryptionConfiguration(
+        cache_lifetime=timedelta(minutes=5.0),
+        app_context={
+            "user_id": "Picard1701",
+            "location": "Presidio"
+        },
+        connection_config={
+            "AES_GCM_V1": {
+                "config_file": "path/to/config/file",
+                "config_file_decryption_key": "some_key"
+            }
+        }
+    )
+    config.cache_lifetime=timedelta(minutes=5.0)
+    return config
+
 def test_encryption_configuration_properties():
     """Test the standard EncryptionConfiguration properties to avoid regressions."""
 
@@ -131,7 +149,7 @@ def test_external_encryption_app_context_invalid_json():
 def test_external_encryption_per_column_encryption_invalid_algorithm():
     """Ensure invalid encryption_algorithm raises a ValueError or is rejected."""
 
-    with pytest.raises(ValueError, match="Invalid cipher name: 'INVALID'"):
+    with pytest.raises(ValueError, match="Invalid cipher name: INVALID"):
         pe.ExternalEncryptionConfiguration(
             footer_key="key",
             per_column_encryption={
@@ -217,3 +235,66 @@ def test_external_file_encryption_properties_valid(external_encryption_config):
     assert result.__class__.__name__ == "ExternalFileEncryptionProperties"
     assert result.__class__.__module__ == "pyarrow._parquet"
 
+def test_decryption_configuration_properties():
+    """Test the standard DecryptionConfiguration properties to avoid regressions."""
+
+    config = pe.DecryptionConfiguration()
+    config.cache_lifetime=timedelta(minutes=5.0)
+
+    assert isinstance(config, pe.DecryptionConfiguration)
+    assert config.cache_lifetime == timedelta(minutes=5.0)
+
+def test_external_decryption_configuration_properties(external_decryption_config):
+    """Test the ExternalDecryptionConfiguration properties including external-specific fields."""
+
+    config = external_decryption_config
+
+    assert isinstance(config, pe.ExternalDecryptionConfiguration)
+    assert config.cache_lifetime == timedelta(minutes=5.0)
+    assert config.app_context == {
+        "user_id": "Picard1701",
+        "location": "Presidio"
+    }
+    assert config.connection_config == {
+        "AES_GCM_V1": {
+            "config_file": "path/to/config/file",
+            "config_file_decryption_key": "some_key"
+        }
+    }
+    
+def test_external_decryption_connection_config_invalid_types():
+    """Ensure connection_config rejects non-string keys or values."""
+
+    # Outer key is not a string (int instead of cipher name string)
+    with pytest.raises(AttributeError, match="'int' object has no attribute 'upper'"):
+        config = pe.ExternalDecryptionConfiguration()
+        config.connection_config = {
+            123: {  # invalid outer key
+                "config_file": "should-fail"
+            }
+        }
+    
+    # Outer value is not a dict
+    with pytest.raises(TypeError, match="Inner value for cipher AES_GCM_V1 must be a dict"):
+        config = pe.ExternalDecryptionConfiguration()
+        config.connection_config = {
+            "AES_GCM_V1": ["not", "a", "dict"]  # invalid outer value (should be dict)
+        }
+
+    # Inner key is not a string
+    with pytest.raises(TypeError, match="All inner config keys/values must be str"):
+        config = pe.ExternalDecryptionConfiguration()
+        config.connection_config = {
+            "AES_GCM_V1": {
+                123: "should-fail"  # invalid inner key
+            }
+        }
+
+    # Inner value is not a string
+    with pytest.raises(TypeError, match="All inner config keys/values must be str"):
+        config = pe.ExternalDecryptionConfiguration()
+        config.connection_config = {
+            "AES_GCM_V1": {
+                "config_file": ["not", "a", "string"]  # invalid inner value
+            }
+        }

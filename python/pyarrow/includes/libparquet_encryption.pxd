@@ -107,6 +107,13 @@ cdef extern from "parquet/encryption/crypto_factory.h" \
         CDecryptionConfiguration() except +
         double cache_lifetime_seconds
 
+    cdef cppclass CExternalDecryptionConfiguration\
+            " parquet::encryption::ExternalDecryptionConfiguration":
+        CExternalDecryptionConfiguration() except +
+        double cache_lifetime_seconds
+        c_string app_context
+        unordered_map[ParquetCipher, unordered_map[c_string, c_string]] connection_config 
+        
     cdef cppclass CCryptoFactory" parquet::encryption::CryptoFactory":
         void RegisterKmsClientFactory(
             shared_ptr[CKmsClientFactory] kms_client_factory) except +
