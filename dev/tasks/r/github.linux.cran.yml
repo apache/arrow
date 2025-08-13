@@ -23,6 +23,7 @@ jobs:
   as-cran:
     name: "rhub/{{ '${{ matrix.config.r_image }}' }}"
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
