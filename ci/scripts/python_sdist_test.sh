@@ -53,7 +53,7 @@ fi
 if [ -n "${PYARROW_VERSION:-}" ]; then
   sdist="${arrow_dir}/python/dist/pyarrow-${PYARROW_VERSION}.tar.gz"
 else
-  sdist=$( find "${arrow_dir}/python/dist/" -maxdepth 1 -name 'pyarrow-*.tar.gz' -print | sort -r | head -n1 )
+  sdist=$(echo "${arrow_dir}"/python/dist/pyarrow-*.tar.gz | sort -r | head -n1)
 fi
 
 if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
