@@ -33,6 +33,7 @@
 #include <parquet/arrow/writer.h>
 #include "arrow/compute/expression.h"
 
+#include <filesystem>
 #include <iostream>
 #include <vector>
 
@@ -376,13 +377,9 @@ arrow::Status RunDatasetDocumentation(const std::string& format_name,
 }
 
 int main(int argc, char** argv) {
-  if (argc < 3) {
-    // Fake success for CI purposes.
-    return EXIT_SUCCESS;
-  }
-
-  std::string uri = argv[1];
-  std::string format_name = argv[2];
+  std::string uri =
+      argc > 1 ? argv[1] : "file://" + std::filesystem::temp_directory_path().string();
+  std::string format_name = argc > 2 ? argv[2] : "parquet";
   std::string mode = argc > 3 ? argv[3] : "no_filter";
 
   auto status = RunDatasetDocumentation(format_name, uri, mode);

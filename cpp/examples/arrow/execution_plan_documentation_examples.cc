@@ -825,14 +825,8 @@ enum ExampleMode {
 };
 
 int main(int argc, char** argv) {
-  if (argc < 3) {
-    // Fake success for CI purposes.
-    std::cout << "Usage: " << argv[0] << " base_save_path mode" << std::endl;
-    return EXIT_SUCCESS;
-  }
-
-  std::string base_save_path = argv[1];
-  int mode = std::atoi(argv[2]);
+  int mode = argc > 1 ? std::atoi(argv[2]) : SOURCE_SINK;
+  std::string base_save_path = argc > 2 ? argv[2] : "";
   arrow::Status status = arrow::compute::Initialize();
   if (!status.ok()) {
     std::cout << "Error occurred: " << status.message() << std::endl;
