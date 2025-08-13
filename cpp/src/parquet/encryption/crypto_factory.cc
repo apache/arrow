@@ -325,6 +325,8 @@ CryptoFactory::GetExternalFileDecryptionProperties(
     const ExternalDecryptionConfiguration& external_decryption_config,
     const std::string& file_path, const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
   
+  // Use the same FileKeyUnwrapper as in the FileDecryptionProperties.
+  // TODO(sbrenes): Check what needs to change in the case of external decryptors (Issue #52).
   auto key_retriever = std::make_shared<FileKeyUnwrapper>(
       key_toolkit_, kms_connection_config, external_decryption_config.cache_lifetime_seconds,
       file_path, file_system);
