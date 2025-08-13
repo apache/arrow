@@ -182,4 +182,57 @@ TEST_F(CryptoFactoryTest, ColumnRepeatedInMapsThrowsException) {
     }
 }
 
+TEST_F(CryptoFactoryTest, BasicDecryptionConfig) {
+    ExternalDecryptionConfiguration config;
+    config.cache_lifetime_seconds = 600;
+
+    auto properties = crypto_factory_.GetExternalFileDecryptionProperties(kms_config_, config);
+    EXPECT_TRUE(properties->check_plaintext_footer_integrity());
+    EXPECT_TRUE(properties->plaintext_files_allowed());
+    EXPECT_THAT(properties->key_retriever(), testing::NotNull());
+    EXPECT_TRUE(properties->app_context().empty());
+    EXPECT_TRUE(properties->connection_config().empty());
+}
+
+TEST_F(CryptoFactoryTest, ExternalDecryptionConfig) {
+    ExternalDecryptionConfiguration config;
+    config.cache_lifetime_seconds = 600;
+    config.app_context = 
+        "{\"user_id\": \"abc123\", \"location\": {\"lat\": 9.7489, \"lon\": -83.7534}}";
+    config.connection_config = {
+        {ParquetCipher::EXTERNAL_DBPA_V1, {{"file_path", "path/to/file"}}}
+    };
+
+    auto properties = crypto_factory_.GetExternalFileDecryptionProperties(kms_config_, config);
+    EXPECT_TRUE(properties->check_plaintext_footer_integrity());
+    EXPECT_TRUE(properties->plaintext_files_allowed());
+    EXPECT_THAT(properties->key_retriever(), testing::NotNull());
+    EXPECT_FALSE(properties->app_context().empty());
+    EXPECT_FALSE(properties->connection_config().empty());
+    EXPECT_EQ(properties->app_context(), config.app_context);
+    EXPECT_NE(properties->connection_config().find(ParquetCipher::EXTERNAL_DBPA_V1),
+              properties->connection_config().end());
+    EXPECT_EQ(properties->connection_config().find(ParquetCipher::AES_GCM_CTR_V1),
+              properties->connection_config().end());
+    EXPECT_NE(properties->connection_config().at(ParquetCipher::EXTERNAL_DBPA_V1).find("file_path"),
+              properties->connection_config().at(ParquetCipher::EXTERNAL_DBPA_V1).end());
+    EXPECT_EQ(properties->connection_config().at(ParquetCipher::EXTERNAL_DBPA_V1).at("file_path"),
+              "path/to/file");
+}
+
+TEST_F(CryptoFactoryTest, ExternalDecryptionConfigWithInvalidAppContextThrowsException) {
+    ExternalDecryptionConfiguration config;
+    config.cache_lifetime_seconds = 600;
+    config.app_context = "invalid_json";
+    
+    try {
+        auto properties = crypto_factory_.GetExternalFileDecryptionProperties(kms_config_, config);
+        FAIL() << "ParquetException should have been raised";
+    } catch (const ParquetException& xcp) {
+        EXPECT_THAT(xcp.what(), HasSubstr("App context is not a valid JSON string"));
+    } catch (...) {
+        FAIL() << "Caught unexpected exception type";
+    }
+}
+
 }  // namespace parquet::encryption::test

@@ -17,10 +17,10 @@
 
 #include "parquet/encryption/encryption.h"
 
-#include <string.h>
-
 #include <map>
 #include <optional>
+#include <rapidjson/document.h>
+#include <string.h>
 #include <utility>
 
 #include "arrow/util/logging_internal.h"
@@ -28,6 +28,15 @@
 #include "parquet/encryption/encryption_internal.h"
 
 namespace parquet {
+
+namespace {
+  /// Helper method for validating JSON strings in app_context.
+  bool IsValidJson(const std::string& json_str) {
+    rapidjson::Document doc;
+    doc.Parse(json_str.c_str());
+    return doc.IsObject() && !doc.HasParseError();
+  }
+}  // Anonymous namespace
 
 // integer key retriever
 void IntegerKeyIdRetriever::PutKey(uint32_t key_id, const std::string& key) {
@@ -141,11 +150,13 @@ ExternalFileDecryptionProperties::Builder* ExternalFileDecryptionProperties::Bui
   if (!app_context_.empty()) {
     throw ParquetException("App context already set");
   }
-
   if (context.empty()) {
     return this;
   }
 
+  if (!IsValidJson(context)) {
+    throw ParquetException("App context is not a valid JSON string");
+  }
   app_context_ = context;
   return this;
 }
@@ -160,7 +171,6 @@ ExternalFileDecryptionProperties::Builder::connection_config(
   if (config.size() == 0) {
     return this;
   }
-
   connection_config_ = config;
   return this;
 }
@@ -391,6 +401,10 @@ ExternalFileEncryptionProperties::Builder* ExternalFileEncryptionProperties::Bui
 
   if (context.empty()) {
     return this;
+  }
+
+  if (!IsValidJson(context)) {
+    throw ParquetException("App context is not a valid JSON string");
   }
 
   app_context_ = context;

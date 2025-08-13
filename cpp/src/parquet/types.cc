@@ -51,6 +51,18 @@ bool IsCodecSupported(Compression::type codec) {
   }
 }
 
+bool IsParquetCipherSupported(ParquetCipher::type cipher) {
+  switch (cipher) {
+    case ParquetCipher::AES_GCM_V1:
+    case ParquetCipher::AES_GCM_CTR_V1:
+    case ParquetCipher::EXTERNAL_DBPA_V1:
+      return true;
+    // There is no default case on purpose, so the compiler will warn if a new cipher is added
+    // without updating this function.
+  }
+  return false;
+}
+
 std::unique_ptr<Codec> GetCodec(Compression::type codec) {
   return GetCodec(codec, CodecOptions());
 }

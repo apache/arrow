@@ -71,6 +71,34 @@ int ValidateAndGetKeyLength(int32_t dek_length_bits) {
   return dek_length_bits / 8;
 }
 
+std::map<ParquetCipher::type, std::map<std::string, std::string>> ConvertConnectionConfig(
+  const std::unordered_map<ParquetCipher::type, 
+                           std::unordered_map<std::string, std::string>>& connection_config) {
+  
+  std::map<ParquetCipher::type, std::map<std::string, std::string>> converted_config;
+  
+    for (const auto& [cipher_type, inner_config] : connection_config) {
+        if (!IsParquetCipherSupported(cipher_type)) {
+            throw ParquetException("Invalid ParquetCipher type: " + 
+              std::to_string(static_cast<int>(cipher_type)));
+        }
+        
+        std::map<std::string, std::string> converted_inner;
+        for (const auto& [key, value] : inner_config) {
+            if (key.empty()) {
+                throw ParquetException("Empty key in connection config");
+            }            
+            if (value.empty()) {
+                throw ParquetException("Empty value for key '" + key + "' in connection config");
+            }            
+            converted_inner[key] = value;
+        }          
+        converted_config[cipher_type] = converted_inner;
+    }
+    
+    return converted_config;      
+}
+
 }  // Anonymous namespace
 
 void CryptoFactory::RegisterKmsClientFactory(
@@ -289,6 +317,34 @@ std::shared_ptr<FileDecryptionProperties> CryptoFactory::GetFileDecryptionProper
       .key_retriever(key_retriever)
       ->plaintext_files_allowed()
       ->build();
+}
+
+std::shared_ptr<ExternalFileDecryptionProperties>
+CryptoFactory::GetExternalFileDecryptionProperties(
+    const KmsConnectionConfig& kms_connection_config,
+    const ExternalDecryptionConfiguration& external_decryption_config,
+    const std::string& file_path, const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
+  
+  // Use the same FileKeyUnwrapper as in the FileDecryptionProperties.
+  // TODO(sbrenes): Check what needs to change in the case of external decryptors (Issue #52).
+  auto key_retriever = std::make_shared<FileKeyUnwrapper>(
+      key_toolkit_, kms_connection_config, external_decryption_config.cache_lifetime_seconds,
+      file_path, file_system);
+  
+  ExternalFileDecryptionProperties::Builder builder;
+  builder.key_retriever(key_retriever);
+  builder.plaintext_files_allowed();
+  
+  if (!external_decryption_config.app_context.empty()) {
+    builder.app_context(external_decryption_config.app_context);
+  }
+  
+  if (!external_decryption_config.connection_config.empty()) {
+    builder.connection_config(ConvertConnectionConfig(
+      external_decryption_config.connection_config));
+  }
+
+  return builder.build_external();
 }
 
 void CryptoFactory::RotateMasterKeys(
