@@ -27,11 +27,14 @@ ARG required_python_min="(3,13)"
 # fail if python version < 3.13
 RUN echo "check PYTHON>=${required_python_min}" && python -c "import sys;sys.exit(0 if sys.version_info>=${required_python_min} else 1)"
 
-# install selenium and recent pyodide-build and recent python
+RUN apt-get update -y -q && \
+    apt install -y -q --no-install-recommends \
+        libatomic1
 
 # needs to be a login shell so ~/.profile is read
 SHELL ["/bin/bash", "--login", "-c", "-o", "pipefail"]
 
+# install selenium and recent pyodide-build and recent python
 RUN python -m pip install --no-cache-dir selenium==${selenium_version} && \
     python -m pip install --no-cache-dir --upgrade pyodide-build>=${pyodide_version}
 
