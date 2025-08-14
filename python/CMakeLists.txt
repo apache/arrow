@@ -750,8 +750,8 @@ endif()
 if(PYARROW_BUILD_ACERO)
   if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     set(ACERO_LINK_LIBS)
-    set_property(TARGET _acero PROPERTY LINK_FLAGS 
-      "-s SIDE_MODULE=1 -s WASM_BIGINT -s EXPORT_ALL=1")
+    set_property(TARGET _acero PROPERTY LINK_FLAGS
+                                        "-s SIDE_MODULE=1 -s WASM_BIGINT -s EXPORT_ALL=1")
   elseif(ARROW_BUILD_SHARED)
     if(PYARROW_BUNDLE_ARROW_CPP)
       bundle_arrow_lib(${ARROW_ACERO_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
