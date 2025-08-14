@@ -310,9 +310,9 @@ TEST(TestExternalFileEncryptionProperties, SetExternalContextAndConfig) {
                    "    \"lon\": -84.0\n"
                    "  }\n"
                    "}";
-  std::map<std::string, std::string> connection_config;
-  connection_config["lib_location"] = "path/to/lib.so";
-  connection_config["config_file"] = "path/to/config/file";
+  std::map<ParquetCipher::type, std::map<std::string, std::string>> connection_config;
+  connection_config[ParquetCipher::AES_GCM_V1]["lib_location"] = "path/to/lib.so";
+  connection_config[ParquetCipher::AES_GCM_V1]["config_file"] = "path/to/config/file";
 
   ExternalFileEncryptionProperties::Builder builder(kFooterEncryptionKey);
   builder.app_context(app_context);

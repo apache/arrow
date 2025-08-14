@@ -129,13 +129,14 @@ struct PARQUET_EXPORT ExternalEncryptionConfiguration : public EncryptionConfigu
   /// Format: "{\"user_id\": \"abc123\", \"location\": {\"lat\": 9.7489, \"lon\": -83.7534}}"
   std::string app_context;
   
-  /// Key/value map of the location of configuration files needed by the external
-  /// encryptors. This may include location of a dynamically-linked library, or the
-  /// location of a file where the external encryptor can find urls, certificates, and parameters
-  /// needed to make a remote call. 
+  /// Map of the encryption algorithms to the key/value map of the location of configuration files
+  /// needed by the external encryptors. This may include location of a dynamically-linked
+  /// library, or the location of a file where the external encryptor can find urls, certificates,
+  /// and parameters needed to make a remote call. 
   /// For security, these values should never be sent in this config, only the locations of 
   /// the files that the external encryptor will know how to access.
-  std::unordered_map<std::string, std::string> connection_config;
+  std::unordered_map<ParquetCipher::type, std::unordered_map<std::string, std::string>>
+      connection_config;
 };
 
 struct PARQUET_EXPORT DecryptionConfiguration {

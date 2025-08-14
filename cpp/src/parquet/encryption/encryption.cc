@@ -413,7 +413,7 @@ ExternalFileEncryptionProperties::Builder* ExternalFileEncryptionProperties::Bui
 
 ExternalFileEncryptionProperties::Builder*
 ExternalFileEncryptionProperties::Builder::connection_config(
-    const std::map<std::string, std::string>& config) {
+    const std::map<ParquetCipher::type, std::map<std::string, std::string>>& config) {
   if (connection_config_.size() != 0) {
     throw ParquetException("Connection config already set");
   }
@@ -439,7 +439,7 @@ ExternalFileEncryptionProperties::ExternalFileEncryptionProperties(
     const std::string& aad_prefix, bool store_aad_prefix_in_file,
     const ColumnPathToEncryptionPropertiesMap& encrypted_columns,
     const std::string& app_context,
-    const std::map<std::string, std::string>& connection_config)
+    const std::map<ParquetCipher::type, std::map<std::string, std::string>>& connection_config)
     : FileEncryptionProperties(cipher, footer_key, footer_key_metadata, encrypted_footer,
                                aad_prefix, store_aad_prefix_in_file, encrypted_columns),
       app_context_(app_context),

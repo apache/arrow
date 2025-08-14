@@ -563,11 +563,12 @@ class PARQUET_EXPORT ExternalFileEncryptionProperties : public FileEncryptionPro
     /// Valid JSON string with additional application context needed for security checks. 
     Builder* app_context(const std::string& context);
     
-    /// Key/value map of the location of configuration files needed by the external
-    /// encryption service, including location of a dynamically-linked library, or config files
-    /// where the external service can find urls, certificates, and parameters needed to make a
-    /// remote service call. 
-    Builder* connection_config(const std::map<std::string, std::string>& config);
+    /// Map of the encryption algorithms to the key/value map of the location of configuration files
+    /// needed by the external encryptors, including location of a dynamically-linked library,
+    /// or config files where the external encryptors can find urls, certificates, and parameters
+    /// needed to make a remote call. 
+    Builder* connection_config(
+      const std::map<ParquetCipher::type, std::map<std::string, std::string>>& config);
 
     /// Forward all base class property methods to the base class Builder so we can return the
     /// correct Builder type.
@@ -610,27 +611,28 @@ class PARQUET_EXPORT ExternalFileEncryptionProperties : public FileEncryptionPro
 
    private:
     std::string app_context_;
-    std::map<std::string, std::string> connection_config_;
+    std::map<ParquetCipher::type, std::map<std::string, std::string>> connection_config_;
   };
 
   const std::string& app_context() const {
     return app_context_;
   }
 
-  const std::map<std::string, std::string>& connection_config() const {
+  const std::map<ParquetCipher::type, std::map<std::string, std::string>>&
+     connection_config() const {
     return connection_config_;
   }
 
  private:
   std::string app_context_;
-  std::map<std::string, std::string> connection_config_;
+  std::map<ParquetCipher::type, std::map<std::string, std::string>> connection_config_;
 
   ExternalFileEncryptionProperties(ParquetCipher::type cipher, const std::string& footer_key,
-                                   const std::string& footer_key_metadata, bool encrypted_footer,
-                                   const std::string& aad_prefix, bool store_aad_prefix_in_file,
-                                   const ColumnPathToEncryptionPropertiesMap& encrypted_columns,
-                                   const std::string& app_context,
-                                   const std::map<std::string, std::string>& connection_config);
+        const std::string& footer_key_metadata, bool encrypted_footer,
+        const std::string& aad_prefix, bool store_aad_prefix_in_file,
+        const ColumnPathToEncryptionPropertiesMap& encrypted_columns,
+        const std::string& app_context,
+        const std::map<ParquetCipher::type, std::map<std::string, std::string>>& connection_config);
 };
 
 }  // namespace parquet

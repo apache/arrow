@@ -236,10 +236,17 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
     @property
     def connection_config(self):
         """Get the connection configuration as a Python dictionary."""
+
+        cdef pair[ParquetCipher, unordered_map[c_string, c_string]] outer_pair
+        cdef pair[c_string, c_string] inner_pair
         result = {}
 
-        for pair in self.external_configuration.get().connection_config:
-            result[frombytes(pair.first)] = frombytes(pair.second)
+        for outer_pair in self.external_configuration.get().connection_config:
+            cipher_name = cipher_to_name(outer_pair.first)
+            inner_map = {}
+            for inner_pair in outer_pair.second:
+                inner_map[frombytes(inner_pair.first)] = frombytes(inner_pair.second)
+            result[cipher_name] = inner_map
 
         return result
 
@@ -249,14 +256,23 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
         if value is None:
             raise ValueError("Connection config value cannot be None")
 
-        cdef unordered_map[c_string, c_string] cpp_map
-        for k, v in value.items():
-            if not isinstance(k, str):
-                raise TypeError(f"Connection config key must be str, got {type(k).__name__}")
-            if not isinstance(v, str):
-                raise TypeError(f"Connection config value must be str, got {type(v).__name__}")
-            cpp_map[tobytes(k)] = tobytes(v)
+        cdef unordered_map[ParquetCipher, unordered_map[c_string, c_string]] cpp_map
+        cdef unordered_map[c_string, c_string] inner_cpp_map
+        cdef ParquetCipher cipher_enum
 
+        for cipher_name, inner_dict in value.items():
+            cipher_enum = cipher_from_name(cipher_name)
+            if not isinstance(inner_dict, dict):
+                raise TypeError(f"Inner value for cipher {cipher_name} must be a dict")
+            # Clear the map from the values of the previous iteration
+            inner_cpp_map.clear()
+
+            for k, v in inner_dict.items():
+                if not isinstance(k, str) or not isinstance(v, str):
+                    raise TypeError("All inner config keys/values must be str")
+                inner_cpp_map[tobytes(k)] = tobytes(v)
+            cpp_map[cipher_enum] = inner_cpp_map
+            
         self.external_configuration.get().connection_config = cpp_map
 
     @property

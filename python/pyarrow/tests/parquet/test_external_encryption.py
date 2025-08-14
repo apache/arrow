@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
 import pytest
 from datetime import  timedelta
 import pyarrow.parquet as pq
@@ -49,8 +50,10 @@ def external_encryption_config():
             "location": "Presidio"
         },
         connection_config={
-            "config_file": "path/to/config/file",
-            "config_file_decryption_key": "some_key"
+            "EXTERNAL_DBPA_V1": {
+                "config_file": "path/to/config/file",
+                "config_file_decryption_key": "some_key"
+            }
         }
     )
 
@@ -123,8 +126,10 @@ def test_external_encryption_configuration_properties(external_encryption_config
     }
 
     assert external_encryption_config.connection_config == {
-        "config_file": "path/to/config/file",
-        "config_file_decryption_key": "some_key"
+        "EXTERNAL_DBPA_V1": {
+            "config_file": "path/to/config/file",
+            "config_file_decryption_key": "some_key"
+        }
     }
 
     assert external_encryption_config.per_column_encryption == {
@@ -175,21 +180,25 @@ def test_external_encryption_per_column_encryption_new_algorithm():
 
 def test_external_encryption_connection_config_invalid_types():
     """Ensure connection_config rejects non-string keys or values."""
-    with pytest.raises(TypeError, match="Connection config key must be str, got int"):
+    with pytest.raises(TypeError, match="All inner config keys/values must be str"):
         config=pe.ExternalEncryptionConfiguration(
             footer_key="key"
         )
         config.connection_config={
-                "config_file": "path/to/file",
-                123: "should-fail"  # Invalid: key is not a string
+                "EXTERNAL_DBPA_V1": {
+                    "config_file": "path/to/file",
+                    123: "should-fail"  # Invalid: key is not a string
+                }
             }
 
-    with pytest.raises(TypeError, match="Connection config value must be str, got list"):
+    with pytest.raises(TypeError, match="All inner config keys/values must be str"):
         config = pe.ExternalEncryptionConfiguration(
             footer_key="key"
         )
         config.connection_config={
-                "config_file": ["not", "a", "string"]  # Invalid: value is not a string
+                "EXTERNAL_DBPA_V1": {
+                    "config_file": ["not", "a", "string"]  # Invalid: value is not a string
+                }
             }
 
 def test_external_encryption_rejects_none_values():
