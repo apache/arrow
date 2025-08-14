@@ -28,8 +28,10 @@ ARG required_python_min="(3,13)"
 RUN echo "check PYTHON>=${required_python_min}" && python -c "import sys;sys.exit(0 if sys.version_info>=${required_python_min} else 1)"
 
 RUN apt-get update -y -q && \
-    apt install -y -q --no-install-recommends \
-        libatomic1
+    apt-get install -y -q --no-install-recommends \
+        libatomic1 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # needs to be a login shell so ~/.profile is read
 SHELL ["/bin/bash", "--login", "-c", "-o", "pipefail"]
