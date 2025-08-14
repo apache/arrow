@@ -486,7 +486,11 @@ if(NOT PYARROW_CPP_LINK_LIBS)
   endif()
 endif()
 
-add_library(arrow_python SHARED ${PYARROW_CPP_SRCS})
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  add_library(arrow_python STATIC ${PYARROW_CPP_SRCS})
+else()
+  add_library(arrow_python SHARED ${PYARROW_CPP_SRCS})
+endif()
 target_include_directories(arrow_python PUBLIC ${PYARROW_CPP_ROOT_DIR}
                                                ${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src)
 
