@@ -1,0 +1,784 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+#include "parquet/variant.h"
+
+#include <cstdint>
+#include <iostream>
+#include <string_view>
+
+#include <arrow/util/endian.h>
+#include <arrow/util/logging.h>
+#include <arrow/util/unreachable.h>
+
+#include "parquet/exception.h"
+
+namespace parquet::variant {
+
+std::string VariantBasicTypeToString(VariantBasicType type) {
+  switch (type) {
+    case VariantBasicType::Primitive:
+      return "Primitive";
+    case VariantBasicType::ShortString:
+      return "ShortString";
+    case VariantBasicType::Object:
+      return "Object";
+    case VariantBasicType::Array:
+      return "Array";
+    default:
+      return "Unknown";
+  }
+}
+
+std::string VariantPrimitiveTypeToString(VariantPrimitiveType type) {
+  switch (type) {
+    case VariantPrimitiveType::NullType:
+      return "NullType";
+    case VariantPrimitiveType::BooleanTrue:
+      return "BooleanTrue";
+    case VariantPrimitiveType::BooleanFalse:
+      return "BooleanFalse";
+    case VariantPrimitiveType::Int8:
+      return "Int8";
+    case VariantPrimitiveType::Int16:
+      return "Int16";
+    case VariantPrimitiveType::Int32:
+      return "Int32";
+    case VariantPrimitiveType::Int64:
+      return "Int64";
+    case VariantPrimitiveType::Double:
+      return "Double";
+    case VariantPrimitiveType::Decimal4:
+      return "Decimal4";
+    case VariantPrimitiveType::Decimal8:
+      return "Decimal8";
+    case VariantPrimitiveType::Decimal16:
+      return "Decimal16";
+    case VariantPrimitiveType::Date:
+      return "Date";
+    case VariantPrimitiveType::TimestampMicros:
+      return "TimestampMicros";
+    case VariantPrimitiveType::TimestampMicrosNtz:
+      return "TimestampMicrosNtz";
+    case VariantPrimitiveType::Float:
+      return "Float";
+    case VariantPrimitiveType::Binary:
+      return "Binary";
+    case VariantPrimitiveType::String:
+      return "String";
+    case VariantPrimitiveType::TimeMicrosNtz:
+      return "TimeMicrosNtz";
+    case VariantPrimitiveType::TimestampNanosTz:
+      return "TimestampNanosTz";
+    case VariantPrimitiveType::TimestampNanosNtz:
+      return "TimestampNanosNtz";
+    case VariantPrimitiveType::Uuid:
+      return "Uuid";
+    default:
+      return "Unknown";
+  }
+}
+
+std::string VariantTypeToString(VariantType type) {
+  switch (type) {
+    case VariantType::Object:
+      return "Object";
+    case VariantType::Array:
+      return "Array";
+    case VariantType::Null:
+      return "Null";
+    case VariantType::Boolean:
+      return "Boolean";
+    case VariantType::Int8:
+      return "Int8";
+    case VariantType::Int16:
+      return "Int16";
+    case VariantType::Int32:
+      return "Int32";
+    case VariantType::Int64:
+      return "Int64";
+    case VariantType::String:
+      return "String";
+    case VariantType::Double:
+      return "Double";
+    case VariantType::Decimal4:
+      return "Decimal4";
+    case VariantType::Decimal8:
+      return "Decimal8";
+    case VariantType::Decimal16:
+      return "Decimal16";
+    case VariantType::Date:
+      return "Date";
+    case VariantType::TimestampMicrosTz:
+      return "TimestampMicrosTz";
+    case VariantType::TimestampMicrosNtz:
+      return "TimestampMicrosNtz";
+    case VariantType::Float:
+      return "Float";
+    case VariantType::Binary:
+      return "Binary";
+    case VariantType::Time:
+      return "Time";
+    case VariantType::TimestampNanosTz:
+      return "TimestampNanosTz";
+    case VariantType::TimestampNanosNtz:
+      return "TimestampNanosNtz";
+    case VariantType::Uuid:
+      return "Uuid";
+    default:
+      return "Unknown";
+  }
+}
+
+inline uint32_t readLittleEndianU32(const void* from, uint8_t size) {
+  ARROW_DCHECK_LE(size, 4);
+  ARROW_DCHECK_GE(size, 1);
+
+  uint32_t result = 0;
+  memcpy(&result, from, size);
+  return ::arrow::bit_util::FromLittleEndian(result);
+}
+
+VariantMetadata::VariantMetadata(std::string_view metadata) : metadata_(metadata) {
+  if (metadata.size() < kHeaderSizeBytes + kMinimalOffsetSizeBytes * 2) {
+    // Empty metadata is at least 3 bytes: version, dictionarySize and
+    // at least one offset.
+    throw ParquetException("Invalid Variant metadata: too short: size=" +
+                           std::to_string(metadata.size()));
+  }
+  if (version() != kSupportedVersion) {
+    // Currently we only supports version 1.
+    throw ParquetException("Unsupported Variant metadata version: " +
+                           std::to_string(version()));
+  }
+  uint8_t offset_sz = offset_size();
+  if (offset_sz < kMinimalOffsetSizeBytes || offset_sz > kMaximumOffsetSizeBytes) {
+    throw ParquetException("Invalid Variant metadata: invalid offset size: " +
+                           std::to_string(offset_sz));
+  }
+  dictionary_size_ = loadDictionarySize(metadata, offset_sz);
+  if (kHeaderSizeBytes + (dictionary_size_ + 2) * offset_sz > metadata_.size()) {
+    throw ParquetException(
+        "Invalid Variant metadata: offset out of range: " +
+        std::to_string((dictionary_size_ + kHeaderSizeBytes) * offset_sz) + " > " +
+        std::to_string(metadata_.size()));
+  }
+}
+
+uint8_t VariantMetadata::version() const {
+  return static_cast<uint8_t>(metadata_[0]) & kVersionMask;
+}
+
+bool VariantMetadata::sorted_and_unique() const {
+  return (metadata_[0] & kSortedStringMask) != 0;
+}
+
+uint8_t VariantMetadata::offset_size() const {
+  // Since it stores offsetSize - 1, we add 1 here.
+  return ((metadata_[0] >> kOffsetSizeBitShift) & kOffsetSizeMask) + 1;
+}
+
+uint32_t VariantMetadata::loadDictionarySize(std::string_view metadata,
+                                             uint8_t offset_size) {
+  if (static_cast<size_t>(offset_size + kHeaderSizeBytes) > metadata.size()) {
+    throw ParquetException("Invalid Variant metadata: too short for dictionary size");
+  }
+  return readLittleEndianU32(metadata.data() + kHeaderSizeBytes, offset_size);
+}
+
+uint32_t VariantMetadata::dictionary_size() const { return dictionary_size_; }
+
+std::string_view VariantMetadata::GetMetadataKey(uint32_t variant_id) const {
+  uint32_t offset_bytes = offset_size();
+  uint32_t dictionary_item_count = dictionary_size();
+
+  if (variant_id >= dictionary_item_count) {
+    throw ParquetException("Invalid Variant metadata: variant_id out of range: " +
+                           std::to_string(variant_id) +
+                           " >= " + std::to_string(dictionary_item_count));
+  }
+
+  size_t offset_start_pos = kHeaderSizeBytes + offset_bytes + (variant_id * offset_bytes);
+
+  // Index range of offsets are already checked in ctor, so no need to check again.
+  uint32_t variant_offset =
+      readLittleEndianU32(metadata_.data() + offset_start_pos, offset_bytes);
+  uint32_t variant_next_offset = readLittleEndianU32(
+      metadata_.data() + offset_start_pos + offset_bytes, offset_bytes);
+  uint32_t key_size = variant_next_offset - variant_offset;
+
+  // 2 for dictionary_size and an extra offset for the dictionary key string.
+  size_t string_start =
+      kHeaderSizeBytes + offset_bytes * (dictionary_item_count + 2) + variant_offset;
+  if (string_start + key_size > metadata_.size()) {
+    throw ParquetException("Invalid Variant metadata: string data out of range: " +
+                           std::to_string(string_start) + " + " +
+                           std::to_string(key_size) + " > " +
+                           std::to_string(metadata_.size()));
+  }
+  return {metadata_.data() + string_start, key_size};
+}
+
+::arrow::internal::SmallVector<uint32_t, 1> VariantMetadata::GetMetadataId(
+    std::string_view key) const {
+  uint32_t offset_bytes = offset_size();
+  uint32_t dictionary_bytes = dictionary_size();
+
+  const bool sort_and_unique = sorted_and_unique();
+  // TODO(mwish): This can be optimized by using binary search if the metadata is sorted.
+  ::arrow::internal::SmallVector<uint32_t, 1> vector;
+  uint32_t dictionary_key_offset = 0;
+  uint32_t dictionary_next_key_offset = 0;
+  const uint32_t dictionary_key_start_offset =
+      kHeaderSizeBytes + offset_bytes * (dictionary_bytes + 2);
+  for (uint32_t i = 0; i < dictionary_bytes; ++i) {
+    size_t offset_start_pos = kHeaderSizeBytes + (i + 1) * offset_bytes;
+    dictionary_key_offset = dictionary_next_key_offset;
+    dictionary_next_key_offset = readLittleEndianU32(
+        metadata_.data() + offset_start_pos + offset_bytes, offset_bytes);
+    uint32_t dictionary_key_size = dictionary_next_key_offset - dictionary_key_offset;
+
+    size_t dictionary_key_start = dictionary_key_start_offset + dictionary_key_offset;
+    if (dictionary_key_start + dictionary_key_size > metadata_.size()) {
+      throw ParquetException("Invalid Variant metadata: string data out of range");
+    }
+    std::string_view current_key{metadata_.data() + dictionary_key_start,
+                                 dictionary_key_size};
+    if (current_key == key) {
+      vector.push_back(i);
+      if (sort_and_unique) {
+        break;
+      }
+    }
+  }
+  return vector;
+}
+
+VariantValue::VariantValue(VariantMetadata metadata, std::string_view value)
+    : metadata_(metadata), value_(value) {
+  if (value_.empty()) {
+    throw ParquetException("Invalid Variant metadata: empty string");
+  }
+  switch (getBasicType()) {
+    case VariantBasicType::Array: {
+      complex_info_ = getArrayInfo(value_);
+      break;
+    }
+    case VariantBasicType::Object: {
+      complex_info_ = getObjectInfo(value_);
+      break;
+    }
+    case VariantBasicType::ShortString:
+    case VariantBasicType::Primitive: {
+      break;
+    }
+  }
+}
+
+VariantValue::VariantValue(std::string_view metadata, std::string_view value)
+    : VariantValue(VariantMetadata(metadata), value) {}
+
+VariantBasicType VariantValue::getBasicType() const {
+  return static_cast<VariantBasicType>(value_[0] & kBasicTypeMask);
+}
+
+VariantType VariantValue::getType() const {
+  VariantBasicType basic_type = getBasicType();
+  switch (basic_type) {
+    case VariantBasicType::Primitive: {
+      auto primitive_type = static_cast<VariantPrimitiveType>(valueHeader());
+      switch (primitive_type) {
+        case VariantPrimitiveType::NullType:
+          return VariantType::Null;
+        case VariantPrimitiveType::BooleanTrue:
+        case VariantPrimitiveType::BooleanFalse:
+          return VariantType::Boolean;
+        case VariantPrimitiveType::Int8:
+          return VariantType::Int8;
+        case VariantPrimitiveType::Int16:
+          return VariantType::Int16;
+        case VariantPrimitiveType::Int32:
+          return VariantType::Int32;
+        case VariantPrimitiveType::Int64:
+          return VariantType::Int64;
+        case VariantPrimitiveType::Double:
+          return VariantType::Double;
+        case VariantPrimitiveType::Decimal4:
+          return VariantType::Decimal4;
+        case VariantPrimitiveType::Decimal8:
+          return VariantType::Decimal8;
+        case VariantPrimitiveType::Decimal16:
+          return VariantType::Decimal16;
+        case VariantPrimitiveType::Date:
+          return VariantType::Date;
+        case VariantPrimitiveType::TimestampMicros:
+          return VariantType::TimestampMicrosTz;
+        case VariantPrimitiveType::TimestampMicrosNtz:
+          return VariantType::TimestampMicrosNtz;
+        case VariantPrimitiveType::Float:
+          return VariantType::Float;
+        case VariantPrimitiveType::Binary:
+          return VariantType::Binary;
+        case VariantPrimitiveType::String:
+          return VariantType::String;
+        case VariantPrimitiveType::TimeMicrosNtz:
+          return VariantType::Time;
+        case VariantPrimitiveType::TimestampNanosTz:
+          return VariantType::TimestampNanosTz;
+        case VariantPrimitiveType::TimestampNanosNtz:
+          return VariantType::TimestampNanosNtz;
+        case VariantPrimitiveType::Uuid:
+          return VariantType::Uuid;
+        default:
+          throw ParquetException("Unknown primitive type: " +
+                                 std::to_string(static_cast<int>(primitive_type)));
+      }
+    }
+    case VariantBasicType::ShortString:
+      return VariantType::String;
+    case VariantBasicType::Object:
+      return VariantType::Object;
+    case VariantBasicType::Array:
+      return VariantType::Array;
+    default:
+      throw ParquetException("Unknown basic type: " +
+                             std::to_string(static_cast<int>(basic_type)));
+  }
+}
+
+const VariantMetadata& VariantValue::metadata() const { return metadata_; }
+
+std::string_view VariantValue::typeDebugString() const {
+  VariantType variant_type = getType();
+  switch (variant_type) {
+    case VariantType::Object:
+      return "Object";
+    case VariantType::Array:
+      return "Array";
+    case VariantType::Null:
+      return "Null";
+    case VariantType::Boolean:
+      return "Boolean";
+    case VariantType::Int8:
+      return "Int8";
+    case VariantType::Int16:
+      return "Int16";
+    case VariantType::Int32:
+      return "Int32";
+    case VariantType::Int64:
+      return "Int64";
+    case VariantType::String:
+      return "String";
+    case VariantType::Double:
+      return "Double";
+    case VariantType::Decimal4:
+      return "Decimal4";
+    case VariantType::Decimal8:
+      return "Decimal8";
+    case VariantType::Decimal16:
+      return "Decimal16";
+    case VariantType::Date:
+      return "Date";
+    case VariantType::TimestampMicrosTz:
+      return "TimestampMicrosTz";
+    case VariantType::TimestampMicrosNtz:
+      return "TimestampMicrosNtz";
+    case VariantType::Float:
+      return "Float";
+    case VariantType::Binary:
+      return "Binary";
+    case VariantType::Time:
+      return "Time";
+    case VariantType::TimestampNanosTz:
+      return "TimestampNanosTz";
+    case VariantType::TimestampNanosNtz:
+      return "TimestampNanosNtz";
+    case VariantType::Uuid:
+      return "Uuid";
+    default:
+      ::arrow::Unreachable();
+  }
+}
+
+bool VariantValue::getBool() const {
+  if (getBasicType() != VariantBasicType::Primitive) {
+    throw ParquetException("Expected primitive type, but got: " +
+                           VariantBasicTypeToString(getBasicType()));
+  }
+
+  uint8_t primitive_type = static_cast<uint8_t>(value_[0]) >> kValueHeaderBitShift;
+  if (primitive_type == static_cast<uint8_t>(VariantPrimitiveType::BooleanTrue)) {
+    return true;
+  }
+  if (primitive_type == static_cast<uint8_t>(VariantPrimitiveType::BooleanFalse)) {
+    return false;
+  }
+
+  throw ParquetException("Not a variant primitive boolean type with primitive type: " +
+                         std::to_string(primitive_type));
+}
+
+void VariantValue::checkBasicType(VariantBasicType type) const {
+  if (getBasicType() != type) {
+    throw ParquetException("Expected basic type: " + VariantBasicTypeToString(type) +
+                           ", but got: " + VariantBasicTypeToString(getBasicType()));
+  }
+}
+
+void VariantValue::checkIsComplexType() const {
+  VariantBasicType basic_type = getBasicType();
+  if (basic_type != VariantBasicType::Object && basic_type != VariantBasicType::Array) {
+    throw ParquetException("Expected complex type, but got: " +
+                           VariantBasicTypeToString(basic_type));
+  }
+}
+
+void VariantValue::checkPrimitiveType(VariantPrimitiveType type,
+                                      size_t size_required) const {
+  checkBasicType(VariantBasicType::Primitive);
+
+  auto primitive_type = static_cast<VariantPrimitiveType>(valueHeader());
+  if (primitive_type != type) {
+    throw ParquetException(
+        "Expected primitive type: " + VariantPrimitiveTypeToString(type) +
+        ", but got: " + VariantPrimitiveTypeToString(primitive_type));
+  }
+
+  if (value_.size() < size_required) {
+    throw ParquetException("Invalid value: too short, expected at least " +
+                           std::to_string(size_required) + " bytes for type " +
+                           VariantPrimitiveTypeToString(type) +
+                           ", but got: " + std::to_string(value_.size()) + " bytes");
+  }
+}
+
+template <typename PrimitiveType>
+PrimitiveType VariantValue::getPrimitiveType(VariantPrimitiveType type) const {
+  checkPrimitiveType(type, sizeof(PrimitiveType) + kHeaderSizeBytes);
+
+  PrimitiveType primitive_value{};
+  memcpy(&primitive_value, value_.data() + kHeaderSizeBytes, sizeof(PrimitiveType));
+  // Here we should cast from Little endian.
+  primitive_value = ::arrow::bit_util::FromLittleEndian(primitive_value);
+  return primitive_value;
+}
+
+int8_t VariantValue::getInt8() const {
+  return getPrimitiveType<int8_t>(VariantPrimitiveType::Int8);
+}
+
+int16_t VariantValue::getInt16() const {
+  return getPrimitiveType<int16_t>(VariantPrimitiveType::Int16);
+}
+
+int32_t VariantValue::getInt32() const {
+  return getPrimitiveType<int32_t>(VariantPrimitiveType::Int32);
+}
+
+int64_t VariantValue::getInt64() const {
+  return getPrimitiveType<int64_t>(VariantPrimitiveType::Int64);
+}
+
+float VariantValue::getFloat() const {
+  return getPrimitiveType<float>(VariantPrimitiveType::Float);
+}
+
+double VariantValue::getDouble() const {
+  return getPrimitiveType<double>(VariantPrimitiveType::Double);
+}
+
+std::string_view VariantValue::getPrimitiveBinaryType(VariantPrimitiveType type) const {
+  checkPrimitiveType(
+      type, /*size_required=*/kHeaderSizeBytes + kPrimitiveStringLengthSizeBytes);
+
+  uint32_t length;
+  memcpy(&length, value_.data() + kHeaderSizeBytes, sizeof(uint32_t));
+  length = ::arrow::bit_util::FromLittleEndian(length);
+
+  if (value_.size() < length + kHeaderSizeBytes + kPrimitiveStringLengthSizeBytes) {
+    throw ParquetException("Invalid string value: too short for specified length");
+  }
+
+  return {value_.data() + kHeaderSizeBytes + kPrimitiveStringLengthSizeBytes, length};
+}
+
+std::string_view VariantValue::getString() const {
+  VariantBasicType basic_type = getBasicType();
+
+  if (basic_type == VariantBasicType::ShortString) {
+    uint8_t short_string_length = valueHeader();
+    if (value_.size() < static_cast<size_t>(short_string_length + kHeaderSizeBytes)) {
+      throw ParquetException(
+          "Invalid short string: too short: " + std::to_string(value_.size()) +
+          " for at least " + std::to_string(short_string_length + kHeaderSizeBytes));
+    }
+    return {value_.data() + kHeaderSizeBytes, short_string_length};
+  }
+  if (basic_type == VariantBasicType::Primitive) {
+    // TODO(mwish): Should we validate utf8 here?
+    return getPrimitiveBinaryType(VariantPrimitiveType::String);
+  }
+
+  throw ParquetException("Expected ShortString or Primitive type, but got: " +
+                         VariantBasicTypeToString(basic_type));
+}
+
+std::string_view VariantValue::getBinary() const {
+  return getPrimitiveBinaryType(VariantPrimitiveType::Binary);
+}
+
+template <typename DecimalType>
+DecimalValue<DecimalType> VariantValue::getPrimitiveDecimalType(
+    VariantPrimitiveType type) const {
+  using DecimalValueType = typename DecimalType::ValueType;
+  checkPrimitiveType(
+      type, sizeof(DecimalValueType) + kHeaderSizeBytes + kDecimalScaleSizeBytes);
+
+  uint8_t scale = value_[kHeaderSizeBytes];
+  DecimalValueType decimal_value;
+  memcpy(&decimal_value, value_.data() + kHeaderSizeBytes + kDecimalScaleSizeBytes,
+         sizeof(DecimalValueType));
+  decimal_value = ::arrow::bit_util::FromLittleEndian(decimal_value);
+
+  return {scale, DecimalType(decimal_value)};
+}
+
+DecimalValue<::arrow::Decimal32> VariantValue::getDecimal4() const {
+  return getPrimitiveDecimalType<::arrow::Decimal32>(VariantPrimitiveType::Decimal4);
+}
+
+DecimalValue<::arrow::Decimal64> VariantValue::getDecimal8() const {
+  return getPrimitiveDecimalType<::arrow::Decimal64>(VariantPrimitiveType::Decimal8);
+}
+
+DecimalValue<::arrow::Decimal128> VariantValue::getDecimal16() const {
+  checkPrimitiveType(
+      VariantPrimitiveType::Decimal16,
+      /*size_required=*/sizeof(int64_t) * 2 + kHeaderSizeBytes + kDecimalScaleSizeBytes);
+
+  uint8_t scale = value_[1];
+
+  // TODO(mwish): Do we have better way for this?
+  std::array<int64_t, 2> low_high_bits;
+  memcpy(&low_high_bits[0], value_.data() + 2, sizeof(int64_t));
+  memcpy(&low_high_bits[1], value_.data() + 10, sizeof(int64_t));
+  ::arrow::bit_util::little_endian::ToNative(low_high_bits);
+  return {scale, ::arrow::Decimal128(low_high_bits[1], low_high_bits[0])};
+}
+
+int32_t VariantValue::getDate() const {
+  return getPrimitiveType<int32_t>(VariantPrimitiveType::Date);
+}
+
+int64_t VariantValue::getTimeMicrosNtz() const {
+  return getPrimitiveType<int64_t>(VariantPrimitiveType::TimeMicrosNtz);
+}
+
+int64_t VariantValue::getTimestampMicros() const {
+  return getPrimitiveType<int64_t>(VariantPrimitiveType::TimestampMicros);
+}
+
+int64_t VariantValue::getTimestampMicrosNtz() const {
+  return getPrimitiveType<int64_t>(VariantPrimitiveType::TimestampMicrosNtz);
+}
+
+int64_t VariantValue::getTimestampNanosTz() const {
+  return getPrimitiveType<int64_t>(VariantPrimitiveType::TimestampNanosTz);
+}
+
+int64_t VariantValue::getTimestampNanosNtz() const {
+  return getPrimitiveType<int64_t>(VariantPrimitiveType::TimestampNanosNtz);
+}
+
+std::array<uint8_t, 16> VariantValue::getUuid() const {
+  checkPrimitiveType(VariantPrimitiveType::Uuid, /*size_required=*/16 + kHeaderSizeBytes);
+  std::array<uint8_t, 16> uuid_value;
+  memcpy(uuid_value.data(), value_.data() + kHeaderSizeBytes, sizeof(uuid_value));
+  return uuid_value;
+}
+
+uint32_t VariantValue::complexOffsetAt(uint32_t field_index) const {
+  checkIsComplexType();
+  return readLittleEndianU32(value_.data() + complex_info_.offset_start_offset +
+                                 field_index * complex_info_.offset_size,
+                             complex_info_.offset_size);
+}
+
+uint32_t VariantValue::complexFieldIdAt(uint32_t field_index) const {
+  checkBasicType(VariantBasicType::Object);
+  return readLittleEndianU32(
+      value_.data() + complex_info_.id_start_offset + field_index * complex_info_.id_size,
+      complex_info_.id_size);
+}
+
+uint8_t VariantValue::valueHeader() const {
+  // Using unsigned shift to avoid sign extension.
+  return static_cast<uint8_t>(value_[0]) >> kValueHeaderBitShift;
+}
+
+VariantValue::ComplexInfo VariantValue::getObjectInfo(std::string_view value) {
+  uint8_t value_header = static_cast<uint8_t>(value[0]) >> kValueHeaderBitShift;
+  uint8_t field_offset_size = (value_header & 0b11) + 1;
+  uint8_t field_id_size = ((value_header >> kValueHeaderBitShift) & 0b11) + 1;
+  bool is_large = ((value_header >> 4) & 0b1);
+  uint8_t num_elements_size = is_large ? 4 : 1;
+  if (value.size() < static_cast<size_t>(kHeaderSizeBytes + num_elements_size)) {
+    throw ParquetException(
+        "Invalid object value: too short: " + std::to_string(value.size()) +
+        " for at least " + std::to_string(kHeaderSizeBytes + num_elements_size));
+  }
+  // parse num_elements
+  uint32_t num_elements =
+      readLittleEndianU32(value.data() + kHeaderSizeBytes, num_elements_size);
+  ComplexInfo complex_info{};
+  complex_info.num_elements = num_elements;
+  complex_info.id_size = field_id_size;
+  complex_info.offset_size = field_offset_size;
+  complex_info.id_start_offset = 1 + num_elements_size;
+  complex_info.offset_start_offset =
+      complex_info.id_start_offset + num_elements * field_id_size;
+  complex_info.data_start_offset =
+      complex_info.offset_start_offset + (num_elements + 1) * field_offset_size;
+  // Check the boundary with the final offset
+  if (complex_info.data_start_offset > value.size()) {
+    throw ParquetException("Invalid object value: data_start_offset=" +
+                           std::to_string(complex_info.data_start_offset) +
+                           ", value_size=" + std::to_string(value.size()));
+  }
+  return complex_info;
+}
+
+uint32_t VariantValue::num_elements() const {
+  auto basic_type = getBasicType();
+  switch (basic_type) {
+    case VariantBasicType::Object:
+    case VariantBasicType::Array:
+      return complex_info_.num_elements;
+    case VariantBasicType::Primitive:
+    case VariantBasicType::ShortString: {
+      throw ParquetException("Invalid call to num_elements() for basic type: " +
+                             VariantBasicTypeToString(basic_type));
+    }
+  }
+  ::arrow::Unreachable();
+}
+
+std::optional<VariantValue> VariantValue::getObjectValueByKey(
+    std::string_view key) const {
+  checkBasicType(VariantBasicType::Object);
+  auto metadata_ids = metadata_.GetMetadataId(key);
+  if (metadata_ids.empty()) {
+    return std::nullopt;
+  }
+  for (uint32_t variant_id : metadata_ids) {
+    auto variant_value = getObjectFieldByFieldId(variant_id);
+    if (variant_value.has_value()) {
+      return variant_value;
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<VariantValue> VariantValue::getObjectFieldByFieldId(
+    uint32_t variant_id) const {
+  checkBasicType(VariantBasicType::Object);
+  std::optional<uint32_t> field_index_opt;
+  // Get the field offset
+  // TODO(mwish): Using binary search to optimize it.
+  for (uint32_t i = 0; i < complex_info_.num_elements; ++i) {
+    uint32_t variant_field_id = complexFieldIdAt(i);
+    if (variant_field_id == variant_id) {
+      field_index_opt = i;
+      break;
+    }
+  }
+  if (!field_index_opt.has_value()) {
+    return std::nullopt;
+  }
+  uint32_t field_index = field_index_opt.value();
+  // Read the offset and next offset
+  uint32_t offset = complexOffsetAt(field_index);
+
+  if (complex_info_.data_start_offset + offset > value_.size()) {
+    throw ParquetException("Invalid object field offsets: data_start_offset=" +
+                           std::to_string(complex_info_.data_start_offset) +
+                           ", offset=" + std::to_string(offset) +
+                           ", value_size=" + std::to_string(value_.size()));
+  }
+
+  // Create a VariantValue for the field
+  VariantValue field_value{metadata_,
+                           value_.substr(complex_info_.data_start_offset + offset)};
+
+  return field_value;
+}
+
+VariantValue::ComplexInfo VariantValue::getArrayInfo(std::string_view value) {
+  uint8_t value_header = static_cast<uint8_t>(value[0]) >> kValueHeaderBitShift;
+  uint8_t field_offset_size = (value_header & 0b11) + kHeaderSizeBytes;
+  bool is_large = ((value_header >> kValueHeaderBitShift) & 0b1);
+
+  // check the array header
+  uint8_t num_elements_size = is_large ? 4 : 1;
+  if (value.size() < static_cast<size_t>(kHeaderSizeBytes + num_elements_size)) {
+    throw ParquetException(
+        "Invalid array value: too short: " + std::to_string(value.size()) +
+        " for at least " + std::to_string(1 + num_elements_size));
+  }
+
+  uint32_t num_elements =
+      readLittleEndianU32(value.data() + kHeaderSizeBytes, num_elements_size);
+  ComplexInfo complex_info{};
+  complex_info.num_elements = num_elements;
+  complex_info.offset_size = field_offset_size;
+  complex_info.offset_start_offset = kHeaderSizeBytes + num_elements_size;
+  complex_info.data_start_offset =
+      complex_info.offset_start_offset + (num_elements + 1) * field_offset_size;
+
+  // Boundary check
+  if (complex_info.data_start_offset > value.size()) {
+    throw ParquetException("Invalid array value: data_start_offset=" +
+                           std::to_string(complex_info.data_start_offset) +
+                           ", value_size=" + std::to_string(value.size()));
+  }
+
+  return complex_info;
+}
+
+VariantValue VariantValue::getArrayValueByIndex(uint32_t index) const {
+  checkBasicType(VariantBasicType::Array);
+  if (index >= complex_info_.num_elements) {
+    throw ParquetException("Array index out of range: " + std::to_string(index) +
+                           " >= " + std::to_string(complex_info_.num_elements));
+  }
+
+  uint32_t offset = complexOffsetAt(index);
+  if (complex_info_.data_start_offset + offset > value_.size()) {
+    throw ParquetException("Invalid array value: data_start_offset=" +
+                           std::to_string(complex_info_.data_start_offset) +
+                           ", offset=" + std::to_string(offset) +
+                           ", value_size=" + std::to_string(value_.size()));
+  }
+
+  // Create a VariantValue for the element
+  VariantValue element_value{
+      metadata_, value_.substr(/*pos=*/complex_info_.data_start_offset + offset)};
+
+  return element_value;
+}
+
+}  // namespace parquet::variant
