@@ -293,8 +293,11 @@ if needs_csv
 endif
 
 if needs_json or needs_integration
-    rapidjson_proj = subproject('rapidjson')
-    rapidjson_dep = rapidjson_proj.get_variable('rapidjson_dep')
+    rapidjson_dep = dependency(
+        'rapidjson',
+        method: 'system',
+        fallback: ['rapidjson', 'rapidjson_dep'],
+    )
 else
     rapidjson_dep = disabler()
 endif
