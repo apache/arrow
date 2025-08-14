@@ -16,12 +16,8 @@
 # under the License.
 
 [wrap-file]
-directory = rapidjson-232389d4f1012dddec4ef84861face2d2ba85709
-source_url = https://github.com/miloyip/rapidjson/archive/232389d4f1012dddec4ef84861face2d2ba85709.tar.gz
-source_filename = rapidjson-232389d4f1012dddec4ef84861face2d2ba85709.tar.gz
-source_hash = b9290a9a6d444c8e049bd589ab804e0ccf2b05dc5984a19ed5ae75d090064806
-source_fallback_url = https://apache.jfrog.io/artifactory/arrow/thirdparty/7.0.0/rapidjson-232389d4f1012dddec4ef84861face2d2ba85709.tar.gz
-patch_directory = rapidjson
-
-[provide]
-rapidjson = rapidjson_dep
+source_url = https://github.com/apache/thrift/archive/refs/tags/v0.20.0.tar.gz
+source_filename = thrift-0.20.0.tar.gz
+source_hash = cd7b829d3d9d87f9f7d708e004eef7629789591ee1d416f4741913bc33e5c27d
+directory = thrift-0.20.0
+method = cmake
