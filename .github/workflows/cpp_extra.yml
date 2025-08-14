@@ -81,6 +81,9 @@ jobs:
     outputs:
       ci-extra: ${{ steps.check.outputs.ci-extra }}
     steps:
+      - name: Checkout Arrow
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Check
         id: check
         env:
@@ -99,7 +102,15 @@ jobs:
               if [ "${n_ci_extra_labels}" -eq 1 ]; then
                 ci_extra=true
               else
-                ci_extra=false
+                git fetch origin ${GITHUB_BASE_REF}
+                if git diff --stat origin/${GITHUB_BASE_REF}.. | \
+                     grep \
+                       --fixed-strings ".github/workflows/cpp_extra.yml" \
+                       --quiet; then
+                  ci_extra=true
+                else
+                  ci_extra=false
+                fi
               fi
               ;;
           esac
@@ -182,3 +193,88 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
         run: archery docker push ${{ matrix.image }}
+
+  jni-macos:
+    needs: check-labels
+    name: JNI macOS
+    runs-on: macos-14
+    if: needs.check-labels.outputs.ci-extra == 'true'
+    timeout-minutes: 45
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "14.0"
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Install dependencies
+        run: |
+          brew bundle --file=cpp/Brewfile
+          # We want to link aws-sdk-cpp statically but Homebrew's
+          # aws-sdk-cpp provides only shared library. If we have
+          # Homebrew's aws-sdk-cpp, our build mix Homebrew's
+          # aws-sdk-cpp and bundled aws-sdk-cpp. We uninstall Homebrew's
+          # aws-sdk-cpp to ensure using only bundled aws-sdk-cpp.
+          brew uninstall aws-sdk-cpp
+          # We want to use bundled RE2 for static linking. If
+          # Homebrew's RE2 is installed, its header file may be used.
+          # We uninstall Homebrew's RE2 to ensure using bundled RE2.
+          brew uninstall grpc || : # gRPC depends on RE2
+          brew uninstall grpc@1.54 || : # gRPC 1.54 may be installed too
+          brew uninstall re2
+          # We want to use bundled Protobuf for static linking. If
+          # Homebrew's Protobuf is installed, its library file may be
+          # used on test  We uninstall Homebrew's Protobuf to ensure using
+          # bundled Protobuf.
+          brew uninstall protobuf
+      - name: Prepare ccache
+        run: |
+          echo "CCACHE_DIR=${PWD}/ccache" >> ${GITHUB_ENV}
+      - name: Cache ccache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ccache
+          key: jni-macos-${{ hashFiles('cpp/**') }}
+          restore-keys: jni-macos-
+      - name: CMake
+        run: |
+          cmake \
+            -S cpp \
+            -B cpp.build \
+            --preset=ninja-release-jni-macos \
+            -DARROW_BUILD_TESTS=ON \
+            -DCMAKE_INSTALL_PREFIX=$PWD/cpp.install
+      - name: Build
+        run: |
+          cmake --build cpp.build
+      - name: Install
+        run: |
+          cmake --install cpp.build
+      - name: Test
+        env:
+          ARROW_TEST_DATA: ${{ github.workspace }}/testing/data
+          PARQUET_TEST_DATA: ${{ github.workspace }}/cpp/submodules/parquet-testing/data
+        run: |
+          # MinIO is required
+          exclude_tests="arrow-s3fs-test"
+          # unstable
+          exclude_tests="${exclude_tests}|arrow-acero-asof-join-node-test"
+          exclude_tests="${exclude_tests}|arrow-acero-hash-join-node-test"
+          ctest \
+            --exclude-regex "${exclude_tests}" \
+            --label-regex unittest \
+            --output-on-failure \
+            --parallel "$(sysctl -n hw.ncpu)" \
+            --test-dir "cpp.build" \
+            --timeout 300
+      - name: Build example
+        run: |
+          cmake \
+            -S cpp/examples/minimal_build/ \
+            -B cpp/examples/minimal_build.build \
+            -GNinja \
+            -DCMAKE_INSTALL_PREFIX=$PWD/cpp.install
+          cmake --build cpp/examples/minimal_build.build
+          cd cpp/examples/minimal_build
+          ../minimal_build.build/arrow-example
