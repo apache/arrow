@@ -25,7 +25,9 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/buffer.h"
+#include "arrow/scalar.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_stream_utils_internal.h"
@@ -851,46 +853,149 @@ TEST(BitRle, Overflow) {
   }
 }
 
-template <typename Type>
-void CheckRoundTripSpaced(const Array& data, int bit_width) {
+/// Check RleBitPacked encoding/decoding round trip.
+///
+/// \tparam kSpaced If set to false, treat Nulls in the input array as regular data.
+/// \tparam kParts The number of parts in which the data will be decoded.
+///         For number greater than one, this ensure that the decoder intermediary state
+///         is valid.
+template <typename Type, bool kSpaced, int32_t kParts>
+void CheckRoundTrip(const Array& data, int bit_width) {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using T = typename Type::c_type;
 
-  int num_values = static_cast<int>(data.length());
-  int buffer_size = RleBitPackedEncoder::MaxBufferSize(bit_width, num_values);
+  int const data_size = static_cast<int>(data.length());
+  int const data_values_count =
+      static_cast<int>(data.length() - kSpaced * data.null_count());
+  int const buffer_size = RleBitPackedEncoder::MaxBufferSize(bit_width, data_size);
+  ASSERT_GE(kParts, 1);
+  ASSERT_LE(kParts, data_size);
 
-  const T* values = static_cast<const ArrayType&>(data).raw_values();
+  const T* data_values = static_cast<const ArrayType&>(data).raw_values();
 
+  // Encode the data into ``buffer`` using the encoder.
   std::vector<uint8_t> buffer(buffer_size);
   RleBitPackedEncoder encoder(buffer.data(), buffer_size, bit_width);
-  for (int i = 0; i < num_values; ++i) {
-    if (data.IsValid(i)) {
-      if (!encoder.Put(static_cast<uint64_t>(values[i]))) {
-        FAIL() << "Encoding failed";
-      }
+  int32_t encoded_values_size = 0;
+  for (int i = 0; i < data_size; ++i) {
+    // Depending on kSpaced we treat nulls as regular values.
+    if (data.IsValid(i) || !kSpaced) {
+      bool success = encoder.Put(static_cast<uint64_t>(data_values[i]));
+      ASSERT_TRUE(success) << "Encoding failed in pos " << i;
+      ++encoded_values_size;
     }
   }
-  int encoded_size = encoder.Flush();
+  int encoded_byte_size = encoder.Flush();
+  ASSERT_EQ(encoded_values_size, data_values_count)
+      << "All values input were not encoded successfully by the encoder";
 
-  // Verify batch read
-  RleBitPackedDecoder<T> decoder(buffer.data(), encoded_size, bit_width);
-  std::vector<T> values_read(num_values);
+  // On to verify batch read
+  RleBitPackedDecoder<T> decoder(buffer.data(), encoded_byte_size, bit_width);
+  std::vector<T> values_read(data_size);
 
-  if (num_values != decoder.GetBatchSpaced(
-                        num_values, static_cast<int>(data.null_count()),
-                        data.null_bitmap_data(), data.offset(), values_read.data())) {
-    FAIL();
+  // We will read the data in kParts calls to make sure intermediate states are valid
+  int32_t actual_read_count = 0;
+  int32_t requested_read_count = 0;
+  while (requested_read_count < data_size) {
+    auto const remaining = data_size - requested_read_count;
+    auto to_read = data_size / kParts;
+    if (remaining / to_read == 1) {
+      to_read = remaining;
+    }
+
+    auto* out = values_read.data() + requested_read_count;
+
+    auto read = 0;
+    if constexpr (kSpaced) {
+      // We need to slice the input array get the proper null count and bitmap
+      auto data_remaining = data.Slice(requested_read_count, to_read);
+      read = decoder.GetBatchSpaced(
+          to_read, static_cast<int32_t>(data_remaining->null_count()),
+          data_remaining->null_bitmap_data(), data_remaining->offset(), out);
+    } else {
+      read = decoder.GetBatch(out, to_read);
+    }
+    ASSERT_EQ(read, to_read) << "Decoder did not read as many values as requested";
+
+    actual_read_count += read;
+    requested_read_count += to_read;
   }
+  EXPECT_EQ(requested_read_count, data_size) << "This test logic is wrong";
+  EXPECT_EQ(actual_read_count, data_size) << "Total number of values read is off";
 
-  for (int64_t i = 0; i < num_values; ++i) {
-    if (data.IsValid(i)) {
-      if (values_read[i] != values[i]) {
-        FAIL() << "Index " << i << " read " << values_read[i] << " but should be "
-               << values[i];
-      }
+  // Verify the round trip: encoded-decoded values must equal the original one
+  for (int64_t i = 0; i < data_size; ++i) {
+    if (data.IsValid(i) || !kSpaced) {
+      EXPECT_EQ(values_read[i], data_values[i])
+          << "Encoded then decoded value at position " << i << " (" << values_read[i]
+          << ") differs from original value (" << data_values[i] << ")";
     }
   }
 }
+
+template <typename T>
+struct DataTestRleBitPackedRandomPart {
+  using value_type = T;
+
+  value_type max;
+  int32_t size;
+  double null_probability;
+};
+
+template <typename T>
+struct DataTestRleBitPackedRepeatPart {
+  using value_type = T;
+
+  value_type value;
+  int32_t size;
+};
+
+template <typename T>
+struct DataTestRleBitPackedNullPart {
+  using value_type = T;
+
+  int32_t size;
+};
+
+template <typename T>
+struct DataTestRleBitPacked {
+  using value_type = T;
+  using ArrowType = typename arrow::CTypeTraits<value_type>::ArrowType;
+  using RandomPart = DataTestRleBitPackedRandomPart<value_type>;
+  using RepeatPart = DataTestRleBitPackedRepeatPart<value_type>;
+  using NullPart = DataTestRleBitPackedNullPart<value_type>;
+
+  std::vector<std::variant<RandomPart, RepeatPart, NullPart>> parts;
+  int32_t bit_width;
+
+  std::shared_ptr<::arrow::Array> MakeArray() const {
+    uint32_t kSeed = 1337;
+    ::arrow::random::RandomArrayGenerator rand(kSeed);
+
+    std::vector<std::shared_ptr<::arrow::Array>> arrays = {};
+
+    for (auto const& dyn_part : parts) {
+      if (auto* part = std::get_if<RandomPart>(&dyn_part)) {
+        auto arr = rand.Numeric<ArrowType>(part->size, /* min= */ value_type(0),
+                                           part->max, part->null_probability);
+        arrays.push_back(std::move(arr));
+
+      } else if (auto* part = std::get_if<RepeatPart>(&dyn_part)) {
+        auto scalar = ::arrow::MakeScalar(part->value);
+        arrays.push_back(::arrow::MakeArrayFromScalar(*scalar, part->size).ValueOrDie());
+
+      } else if (auto* part = std::get_if<NullPart>(&dyn_part)) {
+        using Traits = arrow::TypeTraits<ArrowType>;
+        auto null_scalar = ::arrow::MakeNullScalar(Traits::type_singleton());
+        arrays.push_back(
+            ::arrow::MakeArrayFromScalar(*null_scalar, part->size).ValueOrDie());
+      }
+    }
+    ARROW_DCHECK_EQ(parts.size(), arrays.size());
+
+    return ::arrow::Concatenate(arrays).ValueOrDie();
+  }
+};
 
 template <typename T>
 struct GetBatchSpacedTestCase {
@@ -900,19 +1005,91 @@ struct GetBatchSpacedTestCase {
   int bit_width;
 };
 
-TEST(RleDecoder, GetBatchSpaced) {
-  uint32_t kSeed = 1337;
-  ::arrow::random::RandomArrayGenerator rand(kSeed);
+template <typename T>
+void DoTestGetBatchSpacedRoundtrip() {
+  using Data = DataTestRleBitPacked<T>;
+  using ArrowType = typename Data::ArrowType;
+  using RandomPart = typename Data::RandomPart;
+  using NullPart = typename Data::NullPart;
+  using RepeatPart = typename Data::RepeatPart;
 
-  std::vector<GetBatchSpacedTestCase<int32_t>> int32_cases{
-      {1, 100000, 0.01, 1}, {1, 100000, 0.1, 1},    {1, 100000, 0.5, 1},
-      {4, 100000, 0.05, 3}, {100, 100000, 0.05, 7},
+  std::vector<Data> test_cases = {
+      {
+          {RandomPart{/* max=*/1, /* size=*/400, /* null_proba= */ 0.1}},
+          /* bit_width= */ 1,
+      },
+      {
+          {
+              RandomPart{/* max=*/7, /* size=*/10037, /* null_proba= */ 0.1},
+              NullPart{/* size= */ 1153},
+              RandomPart{/* max=*/7, /* size=*/800, /* null_proba= */ 0.5},
+          },
+          /* bit_width= */ 3,
+      },
+      {
+          {
+              NullPart{/* size= */ 80},
+              RandomPart{/* max=*/7, /* size=*/800, /* null_proba= */ 0.01},
+              NullPart{/* size= */ 1023},
+          },
+          /* bit_width= */ 3,
+      },
+      {
+          {RepeatPart{/* value=*/13, /* size=*/100000}},
+          /* bit_width= */ 10,
+      },
+      {
+          {
+              NullPart{/* size= */ 1024},
+              RepeatPart{/* value=*/10000, /* size=*/100000},
+              NullPart{/* size= */ 77},
+          },
+          /* bit_width= */ 23,
+      },
+      {
+          {
+              RepeatPart{/* value=*/13, /* size=*/100000},
+              NullPart{/* size= */ 1153},
+              RepeatPart{/* value=*/72, /* size=*/100799},
+          },
+          /* bit_width= */ 10,
+      },
+      {
+          {
+              RandomPart{/* max=*/1, /* size=*/1013, /* null_proba= */ 0.01},
+              NullPart{/* size=*/8},
+              RepeatPart{1, /* size= */ 256},
+              NullPart{/* size=*/128},
+              RepeatPart{0, /* size= */ 256},
+              NullPart{/* size=*/15},
+              RandomPart{/* max=*/1, /* size=*/8 * 1024, /* null_proba= */ 0.01},
+          },
+          /* bit_width= */ 1,
+      },
   };
-  for (auto case_ : int32_cases) {
-    auto arr = rand.Int32(case_.size, /*min=*/0, case_.max_value, case_.null_probability);
-    CheckRoundTripSpaced<Int32Type>(*arr, case_.bit_width);
-    CheckRoundTripSpaced<Int32Type>(*arr->Slice(1), case_.bit_width);
+
+  for (auto case_ : test_cases) {
+    if (static_cast<std::size_t>(case_.bit_width) > sizeof(T)) {
+      continue;
+    }
+
+    auto array = case_.MakeArray();
+    CheckRoundTrip<ArrowType, false, 1>(*array, case_.bit_width);
+    CheckRoundTrip<ArrowType, false, 3>(*array, case_.bit_width);
+    CheckRoundTrip<ArrowType, true, 1>(*array, case_.bit_width);
+    CheckRoundTrip<ArrowType, true, 7>(*array, case_.bit_width);
+    CheckRoundTrip<ArrowType, true, 1>(*array->Slice(1), case_.bit_width);
   }
+}
+
+TEST(RleBitPacked, GetBatchSpacedRoundtripUint16) {
+  DoTestGetBatchSpacedRoundtrip<uint16_t>();
+}
+TEST(RleBitPacked, GetBatchSpacedRoundtripInt32) {
+  DoTestGetBatchSpacedRoundtrip<int32_t>();
+}
+TEST(RleBitPacked, GetBatchSpacedRoundtripUint64) {
+  DoTestGetBatchSpacedRoundtrip<uint64_t>();
 }
 
 }  // namespace util
