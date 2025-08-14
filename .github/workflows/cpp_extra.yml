@@ -126,6 +126,8 @@ jobs:
             title: AMD64 Ubuntu Meson
           # TODO: We should remove this "continue-on-error: true" once GH-47207 is resolved
           - continue-on-error: true
+            envs:
+              - DEBIAN=13
             image: debian-cpp
             run-options: >-
               -e CMAKE_CXX_STANDARD=23
@@ -158,10 +160,16 @@ jobs:
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+          ENVS: ${{ toJSON(matrix.envs) }}
         run: |
           # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
           sudo sysctl -w vm.mmap_rnd_bits=28
           source ci/scripts/util_enable_core_dumps.sh
+          if [ "${ENVS}" != "null" ]; then
+            echo "${ENVS}" | jq -r '.[]' | while read env; do
+              echo "${env}" >> .env
+            done
+          fi
           archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
       - name: Docker Push
         if: >-
