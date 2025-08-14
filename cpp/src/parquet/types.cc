@@ -835,8 +835,9 @@ bool LogicalType::is_valid() const {
 }
 bool LogicalType::is_invalid() const { return !is_valid(); }
 bool LogicalType::is_nested() const {
-  return (impl_->type() == LogicalType::Type::LIST) ||
-         (impl_->type() == LogicalType::Type::MAP);
+  return impl_->type() == LogicalType::Type::LIST ||
+         impl_->type() == LogicalType::Type::MAP ||
+         impl_->type() == LogicalType::Type::VARIANT;
 }
 bool LogicalType::is_nonnested() const { return !is_nested(); }
 bool LogicalType::is_serialized() const { return impl_->is_serialized(); }
