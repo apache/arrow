@@ -294,8 +294,7 @@ endif
 
 if needs_json or needs_integration
     rapidjson_dep = dependency(
-        'rapidjson',
-        method: 'system',
+        'RapidJSON',
         fallback: ['rapidjson', 'rapidjson_dep'],
     )
 else
