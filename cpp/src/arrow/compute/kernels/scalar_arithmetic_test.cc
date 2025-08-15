@@ -1900,6 +1900,61 @@ TEST_F(TestUnaryArithmeticDecimal, TrigTan) {
 
 class TestBinaryArithmeticDecimal : public TestArithmeticDecimal {};
 
+TEST_F(TestBinaryArithmeticDecimal, DispatchExact) {
+  for (std::string name : {"add", "subtract"}) {
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+      ARROW_SCOPED_TRACE(name);
+
+      CheckDispatchExact(name, {decimal128(2, 1), decimal128(2, 1)});
+      CheckDispatchExact(name, {decimal128(3, 1), decimal128(2, 1)});
+      CheckDispatchExactFails(name, {decimal128(2, 0), decimal128(2, 1)});
+      CheckDispatchExactFails(name, {decimal128(2, 1), decimal128(2, 0)});
+
+      CheckDispatchExact(name, {decimal256(2, 1), decimal256(2, 1)});
+      CheckDispatchExact(name, {decimal256(3, 1), decimal256(2, 1)});
+      CheckDispatchExactFails(name, {decimal256(2, 0), decimal256(2, 1)});
+      CheckDispatchExactFails(name, {decimal256(2, 1), decimal256(2, 0)});
+    }
+  }
+
+  {
+    std::string name = "multiply";
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+      ARROW_SCOPED_TRACE(name);
+
+      CheckDispatchExact(name, {decimal128(2, 1), decimal128(2, 1)});
+      CheckDispatchExact(name, {decimal128(3, 1), decimal128(2, 1)});
+      CheckDispatchExact(name, {decimal128(2, 0), decimal128(2, 1)});
+      CheckDispatchExact(name, {decimal128(2, 1), decimal128(2, 0)});
+
+      CheckDispatchExact(name, {decimal256(2, 1), decimal256(2, 1)});
+      CheckDispatchExact(name, {decimal256(3, 1), decimal256(2, 1)});
+      CheckDispatchExact(name, {decimal256(2, 0), decimal256(2, 1)});
+      CheckDispatchExact(name, {decimal256(2, 1), decimal256(2, 0)});
+    }
+  }
+
+  {
+    std::string name = "divide";
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+      ARROW_SCOPED_TRACE(name);
+
+      CheckDispatchExact(name, {decimal128(2, 1), decimal128(2, 1)});
+      CheckDispatchExact(name, {decimal128(3, 1), decimal128(2, 1)});
+      CheckDispatchExact(name, {decimal128(2, 1), decimal128(2, 0)});
+      CheckDispatchExactFails(name, {decimal128(2, 0), decimal128(2, 1)});
+
+      CheckDispatchExact(name, {decimal256(2, 1), decimal256(2, 1)});
+      CheckDispatchExact(name, {decimal256(3, 1), decimal256(2, 1)});
+      CheckDispatchExact(name, {decimal256(2, 1), decimal256(2, 0)});
+      CheckDispatchExactFails(name, {decimal256(2, 0), decimal256(2, 1)});
+    }
+  }
+}
+
 TEST_F(TestBinaryArithmeticDecimal, DispatchBest) {
   // decimal, floating point
   for (std::string name : {"add", "subtract", "multiply", "divide"}) {
