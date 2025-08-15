@@ -539,7 +539,7 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
         return parquet::ParquetFileReader::OpenAsync(input, properties, metadata)
             .Then(
                 [=](const std::unique_ptr<parquet::ParquetFileReader>& reader) mutable
-                -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
+                    -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
                   auto arrow_properties = MakeArrowReaderProperties(
                       *self, *reader->metadata(), *options, *parquet_scan_options);
 
