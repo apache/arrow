@@ -15,16 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_statement.h>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_statement.h"
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/attribute_utils.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_descriptor.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/result_set.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/result_set_metadata.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/statement.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/attribute_utils.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_descriptor.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/result_set.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/result_set_metadata.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/statement.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
+
 #include <sql.h>
 #include <sqlext.h>
 #include <sqltypes.h>
@@ -128,6 +129,9 @@ SQLSMALLINT getCTypeForSQLType(const DescriptorRecord& record) {
     case SQL_WLONGVARCHAR:
       return SQL_C_WCHAR;
 
+    case SQL_BIT:
+      return SQL_C_BIT;
+
     case SQL_BINARY:
     case SQL_VARBINARY:
     case SQL_LONGVARBINARY:
@@ -145,12 +149,19 @@ SQLSMALLINT getCTypeForSQLType(const DescriptorRecord& record) {
     case SQL_BIGINT:
       return record.m_unsigned ? SQL_C_UBIGINT : SQL_C_SBIGINT;
 
+    case SQL_NUMERIC:
+    case SQL_DECIMAL:
+      return SQL_C_NUMERIC;
+
+    case SQL_FLOAT:
     case SQL_REAL:
       return SQL_C_FLOAT;
 
-    case SQL_FLOAT:
     case SQL_DOUBLE:
       return SQL_C_DOUBLE;
+
+    case SQL_GUID:
+      return SQL_C_GUID;
 
     case SQL_DATE:
     case SQL_TYPE_DATE:
@@ -164,32 +175,32 @@ SQLSMALLINT getCTypeForSQLType(const DescriptorRecord& record) {
     case SQL_TYPE_TIMESTAMP:
       return SQL_C_TYPE_TIMESTAMP;
 
-    case SQL_C_INTERVAL_DAY:
-      return SQL_INTERVAL_DAY;
-    case SQL_C_INTERVAL_DAY_TO_HOUR:
-      return SQL_INTERVAL_DAY_TO_HOUR;
-    case SQL_C_INTERVAL_DAY_TO_MINUTE:
-      return SQL_INTERVAL_DAY_TO_MINUTE;
-    case SQL_C_INTERVAL_DAY_TO_SECOND:
-      return SQL_INTERVAL_DAY_TO_SECOND;
-    case SQL_C_INTERVAL_HOUR:
-      return SQL_INTERVAL_HOUR;
-    case SQL_C_INTERVAL_HOUR_TO_MINUTE:
-      return SQL_INTERVAL_HOUR_TO_MINUTE;
-    case SQL_C_INTERVAL_HOUR_TO_SECOND:
-      return SQL_INTERVAL_HOUR_TO_SECOND;
-    case SQL_C_INTERVAL_MINUTE:
-      return SQL_INTERVAL_MINUTE;
-    case SQL_C_INTERVAL_MINUTE_TO_SECOND:
-      return SQL_INTERVAL_MINUTE_TO_SECOND;
-    case SQL_C_INTERVAL_SECOND:
-      return SQL_INTERVAL_SECOND;
-    case SQL_C_INTERVAL_YEAR:
-      return SQL_INTERVAL_YEAR;
-    case SQL_C_INTERVAL_YEAR_TO_MONTH:
-      return SQL_INTERVAL_YEAR_TO_MONTH;
-    case SQL_C_INTERVAL_MONTH:
-      return SQL_INTERVAL_MONTH;
+    case SQL_INTERVAL_DAY:
+      return SQL_C_INTERVAL_DAY;
+    case SQL_INTERVAL_DAY_TO_HOUR:
+      return SQL_C_INTERVAL_DAY_TO_HOUR;
+    case SQL_INTERVAL_DAY_TO_MINUTE:
+      return SQL_C_INTERVAL_DAY_TO_MINUTE;
+    case SQL_INTERVAL_DAY_TO_SECOND:
+      return SQL_C_INTERVAL_DAY_TO_SECOND;
+    case SQL_INTERVAL_HOUR:
+      return SQL_C_INTERVAL_HOUR;
+    case SQL_INTERVAL_HOUR_TO_MINUTE:
+      return SQL_C_INTERVAL_HOUR_TO_MINUTE;
+    case SQL_INTERVAL_HOUR_TO_SECOND:
+      return SQL_C_INTERVAL_HOUR_TO_SECOND;
+    case SQL_INTERVAL_MINUTE:
+      return SQL_C_INTERVAL_MINUTE;
+    case SQL_INTERVAL_MINUTE_TO_SECOND:
+      return SQL_C_INTERVAL_MINUTE_TO_SECOND;
+    case SQL_INTERVAL_SECOND:
+      return SQL_C_INTERVAL_SECOND;
+    case SQL_INTERVAL_YEAR:
+      return SQL_C_INTERVAL_YEAR;
+    case SQL_INTERVAL_YEAR_TO_MONTH:
+      return SQL_C_INTERVAL_YEAR_TO_MONTH;
+    case SQL_INTERVAL_MONTH:
+      return SQL_C_INTERVAL_MONTH;
 
     default:
       throw DriverException("Unknown SQL type: " + std::to_string(record.m_conciseType),
@@ -306,7 +317,8 @@ void ODBCStatement::ExecuteDirect(const std::string& query) {
   m_isPrepared = false;
 }
 
-bool ODBCStatement::Fetch(size_t rows) {
+bool ODBCStatement::Fetch(size_t rows, SQLULEN* rowCountPtr,
+                          SQLUSMALLINT* rowStatusArray) {
   if (m_hasReachedEndOfResult) {
     m_ird->SetRowsProcessed(0);
     return false;
@@ -339,10 +351,23 @@ bool ODBCStatement::Fetch(size_t rows) {
     m_currentArd->NotifyBindingsHavePropagated();
   }
 
-  size_t rowsFetched = m_currenResult->Move(rows, m_currentArd->GetBindOffset(),
-                                            m_currentArd->GetBoundStructOffset(),
-                                            m_ird->GetArrayStatusPtr());
+  uint16_t* arrayStatusPtr;
+  if (rowStatusArray) {
+    // For SQLExtendedFetch only
+    arrayStatusPtr = rowStatusArray;
+  } else {
+    arrayStatusPtr = m_ird->GetArrayStatusPtr();
+  }
+
+  size_t rowsFetched =
+      m_currenResult->Move(rows, m_currentArd->GetBindOffset(),
+                           m_currentArd->GetBoundStructOffset(), arrayStatusPtr);
   m_ird->SetRowsProcessed(static_cast<SQLULEN>(rowsFetched));
+
+  if (rowCountPtr) {
+    // For SQLExtendedFetch only
+    *rowCountPtr = rowsFetched;
+  }
 
   m_rowNumber += rowsFetched;
   m_hasReachedEndOfResult = rowsFetched != rows;
@@ -580,6 +605,7 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statementAttribute, SQLPOINTER value,
       return;
 
     case SQL_ATTR_ASYNC_ENABLE:
+      throw DriverException("Unsupported attribute", "HYC00");
 #ifdef SQL_ATTR_ASYNC_STMT_EVENT
     case SQL_ATTR_ASYNC_STMT_EVENT:
       throw DriverException("Unsupported attribute", "HYC00");
@@ -627,7 +653,7 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statementAttribute, SQLPOINTER value,
       CheckIfAttributeIsSetToOnlyValidValue(value, static_cast<SQLULEN>(SQL_UB_OFF));
       return;
     case SQL_ATTR_RETRIEVE_DATA:
-      CheckIfAttributeIsSetToOnlyValidValue(value, static_cast<SQLULEN>(SQL_TRUE));
+      CheckIfAttributeIsSetToOnlyValidValue(value, static_cast<SQLULEN>(SQL_RD_ON));
       return;
     case SQL_ROWSET_SIZE:
       SetAttribute(value, m_rowsetSize);
@@ -677,7 +703,7 @@ void ODBCStatement::RevertAppDescriptor(bool isApd) {
 
 void ODBCStatement::closeCursor(bool suppressErrors) {
   if (!suppressErrors && !m_currenResult) {
-    throw DriverException("Invalid cursor state", "28000");
+    throw DriverException("Invalid cursor state", "24000");
   }
 
   if (m_currenResult) {
@@ -691,9 +717,9 @@ void ODBCStatement::closeCursor(bool suppressErrors) {
   m_hasReachedEndOfResult = false;
 }
 
-bool ODBCStatement::GetData(SQLSMALLINT recordNumber, SQLSMALLINT cType,
-                            SQLPOINTER dataPtr, SQLLEN bufferLength,
-                            SQLLEN* indicatorPtr) {
+SQLRETURN ODBCStatement::GetData(SQLSMALLINT recordNumber, SQLSMALLINT cType,
+                                 SQLPOINTER dataPtr, SQLLEN bufferLength,
+                                 SQLLEN* indicatorPtr) {
   if (recordNumber == 0) {
     throw DriverException("Bookmarks are not supported", "07009");
   } else if (recordNumber > m_ird->GetRecords().size()) {
@@ -733,6 +759,34 @@ bool ODBCStatement::GetData(SQLSMALLINT recordNumber, SQLSMALLINT cType,
 
   return m_currenResult->GetData(recordNumber, evaluatedCType, precision, scale, dataPtr,
                                  bufferLength, indicatorPtr);
+}
+
+SQLRETURN ODBCStatement::getMoreResults() {
+  // Multiple result sets are not supported.
+  if (m_currenResult) {
+    return SQL_NO_DATA;
+  } else {
+    throw DriverException("Function sequence error", "HY010");
+  }
+}
+
+void ODBCStatement::getColumnCount(SQLSMALLINT* columnCountPtr) {
+  if (!columnCountPtr) {
+    // columnCountPtr is not valid, do nothing as ODBC spec does not mention this as an
+    // error
+    return;
+  }
+  size_t columnCount = m_ird->GetRecords().size();
+  *columnCountPtr = static_cast<SQLSMALLINT>(columnCount);
+}
+
+void ODBCStatement::getRowCount(SQLLEN* rowCountPtr) {
+  if (!rowCountPtr) {
+    // rowCountPtr is not valid, do nothing as ODBC spec does not mention this as an error
+    return;
+  }
+  // Will always be -1 (number of rows unknown) if only SELECT is supported
+  *rowCountPtr = -1;
 }
 
 void ODBCStatement::releaseStatement() {

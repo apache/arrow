@@ -17,15 +17,16 @@
 
 // platform.h includes windows.h, so it needs to be included
 // before Windowsx.h and commctrl.h
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 
 #include <Windowsx.h>
 #include <commctrl.h>
 
 #include <wtypes.h>
+#include <cassert>
 #include <sstream>
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
 #include "ui/custom_window.h"
 
 namespace driver {
@@ -53,7 +54,7 @@ LRESULT CALLBACK CustomWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam,
 
   switch (msg) {
     case WM_NCCREATE: {
-      _ASSERT(lParam != NULL);
+      assert(lParam != NULL);
 
       CREATESTRUCT* createStruct = reinterpret_cast<CREATESTRUCT*>(lParam);
 
@@ -65,7 +66,7 @@ LRESULT CALLBACK CustomWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam,
     }
 
     case WM_CREATE: {
-      _ASSERT(window != NULL);
+      assert(window != NULL);
 
       window->SetHandle(hwnd);
 
@@ -83,7 +84,7 @@ LRESULT CALLBACK CustomWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam,
   return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
-CustomWindow::CustomWindow(Window* parent, const char* className, const char* title)
+CustomWindow::CustomWindow(Window* parent, const wchar_t* className, const wchar_t* title)
     : Window(parent, className, title) {
   WNDCLASS wcx;
 
