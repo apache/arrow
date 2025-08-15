@@ -122,6 +122,11 @@ TEST_F(CryptoFactoryTest, ExternalEncryptionConfig) {
     per_column_encryption["col2"] = attributes_2;
 
     config.per_column_encryption = per_column_encryption;
+    config.app_context = 
+        "{\"user_id\": \"abc123\", \"location\": {\"lat\": 9.7489, \"lon\": -83.7534}}";
+    config.connection_config = {
+        {ParquetCipher::EXTERNAL_DBPA_V1, {{"file_path", "path/to/file"}}}
+    };
 
     auto properties = crypto_factory_.GetExternalFileEncryptionProperties(kms_config_, config);
     EXPECT_EQ("kf", properties->footer_key());
@@ -152,6 +157,18 @@ TEST_F(CryptoFactoryTest, ExternalEncryptionConfig) {
     EXPECT_FALSE(column_properties_3->is_encrypted_with_footer_key());
     EXPECT_THAT(column_properties_3->key_metadata(), HasSubstr("kc3"));
     EXPECT_FALSE(column_properties_3->parquet_cipher().has_value());
+
+    EXPECT_FALSE(properties->app_context().empty());
+    EXPECT_FALSE(properties->connection_config().empty());
+    EXPECT_EQ(properties->app_context(), config.app_context);
+    EXPECT_NE(properties->connection_config().find(ParquetCipher::EXTERNAL_DBPA_V1),
+              properties->connection_config().end());
+    EXPECT_EQ(properties->connection_config().find(ParquetCipher::AES_GCM_CTR_V1),
+              properties->connection_config().end());
+    EXPECT_NE(properties->connection_config().at(ParquetCipher::EXTERNAL_DBPA_V1).find("file_path"),
+              properties->connection_config().at(ParquetCipher::EXTERNAL_DBPA_V1).end());
+    EXPECT_EQ(properties->connection_config().at(ParquetCipher::EXTERNAL_DBPA_V1).at("file_path"),
+              "path/to/file");
 }
 
 TEST_F(CryptoFactoryTest, ColumnRepeatedInMapsThrowsException) {

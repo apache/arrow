@@ -230,6 +230,15 @@ CryptoFactory::GetExternalFileEncryptionProperties(
     external_properties_builder.encrypted_columns(encrypted_columns);
   }
 
+  if (!external_encryption_config.app_context.empty()) {
+    external_properties_builder.app_context(external_encryption_config.app_context);
+  }
+  
+  if (!external_encryption_config.connection_config.empty()) {
+    external_properties_builder.connection_config(ConvertConnectionConfig(
+      external_encryption_config.connection_config));
+  }
+
   if (key_material_store != nullptr) {
     key_material_store->SaveMaterial();
   }
