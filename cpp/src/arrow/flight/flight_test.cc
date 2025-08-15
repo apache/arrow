@@ -207,6 +207,9 @@ ARROW_FLIGHT_TEST_ASYNC_CLIENT(GrpcAsyncClientTest);
 // Ad-hoc gRPC-specific tests
 
 TEST(TestFlight, ConnectUri) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "This test requires Boost.Process to run";
+#endif
   TestServer server("flight-test-server");
   ASSERT_OK(server.Start());
   ASSERT_TRUE(server.IsRunning());
