@@ -143,7 +143,6 @@ if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
     --prefix=${MESON_PREFIX:-${ARROW_HOME}} \
     --buildtype=${ARROW_BUILD_TYPE:-debug} \
     -Dauto_features=enabled \
-    -Dfuzzing=disabled \
     -Dgcs=disabled \
     -Ds3=disabled \
     . \
