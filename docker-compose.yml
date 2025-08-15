@@ -560,10 +560,11 @@ services:
 
   ubuntu-cuda-cpp:
     # Usage:
-    #   docker compose build cuda-cpp
-    #   docker compose run --rm cuda-cpp
+    #   docker compose build ubuntu-cuda-cpp
+    #   docker compose run --rm ubuntu-cuda-cpp
     # Parameters:
     #   ARCH: amd64
+    #   UBUNTU: 22.04, 24.04
     #   CUDA: <depends on your nvidia driver, should match system CUDA>
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
     build:
@@ -946,13 +947,15 @@ services:
 
   ubuntu-cuda-python:
     # Usage:
-    #   docker compose build cuda-cpp
-    #   docker compose build cuda-python
-    #   docker compose run --rm cuda-python
+    #   docker compose build ubuntu-cuda-cpp
+    #   docker compose build ubuntu-cuda-python
+    #   docker compose run --rm ubuntu-cuda-python
     # Parameters:
     #   ARCH: amd64
     #   CUDA: <depends on your nvidia driver, should match system CUDA>
     #   UBUNTU: 22.04, 24.04
+    #   NUMBA: master, latest, <version>
+    #   NUMBA_CUDA: master, latest, <version>
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
     build:
       context: .
@@ -962,6 +965,7 @@ services:
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
         numba: ${NUMBA}
+        numba_cuda: ${NUMBA_CUDA}
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache, *sccache]
