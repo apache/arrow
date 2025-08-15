@@ -24,7 +24,6 @@
 ##  Minor improvements and fixes
 
 - Patch bundled version of Thrift to prevent CRAN check failures (@kou, #47286)
-- Disable mimalloc on linux devel builds to prevent spurious sanitizer failures (#47212)
 
 # arrow 21.0.0
 
