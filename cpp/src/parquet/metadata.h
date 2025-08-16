@@ -144,6 +144,12 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::shared_ptr<Statistics> statistics() const;
   std::shared_ptr<SizeStatistics> size_statistics() const;
 
+  // get the column descriptor
+  const ColumnDescriptor* descr() const;
+
+  // get the reader properties
+  const ReaderProperties* properties() const;
+
   Compression::type compression() const;
   // Indicate if the ColumnChunk compression is supported by the current
   // compiled parquet library.
@@ -444,6 +450,9 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
 
   // get the column descriptor
   const ColumnDescriptor* descr() const;
+
+  // get the writer properties
+  const WriterProperties* properties() const;
 
   int64_t total_compressed_size() const;
   // commit the metadata

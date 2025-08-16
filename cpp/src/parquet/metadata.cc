@@ -318,6 +318,10 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     return LoadEnumSafe(&column_metadata_->codec);
   }
 
+  const ColumnDescriptor* descr() const { return descr_; }
+
+  const ReaderProperties* properties() const { return &properties_; }
+
   const std::vector<Encoding::type>& encodings() const { return encodings_; }
 
   const std::vector<PageEncodingStats>& encoding_stats() const { return encoding_stats_; }
@@ -479,6 +483,10 @@ int64_t ColumnChunkMetaData::index_page_offset() const {
 Compression::type ColumnChunkMetaData::compression() const {
   return impl_->compression();
 }
+
+const ColumnDescriptor* ColumnChunkMetaData::descr() const { return impl_->descr(); }
+
+const ReaderProperties* ColumnChunkMetaData::properties() const { return impl_->properties(); }
 
 bool ColumnChunkMetaData::can_decompress() const {
   return ::arrow::util::Codec::IsAvailable(compression());
@@ -1546,6 +1554,8 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
 
   const void* contents() const { return column_chunk_; }
 
+  const WriterProperties* properties() const { return properties_.get(); }
+
   // column chunk
   void set_file_path(const std::string& val) { column_chunk_->__set_file_path(val); }
 
@@ -1761,6 +1771,10 @@ void ColumnChunkMetaDataBuilder::WriteTo(::arrow::io::OutputStream* sink) {
 
 const ColumnDescriptor* ColumnChunkMetaDataBuilder::descr() const {
   return impl_->descr();
+}
+
+const WriterProperties* ColumnChunkMetaDataBuilder::properties() const {
+  return impl_->properties();
 }
 
 void ColumnChunkMetaDataBuilder::SetStatistics(const EncodedStatistics& result) {

@@ -263,7 +263,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     auto meta_decryptor_factory = InternalFileDecryptor::GetColumnMetaDecryptorFactory(
         file_decryptor, crypto_metadata.get());
     auto data_decryptor_factory = InternalFileDecryptor::GetColumnDataDecryptorFactory(
-        file_decryptor, crypto_metadata.get());
+        file_decryptor, crypto_metadata.get(), col.get());
 
     constexpr auto kEncryptedOrdinalLimit = 32767;
     if (ARROW_PREDICT_FALSE(row_group_ordinal_ > kEncryptedOrdinalLimit)) {

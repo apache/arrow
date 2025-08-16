@@ -79,13 +79,14 @@ std::shared_ptr<Encryptor> InternalFileEncryptor::GetColumnMetaEncryptor(
 }
 
 std::shared_ptr<Encryptor> InternalFileEncryptor::GetColumnDataEncryptor(
-    const std::string& column_path) {
-  return GetColumnEncryptor(column_path, false);
+    const std::string& column_path, const ColumnChunkMetaDataBuilder* column_chunk_metadata) {
+  return GetColumnEncryptor(column_path, false, column_chunk_metadata);
 }
 
 std::shared_ptr<Encryptor>
 InternalFileEncryptor::InternalFileEncryptor::GetColumnEncryptor(
-    const std::string& column_path, bool metadata) {
+    const std::string& column_path, bool metadata,
+    const ColumnChunkMetaDataBuilder* column_chunk_metadata) {
   // first look if we already got the encryptor from before
   if (metadata) {
     if (column_metadata_map_.find(column_path) != column_metadata_map_.end()) {
@@ -110,7 +111,7 @@ InternalFileEncryptor::InternalFileEncryptor::GetColumnEncryptor(
 
   ParquetCipher::type algorithm = properties_->algorithm().algorithm;
   auto aes_encryptor = metadata ? GetMetaAesEncryptor(algorithm, key.size())
-                                : GetDataAesEncryptor(algorithm, key.size());
+                                : GetDataAesEncryptor(algorithm, key.size(), column_chunk_metadata);
 
   std::string file_aad = properties_->file_aad();
   std::shared_ptr<Encryptor> encryptor =
@@ -144,7 +145,8 @@ encryption::AesEncryptor* InternalFileEncryptor::GetMetaAesEncryptor(
 }
 
 encryption::AesEncryptor* InternalFileEncryptor::GetDataAesEncryptor(
-    ParquetCipher::type algorithm, size_t key_size) {
+    ParquetCipher::type algorithm, size_t key_size,
+    const ColumnChunkMetaDataBuilder* column_chunk_metadata) {
   auto key_len = static_cast<int32_t>(key_size);
   int index = MapKeyLenToEncryptorArrayIndex(key_len);
   if (data_encryptor_[index] == nullptr) {

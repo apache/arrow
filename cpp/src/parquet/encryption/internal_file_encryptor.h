@@ -20,10 +20,9 @@
 #include <map>
 #include <memory>
 #include <string>
-#include <vector>
 
 #include "parquet/encryption/encryption.h"
-#include "parquet/schema.h"
+#include "parquet/metadata.h"
 
 namespace parquet {
 
@@ -76,7 +75,9 @@ class InternalFileEncryptor {
   std::shared_ptr<Encryptor> GetFooterEncryptor();
   std::shared_ptr<Encryptor> GetFooterSigningEncryptor();
   std::shared_ptr<Encryptor> GetColumnMetaEncryptor(const std::string& column_path);
-  std::shared_ptr<Encryptor> GetColumnDataEncryptor(const std::string& column_path);
+  std::shared_ptr<Encryptor> GetColumnDataEncryptor(
+    const std::string& column_path,
+    const ColumnChunkMetaDataBuilder* column_chunk_metadata = nullptr);
 
  private:
   FileEncryptionProperties* properties_;
@@ -94,13 +95,15 @@ class InternalFileEncryptor {
 
   ::arrow::MemoryPool* pool_;
 
-  std::shared_ptr<Encryptor> GetColumnEncryptor(const std::string& column_path,
-                                                bool metadata);
+  std::shared_ptr<Encryptor> GetColumnEncryptor(
+    const std::string& column_path, bool metadata,
+    const ColumnChunkMetaDataBuilder* column_chunk_metadata = nullptr);
 
   encryption::AesEncryptor* GetMetaAesEncryptor(ParquetCipher::type algorithm,
                                                 size_t key_len);
-  encryption::AesEncryptor* GetDataAesEncryptor(ParquetCipher::type algorithm,
-                                                size_t key_len);
+  encryption::AesEncryptor* GetDataAesEncryptor(
+    ParquetCipher::type algorithm, size_t key_len,
+    const ColumnChunkMetaDataBuilder* column_chunk_metadata = nullptr);
 
   int MapKeyLenToEncryptorArrayIndex(int32_t key_len) const;
 };
