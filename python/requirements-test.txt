@@ -1,4 +1,5 @@
-cffi
+cffi; python_version != '3.13t'
+cffi<2.0.0; python_version == '3.13t'
 hypothesis
 packaging
 pandas
