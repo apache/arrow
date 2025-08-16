@@ -30,11 +30,11 @@ PyKmsClient::PyKmsClient(PyObject* handler, PyKmsClientVtable vtable)
 
 PyKmsClient::~PyKmsClient() {}
 
-std::string PyKmsClient::WrapKey(const std::string& key_bytes,
+std::string PyKmsClient::WrapKey(const ::arrow::util::SecureString& key,
                                  const std::string& master_key_identifier) {
   std::string wrapped;
   auto st = SafeCallIntoPython([&]() -> Status {
-    vtable_.wrap_key(handler_.obj(), key_bytes, master_key_identifier, &wrapped);
+    vtable_.wrap_key(handler_.obj(), key, master_key_identifier, &wrapped);
     return CheckPyError();
   });
   if (!st.ok()) {
@@ -43,9 +43,9 @@ std::string PyKmsClient::WrapKey(const std::string& key_bytes,
   return wrapped;
 }
 
-std::string PyKmsClient::UnwrapKey(const std::string& wrapped_key,
-                                   const std::string& master_key_identifier) {
-  std::string unwrapped;
+::arrow::util::SecureString PyKmsClient::UnwrapKey(
+    const std::string& wrapped_key, const std::string& master_key_identifier) {
+  std::shared_ptr<arrow::util::SecureString> unwrapped;
   auto st = SafeCallIntoPython([&]() -> Status {
     vtable_.unwrap_key(handler_.obj(), wrapped_key, master_key_identifier, &unwrapped);
     return CheckPyError();
@@ -53,7 +53,7 @@ std::string PyKmsClient::UnwrapKey(const std::string& wrapped_key,
   if (!st.ok()) {
     throw ::parquet::ParquetStatusException(st);
   }
-  return unwrapped;
+  return *unwrapped;
 }
 
 PyKmsClientFactory::PyKmsClientFactory(PyObject* handler, PyKmsClientFactoryVtable vtable)

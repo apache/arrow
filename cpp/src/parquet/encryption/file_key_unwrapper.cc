@@ -69,7 +69,7 @@ FileKeyUnwrapper::FileKeyUnwrapper(
       kms_connection_config.key_access_token(), cache_entry_lifetime_seconds_);
 }
 
-SecureString FileKeyUnwrapper::GetKeyById(const std::string& key_metadata_bytes) {
+SecureString FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) {
   // key_metadata is expected to be in UTF8 encoding
   ::arrow::util::InitializeUTF8();
   if (!::arrow::util::ValidateUTF8(
@@ -110,7 +110,7 @@ KeyWithMasterId FileKeyUnwrapper::GetDataEncryptionKey(const KeyMaterial& key_ma
 
   SecureString data_key;
   if (!double_wrapping) {
-    data_key = kms_client->UnWrapKey(encoded_wrapped_dek, master_key_id);
+    data_key = kms_client->UnwrapKey(encoded_wrapped_dek, master_key_id);
   } else {
     // Get Key Encryption Key
     const std::string& encoded_kek_id = key_material.kek_id();
@@ -118,7 +118,7 @@ KeyWithMasterId FileKeyUnwrapper::GetDataEncryptionKey(const KeyMaterial& key_ma
 
     const SecureString kek_bytes = kek_per_kek_id_->GetOrInsert(
         encoded_kek_id, [kms_client, encoded_wrapped_kek, master_key_id]() {
-          return kms_client->UnWrapKey(encoded_wrapped_kek, master_key_id);
+          return kms_client->UnwrapKey(encoded_wrapped_kek, master_key_id);
         });
 
     // Decrypt the data key

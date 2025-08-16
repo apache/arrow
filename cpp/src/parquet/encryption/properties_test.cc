@@ -224,9 +224,9 @@ TEST(TestDecryptionProperties, UseKeyRetriever) {
   std::shared_ptr<parquet::FileDecryptionProperties> props = builder.build();
 
   auto out_key_retriever = props->key_retriever();
-  ASSERT_EQ(kFooterEncryptionKey, out_key_retriever->GetKeyById("kf"));
-  ASSERT_EQ(kColumnEncryptionKey1, out_key_retriever->GetKeyById("kc1"));
-  ASSERT_EQ(kColumnEncryptionKey2, out_key_retriever->GetKeyById("kc2"));
+  ASSERT_EQ(kFooterEncryptionKey, out_key_retriever->GetKey("kf"));
+  ASSERT_EQ(kColumnEncryptionKey1, out_key_retriever->GetKey("kc1"));
+  ASSERT_EQ(kColumnEncryptionKey2, out_key_retriever->GetKey("kc2"));
 }
 
 TEST(TestDecryptionProperties, SupplyAadPrefix) {
