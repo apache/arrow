@@ -207,12 +207,310 @@ TEST(BitUtil, RoundTripIntValues) {
   }
 }
 
+/// A Rle run is a simple class owning some data and a repetition count.
+/// It does not know how to read such data.
+TEST(Rle, RleRun) {
+  const std::array<RleRun::byte, 4> value = {21, 2, 0, 0};
+
+  RleRun::values_count_type value_count = 12;
+
+  // 12 times the value 21 fitting over 5 bits
+  auto const run_5 = RleRun(value.data(), value_count, /* value_bit_width= */ 5);
+  EXPECT_EQ(run_5.ValuesCount(), value_count);
+  EXPECT_EQ(run_5.ValuesBitWidth(), 5);
+  EXPECT_EQ(run_5.RawDataSize(), 1);  // 5 bits fit in one byte
+  EXPECT_EQ(*run_5.RawDataPtr(), 21);
+
+  // 12 times the value 21 fitting over 16 bits
+  auto const run_8 = RleRun(value.data(), value_count, /* value_bit_width= */ 8);
+  EXPECT_EQ(run_8.ValuesCount(), value_count);
+  EXPECT_EQ(run_8.ValuesBitWidth(), 8);
+  EXPECT_EQ(run_8.RawDataSize(), 1);  // 8 bits fit in 1 byte
+  EXPECT_EQ(*run_8.RawDataPtr(), 21);
+
+  // 12 times the value {21, 2} fitting over 10 bits
+  auto const run_10 = RleRun(value.data(), value_count, /* value_bit_width= */ 10);
+
+  EXPECT_EQ(run_10.ValuesCount(), value_count);
+  EXPECT_EQ(run_10.ValuesBitWidth(), 10);
+  EXPECT_EQ(run_10.RawDataSize(), 2);  // 10 bits fit in 2 bytes
+  EXPECT_EQ(*(run_10.RawDataPtr() + 0), 21);
+  EXPECT_EQ(*(run_10.RawDataPtr() + 1), 2);
+
+  // 12 times the value {21, 2} fitting over 32 bits
+  auto const run_32 = RleRun(value.data(), value_count, /* value_bit_width= */ 32);
+  EXPECT_EQ(run_32.ValuesCount(), value_count);
+  EXPECT_EQ(run_32.ValuesBitWidth(), 32);
+  EXPECT_EQ(run_32.RawDataSize(), 4);  // 32 bits fit in 4 bytes
+  EXPECT_EQ(*(run_32.RawDataPtr() + 0), 21);
+  EXPECT_EQ(*(run_32.RawDataPtr() + 1), 2);
+  EXPECT_EQ(*(run_32.RawDataPtr() + 2), 0);
+  EXPECT_EQ(*(run_32.RawDataPtr() + 3), 0);
+}
+
+/// A BitPacked run is a simple class owning some data and its size.
+/// It does not know how to read such data.
+TEST(BitPacked, BitPackedRun) {
+  const std::array<BitPackedRun::byte, 4> value = {0b10101010, 0, 0, 0b1111111};
+
+  /// 16 values of 1 bit for a total of 16 bits
+  BitPackedRun::values_count_type value_count_1 = 16;
+  auto const run_1 = BitPackedRun(value.data(), value_count_1, /* value_bit_width= */ 1);
+  EXPECT_EQ(run_1.ValuesCount(), value_count_1);
+  EXPECT_EQ(run_1.ValuesBitWidth(), 1);
+  EXPECT_EQ(run_1.RawDataSize(), 2);  // 16 bits fit in 2 bytes
+  for (BitPackedRun::raw_data_size_type i = 0; i < run_1.RawDataSize(); ++i) {
+    EXPECT_EQ(*(run_1.RawDataPtr() + i), value[i]);
+  }
+
+  /// 8 values of 3 bits for a total of 24 bits
+  BitPackedRun::values_count_type value_count_3 = 8;
+  auto const run_3 = BitPackedRun(value.data(), value_count_3, /* value_bit_width= */ 3);
+  EXPECT_EQ(run_3.ValuesCount(), value_count_3);
+  EXPECT_EQ(run_3.ValuesBitWidth(), 3);
+  EXPECT_EQ(run_3.RawDataSize(), 3);  // 24 bits fit in 3 bytes
+  for (BitPackedRun::raw_data_size_type i = 0; i < run_3.RawDataSize(); ++i) {
+    EXPECT_EQ(*(run_3.RawDataPtr() + i), value[i]);
+  }
+}
+
+template <typename T>
+void TestRleDecoder(std::vector<RleRun::byte> bytes,
+                    RleRun::values_count_type value_count,
+                    RleRun::bit_size_type bit_width) {
+  // Pre-requisite for this test
+  EXPECT_GT(value_count, 6);
+
+  // Compute value associated with bytes encoded as little endian
+  T value = 0;
+  for (std::size_t i = 0; i < bytes.size(); ++i) {
+    value += static_cast<T>(bytes.at(i)) << (8 * i);
+  }
+
+  auto const run = RleRun(bytes.data(), value_count, bit_width);
+
+  auto decoder = RleDecoder<T>(run);
+  std::vector<T> vals = {0, 0};
+
+  EXPECT_EQ(decoder.Remaining(), value_count);
+
+  typename decltype(decoder)::values_count_type read = 0;
+  EXPECT_EQ(decoder.Get(vals.data()), 1);
+  read += 1;
+  EXPECT_EQ(vals.at(0), value);
+  EXPECT_EQ(decoder.Remaining(), value_count - read);
+
+  EXPECT_EQ(decoder.Advance(3), 3);
+  read += 3;
+  EXPECT_EQ(decoder.Remaining(), value_count - read);
+
+  vals = {0, 0};
+  EXPECT_EQ(decoder.GetBatch(vals.data(), 2), vals.size());
+  EXPECT_EQ(vals.at(0), value);
+  EXPECT_EQ(vals.at(1), value);
+  read += vals.size();
+  EXPECT_EQ(decoder.Remaining(), value_count - read);
+
+  // Exhaust iteration
+  EXPECT_EQ(decoder.Advance(value_count - read), value_count - read);
+  EXPECT_EQ(decoder.Remaining(), 0);
+  EXPECT_EQ(decoder.Advance(1), 0);
+  vals = {0, 0};
+  EXPECT_EQ(decoder.Get(vals.data()), 0);
+  EXPECT_EQ(vals.at(0), 0);
+
+  // Reset the decoder
+  decoder.Reset(run);
+  EXPECT_EQ(decoder.Remaining(), value_count);
+  vals = {0, 0};
+  EXPECT_EQ(decoder.GetBatch(vals.data(), 2), vals.size());
+  EXPECT_EQ(vals.at(0), value);
+  EXPECT_EQ(vals.at(1), value);
+}
+
+TEST(Rle, RleDecoder) {
+  TestRleDecoder<uint32_t>({21, 0, 0}, /* value_count= */ 21, /* bit_width= */ 5);
+  TestRleDecoder<uint16_t>({1, 0}, /* value_count= */ 13, /* bit_width= */ 1);
+  TestRleDecoder<uint64_t>({21, 2, 0, 1}, /* value_count= */ 20, /* bit_width= */ 30);
+}
+
+template <typename T>
+void TestBitPackedDecoder(std::vector<RleRun::byte> bytes,
+                          BitPackedRun::values_count_type value_count,
+                          BitPackedRun::bit_size_type bit_width,
+                          std::vector<T> expected) {
+  // Pre-requisite for this test
+  EXPECT_GT(value_count, 6);
+
+  auto const run = BitPackedRun(bytes.data(), value_count, bit_width);
+
+  auto decoder = BitPackedDecoder<T>(run);
+  std::vector<T> vals = {0, 0};
+
+  EXPECT_EQ(decoder.Remaining(), value_count);
+
+  typename decltype(decoder)::values_count_type read = 0;
+  EXPECT_EQ(decoder.Get(vals.data()), 1);
+  EXPECT_EQ(vals.at(0), expected.at(0 + read));
+  read += 1;
+  EXPECT_EQ(decoder.Remaining(), value_count - read);
+
+  EXPECT_EQ(decoder.Advance(3), 3);
+  read += 3;
+  EXPECT_EQ(decoder.Remaining(), value_count - read);
+
+  vals = {0, 0};
+  EXPECT_EQ(decoder.GetBatch(vals.data(), 2), vals.size());
+  EXPECT_EQ(vals.at(0), expected.at(0 + read));
+  EXPECT_EQ(vals.at(1), expected.at(1 + read));
+  read += vals.size();
+  EXPECT_EQ(decoder.Remaining(), value_count - read);
+
+  // Exhaust iteration
+  EXPECT_EQ(decoder.Advance(value_count - read), value_count - read);
+  EXPECT_EQ(decoder.Remaining(), 0);
+  EXPECT_EQ(decoder.Advance(1), 0);
+  vals = {0, 0};
+  EXPECT_EQ(decoder.Get(vals.data()), 0);
+  EXPECT_EQ(vals.at(0), 0);
+
+  // Reset the decoder
+  decoder.Reset(run);
+  read = 0;
+  EXPECT_EQ(decoder.Remaining(), value_count);
+  vals = {0, 0};
+  EXPECT_EQ(decoder.GetBatch(vals.data(), 2), vals.size());
+  EXPECT_EQ(vals.at(0), expected.at(0 + read));
+  EXPECT_EQ(vals.at(1), expected.at(1 + read));
+}
+
+TEST(BitPacked, BitPackedDecoder) {
+  /// See parquet encoding for bytes layout
+  TestBitPackedDecoder<uint16_t>(
+      /* bytes= */ {0x88, 0xc6, 0xfa},
+      /* values_count= */ 8,
+      /* bit_width= */ 3,
+      /* expected= */ {0, 1, 2, 3, 4, 5, 6, 7});
+  TestBitPackedDecoder<uint8_t>(
+      /* bytes= */ {0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7},
+      /* values_count= */ 8,
+      /* bit_width= */ 8,
+      /* expected= */ {0, 1, 2, 3, 4, 5, 6, 7});
+  TestBitPackedDecoder<uint32_t>(
+      /* bytes= */ {0x47, 0xc, 0x10, 0x35},
+      /* values_count= */ 8,
+      /* bit_width= */ 4,
+      /* expected= */ {7, 4, 12, 0, 0, 1, 5, 3});
+  TestBitPackedDecoder<uint64_t>(
+      /* bytes= */ {0xe8, 0x7, 0x20, 0xc0, 0x0, 0x4, 0x14, 0x60, 0xc0, 0x1},
+      /* values_count= */ 8,
+      /* bit_width= */ 10,
+      /* expected= */ {1000, 1, 2, 3, 4, 5, 6, 7});
+}
+
+template <typename T>
+void TestRleBitPackedParser(std::vector<RleRun::byte> bytes,
+                            RleBitPackedParser::bit_size_type bit_width,
+                            std::vector<T> expected) {
+  auto parser = RleBitPackedParser(
+      bytes.data(), static_cast<BitPackedRun::raw_data_size_type>(bytes.size()),
+      bit_width);
+  EXPECT_FALSE(parser.Exhausted());
+
+  // Peek return the same data
+  auto run1 = parser.Peek();
+  EXPECT_TRUE(run1.has_value());
+  auto run2 = parser.Peek();
+  EXPECT_TRUE(run2.has_value());
+  auto ptr1 = std::visit([](auto const& r) { return r.RawDataPtr(); }, run1.value());
+  auto size1 = std::visit([](auto const& r) { return r.RawDataSize(); }, run1.value());
+  auto ptr2 = std::visit([](auto const& r) { return r.RawDataPtr(); }, run2.value());
+  auto size2 = std::visit([](auto const& r) { return r.RawDataSize(); }, run2.value());
+  EXPECT_TRUE(std::equal(ptr1, ptr1 + size1, ptr2, ptr2 + size2));
+  EXPECT_FALSE(parser.Exhausted());
+
+  // Try to decode all data of all runs in the decoded vector
+  decltype(expected) decoded = {};
+  auto rle_decoder = RleDecoder<T>();
+  auto bit_packed_decoder = BitPackedDecoder<T>();
+  // Iterate over all runs
+  while (auto run = parser.Next()) {
+    EXPECT_TRUE(run.has_value());
+
+    if (std::holds_alternative<RleRun>(run.value())) {
+      rle_decoder.Reset(std::get<RleRun>(run.value()));
+
+      auto const n_decoded = decoded.size();
+      auto const n_to_decode = rle_decoder.Remaining();
+      decoded.resize(n_decoded + n_to_decode);
+      EXPECT_EQ(rle_decoder.GetBatch(decoded.data() + n_decoded, n_to_decode),
+                n_to_decode);
+      EXPECT_EQ(rle_decoder.Remaining(), 0);
+    } else {
+      bit_packed_decoder.Reset(std::get<BitPackedRun>(run.value()));
+
+      auto const n_decoded = decoded.size();
+      auto const n_to_decode = bit_packed_decoder.Remaining();
+      decoded.resize(n_decoded + n_to_decode);
+      EXPECT_EQ(bit_packed_decoder.GetBatch(decoded.data() + n_decoded, n_to_decode),
+                n_to_decode);
+      EXPECT_EQ(bit_packed_decoder.Remaining(), 0);
+    }
+  }
+
+  EXPECT_TRUE(parser.Exhausted());
+  EXPECT_EQ(decoded.size(), expected.size());
+  EXPECT_EQ(decoded, expected);
+}
+
+TEST(RleBitPacked, RleBitPackedParser) {
+  TestRleBitPackedParser<uint16_t>(
+      /* bytes= */
+      {/* LEB128 for 8 values bit packed marker */ 0x3,
+       /* Bitpacked run */ 0x88, 0xc6, 0xfa},
+      /* bit_width= */ 3,
+      /* expected= */ {0, 1, 2, 3, 4, 5, 6, 7});
+
+  {
+    std::vector<uint32_t> expected = {0, 1, 2, 3, 4, 5, 6, 7};
+    expected.resize(expected.size() + 200, 5);
+    TestRleBitPackedParser<uint32_t>(
+        /* bytes= */
+        {/* LEB128 for 8 values bit packed marker */ 0x3,
+         /* Bitpacked run */ 0x88, 0xc6, 0xfa,
+         /* LEB128 for 200 RLE marker */ 0x90, 0x3,
+         /* Value 5 over paded to a byte*/ 0x5},
+        /* bit_width= */ 3,
+        /* expected= */ expected);
+  }
+
+  {
+    std::vector<uint16_t> expected = {0, 0, 0, 0, 1, 1, 1, 1};
+    expected.resize(expected.size() + 200, 1);
+    expected.resize(expected.size() + 10, 3);
+    std::array<uint16_t, 16> run2 = {1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2};
+    expected.insert(expected.end(), run2.begin(), run2.end());
+    TestRleBitPackedParser<uint16_t>(
+        /* bytes= */
+        {/* LEB128 for 8 values bit packed marker */ 0x3,
+         /* Bitpacked run */ 0x0, 0x55,
+         /* LEB128 for 200 RLE marker */ 0x90, 0x3,
+         /* Value 1 over paded to a byte*/ 0x1,
+         /* LEB128 for 10 RLE marker */ 0x14,
+         /* Value 3 over paded to a byte*/ 0x3,
+         /* LEB128 for 16 values bit packed marker */ 0x5,
+         /* Bitpacked run */ 0x99, 0x99, 0x99, 0x99},
+        /* bit_width= */ 2,
+        /* expected= */ expected);
+  }
+}
+
 // Validates encoding of values by encoding and decoding them.  If
 // expected_encoding != NULL, also validates that the encoded buffer is
 // exactly 'expected_encoding'.
 // if expected_len is not -1, it will validate the encoded size is correct.
-void ValidateRle(const std::vector<int>& values, int bit_width,
-                 uint8_t* expected_encoding, int expected_len) {
+void ValidateRleBitPacked(const std::vector<int>& values, int bit_width,
+                          uint8_t* expected_encoding, int expected_len) {
   const int len = 64 * 1024;
 #ifdef __EMSCRIPTEN__
   // don't make this on the stack as it is
@@ -224,7 +522,7 @@ void ValidateRle(const std::vector<int>& values, int bit_width,
 #endif
   EXPECT_LE(expected_len, len);
 
-  RleEncoder encoder(buffer, len, bit_width);
+  RleBitPackedEncoder encoder(buffer, len, bit_width);
   for (size_t i = 0; i < values.size(); ++i) {
     bool result = encoder.Put(values[i]);
     EXPECT_TRUE(result);
@@ -240,7 +538,7 @@ void ValidateRle(const std::vector<int>& values, int bit_width,
 
   // Verify read
   {
-    RleDecoder decoder(buffer, len, bit_width);
+    RleBitPackedDecoder<uint64_t> decoder(buffer, len, bit_width);
     for (size_t i = 0; i < values.size(); ++i) {
       uint64_t val;
       bool result = decoder.Get(&val);
@@ -251,7 +549,7 @@ void ValidateRle(const std::vector<int>& values, int bit_width,
 
   // Verify batch read
   {
-    RleDecoder decoder(buffer, len, bit_width);
+    RleBitPackedDecoder<int> decoder(buffer, len, bit_width);
     std::vector<int> values_read(values.size());
     ASSERT_EQ(values.size(),
               decoder.GetBatch(values_read.data(), static_cast<int>(values.size())));
@@ -271,7 +569,7 @@ bool CheckRoundTrip(const std::vector<int>& values, int bit_width) {
 #else
   uint8_t buffer[len];
 #endif
-  RleEncoder encoder(buffer, len, bit_width);
+  RleBitPackedEncoder encoder(buffer, len, bit_width);
   for (size_t i = 0; i < values.size(); ++i) {
     bool result = encoder.Put(values[i]);
     if (!result) {
@@ -282,7 +580,7 @@ bool CheckRoundTrip(const std::vector<int>& values, int bit_width) {
   int out = 0;
 
   {
-    RleDecoder decoder(buffer, encoded_len, bit_width);
+    RleBitPackedDecoder<int> decoder(buffer, encoded_len, bit_width);
     for (size_t i = 0; i < values.size(); ++i) {
       EXPECT_TRUE(decoder.Get(&out));
       if (values[i] != out) {
@@ -293,7 +591,7 @@ bool CheckRoundTrip(const std::vector<int>& values, int bit_width) {
 
   // Verify batch read
   {
-    RleDecoder decoder(buffer, encoded_len, bit_width);
+    RleBitPackedDecoder<int> decoder(buffer, encoded_len, bit_width);
     std::vector<int> values_read(values.size());
     if (static_cast<int>(values.size()) !=
         decoder.GetBatch(values_read.data(), static_cast<int>(values.size()))) {
@@ -308,7 +606,7 @@ bool CheckRoundTrip(const std::vector<int>& values, int bit_width) {
   return true;
 }
 
-TEST(Rle, SpecificSequences) {
+TEST(RleBitPacked, SpecificSequences) {
   const int len = 1024;
   uint8_t expected_buffer[len];
   std::vector<int> values;
@@ -328,12 +626,12 @@ TEST(Rle, SpecificSequences) {
   expected_buffer[2] = (50 << 1);
   expected_buffer[3] = 1;
   for (int width = 1; width <= 8; ++width) {
-    ValidateRle(values, width, expected_buffer, 4);
+    ValidateRleBitPacked(values, width, expected_buffer, 4);
   }
 
   for (int width = 9; width <= MAX_WIDTH; ++width) {
-    ValidateRle(values, width, nullptr,
-                2 * (1 + static_cast<int>(bit_util::CeilDiv(width, 8))));
+    ValidateRleBitPacked(values, width, nullptr,
+                         2 * (1 + static_cast<int>(bit_util::CeilDiv(width, 8))));
   }
 
   // Test 100 0's and 1's alternating
@@ -349,11 +647,11 @@ TEST(Rle, SpecificSequences) {
   expected_buffer[100 / 8 + 1] = 0x0A /* 0b00001010 */;
 
   // num_groups and expected_buffer only valid for bit width = 1
-  ValidateRle(values, 1, expected_buffer, 1 + num_groups);
+  ValidateRleBitPacked(values, 1, expected_buffer, 1 + num_groups);
   for (int width = 2; width <= MAX_WIDTH; ++width) {
     int num_values = static_cast<int>(bit_util::CeilDiv(100, 8)) * 8;
-    ValidateRle(values, width, nullptr,
-                1 + static_cast<int>(bit_util::CeilDiv(width * num_values, 8)));
+    ValidateRleBitPacked(values, width, nullptr,
+                         1 + static_cast<int>(bit_util::CeilDiv(width * num_values, 8)));
   }
 
   // Test 16-bit values to confirm encoded values are stored in little endian
@@ -371,7 +669,7 @@ TEST(Rle, SpecificSequences) {
   expected_buffer[4] = 0x55;
   expected_buffer[5] = 0xaa;
 
-  ValidateRle(values, 16, expected_buffer, 6);
+  ValidateRleBitPacked(values, 16, expected_buffer, 6);
 
   // Test 32-bit values to confirm encoded values are stored in little endian
   values.resize(28);
@@ -392,7 +690,7 @@ TEST(Rle, SpecificSequences) {
   expected_buffer[8] = 0xaa;
   expected_buffer[9] = 0x5a;
 
-  ValidateRle(values, 32, expected_buffer, 10);
+  ValidateRleBitPacked(values, 32, expected_buffer, 10);
 }
 
 // ValidateRle on 'num_vals' values with width 'bit_width'. If 'value' != -1, that value
@@ -403,10 +701,10 @@ void TestRleValues(int bit_width, int num_vals, int value = -1) {
   for (int v = 0; v < num_vals; ++v) {
     values.push_back((value != -1) ? value : static_cast<int>(v % mod));
   }
-  ValidateRle(values, bit_width, NULL, -1);
+  ValidateRleBitPacked(values, bit_width, NULL, -1);
 }
 
-TEST(Rle, TestValues) {
+TEST(RleBitPacked, TestValues) {
   for (int width = 1; width <= MAX_WIDTH; ++width) {
     TestRleValues(width, 1);
     TestRleValues(width, 1024);
@@ -415,11 +713,11 @@ TEST(Rle, TestValues) {
   }
 }
 
-TEST(Rle, BitWidthZeroRepeated) {
+TEST(RleBitPacked, BitWidthZeroRepeated) {
   uint8_t buffer[1];
   const int num_values = 15;
   buffer[0] = num_values << 1;  // repeated indicator byte
-  RleDecoder decoder(buffer, sizeof(buffer), 0);
+  RleBitPackedDecoder<uint8_t> decoder(buffer, sizeof(buffer), 0);
   uint8_t val;
   for (int i = 0; i < num_values; ++i) {
     bool result = decoder.Get(&val);
@@ -429,11 +727,11 @@ TEST(Rle, BitWidthZeroRepeated) {
   EXPECT_FALSE(decoder.Get(&val));
 }
 
-TEST(Rle, BitWidthZeroLiteral) {
+TEST(RleBitPacked, BitWidthZeroLiteral) {
   uint8_t buffer[1];
   const int num_groups = 4;
   buffer[0] = num_groups << 1 | 1;  // literal indicator byte
-  RleDecoder decoder = RleDecoder(buffer, sizeof(buffer), 0);
+  RleBitPackedDecoder<uint8_t> decoder = {buffer, sizeof(buffer), 0};
   const int num_values = num_groups * 8;
   uint8_t val;
   for (int i = 0; i < num_values; ++i) {
@@ -450,13 +748,13 @@ TEST(BitRle, Flush) {
   std::vector<int> values;
   for (int i = 0; i < 16; ++i) values.push_back(1);
   values.push_back(0);
-  ValidateRle(values, 1, NULL, -1);
+  ValidateRleBitPacked(values, 1, NULL, -1);
   values.push_back(1);
-  ValidateRle(values, 1, NULL, -1);
+  ValidateRleBitPacked(values, 1, NULL, -1);
   values.push_back(1);
-  ValidateRle(values, 1, NULL, -1);
+  ValidateRleBitPacked(values, 1, NULL, -1);
   values.push_back(1);
-  ValidateRle(values, 1, NULL, -1);
+  ValidateRleBitPacked(values, 1, NULL, -1);
 }
 
 // Test some random sequences.
@@ -515,17 +813,17 @@ TEST(BitRle, RepeatedPattern) {
     }
   }
 
-  ValidateRle(values, 1, NULL, -1);
+  ValidateRleBitPacked(values, 1, NULL, -1);
 }
 
 TEST(BitRle, Overflow) {
   for (int bit_width = 1; bit_width < 32; bit_width += 3) {
-    int len = RleEncoder::MinBufferSize(bit_width);
+    int len = RleBitPackedEncoder::MinBufferSize(bit_width);
     std::vector<uint8_t> buffer(len);
     int num_added = 0;
     bool parity = true;
 
-    RleEncoder encoder(buffer.data(), len, bit_width);
+    RleBitPackedEncoder encoder(buffer.data(), len, bit_width);
     // Insert alternating true/false until there is no space left
     while (true) {
       bool result = encoder.Put(parity);
@@ -538,7 +836,7 @@ TEST(BitRle, Overflow) {
     EXPECT_LE(bytes_written, len);
     EXPECT_GT(num_added, 0);
 
-    RleDecoder decoder(buffer.data(), bytes_written, bit_width);
+    RleBitPackedDecoder<uint32_t> decoder(buffer.data(), bytes_written, bit_width);
     parity = true;
     uint32_t v;
     for (int i = 0; i < num_added; ++i) {
@@ -559,12 +857,12 @@ void CheckRoundTripSpaced(const Array& data, int bit_width) {
   using T = typename Type::c_type;
 
   int num_values = static_cast<int>(data.length());
-  int buffer_size = RleEncoder::MaxBufferSize(bit_width, num_values);
+  int buffer_size = RleBitPackedEncoder::MaxBufferSize(bit_width, num_values);
 
   const T* values = static_cast<const ArrayType&>(data).raw_values();
 
   std::vector<uint8_t> buffer(buffer_size);
-  RleEncoder encoder(buffer.data(), buffer_size, bit_width);
+  RleBitPackedEncoder encoder(buffer.data(), buffer_size, bit_width);
   for (int i = 0; i < num_values; ++i) {
     if (data.IsValid(i)) {
       if (!encoder.Put(static_cast<uint64_t>(values[i]))) {
@@ -575,7 +873,7 @@ void CheckRoundTripSpaced(const Array& data, int bit_width) {
   int encoded_size = encoder.Flush();
 
   // Verify batch read
-  RleDecoder decoder(buffer.data(), encoded_size, bit_width);
+  RleBitPackedDecoder<T> decoder(buffer.data(), encoded_size, bit_width);
   std::vector<T> values_read(num_values);
 
   if (num_values != decoder.GetBatchSpaced(
