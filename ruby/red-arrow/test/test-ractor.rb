@@ -29,6 +29,11 @@ class RactorTest < Test::Unit::TestCase
       recived_chunked_array.chunks
     end
     ractor.send(chunked_array)
-    assert_equal([array], ractor.take)
+    unless ractor.respond_to?(:value) # For Ruby < 3.5
+      def ractor.value
+        take
+      end
+    end
+    assert_equal([array], ractor.value)
   end
 end

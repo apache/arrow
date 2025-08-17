@@ -1431,6 +1431,7 @@ class BinaryTask
     [
       ["debian", "bookworm", "main"],
       ["debian", "trixie", "main"],
+      ["debian", "forky", "main"],
       ["ubuntu", "jammy", "main"],
       ["ubuntu", "noble", "main"],
     ]

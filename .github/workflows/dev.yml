@@ -47,7 +47,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
       - name: Install pre-commit
@@ -86,7 +86,7 @@ jobs:
       GIT_COMMITTER_EMAIL: "github-actions[bot]@users.noreply.github.com"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
       - name: Install Python
@@ -107,10 +107,9 @@ jobs:
           gem install test-unit
           pip install "cython>=3" setuptools pytest requests setuptools-scm
       - name: Run Release Test
-        env:
-          ARROW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
+          echo "GH_TOKEN=${{ secrets.GITHUB_TOKEN }}" > dev/release/.env
           ci/scripts/release_test.sh $(pwd)
       - name: Run Merge Script Test
         shell: bash

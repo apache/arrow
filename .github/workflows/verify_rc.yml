@@ -90,7 +90,7 @@ jobs:
       TEST_APT: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
       - name: Run
@@ -133,7 +133,7 @@ jobs:
       TEST_BINARY: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Run
         run: |
           dev/release/verify-release-candidate.sh ${VERSION} ${RC}
@@ -156,7 +156,7 @@ jobs:
       TEST_WHEELS: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: 3
@@ -202,7 +202,7 @@ jobs:
       TEST_WHEELS: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Run
         env:
           GH_TOKEN: ${{ github.token }}
@@ -220,7 +220,7 @@ jobs:
       TEST_WHEELS: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           submodules: recursive
       - uses: conda-incubator/setup-miniconda@835234971496cad1653abb28a638a281cf32541f # v3.2.0
@@ -254,7 +254,7 @@ jobs:
       TEST_YUM: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
       - name: Run

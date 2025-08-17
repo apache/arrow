@@ -38,7 +38,7 @@ from pyarrow.util import guid
 try:
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import (
-        _read_table, _test_dataframe, _write_table)
+        _read_table, _test_dataframe, _test_table, _write_table)
 except ImportError:
     pq = None
 
@@ -742,15 +742,14 @@ def test_dataset_read_pandas(tempdir):
     tm.assert_frame_equal(result.reindex(columns=expected.columns), expected)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_dataset_memory_map(tempdir):
     # ARROW-2627: Check that we can use ParquetDataset with memory-mapping
     dirpath = tempdir / guid()
     dirpath.mkdir()
 
-    df = _test_dataframe(10, seed=0)
+    table = _test_table(10, seed=0)
     path = dirpath / '0.parquet'
-    table = pa.Table.from_pandas(df)
     _write_table(table, path, version='2.6')
 
     dataset = pq.ParquetDataset(
@@ -758,14 +757,13 @@ def test_dataset_memory_map(tempdir):
     assert dataset.read().equals(table)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_dataset_enable_buffered_stream(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
 
-    df = _test_dataframe(10, seed=0)
+    table = _test_table(10, seed=0)
     path = dirpath / '0.parquet'
-    table = pa.Table.from_pandas(df)
     _write_table(table, path, version='2.6')
 
     with pytest.raises(ValueError):
@@ -778,14 +776,13 @@ def test_dataset_enable_buffered_stream(tempdir):
         assert dataset.read().equals(table)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_dataset_enable_pre_buffer(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
 
-    df = _test_dataframe(10, seed=0)
+    table = _test_table(10, seed=0)
     path = dirpath / '0.parquet'
-    table = pa.Table.from_pandas(df)
     _write_table(table, path, version='2.6')
 
     for pre_buffer in (True, False):
@@ -800,10 +797,10 @@ def _make_example_multifile_dataset(base_path, nfiles=10, file_nrows=5):
     test_data = []
     paths = []
     for i in range(nfiles):
-        df = _test_dataframe(file_nrows, seed=i)
+        table = _test_table(file_nrows, seed=i)
         path = base_path / f'{i}.parquet'
 
-        test_data.append(_write_table(df, path))
+        test_data.append(_write_table(table, path))
         paths.append(path)
     return paths
 
@@ -813,7 +810,7 @@ def _assert_dataset_paths(dataset, paths):
     assert set(paths) == set(dataset.files)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 @pytest.mark.parametrize('dir_prefix', ['_', '.'])
 def test_ignore_private_directories(tempdir, dir_prefix):
     dirpath = tempdir / guid()
@@ -830,7 +827,7 @@ def test_ignore_private_directories(tempdir, dir_prefix):
     _assert_dataset_paths(dataset, paths)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_ignore_hidden_files_dot(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
@@ -849,7 +846,7 @@ def test_ignore_hidden_files_dot(tempdir):
     _assert_dataset_paths(dataset, paths)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_ignore_hidden_files_underscore(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
@@ -868,7 +865,7 @@ def test_ignore_hidden_files_underscore(tempdir):
     _assert_dataset_paths(dataset, paths)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 @pytest.mark.parametrize('dir_prefix', ['_', '.'])
 def test_ignore_no_private_directories_in_base_path(tempdir, dir_prefix):
     # ARROW-8427 - don't ignore explicitly listed files if parent directory

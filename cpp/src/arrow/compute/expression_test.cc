@@ -953,13 +953,13 @@ TEST(Expression, ExecuteChunkedArray) {
   ExecBatch batch{inputs, 3};
 
   ASSERT_OK_AND_ASSIGN(Datum res, ExecuteScalarExpression(expr, batch));
+  ASSERT_TRUE(res.is_chunked_array());
 
-  AssertDatumsEqual(res, ArrayFromJSON(float64(),
-                                       R"([
+  AssertDatumsEqual(res, ChunkedArrayFromJSON(float64(), {R"([
     9.5,
     1,
     3.75
-  ])"));
+  ])"}));
 }
 
 TEST(Expression, ExecuteDictionaryTransparent) {
