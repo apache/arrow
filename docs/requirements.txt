@@ -14,5 +14,5 @@ sphinx-copybutton
 sphinx-design
 sphinx-lint
 sphinxcontrib-mermaid
-sphinx==6.2
+sphinx
 pandas
