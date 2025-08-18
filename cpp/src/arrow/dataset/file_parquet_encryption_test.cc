@@ -215,7 +215,7 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
   Result<std::shared_ptr<Dataset>> OpenDataset(
       std::string_view base_dir,
       const std::shared_ptr<parquet::encryption::CryptoFactory>& crypto_factory,
-      const std::unordered_map<std::string, std::string>& key_map) const {
+      const std::unordered_map<std::string, SecureString>& key_map) const {
     // make sure these keys are served by the KMS
     parquet::encryption::TestOnlyLocalWrapInMemoryKms::InitializeMasterKeys(key_map);
     parquet::encryption::TestOnlyInServerWrapKms::InitializeMasterKeys(key_map);
@@ -493,7 +493,7 @@ class NestedFieldsEncryptionTest
   std::shared_ptr<Array> column_data_;
   std::shared_ptr<parquet::encryption::CryptoFactory>
       crypto_factory_with_wrong_column_key_;
-  std::unordered_map<std::string, std::string> key_map_with_wrong_column_key_;
+  std::unordered_map<std::string, SecureString> key_map_with_wrong_column_key_;
 };
 
 class ListFieldEncryptionTest : public NestedFieldsEncryptionTest {
