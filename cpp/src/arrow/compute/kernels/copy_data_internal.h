@@ -30,6 +30,7 @@ template <>
 struct CopyDataUtils<BooleanType> {
   static void CopyData(const DataType&, const Scalar& in, const int64_t in_offset,
                        uint8_t* out, const int64_t out_offset, const int64_t length) {
+    ARROW_LOG(INFO) << "Boolean CopyData from Scalar to offset " << out_offset << " with length " << length;
     bit_util::SetBitsTo(
         out, out_offset, length,
         in.is_valid ? checked_cast<const BooleanScalar&>(in).value : false);
@@ -37,6 +38,7 @@ struct CopyDataUtils<BooleanType> {
 
   static void CopyData(const DataType&, const uint8_t* in, const int64_t in_offset,
                        uint8_t* out, const int64_t out_offset, const int64_t length) {
+    ARROW_LOG(INFO) << "Boolean CopyData from Array at offset " << in_offset << " to offset " << out_offset << " with length " << length;
     arrow::internal::CopyBitmap(in, in_offset, length, out, out_offset);
   }
 
@@ -91,11 +93,13 @@ struct CopyDataUtils<
                        uint8_t* out, const int64_t out_offset, const int64_t length) {
     CType* begin = reinterpret_cast<CType*>(out) + out_offset;
     CType* end = begin + length;
+    ARROW_LOG(INFO) << "CopyData from Scalar to offset " << out_offset << " with length " << length;
     std::fill(begin, end, UnboxScalar<Type>::Unbox(in));
   }
 
   static void CopyData(const DataType&, const uint8_t* in, const int64_t in_offset,
                        uint8_t* out, const int64_t out_offset, const int64_t length) {
+    ARROW_LOG(INFO) << "CopyData from Array at offset " << in_offset << " to offset " << out_offset << " with length " << length;
     std::memcpy(out + out_offset * sizeof(CType), in + in_offset * sizeof(CType),
                 length * sizeof(CType));
   }
