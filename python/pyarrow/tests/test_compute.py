@@ -1974,22 +1974,22 @@ def test_fill_null_windows_regression2():
 
 def test_fill_null_windows_regression4():
     ty = pa.int64()
-    arr = pa.array([1, 2, 2, 2, 2, None], type=ty)
-    s = pa.scalar(1, type=ty)
+    arr = pa.array([1, 2, 3, 4, 5, None], type=ty)
+    s = pa.scalar(42, type=ty)
 
     result = pa.compute.call_function("coalesce", [arr, s])
-    expected = pa.array([1, 2, 2, 2, 2, 1], type=ty)
+    expected = pa.array([1, 2, 3, 4, 5, 42], type=ty)
 
     assert result.equals(expected)
 
 
 def test_fill_null_windows_regression5():
     ty = pa.int32()
-    arr = pa.array([1, 2, 2, 2, 2, None], type=ty)
-    s = pa.scalar(1, type=ty)
+    arr = pa.array([1, 2, 3, 4, 5, None], type=ty)
+    s = pa.scalar(42, type=ty)
 
     result = pa.compute.call_function("coalesce", [arr, s])
-    expected = pa.array([1, 2, 2, 2, 2, 1], type=ty)
+    expected = pa.array([1, 2, 3, 4, 5, 42], type=ty)
 
     assert result.equals(expected)
 
