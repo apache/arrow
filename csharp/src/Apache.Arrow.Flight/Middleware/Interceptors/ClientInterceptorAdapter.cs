@@ -21,141 +21,166 @@ using Apache.Arrow.Flight.Middleware.Interfaces;
 using Grpc.Core;
 using Grpc.Core.Interceptors;
 
-namespace Apache.Arrow.Flight.Middleware.Interceptors
+namespace Apache.Arrow.Flight.Middleware.Interceptors;
+
+public sealed class ClientInterceptorAdapter : Interceptor
 {
-    public sealed class ClientInterceptorAdapter : Interceptor
+    private readonly IReadOnlyList<IFlightClientMiddlewareFactory> _factories;
+
+    public ClientInterceptorAdapter(IEnumerable<IFlightClientMiddlewareFactory> factories)
     {
-        private readonly IReadOnlyList<IFlightClientMiddlewareFactory> _factories;
+        _factories = factories?.ToList() ?? throw new ArgumentNullException(nameof(factories));
+    }
 
-        public ClientInterceptorAdapter(IEnumerable<IFlightClientMiddlewareFactory> factories)
+    public override AsyncUnaryCall<TResponse> AsyncUnaryCall<TRequest, TResponse>(
+        TRequest request,
+        ClientInterceptorContext<TRequest, TResponse> context,
+        AsyncUnaryCallContinuation<TRequest, TResponse> continuation)
+        where TRequest : class
+        where TResponse : class
+    {
+        var options = InterceptCall(context, out var middlewares);
+
+        var newContext = new ClientInterceptorContext<TRequest, TResponse>(
+            context.Method,
+            context.Host,
+            options);
+
+        var call = continuation(request, newContext);
+
+        return new AsyncUnaryCall<TResponse>(
+            HandleResponse(call.ResponseAsync, call.ResponseHeadersAsync, call.GetStatus, call.GetTrailers,
+                call.Dispose, middlewares),
+            call.ResponseHeadersAsync,
+            call.GetStatus,
+            call.GetTrailers,
+            call.Dispose
+        );
+    }
+
+    public override AsyncServerStreamingCall<TResponse> AsyncServerStreamingCall<TRequest, TResponse>(
+        TRequest request,
+        ClientInterceptorContext<TRequest, TResponse> context,
+        AsyncServerStreamingCallContinuation<TRequest, TResponse> continuation)
+        where TRequest : class
+        where TResponse : class
+    {
+        var callOptions = InterceptCall(context, out var middlewares);
+        var newContext = new ClientInterceptorContext<TRequest, TResponse>(
+            context.Method, context.Host, callOptions);
+
+        var call = continuation(request, newContext);
+
+        var responseHeadersTask = call.ResponseHeadersAsync.ContinueWith(task =>
         {
-            _factories = factories?.ToList() ?? throw new ArgumentNullException(nameof(factories));
+            if (task.IsFaulted)
+            {
+                throw task.Exception!;
+            }
+            
+            if (task.IsCanceled)
+            {
+                throw new TaskCanceledException(task);
+            }
+            
+            var headers = task.Result;
+            var ch = new CallHeaders(headers);
+            foreach (var m in middlewares)
+                m?.OnHeadersReceived(ch);
+
+            return headers;
+        });
+
+        var wrappedResponseStream = new MiddlewareResponseStream<TResponse>(
+            call.ResponseStream,
+            call,
+            middlewares);
+
+        return new AsyncServerStreamingCall<TResponse>(
+            wrappedResponseStream,
+            responseHeadersTask,
+            call.GetStatus,
+            call.GetTrailers,
+            call.Dispose);
+    }
+
+
+    private CallOptions InterceptCall<TRequest, TResponse>(
+        ClientInterceptorContext<TRequest, TResponse> context,
+        out List<IFlightClientMiddleware> middlewareList)
+        where TRequest : class
+        where TResponse : class
+    {
+        var callInfo = new CallInfo(context.Method.FullName, context.Method.Type);
+
+        var headers = context.Options.Headers ?? new Metadata();
+        middlewareList = new List<IFlightClientMiddleware>();
+
+        var callHeaders = new CallHeaders(headers);
+
+        foreach (var factory in _factories)
+        {
+            var middleware = factory.OnCallStarted(callInfo);
+            middleware?.OnBeforeSendingHeaders(callHeaders);
+            middlewareList.Add(middleware);
         }
 
-        public override AsyncUnaryCall<TResponse> AsyncUnaryCall<TRequest, TResponse>(
-            TRequest request,
-            ClientInterceptorContext<TRequest, TResponse> context,
-            AsyncUnaryCallContinuation<TRequest, TResponse> continuation)
-            where TRequest : class
-            where TResponse : class
+        return context.Options.WithHeaders(headers);
+    }
+
+    private async Task<TResponse> HandleResponse<TResponse>(
+        Task<TResponse> responseTask,
+        Task<Metadata> headersTask,
+        Func<Status> getStatus,
+        Func<Metadata> getTrailers,
+        Action dispose,
+        List<IFlightClientMiddleware> middlewares)
+    {
+        var nonNullMiddlewares = (middlewares ?? new List<IFlightClientMiddleware>())
+            .Where(m => m != null)
+            .ToList();
+
+        var hasMiddlewares = nonNullMiddlewares.Count > 0;
+        var completionNotified = false;
+        
+        try
         {
-            var options = InterceptCall(context, out var middlewares);
+            // Always await headers to surface faults; only materialize CallHeaders if needed.
+            var headers = await headersTask.ConfigureAwait(false);
+            if (hasMiddlewares)
+            {
+                var ch = new CallHeaders(headers);
+                foreach (var m in nonNullMiddlewares)
+                    m.OnHeadersReceived(ch);
+            }
 
-            var newContext = new ClientInterceptorContext<TRequest, TResponse>(
-                context.Method,
-                context.Host,
-                options);
+            var response = await responseTask.ConfigureAwait(false);
 
-            var call = continuation(request, newContext);
-
-            return new AsyncUnaryCall<TResponse>(
-                HandleResponse(call.ResponseAsync, call.ResponseHeadersAsync, call.GetStatus, call.GetTrailers,
-                    call.Dispose, middlewares),
-                call.ResponseHeadersAsync,
-                call.GetStatus,
-                call.GetTrailers,
-                call.Dispose
-            );
+            // Single completion notification
+            NotifyCompletionOnce();
+            return response;
         }
-
-        public override AsyncServerStreamingCall<TResponse> AsyncServerStreamingCall<TRequest, TResponse>(
-            TRequest request,
-            ClientInterceptorContext<TRequest, TResponse> context,
-            AsyncServerStreamingCallContinuation<TRequest, TResponse> continuation)
-            where TRequest : class
-            where TResponse : class
+        catch
         {
-            var callOptions = InterceptCall(context, out var middlewares);
-            var newContext = new ClientInterceptorContext<TRequest, TResponse>(
-                context.Method, context.Host, callOptions);
-
-            var call = continuation(request, newContext);
-
-            var responseHeadersTask = call.ResponseHeadersAsync.ContinueWith(task =>
-            {
-                if (task.Exception == null && task.Result != null)
-                {
-                    var headers = task.Result;
-                    foreach (var m in middlewares)
-                        m?.OnHeadersReceived(new CallHeaders(headers));
-                }
-
-                return task.Result;
-            });
-
-            var wrappedResponseStream = new MiddlewareResponseStream<TResponse>(
-                call.ResponseStream,
-                call,
-                middlewares);
-
-            return new AsyncServerStreamingCall<TResponse>(
-                wrappedResponseStream,
-                responseHeadersTask,
-                call.GetStatus,
-                call.GetTrailers,
-                call.Dispose);
+            // Completion on failure (only once)
+            NotifyCompletionOnce();
+            throw;
         }
-
-
-        private CallOptions InterceptCall<TRequest, TResponse>(
-            ClientInterceptorContext<TRequest, TResponse> context,
-            out List<IFlightClientMiddleware> middlewareList)
-            where TRequest : class
-            where TResponse : class
+        finally
         {
-            var callInfo = new CallInfo(context.Method.FullName, context.Method.Type);
-
-            var headers = context.Options.Headers ?? new Metadata();
-            middlewareList = new List<IFlightClientMiddleware>();
-
-            var callHeaders = new CallHeaders(headers);
-
-            foreach (var factory in _factories)
-            {
-                var middleware = factory.OnCallStarted(callInfo);
-                middleware?.OnBeforeSendingHeaders(callHeaders);
-                middlewareList.Add(middleware);
-            }
-
-            return context.Options.WithHeaders(headers);
+            dispose?.Invoke();
         }
-
-        private async Task<TResponse> HandleResponse<TResponse>(
-            Task<TResponse> responseTask,
-            Task<Metadata> headersTask,
-            Func<Status> getStatus,
-            Func<Metadata> getTrailers,
-            Action dispose,
-            List<IFlightClientMiddleware> middlewares)
+        
+        void NotifyCompletionOnce()
         {
-            try
-            {
-                var headers = await headersTask.ConfigureAwait(false);
-                foreach (var m in middlewares)
-                {
-                    m?.OnHeadersReceived(new CallHeaders(headers));
-                }
+            if (completionNotified || !hasMiddlewares) return;
+            completionNotified = true;
 
-                var response = await responseTask.ConfigureAwait(false);
-                foreach (var m in middlewares)
-                {
-                    m?.OnCallCompleted(getStatus(), getTrailers());
-                }
+            var status = getStatus();
+            var trailers = getTrailers();
 
-                return response;
-            }
-            catch
-            {
-                foreach (var m in middlewares)
-                {
-                    m?.OnCallCompleted(getStatus(), getTrailers());
-                }
-                throw;
-            }
-            finally
-            {
-                dispose?.Invoke();
-            }
+            foreach (var m in nonNullMiddlewares)
+                m.OnCallCompleted(status, trailers);
         }
     }
 }

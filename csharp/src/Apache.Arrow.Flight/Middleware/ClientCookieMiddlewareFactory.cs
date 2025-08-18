@@ -21,27 +21,26 @@ using System.Net;
 using Apache.Arrow.Flight.Middleware.Extensions;
 using Apache.Arrow.Flight.Middleware.Interfaces;
 using Microsoft.Extensions.Logging;
+
 namespace Apache.Arrow.Flight.Middleware;
 
 public class ClientCookieMiddlewareFactory : IFlightClientMiddlewareFactory
 {
     public readonly ConcurrentDictionary<string, Cookie> Cookies = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ILoggerFactory _loggerFactory;
+    private readonly ILogger<ClientCookieMiddleware> _logger;
 
     public ClientCookieMiddlewareFactory(ILoggerFactory loggerFactory)
     {
-        _loggerFactory = loggerFactory;
+        _logger = loggerFactory.CreateLogger<ClientCookieMiddleware>();
     }
 
     public IFlightClientMiddleware OnCallStarted(CallInfo callInfo)
     {
-        var logger = _loggerFactory.CreateLogger<ClientCookieMiddleware>();
-        return new ClientCookieMiddleware(this, logger);
+        return new ClientCookieMiddleware(this, _logger);
     }
-    
+
     internal void UpdateCookies(IEnumerable<string> newCookieHeaderValues)
     {
-        var logger = _loggerFactory.CreateLogger<ClientCookieMiddleware>();
         foreach (var headerValue in newCookieHeaderValues)
         {
             try
@@ -61,10 +60,8 @@ public class ClientCookieMiddlewareFactory : IFlightClientMiddlewareFactory
             }
             catch (FormatException ex)
             {
-               
-                logger.LogWarning(ex, "Skipping malformed Set-Cookie header: '{HeaderValue}'", headerValue);
+                _logger.LogWarning(ex, "Skipping malformed Set-Cookie header: '{HeaderValue}'", headerValue);
             }
         }
     }
-    
 }

@@ -24,8 +24,8 @@ public class ClientCookieMiddleware : IFlightClientMiddleware
 {
     private readonly ClientCookieMiddlewareFactory _factory;
     private readonly ILogger<ClientCookieMiddleware> _logger;
-    private const string SET_COOKIE_HEADER = "Set-Cookie";
-    private const string COOKIE_HEADER = "Cookie";
+    private const string SetCookieHeader = "Set-Cookie";
+    private const string CookieHeader = "Cookie";
 
     public ClientCookieMiddleware(ClientCookieMiddlewareFactory factory,
         ILogger<ClientCookieMiddleware> logger)
@@ -41,21 +41,19 @@ public class ClientCookieMiddleware : IFlightClientMiddleware
         var cookieValue = GetValidCookiesAsString();
         if (!string.IsNullOrEmpty(cookieValue))
         {
-            outgoingHeaders.Insert(COOKIE_HEADER, cookieValue);
+            outgoingHeaders.Insert(CookieHeader, cookieValue);
         }
-        _logger.LogInformation("Sending Headers: " + string.Join(", ", outgoingHeaders));
     }
 
     public void OnHeadersReceived(ICallHeaders incomingHeaders)
     {
-        var setCookies = incomingHeaders.GetAll(SET_COOKIE_HEADER);
+        var setCookies = incomingHeaders.GetAll(SetCookieHeader);
         _factory.UpdateCookies(setCookies);
-        _logger.LogInformation("Received Headers: " + string.Join(", ", incomingHeaders));
     }
 
     public void OnCallCompleted(Status status, Metadata trailers)
     {
-        _logger.LogInformation($"Call completed with: {status.StatusCode} ({status.Detail})");
+        // ingest: status and/or metadata trailers
     }
 
     private string GetValidCookiesAsString()
@@ -63,7 +61,6 @@ public class ClientCookieMiddleware : IFlightClientMiddleware
         var cookieList = new List<string>();
         foreach (var entry in _factory.Cookies)
         {
-            _logger.LogInformation($"Before remove cookie: {entry.Key} Expired: ({entry.Value.Expired})");
             if (entry.Value.Expired)
             {
                 _factory.Cookies.TryRemove(entry.Key, out _);
