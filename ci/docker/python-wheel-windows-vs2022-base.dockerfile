@@ -62,7 +62,7 @@ SHELL ["cmd", "/S", "/C"]
 # The set of components below (lines starting with --add) is the most minimal
 # set we could find that would still compile Arrow C++.
 RUN `
-  curl -SL --output vs_buildtools.exe https://aka.ms/vs/17/release/vs_buildtools.exe `
+  curl -SL --output vs_buildtools.exe https://aka.ms/vs/17/release.ltsc.17.12/vs_buildtools.exe `
   && (start /w vs_buildtools.exe --quiet --wait --norestart --nocache `
   --installPath "%ProgramFiles(x86)%\Microsoft Visual Studio\2022\BuildTools" `
   --add Microsoft.VisualStudio.Component.VC.CoreBuildTools `
